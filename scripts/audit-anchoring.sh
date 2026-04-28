@@ -83,23 +83,26 @@ pack_basenames_for_kind() {
 # source-file extension AND be followed by `:<digits>`.
 CITATION_RE='[a-zA-Z0-9._/-]+\.(ts|tsx|js|jsx|mjs|cjs|vue|py|go|rb|php|java|kt|swift|md|yaml|yml|json|toml|sh|env|html|css|scss|sql)[[:space:]]*:[[:space:]]*[0-9]+'
 
-# Returns 0 if file has anchor section + ≥1 citation in it; else 1, with reason on stderr.
+# Returns 0 if file has anchor block + ≥1 citation in it; else 1, with reason on stderr.
+#
+# Detects the canonical Phase-4.6 anchor block as established by the existing
+# REFINE infrastructure (`apply-pack-adaptation`, `compute-anchor-density`,
+# test-refine-fixture.sh). Recognized forms:
+#   1. `<!-- project-specific:start --> ... <!-- project-specific:end -->`  (canonical, byte-stable)
+#   2. `## Project-specific` heading (any suffix — older pack templates use this)
+# Either form satisfies the "has section" check; M25.3 (apply-anchors.sh) writes
+# form 1, which REFINE can later rewrite.
 check_anchor() {
   local f="$1"
-  # Look for the canonical anchor section header. Accept several phrasings to be
-  # forward-compatible with markers we'll add in M25.2:
-  #   ## Project-specific (anchored)
-  #   ## Project-specific
-  #   <!-- anchor:project-specific start --> ... <!-- anchor:project-specific end -->
-  if grep -qE '^##[[:space:]]+Project-specific' "$f" 2>/dev/null \
-     || grep -q 'anchor:project-specific[[:space:]]*start' "$f" 2>/dev/null; then
+  if grep -qF '<!-- project-specific:start -->' "$f" 2>/dev/null \
+     || grep -qE '^##[[:space:]]+Project-specific' "$f" 2>/dev/null; then
     : # has section
   else
     echo "no-anchor-section"
     return 1
   fi
-  # Check for at least one path:line citation in the file. We don't restrict the
-  # citation to the anchor section itself; some pack templates already cite inline.
+  # Check for at least one path:line citation. We don't restrict to the anchor
+  # block itself — some pack templates cite inline; that still proves anchoring.
   if grep -qE "$CITATION_RE" "$f" 2>/dev/null; then
     return 0
   else
