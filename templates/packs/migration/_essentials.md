@@ -3,7 +3,7 @@ track: migration
 purpose: Per-feature V1→V2 port — read V1 deeply, rebuild in V2 with parity guarantees, capture migration-time perf wins (caching / indexes / query optimisation / column projection). Cross-stack.
 essentials:
   agents: [migration-architect, parity-auditor]
-  commands: [port-feature, migration-status]
+  commands: [migration-scan, migration-plan, migration-phase, migration-gate, migration-final, port-feature, migration-status]
   skills: [extract-v1-contract, parity-test-generate, perf-uplift-survey]
   rules: [migration-discipline]
   ai-patterns: [feature-port, parity-testing, migration-ledger]
@@ -17,7 +17,7 @@ This pack auto-loads when Phase 2 detects migration signals (parallel V1+V2 dire
 
 Rationale per category (one line each):
 - **agents**: `migration-architect` plans the port (per-feature scope, parity strategy, perf-uplift candidates, cutover); `parity-auditor` verifies V1↔V2 equivalence before cutover.
-- **commands**: `/port-feature` orchestrates the full per-feature workflow (Understand V1 → Plan V2 → Port → Parity-test → Perf uplift → Cutover); `/migration-status` reads `ai/migration/ledger.md` and reports per-feature state.
+- **commands**: Two suites. **Suite A — phased flow** (run in order): `/migration-scan` (deep V1↔V2 read; fresh ledger with everything `unverified`), `/migration-plan` (phased plan honoring V2 structure), `/migration-phase <N>` (audit + gap-find + port + verify per feature in phase N), `/migration-gate <N>` (read-only phase exit gate; refuses on any blocker), `/migration-final` (full sweep + V1 retirement plan). **Suite B — per-feature** (finer control outside the phased flow): `/port-feature` (one-shot port), `/migration-status` (lighter read of the ledger). Use Suite A for the full migration; Suite B for one-off ports.
 - **skills**: `extract-v1-contract` reads V1 feature into a structured contract (inputs/outputs/side-effects/business-rules); `parity-test-generate` builds golden-master / record-replay / property-based tests that exercise V1+V2 with the same input; `perf-uplift-survey` finds migration-time perf wins (N+1, missing indexes, unbounded SELECT *, no caching, sequential awaits).
 - **rules**: `migration-discipline` codifies the contract — parity is non-negotiable; perf uplift only when it preserves observable behaviour; every intentional behaviour break documented in an ADR.
 - **ai-patterns**: `feature-port` is the playbook (per-feature lifecycle); `parity-testing` is the test technique catalogue; `migration-ledger` is the state-tracking convention (what's V1-only / In-progress / V2-shadow / V2-canary / V2-only / V1-deleted).

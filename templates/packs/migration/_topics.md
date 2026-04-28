@@ -130,6 +130,55 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
 
 # ============ COMMANDS (.claude/commands/<name>.md) ============
 
+# --- Suite A: phased flow (M10) ---
+
+- name: migration-scan
+  kind: command
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md § "Migration" (V1 root, V2 root, feature inventory) + V1 codebase scan + V2 codebase scan
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false   # new in M10; no project equivalent expected
+  fallback: commands/migration-scan.md
+
+- name: migration-plan
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/scan-report.md + ai/migration/ledger.md + ai/architecture.md + ai/decisions/
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-plan.md
+
+- name: migration-phase
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/plan.md + ai/migration/ledger.md + ai/conventions.md + ai/patterns/
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-phase.md
+
+- name: migration-gate
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/plan.md + ai/migration/ledger.md + ai/migration/audits/
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-gate.md
+
+- name: migration-final
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/ledger.md + ai/migration/_history.md + ai/migration/audits/ + ADRs
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-final.md
+
+# --- Suite B: per-feature (legacy) ---
+
 - name: port-feature
   kind: command
   triggers:
