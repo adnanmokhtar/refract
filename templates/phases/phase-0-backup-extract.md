@@ -27,13 +27,18 @@ exit-criteria: backup tarball written; prior knowledge serialized to ai/_extract
 # 3. Study-existing — per-file decisions (ADD / MERGE / KEEP / REVIEW) per Appendix C merge matrix
 ~/.claude/scripts/study-existing.sh "$TARGET_REPO" $SELECTED_PACKS
 # → writes $TARGET_REPO/.claude/_study-existing-report.md
+
+# 4. Deep codebase scan (M16) — file inventory + suffix patterns + 8 semantic questions LLM must answer
+~/.claude/scripts/deep-codebase-scan.sh "$TARGET_REPO"
+# → writes $TARGET_REPO/.claude/_codebase-scan.md
 ```
 
-**These three reports are the contract:**
+**These four reports are the contract:**
 
 - `_pack-coverage-report.md` — answers "what files in the pack are missing in the target?"
 - `_refresh-extract.md` — answers "what existing knowledge must be preserved?" (the agent fills sections 2-9)
 - `_study-existing-report.md` — answers "for files in BOTH pack and target, which need ENHANCE / MERGE / KEEP / REVIEW?"
+- `_codebase-scan.md` — answers "what does the actual codebase look like, what patterns/conventions/decisions are visible, and what STRUCTURAL improvements are warranted?" (the agent fills sections 8-15 including section 15: minimum 3 structural recommendations on non-trivial codebases)
 
 **Hard rule:** if any of these three reports shows ANY actionable item, declaring "no work to do" is FORBIDDEN. Phase 5 audit checks the reports vs the actions taken in Phase 4 and refuses success on any silent skip.
 

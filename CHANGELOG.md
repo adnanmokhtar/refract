@@ -6,6 +6,59 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.12.0] — 2026-04-28
+
+### M16 — Full codebase analysis + structural recommendations contract
+
+User directive: "the next run — refresh / migration / refine — must prioritize a full codebase analysis. Review the current setup, every individual file, all command/setup/package-level files. Decide on **meaningful, structural improvements — not just minor, isolated changes.**"
+
+M15 covered the artifact layer (.claude/ + ai/). M16 covers the actual codebase (src/, app/, lib/, manifests, configs).
+
+#### Added
+- `scripts/deep-codebase-scan.sh <target>` — walks the actual codebase. Mechanical sections (auto-filled):
+  - Section 1: file count by language extension
+  - Section 2: top-level directory tree
+  - Section 3: manifests + framework markers detected (package.json, pyproject.toml, vite.config, next.config, tsconfig, etc.)
+  - Section 4: suffix patterns visible (`*.service.ts`, `*.repository.ts`, `*.dto.ts` — counts files matching 30+ architectural suffixes)
+  - Section 5: lines of code by language (excluding tests)
+  - Section 6: pattern grep — class extenders (TS/JS + Python) → potential base classes with 3+ extenders
+  - Section 7: setup-artifact summary (cross-reference for drift detection)
+
+  Then 8 semantic-questions sections (LLM MUST fill — empty = Phase 5 fails):
+  - Section 8: module map — top-level features/contexts visible in code
+  - Section 9: architecture pattern detected (vs ai/architecture.md declaration)
+  - Section 10: top 10 conventions visible — compared to ai/conventions.md
+  - Section 11: patterns repeated 3+ times (candidates for ai/patterns/)
+  - Section 12: decisions implicit in code (candidates for ADRs)
+  - Section 13: drift between rules and code (rules code violates, code patterns not in rules)
+  - Section 14: stale references in setup (paths/classes that no longer exist)
+  - **Section 15: recommended STRUCTURAL improvements** — minimum 3 on non-trivial codebases. Format requires What / Why / Where / Effort / Risk per item. Explicit "qualifies vs doesn't qualify" examples in the script — minor isolated changes are REJECTED.
+
+  Output: `<target>/.claude/_codebase-scan.md`. Bug fix: `|| true` on grep pipelines so pipefail doesn't kill the script when no matches found.
+
+#### Changed
+- **Phase 0.0** now mandates running the 4th script (`deep-codebase-scan.sh`) alongside M15's three. Total: 4 reports the agent must consume.
+- **Phase 5 audit C2c** (NEW): 6 must-pass checks for the deep-scan report. Empty section = fail. Less than 3 structural recommendations on a non-trivial codebase = fail. Drift findings unaddressed = fail. Stale references unaddressed = fail.
+
+#### What this changes for the user
+
+Next `/setup-project --refresh / --refine / --enhance` on any codebase:
+
+1. Phase 0.0 runs `deep-codebase-scan.sh` → mechanical sections auto-fill (file counts, suffix patterns, base classes, manifests).
+2. Agent MUST fill semantic sections 8-15 — module map, architecture pattern, conventions visible, repeated patterns, implicit decisions, rule-vs-code drift, stale references, **structural improvements**.
+3. Phase 4 reads section 15's recommendations and applies them (ADRs proposed, patterns documented, rules updated/anchored, stale refs cleaned).
+4. Phase 5 refuses success if any section is `<TBD>`, if section 15 has fewer than 3 structural recommendations, or if recommendations are minor.
+
+**Net effect**: the historical bug ("refresh ran shallow — touched ≤5 surface files, never compared rules to code, never proposed structural changes") becomes mechanically prevented at the artifact layer (M15) AND the code layer (M16).
+
+#### Verified
+- Tested against `claude-config/tests/setup-project/fixtures/django/` — script ran clean, wrote 131-line report with 10 `<TBD>` markers (8 mandatory sections × 2 lines each + section 15 + summary).
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `verify-sync.sh`: 54 ok / 0 drift.
+
+#### Honest scope statement
+The script is deterministic. The semantic answers are LLM-authored. Phase 5 audit catches empty `<TBD>` and "fewer than 3 recommendations" mechanically. **It cannot judge whether recommendations are genuinely "structural" vs "isolated"** — that's still LLM judgment in the audit, partially mitigated by the explicit qualifying-examples table embedded in section 15.
+
 ## [2.11.0] — 2026-04-28
 
 ### M15 — Make refresh / refine / enhance / migration actually do the deep work

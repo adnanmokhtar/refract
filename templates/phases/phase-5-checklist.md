@@ -47,6 +47,17 @@ Phase 5 must NOT report success unless every `must` row passes. `should` rows wa
 | Sections 2-8 of `_refresh-extract.md` are non-empty (no `<TBD>`)       | must     | M15               |
 | Section 9 non-empty when `--include=migration` set                     | must     | M15               |
 
+## C2c. Deep codebase analysis discipline (M16)
+
+| Check                                                                  | Severity | Rule              |
+|------------------------------------------------------------------------|----------|-------------------|
+| `.claude/_codebase-scan.md` exists                                     | must     | M16               |
+| Sections 8-15 of `_codebase-scan.md` are non-empty (no `<TBD>`)        | must     | M16               |
+| Section 15 contains ≥3 structural recommendations on codebases ≥1000 LOC | must  | M16               |
+| Section 15 recommendations are STRUCTURAL — not minor isolated changes  | must     | M16               |
+| Drift findings (section 13) addressed: rules updated OR code aligned   | must     | M16               |
+| Stale references (section 14) cleaned up                               | must     | M16               |
+
 ## C3. Content quality
 
 | Check                                                                  | Severity | Rule              |
