@@ -145,3 +145,20 @@ If any row fails: send back to the proposer with the specific gap.
 - **Skipping the docs gate.** A primitive without a Storybook entry will be re-implemented within a sprint by someone who didn't know it existed.
 - **Letting "almost the same" components live.** Two card components with 80% overlap = one card with a variant prop. Force the merge or write the ADR explaining why they must stay split.
 - **Theme coupling at the primitive layer.** If a primitive imports a specific theme file, swap it for token consumption. Themes live above primitives.
+
+## Related
+
+### Sibling agents in ui-ux pack
+- `@design-system-guardian` — sibling agent in ui-ux pack
+- `@theme-specialist` — sibling agent in ui-ux pack
+- `@ux-reviewer` — sibling agent in ui-ux pack
+
+### Patterns
+- `ai/patterns/dark-mode.md`
+- `ai/patterns/design-systems.md`
+- `ai/patterns/motion.md`
+- `ai/patterns/rtl.md`
+- `ai/patterns/theming.md`
+
+### Rules
+- `.claude/rules/ui-principles.md`

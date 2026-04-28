@@ -87,3 +87,20 @@ Status: COMPLETE
 - Generic name (`Box`, `Wrapper`) → reject; rename by purpose.
 - Missing accessible defaults (`<button>` not `<div onClick>`, `<label htmlFor>`) → blocker.
 - Test file references a fake i18n stub when project has a real provider → use real provider in tests.
+
+## Related
+
+### Sibling commands in frontend pack
+- `/a11y-audit` — sibling command in frontend pack
+- `/add-crud-page` — sibling command in frontend pack
+- `/add-page` — sibling command in frontend pack
+- `/i18n-audit` — sibling command in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

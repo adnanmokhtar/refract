@@ -184,3 +184,18 @@ DROP INDEX CONCURRENTLY idx_orders_tenant_status_created_desc;
 - Always verify proposal with EXPLAIN after, not just before.
 - Don't drop an index based on `idx_scan = 0` without observing a full traffic cycle.
 - Include risk assessment per proposal.
+
+## Related
+
+### Sibling agents in database pack
+- `@database-optimizer` — sibling agent in database pack
+- `@schema-architect` — sibling agent in database pack
+- `@schema-reviewer` — sibling agent in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

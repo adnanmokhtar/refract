@@ -105,3 +105,8 @@ Given <context>, when <action>, then <outcome>.
 - Solving the wrong problem — beautiful spec for a feature the user didn't actually want. Restate + confirm first.
 - Implicit assumptions — user assumed single-tenant, you assumed multi-tenant. Explicit > implicit.
 - Skipping the failure-mode pass — edge cases are where users get burned. A spec without them is half a spec.
+
+## Related
+
+### Sibling agents in business pack
+- `@business-auditor` — sibling agent in business pack

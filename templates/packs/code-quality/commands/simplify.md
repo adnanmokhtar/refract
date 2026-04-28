@@ -88,3 +88,15 @@ Apply [1,2,3] / [1,3] / none?
 - Verbose form is correct (audit logs, retry logic for known-flaky API) — skip when in doubt.
 - Test coverage moves after applied edit — revert; the change was not behavior-preserving.
 - Reviewing teammate's PR — get consent before applying anything.
+
+## Related
+
+### Sibling commands in code-quality pack
+- `/check-health` — sibling command in code-quality pack
+- `/find-module` — sibling command in code-quality pack
+- `/pre-commit` — sibling command in code-quality pack
+- `/review-changes` — sibling command in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

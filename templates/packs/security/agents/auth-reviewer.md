@@ -247,3 +247,15 @@ Patterns consulted: auth-flow, zero-trust
 - MEDIUM: overly-broad scope, missing MFA on admin, weak password policy.
 - NO-GO on any BLOCKER, HIGH password/auth finding.
 - Every finding has a fix AND verification step.
+
+## Related
+
+### Sibling agents in security pack
+- `@security-auditor` — sibling agent in security pack
+
+### Patterns
+- `ai/patterns/auth-flow.md`
+- `ai/patterns/zero-trust.md`
+
+### Rules
+- `.claude/rules/security-principles.md`

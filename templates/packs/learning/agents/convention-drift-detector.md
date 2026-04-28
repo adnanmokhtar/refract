@@ -117,3 +117,12 @@ Structured for `/detect-drift` consumption — already documented in that comman
 - `ai/dynamic/drift-log.md` — persistence destination.
 - `knowledge-curator` — handles resolution + archiving.
 - `ai/conventions.md`, `.claude/rules/*`, `ai/patterns/*` — sources of expectations.
+
+## Related
+
+### Sibling agents in learning pack
+- `@knowledge-curator` — sibling agent in learning pack
+- `@pattern-emergence-watcher` — sibling agent in learning pack
+
+### Patterns
+- `ai/patterns/setup-quality-scoring.md`

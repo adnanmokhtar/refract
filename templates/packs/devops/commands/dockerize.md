@@ -97,3 +97,15 @@ Image:  app:test  142MB  (builder discarded; 6 runtime layers)
 - Healthcheck endpoint missing — `HEALTHCHECK` against missing route = always-unhealthy container.
 - Secrets via `ARG` — baked into image layer history; use BuildKit secrets or runtime env.
 - Compose for prod — wrong tool; prod uses k8s / ECS / fly.
+
+## Related
+
+### Sibling commands in devops pack
+- `/add-ci` — sibling command in devops pack
+
+### Patterns
+- `ai/patterns/cicd-pipeline.md`
+- `ai/patterns/deployment.md`
+
+### Rules
+- `.claude/rules/devops-principles.md`

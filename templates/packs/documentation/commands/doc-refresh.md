@@ -261,3 +261,16 @@ Status: COMPLETE
 - Drift findings reported, not silently fixed (user may need to know).
 - No speculative docs — reality only.
 - Markdown validity checked (tables, code blocks, links).
+
+## Related
+
+### Sibling commands in documentation pack
+- `/add-adr` — sibling command in documentation pack
+
+### Patterns
+- `ai/patterns/adr-template.md`
+- `ai/patterns/slo.md`
+- `ai/patterns/system-design.md`
+
+### Rules
+- `.claude/rules/doc-principles.md`

@@ -186,3 +186,16 @@ Action items:
 - Renaming `operationId` (breaks all SDKs).
 - Hand-edited SDK that then drifts from spec.
 - Portal that shows only the happy path (consumers need error shapes).
+
+## Related
+
+### Sibling agents in documentation pack
+- `@doc-writer` — sibling agent in documentation pack
+
+### Patterns
+- `ai/patterns/adr-template.md`
+- `ai/patterns/slo.md`
+- `ai/patterns/system-design.md`
+
+### Rules
+- `.claude/rules/doc-principles.md`

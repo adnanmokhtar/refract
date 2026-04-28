@@ -170,3 +170,21 @@ Pick based on regulatory/audit requirements + tenant size distribution. Mixed mo
 - **Designing for a scale you don't have.** Sharding a 10k-row table = early-optimization that costs you years. Match design to scale today + 12m, leave hooks for later.
 - **No documented failure response.** A cross-service call without a designed degradation is a future P0. Require the matrix entry before approval.
 - **Ignoring data gravity.** Moving data is expensive. The service near the data wins; cross-region writes are the most expensive choice.
+
+## Related
+
+### Sibling agents in distributed-systems pack
+- `@event-sourcing-architect` — sibling agent in distributed-systems pack
+- `@resilience-reviewer` — sibling agent in distributed-systems pack
+- `@workflow-orchestrator` — sibling agent in distributed-systems pack
+
+### Patterns
+- `ai/patterns/circuit-breaker.md`
+- `ai/patterns/cqrs.md`
+- `ai/patterns/event-sourcing.md`
+- `ai/patterns/idempotency.md`
+- `ai/patterns/outbox.md`
+- `ai/patterns/saga.md`
+
+### Rules
+- `.claude/rules/distributed-principles.md`

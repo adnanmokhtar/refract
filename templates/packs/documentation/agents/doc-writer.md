@@ -155,3 +155,16 @@ Deprecation header + 6-month sunset.
 - Commit-message-style Recent Changes without Why / How.
 - ADRs without alternatives.
 - Patterns without "When NOT" + "Forbidden" sections.
+
+## Related
+
+### Sibling agents in documentation pack
+- `@api-documenter` — sibling agent in documentation pack
+
+### Patterns
+- `ai/patterns/adr-template.md`
+- `ai/patterns/slo.md`
+- `ai/patterns/system-design.md`
+
+### Rules
+- `.claude/rules/doc-principles.md`

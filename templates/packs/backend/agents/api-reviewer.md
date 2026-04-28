@@ -271,3 +271,22 @@ Patterns consulted: api-contract, error-handling, <signal-based>
 - Don't filler-praise.
 - Don't propose changes outside PR scope.
 - Every finding has a fix AND a verification step.
+
+## Related
+
+### Sibling agents in backend pack
+- `@api-architect` — sibling agent in backend pack
+- `@bug-investigator` — sibling agent in backend pack
+- `@endpoint-tester` — sibling agent in backend pack
+- `@websocket-engineer` — sibling agent in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

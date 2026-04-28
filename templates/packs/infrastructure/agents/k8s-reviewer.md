@@ -171,3 +171,15 @@ Memory limit reasoning: container at limit gets OOMKilled; CPU at limit gets thr
 - **Probing the wrong endpoint.** Liveness must NOT depend on downstreams (DB) — that turns a transient outage into a kill loop. Readiness CAN depend on downstreams.
 - **Demanding policies the cluster doesn't support.** Pod Security Admission `restricted` blocks privileged sidecars some legacy apps need. Confirm cluster mode before insisting.
 - **Treating dev manifests like prod.** Resource limits in dev are often loose on purpose. Scope severity to the env folder.
+
+## Related
+
+### Sibling agents in infrastructure pack
+- `@infra-architect` — sibling agent in infrastructure pack
+- `@kubernetes-architect` — sibling agent in infrastructure pack
+
+### Patterns
+- `ai/patterns/zero-downtime-deploys.md`
+
+### Rules
+- `.claude/rules/infra-principles.md`

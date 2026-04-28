@@ -102,3 +102,9 @@ Status: COMPLETE | BLOCKED on <B> broken flows
 - Same finding appears in 3+ audits without escalation → systemic; force ADR or process change.
 - Blocker described as "feels off" without reproduction steps → reject; describe reproducible.
 - Cross-referencing skipped → repeat findings stay invisible; always check prior `ai/audits/`.
+
+## Related
+
+### Sibling commands in business pack
+- `/analyze-task` — sibling command in business pack
+- `/expand-task` — sibling command in business pack

@@ -242,3 +242,18 @@ Patterns consulted: indexing-strategy, migrations, multi-tenancy
 - NIT on: type choices, lazy varchar length.
 - Always size up target tables before judging migration safety.
 - Every migration verified against migration-rehearsal in staging before prod.
+
+## Related
+
+### Sibling agents in database pack
+- `@database-optimizer` — sibling agent in database pack
+- `@query-optimizer` — sibling agent in database pack
+- `@schema-architect` — sibling agent in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

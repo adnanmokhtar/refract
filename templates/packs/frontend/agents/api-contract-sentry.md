@@ -239,3 +239,21 @@ Estimated total: 2-3 hours.
 - Bypassing the type regen step ("I know what changed").
 - Adding `// @ts-ignore` to hide contract drift.
 - Skipping test fixture updates.
+
+## Related
+
+### Sibling agents in frontend pack
+- `@accessibility-auditor` — sibling agent in frontend pack
+- `@data-flow-auditor` — sibling agent in frontend pack
+- `@i18n-auditor` — sibling agent in frontend pack
+- `@ui-architect` — sibling agent in frontend pack
+- `@ui-reviewer` — sibling agent in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

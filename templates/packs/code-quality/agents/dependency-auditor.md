@@ -186,3 +186,17 @@ Savings: ~75KB gzipped.
 - Removing deps without checking transitive usage.
 - Ignoring HIGH runtime vulns even if no known exploit ("it's patched in 2 weeks").
 - License audit only "when legal asks" — proactive.
+
+## Related
+
+### Sibling agents in code-quality pack
+- `@code-reviewer` — sibling agent in code-quality pack
+- `@dead-code-finder` — sibling agent in code-quality pack
+- `@error-detective` — sibling agent in code-quality pack
+- `@legacy-modernizer` — sibling agent in code-quality pack
+- `@monorepo-architect` — sibling agent in code-quality pack
+- `@refactorer` — sibling agent in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

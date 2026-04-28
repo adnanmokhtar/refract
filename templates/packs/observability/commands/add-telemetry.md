@@ -99,3 +99,13 @@ Status: COMPLETE
 - Forgot `tenant_id` on multi-tenant project → cross-tenant noise during incident triage.
 - 100% trace ingestion → expensive; head-based sampling on quiet endpoints, tail-based on errors.
 - PII redaction at call site instead of logger level → one missed call site leaks data; centralize.
+
+## Related
+
+### Patterns
+- `ai/patterns/metrics.md`
+- `ai/patterns/structured-logging.md`
+- `ai/patterns/tracing.md`
+
+### Rules
+- `.claude/rules/observability-principles.md`

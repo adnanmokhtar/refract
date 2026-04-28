@@ -166,3 +166,17 @@ Next actions:
 - Commit without running `pnpm dedupe` periodically.
 - Adding a new tool (Lerna + Nx + Turbo) — pick one.
 - Bypass `affected` detection because "it's safer" — slow CI kills productivity.
+
+## Related
+
+### Sibling agents in code-quality pack
+- `@code-reviewer` — sibling agent in code-quality pack
+- `@dead-code-finder` — sibling agent in code-quality pack
+- `@dependency-auditor` — sibling agent in code-quality pack
+- `@error-detective` — sibling agent in code-quality pack
+- `@legacy-modernizer` — sibling agent in code-quality pack
+- `@refactorer` — sibling agent in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

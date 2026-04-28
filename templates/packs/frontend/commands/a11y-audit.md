@@ -84,3 +84,20 @@ Status: COMPLETE | BLOCKED on <B> blockers
 - Color-contrast checked only on default theme → re-test ALL themes (dark mode, high-contrast, brand variants).
 - Dynamic content (toasts, dialogs) without `aria-live` → axe won't flag missing announcements; agent must.
 - Auto-suggesting fake alt text → hallucination risk; leave decorative images empty, ask user for real alt otherwise.
+
+## Related
+
+### Sibling commands in frontend pack
+- `/add-component` — sibling command in frontend pack
+- `/add-crud-page` — sibling command in frontend pack
+- `/add-page` — sibling command in frontend pack
+- `/i18n-audit` — sibling command in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

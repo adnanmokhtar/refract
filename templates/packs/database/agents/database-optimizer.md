@@ -154,3 +154,18 @@ Per fix — baseline + post-change metrics (p95, error rate, CPU, IOPS).
 - Assuming cloud "auto-tuning" is sufficient at scale.
 - Modifying prod parameters during peak traffic.
 - Dropping old partitions without verified backup.
+
+## Related
+
+### Sibling agents in database pack
+- `@query-optimizer` — sibling agent in database pack
+- `@schema-architect` — sibling agent in database pack
+- `@schema-reviewer` — sibling agent in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

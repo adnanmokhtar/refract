@@ -118,3 +118,25 @@ Suggested next: /fix-bug for blockers, then re-run /analyze-module.
 - Coverage % treated as quality — `test-reviewer` looks at assertions; 95% coverage of getter tests means nothing.
 - Dead-code finding on dynamically loaded files (DI containers, framework auto-discovery) — false positive; verify before deletion.
 - Re-running not scheduled — module clean today won't stay that way; re-audit on each significant change.
+
+## Related
+
+### Sibling commands in backend pack
+- `/add-endpoint` — sibling command in backend pack
+- `/add-feature` — sibling command in backend pack
+- `/add-module` — sibling command in backend pack
+- `/endpoint-test` — sibling command in backend pack
+- `/fix-bug` — sibling command in backend pack
+- `/log-tail` — sibling command in backend pack
+- `/trace-flow` — sibling command in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

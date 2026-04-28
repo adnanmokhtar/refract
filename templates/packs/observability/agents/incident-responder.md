@@ -212,3 +212,18 @@ Within 48h of sev1/sev2. Blameless. Format per `sre-engineer` agent + `ai/patter
 - Silent fixes — every action announced in war room.
 - "It's fixed" without sustained recovery + metric confirmation.
 - Naming individuals in public comms (blameless, always).
+
+## Related
+
+### Sibling agents in observability pack
+- `@observability-reviewer` — sibling agent in observability pack
+- `@sre-engineer` — sibling agent in observability pack
+- `@telemetry-architect` — sibling agent in observability pack
+
+### Patterns
+- `ai/patterns/metrics.md`
+- `ai/patterns/structured-logging.md`
+- `ai/patterns/tracing.md`
+
+### Rules
+- `.claude/rules/observability-principles.md`

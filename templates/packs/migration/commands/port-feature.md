@@ -208,3 +208,26 @@ For multi-stack features (e.g., "the orders flow" — frontend page + backend AP
 - `code-quality/legacy-modernizer.md` — strategic plan this command operates inside.
 - `database/migration-rehearsal.md` — used for query plan rehearsal in Phase 5.
 - `backend/concurrency-discipline.md` + `backend/parallelize-independent-ops.md` — used in Phase 5 perf uplift.
+
+## Related
+
+### Sibling commands in migration pack
+- `/migration-deprecate` — sibling command in migration pack
+- `/migration-final` — sibling command in migration pack
+- `/migration-gate` — sibling command in migration pack
+- `/migration-park` — sibling command in migration pack
+- `/migration-phase` — sibling command in migration pack
+- `/migration-plan` — sibling command in migration pack
+- `/migration-replan` — sibling command in migration pack
+- `/migration-rollback` — sibling command in migration pack
+- `/migration-scan` — sibling command in migration pack
+- `/migration-status` — sibling command in migration pack
+- `/migration-unpark` — sibling command in migration pack
+
+### Patterns
+- `ai/patterns/feature-port.md`
+- `ai/patterns/migration-ledger.md`
+- `ai/patterns/parity-testing.md`
+
+### Rules
+- `.claude/rules/migration-discipline.md`

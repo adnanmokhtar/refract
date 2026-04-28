@@ -270,3 +270,18 @@ Status: COMPLETE — proceed with M1 deploy when devops ready.
 - Schema ≠ data migrations — separate files.
 - `migration-rehearsal` mandatory for populated tables before prod.
 - No `synchronize: true` / auto-migrate in prod — EVER.
+
+## Related
+
+### Sibling commands in database pack
+- `/db-audit` — sibling command in database pack
+- `/migration-review` — sibling command in database pack
+- `/optimize-query` — sibling command in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

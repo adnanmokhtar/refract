@@ -77,3 +77,25 @@ Open follow-ups:
 - Dev server stale (HMR didn't pick up controller change) → restart server, re-run.
 - Tenant-isolation leak silently passing → agent must flag as CRITICAL even if status is 200.
 - Logs suggest 500 with no body → invoke `/log-tail correlation:<id>` to capture context.
+
+## Related
+
+### Sibling commands in backend pack
+- `/add-endpoint` — sibling command in backend pack
+- `/add-feature` — sibling command in backend pack
+- `/add-module` — sibling command in backend pack
+- `/analyze-module` — sibling command in backend pack
+- `/fix-bug` — sibling command in backend pack
+- `/log-tail` — sibling command in backend pack
+- `/trace-flow` — sibling command in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

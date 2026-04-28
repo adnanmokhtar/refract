@@ -98,3 +98,15 @@ Branch protection — set required checks to:
 - Matrix builds added without project supporting them — wasted CI minutes.
 - Cache key omits OS — cross-platform cache poisoning.
 - No `concurrency` block — stale runs pile up on force-pushes.
+
+## Related
+
+### Sibling commands in devops pack
+- `/dockerize` — sibling command in devops pack
+
+### Patterns
+- `ai/patterns/cicd-pipeline.md`
+- `ai/patterns/deployment.md`
+
+### Rules
+- `.claude/rules/devops-principles.md`

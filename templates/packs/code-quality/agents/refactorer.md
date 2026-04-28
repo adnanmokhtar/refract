@@ -111,3 +111,17 @@ All green. Coverage unchanged: 87.3%.
 - `ai/decisions/` — why the code is shaped the way it is.
 - `ai/conventions.md` — code style.
 - Martin Fowler's *Refactoring* — the canonical catalog.
+
+## Related
+
+### Sibling agents in code-quality pack
+- `@code-reviewer` — sibling agent in code-quality pack
+- `@dead-code-finder` — sibling agent in code-quality pack
+- `@dependency-auditor` — sibling agent in code-quality pack
+- `@error-detective` — sibling agent in code-quality pack
+- `@legacy-modernizer` — sibling agent in code-quality pack
+- `@monorepo-architect` — sibling agent in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

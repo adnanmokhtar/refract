@@ -187,3 +187,8 @@ Risk: LOW.
 - DB changes on populated Postgres tables = `CREATE INDEX CONCURRENTLY`.
 - Bundle changes measured before/after (actual, not claimed).
 - Cache changes paired with invalidation plan.
+
+## Related
+
+### Rules
+- `.claude/rules/performance-principles.md`

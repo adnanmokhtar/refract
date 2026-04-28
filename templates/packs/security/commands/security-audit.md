@@ -106,3 +106,12 @@ Status: COMPLETE | BLOCKED on <B> blockers
 - `eslint-disable security/*` comments hidden → blockers; agent must surface.
 - Raw SQL paths skipped because they "look fine" → #1 false-clean; explicitly scan `createQueryBuilder` + `datasource.query`.
 - Whole-repo scan launched without warning user → can run hours; flag before starting.
+
+## Related
+
+### Patterns
+- `ai/patterns/auth-flow.md`
+- `ai/patterns/zero-trust.md`
+
+### Rules
+- `.claude/rules/security-principles.md`

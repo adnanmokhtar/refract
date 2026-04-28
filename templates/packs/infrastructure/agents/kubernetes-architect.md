@@ -191,3 +191,15 @@ Target: $0.45X with Karpenter + spot + right-sizing.
 - Root filesystem writable in containers.
 - Secrets in environment variables (file-mount preferred).
 - Ignoring CVE scans on base images.
+
+## Related
+
+### Sibling agents in infrastructure pack
+- `@infra-architect` — sibling agent in infrastructure pack
+- `@k8s-reviewer` — sibling agent in infrastructure pack
+
+### Patterns
+- `ai/patterns/zero-downtime-deploys.md`
+
+### Rules
+- `.claude/rules/infra-principles.md`

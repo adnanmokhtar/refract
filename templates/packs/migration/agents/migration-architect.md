@@ -241,3 +241,16 @@ Aggregate the rows in `ai/migration/perf-decisions/<feature>.md` (initial draft 
 - `parity-test-generate.md` + `perf-uplift-survey.md` — downstream skills.
 - `parity-auditor.md` — verifies the executed plan before cutover.
 - `code-quality/agents/legacy-modernizer.md` — sets strategic constraints this plan respects.
+
+## Related
+
+### Sibling agents in migration pack
+- `@parity-auditor` — sibling agent in migration pack
+
+### Patterns
+- `ai/patterns/feature-port.md`
+- `ai/patterns/migration-ledger.md`
+- `ai/patterns/parity-testing.md`
+
+### Rules
+- `.claude/rules/migration-discipline.md`

@@ -100,3 +100,18 @@ After (on staging shadow):
 - `SELECT *` plans differ from explicit column lists — pick column lists before tuning.
 - Functions on indexed column (`WHERE LOWER(email) = ...`) defeat the index — fix query OR add functional index.
 - Caching as a "fix" hides root cause — only after the query itself is reasonable.
+
+## Related
+
+### Sibling commands in database pack
+- `/add-migration` — sibling command in database pack
+- `/db-audit` — sibling command in database pack
+- `/migration-review` — sibling command in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

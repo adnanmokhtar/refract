@@ -243,3 +243,21 @@ Framework-specific conventions checked: <name>
 - NIT on: magic values, minor formatting.
 - Don't propose changes outside PR scope.
 - RTL test mandatory if project ships RTL.
+
+## Related
+
+### Sibling agents in frontend pack
+- `@accessibility-auditor` — sibling agent in frontend pack
+- `@api-contract-sentry` — sibling agent in frontend pack
+- `@data-flow-auditor` — sibling agent in frontend pack
+- `@i18n-auditor` — sibling agent in frontend pack
+- `@ui-architect` — sibling agent in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

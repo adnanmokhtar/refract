@@ -199,3 +199,22 @@ Claude timeouts were silently swallowed. No alert, no dashboard signal.
 - Observability gap ALWAYS questioned.
 - Fix plan ALWAYS includes the regression test.
 - If you can't find the root cause, say so. Don't fabricate.
+
+## Related
+
+### Sibling agents in backend pack
+- `@api-architect` — sibling agent in backend pack
+- `@api-reviewer` — sibling agent in backend pack
+- `@endpoint-tester` — sibling agent in backend pack
+- `@websocket-engineer` — sibling agent in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

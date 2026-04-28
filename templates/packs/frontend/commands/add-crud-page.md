@@ -98,3 +98,20 @@ Status: COMPLETE
 - Client-side pagination on a list that may exceed 1000 rows → memory + UX collapse; SSR default.
 - Silent permanent delete → user-data loss; require modal or undo-toast.
 - Permission gate on route but not on button → leak via direct URL.
+
+## Related
+
+### Sibling commands in frontend pack
+- `/a11y-audit` — sibling command in frontend pack
+- `/add-component` — sibling command in frontend pack
+- `/add-page` — sibling command in frontend pack
+- `/i18n-audit` — sibling command in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

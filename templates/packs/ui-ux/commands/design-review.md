@@ -89,3 +89,15 @@ Status: COMPLETE | BLOCKED on <N> violations
 - Screenshot-only review claiming a11y compliance → impossible; DOM semantics need source files.
 - Reviewing against guidelines that don't exist → propose adopting a design system and stop.
 - Three reviewers contradict each other → orchestrator picks the strictest; don't average.
+
+## Related
+
+### Patterns
+- `ai/patterns/dark-mode.md`
+- `ai/patterns/design-systems.md`
+- `ai/patterns/motion.md`
+- `ai/patterns/rtl.md`
+- `ai/patterns/theming.md`
+
+### Rules
+- `.claude/rules/ui-principles.md`

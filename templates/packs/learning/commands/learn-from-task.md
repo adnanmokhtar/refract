@@ -154,3 +154,13 @@ Status: COMPLETE
 - `ai/dynamic/learned-patterns.md`, `feedback-learned.md`, `decisions-pending.md`, `drift-log.md` — supporting destinations.
 - `knowledge-curator` agent — graduates these entries to the formal layer over time.
 - `/promote-pattern` — promotes ready patterns to formal docs.
+
+## Related
+
+### Sibling commands in learning pack
+- `/detect-drift` — sibling command in learning pack
+- `/promote-pattern` — sibling command in learning pack
+- `/refresh-knowledge` — sibling command in learning pack
+
+### Patterns
+- `ai/patterns/setup-quality-scoring.md`

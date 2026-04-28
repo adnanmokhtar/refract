@@ -98,3 +98,18 @@ Schema drift: NONE
 - "Unused index" over short window unreliable — verify against ≥ 30 days; new feature indexes look unused.
 - Slow query log on dev meaningless — production EXPLAIN plans needed for real fixes.
 - Tenant leakage scan misses dynamic SQL built at runtime — manual review on raw query builders is non-skippable.
+
+## Related
+
+### Sibling commands in database pack
+- `/add-migration` — sibling command in database pack
+- `/migration-review` — sibling command in database pack
+- `/optimize-query` — sibling command in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

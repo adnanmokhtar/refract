@@ -228,3 +228,18 @@ Avoid graph-cluttered dashboards. 6-9 panels per dashboard, organized by questio
 - **Adding metrics that nobody dashboards or alerts on.** Pure cost. Treat metrics like code: dead code gets removed.
 - **Sampling errors.** Tail-sampling on errors is non-trivial; head-sampling drops the very traces you need. Verify the sampler config keeps 100% of errors.
 - **Treating telemetry as ops-only.** Business metrics deserve the same rigor; product owners need dashboards too.
+
+## Related
+
+### Sibling agents in observability pack
+- `@incident-responder` — sibling agent in observability pack
+- `@observability-reviewer` — sibling agent in observability pack
+- `@sre-engineer` — sibling agent in observability pack
+
+### Patterns
+- `ai/patterns/metrics.md`
+- `ai/patterns/structured-logging.md`
+- `ai/patterns/tracing.md`
+
+### Rules
+- `.claude/rules/observability-principles.md`

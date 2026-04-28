@@ -212,3 +212,21 @@ Patterns consulted: i18n, rtl
 - NIT: unused keys (verify dynamic), minor wording.
 - Never auto-fix via machine translation — placeholder only, flag for human review.
 - Cross-sibling drift = REQUEST with `/sync-contract` recommendation.
+
+## Related
+
+### Sibling agents in frontend pack
+- `@accessibility-auditor` — sibling agent in frontend pack
+- `@api-contract-sentry` — sibling agent in frontend pack
+- `@data-flow-auditor` — sibling agent in frontend pack
+- `@ui-architect` — sibling agent in frontend pack
+- `@ui-reviewer` — sibling agent in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

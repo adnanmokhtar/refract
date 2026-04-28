@@ -118,3 +118,12 @@ Decision needed when count reaches threshold: PROMOTE (formalize) | EXPAND (exte
 - `ai/dynamic/learned-patterns.md` — persistence destination.
 - `ai/dynamic/drift-log.md` — alternative destination for negative emergence.
 - `knowledge-curator` agent — handles graduation.
+
+## Related
+
+### Sibling agents in learning pack
+- `@convention-drift-detector` — sibling agent in learning pack
+- `@knowledge-curator` — sibling agent in learning pack
+
+### Patterns
+- `ai/patterns/setup-quality-scoring.md`

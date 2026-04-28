@@ -226,3 +226,16 @@ Timeline:
 - Rebuild-per-env (violates promotion).
 - Deploys without monitoring window.
 - Deploy on Friday afternoon (empirically high rollback rate).
+
+## Related
+
+### Sibling agents in devops pack
+- `@ci-reviewer` — sibling agent in devops pack
+- `@devops-architect` — sibling agent in devops pack
+
+### Patterns
+- `ai/patterns/cicd-pipeline.md`
+- `ai/patterns/deployment.md`
+
+### Rules
+- `.claude/rules/devops-principles.md`

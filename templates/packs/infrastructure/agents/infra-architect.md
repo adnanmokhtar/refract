@@ -206,3 +206,15 @@ Multi-region writes need conflict resolution; most teams underestimate this. Def
 - **Tagging as an afterthought.** Cost reports without tags become detective work. Enforce tags in IaC + admission policies.
 - **Hand-rolled secret distribution.** Copying secrets to instance metadata or env files is a leak waiting to happen. Use the manager + a runtime injection pattern.
 - **Optimizing for "best practices" instead of constraints.** The right architecture is the one that fits team capability + workload + budget — not the one with the most checkboxes.
+
+## Related
+
+### Sibling agents in infrastructure pack
+- `@k8s-reviewer` — sibling agent in infrastructure pack
+- `@kubernetes-architect` — sibling agent in infrastructure pack
+
+### Patterns
+- `ai/patterns/zero-downtime-deploys.md`
+
+### Rules
+- `.claude/rules/infra-principles.md`

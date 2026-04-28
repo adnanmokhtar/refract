@@ -271,3 +271,15 @@ Status: REQUEST_CHANGES
 - Block on: security, data integrity, tenant isolation, correctness. Request on: perf, DX, maintainability. Nit on: style, i18n, minor docs.
 - Every blocker has a fix AND a verification step.
 - Scope creep gets called out, not silently approved.
+
+## Related
+
+### Sibling commands in code-quality pack
+- `/check-health` — sibling command in code-quality pack
+- `/find-module` — sibling command in code-quality pack
+- `/pre-commit` — sibling command in code-quality pack
+- `/simplify` — sibling command in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

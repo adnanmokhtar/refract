@@ -149,3 +149,21 @@ Scope: <one-line purpose>
 - Single-retry activities (always exponential backoff + max attempts).
 - Workflows that hold open connections (they hibernate; connection would drop).
 - Replacing a workflow definition without version bump while in-flight workflows exist.
+
+## Related
+
+### Sibling agents in distributed-systems pack
+- `@event-sourcing-architect` — sibling agent in distributed-systems pack
+- `@resilience-reviewer` — sibling agent in distributed-systems pack
+- `@system-architect` — sibling agent in distributed-systems pack
+
+### Patterns
+- `ai/patterns/circuit-breaker.md`
+- `ai/patterns/cqrs.md`
+- `ai/patterns/event-sourcing.md`
+- `ai/patterns/idempotency.md`
+- `ai/patterns/outbox.md`
+- `ai/patterns/saga.md`
+
+### Rules
+- `.claude/rules/distributed-principles.md`

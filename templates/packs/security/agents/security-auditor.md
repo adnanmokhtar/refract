@@ -218,3 +218,15 @@ Tools used:
 - Don't fabricate findings — if clean, report clean.
 - Every finding has a fix AND a verification step.
 - Distinguish "hypothetical" from "confirmed exploitable" — blockers must be reproducible.
+
+## Related
+
+### Sibling agents in security pack
+- `@auth-reviewer` — sibling agent in security pack
+
+### Patterns
+- `ai/patterns/auth-flow.md`
+- `ai/patterns/zero-trust.md`
+
+### Rules
+- `.claude/rules/security-principles.md`

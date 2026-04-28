@@ -231,3 +231,18 @@ Incident response time: <average>
 - Postmortems that name individuals in root cause.
 - Quarterly review without action-item follow-through.
 - Ignoring SRE when error budget exhausted.
+
+## Related
+
+### Sibling agents in observability pack
+- `@incident-responder` — sibling agent in observability pack
+- `@observability-reviewer` — sibling agent in observability pack
+- `@telemetry-architect` — sibling agent in observability pack
+
+### Patterns
+- `ai/patterns/metrics.md`
+- `ai/patterns/structured-logging.md`
+- `ai/patterns/tracing.md`
+
+### Rules
+- `.claude/rules/observability-principles.md`

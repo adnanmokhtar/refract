@@ -191,3 +191,20 @@ You review what the user feels — not what the developer ships. A green test su
 - WCAG 2.2 AA (https://www.w3.org/WAI/WCAG22/quickref/).
 - Apple HIG and Material Design 3 — pattern references when in doubt.
 - Locale files (`i18n/`, `locales/`) — what copy actually exists.
+
+## Related
+
+### Sibling agents in ui-ux pack
+- `@design-system-architect` — sibling agent in ui-ux pack
+- `@design-system-guardian` — sibling agent in ui-ux pack
+- `@theme-specialist` — sibling agent in ui-ux pack
+
+### Patterns
+- `ai/patterns/dark-mode.md`
+- `ai/patterns/design-systems.md`
+- `ai/patterns/motion.md`
+- `ai/patterns/rtl.md`
+- `ai/patterns/theming.md`
+
+### Rules
+- `.claude/rules/ui-principles.md`

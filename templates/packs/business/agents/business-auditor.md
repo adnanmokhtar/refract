@@ -140,3 +140,8 @@ Ship-ready: yes | no | conditional
 - Opinion-as-defect — "I would have designed differently" ≠ defect.
 - Auditing against your mental model instead of real user experience — use a real user walkthrough where possible.
 - Missing "ops can't recover" class — features where everything works until something breaks and ops has to poke the DB manually.
+
+## Related
+
+### Sibling agents in business pack
+- `@business-analyst` — sibling agent in business pack

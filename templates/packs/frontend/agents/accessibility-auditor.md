@@ -244,3 +244,21 @@ Patterns consulted: motion (prefers-reduced-motion), rtl
 - Color contrast checked in EVERY theme (light + dark + high-contrast).
 - RTL verified if project ships RTL.
 - Critical paths (auth, checkout) get manual keyboard + screen-reader test before release.
+
+## Related
+
+### Sibling agents in frontend pack
+- `@api-contract-sentry` — sibling agent in frontend pack
+- `@data-flow-auditor` — sibling agent in frontend pack
+- `@i18n-auditor` — sibling agent in frontend pack
+- `@ui-architect` — sibling agent in frontend pack
+- `@ui-reviewer` — sibling agent in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

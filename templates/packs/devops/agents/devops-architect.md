@@ -147,3 +147,16 @@ trigger: release tag     → promote staging image → prod (with approval gate)
 - **Mirroring an existing pipeline that's broken.** If `.github/workflows/` already runs tests after deploy, don't preserve that — fix the order.
 - **Skipping the rollback rehearsal.** A documented rollback that's never been exercised will fail the first time it matters. Recommend a quarterly drill.
 - **Inventing a strategy beyond the team's discipline.** Canary deploys need real metrics + a kill switch. If neither exists yet, ship rolling and add canary later.
+
+## Related
+
+### Sibling agents in devops pack
+- `@ci-reviewer` — sibling agent in devops pack
+- `@deployment-engineer` — sibling agent in devops pack
+
+### Patterns
+- `ai/patterns/cicd-pipeline.md`
+- `ai/patterns/deployment.md`
+
+### Rules
+- `.claude/rules/devops-principles.md`

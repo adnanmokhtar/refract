@@ -196,3 +196,22 @@ Fix:
 - Broadcasting without permission check.
 - Silent auth failures (always send explicit close code + reason).
 - Browser-only client (design for mobile / native / CLI consumers too).
+
+## Related
+
+### Sibling agents in backend pack
+- `@api-architect` — sibling agent in backend pack
+- `@api-reviewer` — sibling agent in backend pack
+- `@bug-investigator` — sibling agent in backend pack
+- `@endpoint-tester` — sibling agent in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

@@ -86,3 +86,25 @@ Open follow-ups:
 - Correlation field name mismatch → try `correlationId | request_id | traceId`; ask user if all miss.
 - High-volume output overwhelms terminal → pipe through `head -n 200` for one-shot, `less +F` for paged following.
 - Plaintext logs with no structure → propose `/add-telemetry` to switch the project to structured logging.
+
+## Related
+
+### Sibling commands in backend pack
+- `/add-endpoint` — sibling command in backend pack
+- `/add-feature` — sibling command in backend pack
+- `/add-module` — sibling command in backend pack
+- `/analyze-module` — sibling command in backend pack
+- `/endpoint-test` — sibling command in backend pack
+- `/fix-bug` — sibling command in backend pack
+- `/trace-flow` — sibling command in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

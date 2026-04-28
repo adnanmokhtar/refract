@@ -173,3 +173,12 @@ These 3 files are NEVER hand-edited. If a user opens one and writes content, tha
 - `convention-drift-detector` — feeds `drift-log.md`.
 - `/promote-pattern`, `/promote-decision`, `/audit-knowledge` — invocation entry points.
 - `ai/dynamic/` README — explains the persistence pyramid.
+
+## Related
+
+### Sibling agents in learning pack
+- `@convention-drift-detector` — sibling agent in learning pack
+- `@pattern-emergence-watcher` — sibling agent in learning pack
+
+### Patterns
+- `ai/patterns/setup-quality-scoring.md`

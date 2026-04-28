@@ -155,3 +155,13 @@ Status: COMPLETE
 - `pattern-emergence-watcher` agent — populates `learned-patterns.md`.
 - `knowledge-curator` agent — drafts the formal pattern file.
 - `ai/patterns/` — destination.
+
+## Related
+
+### Sibling commands in learning pack
+- `/detect-drift` — sibling command in learning pack
+- `/learn-from-task` — sibling command in learning pack
+- `/refresh-knowledge` — sibling command in learning pack
+
+### Patterns
+- `ai/patterns/setup-quality-scoring.md`

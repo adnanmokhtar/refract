@@ -99,3 +99,15 @@ Status: COMPLETE
 - E2E with real browser networking → use `route.fulfill` / `nock` / `msw` to remove network variance.
 - Test depending on test order → bug in setup/teardown, not in test body.
 - Same root cause in 5+ tests → systemic; escalate to lint rule rather than per-test fixes.
+
+## Related
+
+### Sibling commands in testing pack
+- `/add-test` — sibling command in testing pack
+
+### Patterns
+- `ai/patterns/test-doubles.md`
+- `ai/patterns/test-strategy.md`
+
+### Rules
+- `.claude/rules/testing-principles.md`

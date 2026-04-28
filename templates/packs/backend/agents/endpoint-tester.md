@@ -90,3 +90,22 @@ Don't start it yourself (side-effects). Report the dev command from `CLAUDE.md` 
 - Too-permissive dev auth — local server may skip tenant guards that prod enforces. Flag.
 - Stale server — you edited code but dev server wasn't restarted. Check log for the edit's line; absent = restart needed.
 - Dynamic fields (`createdAt`, `id`, `correlationId`) differ between calls — exclude when diffing shapes.
+
+## Related
+
+### Sibling agents in backend pack
+- `@api-architect` — sibling agent in backend pack
+- `@api-reviewer` — sibling agent in backend pack
+- `@bug-investigator` — sibling agent in backend pack
+- `@websocket-engineer` — sibling agent in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

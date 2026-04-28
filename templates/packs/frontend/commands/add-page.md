@@ -96,3 +96,20 @@ Created:
 - Loading/empty/error states omitted — required, not optional.
 - Lazy-loading mismatch with sibling pages — hurts code-split coherence; mirror the convention.
 - API URL hardcoded in component — services own that.
+
+## Related
+
+### Sibling commands in frontend pack
+- `/a11y-audit` — sibling command in frontend pack
+- `/add-component` — sibling command in frontend pack
+- `/add-crud-page` — sibling command in frontend pack
+- `/i18n-audit` — sibling command in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

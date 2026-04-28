@@ -194,3 +194,21 @@ Next actions:
 - Projections that write back to the event store.
 - Ad-hoc queries on the event log (always via projections).
 - Event sourcing without a clear compliance / temporal / CQRS driver (overkill).
+
+## Related
+
+### Sibling agents in distributed-systems pack
+- `@resilience-reviewer` — sibling agent in distributed-systems pack
+- `@system-architect` — sibling agent in distributed-systems pack
+- `@workflow-orchestrator` — sibling agent in distributed-systems pack
+
+### Patterns
+- `ai/patterns/circuit-breaker.md`
+- `ai/patterns/cqrs.md`
+- `ai/patterns/event-sourcing.md`
+- `ai/patterns/idempotency.md`
+- `ai/patterns/outbox.md`
+- `ai/patterns/saga.md`
+
+### Rules
+- `.claude/rules/distributed-principles.md`

@@ -157,3 +157,16 @@ DISCIPLINE MAINTAINED · MINOR DEVIATIONS · MAJOR VIOLATIONS
 - **Treating coverage % as the goal.** 100% coverage with weak assertions is theater. Mutation score + behavior-named tests are the real signal.
 - **Letting the suite stay red between cycles.** Stacked red rots quickly. Halt work; fix; restart.
 - **Collaborator mocks that drift from reality.** Mocks must match real collaborator contracts. Run an integration suite periodically to catch drift.
+
+## Related
+
+### Sibling agents in testing pack
+- `@test-engineer` — sibling agent in testing pack
+- `@test-reviewer` — sibling agent in testing pack
+
+### Patterns
+- `ai/patterns/test-doubles.md`
+- `ai/patterns/test-strategy.md`
+
+### Rules
+- `.claude/rules/testing-principles.md`

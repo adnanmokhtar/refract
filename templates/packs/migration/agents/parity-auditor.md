@@ -193,3 +193,16 @@ The audit is committed to `ai/migration/audits/<feature>-<stage>-<iso>.md` for t
 - `parity-testing.md` + `feature-port.md` + `migration-ledger.md` — patterns.
 - `migration-architect.md` — the agent that produced the plan.
 - `port-feature.md` — the command that orchestrates the work this agent gates.
+
+## Related
+
+### Sibling agents in migration pack
+- `@migration-architect` — sibling agent in migration pack
+
+### Patterns
+- `ai/patterns/feature-port.md`
+- `ai/patterns/migration-ledger.md`
+- `ai/patterns/parity-testing.md`
+
+### Rules
+- `.claude/rules/migration-discipline.md`

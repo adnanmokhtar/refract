@@ -117,3 +117,13 @@ Append all findings to `ai/dynamic/drift-log.md`? [y/n]
 - `/refresh-knowledge` re-detects EVERYTHING (full Phase 2 rerun).
 - `/detect-drift` is narrower: only checks code vs documented rules + conventions.
 - Use `/detect-drift` weekly; `/refresh-knowledge` quarterly.
+
+## Related
+
+### Sibling commands in learning pack
+- `/learn-from-task` — sibling command in learning pack
+- `/promote-pattern` — sibling command in learning pack
+- `/refresh-knowledge` — sibling command in learning pack
+
+### Patterns
+- `ai/patterns/setup-quality-scoring.md`

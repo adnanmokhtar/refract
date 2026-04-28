@@ -124,3 +124,17 @@ Confirm I didn't miss any in your build config.
 - `ai/stack.md` — ecosystem + build tooling for ecosystem-specific dead-code tools.
 - `CLAUDE.md` — entry points, build conventions, what's "public API".
 - `ai/decisions/` — if an ADR explicitly kept a deprecated helper around, honor it.
+
+## Related
+
+### Sibling agents in code-quality pack
+- `@code-reviewer` — sibling agent in code-quality pack
+- `@dependency-auditor` — sibling agent in code-quality pack
+- `@error-detective` — sibling agent in code-quality pack
+- `@legacy-modernizer` — sibling agent in code-quality pack
+- `@monorepo-architect` — sibling agent in code-quality pack
+- `@refactorer` — sibling agent in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

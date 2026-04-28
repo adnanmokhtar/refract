@@ -123,3 +123,18 @@ NIT  Type choice
 - Two migrations in one PR locking the same table — serialize them.
 - "Pure data" UPDATE migration — still locks rows; use `FOR UPDATE SKIP LOCKED` or batch.
 - Down migration claiming to restore dropped data — that's a lie; say so.
+
+## Related
+
+### Sibling commands in database pack
+- `/add-migration` — sibling command in database pack
+- `/db-audit` — sibling command in database pack
+- `/optimize-query` — sibling command in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

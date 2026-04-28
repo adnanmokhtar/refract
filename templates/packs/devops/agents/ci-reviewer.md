@@ -176,3 +176,16 @@ Workflow jobs: `lint` ✓ `test` ✓ `typecheck` ✓ `build` (not required — O
 - `.github/CODEOWNERS` + branch protection (`gh api repos/<o>/<r>/branches/<b>/protection`) — what the org expects.
 - `dependabot.yml` — supply-chain posture.
 - OIDC trust policy with the cloud provider, if cloud deploys are used.
+
+## Related
+
+### Sibling agents in devops pack
+- `@deployment-engineer` — sibling agent in devops pack
+- `@devops-architect` — sibling agent in devops pack
+
+### Patterns
+- `ai/patterns/cicd-pipeline.md`
+- `ai/patterns/deployment.md`
+
+### Rules
+- `.claude/rules/devops-principles.md`

@@ -160,3 +160,9 @@ Next: /add-feature with the spec above.
 - Acceptance criteria as Given/When/Then forces concrete tests later. Vague criteria = vague tests = missed bugs.
 - Out-of-scope is as important as in-scope. Anti-scope-creep prevents the implementer from building "nice to haves" not asked for.
 - Suggested next command is always ONE. Multiple suggestions = ambiguity at handoff.
+
+## Related
+
+### Sibling commands in business pack
+- `/analyze-task` — sibling command in business pack
+- `/audit-business` — sibling command in business pack

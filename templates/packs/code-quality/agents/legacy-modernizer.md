@@ -193,3 +193,17 @@ Week 21-24: cleanup, delete dead code, remove flags.
 - "We'll add tests after migration."
 - Skipping shadow / canary because "it's just a refactor."
 - Migrating without executive buy-in — guarantees stalling under prod pressure.
+
+## Related
+
+### Sibling agents in code-quality pack
+- `@code-reviewer` — sibling agent in code-quality pack
+- `@dead-code-finder` — sibling agent in code-quality pack
+- `@dependency-auditor` — sibling agent in code-quality pack
+- `@error-detective` — sibling agent in code-quality pack
+- `@monorepo-architect` — sibling agent in code-quality pack
+- `@refactorer` — sibling agent in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

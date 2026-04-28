@@ -173,3 +173,18 @@ Patterns consulted: structured-logging, metrics, tracing
 - NIT: histogram buckets, field naming.
 - Never accept metrics without dashboards OR alerts (dead metric = cost).
 - Never accept alerts without runbooks.
+
+## Related
+
+### Sibling agents in observability pack
+- `@incident-responder` — sibling agent in observability pack
+- `@sre-engineer` — sibling agent in observability pack
+- `@telemetry-architect` — sibling agent in observability pack
+
+### Patterns
+- `ai/patterns/metrics.md`
+- `ai/patterns/structured-logging.md`
+- `ai/patterns/tracing.md`
+
+### Rules
+- `.claude/rules/observability-principles.md`

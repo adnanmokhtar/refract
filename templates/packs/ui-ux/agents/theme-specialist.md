@@ -232,3 +232,20 @@ Result: 48 combos, 3 regressions:
 - "Fix in default only, variant will inherit" without verification.
 - Skipping RTL check on multi-locale theme.
 - Adding a theme without ADR / design review.
+
+## Related
+
+### Sibling agents in ui-ux pack
+- `@design-system-architect` — sibling agent in ui-ux pack
+- `@design-system-guardian` — sibling agent in ui-ux pack
+- `@ux-reviewer` — sibling agent in ui-ux pack
+
+### Patterns
+- `ai/patterns/dark-mode.md`
+- `ai/patterns/design-systems.md`
+- `ai/patterns/motion.md`
+- `ai/patterns/rtl.md`
+- `ai/patterns/theming.md`
+
+### Rules
+- `.claude/rules/ui-principles.md`

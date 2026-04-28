@@ -223,3 +223,18 @@ Constraints:
 - Migrations reversible unless data-destructive by design (note in commit).
 - Concurrent-write safety verified via `migration-rehearsal` before prod.
 - No `synchronize: true` / auto-migrate in prod.
+
+## Related
+
+### Sibling agents in database pack
+- `@database-optimizer` — sibling agent in database pack
+- `@query-optimizer` — sibling agent in database pack
+- `@schema-reviewer` — sibling agent in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

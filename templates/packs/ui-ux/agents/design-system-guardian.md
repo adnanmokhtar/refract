@@ -147,3 +147,20 @@ Custom components that re-implement behavior (modal, dropdown, tabs) without key
 - `ai/decisions/` — historical deviations (read so you don't re-flag accepted exceptions).
 - The component library's own docs (PrimeVue / shadcn / etc.) — pinned in `.claude/references/` if the project uses one.
 - The Storybook / Histoire / Ladle URL — declares what the system actually ships.
+
+## Related
+
+### Sibling agents in ui-ux pack
+- `@design-system-architect` — sibling agent in ui-ux pack
+- `@theme-specialist` — sibling agent in ui-ux pack
+- `@ux-reviewer` — sibling agent in ui-ux pack
+
+### Patterns
+- `ai/patterns/dark-mode.md`
+- `ai/patterns/design-systems.md`
+- `ai/patterns/motion.md`
+- `ai/patterns/rtl.md`
+- `ai/patterns/theming.md`
+
+### Rules
+- `.claude/rules/ui-principles.md`

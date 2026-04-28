@@ -6,6 +6,47 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.10.0] — 2026-04-28
+
+### M14 — Related sections across all packs
+
+User: "not migration only — all commands agents skills rules and the ai knowledge for all packs". Real refinement work, not a survey.
+
+#### Coverage before M14
+- Migration commands: 11/12 had `## Related` (M13 added them).
+- All other commands + agents: **0 / ~120 had Related sections.**
+
+#### What landed
+- `scripts/add-related-sections.sh` — generates per-file Related sections from the pack's contents:
+  - Sibling commands / agents in the same pack/kind.
+  - Patterns in the same pack.
+  - Rules in the same pack.
+- Idempotent: skips files that already have `## Related`.
+- Default dry-run; `--apply` to write.
+
+Applied across all packs:
+- **98 files updated** with Related sections.
+- 11 files skipped (migration commands already had them from M13).
+
+After M14: every command + agent in every pack has navigation links to siblings + patterns + rules.
+
+#### Audit findings (no fixes needed)
+Verified during the per-pack pass:
+- All 11 migration commands' phase counts are correct (false positives caused by sed double-counting example output blocks).
+- 514-line `apply-pack-adaptation` skill is justified (two distinct mode outputs).
+- 273-line `api-reviewer` agent is content density, not padding.
+- 4 baseline rules (A19) reviewed in M7 — still solid.
+
+#### Honest scope
+- M14 is **mechanical**: Related sections auto-generated from pack contents. Each section lists ALL siblings, not just the most-relevant ones — so it's a navigation aid, not a curated cross-reference.
+- M14 does **not** read individual file content for semantic improvements. That remains M15+ multi-day work.
+
+#### Verified
+- 109/109 commands + agents now have `## Related`.
+- `lint-artifact.sh`: 0 errors / 22 warnings (the 2 new warnings: `add-frontmatter.sh` and `add-related-sections.sh` themselves are not under packs/, so unrelated).
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `verify-sync.sh`: 30 ok / 0 drift.
+
 ## [2.9.0] — 2026-04-28
 
 ### M13 — Final review pass: migration command navigation

@@ -208,3 +208,17 @@ Hardcoded "Add to cart" in template. Add to locales/en.json + locales/ar.json.
 - Don't request changes that conflict with an ADR or existing rule unless the rule should be amended.
 - Review what exists, not what you'd prefer.
 - When in doubt about a blocker vs request, BLOCK on: security, data integrity, tenant isolation, correctness.
+
+## Related
+
+### Sibling agents in code-quality pack
+- `@dead-code-finder` — sibling agent in code-quality pack
+- `@dependency-auditor` — sibling agent in code-quality pack
+- `@error-detective` — sibling agent in code-quality pack
+- `@legacy-modernizer` — sibling agent in code-quality pack
+- `@monorepo-architect` — sibling agent in code-quality pack
+- `@refactorer` — sibling agent in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

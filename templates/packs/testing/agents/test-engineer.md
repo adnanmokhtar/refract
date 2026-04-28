@@ -236,3 +236,16 @@ Skills run:
 - Multi-tenant: cross-tenant leak test mandatory.
 - Webhook: idempotency + signature tests mandatory.
 - Commit test + code together — never test-only or code-only PR for a feature/fix.
+
+## Related
+
+### Sibling agents in testing pack
+- `@tdd-orchestrator` — sibling agent in testing pack
+- `@test-reviewer` — sibling agent in testing pack
+
+### Patterns
+- `ai/patterns/test-doubles.md`
+- `ai/patterns/test-strategy.md`
+
+### Rules
+- `.claude/rules/testing-principles.md`

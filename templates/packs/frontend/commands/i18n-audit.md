@@ -90,3 +90,20 @@ Status: COMPLETE | BLOCKED on <H> hardcoded
 - Interpolation token mismatch unflagged → runtime crash on render; treat as blocker.
 - Deleting dynamic keys (`t('status.' + value)`) → unreachable to grep; require manual confirmation.
 - RTL/LTR mixed numerals — flag for human review, never auto-rewrite.
+
+## Related
+
+### Sibling commands in frontend pack
+- `/a11y-audit` — sibling command in frontend pack
+- `/add-component` — sibling command in frontend pack
+- `/add-crud-page` — sibling command in frontend pack
+- `/add-page` — sibling command in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

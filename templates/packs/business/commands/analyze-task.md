@@ -101,3 +101,9 @@ Status: AWAITING CONFIRMATION (gate between 4a + 4b) | COMPLETE
 - Writing technical spec on a moving target → useless; gate is non-negotiable.
 - Spec contradicts active ADR → surface, don't quietly redesign around it.
 - All criteria tagged MVP → scope discipline broken; force MVP/v2 split.
+
+## Related
+
+### Sibling commands in business pack
+- `/audit-business` — sibling command in business pack
+- `/expand-task` — sibling command in business pack

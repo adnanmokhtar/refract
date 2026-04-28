@@ -191,3 +191,8 @@ Plan 1-7 days for review. Track historical rejection reasons (payments, crashes,
 - **Custom WebView OAuth flows.** Apple flags them; users see a sketchy form; password managers don't autofill. Use AppAuth / Auth Session.
 - **Ignoring the platform's background work API.** Setting a timer in foreground = killed when backgrounded. Use BGTaskScheduler / WorkManager / Background Tasks.
 - **Pushing business data in notification payloads.** APNs/FCM are best-effort; payloads can sit unencrypted at intermediaries. Send IDs; let the app fetch over TLS.
+
+## Related
+
+### Rules
+- `.claude/rules/mobile-principles.md`

@@ -219,3 +219,16 @@ Patterns consulted: test-strategy, test-doubles
 - NIT on: naming, structure, minor cleanup.
 - Multi-tenant changes without cross-tenant test = BLOCKER.
 - Webhook changes without idempotency test = BLOCKER.
+
+## Related
+
+### Sibling agents in testing pack
+- `@tdd-orchestrator` — sibling agent in testing pack
+- `@test-engineer` — sibling agent in testing pack
+
+### Patterns
+- `ai/patterns/test-doubles.md`
+- `ai/patterns/test-strategy.md`
+
+### Rules
+- `.claude/rules/testing-principles.md`

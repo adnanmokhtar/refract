@@ -110,3 +110,15 @@ Commit BLOCKED until blocker resolved.
 - Husky/lefthook hooks treated as replacement — that layer catches mechanical issues; this layer catches design + security.
 - Empty stage with `--allow-empty` style commits — don't proceed.
 - Partial-stage gap (`git add -p`): agents see unstaged lines too — note in report.
+
+## Related
+
+### Sibling commands in code-quality pack
+- `/check-health` — sibling command in code-quality pack
+- `/find-module` — sibling command in code-quality pack
+- `/review-changes` — sibling command in code-quality pack
+- `/simplify` — sibling command in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

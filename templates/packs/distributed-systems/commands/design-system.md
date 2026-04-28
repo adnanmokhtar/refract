@@ -100,3 +100,16 @@ Rollout phases:
 - Eventual consistency claimed but UI assumes strong reads — bug factory; UI requirement decides the model.
 - Cross-service call without documented timeout AND behavior-on-timeout — production fire.
 - "We'll add observability later" — engineer paged at 3am with no signal; telemetry is part of the design.
+
+## Related
+
+### Patterns
+- `ai/patterns/circuit-breaker.md`
+- `ai/patterns/cqrs.md`
+- `ai/patterns/event-sourcing.md`
+- `ai/patterns/idempotency.md`
+- `ai/patterns/outbox.md`
+- `ai/patterns/saga.md`
+
+### Rules
+- `.claude/rules/distributed-principles.md`

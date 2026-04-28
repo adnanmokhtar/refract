@@ -141,3 +141,21 @@ Verdicts: RESILIENT (production-ready) / FRAGILE (degrades under load) / CATASTR
 - **Treating idempotency as binary.** Some operations are conditionally idempotent (SET-if-not-exists). Assess per call, not by HTTP verb.
 - **Recommending defaults that fight the framework.** If the project standardizes on opossum / resilience4j, suggest config there, not a hand-rolled wrapper.
 - **Ignoring backpressure.** A bounded retry budget without backpressure on the caller still drowns the downstream. Coordinate with rate limits.
+
+## Related
+
+### Sibling agents in distributed-systems pack
+- `@event-sourcing-architect` — sibling agent in distributed-systems pack
+- `@system-architect` — sibling agent in distributed-systems pack
+- `@workflow-orchestrator` — sibling agent in distributed-systems pack
+
+### Patterns
+- `ai/patterns/circuit-breaker.md`
+- `ai/patterns/cqrs.md`
+- `ai/patterns/event-sourcing.md`
+- `ai/patterns/idempotency.md`
+- `ai/patterns/outbox.md`
+- `ai/patterns/saga.md`
+
+### Rules
+- `.claude/rules/distributed-principles.md`

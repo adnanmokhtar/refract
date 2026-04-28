@@ -171,3 +171,17 @@ Fix:
 - Marking something "ACCEPTED" without explicit business sign-off.
 - Investigating every error — time-box by Pareto.
 - Conflating root + cascade in counts.
+
+## Related
+
+### Sibling agents in code-quality pack
+- `@code-reviewer` — sibling agent in code-quality pack
+- `@dead-code-finder` — sibling agent in code-quality pack
+- `@dependency-auditor` — sibling agent in code-quality pack
+- `@legacy-modernizer` — sibling agent in code-quality pack
+- `@monorepo-architect` — sibling agent in code-quality pack
+- `@refactorer` — sibling agent in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

@@ -89,3 +89,16 @@ Status: COMPLETE
 - "Status: Proposed" left dangling for weeks → noise. Push user to triage in next review cycle.
 - ADRs are immutable once Accepted. Reversal = NEW ADR, never edit-in-place.
 - Numbering collision on simultaneous PRs → use timestamp suffix on branch, finalize at merge.
+
+## Related
+
+### Sibling commands in documentation pack
+- `/doc-refresh` — sibling command in documentation pack
+
+### Patterns
+- `ai/patterns/adr-template.md`
+- `ai/patterns/slo.md`
+- `ai/patterns/system-design.md`
+
+### Rules
+- `.claude/rules/doc-principles.md`

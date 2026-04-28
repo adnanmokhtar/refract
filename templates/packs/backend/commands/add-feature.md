@@ -277,3 +277,25 @@ Next:
 - No feature ships with any security BLOCKER open.
 - Domain signals drive automatic reviewer dispatch — don't forget them.
 - Every consulted pattern logged in the report for traceability.
+
+## Related
+
+### Sibling commands in backend pack
+- `/add-endpoint` — sibling command in backend pack
+- `/add-module` — sibling command in backend pack
+- `/analyze-module` — sibling command in backend pack
+- `/endpoint-test` — sibling command in backend pack
+- `/fix-bug` — sibling command in backend pack
+- `/log-tail` — sibling command in backend pack
+- `/trace-flow` — sibling command in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

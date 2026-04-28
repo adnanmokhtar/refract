@@ -281,3 +281,21 @@ Consult `.claude/references/<framework>.md`. Key variations:
 - i18n keys in BOTH locales (or all declared).
 - Loading + empty + error states designed, not afterthoughts.
 - Mirror existing modules EXACTLY.
+
+## Related
+
+### Sibling agents in frontend pack
+- `@accessibility-auditor` — sibling agent in frontend pack
+- `@api-contract-sentry` — sibling agent in frontend pack
+- `@data-flow-auditor` — sibling agent in frontend pack
+- `@i18n-auditor` — sibling agent in frontend pack
+- `@ui-reviewer` — sibling agent in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

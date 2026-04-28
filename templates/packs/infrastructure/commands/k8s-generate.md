@@ -97,3 +97,11 @@ Linter: kubeconform PASS, 0 errors.
 - PDB `minAvailable >= replicas` — node drains hang forever.
 - Secrets in ConfigMap `data:` committed to git — leak; use ESO / Sealed Secrets / Vault.
 - Read-only root FS breaks apps writing logs/temp — mount `emptyDir` for those paths instead of disabling RO.
+
+## Related
+
+### Patterns
+- `ai/patterns/zero-downtime-deploys.md`
+
+### Rules
+- `.claude/rules/infra-principles.md`

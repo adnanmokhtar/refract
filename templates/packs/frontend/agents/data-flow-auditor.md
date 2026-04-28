@@ -217,3 +217,21 @@ NIT — Invalidation on create:
 - "Fix" by increasing TTL (hides the bug).
 - Silent refetch on navigate without staleness checks.
 - Hydration mismatches ignored.
+
+## Related
+
+### Sibling agents in frontend pack
+- `@accessibility-auditor` — sibling agent in frontend pack
+- `@api-contract-sentry` — sibling agent in frontend pack
+- `@i18n-auditor` — sibling agent in frontend pack
+- `@ui-architect` — sibling agent in frontend pack
+- `@ui-reviewer` — sibling agent in frontend pack
+
+### Patterns
+- `ai/patterns/forms.md`
+- `ai/patterns/i18n.md`
+- `ai/patterns/rendering-strategy.md`
+- `ai/patterns/ssr-safety.md`
+
+### Rules
+- `.claude/rules/frontend-principles.md`

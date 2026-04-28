@@ -130,3 +130,15 @@ Top 3:
 - "AMBER everywhere, nothing red" — thresholds set too low; tighten.
 - Running on feature branch — diff dominates; run on `main` for true pulse.
 - Green today doesn't mean no work — means no blockers found by today's checks.
+
+## Related
+
+### Sibling commands in code-quality pack
+- `/find-module` — sibling command in code-quality pack
+- `/pre-commit` — sibling command in code-quality pack
+- `/review-changes` — sibling command in code-quality pack
+- `/simplify` — sibling command in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

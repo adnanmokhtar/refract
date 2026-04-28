@@ -114,3 +114,15 @@ Related concepts already in repo:
 - Concept aliases ("subscription" → "membership") — ask for synonyms before declaring not-found.
 - Tests in monorepos can live far from source (`tests/` at repo root) — don't conclude "no tests" without checking.
 - Speed budget < 10s — fall back to `grep -r` if `rg` absent, but flag the slowness.
+
+## Related
+
+### Sibling commands in code-quality pack
+- `/check-health` — sibling command in code-quality pack
+- `/pre-commit` — sibling command in code-quality pack
+- `/review-changes` — sibling command in code-quality pack
+- `/simplify` — sibling command in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

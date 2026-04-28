@@ -88,3 +88,8 @@ Status: COMPLETE
 - Index added without `/migration-review` → table-lock risk in prod; always route the proposal.
 - Caching proposed as default → hides root cause; only when the work is genuinely irreducible.
 - Mid-tier mobile blind-spot → frontend wins on a fast laptop ≠ wins on 3G + throttled CPU; test the right device class.
+
+## Related
+
+### Rules
+- `.claude/rules/performance-principles.md`

@@ -120,3 +120,13 @@ Apply now? [y/n]
 - `/setup-project` Phase 2 — original profiling.
 - `/detect-drift` — narrower check (conventions vs code only).
 - `ai/dynamic/learned-patterns.md`, `ai/dynamic/decisions-pending.md`, `ai/dynamic/changelog.md`.
+
+## Related
+
+### Sibling commands in learning pack
+- `/detect-drift` — sibling command in learning pack
+- `/learn-from-task` — sibling command in learning pack
+- `/promote-pattern` — sibling command in learning pack
+
+### Patterns
+- `ai/patterns/setup-quality-scoring.md`

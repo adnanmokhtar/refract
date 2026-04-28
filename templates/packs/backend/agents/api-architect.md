@@ -100,3 +100,22 @@ If the framework isn't referenced, follow its OFFICIAL style guide. If no strong
 - Designing for a framework version that's not installed — check the lock file.
 - Over-abstraction in P1 — a use-case doesn't need factory-builder-strategy. One class, clear inputs, clear output.
 - Silent tenant coupling on a cross-tenant table (countries, currencies) — document WHY it's cross-tenant + why that's safe.
+
+## Related
+
+### Sibling agents in backend pack
+- `@api-reviewer` — sibling agent in backend pack
+- `@bug-investigator` — sibling agent in backend pack
+- `@endpoint-tester` — sibling agent in backend pack
+- `@websocket-engineer` — sibling agent in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

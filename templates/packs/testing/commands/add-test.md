@@ -87,3 +87,15 @@ Status: COMPLETE
 - `setTimeout` waits → fake timers (`jest.useFakeTimers()` / `vi.useFakeTimers()`).
 - `.only` / `.skip` left in committed file → CI silently skips other tests; reviewer-blocker.
 - E2E added when integration would suffice → slow + flaky; only when user-facing flow is uncovered.
+
+## Related
+
+### Sibling commands in testing pack
+- `/flaky-test-hunt` — sibling command in testing pack
+
+### Patterns
+- `ai/patterns/test-doubles.md`
+- `ai/patterns/test-strategy.md`
+
+### Rules
+- `.claude/rules/testing-principles.md`

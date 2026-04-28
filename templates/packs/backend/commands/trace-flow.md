@@ -242,3 +242,25 @@ Status: COMPLETE — read-only trace, no files modified.
 - Observability gaps called out explicitly.
 - Use for ONE flow at a time — don't try to map the whole app.
 - Flag any path without error handling / idempotency / tenant filter.
+
+## Related
+
+### Sibling commands in backend pack
+- `/add-endpoint` — sibling command in backend pack
+- `/add-feature` — sibling command in backend pack
+- `/add-module` — sibling command in backend pack
+- `/analyze-module` — sibling command in backend pack
+- `/endpoint-test` — sibling command in backend pack
+- `/fix-bug` — sibling command in backend pack
+- `/log-tail` — sibling command in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`
