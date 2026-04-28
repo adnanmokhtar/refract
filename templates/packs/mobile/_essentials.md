@@ -1,21 +1,34 @@
 ---
 track: mobile
-purpose: Mobile app architecture (iOS/Android/cross-platform) design guidance.
+purpose: Mobile app architecture (iOS / Android / cross-platform) — screens + features + native bridges + offline + deep-links + bundle hygiene.
 essentials:
-  agents: [mobile-architect]
-  commands: []
-  skills: []
+  agents: [mobile-architect, app-store-reviewer]
+  commands: [add-screen, add-feature, optimize-bundle]
+  skills: [bundle-analyze, native-bridge-audit]
   rules: [mobile-principles]
-  ai-patterns: []
+  ai-patterns: [offline-sync, native-storage, deep-linking]
 ---
 
 # Mobile — essentials manifest
 
 Files listed above are the minimal subset copied when `/setup-project --minimal` is used. Standard mode copies the entire pack; minimal mode copies only essentials.
 
-Rationale per category (one line each):
-- agents: mobile-architect is the only agent in the pack — the universal entry point.
-- commands: none — pack ships no commands.
-- skills: none — pack ships no skills.
-- rules: mobile-principles is the single rules file in the pack.
-- ai-patterns: none — pack ships no patterns.
+Rationale per category:
+- **agents**: `mobile-architect` designs (screens, features, navigation, state); `app-store-reviewer` audits releases pre-submission.
+- **commands**: `/add-screen` (single screen), `/add-feature` (multi-screen feature), `/optimize-bundle` (size + cold-start).
+- **skills**: `bundle-analyze` (one-shot size analysis), `native-bridge-audit` (audit JS↔native bridge code).
+- **rules**: `mobile-principles` (foundational rules — touch targets, permissions, offline, lifecycle).
+- **ai-patterns**: `offline-sync` (read/write strategies offline), `native-storage` (right primitive per data class), `deep-linking` (URL schemes / universal links / push routing).
+
+## What this pack is NOT for
+
+- **Backend APIs** mobile consumes → use the `backend` pack.
+- **Web frontend** even if it reuses components (PWA / mobile web) → use the `frontend` pack.
+- **Embedded / IoT firmware** → out of scope.
+
+## How this pack relates to others
+
+- **`backend`** — mobile features almost always pair with backend endpoints. The `add-feature` commands across both packs are designed to compose.
+- **`security`** — mobile-specific concerns (keychain, biometric, certificate pinning) covered by `security/agents/security-auditor.md` + `auth-reviewer.md`.
+- **`performance`** — mobile-specific concerns (cold start, frame rate, battery) covered by `optimize-bundle` here + `performance` pack agents.
+- **`ui-ux`** — accessibility + design tokens apply equally to mobile; `ui-ux/skills/a11y-quick-check.md` runs against mobile UI.

@@ -4,7 +4,7 @@ purpose: Design-system architecture, UX review, and visual/interaction quality.
 essentials:
   agents: [design-system-architect, ux-reviewer]
   commands: [design-review]
-  skills: []
+  skills: [design-token-audit, motion-audit, a11y-quick-check]
   rules: [ui-principles]
   ai-patterns: []
 ---

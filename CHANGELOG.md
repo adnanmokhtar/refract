@@ -6,6 +6,41 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.15.0] — 2026-04-28
+
+### M19 — Mobile / business / ui-ux pack expansion (17 new artifacts)
+
+User asked for a deep knowledge center, no stubs. M19 fills the largest coverage gaps.
+
+#### Added — mobile pack (10 new; was 2 → now 12)
+- commands: `add-screen`, `add-feature`, `optimize-bundle`
+- agents: `app-store-reviewer`
+- skills: `bundle-analyze`, `native-bridge-audit`
+- patterns: `offline-sync`, `native-storage`, `deep-linking`
+
+#### Added — business pack (4 new; was 5 → now 9)
+- rule: `business-completeness`
+- skills: `audit-funnel-completion`, `check-business-coverage`
+- pattern: `missing-counterparts`
+
+#### Added — ui-ux pack (3 new; was 11 → now 14)
+- skills: `design-token-audit`, `motion-audit`, `a11y-quick-check`
+
+#### Pack inventory after M19
+| Pack | Before | After |
+|------|--------|-------|
+| mobile | 2 | 12 |
+| business | 5 | 9 |
+| ui-ux | 11 | 14 |
+
+#### Verified
+- audit-template-quality: 0 thin / 0 non-7-phase / 0 no-preflight / 0 no-output / 0 thin (any kind).
+- smoke-test: 8/8 pass; 0 fail / 0 warn.
+- verify-sync: 57 ok / 0 drift.
+
+#### Honest scope
+M19 fills the largest gaps. distributed-systems / infrastructure / observability / performance / security still have 1-2 commands each — M20+ candidates. Each new artifact is 100-300 lines of engineering content.
+
 ## [2.14.0] — 2026-04-28
 
 ### M18 — Template content audit + frontend `/add-feature` parity

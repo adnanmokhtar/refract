@@ -72,4 +72,22 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { primary_frontend_framework_detected: true }
   fallback: _examples/design-review.md
+
+- name: design-token-audit
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  fallback: skills/design-token-audit.md
+
+- name: motion-audit
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  fallback: skills/motion-audit.md
+
+- name: a11y-quick-check
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  fallback: skills/a11y-quick-check.md
 ```

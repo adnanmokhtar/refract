@@ -38,4 +38,28 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-business.md
   sections: [understand, generate]
   fallback: _examples/expand-task.md
+
+- name: business-completeness
+  kind: rule
+  triggers: { always: true }
+  sections: [must, must_not, should, review_checklist, failure_history_examples]
+  fallback: rules/business-completeness.md
+
+- name: audit-funnel-completion
+  kind: skill
+  triggers: { always: true }
+  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  fallback: skills/audit-funnel-completion.md
+
+- name: check-business-coverage
+  kind: skill
+  triggers: { always: true }
+  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  fallback: skills/check-business-coverage.md
+
+- name: missing-counterparts
+  kind: ai-pattern
+  triggers: { always: true }
+  sections: [why, forward_inverse_table, completion_table, recovery_table, anti_patterns, detection]
+  fallback: ai-patterns/missing-counterparts.md
 ```
