@@ -33,12 +33,26 @@ mkdir -p "$(dirname "$REPORT")"
 
 PACKS=("$@")
 if [[ ${#PACKS[@]} -eq 0 ]]; then
-  while IFS= read -r d; do
-    name="$(basename "$d")"
-    [[ "$name" == _* ]] && continue
-    PACKS+=("$name")
-  done < <(find "$PACKS_ROOT" -mindepth 1 -maxdepth 1 -type d | sort)
+  # Auto-detect installed packs from target's codebase-profile.md if present.
+  # Fall back to scanning ALL packs (so the report is never empty for projects
+  # that don't have a tracks_selected line — the historic bug).
+  if [[ -f "$TARGET/.claude/codebase-profile.md" ]]; then
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && PACKS+=("$p")
+    done < <(grep -E '^[[:space:]]*-?[[:space:]]*track:' "$TARGET/.claude/codebase-profile.md" 2>/dev/null \
+             | sed -E 's/.*track:[[:space:]]+([a-z0-9-]+).*/\1/' | sort -u)
+  fi
+  if [[ ${#PACKS[@]} -eq 0 ]]; then
+    # No tracks declared — scan ALL packs. The user's project may have
+    # commands/agents from packs that aren't recorded in the profile.
+    while IFS= read -r d; do
+      name="$(basename "$d")"
+      [[ "$name" == _* ]] && continue
+      PACKS+=("$name")
+    done < <(find "$PACKS_ROOT" -mindepth 1 -maxdepth 1 -type d | sort)
+  fi
 fi
+echo "Scanning packs: ${PACKS[*]}" >&2
 
 target_dir_for_kind() {
   case "$1" in

@@ -41,7 +41,10 @@ mkdir -p "$(dirname "$REPORT")"
 PACKS=("$@")
 if [[ ${#PACKS[@]} -eq 0 ]]; then
   if [[ -f "$TARGET/.claude/codebase-profile.md" ]]; then
-    while IFS= read -r p; do PACKS+=("$p"); done < <(grep -E '^\- track:' "$TARGET/.claude/codebase-profile.md" 2>/dev/null | sed 's/^- track: //' | sort -u)
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && PACKS+=("$p")
+    done < <(grep -E '^[[:space:]]*-?[[:space:]]*track:' "$TARGET/.claude/codebase-profile.md" 2>/dev/null \
+             | sed -E 's/.*track:[[:space:]]+([a-z0-9-]+).*/\1/' | sort -u)
   fi
 fi
 if [[ ${#PACKS[@]} -eq 0 ]]; then
@@ -51,6 +54,7 @@ if [[ ${#PACKS[@]} -eq 0 ]]; then
     PACKS+=("$name")
   done < <(find "$PACKS_ROOT" -mindepth 1 -maxdepth 1 -type d | sort)
 fi
+echo "Scanning packs: ${PACKS[*]}" >&2
 
 # Per-kind target dir resolution (per pack.md emit conventions)
 target_dir_for_kind() {

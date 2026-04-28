@@ -90,8 +90,11 @@ while IFS= read -r line; do
     [[ -z "$current_pack" || -z "$current_kind" ]] && continue
     [[ "$current_pack" == "Decision legend" || "$current_kind" == "" ]] && continue
 
-    # Extract decision (last **WORD-WORD** in rest)
-    decision=$(echo "$rest" | grep -oE '\*\*[A-Z-]+\*\*' | tail -1 | tr -d '*')
+    # Extract decision (last **WORD-WORD** in rest). REVIEW rows contain
+    # `**REVIEW: ...**` which won't match the strict pattern — that's fine,
+    # we want to skip them. Use `|| true` so grep's exit-1 doesn't trip
+    # `set -e` + `pipefail` and kill the whole script.
+    decision=$(echo "$rest" | grep -oE '\*\*[A-Z-]+\*\*' | tail -1 | tr -d '*' || true)
     [[ -z "$decision" ]] && continue
 
     actions+=("$decision|$current_pack|$current_kind|$base|$rest")
@@ -106,7 +109,11 @@ echo "Rows:    ${#actions[@]}"
 echo ""
 
 # Apply per action
-for action in "${actions[@]}"; do
+if [[ ${#actions[@]} -eq 0 ]]; then
+  echo "  (no actionable rows parsed from report — either nothing to do, or report is malformed)"
+fi
+for action in "${actions[@]:-}"; do
+  [[ -z "$action" ]] && continue
   IFS='|' read -r decision pack kind base rest <<<"$action"
   pack_src="$PACKS_ROOT/$pack/$kind/$base"
   tgt_dir=$(target_dir_for_kind "$kind")
