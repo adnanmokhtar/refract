@@ -6,6 +6,37 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.13.0] — 2026-04-28
+
+### M17 — Final round: front-loaded contract + composite + auditor + regression
+
+User asked for the final round. M17 closes the four remaining gaps from the M11 → M16 trajectory: prose-rule skipping, no single composite invocation, audit-form Phase 5 still LLM-judged, and no regression test for the whole loop.
+
+#### Added
+- `scripts/run-preflight.sh` — composite invocation. Runs all 4 deterministic scripts in order. The orchestrator's hard rule becomes "run THIS one script."
+- `scripts/audit-setup.sh` — Phase 5 deterministic auditor. Reads all 4 reports, checks `<TBD>` markers, counts structural recommendations, verifies pack-coverage Missing rows are now present. Exit 1 = REFUSED; exit 0 = safe.
+
+#### Changed — orchestrator front-loaded
+- `commands/setup-project.md` opens with **🛑 STEP ZERO — deterministic preflight (M17)**. Before persona, before mandate. Agent reads: run preflight at Phase 0.0; run audit at Phase 5; if audit exits 1 → REFUSED; Phase 4's work plan IS the 4 reports.
+
+#### Changed — smoke test extended
+- `smoke-test.sh` check #8: M17 regression. Copies django fixture, runs preflight, verifies 3 reports written, runs audit, verifies it exits 1 (TBDs unfilled = expected). Catches any break in the M11→M17 chain.
+
+#### Closes M11→M16 trajectory
+| Gap | Closed by |
+|---|---|
+| Prose rules skipped under context pressure | M17 front-loaded contract |
+| 4 separate scripts → easy to forget one | M17 `run-preflight.sh` composite |
+| Phase 5 audit LLM-judged | M17 `audit-setup.sh` deterministic |
+| No regression test for the loop | M17 smoke check #8 |
+
+#### Verified
+- `smoke-test.sh`: 8/8 pass; 0 fail / 0 warn.
+- `verify-sync.sh`: 56 ok / 0 drift.
+
+#### Honest scope
+M11 → M17 is mechanical from orchestrator's first instruction to Phase 5's exit code. Remaining LLM-judgment: filling `<TBD>` prose, addressing actionable rows in Phase 4, judging recommendation quality. Bug class reduced from "agent silently skipped the work" to "agent did the work shallowly" — much narrower and easier to spot in review.
+
 ## [2.12.0] — 2026-04-28
 
 ### M16 — Full codebase analysis + structural recommendations contract

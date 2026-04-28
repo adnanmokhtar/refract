@@ -131,6 +131,40 @@ else
   warn_msg "fixtures shape returned non-zero (some snapshots not yet recorded; expected pre-M5)"
 fi
 
+# 8. M17 — preflight + audit regression
+log ""
+log "=== 8. M17 preflight + audit regression ==="
+m17_tmp=$(mktemp -d /tmp/m17-smoke.XXXXXX)
+trap "rm -rf '$m17_tmp'" EXIT
+cp -R "$REPO_ROOT/tests/setup-project/fixtures/django/." "$m17_tmp/" 2>/dev/null
+mkdir -p "$m17_tmp/.claude"
+
+# Preflight should produce 4 reports (3 in CREATE mode — skips refresh-extract)
+if "$REPO_ROOT/scripts/run-preflight.sh" "$m17_tmp" --mode=create >/dev/null 2>&1; then
+  ok "run-preflight.sh CREATE mode succeeded"
+else
+  err "run-preflight.sh CREATE mode failed"
+fi
+
+for rpt in _pack-coverage-report.md _study-existing-report.md _codebase-scan.md; do
+  if [[ -f "$m17_tmp/.claude/$rpt" ]]; then
+    ok "preflight wrote $rpt"
+  else
+    err "preflight didn't write $rpt"
+  fi
+done
+
+# Audit must REFUSE because the codebase-scan TBDs are unfilled
+set +e
+"$REPO_ROOT/scripts/audit-setup.sh" "$m17_tmp" --mode=create >/dev/null 2>&1
+audit_exit=$?
+set -e
+if [[ "$audit_exit" -eq 1 ]]; then
+  ok "audit-setup.sh correctly REFUSED (TBDs unfilled)"
+else
+  err "audit-setup.sh exited $audit_exit; expected 1 (REFUSED — TBDs should be unfilled)"
+fi
+
 # Summary
 log ""
 log "=== summary ==="

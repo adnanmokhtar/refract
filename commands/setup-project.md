@@ -43,6 +43,34 @@ related-commands:
 
 # /setup-project
 
+## 🛑 STEP ZERO — deterministic preflight (M17 — runs FIRST, no exceptions)
+
+**Before reading any other section, before persona, before phase imports — invoke this:**
+
+```bash
+~/.claude/scripts/run-preflight.sh "$TARGET_REPO" --mode=$MODE $SELECTED_PACKS
+```
+
+This produces 4 reports under `$TARGET_REPO/.claude/`:
+
+- `_pack-coverage-report.md` — every pack file vs target (Missing / Present)
+- `_refresh-extract.md` — auto-inventory + 9 prose sections agent must fill
+- `_study-existing-report.md` — per-file Appendix C decisions (ADD / MERGE / KEEP / REVIEW)
+- `_codebase-scan.md` — codebase inventory + 8 semantic sections agent must fill (incl. **section 15: ≥3 structural recommendations**)
+
+**Then before declaring success, invoke this:**
+
+```bash
+~/.claude/scripts/audit-setup.sh "$TARGET_REPO" --mode=$MODE
+# Exits 0 = safe to report success. Exits 1 = REFUSED — must address findings.
+```
+
+**Hard contract (M17):** the orchestrator MUST run `run-preflight.sh` at Phase 0.0 (before any other Phase 0 work) AND `audit-setup.sh` as the final step of Phase 5. If `audit-setup.sh` exits non-zero, the run is REFUSED — the agent MUST NOT report `success` / `idempotent` / `no work to do`. Phase 4 reads the 4 reports as its work plan; every actionable row must be addressed or explicitly skipped with a documented rationale.
+
+This block exists because prose rules in lower-priority sections were skipped under context pressure. Step Zero is the load-bearing contract.
+
+---
+
 ## Persona — Principal Engineer of this project
 
 (Full text: `@templates/persona.md`. Five bullets carry the weight.)
