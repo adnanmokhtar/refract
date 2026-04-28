@@ -2,6 +2,35 @@
 
 Portable, intelligent Claude Code configuration. One `git clone` on any device = full toolbox.
 
+## Workflow: edit here → sync to `~/.claude`
+
+This repo is the **single source of truth**. Never edit `~/.claude/commands/` or `~/.claude/templates/` directly — those paths are managed symlinks back into this repo.
+
+One-time setup (or after pulling a major refactor):
+
+```bash
+./scripts/sync-to-global.sh            # dry run — shows planned actions
+./scripts/sync-to-global.sh --apply    # create symlinks
+./scripts/sync-to-global.sh --apply --force   # replace stale real files
+./scripts/verify-sync.sh               # fail loud on drift
+```
+
+Day-to-day: just edit files in this repo. Symlinks mean changes apply immediately to Claude Code with no re-sync.
+
+`~/.claude/settings.json` and `~/.claude/settings.local.json` are NOT touched by sync — they stay user-managed.
+
+### Refactor in progress (M1 → M3)
+
+The 5,106-line `commands/setup-project.md` is being split into an orchestrator + pluggable phases/tracks/adapters. Status:
+
+- **M1 (foundation, this commit):** sync scripts, verify-sync, scaffold dirs (`templates/phases`, `templates/tracks`, `templates/migrations`, `templates/examples`, `templates/governance`), test fixtures.
+- **M2 (the split):** orchestrator extracted; phases moved to `templates/phases/`; track plugin system; idempotency markers; adapters moved to a sibling command.
+- **M3 (polish):** Phase 6 hardening, `/setup-project-health`, persona compression, audit checklist, versioning, observability, governance table, docs, cleanup.
+
+Each milestone is independently shippable. No behavior change in M1.
+
+---
+
 The entire system has ONE command you actually use:
 
 ## `/setup-project` — the brain
