@@ -6,6 +6,46 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-04-28
+
+### M10 — Migration command suite (5 phased-execution commands)
+
+User asked for slash commands instead of agent prompts for V1→V2 migration. Built 5 stack-agnostic commands that force a phased migration with gap-finding + verification.
+
+#### Added
+- `templates/packs/migration/commands/migration-scan.md` — deep V1↔V2 comparison. Reads BOTH codebases, understands structures, builds `ai/migration/ledger.md` with every row `status: unverified` (trust nothing). Outputs `scan-report.md` with structural deltas + recommended phasing.
+- `templates/packs/migration/commands/migration-plan.md` — produces `ai/migration/plan.md`. Phased plan grouped by domain + dependency. Foundation first (auth, tenant, infra). Each phase has measurable exit criteria. **Honors V2's NEW structure — never lift-and-shift.**
+- `templates/packs/migration/commands/migration-phase.md` — executes phase N. Per feature: AUDIT → GAP-FIND → PORT (using V2 conventions) → VERIFY (parity test) → UPDATE ledger. Stops at phase boundary. `--feature=<id>` for retry; `--audit-only` for triage.
+- `templates/packs/migration/commands/migration-gate.md` — phase exit gate. Confirms every phase-N feature is `done` + `parity_test=passing`. **Read-only; refuses on any blocking issue.** Append-only `_history.md` entry on PASS.
+- `templates/packs/migration/commands/migration-final.md` — full sweep. Confirms every feature complete across all phases. Optional `--re-audit` to re-run parity tests catching drift since gate. Produces V1 retirement plan with cutover sequence + rollback procedure.
+
+#### Design properties
+- **Stack-agnostic** — works for frontend pages, API endpoints, scheduled jobs, queue consumers, CLI commands, anything that has identifiable behavior.
+- **Trust nothing** — every status reset to `unverified` at scan; verified by parity test before flipping to `done`.
+- **No silent ports** — `/migration-scan` and `/migration-plan` write zero code; only `/migration-phase` ports.
+- **Idempotent** — every command writes through managed markers; re-running doesn't lose state.
+- **Phased gating** — `/migration-gate` refuses pass on any blocking issue; next phase can't start until current is green.
+
+#### Workflow
+```
+/migration-scan          # build fresh ledger, deep V1↔V2 comparison
+/migration-plan          # phased plan covering everything
+/migration-phase 1       # run phase 1: audit + port + verify
+/migration-gate 1        # confirm phase 1 complete
+/migration-phase 2       # next phase
+/migration-gate 2
+... (repeat per phase)
+/migration-final         # full sweep + V1 retirement plan
+```
+
+#### Activation
+After M10 syncs, run `/setup-project --include=migration` in any V2 repo to receive the 5 new commands. The merge matrix decides per command: ADD if no project equivalent exists, SKIP-with-redirect if a specialized version is already present.
+
+#### Verified
+- `lint-artifact.sh`: 0 errors / 20 warnings (5 new commands all parse clean).
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `verify-sync.sh`: 30 ok / 0 drift.
+
 ## [2.6.0] — 2026-04-28
 
 ### M9 — Canonical reference doc

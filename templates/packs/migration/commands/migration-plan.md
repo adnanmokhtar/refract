@@ -1,0 +1,152 @@
+---
+description: Forces a phased migration plan from the scan output. Groups features into phases by dependency + domain. Sequence within each phase. Honors V2's NEW structure (no lift-and-shift). Stack-agnostic — works for frontend, API, jobs, scripts, anything.
+kind: command
+pack: migration
+---
+
+# /migration-plan
+
+Reads the ledger + scan report, produces `ai/migration/plan.md` — the phased execution plan.
+
+## Pre-requisites
+
+- `/migration-scan` has been run (ledger + scan-report exist).
+- `ai/migration/ledger.md` has rows with `status: unverified`.
+
+If pre-requisites missing → halt + tell user to run `/migration-scan` first.
+
+## Phase 1 — Understand (the ask)
+
+Inputs:
+- `ai/migration/scan-report.md` — structural deltas + recommended phasing.
+- `ai/migration/ledger.md` — feature inventory.
+- `ai/architecture.md` — declared V2 module boundaries (constraints).
+- ADRs in `ai/decisions/` — past decisions that constrain the order.
+
+Optional flags:
+- `--phases=<N>` — target number of phases (default: auto from scan recommendation).
+- `--max-features-per-phase=<N>` — cap per phase (default: 12).
+
+## Phase 2 — Organize (decompose the work)
+
+Decomposition strategy, in priority order:
+
+1. **Foundation first.** Auth, tenant resolution, shared infrastructure — every feature depends on these. Phase 1.
+2. **Group by domain.** Auth → Tenant → Core flow → Payments → Reporting → Admin → Cleanup.
+3. **Honor dependency graph.** A feature that calls another must be ported AFTER its dependency.
+4. **Cap phase size.** Phases over `--max-features-per-phase` get split (smaller phases ship more reliably than huge ones).
+5. **Mix shapes within domain.** A "core flow" phase can include the API endpoint AND the frontend page AND the scheduled job that processes the result — all together, since they're one logical user-facing capability.
+
+## Phase 3 — Retrieve (read the right context)
+
+For each feature in the ledger:
+- Read 1-2 V1 source files for the feature — understand what it does + what it depends on.
+- Read existing V2 file (if any) — understand current state + structure.
+- Cross-reference `ai/patterns/v1-patterns-crossref.md` if it exists — known V1↔V2 mappings.
+
+This is heavy work; fan out via Explore subagents capped per `--max-subagents`.
+
+## Phase 4 — Generate (produce the output)
+
+Write `ai/migration/plan.md`:
+
+```markdown
+# Migration plan — V1 → V2
+
+Generated: <YYYY-MM-DD>
+Scan source: ai/migration/scan-report.md (rev <commit>)
+Ledger source: ai/migration/ledger.md (revision pinned)
+
+## V2 structure summary (non-negotiable target)
+
+> The migration follows V2's NEW structure — never V1's lift-and-shift. Cite specifics so each phase knows what "follow new structure" means.
+
+- Routing: <V2's route shape>
+- Module layout: <V2's module boundaries>
+- Data layer: <V2's ORM / repository pattern>
+- Auth: <V2's auth library>
+- Conventions: <V2's naming + structure rules from ai/conventions.md>
+
+## Phase 1 — Foundation
+**Goal**: every feature in later phases depends on these. Land first; nothing else can audit-pass until they're done.
+
+### Features in this phase
+| ID | Feature | V1 path | V2 path | Shape | Effort |
+|---|---|---|---|---|---|
+| F001 | auth-login | <v1/path> | <v2/path> | api+frontend | 3d |
+| F002 | tenant-resolver | <v1/path> | <v2/path> | api | 2d |
+| ... | | | | | |
+
+### Phase exit criteria
+- Every feature: status=done in ledger.
+- Every feature: parity_test=passing.
+- ADR exists for any intentional behavior change.
+
+## Phase 2 — <domain>
+(same shape)
+
+## Phase 3 — <domain>
+(same shape)
+
+...
+
+## Phase K — Cleanup + V1 retirement
+**Goal**: V1 has zero traffic; archived; no remaining feature dependencies.
+
+### Steps
+- Feature-flag flip per route group (if cutover mechanism = feature-flag).
+- V1 read-only window (announce + monitor).
+- V1 traffic → 0%.
+- V1 archive (separate repo / branch / cold storage).
+
+### Phase exit criteria
+- V1 receives 0 production traffic for 7 consecutive days.
+- All ports verified in `/migration-final`.
+
+## Total features: <N> across <K> phases
+## Estimated phases per week: <X> (based on team capacity from ai/status.md)
+```
+
+## Phase 5 — Update (persist changes to the knowledge base)
+
+- `ai/migration/plan.md` — managed-block; re-runnable.
+- `ai/migration/ledger.md` — add `phase: <N>` field to each row (managed-block update).
+- `ai/index.md` — append-once entry pointing to the plan.
+
+## Phase 6 — Validate (verify correctness)
+
+- Every ledger row is assigned a phase (no orphans).
+- Foundation phase has no incoming dependencies from later phases.
+- No phase exceeds `--max-features-per-phase`.
+- Phase exit criteria are measurable (status + parity-test, not vague language).
+- ADR-references resolve (every cited ADR exists in `ai/decisions/`).
+
+If any check fails → halt + report.
+
+## Phase 7 — Improve (feed the learning loop)
+
+- If the dependency graph surfaced a circular dependency between V1 features → that's a pre-existing V1 architectural issue; flag for ADR before porting (don't blindly carry the cycle into V2).
+- If a "shape" recurs across many features (e.g., "every order endpoint also publishes a domain event") → propose a pattern in `ai/patterns/`.
+- If structural deltas suggest the V2 architecture itself needs adjustment before porting → halt and surface to user with proposed ADR.
+
+## Output to user
+
+```
+Migration plan written:
+  ai/migration/plan.md
+
+Phases: <K>
+Total features: <N>
+Foundation phase: <X> features
+Largest phase: <Y> features
+
+Next: /migration-phase 1   (audits + ports + verifies phase 1 features)
+```
+
+## Hard rules
+
+- **No phase ships features that aren't in the ledger.** The ledger is the source of truth; the plan reads from it, never invents features.
+- **Every phase has measurable exit criteria.** Not "phase complete when most things work."
+- **V2 structure is the target, not V1's.** Plan rows cite V2 paths even when the V2 file doesn't exist yet — that's the planned home.
+- **Foundation first.** Auth + tenant + shared infra always go first. Refuse a plan that puts them later.
+- **No partial porting in one phase.** A feature is either fully ported (verify-green) or not in this phase. Half-ports rot.
