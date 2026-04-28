@@ -19,19 +19,26 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 
 `~/.claude/settings.json` and `~/.claude/settings.local.json` are NOT touched by sync — they stay user-managed.
 
-### Refactor in progress (M1 → M3)
+### Refactor done (M1 → M3 shipped 2026-04-28)
 
-The 5,106-line `commands/setup-project.md` is being split into an orchestrator + pluggable phases/tracks/adapters. Status:
+The 5,153-line `commands/setup-project.md` has been split into an orchestrator + pluggable phases/tracks/adapters/capabilities. See `CHANGELOG.md` for details.
 
-- **M1 (foundation, this commit):** sync scripts, verify-sync, scaffold dirs (`templates/phases`, `templates/tracks`, `templates/migrations`, `templates/examples`, `templates/governance`), test fixtures.
-- **M2 (the split):** orchestrator extracted; phases moved to `templates/phases/`; track plugin system; idempotency markers; adapters moved to a sibling command.
-- **M3 (polish):** Phase 6 hardening, `/setup-project-health`, persona compression, audit checklist, versioning, observability, governance table, docs, cleanup.
+- **M1** (a712053) — sync scripts, verify-sync, fixtures, workflow doc.
+- **M2** (1bc91cd) — orchestrator (236 lines) + 7 phase files + decision engine + idempotency contract + track plugin system + sibling `/setup-project-adapters` command.
+- **M3** (this release) — Phase 4 sub-phase split, capabilities split per-file, hard-rules table reformat, persona compression, Phase 5 audit checklist, `/setup-project-health`, `/learn-from-task`, knowledge-curator agent, observability log, CHANGELOG.
 
-Each milestone is independently shippable. No behavior change in M1.
+The original monolith is preserved at `.archive/setup-project.M1.monolith.md` for diff review.
 
 ---
 
-The entire system has ONE command you actually use:
+## Commands
+
+| Command                        | Purpose                                                            |
+|--------------------------------|--------------------------------------------------------------------|
+| `/setup-project`               | The brain — scaffold or enhance any project, any stack             |
+| `/setup-project-adapters`      | Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, …)          |
+| `/setup-project-health`        | Read-only health report (drift, staleness, budgets, parity)        |
+| `/learn-from-task`             | Phase 6 manual entry — promote concrete learnings into ai/         |
 
 ## `/setup-project` — the brain
 

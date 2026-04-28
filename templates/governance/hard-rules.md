@@ -1,84 +1,235 @@
 ---
 artifact: hard-rules
-purpose: Always / Never governance overlay. A `must`/`must-not` violation in Phase 5 audit = command refuses to report success.
-imported-by: commands/setup-project.md (orchestrator) and Phase 5.
-note: M3 will reformat as a Rule | Why | Applies-To-Phases | Severity table. Content is preserved verbatim from the M1 monolith.
+purpose: Always / Never governance overlay. Severity must / must-not violations cause Phase 5 audit to refuse "success." Severity should / should-not violations are warned and logged.
+imported-by: commands/setup-project.md (orchestrator), every phase, /setup-project-health.
 ---
 
-## Hard rules
+# Hard rules
 
-### Always
-- Plan BEFORE write. Show plan; wait for "proceed" unless `--force-*`.
-- Real content. No placeholders in generated files.
-- Phase 1 bias in knowledge-base generation (don't over-design for later phases).
-- Respect existing work — never overwrite user-authored content without explicit confirmation.
-- Save reusable outputs back to packs (framework refs + generate-on-signal agents).
-- Hook-aware `ai/status.md` — always has `Updated:` + `## Recent Changes`.
-- Opinionated — make decisions, record as ADRs. Don't hedge.
-- Token-aware — delegate heavy scans to Explore subagent; terse output.
-- Always write `AGENTS.md` + `ai/references/models.md` (canonical: see § "3.2 Tool-adapter selection" Tool-adapters table + Phase 4.8 ordering).
-- Respect each tool adapter's idempotency markers — user edits below the marker must persist across re-runs.
-- **Copy packs verbatim when applying** *(COPY-mode tracks)* — see Phase 4.2.b (deterministic `cp`, never LLM-driven). Reference-path injection adapts; never trims. Output shorter than source = regression bug.
-- **Author from extracted idioms** *(AUTHOR-mode tracks)* — see Phase 2.5 + Phase 4.2-AUTHOR + Decision Engine rule 7. When extraction signal exists, generate output from `.claude/_extracted-idioms.md` + topic spec, NOT from pack template body. Every cited method/path/line must trace to a file the extractor read; no invention.
-- **Run Phase 2.5 in every ENHANCE/REFRESH** when ≥1 base class has ≥3 extenders. Skipping it forces every track into COPY mode and reverts to generic output. The extracted-idioms file is what makes the difference between "templated setup" and "project-aligned setup."
-- **Signal-density over line count when authoring packs** — every line teaches something unique (rule, step, example, failure mode). A 60-line dense file beats a 200-line padded one. Density (pack-authoring) and verbatim copy (pack-applying) are complementary, not contradictory.
-<!-- Workspace cascade canonical home: Decision engine § rule 6. Implementation: Phase 4.1. Tool-adapter scope: Phase 4.8. -->
-<!-- AGENTS.md always-written canonical home: § "3.2 Tool-adapter selection" Tool-adapters table. Implementation: Phase 4.8 ordering (codex adapter is the canonical writer). -->
-<!-- Pre-flight injection canonical home: Phase 4.6. -->
-<!-- Tool-adapter selection canonical home: Phase 3.2. -->
+## Severity codes
 
-- **Adapt to detected conventions, don't override them.** Generated rules + agents + patterns MUST cite the project's actual conventions (file-naming style, base classes by path if any, suffix matrix, test colocation, etc.) at the TOP, with generic prose underneath. A `database.md` that says only "use parameterized queries" without naming the project's actual data-access lib + repository helper from `.claude/_extracted-codebase.md` is broken — the LLM won't follow project style in subsequent tasks. The cited specifics come ENTIRELY from this codebase's extraction; never from another project's run.
-- **If you don't know where new code belongs, don't write it.** Map every new file / module / feature to a defined home in `ai/modules.md` BEFORE writing. No module fits → plan a new module first (and record it as an ADR if architectural), or stop and ask. Files dropped into the repo root, a catch-all `utils/` / `shared/` / `common/` folder, or a vague "misc" location accumulate as architectural debt that no later refactor pays back. The discipline is: "where does this live?" answered, then code.
-- **Boy Scout Rule on every touched file.** Code you change leaves cleaner than you found it: dead imports removed, commented-out blocks deleted, vague names sharpened, redundant comments cut, single obvious cleanup applied. Bound the scope to what's adjacent to your change (don't balloon the diff into a whole-file rewrite). The Phase 6 learning loop captures these as patterns when they recur; the Hard Rule keeps them from being silently skipped under "I'll do it in the cleanup PR" (which never lands).
-- **Inject mandatory pre-flight in every agent.** Every copied/generated agent gets the auto-injected pre-flight ("read codebase-profile + conventions + business-domain + project-goals + mirror existing module + identify I/O & deps before modifying"). Without this, agents fall back to generic patterns in the next task.
-- **Foundational ruleset is the four `repo-baseline` rules — period.** Every project ships `.claude/rules/read-before-write.md` + `.claude/rules/read-codebase-deeply.md` + `.claude/rules/code-quality.md` + `.claude/rules/think-simplify-surgical.md`. The first three answer *what to read* + *what "clean" means*; the fourth (Karpathy-inspired task-discipline layer) answers *how to act on what you read* — explicit assumptions, simplicity-first, surgical scope, verifiable success criteria. Skipping any one re-introduces a known LLM failure mode. Phase 4.0.6 enforces their presence; Phase 5.1 retries-then-halts if any are missing.
-- **Parallel I/O is load-bearing for any backend on a non-blocking-I/O runtime.** When the backend track is selected AND the runtime supports async (Node.js, Python-async, Go, Java 21+, .NET, Kotlin, Rust-tokio, Elixir), Phase 4.0 ships `.claude/rules/concurrency-discipline.md` + `ai/patterns/parallel-io.md` + `.claude/skills/parallelize-independent-ops.md` and Phase 4.6 anchors them to the project's actual primitive (Phase 2 Step 15 detection: native `Promise.all` / `Bluebird.map` / `p-limit` / `asyncio.gather` / `asyncio.Semaphore` / `errgroup` / `CompletableFuture` / `StructuredTaskScope` / `Parallel.ForEachAsync`). Without this, generated agents reproduce the most common LLM-authored backend perf failure: sequential `await` of independent I/O — turning 100ms × 8 batches into 800ms wall-clock when it could be 100ms. Synchronous-only stacks (Ruby without Async, sync-only Python, single-threaded scripts) are exempt — Phase 2 Step 15 detection skips, and these three artifacts are not enforced.
-- **Run setup-project's own independent sub-steps in parallel where dependency allows.** Concrete opportunities: (a) Phase 2.5 base-class idiom extraction is already parallel — up to 6 concurrent Explore subagents (one per base class). (b) Phase 4.2 per-track copies are independent across tracks — fan out one subagent per LOAD-BEARING track, cap = total tracks. (c) Phase 4.4 technical-signal overlays are independent across signals. (d) Phase 4.4b business-domain content authoring is per-domain, parallel-safe. (e) Phase 4.8 tool-adapter generation is independent across adapters — fan out one subagent per selected adapter, cap = #adapters (typically 1–4). What MUST stay sequential: Phase 0 backup → extract → re-detect (each step depends on the prior); Phase 4.1 baseline scaffold (must complete before any pack copy reads from disk); Phase 5.1 → 5.2 → … audit ordering (each gates the next). When in doubt, treat phase boundaries as sequential and intra-phase fan-out as parallel.
-- **REFINE is the round-two deepening pass — not a substitute for CREATE / ENHANCE / REFRESH.** Round one (CREATE / ENHANCE) gets the floor right: every load-bearing track has its minimum artifacts present, anchored to the project's surface signals. Round two (`--refine`) goes deeper: re-reads the actual code (Phases 2.7–2.12 — domain entities by inspection of model classes / migrations / Pydantic / Zod schemas; architecture by tracing import graphs and request lifecycles; flows by following endpoints from controller to repository to DB; convention emergence by detecting recurring patterns the first pass missed; perf hot paths by reading hot endpoints + N+1 patterns + index coverage; failure history from git log / bug tracker / incident postmortems if accessible) and rewrites ONLY the `## Project-specific` blocks of artifacts whose anchor-density is below threshold. User-authored sections are preserved verbatim — REFINE only deepens what the command itself wrote. Round-two outputs include `.claude/_setup-quality.md` (per-artifact density score: name-density, path-density, signal-density, total) + `.claude/_refine-extract.md` (deep-extraction findings) + per-artifact diff appended to `.claude/_refine-log.md`. Idempotent: when no shallow artifacts remain (every artifact ≥ 70/100 OR no new deep-extraction signal surfaces), REFINE reports "plateau reached" and exits without writes. Without REFINE, first-pass setups stay generic — referencing "your service layer" instead of `app/services/billing.py:Billing` — and Claude inherits that genericness in every downstream task. The `--refine` flag is opt-in (never auto-applied) because the user decides when round-one settling is "done enough" to deepen.
-- **V1→V2 migration is a first-class workflow** when Phase 2 Step 16 detects `migration_layout_detected` OR the user opts in via `--include=migration`. The `migration` pack ships: rule `migration-discipline.md` (parity is non-negotiable; perf uplift only when parity-preserving; every intentional behaviour break documented), patterns `feature-port.md` + `parity-testing.md` + `migration-ledger.md`, skills `extract-v1-contract.md` + `parity-test-generate.md` + `perf-uplift-survey.md`, agents `migration-architect.md` + `parity-auditor.md`, commands `/port-feature` + `/migration-status`. Phase 4.0 ledger bootstrapping populates `ai/migration/ledger.md` from the V1 feature inventory (per Phase 2 Step 16 detection) so per-feature ports have a starting state. Phase 4.6 anchors `migration-discipline.md` + `feature-port.md` + `parity-testing.md` + `migration-ledger.md` to the project's actual V1 root + V2 root + cutover mechanism + ledger path. Without this, generated agents reproduce the two most common migration failures: silent behavioural drift (V2 *almost* matches V1, ships, customer issues surface for months) AND scope creep (port + redesign + perf + new feature in one PR — none reviewable). Migration-time perf uplift (caching strategies, DB indexes, query optimisation, column projection) is captured per-feature in `ai/migration/perf-decisions/<feature>.md` with applied / deferred / rejected decisions + measurements. Greenfield projects without V1+V2 evidence skip the pack unless the user opts in.
-- **Every command follows the 7-phase canonical structure** (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). See "Canonical command structure" section above. Deviations must be documented; silent omissions are not allowed.
-- **REFRESH always backs up first, extracts second, regenerates third.** Phase 0 is non-negotiable in REFRESH mode (Critical Execution Rule 6). The order is fixed: backup → extract → re-detect → merge → regen → audit-against-extract → cleanup. Skipping or reordering any step is the failure mode this mode exists to prevent.
-- **REFRESH preserves ADRs, validated corrections, and project intent verbatim.** ADRs are append-only history; validated corrections are user-given truth; project intent answers are facts the codebase doesn't encode. Generic packs and conventions get regenerated; these three categories get preserved.
-- **Every pack source has `_version.json` + `CHANGELOG.md` (B2).** Phase 4.0 pack-load preflight refuses to apply a pack without them. Breaking changes (major bump) MUST ship with a migration script in `migrations/`.
-- **Version stamps record per-run.** `.claude/codebase-profile.md` § "Setup version" MUST contain `setup_command` + per-pack + per-domain + per-adapter versions. Without this, drift detection at session-start can't function.
-- **Failure catalog loaded in pre-flight for architectural agents (B10).** Every architecture-decision-class agent (nestjs-architect / backend-architect / db-architect / etc.) injects `@file ai/failures/_index.md` in pre-flight. Without it, agents propose ideas that already failed.
-- **Failures are append-only** (B10). `status: superseded_by_<adr>` when conditions change; `validated_failure` becomes archive, never deleted.
-- **Schema validation runs in Phase 5.4 every mode (B4).** Every generated JSON config + frontmatter validated against `~/.claude/templates/schemas/`. Missing schema = broken adapter = halt.
-- **Health score appears in `_session-digest.md` (B3).** Tier 1 visibility — silent decay isn't allowed.
-- **Telemetry is local-only** (B3). NEVER make a network call from telemetry. NEVER include user/PII in telemetry entries. `.claude/_telemetry.jsonl` MUST be `.gitignore`d.
-- **Factories scaffold per detected business-domain** (B17). When `business_domain = ecommerce` is detected, `test/factories/<entity>.factory.ts` is generated for every entity in code (matching detected test framework + ORM). Skipping factory generation when factories.md exists is a regression.
-- **Multi-language preamble in human-facing docs only** (B14). `--lang=ar` adds bilingual preamble to CLAUDE.md / AGENTS.md / `ai/README.md`. Generated code comments + variable names stay English.
-- **Wizard preview shows real content, not placeholders** (B22). A wizard that previews `<TODO>` is broken. Mock outputs MUST be the actual what-will-be-written content.
+- `must` — violation = command refuses to report success in Phase 5.
+- `must-not` — same; surfaced as a destructive risk.
+- `should` — warned, logged in `ai/_setup-history.md`; user can override.
+- `should-not` — same; user override required.
 
-### Never
-- Overwrite `.env*` or lock files.
-- Delete user-authored docs / agents / rules.
-- Generate tooling for signals not present (no payment files without Stripe/etc.).
-- Invent architecture conflicting with existing code.
-- Downgrade an existing setup — enhance means ADD, never SUBTRACT.
-- Bypass safety hooks (`--no-verify`, `rm -rf`).
-- Force-push, reset-hard, or destructive git.
-- Write tool configs the project isn't using (don't scatter `.cursor/`, `.clinerules/`, etc. unless selected by `--tools` or detected).
-- Duplicate rule content across every tool config — each adapter either references canonical `.claude/rules/*.md` or embeds a compact summary. Never fan-out full verbatim copies.
-- **Thin-generate content when a pack source exists.** Copy the pack source. If output is shallower than source, it's a regression.
-- **Pad pack templates to hit line targets.** Depth means unique signal per line, not word count. If you add content, it must be a new rule / new step / new example / new failure mode — never a restatement of content already present.
-- **Restate frontmatter `description` in the body.** The reader already saw it.
-- **Create redundant sections** ("Invariants" + "Rules" + "What not to do" + "Anti-patterns" + "Failure modes" — pick ONE hat per concern).
-- **Write "References" that duplicate "Pre-flight reading"** — one list is enough.
-- **Ship generic conventions in `ai/conventions.md`** when a real codebase exists. The file MUST be auto-populated from the codebase profile. Generic content here = Claude will write code that doesn't match project style in subsequent tasks.
-- **Skip the project-specific block** at the top of generated rules. Without it, the rule is a generic copy that Claude applies blindly.
-- **REFRESH without backup** unless `--no-backup` is passed AND user confirmed in plan. Default backup is the rollback safety net; bypassing silently is a destructive-action escalation.
-- **REFRESH without reading existing setup files first** — even if the user is in a hurry. Phase 0.2 extract is what makes REFRESH non-destructive to accumulated knowledge. Without it, REFRESH = nuke + regen-from-scratch, which is what `--force-replace-all` already does — REFRESH must be MORE careful, not less.
-- **REFRESH that drops ADRs.** ADRs are append-only history. If an ADR existed in the backup and is missing in the regen output, the audit MUST halt. Period.
-- **REFRESH that delete the backup directory.** Even after a successful regen, the backup stays. The user decides when (if ever) to remove `.claude/backups/`. Auto-cleanup is a footgun.
+Phase 5 references rules by ID. Edit prose below the table; never delete a row without bumping the rules-version (`templates/governance/_version.md`, M3 follow-up).
 
-### When to ask (ONE consolidated question)
+## Always
+
+| ID  | Rule (one-line)                                                          | Severity  | Applies-to-phases       |
+|-----|--------------------------------------------------------------------------|-----------|-------------------------|
+| A01 | Plan BEFORE write; show plan; wait for approval unless `--force-*`       | must      | 3, 4                    |
+| A02 | Real content. No placeholders in generated files                         | must      | 4                       |
+| A03 | Phase 1 bias in knowledge-base generation                                | should    | 4                       |
+| A04 | Respect existing user-authored content; never overwrite without confirm  | must      | 4                       |
+| A05 | Save reusable outputs back to packs                                      | should    | 6                       |
+| A06 | `ai/status.md` always has `Updated:` + `## Recent Changes`               | must      | 4, 6                    |
+| A07 | Opinionated — make decisions, record as ADRs                             | should    | 3, 4                    |
+| A08 | Token-aware — terse output; delegate heavy scans to Explore subagent     | should    | all                     |
+| A09 | Always write `AGENTS.md` + `ai/references/models.md`                     | must      | 4 (4.8)                 |
+| A10 | Respect each adapter's idempotency markers across re-runs                | must      | 4 (4.8)                 |
+| A11 | COPY-mode tracks: copy packs verbatim (deterministic; no LLM rewrite)    | must      | 4 (4.2.b)               |
+| A12 | AUTHOR-mode tracks: only emit content traceable to extracted-idioms file | must      | 2.5, 4 (4.2-AUTHOR)     |
+| A13 | Run Phase 2.5 in every ENHANCE/REFRESH when ≥1 base class has ≥3 extenders | must    | 2                       |
+| A14 | Pack authoring: signal-density over line count                           | should    | 6                       |
+| A15 | Adapt to detected conventions; cite project specifics, not generic prose | must      | 4 (4.6)                 |
+| A16 | Map every new file to a defined home in `ai/modules.md` BEFORE writing   | must      | 4                       |
+| A17 | Boy Scout Rule on every touched file (bounded scope)                     | should    | 4, 6                    |
+| A18 | Inject mandatory pre-flight in every generated agent                     | must      | 4 (4.6)                 |
+| A19 | Foundational ruleset: ship the four `repo-baseline` rules — period       | must      | 4 (4.0.6, 5.1)          |
+| A20 | Backend track + async runtime → ship parallel-IO discipline artifacts    | must      | 4 (4.0)                 |
+| A21 | Run setup-project's own independent sub-steps in parallel where allowed  | should    | 2, 4                    |
+| A22 | REFINE deepens; never substitutes for CREATE/ENHANCE/REFRESH             | must      | 1, 4-DEEP               |
+| A23 | V1→V2 migration is first-class when detected or `--include=migration`    | should    | 2 (16), 4 (4.6)         |
+| A24 | Every generated command follows the 7-phase canonical structure          | must      | 4                       |
+| A25 | REFRESH order: backup → extract → re-detect → merge → regen → audit      | must      | 0                       |
+| A26 | REFRESH preserves ADRs, validated corrections, project intent            | must      | 0, 4                    |
+| A27 | Every pack source has `_version.json` + `CHANGELOG.md`                   | must      | 4 (4.0)                 |
+| A28 | Version stamps recorded per-run in `codebase-profile.md`                 | must      | 4 (4.0), 6              |
+| A29 | Architectural agents inject `ai/failures/_index.md` in pre-flight        | must      | 4 (4.6)                 |
+| A30 | Failures append-only; superseded entries archived, never deleted         | must      | 6                       |
+| A31 | Schema validation runs in Phase 5.4 every mode                           | must      | 5 (5.4)                 |
+| A32 | Health score appears in `_session-digest.md` (Tier 1 visibility)         | must      | 6                       |
+| A33 | Telemetry is local-only; no network; no PII; `.gitignore`d               | must      | 4, 6                    |
+| A34 | Factories scaffold per detected business-domain                          | must      | 4 (4.4b)                |
+| A35 | Multi-language preamble in human-facing docs only; code stays English    | must      | 4                       |
+| A36 | Wizard preview shows real content, not placeholders                      | must      | 3 (wizard mode)         |
+
+## Never
+
+| ID  | Rule (one-line)                                                          | Severity  | Applies-to-phases       |
+|-----|--------------------------------------------------------------------------|-----------|-------------------------|
+| N01 | Overwrite `.env*` or lock files                                          | must-not  | 4                       |
+| N02 | Delete user-authored docs / agents / rules                               | must-not  | 4                       |
+| N03 | Generate tooling for signals not present                                 | must-not  | 4                       |
+| N04 | Invent architecture that conflicts with existing code                    | must-not  | 4                       |
+| N05 | Downgrade an existing setup (enhance = ADD, never SUBTRACT)              | must-not  | 4                       |
+| N06 | Bypass safety hooks (`--no-verify`, `rm -rf`)                            | must-not  | all                     |
+| N07 | Force-push, reset-hard, destructive git                                  | must-not  | all                     |
+| N08 | Write tool configs the project isn't using                               | must-not  | 4 (4.8)                 |
+| N09 | Duplicate rule content across every tool config                          | must-not  | 4 (4.8)                 |
+| N10 | Thin-generate content when a pack source exists                          | must-not  | 4 (4.2)                 |
+| N11 | Pad pack templates to hit line targets                                   | should-not| 6 (authoring)           |
+| N12 | Restate frontmatter `description` in the body                            | should-not| 4, 6                    |
+| N13 | Create redundant sections (Invariants + Rules + Anti-patterns…)          | should-not| 4, 6                    |
+| N14 | Write "References" that duplicate "Pre-flight reading"                   | should-not| 4, 6                    |
+| N15 | Ship generic `ai/conventions.md` when a real codebase exists             | must-not  | 4                       |
+| N16 | Skip project-specific block at the top of generated rules                | must-not  | 4 (4.6)                 |
+| N17 | REFRESH without backup unless `--no-backup` AND confirmed                | must-not  | 0                       |
+| N18 | REFRESH without reading existing setup first                             | must-not  | 0                       |
+| N19 | REFRESH that drops ADRs                                                  | must-not  | 0, 5                    |
+| N20 | Auto-delete the REFRESH backup directory                                 | must-not  | 0, 5                    |
+
+## When to ask (ONE consolidated question)
+
+Phase 3 surfaces these as a single user prompt; never ask in dribs and drabs:
+
 - Ambiguous shape (single / mono / workspace).
 - Ambiguous domain (prompt says "AI" without naming provider).
 - Enhancement conflict (existing CLAUDE.md contradicts new prompt).
-- Ambiguous tool adapter set (existing repo has `.cursor/` + `.claude/` + `AGENTS.md` — confirm all three should be kept + refreshed).
+- Ambiguous tool adapter set.
 
-Otherwise proceed with opinionated defaults; record in ADR.
+Otherwise proceed with opinionated defaults; record the choice as an ADR.
 
 ---
 
+## Rule prose (full text per ID)
+
+Phase 5 audit references rules by ID. The prose below is the full text used to interpret edge cases. The `Why:` and `How to apply:` lines exist so a future maintainer can judge whether a rule still applies as the codebase evolves.
+
+### A01 — Plan before write
+Plan BEFORE write. Show plan; wait for "proceed" unless `--force-*`.
+**Why:** lets the user catch wrong-direction work before any file is written.
+**How to apply:** Phase 3 emits the plan; Phase 4 only proceeds after user approval (or explicit `--force-*` flag).
+
+### A02 — No placeholders
+Real content. No placeholders in generated files.
+**Why:** placeholders ship as bugs the moment the user merges.
+**How to apply:** Phase 5 greps generated files for `<TODO>`, `<TBD>`, `<FILL ME>`, `<placeholder>`. Any hit = halt.
+
+### A03 — Phase 1 bias
+Don't over-design for later phases.
+**Why:** speculative scaffolding rots. Build for what's known, defer the rest.
+
+### A04 — Respect existing user content
+Never overwrite user-authored content without explicit confirmation.
+**Why:** the user's notes are load-bearing. Silent overwrite = lost work.
+**How to apply:** managed markers (`templates/idempotency.md`) bracket generated content; everything outside markers is preserved.
+
+### A05 — Save reusable outputs back
+**Why:** the system improves only when concrete learnings flow back to packs.
+**How to apply:** Phase 6 / `/learn-from-task` promote dynamic observations.
+
+### A06 — `ai/status.md` always has Updated + Recent Changes
+**Why:** without these, hooks can't detect drift; sessions can't bootstrap.
+
+### A07 — Opinionated
+Make decisions, record as ADRs. Don't hedge.
+**Why:** "could be X or Y" defers the decision to the next session, where context is gone.
+
+### A08 — Token-aware
+Delegate heavy scans to Explore subagent; terse output.
+**Why:** the orchestrator's context is finite; subagents protect it.
+
+### A09 — Always write `AGENTS.md` + `ai/references/models.md`
+**Why:** `AGENTS.md` is the standalone-tool entry point; `models.md` documents which models the project uses by role. Both are required by Phase 4.8 ordering.
+
+### A10 — Respect adapter idempotency markers
+**Why:** users edit below the marker; re-runs must not stomp those edits.
+
+### A11 — COPY-mode: deterministic copy
+**Why:** LLM-rewriting a pack source = silent regression. Output shorter than source = bug.
+**How to apply:** Phase 4.2.b runs `cp` via Bash, never asks the model to "regenerate."
+
+### A12 — AUTHOR-mode: trace every claim
+**Why:** invented method names + path references look authoritative and are deeply wrong. The extraction file is the floor of truth.
+**How to apply:** Phase 4.2-AUTHOR refuses to emit any cited symbol that isn't in `.claude/_extracted-idioms.md`.
+
+### A13 — Phase 2.5 mandatory when extender count ≥3
+**Why:** without 2.5, every track falls to COPY mode and produces generic output.
+
+### A14 — Density over line count
+**Why:** padding teaches the LLM to skim. Density teaches it to read.
+
+### A15 — Adapt to detected conventions
+**Why:** generic prose ("use parameterized queries") doesn't tell Claude *which* helper to import. Project-specific anchors do.
+
+### A16 — Every new file has a defined home
+**Why:** files dropped in `utils/` / root / `common/` accumulate as architectural debt no later refactor pays back.
+
+### A17 — Boy Scout Rule
+**Why:** small adjacent cleanups don't bloat the diff and stop "I'll do it later" from rotting.
+
+### A18 — Mandatory pre-flight in every agent
+**Why:** without injected pre-flight, agents fall back to generic patterns in the next task.
+
+### A19 — Four `repo-baseline` rules — period
+The first three answer *what to read* + *what "clean" means*; the fourth (Karpathy-inspired task-discipline layer) answers *how to act on what you read* — explicit assumptions, simplicity-first, surgical scope, verifiable success criteria.
+**Why:** skipping any one re-introduces a known LLM failure mode.
+**How to apply:** Phase 4.0.6 enforces presence; Phase 5.1 retries-then-halts if any are missing.
+
+### A20 — Parallel I/O discipline on async backends
+**Why:** sequential `await` of independent I/O is the most common LLM-authored backend perf failure (turning 100ms × 8 batches into 800ms wall-clock).
+**How to apply:** Phase 2 Step 15 detects the runtime's primitive (`Promise.all` / `asyncio.gather` / `errgroup` / `StructuredTaskScope` / `Parallel.ForEachAsync`); Phase 4.0 ships the rule + pattern + skill; Phase 4.6 anchors them. Synchronous-only stacks (sync-only Python, single-threaded scripts) skip.
+
+### A21 — Parallelize independent sub-steps
+**Why:** sequential phases waste wall-clock when the steps are independent.
+**How to apply:** Phase 2.5 base-class extraction (≤6 concurrent), Phase 4.2 per-track copies, Phase 4.4 per-signal overlays, Phase 4.4b per-domain authoring, Phase 4.8 per-adapter generation all fan out. Phase 0 backup→extract→re-detect, Phase 4.1 baseline, Phase 5 audit ordering stay sequential.
+
+### A22 — REFINE is round-two
+**Why:** REFINE is for deepening already-correct artifacts, not for first setup.
+**How to apply:** REFINE only rewrites managed `## Project-specific` blocks whose anchor density is below threshold. User sections preserved verbatim.
+
+### A23 — V1→V2 migration first-class
+**Why:** the two most common migration failures are silent behavioural drift and scope creep. The `migration` pack prevents both.
+**How to apply:** Phase 2 Step 16 detects `migration_layout_detected`; Phase 4.0 ships ledger + parity tooling; Phase 4.6 anchors to the project's V1/V2 roots and cutover mechanism. Greenfield without V1 evidence skips unless `--include=migration`.
+
+### A24 — Canonical 7-phase command structure
+See `templates/canonical-command-template.md`. Deviations require explicit documentation.
+
+### A25 — REFRESH order
+backup → extract → re-detect → merge → regen → audit-against-extract → cleanup. Skipping or reordering = data loss.
+
+### A26 — REFRESH preserves three categories
+ADRs (append-only history); validated corrections (user-given truth); project intent (facts the codebase doesn't encode). Generic packs and conventions get regenerated; these three get preserved verbatim.
+
+### A27 — Pack version + changelog mandatory
+**How to apply:** Phase 4.0 pack-load preflight refuses to apply a pack without `_version.json` + `CHANGELOG.md`. Major bumps ship a `migrations/` script.
+
+### A28 — Per-run version stamps
+**Why:** drift detection at session-start needs the stamps.
+
+### A29 — Failure catalog in agent pre-flight
+**Why:** without it, agents propose ideas that have already failed in this codebase.
+
+### A30 — Failures append-only
+`status: superseded_by_<adr>` when conditions change; `validated_failure` becomes archive.
+
+### A31 — Schema validation in Phase 5.4
+**How to apply:** every generated JSON config + frontmatter validated against `templates/schemas/`. Missing schema = halt.
+
+### A32 — Health score in `_session-digest.md`
+**Why:** silent decay isn't allowed. Tier 1 visibility forces the score in front of every session.
+
+### A33 — Telemetry local-only
+NEVER make a network call from telemetry. NEVER include user/PII. `.claude/_telemetry.jsonl` MUST be `.gitignore`d.
+
+### A34 — Per-domain factories
+**How to apply:** when `business_domain = ecommerce` is detected, generate `test/factories/<entity>.factory.ts` for every entity in code (matching detected test framework + ORM).
+
+### A35 — Multi-language: docs only
+`--lang=ar` adds bilingual preamble to CLAUDE.md / AGENTS.md / `ai/README.md`. Generated code comments + variable names stay English.
+
+### A36 — Wizard preview is real
+A wizard that previews `<TODO>` is broken. Mock outputs MUST be the actual what-will-be-written content.
+
+### N01–N20
+
+The Never rules are mostly self-explanatory. Detail for the non-obvious ones:
+
+- **N15** — Ship generic `ai/conventions.md` when a real codebase exists. The file MUST be auto-populated from the codebase profile. Generic content here = Claude will write code that doesn't match project style in subsequent tasks.
+- **N16** — Skip the project-specific block at the top of generated rules. Without it, the rule is a generic copy that Claude applies blindly.
+- **N18** — REFRESH without reading existing setup first. Even if the user is in a hurry. Phase 0.2 extract is what makes REFRESH non-destructive to accumulated knowledge.
+- **N19** — REFRESH that drops ADRs. ADRs are append-only history. If an ADR existed in the backup and is missing in the regen output, the audit MUST halt.
+- **N20** — Auto-delete the REFRESH backup. Even after a successful regen, the backup stays. The user decides when (if ever) to remove `.claude/backups/`.

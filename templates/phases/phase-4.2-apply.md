@@ -1,0 +1,384 @@
+---
+phase: 4
+sub-phase: "4.2"
+name: apply-copy-or-author
+applies-to-modes: [all]
+inputs: [accepted-packs, gate-decision (COPY | AUTHOR), extracted-idioms (AUTHOR only)]
+outputs: [written-files, per-track-verification-report]
+exit-criteria: every track's minimum artifacts written; post-copy verification clean (4.2.c); managed markers in place
+sub-steps:
+  - 4.2-AUTHOR  — author from extracted idioms (AUTHOR-mode tracks)
+  - 4.2.a       — pre-flight inventory (mandatory)
+  - 4.2.b       — deterministic copy (Bash, NOT model-rewritten)
+  - 4.2.c       — immediate post-copy verification
+governing-rules: [A11, A12, A14, A15, N10, N11]
+imported-by: templates/phases/phase-4-apply.md
+---
+
+### 4.2-AUTHOR — Author from extracted idioms (when gate selected AUTHOR mode)
+
+For each track in AUTHOR mode:
+
+1. **Read the topic spec** at `~/.claude/templates/packs/<track>/_topics.md`. It lists the patterns/agents/rules every project in this discipline must cover, each as a topic spec (required sections + extraction recipes — NOT as a finished file body).
+2. **For each topic** in the spec:
+   - Look up the relevant section(s) in `.claude/_extracted-idioms.md` (e.g., topic `data-access` consumes the idiom block for the project's repository base class).
+   - If extraction has signal → invoke `extract-base-class-idiom`'s Step 6 author flow OR a topic-specific authoring flow per `_topics.md`. Output is project-voice content citing real paths, real extenders, real pitfalls.
+   - If extraction has NO signal for this topic → if `~/.claude/templates/packs/<track>/_examples/<topic>.md` exists, copy it as fallback; else copy the closest template from that pack's `agents/`, `skills/`, or `ai-patterns/` OR emit a sectioned stub from `_topics.md` for that topic. Mark with `<!-- TODO: re-author from extraction once base class exists -->` when using fallback so future runs upgrade it.
+3. **In ENHANCE/REFRESH mode**, before writing, READ any existing `ai/patterns/<topic>.md` in the project and mirror its section order + voice (Step 5.5 of the skill). Authored content goes inside the existing skeleton; new sections (e.g., "Pitfalls" if missing) appended at the end.
+4. **Always cite evidence** — every method, path, line number, extender count, deprecation warning in the output must trace to a real file the extractor read. No invention.
+
+Output: same destination paths as COPY mode (`.claude/agents/`, `.claude/rules/`, `ai/patterns/`, etc.), same Phase 5 verification (file presence + minimums + retry). Difference is purely in how the content was produced.
+
+**Pack structure for AUTHOR mode** (the pack-author's contract — how packs SHIP topics for this to work):
+
+```
+~/.claude/templates/packs/<track>/
+├── _topics.md           # nucleus: list of topics + extraction recipes per topic
+├── _examples/           # OPTIONAL: finished templates as fallback (when extraction has no signal); not every pack ships this directory
+│   ├── data-access.md
+│   └── ...
+├── agents/              # legacy literal templates (still copied in COPY mode)
+├── rules/               # same
+├── ai-patterns/         # same — being deprecated in favor of _topics.md
+└── ...
+```
+
+`_topics.md` shape (minimal):
+
+```yaml
+topics:
+  - name: data-access
+    triggers: { base_class_pattern: "extends DataAccess|extends Repository|extends BaseRepository" }
+    sections: [overview, type_params, configuration, protocol, automatic_behaviors, escape_hatches, pitfalls, examples, related]
+    fallback: _examples/data-access.md
+  - name: base-service
+    triggers: { base_class_pattern: "extends BaseService|extends ApplicationService|extends UseCase" }
+    sections: [overview, key_methods, configuration, create_flow, update_flow, delete_flow, override_hooks, pitfalls]
+    fallback: _examples/base-service.md
+  ...
+```
+
+Each pack maintainer authors `_topics.md` once; the same triggers + section list adapt across NestJS / Django / Laravel / Rails projects because the extractor reads whatever base class actually exists.
+
+**Backward compatibility**: packs without `_topics.md` automatically fall through to COPY mode. No flag day. As packs adopt the topic-spec format one by one, the brain shifts that track to AUTHOR mode automatically.
+
+This step is the historical failure mode prevention: the LLM agent under context pressure prioritizes "creative" outputs (ADRs, project-specific rules) and silently skips the bulk pack-copy step. To prevent this, COPY-mode Phase 4.2 uses **shell `cp` commands**, not file-by-file model-driven writes. The agent's job is to ENUMERATE which tracks to copy + EXECUTE the deterministic commands. The shell guarantees the copy.
+
+### 4.2.a Pre-flight inventory (mandatory — write to plan BEFORE applying)
+
+For each selected track, calculate expected file counts and add to the plan:
+
+```
+Pre-flight inventory:
+  Track: backend
+    Source: ~/.claude/templates/packs/backend/
+    Files to copy: agents/* (8 files), commands/* (10 files), skills/* (6 files), rules/* (1 file), ai-patterns/* (5 files), references/* (1 file for detected framework)
+    Total: 31 files → .claude/{agents,commands,skills,rules}/ + ai/patterns/
+
+  Track: code-quality
+    Source: ~/.claude/templates/packs/code-quality/
+    Total: 17 files
+
+  ... (every selected track listed)
+
+  GRAND TOTAL: 187 files expected from N tracks
+```
+
+User reviews the inventory before approval. This makes the failure mode visible BEFORE Phase 4.2 runs.
+
+### 4.2.b Deterministic copy (executed via Bash, not model-written)
+
+**Two modes**: STANDARD (default) and MINIMAL (when `--minimal` flag set).
+
+#### Standard mode (default)
+
+For each selected track, run these EXACT commands (substitute `<track>` for the track name):
+
+```bash
+# Copy agents (verbatim — no trimming possible at OS level)
+mkdir -p .claude/agents
+cp -R ~/.claude/templates/packs/<track>/agents/*.md .claude/agents/ 2>/dev/null || true
+
+# Copy commands
+mkdir -p .claude/commands
+cp -R ~/.claude/templates/packs/<track>/commands/*.md .claude/commands/ 2>/dev/null || true
+
+# Copy skills (recursive — skills can be folders with SKILL.md + sibling files)
+mkdir -p .claude/skills
+cp -R ~/.claude/templates/packs/<track>/skills/* .claude/skills/ 2>/dev/null || true
+
+# Copy rules
+mkdir -p .claude/rules
+cp -R ~/.claude/templates/packs/<track>/rules/*.md .claude/rules/ 2>/dev/null || true
+
+# Copy ai-patterns INTO ai/patterns (renamed destination)
+mkdir -p ai/patterns
+cp -R ~/.claude/templates/packs/<track>/ai-patterns/*.md ai/patterns/ 2>/dev/null || true
+
+# Copy framework references (only for detected frameworks)
+mkdir -p .claude/references
+for fw in <detected-frameworks>; do
+  cp -R ~/.claude/templates/packs/<track>/references/${fw}.md .claude/references/ 2>/dev/null || true
+done
+```
+
+The `|| true` is intentional: missing source dir is OK (e.g., a track without skills); the copy proceeds for what exists.
+
+#### MINIMAL mode (when `--minimal` flag set)
+
+Read the track's `_essentials.md` manifest. Copy ONLY the files listed there.
+
+##### `_essentials.md` format contract (the parser depends on this shape)
+
+Every track's `_essentials.md` MUST follow this exact YAML-frontmatter shape so the deterministic parser below works without ambiguity. Authors: do NOT use multi-line array syntax (`agents:\n  - foo\n  - bar`); do NOT inline comments inside the bracket; do NOT use anchors/aliases. The parser is intentionally restrictive — anything fancier requires `yq` and breaks the no-extra-deps guarantee.
+
+```markdown
+---
+kind: pack-essentials
+track: <track-name>
+description: <one-liner explaining what this track's minimal subset covers>
+essentials:
+  agents:      [agent-a, agent-b]
+  commands:    [command-a, command-b, command-c]
+  skills:      [skill-a]
+  rules:       [rule-a, rule-b]
+  ai-patterns: [pattern-a, pattern-b]
+---
+
+# <Track> — minimal subset
+
+Optional prose explaining why these specific entries were chosen, what gets dropped at `--minimal`, and the upgrade path. The parser ignores everything below the closing `---`.
+```
+
+Hard rules:
+1. Each list value is a flat `[a, b, c]` array of basenames (no `.md` suffix). No nesting. No dictionaries.
+2. The 5 keys (`agents`, `commands`, `skills`, `rules`, `ai-patterns`) MUST all be present. Empty list `[]` is allowed; missing key is a preflight failure (Phase 4.0 catches it).
+3. Every basename listed MUST exist as a real file in the pack — `<basename>.md` for agents/commands/rules/ai-patterns; `<basename>/SKILL.md` for skills. Phase 4.0 preflight verifies this.
+
+##### Parser (preferred path: `yq`; fallback: portable awk)
+
+```bash
+ESSENTIALS_FILE=~/.claude/templates/packs/<track>/_essentials.md
+if [ ! -f "$ESSENTIALS_FILE" ]; then
+  echo "WARN: no _essentials.md for track <track> — falling back to standard copy"
+  # ... use standard mode instead
+else
+  # Extract YAML frontmatter (everything between the first two '---' lines).
+  FRONTMATTER=$(awk '/^---$/{c++; next} c==1{print}' "$ESSENTIALS_FILE")
+
+  # Preferred: yq (correct YAML parser; install hint emitted by Phase 4.0 preflight if missing).
+  if command -v yq >/dev/null 2>&1; then
+    ESSENTIAL_AGENTS=$(printf '%s\n' "$FRONTMATTER" | yq -o=tsv '.essentials.agents      | join(" ")')
+    ESSENTIAL_COMMANDS=$(printf '%s\n' "$FRONTMATTER" | yq -o=tsv '.essentials.commands    | join(" ")')
+    ESSENTIAL_SKILLS=$(printf '%s\n' "$FRONTMATTER" | yq -o=tsv '.essentials.skills      | join(" ")')
+    ESSENTIAL_RULES=$(printf '%s\n' "$FRONTMATTER" | yq -o=tsv '.essentials.rules       | join(" ")')
+    ESSENTIAL_PATTERNS=$(printf '%s\n' "$FRONTMATTER" | yq -o=tsv '.essentials["ai-patterns"] | join(" ")')
+  else
+    # Portable fallback: awk parser locked to the format-contract shape above. Refuses
+    # multi-line arrays (which the format contract forbids) instead of silently truncating.
+    parse_essentials_list() {
+      local key="$1"
+      printf '%s\n' "$FRONTMATTER" | awk -v key="$key" '
+        $0 ~ "^  " key ":[[:space:]]*\\[" {
+          line = $0
+          # Refuse to continue if the array spans multiple lines (forbidden by contract).
+          if (line !~ /\]/) { print "ERR_MULTILINE_ARRAY"; exit 2 }
+          sub(/^  [a-zA-Z_-]+:[[:space:]]*\[/, "", line)
+          sub(/\][[:space:]]*$/, "", line)
+          gsub(/[[:space:]]/, "", line)
+          gsub(/,/, " ", line)
+          print line
+          exit 0
+        }
+      '
+    }
+    ESSENTIAL_AGENTS=$(parse_essentials_list "agents")
+    ESSENTIAL_COMMANDS=$(parse_essentials_list "commands")
+    ESSENTIAL_SKILLS=$(parse_essentials_list "skills")
+    ESSENTIAL_RULES=$(parse_essentials_list "rules")
+    ESSENTIAL_PATTERNS=$(parse_essentials_list "ai-patterns")
+
+    # Halt explicitly when the format contract was violated rather than silently
+    # propagating a truncated essentials list.
+    for v in "$ESSENTIAL_AGENTS" "$ESSENTIAL_COMMANDS" "$ESSENTIAL_SKILLS" "$ESSENTIAL_RULES" "$ESSENTIAL_PATTERNS"; do
+      [ "$v" = "ERR_MULTILINE_ARRAY" ] && {
+        echo "HALT: $ESSENTIALS_FILE uses multi-line array syntax. The _essentials.md format contract requires flat [a, b, c] arrays. Install yq to handle richer YAML, or fix the manifest."
+        exit 2
+      }
+    done
+  fi
+
+  # Copy only the listed files
+  mkdir -p .claude/agents
+  for name in $ESSENTIAL_AGENTS; do
+    [ -z "$name" ] && continue
+    cp ~/.claude/templates/packs/<track>/agents/$name.md .claude/agents/ 2>/dev/null || true
+  done
+
+  mkdir -p .claude/commands
+  for name in $ESSENTIAL_COMMANDS; do
+    [ -z "$name" ] && continue
+    cp ~/.claude/templates/packs/<track>/commands/$name.md .claude/commands/ 2>/dev/null || true
+  done
+
+  mkdir -p .claude/skills
+  for name in $ESSENTIAL_SKILLS; do
+    [ -z "$name" ] && continue
+    cp -R ~/.claude/templates/packs/<track>/skills/$name .claude/skills/ 2>/dev/null \
+      || cp ~/.claude/templates/packs/<track>/skills/$name.md .claude/skills/ 2>/dev/null \
+      || true
+  done
+
+  mkdir -p .claude/rules
+  for name in $ESSENTIAL_RULES; do
+    [ -z "$name" ] && continue
+    cp ~/.claude/templates/packs/<track>/rules/$name.md .claude/rules/ 2>/dev/null || true
+  done
+
+  mkdir -p ai/patterns
+  for name in $ESSENTIAL_PATTERNS; do
+    [ -z "$name" ] && continue
+    cp ~/.claude/templates/packs/<track>/ai-patterns/$name.md ai/patterns/ 2>/dev/null || true
+  done
+fi
+
+# Framework references — same logic, no minimal/standard distinction (always essential when detected)
+mkdir -p .claude/references
+for fw in <detected-frameworks>; do
+  cp -R ~/.claude/templates/packs/<track>/references/${fw}.md .claude/references/ 2>/dev/null || true
+done
+```
+
+#### Always-included regardless of `--minimal`
+
+These are NEVER reduced by `--minimal` — they're foundational:
+- All 7 baseline hooks.
+- `learning` track ENTIRE pack (knowledge-curator, drift-detector, pattern-watcher agents + refresh-knowledge, detect-drift, learn-from-task, promote-pattern commands + extract-project-context skill). Phase 6 learning loop requires the full set.
+- All `ai/` baseline files (status, stack, modules, conventions, business-domain, project-goals, etc.).
+- 3 compact derived files (`_session-digest.md`, `_decision-index.md`, `_convention-cheatsheet.md`).
+- Business-domain content for the detected domain (`ai/business-domain.md` + 5 supporting files). The user's domain knowledge isn't optional.
+- Tool adapter outputs for selected tools (`opencode.json`, `.cursor/rules/`, etc.).
+
+`--minimal` only reduces TRACK packs (`agents/`, `commands/`, `skills/`, `rules/`, `ai-patterns/`); it does NOT touch baseline, learning, or domain content.
+
+### 4.2.c Immediate post-copy verification (per-track)
+
+After each track's copy, IMMEDIATELY count what landed:
+
+```bash
+echo "Track <track> copied:"
+echo "  agents:    $(ls .claude/agents/*.md 2>/dev/null | wc -l)"
+echo "  commands:  $(ls .claude/commands/*.md 2>/dev/null | wc -l)"
+echo "  skills:    $(ls .claude/skills/ 2>/dev/null | wc -l)"
+echo "  rules:     $(ls .claude/rules/*.md 2>/dev/null | wc -l)"
+echo "  patterns:  $(ls ai/patterns/*.md 2>/dev/null | wc -l)"
+```
+
+Compare to pre-flight inventory expected counts. If shortfall: re-run that track's copy commands (Phase 5 retry loop catches systematic failures).
+
+### Merge handling (when files already exist in target)
+
+If a destination file already exists (`.claude/agents/code-reviewer.md` already there from a prior run):
+- Default behavior: SKIP (don't overwrite — `cp -n` semantics).
+- `--force-replace-all`: overwrite.
+- `--force-keep-all`: same as default (skip).
+- Pre-flight inventory must distinguish: "X new files + Y skipped (already exist)".
+
+### Rules (preserved from prior version)
+
+- **No-thinning rule**: pack files are copied verbatim. The shell does the copy; the LLM never edits during 4.2.
+- **Pack-depth floor**: Phase 4.0 (pack-load preflight) verifies every pack file ≥100 lines BEFORE 4.2 runs. If any pack source is thin, halt + report — do NOT propagate shallow content.
+- **Reference-path injection (Phase 4.6)** runs AFTER Phase 4.2 — it adapts content with project paths but never trims.
+
+### Why deterministic, not LLM-driven?
+
+Pack copying is mechanical. There's zero creative work required. The LLM's job in Phase 4.2 is to:
+1. Enumerate which tracks to copy (decision work — LLM appropriate).
+2. Run the `cp` commands above (mechanical work — shell appropriate).
+3. Run the verification counts (mechanical — shell appropriate).
+4. Report the actuals (decision work — LLM appropriate).
+
+When the LLM was previously responsible for writing each pack file by hand, it could (and did) skip files under context pressure. Shell `cp` cannot skip.
+
+**4.3 Apply framework references** — only for frameworks detected in profile. Copy from `packs/<track>/references/<name>.md` into repo's `.claude/references/`.
+
+**4.4 Apply technical-domain tooling** — for every TECHNICAL signal detected in profile (multi-tenant, webhook, payment, AI, real-time, etc.), copy from `~/.claude/templates/domains/<signal>/` (agents, commands, rules, ai-patterns). Each file passes through merge matrix.
+
+**4.4b Apply BUSINESS-domain content** (THIS IS THE STEP THAT WAS MISSING — the cause of generic-feeling output):
+
+For every business domain detected in profile (`ecommerce`, `lms`, `fintech`, etc., from §2.x), pull content from `~/.claude/templates/business-domains/<domain>/` into the repo's `ai/`:
+
+| Source pack file | Destination | What it does |
+|---|---|---|
+| `glossary.md` | `ai/core/glossary.md` | Domain entities + state machines + vocabulary |
+| `core-flows.md` | `ai/business-flows.md` | P1/P2/P3 user journeys for this domain |
+| `feature-checklist.md` | `ai/business-feature-checklist.md` | What v1s commonly miss in this domain |
+| `compliance.md` | `ai/business-compliance.md` | Regulatory landscape (GDPR, PCI, HIPAA, FERPA, etc.) |
+| `stakeholders.md` | `ai/core/stakeholders.md` | Roles + their workflows + KPIs |
+| `anti-patterns.md` | `ai/runtime/domain-anti-patterns.md` | Domain-specific traps (different from generic SRE anti-patterns) |
+
+Plus a top-level summary: `ai/business-domain.md` — declares which domain(s) this project belongs to, why (which signals matched), and links to the 6 detail files above.
+
+For UNIONS (e.g., ecommerce + affiliate): copy each domain's files; merge glossaries (entities deduplicated); concatenate flows + checklists with section headers per domain.
+
+**4.4b.1 Regulatory overlay** (consume Phase 2.y `Constraints` facet — regulatory regime answer):
+
+The generic `ai/business-compliance.md` (copied from `business-domains/<domain>/compliance.md` above) covers the domain's universal compliance landscape (e.g., healthcare → HIPAA + FERPA; ecommerce → PCI-DSS + GDPR). But the project's actual regulatory regime is project-specific — a Saudi healthcare backend needs NPHIES + SCFHS + MOH-SA + CBAHI rules, NOT US-centric HIPAA defaults; a UAE fintech needs CBUAE + SCA rules, NOT just SOC2. The Phase 2.y `Constraints` answer drives a per-project overlay:
+
+```bash
+# After domain-pack copy:
+REGULATORY_REGIMES=$(extract_phase_2y_field "regulatory_regime")  # comma-separated list
+
+if [ -n "$REGULATORY_REGIMES" ]; then
+  # Append project-specific regulatory section to ai/business-compliance.md
+  for regime in $REGULATORY_REGIMES; do
+    overlay_file="$HOME/.claude/templates/regulatory-overlays/${regime}.md"
+    if [ -f "$overlay_file" ]; then
+      # Concrete overlay exists — append it (with section header) to ai/business-compliance.md
+      append_with_section_header "$overlay_file" "ai/business-compliance.md" "$regime"
+    else
+      # No prebuilt overlay — write a research stub flagging the gap
+      append_research_stub "ai/business-compliance.md" "$regime"
+      # Also queue for Phase 6: knowledge-curator should research + populate this regime
+      # the next time the user runs /refresh-knowledge.
+    fi
+  done
+
+  # Cross-reference into the project's failure catalog
+  echo "## Regulatory anti-patterns (per declared regime: $REGULATORY_REGIMES)" \
+    >> "ai/failures/_regulatory-checklist.md"
+fi
+```
+
+**Overlay catalog** (`~/.claude/templates/regulatory-overlays/`): one file per regime. Each overlay covers:
+- Regime overview + jurisdiction + scope of applicability
+- Specific data-residency / locality rules (MUST a request from country X serve from servers in country X?)
+- Specific consent / disclosure requirements (what UI/UX is mandated?)
+- Specific reporting / audit cadence (how often must logs be retained, where must they go?)
+- Specific incident-response timelines (e.g., 72-hour breach notification under GDPR; 30-day under CCPA)
+- Specific anti-patterns (things that PASS the generic domain compliance file but FAIL this regime)
+- Required integrations (e.g., NPHIES API for Saudi healthcare claims; SAMA reporting for Saudi banking)
+
+**Bootstrapped overlays** (initial catalog — extend by saving back via Phase 4.5 generate-missing when an unknown regime is encountered):
+
+| Regime | File | Domain affinity |
+|---|---|---|
+| GDPR | `regulatory-overlays/gdpr.md` | Universal (any product touching EU users) |
+| CCPA / CPRA | `regulatory-overlays/ccpa.md` | Universal (any product touching California users) |
+| HIPAA | `regulatory-overlays/hipaa.md` | Healthcare (US) |
+| PCI-DSS | `regulatory-overlays/pci-dss.md` | Payments (universal) |
+| SOC2 | `regulatory-overlays/soc2.md` | Universal (any B2B SaaS doing security audits) |
+| ISO-27001 | `regulatory-overlays/iso-27001.md` | Universal (any product with formal infosec) |
+| NPHIES | `regulatory-overlays/nphies.md` | Healthcare (Saudi Arabia) — claims/eligibility integration |
+| SCFHS | `regulatory-overlays/scfhs.md` | Healthcare (Saudi Arabia) — practitioner registration |
+| MOH-SA | `regulatory-overlays/moh-sa.md` | Healthcare (Saudi Arabia) — Ministry of Health rules |
+| CBAHI | `regulatory-overlays/cbahi.md` | Healthcare (Saudi Arabia) — accreditation |
+| SAMA | `regulatory-overlays/sama.md` | Banking / fintech (Saudi Arabia) |
+| CBUAE / SCA | `regulatory-overlays/uae-finance.md` | Banking / fintech (UAE) |
+| FERPA | `regulatory-overlays/ferpa.md` | Education (US) |
+| LGPD | `regulatory-overlays/lgpd.md` | Universal (any product touching Brazilian users) |
+| PDPA | `regulatory-overlays/pdpa.md` | Universal (Singapore / Thailand / Malaysia variants) |
+
+**Research stub** (when no prebuilt overlay exists for a declared regime). The literal token `__REGIME__` (double-underscore-bracketed, not angle-brackets) is used so this stub does NOT trigger the Phase 5.3.5 cross-project leak scan, which flags `<…>` style placeholders as "Phase 4.6 produced template-stamp output". `append_research_stub` substitutes the actual regime name on write, leaving zero placeholders behind on disk:
+
+```markdown
