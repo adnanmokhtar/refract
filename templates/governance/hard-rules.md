@@ -6,6 +6,27 @@ imported-by: commands/setup-project.md (orchestrator), every phase, /setup-proje
 
 # Hard rules
 
+## Top 10 — read these first
+
+If you have time for nothing else, internalize these. They are the rules that, when violated, produce the highest-impact regressions. Ranked by frequency × severity, drawn from the failure catalog and prior-incident notes.
+
+| Rank | ID  | One-line                                                              |
+|------|-----|-----------------------------------------------------------------------|
+| 1    | A04 | Respect existing user-authored content; never overwrite without confirm |
+| 2    | A11 | COPY-mode tracks: copy packs verbatim (no LLM rewrite)                |
+| 3    | A15 | Adapt to detected conventions; cite project specifics, not generic    |
+| 4    | A19 | Always ship the four foundational `repo-baseline` rules               |
+| 5    | A02 | Real content. No placeholders                                         |
+| 6    | N15 | Do NOT ship generic `ai/conventions.md` when a real codebase exists   |
+| 7    | A12 | AUTHOR-mode: cite only symbols traceable to extraction file           |
+| 8    | A29 | Architectural agents inject `ai/failures/_index.md` in pre-flight     |
+| 9    | A16 | Map every new file to a defined home in `ai/modules.md` BEFORE writing |
+| 10   | N17 | Never REFRESH without backup unless `--no-backup` AND user confirmed  |
+
+The full table follows. Phase 5 references rules by ID; you can grep for any A/N number to find its prose.
+
+---
+
 ## Severity codes
 
 - `must` — violation = command refuses to report success in Phase 5.

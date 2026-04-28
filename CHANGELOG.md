@@ -6,6 +6,41 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-04-28
+
+### M4 — Verification + tooling
+
+#### Added (executable tools)
+- `tests/setup-project/run.sh` — snapshot test runner (shape-only mode today; full-runner mode documented but stubbed pending automation strategy).
+- `scripts/lint-track.sh` — validates `templates/tracks/<name>/` against the schema (required files, frontmatter keys, signal kinds, weights, merge modes).
+- `scripts/migrate-setup.sh` — applies a named migration to a target repo. Implements the `v1-to-v2` migration spec; dry-run by default.
+- `scripts/smoke-test.sh` — structural integrity check: command parsing, import resolution, track lint, phase frontmatter, HOT-tier budget, sync state, fixture shape. Exits 0 healthy / 1 broken.
+
+#### Added (artifacts)
+- `templates/migrations/v1-to-v2.md` — migration spec for the M2 split (markers, version stamps, derived files, adapter re-sync). Idempotent.
+- `templates/import-tiers.md` — HOT / WARM / COLD definitions with line budgets. HOT ≤ 600 lines combined. Tier-budget audit lives in `/setup-project-health` (C7).
+- `templates/tracks/web-backend-django/` — first concrete track plugin under the M2 schema. Has `detect.md` (signals + threshold + exclusive-with), `pack.md` (emits contract), `conventions.md` (Django MUST / MUST-NOT rules), `meta.yaml`. Validates the schema end-to-end.
+
+#### Changed
+- `commands/setup-project.md` `imports:` reorganized into HOT / WARM / COLD groups. Loaders are expected to honor tier when pulling content.
+- `templates/governance/hard-rules.md` — added "Top 10" surface at the top, ranking the highest-impact rules so readers see the floor before the full table.
+- `templates/phases/phase-5-verify.md` (was 577 lines) split into:
+  - `phase-5-verify.md` (397 lines, orchestrator)
+  - `phase-5.0-retry.md` (coverage check + retry loop)
+  - `phase-5.1-baseline.md` (required-baseline + inventory diff)
+  - `phase-5.5-quality.md` (REFINE-only setup-quality score)
+
+#### Verified
+- `scripts/smoke-test.sh` — all 7 checks pass: 0 fail, 0 warn.
+- `scripts/lint-track.sh` — `web-backend-django` track validates clean.
+- `scripts/sync-to-global.sh` — 30 symlinks ok, 0 drift.
+
+#### Still deferred to M5+
+- Real `/setup-project` invocation against fixtures (the runner has the harness; the missing piece is non-interactive CLI invocation strategy — Claude Code commands are model-executed prompts, not shell commands). Two paths documented in `tests/setup-project/run.sh` header.
+- Snapshots — empty until a real runner records them.
+- Additional tracks — `web-frontend-nextjs`, `mobile-react-native`, `data-pipeline-airflow`, etc.
+- Migration runner Step 2 (auto-wrapping existing managed regions) is currently advisory; a non-interactive runner is too risky for that step. User runs it manually and re-runs migrate-setup.sh.
+
 ## [2.0.0] — 2026-04-28
 
 ### M3 — Polish (this release)

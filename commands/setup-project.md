@@ -1,33 +1,42 @@
 ---
 description: The brain. Scaffold new projects OR analyze + enhance existing ones. Detects mode, refines the prompt, mixes track-based packs, generates domain-specific tooling. One command. Any stack. Any shape. New or existing.
 version: 2.0.0
+# Tier 1 = HOT (load every session). Tier 2 = WARM (load by phase/task type).
+# Tier 3 = COLD (load on demand only). The orchestrator always loads tier 1;
+# tier 2/3 are pulled by the active phase. See @templates/import-tiers.md.
 imports:
-  - templates/persona.md
-  - templates/critical-execution-rules.md
-  - templates/quick-start.md
-  - templates/knowledge-hub.md
-  - templates/decision-engine.md
-  - templates/idempotency.md
-  - templates/tracks/_loader.md
-  - templates/phases/phase-0-backup-extract.md
-  - templates/phases/phase-1-detect-mode.md
-  - templates/phases/phase-2-profile.md
-  - templates/phases/phase-3-plan.md
-  - templates/phases/phase-4-apply.md
-  - templates/phases/phase-4.0-preflight.md
-  - templates/phases/phase-4.2-apply.md
-  - templates/phases/phase-4-templates.md
-  - templates/phases/phase-4.6-deep.md
-  - templates/phases/phase-4.7-deep.md
-  - templates/phases/phase-4.8-deep.md
-  - templates/phases/phase-5-verify.md
-  - templates/phases/phase-6-learn.md
-  - templates/governance/hard-rules.md
-  - templates/phases/phase-5-checklist.md
-  - templates/observability.md
-  - templates/canonical-command-template.md
-  - templates/capabilities.md
-  - templates/appendices.md
+  hot:
+    - templates/critical-execution-rules.md
+    - templates/decision-engine.md
+    - templates/idempotency.md
+    - templates/governance/hard-rules.md
+  warm:
+    - templates/quick-start.md
+    - templates/persona.md
+    - templates/knowledge-hub.md
+    - templates/tracks/_loader.md
+    - templates/phases/phase-0-backup-extract.md
+    - templates/phases/phase-1-detect-mode.md
+    - templates/phases/phase-2-profile.md
+    - templates/phases/phase-3-plan.md
+    - templates/phases/phase-4-apply.md
+    - templates/phases/phase-4.0-preflight.md
+    - templates/phases/phase-4.2-apply.md
+    - templates/phases/phase-4.6-deep.md
+    - templates/phases/phase-4.7-deep.md
+    - templates/phases/phase-4.8-deep.md
+    - templates/phases/phase-5-verify.md
+    - templates/phases/phase-5.0-retry.md
+    - templates/phases/phase-5.1-baseline.md
+    - templates/phases/phase-5.5-quality.md
+    - templates/phases/phase-5-checklist.md
+    - templates/phases/phase-6-learn.md
+    - templates/observability.md
+    - templates/capabilities.md
+  cold:
+    - templates/phases/phase-4-templates.md
+    - templates/canonical-command-template.md
+    - templates/appendices.md
 related-commands:
   - /setup-project-adapters — re-sync tool adapters (Cursor, OpenCode, Aider, …)
 ---
