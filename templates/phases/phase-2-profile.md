@@ -1,0 +1,348 @@
+---
+phase: 2
+name: profile
+applies-to-modes: [ENHANCE, REFRESH, REFINE]
+inputs: [target-repo, mode]
+outputs: [codebase-profile.md, detected-tracks, technical-signals, business-domain, deep-extraction (REFINE only)]
+exit-criteria: profile written; tracks scored against templates/tracks/*/detect.md; uncertainty flags surfaced
+sub-phases:
+  - 2.0: top-level signals
+  - 2.5: deep idiom extraction
+  - 2.6: profile-informed coverage gap check (ENHANCE + REFRESH)
+  - 2.7-2.12: deep extraction (REFINE only — domain entities, architecture, e2e flows, conventions, perf, failures)
+note: Phase 2.6 appears textually before Phase 2 in this file because it is conceptually a gate ON Phase 2 output. This will be re-ordered in M3.
+---
+
+### Phase 2.6 — Profile-informed coverage gap check (ENHANCE + REFRESH modes)
+
+**Critical for ENHANCE-extend** — prevents the failure mode where the command sees `.claude/` exists, runs delta-against-prompt, finds "no new prompt = no work," and concludes "idempotent" while the existing setup is missing 50+ files.
+
+**For REFRESH** — runs after Phase 0 extract AND Phase 2 + 2.5 deep profile. The coverage gap is computed against the BACKUP state (what existed before regen) so the report can categorize each gap as: (a) missing in old AND new — pure new gap to fill; (b) missing in old, present in new — pre-existing gap closed by regen; (c) present in old, missing in new — REGRESSION (must investigate before applying). Category (c) is a halt condition; the brain's regen plan must explain why an existing artifact was dropped and either re-add it or get explicit user approval.
+
+**Why this runs AFTER Phase 2**: gap detection only makes sense once we know which tracks are LOAD-BEARING for this codebase. A "you're missing 2 backend agents" verdict is meaningless if the codebase isn't a backend service; a "you're missing tenant-leak rules" verdict is wrong if the codebase isn't multi-tenant. Profile first, derive what the project ACTUALLY needs, then check the floor.
+
+For ENHANCE-retrofit / ENHANCE-extend / REFRESH, run this check after Phase 2.5:
+
+#### 2.6.a Determine load-bearing tracks (from Phase 2 profile, not from a static checklist)
+
+Phase 2 already produced `.claude/_extracted-codebase.md` + `.claude/codebase-profile.md` — including detected stack, signals (multi-tenant / webhook / payment / AI / search / queue / realtime / mobile / etc.), and business domain. From those, mark each track:
+
+- **LOAD-BEARING** — the track's signal matched in the profile (e.g., `backend` is load-bearing because Node/Python/Go/Java/PHP/Ruby manifests detected; `database` because a DB driver is in deps; `multi-tenant` because tenant column or context is detected; `payment` because a payment SDK is in deps).
+- **ALWAYS-ON** — `security`, `code-quality`, `documentation`, `learning` apply regardless. These are the four tracks every project gets, full stop.
+- **NOT-APPLICABLE** — track signal absent (e.g., `frontend` for an API-only repo; `mobile` for a backend; `distributed-systems` for a single-process app). Marked `n/a` in the gap report — NOT counted as a gap.
+
+This step replaces the older "preview Phase 2" sub-step (no longer needed — Phase 2 has already run by this point and produced the full profile).
+
+#### 2.6.b Compare actual against minimums (load-bearing tracks only)
+
+For each LOAD-BEARING / ALWAYS-ON track, compare existing artifact counts against the appropriate minimum:
+
+- **Standard mode (default)**: use the **minimum-artifacts table** (defined in Phase 4.0). Floors are aspirational quality gates for tracks that ARE generated, not enforcement that every project gets every track.
+- **Minimal mode (`--minimal` set)**: use the count from the track's `_essentials.md` manifest (`essentials.agents` length, etc.). Lower bar — only shortfall against the focused subset triggers retry.
+
+NOT-APPLICABLE tracks are skipped entirely — no gap, no shortfall, no retry. They never appear in the report's gap list (they appear in a separate `not-applicable` section so the user can see what was filtered and why).
+
+The check is otherwise identical:
+
+```bash
+for track in <preview-selected-tracks>; do
+  expected_agents=<from minimums table>
+  actual_agents=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
+  if [ "$actual_agents" -lt "$expected_agents" ]; then
+    GAP="$GAP\n  Track $track: agents $actual_agents/$expected_agents (need $((expected_agents - actual_agents)) more)"
+  fi
+  # ... repeat for commands, skills, rules, ai-patterns
+done
+
+# Plus required baseline check
+if [ ! -f ".claude/hooks/post-edit-check.sh" ]; then GAP="$GAP\n  Baseline: missing post-edit-check.sh"; fi
+if [ ! -f ".claude/hooks/pre-edit-guard.sh" ]; then GAP="$GAP\n  Baseline: missing pre-edit-guard.sh"; fi
+# ... all 7 hooks
+
+if [ ! -f "ai/_session-digest.md" ]; then GAP="$GAP\n  Baseline: missing _session-digest.md"; fi
+if [ ! -f "ai/_decision-index.md" ]; then GAP="$GAP\n  Baseline: missing _decision-index.md"; fi
+if [ ! -f "ai/_convention-cheatsheet.md" ]; then GAP="$GAP\n  Baseline: missing _convention-cheatsheet.md"; fi
+```
+
+#### 2.6.c Report the coverage gap (with explicit LOAD-BEARING / NOT-APPLICABLE breakdown)
+
+Output the gap inventory at the START of the plan, BEFORE the prompt-vs-state delta. The report MUST explicitly show which tracks were filtered out as not-applicable so the user can verify the profile-based filter — it's the difference between "you're missing 50 files" (force-fit) and "for the 8 tracks this codebase needs, you're at the floor in 2 of them" (profile-informed):
+
+```
+COVERAGE GAP CHECK (ENHANCE-extend, profile-informed):
+  Status: <COMPLETE | INCOMPLETE — N gaps detected in load-bearing tracks>
+
+  Load-bearing tracks (from Phase 2 profile):
+    backend          agents: 1/3 ❌  commands: 1/8 ❌  skills: 0/4 ❌  rules: 1/1 ✓  patterns: 5/5 ✓
+    database         agents: 2/4 ❌  commands: 1/4 ❌  skills: 1/2 ❌  rules: 1/1 ✓  patterns: 3/3 ✓
+    (other detected tracks ...)
+
+  Always-on tracks:
+    code-quality     agents: 1/5 ❌  commands: 0/4 ❌  skills: 0/1 ❌  rules: 0/1 ❌  patterns: 0/0 ✓
+    security         agents: 1/2 ❌  commands: 0/1 ❌  skills: 0/2 ❌  rules: 0/1 ❌  patterns: 0/2 ❌
+    documentation    ...
+    learning         agents: 0/3 ❌  commands: 2/4 ❌  skills: 0/1 ❌  rules: 0   ✓  patterns: 0   ✓
+
+  Not-applicable tracks (filtered from gap check — no signal in profile):
+    frontend         n/a  (no UI framework / asset pipeline detected)
+    mobile           n/a  (no React Native / Flutter / iOS / Android signals)
+    distributed-systems  n/a  (single-process app — no service-mesh / RPC / queue signals)
+    ui-ux            n/a  (no UI framework detected)
+
+  Baseline gaps:
+    Hooks: 2/7 (missing: post-edit-check, pre-edit-guard, guard-destructive, update-session-log, post-merge-learn)
+    ai/_session-digest.md: missing
+    ai/_decision-index.md: missing
+    ai/_convention-cheatsheet.md: missing
+
+  Total files to add: <N> (only counting load-bearing + always-on shortfalls + baseline)
+```
+
+#### 2.6.d Decision logic — DO NOT CONCLUDE "idempotent" if coverage gaps exist (in load-bearing tracks)
+
+The idempotent decision requires BOTH (1) no prompt delta AND (2) no coverage gap in load-bearing/always-on tracks (Phase 2.6.c sums to zero). If either fails, the command HAS work. See Critical Execution Rule 1 (top of file) for the wrong/right example.
+
+Gaps in NOT-APPLICABLE tracks are ignored by design — that's the whole point of profile-informed gap detection. A single-tenant API repo isn't "missing" multi-tenant rules; those rules don't apply.
+
+When coverage gaps exist in load-bearing/always-on tracks, ENHANCE proceeds to Phase 3 (prompt delta + plan), then Phase 4 (apply). Even if prompt delta is empty, there's a contract violation to fix.
+
+### Phase 2 — Profile codebase (deep extraction, not just detection)
+
+Goal: produce **two artifacts** that together drive every downstream decision:
+
+1. `.claude/_extracted-codebase.md` — the deep technical full-picture (architecture, modules, base classes, data model, API surface, conventions, signals, tests, anti-patterns, recent activity).
+2. `.claude/_extracted-business.md` — the WHY (mission, personas, business model, KPIs, constraints, anti-goals, competitive context).
+
+A condensed projection of both feeds the legacy `.claude/codebase-profile.md` (kept for backward-compat — Phase 3 plan reads it).
+
+**Critical mindset shift (since v3.0)**: Phase 2 is no longer a lightweight detection pass. It is the **substrate-creation phase**. Phase 4 generators do not invent project-specific content; they author from these two extracted files. If Phase 2 is shallow, Phase 4 reverts to generic templates and the entire generated setup is generic.
+
+#### 2.0 Orchestrator invocation (the single entry point)
+
+Invoke the **`extract-codebase-overview`** skill (lives in `~/.claude/templates/packs/learning/skills/extract-codebase-overview.md`). The skill orchestrates the entire deep extraction:
+- Step 1-2: stack + repo shape (deterministic).
+- Step 3: architecture + layering (import-graph sample).
+- Step 4: module enumeration.
+- Step 5: base class detection — for each base class with ≥3 extenders, **delegates to `extract-base-class-idiom` skill** (Phase 2.5 — was a separate phase in v2; now invoked as Step 5 of the orchestrator). Up to 6 concurrent extractor subagents.
+- Step 6: data model.
+- Step 7: API surface.
+- Step 8: convention auto-detection.
+- Step 9: cross-cutting concerns + signals (replaces the legacy "Technical signals detected" line in old profile).
+- Step 10: tests + coverage shape.
+- Step 11: anti-patterns observed (acknowledge, don't fix).
+- Step 12: recent activity (last 30 days).
+- Step 13: **delegates to `extract-business-context` skill** for the WHY → writes `.claude/_extracted-business.md`. (This is Phase 2.y in old numbering — now invoked as Step 13.)
+- Step 14-15: write + verify.
+
+Outputs:
+- `.claude/_extracted-codebase.md` (the technical full-picture).
+- `.claude/_extracted-idioms.md` (per-base-class deep extraction — appended one section per base).
+- `.claude/_extracted-business.md` (the WHY).
+
+**`.claude/codebase-profile.md`** is a derived view (kept for backward-compat consumers): condensed, human-readable, contains the same 14 fields the old profile had — but each field cites its source section in `_extracted-codebase.md`.
+
+**Mode behavior**:
+
+**In CREATE mode**: orchestrator runs Step 1-2 only (stack from prompt + manifest if any) + asks the consolidated business-context question. Steps 3-12 produce skeleton sections marked `_TBD — populate as code is written_`. Phase 6 `/refresh-knowledge` re-runs the full extraction once code exists.
+
+**In ENHANCE mode (retrofit + extend)**: orchestrator runs ALL 15 steps. Heavy walks (Step 4 modules, Step 5 base classes, Step 7 API surface) delegate to Explore subagents in parallel.
+
+**In REFRESH mode**: orchestrator runs ALL 15 steps, AND merges with `.claude/_refresh-knowledge-extract.md` (Phase 0.2 output). Merge rules:
+- **Codebase wins** on: stack, base classes, paths, naming, aliases, testing setup, data access, error handling, observability, auth, i18n, anti-patterns. (These are observable from code; if extract disagrees, extract is stale.)
+- **Extract wins** on: business domain, project intent, custom glossary terms, validated corrections, ADR-recorded decisions, custom rules with project-idiom WHY blocks. (These are decisions/answers the user gave; codebase doesn't encode them.)
+- **Both contribute** to: technical-signals detection (extract may say "we treat this as multi-tenant" even if not 100% obvious from code), conventions (codebase scan + extract's prior conventions both feed `ai/conventions.md`).
+- **Conflict logging**: any extract item that contradicts codebase MUST be logged in `.claude/codebase-profile.md` § "Stale extract items" with a one-line explanation. Phase 5 audit confirms each conflict was either dropped (codebase won) or resolved (user re-confirmed via question).
+
+Profile content (written to `.claude/codebase-profile.md`):
+
+1. **Architecture** — actual layer names, dependency direction (not doc-claimed).
+2. **Base classes / inheritance patterns** — every base class with ≥3 extenders found by Phase 2.5 extraction. Class names + paths + extender counts come straight from this codebase; if the project is functional / module-style without inheritance bases, this section is empty (and that's a valid project shape — don't manufacture base classes).
+3. **Naming** — kebab / PascalCase / snake + suffix conventions.
+4. **Aliases** — from tsconfig / pyproject / manifest.
+5. **Testing** — framework, file naming, folder layout, mock style.
+6. **Data access** — base repo path + tenant/soft-delete auto-filter + criteria system.
+7. **Error handling** — root domain error class, HTTP mapping layer.
+8. **Observability** — logger lib, metric lib, tracer, correlation propagation.
+9. **Auth** — JWT/session/OAuth + guard / middleware names.
+10. **i18n** — library, locales, key convention.
+11. **Technical signals detected** — multi-tenant, webhook, payment, AI, real-time, etc.
+12. **Business domain detected** — see §2.x below. THIS IS DIFFERENT FROM technical signals — it's "what business is this product running" (ecommerce / lms / fintech / etc.). Without this, the setup gives generic backend scaffolding instead of domain-aware tooling.
+13. **Anti-patterns** — console.log / any / swallowed errors counts (acknowledge; don't fix).
+14. **Phase + status** — declared phase + code-vs-doc consistency.
+15. **Concurrency primitives** — what the project actually uses for parallel I/O and CPU offloading. Detected by grepping for: `Promise.all` / `Promise.allSettled` / `Bluebird.map` / `p-limit` / `pMap` / `asyncio.gather` / `asyncio.Semaphore` / `errgroup.WithContext` / `CompletableFuture.allOf` / `StructuredTaskScope` / `Parallel.ForEachAsync` / `Task.async_stream` / `pmap`. Record: (a) which primitive(s) appear (with sample file:line citations), (b) whether the project ships a bounded-concurrency helper (`runWithLimit` / `parallel` / `concurrentMap` / equivalent — fingerprint: a function taking `items, fn, { concurrency }`), (c) observed concurrency caps (search `concurrency:`, `Semaphore(N)`, `g.SetLimit(N)`, `MaxDegreeOfParallelism`, `pLimit(N)`), (d) DB pool size from config (`pool.max`, `DATABASE_POOL_SIZE`, etc.), (e) cancellation primitive (`AbortController` / `context.Context` / `CancellationToken`), (f) whether sequential-await-in-loop appears in any hot path (count occurrences from `rg 'for \(const \w+ of \w+\)\s*\{[^}]*await' --multiline`). Phase 4.6 anchors `.claude/rules/concurrency-discipline.md` + `ai/patterns/parallel-io.md` to whichever primitive is dominant; if multiple primitives coexist, report as `[CONCURRENCY-DRIFT: <primitive-A> at <count> sites, <primitive-B> at <count> sites]` so the user can decide which is canonical. Skipped for synchronous-only stacks (Ruby without Async, sync-only Python, single-threaded scripts).
+16. **Migration layout** — does the codebase show V1+V2 cohabitation? Detected by: (a) parallel directory pairs at the same depth where one shows version suffix or "legacy"/"new" semantics (`v1/`+`v2/`, `legacy/`+`new/`, `<name>/`+`<name>_v2/`, `<name>/`+`<name>-next/`), (b) version-suffixed sibling files (`*_v1.<ext>` paired with `*_v2.<ext>`, `*Old.<ext>` + `*New.<ext>`), (c) workspace packages with `-v2` / `-next` / `-new` suffix, (d) URL/route version prefixes hosting different code paths (`/v1/...` and `/v2/...` mapped to disjoint controller trees), (e) README sections explicitly mentioning "V1 → V2" / "legacy migration" / "rewrite", (f) presence of `ai/migration/ledger.md` or `ai/migration/contracts/`. Record: V1 root path, V2 root path, naming convention used (suffix vs subfolder vs separate workspace), migration ledger path if present, feature inventory (per-route or per-module list of V1 functions/classes/endpoints — this becomes the bootstrap input for the ledger), README evidence quotes if any, cutover mechanism if visible (feature flag library, env var, router rule). If any signal fires → set trigger `migration_layout_detected: true`; the `migration` pack auto-loads in Phase 4. If `ai/migration/ledger.md` exists → set `migration_ledger_present: true` so `port-feature` + `migration-status` know to read rather than bootstrap. If detection is ambiguous (a single `_v2`-suffixed file with no pair, or a single mention of "v2" in README) → flag as `[MIGRATION-WEAK]` and ask the user once: "Detected possible migration layout — confirm? (yes / no / explicit V1 + V2 paths)". Skipped when the codebase shows no version-suffixed paths AND no migration ledger AND no README mention.
+
+#### 2.x Business-domain detection (separate from technical signals)
+
+Stack tells us "what tech is in use." Domain tells us "what business is the product actually running." Each business domain has its own canonical entities, flows, compliance regime, stakeholder vocabulary, and anti-patterns. A NestJS+Postgres ecommerce store and a NestJS+Postgres LMS share zero domain knowledge.
+
+**Catalog**: `~/.claude/templates/business-domains/` — the authoritative list of supported business domains lives in `~/.claude/templates/business-domains/_registry.md` (every entry there has `name`, `summary`, `regulatory_overlay_hints`). The brain MUST resolve the catalog from `_registry.md` rather than from any hard-coded list in this command, because new domains can be added without spec edits. Each domain folder has `glossary.md` + `core-flows.md` + `feature-checklist.md` + `compliance.md` + `stakeholders.md` + `anti-patterns.md` + `_version.json`.
+
+**Detection signals** (each domain's `glossary.md` lists its own; the union is searched in Phase 2):
+
+| Source | Signal example |
+|---|---|
+| Entity / model names | `Product` + `Cart` + `Order` → ecommerce; `Course` + `Enrollment` + `Lesson` → lms; `Patient` + `Encounter` + `Prescription` → healthcare; `Policy` + `Claim` + `Premium` → insurance |
+| Folder / route names | `cart/` + `checkout/` + `/checkout` → ecommerce; `courses/` + `lessons/` → lms; `policies/` + `claims/` → insurance |
+| Dependencies | `stripe` + `medusajs` → ecommerce; `learnpress` / `tutor` → lms; `acme-fhir` / `hl7` → healthcare |
+| README / repo name | cheap last-resort hint; never primary signal |
+
+**Decision**:
+- 3+ signals match a single domain → confident classification, proceed.
+- 3+ signals AND multiple domains match (e.g., ecommerce + affiliate) → both apply (projects often union domains).
+- Conflicting domains with no clear winner → ask ONE consolidated question:
+  > "I see signals for [X] and [Y]. Treat as [combined] or [pick one]?"
+- Greenfield CREATE with prompt → extract domain from prompt ("WhatsApp sales agent" → ecommerce + AI; "course platform" → lms; "doctor appointments" → booking + healthcare).
+- No signal at all + no prompt clue → ask once: "What's the business domain? [list of 15 domains, or 'other']."
+
+**Output of detection**: write `business_domain` (or `business_domains: [...]` for unions) into `.claude/codebase-profile.md`. This drives Phase 4's domain-content population.
+
+#### 2.y Project intent + context capture
+
+Stack tells us "what tech." Domain tells us "what kind of product." This step tells us **why this exists, for whom, and at what maturity** — without it, Claude generates technically-correct setup that misses the point.
+
+Sources (priority order):
+1. User's prompt (if provided to `/setup-project`).
+2. `README.md` (parse for intro / mission / target users / one-liner).
+3. `package.json` `description` + `keywords`.
+4. `ai/status.md` if pre-existing.
+5. Ask the user once, with sensible defaults from above.
+
+Capture these facets into `.claude/codebase-profile.md` under `## Project intent`:
+
+| Facet | Question | Used for |
+|---|---|---|
+| **Mission / one-liner** | "In one sentence, what does this product do?" | CLAUDE.md opener; AGENTS.md opener; ADR context |
+| **Target users + personas** | "Who uses it? (e.g., Egyptian SMB merchants, US enterprise IT admins, gig drivers)" | UX rules, API design, error message tone, i18n priority |
+| **Business model** | "How does it make money / serve mission? (subscription / per-tx / ad / freemium / open-source / internal-tooling)" | Drives billing, plan, observability, churn-tracking decisions |
+| **Maturity stage** | "Where is this in lifecycle? (idea / prototype / MVP / paying customers / scale / mature / sunsetting)" | Phase 1 bias; what's overkill vs essential |
+| **Success KPIs** | "How will you know this works? (top 1-3 metrics that move when this product wins)" | Drives observability + dashboard requirements |
+| **Constraints** | "Hard limits — latency targets, cost ceilings, team size, hardware/infra restrictions, **regulatory / compliance regime** (which frameworks apply: none / GDPR / CCPA / HIPAA / PCI-DSS / SOC2 / ISO-27001 / NPHIES (Saudi healthcare) / SCFHS / MOH-SA / CBAHI / SAMA (Saudi finance) / regional / industry-specific — list ALL that apply, not just one)?" | Anti-pattern rules; what to NEVER do; **drives Phase 4.4b regulatory overlay** (writes project-specific `ai/business-compliance.md` overriding generic domain-pack defaults) |
+| **Anti-goals** | "What is this product NOT trying to be?" | CLAUDE.md anti-patterns; scope-creep guard |
+| **Competitive context** | "What's the closest existing alternative? Why this one?" | Differentiation patterns; what NOT to copy |
+
+**Decision rules:**
+- ENHANCE mode + intent already in `ai/status.md` / `ai/business-domain.md` → confirm + don't re-ask.
+- ENHANCE mode + intent absent → ask once, consolidated (one message, all 8 facets in a block, with what we inferred from README/code as defaults).
+- CREATE mode + prompt rich → extract from prompt; flag whatever's missing.
+- CREATE mode + prompt sparse → ask. Don't assume.
+
+**Output**: `.claude/codebase-profile.md` `## Project intent` section + Phase 4.7b populates the user-facing files.
+
+Output format: structured markdown (see Appendix D).
+
+### Phase 2.5 — Deep idiom extraction (the "full picture")
+
+Generic pack templates produce generic output. To author project-specific patterns + agents + rules in Phase 4, the brain needs the project's **idioms** — not just its file paths and dependency list.
+
+**Trigger**: ENHANCE / REFRESH mode AND Phase 2 detected ≥1 base class with ≥3 extenders. (CREATE mode skips — no extenders to walk yet; idioms emerge during code phase.)
+
+**Mechanism**: invoke the `extract-base-class-idiom` skill (lives in `~/.claude/templates/packs/learning/skills/extract-base-class-idiom.md`) for each detected base class. The skill walks: base class file (full read) → all extenders (count + sample 3-5) → cited collaborators (recursive, per Step 3.5) → automatic behaviors + escape hatches → pitfalls (deprecated comments, "DON'T" comments, regression tests, custom rules referencing the base, memory + audit files).
+
+**Parallelism**: spawn each base class extraction as an Explore subagent — they're independent. Cap at 6 concurrent to avoid runaway token use.
+
+**Output**: `.claude/_extracted-idioms.md` — one section per base class with the structure documented in the skill's Step 6. This file is the **substrate for Phase 4.2-AUTHOR**.
+
+**Quality gate**: if extraction yields <50% coverage of any base class (no automatic behaviors found, no pitfalls cited, no extenders sampled), flag in plan as `[EXTRACTION-WEAK: <base>]`. Phase 4.2-AUTHOR will fall back to pack template for that topic + mark as "TODO: re-extract."
+
+**Skip when**: base class has <3 extenders (insufficient signal — not a load-bearing pattern in this codebase) OR base class is a thin wrapper (<50 lines AND no automatic behaviors AND no override hooks).
+
+**Why this exists**: without it, Phase 4 has nothing project-specific to say. Pack templates carry generic prose; injection of file paths in Phase 4.6 helps but doesn't fix the core gap (the body still reads as generic). Phase 2.5 + Phase 4.2-AUTHOR together flip the model: **packs become topic checklists; the codebase becomes the source of content.**
+
+### Phase 2.7–2.12 — Cost cap (shared across deep-extraction phases)
+
+All six deep-extraction phases (2.7–2.12) AND Phase 4.6-DEEP AND Phase 4.8-DEEP fan out subagents — one per business-domain (2.7), one per surface (2.8), one per flow (2.9), one per convention sweep (2.10), one per hot-path candidate (2.11), one per recurring theme (2.12), one per shallow artifact (4.6-DEEP), one per (adapter × affected-artifact) tuple (4.8-DEEP). On a large codebase the total fan-out is unbounded by default.
+
+The `--max-subagents=<N>` flag (default `8` in REFINE mode) caps the **total concurrent subagent count across all REFINE phases**. Within a phase, fan-out stops at the remaining budget; remaining work serializes (sequential subagent calls). Phase boundaries are sequential anyway (a phase's subagents must all complete before the next phase starts), so the cap is per-phase in practice. Without the flag, REFINE on a 100k+ LOC codebase can spawn 30+ concurrent subagents — manageable but not always desirable for cost-sensitive runs.
+
+**When to lower the cap** (e.g. `--max-subagents=4`): cost-sensitive runs, very large codebases (>500k LOC) where each subagent reads a lot of code, or environments with API-rate-limit pressure. **When to raise it** (e.g. `--max-subagents=16`): time-sensitive runs on small codebases where the user wants fastest possible completion.
+
+**The cap doesn't apply** to round-one phases — Phase 2 Step 5 (base-class idiom extraction) already has its own cap of 6 (independent of `--max-subagents`); Phase 4.2 per-track copies and Phase 4.8 per-adapter generation also have their own intrinsic caps. `--max-subagents` is a REFINE-only knob.
+
+### Phase 2.7 — Deep extraction: domain entities (REFINE mode only)
+
+**Trigger**: REFINE mode (`--refine`). Skipped in CREATE / ENHANCE / REFRESH (those modes use the lighter Phase 2.x business-domain detection — sufficient for the floor, not for round-two depth).
+
+**Why a separate phase**: round-one detection asks "is this an e-commerce / healthcare / billing app?" by reading folder names + dependency manifests + entity-name keywords. Round-two needs the actual entities — class names, field names, relationships, lifecycle events, invariants — read from the code itself, not inferred from the surface. A first-pass `ai/business-domains/<domain>.md` says "this is a billing app handling invoices and subscriptions." A round-two pass says "this app's billing domain has 7 entities (`Invoice`, `Subscription`, `Plan`, `Coupon`, `LedgerEntry`, `Refund`, `PaymentAttempt`), with these 4 lifecycle events (`invoice.finalized`, `invoice.paid`, `invoice.uncollectible`, `subscription.canceled`), invariant: `LedgerEntry.amount` SUM per `Invoice` MUST equal `Invoice.total`, currently enforced by `Reports/services/billing/ledger.py:assert_balanced` (line 142)." The second is anchorable; the first is generic.
+
+**Mechanism**: invoke the `extract-domain-entities-deeply` skill (lives in `~/.claude/templates/packs/learning/skills/extract-domain-entities-deeply.md`) ONCE per detected business-domain (from Phase 2.x). The skill walks: ORM/model class definitions (Django models / SQLAlchemy / Sequelize / Prisma / Mongoose / Pydantic / Zod schemas) → migrations directory (forward + reverse for full lineage) → repository / DAO classes → integration / e2e tests (the contract + edge cases the team explicitly tests) → docstrings / domain README files. Synthesizes a structured map: entities, fields with types + constraints + defaults, relationships (FK / cascade rules), enumerations, lifecycle events, invariants.
+
+**Parallelism**: one Explore subagent per business-domain (typically 1–3); independent.
+
+**Output**: `.claude/_refine-extract.md` § "Domain entities" — one sub-section per domain. Schema validated against `~/.claude/templates/schemas/_extracted-domain.schema.json` (warns; doesn't halt unless `--strict`).
+
+**Quality gate**: if entity count < 3 OR no relationships extracted OR no invariants cited (with `file:line`), flag as `[REFINE-WEAK: domain=<name>]` and fall back to the round-one detection for that domain (no shallow rewrite).
+
+**Skip when**: project has zero ORM/schema files (pure scripting / CLI-only / shell repo) — domain extraction has no substrate.
+
+### Phase 2.8 — Deep extraction: architecture (REFINE mode only)
+
+**Trigger**: REFINE mode. **Mechanism**: invoke `extract-architecture-deeply`. The skill walks: top-level package / module graph (import-edge analysis — direction + count) → request lifecycle for ≥1 representative endpoint per surface (HTTP / GraphQL / queue consumer / scheduled job — controller → service → repository → external sink) → bounded-context boundaries (which modules NEVER import which? — that's a deliberate boundary) → cross-cutting concerns location (auth, logging, tracing, rate-limiting — middleware / decorator / mixin location). Synthesizes: layer diagram (text), import-graph summary ("Reports → core, services, BillingPlans; Reports never imports Patients directly — uses BillingPlans as a façade"), 3-5 representative request lifecycles with `file:line` citations.
+
+**Output**: `.claude/_refine-extract.md` § "Architecture" + ASCII layer diagram. Schema: `~/.claude/templates/schemas/_extracted-architecture.schema.json`.
+
+**Quality gate**: if no import-graph extracted OR no representative lifecycle traced OR no boundary identified, flag `[REFINE-WEAK: architecture]` and skip Phase 4.6-DEEP rewrite of `ai/architecture.md` (leave round-one version).
+
+### Phase 2.9 — Deep extraction: end-to-end flows (REFINE mode only)
+
+**Trigger**: REFINE mode. **Mechanism**: invoke `extract-flows-deeply`. The skill walks ≥3 representative business-critical flows (signup / checkout / payment / report-generation / file-upload / whatever the domain says is critical from Phase 2.7 lifecycle events) AND ≥2 admin / internal flows (e.g. `bulk-import`, `nightly-batch-job`). For each flow: trigger → entry point → all step files in order with `file:line` citations → side effects (DB writes, external API calls, queue publishes, email sends) → error paths → idempotency mechanism (or absence of one).
+
+**Output**: `.claude/_refine-extract.md` § "Flows" — one sub-section per flow with the schema in `~/.claude/templates/schemas/_extracted-flows.schema.json`.
+
+**Quality gate**: minimum 5 flows total (3 business + 2 admin); below that, flag `[REFINE-WEAK: flows-coverage]`.
+
+### Phase 2.10 — Deep extraction: emerging conventions (REFINE mode only)
+
+**Trigger**: REFINE mode. **Mechanism**: invoke `extract-conventions-emerging`. Round-one Phase 2 picks up explicit conventions (file-naming pattern, base classes, suffix matrix, test colocation). Round-two looks for **emergent** ones — patterns that recur 5+ times across the codebase but aren't documented anywhere: error-shape conventions (every controller catches `X` and rethrows as `Y`); pagination conventions (every list endpoint accepts `limit/offset` OR `cursor` — pick the actual one); validation library + decorator/serializer pattern; logging shape (`logger.info({event, user_id, request_id})` — extract the actual fields the project uses); transaction-boundary convention (transactions opened in service layer? repository layer?); naming for async work (`*_job.py` vs `tasks/*` vs `workers/*`); convention for dates / money / IDs (UUID vs ULID vs auto-increment; `Decimal` vs `float`; ISO-string vs epoch).
+
+**Output**: `.claude/_refine-extract.md` § "Conventions (emergent)" with each pattern + occurrence count + 3 sample `file:line` citations.
+
+**Quality gate**: minimum 3 emergent conventions OR explicit "no emergent conventions detected — codebase is highly heterogeneous" finding (the negative finding is also useful — it tells round-two not to invent uniformity).
+
+### Phase 2.11 — Deep extraction: performance hot paths (REFINE mode only)
+
+**Trigger**: REFINE mode. **Mechanism**: invoke `extract-hotpaths`. Walks: endpoints / queries / jobs that are likely high-volume (heuristics — high test coverage, high git churn, high import-fan-in, mentioned in any monitoring config / Datadog dashboard / Sentry rule); ORM eager-loading patterns (`select_related`, `prefetch_related`, `joinedload`, `with`, `include`); raw-SQL files; index definitions in migrations; cache usage (Redis / Memcached / in-memory LRU); existing N+1 risk markers (loop bodies that call `.objects.get` / `Repository.findOne` / `await fetch`).
+
+**Output**: `.claude/_refine-extract.md` § "Hot paths" — list of top-10 likely hot paths with: file:line, current concurrency mode (sequential / batched / parallel), N+1 risk score (none / low / med / high), index coverage (yes / partial / no), cache layer (yes / no), 1-line uplift recommendation (or "looks healthy").
+
+**Quality gate**: if no hot paths extracted, flag `[REFINE-WEAK: hotpaths]` — round-two won't generate perf advice for this project (the floor stays from round-one's generic backend perf rule).
+
+**Why this matters**: this is what makes round-two output something a senior engineer would actually read. A generic `query-optimizer.md` is forgettable. A `query-optimizer.md` whose `## Project-specific` block lists the actual endpoints with N+1 risk and the actual indexes that need to be added is a tool that gets used.
+
+### Phase 2.12 — Deep extraction: failure history (REFINE mode only)
+
+**Trigger**: REFINE mode AND (a) git log accessible AND (b) ≥30 commits OR (c) presence of any of: `docs/postmortems/`, `docs/incidents/`, `INCIDENTS.md`, `RUNBOOK.md` content with "incident" / "outage" / "regression" / "post-mortem" mentions.
+
+**Mechanism**: invoke `extract-failures-from-history`. Walks: git log for `revert`, `hotfix`, `incident`, `regression`, `rollback`, `outage` commit messages → reads the diffs of those commits to identify the affected file/function → reads commit message body for cause description → groups failures by recurring theme (auth bypass / N+1 perf / migration drift / payment double-charge / etc.) → cross-references with `ai/failures/_index.md` if present (round-one might have surfaced a few; round-two finds the rest).
+
+**Output**: `.claude/_refine-extract.md` § "Failure history" — list of recurring themes with: theme, occurrence count, affected files (sample), commit refs, root-cause family. **Round-two will materialize these into `ai/failures/<theme>.md` files in Phase 4.6-DEEP** so future agents inject them in pre-flight (per Hard Rule on architectural-agent failure catalog injection).
+
+**Quality gate**: if extraction yields zero recurring themes (all incidents one-off), record `## No recurring failure themes` in the file (negative finding) and skip Phase 4.6-DEEP failure-file generation.
+
+**Privacy / safety**: NEVER extract failure-history content from any source the user hasn't explicitly opted into via prompt or `/setup-project --refine --include-incidents=docs/postmortems/` — the skill stays inside the repo + local git log; no external bug-tracker calls.
+
+---
+
+**Joint output of Phases 2.7–2.12**: a single `.claude/_refine-extract.md` with six labeled sections + a header summarizing extraction quality:
+
+```
+# Refine extraction — round two
+> Generated by /setup-project --refine on <YYYY-MM-DD HH:MM>.
+> Inputs: project at <path>, last commit <sha>, prior setup version <semver>.
+
+## Extraction quality summary
+- Domain entities: STRONG (3 domains, 21 entities, 9 invariants cited)
+- Architecture: STRONG (3 layers, 4 boundaries, 5 lifecycles)
+- Flows: STRONG (3 business + 3 admin)
+- Emergent conventions: STRONG (4 conventions surfaced)
+- Hot paths: STRONG (10 paths, 6 with uplift candidates)
+- Failure history: WEAK (only 12 relevant commits — round-two will not generate failure files for this project)
+
+## Round-two strategy
+- Will rewrite Project-specific blocks for: <list of artifacts where ≥1 deep input is now available>
+- Will leave-as-is: <list of artifacts where deep extraction added no new signal>
+- New files to materialize: <ai/failures/*.md from Phase 2.12 if STRONG; etc.>
+```
+
+This file is the **substrate for Phase 4.6-DEEP**.
+
