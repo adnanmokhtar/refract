@@ -6,6 +6,36 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-04-28
+
+### M9 — Canonical reference doc
+
+The flag table, mode descriptions, and migration walkthrough were comprehensive but buried inside `templates/quick-start.md` (an internal orchestrator import). M9 surfaces them as a real user-facing reference.
+
+#### Added
+- `docs/COMMANDS.md` — the canonical user manual. ~370 lines covering:
+  - All 4 commands (`/setup-project`, `/setup-project-adapters`, `/setup-project-health`, `/learn-from-task`).
+  - All `/setup-project` flags grouped by purpose (universal / mode-forcing / track-and-signal / tool-adapters / backup / REFINE-only / read-only / UX).
+  - Flag combinations + conflicts (refusals, precedence, warnings).
+  - All 4 modes (CREATE / ENHANCE / REFRESH / REFINE) with exit-criteria.
+  - Generated-command catalog (`/add-endpoint`, `/add-module`, `/port-feature`, `/migration-status`, etc.) with `--plan` universal-flag note.
+  - 6 worked workflows: first-setup-new, first-setup-existing, refresh, refine, V1→V2 migration (step-by-step with explicit hard rules), plan-only mode.
+  - Top-10 hard rules summary (with link to full table).
+  - "Where things live" map: command files, phase files, packs, domains, business-domains, tool-adapters, scripts, tests, archived monolith, sync state.
+
+#### Changed
+- `README.md` — top callout pointing to `docs/COMMANDS.md` for the full reference. README stays focused on the elevator pitch + sync workflow.
+
+#### Verified
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `verify-sync.sh`: 30 ok / 0 drift.
+
+#### Why this milestone existed
+A user asked: "is this mentioned in the README?" — and discovered I'd been documenting flags (`--v1-root`) that didn't exist while the genuine flag reference was buried in an internal file. M9 fixes the documentation gap so this doesn't happen again.
+
+#### Honest correction also landed
+- I claimed `--v1-root=<path>` was a flag. It is not. V1 root is detected by Phase 2 Step 16 OR resolved interactively. `docs/COMMANDS.md` documents the actual mechanism.
+
 ## [2.5.0] — 2026-04-28
 
 ### M8 — Pre-flight coverage + length budgets + reference freshness + spot-reads

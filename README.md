@@ -2,6 +2,8 @@
 
 Portable, intelligent Claude Code configuration. One `git clone` on any device = full toolbox.
 
+> **📖 Looking for the full reference?** → **[docs/COMMANDS.md](docs/COMMANDS.md)** documents every command, every flag, mode behaviors, flag conflicts, V1→V2 migration walkthrough, and where things live. This README is the elevator pitch; `COMMANDS.md` is the manual.
+
 ## Workflow: edit here → sync to `~/.claude`
 
 This repo is the **single source of truth**. Never edit `~/.claude/commands/` or `~/.claude/templates/` directly — those paths are managed symlinks back into this repo.
