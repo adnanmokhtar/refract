@@ -1,3 +1,10 @@
+---
+name: test-doubles
+description: Pattern: Test Doubles (Mocks, Stubs, Fakes, Spies)
+kind: ai-pattern
+pack: testing
+---
+
 # Pattern: Test Doubles (Mocks, Stubs, Fakes, Spies)
 
 Wrong double = brittle test OR false confidence. Know the difference.

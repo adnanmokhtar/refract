@@ -1,3 +1,9 @@
+---
+name: ai-cost-tracking
+description: Pattern: AI cost tracking
+kind: ai-pattern
+---
+
 # Pattern: AI cost tracking
 
 ## Why

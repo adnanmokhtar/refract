@@ -1,3 +1,10 @@
+---
+name: zero-trust
+description: Pattern: Zero-Trust Architecture
+kind: ai-pattern
+pack: security
+---
+
 # Pattern: Zero-Trust Architecture
 
 "Never trust, always verify." Perimeter security dies when apps go multi-service, cloud, remote. Zero trust assumes the network is hostile everywhere.

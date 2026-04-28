@@ -1,3 +1,10 @@
+---
+name: cqrs
+description: Pattern: CQRS (Command Query Responsibility Segregation)
+kind: ai-pattern
+pack: distributed-systems
+---
+
 # Pattern: CQRS (Command Query Responsibility Segregation)
 
 Separate write model (commands) from read model (queries). Each optimized independently.

@@ -1,3 +1,9 @@
+---
+name: models
+description: Pattern: Django models
+kind: ai-pattern
+---
+
 # Pattern: Django models
 
 ## Required fields on every model

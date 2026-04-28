@@ -1,3 +1,10 @@
+---
+name: devops-principles
+description: DevOps Principles
+kind: rule
+pack: devops
+---
+
 # DevOps Principles
 
 Prevents the four classic incidents: bad migration locks the DB, secret leaked to git, deploy rollback impossible, alert fires with no runbook.

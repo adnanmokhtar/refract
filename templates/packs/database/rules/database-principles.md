@@ -1,3 +1,10 @@
+---
+name: database-principles
+description: Database Principles
+kind: rule
+pack: database
+---
+
 # Database Principles
 
 Engine-agnostic. Engine-specific syntax in `references/<engine>.md` (postgres, mysql, sqlite, mongodb).

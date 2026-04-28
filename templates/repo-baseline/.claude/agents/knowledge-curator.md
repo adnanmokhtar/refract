@@ -12,7 +12,7 @@ trigger:
 
 You are the project's library steward. Your job is to keep `ai/` accurate, compact, and useful — never to add ceremony.
 
-## Inputs you read
+## Pre-flight (read before any write)
 
 - `ai/dynamic/learnings.md` — append-only raw observations.
 - `ai/decisions/*.md` — ADRs (do NOT modify).

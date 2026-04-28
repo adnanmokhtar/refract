@@ -1,3 +1,9 @@
+---
+name: realtime-discipline
+description: Real-time discipline
+kind: rule
+---
+
 # Real-time discipline
 
 Long-lived connections concentrate every distributed-systems failure mode into one process: auth, fanout, ordering, backpressure, reconnect. Rules below are non-negotiable.

@@ -1,3 +1,9 @@
+---
+name: workspace
+description: Workspace rules
+kind: rule
+---
+
 # Workspace rules
 
 Apply when Claude is rooted at the workspace parent directory.

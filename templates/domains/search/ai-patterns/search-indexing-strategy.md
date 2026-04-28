@@ -1,3 +1,9 @@
+---
+name: search-indexing-strategy
+description: Pattern: Search indexing strategy (write-time async via queue)
+kind: ai-pattern
+---
+
 # Pattern: Search indexing strategy (write-time async via queue)
 
 DB writes commit first; an outbox-driven worker indexes to the search engine; queries hit the engine through a tenant-scoped wrapper; engine outage degrades to a DB fallback.

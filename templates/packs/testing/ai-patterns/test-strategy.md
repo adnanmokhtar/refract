@@ -1,3 +1,10 @@
+---
+name: test-strategy
+description: Pattern: Test Strategy
+kind: ai-pattern
+pack: testing
+---
+
 # Pattern: Test Strategy
 
 Tests have a cost (write time, run time, maintenance). They have a value (regression prevention, design pressure, documentation). The strategy is matching the right kind of test to the right concern, in the right ratio, so the value/cost ratio stays positive as the codebase grows.

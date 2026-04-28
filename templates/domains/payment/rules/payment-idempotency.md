@@ -1,3 +1,9 @@
+---
+name: payment-idempotency
+description: Payment idempotency
+kind: rule
+---
+
 # Payment idempotency
 
 Every payment-affecting request is idempotent. Double-charges are user-visible, refunds are expensive, trust erodes.

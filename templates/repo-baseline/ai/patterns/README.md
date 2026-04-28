@@ -1,3 +1,9 @@
+---
+name: README
+description: ai/patterns/
+kind: ai-pattern
+---
+
 # ai/patterns/
 
 Worked examples of HOW to do things in this codebase. The "if you're writing X, follow Y" reference.

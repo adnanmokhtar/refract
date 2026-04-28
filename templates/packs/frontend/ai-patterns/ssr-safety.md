@@ -1,3 +1,10 @@
+---
+name: ssr-safety
+description: Pattern: SSR Safety
+kind: ai-pattern
+pack: frontend
+---
+
 # Pattern: SSR Safety
 
 SSR renders on the server, hydrates on the client. Anything that differs between the two = hydration mismatch = broken page.

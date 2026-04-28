@@ -1,3 +1,9 @@
+---
+name: views
+description: Pattern: Django views
+kind: ai-pattern
+---
+
 # Pattern: Django views
 
 ## When to use which

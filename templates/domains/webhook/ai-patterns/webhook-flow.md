@@ -1,3 +1,9 @@
+---
+name: webhook-flow
+description: Pattern: WhatsApp webhook flow
+kind: ai-pattern
+---
+
 # Pattern: WhatsApp webhook flow
 
 ## Endpoints

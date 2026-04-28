@@ -1,3 +1,10 @@
+---
+name: parity-testing
+description: Pattern: Parity testing (V1 ↔ V2)
+kind: ai-pattern
+pack: migration
+---
+
 # Pattern: Parity testing (V1 ↔ V2)
 
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Tests` + `§ Migration`. Do not delete; if extraction is empty, leave the placeholder + open a TODO.

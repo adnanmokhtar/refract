@@ -1,3 +1,10 @@
+---
+name: api-versioning
+description: Pattern: API Versioning
+kind: ai-pattern
+pack: backend
+---
+
 # Pattern: API Versioning
 
 You'll have multiple consumers (web, mobile, integrations). They won't upgrade together. Plan for it from day 1.

@@ -1,3 +1,9 @@
+---
+name: presigned-upload
+description: Pattern: Presigned upload (direct-to-S3)
+kind: ai-pattern
+---
+
 # Pattern: Presigned upload (direct-to-S3)
 
 Client gets a presigned URL → uploads direct to S3 → backend gets webhook on completion → processes asynchronously → marks file ready. Backend never sees the file body.

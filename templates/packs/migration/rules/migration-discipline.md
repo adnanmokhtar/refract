@@ -1,3 +1,10 @@
+---
+name: migration-discipline
+description: Migration Rule: V1→V2 port discipline
+kind: rule
+pack: migration
+---
+
 # Migration Rule: V1→V2 port discipline
 
 > **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md § Migration` + `_extracted-idioms.md`. Do **not** delete; if extraction is empty, leave the placeholder + open a TODO.

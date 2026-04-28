@@ -1,3 +1,10 @@
+---
+name: api-contract
+description: Pattern: API Contract Evolution
+kind: ai-pattern
+pack: backend
+---
+
 # Pattern: API Contract Evolution
 
 A response shape is a long-term commitment to every consumer that has ever shipped against it — frontends, mobile apps, partner integrations, scripts written by the data team. Once the contract is in someone else's release, you can no longer break it cheaply. This pattern fixes the wire format, names what's safe to change vs not, and prescribes how to evolve when you must break.

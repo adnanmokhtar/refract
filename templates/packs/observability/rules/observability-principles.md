@@ -1,3 +1,10 @@
+---
+name: observability-principles
+description: Observability Principles
+kind: rule
+pack: observability
+---
+
 # Observability Principles
 
 Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no metric on the right thing, no runbook.

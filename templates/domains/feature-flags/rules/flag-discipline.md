@@ -1,3 +1,9 @@
+---
+name: flag-discipline
+description: Declaration
+kind: rule
+---
+
 ### Feature flag discipline
 
 Flags are temporary forks in the codebase. Every flag past its useful life rots into a maintenance trap. These rules keep the inventory honest.

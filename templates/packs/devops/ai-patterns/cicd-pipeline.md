@@ -1,3 +1,10 @@
+---
+name: cicd-pipeline
+description: Pattern: CI/CD Pipeline
+kind: ai-pattern
+pack: devops
+---
+
 # Pattern: CI/CD Pipeline
 
 ## Stages (in order)

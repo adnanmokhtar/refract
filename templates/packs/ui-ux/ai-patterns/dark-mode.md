@@ -1,3 +1,10 @@
+---
+name: dark-mode
+description: Pattern: Dark Mode
+kind: ai-pattern
+pack: ui-ux
+---
+
 # Pattern: Dark Mode
 
 Dark mode is a parallel design system, not a CSS filter. Eyes perceive contrast, color, and elevation differently against a dark substrate — copying light-mode tokens with their luminance flipped produces glare, muddy hierarchy, and unreadable brand colors. Treat dark as a first-class theme that rides on the same component contracts.

@@ -1,3 +1,9 @@
+---
+name: event-sourcing
+description: Pattern: Event sourcing (aggregate → event store → projections)
+kind: ai-pattern
+---
+
 # Pattern: Event sourcing (aggregate → event store → projections)
 
 ## When to use this pattern

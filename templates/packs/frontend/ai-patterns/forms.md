@@ -1,3 +1,10 @@
+---
+name: forms
+description: Pattern: Forms
+kind: ai-pattern
+pack: frontend
+---
+
 # Pattern: Forms
 
 Forms are where validation, UX, accessibility, and API contracts collide. Every project ends up needing the same primitives: schema-driven validation, field errors that map from server codes, submit-button behavior that doesn't trap users, and accessibility that survives a screen reader audit. Picking one library per repo and applying it consistently is more important than which library you pick.

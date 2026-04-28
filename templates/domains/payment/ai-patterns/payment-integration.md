@@ -1,3 +1,9 @@
+---
+name: payment-integration
+description: Pattern: Payment integration (provider-agnostic adapter)
+kind: ai-pattern
+---
+
 # Pattern: Payment integration (provider-agnostic adapter)
 
 ## Why

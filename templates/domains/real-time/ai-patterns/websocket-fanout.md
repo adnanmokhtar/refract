@@ -1,3 +1,9 @@
+---
+name: websocket-fanout
+description: Pattern: WebSocket gateway + Redis pub/sub fanout
+kind: ai-pattern
+---
+
 # Pattern: WebSocket gateway + Redis pub/sub fanout
 
 NestJS WebSocket gateway with auth-on-connect, scoped subscribe, Redis pub/sub for cross-node fanout, bounded backpressure, session-resume on reconnect.

@@ -1,3 +1,10 @@
+---
+name: distributed-principles
+description: Distributed Systems Principles
+kind: rule
+pack: distributed-systems
+---
+
 # Distributed Systems Principles
 
 Prevents the failures that turn a microservice migration into a distributed monolith with extra latency: shared DBs, sync chains, missing idempotency, retries without timeouts, distributed transactions.

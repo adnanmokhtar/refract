@@ -1,3 +1,10 @@
+---
+name: tracing
+description: Pattern: Distributed Tracing (OpenTelemetry)
+kind: ai-pattern
+pack: observability
+---
+
 # Pattern: Distributed Tracing (OpenTelemetry)
 
 Follow a request across services. Find where time is spent + where errors originate.

@@ -1,3 +1,9 @@
+---
+name: ai-cost-discipline
+description: AI cost discipline
+kind: rule
+---
+
 # AI cost discipline
 
 LLM API costs compound. At scale, every extra 100 input tokens × millions of messages × per-tenant multiplier = real money.

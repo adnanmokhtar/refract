@@ -1,3 +1,10 @@
+---
+name: security-principles
+description: Security Principles
+kind: rule
+pack: security
+---
+
 # Security Principles
 
 Prevents the OWASP Top 10 patterns most likely to actually hit you: injection, broken auth, broken access control, secret leak, vulnerable dependency.

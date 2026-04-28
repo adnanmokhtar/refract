@@ -1,3 +1,10 @@
+---
+name: feature-port
+description: Pattern: Feature port (V1→V2)
+kind: ai-pattern
+pack: migration
+---
+
 # Pattern: Feature port (V1→V2)
 
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Migration`. Do not delete; if extraction is empty, leave the placeholder + open a TODO.

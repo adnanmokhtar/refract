@@ -1,3 +1,9 @@
+---
+name: search-discipline
+description: Search discipline
+kind: rule
+---
+
 # Search discipline
 
 Search is a denormalized cache outside your DB transactions. A bad query is a tenant leak; a bad index is hours of rebuild; a missing fallback is downtime. Rules below are non-negotiable.

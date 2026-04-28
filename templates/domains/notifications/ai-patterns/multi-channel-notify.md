@@ -1,3 +1,9 @@
+---
+name: multi-channel-notify
+description: Pattern: Multi-channel notification dispatch
+kind: ai-pattern
+---
+
 # Pattern: Multi-channel notification dispatch
 
 Single send API → routes to channels based on user preference + notification type → per-channel adapter handles provider specifics → preference / dedup / rate-limit middleware fail-closed → providers separated by category for deliverability.

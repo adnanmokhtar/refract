@@ -1,3 +1,9 @@
+---
+name: multi-tenancy
+description: Multi-tenancy rules
+kind: rule
+---
+
 # Multi-tenancy rules
 
 This project is shared-DB, row-level multi-tenant. See ADR `0002` + `ai/patterns/tenant-isolation.md`.

@@ -1,3 +1,9 @@
+---
+name: webhook-signature-verification
+description: Webhook signature verification
+kind: rule
+---
+
 # Webhook signature verification
 
 Every inbound webhook MUST be signature-verified BEFORE any processing.

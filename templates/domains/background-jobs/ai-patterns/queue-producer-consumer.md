@@ -1,3 +1,9 @@
+---
+name: queue-producer-consumer
+description: Pattern: Queue producer + consumer (BullMQ reference)
+kind: ai-pattern
+---
+
 # Pattern: Queue producer + consumer (BullMQ reference)
 
 End-to-end pattern for declaring a queue, enqueuing jobs transactionally, and consuming them with retry / DLQ / tenant-fair / observable workers.

@@ -1,3 +1,10 @@
+---
+name: backend-principles
+description: Backend Principles
+kind: rule
+pack: backend
+---
+
 # Backend Principles
 
 Stack-agnostic. Framework specifics in `references/<framework>.md` (nestjs, express, fastify, fastapi, django, rails, laravel, spring, go-chi, gin).

@@ -1,3 +1,10 @@
+---
+name: ui-principles
+description: UI / UX Principles
+kind: rule
+pack: ui-ux
+---
+
 # UI / UX Principles
 
 Prevents the three failures users punish: confusing labels, broken keyboard nav, low-contrast text.

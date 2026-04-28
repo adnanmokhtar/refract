@@ -1,3 +1,9 @@
+---
+name: event-sourcing-discipline
+description: Events
+kind: rule
+---
+
 ### Event sourcing discipline
 
 Event store data is permanent. Every shortcut today is paid back forever. These rules keep the store usable past the first schema change.

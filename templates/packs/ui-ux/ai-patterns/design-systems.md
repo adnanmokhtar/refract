@@ -1,3 +1,10 @@
+---
+name: design-systems
+description: Pattern: Design System
+kind: ai-pattern
+pack: ui-ux
+---
+
 # Pattern: Design System
 
 A shared vocabulary of tokens + components so every screen feels like the same product. Without one, UI drifts with every PR.

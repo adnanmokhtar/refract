@@ -1,3 +1,9 @@
+---
+name: feature-flag
+description: Pattern: Feature flags (lifecycle + SDK + cleanup)
+kind: ai-pattern
+---
+
 # Pattern: Feature flags (lifecycle + SDK + cleanup)
 
 ## Why

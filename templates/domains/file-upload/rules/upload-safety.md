@@ -1,3 +1,9 @@
+---
+name: upload-safety
+description: Upload safety rules
+kind: rule
+---
+
 # Upload safety rules
 
 User-uploaded files are the #1 RCE / DoS / privacy surface in any web app. Rules below are non-negotiable.

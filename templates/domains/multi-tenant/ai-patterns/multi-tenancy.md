@@ -1,3 +1,9 @@
+---
+name: multi-tenancy
+description: Pattern: Multi-Tenancy (Request-Scoped Context)
+kind: ai-pattern
+---
+
 # Pattern: Multi-Tenancy (Request-Scoped Context)
 
 Each request carries tenant identity through every layer. A single leak = security incident.

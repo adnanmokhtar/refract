@@ -1,3 +1,9 @@
+---
+name: notification-discipline
+description: Notification discipline
+kind: rule
+---
+
 # Notification discipline
 
 User-visible AND legally regulated. Every send obeys the rules below.

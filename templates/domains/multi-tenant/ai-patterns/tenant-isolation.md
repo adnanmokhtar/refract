@@ -1,3 +1,9 @@
+---
+name: tenant-isolation
+description: Pattern: Tenant isolation (shared-DB, row-level)
+kind: ai-pattern
+---
+
 # Pattern: Tenant isolation (shared-DB, row-level)
 
 ## Decision summary

@@ -1,3 +1,10 @@
+---
+name: metrics
+description: Pattern: Metrics (RED + USE + Business)
+kind: ai-pattern
+pack: observability
+---
+
 # Pattern: Metrics (RED + USE + Business)
 
 Numerical time series describing how the system is behaving — request rates, queue depths, business KPIs. Metrics are cheaper than logs (one number per minute vs one log line per request), aggregate naturally, and form the backbone of dashboards + alerts. Without them, you find out something's broken from a customer email.

@@ -1,3 +1,10 @@
+---
+name: system-design
+description: Pattern: System Design Document
+kind: ai-pattern
+pack: documentation
+---
+
 # Pattern: System Design Document
 
 For features / systems beyond a single service. Written BEFORE coding.

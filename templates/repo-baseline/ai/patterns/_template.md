@@ -1,3 +1,9 @@
+---
+name: _template
+description: Pattern: <Pattern Name>
+kind: ai-pattern
+---
+
 # Pattern: <Pattern Name>
 
 <one-paragraph: what + when + what problem it solves>

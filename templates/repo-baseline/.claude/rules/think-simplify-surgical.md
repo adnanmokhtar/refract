@@ -1,3 +1,10 @@
+---
+name: think-simplify-surgical
+description: Foundational rule — Karpathy-inspired task discipline (assumptions, simplicity, surgical scope, verifiable success). One of the four load-bearing rules every project ships (Hard Rule A19).
+applies-to: every-agent, every-command, every-code-writing-task
+severity: must
+---
+
 # Rule: Think · Simplify · Stay surgical · Verify
 
 **This rule auto-applies to every agent + every command + every code-writing task in this project.** It complements `read-before-write.md` (what you must read), `read-codebase-deeply.md` (how deep to go), and `code-quality.md` (what "clean" means). Read those FIRST; this rule layers task-discipline on top.

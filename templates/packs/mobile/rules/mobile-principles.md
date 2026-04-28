@@ -1,3 +1,10 @@
+---
+name: mobile-principles
+description: Mobile Principles
+kind: rule
+pack: mobile
+---
+
 # Mobile Principles
 
 Prevents the failures that get apps rejected from stores or 1-starred: bad networks crash the app, tokens leak, permissions feel hostile, store policies miss.

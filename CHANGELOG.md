@@ -6,6 +6,38 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-04-28
+
+### M6 — Artifact lint + spot audit
+
+After M1–M5 hardened the meta-system (`/setup-project` and its harness), M6 turns attention to the artifacts the meta-system actually ships: 200+ agents / commands / skills / rules / patterns under `templates/packs/` and `templates/repo-baseline/`. Most pre-date the schema introduced in M2; this milestone fixes the structural gaps and surfaces the remaining content-quality flags.
+
+#### Added (executable tools)
+- `scripts/lint-artifact.sh` — structural lint for shipped artifacts. Checks frontmatter presence, required keys per kind (agent / command / skill / rule / pattern), length budgets (agents ≤ 300, commands ≤ 250, skills ≤ 200, rules ≤ 250, patterns ≤ 200), placeholder strings (outside code spans), top-level heading, and pre-flight block presence in agents (Hard Rule A18). Exits 0 healthy / 1 errors.
+- `scripts/add-frontmatter.sh` — bulk migration tool. For any rule/pattern .md file lacking frontmatter, prepends a minimal block (`name`, `description` derived from H1 or first H2, `kind`, `pack` if applicable). Idempotent. Default dry-run; `--apply` to write.
+
+#### Changed
+- **The 4 foundational baseline rules now have frontmatter** (Hard Rule A19): `repo-baseline/.claude/rules/{read-before-write, read-codebase-deeply, code-quality, think-simplify-surgical}.md`. These ship in every project and previously had no metadata.
+- **86 rule + pattern files received frontmatter** via `add-frontmatter.sh --apply`. Coverage now near-universal across `templates/packs/*/` and `templates/domains/*/`.
+- `repo-baseline/.claude/agents/knowledge-curator.md` — renamed "Inputs you read" section to "Pre-flight (read before any write)" so the linter's pre-flight heuristic recognizes it.
+
+#### Verified (with caveats below)
+- `lint-artifact.sh`: **0 errors / 48 warnings.** Errors are now zero — every artifact has frontmatter and an H1.
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `tests/setup-project/run.sh --apply`: 2 passed (django + nextjs); django snapshot re-recorded after pattern frontmatter changes — confirms the snapshot test correctly catches schema drift.
+- `tests/setup-project/run.sh --idempotency-only`: 2 passed.
+
+#### What the 48 warnings tell us (M7+ scope)
+- **Length budget breaches** (~5 files): `learning/skills/apply-pack-adaptation.md` (514 lines vs 200), `compute-anchor-density.md` (246 vs 200), and similar. Some are genuinely complex extractors; some could likely be split. Worth a content audit, not blocking.
+- **4 agents missing the literal "pre-flight" keyword**: `security-auditor`, `design-system-guardian`, `ux-reviewer`, `project-dispatcher`. Each has the discipline (sections describing what to read first) but doesn't use the keyword. Heuristic linter false-ish-positives — fix is renaming a section in each, ~5 minutes per agent.
+- **3 ai-patterns slightly over budget** (`test-strategy.md` at 207, `theming.md` at 212): borderline; not worth chopping.
+
+#### Honest scope statement
+M6 is the first milestone where the **artifacts** (not just the system that ships them) are validated against a contract. Structural lint is now a CI-able gate. Content lint (e.g., "does this rule cite project specifics or generic prose?") remains M7+ — that requires reading semantics, not just structure.
+
+#### Side effects
+- The django snapshot was re-recorded once during M6 because two pattern source files (`patterns/{models,views}.md`) gained frontmatter. The test suite caught this drift on the first `--apply` run — exactly the behavior a snapshot suite should produce. Re-recorded with explicit confirm; idempotency holds in run-2.
+
 ## [2.2.0] — 2026-04-28
 
 ### M5 — Close the verification gap

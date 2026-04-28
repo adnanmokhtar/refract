@@ -1,3 +1,10 @@
+---
+name: structured-logging
+description: Pattern: Structured Logging
+kind: ai-pattern
+pack: observability
+---
+
 # Pattern: Structured Logging
 
 Logs as queryable data, not grep targets.

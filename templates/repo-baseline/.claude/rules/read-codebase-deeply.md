@@ -1,3 +1,10 @@
+---
+name: read-codebase-deeply
+description: Foundational rule — tiered reading playbook for non-trivial work. One of the four load-bearing rules every project ships (Hard Rule A19).
+applies-to: every-agent, every-command, every-code-writing-task
+severity: must
+---
+
 # Rule: Read the codebase deeply before writing
 
 **This rule auto-applies to every agent + every command + every generated artifact in this project.**

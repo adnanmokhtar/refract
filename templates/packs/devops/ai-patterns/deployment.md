@@ -1,3 +1,10 @@
+---
+name: deployment
+description: Pattern: Deployment
+kind: ai-pattern
+pack: devops
+---
+
 # Pattern: Deployment
 
 Zero-downtime. Reversible. Automated. No hand-edits on prod.

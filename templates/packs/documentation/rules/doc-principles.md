@@ -1,3 +1,10 @@
+---
+name: doc-principles
+description: Documentation Principles
+kind: rule
+pack: documentation
+---
+
 # Documentation Principles
 
 Prevents the failure mode that's worse than missing docs: stale docs that actively mislead.

@@ -1,3 +1,10 @@
+---
+name: performance-principles
+description: Performance Principles
+kind: rule
+pack: performance
+---
+
 # Performance Principles
 
 Prevents the two failure modes: optimizing the wrong thing, and shipping a regression because no one measured.

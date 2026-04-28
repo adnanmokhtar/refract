@@ -1,3 +1,10 @@
+---
+name: engineering-principles
+description: Engineering Principles (project governance layer)
+kind: rule
+pack: code-quality
+---
+
 # Engineering Principles (project governance layer)
 
 These are CROSS-CUTTING engineering rules — broader than the micro-level hygiene in `quality-principles.md`, narrower than full architectural decisions (which live in ADRs at `ai/decisions/`). Think of this as the team contract: how features get structured, how AI is used, how change happens safely, how we stay consistent over time.

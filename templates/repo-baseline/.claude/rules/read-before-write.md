@@ -1,3 +1,10 @@
+---
+name: read-before-write
+description: Foundational rule — read existing code before writing. One of the four load-bearing rules every project ships (Hard Rule A19).
+applies-to: every-agent, every-command, every-code-writing-task
+severity: must
+---
+
 # #1 Rule: Read Before You Write
 
 ## Must

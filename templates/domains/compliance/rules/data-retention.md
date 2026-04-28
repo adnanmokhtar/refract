@@ -1,3 +1,9 @@
+---
+name: data-retention
+description: Data retention
+kind: rule
+---
+
 # Data retention
 
 Storing data forever is a liability. Explicit retention per data class, enforced by code.

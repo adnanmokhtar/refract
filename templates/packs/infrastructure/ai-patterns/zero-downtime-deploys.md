@@ -1,3 +1,10 @@
+---
+name: zero-downtime-deploys
+description: Pattern: Zero-Downtime Deploys
+kind: ai-pattern
+pack: infrastructure
+---
+
 # Pattern: Zero-Downtime Deploys
 
 Users don't care that you shipped. They notice when you break. Every deploy strategy has tradeoffs.

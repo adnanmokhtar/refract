@@ -1,3 +1,10 @@
+---
+name: code-quality
+description: Foundational rule — what "clean" means in this project. One of the four load-bearing rules every project ships (Hard Rule A19).
+applies-to: every-agent, every-command, every-code-writing-task
+severity: must
+---
+
 # Code Quality Principles
 
 ## Must
