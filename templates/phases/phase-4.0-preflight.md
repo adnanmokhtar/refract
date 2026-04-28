@@ -44,6 +44,29 @@ This is the gate that everything downstream assumes has run. It validates that e
 
 **Then read both reports** before issuing any ADD-CANDIDATE / MERGE-CANDIDATE decision. The reports list ALL files; Phase 4.2 visits each row.
 
+#### 4.0.1 Apply study-existing decisions (M23 — deterministic enforcer)
+
+**Mandatory after the parity scan**, before manual Phase 4.2 work begins:
+
+```bash
+# Apply REPLACE-OR-ENHANCE + ADD rows from the study-existing report deterministically.
+# The agent CANNOT skip these by claiming "narrow scope" — the script reads the
+# report and copies pack source over thin stubs (with backup).
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply --include=replace,add
+```
+
+**What this does:**
+- Reads `<target>/.claude/_study-existing-report.md`.
+- For every ADD row → copies pack file to target.
+- For every REPLACE-OR-ENHANCE row → backs up target, replaces with pack version.
+- For MERGE / KEEP-OURS-PLUS-INJECT rows → lists for human review (manual merge needed; deterministic auto-merge unsafe).
+- For KEEP-OURS-DEEP / IDENTICAL-NO-OP → no action.
+
+**Why mandatory:**
+The historic bug (M11 → M22 series): agent ran preflight, generated reports, then ignored the actionable rows under various interpretations of scope. This script removes LLM judgment from the application step. The reports are deterministic; the application is now also deterministic.
+
+**Phase 4.6 still runs after** to anchor project-specific blocks into the replaced files.
+
 ```bash
 for PACK in $SELECTED_PACKS; do
   PACK_SRC="$HOME/.claude/templates/packs/$PACK"

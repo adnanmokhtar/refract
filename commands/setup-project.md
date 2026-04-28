@@ -67,6 +67,24 @@ This produces 4 reports under `$TARGET_REPO/.claude/`:
 
 **Hard contract (M17):** the orchestrator MUST run `run-preflight.sh` at Phase 0.0 (before any other Phase 0 work) AND `audit-setup.sh` as the final step of Phase 5. If `audit-setup.sh` exits non-zero, the run is REFUSED — the agent MUST NOT report `success` / `idempotent` / `no work to do`. Phase 4 reads the 4 reports as its work plan; every actionable row must be addressed or explicitly skipped with a documented rationale.
 
+**Hard contract (M23) — apply study decisions deterministically:**
+
+```bash
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply --include=replace,add
+```
+
+Phase 4 MUST run this. It reads `_study-existing-report.md` and applies REPLACE-OR-ENHANCE + ADD rows by file copy (with backup). LLM judgment cannot skip these — the script is deterministic shell.
+
+**Flag composition (M23):** flags COMPOSE; they do NOT narrow scope.
+
+- `/setup-project --refresh` → applies study-decisions across ALL existing files (every pack the project has).
+- `/setup-project --include=migration` → adds migration pack content on top.
+- `/setup-project --refresh --include=migration` → does **BOTH**:
+  - Applies study-decisions across ALL existing files (a thin `add-feature.md` from the backend pack gets REPLACED from pack source).
+  - PLUS adds the migration pack files.
+
+The agent MUST NOT interpret `--include=<pack>` as "only touch that pack." `--include` ADDS scope; never SUBTRACTS. Refresh always covers the whole pack-source vs target diff. Multiple flags compose additively.
+
 This block exists because prose rules in lower-priority sections were skipped under context pressure. Step Zero is the load-bearing contract.
 
 ---
