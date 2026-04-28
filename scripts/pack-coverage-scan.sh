@@ -48,13 +48,32 @@ if [[ ${#PACKS[@]} -eq 0 ]]; then
   fi
 fi
 if [[ ${#PACKS[@]} -eq 0 ]]; then
+  # Try find first; some sandboxes restrict find traversal even when ls works,
+  # so fall back to a bash glob if find returns nothing.
   while IFS= read -r d; do
     name="$(basename "$d")"
     [[ "$name" == _* ]] && continue
     PACKS+=("$name")
-  done < <(find "$PACKS_ROOT" -mindepth 1 -maxdepth 1 -type d | sort)
+  done < <(find "$PACKS_ROOT" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+  if [[ ${#PACKS[@]} -eq 0 ]]; then
+    for d in "$PACKS_ROOT"/*/; do
+      [[ -d "$d" ]] || continue
+      name="$(basename "$d")"
+      [[ "$name" == _* ]] && continue
+      [[ "$name" == "*" ]] && continue
+      PACKS+=("$name")
+    done
+  fi
 fi
-echo "Scanning packs: ${PACKS[*]}" >&2
+# bash 3.2 (macOS default) treats `${arr[*]}` on an empty array as unbound under
+# set -u — guard the trace line so it never crashes the preflight.
+if [[ ${#PACKS[@]} -gt 0 ]]; then
+  echo "Scanning packs: ${PACKS[*]}" >&2
+else
+  echo "Scanning packs: (none — neither codebase-profile track: lines nor $PACKS_ROOT scan yielded packs)" >&2
+  echo "ERR: cannot proceed with zero packs. Pass packs as args, or check $PACKS_ROOT exists and is readable." >&2
+  exit 1
+fi
 
 # Per-kind target dir resolution (per pack.md emit conventions)
 target_dir_for_kind() {
