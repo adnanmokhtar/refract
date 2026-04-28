@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/claude-code/skills/v1.json",
+  "title": "Claude Code SKILL.md frontmatter",
+  "description": "Validates the YAML frontmatter of .claude/skills/<name>/SKILL.md files.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "description"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 400
+    },
+    "version": { "type": "string" },
+    "allowed-tools": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "kind": "tool-adapter",
+  "name": "cursor",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline.",
+  "docs_urls": [
+    "https://cursor.com/docs/context/rules",
+    "https://cursor.com/docs/context/skills",
+    "https://cursor.com/docs/context/commands",
+    "https://cursor.com/docs/agent/hooks"
+  ],
+  "last_verified": "2026-04-28",
+  "last_verified_hashes": {
+    "https://cursor.com/docs/context/rules": "1b06147f453b937aa1317abf296ff5eb1e549a049dff2901dd26c33a4c86257c",
+    "https://cursor.com/docs/context/skills": "ef303b580001920be88ebd5951a3c9c47379a274283fdbcffd45e887067d52a8",
+    "https://cursor.com/docs/context/commands": "1cf3d084153fd9218e78d8d0bb392ec7abd849cc3e46439a9390446758aa7384",
+    "https://cursor.com/docs/agent/hooks": "5fc1f8bb8dab369636c46503343bf42f7781a7843f8ffdcb0b5ff242feeff6e1"
+  }
+}

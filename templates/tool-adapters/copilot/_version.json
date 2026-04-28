@@ -1,0 +1,18 @@
+{
+  "kind": "tool-adapter",
+  "name": "copilot",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline.",
+  "docs_urls": [
+    "https://docs.github.com/en/copilot/reference/customization-cheat-sheet",
+    "https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills"
+  ],
+  "last_verified": "2026-04-28",
+  "last_verified_hashes": {
+    "https://docs.github.com/en/copilot/reference/customization-cheat-sheet": "9af0605a0297e12f8b2e341aac143276f8f19288aa92f017c41279f7c6299810",
+    "https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills": "7b2d73d63205a81c704f2ad61eeacd1ec5dc8330e6fe2febcc3d9cfbc499fa6c"
+  }
+}

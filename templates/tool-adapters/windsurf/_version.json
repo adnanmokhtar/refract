@@ -1,0 +1,18 @@
+{
+  "kind": "tool-adapter",
+  "name": "windsurf",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline.",
+  "docs_urls": [
+    "https://docs.windsurf.com/windsurf/cascade/memories",
+    "https://docs.windsurf.com/windsurf/cascade/workflows"
+  ],
+  "last_verified": "2026-04-28",
+  "last_verified_hashes": {
+    "https://docs.windsurf.com/windsurf/cascade/memories": "09a2a8780d55c73ad71d05c82e9db65232ae5fb7aeb67f3a52138c38df30154d",
+    "https://docs.windsurf.com/windsurf/cascade/workflows": "5ef7fc5fc6d47c1fb7b60eea17161f24efd21286e203b71103a333b56c8df429"
+  }
+}

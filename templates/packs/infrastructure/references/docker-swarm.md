@@ -1,0 +1,106 @@
+# Docker Swarm reference
+
+Simpler than K8s, still gives you multi-host container orchestration. Fading in popularity but valid for small-to-mid teams who want more than Compose without K8s overhead.
+
+## When to choose Swarm over K8s
+
+- Team < 10 engineers, no dedicated SRE.
+- 2-10 nodes.
+- Docker-native workflow already adopted.
+- Want "Compose, but multi-host".
+
+## Compose file (Swarm mode)
+
+```yaml
+version: '3.9'
+services:
+  api:
+    image: registry.example.com/api:sha-abc123
+    ports:
+      - "80:3000"
+    environment:
+      - NODE_ENV=production
+    secrets:
+      - database_url
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+      resources:
+        reservations: { cpus: '0.25', memory: 256M }
+        limits:       { cpus: '1.0',  memory: 512M }
+      placement:
+        constraints: [node.role == worker]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode===200?0:1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - appnet
+
+secrets:
+  database_url:
+    external: true
+
+networks:
+  appnet:
+    driver: overlay
+```
+
+Deploy:
+```bash
+docker stack deploy -c docker-compose.prod.yml app
+```
+
+## Features
+
+- **Services** with desired replicas + rolling updates.
+- **Secrets** mounted as `/run/secrets/<name>` files (not env).
+- **Overlay networks** for multi-host service discovery.
+- **Built-in load balancer** (routing mesh) — any node routes to any task.
+- **Self-healing** — failed containers restart per `restart_policy`.
+
+## Rolling updates
+
+- `parallelism: N` — how many containers update at once.
+- `order: start-first` — new container up before old down (zero-downtime).
+- `failure_action: rollback` — auto-revert on failure.
+
+## Secrets
+
+- `docker secret create database_url ./db_url.txt`
+- Mounted at `/run/secrets/database_url` — read as a file, not env var.
+- NEVER commit secrets. Bootstrap via CI / manual admin.
+
+## Node roles
+
+- **Manager** — maintains cluster state (raft consensus). 3 or 5 for HA.
+- **Worker** — runs tasks.
+- Constrain stateful services: `node.labels.role == db` on specific nodes with storage.
+
+## Storage
+
+- Local volumes: tied to a node. OK for dev.
+- External: NFS / object store / managed DB. Don't use local for stateful prod services.
+
+## Limits vs K8s
+
+- No horizontal autoscaling built-in (fixed replicas; scale with `docker service scale`).
+- Smaller ecosystem (Helm charts, operators, etc. are K8s-specific).
+- No NetworkPolicy equivalent (you rely on overlay network separation).
+- Being de-emphasized by Docker — no major new features in years.
+
+## Forbidden
+
+- Local volumes for stateful prod services.
+- Secrets as env vars (file-mounted only).
+- `:latest` tags.
+- Manager on a public network (only exposed via an HA VIP + bastion).

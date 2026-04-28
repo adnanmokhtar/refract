@@ -1,0 +1,76 @@
+# Observability pack — topic specs (AUTHOR mode)
+
+Schema: see `~/.claude/templates/packs/backend/_topics.md`.
+
+```yaml
+- name: telemetry-architect
+  kind: agent
+  triggers: { logger_lib_detected: true }
+  extracts_from: _extracted-codebase.md § Observability (logger / metrics / tracer detected)
+  sections: [persona, current_stack, what_to_instrument_per_request, sampling_strategy, dashboard_recommendations, output_format]
+  fallback: _examples/telemetry-architect.md
+  cite_evidence: strict
+
+- name: observability-reviewer
+  kind: agent
+  triggers: { logger_lib_detected: true }
+  extracts_from: _extracted-codebase.md § Observability + sample handlers
+  sections: [persona, review_checklist, missing_correlation_id_check, log_level_discipline, output_format]
+  fallback: _examples/observability-reviewer.md
+
+- name: sre-engineer
+  kind: agent
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Tests + § Observability + ai/runbooks/ if exists
+  sections: [persona, slo_definition_for_this_app, runbook_authoring, alert_design, postmortem_template]
+  fallback: _examples/sre-engineer.md
+
+- name: incident-responder
+  kind: agent
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Modules + § Observability + ai/runbooks/incident-response.md if exists
+  sections: [persona, severity_definitions, comms_template, rollback_decisions, postmortem_required]
+  fallback: _examples/incident-responder.md
+
+- name: structured-logging
+  kind: pattern
+  triggers: { logger_lib_detected: true }
+  extracts_from: _extracted-codebase.md § Observability (logger lib) + sample log calls
+  sections: [overview, logger_in_use, schema_required_fields, correlation_id_propagation, what_to_log_what_not, examples, pitfalls]
+  mirror_existing: true
+  fallback: _examples/structured-logging.md
+
+- name: metrics
+  kind: pattern
+  triggers: { metrics_lib_detected: true }
+  extracts_from: _extracted-codebase.md § Observability (metrics) + sample counters
+  sections: [overview, lib_in_use, naming_convention, cardinality_rules, dashboard_links, examples, pitfalls]
+  mirror_existing: true
+  fallback: _examples/metrics.md
+
+- name: tracing
+  kind: pattern
+  triggers: { tracer_lib_detected: true }
+  extracts_from: _extracted-codebase.md § Observability (tracer)
+  sections: [overview, lib_in_use, span_naming, what_to_trace, sampling, examples, pitfalls]
+  mirror_existing: true
+  fallback: _examples/tracing.md
+
+- name: observability-principles
+  kind: rule
+  triggers: { logger_lib_detected: true }
+  extracts_from: _extracted-codebase.md § Observability + § Anti-patterns
+  sections: [project_specific_first, no_console_log, structured_only, correlation_required, error_logging_pattern, secret_redaction]
+  mirror_existing: true
+  fallback: _examples/observability-principles.md
+
+- name: add-telemetry
+  kind: command
+  triggers: { logger_lib_detected: true }
+  fallback: _examples/add-telemetry.md
+
+- name: alert-audit
+  kind: skill
+  triggers: { metrics_lib_detected: true }
+  fallback: _examples/alert-audit.md
+```

@@ -1,0 +1,31 @@
+# Cross-project leak markers
+#
+# One regex per line. Patterns matched here trigger a Phase 5.3.5 leak-scan
+# failure during /setup-project. The scan walks every generated rule / agent /
+# pattern / convention file looking for these markers, on the assumption that
+# they would only appear if the LLM accidentally carried content from a
+# different project's setup.
+#
+# When to add a regex here:
+#  - You found a generated file in project B that referenced project A's
+#    internal codename, base class, or business term.
+#  - You have an internal product name that should NEVER appear in a
+#    shareable artifact (rules, packs, adapters).
+#
+# When NOT to add:
+#  - Generic framework / language names (NestJS, Django, Postgres, etc.) —
+#    those are detected from the actual stack and verified separately.
+#  - Open-source library names — same.
+#
+# Format: a POSIX-extended regex (passed to `grep -E`). Comments start with #.
+# Empty lines ignored. Patterns are case-insensitive when written with
+# explicit alternations (e.g. `(Foo|FOO|foo)` if you need that).
+#
+# Example (commented out — uncomment + adapt for your own internal codenames):
+#
+# (?i)\binternal-codename-1\b
+# (?i)\binternal-codename-2\b
+#
+# Default: no markers. The scan still validates extraction-traceability +
+# stack-match (Checks 1 + 2 in Phase 5.3.5); markers (Check 3) only fire when
+# this file is populated.

@@ -1,0 +1,22 @@
+{
+  "kind": "tool-adapter",
+  "name": "opencode",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline.",
+  "docs_urls": [
+    "https://opencode.ai/docs/config/",
+    "https://opencode.ai/docs/agents/",
+    "https://opencode.ai/docs/commands/",
+    "https://opencode.ai/docs/skills/"
+  ],
+  "last_verified": "2026-04-28",
+  "last_verified_hashes": {
+    "https://opencode.ai/docs/config/": "ea6d5f349ce1dbf78892662fd1a91742ec7fb2e16d577b4edf2d471f9002fae9",
+    "https://opencode.ai/docs/agents/": "a1c835058278349778cde8e47e2b6c6abe3babf35410703e6ec8da5902ebf1c8",
+    "https://opencode.ai/docs/commands/": "9d42e4893112a48f82176cb4dd25f9deb32aec05ae1b8c4bf51269fa14a892db",
+    "https://opencode.ai/docs/skills/": "bdd5bfec31e5b03c93ca3bd07479f4dd8eb94df3758920f5066d3959cc63956d"
+  }
+}

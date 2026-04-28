@@ -1,0 +1,9 @@
+{
+  "kind": "pack",
+  "name": "migration",
+  "version": "1.0.0",
+  "released": "2026-04-27",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Per-feature V1\u2192V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API)."
+}

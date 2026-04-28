@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Git hook shim — learning loop after merges.
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+exec "$ROOT/.claude/hooks/post-merge-learn.sh"

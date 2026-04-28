@@ -1,0 +1,16 @@
+{
+  "kind": "tool-adapter",
+  "name": "gemini",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline.",
+  "docs_urls": [
+    "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/README.md"
+  ],
+  "last_verified": "2026-04-28",
+  "last_verified_hashes": {
+    "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/README.md": "54d823b3611c11e86dfb06f69a16557432cddad32edbb8a14af5821d31c29c13"
+  }
+}

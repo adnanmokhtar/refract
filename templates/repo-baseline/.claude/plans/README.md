@@ -1,0 +1,70 @@
+# `.claude/plans/` — handoff artifacts between planning + implementation
+
+This directory holds **plan files**: structured markdown specs produced by `<command> --plan`. They are the contract between a planning tool (typically Claude Code, in this project's setup) and an implementing tool (Claude Code, OpenCode, Cursor, Aider, a human, or any combination).
+
+## Workflow
+
+```
+1. /add-feature "..." --plan        →  writes .claude/plans/<command>-<slug>-<timestamp>.md
+2. <hand off plan to any tool>      →  tool reads plan, implements per Outputs + Steps, respects Constraints
+3. /verify-plan <plan-file>         →  diffs actual filesystem vs plan; reports drift; decides verdict
+```
+
+## Naming convention
+
+```
+.claude/plans/<command>-<short-slug>-<YYYYMMDD-HHmm>.md
+```
+
+Examples:
+- `add-feature-prescription-filter-20260427-1430.md`
+- `fix-bug-tenant-leak-on-list-20260428-0915.md`
+- `refactor-auth-middleware-20260429-1030.md`
+
+## Plan ID
+
+Every plan has a short hash in its frontmatter (`Plan ID: phc-7f4a`). Use it when:
+- Cross-referencing the plan from commits, PRs, or other docs.
+- Looking up the plan via `/verify-plan --plan-id <id>`.
+
+## File format (the contract)
+
+Every plan must have these sections:
+
+| Section | Purpose |
+|---|---|
+| `## Context` | Module, layer, conventions, cross-cutting rules, failure-catalog warnings |
+| `## Inputs` | Files the implementing tool reads BEFORE doing anything |
+| `## Outputs` | Files to CREATE / MODIFY / DELETE — the spec |
+| `## Steps` | Ordered execution recipe |
+| `## Constraints` | DON'T-style rules (`/verify-plan` audits these) |
+| `## Verification` | Lint / typecheck / test / curl commands to run after implementing |
+| `## Known unknowns` | Decisions deferred to implementation time |
+| `## Status` | Checkboxes the implementing tool ticks off |
+
+`/verify-plan` validates this structure; missing headers = malformed plan.
+
+## Lifecycle
+
+- **Live**: in `.claude/plans/<file>.md` — current handoff target.
+- **Fulfilled**: after `/verify-plan` reports `PLAN FULFILLED`, optionally moved to `_archive/<file>.md` (kept for audit trail; gitignored by default).
+- **Drifted**: appended with `## Drift notes` section + linked corrections; user decides next step.
+- **Violated**: appended with `## Violation log`; either re-implement or write ADR justifying override.
+
+## Gitignore
+
+By default, `.claude/plans/*.md` is gitignored (plans are per-engineer working artifacts, not shared history). This `README.md` is committed; everything else stays local.
+
+If your team wants plans tracked (e.g., as PR-attached design docs), unset the gitignore for the directory and commit plans alongside features.
+
+## Why a directory and not a single file
+
+Concurrent planning: an engineer can have an active feature plan, an active bug-fix plan, and an active refactor plan in flight simultaneously. Each is a separate file with its own Plan ID. `/verify-plan --latest` resolves the most-recent unfulfilled plan; `--plan-id` resolves any specific one.
+
+## When NOT to use --plan
+
+- Trivial changes (one-line fixes, typo corrections) — direct implementation is faster.
+- Exploration / spike work where the plan would change as you go — plan formality slows discovery.
+- Read-only commands (`/log-tail`, `/find-module`, `/check-health`) — there's nothing to implement.
+
+The plan workflow is for **non-trivial, decomposable, verifiable** work where the spec is worth writing down. Use judgment.

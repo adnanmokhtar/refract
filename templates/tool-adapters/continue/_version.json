@@ -1,0 +1,18 @@
+{
+  "kind": "tool-adapter",
+  "name": "continue",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline.",
+  "docs_urls": [
+    "https://docs.continue.dev/customize/deep-dives/rules",
+    "https://docs.continue.dev/customize/deep-dives/prompts"
+  ],
+  "last_verified": "2026-04-28",
+  "last_verified_hashes": {
+    "https://docs.continue.dev/customize/deep-dives/rules": "be0118a5ad92a5103f262ef1f9805ee73b3997aad1f32e1f43d8556b3a3258b1",
+    "https://docs.continue.dev/customize/deep-dives/prompts": "3b2a58edd2978dd4c76b6e51d1178b3289da4394af968ecdf22c3000a5f4dd4f"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/cursor/rules/v1.json",
+  "title": "Cursor .cursor/rules/*.mdc frontmatter",
+  "description": "Validates the YAML frontmatter of Cursor MDC rule files.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 200,
+      "description": "Shown in Cursor's context picker. Keep <60 chars for scannability."
+    },
+    "globs": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "alwaysApply": { "type": "boolean" }
+  },
+  "anyOf": [
+    { "required": ["alwaysApply"] },
+    { "required": ["globs"] }
+  ]
+}

@@ -1,0 +1,121 @@
+---
+name: module-scaffold
+description: Generate a complete module following the project's declared architecture — entity, repo, service/use-case, DTOs, controller, tests, DI wiring, migration.
+---
+
+# module-scaffold
+
+End-to-end module generator. Mirrors a sibling module exactly so layout, imports, DI tokens, and test conventions stay consistent.
+
+## When to use
+
+- Creating a new feature module from scratch.
+- Onboarding — generate a known-good module structure to study.
+- Replacing an old prototype with a properly-layered version.
+
+## Prerequisites
+
+- The project's architecture doc: `ai/patterns/project-structure.md` or equivalent.
+- At least one existing sibling module to mirror — never invent layout from scratch.
+- Migration tooling installed (Prisma / TypeORM / Alembic / etc.).
+- Test runner configured (Jest / Vitest / pytest / Go test).
+
+## Procedure
+
+1. Gather inputs from the user:
+   - Module name (kebab-case).
+   - One-line purpose.
+   - HTTP routes? Webhook receiver? Queue consumer? Scheduled job?
+   - Multi-tenant? Soft-delete? Translatable?
+2. Read `ai/patterns/project-structure.md` to confirm the declared layout.
+3. Read a sibling module — note exactly: file names, folder layout, import order, DI token style (Symbol vs string), barrel exports vs direct imports, test file naming.
+4. Consult any framework reference (`.claude/references/<framework>.md`) for idiomatic shape.
+5. Generate every file from step "What gets generated" below — each with a real working stub (not a TODO comment).
+6. Add the new module to:
+   - The app's root module imports.
+   - `ai/modules.md` with a one-line row.
+   - `ai/status.md` `## Recent Changes` (date + brief).
+7. Generate the migration file for the entity (reversible — both `up()` and `down()`).
+8. Run the linter + type-checker on generated files; fix any issues before reporting done.
+
+## What gets generated
+
+The exact file tree depends on the project's declared layout (Step 2: read `ai/patterns/project-structure.md`; Step 3: mirror a sibling module). The example below shows ONE plausible layout (Clean / Hexagonal TypeScript). Adapt to the project's actual layout + language — Rails: `app/{models,controllers,services}/`; Django: `<app>/{models,views,serializers,urls}.py`; Go: `internal/<feature>/{handler,service,store}.go`; flat Express: `routes/services/models/`. Mirror the sibling — don't impose this shape on a project that doesn't use it.
+
+```
+# Example layout (Clean/Hexagonal TypeScript — substitute <ext> for the project's language)
+modules/<name>/
+├── core/
+│   ├── entities/<name>.<ext>               domain model
+│   ├── errors/<name>-not-found.error.<ext> custom exception
+│   ├── ports/<name>.repository.ts          interface
+│   └── ports/<name>.service.ts             interface (if applicable)
+├── application/
+│   └── use-cases/
+│       ├── create-<name>.use-case.ts
+│       ├── get-<name>.use-case.ts
+│       ├── list-<name>.use-case.ts
+│       ├── update-<name>.use-case.ts
+│       └── delete-<name>.use-case.ts
+├── infrastructure/
+│   └── persistence/
+│       ├── <name>.orm-entity.ts            TypeORM/Prisma entity
+│       ├── <name>.repository.impl.ts       implements port
+│       └── <name>.mapper.ts                ORM <-> domain
+├── adapters/
+│   └── http/
+│       ├── <name>.controller.ts
+│       └── dtos/
+│           ├── create-<name>.dto.ts
+│           ├── update-<name>.dto.ts
+│           └── <name>.response.dto.ts
+├── tokens.ts                               Symbol DI tokens
+├── <name>.module.ts                        @Module wiring
+├── <name>.module.spec.ts                   wiring smoke test
+└── __tests__/
+    ├── create-<name>.use-case.spec.ts      unit
+    ├── <name>.repository.impl.spec.ts      integration
+    └── <name>.controller.e2e-spec.ts       e2e
+```
+
+Plus:
+- TypeORM/Prisma migration in `database/migrations/` (or `prisma/migrations/`).
+- Row in `ai/modules.md`.
+- Entry in `ai/status.md` "Recent Changes".
+
+## Generated-file invariants
+
+- Every DTO uses class-validator (or zod / pydantic) — every input field has a decorator.
+- Every query in the repo includes the tenant filter if the project is multi-tenant.
+- Every entity extends the project's soft-delete base class (whatever name it uses — detected from extraction) if soft-delete is in use.
+- DI tokens defined as Symbols in `tokens.ts`, never inline strings.
+- Migration is reversible — both `up()` and `down()` populated, no `// TODO`.
+- Test files import from the public surface (the module's barrel or controller), not internal paths.
+
+## Output
+
+```
+Module scaffold — orders
+
+Files written: 18
+Files updated:  3   (app.module.ts, ai/modules.md, ai/status.md)
+Migration:      database/migrations/20260424093000-create-orders.ts (reversible)
+
+Lint:           PASS
+Type-check:     PASS
+Smoke spec:     orders.module.spec.ts PASS
+
+Next steps:
+  1. Run migration: bun run migration:run
+  2. Implement business logic in use-cases (currently CRUD-only).
+  3. Replace the stub success message in locales/en.json + ar.json.
+  4. Add domain-specific endpoints beyond CRUD.
+```
+
+## False positives / gotchas
+
+- Don't invent a new file layout — mirror the chosen sibling exactly. Inconsistency is the bug, not "improvement".
+- Tests that pass with `// TODO: assertion` are worse than no tests — every spec must have a real assertion or the file is rejected.
+- Generated mappers must handle null/undefined relations — don't assume eager loading.
+- Migration `down()` that just runs `DROP TABLE` is acceptable; `down()` that's empty or `// not implementable` blocks the scaffold.
+- Business logic is NOT scaffolded — only CRUD plumbing. Schema design for non-trivial tables: defer to a `schema-architect` agent.

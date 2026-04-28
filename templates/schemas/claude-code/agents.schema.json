@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/claude-code/agents/v1.json",
+  "title": "Claude Code agent frontmatter",
+  "description": "Validates the YAML frontmatter block of .claude/agents/*.md files.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "description"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "kebab-case, matches the filename minus .md"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 400
+    },
+    "tools": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ],
+      "description": "Either 'All tools' or a comma list / array of tool names."
+    },
+    "model": {
+      "type": "string",
+      "enum": ["opus", "sonnet", "haiku", "inherit"]
+    },
+    "color": { "type": "string" }
+  }
+}

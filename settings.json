@@ -1,0 +1,18 @@
+{
+  "env": {
+    "MAX_THINKING_TOKENS": "8000"
+  },
+  "enabledPlugins": {
+    "warp@claude-code-warp": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
+    }
+  },
+  "effortLevel": "medium",
+  "skipDangerousModePermissionPrompt": true
+}

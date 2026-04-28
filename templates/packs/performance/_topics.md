@@ -1,0 +1,38 @@
+# Performance pack — topic specs (AUTHOR mode)
+
+Schema: see `~/.claude/templates/packs/backend/_topics.md`.
+
+```yaml
+- name: performance-optimizer
+  kind: agent
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § "Anti-patterns" (N+1 evidence, etc.) + § Tests (perf tests if any) + _extracted-idioms.md (repo base — relation loading strategy)
+  sections: [persona, project_perf_signals, n_plus_one_recipes, cache_opportunities, db_index_recommendations, output_format]
+  fallback: _examples/performance-optimizer.md
+  cite_evidence: strict
+
+- name: performance-principles
+  kind: rule
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (cache layer) + § "Data model"
+  sections: [project_specific_first, no_unbounded_lists, pagination_required, cache_first_for_reads, async_for_io_heavy, measure_before_optimize]
+  mirror_existing: true
+  fallback: _examples/performance-principles.md
+
+- name: perf-audit
+  kind: command
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md (full)
+  sections: [understand, retrieve, generate]
+  fallback: _examples/perf-audit.md
+
+- name: n-plus-one-scan
+  kind: skill
+  triggers: { orm_detected: true }
+  fallback: _examples/n-plus-one-scan.md
+
+- name: profile-endpoint
+  kind: skill
+  triggers: { api_surface_detected: true }
+  fallback: _examples/profile-endpoint.md
+```

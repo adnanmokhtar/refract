@@ -1,0 +1,16 @@
+{
+  "kind": "tool-adapter",
+  "name": "aider",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline.",
+  "docs_urls": [
+    "https://aider.chat/docs/config/aider_conf.html"
+  ],
+  "last_verified": "2026-04-28",
+  "last_verified_hashes": {
+    "https://aider.chat/docs/config/aider_conf.html": "c57aaa3f76e717d9f03e905e5b894d7ca512834a5433f3430129f35e3ff1435f"
+  }
+}

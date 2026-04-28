@@ -1,0 +1,9 @@
+{
+  "kind": "domain",
+  "name": "feature-flags",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline."
+}

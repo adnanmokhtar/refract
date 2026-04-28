@@ -1,0 +1,18 @@
+{
+  "kind": "tool-adapter",
+  "name": "cline",
+  "version": "1.0.0",
+  "released": "2026-04-26",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline.",
+  "docs_urls": [
+    "https://docs.cline.bot/features/cline-rules",
+    "https://docs.cline.bot/customization/workflows"
+  ],
+  "last_verified": "2026-04-28",
+  "last_verified_hashes": {
+    "https://docs.cline.bot/features/cline-rules": "794a4218b776291085719581343813ad77b1d115bbd49e1ee652f59fd3f07878",
+    "https://docs.cline.bot/customization/workflows": "ba86d39c55c72a577904a532e6a30bf4a7b271b63304ab1f6a12e1cf880c2962"
+  }
+}

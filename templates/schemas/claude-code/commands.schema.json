@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/claude-code/commands/v1.json",
+  "title": "Claude Code command frontmatter",
+  "description": "Validates the YAML frontmatter of .claude/commands/*.md files.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["description"],
+  "properties": {
+    "description": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 300
+    },
+    "argument-hint": { "type": "string" },
+    "model": {
+      "type": "string",
+      "enum": ["opus", "sonnet", "haiku", "inherit"]
+    },
+    "allowed-tools": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "disable-model-invocation": { "type": "boolean" }
+  }
+}
