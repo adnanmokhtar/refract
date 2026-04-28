@@ -6,6 +6,60 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.11.0] — 2026-04-28
+
+### M15 — Make refresh / refine / enhance / migration actually do the deep work
+
+User reported repeatedly that `/setup-project --refresh --include=migration` produced shallow output: backed up + version-stamped + a few derived files, then declared "no work to do" while 21 migration pack files were missing from the target. Re-running M11's "directory parity scan" rule didn't fix it because the agent kept ignoring prose rules under context pressure.
+
+**M15 root cause**: prose rules don't constrain LLM behavior. Shell scripts producing files the LLM must read DO constrain it.
+
+#### Added — three deterministic scripts
+
+- `scripts/pack-coverage-scan.sh <target> [packs...]` — for each selected pack, lists pack source files vs target, classifies each as Missing or Present (with size ratio for merge-matrix decisions). Writes `.claude/_pack-coverage-report.md`. Exit always 0; the report is the contract.
+- `scripts/refresh-extract-checklist.sh <target>` — auto-inventories the target's existing artifacts (counts of agents, commands, skills, rules, ADRs, patterns); writes `.claude/_refresh-extract.md` with **9 prose sections that Phase 0.2 MUST fill**. Sections 2-8: ADRs preserved, validated user corrections, project intent, custom rules, custom agents/skills/commands, architecture decisions implicit in code, detected stack + version. Section 9: V1↔V2 mapping when migration in scope. Empty `<TBD>` sections fail Phase 5 audit.
+- `scripts/study-existing.sh <target> [packs...]` — for every existing target file with a pack equivalent, applies Appendix C merge matrix deterministically: byte-identity check first (IDENTICAL-NO-OP), then size ratio decides REPLACE-OR-ENHANCE / KEEP-OURS-PLUS-INJECT / MERGE / KEEP-OURS-ADD-SIDE-DOC / KEEP-OURS-DEEP. Files in target but NOT in pack flagged as REVIEW (project-specific keeper or upstream-deprecated). Writes `.claude/_study-existing-report.md`.
+
+#### Changed — phases now MANDATE the scripts
+
+- **Phase 0.0 (NEW first sub-step of Phase 0)**: runs all three scripts before any other Phase 0 work. Reports become the contract for Phase 4 actions.
+- **Phase 4.0**: if Phase 0.0 didn't run (CREATE/ENHANCE skip Phase 0), Phase 4.0 runs `pack-coverage-scan.sh` + `study-existing.sh` itself. Either way, no Phase 4.2 decision is made without consulting the reports.
+- **Phase 5 audit (C2b NEW)**: 7 new must-pass checks:
+  - The three reports exist.
+  - Every "Missing" / "REPLACE-OR-ENHANCE" / "MERGE" / "KEEP-OURS-PLUS-INJECT" row was addressed (or explicitly skipped with rationale).
+  - Sections 2-8 of `_refresh-extract.md` are non-empty.
+  - Section 9 non-empty when `--include=migration` was set.
+
+#### Sync infrastructure
+
+- Added `scripts:scripts` to `sync-to-global.sh` `SYNC_MAP`. `~/.claude/scripts/` is now symlinked back to the repo. Old `~/.claude/scripts/` directory backed up automatically.
+- 23 scripts now visible at `~/.claude/scripts/` for the agent to invoke.
+- `verify-sync.sh` updated to check scripts as well: 53 ok / 0 drift (was 30 ok before scripts were synced).
+
+#### Verified
+- All 3 scripts work against `tenant-portal-v2` (used as live test target):
+  - `pack-coverage-scan.sh tenant-portal-v2 migration` → wrote report listing all 21 pack files (all present after prior manual cp).
+  - `refresh-extract-checklist.sh tenant-portal-v2` → wrote checklist with auto-inventory + 9 sections demanding fill.
+  - `study-existing.sh tenant-portal-v2 migration` → 0 actionable / 21 keep / 48 orphans (correctly classifies the 21 migration files as IDENTICAL-NO-OP and flags 48 project-specific commands/agents for REVIEW).
+- `lint-artifact.sh`: 0 errors / 22 warnings.
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `verify-sync.sh`: 53 ok / 0 drift.
+
+#### What this changes for the user
+
+Next `/setup-project --refresh --include=migration` run on a target where files are missing:
+
+1. Phase 0.0 runs `pack-coverage-scan.sh` → writes report listing every missing file by name and target path.
+2. Phase 0.0 runs `study-existing.sh` → classifies every existing-vs-pack pairing per Appendix C.
+3. Phase 0.0 runs `refresh-extract-checklist.sh` → produces the 9-section extract template the agent must fill.
+4. Phase 4 reads ALL three reports and applies the decisions. Cannot skip "Missing" rows.
+5. Phase 5 audit refuses success if any actionable row was silently ignored.
+
+The historic bug ("idempotent — no work to do" while 21 files missing) becomes mechanically impossible: the report lists the 21 files, Phase 4 must address each, Phase 5 verifies.
+
+#### Honest scope statement
+The scripts are deterministic. The agent reading them is still an LLM. If the agent ignores the script output entirely (a regression of the same class), Phase 5's "did Phase 4 address every actionable row?" check catches it — but only if the agent honors Phase 5. M15 raises the floor significantly; doesn't eliminate LLM judgment from the loop entirely.
+
 ## [2.10.0] — 2026-04-28
 
 ### M14 — Related sections across all packs

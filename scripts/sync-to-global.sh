@@ -60,6 +60,7 @@ mkdir -p "$TARGET_ROOT"
 SYNC_MAP=(
   "commands:commands"
   "templates:templates"
+  "scripts:scripts"
 )
 
 drift=0

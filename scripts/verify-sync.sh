@@ -15,6 +15,7 @@ TARGET_ROOT="${CLAUDE_HOME:-$HOME/.claude}"
 SYNC_MAP=(
   "commands:commands"
   "templates:templates"
+  "scripts:scripts"
 )
 
 drift=0

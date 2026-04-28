@@ -11,6 +11,34 @@ exit-criteria: backup tarball written; prior knowledge serialized to ai/_extract
 
 **Triggers when**: `--refresh` flag is set OR Phase 1 detects REFRESH conditions (rare — REFRESH is almost always user-initiated).
 
+#### 0.0 Mandatory deterministic checks (M15 — pre-flight)
+
+**Three shell scripts MUST run before any other Phase 0 substep.** They write structured reports the agent MUST read. The agent CANNOT skip them by claiming "I already know what's there." Bash output is the authority; LLM judgment is not.
+
+```bash
+# 1. Pack-source coverage scan — what files in selected packs are missing/present in target
+~/.claude/scripts/pack-coverage-scan.sh "$TARGET_REPO" $SELECTED_PACKS
+# → writes $TARGET_REPO/.claude/_pack-coverage-report.md
+
+# 2. Refresh-extract checklist — auto-inventories existing artifacts; defines required prose sections
+~/.claude/scripts/refresh-extract-checklist.sh "$TARGET_REPO"
+# → writes $TARGET_REPO/.claude/_refresh-extract.md
+
+# 3. Study-existing — per-file decisions (ADD / MERGE / KEEP / REVIEW) per Appendix C merge matrix
+~/.claude/scripts/study-existing.sh "$TARGET_REPO" $SELECTED_PACKS
+# → writes $TARGET_REPO/.claude/_study-existing-report.md
+```
+
+**These three reports are the contract:**
+
+- `_pack-coverage-report.md` — answers "what files in the pack are missing in the target?"
+- `_refresh-extract.md` — answers "what existing knowledge must be preserved?" (the agent fills sections 2-9)
+- `_study-existing-report.md` — answers "for files in BOTH pack and target, which need ENHANCE / MERGE / KEEP / REVIEW?"
+
+**Hard rule:** if any of these three reports shows ANY actionable item, declaring "no work to do" is FORBIDDEN. Phase 5 audit checks the reports vs the actions taken in Phase 4 and refuses success on any silent skip.
+
+The historic bug (M11 / M15): the agent read prose rules saying "scan the directory" and skipped the scan. Shell-side scripts can't be skipped — the file either exists with content or it doesn't, and Phase 5 verifies.
+
 **Purpose**: existing setup files are accumulated knowledge assets. Treating them as files-to-overwrite throws away months of refinement. Phase 0 captures both the safety net (backup) and the durable knowledge (extract) BEFORE any regen-write touches them.
 
 **Skipped entirely** in CREATE / ENHANCE-retrofit / ENHANCE-extend modes — those modes either have nothing to back up (CREATE) or never overwrite existing user content (ENHANCE; see Hard Rules § Never).

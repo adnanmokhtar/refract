@@ -35,6 +35,18 @@ Phase 5 must NOT report success unless every `must` row passes. `should` rows wa
 | `.env*` and lock files unmodified                                      | must     | N01               |
 | User-authored sections (outside markers) byte-identical to pre-run     | must     | A04 / N02         |
 
+## C2b. Deterministic-coverage discipline (M15)
+
+| Check                                                                  | Severity | Rule              |
+|------------------------------------------------------------------------|----------|-------------------|
+| `.claude/_pack-coverage-report.md` exists                              | must     | M15 / Critical 1.4 |
+| Every "Missing" file in coverage report → addressed in Phase 4.2 OR explicitly skipped with rationale | must | M15 |
+| `.claude/_study-existing-report.md` exists                             | must     | M15               |
+| Every "REPLACE-OR-ENHANCE" / "MERGE" / "KEEP-OURS-PLUS-INJECT" row → addressed in Phase 4 | must | M15 |
+| `.claude/_refresh-extract.md` exists (REFRESH/REFINE modes)            | must     | M15               |
+| Sections 2-8 of `_refresh-extract.md` are non-empty (no `<TBD>`)       | must     | M15               |
+| Section 9 non-empty when `--include=migration` set                     | must     | M15               |
+
 ## C3. Content quality
 
 | Check                                                                  | Severity | Rule              |

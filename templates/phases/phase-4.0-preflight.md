@@ -31,6 +31,19 @@ This is the gate that everything downstream assumes has run. It validates that e
 
 **Mandatory on every invocation, including re-runs.** Before any other preflight check, scan the actual filesystem of every selected pack source. The directory listing — NOT `_essentials.md`, NOT `_topics.md`, NOT prior `_apply-pack-report.md` — is the source of truth for "what's in this pack."
 
+**M15 enforcement:** if Phase 0.0 has not yet been run (CREATE / ENHANCE modes which skip Phase 0), Phase 4.0 itself runs `scripts/pack-coverage-scan.sh` and `scripts/study-existing.sh` and reads the resulting reports. The reports drive the per-file decisions for Phase 4.2.
+
+```bash
+# If Phase 0.0 didn't run, Phase 4.0 runs the scans now (they are idempotent):
+[ -f "$TARGET_REPO/.claude/_pack-coverage-report.md" ] || \
+  ~/.claude/scripts/pack-coverage-scan.sh "$TARGET_REPO" $SELECTED_PACKS
+
+[ -f "$TARGET_REPO/.claude/_study-existing-report.md" ] || \
+  ~/.claude/scripts/study-existing.sh "$TARGET_REPO" $SELECTED_PACKS
+```
+
+**Then read both reports** before issuing any ADD-CANDIDATE / MERGE-CANDIDATE decision. The reports list ALL files; Phase 4.2 visits each row.
+
 ```bash
 for PACK in $SELECTED_PACKS; do
   PACK_SRC="$HOME/.claude/templates/packs/$PACK"
