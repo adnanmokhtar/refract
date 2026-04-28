@@ -149,6 +149,29 @@ if [[ -f "$CL/_pack-coverage-report.md" ]]; then
   echo ""
 fi
 
+# Anchoring audit — M25.1: WARN-ONLY for now. Reports per-artifact coverage of the
+# `## Project-specific (anchored)` block + `path:line` citations. Will be promoted
+# to a `fail` source in M25.4 after apply-anchors.sh + pack-template markers ship.
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
+  echo "C2d: artifact anchoring (M25.1 warn-only)"
+  "$SCRIPTS_DIR/audit-anchoring.sh" "$TARGET" --quiet >/dev/null 2>&1 || true
+  if [[ -f "$CL/_anchoring-audit.md" ]]; then
+    pct=$(grep -E '^Coverage: \*\*' "$CL/_anchoring-audit.md" 2>/dev/null \
+          | grep -oE '[0-9]+' | head -1)
+    unanchored=$(grep -E '^Unanchored:' "$CL/_anchoring-audit.md" 2>/dev/null \
+                 | grep -oE '[0-9]+$' | head -1)
+    if [[ -n "$pct" ]]; then
+      if [[ "$unanchored" == "0" ]]; then
+        ok "anchoring coverage ${pct}% — every pack-derived artifact carries an anchor block"
+      else
+        warn_msg "anchoring coverage ${pct}% — ${unanchored} pack-derived artifact(s) generic; see _anchoring-audit.md (M25 will close this gap)"
+      fi
+    fi
+  fi
+  echo ""
+fi
+
 # Summary
 echo "=== summary ==="
 echo "fail: $fail"
