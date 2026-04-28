@@ -149,12 +149,14 @@ if [[ -f "$CL/_pack-coverage-report.md" ]]; then
   echo ""
 fi
 
-# Anchoring audit — M25.1: WARN-ONLY for now. Reports per-artifact coverage of the
-# `## Project-specific (anchored)` block + `path:line` citations. Will be promoted
-# to a `fail` source in M25.4 after apply-anchors.sh + pack-template markers ship.
+# Anchoring audit (M25.4): per-artifact coverage of the canonical
+# `<!-- project-specific:start --> ... :end -->` block + `path:line` citations.
+# REFUSE when anchors are missing in REFRESH / REFINE / ENHANCE modes (Phase 4.6
+# was supposed to inject them via apply-anchors.sh). CREATE mode warns only —
+# the agent may still be mid-flow when this runs and the profile may not exist.
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
-  echo "C2d: artifact anchoring (M25.1 warn-only)"
+  echo "C2d: artifact anchoring"
   "$SCRIPTS_DIR/audit-anchoring.sh" "$TARGET" --quiet >/dev/null 2>&1 || true
   if [[ -f "$CL/_anchoring-audit.md" ]]; then
     pct=$(grep -E '^Coverage: \*\*' "$CL/_anchoring-audit.md" 2>/dev/null \
@@ -164,8 +166,10 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
     if [[ -n "$pct" ]]; then
       if [[ "$unanchored" == "0" ]]; then
         ok "anchoring coverage ${pct}% — every pack-derived artifact carries an anchor block"
+      elif [[ "$MODE" == "create" ]]; then
+        warn_msg "anchoring coverage ${pct}% — ${unanchored} unanchored (CREATE mode; Phase 4.6 may not have run yet — re-run apply-anchors.sh)"
       else
-        warn_msg "anchoring coverage ${pct}% — ${unanchored} pack-derived artifact(s) generic; see _anchoring-audit.md (M25 will close this gap)"
+        err "anchoring coverage ${pct}% — ${unanchored} pack-derived artifact(s) lack project anchors. Phase 4.6 must run: ~/.claude/scripts/apply-anchors.sh \"$TARGET\" --apply"
       fi
     fi
   fi
