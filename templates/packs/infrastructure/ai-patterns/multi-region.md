@@ -1,0 +1,167 @@
+---
+name: multi-region
+description: Pattern — multi-region architecture (active-passive, active-active, blast-radius isolation). Decision tree + per-tier recommendations + DR drill cadence.
+kind: ai-pattern
+pack: infrastructure
+---
+
+# Pattern: Multi-region
+
+> **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Infrastructure`.
+>
+> - **Current topology**: `<single-region | active-passive | active-active | per-region tenants>`
+> - **Primary region**: `<region>`
+> - **Secondary region(s)**: `<list>`
+> - **Failover RTO target**: `<minutes>` (Recovery Time Objective)
+> - **Failover RPO target**: `<minutes>` (Recovery Point Objective — data loss budget)
+> - **Cutover mechanism**: `<DNS / health-check / BGP / app-level>`
+> - **Last DR drill**: `<date>` (drift if > 90 days)
+
+## When multi-region is justified
+
+| Reason | Solution |
+|---|---|
+| Disaster recovery (region-level outage tolerance) | Active-passive with replication |
+| Latency for global users | Active-active OR edge caching (CloudFront / Cloudflare) — start with edge |
+| Regulatory data residency (EU customers' data in EU) | Per-region tenants OR data-plane partitioning |
+| Capacity at scale | Active-active OR sharded by user/tenant |
+| Independent blast radius | Per-region tenants or fully partitioned |
+
+## When NOT multi-region
+
+- **MVP / pre-PMF**: single region. Multi-region adds complexity, cost, latency, and surface area for bugs without proportional benefit.
+- **Most B2B SaaS at <$10M ARR**: single region with cross-AZ HA + good backups handles 99.9%+ availability.
+- **Global users but no latency complaints**: edge cache handles this; multi-region origin doesn't.
+
+Multi-region is a "we're forced to" decision, not a "we should" one. Until you've maxed out single-region resilience, multi-region is over-investment.
+
+## Architectures
+
+### Active-passive (DR)
+
+- Primary region serves all traffic.
+- Secondary region: data replicated; compute scaled to zero or minimum hot-standby.
+- Failover: DNS swap or load-balancer cutover; secondary scales up.
+
+**RTO**: minutes-to-hours depending on cutover mechanism + data sync state.
+**RPO**: replication lag (typically seconds-to-minutes).
+**Cost**: secondary infra cost ~30-50% of primary (storage replicated; compute minimal).
+
+Pitfalls:
+- Untested DR plan = "passive" forever; failover doesn't actually work.
+- Replication lag accumulates silently; alarmed only at failover.
+- Stateful services (e.g., session caches) lost on failover.
+
+### Active-active
+
+- Both regions serve traffic concurrently.
+- Data replicated bi-directionally (or partitioned by tenant).
+- Failover: regional health-check pulls a region; remaining absorbs full load.
+
+**RTO**: seconds-to-minutes.
+**RPO**: 0 if same-DC OR replication lag if cross-region.
+**Cost**: ~2× single-region.
+
+Pitfalls:
+- Bi-directional replication conflict resolution (last-write-wins / CRDTs / per-tenant primary).
+- Surprise cross-region calls (latency > 100ms).
+- Capacity planning: each region must absorb 100% if other fails.
+- Stateful services synced across regions (Redis with cross-region replication, etc.).
+
+### Per-region tenants (data residency / partitioning)
+
+- Tenants assigned to a home region.
+- All tenant data in that region.
+- No cross-region replication of tenant data (compliance).
+- Per-region cluster; control plane (auth, billing) may be globally replicated.
+
+**RTO** (per-region failure): full down for tenants in that region until restored.
+**RPO**: backup restore RPO.
+**Cost**: linear in region count.
+
+Pitfalls:
+- Cross-region tenant migration is hard.
+- Customer-facing region selection at signup.
+- Search/analytics across tenants requires careful aggregation.
+- Compliance (GDPR sub-data residency, sovereignty laws) must be designed in.
+
+## Per-tier recommendations
+
+### Compute
+
+- Active-passive: secondary scaled to 1-2 instances hot-standby.
+- Active-active: each region capacity = peak load (2× redundant).
+- Per-region: each region sized to its tenant load.
+
+### Database
+
+- AWS RDS: read replicas across regions (max one writer per region; can promote).
+- Aurora Global Database: multi-region read replicas + 1-min RPO failover.
+- PostgreSQL native: streaming replication; failover via Patroni / pg_auto_failover.
+- Cassandra / DynamoDB / Cosmos DB: native multi-region writeable.
+- For transactional workloads: prefer AP design with single primary; CP design (distributed transactions) is hard.
+
+### Cache
+
+- ElastiCache Global Datastore (Redis cross-region).
+- Don't share cache across regions for low-latency access; replicate for warm-standby.
+- Treat cache as "warm but not authoritative" — DB is source of truth.
+
+### Object storage
+
+- S3 Cross-Region Replication (CRR) for backups / shared assets.
+- Bidirectional CRR available — careful with conflicts.
+- Per-region buckets for tenant data with residency requirements.
+
+### Queues + streams
+
+- SQS: per-region queue; consumer in same region; fanout via SNS.
+- Kafka: cross-region replication via MirrorMaker / Confluent Replicator.
+- Background jobs: producer + consumer co-located in region.
+
+### DNS + load balancing
+
+- Route53 with health checks + latency-based routing.
+- AWS Global Accelerator for static anycast IP.
+- Cloudflare Load Balancer for edge-near routing.
+- ALB / NLB are regional — stitched with Global Accelerator or DNS.
+
+## DR drill cadence
+
+| Cadence | Drill |
+|---|---|
+| Quarterly | Backup restore (verify RPO; restore one DB to a new instance; verify data integrity) |
+| Quarterly | Failover dry run (run failover in staging; verify RTO; document gaps) |
+| Yearly | Full failover (production cutover to secondary for ≥1 hour; verify operates correctly) |
+| After every architecture change | Re-verify DR plan still holds |
+
+A DR plan that's never drilled is a DR plan that won't work when needed.
+
+## Cost vs benefit decision tree
+
+```
+Are we losing customers / revenue from outages?
+├─ NO → single-region with good SLAs is fine.
+└─ YES → quantify: how much / hour of outage?
+        ├─ < $X/hour → fix single-region issues first (HA, monitoring).
+        └─ > $X/hour → multi-region justified.
+                        ├─ Latency-driven? → start with edge cache / CDN.
+                        ├─ DR-driven? → active-passive.
+                        ├─ Compliance-driven? → per-region partitioning.
+                        └─ Capacity-driven? → active-active or shard.
+```
+
+## Anti-patterns
+
+- **"Going multi-region"** before understanding which axis matters → wrong architecture.
+- **Untested failover** → discovered broken at the moment of disaster.
+- **Replication health not monitored** → silent drift.
+- **Stateless app → multi-region trivial** assumption — stateful caches / sessions / rate limits / idempotency stores all matter.
+- **Cost surprise** — egress between regions can dwarf compute cost.
+- **Cross-region calls in hot paths** → latency tail explodes.
+- **Conflict-resolution policy unstated** → data corruption under partition.
+- **Compliance assumption** that S3 CRR satisfies GDPR — verify with legal.
+
+## Project-specific anchors
+
+(Phase 4.6 fills this with the project's actual region topology, replication mechanism, failover playbook, last drill date.)

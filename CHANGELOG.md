@@ -6,6 +6,41 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.16.0] — 2026-04-28
+
+### M20 — Fill remaining pack gaps (19 new artifacts across 5 packs)
+
+User: "fix the gaps." M20 closes coverage in security / performance / observability / infrastructure / distributed-systems.
+
+#### Added (per pack)
+- **security** (3 commands): secret-scan, threat-model, dependency-vuln-check
+- **performance** (4): commands profile-perf + bundle-perf; agent caching-architect; pattern lazy-loading
+- **observability** (4): commands add-tracing + add-metrics + alert-design; skill slo-audit
+- **infrastructure** (5): commands audit-iam + cost-audit + provision-tier; skill tf-plan-review; pattern multi-region
+- **distributed-systems** (4): commands add-saga + add-event-handler + audit-distributed-tx; skill dlq-replay
+
+#### Verified
+- audit-template-quality: 0 thin / 0 non-7-phase / 0 no-preflight / 0 no-output / 0 thin (any kind). Every M20 file at full canonical depth.
+- smoke-test: 8/8 pass; 0 fail / 0 warn.
+- verify-sync: 57 ok / 0 drift.
+
+#### State after M20
+17 packs; all with ≥2 commands except ui-ux (1 command + 3 audit skills). No empty packs. Coverage spans:
+- Web (backend + frontend)
+- Mobile
+- Code-quality / testing / refactoring
+- Database (incl. migrations)
+- Security (incl. threat modeling + secret scanning + dep vuln)
+- Performance (perf + bundle + caching + lazy-load)
+- Observability (tracing + metrics + alerts + SLO)
+- Infrastructure (provisioning + IAM + cost + tf-review + multi-region)
+- Distributed systems (sagas + events + DLQ + idempotency)
+- Business completeness (cycles + funnel + coverage)
+- UI-UX (design tokens + a11y + motion)
+- Documentation, devops, learning, migration
+
+The pack-template content is the deep knowledge center the user asked for. The agent's job is honoring the M11→M17 contracts so that content lands in target projects.
+
 ## [2.15.0] — 2026-04-28
 
 ### M19 — Mobile / business / ui-ux pack expansion (17 new artifacts)

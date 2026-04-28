@@ -1,0 +1,150 @@
+---
+description: Scan repo + commit history for leaked secrets. Reports findings + remediation steps + the rotation playbook for each leak class.
+---
+
+# /secret-scan
+
+Find leaked secrets BEFORE they're discovered by attackers. Run periodically AND on every PR. A secret in git history is a secret leaked even if reverted — it must be rotated, not just removed.
+
+## Phases applied
+
+1, 2, 3, 4, 6 (skips Update/Improve — read-only audit).
+
+## When to use / NOT to use
+
+- USE: pre-merge gate on PRs touching code or config.
+- USE: periodic full-history scan (monthly).
+- USE: post-incident when a secret leak is suspected.
+- NOT: routine code review — that's the code-reviewer agent's job.
+
+## Phase 1 — Understand
+
+Decide scope:
+- **Working tree only** — current state of files. Fast (~seconds).
+- **HEAD commit only** — what's about to be merged. Pre-commit / pre-merge hook.
+- **Full history** — every commit ever. Slow (minutes for large repos) but mandatory at first audit.
+- **Specific paths** — focused on `.env*` / `config/` / `terraform/` etc.
+
+## Phase 2 — Organize
+
+Three scanners run in parallel:
+
+1. **Pattern-based** — known secret formats (AWS keys, Stripe tokens, GitHub tokens, JWT bearers, RSA private keys, etc.).
+2. **Entropy-based** — high-entropy strings that look like random secrets even if format unknown.
+3. **Filename-based** — files that shouldn't exist in repo (`.env`, `*.pem`, `*.p12`, `id_rsa`, etc.).
+
+## Phase 3 — Retrieve
+
+Tools:
+- **gitleaks** — pattern + entropy; highly configurable.
+- **trufflehog** — same domain; deeper entropy heuristics.
+- **detect-secrets** — Python-friendly; baseline file for whitelisting.
+- **GitHub Advanced Security** — if the repo's on GitHub Enterprise.
+
+Read project's `.gitleaksignore` / `.trufflehogignore` for whitelisted false positives.
+
+## Phase 4 — Generate (the report)
+
+```
+## Secret scan — <date>
+
+### Scope
+- Working tree:    scanned
+- Last 100 commits: scanned
+- Full history:    <yes/no — flag if "no" on first audit>
+
+### Findings
+
+**CRITICAL — rotate immediately:**
+- `src/config/aws.config.ts:12` — AWS access key (AKIA...) exposed.
+  Pattern: `AKIA[0-9A-Z]{16}`
+  First introduced: commit a3f4d21 by alice@team on 2025-09-14
+  Action: rotate the key in AWS IAM, then `git filter-repo` to scrub history (force-push required), notify team.
+
+- `infra/terraform.tfvars:8` — Stripe live secret (`sk_live_...`).
+  First introduced: commit 7b8e92c on 2025-12-03
+  Action: rotate in Stripe dashboard, scrub history, audit logs for unauthorized API calls in window.
+
+**HIGH — investigate:**
+- `tests/fixtures/test-config.json:18` — high-entropy string starting with `eyJh...` (likely JWT).
+  May be intentional test fixture; verify it's not a real token.
+
+**Whitelisted (in `.gitleaksignore`):**
+- `tests/fixtures/dummy-keys.json` — test data, deliberately fake.
+
+### Rotation playbook (per leak class)
+
+| Leak class | Rotation steps |
+|---|---|
+| AWS key | IAM → delete key → audit CloudTrail for unauthorized calls |
+| Stripe secret | Stripe Dashboard → Roll API key → review API logs |
+| GitHub token | GitHub Settings → Personal access tokens → revoke; check audit log |
+| Database password | Rotate in DB; update app secrets manager; restart pods |
+| JWT signing secret | Rotate; **invalidate all existing tokens** (forced re-login); deploy |
+| OAuth client secret | Rotate in identity provider; re-deploy with new secret |
+| Encryption key | Rotate; re-encrypt at-rest data with new key (often gradual) |
+| SSH key | Remove from authorized_keys; deploy new key |
+
+### History scrub procedure
+
+If a secret was in git history (not just current state):
+
+1. `git log --all --full-history --source -- <path-to-file>` — confirm reach.
+2. Use `git filter-repo` (preferred) or `git filter-branch` to remove the file/string.
+3. Force-push to all branches (coordinate with team — destructive operation).
+4. Have all collaborators re-clone (no merge — re-clone).
+5. Rotate the secret regardless. The old version is in attackers' Wayback / GitHub Archive caches.
+
+### Prevention
+
+- `.gitignore` — confirm `.env*`, `*.pem`, `*.p12`, `*.key`, `secrets/`, `.aws/` are ignored.
+- Pre-commit hook running gitleaks (in `.githooks/` or `.husky/`).
+- CI step blocking merge on any HIGH+CRITICAL finding.
+- Secrets manager (AWS Secrets Manager / HashiCorp Vault / Doppler / 1Password CLI) for runtime secrets — NOT in env files committed to repo.
+
+### Verified
+- `.gitignore` covers expected secret paths.
+- Pre-commit hook installed.
+- CI gitleaks step configured.
+```
+
+## Phase 6 — Validate
+
+After remediation:
+- Re-run scan to verify no findings.
+- Verify rotated secrets are deployed (apps using new values).
+- Verify revoked secrets are actually revoked (in IAM / OAuth / etc.).
+- Verify audit logs show no anomalous use during the leak window.
+
+## Output format
+
+```
+## /secret-scan complete
+
+Scope: <working tree | last N commits | full history>
+Findings: <C critical / H high / M medium / W whitelisted>
+Critical rotations required: <list with rotation status>
+
+Report: ai/audits/secret-scan-<date>.md
+```
+
+## Hard rules
+
+- **A leaked secret must be rotated, even if reverted.** Removed from git ≠ unleaked. The Wayback Machine / GitHub Archive / cached forks have it.
+- **No false-positive whitelisting without justification.** Every entry in `.gitleaksignore` must have a comment explaining why it's safe.
+- **History scrub requires team coordination.** Don't force-push without notice.
+- **Rotated secrets logged in incident-tracker.** Even minor rotations — audit trail.
+
+## Failure modes
+
+- Scanned working tree only → missed leak in older commit. Always scan full history at least once.
+- Whitelisted a "false positive" that was actually real — read whitelist entries carefully.
+- Rotated secret but old code still references env var with old name → service breaks.
+- Force-pushed to scrub history but didn't notify team → merge conflicts.
+- Scrubbed git history but forgot the deployment artifacts had been published with the secret embedded.
+
+## Related
+
+- `@security-auditor` — runs broader audit; this command is one dimension.
+- `@auth-reviewer` — overlap on credential handling.
+- `.claude/rules/security-principles.md` — A02 + A33 + N14 rules this command enforces.
