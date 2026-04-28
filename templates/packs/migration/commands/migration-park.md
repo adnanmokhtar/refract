@@ -157,3 +157,11 @@ Phase 4 gate will no longer block on F042.
 - **Park is reversible; deprecate is not.** If you're sure the feature won't ever be ported, use `/migration-deprecate <id>` instead.
 - **Parked features must surface.** `/migration-status` and `/migration-final` always list parked rows so they don't quietly rot.
 - **Stale parks flagged.** Parked > 90 days appears as a warning in `/migration-status`.
+
+## Related
+
+- `/migration-unpark <feature-id>` — sibling; reverses parking.
+- `/migration-deprecate <feature-id>` — terminal alternative to parking when feature wont ever be ported.
+- `/migration-replan` — run after unparking 3+ features.
+- `/migration-status` — surfaces stale parks (>90d).
+- `ai/migration/parked/` — directory holding per-feature park context.

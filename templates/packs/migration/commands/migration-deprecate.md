@@ -167,3 +167,11 @@ The feature is now excluded from /migration-plan and won't block /migration-fina
 - **Cross-feature dependencies checked.** If feature X depends on F042 and you deprecate F042, the user must address X first (re-port, deprecate, or document).
 - **Append-only record.** `ai/migration/deprecated/<id>.md` is immutable once written.
 - **V1 sunset documented.** When does V1 stop serving this endpoint / page / job? Caller-facing sunset date is recorded.
+
+## Related
+
+- `/migration-park <feature-id>` — reversible alternative when you might come back to the feature.
+- `ai/decisions/` — where the required ADR lives.
+- `ai/migration/deprecated/` — immutable record of every deprecated feature.
+- `/migration-status` — surfaces deprecated count separately from active migration.
+- `/migration-final` — verifies every deprecated row has a valid ADR.

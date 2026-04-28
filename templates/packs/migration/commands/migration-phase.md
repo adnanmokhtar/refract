@@ -162,3 +162,12 @@ Next: /migration-gate <N>      (verifies phase exit criteria; refuses if F > 0)
 - **Intentional breaks need ADRs.** Behavior divergence by design must be documented before the row flips to `done`.
 - **One feature per managed transaction.** A phase can have many features but each is audited + ported + verified atomically. No half-ports persisted to the ledger.
 - **Ledger is the source of truth.** This command writes only to the ledger row + audit/perf files. Never edits unrelated ai/ files.
+
+## Related
+
+- `/migration-gate <N>` — runs after this command; enforces phase exit criteria.
+- `/migration-park <feature-id>` — set a stuck feature aside; phase continues without it.
+- `/migration-rollback <N>` — reverse this phase if a regression surfaces.
+- `ai/patterns/feature-port.md` — the per-feature playbook this command applies.
+- `ai/patterns/parity-testing.md` — test patterns used during VERIFY.
+- `.claude/rules/migration-discipline.md` — parity-non-negotiable contract.

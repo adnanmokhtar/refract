@@ -155,3 +155,11 @@ Next: /migration-phase <K+1>   (continue with the new plan from the next un-pass
 - **No silent renumbering.** If `done` rows are kept in phase N but new active rows want to be in phase N too, that's allowed — phases CAN have a mix of done + active rows.
 - **Deprecated rows excluded.** `status: deprecated` features don't appear in any phase.
 - **Parked rows wait.** `status: parked` features are excluded from the new plan unless `--unpark-all` is passed.
+
+## Related
+
+- `/migration-plan` — produced the original plan being replaced.
+- `/migration-rollback <N>` — common reason replan is needed (rollback invalidates plan assumptions).
+- `/migration-unpark <id>` — unparking 3+ features is a strong signal to replan.
+- `/migration-scan` — run with `--re-scan-first` flag if V1 has materially changed.
+- `ai/migration/_plan-archive/` — where this command archives the previous plan.

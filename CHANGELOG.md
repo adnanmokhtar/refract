@@ -6,6 +6,32 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-04-28
+
+### M13 — Final review pass: migration command navigation
+
+User asked for a final review with focus on whether content is actually refined. Real findings + real fixes.
+
+#### Audit findings
+
+**False positives (no fix needed):**
+- `migration-status` 4-phase count is intentional — read-only commands canonically skip Update/Validate/Improve.
+- `migration-plan` 10-phase count was a grep false positive — extra 3 are inside an example code block; actual structure is correctly 7-phase.
+- 514-line `apply-pack-adaptation.md` skill — verified to be two distinct example outputs (shallow + deep anchor); both needed.
+- 273-line `api-reviewer.md` agent length is justified by content density (checklists + examples, not padding).
+
+**Real fix landed:**
+- **None of the 10 new migration commands had a `## Related` section.** Added them. Each command now links to siblings (where in the workflow), patterns/rules it depends on, and output paths it produces. Self-navigable.
+
+#### Verified
+- 10/10 migration commands have `## Related` sections.
+- `lint-artifact.sh`: 0 errors / 20 warnings.
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `verify-sync.sh`: 30 ok / 0 drift.
+
+#### Honest scope
+Audit was structural + sample-deep. Every migration command read for navigation completeness; longest-3 skills + agents sampled to verify length is justified. ~150 files under packs/ were NOT exhaustively read — prior structural lint (M6) + dedup audit (M7) + spot-reads (M8) cover their quality at the ensemble level.
+
 ## [2.8.0] — 2026-04-28
 
 ### M12 — Migration lifecycle commands + extended ledger schema

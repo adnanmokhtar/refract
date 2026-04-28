@@ -138,3 +138,11 @@ Next steps:
 - **History is append-only.** Rollback adds a new entry; the original PASS entry from `/migration-gate <N>` stays — for the audit trail.
 - **No partial rollback within a phase.** Either every phase-N feature reverts, or none. To undo one feature, use `/migration-phase <N> --feature=<id>` instead.
 - **Verify before reverting.** If the snapshot's ADR citations don't match current ADR status, flag for user; don't auto-revert.
+
+## Related
+
+- `/migration-phase <N>` — produced the state being rolled back.
+- `/migration-replan` — recommended after rollback; the original plan's assumptions may be stale.
+- `/migration-gate <N>` — re-run after rollback + fix to confirm phase is recoverable.
+- `ai/migration/_history.md` — append-only log this command writes the rollback entry to.
+- `ai/_baseline/failures/` — this command appends a failure-catalog entry on rollback.

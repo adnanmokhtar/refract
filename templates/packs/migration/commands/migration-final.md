@@ -168,3 +168,11 @@ Fix the blockers; re-run /migration-phase <N> for the affected phase; then re-ru
 - **No retirement plan without COMPLETE.** Refuse to write `retirement-plan.md` while any feature is failing.
 - **Re-audit is opt-in.** It's slow and runs the parity tests against current state. Important when phases shipped over weeks/months and code may have drifted since each phase was gated.
 - **Append-only history.** Final entries in `_history.md` are immutable. A new run appends another entry; never edits past ones.
+
+## Related
+
+- `/migration-gate <N>` — must have run + passed for every phase before this command can succeed.
+- `/migration-status` — lighter read of the ledger; doesn't enforce.
+- `/migration-rollback <N>` — use if final reveals a regression in a previously-gated phase.
+- `ai/patterns/migration-ledger.md` — schema for the ledger this command verifies.
+- `ai/migration/retirement-plan.md` — output this command produces (cutover sequence + rollback procedure).

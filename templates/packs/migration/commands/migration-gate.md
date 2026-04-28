@@ -124,3 +124,10 @@ Fix the blockers; re-run /migration-phase <N>; then re-run /migration-gate <N>.
 - **No partial passes.** A phase with ANY blocking issue REFUSES. There is no "passed with caveats" — fix it or document an `intentional-break` ADR.
 - **Audit-file presence is mandatory.** A `done` row without an audit file = data integrity failure → REFUSE.
 - **ADR existence is verified.** Cited `intentional-break: ADR-NNNN` must point to a real file in `ai/decisions/`.
+
+## Related
+
+- `/migration-phase <N>` — runs before this gate; produces what's audited.
+- `/migration-final` — runs after all gates; the final sweep across phases.
+- `/migration-rollback <N>` — use if this gate refuses and the phase needs reverting.
+- `ai/migration/_history.md` — append-only log this command writes one line to on PASS.

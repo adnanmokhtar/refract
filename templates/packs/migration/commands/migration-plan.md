@@ -150,3 +150,11 @@ Next: /migration-phase 1   (audits + ports + verifies phase 1 features)
 - **V2 structure is the target, not V1's.** Plan rows cite V2 paths even when the V2 file doesn't exist yet — that's the planned home.
 - **Foundation first.** Auth + tenant + shared infra always go first. Refuse a plan that puts them later.
 - **No partial porting in one phase.** A feature is either fully ported (verify-green) or not in this phase. Half-ports rot.
+
+## Related
+
+- `/migration-scan` — runs before this command; produces the inputs.
+- `/migration-phase <N>` — next command; executes phase N from this plan.
+- `/migration-replan` — regenerate this plan when it ages out (rollbacks / V1 changes / phase reordering).
+- `ai/patterns/feature-port.md` — per-feature lifecycle each phase implements.
+- `ai/architecture.md` — V2 module boundaries this plan honors.

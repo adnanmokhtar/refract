@@ -183,3 +183,11 @@ Next: /migration-plan      (consumes scan-report + ledger; produces phased plan)
 - **No silent ports** — this command DOES NOT write any code. It only inventories + maps. Porting happens in `/migration-phase`.
 - **No drops** — every V1 feature must appear in the ledger. If a feature has no clear V2 home, the row exists with `v2_path: <unmapped>` and `notes: requires architectural decision`.
 - **V2 is the new structure** — when mapping, the V2 path follows V2's conventions (App Router, new framework, new module boundaries), not V1's. The migration is not a lift-and-shift.
+
+## Related
+
+- `/migration-plan` — next command in the phased workflow.
+- `/migration-status` — light read of the ledger after this command writes it.
+- `ai/patterns/migration-ledger.md` — schema for the ledger this command writes.
+- `ai/patterns/v1-patterns-crossref.md` — V1↔V2 mapping table this command consumes if present.
+- `.claude/rules/migration-discipline.md` — the parity contract enforced downstream.

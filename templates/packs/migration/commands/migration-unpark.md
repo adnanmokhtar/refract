@@ -100,3 +100,10 @@ Recommend: /migration-replan if you've unparked multiple features in a row.
 - **Resolution note is mandatory.** Audit trail of what changed.
 - **Park file archived, not deleted.** `_resolved/` keeps the history.
 - **Original park context preserved.** The archive captures `parked_reason`, `parked_blocker`, `parked_at`.
+
+## Related
+
+- `/migration-park <feature-id>` — sibling; this command reverses it.
+- `/migration-replan` — strongly recommended after unparking 3+ features.
+- `/migration-phase <N>` — once unparked the feature returns to its phases scope.
+- `ai/migration/parked/_resolved/` — archive of resolved parks.
