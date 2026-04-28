@@ -12,13 +12,33 @@ These rules override every other section. If you skip them, you ship the false-i
 
 ### Rule 1: NEVER conclude "idempotent — no work to do" on prompt-delta alone
 
-The "no work" verdict requires **ALL THREE** to be true:
+The "no work" verdict requires **ALL FOUR** to be true:
 
 1. ✅ **Prompt delta = 0** (Phase 3.1 finds nothing new from prompt vs state).
 2. ✅ **Coverage gap = 0** in load-bearing + always-on tracks (Phase 2.6 — profile-informed — confirms existing setup meets minimums for tracks the codebase actually needs, AND per-adapter completeness contracts).
 3. ✅ **Drift findings = 0** (no convention/code divergence requiring update).
+4. ✅ **Pack-source directory parity = 0** (for every `--include=<pack>` flag, every file in `~/.claude/templates/packs/<pack>/{commands,agents,skills,rules,ai-patterns}/` AND `~/.claude/templates/domains/<signal>/...` directories is either present in target OR has a recorded merge-decision in the current run's report — NEVER trust prior `_apply-pack-report.md` decisions; always re-scan the directory).
 
-If you check only #1 and report "idempotent" → **WRONG VERDICT**. The user's setup may still be missing 50+ files. You MUST run #2 and #3 before any "no work" conclusion.
+If you check only #1 and report "idempotent" → **WRONG VERDICT**. The user's setup may still be missing 50+ files. You MUST run #2, #3, AND #4 before any "no work" conclusion.
+
+**Pack-source parity rule (Rule 1.4) — explicit contract:**
+
+When `--include=<pack>` is set OR the pack was previously selected:
+
+```
+For each file F in ~/.claude/templates/packs/<pack>/<kind>/:
+    target_path = compute_target_path(F)   # per pack.md emits contract
+    if target_path NOT exists in target repo:
+        emit ADD decision (subject to merge matrix)
+    elif target_path exists AND content differs:
+        emit MERGE / REPLACE / KEEP-OURS decision (per Appendix C)
+    else:
+        emit NO-OP for this file
+```
+
+**The directory listing of the pack source IS the source of truth.** The pack's own `_essentials.md` and `_topics.md` manifests are a hint; if they lag behind the directory (which happens when a new command lands but the manifest wasn't updated), the directory wins.
+
+**Prior decision reports MUST NOT short-circuit this check.** A SKIP-with-redirect decision recorded yesterday does NOT mean a NEW file in the pack today gets skipped. Each `--include=<pack>` invocation runs the directory scan fresh.
 
 **Wrong** (the false-idempotent pattern):
 ```

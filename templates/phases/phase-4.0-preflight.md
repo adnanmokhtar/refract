@@ -27,6 +27,39 @@ The brain MUST consume the extract; if a regen sub-step does NOT reference the e
 
 This is the gate that everything downstream assumes has run. It validates that every track + adapter + business-domain + technical-domain selected in Phases 2 + 3 is loadable from `~/.claude/templates/` with all the metadata `setup-project` will rely on. If preflight fails, **halt before any file write** — do NOT scaffold a half-known baseline and then bail mid-Phase 4.2.
 
+#### 4.0.0 Pack-source directory parity scan (Critical Rule 1.4)
+
+**Mandatory on every invocation, including re-runs.** Before any other preflight check, scan the actual filesystem of every selected pack source. The directory listing — NOT `_essentials.md`, NOT `_topics.md`, NOT prior `_apply-pack-report.md` — is the source of truth for "what's in this pack."
+
+```bash
+for PACK in $SELECTED_PACKS; do
+  PACK_SRC="$HOME/.claude/templates/packs/$PACK"
+  for KIND in commands agents skills rules ai-patterns; do
+    [ -d "$PACK_SRC/$KIND" ] || continue
+    while IFS= read -r src_file; do
+      base="$(basename "$src_file")"
+      target="$TARGET_REPO/.claude/$KIND/$base"   # adjust per emit contract
+      if [ ! -f "$target" ]; then
+        echo "ADD-CANDIDATE $PACK/$KIND/$base"
+      else
+        echo "MERGE-CANDIDATE $PACK/$KIND/$base"   # subject to Appendix C
+      fi
+    done < <(find "$PACK_SRC/$KIND" -maxdepth 1 -name '*.md' -not -name '_*')
+  done
+done
+```
+
+**The agent MUST run this scan literally** (or its semantic equivalent) for every `--include=<pack>` flag set, AND for every pack previously selected and recorded in `.claude/codebase-profile.md § Setup version`.
+
+**Bug class this prevents:** prior runs may have decided "SKIP-with-redirect" for `commands/<old-name>.md`. A subsequent release adds `commands/<new-name>.md` to the pack. The directory scan sees the new file → emits ADD-CANDIDATE → it lands in the target. The old SKIP decision is irrelevant to the new file.
+
+**Forbidden short-circuits:**
+- ❌ "Already-applied — no work to do" without running the directory scan.
+- ❌ Reading `_essentials.md` and stopping (manifest may lag behind directory).
+- ❌ Trusting `_apply-pack-report.md` from a prior run as authoritative for what "should be there."
+
+If preflight finds ANY ADD-CANDIDATE → the run is NOT idempotent → proceed to Phase 4.2 deterministic copy.
+
 #### 4.0.1 Inputs
 
 - Selected packs (Phase 2 detection + `--include`/`--exclude`).
