@@ -111,6 +111,29 @@ Verdict: 3 blockers. Fix or ADR before extending.
 Suggested next: /fix-bug for blockers, then re-run /analyze-module.
 ```
 
+## Stack-awareness
+
+This command is in the backend pack but its **shape applies to any module-like construct**. Cross-stack adaptation:
+
+| Stack | "Module" = | Reviewers to dispatch |
+|---|---|---|
+| Backend (NestJS / Django / Rails / Spring) | controller + service + repo + tests + DTOs | api-reviewer + schema-reviewer + perf + security + test-reviewer + dead-code |
+| Frontend (Next / Nuxt / Vue / React feature dir) | components + page + store + tests + i18n keys | ui-reviewer + accessibility-auditor + i18n-auditor + design-system-guardian + test-reviewer + dead-code |
+| Mobile (RN screen module / Flutter feature dir) | screens + components + state + native bridge + tests | mobile-architect + accessibility-auditor + i18n-auditor + native-bridge-audit (if bridge) + test-reviewer + dead-code |
+| CLI / library | exported API + internal modules + tests | api-reviewer + test-reviewer + dead-code-finder + (security if input handling) |
+
+Detect from `CLAUDE.md` declared stack. If the module path matches a frontend feature folder OR mobile screen folder, dispatch the corresponding reviewers instead of (or alongside) the backend defaults.
+
+## Hard rules
+
+- **Run BEFORE extending, not after.** Post-change analysis biases toward the diff.
+- **Every BLOCKER cites file:line evidence.** "Architecture violation" without a path is a hypothesis.
+- **A BLOCKER is fixed OR written into an ADR before extending.** "Acknowledged" alone doesn't count.
+- **Cross-check findings to avoid duplicate reporting.** N+1 from perf-reviewer and missing-eager-load from schema-reviewer = one issue, not two.
+- **Don't mark dead code dead without confirming it's not framework-magic loaded** (NestJS auto-discovered modules, Next.js auto-routed pages, Django apps registered in INSTALLED_APPS).
+- **Coverage % is not quality.** A test-reviewer that says 95% but never asserts anything is failing the audit.
+- **Stack-aware reviewer dispatch.** Backend reviewers on frontend modules produce noise; pick the right set.
+
 ## Failure modes
 
 - Running AFTER changes — confirmation bias on the diff. Run BEFORE.
@@ -118,6 +141,8 @@ Suggested next: /fix-bug for blockers, then re-run /analyze-module.
 - Coverage % treated as quality — `test-reviewer` looks at assertions; 95% coverage of getter tests means nothing.
 - Dead-code finding on dynamically loaded files (DI containers, framework auto-discovery) — false positive; verify before deletion.
 - Re-running not scheduled — module clean today won't stay that way; re-audit on each significant change.
+- Dispatched backend reviewers on a frontend module — most findings irrelevant; switch reviewer set per stack.
+- Treated module size (LOC) as quality signal — large is not bad, complex is. Audit complexity per agent (cyclomatic / coupling), not LOC.
 
 ## Related
 

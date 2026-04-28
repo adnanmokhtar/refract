@@ -161,6 +161,17 @@ Next: /add-feature with the spec above.
 - Out-of-scope is as important as in-scope. Anti-scope-creep prevents the implementer from building "nice to haves" not asked for.
 - Suggested next command is always ONE. Multiple suggestions = ambiguity at handoff.
 
+## Hard rules
+
+- **One clarification round, then commit or stop.** Multiple rounds = the brief was too vague to start. Send it back.
+- **Every acceptance criterion is testable.** Vague AC ("works well") rejected; restate as Given/When/Then.
+- **Out-of-scope explicit, not implicit.** Without explicit anti-scope, implementers build what wasn't asked for.
+- **Cite the brief.** Every claim in the spec ties back to a sentence in the original brief OR a clarification answer. No invented requirements.
+- **Stakeholder-decision items flagged, not invented.** "Should this support X?" → ask, don't guess.
+- **Roadmap-aware.** Brief that contradicts `ai/status.md` declared phase = halt + surface scope-creep concern.
+- **Suggested next command = ONE.** Multiple = ambiguity at handoff = wrong thing built.
+- **No PII in the spec.** If the brief mentions specific user data, redact in the published spec.
+
 ## Related
 
 ### Sibling commands in business pack

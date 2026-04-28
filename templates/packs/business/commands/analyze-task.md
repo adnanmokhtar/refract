@@ -101,6 +101,28 @@ Status: AWAITING CONFIRMATION (gate between 4a + 4b) | COMPLETE
 - Writing technical spec on a moving target → useless; gate is non-negotiable.
 - Spec contradicts active ADR → surface, don't quietly redesign around it.
 - All criteria tagged MVP → scope discipline broken; force MVP/v2 split.
+- Skipped checking `specs/` or tracker; produced a duplicate of an existing spec → wasted work + diverging interpretations.
+- Open questions glossed over with assumed answers → spec looks complete but is fictional.
+
+## Hard rules
+
+- **Two-pass with mandatory PAUSE between 4a and 4b.** Confirmation gate is non-negotiable. Skipping it produces wrong code.
+- **Every user story has Given/When/Then acceptance criteria.** Vague AC = vague tests = missed bugs.
+- **Out-of-scope section non-empty.** Without explicit anti-scope, scope creep guaranteed.
+- **MVP / v2 tagging on every criterion.** Don't ship "everything is MVP" specs.
+- **No invented requirements.** Every spec line traces back to brief or stakeholder answer.
+- **ADR-aware.** Spec that conflicts with an active ADR halts; surface the conflict, don't redesign around it.
+- **One spec at a time.** Don't expand a brief that already has a spec — point at the existing spec.
+
+## Stack-awareness
+
+While the spec is stack-agnostic at Phase 4a, Phase 4b adapts to the project's stack:
+- Backend-only project → API surface section dominates; no UI section.
+- Frontend-only → Components/screens/state section; API consumed (existing or proposed) listed but not designed.
+- Fullstack → Both sections; cross-stack contract specified as the seam.
+- Mobile → Add native-capability section (camera/location/etc.) + iOS+Android parity note.
+
+Read CLAUDE.md to determine stack at Phase 3; tailor Phase 4b sections accordingly.
 
 ## Related
 
