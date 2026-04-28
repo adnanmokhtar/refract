@@ -6,6 +6,35 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.14.0] — 2026-04-28
+
+### M18 — Template content audit + frontend `/add-feature` parity
+
+User asked for review of ALL templates. Real audit + concrete fix.
+
+#### Audit results (71 commands, 70 agents, 43 skills, 34 rules, 53 patterns)
+- Thin commands: 0
+- Non-7-phase commands: 0 (read-only exceptions honored)
+- Thin / no-preflight / no-output agents: 0
+- Thin skills / rules / patterns: 0
+
+**Total: 0 content-quality issues.** Pack templates are clean.
+
+#### Diagnosis: the 57-line stub
+The user's `add-feature.md` at 57 lines in tenant-portal-v2 was NOT a pack issue. The pack source is 301 lines, well-formed. The 57-line file was an **agent-authored stub from a prior buggy run** — exactly the bug class M11/M15/M16/M17 closes. M15's `study-existing.sh` correctly flags it as `REPLACE-OR-ENHANCE` (target 57 / pack 301 = 19%).
+
+#### Real cross-pack gap closed
+- **`templates/packs/frontend/commands/add-feature.md`** added (~250 lines). Mirrors backend's depth, uses canonical 7-phase template, dispatches frontend-specific agents (ui-architect / ui-reviewer / accessibility-auditor / i18n-auditor / design-system-guardian), hard rules (one styling system, every string is a key, schema validation at boundary).
+
+#### Added
+- `scripts/audit-template-quality.sh` — re-runnable comprehensive audit. Honors documented exceptions (read-only commands skip Phases 5-7).
+
+#### What this means
+M15+M16+M17 detect / refuse stubs at the artifact layer. M18 confirms the source content is clean. Together: when the agent honors the M11→M17 contract, refresh produces good output because the templates are quality AND the agent can't ship shortcuts.
+
+#### Honest scope
+Audit is mechanical. Doesn't verify semantic quality, version freshness of framework references, or cross-reference resolution. Those are per-file human review.
+
 ## [2.13.0] — 2026-04-28
 
 ### M17 — Final round: front-loaded contract + composite + auditor + regression
