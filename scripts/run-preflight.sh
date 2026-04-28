@@ -43,6 +43,23 @@ done
 echo "=== run-preflight: mode=$MODE target=$TARGET ==="
 echo ""
 
+# STEP 0 (M28): if no packs were supplied explicitly, run signal-driven track
+# detection BEFORE any pack-coverage / study work. This replaces the old
+# fallback ("scan all 17 packs when no tracks declared") which polluted
+# frontend projects with backend/database/mobile content.
+if [[ ${#PACKS[@]} -eq 0 ]]; then
+  echo "[0/5] detect-tracks.sh"
+  while IFS= read -r t; do
+    [[ -n "$t" ]] && PACKS+=("$t")
+  done < <("$SCRIPTS/detect-tracks.sh" "$TARGET" --write 2>/dev/null)
+  if [[ ${#PACKS[@]} -eq 0 ]]; then
+    echo "  WARN detect-tracks returned nothing — falling back to all packs"
+  else
+    echo "  detected: ${PACKS[*]}"
+  fi
+  echo ""
+fi
+
 # Helper: invoke a script with target + optional pack list. Avoids the
 # `"${PACKS[@]:-}"` trap (expands to "" when empty, which downstream scripts
 # read as a real pack-name argument and skip their auto-detect path).
@@ -55,7 +72,7 @@ run_with_packs() {
   fi
 }
 
-# 1. Pack coverage scan — always
+# 1. Pack coverage scan — scoped to detected/declared tracks
 echo "[1/4] pack-coverage-scan.sh"
 run_with_packs "$SCRIPTS/pack-coverage-scan.sh"
 
