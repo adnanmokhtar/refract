@@ -41,6 +41,9 @@ Inputs (no user input needed for the standard path):
 Optional flags:
 - `--scope=frontend` / `--scope=api` / `--scope=all` (default: `all`).
 - `--include-deferred` — also re-scan features that were marked `deferred` in a prior run.
+- `--since=<commit>` — incremental scan (M12). Only re-evaluate features whose V1 paths changed since the given commit. Existing ledger rows for unchanged features keep their current status (don't reset to `unverified`). Use on large repos (200+ features) where re-auditing everything is expensive. Without this flag, every row resets to `unverified` (the safe default for "trust nothing").
+- `--include-deprecated=<re-scan|skip>` — when an existing ledger has rows with `status: deprecated`, decide whether to re-evaluate them (`re-scan`, e.g., the deprecation ADR was rejected) or skip them (`skip`, the default — deprecation is permanent).
+- `--workspace` — produce a workspace-level ledger that aggregates per-repo ledgers in a multi-repo migration. Detects sibling repos via workspace-baseline's `PROJECTS.md` or `SIBLINGS.md`. (M12)
 
 ## Phase 2 — Organize (decompose the work)
 

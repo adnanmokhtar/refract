@@ -6,6 +6,65 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.8.0] — 2026-04-28
+
+### M12 — Migration lifecycle commands + extended ledger schema
+
+User asked for "all migrations no skip" — meaning all 10 gaps from the M10 self-critique should land. M12 ships them.
+
+#### Added — 6 new commands
+- `commands/migration-rollback.md` — restores phase N's pre-run state. Reverts ledger + ported files (managed blocks). User-authored content preserved. Mandatory reason logged. Backup never auto-deleted.
+- `commands/migration-replan.md` — regenerates plan from current ledger. Preserves `done` rows in original phase numbers; re-phases everything else. Use after rollbacks / V1 changes / when day-1 plan ages out.
+- `commands/migration-park.md` — set hairy features aside without blocking phase gate. Writes `parked/<id>.md` with full context. Reversible.
+- `commands/migration-unpark.md` — reverse a park. Restores `prior_status` + `prior_phase`. Archives parked file to `parked/_resolved/`.
+- `commands/migration-deprecate.md` — V1 feature being killed in V2. Requires Accepted ADR. Permanent — no undeprecate. Tenant-impact + V1-sunset captured.
+- `templates/workspace-baseline/.claude/commands/migration-workspace-status.md` — cross-repo aggregator (workspace-level). Reads each sibling's ledger, reports per-repo summary + cross-repo blockers + phase synchronization.
+
+#### Extended ledger schema (`ai-patterns/migration-ledger.md`)
+New fields documented:
+- **Park/unpark**: `parked_reason`, `parked_blocker` (`decision-pending` / `third-party` / `arch-debt` / `adr-needed` / `other`), `parked_at`, `prior_status`, `prior_phase`, `unparked_at`, `unparked_reason`.
+- **Deprecation**: `deprecated_at`, `deprecated_by`, `deprecation_adr` (mandatory), `deprecation_reason`, `tenant_impact`, `v1_sunset_date`.
+- **Per-feature cutover**: `cutover_mechanism` (overrides project default — `feature-flag` / `strangler` / `dns-swap` / `blue-green` / `parallel-write` / `shadow-read` / `sticky-session` / `direct`), `cutover_progress` (`0%` → `10%` → `50%` → `100%`).
+- **Composition**: `composes:` (1 V2 ← N V1), `composite_of:` (1 V1 → N V2). For split / merge cases.
+- **Soft-parity tolerance**: `soft_parity_tolerance:` list of axes where exact parity isn't required (timestamp_format, error_message_wording, currency_rounding, etc.). Avoids ADR-pollution for cosmetic diffs.
+- **Phased flow tracking**: `phase`, `phase_passed_at`, `audit_findings`, `intentional_break` (ADR ref).
+
+#### Changed — `migration-scan` flags
+- `--since=<commit>` — incremental scan for large repos.
+- `--include-deprecated=<re-scan|skip>` — handle deprecated rows on re-scan.
+- `--workspace` — produce a workspace-level ledger.
+
+#### Changed — manifests + docs
+- `_essentials.md` `commands` list extended to 12 (was 7).
+- `_topics.md` adds 5 entries under "Suite C — lifecycle commands".
+- `docs/COMMANDS.md` migration section now shows three suites: Suite A (phased), Suite B (per-feature), Suite C (lifecycle).
+
+#### Verified
+- `lint-artifact.sh`: 0 errors / 20 warnings (the 5 new commands all parse clean).
+- `test-pack-directory-parity.sh`: 0 errors (migration pack manifests in sync).
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `verify-sync.sh`: 30 ok / 0 drift.
+
+#### Coverage of the M10 critique gaps
+
+All 10 gaps from M10's self-critique now have a system answer:
+
+| Gap (from M10 critique) | Resolved by |
+|---|---|
+| 1. Re-audit cost | `--since=<commit>` flag |
+| 2. Binary done/not-done | `cutover_progress` field |
+| 3. No rollback | `/migration-rollback` |
+| 4. No deprecation path | `/migration-deprecate` |
+| 5. No split/merge | `composes` / `composite_of` fields |
+| 6. Single cutover mechanism | per-feature `cutover_mechanism` field |
+| 7. Hairy feature blocks phase | `/migration-park` |
+| 8. ADR per cosmetic diff | `soft_parity_tolerance` field |
+| 9. No multi-repo coordination | `/migration-workspace-status` |
+| 10. Plan ages out | `/migration-replan` |
+
+#### Honest scope statement
+Coverage is at the **schema + command level.** The actual logic (what happens when `/migration-rollback 3` runs against a real repo with parked features that depended on now-deprecated ones) is documented in each command's hard rules but has not been exercised against real data. Expect at least one edge case to surface in first real use.
+
 ## [2.7.0] — 2026-04-28
 
 ### M10 — Migration command suite (5 phased-execution commands)

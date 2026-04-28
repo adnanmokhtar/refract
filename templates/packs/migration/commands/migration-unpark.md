@@ -1,0 +1,102 @@
+---
+description: Reverse /migration-park. Restores the feature's prior status and phase. Archives the parked-context file.
+kind: command
+pack: migration
+---
+
+# /migration-unpark <feature-id>
+
+Sibling to `/migration-park`. Use when the blocker that caused parking is resolved.
+
+## When to use
+
+- The decision the team was waiting on has been made.
+- The third-party blocker (vendor / library / dependency) is unblocked.
+- The architectural debt has its own ADR now.
+- The intentional-break ADR is written.
+
+## Pre-requisites
+
+- Feature exists in ledger with `status: parked`.
+- `ai/migration/parked/<feature-id>.md` exists.
+
+## Phase 1 — Understand (the ask)
+
+Inputs:
+- `<feature-id>` — required.
+- Resolution note — user-supplied (required). What changed since parking.
+
+## Phase 2 — Organize (decompose the work)
+
+1. Read the parked-context file → confirm what the unblocking criteria were.
+2. Restore ledger row to `status: <prior_status>`, `phase: <prior_phase>`.
+3. Archive `ai/migration/parked/<feature-id>.md` → `ai/migration/parked/_resolved/<feature-id>.md`.
+4. Append history entry.
+
+## Phase 3 — Retrieve (read the right context)
+
+- Ledger row.
+- `parked/<feature-id>.md` for the original park context.
+
+## Phase 4 — Generate (produce the output)
+
+### Restore ledger row (managed-block)
+
+```yaml
+- id: F042
+  status: <prior_status>            # restored from parked.prior_status
+  phase: <prior_phase>              # restored from parked.prior_phase
+  unparked_at: <ts>
+  unparked_reason: <user-supplied>
+  # parked_* fields removed; archive captures them.
+```
+
+### Archive park file
+
+```bash
+mv ai/migration/parked/<id>.md ai/migration/parked/_resolved/<id>.md
+```
+
+The archived file is preserved for audit (which features were parked, why, for how long).
+
+### Append history
+
+```
+<ts> | unpark | F042 | resolution: <user-supplied>
+```
+
+## Phase 5 — Update (persist changes to the knowledge base)
+
+- Ledger row (managed-block update).
+- `parked/<id>.md` → `parked/_resolved/<id>.md`.
+- `_history.md` appended.
+
+## Phase 6 — Validate (verify correctness)
+
+- Feature row no longer has `parked_*` fields.
+- `prior_status` + `prior_phase` correctly restored.
+- Archive file is present in `_resolved/`.
+
+## Phase 7 — Improve (feed the learning loop)
+
+- Park duration logged: `(unparked_at - parked_at)`. If consistently > 60 days, flag the team's prioritization (or pause migration to clear the parked queue first).
+- If 5+ features unparked at once → suggest `/migration-replan` so phasing is fresh.
+
+## Output to user
+
+```
+Unparked: F042 (order-export)
+  Status restored:   <prior_status>
+  Phase restored:    <prior_phase>
+  Park duration:     <X> days
+
+Archive: ai/migration/parked/_resolved/F042.md
+
+Recommend: /migration-replan if you've unparked multiple features in a row.
+```
+
+## Hard rules
+
+- **Resolution note is mandatory.** Audit trail of what changed.
+- **Park file archived, not deleted.** `_resolved/` keeps the history.
+- **Original park context preserved.** The archive captures `parked_reason`, `parked_blocker`, `parked_at`.

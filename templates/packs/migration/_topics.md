@@ -177,6 +177,53 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   mirror_existing: false
   fallback: commands/migration-final.md
 
+# --- Suite C: lifecycle commands (M12) ---
+
+- name: migration-rollback
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/plan.md + ai/migration/_history.md + .claude/backups/migration-phase-<N>-<ts>/
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-rollback.md
+
+- name: migration-replan
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/ledger.md + ai/migration/plan.md + ai/migration/_history.md + ai/_baseline/failures/
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-replan.md
+
+- name: migration-park
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/ledger.md
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-park.md
+
+- name: migration-unpark
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/ledger.md + ai/migration/parked/
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-unpark.md
+
+- name: migration-deprecate
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/ledger.md + ai/decisions/
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-deprecate.md
+
 # --- Suite B: per-feature (legacy) ---
 
 - name: port-feature

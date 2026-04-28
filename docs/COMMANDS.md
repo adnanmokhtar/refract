@@ -265,11 +265,22 @@ The migration pack ships **two suites** of commands. Use the suite that fits.
 
 | Command                  | Purpose                                                                          |
 |--------------------------|----------------------------------------------------------------------------------|
-| `/migration-scan`        | Deep V1↔V2 comparison. Reads BOTH codebases. Builds `ai/migration/ledger.md` with every row `unverified` (trust nothing). Outputs `scan-report.md` with structural deltas. |
+| `/migration-scan`        | Deep V1↔V2 comparison. Reads BOTH codebases. Builds `ai/migration/ledger.md` with every row `unverified` (trust nothing). Outputs `scan-report.md` with structural deltas. `--since=<commit>` for incremental on large repos. `--workspace` for cross-repo aggregation. |
 | `/migration-plan`        | Reads scan + ledger. Produces `ai/migration/plan.md` — phased plan grouped by domain + dependency. Foundation first. **Honors V2's new structure (no lift-and-shift).** |
 | `/migration-phase <N>`   | Executes phase N: AUDIT → GAP-FIND → PORT (V2 conventions) → VERIFY (parity test) → UPDATE ledger. Stops at phase boundary. `--feature=<id>` for retry; `--audit-only` for triage. |
 | `/migration-gate <N>`    | Phase exit gate. Confirms every phase-N feature is `done` + `parity_test=passing`. Read-only; refuses on any blocker. Append-only `_history.md` entry on PASS. |
 | `/migration-final`       | Full sweep across all phases. Optional `--re-audit` re-runs parity tests. Produces V1 retirement plan with cutover sequence + rollback procedure. |
+
+#### Suite C — Lifecycle commands (M12 — for messy real-world migrations)
+
+| Command                          | Purpose                                                                          |
+|----------------------------------|----------------------------------------------------------------------------------|
+| `/migration-rollback <N>`        | Restore phase N's pre-run state. Reverts ledger + ported files (managed blocks). User-authored content preserved. Reason mandatory; logged in `_history.md`. Backup directory NEVER auto-deleted. |
+| `/migration-replan`              | Regenerate `plan.md` from current ledger. Preserves `done` rows in their original phase numbers; re-phases everything else. Use after rollbacks, after V1 changes, or when day-1 plan ages out. |
+| `/migration-park <feature-id>`   | Set a hairy feature aside without blocking the phase gate. Writes `parked/<id>.md` with full context. Reversible via `/migration-unpark`. |
+| `/migration-unpark <feature-id>` | Reverse a park. Restores `prior_status` + `prior_phase`. Archives `parked/<id>.md` to `parked/_resolved/`. |
+| `/migration-deprecate <feature-id>` | Mark a V1 feature as **never** going to V2. Requires an Accepted ADR. Permanent — no undeprecate. Tenant-impact captured. V1 sunset date documented. |
+| `/migration-workspace-status`    | Cross-repo aggregator (workspace-level). Reads each sibling repo's ledger, reports per-repo summary + cross-repo blockers + phase synchronization. Read-only. |
 
 Workflow:
 ```

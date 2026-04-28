@@ -93,6 +93,70 @@ notes: |
 
 The YAML frontmatter is the canonical, machine-readable per-feature record. The free-text `notes:` block is for humans; the structured fields are for `/migration-status` + parity-auditor + Phase 5 verification.
 
+## Extended states (M12 — phased flow)
+
+The phased flow (`/migration-scan` → `/migration-plan` → `/migration-phase` → `/migration-gate` → `/migration-final`) introduces three additional terminal/lateral states that compose with the original state machine:
+
+| State | Meaning | How it's set |
+|---|---|---|
+| `unverified` | Status reset by `/migration-scan` — trust nothing. Re-verified before any flip to `done`. | `/migration-scan` |
+| `parked` | Feature is set aside (decision pending / third-party blocker / arch-debt). Excluded from current phase scope. Reversible via `/migration-unpark`. | `/migration-park` |
+| `deprecated` | V1 feature being killed in V2. Never going to be ported. **Permanent — no undeprecate.** | `/migration-deprecate` (requires ADR) |
+| `failed` | Verify step failed; needs attention. Blocks `/migration-gate <N>`. | `/migration-phase <N>` (verify failure) |
+| `rolled-back` | Phase containing this feature was reverted via `/migration-rollback <N>`. Returns to prior state automatically. | `/migration-rollback <N>` |
+
+These compose with the original state machine — a feature in `V2-shadow` can be `parked` (status takes precedence; restored via `/migration-unpark`).
+
+## New fields (M12 — phased flow)
+
+These fields extend the YAML record. All optional; populated only when relevant.
+
+```yaml
+# --- Park / unpark ---
+parked_reason: |                    # required when status=parked
+  <one paragraph>
+parked_blocker: decision-pending    # one of: decision-pending | third-party | arch-debt | adr-needed | other
+parked_at: 2026-04-28T15:32:00Z
+prior_status: unverified            # restored on /migration-unpark
+prior_phase: 4
+unparked_at:                        # set when /migration-unpark runs
+unparked_reason:
+
+# --- Deprecation (terminal; permanent) ---
+deprecated_at: 2026-04-28T16:00:00Z
+deprecated_by: <user>
+deprecation_adr: ADR-0042           # mandatory; must be Accepted status
+deprecation_reason: |               # mandatory; non-trivial
+  <full text>
+tenant_impact: low                  # required for multi-tenant projects: low | medium | high
+v1_sunset_date: 2026-05-15          # when V1 stops serving this
+
+# --- Per-feature cutover (overrides project default) ---
+cutover_mechanism: shadow-read       # one of: feature-flag | strangler | dns-swap | blue-green | parallel-write | shadow-read | sticky-session | direct
+cutover_progress: 50%                # 0% | 10% | 50% | 100% — for incremental ramp
+
+# --- Composition (split / merge) ---
+composes:                            # this feature is composed FROM these V1 features (1 V2 ← N V1)
+  - F042
+  - F043
+  - F044
+composite_of:                        # this V1 feature is decomposed INTO these V2 features (1 V1 → N V2)
+  - F101
+  - F102
+
+# --- Soft-parity tolerance ---
+soft_parity_tolerance:               # axes where exact parity isn't required (avoids ADR-per-cosmetic-diff)
+  - timestamp_format
+  - error_message_wording
+  - currency_rounding   # ≤1 cent diff acceptable
+
+# --- Phased flow tracking ---
+phase: 4                             # which plan phase owns this feature
+phase_passed_at: 2026-04-28T17:00:00Z
+audit_findings: ai/migration/audits/F042.md
+intentional_break: ADR-0017          # ADR cited for behavior divergence (when not just soft-parity-tolerance)
+```
+
 ## Required fields per state
 
 | State | Required fields |
