@@ -6,6 +6,34 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-04-28
+
+### M7 — Content audit (cross-pack dedup + spot reads)
+
+After M6 hardened *structure*, M7 verifies *content*. Bounded scope: cross-pack duplicate detection, sample-read of high-impact files, fix concrete issues.
+
+#### Added
+- `scripts/find-duplication.sh` — detects overlapping content across packs by H1 title, opening paragraph (100 chars), and verbatim MUST bullet repetition. Exposes redundancy candidates without auto-merging.
+
+#### Findings (real, non-trivial)
+- **`templates/packs/backend/ai-patterns/multi-tenancy.md` was a 100% byte-for-byte duplicate** of `templates/domains/multi-tenant/ai-patterns/multi-tenancy.md` (83 lines). Multi-tenancy is a technical signal, not a backend-pack concern — canonical home is `domains/`. **Removed the backend duplicate.**
+- **H1 collision: "Code Quality Principles"** appeared in both `repo-baseline/.claude/rules/code-quality.md` (foundational A19 rule) and `packs/code-quality/rules/quality-principles.md` (concrete pack rules). Different content, same heading = confusion. **Renamed pack version's H1 to "Code Quality — concrete pack rules"** with explicit `extends: repo-baseline/.claude/rules/code-quality.md` in frontmatter and a quoted callout reading "Reads the baseline `code-quality.md` first."
+- **MUST-bullet repetition 3+ times: zero.** No verbatim MUST/MUST-NOT statements duplicated across files — surprisingly clean.
+- **Lead-paragraph duplicates: 5 groups** — but four of them are Phase 4.6 scaffold markers ("> Project-specific block — Phase 4.6 fills this in from..."). Expected. One genuine overlap (`learning/ai-patterns/setup-quality-scoring.md` ↔ `learning/skills/compute-anchor-density.md`) — cross-references are appropriate; not flagged for deletion.
+
+#### Spot-reads (4 baseline rules + 4 ai/ knowledge templates)
+- All 4 foundational rules (A19): well-written, opinionated, cross-referenced, concise. No content fixes needed.
+- ai/ knowledge templates (architecture.md, conventions.md, modules.md, _session-digest.md): minimalist scaffolds with `<placeholder>` markers that Phase 4.6 fills at runtime. Shape is correct; content is template-stage by design.
+
+#### Verified
+- `find-duplication.sh`: 0 duplicate H1 groups (was 2).
+- `lint-artifact.sh`: 0 errors / 48 warnings.
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `run.sh --apply`: 2 passed (django + nextjs snapshot diff empty).
+
+#### Honest scope statement
+M7 verified content for the highest-impact subset: cross-pack dedup (mechanical) + 4 baseline rules + sampled ai/ templates. The remaining content audit (~150 individual artifacts under packs/) is M8+ work — semantic per-file review, not amenable to automation.
+
 ## [2.3.0] — 2026-04-28
 
 ### M6 — Artifact lint + spot audit

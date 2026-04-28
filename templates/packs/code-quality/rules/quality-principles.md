@@ -1,13 +1,16 @@
 ---
 name: quality-principles
-description: Code Quality Principles
+description: Code-quality pack — concrete MUST rules (function size cap, custom exceptions, parameterized queries, etc.). Layered ON TOP of the universal repo-baseline/.claude/rules/code-quality.md (A19).
 kind: rule
 pack: code-quality
+extends: repo-baseline/.claude/rules/code-quality.md
 ---
 
-# Code Quality Principles
+# Code Quality — concrete pack rules
 
 Prevents the slow death: dead code, copy-paste rot, comment lies, and "TODO" graveyards.
+
+> Reads the baseline `code-quality.md` first (Hard Rule A19). This pack file adds concrete, enforceable rules on top.
 
 ## Must
 
