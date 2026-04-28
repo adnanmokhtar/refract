@@ -224,6 +224,15 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   mirror_existing: false
   fallback: commands/migration-deprecate.md
 
+- name: compare-v1
+  kind: command
+  triggers:
+    always: true
+  extracts_from: V1 root + V2 root from `.claude/_extracted-codebase.md § Migration`
+  sections: [understand, organize, retrieve, generate, output_format, hard_rules]
+  mirror_existing: true
+  fallback: commands/compare-v1.md
+
 # --- Suite B: per-feature (legacy) ---
 
 - name: port-feature
