@@ -6,6 +6,38 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-04-28
+
+### M5 — Close the verification gap
+
+**The forcing-function milestone.** Until M5, every refactor was unverified. M5 ships the deterministic harness that proves the system actually works end-to-end (for the deterministic phases — LLM-driven phases still need a CLI strategy in M6+).
+
+#### Added (executable)
+- `scripts/apply-pack.sh` — deterministic Phase 4 subset: 4.0 preflight + 4.2.b copy + managed-marker wrapping. Pure shell, no model. Same input → same output. Idempotent. Records gaps for missing source files; records unsupported merge modes (managed-section is M6+).
+- `tests/setup-project/run.sh` — drives `apply-pack.sh` against fixtures. Modes: `--shape-only`, `--apply` (diff vs snapshot), `--update-snapshots` (record), `--idempotency-only` (run twice, assert empty diff).
+
+#### Added (artifacts)
+- `templates/tracks/web-frontend-nextjs/` — second concrete track plugin (npm-ecosystem detection, App Router + Pages Router awareness, conditional emits gated by detected flags + deps). Validates that the schema generalizes beyond django.
+- `templates/tracks/web-backend-django/{rules-template.md, claude-md-section.md, patterns/views.md, patterns/models.md}` — pack source files referenced by the track's `pack.md` emits contract. The django track now ships 4 unconditional emits + 5 conditional gaps + 1 unsupported merge mode (CLAUDE.md managed-section).
+- `tests/setup-project/snapshots/django/` — first real snapshot. 6 files: rules, conventions, patterns × 2, apply-pack report, original fixture files (preserved).
+- `tests/setup-project/snapshots/nextjs/` — second real snapshot. 4 files: rules, conventions, apply-pack report, original fixture file.
+
+#### Verified (now actually testable claims)
+- **Idempotency contract round-trips for both tracks.** `run.sh --idempotency-only` runs apply-pack twice and asserts the trees are byte-identical (with `applied-at:` masked). 2 passed / 0 failed.
+- **Snapshot diff is empty.** `run.sh --apply` re-runs the harness and diffs against the recorded snapshot. 2 passed / 0 failed.
+- **Schema generalizes.** Both tracks pass `lint-track.sh` with zero schema changes. Adding the second track required no edits to `templates/tracks/_loader.md`.
+- **Smoke test still clean.** 0 fail / 0 warn across 7 structural checks.
+
+#### Still NOT verified (M6+ scope)
+- LLM-driven phases (Phase 1 mode detection, Phase 2 deep extraction, Phase 4.6 anchoring) — these need real CLI invocation against a fixture, which is the open automation problem documented in `tests/setup-project/run.sh` header.
+- Multi-track fixtures (monorepo) — apply-pack runs one track at a time today; multi-track conflict resolution is M6+.
+- Bootstrap mode (empty fixture) — needs LLM-driven authoring.
+- managed-section merge mode — apply-pack records as unsupported; M6+ implementation.
+- Conditional emits — apply-pack treats `emits-conditional` as "always include" today; M6+ should evaluate against the target's deps.
+
+#### Honest scope statement
+M5 verifies the deterministic floor of the system. The deterministic floor is approximately 60% of what `/setup-project` does in production: pack preflight, deterministic copy, marker discipline, idempotency. The remaining 40% (LLM-driven authoring, deep extraction, project anchoring) is the M6+ horizon — well-defined, but requires an automation strategy beyond shell.
+
 ## [2.1.0] — 2026-04-28
 
 ### M4 — Verification + tooling
