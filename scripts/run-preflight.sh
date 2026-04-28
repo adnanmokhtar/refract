@@ -43,9 +43,21 @@ done
 echo "=== run-preflight: mode=$MODE target=$TARGET ==="
 echo ""
 
+# Helper: invoke a script with target + optional pack list. Avoids the
+# `"${PACKS[@]:-}"` trap (expands to "" when empty, which downstream scripts
+# read as a real pack-name argument and skip their auto-detect path).
+run_with_packs() {
+  local script="$1"; shift
+  if [[ ${#PACKS[@]} -gt 0 ]]; then
+    "$script" "$TARGET" "${PACKS[@]}" 2>&1 | tail -3
+  else
+    "$script" "$TARGET" 2>&1 | tail -3
+  fi
+}
+
 # 1. Pack coverage scan — always
 echo "[1/4] pack-coverage-scan.sh"
-"$SCRIPTS/pack-coverage-scan.sh" "$TARGET" "${PACKS[@]:-}" 2>&1 | tail -2
+run_with_packs "$SCRIPTS/pack-coverage-scan.sh"
 
 # 2. Refresh-extract checklist — skip in CREATE mode
 if [[ "$MODE" == "create" ]]; then
@@ -57,7 +69,7 @@ fi
 
 # 3. Study existing — always
 echo "[3/4] study-existing.sh"
-"$SCRIPTS/study-existing.sh" "$TARGET" "${PACKS[@]:-}" 2>&1 | tail -2
+run_with_packs "$SCRIPTS/study-existing.sh"
 
 # 4. Deep codebase scan — always
 echo "[4/4] deep-codebase-scan.sh"
