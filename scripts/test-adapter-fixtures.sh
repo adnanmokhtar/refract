@@ -40,7 +40,12 @@ set -o pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ADAPTERS_DIR="$ROOT/templates/tool-adapters"
+# Adapter contract rows live in commands/setup-project-adapters.md after the
+# modular split. Some legacy contract / overview content may still reference
+# adapters in commands/setup-project.md. We accept either file as a match for
+# the contract-row symmetry check.
 SETUP_CMD="$ROOT/commands/setup-project.md"
+SETUP_ADAPTERS_CMD="$ROOT/commands/setup-project-adapters.md"
 ERRORS=0
 fail()  { printf '\033[31m✗ %s\033[0m\n' "$*"; ERRORS=$((ERRORS+1)); }
 pass()  { printf '\033[32m✓ %s\033[0m\n' "$*"; }
@@ -156,7 +161,16 @@ for np in "${NATIVE_PATHS[@]}"; do
   doc="$ADAPTERS_DIR/$adapter/adapter.md"
   [ -f "$doc" ] || continue
   doc_has=$(grep -qF "$path" "$doc" && echo yes || echo no)
-  contract_has=$(grep "^| \`$adapter\` |" "$SETUP_CMD" | grep -qF "$path" && echo yes || echo no)
+  # Check contract rows in BOTH the orchestrator command and the dedicated
+  # adapters command — modular split means rows can live in either.
+  contract_has="no"
+  for cmd_file in "$SETUP_CMD" "$SETUP_ADAPTERS_CMD"; do
+    [ -f "$cmd_file" ] || continue
+    if grep "^| \`$adapter\` |" "$cmd_file" | grep -qF "$path"; then
+      contract_has="yes"
+      break
+    fi
+  done
   case "$doc_has:$contract_has" in
     yes:yes) pass "$adapter/$kind: \`$path\` documented in BOTH contract + adapter.md" ;;
     yes:no)
