@@ -75,6 +75,14 @@ This produces 4 reports under `$TARGET_REPO/.claude/`:
 
 Phase 4 MUST run this. It reads `_study-existing-report.md` and applies REPLACE-OR-ENHANCE + ADD rows by file copy (with backup). LLM judgment cannot skip these — the script is deterministic shell.
 
+**Hard contract (M25) — apply Phase-4.6 round-one anchors deterministically:**
+
+```bash
+~/.claude/scripts/apply-anchors.sh "$TARGET_REPO" --apply
+```
+
+After `apply-study-decisions.sh` finishes copying pack content, Phase 4.6 MUST run this. It injects the canonical `<!-- project-specific:start --> ... :end -->` block (populated with facts cited from `codebase-profile.md` + `_codebase-scan.md`) into every pack-derived artifact in `.claude/{commands,agents,skills,rules}` + `ai/patterns`. Round-one floor only — `/setup-project --refine` deepens shallow blocks via `compute-anchor-density` scoring + `apply-pack-adaptation` skill. The deterministic floor is non-negotiable: without it, every artifact is a generic skeleton and the agent has no project-aware guidance for the user's stack.
+
 **Flag composition (M23):** flags COMPOSE; they do NOT narrow scope.
 
 - `/setup-project --refresh` → applies study-decisions across ALL existing files (every pack the project has).
