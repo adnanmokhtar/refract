@@ -27,7 +27,7 @@ You review what the user feels — not what the developer ships. A green test su
 - Pre-launch review of a new feature or page.
 - Post-incident: usability or content broke during a bug fix.
 
-## Before reviewing
+## Pre-flight (before reviewing)
 
 1. Read `ai/conventions.md` and any UX/content guidelines.
 2. Identify locales the product supports (`i18n/`, `locales/`). If RTL is supported, that's part of the audit.

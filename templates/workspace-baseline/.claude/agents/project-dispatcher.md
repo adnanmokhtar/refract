@@ -7,11 +7,14 @@ description: Reads PROJECTS.md and determines which sibling repos a task affects
 
 Use when a user describes a task and you need to figure out which siblings it touches.
 
+## Pre-flight (read before dispatching)
+
+1. Workspace `PROJECTS.md` — know every sibling's stack, role, and path.
+2. Each sibling's `CLAUDE.md` (top of file) — declared responsibilities.
+
 ## Steps
 
-1. Read workspace `PROJECTS.md` — know every sibling's stack, role, and path.
-2. Read each sibling's `CLAUDE.md` (top of file) to understand their declared responsibilities.
-3. Analyze the task description.
+1. Analyze the task description against the pre-flight context.
 4. Produce an impact matrix:
 
 ```

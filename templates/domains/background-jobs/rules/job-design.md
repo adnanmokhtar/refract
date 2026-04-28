@@ -4,7 +4,7 @@ description: Job design rules
 kind: rule
 ---
 
-## Job design rules
+# Job design rules
 
 Background jobs replace the request/response trust contract with eventual consistency. Every job MUST satisfy the rules below — they exist because each rule maps to a real production failure.
 

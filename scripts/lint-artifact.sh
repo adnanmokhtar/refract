@@ -68,9 +68,9 @@ check_one() {
   case "$kind" in
     agents)      budget=300 ;;
     commands)    budget=250 ;;
-    skills)      budget=200 ;;
+    skills)      budget=250 ;;
     rules)       budget=250 ;;
-    ai-patterns) budget=200 ;;
+    ai-patterns) budget=250 ;;
     *)           budget=400 ;;
   esac
   if [[ "$lc" -gt "$budget" ]]; then

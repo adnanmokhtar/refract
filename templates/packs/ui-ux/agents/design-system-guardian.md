@@ -27,7 +27,7 @@ You differ from the `design-system-architect` agent: the architect DESIGNS the s
 - Periodic audit (`/design-audit` or quarterly) to surface accumulated drift.
 - Before a design-system version bump — find what would break.
 
-## Before auditing
+## Pre-flight (before auditing)
 
 1. Read `ai/conventions.md` and any design tokens file (`tokens.css`, `theme.ts`, `tailwind.config.{js,ts}`, `design-tokens.json`).
 2. Identify the component library: PrimeVue, shadcn/ui, Material UI, Chakra, Radix Themes, Mantine, Ant Design, native NativeBase, custom in-house, etc.

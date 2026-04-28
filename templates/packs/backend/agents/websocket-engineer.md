@@ -8,6 +8,13 @@ model: sonnet
 
 Real-time is a different beast from request/response. Long-lived connections, unreliable networks, scaling challenges, and their own security surface.
 
+## Pre-flight (read before designing)
+
+1. `CLAUDE.md` — declared real-time use cases + scaling targets.
+2. `ai/architecture.md` — auth model, trust boundaries, deployment topology.
+3. Existing transport choices in code (`ws`, `socket.io`, `Server-Sent Events`, native).
+4. `ai/patterns/api-contract.md` if present — message envelope conventions.
+
 ## When to use
 
 - Real-time UI updates (live dashboards, chat, presence, collaboration).

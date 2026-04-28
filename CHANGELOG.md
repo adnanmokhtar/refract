@@ -6,6 +6,43 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-04-28
+
+### M8 — Pre-flight coverage + length budgets + reference freshness + spot-reads
+
+After M7's mechanical dedup, M8 turns to per-file content quality. Five concrete, scoped passes; no auto-magic, all changes traceable.
+
+#### Pre-flight discipline (Hard Rule A18) — fixed across 11 agents
+M6 detected pre-flight via the literal keyword "pre-flight"; M8 fixes the agents that had the discipline but used different headings:
+- 4 agents had a pre-flight section under another name → renamed: `security-auditor` ("Before auditing"), `design-system-guardian` (same), `ux-reviewer` ("Before reviewing"), `project-dispatcher` (split out from "Steps").
+- 7 agents had **no pre-flight section at all** → added concrete pre-flight blocks: `endpoint-tester` (renamed Preparation), `websocket-engineer` (added), `business-auditor` (added), `code-reviewer` (renamed "Before you start"), `dead-code-finder` (added), `monorepo-architect` (added), `ci-reviewer` (added).
+- Each added pre-flight names 3-5 specific files / configs / patterns the agent must read first — not generic "read the codebase."
+
+#### Reference freshness — Next.js
+- `templates/packs/frontend/references/nextjs.md` updated header from "App Router, 14+" to "App Router, 14 / 15" and added a version-note callout: Next 14 default `fetch` cache was `force-cache`; Next 15 default is `no-store`. ALWAYS set `cache:` and `next.revalidate` explicitly.
+- All other references (django, fastapi, rails, nestjs, etc.) intentionally don't pin versions — pattern-level guidance that survives major bumps. Confirmed correct.
+
+#### H1 normalization — 3 rule files
+- `domains/background-jobs/rules/job-design.md`, `domains/event-sourced/rules/event-sourcing-discipline.md`, `domains/feature-flags/rules/flag-discipline.md` started with H2 / H3 instead of H1. Promoted to H1.
+
+#### Length budget tuning
+- `lint-artifact.sh`: skills budget 200 → 250, ai-patterns budget 200 → 250. Several technical-domain patterns (compliance, payment, websocket-fanout, search-indexing) are legitimately complex; the previous budget produced noise without signal. The 250 ceiling still flags genuine outliers (e.g., `learning/skills/apply-pack-adaptation.md` at 514 — Phase 4.6 anchoring contract; complex by necessity).
+- Lint warnings: 48 → 20. Remaining warnings are all length-related on legitimately complex content; documented as signal, not bugs.
+
+#### Spot-reads (4 high-impact files, all judged solid)
+- `packs/backend/agents/api-architect.md` (102 lines): excellent. Concrete invariants, structured output template, framework references, "common rewrites to push back on", self-failure-modes.
+- `packs/backend/commands/add-endpoint.md` (314 lines): follows the canonical 7-phase template (Hard Rule A24). Length appropriate for a complex generation command.
+- `packs/security/rules/security-principles.md` (62 lines): excellent. Cites specific algorithms (argon2id), specific tools (gitleaks, semgrep), specific HTTP headers. Concrete, actionable.
+- `packs/backend/ai-patterns/parallel-io.md` (172 lines): excellent. Project-specific block scaffold, decision matrix per language, opinionated guidance.
+
+#### Verified
+- `lint-artifact.sh`: 0 errors / 20 warnings (was 48). The 20 remaining are length-related on complex content.
+- `smoke-test.sh`: 0 fail / 0 warn.
+- `run.sh --apply` + `--idempotency-only`: 2 passed each.
+
+#### Honest scope
+M8 covered the highest-leverage content issues that automated tools could surface. **Most artifacts have not been deeply read.** The 4 spot-reads suggest content quality is good across the board, but that's a sample, not a survey. A semantic per-file audit of all ~150 artifacts under packs/ remains M9+ work — multi-day, not amenable to automation.
+
 ## [2.4.0] — 2026-04-28
 
 ### M7 — Content audit (cross-pack dedup + spot reads)

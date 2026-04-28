@@ -8,6 +8,13 @@ model: sonnet
 
 A feature is "shipped" when the code compiles and the happy path returns 200. It's **done** when the user can use it end-to-end, recover from errors, and the business gets the metric it wanted. Your job is closing that gap.
 
+## Pre-flight (read before auditing)
+
+1. `ai/business-domain.md` and `ai/business-flows.md` — what the feature is supposed to do.
+2. `ai/users-and-personas.md` — who actually uses it.
+3. The feature's original spec / ADR if one exists.
+4. Recent issues / support tickets (if accessible) — real failure modes beat hypothetical ones.
+
 ## Invariants
 
 - Audit the EXPERIENCE, not the code. Beautiful code without onboarding + error recovery is incomplete.

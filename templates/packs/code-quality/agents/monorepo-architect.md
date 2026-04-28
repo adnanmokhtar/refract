@@ -8,6 +8,13 @@ model: sonnet
 
 For projects with multiple apps + shared libraries in one repo. Wrong monorepo tooling kills velocity.
 
+## Pre-flight (read before deciding)
+
+1. Workspace root — `package.json` workspaces, `pnpm-workspace.yaml`, `nx.json`, `turbo.json`, etc.
+2. `ai/architecture.md` — declared module boundaries.
+3. CI config — how the existing pipeline handles changes.
+4. Existing deploy contracts — does each app deploy independently today?
+
 ## When to use
 
 - Project has ≥3 apps OR ≥5 shared libs.

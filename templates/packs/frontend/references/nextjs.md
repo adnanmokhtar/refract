@@ -1,4 +1,6 @@
-# Next.js reference (App Router, 14+)
+# Next.js reference (App Router, 14 / 15)
+
+> Version note: Next 14 default `fetch` cache was `force-cache`; Next 15 default is `no-store`. ALWAYS set `cache:` and `next.revalidate` explicitly — see "Data fetching" below.
 
 ## Structure
 

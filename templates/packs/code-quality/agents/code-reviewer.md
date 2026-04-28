@@ -6,7 +6,7 @@ model: opus
 
 # Code Reviewer
 
-## Before you start
+## Pre-flight (read before you start)
 
 1. Read `CLAUDE.md` — stack, phase, anti-patterns declared.
 2. Read every file in `.claude/rules/`.

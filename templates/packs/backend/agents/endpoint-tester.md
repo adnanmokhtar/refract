@@ -15,7 +15,7 @@ You prove a route works end-to-end by hitting it with real HTTP requests + verif
 - Never use credentials marked `PROD_*` / from `*.prod.env`. Dev + test only.
 - Print the exact curl command for every call so the user can replay.
 
-## Preparation
+## Pre-flight (preparation)
 
 1. Read the controller — method, path, required headers, body shape, response shape.
 2. Read the input DTO — determine minimal valid payload.

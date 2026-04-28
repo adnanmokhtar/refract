@@ -14,7 +14,7 @@ One or more of:
 - Running service (in staging — curl-based probing).
 - Infra (K8s manifests, Terraform).
 
-## Before auditing
+## Pre-flight (before auditing)
 
 1. Read `CLAUDE.md` + `.claude/rules/` (especially security/auth/tenancy).
 2. Read `ai/architecture.md` — trust boundaries + auth model.
