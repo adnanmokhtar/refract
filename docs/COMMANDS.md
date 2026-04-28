@@ -259,10 +259,42 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 
 ### Migration track (when `--include=migration` or auto-detected)
 
+The migration pack ships **two suites** of commands. Use the suite that fits.
+
+#### Suite A — Phased migration (recommended for full V1→V2 work)
+
+| Command                  | Purpose                                                                          |
+|--------------------------|----------------------------------------------------------------------------------|
+| `/migration-scan`        | Deep V1↔V2 comparison. Reads BOTH codebases. Builds `ai/migration/ledger.md` with every row `unverified` (trust nothing). Outputs `scan-report.md` with structural deltas. |
+| `/migration-plan`        | Reads scan + ledger. Produces `ai/migration/plan.md` — phased plan grouped by domain + dependency. Foundation first. **Honors V2's new structure (no lift-and-shift).** |
+| `/migration-phase <N>`   | Executes phase N: AUDIT → GAP-FIND → PORT (V2 conventions) → VERIFY (parity test) → UPDATE ledger. Stops at phase boundary. `--feature=<id>` for retry; `--audit-only` for triage. |
+| `/migration-gate <N>`    | Phase exit gate. Confirms every phase-N feature is `done` + `parity_test=passing`. Read-only; refuses on any blocker. Append-only `_history.md` entry on PASS. |
+| `/migration-final`       | Full sweep across all phases. Optional `--re-audit` re-runs parity tests. Produces V1 retirement plan with cutover sequence + rollback procedure. |
+
+Workflow:
+```
+/migration-scan
+/migration-plan
+/migration-phase 1
+/migration-gate 1
+/migration-phase 2
+/migration-gate 2
+... (repeat per phase)
+/migration-final
+```
+
+Properties:
+- **Stack-agnostic** — works for frontend, API, jobs, scripts, anything with identifiable behavior.
+- **Trust nothing** — every status reset to `unverified` at scan; `done` requires a passing parity test.
+- **No silent ports** — `/migration-scan` and `/migration-plan` write zero code; only `/migration-phase` ports.
+- **Phased gating** — next phase blocked until current is green.
+
+#### Suite B — Per-feature commands (also available; included for finer control)
+
 | Command              | Purpose                                                                          |
 |----------------------|----------------------------------------------------------------------------------|
-| `/port-feature <n>`  | Port one feature V1 → V2: extract V1 contract → architect V2 → parity tests → impl → audit. |
-| `/migration-status`  | Read `ai/migration/ledger.md`, report done / in-flight / not-started + per-phase. |
+| `/port-feature <n>`  | Port one feature V1 → V2: extract V1 contract → architect V2 → parity tests → impl → audit. Use for one-off ports outside the phased flow. |
+| `/migration-status`  | Read `ai/migration/ledger.md`, report done / in-flight / not-started + per-phase. Lighter than `/migration-gate` (no enforcement). |
 
 ### Other tracks
 
@@ -370,11 +402,11 @@ Common pattern for half-set-up legacy projects:
 
 ### V1 → V2 migration
 
-For a real V1+V2 codebase migration (example below uses real paths; adjust for yours).
+For a real V1+V2 codebase migration. Use the **5-command phased flow** (M10).
 
 **Step 1 — Bootstrap migration tooling in V2.**
 
-```
+```bash
 cd /path/to/v2-repo
 ```
 
@@ -385,82 +417,79 @@ In Claude Code:
 ```
 
 What happens:
-- Phase 2 Step 16 looks for V1 layout. If V1 is a sibling directory or a different repo, the command may prompt: "Where is V1?" — answer with the absolute path.
-- Phase 4.0 builds `ai/migration/ledger.md` with one row per V1 feature, status `done` / `in-flight` / `not-started`.
-- Phase 4.2 ships the migration pack: rule, patterns, agents, skills, two commands (`/port-feature`, `/migration-status`).
+- Phase 2 Step 16 looks for V1 layout. If V1 is a sibling directory or different repo, the command may prompt: "Where is V1?" — answer with the absolute path.
+- Phase 4.2 ships the migration pack: rule, patterns, agents, skills, and 7 commands (the 5 phased commands + `/port-feature` + `/migration-status`).
 - Phase 4.6 anchors every migration artifact to your V1 root + V2 root + cutover mechanism.
+- The merge matrix decides per command — ADD if no project equivalent, SKIP-with-redirect if you already have a specialized version.
 
-**Step 2 — Audit "done" features.**
-
-`done` rows in the ledger reflect history, not necessarily truth. Already-ported ≠ correctly-ported.
-
-```
-@parity-auditor audit all done features in the ledger
-```
-
-For each `done` row: re-extract V1 contract → run parity tests against V2 → flip to `done-needs-rework` if behavior diverges.
-
-**Step 3 — See the gap.**
+**Step 2 — Deep scan (build the ledger).**
 
 ```
-/migration-status
+/migration-scan
 ```
 
-Output:
+Reads BOTH V1 and V2 codebases. Builds `ai/migration/ledger.md` with every row `unverified` (trust nothing — even prior `done` claims reset). Outputs `ai/migration/scan-report.md` with structural deltas and recommended phasing.
+
+**Step 3 — Generate phased plan.**
 
 ```
-Total features: <N>
-  done:               <X>
-  in-flight:          <Y>
-  not-started:        <Z>
-  done-needs-rework:  <W>
+/migration-plan
 ```
 
-**Step 4 — Get the phased plan.**
+Reads scan + ledger. Produces `ai/migration/plan.md` — phases grouped by domain + dependency. Foundation first (auth, tenant, infra). Each phase has measurable exit criteria. **Honors V2's NEW structure — never lift-and-shift.**
+
+**Step 4 — Run phase 1.**
 
 ```
-@migration-architect produce a phased migration plan covering all not-started, in-flight, and done-needs-rework features
+/migration-phase 1
 ```
 
-The agent reads ledger + V1 + V2 + `ai/architecture.md` + ADRs and produces `ai/migration/plan.md` with phases sequenced by dependency + domain.
+For every feature in phase 1:
+1. **AUDIT** — compare V1 vs V2 behavior across inputs / outputs / errors / auth / side effects / perf.
+2. **GAP-FIND** — classify as `parity-clean` / `missing-in-v2` / `divergent` / `intentional-break`.
+3. **PORT** — only if gaps exist. Uses V2 conventions (cite V2 patterns/helpers/base classes). No lift-and-shift.
+4. **VERIFY** — re-run audit; parity test must pass.
+5. **UPDATE LEDGER** — flip status to `done` only after verify-green.
 
-**Step 5 — Per phase, per feature.**
+Optional: `/migration-phase 1 --feature=<id>` for retry of one feature; `/migration-phase 1 --audit-only` for triage.
 
-```
-/port-feature <feature-name>
-@parity-auditor verify <feature-name>
-```
-
-`/port-feature` runs the playbook (`ai/patterns/feature-port.md`):
-1. `extract-v1-contract` skill captures V1 behavior.
-2. `parity-test-generate` skill writes V1==V2 assertion tests.
-3. `migration-architect` agent designs V2.
-4. Implementation lands.
-5. Parity tests must pass before ledger row flips to `done`.
-
-**Step 6 — Phase exit gate.**
+**Step 5 — Phase 1 exit gate.**
 
 ```
-/migration-status --phase=<N>
+/migration-gate 1
 ```
 
-Refuses success if any row in the phase is not `done` + parity-clean.
+Read-only. Confirms every phase-1 feature is `done` + `parity_test=passing`. **Refuses on any blocker.** Don't start phase 2 until this returns PASS.
 
-**Step 7 — Final.**
+**Step 6 — Repeat for each phase.**
 
 ```
-/migration-status              # expect 100% done
-@parity-auditor audit all     # full sweep
-@migration-architect propose V1 retirement plan
+/migration-phase 2
+/migration-gate 2
+
+/migration-phase 3
+/migration-gate 3
+
+... (per phase from the plan)
 ```
+
+**Step 7 — Final sweep + V1 retirement plan.**
+
+```
+/migration-final
+```
+
+Confirms every feature complete across all phases. Optional `--re-audit` re-runs parity tests against current state (catches drift since gate). On COMPLETE: writes `ai/migration/retirement-plan.md` with cutover sequence + rollback procedure.
 
 #### Hard rules for migration (from `migration-discipline.md`)
 
 - **One feature per PR.** No port + redesign + perf + new-feature in one PR.
-- **Parity is non-negotiable.** Parity tests must pass.
+- **Parity is non-negotiable.** Parity tests must pass before status=done.
 - **Perf uplift only when parity-preserving.**
 - **Every intentional behavior break = ADR.**
-- **Ledger `done` rows are append-only.** Supersede with a new ADR if a contract changes.
+- **Trust nothing.** Every `done` claim re-verified before retirement.
+- **V2 is the new structure.** Cite V2 patterns/helpers when porting; never lift-and-shift.
+- **Foundation first.** Auth / tenant / shared infra always go in phase 1.
 
 ### Plan-only mode (any command)
 
