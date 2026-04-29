@@ -163,7 +163,11 @@ Run dispatched agents in parallel.
 - Bundle-size delta acceptable (`@bundle-analyzer` skill if present).
 - A11y automated check passes (axe, Lighthouse a11y category ≥95).
 - Locale completeness — no missing keys for declared locales.
-- Visual smoke test — page loads, primary CTA reachable, form submits, error state displays.
+- **Live browser verification (default for any user-visible feature):**
+  1. `dev-server-start` skill — boot the running app (idempotent; reuses already-running server).
+  2. `verify-with-playwright` skill — drive the new feature through the Playwright MCP server: navigate → assert visible → fill form → assert success → screenshot. Multi-locale + multi-viewport when `i18n`/breakpoints declared.
+  3. Console-error pass — zero errors on load; warnings logged to report.
+  - Skipping live verification is allowed only for backend-shaped changes (API contracts, types, store internals) where no rendered surface changed. Use `--no-verify-browser` to opt out explicitly with rationale.
 
 ## Phase 7 — Improve (feed the learning loop)
 
