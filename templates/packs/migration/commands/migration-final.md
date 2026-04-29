@@ -166,6 +166,7 @@ Fix the blockers; re-run /migration-phase <N> for the affected phase; then re-ru
 
 - **No PASS without all phases gated.** This command refuses to run if any phase entry in `_history.md` is missing.
 - **No retirement plan without COMPLETE.** Refuse to write `retirement-plan.md` while any feature is failing.
+- **Re-audit re-runs the validator.** When `--re-audit`, run `~/.claude/scripts/validate-migration-artifacts.sh --all --strict` across the full ledger. Treats artifact decay (a contract whose citations no longer resolve because V1 evolved; a tolerance.yaml that no longer covers a contract field) as a regression — refuses COMPLETE.
 - **Re-audit is opt-in.** It's slow and runs the parity tests against current state. Important when phases shipped over weeks/months and code may have drifted since each phase was gated.
 - **Append-only history.** Final entries in `_history.md` are immutable. A new run appends another entry; never edits past ones.
 

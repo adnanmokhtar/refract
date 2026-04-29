@@ -23,18 +23,49 @@ Inputs:
 
 ## Phase 2 — Organize (decompose the work)
 
-For each feature listed in phase N:
-- Confirm status = `done` OR `intentional-break` (with ADR-NNNN).
-- Confirm parity_test = `passing`.
-- Confirm an `audits/<feature-id>.md` exists.
-- Confirm any cited ADR exists in `ai/decisions/`.
+For each feature listed in phase N, run the **12-check artifact verification**:
+
+### Ledger-level checks (4)
+1. status = `done` OR `intentional-break` (with `ADR-NNNN` populated)
+2. parity_test = `passing`
+3. ledger row required fields per state populated (per `migration-ledger.md` § Required fields per state)
+4. cited ADR exists in `ai/decisions/` (when status = intentional-break)
+
+### Artifact-existence checks (5)
+5. `ai/migration/contracts/<feature>.md` exists
+6. `ai/migration/plans/<feature>.md` exists
+7. `<parity-test-root>/<feature>/` exists with `tolerance.yaml` and ≥30 corpus inputs (or record-replay setup file)
+8. `ai/migration/perf-decisions/<feature>.md` exists
+9. `ai/runbooks/migration-rollback-<feature>.md` exists AND `ai/migration/audits/<feature>.md` exists
+
+### Content-quality checks (3)
+10. Contract has all 9 sections populated; every `<path:line>` citation resolves (validator script runs this check)
+11. tolerance.yaml covers every output field declared in the contract; every applied perf-decision has a measurement
+12. Audit file enumerates per-axis comparison without `&...` / "etc." / "..." hand-waves; for frontend features, the Frontend axes section is populated (form fields enumerated, UI affordances enumerated, templated query params enumerated)
+
+A feature failing any check is **BLOCKED**. The phase REFUSES until every blocked feature is resolved (re-port, ADR, deprecate, park, or restart `/migration-phase <N> --feature=<id>`).
 
 ## Phase 3 — Retrieve (read the right context)
 
-- Plan (phase N section).
-- Ledger.
-- Each audit file for this phase's features.
+- `ai/migration/plan.md` (phase N section).
+- `ai/migration/ledger.md` (full).
+- `ai/migration/contracts/<feature>.md` for every feature in phase N.
+- `ai/migration/plans/<feature>.md` for every feature in phase N.
+- `ai/migration/audits/<feature>.md` for every feature in phase N.
+- `ai/migration/audits/phase-<N>.md` (phase summary).
+- `ai/migration/perf-decisions/<feature>.md` for every feature in phase N.
+- `ai/runbooks/migration-rollback-<feature>.md` for every feature in phase N.
+- `<parity-test-root>/<feature>/tolerance.yaml` for every feature.
+- `<parity-test-root>/<feature>/inputs/` directory listing (count entries).
 - ADRs cited as `intentional-break` justification.
+
+**Run validator script** (universal, runs from any tool):
+
+```bash
+~/.claude/scripts/validate-migration-artifacts.sh --phase=<N> --strict
+```
+
+The validator returns exit 0 if every check passes for every feature in phase N; non-zero with per-feature finding list otherwise. If the script is unavailable in the current tool environment, the executor MUST manually verify each check above against `migration-discipline.md` § "Per-feature audit — 10 hard halts" and § "Required artifacts per feature".
 
 ## Phase 4 — Generate (produce the output)
 
@@ -45,25 +76,28 @@ Build a gate report:
 
 Plan section: ai/migration/plan.md § Phase <N>
 Features in phase: <Y>
+Validator script result: PASS / FAIL (run-id <X>)
 
-## Per-feature verification
+## Per-feature verification (12-check matrix)
 
-| ID | Feature | status | parity_test | audit | ADR (if break) | Verdict |
-|---|---|---|---|---|---|---|
-| F001 | auth-login | done | passing | ✓ | — | PASS |
-| F002 | tenant-resolver | done | passing | ✓ | — | PASS |
-| F003 | shared-error-handler | failed | failing | ✓ | — | **BLOCK** |
-| F004 | role-guards | done | passing | — | — | **BLOCK (audit file missing)** |
-| ... | | | | | | |
+| ID | Feature | status | parity_test | contract | plan | corpus≥30 | tolerance | perf-decisions | runbook | audit | ADR | Verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| F001 | auth-login | done | passing | ✓ 9-sections | ✓ | ✓ 47 | ✓ | ✓ measured | ✓ | ✓ | — | PASS |
+| F002 | tenant-resolver | done | passing | ✓ | ✓ | ✓ 30 | ✓ | ✓ | ✓ | ✓ | — | PASS |
+| F003 | shared-error-handler | failed | failing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | **BLOCK** |
+| F004 | role-guards | done | passing | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ MISSING | ✓ | — | **BLOCK (runbook missing)** |
+| F005 | reports-orders | done | passing | ✗ 6/9 sections | ✓ | ✗ 12 inputs | ✓ | ✓ | ✓ | ✓ | — | **BLOCK (contract incomplete + thin corpus)** |
+| ... | | | | | | | | | | | | |
 
-## Blocking issues
+## Blocking issues (per check)
 
-- F003: parity_test failing. See ai/migration/audits/F003.md § Verify.
-- F004: audit file ai/migration/audits/F004.md not found.
+- F003: parity_test failing. See ai/migration/audits/F003.md § Hard-halt findings.
+- F004: rollback runbook ai/runbooks/migration-rollback-F004.md does not exist.
+- F005: contract has 6/9 sections (missing: Side effects, Caller assumptions, Known V1 bugs); corpus has 12 inputs (need ≥30 OR record-replay setup).
 
 ## Verdict
 
-**REFUSED** — 2 blocking issues. Fix and re-run /migration-phase <N>, then re-run /migration-gate <N>.
+**REFUSED** — 3 blocking issues across 3 features. Fix and re-run /migration-phase <N>, then re-run /migration-gate <N>.
 ```
 
 OR if everything passes:
@@ -122,8 +156,11 @@ Fix the blockers; re-run /migration-phase <N>; then re-run /migration-gate <N>.
 - **Read-only on REFUSED.** Never modifies ledger or any artifact when refusing.
 - **One row per success.** `_history.md` is append-only; no edits to past entries.
 - **No partial passes.** A phase with ANY blocking issue REFUSES. There is no "passed with caveats" — fix it or document an `intentional-break` ADR.
-- **Audit-file presence is mandatory.** A `done` row without an audit file = data integrity failure → REFUSE.
-- **ADR existence is verified.** Cited `intentional-break: ADR-NNNN` must point to a real file in `ai/decisions/`.
+- **All 12 checks are mandatory.** File presence is necessary but NOT sufficient. Content quality (9 contract sections, citation resolution, ≥30 corpus, tolerance covers outputs, perf measurements present, audit enumerates without hand-waves) is verified.
+- **Audit-file presence is mandatory.** A `done` row without an audit file = data integrity failure → REFUSE. A blank or hand-waved audit file = data integrity failure → REFUSE.
+- **Contract-completeness is mandatory.** A contract missing any of the 9 required sections, or with unresolved `<path:line>` citations, fails the gate even if the audit file says "parity-clean".
+- **ADR existence is verified.** Cited `intentional-break: ADR-NNNN` must point to a real file in `ai/decisions/` with status: Accepted.
+- **Validator script is the source of truth.** When `scripts/validate-migration-artifacts.sh` is available, its exit code IS the gate's verdict. When unavailable (rule-only tools), the executor manually verifies each check and records the verification.
 
 ## Related
 

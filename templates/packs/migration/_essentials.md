@@ -22,6 +22,51 @@ Rationale per category (one line each):
 - **rules**: `migration-discipline` codifies the contract — parity is non-negotiable; perf uplift only when it preserves observable behaviour; every intentional behaviour break documented in an ADR.
 - **ai-patterns**: `feature-port` is the playbook (per-feature lifecycle); `parity-testing` is the test technique catalogue; `migration-ledger` is the state-tracking convention (what's V1-only / In-progress / V2-shadow / V2-canary / V2-only / V1-deleted).
 
+## Phased flow vs per-feature flow — which command when
+
+The pack offers two flows that compose. **`/migration-phase <N>` dispatches `/port-feature <id>` per feature in phase N.** The phased flow is the batch wrapper; the per-feature flow is the unit of work. Both end at the same gate: `parity-auditor` verifies the artifact set per `migration-discipline.md` § "Required artifacts per feature".
+
+```
+First time setup
+  ↓
+/migration-scan ──→ ai/migration/{ledger.md, scan-report.md}
+  ↓
+/migration-plan ──→ ai/migration/plan.md
+  ↓
+─────── for each phase N ───────
+│
+│  /migration-phase <N>            ← batch orchestrator
+│    ↓ (dispatches per row)
+│    /port-feature <id>            ← per-feature orchestrator (≡ feature-port.md 6 phases)
+│      ↓ (mandates)
+│      • extract-v1-contract       → contracts/<feature>.md (9 sections)
+│      • migration-architect       → plans/<feature>.md
+│      • parity-test-generate      → <parity-test-root>/<feature>/ + tolerance.yaml
+│      • perf-uplift-survey        → perf-decisions/<feature>.md
+│      • write rollback runbook    → runbooks/migration-rollback-<feature>.md
+│      • parity-auditor Stage A    → audits/<feature>.md
+│
+│  /migration-gate <N>             ← phase exit verifier
+│    ↓ (12-check artifact validation; calls validate-migration-artifacts.sh)
+│    PASS → continue to phase N+1
+│    REFUSED → fix blockers; re-run /migration-phase <N>
+│
+─────────────────────────────────
+  ↓
+/migration-final ──→ ai/migration/{final-report.md, retirement-plan.md}
+```
+
+**Use the per-feature flow directly** (skip `/migration-phase`) when:
+- You're porting a single feature outside a phase (e.g., a hotfix port).
+- You want the full discipline on one row without coordinating across a phase.
+- You're advancing a single feature through cutover stages (Shadow → Canary).
+
+**Use the phased flow** for the full migration: it's the batch coordinator that produces phase-level artifacts (`audits/phase-<N>.md`) and gates phase exits.
+
+**Use `/compare-v1` as preliminary** before either: read-only audit of V1↔V2 for a feature; output is the input the AUDIT step consumes.
+
+**Use `/migration-status`** any time as a read-only health check.
+
 ## What this pack is NOT for
 
 - **Behavior-preserving small refactors within a single version** → use the `code-quality` pack's `refactorer` agent.

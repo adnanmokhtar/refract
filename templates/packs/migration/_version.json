@@ -1,9 +1,31 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.0.0",
-  "released": "2026-04-27",
+  "version": "1.1.0",
+  "released": "2026-04-29",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Per-feature V1\u2192V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API)."
+  "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API).",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-04-29",
+      "changes": [
+        "Make migration-discipline.md self-sufficient: inline the 9 contract sections, 10 hard halts, frontend audit axes, frontend anti-pattern catalogue, and tool-agnostic procedures so rule-only tools (Aider, Codex, Gemini) get the full discipline floor.",
+        "Make /migration-phase a thin dispatcher of /port-feature per row; mandate parity-auditor (or its 10-halt checklist inlined); add Phase 4a pre-flight via migration-detect-existing.sh.",
+        "Make /migration-gate enforce 12 checks (file presence + content quality + citation resolution + corpus size + tolerance coverage + perf measurements + audit hand-wave detection).",
+        "Add scripts/validate-migration-artifacts.sh: language-agnostic Bash validator runnable from any tool's hook system.",
+        "Add frontend recipes to parity-test-generate.md: page-level mount + composable golden master + component snapshot + E2E parity + visual regression + a11y diff + multi-locale.",
+        "Document auto-import test-config requirement and KeepAlive-aware mount for Vue (failure modes #8 and #10 in audit-failure-modes.md).",
+        "Add _examples/audit-failure-modes.md: 10 named anti-patterns observed in real audits including F039 (Trusted Summary), Hand-waved Query Param, Optimistic Form Field Match, Permission-gate Drop, Skipped Contract, Thin Corpus, Stale Plan Reference, Auto-import Trip, defineExpose-Less Page, KeepAlive-onMounted Mismatch.",
+        "Add _examples/audit-template.md: copy-paste audit file structure with required sections + per-axis enumeration discipline + frontend axes section.",
+        "Add tool-adapters/_migration-pack-coverage.md: per-tool translation expectations for migration discipline across Claude Code, OpenCode, Cursor, Copilot, Continue, Cline, Windsurf, Aider, Codex, Gemini.",
+        "Update _essentials.md with phased-vs-per-feature flow diagram and decision tree.",
+        "Root-cause: F039 (geography-mappings) shipped audit with missing add-button + divergent query params because /migration-phase was a permissive shell over the strict toolchain. This release closes the discipline floor."
+      ]
+    },
+    "1.0.0": {
+      "released": "2026-04-27",
+      "changes": ["Initial migration pack release."]
+    }
+  }
 }

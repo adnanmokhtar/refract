@@ -35,6 +35,8 @@ This skill is the procedural arm of `migration-discipline.md` + `parity-testing.
 
 Pick from `parity-testing.md` based on feature shape:
 
+#### Backend / API / job / CLI features
+
 | Feature shape | Recipes |
 |---|---|
 | Pure / deterministic, well-defined inputs | Golden master + property-based |
@@ -42,6 +44,50 @@ Pick from `parity-testing.md` based on feature shape:
 | Write-heavy, mutating | Record-replay + dual-write audit |
 | Mixed read/write | All four (shadow read, dual-write writes) |
 | Tiny / utility-shaped | Golden master only |
+
+#### Frontend features (page / component / route / screen)
+
+Frontend ports add specific recipes — generic golden-master alone is insufficient because the contract surface includes DOM affordances, event handlers, accessibility, and reactive lifecycle which generic JSON-output golden master cannot pin.
+
+| Feature shape | Recipes | Tooling |
+|---|---|---|
+| Page with inline business logic | Page-level mount + `defineExpose`-based driver test + DOM assertion | Vue Test Utils / React Testing Library / Svelte Testing Library |
+| Page with composable-extracted logic | Composable golden master (unit-test the composable directly) + page-level smoke test | Vue Test Utils + composable runner pattern |
+| Component (reusable) | Component-level snapshot per render-state + interaction test (click/submit/change) | Vue Test Utils / RTL / Storybook + Chromatic |
+| User flow (multi-page) | E2E parity (Playwright/Cypress) — drive V1 + V2 in parallel; compare DOM / screenshots | Playwright / Cypress / WebdriverIO |
+| Visual fidelity | Visual regression (pixel-level with tolerance) | Percy / Chromatic / Playwright snapshots / BackstopJS |
+| Accessibility | a11y baseline + diff (axe-core) | axe-core via Playwright / RTL `jest-axe` |
+| Multi-locale | Render in every locale; assert i18n keys + RTL/LTR flip | Vue Test Utils + i18n harness |
+
+**Frontend recipe details:**
+
+- **Page-level mount + driver test**: render the V2 page with mock services; drive interactions; assert the resulting requests / store mutations / route pushes / toast invocations match the V1 contract. Use `defineExpose({...})` (Vue) or component refs (React) when business logic is inline.
+- **Composable golden master**: extract logic to a composable (Vue) / hook (React); test the composable's exposed API as a unit. The page becomes a thin wrapper — much easier to test. Encouraged by `migration-discipline.md` § Frontend anti-patterns ("Per-page inline business logic" → fix: composable extraction).
+- **Component snapshot per state**: render the component with N input states (loading / loaded / empty / error / readonly / etc.); snapshot each. Combine with interaction tests (click button → assert event emitted).
+- **E2E parity**: high-confidence but slow + flaky-prone. Reserve for high-traffic flows (auth, checkout, ordering). Drive Playwright against both V1 and V2 hosts; capture and compare.
+- **Visual regression**: use a tolerance threshold (e.g., 0.1% pixel diff) to absorb minor anti-aliasing / font-rendering differences. Pin a single browser + viewport.
+- **a11y diff**: axe-core baseline against V1; assert V2 has ≤ V1 violations (V2 may be stricter and have *fewer* violations — that's a win, not a regression).
+- **Multi-locale**: parameterise tests over the locale list; assert keys resolve in each locale; verify RTL/LTR layout flip; verify date / number / currency formatting per locale.
+
+#### Auto-import test-config requirement (frontend)
+
+Any test that mounts a `.vue` / `.tsx` / `.jsx` file from a project that uses `unplugin-auto-import` (Vue), Nuxt's auto-imports, Vite's auto-import plugin, etc. requires the SAME plugin in the test config (`vitest.config.ts`, `jest.config.js`). Otherwise the auto-imported `useI18n`, `useRouter`, `computed`, etc. resolve in production but not in tests. **First mount fails with `useI18n is not defined`-type errors.** This is the #8 named anti-pattern in `audit-failure-modes.md` ("The Auto-import Trip"); pre-empt it by writing the test config alongside the test files.
+
+#### KeepAlive-aware mount (Vue)
+
+For Vue pages that use `onActivated` (cached pages under `<KeepAlive>`), the test mount MUST wrap the component in `<KeepAlive>` for the activate hook to fire:
+
+```ts
+const wrapper = mount(
+  {
+    components: { Page },
+    template: '<KeepAlive><Page /></KeepAlive>',
+  },
+  { /* options */ }
+)
+```
+
+Otherwise `onActivated`-fired API calls don't run and `expect(mockApi).toHaveBeenCalled()` fails. This is the #10 named anti-pattern in `audit-failure-modes.md`.
 
 Aim for ≥2 recipes per non-trivial feature so a gap in one is caught by another.
 

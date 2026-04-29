@@ -17,18 +17,192 @@ pack: migration
 > - **Caching primitive in V2**: `<extracted>` (e.g., Redis client at `<path:line>`, in-process LRU helper, framework cache adapter)
 > - **DB query primitive in V2**: `<extracted>` (ORM + connection-pool location + index migration tool)
 
-This rule governs every per-feature port. It exists because the most common migration failure is **subtle behavioural drift** — V2 *almost* matches V1, ships, and a long-tail of customer issues surface over months. The second most common is **scope creep** — the port becomes a redesign, a perf project, and a refactor in one PR, none of which can be safely reviewed.
+This rule governs every per-feature port. It exists because the most common migration failure is **subtle behavioural drift** — V2 *almost* matches V1, ships, and a long-tail of customer issues surface over months. The second most common is **scope creep** — the port becomes a redesign, a perf project, and a refactor in one PR, none of which can be safely reviewed. The third most common is **trusted summary** — an executor delegates V1↔V2 comparison to a search/exploration agent, the agent reports "looks identical" in confident summary language, and the executor echoes that into the audit without verifying the claim against source. F039 in tenant-portal-v2 (Apr 2026) is the canonical example: a missing "add new mapping" UI button + a divergent query-param surface both passed audit because the summary said "identical."
+
+**This rule is the universal contract** — it must be enforceable by any AI tool. Tools with full capability (commands + agents + skills + hooks) compose the discipline by dispatching `/port-feature` → `parity-auditor` → `extract-v1-contract` etc. Tools with rules only (Aider, Codex, Gemini) enforce the discipline by reading and following this file directly. Therefore: the procedural detail is inlined here, not just referenced. Do not delete the inlined procedures in favour of references; rule-only tool users have no other surface.
+
+## Required artifacts per feature (the floor)
+
+Every feature port — backend, frontend, API, job, script, CLI — produces this artifact set. The set is identical regardless of which AI tool drove the port. Missing any artifact halts cutover.
+
+| Artifact | Path | Purpose | Mandatory sections |
+|---|---|---|---|
+| Contract | `ai/migration/contracts/<feature>.md` | The spec V2 must satisfy. Re-derived from V1 source, not from a summary. | See § "Contract — 9 required sections" below. |
+| Plan | `ai/migration/plans/<feature>.md` | V2 module shape, parity strategy, cutover plan, rollback path, non-goals. | V2 module shape, dependencies, parity strategy, perf-uplift candidates (planned), cutover plan, rollback path, non-goals, risks. |
+| Parity tests | `<parity-test-root>/<feature>/` | Runnable assertion that V2 matches V1 within tolerance. | Input corpus (≥30 inputs OR record-replay), `tolerance.yaml`, golden snapshots OR property tests, runner integration. |
+| Tolerance | `<parity-test-root>/<feature>/tolerance.yaml` | Per-field equivalence rules. | Every contract output field has a tolerance entry (`exact` / `structural` / `numeric_tolerance` / `order_insensitive` / `ignore`). |
+| Perf decisions | `ai/migration/perf-decisions/<feature>.md` | Every perf-uplift candidate classified. | One row per candidate (applied / deferred / rejected) with V1 cost, V2 estimate, parity argument, measurement. |
+| Rollback runbook | `ai/runbooks/migration-rollback-<feature>.md` | Concrete steps to flip back to V1. | Mechanism, per-stage rollback steps, on-call assignment, data reconciliation steps for write paths. |
+| Audit | `ai/migration/audits/<feature>.md` | Per-feature finding from parity audit. | Classification, per-axis comparison, gaps, tenant-isolation gate, decision recommended, ADR references, notes. |
+| Ledger row | `ai/migration/ledger.md` § `<feature>` | Source-of-truth state machine row. | Per-state required fields per `migration-ledger.md`. |
+
+**Output of `/migration-gate <N>` validates the existence + content of every artifact above for every feature in phase N. A missing artifact REFUSES the gate.**
+
+## Contract — 9 required sections
+
+The contract document at `ai/migration/contracts/<feature>.md` must contain ALL 9 sections below. A contract missing any section is incomplete; the audit halts.
+
+```markdown
+# Contract: <feature>
+
+> V1 entry point: `<v1-path:line>`
+> V1 commit pinned: `<sha>`
+> Author: <name> | Reviewed: <name> | Date: <iso>
+
+## 1. Inputs
+For each input parameter / form field / query param / header / file upload:
+- Name, type, constraints (declared validators + ad-hoc conditionals), default, required vs optional.
+- Edge cases V1 handles: empty, null, oversize, malformed, Unicode, etc.
+- Citation: `<v1-path:line>` for the validation/handling code.
+
+## 2. Outputs (per code path)
+For EACH code path (every happy path, every error path, every empty-state path):
+- Shape: full structured output (response body, return value, emitted event).
+- Field-by-field semantics (e.g., `total = sum(line.amount) + tax`).
+- HTTP status / exit code / event type.
+- Citation: `<v1-path:line>` for the output construction.
+
+## 3. Side effects (every code path)
+- DB writes: table, columns, condition, idempotency key.
+- External HTTP: endpoint, method, when, retry, timeout.
+- Queue publishes: queue, message shape, ordering required.
+- Cache: read keys, write keys + TTL, invalidation rule.
+- File I/O: path, mode, atomicity required.
+- Logs systems depend on: structured field name, consumer system.
+- Metrics emitted: counter, histogram, when.
+
+## 4. Business rules
+For each named rule (give it a name even if V1 doesn't):
+- Rule-NNN: name, description, source `<path:line>`, test `<path:line>` (or "no direct test"), origin (commit or issue).
+
+## 5. Invariants
+- Ordering, idempotency, retry semantics, atomicity, eventual consistency timing, concurrency guarantees.
+- Each cited to `<path:line>`.
+
+## 6. Performance characteristics (V1 baseline)
+- Latency p50/p95/p99 (source: dashboard / log / measurement).
+- DB queries per call (with EXPLAIN if available).
+- External HTTP calls per call.
+- Memory per call.
+- Throughput cap.
+
+## 7. Caller assumptions
+For each consumer of V1 (`grep` for the symbol/endpoint/route):
+- `<consumer-path:line>` expects V1 to: <observable>. Breaking this is a contract change.
+- Lists every observable the consumers depend on.
+
+## 8. Edge cases V1 handles
+Catalogued, with citations: empty input, null, concurrent calls with same key, network errors, dependency timeouts, oversized input, malformed input, etc. Each cited to `<path:line>`.
+
+## 9. Known V1 bugs
+For each: description, issue link if any, decision (preserve = parity / fix = contract break + ADR-NNN), rationale.
+```
+
+**Citation discipline**: every `<path:line>` reference must resolve. The validator script `scripts/validate-migration-artifacts.sh` checks this — but a tool without scripting must check by hand before declaring the contract complete.
+
+## Per-feature audit — 10 hard halts
+
+The audit step runs against an implementation + its artifacts. The audit HALTS (refuses to advance the feature) on any of these 10 conditions:
+
+1. **Contract missing or incomplete** — file at `ai/migration/contracts/<feature>.md` doesn't exist OR any of the 9 sections is empty OR any `<path:line>` citation doesn't resolve.
+2. **Parity tests missing or thin** — `<parity-test-root>/<feature>/` doesn't exist OR `tolerance.yaml` doesn't cover every documented output field OR input corpus has fewer than 30 entries (no record-replay setup as alternative) OR no entry exists per documented happy path / error path / business rule / edge case.
+3. **Parity tests not green** — latest CI run on the PR's commit is not green for parity tests AGAINST the V1 commit pinned in the ledger; OR tolerance was loosened in the same PR (loosening = separate PR + ADR).
+4. **Plan missing** — `ai/migration/plans/<feature>.md` doesn't exist OR doesn't match the actual implementation (V2 module shape under `<v2-root>/<feature>/`; cutover plan present; rollback path documented).
+5. **Perf-decisions missing or incomplete** — `ai/migration/perf-decisions/<feature>.md` doesn't exist OR not every candidate classified (applied / deferred / rejected) OR any `applied` candidate has no measurement OR any `applied` candidate is `parity_preserving: no` (those would be contract breaks; ship separately).
+6. **V1 modified in the port PR** — diff touches any file under V1 root (the only acceptable exception: cutover-mechanism wiring that is additive and doesn't change V1 behaviour).
+7. **Ledger drift** — the PR doesn't update the ledger row OR required fields for the new state are not populated OR V1 commit pinned in ledger ≠ commit used by parity tests ≠ commit V1 is at HEAD of the audited branch.
+8. **Rollback runbook missing** — `ai/runbooks/migration-rollback-<feature>.md` doesn't exist OR doesn't name the cutover mechanism + per-stage rollback steps + on-call assignment.
+9. **Scope creep** — PR title/description ≠ exactly one ledger feature row OR diff touches files outside V2's `<feature>/` (allowed: ledger update, contract revision, plan revision, perf-decision update, parity test files, cutover wiring [additive only], feature-flag config) OR contains unrelated refactors / "while I'm here" cleanups.
+10. **Cutover mechanism not tested in staging** — no evidence (CI run, deploy log, screenshot) that the rollback path was executed in staging within the last 7 days. (Applies to Shadow → Canary advance; not to first-port PR.)
+
+**Output of any halt**: a structured remediation list — specific finding + specific action — written to the audit file. NO advance until each halt is cleared.
+
+## Frontend audit axes (when feature is a UI page / component / route)
+
+The 6 generic comparison axes (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) are necessary but NOT sufficient for frontend ports. Add these axes for any feature whose V1/V2 entry is a page/component/route/screen:
+
+- **Form fields** — enumerate every input on the page: name, type, validation rules (declared + inline), default value, placeholder, required vs optional, disabled-when, hidden-when. Every form field is a contract surface; missing one = silent break.
+- **UI affordances** — enumerate every button, link, dropdown, modal trigger, file-upload control, toggle switch, copy-to-clipboard button, "view detail" link. Each affordance has a permission gate, an event handler, and an observable effect. **F039's missed "add new mapping" button is exactly this axis.**
+- **Templated query params** — enumerate every URL query param the page reads (router.query, useSearchParams, etc.). V1's list endpoint may filter by 6 params; V2 may send 4. The list endpoint's contract is "the union of every param V1 sends" — verify by reading the V1 list call construction line by line.
+- **Event handlers** — every `@click`, `@submit`, `@change`, `@input`, `onclick`, `onsubmit` — what it calls, with what args, what the side effect is.
+- **Per-button permission gates** — V1 may hide an action via `v-if="hasPermission(...)"` / `{user.can(...) && ...}` — V2 must render the same gate. Enumerate; per-button audit.
+- **Accessibility** — keyboard navigation order, ARIA labels on icon-only buttons, focus management on modal open/close, screen-reader-only text. axe-core baseline + diff is the parity test.
+- **DOM-equivalent** (use the `dom-equivalent` tolerance class from `parity-testing.md`) — semantically equal markup; pixel-perfect not required but structural parity is.
+- **Reactive lifecycle** — V1's `onMounted` vs V2's `onActivated` (when the framework supports keep-alive); refetch-on-locale-change; refetch-on-tenant-switch. Stale-on-tab-return is a tenant leak vector for multi-tenant apps.
+
+## Frontend anti-pattern catalogue (V1 → V2 hot list)
+
+These recur in every frontend V1→V2 port. Add to project-specific anchor's framework column when relevant.
+
+| V1 anti-pattern | Why it's bad | V2 fix |
+|---|---|---|
+| `array.find()` / `array.includes()` inside a `v-for` / map / loop | O(N²) on every render | Build `Map` / `Set` once via computed; O(1) lookup |
+| Sequential `await` in `mounted` / `onMounted` for independent fetches | Blocks first paint by sum of latencies | `Promise.all` for independent calls; lazy-load non-critical |
+| `localStorage.getItem('selectedLanguage')` / `localStorage.userInformation` outside `secureStorage`/`tokenProvider` | Tenant leak: stale value survives logout | Read from live store (Pinia/Redux/etc.); auth `logout()` clears the store |
+| `onMounted` data fetch on cached page (KeepAlive / `<keep-alive>`) | Stale on tab return / tenant switch | `onActivated` (Vue) / framework's reactivate hook |
+| `v-html` / `dangerouslySetInnerHTML` without sanitize | XSS surface | Route through DOMPurify wrapper; document the sanitize boundary |
+| Search input wired directly to API without debounce | API spam; 1 request per keypress | `useDebounceFn(fetch, 300)` |
+| DDL endpoints (`countries/minimal`, `users/minimal`) refetched on every dialog open | N×call per session | Module-level cache with TTL; invalidate on logout |
+| Missing route lazy-load (eager `import` of route component) | Huge initial bundle | `() => import('./Page.vue')` per route leaf |
+| Per-page inline business logic | Untestable; duplicated across pages | Extract to composable / hook |
+| Manual `Authorization: Bearer ${token}` headers in service calls | Bypasses interceptor + refresh queue; double-source-of-truth on token | Interceptor on the HTTP client only; never per-call |
+| Untrottled `setInterval` / `setTimeout` in `mounted` without cleanup | Memory leak; multiple instances on KeepAlive resume | `onUnmounted` / `useEffect` return; clean up the timer |
+| Per-component `axios.create()` outside the canonical client | Double interceptors, unrelated refresh logic | Single `apiClient` + `publicClient`; never `axios.create` per feature |
+| Routes redirect via path strings (`router.push('/dashboard')`) | Refactor-fragile | Named routes (`router.push({ name: 'dashboard' })`) |
+| Translation-fields sent as `{ en: ..., ar: ... }` flat objects | Backend may want `name_translations: { ... }` envelope | Match V1's submitted shape exactly; document in contract |
+
+## Tool-agnostic procedure (for tools without skill dispatch)
+
+The skills `extract-v1-contract`, `parity-test-generate`, `perf-uplift-survey` describe canonical procedures. AI tools that support skills dispatch them directly. AI tools that don't (Aider / Codex / Gemini / Cline / Windsurf reading rules only) MUST follow the inlined procedure below to produce the same artifacts:
+
+### Procedure: extract V1 contract
+
+1. Pin V1's commit hash (`git -C <v1-root> rev-parse HEAD`); record in ledger row's `v1_commit_pinned`.
+2. Identify ONE entry point. Trace OUTWARD until I/O boundaries.
+3. Read every file in the call graph end-to-end (no skim). Note: every conditional, every error path, every side effect, every type, every dependency call, every time/random/external dependence.
+4. Read every test that touches the feature.
+5. Read git log for the feature's files (`git log --follow -p <path>`); flag recent bug fixes + hotfixes.
+6. Search bug tracker / issue list for the feature name; capture open V1 bugs + fixed-but-relevant.
+7. Inspect production telemetry if available: latency p50/p95/p99, error rate, throughput, DB cost. Sample 100 production logs (anonymised).
+8. Inspect adjacent code that consumes V1 (`git grep` exported symbols / endpoints); capture caller assumptions per `<file>:<line>`.
+9. Synthesise into the 9-section contract. Every claim has a `<path:line>` citation. Every section is populated.
+10. Have a second reviewer read V1 alongside the contract; they look for what the contract missed.
+
+### Procedure: generate parity tests
+
+1. Confirm contract exists and is complete; refuse to proceed otherwise.
+2. Pick recipes per `parity-testing.md` recipe-mix table (golden master always; property-based for invariants; record-replay for high-traffic; shadow for read-heavy production; dual-write for write paths; component snapshot / composable golden / E2E parity / a11y / visual regression for frontend).
+3. Build input corpus at `<parity-test-root>/<feature>/inputs/`: ≥1 per happy path, ≥1 per error path, ≥1 per business rule (boundary), ≥1 per edge case, 50–100 anonymised production samples if available. **Aim for ≥30 inputs**.
+4. Capture V1 outputs into `__golden__/` (deterministic environment: seeded test DB, fixed time/random, stubbed external HTTP).
+5. Build `tolerance.yaml`: every contract output field gets one of `exact` / `structural` / `numeric_tolerance` / `order_insensitive` / `ignore`. Default for unsure fields: `exact`.
+6. Author golden-master test (load input → run V2 → compare to golden per tolerance).
+7. Author property-based tests for each invariant in the contract.
+8. (If applicable) record-replay corpus + replay test.
+9. (If applicable) shadow comparator + dual-write audit.
+10. CI integration: golden + property on every push; replay nightly or `[parity]` label.
+
+### Procedure: perf-uplift survey
+
+For each of the 10 candidate areas (N+1, missing index, column projection, caching, sequential await, in-app filter, batched insert, raw SQL vs ORM, sync external HTTP, payload shape):
+1. Inspect V1's behaviour for the candidate (cite `<v1-path:line>`).
+2. Document V1's cost (queries × latency; bytes; etc.).
+3. Decide V2's transformation (parity-preserving or contract-breaking).
+4. Classify: applied / deferred / rejected. With rationale.
+5. For `applied`: implement; measure before/after; verify parity tests still green.
+6. For `deferred`: log blocker (infra not ready, scope, ADR pending).
+7. For `rejected`: log reason + ADR link if contract-breaking.
+8. Record in `ai/migration/perf-decisions/<feature>.md`.
 
 ## Must
 
-- **Read V1 before writing V2.** Use `extract-v1-contract` to produce `ai/migration/contracts/<feature>.md` covering: every input shape, every output shape, every side effect (DB writes, external calls, queue publishes, cache invalidations), every error path with its observable shape, every business rule discovered (including the ones encoded only in conditionals), every implicit invariant (ordering, idempotency, retry behaviour), every undocumented edge case (search git log + tests + comments). The contract is the spec V2 must satisfy.
-- **Generate parity tests before V2 code.** Use `parity-test-generate`. Tests run V1 + V2 against identical inputs and assert equivalence per the tolerance taxonomy (exact / structural / numeric tolerance / order-insensitive / timestamp-insensitive). Red baseline before V2 is fine — green is required before cutover.
+- **Read V1 before writing V2.** Produce `ai/migration/contracts/<feature>.md` with all 9 sections per the procedure above. The contract is the spec V2 must satisfy.
+- **Generate parity tests before V2 code.** Follow the parity-test procedure above. Tests run V1 + V2 against identical inputs and assert equivalence per the tolerance taxonomy (exact / structural / numeric tolerance / order-insensitive / timestamp-insensitive / dom-equivalent). Red baseline before V2 is fine — green is required before cutover. Corpus has ≥30 inputs OR a record-replay setup; tolerance.yaml exists; every contract output field has a tolerance entry.
 - **One feature per port PR.** Atomic unit = one feature in the migration ledger. Multi-feature PRs hide regressions and make rollback ambiguous.
 - **Update the ledger on every state transition.** `V1-only → In-progress → V2-shadow → V2-canary → V2-only → V1-deleted`. The ledger is the source of truth — code grep is not.
 - **Cutover is gated.** Move from V2-canary → V2-only only when: (1) parity tests green, (2) shadow / canary metrics show no regression on error rate / latency / business KPIs for the agreed observation window, (3) the relevant ADR (if any) is merged, (4) rollback path tested.
 - **Delete V1 only when last reference is gone.** Use `git grep` + dead-code analyser + telemetry "no traffic in N days" before deletion. The ledger transition `V2-only → V1-deleted` requires evidence attached.
 - **Document every intentional behaviour break.** If V2 changes a contract from V1 (e.g., V1 returned `null` on missing user, V2 throws), it MUST be in `ai/decisions/<NNN>-<feature>-v2-break.md` with: V1 behaviour, V2 behaviour, why the break is necessary, who's affected, migration path for callers, deprecation timeline.
-- **Capture migration-time perf wins explicitly.** Run `perf-uplift-survey` during port. For each candidate (N+1 → batch query, missing index, unbounded SELECT *, sequential await, no caching), decide: applied / deferred / rejected — with a reason. Decisions live in `ai/migration/perf-decisions/<feature>.md`. A perf change MUST NOT silently break parity — it's either parity-preserving (most cases — same observable, faster) or it's a documented break (above bullet).
+- **Capture migration-time perf wins explicitly.** Follow the perf-uplift procedure above during port. For each candidate (N+1 → batch query, missing index, unbounded SELECT *, sequential await, no caching, in-app filter, etc.), decide: applied / deferred / rejected — with a reason and (for applied) a measured before/after. Decisions live in `ai/migration/perf-decisions/<feature>.md`. A perf change MUST NOT silently break parity — it's either parity-preserving (most cases — same observable, faster) or it's a documented break (above bullet).
 - **Use V2's primitives, not V1's.** If V2's architecture says "service-layer + repository", DO NOT carry over V1's "fat controller". The port is the moment to align with V2 — that's the entire point.
 - **Keep V1 untouched during port.** No "while I'm here" fixes in V1 code. V1 is the oracle for parity testing — if you change V1 you've changed the oracle.
 
@@ -157,18 +331,44 @@ T+38d: Delete V1 (after 14d of zero traffic).
 - **The Eternal Shadow** — V2 lives in shadow indefinitely "until we're sure". The longer V2 stays in shadow, the more divergent it becomes from V1 (which keeps shipping). Set a cutover deadline; if missed, re-baseline parity.
 - **The Buried Perf "Improvement"** — an N+1 fix that quietly changes ordering / nullability / ID stability. The "improvement" is a contract break; ships under the port PR; surfaces as a bug 6 weeks later.
 - **The V1 Deletion Sprint** — deleting V1 modules en masse "to clean up." A single `import` left in a stale cron job means a silent prod failure when the cron next fires. Delete only when last reference is gone + telemetry confirms zero traffic.
+- **The Trusted Summary** — delegating V1↔V2 comparison to a search/exploration agent that returns "looks identical" in confident summary language; the executor echoes that into the audit without verifying claim against source. The audit is a checklist, not a vibe-check; every "identical" claim has a `<path:line>` citation that resolves OR the audit halts. (F039 in tenant-portal-v2: a missing add-button + divergent query-param surface both passed audit because the summary said identical. Lesson: trust agents to *find* sources, not to *verify* equivalence; verification reads source line by line.)
+- **The Hand-waved Query Param** — audit declares "GET /endpoint?foo=&bar=&..." with `&...` as the trailing surface, hiding 4 unenumerated params. The contract's Inputs section enumerates EVERY param V1 sends. No `&...`, no "etc.", no "and so on" — list them all or halt the contract.
+- **The Optimistic Form Field Match** — audit declares V1↔V2 form fields "identical" without enumerating them. Frontend-specific anti-pattern: a missing field, a wrong type, a missing validator passes audit. Contract's Inputs section lists every field on V1's page, V2 must render the union.
+- **The Permission-gate Drop** — V1 hides an action via `v-if="hasPermission(...)"` / `{user.can(...) && ...}`; V2's port renders the action without the gate. Per-button audit enumerates every gate; missing gate is a security regression.
 
 ## References
 
-- `.claude/skills/extract-v1-contract.md` — how to read V1 deeply and produce the contract.
-- `.claude/skills/parity-test-generate.md` — how to build the parity test suite.
-- `.claude/skills/perf-uplift-survey.md` — how to find migration-time perf wins.
+These references are **convenience pointers for AI tools that support them**. The rule itself is self-sufficient — every procedure is inlined above. If your tool doesn't expose these as commands/agents/skills, follow the inlined procedures.
+
+### For tools with command + agent + skill dispatch (Claude Code, OpenCode, partial: Cursor, Copilot)
+
+- `.claude/skills/extract-v1-contract.md` — V1-contract-extraction procedure (inlined above).
+- `.claude/skills/parity-test-generate.md` — parity-test-generation procedure (inlined above).
+- `.claude/skills/perf-uplift-survey.md` — perf-uplift-survey procedure (inlined above).
 - `.claude/agents/migration-architect.md` — strategic per-feature planner.
-- `.claude/agents/parity-auditor.md` — pre-cutover audit.
-- `.claude/commands/port-feature.md` — the orchestrator.
-- `ai/patterns/feature-port.md` — per-feature lifecycle.
-- `ai/patterns/parity-testing.md` — test technique catalogue.
+- `.claude/agents/parity-auditor.md` — pre-cutover audit (Stage A halts inlined as the 10-halt checklist above).
+- `.claude/commands/port-feature.md` — per-feature orchestrator.
+- `.claude/commands/migration-phase.md` — phase orchestrator (dispatches port-feature per row).
+- `.claude/commands/migration-gate.md` — phase exit verifier (validates the artifact set above).
+
+### Patterns (read by all tools as ai/ knowledge)
+
+- `ai/patterns/feature-port.md` — per-feature lifecycle (six phases per ledger row).
+- `ai/patterns/parity-testing.md` — test technique catalogue + tolerance taxonomy.
 - `ai/patterns/migration-ledger.md` — state-machine + record format.
+
+### Cross-pack references
+
 - `code-quality/agents/legacy-modernizer.md` — strategic-level migration (sets the feature inventory this rule operates inside).
-- `backend/rules/concurrency-discipline.md` — the parallel-I/O bullet under "Should" links here.
+- `backend/rules/concurrency-discipline.md` — the parallel-I/O bullet (perf-uplift candidate #5) links here.
 - `database/skills/migration-rehearsal.md` — DB-only migration rehearsal (used during V2 query plan + index changes).
+- `frontend/` pack (if loaded) — component / page / a11y testing recipes the parity-test step uses for frontend ports.
+- `testing/` pack (if loaded) — golden-master, property-based, record-replay recipes — the parity-test step uses these.
+
+### Validator script (universal, runs from any tool)
+
+- `scripts/validate-migration-artifacts.sh` — validates contract sections, citation resolution, corpus size, tolerance coverage, plan presence, perf-decisions completeness, runbook presence. Runnable from CI / pre-commit / any tool's hook system. Tool-agnostic.
+
+### For rule-only tools (Aider, Codex, Gemini, partial: Cline, Windsurf)
+
+This rule **is** the surface. The 9 contract sections, the 10 hard halts, the frontend axes, the anti-pattern catalogue, and the three procedures (extract / parity-test / perf-uplift) are all inlined above. No skill / agent / command dispatch is required — follow the rule as a checklist.
