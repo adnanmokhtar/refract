@@ -61,10 +61,12 @@ if [[ ${#PACKS[@]} -eq 0 ]]; then
 fi
 
 # STEP 0.5 (M29): MCP server recommendations driven by the same signals.
-# Always emits the report — user owns .mcp.json so we never auto-write it.
+# Emits the report AND merges recommended servers into <target>/.mcp.json.
+# Merge semantics: user-added servers are preserved; only adds entries whose
+# server key isn't already present. Never overwrites or removes.
 if [[ -x "$SCRIPTS/detect-mcp.sh" ]]; then
   echo "[0.5/5] detect-mcp.sh"
-  "$SCRIPTS/detect-mcp.sh" "$TARGET" 2>&1 | tail -1
+  "$SCRIPTS/detect-mcp.sh" "$TARGET" --apply 2>&1 | tail -4
   echo ""
 fi
 

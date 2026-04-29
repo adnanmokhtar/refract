@@ -27,14 +27,16 @@ set -euo pipefail
 export LC_ALL=C
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-repo> [--quiet]" >&2
+  echo "Usage: $0 <target-repo> [--apply] [--quiet]" >&2
   exit 2
 fi
 
 TARGET="$1"; shift
 QUIET=0
+APPLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --apply) APPLY=1; shift ;;
     --quiet) QUIET=1; shift ;;
     *)       echo "unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -231,4 +233,124 @@ fi
 } > "$REPORT"
 
 [[ $QUIET -eq 0 ]] && echo "Recommended ${#RECS[@]} MCP server(s); report: $REPORT" >&2
+
+# ---------- --apply: merge recommendations into <target>/.mcp.json ----------
+if [[ $APPLY -eq 1 ]]; then
+  MCP_FILE="$TARGET/.mcp.json"
+  V1_DIR=""
+  if [[ -n "${v1_candidate:-}" && -d "$parent_dir/$v1_candidate" ]]; then
+    V1_DIR="$parent_dir/$v1_candidate"
+  fi
+
+  # Pass the recommendation list to python via env var (newline-separated id|pkg).
+  # python composes the per-server config matching the report's JSON shape, then
+  # MERGES into existing .mcp.json without clobbering anything the user added.
+  RECS_JOINED=$(printf '%s\n' "${RECS[@]}")
+
+  RECS_JOINED="$RECS_JOINED" V1_DIR="$V1_DIR" MCP_FILE="$MCP_FILE" QUIET="$QUIET" \
+  python3 - <<'PY'
+import json, os, sys, pathlib
+
+mcp_file = pathlib.Path(os.environ["MCP_FILE"])
+v1_dir = os.environ.get("V1_DIR", "")
+quiet = os.environ.get("QUIET", "0") == "1"
+recs_raw = os.environ.get("RECS_JOINED", "").strip()
+if not recs_raw:
+    sys.exit(0)
+
+# Parse recs: "id|name|package|rationale"
+recs = []
+for line in recs_raw.split("\n"):
+    if not line:
+        continue
+    parts = line.split("|", 3)
+    if len(parts) >= 3:
+        recs.append({"id": parts[0], "name": parts[1], "package": parts[2]})
+
+def server_config(rec):
+    rid, pkg = rec["id"], rec["package"]
+    if rid == "filesystem":
+        return {"command": "npx", "args": ["-y", pkg, "${PWD}"]}
+    if rid == "github":
+        return {
+            "command": "npx",
+            "args": ["-y", pkg],
+            "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"},
+        }
+    if rid in ("playwright", "puppeteer"):
+        return {"command": "npx", "args": ["-y", pkg]}
+    if rid == "postgres":
+        return {"command": "npx", "args": ["-y", pkg, "${DATABASE_URL}"]}
+    if rid == "figma":
+        return {
+            "command": "npx",
+            "args": ["-y", pkg],
+            "env": {"FIGMA_ACCESS_TOKEN": "${FIGMA_TOKEN}"},
+        }
+    if rid == "migration-fs":
+        # The package field is filesystem; the args carry the V1 dir.
+        target_dir = v1_dir or "${V1_DIR}"
+        # Use a different server key so it doesn't collide with filesystem.
+        return {"_key": "filesystem-v1",
+                "command": "npx",
+                "args": ["-y", pkg, target_dir]}
+    # Community / experimental — leave a TODO so the user notices.
+    return {
+        "command": "npx",
+        "args": ["-y", f"<TODO: install {rid}-mcp and replace this>"],
+        "_note": "community server — verify package name on npm",
+    }
+
+# Compose the full recommended map (key → config).
+recommended = {}
+for rec in recs:
+    cfg = server_config(rec)
+    key = cfg.pop("_key", rec["id"])
+    recommended[key] = cfg
+
+# Load existing .mcp.json if any.
+if mcp_file.exists():
+    try:
+        existing = json.loads(mcp_file.read_text())
+    except json.JSONDecodeError as e:
+        print(f"ERR: existing {mcp_file} is not valid JSON ({e}). Will not overwrite — fix it manually first.", file=sys.stderr)
+        sys.exit(1)
+    if not isinstance(existing, dict):
+        print(f"ERR: existing {mcp_file} root is not an object — refusing to merge.", file=sys.stderr)
+        sys.exit(1)
+else:
+    existing = {}
+
+servers = existing.get("mcpServers", {})
+if not isinstance(servers, dict):
+    print("ERR: existing .mcp.json has non-object mcpServers — refusing to merge.", file=sys.stderr)
+    sys.exit(1)
+
+added = []
+preserved = []
+for key, cfg in recommended.items():
+    if key in servers:
+        preserved.append(key)
+    else:
+        servers[key] = cfg
+        added.append(key)
+
+existing["mcpServers"] = servers
+
+# Write atomically: temp + rename
+tmp = mcp_file.with_suffix(".json.tmp")
+tmp.write_text(json.dumps(existing, indent=2) + "\n")
+tmp.replace(mcp_file)
+
+if not quiet:
+    if added:
+        print(f"  + added to .mcp.json: {', '.join(added)}", file=sys.stderr)
+    if preserved:
+        print(f"  = preserved (already present): {', '.join(preserved)}", file=sys.stderr)
+    user_only = [k for k in servers if k not in recommended]
+    if user_only:
+        print(f"  · user-managed (untouched): {', '.join(user_only)}", file=sys.stderr)
+PY
+fi
+
 exit 0
