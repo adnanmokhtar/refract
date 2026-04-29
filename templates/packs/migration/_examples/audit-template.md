@@ -12,9 +12,18 @@ pack: migration
 > The 10 hard halts in `migration-discipline.md` § "Per-feature audit — 10 hard halts" are the gate; this file's structure mirrors them. A blank section = halt; a hand-waved enumeration = halt.
 
 ```markdown
+---
+auditor_agent_id: <Agent run ID — REQUIRED. Validator HALTs without it.>
+auditor_mode: agent
+audit_date: <UTC ISO8601>
+v1_commit_pinned: <full SHA, matches ledger row>
+v2_commit: <SHA of port branch HEAD>
+porter_agent_id: <if known — must differ from auditor_agent_id (A5 second-eyes)>
+---
+
 # Audit — <feature-id> — <feature-name>
 
-> Phase: <N> | Audited: <iso-datetime> | Auditor: <agent / executor / tool>
+> Phase: <N> | Audited: <iso-datetime> | Auditor: parity-auditor agent (run ID: <ID>)
 > V1 commit pinned: `<sha>` (matches ledger row)
 > V2 commit: `<sha>` (HEAD of port branch)
 > Mode: audit-only | full | re-audit

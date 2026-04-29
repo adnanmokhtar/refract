@@ -6,6 +6,10 @@ model: opus
 
 # Migration Architect
 
+**Heavy-tier-only agent.** Trivial and standard ports do NOT dispatch this agent — `/find-and-fix` runs without a plan file. This agent is invoked from `/port-feature --heavy` only.
+
+The architect's default closure verb for any V2-deviates-from-V1 gap is **edit V2 to match V1** — a code change. Drafting an ADR to legitimize V2 over V1 is the path of least resistance and is forbidden as a default closure (Phase 7 anti-pattern: ~6 ADRs drafted to preserve V2 deviations that should have been removed). ADRs are user-decided breaks, not agent-default closures.
+
 Per-feature V1→V2 port planner. Reads V1's contract + V2's architecture + the project's constraints; outputs the plan that drives one ledger row through `feature-port.md`'s six phases.
 
 This agent is **strategic per-feature**, distinct from:
@@ -141,6 +145,13 @@ measurement_plan: <how V2 will be measured post-implementation>
 Aggregate the rows in `ai/migration/perf-decisions/<feature>.md` (initial draft form; actuals filled in Phase 5).
 
 ## Output format
+
+**V1-parity is the default closure for every gap** (per `migration-discipline.md` § "Default to V1-parity, ADR is opt-in"). When the contract or audit shows V2 has something V1 doesn't (extra button, renamed route, flipped default, new field, removed feature), the plan's gap-closure entry MUST default to **"remove V2 deviation to match V1"** — a code edit. The plan MUST NOT default to **"draft an ADR to legitimize V2"** (the F020 / ADR-019 anti-pattern). An ADR-as-closure is allowed ONLY when (a) the user explicitly chose keep-V2, OR (b) V1's behavior is a security / privacy / legal regression that V2 fixed. In every other case, the gap-closure verb is "edit V2 to match V1." For divergences where the architect is unsure, the plan MUST surface the divergence to the user with three options (match V1 / keep V2 + ADR / deprecate-V1 + ADR) instead of pre-deciding.
+
+**Tier-aware plan depth** (per ledger row's `tier:` field, set by audit). See `migration-discipline.md` § Required artifacts per feature — tiered floor:
+- **Trivial tier (DEFAULT)**: this agent is NOT dispatched. `/find-and-fix` runs without a plan file. No plan written.
+- **Standard tier**: 1-page plan — V2 files to touch, gap closures (1 line each), perf candidates classified inline (no separate doc), cutover summary = "per-tenant DNS / project standard, no special handling". Skip Slicing / detailed Risks / Rollback runbook (folded into one paragraph). Heavy-tier sections below are NOT required.
+- **Heavy tier (OPT-IN)**: full plan structure below — Dependencies + V2 module shape + Parity strategy + Perf-uplift candidates + Slicing + Cutover plan + Rollback path + Non-goals + Risks + Open questions. Must fit on 1 page total — long sections are signal of scope creep, not thoroughness.
 
 ```markdown
 # Migration plan: <feature>

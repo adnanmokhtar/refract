@@ -4,11 +4,21 @@ description: Per-feature V1→V2 port orchestrator. Drives one ledger row throug
 
 # /port-feature
 
-The migration pack's flagship command. Takes a feature name (matching a row in `ai/migration/ledger.md`) and orchestrates the full per-feature port — reading V1 deeply, planning V2, writing V2 against parity tests, applying parity-preserving perf wins, and gating cutover. The command is **idempotent**: re-invoking on the same feature resumes where the ledger says it is.
+**For routine ports use `/find-and-fix <feature>` instead.** That command runs the simple detect → decide → fix → verify → record loop with single-agent dispatch and a 5K context blob — the right tool for trivial-tier rows (which is most rows). `/port-feature` defaults to a wrapper around `/find-and-fix` for that reason; the heavy 6-phase ceremony only runs when you pass `--heavy`.
 
-This command implements `feature-port.md`'s six-phase lifecycle. It dispatches `migration-architect` and `parity-auditor`. It uses skills `extract-v1-contract`, `parity-test-generate`, and `perf-uplift-survey`. It enforces `migration-discipline.md` at every gate.
+`/port-feature --heavy` is reserved for: P0 findings, cross-repo blockers, contract breaks, security/privacy/legal regressions, write-path data-mutation, storefront blast radius. Reach for it deliberately, not by default.
 
-## Phases applied
+The full-ceremony command takes a feature name (matching a row in `ai/migration/ledger.md`) and orchestrates the per-feature port — reading V1 deeply, planning V2, writing V2 against parity tests, applying parity-preserving perf wins, and gating cutover. Idempotent: re-invoking on the same feature resumes where the ledger says it is.
+
+`--heavy` mode implements `feature-port.md`'s six-phase lifecycle. It dispatches `migration-architect` and `parity-auditor`. It uses skills `extract-v1-contract`, `parity-test-generate`, and `perf-uplift-survey`. It enforces `migration-discipline.md` at every gate.
+
+## Default mode (`--simple`, implicit)
+
+Without `--heavy`, this command **delegates to `/find-and-fix <feature>`**. Same arguments, same halts. The 6-phase machinery below does NOT run. Read `find-and-fix.md` for the loop semantics.
+
+## Phases applied (`--heavy` ONLY)
+
+The remainder of this document describes `--heavy` mode. Without `--heavy`, control passes to `/find-and-fix` and these phases do NOT execute.
 
 All 7 of the standard pipeline (Understand → Organize → Retrieve → Generate → Update → Validate → Improve), refined for migration:
 
@@ -31,6 +41,49 @@ All 7 of the standard pipeline (Understand → Organize → Retrieve → Generat
 - **Every perf decision recorded** as applied / deferred / rejected with rationale + measurement.
 - **Ledger updated in the same PR** as the port.
 - **Cutover gated** by `parity-auditor` PASS at every state advance.
+
+## Flags
+
+- `--simple` (default) — delegate to `/find-and-fix <feature>`. Use this for routine ports.
+- `--heavy` — opt into the full 6-phase ceremony below. Required when audit flags P0 / cross-repo / contract-break / security-sensitive / write-path mutation. Without `--heavy`, none of Phases 1-7 run; the command shells out to `/find-and-fix`.
+- `--no-prompt` — `--heavy` only. Auto-confirm contract review summary in Phase 1 step 5. Does NOT skip decision halts.
+- `--resume` — resume at the appropriate phase based on ledger row state (default behaviour; flag is explicit-form).
+- `--advance` — used post-merge to advance Shadow→Canary→V2-only (Phase 6 stage advance).
+- `--depend-on-v1` — proceed even if a dependency is still V1-only. Requires written rationale logged to the ledger row's notes.
+- `--overwrite-v2` — force re-port when `migration-detect-existing.sh` returns `full`. Logged to `ai/migration/_history.md`.
+- `--merge-existing` — proceed when detection returns `partial` (V2 has scaffolding); merge with what's there instead of overwriting.
+- `--override-paths` — bypass `migration-validate-paths.sh` when the architect can defend the deviation in writing (logged).
+- `--unattended` — run without per-decision prompts; skip halts ONLY for decisions covered by an accepted ADR (`Status: accepted` in `ai/decisions/`). See "Unattended mode" below.
+
+## Unattended mode (`--unattended`)
+
+When invoked with `--unattended`, the command treats every decision-halt as gated by an ADR. The flag is intended for sequential execution under `/migration-phase <N> --chain` after `/draft-phase-adrs <N>` produced ADRs the user accepted.
+
+**Rules**:
+1. **Pre-flight gate** — before Phase 1, scan `ai/decisions/_phase-<N>-decisions.md` (where N = the feature's phase per the ledger). For every per-feature ADR linked to this feature: confirm `Status: accepted` in the ADR file. If ANY linked ADR is `Status: proposed` (or missing), HALT with: "ADR-NNN not accepted; review and flip Status before --unattended". Do not silently proceed.
+2. **Auto-confirm Phase 1 contract review** (equivalent to `--no-prompt`).
+3. **Auto-confirm Phase 2 plan review** if the plan's decisions all map to accepted ADRs. If the architect proposes slicing, HALT — slicing decisions are not auto-confirmable.
+4. **Phase 5 contract revision**: if a parity-test red surfaces a contract gap NOT covered by an accepted ADR, HALT. The unattended mode does not author NEW intentional breaks — only consumes pre-approved ones.
+5. **Phase 6 audit** still runs the `parity-auditor` agent; halt rules are unchanged. The agent's verdict is not gated by `--unattended`.
+6. **All halts log to** `ai/migration/halts/<feature>-<iso>.md` with halt reason, current state, and resume instruction. The user (returning to the chain) reads the halts file to know what blocked.
+7. **Cutover stage advance** (Shadow→Canary→V2-only) is NEVER auto-advanced by `--unattended`. Each stage is a separate explicit `/port-feature <id> --advance` invocation per `migration-discipline.md`'s rule "Cutover gated by `parity-auditor` PASS at every state advance".
+8. **Contract section 9** entries reference the ADR by ID (`See ADR-NNN`); the ADR is the source of truth for the rationale. Don't restate the rationale in the contract.
+
+**What `--unattended` does NOT skip**:
+- New ambiguities surfaced during V1 read that no ADR covers (HALT).
+- Path violations (`migration-validate-paths.sh` fail → HALT).
+- V2 existence detection returning `full` without `--overwrite-v2` (HALT).
+- Parity-auditor verdict (HALT independently per its own rules).
+- Cutover stage advance (always explicit).
+
+**Output of an unattended halt**:
+```
+HALT (--unattended) at Phase <N>: <reason>
+  → ai/migration/halts/<feature>-<iso>.md
+  → Resume: /port-feature <feature> --resume   (after fixing)
+```
+
+The chain runner (`/migration-phase <N> --chain`) inspects this halt file and decides whether to continue with the next feature or stop the chain.
 
 ## When to use / NOT to use
 
@@ -130,16 +183,50 @@ Halt conditions: plan halted; user rejects the slice.
 
 ## Phase 4 — Generate (V2 code + parity tests + perf-decisions)
 
-**Run in PARALLEL** (independent sub-agents):
+**Tier-aware execution** (per ledger row's `tier:` field, set by audit per `migration-discipline.md` § "Required artifacts per feature — tiered floor"):
+
+### Trivial tier
+Run **4a only**. Skip 4b/4c/4d entirely. The audit + ledger note carry the risk register. Standard CI tests (the project's existing test suite) must pass.
+
+### Standard tier
+Run **4a + 4b**. Skip 4c (no separate perf-decisions doc; classify perf candidates inline in the plan) + 4d (no separate runbook; rollback path is one paragraph in the plan). Parity-test corpus floor: 10 fixtures (not 30).
+
+### Heavy tier
+Run **4a + 4b + 4c + 4d** as below. This is the historical full discipline.
+
+### Code-first execution (all tiers)
+
+**Run 4a FIRST, sequentially, before any 4b/c/d dispatch.** The audit lists specific gap closures by `<v1-path:line>` ↔ `<v2-path:line>`. The port applies those edits, runs the project's typecheck + lint, then advances. If 4a's edits introduce any test red, halt and surface — do not proceed to 4b/c/d on a broken V2.
+
+**4a default closure verb is V1-parity, NOT ADR** (per `migration-discipline.md` § "Default to V1-parity, ADR is opt-in"). When the audit flags a V2-deviates-from-V1 gap (extra button, renamed route, flipped default, new field, removed feature), 4a's edit is the **code change that removes V2's deviation to match V1** — NOT a doc that legitimizes V2. The F020 anti-pattern (ADR-019 drafted to keep V2's per-row delete button that V1 didn't have) MUST NOT recur: if the plan ships with an ADR-as-closure for a parity gap, 4a halts and surfaces — the user must explicitly accept the ADR before 4a proceeds, otherwise the plan must be revised to remove-V2-deviation as the closure verb.
+
+This inversion (vs. the old "all 4 in parallel") is deliberate:
+- Code edits are the actual deliverable. They must succeed before ceremony around them is generated.
+- Many gaps are 1-line fixes — generating ceremony before knowing if the fix even compiles is waste.
+- A failing 4a sometimes means the audit's gap list was wrong; finding that out before 4b spends 50K tokens on parity-test fixtures is cheap.
+- ADR drafts are not closures for parity gaps — they're records of user-accepted divergences. Code change is the closure.
+
+### Shared-context dispatch (heavy + standard tiers only — for 4b/c/d)
+
+When 4b/c/d run, they all need the same context: contract + plan + V1 commit pin + audit + V2 patterns. **DO NOT dispatch each as an independent sub-agent that re-reads everything.** Instead:
+
+1. Build a **single context blob** at the top of Phase 4: contract excerpt (load-bearing sections only — Inputs § 1, Outputs § 2, Known V1 bugs § 9), plan excerpt (V2 file scope, gap closures), audit excerpt (gaps + ADR cites), V1 commit pin. Cap at 8K tokens.
+2. Pass this blob as the **only** context to 4b/c/d sub-agents (not the full files).
+3. Sub-agents receive: (a) the blob, (b) a sentence describing their specific output, (c) the path to write to.
+4. Sub-agents do NOT re-read `migration-discipline.md`, the full contract, the full plan, the audit doc, or sibling perf-decisions/runbook docs. The blob is the contract.
+
+This cuts each dispatch from ~40-90K input tokens to ~10-15K. For a 4-agent Phase 4, that's 100-300K tokens saved per port.
+
+### Heavy-tier output map (when all 4 run)
 
 | Sub-step | Output |
 |---|---|
-| 4a. **Write V2 code** (re-derive from contract; use V2 primitives) | `<v2-root>/<feature>/{controller,service,repository,dto,errors}.<ext>` |
+| 4a. **Write V2 code** (re-derive from contract; use V2 primitives; run BEFORE 4b/c/d) | `<v2-root>/<feature>/{controller,service,repository,dto,errors}.<ext>` |
 | 4b. **Run `parity-test-generate`** | `tests/parity/<feature>/` (corpus + golden + tolerance + tests) |
 | 4c. **Pre-fill `perf-decisions`** | `ai/migration/perf-decisions/<feature>.md` (planned form, measurements TBD) |
 | 4d. **Write rollback runbook** | `ai/runbooks/migration-rollback-<feature>.md` |
 
-Coordination: 4a + 4b + 4c + 4d are independent; run them as parallel sub-agents. 4b's golden capture against V1 needs V1 access — schedule it before 4a writes V2 code that might shadow V1 imports (project-specific).
+Coordination: 4a runs first. After 4a is green, 4b + 4c + 4d run in parallel using the shared context blob (heavy + standard tiers).
 
 After parallel completes, sequentially:
 

@@ -23,7 +23,73 @@ Inputs:
 
 Optional flags:
 - `--feature=<id>` — execute ONLY this feature within phase N (skip the rest). Useful for retry.
-- `--audit-only` — run audit step but skip port + verify. Useful for triage.
+- `--audit-only` — run audit step but skip port + verify. Useful for triage. Pairs with `/draft-phase-adrs <N>` next.
+- `--chain` (default per-feature delegate: `/find-and-fix`) — execute ports sequentially per phase row. Each row dispatches `/find-and-fix <id>` (the simple loop). Heavy-tier rows still halt and surface to the user.
+- `--heavy` (compose with `--chain`) — escalate every chained row to `/port-feature <id> --heavy --unattended` after `/draft-phase-adrs <N>` produced ADRs the user accepted. Use only when the phase contains many heavy-trigger features.
+- `--stop-on-halt` (chain only; default: on) — halt the chain on the first feature halt. With `--no-stop-on-halt`, the chain continues to the next feature and aggregates halts at end-of-phase.
+
+## Workflow modes
+
+| Mode | When | Behaviour |
+|---|---|---|
+| **Default** (no flag) | Single-feature retry, or you want fully-interactive port-by-port | Audit + port + verify per feature, with decision halts surfacing to user. Synonymous with running `/find-and-fix <id>` per row. |
+| **`--audit-only`** | Phase entry — produce honest baseline before any port work | Per-feature audit only. No code changes. Ledger rows stay `unverified`. Output: per-feature audits + `phase-<N>.md` summary. **Always followed by** `/draft-phase-adrs <N>` only if the audit flagged P0/cross-repo/contract-break triggers; otherwise proceed straight to `--chain`. |
+| **`--chain`** | After audit (and ADRs accepted, if any) | Sequential `/find-and-fix <id>` per row in dependency order. Trivial-tier closures land directly; halts surface for user-decision rows. Output: ports landed + per-feature halts (if any). |
+| **`--chain --heavy`** | Phase contains many heavy-trigger features and ADRs accepted | Sequential `/port-feature <id> --heavy --unattended` per row. Used rarely. |
+
+The intended flow:
+```
+/migration-phase 8 --audit-only       (you watch → audits + phase summary)
+/draft-phase-adrs 8                   (you watch → drafts ADRs)
+[user reviews + flips Status: proposed → accepted in each ADR]
+/migration-phase 8 --chain            (walk away → unattended ports)
+/migration-gate 8                     (you watch → phase exit verification)
+```
+
+Skipping `/draft-phase-adrs` is supported but pushes decisions back into per-port halts (one-by-one supervision instead of batch).
+
+## Chain mode (`--chain`)
+
+When invoked with `--chain`, this command sequentially dispatches `/find-and-fix <id>` per phase-N feature in **dependency order** (per ledger `depends_on`). With `--chain --heavy`, the per-row dispatch becomes `/port-feature <id> --heavy --unattended` instead.
+
+**Pre-flight checks (chain-specific)** — halt before the first port if any:
+1. `ai/decisions/_phase-<N>-decisions.md` exists (otherwise: "run `/draft-phase-adrs <N>` first").
+2. Every ADR in the index doc has `Status: accepted` (otherwise: "ADR-NNN still proposed; review and flip Status before --chain").
+3. Working tree is clean (otherwise: "uncommitted changes; commit or stash before --chain").
+4. Phase-N audit summary exists at `ai/migration/audits/phase-<N>.md`.
+
+**Per-feature loop**:
+1. Sort phase-N features by `depends_on` (topological). Skip features with `status: parked` or `status: deprecated`.
+2. For each feature in order:
+   - **Read the audit's `tier:` field** (mandatory frontmatter per § 4d). The tier determines which 4-phase set runs inside `/port-feature` — trivial = 4a only; standard = 4a + 4b; heavy = 4a + 4b + 4c + 4d. See `port-feature.md` § Phase 4 — Tier-aware execution.
+   - Dispatch `/port-feature <id> --unattended` (which itself dispatches `migration-architect` + `parity-auditor` per its own rules and reads the audit's tier to scope artifacts).
+   - On `--unattended` HALT: write reason to `ai/migration/halts/<feature>-<iso>.md`. If `--stop-on-halt` (default), abort the chain. If `--no-stop-on-halt`, log and continue to next feature.
+   - On port success (ledger row → `V2-shadow`): commit the diff with a structured message; continue.
+3. After last feature (or on chain abort): produce a chain report at `ai/migration/audits/phase-<N>-chain-report.md` listing per-feature outcome (success / halt / skipped) + halt files.
+4. Auto-invoke `/migration-gate <N>`. If gate refuses, surface its findings; phase exit blocked.
+
+**What `--chain` does NOT do**:
+- Author NEW ADRs. New ambiguities halt; user resolves via `/draft-phase-adrs` or manual ADR before resuming.
+- Auto-merge port PRs. Each port lands as a commit; merge to main is a human step.
+- Advance Shadow→Canary. That's a separate `/port-feature <id> --advance` per stage.
+- Modify V1. Per `migration-discipline.md`, V1 is the parity oracle.
+
+**Output of chain run**:
+```
+/migration-phase <N> --chain complete:
+
+Features in phase:        <Y>
+  Skipped (parked/dep):    <skip>
+  Successfully ported:     <ok>     → V2-shadow
+  Halted (--unattended):   <halt>   → see halts/
+  Failed parity:           <fail>   → see audits/
+
+Chain report: ai/migration/audits/phase-<N>-chain-report.md
+Halts (if any): ai/migration/halts/F0xx-*.md
+
+Auto-invoked: /migration-gate <N>
+Gate verdict: PASS | REFUSED (see output above)
+```
 
 ## Phase 2 — Organize (decompose the work)
 
@@ -126,6 +192,8 @@ Each halt is logged to `ai/migration/audits/<feature-id>.md`'s "Hard-halt findin
 
 Output: `ai/migration/audits/<feature-id>.md`. Required structure (validator-enforced):
 
+**Tier requirement**: the audit doc MUST include a `tier:` field in its frontmatter — one of `trivial` / `standard` / `heavy` — with a 1-2 sentence justification in the body citing P0/P1 counts + risk axes from `migration-discipline.md` § Tier classification. The tier propagates from this audit to the ledger row's `tier:` field; downstream artifacts (contract scope, parity-test corpus floor, plan depth, perf-decisions, runbook) are scoped to the tier. Without a tier on the audit, the row defaults to heavy and `/migration-gate` enforces the heavy artifact set. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+
 ```markdown
 ---
 auditor_agent_id: <Agent run ID returned by the parity-auditor dispatch>
@@ -133,6 +201,8 @@ auditor_mode: agent | rule-only-mode/<tool-name>
 audit_date: <UTC ISO8601>
 v1_commit_pinned: <sha>
 v2_commit: <sha>
+tier: trivial | standard | heavy
+tier_justification: <1-2 sentences citing P0/P1 counts + risk axes>
 ---
 
 # Audit — <feature-id> — <feature-name>
@@ -207,6 +277,8 @@ Use managed-block markers per `templates/idempotency.md` so re-running this phas
 After every feature in the phase has either advanced to `done`/`intentional-break` or been flagged `failed`, this command MUST automatically invoke `/migration-gate <N>`. The phase exit is REFUSED if the gate fails. Do NOT advance to phase `<N+1>` on a refused gate; surface the gate's failure list to the user and halt.
 
 `--audit-only` mode skips § 4c (port), § 4e (verify), § 4f (ledger flip to done), and § 4g (auto-gate). It still produces audits + validator runs per § 4b + § 4d. Ledger rows stay at `unverified`.
+
+`--chain` mode runs the full pipeline (audit + port + verify + gate) per feature in dependency order, with `/port-feature <id> --unattended` reading accepted ADRs as pre-approved decisions. The auto-gate STILL fires at end-of-phase per § 4g. See "Chain mode" near the top of this doc for the full contract.
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 

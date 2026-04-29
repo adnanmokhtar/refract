@@ -214,6 +214,20 @@ V2 background:                                                  → emailJob →
 - **Parity tests**: green pre-uplift, green post-uplift, green at each candidate's commit.
 ```
 
+## Anti-pattern: structural perf
+
+The port is not a license to introduce V1-shaped code in V2 under a "perf" label. The most common manifestation is ironic — a "perf cache" is added and lands as a parallel `axios.create(...)` with its own interceptors (frontend), or a per-feature connection pool that bypasses the canonical client (backend). The cache may be faster; the structure violates V2's layering and is a copy-paste of V1's worst habit.
+
+The validator's `check_v2_structure` catches V1 copy-paste fingerprints — recognisable shapes from V1 root that should not appear under V2 root (e.g., `axios.create`, `new Axios`, hand-rolled refresh logic, per-page service classes when V2 declares `BaseCrudService`). `check_composable_reuse` flags open-coded CRUD where `useCrud` exists; `check_service_shape` flags direct `apiClient` calls where a service+`BaseCrudService` should mediate; `check_lifecycle_keepalive` flags `onMounted` on a cached page where `onActivated` is required.
+
+Before applying any perf candidate that adds new infrastructure (cache layer, parallelism primitive, client wrapper, query helper), check:
+
+1. Does V2's layering already declare a primitive for this concern? (`ai/migration/_v2-anchors.md` lists them.) If yes, extend that primitive — do NOT create a parallel one.
+2. Does the perf change land in the same layer the contract assigns the side effect to? A cache moved from "service layer" to "component body" is a layering break dressed as perf.
+3. Is the primitive shared across features? A per-feature `axios.create` for one cached endpoint becomes 30 such instances by the end of the migration; each one is its own refresh-token bug, its own interceptor drift, its own audit failure.
+
+If a perf gain genuinely needs new infrastructure, it's a separate ADR + separate PR, not a smuggled bullet under "perf uplift". Cross-references: see `migration-discipline.md` § "The Buried Perf Improvement" anti-pattern.
+
 ## Failure modes
 
 - **Speculative perf claims**: "this is faster" without measurement = noise. Every applied row needs a measured before/after OR a `migration-rehearsal` plan output.

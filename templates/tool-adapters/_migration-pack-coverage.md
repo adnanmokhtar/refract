@@ -23,6 +23,31 @@ The migration pack is **non-negotiable** in the sense that its discipline rule (
 
 **Conclusion**: every tool MUST receive a faithful translation of `migration-discipline.md` (the self-sufficient rule). The 9 contract sections, 10 hard halts, frontend audit axes, frontend anti-pattern catalogue, and tool-agnostic procedures are inlined in the rule precisely so rule-only tools have the full surface.
 
+## NEW (2026-04-29 hardening) — required artifacts per project
+
+Every adapter setup that includes `--include=migration` MUST also propagate these new elements:
+
+1. **`ai/migration/_v2-anchors.md`** — per-project anchor file declaring `project_kind` (frontend-vue3 / frontend-react / backend-nest / etc.), `v1_root`, `v2_root`, gold-standard files, shared-component map, layering rules, forbidden V1 fingerprints. Schema: `templates/packs/migration/_v2-anchors-schema.md`. The validator + agents read this so checks are project-shape-agnostic.
+
+2. **Audit doc frontmatter** — every audit at `ai/migration/audits/<feature>.md` MUST start with:
+   ```yaml
+   ---
+   auditor_agent_id: <agent run ID OR rule-only-mode/<tool>/<UTC>>
+   auditor_mode: agent | rule-only-mode/<tool>
+   audit_date: <UTC ISO>
+   v1_commit_pinned: <SHA>
+   v2_commit: <SHA>
+   ---
+   ```
+   `validate-migration-artifacts.sh § check_audit_provenance` HALTs without it. For rule-only tools (Aider/Codex/Gemini), the sentinel `auditor_agent_id: rule-only-mode/<tool>/<ISO>` is accepted; the trade-off is logged.
+
+3. **`/migration-doctor`** workspace command — for multi-repo workspaces. Backed by `claude-config/scripts/migration-doctor.sh`. Walks every registered repo with a ledger, runs validator, surfaces cross-repo dependency drift + stale audits.
+
+4. **12 new validator checks** (script-shipped — no per-adapter code change needed; just install the script):
+   `check_audit_provenance`, `check_audit_freshness`, `check_audit_body_consistency`, `check_intentional_break_adr`, `check_porter_vs_auditor`, `check_corpus_distribution`, `check_tolerance_coverage`, `check_parity_run_v1_commit`, `check_v2_structure` (frontend + backend dispatch via `project_kind`), `check_composable_reuse`, `check_service_shape`, `check_lifecycle_keepalive`, `check_permission_gate_divergence`.
+
+The validator script is location-agnostic — installed once at `~/.claude/scripts/validate-migration-artifacts.sh` (or shell-PATH equivalent) and invoked from any tool's hook system, CI, or pre-commit.
+
 ## Per-tool translation expectations
 
 ### Claude Code (`.claude/`)

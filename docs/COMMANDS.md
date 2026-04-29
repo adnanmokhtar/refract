@@ -267,7 +267,8 @@ The migration pack ships **two suites** of commands. Use the suite that fits.
 |--------------------------|----------------------------------------------------------------------------------|
 | `/migration-scan`        | Deep V1↔V2 comparison. Reads BOTH codebases. Builds `ai/migration/ledger.md` with every row `unverified` (trust nothing). Outputs `scan-report.md` with structural deltas. `--since=<commit>` for incremental on large repos. `--workspace` for cross-repo aggregation. |
 | `/migration-plan`        | Reads scan + ledger. Produces `ai/migration/plan.md` — phased plan grouped by domain + dependency. Foundation first. **Honors V2's new structure (no lift-and-shift).** |
-| `/migration-phase <N>`   | Executes phase N: AUDIT → GAP-FIND → PORT (V2 conventions) → VERIFY (parity test) → UPDATE ledger. Stops at phase boundary. `--feature=<id>` for retry; `--audit-only` for triage. |
+| `/migration-phase <N>`   | Executes phase N: AUDIT → GAP-FIND → PORT (V2 conventions) → VERIFY (parity test) → UPDATE ledger. Stops at phase boundary. Modes: default (interactive port-by-port), `--audit-only` (triage; pairs with `/draft-phase-adrs`), `--chain` (unattended port-loop after ADRs accepted). `--feature=<id>` for retry. |
+| `/draft-phase-adrs <N>`  | **NEW (M21)** — Decisions-first batch. Reads `phase-<N>.md` audits, drafts one ADR per P0 + cross-cutting decision in `ai/decisions/`. User flips `Status: proposed → accepted` once; `--chain` then runs ports unattended against pre-approved ADRs. Cuts the "same RBAC decision 4 times across 4 features" supervision cost. |
 | `/migration-gate <N>`    | Phase exit gate. Confirms every phase-N feature is `done` + `parity_test=passing`. Read-only; refuses on any blocker. Append-only `_history.md` entry on PASS. |
 | `/migration-final`       | Full sweep across all phases. Optional `--re-audit` re-runs parity tests. Produces V1 retirement plan with cutover sequence + rollback procedure. |
 
@@ -282,7 +283,7 @@ The migration pack ships **two suites** of commands. Use the suite that fits.
 | `/migration-deprecate <feature-id>` | Mark a V1 feature as **never** going to V2. Requires an Accepted ADR. Permanent — no undeprecate. Tenant-impact captured. V1 sunset date documented. |
 | `/migration-workspace-status`    | Cross-repo aggregator (workspace-level). Reads each sibling repo's ledger, reports per-repo summary + cross-repo blockers + phase synchronization. Read-only. |
 
-Workflow:
+Workflow (interactive — fully supervised):
 ```
 /migration-scan
 /migration-plan
@@ -294,11 +295,23 @@ Workflow:
 /migration-final
 ```
 
+Workflow (batch — recommended for phases with ≥4 features sharing cross-cutting decisions):
+```
+/migration-phase <N> --audit-only      # produce baseline audits (you watch)
+/draft-phase-adrs <N>                  # draft ADRs from audits (you watch)
+[user reviews + flips Status: proposed → accepted in each ADR]
+/migration-phase <N> --chain           # unattended port-loop (walk away)
+/migration-gate <N>                    # phase exit verify (you watch)
+```
+
+Why batch: making the same RBAC / permission-slug / payload-shape decision 4× across 4 features in 4 separate `/port-feature` runs is the dominant supervision cost. Doing it once upfront with full phase context cuts ~30% of the per-feature time. Matches `migration-discipline.md`'s rule "Document every intentional behaviour break" by doing it batched, not sprinkled.
+
 Properties:
 - **Stack-agnostic** — works for frontend, API, jobs, scripts, anything with identifiable behavior.
 - **Trust nothing** — every status reset to `unverified` at scan; `done` requires a passing parity test.
 - **No silent ports** — `/migration-scan` and `/migration-plan` write zero code; only `/migration-phase` ports.
 - **Phased gating** — next phase blocked until current is green.
+- **Decisions-first option** — `--audit-only` + `/draft-phase-adrs` + `--chain` decouples decisions from execution; ADRs are auditable; ports run unattended.
 
 #### Suite B — Per-feature commands (also available; included for finer control)
 

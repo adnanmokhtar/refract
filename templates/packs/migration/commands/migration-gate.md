@@ -23,7 +23,17 @@ Inputs:
 
 ## Phase 2 — Organize (decompose the work)
 
-For each feature listed in phase N, run the **13-check artifact verification**:
+**Tier-gated artifact verification**: for each feature in phase N, validate the artifact set required by the row's `tier:` field, NOT the heavy floor universally. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+
+- **Heavy tier**: the full 13-check matrix below — contract (9 sections) + plan + ≥30 corpus + tolerance + perf-decisions + runbook + audit + ledger row + ADR (if intentional break).
+- **Standard tier**: audit + 3-section contract (Inputs / Outputs / Known V1 bugs) + short plan + ≥10-fixture parity test + tolerance covering the 3-section contract's outputs + ledger row. Skip perf-decisions doc + runbook (folded into plan).
+- **Trivial tier**: audit + ledger row + (optional) the actual code edit. Skip contract / plan / parity tests / perf-decisions / runbook.
+
+Without a tier on the row, default to heavy.
+
+Refusal language MUST name the tier in any error: "feature F0XX (tier: standard) missing required artifact: 3-section contract" — never refuse a trivial feature for missing a perf-decisions doc.
+
+For each feature listed in phase N, run the **tier-scoped artifact verification** (full 13-check matrix below applies to heavy; standard + trivial subsets per the floor above):
 
 ### Ledger-level checks (4)
 1. status = `done` OR `intentional-break` (with `ADR-NNNN` populated)
@@ -157,7 +167,7 @@ Fix the blockers; re-run /migration-phase <N>; then re-run /migration-gate <N>.
 - **Read-only on REFUSED.** Never modifies ledger or any artifact when refusing.
 - **One row per success.** `_history.md` is append-only; no edits to past entries.
 - **No partial passes.** A phase with ANY blocking issue REFUSES. There is no "passed with caveats" — fix it or document an `intentional-break` ADR.
-- **All 12 checks are mandatory.** File presence is necessary but NOT sufficient. Content quality (9 contract sections, citation resolution, ≥30 corpus, tolerance covers outputs, perf measurements present, audit enumerates without hand-waves) is verified.
+- **All checks are mandatory FOR THE ROW'S TIER.** Heavy = 13-check matrix in full. Standard = audit + 3-section contract + short plan + ≥10 fixtures + tolerance + ledger row. Trivial = audit + ledger row only. Content quality (citation resolution, tolerance covers outputs, audit enumerates without hand-waves) applies within the tier's required sections. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
 - **Audit-file presence is mandatory.** A `done` row without an audit file = data integrity failure → REFUSE. A blank or hand-waved audit file = data integrity failure → REFUSE.
 - **Contract-completeness is mandatory.** A contract missing any of the 9 required sections, or with unresolved `<path:line>` citations, fails the gate even if the audit file says "parity-clean".
 - **ADR existence is verified.** Cited `intentional-break: ADR-NNNN` must point to a real file in `ai/decisions/` with status: Accepted.

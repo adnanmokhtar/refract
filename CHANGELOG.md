@@ -6,6 +6,32 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### M21 — Decisions-first batch flow for migration pack
+
+User pain point: "running /port-feature per row takes very long and I need to keep my eye on the CLI." Per-feature interactive ports re-prompt the user for the same cross-cutting decisions (RBAC slug renames, payload shape changes, `is_active` defaults) once per affected feature. M21 adds a **decisions-first batch flow** that decouples decisions from execution.
+
+#### Added
+- **`/draft-phase-adrs <N>`** (new command) — Reads `phase-<N>.md` audit summary + per-feature audits, drafts one ADR per P0 + cross-cutting decision in `ai/decisions/`. Each ADR ships as `Status: proposed`; user reviews + flips to `accepted` in one focus session. Cross-cutting decisions get a single ADR covering ≥2 features (instead of N micro-decisions across N port runs).
+- **Index doc** `ai/decisions/_phase-<N>-decisions.md` — single managed-block index per phase listing every drafted ADR + cross-repo coordination items + sign-off checklist.
+
+#### Changed
+- **`/port-feature`** — added `--unattended` flag. When set, the command reads accepted ADRs as pre-approved decisions and skips the matching halts (e.g., contract review, plan slicing, intentional-break authoring). HALTS preserved for: new ambiguities not covered by an ADR, path violations, parity-auditor verdicts, cutover stage advance.
+- **`/migration-phase <N>`** — added `--chain` flag. After `/draft-phase-adrs` produces ADRs the user accepts, `--chain` runs `/port-feature <id> --unattended` per feature in dependency order, aggregates halts at end-of-phase, and auto-invokes `/migration-gate <N>`. New `--stop-on-halt` (default) and `--no-stop-on-halt` modifiers. Mutually exclusive with `--audit-only`.
+- **`docs/COMMANDS.md`** — Suite A migration table updated with `/draft-phase-adrs` row + new "batch workflow" example next to the interactive workflow.
+
+#### Why
+Empirical: Phase 7 + Phase 8 audits (tenant-portal-v2, 21 features total) surfaced the same RBAC permission-slug renames recurring across 4–8 features per phase. Per-row interactive `/port-feature` would require deciding the rename policy 4–8 times. Batching cuts that supervision cost ~30% per phase. The pattern is exactly Phase 2 of any phased migration plan ("Pre-port decisions") — already built into `/migration-plan`'s output, but skipped when teams jump from `--audit-only` to per-row porting. M21 makes Phase 2 first-class with its own command + the unattended wiring.
+
+#### Compatibility
+- **Backward compatible.** Default `/migration-phase <N>` and `/port-feature <id>` invocations unchanged. `--chain` and `--unattended` are opt-in.
+- **No new artifacts in the discipline rule.** `migration-discipline.md`'s 9-section contract, 10-halt audit, parity tests, perf-decisions, rollback runbooks all unchanged. The new command + flags are about *when* the user makes intentional-break decisions, not *what* the discipline requires.
+
+#### Files touched
+- `templates/packs/migration/commands/draft-phase-adrs.md` (new)
+- `templates/packs/migration/commands/port-feature.md` (added Flags + Unattended-mode sections)
+- `templates/packs/migration/commands/migration-phase.md` (added flags + Workflow modes table + Chain mode section)
+- `docs/COMMANDS.md` (Suite A table + batch workflow example)
+
 ## [2.16.0] — 2026-04-28
 
 ### M20 — Fill remaining pack gaps (19 new artifacts across 5 packs)

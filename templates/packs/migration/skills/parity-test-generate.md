@@ -101,7 +101,12 @@ Aim for ≥2 recipes per non-trivial feature so a gap in one is caught by anothe
 - **Each edge case**: from `Edge cases V1 handles` in the contract — empty, null, oversize, malformed, Unicode, concurrent (where representable).
 - **Production samples**: 50–100 anonymised inputs from real traffic (if record-replay is in use, reuse the corpus).
 
-Aim for ≥30 inputs for non-trivial features. Fewer is acceptable only for utility-shaped features.
+**Tier-aware corpus floor** (per ledger row's `tier:` field):
+- **Heavy tier**: ≥30 inputs OR a record-replay corpus. This is the historical floor.
+- **Standard tier**: ≥10 inputs covering happy + error + at least one edge case per documented contract output path. No record-replay required.
+- **Trivial tier**: skip parity tests entirely — the project's standard CI suite is sufficient. Do NOT generate a corpus, tolerance.yaml, or golden snapshots.
+
+If a feature's tier isn't set in the ledger, default to heavy. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
 
 ### 3. Capture V1 outputs (golden snapshots)
 
@@ -144,6 +149,11 @@ ignore:
 ```
 
 Generate this from the contract's **Outputs** section. Each field listed in the contract gets a tolerance — `exact` if it's a stable contract value, `structural` if it's volatile-but-shape-pinned, `ignore` if the contract explicitly excludes it.
+
+**Tier-aware tolerance scope**:
+- **Heavy tier**: every output field across every code path in the 9-section contract gets a tolerance entry. `check_tolerance_coverage` halts on any uncovered field.
+- **Standard tier**: every output field declared in the standard-tier 3-section contract (Inputs/Outputs/Known V1 bugs) gets a tolerance entry. The contract has fewer fields by design; coverage is still mandatory for the fields it declares.
+- **Trivial tier**: N/A — no parity tests, no tolerance.yaml.
 
 ### 5. Author the golden-master test
 
@@ -272,10 +282,25 @@ Update the ledger row's `parity_tests` to point at the directory.
 - **Non-deterministic V1**: golden snapshots vary run-to-run because V1 hits real time / random / external state. Strip / mock those at capture time. If V1 is fundamentally non-deterministic, the test is property-based + invariant-checked, not exact-match.
 - **Replay corpus PII leak**: the anonymiser missed a field. Treat as an incident; rotate the corpus; audit the anonymiser. Never ship a parity suite whose replay corpus has been sampled but not audited.
 - **Tolerance creep**: every parity diff prompts "loosen the tolerance". Reject — investigate the diff first. The default action on a parity diff is "find the V2 bug", not "make the test happy".
-- **Mocked dependencies hide bugs**: V1 calls `getUser`, V2 calls `getUser`, both mocked to return the same fake — parity passes; production diverges. Use real fakes (test DB, test HTTP server) when feasible.
+- **Mocked dependencies hide bugs (D5)**: V1 calls `getUser`, V2 calls `getUser`, both mocked to return the same fake — parity passes; production diverges. Use real fakes (test DB, test HTTP server) when feasible. The validator's `check_corpus_distribution` will flag suites whose corpus is suspiciously homogeneous.
 - **Property generators don't reflect prod**: generators only cover small inputs, prod has 10MB inputs that V2 OOMs on. Calibrate generators against the replay corpus.
 - **Tests pass but shadow shows mismatches**: the test corpus didn't cover what production sends. Add the production-divergent sample to the corpus, refresh.
-- **Snapshots drift silently**: someone runs `--update-snapshots` to "fix CI" — the parity oracle is now wrong. CI rejects snapshot updates without a reviewer + ledger note (lint / hook).
+- **Snapshot drift (D7)**: someone runs `--update-snapshots` to "fix CI" — the parity oracle is now wrong. CI rejects snapshot updates without a reviewer + ledger note (lint / hook). NEVER blanket-update snapshots to make red green; that erases the parity signal entirely.
+
+### Validator-enforced failure modes (named D-series)
+
+These fail `scripts/validate-migration-artifacts.sh` and halt the audit:
+
+- **D1 — Corpus distribution missing**: corpus must include happy / error / edge / rule entries. Each input file's name (or a `category` field inside it) declares its bucket so `check_corpus_distribution` can verify all four buckets are populated. Suggested file-naming convention:
+  - `001-happy-*.json` — happy paths
+  - `010-error-*.json` — documented error paths
+  - `020-edge-*.json` — edge cases V1 handles
+  - `030-rule-*.json` — business rules (per the contract's named Rule-NNN)
+  Or use a JSON `{ "category": "happy" | "error" | "edge" | "rule", "input": ... }` envelope. A corpus of 50 happy-path inputs and zero error/edge/rule inputs FAILS the gate even if total count ≥ 30.
+- **D2 — Tolerance coverage incomplete**: every Output field in the contract (across every code path) must have a `tolerance.yaml` entry — `exact` / `structural` / `numeric_tolerance` / `order_insensitive` / `ignore`. `check_tolerance_coverage` cross-references the contract's Outputs sections against the tolerance file. Missing fields halt the gate.
+- **D4 — V1 commit not pinned per parity run**: each parity run captures `{ run_id, v1_commit, v2_commit, timestamp }`. `check_parity_run_v1_commit` asserts `v1_commit` matches the ledger row's `v1_commit_pinned`. A parity run against a different V1 SHA is meaningless — the oracle moved.
+- **D5 — Mocked-V1-dependency anti-pattern**: see above. Detected indirectly via corpus homogeneity + via reviewer signoff on the test harness setup.
+- **D7 — Snapshot drift via blanket update**: see above.
 
 ## Related
 

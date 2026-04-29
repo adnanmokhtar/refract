@@ -21,9 +21,42 @@ This rule governs every per-feature port. It exists because the most common migr
 
 **This rule is the universal contract** — it must be enforceable by any AI tool. Tools with full capability (commands + agents + skills + hooks) compose the discipline by dispatching `/port-feature` → `parity-auditor` → `extract-v1-contract` etc. Tools with rules only (Aider, Codex, Gemini) enforce the discipline by reading and following this file directly. Therefore: the procedural detail is inlined here, not just referenced. Do not delete the inlined procedures in favour of references; rule-only tool users have no other surface.
 
-## Required artifacts per feature (the floor)
+## Required artifacts per feature — tiered floor
 
-Every feature port — backend, frontend, API, job, script, CLI — produces this artifact set. The set is identical regardless of which AI tool drove the port. Missing any artifact halts cutover.
+Every feature port produces an artifact set scaled to its actual risk. The discipline is **tiered**, not one-size-fits-all: a 1-line bulk-delete URL fix and a 25-file payment-flow rewrite have different audit needs. Tier is set on the ledger row at audit time and propagates through the port.
+
+> **Why this is tiered (added 2026-04-30 from tenant-portal-v2 Phase 7 lesson)**: prior single-floor discipline produced ~95% docs / ~5% code on small features (all 8 artifacts mandatory regardless of feature size). 1-line fixes generated 5-section contracts + 30-fixture parity tests + 12-candidate perf surveys + 7-stage runbooks. The tiered model preserves the F039 anti-Trusted-Summary protections on heavy features while letting trivial features ship in proportion.
+
+### Tier classification (set by audit; trivial-by-default)
+
+| Tier | Triggers (any one promotes) | Required artifacts |
+|---|---|---|
+| **trivial** (DEFAULT) | No promoter triggers | Audit + code edit + ledger note |
+| **standard** | 1–3 P1 gaps OR single API contract divergence OR <300 LOC change | Audit + code edit + 3-section contract (Inputs/Outputs/Known V1 bugs) + short plan + 10-fixture parity test + ledger row |
+| **heavy** | Any P0 OR cross-repo blocker OR contract break OR storefront blast radius OR write-path mutation OR security-sensitive | Full 8-artifact set per § "Heavy-tier artifact spec" below |
+
+**Rules**:
+- **Default tier is trivial.** Every audit starts at trivial UNLESS findings include P0 OR cross-repo blocker OR security/privacy concerns OR contract break OR write-path mutation. The prior "heavy by default" rule is replaced — heavy ceremony was overproducing docs (~95% docs / ~5% code on simple ports per Phase 7 lesson).
+- Tier is **set by audit**, written to the ledger row's `tier:` field. Without explicit promoter triggers, the row stays trivial.
+- Heavy tier requires either (a) an audit-flagged trigger above, OR (b) explicit user opt-in via `/port-feature <feature> --heavy`.
+- User can **upgrade** a tier (trivial → standard → heavy) anytime but cannot downgrade without an ADR.
+- Audit MUST state the tier in 1-2 sentences citing trigger absence/presence.
+- `/migration-gate <N>` validates the artifact set **for the row's tier**, not the heavy floor universally.
+- If a port produces more than the tier requires, that's allowed but not required — the rule does not reward over-production.
+
+## Anti-bloat rules
+
+Phase 7 in tenant-portal-v2 (Apr 2026) burned ~95% of port-time tokens on documentation that did not enable any code change. These rules prevent recurrence — they are merge gates, not suggestions.
+
+- **Code edits are the deliverable.** A doc that doesn't enable a code change is waste. Contracts/plans/runbooks/perf-decisions exist when they unblock a code decision; they are not deliverables themselves.
+- **ADRs justify user-decided breaks, not agent-default closures.** When V2 deviates from V1, the agent's default closure verb is **edit V2 to match V1** — a code change. Drafting an ADR to legitimize V2's deviation is forbidden as a closure unless the user explicitly chose keep-V2 OR V1 is a security/privacy/legal regression. The Phase 7 anti-pattern (~6 ADRs drafted to preserve V2-over-V1) MUST NOT recur.
+- **Per-axis enumeration tables are heavy-tier-only.** Standard-tier audits enumerate axes that show ≥1 P0/P1 gap; trivial-tier audits skip per-axis enumeration entirely. Heavy-tier still requires full enumeration (the F039 anti-Trusted-Summary protection).
+- **Single agent dispatch with a shared 5K-token context blob is the default.** Parallel sub-agents are heavy-tier-only AND require a deduplicated context blob (each sub-agent reading 50K+ token files independently is forbidden — prior Phase 7 cost: 200-360K duplicate tokens per port).
+- **Default-true wrapper props MUST be set explicitly when removing UI affordances.** Components like `<CrudActions>`, `<TableHeader>`, `<TableActions>` default `show-*` / `can-*` props to `true`. Removing a `@delete-selected` event handler does NOT hide the button. The fix is `:show-delete="false"` / `:can-delete="false"` set explicitly. Removing the handler alone is the F040-class default-true bug.
+- **Audit verdict criterion is V1-parity, not plan-execution.** "PASS" means V2 matches V1, NOT "the agent shipped what the plan said." Phase 7 audits drifted into plan-execution checks; the discipline reverts.
+- **Trivial-tier ports do not produce contracts, plans, perf-decisions, or runbooks.** The audit + ledger note carry the risk register. Heavy-tier opt-in is required for those artifacts.
+
+### Heavy-tier artifact spec (the historical floor)
 
 | Artifact | Path | Purpose | Mandatory sections |
 |---|---|---|---|
@@ -36,7 +69,22 @@ Every feature port — backend, frontend, API, job, script, CLI — produces thi
 | Audit | `ai/migration/audits/<feature>.md` | Per-feature finding from parity audit. | Classification, per-axis comparison, gaps, tenant-isolation gate, decision recommended, ADR references, notes. |
 | Ledger row | `ai/migration/ledger.md` § `<feature>` | Source-of-truth state machine row. | Per-state required fields per `migration-ledger.md`. |
 
-**Output of `/migration-gate <N>` validates the existence + content of every artifact above for every feature in phase N. A missing artifact REFUSES the gate.**
+### Standard-tier artifact spec (light floor)
+
+- **Contract**: 3 sections only — Inputs (form fields + query params), Outputs (per code path), Known V1 bugs. Cite `<path:line>` per claim. Skip side effects / business rules / invariants / perf baseline / caller assumptions / edge cases as separate sections — fold the load-bearing items into the relevant section if surfaced by audit.
+- **Plan**: 1 page — V2 files to touch, gap closures (1 line each), perf candidates classified inline (no separate doc), cutover = "per-tenant DNS, no special handling".
+- **Parity tests**: ≥10 fixtures (not 30), tolerance.yaml covers contract output fields.
+- **Audit**: standard structure, no enumeration of every form field/button on a page that has no P0/P1 gaps.
+- **Skip** (compared to heavy): no separate perf-decisions doc, no separate rollback runbook, no separate plan-vs-implementation reconciliation. Audit + ledger row carry the risk register.
+
+### Trivial-tier artifact spec (audit + code only)
+
+- **Audit**: classification + 1-paragraph "what changed" + 1-paragraph "why no contract".
+- **Code edit**: the actual gap-closure(s).
+- **Ledger row**: status, parity_test (if any), v1_commit_pinned, ported_at, 2-line note.
+- **No** contract, plan, separate parity tests, perf-decisions, runbook. Standard CI tests must still pass.
+
+**Output of `/migration-gate <N>` validates the artifact set required by each row's tier; a missing artifact at the row's tier REFUSES the gate. Heavy-tier rows still hit the full 8 artifacts.**
 
 ## Contract — 9 required sections
 
@@ -201,7 +249,8 @@ For each of the 10 candidate areas (N+1, missing index, column projection, cachi
 - **Update the ledger on every state transition.** `V1-only → In-progress → V2-shadow → V2-canary → V2-only → V1-deleted`. The ledger is the source of truth — code grep is not.
 - **Cutover is gated.** Move from V2-canary → V2-only only when: (1) parity tests green, (2) shadow / canary metrics show no regression on error rate / latency / business KPIs for the agreed observation window, (3) the relevant ADR (if any) is merged, (4) rollback path tested.
 - **Delete V1 only when last reference is gone.** Use `git grep` + dead-code analyser + telemetry "no traffic in N days" before deletion. The ledger transition `V2-only → V1-deleted` requires evidence attached.
-- **Document every intentional behaviour break.** If V2 changes a contract from V1 (e.g., V1 returned `null` on missing user, V2 throws), it MUST be in `ai/decisions/<NNN>-<feature>-v2-break.md` with: V1 behaviour, V2 behaviour, why the break is necessary, who's affected, migration path for callers, deprecation timeline.
+- **Default to V1-parity, ADR is opt-in.** When audit finds V2 has something V1 doesn't (extra button, renamed route, flipped default, new field), the **default action is to remove V2's deviation** to match V1. An ADR is required ONLY when the user explicitly chooses to keep V2's behavior (or the V1 behavior is a security / privacy / legal regression). The architect/port agent MUST NOT silently draft an ADR to legitimize V2 deviations — that pattern (observed in tenant-portal-v2 Phase 7: ~6 ADRs drafted to preserve V2 over V1) inflates documentation while leaving the user-visible parity gap unfixed. Surface the divergence to the user, offer "match V1 / keep V2 + ADR / deprecate-V1-feature + ADR", wait for explicit choice.
+- **When an ADR IS warranted**, document the intentional behaviour break in `ai/decisions/<NNN>-<feature>-v2-break.md` with: V1 behaviour, V2 behaviour, why the break is necessary (user decision rationale), who's affected, migration path for callers, deprecation timeline.
 - **Capture migration-time perf wins explicitly.** Follow the perf-uplift procedure above during port. For each candidate (N+1 → batch query, missing index, unbounded SELECT *, sequential await, no caching, in-app filter, etc.), decide: applied / deferred / rejected — with a reason and (for applied) a measured before/after. Decisions live in `ai/migration/perf-decisions/<feature>.md`. A perf change MUST NOT silently break parity — it's either parity-preserving (most cases — same observable, faster) or it's a documented break (above bullet).
 - **Use V2's primitives, not V1's.** If V2's architecture says "service-layer + repository", DO NOT carry over V1's "fat controller". The port is the moment to align with V2 — that's the entire point.
 - **Keep V1 untouched during port.** No "while I'm here" fixes in V1 code. V1 is the oracle for parity testing — if you change V1 you've changed the oracle.
