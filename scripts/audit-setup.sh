@@ -183,6 +183,33 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
   echo ""
 fi
 
+# Adapter coverage audit (M34b): warn-only — verifies that adapter native files
+# are in sync with .claude/ source artifacts. If no adapters were translated yet
+# (zero native folders), this is informational; a passing C2d (anchoring) plus
+# zero adapter native files = "user hasn't run /setup-project-adapters yet."
+if [[ -x "$SCRIPTS_DIR/audit-adapter-coverage.sh" ]]; then
+  echo "C2e: adapter translation coverage (M34b warn-only)"
+  "$SCRIPTS_DIR/audit-adapter-coverage.sh" "$TARGET" >/dev/null 2>&1 || true
+  if [[ -f "$CL/_adapter-coverage-audit.md" ]]; then
+    # Extract pass/warn/fail counts from the table
+    # Use awk — always exits 0 and prints a number, no grep -c "1 on no match" trap.
+    err_n=$(awk '/^\| ❌/  {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || echo 0)
+    warn_n=$(awk '/^\| ⚠/ {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || echo 0)
+    ok_n=$(awk  '/^\| ✅/ {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || echo 0)
+    err_n="${err_n:-0}"; warn_n="${warn_n:-0}"; ok_n="${ok_n:-0}"
+    if [[ "$ok_n" == "0" && "$warn_n" == "0" && "$err_n" == "0" ]]; then
+      warn_msg "no adapter native files detected — run /setup-project-adapters to translate .claude/ to Cursor/OpenCode/etc native shapes"
+    elif [[ "$err_n" -gt 0 ]]; then
+      warn_msg "adapter coverage: $err_n adapter(s) below 80%; $warn_n warn; $ok_n ok — re-run /setup-project-adapters to refresh"
+    elif [[ "$warn_n" -gt 0 ]]; then
+      warn_msg "adapter coverage: $warn_n adapter(s) at 80-94%; $ok_n ok — minor drift, /setup-project-adapters to fully sync"
+    else
+      ok "adapter coverage: $ok_n adapter(s) at ≥95% — all in sync with .claude/"
+    fi
+  fi
+  echo ""
+fi
+
 # Summary
 echo "=== summary ==="
 echo "fail: $fail"
