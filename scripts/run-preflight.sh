@@ -60,6 +60,14 @@ if [[ ${#PACKS[@]} -eq 0 ]]; then
   echo ""
 fi
 
+# STEP 0.5 (M29): MCP server recommendations driven by the same signals.
+# Always emits the report — user owns .mcp.json so we never auto-write it.
+if [[ -x "$SCRIPTS/detect-mcp.sh" ]]; then
+  echo "[0.5/5] detect-mcp.sh"
+  "$SCRIPTS/detect-mcp.sh" "$TARGET" 2>&1 | tail -1
+  echo ""
+fi
+
 # Helper: invoke a script with target + optional pack list. Avoids the
 # `"${PACKS[@]:-}"` trap (expands to "" when empty, which downstream scripts
 # read as a real pack-name argument and skip their auto-detect path).
