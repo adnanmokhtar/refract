@@ -50,6 +50,37 @@ All 7 of the standard pipeline (Understand → Organize → Retrieve → Generat
 4. V1 branch is at HEAD of a clean working tree. Pin commit before extracting.
 5. `ai/architecture.md` (V2's architecture) exists and is the version pinned for the migration window. If V2's architecture is in flux, halt.
 
+**Hard contract (M31) — V2 existence detection (refuses to overwrite):**
+
+```bash
+~/.claude/scripts/migration-detect-existing.sh "$V2_ROOT" "$FEATURE_SLUG"
+```
+
+Phase 1 MUST run this BEFORE any read of the contract or any planning work. The ledger is not authoritative — the V2 filesystem is. Three outcomes:
+
+- `none` → V2 has no detectable evidence; proceed.
+- `partial` → V2 has some files / references; HALT. Print the report at `<v2>/.claude/_migration-detect-<feature>.md`. Surface to user. User decides: continue developing what's there (do NOT port), merge with `--merge-existing`, or rare re-port with `--overwrite-v2`.
+- `full` → V2 already implements the feature; HALT and refuse. Update the ledger row first (the ledger drifted), then if user really wants to re-port, force with `--overwrite-v2` (logged to `_history.md`).
+
+**Hard contract (M31) — path conformance (refuses paths that violate V2 structure):**
+
+```bash
+~/.claude/scripts/migration-validate-paths.sh "$V2_ROOT" "$FEATURE_SLUG" - <<'PATHS'
+src/modules/<feature>/pages/<Feature>Page.vue
+src/modules/<feature>/services/index.ts
+... every file the architect plans to write ...
+PATHS
+```
+
+Phase 4 MUST run this on the FULL list of planned files BEFORE writing any of them. Validates against the project's detected stack + module shape + naming conventions (read from `codebase-profile.md`):
+
+- Top-level dir whitelist (no writes outside `src/`, `tests/`, `public/`, `docs/`, `ai/`, `.claude/`).
+- Module shape: `src/modules/<feature>/<kind>/...` where `<kind>` is one of the kinds detected in existing modules (`pages, components, composables, services, types, locales` for the typical Vue project).
+- Filename conventions: PascalCase + recognized suffix for `.vue`; camelCase for `.ts`; framework-stack matched (no `.tsx` in a Vue project).
+- Forbidden zones: `node_modules/`, `dist/`, `.git/`, build outputs.
+
+If ANY path fails, the script exits 1 with the violation list. Phase 4 MUST refuse to write until all paths pass. Override with `--override-paths` (logged) only when the architect can defend the deviation in writing.
+
 ## Phase 1 — Understand (the ask + V1 deeply)
 
 1. **Resolve the feature**: parse user's request. Match to a ledger row by name (e.g., `report-orders`) or fuzzy-search if name is approximate. Confirm with user.
