@@ -323,7 +323,21 @@ T+38d: Delete V1 (after 14d of zero traffic).
 
 ## Anti-patterns (named)
 
-- **The Transposition Trap** — line-by-line copy of V1 into V2. Carries V1's bugs + V1's hidden invariants. The port must be re-derived from the contract.
+- **The Transposition Trap** — line-by-line copy of V1 into V2. Carries V1's bugs + V1's hidden invariants. The port must be re-derived from the contract AND must follow V2's NEW structure (shared components, conventions, file layout). Concrete frontend fingerprints — `validate-migration-artifacts.sh § check_v2_structure` HALTs on any of these in V2 files:
+    - Raw framework components in pages where wrappers exist — `<Dialog>` / `<Paginator>` / `<Dropdown>` / `<Calendar>` (PrimeVue equivalents). V2 ships wrappers like `<BaseModal>`, `<CrudPaginator>`, `<BaseDropdown>`, `<DatePicker>`. Use those.
+    - `<FormField :label="$t('...')">` — `<FormField>` calls `$t()` internally; pass bare key string `<FormField label="Module.key">`. Double-translation produces missing-key warnings + bare keys rendered to users.
+    - `<div class="col-md-6"><FormField>` — wrapper col around `FormField`. `FormField` has its own `col-class` prop; no wrapper needed. Nested cols inside `.row` break Bootstrap grid silently → labels misalign + child components like `<BaseDropdown>` collapse to weird widths and look like text inputs.
+    - Hand-rolled phone field (`phone-row` div with disabled code prefix + number input) — V2 has `<PhoneInput>` with `code-readonly` mode. Use it.
+    - `localStorage.{get,set}Item(*, *token*)` — tenant leak; use `secureStorage` + `tokenProvider`.
+    - `axios.create(...)` outside the project's canonical client file — there is exactly ONE authenticated client per app.
+    - `console.log` / `console.debug` in production code — ESLint rule, but check anyway.
+    - Manual `Authorization: Bearer ${token}` headers in service calls — bypasses the interceptor + refresh queue; double-source-of-truth on token.
+    - Raw `<form @submit>` in dialogs/pages — use `<BaseForm @submit="...">` which provides `<fieldset disabled>` + `.row` wrapper.
+    - Inline `style="..."` attributes — use scoped SCSS + design tokens.
+    - V1's grid system carried over verbatim — V1 used Bootstrap col wrappers; V2 uses component-level `col-class` props. Re-derive layout from V2's gold-standard equivalent feature, not from V1's template.
+    - `onMounted` for data fetch on a page V2's KeepAlive caches — V2 uses `onActivated` so data refreshes on tab return + tenant switch.
+
+  **Phase 3 of `/port-feature` (Retrieve) MUST list the gold-standard V2 files the executor reads BEFORE writing.** The plan's "V2 patterns I will follow" section names them explicitly. Skipping Phase 3 is the trigger — the executor opens V1, reads it, opens V2's destination directory, and writes by analogy to V1 instead of by analogy to V2's gold standard.
 - **The Bundled Cutover** — porting + redesigning + adding features + perf-tuning in one PR. Reviewer cannot localise regressions; rollback is all-or-nothing.
 - **The Stale Oracle** — V1 evolves during port; parity tests pass against a moving target. Pin V1's commit; freeze it for the duration of the port.
 - **The Silent Break** — V2 changes an output shape, returns a different error type, drops a side effect. Ships unnoticed; long-tail customer issues surface for months.

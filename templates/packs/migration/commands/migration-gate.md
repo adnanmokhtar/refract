@@ -23,7 +23,7 @@ Inputs:
 
 ## Phase 2 — Organize (decompose the work)
 
-For each feature listed in phase N, run the **12-check artifact verification**:
+For each feature listed in phase N, run the **13-check artifact verification**:
 
 ### Ledger-level checks (4)
 1. status = `done` OR `intentional-break` (with `ADR-NNNN` populated)
@@ -38,10 +38,11 @@ For each feature listed in phase N, run the **12-check artifact verification**:
 8. `ai/migration/perf-decisions/<feature>.md` exists
 9. `ai/runbooks/migration-rollback-<feature>.md` exists AND `ai/migration/audits/<feature>.md` exists
 
-### Content-quality checks (3)
+### Content-quality checks (4)
 10. Contract has all 9 sections populated; every `<path:line>` citation resolves (validator script runs this check)
 11. tolerance.yaml covers every output field declared in the contract; every applied perf-decision has a measurement
-12. Audit file enumerates per-axis comparison without `&...` / "etc." / "..." hand-waves; for frontend features, the Frontend axes section is populated (form fields enumerated, UI affordances enumerated, templated query params enumerated)
+12. Audit file enumerates per-axis comparison without `&...` / "etc." / "..." / `N+ filters` / `and so on` / `deferred to port-phase parity` / `by audit-by-inspection` hand-waves; for frontend features, the Frontend axes section is populated (form fields enumerated, UI affordances enumerated, templated query params enumerated)
+13. **Audit provenance**: every audit MUST declare `auditor_agent_id: <Agent run ID>` (or `auditor_agent_id: rule-only-mode/<tool>/<UTC>` for rule-only tools) in YAML frontmatter. This proves the audit was produced by a `parity-auditor` agent dispatch (per `migration-phase.md § 4b`) and not echoed by an inline executor reading prior summaries (the F039 / Phase-6 trigger). Validator's `check_audit_provenance` enforces this.
 
 A feature failing any check is **BLOCKED**. The phase REFUSES until every blocked feature is resolved (re-port, ADR, deprecate, park, or restart `/migration-phase <N> --feature=<id>`).
 

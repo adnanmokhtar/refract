@@ -105,11 +105,28 @@ Halt conditions: contract is incomplete; user flags a missing case.
 
 Halt conditions: plan halted; user rejects the slice.
 
-## Phase 3 — Retrieve (V2's primitives + similar features)
+## Phase 3 — Retrieve (V2's primitives + gold-standard features)
 
-1. **Read V2's primitives**: DI container, error envelope, logging facade, repository pattern, concurrency primitive, cache primitive, validation library — from `_extracted-idioms.md`. The V2 implementation MUST use these.
-2. **Read 1–2 already-ported features** in `<v2-root>/`: their controller / service / repo / dto / errors files. The new V2 code MIRRORS this shape exactly.
-3. **Read parity test infra**: `tests/parity/_helpers/run-parity.ts` (or equivalent). If absent, generate it (one-time, via `parity-test-generate`'s "create helper" branch).
+**Hard rule (anti-Transposition-Trap)**: a V1→V2 port is NOT a copy-paste of V1. The new V2 code MUST follow V2's NEW structure — its shared components, its conventions, its file layout. Skipping this step IS the Transposition Trap (per `migration-discipline.md` § Anti-patterns) and produces ports that look like V1 with new file paths. The V1-pattern fingerprints the validator catches (see `validate-migration-artifacts.sh § check_v2_structure`) all originate here, in a Phase-3 read step that was skipped.
+
+1. **Read V2's primitives**: DI container / error envelope / logging facade / repository pattern / concurrency primitive / cache primitive / validation library — from `_extracted-idioms.md`. The V2 implementation MUST use these.
+
+2. **Read the GOLD STANDARD for this feature shape** (project-anchored — extract from `_extracted-codebase.md § Gold standards`). For frontend ports, this is typically:
+   - **CRUD list page** → read the project's gold-standard list page (e.g., `inventory/CategoriesPage.vue` for Vue 3 / vue-architect projects).
+   - **Detail/show page** → read the gold-standard detail page (e.g., `orders/OrderDetailsPage.vue`).
+   - **Dialog / form** → read at least 2 V2 dialogs that use the same shared components (`<BaseModal>`, `<BaseForm>`, `<FormField>` with `col-class` prop, `<TranslatedInput>`, `<BaseDropdown>`, `<PhoneInput>`, `<StatusSwitch>`).
+   - **Composable** → read the V2 equivalent (e.g., `useCrud`, `useForm`, `useGeoCascade`).
+   - **Service** → read 1 service in the same module + `BaseCrudService`.
+
+   The new V2 code MUST mirror these files' shape: same component-composition pattern, same prop naming (e.g., `label="Module.key"` as bare string for `<FormField>`, NOT `:label="$t('Module.key')"` — `<FormField>` calls `$t()` internally), same `col-class` prop usage on `<FormField>` (no wrapper `<div class="col-*">` around it), same shared-component wrappers (no raw `<Dialog>`, `<Paginator>`, `<Dropdown>` in pages — use the `Base*` / `Crud*` wrappers).
+
+3. **Read 1–2 already-ported features** in `<v2-root>/` for the same axis (read-only CRUD vs detail vs settings). Note their conventions explicitly before writing — e.g., "OrderDetailsPage uses `onActivated` for KeepAlive caching; my port must too."
+
+4. **Read parity test infra**: `tests/parity/_helpers/run-parity.ts` (or equivalent). If absent, generate it (one-time, via `parity-test-generate`'s "create helper" branch).
+
+5. **Read `migration-discipline.md` § Anti-patterns "The Transposition Trap"** before writing a single line of V2 code. If you find yourself copy-pasting V1's grid layout (`<div class="row"><div class="col-md-6">`) or V1's component composition (raw `<Dialog>` + raw `<form>`), STOP — re-read the gold standard.
+
+**Output of this phase**: a 3-5 line note in `ai/migration/plans/<feature>.md § "V2 patterns I will follow"` listing the gold-standard files read + the specific patterns being mirrored. The plan reviewer (human OR `migration-architect` agent) checks this before the port writes a single line.
 
 ## Phase 4 — Generate (V2 code + parity tests + perf-decisions)
 
@@ -151,7 +168,7 @@ Halt conditions: parity tests can't be made green AND contract can't be revised 
 
 ## Phase 6 — Validate (audit + cutover stage)
 
-1. **Run `parity-auditor` Stage A** on the implementation. Hard-halt on any fail.
+1. **Run `parity-auditor` Stage A** on the implementation by dispatching the agent: `Agent({subagent_type: "parity-auditor", prompt: <feature-context-and-axes>})`. Hard-halt on any fail. The agent's run ID MUST land in the audit doc's frontmatter as `auditor_agent_id: <run-id>`. The validator (`scripts/validate-migration-artifacts.sh § check_audit_provenance`) refuses any audit without a populated provenance field — this is the F039 / Phase-6 lesson made mechanical: prove the agent ran, don't echo prior summaries.
 2. **If audit PASSES**: open the port PR. Reviewer (human) reviews. Merge to main.
 3. **Cutover stage advance** (this command may be re-invoked at each stage):
    - `Shadow` start: deploy V2 in shadow mode; comparator reports begin streaming.

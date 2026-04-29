@@ -49,38 +49,57 @@ Per feature:
 
 ## Phase 4 — Generate (produce the output)
 
-**Composition**: this command DISPATCHES `/port-feature <feature-id>` per row. It does NOT re-implement the per-feature audit/port loop; that lives in `/port-feature` with full discipline (`extract-v1-contract` + `migration-architect` + `parity-test-generate` + `perf-uplift-survey` + `parity-auditor`). Skipping the dispatch is the F039 trigger — a permissive shell over a strict toolchain that lets a loose executor produce shallow artifacts.
+**Composition (mechanism, not policy)**: this command MUST dispatch the `parity-auditor` agent for the audit step and MUST dispatch `migration-architect` (where available) for the port step. The audit step is NEVER run inline by the executor. Inline audit was the F039 + F030 + F032 trigger — a fast executor reading prior summary docs and echoing "parity-clean" without line-by-line V1 source review. This section converts that "should dispatch" policy into a binding mechanism.
 
 For each feature in the phase, in plan order:
 
 ### 4a. PRE-FLIGHT (per feature)
 
-Halt before invoking `/port-feature` if any:
-1. Ledger row exists for this feature.
-2. Feature's dependencies (per ledger) are `V2-only` OR override `--depend-on-v1` documented.
-3. `~/.claude/scripts/migration-detect-existing.sh "<v2-root>" "<feature-slug>"` returns `none` or `partial` (never `full` without `--overwrite-v2`).
-4. V1 branch is at HEAD of a clean working tree.
+Halt before invoking the audit step if any:
+1. No ledger row exists for this feature.
+2. Feature's dependencies (per ledger) are not `V2-only` OR `--depend-on-v1` override is undocumented.
+3. `~/.claude/scripts/migration-detect-existing.sh "<v2-root>" "<feature-slug>"` returns `full` without `--overwrite-v2`.
+4. V1 branch is not at HEAD of a clean working tree.
 
-### 4b. DISPATCH `/port-feature` (per feature)
+### 4b. AUDIT (mandatory agent dispatch — applies in BOTH normal AND `--audit-only` modes)
 
-Invoke `/port-feature <feature-id>` per row. The orchestrator runs the 7-phase per-feature lifecycle:
+**The audit step MUST be performed by dispatching the `parity-auditor` agent. There is no inline-executor fallback for tools that have agent dispatch.**
 
-| `/port-feature` phase | Output artifact (per `migration-discipline.md` § Required artifacts) |
+Mechanism by tool family:
+
+- **Claude Code / OpenCode (full agent + command + skill dispatch)**: invoke the `Agent` tool with `subagent_type="parity-auditor"` per feature. The agent's prompt MUST include:
+  - Feature ID + V1 path:line entry points + V2 destination path:lines
+  - V1 commit hash to pin (`v1_commit_pinned`)
+  - The 10 hard halts (inlined or by reference to `migration-discipline.md`)
+  - The frontend axes list (form fields, UI affordances, templated query params, event handlers, per-button permission gates, a11y, DOM-equivalent, reactive lifecycle) — for frontend features only
+  - Explicit instruction: "Read V1 source line-by-line. Do NOT trust prior audit docs. Do NOT use `...`, `etc.`, `N+ filters`, `and so on`, `deferred to port-phase parity author`, or `by audit-by-inspection`. Enumerate every item in every axis table."
+  - Output target: `ai/migration/audits/<feature-id>.md` (full structure per § 4d)
+  - Audit doc MUST start with frontmatter declaring `auditor_agent_id: <agent run ID returned by Agent tool>` — this is the proof-of-dispatch the validator checks (see § 4d).
+
+- **Tools with agent + command dispatch but no skill dispatch (Cursor, Copilot)**: same as above — invoke the equivalent agent / sub-task tool. The `auditor_agent_id` field holds the equivalent run ID.
+
+- **Rule-only tools (Aider, Codex, Gemini, Cline, Windsurf)**: the executor follows `migration-discipline.md` § Tool-agnostic procedure inline, BUT the audit doc's frontmatter MUST declare `auditor_agent_id: rule-only-mode/<tool>/<UTC ISO>`. Validator allows this sentinel; the trade-off is logged so the user can see which tool produced which audit. Lightning-rod feature (any feature in a phase that lists `revenue_critical: true` or `tenant_isolation: true` in the ledger) requires a human-in-the-loop second pass before the row flips to `done`.
+
+**Refusal rule**: an audit doc without a populated `auditor_agent_id` field FAILS the validator (`check_audit_provenance` — see § 4d). The phase cannot exit until every audit has provenance.
+
+**`--audit-only` flag**: skips the PORT + VERIFY steps in § 4c–4e. **It does NOT change the audit mechanism above.** The audit is still produced by the `parity-auditor` agent (or rule-only-mode equivalent). `--audit-only` only means: write artifacts, but keep ledger row at `unverified` (do not flip to `done`).
+
+### 4c. PORT (per feature)
+
+After the audit's classification, the action depends on the verdict:
+
+| Classification | Action |
 |---|---|
-| 1. Understand V1 | `ai/migration/contracts/<feature>.md` (9 required sections) |
-| 2. Plan V2 | `ai/migration/plans/<feature>.md` |
-| 3. Port | V2 implementation in `<v2-root>/<feature>/` |
-| 4. Parity tests | `<parity-test-root>/<feature>/` (≥30 corpus inputs OR record-replay) + `tolerance.yaml` |
-| 5. Perf uplift | `ai/migration/perf-decisions/<feature>.md` (every candidate classified + measured) |
-| 6. Cutover audit | `ai/runbooks/migration-rollback-<feature>.md` + `parity-auditor` Stage A green |
+| `parity-clean` | Skip to § 4e (mark done) |
+| `missing-in-v2` | Dispatch `migration-architect` agent → `Agent({subagent_type: "migration-architect"})`. Produces V2 plan in `ai/migration/plans/<feature>.md`. Then implement per the plan. |
+| `divergent` | Same as `missing-in-v2` but the plan must enumerate the divergent axes from the audit and cite each remediation. |
+| `intentional-break` | Halt; require user to author ADR before advancing. The ADR ID populates the ledger's `intentional_break: ADR-NNN` field. |
 
-If `/port-feature` halts at any phase, this command captures the halt root cause to `ai/migration/halts/<feature>-<iso>.md` and continues to the next feature in the phase. The user resumes the halted feature with `/port-feature <feature-id> --resume` after fixing the cause.
+Implementation MUST follow V2 patterns (cite by `<path:line>` in the plan). Do NOT lift V1 implementation verbatim.
 
-**For tools without `/port-feature` dispatch**: follow the procedures inlined in `migration-discipline.md` § Tool-agnostic procedure (extract V1 contract → generate parity tests → perf-uplift survey). Produce the same artifact set. Use `scripts/validate-migration-artifacts.sh` to verify completeness.
+Add parity tests alongside the implementation: `<parity-test-root>/<feature>/parity.spec.<ext>` + ≥30 corpus inputs in `inputs/` + `tolerance.yaml`. Wire the test in CI if not already.
 
-### 4c. AUDIT (per feature; using the 10 hard halts)
-
-After `/port-feature` reports phase-6 audit PASS for a feature, this command verifies independently against `migration-discipline.md` § "Per-feature audit — 10 hard halts":
+### 4d. AUDIT FILE STRUCTURE (validator-enforced)
 
 1. Contract complete (9 sections; citations resolve)
 2. Parity tests not thin (≥30 inputs OR record-replay; tolerance.yaml covers every output field; per-recipe coverage)
@@ -105,37 +124,41 @@ Each halt is logged to `ai/migration/audits/<feature-id>.md`'s "Hard-halt findin
 - DOM-equivalent assertions
 - Reactive lifecycle (`onActivated` for cached pages)
 
-### 4d. PER-FEATURE AUDIT FILE
-
-Output: `ai/migration/audits/<feature-id>.md`. Required structure:
+Output: `ai/migration/audits/<feature-id>.md`. Required structure (validator-enforced):
 
 ```markdown
-# Audit — <feature-id> — <feature-name>
+---
+auditor_agent_id: <Agent run ID returned by the parity-auditor dispatch>
+auditor_mode: agent | rule-only-mode/<tool-name>
+audit_date: <UTC ISO8601>
+v1_commit_pinned: <sha>
+v2_commit: <sha>
+---
 
-> Phase: <N> | Audited: <iso> | Auditor: <agent / executor / tool>
-> V1 commit pinned: `<sha>`
-> V2 commit: `<sha>`
+# Audit — <feature-id> — <feature-name>
 
 ## Classification
 parity-clean | divergent | missing-in-v2 | intentional-break (ADR-NNN)
 
-## Per-axis comparison (every applicable axis enumerated; no "..." or "etc.")
+## Per-axis comparison
+Every applicable axis enumerated. NO `...`, `etc.`, `N+ filters`, `and so on`, `deferred to port-phase parity author`, `by audit-by-inspection`. Validator HALTs on any of these tokens (see `validate-migration-artifacts.sh § check_audit`).
 
-| Axis | V1 | V2 |
-|---|---|---|
-| <axis 1> | <observable + path:line cite> | <observable + path:line cite> |
-| <axis 2> | ... | ... |
+| Axis | V1 (path:line) | V2 (path:line) | Verdict |
+|---|---|---|---|
+| List endpoint | `GET /<resource>?...` at `<v1-path:line>` | `<v2-path:line>` | match \| mismatch \| missing |
+| (one row per relevant axis — concrete observable + cite) | | | |
 
 ## Hard-halt findings
-List every halt fired (or "none"). Each: which halt, evidence, specific remediation.
+One row per halt (or "none"). Each: halt #, evidence, specific remediation.
 
-## Frontend axes (if applicable)
-| Axis | V1 | V2 |
-|---|---|---|
-| Form fields | <enumerated list with types + validators> | <enumerated list> |
-| UI affordances | <every button + handler + permission gate> | <every button + handler + permission gate> |
-| Templated query params | <every param V1 sends> | <every param V2 sends> |
-| ... | | |
+## Frontend axes (if feature renders UI)
+Tables for: Form fields, UI affordances, Templated query params, Event handlers, Per-button permission gates, Accessibility, DOM-equivalent, Reactive lifecycle. Every row has a path:line cite on BOTH sides. Empty cells are not allowed; use `none` if absent.
+
+| Axis | V1 (count + path:line) | V2 (count + path:line) | Verdict |
+|---|---|---|---|
+| Form fields | n_v1 fields at `<path:line>` (enumerate) | n_v2 fields at `<path:line>` (enumerate) | match \| mismatch |
+| UI affordances | n_v1 buttons/links/dropdowns | n_v2 | match \| mismatch |
+| ... | | | |
 
 ## Tenant-isolation gate
 PASS / FAIL. Specific evidence per `migration-discipline.md` checks.
@@ -149,55 +172,41 @@ PASS / FAIL. Specific evidence per `migration-discipline.md` checks.
 
 Refer to `_examples/audit-template.md` for a worked example.
 
-### 4b. GAP-FIND
+### 4e. VERIFY (per-feature validator + parity test run)
 
-From the audit, classify the feature:
+After audit + port + parity tests are written:
 
-| Classification | Meaning | Action |
-|---|---|---|
-| `parity-clean` | V2 matches V1 across every axis | Skip to step 4d (mark done) |
-| `missing-in-v2` | V2 has no implementation | Step 4c: port from scratch |
-| `divergent` | V2 implements but behavior differs | Step 4c: port with reconciliation |
-| `intentional-break` | V2 differs by design (cite ADR) | Step 4d (mark done with `intentional_break: ADR-NNNN`) |
+1. Run `validate-migration-artifacts.sh --feature=<feature-id> --quiet`. The validator MUST exit 0. Specifically `check_audit_provenance` (new) HALTs if `auditor_agent_id` frontmatter is missing or empty. `check_audit` HALTs on hand-wave tokens.
+2. Run the parity test against the pinned V1 commit. Test runner must exit 0. Record run ID + result in the ledger row's `parity_runs[]`.
+3. Re-classify against the audit. Verdict must be `parity-clean` OR `intentional-break` (with ADR). If still `divergent` or `missing-in-v2`, FLAG the row in ledger as `status: failed`. Do NOT mark `done`. Continue to next feature; the user resumes via `/migration-phase <N> --feature=<id>`.
 
-If `intentional-break` and no ADR exists → halt; require user to author ADR first.
-
-### 4c. PORT
-
-Only run if classification is `missing-in-v2` or `divergent`.
-
-**Constraint: follow V2's NEW structure.** Cite V2 patterns explicitly. Do NOT lift V1 implementation verbatim.
-
-For each gap:
-1. Identify the V2 destination (path from ledger).
-2. Identify the V2 patterns/helpers/base classes to use (cite by file:line).
-3. Implement using V2 conventions (`ai/conventions.md` is authoritative).
-4. Add parity test alongside (e.g., `<feature>.parity.spec.<ext>`) — uses V2's test runner; asserts V1 behavior holds.
-5. Wire up the parity test in CI if not already.
-
-Generate test framework + helpers via project's existing test commands (e.g., `/add-test`) if they exist.
-
-### 4d. VERIFY
-
-Re-run the audit (step 4a). Result must be `parity-clean` OR `intentional-break` (with ADR).
-
-If still `divergent` or `missing-in-v2` → log to `ai/migration/audits/<feature-id>.md` and FLAG the row in ledger as `status: failed`. Do NOT mark `done`. Continue to next feature.
-
-### 4e. UPDATE LEDGER
-
-For each feature processed, update the row:
+### 4f. UPDATE LEDGER (per feature)
 
 ```yaml
 - id: F001
-  status: done                    # was: unverified
-  parity_test: passing            # was: missing
+  status: done                       # was: unverified
+  parity_test: passing               # was: missing
   v1_commit_pinned: <sha>
   ported_in_phase: <N>
   ported_at: <UTC ISO8601>
-  notes: "<brief — e.g. 'used V2 service layer pattern'>"
+  audit: ai/migration/audits/F001-<feature>.md
+  audit_provenance: <agent run ID>   # mirrors auditor_agent_id from audit frontmatter
+  parity_runs:
+    - run_at: <UTC ISO8601>
+      v1_commit: <sha>
+      v2_commit: <sha>
+      result: pass
+      cases: <int>
+  notes: "<brief>"
 ```
 
 Use managed-block markers per `templates/idempotency.md` so re-running this phase is safe.
+
+### 4g. AUTO-RUN GATE (end of phase)
+
+After every feature in the phase has either advanced to `done`/`intentional-break` or been flagged `failed`, this command MUST automatically invoke `/migration-gate <N>`. The phase exit is REFUSED if the gate fails. Do NOT advance to phase `<N+1>` on a refused gate; surface the gate's failure list to the user and halt.
+
+`--audit-only` mode skips § 4c (port), § 4e (verify), § 4f (ledger flip to done), and § 4g (auto-gate). It still produces audits + validator runs per § 4b + § 4d. Ledger rows stay at `unverified`.
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
