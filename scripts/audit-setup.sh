@@ -160,9 +160,16 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
   "$SCRIPTS_DIR/audit-anchoring.sh" "$TARGET" --quiet >/dev/null 2>&1 || true
   if [[ -f "$CL/_anchoring-audit.md" ]]; then
     pct=$(grep -E '^Coverage: \*\*' "$CL/_anchoring-audit.md" 2>/dev/null \
-          | grep -oE '[0-9]+' | head -1)
+          | grep -oE '[0-9]+' | head -1 || true)
     unanchored=$(grep -E '^Unanchored:' "$CL/_anchoring-audit.md" 2>/dev/null \
-                 | grep -oE '[0-9]+$' | head -1)
+                 | grep -oE '[0-9]+$' | head -1 || true)
+    # When audit-anchoring.sh detects 0 pack-derived files, no `Coverage:` line is
+    # emitted (audit-anchoring.sh:180-183 only writes it when total_eligible > 0).
+    # Treat that case as a pass: every eligible artifact is anchored when there
+    # are zero eligible artifacts.
+    if [[ -z "$pct" ]] && grep -qE '^Pack-derived artifacts:[[:space:]]+\*\*0\*\*' "$CL/_anchoring-audit.md" 2>/dev/null; then
+      ok "anchoring coverage n/a — 0 pack-derived artifacts (all are project-specific orphans)"
+    fi
     if [[ -n "$pct" ]]; then
       if [[ "$unanchored" == "0" ]]; then
         ok "anchoring coverage ${pct}% — every pack-derived artifact carries an anchor block"
