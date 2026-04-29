@@ -93,6 +93,23 @@ After `apply-study-decisions.sh` finishes copying pack content, Phase 4.6 MUST r
 
 The agent MUST NOT interpret `--include=<pack>` as "only touch that pack." `--include` ADDS scope; never SUBTRACTS. Refresh always covers the whole pack-source vs target diff. Multiple flags compose additively.
 
+**Hard contract (M34) — auto-chain adapter translation:**
+
+After Phase 5 audit passes (`audit-setup.sh` exits 0) in CREATE / REFRESH / REFINE / ENHANCE modes, the orchestrator MUST chain into `/setup-project-adapters` to translate `.claude/` artifacts to each enabled tool's native shape:
+
+```
+/setup-project-adapters
+```
+
+Skip only when:
+- `--no-adapters` flag is passed (logged in the run output).
+- Target's `.claude/settings.json` has `claude_config.adapters: false`.
+- ZERO adapters are enabled in `.claude/codebase-profile.md` (only `claude-code` selected — auto-current; nothing to translate).
+
+Why this is mandatory: `.claude/` is the source of truth, but Cursor reads `.cursor/`, OpenCode reads `.opencode/` + `opencode.json`, Copilot reads `.github/agents/` + `.github/prompts/`, Cline reads `.clinerules/`, etc. Without auto-chaining adapters, Claude gets every M25/M28/M29/M30/M31 improvement and the other tools fall behind ("Claude got smarter, Cursor still talks generic prose"). The hard contract closes this gap.
+
+Pack-level changes propagate automatically through adapter translation — anchoring blocks, new skills, new agents, new MCP entries all reach Cursor / OpenCode / etc. via `/setup-project-adapters`. Global meta-commands (`/setup-project`, `/refine-prompt`, `/scaffold-project`) remain Claude-Code-only (other tools have their own command systems).
+
 This block exists because prose rules in lower-priority sections were skipped under context pressure. Step Zero is the load-bearing contract.
 
 ---
