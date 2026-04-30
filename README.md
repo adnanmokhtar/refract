@@ -93,17 +93,37 @@ So one `api-architect` agent works for every backend. One `schema-architect` wor
 
 ## Install
 
-```bash
-# Fresh device:
-git clone git@github.com:YOUR_USERNAME/claude-config.git ~/.claude
+This repo is the **single source of truth**. `~/.claude/` is a symlink farm pointing back to it. Don't clone the repo AT `~/.claude/` — clone it elsewhere and let `sync-to-global.sh` create the symlinks.
 
-# Already have ~/.claude:
-mv ~/.claude ~/.claude.backup
-git clone git@github.com:YOUR_USERNAME/claude-config.git ~/.claude
-# restore anything personal from .backup/
+```bash
+# 1. Clone the repo somewhere stable (NOT at ~/.claude/)
+git clone git@github.com:YOUR_USERNAME/claude-config.git \
+  ~/Workspace/Projects/claude-config
+
+# 2. Create the symlinks into ~/.claude/
+cd ~/Workspace/Projects/claude-config
+./scripts/sync-to-global.sh            # dry run first — review planned actions
+./scripts/sync-to-global.sh --apply    # actually symlink
+
+# 3. Restore your personal settings (NOT auto-synced)
+#    ~/.claude/settings.json + settings.local.json stay user-managed.
+#    Copy from backup or recreate.
+
+# 4. Verify the symlink farm is intact
+./scripts/verify-sync.sh
 ```
 
-Verify: open Claude anywhere, type `/set` — `setup-project` should appear.
+**Already have a `~/.claude/` from a previous setup?** Back it up first, then run the steps above:
+
+```bash
+mv ~/.claude ~/.claude.backup
+mkdir ~/.claude
+# then run steps 2-4 above; restore settings.json from .backup/
+```
+
+**Day-to-day:** edit files in this repo. The symlinks mean changes apply immediately to Claude Code with no re-sync. The only manual sync left is per-target-project (`<project>/.claude/` is a copy, not a symlink — re-run `/setup-project --refresh` in the target to pull pack updates).
+
+Verify the install: open Claude anywhere, type `/set` — `setup-project` should appear in the slash-command picker.
 
 ---
 
