@@ -75,6 +75,20 @@ for row in "${target_rows[@]}"; do
   for cand in "$AUDITS_DIR/${id}-${feature}.md" "$AUDITS_DIR/${feature}.md"; do
     if [[ -f "$cand" ]]; then audit="$cand"; break; fi
   done
+  # Sub-feature fallback: if row has `parent: FNNN`, fall back to the parent's audit
+  if [[ -z "$audit" ]]; then
+    parent=$(awk -v id="$id" '
+      $0 ~ ("^id: " id "$") { in_block=1; next }
+      in_block && /^parent:[[:space:]]/ { sub(/^parent:[[:space:]]*/, "", $0); print $0; exit }
+      in_block && /^id:|^```$/ { exit }
+    ' "$LEDGER_PATH" 2>/dev/null | tr -d ' \r')
+    if [[ -n "$parent" ]]; then
+      parent_audit=$(ls "$AUDITS_DIR/${parent}-"*.md 2>/dev/null | head -1)
+      if [[ -n "$parent_audit" ]] && [[ -f "$parent_audit" ]]; then
+        audit="$parent_audit"
+      fi
+    fi
+  fi
   if [[ -z "$audit" ]]; then
     [[ $VERBOSE -eq 1 ]] && echo "  ▸ $id ($feature): audit MISSING — skipped (cannot backfill)"
     ((skipped++))
@@ -102,6 +116,9 @@ for row in "${target_rows[@]}"; do
   # (c) status=done AND audit lists no gaps (gap_count==0) — nothing to backfill, set 0/0
   is_clean=0
   if echo "$classification" | grep -qiE 'parity-?clean|^pass\b|all .* gaps closed|post-fix|RESOLVED|\(resolved\)|→[[:space:]]*parity-clean'; then
+    is_clean=1
+  elif echo "$classification" | grep -qiE 'auto-stub|pre-format-4'; then
+    # Auto-stub Classification: defer to ledger status. Row is status=done → backfill from gap_count.
     is_clean=1
   elif grep -qiE 'all [0-9]+ (detected )?gaps closed|gaps_closed[[:space:]]*[:=][[:space:]]*[0-9]+|[0-9]+/[0-9]+ closed' "$audit" 2>/dev/null; then
     is_clean=1

@@ -178,8 +178,31 @@ resolve_artifact_path() {
   local dir="$1"; local slug="$2"; local id="${3:-}"
   if [[ -n "$id" && -f "${dir}/${id}-${slug}.md" ]]; then
     echo "${dir}/${id}-${slug}.md"
+    return
   elif [[ -f "${dir}/${slug}.md" ]]; then
     echo "${dir}/${slug}.md"
+    return
+  fi
+  # Sub-feature fallback: if the row has `parent: FNNN` in its ledger block,
+  # try resolving the parent's audit/contract/plan. Many sub-features (e.g.
+  # F015a-product-edit-basic-data) are audited under the parent (F015) rather
+  # than having their own file.
+  if [[ -n "$id" ]]; then
+    local parent
+    parent=$(awk -v id="$id" '
+      $0 ~ ("^id: " id "$") { in_block=1; next }
+      in_block && /^parent:[[:space:]]/ { sub(/^parent:[[:space:]]*/, "", $0); print $0; exit }
+      in_block && /^id:|^```/ { exit }
+    ' "$LEDGER_PATH" 2>/dev/null | tr -d ' \r')
+    if [[ -n "$parent" ]]; then
+      # Try parent's <id>-*.md (any feature slug under the parent id)
+      local parent_file
+      parent_file=$(ls "${dir}/${parent}-"*.md 2>/dev/null | head -1)
+      if [[ -n "$parent_file" ]] && [[ -f "$parent_file" ]]; then
+        echo "$parent_file"
+        return
+      fi
+    fi
   fi
 }
 
@@ -628,9 +651,28 @@ check_audit() {
   #   - "and so on" (the lazy enumerator's fingerprint)
   #   - "deferred to port-phase parity test author" (audit declining to enumerate)
   #   - "by audit-by-inspection" (vibe verdict, not source-line verdict)
-  local handwaves
-  handwaves=$(grep -cE '\&\.\.\.|^\s*\|.*&\.\.\.|"etc\.|, etc\.| etc\.\)|\.\.\.[[:space:]]*\||\b[0-9]+\+\s+(filters?|buttons?|fields?|params?|columns?)\b|\band so on\b|\bdeferred to (port-phase|future) parity\b|\bby audit-by-inspection\b' "$file" 2>/dev/null | head -1 | tr -d ' \n' || echo 0)
+  # Hand-wave grep on a SCRUBBED version of the audit:
+  # - Strip out fenced code blocks (```...```) — code samples often contain `...`
+  # - Strip out inline backtick code spans (`...`) — same reason
+  # - Strip out lines containing only the word `None` / `not found` markers
+  # This avoids false positives on legitimate code excerpts like
+  #   `<FormField :label="$t('...')">`, `style="..."`, `{name: 'builder'...}`.
+  local scrubbed_file handwaves
+  scrubbed_file=$(mktemp -t audit-scrub.XXXXXX)
+  awk '
+    BEGIN { in_fence=0 }
+    /^```/ { in_fence = 1 - in_fence; next }
+    in_fence { next }
+    {
+      # Drop everything inside backticks: `...` (greedy is fine — single-line)
+      gsub(/`[^`]*`/, "")
+      print
+    }
+  ' "$file" > "$scrubbed_file"
+  handwaves=$(grep -cE '&\.\.\.|^[[:space:]]*\|.*&\.\.\.|, etc\.| etc\.\)|\.\.\.[[:space:]]*\||\b[0-9]+\+[[:space:]]+(filters?|buttons?|fields?|params?|columns?)\b|\band so on\b|\bdeferred to (port-phase|future) parity\b|\bby audit-by-inspection\b' "$scrubbed_file" 2>/dev/null || echo 0)
+  rm -f "$scrubbed_file"
   handwaves=${handwaves:-0}
+  [[ "$handwaves" =~ ^[0-9]+$ ]] || handwaves=0
   if [[ $handwaves -gt 0 ]]; then
     log_fail "audit has $handwaves hand-wave(s) in $file — enumerate explicitly per migration-discipline.md anti-pattern \"The Trusted Summary\". Patterns flagged: trailing \"...\", \"&...\", \"etc.\", \"N+ filters/buttons/fields/params\", \"and so on\", \"deferred to port-phase parity author\", \"by audit-by-inspection\". Read V1 source line-by-line and list every item in the axis table."
     return 1
@@ -1447,6 +1489,17 @@ main() {
     if [[ -n "$PHASE" ]]; then echo "  scope:  phase $PHASE"; fi
     if [[ -n "$FEATURE" ]]; then echo "  scope:  feature $FEATURE"; fi
     if [[ $SCAN_ALL -eq 1 ]]; then echo "  scope:  all features"; fi
+  fi
+
+  # Pre-check: detect duplicate IDs in the ledger (data-integrity issue).
+  # Two rows with the same `id:` cause the validator + reports to skip-or-overwrite each other.
+  local dupe_ids
+  dupe_ids=$(grep -oE '^id: F[0-9]+[a-z]?$' "$LEDGER_PATH" 2>/dev/null | sort | uniq -d)
+  if [[ -n "$dupe_ids" ]]; then
+    echo "FATAL: duplicate ledger IDs detected (data-integrity issue):" >&2
+    echo "$dupe_ids" | sed 's/^/  /' >&2
+    echo "  Each id must be unique across the ledger. Resolve duplicates before re-running." >&2
+    exit 4
   fi
 
   local features
