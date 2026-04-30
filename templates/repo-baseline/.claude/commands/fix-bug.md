@@ -4,11 +4,59 @@ description: Universal bug-fix workflow. Stack-aware (detects backend / frontend
 
 # /fix-bug
 
-Universal bug-fix command. Use it whether the bug is in backend (a 500 error), frontend (a UI glitch), mobile (a crash), data (a wrong query), or cross-stack.
+## The Premise (read this first, internalize, do not deviate)
+
+**The bug is real. The fix is small. The pattern almost always exists elsewhere.**
+
+A reported bug is a sample, not the population. The same root cause that broke site A almost always broke siblings B, C, D — different files, different routes, same expression, same omission. Shipping a fix for site A only is the failure mode that produces "we already fixed this" reports next month.
+
+**The agent's job is exactly this:**
+1. Find the **root cause**, not the symptom — the smallest expression / line / branch that produces the bad behavior.
+2. Apply the **minimum fix** at that site.
+3. **Grep the codebase** for the same root-cause pattern (the literal expression, not a vague concept).
+4. Fix **all N occurrences** in the same diff — or explicitly account for each hit (intentional / follow-up).
+
+**The agent does NOT:**
+- Ship a fix that ignores siblings of the same pattern. **One bug, one diff, all sites.**
+- Refactor adjacent code that wasn't part of the bug — even if it "looks bad." Drift goes to `ai/dynamic/drift-log.md`, not into this PR.
+- Draft an ADR for a trivial fix. ADRs document new defensive patterns; a 1-line null check is not a new pattern.
+- Ask the user "are these really the same bug?" — apply the literal-expression test: same buggy expression = same bug.
+
+**The agent ONLY asks the user when:**
+- The fix needs another repo (cross-repo blocker).
+- Root cause sits in a shared utility / library where one fix changes behavior for many callers (ripple risk).
+- The bug reveals an entirely missing test class (the right answer is "add the class," which is scope expansion the user must approve).
+
+That's it. Three escalation triggers. Everything else — sibling-scan, fix-all-N, verify with the project's existing tests — is silent and one diff. Default is **trivial-tier**: just fix it.
+
+## Closure-verb table (bug complexity → ceremony)
+
+| Tier | Trigger | Required artifacts | Skipped |
+|---|---|---|---|
+| **Trivial** (default) | 1 site, 1-line fix, root cause obvious from the report | Code edit + the project's existing test passes | Plan, ADR, investigation doc, similar-bugs scan (only because there's one site by definition) |
+| **Standard** | ≥2 sites of the same pattern OR fix touches ≥3 lines OR root cause requires reading 2+ files to understand | Code edit + similar-bugs scan with `N_found == N_fixed + N_explained + N_followup` accounting + 1-paragraph "what was wrong" note in PR description | ADR (unless introducing a new defensive pattern), separate investigation doc |
+| **Heavy** | Library-level pattern, race condition, security/privacy/data-loss implication, schema migration | Code edit + ADR (new defensive pattern) + investigation doc + reviewer dispatch (whatever review agent the project's pack provides) | — |
+
+Trivial is default. Heavy investigation-then-plan-then-fix-then-ADR ceremony is opt-in for genuinely heavy bugs only. Most fixes are 1-line.
+
+## Similar-bugs scan (mechanical halt — applies at standard + heavy)
+
+After the reported-site fix is applied:
+
+1. **Grep the codebase** for the literal root-cause pattern (the actual buggy expression — `if (user)` not `null check`; `.map(x => x.toLowerCase())` not `case insensitivity`).
+2. **Count hits.** Each hit is one of three:
+   - **Fixed** — same fix applied in this PR.
+   - **Explained** — 1-line note in PR: "this hit is intentionally different because X" (e.g., this site has a non-null guarantee from upstream).
+   - **Follow-up** — separate ticket created, ID referenced in PR. Used when fixing all hits would make this PR too large.
+3. **Mechanical halt:** PR refuses merge if `N_found != N_fixed + N_explained + N_followup`. Every hit is accounted for; no silent skips.
+
+**Trivial-tier exception:** by definition, trivial-tier fixes have only one site. The moment a 2nd hit appears, the row auto-promotes to standard-tier and the scan becomes mandatory.
 
 ## Phases applied
 
-All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
+Trivial-tier collapses Phases 5 (Update) and 7 (Improve) into one-line entries. Heavy-tier ceremony (all 7 phases) is opt-in.
+
+All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve) — described below for the heavy-tier case.
 
 ## When to use / NOT to use
 

@@ -6,6 +6,39 @@ description: End-to-end mobile feature — multi-screen flow + state + offline +
 
 Mobile feature orchestration. Use when a feature touches more than one screen OR introduces native capabilities (camera, notifications, biometric).
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing screens, native bridges, and offline patterns are the truth.** The app already ships. Sibling features in the same module already solved navigation, state placement, offline replay, permission timing, native config wiring, and locale coverage. Their shape is the intentional shape unless an ADR says otherwise.
+
+**The agent's job is exactly this:**
+1. **Find a sibling screen / feature in the same module.** Read it before writing anything.
+2. **Mirror its shape**, specifically:
+   - **Navigation registration** — linking config (React Navigation `linking`, Expo Router, GoRouter), deep-link handlers, push-notification handlers all wired the same way the sibling wires them.
+   - **State pattern** — server data via TanStack Query, app state via Zustand/Redux, secrets via Keychain/Keystore. **Never mix.** Whatever the sibling uses for "list of items from the API," use the same.
+   - **Offline plumbing** — cache strategy + mutation queue + replay-on-reconnect identical to the sibling. If sibling queues writes via WorkManager / Background Tasks, you queue via the same.
+   - **Permission prompts in context** — right before the action that needs them, wording mirrored from the sibling's rationale strings. **Never at app launch.**
+   - **Native config** — `Info.plist` Usage Descriptions, `AndroidManifest.xml` `<uses-permission>` + intent filters, `Podfile` deps, `build.gradle` deps — all touched in the same files the sibling touched.
+   - **i18n keys** — every string keyed in **every** locale the sibling supports. Missing-locale = silent break.
+
+**Why this matters more on mobile than web:** mobile features carry more cross-cutting platform concerns simultaneously — accessibility + i18n + native config + permissions + offline + push + deep links. Skipping any one because "the sibling has it covered" is the exact failure mode the cascading reviewers were designed to catch. The sibling is not magic; it's a checklist.
+
+**The agent ONLY asks the user when:**
+- **No sibling screen exists** in the module (genuinely new pattern — escalate to design + ADR).
+- **Requirements need a new native bridge OR a new permission class** (camera-where-no-camera-existed, biometric-where-none-existed, background-location-where-none-existed).
+- **Cross-platform behavior diverges** in a way that requires an ADR (iOS-only feature when project is universal, or vice versa).
+
+That's it. Three escalation triggers. Everything else — i18n key naming, error-state copy, loading skeletons, offline strategy choice, permission rationale wording, native config block placement — is silent sibling-mirror, no questions, no chatter.
+
+## Closure verb — feature complexity → ceremony
+
+| Tier | Trigger | Deliverable | Reviewers |
+|---|---|---|---|
+| **Trivial** (default) | New screen mirrors a sibling; no new permission; no native bridge; no new offline pattern. | Code only. | None — sibling-mirror is its own audit. |
+| **Standard** | New permission OR new offline pattern OR new native config entry (Info.plist key / AndroidManifest entry / Podfile dep). | Code + 1-paragraph plan. | `@accessibility-auditor` always; `@i18n-auditor` if any locale string lands. **No ADR.** |
+| **Heavy** | New native bridge, biometric / Keychain / secrets touch, app-store-blocking change, write-path mutation, new push-notification class. | Code + ADR + full cascade. | Full serial cascade per § Phase 4 (mobile-architect → accessibility → i18n → app-store → security → ux), halt-on-blocker. |
+
+Trivial is the default. Heavy is rare-by-design — match what `/find-and-fix` does for migration: most rows ship trivially.
+
 ## Phases applied
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
@@ -155,6 +188,18 @@ After generation, dispatch reviewers **serially** (not parallel — each re-read
 | `@ux-reviewer` | Always | yes |
 
 **Halt rule**: if ANY agent returns BLOCKER, stop the cascade. Do not run remaining reviewers on a blocked feature; fix the blocker, re-run from the failed agent. This is the `find-and-fix § 3.5 RE-DETECT` pattern from the migration pack — every blocker closes before advance, no silent partial-pass.
+
+### Sibling-shape mechanical halt
+
+Before any reviewer runs, the cascade's first dispatch (`@mobile-architect` in audit mode) compares the new feature against **≥2 sibling screens** in the same module. The audit halts mechanically — no judgment call — if any of these is true:
+
+- **State pattern mixed.** Sibling uses TanStack Query for server data; new feature uses Redux for the same shape. Or vice versa. One pattern per concern across siblings.
+- **Mutations not queued for offline replay** where siblings queue them. If sibling writes go through WorkManager / Background Tasks / mutation queue, the new feature's writes do too.
+- **Permission prompted at app launch** instead of in-context. Mirror the sibling's prompt-just-before-action timing.
+- **Native config / linking config / push handlers not registered.** If sibling registered a deep link in `linking.config`, an intent filter in `AndroidManifest.xml`, and a push topic handler — the new feature does all three or none, matching the sibling's surface.
+- **Locale strings missing from one locale.** Every sibling-supported locale has the new keys. Missing `ar.ts` when `en.ts` has the key = halt.
+
+These are mechanical (string-match / file-presence / config-presence checks), not opinion. Halt = the audit returns `BLOCKER` with the divergent axis named, and the cascade stops per the halt rule above.
 
 ## Phase 5 — Update
 

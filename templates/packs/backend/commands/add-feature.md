@@ -4,28 +4,77 @@ description: Comprehensive orchestration for a new feature. Detects domain signa
 
 # /add-feature
 
-The most important command in the repo. Delivers a feature end-to-end at best-practice quality the FIRST time.
+## The Premise (read this first, internalize, do not deviate)
 
-## Phases applied
+**Existing siblings are the truth.** When 50 endpoints in this codebase follow pattern X — same controller shape, same DI primitive, same error envelope, same validation library, same file path under `<module>/<kind>/...` — that pattern IS the project's intentional truth. The 51st endpoint does not get to invent pattern Y. Future maintainers can't predict where things live, fixes can't be applied uniformly, and the codebase fragments by one more weight every time someone improvises.
 
-All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
+**The agent's job is exactly this:**
+1. Find ≥2 sibling endpoints / services / modules in the same pack (same module if it exists; nearest neighbor module if not).
+2. Read their shape — file paths, naming, layer boundaries, error envelopes, validation, DI primitives, logging, test layout.
+3. Mirror that shape for the new feature. Innovating without precedent is the failure mode.
 
-## Invariants
+**The agent does NOT:**
+- Ask the user about cosmetic style (camelCase vs snake_case, file naming, import order). **Mirror the sibling silently.**
+- Ask the user which error type / DI primitive / validation library to use. **Mirror the sibling silently.**
+- Draft an ADR to legitimize a one-off shape. **Mirror the sibling, no ADR.**
+- Reach for a pattern from training data when the codebase already has one. **Sibling wins.**
+
+**The agent ONLY asks the user when:**
+- **No siblings exist** — this is genuinely the first feature in a new module / new layer / new primitive class. Ask once, get the shape blessed, then mirror it forever after.
+- **Requirements conflict with existing patterns** — the new feature's shape genuinely cannot be expressed in the project's existing primitives (e.g., first async job in a sync-only codebase).
+- **Cross-module dependency requires architecture decision** — a new coupling between modules that didn't talk before; this is an ADR, not a code question.
+
+That's it. Three escalation triggers. Everything else is silent sibling-mirror with the closure verbs below.
+
+## Closure verbs (complexity → ceremony)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
+
+| Tier | Triggers | Artifacts | Phases |
+|---|---|---|---|
+| **Trivial** (default) | 1 file added, mirrors 1 sibling exactly. No new pattern element. | Code + tests. **No plan, no ADR, no Phase 5 docs.** | Understand (light) → Generate → Validate (sibling-shape halt) |
+| **Standard** | 2-5 files, includes 1 new pattern element (new endpoint kind, new DTO shape) but reuses existing primitives. | Code + tests + 1-paragraph plan + sibling-shape note in PR. **No ADR unless pattern is genuinely new.** | Understand → Retrieve (siblings) → Generate → Validate |
+| **Heavy** | Cross-module, new layer, new primitive, schema change, write-path mutation, payment / auth / multi-tenant surface. | ADR + plan + reviewer dispatch + parity tests for affected existing endpoints. Full 7-phase ceremony below. | All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve) |
+
+**Most adds are 2 files. Default to trivial.** If the audit (Phase 6 sibling-shape halt) flags new primitives or cross-module touch, it promotes the row to standard or heavy — the agent does NOT pre-emptively pick heavy "to be safe."
+
+## Invariants (all tiers)
 
 - **Zero placeholders** in output. Every file has real content.
-- **All relevant patterns consulted** — not just principles, specific pattern docs.
-- **All applicable agents dispatched** — parallel where independent.
-- **Signal-aware** — if CLAUDE.md / code says multi-tenant, multi-tenant reviewers fire. AI → AI reviewers. Etc.
+- **Sibling shape mirrored** — paths, naming, primitives match ≥2 existing siblings.
 - **Zero untested business logic ships.**
-- **Telemetry designed, not bolted on.**
+- **Signal-aware at heavy tier** — multi-tenant code → multi-tenant reviewers; AI → AI reviewers.
+- **Telemetry designed, not bolted on** (heavy tier).
 
 ## When to use / NOT to use
 
-- USE: a new feature, end-to-end, that touches multiple layers.
-- USE: when scope merits architecture + tests + telemetry + docs.
-- NOT: single-endpoint addition to an existing module → use `/add-endpoint`.
+- USE (trivial/standard): a new feature that mirrors existing siblings — most cases.
+- USE (heavy, opt-in): a feature that touches multiple layers, introduces a new primitive, or hits the heavy-tier triggers above.
+- NOT: single-endpoint addition that mirrors an existing endpoint → use `/add-endpoint`.
 - NOT: bug fix → use `/fix-bug`.
 - NOT: pure refactor → use `/refactor`.
+
+## Sibling-shape halt (mechanical gate, all tiers)
+
+**Before declaring success / before merge, the auditor compares the new file(s) against ≥2 sibling files in the same module.** This is the same `regressed` mechanism from `parity-auditor.md` (V2-structure conformance) — borrowed, adapted for greenfield adds.
+
+Halt if the new file:
+- **Imports utilities sibling files don't import** (sign of pattern drift — fetched from training data instead of mirrored).
+- **Uses an error type / DI primitive / validation library siblings don't use** (e.g., raw `try/catch` when siblings use a `Result` envelope; raw `axios` when siblings use a typed client; `zod` when siblings use `class-validator`).
+- **Sits at a path that doesn't match the existing module shape** (e.g., `src/foo/handlers/` when siblings live at `src/<module>/controllers/`).
+- **Names exports / classes / files differently from siblings** (PascalCase vs camelCase drift, suffix drift like `*Service` vs `*Manager`).
+
+Halt verdict for each new file: `aligned` (matches ≥2 siblings) | `drifted` (one or more axes diverge) | `no-siblings-found` (escalate to user — first feature in module, get shape blessed).
+
+Any `drifted` → HALT before merge. Either re-shape to match siblings (default closure) or — if the deviation is intentional and load-bearing — write an ADR justifying it and promote the row to heavy tier. Drift without ADR is forbidden.
+
+For trivial-tier ports, this halt is the only gate. No reviewers, no telemetry sign-off — just sibling parity.
+
+---
+
+## Heavy-tier 7-phase ceremony (opt-in)
+
+Everything below applies ONLY when the row is heavy-tier per the table above. Trivial / standard rows skip directly to Phase 4 (Generate), apply siblings-mirror, run the sibling-shape halt, and ship.
 
 ## Phase 1 — Understand (the ask)
 

@@ -6,6 +6,34 @@ description: End-to-end frontend feature — pages + components + state + i18n +
 
 The frontend orchestration command. Delivers a UI feature end-to-end at best-practice quality the FIRST time. Use when a feature touches more than one component or screen.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing pages and components are the truth.** Real users ship against the project's existing surface every day. Every sibling page in the same module — every wrapper, composable, service, permission gate, lifecycle hook, locale-key shape — is the intentional pattern, unless explicitly deprecated.
+
+**The agent's job is exactly this:**
+1. Find a sibling page / component in the same module that does roughly the same thing (CRUD list, detail view, dialog, form).
+2. Mirror its structure: shared wrappers (`<BaseModal>`, `<BaseForm>`, `<FormField>`, `<CrudActions>`, `<CrudPaginator>`), composables (`useCrud`, `useForm`), service layer (`BaseCrudService`), permission gates, lifecycle hooks (`onActivated` for KeepAlive caching), locale-key paths.
+3. Add only the delta the new feature actually needs. Everything else: copy the sibling's shape silently.
+
+**Why.** Every page in a typical Vue/React project is ~80% identical scaffolding. New pages that don't mirror existing siblings produce drift that compounds: 50 pages, 50 micro-divergences, 0 shared affordances. The cost surfaces months later as a refactor budget that nobody can fund.
+
+**The agent ONLY asks the user when:**
+- **No sibling page exists** (truly new shape — first list page, first wizard, first chart panel).
+- **Requirements need a new shared wrapper** that doesn't exist yet (e.g., `<BaseDateRangePicker>` when only `<BaseDatePicker>` exists).
+- **Framework-level decision** (new state library, new router pattern, switch from CSR to SSR).
+
+That's it. Three escalation triggers. Everything else — style, error handling, loading state shape, i18n key naming, focus management, empty-state copy — is silent sibling-mirror. No "do you want option A or B" prompts mid-run. Pick the sibling, mirror it, ship.
+
+**Closure-verb table — feature complexity → ceremony:**
+
+| Tier | Trigger | Ceremony | Default? |
+|---|---|---|---|
+| **Trivial** | New CRUD page that mirrors an existing one | Code only — page + service + types + locale keys (en + ar). Tests + i18n in both locales required. **No plan, no ADR.** | YES |
+| **Standard** | New shape, requires 1 small composable OR 1 new shared wrapper | Trivial + 1-paragraph plan + sibling-shape note inline | NO |
+| **Heavy** | New framework-level pattern, multi-route flow, new shared component family, accessibility-critical surface | Standard + ADR + reviewer dispatch (a11y-auditor at minimum) + visual snapshot tests + the 6-cascading-reviewer pattern below | NO |
+
+**Lightweight default.** Trivial-tier is the default. The full reviewer cascade and the Phase 5 ADR draft only fire at heavy-tier. Asking for an ADR on a sibling-mirror CRUD page is the same anti-pattern as the migration pack's "ADR-as-closure" trap.
+
 ## Phases applied
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
@@ -137,24 +165,36 @@ For each component / page / route in the design:
 7. **Form validation at the schema level** (Zod/Yup/class-validator), not inline.
 8. **Server action / client mutation discipline** — Next.js Server Action with `"use server"` and Zod validation; or client mutation with optimistic update + rollback on error.
 
-After generation, dispatch:
+After generation, dispatch (gated by tier):
 
-- `@ui-reviewer` — convention adherence, layer cleanness, prop types, no business logic in templates.
-- `@accessibility-auditor` — WCAG 2.2 AA across new components.
-- `@i18n-auditor` (if i18n in scope) — every user-facing string keyed; RTL behavior if RTL locale present.
-- `@design-system-guardian` (if design system in scope) — token use vs hardcoded values; primitive use vs hand-rolled.
-- `@<framework>-reviewer` (e.g., `@vue-reviewer`, `@react-reviewer`) — framework idioms.
-- `@security-auditor` (if auth/payment in scope) — XSS, CSRF, secret leak, untrusted HTML.
+- **Trivial-tier (default):** `@ui-reviewer` only — convention adherence, prop types, no business logic in templates. The sibling-shape halt below is the primary gate.
+- **Standard-tier:** add `@i18n-auditor` (if i18n in scope) and `@accessibility-auditor`.
+- **Heavy-tier:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@<framework>-reviewer` (e.g., `@vue-reviewer`, `@react-reviewer`), `@security-auditor` (if auth/payment in scope). Run in parallel.
 
-Run dispatched agents in parallel.
+### Sibling-shape mechanical halt (mandatory, all tiers)
+
+Before declaring success, the auditor compares the new page/component against ≥2 sibling files in the same module. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (introduced a new break on an unrelated axis).
+
+**Halt if any of:**
+
+- Uses raw framework components where Base*-wrappers exist — raw `<Dialog>` instead of `<BaseModal>`, raw `<Paginator>` instead of `<CrudPaginator>`, raw `<Dropdown>` instead of `<BaseDropdown>`, raw `<form>` instead of `<BaseForm>`.
+- Uses `onMounted` instead of `onActivated` on a route page (KeepAlive cache divergence — the sibling page caches across navigation; the new page silently re-mounts).
+- Has i18n keys missing from one locale (`en.ts` ✓, `ar.ts` ✗ — silent break in the alt locale).
+- Doesn't use the project's gold-standard composable (e.g., `useCrud` for list pages, `useForm` for forms).
+- Default-true wrapper props left implicit when affordances should be hidden — removing a `@delete-selected` handler does NOT hide the underlying button; pass `:show-delete="false"` / `:can-delete="false"` explicitly.
+- New file placed outside the module's existing path convention (e.g., `pages/orders/NewOrder.vue` when sibling lives at `views/orders/Form.vue`).
+
+**Hard rule:** `gap_count_in != gap_count_closed` → HALT. Do not advance to Phase 5. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT. Any NEW gap surfaced by the audit → HALT.
+
+This is the same `regressed` mechanism from `parity-auditor.md` § V2-structure conformance. No silent advance.
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
-- `ai/modules.md` — append the new feature's module entry.
-- `ai/patterns/<new-pattern>.md` — IF a new pattern was extracted (≥3 callsites). Otherwise skip.
-- `ai/decisions/<NNNN>-<slug>.md` — IF an architectural choice was made (e.g., picked Server Action over client mutation; chose store over URL state).
-- `ai/status.md` § Recent Changes — one-line entry.
-- `ai/dynamic/changelog.md` — feature shipped entry.
+Gated by tier. Trivial-tier writes only the bare minimum; ADR drafts are heavy-tier opt-in (avoiding the "ADR-as-closure" anti-pattern):
+
+- **Trivial-tier:** `ai/status.md` § Recent Changes — one-line entry. Nothing else.
+- **Standard-tier:** add `ai/modules.md` module entry + 1-paragraph sibling-shape note inline.
+- **Heavy-tier:** add `ai/patterns/<new-pattern>.md` (only if new pattern has ≥3 callsites) + `ai/decisions/<NNNN>-<slug>.md` (only if a framework-level decision was made — new state library, new router pattern, CSR↔SSR switch). `ai/dynamic/changelog.md` entry.
 
 ## Phase 6 — Validate (verify correctness)
 
@@ -217,6 +257,11 @@ Open follow-ups:
 
 ## Hard rules
 
+- **Sibling-mirror is the default closure.** New pages copy the shape of an existing sibling in the same module. Asking the user about cosmetic / wrapper-shape / lifecycle / i18n-key choices when a sibling answers them is a token-waste anti-pattern.
+- **Trivial-tier is the default tier.** ADR / heavy reviewer cascade is opt-in via heavy-tier triggers. Drafting an ADR to legitimize a new CRUD page is forbidden.
+- **Default-true wrapper props are explicit.** Removing handlers without setting `:show-*="false"` / `:can-*="false"` is a default-true bug.
+- **i18n keys land in BOTH locales** (typically `en.ts` + `ar.ts`) at the same path. Missing-locale = silent break.
+- **Match shared wrappers, not raw components.** No raw `<Dialog>` / `<Paginator>` / `<Dropdown>` / `<form>` where `<BaseModal>` / `<CrudPaginator>` / `<BaseDropdown>` / `<BaseForm>` exist.
 - **One styling system.** Pick at Phase 1; never mix.
 - **Every user-facing string is a locale key.** No exceptions, even for "internal" tools.
 - **Every form has schema validation at the boundary** (server action OR API endpoint), not just client-side.
