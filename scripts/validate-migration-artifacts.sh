@@ -137,20 +137,34 @@ log_section() {
 #
 # Feature output format (one per line): "<id>|<feature-slug>|<phase>|<status>|<parity_test>"
 discover_features() {
+  # Parse ledger respecting yaml-block boundaries. A row starts at `id: FNNN[a-z]?`,
+  # ends at the closing ``` fence (or the next id: line). Only accept field-setters
+  # while in_block=1 — prevents cross-block leakage where superseded blocks contribute
+  # `feature:` lines to a previous block.
   awk '
     /^id: F[0-9]+[a-z]?$/ {
-      # finalize previous block if any
       if (id != "") {
         print id "|" feature "|" phase "|" status "|" parity_test "|" tier
       }
       id = $2; feature=""; phase=""; status=""; parity_test=""; tier=""
+      in_block = 1
       next
     }
-    /^feature: / { feature=$2; next }
-    /^phase: /   { phase=$2;   next }
-    /^status: /  { status=$2;  next }
-    /^tier: /    { tier=$2;    next }
-    /^parity_test: / { parity_test=$2; next }
+    /```/ {
+      # Match closing ``` whether on its own line OR appended to text (e.g. "...notes.```").
+      # The yaml-block fence may be inline-terminated.
+      if (in_block) {
+        print id "|" feature "|" phase "|" status "|" parity_test "|" tier
+        id=""; feature=""; phase=""; status=""; parity_test=""; tier=""
+        in_block = 0
+      }
+      next
+    }
+    in_block && /^feature: / { feature=$2; next }
+    in_block && /^phase: /   { phase=$2;   next }
+    in_block && /^status: /  { status=$2;  next }
+    in_block && /^tier: /    { tier=$2;    next }
+    in_block && /^parity_test: / { parity_test=$2; next }
     END {
       if (id != "") {
         print id "|" feature "|" phase "|" status "|" parity_test "|" tier
@@ -809,8 +823,11 @@ check_intentional_break_adr() {
   # Verify each ADR exists
   local missing_adrs=()
   for adr in $adr_refs; do
-    local adr_file
-    adr_file=$(find ai/decisions -maxdepth 2 -type f -name "${adr}-*.md" 2>/dev/null | head -1)
+    local adr_file adr_num
+    # Strip "ADR-" prefix to get the bare number (e.g. ADR-002 → 002).
+    # ADR files are typically named NNN-<slug>.md (no ADR- prefix in filename).
+    adr_num="${adr#ADR-}"
+    adr_file=$(find ai/decisions -maxdepth 2 -type f \( -name "${adr}-*.md" -o -name "${adr_num}-*.md" \) 2>/dev/null | head -1)
     if [[ -z "$adr_file" ]]; then missing_adrs+=("$adr"); fi
   done
   if [[ ${#missing_adrs[@]} -gt 0 ]]; then
