@@ -19,6 +19,8 @@ imported-by: templates/phases/phase-4-apply.md, phase-4.2-apply.md
 >
 > Until then: every PR / agent / change touching __SCOPE__ (PII / payments / clinical data / etc.)
 > MUST be reviewed against this regime by a human with regime expertise.
+>
+> **Validator:** TODO — currently self-policed by human reviewer; future validator at `scripts/lint-regime-review.sh § review_attestation` (asserts each PR touching __SCOPE__ carries a regime-review sign-off trailer).
 ```
 
 `append_research_stub`'s contract: replace every occurrence of `__REGIME__` with the regime name and `__SCOPE__` with the relevant data scope before writing. After substitution the rendered section MUST contain zero `__…__` and zero `<…>` tokens — Phase 5.3.5 leak scan asserts this.
@@ -29,25 +31,9 @@ imported-by: templates/phases/phase-4-apply.md, phase-4.2-apply.md
 
 **4.6 Adapt output to detected conventions** — this is what makes the setup actually MATCH the project's style instead of overwriting it with generic prose.
 
-**Execution model — runs via the `apply-pack-adaptation` skill**:
+**Execution model — delegated to `apply-pack-adaptation` skill**:
 
-Phase 4.6's per-file STUDY → DECIDE → ACT loop runs through the **`apply-pack-adaptation`** skill (lives at `~/.claude/templates/packs/learning/skills/apply-pack-adaptation.md`). The skill consumes:
-
-- `.claude/_extracted-codebase.md` (Phase 2 deep extraction)
-- `.claude/_extracted-idioms.md` (Phase 2.5 per-base-class idioms)
-- `.claude/_extracted-business.md` (Phase 2 Step 13 business context)
-- `.claude/codebase-profile.md` (condensed projection)
-- `ai/conventions.md`, `ai/business-domain.md`, `ai/_decision-index.md`, `ai/failures/_index.md` (where they exist)
-- The pack-added file list (every file written by Phase 4.2 / 4.4 / 4.4b in this run)
-- Mode (CREATE / ENHANCE-retrofit / ENHANCE-extend / REFRESH)
-
-The skill produces:
-- The **adapted files** (anchor block prepended, redirect note prepended, or file deleted) — in-place edits to pack-added files.
-- **`.claude/_phase-4-6-decisions.md`** — decision log (one row per pack-added file: file, decision, reason, identifiers cited). Phase 5.3 audit consumes this to verify the skill ran for every file and produced quality output (anchor presence + body density + identifier traceability + no placeholder syntax).
-
-**Why a skill, not inline**: setup-project.md is ~4000 lines. Under context pressure, the LLM running it has historically skipped Phase 4.6 — the failure mode Critical Execution Rule 7 exists to prevent. The skill runs in a sub-context with focused inputs and the per-file judgment contract. This mirrors the Phase 2 pattern (extract-codebase-overview skill) — proven architectural separation.
-
-**The contract below describes the skill's outputs and what setup-project depends on**; the canonical implementation (per-file STUDY-DECIDE-ACT loop, anchor template shapes, special cases for engineering-principles.md section filtering, workflow files, extraction-weak handling) lives in the skill file. When this section talks about *what gets adapted*, that's the contract; when it shows an *anchor shape*, that's a snapshot — the skill is the source of truth.
+Per-file adaptation (STUDY-DECIDE-ACT loop, anchor templates, tie-breaking, extraction-weak handling, special cases for engineering-principles / workflow files) is delegated to `templates/packs/learning/skills/apply-pack-adaptation.md`. Phase 5.3 audits the skill's output (`.claude/_phase-4-6-decisions.md` + adapted files) for anchor presence, body density, identifier traceability, and absence of placeholder syntax. **Do NOT inline the skill's procedure here — that's the source of truth.** This section only documents the contract: what the skill consumes (extraction artifacts + pack file list + mode), what it produces (adapted files + decision log), and what setup-project depends on downstream.
 
 **Auto-injected blocks (every agent — these are setup-project responsibilities, NOT skill-internal)**:
 
@@ -155,9 +141,14 @@ The skill's anchor templates are the canonical shapes. Phase 5.3 audits anchor q
 - CREATE: generate `CLAUDE.md`, `ai/architecture.md`, `ai/stack.md`, `ai/modules.md`, `ai/status.md`, `ai/conventions.md` (see special handling below), `ai/patterns/project-structure.md` + 1-3 project-critical patterns, `ai/runbooks/phase-1-mvp-plan.md` (DOMAIN-FLAVORED — if ecommerce, the MVP plan covers cart→checkout→pay; if lms, course-creation→enrollment→first-lesson), 2-4 ADRs. All concrete content, no placeholders.
 - CREATE knowledge base must also reference the business domain in `CLAUDE.md` opener: "This is a `<domain>` product. Read `ai/business-domain.md` for entities + canonical flows."
 - ENHANCE: leave user-authored `ai/` files untouched. Only prepend a dated `Recent Changes` entry to `ai/status.md`. Add new files (ADRs, patterns, business-domain content) ONLY if a new concept emerged; never rewrite existing.
-- ENHANCE that detects a business domain MUST populate `ai/business-domain.md` + `ai/core/glossary.md` if absent — these are foundational and shouldn't be missing in a profiled project.
+
+**Tiered context loading (NOT mandatory pre-Phase-4 deliverables):** the 6 foundational files (`CLAUDE.md`, `ai/conventions.md`, `ai/business-domain.md`, `ai/core/glossary.md`, `ai/project-goals.md`, `ai/users-and-personas.md`) are **Tier 1 context** — loaded on demand by agents that need them. They are NOT a doc-before-code gate that blocks Phase 4 from emitting code-touching output. CREATE-mode commands (which establish these from scratch) DO populate them in Phase 5 (Update). ENHANCE / REFRESH commands consult them when present and skip recreation when absent — they don't backfill foundational docs as a side effect.
+**Validator:** Phase 5.3 verifies, per mode: CREATE → all 6 present + populated; ENHANCE/REFRESH → no recreation of user-authored versions, only `Recent Changes` append where applicable.
 
 **`ai/conventions.md` MUST be auto-populated from the codebase profile** (not generic). Generic conventions ("use camelCase") are useless. The file content is built from Phase 2 detection results — every value below is a placeholder filled at write time from `.claude/_extracted-codebase.md`. The LLM authoring this file MUST NOT carry concrete class names / paths / library names from any other project's run.
+
+**Validator (auto-populate):** Phase 5.3 confirms each MUST-populate file (`ai/conventions.md`, `ai/business-domain.md`, `ai/core/glossary.md` when applicable) exists and has non-stub content (line count ≥ minimum + zero `_TBD_` / `_UNKNOWN_` markers in required sections).
+**Validator (no leak):** Phase 5.3.5 leak-scan asserts zero `__…__` and `<…>` placeholder tokens after render, and cross-checks every cited identifier against `.claude/_extracted-codebase.md` (see `scripts/lint-decision-logs.sh § leak_scan`).
 
 ```markdown
 # Project conventions

@@ -12,6 +12,8 @@ imported-by: templates/phases/phase-4-apply.md
 
 ### Phase 4.8-DEEP — Re-sync tool adapters with deepened artifacts (REFINE mode only)
 
+**Mode constraint**: Phase 4.8-DEEP runs ONLY in REFINE mode. CREATE/ENHANCE/REFRESH use the regular Phase 4.8 (see `phase-4-templates.md`). REFINE adds this deep-sync pass to keep tool adapters in sync with re-deepened `.claude/` artifacts.
+
 **Trigger**: REFINE mode (`--refine`), after Phase 4.7-DEEP completes. Skipped in CREATE / ENHANCE / REFRESH (those modes run regular Phase 4.8 as part of the standard pipeline, which writes every adapter from scratch).
 
 **Why this exists**: Phase 4.6-DEEP rewrites `## Project-specific` blocks of `.claude/{rules,commands,agents,skills}/*.md`; Phase 4.7-DEEP rewrites markered regions of `ai/*.md` and may write new `ai/failures/<theme>.md`. **The `claude-code` adapter is auto-current** — it reads `.claude/` directly. **Every other selected adapter is NOT** — they embed compact translations of those artifacts (`.cursor/rules/<name>.mdc` body inlined from `.claude/rules/<name>.md`; `opencode.json` `commands` block embedding command prompts; `AGENTS.md` § "Named procedures" listing every skill; `CONVENTIONS.md` embedding must/must-not from `ai/_convention-cheatsheet.md`; `.continue/rules/`, `.clinerules/`, `.windsurf/rules/`, `.github/instructions/`, `.github/prompts/`, `GEMINI.md` — all stale after REFINE). Without 4.8-DEEP, REFINE produces the failure mode "Claude got smarter, Cursor still talks generic prose." This phase closes the gap.
@@ -59,7 +61,7 @@ imported-by: templates/phases/phase-4-apply.md
 
 7. **Phase 5 verification still runs**: after 4.8-DEEP, regular Phase 5's per-adapter coverage check (Phase 4.8.0 contract — every command listed, every rule translated, etc.) executes. If REFINE created a new command via NEW-FILE and 4.8-DEEP missed it, Phase 5 catches the shortfall and triggers the standard retry loop.
 
-**Coverage target**: every artifact in the 4.6-DEEP / 4.7-DEEP affected list MUST have a `_phase-4-8-decisions.md` row for every selected adapter (or claude-code's NO-OP / gemini's thin-pointer NO-OP). No silent skips.
+**Coverage target**: every artifact in the 4.6-DEEP / 4.7-DEEP affected list MUST have a `_phase-4-8-decisions.md` row for every selected adapter (or claude-code's NO-OP / gemini's thin-pointer NO-OP). **No silent skips** — every (adapter, artifact) tuple is logged in `_phase-4-8-decisions.md` for Phase 5 audit. Phase 5.3 cross-checks affected-list against decision-log rows; gaps surface as halt findings. (Until that cross-check is wired, this is partly self-policed; see TODO in scripts/lint-decision-logs.sh.)
 
 **Why this is a phase, not a sub-step of 4.8**: regular Phase 4.8 writes every adapter file from the full artifact set; 4.8-DEEP writes only the affected slice (much faster on a 50-rule project where REFINE only rewrote 8 rules). Splitting them keeps the round-one path cheap and makes round-two cost-bounded.
 
@@ -114,95 +116,7 @@ To prevent this, each adapter has a **minimum-output contract**. Phase 5 verifie
 
 #### Coverage check (Phase 5 verifies, retries on shortfall)
 
-For each selected adapter, verify the contracted outputs exist + have content:
-
-```bash
-case <adapter> in
-  opencode)
-    [ ! -f opencode.json ] && SHORTFALL=1
-    cmds_native=$(ls .opencode/commands/*.md 2>/dev/null | wc -l)
-    cmds_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
-    [ "$cmds_native" -lt "$cmds_expected" ] && SHORTFALL=1 && echo "OpenCode .opencode/commands/: $cmds_native/$cmds_expected"
-    agents_native=$(ls .opencode/agents/*.md 2>/dev/null | wc -l)
-    agents_expected=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
-    [ "$agents_native" -lt "$agents_expected" ] && SHORTFALL=1 && echo "OpenCode .opencode/agents/: $agents_native/$agents_expected"
-    skills_native=$(ls -d .opencode/skills/*/ 2>/dev/null | wc -l)
-    skills_expected=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l)
-    [ "$skills_native" -lt "$skills_expected" ] && SHORTFALL=1 && echo "OpenCode .opencode/skills/: $skills_native/$skills_expected"
-    grep -q "^## Invokable commands" AGENTS.md || { SHORTFALL=1; echo "AGENTS.md missing 'Invokable commands' section"; }
-    grep -q "^## Named personas" AGENTS.md || { SHORTFALL=1; echo "AGENTS.md missing 'Named personas' section"; }
-    ;;
-  cursor)
-    cmd_native=$(ls .cursor/commands/*.md 2>/dev/null | grep -v '^.cursor/commands/agent-' | wc -l)
-    cmd_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
-    [ "$cmd_native" -lt "$cmd_expected" ] && SHORTFALL=1 && echo "Cursor .cursor/commands/: $cmd_native/$cmd_expected"
-    agent_native=$(ls .cursor/commands/agent-*.md 2>/dev/null | wc -l)
-    agent_expected=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
-    [ "$agent_native" -lt "$agent_expected" ] && SHORTFALL=1 && echo "Cursor agent commands: $agent_native/$agent_expected"
-    skill_native=$(ls -d .cursor/skills/*/ 2>/dev/null | wc -l)
-    skill_expected=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l)
-    [ "$skill_native" -lt "$skill_expected" ] && SHORTFALL=1 && echo "Cursor .cursor/skills/: $skill_native/$skill_expected"
-    if ls .claude/hooks/*.sh >/dev/null 2>&1; then
-      [ ! -f .cursor/hooks.json ] && SHORTFALL=1 && echo "Cursor: .cursor/hooks.json missing despite .claude/hooks/ being present"
-    fi
-    ;;
-  copilot)
-    prompt_native=$(ls .github/prompts/*.prompt.md 2>/dev/null | wc -l)
-    cmd_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
-    [ "$prompt_native" -lt "$cmd_expected" ] && SHORTFALL=1 && echo "Copilot .github/prompts/: $prompt_native/$cmd_expected"
-    agent_native=$(ls .github/agents/*.agent.md 2>/dev/null | wc -l)
-    agent_expected=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
-    [ "$agent_native" -lt "$agent_expected" ] && SHORTFALL=1 && echo "Copilot .github/agents/: $agent_native/$agent_expected"
-    skill_native=$(ls -d .github/skills/*/ 2>/dev/null | wc -l)
-    skill_expected=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l)
-    [ "$skill_native" -lt "$skill_expected" ] && SHORTFALL=1 && echo "Copilot .github/skills/: $skill_native/$skill_expected"
-    ;;
-  continue)
-    [ ! -f .continue/config.yaml ] && SHORTFALL=1 && echo "Continue: missing config.yaml"
-    [ ! -f .continueignore ] && SHORTFALL=1 && echo "Continue: missing .continueignore"
-    rule_files=$(ls .continue/rules/*.md 2>/dev/null | wc -l)
-    rule_expected=$(ls .claude/rules/*.md 2>/dev/null | wc -l)
-    [ "$rule_files" -lt "$rule_expected" ] && SHORTFALL=1 && echo "Continue rules: $rule_files/$rule_expected"
-    prompt_native=$(ls .continue/prompts/*.md 2>/dev/null | wc -l)
-    prompt_expected=$(($(ls .claude/commands/*.md 2>/dev/null | wc -l) + $(ls .claude/agents/*.md 2>/dev/null | wc -l) + $(ls -d .claude/skills/*/ 2>/dev/null | wc -l)))
-    [ "$prompt_native" -lt "$prompt_expected" ] && SHORTFALL=1 && echo "Continue .continue/prompts/: $prompt_native/$prompt_expected"
-    ;;
-  cline)
-    [ ! -f .clinerules/00-project.md ] && SHORTFALL=1
-    rule_files=$(ls .clinerules/[1-7][0-9]-*.md 2>/dev/null | wc -l)
-    rule_expected=$(ls .claude/rules/*.md 2>/dev/null | wc -l)
-    [ "$rule_files" -lt "$rule_expected" ] && SHORTFALL=1 && echo "Cline per-rule files: $rule_files/$rule_expected"
-    workflow_native=$(ls .clinerules/workflows/*.md 2>/dev/null | wc -l)
-    cmd_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
-    [ "$workflow_native" -lt "$cmd_expected" ] && SHORTFALL=1 && echo "Cline .clinerules/workflows/: $workflow_native/$cmd_expected"
-    [ ! -f .clinerules/81-agents.md ]  && SHORTFALL=1
-    [ ! -f .clinerules/82-skills.md ]  && SHORTFALL=1
-    ;;
-  aider)
-    [ ! -f .aider.conf.yml ] && SHORTFALL=1
-    [ ! -f CONVENTIONS.md ]  && SHORTFALL=1
-    [ ! -f .aiderignore ]    && SHORTFALL=1
-    grep -q "^read:" .aider.conf.yml || SHORTFALL=1
-    ;;
-  windsurf)
-    [ ! -f .windsurf/rules/00-project.md ] && SHORTFALL=1
-    rule_files=$(ls .windsurf/rules/[1-7][0-9]-*.md 2>/dev/null | wc -l)
-    rule_expected=$(ls .claude/rules/*.md 2>/dev/null | wc -l)
-    [ "$rule_files" -lt "$rule_expected" ] && SHORTFALL=1
-    workflow_native=$(ls .windsurf/workflows/*.md 2>/dev/null | wc -l)
-    cmd_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
-    [ "$workflow_native" -lt "$cmd_expected" ] && SHORTFALL=1 && echo "Windsurf .windsurf/workflows/: $workflow_native/$cmd_expected"
-    ;;
-  codex)
-    [ ! -f AGENTS.md ] && SHORTFALL=1
-    grep -q "^## Architecture" AGENTS.md || SHORTFALL=1
-    grep -q "^## Conventions" AGENTS.md  || SHORTFALL=1
-    ;;
-  gemini)
-    [ ! -f GEMINI.md ] && SHORTFALL=1
-    ;;
-esac
-```
+Phase 5 verifies coverage using the contract defined in `scripts/audit-adapter-coverage.sh` (same logic as Phase 4.8.0 contract above; the script is the source of truth — do not duplicate the check here).
 
 If shortfall detected: re-run that adapter's translation (Phase 5 retry loop). If retry also fails: halt with explicit error.
 

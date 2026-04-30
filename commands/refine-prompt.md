@@ -1,5 +1,5 @@
 ---
-description: Take a rough idea / prompt / one-liner and produce a deep, structured spec ready to feed `/scaffold-project` or to share with stakeholders. Multi-pass with confirmation gates.
+description: Take a rough idea / prompt / one-liner and produce a deep, structured spec ready to feed `/scaffold-project` or to share with stakeholders. Single-cycle draft with one final confirmation gate.
 ---
 
 # /refine-prompt "<idea>"
@@ -24,17 +24,15 @@ This command is **stack-agnostic by design**. Phase 4 outputs a domain spec; tec
 
 ## Phases applied
 
-All 7, with **two confirmation gates**:
+All 7, with **one final confirmation gate**:
 
 1. Phase 1 — Understand
 2. Phase 2 — Organize
 3. Phase 3 — Retrieve
-4. **Phase 4a — Outline (then PAUSE for user confirmation)**
-5. **Phase 4b — Deep refine (then PAUSE for user confirmation)**
-6. Phase 4c — Open questions sweep
-7. Phase 5 — Update / save
-8. Phase 6 — Validate
-9. Phase 7 — Improve
+4. **Phase 4 — Draft + refine + sweep (single cycle, internal iteration, ends with one user gate: "Ready to scaffold?")**
+5. Phase 5 — Update / save
+6. Phase 6 — Validate
+7. Phase 7 — Improve
 
 ## Phase 1 — Understand
 
@@ -70,9 +68,13 @@ Read for context:
 
 Skip if running in an empty directory — these are graceful-fallback reads.
 
-## Phase 4a — Outline (then PAUSE)
+## Phase 4 — Draft + refine + sweep (single cycle)
 
-First pass — wide and shallow. Output the OUTLINE only, not the full spec:
+Run outline → deep refine → open-questions sweep as one internal cycle. No inter-stage user pause; iterate silently until the spec is fully drafted, then surface ONE final gate.
+
+**Section depth proportional to input weight.** If Phase 2's refinement-weight scoring is `light` (one-line idea, hobby project, prototype), the spec includes only sections 1-8 (goal, users, features, stack-agnostic scope, anti-goals, inspirations, open questions, scaffolding plan / deferred decisions). Sections 9-17 (data model, permissions, non-functional, ops, multi-tenancy, etc.) ship only when refinement-weight is `medium` or `heavy`. Avoid 17-section spec bloat for trivial inputs.
+
+First pass — wide and shallow. Draft the OUTLINE:
 
 ```markdown
 # Refined idea — <slug>
@@ -110,18 +112,9 @@ First pass — wide and shallow. Output the OUTLINE only, not the full spec:
 ...
 ```
 
-Save the OUTLINE draft to `ai/ideas/<YYYYMMDD>-<slug>.md`. Print it. **STOP.** Tell the user:
+Save the OUTLINE draft to `ai/ideas/<YYYYMMDD>-<slug>.md` (no user pause here — proceed directly to deep refine if weight is medium/heavy; if weight is light, skip directly to the open-questions sweep).
 
-> Review the outline. Reply with:
->   - "looks good" → continue to Phase 4b (deep refine).
->   - "fix X / change Y / add Z" → I'll revise and re-show.
->   - "stop" → spec stays at outline level.
-
-Wait. Do NOT proceed to Phase 4b without explicit go-ahead OR `--no-prompt`.
-
-## Phase 4b — Deep refine (then PAUSE)
-
-Second pass — narrow and deep. APPEND to the same file:
+Second pass (medium/heavy weight only) — narrow and deep. APPEND to the same file:
 
 ```markdown
 ## 9. User flows (top 3)
@@ -163,18 +156,9 @@ Second pass — narrow and deep. APPEND to the same file:
 - Secondary: <metric>, <metric>.
 ```
 
-Save. Print. **STOP again.** Tell the user:
+Save. Continue directly to the open-questions sweep — no user pause.
 
-> Deep refine complete. Reply with:
->   - "ship it" → finalize, move to Phase 4c (open questions sweep).
->   - "fix X" → I'll revise.
->   - "stop" → save as-is.
-
-Wait. Do NOT proceed without confirmation OR `--no-prompt`.
-
-## Phase 4c — Open questions sweep
-
-Re-read sections 4-13 from a *contrarian* angle. For each section:
+Third pass — open-questions sweep. Re-read sections 4-13 (or 4-7 for light weight) from a *contrarian* angle. For each section:
 - What's missing?
 - What contradicts another section?
 - What's a "yes" that should be a "maybe"?
@@ -198,6 +182,13 @@ APPEND to the file:
 
 Section 17 is intentional — `/scaffold-project` reads it and knows what's settled vs. what's still up for negotiation.
 
+**Final user gate.** Print the full spec and ask: "Ready to scaffold?" Reply with:
+  - "yes" / "ship it" → continue to Phase 5.
+  - "fix X / revise Y" → re-enter Phase 4 internal iteration; do NOT re-pause until next "Ready to scaffold?".
+  - "stop" → save as-is, skip Phase 5.
+
+Wait for confirmation OR auto-confirm if `--no-prompt` flag passed. This is the only Phase 4 user pause.
+
 ## Phase 5 — Update
 
 - File saved at `ai/ideas/<YYYYMMDD>-<slug>.md` throughout phases.
@@ -206,16 +197,18 @@ Section 17 is intentional — `/scaffold-project` reads it and knows what's sett
 
 ## Phase 6 — Validate
 
-Refuse to declare success unless:
-- Sections 1-17 are present.
-- Section 4 (jobs-to-be-done) has ≥5 entries.
-- Section 6 (anti-goals) is non-empty (forces explicit boundary).
-- Section 8 + 16 (open questions) total ≥5 (forces honesty about unknowns).
-- Section 13 (risks) has ≥3 entries each with mitigation filled.
-- Every persona in section 3 is referenced by at least one job in section 4.
-- No section is left as `<TBD>` or `<placeholder>`.
+Report any section under its target threshold; **flag, do NOT block**. The user accepts the light spec or asks for an extension pass.
 
-If any check fails: print which one + what's missing, and re-enter Phase 4 to fix. Don't ship a half-spec.
+Targets (scaled to refinement-weight from Phase 2):
+- Sections present: 1-8 for `light`; 1-17 for `medium`/`heavy`.
+- Section 4 (jobs-to-be-done) target ≥5 entries.
+- Section 6 (anti-goals) non-empty (forces explicit boundary).
+- Section 8 + 16 (open questions) target ≥5 (forces honesty about unknowns).
+- Section 13 (risks) target ≥3 entries each with mitigation filled (medium/heavy only).
+- Every persona in section 3 referenced by at least one job in section 4.
+- No section left as `<TBD>` or `<placeholder>`.
+
+For each unmet target, print a flag line such as: `3 risks listed; target 5 — light spec acceptable for a hobby project, flag for re-pass on enterprise scope`. Phase 6 does NOT refuse to ship. The user decides: accept as-is, or re-enter Phase 4 to extend.
 
 ## Phase 7 — Improve
 
@@ -237,11 +230,9 @@ If any check fails: print which one + what's missing, and re-enter Phase 4 to fi
 Phase 1 (Understand): "you want a <domain> for <audience> at <scale>" — confirmed
 Phase 2 (Organize): refinement weight = <class> (B2C / B2B SaaS / internal tool / solo / marketplace / real-time)
 Phase 3 (Retrieved): N prior ideas scanned for overlap; M ADRs reviewed (if applicable)
-Phase 4a (Outline): saved to ai/ideas/<date>-<slug>.md — gate 1 confirmed
-Phase 4b (Deep refine): sections 9-15 appended — gate 2 confirmed
-Phase 4c (Open questions sweep): N questions surfaced; M deferred to /scaffold-project
+Phase 4 (Draft + refine + sweep): outline + deep refine + open-questions sweep completed in single cycle; sections scaled to refinement-weight; final "Ready to scaffold?" gate confirmed
 Phase 5 (Updated): spec file saved; changelog + status.md updated (if applicable)
-Phase 6 (Validated): all 17 sections present; ≥5 jobs / ≥3 risks / ≥5 open questions
+Phase 6 (Validated): N sections present (light=1-8 / full=1-17); thresholds reported and flagged where under target — user accepted
 Phase 7 (Improved): next-command suggested; similar prior ideas flagged
 
 Status: COMPLETE — ready to feed /scaffold-project
@@ -251,22 +242,22 @@ File: ai/ideas/<date>-<slug>.md (~<line count> lines)
 ## Failure modes
 
 - **"Just make it work" / "you decide everything"** — incomplete brief; refine pushes back instead of inventing. Open questions section is the safety net.
-- **One-pass without confirmation gates** → wrong direction; user catches divergence too late. The two PAUSES are non-negotiable.
-- **Sections fabricated to look complete** → fictional spec. Validation refuses if `<TBD>` markers remain.
+- **One-pass without the final gate** → wrong direction; user catches divergence too late. The single "Ready to scaffold?" pause is non-negotiable.
+- **Sections fabricated to look complete** → fictional spec. Validation flags `<TBD>` markers; user decides whether to extend.
 - **All risks tagged "low likelihood, low impact"** → risk theater. Force at least one risk in each impact tier.
 - **Persona section names roles but skips pains** → useless personas. Validation requires pain text per persona.
-- **Anti-goals (section 6) empty** → guaranteed scope creep. Refuse to ship without it.
+- **Anti-goals (section 6) empty** → guaranteed scope creep. Flag prominently; user decides.
 - **Inspirations vague ("like Twitter but better")** → not actionable. Force specifics: which feature of which product, and how the new idea differs.
 
 ## Hard rules
 
-- **Two confirmation gates between Phase 4a and 4b, and between 4b and 4c.** Skipping either produces a spec that drifts from the user's intent. `--no-prompt` is the only way to skip; that flag is logged.
+- **One final confirmation gate at the end of Phase 4 ("Ready to scaffold?").** Outline / deep refine / open-questions sweep iterate internally without inter-stage user pauses. `--no-prompt` is the only way to skip the final gate; that flag is logged.
 - **Adversarial questioning, not stenography.** If the user says something contradictory, surface the contradiction; don't smooth it over.
 - **Open questions are mandatory.** A "complete" refined idea has ≥5 unknowns, not zero.
 - **No technical decisions.** Stack / architecture / hosting choices belong in `/scaffold-project`. Refining a spec that pre-commits the stack constrains design unnecessarily.
 - **No fabricated personas.** Every persona section must trace to a Phase 1 audience signal or an explicit user mention.
 - **Implementation-free language.** "User saves a draft" not "POST /api/drafts." This is a domain spec.
-- **Fail loudly on missing sections.** Phase 6 refuses success on any `<TBD>`. The agent must finish or stop, not fudge.
+- **Flag loudly on missing sections.** Phase 6 reports any `<TBD>` or under-target threshold; the user decides whether to accept the light spec or re-enter Phase 4. Reporting is mandatory; blocking is not.
 
 ## Related
 

@@ -6,7 +6,29 @@ pack: migration
 
 # /find-and-fix <feature>
 
-The simple loop. **Code edits are the deliverable; docs only when they enable a code change.** Replaces the 6-phase ceremony for routine ports — most rows in the ledger are trivial-tier and ship via this command.
+## The Premise (read this first, internalize, do not deviate)
+
+**V1 is production. V1 is correct.** Real users use V1 every day. Every behavior in V1 — every button, field, locale key, validation, ordering, permission gate, query param, status code — is the intentional truth, unless V1 has a documented bug (rare).
+
+**The agent's job is exactly this:**
+1. Find what V1 has that V2 doesn't have, OR what V2 has differently.
+2. Port V1's behavior to V2 — using **V2's structure** (V2's modules, primitives, wrappers, naming, layer boundaries). Never copy V1's shape.
+3. Remove what V2 has that V1 doesn't have (V2-only buttons / routes / fields). V1 wins.
+
+**The agent does NOT:**
+- Ask the user to validate whether V1's behavior is correct. **V1 IS the validation.**
+- Ask the user about cosmetic deviations (empty cell text, swatch vs picker, locale-key drift, padding, ordering). **V1 wins. Edit V2.**
+- Surface "do you want option A, B, or C" prompts mid-run. **V1 wins. Edit V2.**
+- Draft an ADR to legitimize V2's deviation. **V1 wins. Edit V2.**
+
+**The agent ONLY asks the user when:**
+- The fix needs another repo (cross-repo blocker — genuinely cannot proceed without external confirmation).
+- V1 has a known security/privacy/legal regression (V2's deviation is the auth-correct side; rare).
+- V1 source is genuinely ambiguous (file missing, no caller, contradictory signals).
+
+That's it. Three escalation triggers. Everything else is silent V1-parity edits, batched into one end-of-run summary.
+
+**The simple loop.** Code edits are the deliverable; docs only when they enable a code change. Replaces the 6-phase ceremony for routine ports — most rows in the ledger are trivial-tier and ship via this command.
 
 ## When to use
 

@@ -13,6 +13,8 @@ sub-phases:
 note: Phase 2.6 appears textually before Phase 2 in this file because it is conceptually a gate ON Phase 2 output. This will be re-ordered in M3.
 ---
 
+**Stage-gate concession (extraction artifacts ≠ deliverables)**: The four deep-extraction files this phase can produce (`_extracted-codebase.md`, `_extracted-idioms.md`, `_extracted-business.md`, `_refine-extract.md`) are **CONTEXT for later phases, not user-facing deliverables**. They exist to make Phase 4 generation cheaper and more project-specific. With `--lightweight`, only `codebase-profile.md` is required; the other three are skipped, and Phase 4 reads source directly when it needs deeper detail.
+
 ### Phase 2.6 — Profile-informed coverage gap check (ENHANCE + REFRESH modes)
 
 **Critical for ENHANCE-extend** — prevents the failure mode where the command sees `.claude/` exists, runs delta-against-prompt, finds "no new prompt = no work," and concludes "idempotent" while the existing setup is missing 50+ files.
@@ -43,6 +45,8 @@ For each LOAD-BEARING / ALWAYS-ON track, compare existing artifact counts agains
 NOT-APPLICABLE tracks are skipped entirely — no gap, no shortfall, no retry. They never appear in the report's gap list (they appear in a separate `not-applicable` section so the user can see what was filtered and why).
 
 The check is otherwise identical:
+
+> **Note**: the `<preview-selected-tracks>` and `<from minimums table>` placeholders below resolve at runtime — `preview-selected-tracks` = the list produced by 2.6.a (LOAD-BEARING ∪ ALWAYS-ON track names), and `from minimums table` = the per-track floor lookup defined in Phase 4.0. TODO: define a stable preview/report shape in `templates/schemas/coverage-gap.schema.json` so 2.6.b inputs and 2.6.c outputs are validated end-to-end (file does not yet exist — do not fabricate).
 
 ```bash
 for track in <preview-selected-tracks>; do
@@ -249,7 +253,11 @@ Generic pack templates produce generic output. To author project-specific patter
 
 **Why this exists**: without it, Phase 4 has nothing project-specific to say. Pack templates carry generic prose; injection of file paths in Phase 4.6 helps but doesn't fix the core gap (the body still reads as generic). Phase 2.5 + Phase 4.2-AUTHOR together flip the model: **packs become topic checklists; the codebase becomes the source of content.**
 
-### Phase 2.7–2.12 — Cost cap (shared across deep-extraction phases)
+### Phase 2.7–2.12 — Lightweight gate + cost cap (shared across deep-extraction phases)
+
+**Lightweight gate**: Phases 2.7–2.12 run ONLY when (a) mode = REFINE AND (b) `--lightweight` flag is NOT set. With `--lightweight`, Phase 2.5 caps at 3 base classes (sample, don't walk all). Output: condensed `.claude/codebase-profile.md` only. Skip the three deep-extraction files (`_extracted-idioms.md`, `_extracted-business.md` deep portion, `_refine-extract.md`) — Phase 4.6/4.7 are also skipped per `phase-1-detect-mode.md`.
+
+
 
 All six deep-extraction phases (2.7–2.12) AND Phase 4.6-DEEP AND Phase 4.8-DEEP fan out subagents — one per business-domain (2.7), one per surface (2.8), one per flow (2.9), one per convention sweep (2.10), one per hot-path candidate (2.11), one per recurring theme (2.12), one per shallow artifact (4.6-DEEP), one per (adapter × affected-artifact) tuple (4.8-DEEP). On a large codebase the total fan-out is unbounded by default.
 

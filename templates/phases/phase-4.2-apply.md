@@ -22,7 +22,7 @@ For each track in AUTHOR mode:
 1. **Read the topic spec** at `~/.claude/templates/packs/<track>/_topics.md`. It lists the patterns/agents/rules every project in this discipline must cover, each as a topic spec (required sections + extraction recipes — NOT as a finished file body).
 2. **For each topic** in the spec:
    - Look up the relevant section(s) in `.claude/_extracted-idioms.md` (e.g., topic `data-access` consumes the idiom block for the project's repository base class).
-   - If extraction has signal → invoke `extract-base-class-idiom`'s Step 6 author flow OR a topic-specific authoring flow per `_topics.md`. Output is project-voice content citing real paths, real extenders, real pitfalls.
+   - If extraction has signal → invoke the authoring flow as follows: **if pack has `_topics.md`, the agent MUST locate the topic-specific authoring section by topic-slug match against the pack's track. If no match, fall back to `extract-base-class-idiom § Step 6`.** Pre-flight: verify the topic slug resolves before Phase 4.2 begins; halt if it doesn't. Output is project-voice content citing real paths, real extenders, real pitfalls.
    - If extraction has NO signal for this topic → if `~/.claude/templates/packs/<track>/_examples/<topic>.md` exists, copy it as fallback; else copy the closest template from that pack's `agents/`, `skills/`, or `ai-patterns/` OR emit a sectioned stub from `_topics.md` for that topic. Mark with `<!-- TODO: re-author from extraction once base class exists -->` when using fallback so future runs upgrade it.
 3. **In ENHANCE/REFRESH mode**, before writing, READ any existing `ai/patterns/<topic>.md` in the project and mirror its section order + voice (Step 5.5 of the skill). Authored content goes inside the existing skeleton; new sections (e.g., "Pitfalls" if missing) appended at the end.
 4. **Always cite evidence** — every method, path, line number, extender count, deprecation warning in the output must trace to a real file the extractor read. No invention.
@@ -276,6 +276,8 @@ echo "  patterns:  $(ls ai/patterns/*.md 2>/dev/null | wc -l)"
 
 Compare to pre-flight inventory expected counts. If shortfall: re-run that track's copy commands (Phase 5 retry loop catches systematic failures).
 
+**Phase 4.2 mechanical halt**: After all tracks complete, count files written per track. If any track yielded fewer than 1 file per category expected (agents/commands/rules/patterns), HALT. Do NOT advance to Phase 4.3 — Phase 5 retry is for systematic failures, NOT for missing-artifact escapes from this phase.
+
 ### Merge handling (when files already exist in target)
 
 If a destination file already exists (`.claude/agents/code-reviewer.md` already there from a prior run):
@@ -326,6 +328,12 @@ For UNIONS (e.g., ecommerce + affiliate): copy each domain's files; merge glossa
 The generic `ai/business-compliance.md` (copied from `business-domains/<domain>/compliance.md` above) covers the domain's universal compliance landscape (e.g., healthcare → HIPAA + FERPA; ecommerce → PCI-DSS + GDPR). But the project's actual regulatory regime is project-specific — a Saudi healthcare backend needs NPHIES + SCFHS + MOH-SA + CBAHI rules, NOT US-centric HIPAA defaults; a UAE fintech needs CBUAE + SCA rules, NOT just SOC2. The Phase 2.y `Constraints` answer drives a per-project overlay:
 
 ```bash
+# Helpers used below (`extract_phase_2y_field`, `append_with_section_header`,
+# `append_research_stub`) are NOT defined here.
+# TODO: extract these helpers to `scripts/_phase-4-helpers.sh` and source at phase entry.
+# Currently inlined ad-hoc per agent run — risk of agent improvisation; canonical
+# definitions must live in one file before this phase is considered hardened.
+
 # After domain-pack copy:
 REGULATORY_REGIMES=$(extract_phase_2y_field "regulatory_regime")  # comma-separated list
 
