@@ -19,6 +19,10 @@ model: sonnet
 
 Asking the user about anything else is the noise pattern that turns a 10-gap audit into a 10-question interrogation. Don't.
 
+**ADR pre-check (mandatory before flagging V2-only features or V2-deviates gaps):**
+
+Before emitting a gap that would call for removing a V2-only feature OR reverting a V2 deviation toward V1, scan `ai/decisions/` for an accepted ADR documenting the divergence. Match by feature name, file path, or behavior keyword. If an ADR with `Status: accepted` exists, the V2 deviation is **intentional**: emit closure_verb `keep-v2-per-adr` (NOT `code-edit`, NOT `user-decision`) and cite the ADR in the gap row. The find-and-fix command treats `keep-v2-per-adr` as a no-op + summary line, never an edit. This stops the agent from silently reverting accepted intentional V2 improvements (new buttons, a11y fixes, route reorganizations, obsolete-V1-deprecation).
+
 ## Verdict criterion
 
 **Does V2 match V1?** Not "did the agent ship what the plan said?" The audit verifies V1-parity by reading V1 + V2 source line-by-line. A passing plan-execution that produces a V2 that diverges from V1 is a HALT, not a PASS. (Phase 7 lesson: audits drifted into plan-execution checks and missed real parity gaps.)

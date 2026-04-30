@@ -28,6 +28,12 @@ pack: migration
 
 That's it. Three escalation triggers. Everything else is silent V1-parity edits, batched into one end-of-run summary.
 
+**ADR pre-check (mandatory before removing V2-only features or reverting V2 deviations):**
+
+Before applying a V1-parity edit that would (a) remove a V2-only feature OR (b) revert a V2 deviation toward V1, the agent MUST scan `ai/decisions/` for an accepted ADR documenting the divergence. Match by feature name, file path, or behavior keyword. If an ADR with `Status: accepted` exists, treat the V2 deviation as **intentional**: do NOT edit, do NOT remove. Surface it in the summary as a 1-line `ADR-NNN preserved: <V2 deviation> kept per <accepted ADR title>` note. This protects intentional V2 improvements (new buttons, accessibility fixes, route reorganizations, deprecation of obsolete V1 behavior) from getting silently reverted.
+
+If no ADR is found, proceed with the V1-parity edit as the default rule says.
+
 **The simple loop.** Code edits are the deliverable; docs only when they enable a code change. Replaces the 6-phase ceremony for routine ports — most rows in the ledger are trivial-tier and ship via this command.
 
 ## When to use
