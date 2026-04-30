@@ -141,6 +141,11 @@ Per migration piece:
 
 ## Output
 
+Tiered output (mirrors migration pack's trivial-by-default rule in `migration-discipline.md` — code edits are the deliverable; a doc that doesn't enable a code change is waste).
+
+- **Default (trivial)**: scope <5 files. Produce a 1-paragraph plan (current → target → rollback) then go straight to code edits. SKIP Milestones, Metrics + gates, Non-goals.
+- **`--heavy`**: opt-in for the full multi-section template below (Strategy, Milestones, Metrics + gates, Risks, Non-goals). Required when scope ≥5 files, cross-service, or schema/contract change.
+
 ```
 ## Legacy modernization plan — <scope>
 

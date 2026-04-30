@@ -306,6 +306,7 @@ Next:
 ## Hard rules
 
 - Mirror existing endpoints in this module EXACTLY. No new pattern.
+  - Reviewer must verify the new endpoint's shape matches ≥2 sibling endpoints in the same module — no new pattern introduced silently.
 - DTO validated. Every field. No `any`.
 - Auth guards unless explicitly public.
 - Tests shipped with code.

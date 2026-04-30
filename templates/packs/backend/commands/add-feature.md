@@ -186,7 +186,7 @@ Update via `doc-writer`:
 | AI | `prompt-reviewer` |
 | Payment | `payment-idempotency-reviewer` (if present) |
 
-Consolidate findings. Block on any CRITICAL / BLOCKER finding.
+Consolidate findings. **Mechanical halt**: HALT unless EVERY dispatched reviewer returns 0 BLOCKER and 0 CRITICAL findings. Record `reviewers_dispatched=N` and `reviewers_clean=N` in the consolidation note — proceed only when `reviewers_clean == reviewers_dispatched`. If any reviewer flags a blocker, re-run that specific reviewer after the fix; do not paper over, do not aggregate-and-ignore.
 
 ### Observability sign-off
 

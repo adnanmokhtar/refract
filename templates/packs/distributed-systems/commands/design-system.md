@@ -25,6 +25,7 @@ All 7. Phase 4 = the design doc + ADRs (no code generation here).
 - Sub-tasks: context diagram, data ownership table, communication matrix, failure-mode matrix, consistency model, SLO contract, ADRs, rollout plan.
 - Sequence: architect first (the design), then resilience-reviewer (the failure modes), then ADR authoring.
 - Pause after architect's draft — user confirms before resilience pass.
+- **Scope gate**: If the design has ≤2 services and no cross-region/event-sourcing/saga concerns, run `architect` only and skip `resilience-reviewer` + auto-ADR. Promote to full chain only when the architect flags ≥1 distributed-systems risk (network partition, exactly-once requirement, eventual-consistency window).
 
 ## Phase 3 — Retrieve
 

@@ -21,6 +21,8 @@ All 7.
 
 ## Phase 1 — Understand
 
+**Pre-flight (infrastructure check)**: Verify the project's saga infrastructure exists (Temporal worker config / Step Functions ARN / event broker URL) in `.claude/codebase-profile.md` or env. If absent, halt and ask the user to confirm the saga runtime before generating saga code.
+
 Confirm:
 - The flow's steps (each = a service call OR DB write).
 - Per step: what does compensation look like? (Refund a payment? Restore inventory? Cancel email?)

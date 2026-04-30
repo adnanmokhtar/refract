@@ -69,7 +69,8 @@ sleep 5 && curl -f http://localhost:8080/health
 
 - Print image size + layer breakdown (`docker image inspect`).
 - Confirm non-root user (`docker run --rm app:test id`).
-- HALT on healthcheck failure or root-user run.
+- Run `docker run --rm <image> <healthcheck-cmd>`. If exit code != 0, halt and surface the container logs. Do not advance until the healthcheck passes.
+- Halt also on root-user run.
 
 ## Phase 7 — Improve
 

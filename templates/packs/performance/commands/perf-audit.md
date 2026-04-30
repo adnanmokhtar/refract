@@ -1,5 +1,5 @@
 ---
-description: Performance pass — performance-optimizer + query-optimizer in parallel, ranked by impact.
+description: Performance pass — performance-optimizer single dispatch, ranked by impact. Optionally pairs with caching-architect for cache-strategy work.
 ---
 
 # /perf-audit [path|endpoint]
@@ -22,7 +22,7 @@ Audit command. Profiles changed code or a named endpoint and returns ranked find
 
 ## Phase 2 — Organize
 - Decide tooling per scope: `EXPLAIN ANALYZE` for DB, Lighthouse / React profiler for frontend, `hey`/`autocannon` for HTTP.
-- Dispatch plan: `performance-optimizer` + `query-optimizer` in parallel.
+- Dispatch plan: single dispatch of `performance-optimizer` (covers N+1, missing indexes, blocking I/O, memory, renders, bundle). Add `caching-architect` only if scope is explicitly cache-strategy.
 
 ## Phase 3 — Retrieve
 
@@ -41,7 +41,7 @@ Perf-specific:
 - Recent migrations affecting the scope (new column / index changes).
 
 ## Phase 4 — Generate (measurements + proposals)
-- Dispatch `performance-optimizer` and `query-optimizer` in parallel with the resolved scope.
+- Dispatch `performance-optimizer` with the resolved scope (single agent, single dispatch). It covers DB queries / indexes / N+1 in addition to code-level perf.
 - For each finding, capture a baseline if locally measurable:
   - HTTP path: `curl -w "@curl-format.txt" <url>` or `hey -n 100 -c 10 <url>`.
   - Query: `EXPLAIN ANALYZE` (Postgres) / `EXPLAIN FORMAT=JSON` (MySQL).

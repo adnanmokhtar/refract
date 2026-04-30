@@ -143,13 +143,18 @@ Read in order:
 9. **Push handlers** routed to the new screen.
 10. **Locale strings** keyed.
 
-After generation, dispatch:
-- `@mobile-architect` — design review.
-- `@accessibility-auditor` — a11y.
-- `@i18n-auditor` — locale completeness.
-- `@app-store-reviewer` (if shipping a store update) — privacy disclosures, permission rationales, screenshots.
-- `@security-auditor` if biometric/keychain/secrets touched.
-- `@ux-reviewer` — flow + content + edge cases.
+After generation, dispatch reviewers **serially** (not parallel — each re-reads similar files; parallel = duplicate context cost). Gate each on scope: if the precondition isn't met, skip the dispatch entirely.
+
+| Agent | Precondition (skip if false) | Always-on? |
+|---|---|---|
+| `@mobile-architect` | Always | yes |
+| `@accessibility-auditor` | Always (a11y is non-optional) | yes |
+| `@i18n-auditor` | `i18n_lib` detected in `.claude/codebase-profile.md` | no |
+| `@app-store-reviewer` | Shipping a store update this change | no |
+| `@security-auditor` | Diff touches biometric / keychain / secrets / auth | no |
+| `@ux-reviewer` | Always | yes |
+
+**Halt rule**: if ANY agent returns BLOCKER, stop the cascade. Do not run remaining reviewers on a blocked feature; fix the blocker, re-run from the failed agent. This is the `find-and-fix § 3.5 RE-DETECT` pattern from the migration pack — every blocker closes before advance, no silent partial-pass.
 
 ## Phase 5 — Update
 

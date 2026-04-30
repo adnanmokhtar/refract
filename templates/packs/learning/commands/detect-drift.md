@@ -55,7 +55,7 @@ This is where the command's value lands. Persist:
 - `ai/status.md` — prepend Recent Changes ("Drift detected: 3 high-severity items pending fix") if any high-severity.
 - `ai/dynamic/changelog.md` — one-line summary entry.
 - For `rule-vs-reality` findings: do NOT auto-update conventions; surface so user can run `/refresh-knowledge` or edit manually.
-- For `rule-vs-rule` contradictions: queue to `ai/dynamic/decisions-pending.md` — needs human resolution.
+- For `rule-vs-rule` contradictions: queue to `ai/dynamic/decisions-pending.md` AND add to `ai/status.md § Blockers` with status `BLOCKED` — needs human resolution. The next session sees the blocker before any rule-loading work; the conflict cannot ship hidden in a queue.
 
 ## Phase 6 — Validate
 

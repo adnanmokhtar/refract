@@ -6,6 +6,8 @@ description: Generate or update a CI workflow for the detected platform and stac
 
 Adds lint + typecheck + test + build pipeline. Detects platform; defaults to GitHub Actions if absent.
 
+> **Note:** For trivial CI additions (1-job test workflow), Phases 1, 3, 5 are 1-line; do not pad.
+
 ## Phases applied
 
 All 7. Phase 5 also recommends required-check names for branch protection.
@@ -68,7 +70,7 @@ Workflow file:
 ## Phase 6 — Validate
 
 - Open generated file path so user can review.
-- After commit + first push, monitor first run; if any job fails, HALT and report.
+- After commit, watch the workflow run via `gh run watch`. If exit code != 0, halt immediately. Do not advance to Phase 7 with a red CI run.
 - Confirm cache hit on second run — miss = key is wrong.
 
 ## Phase 7 — Improve

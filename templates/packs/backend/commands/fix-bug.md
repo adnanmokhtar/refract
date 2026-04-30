@@ -131,6 +131,8 @@ rg "createQueryBuilder|datasource\.query|em\.createQueryBuilder" src/modules/*/i
 
 Report: "this bug exists in N files" OR "localized to one file".
 
+Record `N=hits-found` and `N=hits-fixed` in the PR description; reviewer halts merge unless `N_fixed == N_found` OR each unfixed hit has a 1-line rationale (ticket link, scope-deferred, false-positive — explicit, not implicit).
+
 Plan the fix — sometimes broader fix (with approval), sometimes just this file + tickets for others.
 
 ### Failing test FIRST

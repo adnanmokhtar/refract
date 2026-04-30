@@ -23,6 +23,7 @@ AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the verdict; Phase 5 records the a
 
 - Sequence: mechanical first (must all pass) → agent audit (parallel) → consolidate.
 - If mechanical fails: STOP, report, do not run agents.
+- **Halt on RED**: if ANY agent returns a RED finding, halt the verdict report and surface for resolution before continuing. AMBER may pass-through with a 1-line note in the verdict. (Same halt-on-blocker discipline the migration pack applies at gate time.)
 
 ## Phase 3 — Retrieve
 

@@ -154,6 +154,7 @@ Recovery actions: <count> (P0: <count>, P1: <count>)
 
 - **Stuck-saga threshold documented per saga type.** Some legitimately wait days (manual approval); others should never be > 1 hour.
 - **DLQ replays go through `/dlq-replay`, not direct broker manipulation.** Audit trail.
+- **Pre-flight**: If `.claude/skills/dlq-replay.md` is missing, halt and surface — the audit cannot complete without DLQ replay tooling.
 - **Manual compensation runs documented in `ai/runbooks/saga-recovery.md`.**
 - **Idempotency violations open an ADR if root cause is design-level.**
 - **Schema-version drift surfaces as alert, not just audit finding.**

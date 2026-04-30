@@ -4,6 +4,8 @@ description: Run a structured threat-model session against a feature / system. S
 
 # /threat-model
 
+> **MVP / rapid-feature mode:** run a 5-minute STRIDE skim — list each STRIDE letter and one threat under each (or `none`). Skip the ASCII diagram + per-threat residual-risk paragraphs. The full template below is for systems with ≥3 trust boundaries OR auth/payment/PII. When in doubt, skim first; escalate to full only if the skim surfaces a real threat in the gated classes.
+
 A formalized threat-modeling exercise. Use BEFORE shipping any feature touching auth, payments, PII, multi-tenant boundaries, or untrusted input. Output is a durable artifact that future audits can re-verify.
 
 ## Phases applied

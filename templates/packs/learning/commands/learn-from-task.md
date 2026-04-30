@@ -4,6 +4,10 @@ description: After a task finishes, capture decisions made / patterns followed /
 
 # /learn-from-task
 
+## Pre-flight gate (mechanical)
+
+If the just-completed task touched 0 files OR the task description is <30 chars, halt with: `task too small to learn from; nothing to promote.` This prevents promoting empty/spammy patterns.
+
 Closes the learning loop. Without this, every session ends and the lessons evaporate. This is itself the canonical Phase 7 (Improve) implementation that other commands hand off to.
 
 ## Phases applied

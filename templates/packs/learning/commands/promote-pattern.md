@@ -27,11 +27,13 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 ## Phase 2 — Organize (decompose the work)
 
+Draft the pattern inline first, then surface for one-shot user edit. Do NOT pause for approval before drafting. The user reviews the draft, not the proposal-to-draft.
+
 Plan the steps:
 1. Locate the source entry in `learned-patterns.md`.
 2. Verify promotion criteria (status + occurrences + lifespan).
-3. Dispatch `knowledge-curator` agent to draft the formal file.
-4. Show draft + pause for user approval.
+3. Dispatch `knowledge-curator` agent to draft the formal file inline (no pre-draft confirmation).
+4. Surface the completed draft for one-shot user edit.
 5. Write the file + update the source entry + log.
 
 ## Phase 3 — Retrieve (read the right context)

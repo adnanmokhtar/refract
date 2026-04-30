@@ -68,6 +68,12 @@ Security-specific:
   Verdict: NO-GO. 2 blockers must be fixed and re-audited before merge.
   ```
 
+### RE-DETECT (mechanical gate)
+- After developer fixes blockers, re-run `/security-audit` against the patched code.
+- The audit cannot return PASS without a second pass that confirms each blocker from the first pass is closed (`blockers_in == blockers_closed`).
+- This is the same pattern as `find-and-fix § 3.5 RE-DETECT` in the migration pack.
+- If any first-pass blocker still reproduces on re-audit → verdict stays NO-GO; do not advance.
+
 ## Phase 5 — Update
 - `ai/audits/<YYYYMMDD>-security.md` — append timestamped report.
 - `ai/dynamic/changelog.md` — one-line: `Security audit on <scope>: B blockers, R requests, verdict <GO|NO-GO>`.
@@ -84,6 +90,7 @@ Security-specific:
 - If same auth bypass class found 2+ audits → queue ADR: enforce guard via decorator on every controller.
 - If tenant leak in raw SQL recurs → queue lint rule + base-class refactor.
 - If secret-in-log recurs → queue logger-level redaction enforcement.
+- **Pattern-escalation enforcement:** if a finding's pattern has appeared ≥2 times across audits (check `ai/security/audit-log.md` history), promote to `ai/decisions/` as an ADR proposal AND open an `eslint` / linter rule task. Patterns that repeat without escalation are themselves a finding (log under Phase 4 REQUESTS as `META: pattern X recurred N times, no ADR/lint rule filed`).
 
 ## Output format
 ```
