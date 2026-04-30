@@ -242,6 +242,7 @@ For each pack-added file (added by Phase 4.2 / 4.4 / 4.4b — i.e. files that ex
 3. **If shortfall detected**:
    - **Auto-retry Phase 4.6 for the affected files** by re-invoking the `apply-pack-adaptation` skill with the failing files + explicit "only cite identifiers found in `.claude/_extracted-codebase.md`" instruction. This is what Critical Execution Rule 5 (HALT + RETRY) demands.
    - If retry STILL produces no anchor / thin anchor / placeholder anchor / leaked identifier → halt with explicit error citing each unadapted file + the specific quality check that failed. Don't ship "incomplete adaptation" silently.
+   - **Retry exhaustion halt**: After 2 auto-retries (`MAX_RETRIES=2`), if any check still flags shortfalls, emit a HARD HALT with the full list of unresolved findings (file paths + check name). Refuse to ship partial fixes. The user must resolve manually before re-running. This is the same `gaps_in == gaps_closed` mechanical gate from `migration-discipline.md`.
 
 4. **Anti-pattern detection** (specific failure modes the quality checks catch):
    - **Anchor missing**: pack file shipped UNCHANGED → "Phase 4.6 SKIPPED for X files. Re-running."

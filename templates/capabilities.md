@@ -16,7 +16,9 @@ imported-by: commands/setup-project.md (orchestrator)
 | 6  | Multi-language UX                       | `templates/capabilities/6-multi-language.md`                  | 1, 3, 4                  |
 | 7  | Conversational wizard mode              | `templates/capabilities/7-conversational-wizard.md`           | 3 (wizard mode)          |
 
-Each capability file is self-contained and includes its own contract, hard rules, and integration points. Read only the capabilities relevant to the current run; do NOT pre-load all seven.
+Each capability file is self-contained and includes its own contract, hard rules, and integration points.
+
+**MANDATORY**: Pack code MUST NOT pre-load all 7 capability files. Each command's frontmatter declares which capabilities apply (key: `capabilities: [versioning, telemetry, ...]`); only those load. Pre-loading violates token budget — agents reject pack code that imports the capability index in bulk.
 
 ## 🔗 How the 7 capabilities compose
 
@@ -58,4 +60,8 @@ Treat this as the command's vocabulary. Everything referenced in the flow is cat
 > - **Tool adapter** — per-AI-tool config generator (claude-code / cursor / aider / opencode / ...). 10 total.
 >
 > The word "domain" is OVERLOADED — always qualify it: "technical signal" or "business domain". Never bare "domain".
+
+---
+
+**TODO (deferred)**: a future `scripts/validate-capabilities.sh` will mechanically reject packs whose code pre-loads >1 capability without declaring it. Until then, manual review enforces this rule.
 

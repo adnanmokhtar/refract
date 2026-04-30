@@ -6,7 +6,7 @@ imported-by: Phase 4 when generating commands into a target repo's .claude/comma
 
 ## Canonical command structure (every operational command follows this)
 
-Every slash command in `~/.claude/templates/packs/<track>/commands/` (and every command generated into a project's `.claude/commands/`) MUST follow this 7-phase structure. This is what makes the AI behave like a senior engineer instead of a code-completion bot.
+Commands declare which phases apply based on type. Below are the 7 phases — your command uses the **subset matched by your command type**, not all 7 by default. Skipping is the default, not the exception: trivial commands carry no ceremony they don't need.
 
 The 7 phases:
 
@@ -14,7 +14,19 @@ The 7 phases:
 Understand → Organize → Retrieve → Generate → Update → Validate → Improve
 ```
 
-Each phase has a specific job; skipping any leaves a gap that shows up as a bug, drift, or lost knowledge.
+### Phase selection by command type (consult FIRST, before reading phase descriptions)
+
+| Command type | Phases that apply |
+|---|---|
+| Build / add (e.g., `/add-feature`, `/add-module`) | All 7 |
+| Fix / debug (e.g., `/fix-bug`) | All 7, with Phase 4 = TDD (failing test first) |
+| Audit / review (e.g., `/security-audit`, `/detect-drift`) | 1-3 + 6 (no Generate/Update; output is findings) |
+| Maintain / refresh (e.g., `/refresh-knowledge`) | 1, 3, 5, 6 (no Generate; is updating the knowledge layer itself) |
+| Diagnostic / read-only (e.g., `/log-tail`, `/find-module`) | 1, 3 (Retrieve dominates) |
+
+**Every command MUST declare which phases apply** at the top of its file, even if it's "all 7". This makes deviations visible. For phases that don't apply, write a one-line `## Phase X — N/A — <reason>` block rather than silently omitting.
+
+Each phase has a specific job; skipping a phase that DOES apply to your command type leaves a gap that shows up as a bug, drift, or lost knowledge.
 
 ### Canonical command template
 
@@ -67,6 +79,8 @@ EXISTING CODE (read before designing/editing):
 - 1-2 sibling modules in the same layer — confirm the pattern is project-wide.
 
 ## Phase 3.5 — Handoff (only when `--plan` is set; otherwise skip)
+
+> **This phase runs ONLY when the `--plan` flag is passed. Most commands skip it entirely and proceed directly from Phase 3 to Phase 4.** The ~90 lines below are conditional scaffolding, not canonical ceremony.
 
 `--plan` is a **universal flag** every command supports. When set, this phase runs after Phase 3 and the command exits BEFORE Phase 4 (Generate). The output is a structured plan file other tools (or other agents) can implement.
 
@@ -137,6 +151,8 @@ When `--plan` is NOT set: skip this phase entirely; proceed to Phase 4.
 - [ ] Verification commands passed
 - [ ] /verify-plan reports PLAN FULFILLED
 ```
+
+> **Gate scope:** the `/verify-plan` checkbox above applies ONLY to commands that ran with `--plan` (i.e., that produced a plan-file). For commands that don't produce a plan-file, Phase 6 (Validate) is just run-tests-and-checks; no `/verify-plan` invocation is required or implied.
 
 ### Plan-file quality bar
 
@@ -236,9 +252,9 @@ Open follow-ups:
 - <4-6 ways this command fails + how to recover>
 ```
 
-### When NOT to follow all 7 phases
+### How to document skipped phases
 
-Some commands are inherently single-phase (e.g., `/log-tail` is pure retrieval). Skip phases that genuinely don't apply, but DOCUMENT the skip in the command:
+The phase-selection table above tells you which phases apply to your command type. For each phase that does NOT apply, document the skip explicitly:
 
 ```markdown
 ## Phase 5-7 — N/A
@@ -246,21 +262,7 @@ Some commands are inherently single-phase (e.g., `/log-tail` is pure retrieval).
 This is a read-only diagnostic command; no state changes, no persistence, no learning hook needed.
 ```
 
-Don't silently omit. The 7-phase structure is the default; deviations are intentional + visible.
-
-### Phases that adapt to command type
-
-| Command type | Phases that matter most |
-|---|---|
-| Build / add (e.g., `/add-feature`, `/add-module`) | All 7 |
-| Fix / debug (e.g., `/fix-bug`) | All 7, with Phase 4 = TDD (failing test first) |
-| Audit / review (e.g., `/security-audit`, `/detect-drift`) | 1-3 + 6 (no Generate/Update; output is findings) |
-| Maintain / refresh (e.g., `/refresh-knowledge`) | 1, 3, 5, 6 (no Generate; is updating the knowledge layer itself) |
-| Diagnostic / read-only (e.g., `/log-tail`, `/find-module`) | 1, 3 (Retrieve dominates) |
-
-### Hard rule (added to Always section below)
-
-**Every command MUST declare which phases apply** at the top, even if it's "all 7". This makes deviations visible.
+Don't silently omit. Selection is the default; the documented skip makes the deviation visible.
 
 ---
 

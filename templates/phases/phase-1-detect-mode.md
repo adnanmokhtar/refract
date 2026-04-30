@@ -9,6 +9,8 @@ exit-criteria: mode + shape decided and recorded
 
 ### Phase 1 — Detect mode
 
+**Lightweight mode**: Commands invoked with `--lightweight` skip Phase 2.7-2.12 (deep extraction) + Phase 4.6/4.7 (re-anchoring) and jump from Phase 4.2-apply directly to Phase 5-verify. Trade-off: no anchor-density refinement, ~80% faster. Use for trivial pack additions, status checks, lightweight commands. Default is full ceremony unless `--lightweight` is passed OR the command's frontmatter declares `mode: lightweight`.
+
 Inspect cwd in parallel:
 - `git status` (repo y/n)
 - Manifests: `package.json`, `pyproject.toml`, `composer.json`, `go.mod`, `Gemfile`, `Cargo.toml`, `mix.exs`, `build.gradle`, `pom.xml`
