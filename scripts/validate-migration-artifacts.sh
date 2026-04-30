@@ -721,6 +721,31 @@ check_intentional_break_adr() {
   return 0
 }
 
+check_v1_path_drift_acknowledged() {
+  # F054-class — audit body self-flags that v1_path is wrong but the row advanced anyway.
+  # If the audit contains markers like "v1_path must be corrected" / "ledger-drift" /
+  # "wrong V1 oracle" / "Halt 7 (v1_path drift)" without a paired RESOLVED / CORRECTED /
+  # re-audit marker, the row cannot legitimately be `done` — the comparison was made
+  # against the wrong V1 source.
+  local feature="$1"; local id="${2:-}"
+  local file
+  file=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
+  [[ -z "$file" ]] && return 0
+  # Markers that flag v1_path drift
+  local drift_markers='v1_path must be corrected|ledger-drift finding|wrong V1 oracle|audited the wrong V1|Halt [0-9]+ \(v1_path|v1_path[[:space:]]+lists.*dead'
+  if ! grep -qiE "$drift_markers" "$file"; then
+    return 0
+  fi
+  # Drift is acknowledged. Now check for a paired resolution marker.
+  local resolution_markers='RESOLVED|CORRECTED|re-audited|re-audit (against|completed)|v1_path[[:space:]]+now[[:space:]]+correct|drift[[:space:]]+resolved|Halt [0-9]+.*RESOLVED'
+  if grep -qiE "$resolution_markers" "$file"; then
+    log_pass "v1_path drift acknowledged + resolved: $feature"
+    return 0
+  fi
+  log_fail "audit in $feature self-acknowledges v1_path drift but no resolution marker present. The audit was run against the wrong V1 source. Re-audit against the corrected v1_path before the row can advance to done. (Markers: 'RESOLVED' / 'CORRECTED' / 're-audited' must appear once the re-audit completes.)"
+  return 1
+}
+
 check_porter_vs_auditor() {
   # A5 — Audit author = port author (no second-eyes).
   # Ledger row's porter_agent_id must differ from audit's auditor_agent_id.
@@ -1283,6 +1308,7 @@ validate_feature() {
   check_audit_freshness "$feature" "$id" || true
   check_audit_body_consistency "$feature" "$id" || true
   check_intentional_break_adr "$feature" "$id" || true
+  check_v1_path_drift_acknowledged "$feature" "$id" || true
   check_porter_vs_auditor "$feature" "$id" || true
   check_v2_structure "$feature" "$id" || true
   check_composable_reuse "$feature" "$id" || true
