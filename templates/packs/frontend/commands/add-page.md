@@ -10,6 +10,32 @@ Scaffolds a new top-level route or sub-route, mirroring an existing page in the 
 
 All 7. Standard build/add command.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing siblings are the truth.** Every page in the same area is the intentional shape — its routing entry, its layout import, its data-fetch call site, its loading/error/empty states, its permission gate, its lifecycle hook, its locale-key path. New pages copy that shape silently.
+
+**The agent's job is exactly this:**
+1. Find ≥2 sibling pages in the same area (same module, same `pages/`/`views/`/`app/` subtree).
+2. Mirror their structure: composables (`useCrud`, `useForm`), Base*-wrappers (`<BaseModal>`, `<BaseForm>`, `<CrudPaginator>`), `onActivated` for KeepAlive caching (NOT `onMounted`), shared service-layer (`BaseCrudService`), permission-gate import, locale-key naming, lazy-load convention.
+3. Add only the delta the new page actually needs. Everything else: copy the sibling shape silently.
+
+**The agent ONLY asks the user when:**
+- **No sibling page exists** in the area (truly new shape — first list page, first wizard, first chart panel).
+- **State location is genuinely ambiguous** (no sibling answers it — page-local vs store).
+- **New permission gate** (route requires a role/scope that no sibling uses).
+
+Everything else — loading/empty/error state shape, lazy-load wrapper, i18n key naming, lifecycle hook, default-true wrapper props — is silent sibling-mirror.
+
+**Closure-verb table — page complexity → ceremony:**
+
+| Tier | Trigger | Ceremony | Default? |
+|---|---|---|---|
+| **Trivial** | New page that mirrors an existing sibling (list, detail, settings tab) | Code only — page + service + types + locale keys (BOTH locales). Tests required. **No plan, no ADR.** | YES |
+| **Standard** | New shape that needs 1 new composable OR a new shared loading/empty primitive | Trivial + 1-paragraph sibling-shape note inline | NO |
+| **Heavy** | New routing pattern (multi-route flow, dynamic segment shape, SSR vs CSR switch on this route family) | Standard + ADR + `@ui-reviewer` + `@accessibility-auditor` cascade | NO |
+
+**Lightweight default.** Trivial-tier is the default. Drafting an ADR for a sibling-mirror page is the same anti-pattern as the migration pack's "ADR-as-closure" trap.
+
 ## When to use / NOT to use
 - USE: new top-level route; new tab/sub-route inside an existing section.
 - NOT: modal/drawer (use `/add-component`); shared layout fragment (`/add-component` or compose in existing page).
@@ -54,6 +80,22 @@ Generate:
 - Service method(s) typed against shared DTO location.
 - i18n keys in EVERY locale file the repo declares.
 - Tests: render + data fetch (mocked) + interaction.
+
+### Sibling-shape mechanical halt (mandatory, all tiers)
+
+Before declaring success, compare the new page against ≥2 sibling pages in the same area. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (introduced a new break on an unrelated axis).
+
+**Halt if any of:**
+
+- Uses raw framework components where Base*-wrappers exist — raw `<Dialog>` instead of `<BaseModal>`, raw `<Paginator>` instead of `<CrudPaginator>`, raw `<form>` instead of `<BaseForm>`.
+- Uses `onMounted` instead of `onActivated` on a route page when siblings cache across navigation (KeepAlive cache divergence — silent re-mount).
+- Doesn't use the project's gold-standard composable (`useCrud` for list pages, `useForm` for forms) when siblings do.
+- i18n keys present in pivot locale but missing in declared alt locales (`en.ts` ✓, `ar.ts` ✗) — silent break.
+- Default-true wrapper props left implicit when affordances should be hidden — pass `:show-delete="false"` / `:can-edit="false"` explicitly.
+- New file placed outside the area's path convention (e.g., `pages/orders/NewOrder.vue` when siblings live at `views/orders/Form.vue`).
+- Lazy-load convention diverges from siblings (sibling pages use `defineAsyncComponent` / dynamic-import; new page is statically imported, or vice versa).
+
+**Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
 ## Phase 5 — Update
 

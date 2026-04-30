@@ -4,6 +4,41 @@ description: Wire structured logs, metrics, and traces into a feature; create al
 
 # /add-telemetry <feature>
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing log fields, metric names, and span attributes are the truth.** If any sibling feature in this repo is already instrumented, that convention IS the convention for this feature. New telemetry MUST mirror sibling instrumentation: same log field names (`request_id` vs `requestId` vs `req_id` — pick the one already in use), same span attribute names (`order.tenant_id` vs `tenant.id`), same metric naming convention, same severity tiers. Don't invent new conventions.
+
+**The agent's job is exactly this:**
+1. Find one existing instrumented sibling module (Phase 3 already requires this — enforce it).
+2. Mirror its log field names, metric prefix, span attribute keys, alert severity labels exactly.
+3. Only deviate when an accepted ADR documents the divergence — otherwise, sibling parity wins.
+
+**The agent does NOT:**
+- Add a log field (`tenantId`) when sibling logs use `tenant_id`.
+- Use a span attribute (`http.url`) when sibling spans use `request.url`.
+- Pick a metric prefix (`feature_xxx_total`) when sibling metrics use `feature.xxx.count`.
+- Draft an ADR mid-run to legitimize a new convention. **Sibling wins. Mirror it.**
+
+**Closure verb (default): mirror-sibling.** Auto-apply parity edits silently; batch into the end-of-run summary. Only halt on the three escalation triggers below.
+
+**Escalation triggers (halt and ask):**
+- No sibling instrumented module exists anywhere in the repo (greenfield — user picks the convention).
+- Sibling conventions are internally inconsistent across modules (two patterns coexist — user picks).
+- The new instrumentation genuinely cannot fit sibling shape (different telemetry layer, different SDK) — surface and ask.
+
+That's it. Everything else is silent sibling-parity emission.
+
+## Mechanical halt — instrumentation-naming parity
+
+Before finishing Phase 4, run these checks. Any failure = HALT, surface, do not advance:
+
+1. **Span attribute parity** — `grep` the repo for `setAttribute` / `set_attribute` calls. Every new span attribute name MUST match sibling spans for the same semantic (`tenant_id`, `user_id`, `request_id`, `route`).
+2. **Metric prefix parity** — new metric names share the prefix root + separator of the closest sibling. New prefix = ADR required.
+3. **Log field parity** — every new log field is either reused from sibling logs OR documented in an ADR. No new field names smuggled in via this command.
+4. **Alert severity parity** — `severity: page | ticket | info` labels mirror sibling alerts; no new severity tiers introduced.
+
+Add the check results to the output block under `Naming-parity: ✓ | halts=<N>`.
+
 Build command. Adds the four observability primitives — logs, metrics, traces, alerts — using the project's existing libraries. Generates runbook stubs. All 7 phases apply.
 
 ## When to use / NOT to use

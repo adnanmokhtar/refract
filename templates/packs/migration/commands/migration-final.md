@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-final
 
+## The Premise (read this first)
+
+**Refuse on red. The final sweep is mechanical.** This command does not soften, does not "approve with caveats," does not write a retirement plan over a failing ledger. If any feature is `failed`, any phase is missing from `_history.md`, any ADR is `Proposed` instead of `Accepted`, any `intentional-break` cites a missing file — verdict is INCOMPLETE and the retirement plan is NOT written. V1 is production; retiring it requires zero ambiguity. No hand-waves.
+
 The final verifier. Run when every phase has passed `/migration-gate`. Confirms zero gaps remain across the whole migration AND proposes the V1 retirement sequence.
 
 ## Pre-requisites
@@ -161,6 +165,10 @@ See ai/migration/final-report.md § Per-feature blockers.
 
 Fix the blockers; re-run /migration-phase <N> for the affected phase; then re-run /migration-final.
 ```
+
+## Mechanical halt — refuse retirement plan on any red
+
+Verdict computation is deterministic: `failed_count == 0` AND `regression_count == 0` (when `--re-audit`) AND every phase in `plan.md` has a corresponding `passed` entry in `_history.md` AND every `intentional-break` cites an `Accepted` ADR file that exists on disk. If any condition fails → verdict = INCOMPLETE; do NOT write `retirement-plan.md`; surface the per-feature blocker list. There is no "passed with notes" mode.
 
 ## Hard rules
 

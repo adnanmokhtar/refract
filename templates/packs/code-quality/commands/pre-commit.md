@@ -6,6 +6,25 @@ description: Pre-commit gate — mechanical + agent review on staged changes. Bl
 
 Run right before committing. Scoped to staged diff only — faster than `/check-health`.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing checks are the truth. Mirror project's lint/typecheck/test commands; don't inject new ones.** The repo already declares its quality gates — `package.json` scripts, `Makefile` targets, `pyproject.toml`, `.pre-commit-config.yaml`, `lefthook.yml`, `husky` hooks, the project's `CLAUDE.md` quality section. This command runs THOSE commands on the staged scope. It does NOT introduce a parallel toolchain ("let me try `prettier` even though the project uses `biome`"), does NOT add stricter flags, does NOT reformat with a different style.
+
+**The closure verb is `gate`.** This command never authors files. It returns one of:
+- `APPROVED` — mechanical green + agent green.
+- `APPROVED_WITH_REQUESTS` — green but non-blocking notes.
+- `REQUEST_CHANGES` — at least one blocker; commit refused.
+
+**Forbidden:**
+- Asking the user style-flag questions ("tabs or spaces?", "single or double quotes?", "max line length?"). The project's lint config is the answer. Fix to match.
+- Inventing a typecheck/lint/test command not declared by the project. If the project has no typecheck script, say so; do not run an ad-hoc `tsc --noEmit` with custom flags.
+- Continuing past a red mechanical step to "see what the agents say". Mechanical red poisons the diff context.
+- Padding nits to look thorough. Blockers are blockers; nits are nits; nothing in between to inflate the report.
+
+**Mechanical halt — refuse to advance on red:** if `lint` / `typecheck` / `test` returns non-zero on the staged scope, the gate HALTS at Phase 6 mechanical, does NOT dispatch agents, does NOT emit a verdict beyond `REQUEST_CHANGES (mechanical-red)`. Fix the toolchain failure, re-stage, re-run.
+
+**Lightweight default.** Staged scope only. No full-repo passes, no historical commits, no rebuild from clean. If a check needs the full repo (cross-file type errors, transitive test impact), surface that as a Phase 7 note, not as scope creep mid-run.
+
 ## Phases applied
 
 VALIDATE type — Phase 6 dominates. Phase 4 = the agent verdict; Phase 5/7 minimal (this command doesn't change files; it gates the commit).

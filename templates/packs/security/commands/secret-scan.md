@@ -4,6 +4,43 @@ description: Scan repo + commit history for leaked secrets. Reports findings + r
 
 # /secret-scan
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every finding cites `<file:line>` and secret-type.** A leak report without a path + line + pattern-class + first-introduced commit is unactionable. "There may be a key somewhere in config/" is not a finding; "`src/config/aws.config.ts:12` AWS access key (matches `AKIA[0-9A-Z]{16}`), introduced commit `a3f4d21` 2025-09-14, action: rotate IAM key + filter-repo + audit CloudTrail" is a finding. **Every CRITICAL row carries a rotation playbook; no rotation playbook = not a CRITICAL row.**
+
+**The agent's job is exactly this:**
+1. Run scanners (`gitleaks`, `trufflehog`, `detect-secrets`) over the chosen scope (working tree / HEAD / full history / paths).
+2. For each hit, cite: `<file:line>`, secret-type (AWS / Stripe / GitHub / JWT / RSA / DB / OAuth / SSH), first-introduced commit + author + date, current reachability (in HEAD? scrubbed? rebased away?).
+3. Distinguish real secrets from fixtures by inspecting the surrounding context (test paths, deliberate-fake markers, `.example` extensions).
+4. Emit the rotation playbook entry matching the secret-type — pick from the table, do not improvise.
+
+**The agent does NOT:**
+- Report a high-entropy string without classifying it (entropy alone is not a secret type).
+- Whitelist a hit without a one-line justification in `.gitleaksignore`.
+- Skip git-history scan on first audit. Working-tree-only scans miss the leak that already shipped.
+- Recommend "remove from repo" without "rotate the credential" — removal does not unleak.
+
+**Closure verbs (mandatory per finding):**
+- `rotate-now` — confirmed real secret in working tree or recent history; rotation playbook attached + history-scrub plan if reachable in past commits.
+- `rotate-and-scrub` — secret reachable via git history beyond HEAD; rotation + filter-repo + team-coordination steps.
+- `whitelist-with-reason` — confirmed fixture / dummy / public test-key; entry in `.gitleaksignore` with comment.
+- `flag-ambiguous` — high-entropy hit, type unclear; surfaced for human review with surrounding context excerpted, no auto-rotation.
+
+**Mechanical halt (no hand-wave grep):**
+
+Before writing the report, the agent MUST verify each finding has all four axes filled:
+
+```
+finding.path        != null
+finding.line        != null
+finding.secret_type IN  {AWS, Stripe, GitHub, JWT, RSA, DB, OAuth, SSH, encryption-key, generic-high-entropy}
+finding.rotation    IN  rotation-playbook-table  (or 'flag-ambiguous')
+```
+
+If any axis is unfilled, HALT and re-classify. **A hit without a secret-type is not a CRITICAL** — demote to `flag-ambiguous` and surface the context for review. No "looks suspicious" rows in the CRITICAL table.
+
+**Lightweight default:** for whitelisted hits and confirmed fixtures, batch into a single "Whitelisted" line — don't expand each fixture-key into its own row. The report's job is to enumerate **secrets to rotate**, not to re-list every test artifact.
+
 Find leaked secrets BEFORE they're discovered by attackers. Run periodically AND on every PR. A secret in git history is a secret leaked even if reverted — it must be rotated, not just removed.
 
 ## Phases applied

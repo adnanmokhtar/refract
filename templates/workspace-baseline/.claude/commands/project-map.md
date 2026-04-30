@@ -4,6 +4,17 @@ description: Dump the workspace registry or locate a concept across sibling repo
 
 # /project-map
 
+## The Premise (read this first)
+
+**Map real files. No invented paths.** When asked to locate a concept across siblings, every result MUST be a path you actually read in this session — confirmed via `Read` or `Grep`, never inferred from naming convention. Recommendations require concrete grep hits.
+
+**Mechanical halt** — refuse to emit:
+- A path that wasn't returned by an actual filesystem call.
+- "Likely lives at..." or "should be at..." — those are guesses, not findings.
+- A "no matches" verdict without showing the search command + scope.
+
+Read-only. Never modifies the registry.
+
 ## Usage
 
 ```

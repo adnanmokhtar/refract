@@ -6,6 +6,14 @@ description: Scan the codebase for PII fields, verify retention + deletion + exp
 
 Purpose: produce a snapshot of regulatory posture. Catch drift before a regulator does.
 
+## Premise
+
+Find real issues, no hand-waves. Every finding cites `<file:line>`, `<entity.column>`, or `<vendor>` — never "review PII handling" or "consider adding retention." Inventory drift is measured against the actual code tree and the actual `ai/compliance/pii-inventory.md`; if either is missing, halt and say so before reporting.
+
+## Mechanical halt
+
+Hand-wave grep — refuse to print a BLOCKER / REQUEST_CHANGES row without a concrete anchor (file:line, table.column, or vendor name). Generic posture commentary is dropped. End-to-end check halts on the first synthetic-export failure rather than guessing the rest.
+
 ## What it scans
 
 1. **PII fields in entities.** Greps `@Column` / `@Entity` declarations for known PII field names: `email`, `phone`, `address`, `street`, `city`, `postal_code`, `country`, `birth_date`, `dob`, `name`, `first_name`, `last_name`, `national_id`, `passport`, `ip`, `device_fingerprint`, `gender`, `tax_id`. Cross-references against `ai/compliance/pii-inventory.md`.

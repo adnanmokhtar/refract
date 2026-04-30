@@ -6,6 +6,14 @@ description: Inventory every feature flag in code — site count, age, ownership
 
 Purpose: keep flag debt visible. Without this, flags accumulate forever — every one a fork in the codebase.
 
+## Premise
+
+Find real issues, no hand-waves. Every row in the table cites a real flag key + every evaluation site as `file:line`. Cleanup / orphan / overdue verdicts come from actual registry data and actual grep hits — never "this flag looks stale." Provider state (rollout %, last eval) only appears when the provider API was actually called; otherwise leave the column blank.
+
+## Mechanical halt
+
+Hand-wave grep — refuse to mark a flag `CLEANUP` / `ORPHAN-IN-CODE` / `DEAD-IN-REGISTRY` without listing the file:line evidence (or the absence of any). No flag appears in the report without either a registry entry or at least one evaluation site cite.
+
 ## What it scans
 
 1. **Flag declarations** (registry / `flags.yaml` / DB `feature_flags`). Records name, owner, sunset date, default, type.

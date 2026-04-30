@@ -6,6 +6,17 @@ pack: workspace-baseline
 
 # /migration-workspace-status
 
+## The Premise (read this first)
+
+**Cite real ledger rows. Don't aggregate to vagueness.** Every number in the workspace report traces to a parsed source — a specific row in a specific repo's `ai/migration/ledger.md`, with a specific status. Estimates ("about 30 features ported") are a bug; if you can't cite, halt.
+
+**Mechanical halt** — refuse to emit any line that:
+- Aggregates a count without the underlying repo + row list available on demand.
+- Uses qualifiers (`approximately`, `roughly`, `most`, `a handful`) instead of exact counts.
+- Reports a status without naming the repo it came from.
+
+Read-only. Never modifies any ledger.
+
 The cross-repo aggregator. When a migration spans multiple sibling repos, each one runs its own `/migration-scan` + `/migration-plan` + per-phase commands. This command rolls them up into one workspace view.
 
 ## When to use

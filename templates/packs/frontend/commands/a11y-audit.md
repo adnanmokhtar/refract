@@ -6,6 +6,32 @@ description: Run accessibility-auditor against current UI changes; ground with a
 
 Audit command. Static + (optional) automated a11y pass on changed UI files. Phases 1-3 + 6 dominate; Phase 4 produces findings (no code edits); Phase 5 logs the audit; Phase 7 captures patterns.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues. No hand-waves.** An audit's job is to surface concrete, fixable a11y violations — each one cited at `<path:line>` with the failing rule named and a concrete fix proposed. Vague gestures ("review focus management overall", "consider improving ARIA usage") are forbidden — they do nothing for the user and burn audit budget.
+
+**The agent's job is exactly this:**
+1. Resolve the file scope (changed UI files OR explicit path arg).
+2. Run the agent + axe (if present) and produce a findings table where every row has `<path:line>`, severity, rule name, concrete fix.
+3. Group by severity. Surface blockers first. Append-only audit log to `ai/audits/<date>-a11y.md`.
+
+**The agent ONLY asks the user when:**
+- **Decorative-vs-informative ambiguity** on an image — never auto-suggest fake alt text; ask for the real value or leave `alt=""` decorative.
+- **Dynamic content semantics** unclear — is this toast a status (`role="status"`) or alert (`role="alert"`)?
+- **Theme palette** missing token definitions — can't verify contrast across themes without the tokens.
+
+Everything else — focus order check, label association check, ARIA name presence, keyboard reachability — is mechanical. Run it, report.
+
+**Closure-verb table — audit scope → ceremony:**
+
+| Tier | Trigger | Ceremony | Default? |
+|---|---|---|---|
+| **Trivial** | Incremental audit on `git diff` UI files | Static agent pass + axe (if present) → findings table → audit log entry. **No ADR, no rule promotion.** | YES |
+| **Standard** | Full-area audit (`/a11y-audit src/components/orders`) | Trivial + per-rule recurrence count + manual-walk reminder | NO |
+| **Heavy** | Pre-release audit OR repeat findings ≥3× across audits | Standard + ADR proposal (palette overhaul / rule promotion) + queue to `.claude/rules/a11y-checklist.md` | NO |
+
+**Lightweight default.** Trivial-tier is the default. Drafting an ADR for every audit run is the same anti-pattern as the migration pack's "ADR-as-closure" trap — promote to ADR only on repeat-systemic-issue.
+
 ## When to use / NOT to use
 - USE: after any visible UI change (component, page, modal, form).
 - USE: before merging a PR that adds new interactive elements.
@@ -49,6 +75,24 @@ A11y-specific:
   Modal.tsx:18  serious    focus-trap          Trap focus inside modal while open
   Form.tsx:55   moderate   label-association   <label htmlFor> must match input id
   ```
+
+### Hand-wave mechanical halt (mandatory, all tiers)
+
+Before declaring the report complete, scan every finding for hand-wave language. For each finding, return one of: `closed` (cites `<path:line>` with concrete fix), `still-open` (vague), `regressed` (claim made without evidence).
+
+**Halt if any finding contains:**
+
+- `etc.`, `...`, `and similar`, `and others`, `among other things`, `various` — open-ended gestures with no enumerated targets.
+- `N+` style ranges (`3+ violations`, `multiple issues`) without listing each `<path:line>`. Either enumerate or don't claim.
+- `consider`, `might want to`, `could be improved`, `review overall`, `look into` — non-actionable verbs. Every finding is a concrete fix or it doesn't ship.
+- `generally`, `mostly`, `seems to` — hedges. Either the rule fails at `<path:line>` or it doesn't.
+- A finding without a `<path:line>` anchor.
+- A finding without a named rule (axe rule id OR WCAG SC number OR named heuristic).
+- A blocker without a concrete fix proposal (not just "fix this" — the actual replacement code or attribute).
+- Auto-suggested fake `alt` text on a non-decorative image (hallucination risk — ask the user, never invent).
+- "All clear" claim based on axe alone (axe covers ~30%; manual keyboard + screen-reader walk is non-negotiable).
+
+**Hard rule:** any hand-wave finding → HALT. Either rewrite the finding with `<path:line>` + named rule + concrete fix, or drop it from the report. Repeat findings (same rule, same path, prior audit) get flagged as `regressed` and surfaced separately.
 
 ## Phase 5 — Update
 - `ai/audits/<YYYYMMDD>-a11y.md` — write the findings report (timestamped, append-only history).

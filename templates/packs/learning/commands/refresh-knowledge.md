@@ -6,6 +6,32 @@ description: Re-runs Phase 2 codebase profiling, diffs against current ai/conven
 
 Use after major refactors, dependency upgrades, architectural shifts, or quarterly. Catches drift between documented project knowledge and reality.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Codebase is the truth. Refresh = re-derive from source; never carry forward stale memory.** The `.claude/codebase-profile.md` and `ai/conventions.md` files are caches of a prior detection run — by definition, they are behind. The repository as it sits at `git rev-parse HEAD` is the only authoritative description of itself.
+
+**The rule when source and digest disagree:**
+
+> **If source says X and old digest says Y, source wins.** Always. Without prompting the user. The digest gets rewritten to match source — never the other way around.
+
+**The agent's job is exactly this:**
+1. Re-detect everything from scratch (Phase 3) — pretend the existing profile does not exist while building the new one.
+2. Diff new-profile against old-profile and categorize ADDED / CHANGED / REMOVED (Phase 4).
+3. On confirmation, **overwrite** the digest with source-derived facts (Phase 5). User-edited sections below idempotency markers are preserved; auto-populated sections are replaced wholesale.
+
+**The agent does NOT:**
+- Ask "did you mean to remove module X?" when the module is gone from source. If source removed it, it's gone — record REMOVED, archive references, move on.
+- Preserve a "CHANGED" digest entry because "the old description was nicer." The new description IS the new truth.
+- Refuse to overwrite a convention rule because the user might have liked it. User edits live BELOW the marker; auto-populated lines ABOVE the marker are not user-owned.
+- Treat the existing profile as a tiebreaker when the new detection is ambiguous. Re-run detection on a narrower scope, or surface as REMOVED + open question — never default to old.
+
+**The agent ONLY pauses when:**
+- Diff is empty (nothing to refresh; report and exit cleanly).
+- Idempotency marker is missing or moved (Phase 6 validate; user resolves marker placement before write).
+- Working tree is dirty (Phase 1 refusal — commit/stash first; refresh on dirty tree mixes uncommitted noise into "reality").
+
+That's it. Three pause triggers. Everything else is silent source-wins overwrites of auto-populated digest sections.
+
 ## Phases applied
 
 MAINTAIN type — 1, 3, 5, 6. Phase 4 here = building the new profile + diff (no code changes); Phase 5 = updating the knowledge layer itself (this command's reason for existing).
@@ -51,6 +77,22 @@ Read for diff:
   - CHANGED → update `ai/conventions.md` + relevant rule + `interaction-log.md`.
   - REMOVED → archive references; may invalidate ADR (write superseding ADR).
 - Show categorized diff in plan form; pause for confirmation (unless `--dry-run`).
+
+### Mechanical halt — source-vs-digest conflict
+
+**Refuse to advance to Phase 5 if any diff entry is unresolved (verb missing, both-sides marked authoritative, or auto-resolution would silently keep digest text).** Cite both sides; pick source. The halt log MUST include:
+
+```
+## /refresh-knowledge halt — source-vs-digest conflict on <key>
+Source (HEAD <new-sha>): <fact derived from re-detection>
+Digest (cached at <old-sha>): <stale fact still in the file>
+Resolution: source wins (digest will be overwritten on confirm).
+Reason for halt: <verb-missing | marker-shadowed | scope-ambiguous>
+```
+
+The halt prints, the user reads, the user types `y` — then Phase 5 overwrites the digest with the source-derived line. There is no "keep digest" branch. If the user genuinely wants the digest text kept, they move it BELOW the idempotency marker (where it becomes a user edit) and re-run; the auto-populated section above the marker is always source-derived.
+
+**The validator's `check_source_wins_resolution` (called from Phase 6) reads the halt log and confirms each cited conflict was closed by overwriting the digest, not by reverting the source-derived line. Reverting source loses the refresh; that is the exact failure mode this halt prevents.**
 
 ## Phase 5 — Update (the knowledge layer — this command's purpose)
 

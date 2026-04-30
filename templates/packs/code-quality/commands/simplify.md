@@ -6,6 +6,29 @@ description: Review changed code for reuse, dead branches, and over-abstraction;
 
 Looks at staged + unstaged diffs and proposes specific simplifications with before/after diffs. Optionally applies them.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing patterns are the truth. Simplification means matching siblings, not innovating.** The repo already has a shape — helpers, base classes, repository pairs, error envelopes, validation primitives. Simplifying means: fewer lines, fewer abstractions, more reuse of what's already there. It does NOT mean: introducing a new helper, a new generic, a new strategy interface, a new base class, a new "cleaner" pattern the agent thinks is nicer.
+
+**The closure verb is `remove-or-inline`.** Each candidate is one of:
+- `remove` — delete dead branch / unused export / unreachable return / no-op wrapper.
+- `inline` — fold a single-caller wrapper / factory / strategy into its only call site.
+- `dedupe` — replace a local re-implementation with the existing helper (cite the helper's `<path>:<line>`).
+- `rename-comment-out` — delete a `// gets the user` above `function getUser()`.
+
+That's the entire vocabulary. If the simplification doesn't fit one of those four, it isn't a simplification — it's a refactor or a redesign, and `/simplify` refuses it.
+
+**Forbidden:**
+- Introducing a NEW abstraction (helper, base class, mixin, generic, strategy, factory, decorator, hook) — even if "it would be cleaner". The simplify command is an entropy-reducer, not a designer.
+- Replacing a clear loop with a clever `reduce`-chain or pipeline.
+- Replacing project primitives with stdlib equivalents the project doesn't already use elsewhere (don't introduce `lodash` if the project doesn't use it; do use it if siblings already do).
+- Cross-module API rewrites — those go to `/refactor`.
+- Applying any candidate without grep-confirming all call sites of an inlined symbol.
+
+**Mechanical halt — refuse refactor that introduces new abstractions; only remove/inline:** before proposing a candidate, the agent classifies it against the four-verb vocabulary. Any candidate that adds a new symbol (function / class / type / interface / file) HALTS with a route-to-`/refactor` note. Net-line-count for an applied simplify run MUST be ≤ 0 (lines removed ≥ lines added). If the diff goes positive, revert.
+
+**Lightweight default.** Staged + unstaged diffs only (or `[path]` arg). No project-wide sweeps, no global pattern proposals, no `ai/patterns/` authoring inside this command. If 3+ duplicates surface, queue a one-line note to `ai/dynamic/learned-patterns.md` for a future `/refactor` to act on; do not act on it here.
+
 ## Phases applied
 
 All 7. Phase 4 = propose diffs (no auto-apply without confirmation).

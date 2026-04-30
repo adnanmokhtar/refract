@@ -6,6 +6,14 @@ description: Run realistic queries against the search engine; verify tenant scop
 
 Purpose: in 60 seconds, prove search isn't leaking tenants, returns sensible relevance, and stays under SLA.
 
+## Premise
+
+Find real issues, no hand-waves. Every reported hit cites the actual document id + `tenant_id` returned by the engine. Cross-tenant leak detection is exact — `tenant_id != A` in any hit is a BLOCKER, regardless of how the query is shaped. Latency numbers come from the engine's `processingTimeMs` / `took` / `EXPLAIN ANALYZE`, not wall-clock guesses.
+
+## Mechanical halt
+
+Cite-or-halt: every query row must carry the engine's response (hit count, top doc ids, leak count). On any cross-tenant hit, halt the run and print the offending `doc.id` + `tenant_id` + filter clause used — do not continue to remaining queries. No `PASS` without a recorded `Cross-tenant leak: 0 / N` line.
+
 ## What it does
 
 1. Loads `test/search-audit/golden-queries.json` — N realistic queries per index with expected behavior rubrics.

@@ -6,6 +6,14 @@ description: Run golden prompt evaluations — send a fixed set of customer mess
 
 Purpose: detect prompt regressions before they land in prod. Every prompt change must pass this gate.
 
+## Premise
+
+Real prompts in real conditions. Don't synthesize edge cases on the fly — pull from `test/prompt-eval/golden-cases.json` (production-like fixtures), call the real Claude API, grade the real reply. No mocked Claude responses. No invented "what-if" cases. If the rubric isn't in the golden file, it doesn't get evaluated this run — add it to the file first, commit, then re-run.
+
+## Mechanical halt
+
+Cite-or-halt: every reported pass/fail must reference the case `id` from the JSON and the actual API response token counts. No cases without a recorded reply. If `ANTHROPIC_API_KEY` is missing, halt — refuse to fake a run with stub replies.
+
 ## What it does
 
 1. Loads `test/prompt-eval/golden-cases.json` — 10+ hand-curated Egyptian-Arabic customer scenarios with expected-behavior rubrics (not exact-match strings).

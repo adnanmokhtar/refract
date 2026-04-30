@@ -4,6 +4,41 @@ description: Add distributed tracing to a service / endpoint / job. OpenTelemetr
 
 # /add-tracing
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing span attributes are the truth.** If any sibling service or module in this repo is already traced, those span names, attribute keys, and resource attribute conventions ARE the convention. New tracing MUST mirror sibling instrumentation: same span naming pattern (`orders.placeOrder` vs `orders.place_order` vs `OrdersService.placeOrder`), same attribute keys (`order.tenant_id` vs `tenant.id`), same resource attributes, same sampler config. Don't invent new conventions.
+
+**The agent's job is exactly this:**
+1. Find one existing traced sibling module. Read its `tracer.startActiveSpan` calls, attribute keys, resource setup.
+2. Mirror that shape for the new spans. Same span-name casing. Same attribute key spellings. Same exception-recording pattern.
+3. Only deviate when an accepted ADR documents the divergence — otherwise, sibling parity wins.
+
+**The agent does NOT:**
+- Use `setAttribute('http.url', ...)` when sibling spans use `request.url`.
+- Name a span `OrdersPlace` when sibling spans use `<domain>.<verb>` (`orders.place`).
+- Add a resource attribute (`team.name`, `cost.center`) that no sibling service emits.
+- Draft an ADR mid-run to legitimize a new convention. **Sibling wins. Mirror it.**
+
+**Closure verb (default): mirror-sibling.** Auto-apply parity edits silently; batch into the end-of-run summary. Only halt on the three escalation triggers below.
+
+**Escalation triggers (halt and ask):**
+- No sibling traced module exists anywhere in the repo (greenfield — user picks the convention).
+- Sibling conventions are inconsistent (two span-naming patterns coexist — user picks).
+- The new tracing genuinely cannot fit sibling shape (different SDK, different exporter) — surface and ask.
+
+That's it. Everything else is silent sibling-parity emission.
+
+## Mechanical halt — instrumentation-naming parity
+
+Before finishing Phase 4, run these checks. Any failure = HALT, surface, do not advance:
+
+1. **Span name parity** — collect existing span names via `grep` for `startActiveSpan` / `start_as_current_span`. New span names MUST follow the same casing + separator (`<domain>.<verb>` vs `<Class>.<method>`).
+2. **Attribute key parity** — every new `setAttribute` key MUST match sibling spans for the same semantic (`tenant_id`, `user_id`, `order.id`, `route`). No new attribute keys without an ADR.
+3. **Resource attribute parity** — new bootstrap reuses sibling `service.name` / `service.version` / `deployment.environment` keys verbatim.
+4. **Sampler parity** — new sampler config matches sibling services (rate, parent-based, tail-based) unless data-justified divergence is documented inline.
+
+Add the check results to the output block under `Naming-parity: ✓ | halts=<N>`.
+
 Add OpenTelemetry tracing where it's missing. Use when:
 - Service has structured logs but no tracing → debugging "where did this slow down" requires correlating logs.
 - Microservice graph but no end-to-end traces → blind to cross-service latency.

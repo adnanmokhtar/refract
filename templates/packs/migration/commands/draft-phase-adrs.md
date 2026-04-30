@@ -6,6 +6,10 @@ pack: migration
 
 # /draft-phase-adrs <N>
 
+## The Premise (read this first)
+
+**Don't draft an ADR when V1-parity is the answer.** ADRs document genuine, user-confirmed divergences — not V2's accidental drift, not "the author preferred X," not cosmetic deltas. Default closure for V2-deviates-from-V1 is **edit V2 to match V1 in the port phase** — no ADR. Auto-drafting parity-restoring ADRs inflates docs while leaving real parity gaps unfixed (the Phase 7 lesson). Surface every divergence with three options; wait for explicit user choice before writing any ADR file.
+
 Decisions-first batch. After `/migration-phase <N> --audit-only`, this command reads every per-feature audit + the phase summary, identifies decision points (P0 cutover blockers + cross-cutting items that recur across features), and **drafts** one ADR per decision in `ai/decisions/`. The user reviews + edits + signs off in one focus session, then `/migration-phase <N> --chain` runs the ports unattended against the pre-approved decisions.
 
 The point: making the same RBAC decision N times across N features in N separate `/port-feature` runs is the dominant supervision cost. Batching the decisions cuts that cost — and matches `migration-discipline.md`'s rule "Document every intentional behaviour break" by doing it once, upfront, with full phase context.
@@ -184,6 +188,10 @@ Next steps:
   3. Resolve cross-repo coord items.
   4. Run: /migration-phase <N> --chain    (executes ports unattended against pre-approved ADRs)
 ```
+
+## Mechanical halt — refuse to draft without explicit user choice
+
+For every V2-deviates-from-V1 finding in the audits, the command MUST present the three options (match V1 / keep V2 + ADR / deprecate V1 + ADR) and wait for explicit user input per finding. Auto-picking option (b) or (c) is forbidden. If the user has not chosen, NO ADR file is written for that finding — it stays in the audit as a port-phase parity-restoration item. A run that drafts ADRs without user-confirmed contract-break choice is invalid; halt and surface the unprompted findings.
 
 ## Hard rules
 

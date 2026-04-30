@@ -6,6 +6,65 @@ description: Review a migration for safety, lock impact, reversibility, and depl
 
 Migrations are the highest-risk code in the repo. Review every one against prod table sizes, not dev's empty tables.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every claim cites `<file:line>` or `<table.column>`.**
+
+A migration review without locations is theatre. "Consider expand-contract" is not a finding; `BLOCKER  migrations/042-add-status.ts:14 — ALTER TABLE orders ADD COLUMN status NOT NULL DEFAULT 'pending' on 5M rows rewrites the table` is a finding. Every BLOCKER / REQUEST / NIT must point at the SQL line and the prod-row-count assumption that made it dangerous.
+
+**The agent's job is exactly this:**
+1. Read the migration file line-by-line.
+2. For each risky pattern detected, anchor it: `<migration-file:line>` + the `<table>` it touches + the prod row count assumption.
+3. Severity by mechanical rule (see closure-verb tiers), not vibes.
+4. Verdict (APPROVE / REQUEST_CHANGES / BLOCK) is a function of finding count and severity, not a judgment call.
+
+**The agent does NOT:**
+- Emit "this might be slow" — either cite the lock pattern at `<file:line>` against a row-count assumption, or drop the finding.
+- Surface a BLOCKER without a fix — every BLOCKER must include the expand-contract sequence or the corrected SQL.
+- Approve without confirming prod row count — review against dev's empty table is meaningless.
+- Draft an ADR to legitimize a `synchronize: true` config — that is always a BLOCKER.
+
+**The agent ONLY asks the user when:**
+- Prod row count is unknown AND no sibling migration on the same table exists for inference (default-pessimistic if unsure, but flag it).
+- A finding contradicts a prior accepted ADR (e.g., team accepted single-migration risk for a one-off batch table).
+- The migration is irreversible by design and the rationale is not in the file's comment header.
+
+## Closure-verb tiers (mandatory dispatch table)
+
+| Severity | Closure | Verdict impact | User prompt? |
+|---|---|---|---|
+| **BLOCKER** — `synchronize: true`, NOT NULL DEFAULT on > 1M rows, FK validate without NOT VALID, missing CONCURRENTLY on populated index, empty `down()` without irreversible-by-design note | `request-change` (with fix sequence) | forces BLOCK | NO — emit with anchor |
+| **REQUEST** — empty `down()` on reversible op, `UPDATE` without batch on > 100k rows, schema + data mixed in one file | `request-change` (with corrected pattern) | forces REQUEST_CHANGES | NO — emit with anchor |
+| **NIT** — type choice (VARCHAR vs enum), comment-header style, naming style | `suggest` (one-liner) | no verdict impact | NO — emit batched |
+| Prod row count unknown AND no sibling inference | `escalate` | halts review | YES — ask, then resume |
+| Finding contradicts accepted ADR | `escalate` | halts review | YES — surface ADR + finding |
+
+**Forbidden:** emitting a BLOCKER or REQUEST without `<migration-file:line>` + `<table>` + row-count assumption. Hand-wave findings ("this looks risky") are ejected at validation.
+
+## Mechanical halt — hand-wave grep
+
+**Before emitting the verdict, the agent MUST run the hand-wave grep:**
+
+1. Grep the draft review for hand-wave tokens: `looks risky`, `might lock`, `may rewrite`, `consider expand-contract`, `could be slow`, `seems unsafe`, `appears to`, `possibly`, `unclear`.
+2. For each hit: anchor with `<migration-file:line>` + `<table>` + row-count assumption, OR delete the line.
+3. Re-grep. If any hand-wave survives without anchor → HALT.
+4. The validator-equivalent check: `findings_emitted = findings_with_anchor_and_rowcount`. If unequal → HALT, do not emit verdict.
+
+If row count is missing on any BLOCKER/REQUEST → HALT and ask user before issuing verdict. A verdict without row-count grounding is unreliable per Phase 6 self-audit.
+
+## Lightweight default
+
+**Default closure is anchored-finding emission with mechanical verdict, no chatter.** The agent does NOT pause to ask "should I block this?" — the closure-verb table decides. Verdict is mechanical: any BLOCKER → BLOCK; any REQUEST without BLOCKER → REQUEST_CHANGES; only NITs or none → APPROVE.
+
+```
+Auto-emitted (no prompt): <N> BLOCKER + <M> REQUEST + <K> NIT with anchors
+  - BLOCKER  migrations/042:14  orders (~5M rows)  ADD COLUMN NOT NULL DEFAULT — rewrite
+  - REQUEST  migrations/042:31  orders             empty down() — add DROP COLUMN
+  - NIT      migrations/042:14  orders             VARCHAR(32) for enum — consider native enum
+Verdict: REQUEST_CHANGES (mechanical: 1 BLOCKER + 1 REQUEST)
+Escalated to user: <K> (e.g., row count unknown on table X; ADR contradiction on table Y)
+```
+
 ## Phases applied
 
 All 7. Phase 6 = the verdict; Phase 4 = the per-pattern findings.

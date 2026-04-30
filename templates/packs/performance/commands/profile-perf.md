@@ -4,6 +4,44 @@ description: Profile a slow endpoint / page / flow. Identify the dominant bottle
 
 # /profile-perf
 
+## The Premise (read this first, internalize, do not deviate)
+
+**The bottleneck is real. The pattern almost always repeats — same import / same query / same render path.** An N+1 in `orders.list` is an N+1 in `invoices.list` and `customers.list` because they share the same loader shape. A sequential `await` in one Stripe enrichment is a sequential `await` in every enrichment that copy-pasted from it. A regex compiled-per-call in `validate.ts` is compiled-per-call wherever the project's "validate inline" idiom landed. The profile's job is to find ONE concrete hot path with measurement, then **scan for the same shape across the rest of the codebase** before reporting.
+
+**The agent's job is exactly this:**
+1. Profile the slow subject under representative load (CPU / IO / network / GC axes).
+2. Identify the dominant cause with `<file:line>` + ms attribution + flame-graph evidence.
+3. **Scan for the same pattern.** `grep` the loader, the await-in-loop, the per-call compile. Count occurrences. Report N — not 1.
+4. Propose targeted fixes ranked by impact / effort, citing every site.
+
+**The agent does NOT:**
+- Guess. "I think it's the DB" without a profile is forbidden.
+- Stop at the first hot function. The pattern that produced it usually shows up in 3-10 more places.
+- Optimize a 1%-of-time function because it looked ugly in the flame graph.
+- Ship "should be faster" without before/after measurement.
+
+**Closure verbs (mandatory per finding):**
+- `report-with-fix` — profile evidence + `<file:line>` + sibling-occurrence count + concrete patch sketch + impact estimate.
+- `report-flagged` — profile confirms hot, but fix needs schema change / cross-service work / architectural ADR; surfaced for review.
+- `dismiss` — profiled, NOT a real bottleneck against budget; documented so the next pass doesn't re-flag it.
+
+**Mechanical halt (similar-pattern scan accounting):**
+
+Before writing the report, the agent MUST resolve this equation for every finding class:
+
+```
+N_found  ==  N_fixed  +  N_explained  +  N_followup
+```
+
+- `N_found` — every site where the bottleneck pattern (N+1 loader / sequential await / per-call compile / sync FS read / unbounded fan-out) appears.
+- `N_fixed` — sites the report's targeted fixes actually cover.
+- `N_explained` — sites legitimately exempt (cold path, admin tool, batch nightly, low-cardinality).
+- `N_followup` — sites parked to a follow-up ticket with rationale.
+
+If the equation does not balance, HALT and re-scan. **Hand-wave grep ("probably the same elsewhere") is forbidden** — every count is an actual occurrence list with file paths.
+
+**Lightweight default:** if the profile finds < 3 sites for a pattern AND the aggregate impact is < 50 ms P95, close with `dismiss` and skip the full report section — note in `Out of scope`. Don't promote sub-budget findings to top-line bottlenecks.
+
 Use when something is slow + you don't know why. Avoids the trap of optimizing-the-wrong-thing.
 
 ## Phases applied

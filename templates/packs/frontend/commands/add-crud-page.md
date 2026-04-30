@@ -6,6 +6,32 @@ description: Scaffold list + create + edit + delete pages for one entity end-to-
 
 Build command. Full CRUD bundle: list with pagination/filter, create/edit form, delete confirmation, store, service, i18n, tests. All 7 phases apply.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing CRUD siblings are the truth.** Every CRUD page already in the admin area is the intentional shape — its `useCrud` composable call, its `BaseCrudService` extension, its `<CrudPaginator>` / `<BaseForm>` / `<BaseModal>` wrappers, its dialog-vs-page choice for create/edit, its permission gate on routes AND action buttons, its optimistic-update presence-or-absence. New CRUD pages copy that shape silently.
+
+**The agent's job is exactly this:**
+1. Find ≥2 sibling CRUD pages in the same admin area.
+2. Mirror EXACTLY: form library (zod/yup/vee-validate/react-hook-form), table library (PrimeVue DataTable, AG Grid, TanStack Table), `useCrud`/`useForm` composables, `BaseCrudService` extension, dialog vs page for create/edit, server-side vs client-side pagination, optimistic-update pattern (or its absence), `onActivated` for KeepAlive caching, permission-gate copy from sibling routes.
+3. Add only the delta the new entity actually needs (its DTO fields, its column set, its filter list). Everything else: copy the sibling shape silently.
+
+**The agent ONLY asks the user when:**
+- **No sibling CRUD exists** in this admin area (first CRUD in the module).
+- **API endpoints missing** (`POST/PATCH/DELETE` not implemented) — STOP, route to `/add-feature`.
+- **Bespoke flow** required (multi-step wizard, kanban, drag-drop) — reject; route to `/add-feature`.
+
+Everything else — column order, filter shape, pagination size, validation message text, empty-state copy, dialog-vs-page — is silent sibling-mirror.
+
+**Closure-verb table — CRUD complexity → ceremony:**
+
+| Tier | Trigger | Ceremony | Default? |
+|---|---|---|---|
+| **Trivial** | New entity, API exists, sibling CRUD page lives in the same admin area | Code only — list + form + delete + store + service + locale keys (BOTH locales) + tests. **No plan, no ADR.** | YES |
+| **Standard** | New entity needs 1 custom column renderer OR 1 new filter widget | Trivial + 1-paragraph sibling-shape note inline | NO |
+| **Heavy** | First CRUD in a new admin area, OR new shared CRUD wrapper required | Standard + ADR + `@ui-reviewer` + `@accessibility-auditor` + `@i18n-auditor` cascade | NO |
+
+**Lightweight default.** Trivial-tier is the default. Drafting an ADR to legitimize a new CRUD page on an existing entity is the same anti-pattern as the migration pack's "ADR-as-closure" trap.
+
 ## When to use / NOT to use
 - USE: new admin entity needing standard CRUD.
 - USE: replacing a half-built CRUD that diverged from repo conventions.
@@ -51,6 +77,24 @@ CRUD-specific:
 - **i18n** — keys for every label, button, validation message, empty state, in EVERY locale.
 - **Tests** — list (renders, paginates, filters), form (valid + invalid submit), delete (confirms + executes).
 - Run lint + tests scoped to new files; iterate to green.
+
+### Sibling-shape mechanical halt (mandatory, all tiers)
+
+Before declaring success, compare the new CRUD bundle against ≥2 sibling CRUD pages in the same admin area. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (introduced a new break on an unrelated axis).
+
+**Halt if any of:**
+
+- Uses raw framework components where Base*-wrappers exist — raw `<Dialog>` instead of `<BaseModal>`, raw `<Paginator>` instead of `<CrudPaginator>`, raw `<form>` instead of `<BaseForm>`, raw `<Dropdown>` instead of `<BaseDropdown>`.
+- Doesn't use `useCrud` / `useForm` when siblings do — hand-rolled list + form state in a `useCrud` codebase is silent divergence.
+- Doesn't extend `BaseCrudService` when siblings do — direct `axios`/`fetch` call in a `BaseCrudService` codebase.
+- Uses `onMounted` instead of `onActivated` on the list page (KeepAlive cache divergence — siblings cache across navigation; new page silently re-mounts and re-fetches).
+- i18n keys present in pivot locale but missing in declared alt locales (`en.ts` ✓, `ar.ts` ✗ — silent break in alt locale).
+- Default-true wrapper props left implicit — removing a `@delete-selected` handler does NOT hide the underlying button; pass `:show-delete="false"` / `:can-delete="false"` explicitly. Same for `:show-create`, `:can-export`, `:show-bulk-actions`.
+- Optimistic-update mismatch — siblings don't use optimistic; new page does (or vice versa). Partial adoption is worse than none.
+- Form library mismatch (zod into a yup repo, react-hook-form into a vee-validate repo) — reject.
+- Permission gate on route but not on action buttons — leak via direct URL or component remount.
+
+**Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
 ## Phase 5 — Update
 - `ai/modules.md` — add row for the new entity's UI module.

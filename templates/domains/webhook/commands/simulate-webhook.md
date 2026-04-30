@@ -6,6 +6,14 @@ description: Replay a WhatsApp webhook fixture against the local (or staging) AP
 
 Purpose: reproduce a real-looking WhatsApp message delivery locally. Used during development, debugging, and manual QA.
 
+## Premise
+
+Real signals only. Cite the actual fixture path, computed HMAC, target URL, response status + body, and any new `messages` rows by id — never narrate a delivery you didn't POST. Read before writing: confirm the fixture exists at `test/fixtures/whatsapp/<name>.json` and `WHATSAPP_APP_SECRET` is set BEFORE signing. `phone_number_id` must resolve to a seeded tenant; if not, halt with the seeding hint.
+
+## Mechanical halt
+
+Cite-or-halt: every run prints the fixture path, signature header value (truncated), response status, and the diff in `messages` (new ids or "no insert"). Refuse to run against any host that isn't `localhost` or an explicit `--target` non-prod URL. `--tamper` must report the actual 401 (or whatever the server returned) — never assume.
+
 ## What it does
 
 1. Loads a fixture JSON from `test/fixtures/whatsapp/` (default: `text-message.json`).

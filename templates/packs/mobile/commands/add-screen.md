@@ -6,6 +6,34 @@ description: Add a new screen — full chain — route + screen component + navi
 
 Use to add a single screen to an existing module. Smaller than `/add-feature` (no new entity / business logic), deeper than editing one file (full chain incl. navigation + tests + i18n).
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing screens are the truth.** The app already ships screens that work — auth-gating, navigation registration, native config (iOS Info.plist + Android manifest), locale keys, error/loading/empty shape, deep-link wiring. Each is a working oracle. A new screen is **not a green field** — it is a sibling, and its shape is **derived**, not invented.
+
+**The agent's job is exactly this:**
+1. Find the closest sibling screen in the same stack / flow / navigator.
+2. Mirror its shape — folder path, file naming, component decomposition, hook order, auth wrapper, error boundary, locale-key namespace, navigation registration call site, native-permission checks, deep-link entry.
+3. Diverge **only** where the new screen's data / action set genuinely requires it. Cosmetic novelty (different state-lib, different error pattern, different folder) is not allowed — it is drift.
+
+**The agent does NOT:**
+- Pick a state lib / data-fetch lib / error pattern that differs from siblings. Siblings win.
+- Place the screen at a new folder path because "it feels cleaner." Sibling path wins.
+- Skip native-config (iOS Info.plist usage strings, Android manifest permissions) because the simulator works without it. Production install will not.
+- Skip deep-link registration because "no one uses it yet." Push notifications + universal links break silently when unregistered.
+- Invent locale-key namespaces. Mirror the sibling's `<module>.<screen>.<key>` shape exactly.
+
+**Mechanical halt — sibling-shape parity (mandatory before Phase 4 generate):**
+
+Before writing any new file, the agent MUST name (in the Phase 2 design output) the **sibling screen file path** it is mirroring, and confirm:
+- Same folder depth + naming convention.
+- Same auth wrapper + navigation-options pattern.
+- Same data-fetching primitive (TanStack Query / RTK Query / Zustand selector / Riverpod / SwiftUI `@StateObject` — whichever the sibling uses).
+- Same error / loading / empty / content state shape.
+- Same locale-key namespace shape (`<module>.<screen>.<key>`).
+- Same native-config touchpoints declared (Info.plist key list, Android manifest entries, linking config registration line).
+
+If no sibling exists in the same stack — HALT. Ask the user to point at the gold-standard screen. Do not invent shape from training data.
+
 ## Phases applied
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).

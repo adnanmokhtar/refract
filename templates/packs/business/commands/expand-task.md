@@ -6,6 +6,34 @@ description: Turn a one-line task into a full implementer-ready prompt with cont
 
 Most "fix login bug" / "make orders faster" tickets are one line. This produces a structured prompt an implementer (or `/add-feature` / `/fix-bug`) can execute.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing specs are the truth.** This command produces a sibling artifact in the team's `specs/` shape — same sections, same terminology, same Given/When/Then phrasing, same in/out scope discipline, same Suggested-flow tail. The expansion is **structurally identical** to a hand-written spec; only the inputs change (one-liner vs full brief). Inventing a new shape because "this is just an expansion" defeats downstream tools (`/add-feature`, `/fix-bug`) that expect the canonical shape.
+
+**The agent's job is exactly this:**
+1. Read 1-2 sibling specs in `specs/` to lock the section list + terminology.
+2. Mirror them: `Goal / Context / Acceptance criteria / Scope (in) / Scope (out) / Edge cases / Affected modules / Estimated complexity / Suggested flow`.
+3. Cite the brief on every line — every claim ties back to a sentence in the original brief OR a clarification answer. No invented requirements.
+4. Stakeholder-decision items stay flagged, never invented. "Should this support X?" → ask, do not guess.
+
+**The agent does NOT:**
+- Skip the sibling-spec read. Drift starts with "I'll just structure it my way for now."
+- Run more than one clarification round. Multi-round = the brief was too vague; send it back.
+- Fabricate `Affected modules`. Each path is grounded in `ai/modules.md` or actual file existence.
+- Suggest more than one next command. Multiple = ambiguity at handoff = wrong thing built.
+- Tag every criterion MVP. Force a real MVP/v2 split or push back on scope.
+
+**Mechanical halt — sibling-shape parity (mandatory before Phase 4 generate):**
+
+Before producing the expanded spec, the agent MUST:
+- Name the 1-2 sibling specs it read (`specs/*.md` paths).
+- Confirm the new spec will use the same section list + ordering as those siblings.
+- Confirm Given/When/Then phrasing matches sibling AC style.
+- Confirm `Affected modules` paths exist (grep `ai/modules.md` or filesystem) — fabricated paths halt the run.
+- If no sibling specs exist — HALT. Confirm the template with the user, do not invent shape from training data.
+
+A spec produced without sibling-shape parity is rejected; regenerate or halt.
+
 ## Phases applied
 
 1, 2, 3, 4, 5, 7. Phase 6 (Validate) is light — this command produces a spec, not code; validation = "user confirms spec is right".

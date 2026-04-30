@@ -6,6 +6,33 @@ description: Mobile bundle-size + cold-start optimization. Audits app size, iden
 
 Reduces app size + cold-start time. Mobile users abandon downloads above ~150MB; cold-start over 2s erodes engagement. Use when:
 
+## The Premise (read this first, internalize, do not deviate)
+
+**The bottleneck is real, and the pattern repeats.** A bundle does not bloat from one freak module — it bloats from a **class of mistake** that lands many times: heavy import where a light one suffices, full-library import where named imports tree-shake, polyfill bundled for a target that no longer needs it, asset shipped at 3x when 2x is the device ceiling, native dep duplicated across two transitive deps. Find the class, you find every instance.
+
+**The agent's job is exactly this:**
+1. Measure first — actual bundle stats from `bundle-visualizer` / `--analyze-size` / APK analyzer. Never optimize on hunch.
+2. Identify the **pattern class** of the heaviest finding (e.g., "moment-timezone-style heavy date lib", "lodash-style full-library import", "PNG-at-3x asset").
+3. **Scan for siblings** of the same pattern across the codebase. One `moment-timezone` import almost always means three more. One unsplit `lodash` import means twenty.
+4. Report all instances of the pattern, not just the first one found. Fixing one and missing four is a wasted release cycle.
+
+**The agent does NOT:**
+- Recommend an optimization without naming the measurement that proved it heavy. "I think X is big" is not a finding.
+- Stop after finding the first instance of a pattern. The repeat scan is mandatory.
+- Recommend a swap (date-fns for moment) without confirming the call sites are compatible. A blind swap breaks runtime.
+- Drop a feature (language pack, screen, polyfill) without checking actual usage telemetry / call-site references.
+- Trust release builds without re-measuring. Hermes / R8 / Flutter `--release` flags change everything; an audit on a debug bundle is fiction.
+
+**Mechanical halt — similar-pattern scan (mandatory before recommendations):**
+
+Before emitting any recommendation in Phase 4, for each heaviest-N finding the agent MUST:
+- Name the pattern class (1 line).
+- Run a repo-wide scan for the same pattern (e.g., `rg "from 'moment'" `, `rg "import _ from 'lodash'"`, `find assets -name "*@3x.png"`).
+- Report **count of instances**, not just the heaviest one.
+- If count > 1 — recommendation is "fix all N", not "fix the heaviest one."
+
+A recommendation that addresses 1 of N pattern instances is rejected as partial.
+
 - App size has crossed 100MB and trending up.
 - First Contentful Paint on mid-tier device > 1.5s.
 - Bundle CI budget exceeded.

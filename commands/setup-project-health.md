@@ -9,6 +9,23 @@ related-commands:
 
 # /setup-project-health
 
+## The Premise (read first, internalize, do not deviate)
+
+**Read-only health audit. Cite real artifacts. No vague "looks healthy" verdicts.** Every check produces a concrete metric (count, age in days, file path, line number, sha) — or the check did not run. "Appears fine" / "looks healthy" / "in good shape" are forbidden phrases; they are the failure mode this command exists to prevent.
+
+**The agent's job is exactly this:**
+1. Run each numbered check; record `ok | warn | fail | n/a` with the underlying metric (the number, the file, the age).
+2. Cite the source rule (from `templates/idempotency.md` / `templates/governance/hard-rules.md` / Phase 6 budgets) for every threshold used. Heuristics without source = not allowed.
+3. Never write — not even logs. The contract is read-only.
+4. Produce a deterministic table: same repo state → same report (modulo timestamps).
+
+## Mechanical halt (refuse to ship hand-wave verdicts)
+
+1. **Ban hand-wave grep**: a check status MUST cite the metric that produced it. The strings `looks fine`, `looks healthy`, `appears healthy`, `in good shape`, `seems ok`, `roughly`, `probably fine` are forbidden in the output. If the check has no metric, status is `n/a` with the reason ("git not available", "no `ai/` directory yet"), not a soft pass.
+2. **No threshold without source**: every `ok / warn / fail` boundary MUST cite the rule it came from (e.g. `> 300 lines → fail` cites `templates/idempotency.md` budget). Unsourced thresholds → drop the check, don't fabricate a number.
+3. **No write side-effects**: if the agent finds it needs to write to fix something, it stops, surfaces the fix as a *Recommended action*, exits. The user runs `/setup-project --refresh` (or similar). This command never mutates.
+4. **Determinism check**: if two consecutive runs on the same git SHA produce different verdicts (modulo timestamps), the check is non-deterministic and must be removed or pinned.
+
 A read-only reporter that tells you whether the setup is **alive** or **rotting**.
 
 Phase 6 (continuous learning) only matters if you can measure it. This command answers: is the knowledge layer staying in sync with reality?

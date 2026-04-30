@@ -4,6 +4,26 @@ description: Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, Codex, Conti
 
 # /setup-project-adapters
 
+## The Premise (read first, internalize, do not deviate)
+
+**Existing adapters are the truth. Re-sync = re-derive translations from pack source; never invent.** `.claude/` (and the pack sources under `templates/packs/<pack>/`) are the source of truth. Adapter files (`.cursor/`, `.opencode/`, `.github/`, `.clinerules/`, `.windsurf/`, `.continue/`, `.aider*`, `AGENTS.md`, `GEMINI.md`) are **derived projections** — they hold no original content of their own.
+
+**If the pack source and an adapter file conflict, the pack wins.** Record the diff (what changed, which adapter, which output file, what was overwritten) in `_phase-4-8-decisions.md`. Never preserve adapter content that has no upstream source — that is invented prose pretending to be derived prose.
+
+**The agent's job is exactly this:**
+1. Enumerate sources from `.claude/{rules,commands,agents,skills,hooks}/` (already written by `/setup-project`).
+2. For each selected adapter, translate each source mechanically per its row in the per-adapter contract.
+3. Cite the source path in the decision-log row for every output file written.
+4. Halt the moment a planned output has no upstream source — that's invention, not translation.
+
+## Mechanical halt (refuse to write invented adapter content)
+
+1. **No-source-no-write**: refuse to write any adapter file whose content does not derive from a specific source under `.claude/` or `templates/packs/<pack>/`. Every output row in `_phase-4-8-decisions.md` MUST cite a source path. Missing citation = halt.
+2. **Conflict without diff**: if pack source and existing adapter file disagree and the diff is not recorded, halt. Pack wins, but the override must be logged.
+3. **Coverage shortfall after retry**: per Phase B, if the retry loop still leaves any contracted output missing → halt with explicit error. No silent "good enough."
+4. **User-customization clobber**: if SHA-256 hash check on bytes outside `<!-- generated:start/end -->` markers shows drift, ROLLBACK + log. Refuse to overwrite user-edited regions.
+5. **Source-of-truth inversion**: refuse to read FROM an adapter file and propagate INTO `.claude/`. Adapters are sinks, never sources. If `.claude/` needs an update, run `/setup-project --refine` instead.
+
 This command translates already-generated rules, commands, agents, and skills into each enabled tool's native shape. It does NOT regenerate those source artifacts — run `/setup-project` first.
 
 ## When to use

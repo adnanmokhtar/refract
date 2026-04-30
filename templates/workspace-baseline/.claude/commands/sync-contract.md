@@ -4,7 +4,16 @@ description: After an API contract change, find frontend consumers and propose s
 
 # /sync-contract
 
-Run after an API DTO / endpoint signature has changed. Finds every frontend consumer and proposes the updates.
+## The Premise (read this first)
+
+**Source contract wins. Refuse drift; surface every divergence with cite.** The API DTO / endpoint signature is the source of truth. Frontend consumers must align — not the other way around. Every proposed edit cites both sides: `<api-repo>/<contract-file:line>` (truth) and `<frontend-repo>/<consumer-file:line>` (drift).
+
+**Mechanical halt** — refuse to propose:
+- A frontend edit without naming the exact consumer file:line that's drifting.
+- A paraphrased version of the contract change ("rename this field" — name the OLD and NEW field exactly).
+- A consumer "looks fine" verdict without citing the line that consumes the changed field.
+
+If the frontend change requires an API change first, halt — don't patch the frontend around a missing API change.
 
 ## Flow
 

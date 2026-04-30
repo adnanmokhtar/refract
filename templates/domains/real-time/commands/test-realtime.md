@@ -6,6 +6,14 @@ description: Open a WebSocket / SSE connection, send N messages, verify ordering
 
 Purpose: prove the real-time path actually works end-to-end — connection auth, channel scoping, fanout, reconnect, backpressure.
 
+## Premise
+
+Real signals only. Cite the actual socket id, channel name, message seq numbers received, latency per step — never narrate a successful run from the sample output. Read before writing: confirm `WS_URL`, `WS_TOKEN`, `TENANT_ID` are set BEFORE any connect. Cross-tenant subscribe rejection is the one assertion that, if missed, halts the whole battery — it's a security gate, not a metric.
+
+## Mechanical halt
+
+Cite-or-halt: every numbered step (`[1]`..`[8]`) must record the actual ack/error/seq it observed, not the example output. If a step times out, mark it `TIMEOUT (<ms>)` — never green. If `[4] cross-tenant subscribe` is accepted, the run halts immediately with a CRITICAL banner; remaining steps are not run.
+
 ## What it does
 
 1. Opens client connection with valid token; verifies `connect` event.

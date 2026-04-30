@@ -6,6 +6,54 @@ description: Hit a dev endpoint with curl and verify status + response shape via
 
 Diagnostic / read-only verification that a controller actually works end-to-end. Phases 1, 3, 6 dominate; 4 (Generate) produces only test calls; 5, 7 N/A.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves.** This command pokes a live dev server and reports what the wire actually does. The whole value is empirical: status codes, response shapes, headers — observed, not assumed. The agent must report what curl returned, not what the controller "probably" does. A response shape claimed without the actual JSON is a hypothesis dressed as a finding. A "200 OK" claimed without the actual status line is a fabrication. The wire is the truth.
+
+**The agent's job is exactly this:**
+1. Resolve the target endpoint to an exact `METHOD /path`.
+2. Dispatch `endpoint-tester` with the canonical 5-call flow (golden / invalid / no-auth / wrong-tenant / replay).
+3. Surface the literal observed response per call: status line, header subset, body excerpt. Cite, don't paraphrase.
+
+**The agent does NOT:**
+- Report "the endpoint returns the expected shape" without quoting the body. **Quote it.**
+- Use hand-wave tokens (`etc.`, `...`, `usual fields`, `among others`) when describing the response. **Enumerate every field observed.**
+- Skip the tenant-isolation call to save time. **All 5 calls run, every invocation.**
+- Mark a 200 a pass when the body shape diverges from the DTO. **Status alone is not pass.**
+
+**The agent ONLY escalates to the user when:**
+- Dev server is unreachable (refuses to auto-start — side effects).
+- Target host is non-localhost and no dev-tunnel approval recorded.
+- Tenant-isolation case returns 200 — that's a CRITICAL leak and the run halts for `/security-audit`.
+
+## Closure verbs (complexity → ceremony)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
+
+| Tier | Triggers | Calls | Output |
+|---|---|---|---|
+| **Trivial** (default) | Single endpoint, known DTO, internal route. | 5-call canonical flow. | Results table + curl replay block. **No follow-up dispatch unless a leak / replay break surfaces.** |
+| **Standard** | Controller sweep (multiple routes), or endpoint touches a sensitive resource (write path, auth-protected, multi-tenant). | 5-call flow per route + idempotency-replay variant for write paths. | Results table per route + consolidated leak/replay summary. |
+| **Heavy** | Public API surface OR webhook OR payment endpoint. | 5-call canonical + signature-tampered + replay-with-stale-key + content-type variants. | Full report + recommendation: `/security-audit` and/or `/simulate-webhook` follow-up. |
+
+**Default is trivial.** Most invocations are post-controller-edit smoke tests. Heavy is opt-in for security-sensitive surfaces — the agent does NOT pre-emptively pick heavy "to be safe."
+
+## Hand-wave halt (mechanical gate, all tiers)
+
+**Before printing the results table, grep the agent's report for hand-wave tokens.** Any hit halts the report until findings are made concrete.
+
+Forbidden tokens (case-insensitive grep):
+- `etc.`
+- `...` (ellipsis used as "and similar")
+- `usual fields`
+- `expected shape` (without the literal shape quoted)
+- `looks correct` (without the literal body quoted)
+- `among others`
+- `several headers`
+- `various status codes`
+
+Halt rule: if any token appears in the report body (not inside quoted curl output), HALT. The agent must replace the hand-wave with the literal observed value — quoted JSON body, listed header keys, exact status line — or drop the claim. The wire is the truth; paraphrase is forbidden.
+
 ## When to use / NOT to use
 - USE: after editing a controller, DTO, guard, pipe, or adding a new route.
 - USE: when a frontend reports an unexpected response shape and you need ground truth.

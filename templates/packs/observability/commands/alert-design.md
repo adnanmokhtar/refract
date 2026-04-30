@@ -4,6 +4,41 @@ description: Design alerts for a service. Uses RED + USE + SLO-based alerts. Avo
 
 # /alert-design
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing alerts are the truth.** If this repo already ships alerts (Prometheus rules, Datadog monitors, Grafana alerts), those thresholds, severity tiers, burn-rate windows, and runbook conventions ARE the convention. New alerts MUST match sibling alerts: same severity labels (`page` / `ticket` / `info`), same threshold magnitudes for comparable signals (error-rate, latency, saturation), same multi-window burn-rate windows (1h fast / 6h slow), same annotation keys (`summary`, `runbook`). Match thresholds and severity tiers to sibling alerts unless data justifies divergence.
+
+**The agent's job is exactly this:**
+1. Audit existing alerts first (Phase 1 already requires this — enforce it). Read sibling thresholds, severity labels, windows, annotation shapes.
+2. Mirror those shapes for the new alerts. Same severity vocabulary. Same window pairs. Same annotation keys.
+3. Only deviate when historical data (past incidents, error budget burn rates) justifies a different threshold — and document the rationale inline.
+
+**The agent does NOT:**
+- Pick a threshold from a blog post (`> 1% over 5min`) when sibling alerts on the same signal use a multi-window burn-rate.
+- Introduce a new severity tier (`critical`, `warn`, `urgent`) when sibling alerts use `page / ticket / info`.
+- Pick burn-rate windows (2h / 12h) different from sibling SLO alerts (1h / 6h) without a data-driven reason.
+- Draft an ADR mid-run to legitimize a new convention. **Sibling wins. Match it.**
+
+**Closure verb (default): match-sibling-thresholds.** Auto-apply parity edits silently; batch into the end-of-run summary. Only halt on the three escalation triggers below.
+
+**Escalation triggers (halt and ask):**
+- No sibling alerts exist (greenfield alerting — user picks the convention).
+- The new signal genuinely has no comparable sibling (novel domain — user picks threshold).
+- Historical data (past incidents) shows sibling threshold would have missed a real outage — surface evidence and propose divergence.
+
+That's it. Everything else is silent sibling-parity emission.
+
+## Mechanical halt — hand-wave grep on rationale
+
+Before finishing Phase 4, every alert MUST have an inline rationale tied to either (a) a sibling threshold or (b) historical data. Run these checks. Any failure = HALT, surface, do not advance:
+
+1. **Hand-wave grep** — scan generated alert annotations + rationale notes for hand-wave phrases: `"reasonable"`, `"sensible default"`, `"industry standard"`, `"common practice"`, `"typical value"`, `"seems right"`, `"should be enough"`. Any match = HALT. Replace with either a sibling-threshold citation (`matches alert <name>`) or a data citation (`based on P95 over last 30d = X ms`).
+2. **Severity tier parity** — every alert uses a severity label that already exists in sibling alerts. New tier = HALT.
+3. **Window parity** — multi-window burn-rate alerts use the same `(fast, slow)` window pair as sibling SLO alerts unless data-justified.
+4. **Runbook link present** — every `severity: page` alert MUST have a `runbook:` annotation pointing at an existing or newly-stubbed file. Missing = HALT.
+
+Add the check results to the output block under `Rationale-grep: ✓ | hand-wave halts=<N> | severity-parity ✓ | window-parity ✓`.
+
 Design alerts that fire when something is actually wrong + DON'T fire when nothing is. The two failure modes are equally bad: too many alerts → fatigue → ignored pages → real outages missed; too few → outages happen with no early warning.
 
 ## Phases applied

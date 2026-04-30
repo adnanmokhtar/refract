@@ -4,6 +4,10 @@ description: Read ai/migration/ledger.md and report per-feature state, blockers,
 
 # /migration-status
 
+## The Premise (read this first)
+
+**Read-only. Cite real ledger rows. No hand-waves.** Every count, every per-feature row, every drift flag in the report traces to a real `ai/migration/ledger.md` row, a real `ai/migration/parity-runs/<feature>.md`, a real `ai/migration/halts/<feature>-*.md`. No "approximately N stalled" — exact counts. No grep-based guesses for state distribution; parse the ledger. If the ledger is malformed or a referenced file is missing, halt with the offending row + line; do NOT fill in plausible numbers.
+
 Reports the current state of the V1→V2 migration. Reads `ai/migration/ledger.md` (and optionally git log + parity-run reports) and produces a structured summary that is checkable by humans + parseable by tooling.
 
 This command is the read-side counterpart to `/port-feature`. It never modifies the ledger; for transitions, use `/port-feature`.
@@ -158,6 +162,10 @@ If invoked with `--json`, emit the same data as JSON for dashboards / metrics:
   "perf_aggregate": {"applied_total": 40, "deferred_total": 7, "rejected_total": 6, "p95_delta_pct": -38, "queries_per_call_delta_pct": -52, "bytes_per_response_delta_pct": -41}
 }
 ```
+
+## Mechanical halt — refuse to estimate or hand-wave
+
+Every numeric in the report (per-state counts, days-in-state, mismatch_rate, perf deltas) MUST come from parsed ledger frontmatter or a referenced parity-run / perf-decisions file. Forbidden: `~10 features stalled`, `roughly half ported`, `most features in shadow`. If a referenced file (`parity-runs/<f>.md`, `perf-decisions/<f>.md`) is missing on disk, the row is flagged as drift, not silently filled with a guess. The report is reproducible: a second run on the same ledger commit produces identical numbers.
 
 ## Failure modes
 

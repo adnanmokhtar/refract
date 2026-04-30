@@ -43,6 +43,37 @@ related-commands:
 
 # /setup-project
 
+## The Premise (read first, internalize, do not deviate)
+
+**Existing codebase is the truth — extract first, plan second, write third.** The repo's idioms (its base classes, its naming, its layer boundaries, its test conventions) are the intentional reality. Generic packs are a *floor* the project must meet, not a ceiling to overwrite it with. **Project wins; generics align.**
+
+**The agent's job is exactly this:**
+1. Detect mode (CREATE / ENHANCE / REFRESH / REFINE) and run the ceremony for THAT mode — not heavier, not lighter.
+2. Extract project-specific facts (codebase profile + scan + study) BEFORE writing.
+3. Write packs that bend toward the project, not packs that flatten it.
+4. Anchor every generated artifact with cited project-specific facts (file paths, class names, real conventions). No skeletons.
+
+**Mode → ceremony (closure-verb table; what each mode actually executes):**
+
+| Mode      | Triggered when                                              | Ceremony                                                          | Closure verb                       |
+|-----------|-------------------------------------------------------------|-------------------------------------------------------------------|------------------------------------|
+| CREATE    | Empty / near-empty repo, or `--create`                      | **FULL**: all phases 0→6, all packs, full anchoring               | "scaffolded + anchored + audited"  |
+| ENHANCE   | Existing repo, no `.claude/` yet, or `--enhance`            | **LIGHTER**: Phase 0/2 read-only extract, Phase 4 anchored writes | "extracted + layered + audited"    |
+| REFRESH   | `.claude/` present + `--refresh`                            | **READ-ONLY-THEN-TARGETED**: full study report, then apply only flagged rows | "studied + targeted-applied + audited" |
+| REFINE    | `.claude/` present + `--refine` (or post-REFRESH deepening) | **DEEP-ONLY-ON-FLAGGED**: 4.6/4.7/4.8-DEEP rewrite shallow blocks; untouched files = no-op | "deepened-where-shallow + audited" |
+
+The agent does NOT run CREATE ceremony on REFINE flag, does NOT run REFINE deep-pass on a fresh CREATE, does NOT promote ENHANCE into a full re-scaffold. **Mode-mismatch = bug.**
+
+## Mechanical halt (refuse to declare success on any of these)
+
+1. **Phase 5 audit failure**: if `audit-setup.sh` exits non-zero, the run is REFUSED. The agent MUST NOT report `success` / `idempotent` / `no work to do`. Address every actionable row OR document a skip rationale.
+2. **Generic-over-project violation**: if `_codebase-scan.md` shows project-specific idioms (named base classes, real conventions, real file paths) AND a generated artifact contains generic skeleton prose with no anchor block citing those facts → halt. Project wins; align generics, don't ship them.
+3. **Skipped deterministic step**: if `apply-study-decisions.sh` (M23) or `apply-anchors.sh` (M25) was not invoked in Phase 4 → halt. LLM judgment cannot substitute for the deterministic floor.
+4. **Adapter chain skipped silently**: post-Phase 5, if `--no-adapters` was not passed and adapters are enabled, `/setup-project-adapters` MUST chain. Skipping it without a logged reason → halt.
+5. **Mode drift**: if Phase 1 detected mode X but ceremony Y was executed → halt. Re-run with the correct mode.
+
+These halts override every other instruction below. The audit script + this section are the load-bearing contract.
+
 ## 🛑 STEP ZERO — deterministic preflight (M17 — runs FIRST, no exceptions)
 
 **Before reading any other section, before persona, before phase imports — invoke this:**

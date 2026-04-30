@@ -4,6 +4,45 @@ description: Identify flaky tests by running suite N times, then root-cause and 
 
 # /flaky-test-hunt [pattern]
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Flake is real. The pattern almost always repeats — same async race / same shared state / same timing dependency.** A test that forgets `await cart.refresh()` is one of N tests in the suite that forgot to await something. A test that depends on `Date.now()` without `vi.useFakeTimers()` is one of N tests with the same naked clock. A test that leaks DB rows into the next test is one of N tests sharing the same fixture without isolation. The hunt's job is to find ONE concrete root cause with measurement (5-run pass/fail diff), then **scan for the same shape across the rest of the suite** before declaring done.
+
+**The agent's job is exactly this:**
+1. Run the suite N=5 times serially, with `--shuffle` if supported, capturing pass/fail per test.
+2. For each flaky test, identify the canonical cause (time / randomness / async race / shared state / order-dependence / external I/O).
+3. **Scan for the same pattern.** `grep` for unawaited promises, naked `Date.now()`, unisolated DB writes, real-network calls. Count occurrences. Report N — not 1.
+4. Fix root causes (never `retryTimes` / `retries: 2` masking) and re-run 5×. Must hit 0/5.
+
+**The agent does NOT:**
+- Add `jest.retryTimes(3)` / Playwright `retries: 2` / `--retry`. Masking ≠ fixing. Forbidden.
+- Mark a test `.skip` "for now". Avoidance ≠ fix. Forbidden.
+- Stop at the one flaky test that's currently failing. The pattern almost certainly exists in 3-10 more tests that flake at lower frequency.
+- Accept "passes 99% of the time" as good enough. Non-zero flake = broken.
+
+**Closure verbs (mandatory per flaky test):**
+- `fix-root-cause` — root cause identified + deterministic rewrite applied + 5/5 verification green; sibling-occurrence count cited.
+- `fix-isolation` — root cause is shared state / order-dependence; fixture isolation applied (per-test transaction, fresh container, env reset) + 5/5 green.
+- `escalate-systemic` — root cause recurs in 5+ tests; per-test fix is not the right closure; surfaced as lint-rule / ADR / shared-fixture proposal in `Phase 7`.
+- `flag-external` — flake traced to a real external dependency (third-party API, real network, real clock); fix is to introduce mock boundary; cite `<file:line>` of the boundary added.
+
+**Mechanical halt (similar-pattern scan accounting):**
+
+Before declaring the hunt done, the agent MUST resolve this equation for every root-cause class:
+
+```
+N_found  ==  N_fixed  +  N_explained  +  N_followup
+```
+
+- `N_found` — every test where the root-cause pattern (unawaited promise / naked clock / shared singleton / real network / order-dependent fixture) appears.
+- `N_fixed` — tests the hunt's deterministic rewrites cover.
+- `N_explained` — tests legitimately exempt (e.g., test of the timer itself, test of the real-network adapter behind a tag).
+- `N_followup` — tests parked to a follow-up ticket with rationale (e.g., systemic class escalated to lint-rule).
+
+If the equation does not balance, HALT and re-scan. **Hand-wave assertion ("probably the same elsewhere") is forbidden** — every count is an actual occurrence list with file paths.
+
+**Lightweight default:** if exactly 1 test is flaky and the pattern doesn't repeat (`N_found == 1`), close with `fix-root-cause` and skip the systemic-escalation step. Don't propose a lint rule for a one-off. Conversely, if `N_found ≥ 5` for the same root cause, default closure is `escalate-systemic` — per-test fixes don't scale.
+
 Fix command (specialized — fix non-determinism, not features). Runs the suite repeatedly to expose flakiness, then fixes root causes (no retry-loop masking). All 7 phases apply.
 
 ## When to use / NOT to use

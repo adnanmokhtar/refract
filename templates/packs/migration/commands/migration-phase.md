@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-phase <N>
 
+## The Premise (read this first)
+
+**Audit first, chain second. Never auto-advance unverified rows.** The audit step (§ 4b) is where V1↔V2 truth is established — by line-by-line read, by dispatched `parity-auditor` agent, by enumerated axes with real `<path:line>` cites. The chain step (§ 4c-4g) only runs after every audited row has explicit closure (parity-clean / accepted ADR / parked / deprecated). A row whose audit was a Trusted-Summary echo, or whose `gaps_in != gaps_closed`, or whose audit lacks `auditor_agent_id` provenance — does NOT advance. The pre-advance verifier is mandatory; partial fixes do not flip rows to `done`.
+
 Runs phase N from `ai/migration/plan.md`. Per feature: audit, gap-find, port, verify, update ledger. Repeats until every feature in the phase is `done` + `parity_test=passing`.
 
 ## Pre-requisites

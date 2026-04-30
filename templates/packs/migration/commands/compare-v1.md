@@ -4,10 +4,20 @@ description: Compare a feature / module / endpoint between V1 and V2. Reports pa
 
 # /compare-v1
 
+## The Premise (read this first)
+
+**V1 is production. V1 is the truth.** Every comparison axis here measures V2 *against V1's observable behavior* — not against an idealized spec, not against the V2 author's recollection. Read before writing. Cite real V1 paths with a pinned commit; never invent paths or paraphrase what "V1 probably does." If V1 source is genuinely unreachable, halt — do not fabricate a comparison row.
+
+**Read-only command.** No edits, no ledger writes, no auto-fixes. Findings only.
+
 Side-by-side comparison of V1 and V2 implementations of the same feature. Use to:
 - Audit a "ported" feature for parity (does V2 match V1's observable behavior?).
 - Plan a port (understand what V1 does before writing V2).
 - Investigate a "regression" reported on V2 that may have existed in V1.
+
+## Mechanical halt — refuse hand-waved findings
+
+The comparison report MUST cite `<v1-path:line>` AND `<v2-path:line>` for every per-axis row. Forbidden tokens in any axis cell: `...`, `etc.`, `and so on`, `N+ filters`, `looks similar`, `appears to match`, `roughly equivalent`, `deferred to port-phase`. If V1 source cannot be read for an axis, the verdict is `unknown — V1 source unreadable at <path>`, NOT a guess. A report containing any forbidden token is invalid; halt and re-run the read.
 
 ## Phases applied
 

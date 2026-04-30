@@ -6,6 +6,34 @@ description: Comprehensive post-work documentation refresh. Prepends Recent Chan
 
 Run after EVERY significant change. Keeps `ai/` honest with reality. This command IS Phase 5 (Update) elevated to a standalone routine — it's the heavyweight version other commands invoke implicitly.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing docs are the truth, but code is the supreme truth.** Refresh = **re-derive from code; never invent**. If `ai/architecture.md` says the auth module lives at `src/modules/auth/session/` and the code says `src/modules/auth/jwt/`, **docs lose**. The repair is to update docs to match code, not to lament the rename or to ADR-justify the doc state. Docs that drift from code stop being read; the way back is honest re-derivation.
+
+**The agent's job is exactly this:**
+1. Walk `git log <base>..HEAD --stat` to find what changed.
+2. For each `ai/` file, **re-derive its content from current code/state** — modules from filesystem, env vars from `.env.example`, scripts from `package.json`, schema from migrations, endpoints from controllers.
+3. Where docs and code disagree, **edit docs**. Code wins. Always.
+4. Drift findings are reported, not silently fixed if the user might need to know (e.g., a path rename that was undocumented might indicate an unfinished refactor).
+
+**The agent does NOT:**
+- Invent a section, pattern, ADR, or runbook with no code basis. Speculative docs are noise.
+- Edit `ai/architecture.md` to justify a doc/code mismatch with a "the system is being migrated" narrative. Update docs to match code, full stop.
+- Delete prior `Recent Changes` entries. Always prepend.
+- Leave placeholders (`<TODO>`, `<name>`, `{{}}`) in any updated doc. The validator rejects.
+- Skip the cross-repo sweep. Path references in `ai/` that no longer exist are silent rot.
+
+**Mechanical halt — hand-wave grep + cite-or-halt (mandatory before Phase 6 write):**
+
+Before bumping `Updated:` and committing the refresh, the agent MUST grep its own doc edits and reject any new line that:
+- Asserts a module / file / table / endpoint / env var that does not exist (filesystem / `.env.example` / migration / route table).
+- Contains `<TODO>`, `<name>`, `{{}}`, `XXX`, `TBD` — placeholders ship as bugs.
+- Adds a pattern to `ai/patterns/` without 2+ code instances proving the pattern is real and reusable.
+- Adds an ADR alternative that is a straw-man (no real pros listed).
+- Re-states a doc claim that the code-derivation step contradicts.
+
+Any line that fails the grep is **dropped or rewritten from code**, not softened. Drift findings (path references that no longer exist, env vars in `ai/stack.md` not in `.env.example`, scripts in `CLAUDE.md` not in `package.json`) are reported in `ai/dynamic/drift-log.md` with severity. Code-vs-docs conflicts always resolve in code's favor; docs are edited.
+
 ## Phases applied
 
 1, 3, 5, 6, 7. Phase 2 (Organize) is light (template-driven). Phase 4 (Generate) = N/A as code; Phase 5 IS the work — generate docs.

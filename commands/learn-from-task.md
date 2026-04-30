@@ -9,6 +9,25 @@ related-commands:
 
 # /learn-from-task
 
+## The Premise (read first, internalize, do not deviate)
+
+**Existing memory is the truth. Append on real, surprising signal only.** Don't promote trivial events to permanent memory. The persistence pyramid (dynamic → conventions → ADRs → failures) exists precisely to keep one-offs out of formal knowledge — every promotion is a tax on every future agent who has to read it.
+
+**The agent's job is exactly this:**
+1. Distill the rule, not the conversation. One sentence. With ≥2 cited examples for conventions.
+2. Default to `ai/dynamic/learnings.md` (append-only). Promote only when the persistence pyramid's threshold is hit.
+3. Refuse trivial sessions (no edits, single-line chats, throwaway questions) — they are not "tasks" worth learning from.
+4. Skip duplicates — if the same observation already exists in dynamic / conventions / ADRs, no-op silently.
+
+## Mechanical halt (trivial-event filter)
+
+1. **Refuse if conversation is under 30 chars**: a session shorter than that is a ping, not a task. No memory entry. Exit silently.
+2. **Refuse if file edits == 0**: if no files were edited (no Write/Edit tool calls in the session, no commits since `--since` ref), the "task" produced no diff to learn from. Exit silently.
+3. **Refuse promotion to conventions on sample size of 1**: convention rows REQUIRE ≥2 cited example files. One example → goes to `ai/dynamic/learnings.md`, not `ai/conventions.md`.
+4. **Refuse to edit existing ADRs**: ADRs are append-only. Supersede with a new ADR; never mutate.
+5. **Refuse to write a learning that contradicts an accepted ADR** without explicit supersession: cite the ADR being overturned, write a new ADR, then proceed.
+6. **Refuse re-recording**: if the observation already exists in dynamic / conventions / ADRs / failures (text match or paraphrase match), no-op. Re-running the command produces no diff.
+
 The learning loop's manual handle. Run after a non-trivial task to convert raw conversation context into durable knowledge.
 
 ## When to run

@@ -6,6 +6,34 @@ description: Cloud cost audit. Identifies unutilized / over-provisioned / forgot
 
 Cloud cost grows silently. Forgotten resources, over-provisioned defaults, expensive choices baked in — none page anyone. Run periodically.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every finding cites `<resource>:<arn>` or `<terraform-file:line>`.** A cost finding without a concrete identifier and a concrete dollar number is a hand-wave and MUST be dropped. "EC2 looks over-provisioned" is not a finding. "`i-0abc123` (m6i.4xlarge, declared at `infra/terraform/compute/web.tf:88`) ran at p95=12% CPU / 18% mem over 30d per Compute Optimizer rec `co-rec-9f...`; right-size to m6i.large saves $312/mo" is a finding.
+
+**The closure verb is `report-with-citation-and-dollar`.** Each row in the output table closes by citing:
+- a cloud resource ARN / instance-id / bucket name / volume-id / EIP / snapshot-id
+- a `<iac-file>:<line>` for IaC-declared resources
+- a Cost Explorer / Compute Optimizer / Trusted Advisor recommendation ID for usage-based findings
+- a concrete `$N/mo` or `$N/yr` saving — never "significant" or "substantial"
+
+No resource ID + no dollar = no finding. The audit halts before write if any row lacks either.
+
+**Mechanical halt — hand-wave grep (mandatory before report write):**
+1. Grep the draft report for: `some `, `several `, `a few `, `many `, `large amount`, `significant`, `substantial`, `appears to`, `roughly`, `etc.`, `...`. Each hit MUST be replaced with a count + citation or dropped.
+2. Grep every recommendation row for a `$` saving figure — drop rows missing one.
+3. Grep every "delete / right-size / migrate" recommendation for the explicit resource list (ARNs, instance-ids) — drop rows that say "12 instances" without naming them.
+4. Grep "Quick wins" / "Medium-effort" totals — they MUST equal the sum of cited row savings; mismatch halts.
+5. If the draft is empty after these passes, report "0 findings — spend baseline tight" rather than padding.
+
+**The agent does NOT:**
+- Estimate savings with adjectives ("big", "meaningful") — only `$N/mo` or `$N/yr`.
+- Recommend "consider X" or "explore X" — recommend a concrete delete / scope / migrate with a target.
+- Inflate the report with generic best-practice tips not tied to a current resource.
+
+**The agent ONLY escalates when:**
+- A resource has zero usage but its owner cannot be identified from tags + IaC + recent commits — surface as `unowned: <arn>` for human triage rather than auto-recommending deletion.
+- A right-size recommendation crosses a memory headroom threshold (<20% margin) on a production instance — surface as "needs canary" rather than auto-recommending.
+
 ## Phases applied
 
 1, 2, 3, 4, 6 (skips Update/Improve — read-only audit + recommendations).

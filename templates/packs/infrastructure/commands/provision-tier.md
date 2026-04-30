@@ -6,6 +6,32 @@ description: Provision a new environment tier (dev / staging / prod / DR). IaC-d
 
 A new environment tier is high-leverage but easy to ship wrong: over-provisioned, IAM too broad, no observability, untagged for cost. This command produces a tier that's correct from day 1.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing tiers are the truth. New tier mirrors closest sibling tier (dev/staging/prod) with explicit per-resource overrides only.** If `infra/terraform/tiers/staging/` exists, it IS the convention for any new staging-class tier — module set, module call order, tag schema, naming pattern, IAM scoping idiom, observability wiring, alert routing. Do NOT compose a fresh tier from cloud-vendor reference architectures; do NOT copy prod into a new dev tier; do NOT mix idioms across siblings.
+
+**The closure verb is `mirror-sibling-tier-with-overrides`.** Before generating, the agent MUST:
+1. List `infra/terraform/tiers/*/` (or pulumi/cdk equivalent) and pick the closest sibling by tier purpose (new prod region → existing prod; new dev → existing dev; new staging → existing staging; new DR → existing prod with HA).
+2. Read the sibling's `main.tf` (or root) end-to-end and record: module set called, module argument shape, tag schema (keys + value source), CIDR allocation pattern, instance-class progression by tier, multi-AZ flags by tier, backup retention by tier, IAM `ci_role` shape, observability `send_to` target, alert routing target.
+3. Generate the new tier with the SAME module set and SAME argument shape; per-resource overrides MUST be explicit (`instance_class = "db.t4g.small"  # diverges from staging: tier is dev, smaller`) — silent value changes are forbidden.
+
+**Mechanical halt — sibling-resource-shape parity (mandatory before `terraform plan`):**
+1. Untagged-resources halt: any module call missing `tags = local.tags` → halt. Any resource block creating an AWS/GCP/Azure resource without tags propagation → halt.
+2. Missing-labels halt: `local.tags` MUST contain every key the sibling tier sets (`Environment`, `ManagedBy`, `CostCenter`, `Owner`, plus any sibling-specific) → halt on any missing key.
+3. Missing-module halt: every module the sibling tier calls MUST appear in the new tier OR carry an explicit `# omitted: <reason>` comment. Silent omission of `observability` / `alerts` / `secrets` / `iam` → halt.
+4. Missing-probes-equivalent halt: every stateful resource (RDS, ElastiCache, etc.) MUST have a backup config + at least one alert wired (the infra equivalent of liveness/readiness). Missing → halt.
+5. Missing-limits halt: every compute module call MUST set `min_size` AND `max_size` (or vendor equivalent); unbounded → halt.
+6. IAM-scope halt: any `allowed_actions` containing `*:*` outside an explicit `break-glass` role → halt.
+7. Secret-inline halt: any literal credential / API key in `.tf` files → halt; force `secrets-manager` module path.
+8. OIDC halt: any CI integration creating long-lived `aws_iam_access_key` resources → halt.
+
+If no sibling tier exists, halt and ask the user to point at a gold-standard tier OR confirm this tier is the new gold standard (then the IaC is reviewed by `infra-architect` + `tf-plan-review` before apply).
+
+**The agent does NOT:**
+- Compose a tier from scratch when a sibling exists in the same repo.
+- Copy prod values into a non-prod tier silently — every value crossing tier boundary is an explicit override with a comment.
+- Skip a module the sibling has — observability and alerts and backups are not optional.
+
 ## Phases applied
 
 All 7.

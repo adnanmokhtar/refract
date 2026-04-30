@@ -1,8 +1,17 @@
 # /migration-doctor
 
-Cross-repo health check for every SahlCart project that has a migration ledger. Runs `validate-migration-artifacts.sh` across all 7 repos, aggregates results, surfaces drift between repos.
+## The Premise (read this first)
+
+**Find real ledger / artifact issues. No hand-waves.** Every finding cites `<repo>/<ledger-row>` or `<repo>/<artifact-path>`. Aggregating to vagueness ("a few rows look stale") is the failure mode this command exists to prevent — that's the same Trusted-Summary pattern the migration pack outlawed.
+
+**Mechanical halt** — the doctor refuses to write findings that:
+- Contain `etc.`, `...`, `several`, `a few`, `mostly`, `appears` without a per-row anchor.
+- Aggregate counts without listing the underlying rows ("3 stale audits" must list which 3).
+- Compare repos without naming both repos and the divergent fields.
 
 Read-only. Never modifies ledgers, audits, or code.
+
+Cross-repo health check for every SahlCart project that has a migration ledger. Runs `validate-migration-artifacts.sh` across all 7 repos, aggregates results, surfaces drift between repos.
 
 ## When to use
 

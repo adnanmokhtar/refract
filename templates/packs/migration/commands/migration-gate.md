@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-gate <N>
 
+## The Premise (read this first)
+
+**Refuse on red. Phase exit is mechanical, not negotiated.** The gate runs the validator script, reads the ledger, reads the audits — and either passes or refuses. There is no "passed with caveats," no soft-pass, no "audit looks fine but the contract is missing 3 sections is okay." If any check in the tier-scoped matrix fails, the verdict is REFUSED and the next phase MUST NOT start. The gate writes nothing on REFUSED — only the one-line `_history.md` PASS entry on green.
+
 The phase exit verifier. Run after `/migration-phase <N>`. Refuses pass on any blocking issue. The next phase MUST NOT start until this is green.
 
 ## Pre-requisites

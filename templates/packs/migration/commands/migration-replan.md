@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-replan
 
+## The Premise (read this first)
+
+**Read before writing. Cite real V1 paths, never invented.** Replan reads the current ledger + history + failures-catalog and rewrites `plan.md` — preserving every `done` row's original phase number and re-phasing only the rest. Every re-phased row's `v1_path` and `v2_path` must still point at real files (or `<unmapped>` for explicit gaps). Don't paraphrase V1 paths from memory. If the ledger has aged out (V1 changed materially), halt and run `--re-scan-first` instead of guessing.
+
 The plan written on day 1 doesn't survive contact with reality. By phase 3, the codebase has changed, V1 may have shifted, dependencies may have surfaced. Replan reads the current ledger and produces a fresh `ai/migration/plan.md` for everything still in flight.
 
 ## When to use
@@ -146,6 +150,10 @@ Reason logged: <user-supplied>
 
 Next: /migration-phase <K+1>   (continue with the new plan from the next un-passed phase)
 ```
+
+## Mechanical halt — refuse to renumber passed phases or invent rows
+
+Before writing the new plan: (1) every `done` row keeps its original phase number — verify by diffing old plan vs new plan for `phase_passed_at` rows; if any moved, halt. (2) Every re-phased row traces to a current ledger entry — no invented rows. (3) `--reason` is mandatory and lands in `_history.md`; refuse the run without it. (4) If the prior plan archive at `_plan-archive/` cannot be written (path missing, permissions), halt — replan does not proceed without preserving the audit trail.
 
 ## Hard rules
 

@@ -4,6 +4,43 @@ description: Audit dependencies for known CVEs + abandoned maintainers + license
 
 # /dependency-vuln-check
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every finding cites `<file:line>` and CVE ID.** A vuln without a manifest line + CVE identifier + fix-version is gossip. "lodash might be vulnerable" is not an audit; "`package.json:34` lodash@4.17.20 → CVE-2021-23337 (HIGH, prototype pollution) → upgrade ≥ 4.17.21" is an audit. License findings cite the SPDX expression and the file in `node_modules/<pkg>/LICENSE` (or equivalent). Maintainer findings cite the last-commit SHA / date from the upstream repo. Provenance is non-negotiable.
+
+**The agent's job is exactly this:**
+1. Run the ecosystem auditor (`npm audit --json`, `pip-audit`, `cargo audit`, `govulncheck`, etc.) and parse output structurally.
+2. For each finding, cite: manifest `<file:line>`, package@version, CVE ID, severity from the source advisory, fix path.
+3. Cross-reference with OSV / GHSA so the finding has at least two sources where possible.
+4. Categorize: CVE / license / abandoned / supply-chain / drift. **No bucket without evidence.**
+
+**The agent does NOT:**
+- Report "lodash is old" without a CVE + version + fix.
+- Use vague severity ("could be bad"); copy the CVSS / severity from the source DB exactly.
+- Skip transitive deps because they're "indirect" — exploitable transitives are the supply-chain whole point.
+- Whitelist a finding without an attached comment + revisit-by date.
+
+**Closure verbs (mandatory per finding):**
+- `block-merge` — CRITICAL / HIGH CVE on production dep; merge gate fails until fixed or threat-modeled.
+- `fix-now` — patch available, low-risk upgrade; ship the bump.
+- `fix-scheduled` — patch requires a major bump or refactor; ticketed with revisit-by date.
+- `accept-with-justification` — no patch, exposure documented in `ai/audits/`, threat-model attached, revisit-by date set.
+- `dismiss-false-positive` — confirmed false positive (e.g., test-only dep, vuln path unreachable); whitelist entry with reason.
+
+**Mechanical halt (no hand-wave grep):**
+
+Before writing the report, the agent MUST verify each finding by re-fetching its source advisory and matching:
+
+```
+finding.package == advisory.package
+finding.version_range satisfies installed_version
+finding.cve_id == advisory.id (or alias)
+```
+
+If any axis fails to verify, HALT and either re-source or drop the finding. **Phrases like "probably affected" or "may be vulnerable" are forbidden** — either the version range matches the advisory or the finding is false. No CVE-less rows in the CRITICAL / HIGH tables.
+
+**Lightweight default:** for INFO / LOW findings without an exploitable path, close with `dismiss-false-positive` (with one-line justification) or batch into a single "below-threshold" line in the report — don't expand each into a row. The report is the action plan, not a vuln-DB dump.
+
 Modern apps have hundreds to thousands of transitive dependencies. Each is a potential supply-chain attack surface. This command audits them systematically.
 
 ## Phases applied

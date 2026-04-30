@@ -6,6 +6,14 @@ description: Scan the codebase for prompt bloat, unbounded contexts, and missing
 
 Purpose: catch AI cost leaks before they hit the bill.
 
+## Premise
+
+Find real issues, no hand-waves. Every finding cites `<file:line>` or `<resource>` — never "review the prompt builder" or "consider capping tokens." If you can't point to the offending line, the finding doesn't exist.
+
+## Mechanical halt
+
+Hand-wave grep — refuse to report any finding without a `file:line` anchor in the table. Generic suggestions ("look into prompt size") are dropped before printing. A run with zero findings is a valid result; a run with vague findings is a bug.
+
 ## What it checks
 
 Run grep-based checks across `src/` and report:

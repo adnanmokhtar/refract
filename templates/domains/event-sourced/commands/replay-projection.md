@@ -6,6 +6,14 @@ description: Rebuild a read-model projection from the event store. Drop-then-reb
 
 Purpose: rebuild a stale or corrupted projection. Also the only safe way to apply schema changes to a read model.
 
+## Premise
+
+Real signals only. Cite the actual projection name, current `last_event_id`, event-store row counts, and per-batch progress from the live database — never narrate a replay you didn't run. Read before writing: confirm projector position + advisory lock state BEFORE any TRUNCATE or write. PROD requires `CONFIRM_PROD_REPLAY=yes`; without it, halt.
+
+## Mechanical halt
+
+Cite-or-halt: every progress line and verification stat must come from an actual SQL query result (event count, row count, position). No estimated "should be done now" lines. If the advisory lock can't be acquired, halt — do not "best-effort" replay alongside another writer.
+
 ## When to invoke
 
 - Projection state diverged from event store (bug found, audit failed).

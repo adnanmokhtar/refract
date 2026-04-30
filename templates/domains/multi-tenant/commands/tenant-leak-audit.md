@@ -6,6 +6,14 @@ description: Scan the codebase for tenant-isolation leaks — queries and repo m
 
 Purpose: catch cross-tenant data leaks before they ship. Runs grep + static checks; flags every suspicious pattern.
 
+## Premise
+
+Find real issues, no hand-waves. Every finding cites `<file:line>` — never "review repository methods" or "consider tenant scoping." If the grep didn't hit, the finding doesn't exist. The audit walks the actual file tree; missing directories are reported, not skipped silently.
+
+## Mechanical halt
+
+Hand-wave grep — refuse to print a `blocker` / `high` / `medium` row without a `file:line` anchor and the matched snippet. Carve-outs (`*.admin-repository.ts`, `tenant-leak:ignore`) must be visible in the matched line, not assumed. No finding without evidence.
+
 ## What it checks
 
 1. **Repo methods without `tenantId`.** Any method on a `*Repository` class whose signature has no `tenantId: TenantId` / `tenantId: string` AND whose body doesn't call `tenantContext.getTenantId()`. Exclusion: anything in `*.admin-repository.ts`.

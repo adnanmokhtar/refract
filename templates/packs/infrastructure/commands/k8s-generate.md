@@ -6,6 +6,32 @@ description: Generate production-ready k8s manifests (Deployment, Service, Ingre
 
 Default-secure manifests for one service: probes, resources, non-root, default-deny network, autoscaling.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing manifests are the truth. Mirror sibling deployment shape: labels, resource limits, security context, probes.** If `k8s/<other-service>/deployment.yaml` already exists in this repo, it IS the convention — labels schema, label values, probe shape, resource-request style, security-context block, topology-spread keys, annotation set. Do NOT invent a fresh shape from k8s docs; do NOT copy a generic template; do NOT mix idioms across siblings.
+
+**The closure verb is `mirror-sibling-shape`.** Before generating, the agent MUST:
+1. List `k8s/*/deployment.yaml` (or `charts/*/templates/deployment.yaml`) and pick the closest sibling by service kind (HTTP API → another HTTP API; worker → another worker; cron → another cron).
+2. Read that sibling end-to-end and record its: label keys, label-value conventions (e.g. `app.kubernetes.io/name`, `app.kubernetes.io/part-of`), probe paths + thresholds, resource request/limit ratios, security-context fields, topology-spread keys, image-pull-policy, annotation set, NetworkPolicy egress allow-list shape.
+3. Generate the new service's manifests with the SAME shape; deviations are allowed ONLY when justified by service kind (e.g. worker has no Service / Ingress) and recorded inline as `# diverges from <sibling>: <reason>`.
+
+**Mechanical halt — sibling-resource-shape parity (mandatory before write):**
+1. Untagged-resources halt: every generated resource MUST carry the sibling's full label set. Missing any key from sibling → halt.
+2. Missing-labels halt: any object without `metadata.labels` populated → halt.
+3. Missing-probes halt: any container in Deployment / StatefulSet without BOTH `livenessProbe` AND `readinessProbe` (and `startupProbe` if sibling has one) → halt.
+4. Missing-limits halt: any container without BOTH `resources.requests` AND `resources.limits` for cpu+memory → halt.
+5. Missing-securityContext halt: any container without `runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, `capabilities.drop` matching sibling → halt.
+6. PDB-replica-coherence halt: `pdb.minAvailable >= deployment.replicas` → halt.
+7. Image-tag halt: `:latest` or unpinned digest → halt.
+8. NetworkPolicy halt: default-deny without explicit DNS egress allow → halt.
+
+If no sibling exists in the repo, halt and ask the user to point at a gold-standard manifest set OR confirm this service is the new gold standard (then the manifest is reviewed by `infra-architect` before write).
+
+**The agent does NOT:**
+- Generate from a generic Kubernetes-docs template when a sibling exists.
+- Mix label conventions (`app: foo` in one file, `app.kubernetes.io/name: foo` in another).
+- Skip a probe / limit / security-context field because "the app doesn't need it" — siblings set the floor.
+
 ## Phases applied
 
 All 7. Phase 6 includes manifest linting.

@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-scan
 
+## The Premise (read this first)
+
+**Read before writing. Cite real V1 paths, never invented.** The scan reads BOTH codebases — actual V1 source, actual V2 source — and writes a ledger row per real V1 feature. No paraphrasing, no "V1 probably has an orders module," no inferred entries from memory. Every ledger row's `v1_path` is a real file at the pinned commit; every `v2_path` is either an existing V2 file or `<unmapped>` (never a fabricated planned path). If V1 source is unreadable for a module, halt and surface — do NOT silently drop features.
+
 The deep-comparison entry point. Run this FIRST in a V2 repo that needs to absorb V1.
 
 **Trust nothing.** This command does NOT take any prior "ported" status as truth — every feature is freshly compared against V1 behavior. The ledger that comes out reflects current reality, not history.
@@ -176,6 +180,10 @@ Reports:
 
 Next: /migration-plan      (consumes scan-report + ledger; produces phased plan)
 ```
+
+## Mechanical halt — refuse to fabricate ledger rows
+
+Every ledger row MUST trace to a readable V1 source file. Forbidden: writing a row with a `v1_path` that doesn't exist on disk; writing a row inferred from architecture docs or prior conversations without reading V1; using `...`, `etc.`, `and similar` in any row's `feature` or `notes` field. If a V1 module is unreadable (permissions, missing submodule, broken clone) → halt and report; do NOT skip silently and do NOT invent rows. Every row in the output must be re-derivable by another reader given the same V1 commit.
 
 ## Hard rules
 

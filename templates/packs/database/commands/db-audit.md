@@ -6,6 +6,65 @@ description: Full DB audit — indexes, bloat, slow queries, soft-delete and ten
 
 Health pass on a non-prod DB. Reports findings per check with fixes (and migration SQL where applicable).
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every claim cites `<file:line>` or `<table.column>`.**
+
+An audit report without locations is a hallucination. "There may be missing indexes" is worthless; `orders.tenant_id — FK without index (see migrations/0042-create-orders.sql:18)` is a finding. Every line of the report MUST be a concrete artifact the user can grep, click, or apply a migration to.
+
+**The agent's job is exactly this:**
+1. Run each check against the live DB or schema files.
+2. For every finding, anchor it: `<file:line>` for code-side leakage, `<table.column>` or `<index_name>` for schema findings, `<query_id>` from `pg_stat_statements` for slow queries.
+3. Severity assigned by mechanical rule, not vibes (see closure-verb tiers).
+
+**The agent does NOT:**
+- Emit "consider reviewing X" — either it's a finding (with location) or it's not.
+- Hand-wave with "potentially slow", "might be unindexed", "could leak". Verify or drop.
+- Repeat the same finding under multiple checks (an unindexed FK shows up under "missing indexes", not also under "slow queries" unless it has its own `pg_stat_statements` entry).
+- Surface a finding without a fix — every FAIL must include the migration SQL or the code edit.
+
+**The agent ONLY asks the user when:**
+- The target DB is ambiguous (`staging` could be prod-alias — confirm before connecting).
+- A finding's fix would auto-DROP an index/column (always propose, never apply).
+- Stats are too short-window to trust (< 30 days → flag and ask whether to defer or proceed with caveat).
+
+## Closure-verb tiers (mandatory dispatch table)
+
+| Severity | Closure | User prompt? |
+|---|---|---|
+| **FAIL P0** — tenant leakage on write path, soft-delete bypass on user-facing query, schema drift in prod | `escalate` | YES — halt, surface, wait |
+| **FAIL P1** — missing FK index, slow query > 1s avg, > 30% bloat on top-20 table | `report-with-fix` (migration SQL or code edit) | NO — include in report |
+| **WARN P2** — unused index (≥ 30 days), 20-30% bloat, soft-delete on read-only path | `report-with-proposal` (PROPOSED migration, never auto-apply) | NO — include in report |
+| **OK** — check passed | `report-line` | NO |
+| Stats < 30 days OR target ambiguous OR auto-DROP would be required | `escalate` | YES — halt before report |
+
+**Forbidden:** the audit MUST NOT emit findings without `<file:line>` or `<table.column>` anchors. Hand-waves are ejected at validation. The Phase 6 self-audit ("did every finding have a location?") is the gate.
+
+## Mechanical halt — hand-wave grep
+
+**Before emitting the report, the agent MUST run the hand-wave grep:**
+
+1. Grep the draft report for hand-wave tokens: `potentially`, `might`, `may`, `consider`, `could be`, `seems`, `appears to`, `possibly`, `unclear`, `unsure`, `TBD`.
+2. For each hit: either anchor it (`<file:line>` or `<table.column>`) or delete the line.
+3. Re-grep. If any hand-wave token survives without an anchor on the same line → HALT.
+4. The validator-equivalent check: `findings_emitted = findings_with_anchors`. If unequal → HALT.
+
+If hand-waves persist after one rewrite cycle → halt and ask user whether to drop the unanchored findings or extend the audit window to gather evidence.
+
+## Lightweight default
+
+**Default closure is anchored-finding emission, no chatter.** The agent does NOT pause to ask "should I report X?" on a P1 / P2 finding — it emits with anchor + fix and lets the user route through `/migration-review` for the destructive ones. Mid-run prompts are a token-waste anti-pattern.
+
+```
+Auto-emitted (no prompt): <N> FAIL + <M> WARN with anchors
+  - orders.tenant_id              — FK without index (migrations/0042:18)
+  - audit_logs                    — 38% dead tuples (pgstattuple snapshot)
+  - src/repos/orders.repo.ts:88   — raw query missing deletedAt IS NULL
+Escalated to user: <K>
+  - schema drift in prod (requires devops sync)
+  - 2 unused-index DROPs (PROPOSED, route via /migration-review)
+```
+
 ## Phases applied
 
 AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the report; Phase 5/7 minimal.

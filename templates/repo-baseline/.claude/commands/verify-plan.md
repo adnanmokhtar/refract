@@ -5,6 +5,15 @@ allowed-tools: [Read, Grep, Glob, Bash, Edit]
 
 # /verify-plan
 
+## The Premise (read this first)
+
+**Plan-fulfilled is mechanical. Refuse PASS unless every plan item has a citation.** A plan item with a `[ ]` checkbox doesn't count toward fulfillment until it's flipped to `[x]` AND backed by a `<file:line>` citation showing the actual code, OR a passing test name. "Looks done" without a cite = `⚠ deviated`. No partial credit.
+
+**Mechanical halt** — refuse a PASS verdict if:
+- ANY plan item is `⚠ deviated` or `✗ missing` (PASS requires 100% `✓ matched`).
+- ANY checked item lacks a `<file:line>` or test-name citation.
+- The implementation introduces files / behavior NOT mentioned in the plan (scope creep — flag explicitly).
+
 Verify that an implementation (done by Claude Code, OpenCode, Cursor, Aider, or any other tool — or a human) matches the plan written by an earlier `--plan` run. The plan file is the contract; this command audits adherence.
 
 ## Usage

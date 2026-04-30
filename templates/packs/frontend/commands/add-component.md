@@ -6,6 +6,32 @@ description: Scaffold a reusable component with typed props, tests, and (optiona
 
 Build command. Generates a presentational component matching the repo's framework, naming, and authoring style. All 7 phases apply.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing siblings are the truth.** Every shared primitive in `components/` is the intentional shape — its prop typing, its slot/children API, its style mechanism, its test layout. New components copy that shape silently.
+
+**The agent's job is exactly this:**
+1. Find ≥2 sibling components in the same folder.
+2. Mirror their authoring style: `<script setup>` vs Options API, `function Foo(): JSX.Element` vs `forwardRef`, prop-types convention, default-true wrapper-prop convention, slot/children naming, test-file layout, Storybook story shape.
+3. Add only the delta the new component actually needs. Everything else: copy the sibling shape silently.
+
+**The agent ONLY asks the user when:**
+- **No sibling exists** in the target folder (truly new primitive — first card, first dialog, first picker).
+- **Generic name** (`Box`, `Wrapper`, `Container`) — reject and require a purpose-driven name.
+- **New styling system** would be needed (the repo uses Tailwind; component requires CSS-in-JS).
+
+Everything else — prop default-true vs default-false, slot vs prop for header, locale-key path, test-file naming — is silent sibling-mirror.
+
+**Closure-verb table — component complexity → ceremony:**
+
+| Tier | Trigger | Ceremony | Default? |
+|---|---|---|---|
+| **Trivial** | New primitive that mirrors an existing sibling (card, badge, chip, button variant) | Code only — component + test + (Storybook entry if siblings have one). Locale keys land in BOTH locales. **No plan, no ADR.** | YES |
+| **Standard** | New shape with 1 new prop convention or new slot pattern | Trivial + 1-paragraph sibling-shape note inline | NO |
+| **Heavy** | New shared-primitive family (first dialog, first datepicker, first dropdown wrapper) | Standard + ADR + `@design-system-guardian` + `@accessibility-auditor` dispatch | NO |
+
+**Lightweight default.** Trivial-tier is the default. ADR drafts are heavy-tier opt-in only — drafting an ADR to legitimize a new card variant is the same anti-pattern as the migration pack's "ADR-as-closure" trap.
+
 ## When to use / NOT to use
 - USE: new shared UI primitive used in ≥ 2 places.
 - USE: replacing duplicated inline JSX/template across files (extracting a pattern).
@@ -50,6 +76,21 @@ Component-specific:
 - Test file mirroring siblings: render + props variants + interaction + a11y assertion.
 - Storybook / Histoire / Ladle entry IF those are present.
 - Run lint + the component's tests; iterate to green.
+
+### Sibling-shape mechanical halt (mandatory, all tiers)
+
+Before declaring success, compare the new component against ≥2 sibling files in the same folder. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (introduced a new break on an unrelated axis).
+
+**Halt if any of:**
+
+- Uses raw framework primitives where Base*-wrappers exist — raw `<button>` instead of `<BaseButton>`, raw `<input>` instead of `<FormField>`, raw `<dialog>` instead of `<BaseModal>`.
+- Lifecycle divergent from sibling — `onMounted` where siblings use `onActivated` (KeepAlive), or class-component where siblings are `<script setup>` / function components.
+- Locale keys present in `en.ts` but missing from `ar.ts` (or any other declared locale) — silent break in the alt locale.
+- Default-true wrapper props left implicit — a wrapper exposing `:show-header="true"` by default must be passed `:show-header="false"` explicitly when the affordance is hidden; same for `:can-close`, `:show-footer`.
+- New file placed outside the folder's existing path convention (e.g., `src/components/cards/OrderCard.vue` when siblings live at `src/components/orders/Card.vue`).
+- New styling system introduced (CSS Modules in a Tailwind repo; styled-components where siblings use scoped CSS).
+
+**Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
 ## Phase 5 — Update
 - `ai/dynamic/changelog.md` — one-line: `Added <Component> at <path>`.

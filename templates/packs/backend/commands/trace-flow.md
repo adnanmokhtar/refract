@@ -6,9 +6,65 @@ description: Trace a request / event / job lifecycle through every layer — con
 
 Diagnostic / read-only command. Produces a call chain + gap report, does not modify code.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Pattern almost always repeats.** A trace through one flow is rarely an isolated reading. If this webhook lacks a circuit breaker, the other 4 webhooks in the repo almost certainly do too. If this controller forgets to propagate the correlation id, the sibling controllers built off the same template forgot too. If this external call has no timeout, the `axios` import line was almost certainly copy-pasted into 6 other files. The trace's value is doubled when a finding is checked against sibling flows — surfacing one missing circuit breaker is a ticket; surfacing five is a project-wide ADR.
+
+**The agent's job is exactly this:**
+1. Walk the named flow end to end with `file:line` cited at every hop.
+2. For every gap surfaced (missing timeout, missing tenant filter, missing observability), **grep the codebase for the same shape across sibling flows** and report the cluster, not just the singular finding.
+3. Distinguish singular gaps (1 instance) from systemic gaps (≥2 instances) in the report — they get different follow-ups.
+
+**The agent does NOT:**
+- Stop at "missing circuit breaker on Meta Send" without checking the other 4 external clients in the repo. **Check siblings; surface the cluster.**
+- Use words like `the service`, `the repo`, `somewhere downstream`. **Every step has a file:line — never a noun without a path.**
+- Map the whole app — ONE flow per invocation. **Cluster discovery is grep, not re-trace.**
+- Promise gaps "will be addressed elsewhere" without naming the follow-up command. **`/fix-bug`, `/add-telemetry`, ADR — pick one per gap.**
+
+**The agent ONLY escalates to the user when:**
+- The flow's entry point cannot be resolved (controller method ambiguous, multiple matches).
+- A sibling-flow grep surfaces ≥3 instances of the same gap — that's project-wide and warrants ADR consideration before piecemeal fixes.
+- Tenant isolation is broken at any hop — halt for `/security-audit`.
+
+## Closure verbs (complexity → ceremony)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
+
+| Tier | Triggers | Walk | Output |
+|---|---|---|---|
+| **Trivial** (default) | Single endpoint / event / job, ≤6 hops, no external boundary. | Linear walk, file:line per hop, gap list. | Visual call chain + 1-paragraph summary. **No sibling grep unless a gap surfaces.** |
+| **Standard** | Flow crosses ≥2 modules OR has 1 external boundary OR is multi-tenant. | Walk + per-gap sibling-flow grep. | Visual call chain + summary + cluster table (this gap N times across N flows). |
+| **Heavy** | Webhook / payment / cross-service distributed flow OR onboarding doc deliverable OR ADR substrate. | Full walk + sibling grep + observability completeness check + cross-flow pattern doc draft. | Full report with external-boundary table + cluster findings + Phase 7 follow-ups + suggested ADRs. |
+
+**Default is trivial.** Most invocations are "I'm about to edit this — show me the chain." Heavy is opt-in for documentation deliverables.
+
+## Cluster halt (mechanical gate, all tiers)
+
+**For every gap surfaced in the trace, check sibling flows for the same shape via grep.** A gap's severity is a function of its cluster size, not its singular presence.
+
+Halt rule: if any gap has cluster count > 1 across sibling flows, the agent MUST surface every instance, not just the one in the traced flow. Output format:
+
+```
+Gap: missing circuit breaker on external HTTP boundary
+  Traced flow: WhatsAppSenderService.sendText (whatsapp-sender.service.ts:42)
+  Sibling matches (grep for `fetch(` / `axios.` / `http.request` outside `lib/http-client.ts`):
+    - SmsSenderService.sendSms          src/modules/sms/.../sms-sender.service.ts:31
+    - PaymentProviderClient.charge      src/modules/payments/.../provider-client.ts:88
+    - GeoLookupClient.lookup            src/modules/geo/.../geo-client.ts:24
+  Cluster size: 4
+  Severity: project-wide → ADR candidate, not piecemeal /fix-bug
+```
+
+Forbidden:
+- Surfacing one finding when grep would show three.
+- Saying "this pattern appears elsewhere" without naming each file.
+- Describing a gap with `the service` or `the repo` — every reference is a path.
+
+If the sibling grep returns zero matches, say so explicitly: `Cluster size: 1 (singular)`. Silence on cluster status is itself a hand-wave.
+
 ## Phases applied
 
-1, 2, 3, 6, 7. Phases 4 (Generate) + 5 (Update) are N/A — no code, no docs written; output is a findings report. Phase 6 here = "validate the trace is complete and accurate". Phase 7 = capture any patterns / drift surfaced.
+1, 2, 3, 6, 7. Phases 4 (Generate) + 5 (Update) are N/A — no code, no docs written; output is a findings report. Phase 6 here = "validate the trace is complete and accurate". Phase 7 = capture any patterns / drift surfaced. **Heavy-tier only runs Phase 7 in full; trivial / standard skip Phase 7 unless cluster size ≥2.**
 
 ## When to use / NOT to use
 

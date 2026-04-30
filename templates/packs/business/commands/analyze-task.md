@@ -6,6 +6,33 @@ description: Turn a rough business idea into structured requirements, user stori
 
 Build command for the spec layer (not code yet). Two-pass: business spec → confirmation → technical spec. All 7 phases apply with a hard pause between Phase 4a and 4b.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing specs are the truth.** The repo's `specs/` folder is the canon of how this team writes a spec — section names, terminology, stakeholder fields, acceptance-criteria phrasing, scope-tag format (MVP/v2), risk + rollout shape. A new spec is a **sibling**, not a new style. Inventing sections / renaming `Acceptance criteria` to `Behavior` / dropping `Out of scope` because the brief is small — these are drift, not improvement.
+
+**The agent's job is exactly this:**
+1. Read 2-3 recent specs in `specs/` before drafting. They define the shape.
+2. Mirror their section list, ordering, terminology, stakeholder-question format, MVP/v2 tagging convention.
+3. Diverge only where the new task's domain genuinely demands it (e.g., adding a Native-capability section for a mobile-only spec). Document the divergence in 1 line at the top.
+4. Use the team's own vocabulary — if specs say "tenant" never write "workspace"; if specs say "owner-confirmed" never write "stakeholder-validated."
+
+**The agent does NOT:**
+- Invent sections that no sibling spec has (e.g., "Strategic alignment", "Vision statement"). If no sibling has it, the new spec doesn't either.
+- Drop required sections because the brief is short. `Out of scope` empty = scope creep guaranteed; force the section non-empty.
+- Skip the confirmation gate between 4a and 4b. The whole point of this command is the clarification round.
+- Tag every criterion `MVP`. That's broken scope discipline; force a real MVP/v2 split.
+- Substitute its own assumptions for stakeholder answers. Open questions stay open.
+
+**Mechanical halt — sibling-shape parity (mandatory before Phase 4a draft):**
+
+Before dispatching `business-analyst`, the agent MUST:
+- List the 2-3 sibling specs read (`specs/*.md` paths).
+- Name the section list those specs share (e.g., `Problem / Stories / AC / Out of scope / Open questions / Affected modules / DB / API / Test plan / Risk`).
+- Confirm the new spec will use that exact section list, in that order.
+- If no sibling specs exist — HALT. Ask the user to confirm the spec template, do not invent one from training data.
+
+Section renaming or section invention without a sibling precedent is rejected; the spec is regenerated mirroring siblings.
+
 ## When to use / NOT to use
 - USE: owner / stakeholder gave a one-liner that needs unpacking before code.
 - USE: before `/expand-task` — `analyze-task` produces what `expand-task` consumes.

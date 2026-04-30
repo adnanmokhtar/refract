@@ -4,6 +4,44 @@ description: Web bundle + page-load performance audit. Bundle size, JS execution
 
 # /bundle-perf
 
+## The Premise (read this first, internalize, do not deviate)
+
+**The bottleneck is real. The pattern almost always repeats — same import / same query / same render path.** A heavy `moment` import in one route is a heavy `moment` import in 14 routes. A render-blocking font in `layout.tsx` is render-blocking on every page that extends it. A `"use client"` placed at a leaf primitive bloats every parent that imports the primitive. The audit's job is to find ONE concrete bottleneck with measurement, then **scan for the same shape across the rest of the bundle** before reporting.
+
+**The agent's job is exactly this:**
+1. Measure the dominant axis (Lighthouse / bundle visualizer / Coverage / Performance flame).
+2. Identify the heaviest single contribution with `<file:line>` + KB / ms attribution.
+3. **Scan for the same pattern.** `grep` the import, the wrapper prop, the unparallelized await. Count occurrences. Report N — not 1.
+4. Propose targeted fixes ranked by impact / effort, citing every site.
+
+**The agent does NOT:**
+- Recommend "consider tree-shaking" without naming the bloated module + KB delta.
+- Recommend "lazy-load third-party" without naming the script + load timing + KB.
+- Skip the similar-pattern scan after finding a hit. **One occurrence is a finding; N occurrences is the actual cost.**
+- Ship "I think this helps" without before/after numbers.
+
+**Closure verbs (mandatory per finding):**
+- `report-with-fix` — measurement + `<file:line>` + sibling-occurrence count + concrete patch sketch.
+- `report-flagged` — measurement confirms hot, but fix needs cross-team / framework upgrade / architectural decision; surfaced for ADR.
+- `dismiss` — measured, NOT a real bottleneck against budget; documented so the next audit doesn't re-flag it.
+
+**Mechanical halt (similar-pattern scan accounting):**
+
+Before writing the report, the agent MUST resolve this equation for every finding class:
+
+```
+N_found  ==  N_fixed  +  N_explained  +  N_followup
+```
+
+- `N_found` — every site where the bottleneck pattern (import / wrapper / await / asset / script tag) appears in the codebase.
+- `N_fixed` — sites the report's targeted fixes actually cover.
+- `N_explained` — sites legitimately exempt (e.g., admin-only route, behind a feature flag, dev-only).
+- `N_followup` — sites parked to a follow-up ticket with rationale.
+
+If the equation does not balance, HALT and re-scan. **Hand-wave grep ("there's probably more like this") is forbidden** — every count is an actual occurrence list.
+
+**Lightweight default:** if the audit finds < 3 sites for a pattern AND the total impact is < 50 KB / 100 ms, dispatch closure-verb `dismiss` and skip the full report section — note in `Out of scope`. Don't bloat the report with sub-budget findings.
+
 Web frontend perf focused on bundle + initial render. Use when:
 - Lighthouse Performance score < 90.
 - LCP > 2.5s on 4G.

@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-park <feature-id>
 
+## The Premise (read this first)
+
+**State changes are atomic. Confirm before mutating the ledger.** Park is reversible but not free — the row's `prior_status` and `prior_phase` MUST be captured exactly so `/migration-unpark` can restore them. No silent parks (reason mandatory). No parking `done` rows. No partial writes — ledger row, `parked/<id>.md`, and history entry land together or not at all. If any pre-condition fails, halt; mutate nothing.
+
 The relief valve. Use when one feature in a phase is genuinely stuck (third-party blocker, requires human decision, technical debt that needs its own ADR) and you don't want it blocking the entire phase from gating.
 
 ## When to use
@@ -149,6 +153,10 @@ To unpark:
 
 Phase 4 gate will no longer block on F042.
 ```
+
+## Mechanical halt — refuse atomic park without confirmation
+
+Before any write, verify: (1) feature exists in ledger, (2) current `status` ∈ {`unverified`, `in-flight`, `failed`} (NOT `done`, NOT `deprecated`, NOT already `parked`), (3) `--reason` is non-empty and ≥1 sentence, (4) `prior_status` + `prior_phase` captured from current row before mutation. If any check fails → halt; print which check failed; write nothing. The three artifacts (ledger row update, `parked/<id>.md`, `_history.md` line) are written together; a partial set is forbidden.
 
 ## Hard rules
 

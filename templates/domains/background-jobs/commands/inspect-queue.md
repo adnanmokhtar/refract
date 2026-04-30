@@ -6,6 +6,14 @@ description: Dump queue health — depth, oldest-job-age, failed count, throughp
 
 Purpose: in 30 seconds, answer "is this queue healthy?" without opening a dashboard.
 
+## Premise
+
+Real signals only. Cite the actual queue name, depth, oldest-job id, DLQ count from the live broker — never guess from code. Read before writing: this command observes; it does NOT requeue, ack, or mutate. If the broker connection fails, halt and surface the connection error — do not infer health from stale data.
+
+## Mechanical halt
+
+Cite-or-halt: every reported metric must come from a live `getJobCounts` / `get-queue-attributes` / `XLEN` / `kafka-consumer-groups --describe` call. No "looks healthy" without numbers. If a queue is unreachable, mark it `UNREACHABLE` — never `OK` by default.
+
 ## What it reports
 
 For each queue:

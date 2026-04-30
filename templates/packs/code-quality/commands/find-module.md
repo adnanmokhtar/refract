@@ -6,6 +6,25 @@ description: Locate a module, feature, or concept across the codebase quickly.
 
 Parallel search across directory names, filenames, identifiers, and string usage. Reports primary location plus related files and registration status.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing module map is the truth. Don't invent paths; cite real ones.** The repo already has a shape — directories, registration files (`ai/modules.md`, framework module manifests, package roots). Every answer this command emits is a citation of something that exists on disk OR an honest "not found" with a conventions-based suggestion clearly labelled as a suggestion.
+
+**The closure verb is `cite-or-halt`.** Each result row is one of:
+- `cite` — `<path>` exists on disk, confirmed by `ls` / `find` / `rg`.
+- `not-found-suggest` — no match; emit a conventions-based suggested location, label it `(suggested, not yet present)`.
+- `halt` — query is a common noun without qualifier, or the module map disagrees with disk reality. Refuse to answer; surface the ambiguity.
+
+**Forbidden:**
+- Inventing a plausible-looking path the agent did not verify (`src/modules/<name>/` "should be there" without checking).
+- Reporting a `cite` row when the path was not actually listed by a tool call.
+- Silently merging "suggested" and "found" into the same bucket.
+- Answering on a common-noun query (`user`, `order`, `item`) without a qualifier.
+
+**Mechanical halt — refuse to invent paths; cite or halt:** every emitted path MUST trace to a tool-call result in this run. If the agent cannot produce a `cite` and cannot honestly suggest from siblings, it halts and asks for synonyms or a qualifier. No fabricated paths, ever.
+
+**Lightweight default.** This is a DIAGNOSTIC, read-only command — no edits, no agent dispatch, no ceremony. Four parallel greps + one `ai/modules.md` read + one clustered output. If the answer needs more than that (cross-repo, multi-monorepo, alias glossary), surface the limit; do not expand scope mid-run.
+
 ## Phases applied
 
 DIAGNOSTIC type — 1, 2, 3 dominate. No Generate/Update/Validate/Improve unless the search reveals stale `ai/modules.md` (then a one-line update).

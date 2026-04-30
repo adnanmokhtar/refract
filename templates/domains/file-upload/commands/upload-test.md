@@ -6,6 +6,14 @@ description: End-to-end upload smoke — request presigned URL, PUT to S3, trigg
 
 Purpose: in 60 seconds, prove the full upload pipeline works — presign, upload, scan, process, serve.
 
+## Premise
+
+Real signals only. Cite the actual fixture file path, presigned URL, S3 ETag, upload id, variant URLs, and scan record — every step is an HTTP/SQL result, not a narrated success. Read before writing: confirm `.env.test` + fixture file exist BEFORE any PUT. Negative tests (EICAR, bomb, oversize) must report the actual rejection code, not an assumed one.
+
+## Mechanical halt
+
+Cite-or-halt: every step in the report must reference a concrete artifact (`uploadId`, `MessageId`, `ETag`, `signed URL`, DB row id). If presign returns non-200, halt — do not invent the rest of the pipeline. Refuse to print `OK` for a stage that wasn't actually exercised.
+
 ## What it does
 
 1. POST `/uploads/presign` with auth, declare contentType + size.

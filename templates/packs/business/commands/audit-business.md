@@ -6,6 +6,33 @@ description: Audit a feature from the user perspective — missing cycles, broke
 
 Audit command. Reviews a shipped feature for completeness, not correctness. Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the audit; Phase 7 surfaces systemic gaps.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing specs + prior audits are the truth.** The feature was built against a spec; the spec encodes the intent. A gap is the delta between **what the spec promised** and **what the user can actually do** — not the delta between what the agent imagines a great product would be and what the feature is. Inventing gaps that the spec never claimed is scope creep dressed as audit.
+
+**The agent's job is exactly this:**
+1. Read the feature's spec(s) from `specs/` before walking the code. The spec is the oracle.
+2. Read prior `ai/audits/<date>-<feature>*.md` for the same feature — repeated findings are SYSTEMIC, not new.
+3. Walk the user journey end-to-end and flag concrete gaps with `<file:line>` or `<route+role>` reproduction steps.
+4. Tag every finding: `[blocker]` (broken flow), `[gap]` (missing cycle / dead end / inconsistent state / notification gap), `[opinion]` (enhancement). Opinions never inflate blocker count.
+
+**The agent does NOT:**
+- Audit code style. Working code with bad UX still fails this audit; bad code with good UX passes. Stay in user POV.
+- Propose net-new features. Gaps in scope route to `/analyze-task`, not into the audit report.
+- Write "feels off" findings. Every finding has a reproduction (route, role, action, expected vs actual).
+- Skip the prior-audit cross-reference. Repeated findings without escalation hide the systemic problem.
+- Pad blocker counts with `[opinion]` enhancements to look thorough.
+
+**Mechanical halt — hand-wave grep + cite-or-halt (mandatory before Phase 5 write):**
+
+Before appending to `ai/audits/<date>-business-<feature>.md`, the agent MUST grep its own findings and reject any line that:
+- Contains `feels`, `seems`, `should probably`, `might want`, `could be better`, `polish`, `nicer flow` — without a reproducible step list.
+- Lacks a `<route or screen + role + action>` reproduction for `[blocker]` / `[gap]` findings.
+- Lacks a citation of either the spec line ("spec said X, app does Y") OR an entity-lifecycle gap (created → no exit / edit → no audit log / etc.).
+- Tags `[opinion]` without a heuristic anchor (Nielsen N, declared product principle, prior decision in `ai/decisions/`).
+
+Findings that fail the grep are **dropped**, not softened. Report `Dropped (uncited): <N>` in the output. Same finding appearing in 3+ historical audits without escalation = SYSTEMIC tag forced; queue ADR.
+
 ## When to use / NOT to use
 - USE: feature is "done" but feels incomplete in walkthrough.
 - USE: support tickets cluster around one feature.

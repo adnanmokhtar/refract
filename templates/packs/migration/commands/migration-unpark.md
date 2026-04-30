@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-unpark <feature-id>
 
+## The Premise (read this first)
+
+**State changes are atomic. Confirm before mutating the ledger.** Unpark restores `prior_status` and `prior_phase` exactly as captured at park time — not a best-guess, not "probably unverified." Read the parked-context file first; verify `prior_status` and `prior_phase` are populated; then mutate ledger row + archive the park file + append history together. Resolution note mandatory. If the parked-context file is missing or malformed, halt; mutate nothing.
+
 Sibling to `/migration-park`. Use when the blocker that caused parking is resolved.
 
 ## When to use
@@ -94,6 +98,10 @@ Archive: ai/migration/parked/_resolved/F042.md
 
 Recommend: /migration-replan if you've unparked multiple features in a row.
 ```
+
+## Mechanical halt — refuse atomic unpark without confirmed prior state
+
+Before any write: (1) ledger row exists with `status: parked`, (2) `prior_status` field populated and ∈ {`unverified`, `in-flight`, `failed`}, (3) `prior_phase` field populated as a valid phase number, (4) `parked/<id>.md` exists and is well-formed, (5) resolution note non-empty. If any check fails → halt; print which check failed; mutate nothing. The three artifacts (ledger row update, archive move to `_resolved/`, history append) land together or not at all.
 
 ## Hard rules
 

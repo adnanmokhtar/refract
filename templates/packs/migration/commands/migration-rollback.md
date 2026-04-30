@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-rollback <N>
 
+## The Premise (read this first)
+
+**Rollback is destructive. Confirm scope explicitly before mutating.** This command reverts ledger rows, removes audit files, and restores managed-block content from snapshots. Read-confirm-execute — never silent. If the pre-run snapshot at `.claude/backups/migration-phase-<N>-<ts>/` is missing, halt; do NOT improvise a revert from git. The `--reason` flag is mandatory. The backup directory is sacred (Hard Rule N20) — never auto-deleted, even after rollback. User-authored content outside managed blocks is byte-preserved; if any planned write would touch outside-marker content, halt.
+
 The safety net. Use when a shipped phase produces a regression in production OR when a phase reveals it was the wrong direction. Restores phase N's pre-run state.
 
 ## When to use
@@ -129,6 +133,10 @@ Next steps:
   - Re-run /migration-phase <N> when fix is ready.
   - If the approach was wrong: edit the plan, then re-run /migration-phase <N>.
 ```
+
+## Mechanical halt — refuse to mutate without confirmed scope
+
+Before any write: (1) `--reason` non-empty (≥1 sentence), (2) snapshot dir exists at `.claude/backups/migration-phase-<N>-<ts>/`, (3) explicit user confirmation of the feature list (`--dry-run` first is recommended), (4) no planned write touches content outside `setup-project:managed` markers — if a feature's target file has no managed block, halt and surface for manual handling, (5) ADRs cited as `intentional-break` for phase-N rows have been classified (Accepted / Superseded / Rejected) — auto-revert without ADR review is forbidden. Atomic per-feature: row + file + audit either all revert or none.
 
 ## Hard rules
 

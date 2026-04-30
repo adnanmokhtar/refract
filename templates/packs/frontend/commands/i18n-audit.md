@@ -6,6 +6,32 @@ description: Find hardcoded strings, missing keys, locale parity breaks, and unu
 
 Audit command. Static scan for i18n drift. Phases 1-3 + 6 dominate; Phase 4 produces a report; Phase 5 logs the audit and (optionally) scaffolds missing keys.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues. No hand-waves.** Every claim cites `<path:line>` (for hardcoded strings) or `<key-path>` (for missing/dead keys). Vague gestures ("locales seem out of sync", "consider auditing dynamic keys") are forbidden — they do nothing for the user and burn audit budget.
+
+**The agent's job is exactly this:**
+1. Resolve locale dir + pivot locale + UI source globs.
+2. Run three mechanical passes: hardcoded scan, parity diff, dead-key sweep — every result anchored to `<path:line>` or `<key-path>`.
+3. Group by category (Missing | Hardcoded | Drifted | Dead). Append-only audit log to `ai/audits/<date>-i18n.md`.
+
+**The agent ONLY asks the user when:**
+- **Dynamic key** (`t('status.' + value)`) — flagged for manual confirmation; never auto-deleted.
+- **Missing translation value** — never auto-translate; copy pivot value verbatim with `// TODO: translate` so translators see it.
+- **Pluralization category collapse** — pivot has `one/other`; target locale needs `zero/one/two/few/many/other` — ask the translator, don't fabricate.
+
+Everything else — hardcoded grep, key-set diff, dead-key grep, interpolation token compare — is mechanical. Run it, report.
+
+**Closure-verb table — audit scope → ceremony:**
+
+| Tier | Trigger | Ceremony | Default? |
+|---|---|---|---|
+| **Trivial** | Incremental audit (one feature, one locale dir) | Three-pass scan → grouped report → audit log entry. **No ADR, no rule promotion.** | YES |
+| **Standard** | Full-repo audit OR new locale promotion | Trivial + per-feature missing-key clustering + interpolation parity check | NO |
+| **Heavy** | Pivot-locale drift > 10% OR repeat hardcoded clusters in same files ≥3 audits | Standard + ADR proposal (locale workflow / translator handoff / `i18next/no-literal-string` lint rule) | NO |
+
+**Lightweight default.** Trivial-tier is the default. Drafting an ADR for every audit run is the same anti-pattern as the migration pack's "ADR-as-closure" trap — promote to ADR only on systemic-drift evidence.
+
 ## When to use / NOT to use
 - USE: before shipping a feature that added text.
 - USE: after a translator delivers a new locale file.
@@ -54,6 +80,25 @@ i18n-specific:
   Dead keys (2):
     legacy.old_modal_title  (last seen in commit 8a3f2 — confirm before deletion)
   ```
+
+### Hand-wave mechanical halt (mandatory, all tiers)
+
+Before declaring the report complete, scan every finding for hand-wave language. For each finding, return one of: `closed` (cites `<path:line>` or `<key-path>`), `still-open` (vague), `regressed` (claim made without evidence).
+
+**Halt if any finding contains:**
+
+- `etc.`, `...`, `and similar`, `and others`, `various keys`, `several files` — open-ended gestures with no enumerated targets.
+- `N+` style counts (`5+ hardcoded strings`, `multiple missing keys`) without listing each `<path:line>` or `<key-path>`. Either enumerate or don't claim.
+- `consider`, `might want to`, `look into`, `review overall`, `seems out of sync` — non-actionable verbs. Every finding is concrete or it doesn't ship.
+- `generally`, `mostly`, `appears to` — hedges. Either the key is missing in `ar.json` or it isn't.
+- A hardcoded-string finding without a `<path:line>` anchor.
+- A missing-key finding without the exact `<key-path>` AND the locale file it's missing from.
+- A dead-key finding without the last-seen commit OR a confirmation-required note (dynamic keys are unreachable to grep — don't claim "dead" without manual confirmation).
+- An auto-translated value (machine output is a placeholder, never shippable copy — copy pivot verbatim with `// TODO: translate`).
+- A pluralization category collapse (en's `one/other` projected onto ar — preserve the full `zero/one/two/few/many/other` set).
+- An interpolation-token mismatch unflagged (`{count}` in en but `{{count}}` in ar — runtime crash; treat as blocker, not warning).
+
+**Hard rule:** any hand-wave finding → HALT. Either rewrite with `<path:line>` / `<key-path>` + concrete action, or drop it from the report. Repeat clusters (same rule, same files, prior audit) get flagged as `regressed` and surfaced separately.
 
 ## Phase 5 — Update
 - `ai/audits/<YYYYMMDD>-i18n.md` — append timestamped report.

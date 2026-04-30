@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-plan
 
+## The Premise (read this first)
+
+**Read before writing. Cite real V1 paths, never invented.** The plan groups features that ALREADY exist in the ledger (produced by `/migration-scan`); it does not invent features, does not paraphrase V1 paths, does not assume V2 modules that don't exist. Every plan row's `v1_path` matches the ledger row exactly; every `v2_path` is either a real V2 file or a planned home cited from `ai/architecture.md`. If the ledger is missing a feature you "remember V1 having," halt and re-run `/migration-scan` — do NOT add a row by hand.
+
 Reads the ledger + scan report, produces `ai/migration/plan.md` — the phased execution plan.
 
 ## Pre-requisites
@@ -142,6 +146,10 @@ Largest phase: <Y> features
 
 Next: /migration-phase 1   (audits + ports + verifies phase 1 features)
 ```
+
+## Mechanical halt — refuse to invent features or fabricate paths
+
+Every plan row MUST trace to a ledger row by `id`. Forbidden: adding a feature to the plan that isn't in the ledger; citing a `v1_path` not present in the ledger row; citing a `v2_path` that doesn't exist AND isn't covered by `ai/architecture.md` as a planned module. If a plan-time discovery surfaces a missing V1 feature → halt; the user runs `/migration-scan` to re-inventory. Do NOT silently extend the ledger from this command.
 
 ## Hard rules
 

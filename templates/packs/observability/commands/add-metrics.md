@@ -4,6 +4,41 @@ description: Add metrics (counters / gauges / histograms) to a service. RED meth
 
 # /add-metrics
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing metrics are the truth.** If the service (or any sibling service in the same repo) already emits metrics, those naming conventions, label sets, units, and bucket boundaries ARE the convention. New metrics MUST mirror sibling instrumentation: same metric naming convention (`http.server.duration` vs `http_request_duration_seconds` — pick the one already in use), same label keys (`route` vs `path`, `status` vs `status_code`), same unit suffix, same bucket layout. Don't invent new conventions.
+
+**The agent's job is exactly this:**
+1. Find one existing instrumented module in this repo. Read its meter setup, metric names, label keys, buckets.
+2. Mirror that shape for the new metrics. Same prefix. Same separator. Same label keys. Same units.
+3. Only deviate when an accepted ADR documents the divergence — otherwise, sibling parity wins.
+
+**The agent does NOT:**
+- Invent a new metric prefix because "the OTel docs use dots and the codebase uses underscores."
+- Add a new label key (`tenant`, `customer_id`, `region`) that no sibling metric uses.
+- Pick histogram buckets from a blog post when sibling histograms have established buckets.
+- Draft an ADR mid-run to legitimize a new convention. **Sibling wins. Mirror it.**
+
+**Closure verb (default): mirror-sibling.** Auto-apply parity edits silently; batch into the end-of-run summary. Only halt on the three escalation triggers below.
+
+**Escalation triggers (halt and ask):**
+- No sibling instrumentation exists anywhere in the repo (greenfield — user picks the convention).
+- Sibling convention is internally inconsistent (two services use two prefixes — user picks).
+- The new metric genuinely cannot fit sibling shape (different unit domain, different cardinality envelope) — surface and ask.
+
+That's it. Everything else is silent sibling-parity emission.
+
+## Mechanical halt — instrumentation-naming parity
+
+Before finishing Phase 4, run these checks. Any failure = HALT, surface, do not advance:
+
+1. **Metric prefix parity** — `grep` the repo for existing meter `createCounter` / `createHistogram` / `createGauge` calls. Every new metric name MUST share the prefix root (e.g., `http.server.*` vs `http_server_*`) of the closest sibling. New prefix = ADR required.
+2. **Label key parity** — collect the union of label keys used by sibling metrics in the same domain. New metrics MUST use the same key spellings (`route` not `path`, `status` not `status_code`) when the semantic is the same.
+3. **No new field/label names without ADR** — if the new metric introduces a label key that no sibling metric uses, halt. Either drop the label, reuse a sibling key, or write an ADR.
+4. **Unit + bucket parity** — histograms in the same dimension (latency ms, payload bytes) reuse sibling buckets unless data-justified divergence is documented inline.
+
+Add the check results to the output block under `Naming-parity: ✓ | halts=<N>`.
+
 Add metrics where they're missing. Use when:
 - A service has logs but no metrics dashboards.
 - SLOs / SLAs need defining; no signals to base them on.

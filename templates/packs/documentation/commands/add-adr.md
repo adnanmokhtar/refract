@@ -6,6 +6,36 @@ description: Write a new ADR in ai/decisions/ with proper numbering and Recent C
 
 Build command for the knowledge layer. Captures a non-obvious architectural decision so future-you doesn't re-litigate it. All 7 phases apply but Phase 6 (Validate) is structural, not lint/test.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing ADRs are the truth.** The repo's `ai/decisions/` folder is the canon of how this team writes a decision record — section names (`Status / Context / Decision / Consequences / Alternatives considered`), numbering convention (`NNNN-kebab-title.md`), supersession linking, status lifecycle (Proposed → Accepted → Superseded). A new ADR is a **sibling**, not a new template. Inventing sections like `Strategic Vision`, `Executive Summary`, or skipping `Alternatives considered` because "the choice was obvious" is drift, not refinement.
+
+**The agent's job is exactly this:**
+1. Read 2-3 recent ADRs in `ai/decisions/` before drafting. They define the shape, tone, and depth.
+2. Mirror their structure exactly: same section list, same ordering, same heading levels, same status field format.
+3. Confirm the decision is real — there must be ≥ 2 viable options with substantive pros/cons. Single-option ADRs hide the tradeoff and degrade to documentation; route those to `ai/conventions.md` or `ai/dynamic/changelog.md`.
+4. Consequences include **at least one negative bullet**. All-positive consequences = incomplete analysis = future-you re-litigates anyway.
+
+**The agent does NOT:**
+- Invent sections (`Strategic Vision`, `Executive Summary`, `Risk Matrix`) that no sibling ADR has. Sibling shape wins.
+- Skip `Alternatives considered` because the choice felt obvious. The whole point of an ADR is the rejected option.
+- List a straw-man alternative ("we could write our own framework instead") to satisfy the section. Both options need real pros.
+- Write an ADR retroactively to justify already-merged code with no real choice. That's documentation; use `ai/dynamic/changelog.md`.
+- Edit an Accepted ADR in place. Reversal = NEW ADR with `Supersedes NNNN`; the prior gets `Status: Superseded by MMMM`.
+- Number-collide on parallel branches. Use `NNNN-YYYYMMDD-slug.md` mid-branch; finalize at merge.
+
+**Mechanical halt — sibling-shape parity (mandatory before Phase 4 generate):**
+
+Before writing `ai/decisions/NNNN-<slug>.md`, the agent MUST:
+- Name the 2-3 sibling ADRs read (`ai/decisions/*.md` paths).
+- Confirm the new ADR uses the same section list + ordering: `Status / Context / Decision / Consequences / Alternatives considered`.
+- Confirm ≥ 2 substantive alternatives with real pros/cons (no straw-man).
+- Confirm Consequences has ≥ 1 negative bullet.
+- Confirm next number via `ls ai/decisions/ | grep -E '^[0-9]{4}-' | sort -n | tail -1` — no collision.
+- If no sibling ADRs exist — HALT. Ask the user to confirm the ADR template, do not invent shape from training data.
+
+An ADR that fails sibling-shape parity is rejected; regenerate or halt.
+
 ## When to use / NOT to use
 - USE: choosing one library / pattern / boundary over a viable alternative.
 - USE: reversing a prior decision (writes a superseding ADR).

@@ -6,6 +6,14 @@ description: Replay a recorded payment provider webhook / charge event against t
 
 Test payment-handling code without pinging the real provider.
 
+## Premise
+
+Real signals only. Cite the actual fixture filename, computed signature header, HTTP status from the local endpoint, and the resulting DB row delta — never narrate a replay you didn't run. Read before writing: confirm the fixture exists at `test/fixtures/payment/<name>.json` and is sanitized (no live keys, no real PANs) BEFORE POSTing.
+
+## Mechanical halt
+
+Cite-or-halt: every reported result must include the fixture path, response status, and at least one DB-state line (or "no change" with a query showing it). LOCAL ONLY — refuse to run if the target URL resolves outside `localhost` / `127.0.0.1` / explicit dev hosts. Negative tests (replay, tampered sig) must show the actual response code, not an assumed one.
+
 ## Setup
 
 Fixtures at `test/fixtures/payment/` — record real (sanitized!) webhook payloads from provider's test mode:

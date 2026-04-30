@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-deprecate <feature-id>
 
+## The Premise (read this first)
+
+**State changes are atomic. Confirm before mutating the ledger.** Deprecation is permanent — there is no `/migration-undeprecate`. Read the ledger row, read the cited ADR, verify the ADR is `Accepted` (not `Proposed`), confirm tenant-impact is captured, then mutate. No silent flips. No partial writes. If any pre-condition is missing, halt — do NOT write a half-deprecated row.
+
 For features that exist in V1 but are intentionally being killed in V2 — not ported.
 
 ## When to use
@@ -157,6 +161,10 @@ Files written:
 
 The feature is now excluded from /migration-plan and won't block /migration-final.
 ```
+
+## Mechanical halt — refuse to mutate without confirmed ADR
+
+Before any ledger write, verify: (1) `--adr=<NNNN>` flag present, (2) ADR file exists at `ai/decisions/<NNNN>-*.md`, (3) ADR's `Status:` is exactly `Accepted` (not `Proposed`, not `Rejected`, not `Superseded`), (4) `--reason` flag present and ≥1 sentence, (5) `--tenant-impact` set on multi-tenant projects, (6) no active feature has `composes: [<this-id>]`. If ANY check fails — halt; print which check failed; write nothing. Atomic: the ledger row, the `deprecated/<id>.md` file, and the history entry are written together or not at all.
 
 ## Hard rules
 

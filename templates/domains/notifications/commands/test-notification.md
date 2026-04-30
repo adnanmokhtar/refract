@@ -6,6 +6,14 @@ description: Send a notification through every wired channel to a test recipient
 
 Purpose: verify every channel actually delivers — locally or to staging — without production user spam.
 
+## Premise
+
+Real signals only. Cite the actual provider message id (`MessageId`, Twilio `sid`, FCM message name, `wamid.*`), latency, terminal status from the provider's own status callback / API. Read before writing: confirm `.env.test` recipients are set + sandbox/test-mode is active BEFORE any send. Never mark a channel `OK` from API-acceptance alone — wait for the terminal delivery event (or `dryRun` for FCM) and cite it.
+
+## Mechanical halt
+
+Cite-or-halt: every channel row must carry the provider's id and a real status string. If the status webhook / poll times out, mark `UNKNOWN` with the timeout duration — never `delivered` by assumption. Refuse to send if `--to` resolves to anything but the configured test recipients.
+
 ## What it does
 
 1. Loads test recipient from `.env.test` (or `--to`):

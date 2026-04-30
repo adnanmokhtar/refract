@@ -6,6 +6,29 @@ description: Comprehensive, signal-aware review of pending changes. Classifies t
 
 Use before opening a PR. Use before every commit if the habit fits. Never wave changes through.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every comment cites `<file:line>`.** A review is a list of findings, each anchored to a specific location in the diff with a concrete fix. Generic advice ("consider error handling", "think about performance", "this could be cleaner") is noise. If the agent cannot cite the file and line, the finding does not exist.
+
+**The closure verb is `cite-or-drop`.** Each finding row MUST contain:
+- A `<path>:<line>` reference inside the current diff.
+- A 1-line description of the actual defect (not a category label).
+- A concrete fix (code snippet, command, or named pattern from the project's pattern library).
+- Optionally a verification step (test name, manual check) — required for blockers.
+
+If any of those are missing, the agent drops the finding rather than emitting a hand-wave.
+
+**Forbidden:**
+- "Consider X" / "you might want to Y" / "in some codebases people Z" — hand-wave grep. Drop or cite.
+- Findings on lines NOT in the diff (out-of-scope nags) unless they're caused by the diff (new caller of an existing buggy helper — cite both lines).
+- Filler praise ("great job", "looks clean overall") — only `Positives` if a genuine improvement is named with `<file:line>`.
+- Restating the diff back as a finding ("you added a function" — that's not a finding).
+- Inventing a violation of a pattern that the project doesn't have a documented rule for. Cite the rule file or drop the finding.
+
+**Mechanical halt — hand-wave grep on comments:** before emitting, the agent self-greps every finding for hand-wave shapes (`consider`, `might want`, `could be`, `in general`, `often`, `sometimes`, `it would be nice`). Any match without a `<file:line>` + concrete fix HALTS that finding — drop it or rewrite it with the citation. The final output passes the grep.
+
+**Lightweight default.** Read-only review; no code generated, no `ai/` files written. The implementer who acts on findings runs `/learn-from-task` after fixes land. The verdict is one of `APPROVE` / `REQUEST_CHANGES` / `BLOCK` — single-line at the top, then findings grouped by severity.
+
 ## Phases applied
 
 1, 2, 3, 6, 7. Phases 4 + 5 = N/A — review doesn't generate or persist changes; output is a verdict + list of fixes for the implementer.

@@ -6,6 +6,33 @@ description: Audit IAM (cloud + service) policies for least-privilege violations
 
 IAM is where blast-radius lives. Over-broad roles + dead permissions + missing MFA = the pre-conditions for the next breach. Run periodically.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every finding cites `<resource>:<arn>` or `<terraform-file:line>`.** A finding without a concrete identifier is a hand-wave and MUST be dropped from the report. "Some roles look broad" is not a finding. "`arn:aws:iam::123456789012:role/prod-deployer` has `iam:*` on `*` (declared at `infra/terraform/iam/prod.tf:42`); CloudTrail 90d shows only `iam:PassRole` + `iam:GetRole` invoked" is a finding.
+
+**The closure verb is `report-with-citation`.** Each row in the output table closes by citing one of:
+- a cloud resource ARN / GCP resource ID / Azure resource ID
+- a `<terraform|cloudformation|pulumi-file>:<line>` for declared-in-IaC findings
+- a CloudTrail / Access Analyzer / Policy Analyzer event ID for usage-based findings
+- a SSO / IdP record ID for human-identity findings
+
+No citation = no finding. The audit halts before write if any row lacks a citation.
+
+**Mechanical halt — hand-wave grep (mandatory before report write):**
+1. Grep the draft report for: `some `, `several `, `a few `, `many `, `appears to`, `looks like`, `might be`, `possibly`, `etc.`, `...`. Each hit MUST be replaced with a citation or the row is dropped.
+2. Grep for any finding row missing both `arn:` and `<file>:<line>` — drop the row.
+3. Grep recommendations for verbs without resource scope (`tighten policies`, `review keys`, `clean up`) — replace with the specific resource list or drop.
+4. If the draft is empty after these passes, report "0 findings — surface area clean" rather than padding.
+
+**The agent does NOT:**
+- Generalize ("most roles are over-broad") without enumerating each role.
+- Recommend "review X periodically" — the audit IS the review; produce concrete deletes/scopes.
+- Defer to "the team should decide" — surface the data; the recommendation column is mandatory.
+
+**The agent ONLY escalates when:**
+- A finding's blast radius is org-root level (cross-account chain reaching org admin) — surface as P0 with the chain enumerated, not as a question.
+- IaC source for a live resource cannot be located (drift) — record `drift: <arn> not declared in repo` as the finding itself.
+
 ## Phases applied
 
 1, 2, 3, 4, 6 (skips Update/Improve — read-only audit + recommendations).
