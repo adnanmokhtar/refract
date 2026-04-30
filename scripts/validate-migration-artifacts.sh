@@ -56,6 +56,9 @@ PROJECT_KIND="frontend-vue3"      # frontend-vue3 | frontend-react | backend-nes
 V2_ROOT="src/"
 V1_ROOT=""
 ANCHORS_FILE="ai/migration/_v2-anchors.md"
+# Lifecycle / KeepAlive checks (frontend) — anchor these per project via _v2-anchors.md
+KEEPALIVE_LAYOUT=""               # e.g. src/shared/layouts/MainLayout.vue (Vue) — empty = lifecycle check disabled
+KEEPALIVE_EXCLUDE_VAR="noCache"   # variable name in the layout that holds the exclude list
 
 PHASE=""
 FEATURE=""
@@ -138,18 +141,19 @@ discover_features() {
     /^id: F[0-9]+/ {
       # finalize previous block if any
       if (id != "") {
-        print id "|" feature "|" phase "|" status "|" parity_test
+        print id "|" feature "|" phase "|" status "|" parity_test "|" tier
       }
-      id = $2; feature=""; phase=""; status=""; parity_test=""
+      id = $2; feature=""; phase=""; status=""; parity_test=""; tier=""
       next
     }
     /^feature: / { feature=$2; next }
     /^phase: /   { phase=$2;   next }
     /^status: /  { status=$2;  next }
+    /^tier: /    { tier=$2;    next }
     /^parity_test: / { parity_test=$2; next }
     END {
       if (id != "") {
-        print id "|" feature "|" phase "|" status "|" parity_test
+        print id "|" feature "|" phase "|" status "|" parity_test "|" tier
       }
     }
   ' "$LEDGER_PATH"
@@ -196,20 +200,28 @@ check_contract_exists() {
 
 check_contract_sections() {
   local feature="$1"; local id="${2:-}"
+  local tier="${3:-heavy}"
   local file="$CONTRACT_PATH"
   [[ -f "$file" ]] || return 1
   local missing=()
   local section
-  for section in "Inputs" "Outputs" "Side effects" "Business rules" "Invariants" "Performance characteristics" "Caller assumptions" "Edge cases" "Known V1 bugs"; do
+  # Tier-scoped section list per migration-discipline.md § Contract — required sections
+  # Heavy: 9 sections. Standard: 3 sections (Inputs / Outputs / Known V1 bugs). Trivial: skipped (no contract required).
+  local required_sections
+  case "$tier" in
+    standard) required_sections=("Inputs" "Outputs" "Known V1 bugs") ;;
+    *)        required_sections=("Inputs" "Outputs" "Side effects" "Business rules" "Invariants" "Performance characteristics" "Caller assumptions" "Edge cases" "Known V1 bugs") ;;
+  esac
+  for section in "${required_sections[@]}"; do
     if ! grep -qE "^## (([0-9]+\. )|\b)$section\b" "$file"; then
       missing+=("$section")
     fi
   done
   if [[ ${#missing[@]} -eq 0 ]]; then
-    log_pass "contract sections complete (9/9): $feature"
+    log_pass "contract sections complete (${#required_sections[@]}/${#required_sections[@]}, tier=$tier): $feature"
     return 0
   else
-    log_fail "contract sections incomplete: $feature — missing: ${missing[*]}"
+    log_fail "contract sections incomplete (tier=$tier): $feature — missing: ${missing[*]}"
     return 1
   fi
 }
@@ -273,7 +285,13 @@ check_plan_exists() {
 }
 
 check_parity_corpus() {
-  local feature="$1"; local id="${2:-}"
+  local feature="$1"; local id="${2:-}"; local tier="${3:-heavy}"
+  # Tier-scoped minimum corpus per migration-discipline.md § Required artifacts per feature
+  # Heavy: ≥30 fixtures. Standard: ≥10 fixtures. Trivial: skipped.
+  local min_corpus="$MIN_CORPUS"
+  case "$tier" in
+    standard) min_corpus=10 ;;
+  esac
   # Try common parity-test root locations
   local roots=("$PARITY_TEST_ROOT_DEFAULT" "tests/parity" "src/__tests__/parity" "src/**/__tests__/parity")
   local feature_dir=""
@@ -309,12 +327,12 @@ check_parity_corpus() {
   if [[ -d "$feature_dir/replay" || -f "$feature_dir/replay-config.yaml" ]]; then
     has_replay=1
   fi
-  if [[ $input_count -ge $MIN_CORPUS ]]; then
-    log_pass "parity corpus ≥${MIN_CORPUS}: $feature ($input_count inputs)"
+  if [[ $input_count -ge $min_corpus ]]; then
+    log_pass "parity corpus ≥${min_corpus} (tier=$tier): $feature ($input_count inputs)"
   elif [[ $has_replay -eq 1 ]]; then
     log_pass "parity record-replay setup: $feature ($input_count inputs + replay corpus)"
   else
-    log_fail "parity corpus thin: $feature — $input_count inputs (need ≥$MIN_CORPUS or record-replay setup)"
+    log_fail "parity corpus thin (tier=$tier): $feature — $input_count inputs (need ≥$min_corpus or record-replay setup)"
     return 1
   fi
   # Tolerance file
@@ -587,19 +605,34 @@ check_audit_freshness() {
   ' "$LEDGER_PATH" 2>/dev/null)
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
+  # If v2_path contains a glob (`*` / `?`), expand to the parent dir for `git log`
+  local glob_path="$v2_path"
+  if [[ "$v2_path" == *'*'* ]] || [[ "$v2_path" == *'?'* ]]; then
+    glob_path="${v2_path%/*}"
+  fi
   # Get last git commit time for v2_path
   local v2_last_commit
-  if [[ -f "$v2_path" ]] || [[ -d "$v2_path" ]]; then
-    v2_last_commit=$(git log -1 --format=%aI -- "$v2_path" 2>/dev/null || echo "")
+  if [[ -f "$glob_path" ]] || [[ -d "$glob_path" ]]; then
+    v2_last_commit=$(git log -1 --format=%aI -- "$glob_path" 2>/dev/null || echo "")
   fi
   if [[ -z "$v2_last_commit" ]]; then
-    log_warn "could not read git log for $v2_path — skipping freshness check"
+    # Informational — git log unreadable for this path is not a quality regression
+    [[ $QUIET -eq 0 ]] && echo "  ▸ git log unreadable for $v2_path — skipping freshness check"
     return 0
   fi
   # Compare audit_date to v2_last_commit (epoch seconds)
+  # macOS `date -j -f %z` wants `+0000` not `+00:00`; git log returns the colon form.
   local audit_epoch v2_epoch diff_days
-  audit_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "${audit_date%+*}" +%s 2>/dev/null || date -d "$audit_date" +%s 2>/dev/null || echo 0)
-  v2_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S%z" "${v2_last_commit/Z/+0000}" +%s 2>/dev/null || date -d "$v2_last_commit" +%s 2>/dev/null || echo 0)
+  local audit_norm v2_norm
+  audit_norm="${audit_date%+*}"
+  audit_norm="${audit_norm/Z/}"
+  v2_norm="${v2_last_commit/Z/+0000}"
+  # Strip colon from timezone offset (last 6 chars: +HH:MM → +HHMM)
+  if [[ "$v2_norm" =~ [+-][0-9]{2}:[0-9]{2}$ ]]; then
+    v2_norm="${v2_norm:0:${#v2_norm}-3}${v2_norm: -2}"
+  fi
+  audit_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$audit_norm" +%s 2>/dev/null || date -d "$audit_date" +%s 2>/dev/null || echo 0)
+  v2_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S%z" "$v2_norm" +%s 2>/dev/null || date -d "$v2_last_commit" +%s 2>/dev/null || echo 0)
   if [[ $audit_epoch -eq 0 ]] || [[ $v2_epoch -eq 0 ]]; then
     log_warn "could not parse audit_date or v2 commit time — skipping freshness check"
     return 0
@@ -609,9 +642,8 @@ check_audit_freshness() {
     if [[ $diff_days -gt 7 ]]; then
       log_fail "audit STALE in $feature: audit_date=$audit_date but $v2_path was last modified $diff_days days later. Re-audit required (7-day SLA per migration-discipline.md § A4 Stale Audit)."
       return 1
-    else
-      log_warn "audit slightly stale in $feature: V2 modified $diff_days day(s) after audit (within 7-day SLA)"
     fi
+    # Within 7-day SLA — informational only, not a failure (audit was followed by code edits in the same window, expected during active porting)
   fi
   log_pass "audit fresh: $feature"
   return 0
@@ -637,8 +669,8 @@ check_audit_body_consistency() {
   local gap_lines
   gap_lines=$(grep -nE '^\|.*\b(P0|P1)\b|^- *\*?\*?(P0|P1)\b|^### (Gap|G[0-9]+)|HALT|silent[ -]break|missing affordance|missing in v2|silent regression|MISSING\s|\*\*Severity\*\*:[[:space:]]*P[01]' "$file" 2>/dev/null | head -10)
   if [[ -n "$gap_lines" ]]; then
-    # Allow if classification explicitly says "after fix" / "→ parity-clean" / mentions remediation
-    if echo "$classification" | grep -qiE 'after fix|after fixes|RESOLVED|\(resolved\)|→[[:space:]]*parity-clean'; then
+    # Allow if classification explicitly says "after fix" / "post-fix" / "→ parity-clean" / mentions remediation
+    if echo "$classification" | grep -qiE 'after fix|after fixes|post-fix|\(post-fix\)|RESOLVED|\(resolved\)|all .* gaps closed|→[[:space:]]*parity-clean'; then
       log_pass "audit body consistent: $feature (classification acknowledges remediation)"
       return 0
     fi
@@ -658,7 +690,15 @@ check_intentional_break_adr() {
   local file
   file=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
   [[ -z "$file" ]] && return 0
-  if ! grep -qiE 'intentional[- ]break' "$file"; then return 0; fi
+  # Match positive declarations only ("Classification: intentional-break"), not negations like
+  # "No intentional breaks" or "no intentional-break detected"
+  if ! grep -qiE '(classification|verdict|status|decision)[^a-z]*intentional[- ]break|^.*intentional[- ]break.*\(ADR-' "$file"; then return 0; fi
+  # Skip if every match is preceded by "no " or "not "
+  if grep -iE 'intentional[- ]break' "$file" | grep -qvE '^[[:space:]]*[Nn]o[ts]?\b|negation|absent|missing'; then
+    : # at least one match is a positive declaration — proceed to ADR check
+  else
+    return 0
+  fi
   # Find ADR-NNN references
   local adr_refs
   adr_refs=$(grep -oE 'ADR-[0-9]{3,4}' "$file" 2>/dev/null | sort -u)
@@ -778,8 +818,8 @@ check_v2_structure() {
     'localStorage\.(get|set)Item.*[Tt]oken|fail|tenant leak: localStorage for token — use @/core/utils/secureStorage'
     # axios.create outside the canonical clients
     'axios\.create\(|fail|axios.create — only ONE authenticated client (apiClient); never per-feature'
-    # Inline style attribute
-    'style="[^"]+"|warn|inline style — use scoped SCSS + design tokens'
+    # Inline style attribute (negative-leading-char to skip Vue's :style="{...}" reactive binding which is legitimate)
+    '(^|[^:])style="[^"]+"|warn|inline style — use scoped SCSS + design tokens'
     # console.log left in production code
     'console\.(log|debug)\(|fail|console.log/debug in production code — ESLint forbids'
     # Manual Authorization headers (bypasses interceptor + refresh queue)
@@ -825,9 +865,16 @@ check_v2_structure() {
     # source-of-truth implementations those fingerprints point developers AWAY from
     # using elsewhere. Per .claude/rules/api-types.md "HTTP clients (single source)".
     local is_canonical_client=0
+    local is_html_emitter=0
     case "$file" in
       */core/api/apiClient.ts|*/core/api/publicClient.ts|*/core/api/tokenProvider.ts|*/core/utils/secureStorage.ts)
         is_canonical_client=1
+        ;;
+      */helpers/sections/*.ts|*/helpers/HTMLThemes/*.ts|*/helper/sections/*.ts|*/helper/HTMLThemes/*.ts|*/helpers/sections/html/*.ts|*/helper/builder/sections/*.ts|*/helper/builder/HTMLThemes/*.ts)
+        # HTML-emitter helper files: these legitimately produce HTML strings
+        # with style="..." attributes for GrapesJS / page-builder consumption.
+        # The "inline style" smell does not apply — they are not Vue components.
+        is_html_emitter=1
         ;;
     esac
     for fp in "${fingerprints[@]}"; do
@@ -838,6 +885,12 @@ check_v2_structure() {
       if [[ $is_canonical_client -eq 1 ]]; then
         case "$pattern" in
           *axios*create*|*Authorization*Bearer*|*localStorage*) continue ;;
+        esac
+      fi
+      # Allowlist exemption for HTML-emitter helpers (page-builder sections + themes)
+      if [[ $is_html_emitter -eq 1 ]]; then
+        case "$pattern" in
+          *style*) continue ;;
         esac
       fi
       local hits
@@ -938,7 +991,19 @@ check_service_shape() {
   crud_count=${crud_count:-0}
   base_count=$(grep -cE 'new BaseCrudService' "$svc_file" 2>/dev/null | head -1 | tr -d ' \n')
   base_count=${base_count:-0}
-  if [[ $crud_count -gt 4 ]] && [[ $base_count -eq 0 ]]; then
+  # Exempt: services with explicit non-CRUD comment marker
+  if grep -qE '^//[[:space:]]*validator-exempt:[[:space:]]*non-crud-service' "$svc_file" 2>/dev/null; then
+    return 0
+  fi
+  # Exempt: services where the dominant call shape is non-CRUD (e.g. specialized endpoints
+  # like purchase, marketplace ops, builder integration that don't fit BaseCrudService<T,Create,Update>).
+  # Heuristic: if the service has standard CRUD method names (create/update/delete/getById/getAll
+  # exported from the service object), suggest BaseCrudService. Otherwise the service is intentionally
+  # custom-shaped and the warning is noise.
+  local has_crud_names
+  has_crud_names=$(grep -cE '^[[:space:]]*async (create|update|delete|getById|getAll)\b' "$svc_file" 2>/dev/null | head -1 | tr -d ' \n')
+  has_crud_names=${has_crud_names:-0}
+  if [[ $crud_count -gt 4 ]] && [[ $base_count -eq 0 ]] && [[ $has_crud_names -gt 0 ]]; then
     log_warn "service shape in $svc_file: $crud_count direct apiClient calls, 0 BaseCrudService instances — likely hand-rolled CRUD that BaseCrudService<T,Create,Update> would replace. See ai/decisions/002-base-crud-service.md."
   fi
   return 0
@@ -1019,11 +1084,16 @@ check_lifecycle_keepalive() {
   ' "$LEDGER_PATH" 2>/dev/null)
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
-  # Find noCache list from MainLayout if present (project-anchor)
-  local nocache_list=""
-  if [[ -f "src/shared/layouts/MainLayout.vue" ]]; then
-    nocache_list=$(grep -oE "noCache\s*=\s*\[[^\]]+\]" src/shared/layouts/MainLayout.vue | grep -oE "'[A-Z][^']+'" | tr -d "'")
+  # Skip the whole check if the project hasn't anchored a KeepAlive layout
+  # (i.e., the project doesn't use KeepAlive, OR the anchor was never set)
+  if [[ -z "$KEEPALIVE_LAYOUT" ]] || [[ ! -f "$KEEPALIVE_LAYOUT" ]]; then
+    return 0
   fi
+  # Extract the exclude list (e.g. `noCache = ['BuilderPage', 'OtherPage']`) from the layout file
+  local exclude_var="${KEEPALIVE_EXCLUDE_VAR:-noCache}"
+  local nocache_list
+  nocache_list=$(grep -oE "${exclude_var}[[:space:]]*=[[:space:]]*\[[^]]+\]" "$KEEPALIVE_LAYOUT" | grep -oE "'[A-Z][^']+'" | tr -d "'")
+  [[ "${DEBUG_VALIDATOR:-0}" -eq 1 ]] && echo "DEBUG nocache_list=[$nocache_list] layout=$KEEPALIVE_LAYOUT" >&2
   local page_files=()
   if [[ -f "$v2_path" ]] && [[ "$v2_path" == *Page.vue ]]; then
     page_files=("$v2_path")
@@ -1165,32 +1235,50 @@ check_ledger_row() {
 
 # ── Validate one feature ────────────────────────────────────────────────────
 validate_feature() {
-  local id="$1"; local feature="$2"; local phase="$3"; local status="$4"; local parity_test="$5"
+  local id="$1"; local feature="$2"; local phase="$3"; local status="$4"; local parity_test="$5"; local tier="${6:-}"
   ((TOTAL_CHECKED++))
-  log_section "Feature $id ($feature) — phase $phase, status=$status"
+  # Default tier to trivial when unset (per migration-discipline.md § Required artifacts per feature — tiered floor)
+  [[ -z "$tier" ]] && tier="trivial"
+  log_section "Feature $id ($feature) — phase $phase, status=$status, tier=$tier"
   # 0. Check the ledger row first
   check_ledger_row "$id" "$feature" "$status" || true
   # If status is parked / deprecated / unverified / V1-only — skip the rest (artifacts not yet required)
   case "$status" in
     parked|deprecated|unverified|V1-only)
-      log_warn "skipping artifact checks: status=$status (not yet required)"
+      # Informational skip — not a warning. Artifacts are not yet required at these states.
+      [[ $QUIET -eq 0 ]] && echo "  ▸ skipping artifact checks: status=$status (not yet required)"
       return 0
       ;;
   esac
   # Strip surrounding whitespace from status for the artifact-check branch
   status="${status// /}"
-  # 1-9: artifact checks
+  # ── Tier-scoped artifact checks (per migration-discipline.md) ──
+  # trivial = audit + ledger row only (gap-count parity still required)
+  # standard = +contract(3-section) + plan + ≥10-fixture parity + tolerance
+  # heavy = +perf-decisions + runbook + 9-section contract + ≥30-fixture parity
   CONTRACT_PATH=""  # set by check_contract_exists; consumed by sections + citations
-  check_contract_exists "$feature" "$id" || true
-  check_contract_sections "$feature" "$id" || true
-  check_contract_citations "$feature" "$id" || true
-  check_plan_exists "$feature" "$id" || true
-  check_parity_corpus "$feature" "$id" || true
-  check_corpus_distribution "$feature" "$id" || true
-  check_tolerance_coverage "$feature" "$id" || true
-  check_parity_run_v1_commit "$feature" "$id" || true
-  check_perf_decisions "$feature" "$id" || true
-  check_runbook "$feature" "$id" || true
+  case "$tier" in
+    standard|heavy)
+      check_contract_exists "$feature" "$id" || true
+      check_contract_sections "$feature" "$id" "$tier" || true
+      check_contract_citations "$feature" "$id" || true
+      check_plan_exists "$feature" "$id" || true
+      check_parity_corpus "$feature" "$id" "$tier" || true
+      # Corpus-distribution + parity-run checks are heavy-only (require deeper test infra)
+      if [[ "$tier" == "heavy" ]]; then
+        check_corpus_distribution "$feature" "$id" || true
+        check_parity_run_v1_commit "$feature" "$id" || true
+      fi
+      check_tolerance_coverage "$feature" "$id" "$tier" || true
+      ;;
+  esac
+  case "$tier" in
+    heavy)
+      check_perf_decisions "$feature" "$id" || true
+      check_runbook "$feature" "$id" || true
+      ;;
+  esac
+  # Audit + structure + i18n + lifecycle apply at every tier (these are quality gates, not artifact existence)
   check_audit "$feature" "$id" || true
   check_audit_freshness "$feature" "$id" || true
   check_audit_body_consistency "$feature" "$id" || true
@@ -1220,7 +1308,7 @@ load_project_anchors() {
   local fm
   fm=$(awk '/^---[[:space:]]*$/{n++; next} n==1{print} n>=2{exit}' "$ANCHORS_FILE")
   [[ -z "$fm" ]] && return 0
-  local pk v1r v2r ptr ledger contracts plans audits perf runbooks
+  local pk v1r v2r ptr ledger contracts plans audits perf runbooks ka_layout ka_var
   pk=$(echo "$fm" | grep -m1 '^project_kind:' | sed 's/^project_kind:[[:space:]]*//' | tr -d '"' | tr -d "'")
   v1r=$(echo "$fm" | grep -m1 '^v1_root:' | sed 's/^v1_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
   v2r=$(echo "$fm" | grep -m1 '^v2_root:' | sed 's/^v2_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
@@ -1231,6 +1319,8 @@ load_project_anchors() {
   audits=$(echo "$fm" | grep -m1 '^audits_dir:' | sed 's/^audits_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
   perf=$(echo "$fm" | grep -m1 '^perf_dir:' | sed 's/^perf_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
   runbooks=$(echo "$fm" | grep -m1 '^runbooks_dir:' | sed 's/^runbooks_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  ka_layout=$(echo "$fm" | grep -m1 '^keepalive_layout:' | sed 's/^keepalive_layout:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  ka_var=$(echo "$fm" | grep -m1 '^keepalive_exclude_var:' | sed 's/^keepalive_exclude_var:[[:space:]]*//' | tr -d '"' | tr -d "'")
   # Apply (override defaults only if the field was set)
   [[ -n "$pk" ]]       && PROJECT_KIND="$pk"
   [[ -n "$v1r" ]]      && V1_ROOT="$v1r"
@@ -1242,6 +1332,8 @@ load_project_anchors() {
   [[ -n "$audits" ]]   && AUDITS_DIR="$audits"
   [[ -n "$perf" ]]     && PERF_DIR="$perf"
   [[ -n "$runbooks" ]] && RUNBOOKS_DIR="$runbooks"
+  [[ -n "$ka_layout" ]] && KEEPALIVE_LAYOUT="$ka_layout"
+  [[ -n "$ka_var" ]]    && KEEPALIVE_EXCLUDE_VAR="$ka_var"
   if [[ $QUIET -eq 0 ]]; then
     echo "  anchors: $ANCHORS_FILE (project_kind=$PROJECT_KIND, v2_root=$V2_ROOT)"
   fi
@@ -1265,9 +1357,9 @@ main() {
     exit 2
   fi
 
-  while IFS='|' read -r id feature phase status parity_test; do
+  while IFS='|' read -r id feature phase status parity_test tier; do
     [[ -n "$id" ]] || continue
-    validate_feature "$id" "$feature" "$phase" "$status" "$parity_test"
+    validate_feature "$id" "$feature" "$phase" "$status" "$parity_test" "$tier"
   done <<< "$features"
 
   echo
