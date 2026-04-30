@@ -5,6 +5,12 @@ description: Convert a sequential I/O-bound code path into bounded parallel exec
 
 # parallelize-independent-ops
 
+## Premise
+
+Existing project primitives are the truth. Use what `ai/patterns/parallel-io.md` already declared — never introduce a new dependency without an ADR. Independence is proven, not assumed: the Step 2 checklist is mandatory. Wall-clock measurement before AND after is non-negotiable; without numbers, the change is just unverified refactoring. Refuse to ship if the "after" run doesn't beat the "before" run — revert and investigate elsewhere.
+
+Refuse to parallelize without naming the sibling code that uses the same primitive (or an ADR that establishes it).
+
 Take a sequential `await`-in-a-loop hot path and turn it into bounded parallel I/O that uses **this project's** primitive (extracted from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`). Refuses unsafe transformations.
 
 This skill is the operational arm of `.claude/rules/concurrency-discipline.md` + `ai/patterns/parallel-io.md` — the rule says *what's required*, the pattern says *what it looks like in this codebase*, this skill says *how to do the conversion safely*.
@@ -263,3 +269,11 @@ Open follow-ups:     <e.g. "downstream rate-limit hits at cap=8 — provider rev
 - `ai/patterns/data-access.md` — *batch APIs first*; parallelism is the fallback.
 - `.claude/rules/think-simplify-surgical.md` § "Goal-Driven Execution" — the wall-clock measurement gate is the verifiable goal here.
 - `.claude/skills/profile-endpoint.md` (performance pack) — use this BEFORE Step 8 to confirm the loop is the real bottleneck.
+
+## Halt conditions
+
+- Halt if the Step 2 independence checklist has any unchecked box — never silently force parallelism.
+- Halt if a new concurrency dependency is introduced without an ADR or a sibling that already uses it.
+- Halt if the "before" or "after" wall-clock measurement is missing — without numbers this is unverified refactoring, not optimization.
+- Halt if the measured speedup is ≈ 0 and the change is shipped anyway — revert; the bottleneck is elsewhere.
+- Halt if a parallel write shares a key without atomic SQL / CAS, or if the loop is inside a DB transaction — both are silent corruption risks.

@@ -5,6 +5,16 @@ description: Generate and verify consumer-driven contracts between services (Pac
 
 # contract-test
 
+## Premise
+
+Existing consumer needs are the truth. Mirror; never invent. The contract is generated from the consumer's actual call sites and expected responses (`<consumer-path:line>`) — not from the provider's OpenAPI spec, not from imagined fields the consumer "might want", not from the backend team's preferred shape. Every interaction in the contract maps to a real consumer code path. Matchers (`like`, `regex`, `eachLike`) reflect the consumer's actual usage — `like(string())` only when the consumer treats the field as opaque; `regex` only when the consumer parses or validates it. Over-specification ("pin every field") is a contract bug, not strictness.
+
+## Halt conditions
+
+- Halt on contract interactions without a consumer call site citation (`<path:line>`).
+- Halt on contracts authored from the provider/server side ("backend defines the shape").
+- Halt on `can-i-deploy` skipped at the CD gate, or on contract publish without a consumer version tag.
+
 ## Philosophy
 
 Consumer defines what it needs. Provider verifies it delivers that. Each tested independently. No flaky end-to-end environment required.

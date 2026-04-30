@@ -7,6 +7,8 @@ pack: code-quality
 
 # Engineering Principles (project governance layer)
 
+> **Hard rule.** New code MUST live in a defined module with an explicit public surface, MUST follow the project's existing layering / DI / naming conventions, and MUST extend an existing implementation when one already covers ≥ 50% of the need. New "shared/" / "utils/" / "common/" buckets, parallel re-implementations, and silent convention deviations are forbidden — each requires an ADR or it doesn't merge.
+
 These are CROSS-CUTTING engineering rules — broader than the micro-level hygiene in `quality-principles.md`, narrower than full architectural decisions (which live in ADRs at `ai/decisions/`). Think of this as the team contract: how features get structured, how AI is used, how change happens safely, how we stay consistent over time.
 
 Each section has an **Applies when** clause. If your project doesn't match the clause, the section is annotated "Not applicable" by Phase 4.6 (`apply-pack-adaptation` skill) — don't force-fit a layered-architecture rule onto a functional-core codebase.
@@ -78,6 +80,13 @@ These rules are defaults, not laws. Break one when:
 - A documented exception exists in `ai/conventions.md` or an ADR.
 
 When you break a rule, leave a one-line comment explaining why. Future-you, or the next agent, will thank present-you.
+
+## Enforcement
+
+- Layer + module boundaries: `dependency-cruiser` (TS/JS) / `import-linter` (Python) / `ArchUnit` (Java/Kotlin) / `arch-go` (Go) — fail CI on cross-layer or cross-module-internal imports.
+- New-pattern detection: `/setup-project-health` reports drift between `ai/conventions.md` and the working tree; CI runs it weekly.
+- ADR enforcement: PR template has an "ADR for new pattern?" checkbox; reviewers MUST reject PRs that introduce a new shape without an `ai/decisions/<NNNN>-*.md`.
+- TODO: validator at `scripts/audit-shared-utils.sh` — fails the build when a `utils/` / `shared/` / `common/` folder grows past N entries without an ADR.
 
 ## Cross-references
 

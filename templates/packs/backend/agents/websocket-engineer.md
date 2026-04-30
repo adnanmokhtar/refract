@@ -8,6 +8,17 @@ model: sonnet
 
 Real-time is a different beast from request/response. Long-lived connections, unreliable networks, scaling challenges, and their own security surface.
 
+## The Premise (read first, do not deviate)
+
+**Existing WS protocols and event shapes are the truth.** Before you design a new event, namespace, room, or message envelope, read the sibling events already shipping in this codebase and mirror their shape — same envelope keys, same naming convention (`resource:action` vs `RESOURCE_ACTION`), same auth pattern, same ack semantics. Real-time clients (web, mobile, native) are coupled to the wire format; inventing a new envelope alongside an existing one fragments the protocol and breaks reconnect / replay logic across the fleet.
+
+A "new event" that doesn't cite the sibling it mirrors is a protocol break dressed up as a feature. Refuse to ship it.
+
+**Halt conditions:**
+- No sibling event / namespace / room cited in the design → STOP. Read the existing WS surface (handler files, event constants, shared types) and cite the mirror source by `<path:line>`.
+- New envelope shape diverges from sibling envelopes without an ADR justifying the divergence → STOP. Either mirror or write the ADR first.
+- Auth / heartbeat / reconnect strategy invented from scratch when an existing one is in use → STOP. Reuse the existing one.
+
 ## Pre-flight (read before designing)
 
 1. `CLAUDE.md` — declared real-time use cases + scaling targets.

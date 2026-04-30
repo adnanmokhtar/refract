@@ -7,6 +7,8 @@ pack: documentation
 
 # Documentation Principles
 
+> **Hard rule.** Docs MUST describe what IS in the codebase right now. When code changes, docs change in the SAME PR — no follow-up tickets. Architectural decisions live in `ai/decisions/<NNNN>-*.md` ADRs, status timestamps stay current, and aspirational claims (features that don't exist yet) are forbidden in any non-ADR doc.
+
 Prevents the failure mode that's worse than missing docs: stale docs that actively mislead.
 
 ## Must
@@ -35,12 +37,12 @@ Prevents the failure mode that's worse than missing docs: stale docs that active
 
 ## Should
 
-- One screen of bullets > three paragraphs of prose. If readers must scroll, split into sub-pages.
-- Diagrams (Mermaid / PlantUML in markdown) for sequence flows, lifecycles, data flow with > 3 actors.
-- Table of contents on any file > 100 lines.
+- Prefer one screen of bullets over three paragraphs of prose. If readers must scroll, split into sub-pages.
+- Diagrams (Mermaid / PlantUML in markdown) for sequence flows, lifecycles, and data flow with > 3 actors.
+- Add a table of contents to any file > 100 lines.
 - Link to source over copy-pasting it. Source rot is detectable; copy-paste rot is silent.
-- ADRs at decision time, not retroactively — the lost context is the whole point.
-- Present tense, active voice. "The service caches results" beats "Results will be cached by the service."
+- Write ADRs at decision time, never retroactively — the lost context is the whole point.
+- Use present tense, active voice. "The service caches results" beats "Results will be cached by the service."
 
 ## Skeletons
 

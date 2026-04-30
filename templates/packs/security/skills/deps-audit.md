@@ -7,6 +7,16 @@ description: Run the ecosystem's dep audit (npm / pip / cargo / composer / go) a
 
 Run the package-manager audit and convert raw CVE noise into prioritized actions.
 
+## Premise
+
+Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA), the affected package + version range, the fixed version, and the consumer site (`<path:line>` for runtime deps; "transitive via `<parent>`" for indirect). Severity is the advisory's severity AND the surface analysis ("runtime path reachable from user input" vs "dev-only build script"); "high CVE" alone is not a verdict. Risk-accepted findings name the unreachable code path and what would change that. Triage that says "upgrade everything" without surface analysis is noise.
+
+## Halt conditions
+
+- Halt on findings missing CVE/GHSA id or fixed-version field.
+- Halt on severity escalation ("CRITICAL — fix today") without naming the reachable consumer path (`<path:line>` or "transitive via X, unreachable").
+- Halt on `audit fix --force` recommendations that cross majors without a regression-test plan.
+
 ## When to use
 
 - Before every release.

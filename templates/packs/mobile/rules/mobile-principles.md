@@ -7,6 +7,8 @@ pack: mobile
 
 # Mobile Principles
 
+> **Hard rule.** Auth tokens, payment data, and health data MUST live in Keychain (iOS) / Keystore (Android) — never in plain `AsyncStorage` / `SharedPreferences` / `UserDefaults`. Permissions MUST be requested in-context with a pre-prompt; every network call MUST have a timeout + UI error path; crash reporting MUST be wired before first beta with `dSYM` / `mappings.txt` uploaded.
+
 Prevents the failures that get apps rejected from stores or 1-starred: bad networks crash the app, tokens leak, permissions feel hostile, store policies miss.
 
 ## Must
@@ -35,13 +37,13 @@ Prevents the failures that get apps rejected from stores or 1-starred: bad netwo
 
 ## Should
 
-- Offline-first for core flows: optimistic writes + sync queue with conflict resolution policy (last-writer-wins, server-wins, merge).
-- Connectivity indicator visible when offline; pending-sync badge when actions are queued.
-- App launch < 2s cold on a 3-year-old mid-range device. Defer heavy initialization until after first paint.
-- 60fps scroll on lists — virtualize (`FlatList` with `getItemLayout`, `RecyclerView`, lazy `ListView`).
-- Biometric / PIN as an additional app-level lock for sensitive screens (banking, health, vault).
-- Dynamic Type (iOS) and font scaling (Android) supported — test up to 200%.
-- Test on the lowest-spec device in your install base, not just the flagship dev phone.
+- Implement offline-first for core flows: optimistic writes + sync queue with a documented conflict resolution policy (last-writer-wins, server-wins, or merge — pick one explicitly).
+- Show a connectivity indicator when offline; show a pending-sync badge when actions are queued.
+- Target app launch < 2s cold on a 3-year-old mid-range device. Defer heavy initialization until after first paint.
+- Hit 60fps scroll on lists — virtualize (`FlatList` with `getItemLayout`, `RecyclerView`, lazy `ListView`).
+- Add biometric / PIN as an app-level lock for sensitive screens (banking, health, vault).
+- Support Dynamic Type (iOS) and font scaling (Android) — test up to 200%.
+- Test on the lowest-spec device in your install base, never just the flagship dev phone.
 
 ## Review checklist
 

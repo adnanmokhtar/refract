@@ -7,6 +7,8 @@ pack: devops
 
 # DevOps Principles
 
+> **Hard rule.** Deploys MUST be zero-downtime, rollback MUST be one command (redeploy a previous immutable image — no rebuild), and migrations MUST be backward-compatible. Secrets in git, `:latest` tags in prod, hand-edits to production servers, and alerts without runbooks are forbidden.
+
 Prevents the four classic incidents: bad migration locks the DB, secret leaked to git, deploy rollback impossible, alert fires with no runbook.
 
 ## Must
@@ -32,12 +34,12 @@ Prevents the four classic incidents: bad migration locks the DB, secret leaked t
 
 ## Should
 
-- Infrastructure as code: Terraform / Pulumi / CDK / OpenTofu, reviewed in PRs like application code, with `tflint` + `tfsec` / `checkov`.
-- Drift detection: `terraform plan` on a schedule, alert on non-empty plan against main.
-- Dependency updates automated via Renovate / Dependabot, grouped by ecosystem, auto-merged for patch versions if tests pass.
-- SBOM (`syft`) + image vuln scan (`trivy` / `grype`) in CI. Block on critical CVEs.
-- Quarterly rotate of long-lived secrets even without compromise; rotate immediately on any suspected exposure.
-- Feature flags for risky changes (LaunchDarkly / Unleash / Flipt / OpenFeature). Decouple deploy from release.
+- Manage all infrastructure as code: Terraform / Pulumi / CDK / OpenTofu, reviewed in PRs like application code, with `tflint` + `tfsec` / `checkov`.
+- Drift detection: `terraform plan` on a schedule; non-empty plan against main MUST page on-call.
+- Dependency updates automated via Renovate / Dependabot, grouped by ecosystem, auto-merged for patch versions when tests pass.
+- SBOM (`syft`) + image vuln scan (`trivy` / `grype`) in CI — block on critical CVEs.
+- Rotate long-lived secrets quarterly even without compromise; rotate immediately on any suspected exposure.
+- Feature flags for risky changes (LaunchDarkly / Unleash / Flipt / OpenFeature) — decouple deploy from release.
 
 ## Review checklist
 

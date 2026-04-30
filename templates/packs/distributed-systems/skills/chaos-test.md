@@ -7,6 +7,18 @@ description: Inject failures (network, latency, crashes) against a running servi
 
 Prove resilience by breaking dependencies on purpose. Unit tests don't cover "Redis is down for 60 seconds".
 
+## Premise
+
+Real signals only. Every "PASSED" / "FAILED" cites a measured baseline + during-chaos + after-recovery comparison from the actual run. Hypothesis stated upfront with concrete numbers (error rate, p99). The fault injection cites the exact tool command (`toxiproxy-cli toxic add ...`, `kubectl apply -f ...`). Root cause cites `<path:line>` of the code that failed under contention. No "should be resilient" conclusions — either the metrics show it held, or they don't.
+
+## Halt conditions
+
+- Refuse to declare "resilient" without baseline + during-chaos + recovery numbers captured.
+- Refuse to run chaos in prod without explicit window + customer comms confirmed.
+- Halt if synthetic load is < 10% of prod RPS — failure modes won't surface.
+- Don't claim a fix works without re-running the same experiment after the patch.
+- Always verify cleanup of chaos rules (`toxiproxy-cli list`, `kubectl get networkchaos`) after each run.
+
 ## When to use
 
 - After adding a new external dependency (cache, queue, third-party API).

@@ -6,6 +6,10 @@ kind: rule
 
 # Real-time discipline
 
+## Hard rule
+
+Every socket MUST authenticate on `connect` BEFORE accepting any message, MUST have its channel ACL re-checked on every emit (not only on subscribe), MUST have a bounded outbound buffer + heartbeat, and MUST NOT carry a long-lived JWT in a URL query string. Global `io.emit()` is FORBIDDEN outside admin-broadcast paths; cross-tenant subscribe / broadcast is FORBIDDEN.
+
 Long-lived connections concentrate every distributed-systems failure mode into one process: auth, fanout, ordering, backpressure, reconnect. Rules below are non-negotiable.
 
 ## Connection auth
@@ -97,3 +101,10 @@ Long-lived connections concentrate every distributed-systems failure mode into o
 - Cross-tenant subscribe / broadcast.
 - Persisting raw message payloads to log without redaction.
 - Holding DB transactions or external HTTP across socket lifetime.
+
+## Enforcement
+
+- `/realtime-audit` command — greps for `io.emit(` outside admin paths, subscribe handlers without ACL checks, JWT-in-URL patterns, unbounded queues, missing heartbeat config.
+- `/test-realtime --fanout` MUST run in CI on multi-pod deploy configs to prove the Redis / Kafka adapter is wired.
+- CI lint MUST reject `EventEmitter`-based fanout in any file that also imports the socket library.
+- TODO: `scripts/validate-realtime-config.sh` to assert connection auth middleware, heartbeat interval, per-IP/per-user/per-channel caps, and adapter selection are explicit in the socket bootstrap file.

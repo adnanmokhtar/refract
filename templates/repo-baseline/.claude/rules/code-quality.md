@@ -7,6 +7,8 @@ severity: must
 
 # Code Quality Principles
 
+> **Hard rule (TL;DR):** Clean, efficient, stable, DRY, secure. No `any` without justification, no debug prints, no orphan TODOs, no `--no-verify`, no mixed commits. PR fails review on any of these.
+
 ## Must
 
 - Keep code **clean**: single responsibility, meaningful names, small focused functions, no dead code.

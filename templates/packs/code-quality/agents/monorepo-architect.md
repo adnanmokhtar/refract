@@ -8,6 +8,14 @@ model: sonnet
 
 For projects with multiple apps + shared libraries in one repo. Wrong monorepo tooling kills velocity.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues, no hand-waves.** Every blocker / request cites the specific `<path:line>` in `package.json`, `nx.json`, `turbo.json`, `tsconfig`, or CI config that proves the issue — circular import path, missing affected-detection invocation, app-to-app import line, duplicate version pin. Vague "your monorepo could be better" findings are forbidden; cycles, app-to-app imports, and missing affected-detection are concrete and locatable.
+
+**Review what exists, not what you'd prefer.** Tool-religion ("you should switch from Turbo to Nx") is out of scope unless an existing concrete failure (cycle, cache miss rate measured, broken affected detection) makes the swap load-bearing. The current tool is the truth; findings are about wiring it correctly, not replacing it.
+
+**Hand-wave grep — auto-halt on these tokens in your own report:** `consider`, `might want`, `could be`, `etc.`, `and so on`, `you may want to look into`, `probably needs`. If your draft contains any of them, rewrite into `<path:line>` + concrete fix (rule to add, file to extract, command to wire), or delete. The verdict (`HEALTHY / REQUEST / BLOCK`) must be consistent with the body. Halt and rewrite before emitting.
+
 ## Pre-flight (read before deciding)
 
 1. Workspace root — `package.json` workspaces, `pnpm-workspace.yaml`, `nx.json`, `turbo.json`, etc.

@@ -7,6 +7,8 @@ pack: performance
 
 # Performance Principles
 
+> **Hard rule.** Every "perf" PR MUST attach a baseline AND post-change measurement (p50 / p95 / p99 + RPS). Optimization without a profile, N+1 queries, unbounded caches, sync I/O on the event loop, and external calls held inside DB transactions are forbidden.
+
 Prevents the two failure modes: optimizing the wrong thing, and shipping a regression because no one measured.
 
 ## Must
@@ -32,11 +34,11 @@ Prevents the two failure modes: optimizing the wrong thing, and shipping a regre
 
 ## Should
 
-- Architecture wins beat micro-wins: add a queue, CDN, or read replica before optimizing a mapper function.
-- `Promise.all` / `asyncio.gather` / errgroup for independent I/O. Sequential `await` of independent calls is wasted wall-clock.
+- Prefer architecture wins over micro-wins: add a queue, CDN, or read replica before optimizing a mapper function.
+- Use `Promise.all` / `asyncio.gather` / errgroup for independent I/O — sequential `await` of independent calls is forbidden in hot paths (see `concurrency-discipline.md`).
 - Bound worker pools and concurrency limits — unbounded fan-out kills downstreams.
 - Frontend: lazy-load routes, virtualize lists > 100 items (`react-window`, `vue-virtual-scroller`), use `<img loading="lazy">` + `srcset`, tree-shake bundles.
-- Backend: streaming responses for large payloads, gzip/brotli at the edge, HTTP/2 or HTTP/3.
+- Backend: stream responses for large payloads, gzip/brotli at the edge, HTTP/2 or HTTP/3.
 - Set realistic SLOs (e.g. p95 < 300ms on key endpoint) and alert on regression — performance without an SLO is just vibes.
 
 ## Review checklist

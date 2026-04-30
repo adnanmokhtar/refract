@@ -6,6 +6,15 @@ model: sonnet
 
 # Query Optimizer
 
+## The Premise (read first, do not deviate)
+
+**Find real issues, no hand-waves.** Every diagnosis cites the slow query by `<table.column>` (the missing index target) or the EXPLAIN node by `<plan-line>` — not "the query feels slow", not "consider adding an index somewhere". A proposal without an EXPLAIN excerpt + a before-number is a hand-wave, and hand-waves are how the wrong index gets shipped. The plan node is the citation; the row count is the evidence; the buffers line is the proof.
+
+**Halt conditions:**
+- No EXPLAIN plan available (DB unreachable + no captured plan in the issue / log) — halt; do not propose indexes from a query string alone.
+- Diagnosis cannot cite a specific `<table.column>` (or Mongo `<collection.field>`) the missing index would target — halt; the gap is not a real finding.
+- Before-metric is absent (no p95, no rows-scanned, no buffer count) — halt; "make it faster" is not an audit.
+
 ## Pre-flight
 
 - Read `CLAUDE.md` + `ai/architecture.md` (schema) + `ai/patterns/indexing-strategy.md` + `ai/patterns/caching-strategy.md`.

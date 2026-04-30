@@ -5,6 +5,12 @@ description: Tail structured logs from the dev server, filtered by correlation i
 
 # log-tail
 
+## Premise
+
+Real artifacts only. Every claim cites the actual log line(s) observed + the timestamp + the correlation id used to filter. "Saw an error" without quoting the line is not a finding. The log source must be a real file, container, or process — never a paraphrase. PII (phones, emails, tokens) gets redacted before sharing; surfacing raw secrets is a halt-worthy mistake.
+
+A "nothing in the logs" verdict without showing the exact `jq` filter run is a failed investigation.
+
 Stream structured JSON logs (Pino / Winston / zerolog / structlog) with `jq` filters scoped to one request, level, module, or tenant.
 
 ## When to use
@@ -74,3 +80,10 @@ Stream structured JSON logs (Pino / Winston / zerolog / structlog) with `jq` fil
 - PII: phone numbers, emails, tokens may be in logs — redact before sharing (`jq` with `.user.phone |= sub("(\\d{3})\\d+(\\d{3})";"\(.1)***\(.2)")`).
 - `tail -f` (lowercase) drops the file on rotation; `tail -F` follows the rename — always use `-F` for long sessions.
 - Dev only — never tail prod logs from this skill; use the central log aggregator.
+
+## Halt conditions
+
+- Halt on hand-waves: every finding must quote the actual log line + timestamp + correlation id.
+- Halt if PII (phone, email, token) appears in the report unredacted — sanitize before surfacing.
+- Halt if a "nothing found" verdict is returned without showing the exact `jq` (or `grep`) filter executed.
+- Halt if this skill was pointed at production logs — refuse and redirect to the central aggregator.

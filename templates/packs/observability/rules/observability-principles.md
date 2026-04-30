@@ -7,6 +7,8 @@ pack: observability
 
 # Observability Principles
 
+> **Hard rule.** Every PR adding an endpoint MUST also add: a structured-log line with correlation ID, at least one RED metric (rate / error / duration), a trace span, and an alert (or a documented reason there isn't one). PII / secrets / full tokens in logs and high-cardinality labels (`userId`, `requestId`, `email`) on metrics are forbidden.
+
 Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no metric on the right thing, no runbook.
 
 ## Must
@@ -35,12 +37,12 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 
 ## Should
 
-- 100% trace sampling for errors, head-based 1-10% sampling for success (tail-based is better when affordable).
-- Exemplars on metrics (Prometheus exemplars) link a histogram bucket back to a specific trace.
-- Log + metric + trace use the SAME identifiers (`traceId`, `tenantId`) — easy navigation between pillars in Grafana / Datadog.
-- Synthetic monitoring on critical user journeys (login, checkout, primary CRUD). Black-box probes catch what white-box misses.
-- Dashboards version-controlled (Grafana JSON / Terraform / Jsonnet). UI-edited dashboards drift and disappear.
-- One canonical service map + one critical-path latency dashboard. Don't make on-call hunt.
+- Sample 100% of errors; sample 1–10% of successes head-based (tail-based is better when affordable).
+- Add exemplars on metrics (Prometheus exemplars) so a histogram bucket links back to a specific trace.
+- Log + metric + trace MUST use the SAME identifiers (`traceId`, `tenantId`) — easy navigation between pillars in Grafana / Datadog.
+- Run synthetic monitoring on critical user journeys (login, checkout, primary CRUD). Black-box probes catch what white-box misses.
+- Version-control dashboards (Grafana JSON / Terraform / Jsonnet). UI-edited dashboards drift and disappear.
+- Maintain one canonical service map + one critical-path latency dashboard. On-call MUST NOT have to hunt.
 
 ## Review checklist
 

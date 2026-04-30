@@ -5,6 +5,12 @@ description: Automated accessibility scan using axe-core against a running app. 
 
 # a11y-scan
 
+## Premise
+
+Find real a11y issues, not hand-waves. Every finding cites the rule id + the offending node selector + `<file:line>` of the source that produced it. "Looks accessible" is not a finding. "Probably fine" is not a finding. If axe reports zero violations on a page that obviously has them (no headings, no landmarks, no labels) — the scan was misconfigured, re-run it.
+
+A run that produces zero output for zero reason is a failed run, not a clean one.
+
 ## Tools
 
 - `@axe-core/cli` — standalone CLI.
@@ -126,3 +132,10 @@ Pair automated scans with:
 - Never disable axe checks without a documented justification in a comment.
 - Add new routes to the scan as they ship.
 - Run across theme + locale variants, not just default.
+
+## Halt conditions
+
+- Halt on hand-waves: "looks fine", "probably accessible", "skipped because complex" are not acceptable verdicts. Cite rule id + node + `<file:line>` or do not report.
+- Halt if the scan returns zero findings AND the page renders no `<h1>`, no landmark, or no labelled inputs — the scan didn't actually run against the page.
+- Halt if a violation is "fixed" by disabling the rule rather than addressing the node. Disablement requires an inline comment with the justification.
+- Halt if routes were skipped silently — every route in the matrix must produce a row in the report (PASS, FAIL, or SKIPPED-with-reason).

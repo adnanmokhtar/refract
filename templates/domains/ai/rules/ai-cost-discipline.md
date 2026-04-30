@@ -6,6 +6,10 @@ kind: rule
 
 # AI cost discipline
 
+## Hard rule
+
+Every LLM call MUST set `max_tokens`, MUST be metered (input + output + cost on the persisted row), and MUST NOT use a flagship model on the per-message hot path. No exceptions, no "temporary" bypass.
+
 LLM API costs compound. At scale, every extra 100 input tokens × millions of messages × per-tenant multiplier = real money.
 
 ## Model choice
@@ -44,3 +48,10 @@ LLM API costs compound. At scale, every extra 100 input tokens × millions of me
 - Embedding secrets / PII in the prompt.
 - Retry without explicit policy (prevents runaway billing).
 - Flagship models on the hot path.
+
+## Enforcement
+
+- `/token-audit` command (monthly + before any prompt change) — flags calls without `max_tokens`, missing meter rows, flagship-model usage on hot paths.
+- CI grep on `messages.create(` / `chat.completions.create(` MUST find an explicit `max_tokens` argument; missing → fail.
+- Per-tenant daily-cost alert wired to billing dashboard (soft-notify → hard-suspend on plan-overrun).
+- TODO: `scripts/validate-llm-call-sites.sh` to AST-scan for missing `max_tokens` and ban flagship-model identifiers outside `tools/offline/`.

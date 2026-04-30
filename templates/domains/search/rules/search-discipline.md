@@ -6,6 +6,10 @@ kind: rule
 
 # Search discipline
 
+## Hard rule
+
+Every search query MUST be scoped to the caller's tenant at the engine (filter built from `TenantContext`, NEVER from request input), MUST go through `TenantScopedSearchClient` (raw engine clients FORBIDDEN in feature code), MUST set an explicit timeout, and MUST have a fallback when the engine is down. Sync indexing in HTTP handlers is FORBIDDEN.
+
 Search is a denormalized cache outside your DB transactions. A bad query is a tenant leak; a bad index is hours of rebuild; a missing fallback is downtime. Rules below are non-negotiable.
 
 ## Tenant filter
@@ -92,3 +96,10 @@ Search is a denormalized cache outside your DB transactions. A bad query is a te
 - Cross-tenant search NOT in `*.admin-search.service.ts`.
 - Wildcard searches (`*` prefix) without explicit allowlist of tenants/queries — full-index scan.
 - Returning facets the user has no permission to see (e.g. counts of admin-only categories).
+
+## Enforcement
+
+- `/search-audit` command — runs the cross-tenant isolation test (seed two tenants, query as A, assert zero B docs), validates ranking config single-source-of-truth, runs the golden query set before/after eval.
+- CI lint MUST reject direct imports of raw engine clients (`@elastic/elasticsearch`, `meilisearch`, `typesense`) outside `src/search/clients/`; feature code MUST import only the `TenantScopedSearchClient` wrapper.
+- Indexer worker idempotency test mandatory in CI — re-index same entity twice, assert document equality.
+- TODO: `scripts/validate-search-tenant-scope.sh` to AST-walk every call site and assert a tenant filter is present (or the file is in `*.admin-search.service.ts`).

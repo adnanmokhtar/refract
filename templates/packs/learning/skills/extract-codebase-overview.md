@@ -11,6 +11,21 @@ description: Master orchestrator for deep codebase analysis in /setup-project Ph
 
 The output (`.claude/_extracted-codebase.md`) is the **single source of truth** for every downstream generator: pattern files, agent system prompts, rules, conventions doc, ADRs.
 
+## Premise
+
+- Real source is the truth. Walk manifests + source files + migrations + tests + git log before populating a single section.
+- Every cited path, base class, entity, controller, signal, and convention claim resolves to a real file at the current commit.
+- Every confidence assertion (e.g. "multi-tenant: confirmed") is backed by ≥2 corroborating cites per Step 15.
+- Empty extraction is honest — the explicit "no ORM-like data layer detected" / "no modules detected" / `[EXTRACTION-WEAK: <reason>]` flag is a valid section outcome.
+- Fabrication — inventing a base class from a folder name, a convention from one occurrence, a signal from a dep that isn't actually used — corrupts every Phase 4 generator that reads this file.
+
+## Mechanical halt
+
+- Hand-wave content in any section — `etc.`, `...`, `roughly layered MVC`, `appears multi-tenant`, a row without `<path>` citation, a signal claim without ≥2 corroborating files — REFUSE to write.
+- Regenerate the section with concrete cites OR downgrade it to `[EXTRACTION-WEAK: <section>]` per Step 15.
+- When a section genuinely has nothing (empty repo, no ORM, no controllers, no tests), record `<NOT-DETECTED: <section>: <reason>>` instead of synthesizing a placeholder row.
+- Quality flags propagate to Phase 4.2-AUTHOR which falls through to COPY mode for affected topics — silent fabrication breaks that fallback.
+
 ## When to use
 
 - `/setup-project` Phase 2 — runs once at the top of every ENHANCE / REFRESH session.

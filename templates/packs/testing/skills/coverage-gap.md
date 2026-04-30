@@ -7,6 +7,16 @@ description: Find untested branches in recently-changed code. Not "what percent 
 
 Raw coverage numbers are noise. What matters: did your recent changes introduce untested branches?
 
+## Premise
+
+Find real gaps, no hand-waves. Every reported gap cites `<path:line>` for the uncovered branch (or line, with the missing branch named — "`else` of `if (override != null)`"), the source of the coverage data (`lcov.info` / `coverage.json`), and the merge-base SHA the diff was computed against. "Coverage went down" is not a finding; "`prompt-builder.service.ts:67` else-branch hit 0× in the lcov from this run" is. Generated files, transpiled `?.`/`??` artifacts, and snapshot-only "coverage" are excluded explicitly — not silently swept into the score.
+
+## Halt conditions
+
+- Halt on findings without `<path:line>` + branch identifier + 0-hit citation from the coverage report.
+- Halt on coverage deltas reported without naming the merge-base SHA used for the diff.
+- Halt on classifications ("HIGH PRIORITY") that don't name the location heuristic (hot module, error path, public API).
+
 ## When to use
 
 - Before opening a PR — verify changed lines are exercised.

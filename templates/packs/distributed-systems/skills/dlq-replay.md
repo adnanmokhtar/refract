@@ -6,6 +6,18 @@ description: Replay messages from a dead-letter queue back to a primary handler.
 
 DLQ messages don't fix themselves. After fixing the root cause, the messages need replay. This skill does it safely.
 
+## Premise
+
+Real signals only. Cite the actual DLQ name, message IDs, broker, and target queue/topic. Every claim ("root cause fixed", "idempotency held", "replay safe") cites the commit / test / log line that supports it. Sample replay's verdict comes from the live handler outcome — not "should work". Bulk replay numbers are captured from the broker (depth before, depth after, replay rate observed). No replay without a logged audit trail of who, when, and how many.
+
+## Halt conditions
+
+- Refuse to bulk replay without a successful single-message sample run.
+- Refuse to replay without confirming the root-cause-fix commit is deployed.
+- Halt if idempotency isn't verified — replay without it duplicates side effects.
+- Halt if peak-traffic window — replay competes with live load.
+- Don't drop a message from the DLQ until the primary queue's `send` has been ACKed.
+
 ## When to use
 
 - Root cause of a poison message resolved (handler bug fixed, schema drift addressed, downstream service recovered).

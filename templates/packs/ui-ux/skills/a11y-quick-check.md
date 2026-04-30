@@ -6,6 +6,16 @@ description: A focused 60-second a11y check on a single screen / component. Repo
 
 A fast pass focused on the highest-impact a11y issues, tunable per scope. Smaller than `@accessibility-auditor` (full audit) — this is a checklist for one screen / one PR.
 
+## Premise
+
+Find real a11y issues, no hand-waves. Every finding cites `<path:line>` (or screen-reader transcript line / DOM selector) for the offender, and names the WCAG criterion it violates. "Looks inaccessible" is not a finding; "icon-only `<button>` at `Cart.vue:42` has no accessible name (WCAG 4.1.2)" is. Auto-tools cover ~40% — the audit's value is the manual 60% (focus order, SR announcements, motion, keyboard model). Citations let a reviewer reproduce the issue without re-running the tools.
+
+## Halt conditions
+
+- Halt on any finding without `<path:line>` or a reproducible artifact (screen-reader transcript, screenshot, axe rule id).
+- Halt on "auto-tool said clean" used as a stand-in for manual review.
+- Halt on severity claims ("BLOCKER") without a named WCAG criterion.
+
 ## When to use
 
 - PR review on a UI change.

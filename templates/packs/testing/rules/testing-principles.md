@@ -7,6 +7,8 @@ pack: testing
 
 # Testing Principles
 
+> **Hard rule.** Every fixed bug MUST ship with a regression test that fails on the buggy code and passes after the fix. Tests MUST be deterministic — no `sleep`-based waits, no real network in unit/integration tests, no `Date.now()` assertions without fake timers. `.only` in main and `.skip` without owner + delete-by date are forbidden and fail CI.
+
 Prevents flaky suites, false-confidence coverage, and tests that pass when the code is broken.
 
 ## Must
@@ -34,11 +36,11 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 
 ## Should
 
-- Fakes over mocks for stateful collaborators: in-memory repository implementing the real interface beats `mockRepository.findOne.mockResolvedValue(...)`.
-- Mock at port boundaries (HTTP client, DB driver, message bus) — not at every internal class.
-- Property-based tests (`fast-check` JS, `hypothesis` Python) for pure logic with many input shapes.
-- Testcontainers / docker-compose for integration tests that need a real DB / Redis. Faster + more honest than mocking SQL.
-- Coverage as a signal, not a goal: 80% line coverage with bad asserts is worse than 50% with sharp ones.
+- Prefer fakes over mocks for stateful collaborators: an in-memory repository implementing the real interface beats `mockRepository.findOne.mockResolvedValue(...)`.
+- Mock at port boundaries (HTTP client, DB driver, message bus) only — never at every internal class.
+- Use property-based tests (`fast-check` JS, `hypothesis` Python) for pure logic with many input shapes.
+- Use Testcontainers / docker-compose for integration tests that need a real DB / Redis — faster + more honest than mocking SQL.
+- Treat coverage as a signal, not a goal: 80% line coverage with bad asserts is worse than 50% with sharp ones.
 
 ## Review checklist
 

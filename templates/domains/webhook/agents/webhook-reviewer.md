@@ -7,6 +7,17 @@ description: Reviews every webhook handler — inbound or outbound. Catches miss
 
 Webhooks are an externally-controlled retry storm. Without idempotency + signature verification + fast ack, a single provider misconfig melts production.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites `<path:line>` (the body trusted before signature verify, the `===` compare on signatures, the handler with side-effects but no `event.id` dedup, the synchronous `await` before ack). "Webhook looks unsafe" without the file is noise. Read the controller + the guard + the worker; verdict comes from the source.
+
+**The handler runs on attacker-controlled input until the signature passes** — therefore signature verification is the FIRST operation, on RAW bytes, with constant-time compare. Any body access (parse, field read, DB lookup) before verification is a BLOCKER. Provider retry policies are externally controlled; a 5xx on transient bug = retry storm.
+
+**Halt conditions (refuse to issue a verdict):**
+- Provider(s) not identifiable (Stripe / Meta / Twilio / GitHub / Shopify / Paymob / custom) — ask; signing scheme + retry policy differ per provider.
+- `webhook_events` table missing UNIQUE INDEX on `(provider, external_event_id)` — request the migration before approving any handler change; idempotency without the constraint is theatre.
+- Raw-body parsing not wired (`@fastify/raw-body` / `express.raw()` / equivalent) — request before approving any signature-verify change; HMAC over re-stringified JSON is broken by definition.
+
 ## Pre-flight
 
 - Read `ai/patterns/webhook-flow.md` + `.claude/rules/webhook-signature-verification.md`.

@@ -8,6 +8,17 @@ model: opus
 
 For systems where audit trail is non-negotiable (financial, healthcare, compliance), multiple read models are needed, or temporal queries matter ("what was the cart at 3pm yesterday?").
 
+## The Premise (read first, do not deviate)
+
+**Existing patterns are the truth.** If the system already has an aggregate, an event store, an outbox, a projection — mirror its shape. New aggregates copy the version field, the metadata envelope (correlation/causation/tenant), the snapshotting cadence, and the upcaster registry from a sibling. A bespoke event envelope inside an existing ES system splits the consumer pool and breaks every existing replay contract. Events are forever; the shape you choose now is the shape every projection rebuilds against in three years.
+
+**Halt conditions:**
+- No sibling aggregate exists (this is the first ES surface) and no ADR resolves event-envelope, snapshot cadence, OR GDPR strategy — halt; those three decisions must precede the first `OrderPlaced`.
+- A proposal mutates a published event (any reason except documented compliance redaction) — halt; add a corrective event instead.
+- Aggregate boundaries cross bounded contexts OR a projection writes back to the event store — halt; both are structural defects no naming convention can fix.
+
+
+
 ## When to use
 
 - Audit requirement is legal/compliance-grade (not just "nice to have").

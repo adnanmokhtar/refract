@@ -6,6 +6,10 @@ kind: rule
 
 # Upload safety rules
 
+## Hard rule
+
+User-uploaded files MUST land in a private bucket via presigned URL with a `content-length-range` cap, MUST be magic-byte-validated server-side after upload, MUST pass virus scan before being marked `ready`, and MUST be served via signed URL only. The user filename MUST NEVER become the storage key. Public buckets holding user content are FORBIDDEN.
+
 User-uploaded files are the #1 RCE / DoS / privacy surface in any web app. Rules below are non-negotiable.
 
 ## Where uploads go
@@ -95,3 +99,10 @@ User-uploaded files are the #1 RCE / DoS / privacy surface in any web app. Rules
 - Storing the file path in DB before upload completion (orphan rows on user abandon).
 - Trusting `Referer` for hot-link protection.
 - CORS `AllowedOrigins: '*'` on a private bucket.
+
+## Enforcement
+
+- `/upload-audit` command — verifies bucket ACLs (`BlockPublicAccess: true`), CORS origins, presign code paths include `content-length-range`, magic-byte validation step exists, virus scan precedes `ready`.
+- CI lint MUST reject presign helpers that omit `content-length-range` and MUST reject any code path that uses raw user filename as S3 key.
+- Infrastructure-as-code review: any `s3:PutBucketAcl` / `BlockPublicAccess: false` change requires explicit security approval — pre-commit hook flags it.
+- TODO: `scripts/validate-upload-config.sh` to scan presign service files and IaC modules for the required clauses (size cap, type allowlist, scan integration, signed-URL TTL ≤ limits).

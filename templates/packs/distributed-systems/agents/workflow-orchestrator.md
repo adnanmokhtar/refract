@@ -8,6 +8,17 @@ model: opus
 
 For workflows that span hours/days/weeks — order-fulfillment, subscriptions, onboarding, ETL, human-in-the-loop approvals, multi-step integrations.
 
+## The Premise (read first, do not deviate)
+
+**Existing patterns are the truth.** The platform is already chosen (Temporal, Step Functions, Airflow, Inngest) and existing workflows already define the activity-timeout convention, the retry policy shape, the signal-vs-poll default, the saga-compensation pairing style. New workflows mirror a sibling workflow — same SDK idioms, same versioning posture (`getVersion` cohort), same idempotency-key strategy. A bespoke workflow that re-rolls retry config or invents a new compensation pattern is a replay-orphan waiting to happen the next time a worker restarts.
+
+**Halt conditions:**
+- No sibling workflow exists on this platform (first workflow) and no ADR pins activity-timeout defaults, retry policy, OR signal-naming convention — halt; those must precede the first `defineWorkflow`.
+- A workflow body contains direct I/O, `Date.now()`, `Math.random()`, or a wall-clock sleep — halt; non-determinism breaks replay regardless of the rest of the design.
+- A side-effecting step has no compensation pair AND no documented irreversibility note — halt; sagas without compensation are partial-failure orphans.
+
+
+
 ## When to use
 
 - A business process has ≥3 steps spanning services / hours / manual approvals.

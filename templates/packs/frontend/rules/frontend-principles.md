@@ -7,6 +7,8 @@ pack: frontend
 
 # Frontend Principles
 
+> **Hard rule.** Components MUST have typed props + events (no `any`); data fetching MUST live in a hook / composable / service (never in a component body); every user-facing string MUST go through i18n with a key in every declared locale; semantic HTML + `<label>` + visible focus ring are mandatory. Hardcoded strings, untyped event handlers, and `fetch` / `axios` inside `.vue` / `.tsx` / `.svelte` bodies are forbidden.
+
 Stack-agnostic. Framework specifics in `references/<framework>.md` (react, vue, nuxt, svelte, angular).
 
 Prevents the failures that ship: untyped props, business logic in templates, fetch in components, hardcoded strings, accessibility regressions, runaway bundles.
@@ -39,11 +41,11 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 
 ## Should
 
-- Local state stays local (`useState` / `ref` / `signal`). Promote to a global store only when ≥ 2 unrelated components need it.
-- Domain-focused stores: `useOrderStore`, `useCartStore`. Never one mega-store.
+- Keep local state local (`useState` / `ref` / `signal`). Promote to a global store only when ≥ 2 unrelated components need it.
+- Use domain-focused stores: `useOrderStore`, `useCartStore`. One mega-store is forbidden.
 - Memoize expensive selectors (`useMemo`, `computed`, `derived`, `reselect`).
-- Image optimization: framework-native (`next/image`, `nuxt/image`, `Image` from `astro:assets`) with `width`, `height`, `loading="lazy"`, `srcset`.
-- Bundle audit: `vite-bundle-visualizer` / `webpack-bundle-analyzer` / `source-map-explorer` reviewed before release. Lazy-load heavy deps (charts, editors, PDF viewers).
+- Optimize images via the framework-native helper (`next/image`, `nuxt/image`, `Image` from `astro:assets`) with `width`, `height`, `loading="lazy"`, `srcset`.
+- Audit the bundle (`vite-bundle-visualizer` / `webpack-bundle-analyzer` / `source-map-explorer`) before every release. Lazy-load heavy deps (charts, editors, PDF viewers).
 - Route-level code splitting plus chunk-level splitting for heavy modal flows.
 
 ## Review checklist

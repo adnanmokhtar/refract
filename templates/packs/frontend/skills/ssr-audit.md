@@ -5,6 +5,12 @@ description: Static scan for hydration mismatch sources in SSR apps (Nuxt / Next
 
 # ssr-audit
 
+## Premise
+
+Find real hydration risks, not hand-waves. Every finding cites `<file:line>` + the offending pattern + the fix. "Might have hydration issues" is not a finding. A grep that returns zero hits in a non-trivial SSR codebase is suspicious — re-check the patterns. False positives are acceptable when flagged as "review"; silent skips are not.
+
+A scan that produces zero output without proving the patterns matched is a failed scan.
+
 ## Scans for
 
 ### Browser-only APIs at module scope
@@ -87,3 +93,10 @@ Findings: 3
 - Before every SSR-related PR merge.
 - Weekly via CI scheduled job.
 - After adding a plugin / composable that touches browser APIs.
+
+## Halt conditions
+
+- Halt on hand-waves: every finding must cite `<file:line>` + the pattern matched + a concrete fix. "Might cause hydration issues" without a line is not a finding.
+- Halt if a finding is dismissed without verification — `document.createElement` inside `onMounted` is fine, but the verdict must say so explicitly.
+- Halt if the audit returns zero findings on a multi-page SSR app without listing the grep patterns actually executed.
+- Halt if a fix relies on `import.meta.client` guards being added but the guard isn't shown in the suggested patch.

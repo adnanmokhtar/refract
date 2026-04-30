@@ -7,6 +7,8 @@ pack: backend
 
 # Backend Rule: Concurrency discipline (parallelize independent I/O)
 
+> **Hard rule.** Independent I/O calls in a per-request / per-batch / per-job code path MUST run concurrently with a bounded primitive. Sequential `await` of independent calls, unbounded `Promise.all` over user-controlled arrays, and parallel work inside a DB transaction are forbidden — each is a review halt.
+
 > **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`. Do **not** delete; if extraction is empty, leave the placeholder + open a TODO.
 >
 > - **Concurrency primitive in use**: `<extracted-from-codebase>` (e.g., native `Promise.all` / `Promise.allSettled` / `Bluebird.map(coll, fn, { concurrency: N })` / `p-limit` / `asyncio.gather` / `asyncio.Semaphore` / `errgroup.WithContext` / `CompletableFuture.allOf` / `Parallel.ForEachAsync`)

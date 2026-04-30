@@ -6,6 +6,10 @@ kind: rule
 
 # Notification discipline
 
+## Hard rule
+
+Every notification MUST be classified at code-level into exactly one of `transactional` / `account` / `marketing` / `operational`, MUST flow through `NotificationService.send()` (preferences + suppression checked before provider call), and MUST carry an idempotency key. Marketing MUST ship with a one-click unsubscribe + `List-Unsubscribe` headers. Mis-classifying marketing as transactional to bypass opt-out is FORBIDDEN.
+
 User-visible AND legally regulated. Every send obeys the rules below.
 
 ## Categories (mandatory taxonomy)
@@ -94,3 +98,11 @@ Mis-classifying a marketing message as transactional to bypass opt-out is a comp
 - "Transactional" classification on marketing content.
 - Auto-fallback marketing across channels.
 - Send loops without rate limit.
+
+## Enforcement
+
+- `/notification-audit` command — greps for direct provider calls bypassing `NotificationService`, marketing templates without `List-Unsubscribe` headers, push/SMS payloads matching PII regexes.
+- CI lint MUST reject any import of provider SDKs (`@sendgrid/mail`, `twilio`, `firebase-admin`) outside the canonical `notifications/providers/` directory.
+- DMARC + SPF + DKIM checked at deploy time per sending domain — missing configuration fails the deploy.
+- Provider webhook ingestion (bounce, complaint, unsubscribe) MUST update `notification_preferences` automatically; missing webhook handler fails the audit.
+- TODO: `scripts/validate-notification-classification.sh` to require every `send(...)` call site to specify `category:` and assert it matches the template's declared class.

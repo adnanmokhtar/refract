@@ -7,6 +7,18 @@ description: Load-test a specific endpoint locally and profile where time is spe
 
 Load + flamegraph + DB-query analysis on one endpoint. Never optimize on vibes.
 
+## Premise
+
+Real signals only. Every percentile, RPS number, and "% time spent" comes from a measured run — autocannon/k6/wrk output captured verbatim, flamegraph generated, slow-query log tailed. Recommendations cite the exact query / index / function frame from the captured artifact. No "this should be faster if…" without a baseline + ramp on the same hardware. Empty tables and dev-mode servers are non-starters; either run with realistic data or refuse the result.
+
+## Halt conditions
+
+- Refuse to report p50/p95/p99 without the load-tool output it came from.
+- Refuse to claim "X% of time in Y" without a flamegraph pointing at frame Y.
+- Halt if DB tables are empty or seeded with < 1k rows — numbers will lie.
+- Don't propose an index without showing the slow query that needs it (cite the log line).
+- Don't recommend "optimize the loop" without naming the file and line.
+
 ## When to use
 
 - An SLO is being missed.

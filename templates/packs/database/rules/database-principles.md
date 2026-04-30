@@ -7,6 +7,8 @@ pack: database
 
 # Database Principles
 
+> **Hard rule.** Schema changes ship via reviewed migrations only — `synchronize: true` / auto-migrate / `db.create_all()` in production are forbidden. Every list query MUST paginate with `LIMIT`; every FK MUST be indexed; every transaction MUST stay local (no external HTTP / queue / API call held inside).
+
 Engine-agnostic. Engine-specific syntax in `references/<engine>.md` (postgres, mysql, sqlite, mongodb).
 
 Prevents the failures that wake you up: deadlocks, runaway scans, broken migrations, lost data.
@@ -38,9 +40,9 @@ Prevents the failures that wake you up: deadlocks, runaway scans, broken migrati
 
 ## Should
 
-- `EXPLAIN ANALYZE` (Postgres) / `EXPLAIN FORMAT=TREE` (MySQL 8) every new query on a table > 10k rows. Look for Seq Scan / Full Table Scan.
+- Run `EXPLAIN ANALYZE` (Postgres) / `EXPLAIN FORMAT=TREE` (MySQL 8) on every new query against a table > 10k rows. Reject Seq Scan / Full Table Scan unless documented.
 - CHECK constraints for invariants the app shouldn't have to re-enforce (`CHECK (price >= 0)`, `CHECK (status IN ('pending','paid','cancelled'))`).
-- Migrations are reversible (have a `down`) when feasible. If not, document the forward-fix plan.
+- Migrations are reversible (ship a `down`) when feasible. If not, document the forward-fix plan in the migration file header.
 - Expand-contract for breaking schema changes: add new column → backfill → switch reads → switch writes → drop old column. Each step ships in its own deploy.
 - Read replicas for read-heavy workloads — but route writes + read-your-writes to primary.
 - Connection pooler (`pgbouncer` for Postgres, `proxysql` for MySQL) sized to `(cores * 2 + spindles)` per replica, not 1000 per app instance.

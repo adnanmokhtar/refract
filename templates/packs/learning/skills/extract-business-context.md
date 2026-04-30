@@ -11,6 +11,21 @@ Stack tells what tech. Domain (ecommerce/lms/etc.) tells what kind of product. T
 
 Without this output, generated content (CLAUDE.md opener, agent personas, rule prose) addresses a generic "user" instead of the project's actual primary persona, and proposes solutions that ignore the project's real constraints (latency budget, regulatory regime, team size).
 
+## Premise
+
+- Real source is the truth. Read README + manifests + `ai/status.md` + git log + LICENSE + prior `ai/project-goals.md` before composing a single facet answer.
+- Every `[CONFIDENT]` claim cites the source file (or `<path:line>` for inline mentions).
+- Every `[INFERRED]` claim names the circumstantial signal it derived from (e.g. "maturity inferred from 18-month repo age + 14 ADRs").
+- Empty extraction is honest — `[UNKNOWN]` + `_UNKNOWN — fill in when decided_` is a valid facet outcome.
+- Fabrication — inferring a persona from a logo, a KPI from a hunch, a competitor from training-data memory — is the failure mode downstream files inherit forever.
+
+## Mechanical halt
+
+- Hand-wave answers — `enterprise users`, `typical SaaS`, `standard subscription`, `appears to target`, `roughly MVP-stage`, any claim without source attribution — REFUSE to write.
+- Re-derive from a cited source OR downgrade to `[UNKNOWN]` and surface in the consolidated question.
+- If a facet has no signal in any source AND `interactive: false`, write `<NOT-DETECTED: <facet>: no signal in <sources searched>>` plus `_UNKNOWN_` — never synthesize an answer to make the file look complete.
+- Phase 5 audit surfaces every `<NOT-DETECTED>` row so the user can re-run with `--interactive` to fill it.
+
 ## When to use
 
 - `/setup-project` Phase 2 — invoked by `extract-codebase-overview` Step 13.

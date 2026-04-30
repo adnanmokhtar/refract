@@ -7,6 +7,18 @@ description: Find unreachable code branches — code after return, conditions th
 
 Static + runtime detection of code that never executes. Dead code hides bugs, inflates bundles, and confuses readers.
 
+## Premise
+
+Find real issues, cite `<path:line>` for every finding. "DEFINITELY DEAD" requires either a linter rule firing (`no-unreachable`) or a literal `if (false)` / `if (true)`. "LIKELY DEAD" requires type-narrowing analysis pointing at the specific catch / branch. Feature-flag findings cite the flag name + its current config + the age from `git log`. Coverage-zero branches cite `lcov.info` line + sibling branch hits to confirm reachability is real, not test gap.
+
+## Halt conditions
+
+- Refuse to mark "delete" without the linter or coverage data backing the verdict.
+- Refuse to flag exhaustiveness `default: const _: never = x` — that's intentional.
+- Halt if the build doesn't compile — reachability analysis is unreliable on broken types.
+- Don't auto-delete; propose, get author confirmation, ship as a separate cleanup PR.
+- Tests intentionally hit "impossible" paths via mocks — exclude `__tests__/` and `*.spec.ts`.
+
 ## When to use
 
 - Before a refactor — clear out cruft first so diffs stay small.

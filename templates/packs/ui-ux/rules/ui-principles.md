@@ -7,6 +7,8 @@ pack: ui-ux
 
 # UI / UX Principles
 
+> **Hard rule.** Every interactive element MUST be keyboard-reachable with a visible `:focus-visible` ring, every input MUST have a `<label>` (placeholders don't count), and color contrast MUST meet WCAG 2.2 AA (≥ 4.5:1 body, ≥ 3:1 large/UI). Hover-only critical info, icon-only buttons without `aria-label`, status by color alone, and `outline: none` without a replacement are forbidden.
+
 Prevents the three failures users punish: confusing labels, broken keyboard nav, low-contrast text.
 
 ## Must
@@ -35,11 +37,11 @@ Prevents the three failures users punish: confusing labels, broken keyboard nav,
 
 ## Should
 
-- 3 baseline breakpoints: 320 (mobile), 768 (tablet), 1280+ (desktop). Add more only when the design demands it.
-- Inline validation on blur, not on every keystroke (keystroke validation = noise + error blink).
-- Pagination, search, sort, and filter for any list expected to exceed 50 items in production.
-- Inline editing over modals when only one field changes — fewer context switches.
-- One primary action per screen, visually distinct. Multiple primaries = no primary.
+- Use 3 baseline breakpoints: 320 (mobile), 768 (tablet), 1280+ (desktop). Add more only when the design demands it.
+- Run inline validation on blur, never on every keystroke (keystroke validation = noise + error blink).
+- Add pagination, search, sort, and filter for any list expected to exceed 50 items in production.
+- Prefer inline editing over modals when only one field changes — fewer context switches.
+- Render exactly one primary action per screen, visually distinct. Multiple primaries = no primary.
 
 ## Review checklist
 

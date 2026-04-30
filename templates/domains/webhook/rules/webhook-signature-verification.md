@@ -6,6 +6,10 @@ kind: rule
 
 # Webhook signature verification
 
+## Hard rule
+
+Every inbound webhook MUST be signature-verified against the raw body using a constant-time compare BEFORE any processing, parsing, persisting, or trust of payload fields. Mismatch MUST return 401. Processing a webhook before verification — including reading `tenant_id` / `user_id` from the payload — is FORBIDDEN.
+
 Every inbound webhook MUST be signature-verified BEFORE any processing.
 
 ## The rule
@@ -45,3 +49,10 @@ Every inbound webhook MUST be signature-verified BEFORE any processing.
 - Skipping verification "for testing" — use a proper fixture POST with a valid signature instead.
 - Processing before verifying.
 - Trusting `tenant_id` / `user_id` from the payload BEFORE signature verification.
+
+## Enforcement
+
+- `/webhook-audit` command — greps every webhook handler for raw-body access, signature header read, constant-time compare (`crypto.timingSafeEqual` / equivalent), and dedupe-by-event-id unique index.
+- CI lint MUST reject `req.body.tenantId` / `req.body.userId` reads in webhook handlers that occur before the signature-verification call site.
+- Test fixture per provider MUST include a tampered-signature case asserting 401 — missing test fails CI.
+- TODO: `scripts/validate-webhook-handlers.sh` to AST-scan handler files and verify the signature-verify call dominates every other side-effecting call.

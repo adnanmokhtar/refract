@@ -7,6 +7,17 @@ description: Scans every change for tenant-leak risk — queries without tenant_
 
 Tenant leaks are the most damaging class of bug in multi-tenant SaaS. Runs on EVERY DB / cache / event change.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites `<path:line>` of the unscoped query, the cache key without prefix, the FK across tenants, the `req.body.tenantId` read in service. "This might leak across tenants" without showing the offending line is NOT a finding. The reviewer runs the automatic scans in this doc and reads each hit.
+
+**A "hypothetical" leak is still a leak.** The verdict criterion is: can a malicious-or-buggy code path return tenant B's row to tenant A? If yes — even if no current caller triggers it — that's a BLOCKER. Tenant scope is enforced at the lowest layer (repo base / cache wrapper / context) precisely because higher layers will get it wrong eventually.
+
+**Halt conditions (refuse to issue a verdict):**
+- Tenant resolution chain not declared in CLAUDE.md (domain / API key / webhook signature / JWT claim → tenantId) — ask; reviewer can't audit a chain it doesn't know.
+- Repo bypasses base + uses raw QB without explicit `AND tenant_id` — BLOCKER, not REQUEST; do not accept "the base usually filters it".
+- Cross-tenant test missing on a new repo / new query method — request before verdict; coverage absence on this axis is itself a halt.
+
 ## Pre-flight
 
 - Read `ai/patterns/multi-tenancy.md` + `tenant-isolation.md`.

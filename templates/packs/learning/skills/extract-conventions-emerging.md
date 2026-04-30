@@ -18,6 +18,21 @@ Round-two finds *emergent* conventions: patterns that aren't enforced by any too
 
 These are the conventions a senior engineer learns by code review, not by reading a CONTRIBUTING.md. REFINE makes them explicit.
 
+## Premise
+
+- Real source is the truth. Sample the actual files for each category — controllers for error-shape, list endpoints for pagination, route handlers for validation, log call sites for logging shape, transaction-opening points for boundaries.
+- Every recorded pattern cites ≥3 representative `<file:line>` occurrences from the count claimed.
+- The `min_occurrences` threshold is enforced from real reads, not estimates; auto-generated code (migrations, OpenAPI clients, `__generated__/`) is excluded.
+- Empty extraction is honest — the negative finding per Category I is itself useful (tells round-two NOT to invent uniformity).
+- Fabrication — naming a pattern from one beautiful example, or asserting uniformity across a genuinely heterogeneous codebase — locks the wrong rule into every downstream artifact.
+
+## Mechanical halt
+
+- Hand-wave in convention output — `etc.`, `...`, `most controllers`, `appears to use cursor pagination`, `roughly always`, a pattern entry without `citations:` populated to ≥3 `<file:line>`, a count without supporting samples — REFUSE to advance.
+- Re-grep, re-count, regenerate the entry with explicit citations OR move it to `negative_findings`.
+- If a category has fewer than `min_occurrences` real hits, record `<NOT-DETECTED: <category>: <N> occurrences below threshold>` — never round up an under-threshold pattern into `emergent_conventions`.
+- Contested conventions (60/40 splits across the codebase) go in `contested_conventions` with both options + counts — not silently averaged into one rule.
+
 ## When to use
 
 - `/setup-project --refine` Phase 2.10 — once per project.

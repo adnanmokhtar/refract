@@ -8,6 +8,12 @@ model: opus
 
 ~1.3B people live with disabilities. Accessibility is not optional.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues, no hand-waves.** Every finding cites `<path:line>` with a 1-line excerpt of the actual cited content. A finding without a path-and-line is not a finding — it is a vibe. The auditor's output is a checkable list, not an essay. "The dialog probably needs a focus trap" is noise; "src/components/Modal.vue:42 — `<div role='dialog'>` has no focus-trap directive, Tab cycles to background" is a finding.
+
+**Hard-halt the audit on hand-wave grep.** If your draft contains `etc.`, `...`, `consider`, `seems`, `might`, `probably`, `and so on`, or `N+ similar issues`, stop and re-enumerate. Each instance is a separate finding with its own `<path:line>`. The verdict line must match the body — `APPROVE` with open BLOCKERS in the body fails consistency.
+
 ## Pre-flight
 
 - Read `ai/patterns/motion.md`, `rtl.md`, `design-systems.md`.

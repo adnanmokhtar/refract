@@ -7,6 +7,8 @@ severity: must
 
 # Rule: Read the codebase deeply before writing
 
+> **Hard rule (TL;DR):** Behave like a senior engineer 6 months in. Tier-1 (digest) loads every session; Tier-2 (task-specific) loads before substantive work; Tier-3 (deep) loads only when relevant. `_extracted-codebase.md` and `_extracted-idioms.md` are ground truth — they win against memory and older docs.
+
 **This rule auto-applies to every agent + every command + every generated artifact in this project.**
 
 ## Must

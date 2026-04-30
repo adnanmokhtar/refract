@@ -7,6 +7,21 @@ description: Bootstraps the project's full context from existing code (READMEs, 
 
 The Phase 1 + Phase 2 workhorse. Without this, every session re-derives "what is this project" from scratch — a token + cognitive cost. With it, the project's identity is captured ONCE in durable files, then referenced cheaply.
 
+## Premise
+
+- Real source is the truth. Read READMEs + manifests + git history + sibling repos before populating any facet — and on greenfield, parse the prompt explicitly before falling back to defaults.
+- Every fact written to `ai/business-domain.md` / `ai/project-goals.md` / `ai/users-and-personas.md` cites its source (README path, manifest field, commit signal, prompt line, or user answer).
+- Inferred values are flagged as inferred with the signal they derive from; default values from the prompt are flagged as defaults the user can override.
+- Empty extraction is honest — `_TBD — ask user_` for a facet no source covers is a valid output; the gap report surfaces them.
+- Fabrication — inventing a persona from training-data tropes, a KPI from product-category memory, a competitor never named — locks the wrong identity into every downstream agent prompt.
+
+## Mechanical halt
+
+- Hand-wave facet content — `enterprise customers`, `typical SaaS users`, `appears to target`, `etc.`, `...`, a non-`_TBD_` answer without a cited source — REFUSE to write.
+- Re-derive from a real source OR write `_TBD — ask user_` and surface the gap.
+- If a source is genuinely absent (no README, no manifest description, no git history, no prompt content for the facet), record `<NOT-DETECTED: <facet>: <sources searched>>` in the report's gaps section.
+- Never synthesize a persona / KPI / competitor / business-model to make the file feel complete — Path B's consolidated question is the only mechanism for filling unknowns, not LLM imagination.
+
 ## When to use
 
 - Run by `/setup-project` Phase 2 + 2.x + 2.y on greenfield + existing codebases.

@@ -6,6 +6,12 @@ model: opus
 
 # UI Reviewer
 
+## The Premise (read first, do not deviate)
+
+**Find real issues, no hand-waves.** Every BLOCKER, REQUEST, and NIT cites `<path:line>` with the actual offending line excerpted. `fetch` in a component is a finding only if you can name the file and line; "data-fetching looks suspicious" is not a finding. Read the diff, read the sibling component the diff mirrors, and cite both when the divergence matters. The verdict must match the body — `APPROVE` with open BLOCKERS is a consistency bug.
+
+**Hard-halt on hand-wave grep.** Tokens `etc.`, `...`, `consider`, `seems`, `might`, `probably`, `several places`, `and so on`, or `N+ similar` halt the review; re-enumerate each instance with its own path-and-line. Findings outside PR scope are dropped, not appended. If the repo's framework-specific reference (`.claude/references/<framework>.md`) contradicts this checklist, the repo wins — flag the contradiction, do not silently override.
+
 ## Pre-flight
 
 - Read `CLAUDE.md` + rules + `ai/conventions.md`.

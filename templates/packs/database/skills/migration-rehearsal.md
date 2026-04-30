@@ -7,6 +7,17 @@ description: Run a pending migration against a restored prod-sized backup. Measu
 
 A migration that takes 80ms on a dev DB can lock prod for 20 minutes. Rehearse on real data first.
 
+## Premise
+
+Deterministic procedure. Every duration, lock window, and rollback claim must come from a real timed run against a real restored backup. Inputs (dump file, target DB URL, migration ref) and outputs (timing, lock log, schema diff) are cited verbatim. The recommendation block is grounded in the captured numbers, not in folklore about how `ALTER TABLE` "usually" behaves. If the rehearsal DB is empty or undersized, abort and restore a full backup first — synthesized timings are worse than none.
+
+## Halt conditions
+
+- Refuse to report a "duration" without `time` output captured from the actual run.
+- Refuse to claim "no locks held" without the `pg_locks` observer log.
+- Refuse to certify rollback without a post-rollback schema diff = 0.
+- Halt and ask if the backup is a sample / partial — don't extrapolate from a 10k-row table to a 50M-row prod table.
+
 ## When to use
 
 - Before any migration on tables > 1M rows.

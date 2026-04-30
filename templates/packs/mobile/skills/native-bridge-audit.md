@@ -6,6 +6,17 @@ description: Audit JS↔native bridge code for type safety, error propagation, p
 
 JS↔native bridge code is where mobile bugs cluster. Type mismatches between sides, dropped promises on app backgrounding, threads where you didn't expect, retain cycles. This skill walks a bridge module systematically.
 
+## Premise
+
+Find real issues. Every finding cites `<path:line>` on both sides of the bridge — JS/TS file + native iOS file + native Android file. "Type mismatch" requires both signatures quoted. "Promise hangs on background" requires either a reproducer or the specific code path where neither resolve nor reject is called. "Retain cycle" requires the listener-attach line + the missing-detach call site. No accusation without coordinates.
+
+## Halt conditions
+
+- Refuse to flag a "type mismatch" without quoting both signatures.
+- Refuse to call a promise leak "critical" without naming the file/line that fails to resolve.
+- Halt if you've audited only one platform — iOS-only audit is incomplete; same for Android.
+- Don't propose Pigeon / TurboModule migration without auditing what the current bridge actually does.
+
 ## When to use
 
 - Adding a new native module (RN: TurboModule / legacy NativeModule. Flutter: MethodChannel / Pigeon).

@@ -5,6 +5,12 @@ description: Live-drive the running app via the Playwright MCP server — naviga
 
 # verify-with-playwright
 
+## Premise
+
+Real artifacts only. Every claim of "works" cites the screenshot file path produced + the URL navigated + the selectors waited on. "I checked it" is not verification. A 0-step run is a failure, not a pass. Console errors on load fail the run even if the screenshot looks fine. Selectors pin to roles + accessible names, not CSS classes — a verification that breaks on the next styling change is worthless.
+
+Refuse to declare PASS without at least 1 navigate + 1 wait_for_selector + 1 screenshot citation.
+
 Real-browser verification that the change you just made actually works in the running app. Uses the Playwright MCP server's tools (`navigate`, `click`, `type`, `wait_for_selector`, `screenshot`, `eval_js`, `console_messages`) — not pre-written `.spec.ts` files. Tighter feedback loop than e2e tests; complementary, not replacement.
 
 ## When to use
@@ -113,3 +119,10 @@ verify-with-playwright — <feature/route>
 - **Never commit** `.claude/dev-server.{pid,log}` or screenshot dumps. They're per-developer.
 - **Pinned selectors prefer roles + names** over CSS classes. Surfacing the rule explicitly because it's the single thing that determines whether the verification survives a styling refactor.
 - **Don't fake success.** A 0-step run is a fail, not a pass. Minimum 1 navigate + 1 wait_for_selector + 1 screenshot.
+
+## Halt conditions
+
+- Halt if no screenshot file path is produced — verification without an artifact is unverified.
+- Halt if console errors appeared on load and the report claims PASS. UI rendering is not enough; runtime errors fail the run.
+- Halt if selectors target CSS classes instead of roles + accessible names — the verification won't survive the next styling refactor.
+- Halt if the Playwright MCP server is not configured in `.mcp.json` — do not silently fall back to a different tool.

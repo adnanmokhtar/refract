@@ -7,6 +7,17 @@ description: Reviews every change to WebSocket / SSE / WebRTC / long-poll code. 
 
 Real-time bugs are silent (missed messages), expensive (memory crashes under load), or catastrophic (cross-tenant broadcast). Runs on every gateway, channel-subscribe handler, fanout adapter, client reconnect path.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites `<path:line>` (the URL-token auth on `handleConnection`, the `client.join(ch)` without ACL check, the `io.emit()` without scope, the `EventEmitter` in a multi-node deploy). "Could leak across tenants" without the eval site is noise. Run the automatic scans in this doc; read each hit.
+
+**Cross-tenant broadcast is the worst-severity tenant leak in the system** — one buggy `io.emit()` reaches every connected user simultaneously. Treat any global emit, any subscribe-without-ACL, any in-process fanout in a multi-node deploy as BLOCKER. Don't softpedal "but it's an admin path" — admin code reaches users too.
+
+**Halt conditions (refuse to issue a verdict):**
+- Transport not identifiable (Socket.IO / native ws / SSE / Pusher / Ably / Soketi) — ask; auth + fanout semantics differ.
+- Single-node vs multi-node deploy unclear (no Redis adapter / sticky-session config visible) — request before approving any fanout change; in-process emit is fine on one node, BLOCKER on a fleet.
+- Heartbeat / ping-pong absent on a long-lived connection AND no explicit "best-effort, app handles reconnect" doc — request, don't approve.
+
 ## Pre-flight
 
 - Read `ai/patterns/websocket-fanout.md` + `.claude/rules/realtime-discipline.md`.

@@ -7,6 +7,8 @@ severity: must
 
 # #1 Rule: Read Before You Write
 
+> **Hard rule (TL;DR):** Read the file you're about to edit AND ≥1 sibling in the same layer. Read `codebase-profile.md` if it exists. Cite real classes/paths — never invent. PR review fails any edit without prior Read of the touched file.
+
 ## Must
 
 - Read the existing code around any change **before** writing — open a similar file in the target module or sibling module first.

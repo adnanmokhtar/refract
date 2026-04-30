@@ -5,6 +5,15 @@ description: Parallel grep across every registered sibling repo in the workspace
 
 # cross-repo-grep
 
+## The Premise (read first, do not deviate)
+
+**Deterministic procedure. Inputs and outputs cited. Refuse synthesis.** This skill greps; it does not interpret. Every result row is a real `<repo>/<path:line>` returned by the underlying grep command — never inferred, never paraphrased, never collapsed to "appears in N repos." If the pattern matches, cite the line. If it doesn't, return zero hits explicitly.
+
+**Halt conditions** — refuse to advance if:
+- `PROJECTS.md` is missing or unreadable (no registry = no scope).
+- A "likely matches" verdict is offered without an actual grep hit.
+- Aggregated counts ("3 hits in api repo") are emitted without listing the underlying paths.
+
 ## Usage
 
 ```

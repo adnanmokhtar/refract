@@ -6,6 +6,10 @@ kind: rule
 
 # Feature flag discipline
 
+## Hard rule
+
+Every flag MUST declare an OWNER + SUNSET DATE at creation, MUST be evaluated at most once per request with an explicit `default`, and MUST be cleaned up within 14 days of reaching 100%. Flags MUST NOT gate auth, tenant isolation, compliance, or other security-relevant behaviour — flags fail to default; security must not.
+
 Flags are temporary forks in the codebase. Every flag past its useful life rots into a maintenance trap. These rules keep the inventory honest.
 
 ## Declaration
@@ -63,3 +67,11 @@ Flags are temporary forks in the codebase. Every flag past its useful life rots 
 - Server SDK key NEVER ships in client bundles. Use environment-scoped client keys.
 - Provider webhook events (flag changed, rollout updated) trigger a Slack message to the owner.
 - Provider dashboard access = production-equivalent — anyone who can flip a 100% rollout can break prod.
+
+## Enforcement
+
+- `/flag-audit` command — reconciles code references against the single source of truth, flags owner/sunset misses, surfaces flags >14 days at 100%, surfaces orphaned dead branches.
+- CI lint MUST reject `flag.isOn(...)` calls without an explicit `default` argument.
+- CI lint MUST reject flag evaluation inside loops (`.map`/`.filter`/`for`) — evaluation hoisted before the loop.
+- Provider webhook → Slack owner ping when a flag's rollout/state changes; absence of webhook config fails setup audit.
+- TODO: `scripts/validate-flag-inventory.sh` to grep `flag.isOn('<key>')` / equivalent in code and diff against provider dashboard / `flags.yaml`; missing on either side fails the build.

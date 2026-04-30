@@ -11,6 +11,21 @@ Round-one Phase 2 detects the architectural shape from folder structure + framew
 
 Round-two needs the actual graph. A first-pass `ai/architecture.md` says "controllers depend on services depend on repositories." Round-two says "the request lifecycle for `POST /api/invoices` is: `app/controllers/invoices.py:Invoice.create:42` → `app/services/billing.py:BillingService.create_invoice:128` → `app/repositories/invoice.py:InvoiceRepository.persist:67` → `INSERT into invoices...` (transaction wraps lines 130-145, fans out to `LedgerService.append_entries:215` after persist). The `auth` middleware injects user at `app/middleware/auth.py:34` ahead of the controller; tracing is via `tracing.py:23` decorator." That second version is anchorable.
 
+## Premise
+
+- Real source is the truth. Read every handler in the traced lifecycle — entry, every middleware in the chain, every called function down to the I/O boundary — before writing the YAML.
+- Every step, layer name, boundary, and cross-cutting concern cites `<path:line>` resolvable at the current commit.
+- The import graph is computed from real `import`/`require` statements, not from folder naming conventions.
+- Empty extraction is honest — a `not detected` row for a missing concern + the WEAK gate are valid outputs.
+- Fabrication — inventing a layer from a folder name, a middleware that's defined-but-never-registered, or a lifecycle from framework defaults — is the failure mode the WEAK gate flags.
+
+## Mechanical halt
+
+- Hand-wave grep on architecture output — `etc.`, `...`, `the usual layers`, `roughly layered`, `appears MVC-ish`, a step listed without `<file:line>` — REFUSE to advance.
+- Rewrite the offending block with concrete citations OR downgrade the section to `[REFINE-WEAK: architecture]`.
+- If a cross-cutting concern is genuinely absent (no rate-limiter, no tracing), record `<NOT-DETECTED: <reason>>` (e.g. `<NOT-DETECTED: no middleware registered for rate-limiting>`).
+- Never synthesize a "framework default" the codebase doesn't actually wire up — the rate-limit-or-tracing gap is the finding.
+
 ## When to use
 
 - `/setup-project --refine` Phase 2.8 — once per project (not per domain).

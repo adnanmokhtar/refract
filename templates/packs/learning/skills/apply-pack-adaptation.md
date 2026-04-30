@@ -11,6 +11,21 @@ Pack-added files (rules + agents + patterns + skills copied via Phase 4.2 / 4.4 
 
 **The historical bug this prevents**: under context pressure, the LLM running `/setup-project` "saves time" by skipping per-file adaptation — the user opens the regenerated `.claude/rules/<name>.md` and finds it talks about generic `<concept>` patterns instead of the project's actual `<project-base-class>` base class. The user correctly says "you didn't adapt — you just copied templates." This skill exists to make that failure impossible: it runs in its own context window, it has the full extraction loaded, and Phase 5.3 audits its decision log.
 
+## Premise
+
+- Real source is the truth. Read each pack file + each extraction artifact in full before writing a decision row.
+- Every identifier injected into a `## Project-specific` block cites `<path:line>` from `_extracted-codebase.md`, `_extracted-idioms.md`, or `_refine-extract.md`.
+- The decision row records the extraction source it consumed; an unsourced row is rejected by Phase 5.3.5's leak scan.
+- Empty extraction is honest — write the thin / `[EXTRACTION-WEAK]` anchor with whatever facts exist.
+- Fabrication (citing a base class that doesn't exist, a path that doesn't resolve, a line that doesn't match) is the failure mode this skill exists to prevent.
+
+## Mechanical halt
+
+- Hand-wave grep on any anchor block — `etc.`, `...`, `appears to`, `roughly`, `the project's <X>`, `your service layer`, or any decision row missing a citation anchor — REFUSE to advance.
+- The offending row regenerates with explicit citations or escalates to `[EXTRACTION-WEAK]` with the topic named.
+- If extraction yields no signal for an artifact's topic, write `<NOT-DETECTED: <reason>>` (e.g. `<NOT-DETECTED: no base class with ≥3 extenders>`) instead of synthesizing one.
+- The leak scan in Phase 5.3.5 cross-references every cited identifier against extraction; a hallucinated identifier halts the run.
+
 ## When invoked
 
 - **Round one** — `/setup-project` Phase 4.6 in CREATE / ENHANCE-retrofit / ENHANCE-extend / REFRESH.

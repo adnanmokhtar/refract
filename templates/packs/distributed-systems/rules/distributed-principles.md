@@ -7,6 +7,8 @@ pack: distributed-systems
 
 # Distributed Systems Principles
 
+> **Hard rule.** Exactly ONE service owns writes to an entity; cross-service writes go through that owner. Every external call MUST have a timeout + retry + circuit breaker; every retried mutation MUST be idempotent (server-stored idempotency key); every cross-service workflow MUST use saga + outbox — 2PC / XA and shared mutable databases are forbidden.
+
 Prevents the failures that turn a microservice migration into a distributed monolith with extra latency: shared DBs, sync chains, missing idempotency, retries without timeouts, distributed transactions.
 
 ## The 8 fallacies (Deutsch / Gosling)
@@ -47,14 +49,14 @@ Memorize. Every design that assumes otherwise is wrong.
 
 ## Should
 
-- Async via queue / event bus when the caller doesn't need an immediate answer. Decouples availability — A is no longer at most as available as B.
-- Circuit breakers (`opossum`, Resilience4j, Polly, Hystrix-style) on every external dependency. Fail fast when the downstream is sick; let it recover.
-- Bulkheads: separate connection pools / thread pools per dependency. One slow dep can't starve the others.
+- Use async via queue / event bus when the caller doesn't need an immediate answer. Decouples availability — A is no longer at most as available as B.
+- Wrap every external dependency in a circuit breaker (`opossum`, Resilience4j, Polly, Hystrix-style). Fail fast when the downstream is sick; let it recover.
+- Bulkheads: separate connection pools / thread pools per dependency. One slow dep MUST NOT starve the others.
 - Graceful degradation: cached / default response when downstream is down. Catalog without prices beats no catalog.
-- Backpressure end-to-end: producer slows when consumer / queue is full. No unbounded buffers.
-- Versioned events / API contracts (`order.created.v2`). Breaking changes ship as a new version; old version retired with notice.
+- End-to-end backpressure: producer slows when consumer / queue is full. Unbounded buffers are forbidden.
+- Version events / API contracts (`order.created.v2`). Breaking changes ship as a new version; old version retired with notice.
 - CDC (Debezium / Maxwell) over polling for change propagation when DB is the source of truth.
-- Strong consistency within a service transaction; eventual consistency across services — design for it explicitly, don't hope for it.
+- Strong consistency within a service transaction; eventual consistency across services — design for it explicitly, never hope for it.
 
 ## Communication patterns
 

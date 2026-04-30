@@ -5,6 +5,12 @@ description: Start the project's local dev server in the background and wait for
 
 # dev-server-start
 
+## Premise
+
+Existing project conventions are the truth. Read `package.json`, the lockfile, and the framework config before guessing — never invent a start command. Mirror the script the project already ships with (`dev`, `start`, `serve`); if none exists, halt rather than fabricate one. Idempotency is non-negotiable: a re-run in the same session must detect an already-running server, not spawn a duplicate.
+
+Refuse to start a server when `package.json` is absent at the chosen project root.
+
 Boilerplate for "I need the app running locally before I can verify it." Used as a prerequisite by `verify-with-playwright`, `a11y-audit`, `visual-check`, `ssr-audit`, and any task that ends with "open the page and check."
 
 ## When to use
@@ -111,3 +117,10 @@ dev-server-start
 - **Background only.** Never block the agent's main loop on the server's stdout. Tail the log on demand.
 - **Never start a server in production / CI mode** — refuse if `NODE_ENV=production` or `CI=true` is set.
 - **Project-root verified.** `package.json` must exist at the chosen `PROJECT_ROOT`. No fallback to `cwd`.
+
+## Halt conditions
+
+- Halt if `package.json` has no `dev` / `start` script and no recognised framework config — do not fabricate a start command.
+- Halt if the lockfile + package manager don't match (e.g., `pnpm-lock.yaml` present but `npm` requested). Mirror what the project actually ships with.
+- Halt if the port collides with a non-dev process after 3 bumps — stop guessing, surface the conflict.
+- Halt if the server exits within 2s of launch — capture the last 30 log lines and refuse to declare success.

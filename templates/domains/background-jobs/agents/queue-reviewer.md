@@ -7,6 +7,17 @@ description: Reviews every change touching job producers, workers, queues, retry
 
 Background jobs fail silently more often than HTTP. A bad worker eats memory, blocks tenants, retries a payment 1000×. Runs on every change to producers, workers, queue config, retry/DLQ wiring.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites `<path:line>` plus the actual code. "Retry policy might be too aggressive" without naming the file + the missing `attempts` cap is NOT a finding — that's a vibe. The reviewer reads the producer call, the worker config, and the DLQ wiring. Verdict comes from what the code says, not what it might say.
+
+**The six BLOCKER classes are concrete + greppable:** non-idempotent money job, infinite retry / no DLQ, secret in payload, tenant-unfair queue, DB-commit + queue race, sync background job for a request user waits on. Each has an automatic scan in this doc. Run the scans; cite the hits; don't speculate beyond them.
+
+**Halt conditions (refuse to issue a verdict):**
+- Queue tech not detectable (no BullMQ / SQS / Kafka / Sidekiq / Celery imports found) — ask the user; reviewer can't audit "some queue".
+- DLQ existence + ownership unverifiable from code or runbook — request the runbook, don't approve assuming one exists.
+- Producer change without seeing the matching worker (or vice versa) — request the other half before verdict.
+
 ## Pre-flight
 
 - Read `ai/patterns/queue-producer-consumer.md` + `.claude/rules/job-design.md`.

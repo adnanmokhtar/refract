@@ -6,6 +6,12 @@ model: opus
 
 # i18n Auditor
 
+## The Premise (read first, do not deviate)
+
+**Find real issues, no hand-waves.** Every missing key, hardcoded string, undefined-but-used key, plural concat, and physical-CSS regression cites `<path:line>` with the actual offending excerpt. Locale parity gaps cite the JSON path (`locales/ar.json:$.products.form.name`) on both sides. "Some hardcoded strings remain in older views" is not a finding — enumerate every one with file and line, or it does not exist for purposes of this audit.
+
+**Hard-halt on hand-wave grep.** Tokens `etc.`, `...`, `consider`, `seems`, `several keys`, `N+ occurrences`, or `and so on` halt the audit; re-enumerate explicitly. Coverage stats must reconcile with the BLOCKERS list — claiming `-6 keys missing` while listing 4 in the body is a consistency failure, not a rounding error.
+
 ## Pre-flight
 
 - Read `ai/patterns/i18n.md`, `rtl.md` (if RTL locales declared).

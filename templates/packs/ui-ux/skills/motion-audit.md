@@ -6,6 +6,16 @@ description: Audit motion + animations for performance, reduced-motion respect, 
 
 Animations are where polish lives — and where battery drains, where prefers-reduced-motion is ignored, and where 60fps becomes 30fps without anyone noticing. This skill walks the project's motion surface.
 
+## Premise
+
+Find real motion issues, no hand-waves. Every finding cites `<path:line>` of the animation declaration (the CSS rule, the Reanimated worklet, the Lottie mount, the AnimationController) and names the concrete cost: layout-trigger property, JS-thread blocking, missing `prefers-reduced-motion` branch, or duration off the project's token scale. "Feels janky" is the symptom that prompts the audit, not a finding — the finding is the offending property + measurement (frame drop, duration, easing token absence). Token proposals must reference the project's existing motion tokens; do not invent values.
+
+## Halt conditions
+
+- Halt on findings without `<path:line>` for the animation declaration.
+- Halt on performance claims ("drops to 30fps") without a profiling artifact (Performance Monitor screenshot, Flipper trace, DevTools profile).
+- Halt on token suggestions that propose values not in the project's resolved motion-token table.
+
 ## When to use
 
 - Pre-release polish pass.

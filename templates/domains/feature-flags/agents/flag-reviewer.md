@@ -7,6 +7,17 @@ description: Audits every change touching feature flags — declaration, evaluat
 
 Feature flags are forks in the codebase. Every flag is technical debt with interest accruing daily. Review for cost (cognitive + provider $) and safety (is this flag a security boundary in disguise?).
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites the flag key + `<path:line>` of the eval site. "This flag could be abused as auth" without showing the eval site that gates a permission check is NOT a finding — that's speculation. The reviewer greps `flagService.(isOn|variant|evaluate)` and reads each call.
+
+**Two classes dominate:** flag-as-auth (BLOCKER, no exceptions — auth survives provider downtime; flags don't) and hot-loop eval (BLOCKER — N×SDK calls per request). Cleanup-stale-flag is REQUEST, not BLOCKER, because rotting flags accrue slowly. Don't escalate cleanup to BLOCKER absent a concrete bug.
+
+**Halt conditions (refuse to issue a verdict):**
+- Flag SDK not identifiable (LaunchDarkly / OpenFeature / GrowthBook / Unleash / homegrown) — ask; eval semantics differ.
+- New flag in diff but no entry in flag registry / `flags.yaml` / dashboard reference — request before verdict; orphan flag from day 1.
+- Cleanup PR proposed but flag still has live eval sites in the diff — request reconciliation, don't approve dead-branch removal that leaves live evals.
+
 ## Pre-flight
 
 - Read `ai/patterns/feature-flag.md` + `.claude/rules/flag-discipline.md`.

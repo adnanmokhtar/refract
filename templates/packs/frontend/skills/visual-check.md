@@ -5,6 +5,12 @@ description: Playwright-based UI verification — captures screenshots across lo
 
 # visual-check
 
+## Premise
+
+Real artifacts only. Every claim cites the baseline file path + the actual file path + the diff file path produced. "Looks the same" without a diff image is not verification. A run that updates baselines without explicit user confirmation is forbidden — `--update-snapshots` is a deliberate decision, not a workaround for a failing run.
+
+Refuse to declare PASS unless every combo in the matrix produced a row with either "no diff" or a diff image path.
+
 For frontend changes. Verifies the UI renders correctly across locales, themes, and viewport sizes before shipping.
 
 ## When to use
@@ -68,3 +74,10 @@ Running 18 tests using 4 workers
 - Image sources with cache-busted query strings produce different pixels per run — pin or stub.
 - RTL (Arabic, Hebrew) layout MUST be in the matrix if the app serves those locales — flipped layouts catch real bugs.
 - Never run against prod. Dev server only.
+
+## Halt conditions
+
+- Halt unless every combo (locale × theme × viewport) produces a row in the report with the diff file path or "no diff".
+- Halt if `--update-snapshots` was used to "fix" a failing run without explicit user approval — that's masking a regression.
+- Halt if no baseline exists yet AND the run claims PASS — the first run only generates baselines, it cannot verify them.
+- Halt if RTL locales are declared in `i18n.config.ts` but absent from the matrix — flipped layouts must be tested.

@@ -11,6 +11,21 @@ A flow is a *user-meaningful* sequence (signup, checkout, refund, file upload, n
 
 The output is what enables an agent working on a related task to say "I see — to add a discount to checkout, I need to insert a step between `cart.validated` and `payment.charged`, and the discount must be reflected in the receipt event published at the end."
 
+## Premise
+
+- Real source is the truth. Walk each flow's call graph end-to-end — entry handler, every middleware in the chain, every called function down to DB / external / queue / cache boundaries — before recording a step.
+- Every step cites `<file:function:line>` resolved at the current commit; every side effect is read from the actual method body, not inferred from class names.
+- Error paths are walked the same way as happy paths — they reveal where recovery / retry / silent-fail lives.
+- Empty extraction is honest — a flow with `idempotency: none` is a finding (not a gap); a `[REFINE-WEAK: flows-coverage]` flag is a valid output when <5 flows trace.
+- Fabrication — inferring a Stripe call from an `EmailService` name, asserting a transaction boundary that isn't in code, mixing two flows that share a middle — produces a runbook the team will trust and follow incorrectly.
+
+## Mechanical halt
+
+- Hand-wave in flow output — `etc.`, `...`, `the usual middleware`, `appears to be transactional`, a `steps:` entry without `<file:function:line>`, an `error_paths:` entry without `raised_at:` + `caught_at:`, a flow whose call graph wasn't actually walked — REFUSE to write the YAML.
+- Re-trace and regenerate the flow OR downgrade it to `[REFINE-WEAK: flows-coverage]`.
+- If <5 flows are traceable, write `<NOT-DETECTED: flows: <N> below threshold 5: <reason>>` per the WEAK gate.
+- Never average across surfaces — HTTP, queue, and scheduled handlers behave differently and each gets its own traced row.
+
 ## When to use
 
 - `/setup-project --refine` Phase 2.9 — extract ≥3 business-critical flows + ≥2 admin/internal flows.

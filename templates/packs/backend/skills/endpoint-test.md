@@ -5,6 +5,12 @@ description: Hit a running dev endpoint via curl and verify status + response sh
 
 # endpoint-test
 
+## Premise
+
+Find real bugs, not hand-waves. Every assertion cites the controller/DTO `<file:line>` and the actual response body produced. "Returned 200, looks fine" is not verification — phantom-success (200 with wrong shape) is the most common regression here. Field-by-field diff against the response DTO is mandatory; key-set comparison alone is insufficient. Cross-tenant 200 is a real bug, never "dev mode".
+
+A run that skips any of the 5 mandatory cases (golden, invalid body, no auth, wrong tenant, idempotency) is incomplete.
+
 Make an HTTP request to a local endpoint, then verify the status, headers, and response body match what the controller + DTO declared.
 
 ## When to use
@@ -92,3 +98,10 @@ Curl commands:
 - **Stale server** — code edited but server not restarted. Look for the new line of code in the log; absent = restart needed.
 - **Dynamic fields** (`createdAt`, `id`, `correlationId`) differ between calls — exclude when comparing shapes, not values.
 - Don't start the server yourself (side effects). Print the dev command and stop if it isn't running.
+
+## Halt conditions
+
+- Halt on hand-waves: every PASS must cite the case number + status code + DTO `<file:line>` it diffed against.
+- Halt if any of the 5 mandatory cases (golden / invalid body / no auth / wrong tenant / idempotency) was silently skipped.
+- Halt if a 200 response was accepted without field-by-field diff against the response DTO — phantom success is the classic miss.
+- Halt if the target host is not localhost / 127.0.0.1 / a session-named tunnel — refuse to fire requests at unverified hosts.

@@ -7,6 +7,8 @@ pack: security
 
 # Security Principles
 
+> **Hard rule.** Auth MUST be on every endpoint by default (public routes are explicitly opted-in). Authorization MUST be checked AFTER authentication, not collapsed with it. Parameterized queries only — string-interpolated SQL, `eval` / `exec` on user input, plaintext secrets in code or logs, and `alg: none` JWTs are forbidden.
+
 Prevents the OWASP Top 10 patterns most likely to actually hit you: injection, broken auth, broken access control, secret leak, vulnerable dependency.
 
 ## Must
@@ -36,12 +38,12 @@ Prevents the OWASP Top 10 patterns most likely to actually hit you: injection, b
 
 ## Should
 
-- MFA mandatory for admin accounts; recommended for all users. TOTP (RFC 6238) or WebAuthn / passkeys.
-- Rate limit per IP + per user + per tenant on auth, password reset, expensive endpoints.
-- CSRF protection on cookie-authenticated forms (double-submit cookie or `SameSite=Strict` + `Origin` check).
-- Audit log on privileged actions: role changes, payment changes, data exports. Include actor, target, before/after, IP, timestamp.
-- Dependency scanning (`npm audit`, `pip-audit`, `cargo audit`, Snyk, Dependabot) blocking on critical CVEs.
-- Threat-model new features touching auth, payments, or PII before code is written — short doc, named threats, mitigations.
+- Enforce MFA on admin accounts; offer it to all users — TOTP (RFC 6238) or WebAuthn / passkeys.
+- Rate-limit per IP + per user + per tenant on auth, password reset, and expensive endpoints.
+- Apply CSRF protection on cookie-authenticated forms (double-submit cookie or `SameSite=Strict` + `Origin` check).
+- Write an audit log on every privileged action: role changes, payment changes, data exports. Include actor, target, before/after, IP, timestamp.
+- Block on critical CVEs in dependency scans (`npm audit`, `pip-audit`, `cargo audit`, Snyk, Dependabot).
+- Threat-model every new feature touching auth, payments, or PII before code is written — short doc, named threats, mitigations.
 
 ## Review checklist
 

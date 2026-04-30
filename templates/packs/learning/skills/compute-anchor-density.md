@@ -9,6 +9,21 @@ description: Score the anchor-density of a generated artifact (rule / agent / sk
 
 REFINE rewrites only artifacts whose round-one anchor is shallow. To decide which is "shallow," we need a deterministic score, not a vibe check. This skill is the score. It's also the plateau detector — when 2nd / 3rd `--refine` runs produce Δ ≤ 2 points across the artifact set, REFINE exits with "plateau reached."
 
+## Premise
+
+- Real source is the truth. Read the artifact + the extraction substrate before scoring — the score is computed from observed citations, not from impressions of "looks anchored."
+- Every counted identifier resolves in `_extracted-codebase.md` or `_refine-extract.md`; every counted path exists on disk.
+- Miscitations (identifier off-by-one, ghost path) are deductions, not silent passes.
+- Empty signal is honest — a 0 on an axis with a recorded reason is a valid score.
+- Fabrication — crediting a citation that doesn't resolve, or a signal category the substrate doesn't carry — is the failure mode the deduction rules exist to penalize.
+
+## Mechanical halt
+
+- Hand-wave verdicts — `PLATEAU` without `-DEEP`/`-WEAK`, `verdict_message` without enumerating weak phases, "looks anchored" with no axis breakdown — REFUSE to emit.
+- The scorer regenerates the JSON with all four axes populated AND the verdict tagged with one of `PLATEAU-DEEP` / `PLATEAU-WEAK` / `NOT-PLATEAU`.
+- If extraction is genuinely missing for a signal category, the axis scores 0 and the JSON records `<NOT-DETECTED: <category>>` in the sibling reason field.
+- Never synthesize a phantom signal, identifier, or path to inflate an axis — every axis is auditable against the substrate.
+
 ## When to use
 
 - `/setup-project --refine` Phase 5.5 — score every Phase-4-generated artifact (`.claude/agents/*.md`, `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/commands/*.md`, `ai/*.md`).

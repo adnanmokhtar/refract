@@ -5,6 +5,12 @@ description: Debug tenant isolation issues — a user sees data that doesn't bel
 
 # debug-tenant
 
+## Premise
+
+Find the real leak, not a plausible one. Every step cites the actual value observed (header, resolved id, SQL, cache key) at `<file:line>`. "Probably the cache" is not a root cause. The chain — host → middleware → context → repo → SQL → cache — must be walked top-to-bottom; skipping a step on a guess is forbidden. Tenant leaks are security incidents and the report must name the file:line that produced the leaked SQL or cache key.
+
+A "fixed" leak without a regression test that would have caught it is unfinished work.
+
 ## When to invoke
 
 - Customer reports: "I see products I don't own" / "my orders are missing"
@@ -89,3 +95,10 @@ Similar bugs to check:
 - Never paper over with a "temporary fix" — tenant leaks are security incidents.
 - File an incident write-up in `ai/audits/` after root cause is known.
 - Add a regression test that would have caught this BEFORE shipping the fix.
+
+## Halt conditions
+
+- Halt on hand-waves: every root-cause claim must cite `<file:line>` + the actual SQL or cache key produced.
+- Halt if a step in the chain (host → middleware → context → repo → SQL → cache) was skipped without a recorded reason.
+- Halt if the fix ships without a regression test that fails on the unfixed code path.
+- Halt if the incident write-up is deferred — `ai/audits/` entry is part of "done", not an after-task.

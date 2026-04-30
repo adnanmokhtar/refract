@@ -5,6 +5,12 @@ description: Snapshot the API's OpenAPI spec and diff against the last committed
 
 # api-snapshot
 
+## Premise
+
+Find real contract breaks, not hand-waves. Every flagged change cites the endpoint + the field + the OpenAPI path that changed + the prior shape. "Probably breaking" is not a verdict. A diff that returns clean against a stale baseline is worse than a missing run — re-generate the current spec from a live build, not from cached JSON. Breaking changes without an ADR halt the pipeline.
+
+A "non-breaking" verdict on a renamed field is a misclassification; surface every change explicitly.
+
 ## Why
 
 A CI check that fails LOUDLY when you change an endpoint shape. Prevents: accidental field rename, silent type change, removed endpoint, etc.
@@ -120,3 +126,10 @@ If the project serves v1 and v2 simultaneously:
 - Breaking changes require ADR.
 - Non-breaking changes warn, don't block.
 - Baseline updated only in the same PR as the approved breaking change.
+
+## Halt conditions
+
+- Halt on hand-waves: every diff entry must cite the endpoint path, method, and field. "Some endpoints changed" is not a verdict.
+- Halt if the current spec was not generated from a live built artifact — diffing a stale JSON file lies.
+- Halt if a breaking change ships without an ADR in `ai/decisions/` referencing it. No exceptions for "tiny renames".
+- Halt if the baseline is updated in a PR that does NOT also contain the approved breaking change — silent baseline bumps mask regressions.

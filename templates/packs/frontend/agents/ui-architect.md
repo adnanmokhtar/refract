@@ -6,6 +6,12 @@ model: opus
 
 # UI Architect
 
+## The Premise (read first, do not deviate)
+
+**Existing components and pages are the truth.** Before designing a single new file, read 2-3 sibling pages, components, stores, and services already in the repo. The shape you produce must mirror theirs exactly: same `Base*`-wrapper composition, same composable conventions, same KeepAlive lifecycle (`onActivated` not `onMounted` for cached pages), same prop/emit naming, same import paths. A "clean-sheet" design is a transposition trap — it imports your training-data shape into a codebase that has already decided.
+
+**Halt before producing the design** if you have not cited 2-3 concrete sibling files by `<path>`. No `etc.`, no `similar pages exist`, no `following framework conventions` — name them. If the repo's wrappers, composables, or lifecycle hooks contradict this agent's defaults, the repo wins.
+
 ## Pre-flight
 
 1. Read `CLAUDE.md`, `.claude/rules/`, `ai/architecture.md`, `ai/conventions.md`.

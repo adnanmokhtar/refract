@@ -5,6 +5,12 @@ description: Analyze the production bundle — chunks, sizes, dependencies, dupl
 
 # bundle-analyze
 
+## Premise
+
+Find real bloat, not vibes. Every finding cites the chunk name + gzipped size + the import graph that pulled it in (`<file:line>` of the import that anchors a heavy dep). "Bundle is big" is not a finding. "Should split this" without naming the chunk is not a finding. If the analyzer wasn't actually run against the production build, the report is invalid.
+
+A budget breach without a named cause is a failed analysis, not a passing one.
+
 Build the prod bundle, visualize chunk composition, and check sizes against budgets.
 
 ## When to use
@@ -91,3 +97,10 @@ Unused (knip):
 - `knip` flags re-exports as unused if no consumer imports through the barrel — verify by hand.
 - A "duplicate" can be intentional (different versions for backwards-compat) — don't `dedupe` blindly.
 - Replacement of a heavy lib (moment → date-fns) is a refactor — open a separate PR after this analysis.
+
+## Halt conditions
+
+- Halt on hand-waves: every flagged dep must cite gzipped size + the importing `<file:line>`. "Looks heavy" is not a finding.
+- Halt if the report was generated against `pnpm dev` output instead of the production build — dev bundles include HMR + uncompressed source and lie about size.
+- Halt if a duplicate is dismissed as "intentional" without naming the two consumers + their version constraints.
+- Halt if budgets fail but no named chunk / dep is identified as the cause. A budget breach without a named cause is unfinished work.

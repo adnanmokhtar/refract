@@ -7,6 +7,8 @@ pack: infrastructure
 
 # Infrastructure Principles
 
+> **Hard rule.** Production container images MUST be pinned to an immutable digest or git-SHA tag (`:latest` is forbidden); MUST run as non-root; MUST declare healthchecks + resource `requests` + `limits`. Secrets MUST come from a manager (not git, not env files in images), and every stateful workload MUST have a tested backup + restore runbook.
+
 Prevents the patterns that turn cloud bills + outage minutes into avoidable losses: untagged images, secrets in git, unbounded autoscale, missing probes, unrestored backups.
 
 ## Must
@@ -36,12 +38,12 @@ Prevents the patterns that turn cloud bills + outage minutes into avoidable loss
 
 ## Should
 
-- Infrastructure as code: Terraform / OpenTofu / Pulumi / CDK / Crossplane. Reviewed in PRs like app code, with `tflint` + `tfsec` / `checkov` / `terrascan`.
-- Image vulnerability scan in CI (`trivy`, `grype`, `snyk container`). Block on critical CVEs.
-- Network policies default-deny + explicit allows in K8s (`NetworkPolicy` or service mesh authz).
-- PodDisruptionBudget on critical services so cluster maintenance can't take all replicas at once.
+- Define all infrastructure as code: Terraform / OpenTofu / Pulumi / CDK / Crossplane. Reviewed in PRs like app code, with `tflint` + `tfsec` / `checkov` / `terrascan`.
+- Run image vulnerability scans in CI (`trivy`, `grype`, `snyk container`) — block on critical CVEs.
+- Default-deny network policies + explicit allows in K8s (`NetworkPolicy` or service mesh authz).
+- PodDisruptionBudget on critical services so cluster maintenance MUST NOT take all replicas at once.
 - Drift detection: scheduled `terraform plan` (or Atlantis / Spacelift / Terragrunt) alerts on diff vs main.
-- Cost guardrails: per-environment budget alerts, non-prod auto-shutdown overnight where feasible.
+- Cost guardrails: per-environment budget alerts; non-prod auto-shutdown overnight where feasible.
 - Object storage lifecycle: transition to cheap tier after 30/90 days, expire per retention policy.
 
 ## Review checklist

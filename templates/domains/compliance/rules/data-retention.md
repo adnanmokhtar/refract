@@ -6,6 +6,10 @@ kind: rule
 
 # Data retention
 
+## Hard rule
+
+Every data class MUST have a declared retention period and a scheduled job that hard-deletes past it. "Just in case" retention beyond policy is FORBIDDEN. PII MUST NOT be logged, copied to analytics events, or held in backups beyond the policy unless a jurisdictional requirement is cited in an ADR.
+
 Storing data forever is a liability. Explicit retention per data class, enforced by code.
 
 ## Classifications (typical)
@@ -45,3 +49,10 @@ Storing data forever is a liability. Explicit retention per data class, enforced
 - Backups that outlive retention (unless jurisdictionally required).
 - PII in analytics events.
 - Logging full payment / auth payloads.
+
+## Enforcement
+
+- `/retention-audit` command — verifies every PII-bearing table is matched by a retention rule + a daily purge job.
+- Purge job MUST log structured counts (rows purged per class) — alert on zero counts where activity exists.
+- GDPR export + delete endpoints MUST ship with integration tests; CI fails if missing.
+- TODO: `scripts/validate-retention-coverage.sh` to cross-reference DB schema (`*_pii` / known PII columns) against `retention.yaml` declarations and fail on uncovered tables.

@@ -7,6 +7,17 @@ description: Generate a parity test suite that runs V1 + V2 against identical in
 
 Build the test suite that gates cutover. The suite is V2's spec — V2 is "done" when this suite is green against the pinned V1 commit.
 
+## Premise
+
+The contract is the truth. Mirror; never invent. Every input in the corpus traces to a section of `ai/migration/contracts/<feature>.md` (happy path, error path, business rule, edge case, replay sample) — never a fabricated case to round out coverage. Every entry in `tolerance.yaml` covers a field declared in the contract's Outputs section; "ignore" is a contract decision, not a convenience. Golden snapshots are captured against the pinned V1 commit and never blanket-refreshed with `--update-snapshots`. The parity oracle is V1's actual behaviour at the pinned SHA, not "what the test author thought V1 did".
+
+## Halt conditions
+
+- Halt on corpus inputs that don't map to a contract section (corpus distribution check D1).
+- Halt on tolerance.yaml fields not declared in the contract's Outputs (tolerance coverage check D2).
+- Halt on parity runs whose `v1_commit` doesn't match the ledger's `v1_commit_pinned` (D4).
+- Halt on snapshot updates without a reviewer note + ledger entry (D7); never run blanket `--update-snapshots` to make red green.
+
 This skill is the procedural arm of `migration-discipline.md` + `parity-testing.md` + `feature-port.md` Phase 4.
 
 ## When to use

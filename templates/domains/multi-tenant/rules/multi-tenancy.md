@@ -28,3 +28,10 @@ This project is shared-DB, row-level multi-tenant. See ADR `0002` + `ai/patterns
 ## When in doubt
 
 Run `/tenant-leak-audit` — greps for suspicious queries and repo methods missing tenant filters.
+
+## Enforcement
+
+- `/tenant-leak-audit` command — greps for repo methods, raw SQL, and ORM queries missing `tenant_id`; greps for `req.body.tenantId` / `req.query.tenantId` / `req.headers['x-tenant-id']` (client-supplied tenant = REJECT).
+- CI MUST run isolation tests for every tenant-scoped repo; missing `it('filters by tenant_id')` test on a tenant-scoped repo fails the build.
+- Migration review MUST reject any new tenant-scoped table without `tenant_id uuid NOT NULL REFERENCES tenants(id)` + index.
+- TODO: `scripts/validate-tenant-isolation.sh` to AST-walk repo files and assert every method that touches a tenant-scoped table either accepts `tenantId` or pulls it from `TenantContext`.

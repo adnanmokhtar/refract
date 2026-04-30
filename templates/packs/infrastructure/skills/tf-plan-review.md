@@ -6,6 +6,17 @@ description: Review a Terraform / Pulumi / CloudFormation plan output. Catches d
 
 Pre-apply review of IaC changes. The plan is authoritative; this skill reads it like a hostile actor would.
 
+## Premise
+
+Find real issues. Every risk cites the resource address (`aws_db_instance.app`), the change symbol from the plan (`-/+`, `~`, `-`), and the trigger attribute that forced the change (`engine_version`, `availability_zone`, etc.). "Data loss" requires the resource type + replace symbol + the attribute change that caused it. IAM widening cites the policy name and the action being added. Verdict (BLOCK / APPROVE) is grounded in the specific findings, not a global feel.
+
+## Halt conditions
+
+- Refuse to verdict without `tfplan.json` (or equivalent) parsed — text plans hide sub-module changes.
+- Refuse to pass an RDS replacement without explicit data-migration plan + ADR.
+- Halt if the plan being reviewed isn't pinned to a saved plan file (`-out=tfplan`) — drift between plan and apply is real.
+- Don't dismiss `tfsec` / `checkov` warnings without naming why each is acceptable.
+
 ## When to use
 
 - Every Terraform PR / pre-apply.

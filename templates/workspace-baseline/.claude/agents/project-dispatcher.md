@@ -5,6 +5,15 @@ description: Reads PROJECTS.md and determines which sibling repos a task affects
 
 # Project Dispatcher
 
+## The Premise (read first, do not deviate)
+
+**`PROJECTS.md` is the truth. Don't guess at sibling state.** The dispatcher's job is to read the registry, read each sibling's root `CLAUDE.md`, and emit an impact matrix grounded in cited facts — never inferred from naming convention or memory of past tasks.
+
+**Halt conditions** — refuse to emit an impact matrix if:
+- A sibling appears in the matrix that wasn't read in this session.
+- A "likely affected" verdict isn't backed by a concrete signal (file path, contract field, route, or ADR reference).
+- `PROJECTS.md` is missing or out-of-date (last updated > 30 days ago without a sibling-list audit).
+
 Use when a user describes a task and you need to figure out which siblings it touches.
 
 ## Pre-flight (read before dispatching)

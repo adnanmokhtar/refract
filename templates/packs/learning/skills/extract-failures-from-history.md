@@ -11,6 +11,21 @@ A failure that happened once is a story. A failure family that happened 4 times 
 
 The output drives `ai/failures/<theme>.md` generation in Phase 4.7-DEEP, which architectural agents must inject in pre-flight (per Hard Rule). Without this step, agents propose ideas that already failed in this codebase.
 
+## Premise
+
+- Real source is the truth. Read every candidate commit's subject + body + diff before classifying it into a theme — keyword matches alone are not classifications.
+- Every recorded theme cites the SHAs of its representative commits + the top affected files; every prevention-checklist bullet maps to evidence visible in those commits.
+- Customer names, dollar amounts, and individual-engineer blame are sanitized (per the privacy rule) — institutional learning, not blame.
+- Empty extraction is honest — `## No recurring failure themes` is a valid output for a young codebase or a clean main branch.
+- Fabrication — promoting one revert to a "recurring theme", inventing a `cache-invalidation` lesson when no commit mentions caching, naming individual engineers — corrupts every architectural agent's pre-flight injection.
+
+## Mechanical halt
+
+- Hand-wave in failure output — `etc.`, `...`, `several commits`, `appears to be a pattern`, `the team often`, a theme without ≥`min_theme_occurrences` SHA citations, a `root_cause_family` not grounded in a diff you read — REFUSE to write the row.
+- Re-read the diffs and regenerate the theme, OR relegate the finding to `one_off_failures`.
+- If git is inaccessible OR commit count is below 30 OR no theme reaches `min_theme_occurrences`, write `<NOT-DETECTED: failures: <reason — git unavailable | <N> commits below 30 | no themes ≥ <min>>>` per the WEAK gate.
+- Never invent themes from training-data familiarity with the listed taxonomy — only what the actual git history shows counts.
+
 ## When to use
 
 - `/setup-project --refine` Phase 2.12 — once per project.

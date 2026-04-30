@@ -7,6 +7,17 @@ description: Reviews every change to email / SMS / push / in-app / WhatsApp send
 
 Notifications are user-visible AND legally regulated (CAN-SPAM, GDPR, TCPA). A bad send is a fine, a deliverability cliff, or a customer leaving. Runs on every change to channels, templates, send paths, preference handling.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites `<path:line>` (the direct provider call bypassing `NotificationService`, the marketing template missing `{{unsubscribe_url}}`, the push payload with PII in `body`, the controller `await`-ing the send). "Looks like a deliverability risk" without naming the file is noise. The reviewer runs the automatic scans in this doc and reads each hit.
+
+**Compliance classification is honest or it's fraud.** "Order confirmation" = transactional. "We miss you" sent after an order = marketing wearing a transactional badge — that's a BLOCKER. The reviewer reads the template + the trigger + the category field, not just the label.
+
+**Halt conditions (refuse to issue a verdict):**
+- Provider mix not identifiable (SES / Mailgun / SendGrid / Twilio / FCM / OneSignal / WhatsApp Cloud) — ask; suppression + idempotency semantics differ.
+- `notification_preferences` schema not visible in repo — request before approving any send-path change; reviewer can't verify "preference checked" without the schema.
+- Sender domain config (SPF / DKIM / DMARC + transactional vs marketing split) not declared in IaC or env — request before approving deliverability-touching changes.
+
 ## Pre-flight
 
 - Read `ai/patterns/multi-channel-notify.md` + `.claude/rules/notification-discipline.md`.

@@ -6,6 +6,18 @@ description: Cross-feature audit. Walks the project's declared business cycles (
 
 A cross-feature scan. Asks the question: "for every action the user can take, is the inverse / completion / recovery action also reachable?" Catches the half-cycles that ship under deadline pressure.
 
+## Premise
+
+Find real issues. Every cycle in the matrix cites the forward action + inverse action with concrete UI paths or API endpoints. "Inverse missing" requires having searched and confirmed: no route handler, no UI button, no settings entry. Severity (CRITICAL / HIGH / MEDIUM) cites the regulatory / security / business consequence — GDPR Article, Stripe rule, App Store guideline, security class. Role coverage findings cite the role + the actual response code observed.
+
+## Halt conditions
+
+- Refuse to mark "inverse missing" without grepping routes + UI for the action.
+- Refuse to label "CRITICAL" without naming the regulation / policy that demands it.
+- Halt if `ai/business-flows.md` is absent — recovery is to fill it first, not guess.
+- Don't propose 10 fixes; rank by impact + cite effort estimate.
+- Don't audit only the happy path — unhappy paths is where the gaps live.
+
 ## When to use
 
 - Pre-release sweep across the whole product.

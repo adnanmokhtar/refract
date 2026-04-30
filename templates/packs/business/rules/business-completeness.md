@@ -9,6 +9,8 @@ severity: must
 
 # Business Completeness
 
+> **Hard rule.** A user-facing feature is "done" only when the user can complete the cycle end-to-end AND recover from every error path. Every Create MUST have a matching Read + Update + Delete (or documented exemption); every Send MUST have a Resend; every async operation MUST surface a status; every error path MUST offer a recovery action.
+
 ## Must
 
 - **Every Create has a Delete + Update + Read.** If users can sign up, they can delete their account; if users can subscribe, they can unsubscribe. Half-cycles are GDPR / consumer-protection / dark-pattern territory.
@@ -31,8 +33,8 @@ severity: must
 ## Should
 
 - Track time-to-completion per actor. If admin approval bottlenecks the flow, the metric reveals it.
-- A/B test copy on action buttons when conversion is measured. Wording shifts conversion 5-15%.
-- Group related actions ("Subscription") in one settings area; don't scatter across 3 menus.
+- A/B test copy on action buttons when conversion is measured — wording shifts conversion 5–15%.
+- Group related actions ("Subscription") in one settings area; never scatter across 3 menus.
 - Use plain-language error messages: "Card declined by your bank — try another card" beats "Stripe error code 4002."
 
 ## Review checklist
@@ -58,6 +60,12 @@ The catalog (in `ai/_baseline/failures/`) of completeness gaps that shipped:
 - **Password reset email sent but link expired immediately** — users locked out; support escalation.
 - **CSV export "running" indefinitely** — users cancelled, retried, duplicated background jobs.
 - **Search results page on empty query → blank screen** — users assumed broken; bounced.
+
+## Enforcement
+
+- `@business-auditor` agent runs the review checklist against every PR touching a flow declared in `ai/business-flows.md` — gaps block merge.
+- `/business-flow-audit` command (see pack `commands/`) sweeps the whole repo on demand and writes findings to `ai/business-completeness.md`.
+- TODO: validator at `scripts/audit-business-flows.sh` — static scan that every Create-shaped route has a paired Delete + Update + Read route + i18n keys for empty / error / success states.
 
 ## Cross-references
 

@@ -11,6 +11,21 @@ Round-one Phase 2.x detects the *kind* of business domain ("billing", "healthcar
 
 This skill produces the project's actual domain map — the kind of document a senior engineer joining the team would write after a week of code reading. Output is anchorable: every claim ties to `file:line`. Generic prose is forbidden.
 
+## Premise
+
+- Real source is the truth. Read every domain entity file in full — class declaration, field decorators, relationships, hooks, computed properties, custom methods — before composing a row.
+- Walk the migration history for index + constraint lineage; the model file alone misses dropped/renamed columns.
+- Every entity, field, relationship, lifecycle event, invariant, and repository method cites `<path:line>` resolving at the current commit.
+- Empty extraction is honest — an entity with `invariants: []` is correct when no DB / model / service / test enforcement exists; record `enforcement: none` explicitly.
+- Fabrication — inventing an entity the codebase doesn't have, an invariant no code enforces, a relationship not declared in the model — corrupts every domain-related artifact that reads this section.
+
+## Mechanical halt
+
+- Hand-wave entries — `etc.`, `...`, `usual fields`, `appears to be aggregate root`, an invariant without a `citation:` line, a relationship without on-delete behavior, an entity without ≥1 field — REFUSE to write the row.
+- Re-read the source file and regenerate the row, OR downgrade the entity (or the whole domain) to `[REFINE-WEAK: domain=<name>]`.
+- If the business-domain has fewer than 3 entities AND the quality gate fails, record `<NOT-DETECTED: domain=<name>: <N> entities, threshold 3>` per Step 8's validate rule.
+- Never inflate by promoting infrastructure tables (audit logs, queue jobs, schedule rows) into the domain — cross-domain references go in `cross_entity_invariants`, not in the entity list.
+
 ## When to use
 
 - `/setup-project --refine` Phase 2.7 — once per detected business-domain.

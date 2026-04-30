@@ -7,6 +7,8 @@ pack: backend
 
 # Backend Principles
 
+> **Hard rule.** Every HTTP / webhook / queue handler MUST: (a) validate input at the boundary with a schema, (b) enforce auth + authorization before business logic runs, and (c) keep business logic in services — controllers and repositories MUST NOT contain it. No external I/O is held inside a DB transaction.
+
 Stack-agnostic. Framework specifics in `references/<framework>.md` (nestjs, express, fastify, fastapi, django, rails, laravel, spring, go-chi, gin).
 
 Prevents the recurring backend failures: business logic in controllers, raw SQL in services, missing tenant filters, unvalidated webhooks, transactions over network calls.
@@ -43,13 +45,13 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 
 ## Should
 
-- Default to dependency injection (constructor injection or framework DI container). Easier to test, easier to swap implementations.
-- Outbox pattern for "DB write + event publish" atomicity. Avoid 2PC.
+- Use dependency injection (constructor injection or framework DI container) — service classes MUST receive collaborators as constructor args, not `import`-and-call singletons.
+- Outbox pattern for "DB write + event publish" atomicity. 2PC / XA is forbidden across services.
 - Feature flags for risky changes — decouple deploy from release.
 - Health endpoints: `/healthz` (liveness — process up) and `/readyz` (readiness — deps up). Different semantics; different consumers.
-- Graceful shutdown: drain in-flight requests, close DB pool, finish queue ack — bounded by a deadline.
-- Timeouts on every external call (HTTP client, DB, cache, queue). Default no-timeout = cascading failure.
-- Retries with exponential backoff + jitter for transient errors only — not for 4xx.
+- Graceful shutdown: drain in-flight requests, close DB pool, finish queue ack — bounded by a deadline (default 30s).
+- Set a timeout on every external call (HTTP client, DB, cache, queue). No-timeout calls are forbidden — the default is cascading failure.
+- Retries with exponential backoff + jitter for transient errors only — never on 4xx.
 
 ## Review checklist
 

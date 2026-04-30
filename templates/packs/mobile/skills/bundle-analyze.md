@@ -4,6 +4,17 @@ description: Run a one-shot bundle-size + cold-start analysis. Outputs a categor
 
 # Skill: bundle-analyze
 
+## Premise
+
+Real signals only. Every size number comes from the actual release-mode build artifact — `bundle.js` from Metro, `app.apk` from gradle, `.ipa` from Xcode archive. "Top 5 modules" cites the visualizer output (file + KB), not a hunch. Quick wins reference a real dependency in `package.json` / `pubspec.yaml` / `Podfile.lock` with the specific replacement named. Comparisons cite the baseline commit / tag explicitly.
+
+## Halt conditions
+
+- Refuse to report sizes from a dev / debug build — they include source maps and dev tools.
+- Refuse to claim a saving without the size delta from a measured before/after.
+- Halt if the visualizer / size-analyze command failed — fix the build first.
+- Don't propose removing a dep without grepping its actual import sites.
+
 A focused analysis tool. Smaller scope than `/optimize-bundle` (which is a full audit + recommendations) — this is a fast inventory.
 
 ## When to use

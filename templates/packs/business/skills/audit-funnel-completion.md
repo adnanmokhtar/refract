@@ -6,6 +6,18 @@ description: Walk a user-facing flow as each role and report drop-off opportunit
 
 A focused funnel audit. Smaller than `@business-auditor` (full feature audit) — this is one flow, end-to-end, with one fix recommendation.
 
+## Premise
+
+Find real issues. Conversion percentages come from the actual analytics tool (Mixpanel / Amplitude / PostHog / GA4) for a stated 30d window — not estimates. Each step cites the event name that fires (or doesn't — that's a finding). Drop-off claims cite the step + the cohort size at each step. The "ONE biggest fix" is grounded in the captured drop-off numbers + a named, investigated cause (email-deliverability dashboard, form abandonment data, etc.).
+
+## Halt conditions
+
+- Refuse to report drop-off without the per-step funnel data captured.
+- Refuse to recommend a fix without naming the step it lifts and the estimated lift backed by the data.
+- Halt if the flow shipped < 14 days ago — premature signal.
+- Don't propose 10 fixes; one highest-leverage fix only.
+- Don't conflate funnel drop-off with churn — different metrics, different windows.
+
 ## When to use
 
 - Conversion is below target on a specific funnel (signup, checkout, onboarding, subscription).

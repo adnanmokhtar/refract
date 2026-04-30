@@ -6,6 +6,10 @@ kind: rule
 
 # Event sourcing discipline
 
+## Hard rule
+
+The event store is APPEND-ONLY. `UPDATE` / `DELETE` against the event-store table is FORBIDDEN — schema-revoke enforces. Events MUST be immutable, past-tense, aggregate-scoped, self-contained, and versioned; projectors MUST be idempotent + deterministic; queries MUST read from projections, NEVER from the event store.
+
 Event store data is permanent. Every shortcut today is paid back forever. These rules keep the store usable past the first schema change.
 
 ## Events
@@ -90,3 +94,11 @@ These rules sound expensive because event sourcing IS expensive. Default to CRUD
 - Multiple read models need different shapes of the same data.
 
 If none apply, use CRUD with an `event_log` table for audit. You'll save weeks.
+
+## Enforcement
+
+- DB-level: `REVOKE UPDATE, DELETE` on the event-store table. Migration MUST assert this revoke; migration tests fail otherwise.
+- `/event-store-audit` command — greps for `UPDATE event_store` / `DELETE FROM event_store` / `eventStore.readStream` in query handlers; any hit fails the audit.
+- Replay test in CI per projector — load fixture stream, drop projection, replay, assert final state. Missing replay test fails CI.
+- Upcaster property-based tests required — every upcaster MUST ship with a generative test asserting determinism across a corpus of historical event shapes.
+- TODO: `scripts/validate-event-schema.sh` to lint event class files for `readonly` fields, past-tense names, `version` field, aggregate prefix.

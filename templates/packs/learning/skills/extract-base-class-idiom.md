@@ -11,6 +11,21 @@ Generic pack templates produce generic output. This skill produces project-speci
 
 The output should read like a senior engineer who has worked in this codebase for 6 months wrote it — citing real files, real extenders, real failure modes — not like a template that has had paths injected.
 
+## Premise
+
+- Real source is the truth. Read the base class file in full + every sampled extender in full + every cited collaborator before authoring a single section.
+- Every method, property, hook, automatic behavior, escape hatch, and pitfall cites `<path:line>` from the actual class — not from an assumed protocol.
+- Pitfalls cite a commit SHA, a line in `ai/failures/`, or an in-code `DON'T` / `HACK` comment — never "common mistakes" without evidence.
+- Empty extraction is honest — omit the section per Step 7 instead of writing `_TBD_` or generic prose.
+- Fabrication — citing a method that doesn't exist on the class, an extender count without a grep, a pitfall with no source — is the failure mode the per-section verifier rejects.
+
+## Mechanical halt
+
+- Hand-wave content — `use parameterized queries`, `follow framework conventions`, `your service layer`, generic `<EntityType>` placeholders, a pitfall without `<path:line>` or commit ref — REFUSE to write the section.
+- Regenerate the section with concrete citations OR omit it (per Step 7's "no `_TBD_`" rule).
+- If a base class genuinely has no automatic behaviors / no pitfalls / no escape hatches in code, record `<NOT-DETECTED: <reason>>` (e.g. `<NOT-DETECTED: thin wrapper, no overrideable hooks>`) and skip the section.
+- Never synthesize a section to fill the 9-section template shape — the omission itself is the finding.
+
 ## When to use
 
 - `/setup-project` Phase 2.5 — for every detected base class with ≥3 extenders.

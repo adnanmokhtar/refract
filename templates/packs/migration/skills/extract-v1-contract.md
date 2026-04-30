@@ -7,6 +7,17 @@ description: Read a V1 feature deeply (entry point + every conditional + every d
 
 Read V1's *actual* behaviour into `ai/migration/contracts/<feature>.md` so V2 can be re-derived from a written spec, not transposed from V1's source. This is the single highest-leverage step in any port — every regression-after-cutover begins with "we missed this in V1."
 
+## Premise
+
+Find V1's real behaviour, no hand-waves. Every claim in the contract is a citation: `<v1-path:line>` + a one-line excerpt of the actual source line, pinned to a specific V1 commit SHA. Paraphrases like "validates input" or "returns the user" are halted — the contract is the source line plus its observable consequence. Inputs, outputs, side effects, business rules, invariants, and known V1 bugs are read out of V1's code + tests + git log + telemetry, not inferred from product docs. The contract is what V1 *does*, not what V1 *should* do.
+
+## Halt conditions
+
+- Halt on any contract claim missing `<v1-path:line>` + one-line source excerpt.
+- Halt on a contract written against an unpinned V1 (no `v1_commit_pinned` in the ledger row).
+- Halt on tier expansion (Standard → Heavy) without an explicit user-recorded justification on the ledger row.
+- Halt on "feature too small to need a contract" — small features per tier rules; no contract per tier rules; never silent-skip.
+
 This skill is the procedural arm of `migration-discipline.md` + `feature-port.md` Phase 1.
 
 ## Tier-aware contract scope

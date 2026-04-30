@@ -6,6 +6,10 @@ kind: rule
 
 # Job design rules
 
+## Hard rule
+
+Every job MUST be idempotent, MUST declare `attempts` + `backoff` explicitly, MUST route exhausted retries to a monitored DLQ, and MUST NOT carry secrets / PII / payment data in its payload. A job that violates any of these four is a production fire waiting for its trigger.
+
 Background jobs replace the request/response trust contract with eventual consistency. Every job MUST satisfy the rules below — they exist because each rule maps to a real production failure.
 
 ## Idempotency
@@ -82,3 +86,10 @@ Background jobs replace the request/response trust contract with eventual consis
 - Worker that catches all errors and acks (silent data loss).
 - Background job for data the user is actively waiting on.
 - DLQ that no one watches.
+
+## Enforcement
+
+- `/job-audit` command grep — flags `queue.add(` calls without `attempts`, jobs without `jobId` on dedupable work, payloads larger than 32 KB.
+- CI lint MUST reject `queue.add` without an explicit `attempts` option and MUST reject payloads matching secret / PII regexes (`token`, `password`, `card`, `cvv`, `ssn`).
+- DLQ depth alert wired to pager — non-zero MUST page; zero-watch DLQ is forbidden.
+- TODO: `scripts/validate-job-config.sh` to AST-scan worker definitions for missing `attempts` / `backoff` and verify outbox usage on `db.save() + queue.add()` pairs.

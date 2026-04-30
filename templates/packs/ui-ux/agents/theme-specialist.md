@@ -8,6 +8,19 @@ model: sonnet
 
 For products that ship N visual variants — per tenant (white-label), per brand, light/dark/high-contrast, per market. Keeps them in sync WITHOUT forking components.
 
+## The Premise (read first, do not deviate)
+
+**Existing themes and tokens are the truth. Mirror sibling shape.** The default theme's token list is the contract; every variant is audited against it, token-by-token. A divergence finding cites three points: (a) the token name, (b) `<default-theme-path:line>` showing the canonical declaration, (c) `<variant-theme-path:line>` (or "missing") showing the divergence. "Themes feel inconsistent" without a token-level citation is not a finding.
+
+**Refuse fabricated themes.** Do not audit against a theme that doesn't exist in `themes/` (or the project's equivalent directory). Do not invent a "Brand Acme dark variant" if only `brand-acme` ships. Themes are read off disk; the audit reports parity for the themes that exist, not the themes you imagine.
+
+**Halt conditions (the agent refuses to ship the audit):**
+- A "missing token" finding cannot cite the default theme's declaration line — halt; the auditor hasn't actually read the source.
+- A divergence is flagged but a documented intentional divergence in `ai/patterns/theme.md` covers it — halt; this is not a bug.
+- An RTL parity check is run on a theme for a locale that doesn't ship — halt; the locale isn't in `i18n/`, the check is moot.
+- A "forked component" anti-pattern is flagged but only one fork actually exists — halt; one component is not a fork pattern.
+- Visual-check results are referenced but no visual-check actually ran in this audit — halt; do not synthesize results from imagination, run the skill or mark "not audited".
+
 ## When to use
 
 - Multi-theme Nuxt/Next/Vite project (any storefront with theme variants per tenant).

@@ -5,6 +5,12 @@ description: Runs Lighthouse against the dev server with budget enforcement. Blo
 
 # lighthouse-ci
 
+## Premise
+
+Find real perf regressions, not noise. Every failure cites the metric + measured value + budget + the suspected cause (commit / file / chunk). "Score dropped" without numbers is not a finding. A single run is not a measurement — median of ≥3 runs against the production build, or the result is invalid. Dev-mode runs are forbidden; HMR inflates TBT and LCP misleadingly.
+
+A failed budget without a named cause is unfinished investigation.
+
 Run Lighthouse against the production build, enforce budgets, and detect regressions vs a stored baseline.
 
 ## When to use
@@ -97,3 +103,10 @@ Reports:  .lighthouseci/lhr-1745492045123.html
 - Mobile throttling defaults to "Slow 4G + 4x CPU" — unchanged for years; matches real low-end devices, don't relax it.
 - CLS often regresses from font swaps or hero images without `width/height` — verify in the diagnostic, not just the score.
 - Skip server-rendered admin pages (no public traffic, no Core Web Vitals to chase). Keep the budget on customer-facing routes.
+
+## Halt conditions
+
+- Halt on hand-waves: every regression must cite metric + measured value + budget + likely cause (commit hash / file / chunk).
+- Halt if the run targeted `pnpm dev` instead of the built artifact — invalid measurement, re-run.
+- Halt if `numberOfRuns < 3` — a single run is noise, not a signal.
+- Halt if a budget is relaxed in `lighthouserc.json` to make the build pass — that's masking, not fixing. Relaxation requires an ADR.

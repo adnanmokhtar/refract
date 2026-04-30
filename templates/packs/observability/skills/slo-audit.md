@@ -4,6 +4,17 @@ description: Audit SLOs against reality. Are they being met? Are budgets being b
 
 # Skill: slo-audit
 
+## Premise
+
+Find real issues. Every verdict (GREEN / YELLOW / RED / TOO LAX / TOO TIGHT / STALE) cites the achieved %, the budget remaining, and the window it was measured over. Numbers come from the observability backend's SLO endpoint or dashboard — not estimates. Each SLO is named from `ai/runtime/slos.md`; incidents are named with their ID; vendor or service called out by name. "Recommend raise to 99.5%" requires both 90d data backing it AND a named stakeholder for the buy-in.
+
+## Halt conditions
+
+- Refuse to verdict an SLO without 90d of measurements captured.
+- Refuse to call an SLO "TOO LAX" without showing achieved >> target consistently.
+- Halt on hand-waves like "feels under-promised" — cite the trend or drop the recommendation.
+- Don't propose tightening without naming the stakeholder who must sign off.
+
 A periodic audit of SLOs (Service Level Objectives). Use:
 - Quarterly review of all SLOs.
 - After a significant incident (did the SLO catch it? was it too lax?).

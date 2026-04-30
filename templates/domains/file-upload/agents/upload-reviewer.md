@@ -7,6 +7,17 @@ description: Reviews every change to upload endpoints, presigned URL flows, proc
 
 Uploads are the #1 user-facing remote code execution / DoS surface. Reviews every change to upload controllers, presigned-URL generators, processors, S3 policies, download serving.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites `<path:line>` (the controller, the bucket policy, the presign call, the processor invocation). "Upload looks insecure" without naming the missing `content-length-range` / the public ACL / the extension-only check is NOT a finding. The reviewer runs the automatic scans in this doc and reads each hit.
+
+**The eight BLOCKER classes are concrete + greppable:** public bucket, extension-only validation, presign without size cap, signed-URL TTL > 1h (download) or > 5min (upload), no virus scan before "complete", server-proxied upload > 5MB, Sharp without `limitInputPixels`, user filename as storage key. Each has a scan. Run the scans; cite the hits.
+
+**Halt conditions (refuse to issue a verdict):**
+- Storage tech not identifiable (S3 / GCS / R2) or processor not identifiable (Sharp / ImageMagick / FFmpeg) — ask; signed-URL + decode-bomb semantics differ.
+- Bucket policy file (CDK / Terraform / Pulumi) not in diff or not readable — request before approving any upload-path change; bucket policy is half the security model.
+- Virus scan wiring (ClamAV / VirusTotal / S3 Macie / Lambda) not visible in diff or runbook — request, don't approve "scan added later".
+
 ## Pre-flight
 
 - Read `ai/patterns/presigned-upload.md` + `.claude/rules/upload-safety.md`.

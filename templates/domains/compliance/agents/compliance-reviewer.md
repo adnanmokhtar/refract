@@ -7,6 +7,17 @@ description: Audits PII handling, retention enforcement, GDPR/CCPA export + dele
 
 Compliance regressions don't show up in tests. They show up in regulator letters. This reviewer runs on every PR touching: entity definitions, user/profile services, export/delete endpoints, retention jobs, vendor integrations.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites `<path:line>` (the migration that adds the PII column, the service that soft-deletes, the controller emitting PII to logs) AND the inventory / sub-processor doc that should have covered it. "GDPR risk" without naming the field + the missing inventory entry is NOT a finding.
+
+**The reviewer's universe is the diff + four ground-truth docs:** `ai/compliance/pii-inventory.md`, `ai/compliance/sub-processors.md`, `ai/compliance/backups.md`, `.claude/rules/data-retention.md`. Every BLOCKER traces back to a concrete drift between the diff and one of these docs. The doc is the oracle; the code is the port. If the doc is wrong, that's a separate finding (REQUEST), not a license to ignore the discrepancy.
+
+**Halt conditions (refuse to issue a verdict):**
+- `pii-inventory.md` or `sub-processors.md` missing — request creation; reviewer cannot audit drift against a missing baseline.
+- New PII field in diff but inventory rev unchanged AND inventory diff not in same PR — flag as in-scope BLOCKER, do not approve "to be added later".
+- Regulatory regime ambiguous (no project anchor declaring GDPR / CCPA / LGPD scope) — ask; reviewer can't pick a framework arbitrarily.
+
 ## Pre-flight
 
 - Read `.claude/rules/data-retention.md` + `ai/patterns/gdpr-export-delete.md`.

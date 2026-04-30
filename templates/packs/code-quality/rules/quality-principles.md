@@ -8,6 +8,8 @@ extends: repo-baseline/.claude/rules/code-quality.md
 
 # Code Quality — concrete pack rules
 
+> **Hard rule.** Functions MUST be ≤ 30 lines, MUST have one reason to change, and MUST use named domain exception types. Dead code, commented-out code, `console.log` / `print` debug statements, untyped `any` casts at boundaries, and undated/unowned `TODO`s are forbidden — they fail review and the linter.
+
 Prevents the slow death: dead code, copy-paste rot, comment lies, and "TODO" graveyards.
 
 > Reads the baseline `code-quality.md` first (Hard Rule A19). This pack file adds concrete, enforceable rules on top.
@@ -39,10 +41,10 @@ Prevents the slow death: dead code, copy-paste rot, comment lies, and "TODO" gra
 
 ## Should
 
-- Extract a helper / type / class after the SAME shape appears 3 times. Two is coincidence; three is a pattern.
+- Extract a helper / type / class once the SAME shape appears 3 times. Two is coincidence; three is a pattern — extract on the third occurrence, not the second (premature) and not the fifth (rot).
 - Pure functions for business logic; side-effects pushed to the edge (services / adapters). Easier to test, easier to reason about.
 - Default to no comments. Add one only when the WHY is non-obvious — a hidden constraint, a known workaround, a subtle invariant.
-- Consistent ordering inside files: imports → types → constants → public API → private helpers. Match the codebase if it differs.
+- Order inside files: imports → types → constants → public API → private helpers. Match the codebase if it differs.
 - Boy Scout Rule: leave code cleaner than you found it. When you touch a file, fix the dead imports / commented-out blocks / vague names / redundant comments in the same change — don't open a "cleanup PR later" ticket that never lands. Bound the scope: clean what's adjacent to your change, not the whole file (avoids ballooning diffs that obscure the real edit).
 
 ## Review checklist

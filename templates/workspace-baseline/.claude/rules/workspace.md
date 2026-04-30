@@ -6,6 +6,8 @@ kind: rule
 
 # Workspace rules
 
+> **Hard rule (TL;DR):** Cross-repo work follows the registry. Read every affected sibling's root `CLAUDE.md` before editing it. API contracts ship first; frontends follow. Each repo commits separately. No assumed state, no cross-repo commits.
+
 Apply when Claude is rooted at the workspace parent directory.
 
 ## Read-before-edit across repo boundaries

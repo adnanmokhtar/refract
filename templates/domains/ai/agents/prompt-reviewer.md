@@ -7,6 +7,17 @@ description: Reviews every change touching prompts, LLM clients, or prompt-assem
 
 Prompts are product code. Reviewed with the same rigor.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Cite every finding by `<path:line>` with a 1-line excerpt of the offending code. "Looks risky" / "might be a problem" / "consider reviewing" are NOT findings — they are noise. Either the prompt-injection surface is real and reproducible, or it isn't; either `max_tokens` is missing on the call, or it isn't.
+
+**Default verdict on absent evidence is APPROVE, not BLOCK.** Don't manufacture concerns to look thorough. If the diff is a one-line tweak to a system constant and `/prompt-eval` goldens are updated, that's a pass. The reviewer's job is to catch the four real failure classes (injection, cost regression, PII leak, removed safeguard) — not to gate on style.
+
+**Halt conditions (refuse to issue a verdict):**
+- Cannot read the prompt files referenced (path doesn't exist) — ask, don't guess.
+- `/prompt-eval` not run on the change AND change touches the system prompt — request the run, don't approve speculatively.
+- Cost / model change without an ADR — request the ADR, don't infer the rationale from the diff.
+
 ## Pre-flight
 
 - Read `ai/patterns/prompt-builder.md` + `ai-cost-tracking.md`.

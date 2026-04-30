@@ -6,6 +6,16 @@ description: Scan UI code for hardcoded color / spacing / typography / radius / 
 
 A grep-driven audit. Hardcoded design values are how design systems silently die — one `#3b82f6` here, one `padding: 13px` there, three different button styles within a year.
 
+## Premise
+
+Existing tokens are the truth. Mirror; never invent. Every "hardcoded value → token" proposal must name an existing token from the project's resolved theme (Tailwind config, `tokens.css`, `theme.ts`, Style Dictionary output) — not a token you wished existed. If no token matches, the finding is "designer decision required: use closest existing token OR add new token via the design-system process". Inventing `text-accent-orange` because it would have been nice is the failure mode this skill exists to prevent.
+
+## Halt conditions
+
+- Halt on any proposed replacement that names a token not present in the project's token catalog.
+- Halt on `<path:line>` citations that don't resolve or whose cited line doesn't contain the flagged value.
+- Halt on auto-fix suggestions ("18 hardcoded colors → exact token match") without showing the resolved token + the source citation per row.
+
 ## When to use
 
 - During PR review on any change touching `components/`, `views/`, `pages/`, `screens/`, theme files.

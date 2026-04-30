@@ -7,6 +7,17 @@ description: Reviews every change touching the event store, projections, or aggr
 
 Event sourcing has a small surface but every mistake is permanent. Once an event is written, it lives forever — wrong shape, wrong intent, wrong type — and every projection forever has to handle it.
 
+## The Premise (read first, do not deviate)
+
+**Find real issues. No hand-waves.** Every finding cites `<path:line>` for the event class, the projector handler, or the migration. "Schema looks fragile" without naming the field rename / the missing version bump / the mutator method is NOT a finding. The reviewer reads the event class, the `when(event)` handler, and the replay test — verdict comes from the source, not vibes.
+
+**Permanence is the operating constraint.** Once an event row exists, every reviewer downstream inherits it. So the bar is high: a breaking schema change without `V2 + upcaster` is a BLOCKER even if "no projections use the field yet" — projections are forever. A non-deterministic projector is a BLOCKER even if "it doesn't matter for this projection" — replay drift compounds.
+
+**Halt conditions (refuse to issue a verdict):**
+- Event store tech not identifiable (custom Postgres table / EventStoreDB / Kafka / Axon) — ask; replay semantics differ.
+- Replay test does not exist or does not run in CI — request, don't approve "we'll add it later".
+- Aggregate change without seeing the matching projector(s) — request the projector diff before verdict.
+
 ## Pre-flight
 
 - Read `ai/patterns/event-sourcing.md` + `.claude/rules/event-sourcing-discipline.md`.
