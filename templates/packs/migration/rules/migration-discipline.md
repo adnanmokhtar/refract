@@ -254,6 +254,7 @@ For each of the 10 candidate areas (N+1, missing index, column projection, cachi
 - **Capture migration-time perf wins explicitly.** Follow the perf-uplift procedure above during port. For each candidate (N+1 → batch query, missing index, unbounded SELECT *, sequential await, no caching, in-app filter, etc.), decide: applied / deferred / rejected — with a reason and (for applied) a measured before/after. Decisions live in `ai/migration/perf-decisions/<feature>.md`. A perf change MUST NOT silently break parity — it's either parity-preserving (most cases — same observable, faster) or it's a documented break (above bullet).
 - **Use V2's primitives, not V1's.** If V2's architecture says "service-layer + repository", DO NOT carry over V1's "fat controller". The port is the moment to align with V2 — that's the entire point.
 - **Keep V1 untouched during port.** No "while I'm here" fixes in V1 code. V1 is the oracle for parity testing — if you change V1 you've changed the oracle.
+- **Every deferred gap must have an explicit destination.** A gap that cannot be closed in the current run (structural blocker, cross-repo dependency, user-decided complex restructure) MUST be assigned exactly one of: (a) a target phase number in the ledger row's `notes` field (e.g., `deferred to phase 10`), (b) an ADR ID (`intentional_break: ADR-NNN`), or (c) `status: parked` with a 1-line rationale via `/migration-park`. A gap noted as "deferred" with no destination is a floating obligation — the ledger row stays `halted`, the phase gate REFUSES, and the port is incomplete. **No deferred gap without a destination.** This is the lesson from F055 (Phase 9, tenant-portal-v2): gap 14 was noted as "deferred; requires major restructure" with no phase target, no ADR, no park decision — the row held `status: halted`, `gaps_in=14`, `gaps_closed=13`, and REFUSED the phase gate until the user decided.
 
 ## Must not
 
@@ -268,6 +269,8 @@ For each of the 10 candidate areas (N+1, missing index, column projection, cachi
 - **Ignore non-functional behaviour.** Latency p95, memory footprint, error rate, log volume are part of the contract. A V2 that returns the same JSON 5× slower has not preserved parity.
 - **Mix migration with feature work.** "We're porting search and adding fuzzy matching" guarantees both regressions and missed scope. Port first (parity-equivalent), ship cutover, then add the feature on V2.
 - **Treat "no test exists for this in V1" as "no behaviour exists".** Read git log, read PR descriptions, read related issues, run V1 against fuzz inputs — V1's untested behaviour is still observable, still load-bearing for some caller.
+- **Leave a gap deferred with no destination.** `status: halted` + `gaps_in > gaps_closed` + no target phase / ADR / park in notes = a floating obligation. The phase gate will REFUSE. Assign a destination immediately: the next phase, an ADR, or `/migration-park`.
+- **Advance a `halted` row to `done` without closing all gaps.** If `gaps_in != gaps_closed`, the row is not done — the RE-DETECT step (in `find-and-fix.md § 3.5`) enforces this, and the gate's `check_gap_count_parity` enforces it again. Both must be equal before a row can exit `halted`.
 
 ## Should
 

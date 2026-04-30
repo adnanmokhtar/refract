@@ -205,8 +205,9 @@ The command halts (refuses to advance, surfaces options, waits for user) on:
 3. **User-decision-needed** — V1↔V2 divergence with legitimate-either-way verdict. Surface three options (match V1 / keep V2 + ADR / deprecate-V1 + ADR); wait.
 4. **Audit cannot determine V1 behavior** — V1 source ambiguous, telemetry absent, no caller. Halt; user resolves before proceeding.
 5. **Verify red that re-fix can't close** — V2 has structural blocker; escalate to `/port-feature --heavy` for full plan + parity tests.
+6. **Deferred gap with no destination** — one or more gaps cannot be closed in this run (structural blocker, complex restructure, awaiting cross-repo) AND the user has not assigned a destination: target phase number, ADR ID, or `/migration-park`. Halt and surface the open gap(s). The ledger row is recorded as `status: halted` with `gaps_in: <N>` and `gaps_closed: <M>` (M < N). The row MUST NOT be recorded as `done`. Before the phase gate can pass, the user must either: (a) fix the gaps (re-run `/find-and-fix`), (b) write an ADR and set `intentional_break: ADR-NNN`, or (c) run `/migration-park <feature>` with a rationale. A halt note with no destination is a floating obligation — the gate will REFUSE.
 
-Halts log to `ai/migration/halts/<feature>-<iso>.md` per `migration-discipline.md` § halts convention.
+Halts log to `ai/migration/halts/<feature>-<iso>.md` per `migration-discipline.md` § halts convention. Halt files for condition 6 MUST include: gap description, why it can't be closed now, and one of: `target_phase: <N>` / `pending_adr: true` / `recommend_park: true`.
 
 ## Output
 

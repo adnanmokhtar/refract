@@ -39,11 +39,12 @@ Refusal language MUST name the tier in any error: "feature F0XX (tier: standard)
 
 For each feature listed in phase N, run the **tier-scoped artifact verification** (full 13-check matrix below applies to heavy; standard + trivial subsets per the floor above):
 
-### Ledger-level checks (4)
-1. status = `done` OR `intentional-break` (with `ADR-NNNN` populated)
-2. parity_test = `passing`
-3. ledger row required fields per state populated (per `migration-ledger.md` § Required fields per state)
-4. cited ADR exists in `ai/decisions/` (when status = intentional-break)
+### Ledger-level checks (5)
+1. status = `done` OR `intentional-break` (with `ADR-NNNN` populated). **`status: halted` is BLOCKED** — a halted row is an incomplete port, not an advance-eligible one. Fix the halt, park the row (`/migration-park`), or accept an ADR before the phase can exit.
+2. `gaps_in` and `gaps_closed` fields both present on the ledger row AND `gaps_in == gaps_closed`. A row where `gaps_in > gaps_closed` is **BLOCKED** even if `status: done` — it means at least one gap was silently skipped at RE-DETECT time. The validator's `check_gap_count_parity` enforces this.
+3. parity_test = `passing`
+4. ledger row required fields per state populated (per `migration-ledger.md` § Required fields per state)
+5. cited ADR exists in `ai/decisions/` (when status = intentional-break)
 
 ### Artifact-existence checks (5)
 5. `ai/migration/contracts/<feature>.md` exists
@@ -93,22 +94,22 @@ Plan section: ai/migration/plan.md § Phase <N>
 Features in phase: <Y>
 Validator script result: PASS / FAIL (run-id <X>)
 
-## Per-feature verification (12-check matrix)
+## Per-feature verification (14-check matrix)
 
-| ID | Feature | status | parity_test | contract | plan | corpus≥30 | tolerance | perf-decisions | runbook | audit | ADR | Verdict |
+| ID | Feature | status | gaps_in==gaps_closed | parity_test | contract | plan | corpus≥30 | tolerance | perf-decisions | runbook | audit | ADR | Verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| F001 | auth-login | done | passing | ✓ 9-sections | ✓ | ✓ 47 | ✓ | ✓ measured | ✓ | ✓ | — | PASS |
-| F002 | tenant-resolver | done | passing | ✓ | ✓ | ✓ 30 | ✓ | ✓ | ✓ | ✓ | — | PASS |
-| F003 | shared-error-handler | failed | failing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | **BLOCK** |
-| F004 | role-guards | done | passing | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ MISSING | ✓ | — | **BLOCK (runbook missing)** |
-| F005 | reports-orders | done | passing | ✗ 6/9 sections | ✓ | ✗ 12 inputs | ✓ | ✓ | ✓ | ✓ | — | **BLOCK (contract incomplete + thin corpus)** |
+| F001 | auth-login | done | 8==8 ✓ | passing | ✓ 9-sections | ✓ | ✓ 47 | ✓ | ✓ measured | ✓ | ✓ | — | PASS |
+| F002 | tenant-resolver | done | 5==5 ✓ | passing | ✓ | ✓ | ✓ 30 | ✓ | ✓ | ✓ | ✓ | — | PASS |
+| F003 | shared-error-handler | failed | 4==4 ✓ | failing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | **BLOCK (status=failed, parity failing)** |
+| F004 | role-guards | halted | 6>5 ✗ | missing | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ MISSING | ✓ | — | **BLOCK (status=halted; gaps_in>gaps_closed; runbook missing)** |
+| F005 | reports-orders | done | 12>10 ✗ | passing | ✗ 6/9 sections | ✓ | ✗ 12 inputs | ✓ | ✓ | ✓ | ✓ | — | **BLOCK (gaps_in>gaps_closed; contract incomplete + thin corpus)** |
 | ... | | | | | | | | | | | | |
 
 ## Blocking issues (per check)
 
-- F003: parity_test failing. See ai/migration/audits/F003.md § Hard-halt findings.
-- F004: rollback runbook ai/runbooks/migration-rollback-F004.md does not exist.
-- F005: contract has 6/9 sections (missing: Side effects, Caller assumptions, Known V1 bugs); corpus has 12 inputs (need ≥30 OR record-replay setup).
+- F003: status=failed + parity_test failing. See ai/migration/audits/F003.md § Hard-halt findings. Fix the port; re-run /find-and-fix F003.
+- F004: status=halted (1 open gap — gaps_in=6 gaps_closed=5); rollback runbook missing. Assign the deferred gap a destination (target phase, ADR, or /migration-park) before this phase can exit.
+- F005: gaps_in=12 gaps_closed=10 (2 gaps silently skipped at RE-DETECT); contract has 6/9 sections (missing: Side effects, Caller assumptions, Known V1 bugs); corpus has 12 inputs (need ≥30 OR record-replay setup).
 
 ## Verdict
 
@@ -171,7 +172,9 @@ Fix the blockers; re-run /migration-phase <N>; then re-run /migration-gate <N>.
 - **Read-only on REFUSED.** Never modifies ledger or any artifact when refusing.
 - **One row per success.** `_history.md` is append-only; no edits to past entries.
 - **No partial passes.** A phase with ANY blocking issue REFUSES. There is no "passed with caveats" — fix it or document an `intentional-break` ADR.
-- **All checks are mandatory FOR THE ROW'S TIER.** Heavy = 13-check matrix in full. Standard = audit + 3-section contract + short plan + ≥10 fixtures + tolerance + ledger row. Trivial = audit + ledger row only. Content quality (citation resolution, tolerance covers outputs, audit enumerates without hand-waves) applies within the tier's required sections. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+- **`status: halted` BLOCKS the phase regardless of tier.** A halted row is an incomplete port — it MUST be resolved (fix the gaps, `/migration-park`, or accepted ADR) before the phase gate passes. The gate does not skip halted rows.
+- **`gaps_in == gaps_closed` is a ledger integrity check.** It applies at ALL tiers, even trivial. If either field is missing or unequal, the row is BLOCKED. This catches RE-DETECT step bypasses that let partial fixes advance.
+- **All checks are mandatory FOR THE ROW'S TIER.** Heavy = 14-check matrix in full. Standard = audit + 3-section contract + short plan + ≥10 fixtures + tolerance + ledger row. Trivial = audit + ledger row only (but gaps_in == gaps_closed still required). Content quality (citation resolution, tolerance covers outputs, audit enumerates without hand-waves) applies within the tier's required sections. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
 - **Audit-file presence is mandatory.** A `done` row without an audit file = data integrity failure → REFUSE. A blank or hand-waved audit file = data integrity failure → REFUSE.
 - **Contract-completeness is mandatory.** A contract missing any of the 9 required sections, or with unresolved `<path:line>` citations, fails the gate even if the audit file says "parity-clean".
 - **ADR existence is verified.** Cited `intentional-break: ADR-NNNN` must point to a real file in `ai/decisions/` with status: Accepted.
