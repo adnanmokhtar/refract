@@ -138,7 +138,7 @@ log_section() {
 # Feature output format (one per line): "<id>|<feature-slug>|<phase>|<status>|<parity_test>"
 discover_features() {
   awk '
-    /^id: F[0-9]+/ {
+    /^id: F[0-9]+[a-z]?$/ {
       # finalize previous block if any
       if (id != "") {
         print id "|" feature "|" phase "|" status "|" parity_test "|" tier
@@ -226,10 +226,48 @@ check_contract_sections() {
   fi
 }
 
+# Cache of V1 + V2 file basenames → first absolute path. Built once per validator run.
+# Avoids per-citation `find` calls (which made phase-7 + phase-8 runs hang for minutes).
+V1_BASENAME_INDEX_BUILT=0
+V1_BASENAME_INDEX_FILE=""
+V2_BASENAME_INDEX_BUILT=0
+V2_BASENAME_INDEX_FILE=""
+build_v1_basename_index() {
+  [[ $V1_BASENAME_INDEX_BUILT -eq 1 ]] && return 0
+  V1_BASENAME_INDEX_BUILT=1
+  if [[ -z "$V1_ROOT" ]] || [[ ! -d "$V1_ROOT" ]]; then return 0; fi
+  V1_BASENAME_INDEX_FILE=$(mktemp -t v1-bn-idx.XXXXXX)
+  find "$V1_ROOT" \( -name node_modules -o -name dist -o -name build_output.txt -o -name .git \) -prune -o \
+    -type f \( -name '*.vue' -o -name '*.ts' -o -name '*.js' \) -print 2>/dev/null \
+    | awk -F/ '{print $NF "\t" $0}' > "$V1_BASENAME_INDEX_FILE" 2>/dev/null
+}
+v1_basename_lookup() {
+  local bn="$1"
+  [[ -z "$V1_BASENAME_INDEX_FILE" ]] || [[ ! -f "$V1_BASENAME_INDEX_FILE" ]] && return 1
+  awk -F'\t' -v bn="$bn" '$1 == bn { print $2; exit }' "$V1_BASENAME_INDEX_FILE"
+}
+build_v2_basename_index() {
+  [[ $V2_BASENAME_INDEX_BUILT -eq 1 ]] && return 0
+  V2_BASENAME_INDEX_BUILT=1
+  local v2dir="${V2_ROOT:-src/}"
+  [[ ! -d "$v2dir" ]] && return 0
+  V2_BASENAME_INDEX_FILE=$(mktemp -t v2-bn-idx.XXXXXX)
+  find "$v2dir" \( -name node_modules -o -name dist -o -name .git \) -prune -o \
+    -type f \( -name '*.vue' -o -name '*.ts' -o -name '*.js' -o -name '*.tsx' -o -name '*.jsx' \) -print 2>/dev/null \
+    | awk -F/ '{print $NF "\t" $0}' > "$V2_BASENAME_INDEX_FILE" 2>/dev/null
+}
+v2_basename_lookup() {
+  local bn="$1"
+  [[ -z "$V2_BASENAME_INDEX_FILE" ]] || [[ ! -f "$V2_BASENAME_INDEX_FILE" ]] && return 1
+  awk -F'\t' -v bn="$bn" '$1 == bn { print $2; exit }' "$V2_BASENAME_INDEX_FILE"
+}
+
 check_contract_citations() {
   local feature="$1"; local id="${2:-}"
   local file="$CONTRACT_PATH"
   [[ -f "$file" ]] || return 1
+  build_v1_basename_index
+  build_v2_basename_index
   # Match `<path>:<line>` patterns that look like file references using grep + perl-style regex.
   # Cross-repo paths (tenant-portal/...) won't resolve from tenant-portal-v2 cwd; treated as warnings.
   local broken=0
@@ -246,21 +284,41 @@ check_contract_citations() {
       v1-path|v2-path|path|file) continue ;;
     esac
     checked=$((checked + 1))
+    # Try resolving the path in this order (project-agnostic):
+    # 1. As-is (cwd-relative — for full-path V2 citations like src/modules/...)
+    # 2. Under V1_ROOT, after stripping the V1_ROOT's basename prefix if present
+    #    (e.g. V1_ROOT="../legacy-app/" → strip "legacy-app/" from a citation)
+    # 3. As a basename anywhere under V1_ROOT (for unprefixed V1 cites)
+    # 4. As a basename anywhere under V2_ROOT (for unprefixed V2 cites)
+    local resolved=""
     if [[ -f "$path" ]]; then
+      resolved="$path"
+    elif [[ -n "$V1_ROOT" ]] && [[ -d "$V1_ROOT" ]]; then
+      # Strip the V1_ROOT directory's basename if the citation includes it
+      local v1_basename rel_v1
+      v1_basename=$(basename "${V1_ROOT%/}")
+      rel_v1="${path#${v1_basename}/}"
+      if [[ -f "$V1_ROOT/$rel_v1" ]]; then
+        resolved="$V1_ROOT/$rel_v1"
+      fi
+    fi
+    if [[ -z "$resolved" ]] && [[ "$path" != *"/"* ]]; then
+      # Bare filename (no slashes) — try V1 basename index, then V2 basename index
+      local found
+      found=$(v1_basename_lookup "$path")
+      [[ -z "$found" ]] && found=$(v2_basename_lookup "$path")
+      [[ -n "$found" ]] && resolved="$found"
+    fi
+    if [[ -n "$resolved" ]]; then
       local actual_lines
-      actual_lines=$(wc -l < "$path" | tr -d ' ')
+      actual_lines=$(wc -l < "$resolved" | tr -d ' ')
       if [[ "$lineno" -gt "$actual_lines" ]] 2>/dev/null; then
         log_warn "citation out-of-range in $feature: $path:$lineno (file has $actual_lines lines)"
         broken=$((broken + 1))
       fi
     else
-      # Cross-repo paths (e.g., tenant-portal/... when cwd is tenant-portal-v2) — treat as informational
-      if [[ "$path" =~ ^tenant-portal/ ]]; then
-        : # cross-repo; skip
-      else
-        log_warn "citation unresolved in $feature: $path:$lineno (file not found)"
-        broken=$((broken + 1))
-      fi
+      log_warn "citation unresolved in $feature: $path:$lineno (file not found in V2 or V1_ROOT)"
+      broken=$((broken + 1))
     fi
   done <<< "$tokens"
   if [[ $broken -eq 0 ]]; then
@@ -891,6 +949,7 @@ check_v2_structure() {
     # using elsewhere. Per .claude/rules/api-types.md "HTTP clients (single source)".
     local is_canonical_client=0
     local is_html_emitter=0
+    local is_canonical_consumer=0
     case "$file" in
       */core/api/apiClient.ts|*/core/api/publicClient.ts|*/core/api/tokenProvider.ts|*/core/utils/secureStorage.ts)
         is_canonical_client=1
@@ -900,6 +959,14 @@ check_v2_structure() {
         # with style="..." attributes for GrapesJS / page-builder consumption.
         # The "inline style" smell does not apply — they are not Vue components.
         is_html_emitter=1
+        ;;
+      */core/services/BaseCrudService.ts|*/store/modules/*.ts|*/stores/modules/*.ts|*/store/*.ts)
+        # Canonical apiClient consumers — exempt from the page/component layering check.
+        # BaseCrudService IS the canonical CRUD service (it MUST import apiClient).
+        # Pinia stores (auth/appConfig/permissions) are exempt because the architecture's
+        # Pinia-store layer is a legitimate apiClient consumer for global app state
+        # (maintenance mode, languages, currencies, themes, permissions).
+        is_canonical_consumer=1
         ;;
     esac
     for fp in "${fingerprints[@]}"; do
@@ -916,6 +983,12 @@ check_v2_structure() {
       if [[ $is_html_emitter -eq 1 ]]; then
         case "$pattern" in
           *style*) continue ;;
+        esac
+      fi
+      # Allowlist exemption for canonical apiClient consumers (BaseCrudService + Pinia stores)
+      if [[ $is_canonical_consumer -eq 1 ]]; then
+        case "$pattern" in
+          *apiClient*) continue ;;
         esac
       fi
       local hits
