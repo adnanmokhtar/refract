@@ -89,6 +89,26 @@ In addition to the parity gap list, the auditor MUST verify every file the FIX s
 
 Any `regressed` finding HALTs the audit (verify-mode RE-DETECT) regardless of tier. The user must refactor the new file to V2's shape before the row advances. This is the F040-class-of-bugs preventive: a "fix" that lands V1-shaped code into V2 has not actually closed the gap, it has imported V1 into V2.
 
+### Closure-verb mapping (mandatory — do NOT default to user-decision on cosmetic gaps)
+
+When emitting a gap, the auditor MUST choose `closure_verb` per this table. Emitting `user-decision` for cosmetic / V2-only-extras / locale-key drift / wrapper-shape gaps is a **bug** — that's the noise pattern that turns a 10-gap audit into a 10-question interrogation. The find-and-fix command's DECIDE step rejects gaps that violate this mapping and re-defaults them.
+
+| Gap kind | Severity signal | Required closure_verb |
+|---|---|---|
+| Cross-repo blocker (V2 fix needs API / sibling repo / contract change) | P0 | `user-decision` |
+| Security / privacy / legal regression in V2 (V2 broke an auth gate, leaked PII, etc.) | P0 | `user-decision` |
+| Data-loss / write-path mutation divergence | P0 | `user-decision` |
+| V1 has a known bug V2 already fixed (cite V1 issue or commit) | P1 | `user-decision` (rare; needs ADR if user wants V2 to keep the fix) |
+| V2 missing a V1 affordance (button, field, column, route, locale key) | P1 / P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
+| V2 has an extra V1 didn't (V2-only button, route, column, video-help) | P2 | `code-edit` (V1-parity = remove the extra) — auto-fix, NO prompt |
+| Cosmetic divergence (empty-cell text, swatch vs picker, padding, spacing) | P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
+| Locale key drift (V1 `Inventory.Variants.foo` → V2 `Table.foo`) | P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
+| Permission-gate divergence (V1 gated, V2 ungated or vice versa) | P0 / P1 | `code-edit` (V1-parity); only emit `user-decision` if V2 is the auth-correct side and V1 was wrong |
+| Audit cannot determine V1 (file missing, source ambiguous, no caller) | — | `escalate` |
+| New V2 file violates V2 structure (Transposition Trap, raw V1 components) | — | `regressed` (halts RE-DETECT) |
+
+**Key rule:** the auditor's job is to FIND the gap, not to ask permission to close it. Default to V1-parity. Only escalate when the user genuinely needs to pick between two correct answers (cross-repo, security, V1-bug-V2-fixed). Cosmetic and shape-level gaps NEVER need a question — V1 is the oracle, V2 is the port, edit V2.
+
 ### Stage A — Implementation audit (Shadow gate)
 
 **Tier-gated halts**: halts 1, 2, 4, 5, 8 are artifact-existence checks gated by the row's `tier:` field. A missing parity test halts a heavy feature; it does NOT halt a trivial feature (where parity tests aren't required). Trivial = halts 6, 7, 9 only. Standard = halts 1 (3-section contract), 2 (≥10 fixtures), 4 (short plan), 6, 7, 9. Heavy = all 10. Halts 3, 6, 7, 9, 10 (process / scope / freshness) apply across all tiers. See `migration-discipline.md` § Required artifacts per feature — tiered floor.

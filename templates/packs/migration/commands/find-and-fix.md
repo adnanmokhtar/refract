@@ -37,19 +37,37 @@ Halts:
 
 No P0 + no cross-repo + no user-ambiguity → proceed to step 2.
 
-### 2. DECIDE — V1-parity by default
+### 2. DECIDE — V1-parity by default, no chatter
 
-For each gap with `closure: code-edit`:
-- **Default verb is "remove V2 deviation to match V1"**. Never "draft ADR to legitimize V2."
-- ADRs are the path of last resort for user-explicit divergence — not the agent's default closure. (Phase 7 lesson: 6 ADRs that should have been code edits.)
-- Surface to user ONLY when: V1 has a known bug V2 already fixed; V2's deviation has a security/privacy/legal rationale; the audit can't determine V1's actual behavior.
+**The DEFAULT is auto-fix. The agent does NOT ask questions on cosmetic / V2-only-extras / locale / ordering / wrapper-shape gaps.** It applies V1-parity edits silently and reports them in a batched summary at the end. Asking the user mid-run is a token-waste anti-pattern.
 
-For ambiguous cases, present three options to user:
-1. Match V1 (default — code edit)
-2. Keep V2 (requires user-authored ADR)
-3. Deprecate V1 feature (requires user-authored ADR)
+**Severity-driven dispatch (mandatory):**
 
-Wait for explicit choice. Do not silently pick.
+| Severity | Closure | User prompt? |
+|---|---|---|
+| **P0** with cross-repo / security / privacy / data-loss / auth-bypass signal | `user-decision` | YES — halt, surface, wait |
+| **P0** without that signal | `code-edit` (V1-parity) | NO — auto-fix |
+| **P1** | `code-edit` (V1-parity) | NO — auto-fix |
+| **P2** (cosmetic, locale-key drift, V2-only-extras, empty-cell text, swatch-vs-picker, etc.) | `code-edit` (V1-parity) — silent | NO — auto-fix; batched into final summary |
+| Audit cannot determine V1 behavior (V1 source ambiguous, file missing) | `escalate` | YES — halt, surface |
+
+**Forbidden:** the auditor / find-and-fix MUST NOT emit `user-decision` for P2 gaps. The Phase 7 anti-pattern (auditor asking "should `--` be `----------`?") is exactly the noise this rule kills. If V2 deviates from V1 on cosmetic surface, the answer is always "edit V2 to match V1" without asking.
+
+**Batched end-of-run summary** (presented once, after FIX + RE-DETECT + VERIFY succeed):
+```
+Auto-applied (no prompt): <N> P1 + <M> P2 closures
+  - G3 form-field: re-added ColorPicker widget to match V1
+  - G5 permission-gate: added :can-delete="hasPermission(...)" to TableHeader
+  - G7 locale-keys: restored Inventory.Variants.* keys
+  ...
+User-decision required (cross-repo / P0): <K>
+  - G1 hex_code vs code wire-name (capsolah-api confirmation needed)
+  - G2 colors/export endpoint existence (capsolah-api confirmation needed)
+```
+
+The user reviews the auto-applied list AFTER the run, in one read, not interrupted N times during the run.
+
+**Hard rule:** if you find yourself about to ask the user a question on a P1 or P2 gap — STOP. Default to V1, edit, and add to the summary. The user can override later in a follow-up run; agent self-doubt is not a closure.
 
 ### 3. FIX — direct code edits
 
