@@ -1091,6 +1091,39 @@ check_permission_gate_divergence() {
   return 0
 }
 
+check_gap_count_parity() {
+  # Mechanical gate added 2026-04-30 with the find-and-fix RE-DETECT step.
+  # The auditor's DETECT pass returns N gaps; the FIX step closes them; the RE-DETECT
+  # pass confirms each is closed. The ledger row records gaps_in and gaps_closed —
+  # they MUST be equal before the row advances. Inequality means at least one gap
+  # shipped unclosed (the partial-fix failure mode). Missing fields means the row
+  # was advanced without RE-DETECT running at all.
+  local feature="$1"; local id="${2:-}"
+  local ledger_block
+  ledger_block=$(awk -v id="$id" '
+    $0 ~ ("^id: " id "$") { in_block=1 }
+    in_block { print }
+    in_block && /^```/ { exit }
+  ' "$LEDGER_PATH" 2>/dev/null)
+  local gaps_in gaps_closed
+  gaps_in=$(echo "$ledger_block" | grep -m1 '^gaps_in:' | sed 's/^gaps_in:[[:space:]]*//' | tr -d ' "')
+  gaps_closed=$(echo "$ledger_block" | grep -m1 '^gaps_closed:' | sed 's/^gaps_closed:[[:space:]]*//' | tr -d ' "')
+  if [[ -z "$gaps_in" ]] || [[ -z "$gaps_closed" ]]; then
+    log_fail "ledger row $id ($feature) missing gaps_in / gaps_closed fields — find-and-fix RE-DETECT step did not run, or ran and did not record. See find-and-fix.md § 3.5."
+    return 1
+  fi
+  if ! [[ "$gaps_in" =~ ^[0-9]+$ ]] || ! [[ "$gaps_closed" =~ ^[0-9]+$ ]]; then
+    log_fail "ledger row $id ($feature) has non-numeric gap counts (gaps_in='$gaps_in' gaps_closed='$gaps_closed')."
+    return 1
+  fi
+  if [[ "$gaps_in" != "$gaps_closed" ]]; then
+    log_fail "ledger row $id ($feature) gap-count mismatch: gaps_in=$gaps_in gaps_closed=$gaps_closed — partial fix shipped. Re-run /find-and-fix $feature OR escalate via /port-feature $feature --heavy."
+    return 1
+  fi
+  log_pass "gap-count parity: $feature ($gaps_in gaps in, $gaps_closed closed)"
+  return 0
+}
+
 check_ledger_row() {
   local id="$1"; local feature="$2"; local status="$3"
   # Check that minimum required fields exist in the ledger row for this id
@@ -1170,6 +1203,7 @@ validate_feature() {
   check_i18n_locale_parity "$feature" "$id" || true
   check_lifecycle_keepalive "$feature" "$id" || true
   check_permission_gate_divergence "$feature" "$id" || true
+  check_gap_count_parity "$feature" "$id" || true
 }
 
 # ── Project anchors ─────────────────────────────────────────────────────────

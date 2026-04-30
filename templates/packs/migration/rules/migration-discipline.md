@@ -50,7 +50,7 @@ Phase 7 in tenant-portal-v2 (Apr 2026) burned ~95% of port-time tokens on docume
 
 - **Code edits are the deliverable.** A doc that doesn't enable a code change is waste. Contracts/plans/runbooks/perf-decisions exist when they unblock a code decision; they are not deliverables themselves.
 - **ADRs justify user-decided breaks, not agent-default closures.** When V2 deviates from V1, the agent's default closure verb is **edit V2 to match V1** — a code change. Drafting an ADR to legitimize V2's deviation is forbidden as a closure unless the user explicitly chose keep-V2 OR V1 is a security/privacy/legal regression. The Phase 7 anti-pattern (~6 ADRs drafted to preserve V2-over-V1) MUST NOT recur.
-- **Per-axis enumeration tables are heavy-tier-only.** Standard-tier audits enumerate axes that show ≥1 P0/P1 gap; trivial-tier audits skip per-axis enumeration entirely. Heavy-tier still requires full enumeration (the F039 anti-Trusted-Summary protection).
+- **Per-axis enumeration is required wherever a gap exists, at every tier.** Heavy-tier audits enumerate every axis fully (F039 anti-Trusted-Summary protection). Standard- and trivial-tier audits MAY summarise axes with zero gaps in 1 line, but ANY axis with ≥1 detected gap (add / delete / change, frontend or API) MUST produce the full per-row enumeration table for that axis with `<v1-path:line>` and `<v2-path:line>` citations. Trivial-tier audits with summary-only text and ≥1 gap detected silently are forbidden — the validator's `check_audit` hand-wave grep (in `validate-migration-artifacts.sh`) HALTs on `etc.`, `...`, `N+ items`, `and so on`, `deferred to port-phase parity author`, and `by audit-by-inspection`.
 - **Single agent dispatch with a shared 5K-token context blob is the default.** Parallel sub-agents are heavy-tier-only AND require a deduplicated context blob (each sub-agent reading 50K+ token files independently is forbidden — prior Phase 7 cost: 200-360K duplicate tokens per port).
 - **Default-true wrapper props MUST be set explicitly when removing UI affordances.** Components like `<CrudActions>`, `<TableHeader>`, `<TableActions>` default `show-*` / `can-*` props to `true`. Removing a `@delete-selected` event handler does NOT hide the button. The fix is `:show-delete="false"` / `:can-delete="false"` set explicitly. Removing the handler alone is the F040-class default-true bug.
 - **Audit verdict criterion is V1-parity, not plan-execution.** "PASS" means V2 matches V1, NOT "the agent shipped what the plan said." Phase 7 audits drifted into plan-execution checks; the discipline reverts.
@@ -79,9 +79,9 @@ Phase 7 in tenant-portal-v2 (Apr 2026) burned ~95% of port-time tokens on docume
 
 ### Trivial-tier artifact spec (audit + code only)
 
-- **Audit**: classification + 1-paragraph "what changed" + 1-paragraph "why no contract".
-- **Code edit**: the actual gap-closure(s).
-- **Ledger row**: status, parity_test (if any), v1_commit_pinned, ported_at, 2-line note.
+- **Audit**: classification + 1-paragraph "what changed" + 1-paragraph "why no contract" + **per-axis enumeration table for any axis with ≥1 gap** (frontend axes per `parity-auditor.md` §  frontend axes; API axes per § backend axes). Axes with zero gaps may be summarised in 1 line. A trivial audit that hides ≥1 gap inside summary prose without the per-row table is rejected.
+- **Code edit**: the actual gap-closure(s) — **all gaps from the audit, not a subset**. Gap-count-in MUST equal gap-count-closed before the row advances. The `find-and-fix` re-DETECT step enforces this.
+- **Ledger row**: status, parity_test (if any), v1_commit_pinned, ported_at, 2-line note, `gaps_in: <N>`, `gaps_closed: <N>` (must be equal).
 - **No** contract, plan, separate parity tests, perf-decisions, runbook. Standard CI tests must still pass.
 
 **Output of `/migration-gate <N>` validates the artifact set required by each row's tier; a missing artifact at the row's tier REFUSES the gate. Heavy-tier rows still hit the full 8 artifacts.**
@@ -385,6 +385,7 @@ T+38d: Delete V1 (after 14d of zero traffic).
     - Inline `style="..."` attributes — use scoped SCSS + design tokens.
     - V1's grid system carried over verbatim — V1 used Bootstrap col wrappers; V2 uses component-level `col-class` props. Re-derive layout from V2's gold-standard equivalent feature, not from V1's template.
     - `onMounted` for data fetch on a page V2's KeepAlive caches — V2 uses `onActivated` so data refreshes on tab return + tenant switch.
+    - Hardcoded translation language keys — `ref<Translations>({ en: '', ar: '' })`, `{ en: '', ar: '' }` literals, or `locale.value === 'en' ? 'en' : 'ar'` ternary. V2 supports dynamic languages via `useLanguages().buildEmptyTranslations()` and reads available codes from `appConfig` store. Hardcoding 2 languages (a) breaks tenants with Spanish/French enabled, (b) sends stale dead keys when a language is disabled. **The correct pattern**: `const { buildEmptyTranslations } = useLanguages(); const translations = ref<Translations>(buildEmptyTranslations())`. For the active-language ref: `const activeLanguage = ref(locale.value)` — no ternary. (tenant-portal-v2 Phase 7 lesson: 17 V2 files copied V1's `{ en, ar }` literal instead of using V2's helper.)
 
   **Phase 3 of `/port-feature` (Retrieve) MUST list the gold-standard V2 files the executor reads BEFORE writing.** The plan's "V2 patterns I will follow" section names them explicitly. Skipping Phase 3 is the trigger — the executor opens V1, reads it, opens V2's destination directory, and writes by analogy to V1 instead of by analogy to V2's gold standard.
 - **The Bundled Cutover** — porting + redesigning + adding features + perf-tuning in one PR. Reviewer cannot localise regressions; rollback is all-or-nothing.
@@ -410,8 +411,9 @@ These references are **convenience pointers for AI tools that support them**. Th
 - `.claude/skills/perf-uplift-survey.md` — perf-uplift-survey procedure (inlined above).
 - `.claude/agents/migration-architect.md` — strategic per-feature planner.
 - `.claude/agents/parity-auditor.md` — pre-cutover audit (Stage A halts inlined as the 10-halt checklist above).
-- `.claude/commands/port-feature.md` — per-feature orchestrator.
-- `.claude/commands/migration-phase.md` — phase orchestrator (dispatches port-feature per row).
+- `.claude/commands/find-and-fix.md` — DEFAULT per-feature loop (detect → decide → fix → verify → record).
+- `.claude/commands/port-feature.md` — heavy-tier orchestrator (`--heavy` flag for full ceremony).
+- `.claude/commands/migration-phase.md` — phase orchestrator (chains via find-and-fix per row by default).
 - `.claude/commands/migration-gate.md` — phase exit verifier (validates the artifact set above).
 
 ### Patterns (read by all tools as ai/ knowledge)

@@ -29,7 +29,7 @@ Inputs:
 - **Standard tier**: audit + 3-section contract (Inputs / Outputs / Known V1 bugs) + short plan + ≥10-fixture parity test + tolerance covering the 3-section contract's outputs + ledger row. Skip perf-decisions doc + runbook (folded into plan).
 - **Trivial tier**: audit + ledger row + (optional) the actual code edit. Skip contract / plan / parity tests / perf-decisions / runbook.
 
-Without a tier on the row, default to heavy.
+Without a tier on the row, default to **trivial** (matches `migration-discipline.md`'s trivial-by-default rule). The gate validates only audit + ledger row in that case. If the row has known P0 / cross-repo blocker / contract break / write-path mutation findings AND no tier is set, the gate halts and asks the audit to set `tier: heavy` explicitly — it does NOT silently elevate.
 
 Refusal language MUST name the tier in any error: "feature F0XX (tier: standard) missing required artifact: 3-section contract" — never refuse a trivial feature for missing a perf-decisions doc.
 

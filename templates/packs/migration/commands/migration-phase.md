@@ -62,9 +62,10 @@ When invoked with `--chain`, this command sequentially dispatches `/find-and-fix
 1. Sort phase-N features by `depends_on` (topological). Skip features with `status: parked` or `status: deprecated`.
 2. For each feature in order:
    - **Read the audit's `tier:` field** (mandatory frontmatter per § 4d). The tier determines which 4-phase set runs inside `/port-feature` — trivial = 4a only; standard = 4a + 4b; heavy = 4a + 4b + 4c + 4d. See `port-feature.md` § Phase 4 — Tier-aware execution.
-   - Dispatch `/port-feature <id> --unattended` (which itself dispatches `migration-architect` + `parity-auditor` per its own rules and reads the audit's tier to scope artifacts).
-   - On `--unattended` HALT: write reason to `ai/migration/halts/<feature>-<iso>.md`. If `--stop-on-halt` (default), abort the chain. If `--no-stop-on-halt`, log and continue to next feature.
-   - On port success (ledger row → `V2-shadow`): commit the diff with a structured message; continue.
+   - **Default dispatch is `/find-and-fix <id>`** (light path per `migration-discipline.md` § Anti-bloat rules). Only escalate to `/port-feature <id> --heavy --unattended` when the row's audit flags P0 / cross-repo / contract-break / security-sensitive / write-path mutation, OR `--chain --heavy` was passed explicitly.
+   - On HALT (either command): write reason to `ai/migration/halts/<feature>-<iso>.md`. If `--stop-on-halt` (default), abort the chain. If `--no-stop-on-halt`, log and continue to next feature.
+   - **Pre-advance gate (mandatory)**: before flipping the ledger row to `V2-shadow` (or `done` for trivial), re-dispatch `parity-auditor` in **verify-only mode** with the original gap list as input. Verdict must be `parity-clean` (every gap from the per-feature audit confirmed closed; `gaps_in == gaps_closed`; no regressions; no new gaps). If verdict is anything else, HALT — do NOT advance the ledger row, do NOT commit, do NOT continue to the next feature on `--stop-on-halt`. This catches partial fixes that `find-and-fix`'s internal re-DETECT (step 3.5) somehow let through, AND it catches `port-feature --heavy` runs whose internal audit was a Trusted-Summary echo.
+   - On verified port success: commit the diff with a structured message that records `gaps_in` / `gaps_closed`; continue.
 3. After last feature (or on chain abort): produce a chain report at `ai/migration/audits/phase-<N>-chain-report.md` listing per-feature outcome (success / halt / skipped) + halt files.
 4. Auto-invoke `/migration-gate <N>`. If gate refuses, surface its findings; phase exit blocked.
 

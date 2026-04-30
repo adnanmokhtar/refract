@@ -16,7 +16,7 @@ The simple loop. **Code edits are the deliverable; docs only when they enable a 
 
 Use `/port-feature --heavy` instead when audit flags any of: P0 finding, cross-repo blocker, contract break, security/privacy/legal regression, write-path data-mutation, storefront blast radius. The heavy ceremony is rare-by-design.
 
-## The loop (5 steps)
+## The loop (6 steps)
 
 ### 1. DETECT — line-by-line V1↔V2 read
 
@@ -60,6 +60,30 @@ Apply the closure verb for each gap. Rules:
 - **No "while I'm here" cleanups.** One feature per fix run.
 - **No V1 modifications.** V1 is the parity oracle.
 - **Match V2 wrappers, not V1 raw components.** No raw `<Dialog>` / `<Paginator>` / `<Dropdown>` / `<form>` in pages where V2 wrappers exist (`<BaseModal>` / `<CrudPaginator>` / `<BaseDropdown>` / `<BaseForm>`). Re-derive layout from V2's gold-standard equivalent.
+- **Any NEW file added to V2 MUST follow V2's structure — never V1's.** This applies to every layer: frontend (pages, components, composables, locales), backend (controllers, services, repositories, DTOs, modules), and AI (agents, skills, commands, rules). Before writing a new file:
+  1. **Find V2's gold-standard equivalent** for the same shape (e.g., V2's CRUD page for a new CRUD page; V2's service + repository pair for a new service; V2's agent definition for a new agent). The blob's `gold_standard_v2_files:` field names them; if missing, halt and ask the user to point at one.
+  2. **Mirror its shape**: same module path (`<v2-root>/<layer>/<module>/<kind>/...`), same file naming (PascalCase / camelCase / kebab-case per V2 convention), same layer boundaries (domain framework-free, application uses ports, infrastructure is the adapter), same DI / ORM / error envelope / validation / logging primitives, same shared wrappers and base classes.
+  3. **Forbidden**: copy-pasting a V1 file and renaming it; placing a new file at V1's path; importing V1 utilities into V2; using a primitive V2 doesn't use (e.g., raw `axios` when V2 has a typed client; raw `try/catch` when V2 has a Result envelope).
+  4. The RE-DETECT step (3.5) flags any new file whose shape diverges from the named gold-standard as a `regressed` finding — the row halts.
+
+### 3.5. RE-DETECT — confirm every gap is closed (mechanical gate)
+
+**This step is mandatory. Skipping it is the failure mode that ships partial fixes.**
+
+After step 3 (FIX), re-dispatch `parity-auditor` against the now-edited V2, with the SAME 5K context blob from step 1 PLUS the original gap list. The agent's job:
+
+1. Re-read V1 + V2 line-by-line for each gap from step 1.
+2. For each gap, return one of: `closed` (V2 now matches V1), `still-open` (no edit landed or edit insufficient), `regressed` (edit broke an unrelated axis).
+3. Surface any NEW gaps the edits introduced (e.g., a wrapper-prop change that hid a sibling button by accident).
+
+**Halt rules**:
+- `gap_count_in != gap_count_closed` → HALT. Do not advance to VERIFY. Surface the open list and ask the user: refix, escalate, or accept.
+- Any `regressed` → HALT. The fix introduced a new break.
+- Any NEW gap surfaced → HALT. Either fold into this run (one more FIX → RE-DETECT cycle) or escalate.
+
+**No silent advance.** The ledger row records `gaps_in: <N>` and `gaps_closed: <N>` — they must be equal before VERIFY runs. The audit verdict in step 5 cites this count; the validator's `check_gap_count_parity` (in `validate-migration-artifacts.sh`) reads both fields from the ledger row and HALTs if unequal or missing.
+
+This is a single agent dispatch (same auditor, verify-mode), 5K blob input, ~2-5K output. Cheap. Mandatory.
 
 ### 4. VERIFY — typecheck + lint + parity tests stay green
 
@@ -87,6 +111,8 @@ Two artifacts. Nothing else.
   ported_at: <UTC ISO8601>
   audit: ai/migration/audits/<feature>.md
   audit_provenance: <parity-auditor agent run ID>
+  gaps_in: <N>          # gap count from DETECT step 1
+  gaps_closed: <N>      # gap count confirmed-closed by RE-DETECT step 3.5; MUST equal gaps_in
   notes: "<1-paragraph: what changed + why V1-parity match>"
 ```
 
@@ -141,11 +167,12 @@ Halts log to `ai/migration/halts/<feature>-<iso>.md` per `migration-discipline.m
 ```
 /find-and-fix <feature>:
 
-DETECT:  <N> gaps found (P0=<a> P1=<b> P2=<c>)
-DECIDE:  <ok> code-edit closures, <esc> escalated to user
-FIX:     <files> files edited (<lines>+/<lines>- LOC)
-VERIFY:  typecheck ✓  lint ✓  parity ✓
-RECORD:  ledger row → done; audit at ai/migration/audits/<feature>.md
+DETECT:    <N> gaps found (P0=<a> P1=<b> P2=<c>; ADD=<x> DEL=<y> CHG=<z>; FE=<f> API=<g>)
+DECIDE:    <ok> code-edit closures, <esc> escalated to user
+FIX:       <files> files edited (<lines>+/<lines>- LOC)
+RE-DETECT: gaps_in=<N> gaps_closed=<N> (must match) ✓; new=<0> regressed=<0>
+VERIFY:    typecheck ✓  lint ✓  parity ✓
+RECORD:    ledger row → done; audit at ai/migration/audits/<feature>.md
 
 Halts: <none | list>
 ```

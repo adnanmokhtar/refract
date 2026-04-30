@@ -56,8 +56,15 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
 
 **Tier-aware enumeration** (per ledger row's `tier:` field, set by audit per `migration-discipline.md` § "Required artifacts per feature — tiered floor"):
 - **Heavy tier**: full enumeration of every axis as above. No `...` / `etc.` hand-waves anywhere. This is the F039 anti-Trusted-Summary protection.
-- **Standard tier**: enumerate axes that show at least one P0/P1 gap with full per-row tables. Axes with 0 gaps may be summarised in 1 line ("8 form fields, all match — see V1 `<path>` vs V2 `<path>`"). The summary still cites both paths; no `etc.` allowed.
-- **Trivial tier**: skip the per-axis enumeration tables entirely. The audit's classification + a 2-paragraph rationale citing why no axis carries P0/P1 risk is sufficient.
+- **Standard tier**: enumerate axes that show ≥1 gap (any severity, any kind: ADD / DELETE / CHANGE) with full per-row tables. Axes with 0 gaps may be summarised in 1 line ("8 form fields, all match — see V1 `<path>` vs V2 `<path>`"). The summary still cites both paths; no `etc.` allowed.
+- **Trivial tier**: same rule as standard — any axis with ≥1 gap (ADD / DELETE / CHANGE, frontend OR API) requires the full per-row enumeration table for that axis with `<v1-path:line>` ↔ `<v2-path:line>` citations. Axes with zero gaps may be 1-line summarised. Summary-only text hiding ≥1 gap is forbidden — the validator's `check_audit` hand-wave grep HALTs on `etc.` / `...` / `N+ items` / `and so on` / `deferred to port-phase parity author` / `by audit-by-inspection`. Trivial differs from standard ONLY in the artifact set produced (no contract / plan / parity tests / runbook), NOT in detection rigor.
+
+**Enumerate ALL gap kinds, not just divergence.** For every axis, the auditor must surface three categories:
+- **ADDED in V1, missing in V2** (V1 has the affordance / endpoint / field; V2 omits it) — most common.
+- **EXTRA in V2, absent in V1** (V2 has scaffolding V1 never had — extra button, route, default-true wrapper prop) — the F040 default-true class.
+- **CHANGED behavior** (same name, different output / status code / validator / permission gate / locale key).
+
+A gap report that lists only "missing" misses two of three failure modes.
 
 The `auditor_agent_id` provenance check (frontmatter) is **mandatory across all tiers** — trivial audits still must prove they came from a `parity-auditor` dispatch (or rule-only-mode sentinel), never an inline executor echo.
 
@@ -68,6 +75,19 @@ For backend features (`project_kind: backend-*`), enumerate:
 - **Side effects** — DB writes, external HTTP, queue publishes, cache writes, log lines downstream consumers depend on.
 - **Auth/permission decorators** — V1 middleware + V2 `@Permissions()` decorators per route.
 - **Layering** — domain framework-free? application uses ports? infrastructure adapter wired?
+
+### V2-structure conformance check (all layers, all tiers)
+
+In addition to the parity gap list, the auditor MUST verify every file the FIX step added to V2 follows V2's structure (not V1's). For each new file under `<v2-root>/`:
+
+1. **Module path conforms** to V2's layout (`<v2-root>/<layer>/<module>/<kind>/...` per existing V2 modules). Files placed at V1's path or outside V2's whitelisted top-level dirs → `regressed`.
+2. **File naming conforms** to V2's convention (PascalCase for components, camelCase for utilities, kebab-case for routes — match what existing V2 modules do).
+3. **Primitives are V2's, not V1's**: DI container, ORM, error envelope, repository pattern, validation library, logging facade, HTTP client, cache primitive. A new file that imports a V1 utility, uses a V1-only pattern, or sidesteps a V2 primitive (e.g., raw `axios` where V2 has a typed client; raw `try/catch` where V2 has a Result type) → `regressed`.
+4. **Shared wrappers / base classes are used**: frontend (`<BaseModal>`, `<BaseForm>`, `<FormField>`, `<CrudActions>`); backend (`BaseCrudService`, `BaseController`, project's repository base); AI (the project's agent / skill / command frontmatter conventions).
+5. **Layer boundaries respected**: domain code framework-free; application uses ports; infrastructure is the adapter. A new "service" that opens a DB connection directly → `regressed`.
+6. **No V1 transposition**: a new V2 file whose structure 1:1 mirrors a V1 file (same imports, same composition, same layout) is the Transposition Trap → `regressed`. Cite the V1 file the new V2 file mirrors.
+
+Any `regressed` finding HALTs the audit (verify-mode RE-DETECT) regardless of tier. The user must refactor the new file to V2's shape before the row advances. This is the F040-class-of-bugs preventive: a "fix" that lands V1-shaped code into V2 has not actually closed the gap, it has imported V1 into V2.
 
 ### Stage A — Implementation audit (Shadow gate)
 
