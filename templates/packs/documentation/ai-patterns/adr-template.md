@@ -7,6 +7,25 @@ pack: documentation
 
 # Pattern: ADR Template
 
+> **Hard rule** — Every ADR has a numbered file in `ai/decisions/NNNN-*.md`, names ≥ 2 alternatives with concrete rejection reasons, and lists trade-offs accepted. ADRs without alternatives or written speculatively (before the choice) are forbidden.
+
+**When to apply**
+- Decision constrains future architecture (DB choice, auth model, multi-tenancy strategy).
+- Reasonable engineers would disagree and the cost of disagreement is real.
+- You're reversing or superseding a previous ADR.
+
+**When NOT to apply**
+- Style / naming conventions — those go in `ai/conventions.md`.
+- Library version bumps with no architectural reach.
+- Bug fix or refactor that doesn't change a system property.
+
+**Halt conditions / mandatory cites**
+- Cite the previous ADR by `<path>` when superseding; never rewrite the prior body — link forward only.
+- Cite the triggering signal (`<path:line>` of incident report, `<path>` of ticket, `<path>` of metric dashboard) in Context; "we need scalability" alone is a halt.
+- Cite at least 2 alternatives with one concrete reject reason each tied to the cited Context; single-option ADRs are halted.
+- Cite the implementing file or commit (`<path:line>` or commit SHA) when moving Status to `Accepted`; promote-without-impl is a halt.
+- Hand-wave grep ban — never claim "no other ADR conflicts" without citing `ai/decisions/` listing or grep artifact.
+
 Architecture Decision Records capture WHY a non-obvious technical choice was made. Six months from now, when someone asks "why did we use Postgres instead of Mongo?", the answer is a 200-word document, not a Slack thread that's been pruned. ADRs encode institutional memory in a format that survives team turnover.
 
 ## Context

@@ -7,6 +7,25 @@ pack: security
 
 # Pattern: Auth Flow
 
+> **Hard rule** — Refresh tokens rotate on every use, are stored hashed in DB with replay-detection that revokes the entire session family on reuse. Access tokens live in memory, refresh in HttpOnly Secure SameSite=Strict cookies. Storing refresh tokens unhashed or skipping rotation is forbidden.
+
+**When to apply**
+- Web app with multi-device sessions and a real session store (DB or Redis).
+- Multi-tenant SaaS where token revocation must be immediate per session.
+- Admin / privileged endpoints where MFA + step-up auth is required.
+
+**When NOT to apply**
+- CLI / machine-to-machine flows — use OAuth client_credentials or workload identity, not refresh rotation.
+- Single-page demo with no real users — full rotation infrastructure is over-investment.
+- Service-to-service inside a mesh — mTLS / SPIFFE is the right primitive, not user JWTs.
+
+**Halt conditions / mandatory cites**
+- Cite the password-hashing config as `<path:line>` (bcrypt cost / argon2 params); cost <10 or absent params is a halt.
+- Cite the refresh-rotation revocation handler as `<path:line>` proving session-family revocation on replay; without it, the rotation claim is hollow.
+- Cite the session store schema as `<path:line>` (`auth_sessions` table or equivalent) showing token_hash + ip + user_agent + revoked_at.
+- Cite the password-reset token schema + TTL as `<path:line>`; reset tokens without single-use enforcement are a halt.
+- Hand-wave grep ban — never claim "no plaintext secrets in DB" without citing the migration file `<path:line>` or schema dump.
+
 JWT-based auth with refresh rotation. Document the flow once — every endpoint follows it.
 
 ## Login

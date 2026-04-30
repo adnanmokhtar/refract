@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Event sourcing (aggregate → event store → projections)
 
+> **Hard rule** — Event store is append-only at the DB role level; aggregates are rehydrated from events with optimistic concurrency on `(aggregate_type, aggregate_id, version)`; projectors are deterministic and idempotent. No mutation of historical events — schema evolution goes through upcasters.
+
+**When to apply**
+- Hard audit / regulatory requirement where every state change must be replayable.
+- Multiple read models with different shapes derived from the same write stream.
+- Temporal queries ("state as of <date>") are first-class product features.
+
+**When NOT to apply**
+- CRUD with light audit needs — use an `event_log` table next to your tables.
+- Team unfamiliar with the model and no temporal/replay requirement justifying the onboarding cost.
+- Dataset where storage cost of every change-history dwarfs business value.
+
+**Halt conditions / mandatory cites**
+- Cite the `event_store` schema with role-level `REVOKE UPDATE, DELETE` at `<path:line>`. Mutable event store = halt.
+- Cite the optimistic-concurrency append (`WHERE version = expectedVersion`) at `<path:line>`. Last-write-wins = halt.
+- Cite at least one upcaster + its test at `<path:line>` if any event has had a schema change. Inline `if (e.version === 1)` patches in projectors = halt.
+- Cite a deterministic projector (no `Date.now()`, no external HTTP) at `<path:line>`. Non-deterministic projectors corrupt on replay.
+- Grep ban: "we have event sourcing" without cites for store schema, append-with-version, projector, and replay command.
+
 ## When to use this pattern
 
 Event sourcing trades simplicity for permanence + replayability. Use when:

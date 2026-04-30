@@ -7,6 +7,24 @@ pack: database
 
 # Pattern: Safe Migrations
 
+> **Hard rule:** Every migration is reversible (or has an explicit one-way ADR), non-blocking on populated tables, and rehearsed against prod-sized data before merge. Adding NOT NULL without default, renaming columns in one step, or destructive `DROP` without expand-contract is forbidden.
+
+**When to apply**
+- Any hot table has > 1M rows in production.
+- The deploy pipeline runs migrations automatically — a long-running migration blocks deploys.
+- The change touches a column read or written by live traffic during deploy.
+
+**When NOT to apply**
+- A fresh database with no production data — guardrails are over-engineered for a seed migration.
+- Internal-only tooling DB with maintenance windows — schedule downtime, document, move on.
+
+**Halt conditions / mandatory cites**
+- Each migration MUST cite the table + estimated row count at `<path:line>` AND its rehearsal evidence.
+- Any column rename / drop MUST cite the expand-contract steps (add new, dual-write, backfill, switch reads, drop old).
+- A doc proposing `ALTER TABLE ... ADD COLUMN ... NOT NULL` without default on a populated table is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is fast".
+- If the DB engine's locking semantics + online-DDL capabilities aren't extracted, halt.
+
 A bad schema migration takes the database lock for 30 minutes and the application down with it. This pattern reduces production migration pain to near-zero by enforcing three rules: every change is reversible (or explicitly accepted as one-way), non-blocking on populated tables, and tested against realistic data volumes before merge.
 
 ## Context

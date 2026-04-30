@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Tenant isolation (shared-DB, row-level)
 
+> **Hard rule** — Every tenant-scoped table has `tenant_id NOT NULL`; every repo method on it filters by `tenant_id` from `TenantContext`, never from a DTO. Cross-tenant access lives in a separately-named `*.admin-repository.ts` with restricted DI binding.
+
+**When to apply**
+- Shared-DB SaaS where tenants share schemas/tables but never see each other's rows.
+- Webhooks where the tenant is resolved from a provider identifier (e.g. `phone_number_id` → `tenants`).
+- Background workers acting on tenant-scoped rows — wrap the work in `TenantContext.run()`.
+
+**When NOT to apply**
+- Per-tenant DB / per-tenant schema deployments — isolation is at infra, not row level (different pattern).
+- Genuinely tenant-agnostic tables (system config, public catalogs) — keep them out of the scoped repo base class.
+- Admin/ops paths that must aggregate across tenants — explicit admin repo, never a "convenient" override on the scoped repo.
+
+**Halt conditions / mandatory cites**
+- Cite the `TenantScopedRepository` base class + the `andWhere('tenant_id = :tenantId')` injection at `<path:line>`. Per-method filters with copy-paste = halt.
+- Cite a per-repo cross-tenant leak test (`spec.ts`) at `<path:line>`. No test = halt.
+- Cite composite indexes `(tenant_id, <filter>)` in migrations at `<path:line>` for every list query. Single-column indexes = halt.
+- Cite the schema `FOREIGN KEY ... REFERENCES tenants(id) ON DELETE CASCADE` at `<path:line>`. Missing FK = orphan-row risk on tenant deletion.
+- Grep ban: any `tenantId` originating from `req.body` / `req.query` / `req.params` in feature code — show the file:line and refuse.
+
 ## Decision summary
 
 Every tenant-scoped table has `tenant_id uuid NOT NULL`. Every query filters by it. The filter is enforced at the **repository layer**, never trusted from controllers.

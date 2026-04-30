@@ -7,6 +7,24 @@ pack: distributed-systems
 
 # Pattern: Idempotency
 
+> **Hard rule:** Every non-GET endpoint that mutates external state accepts an idempotency key, persists the (key → result) record atomically with the side effect, and returns the cached result on replay. Generating UUIDs server-side per request, storing the key without the result, or "best-effort" dedup via in-memory map is forbidden.
+
+**When to apply**
+- Payment, order placement, webhook receivers, message consumers — anywhere a retry can produce a duplicate.
+- A saga step or outbox consumer that can be redelivered.
+- An external client (mobile, partner) on a flaky network where retries are expected.
+
+**When NOT to apply**
+- Pure-read GET endpoints — they're already idempotent by HTTP semantics.
+- Internal RPC inside a single transaction where dedup is impossible to violate.
+
+**Halt conditions / mandatory cites**
+- The proposal MUST cite the storage row (table + unique constraint) for the idempotency key at `<path:line>`.
+- The atomic write (key + side-effect committed in the same tx, or via outbox) MUST be cited; "we'll add the constraint later" is a bug.
+- A doc using in-memory cache as the idempotency store is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is idempotent".
+- If the key TTL / cleanup strategy isn't extracted, halt.
+
 "Running twice = running once." Foundation for retries, webhooks, sagas, event consumers, payments.
 
 ## Why it matters

@@ -7,6 +7,25 @@ pack: ui-ux
 
 # Pattern: Dark Mode
 
+> **Hard rule** — Dark mode is a parallel theme keyed off a `<html data-theme>` attribute, not a CSS filter or per-component prop. Components reference semantic tokens; light + dark each define values for every token, no exceptions.
+
+**When to apply**
+- Product is used in low-light contexts (chat, IDE, video, reading apps).
+- Design system already has semantic tokens you can extend with a dark variant.
+- Visual-regression infra exists or can be added in both themes on the same PR.
+
+**When NOT to apply**
+- Marketing site read for < 60s — the QA + asset doubling cost outweighs benefit.
+- App with hardcoded hex literals in components — retrofit tokens FIRST, then add dark.
+- No SSR strategy yet — FOWT will be the user's first impression.
+
+**Halt conditions / mandatory cites**
+- Cite the design-token file as `<path:line>` (e.g. `src/styles/tokens.css:14`) before proposing dark values; "I'll grep for tokens" is a halt.
+- Cite the component file using `var(--token)` as `<path:line>` proving the indirection layer exists; if components use raw hex, halt and retrofit first.
+- Cite the SSR entry point (`<path:line>` for the `<head>` template) before claiming FOWT is fixed; show the inline script lands BEFORE the stylesheet link.
+- Cite the visual-regression config as `<path:line>` proving both themes render in CI; if absent, halt and require the matrix added in the same PR.
+- Refuse to swap tokens without a contrast audit — cite the axe/pa11y config or runbook by path.
+
 Dark mode is a parallel design system, not a CSS filter. Eyes perceive contrast, color, and elevation differently against a dark substrate — copying light-mode tokens with their luminance flipped produces glare, muddy hierarchy, and unreadable brand colors. Treat dark as a first-class theme that rides on the same component contracts.
 
 ## Context

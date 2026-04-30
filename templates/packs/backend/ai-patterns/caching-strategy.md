@@ -7,6 +7,25 @@ pack: backend
 
 # Pattern: Caching Strategy
 
+> **Hard rule:** Every cached resource has ONE documented invalidation strategy (TTL, explicit, version, tag, or write-through+TTL) and a tenant-scoped, versioned key. Cache is acceleration only — never source of truth, never the only writer of any field, never used for auth tokens or correctness-critical state.
+
+**When to apply**
+- A read path has p95 latency dominated by a deterministic compute or DB fetch and the staleness window is acceptable.
+- A hot key triggers thundering-herd traffic on miss (use single-flight + jittered TTL).
+- A multi-tenant read where the same logical query repeats across requests within seconds.
+
+**When NOT to apply**
+- Auth tokens, session content, payment state, stock counts at checkout, real-time metrics — correctness > latency.
+- Entries > 1 MB or unbounded growth — Redis is not a document store.
+- Read paths where you cannot articulate the invalidation rule in one sentence.
+
+**Halt conditions / mandatory cites**
+- Any "add a cache here" proposal MUST cite the read site at `<path:line>` AND the write site(s) that must invalidate.
+- TTL choices MUST cite the data class row in the table or justify a deviation with measured staleness tolerance.
+- A cache key without tenant prefix in a multi-tenant codebase is a bug — reject the diff.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is safe to cache".
+- If hit-rate / eviction metrics aren't already wired, halt and add observability before shipping the cache.
+
 Cache is a distributed data store with its own consistency model. Get the semantics wrong → serve stale data → users lose trust.
 
 ## Layers (outside → inside)

@@ -7,6 +7,25 @@ pack: business
 
 # Pattern: Missing counterparts
 
+> **Hard rule** — Every forward action ships with its inverse (or completion / recovery counterpart) reachable in ≤ 3 clicks, executed by the system not a support ticket, with audit log + notification to other affected actors. Half-cycles are forbidden.
+
+**When to apply**
+- Auditing a feature for completeness before launch (signup → delete, subscribe → cancel).
+- App-store submission gates (Apple requires account-delete since iOS 16).
+- Compliance review (GDPR right-to-erasure, dark-pattern audits).
+
+**When NOT to apply**
+- Read-only / observational features with no state to invert.
+- Legal-hold flows where deletion is intentionally blocked — document the exception, don't add a fake delete.
+- One-shot transactions with explicit "no undo" UX (signed contracts, irrevocable transfers).
+
+**Halt conditions / mandatory cites**
+- Cite the forward action's handler as `<path:line>` AND the inverse handler as `<path:line>`; missing inverse handler is a halt, not a doc note.
+- Cite the UI entry point for the inverse as `<path:line>` (route, settings page, button); inverse-via-API-only is a halt for user-facing features.
+- Cite the audit-log emission for the inverse as `<path:line>`; silent inverse is a halt.
+- Cite the notification/event emitter for affected actors as `<path:line>` (e.g. member-removed → notify member); silent removal is a halt.
+- Hand-wave grep ban — never claim "every forward has an inverse" without citing the cross-feature audit output (`@business-auditor` run path or coverage report).
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Business cycles`.
 >
 > - **Cycles audited so far**: `<list>`

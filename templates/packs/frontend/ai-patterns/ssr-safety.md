@@ -7,6 +7,24 @@ pack: frontend
 
 # Pattern: SSR Safety
 
+> **Hard rule:** Server-rendered output MUST equal first-client-render byte-for-byte. Touching `window`/`document`/`localStorage`/`Date.now()`/`Math.random()` during render without a client-only guard is forbidden — those go in `useEffect` / `onMounted` / client-only components.
+
+**When to apply**
+- The framework does SSR (Next App Router, Nuxt, SvelteKit, Remix) — every component is suspect by default.
+- A hydration-mismatch warning appears in the browser console.
+- Per-user content (auth state, locale, theme) renders differently on server vs client.
+
+**When NOT to apply**
+- Pure CSR SPA — there's no server render to mismatch with.
+- A static export where the "server" is the build, not a request — different rules apply.
+
+**Halt conditions / mandatory cites**
+- Any browser-API access in component body MUST cite the file at `<path:line>` with the client-only guard (effect, dynamic import, `<ClientOnly>`, etc.).
+- Any per-request value (cookies, headers, locale) used in render MUST cite the SSR-safe accessor, not a global.
+- A doc proposing `if (typeof window !== 'undefined')` inside render to "fix" a mismatch is a bug — reject; use the framework's escape hatch.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming a component is SSR-safe.
+- If the framework + version + rendering mode aren't extracted, halt before debugging hydration.
+
 SSR renders on the server, hydrates on the client. Anything that differs between the two = hydration mismatch = broken page.
 
 ## Scope

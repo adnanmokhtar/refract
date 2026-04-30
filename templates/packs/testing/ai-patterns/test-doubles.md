@@ -7,6 +7,25 @@ pack: testing
 
 # Pattern: Test Doubles (Mocks, Stubs, Fakes, Spies)
 
+> **Hard rule** — Mock at port (interface) boundaries only. Prefer fakes for stateful deps (`InMemoryRepo` over per-call mock script). Asserting on internal call sequences or mocking internal helpers is forbidden.
+
+**When to apply**
+- Dependency is an interface the SUT receives via constructor / DI / factory.
+- Dependency reaches outside the process (network, FS, clock, RNG, third-party API).
+- A stateful collaborator's behaviour matters across multiple test calls — write a fake.
+
+**When NOT to apply**
+- Pure functions and value objects — use the real thing.
+- Internal helpers and private methods — exercise via the public surface.
+- Dependencies the system doesn't own (`express.Router`, framework internals).
+
+**Halt conditions / mandatory cites**
+- Cite the port interface file as `<path:line>` before mocking it; mocking concrete classes without an interface is a halt.
+- Cite the fake's implementation as `<path:line>` when proposing one; "I'll mock it inline" for a stateful dep across > 2 tests is a halt.
+- Cite the clock / RNG / UUID injection point as `<path:line>` before asserting on time-dependent behaviour; `Date.now = ...` rewrites are forbidden.
+- Cite the production code path that requires the special case before adding any test-only branch (`if (process.env.TEST)`); mock creep into production is a halt.
+- Hand-wave grep ban — never claim "no real network in tests" without citing the MSW/nock setup file or CI guard rule.
+
 Wrong double = brittle test OR false confidence. Know the difference.
 
 ## The 5 types

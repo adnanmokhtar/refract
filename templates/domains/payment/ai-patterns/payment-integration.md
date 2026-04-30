@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Payment integration (provider-agnostic adapter)
 
+> **Hard rule** — Application code calls a `PaymentGateway` interface, never a vendor SDK directly; idempotency keys derive from stable business ids (`charge:order_<id>:v<version>`); money is integer minor units with a `Currency` tag — never floats. Webhooks dedupe by `event.id` BEFORE side effects.
+
+**When to apply**
+- Any product accepting card payments, subscriptions, or refunds via an external PSP.
+- 3DS / SCA flows where the response shape includes `requires_action`.
+- Multi-region products needing currency-aware arithmetic and reconciliation.
+
+**When NOT to apply**
+- Crypto-native settlement (different idempotency model — chain confirmations, not provider event ids).
+- Internal ledger-only flows (no external PSP) — the adapter abstraction is overhead.
+- Quote/preview calls that never charge — keep them on a separate non-charging path.
+
+**Halt conditions / mandatory cites**
+- Cite the `PaymentGateway` interface + adapter at `<path:line>`. Direct `import Stripe` in feature code = halt.
+- Cite the `Money` value object with integer minor units + currency tag at `<path:line>`. Float arithmetic on amounts = halt.
+- Cite the idempotency-key derivation at `<path:line>` — must be deterministic from business state, NOT `uuid()`.
+- Cite the webhook signature verifier + `event.id` dedupe table at `<path:line>`. Unverified or non-deduped = halt.
+- Grep ban: "Stripe handles it" without file:line for adapter, idempotency key, webhook verify, and reconciliation cron.
+
 ## Why
 
 Payment providers are interchangeable in the abstract, deeply different in detail (Stripe ≠ Adyen ≠ Paymob). The right pattern is a SMALL adapter interface backed by a provider-specific implementation. Application code never imports `stripe` or `paymob` directly.

@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: GDPR export + delete (Article 15 + Article 17)
 
+> **Hard rule** — The PII inventory is the contract; every entity it lists has a wired exporter + deleter, plus a coverage test that fails CI when a flagged entity is unwired. No PII field ships without a row in the inventory.
+
+**When to apply**
+- Any system processing EU personal data (or CCPA / equivalent jurisdictional rights).
+- Self-serve account deletion / data-export endpoints exist or are planned.
+- Sub-processors (Stripe, ESP, analytics) hold copies of the same data.
+
+**When NOT to apply**
+- Anonymous / pseudonymous-only datasets with no link to a natural person.
+- B2B contracts where erasure obligations sit with the customer's controller, not us — document the carve-out in an ADR.
+- Pre-launch internal tooling with no real-user data.
+
+**Halt conditions / mandatory cites**
+- Cite `ai/compliance/pii-inventory.yaml` and at least one `Exporter` + `Deleter` implementation at `<path:line>`. Inventory absent = halt.
+- Cite the coverage test that walks the inventory and asserts wired exporters/deleters at `<path:line>`. Manual review only = halt.
+- Cite the sub-processor notification path at `<path:line>` (Stripe, ESP, analytics deletion calls). "We'll email them" = halt.
+- Cite retention sweep / hard-delete cron at `<path:line>`. Soft-delete with no purge job = halt.
+- Grep ban: "GDPR is handled" without `<path:line>` references for inventory + exporter + deleter + sub-processor + retention.
+
 ## Why
 
 Right of access (Art 15) and right to erasure (Art 17) are not optional. Implement them once, properly, in a way that survives schema growth — not as a one-off endpoint someone forgets to update.

@@ -7,6 +7,25 @@ pack: infrastructure
 
 # Pattern: Zero-Downtime Deploys
 
+> **Hard rule** — DB migrations follow expand-contract over multiple deploys; old + new versions must run simultaneously without breaking. Readiness probes gate traffic; graceful shutdown drains in-flight requests on SIGTERM. Deploy without readiness probe or migration that breaks N-1 is forbidden.
+
+**When to apply**
+- Service receives real user traffic and downtime is measurable in revenue or SLO breach.
+- Schema changes accompany code changes — expand-contract is mandatory.
+- High-risk releases where instant rollback is part of the success criteria.
+
+**When NOT to apply**
+- Internal tool with planned maintenance windows and explicit downtime SLA.
+- Stateless cron / batch job with no online consumers.
+- Big-bang migrations explicitly approved with downtime announcement.
+
+**Halt conditions / mandatory cites**
+- Cite the readiness probe config as `<path:line>` (`/ready` endpoint + handler) before claiming zero-downtime; missing probe is a halt.
+- Cite the migration phase script per step (expand → backfill → contract) as `<path:line>` for renames / NOT-NULL adds; single-shot breaking migrations are forbidden.
+- Cite the SIGTERM handler as `<path:line>` proving graceful drain (close server, finish jobs, end DB pool); ungraceful shutdown is a halt.
+- Cite the rollback runbook (`ai/runbooks/rollback-<service>.md`) by path; rollback designed after the fact is a halt.
+- Hand-wave grep ban — never claim "all migrations are backward-compatible" without citing the migration directory listing + lint rule.
+
 Users don't care that you shipped. They notice when you break. Every deploy strategy has tradeoffs.
 
 ## Strategies

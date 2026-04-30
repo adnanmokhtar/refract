@@ -7,6 +7,24 @@ pack: distributed-systems
 
 # Pattern: Transactional Outbox
 
+> **Hard rule:** Domain write and event row are inserted in the SAME database transaction; a separate relay process publishes from the outbox table with at-least-once delivery and consumer-side idempotency. Publishing directly from the request path, dual-writes across two stores, or "we'll just publish after commit" is forbidden.
+
+**When to apply**
+- A write must produce an event consumed by another service or projection.
+- You need at-least-once delivery and atomicity between DB state and the published event.
+- Existing dual-writes have caused drift between DB state and the message bus.
+
+**When NOT to apply**
+- Single-process system where the consumer reads from the same DB — query directly.
+- A use-case where lossy fire-and-forget is acceptable (analytics breadcrumbs, soft signals).
+
+**Halt conditions / mandatory cites**
+- The outbox table schema MUST be cited at `<path:line>` AND its primary key + status column.
+- The relay/publisher process MUST be cited (cron, CDC, polling worker) AND its at-least-once guarantee.
+- A doc proposing publish-then-commit or commit-then-publish without a relay is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is atomic".
+- If the consumer's idempotency key handling isn't extracted, halt — at-least-once requires consumer dedup.
+
 Guarantees that a DB write AND an event publish happen atomically. Solves the classic "wrote to DB but crashed before publishing" bug.
 
 ## The problem

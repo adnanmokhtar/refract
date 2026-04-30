@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Search indexing strategy (write-time async via queue)
 
+> **Hard rule** — DB write + outbox row in ONE transaction; indexer worker upserts by stable `id`; every tenant-scoped query goes through `TenantScopedSearchClient` which appends `tenant_id = "..."` to the filter. Engine outage degrades to a DB-FTS fallback through a circuit breaker.
+
+**When to apply**
+- Catalog / document search where typo tolerance, faceting, or multi-language tokenization matters.
+- Multi-tenant search where a forgotten filter = data leak.
+- Workloads where engine downtime must not break browse/search end-to-end.
+
+**When NOT to apply**
+- < 1M docs with simple `LIKE` queries — Postgres FTS is enough; skip the extra service.
+- Internal admin search across all tenants — explicit admin client, not the scoped one.
+- Ephemeral data (logs, analytics) — different engine class (Elasticsearch / OpenSearch / ClickHouse).
+
+**Halt conditions / mandatory cites**
+- Cite the outbox-based indexing trigger at `<path:line>`. Sync `engine.addDocuments()` in HTTP handler = halt.
+- Cite the `TenantScopedSearchClient.search()` filter injection at `<path:line>`. Raw engine SDK in feature code = halt.
+- Cite the `toSearchDoc()` allowlist (no PII / cost / supplier fields) at `<path:line>`. Spreading the entity = halt.
+- Cite the circuit breaker + DB-FTS fallback at `<path:line>`. Engine-down = product-down without it.
+- Grep ban: "search works" without file:line for indexer, scoped client, ranking config, and fallback.
+
 DB writes commit first; an outbox-driven worker indexes to the search engine; queries hit the engine through a tenant-scoped wrapper; engine outage degrades to a DB fallback.
 
 ## Decision summary

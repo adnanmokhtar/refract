@@ -7,6 +7,24 @@ pack: migration
 
 # Pattern: Migration ledger (state machine + record format)
 
+> **Hard rule:** Every V1→V2 feature has exactly one ledger row that transitions through the documented state machine; the ledger update is part of the same PR as the work it records. Verbal status, "I'll update it after merge", and rows without owner / V1 commit hash / parity-run ID are forbidden.
+
+**When to apply**
+- A migration spans more than 2 features or > 1 sprint — informal tracking will drift.
+- Multiple engineers / agents will touch ports concurrently — the ledger is the source of coordination.
+- Phase gates require an audit trail (parity evidence, perf decisions, cutover stages).
+
+**When NOT to apply**
+- A one-shot single-file refactor with no V1/V2 cohabitation — overhead exceeds value.
+- A spike / throwaway exploration where outputs won't ship.
+
+**Halt conditions / mandatory cites**
+- Every state transition MUST cite the PR / commit at `<path:line-or-sha>` AND the evidence file (parity-run, perf-decision, cutover dashboard).
+- A row missing V1 commit hash, owner, or current state is a bug — reject the PR until filled.
+- A doc that updates the ledger without the underlying work merged is a bug.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this feature is done".
+- If the ledger path or state-machine definition isn't extracted, halt before transitioning rows.
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Migration`.
 >
 > - **Ledger path**: `ai/migration/ledger.md` (default; override only with strong reason)

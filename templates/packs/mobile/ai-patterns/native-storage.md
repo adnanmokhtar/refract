@@ -7,6 +7,24 @@ pack: mobile
 
 # Pattern: Native storage
 
+> **Hard rule:** Each data class maps to exactly one storage primitive based on its security + size + query needs (Keychain/EncryptedSharedPreferences for secrets; MMKV/AsyncStorage/UserDefaults for KV preferences; SQLite/Realm/Room/Core Data for relational). Storing tokens in plaintext key-value, secrets in unencrypted DB, or large blobs in Keychain is forbidden.
+
+**When to apply**
+- The app stores any auth token, refresh token, biometric secret, or PII at rest.
+- Local cache > 1MB or queryable structured data is needed (search, filter).
+- A new data class is being added — pick the primitive with the security/perf tradeoff explicit.
+
+**When NOT to apply**
+- Ephemeral in-memory state cleared on app close — no persistence needed.
+- A pure web wrapper where the WebView's storage is the system of record.
+
+**Halt conditions / mandatory cites**
+- Each storage call MUST cite the primitive + class at `<path:line>` AND the encryption guarantee.
+- Secrets MUST cite the platform secure-enclave API (Keychain Services, Android Keystore) — never plain shared prefs / NSUserDefaults.
+- A doc proposing AsyncStorage / UserDefaults for tokens is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is encrypted".
+- If the chosen primitives + their encryption posture aren't extracted, halt.
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Mobile`.
 >
 > - **Storage primitives in use**: `<MMKV / AsyncStorage / Keychain / EncryptedSharedPreferences / Realm / SQLite / Core Data / Room>`

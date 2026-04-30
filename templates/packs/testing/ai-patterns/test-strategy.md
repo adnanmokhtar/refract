@@ -7,6 +7,25 @@ pack: testing
 
 # Pattern: Test Strategy
 
+> **Hard rule** — Every layer (unit / integration / E2E) has a documented speed budget and scope; tests live at the lowest layer that meaningfully covers the behaviour. Flaky tests are bugs — quarantine within 24h, fix or delete; never retry-loop them.
+
+**When to apply**
+- Codebase will be maintained beyond one quarter and CI runtime is part of dev experience.
+- Bug ships that "tests covered" because the test was a tautology — strategy needs a reset.
+- New features take longer to test than to write — pyramid balance is wrong.
+
+**When NOT to apply**
+- 200-LOC throwaway script — a single happy-path E2E may suffice.
+- Pure exploratory spike with explicit discard date.
+- Library that's already mature and barely changes — extending strategy adds churn.
+
+**Halt conditions / mandatory cites**
+- Cite the layer's speed budget config as `<path:line>` (jest config / playwright config) before adding tests in that layer; budget-less layers are a halt.
+- Cite the tenant-isolation test for any new repo / service touching tenant data as `<path:line>`; multi-tenant code without an isolation test is a halt.
+- Cite the regression test alongside any bug fix PR — `<path:line>` for the failing-then-fixed test; fix-without-test is a halt.
+- Cite the flake quarantine list (`ai/runbooks/flaky-tests.md` or equivalent) when re-enabling a quarantined test; silent re-enable is forbidden.
+- Hand-wave grep ban — never claim "covered by E2E" without citing the specific spec file `<path:line>`.
+
 Tests have a cost (write time, run time, maintenance). They have a value (regression prevention, design pressure, documentation). The strategy is matching the right kind of test to the right concern, in the right ratio, so the value/cost ratio stays positive as the codebase grows.
 
 ## Context

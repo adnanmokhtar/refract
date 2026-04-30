@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Presigned upload (direct-to-S3)
 
+> **Hard rule** — Presigned policy MUST include `content-length-range` + `eq $Content-Type` + SSE; actual content type is sniffed post-upload before marking ready; scan + variants run async. No backend that proxies multi-MB user uploads through Node memory.
+
+**When to apply**
+- User uploads > 1 MB where backend bandwidth/memory becomes user-facing latency.
+- Image/document/video flows that need server-side size caps and async processing.
+- Multi-tenant SaaS where files are per-tenant and ACL'd on download.
+
+**When NOT to apply**
+- Tiny files (avatars < 1 MB) where simpler server-proxy is acceptable.
+- Compliance-critical flows that demand inline PII redaction at ingress (route through backend, cap at low size).
+- Files > 5 GB — switch to multipart upload protocol.
+
+**Halt conditions / mandatory cites**
+- Cite `content-length-range` + `eq $Content-Type` + SSE conditions in the presign call at `<path:line>`. Missing any condition = halt.
+- Cite the post-upload type sniff (`file-type` / magic bytes) at `<path:line>`. Trusting declared MIME = halt.
+- Cite the scan-before-ready transition at `<path:line>`. Marking ready directly on upload completion = halt.
+- Cite the download URL signer with TTL ≤ 10 min and tenant ACL check at `<path:line>`. Public bucket or long TTL = halt.
+- Grep ban: "users upload files" without file:line for presign conditions, sniff, scan, and ACL'd download.
+
 Client gets a presigned URL → uploads direct to S3 → backend gets webhook on completion → processes asynchronously → marks file ready. Backend never sees the file body.
 
 ## Decision summary

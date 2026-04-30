@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Feature flags (lifecycle + SDK + cleanup)
 
+> **Hard rule** — Every flag has owner + sunset date + a default that is the SAFE behaviour when the SDK fails; eval is wrapped in try/catch returning the default; flags are NEVER used for authorization, compliance, or tenant isolation.
+
+**When to apply**
+- Gradual rollout, A/B experiment, kill-switch, regional behaviour toggle, tenant-scoped beta.
+- Decoupling deploy from release for a risky migration.
+- Operational rollback toggle for a new code path running in parallel with legacy.
+
+**When NOT to apply**
+- Authorization or permission gates — use roles/policies; SDK failure must not unlock or lock data.
+- Compliance/regulatory gating (EU vs non-EU, age gates) — use region/account config, not a remote toggle.
+- Per-tenant plan config — that's data, not a flag; live in the DB with a typed plan model.
+
+**Halt conditions / mandatory cites**
+- Cite the `FlagService` interface + adapter at `<path:line>`. Direct vendor SDK calls in feature code = halt.
+- Cite the try/catch + default return at `<path:line>`. Unhandled SDK throw = halt.
+- Cite the flag owner + sunset metadata (dashboard or `flags.yaml`) at `<path:line>`. No sunset = halt.
+- Cite the cleanup PR pattern (dead branch removal) at `<path:line>` for any flag at 100% > 7 days. Drift between code flags and dashboard = halt.
+- Grep ban: "the flag protects this" without a file:line showing eval site + default + owner.
+
 ## Why
 
 Flags decouple deploy from release. A flag is the right tool for: gradual rollout, A/B experiment, kill-switch, tenant-scoped beta, regional behavior toggle.

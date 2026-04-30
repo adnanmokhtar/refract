@@ -7,6 +7,24 @@ pack: migration
 
 # Pattern: Parity testing (V1 ↔ V2)
 
+> **Hard rule:** V2 is gated against a pinned V1 commit hash via golden-master, record-replay, property-based, or dual-write audit suites — never via "I read both files and they look equivalent." Tolerance per assertion is explicit; "approximately equal" without a numeric bound is forbidden.
+
+**When to apply**
+- A feature has been ported from V1 and is moving to phase 4 of `feature-port`.
+- Cutover stages (shadow, canary) need an automated regression detector.
+- A V1 bug is being intentionally NOT preserved — the test asserts the new (correct) behavior with an ADR cite.
+
+**When NOT to apply**
+- Pure additive features that exist only in V2 — there's no V1 oracle to compare against; use ordinary unit/integration tests.
+- V1 has no observable output you can capture (pure side effects without telemetry) — first add capture, then test.
+
+**Halt conditions / mandatory cites**
+- Every parity test MUST cite the pinned V1 commit hash AND the contract file at `<path:line>`.
+- Tolerance values (currency cents, latency ms, float epsilon) MUST be cited per assertion or in the contract.
+- A doc claiming "V1 and V2 are equivalent" without a green parity run is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden in parity assertions.
+- If the test framework, snapshot directory, or fixture source isn't extracted, halt before writing tests.
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Tests` + `§ Migration`. Do not delete; if extraction is empty, leave the placeholder + open a TODO.
 >
 > - **Test framework**: `<extracted>` (e.g., Jest / Vitest / Pytest / RSpec / Go test / JUnit / xUnit)

@@ -7,6 +7,24 @@ pack: observability
 
 # Pattern: Metrics (RED + USE + Business)
 
+> **Hard rule:** Every service exports RED (Rate, Errors, Duration) per endpoint, USE (Utilization, Saturation, Errors) per resource, and ≥1 business KPI. Metric names are stable and namespaced; cardinality is bounded (no user IDs, request IDs, or unbounded labels in tags).
+
+**When to apply**
+- A service handles non-trivial production traffic and on-call needs to detect regressions before customers.
+- A new endpoint or background worker is added — RED metrics are part of the definition of done.
+- A KPI (orders/min, signups/hr) is the leading signal product cares about.
+
+**When NOT to apply**
+- A short-lived script or one-off batch job — exit code + log line is enough.
+- Local dev tooling — metrics infrastructure adds cost without value.
+
+**Halt conditions / mandatory cites**
+- Each metric MUST cite the emit site at `<path:line>` AND the dashboard / alert that consumes it.
+- Each label set MUST cite its cardinality bound — no `user_id`, `request_id`, or unbounded enums.
+- A doc proposing a new metric without a dashboard or alert that uses it is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is observable".
+- If the metric backend (Prometheus, Datadog, OTel collector) isn't extracted, halt.
+
 Numerical time series describing how the system is behaving — request rates, queue depths, business KPIs. Metrics are cheaper than logs (one number per minute vs one log line per request), aggregate naturally, and form the backbone of dashboards + alerts. Without them, you find out something's broken from a customer email.
 
 ## Context

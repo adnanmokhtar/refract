@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Multi-channel notification dispatch
 
+> **Hard rule** — `NotificationService.send()` is the ONLY entry point; preference + suppression + rate-limit middleware run before any provider call; transactional and marketing traffic use SEPARATE ESPs / IP pools / domains. No `import { ses }` outside `infrastructure/providers/`.
+
+**When to apply**
+- Multi-channel product (email + SMS + push + in-app + WhatsApp) where users control preferences.
+- Marketing + transactional traffic share a codebase but must NOT share deliverability reputation.
+- Compliance regimes (CAN-SPAM / TCPA / GDPR) that require opt-out, suppression, and unsub headers.
+
+**When NOT to apply**
+- Single-channel transactional-only flows (one ESP, no marketing) — simpler direct path with idempotency.
+- Internal alerts to ops chat — go straight to PagerDuty/Slack; no preference logic.
+- Critical security events that MUST bypass preferences (password reset) — document explicitly, never auto-fallback marketing.
+
+**Halt conditions / mandatory cites**
+- Cite the `NotificationService.send()` entry point + its preference/suppression/rate-limit middleware at `<path:line>`. Direct provider calls in feature code = halt.
+- Cite separated ESP routing (transactional vs marketing) at `<path:line>`. One ESP for all = deliverability halt.
+- Cite the `List-Unsubscribe` header + suppression list write on hard bounce at `<path:line>`. Missing = halt.
+- Cite the webhook signature verification (SES/SNS, Twilio, FCM) at `<path:line>`. Unverified webhooks = halt.
+- Grep ban: "we send notifications" without file:line for entry point, preferences, suppression, rate limit, and provider webhook verifier.
+
 Single send API → routes to channels based on user preference + notification type → per-channel adapter handles provider specifics → preference / dedup / rate-limit middleware fail-closed → providers separated by category for deliverability.
 
 ## Decision summary

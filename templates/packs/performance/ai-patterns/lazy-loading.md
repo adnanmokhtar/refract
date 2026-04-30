@@ -7,6 +7,25 @@ pack: performance
 
 # Pattern: Lazy loading
 
+> **Hard rule** — Lazy-load only after measuring; never lazy above-the-fold images, critical CSS, or auth checks. Every lazy primitive ships with a placeholder that preserves layout (width/height or aspect-ratio) and a documented failure fallback.
+
+**When to apply**
+- A measured chunk / module is ≥ ~50 KB and not used on the critical path.
+- Below-the-fold images, off-screen videos, modal contents that aren't always opened.
+- Third-party scripts (chat widget, analytics) that can wait for idle / interaction.
+
+**When NOT to apply**
+- Above-the-fold hero images — defers LCP and tanks perceived performance.
+- Tiny modules (< 5 KB) — splitting overhead outweighs savings.
+- Auth check / boot data — flash of unauthenticated UI is worse than the load cost.
+
+**Halt conditions / mandatory cites**
+- Cite the bundle-size measurement (`<path>` of bundle-analyzer output or `/bundle-perf` run) before proposing a split; lazy without measurement is a halt.
+- Cite the placeholder component as `<path:line>` before lazy-loading any element with a layout footprint; missing width/height is a CLS halt.
+- Cite the failure fallback path as `<path:line>` for any dynamic import; "module load fails, UI stuck" is forbidden.
+- Cite the LCP / perf budget doc as `<path>` before deferring anything in the LCP element's tree; halt if uncited.
+- Hand-wave grep ban — never claim "no lazy hero images" without citing the lint rule or grep artifact.
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Stack`.
 >
 > - **Code splitting strategy**: `<route-based / feature-based / vendor-split>`

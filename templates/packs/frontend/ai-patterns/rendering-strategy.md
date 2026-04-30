@@ -7,6 +7,24 @@ pack: frontend
 
 # Pattern: Rendering Strategy
 
+> **Hard rule:** Pick ONE rendering strategy per route (SSG, SSR, ISR, CSR, streaming) and document why. Mixing strategies in a single route or silently changing one without measuring TTFB / LCP impact is forbidden.
+
+**When to apply**
+- A new route is being added and the choice (SSG vs SSR vs CSR vs streaming) materially changes performance, SEO, or freshness guarantees.
+- An existing route's Core Web Vitals regress and the cause is rendering choice (e.g., CSR for an SEO page).
+- Adding a personalized section to a previously static page — the whole route's strategy must be reconsidered.
+
+**When NOT to apply**
+- Internal admin tools behind auth with no SEO and no perf SLO — CSR is fine, document and move on.
+- A short-lived experiment where measuring rendering tradeoffs costs more than shipping.
+
+**Halt conditions / mandatory cites**
+- The chosen strategy MUST cite the route file at `<path:line>` AND the metric (LCP, TTFB, freshness window) it optimizes.
+- Any "ISR with revalidate=N" choice MUST cite the staleness tolerance from product, not a guess.
+- A doc proposing strategy change without before/after Core Web Vitals numbers is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when classifying a route.
+- If the framework's actual rendering primitive (App Router vs Pages, Nuxt 3 mode, etc.) isn't extracted, halt.
+
 Pick ONE per route. Mixing without understanding = slow, broken, or unshippable.
 
 ## The options

@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Queue producer + consumer (BullMQ reference)
 
+> **Hard rule** — Producers enqueue via the outbox inside the same DB transaction as the state change; workers are idempotent, bounded, observable, and distinguish poison (`UnrecoverableError`) from retryable errors. No direct `queue.add()` next to a DB write.
+
+**When to apply**
+- Any side-effect (email, webhook, external API, fanout) that must survive a crash after DB commit.
+- Long-running work that exceeds an HTTP request budget.
+- Per-tenant fairness or rate-limited external calls.
+
+**When NOT to apply**
+- Sub-100ms in-process work with no external side effect — just call the function.
+- Fire-and-forget metrics where loss is acceptable — use a metrics pipeline, not a job queue.
+- Synchronous user-facing responses (jobs aren't request/response).
+
+**Halt conditions / mandatory cites**
+- Show the producer transaction + outbox row insert at `<path:line>`. A bare `queue.add()` next to `repo.save()` = halt.
+- Cite the worker's idempotency check (`if (alreadyDone) return;`) at `<path:line>`. No "the ESP dedups for us" without the idempotency-key cite.
+- Cite `attempts`, `backoff`, and `removeOnFail` config at `<path:line>`. Defaults = halt.
+- Cite tenant-fair limiter or per-tenant queue at `<path:line>` for any multi-tenant queue. Globally-shared concurrency without fairness = halt.
+- Grep ban: "workers retry, it's fine" with no file:line for the retry config or DLQ inspection path.
+
 End-to-end pattern for declaring a queue, enqueuing jobs transactionally, and consuming them with retry / DLQ / tenant-fair / observable workers.
 
 ## Decision summary

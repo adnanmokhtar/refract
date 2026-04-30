@@ -7,6 +7,24 @@ pack: mobile
 
 # Pattern: Deep linking
 
+> **Hard rule:** Every entry-point URL (custom scheme, universal/App Link, push payload) maps to ONE route resolver that validates auth state, locale, and parameters before navigating. Direct `navigation.navigate()` from a deep-link handler bypassing the resolver, or unsafe params (open-redirect-style URLs from a notification) is forbidden.
+
+**When to apply**
+- The app receives universal links / App Links and a marketing channel can craft URLs.
+- Push notifications carry a `route` or `target` payload that opens specific screens.
+- A new screen ships and needs to be reachable from outside the app (email, SMS, share sheet).
+
+**When NOT to apply**
+- An internal-only app with no external entry points beyond the launcher icon.
+- A throwaway prototype where deep-link verification cost exceeds value.
+
+**Halt conditions / mandatory cites**
+- Each deep-link route MUST cite the resolver entry at `<path:line>` AND the platform manifest (Info.plist, AndroidManifest, AASA, assetlinks.json).
+- Auth-gated routes MUST cite the auth check that precedes navigation.
+- A doc proposing direct navigation from a notification handler without going through the resolver is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "all entry points are covered".
+- If the universal-link domain verification (AASA, assetlinks.json) isn't extracted, halt.
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Mobile`.
 >
 > - **Deep-link scheme**: `<app://>`

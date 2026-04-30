@@ -7,6 +7,24 @@ pack: backend
 
 # Pattern: Error Handling
 
+> **Hard rule:** Domain code throws typed `DomainError` subclasses with stable `code` values; ONE global mapper translates them to HTTP/gRPC; raw `throw new Error("...")` is forbidden in services/domain. Stack traces, English-prose matching, and double-logging never cross the wire.
+
+**When to apply**
+- The API has more than ~5 endpoints and error variety is no longer trivially enumerable.
+- Frontends or partners need programmatic distinction between failure classes (field error vs toast vs redirect).
+- You ship in multiple locales and need `code`-driven translations.
+
+**When NOT to apply**
+- A 100-line script with one happy path and one error class — the ceremony costs more than it saves.
+- Internal-only RPC where caller and callee share a generated error union and CI blocks divergence.
+
+**Halt conditions / mandatory cites**
+- Any new error case MUST cite the throw site at `<path:line>` AND the mapper row that translates it.
+- A new HTTP status MUST cite the status-mapping table row or extend the table in the same PR.
+- A doc that proposes "log + throw" or "catch + return null" is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when classifying an error as 4xx vs 5xx.
+- If the global mapper isn't wired (extract its location), halt before adding more error types.
+
 Typed domain errors flow up; one global mapper translates them to HTTP/gRPC/etc. Generic `throw new Error("...")` is a leak — it loses semantics, leaks stack traces, breaks i18n, and makes API consumers parse English prose to detect specific failures.
 
 ## Context

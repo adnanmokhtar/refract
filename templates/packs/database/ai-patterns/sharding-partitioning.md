@@ -7,6 +7,24 @@ pack: database
 
 # Pattern: Sharding + Partitioning
 
+> **Hard rule:** Sharding is last-resort scaling — vertical scaling, read replicas, and caching MUST be exhausted first with measurements. The shard key is chosen for query locality (most queries land on one shard), is immutable per row, and is documented as the system's hardest design constraint forever.
+
+**When to apply**
+- A single primary cannot keep up with write throughput even at the largest available instance size.
+- Hot-table size exceeds what fits in RAM and read replicas no longer relieve the primary.
+- Regulatory data residency forces per-region partitions.
+
+**When NOT to apply**
+- Read scaling is the bottleneck — replicas + caching are cheaper and reversible.
+- Workload has no natural shard key (queries span all rows uniformly) — sharding makes things worse.
+
+**Halt conditions / mandatory cites**
+- The proposal MUST cite the saturation evidence (CPU, IOPS, replication lag) at the dashboard URL.
+- The shard key MUST cite the top-N query patterns at `<path:line>` and show how each lands on one shard.
+- A doc proposing sharding without prior replica/caching measurements is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "we've outgrown one DB".
+- If cross-shard query handling + resharding plan aren't extracted, halt.
+
 Last-resort scaling. Try vertical scaling + read replicas + caching first. Sharding is operationally expensive forever.
 
 ## Partitioning vs Sharding

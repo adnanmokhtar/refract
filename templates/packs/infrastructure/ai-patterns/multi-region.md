@@ -7,6 +7,24 @@ pack: infrastructure
 
 # Pattern: Multi-region
 
+> **Hard rule** — Multi-region is a forced choice (DR, residency, latency, capacity), not a default. Untested DR is no DR; failover is drilled at least quarterly with a recorded RTO/RPO measurement. Conflict-resolution policy is declared per data store — silent last-write-wins on bidirectional replication is forbidden.
+
+**When to apply**
+- Region-level outage tolerance is contractually required (MSA, regulator).
+- Data residency law forces per-region tenant partitioning.
+- Edge cache + single-region origin has been exhausted and global users still complain.
+
+**When NOT to apply**
+- Pre-PMF or < $10M ARR B2B SaaS — single region with cross-AZ HA covers 99.9%+.
+- Latency complaints from a few users — try CDN / edge cache first.
+- Team has no working backup-restore drill — fix single-region resilience BEFORE multiplying regions.
+
+**Halt conditions / mandatory cites**
+- Cite the last successful DR drill record as `<path>` (date + measured RTO/RPO); > 90 days stale is a halt.
+- Cite the conflict-resolution policy as `<path:line>` per replicated store (CRDT, last-write-wins config, per-tenant primary); unstated policy is a halt.
+- Cite the cross-region egress cost projection as `<path>` before promoting to active-active; egress can dwarf compute and surprise budgets.
+- Cite the failover runbook (`ai/runbooks/failover-<region>.md`) by path; absent runbook = passive forever.
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Infrastructure`.
 >
 > - **Current topology**: `<single-region | active-passive | active-active | per-region tenants>`

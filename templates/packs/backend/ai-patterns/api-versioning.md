@@ -7,6 +7,24 @@ pack: backend
 
 # Pattern: API Versioning
 
+> **Hard rule:** Breaking changes within a live version are forbidden. When a break is unavoidable, ship a new version path alongside the old one with a published Sunset date, track per-consumer traffic, and remove the old version only after sustained near-zero usage past sunset.
+
+**When to apply**
+- A change falls in the "Breaking" list (remove/rename/retype field, tighten validation, change error shape, change semantics).
+- A schema migration changes wire shape and you cannot map old↔new transparently.
+- You need to deprecate an endpoint while N-1 clients still call it.
+
+**When NOT to apply**
+- Pure additive changes (new optional field, new endpoint, new enum value with documented fallback) — bump nothing.
+- You have no consumers yet and can refactor freely; document the call but don't pre-version.
+
+**Halt conditions / mandatory cites**
+- Any proposed version bump MUST cite the breaking change at `<path:line>` (the field, the validator, the error code).
+- Any "we can do this in v1" claim MUST cite the evolution-rules row that allows it.
+- A deprecation plan without a Sunset date + per-consumer traffic dashboard cite is a bug.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden.
+- If the project's existing version-routing scheme isn't extracted, halt before proposing v2.
+
 You'll have multiple consumers (web, mobile, integrations). They won't upgrade together. Plan for it from day 1.
 
 ## Strategy options

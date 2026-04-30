@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: WebSocket gateway + Redis pub/sub fanout
 
+> **Hard rule** — Auth is verified on connect (header / short-lived ticket, NEVER URL query token); every `subscribe` is ACL-checked against `(tenantId, channel)`; cross-node fanout goes through Redis adapter, never in-process EventEmitter. Producers call `NotifyService`, never `io.emit()`.
+
+**When to apply**
+- Bidirectional real-time UX (chat, collab, live dashboards) across multiple Node processes/pods.
+- Tenant-scoped channels where leaks cross security boundaries.
+- Session-resume requirements on reconnect (replay missed messages).
+
+**When NOT to apply**
+- One-way server push only — use SSE, simpler ops + auto-reconnect.
+- Single-process toy app — don't pull in Redis adapter prematurely.
+- High-throughput peer media (gaming, voice) — WebRTC data channel, not WS fanout.
+
+**Halt conditions / mandatory cites**
+- Cite `handleConnection` auth verification at `<path:line>`. Token in URL query = halt.
+- Cite the `ChannelAclService.canSubscribe()` check on every subscribe at `<path:line>`. Trusting channel name = halt.
+- Cite the Redis adapter wiring (`createAdapter(pub, sub)`) at `<path:line>` for any multi-node deploy. In-process emit = halt.
+- Cite the slow-consumer disconnect / bounded buffer at `<path:line>`. Unbounded outbound = OOM.
+- Grep ban: "WS works in prod" without file:line for auth, ACL, Redis adapter, and slow-consumer handling.
+
 NestJS WebSocket gateway with auth-on-connect, scoped subscribe, Redis pub/sub for cross-node fanout, bounded backpressure, session-resume on reconnect.
 
 ## Decision summary

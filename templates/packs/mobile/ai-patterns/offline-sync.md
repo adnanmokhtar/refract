@@ -7,6 +7,24 @@ pack: mobile
 
 # Pattern: Offline sync
 
+> **Hard rule:** Every offline-tolerant write goes through a persistent mutation queue with a documented conflict-resolution policy (server-wins, client-wins, version-vector, manual-merge); reads serve the local cache first, then revalidate. Fire-and-forget writes that lose state on app kill, or "we'll just retry on reconnect" without idempotency keys, are forbidden.
+
+**When to apply**
+- The product promises offline use (field service, travel, transit, low-connectivity markets).
+- Mutation latency is user-visible and the network is unreliable.
+- The same record can be edited by multiple devices and conflicts are real.
+
+**When NOT to apply**
+- A pure-online app behind a captive auth flow where offline is unsupported by product.
+- A read-only catalog where stale data is acceptable and a simple cache suffices.
+
+**Halt conditions / mandatory cites**
+- Each queued mutation MUST cite the queue persistence + idempotency key at `<path:line>`.
+- The conflict-resolution policy MUST be cited explicitly per entity — no global default by accident.
+- A doc proposing in-memory-only queues or unkeyed retries is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this works offline".
+- If the persistence layer + background-sync mechanism aren't extracted, halt.
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Mobile`.
 >
 > - **Offline strategy in use**: `<extracted: cache-only | last-write-wins | event-sourced | CRDT>`

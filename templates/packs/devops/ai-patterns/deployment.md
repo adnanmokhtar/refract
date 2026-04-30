@@ -7,6 +7,25 @@ pack: devops
 
 # Pattern: Deployment
 
+> **Hard rule** — Every deploy is from an immutable artifact, reversible by one command, and gated by automated smoke tests on staging. Hand-edits on prod, `:latest` tags, and Friday-afternoon prod deploys (without explicit override) are forbidden.
+
+**When to apply**
+- Service has a separate staging environment that mirrors prod topology.
+- Migration vs code ordering is declared per change (BEFORE-code or AFTER-code).
+- Rollback can complete within an SLO-relevant time window.
+
+**When NOT to apply**
+- Local dev only, no remote target.
+- One-off scripts run by hand with no audit requirement.
+- Greenfield project before any environment exists — set up environments first.
+
+**Halt conditions / mandatory cites**
+- Cite the rollback runbook as `<path>` (`ai/runbooks/rollback.md`) before promoting to prod; missing runbook is a halt.
+- Cite the migration ordering declaration in the PR / ADR as `<path:line>` for any schema change; "TBD ordering" is a halt.
+- Cite the secrets-manager binding as `<path:line>` for any new env var; secrets in `.env` shipped to prod is forbidden.
+- Cite the `/ready` health-check handler as `<path:line>` before traffic is shifted; if missing, halt.
+- Hand-wave grep ban — never claim "no manual prod changes" without citing the audit-log query or change-management record path.
+
 Zero-downtime. Reversible. Automated. No hand-edits on prod.
 
 ## Pipeline

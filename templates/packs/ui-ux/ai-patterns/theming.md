@@ -7,6 +7,25 @@ pack: ui-ux
 
 # Pattern: Theming
 
+> **Hard rule** — Components reference semantic CSS custom properties only; theme variants live as `[data-theme]` / `[data-tenant]` blocks on `<html>`. Per-component theme props (`<Button isDark />`) and per-theme bundles are forbidden.
+
+**When to apply**
+- Product needs light + dark switchable at runtime without reload.
+- Multi-tenant SaaS where tenants self-serve brand color, logo, optional fonts.
+- Accessibility variants (high-contrast, reduced motion) are required or roadmapped.
+
+**When NOT to apply**
+- Single static theme with no realistic plan for variants — static CSS is faster.
+- Components leaking framework classes as props (Tailwind class strings) — fix the leak first.
+- No SSR plan — flash-of-wrong-theme will dominate the user's first impression.
+
+**Halt conditions / mandatory cites**
+- Cite the token layer file as `<path:line>` (e.g. `src/styles/theme.css:1`) before adding a new variant; missing layer is a halt.
+- Cite the SSR inline-script location as `<path:line>` proving FOWT is prevented; without it, theming claims are incomplete.
+- Cite the persistence wiring (localStorage + server) as `<path:line>`; localStorage-only is a halt for logged-in users.
+- Cite the visual-regression matrix (themes × locales × pages) as `<path:line>`; hand-waving "we test in both themes" is forbidden.
+- Hand-wave grep ban — never claim "no hex literals in components" without the grep artifact path or stylelint rule cited.
+
 One codebase, N visual variants — light/dark, brand-per-tenant, accessibility contrast modes — without forking components or rebuilding bundles. The technique is a layer of indirection: components reference semantic tokens (CSS custom properties), and a single attribute on `<html>` swaps the values.
 
 ## Context

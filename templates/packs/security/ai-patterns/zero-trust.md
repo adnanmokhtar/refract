@@ -7,6 +7,25 @@ pack: security
 
 # Pattern: Zero-Trust Architecture
 
+> **Hard rule** — Every service boundary authenticates the caller; no boundary trusts the network. Long-lived API keys, "internal = trusted" assumptions, and shared credentials across environments are forbidden.
+
+**When to apply**
+- Multi-service architecture in cloud or hybrid environments.
+- Compliance regime (SOC2, ISO 27001, HIPAA, PCI) requires explicit auth between components.
+- Remote / hybrid workforce — VPN-as-perimeter is no longer a defensible boundary.
+
+**When NOT to apply**
+- Pre-PMF single-service prototype — Tier 1 essentials (TLS, MFA, secrets manager) only.
+- Static site with no backend secrets — most of zero-trust is overhead.
+- Air-gapped on-prem deployment with hardware perimeter — different threat model.
+
+**Halt conditions / mandatory cites**
+- Cite the workload-identity issuer (SPIFFE / IAM / K8s ServiceAccount config) as `<path:line>` before claiming service-to-service zero-trust; shared API keys are a halt.
+- Cite the secrets-manager binding as `<path:line>` (Vault policy file, IAM role, K8s SA); env-var secrets in code are forbidden.
+- Cite the row-level isolation rule as `<path:line>` (RLS policy SQL or repository base class); app-only filtering without DB defense-in-depth is a halt for tenant data.
+- Cite the audit-log emitter for privileged actions as `<path:line>`; privileged action without an audit row is a halt.
+- Hand-wave grep ban — never claim "no long-lived keys" without citing the rotation policy file or secret-scan CI rule.
+
 "Never trust, always verify." Perimeter security dies when apps go multi-service, cloud, remote. Zero trust assumes the network is hostile everywhere.
 
 ## Core principles

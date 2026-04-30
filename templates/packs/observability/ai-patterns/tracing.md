@@ -7,6 +7,24 @@ pack: observability
 
 # Pattern: Distributed Tracing (OpenTelemetry)
 
+> **Hard rule:** Every cross-service call propagates W3C trace context; spans wrap units of work with stable names, status codes, and bounded attributes. Sampling is decided at the edge (head-based) or via tail-based collector, not silently per-service. PII in span attributes is forbidden.
+
+**When to apply**
+- A request crosses ≥ 2 services and "where did the time go?" is hard to answer from logs alone.
+- A latency regression's root cause lives in an upstream you don't own (DB, third-party API).
+- An incident retro showed correlation IDs were missing or trace context broke at a boundary.
+
+**When NOT to apply**
+- A monolith with no outbound calls — RED metrics + structured logs cover the same ground cheaper.
+- A throughput-bound batch job where every span adds overhead — sample aggressively or skip.
+
+**Halt conditions / mandatory cites**
+- Each new span MUST cite its emit site at `<path:line>` AND the parent context it inherits.
+- Span attributes MUST cite their bounded value space — no `user.email`, `request.body`, raw payloads.
+- A doc that loses trace context across an async boundary (queue, worker) without explicit propagation is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is traced end-to-end".
+- If the OTel SDK + exporter + sampler config isn't extracted, halt.
+
 Follow a request across services. Find where time is spent + where errors originate.
 
 ## Concepts

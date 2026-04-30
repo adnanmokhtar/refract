@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: Multi-Tenancy (Request-Scoped Context)
 
+> **Hard rule** — `tenantId` is resolved server-side and propagated via `AsyncLocalStorage` (or equivalent); it is NEVER read from request body/query/header by feature code, NEVER passed as a controller arg from the client. A single leak = security incident.
+
+**When to apply**
+- Any system serving multiple tenants from shared infrastructure (DB, cache, queue, search).
+- Webhooks / cron jobs / queue workers that must operate under a specific tenant's context.
+- Internal admin tools that legitimately cross tenants — those use a SEPARATE explicit admin path.
+
+**When NOT to apply**
+- Single-tenant deployments (one customer, one DB) where `tenantId` is a constant — skip the ceremony.
+- Truly global data (countries, currencies, system enums) — `skipTenantPrefix: true` with a comment.
+- Pre-auth public endpoints (login, signup before tenant binding) — handle tenancy at resolution boundary.
+
+**Halt conditions / mandatory cites**
+- Cite the resolution chain (`TenantResolutionMiddleware` or webhook resolver) at `<path:line>`. No resolution = halt.
+- Cite `TenantContext.run()` wrapping every async entry point (HTTP handler, queue worker, cron) at `<path:line>`. Missing on any path = leak.
+- Cite the cross-tenant leak test for at least one repo at `<path:line>`. No test = halt.
+- Cite cache-key construction with tenant prefix at `<path:line>`. String-concat keys without prefix helper = halt.
+- Grep ban: "we filter by tenant" without file:line for resolver, context wrapper, repo filter, and leak test.
+
 Each request carries tenant identity through every layer. A single leak = security incident.
 
 ## Tenant resolution chain

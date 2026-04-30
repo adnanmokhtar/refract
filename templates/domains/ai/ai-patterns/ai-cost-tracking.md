@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: AI cost tracking
 
+> **Hard rule** — Record `input_tokens`, `output_tokens`, and `cost_usd` (computed at write time from a versioned pricing table) on every outbound model call. Never recompute cost on read; never trust client-supplied token counts.
+
+**When to apply**
+- Any product that calls an LLM provider on behalf of tenants/users.
+- Margin/pricing/abuse-detection decisions depend on per-call cost.
+- Pre-billing P1 phase where the data must accumulate before invoicing exists.
+
+**When NOT to apply**
+- Internal-only one-off scripts with no per-tenant accounting.
+- Calls where the provider already bills per fixed unit and tokens are irrelevant.
+- Embedded model usage (local inference) where cost is hardware time, not tokens.
+
+**Halt conditions / mandatory cites**
+- Show the pricing constants at `<path:line>` and the call site that reads them — refuse to ship if either is hand-waved.
+- Show the SDK response field (`usage.input_tokens`, `usage.output_tokens`) being read at `<path:line>`. No "we'll log it from middleware" without a cite.
+- Cite the column types for `input_tokens`, `output_tokens`, `cost_usd` at `<path:line>` (migration or entity). Float columns for cost = halt.
+- Cite where cost is summed for limits/reports at `<path:line>`. If only logs hold token data, halt — logs rotate.
+- Grep ban: do not approve "we track cost somewhere" without a concrete file:line for write + read.
+
 ## Why
 
 Claude calls are the single biggest variable cost of this product. We need per-message token + USD accounting from Day 1 — even before billing (P2) — so we can reason about margin, price, and detect runaway tenants.

@@ -7,6 +7,24 @@ pack: migration
 
 # Pattern: Feature port (V1→V2)
 
+> **Hard rule:** Each ported feature traverses the six phases (Understand → Plan → Port → Parity → Perf → Cutover) with one ledger row, a pinned V1 commit, and a green parity suite at every gate. Touching V1 during the port, copy-pasting V1 code into V2, or advancing cutover stages without parity evidence is forbidden.
+
+**When to apply**
+- A feature has been selected from the inventory and is moving from V1 to V2.
+- A previously-ported feature regressed and needs re-entry into the parity-test phase.
+- A new V2 module shape is being validated against a representative pilot feature.
+
+**When NOT to apply**
+- A V2-only feature with no V1 oracle — use ordinary scaffolding, not the port pattern.
+- A trivial config-only change with no behavioral surface — overhead exceeds value.
+
+**Halt conditions / mandatory cites**
+- Every phase output MUST cite its file at `<path:line>` (contract, plan, V2 implementation, parity test, perf decision, cutover ledger row).
+- Cutover stage advances MUST cite the parity-run ID + dashboard evidence in the ledger.
+- A PR that ports without updating the ledger in the same commit is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden in contracts and parity assertions.
+- If V1 root, V2 root, parity test root, or cutover mechanism aren't extracted, halt before phase 1.
+
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Migration`. Do not delete; if extraction is empty, leave the placeholder + open a TODO.
 >
 > - **V1 root**: `<extracted>` (e.g., `Reports/views.py`, `apps/web-v1/`, `legacy/`)

@@ -7,6 +7,24 @@ pack: frontend
 
 # Pattern: Forms
 
+> **Hard rule:** Pick ONE form library per repo with schema-driven validation; map server `code` → field error programmatically (never string-match English); every input has a label, every error has `aria-describedby`, and the submit button reflects pending/disabled state. Uncontrolled state, manual `useState` per field, or English-string error parsing in production forms is forbidden.
+
+**When to apply**
+- Forms have non-trivial validation (cross-field, async uniqueness, multi-step).
+- A form maps to a server DTO that returns `code` + `fieldErrors` from a typed error.
+- Accessibility audits or screen-reader compatibility are in scope.
+
+**When NOT to apply**
+- A single search input or one-off filter — controlled `useState` is fine.
+- A throwaway internal admin form behind auth with no a11y or i18n requirements.
+
+**Halt conditions / mandatory cites**
+- The form proposal MUST cite the validation schema at `<path:line>` AND the server DTO it mirrors.
+- Field-error mapping MUST cite the server's `code` taxonomy file (the error-handling source of truth).
+- A doc proposing manual per-field `useState` + manual validation in a non-trivial form is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "validation matches the API".
+- If the project's chosen form library isn't extracted, halt before adding a new form.
+
 Forms are where validation, UX, accessibility, and API contracts collide. Every project ends up needing the same primitives: schema-driven validation, field errors that map from server codes, submit-button behavior that doesn't trap users, and accessibility that survives a screen reader audit. Picking one library per repo and applying it consistently is more important than which library you pick.
 
 ## Context

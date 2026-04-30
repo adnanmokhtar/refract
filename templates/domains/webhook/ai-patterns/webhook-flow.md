@@ -6,6 +6,25 @@ kind: ai-pattern
 
 # Pattern: WhatsApp webhook flow
 
+> **Hard rule** — HMAC verify the RAW body (pre-JSON-parse) in constant time before any processing; dedupe by Meta `wa_message_id` with a UNIQUE constraint; return 200 on internal failures (after logging) so Meta doesn't retry-storm — but 401 on signature mismatch.
+
+**When to apply**
+- Inbound WhatsApp Business Platform messages → AI/agent pipeline.
+- Any Meta-graph webhook (Messenger, Instagram, WhatsApp) sharing the same signing scheme.
+- Webhook ingestion where provider retries aggressively on non-2xx.
+
+**When NOT to apply**
+- Outbound message status callbacks where signature scheme differs (treat as separate pattern).
+- Non-Meta webhooks (Stripe, Twilio, GitHub) — share the IDEA but use the provider's specific verifier.
+- Internal system-to-system webhooks under your control — use mTLS or a shared HMAC of your choice.
+
+**Halt conditions / mandatory cites**
+- Cite the raw-body capture middleware at `<path:line>`. JSON-parsed body fed to HMAC = halt.
+- Cite `crypto.timingSafeEqual` (or equivalent) for the signature compare at `<path:line>`. `===` compare = halt.
+- Cite the `wa_message_id UNIQUE` constraint + `ON CONFLICT DO NOTHING` insert at `<path:line>`. No dedupe = duplicate processing.
+- Cite the per-message try/catch inside the `messages[]` loop at `<path:line>`. One bad message dropping the batch = halt.
+- Grep ban: "webhook is signed" without file:line for raw-body, timing-safe compare, dedupe, and 200-on-internal-error policy.
+
 ## Endpoints
 
 - `GET /webhooks/whatsapp` — Meta verification handshake. Returns the `hub.challenge` if `hub.verify_token` matches `WHATSAPP_VERIFY_TOKEN`. No auth other than the token compare. Must be 200 within 20s or Meta marks the webhook invalid.

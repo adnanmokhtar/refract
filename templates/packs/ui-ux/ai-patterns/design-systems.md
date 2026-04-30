@@ -7,6 +7,25 @@ pack: ui-ux
 
 # Pattern: Design System
 
+> **Hard rule** — Components reference semantic tokens (`var(--color-...)` or typed token objects), never raw hex / px / font literals. New primitives, new tokens, and one-off deviations require named owner approval recorded in the system's docs.
+
+**When to apply**
+- Multiple apps / squads share UI surface and drift is visible across PRs.
+- A storybook or equivalent exists (or will be added in the same milestone).
+- The token layer can be enforced via lint (stylelint, ESLint plugin, design-token plugin).
+
+**When NOT to apply**
+- Single-screen prototype that will be thrown away within the quarter.
+- Pre-PMF product where component shapes still change weekly — premature freezing wastes effort.
+- No CI to enforce the rules — undocumented governance becomes folklore in 3 months.
+
+**Halt conditions / mandatory cites**
+- Cite the token source-of-truth file as `<path:line>` (e.g. `packages/design-system/tokens.ts:12`) before adding a new component; if missing, halt and create it.
+- Cite at least one existing primitive's storybook entry as `<path:line>` proving the variant + a11y contract is established; do not propose a new primitive without that precedent.
+- Cite the lint config that bans hex literals as `<path:line>`; "we'll add lint later" is a halt.
+- Cite the ADR governing the system's scope (`ai/decisions/<n>-design-system.md`) before declaring a token deprecated; never sweep tokens without an ADR link.
+- Hand-wave grep ban — never claim "components don't use raw hex" without a cited grep result file or CI rule path.
+
 A shared vocabulary of tokens + components so every screen feels like the same product. Without one, UI drifts with every PR.
 
 ## Layers (atomic design + variants)

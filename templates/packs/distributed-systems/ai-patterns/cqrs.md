@@ -7,6 +7,24 @@ pack: distributed-systems
 
 # Pattern: CQRS (Command Query Responsibility Segregation)
 
+> **Hard rule:** Commands mutate via the write model only and return no projection data; queries read from the read model only and never mutate. Crossing the boundary (queries that write, commands that return query DTOs) collapses CQRS into a more expensive CRUD.
+
+**When to apply**
+- Read and write workloads have materially different shapes (e.g., 100x more reads, complex joins, aggregations).
+- You need eventual-consistency-friendly read replicas or denormalized projections.
+- A bounded context already has clear command/query separation in its ubiquitous language.
+
+**When NOT to apply**
+- A simple CRUD service where read and write shapes are isomorphic — CQRS adds infra cost with no win.
+- A team without monitoring for read-model lag — silent staleness will produce user-visible bugs.
+
+**Halt conditions / mandatory cites**
+- Each command handler MUST cite its write-model entry at `<path:line>` AND show no read-model coupling.
+- Each projection MUST cite its event source AND its lag SLO (cite the dashboard or alert).
+- A doc proposing CQRS for a CRUD-shaped resource without traffic data is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "reads dominate".
+- If the projection-update mechanism (events, CDC, dual-write) isn't extracted, halt.
+
 Separate write model (commands) from read model (queries). Each optimized independently.
 
 ## Shape

@@ -7,6 +7,25 @@ pack: ui-ux
 
 # Pattern: RTL (Right-to-Left) Support
 
+> **Hard rule** — All new layout CSS uses logical properties (`*-inline-start/end`, `text-align: start`). Physical `margin-left` / `padding-right` / `text-align: left` in new code is forbidden. `dir` is driven by the active locale, never hardcoded.
+
+**When to apply**
+- Product targets Arabic / Hebrew / Persian / Urdu speakers (now or roadmapped within 12 months).
+- A locale switcher exists or i18n library is wired (`react-i18next`, `next-intl`, `vue-i18n`).
+- Visual regression covers screens — RTL doubles the matrix and needs CI coverage.
+
+**When NOT to apply**
+- Internal admin tool with English-only mandate codified in product docs.
+- Single static landing page where retrofitting logical props costs more than translating the copy.
+- App without an i18n library — fix that first; RTL without locale wiring is half-done.
+
+**Halt conditions / mandatory cites**
+- Cite the locale → `dir` resolver as `<path:line>` (e.g. `src/i18n/dir.ts:8`) before claiming RTL is wired; hardcoded `dir="ltr"` is a halt.
+- Cite at least one component using `margin-inline-start` / `padding-inline-end` as `<path:line>` proving the convention is in place; if all hits are physical, halt and retrofit.
+- Cite the icon-flip rule (CSS or component) as `<path:line>` for directional icons; arrows that don't flip in RTL are a halt.
+- Cite the visual-regression matrix config as `<path:line>` proving RTL renders in CI on every PR.
+- Hand-wave grep ban — never declare "no physical CSS" without citing the stylelint rule or grep output path.
+
 For Arabic, Hebrew, Persian, Urdu. First-class, not an afterthought.
 
 ## Logical properties (the key technique)

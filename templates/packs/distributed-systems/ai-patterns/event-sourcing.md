@@ -7,6 +7,24 @@ pack: distributed-systems
 
 # Pattern: Event Sourcing
 
+> **Hard rule:** State is derived by replaying an append-only event log; the event store is the source of truth. Mutating past events, deleting events, or reconstructing state from a current-state snapshot without replay parity is forbidden.
+
+**When to apply**
+- Audit trail / temporal queries are a hard product requirement (finance, healthcare, compliance).
+- You need replayable projections to add new read shapes without backfilling from a relational DB.
+- Domain experts already think in events ("OrderPlaced", "PaymentCaptured") — the model fits.
+
+**When NOT to apply**
+- A simple CRUD service where current state is enough and audit needs are met by a change-log column.
+- The team has no operational maturity for replays, snapshots, schema evolution — defer until those exist.
+
+**Halt conditions / mandatory cites**
+- Every event type MUST cite its schema file at `<path:line>` AND its version field.
+- Every projection MUST cite the event types it consumes AND its rebuild procedure.
+- A doc proposing schema migration via mutation of past events is a bug — reject; use upcasters.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "all writes go through events".
+- If the event-store technology + snapshot strategy isn't extracted, halt.
+
 Persist every state change as an immutable event. Current state is derived by replaying events.
 
 ## When to use
