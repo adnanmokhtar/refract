@@ -22,12 +22,36 @@ set -euo pipefail
 export LC_ALL=C
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-repo>" >&2
+  echo "Usage: $0 <target-repo> [--force]" >&2
   exit 2
 fi
 
-TARGET="$1"
+TARGET="$1"; shift || true
+FORCE=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force) FORCE=1; shift ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
+
+REPORT_PATH="$TARGET/.claude/_codebase-scan.md"
+
+# Idempotency: if report exists with any LLM-filled section, skip overwrite
+# unless --force is passed. Sections 8-15 are LLM-fill; if <8 are still <TBD>,
+# preserve the existing file. (Same fix as refresh-extract-checklist.sh — the
+# bug was that re-running this on every preflight wiped LLM-filled sections.)
+if [[ -f "$REPORT_PATH" && "$FORCE" -eq 0 ]]; then
+  # grep -c exits 1 when 0 matches; capture cleanly (see refresh-extract-checklist.sh comment).
+  tbd_count=$(grep -c '^<TBD>$' "$REPORT_PATH" 2>/dev/null) || tbd_count=0
+  if [[ "$tbd_count" -lt 8 ]]; then
+    echo "Codebase scan preserved (already filled): $REPORT_PATH"
+    echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)"
+    exit 0
+  fi
+fi
 
 REPORT="$TARGET/.claude/_codebase-scan.md"
 mkdir -p "$(dirname "$REPORT")"

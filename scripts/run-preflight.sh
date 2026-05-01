@@ -30,13 +30,26 @@ fi
 TARGET="$1"; shift
 MODE="refresh"
 PACKS=()
+FORCE=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --mode=*)  MODE="${1#--mode=}"; shift ;;
-    *)         PACKS+=("$1"); shift ;;
+    --mode=*)     MODE="${1#--mode=}"; shift ;;
+    --include=*)  IFS=',' read -ra INCLUDED <<< "${1#--include=}"
+                  for p in "${INCLUDED[@]}"; do
+                    [[ -n "$p" ]] && PACKS+=("$p")
+                  done
+                  shift ;;
+    --force)      FORCE=1; shift ;;
+    *)            PACKS+=("$1"); shift ;;
   esac
 done
+
+# When --force is set, propagate to the LLM-section-preserving sub-scripts
+# (refresh-extract-checklist + deep-codebase-scan) so they regenerate fresh
+# templates and overwrite existing LLM-filled content. Default = preserve.
+FORCE_FLAG=""
+[[ "$FORCE" -eq 1 ]] && FORCE_FLAG="--force"
 
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
@@ -91,7 +104,7 @@ if [[ "$MODE" == "create" ]]; then
   echo "[2/4] refresh-extract-checklist.sh — SKIPPED (CREATE mode has nothing to extract)"
 else
   echo "[2/4] refresh-extract-checklist.sh"
-  "$SCRIPTS/refresh-extract-checklist.sh" "$TARGET" 2>&1 | tail -2
+  "$SCRIPTS/refresh-extract-checklist.sh" "$TARGET" $FORCE_FLAG 2>&1 | tail -2
 fi
 
 # 3. Study existing — always
@@ -100,7 +113,7 @@ run_with_packs "$SCRIPTS/study-existing.sh"
 
 # 4. Deep codebase scan — always
 echo "[4/4] deep-codebase-scan.sh"
-"$SCRIPTS/deep-codebase-scan.sh" "$TARGET" 2>&1 | tail -2
+"$SCRIPTS/deep-codebase-scan.sh" "$TARGET" $FORCE_FLAG 2>&1 | tail -2
 
 echo ""
 echo "=== preflight complete ==="

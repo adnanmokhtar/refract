@@ -51,7 +51,7 @@ if [[ ${#PACKS[@]} -eq 0 ]]; then
       name="$(basename "$d")"
       [[ "$name" == _* ]] && continue
       PACKS+=("$name")
-    done < <(find "$PACKS_ROOT" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+    done < <(find -L "$PACKS_ROOT" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
     if [[ ${#PACKS[@]} -eq 0 ]]; then
       for d in "$PACKS_ROOT"/*/; do
         [[ -d "$d" ]] || continue

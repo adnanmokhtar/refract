@@ -28,7 +28,7 @@ declare -i thin_skill=0 thin_rule=0 thin_pattern=0
 
 echo "## Commands"
 echo ""
-for f in $(find "$PACKS_ROOT" -path '*/commands/*.md' -not -name '_*' | sort); do
+for f in $(find -L "$PACKS_ROOT" -path '*/commands/*.md' -not -name '_*' | sort); do
   rel="${f#$REPO_ROOT/}"
   lines=$(wc -l < "$f")
   has_phases=$(grep -cE "^## Phase [1-7]" "$f" || echo 0)
@@ -49,7 +49,7 @@ echo ""
 
 echo "## Agents"
 echo ""
-for f in $(find "$PACKS_ROOT" -path '*/agents/*.md' -not -name '_*' | sort); do
+for f in $(find -L "$PACKS_ROOT" -path '*/agents/*.md' -not -name '_*' | sort); do
   rel="${f#$REPO_ROOT/}"
   lines=$(wc -l < "$f")
   has_preflight=$(grep -ciE "pre-?flight|read before" "$f" || echo 0)
@@ -73,7 +73,7 @@ echo ""
 
 echo "## Skills"
 echo ""
-for f in $(find "$PACKS_ROOT" -path '*/skills/*.md' -not -name '_*' | sort); do
+for f in $(find -L "$PACKS_ROOT" -path '*/skills/*.md' -not -name '_*' | sort); do
   rel="${f#$REPO_ROOT/}"
   lines=$(wc -l < "$f")
   if [[ "$lines" -lt 60 ]]; then
@@ -87,7 +87,7 @@ echo ""
 
 echo "## Rules"
 echo ""
-for f in $(find "$PACKS_ROOT" -path '*/rules/*.md' -not -name '_*' | sort); do
+for f in $(find -L "$PACKS_ROOT" -path '*/rules/*.md' -not -name '_*' | sort); do
   rel="${f#$REPO_ROOT/}"
   lines=$(wc -l < "$f")
   if [[ "$lines" -lt 50 ]]; then
@@ -101,7 +101,7 @@ echo ""
 
 echo "## Patterns"
 echo ""
-for f in $(find "$PACKS_ROOT" -path '*/ai-patterns/*.md' -not -name '_*' | sort); do
+for f in $(find -L "$PACKS_ROOT" -path '*/ai-patterns/*.md' -not -name '_*' | sort); do
   rel="${f#$REPO_ROOT/}"
   lines=$(wc -l < "$f")
   if [[ "$lines" -lt 60 ]]; then

@@ -18,15 +18,40 @@ set -euo pipefail
 export LC_ALL=C
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-repo>" >&2
+  echo "Usage: $0 <target-repo> [--force]" >&2
   exit 2
 fi
 
-TARGET="$1"
+TARGET="$1"; shift || true
+FORCE=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force) FORCE=1; shift ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
 REPORT="$TARGET/.claude/_refresh-extract.md"
 mkdir -p "$(dirname "$REPORT")"
+
+# Idempotency: if report exists with any LLM-filled section (i.e., contains
+# non-trivial content under any "Phase 0.2 must fill" heading), skip overwrite
+# unless --force is passed. Re-running this script wiping LLM-filled sections
+# was the bug that caused the agent to re-fill the same content every preflight.
+if [[ -f "$REPORT" && "$FORCE" -eq 0 ]]; then
+  # Count <TBD> markers in LLM sections (sections 2-9). If <8, the report has
+  # been at least partially filled — preserve it. Note: grep -c exits 1 when 0
+  # matches, so we must not pipe through `|| echo 0` (that would concatenate
+  # grep's "0" stdout with the fallback "0", producing "0\n0" — invalid integer).
+  tbd_count=$(grep -c '^<TBD>$' "$REPORT" 2>/dev/null) || tbd_count=0
+  if [[ "$tbd_count" -lt 8 ]]; then
+    echo "Extract checklist preserved (already filled): $REPORT"
+    echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)"
+    exit 0
+  fi
+fi
 
 # Helpers — count files, get sizes
 count() { find "$1" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | wc -l | tr -d ' '; }

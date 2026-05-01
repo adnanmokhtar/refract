@@ -71,7 +71,7 @@ target_dir_for_kind() {
 # Pack-derived basenames per kind
 pack_basenames_for_kind() {
   local kind="$1"
-  find "$PACKS_ROOT" -mindepth 3 -maxdepth 3 -path "*/$kind/*.md" -not -name '_*' \
+  find -L "$PACKS_ROOT" -mindepth 3 -maxdepth 3 -path "*/$kind/*.md" -not -name '_*' \
        -exec basename {} \; 2>/dev/null | sort -u | tr '\n' ' '
 }
 
