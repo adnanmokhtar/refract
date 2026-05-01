@@ -34,7 +34,7 @@ Inputs:
 
 ## Phase 2 — Organize (decompose the work)
 
-**ADR-default policy** (per `migration-discipline.md` § "Default to V1-parity, ADR is opt-in"): ADRs are drafted ONLY for explicit user-decided contract breaks. When a phase audit finds V2-deviates-from-V1 (extra button, renamed route, flipped default, new field, removed feature), the **default action is "remove V2 deviation to match V1"** — NOT "draft an ADR to legitimize V2's deviation". Auto-drafting parity-restoring ADRs inflates docs while leaving user-visible parity gaps unfixed (see Phase 7 lesson — ~6 ADRs drafted to preserve V2 over V1 in tenant-portal-v2).
+**ADR-default policy** (per `migration-discipline.md` § "Default to V1-parity, ADR is opt-in"): ADRs are drafted ONLY for explicit user-decided contract breaks. When a phase audit finds V2-deviates-from-V1 (extra button, renamed route, flipped default, new field, removed feature), the **default action is "remove V2 deviation to match V1"** — NOT "draft an ADR to legitimize V2's deviation". Auto-drafting parity-restoring ADRs inflates docs while leaving user-visible parity gaps unfixed.
 
 This command's behaviour:
 1. For every V2-deviates finding in audits, **surface the divergence to the user** with three options: (a) match V1 (default — no ADR, becomes a port-phase parity restoration), (b) keep V2 + ADR, (c) deprecate-V1-feature + ADR.

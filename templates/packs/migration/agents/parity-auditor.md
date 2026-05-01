@@ -70,7 +70,7 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
 - **Templated query params** — every key the V1 list call sends. Cite the V1 service constructor line; enumerate explicitly.
 - **Per-button permission gates** — V1 vs V2 per button. If V1 ungated and V2 gated (or vice versa), flag as contract-break candidate. The validator's `check_permission_gate_divergence` catches "verdict says match but cells differ" (C2).
 - **Table columns** (for list pages) — every column V1 renders ↔ V2.
-- **Lifecycle / cache** — V1 `onMounted` vs V2 `onActivated` (KeepAlive-aware). Pages NOT in `noCache` exclude must use `onActivated`.
+- **Lifecycle / cache** — when V2's framework supports route caching, the V2 fetch hook must align with the cache mechanism (the project's anchors file declares the pair). Mount-only fetches on cached routes are stale-on-tab-return.
 - **Bulk actions** — every batch operation V1 supports.
 
 **Tier-aware enumeration** (per ledger row's `tier:` field, set by audit per `migration-discipline.md` § "Required artifacts per feature — tiered floor"):
@@ -102,7 +102,7 @@ In addition to the parity gap list, the auditor MUST verify every file the FIX s
 1. **Module path conforms** to V2's layout (`<v2-root>/<layer>/<module>/<kind>/...` per existing V2 modules). Files placed at V1's path or outside V2's whitelisted top-level dirs → `regressed`.
 2. **File naming conforms** to V2's convention (PascalCase for components, camelCase for utilities, kebab-case for routes — match what existing V2 modules do).
 3. **Primitives are V2's, not V1's**: DI container, ORM, error envelope, repository pattern, validation library, logging facade, HTTP client, cache primitive. A new file that imports a V1 utility, uses a V1-only pattern, or sidesteps a V2 primitive (e.g., raw `axios` where V2 has a typed client; raw `try/catch` where V2 has a Result type) → `regressed`.
-4. **Shared wrappers / base classes are used**: frontend (`<BaseModal>`, `<BaseForm>`, `<FormField>`, `<CrudActions>`); backend (`BaseCrudService`, `BaseController`, project's repository base); AI (the project's agent / skill / command frontmatter conventions).
+4. **Shared wrappers / base classes are used**: frontend (the project's `_extracted-idioms.md` names every reusable; the per-stack pack rule (`frontend/rules/migration-frontend.md` for frontend, `backend/rules/migration-backend.md` for backend if defined) enumerates the wrapper-vs-raw fingerprint catalogue the validator enforces.
 5. **Layer boundaries respected**: domain code framework-free; application uses ports; infrastructure is the adapter. A new "service" that opens a DB connection directly → `regressed`.
 6. **No V1 transposition**: a new V2 file whose structure 1:1 mirrors a V1 file (same imports, same composition, same layout) is the Transposition Trap → `regressed`. Cite the V1 file the new V2 file mirrors.
 

@@ -46,6 +46,28 @@ Use `/port-feature --heavy` instead when audit flags any of: P0 finding, cross-r
 
 ## The loop (6 steps)
 
+### 0. INVENTORY — V2 first, V1 second (added 2026-05-01, Phase 9 lesson)
+
+**Mandatory pre-step. Skipping it is the canonical Transposition Trap trigger.**
+
+Before any V1 read, produce two artifacts (required at every tier — see migration-discipline.md § Reuse-Before-Create):
+
+1. **Mapping doc** at `ai/migration/mapping/<feature>.md` — a 2-column table mapping every V1 surface in the feature to its V2 equivalent. The V2 column entries come from THIS project's gold-standard inventory, read from `.claude/_extracted-codebase.md § Gold standards` + `_extracted-idioms.md` (populated by `/setup-project --refine`). Universal shape:
+   ```
+   | V1 surface | V2 equivalent (wrapper / util / type / pattern) |
+   |---|---|
+   | <V1 surface 1>  | <V2 equivalent named in _extracted-idioms.md> |
+   | <V1 surface 2>  | <V2 equivalent named in _extracted-idioms.md> |
+   | ...             | ... |
+   ```
+   The specific wrapper / util / hook / class / pattern names are project-specific and live in the per-project anchors — do NOT hardcode any here. If `_extracted-idioms.md` is empty, halt and run `/setup-project --refine` before continuing the port.
+
+   Auto-fail at gate (`check_v2_mapping_doc`) if missing or has zero mapping rows.
+
+2. **API samples** at `ai/migration/api-samples/<feature>/<endpoint>.json` — captured real responses, ONE per endpoint the service calls. Required only if the port touches the project's service / data-access layer (the path convention is project-specific; see `_extracted-codebase.md`). The V2 type's field names + nullability are derived from this sample, NOT guessed from V1 caller code. Auto-fail at gate (`check_api_response_sample`) if missing.
+
+If the mapping doc surfaces "no V2 wrapper exists for X" → halt, surface to user, do not author a custom one without explicit approval (otherwise = Reinvented Wrapper anti-pattern).
+
 ### 1. DETECT — line-by-line V1↔V2 read
 
 Single `parity-auditor` dispatch. Pass a **shared 5K-token context blob** (see § Context blob) — NOT full files. The agent reads V1 + V2 source line-by-line and outputs a gap list:
@@ -89,8 +111,8 @@ Auto-applied (no prompt): <N> P1 + <M> P2 closures
   - G7 locale-keys: restored Inventory.Variants.* keys
   ...
 User-decision required (cross-repo / P0): <K>
-  - G1 hex_code vs code wire-name (capsolah-api confirmation needed)
-  - G2 colors/export endpoint existence (capsolah-api confirmation needed)
+  - G1 <example field name divergence> (upstream API confirmation needed)
+  - G2 <example endpoint existence> (upstream API confirmation needed)
 ```
 
 The user reviews the auto-applied list AFTER the run, in one read, not interrupted N times during the run.
@@ -102,10 +124,15 @@ The user reviews the auto-applied list AFTER the run, in one read, not interrupt
 Apply the closure verb for each gap. Rules:
 
 - **Default-true wrapper props MUST be set explicitly when removing UI affordances.** Removing a `@delete-selected` event handler does NOT hide the underlying button — `<CrudActions>`, `<TableHeader>`, `<TableActions>` and similar wrappers default their `show-*` / `can-*` props to `true`. To hide a button: pass `:show-delete="false"` / `:can-delete="false"` explicitly. Removing the handler alone is the F040-class default-true bug.
-- **i18n keys land in BOTH locales** (typically `en.ts` + `ar.ts`) at the same path. Missing-locale = silent break in the alt locale.
+- **i18n keys land in EVERY declared locale** at the same key path. Missing-locale = silent break in the alt locale. The locale file format + paths are project-specific (declared in `_extracted-idioms.md`).
 - **No "while I'm here" cleanups.** One feature per fix run.
 - **No V1 modifications.** V1 is the parity oracle.
-- **Match V2 wrappers, not V1 raw components.** No raw `<Dialog>` / `<Paginator>` / `<Dropdown>` / `<form>` in pages where V2 wrappers exist (`<BaseModal>` / `<CrudPaginator>` / `<BaseDropdown>` / `<BaseForm>`). Re-derive layout from V2's gold-standard equivalent.
+- **Match V2 wrappers, not V1 raw library components.** Use the project's shared wrappers in place of the underlying UI-library / framework primitives wherever a wrapper exists. The specific wrapper-vs-raw mapping is stack-specific and lives in your project's `_extracted-idioms.md`; the per-stack pack rule (`frontend/rules/migration-frontend.md` for frontend ports) enumerates fingerprints the validator catches. Re-derive layout from V2's gold-standard equivalent feature, not from V1's template.
+- **Reuse-Before-Create.** Consult the mapping doc from step 0 for every authored line. If a shared entry exists in the project's `_extracted-idioms.md` for the surface you're about to write — use it; do NOT author a custom equivalent. Triggers the Reinvented Wrapper anti-pattern.
+- **Derive types from API samples.** Field names + nullability + nested shape come from `ai/migration/api-samples/<feature>/`. Do NOT type a service response by reading V1 caller code; V1 may be reading untyped responses and silently mismatching. Triggers the Guessed Type anti-pattern.
+- **No silent catches.** Every `catch` either calls the project's error handler (named in `_extracted-idioms.md`) OR includes a comment + debug log explaining recovery. Empty / silent catches produce consumer states indistinguishable from real failures. Triggers the Silent Catch anti-pattern.
+- **No consumer compensation for provider gaps.** If the upstream returns wrong field names / missing fields / different shape, file the upstream ticket and mark the row `status: halted` with the explicit dependency. Do NOT map fields locally to "make it work". Triggers the Consumer Compensation anti-pattern.
+- **Lifecycle / data-fetch hooks must match the component's actual mount semantics** (per the project's framework conventions in CLAUDE.md / `_extracted-idioms.md`). A page-level hook chosen for a nested child component that mounts under different conditions never fires. Triggers the Wrong Lifecycle Hook on Nested Child anti-pattern.
 - **Any NEW file added to V2 MUST follow V2's structure — never V1's.** This applies to every layer: frontend (pages, components, composables, locales), backend (controllers, services, repositories, DTOs, modules), and AI (agents, skills, commands, rules). Before writing a new file:
   1. **Find V2's gold-standard equivalent** for the same shape (e.g., V2's CRUD page for a new CRUD page; V2's service + repository pair for a new service; V2's agent definition for a new agent). The blob's `gold_standard_v2_files:` field names them; if missing, halt and ask the user to point at one.
   2. **Mirror its shape**: same module path (`<v2-root>/<layer>/<module>/<kind>/...`), same file naming (PascalCase / camelCase / kebab-case per V2 convention), same layer boundaries (domain framework-free, application uses ports, infrastructure is the adapter), same DI / ORM / error envelope / validation / logging primitives, same shared wrappers and base classes.

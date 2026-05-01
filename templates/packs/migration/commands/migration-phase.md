@@ -193,7 +193,7 @@ Each halt is logged to `ai/migration/audits/<feature-id>.md`'s "Hard-halt findin
 - Per-button permission gates
 - Accessibility (axe-core baseline)
 - DOM-equivalent assertions
-- Reactive lifecycle (`onActivated` for cached pages)
+- Reactive lifecycle (the framework's mount-AND-reactivate hook pair declared in the project's anchors)
 
 Output: `ai/migration/audits/<feature-id>.md`. Required structure (validator-enforced):
 

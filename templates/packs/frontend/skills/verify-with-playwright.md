@@ -29,7 +29,7 @@ Real-browser verification that the change you just made actually works in the ru
 
 ## Prerequisites
 
-- **Playwright MCP server configured** in `.mcp.json` (`detect-mcp.sh --apply` writes this; on tenant-portal-v2 it's the `playwright` key with `@playwright/mcp`).
+- **Playwright MCP server configured** in `.mcp.json` (`detect-mcp.sh --apply` writes this with the project's configured Playwright MCP server entry).
 - **Dev server running** — invoke `dev-server-start` first; consume its `url` output.
 - **Authenticated state** if the route requires auth — either the test user credentials are in `.env.local`, or the verification flow includes login as Step 1.
 

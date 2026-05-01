@@ -15,7 +15,7 @@ Find real wins, no hand-waves. Every candidate cites V1's offending site (`<v1-p
 
 - Halt on candidates without V1 + V2 path citations and a measured (or rehearsed) before/after.
 - Halt on "applied" rows whose parity tests didn't run pre- and post-change.
-- Halt on perf changes that introduce a primitive (`axios.create`, per-feature pool, hand-rolled cache) when `_v2-anchors.md` declares one for the same concern.
+- Halt on perf changes that introduce a primitive (per-feature HTTP client instance, per-feature connection pool, hand-rolled cache) when `_v2-anchors.md` declares one for the same concern.
 - Halt on contract-breaking perf changes (ordering, nullability, sync→async side effect) without an ADR + caller migration plan.
 
 This skill is the procedural arm of `migration-discipline.md` § "Should — Migration-time perf uplift" + `feature-port.md` Phase 5.
@@ -227,15 +227,15 @@ V2 background:                                                  → emailJob →
 
 ## Anti-pattern: structural perf
 
-The port is not a license to introduce V1-shaped code in V2 under a "perf" label. The most common manifestation is ironic — a "perf cache" is added and lands as a parallel `axios.create(...)` with its own interceptors (frontend), or a per-feature connection pool that bypasses the canonical client (backend). The cache may be faster; the structure violates V2's layering and is a copy-paste of V1's worst habit.
+The port is not a license to introduce V1-shaped code in V2 under a "perf" label. The most common manifestation is ironic — a "perf cache" is added and lands as a parallel HTTP client instance with its own interceptors (frontend), or a per-feature connection pool that bypasses the canonical client (backend). The cache may be faster; the structure violates V2's layering and is a copy-paste of V1's worst habit.
 
-The validator's `check_v2_structure` catches V1 copy-paste fingerprints — recognisable shapes from V1 root that should not appear under V2 root (e.g., `axios.create`, `new Axios`, hand-rolled refresh logic, per-page service classes when V2 declares `BaseCrudService`). `check_composable_reuse` flags open-coded CRUD where `useCrud` exists; `check_service_shape` flags direct `apiClient` calls where a service+`BaseCrudService` should mediate; `check_lifecycle_keepalive` flags `onMounted` on a cached page where `onActivated` is required.
+The validator's `check_v2_structure` catches V1 copy-paste fingerprints — recognisable shapes from V1 root that should not appear under V2 root (e.g., the per-stack fingerprint catalogue lives in `frontend/rules/migration-frontend.md` / `backend/rules/migration-backend.md`). `check_composable_reuse` flags open-coded reusables where the project's shared inventory has one; `check_service_shape` flags direct HTTP-client calls where a service should mediate; `check_lifecycle_keepalive` flags wrong-hook-on-cached-route per the project's anchors.
 
 Before applying any perf candidate that adds new infrastructure (cache layer, parallelism primitive, client wrapper, query helper), check:
 
 1. Does V2's layering already declare a primitive for this concern? (`ai/migration/_v2-anchors.md` lists them.) If yes, extend that primitive — do NOT create a parallel one.
 2. Does the perf change land in the same layer the contract assigns the side effect to? A cache moved from "service layer" to "component body" is a layering break dressed as perf.
-3. Is the primitive shared across features? A per-feature `axios.create` for one cached endpoint becomes 30 such instances by the end of the migration; each one is its own refresh-token bug, its own interceptor drift, its own audit failure.
+3. Is the primitive shared across features? A per-feature HTTP client instance for one cached endpoint becomes 30 such instances by the end of the migration; each one is its own refresh-token bug, its own interceptor drift, its own audit failure.
 
 If a perf gain genuinely needs new infrastructure, it's a separate ADR + separate PR, not a smuggled bullet under "perf uplift". Cross-references: see `migration-discipline.md` § "The Buried Perf Improvement" anti-pattern.
 

@@ -2,6 +2,9 @@
 description: End-to-end mobile feature — multi-screen flow + state + offline + deep-link + native bridge if needed + tests + docs. Mobile counterpart to backend's /add-feature.
 ---
 
+> **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses one stack as illustration; substitute your stack's primitives from `_extracted-idioms.md`.
+
+
 # /add-feature
 
 Mobile feature orchestration. Use when a feature touches more than one screen OR introduces native capabilities (camera, notifications, biometric).

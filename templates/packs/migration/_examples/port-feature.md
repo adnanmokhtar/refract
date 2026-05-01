@@ -2,6 +2,9 @@
 description: Per-feature V1→V2 port orchestrator. Drives one ledger row through all six phases — Understand V1 → Plan V2 → Port → Parity-test → Perf uplift → Cutover. Halts on every gate that fails the migration discipline rule. Cross-stack (backend / frontend / API).
 ---
 
+> **STACK ASSUMPTION**: this example uses Vue 3 + PrimeVue + TypeScript syntax for illustration. The rule / pattern / anti-pattern itself is universal; substitute your project's primitives from `_extracted-idioms.md`. The validator's `check_v2_structure` is stack-conditional via `PROJECT_KIND` and applies the per-stack pack's fingerprint set automatically.
+
+
 # /port-feature
 
 The migration pack's flagship command. Takes a feature name (matching a row in `ai/migration/ledger.md`) and orchestrates the full per-feature port — reading V1 deeply, planning V2, writing V2 against parity tests, applying parity-preserving perf wins, and gating cutover. The command is **idempotent**: re-invoking on the same feature resumes where the ledger says it is.

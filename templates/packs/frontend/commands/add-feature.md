@@ -2,6 +2,9 @@
 description: End-to-end frontend feature — pages + components + state + i18n + a11y + tests + docs. Detects framework signals, consults every relevant pattern, dispatches every applicable agent, runs every safety skill. Frontend counterpart to backend's /add-feature.
 ---
 
+> **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses Vue 3 + PrimeVue + TypeScript for illustration; substitute your stack's primitives from `_extracted-idioms.md`.
+
+
 # /add-feature
 
 The frontend orchestration command. Delivers a UI feature end-to-end at best-practice quality the FIRST time. Use when a feature touches more than one component or screen.

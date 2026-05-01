@@ -2,8 +2,10 @@
 
 > Catalog of every failure mode the V1→V2 migration toolchain can produce.
 > Generated: 2026-04-29
-> Scope: `claude-config/templates/packs/migration/` + `validate-migration-artifacts.sh` + `tenant-portal-v2` (frontend) + `claude-v2` (backend hexagonal/DDD) + `capsolah-api` (V1 source).
-> Method: read every command (13), agent (2), skill (3), rule (1), the validator script, and the four Phase-6 incident audits (`F030/F032/F033-relook.md`, `phase-6.md`) line by line. Anti-pattern catalog cross-referenced against `migration-discipline.md § Anti-patterns (named)`.
+> Scope: `claude-config/templates/packs/migration/` + `validate-migration-artifacts.sh` + Phase-6/7/9 incident audits.
+> Method: read every command, agent, skill, rule, the validator script, and the per-phase incident audits line by line. Anti-pattern catalog cross-referenced against `migration-discipline.md § Anti-patterns (named)`.
+>
+> **Provenance notes**: failure modes labelled `Where it bit us:` cite incidents from the original sahlcart project family (`tenant-portal-v2` frontend, `claude-v2` backend, `capsolah-api` V1) where the lesson originated. The lessons themselves are universal — substitute your project's stack in the "Suggested mechanism" details.
 
 ---
 
@@ -436,13 +438,13 @@ The corpus exists but doesn't cover what V1 actually does in production.
 
 ## Category G: Cross-repo / workspace failures
 
-These are unique to multi-repo migrations like sahlcart's 7-project workspace.
+These are unique to multi-repo migrations where the V1 API + V1 frontends + V2 ports live in a shared workspace.
 
 ### G1. API contract changes; frontends silently break
 - **What**: capsolah-api (V1) endpoint changes shape; tenant-portal-v2 still consumes old shape; runtime breaks.
 - **Stack**: Backend → Frontend.
 - **Where it bit us**: Projected. F033 G3 (V2 expected 3 KPI fields V1 may not return) is a cousin.
-- **Current coverage**: ⚠️ Spec-only — `/sync-contract` workspace command exists (`/sahlcart/.claude/commands/`).
+- **Current coverage**: ⚠️ Spec-only — `/sync-contract` workspace command exists (`<workspace-root>/.claude/commands/`).
 - **Severity**: P0.
 - **Suggested mechanism**: contract test that runs against the live API in CI; halt if shape diff detected.
 
@@ -457,7 +459,7 @@ These are unique to multi-repo migrations like sahlcart's 7-project workspace.
 - **What**: A bug fix lands in `tenant-portal/` (v1); the same bug exists in `tenant-portal-v2/` and `master-portal-v2/`. Only v1 fixed.
 - **Stack**: Frontend.
 - **Where it bit us**: Projected. `tenant-portal-v2/CLAUDE.md § Sibling repos` warns.
-- **Current coverage**: ⚠️ Spec-only — workspace `sahlcart-auditor` agent (per `canonical-shape.md`) runs SIBLING_DRIFT detection; not migration-specific.
+- **Current coverage**: ⚠️ Spec-only — a workspace-level multi-repo auditor agent (per `canonical-shape.md`) can run SIBLING_DRIFT detection; not migration-specific.
 - **Severity**: P1.
 
 ### G4. Shared component added in one repo, not in siblings

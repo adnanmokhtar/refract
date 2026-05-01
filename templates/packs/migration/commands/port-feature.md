@@ -164,29 +164,33 @@ Halt conditions: plan halted; user rejects the slice.
 
 1. **Read V2's primitives**: DI container / error envelope / logging facade / repository pattern / concurrency primitive / cache primitive / validation library — from `_extracted-idioms.md`. The V2 implementation MUST use these.
 
-2. **Read the GOLD STANDARD for this feature shape** (project-anchored — extract from `_extracted-codebase.md § Gold standards`). For frontend ports, this is typically:
-   - **CRUD list page** → read the project's gold-standard list page (e.g., `inventory/CategoriesPage.vue` for Vue 3 / vue-architect projects).
-   - **Detail/show page** → read the gold-standard detail page (e.g., `orders/OrderDetailsPage.vue`).
-   - **Dialog / form** → read at least 2 V2 dialogs that use the same shared components (`<BaseModal>`, `<BaseForm>`, `<FormField>` with `col-class` prop, `<TranslatedInput>`, `<BaseDropdown>`, `<PhoneInput>`, `<StatusSwitch>`).
-   - **Composable** → read the V2 equivalent (e.g., `useCrud`, `useForm`, `useGeoCascade`).
-   - **Service** → read 1 service in the same module + `BaseCrudService`.
+2. **Read the GOLD STANDARD for this feature shape** (project-anchored — extract from `_extracted-codebase.md § Gold standards`). The list of gold-standard files is project-specific; per-stack guidance lives in the per-stack pack rule:
+   - For frontend ports, see `frontend/rules/migration-frontend.md § Phase 3 (Retrieve) — frontend specifics` — names the categories to read (CRUD list / detail / dialog / composable / service / etc.).
+   - For backend ports, see `backend/rules/migration-backend.md` (if defined).
+   - In every case the new V2 code MUST mirror the gold-standard files' shape: same composition pattern, same shared-wrapper usage, same prop / argument naming conventions, same layer boundaries.
 
-   The new V2 code MUST mirror these files' shape: same component-composition pattern, same prop naming (e.g., `label="Module.key"` as bare string for `<FormField>`, NOT `:label="$t('Module.key')"` — `<FormField>` calls `$t()` internally), same `col-class` prop usage on `<FormField>` (no wrapper `<div class="col-*">` around it), same shared-component wrappers (no raw `<Dialog>`, `<Paginator>`, `<Dropdown>` in pages — use the `Base*` / `Crud*` wrappers).
+3. **Read 1–2 already-ported features** in `<v2-root>/` for the same axis (read-only CRUD vs detail vs settings). Note their conventions explicitly before writing.
 
-3. **Read 1–2 already-ported features** in `<v2-root>/` for the same axis (read-only CRUD vs detail vs settings). Note their conventions explicitly before writing — e.g., "OrderDetailsPage uses `onActivated` for KeepAlive caching; my port must too."
+4. **Read parity test infra**: the project's parity-test helper file (path declared in `_v2-anchors.md § parity_test_root`). If absent, generate it (one-time, via `parity-test-generate`'s "create helper" branch).
 
-4. **Read parity test infra**: `tests/parity/_helpers/run-parity.ts` (or equivalent). If absent, generate it (one-time, via `parity-test-generate`'s "create helper" branch).
-
-5. **Read `migration-discipline.md` § Anti-patterns "The Transposition Trap"** before writing a single line of V2 code. If you find yourself copy-pasting V1's grid layout (`<div class="row"><div class="col-md-6">`) or V1's component composition (raw `<Dialog>` + raw `<form>`), STOP — re-read the gold standard.
+5. **Read `migration-discipline.md` § Anti-patterns "The Transposition Trap"** + the per-stack fingerprint catalogue (`frontend/rules/migration-frontend.md § Frontend Transposition Trap fingerprints` for frontend) before writing a single line of V2 code. If you find yourself copy-pasting V1's markup / layout / composition shape verbatim, STOP — re-read the gold standard.
 
 **Output of this phase**: a 3-5 line note in `ai/migration/plans/<feature>.md § "V2 patterns I will follow"` listing the gold-standard files read + the specific patterns being mirrored. The plan reviewer (human OR `migration-architect` agent) checks this before the port writes a single line.
+
+**Mandatory artifacts produced by this phase (added 2026-05-01 — every tier):**
+
+6. **Author `ai/migration/mapping/<feature>.md`** — a 2-column V1-X→V2-Y table naming every shared wrapper / util / hook / type / pattern the V2 port will reuse. One row per V1 surface. Entries on the V2 side come from the project's `_extracted-idioms.md` and `_extracted-codebase.md § Gold standards` — do NOT invent V2 names; those files are the source of truth. The table is the WRITTEN OUTPUT of the inventory reads in steps 2-3, not a separate effort. The validator (`check_v2_mapping_doc`) halts the gate if missing or empty.
+
+7. **Capture API response samples to `ai/migration/api-samples/<feature>/<endpoint>.json`** — required only when the port touches the project's service / data-access layer. Call the V1 endpoint with a real auth token (or replay a captured production sample, anonymised). One file per endpoint the V2 service will call. The V2 type's field names + nullability + nested shape derive from these samples — NOT from V1 caller code (which may be reading untyped responses and silently mismatching, per the Guessed Type anti-pattern). The validator (`check_api_response_sample`) halts the gate if missing or empty for service-touching ports.
+
+These two artifacts are NOT optional for any tier. They prevent the Reinvented Wrapper + Guessed Type anti-patterns documented in `migration-discipline.md`.
 
 ## Phase 4 — Generate (V2 code + parity tests + perf-decisions)
 
 **Tier-aware execution** (per ledger row's `tier:` field, set by audit per `migration-discipline.md` § "Required artifacts per feature — tiered floor"):
 
 ### Trivial tier
-Run **4a only**. Skip 4b/4c/4d entirely. The audit + ledger note carry the risk register. Standard CI tests (the project's existing test suite) must pass.
+Run **4a only**. Skip 4b/4c/4d entirely. The audit + ledger note carry the risk register. Standard CI tests (the project's existing test suite) must pass. Phase 3's mapping doc + API samples (steps 6-7 above) are STILL required — these are not parity-test ceremony, they are the inventory work that prevents Reinvented Wrapper + Guessed Type. A lightweight trivial mapping doc may be a 3-row table + 1 sample file; emptiness still halts the gate.
 
 ### Standard tier
 Run **4a + 4b**. Skip 4c (no separate perf-decisions doc; classify perf candidates inline in the plan) + 4d (no separate runbook; rollback path is one paragraph in the plan). Parity-test corpus floor: 10 fixtures (not 30).

@@ -2,6 +2,9 @@
 description: Scaffold list + create + edit + delete pages for one entity end-to-end.
 ---
 
+> **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses Vue 3 + PrimeVue + TypeScript for illustration; substitute your stack's primitives from `_extracted-idioms.md`.
+
+
 # /add-crud-page <entity>
 
 Build command. Full CRUD bundle: list with pagination/filter, create/edit form, delete confirmation, store, service, i18n, tests. All 7 phases apply.

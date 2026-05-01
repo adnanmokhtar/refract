@@ -2,6 +2,9 @@
 description: Scaffold a reusable component with typed props, tests, and (optional) Storybook entry.
 ---
 
+> **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses Vue 3 + PrimeVue + TypeScript for illustration; substitute your stack's primitives from `_extracted-idioms.md`.
+
+
 # /add-component <name>
 
 Build command. Generates a presentational component matching the repo's framework, naming, and authoring style. All 7 phases apply.

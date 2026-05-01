@@ -2,7 +2,11 @@
 
 Portable, intelligent Claude Code configuration. One `git clone` on any device = full toolbox.
 
-> **📖 Looking for the full reference?** → **[docs/COMMANDS.md](docs/COMMANDS.md)** documents every command, every flag, mode behaviors, flag conflicts, V1→V2 migration walkthrough, and where things live. This README is the elevator pitch; `COMMANDS.md` is the manual.
+> **📖 Looking for the full reference?**
+> - **[docs/COMMANDS.md](docs/COMMANDS.md)** — every command, every flag, mode behaviors, flag conflicts, V1→V2 migration walkthrough, where things live.
+> - **[docs/REFERENCE.md](docs/REFERENCE.md)** — when something refuses or surprises: `<TBD>` lifecycle, Phase 5 audit failure modes, the four discipline patterns (premise / closure-verb / mechanical halt / lightweight default), migration end-to-end with halts, memory system, validator scripts, common pitfalls.
+>
+> This README is the elevator pitch; `COMMANDS.md` is the manual; `REFERENCE.md` is what you read when something fails.
 
 ## Workflow: edit here → sync to `~/.claude`
 

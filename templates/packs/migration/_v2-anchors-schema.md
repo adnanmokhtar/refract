@@ -2,7 +2,7 @@
 
 Every project running the migration pack declares an `ai/migration/_v2-anchors.md` file that the validator + agents READ to know what's project-specific.
 
-Without it, the validator falls back to **defaults** suitable for Vue 3 + TypeScript front-end repos. With it, the validator becomes project-shape-agnostic.
+> **All inline examples in this schema use Vue 3 + PrimeVue + TypeScript syntax purely as illustration** — they are NOT defaults the validator assumes. The validator's `check_v2_structure` is stack-conditional via `PROJECT_KIND`; it applies the per-stack pack's fingerprint set (`frontend/rules/migration-frontend.md` for frontend-vue3 etc.). Substitute your project's actual primitives when filling in the anchor file.
 
 ## File location
 
@@ -42,41 +42,51 @@ runbooks_dir: ai/runbooks
 
 ## Shared component wrappers (raw-equivalent → wrapper map)
 
+> *Vue 3 + PrimeVue example — substitute your stack's primitives.*
+
 | Raw / forbidden | Wrapper to use | Reason |
 |---|---|---|
-| `<Dialog>` | `<BaseModal>` | unified header + RTL + focus trap |
-| `<Paginator>` | `<CrudPaginator>` | wired to useCrud |
-| `<InputSwitch>` (in forms) | `<StatusSwitch>` | typed + label-aware |
+| `<Dialog>` (PrimeVue) | `<BaseModal>` (project wrapper) | unified header + RTL + focus trap |
+| `<Paginator>` (PrimeVue) | `<CrudPaginator>` (project wrapper) | wired to useCrud |
+| `<InputSwitch>` raw in forms | `<StatusSwitch>` (project wrapper) | typed + label-aware |
 | ... | ... | ... |
 
-## Shared composables (open-coded → composable map)
+## Shared composables / hooks (open-coded → reusable map)
 
-| Open-coded fingerprint | Composable to use |
+> *Vue 3 example — substitute your stack's hook / composable / service convention.*
+
+| Open-coded fingerprint | Reusable to use |
 |---|---|
 | `reactive({ items: [], page: 1, perPage: ..., total: ... })` | `useCrud` / `useTable` |
-| Country → state → city dropdown chain | `useGeoCascade` |
-| Form values + Yup schema + setFieldValue | `useForm` |
+| Cascading dropdown chain (country → state → city) | `useGeoCascade` (or stack equivalent) |
+| Form values + schema + setFieldValue | `useForm` (or `react-hook-form` / `formik` / etc.) |
 | ... | ... |
 
 ## Layering rules (forbidden import directions)
 
+> *Vue 3 frontend example — substitute your stack's layer names + file extensions. The shape is universal: name each layer, what it MAY import from, what it MUST NOT.*
+
 | Layer | May import from | May NOT import from |
 |---|---|---|
-| Components (`<v2_root>/**/*.vue`) | composables, services, types, shared/ | apiClient, axios, other modules |
-| Composables | services, types, core/ | components, pages |
-| Services | core/ (apiClient), types | vue, vue-router, vue-i18n, pinia |
-| Core | (nothing — leaf) | vue ecosystem |
+| Components (e.g. `<v2_root>/**/*.vue`) | composables / hooks, services, types, shared/ | http client, other modules |
+| Composables / hooks | services, types, core/ | components, pages |
+| Services | core/ (http client), types | framework runtime, router, state library |
+| Core | (nothing — leaf) | framework ecosystem |
 
 ## Lifecycle anchors
 
+> *Vue 3 + KeepAlive example. Other frameworks: declare the equivalent route-cache mechanism (Next.js route cache, Nuxt page cache, React Router data revalidation, etc.).*
+
 ```yaml
-keepalive_layout: src/shared/layouts/MainLayout.vue
-keepalive_exclude_pattern: noCache\s*=\s*\[([^\]]+)\]
+keepalive_layout: <path to project's route-cache layout file>
+keepalive_exclude_pattern: <regex matching the cache-exclude declaration>
 ```
 
-The validator reads this to know which pages bypass KeepAlive (and thus may safely use `onMounted` instead of `onActivated`).
+The validator reads this to know which pages bypass route caching (and thus may safely use the mount-only hook instead of the mount-AND-reactivate pair).
 
 ## V1 fingerprints to forbid in V2 (project-specific)
+
+> *Vue 3 + PrimeVue example. Stack-conditional fingerprints live in the per-stack pack rule (`frontend/rules/migration-frontend.md` enumerates the frontend ones); projects extend by appending entries here.*
 
 ```
 forbidden_patterns:
@@ -87,9 +97,11 @@ forbidden_patterns:
   ...
 ```
 
-The defaults in `validate-migration-artifacts.sh § check_v2_structure` are suitable starting points; projects override or extend.
+The defaults in `validate-migration-artifacts.sh § check_v2_structure` are stack-conditional via `PROJECT_KIND`; projects override or extend.
 
 ## Required V2 patterns (positive — must appear in new V2 code)
+
+> *Vue 3 example.*
 
 ```
 required_patterns:
@@ -120,7 +132,7 @@ command_handler_suffix: 'CommandHandler'
 ## Cross-stack contract (only for repos depending on another)
 
 ```
-api_contract_repo: ../capsolah-api/
+api_contract_repo: <path-to-V1-api-repo>
 api_contract_command: /sync-contract
 ```
 

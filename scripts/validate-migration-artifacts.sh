@@ -976,6 +976,35 @@ check_v2_structure() {
     "(margin|padding)-(left|right):[[:space:]]*[0-9]|fail|physical margin/padding-(left|right) — RTL break risk; use logical properties (margin-inline-start/end) or RTL mixins."
     # E2 — localStorage.setItem outside secureStorage (warns; non-token are easy false positives)
     "localStorage\\.setItem\\(|warn|localStorage.setItem — if storing tenant-scoped data, use secureStorage; if not, document in an allow-list. Survives logout otherwise."
+    # ─── Phase 7 lessons (tenant-portal-v2 themes F054/F055/F056) ───────────────
+    # I18N-1: Hardcoded { en: '', ar: '' } translation literal — assumes 2 languages forever
+    "\\{[[:space:]]*en:[[:space:]]*['\"][^'\"]*['\"][[:space:]]*,[[:space:]]*ar:[[:space:]]*['\"]|fail|hardcoded { en, ar } translation literal — use useLanguages().buildEmptyTranslations(); tenants can enable any language"
+    "\\{[[:space:]]*ar:[[:space:]]*['\"][^'\"]*['\"][[:space:]]*,[[:space:]]*en:[[:space:]]*['\"]|fail|hardcoded { ar, en } translation literal — use useLanguages().buildEmptyTranslations(); tenants can enable any language"
+    # I18N-2: locale.value === 'en' ? 'en' : 'ar' ternary — reduces N languages to 2
+    "locale\\.value[[:space:]]*===[[:space:]]*['\"]en['\"][[:space:]]*\\?[[:space:]]*['\"]en['\"][[:space:]]*:[[:space:]]*['\"]ar['\"]|fail|locale.value === 'en' ? 'en' : 'ar' ternary — use ref(locale.value) directly; supports any tenant language"
+    # I18N-3: Flat name_ar/name_en/description_ar/description_en reactive fields — V1 transposition
+    "(name|description|title|label)_(ar|en):[[:space:]]*['\"]['\"]|fail|flat *_ar / *_en field — use Translations (Record<string,string>) + useLanguages().buildEmptyTranslations()"
+    # UI-1: Raw <input type="file"> in pages — should use ImageUploader
+    '<input[^>]+type="file"|warn|raw <input type="file"> — use <ImageUploader> wrapper for image uploads'
+    # UI-2: Raw <InputSwitch> in dialog forms (table-cell usage is fine; this catches dialogs/forms)
+    # Heuristic: <InputSwitch> in same file as <BaseModal> or <Dialog>
+    # Handled by check_status_switch_in_form awk pass below
+    # ─── Phase 9 lessons (tenant-portal-v2 themes May 2026) ─────────────────────
+    # UI-3: Silent catch swallow — hides API failures, makes empty UI indistinguishable from errors
+    "catch[[:space:]]*\\{[[:space:]]*/[/*][^/]*(silent|ignore|fail[[:space:]]+silent)|fail|silent catch — surface errors via handleApiError(); empty UI must be distinguishable from API failure"
+    "catch[[:space:]]*\\{[[:space:]]*\\}|warn|empty catch block — at minimum log; prefer handleApiError(err) so failures don't disappear"
+    # UI-4: PriceInput reinvention — custom currency-symbol CSS in a file that doesn't import PriceInput
+    "p-inputgroup-addon|warn|p-inputgroup-addon for currency — use <PriceInput> wrapper which handles tenant currency from token summary"
+    "(price-currency|currency-symbol|currency-prefix|currency-addon):[[:space:]]*\\{|warn|custom currency-symbol CSS class — use <PriceInput> shared component"
+    # UI-5: <StatusSwitch> nested inside <FormField> — StatusSwitch has its own label, causes double-label
+    # Handled by check_status_switch_nested_in_form_field awk pass below
+    "__SKIP__statusswitch_in_formfield|warn|placeholder — see check_status_switch_nested_in_form_field awk pass"
+    # UI-6: Hand-rolled language toggle (segmented control) instead of <TranslatedInput> + <DialogLanguageSwitcher>
+    "(segmented-control|premium-segmented-control|lang-toggle-btn|name-lang-toggle):[[:space:]]*\\{|fail|hand-rolled language toggle — use <TranslatedInput> (delegates to <DialogLanguageSwitcher>) which builds buttons from useLanguages()"
+    # UI-7: !important on Button background/color — fragile specificity war with PrimeVue
+    'background[^;]*!important|warn|!important on background — scoped CSS does not pierce PrimeVue Button host; use plain <button> or :deep(.p-button-label) for the inner span'
+    # UI-8: scoped :deep() on host class — descendant selector that never matches the host element
+    ':deep\([^)]+\.p-button\)|warn|:deep(.foo.p-button) is a descendant selector and cannot match the Button host. Use plain <button>, or :deep(.p-button-label) for inner spans only.'
       )
       ;;
     backend-nest|backend-laravel|backend-python|api-other)
@@ -1079,6 +1108,41 @@ check_v2_structure() {
       log_fail "V2-structure violation in $file ($form_label_hits): <FormField>/<TranslatedInput> :label=\"\$t(...)\" — FormField calls \$t internally; pass bare key string (per CLAUDE.md \"Label Conventions\")"
       ((file_failures++))
     fi
+    # Phase 9 multi-line check: <StatusSwitch> nested inside <FormField> — double-label bug.
+    # StatusSwitch renders its own label internally; wrapping in FormField (which also renders one)
+    # produces "Status [toggle]" inside "Free" → both labels visible at once.
+    local statusswitch_in_ff
+    statusswitch_in_ff=$(awk '
+      BEGIN { depth = 0; hits = 0 }
+      /<FormField\b/ { depth++ }
+      depth > 0 && /<StatusSwitch\b/ { hits++ }
+      /<\/FormField>/ { if (depth > 0) depth-- }
+      END { print hits }
+    ' "$file" 2>/dev/null)
+    statusswitch_in_ff=${statusswitch_in_ff:-0}
+    if [[ $statusswitch_in_ff -gt 0 ]]; then
+      log_fail "V2-structure violation in $file ($statusswitch_in_ff): <StatusSwitch> nested inside <FormField> — StatusSwitch has its own label; either pass label prop directly to StatusSwitch or use raw <InputSwitch> inside FormField"
+      ((file_failures++))
+    fi
+    # Phase 9 multi-line check: nested-child component using onActivated() WITHOUT onMounted().
+    # onActivated() only fires for components inside <KeepAlive>; nested children rendered via v-if/v-for
+    # in a parent are NOT inside KeepAlive directly, so onActivated never fires → dead code, no fetch.
+    # Exempts page-level components (file matches *Page.vue) which ARE the keep-alived route component.
+    case "$file" in
+      */pages/*Page.vue|*/pages/*.vue)
+        # Page-level — onActivated alone is correct
+        ;;
+      *)
+        local on_act on_mount
+        on_act=$(grep -c 'onActivated\s*(' "$file" 2>/dev/null | head -1 | tr -d ' \n')
+        on_mount=$(grep -c 'onMounted\s*(' "$file" 2>/dev/null | head -1 | tr -d ' \n')
+        on_act=${on_act:-0}; on_mount=${on_mount:-0}
+        if [[ $on_act -gt 0 ]] && [[ $on_mount -eq 0 ]]; then
+          log_fail "V2-structure violation in $file: nested-child component uses onActivated() without onMounted() — onActivated does not fire for non-route components. Use onMounted (CLAUDE.md: 'nested children use BOTH onMounted AND onActivated')"
+          ((file_failures++))
+        fi
+        ;;
+    esac
   done
   if [[ $file_failures -eq 0 ]] && [[ $file_warnings -eq 0 ]]; then
     log_pass "V2 structure clean: $feature (${#scan_targets[@]} file(s) scanned)"
@@ -1318,6 +1382,79 @@ check_permission_gate_divergence() {
   return 0
 }
 
+check_api_response_sample() {
+  # Phase 9 lesson (tenant-portal-v2 themes May 2026 — F045-F056): the V2 type
+  # was authored from V1 caller code (which read response fields untyped); when V1's
+  # API silently returned `{ id, label }` while V2 typed `{ id, name }`, the dropdown
+  # rendered 22 empty rows. The audit had no way to catch this — there was no
+  # captured API response sample to validate the type against.
+  #
+  # Required artifact: ai/migration/api-samples/<feature>.json (or .ndjson for streams)
+  # — a real captured response from the V1 endpoint, used to derive AND validate the V2 type.
+  # Required for any feature whose v2_path includes a /services/ file (i.e., the port
+  # touches an API call). Skipped for pure-UI ports (page-only changes, no service edits).
+  local feature="$1"; local id="${2:-}"
+  local ledger_block v2_path
+  ledger_block=$(awk -v id="$id" '
+    $0 ~ ("^id: " id "$") { in_block=1 }
+    in_block { print }
+    in_block && /^```/ { exit }
+  ' "$LEDGER_PATH" 2>/dev/null)
+  v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
+  [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
+  # Heuristic: only require API sample if the port touches a service file.
+  local touches_service=0
+  if [[ -d "$v2_path" ]]; then
+    if find "$v2_path" -name "*.ts" -path "*/services/*" 2>/dev/null | grep -q .; then
+      touches_service=1
+    fi
+  elif [[ -f "$v2_path" ]] && [[ "$v2_path" == */services/* ]]; then
+    touches_service=1
+  fi
+  [[ $touches_service -eq 0 ]] && return 0
+  # Sample dir lives under a configurable path; default ai/migration/api-samples/<feature>/
+  local samples_dir="ai/migration/api-samples/${feature}"
+  if [[ ! -d "$samples_dir" ]]; then
+    log_fail "missing API response samples for $feature: expected ${samples_dir}/ with at least one .json capture per endpoint the service calls. Required because the port touches a /services/ file. See migration-discipline.md § The Guessed Type."
+    return 1
+  fi
+  local sample_count
+  sample_count=$(find "$samples_dir" -type f \( -name "*.json" -o -name "*.ndjson" \) 2>/dev/null | wc -l | tr -d ' ')
+  if [[ $sample_count -eq 0 ]]; then
+    log_fail "API samples dir exists but is empty for $feature ($samples_dir/) — capture at least one real response per endpoint to derive the V2 type from."
+    return 1
+  fi
+  log_pass "API response samples present: $feature ($sample_count file(s))"
+  return 0
+}
+
+check_v2_mapping_doc() {
+  # Phase 9 lesson + user-suggested rule #1: every port produces a mapping document
+  # (V1 X → V2 Y) before any code is written. Without this, the executor reads V1 and
+  # writes "by analogy to V1" — Phase 7's Transposition Trap recurrence pattern.
+  #
+  # Required artifact at every tier: ai/migration/mapping/<feature>.md
+  # Minimum content: a 2-column table (V1 file/symbol → V2 file/symbol/wrapper).
+  # Heavy tier additionally requires per-row "wrapper used" + "behaviour delta" columns.
+  local feature="$1"; local id="${2:-}"; local tier="${3:-trivial}"
+  local mapping_path="ai/migration/mapping/${feature}.md"
+  if [[ ! -f "$mapping_path" ]]; then
+    log_fail "missing V1→V2 mapping doc for $feature: expected $mapping_path. Required at every tier so the porter writes by analogy to V2's gold standard, not V1's shape. See migration-discipline.md § Reuse-Before-Create."
+    return 1
+  fi
+  # Minimum: a markdown table with at least 1 mapping row (so the file isn't empty boilerplate)
+  local row_count
+  row_count=$(grep -cE '^\|[^|]+\|[^|]+\|' "$mapping_path" 2>/dev/null | head -1 | tr -d ' \n')
+  row_count=${row_count:-0}
+  if [[ $row_count -lt 2 ]]; then
+    # 2 = header row + at least one mapping row
+    log_fail "mapping doc $mapping_path is empty or has no mapping rows — needs at least one V1→V2 row in the table"
+    return 1
+  fi
+  log_pass "V1→V2 mapping doc present: $feature ($((row_count - 1)) row(s))"
+  return 0
+}
+
 check_gap_count_parity() {
   # Mechanical gate added 2026-04-30 with the find-and-fix RE-DETECT step.
   # The auditor's DETECT pass returns N gaps; the FIX step closes them; the RE-DETECT
@@ -1450,6 +1587,9 @@ validate_feature() {
   check_lifecycle_keepalive "$feature" "$id" || true
   check_permission_gate_divergence "$feature" "$id" || true
   check_gap_count_parity "$feature" "$id" || true
+  # Phase 9 additions (May 2026 — themes port lessons): every-tier artifact gates
+  check_v2_mapping_doc "$feature" "$id" "$tier" || true
+  check_api_response_sample "$feature" "$id" || true
 }
 
 # ── Project anchors ─────────────────────────────────────────────────────────

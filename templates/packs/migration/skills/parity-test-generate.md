@@ -86,7 +86,7 @@ Any test that mounts a `.vue` / `.tsx` / `.jsx` file from a project that uses `u
 
 #### KeepAlive-aware mount (Vue)
 
-For Vue pages that use `onActivated` (cached pages under `<KeepAlive>`), the test mount MUST wrap the component in `<KeepAlive>` for the activate hook to fire:
+For pages whose data fetch fires on the framework's route-cache reactivate hook (e.g., Vue 3 `onActivated` under `<KeepAlive>`, Next.js route cache, etc.), the test mount MUST simulate the cache so the reactivate hook fires:
 
 ```ts
 const wrapper = mount(
@@ -98,7 +98,7 @@ const wrapper = mount(
 )
 ```
 
-Otherwise `onActivated`-fired API calls don't run and `expect(mockApi).toHaveBeenCalled()` fails. This is the #10 named anti-pattern in `audit-failure-modes.md`.
+Otherwise reactivate-fired API calls don't run and the mock-call assertion fails. This is the #10 named anti-pattern in `audit-failure-modes.md`.
 
 Aim for ≥2 recipes per non-trivial feature so a gap in one is caught by another.
 

@@ -5,6 +5,9 @@ kind: example
 pack: migration
 ---
 
+> **STACK ASSUMPTION**: this example uses Vue 3 + PrimeVue + TypeScript syntax for illustration. The rule / pattern / anti-pattern itself is universal; substitute your project's primitives from `_extracted-idioms.md`. The validator's `check_v2_structure` is stack-conditional via `PROJECT_KIND` and applies the per-stack pack's fingerprint set automatically.
+
+
 # Audit template — `ai/migration/audits/<feature-id>.md`
 
 > Copy this template verbatim when authoring an audit. Every section is required. Hand-wave tokens (`&...`, `etc.`, `, ...`) are blocked by the validator script.
