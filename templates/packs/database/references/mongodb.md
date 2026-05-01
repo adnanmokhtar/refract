@@ -1,5 +1,10 @@
 # MongoDB reference
 
+> **Engine**: MongoDB 7.0+ / 8.0 • driver versions per language
+> **Official docs**: https://www.mongodb.com/docs/manual/
+> **Version-specific gotchas**: MongoDB 7.0 added time-series collection improvements + queryable encryption; 8.0 GA'd in late 2024 with significant query-engine perf gains; transactions REQUIRE a replica set (single-node in dev needs `--replSet`); 16MB doc limit unchanged; `$lookup` is expensive — denormalize for hot paths.
+> **Substitution markers**: Replace `<collection>` / `<field>` with the project's actual schema.
+
 ## Design
 
 - Design for query shape, not normalization.

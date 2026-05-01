@@ -1,5 +1,10 @@
 # .NET (ASP.NET Core 8+) reference
 
+> **Framework**: ASP.NET Core 8 LTS / 9 STS on .NET 8+
+> **Official docs**: https://learn.microsoft.com/aspnet/core/?view=aspnetcore-8.0
+> **Version-specific gotchas**: .NET 8 added native AOT for ASP.NET Core; keyed services in DI; `[FromKeyedServices]` attribute; Identity API endpoints; `TimeProvider` abstraction (replace `DateTime.Now`); .NET 9 added hybrid cache + improved OpenAPI.
+> **Substitution markers**: Replace project-namespace paths with the project's actual layout.
+
 ## Structure (Clean Architecture)
 
 ```

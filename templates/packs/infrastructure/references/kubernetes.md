@@ -1,5 +1,10 @@
 # Kubernetes reference
 
+> **Tool**: Kubernetes 1.29+ / 1.30 / 1.31 (LTS by major cloud providers varies — EKS / GKE / AKS each track their own)
+> **Official docs**: https://kubernetes.io/docs/
+> **Version-specific gotchas**: 1.29 graduated `KubeProxyConfig` + sidecar containers (init-container with `restartPolicy: Always`); 1.30 graduated structured-authn config; PodSecurityPolicy fully removed (use Pod Security Admission since 1.25); `NetworkPolicy` egress + ingress rules — default-deny is OFF unless you explicitly add a policy; `topologySpreadConstraints` over manual anti-affinity for HA spread.
+> **Substitution markers**: Replace `registry.example.com/api@sha256:<digest>` with the project's actual image reference.
+
 ## Canonical Deployment
 
 ```yaml

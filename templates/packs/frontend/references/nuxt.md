@@ -1,5 +1,10 @@
 # Nuxt SSR rules
 
+> **Framework**: Nuxt 3.10+ (Nitro 2.9+) on Node 20+ • Vue 3.4+
+> **Official docs**: https://nuxt.com/docs
+> **Version-specific gotchas**: Nuxt 3.10+ ships server components (`.server.vue` files); auto-imports include `useNuxtData`, `useRequestEvent`; Nuxt 4 (preview) restructures `app/` directory (opt-in via `compatibilityVersion: 4`); `useFetch` SSR hydration changed in 3.7 — pass `key` for dynamic URLs.
+> **Substitution markers**: Replace project-specific composable / API endpoint names per `_extracted-idioms.md`.
+
 ## Data fetching
 
 - Use `useFetch` / `useAsyncData` for data. They're cache-aware, SSR-friendly, and dedupe.

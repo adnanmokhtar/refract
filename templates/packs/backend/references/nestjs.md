@@ -1,5 +1,10 @@
 # NestJS Clean Architecture rules
 
+> **Framework**: NestJS 10+ on Node 20+ • TypeScript 5+
+> **Official docs**: https://docs.nestjs.com/
+> **Version-specific gotchas**: NestJS 10 dropped legacy decorators that worked in v9; class-validator 0.14+ requires explicit `@Type()` for nested DTOs; `@nestjs/cqrs` v10 changed event-handler discovery (must export from module).
+> **Substitution markers**: Replace `<Module>` / `<UseCase>` / `<Repo>` / DI `Tokens.X` with the project's actual identifiers from `_extracted-idioms.md`.
+
 ## Layer imports (strict)
 
 - `core/` → imports NOTHING from NestJS, TypeORM, or any other framework. Pure TS.

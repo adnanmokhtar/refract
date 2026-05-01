@@ -1,5 +1,10 @@
 # Spring Boot (Java / Kotlin) reference
 
+> **Framework**: Spring Boot 3.2+ on Java 17+ / Kotlin 1.9+ • Spring Framework 6
+> **Official docs**: https://docs.spring.io/spring-boot/docs/current/reference/html/
+> **Version-specific gotchas**: Spring Boot 3 dropped Javax (now `jakarta.*` namespace) — every import broke from v2; `spring-boot-starter-validation` now opt-in; native compilation via GraalVM is first-class; `RestClient` (Spring 6.1+) preferred over deprecated `RestTemplate`.
+> **Substitution markers**: Replace `com.company.app` with the project's actual base package.
+
 ## Structure
 
 ```

@@ -100,3 +100,14 @@ it('filters by tenant_id — does not return other tenants rows', async () => {
 - A "convenient" repo method that skips the filter for "internal" use. Make a separate admin repo.
 - Joining across tenants "just this once". Write a new query with explicit `IN (:...tenantIds)` and code-review it.
 - Relying on RLS instead of app-layer filters. Defense in depth — run both.
+- Per-method copy-pasted `andWhere('tenant_id = :tenantId')`. One missed copy = one leak. Inject in the base class once.
+- Schema migration adds a tenant-scoped table with `tenant_id` nullable / no FK / no composite index. Required: `tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE` + `(tenant_id, <filter_column>)` composite index per list-query shape.
+- Soft delete that ignores tenant. `WHERE deleted_at IS NULL` without `tenant_id = :tenantId` — listed deletes leak. Same rule applies to deletes as to selects.
+
+## Cross-references
+
+- `<rules-path>/multi-tenancy.md` — hard rules + review checklist + enforcement.
+- `<patterns-path>/multi-tenancy.md` — sibling pattern: request-scoped tenant context + resolution chain (the "where the tenantId comes from").
+- `<commands-path>/tenant-leak-audit.md` — grep + AST scanner for missing filters, client-supplied tenant ids, missing leak tests.
+- `<agents-path>/tenant-isolation-reviewer.md` — review gate hard-failing on missing tests + raw-SQL leaks.
+- `<adr-path>/<NNN>-multi-tenant-shared-db-row-level.md` — ADR pinning shared-DB row-level isolation as the deployment shape.

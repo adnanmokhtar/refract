@@ -1,5 +1,10 @@
 # Hexagonal + DDD rules (NestJS)
 
+> **Framework**: NestJS 10+ • TypeORM 0.3+ or Prisma 5+ • TypeScript 5+
+> **Official docs**: https://docs.nestjs.com/ • Hexagonal Architecture: https://alistair.cockburn.us/hexagonal-architecture/
+> **Version-specific gotchas**: NestJS 10's `@nestjs/cqrs` requires explicit handler exports; TypeORM 0.3 changed repository API (no more `Connection`, use `DataSource`); class-validator 0.14 with NestJS validation pipe needs `transform: true` for nested DTOs.
+> **Substitution markers**: Replace `<Thing>` placeholders with the project's actual aggregate / value-object / use-case names from `_extracted-idioms.md`.
+
 ## Layers (strict)
 
 ```

@@ -1,5 +1,10 @@
 # Docker reference
 
+> **Tool**: Docker Engine 24+ / 25 • BuildKit (default in 23+) • Compose v2 (`docker compose`, NOT `docker-compose`)
+> **Official docs**: https://docs.docker.com/ • Dockerfile reference: https://docs.docker.com/reference/dockerfile/
+> **Version-specific gotchas**: BuildKit (default since 23.0) enables cache mounts + secret mounts + bind mounts via `--mount`; `docker compose` v2 (Go binary) replaces Python `docker-compose`; `compose-spec` is the canonical schema; `--platform` flag for cross-arch builds; SBOM + provenance attestations via `--sbom=true --provenance=true`.
+> **Substitution markers**: Replace `node:20.11-alpine` / port `3000` with the project's actual base image + port.
+
 ## Dockerfile — the canonical shape
 
 ```dockerfile

@@ -1,5 +1,10 @@
 # Express (Node) reference
 
+> **Framework**: Express 4.x / 5.x on Node 18+ • TypeScript optional but recommended
+> **Official docs**: https://expressjs.com/en/4x/api.html (v4) • https://expressjs.com/en/5x/api.html (v5)
+> **Version-specific gotchas**: Express 5 returns Promises from middleware (no more `express-async-errors` shim needed); `req.params` typed differently in v5; deprecated `res.json(status, body)` removed in v5.
+> **Substitution markers**: Replace `<name>` with the project's actual module name from `_extracted-idioms.md` (e.g., `users`, `orders`).
+
 ## Structure
 
 ```

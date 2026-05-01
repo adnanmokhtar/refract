@@ -1,5 +1,10 @@
 # Flask (Python) reference
 
+> **Framework**: Flask 3.0+ on Python 3.9+ • SQLAlchemy 2.0+ • Alembic
+> **Official docs**: https://flask.palletsprojects.com/en/3.0.x/
+> **Version-specific gotchas**: Flask 3 dropped Python < 3.8; SQLAlchemy 2.0 changed query API (`Session.execute(select(...))` instead of `Model.query`) — Flask-SQLAlchemy 3.1+ tracks this; async views run in threadpool, NOT true async (use Quart for that).
+> **Substitution markers**: Replace `<name>` with the project's actual module name.
+
 For small APIs / internal tools. For larger services consider FastAPI (async, typed) or Django.
 
 ## Structure

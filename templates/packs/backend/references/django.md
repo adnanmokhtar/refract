@@ -1,5 +1,10 @@
 # Django / Django REST Framework reference
 
+> **Framework**: Django 5.0+ • DRF 3.15+ on Python 3.10+
+> **Official docs**: https://docs.djangoproject.com/en/5.0/ • https://www.django-rest-framework.org/
+> **Version-specific gotchas**: Django 5 dropped Python 3.9; `USE_TZ = True` is the new default; async ORM operations stable in 5.1+; DRF 3.15 changed `pagination_class` defaults; `default_auto_field = "django.db.models.BigAutoField"` required for new projects.
+> **Substitution markers**: Replace `<name>` with the project's actual app name from `_extracted-idioms.md`.
+
 ## Structure
 
 ```

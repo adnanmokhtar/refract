@@ -1,5 +1,10 @@
 # Rails (Ruby) reference
 
+> **Framework**: Rails 7.1+ / 8.0 on Ruby 3.2+
+> **Official docs**: https://guides.rubyonrails.org/
+> **Version-specific gotchas**: Rails 7.1 introduced `config.active_record.encryption`; Rails 8 made SQLite production-viable + added Solid Queue / Solid Cache (Redis replacement); ActiveRecord now defaults to `composite_primary_keys` support; Hotwire/Turbo replaces UJS.
+> **Substitution markers**: Replace `Order` / `User` / etc. with the project's actual model names.
+
 ## Structure
 
 ```

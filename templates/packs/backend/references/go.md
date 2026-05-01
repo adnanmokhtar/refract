@@ -1,5 +1,10 @@
 # Go backend reference (chi / gin / fiber / echo)
 
+> **Framework**: Go 1.22+ • routers: chi 5.x, gin 1.10+, fiber 2.x, echo 4.x
+> **Official docs**: https://pkg.go.dev/net/http (stdlib) • https://github.com/go-chi/chi • https://gin-gonic.com/docs/ • https://docs.gofiber.io/ • https://echo.labstack.com/docs
+> **Version-specific gotchas**: Go 1.22 made `for i := range N` a valid loop and fixed loop-variable scope (no more `i := i` shadow needed); `net/http.ServeMux` got method+pattern routing in 1.22 (often replaces 3rd-party routers); `slog` is the stdlib structured logger from 1.21.
+> **Substitution markers**: Replace `internal/<feature>` paths with the project's actual module names.
+
 ## Structure
 
 ```

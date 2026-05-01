@@ -171,12 +171,132 @@ if [[ -f "$CL/_pack-coverage-report.md" ]]; then
   echo ""
 fi
 
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# C2h — Adapter sync coverage: when ≥1 adapter is enabled in target, every
+# .claude/ source artifact must have its native counterpart in the adapter's
+# folder (.opencode/, .cursor/, .github/, etc.). Reports ADD rows from
+# apply-adapter-sync.sh. REFRESH/REFINE/ENHANCE require this.
+if [[ -x "$SCRIPTS_DIR/apply-adapter-sync.sh" ]]; then
+  echo "C2h: adapter-sync coverage (.claude/ → enabled adapters)"
+  adapter_out=$("$SCRIPTS_DIR/apply-adapter-sync.sh" "$TARGET" 2>&1 || true)
+  if echo "$adapter_out" | grep -q "No adapters enabled"; then
+    ok "no adapters enabled — adapter-sync skipped"
+  else
+    add_count=$(echo "$adapter_out" | grep -cE '^    ADD ' || echo 0)
+    add_count=${add_count:-0}
+    refresh_count=$(echo "$adapter_out" | grep -cE '^    REFRESH ' || echo 0)
+    refresh_count=${refresh_count:-0}
+    missing_author=$(echo "$adapter_out" | grep -cE '^    MISSING-AUTHOR ' || echo 0)
+    missing_author=${missing_author:-0}
+    if [[ "$add_count" -gt 0 || "$refresh_count" -gt 0 ]]; then
+      if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; then
+        err "$add_count adapter file(s) missing + $refresh_count drifted — run: ~/.claude/scripts/apply-adapter-sync.sh \"$TARGET\" --apply"
+      else
+        warn_msg "$add_count adapter file(s) missing (CREATE mode — first scaffold)"
+      fi
+    else
+      ok "all 1:1 adapter-sync rows resolved"
+    fi
+    if [[ "$missing_author" -gt 0 ]]; then
+      warn_msg "$missing_author adapter file(s) need LLM-authored format conversion — run: /setup-project-adapters"
+    fi
+  fi
+  echo ""
+fi
+
+# C2g — Baseline coverage check: every file in repo-baseline/ must be present
+# in target (ADD-rows from apply-baseline-sync.sh). REFRESH/REFINE/ENHANCE
+# all require this; CREATE creates the baseline so the check is informational.
+if [[ -x "$SCRIPTS_DIR/apply-baseline-sync.sh" ]]; then
+  echo "C2g: repo-baseline coverage (ai/ + .claude/ scaffolds present)"
+  baseline_out=$("$SCRIPTS_DIR/apply-baseline-sync.sh" "$TARGET" 2>&1 || true)
+  add_count=$(echo "$baseline_out" | grep -cE '^  ADD ' || echo 0)
+  add_count=${add_count:-0}
+  if [[ "$add_count" -gt 0 ]]; then
+    if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; then
+      err "$add_count baseline file(s) missing in target — run: ~/.claude/scripts/apply-baseline-sync.sh \"$TARGET\" --apply"
+    else
+      warn_msg "$add_count baseline file(s) missing in target (CREATE mode — first scaffold)"
+    fi
+    # Show first 5 missing files for context
+    echo "$baseline_out" | grep -E '^  ADD ' | head -5 | sed 's/^/    /'
+  else
+    ok "all repo-baseline files present"
+  fi
+  echo ""
+fi
+
+# C2f — STALE_KNOWLEDGE check (REFRESH / REFINE / ENHANCE only).
+# After Phase 4.4 / 4.4b / 4.7 / 4.7b regen the ai/ knowledge layer, the derived
+# files (_session-digest, _convention-cheatsheet, _decision-index, business-domain,
+# users-and-personas, architecture, conventions) MUST be at least as recent as
+# the most recent pack-source change. If pack source mtime > ai/<derived>.md mtime,
+# the agent silently skipped knowledge regeneration — this is the failure mode
+# observed when a REFRESH only updates 5 ai/patterns/ files instead of the full
+# knowledge layer. CREATE mode is exempt (greenfield: nothing to compare against).
+if [[ "$MODE" != "create" ]]; then
+  echo "C2f: ai/ knowledge layer freshness vs pack source"
+
+  # Most recent mtime across pack sources we depend on (claude-config repo).
+  # Resolve the templates dir via the symlink at ~/.claude/templates (or use
+  # CLAUDE_CONFIG_ROOT if exported).
+  PACKS_ROOT="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/packs"
+  pack_newest=0
+  if [[ -d "$PACKS_ROOT" ]]; then
+    # find the newest .md file across pack sources (resolves symlinks via -L)
+    while IFS= read -r f; do
+      m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+      [[ $m -gt $pack_newest ]] && pack_newest=$m
+    done < <(find -L "$PACKS_ROOT" -type f -name '*.md' -not -name '_*' 2>/dev/null | head -2000)
+  fi
+
+  if [[ $pack_newest -eq 0 ]]; then
+    warn_msg "pack source root not found at $PACKS_ROOT — skipping knowledge-freshness check"
+  else
+    # Files that REFRESH/REFINE must regenerate (relative to target)
+    KNOWLEDGE_FILES=(
+      "ai/_session-digest.md"
+      "ai/_convention-cheatsheet.md"
+      "ai/_decision-index.md"
+      "ai/conventions.md"
+      "ai/architecture.md"
+      "ai/business-domain.md"
+    )
+    stale_count=0
+    for rel in "${KNOWLEDGE_FILES[@]}"; do
+      f="$TARGET/$rel"
+      if [[ ! -f "$f" ]]; then
+        if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
+          err "knowledge file missing: $rel — Phase 4.4/4.7 should have written it"
+          stale_count=$((stale_count + 1))
+        fi
+        continue
+      fi
+      file_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+      if [[ $file_mtime -lt $pack_newest ]]; then
+        # Format both timestamps for the message
+        pack_iso=$(date -r "$pack_newest" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "@$pack_newest" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "?")
+        file_iso=$(date -r "$file_mtime" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "@$file_mtime" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "?")
+        if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
+          err "STALE_KNOWLEDGE: $rel ($file_iso) older than newest pack source ($pack_iso) — Phase 4.4/4.4b/4.7/4.7b silently skipped"
+        else
+          warn_msg "STALE_KNOWLEDGE: $rel ($file_iso) older than newest pack source ($pack_iso) — consider /setup-project --refresh"
+        fi
+        stale_count=$((stale_count + 1))
+      fi
+    done
+    [[ $stale_count -eq 0 ]] && ok "ai/ knowledge layer up-to-date vs pack source"
+  fi
+  echo ""
+fi
+
 # Anchoring audit (M25.4): per-artifact coverage of the canonical
 # `<!-- project-specific:start --> ... :end -->` block + `path:line` citations.
 # REFUSE when anchors are missing in REFRESH / REFINE / ENHANCE modes (Phase 4.6
 # was supposed to inject them via apply-anchors.sh). CREATE mode warns only —
 # the agent may still be mid-flow when this runs and the profile may not exist.
-SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# (SCRIPTS_DIR set earlier at C2g block)
 if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
   echo "C2d: artifact anchoring"
   "$SCRIPTS_DIR/audit-anchoring.sh" "$TARGET" --quiet >/dev/null 2>&1 || true

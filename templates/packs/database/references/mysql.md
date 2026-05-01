@@ -1,5 +1,10 @@
 # MySQL / MariaDB reference
 
+> **Engine**: MySQL 8.0+ / 8.4 LTS • MariaDB 11.x
+> **Official docs**: https://dev.mysql.com/doc/refman/8.0/en/ • https://mariadb.com/kb/en/documentation/
+> **Version-specific gotchas**: MySQL 8.0+ added CHECK constraints, JSON functions, descending indexes, window functions; 8.4 LTS made `caching_sha2_password` default (legacy clients break); `EXPLAIN ANALYZE` from 8.0.18; `ALGORITHM=INSTANT` for many ALTERs from 8.0.12 (avoid table rewrite); `gh-ost` / `pt-online-schema-change` for blocking-safe migrations on Aurora / RDS.
+> **Substitution markers**: Replace `<table>` / `<column>` with the project's actual schema.
+
 ## Engines
 
 - InnoDB always. Never MyISAM.

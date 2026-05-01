@@ -1,6 +1,9 @@
 # Next.js reference (App Router, 14 / 15)
 
-> Version note: Next 14 default `fetch` cache was `force-cache`; Next 15 default is `no-store`. ALWAYS set `cache:` and `next.revalidate` explicitly — see "Data fetching" below.
+> **Framework**: Next.js 14 / 15 on Node 18.18+ • React 19+ (Next 15) / 18 (Next 14)
+> **Official docs**: https://nextjs.org/docs
+> **Version-specific gotchas**: Next 14 default `fetch` cache was `force-cache`; **Next 15 default is `no-store`** — ALWAYS set `cache:` + `next.revalidate` explicitly (see "Data fetching"). Next 15 also makes `cookies()` / `headers()` / `params` / `searchParams` async (must `await`); Turbopack stable for `dev`; Server Actions cookie-set restrictions tightened.
+> **Substitution markers**: Replace `(marketing)` / `<name>` with the project's actual route groups + module names.
 
 ## Structure
 

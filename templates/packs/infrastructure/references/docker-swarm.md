@@ -1,5 +1,10 @@
 # Docker Swarm reference
 
+> **Tool**: Docker Engine 24+ in Swarm mode • Compose v3.9 (Swarm-mode supported subset)
+> **Official docs**: https://docs.docker.com/engine/swarm/
+> **Version-specific gotchas**: Swarm mode is in maintenance (no major new features since ~2020) — Docker Inc. focuses on Kubernetes; compose-spec still works but Swarm-only fields (`deploy:`) are ignored by `docker compose up`; secrets file-mount path is `/run/secrets/<name>`; `docker stack deploy` uses Compose v3.9 schema (NOT the latest compose-spec).
+> **Substitution markers**: Replace registry / image / port with the project's actuals.
+
 Simpler than K8s, still gives you multi-host container orchestration. Fading in popularity but valid for small-to-mid teams who want more than Compose without K8s overhead.
 
 ## When to choose Swarm over K8s

@@ -1,5 +1,10 @@
 # FastAPI (Python) reference
 
+> **Framework**: FastAPI 0.110+ on Python 3.10+ • pydantic v2 (BREAKING change vs v1)
+> **Official docs**: https://fastapi.tiangolo.com/
+> **Version-specific gotchas**: pydantic v2 changed `.dict()` → `.model_dump()`, `Config` class → `model_config = ConfigDict(...)`, validators use `@field_validator` (not `@validator`); FastAPI 0.100+ requires pydantic v2.
+> **Substitution markers**: Replace `<name>` with the project's actual module name from `_extracted-idioms.md`.
+
 ## Structure
 
 ```

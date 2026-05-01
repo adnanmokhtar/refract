@@ -1,5 +1,10 @@
 # Terraform / OpenTofu reference
 
+> **Tool**: Terraform 1.6+ (last MPL) OR OpenTofu 1.7+ (Apache-2.0 fork) • providers per cloud (AWS 5.x, Azure 3.x, Google 5.x, K8s 2.x)
+> **Official docs**: https://developer.hashicorp.com/terraform/docs • https://opentofu.org/docs/
+> **Version-specific gotchas**: HashiCorp re-licensed Terraform from MPL → BUSL in v1.6 (Aug 2023) — OpenTofu is the open-source fork; OpenTofu 1.7 added state encryption + dynamic provider configurations; `for_each` over `count` for stable resource addressing; `moved` block for refactors without state surgery; `import` blocks (Terraform 1.5+) for declarative imports.
+> **Substitution markers**: Replace cloud / region / module-source paths with the project's actual values.
+
 Infra-as-code. Declarative. Reviewable. Versioned.
 
 ## Structure

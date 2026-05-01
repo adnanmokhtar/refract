@@ -1,5 +1,10 @@
 # Vue 3 + Pinia conventions
 
+> **Framework**: Vue 3.4+ • Pinia 2.1+ • Vite 5+ • TypeScript 5+
+> **Official docs**: https://vuejs.org/guide/ • https://pinia.vuejs.org/
+> **Version-specific gotchas**: Vue 3.4 brought `defineModel()` macro (replaces manual prop+emit for v-model); 3.3+ supports generic components (`<script setup lang="ts" generic="T">`); 3.5 added `useTemplateRef()`; Pinia 2.1 stable, do NOT mix Options API stores in a setup-API codebase.
+> **Substitution markers**: Replace component / composable / store names with the project's actual entries from `_extracted-idioms.md`.
+
 ## Components
 
 - `<script setup lang="ts">` mandatory. No Options API.

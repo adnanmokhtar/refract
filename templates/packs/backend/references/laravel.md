@@ -1,5 +1,10 @@
 # Laravel (PHP) reference
 
+> **Framework**: Laravel 11.x on PHP 8.2+
+> **Official docs**: https://laravel.com/docs/11.x
+> **Version-specific gotchas**: Laravel 11 removed `Http/Kernel.php` (middleware now in `bootstrap/app.php`); removed `app/Console/Kernel.php` (commands auto-registered); reduced default service providers; queueing uses Redis or DB by default; Pennant for feature flags; Reverb for WebSockets.
+> **Substitution markers**: Replace `Order` / `User` etc. with the project's actual model + service names.
+
 ## Structure
 
 ```

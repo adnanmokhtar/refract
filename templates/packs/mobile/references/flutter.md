@@ -1,5 +1,10 @@
 # Flutter reference (3.19+)
 
+> **Framework**: Flutter 3.19+ / 3.22 / 3.24 • Dart 3.3+
+> **Official docs**: https://docs.flutter.dev/
+> **Version-specific gotchas**: Flutter 3.22 made Material 3 the default theme; 3.24 added `Mixin Sliver` widgets + improved Impeller (default on iOS, opt-in Android); `WidgetsBinding.instance.platformDispatcher` replaces `window` (deprecated); `flutter_lints` 3.x stricter; null safety mandatory.
+> **Substitution markers**: Replace `<name>` with the project's actual feature names.
+
 ## Structure
 
 ```

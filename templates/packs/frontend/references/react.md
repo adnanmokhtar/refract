@@ -1,5 +1,10 @@
 # React reference (19+, function components + hooks)
 
+> **Framework**: React 19+ • TypeScript 5+ • bundler: Vite 5+ / Next 15 / Remix 2
+> **Official docs**: https://react.dev/
+> **Version-specific gotchas**: React 19 introduced `use()` for promises in components, `useActionState`, `useFormStatus`, `useOptimistic`; `forwardRef` no longer needed (refs as props); document metadata + stylesheets hoisting; `<Context>` (not `<Context.Provider>`) shorthand; the `act()` API is asynchronous in tests.
+> **Substitution markers**: Replace `<name>` with the project's actual feature names.
+
 ## Structure
 
 ```

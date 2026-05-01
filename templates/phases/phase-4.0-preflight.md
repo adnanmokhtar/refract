@@ -67,6 +67,52 @@ The historic bug (M11 → M22 series): agent ran preflight, generated reports, t
 
 **Phase 4.6 still runs after** to anchor project-specific blocks into the replaced files.
 
+**Hard contract (M37) — Deterministic propagation tripod (now a quadruped — covers ALL selected tools):**
+
+```bash
+~/.claude/scripts/apply-baseline-sync.sh "$TARGET_REPO" --apply        # Phase 4.1 — repo-baseline → target
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply      # Phase 4.2 — pack files → .claude/
+~/.claude/scripts/apply-anchors.sh "$TARGET_REPO" --apply              # Phase 4.6 — anchor blocks
+~/.claude/scripts/apply-adapter-sync.sh "$TARGET_REPO" --apply         # Phase 4.8 — .claude/ → every enabled adapter
+```
+
+These four scripts are the deterministic-propagation contract. Each closes a specific false-idempotent loophole — together they guarantee that EVERY selected tool stays in sync with `.claude/` (the source of truth).
+
+| Script | Source → Target | Phase | Closes the bug |
+|---|---|---|---|
+| `apply-study-decisions.sh` | `templates/packs/<track>/` → `.claude/{agents,skills,commands,rules}/` + `ai/patterns/` | 4.2 | Agent skips pack copy |
+| `apply-baseline-sync.sh` | `templates/repo-baseline/{ai,/.claude}/` → `target/{ai,.claude}/` | 4.1 | Agent skips knowledge-layer + foundational-rules copy |
+| `apply-anchors.sh` | extraction → `## Project-specific` blocks IN pack-derived artifacts | 4.6 | Agent skips anchor injection (templates ship generic) |
+| `apply-adapter-sync.sh` | `.claude/{agents,skills,commands,rules}/` → `.opencode/`, `.cursor/`, `.github/`, `.clinerules/`, `.windsurf/`, `.continue/`, … | 4.8 | Agent translates 1-2 adapters and skips rest |
+
+**Why all four are mandatory** — the standalone-tool guarantee (`commands/setup-project.md § Drop-in replacement principle`):
+
+> If the user closes Claude Code and opens Cursor (or OpenCode, or Aider, or any selected tool), they get the SAME feature surface — same commands available, same agent personas usable, same knowledge accessible, same conventions enforced.
+
+Without `apply-adapter-sync.sh` specifically, a user who selects `--tools=claude-code,opencode` gets a fully-populated `.claude/` and an empty `.opencode/` — Claude works, OpenCode doesn't, the guarantee is broken. The shell script removes that gap from LLM judgment: 1:1 markdown copies (~80% of adapter translation) happen deterministically; the remaining 20% (format conversions like `.cursor/rules/*.mdc` with YAML frontmatter) are reported as MISSING-AUTHOR rows that `/setup-project-adapters` finishes.
+
+**What `apply-baseline-sync.sh` does**:
+- For every file under `~/.claude/templates/repo-baseline/`:
+  - Target missing → **ADD** (`cp` from baseline)
+  - Target identical to baseline → **NO-OP**
+  - Target has `<!-- setup-project:managed -->` markers → **SYNC** managed regions only (preserves user content outside markers)
+  - Target has user content + no markers → **KEEP-OURS** (never overwrites)
+- Backups every changed file to `.claude/backups/baseline-sync-<ts>/`.
+
+**What `apply-adapter-sync.sh` does**:
+- Auto-detects enabled adapters by folder/config presence (`.opencode/`, `.cursor/`, `.github/agents/`, `.clinerules/`, `.windsurf/`, `.continue/`, `.aider.conf.yml`, `AGENTS.override.md`, `GEMINI.md`).
+- Or processes explicit list via `--adapters=opencode,cursor,copilot,...`.
+- For each enabled adapter, applies the per-tool path-translation recipe from `templates/tool-adapters/<tool>/adapter.md`:
+  - 1:1 markdown copy (OpenCode commands/agents, Cursor commands/skills, Cline workflows, Windsurf workflows, Continue prompts) → shell `cp`.
+  - Filename suffix (Copilot `*.agent.md` / `*.prompt.md`) → shell `cp` + rename.
+  - Format conversion (Cursor `.mdc` with YAML frontmatter, JSON configs, AGENTS.md composites) → reported as MISSING-AUTHOR; LLM-authored by `/setup-project-adapters`.
+- Backups every overwritten file to `.claude/backups/adapter-sync-<ts>/`.
+
+**Phase 5 audit gates**:
+- **C2g** — refuses success when `apply-baseline-sync.sh` reports ADD rows in REFRESH/REFINE/ENHANCE modes (baseline files missing).
+- **C2h** — refuses success when `apply-adapter-sync.sh` reports ADD/REFRESH rows in those modes (adapter drift). MISSING-AUTHOR rows trigger a WARN (the agent must run `/setup-project-adapters` to author them, which is allowed in the same flow but tracked separately).
+- **C2f** — refuses success on STALE_KNOWLEDGE (pack source newer than `ai/_session-digest.md` etc.).
+
 ```bash
 for PACK in $SELECTED_PACKS; do
   PACK_SRC="$HOME/.claude/templates/packs/$PACK"

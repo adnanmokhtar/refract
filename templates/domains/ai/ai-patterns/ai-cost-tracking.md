@@ -106,7 +106,20 @@ All derivable from `messages` alone — no separate table needed until aggregati
 
 ## Anti-patterns
 
-- Computing cost from tokens + current pricing when reading (decouples record from truth).
-- Rounding to 2 decimals (loses cents when summed over thousands of messages).
-- Tracking tokens only in logs. Logs rotate; rows don't.
-- Charging tenants based on "messages sent" alone — token variance is 10×.
+- **Cost-on-read** — computing cost from tokens + current pricing when reading. Decouples record from truth; pricing changes rewrite history.
+- **Rounding to 2 decimals** — loses cents when summed over thousands of messages. Store ≥ 6 decimal places; round at display only.
+- **Tokens-in-logs** — tracking only in log lines that rotate / drop / get aggregated away. Persist on the row.
+- **Per-message billing** — charging tenants based on "messages sent" alone. Token variance is 10× across messages; bill on token-cost or token-tier.
+- **Pricing hardcoded across files** — same number in three modules drifts silently when the provider updates prices. One source of truth (`infrastructure/<provider>/pricing.<ext>`).
+- **Float cost column** — `cost_usd FLOAT` accumulates rounding error. Use `NUMERIC(12, 6)` or store as integer micro-cents.
+- **Hot-path flagship model** — Opus / GPT-4-class on per-message reply path. 10× cost. Reserve flagships for offline tooling.
+- **Untracked prompt-cache hits** — provider-side cache hits show in `usage.cache_read_input_tokens` (or equivalent); failing to record them means the dashboard reports the full input cost, not the actual.
+
+## Cross-references
+
+- `<rules-path>/ai-cost-discipline.md` — hard rules + review checklist + enforcement (this pattern's "must / must not / should").
+- `<commands-path>/token-audit.md` — scanner that finds calls without output caps, missing meter rows, flagship-model usage on hot paths, full-prompt info-level logs.
+- `<commands-path>/prompt-eval.md` — golden-case eval against the real provider; gates prompt-builder changes for quality + cost regressions.
+- `<agents-path>/prompt-reviewer.md` — review gate on prompt-builder / LLM-client diffs.
+- `<adr-path>/<NNN>-llm-provider-and-model-tier.md` — ADR pinning provider + per-feature model tier.
+- `<adr-path>/<NNN>-prompt-cache-strategy.md` — ADR for prompt-cache + context-versioning.

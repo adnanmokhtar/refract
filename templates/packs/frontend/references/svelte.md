@@ -1,5 +1,10 @@
 # Svelte / SvelteKit reference (Svelte 5, runes)
 
+> **Framework**: Svelte 5.0+ • SvelteKit 2.5+ • Vite 5+
+> **Official docs**: https://svelte.dev/docs/svelte/overview • https://kit.svelte.dev/docs/
+> **Version-specific gotchas**: Svelte 5 introduced runes (`$state`, `$derived`, `$effect`, `$props`) — replaces `let` reactive declarations + `$:` syntax; component instantiation API changed (no more `new Component()`); slot syntax replaced by snippets (`{#snippet}`); `<svelte:component this={X}>` deprecated in favor of dynamic component as variable.
+> **Substitution markers**: Replace `<name>` / route paths with the project's actual entries.
+
 ## Structure (SvelteKit)
 
 ```

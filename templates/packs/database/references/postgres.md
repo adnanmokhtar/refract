@@ -1,5 +1,10 @@
 # PostgreSQL reference
 
+> **Engine**: PostgreSQL 14+ / 15 / 16 / 17 (16 is the LTS-equivalent default)
+> **Official docs**: https://www.postgresql.org/docs/16/index.html
+> **Version-specific gotchas**: PG 16 added logical replication for stand-by + streaming I/O improvements; 15 added MERGE statement, `nullsNotDistinct` for unique indexes; UUID v7 is RFC-9562 — generate via `pg_uuidv7` extension or app-side; `pg_stat_statements` lives in `shared_preload_libraries` (restart needed); `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block.
+> **Substitution markers**: Replace `<table>` / `<column>` with the project's actual schema.
+
 ## Types to prefer
 
 - `uuid` (v7 via app or extensions) over `integer` PKs

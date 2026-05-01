@@ -1,5 +1,10 @@
 # React Native reference (0.74+)
 
+> **Framework**: React Native 0.74+ / 0.75 • React 18+ • TypeScript 5+
+> **Official docs**: https://reactnative.dev/docs/getting-started • https://docs.expo.dev/
+> **Version-specific gotchas**: 0.74 made New Architecture (Fabric + TurboModules) the default; legacy bridge officially deprecated; Hermes is the default engine (JSC removed for new projects in 0.75); Expo SDK 51+ aligns with RN 0.74; `react-native-reanimated` 3.x requires the new arch flag in some configs.
+> **Substitution markers**: Replace `<name>` with the project's actual feature/screen names.
+
 ## Structure
 
 ```

@@ -1,5 +1,10 @@
 # Phoenix (Elixir) reference
 
+> **Framework**: Phoenix 1.7+ on Elixir 1.15+ / Erlang OTP 26+ • Ecto 3.10+
+> **Official docs**: https://hexdocs.pm/phoenix/ • https://hexdocs.pm/phoenix_live_view/
+> **Version-specific gotchas**: Phoenix 1.7 made LiveView the default (verified routes, `~p` sigil, function components); `Phoenix.Component` replaces `Phoenix.LiveComponent` for stateless; HEEx is the only template engine; `core_components.ex` is the new shared component shape; tailwind + esbuild are the bundled defaults.
+> **Substitution markers**: Replace `MyApp` / `MyAppWeb` with the project's actual base modules.
+
 Concurrency king. For real-time apps (LiveView, channels), high-throughput APIs, and chat/streaming workloads.
 
 ## Structure (umbrella or single app)
