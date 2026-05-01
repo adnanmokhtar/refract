@@ -17,6 +17,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [`<TBD>` lifecycle](#tbd-lifecycle)
 - [Phase 5 audit failure modes](#phase-5-audit-failure-modes)
 - [Migration end-to-end](#migration-end-to-end)
+- [Align (codebase quality sweep) end-to-end](#align-codebase-quality-sweep-end-to-end)
 - [Memory system](#memory-system)
 - [Validator scripts](#validator-scripts)
 - [Common pitfalls](#common-pitfalls)
@@ -63,7 +64,8 @@ Every command has at least one halt rule **enforced by a validator script** (not
 
 - `find-and-fix` — `gaps_in == gaps_closed` enforced by `check_gap_count_parity` in `validate-migration-artifacts.sh`.
 - `migration-gate` — refuses PASS if any feature row in the phase has missing artifacts.
-- All audit commands — hand-wave grep refuses outputs containing `etc.` / `...` / `N+ items` / `appears to`.
+- `align-gate` — 14-check matrix in `validate-align-artifacts.sh` (gap-count parity, net-lines on structural ≤ 0, no new symbols except idioms-named, idiom-citation for functional adds, security assertion present, perf baseline present, security tier minimum, oracle unmodified, frontend regressions for `frontend-*`).
+- All audit commands — hand-wave grep refuses outputs containing `etc.` / `...` / `N+ items` / `appears to` / `several places` / `multiple endpoints`.
 - `add-feature` — sibling-shape conformance check refuses new files that diverge from sibling shape without an ADR.
 
 The pattern: **mechanical enforcement beats agent self-policing**. If the agent forgets the rule, the script catches it.
@@ -315,6 +317,121 @@ It only asks for:
 
 ---
 
+## Align (codebase quality sweep) end-to-end
+
+Single-codebase quality gate — drift, dead code, dups, silent catches, SOLID, clean code, performance, security. Same parallel-dispatch + atomic-fix discipline as migration; turned inward. **Opt-in via `--include=align`**; never auto-loaded.
+
+For the full step-by-step workflow + commands + flags, see `docs/COMMANDS.md` § "Codebase alignment — the comprehensive quality sweep". This section covers the load-bearing internals.
+
+### Setup (once per project)
+
+```
+/setup-project --refine                  # if _extracted-idioms.md is empty (precondition)
+/setup-project --include=align
+```
+
+What this does:
+1. Confirms `_extracted-idioms.md` is non-empty + identifies `PROJECT_KIND`.
+2. Installs the align pack into `.claude/{commands,rules,skills}/`.
+3. Auto-includes detector packs: `code-quality` (always), `security` (always), `frontend` + `ui-ux` (for `frontend-*`), `backend/database` (for `backend-*`), `mobile` (for `mobile-*`).
+4. Creates `ai/align/` with empty placeholders.
+
+### The phased loop
+
+```
+/align-scan            → ai/align/{ledger.md, scan-report.md, findings.md}
+/align-plan            → ai/align/plan.md
+─── per phase N ───
+/align-phase N         → per-finding loop (manual)
+/align-gate N          → 14-check exit gate
+─── after last phase ───
+/align-final           → ai/align/final-report-<date>.md
+```
+
+Or per-phase fast flow (mirrors `/migration-fast` — one phase per command, scan + plan must have run already):
+
+```
+/align-scan
+/align-plan
+/align-fast 1          # phase 1: per-finding loop in parallel + auto-gate
+/align-fast 2
+/align-fast 3
+... (per phase from plan)
+/align-final
+```
+
+### When `/align-phase` runs
+
+The 5-step per-finding loop (mirrors `find-and-fix` for migration):
+
+1. **DETECT** — re-verify the fingerprint at evidence lines is still present. (Findings can age out.)
+2. **DECIDE** — confirm closure verb is in the 16-verb vocabulary; confirm fix is appropriate to row's class; for functional verbs, confirm `idiom_cited` resolves.
+3. **FIX** — apply the verb's edit. Touch only files in `scope`. Net-lines ≤ 0 for structural rows; small + budget for functional rows (added lines must cite the row's `idiom_cited`).
+4. **VERIFY** — universal: lint + typecheck + scoped tests + re-detect + coverage non-decreasing. Class-specific: security assertion (gate denies / validator rejects / escape neutralises) for security rows; perf baseline + assertion for perf rows; a11y / visual / bundle-size for frontend UI/UX rows.
+5. **RECORD** — update ledger row (`status: fixed`, `commit`, `gaps_closed`, `notes`); commit (one finding = one commit).
+
+### Closure-verb vocabulary (16 verbs)
+
+| Group | Verbs |
+|---|---|
+| Structural (5) | `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared` |
+| Functional (11) | `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename` |
+
+A verb outside this list = NOT alignment. Route to `/refactor` / `/setup-project --refine` / a feature flow.
+
+**Functional verbs USE existing idioms.** A `add-gate` uses the project's auth gate from `_extracted-idioms.md`; a `cache-with-explicit-ttl` uses the project's cache primitive. Inventing a NEW gate / cache / validator is forbidden — the validator's `check_added_lines_cite_idioms` halts the gate.
+
+### What `/align-phase` does NOT ask
+
+- Cosmetic deviations from convention (closure verb is decided at scan time)
+- Whether to fix dead code (the closure verb is `remove`)
+- Whether to keep a reinvented wrapper (the closure verb is `replace-with-shared`)
+
+It only halts on:
+- The fix would change observable behaviour where preservation was the contract → re-classify as `/refactor`.
+- The shared equivalent in `_extracted-idioms.md` doesn't exist → route to `/setup-project --refine`.
+- A heavy-tier finding's impact analysis surfaces a consumer the planner missed.
+
+### Validator script — `validate-align-artifacts.sh`
+
+**Status: `[PLANNED — v1.1]`**. Until it ships, agents enforce the discipline by reading `align-discipline.md` and applying the 14 checks inline. The procedures are self-sufficient in the rule so any tool produces the same enforcement floor. Treat v1.0 alignment as a supervised flow.
+
+When shipped, will be universal callable from any tool. The 14 checks (see `align-gate.md`):
+
+1. Ledger completeness — every phase row in `{fixed, archived-pre-existing, parked}`.
+2. Gap-count parity — `gaps_closed == len(evidence)`.
+3. Net-lines on structural rows ≤ 0.
+4. No new symbols (with idioms-named exemption).
+5. No scope creep.
+6. Mechanical green at HEAD.
+7. Coverage non-decreasing.
+8. Frontend regressions green (`frontend-*`).
+9. Oracle unmodified.
+10. Per-tier artifacts complete.
+11. Functional adds cite idiom.
+12. Security assertion present.
+13. Perf baseline + assertion present.
+14. Security tier minimum.
+
+Returns non-zero on any fail. Wire into pre-commit / CI / tool-specific hook (Claude Code: `.claude/settings.json`; Cursor: `.cursor/hooks.json`; Copilot: GitHub Actions; Aider/Codex/Gemini: `.git/hooks/pre-commit`).
+
+### Idiom-gap recovery
+
+If `/align-phase` halts repeatedly with "missing idiom" reasons (e.g., the project has no named cache primitive but several findings need `cache-with-explicit-ttl`), the right move is NOT to invent the idiom inline — it's to update the gold-standard inventory:
+
+```
+/align-park <id> --blocker=idiom-missing
+... (close current phase if other rows are fixable)
+/setup-project --refine                   # add the missing idiom to _extracted-idioms.md
+... (review the refined idioms)
+/align-unpark <id>                        # revive the parked finding
+/align-phase <N> --start-from=<id>        # retry
+```
+
+This keeps the alignment effort honest: the inventory is the oracle; gaps in the oracle surface as parked findings, not silently-invented abstractions.
+
+---
+
 ## Memory system
 
 Three layers, each per-project:
@@ -357,6 +474,7 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 |---|---|
 | `audit-setup.sh` | Phase 5 audit for `/setup-project` runs. TBDs filled, pack coverage, anchoring, adapter coverage. |
 | `validate-migration-artifacts.sh` | Per-feature migration artifacts: contract sections, parity tests, audit provenance, V2-structure conformance, gap-count parity, hand-wave detection. |
+| `validate-align-artifacts.sh` | Per-phase align artifacts (14 checks): ledger completeness, gap-count parity, net-lines on structural rows, no new symbols (idioms-named exemption), no scope creep, mechanical green, coverage non-decreasing, frontend regressions, oracle unmodified, per-tier artifacts, idiom citation, security assertion, perf baseline, security tier minimum. |
 | `migration-detect-existing.sh` | Phase 1 of `/port-feature`: detects whether V2 already implements a feature (none / partial / full). |
 | `migration-validate-paths.sh` | Phase 4 of `/port-feature`: validates planned file paths against V2 module shape. |
 | `audit-adapter-coverage.sh` | Per-pack adapter coverage: every pack rule has equivalent translations in Cursor / OpenCode / Aider / etc. |

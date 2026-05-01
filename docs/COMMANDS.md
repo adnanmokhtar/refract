@@ -19,6 +19,7 @@ The full user-facing reference for the four `/setup-project`-family commands. So
   - [Refresh a stale setup](#refresh-a-stale-setup)
   - [Refine — make output project-specific](#refine--make-output-project-specific)
   - [V1 → V2 migration](#v1--v2-migration)
+  - [Codebase alignment — the comprehensive quality sweep](#codebase-alignment--the-comprehensive-quality-sweep)
   - [Plan-only mode (any command)](#plan-only-mode-any-command)
 - [Hard rules summary](#hard-rules-summary)
 - [Where things live](#where-things-live)
@@ -76,7 +77,7 @@ Phase 1 detects which mode applies by scanning the target repo. You can force a 
 
 | Flag                    | Meaning                                                                     | Default |
 |-------------------------|-----------------------------------------------------------------------------|---------|
-| `--include=<signal>`    | Force-apply a **technical-signal** pack even if not detected. Comma-separated for multiple. Valid keys: every signal in `~/.claude/templates/domains/_registry.md`. Examples: `multi-tenant`, `webhook`, `payment`, `feature-flags`, `background-jobs`, `migration`. | off |
+| `--include=<signal>`    | Force-apply a **technical-signal** pack even if not detected. Comma-separated for multiple. Valid keys: every signal in `~/.claude/templates/domains/_registry.md`. Examples: `multi-tenant`, `webhook`, `payment`, `feature-flags`, `background-jobs`, `migration`, `align`. | off |
 | `--minimal`             | Focused setup — copies only `_essentials.md` per track (~30% of full pack). Best for MVPs / prototypes. Upgrade later via `--enhance` to add the rest. | off |
 | `--force-replace-all`   | Bypass merge matrix; overwrite every overlap with pack version.            | off     |
 | `--force-keep-all`      | Bypass merge matrix; never overwrite existing files.                       | off     |
@@ -320,6 +321,81 @@ Properties:
 | `/port-feature <n>`  | Port one feature V1 → V2: extract V1 contract → architect V2 → parity tests → impl → audit. Use for one-off ports outside the phased flow. |
 | `/migration-status`  | Read `ai/migration/ledger.md`, report done / in-flight / not-started + per-phase. Lighter than `/migration-gate` (no enforcement). |
 
+### Align track (when `--include=align` — opt-in only)
+
+The align pack is the **codebase quality gate** — a comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically.
+
+**Precondition**: `_extracted-idioms.md` must be populated. If not, run `/setup-project --refine` first.
+
+#### Phased flow (manual — interactive checkpoints)
+
+| Command                | Purpose                                                                          |
+|------------------------|----------------------------------------------------------------------------------|
+| `/align-scan`          | Deep scan. Runs 11 universal detectors (6 structural + 4 functional + stack-conditional). Builds `ai/align/ledger.md` (every row `detected`), `scan-report.md`, `findings.md`. Frontend stacks auto-dispatch UI/UX detectors. Security findings always ≥ standard tier; critical security always heavy. |
+| `/align-plan`          | Reads scan + ledger. Produces `ai/align/plan.md` — phased plan grouped by class + domain + tier. Mechanical first; security front-loaded; UI/UX grouped by domain. Cap: 12 findings/phase. |
+| `/align-phase <N>`     | Executes phase N. Per-finding loop: DETECT (re-verify fingerprint) → DECIDE (closure verb in 16-verb vocabulary) → FIX (mechanical edit; touch only `scope`) → VERIFY (lint + typecheck + tests + re-detect + class-specific assertions) → RECORD (one commit per finding). |
+| `/align-gate <N>`      | Phase exit gate. 14-check matrix (ledger completeness, gap-count parity, net-lines on structural, no-new-symbols-except-idioms, no scope creep, mechanical, coverage non-decreasing, frontend regressions, oracle unmodified, per-tier artifacts, idiom citation, security assertion, perf baseline, security tier minimum). Read-only; refuses on any check fail. |
+| `/align-final`         | Full sweep across all phases. Re-runs the audit; surfaces regressions; produces `final-report-<date>.md` with recommendations (cadence, hooks, idiom gaps). |
+
+#### Fast flow (per-phase one-shot — mirrors `/migration-fast`)
+
+| Command            | Purpose                                                                          |
+|--------------------|----------------------------------------------------------------------------------|
+| `/align-fast <N>`  | One-shot for phase N: runs the per-finding loop in parallel waves + `/align-gate <N>`. Same discipline; no human-watch pauses. Auto-routes per tier (trivial → loop; standard → loop + rationale; heavy → loop + reviewer pause). Pre-requisites: `/align-scan` and `/align-plan` must have run already. |
+
+#### Sidecar commands
+
+| Command                  | Purpose                                                                          |
+|--------------------------|----------------------------------------------------------------------------------|
+| `/align-status`          | Read-only progress reader. Per-phase summary, class breakdown, halted / parked / stalled rows. Run via `/schedule align-status weekly` for ongoing monitoring. |
+| `/align-rollback <N>`    | Undo phase N. Reverts commits via `git revert` (preserves audit trail), restores ledger rows to `detected`, archives halt files. Mandatory user confirmation; cascade warning if later phases depend on phase N. |
+| `/align-park <id> [reason]` | Defer a hairy finding. Sets `status: parked` with rationale; excludes from phase gate. Reversible via `/align-unpark`. |
+| `/align-replan`          | Regenerate the phased plan from current ledger state. Run when plan ages out (codebase changed, parked rows piled up, prior phases revealed sequencing wrong, `/setup-project --refine` updated idioms). Preserves verified rows; re-phases the rest. Mirrors `/migration-replan`. |
+
+Workflow (manual — fully supervised):
+```
+/align-scan
+/align-plan
+/align-phase 1
+/align-gate 1
+/align-phase 2
+/align-gate 2
+... (repeat per phase)
+/align-final
+```
+
+Workflow (fast — recommended for routine mechanical phases):
+```
+/align-scan
+/align-plan
+/align-fast 1
+/align-fast 2
+... (per phase from the plan)
+/align-final
+```
+
+Mixed (manual for heavy phases, fast for routine):
+```
+/align-scan
+/align-plan
+/align-fast 1                          # mechanical: dead code (fast)
+/align-fast 2                          # mechanical: silent catches (fast)
+/align-phase 3                         # security critical (manual; supervise per row)
+/align-gate 3
+/align-fast 4                          # mechanical: reinvented wrappers (fast)
+... etc
+/align-final
+```
+
+Properties:
+- **Comprehensive sweep** — covers structural drift + SOLID + clean code + performance + security + stack-specific UI/UX.
+- **Stack-agnostic** — same pack, different detector dispatch via `PROJECT_KIND` (frontend / backend / data / mobile).
+- **Closure-verb vocabulary is closed** — 16 verbs (5 structural + 11 functional). No new abstractions; functional adds must cite idioms from `_extracted-idioms.md`.
+- **Net-lines rule split by class group** — structural rows ≤ 0 hard; functional rows small + budgeted (with idiom citation).
+- **Security findings always ≥ standard tier** — critical security ALWAYS heavy.
+- **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
+- **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
+
 ### Other tracks
 
 DevOps (`/dockerize`, `/add-ci`), security (`/security-audit`), testing (`/add-test`, `/flaky-test-hunt`), documentation (`/doc-refresh`, `/add-adr`), observability (`/log-tail`), etc.
@@ -514,6 +590,158 @@ Confirms every feature complete across all phases. Optional `--re-audit` re-runs
 - **Trust nothing.** Every `done` claim re-verified before retirement.
 - **V2 is the new structure.** Cite V2 patterns/helpers when porting; never lift-and-shift.
 - **Foundation first.** Auth / tenant / shared infra always go in phase 1.
+
+### Codebase alignment — the comprehensive quality sweep
+
+For an existing codebase that's accumulated drift / dead code / dups / silent catches / SOLID violations / clean-code rot / perf issues / security gaps. Use the align pack — single-codebase quality gate (no V1/V2 split). Same parallel-dispatch + atomic-fix discipline as migration; turned inward.
+
+**Step 1 — Confirm preconditions.**
+
+```bash
+cd /path/to/your-repo
+```
+
+In Claude Code:
+
+```
+/setup-project-health
+```
+
+The align pack requires `_extracted-idioms.md` (the gold-standard inventory) to be populated. If not, run `/setup-project --refine` first — without an oracle, "alignment" is just opinion.
+
+```
+/setup-project --refine                  # only if _extracted-idioms.md is empty/missing
+```
+
+Mechanical CI (lint / typecheck / build / tests) MUST be green at HEAD. Existing red drowns alignment findings. Use `/check-health` (from `code-quality` pack) to verify.
+
+**Step 2 — Install the align pack.**
+
+```
+/setup-project --include=align
+```
+
+What happens:
+- Phase 2 confirms `_extracted-idioms.md` is non-empty + identifies `PROJECT_KIND` (frontend-* / backend-* / data-* / mobile-*).
+- Phase 4.2 ships the align pack: rule (`align-discipline.md`), 2 skills, 9 commands, validator script.
+- Phase 4.6 anchors every align artifact to your codebase root + test runner + lint commands + (frontend) a11y / visual / bundle-size tools.
+- Per-stack detectors auto-include from sibling packs (`code-quality`, `security`, plus `frontend` + `ui-ux` for `frontend-*`).
+
+**Step 3 — Deep scan (build the findings ledger).**
+
+For an UNTOUCHED codebase that's never been aligned, use `--first-run`:
+
+```
+/align-scan --first-run                  # excludes heavy + clean-code; caps at 20/class
+```
+
+This typically yields 80–150 findings (vs 200–800+ without the flag) — a manageable phase 1. Clean-code + heavy-tier rows defer to follow-up sweeps after the team has built workflow confidence. For incremental validation on a single module before a full sweep:
+
+```
+/align-scan --scope=src/auth/ --first-run    # validate the workflow on one module first
+```
+
+For routine cadence sweeps (after the first run), use the full scan:
+
+```
+/align-scan
+```
+
+Reads the codebase against `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md`. Runs 10 universal detectors in parallel waves:
+- **Structural** (6): dead-code, duplicated-logic, reinvented-wrapper, silent-catch, over-abstraction, drift.
+- **Functional** (4): SOLID violation, clean-code, performance, security (security includes deps-audit as a sub-class).
+- **Stack-conditional**: a11y / design tokens / i18n / motion / lifecycle / default-true wrappers / permission gates for `frontend-*`; tenant-gate / N+1 / transaction-boundary for `backend-*`; etc.
+
+Outputs `ai/align/ledger.md` (every row `detected`, with `<path:line>` evidence), `scan-report.md`, `findings.md`. Security findings always ≥ standard tier; critical security (SQL injection, secret-in-code, RCE vectors) ALWAYS heavy.
+
+**Step 4 — Generate phased plan.**
+
+```
+/align-plan
+```
+
+Reads scan + ledger. Produces `ai/align/plan.md` — phases grouped by class + domain + tier. Cap: 12 findings/phase. Mechanical-first; security front-loaded (phase 2 typically); UI/UX grouped by page/domain (e.g., "auth pages a11y + tokens + i18n").
+
+**Step 5a — Run a phase (manual flow).**
+
+```
+/align-phase 1
+```
+
+For every finding in phase 1, the per-finding loop:
+1. **DETECT** — re-verify the fingerprint at evidence lines is still present.
+2. **DECIDE** — confirm closure verb is in the 16-verb vocabulary; confirm fix is appropriate to row's class.
+3. **FIX** — apply the verb-specific edit. Touch only files in `scope`. Net-lines ≤ 0 for structural rows; small + budget for functional rows (added lines must cite the row's `idiom_cited`).
+4. **VERIFY** — lint + typecheck + scoped tests + re-detect (universal); plus class-specific assertions (security gates / perf baselines / frontend regressions).
+5. **RECORD** — update ledger; one commit per finding.
+
+**Step 5b — OR run the fast flow (recommended for routine mechanical phases).**
+
+```
+/align-fast 1                           # one-shot phase 1: per-finding loop in parallel + auto-gate
+```
+
+Same discipline; parallel waves; no human-watch pauses. Heavy-tier rows pause for reviewer approval; trivial/standard continue. Mirrors `/migration-fast` exactly — runs ONE phase, requires `/align-scan` + `/align-plan` to have run already.
+
+**Step 6 — Phase exit gate.**
+
+```
+/align-gate 1
+```
+
+Read-only. Runs the 14-check matrix:
+1. Ledger completeness.
+2. Gap-count parity (`gaps_closed == len(evidence)`).
+3. Net-lines on structural rows ≤ 0.
+4. No new symbols (with idioms-named exemption).
+5. No scope creep.
+6. Mechanical (lint + typecheck + tests) green.
+7. Coverage non-decreasing.
+8. Frontend regressions (a11y / visual / bundle-size) green for `frontend-*`.
+9. Oracle (`_extracted-idioms.md` etc.) unmodified.
+10. Per-tier artifacts complete.
+11. Functional adds cite idiom.
+12. Security assertion present (every security row has a co-committed assertion test).
+13. Perf baseline + assertion present.
+14. Security tier minimum (no security at trivial; critical at heavy).
+
+Refuses on ANY check fail. Don't start phase 2 until this returns PASS (or use `/align-fast` which auto-gates).
+
+**Step 7 — Repeat for each phase.**
+
+```
+/align-fast 2                           # next phase, fast flow
+# OR
+/align-phase 2                          # next phase, manual flow
+/align-gate 2
+
+... (per phase from the plan)
+```
+
+**Step 8 — Final sweep + cadence recommendations.**
+
+```
+/align-final
+```
+
+Confirms every finding closed across all phases. Optionally `--re-scan` to surface drift since the original scan. Produces `ai/align/final-report-<date>.md` with:
+- Aggregate impact (lines removed, security findings closed, perf uplifts, dead code removed).
+- Outstanding parked findings (revisit per `/align-unpark`).
+- Recommendations for next cadence (typically `/schedule align-scan +4w`).
+- ADR-worthy hooks / lint-rules / pre-commit additions where alignment is rotting back.
+
+#### Hard rules for align (from `align-discipline.md`)
+
+- **One finding = one commit.** Bundling hides regressions.
+- **Closure-verb vocabulary is closed (16 verbs).** No new abstractions; functional verbs (add-gate, parameterize, etc.) USE existing idioms from `_extracted-idioms.md` — never invent.
+- **Net-lines ≤ 0 for structural rows.** Alignment is entropy-reducing.
+- **Functional adds must cite idioms.** Every block of added lines references `<path:line>` in `_extracted-idioms.md` (gate / validator / cache primitive / etc.).
+- **Security findings always ≥ standard tier.** Critical security ALWAYS heavy; never trivial.
+- **Security and perf rows ship with assertions / baselines.** Bare gate / hopeful parallelize = halt.
+- **Re-detect after every fix.** Gap-count parity (`gaps_in == gaps_closed`) mandatory.
+- **Coverage non-decreasing.** A removed branch was either dead (coverage same) or load-bearing (coverage drops; halt).
+- **Oracle stays read-only.** `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md` changes ship via `/setup-project --refine`, not align fixes.
+- **Heavy-tier rows reviewed before merge.** Reviewer name + timestamp in row's `notes`.
 
 ### Plan-only mode (any command)
 

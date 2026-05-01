@@ -123,3 +123,12 @@ When enhance-mode detects a project uses a tool whose adapter is missing:
 - If no adapter exists → warn user with a one-liner: "Detected X, no adapter available. Contribute one at `~/.claude/templates/tool-adapters/<name>/`."
 
 See individual `<tool>/adapter.md` files for each tool's translation spec.
+
+## Per-pack adapter coverage
+
+Some packs define their own discipline that every adapter must preserve faithfully. These packs ship a coverage doc that explains the per-tool translation expectations:
+
+- [`_migration-pack-coverage.md`](_migration-pack-coverage.md) — V1→V2 migration (per-feature port discipline, parity-auditor, migration-fast).
+- [`_align-pack-coverage.md`](_align-pack-coverage.md) — codebase quality gate (alignment scan, per-finding fix loop, align-fast). Covers structural drift, SOLID, clean code, performance, security, and stack-specific UI/UX (a11y / design tokens / i18n / motion for `frontend-*`).
+
+Both packs are **rule-self-sufficient** — their core rules (`migration-discipline.md`, `align-discipline.md`) inline the full procedural surface so rule-only tools (Aider, Codex, Gemini) get the same enforcement floor as full-capability tools (Claude Code, OpenCode, Cursor, Copilot).

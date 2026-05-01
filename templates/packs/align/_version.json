@@ -1,0 +1,40 @@
+{
+  "kind": "pack",
+  "name": "align",
+  "version": "1.1.0",
+  "released": "2026-05-01",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-05-01",
+      "changes": [
+        "Refinement pass — add realism guards + first-run UX + symmetry with migration pack.",
+        "/align-fast: stripped to single-phase mode (matches /migration-fast exactly). Removed `all` and `scan-only` modes. Added --scope flag for incremental phase runs.",
+        "/align-scan: added --first-run flag with sane defaults (exclude-tier=heavy, exclude-class=clean-code, max-findings-per-class=20). Added concrete first-run output example. Added --max-findings-per-class cap with deferred-fingerprints registry at ai/align/_deferred.md.",
+        "/align-replan: NEW command for symmetry with /migration-replan. Regenerates plan from current ledger; preserves verified rows; re-phases the rest.",
+        "align-discipline.md: added Realism guards section — coverage tolerance (±0.5% for sample fluctuation); parallel race serialization (per-file lock mechanism); baseline capture fallback for projects without observability dashboards; validator script status (marked [PLANNED — v1.1]) with agent-side enforcement fallback.",
+        "Verb taxonomy refinements — add-index ALWAYS ≥ standard tier (never trivial); bump-dep clarified for major-version handling (halt + route to dependency-migration ticket if tests break or non-patch bump).",
+        "align-plan.md: phasing templates now explicitly described as typical examples, not rules. Real projects adapt based on priorities.",
+        "Skills (detect-drift, find-and-align): explicit Inputs/Outputs precise contracts at the top, replacing buried IO descriptions.",
+        "Cross-pack symmetry: align command suite now mirrors migration command suite 1:1 — scan, plan, phase, gate, fast, final, rollback, park, replan, status.",
+        "Count consistency: every doc now references 10 universal classes (6 structural + 4 functional), 14 phase-exit checks, 11 per-finding halts, 21-verb closure vocabulary (5 structural + 16 functional)."
+      ]
+    },
+    "1.0.0": {
+      "released": "2026-05-01",
+      "changes": [
+        "Initial align pack release.",
+        "rules/align-discipline.md: 11 finding classes (6 structural + 4 functional + stack-specific UI/UX); 16-verb closure vocabulary (5 structural + 11 functional); tier rules (security ALWAYS ≥ standard; critical security ALWAYS heavy); 11 per-finding audit halts; 14-check phase-exit gate; anti-pattern catalogue.",
+        "commands/: align-scan, align-plan, align-phase, align-gate, align-fast, align-status, align-final, align-rollback, align-park.",
+        "skills/: detect-drift (universal 11 detectors + stack-conditional dispatch); find-and-align (per-finding 5-step loop).",
+        "_essentials.md + _topics.md: pack metadata + AUTHOR-mode topic specs.",
+        "Stack-agnostic via PROJECT_KIND: frontend-* dispatches UI/UX detectors automatically (a11y, design tokens, i18n, motion, lifecycle, default-true wrapper props, permission gates). Backend-* adds tenant-gate / N+1 / transaction-boundary. Data-* adds column-projection / idempotency / sync-http-batch. Mobile-* adds native-bridge.",
+        "/align-fast <N> = per-phase one-shot (scan + plan are pre-requisites, like /migration-fast). Runs find-and-align per row in parallel waves + auto-gate. Same discipline; no human-watch pauses.",
+        "Functional fixes (security gates, validators, cache primitives) MUST cite an idiom from _extracted-idioms.md — no inventing new abstractions inline. Validator: check_added_lines_cite_idioms.",
+        "Net-lines rule split by class group: structural ≤ 0 hard; functional small + budget with idiom citation."
+      ]
+    }
+  }
+}
