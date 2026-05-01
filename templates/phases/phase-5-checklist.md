@@ -74,7 +74,7 @@ Phase 5 must NOT report success unless every `must` row passes. `should` rows wa
 |------------------------------------------------------------------------|----------|-------------------|
 | Every applied pack has `_version.json` + `CHANGELOG.md`                | must     | A27               |
 | Per-run version stamps recorded in `codebase-profile.md`               | must     | A28               |
-| Pack-load preflight report emitted                                     | must     | phase-4 §4.0.4    |
+| Pack-load preflight report emitted                                     | must     | phase-4 §4.0.5    |
 
 ## C5. Schema validation
 
@@ -148,4 +148,4 @@ A `must` failure triggers ONE automatic retry:
 3. Re-audit only the failing rows.
 4. If still failing, halt with full diagnostic and surface to user. NO third attempt.
 
-This is the false-idempotent-bug prevention. Reference: phase-4 §4.0.5 + phase-5 prose.
+This is the false-idempotent-bug prevention. Reference: phase-4 §4.0.6 + phase-5 prose.

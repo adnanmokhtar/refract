@@ -58,7 +58,7 @@ Phase 5 references rules by ID. Edit prose below the table; never delete a row w
 | A16 | Map every new file to a defined home in `ai/modules.md` BEFORE writing   | must      | 4                       |
 | A17 | Boy Scout Rule on every touched file (bounded scope)                     | should    | 4, 6                    |
 | A18 | Inject mandatory pre-flight in every generated agent                     | must      | 4 (4.6)                 |
-| A19 | Foundational ruleset: ship the four `repo-baseline` rules — period       | must      | 4 (4.0.6, 5.1)          |
+| A19 | Foundational ruleset: ship the four `repo-baseline` rules — period       | must      | 4 (4.0.7, 5.1)          |
 | A20 | Backend track + async runtime → ship parallel-IO discipline artifacts    | must      | 4 (4.0)                 |
 | A21 | Run setup-project's own independent sub-steps in parallel where allowed  | should    | 2, 4                    |
 | A22 | REFINE deepens; never substitutes for CREATE/ENHANCE/REFRESH             | must      | 1, 4-DEEP               |
@@ -188,7 +188,7 @@ Delegate heavy scans to Explore subagent; terse output.
 ### A19 — Four `repo-baseline` rules — period
 The first three answer *what to read* + *what "clean" means*; the fourth (Karpathy-inspired task-discipline layer) answers *how to act on what you read* — explicit assumptions, simplicity-first, surgical scope, verifiable success criteria.
 **Why:** skipping any one re-introduces a known LLM failure mode.
-**How to apply:** Phase 4.0.6 enforces presence; Phase 5.1 retries-then-halts if any are missing.
+**How to apply:** Phase 4.0.7 enforces presence; Phase 5.1 retries-then-halts if any are missing.
 
 ### A20 — Parallel I/O discipline on async backends
 **Why:** sequential `await` of independent I/O is the most common LLM-authored backend perf failure (turning 100ms × 8 batches into 800ms wall-clock).

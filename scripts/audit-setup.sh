@@ -57,6 +57,28 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
     err "_refresh-extract.md missing — REFRESH/REFINE didn't run extract checklist"
   fi
 fi
+
+# Project-aware substrate check: in non-CREATE modes, Phase 2.5 should produce
+# _extracted-idioms.md whenever the codebase has ≥1 base class with ≥3 extenders.
+# Without it, AUTHOR-mode silently falls back to COPY-mode (generic templates with
+# only the 5-facet anchor), and the system ships pack content that does not reflect
+# this project's actual architecture. We can't deterministically tell whether the
+# project HAS such base classes, so emit a WARN (not ERR) to surface the risk.
+if [[ "$MODE" != "create" ]]; then
+  if [[ -f "$CL/_extracted-idioms.md" ]]; then
+    # Empty file or file with no `# <BaseName>` H1 sections = Phase 2.5 ran but
+    # found no extenders — that's a valid outcome for true-greenfield code, but
+    # the agent should have logged WHY. Just confirm the file exists.
+    idioms_h1=$(grep -cE '^# ' "$CL/_extracted-idioms.md" 2>/dev/null || echo 0)
+    if [[ "${idioms_h1:-0}" -gt 0 ]]; then
+      ok "_extracted-idioms.md (${idioms_h1} base class section(s) — AUTHOR-mode substrate present)"
+    else
+      warn_msg "_extracted-idioms.md exists but has 0 base-class sections — AUTHOR-mode will fall back to COPY (generic templates). Confirm Phase 2.5's '<3-extenders' rationale is logged in plan."
+    fi
+  else
+    warn_msg "_extracted-idioms.md missing — Phase 2.5 (deep idiom extraction) was skipped. AUTHOR-mode tracks will fall back to COPY-mode (generic templates), so the generated setup will be less project-specific. If the codebase has any base class with ≥3 extenders, re-run with Phase 2.5 enabled."
+  fi
+fi
 echo ""
 
 # C2b — extract sections non-empty

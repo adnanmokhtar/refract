@@ -96,7 +96,7 @@ done
 
 If preflight finds ANY ADD-CANDIDATE → the run is NOT idempotent → proceed to Phase 4.2 deterministic copy.
 
-#### 4.0.1 Inputs
+#### 4.0.2 Inputs (shared by 4.0.3 onwards)
 
 - Selected packs (Phase 2 detection + `--include`/`--exclude`).
 - Selected business-domains (Phase 2.4 + wizard answers).
@@ -104,7 +104,7 @@ If preflight finds ANY ADD-CANDIDATE → the run is NOT idempotent → proceed t
 - Selected tool adapters (Phase 3.2 detection + `--tools`).
 - Mode (CREATE / ENHANCE / REFRESH).
 
-#### 4.0.2 Per-source preflight (run on each selected source)
+#### 4.0.3 Per-source preflight (run on each selected source)
 
 For every selected pack / adapter / domain / business-domain / regulatory-overlay:
 
@@ -157,12 +157,12 @@ if [ "$SRC_KIND" = "adapter" ] && [ "$ARG_VALIDATE_SCHEMAS" = "1" ]; then
 fi
 ```
 
-#### 4.0.3 Halt vs. warn
+#### 4.0.4 Halt vs. warn
 
 - **ERRORS → halt before Phase 4.1.** Print every error in the report. Do not write anything to the project.
 - **WARNINGS → log + continue.** Surface them in the Phase 5 report under "Pack-load preflight warnings". They are advisory.
 
-#### 4.0.4 Pack-load preflight report (always emitted)
+#### 4.0.5 Pack-load preflight report (always emitted)
 
 ```
 == Pack-load preflight ==
@@ -178,35 +178,15 @@ Warnings:
   - DEPRECATED ~/.claude/templates/packs/legacy-track see CHANGELOG.md
 ```
 
-#### 4.0.5 Minimum-artifacts table (referenced by Phase 4.2.c + Phase 5.1)
+#### 4.0.6 Minimum-artifacts table (referenced by Phase 4.2.c + Phase 5.1)
 
-The table that Phase 4.2.c verifies against and Phase 5.1 retries against. **Per-track floors** (load-bearing only — tracks not load-bearing get `n/a`, not a gap):
-
-| Track             | agents | commands | skills | rules | ai-patterns |
-|-------------------|--------|----------|--------|-------|-------------|
-| backend           | 2      | 2        | 2      | 2     | 3           |
-| frontend          | 2      | 2        | 1      | 2     | 2           |
-| testing           | 1      | 1        | 1      | 1     | 1           |
-| security          | 1      | 1        | 1      | 2     | 1           |
-| code-quality      | 1      | 1        | 1      | 2     | 1           |
-| documentation     | 1      | 1        | 1      | 1     | 0           |
-| learning          | 1      | 1        | 1      | 1     | 0           |
-| db                | 1      | 1        | 1      | 1     | 1           |
-| devops            | 1      | 1        | 1      | 1     | 1           |
-| performance       | 1      | 1        | 1      | 1     | 1           |
-| api               | 1      | 1        | 1      | 1     | 1           |
-| compliance        | 1      | 1        | 1      | 2     | 0           |
-| product           | 0      | 1        | 1      | 1     | 0           |
-| design            | 0      | 1        | 1      | 1     | 1           |
-| pm                | 0      | 1        | 1      | 1     | 0           |
-| support           | 0      | 1        | 1      | 1     | 0           |
-| migration         | 2      | 2        | 3      | 1     | 3           |
+**Single source of truth**: see § "Minimum artifacts per LOAD-BEARING track" later in this file (line ~384). Track keys there match the registry at `templates/packs/_registry.md` (one row per pack folder under `templates/packs/`).
 
 **Minimal mode (`--minimal`)**: floors are replaced by the track's `_essentials.md` manifest counts. Anything outside the focused subset is `n/a`.
 
-**Migration track**: load-bearing only when `migration_layout_detected` is true (parallel V1+V2 directories, version-suffixed sibling modules, dual-app workspaces with `-v2`/`-next`/`-new` suffixes, README mentions of V1→V2 / legacy migration) OR when explicitly opted in via `--include=migration`. Floors above match `_essentials.md`: 2 agents (`migration-architect`, `parity-auditor`), 2 commands (`port-feature`, `migration-status`), 3 skills (`extract-v1-contract`, `parity-test-generate`, `perf-uplift-survey`), 1 rule (`migration-discipline`), 3 patterns (`feature-port`, `parity-testing`, `migration-ledger`).
+**Migration track**: load-bearing only when `migration_layout_detected` is true (parallel V1+V2 directories, version-suffixed sibling modules, dual-app workspaces with `-v2`/`-next`/`-new` suffixes, README mentions of V1→V2 / legacy migration) OR when explicitly opted in via `--include=migration`. Floors match `_essentials.md`: 2 agents (`migration-architect`, `parity-auditor`), 2 commands (`port-feature`, `migration-status`), 3 skills (`extract-v1-contract`, `parity-test-generate`, `perf-uplift-survey`), 1 rule (`migration-discipline`), 3 patterns (`feature-port`, `parity-testing`, `migration-ledger`).
 
-#### 4.0.6 Required baseline files (referenced by Phase 5.1 + Phase 5.4)
+#### 4.0.7 Required baseline files (referenced by Phase 5.1 + Phase 5.4)
 
 The flat list below MUST exist on disk after Phase 4.1. Phase 5.1 retries this list (then halts). It is the answer to "what does Phase 4.0's baseline contract look like":
 

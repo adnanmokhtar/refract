@@ -45,6 +45,7 @@ done
 
 PROFILE="$TARGET/.claude/codebase-profile.md"
 SCAN="$TARGET/.claude/_codebase-scan.md"
+IDIOMS="$TARGET/.claude/_extracted-idioms.md"   # optional — Phase 2.5 output (architecture fingerprint)
 
 if [[ ! -f "$PROFILE" ]]; then
   echo "ERR: $PROFILE not found — Phase 2 has not run" >&2
@@ -127,21 +128,42 @@ testing_ln=$(grep -nE '^## [0-9]+\. Testing' "$PROFILE" | head -1 | cut -d: -f1)
 data_ln=$(grep -nE '^## [0-9]+\. Data access' "$PROFILE" | head -1 | cut -d: -f1)
 err_ln=$(grep -nE '^## [0-9]+\. Error handling' "$PROFILE" | head -1 | cut -d: -f1)
 
+# Architecture fingerprint — when Phase 2.5 ran and produced _extracted-idioms.md,
+# pull the base-class H1 list (top 5) so every anchor block names this project's
+# actual load-bearing classes instead of just generic "Architecture: layered".
+# This is what makes the anchor architecture-aware vs template-shaped.
+BASE_CLASSES=""
+if [[ -f "$IDIOMS" ]]; then
+  # Each base class is authored as `# <BaseName><Generics> Pattern` per
+  # extract-base-class-idiom.md § Step 6. Strip the trailing " Pattern" hint.
+  BASE_CLASSES=$(grep -E '^# ' "$IDIOMS" 2>/dev/null \
+                 | sed -E 's/^# +//; s/ +Pattern$//' \
+                 | head -5 \
+                 | awk 'NF { printf "%s`%s`", (NR>1 ? ", " : ""), $0 } END { print "" }')
+fi
+
 # Compose anchor block — uniform across artifacts. Round-one floor; REFINE
 # specializes per-artifact based on `compute-anchor-density` scoring.
+# When _extracted-idioms.md is present, append an extra "Detected base classes"
+# line so the anchor names the project's real architecture, not just five
+# generic facets.
 build_block() {
+  local idiom_line=""
+  if [[ -n "$BASE_CLASSES" ]]; then
+    idiom_line="> - **Detected base classes** (\`_extracted-idioms.md\`): ${BASE_CLASSES}"$'\n'">"
+  fi
   cat <<BLOCK
 <!-- project-specific:start -->
 ## Project-specific (auto-generated, regenerate with \`/setup-project --refine\`)
 
-> Auto-populated by \`scripts/apply-anchors.sh\` from \`.claude/codebase-profile.md\` + \`.claude/_codebase-scan.md\`. Round-one floor — \`/setup-project --refine\` deepens shallow blocks based on \`compute-anchor-density\` scoring.
+> Auto-populated by \`scripts/apply-anchors.sh\` from \`.claude/codebase-profile.md\` + \`.claude/_codebase-scan.md\`$([[ -n "$BASE_CLASSES" ]] && echo " + \`.claude/_extracted-idioms.md\`"). Round-one floor — \`/setup-project --refine\` deepens shallow blocks based on \`compute-anchor-density\` scoring.
 >
 > - **Architecture** (\`codebase-profile.md:${arch_ln:-1}\`): ${ARCH_LINE:-<not declared in codebase-profile.md>}
 > - **Naming** (\`codebase-profile.md:${naming_ln:-1}\`): ${NAMING_LINE:-<not declared in codebase-profile.md>}
 > - **Testing** (\`codebase-profile.md:${testing_ln:-1}\`): ${TESTING_LINE:-<not declared in codebase-profile.md>}
 > - **Data access** (\`codebase-profile.md:${data_ln:-1}\`): ${DATA_LINE:-<not declared in codebase-profile.md>}
 > - **Error handling** (\`codebase-profile.md:${err_ln:-1}\`): ${ERR_LINE:-<not declared in codebase-profile.md>}
->
+${idiom_line}
 > Cite-able sources: ${MANIFESTS}, top-level: ${SRC_DIRS}.
 
 <!-- project-specific:end -->
@@ -208,6 +230,11 @@ echo "Target:  $TARGET"
 echo "Mode:    $([[ $APPLY -eq 1 ]] && echo APPLY || echo dry-run)"
 echo "Profile: $PROFILE"
 echo "Scan:    $SCAN"
+if [[ -f "$IDIOMS" ]]; then
+  echo "Idioms:  $IDIOMS  (architecture fingerprint — anchors will name detected base classes)"
+else
+  echo "Idioms:  (absent — anchors will be 5-facet only; Phase 2.5 was skipped or had no signal)"
+fi
 echo ""
 
 for kind in commands agents skills rules ai-patterns; do
