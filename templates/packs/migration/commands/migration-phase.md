@@ -52,6 +52,8 @@ The intended flow:
 
 Skipping `/draft-phase-adrs` is supported but pushes decisions back into per-port halts (one-by-one supervision instead of batch).
 
+**Fast alternative**: `/migration-fast <N>` collapses the four steps above into a single invocation AND parallelises per-row dispatch — same audits, same chain, same gate, same artifacts, same V2-structure discipline. Auto-routes every row to the right per-row command (trivial/standard → `/find-and-fix`; heavy → `/port-feature --heavy --unattended`) and runs them in parallel waves respecting `depends_on`. Built for production-scale migrations where serial wall-time is the bottleneck. ADR-needed rows still halt per-row (logged to halts/) since fast can't decide on intentional V1↔V2 breaks for the user. See `migration-fast.md` for the full contract.
+
 ## Chain mode (`--chain`)
 
 When invoked with `--chain`, this command sequentially dispatches `/find-and-fix <id>` per phase-N feature in **dependency order** (per ledger `depends_on`). With `--chain --heavy`, the per-row dispatch becomes `/port-feature <id> --heavy --unattended` instead.

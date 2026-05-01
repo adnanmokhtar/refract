@@ -3,7 +3,7 @@ track: migration
 purpose: Per-feature V1→V2 port — read V1 deeply, rebuild in V2 with parity guarantees, capture migration-time perf wins (caching / indexes / query optimisation / column projection). Cross-stack.
 essentials:
   agents: [migration-architect, parity-auditor]
-  commands: [migration-scan, migration-plan, migration-phase, migration-gate, migration-final, migration-rollback, migration-replan, migration-park, migration-unpark, migration-deprecate, compare-v1, port-feature, migration-status, draft-phase-adrs]
+  commands: [migration-scan, migration-plan, migration-phase, migration-fast, migration-gate, migration-final, migration-rollback, migration-replan, migration-park, migration-unpark, migration-deprecate, compare-v1, port-feature, migration-status, draft-phase-adrs]
   skills: [extract-v1-contract, parity-test-generate, perf-uplift-survey]
   rules: [migration-discipline]
   ai-patterns: [feature-port, parity-testing, migration-ledger]
@@ -17,7 +17,7 @@ This pack auto-loads when Phase 2 detects migration signals (parallel V1+V2 dire
 
 Rationale per category (one line each):
 - **agents**: `migration-architect` plans the port (per-feature scope, parity strategy, perf-uplift candidates, cutover); `parity-auditor` verifies V1↔V2 equivalence before cutover.
-- **commands**: Two suites. **Suite A — phased flow** (run in order): `/migration-scan` (deep V1↔V2 read; fresh ledger with everything `unverified`), `/migration-plan` (phased plan honoring V2 structure), `/migration-phase <N>` (audit + gap-find + port + verify per feature in phase N), `/migration-gate <N>` (read-only phase exit gate; refuses on any blocker), `/migration-final` (full sweep + V1 retirement plan). **Suite B — per-feature** (finer control outside the phased flow): `/port-feature` (one-shot port), `/migration-status` (lighter read of the ledger). Use Suite A for the full migration; Suite B for one-off ports.
+- **commands**: Two suites. **Suite A — phased flow** (run in order): `/migration-scan` (deep V1↔V2 read; fresh ledger with everything `unverified`), `/migration-plan` (phased plan honoring V2 structure), then per phase EITHER the manual flow `/migration-phase <N> --audit-only` → `/draft-phase-adrs <N>` → `/migration-phase <N> --chain` → `/migration-gate <N>` (interactive checkpoints) OR the fast flow `/migration-fast <N>` (one-shot: audit + chain + gate in a single command, same discipline, no human-watch pauses), then `/migration-final` (full sweep + V1 retirement plan). **Suite B — per-feature** (finer control outside the phased flow): `/port-feature` (one-shot port), `/find-and-fix` (simple per-row loop), `/migration-status` (lighter read of the ledger). Use Suite A's fast flow for routine phases; manual flow for foundational/heavy phases; Suite B for one-off ports.
 - **skills**: `extract-v1-contract` reads V1 feature into a structured contract (inputs/outputs/side-effects/business-rules); `parity-test-generate` builds golden-master / record-replay / property-based tests that exercise V1+V2 with the same input; `perf-uplift-survey` finds migration-time perf wins (N+1, missing indexes, unbounded SELECT *, no caching, sequential awaits).
 - **rules**: `migration-discipline` codifies the contract — parity is non-negotiable; perf uplift only when it preserves observable behaviour; every intentional behaviour break documented in an ADR.
 - **ai-patterns**: `feature-port` is the playbook (per-feature lifecycle); `parity-testing` is the test technique catalogue; `migration-ledger` is the state-tracking convention (what's V1-only / In-progress / V2-shadow / V2-canary / V2-only / V1-deleted).
@@ -35,21 +35,28 @@ First time setup
   ↓
 ─────── for each phase N ───────
 │
-│  /migration-phase <N>            ← batch orchestrator
-│    ↓ (dispatches per row)
-│    /port-feature <id>            ← per-feature orchestrator (≡ feature-port.md 6 phases)
-│      ↓ (mandates)
-│      • extract-v1-contract       → contracts/<feature>.md (9 sections)
-│      • migration-architect       → plans/<feature>.md
-│      • parity-test-generate      → <parity-test-root>/<feature>/ + tolerance.yaml
-│      • perf-uplift-survey        → perf-decisions/<feature>.md
-│      • write rollback runbook    → runbooks/migration-rollback-<feature>.md
-│      • parity-auditor Stage A    → audits/<feature>.md
+│  EITHER fast flow (one command, all rows, parallel — production-scale):
+│    /migration-fast <N>            ← deep migrate + parallel dispatch + auto-gate
+│      ↓ (internally, per row, in parallel waves)
+│      • parity-auditor             → audits/<feature>.md
+│      • per tier:
+│         trivial  → /find-and-fix <id>
+│         standard → /find-and-fix <id>
+│         heavy    → /port-feature <id> --heavy --unattended
+│      • /migration-gate <N>        → phase exit verdict
 │
-│  /migration-gate <N>             ← phase exit verifier
-│    ↓ (12-check artifact validation; calls validate-migration-artifacts.sh)
-│    PASS → continue to phase N+1
-│    REFUSED → fix blockers; re-run /migration-phase <N>
+│  OR manual flow (interactive checkpoints, when you want per-row supervision):
+│    /migration-phase <N> --audit-only   ← audit only
+│    /draft-phase-adrs <N>                ← draft ADRs (if needed)
+│    [user reviews ADRs; flips Status: proposed → accepted]
+│    /migration-phase <N> --chain         ← unattended ports (sequential)
+│    /migration-gate <N>                  ← phase exit verifier
+│
+│  Both flows produce the same artifacts and run the same checks.
+│  Fast adds: parallel dispatch + auto-routing per tier + no human-watch pauses.
+│
+│  PASS → continue to phase N+1
+│  REFUSED → fix blockers; re-run the same flow
 │
 ─────────────────────────────────
   ↓
