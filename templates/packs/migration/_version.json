@@ -1,12 +1,25 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.1.0",
-  "released": "2026-04-29",
+  "version": "1.2.0",
+  "released": "2026-05-02",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API).",
   "changelog": {
+    "1.2.0": {
+      "released": "2026-05-02",
+      "changes": [
+        "**No-dead-V1-port rule**: refuse to port V1 features with zero callers. Added halt #11 to per-feature audit (the rule now has 11 hard halts, not 10).",
+        "6-axis reachability check inlined in `migration-discipline.md § What counts as dead V1 code` — app source / tests / cron / route registration / infra / production telemetry. A feature is dead iff all 6 axes (or axes 1–5 if observability is N/A) return zero callers.",
+        "Dead V1 features are marked `status: deprecated` with `deprecation_reason: dead-v1-no-callers` at scan time. They are excluded from /migration-plan's phasing, skipped by /migration-fast, and deleted from V1 directly during retirement (never touch V2).",
+        "Override flags on /migration-scan: --include-dead (force-port a flagged-dead row; requires caller_evidence), --external-consumer (bypass axis 1 for library exports / public APIs), --in-development (for unwired features about to ship).",
+        "New 'The Zombie Port' anti-pattern in the rule: porting code with zero callers migrates V1 rot into V2. Real cost: ~50–500 lines per zombie × ~15% of inventory = ~10K lines of waste in a 200-feature migration.",
+        "Updated /migration-scan: dead-code reachability is the 4th parallel scan in Phase 2. Scan-report.md gets a 'Dead V1 features (excluded from port queue)' section with the 6-axis breakdown per row. Ledger schema gains a `reachability:` field.",
+        "Updated /migration-plan: dead rows are listed in a 'Dead — excluded from port queue' section, NOT in any phase.",
+        "Validator addition (PLANNED): check_no_dead_v1_ported re-runs the 6-axis check at PR time and refuses the gate if a dead feature was ported."
+      ]
+    },
     "1.1.0": {
       "released": "2026-04-29",
       "changes": [

@@ -25,6 +25,12 @@ The align pack is **non-negotiable** in the same sense the migration pack is —
 
 The align pack ships **no agents** (unlike migration). All detection is delegated to the `detect-drift` skill (which itself dispatches existing agents from `code-quality/`, `security/`, `frontend/`, `ui-ux/` packs). This simplifies adapter coverage — every tool that supports rules + skills gets the full surface.
 
+## Verification flow — `--re-audit`
+
+`/align-fast <N> --re-audit` and `/align-final --re-audit` re-dispatch the detector for every row, including ones at `status: verified`. Mirrors `/migration-fast --re-audit`. Catches false-verified or drifted rows; re-fixes them in the same run.
+
+Adapter responsibility: this flag MUST be exposed in tool-native command surfaces (Cursor `.cursor/commands/align-fast.md`, OpenCode `.opencode/commands/`, Copilot `.github/prompts/`, Cline `.clinerules/workflows/`, Windsurf `.windsurf/workflows/`). For rule-only tools (Aider / Codex / Gemini), document the flag in the rule's "Tool-agnostic procedure" section so users can invoke the equivalent re-detection manually.
+
 ## Required artifacts per project
 
 Every adapter setup that includes `--include=align` MUST also propagate these elements:

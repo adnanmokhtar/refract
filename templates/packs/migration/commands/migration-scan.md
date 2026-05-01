@@ -47,15 +47,26 @@ Optional flags:
 - `--include-deferred` — also re-scan features that were marked `deferred` in a prior run.
 - `--since=<commit>` — incremental scan (M12). Only re-evaluate features whose V1 paths changed since the given commit. Existing ledger rows for unchanged features keep their current status (don't reset to `unverified`). Use on large repos (200+ features) where re-auditing everything is expensive. Without this flag, every row resets to `unverified` (the safe default for "trust nothing").
 - `--include-deprecated=<re-scan|skip>` — when an existing ledger has rows with `status: deprecated`, decide whether to re-evaluate them (`re-scan`, e.g., the deprecation ADR was rejected) or skip them (`skip`, the default — deprecation is permanent).
+- `--include-dead` — opt-out of the dead-code halt. Forces queueing of features that the 6-axis reachability check flagged as dead (zero callers across app source / tests / cron / route registration / infra / production telemetry). REQUIRES paired `--caller-evidence=<path:line>` for each forced row, OR a `caller_evidence:` field in each row's prior ledger note. Use sparingly — defeats the no-zombie-port rule. Logged in `ai/migration/_history.md` for audit trail.
+- `--external-consumer=<feature-list>` — mark specific features as having external consumers (e.g., a public API consumed by a sibling repo, a library exported for downstream use). External-consumer features bypass axis 1 (V1 internal callers) but still require ≥ 1 axis to show alive. Comma-separated list of feature IDs.
+- `--in-development=<feature-list>` — mark features as "in development, not yet wired up" — these look identical to dead code but ARE going to ship. Bypasses the dead-code halt for these specific IDs. Comma-separated.
 - `--workspace` — produce a workspace-level ledger that aggregates per-repo ledgers in a multi-repo migration. Detects sibling repos via workspace-baseline's `PROJECTS.md` or `SIBLINGS.md`. (M12)
 
 ## Phase 2 — Organize (decompose the work)
 
-Three parallel scans (Explore subagents, capped per `--max-subagents`):
+Four parallel scans (Explore subagents, capped per `--max-subagents`):
 
 1. **V1 inventory** — every page, route, endpoint, command, scheduled job, queue consumer.
 2. **V2 inventory** — same shape, current state.
 3. **V1↔V2 mapping** — for each V1 entry, identify the corresponding V2 entry (or absence).
+4. **V1 dead-code reachability** — for each V1 feature in the inventory, run the 6-axis reachability check (per `migration-discipline.md § What counts as dead V1 code`):
+   - Axis 1: app source callers (`git grep -F` for the feature's exported symbols / route paths / endpoint names across V1's app source, excluding the feature's own files + tests).
+   - Axis 2: test references (same grep across V1's test directories; the feature's own unit test does NOT count as a caller).
+   - Axis 3: cron / scheduler config references.
+   - Axis 4: route / API / event-bus registration.
+   - Axis 5: infra / deploy config references (Dockerfile, k8s, terraform, CI workflows).
+   - Axis 6: production telemetry (if observability link exists in `_extracted-codebase.md`): zero invocations / zero log lines for ≥ 90 days.
+   A feature is dead iff **all 6 axes** report zero (or axes 1–5 if telemetry is unavailable). Flag dead features for halt unless `--include-dead` / `--external-consumer` / `--in-development` covers the feature.
 
 ## Phase 3 — Retrieve (read the right context)
 
@@ -107,6 +118,20 @@ Deep report with:
 Total features: <N>
 By domain: auth=<N>, tenant=<N>, orders=<N>, ...
 
+## Dead V1 features (excluded from port queue)
+> 6-axis reachability check at v1_commit_pinned: <sha>. Features with zero callers across all axes (app source / tests / cron / route registration / infra / production telemetry). Excluded from migration; deleted directly during V1 retirement. Override per-feature via /migration-scan --include-dead --caller-evidence=<path:line>.
+
+| ID | Feature | V1 path | Axes (1-6) | Last invocation (telemetry) | Action |
+|---|---|---|---|---|---|
+| F087 | legacy-pdf-export | <v1/path> | 0/0/0/0/0/0 | never (or N/A) | status: deprecated; deprecation_reason: dead-v1-no-callers |
+| F112 | unused-bulk-import | <v1/path> | 0/0/0/0/0/0 | 2025-08-12 (264 days ago) | status: deprecated; deprecation_reason: dead-v1-no-callers |
+| ... | | | | | |
+
+Total dead features: <D> (~<%> of inventory)
+Forced-port via --include-dead: <F> (each has caller_evidence in ledger)
+Marked --external-consumer: <E>
+Marked --in-development: <I>
+
 ## Gaps identified
 | Feature | Gap kind | Detail |
 |---|---|---|
@@ -118,6 +143,8 @@ By domain: auth=<N>, tenant=<N>, orders=<N>, ...
 - Phase 1 (foundation): auth, tenant, shared infra
 - Phase 2 (core flow): orders, cart, checkout
 - ... (justification per phase)
+
+Dead features (above) are NOT in any phase — they're excluded from the port queue.
 ```
 
 ### Output 2: `ai/migration/ledger.md`
@@ -133,11 +160,37 @@ Flat YAML-ish ledger, one row per feature. Schema from `ai/patterns/migration-le
   status: unverified              # never trust prior 'done'
   parity_test: missing
   v1_commit_pinned:
+  reachability:                   # 6-axis dead-code check (added 2026-05-02)
+    app_source_callers: <N>       # axis 1
+    test_references: <N>          # axis 2
+    cron_scheduler: <N>           # axis 3
+    route_registration: <N>       # axis 4
+    infra_deploy: <N>             # axis 5
+    production_telemetry: <N | N/A>   # axis 6 (N/A if no observability link)
   notes: ""
 
 - id: F002
   feature: order-create
   ...
+
+# Example dead-code row (excluded from port queue)
+- id: F087
+  feature: legacy-pdf-export
+  domain: reports
+  v1_path: <v1/path/to/legacy_pdf.py>
+  v2_path: <unmapped>
+  status: deprecated
+  deprecation_reason: dead-v1-no-callers
+  dead_evidence: "6-axis check passed at v1_commit_pinned: abc123 (2026-05-02 scan)"
+  reachability:
+    app_source_callers: 0
+    test_references: 0
+    cron_scheduler: 0
+    route_registration: 0
+    infra_deploy: 0
+    production_telemetry: 0       # last invocation > 90 days ago
+  parity_test: skip
+  notes: "Excluded from port queue. Will be deleted from V1 directly during retirement."
 ```
 
 ### Output 3: Update `ai/migration/_session-digest.md` (or equivalent)

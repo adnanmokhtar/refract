@@ -43,7 +43,8 @@ Inputs:
 - `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md` (oracle).
 
 Optional flags:
-- `--re-scan` — also run `/align-scan` and compare new findings vs. ledger; surface any new drift.
+- `--re-audit` — re-dispatch the detector for **every** row across all phases (including `verified` ones). Catches rows whose fingerprint reappeared since the gate (drift / rot / false-verified). Re-detected rows that surface gaps flip to `halted` and are listed in the report's "Outstanding" section. Re-detected rows that stay clean stay `verified`. Mirrors `/migration-final --re-audit`. Use when you want fresh confidence that the entire alignment effort is still green.
+- `--re-scan` — also run `/align-scan` (full scan) and compare new findings vs. ledger; surfaces any NEW drift that has accumulated since the original scan (different from `--re-audit`, which only re-checks existing ledger rows).
 - `--strict` — fail on any cross-reference inconsistency (default: warn).
 
 ## Phase 2 — Organize (decompose the work)

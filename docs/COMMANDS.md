@@ -341,7 +341,7 @@ The align pack is the **codebase quality gate** — a comprehensive sweep agains
 
 | Command            | Purpose                                                                          |
 |--------------------|----------------------------------------------------------------------------------|
-| `/align-fast <N>`  | One-shot for phase N: runs the per-finding loop in parallel waves + `/align-gate <N>`. Same discipline; no human-watch pauses. Auto-routes per tier (trivial → loop; standard → loop + rationale; heavy → loop + reviewer pause). Pre-requisites: `/align-scan` and `/align-plan` must have run already. |
+| `/align-fast <N>`  | One-shot for phase N: runs the per-finding loop in parallel waves + `/align-gate <N>`. Same discipline; no human-watch pauses. Auto-routes per tier (trivial → loop; standard → loop + rationale; heavy → loop + reviewer pause). Pre-requisites: `/align-scan` and `/align-plan` must have run already. **`--re-audit`**: re-detect every row including `verified` ones; catches false-verified or drifted rows and re-fixes them in the same run. |
 
 #### Sidecar commands
 

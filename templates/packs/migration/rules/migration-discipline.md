@@ -154,9 +154,9 @@ For each: description, issue link if any, decision (preserve = parity / fix = co
 
 **Citation discipline**: every `<path:line>` reference must resolve. The validator script `scripts/validate-migration-artifacts.sh` checks this — but a tool without scripting must check by hand before declaring the contract complete.
 
-## Per-feature audit — 10 hard halts
+## Per-feature audit — 11 hard halts
 
-The audit step runs against an implementation + its artifacts. The audit HALTS (refuses to advance the feature) on any of these 10 conditions:
+The audit step runs against an implementation + its artifacts. The audit HALTS (refuses to advance the feature) on any of these 11 conditions:
 
 1. **Contract missing or incomplete** — file at `ai/migration/contracts/<feature>.md` doesn't exist OR any of the 9 sections is empty OR any `<path:line>` citation doesn't resolve.
 2. **Parity tests missing or thin** — `<parity-test-root>/<feature>/` doesn't exist OR `tolerance.yaml` doesn't cover every documented output field OR input corpus has fewer than 30 entries (no record-replay setup as alternative) OR no entry exists per documented happy path / error path / business rule / edge case.
@@ -168,8 +168,32 @@ The audit step runs against an implementation + its artifacts. The audit HALTS (
 8. **Rollback runbook missing** — `ai/runbooks/migration-rollback-<feature>.md` doesn't exist OR doesn't name the cutover mechanism + per-stage rollback steps + on-call assignment.
 9. **Scope creep** — PR title/description ≠ exactly one ledger feature row OR diff touches files outside V2's `<feature>/` (allowed: ledger update, contract revision, plan revision, perf-decision update, parity test files, cutover wiring [additive only], feature-flag config) OR contains unrelated refactors / "while I'm here" cleanups.
 10. **Cutover mechanism not tested in staging** — no evidence (CI run, deploy log, screenshot) that the rollback path was executed in staging within the last 7 days. (Applies to Shadow → Canary advance; not to first-port PR.)
+11. **Dead V1 code in port queue** — the V1 source of this feature has zero callers across all 6 reachability axes (see § "What counts as dead V1 code" below). Halt the port; do NOT migrate dead code into V2. Mark the ledger row `status: deprecated` with `deprecation_reason: dead-v1-no-callers` (no ADR required for this case — dead code is a structural fact, not a user-facing decision). If the user disputes the dead-code finding (e.g., "it's called from a cron job our scanner missed"), they pass `--include-dead` to override AND attach a 1-line `caller_evidence: <path:line>` to the ledger row proving the missed caller.
 
 **Output of any halt**: a structured remediation list — specific finding + specific action — written to the audit file. NO advance until each halt is cleared.
+
+## What counts as dead V1 code (the 6-axis check)
+
+A V1 feature is "dead" — and therefore must NOT be ported — if **all six** of these reachability axes return zero callers. If even one axis shows a caller, the feature is alive and must be ported.
+
+1. **App source callers** — `git grep -F` for the feature's exported symbols / route paths / endpoint names across V1's app source (excluding the feature's own files + tests). Zero matches → axis 1 dead.
+2. **Test references** — same grep across V1's test directories. Zero matches → axis 2 dead. (Note: a test that ONLY exercises the feature itself — the feature's own unit test — does NOT count as a caller; the feature would still be dead. Look for downstream tests that exercise other features which transitively call this one.)
+3. **Cron / scheduler config** — grep across V1's cron config, scheduler manifest, queue worker registration files. Zero matches → axis 3 dead.
+4. **Route / API registration** — for HTTP endpoints: check V1's router config / route table. For RPC endpoints: check the RPC registration. For event handlers: check the event-bus subscription table. Zero matches → axis 4 dead.
+5. **Infra / deploy config** — grep across V1's Dockerfile, k8s manifests, terraform, CI workflows, deploy scripts for the feature's binary names / endpoint URLs / cron commands. Zero matches → axis 5 dead.
+6. **Production telemetry** — if observability is wired (APM dashboard, log volume, request count): zero invocations / zero log lines for ≥ 90 days → axis 6 dead. If observability is NOT wired, this axis is **N/A** (skip — but axes 1–5 must all show dead).
+
+**All 6 axes dead** → feature is dead → halt #11 fires. Mark `status: deprecated` with `deprecation_reason: dead-v1-no-callers` and `dead_evidence: 6-axis check passed at v1_commit_pinned: <sha>`.
+
+**At least one axis alive** → feature is not dead → port it normally.
+
+**Edge cases**:
+- **Public API endpoints** with no internal caller but documented in API docs / called by external clients — axis 4 (route registration) shows them as alive. NOT dead.
+- **Library exports** consumed by external repos — axis 1 within V1 is dead, but external consumer is unprovable from V1 alone. The user must explicitly mark such features `--external-consumer` at scan time; otherwise default to dead.
+- **Recently-added features** with no callers yet because they're not wired up — these are "in development", not dead. The user marks them `--in-development` at scan time; without that flag, they look identical to dead code.
+- **Feature-flag-gated code** where the flag is OFF in production — STILL DEAD if the flag has been OFF for ≥ 90 days. If the flag is on for some tenants only, axis 6 (telemetry) shows alive for those tenants. Port it.
+
+**The user's override**: `--include-dead` flag at scan time forces a row to be queued for port despite the dead-code verdict. Required field on the override: `caller_evidence: <path:line>` proving the missed caller. The override is logged in `ai/migration/_history.md` for audit trail.
 
 ## Per-stack extensions (frontend / backend specifics)
 
@@ -259,6 +283,7 @@ For each of the 10 candidate areas (N+1, missing index, column projection, cachi
 - **Treat "no test exists for this in V1" as "no behaviour exists".** Read git log, read PR descriptions, read related issues, run V1 against fuzz inputs — V1's untested behaviour is still observable, still load-bearing for some caller.
 - **Leave a gap deferred with no destination.** `status: halted` + `gaps_in > gaps_closed` + no target phase / ADR / park in notes = a floating obligation. The phase gate will REFUSE. Assign a destination immediately: the next phase, an ADR, or `/migration-park`.
 - **Advance a `halted` row to `done` without closing all gaps.** If `gaps_in != gaps_closed`, the row is not done — the RE-DETECT step (in `find-and-fix.md § 3.5`) enforces this, and the gate's `check_gap_count_parity` enforces it again. Both must be equal before a row can exit `halted`.
+- **Port dead V1 code.** If the V1 source has zero callers across all 6 reachability axes (app source, tests, cron/scheduler, route registration, infra config, production telemetry — see § "What counts as dead V1 code"), it is dead. Porting it migrates rot into V2, inflates V2's surface area with code that has no consumer, and perpetuates V1's accumulated cruft into the new structure. The port queue is for **live** features only. Dead V1 code is marked `status: deprecated` with `deprecation_reason: dead-v1-no-callers` and excluded from V2 entirely (it gets deleted from V1 at the V1-retirement phase, NOT ported then deleted). The user can override via `--include-dead` + `caller_evidence: <path:line>` if the dead-code detector missed a caller, but the override is explicit + logged.
 
 ## Should
 
@@ -368,6 +393,7 @@ T+38d: Delete V1 (after 14d of zero traffic).
 - **`parity-auditor` agent** is invoked in PR review; its checklist hard-fails on missing parity tests, missing contract, scope-creep evidence (V1 modifications in a port PR).
 - **Phase 4.6 STUDY-DECIDE-ACT** anchors this rule to the project's actual V1/V2 paths, ledger location, and cutover mechanism. A rule that talks about generic feature flags while the project uses Django settings + URL routing is a leak — the project-specific block is mandatory.
 - **Validator script** `scripts/validate-migration-artifacts.sh` operationalizes the enforcement of the named anti-patterns below — each anti-pattern maps to a specific check function that halts the gate when its fingerprint matches:
+    - "The Zombie Port" → `check_no_dead_v1_ported` (planned). Re-runs the 6-axis reachability check against the port PR's V1 entry point at the pinned commit; if all 6 axes return zero callers, the gate REFUSES the port. Override allowed via `--include-dead` flag on the originating scan + `caller_evidence: <path:line>` field in the ledger row.
     - "The Hand-waved Query Param" → `check_audit` hand-wave grep (rejects `etc.`, `...`, `&...`, `N+ items`, `and so on`, `deferred to port-phase`).
     - "The Permission-gate Drop" → `check_v2_structure § per-button-permission-gate` (per-stack fingerprint set).
     - "The Reinvented Wrapper" → `check_v2_mapping_doc` halts on missing/empty `ai/migration/mapping/<feature>.md` + `check_v2_structure` flags the most common reinvention fingerprints.
@@ -377,6 +403,7 @@ T+38d: Delete V1 (after 14d of zero traffic).
 
 ## Anti-patterns (named)
 
+- **The Zombie Port** (added 2026-05-02) — porting a V1 feature that has zero callers. The feature is dead code; porting it migrates rot from V1 into V2, inflates V2's surface area, and creates a maintenance burden for code no consumer exercises. The fingerprint: a feature whose 6-axis reachability check (app source / tests / cron / route registration / infra / production telemetry) returns zero callers, yet the migration plan still queues it. The fix: dead V1 code is excluded from the port queue at scan time (halt #11), marked `status: deprecated` with `deprecation_reason: dead-v1-no-callers`, and deleted from V1 directly during V1 retirement — never touches V2. Override only via `--include-dead` + `caller_evidence: <path:line>` proving a missed caller. Real-world cost: every zombie port ships ~50–500 lines of V2 code that exercises no test, has no consumer, and accretes onto V2's maintenance budget. A 200-feature migration with 15% dead code = 30 zombies = ~10K lines of pure waste in V2.
 - **The Transposition Trap** — line-by-line copy of V1 into V2. Carries V1's bugs + V1's hidden invariants. The port must be re-derived from the contract AND must follow V2's NEW structure (shared wrappers, conventions, file layout). Concrete fingerprints are stack-specific and live in the per-stack packs:
     - Frontend fingerprints → `frontend/rules/migration-frontend.md § Frontend Transposition Trap fingerprints`
     - Backend fingerprints → `backend/rules/migration-backend.md` (if defined)
@@ -437,4 +464,4 @@ These references are **convenience pointers for AI tools that support them**. Th
 
 ### For rule-only tools (Aider, Codex, Gemini, partial: Cline, Windsurf)
 
-This rule **is** the surface. The 9 contract sections, the 10 hard halts, the frontend axes, the anti-pattern catalogue, and the three procedures (extract / parity-test / perf-uplift) are all inlined above. No skill / agent / command dispatch is required — follow the rule as a checklist.
+This rule **is** the surface. The 9 contract sections, the 11 hard halts (including the dead-V1-code halt), the 6-axis dead-code check, the frontend axes, the anti-pattern catalogue, and the three procedures (extract / parity-test / perf-uplift) are all inlined above. No skill / agent / command dispatch is required — follow the rule as a checklist.

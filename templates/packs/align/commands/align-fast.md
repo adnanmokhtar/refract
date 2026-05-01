@@ -53,11 +53,14 @@ If any pre-flight fails → halt the entire run; surface remediation.
 
 ### 1. DETECT (re-verify fingerprint)
 
-For each row in phase N (in dependency order — helper-introduce before consumer-swap):
+**Cache reuse**: by default, rows at `status: verified` are skipped — their last-detect verdict is trusted. Rows at `status: detected` / `in-progress` / `halted` / `failed` always get a fresh detector dispatch. Pass `--re-audit` to force re-dispatch on **every** row including `verified` ones (use this when you suspect a row was falsely-verified or has rotted since the gate).
+
+For each row needing detection (in dependency order — helper-introduce before consumer-swap):
 - Re-read the row's `evidence` lines.
 - Confirm the fingerprint pattern still matches.
-- If fingerprint gone → mark `archived-pre-existing`; skip.
+- If fingerprint gone → mark `archived-pre-existing` (or stay `verified` if `--re-audit` and was previously verified); skip.
 - If fingerprint moved → update `evidence` to new line; proceed.
+- If fingerprint reappears on a previously-`verified` row (`--re-audit` only) → flip to `halted` with reason `false-verified-or-drift`; fast re-fixes it in step 3.
 - If `shared_equivalent` doesn't resolve → halt; route to `/setup-project --refine`.
 
 ### 2. DECIDE (closure verb in vocabulary)
@@ -137,6 +140,7 @@ Heavy-tier rows always run serially (one at a time, with reviewer-approval pause
 - `--max-parallel=<N>` — cap parallel row dispatch (default: 5 trivial; standard cap at 3; heavy always serial). Per-file lock prevents two rows from racing on the same file (see `align-discipline.md § Realism guards § Parallel race serialization`).
 - `--scope=<path>` — limit row dispatch to rows whose `scope` files are inside the given path. Useful for incremental phase runs on large monorepos. Rows outside the scope stay `status: detected` for the next run.
 - `--exclude-tier=<list>` — skip tiers (e.g., `--exclude-tier=heavy` for "trivial + standard only" — heavy rows are deferred to a follow-up `/align-phase <N> --start-from=<id>` run).
+- `--re-audit` — discard cached `status: verified` verdicts and re-dispatch the detector for **every** row in phase N (including verified ones). Default: skip verified rows. Use this to verify done work is still correct — catches drift, false-verified rows, detector improvements that surface previously-missed gaps. Re-detected rows whose fingerprint reappears flip to `halted` and fast re-fixes them in the same run. Re-detected rows whose fingerprint stays absent stay `verified` (no code change). Mirrors `/migration-fast --re-audit`.
 - `--dry-run` — run DETECT only, surface what would happen, no edits or commits.
 - `--allow-main` — run on main / master branch (default: refuse).
 - `--gate-strict` — refuse the gate on any check failure (default behaviour); included for explicitness.

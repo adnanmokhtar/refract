@@ -1,12 +1,22 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "released": "2026-05-01",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.",
   "changelog": {
+    "1.2.0": {
+      "released": "2026-05-01",
+      "changes": [
+        "Add --re-audit flag to /align-fast and /align-final. Mirrors /migration-fast --re-audit and /migration-final --re-audit.",
+        "Default cache reuse: rows at status: verified are skipped from re-detection (their last verdict is trusted). Pass --re-audit to force re-dispatch on every row including verified ones.",
+        "Re-detected rows whose fingerprint reappears flip to status: halted with reason 'false-verified-or-drift'. Fast re-fixes them in the same run using the standard per-finding loop.",
+        "Re-detected rows whose fingerprint stays absent stay verified (no code change).",
+        "Use case: catch false-verified rows, drift since gate, detector improvements that surface previously-missed gaps. Without --re-audit, verified rows are trusted (saves time on re-runs)."
+      ]
+    },
     "1.1.0": {
       "released": "2026-05-01",
       "changes": [

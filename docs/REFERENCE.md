@@ -360,6 +360,10 @@ Or per-phase fast flow (mirrors `/migration-fast` — one phase per command, sca
 /align-final
 ```
 
+### Verification re-runs — `--re-audit`
+
+`/align-fast <N> --re-audit` and `/align-final --re-audit` mirror migration's `--re-audit`. Discards cached `status: verified` verdicts and re-dispatches the detector on every row including verified ones. Use it to verify done work is still correct — catches false-verified rows, drift since the gate, or detector improvements that surface previously-missed gaps. Re-detected rows whose fingerprint reappears flip to `halted` and fast re-fixes them in the same run; rows that stay clean stay `verified` (no code change).
+
 ### When `/align-phase` runs
 
 The 5-step per-finding loop (mirrors `find-and-fix` for migration):

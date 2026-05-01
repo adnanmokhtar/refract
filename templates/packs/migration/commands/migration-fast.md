@@ -233,7 +233,7 @@ For each row needing audit, dispatch in parallel waves of `--max-parallel` (defa
 2. Dispatch `parity-auditor` agent — `Agent({subagent_type: "parity-auditor", prompt: <blob + audit instruction>})`. The agent's prompt MUST include:
    - Feature ID + V1 path:line entry points + V2 destination path:lines.
    - V1 commit hash to pin.
-   - The 10 hard halts (by reference to `migration-discipline.md`).
+   - The 11 hard halts (by reference to `migration-discipline.md`).
    - The frontend axes list (form fields, UI affordances, templated query params, event handlers, per-button permission gates, a11y, DOM-equivalent, reactive lifecycle) — for frontend features only.
    - Explicit instruction: "Read V1 source line-by-line. Do NOT trust prior audit docs. Do NOT use `...`, `etc.`, `N+ filters`, `and so on`, `deferred to port-phase parity author`, or `by audit-by-inspection`. Enumerate every item in every axis table. Set `tier:` field per migration-discipline.md § Tier classification."
    - Output target: `ai/migration/audits/<feature-id>.md` (full structure per `migration-phase.md § 4d`).

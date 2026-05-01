@@ -143,7 +143,7 @@ Mechanism by tool family:
 - **Claude Code / OpenCode (full agent + command + skill dispatch)**: invoke the `Agent` tool with `subagent_type="parity-auditor"` per feature. The agent's prompt MUST include:
   - Feature ID + V1 path:line entry points + V2 destination path:lines
   - V1 commit hash to pin (`v1_commit_pinned`)
-  - The 10 hard halts (inlined or by reference to `migration-discipline.md`)
+  - The 11 hard halts (inlined or by reference to `migration-discipline.md`)
   - The frontend axes list (form fields, UI affordances, templated query params, event handlers, per-button permission gates, a11y, DOM-equivalent, reactive lifecycle) — for frontend features only
   - Explicit instruction: "Read V1 source line-by-line. Do NOT trust prior audit docs. Do NOT use `...`, `etc.`, `N+ filters`, `and so on`, `deferred to port-phase parity author`, or `by audit-by-inspection`. Enumerate every item in every axis table."
   - Output target: `ai/migration/audits/<feature-id>.md` (full structure per § 4d)
@@ -320,7 +320,7 @@ The validator checks every feature in phase N and exits non-zero on any failure.
 - **Ledger row updates pass schema validation** (per `migration-ledger.md`)
 - **Every parity test runs in CI** (or user explicitly waived in a documented exception)
 
-If the validator exits non-zero → halt; surface findings per feature; do NOT mark the phase done. If the validator is unavailable in the current tool environment, the executor MUST manually verify each item above against `migration-discipline.md` § "Per-feature audit — 10 hard halts" before declaring Phase 6 done.
+If the validator exits non-zero → halt; surface findings per feature; do NOT mark the phase done. If the validator is unavailable in the current tool environment, the executor MUST manually verify each item above against `migration-discipline.md` § "Per-feature audit — 11 hard halts" before declaring Phase 6 done.
 
 ## Phase 7 — Improve (feed the learning loop)
 
@@ -350,7 +350,7 @@ Next: /migration-gate <N>      (verifies phase exit criteria; refuses if F > 0)
 - **Audit before port.** Never port a feature without first comparing V1 ↔ V2 to know what's actually missing. Audit reads V1 source line-by-line; never trusts an exploration agent's "looks identical" summary (per `migration-discipline.md` § Anti-patterns: "The Trusted Summary").
 - **Parity is non-negotiable.** A "ported" feature without a passing parity test ≥30 corpus inputs + tolerance.yaml + green-against-pinned-V1-commit isn't ported.
 - **Compose with `/port-feature`.** This command DISPATCHES `/port-feature <id>` per row. It does NOT re-implement the per-feature audit/port loop. (For tools without `/port-feature`, follow the inlined procedures in `migration-discipline.md` § Tool-agnostic procedure.)
-- **Use `parity-auditor` agent (or its 10 hard halts inlined).** A generic search/exploration agent is NOT acceptable for the AUDIT step. The 10 hard-halts in `migration-discipline.md` § "Per-feature audit — 10 hard halts" is the checklist; an audit that passes the gate without resolving every halt is incomplete.
+- **Use `parity-auditor` agent (or its 11 hard halts inlined).** A generic search/exploration agent is NOT acceptable for the AUDIT step. The 11 hard halts in `migration-discipline.md` § "Per-feature audit — 11 hard halts" is the checklist; an audit that passes the gate without resolving every halt is incomplete.
 - **Frontend audit axes are mandatory for frontend features.** Form fields, UI affordances, templated query params, event handlers, per-button permission gates, accessibility, DOM-equivalent assertions, reactive lifecycle. Per `migration-discipline.md` § Frontend audit axes.
 - **Follow V2 structure, not V1 lift-and-shift.** Cite V2 patterns/helpers/base classes when porting.
 - **Intentional breaks need ADRs.** Behavior divergence by design must be documented before the row flips to `done`.
