@@ -119,7 +119,7 @@ Once stack is locked:
 
 **Architecture proposal** — pick based on stack:
 - **Layered** (default for most fullstacks): `pages/components → composables/hooks → services → core`
-- **Modular** (default for non-trivial SaaS / enterprise): `src/modules/<feature>/{pages,components,services,types,locales}` (matching `tenant-portal-v2` shape)
+- **Modular** (default for non-trivial SaaS / enterprise): `src/modules/<feature>/{pages,components,services,types,locales}` (matching `<frontend-v2>` shape)
 - **Service-oriented** (default for `api-only`): handlers → services → repositories
 - **Atomic Design** (default for marketing / static-content): atoms → molecules → organisms → templates → pages
 

@@ -15,25 +15,25 @@ imported-by: templates/capabilities.md (index), commands/setup-project.md (orche
 ```
 ~/.claude/templates/schemas/
   claude-code/
-    settings.schema.json      # Claude Code settings.json schema
-    mcp.schema.json           # .mcp.json schema
-    skills.schema.json        # SKILL.md frontmatter schema
-    agents.schema.json        # agent frontmatter schema
-    commands.schema.json      # command frontmatter schema
+    settings.schema.json      # Claude Code settings.json schema           [SHIPPED]
+    skills.schema.json        # SKILL.md frontmatter schema                [SHIPPED]
+    agents.schema.json        # agent frontmatter schema                   [SHIPPED]
+    commands.schema.json      # command frontmatter schema                 [SHIPPED]
+    mcp.schema.json           # .mcp.json schema                           [PLANNED]
   cursor/
-    rules.schema.json         # .cursor/rules/*.mdc frontmatter schema
-    cursorrules.schema.json
+    rules.schema.json         # .cursor/rules/*.mdc frontmatter schema     [SHIPPED]
+    cursorrules.schema.json   # legacy .cursorrules schema                 [PLANNED]
   opencode/
-    config.schema.json        # opencode.json schema
+    config.schema.json        # opencode.json schema                       [SHIPPED]
   aider/
-    config.schema.json
+    config.schema.json        # .aider.conf.yml shape                      [PLANNED]
   generic/
-    agents-md.schema.json     # AGENTS.md (universal anchor) shape
-    codebase-profile.schema.json
-    session-digest.schema.json
+    agents-md.schema.json     # AGENTS.md (universal anchor) shape         [SHIPPED]
+    codebase-profile.schema.json   # .claude/codebase-profile.md frontmatter [PLANNED]
+    session-digest.schema.json     # ai/_session-digest.md shape            [PLANNED]
 ```
 
-Each schema is JSON Schema Draft 2020-12. Updated alongside the corresponding tool adapter version.
+Each schema is JSON Schema Draft 2020-12. `[SHIPPED]` schemas exist on disk; `[PLANNED]` are referenced by future-work only — Phase 5.4 emits a `SCHEMA_MISSING` warning (per § 3.5) and continues without halting. Adapter version bumps update the corresponding schema version.
 
 #### 3.2 Phase 5.4 — Schema validation step (NEW)
 

@@ -107,7 +107,7 @@ Read in order:
 1. The reproducer steps + any attached evidence (logs, screenshots, traces).
 2. `CLAUDE.md` — declared stack + anti-patterns.
 3. `ai/architecture.md` — module boundaries.
-4. `ai/_baseline/failures/` — has this class shipped before? Cite the failure entry if so.
+4. `ai/failures/` — has this class shipped before? Cite the failure entry if so.
 5. The file(s) the symptom points to (controller / view / endpoint).
 6. Recent commits to those files (`git log --oneline -10 <file>`) — bisect candidate.
 7. Relevant patterns from `ai/patterns/`.
@@ -177,7 +177,7 @@ Dispatch reviewers:
 
 ## Phase 5 — Update
 
-- `ai/_baseline/failures/<NNNN>-<slug>.md` — append-only failure entry. Captures: what we tried, why it failed (if previous attempts), root cause, what we did, don't-retry conditions.
+- `ai/failures/<NNNN>-<slug>.md` — append-only failure entry. Captures: what we tried, why it failed (if previous attempts), root cause, what we did, don't-retry conditions.
 - `ai/dynamic/changelog.md` — entry for the bug fix.
 - `ai/patterns/<name>.md` — IF a new pattern was extracted to prevent recurrence (rare; usually the existing convention covered it).
 - `ai/decisions/<NNNN>-*.md` — IF the fix required an architectural choice.
@@ -223,7 +223,7 @@ Verification:
 - Manual: <verified on iOS + Android / browser X / staging>
 
 Knowledge updates:
-- ai/_baseline/failures/<file> — root cause documented
+- ai/failures/<file> — root cause documented
 - ai/dynamic/changelog.md — entry added
 - ADR <NNNN> (if applicable)
 
@@ -257,4 +257,4 @@ Open follow-ups:
 - Stack-specific `/fix-bug` commands in pack equivalents (backend has its own enriched version; this is the universal baseline).
 - `/profile-perf` — when the "bug" is actually slowness.
 - `ai/patterns/api-contract.md`, `error-handling.md`, etc. — patterns the fix should respect.
-- `ai/_baseline/failures/_index.md` — read this first; the bug class may already be cataloged.
+- `ai/failures/_index.md` — read this first; the bug class may already be cataloged.

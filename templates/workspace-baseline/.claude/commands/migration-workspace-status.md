@@ -21,7 +21,7 @@ The cross-repo aggregator. When a migration spans multiple sibling repos, each o
 
 ## When to use
 
-- Workspace has 2+ sibling repos involved in the same V1→V2 migration (e.g., `master-portal-v2` for frontend + `claude-v2` for API).
+- Workspace has 2+ sibling repos involved in the same V1→V2 migration (e.g., `<admin-v2>` for frontend + `<backend-v2>` for API).
 - You need a single status view across repos for a stand-up / weekly report / leadership update.
 - You're about to ship a phase that crosses repo boundaries (frontend + API together).
 
@@ -68,28 +68,28 @@ Print to stdout (no writes):
 Workspace migration status — <YYYY-MM-DD>
 
 Repos: 3
-  master-portal-v2     (frontend)
-  claude-v2            (api)
+  <admin-v2>     (frontend)
+  <backend-v2>            (api)
   workers-v2           (background jobs)
 
 Per-repo summary:
 
 | Repo              | Total | done | unverified | parked | deprecated | failed | Current phase |
 |-------------------|-------|------|------------|--------|------------|--------|---------------|
-| master-portal-v2  |   42  |  38  |     0      |    1   |     3      |   0    | 5 (passed)    |
-| claude-v2         |   78  |  12  |    61      |    2   |     3      |   0    | 1 (in flight) |
+| <admin-v2>  |   42  |  38  |     0      |    1   |     3      |   0    | 5 (passed)    |
+| <backend-v2>         |   78  |  12  |    61      |    2   |     3      |   0    | 1 (in flight) |
 | workers-v2        |   15  |   8  |     5      |    0   |     2      |   0    | 2 (in flight) |
 
 Cross-repo dependencies blocking progress:
-  - claude-v2/F101 (auth-token-refresh) blocks master-portal-v2/F042 (already done)  — OK
-  - claude-v2/F203 (order-export-api) blocks master-portal-v2/F104 (port pending)    — BLOCK
-                                                                                       master-portal-v2 phase 6 cannot start until claude-v2 phase 4 ships F203.
+  - <backend-v2>/F101 (auth-token-refresh) blocks <admin-v2>/F042 (already done)  — OK
+  - <backend-v2>/F203 (order-export-api) blocks <admin-v2>/F104 (port pending)    — BLOCK
+                                                                                       <admin-v2> phase 6 cannot start until <backend-v2> phase 4 ships F203.
 
 Phase synchronization:
-  master-portal-v2:  done through phase 5
-  claude-v2:         currently in phase 1 of 8
+  <admin-v2>:  done through phase 5
+  <backend-v2>:         currently in phase 1 of 8
   workers-v2:        currently in phase 2 of 4
-  Drift: master-portal-v2 is 4 phases ahead of claude-v2. The frontend ports can't go to V2-only until matching API endpoints are done.
+  Drift: <admin-v2> is 4 phases ahead of <backend-v2>. The frontend ports can't go to V2-only until matching API endpoints are done.
 
 Stalled (no history entry in 14d):
   - workers-v2 phase 2 (last entry 2026-04-10) — owner: charlie
@@ -105,7 +105,7 @@ Optional: append one line to a workspace-level log if `WORKSPACE/.claude/_migrat
 
 - Every sibling repo listed in `PROJECTS.md` was reachable.
 - Ledger format valid in each (frontmatter parses; required fields present).
-- Cross-repo dependency references resolve (a `depends_on: claude-v2/F101` reference must point to a real row in claude-v2's ledger).
+- Cross-repo dependency references resolve (a `depends_on: <backend-v2>/F101` reference must point to a real row in <backend-v2>'s ledger).
 
 ## Phase 7 — Improve (feed the learning loop)
 
@@ -119,7 +119,7 @@ The table above, plus:
 - One-line "what to do next" if a clear next step exists.
 
 ```
-Recommended next: ship claude-v2 phase 1 to unblock master-portal-v2 phase 6.
+Recommended next: ship <backend-v2> phase 1 to unblock <admin-v2> phase 6.
 ```
 
 ## Hard rules

@@ -1,3 +1,9 @@
+---
+name: cicd-pipeline
+kind: example
+pack: devops
+---
+
 # Pattern: CI/CD Pipeline
 
 ## Stages (in order)

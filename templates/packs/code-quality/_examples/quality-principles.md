@@ -1,3 +1,9 @@
+---
+name: quality-principles
+kind: example
+pack: code-quality
+---
+
 # Code Quality Principles
 
 Prevents the slow death: dead code, copy-paste rot, comment lies, and "TODO" graveyards.

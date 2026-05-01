@@ -367,6 +367,13 @@ T+38d: Delete V1 (after 14d of zero traffic).
 - **`/migration-status` command** reports per-feature state and flags rows older than the SLA (e.g., a feature in `In-progress` for >30d is flagged stalled).
 - **`parity-auditor` agent** is invoked in PR review; its checklist hard-fails on missing parity tests, missing contract, scope-creep evidence (V1 modifications in a port PR).
 - **Phase 4.6 STUDY-DECIDE-ACT** anchors this rule to the project's actual V1/V2 paths, ledger location, and cutover mechanism. A rule that talks about generic feature flags while the project uses Django settings + URL routing is a leak — the project-specific block is mandatory.
+- **Validator script** `scripts/validate-migration-artifacts.sh` operationalizes the enforcement of the named anti-patterns below — each anti-pattern maps to a specific check function that halts the gate when its fingerprint matches:
+    - "The Hand-waved Query Param" → `check_audit` hand-wave grep (rejects `etc.`, `...`, `&...`, `N+ items`, `and so on`, `deferred to port-phase`).
+    - "The Permission-gate Drop" → `check_v2_structure § per-button-permission-gate` (per-stack fingerprint set).
+    - "The Reinvented Wrapper" → `check_v2_mapping_doc` halts on missing/empty `ai/migration/mapping/<feature>.md` + `check_v2_structure` flags the most common reinvention fingerprints.
+    - "The Wrong Lifecycle Hook on Nested Child" → `check_v2_structure § lifecycle-hooks` (stack-conditional via `PROJECT_KIND`; per-stack pack rules name the concrete hook pairs).
+    - "The Misplaced i18n / Locale Key" → planned-validator `check_i18n_locale_parity` in the same script (catches keys that don't resolve in the project's locale tree).
+    - "The Consumer Compensation" → audit-time review-checklist row "No frontend/consumer workaround for backend/provider gaps"; `parity-auditor` flags it during PR review.
 
 ## Anti-patterns (named)
 

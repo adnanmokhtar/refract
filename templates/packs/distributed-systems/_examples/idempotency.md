@@ -1,3 +1,9 @@
+---
+name: idempotency
+kind: example
+pack: distributed-systems
+---
+
 # Pattern: Idempotency
 
 "Running twice = running once." Foundation for retries, webhooks, sagas, event consumers, payments.

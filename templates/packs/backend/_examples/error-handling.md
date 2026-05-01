@@ -1,3 +1,9 @@
+---
+name: error-handling
+kind: example
+pack: backend
+---
+
 # Pattern: Error Handling
 
 Typed domain errors flow up; one global mapper translates them to HTTP/gRPC/etc. Generic `throw new Error("...")` is a leak — it loses semantics, leaks stack traces, breaks i18n, and makes API consumers parse English prose to detect specific failures.

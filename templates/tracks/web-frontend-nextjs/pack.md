@@ -20,7 +20,7 @@ emits-conditional:
     path: ai/patterns/nextjs-tailwind.md
     from: patterns/tailwind.md
     merge: managed-block
-references-existing-pack: templates/packs/frontend/references/nextjs/
+references-existing-pack: templates/packs/frontend/references/nextjs.md
 ---
 
 # Pack contract — web-frontend-nextjs

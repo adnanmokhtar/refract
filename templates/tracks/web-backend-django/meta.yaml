@@ -10,4 +10,4 @@ conflicts-with:
   - web-backend-laravel
   - web-backend-express
 references:
-  - templates/packs/backend/references/django/
+  - templates/packs/backend/references/django.md

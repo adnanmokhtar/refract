@@ -35,4 +35,24 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { api_surface_detected: true }
   fallback: _examples/profile-endpoint.md
+
+- name: caching-architect
+  kind: agent
+  triggers: { always: true }
+  fallback: stub-from-sections
+
+- name: lazy-loading
+  kind: pattern
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: stub-from-sections
+
+- name: bundle-perf
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: stub-from-sections
+
+- name: profile-perf
+  kind: command
+  triggers: { always: true }
+  fallback: stub-from-sections
 ```

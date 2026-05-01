@@ -73,14 +73,15 @@ case "$MIGRATION" in
       [[ "$APPLY" -eq 1 ]] && log "   open the file and add the marker pair around the regenerable section]"
     fi
 
-    # Step 3 — stamp version
-    log "step 3: stamp Setup version: 2.0.0 in .claude/codebase-profile.md"
+    # Step 3 — stamp version (must match seed-versions.sh § SETUP_VERSION)
+    SETUP_VERSION="3.0.0"
+    log "step 3: stamp Setup version: $SETUP_VERSION in .claude/codebase-profile.md"
     if [[ -f "$TARGET/.claude/codebase-profile.md" ]]; then
       if ! grep -q "^## Setup version" "$TARGET/.claude/codebase-profile.md"; then
-        do_or_dry "printf '\n## Setup version\nsetup_command: 2.0.0\nmigrated_at: %s\n' '$ts' >> '$TARGET/.claude/codebase-profile.md'"
+        do_or_dry "printf '\n## Setup version\nsetup_command: $SETUP_VERSION\nmigrated_at: %s\n' '$ts' >> '$TARGET/.claude/codebase-profile.md'"
       fi
     else
-      do_or_dry "mkdir -p '$TARGET/.claude' && printf '# Codebase profile\n\n## Setup version\nsetup_command: 2.0.0\nmigrated_at: %s\n' '$ts' > '$TARGET/.claude/codebase-profile.md'"
+      do_or_dry "mkdir -p '$TARGET/.claude' && printf '# Codebase profile\n\n## Setup version\nsetup_command: $SETUP_VERSION\nmigrated_at: %s\n' '$ts' > '$TARGET/.claude/codebase-profile.md'"
     fi
 
     # Step 4 — bootstrap derived files

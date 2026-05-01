@@ -1,3 +1,9 @@
+---
+name: frontend-principles
+kind: example
+pack: frontend
+---
+
 # Frontend Principles
 
 Stack-agnostic. Framework specifics in `references/<framework>.md` (react, vue, nuxt, svelte, angular).

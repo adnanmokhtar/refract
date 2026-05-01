@@ -36,7 +36,7 @@ Legend:
 
 Each adapter's output MUST let the tool work end-to-end **without `.claude/` present**. If a tool natively supports skills / commands / agents / hooks, the adapter writes those into the tool's native folder (e.g. `.cursor/skills/<name>/SKILL.md`, `.opencode/commands/<name>.md`, `.github/agents/<name>.agent.md`). It does NOT cram everything into the tool's rules folder with prefixes. If a tool has no native equivalent for a Claude artifact (e.g. Cline has no agent dispatch), the adapter falls back to a documented translation that the tool can still consume on its own.
 
-The `_translate.md` file under each `<adapter>/` folder records the tool's native surface as of the last verification date; Phase 4.8 / 4.8-DEEP read it to decide where to write each artifact.
+**Translation contract** lives in each `<adapter>/adapter.md` (the 4 mandatory sections: Target files / File formats / Idempotency / Full artifact translation). A per-adapter `_translate.md` sidecar is `[PLANNED]` for richer per-tool surface tracking — not yet shipped; `adapter.md` is the canonical contract Phase 4.8 / 4.8-DEEP consume.
 
 ## Universal baseline (always written, regardless of tool selection)
 

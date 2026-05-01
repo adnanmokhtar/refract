@@ -332,8 +332,8 @@ Static text. You edit; Claude reads. Best for "always remember X about this proj
 Path: `~/.claude/projects/<encoded-project-path>/memory/`
 
 Encoded path = absolute project path with slashes replaced by dashes. Example:
-- `/Users/mac/Workspace/Projects/sahlcart/tenant-portal-v2` →
-- `~/.claude/projects/-Users-mac-Workspace-Projects-sahlcart-tenant-portal-v2/memory/`
+- `<absolute-project-path>` (e.g. `/Users/<you>/projects/<your-app>`) →
+- `~/.claude/projects/<encoded-project-path>/memory/` (slashes → dashes)
 
 Each memory is a `.md` file with frontmatter (`name`, `description`, `type`) plus an entry in `MEMORY.md` (the index). Different projects = different memories.
 
@@ -396,7 +396,7 @@ Migration `--chain` refuses if any phase ADR is `proposed`. **Fix:** review each
 
 ### Adapter sync stale
 
-After editing this repo's pack files, `tenant-portal-v2/.claude/` doesn't auto-sync (unlike `~/.claude/` which is symlinked). **Fix:** re-run `/setup-project-adapters` from inside the target project, OR manually `cp` the pack files (the migration-pack pattern we did this session).
+After editing this repo's pack files, `<frontend-v2>/.claude/` doesn't auto-sync (unlike `~/.claude/` which is symlinked). **Fix:** re-run `/setup-project-adapters` from inside the target project, OR manually `cp` the pack files (the migration-pack pattern we did this session).
 
 ### Phase 5 demands ≥3 structural recommendations
 

@@ -68,15 +68,15 @@ claude-config/
 ├── templates/
 │   ├── repo-baseline/             # universal — copied into every new repo
 │   ├── workspace-baseline/        # for multi-repo workspaces (dispatcher, cross-repo cmds)
-│   └── packs/                     # 16 ROLE-based tracks (+ learning, observability, infra, etc.)
+│   └── packs/                     # 17 ROLE-based tracks (see § "Why role-based packs" below for full list)
 │       ├── code-quality/          # code-reviewer, refactorer, dead-code-finder, /review-changes, /simplify
 │       ├── documentation/         # doc-writer, /doc-refresh, /add-adr
 │       ├── backend/               # api-architect, api-reviewer, endpoint-tester, /add-module, /add-endpoint, /endpoint-test, /log-tail
-│       │   └── references/        # nestjs, hexagonal-nestjs, express, fastapi, django, laravel, rails, go
+│       │   └── references/        # FILES (not dirs): nestjs.md, hexagonal-nestjs.md, express.md, fastapi.md, django.md, laravel.md, rails.md, go.md, dotnet.md, flask.md, phoenix-elixir.md, spring-boot.md
 │       ├── frontend/              # ui-architect, ui-reviewer, i18n-auditor, accessibility-auditor, /add-page, /add-component, /add-crud-page, /i18n-audit, /a11y-audit
-│       │   └── references/        # angular, react, vue, nuxt, nextjs, svelte
+│       │   └── references/        # FILES (not dirs): angular.md, react.md, vue.md, nuxt.md, nextjs.md, svelte.md
 │       ├── database/              # schema-architect, schema-reviewer, query-optimizer, /add-migration, /optimize-query, /db-audit
-│       │   └── references/        # postgres, mysql, mongodb
+│       │   └── references/        # FILES (not dirs): postgres.md, mysql.md, mongodb.md
 │       ├── testing/               # test-engineer, test-reviewer, /add-test, /flaky-test-hunt
 │       ├── security/              # security-auditor, auth-reviewer, /security-audit
 │       ├── devops/                # devops-architect, ci-reviewer, /dockerize, /add-ci

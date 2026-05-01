@@ -367,21 +367,21 @@ fi
 - Specific anti-patterns (things that PASS the generic domain compliance file but FAIL this regime)
 - Required integrations (e.g., NPHIES API for Saudi healthcare claims; SAMA reporting for Saudi banking)
 
-**Bootstrapped overlays** (initial catalog — extend by saving back via Phase 4.5 generate-missing when an unknown regime is encountered):
+**Bootstrapped overlays** (initial catalog — extend by saving back via Phase 4.5 generate-missing when an unknown regime is encountered). `[SHIPPED]` files exist on disk; `[PLANNED]` regimes route through the `__REGIME__` research-stub flow in `phase-4-templates.md` until the overlay is authored.
 
-| Regime | File | Domain affinity |
-|---|---|---|
-| GDPR | `regulatory-overlays/gdpr.md` | Universal (any product touching EU users) |
-| CCPA / CPRA | `regulatory-overlays/ccpa.md` | Universal (any product touching California users) |
-| HIPAA | `regulatory-overlays/hipaa.md` | Healthcare (US) |
-| PCI-DSS | `regulatory-overlays/pci-dss.md` | Payments (universal) |
-| SOC2 | `regulatory-overlays/soc2.md` | Universal (any B2B SaaS doing security audits) |
-| ISO-27001 | `regulatory-overlays/iso-27001.md` | Universal (any product with formal infosec) |
-| NPHIES | `regulatory-overlays/nphies.md` | Healthcare (Saudi Arabia) — claims/eligibility integration |
-| SCFHS | `regulatory-overlays/scfhs.md` | Healthcare (Saudi Arabia) — practitioner registration |
-| MOH-SA | `regulatory-overlays/moh-sa.md` | Healthcare (Saudi Arabia) — Ministry of Health rules |
-| CBAHI | `regulatory-overlays/cbahi.md` | Healthcare (Saudi Arabia) — accreditation |
-| SAMA | `regulatory-overlays/sama.md` | Banking / fintech (Saudi Arabia) |
+| Regime | File | Status | Domain affinity |
+|---|---|---|---|
+| GDPR | `regulatory-overlays/gdpr.md` | [SHIPPED] | Universal (any product touching EU users) |
+| PCI-DSS | `regulatory-overlays/pci-dss.md` | [SHIPPED] | Payments (universal) |
+| SOC2 | `regulatory-overlays/soc2.md` | [SHIPPED] | Universal (any B2B SaaS doing security audits) |
+| CCPA / CPRA | `regulatory-overlays/ccpa.md` | [PLANNED] | Universal (any product touching California users) |
+| HIPAA | `regulatory-overlays/hipaa.md` | [PLANNED] | Healthcare (US) |
+| ISO-27001 | `regulatory-overlays/iso-27001.md` | [PLANNED] | Universal (any product with formal infosec) |
+| NPHIES | `regulatory-overlays/nphies.md` | [PLANNED] | Healthcare (Saudi Arabia) — claims/eligibility integration |
+| SCFHS | `regulatory-overlays/scfhs.md` | [PLANNED] | Healthcare (Saudi Arabia) — practitioner registration |
+| MOH-SA | `regulatory-overlays/moh-sa.md` | [PLANNED] | Healthcare (Saudi Arabia) — Ministry of Health rules |
+| CBAHI | `regulatory-overlays/cbahi.md` | [PLANNED] | Healthcare (Saudi Arabia) — accreditation |
+| SAMA | `regulatory-overlays/sama.md` | [PLANNED] | Banking / fintech (Saudi Arabia) |
 | CBUAE / SCA | `regulatory-overlays/uae-finance.md` | Banking / fintech (UAE) |
 | FERPA | `regulatory-overlays/ferpa.md` | Education (US) |
 | LGPD | `regulatory-overlays/lgpd.md` | Universal (any product touching Brazilian users) |

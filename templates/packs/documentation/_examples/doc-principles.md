@@ -1,3 +1,9 @@
+---
+name: doc-principles
+kind: example
+pack: documentation
+---
+
 # Documentation Principles
 
 Prevents the failure mode that's worse than missing docs: stale docs that actively mislead.

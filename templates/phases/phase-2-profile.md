@@ -10,7 +10,7 @@ sub-phases:
   - 2.5: deep idiom extraction
   - 2.6: profile-informed coverage gap check (ENHANCE + REFRESH)
   - 2.7-2.12: deep extraction (REFINE only — domain entities, architecture, e2e flows, conventions, perf, failures)
-note: Phase 2.6 appears textually before Phase 2 in this file because it is conceptually a gate ON Phase 2 output. This will be re-ordered in M3.
+note: Phase 2.6 prose appears textually before Phase 2 body in this file because 2.6 is conceptually a GATE on Phase 2's output (coverage-gap check). Read order: 2.0 → 2.5 → 2.6 (gate) → 2.7-2.12 (REFINE-only deep extraction). The textual ordering is intentional; do not "fix" it without also rewiring downstream consumers.
 ---
 
 **Stage-gate concession (extraction artifacts ≠ deliverables)**: The four deep-extraction files this phase can produce (`_extracted-codebase.md`, `_extracted-idioms.md`, `_extracted-business.md`, `_refine-extract.md`) are **CONTEXT for later phases, not user-facing deliverables**. They exist to make Phase 4 generation cheaper and more project-specific. With `--lightweight`, only `codebase-profile.md` is required; the other three are skipped, and Phase 4 reads source directly when it needs deeper detail.
@@ -277,7 +277,7 @@ The `--max-subagents=<N>` flag (default `8` in REFINE mode) caps the **total con
 
 **Parallelism**: one Explore subagent per business-domain (typically 1–3); independent.
 
-**Output**: `.claude/_refine-extract.md` § "Domain entities" — one sub-section per domain. Schema validated against `~/.claude/templates/schemas/_extracted-domain.schema.json` (warns; doesn't halt unless `--strict`).
+**Output**: `.claude/_refine-extract.md` § "Domain entities" — one sub-section per domain. Schema validation OPTIONAL — `~/.claude/templates/schemas/_extracted-domain.schema.json` is `[PLANNED]` (not shipped); Phase 5.4 emits `SCHEMA_MISSING` and continues per `capabilities/3-schema-validation.md § 3.5`.
 
 **Quality gate**: if entity count < 3 OR no relationships extracted OR no invariants cited (with `file:line`), flag as `[REFINE-WEAK: domain=<name>]` and fall back to the round-one detection for that domain (no shallow rewrite).
 
@@ -287,7 +287,7 @@ The `--max-subagents=<N>` flag (default `8` in REFINE mode) caps the **total con
 
 **Trigger**: REFINE mode. **Mechanism**: invoke `extract-architecture-deeply`. The skill walks: top-level package / module graph (import-edge analysis — direction + count) → request lifecycle for ≥1 representative endpoint per surface (HTTP / GraphQL / queue consumer / scheduled job — controller → service → repository → external sink) → bounded-context boundaries (which modules NEVER import which? — that's a deliberate boundary) → cross-cutting concerns location (auth, logging, tracing, rate-limiting — middleware / decorator / mixin location). Synthesizes: layer diagram (text), import-graph summary ("Reports → core, services, BillingPlans; Reports never imports Patients directly — uses BillingPlans as a façade"), 3-5 representative request lifecycles with `file:line` citations.
 
-**Output**: `.claude/_refine-extract.md` § "Architecture" + ASCII layer diagram. Schema: `~/.claude/templates/schemas/_extracted-architecture.schema.json`.
+**Output**: `.claude/_refine-extract.md` § "Architecture" + ASCII layer diagram. Schema OPTIONAL — `~/.claude/templates/schemas/_extracted-architecture.schema.json` is `[PLANNED]` (not shipped).
 
 **Quality gate**: if no import-graph extracted OR no representative lifecycle traced OR no boundary identified, flag `[REFINE-WEAK: architecture]` and skip Phase 4.6-DEEP rewrite of `ai/architecture.md` (leave round-one version).
 
@@ -295,7 +295,7 @@ The `--max-subagents=<N>` flag (default `8` in REFINE mode) caps the **total con
 
 **Trigger**: REFINE mode. **Mechanism**: invoke `extract-flows-deeply`. The skill walks ≥3 representative business-critical flows (signup / checkout / payment / report-generation / file-upload / whatever the domain says is critical from Phase 2.7 lifecycle events) AND ≥2 admin / internal flows (e.g. `bulk-import`, `nightly-batch-job`). For each flow: trigger → entry point → all step files in order with `file:line` citations → side effects (DB writes, external API calls, queue publishes, email sends) → error paths → idempotency mechanism (or absence of one).
 
-**Output**: `.claude/_refine-extract.md` § "Flows" — one sub-section per flow with the schema in `~/.claude/templates/schemas/_extracted-flows.schema.json`.
+**Output**: `.claude/_refine-extract.md` § "Flows" — one sub-section per flow. Schema OPTIONAL — `~/.claude/templates/schemas/_extracted-flows.schema.json` is `[PLANNED]` (not shipped).
 
 **Quality gate**: minimum 5 flows total (3 business + 2 admin); below that, flag `[REFINE-WEAK: flows-coverage]`.
 

@@ -1,3 +1,9 @@
+---
+name: cqrs
+kind: example
+pack: distributed-systems
+---
+
 # Pattern: CQRS (Command Query Responsibility Segregation)
 
 Separate write model (commands) from read model (queries). Each optimized independently.

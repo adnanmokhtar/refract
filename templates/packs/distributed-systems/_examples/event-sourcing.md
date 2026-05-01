@@ -1,3 +1,9 @@
+---
+name: event-sourcing
+kind: example
+pack: distributed-systems
+---
+
 # Pattern: Event Sourcing
 
 Persist every state change as an immutable event. Current state is derived by replaying events.

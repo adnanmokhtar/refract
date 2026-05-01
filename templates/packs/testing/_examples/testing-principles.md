@@ -1,3 +1,9 @@
+---
+name: testing-principles
+kind: example
+pack: testing
+---
+
 # Testing Principles
 
 Prevents flaky suites, false-confidence coverage, and tests that pass when the code is broken.

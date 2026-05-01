@@ -323,7 +323,7 @@ If the validator exits non-zero → halt; surface findings per feature; do NOT m
 ## Phase 7 — Improve (feed the learning loop)
 
 - Recurring divergence patterns (e.g., "every endpoint had different pagination") → propose a pattern.
-- Recurring failure patterns (e.g., "auth always blew up on first port") → flag for `ai/_baseline/failures/`.
+- Recurring failure patterns (e.g., "auth always blew up on first port") → flag for `ai/failures/`.
 - Effort estimates that diverged from plan by >50% → annotate plan for future phases.
 
 ## Output to user

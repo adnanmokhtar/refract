@@ -1,6 +1,6 @@
 ---
 artifact: persona
-purpose: The Principal-Engineer persona /setup-project adopts when running. Compressed in M3 to ≤5 bullets at top; full prose preserved below.
+purpose: The Principal-Engineer persona /setup-project adopts when running. ≤5 bullets at top; full prose preserved below.
 imported-by: commands/setup-project.md (orchestrator).
 ---
 

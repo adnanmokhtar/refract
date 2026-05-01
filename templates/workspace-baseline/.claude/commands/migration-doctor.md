@@ -11,7 +11,7 @@
 
 Read-only. Never modifies ledgers, audits, or code.
 
-Cross-repo health check for every SahlCart project that has a migration ledger. Runs `validate-migration-artifacts.sh` across all 7 repos, aggregates results, surfaces drift between repos.
+Cross-repo health check for every <your-org> project that has a migration ledger. Runs `validate-migration-artifacts.sh` across all 7 repos, aggregates results, surfaces drift between repos.
 
 ## When to use
 
@@ -22,13 +22,13 @@ Cross-repo health check for every SahlCart project that has a migration ledger. 
 
 ## What it checks
 
-For each registered SahlCart repo with `ai/migration/ledger.md`:
+For each registered <your-org> repo with `ai/migration/ledger.md`:
 
 1. **Per-feature gate**: invoke `~/.claude/scripts/validate-migration-artifacts.sh --all --quiet` in the repo. Captures per-feature pass/fail count + every failure message.
 
 2. **Cross-repo dependency consistency**: parse each ledger row's `dependency:` field (if present); if a row depends on another repo's feature, confirm that other feature's row is `done` OR `intentional-break`.
 
-3. **Sibling drift detection** (frontend pairs only — `tenant-portal` ↔ `tenant-portal-v2`, `master-portal` ↔ `master-portal-v2`):
+3. **Sibling drift detection** (frontend pairs only — `<frontend-v1>` ↔ `<frontend-v2>`, `<admin-v1>` ↔ `<admin-v2>`):
    - Same feature ID with different `parity_test` state for >7 days.
    - Audit declares parity-clean in one repo but the sibling shows divergence.
 
@@ -42,12 +42,12 @@ For each registered SahlCart repo with `ai/migration/ledger.md`:
 
 Per `PROJECTS.md`:
 
-- `capsolah-api/` — V1 API (no ledger expected; reads contract surfaces consumed by frontends)
-- `claude-v2/` — V2 API (hex-purity check; ledger if present)
-- `tenant-portal/` — V1 frontend (no ledger expected)
-- `tenant-portal-v2/` — V2 frontend (full ledger + audits)
-- `master-portal/` — V1 frontend (no ledger expected)
-- `master-portal-v2/` — V2 frontend (ledger if present)
+- `<backend-v1>/` — V1 API (no ledger expected; reads contract surfaces consumed by frontends)
+- `<backend-v2>/` — V2 API (hex-purity check; ledger if present)
+- `<frontend-v1>/` — V1 frontend (no ledger expected)
+- `<frontend-v2>/` — V2 frontend (full ledger + audits)
+- `<admin-v1>/` — V1 frontend (no ledger expected)
+- `<admin-v2>/` — V2 frontend (ledger if present)
 - `store/` — storefront (no migration; sibling reference only)
 
 A repo without a ledger is skipped silently with a count entry.
@@ -60,29 +60,29 @@ Migration health report — <UTC ISO date>
 Per-repo summary:
   Repo                    | Features | Done | Failed | Stale | Shadow>30d
   ──────────────────────  ┼ ──────── ┼ ──── ┼ ────── ┼ ───── ┼ ──────────
-  tenant-portal-v2        |       45 |   12 |      0 |     2 |          0
-  master-portal-v2        |       38 |    8 |      1 |     0 |          0
-  claude-v2               |       60 |   15 |      0 |     5 |          2
+  <frontend-v2>        |       45 |   12 |      0 |     2 |          0
+  <admin-v2>        |       38 |    8 |      1 |     0 |          0
+  <backend-v2>               |       60 |   15 |      0 |     5 |          2
   ──────────────────────  ┼ ──────── ┼ ──── ┼ ────── ┼ ───── ┼ ──────────
   Total                   |      143 |   35 |      1 |     7 |          2
 
 Cross-repo dependencies:
-  ✓ tenant-portal-v2:F040 → claude-v2:auth-login (done)
-  ✗ master-portal-v2:F012 → claude-v2:audit-log (V1-only — blocker)
+  ✓ <frontend-v2>:F040 → <backend-v2>:auth-login (done)
+  ✗ <admin-v2>:F012 → <backend-v2>:audit-log (V1-only — blocker)
 
 Stale audits (>7 days vs v2_path):
-  - claude-v2:F050 audit_date=2026-04-01; v2_path last touched 2026-04-22
+  - <backend-v2>:F050 audit_date=2026-04-01; v2_path last touched 2026-04-22
     (re-audit OR re-pin v1_commit)
 
 Shadow >30d:
-  - claude-v2:F022 V2-shadow since 2026-03-15 — cutover decision overdue
-  - claude-v2:F023 V2-shadow since 2026-03-15 — cutover decision overdue
+  - <backend-v2>:F022 V2-shadow since 2026-03-15 — cutover decision overdue
+  - <backend-v2>:F023 V2-shadow since 2026-03-15 — cutover decision overdue
 
 Sibling drift:
-  ✓ tenant-portal ↔ tenant-portal-v2: no divergence detected
+  ✓ <frontend-v1> ↔ <frontend-v2>: no divergence detected
 
 Verdict: HEALTHY (1 blocker)
-   Run /sync-contract claude-v2:audit-log → master-portal-v2 to clear F012's blocker.
+   Run /sync-contract <backend-v2>:audit-log → <admin-v2> to clear F012's blocker.
 ```
 
 ## Behaviour
@@ -108,5 +108,4 @@ Verdict: HEALTHY (1 blocker)
 - `/migration-gate <N>` (per-repo) — verifies a phase exit
 - `/cross-repo-task` (workspace) — multi-repo task orchestrator
 - `/sync-contract <api-feature>` (workspace) — propagates API contract change to dependent frontends
-- `/workspace-audit` (workspace) — broader workspace shape audit (canonical-shape.md compliance)
 - `~/.claude/scripts/validate-migration-artifacts.sh` — the per-repo validator this command aggregates

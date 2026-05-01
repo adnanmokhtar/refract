@@ -1,3 +1,9 @@
+---
+name: indexing-strategy
+kind: example
+pack: database
+---
+
 # Pattern: Indexing Strategy
 
 Indexes make reads fast AND writes slow. Every index has a cost. Add deliberately, measure, remove what doesn't earn its keep.

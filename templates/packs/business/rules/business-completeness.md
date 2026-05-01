@@ -52,7 +52,7 @@ When reviewing a feature for completeness:
 
 ## Failure-history examples
 
-The catalog (in `ai/_baseline/failures/`) of completeness gaps that shipped:
+The catalog (in `ai/failures/`) of completeness gaps that shipped:
 
 - **Subscribe flow without unsubscribe** — ratchet-only signup, GDPR-rejected by EU users, removed from app stores.
 - **Order placed but no email confirmation** — high support ticket volume; funnel conversion looked fine on dashboards but customer trust eroded.

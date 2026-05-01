@@ -88,7 +88,7 @@ Each tool gets the artifacts mapped to its **own native folder structure** so th
 | Hooks (lifecycle shell scripts) | `.claude/hooks/*.sh` | Claude Code, Cursor (`.cursor/hooks.json`) | Husky git hooks + `applyTo` advise rules + `ai/status.md` briefing |
 | `ai/` knowledge base | Universal | All tools — every adapter references it | n/a |
 
-> **Drift policy**: when a tool ships a new native primitive (e.g. Cursor 2.3 added `.cursor/skills/`, Apr 2026 → Copilot Agent Skills GA), the corresponding adapter's `_translate.md` records the new native path; Phase 4.8 / 4.8-DEEP migrate on `--refresh`. Adapter `_version.json` tracks the last-verified tool version.
+> **Drift policy**: when a tool ships a new native primitive (e.g. Cursor 2.3 added `.cursor/skills/`, Apr 2026 → Copilot Agent Skills GA), the corresponding adapter's `adapter.md` (the canonical translation contract) records the new native path; Phase 4.8 / 4.8-DEEP migrate on `--refresh`. Adapter `_version.json` tracks the last-verified tool version. (A per-adapter `_translate.md` sidecar for richer surface tracking is `[PLANNED]` — not yet shipped.)
 
 ## How `/setup-project` uses these adapters
 

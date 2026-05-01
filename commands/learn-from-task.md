@@ -51,7 +51,7 @@ The recurring counterpart is the `knowledge-curator` agent (auto-invoked via pos
 | `ai/decisions/<NNNN>-<slug>.md`          | Architectural decision (append-only ADR)            |
 | `ai/conventions.md` (managed section)    | New convention with ≥2 supporting examples          |
 | `ai/patterns/<name>.md`                  | Reusable pattern across modules                     |
-| `ai/_baseline/failures/<NNNN>-<slug>.md` | Approach we tried that did NOT work (failure entry) |
+| `ai/failures/<NNNN>-<slug>.md` | Approach we tried that did NOT work (failure entry) |
 | `ai/dynamic/learnings.md` (append)       | Lower-confidence note; not yet promoted             |
 
 ## Promotion rules
@@ -62,7 +62,7 @@ This command DOES NOT publish raw observations to formal knowledge. It uses the 
 session-context     → ai/dynamic/learnings.md     (raw, append-only)
 repeat 3x           → ai/conventions.md           (managed section)
 explicit decision   → ai/decisions/<NNNN>-*.md   (ADR, append-only)
-failed approach     → ai/_baseline/failures/     (don't-retry catalog)
+failed approach     → ai/failures/     (don't-retry catalog)
 ```
 
 A learning surfaced once goes to dynamic. Same observation 3 times = promote to formal. The pyramid prevents premature codification of one-offs.
@@ -106,13 +106,13 @@ A learning surfaced once goes to dynamic. Same observation 3 times = promote to 
 - [Failure 0007] TypeORM @InjectRepository in V2 setup
   - Root cause: V2 uses Drizzle, not TypeORM
   - Don't retry: yes
-  - Path: ai/_baseline/failures/0007-typeorm-inject-v2.md
+  - Path: ai/failures/0007-typeorm-inject-v2.md
 ```
 
 ## Implementation notes
 
 - The command reads `templates/governance/hard-rules.md` (Always / Never) before promotion to avoid violations.
-- Promotion checks `ai/_baseline/failures/_index.md` — if a "promotion" is in fact a previously-failed approach, refuse and cite the failure entry.
+- Promotion checks `ai/failures/_index.md` — if a "promotion" is in fact a previously-failed approach, refuse and cite the failure entry.
 - Idempotency: re-running on the same conversation produces no diff. Already-recorded learnings are skipped.
 
 ## Relation to the curator agent

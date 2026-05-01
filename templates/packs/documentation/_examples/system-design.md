@@ -1,3 +1,9 @@
+---
+name: system-design
+kind: example
+pack: documentation
+---
+
 # Pattern: System Design Document
 
 For features / systems beyond a single service. Written BEFORE coding.

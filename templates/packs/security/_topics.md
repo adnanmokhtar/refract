@@ -23,7 +23,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { signal_confirmed: multi-tenant }
   extracts_from: _extracted-codebase.md § "Cross-cutting concerns" § multi-tenant + _extracted-idioms.md (repo base — auto-tenant-filter)
   sections: [persona, isolation_contract, places_to_audit, escape_hatch_audit, output_format]
-  fallback: _examples/tenant-isolation-reviewer.md
+  fallback: stub-from-sections   # AUTHOR-mode required; no `_examples/tenant-isolation-reviewer.md` ships — sectioned-stub fallback per phase-4.2-apply.md when extraction is empty
 
 - name: auth-flow
   kind: pattern
@@ -69,4 +69,9 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { always: true }
   fallback: _examples/threat-model.md
+
+- name: dependency-vuln-check
+  kind: command
+  triggers: { always: true }
+  fallback: stub-from-sections
 ```

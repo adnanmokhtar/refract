@@ -1,3 +1,9 @@
+---
+name: migration-ledger
+kind: example
+pack: migration
+---
+
 # Pattern: Migration ledger (state machine + record format)
 
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Migration`.

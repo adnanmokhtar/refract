@@ -104,14 +104,14 @@ TOTAL_FAIL=0
 declare -a FAILURES
 
 log_pass() {
-  ((TOTAL_PASS++))
+  TOTAL_PASS=$((TOTAL_PASS + 1))
   if [[ $QUIET -eq 0 ]]; then
     echo "  ✓ $1"
   fi
 }
 
 log_fail() {
-  ((TOTAL_FAIL++))
+  TOTAL_FAIL=$((TOTAL_FAIL + 1))
   FAILURES+=("$1")
   echo "  ✗ $1" >&2
 }
@@ -306,7 +306,7 @@ check_contract_citations() {
   build_v1_basename_index
   build_v2_basename_index
   # Match `<path>:<line>` patterns that look like file references using grep + perl-style regex.
-  # Cross-repo paths (tenant-portal/...) won't resolve from tenant-portal-v2 cwd; treated as warnings.
+  # Cross-repo paths (<frontend-v1>/...) won't resolve from <frontend-v2> cwd; treated as warnings.
   local broken=0
   local checked=0
   # Extract path:line tokens that look like real files (path contains a dot + extension)
@@ -457,7 +457,7 @@ check_corpus_distribution() {
   # Count by inspecting JSON 'category' field OR filename prefix
   local total=0 happy=0 error=0 edge=0 rule=0 ui=0 empty=0 i18n=0
   while IFS= read -r f; do
-    ((total++))
+    total=$((total + 1))
     # Try JSON 'category' field
     local cat
     cat=$(grep -m1 -oE '"category"\s*:\s*"[^"]+"' "$f" 2>/dev/null | sed 's/.*"category":[[:space:]]*"\([^"]*\)".*/\1/')
@@ -477,13 +477,13 @@ check_corpus_distribution() {
       esac
     fi
     case "$cat" in
-      happy_path|happy) ((happy++)) ;;
-      error_path|error) ((error++)) ;;
-      edge_case|edge) ((edge++)) ;;
-      business_rule|rule) ((rule++)) ;;
-      ui_affordance|ui) ((ui++)) ;;
-      empty_state|empty) ((empty++)) ;;
-      i18n) ((i18n++)) ;;
+      happy_path|happy) happy=$((happy + 1)) ;;
+      error_path|error) error=$((error + 1)) ;;
+      edge_case|edge) edge=$((edge + 1)) ;;
+      business_rule|rule) rule=$((rule + 1)) ;;
+      ui_affordance|ui) ui=$((ui + 1)) ;;
+      empty_state|empty) empty=$((empty + 1)) ;;
+      i18n) i18n=$((i18n + 1)) ;;
     esac
   done < <(find "$feature_dir/inputs" -type f \( -name '*.json' -o -name '*.yaml' \) 2>/dev/null)
 
@@ -976,7 +976,7 @@ check_v2_structure() {
     "(margin|padding)-(left|right):[[:space:]]*[0-9]|fail|physical margin/padding-(left|right) — RTL break risk; use logical properties (margin-inline-start/end) or RTL mixins."
     # E2 — localStorage.setItem outside secureStorage (warns; non-token are easy false positives)
     "localStorage\\.setItem\\(|warn|localStorage.setItem — if storing tenant-scoped data, use secureStorage; if not, document in an allow-list. Survives logout otherwise."
-    # ─── Phase 7 lessons (tenant-portal-v2 themes F054/F055/F056) ───────────────
+    # ─── Phase 7 lessons (<frontend-v2> themes F054/F055/F056) ───────────────
     # I18N-1: Hardcoded { en: '', ar: '' } translation literal — assumes 2 languages forever
     "\\{[[:space:]]*en:[[:space:]]*['\"][^'\"]*['\"][[:space:]]*,[[:space:]]*ar:[[:space:]]*['\"]|fail|hardcoded { en, ar } translation literal — use useLanguages().buildEmptyTranslations(); tenants can enable any language"
     "\\{[[:space:]]*ar:[[:space:]]*['\"][^'\"]*['\"][[:space:]]*,[[:space:]]*en:[[:space:]]*['\"]|fail|hardcoded { ar, en } translation literal — use useLanguages().buildEmptyTranslations(); tenants can enable any language"
@@ -989,7 +989,7 @@ check_v2_structure() {
     # UI-2: Raw <InputSwitch> in dialog forms (table-cell usage is fine; this catches dialogs/forms)
     # Heuristic: <InputSwitch> in same file as <BaseModal> or <Dialog>
     # Handled by check_status_switch_in_form awk pass below
-    # ─── Phase 9 lessons (tenant-portal-v2 themes May 2026) ─────────────────────
+    # ─── Phase 9 lessons (<frontend-v2> themes May 2026) ─────────────────────
     # UI-3: Silent catch swallow — hides API failures, makes empty UI indistinguishable from errors
     "catch[[:space:]]*\\{[[:space:]]*/[/*][^/]*(silent|ignore|fail[[:space:]]+silent)|fail|silent catch — surface errors via handleApiError(); empty UI must be distinguishable from API failure"
     "catch[[:space:]]*\\{[[:space:]]*\\}|warn|empty catch block — at minimum log; prefer handleApiError(err) so failures don't disappear"
@@ -1085,10 +1085,10 @@ check_v2_structure() {
       if [[ $hits -gt 0 ]]; then
         if [[ "$severity" == "fail" ]]; then
           log_fail "V2-structure violation in $file ($hits): $message"
-          ((file_failures++))
+          file_failures=$((file_failures + 1))
         else
           log_warn "V2-structure smell in $file ($hits): $message"
-          ((file_warnings++))
+          file_warnings=$((file_warnings + 1))
         fi
       fi
     done
@@ -1106,7 +1106,7 @@ check_v2_structure() {
     form_label_hits=${form_label_hits:-0}
     if [[ $form_label_hits -gt 0 ]]; then
       log_fail "V2-structure violation in $file ($form_label_hits): <FormField>/<TranslatedInput> :label=\"\$t(...)\" — FormField calls \$t internally; pass bare key string (per CLAUDE.md \"Label Conventions\")"
-      ((file_failures++))
+      file_failures=$((file_failures + 1))
     fi
     # Phase 9 multi-line check: <StatusSwitch> nested inside <FormField> — double-label bug.
     # StatusSwitch renders its own label internally; wrapping in FormField (which also renders one)
@@ -1122,7 +1122,7 @@ check_v2_structure() {
     statusswitch_in_ff=${statusswitch_in_ff:-0}
     if [[ $statusswitch_in_ff -gt 0 ]]; then
       log_fail "V2-structure violation in $file ($statusswitch_in_ff): <StatusSwitch> nested inside <FormField> — StatusSwitch has its own label; either pass label prop directly to StatusSwitch or use raw <InputSwitch> inside FormField"
-      ((file_failures++))
+      file_failures=$((file_failures + 1))
     fi
     # Phase 9 multi-line check: nested-child component using onActivated() WITHOUT onMounted().
     # onActivated() only fires for components inside <KeepAlive>; nested children rendered via v-if/v-for
@@ -1139,7 +1139,7 @@ check_v2_structure() {
         on_act=${on_act:-0}; on_mount=${on_mount:-0}
         if [[ $on_act -gt 0 ]] && [[ $on_mount -eq 0 ]]; then
           log_fail "V2-structure violation in $file: nested-child component uses onActivated() without onMounted() — onActivated does not fire for non-route components. Use onMounted (CLAUDE.md: 'nested children use BOTH onMounted AND onActivated')"
-          ((file_failures++))
+          file_failures=$((file_failures + 1))
         fi
         ;;
     esac
@@ -1247,9 +1247,14 @@ check_cross_module_import() {
   [[ -z "$this_module" ]] && return 0
   local module_dir="src/modules/$this_module"
   [[ ! -d "$module_dir" ]] && return 0
-  # Find any import from another module
+  # Find any import from another module.
+  # NOTE: BSD grep -E does NOT support Perl negative lookahead `(?!...)`. We match
+  # ANY cross-module import then filter out same-module hits in awk — portable
+  # across BSD (macOS) and GNU greps.
   local violations
-  violations=$(grep -rEn "from\s+['\"]@?/?(src/)?modules/(?!${this_module})[a-zA-Z0-9_-]+" "$module_dir" --include='*.vue' --include='*.ts' 2>/dev/null | head -5)
+  violations=$(grep -rEn "from[[:space:]]+['\"]@?/?(src/)?modules/[a-zA-Z0-9_-]+" "$module_dir" --include='*.vue' --include='*.ts' 2>/dev/null \
+    | awk -v this="$this_module" -F"modules/" '{ split($2, a, /[\/'"'"'"\b]/); if (a[1] != this) print }' \
+    | head -5)
   if [[ -n "$violations" ]]; then
     log_warn "cross-module import in $this_module:
 $(echo "$violations" | sed 's/^/    /')
@@ -1334,7 +1339,7 @@ check_lifecycle_keepalive() {
     has_activated=$(grep -cE '\bonActivated\(' "$file" 2>/dev/null | head -1 | tr -d ' \n')
     has_mounted=${has_mounted:-0}; has_activated=${has_activated:-0}
     if [[ $has_mounted -gt 0 ]] && [[ $has_activated -eq 0 ]]; then
-      log_warn "lifecycle in $file: uses onMounted but not onActivated. KeepAlive caches this page; data goes stale on tab return / tenant switch. Use onActivated for data fetch (or both for nested children). See tenant-portal-v2/CLAUDE.md § Lifecycle."
+      log_warn "lifecycle in $file: uses onMounted but not onActivated. KeepAlive caches this page; data goes stale on tab return / tenant switch. Use onActivated for data fetch (or both for nested children). See <frontend-v2>/CLAUDE.md § Lifecycle."
     fi
   done
   return 0
@@ -1373,7 +1378,7 @@ check_permission_gate_divergence() {
     if [[ $((v1_ungated + v2_gated)) -eq 2 ]] || [[ $((v1_gated + v2_ungated)) -eq 2 ]]; then
       if echo "$verdict" | grep -qiE 'match'; then
         log_fail "permission-gate divergence in $file: row '$row' — V1 cell='$(echo "$v1" | xargs)' V2 cell='$(echo "$v2" | xargs)' verdict says 'match' but gates differ. Either downgrade verdict OR document divergence as ADR-cited intentional break. See migration-discipline.md § C2."
-        ((violations++))
+        violations=$((violations + 1))
       fi
     fi
   done <<< "$rows"
@@ -1383,7 +1388,7 @@ check_permission_gate_divergence() {
 }
 
 check_api_response_sample() {
-  # Phase 9 lesson (tenant-portal-v2 themes May 2026 — F045-F056): the V2 type
+  # Phase 9 lesson (<frontend-v2> themes May 2026 — F045-F056): the V2 type
   # was authored from V1 caller code (which read response fields untyped); when V1's
   # API silently returned `{ id, label }` while V2 typed `{ id, name }`, the dropdown
   # rendered 22 empty rows. The audit had no way to catch this — there was no
@@ -1530,7 +1535,7 @@ check_ledger_row() {
 # ── Validate one feature ────────────────────────────────────────────────────
 validate_feature() {
   local id="$1"; local feature="$2"; local phase="$3"; local status="$4"; local parity_test="$5"; local tier="${6:-}"
-  ((TOTAL_CHECKED++))
+  TOTAL_CHECKED=$((TOTAL_CHECKED + 1))
   # Default tier to trivial when unset (per migration-discipline.md § Required artifacts per feature — tiered floor)
   [[ -z "$tier" ]] && tier="trivial"
   log_section "Feature $id ($feature) — phase $phase, status=$status, tier=$tier"

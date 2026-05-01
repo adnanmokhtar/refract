@@ -1,3 +1,9 @@
+---
+name: tracing
+kind: example
+pack: observability
+---
+
 # Pattern: Distributed Tracing (OpenTelemetry)
 
 Follow a request across services. Find where time is spent + where errors originate.

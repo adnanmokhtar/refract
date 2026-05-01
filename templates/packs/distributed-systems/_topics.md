@@ -88,4 +88,24 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { service_count_above_1: true }
   fallback: _examples/chaos-test.md
+
+- name: add-event-handler
+  kind: command
+  triggers: { service_count_above_1: true, OR: { signal_confirmed: event-sourced } }
+  fallback: stub-from-sections   # ships in commands/; no _examples sibling
+
+- name: add-saga
+  kind: command
+  triggers: { service_count_above_1: true }
+  fallback: stub-from-sections
+
+- name: audit-distributed-tx
+  kind: command
+  triggers: { service_count_above_1: true }
+  fallback: stub-from-sections
+
+- name: dlq-replay
+  kind: skill
+  triggers: { signal_confirmed: background-jobs }
+  fallback: stub-from-sections
 ```

@@ -1,3 +1,9 @@
+---
+name: infra-principles
+kind: example
+pack: infrastructure
+---
+
 # Infrastructure Principles
 
 Prevents the patterns that turn cloud bills + outage minutes into avoidable losses: untagged images, secrets in git, unbounded autoscale, missing probes, unrestored backups.

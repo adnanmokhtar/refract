@@ -34,7 +34,7 @@ The full table follows. Phase 5 references rules by ID; you can grep for any A/N
 - `should` — warned, logged in `ai/_setup-history.md`; user can override.
 - `should-not` — same; user override required.
 
-Phase 5 references rules by ID. Edit prose below the table; never delete a row without bumping the rules-version (`templates/governance/_version.md`, M3 follow-up).
+Phase 5 references rules by ID. Edit prose below the table; never delete a row without rules-version bookkeeping (rules-version file is intentionally not yet split out — bump the inline rules-version below when removing/renumbering).
 
 ## Always
 
@@ -73,7 +73,7 @@ Phase 5 references rules by ID. Edit prose below the table; never delete a row w
 | A31 | Schema validation runs in Phase 5.4 every mode                           | must      | 5 (5.4)                 |
 | A32 | Health score appears in `_session-digest.md` (Tier 1 visibility)         | must      | 6                       |
 | A33 | Telemetry is local-only; no network; no PII; `.gitignore`d               | must      | 4, 6                    |
-| A34 | Factories scaffold per detected business-domain                          | must      | 4 (4.4b)                |
+| A34 | Factories scaffold per detected business-domain (when --with-factories OR factory framework detected) | should | 4 (4.4b)                |
 | A35 | Multi-language preamble in human-facing docs only; code stays English    | must      | 4                       |
 | A36 | Wizard preview shows real content, not placeholders                      | must      | 3 (wizard mode)         |
 

@@ -5,7 +5,17 @@
 > Scope: `claude-config/templates/packs/migration/` + `validate-migration-artifacts.sh` + Phase-6/7/9 incident audits.
 > Method: read every command, agent, skill, rule, the validator script, and the per-phase incident audits line by line. Anti-pattern catalog cross-referenced against `migration-discipline.md § Anti-patterns (named)`.
 >
-> **Provenance notes**: failure modes labelled `Where it bit us:` cite incidents from the original sahlcart project family (`tenant-portal-v2` frontend, `claude-v2` backend, `capsolah-api` V1) where the lesson originated. The lessons themselves are universal — substitute your project's stack in the "Suggested mechanism" details.
+> ## ⚠️ READ THIS FIRST — file scope + portability
+>
+> This catalog is **illustrative**, not prescriptive. The 38 failure modes here are universal patterns; the parenthetical `Where it bit us` provenance lines cite real incidents from the catalog's seed project (the <your-org> family: `<frontend-v2>` frontend / `<backend-v2>` backend / `<backend-v1>` V1) for traceability — those are the audits the catalog was built from. They are NOT claims about YOUR project.
+>
+> **For your migration**:
+> 1. Read each failure mode + its **Suggested mechanism** (stack-agnostic).
+> 2. Substitute your project's stack identifiers in the suggestions.
+> 3. Track YOUR project's incidents under `ai/migration/incidents/` (the failure catalog) — do not edit this template file with your incidents; pin your history in `ai/`.
+> 4. The seed-project provenance can be deleted from your local copy if you prefer a fully-generic catalog: search `Where it bit us:` and remove or replace those lines.
+>
+> The validator's check IDs (F0xx) and the failure-mode taxonomy ARE meant to be portable — they're abstract patterns, not project-specific bugs.
 
 ---
 
@@ -163,14 +173,14 @@ The port is "done" but V2's code violates V2's own conventions. The audit may pa
 
 ### B7. Backend hexagonal-boundary violation
 - **What**: V2 NestJS service in `application/` imports from `infrastructure/`; controller calls repository directly bypassing CommandService; `@Injectable` appears in `domain/` or `application/service/`.
-- **Stack**: Backend (claude-v2 hexagonal).
-- **Where it bit us**: Projected — `claude-v2/CLAUDE.md` warns; the `/hex-purity` skill exists.
-- **Current coverage**: ⚠️ Project-side only — `/hex-purity` static scan exists in claude-v2; NOT wired into the migration validator.
+- **Stack**: Backend (<backend-v2> hexagonal).
+- **Where it bit us**: Projected — `<backend-v2>/CLAUDE.md` warns; the `/hex-purity` skill exists.
+- **Current coverage**: ⚠️ Project-side only — `/hex-purity` static scan exists in <backend-v2>; NOT wired into the migration validator.
 - **Severity**: P0 (architectural rot).
 - **Suggested mechanism**: For backend ports, `check_v2_structure` invokes `pnpm hex-purity --feature=<feature>` and consumes its exit code.
 
 ### B8. Backend transaction-script in service (no aggregate)
-- **What**: V2 `CommandService.create()` is procedural — fetches, mutates, saves — instead of `aggregate.applyChange(); repo.save(aggregate);`. Skips the aggregate-root pattern claude-v2 mandates.
+- **What**: V2 `CommandService.create()` is procedural — fetches, mutates, saves — instead of `aggregate.applyChange(); repo.save(aggregate);`. Skips the aggregate-root pattern <backend-v2> mandates.
 - **Stack**: Backend.
 - **Where it bit us**: Projected.
 - **Current coverage**: ❌ UNCOVERED.
@@ -240,13 +250,13 @@ The contract was written; the implementation matches the contract; but the contr
 ### C6. Reactive lifecycle mismatch (`onMounted` vs `onActivated`)
 - **What**: V1 uses `onMounted` for a non-cached page; V2 page is cached under `<KeepAlive>` but uses `onMounted` — data goes stale on tab return / tenant switch.
 - **Stack**: Frontend.
-- **Where it bit us**: Documented in `tenant-portal-v2/CLAUDE.md` (KeepAlive section); F032 audit verified V2 uses `onActivated` correctly. Risk recurs every port.
+- **Where it bit us**: Documented in `<frontend-v2>/CLAUDE.md` (KeepAlive section); F032 audit verified V2 uses `onActivated` correctly. Risk recurs every port.
 - **Current coverage**: ⚠️ Spec-only — frontend axes list "Reactive lifecycle". No mechanical check.
 - **Severity**: P0 (tenant-leak risk on tab return after account switch).
 - **Suggested mechanism**: `check_v2_structure` — for any `.vue` file under `src/modules/*/pages/` that's NOT in the `noCache` exclude list, grep for `onMounted\(` without a paired `onActivated\(` → log_fail.
 
 ### C7. Loading / error state drop
-- **What**: V1 shows a spinner during fetch + an error toast on 5xx; V2 silently shows empty page on error. Already in `tenant-portal-v2/CLAUDE.md § NEVER skip loading/error states`.
+- **What**: V1 shows a spinner during fetch + an error toast on 5xx; V2 silently shows empty page on error. Already in `<frontend-v2>/CLAUDE.md § NEVER skip loading/error states`.
 - **Stack**: Frontend.
 - **Where it bit us**: Projected.
 - **Current coverage**: ❌ UNCOVERED.
@@ -357,7 +367,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 ### E2. Tenant-isolation leak (token in localStorage outside secureStorage)
 - **What**: V2 introduces `localStorage.setItem('product_cache', ...)` that survives logout; or `localStorage.getItem('selectedLanguage')` outside store.
 - **Stack**: Frontend.
-- **Where it bit us**: Projected. `tenant-portal-v2/.claude/rules/multi-tenancy.md` warns; F030/F032/F033 audits all confirmed clean.
+- **Where it bit us**: Projected. `<frontend-v2>/.claude/rules/multi-tenancy.md` warns; F030/F032/F033 audits all confirmed clean.
 - **Current coverage**: ✅ HALT — `check_v2_structure` fingerprint `localStorage\.(get|set)Item.*[Tt]oken`. ⚠️ Doesn't catch non-token localStorage that survives logout.
 - **Severity**: P0.
 - **Suggested mechanism**: extend fingerprint to flag any `localStorage\.setItem` that's not in `secureStorage.ts` or a documented allow-list.
@@ -441,7 +451,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 These are unique to multi-repo migrations where the V1 API + V1 frontends + V2 ports live in a shared workspace.
 
 ### G1. API contract changes; frontends silently break
-- **What**: capsolah-api (V1) endpoint changes shape; tenant-portal-v2 still consumes old shape; runtime breaks.
+- **What**: <backend-v1> (V1) endpoint changes shape; <frontend-v2> still consumes old shape; runtime breaks.
 - **Stack**: Backend → Frontend.
 - **Where it bit us**: Projected. F033 G3 (V2 expected 3 KPI fields V1 may not return) is a cousin.
 - **Current coverage**: ⚠️ Spec-only — `/sync-contract` workspace command exists (`<workspace-root>/.claude/commands/`).
@@ -449,21 +459,21 @@ These are unique to multi-repo migrations where the V1 API + V1 frontends + V2 p
 - **Suggested mechanism**: contract test that runs against the live API in CI; halt if shape diff detected.
 
 ### G2. Workspace orchestrator out of date
-- **What**: `/cross-repo-task` references `tenant-portal-v2/CLAUDE.md` but that file moved / changed conventions.
+- **What**: `/cross-repo-task` references `<frontend-v2>/CLAUDE.md` but that file moved / changed conventions.
 - **Stack**: Workspace.
 - **Where it bit us**: Projected.
 - **Current coverage**: ❌ UNCOVERED.
 - **Severity**: P2.
 
 ### G3. Sibling drift (fix shipped to one repo, not synced to siblings)
-- **What**: A bug fix lands in `tenant-portal/` (v1); the same bug exists in `tenant-portal-v2/` and `master-portal-v2/`. Only v1 fixed.
+- **What**: A bug fix lands in `<frontend-v1>/` (v1); the same bug exists in `<frontend-v2>/` and `<admin-v2>/`. Only v1 fixed.
 - **Stack**: Frontend.
-- **Where it bit us**: Projected. `tenant-portal-v2/CLAUDE.md § Sibling repos` warns.
+- **Where it bit us**: Projected. `<frontend-v2>/CLAUDE.md § Sibling repos` warns.
 - **Current coverage**: ⚠️ Spec-only — a workspace-level multi-repo auditor agent (per `canonical-shape.md`) can run SIBLING_DRIFT detection; not migration-specific.
 - **Severity**: P1.
 
 ### G4. Shared component added in one repo, not in siblings
-- **What**: `tenant-portal-v2/src/shared/components/form/PhoneInput.vue` lands; `master-portal-v2/` lacks it; future ports of phone fields in master-portal-v2 reinvent.
+- **What**: `<frontend-v2>/src/shared/components/form/PhoneInput.vue` lands; `<admin-v2>/` lacks it; future ports of phone fields in <admin-v2> reinvent.
 - **Stack**: Frontend (workspace).
 - **Where it bit us**: Projected.
 - **Current coverage**: ❌ UNCOVERED.
@@ -487,7 +497,7 @@ The five highest-leverage uncovered failure modes — measured by (incident freq
 2. **A10 — "PASS with caveats" verdict** (P1). Cheap regex over audit body for P0/P1/HALT/missing tokens after a PASS header. F033 relook is a textbook case.
 3. **C2 — Permission-gate divergence detection** (P0). Validator parses Frontend-axes table; if "match" verdict is incompatible with cell contents (V1=none, V2=permission), halt. Catches F033 G2 mechanically.
 4. **D1 — Corpus distribution check** (P0). Filename-prefix convention (`happy-`, `error-`, `edge-`, `rule-`); validator counts each. The 38-input corpus that bit us in Phase 6 likely had thin error-path coverage.
-5. **B7 — Backend hex-purity wired into validator** (P0 architectural). For backend ports, dispatch `/hex-purity` and consume exit code in `check_v2_structure`. claude-v2 has the scan; the migration validator doesn't use it.
+5. **B7 — Backend hex-purity wired into validator** (P0 architectural). For backend ports, dispatch `/hex-purity` and consume exit code in `check_v2_structure`. <backend-v2> has the scan; the migration validator doesn't use it.
 
 Honourable mentions: **A8 (citation spoofing)** + **A9 (intentional-break without ADR)** are both P0 + cheap; **C6 (lifecycle mismatch)** has a one-regex fix.
 
@@ -503,4 +513,4 @@ This is failure mode A10. The next "Phase 6 first pass" recurrence will land her
 
 ## Path
 
-`/Users/mac/Workspace/Projects/claude-config/templates/packs/migration/_failure-surface.md`
+`templates/packs/migration/_failure-surface.md` (relative to the claude-config repo root)

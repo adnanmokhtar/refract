@@ -1,3 +1,9 @@
+---
+name: rtl
+kind: example
+pack: ui-ux
+---
+
 # Pattern: RTL (Right-to-Left) Support
 
 For Arabic, Hebrew, Persian, Urdu. First-class, not an afterthought.

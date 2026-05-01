@@ -201,7 +201,7 @@ Naive systems read 7+ files in every agent's pre-flight. This system uses **3 ti
 TIER 1 — HOT  (auto-loaded every session via @ imports)
   • CLAUDE.md (≤200 lines)
   • ai/_session-digest.md (≤300 lines — compact bootstrap)
-  Total: <500 lines (vs ~3500 for naive 7-file pre-flight)
+  Total budget: ≤600 lines combined (per `templates/import-tiers.md`); typical: ~500
 
 TIER 2 — WARM (loaded by command/task type)
   • ai/_convention-cheatsheet.md → code-write + quick reviews
@@ -290,7 +290,7 @@ Each phase file is self-contained with frontmatter declaring its inputs / output
 
 ## 📕 Hard rules (Always / Never)
 
-The Always / Never governance overlay is `@templates/governance/hard-rules.md`. A `must` / `must-not` violation surfaced in Phase 5 audit means the command refuses to report success. M3 will reformat as a Rule | Why | Applies-To-Phases | Severity table.
+The Always / Never governance overlay is `@templates/governance/hard-rules.md`. A `must` / `must-not` violation surfaced in Phase 5 audit means the command refuses to report success. Format: Rule | Severity | Applies-To-Phases (the table is already in that shape).
 
 ## 🛠 Capabilities (cross-cutting features)
 
@@ -304,7 +304,7 @@ Seven capabilities thread through multiple phases:
 6. Multi-language UX (interactive prompts + bilingual headers)
 7. Conversational wizard mode
 
-Detail: `@templates/capabilities.md`. M3 will split each capability into `templates/capabilities/<name>.md`.
+Detail: `@templates/capabilities.md` (index) + `templates/capabilities/<N>-<name>.md` (one file per capability — already split).
 
 ## 🧱 Canonical command template (META — for generated commands)
 

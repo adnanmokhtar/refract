@@ -75,7 +75,7 @@ Read project's:
 - `ai/architecture.md` — system topology.
 - IAM policy files in repo (Terraform / CloudFormation / Pulumi).
 - Auth setup (SSO / Okta / Azure AD).
-- Past incidents in `ai/_baseline/failures/`.
+- Past incidents in `ai/failures/`.
 
 ## Phase 4 — Generate
 

@@ -10,4 +10,4 @@ conflicts-with:
   - web-frontend-angular
   - web-frontend-nuxt
 references:
-  - templates/packs/frontend/references/nextjs/
+  - templates/packs/frontend/references/nextjs.md

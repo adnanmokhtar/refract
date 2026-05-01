@@ -39,7 +39,7 @@ emits-conditional:
     path: ai/patterns/django-channels.md
     from: patterns/channels.md
     merge: managed-block
-references-existing-pack: templates/packs/backend/references/django/
+references-existing-pack: templates/packs/backend/references/django.md
 ---
 
 # Pack contract — web-backend-django
@@ -47,7 +47,7 @@ references-existing-pack: templates/packs/backend/references/django/
 This file declares WHAT this track emits when selected. The actual content of each emitted artifact lives in:
 
 - `conventions.md` (this directory) — the unconditional convention set
-- `templates/packs/backend/references/django/` — existing pack (Phase 4.2 deterministic copy source)
+- `templates/packs/backend/references/django.md` — existing pack reference (Phase 4.2 deterministic copy source)
 
 ## Emit modes
 
@@ -75,4 +75,4 @@ The detection contract for each flag is in `detect.md` of the relevant cross-cut
 - Declares emits as a structured contract (legacy pack relied on prose).
 - Composes cleanly with conflicts-with (the legacy pack didn't constrain).
 
-During the migration window (M2 → M5+), Phase 2 may select this track AND fall back to the legacy pack body for content the new track doesn't yet replicate. The body content stays at `templates/packs/backend/references/django/`; the track's job is detection + emit-contract.
+During the migration window (M2 → M5+), Phase 2 may select this track AND fall back to the legacy pack body for content the new track doesn't yet replicate. The body content stays at `templates/packs/backend/references/django.md`; the track's job is detection + emit-contract.

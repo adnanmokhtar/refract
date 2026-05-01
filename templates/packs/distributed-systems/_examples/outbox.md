@@ -1,3 +1,9 @@
+---
+name: outbox
+kind: example
+pack: distributed-systems
+---
+
 # Pattern: Transactional Outbox
 
 Guarantees that a DB write AND an event publish happen atomically. Solves the classic "wrote to DB but crashed before publishing" bug.

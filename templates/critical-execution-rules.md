@@ -8,7 +8,7 @@ imported-by: commands/setup-project.md (orchestrator) — top-level, before phas
 
 These rules override every other section. If you skip them, you ship the false-idempotent bug (silent partial-applies, "no work to do" verdicts that mask 50+ missing files). They exist because the LLM under context pressure historically skipped Phase 4.2 / 4.8 / Phase 5 — these rules force the work to be visible + verified.
 
-**There are seven numbered rules below (Rules 1-6 plus Rule 7 for Phase 4.6).** All are mandatory.
+**There are seven numbered rules total**: Rules 1-6 are inlined immediately below; Rule 7 (Phase 4.6 per-file adaptation) lives in its own file `templates/rule-7-phase-4-6-file-adaptation.md` because it loads only during Phase 4.6 (not every agent run). All seven are mandatory.
 
 ### Rule 1: NEVER conclude "idempotent — no work to do" on prompt-delta alone
 

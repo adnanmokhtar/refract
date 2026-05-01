@@ -1,6 +1,8 @@
 ---
 name: extract-v1-contract
 description: Read a V1 feature deeply (entry point + every conditional + every dependency call + every error path + git log + tests + bug-tracker references) and produce a structured contract document that V2 must satisfy for parity. The contract is the spec — V2 is re-derived from it, never copy-pasted from V1.
+kind: skill
+pack: migration
 ---
 
 # extract-v1-contract

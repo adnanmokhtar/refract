@@ -192,7 +192,7 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   kind: command
   triggers:
     always: true
-  extracts_from: ai/migration/ledger.md + ai/migration/plan.md + ai/migration/_history.md + ai/_baseline/failures/
+  extracts_from: ai/migration/ledger.md + ai/migration/plan.md + ai/migration/_history.md + ai/failures/
   sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
   mirror_existing: false
   fallback: commands/migration-replan.md

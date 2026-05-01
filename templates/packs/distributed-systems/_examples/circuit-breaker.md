@@ -1,3 +1,9 @@
+---
+name: circuit-breaker
+kind: example
+pack: distributed-systems
+---
+
 # Pattern: Circuit Breaker
 
 Fails fast when a downstream is degraded, preventing cascading failure + giving it time to recover.

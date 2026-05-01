@@ -38,7 +38,8 @@ A project's STACK answers "what tech is in use?" — its DOMAIN answers "what bu
 ├── feature-checklist.md # The 80%-of-projects-need-this list — what's typically missing in v1
 ├── compliance.md        # Regulatory + legal concerns (PCI, GDPR, HIPAA, FERPA, etc.)
 ├── stakeholders.md      # Roles + what each one needs from the system
-└── anti-patterns.md     # Domain-specific mistakes that don't show up in generic code review
+├── anti-patterns.md     # Domain-specific mistakes that don't show up in generic code review
+└── factories.md         # OPTIONAL — required only when run sets `--with-factories` OR a factory framework (Faker / factory_boy / FactoryBot / fishery) is detected in deps. Phase 4.0.3 step 7 emits a WARN (not HALT) when missing without those triggers. Per Hard rule A34 (severity: should).
 ```
 
 These files get COPIED (or referenced) into the user's `ai/` knowledge base when their project's domain is detected — into `ai/business-domain.md`, `ai/core/glossary.md`, `ai/core/entities.md`, etc.

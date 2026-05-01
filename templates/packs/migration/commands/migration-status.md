@@ -1,5 +1,7 @@
 ---
 description: Read ai/migration/ledger.md and report per-feature state, blockers, stalled rows, and aggregate perf uplift. Read-only — never modifies the ledger. Run on demand or via weekly cron.
+kind: command
+pack: migration
 ---
 
 # /migration-status

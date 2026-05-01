@@ -1,3 +1,9 @@
+---
+name: theming
+kind: example
+pack: ui-ux
+---
+
 # Pattern: Theming
 
 One codebase, N visual variants — light/dark, brand-per-tenant, accessibility contrast modes — without forking components or rebuilding bundles. The technique is a layer of indirection: components reference semantic tokens (CSS custom properties), and a single attribute on `<html>` swaps the values.

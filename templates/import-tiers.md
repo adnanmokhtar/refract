@@ -52,4 +52,4 @@ For now: tiers are documented intent. The model is expected to honor them.
    - Does only one phase need it? → WARM
    - Is it a reference / template / example? → COLD
 2. Add to the appropriate list in `commands/setup-project.md` frontmatter.
-3. If HOT: confirm the combined HOT line count stays ≤ 500 by running `wc -l` on the HOT files.
+3. If HOT: confirm the combined HOT line count stays ≤ 600 by running `wc -l` on the HOT files (matches the budget declared in the table at line 15).

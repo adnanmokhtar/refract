@@ -106,6 +106,6 @@ PCI-DSS applies to **any system that stores, processes, or transmits cardholder 
 
 - Pair with **`gdpr.md`** if processing EU customer payments (GDPR governs the customer; PCI governs the card data).
 - Pair with **`soc2.md`** if doing B2B SaaS payments (auditors expect both; significant control overlap).
-- Pair with **`iso-27001.md`** for formal infosec governance.
+- Pair with **`iso-27001.md` (planned — not yet shipped)** for formal infosec governance.
 - PCI Council: pcisecuritystandards.org for current requirements + SAQs + ASV list + QSA list.
 - Always check with your **acquiring bank** and **card brands** (Visa CISP, Mastercard SDP, Amex DSOP, Discover DISC) for brand-specific rules in addition to PCI-DSS itself.

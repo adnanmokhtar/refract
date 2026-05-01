@@ -31,7 +31,7 @@ A cache that returns stale data for 30 seconds is a feature. A cache that return
 3. The endpoint / page / job being optimized — its data dependencies.
 4. Existing cache layers if any: Redis instance, CDN config, in-process cache, browser HTTP cache.
 5. Read patterns from APM / logs — what's hot? what's read-heavy vs write-heavy?
-6. Failure-history of past cache bugs in `ai/_baseline/failures/`.
+6. Failure-history of past cache bugs in `ai/failures/`.
 
 ## Invariants
 

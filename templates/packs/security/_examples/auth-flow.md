@@ -1,3 +1,9 @@
+---
+name: auth-flow
+kind: example
+pack: security
+---
+
 # Pattern: Auth Flow
 
 JWT-based auth with refresh rotation. Document the flow once — every endpoint follows it.

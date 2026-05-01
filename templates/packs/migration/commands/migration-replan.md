@@ -37,7 +37,7 @@ Inputs:
 - `ai/migration/plan.md` (existing) — the plan being replaced.
 - `ai/migration/_history.md` — phases passed; phases rolled-back.
 - `ai/migration/scan-report.md` — original structural analysis.
-- `ai/_baseline/failures/` — recent failures (rollbacks contribute here).
+- `ai/failures/` — recent failures (rollbacks contribute here).
 
 Optional flags:
 - `--re-scan-first` — runs `/migration-scan` before replanning. Use when V1 has changed materially since last scan.
@@ -130,7 +130,7 @@ Reason is mandatory. Logged for audit trail.
 
 ## Phase 7 — Improve (feed the learning loop)
 
-- If estimates from prior phases diverged from actuals by >50% → log to `ai/_baseline/failures/` for future estimate calibration.
+- If estimates from prior phases diverged from actuals by >50% → log to `ai/failures/` for future estimate calibration.
 - If recurring "this should have been in phase 1" patterns → propose `ai/patterns/migration-foundation-checklist.md`.
 - If certain feature classes consistently get re-phased → flag for the architecture team (V2's structure may not fit those features cleanly).
 

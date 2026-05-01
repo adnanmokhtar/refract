@@ -1,3 +1,9 @@
+---
+name: concurrency-discipline
+kind: example
+pack: backend
+---
+
 # Backend Rule: Concurrency discipline (parallelize independent I/O)
 
 > **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`. Do **not** delete; if extraction is empty, leave the placeholder + open a TODO.

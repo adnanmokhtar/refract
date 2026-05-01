@@ -73,4 +73,24 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { metrics_lib_detected: true }
   fallback: _examples/alert-audit.md
+
+- name: add-metrics
+  kind: command
+  triggers: { metrics_lib_detected: true }
+  fallback: stub-from-sections
+
+- name: add-tracing
+  kind: command
+  triggers: { tracer_lib_detected: true }
+  fallback: stub-from-sections
+
+- name: alert-design
+  kind: command
+  triggers: { metrics_lib_detected: true }
+  fallback: stub-from-sections
+
+- name: slo-audit
+  kind: skill
+  triggers: { metrics_lib_detected: true }
+  fallback: stub-from-sections
 ```

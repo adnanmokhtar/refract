@@ -1,3 +1,9 @@
+---
+name: rendering-strategy
+kind: example
+pack: frontend
+---
+
 # Pattern: Rendering Strategy
 
 Pick ONE per route. Mixing without understanding = slow, broken, or unshippable.

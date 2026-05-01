@@ -1,3 +1,9 @@
+---
+name: deployment
+kind: example
+pack: devops
+---
+
 # Pattern: Deployment
 
 Zero-downtime. Reversible. Automated. No hand-edits on prod.

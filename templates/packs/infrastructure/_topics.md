@@ -50,4 +50,29 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { k8s_detected: true }
   fallback: _examples/k8s-audit.md
+
+- name: multi-region
+  kind: pattern
+  triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  fallback: stub-from-sections
+
+- name: cost-audit
+  kind: command
+  triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  fallback: stub-from-sections
+
+- name: provision-tier
+  kind: command
+  triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  fallback: stub-from-sections
+
+- name: audit-iam
+  kind: command
+  triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  fallback: stub-from-sections
+
+- name: tf-plan-review
+  kind: skill
+  triggers: { terraform_detected: true }
+  fallback: stub-from-sections
 ```

@@ -1,3 +1,9 @@
+---
+name: parallel-io
+kind: example
+pack: backend
+---
+
 # Pattern: Parallel I/O
 
 > **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`. If extraction is empty leave the placeholder + open a TODO; Phase 5 will surface it under "Open questions".

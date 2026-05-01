@@ -15,6 +15,7 @@ Boolean ops in topic specs: `AND`, `OR`, `NOT`. Default join across multiple key
 - `primary_framework_detected` — top-level backend framework identified (NestJS / Django / Rails / etc.).
 - `primary_frontend_framework_detected` — top-level frontend framework (Vue / React / Angular / Nuxt / Next / Svelte).
 - `mobile_framework_detected` — React Native / Flutter / native iOS/Android.
+- `native_bridge_present` — mobile project ships custom native-bridge code (iOS Objective-C/Swift OR Android Kotlin/Java OR Flutter platform channels OR React Native TurboModules) under `ios/` / `android/` / a `*-native-modules` package.
 - `language: <name>` — e.g., `language: typescript`. Use sparingly (prefer framework triggers).
 - `package_manager_detected` — bun / pnpm / npm / yarn / pip / cargo / etc.
 - `build_tool_detected` — esbuild / vite / webpack / turbo / nx / rollup.

@@ -8,8 +8,15 @@ exit-criteria: every must/must-not rule passes; coverage check + retry loop exha
 sub-phases:
   - 5.0 — coverage check + retry loop                  @templates/phases/phase-5.0-retry.md
   - 5.1 — required-baseline + inventory diff           @templates/phases/phase-5.1-baseline.md
+  - 5.2 — self-consistency checks                      (inline below)
+  - 5.3 — Phase 4.6 adaptation audit                   (inline below)
+  - 5.3.5 — cross-project leak scan                    (inline below)
   - 5.4 — schema validation harness                    (inline below)
+  - 5.4b — health score + telemetry emit (every mode)  (inline below; distinct from 5.5)
   - 5.5 — setup-quality score (REFINE only)            @templates/phases/phase-5.5-quality.md
+  - 5.6 — version drift report (every mode)            (inline below)
+  - 5.7 — REFRESH-mode cleanup                         (inline below)
+  - 5.8 — surface uncertainty                          @templates/phases/phase-5.1-baseline.md (inline)
 checklist: templates/phases/phase-5-checklist.md
 hard-rule: HALT + RETRY, not "report and continue"
 ---
@@ -357,7 +364,7 @@ Schema validation: <run|skipped>
   Strict mode:      <on|off>
 ```
 
-**5.5 Health score + telemetry emit (Advanced Capabilities § 2 — runs at end of every Phase 5)**:
+**5.4b Health score + telemetry emit (Advanced Capabilities § 2 — runs at end of every Phase 5; distinct from REFINE-only 5.5 setup-quality score in `phase-5.5-quality.md`)**:
 
 - Compute health score per the formula in § 2.1 (baseline / pack-coverage / adapter-completeness / cross-ref / convention-match / version-currency / usage-signal).
 - Append composite score + sub-scores to `ai/_session-digest.md` § "Setup health" line:

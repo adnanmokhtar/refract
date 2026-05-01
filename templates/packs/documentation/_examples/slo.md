@@ -1,3 +1,9 @@
+---
+name: slo
+kind: example
+pack: documentation
+---
+
 # Pattern: SLO (Service Level Objective)
 
 A target reliability number, measured over a window, that defines what "good enough" means for a specific service. SLOs anchor on-call alerting, prioritization between feature work vs reliability work, and the conversation with stakeholders when something breaks. Without one, every outage feels equally bad and every reliability investment feels arbitrary.

@@ -28,7 +28,7 @@ This file is referenced from `migration-discipline.md` § Anti-patterns and from
 - Read the V1 source files yourself for the load-bearing claims — never trust an agent's summary for "are these forms identical?"
 - Run `scripts/validate-migration-artifacts.sh` — it greps for hand-wave tokens in audit files.
 
-**Real-world incident**: F039 (geography-mappings) in tenant-portal-v2, audited 2026-04-29. Audit declared V1↔V2 parity-clean. User flagged: V1 had an "add new mapping" button + 4 query params V2 didn't render. Both gaps were invisible in the audit because the contract-extraction agent's summary said "form fields identical" and the executor copied that into the audit file without verifying. Root cause: `migration-phase.md`'s soft language ("use the project's audit agent or generic parity-auditor") let the executor substitute a search agent for a verifier.
+**Real-world incident**: F039 (geography-mappings) in <frontend-v2>, audited 2026-04-29. Audit declared V1↔V2 parity-clean. User flagged: V1 had an "add new mapping" button + 4 query params V2 didn't render. Both gaps were invisible in the audit because the contract-extraction agent's summary said "form fields identical" and the executor copied that into the audit file without verifying. Root cause: `migration-phase.md`'s soft language ("use the project's audit agent or generic parity-auditor") let the executor substitute a search agent for a verifier.
 
 ---
 
@@ -62,7 +62,7 @@ This file is referenced from `migration-discipline.md` § Anti-patterns and from
 - For frontend features, contract's "Form fields" axis is mandatory per `migration-discipline.md` § Frontend audit axes.
 - Audit echoes the table; doesn't summarise.
 
-**Real-world incident**: A different SahlCart feature (not F039 — flagged during the F039 retrospective): V1 had an `is_active` switch + a `keywords` chip-input + a `default_currency` dropdown on a form; V2 dropped `default_currency`. Audit said "form fields identical." Field count matched on the surface (3 fields) — but the names didn't.
+**Real-world incident**: A different <your-org> feature (not F039 — flagged during the F039 retrospective): V1 had an `is_active` switch + a `keywords` chip-input + a `default_currency` dropdown on a form; V2 dropped `default_currency`. Audit said "form fields identical." Field count matched on the surface (3 fields) — but the names didn't.
 
 ---
 
@@ -96,7 +96,7 @@ This file is referenced from `migration-discipline.md` § Anti-patterns and from
 - Validator script enforces the 9-section requirement.
 - `/migration-phase` (post-fix) dispatches `/port-feature` per row, which mandates `extract-v1-contract` per `feature-port.md` Phase 1.
 
-**Real-world incident**: All 24 audits in tenant-portal-v2 Phases 3-5 (Apr 2026). The `contracts/` directory was empty (`.gitkeep`-only) for the entire run; audits were summary-shaped without contracts behind them. F039 surfaced first; the others remain unaudited at proper depth.
+**Real-world incident**: All 24 audits in <frontend-v2> Phases 3-5 (Apr 2026). The `contracts/` directory was empty (`.gitkeep`-only) for the entire run; audits were summary-shaped without contracts behind them. F039 surfaced first; the others remain unaudited at proper depth.
 
 ---
 
@@ -113,7 +113,7 @@ This file is referenced from `migration-discipline.md` § Anti-patterns and from
 - Validator counts files in `inputs/` and refuses gate if <30 (and no replay setup).
 - Property-based tests cover invariants the hand-written cases don't.
 
-**Real-world incident**: Phase 3 auth tests in tenant-portal-v2 — F001 (login) had 6 cases, F002 (register) had 10, F006 (check-auth) had 7. Each green; each insufficient relative to the discipline floor.
+**Real-world incident**: Phase 3 auth tests in <frontend-v2> — F001 (login) had 6 cases, F002 (register) had 10, F006 (check-auth) had 7. Each green; each insufficient relative to the discipline floor.
 
 ---
 
@@ -145,7 +145,7 @@ This file is referenced from `migration-discipline.md` § Anti-patterns and from
 - Test config mirrors production plugin chain. Validator script can grep both configs for the auto-import plugin and flag mismatches.
 - `parity-test-generate`'s helper "create runner" branch (per `parity-test-generate.md` § 4) writes the test config alongside the test files.
 
-**Real-world incident**: tenant-portal-v2 Phase 4 — page-level parity tests for F008 (Welcome), F095 (DomainSettings), F090 (Profile), F102 (ErrorPage), F103 (Maintenance) all failed with auto-import errors on first run. Fix: add `unplugin-auto-import/vite` to `vitest.config.ts`. Caught during port-phase test development, not at audit; should have been a `parity-test-generate` precondition.
+**Real-world incident**: <frontend-v2> Phase 4 — page-level parity tests for F008 (Welcome), F095 (DomainSettings), F090 (Profile), F102 (ErrorPage), F103 (Maintenance) all failed with auto-import errors on first run. Fix: add `unplugin-auto-import/vite` to `vitest.config.ts`. Caught during port-phase test development, not at audit; should have been a `parity-test-generate` precondition.
 
 ---
 
@@ -160,7 +160,7 @@ This file is referenced from `migration-discipline.md` § Anti-patterns and from
 - Better: extract business logic to a composable; test the composable directly (unit-test pattern).
 - `migration-discipline.md` § Frontend anti-patterns lists "Per-page inline business logic" as anti-pattern; the fix is composable-extraction.
 
-**Real-world incident**: tenant-portal-v2 Phase 4 — F090 (Profile) and F095 (DomainSettings) had inline business logic; tests required `defineExpose`. F007 (Dashboard) and F099 (Activity-logs) had composable-extracted logic; tests trivially mounted the composable.
+**Real-world incident**: <frontend-v2> Phase 4 — F090 (Profile) and F095 (DomainSettings) had inline business logic; tests required `defineExpose`. F007 (Dashboard) and F099 (Activity-logs) had composable-extracted logic; tests trivially mounted the composable.
 
 ---
 
@@ -174,7 +174,7 @@ This file is referenced from `migration-discipline.md` § Anti-patterns and from
 - Test wraps the page in `<KeepAlive>`: `mount({ template: '<KeepAlive><Page /></KeepAlive>' })`.
 - `parity-test-generate.md`'s frontend recipe documents this for cached pages.
 
-**Real-world incident**: F090 (Profile) in tenant-portal-v2 — `onActivated(fetchProfile)` test failed; resolved by wrapping in `<KeepAlive>`.
+**Real-world incident**: F090 (Profile) in <frontend-v2> — `onActivated(fetchProfile)` test failed; resolved by wrapping in `<KeepAlive>`.
 
 ---
 

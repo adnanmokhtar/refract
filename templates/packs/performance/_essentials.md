@@ -18,4 +18,4 @@ Rationale per category (one line each):
 - commands: perf-audit is the only command in the pack — the periodic broad sweep.
 - skills: profile-endpoint targets the most common ask ("why is this endpoint slow?"); n-plus-one-scan is a sub-skill kept out of minimal.
 - rules: performance-principles is the single rules file in the pack.
-- ai-patterns: none — pack ships no ai-patterns.
+- ai-patterns: none essential — `lazy-loading.md` ships in standard mode and applies only when a frontend framework is detected; minimal mode skips it.

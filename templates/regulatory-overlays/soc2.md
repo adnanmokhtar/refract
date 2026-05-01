@@ -162,7 +162,7 @@ Most B2B SaaS = **Security + Availability + Confidentiality**. Fintech / healthc
 
 - Pair with **`gdpr.md`** if Privacy TSC in scope and serving EU customers.
 - Pair with **`pci-dss.md`** if processing payments.
-- Pair with **`iso-27001.md`** for organizations that want both — significant control overlap reduces double-work; ISO 27001 is more popular internationally, SOC2 in North America.
+- Pair with **`iso-27001.md` (planned — not yet shipped)** for organizations that want both — significant control overlap reduces double-work; ISO 27001 is more popular internationally, SOC2 in North America.
 - AICPA: aicpa.org for current Trust Service Criteria.
 - SOC2 reports are CONFIDENTIAL — never share publicly; share via NDA-gated portal.
 - Common buyer expectation: **Type 2 with 6+ month period, Security + Availability + Confidentiality, less than 1 year old.**

@@ -7,9 +7,16 @@ outputs: [CLAUDE.md, ai/, .claude/, tool adapters when enabled]
 exit-criteria: every planned artifact written; deterministic copy verified; idempotency markers in place
 sub-phases:
   - 4.0  — pack-load preflight                                @templates/phases/phase-4.0-preflight.md
-  - 4.1  — project-specific block authoring                   (inline below)
-  - 4.2  — apply (COPY-mode + AUTHOR-mode + verification)     @templates/phases/phase-4.2-apply.md
-  - 4-templates — generated-output template skeletons         @templates/phases/phase-4-templates.md
+  - 4.1  — scaffold baseline + project-specific block authoring (inline in phase-4.0-preflight.md § 4.1)
+  - 4.2  — apply (COPY + AUTHOR + verification)               @templates/phases/phase-4.2-apply.md
+  - 4.3  — apply framework references                         (inline in phase-4.2-apply.md § 4.3)
+  - 4.4  — apply technical-domain tooling                     (inline in phase-4.2-apply.md § 4.4)
+  - 4.4b — apply BUSINESS-domain content + regulatory overlay (inline in phase-4.2-apply.md § 4.4b)
+  - 4.5  — generate-on-signal (missing agent for strong signal) (inline in phase-4-templates.md § 4.5)
+  - 4.6  — adapt output to detected conventions               (inline in phase-4-templates.md § 4.6)
+  - 4.7  — refresh ai/ knowledge base                         (inline in phase-4-templates.md § 4.7)
+  - 4.7b — project-context files                              (inline in phase-4-templates.md § 4.7b)
+  - 4-templates — output skeletons consumed by 4.5/4.6/4.7    @templates/phases/phase-4-templates.md
   - 4.6-DEEP — re-anchor Project-specific blocks (REFINE)     @templates/phases/phase-4.6-deep.md
   - 4.7-DEEP — refresh ai/ knowledge base (REFINE)            @templates/phases/phase-4.7-deep.md
   - 4.8-DEEP — re-sync tool adapters (REFINE)                 @templates/phases/phase-4.8-deep.md
@@ -18,18 +25,27 @@ adapter-detail: commands/setup-project-adapters.md (sibling command)
 
 # Phase 4 — Apply
 
-Phase 4 turns the approved plan into files on disk. It is split into five executable sub-phases plus a templates file:
+Phase 4 turns the approved plan into files on disk. The body content lives across multiple sub-phase files; this index lists every step (which file holds its prose):
 
-| Step       | What it does                                                          | When        |
-|------------|-----------------------------------------------------------------------|-------------|
-| 4.0        | Pack-load preflight (refuses any pack without `_version.json`)        | always      |
-| 4.1        | Project-specific block authoring                                       | always      |
-| 4.2        | Deterministic copy (COPY-mode) + AUTHOR-mode emit + verify             | always      |
-| 4.6-DEEP   | Re-anchor managed Project-specific blocks                              | REFINE only |
-| 4.7-DEEP   | Refresh `ai/` knowledge base from deep extraction                      | REFINE only |
-| 4.8-DEEP   | Re-sync tool adapters (lighter touch path; full detail in sibling)     | REFINE only |
+| Step       | What it does                                                          | Lives in                                  | When        |
+|------------|-----------------------------------------------------------------------|-------------------------------------------|-------------|
+| 4.0        | Pack-load preflight (refuses any pack without `_version.json`)        | `phase-4.0-preflight.md`                  | always      |
+| 4.1        | Scaffold baseline + project-specific block authoring                  | `phase-4.0-preflight.md § 4.1`            | always      |
+| 4.2        | Deterministic copy (COPY-mode) + AUTHOR-mode emit + verify            | `phase-4.2-apply.md`                      | always      |
+| 4.3        | Apply framework references                                            | `phase-4.2-apply.md § 4.3`                | always      |
+| 4.4        | Apply technical-domain tooling                                        | `phase-4.2-apply.md § 4.4`                | always      |
+| 4.4b       | Apply BUSINESS-domain content + regulatory overlay                    | `phase-4.2-apply.md § 4.4b`               | always      |
+| 4.5        | Generate-on-signal (missing agent for strong signal)                  | `phase-4-templates.md § 4.5`              | always      |
+| 4.6        | Adapt output to detected conventions (anchoring round 1)              | `phase-4-templates.md § 4.6`              | always      |
+| 4.7        | Refresh `ai/` knowledge base                                          | `phase-4-templates.md § 4.7`              | always      |
+| 4.7b       | Project-context files (CLAUDE.md, business-domain.md etc.)            | `phase-4-templates.md § 4.7b`             | always      |
+| 4.6-DEEP   | Re-anchor managed Project-specific blocks                              | `phase-4.6-deep.md`                       | REFINE only |
+| 4.7-DEEP   | Refresh `ai/` knowledge base from deep extraction                      | `phase-4.7-deep.md`                       | REFINE only |
+| 4.8-DEEP   | Re-sync tool adapters (lighter touch; full detail in sibling)          | `phase-4.8-deep.md`                       | REFINE only |
 
-Each sub-phase has its own frontmatter with inputs/outputs/exit-criteria. The `phase-4-templates.md` file is NOT an executable step — it holds the template skeletons (CLAUDE.md, conventions.md, mandatory pre-flight injection block, verification block) that the executable sub-phases consume.
+Each sub-phase has its own frontmatter with inputs/outputs/exit-criteria. The `phase-4-templates.md` file historically held only template skeletons (CLAUDE.md, conventions.md, mandatory pre-flight injection block, verification block) but also carries the executable prose for 4.5 / 4.6 / 4.7 / 4.7b.
+
+> **Known consolidation gap**: 4.1, 4.3, 4.4, 4.4b, 4.5, 4.6, 4.7, 4.7b currently live inline in adjacent files (column 3 above) instead of in their own files. They are still executable steps — the index is the canonical map. Do NOT treat them as "documentation only" because they live inside `phase-4.0-preflight.md` / `phase-4.2-apply.md` / `phase-4-templates.md`.
 
 ## Phase 4.1 — Project-specific block authoring
 

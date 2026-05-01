@@ -136,17 +136,48 @@ semver_ge "$SETUP_COMMAND_VERSION" "$required" \
 deprecated="$(jq -r '.deprecated // false' "$SRC/_version.json")"
 [ "$deprecated" = "true" ] && WARNINGS+=("DEPRECATED $SRC see CHANGELOG.md")
 
-# 6. Pack-specific: every artifact file ≥100 lines (the no-thin-stub gate)
+# 6. Pack-specific: per-kind no-thin-stub floor.
+#    The floor differs by artifact KIND because real-world content has
+#    different natural lengths: agents are architectural personas (~100+
+#    lines), commands are 7-phase procedures (~80+ lines), rules are
+#    focused do/don't lists (~50+ lines), skills are recipe procedures
+#    (~50+ lines including SKILL.md scaffolding). A single 100-line floor
+#    historically failed real focused content; per-kind floors keep the
+#    stub protection without false positives.
 if [ "$SRC_KIND" = "pack" ]; then
+  # agents: ≥100 (architectural personas)
   while IFS= read -r f; do
     lines=$(wc -l < "$f")
-    [ "$lines" -lt 100 ] && ERRORS+=("THIN_PACK_FILE $f ($lines lines, floor=100)")
-  done < <(find "$SRC" -type f \( -path '*/agents/*.md' -o -path '*/skills/*/SKILL.md' -o -path '*/commands/*.md' -o -path '*/rules/*.md' \))
+    [ "$lines" -lt 100 ] && ERRORS+=("THIN_PACK_FILE $f ($lines lines, floor=100 for agents)")
+  done < <(find "$SRC" -type f -path '*/agents/*.md' -not -name '_*')
+  # commands: ≥80 (procedure files — 7-phase canonical structure)
+  while IFS= read -r f; do
+    lines=$(wc -l < "$f")
+    [ "$lines" -lt 80 ] && ERRORS+=("THIN_PACK_FILE $f ($lines lines, floor=80 for commands)")
+  done < <(find "$SRC" -type f -path '*/commands/*.md' -not -name '_*')
+  # rules: ≥50 (focused rules, concise by design)
+  while IFS= read -r f; do
+    lines=$(wc -l < "$f")
+    [ "$lines" -lt 50 ] && ERRORS+=("THIN_PACK_FILE $f ($lines lines, floor=50 for rules)")
+  done < <(find "$SRC" -type f -path '*/rules/*.md' -not -name '_*')
+  # skills: ≥50 (skill recipes; skill folders use SKILL.md, flat skills use *.md)
+  while IFS= read -r f; do
+    lines=$(wc -l < "$f")
+    [ "$lines" -lt 50 ] && ERRORS+=("THIN_PACK_FILE $f ($lines lines, floor=50 for skills)")
+  done < <(find "$SRC" -type f \( -path '*/skills/*/SKILL.md' -o -path '*/skills/*.md' \) -not -name '_*')
 fi
 
-# 7. Business-domain pack-specific: factories.md present (B17)
+# 7. Business-domain pack-specific: factories.md required ONLY when the run
+#    explicitly asks for B17 fixtures (`--with-factories` flag OR a detected
+#    test-factory framework like Faker/factory_boy/FactoryBot in deps).
+#    Without the gate, every business-domain pack would HALT preflight on a
+#    template detail that does not block normal packs.
 if [ "$SRC_KIND" = "business-domain" ]; then
-  [ -f "$SRC/factories.md" ] || ERRORS+=("MISSING_FACTORIES $SRC (every business-domain pack must ship factories.md)")
+  if [ "$ARG_WITH_FACTORIES" = "1" ] || [ "$FACTORY_FRAMEWORK_DETECTED" = "1" ]; then
+    [ -f "$SRC/factories.md" ] || ERRORS+=("MISSING_FACTORIES $SRC (factories.md is required when --with-factories or a factory framework is detected — see capabilities/5-fixtures-factories.md)")
+  else
+    [ -f "$SRC/factories.md" ] || WARNINGS+=("FACTORIES_OPTIONAL $SRC (factories.md not shipped; no B17 generation. To enable: pass --with-factories or add Faker/factory_boy/FactoryBot to deps)")
+  fi
 fi
 
 # 8. Adapter-specific: schema present in templates/schemas/ if --validate-schemas was passed
@@ -172,7 +203,7 @@ Sources scanned: N (P packs, A adapters, B business-domains, D domains, O overla
 ✗ Errors:          E (halts the run if E > 0)
 
 Errors:
-  - THIN_PACK_FILE ~/.claude/templates/packs/backend/agents/foo.md (43 lines, floor=100)
+  - THIN_PACK_FILE ~/.claude/templates/packs/backend/agents/foo.md (43 lines, floor=100 for agents)
   - MISSING_VERSION ~/.claude/templates/business-domains/scheduling
 Warnings:
   - DEPRECATED ~/.claude/templates/packs/legacy-track see CHANGELOG.md
@@ -341,17 +372,19 @@ For each sub-project P in the enumeration:
 
 For the workspace-root `AGENTS.md` + `opencode.json` thin-anchor shapes, see Phase 4.8 § "Workspace root anchor shapes".
 
-**4.0 Pack-load preflight** (runs ONCE before 4.1 — prevents thin-content propagation):
+**4.0 Pack-load preflight** (runs ONCE before 4.1 — prevents thin-content propagation; per-kind floors per § 4.0.3 step 6):
 
 ```bash
-# For every pack file in selected tracks, confirm it's ≥100 lines
+# Per-kind floors (matches § 4.0.3 step 6 above): agents=100, commands=80, rules=50, skills=50.
+declare -A FLOOR=( [agents]=100 [commands]=80 [rules]=50 [skills]=50 )
 for track in <selected-tracks>; do
-  for type in agents commands skills rules ai-patterns; do
+  for type in agents commands rules skills; do
+    floor=${FLOOR[$type]}
     for f in ~/.claude/templates/packs/$track/$type/*.md; do
       [ ! -f "$f" ] && continue
       lines=$(wc -l < "$f")
-      if [ "$lines" -lt 100 ]; then
-        echo "HALT: pack source $f is thin ($lines lines). Deepen at the pack level before applying."
+      if [ "$lines" -lt "$floor" ]; then
+        echo "HALT: pack source $f is thin ($lines lines, floor=$floor for $type). Deepen at the pack level before applying."
         exit 1
       fi
     done
@@ -359,7 +392,7 @@ for track in <selected-tracks>; do
 done
 ```
 
-If any pack file is thin, HALT. Don't propagate shallow content into the project. The fix is in `~/.claude/templates/packs/`, not in this run.
+If any pack file is below its kind's floor, HALT. Don't propagate shallow content into the project. The fix is in `~/.claude/templates/packs/`, not in this run.
 
 ### Minimum artifacts per LOAD-BEARING track (quality floor — NOT a "every project gets every track" contract)
 
@@ -387,7 +420,7 @@ This table is a quality floor for tracks that ARE generated. It is NEVER applied
 | infrastructure | 2 | 1 | 0 | 1 | 1 |
 | distributed-systems | 3 | 1 | 1 | 1 | 6 |
 | mobile | 1 | 0 | 0 | 1 | 0 |
-| ui-ux | 4 | 1 | 0 | 1 | 6 |
+| ui-ux | 4 | 1 | 3 | 1 | 5 |
 | learning | 3 | 4 | 1 | 0 | 0 |
 | migration | 2 | 2 | 3 | 1 | 3 |
 

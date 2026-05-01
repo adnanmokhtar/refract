@@ -35,7 +35,7 @@ Each topic declares:
   extracts_from: _extracted-idioms.md § <role:repository-base>   # whichever class in this codebase plays that role
   sections: [overview, type_parameters, constructor_surface, class_configuration, public_protocol, automatic_behaviors, escape_hatches, examples_from_codebase, pitfalls, when_not_to_use, related]
   mirror_existing: true
-  fallback: _examples/data-access.md
+  fallback: stub-from-sections   # no `_examples/data-access.md` ships; AUTHOR-mode is required (extraction must succeed) — falls back to a sectioned stub if it doesn't, per phase-4.2-apply.md § 4.2-AUTHOR step 2
   cite_evidence: strict
 
 - name: base-service
@@ -46,7 +46,7 @@ Each topic declares:
   extracts_from: _extracted-idioms.md § <role:service-base>
   sections: [overview, key_methods, configuration_properties, constructor, create_flow, update_flow, delete_flow, override_hooks, collaborators, pitfalls, when_not_to_use, related]
   mirror_existing: true
-  fallback: _examples/base-service.md
+  fallback: stub-from-sections   # no _examples/base-service.md ships; AUTHOR-mode required, sectioned-stub fallback per phase-4.2-apply.md
   cite_evidence: strict
 
 - name: controller
@@ -58,7 +58,7 @@ Each topic declares:
   extracts_from: _extracted-codebase.md § API surface + _extracted-idioms.md § <role:controller-base> (if any)
   sections: [overview, structure, response_envelope, error_mapping, auth_decorators, request_validation, examples, pitfalls, related]
   mirror_existing: true
-  fallback: _examples/controller.md
+  fallback: stub-from-sections   # no _examples/controller.md ships; AUTHOR-mode required, sectioned-stub fallback per phase-4.2-apply.md
   cite_evidence: strict
 
 - name: mapper
@@ -69,7 +69,7 @@ Each topic declares:
   extracts_from: _extracted-idioms.md § <role:mapper-base> + _extracted-codebase.md § Modules (sample mapper files, if any)
   sections: [overview, type_parameters, methods, when_to_inject_dependencies, examples, pitfalls, related]
   mirror_existing: true
-  fallback: _examples/mapper.md
+  fallback: stub-from-sections   # no _examples/mapper.md ships; AUTHOR-mode required, sectioned-stub fallback per phase-4.2-apply.md
 
 - name: dto-validation
   kind: pattern
@@ -78,7 +78,7 @@ Each topic declares:
   extracts_from: _extracted-codebase.md § Conventions + sample DTOs
   sections: [overview, decorator_conventions, nested_validation, translation_dtos, error_messages, examples, pitfalls]
   mirror_existing: true
-  fallback: _examples/dto-validation.md
+  fallback: stub-from-sections   # no _examples/dto-validation.md ships; AUTHOR-mode required, sectioned-stub fallback per phase-4.2-apply.md
 
 - name: error-handling
   kind: pattern
@@ -213,7 +213,7 @@ Each topic declares:
   extracts_from: _extracted-codebase.md § "Data model" + _extracted-idioms.md § (repo base class)
   sections: [project_specific_first, queries_through_repository, never_inject_dataSource, parameterized_queries, soft_delete_filter, tenant_filter, examples_anti_patterns]
   mirror_existing: true
-  fallback: _examples/database-rules.md
+  fallback: stub-from-sections   # no _examples/database-rules.md ships; AUTHOR-mode required, sectioned-stub fallback per phase-4.2-apply.md
 
 - name: dtos-mappers
   kind: rule
@@ -222,7 +222,7 @@ Each topic declares:
   extracts_from: _extracted-codebase.md § Conventions + sample DTOs + Mapper idiom
   sections: [project_specific_first, dto_validation_decorators_in_use, mapper_dependencies, no_business_logic_in_dto_mapper, translation_dto_shape, examples]
   mirror_existing: true
-  fallback: _examples/dtos-mappers-rules.md
+  fallback: stub-from-sections   # no _examples/dtos-mappers-rules.md ships; AUTHOR-mode required, sectioned-stub fallback per phase-4.2-apply.md
 
 - name: controllers
   kind: rule
@@ -231,7 +231,7 @@ Each topic declares:
   extracts_from: _extracted-codebase.md § "API surface"
   sections: [project_specific_first, response_envelope_in_use, auth_decorators_required, request_types_constraint, no_business_logic, examples]
   mirror_existing: true
-  fallback: _examples/controllers-rules.md
+  fallback: stub-from-sections   # no _examples/controllers-rules.md ships; AUTHOR-mode required, sectioned-stub fallback per phase-4.2-apply.md
 
 - name: events
   kind: rule
@@ -240,7 +240,7 @@ Each topic declares:
   extracts_from: _extracted-codebase.md § "Cross-cutting concerns" + sample event handlers
   sections: [project_specific_first, intra_app_vs_cross_app, payload_constraints, handler_isolation, payload_security, testing]
   mirror_existing: true
-  fallback: _examples/events-rules.md
+  fallback: stub-from-sections   # no _examples/events-rules.md ships; AUTHOR-mode required, sectioned-stub fallback per phase-4.2-apply.md
 
 - name: concurrency-discipline
   kind: rule

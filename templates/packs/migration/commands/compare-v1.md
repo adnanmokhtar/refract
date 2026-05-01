@@ -1,5 +1,7 @@
 ---
 description: Compare a feature / module / endpoint between V1 and V2. Reports parity findings + behavior divergences + structural differences + ports needed. Read-only — never modifies code.
+kind: command
+pack: migration
 ---
 
 # /compare-v1

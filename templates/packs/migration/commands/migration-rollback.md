@@ -110,7 +110,7 @@ The user is prompted for a one-line reason (logged in `_history.md`). Cannot be 
 
 ## Phase 7 — Improve (feed the learning loop)
 
-- Append failure-catalog entry: `ai/_baseline/failures/<NNNN>-phase-<N>-rollback.md` with the user-supplied reason + observable behavior that triggered rollback.
+- Append failure-catalog entry: `ai/failures/<NNNN>-phase-<N>-rollback.md` with the user-supplied reason + observable behavior that triggered rollback.
 - The next `/migration-replan` will read this failure entry and avoid the same approach.
 
 ## Output to user
@@ -153,4 +153,4 @@ Before any write: (1) `--reason` non-empty (≥1 sentence), (2) snapshot dir exi
 - `/migration-replan` — recommended after rollback; the original plan's assumptions may be stale.
 - `/migration-gate <N>` — re-run after rollback + fix to confirm phase is recoverable.
 - `ai/migration/_history.md` — append-only log this command writes the rollback entry to.
-- `ai/_baseline/failures/` — this command appends a failure-catalog entry on rollback.
+- `ai/failures/` — this command appends a failure-catalog entry on rollback.

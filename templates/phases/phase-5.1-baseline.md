@@ -1,12 +1,13 @@
 ---
 phase: 5
-sub-phase: "5.1+5.2"
+sub-phase: "5.1"
 name: baseline-and-inventory
 applies-to-modes: [all]
 inputs: [phase-4-outputs, expected-baseline-file-list, planned-emit-list]
 outputs: [missing-baseline-list, inventory-diff-report]
 exit-criteria: every required baseline file present (rule A19); inventory diff matches plan
 imported-by: templates/phases/phase-5-verify.md
+contains-sub-sections: [5.1 baseline, 5.2 inventory diff (was conflated as "5.1+5.2"), 5.8 surface uncertainty]
 ---
 
 ### Required-baseline check

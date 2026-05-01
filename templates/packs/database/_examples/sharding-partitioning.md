@@ -1,3 +1,9 @@
+---
+name: sharding-partitioning
+kind: example
+pack: database
+---
+
 # Pattern: Sharding + Partitioning
 
 Last-resort scaling. Try vertical scaling + read replicas + caching first. Sharding is operationally expensive forever.

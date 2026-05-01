@@ -1,3 +1,9 @@
+---
+name: saga
+kind: example
+pack: distributed-systems
+---
+
 # Pattern: Saga
 
 Long-running distributed transaction via a sequence of local transactions + compensating actions. Used when you need "all-or-nothing" across services but can't use a distributed ACID transaction.

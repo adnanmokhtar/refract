@@ -1,6 +1,8 @@
 ---
 name: parity-test-generate
 description: Generate a parity test suite that runs V1 + V2 against identical inputs and asserts equivalence per the contract's tolerance taxonomy. Combines golden master, record-replay, property-based, and (when applicable) shadow / dual-write audit techniques. Outputs runnable tests and a tolerance configuration file.
+kind: skill
+pack: migration
 ---
 
 # parity-test-generate

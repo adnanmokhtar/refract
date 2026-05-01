@@ -1,3 +1,9 @@
+---
+name: adr-template
+kind: example
+pack: documentation
+---
+
 # Pattern: ADR Template
 
 Architecture Decision Records capture WHY a non-obvious technical choice was made. Six months from now, when someone asks "why did we use Postgres instead of Mongo?", the answer is a 200-word document, not a Slack thread that's been pruned. ADRs encode institutional memory in a format that survives team turnover.

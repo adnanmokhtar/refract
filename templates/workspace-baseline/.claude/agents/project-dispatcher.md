@@ -24,6 +24,8 @@ Use when a user describes a task and you need to figure out which siblings it to
 ## Steps
 
 1. Analyze the task description against the pre-flight context.
+2. Identify which sibling repos are touched (registry is the source of truth — do NOT guess from the task wording alone).
+3. For each touched repo, read its root `CLAUDE.md` to confirm responsibilities + per-repo conventions.
 4. Produce an impact matrix:
 
 ```

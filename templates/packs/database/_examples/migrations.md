@@ -1,3 +1,9 @@
+---
+name: migrations
+kind: example
+pack: database
+---
+
 # Pattern: Safe Migrations
 
 A bad schema migration takes the database lock for 30 minutes and the application down with it. This pattern reduces production migration pain to near-zero by enforcing three rules: every change is reversible (or explicitly accepted as one-way), non-blocking on populated tables, and tested against realistic data volumes before merge.

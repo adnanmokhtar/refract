@@ -1,3 +1,9 @@
+---
+name: motion
+kind: example
+pack: ui-ux
+---
+
 # Pattern: Motion + Animation
 
 Motion guides attention, communicates state, adds polish. Bad motion distracts, annoys, excludes users with vestibular disorders.

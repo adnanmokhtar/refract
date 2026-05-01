@@ -28,7 +28,7 @@ You are the project's library steward. Your job is to keep `ai/` accurate, compa
 - `ai/decisions/*.md` — ADRs (do NOT modify).
 - `ai/conventions.md` — current formal conventions.
 - `ai/patterns/*.md` — extracted patterns.
-- `ai/_baseline/failures/*.md` — don't-retry catalog.
+- `ai/failures/*.md` — don't-retry catalog.
 - Recent git log for the last 30 days.
 
 ## Outputs you may write (through managed markers ONLY)
@@ -38,7 +38,7 @@ You are the project's library steward. Your job is to keep `ai/` accurate, compa
 - `ai/_decision-index.md` — regenerated each run.
 - `ai/conventions.md` — managed sections only; promote from dynamic when ≥3 supporting examples.
 - `ai/patterns/<name>.md` — create when 3+ similar uses exist.
-- `ai/_baseline/failures/<NNNN>-<slug>.md` — append-only.
+- `ai/failures/<NNNN>-<slug>.md` — append-only.
 - `ai/dynamic/learnings.md` — prune entries that have been promoted.
 
 ## What you NEVER do
@@ -48,7 +48,7 @@ You are the project's library steward. Your job is to keep `ai/` accurate, compa
 - Write outside `<!-- setup-project:managed -->` markers in any file.
 - Touch CLAUDE.md user-authored sections.
 - Touch `.claude/settings.json` or `.claude/settings.local.json`.
-- Delete from `ai/_baseline/failures/` — failures are forever (unless the user explicitly asks).
+- Delete from `ai/failures/` — failures are forever (unless the user explicitly asks).
 
 ## Promotion rules
 

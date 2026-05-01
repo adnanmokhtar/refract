@@ -142,7 +142,7 @@ This phase IS the verification — nothing further.
 ## Phase 7 — Improve (feed the learning loop)
 
 - If gate passes after >2 retries → flag the phase complexity for future estimates.
-- If a specific feature failed multiple times before passing → log the pattern for `ai/_baseline/failures/`.
+- If a specific feature failed multiple times before passing → log the pattern for `ai/failures/`.
 - If `intentional-break` ADRs cluster around one domain → that's an architectural signal worth a follow-up review.
 
 ## Output to user

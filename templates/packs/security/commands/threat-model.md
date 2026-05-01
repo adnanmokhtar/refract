@@ -49,7 +49,7 @@ For each YES answer: that's a threat. Document.
 
 - `ai/architecture.md` — trust boundaries, auth model.
 - `ai/decisions/` — past ADRs about security choices.
-- `ai/_baseline/failures/` — past security incidents.
+- `ai/failures/` — past security incidents.
 - `.claude/rules/security-principles.md` — applicable rules (A19+).
 - OWASP ASVS for the relevant level (1/2/3).
 - The feature's API surface + data schema.
@@ -153,7 +153,7 @@ This threat model invalidates if:
 - `ai/audits/threat-model-<feature>-<date>.md` — the document.
 - `ai/decisions/<NNNN>-*.md` — ADRs for any architectural choice.
 - `ai/architecture.md` — update if trust boundaries shifted.
-- `ai/_baseline/failures/` — if a threat was realized in past incident, link from here.
+- `ai/failures/` — if a threat was realized in past incident, link from here.
 
 ## Phase 6 — Validate
 

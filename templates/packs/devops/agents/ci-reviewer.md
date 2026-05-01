@@ -26,7 +26,7 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` or `<resource
 1. The CI config file(s) — `.github/workflows/`, `.gitlab-ci.yml`, etc.
 2. Branch protection rules (or repo settings docs) — what's actually required to merge.
 3. `ai/architecture.md` for deploy topology — is this monorepo / multi-service?
-4. Any prior incidents in `ai/_baseline/failures/` related to CI / deploys.
+4. Any prior incidents in `ai/failures/` related to CI / deploys.
 
 ## Invariants (non-negotiable)
 

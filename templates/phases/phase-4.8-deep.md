@@ -191,11 +191,10 @@ SEQUENTIAL AGAIN (after fan-out joins):
 - Commits stay per-sub-project; no workspace-level PRs.
 ```
 
-`<workspace>/opencode.json`:
+`<workspace>/opencode.json` (schema-valid keys only — `_generator` lives in the sidecar `.opencode/_setup-project-meta.json` per `commands/setup-project-adapters.md § OpenCode contract`):
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "_generator": "claude-setup-project",
   "instructions": [
     "AGENTS.md",
     "CLAUDE.md",

@@ -2,6 +2,8 @@
 name: migration-architect
 description: Plans a per-feature V1→V2 port — V2 module shape, parity strategy, slicing decisions, dependency ordering, perf-uplift candidates, cutover plan, rollback path. Operates underneath legacy-modernizer's strategic plan; consumes the contract from extract-v1-contract; produces the plan that port-feature executes.
 model: opus
+kind: agent
+pack: migration
 ---
 
 # Migration Architect

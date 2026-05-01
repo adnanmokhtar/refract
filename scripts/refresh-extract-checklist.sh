@@ -87,9 +87,9 @@ list_files() {
       printf -- '- **ai/%s/**: %d files\n' "$kind" "$n"
     fi
   done
-  if [[ -d "$TARGET/ai/_baseline/failures" ]]; then
-    n=$(find "$TARGET/ai/_baseline/failures" -name '*.md' -not -name '_*' 2>/dev/null | wc -l | tr -d ' ')
-    printf -- '- **ai/_baseline/failures/**: %d failure entries\n' "$n"
+  if [[ -d "$TARGET/ai/failures" ]]; then
+    n=$(find "$TARGET/ai/failures" -name '*.md' -not -name '_*' 2>/dev/null | wc -l | tr -d ' ')
+    printf -- '- **ai/failures/**: %d failure entries\n' "$n"
   fi
 
   printf '\n---\n\n'

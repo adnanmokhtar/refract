@@ -1,3 +1,9 @@
+---
+name: design-systems
+kind: example
+pack: ui-ux
+---
+
 # Pattern: Design System
 
 A shared vocabulary of tokens + components so every screen feels like the same product. Without one, UI drifts with every PR.

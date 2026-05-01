@@ -133,7 +133,7 @@ If the verdict is INCOMPLETE → halt; do NOT write retirement plan.
 
 ## Phase 7 — Improve (feed the learning loop)
 
-- Total migration duration vs original estimate → record in `ai/_baseline/failures/` if >50% over.
+- Total migration duration vs original estimate → record in `ai/failures/` if >50% over.
 - Recurring port patterns → propose canonical patterns in `ai/patterns/`.
 - ADRs that survived re-review → mark as `validated` in their frontmatter.
 - Run `/learn-from-task` to promote durable lessons.

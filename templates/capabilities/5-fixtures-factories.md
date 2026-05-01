@@ -96,7 +96,7 @@ generates:
 
 #### 5.5 Hard rules
 
-- **Every business-domain pack MUST have a `factories.md`.** Phase 4.0 refuses to apply business-domain pack without it.
+- **Every business-domain pack SHOULD ship a `factories.md`.** Required only when the run sets `--with-factories` OR a factory framework (Faker / factory_boy / FactoryBot / fishery / etc.) is detected in deps. When neither holds, missing `factories.md` is a WARN, not a HALT — Phase 4.0.3 step 7 enforces this gate.
 - **Generated factories MUST be project-style-adapted.** A factory that doesn't match detected naming + base classes is a broken factory.
 - **Fixtures NEVER contain real PII** even when sourced from production-like data. `faker` only.
 

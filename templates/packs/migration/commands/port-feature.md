@@ -1,5 +1,7 @@
 ---
 description: Per-feature V1→V2 port orchestrator. Drives one ledger row through all six phases — Understand V1 → Plan V2 → Port → Parity-test → Perf uplift → Cutover. Halts on every gate that fails the migration discipline rule. Cross-stack (backend / frontend / API).
+kind: command
+pack: migration
 ---
 
 # /port-feature

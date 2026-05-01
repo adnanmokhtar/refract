@@ -91,7 +91,7 @@ for row in "${target_rows[@]}"; do
   fi
   if [[ -z "$audit" ]]; then
     [[ $VERBOSE -eq 1 ]] && echo "  ▸ $id ($feature): audit MISSING — skipped (cannot backfill)"
-    ((skipped++))
+    skipped=$((skipped + 1))
     continue
   fi
   # Count gaps mentioned in audit. Heuristics in order:
@@ -107,7 +107,7 @@ for row in "${target_rows[@]}"; do
   classification=$(awk '/^## Classification/{found=1; next} found && NF{print; exit}' "$audit" 2>/dev/null | tr -d '*' | sed 's/^[[:space:]]*//')
   if [[ -z "$classification" ]]; then
     [[ $VERBOSE -eq 1 ]] && echo "  ▸ $id ($feature): no Classification section — halt for manual review"
-    ((halted++))
+    halted=$((halted + 1))
     continue
   fi
   # Auto-backfill when:
@@ -128,13 +128,13 @@ for row in "${target_rows[@]}"; do
   fi
   if [[ $is_clean -eq 0 ]]; then
     [[ $VERBOSE -eq 1 ]] && echo "  ▸ $id ($feature): classification='$classification' — NOT auto-backfilling (manual review required)"
-    ((halted++))
+    halted=$((halted + 1))
     continue
   fi
   # Backfill: write gaps_in = gaps_closed = gap_count
   if [[ $DRY_RUN -eq 1 ]]; then
     echo "  [DRY] $id ($feature): would set gaps_in=$gap_count gaps_closed=$gap_count (audit: $audit)"
-    ((backfilled++))
+    backfilled=$((backfilled + 1))
     continue
   fi
   # Insert two lines after `status: done` for this row
@@ -161,7 +161,7 @@ for row in "${target_rows[@]}"; do
   ' "$LEDGER_PATH" > "${LEDGER_PATH}.tmp"
   mv "${LEDGER_PATH}.tmp" "$LEDGER_PATH"
   echo "  ✓ $id ($feature): backfilled gaps_in=$gap_count gaps_closed=$gap_count"
-  ((backfilled++))
+  backfilled=$((backfilled + 1))
 done
 
 echo

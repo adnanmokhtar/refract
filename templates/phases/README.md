@@ -21,11 +21,12 @@ One file per phase of the `/setup-project` execution flow.
 - The orchestrator (`commands/setup-project.md`) imports these in order via `@templates/phases/...`.
 - A phase MUST NOT cross-reference another phase by content — only by named output.
 
-## Phases (populated in Milestone 2)
+## Phases (canonical filenames)
 
-- `phase-1-bootstrap.md` — flag parsing, mode detection (new vs. existing), env sanity.
-- `phase-2-detect.md` — codebase signals, business-domain inference, intent capture.
-- `phase-3-decide.md` — decision engine: 4 inputs → track selection + tie-break.
-- `phase-4-generate.md` — emit artifacts (CLAUDE.md, ai/, .claude/, adapters).
-- `phase-5-audit.md` — self-consistency checklist; refuse to report success on failure.
+- `phase-0-backup-extract.md` — REFRESH/REFINE backup + knowledge extract before any write.
+- `phase-1-detect-mode.md` — flag parsing, mode detection (CREATE / ENHANCE / REFRESH / REFINE), env sanity.
+- `phase-2-profile.md` — codebase signals, deep idiom extraction, business-domain inference, intent capture, profile-informed coverage gap check.
+- `phase-3-plan.md` — decision engine: 4 inputs → track selection + tie-break + plan + user-approval gate.
+- `phase-4-apply.md` — emit artifacts (CLAUDE.md, ai/, .claude/, adapters); body split into 4.0 / 4.1 / 4.2 / 4-templates / 4.6-DEEP / 4.7-DEEP / 4.8-DEEP sub-phase files.
+- `phase-5-verify.md` — self-consistency checklist; refuse to report success on failure. Sub-phases: 5.0-retry / 5.1-baseline / 5.5-quality / 5-checklist.
 - `phase-6-learn.md` — continuous learning loop wiring (curator agent, digest, budgets).

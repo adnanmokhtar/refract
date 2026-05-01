@@ -1,3 +1,9 @@
+---
+name: caching-strategy
+kind: example
+pack: backend
+---
+
 # Pattern: Caching Strategy
 
 Cache is a distributed data store with its own consistency model. Get the semantics wrong → serve stale data → users lose trust.

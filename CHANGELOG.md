@@ -20,7 +20,7 @@ User pain point: "running /port-feature per row takes very long and I need to ke
 - **`docs/COMMANDS.md`** — Suite A migration table updated with `/draft-phase-adrs` row + new "batch workflow" example next to the interactive workflow.
 
 #### Why
-Empirical: Phase 7 + Phase 8 audits (tenant-portal-v2, 21 features total) surfaced the same RBAC permission-slug renames recurring across 4–8 features per phase. Per-row interactive `/port-feature` would require deciding the rename policy 4–8 times. Batching cuts that supervision cost ~30% per phase. The pattern is exactly Phase 2 of any phased migration plan ("Pre-port decisions") — already built into `/migration-plan`'s output, but skipped when teams jump from `--audit-only` to per-row porting. M21 makes Phase 2 first-class with its own command + the unattended wiring.
+Empirical: Phase 7 + Phase 8 audits (<frontend-v2>, 21 features total) surfaced the same RBAC permission-slug renames recurring across 4–8 features per phase. Per-row interactive `/port-feature` would require deciding the rename policy 4–8 times. Batching cuts that supervision cost ~30% per phase. The pattern is exactly Phase 2 of any phased migration plan ("Pre-port decisions") — already built into `/migration-plan`'s output, but skipped when teams jump from `--audit-only` to per-row porting. M21 makes Phase 2 first-class with its own command + the unattended wiring.
 
 #### Compatibility
 - **Backward compatible.** Default `/migration-phase <N>` and `/port-feature <id>` invocations unchanged. `--chain` and `--unattended` are opt-in.
@@ -117,7 +117,7 @@ User asked for review of ALL templates. Real audit + concrete fix.
 **Total: 0 content-quality issues.** Pack templates are clean.
 
 #### Diagnosis: the 57-line stub
-The user's `add-feature.md` at 57 lines in tenant-portal-v2 was NOT a pack issue. The pack source is 301 lines, well-formed. The 57-line file was an **agent-authored stub from a prior buggy run** — exactly the bug class M11/M15/M16/M17 closes. M15's `study-existing.sh` correctly flags it as `REPLACE-OR-ENHANCE` (target 57 / pack 301 = 19%).
+The user's `add-feature.md` at 57 lines in <frontend-v2> was NOT a pack issue. The pack source is 301 lines, well-formed. The 57-line file was an **agent-authored stub from a prior buggy run** — exactly the bug class M11/M15/M16/M17 closes. M15's `study-existing.sh` correctly flags it as `REPLACE-OR-ENHANCE` (target 57 / pack 301 = 19%).
 
 #### Real cross-pack gap closed
 - **`templates/packs/frontend/commands/add-feature.md`** added (~250 lines). Mirrors backend's depth, uses canonical 7-phase template, dispatches frontend-specific agents (ui-architect / ui-reviewer / accessibility-auditor / i18n-auditor / design-system-guardian), hard rules (one styling system, every string is a key, schema validation at boundary).
@@ -246,10 +246,10 @@ User reported repeatedly that `/setup-project --refresh --include=migration` pro
 - `verify-sync.sh` updated to check scripts as well: 53 ok / 0 drift (was 30 ok before scripts were synced).
 
 #### Verified
-- All 3 scripts work against `tenant-portal-v2` (used as live test target):
-  - `pack-coverage-scan.sh tenant-portal-v2 migration` → wrote report listing all 21 pack files (all present after prior manual cp).
-  - `refresh-extract-checklist.sh tenant-portal-v2` → wrote checklist with auto-inventory + 9 sections demanding fill.
-  - `study-existing.sh tenant-portal-v2 migration` → 0 actionable / 21 keep / 48 orphans (correctly classifies the 21 migration files as IDENTICAL-NO-OP and flags 48 project-specific commands/agents for REVIEW).
+- All 3 scripts work against `<frontend-v2>` (used as live test target):
+  - `pack-coverage-scan.sh <frontend-v2> migration` → wrote report listing all 21 pack files (all present after prior manual cp).
+  - `refresh-extract-checklist.sh <frontend-v2>` → wrote checklist with auto-inventory + 9 sections demanding fill.
+  - `study-existing.sh <frontend-v2> migration` → 0 actionable / 21 keep / 48 orphans (correctly classifies the 21 migration files as IDENTICAL-NO-OP and flags 48 project-specific commands/agents for REVIEW).
 - `lint-artifact.sh`: 0 errors / 22 warnings.
 - `smoke-test.sh`: 0 fail / 0 warn.
 - `verify-sync.sh`: 53 ok / 0 drift.
