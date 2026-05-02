@@ -19,6 +19,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [Migration end-to-end](#migration-end-to-end)
 - [Align (codebase quality sweep) end-to-end](#align-codebase-quality-sweep-end-to-end)
 - [Universal commands (`/do`, intent gates, gap-fill commands)](#universal-commands)
+- [`/ui-sweep` — project-wide UI/UX specialist](#ui-sweep--project-wide-uiux-specialist)
 - [Memory system](#memory-system)
 - [Validator scripts](#validator-scripts)
 - [Common pitfalls](#common-pitfalls)
@@ -569,6 +570,70 @@ User can override ("no, run /add-feature anyway") — the run summary flags the 
 | `/migration-promote-tier <id> <tier>` | migration | Mid-port tier change. Backfills artifacts on promotion. Demotion forbidden for security/P0/cross-repo. |
 | `/align-promote-tier <id> <tier>` | align | Same as above for align findings. |
 | `/cross-repo-task` | migration | Register / list / drain cross-repo blockers when ports halt due to upstream changes. |
+
+## `/ui-sweep` — project-wide UI/UX specialist
+
+The deep UI/UX command. Goes beyond `/align-scan`'s mechanical drift detection — adds quantified coverage metrics, visual hierarchy analysis, cross-surface consistency, visual baselines + drift tracking, and a flow-based phasing strategy.
+
+### What it covers vs `/align-scan`
+
+| Capability | `/align-scan` | `/ui-sweep` |
+|---|---|---|
+| Drift detection (a11y, tokens, wrappers, i18n) | YES | YES (overlap + deeper) |
+| Quantified coverage % per category | NO | YES (e.g., "73% color tokens, 62% component utilization") |
+| Visual hierarchy analysis | NO | YES (per-page hierarchy score 0–100) |
+| Cross-surface consistency (all list pages compared) | NO | YES |
+| Visual baseline + drift screenshots | NO | YES |
+| User-flow phasing (auth flow / checkout flow / etc.) | NO (phases by class) | YES |
+| HTML visual report | NO (markdown) | YES |
+| UI/UX-specific verbs (`consolidate-tokens`, `unify-component`, `normalize-hierarchy`, `wire-empty-state`) | NO | YES (12 specialist verbs) |
+
+### Workflow — 4 commands
+
+```
+# Day 1 — set baseline + first sweep
+/ui-sweep --baseline-only         # screenshots every page; no code change
+/ui-sweep --first-run             # scans + plans + runs phase 1 (foundation: tokens + wrappers); HTML report
+
+# Day 2+ — keep running until done
+/ui-sweep                          # next pending phase (e.g., auth flow → checkout flow → dashboard)
+/ui-sweep                          # ...
+/ui-sweep                          # final cross-phase verification
+```
+
+The command figures out what step you're on automatically — just keep running `/ui-sweep`.
+
+### Optional flags
+
+- `--with-iterate` — after cleanup phase, dispatches `design-iterate` per page for visual polish (3 variants, you pick).
+- `<phase>` — run a specific phase (e.g., `/ui-sweep 3`).
+- `--scope=<path>` — restrict to a sub-tree.
+- `--report-only` — re-generate HTML report from existing ledger; no scan.
+- `--detector=<list>` — narrow detectors.
+
+### Output
+
+- `ai/ui-sweep/report-<date>.html` — interactive report: screenshots, hierarchy heatmaps, coverage dashboards, cross-surface matrix, top-10 worst surfaces, recommendations.
+- `ai/ui-sweep/baseline/<iso>/*.png` — per-route screenshots at 360 / 768 / 1280 px.
+- `ai/ui-sweep/ledger.md` — UI/UX-specific findings (separate from `ai/align/ledger.md`).
+
+### Required project anchors
+
+`_extracted-idioms.md` must declare:
+- `§ Tokens` — design token system (colors, spacing, typography, radii, shadows).
+- `§ Wrappers` — shared component inventory (the project's `AppButton`, `BaseDataTable`, etc.).
+- `§ Surfaces` — prototypical examples per surface type (list-page, detail-page, form, modal).
+- `§ Breakpoints` — responsive breakpoints (default: 360 / 768 / 1280).
+- `§ Voice` (optional) — tone of voice guide for cross-page coherence detector.
+
+If anchors missing → run `/setup-project --refine` first.
+
+### Pre-requisites
+
+- `PROJECT_KIND` is `frontend-*`.
+- Playwright MCP wired (for screenshots + DOM analysis).
+- Mechanical CI green at HEAD.
+- Working tree clean.
 
 ## Memory system
 

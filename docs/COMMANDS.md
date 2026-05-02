@@ -259,13 +259,47 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 | Command                | Purpose                                                                          |
 |------------------------|----------------------------------------------------------------------------------|
 | `/design-review`       | Read-only audit: cite-or-halt findings on UX, design-system, a11y. |
-| `/enhance-ui <description>` | **Visual / UX enhancement orchestrator**. Runs cleanup (`/align-recheck` for token / a11y / wrapper drift) → `design-iterate` skill (3 variants, you pick) → re-enforce. One command for "make the sidebar look better". |
+| `/enhance-ui <description>` | **Single-area enhancement**. Runs cleanup (`/align-recheck` for token / a11y / wrapper drift) → `design-iterate` skill (3 variants) → re-enforce. For "make the sidebar look better". |
+| `/ui-sweep [<phase>]`  | **Project-wide UI/UX specialist sweep**. Goes beyond align — runs 8 UI/UX-specific deep detectors (visual hierarchy, component utilization %, token coverage %, cross-surface consistency, ui-state coverage, responsive matrix, design-language coherence, visual baseline + drift). Phases by user flow (auth / checkout / dashboard / etc.), not by class. Outputs an HTML visual report with screenshots + metrics. Frontend stacks only. |
 
 **UI-UX skills:**
 - `design-iterate` — generate 3 visual variants (polished / bolder / minimal); screenshot each; user picks.
 - `design-token-audit` — find hardcoded values that should use tokens.
 - `motion-audit` — find inconsistent transitions.
 - `a11y-quick-check` — fast a11y scan (subset of `a11y-scan`).
+
+#### `/ui-sweep` — step-by-step walkthrough
+
+**The 4 commands you'll actually use**:
+
+| When | Command | Time |
+|---|---|---|
+| First time only | `/ui-sweep --baseline-only` | ~5 min — screenshots every page; no code change |
+| First scan | `/ui-sweep --first-run` | ~30 min — scans + plans + runs phase 1 (foundation: tokens + wrappers); produces HTML report |
+| Every day after | `/ui-sweep` | runs the next pending phase (auth flow → checkout flow → dashboard → ...) |
+| Add visual polish | `/ui-sweep --with-iterate` | after cleanup, dispatches design-iterate per page in the phase's flow |
+
+**Concrete daily workflow**:
+
+```
+# Day 1 — set baseline + run first sweep
+/ui-sweep --baseline-only         # before-photos of every page
+/ui-sweep --first-run             # scan + plan + phase 1 (foundation)
+
+# Days 2+ — keep running until all phases done
+/ui-sweep                          # phase 2 (auth flow)
+/ui-sweep                          # phase 3 (checkout flow)
+/ui-sweep                          # phase 4 (dashboard)
+... etc
+/ui-sweep                          # final phase + cross-phase verification
+```
+
+**`/ui-sweep` figures out what step you're on automatically.** Just keep running it. Override with `/ui-sweep <phase-N>` for a specific phase, or `--with-iterate` to add visual polish.
+
+**Output you'll see**:
+- HTML report at `ai/ui-sweep/report-<date>.html` — screenshots, hierarchy heatmaps, coverage dashboards (e.g., "73% token coverage; target 95%"), cross-surface consistency matrix.
+- Visual baselines at `ai/ui-sweep/baseline/<iso>/<page>.png` — comparable across sweeps.
+- UI/UX-specific ledger at `ai/ui-sweep/ledger.md` (separate from align's structural ledger).
 
 ### Code-quality track
 

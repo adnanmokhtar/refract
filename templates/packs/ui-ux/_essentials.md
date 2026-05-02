@@ -3,7 +3,7 @@ track: ui-ux
 purpose: Design-system architecture, UX review, and visual/interaction quality.
 essentials:
   agents: [design-system-architect, ux-reviewer]
-  commands: [design-review, enhance-ui]
+  commands: [design-review, enhance-ui, ui-sweep]
   skills: [design-token-audit, motion-audit, a11y-quick-check, design-iterate]
   rules: [ui-principles]
   ai-patterns: []

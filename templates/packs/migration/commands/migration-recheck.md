@@ -236,6 +236,24 @@ For each matched feature:
 
 ## Phase 4 — Generate (produce the output)
 
+### Audit-output rule — ADRs are notes, not verdicts
+
+Every V1↔V2 divergence is reported as `DIVERGENT` regardless of ADR status. Existing ADRs appear as a *note* on the row, not as ✅ closure. The user re-confirms each ADR-ratified divergence during recheck — recheck is the moment to revisit prior decisions, not the moment to defer to them. The recheck command's premise is "fresh parity audit, no cache lookup, no prior-audit reuse" (see top of this file); treating an ADR as ✅ violates that premise and reproduces the original Trusted-Summary failure mode at one level of indirection.
+
+```
+❌ WRONG (treats ADR as closure):
+| N | <surface> | V1: <behaviour-A> | V2: <behaviour-B> | ✅ ADR-NNN §<id> |
+
+✅ RIGHT (ADR is a note; user re-confirms):
+| N | <surface> | V1: <behaviour-A> | V2: <behaviour-B> | DIVERGENT (note: ADR-NNN §<id> ratified V2 — re-confirm or revert?) |
+```
+
+The status column has exactly two values: `PARITY` (V1 and V2 match observable behaviour) or `DIVERGENT` (they don't). ADRs annotate; they do not close.
+
+When the user replies with "do like V1" / "match V1" / "fix it" without per-row exceptions, **all DIVERGENT rows are eligible for V1-revert**, including ADR-ratified ones. Do not narrow the scope to "DIVERGENT and not-ADR'd" — that inversion of the default is the bug this rule prevents.
+
+### Output stream
+
 Per-feature output streams to `ai/migration/runs/<YYYY-MM-DD-HHMMSS>-recheck.log`. End-of-run summary surfaces to user.
 
 ```
