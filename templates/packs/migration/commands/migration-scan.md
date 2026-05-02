@@ -54,11 +54,25 @@ Optional flags:
 
 ## Phase 2 — Organize (decompose the work)
 
-Four parallel scans (Explore subagents, capped per `--max-subagents`):
+Four parallel scans (Explore subagents, capped per `--max-subagents`). **Scans 1–3 walk the FULL navigation tree** — not just top-level routes. Halt #13 in `migration-discipline.md` (Module/page audit missing navigation inventory) depends on this depth.
 
-1. **V1 inventory** — every page, route, endpoint, command, scheduled job, queue consumer.
-2. **V2 inventory** — same shape, current state.
-3. **V1↔V2 mapping** — for each V1 entry, identify the corresponding V2 entry (or absence).
+1. **V1 inventory — DEEP NAV TREE (not just routes)**. Walk every clickable navigation surface, not just top-level routes:
+   - Top-level routes (the obvious one — every entry in V1's router config).
+   - **In-page tabs** — every `<v-tabs>` / `<TabView>` / `<TabMenu>` / `<Tabs>` / equivalent component in V1 templates. Each tab is a separate inventory entry, not a single "tabs container."
+   - **Sub-tabs / nested tabs** — recursively enumerate every nested tab system (a tab containing another tabs container = leaf-level entries for each inner tab).
+   - **Sidebar items** — every clickable item in the sidebar/menu/drawer config. Includes collapsible groups and nested items.
+   - **Modal-shell tabs** — modals that have their own tab system (settings dialogs, "edit X" multi-step modals).
+   - **Accordion groups** — if expanding/collapsing reveals distinct surfaces, each is an entry.
+   - **Inner-routes** — child routes / nested routes / dynamic segment routes.
+   - **Templates** — every `.vue` / `.tsx` / template file in V1's view layer, not just "pages". A re-usable template that surfaces unique user-clickable affordances counts.
+   - **CRUD action surfaces** — bulk-action menus, row-action dropdowns, context menus reachable from list pages.
+   For each clickable surface: capture the **full click path** from V1 root (e.g., "Settings → Appearance → Colors → Primary tab → Color picker") and the **leaf-level component / route**. The output is a tree, not a flat list — depth-N entries belong to depth-(N-1) parents.
+   This is what the user means by "deep nav tree." The discipline halt #13 (Module/page audit missing navigation inventory) DEMANDS this — and it can only deliver if scan-time inventory captured it.
+
+2. **V2 inventory** — same DEEP nav-tree shape; same recursion. Match V1's structure for comparability.
+
+3. **V1↔V2 mapping** — for each V1 leaf-level entry (every tab, sub-tab, modal-tab, sidebar item, in-page navigation surface), identify the corresponding V2 entry (or absence). A V1 leaf with no V2 leaf is a `nav-drift` finding (see migration-discipline.md halt #13). NOT a feature mapping — a navigation mapping.
+
 4. **V1 dead-code reachability** — for each V1 feature in the inventory, run the 6-axis reachability check (per `migration-discipline.md § What counts as dead V1 code`):
    - Axis 1: app source callers (`git grep -F` for the feature's exported symbols / route paths / endpoint names across V1's app source, excluding the feature's own files + tests).
    - Axis 2: test references (same grep across V1's test directories; the feature's own unit test does NOT count as a caller).

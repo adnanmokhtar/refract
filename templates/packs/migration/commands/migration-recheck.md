@@ -134,13 +134,14 @@ Optional flags:
 1. PRE-FLIGHT      — verify oracle + clean tree (ledger / plan NOT required)
 2. RESOLVE         — for each input arg: classify as path or description; resolve descriptions to V1 + V2 source paths via semantic understanding
 3. CONFIRM         — if resolution was ambiguous, surface candidates and confirm
-4. SCAN-FRESH      — for each resolved area: enumerate V1 + V2 source files; pin V1 commit hash for the run
-5. AUDIT-FRESH     — dispatch parity-auditor per area: read V1 source + V2 source line-by-line, output gap list (NO cache lookup, NO prior-audit reuse)
-6. TRIAGE          — split into clean / drifted / halted
-7. FIX             — apply V1-parity edits to V2 (one logical fix per commit)
-8. VERIFY          — lint + typecheck + scoped tests + re-detect (gaps_in == gaps_closed)
-9. RECORD-LEDGER   — best-effort: if a matching ledger row exists, update it. If not, leave the ledger alone (or create new row if --register-ledger was passed)
-10. SUMMARY        — end-of-run report
+4. NAV-TREE        — for any module-scoped or multi-tab area: build V1 navigation tree AND V2 navigation tree via the MANDATORY TWO-LAYER scan, then diff. Layer A: route tree from router files. Layer B: per-leaf template grep — for EACH component identified by Layer A, open the source and grep for in-template tab patterns (`<v-tabs>`, `<TabView>`, `<TabMenu>`, `<Tabs>`, `<Tab>`, `role="tab"`, `nav_tabs`, in-page tab arrays `v-for tab in tabs|items|sections`, accordion title arrays, in-component `<router-view>` siblings). Layer-A-only scans are incomplete and HALT. Any V1 leaf (route OR in-template) without a V2 equivalent navigation surface is HALT-tier nav drift, surfaced BEFORE per-axis enumeration. Per `migration-discipline.md` halt #13: burying a V1 sub-tab as a section in another V2 tab is drift, not STRUCTURE_OK. If nav drift surfaces, the auditor halts at this step; per-axis work runs only on tabs that exist in both sides. Section 0 completion checklist (in `migration-discipline.md` halt #13) must tick all boxes before audit can advance.
+5. SCAN-FRESH      — for each resolved area: enumerate V1 + V2 source files; pin V1 commit hash for the run
+6. AUDIT-FRESH     — dispatch parity-auditor per area: read V1 source + V2 source line-by-line, output gap list (NO cache lookup, NO prior-audit reuse). Section 0 of every module-scoped audit is the Navigation Inventory from step 4.
+7. TRIAGE          — split into clean / drifted / halted
+8. FIX             — apply V1-parity edits to V2 (one logical fix per commit)
+9. VERIFY          — lint + typecheck + scoped tests + re-detect (gaps_in == gaps_closed)
+10. RECORD-LEDGER  — best-effort: if a matching ledger row exists, update it. If not, leave the ledger alone (or create new row if --register-ledger was passed)
+11. SUMMARY        — end-of-run report
 ```
 
 Heavy-tier areas (cross-repo, security-sensitive, write-path) still route through the heavy ceremony — the discipline floor doesn't change just because we're skipping the plan.
