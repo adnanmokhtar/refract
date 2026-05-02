@@ -217,6 +217,26 @@ If any check fails → halt + report.
 - If a structural delta surfaced that wasn't in `ai/architecture.md` → flag for ADR.
 - If a recurring gap pattern appears (e.g., "every endpoint missing pagination") → flag for `ai/patterns/<name>.md`.
 - If an entire V1 module appears to have no V2 home → that's an architectural decision; surface for the user, do NOT silently invent one.
+- **Oracle drift detection** — at the end of every scan, compare the git hash of `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md` + `ai/patterns/v1-patterns-crossref.md` (if present) against the hashes recorded in the prior scan's `ai/migration/_session-digest.md`. If any oracle file's hash changed:
+  1. Surface an "Oracle drift detected" section in `scan-report.md`:
+     ```
+     ## Oracle drift detected since last scan (2026-04-01)
+
+     Changed oracles:
+     - _extracted-idioms.md (hash abc → def): 3 idioms added (BaseCrudService refactored, useApiKeysCrud added), 1 modified (apiClient — interceptor changed), 0 removed.
+     - ai/architecture.md (hash xyz → uvw): module boundary moved (orders → orders-v2 namespace).
+
+     Affected ledger rows:
+     - F042 (cited apiClient at notes:line) — interceptor change may affect parity tests; recommend /migration-recheck the orders module.
+     - F058 (cited ai/architecture.md § orders) — module boundary moved; recommend /migration-replan --include-drifted.
+     - ... (8 more)
+
+     Recommended actions:
+     - /migration-recheck <area>     # for specific drift impact
+     - /migration-replan --include-drifted   # to re-phase affected rows globally
+     ```
+  2. Update `ai/migration/_session-digest.md` with new oracle hashes for next scan's drift detection.
+  3. Do NOT auto-flip status of any row — surface the drift, let user decide.
 
 ## Output to user
 

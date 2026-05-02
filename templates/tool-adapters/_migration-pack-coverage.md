@@ -121,11 +121,56 @@ The script returns non-zero on any failure; tool integrations should treat that 
 
 When an adapter ships the migration pack:
 
-1. **MUST translate the rule** (`migration-discipline.md`) faithfully — including the inlined 9 contract sections, 10 hard halts, frontend axes, anti-pattern catalogue, and tool-agnostic procedures. Do NOT abridge.
+1. **MUST translate the rule** (`migration-discipline.md`) faithfully — including the inlined 9 contract sections, 11 hard halts (including the dead-V1-code halt added 2026-05-02), 6-axis reachability check, frontend axes, anti-pattern catalogue (including "Zombie Port"), and tool-agnostic procedures. Do NOT abridge.
 2. **MUST translate or document agents/skills/commands** to the tool's native format if supported. If not supported, document in the rule's "References" section that the procedural detail is inlined.
 3. **MUST install or document `validate-migration-artifacts.sh`** as a pre-commit / CI / hook integration.
 4. **MUST translate `port-feature.md`** as the per-feature orchestrator (or its 6-phase procedure inlined).
-5. **MUST NOT silently drop the migration pack on tools with limited capability.** A rule-only tool gets the rule (which is sufficient).
+5. **MUST translate `migration-recheck.md`** as the user's focused ad-hoc verification command — accepts natural-language descriptions ("the sidebar", "the orders module") OR explicit paths. Semantic resolution via codebase-profile + ledger reads (intent interpretation, not keyword matching). MUST NOT downgrade to tokenization in the translation.
+6. **MUST NOT silently drop the migration pack on tools with limited capability.** A rule-only tool gets the rule (which is sufficient).
+
+## Cross-repo task workflow — `/cross-repo-task` (v1.5+)
+
+`/cross-repo-task` registers + tracks + drains cross-repo blockers (when a V2 port halts because a sibling repo / upstream service must ship first). Subcommands: register / list / update / close / drain. Registry at `ai/migration/cross-repo-tasks.md`.
+
+Adapter responsibility: every tool with command surface MUST expose this command. Rule-only tools (Aider / Codex / Gemini) document the workflow as a manual procedure (track blockers in the registry file directly; manually update the ledger row's `cross_repo_task: <task-id>` field; re-run `/find-and-fix <id>` after blocker lands).
+
+## Reviewer-approval mechanism (v1.5+)
+
+Heavy-tier rows pause for reviewer approval. Ledger field: `reviewer_approval: <name>@<iso>`. Status `pending-review` between fix-applied and signoff. Default reviewer from `CODEOWNERS` or `ai/migration/_v2-anchors.md`'s `default_reviewer:` field. 7-day timeout; no auto-fail.
+
+Adapter responsibility: every tool that runs `/migration-fast` or `/port-feature` MUST surface the pending-review halt to the user (file path + assigned reviewer). Tools with native review surfaces (GitHub PR review for Copilot, Cursor's review-mode) MAY auto-populate the `reviewer_approval` field on PR-merge events. Rule-only tools document the manual flow in the rule body.
+
+## Mid-port tier promotion — `/migration-promote-tier` (v1.5+)
+
+`/migration-promote-tier <id> <new-tier> [--reason="<text>"]`. Promotion backfills artifacts; demotion requires `--reason`; security-row demotion is forbidden.
+
+Adapter responsibility: surface this command in every tool's native command surface.
+
+## Idiom-drift propagation (v1.5+)
+
+`/migration-scan` records oracle file hashes in `ai/migration/_session-digest.md`; subsequent scans compare and surface "Oracle drift detected" when changed. `/migration-replan --include-drifted` re-phases affected rows.
+
+Adapter responsibility: this is a behavior change in `/migration-scan`'s output template. Every adapter that translates the scan command MUST include the "Oracle drift detected" section in its translation.
+
+## Plan-independent ad-hoc spot-check — `/migration-recheck`
+
+`/migration-recheck <description-or-path>` is the user's bypass-the-ceremony tool (v1.4.0). **NO plan / phase / ledger required.** Accepts natural-language descriptions OR paths. Semantic resolution via codebase-profile + idioms (same intent-interpretation model as `/add-feature`). Scans V1 + V2 source FRESH for the resolved area — no cache lookup, no ledger-row dependency, no required prior `/migration-scan`.
+
+Adapter responsibility (in addition to surfacing the command):
+1. Plan-independence MUST be preserved. Adapters MUST NOT add a "ledger required" / "scan required" pre-flight that isn't in the source rule.
+2. Fresh-audit semantics MUST be preserved. Adapters MUST NOT cache audits for recheck runs (each recheck reads V1 + V2 source line-by-line).
+3. Best-effort ledger updates: if a ledger exists, matching rows are updated. If not, leave alone (or create new rows if `--register-ledger` was passed).
+4. For rule-only tools (Aider / Codex / Gemini), the rule body documents the manual procedure: "describe the area; agent reads the profile to find V1 + V2 source paths; agent reads V1 + V2 source line-by-line; agent fixes drift in V2 to match V1; commit; optionally record into ledger if one exists."
+
+Per-tool surface:
+- Claude Code: `.claude/commands/migration-recheck.md`
+- Cursor: `.cursor/commands/migration-recheck.md`
+- OpenCode: `.opencode/commands/migration-recheck.md`
+- Copilot: `.github/prompts/migration-recheck.prompt.md`
+- Cline: `.clinerules/workflows/migration-recheck.md`
+- Windsurf: `.windsurf/workflows/migration-recheck.md`
+- Continue: `.continue/prompts/migration-recheck.md`
+- Aider / Codex / Gemini: documented in `CONVENTIONS.md` / `AGENTS.md` / `GEMINI.md` as a manual procedure ("describe the area; agent reads the profile + ledger; confirms; runs the per-feature loop").
 
 ## Failure mode protections
 

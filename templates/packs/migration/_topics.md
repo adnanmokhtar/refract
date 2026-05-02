@@ -215,6 +215,24 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   mirror_existing: false
   fallback: commands/migration-park.md
 
+- name: migration-recheck
+  kind: command
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md (codebase-profile + UI surface inventory + module names) + ai/migration/ledger.md
+  sections: [premise, when_to_use, input_forms_description_or_path, resolution_semantic, phases_1_to_7, examples, hard_rules, failure_modes, related]
+  mirror_existing: false
+  fallback: commands/migration-recheck.md
+
+- name: cross-repo-task
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/ledger.md + sibling-repo identifiers from _extracted-codebase.md
+  sections: [premise, subcommands, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
+  mirror_existing: false
+  fallback: commands/cross-repo-task.md
+
 - name: migration-unpark
   kind: command
   triggers:

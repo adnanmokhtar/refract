@@ -46,6 +46,7 @@ Inputs:
 
 Optional flags:
 - `--re-scan-first` — runs `/align-scan --since=<last-scan-commit>` before replanning. Use when the codebase has changed materially since the last scan (new modules, refactors, new dependencies).
+- `--include-drifted` — re-phase rows whose `idiom_cited` references a changed oracle entry (per `align-scan`'s "Idiom drift detected" output). Rows referencing changed idioms get re-evaluated. `verified` rows flip to `detected` ONLY if the change materially affects them (renamed / signature change / removed); cosmetic changes leave verified rows alone. Use after `/setup-project --refine` updated `_extracted-idioms.md`.
 - `--phases=<N>` — target number of remaining phases.
 - `--preserve-verified` (default `true`) — keep `verified` rows in their original phase numbers; renumber only future phases.
 - `--include-parked` — include `parked` rows in the new plan (default: parked rows stay parked; `--include-parked` revives them as `detected`).

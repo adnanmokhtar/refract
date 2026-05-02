@@ -386,6 +386,60 @@ T+38d: Delete V1 (after 14d of zero traffic).
 - [ ] Cutover plan attached: shadow window, canary stages, rollback steps, success metrics.
 - [ ] V1 deletion (if in scope) shows zero-traffic evidence + dead-code-finder report.
 
+## Reviewer-approval mechanism (heavy-tier rows)
+
+Heavy-tier rows pause for reviewer approval before they can flip to `done`. Real protocol, not a soft suggestion:
+
+**Ledger field**: every heavy-tier row has a `reviewer_approval:` field. Initially empty. Approval lands as `<reviewer-name>@<iso>` (e.g., `reviewer_approval: alice@2026-05-02T18:30Z`).
+
+**Halt behaviour**: when `/migration-fast` / `/port-feature` reaches a heavy-tier row's RECORD step:
+1. Applies the fix and runs VERIFY as normal (parity tests, contract check, audit).
+2. Writes the row to ledger with `status: pending-review` (NOT `done`).
+3. Writes `ai/migration/halts/<id>-pending-review.md` with: assigned reviewer, what to verify (audit + contract + parity-test results), how to approve.
+4. Continues to the next row (heavy rows do NOT block the rest of the phase).
+
+**Approval flow**:
+- Reviewer reads the halt file + the audit at `ai/migration/audits/<id>.md` + the impact / runbook.
+- Reviewer adds `reviewer_approval: <name>@<iso>` to the ledger row + commits the ledger update.
+- On next `/migration-gate <N>` run, rows with non-empty `reviewer_approval` flip from `pending-review` → `done`.
+
+**Reviewer assignment**:
+- Default: project's `CODEOWNERS` for the row's V2 path OR the `default_reviewer:` field in `ai/migration/_v2-anchors.md`.
+- Override: pass `--reviewer=<name>` to `/migration-fast` / `/port-feature`.
+- Fallback: if no reviewer assignable, halt the row with "manual review required".
+
+**Timeout**: default 7 days. After timeout, row stays `pending-review`; `/migration-status --blockers` surfaces it. No auto-fail. No silent advance.
+
+**Validator** treats `pending-review` as terminal-non-fix; gate accepts the row only when `reviewer_approval` is non-empty.
+
+## Mid-port tier promotion
+
+Mid-port the agent may realize a row's tier was wrong (scan classified standard, but fix touches > 25 files; or trivial port turns out to remove a public API symbol). Procedure:
+
+1. **Halt the row** at DECIDE; agent surfaces the promotion request with reasoning.
+2. **User decides** via `/migration-promote-tier <id> <new-tier> [--reason="<text>"]`:
+   - `<new-tier>` ∈ `{trivial, standard, heavy}`.
+   - Promotions (trivial → standard → heavy) require no further justification.
+   - Demotions require `--reason=`. Demotion of any row whose audit flagged P0 / cross-repo / contract-break / write-path-mutation is **forbidden**.
+3. **Backfill artifacts** for the new tier:
+   - Promote to standard → backfill ≤200-char rationale + 3-section contract (Inputs / Outputs / Known V1 bugs) + 10-fixture parity test.
+   - Promote to heavy → backfill full 8-artifact set (contract, plan, parity tests, tolerance.yaml, perf-decisions, runbook, audit, mapping); reviewer-approval flow kicks in.
+4. **Resume**: agent re-enters DECIDE → FIX → VERIFY → RECORD with the new tier's discipline.
+
+`/migration-promote-tier` writes one line to `ai/migration/_history.md`: `<iso> promote-tier <id> <old>→<new> | reason: <text>`.
+
+## Idiom-drift propagation
+
+When `_extracted-idioms.md` / `ai/architecture.md` / `ai/conventions.md` is modified between scan and execution, ledger rows that referenced the changed conventions may need re-evaluation:
+
+**`/migration-scan` detection**: at end of scan, compares the oracle files' git hashes against hashes recorded in prior scan's `ai/migration/_session-digest.md`. If changed:
+1. Scan-report includes "Oracle drift detected" section listing changed entries + affected rows (rows whose `notes` cite the changed convention OR whose plan references the changed module shape).
+2. Recommended action: re-run `/migration-recheck <area>` for affected rows OR `/migration-replan --include-drifted`.
+
+**`/migration-replan --include-drifted`**: re-phases rows whose plan references changed conventions. `done` rows flip to `unverified` ONLY if the change materially affects their port (architectural rename, primitive replaced); cosmetic changes leave `done` rows alone.
+
+**Validator**: `check_oracle_drift` (planned) compares oracle hashes pre- and post-port; halts the gate if any row's audit cites a now-stale oracle reference.
+
 ## Enforcement
 
 - **Phase 5 audit** halts on: ledger drift (PR ports a feature without updating ledger), missing contract file, parity-test red, perf-decision file missing.

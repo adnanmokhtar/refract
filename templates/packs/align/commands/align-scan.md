@@ -477,6 +477,25 @@ If any check fails → halt + report. Surface the failure with a remediation not
 - If a finding class returned > 50 findings, surface "high-volume class — recommend dedicated phase or `/setup-project --refine` to update gold standards" — high counts often indicate the oracle is incomplete, not that the codebase is uniquely broken.
 - If a finding's `shared_equivalent` cannot be resolved (named in `_extracted-idioms.md` but file doesn't exist) → that's an oracle-drift signal; halt and route to `/setup-project --refine`.
 - If the same fingerprint appeared in a prior scan, was marked `fixed`, and is now detected again → that's a regression; flag in the report and queue an ADR for the convention's enforcement (a hook? a lint rule?).
+- **Idiom-drift detection** — at the end of every scan, compare the git hash of `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md` against the hashes recorded in the prior scan's `ai/align/_session-digest.md`. If any oracle file's hash changed:
+  1. Surface a "Idiom drift detected" section in `scan-report.md`:
+     ```
+     ## Idiom drift detected since last scan (2026-04-01)
+
+     Changed oracles:
+     - _extracted-idioms.md (hash abc → def): 3 idioms added (BaseDataTable, AppDropdown, useToast), 1 modified (useCrud — return shape changed), 0 removed.
+
+     Affected ledger rows (rows whose `idiom_cited` references a changed idiom):
+     - A042 (reinvented-wrapper): cited useCrud at <path:line> — return shape changed; recommend re-detect via /align-recheck.
+     - A058 (silent-catch): cited handleApiError at <path:line> — unchanged; no action needed.
+     - ... (12 more)
+
+     Recommended actions:
+     - /align-recheck the orders module     # if drift affects a specific area
+     - /align-replan --include-drifted      # to re-phase affected rows globally
+     ```
+  2. Update `ai/align/_session-digest.md` with the new oracle hashes for future drift detection.
+  3. Do NOT auto-flip status of any row — surface the drift, let user decide via replan or recheck.
 
 ## Output to user
 

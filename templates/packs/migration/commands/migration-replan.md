@@ -41,6 +41,7 @@ Inputs:
 
 Optional flags:
 - `--re-scan-first` — runs `/migration-scan` before replanning. Use when V1 has changed materially since last scan.
+- `--include-drifted` — re-phase rows whose oracle citations have drifted since the last scan (per `migration-scan`'s "Oracle drift detected" output). Rows whose `notes` cite a changed oracle entry get re-evaluated. `done` rows flip to `unverified` ONLY if the change materially affects their port (architectural rename, primitive replaced); cosmetic changes leave `done` rows alone. Use after `/setup-project --refine` updated `_extracted-idioms.md` or after `ai/architecture.md` changed materially.
 - `--phases=<N>` — target number of remaining phases.
 - `--preserve-passed` (default true) — keep `phase_passed` rows in the same phase number; renumber only future phases.
 

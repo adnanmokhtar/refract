@@ -364,6 +364,69 @@ Or per-phase fast flow (mirrors `/migration-fast` — one phase per command, sca
 
 `/align-fast <N> --re-audit` and `/align-final --re-audit` mirror migration's `--re-audit`. Discards cached `status: verified` verdicts and re-dispatches the detector on every row including verified ones. Use it to verify done work is still correct — catches false-verified rows, drift since the gate, or detector improvements that surface previously-missed gaps. Re-detected rows whose fingerprint reappears flip to `halted` and fast re-fixes them in the same run; rows that stay clean stay `verified` (no code change).
 
+### Heavy-tier reviewer-approval (v1.5+)
+
+Heavy-tier rows pause for reviewer approval before they can flip to `done` / `verified`. Real protocol:
+
+- **Ledger field**: `reviewer_approval: <name>@<iso>`. Empty = pending.
+- **Status**: row enters `pending-review` after fix + verify; stays there until field is populated.
+- **Halt file**: `ai/{migration,align}/halts/<id>-pending-review.md` — what to verify, who's the reviewer, how to approve.
+- **Default reviewer**: `CODEOWNERS` for the row's scope OR `default_reviewer:` in `ai/{migration,align}/_anchors.md`.
+- **Override**: `--reviewer=<name>` on `/migration-fast` / `/align-fast` / `/port-feature`.
+- **Timeout**: 7 days default; row stays pending-review past timeout (no auto-fail). `/migration-status --blockers` surfaces stalled rows.
+- **Approval**: reviewer adds `reviewer_approval: <name>@<iso>` to ledger row + commits.
+- **Gate behavior**: rows with non-empty `reviewer_approval` flip from `pending-review` → `done`/`verified` on next `/migration-gate` / `/align-gate` run.
+
+### Mid-port tier promotion (v1.5+)
+
+`/migration-promote-tier <id> <new-tier> [--reason=]` and `/align-promote-tier <id> <new-tier>` change a row's tier mid-fix. Used when the agent realizes scan classified the row wrong.
+
+- **Promotions** (trivial → standard → heavy) backfill required artifacts automatically.
+- **Demotions** require `--reason=`. Forbidden for: P0 rows, cross-repo blockers, contract breaks, write-path mutations, security rows below standard, critical-severity rows below heavy.
+- **History**: every promotion/demotion writes to `ai/{migration,align}/_history.md`.
+
+### Cross-repo task tracking (v1.5+, migration-only)
+
+`/cross-repo-task` registers + tracks + drains cross-repo blockers. Subcommands: `register`, `list`, `update`, `close`, `drain`. Registry at `ai/migration/cross-repo-tasks.md`.
+
+- `register <feature-id> "<description>"` — creates task ID, links blocked feature, sets row to halted with cross-repo reason.
+- `drain` — re-runs `/find-and-fix` on rows whose blockers landed.
+
+Use when a port halts because a sibling repo needs to ship something first. Without this, cross-repo halts orphan rows in the ledger indefinitely.
+
+### Oracle / idiom drift detection (v1.5+)
+
+`/migration-scan` and `/align-scan` now compare oracle file hashes (`_extracted-idioms.md`, `ai/conventions.md`, `ai/architecture.md`) against the prior scan's recorded hashes. If anything changed:
+
+- Scan-report includes "Oracle drift detected" section listing changed entries + affected ledger rows.
+- `/migration-replan --include-drifted` / `/align-replan --include-drifted` re-phases affected rows.
+- `verified` / `done` rows flip back to active states ONLY if the change materially affects them (signature change, primitive replaced, architectural rename); cosmetic changes leave them alone.
+
+### Plan-independent spot-check — `/align-recheck` and `/migration-recheck`
+
+These are the bypass-the-ceremony commands. **No plan, no phase, no ledger required.**
+
+- Take a **natural-language description** (`the sidebar`, `the orders module`, `customer tabs`) OR an explicit path. The agent reads `codebase-profile.md` + idioms + architecture and semantically resolves the description (same intent-interpretation model as `/add-feature` — not keyword matching).
+- **Ignore the migration/alignment workflow entirely.** No phase number, no plan dependency, no required prior scan.
+- **Scan source FRESH.** For migration: V1 + V2 parity audit. For align: dispatch the 11 universal detectors (+ stack-conditional UI/UX) directly against current source.
+- Run the same per-feature / per-finding loop as `/find-and-fix` / `/align-phase`: DETECT → DECIDE → FIX → VERIFY → RECORD. One commit per fix.
+- **Fix in place** when drift is found; pass `--re-detect-only` for read-only inspection.
+- **Best-effort ledger update**: if a ledger exists, matching rows are updated; if not, the command leaves the ledger alone. Pass `--register-ledger` to register new findings into the ledger as part of the run.
+
+Confirmation flow: confident → silent (with summary preamble); ambiguous → halt + ask which match you meant; nothing-found → halt + suggest narrowing.
+
+Examples:
+```
+/migration-recheck the sidebar
+/migration-recheck the page builder
+/migration-recheck the customer tabs in the dashboard
+/align-recheck the orders module
+/align-recheck the navigation header --re-detect-only
+/align-recheck the auth pages --register-ledger     # also tracks findings
+```
+
+This is the user's manual override / safety check + the "I just want this area cleaned up" tool — independent of whether the formal migration/alignment workflow has been initialized for the project.
+
 ### When `/align-phase` runs
 
 The 5-step per-finding loop (mirrors `find-and-fix` for migration):
@@ -398,9 +461,29 @@ It only halts on:
 
 ### Validator script — `validate-align-artifacts.sh`
 
-**Status: `[PLANNED — v1.1]`**. Until it ships, agents enforce the discipline by reading `align-discipline.md` and applying the 14 checks inline. The procedures are self-sufficient in the rule so any tool produces the same enforcement floor. Treat v1.0 alignment as a supervised flow.
+**Status: `[v1.5.0 — 7 of 14 checks shipped]`**. The script (`scripts/validate-align-artifacts.sh`) ships 7 mechanical checks; the remaining 7 stay agent-side until v2. Universal callable from any tool's hook system, CI, or pre-commit.
 
-When shipped, will be universal callable from any tool. The 14 checks (see `align-gate.md`):
+**Shipped checks (mechanical)**:
+1. `check_evidence_resolves` — every row's `<path:line>` resolves at the cited line.
+2. `check_no_handwaves` — refuses `etc.` / `...` / `several` / `multiple endpoints` / `N+ items`.
+3. `check_closure_verb_in_vocab` — verb in 21-verb closed list.
+4. `check_no_new_symbols` — `git diff --diff-filter=A` shows no new exports unless named in idioms.
+5. `check_net_lines_structural` — git stat for row's commit; structural rows ≤ 0 net.
+6. `check_scope_boundary` — `git show --name-only` for row's commit; touched files ⊂ row.scope.
+7. `check_security_tier_minimum` — security ≥ standard; critical → heavy.
+
+**Remaining 7 (agent-side)**: test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness.
+
+Usage:
+```
+scripts/validate-align-artifacts.sh --phase=<N>
+scripts/validate-align-artifacts.sh --finding=<id>
+scripts/validate-align-artifacts.sh --all
+scripts/validate-align-artifacts.sh --strict
+scripts/validate-align-artifacts.sh --check=<name>
+```
+
+The 14 checks (see `align-gate.md`):
 
 1. Ledger completeness — every phase row in `{fixed, archived-pre-existing, parked}`.
 2. Gap-count parity — `gaps_closed == len(evidence)`.
@@ -478,7 +561,7 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 |---|---|
 | `audit-setup.sh` | Phase 5 audit for `/setup-project` runs. TBDs filled, pack coverage, anchoring, adapter coverage. |
 | `validate-migration-artifacts.sh` | Per-feature migration artifacts: contract sections, parity tests, audit provenance, V2-structure conformance, gap-count parity, hand-wave detection. |
-| `validate-align-artifacts.sh` | Per-phase align artifacts (14 checks): ledger completeness, gap-count parity, net-lines on structural rows, no new symbols (idioms-named exemption), no scope creep, mechanical green, coverage non-decreasing, frontend regressions, oracle unmodified, per-tier artifacts, idiom citation, security assertion, perf baseline, security tier minimum. |
+| `validate-align-artifacts.sh` | **v1.5.0 — 7 of 14 checks shipped (589 lines)**: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum. Remaining 7 (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) stay agent-side until v2. |
 | `migration-detect-existing.sh` | Phase 1 of `/port-feature`: detects whether V2 already implements a feature (none / partial / full). |
 | `migration-validate-paths.sh` | Phase 4 of `/port-feature`: validates planned file paths against V2 module shape. |
 | `audit-adapter-coverage.sh` | Per-pack adapter coverage: every pack rule has equivalent translations in Cursor / OpenCode / Aider / etc. |

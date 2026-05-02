@@ -1,12 +1,52 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.2.0",
-  "released": "2026-05-01",
+  "version": "1.5.0",
+  "released": "2026-05-02",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.",
   "changelog": {
+    "1.5.0": {
+      "released": "2026-05-02",
+      "changes": [
+        "validate-align-artifacts.sh shipped (589 lines, 7 mechanical checks): evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum.",
+        "Reviewer-approval mechanism: heavy-tier rows have ledger field `reviewer_approval: <name>@<iso>`. Status `pending-review` between fix and signoff. Default reviewer from CODEOWNERS or _anchors.md; 7-day timeout; no auto-fail.",
+        "Mid-port tier promotion: `/align-promote-tier <id> <new-tier>` mini-command. Promotion backfills artifacts; security demotion forbidden.",
+        "Idiom-drift propagation: `/align-scan` compares oracle hashes against prior scan; surfaces 'Idiom drift detected' section listing changed idioms + affected ledger rows. `/align-replan --include-drifted` re-phases affected rows.",
+        "Remaining 7 gate checks (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) stay agent-side until v2."
+      ]
+    },
+    "1.4.0": {
+      "released": "2026-05-02",
+      "changes": [
+        "Make /align-recheck plan-independent. NO ledger required. NO plan required. NO phase concept. NO required prior scan.",
+        "New flow: SCAN-FRESH dispatches the 11 universal detectors (+ stack-conditional UI/UX detectors for frontend-*) directly against current source for the resolved area. FIX. VERIFY (lint + typecheck + scoped tests + re-detect + a11y + bundle-size). RECORD-LEDGER (best-effort).",
+        "New flags: --register-ledger (create new ledger entries from recheck findings), --ledger-only (legacy: restrict to existing rows).",
+        "Removed flags: --include-verified, --include-archived, --rescan-fresh (no longer relevant — recheck IS a fresh scan now).",
+        "Use case: spot-check an area without setting up the full alignment ceremony. Works whether or not the alignment workflow has been initialized."
+      ]
+    },
+    "1.3.2": {
+      "released": "2026-05-02",
+      "changes": [
+        "Replace tokenize-keyword-search resolution in /align-recheck with semantic understanding. The agent reads codebase-profile.md + ledger + architecture/conventions + idioms, then maps the description to findings by intent — not keyword matching. Mirrors the /add-feature interpretation model."
+      ]
+    },
+    "1.3.1": {
+      "released": "2026-05-02",
+      "changes": [
+        "/align-recheck now accepts natural-language descriptions ('the sidebar', 'the orders module', 'the page builder') in addition to paths. Resolution: tokenize → ledger keyword search → codebase grep → codebase-profile lookup → confirm-or-run.",
+        "New flags: --no-confirm, --always-confirm, --max-matches=<N>.",
+        "Mirrors /migration-recheck's description-input feature."
+      ]
+    },
+    "1.3.0": {
+      "released": "2026-05-02",
+      "changes": [
+        "Add /align-recheck <path> [<path>...] command. Path-scoped re-detect + re-fix; not tied to phases. Use case: ad-hoc focused re-checks of specific modules / pages / components. Mirrors /migration-recheck. Optional --rescan-fresh flag to also pick up NEW findings that surfaced since the last scan. Same discipline as /align-phase (DETECT → DECIDE → FIX → VERIFY → RECORD; one commit per finding; closure verbs from 21-verb vocabulary; net-lines ≤ 0 structural / cite-idiom functional)."
+      ]
+    },
     "1.2.0": {
       "released": "2026-05-01",
       "changes": [

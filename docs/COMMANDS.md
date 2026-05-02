@@ -320,6 +320,9 @@ Properties:
 |----------------------|----------------------------------------------------------------------------------|
 | `/port-feature <n>`  | Port one feature V1 → V2: extract V1 contract → architect V2 → parity tests → impl → audit. Use for one-off ports outside the phased flow. |
 | `/migration-status`  | Read `ai/migration/ledger.md`, report done / in-flight / not-started + per-phase. Lighter than `/migration-gate` (no enforcement). |
+| `/migration-recheck <description-or-path>` | **Plan-independent V1↔V2 spot-check + fix.** NO plan / phase / ledger required. Accepts natural-language descriptions OR paths. Scans V1 + V2 source FRESH for the area, audits parity, fixes drift in V2 to match V1; updates ledger best-effort. Pass `--register-ledger` to track. Works whether or not the area is in the migration plan. |
+| `/cross-repo-task <subcommand>`           | **Cross-repo blocker registry + drain.** When a port halts with `reason: cross-repo` (e.g., backend route shape change needed). Subcommands: `register`, `list`, `update`, `close`, `drain`. Tracks blockers in `ai/migration/cross-repo-tasks.md`. Drain re-runs `/find-and-fix` on rows whose blockers landed. |
+| `/migration-promote-tier <id> <new-tier>` | **Mid-port tier promotion**. Halt → user demands tier change → backfill artifacts → resume fix loop. Demotion requires `--reason`; security demotion forbidden. |
 
 ### Align track (when `--include=align` — opt-in only)
 
@@ -351,6 +354,7 @@ The align pack is the **codebase quality gate** — a comprehensive sweep agains
 | `/align-rollback <N>`    | Undo phase N. Reverts commits via `git revert` (preserves audit trail), restores ledger rows to `detected`, archives halt files. Mandatory user confirmation; cascade warning if later phases depend on phase N. |
 | `/align-park <id> [reason]` | Defer a hairy finding. Sets `status: parked` with rationale; excludes from phase gate. Reversible via `/align-unpark`. |
 | `/align-replan`          | Regenerate the phased plan from current ledger state. Run when plan ages out (codebase changed, parked rows piled up, prior phases revealed sequencing wrong, `/setup-project --refine` updated idioms). Preserves verified rows; re-phases the rest. Mirrors `/migration-replan`. |
+| `/align-recheck <description-or-path>` | **Plan-independent quality spot-check + fix.** NO plan / phase / ledger required. Accepts natural-language descriptions OR paths. Scans source FRESH for the area via the 11 universal detectors (+ stack-conditional UI/UX); fixes drift; updates ledger best-effort. Pass `--register-ledger` to track findings going forward. Works whether or not alignment was ever set up. |
 
 Workflow (manual — fully supervised):
 ```

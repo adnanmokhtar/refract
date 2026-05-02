@@ -31,6 +31,42 @@ The align pack ships **no agents** (unlike migration). All detection is delegate
 
 Adapter responsibility: this flag MUST be exposed in tool-native command surfaces (Cursor `.cursor/commands/align-fast.md`, OpenCode `.opencode/commands/`, Copilot `.github/prompts/`, Cline `.clinerules/workflows/`, Windsurf `.windsurf/workflows/`). For rule-only tools (Aider / Codex / Gemini), document the flag in the rule's "Tool-agnostic procedure" section so users can invoke the equivalent re-detection manually.
 
+## Validator script — `validate-align-artifacts.sh` (v1.5+)
+
+Now ships at `scripts/validate-align-artifacts.sh` (589 lines). Implements 7 of the 14 gate checks mechanically: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum.
+
+Remaining 7 (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) stay agent-side until v2.
+
+Adapter responsibility: install the script as a hook integration per tool (see Validator script — universal callable section).
+
+## Reviewer-approval mechanism (v1.5+)
+
+Heavy-tier rows pause for reviewer approval. Ledger field: `reviewer_approval: <name>@<iso>`. Status `pending-review` between fix and signoff. Default reviewer from `CODEOWNERS` or `ai/align/_anchors.md`. 7-day timeout; no auto-fail.
+
+Adapter responsibility: surface pending-review halts to the user. Tools with native PR review surfaces MAY auto-populate `reviewer_approval` on merge.
+
+## Mid-port tier promotion — `/align-promote-tier` (v1.5+)
+
+`/align-promote-tier <id> <new-tier> [--reason="<text>"]`. Demotion of security rows is forbidden.
+
+Adapter responsibility: surface in command surface.
+
+## Idiom-drift propagation (v1.5+)
+
+`/align-scan` compares oracle file hashes against prior scan; surfaces "Idiom drift detected" with affected ledger rows. `/align-replan --include-drifted` re-phases.
+
+Adapter responsibility: include the drift section in the scan command's output template translation.
+
+## Plan-independent ad-hoc spot-check — `/align-recheck`
+
+`/align-recheck <description-or-path>` is the user's bypass-the-ceremony tool (v1.4.0). **NO plan / phase / ledger required.** Accepts natural-language descriptions OR paths. Semantic resolution via codebase-profile + idioms (same intent-interpretation model as `/add-feature`). Scans source FRESH via the 11 universal detectors directly — no cache lookup, no ledger-row dependency.
+
+Adapter responsibility:
+1. Every tool that exposes commands MUST surface `/align-recheck` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
+2. The semantic resolution flow (read codebase-profile + idioms → understand intent → confirm-or-run) MUST be preserved. Adapters MUST NOT downgrade to keyword tokenization.
+3. The plan-independence MUST be preserved. Adapters MUST NOT add a "ledger required" pre-flight check that wasn't in the source rule.
+4. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area you want re-checked; the agent reads the project profile, scans source via the universal detectors, fixes drift, optionally records into ledger if one exists."
+
 ## Required artifacts per project
 
 Every adapter setup that includes `--include=align` MUST also propagate these elements:

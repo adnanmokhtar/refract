@@ -149,6 +149,15 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   mirror_existing: true
   fallback: _examples/align-replan.md
 
+- name: align-recheck
+  kind: command
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md (codebase-profile + module names + UI surface inventory) + _extracted-idioms.md
+  sections: [premise, when_to_use, input_forms, resolution_semantic, phases_1_to_7, examples_description_and_path, hard_rules, failure_modes, related]
+  mirror_existing: true
+  fallback: _examples/align-recheck.md
+
 # ============ SKILLS (.claude/skills/<name>.md) ============
 
 - name: detect-drift

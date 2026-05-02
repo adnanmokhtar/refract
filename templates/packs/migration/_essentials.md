@@ -3,7 +3,7 @@ track: migration
 purpose: Per-feature V1→V2 port — read V1 deeply, rebuild in V2 with parity guarantees, capture migration-time perf wins (caching / indexes / query optimisation / column projection). Cross-stack.
 essentials:
   agents: [migration-architect, parity-auditor]
-  commands: [migration-scan, migration-plan, migration-phase, migration-fast, migration-gate, migration-final, migration-rollback, migration-replan, migration-park, migration-unpark, migration-deprecate, compare-v1, port-feature, migration-status, draft-phase-adrs]
+  commands: [migration-scan, migration-plan, migration-phase, migration-fast, migration-gate, migration-final, migration-rollback, migration-replan, migration-park, migration-unpark, migration-deprecate, compare-v1, port-feature, migration-status, draft-phase-adrs, migration-recheck, cross-repo-task, migration-promote-tier]
   skills: [extract-v1-contract, parity-test-generate, perf-uplift-survey]
   rules: [migration-discipline]
   ai-patterns: [feature-port, parity-testing, migration-ledger]
