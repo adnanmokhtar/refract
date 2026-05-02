@@ -242,6 +242,30 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 | `/add-crud-page`       | Full CRUD UI (list + detail + form).                                              |
 | `/i18n-audit`          | Find missing translations.                                                       |
 | `/a11y-audit`          | Accessibility audit.                                                             |
+| `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests). Now intent-gated: routes to `/enhance-ui` if description is enhancement, `/fix-bug` if bug, etc. |
+
+**Frontend skills (agent invokes when relevant):**
+- `visual-check` — Playwright screenshot at the route under change.
+- `component-playground` — mount component in isolated route with prop controls.
+- `verify-with-playwright` — full Playwright run.
+- `dev-server-start` — start the dev server with proper env.
+- `bundle-analyze` — bundle-size deltas.
+- `lighthouse-ci` — Lighthouse perf score.
+- `a11y-scan` — axe-core scan.
+- `ssr-audit` — SSR-safety check.
+
+### UI-UX track
+
+| Command                | Purpose                                                                          |
+|------------------------|----------------------------------------------------------------------------------|
+| `/design-review`       | Read-only audit: cite-or-halt findings on UX, design-system, a11y. |
+| `/enhance-ui <description>` | **Visual / UX enhancement orchestrator**. Runs cleanup (`/align-recheck` for token / a11y / wrapper drift) → `design-iterate` skill (3 variants, you pick) → re-enforce. One command for "make the sidebar look better". |
+
+**UI-UX skills:**
+- `design-iterate` — generate 3 visual variants (polished / bolder / minimal); screenshot each; user picks.
+- `design-token-audit` — find hardcoded values that should use tokens.
+- `motion-audit` — find inconsistent transitions.
+- `a11y-quick-check` — fast a11y scan (subset of `a11y-scan`).
 
 ### Code-quality track
 
@@ -400,9 +424,47 @@ Properties:
 - **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
 - **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
 
+### Universal entry point — `/do`
+
+`/do <description>` is the meta-router. Takes any natural-language description, picks the right specialized command, dispatches. Use when you don't remember the command name. Examples:
+
+```
+/do enhance the sidebar          → /enhance-ui
+/do add a refund button          → /add-feature
+/do fix the order list crash     → /fix-bug
+/do audit security               → /security-audit
+/do clean up the auth module     → asks: align? enhance? migration-recheck?
+```
+
+For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one question. For no-match, halts with available commands listed.
+
+### Testing track
+
+| Command                | Purpose                                                                          |
+|------------------------|----------------------------------------------------------------------------------|
+| `/run-tests [<scope>]` | Run the project's test suite (or scoped subset). Detects vitest / jest / pytest / playwright / etc. Reports pass/fail/coverage delta. Called by `/align-phase`, `/migration-fast`, `/find-and-fix` VERIFY steps. |
+| `/add-test`            | Author a new test. |
+| `/flaky-test-hunt`     | Debug intermittent failures. |
+
+### DevOps track
+
+| Command                | Purpose                                                                          |
+|------------------------|----------------------------------------------------------------------------------|
+| `/deploy-stage`        | Deploy current branch to staging. Detects deploy mechanism (Helm / k8s / Vercel / Netlify / etc.). Pre-flight + monitor + report. Halt-on-red. |
+| `/dockerize`           | Add Dockerfile + docker-compose. |
+| `/add-ci`              | Add CI workflow. |
+
+### Documentation track
+
+| Command                | Purpose                                                                          |
+|------------------------|----------------------------------------------------------------------------------|
+| `/add-runbook`         | Author an ops runbook (incident response / deploy / rollback / cutover). Standard sections: trigger, prerequisites, verify-after-each-step, rollback, common failures. |
+| `/add-adr`             | Author an Architecture Decision Record. |
+| `/doc-refresh`         | Refresh stale documentation. |
+
 ### Other tracks
 
-DevOps (`/dockerize`, `/add-ci`), security (`/security-audit`), testing (`/add-test`, `/flaky-test-hunt`), documentation (`/doc-refresh`, `/add-adr`), observability (`/log-tail`), etc.
+Security (`/security-audit`), observability (`/log-tail`, `/add-tracing`, `/add-metrics`, `/add-telemetry`), database (`/add-migration`, `/optimize-query`, `/db-audit`), performance (`/perf-audit`, `/profile-perf`, `/bundle-perf`), infrastructure (`/k8s-generate`, `/audit-iam`, `/cost-audit`), business (`/audit-business`), distributed-systems (`/audit-distributed-tx`).
 
 ### `--plan` works on every generated command
 

@@ -3,7 +3,7 @@ track: documentation
 purpose: Author and maintain code/architecture documentation, ADRs, and knowledge files.
 essentials:
   agents: [doc-writer]
-  commands: [add-adr]
+  commands: [add-adr, add-runbook]
   skills: []
   rules: [doc-principles]
   ai-patterns: [adr-template]

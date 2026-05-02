@@ -4,7 +4,7 @@ purpose: Client-side UI development — design, implement, and verify pages/comp
 essentials:
   agents: [ui-architect, ui-reviewer]
   commands: [add-component, add-page]
-  skills: [visual-check]
+  skills: [visual-check, component-playground]
   rules: [frontend-principles]
   ai-patterns: [rendering-strategy, forms]
 ---

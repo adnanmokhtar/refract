@@ -42,6 +42,13 @@ Everything else — prop default-true vs default-false, slot vs prop for header,
 - NOT: a container with data-fetching logic — those are page-level, not components. Use `/add-crud-page` or `/add-feature`.
 
 ## Phase 1 — Understand
+
+### Intent gate
+
+If description suggests a different intent, halt with redirect: "enhance / improve" → `/enhance-ui`. "fix" → `/fix-bug`. "test in isolation" → `component-playground` skill. Proceed only for adding a new shared component.
+
+### Standard inputs
+
 - Name in PascalCase (confirm with user if generic — `Box`, `Wrapper`, `Container` are blockers).
 - Purpose: ONE sentence, what it presents, no business logic mention.
 - Props with types, events emitted, slots/children.

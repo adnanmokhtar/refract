@@ -3,7 +3,7 @@ track: testing
 purpose: Test design, authoring, and coverage analysis across the codebase.
 essentials:
   agents: [test-engineer, test-reviewer]
-  commands: [add-test]
+  commands: [add-test, run-tests]
   skills: [coverage-gap]
   rules: [testing-principles]
   ai-patterns: [test-strategy]

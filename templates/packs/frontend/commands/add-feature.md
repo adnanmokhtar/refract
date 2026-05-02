@@ -64,6 +64,25 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 ## Phase 1 — Understand (the ask)
 
+### Intent gate (mandatory pre-step)
+
+Before anything else, parse the user's description for **enhancement / fix / bug** keywords that indicate a different command is the right choice. Halt with a redirect message rather than start an add-feature flow on a request that's not actually adding a feature:
+
+| User description contains | Right command | Action |
+|---|---|---|
+| "enhance" / "improve" / "polish" / "cleaner" / "better look" / "refine the design" / "redesign" / "match colors" / "fix padding" | `/enhance-ui` (frontend visual work) | Halt; suggest `/enhance-ui <description>` |
+| "align" / "convention" / "drift" / "cleanup" / "remove duplication" | `/align-recheck` (codebase quality) | Halt; suggest `/align-recheck <description>` |
+| "fix" + ("bug" / "broken" / "wrong" / "crash" / "error") — when the issue is incorrect behavior, NOT visual polish | `/fix-bug` | Halt; suggest `/fix-bug <description>` |
+| "audit" / "review" / "inspect" — without intent to change code | `/design-review`, `/a11y-audit`, `/i18n-audit` | Halt; suggest the right read-only audit |
+| "iterate" / "try variants" / "few options" — visual exploration | `design-iterate` skill | Halt; suggest "use design-iterate skill on <path>" |
+| "add" / "new" / "create" / "build" / "implement" — actually adding new feature work | `/add-feature` (this command) | Proceed |
+
+If the description is ambiguous, ASK the user one clarifying question: "are you adding new functionality, or improving existing UI/UX?" Then route based on the answer.
+
+If the user explicitly insists on `/add-feature` for an enhancement task (e.g., "no, run add-feature anyway"), proceed but flag in the run summary that a redirect was suggested but overridden.
+
+### Standard inputs
+
 Ask (one consolidated question if any of these unknown):
 
 - **What is the user-facing feature?** Describe in plain language: what does the user see / do / accomplish?

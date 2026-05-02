@@ -42,6 +42,12 @@ Everything else — loading/empty/error state shape, lazy-load wrapper, i18n key
 
 ## Phase 1 — Understand
 
+### Intent gate
+
+If description suggests a different intent, halt with redirect: "enhance / improve / polish / cleaner" → `/enhance-ui`. "fix / broken / wrong" → `/fix-bug`. "audit / review" → `/design-review`. Proceed only for adding a new page.
+
+### Standard inputs
+
 - Parse `<route>` arg.
 - Consolidated question if missing: page purpose, data dependencies, required permissions.
 - Success: route renders skeleton + loading + error + empty states; i18n keys exist in every locale; tests cover render + fetch + interaction.

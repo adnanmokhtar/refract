@@ -72,6 +72,12 @@ All 7. Phase 6 = before/after `EXPLAIN ANALYZE` on prod-shaped data.
 
 ## Phase 1 — Understand
 
+### Intent gate
+
+If description suggests a different intent, halt with redirect: "add / new" → `/add-endpoint` (if new endpoint) or `/add-migration` (if new schema). "fix / broken" → `/fix-bug` (if behaviour bug). "audit / review" → `/db-audit` or `/perf-audit`. Proceed only for optimizing an existing query.
+
+### Standard inputs
+
 - Parse `<endpoint|sql>` arg.
 - For endpoint: trace controller → service → repo → final SQL via TypeORM/Prisma logging or `LOG=query` env.
 - For raw SQL: use directly.

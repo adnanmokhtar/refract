@@ -14,6 +14,13 @@ Audit command. Multi-agent security review of the diff (or whole repo). Phases 1
 - NOT: as the only security check — pair with SAST tools and human review on sensitive paths.
 
 ## Phase 1 — Understand
+
+### Intent gate
+
+If description suggests a different intent, halt with redirect: "fix the auth bug" → `/fix-bug` (specific bug, not audit). "rotate secrets / credentials" → operational, not audit. "add auth gate" → `/add-feature` or `/add-endpoint`. Proceed for: full OWASP pass, scoped review, or staged-changes security review.
+
+### Standard inputs
+
 - Determine diff scope:
   ```bash
   git fetch origin

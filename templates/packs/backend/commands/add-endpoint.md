@@ -24,6 +24,12 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 ## Phase 1 — Understand (the ask)
 
+### Intent gate
+
+If description suggests a different intent, halt with redirect: "fix / broken / wrong" → `/fix-bug`. "optimize / slow / N+1" → `/optimize-query`. "audit / review" → `/security-audit` (if security-flavored) or `/perf-audit`. "enhance" → not applicable to backend endpoints (proceed; new endpoint IS the enhancement). Proceed only for adding a new endpoint / route / event handler.
+
+### Standard inputs
+
 Ask (one consolidated question):
 - Which module?
 - HTTP method + path (or event name for queue consumer).

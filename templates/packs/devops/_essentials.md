@@ -3,7 +3,7 @@ track: devops
 purpose: CI/CD pipelines, container images, and deployment workflows.
 essentials:
   agents: [devops-architect]
-  commands: [add-ci, dockerize]
+  commands: [add-ci, dockerize, deploy-stage]
   skills: [dockerfile-lint]
   rules: [devops-principles]
   ai-patterns: [deployment]

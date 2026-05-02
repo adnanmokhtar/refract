@@ -61,6 +61,24 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 ## Phase 1 — Understand (the bug)
 
+### Intent gate (mandatory pre-step)
+
+Parse the user's description for keywords that indicate a different command is the right choice. `/fix-bug` is for INCORRECT BEHAVIOR — wrong output, crash, error, regression. NOT for visual polish, enhancement, or new features.
+
+| User description contains | Right command | Action |
+|---|---|---|
+| "enhance" / "improve" / "polish" / "cleaner" / "better look" / "redesign" — visual / UX work | `/enhance-ui` (frontend) | Halt; suggest `/enhance-ui <description>` |
+| "add" / "new" / "create" / "build" — new functionality | `/add-feature` | Halt; suggest `/add-feature <description>` |
+| "align" / "drift" / "convention" / "cleanup" — codebase quality, not a bug | `/align-recheck` | Halt; suggest `/align-recheck <description>` |
+| "audit" / "review" — read-only intent | `/security-audit`, `/design-review`, etc. | Halt; suggest the right audit |
+| "broken" / "crash" / "error" / "wrong output" / "regression" / "doesn't work" — actual bug | `/fix-bug` (this command) | Proceed |
+
+If ambiguous: ASK "is this incorrect behavior, or a quality / enhancement task?" Route based on answer.
+
+If user insists on `/fix-bug` for a non-bug task, proceed but flag in the run summary that a redirect was suggested but overridden.
+
+### Standard inputs
+
 One consolidated question if info missing:
 - Exact symptom.
 - Steps to reproduce.

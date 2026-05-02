@@ -18,6 +18,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [Phase 5 audit failure modes](#phase-5-audit-failure-modes)
 - [Migration end-to-end](#migration-end-to-end)
 - [Align (codebase quality sweep) end-to-end](#align-codebase-quality-sweep-end-to-end)
+- [Universal commands (`/do`, intent gates, gap-fill commands)](#universal-commands)
 - [Memory system](#memory-system)
 - [Validator scripts](#validator-scripts)
 - [Common pitfalls](#common-pitfalls)
@@ -518,6 +519,56 @@ If `/align-phase` halts repeatedly with "missing idiom" reasons (e.g., the proje
 This keeps the alignment effort honest: the inventory is the oracle; gaps in the oracle surface as parked findings, not silently-invented abstractions.
 
 ---
+
+## Universal commands
+
+### `/do <description>` — meta-router
+
+Single entry point. Take any natural-language description; agent picks the right specialized command via intent + stack + available-commands; dispatches.
+
+- **High confidence** → silent dispatch with 1-line preamble.
+- **Medium confidence** (ambiguous target) → ask one clarifying question.
+- **Low confidence** → halt; list available commands matching keywords.
+
+Forwards the user's description verbatim to the picked command. Logs every dispatch to `ai/_history.md`.
+
+Use cases:
+```
+/do enhance the sidebar           → /enhance-ui
+/do add a refund button           → /add-feature
+/do fix the order list crash      → /fix-bug
+/do clean up the auth module      → asks: align? enhance? migration-recheck?
+/do audit security                → /security-audit
+```
+
+### Intent gates (on specialized commands)
+
+Major commands now have a Phase 1 "Intent gate" that detects when the user's description doesn't match the command's scope, halts, and suggests the right alternative:
+
+| Command | Halts when description suggests | Suggests |
+|---|---|---|
+| `/add-feature` | "enhance / improve / polish / cleaner" | `/enhance-ui` |
+| `/add-feature` | "fix / broken / wrong" | `/fix-bug` |
+| `/enhance-ui` | "add / new / create / build" | `/add-feature` |
+| `/fix-bug` | "enhance / improve / polish" | `/enhance-ui` |
+| `/add-page` | similar | similar |
+| `/add-component` | "test in isolation" | `component-playground` skill |
+| `/add-endpoint` | "fix / broken" | `/fix-bug` |
+| `/optimize-query` | "add / new" | `/add-endpoint` or `/add-migration` |
+| `/security-audit` | "fix the auth bug" | `/fix-bug` |
+
+User can override ("no, run /add-feature anyway") — the run summary flags the override.
+
+### Gap-fill commands (v1.5+)
+
+| Command | Pack | Purpose |
+|---|---|---|
+| `/run-tests [<scope>]` | testing | Detects runner; runs scoped or full suite; reports pass/fail/coverage. Called by `/align-phase` and `/migration-fast` VERIFY steps. |
+| `/deploy-stage` | devops | Deploy to staging. Pre-flight + detect mechanism + monitor 5min + halt on red. |
+| `/add-runbook <name>` | documentation | Author ops runbook with mandatory verify-after-each-step + rollback section. |
+| `/migration-promote-tier <id> <tier>` | migration | Mid-port tier change. Backfills artifacts on promotion. Demotion forbidden for security/P0/cross-repo. |
+| `/align-promote-tier <id> <tier>` | align | Same as above for align findings. |
+| `/cross-repo-task` | migration | Register / list / drain cross-repo blockers when ports halt due to upstream changes. |
 
 ## Memory system
 
