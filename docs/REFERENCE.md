@@ -180,6 +180,31 @@ A pack file in `_pack-coverage-report.md` is marked `Missing` and was not addres
 
 ---
 
+## The 3 simple commands — `/migrate`, `/optimize`, `/align`
+
+Top-level user surface above the detailed phased commands. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path) and runs deep multi-agent execution silently. NO phases / halts / ADRs / terminology surfaced — internal discipline (V1-parity, gap-count parity, idiom citation, no fabrication) is preserved but invisible.
+
+Progress tracking via `ai/{migrate,optimize,align}/progress.md` (single source of truth per command). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags shared by all three:
+
+| Flag | Behaviour |
+|---|---|
+| `--status` | Read-only progress report; no work done. |
+| `--resume` | Pick up the in-progress area. |
+| `--reset <area>` | Mark one area pending; re-run from scratch. |
+| `--refresh` | Re-scan codebase + merge into existing `progress.md`. New areas appended as `pending`; missing areas marked `archived`; existing rows (done / in-progress / blocked / pending) preserved untouched. Updates Summary counts. NO fix work performed — safe to run anytime. If `progress.md` is missing, builds it from scratch (same as first run). |
+| `--restart` | WIPE progress entirely; back up to `ai/{cmd}/progress-<iso>.bak.md`; reset every area to pending; begin from the first area. Does NOT revert any commits already made (use `git` for that). |
+| `--dry-run` | Show what would change; no edits. |
+| `--allow-dirty` | Proceed with uncommitted changes. |
+| `--max-parallel=<N>` | Cap concurrent dispatch (default: 5–6). |
+| `--exclude=<scope>` | Exclude areas. |
+| `--surface-blockers` | Show halted findings explicitly. |
+
+**End-of-run output**: brief block with findings closed, commits made, diff stats, test status. No phase numbers, no halt files, no ADR prompts. Genuine blockers (cross-repo, infra missing, user-must-decide) surface in a one-line "Blockers" section with resolution path.
+
+For phase-by-phase or per-feature control, the detailed commands below still exist.
+
+---
+
 ## Migration end-to-end
 
 The complete V1 → V2 migration workflow, with every halt and gate.

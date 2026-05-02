@@ -1,0 +1,228 @@
+---
+description: One command convention alignment. Deep multi-agent execution. Takes optional scope (whole project OR specific area). NO phases visible, NO terminology, NO mid-run questions. Internally runs scan + fix in parallel waves for drift, reinvented wrappers, silent catches, design-token drift, a11y, i18n, and other convention violations. Output is brief: findings closed, commits, diff stats, test status. The simple-surface alternative to /align-scan + /align-fast cycles for convention drift.
+kind: command
+pack: orchestration
+---
+
+# /align [<scope>]
+
+## What this does
+
+**Single command. Detect where the code doesn't follow the project's structure + fix it.** Deep multi-agent scan + fix. Whole project or scoped.
+
+The agent:
+1. **Reads the project's structure rules** from `_extracted-idioms.md` / `codebase-profile.md` / `ai/conventions.md` / `ai/architecture.md` / `.claude/rules/*`. This is the truth about how THIS project is supposed to look.
+2. **Scans every file** for violations of those rules.
+3. **Fixes violations in parallel** by routing each one to the right closure verb (replace-with-shared, remove, dedupe, etc.).
+
+Detects + fixes:
+- **Layer violations** — components importing services directly (must go through composables); services importing Vue / framework primitives (must be framework-agnostic); core/ importing UI; circular dependencies.
+- **Module-shape violations** — feature module missing required directories; cross-module imports that should go through `shared/`; modules using global state when local would do.
+- **Naming convention violations** — files / classes / types / locale keys not matching the project's pattern (e.g., `useFoo.ts` for composables, `{Entity}Page.vue` for pages, `{Module}.{entity}.{action}` for i18n keys).
+- **Reinvented wrappers** — custom code where a shared component exists (e.g., raw `<Button>` from PrimeVue where `AppButton` exists).
+- **Silent catches** — empty `catch {}` routed through the project's error handler.
+- **Forbidden imports** — `axios.create()` outside `core/api/`; cross-import V1↔V2; unauthorized libraries.
+- **Default-true wrapper props left implicit** — `<CrudActions>` / `<TableHeader>` rendered without explicit `:show-*="false"` when affordance should be hidden.
+- **Permission-gate drops** — actions rendered without `v-if="hasPermission(...)"` / equivalent.
+- **Lifecycle hook misuse** — KeepAlive-cached children that fetch data using only `onMounted` (need `onActivated` paired).
+- **Design-token drift** — hardcoded colors / spacing where tokens exist.
+- **i18n key drift** — hardcoded user-visible strings.
+- **a11y violations** — missing alt, focus states, contrast issues.
+- **Allowlist violations** — Pinia stores outside the project's allowed list; routes outside the configured router; etc.
+
+This is **structure enforcement** — no creative work, no new abstractions, just "make the code follow the project's stated structure."
+
+## When to use
+
+- "Align the whole project to the design system." → `/align`
+- "Align the orders module." → `/align the orders module`
+- "Fix convention drift across auth pages." → `/align the auth pages`
+
+## When NOT to use
+
+- For visual / look enhancement → `/enhance-ui` or `/ui-sweep` (creative work).
+- For V1→V2 port → `/migrate`.
+- For performance / clean-code optimization → `/optimize`.
+- For new features → `/add-feature`.
+
+## Args
+
+- `<scope>` (optional) — natural-language description OR explicit path. If omitted: whole project.
+
+Examples:
+```
+/align                                  # whole project
+/align the orders module                # one module
+/align the sidebar                      # one component
+/align src/modules/auth/                # explicit path
+/align "auth pages including login"     # multi-page scope
+```
+
+## What happens internally (silent)
+
+1. **Scan** — runs convention detectors: drift (vs `ai/conventions.md` / `ai/architecture.md`), reinvented-wrapper, silent-catch. Plus stack-conditional UI/UX detectors for `frontend-*` (a11y, design-token-drift, i18n-key-drift, raw-library-component, lifecycle-hook-wrong, default-true-prop, permission-gate-drop).
+2. **Resolve scope** — semantic resolution.
+3. **Plan internally** — group by class + page/domain (UI/UX findings group by page; structural by class).
+4. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Closure verbs are mechanical: `replace-with-shared`, `remove`, `dedupe`, `add-gate` (for missing auth gates), `escape` (for unescaped user output).
+5. **Verify continuously** — lint + typecheck + scoped tests + (frontend) a11y check + bundle-size after each fix.
+6. **Self-resolve common questions** — convention is the truth. Project's idiom inventory (`_extracted-idioms.md` / `codebase-profile.md`) is the oracle. No "is this the right pattern" prompts.
+7. **Halt only on genuine blockers**:
+   - Idiom missing for a fix (project has no shared button when fix needs one — surfaces "/setup-project --refine to add primitive first").
+   - Visual regression baseline drift > threshold (frontend; surfaces "review snapshots").
+   - Behavior change risk (re-classify as refactor; user decides).
+
+## Progress tracking (multi-day workflow)
+
+Single source of truth: **`ai/align/progress.md`**.
+
+### How it works
+
+- **First run** → builds module inventory + writes progress file (all `pending`). Runs first module.
+- **Subsequent runs** → reads progress file, picks next `pending` module (or use `<scope>` arg). Already-`done` modules skipped automatically.
+- **`/align --status`** → read-only progress report; no work done.
+
+### Progress file shape
+
+```markdown
+# Align progress
+
+Started: 2026-05-02
+Codebase: /Users/mac/Workspace/Projects/sahlcart/tenant-portal-v2/src/
+
+## Summary
+- Total areas:   22 modules + shared/ + core/
+- Done:           3
+- In progress:    1
+- Pending:       20
+- Blocked:        0
+
+## Areas
+
+### profile [done] (2026-05-02, 8m)
+- Files walked: 28
+- Findings closed: 22 / 22
+- By class: reinvented-wrapper(9), silent-catch(4), design-token-drift(5), a11y-violation(2), i18n-key-drift(2)
+- Commits: 22
+- Diff: -64 lines
+
+### notifications [done] (2026-05-02, 5m)
+- ...
+
+### orders [in-progress]
+- Started: 2026-05-03 10:00
+- Paused at: 15 of 28 files
+
+### inventory [pending]
+... (more)
+```
+
+### Daily workflow
+
+```
+Day 1:  /align                  # first pending module
+Day 2:  /align                  # next pending
+Day 3:  /align --status         # progress report
+        /align                  # continue
+...
+```
+
+Overrides:
+```
+/align the orders module        # specific area
+/align --status                 # progress report only
+/align --resume                 # pick up in-progress
+/align --reset profile          # re-run from scratch
+/align --refresh                # RE-SCAN codebase, MERGE into existing progress.md
+                                #   - If progress.md missing: builds it from scratch (same as first run)
+                                #   - If progress.md exists:
+                                #     * new areas (modules added since last scan) → appended as `pending`
+                                #     * missing areas (modules removed/renamed) → marked `archived` (kept for history)
+                                #     * existing rows (done / in-progress / blocked / pending) → preserved untouched
+                                #   - Updates Summary counts to reflect new totals
+                                #   - NO fix work performed; safe to run anytime
+/align --restart                # WIPE progress, start over from the beginning
+                                #   - Backs up current progress to ai/align/progress-<iso>.bak.md
+                                #   - Resets every area to pending
+                                #   - Begins with the first pending area
+                                #   - Does NOT revert any commits already made (use git for that)
+```
+
+## What you see (output)
+
+```
+Align complete
+
+Scope:               the orders module
+Findings closed:     22
+  reinvented-wrapper:  9 (raw <Button> from primevue → AppButton)
+  silent-catch:        4 (routed through handleApiError)
+  design-token-drift:  5 (hardcoded #3b82f6 → $primary; spacing 12px → $space-md)
+  a11y-violation:      2 (missing focus state, missing alt)
+  i18n-key-drift:      2 (hardcoded "Save" / "Cancel" → t() calls)
+
+Commits:             22 (one per finding)
+Diff:                +14 / -78 = -64 lines
+Tests:               124/124 passing
+a11y score:          92 → 95
+Bundle delta:        -0.3% (smaller)
+Wall-clock:          8m 14s
+
+Skipped (intentional V2 design — has accepted ADR): 3 findings
+
+Next: /align the next module  OR  inspect commits via git log --oneline
+```
+
+## What you DON'T see
+
+- "Phase 3 — auth domain UI/UX"
+- "Halt: idiom missing for X"
+- "Tier promotion required"
+- "Ledger row F042 status: verified"
+- "/align-gate 4 to advance"
+
+All internal. Just results.
+
+## Optional flags
+
+- `--dry-run` — show what would be aligned, no edits.
+- `--allow-dirty` — proceed with uncommitted changes.
+- `--max-parallel=<N>` — cap concurrent dispatch (default: 5).
+- `--focus=<list>` — narrow to specific drift classes (e.g., `--focus=design-token-drift,a11y-violation`).
+- `--exclude=<scope>` — exclude areas.
+- `--surface-blockers` — show halted findings explicitly.
+
+## Pre-requisites
+
+- `_extracted-idioms.md` OR `codebase-profile.md` populated (the convention oracle).
+- Mechanical CI green.
+- Working tree clean (or `--allow-dirty`).
+
+## Hard rules (internal)
+
+Applied silently per the discipline:
+- Convention is the truth — no questioning the project's idioms.
+- Closure verbs from the closed vocabulary; no new abstractions invented.
+- Net-lines ≤ 0 for structural alignments.
+- Behaviour preserved (no convention enforcement changes user-observable output, except where security gates are added).
+- Re-detect after each fix; gap-count parity.
+- One commit per finding.
+- (Frontend) a11y / bundle-size do not regress.
+
+User sees results, not the policing.
+
+## Failure modes
+
+- **No findings** → "Codebase already aligned to conventions; nothing to do."
+- **Idiom missing** → halts the affected fix; surfaces "/setup-project --refine" to add the missing primitive; rest continue.
+- **Behavior change risk** → that finding skips with note; rest continue.
+
+## Related (advanced)
+
+For phase-by-phase or class-specific control, existing detailed commands still exist:
+- `/align-scan` — inventory only.
+- `/align-fast <N>` — run one phase.
+- `/align-recheck <scope>` — focused area.
+- `/ui-sweep` — UI/UX specialist (deeper than this for visual / layout / design quality).
+- `/design-review` — read-only design audit.
+
+`/align` is the simple-surface entry point. Power users can drop down to detailed commands.

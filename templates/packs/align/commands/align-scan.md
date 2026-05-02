@@ -8,7 +8,7 @@ pack: align
 
 ## The Premise (read this first)
 
-**Read before flagging. Cite real `<path:line>` evidence, never invented.** The scan reads the actual codebase against the actual gold-standard inventory (`_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md`) and writes a finding row per real fingerprint hit. No paraphrasing, no "this module probably has dead code," no inferred entries from memory or vibe-check. Every finding row's `evidence` is a real `<path:line>` containing the cited fingerprint at the pinned commit. If a detector tool is unavailable (binary missing, config invalid), halt and surface — do NOT silently drop a class.
+**Read before flagging. Cite real `<path:line>` evidence, never invented.** The scan reads the actual codebase against the actual gold-standard inventory — preferring `_extracted-idioms.md` when present, falling back to `codebase-profile.md` when idioms is absent (the latter is normal for Composition-API / functional projects where Phase 2.5 of refine has no class-inheritance hierarchy to extract from). Plus `ai/conventions.md` + `ai/architecture.md`. Writes a finding row per real fingerprint hit. No paraphrasing, no "this module probably has dead code," no inferred entries from memory or vibe-check. Every finding row's `evidence` is a real `<path:line>` containing the cited fingerprint at the pinned commit. If a detector tool is unavailable (binary missing, config invalid), halt and surface — do NOT silently drop a class.
 
 The deep-comparison entry point. Run this FIRST before `/align-plan` or `/align-fast`.
 
@@ -32,7 +32,7 @@ Frontend stacks (`frontend-*`) additionally run UI/UX detectors (a11y, design to
 
 - Mid-feature work — the diff dominates findings; finish the feature, then run.
 - Mechanical CI red (lint / typecheck / build / tests failing) — fix mechanical first via `/check-health`.
-- Empty `_extracted-idioms.md` — no oracle to align against; run `/setup-project --refine` first.
+- Empty oracle — neither `_extracted-idioms.md` nor `codebase-profile.md` exists or both are empty. Run `/setup-project --refine` first. (NOTE: for projects without class-inheritance hierarchies — Vue 3 Composition API, React functional, etc. — Phase 2.5 of refine explicitly skips `_extracted-idioms.md` and writes only `codebase-profile.md`. The scan accepts either file as the oracle.)
 
 ## First-run guidance — what to expect
 
@@ -544,7 +544,7 @@ Every row in the output must be re-derivable by another reader given the same co
 
 ## Failure modes
 
-- **Empty oracle** — `_extracted-idioms.md` is empty / missing. Halt; route to `/setup-project --refine`.
+- **Empty oracle** — neither `_extracted-idioms.md` NOR `codebase-profile.md` exists / populated. Halt; route to `/setup-project --refine`. The scan accepts EITHER file as the oracle (preferring idioms when present, falling back to profile when idioms is absent — which is the normal case for Vue 3 Composition API / React functional projects where Phase 2.5 of refine skips idioms because there's no class-inheritance hierarchy to extract).
 - **Mechanical red** — lint / typecheck / build / tests failing. Halt; the existing red drowns alignment findings.
 - **Detector tool missing** — e.g., `jscpd` not installed. Halt; surface the install command from the project's `package.json` / `Makefile`.
 - **Stack pack missing** — `PROJECT_KIND=frontend-vue` but no `frontend/` pack loaded. Halt; surface the missing pack and offer `--no-stack` as a workaround (with the explicit downgrade noted in the report).

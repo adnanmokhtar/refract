@@ -458,6 +458,48 @@ Properties:
 - **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
 - **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
 
+### The 3 simple commands (start here)
+
+These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path).
+
+| Command | Purpose |
+|---|---|
+| `/migrate [<scope>]` | Deep V1↔V2 scan + compare + port everything. V1 wins on behaviour; V2 wins on structure. Doesn't leave any live V1 feature behind (skips only dead V1 code). |
+| `/optimize [<scope>]` | Make code high-quality: clean code + clean architecture + SOLID + performance + dead code + dedup + over-abstraction. |
+| `/align [<scope>]` | Detect where code doesn't follow the project's structure (layering, naming, idioms, conventions, design tokens, a11y, i18n) + fix. |
+
+Each runs in one shot. End-of-run shows: findings closed, commits made, diff stats, test status. Internal discipline is preserved (V1-parity, no fabrication, gap-count parity, idiom citation) but invisible.
+
+Examples:
+```
+/migrate                              # whole project V1→V2
+/migrate the orders module
+/optimize                             # whole project quality
+/optimize the dashboard, focus on perf
+/align                                # whole project convention drift
+/align the sidebar
+```
+
+**Multi-day workflow** — each command writes to its own progress file (`ai/{migrate,optimize,align}/progress.md`). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags:
+
+```
+/<cmd>                                # next pending area (or first run: build inventory)
+/<cmd> <scope>                        # specific area, skip ahead
+/<cmd> --status                       # read-only progress report
+/<cmd> --resume                       # pick up the in-progress area
+/<cmd> --reset <area>                 # mark one area pending (re-run it)
+/<cmd> --refresh                      # re-scan codebase, MERGE into progress.md (new → pending, missing → archived, existing preserved)
+/<cmd> --restart                      # WIPE progress, back up to progress-<iso>.bak.md, start over
+/<cmd> --dry-run                      # show what would change, no edits
+/<cmd> --max-parallel=<N>             # cap concurrent dispatch (default: 5–6)
+/<cmd> --exclude=<scope>              # exclude areas
+/<cmd> --surface-blockers             # show halted findings explicitly
+```
+
+`--restart` does NOT revert any commits already made — use `git` for that.
+
+For phase-by-phase or per-feature control, the detailed commands (`/migration-fast`, `/align-fast`, `/find-and-fix`, etc.) still exist below.
+
 ### Universal entry point — `/do`
 
 `/do <description>` is the meta-router. Takes any natural-language description, picks the right specialized command, dispatches. Use when you don't remember the command name. Examples:

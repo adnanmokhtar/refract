@@ -23,6 +23,26 @@ The migration pack is **non-negotiable** in the sense that its discipline rule (
 
 **Conclusion**: every tool MUST receive a faithful translation of `migration-discipline.md` (the self-sufficient rule). The 9 contract sections, 10 hard halts, frontend audit axes, frontend anti-pattern catalogue, and tool-agnostic procedures are inlined in the rule precisely so rule-only tools have the full surface.
 
+## Simple-surface entry — `/migrate` (top-level command)
+
+Above the phased `/migration-scan` → `/migration-plan` → `/migration-fast` ceremony, the top-level `/migrate [<scope>]` command provides a one-shot entry point. Same discipline runs internally; user sees only the brief end-of-run summary.
+
+- **Source**: `commands/migrate.md` (top-level, NOT in pack folder — installed alongside pack commands).
+- **Progress tracking**: `ai/migrate/progress.md` (single source of truth across multi-day runs).
+- **Flags**: `--status`, `--resume`, `--reset <area>`, `--refresh`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--include-dead`, `--surface-blockers`.
+
+**`--refresh` semantics** — re-scans V1 + V2, merges with existing progress: newly-added V1 features → `pending`, removed V1 features → `archived`, existing rows preserved. Re-checks dead-V1 reachability for all rows; newly-dead rows flip to `deprecated`. NO port work. Auto-creates `progress.md` if missing.
+
+**`--restart` semantics** — backs up current progress to `ai/migrate/progress-<iso>.bak.md`, resets every area to pending, begins from the first area. Does NOT revert commits already made.
+
+Adapter responsibility:
+1. Every tool that exposes commands MUST surface `/migrate` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
+2. The "no phases / halts / ADRs in user-facing output" contract MUST be preserved — adapters MUST NOT downgrade the simple command into the verbose phased flow.
+3. The internal CORE PHILOSOPHY (V1 wins on behaviour; V2 wins on structure; no V1-verification halts) MUST flow into the simple command's silent execution.
+4. Progress file location (`ai/migrate/progress.md`) MUST be honoured so multi-day runs survive across sessions.
+5. Genuine blockers (cross-repo dependency, V1 source unreadable, security-sensitive contract break) surface in a one-line "Blockers" section, NOT as multi-page halt files.
+6. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area; agent reads V1 + V2 sources, ports each feature with V2 structure + V1 behaviour, brief end-of-run summary."
+
 ## NEW (2026-04-29 hardening) — required artifacts per project
 
 Every adapter setup that includes `--include=migration` MUST also propagate these new elements:

@@ -127,7 +127,7 @@ Invoke the **`extract-codebase-overview`** skill (lives in `~/.claude/templates/
 - Step 1-2: stack + repo shape (deterministic).
 - Step 3: architecture + layering (import-graph sample).
 - Step 4: module enumeration.
-- Step 5: base class detection — for each base class with ≥3 extenders, **delegates to `extract-base-class-idiom` skill** (Phase 2.5 — was a separate phase in v2; now invoked as Step 5 of the orchestrator). Up to 6 concurrent extractor subagents.
+- Step 5: idiom extraction — detects project's primary idiom pattern (class-inheritance / composables / shared-wrappers / shared-services / type-system) and dispatches the matching extractor skill. Always writes `_extracted-idioms.md` even for projects with no load-bearing idioms (minimal-strategy fallback). Up to 6 concurrent extractor subagents. See § Phase 2.5 below for full strategy logic.
 - Step 6: data model.
 - Step 7: API surface.
 - Step 8: convention auto-detection.
@@ -140,7 +140,7 @@ Invoke the **`extract-codebase-overview`** skill (lives in `~/.claude/templates/
 
 Outputs:
 - `.claude/_extracted-codebase.md` (the technical full-picture).
-- `.claude/_extracted-idioms.md` (per-base-class deep extraction — appended one section per base).
+- `.claude/_extracted-idioms.md` (deep extraction — strategy-adaptive: per-base-class for OOP projects, per-composable for Vue 3 / React functional, per-shared-wrapper for design-system-heavy projects, etc. ALWAYS written; minimal-strategy fallback if no load-bearing idioms detected).
 - `.claude/_extracted-business.md` (the WHY).
 
 **`.claude/codebase-profile.md`** is a derived view (kept for backward-compat consumers): condensed, human-readable, contains the same 14 fields the old profile had — but each field cites its source section in `_extracted-codebase.md`.
@@ -239,19 +239,117 @@ Output format: structured markdown (see Appendix D).
 
 Generic pack templates produce generic output. To author project-specific patterns + agents + rules in Phase 4, the brain needs the project's **idioms** — not just its file paths and dependency list.
 
-**Trigger**: ENHANCE / REFRESH mode AND Phase 2 detected ≥1 base class with ≥3 extenders. (CREATE mode skips — no extenders to walk yet; idioms emerge during code phase.)
+**Trigger**: ENHANCE / REFRESH / REFINE mode. ALWAYS runs (no longer gated on "≥1 base class with ≥3 extenders"). Phase 2.5 ALWAYS writes `_extracted-idioms.md` — the only question is which extraction strategy fits the project. CREATE mode skips (no extenders / composables / wrappers exist yet; idioms emerge during code phase).
 
-**Mechanism**: invoke the `extract-base-class-idiom` skill (lives in `~/.claude/templates/packs/learning/skills/extract-base-class-idiom.md`) for each detected base class. The skill walks: base class file (full read) → all extenders (count + sample 3-5) → cited collaborators (recursive, per Step 3.5) → automatic behaviors + escape hatches → pitfalls (deprecated comments, "DON'T" comments, regression tests, custom rules referencing the base, memory + audit files).
+**The fix (2026-05-02)**: prior logic only extracted from class-inheritance hierarchies. Vue 3 Composition API, React functional, Angular standalone, and other functional / composition-style projects have no class-inheritance — but they DO have load-bearing idioms (composables / hooks / shared wrappers / shared services / type primitives). The extractor now detects the project's primary idiom pattern and switches strategy. **`_extracted-idioms.md` is always written**, even if minimal.
 
-**Parallelism**: spawn each base class extraction as an Explore subagent — they're independent. Cap at 6 concurrent to avoid runaway token use.
+#### Idiom-pattern detection
 
-**Output**: `.claude/_extracted-idioms.md` — one section per base class with the structure documented in the skill's Step 6. This file is the **substrate for Phase 4.2-AUTHOR**.
+Phase 2.5 first scores the project across 5 idiom patterns:
 
-**Quality gate**: if extraction yields <50% coverage of any base class (no automatic behaviors found, no pitfalls cited, no extenders sampled), flag in plan as `[EXTRACTION-WEAK: <base>]`. Phase 4.2-AUTHOR will fall back to pack template for that topic + mark as "TODO: re-extract."
+| Pattern | Detection signal | Examples |
+|---|---|---|
+| **class-inheritance** | ≥1 base class with ≥3 extenders | Backend OOP frameworks (NestJS, Django class-views, Rails, ASP.NET) |
+| **composables** | Functions matching `use<X>` pattern with ≥3 callers each | Vue 3 Composition API, React hooks |
+| **shared-wrappers** | Components in shared/ folder with ≥3 import sites | UI component libraries, design-system wrappers |
+| **shared-services** | Singleton services / utility modules with ≥3 import sites | API clients, event buses, formatters |
+| **type-system** | Generic types / DTOs with ≥3 instantiation sites | TypeScript generic helpers, dataclasses with generics |
 
-**Skip when**: base class has <3 extenders (insufficient signal — not a load-bearing pattern in this codebase) OR base class is a thin wrapper (<50 lines AND no automatic behaviors AND no override hooks).
+A project may match MULTIPLE patterns. The extractor runs ALL matched patterns; an idiom is "load-bearing" when it has ≥3 dependents regardless of pattern.
 
-**Why this exists**: without it, Phase 4 has nothing project-specific to say. Pack templates carry generic prose; injection of file paths in Phase 4.6 helps but doesn't fix the core gap (the body still reads as generic). Phase 2.5 + Phase 4.2-AUTHOR together flip the model: **packs become topic checklists; the codebase becomes the source of content.**
+#### Extraction strategy per pattern
+
+**class-inheritance** (existing behavior, unchanged):
+- Invoke `extract-base-class-idiom` skill per base class with ≥3 extenders.
+- Walk: base class → extenders → collaborators → automatic behaviors → pitfalls.
+- Output: one section per base class.
+
+**composables** (NEW):
+- Invoke `extract-composable-idiom` skill per composable with ≥3 callers (e.g., `useCrud`, `useForm`, `useAuth`).
+- Walk: composable file (full read) → all callers (count + sample 3-5) → cited collaborators → side-effects (refs, watch, lifecycle hooks registered) → pitfalls (must-be-called-in-setup, await-before-mount race, etc.).
+- Output: one section per load-bearing composable. Format mirrors base-class section but uses "composable / hook" terminology.
+
+**shared-wrappers** (NEW):
+- Invoke `extract-wrapper-idiom` skill per wrapper component with ≥3 usage sites (e.g., `AppButton`, `BaseDataTable`, `BaseModal`).
+- Walk: wrapper file → all usages (count + sample 3-5) → props API → slots / children API → underlying primitive (which raw library is wrapped) → default-true props → pitfalls (raw primitive used outside the wrapper).
+- Output: one section per shared wrapper. Names + paths are the inputs to align's `reinvented-wrapper` detector.
+
+**shared-services** (NEW):
+- Invoke `extract-service-idiom` skill per shared service with ≥3 import sites.
+- Walk: service file → all importers → exposed API → side-effects → cache strategy → pitfalls.
+
+**type-system** (NEW):
+- Extract generic types / DTOs / shared interfaces with ≥3 instantiation sites.
+- Lighter walk: signature + usage examples + invariants.
+
+#### Always-write fallback
+
+If NO patterns matched (greenfield project, single-file scripts, very small codebase) → still write `_extracted-idioms.md` with a minimal structure:
+
+```yaml
+# _extracted-idioms.md (minimal — no load-bearing patterns yet)
+project_kind: <detected>
+extraction_strategy: minimal
+patterns_matched: []
+idioms: []
+note: "No load-bearing idioms detected (insufficient code volume OR functional-style without ≥3 dependents). Re-run /setup-project --refine after the codebase grows."
+```
+
+This ensures downstream consumers (`/align-scan`, `/migration-recheck`, etc.) ALWAYS find the file. No more silent skips.
+
+#### Mechanism
+
+Spawn each idiom extraction as an Explore subagent — they're independent. Cap at 6 concurrent.
+
+#### Output schema
+
+`.claude/_extracted-idioms.md` always includes:
+
+```markdown
+---
+project_kind: <kind>
+extraction_strategy: class-inheritance | composables | shared-wrappers | shared-services | type-system | minimal | mixed
+patterns_matched: [list]
+extracted_at: <iso>
+---
+
+# Project idioms — <project>
+
+## Strategy
+<brief explanation of which patterns were extracted and why>
+
+## Wrappers (only if shared-wrappers pattern matched)
+- <WrapperName> (<path>) — <one-line role> — <count> usage sites
+- ...
+
+## Composables / Hooks (only if composables pattern matched)
+- <useName> (<path>) — <one-line role> — <count> callers
+- ...
+
+## Shared services (only if shared-services pattern matched)
+- <serviceName> (<path>) — <one-line role> — <count> importers
+- ...
+
+## Base classes (only if class-inheritance pattern matched)
+- <BaseClass> (<path>) — <count> extenders — <one-line role>
+- ...
+
+## Type primitives (only if type-system pattern matched)
+- <TypeName> (<path>) — <count> instantiation sites — <one-line role>
+- ...
+
+## Conventions (always)
+- Naming: <project's naming convention>
+- Layering: <project's architectural layering>
+- Error handling: <project's error-handler primitive>
+- ... (mirrors codebase-profile.md content)
+```
+
+**Quality gate**: if extraction yields zero load-bearing idioms across ALL patterns AND `codebase-profile.md` shows the project has > 1000 LOC → flag as `[EXTRACTION-WEAK]` in the plan; consumers should still proceed (the file exists), but the agent surfaces "low-confidence idiom inventory; recommend manual review of `_extracted-idioms.md` before relying on it for `/align-scan`."
+
+**Skip individual idiom (not the whole file) when**: idiom has <3 dependents (insufficient signal — not load-bearing) OR idiom is a thin wrapper (<50 lines AND no automatic behaviors AND no override hooks).
+
+**Why this exists**: without it, Phase 4 has nothing project-specific to say. Pack templates carry generic prose; injection of file paths in Phase 4.6 helps but doesn't fix the core gap (the body still reads as generic). Phase 2.5 + Phase 4.2-AUTHOR together flip the model: **packs become topic checklists; the codebase becomes the source of content.** And — critical for Composition-API / functional projects — extraction now matches the project's actual idiom shape, not just OOP inheritance.
 
 ### Phase 2.7–2.12 — Lightweight gate + cost cap (shared across deep-extraction phases)
 

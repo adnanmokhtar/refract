@@ -25,6 +25,24 @@ The align pack is **non-negotiable** in the same sense the migration pack is —
 
 The align pack ships **no agents** (unlike migration). All detection is delegated to the `detect-drift` skill (which itself dispatches existing agents from `code-quality/`, `security/`, `frontend/`, `ui-ux/` packs). This simplifies adapter coverage — every tool that supports rules + skills gets the full surface.
 
+## Simple-surface entry — `/align` (top-level command)
+
+Above the phased `/align-scan` → `/align-plan` → `/align-fast` ceremony, the top-level `/align [<scope>]` command provides a one-shot entry point. Same discipline runs internally; user sees only the brief end-of-run summary.
+
+- **Source**: `commands/align.md` (top-level, NOT in pack folder — installed alongside pack commands).
+- **Progress tracking**: `ai/align/progress.md` (single source of truth across multi-day runs).
+- **Flags**: `--status`, `--resume`, `--reset <area>`, `--refresh`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers`.
+
+**`--refresh` semantics** — re-scans codebase, merges with existing progress: new areas → `pending`, missing → `archived`, existing rows preserved. NO fix work. Safe to run anytime; auto-creates `progress.md` if missing.
+
+**`--restart` semantics** — backs up current progress to `ai/align/progress-<iso>.bak.md`, resets every area to pending, begins from the first area. Does NOT revert commits already made.
+
+Adapter responsibility:
+1. Every tool that exposes commands MUST surface `/align` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
+2. The "no phases / halts / ADRs in user-facing output" contract MUST be preserved — adapters MUST NOT downgrade the simple command into the verbose phased flow.
+3. Progress file location (`ai/align/progress.md`) MUST be honoured so multi-day runs survive across sessions.
+4. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area; agent reads project profile, scans source via universal detectors, fixes drift in parallel, brief end-of-run summary."
+
 ## Verification flow — `--re-audit`
 
 `/align-fast <N> --re-audit` and `/align-final --re-audit` re-dispatch the detector for every row, including ones at `status: verified`. Mirrors `/migration-fast --re-audit`. Catches false-verified or drifted rows; re-fixes them in the same run.
