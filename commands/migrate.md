@@ -51,10 +51,10 @@ Examples:
 
 The agent does ALL of this silently — you don't see it:
 
-1. **Scan** — reads V1 + V2 source for the scope. Builds a feature inventory + dead-code reachability check (skips dead V1 code per discipline). Handles deep nav tree (tabs, sub-tabs, modal-shell tabs — not just routes).
+1. **Scan** — reads V1 + V2 source for the scope. Builds a feature inventory + dead-code reachability check (skips dead V1 code per discipline). Handles deep nav tree (tabs, sub-tabs, modal-shell tabs — not just routes). Compute V1 + V2 line counts (`wc -l`) for each leaf-component pair; emit `loc_ratio = v2_lines / v1_lines` on the discovery inventory. Tier promoter: `loc_ratio < 0.5` AND `v1_lines >= 200` → auto-promote tier from `trivial` → `standard` (V2 dramatically smaller than V1 signals likely missing form fields).
 2. **Resolve scope** — if `<scope>` is a description, semantic-resolve to V1 + V2 source paths via codebase-profile + idioms.
 3. **Plan internally** — group features by dependency. Foundation first (auth, tenant, shared). Heavy-tier work isolated. NO phase output to user.
-4. **Multi-agent parallel port** — dispatch one agent per feature. Each agent runs the per-feature loop: read V1 contract → port to V2 (V2 structure, V1 behaviour) → verify (lint, typecheck, scoped tests) → commit.
+4. **Multi-agent parallel port** — dispatch one agent per feature. Each agent runs the per-feature loop: read V1 contract → port to V2 (V2 structure, V1 behaviour) → verify (lint, typecheck, scoped tests) → commit. For UI-leaf rows (v2_path ending `.vue` / `.tsx` / `.svelte`), the audit MUST emit per-axis enumeration tables with `<v1-path:line>` and `<v2-path:line>` citations on Form fields, UI affordances, Event handlers, and Per-button permission gates — regardless of PARITY or DRIFT verdict. Writing "clean" under an axis without the enumeration table is a Trusted-Summary failure and HALTS via `check_per_axis_enumeration`. PARITY claims pay MORE enumeration cost than DRIFT, because PARITY needs to convince the validator that the auditor actually compared the surfaces.
 5. **Self-resolve common questions** — V1-parity is the default. Cosmetic deviations: V1 wins, no questions. Locale-key drift: V1 wins. V2-only-extras: removed unless an accepted ADR exists. Permission gates: match V1.
 6. **Halt only on genuine blockers**:
    - Cross-repo dependency (V2 backend route shape changed; needs upstream PR).
@@ -81,6 +81,7 @@ The agent does ALL of this silently — you don't see it:
 - `--exclude=<scope>` — exclude specific areas (e.g., `--exclude=admin,internal-tools`).
 - `--include-dead` — port dead V1 code too (default: skip per discipline).
 - `--surface-blockers` — show every halted row, not just the brief end summary. Use for debugging.
+- `--re-detect-fields` — mechanical field-by-field diff per leaf-component pair (extracts every `v-model` / `<input>` / `<Dropdown>` / `<InputSwitch>` / `<TranslatedInput>` / `<FormField>` / yup schema field from V1+V2) and emits the comparison table directly into the audit. Removes auditor judgement from the Form fields axis. Recommended ON for form-heavy modules.
 
 ## Progress tracking (multi-day workflow)
 
@@ -99,7 +100,7 @@ Each command writes a single progress file you can refer to across days:
 ```markdown
 # Migration progress
 
-Started: 2026-05-02
+Started: <YYYY-MM-DD>
 V1 root: <v1-project-root>/
 V2 root: src/
 
@@ -112,17 +113,17 @@ V2 root: src/
 
 ## Areas
 
-### profile [done] (2026-05-02 14:32, 8m 24s)
+### profile [done] (<YYYY-MM-DD HH:MM>, 8m 24s)
 - Files walked: 28 (page + 4 tabs + 3 sub-tabs + 5 modals + 6 components)
 - Findings closed: 24 / 27
 - Halts: 3 (resolved by user)
 - Commits: 24
 
-### notifications [done] (2026-05-02 15:10, 6m)
+### notifications [done] (<YYYY-MM-DD HH:MM>, 6m)
 - ...
 
 ### domain-settings [in-progress]
-- Started: 2026-05-03 09:00
+- Started: <YYYY-MM-DD HH:MM>
 - Paused at: 12 of 18 files
 - Reason: time-boxed; resume by running `/migrate` again
 
@@ -247,6 +248,8 @@ The agent applies these silently:
 
 - **Validator gate is mandatory.** After every per-feature audit produces `ai/migration/audits/<feature>.md`, the agent MUST run `~/.claude/scripts/validate-migration-artifacts.sh --feature <feature>`. The validator's `check_section_0_evidence` halts the run if Section 0 (Navigation Inventory) doesn't contain Layer A route extraction + Layer B per-leaf grep evidence + Leaf-set diff table. A failed validator forces the auditor to re-emit the audit with proper evidence — the run cannot advance until evidence is present. This is the canonical anti-Trusted-Summary protection.
 - **Halt #13 (Navigation Inventory) is non-negotiable.** Layer-A-only scans halt at audit time. Per-leaf template grep on every V1 + V2 leaf component is required.
+- **`check_per_axis_enumeration` is mandatory.** After every per-feature audit, the validator parses the audit body for the 7 frontend axis section headers and halts PARITY rows that have <3 enumerated table rows AND <5 `<path:line>` citations on a forms-bearing UI-leaf. Halts also fire when V2_LOC / V1_LOC < 0.5 (V2 dramatically smaller than V1 — likely missing form fields). The handwave grep was insufficient; this check enforces actual enumeration density.
+- **`check_adr_signoff_completed` is mandatory.** When an audit cites `(per ADR-NNN)` as proof-of-completion, the validator opens the ADR and halts if any sign-off checkbox is unchecked. Prevents the "ADR-as-plan-not-record" amplifier where an audit closes a finding by citing an accepted ADR whose described work was never executed.
 - **Gap-count parity is mandatory.** `gaps_in == gaps_closed` enforced before any row advances from `halted` to `done`. Audit finds N drifts → fix step closes N drifts. Nothing left silently.
 - V1 is the production reference. No "verify V1 is correct" halts.
 - V1 wins on observable behaviour; V2 structure wins on layout / wrappers / lifecycle hooks.

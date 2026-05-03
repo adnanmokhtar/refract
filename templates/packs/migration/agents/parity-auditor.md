@@ -120,6 +120,47 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
 - **Standard tier**: enumerate axes that show ≥1 gap (any severity, any kind: ADD / DELETE / CHANGE) with full per-row tables. Axes with 0 gaps may be summarised in 1 line ("8 form fields, all match — see V1 `<path>` vs V2 `<path>`"). The summary still cites both paths; no `etc.` allowed.
 - **Trivial tier**: same rule as standard — any axis with ≥1 gap (ADD / DELETE / CHANGE, frontend OR API) requires the full per-row enumeration table for that axis with `<v1-path:line>` ↔ `<v2-path:line>` citations. Axes with zero gaps may be 1-line summarised. Summary-only text hiding ≥1 gap is forbidden — the validator's `check_audit` hand-wave grep HALTs on `etc.` / `...` / `N+ items` / `and so on` / `deferred to port-phase parity author` / `by audit-by-inspection`. Trivial differs from standard ONLY in the artifact set produced (no contract / plan / parity tests / runbook), NOT in detection rigor.
 
+### Density rule for axes (Trusted-Summary protection)
+
+For UI-leaf rows (any row whose `v2_path` is a `.vue` / `.tsx` / `.svelte` / `.jsx` file), every axis verdict requires evidence proportional to the V1 surface size. Specifically:
+
+- **Forms-bearing UI-leaf** (V1 file contains ≥5 form-input elements — concrete tags / components vary by stack and live in `frontend/rules/migration-frontend.md § Forms-bearing fingerprints`; check that pack for the project's stack):
+  - Axes "Form fields", "UI affordances", "Event handlers", "Per-button permission gates" MUST emit a per-row enumeration table with `<v1-path:line>` and `<v2-path:line>` citations — REGARDLESS of verdict (PARITY or DRIFT).
+  - One axis-header line + one-line summary ("clean — preserved per V1") is INSUFFICIENT. The validator's `check_per_axis_enumeration` will halt the gate.
+  - PARITY claims pay MORE enumeration cost than DRIFT, because PARITY needs to convince the validator that the auditor actually compared the surfaces field-by-field.
+
+- **LOC-ratio safeguard**: when V2_file_LOC / V1_file_LOC < 0.5 AND V1 ≥ 200 LOC, the row is auto-promoted to standard tier and the per-axis enumeration is required regardless of the auditor's initial classification.
+
+#### Worked example — Form fields axis on a PARITY-claimed UI-leaf
+
+V1: `<v1-root>/path/to/<feature>-form.vue` (~1500 lines)
+V2: `<v2-root>/path/to/<Feature>FormPanel.vue` (~250 lines — V2 is ~17% of V1, signals likely missing fields)
+
+INCORRECT (the kind of audit that slips past review when discipline is shallow):
+
+```
+### 1. Form fields
+clean — form preserved per ADR-NNN; no field drift detected.
+```
+
+CORRECT (the auditor must produce a table like this):
+
+| # | V1 field | V1 path:line | V2 field | V2 path:line | Verdict |
+|---|---|---|---|---|---|
+| 1 | `form_type` | <feature>-form.vue:124 | `form_type` | <Feature>FormPanel.vue:54 | PARITY |
+| 2 | `purchase_method` | <feature>-form.vue:148 | `purchase_method` | <Feature>FormPanel.vue:71 | PARITY |
+| 3 | `show_header` | <feature>-form.vue:172 | `show_header` | <Feature>FormPanel.vue:88 | PARITY |
+| 4 | `auto_select` | <feature>-form.vue:196 | `auto_select` | <Feature>FormPanel.vue:112 | PARITY |
+| 5 | `shipping_type` | <feature>-form.vue:220 | (missing) | — | DRIFT — V2 missing |
+| 6 | `shipping_cost` | <feature>-form.vue:248 | (missing) | — | DRIFT — V2 missing |
+| 7 | `min_phone` | <feature>-form.vue:285 | `min_phone` | <Feature>FormPanel.vue:138 | PARITY |
+| 8 | `max_phone` | <feature>-form.vue:303 | `max_phone` | <Feature>FormPanel.vue:152 | PARITY |
+| 9 | `button_label` | <feature>-form.vue:341 | (missing) | — | DRIFT |
+| 10 | `name_active` | <feature>-form.vue:387 | (missing) | — | DRIFT |
+| ... (20 more rows) | ... | ... | ... | ... | ... |
+
+If even one field in V1 isn't enumerated in this table, the auditor failed the discipline. The "Optimistic Form Field Match" anti-pattern is what this rule exists to prevent.
+
 **Enumerate ALL gap kinds, not just divergence.** For every axis, the auditor must surface three categories:
 - **ADDED in V1, missing in V2** (V1 has the affordance / endpoint / field; V2 omits it) — most common.
 - **EXTRA in V2, absent in V1** (V2 has scaffolding V1 never had — extra button, route, default-true wrapper prop) — the F040 default-true class.

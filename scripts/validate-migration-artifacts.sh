@@ -199,7 +199,7 @@ resolve_artifact_path() {
   fi
   # Sub-feature fallback: if the row has `parent: FNNN` in its ledger block,
   # try resolving the parent's audit/contract/plan. Many sub-features (e.g.
-  # F015a-product-edit-basic-data) are audited under the parent (F015) rather
+  # `F015a-<sub-area-slug>`) are audited under the parent (F015) rather
   # than having their own file.
   if [[ -n "$id" ]]; then
     local parent
@@ -763,6 +763,362 @@ check_section_0_evidence() {
   fi
 
   log_pass "section-0 evidence: $feature (Layer A: V1=$layer_a_v1, V2=$layer_a_v2; Layer B: V1=$layer_b_v1, V2=$layer_b_v2; Diff rows: $diff_rows)"
+  return 0
+}
+
+check_per_axis_enumeration() {
+  # Failure mode this guards against: an audit declares all 7 frontend axes "PARITY"
+  # via single-line verdicts under each "### N. <axis>" heading — yet V2's file is a
+  # small fraction of V1's size (entire form-content section missing). The hand-wave
+  # grep in check_audit doesn't fire because the audit didn't use "etc." / "...".
+  # This check parses the 7 frontend-axis sections, applies a density rule per axis
+  # on PARITY-claimed UI-leaf rows, and halts on shallow PARITY claims.
+  #
+  # Bypass: audit_scope: backend-only frontmatter (consistent with check_section_0_evidence).
+  local feature="$1"; local id="${2:-}"; local tier="${3:-trivial}"
+  local file
+  file=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
+  [[ -z "$file" ]] && return 0  # check_audit will have already failed
+
+  # Bypass: explicit backend-only scope
+  if grep -qE '^audit_scope:[[:space:]]*backend-only' "$file" 2>/dev/null; then
+    log_pass "per-axis enumeration: $feature (skipped — audit_scope: backend-only)"
+    return 0
+  fi
+  # Only enforce when project_kind is frontend-*
+  case "$PROJECT_KIND" in
+    frontend-*) ;;
+    *) return 0 ;;
+  esac
+
+  # Determine if this audit's row points at a UI leaf. Read v1_path / v2_path lines
+  # from the audit's header block (first ~25 lines, before the body). Audits often
+  # cite multiple V1/V2 files via `+`-separated paths or continuation lines; we
+  # collect ALL UI-extension matches and pick the largest by LOC as the
+  # representative leaf (the smallest is usually a tab-shell, the largest is the
+  # forms-bearing leaf).
+  local header_block
+  header_block=$(awk 'NR<=25; NR>25 { exit }' "$file" 2>/dev/null)
+  local all_v1_files all_v2_files
+  all_v1_files=$(echo "$header_block" | awk '
+    /^>?[[:space:]]*[Vv]1 path:/ { capture=1 }
+    capture && /^>?[[:space:]]*[Vv]2 path:/ { capture=0 }
+    capture { print }
+  ' | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html)' | sort -u)
+  all_v2_files=$(echo "$header_block" | awk '
+    /^>?[[:space:]]*[Vv]2 path:/ { capture=1 }
+    capture && /^>?[[:space:]]*(ADR|v1_commit|Tier|Verdict|##)/ { capture=0 }
+    capture { print }
+  ' | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html)' | sort -u)
+
+  # Pick representative file: largest LOC among the matches
+  pick_largest_file() {
+    local candidates="$1" root_hint="$2"
+    local best="" best_loc=0
+    local cand full_path loc
+    while IFS= read -r cand; do
+      [[ -z "$cand" ]] && continue
+      full_path=""
+      if [[ -f "$cand" ]]; then
+        full_path="$cand"
+      elif [[ -n "$root_hint" && -f "${root_hint}/${cand}" ]]; then
+        full_path="${root_hint}/${cand}"
+      else
+        local bn="${cand##*/}"
+        if [[ "$root_hint" == "$V1_ROOT" ]]; then
+          build_v1_basename_index
+          full_path=$(v1_basename_lookup "$bn" 2>/dev/null || echo "")
+        else
+          build_v2_basename_index
+          full_path=$(v2_basename_lookup "$bn" 2>/dev/null || echo "")
+        fi
+      fi
+      [[ -z "$full_path" || ! -f "$full_path" ]] && continue
+      loc=$(wc -l < "$full_path" 2>/dev/null | tr -d ' ' || echo 0)
+      [[ "$loc" =~ ^[0-9]+$ ]] || loc=0
+      if [[ $loc -gt $best_loc ]]; then
+        best_loc=$loc
+        best="$full_path|$cand"
+      fi
+    done <<< "$candidates"
+    echo "$best"
+  }
+
+  local v1_pick v2_pick
+  v1_pick=$(pick_largest_file "$all_v1_files" "$V1_ROOT")
+  v2_pick=$(pick_largest_file "$all_v2_files" "$V2_ROOT")
+
+  local v1_full v1_file v2_full v2_file
+  v1_full="${v1_pick%|*}"; v1_file="${v1_pick#*|}"
+  v2_full="${v2_pick%|*}"; v2_file="${v2_pick#*|}"
+  # Handle empty pick (no `|` separator means it's empty)
+  [[ "$v1_pick" != *"|"* ]] && { v1_full=""; v1_file=""; }
+  [[ "$v2_pick" != *"|"* ]] && { v2_full=""; v2_file=""; }
+
+  # If neither V1 nor V2 path is a UI leaf, this isn't a UI audit — skip
+  if [[ -z "$v1_file" && -z "$v2_file" ]]; then
+    return 0
+  fi
+
+  # Read overall verdict from frontmatter (`> Verdict: ...`)
+  local verdict
+  verdict=$(awk '/^>?[[:space:]]*[Vv]erdict:/ {sub(/^>?[[:space:]]*[Vv]erdict:[[:space:]]*/, ""); print; exit}' "$file" 2>/dev/null | head -1)
+  # If the overall verdict isn't PARITY-claiming, the density rule doesn't apply
+  # (DRIFT / V2-EXTRA-KEEP / PORT verdicts are expected to surface gaps).
+  local is_parity=0
+  if echo "$verdict" | grep -qiE '^PARITY\b|^parity-?clean\b|\bPASS\b'; then
+    is_parity=1
+  fi
+
+  # LOC counts (already resolved above via pick_largest_file)
+  local v1_loc=0 v2_loc=0
+  [[ -n "$v1_full" && -f "$v1_full" ]] && v1_loc=$(wc -l < "$v1_full" 2>/dev/null | tr -d ' ' || echo 0)
+  [[ -n "$v2_full" && -f "$v2_full" ]] && v2_loc=$(wc -l < "$v2_full" 2>/dev/null | tr -d ' ' || echo 0)
+  v1_loc=${v1_loc:-0}; v2_loc=${v2_loc:-0}
+
+  # LOC-ratio halt: V2 < 50% of V1 LOC + PARITY verdict + V1 LOC ≥ 200 = suspect.
+  # Trivial-tier rows with V1 < 100 LOC soften to warn.
+  if [[ $is_parity -eq 1 && $v1_loc -ge 200 && $v2_loc -gt 0 ]]; then
+    # Compute v2_loc * 100 / v1_loc (avoid bc dependency)
+    local ratio_pct=$(( v2_loc * 100 / v1_loc ))
+    if [[ $ratio_pct -lt 50 ]]; then
+      log_fail "per-axis enumeration: V2 file is ${ratio_pct}% the size of V1 file (V2=${v2_loc} LOC, V1=${v1_loc} LOC) on PARITY verdict in $file. Per discipline rule \"The Optimistic Form Field Match\", produce full per-axis enumeration tables with V1+V2 path:line citations OR re-classify as DRIFT. v1_path=$v1_file v2_path=$v2_file"
+      return 1
+    fi
+  fi
+
+  # Forms-bearing test on V1 — ≥ 5 form-element matches makes the page "forms-bearing"
+  local forms_bearing=0
+  if [[ -n "$v1_full" && -f "$v1_full" ]]; then
+    local form_hits
+    form_hits=$(grep -cE '<input\b|<v-text-field|v-model=|<InputText\b|<InputSwitch\b|<InputNumber\b|<Dropdown\b|<TranslatedInput\b|<FormField\b|<Textarea\b|<Select\b|<Checkbox\b' "$v1_full" 2>/dev/null || echo 0)
+    form_hits=${form_hits:-0}
+    [[ "$form_hits" =~ ^[0-9]+$ ]] || form_hits=0
+    if [[ $form_hits -ge 5 ]]; then forms_bearing=1; fi
+  fi
+
+  # Reads-query test on V2 — does the V2 file read route.query / useSearchParams?
+  local v2_reads_query=0
+  if [[ -n "$v2_full" && -f "$v2_full" ]]; then
+    if grep -qE '\broute\.query\b|useSearchParams|\$route\.query|searchParams' "$v2_full" 2>/dev/null; then
+      v2_reads_query=1
+    fi
+  fi
+
+  # Per-axis density check. Only fires when verdict is PARITY (overall) AND axis
+  # is not explicitly DRIFT-classified inline. We extract each axis section body
+  # and count: table-data-rows, path:line citations, total words.
+  local axes=(
+    "1\\. Form fields"
+    "2\\. UI affordances"
+    "3\\. Templated query params"
+    "4\\. Event handlers"
+    "5\\. Per-button permission gates"
+    "6\\. a11y"
+    "7\\. Reactive lifecycle"
+  )
+  local axis_names=(
+    "Form fields"
+    "UI affordances"
+    "Templated query params"
+    "Event handlers"
+    "Per-button permission gates"
+    "a11y"
+    "Reactive lifecycle"
+  )
+  # Forms-/affordance-/handler-/gate- axes share the strict density rule
+  local strict_axes=(0 1 3 4)
+  # a11y + lifecycle: lower bar — at least 1 citation OR ≥ 15 words
+  local lenient_axes=(5 6)
+  # Query-params axis: only required if V2 reads query
+  local query_axis_idx=2
+
+  local violations=0
+  local i
+  for i in "${!axes[@]}"; do
+    local axis_pat="${axes[$i]}"
+    local axis_name="${axis_names[$i]}"
+    # Extract axis body: from "### N. <name>" until the next "### " or "## "
+    local body
+    body=$(awk -v pat="^#{3,4}[[:space:]]+${axis_pat}" '
+      $0 ~ pat { capture=1; next }
+      capture && /^#{2,4}[[:space:]]/ { exit }
+      capture { print }
+    ' "$file" 2>/dev/null)
+
+    if [[ -z "$body" ]]; then
+      # Section missing entirely. UI-leaf rows: halt for strict + query (if reads_query). Lenient: warn.
+      local is_strict=0
+      for s in "${strict_axes[@]}"; do [[ $i -eq $s ]] && is_strict=1; done
+      if [[ $is_strict -eq 1 ]]; then
+        log_fail "per-axis enumeration: axis '$axis_name' MISSING from audit body in $file. UI-leaf audits MUST emit all 7 frontend axes. See migration-discipline.md § \"Per-axis enumeration is required wherever a gap exists.\""
+        violations=$((violations + 1))
+      elif [[ $i -eq $query_axis_idx && $v2_reads_query -eq 1 ]]; then
+        log_warn "per-axis enumeration: axis '$axis_name' MISSING in $file but V2 reads route.query — auditor SHOULD enumerate query params."
+      fi
+      continue
+    fi
+
+    # Inline DRIFT? Skip density rule (the auditor flagged drift; gaps_in/closed will cover it)
+    if echo "$body" | grep -qiE '\bDRIFT\b|\bMISSING\b|^[[:space:]]*-[[:space:]]*GAP-|gap_count|gaps_in:[[:space:]]*[1-9]'; then
+      continue
+    fi
+
+    # Density signals
+    local table_rows path_citations word_count
+    # Data rows: lines starting with `|` AFTER a `|---|` separator line
+    table_rows=$(echo "$body" | awk '
+      /^\|[[:space:]]*-+[[:space:]]*\|/ { sep=1; next }
+      sep && /^\|/ { count++ }
+      END { print count+0 }
+    ')
+    path_citations=$(echo "$body" | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html|js):[0-9]+' | wc -l | tr -d ' ')
+    word_count=$(echo "$body" | wc -w | tr -d ' ')
+    table_rows=${table_rows:-0}; path_citations=${path_citations:-0}; word_count=${word_count:-0}
+
+    # Decide if this axis only has PARITY-claim ("clean", "match", "PARITY") — apply density rule then
+    local axis_claims_parity=0
+    if echo "$body" | grep -qiE '^\s*clean\b|\bmatch\b|^\s*PARITY\b|\bidentical\b|\bok\b|^\s*✅'; then
+      axis_claims_parity=1
+    fi
+    # If axis body has neither PARITY claim nor DRIFT marker AND is non-empty, treat as "narrative" — skip density (avoids false positives on mixed audits).
+    [[ $axis_claims_parity -eq 0 ]] && continue
+
+    # Strict axes (Form fields, UI affordances, Event handlers, Permission gates):
+    # overall PARITY verdict + forms-bearing UI-leaf + per-axis PARITY claim +
+    # (< 3 table rows AND < 5 citations) → halt
+    local is_strict=0
+    for s in "${strict_axes[@]}"; do [[ $i -eq $s ]] && is_strict=1; done
+    if [[ $is_strict -eq 1 && $is_parity -eq 1 && $forms_bearing -eq 1 ]]; then
+      if [[ $table_rows -lt 3 && $path_citations -lt 5 ]]; then
+        # Tier softening: trivial + V1 < 100 LOC → warn instead of halt
+        if [[ "$tier" == "trivial" && $v1_loc -gt 0 && $v1_loc -lt 100 ]]; then
+          log_warn "per-axis enumeration: axis '$axis_name' on PARITY-claimed UI-leaf has insufficient enumeration (table_rows=$table_rows, citations=$path_citations) in $file (trivial tier + V1 < 100 LOC = warn)."
+        else
+          log_fail "per-axis enumeration: axis '$axis_name' on PARITY-claimed UI-leaf has insufficient enumeration (table_rows=$table_rows, citations=$path_citations) in $file. Per discipline rule \"The Optimistic Form Field Match\", auditor must enumerate every V1 input/affordance/handler/gate with V1+V2 path:line citations OR re-classify as DRIFT. v1_path=$v1_file v2_path=$v2_file"
+          violations=$((violations + 1))
+        fi
+      fi
+    fi
+
+    # Query-params axis: only require ≥1 citation when V2 reads query AND overall PARITY
+    if [[ $i -eq $query_axis_idx && $v2_reads_query -eq 1 && $is_parity -eq 1 ]]; then
+      if [[ $path_citations -lt 1 ]]; then
+        log_fail "per-axis enumeration: axis '$axis_name' on PARITY-claimed UI-leaf has 0 path:line citations in $file but V2 reads route.query. Auditor must enumerate which params V1 reads + V2 reads or re-classify."
+        violations=$((violations + 1))
+      fi
+    fi
+
+    # Lenient axes (a11y, lifecycle): completely empty (<3 words) AND no citation → halt.
+    # "clean — shared wrappers." (4 words) is acceptable; "clean." (1 word) alone is not.
+    local is_lenient=0
+    for s in "${lenient_axes[@]}"; do [[ $i -eq $s ]] && is_lenient=1; done
+    if [[ $is_lenient -eq 1 ]]; then
+      if [[ $word_count -lt 3 && $path_citations -lt 1 ]]; then
+        log_fail "per-axis enumeration: axis '$axis_name' is essentially empty in $file (words=$word_count, citations=$path_citations). At minimum, name the V2 wrapper used OR cite a path:line."
+        violations=$((violations + 1))
+      fi
+    fi
+  done
+
+  if [[ $violations -gt 0 ]]; then
+    return 1
+  fi
+  log_pass "per-axis enumeration: $feature (forms_bearing=$forms_bearing, v1_loc=$v1_loc, v2_loc=$v2_loc)"
+  return 0
+}
+
+check_adr_signoff_completed() {
+  # Failure mode this guards against: an audit cites "(per ADR-NNN)" to close an
+  # axis as proof-of-completion when the cited ADR is Status: accepted but its
+  # sign-off checklist has items unchecked — the ADR was a plan, not a record of
+  # completion. When an audit cites an ADR as proof-of-completion, the validator
+  # must verify the ADR's sign-off is actually completed. Halt if any unchecked.
+  local feature="$1"; local id="${2:-}"
+  local file
+  file=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
+  [[ -z "$file" ]] && return 0
+
+  # Find every ADR-NNN reference in the audit
+  local adr_refs
+  adr_refs=$(grep -oE 'ADR-[0-9]{3,4}' "$file" 2>/dev/null | sort -u)
+  [[ -z "$adr_refs" ]] && return 0
+
+  # Project's ADR root (default ai/decisions/)
+  local adr_root="ai/decisions"
+  local violations=0
+
+  local adr
+  for adr in $adr_refs; do
+    local adr_num
+    adr_num="${adr#ADR-}"
+    # ADR-NNN may resolve to multiple files when multiple ADRs share the NNN prefix
+    # (e.g. 010-fastmodification-url-restructure.md AND 010-phase-9-tier-classifications.md).
+    # We check ALL matches; if ANY has unchecked signoff + completion citation, halt.
+    # This is the safe-by-default reading.
+    local adr_files
+    adr_files=$(find "$adr_root" -maxdepth 2 -type f \( -name "${adr}-*.md" -o -name "${adr_num}-*.md" \) 2>/dev/null)
+    if [[ -z "$adr_files" ]]; then
+      log_warn "ADR signoff check: $adr cited in $file but file not found under $adr_root/ — citation may be malformed."
+      continue
+    fi
+
+    # Detect citation context — was the ADR cited as proof-of-completion?
+    # Search for tokens around "ADR-NNN" in the audit body.
+    local context_lines
+    context_lines=$(grep -nE "(per ${adr}\\b|${adr} (cover|covers|covered)|fixed (per|via) ${adr}|addressed by ${adr}|\\(per ${adr}\\)|closed (per|via) ${adr}|resolved (per|via|by) ${adr}|reconciled (per|via) ${adr}|restored (per|via) ${adr}|${adr}: accepted|${adr} accepted)" "$file" 2>/dev/null || true)
+    local proof_of_completion=0
+    if [[ -n "$context_lines" ]]; then
+      proof_of_completion=1
+    fi
+
+    # Iterate every matching ADR file (collision tolerance).
+    local adr_file
+    while IFS= read -r adr_file; do
+      [[ -z "$adr_file" ]] && continue
+      # Locate the Sign-off / Sign off / Acceptance section.
+      # POSIX awk doesn't support \b — use simple line-prefix patterns instead.
+      local signoff_block
+      signoff_block=$(awk '
+        /^#{2,4}[[:space:]]+[Ss]ign[- ]?off([[:space:]]|$)/   { capture=1; next }
+        /^#{2,4}[[:space:]]+[Ss]ignoff([[:space:]]|$)/        { capture=1; next }
+        /^#{2,4}[[:space:]]+[Aa]cceptance([[:space:]]|$|[[:space:]]+criteria)/ { capture=1; next }
+        capture && /^#{2,4}[[:space:]]/ { exit }
+        capture { print }
+      ' "$adr_file" 2>/dev/null)
+
+      if [[ -z "$signoff_block" ]]; then
+        if [[ $proof_of_completion -eq 1 ]]; then
+          log_warn "ADR signoff check: $adr ($adr_file) has no Sign-off section; cannot verify completion status. Audit cites it as proof-of-completion — consider adding a Sign-off block to the ADR or making the citation neutral."
+        fi
+        continue
+      fi
+
+      # Count checked vs unchecked
+      local unchecked_count checked_count
+      unchecked_count=$(echo "$signoff_block" | grep -cE '^[[:space:]]*-[[:space:]]+\[[[:space:]]\]' || echo 0)
+      checked_count=$(echo "$signoff_block" | grep -cE '^[[:space:]]*-[[:space:]]+\[[xX]\]' || echo 0)
+      unchecked_count=${unchecked_count:-0}; checked_count=${checked_count:-0}
+      [[ "$unchecked_count" =~ ^[0-9]+$ ]] || unchecked_count=0
+      [[ "$checked_count" =~ ^[0-9]+$ ]] || checked_count=0
+
+      if [[ $unchecked_count -ge 1 ]]; then
+        if [[ $proof_of_completion -eq 1 ]]; then
+          local first_ctx
+          first_ctx=$(echo "$context_lines" | head -1 | sed 's/^[0-9]*://; s/^[[:space:]]*//' | head -c 160)
+          log_fail "ADR signoff incomplete: audit $file cites $adr as proof-of-completion ('${first_ctx}…') but $adr_file Sign-off has $unchecked_count unchecked / $checked_count checked. ADR is a plan not a record. Re-verify the work was actually done OR open a child ledger row to track the remaining work OR rephrase the citation to be neutral ('see $adr' rather than 'per $adr')."
+          violations=$((violations + 1))
+          break  # one halt per ADR is enough
+        else
+          [[ $QUIET -eq 0 ]] && echo "  ▸ $adr cited (neutrally) in $file; sign-off has $unchecked_count unchecked items in $adr_file (informational)."
+        fi
+      fi
+    done <<< "$adr_files"
+  done
+
+  if [[ $violations -gt 0 ]]; then
+    return 1
+  fi
   return 0
 }
 
@@ -1651,6 +2007,8 @@ validate_feature() {
   check_audit "$feature" "$id" || true
   check_audit_freshness "$feature" "$id" || true
   check_audit_body_consistency "$feature" "$id" || true
+  check_per_axis_enumeration "$feature" "$id" "$tier" || true
+  check_adr_signoff_completed "$feature" "$id" || true
   check_intentional_break_adr "$feature" "$id" || true
   check_v1_path_drift_acknowledged "$feature" "$id" || true
   check_porter_vs_auditor "$feature" "$id" || true
