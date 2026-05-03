@@ -214,6 +214,7 @@ The audit step runs against an implementation + its artifacts. The audit HALTS (
     - [ ] V1 leaf set ↔ V2 leaf set diffed
     - [ ] Every V1 leaf has a V2 equivalent OR is flagged DRIFT (with closure verb)
     - [ ] Every V2-extra leaf flagged for V1-parity decision (default: remove the extra)
+    - [ ] No "consolidation" accepted without ADR — a V1 separate page becoming a V2 tab (or vice versa) is drift, not STRUCTURE_OK
 
     A Section 0 with only the route-tree diff is a Layer-A-Only Scan — incomplete, HALTS.
 
