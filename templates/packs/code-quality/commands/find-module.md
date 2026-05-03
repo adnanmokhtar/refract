@@ -16,7 +16,7 @@ Parallel search across directory names, filenames, identifiers, and string usage
 - `halt` — query is a common noun without qualifier, or the module map disagrees with disk reality. Refuse to answer; surface the ambiguity.
 
 **Forbidden:**
-- Inventing a plausible-looking path the agent did not verify (`src/modules/<name>/` "should be there" without checking).
+- Inventing a plausible-looking path the agent did not verify (e.g., `<modules-root>/<name>/` "should be there" without checking).
 - Reporting a `cite` row when the path was not actually listed by a tool call.
 - Silently merging "suggested" and "found" into the same bucket.
 - Answering on a common-noun query (`user`, `order`, `item`) without a qualifier.
@@ -47,7 +47,7 @@ DIAGNOSTIC type — 1, 2, 3 dominate. No Generate/Update/Validate/Improve unless
 ## Phase 3 — Retrieve (the searches)
 
 Parallel:
-- **Directory match** — `find . -type d -iname "*<name>*"` excluding `node_modules`, `dist`, `.git`, `build`.
+- **Directory match** — `find . -type d -iname "*<name>*"` excluding dependency caches (`node_modules`, `vendor`, `.venv`, `target`, etc.) and build outputs (`dist`, `build`, `out`, etc.) and `.git`.
 - **Filename match** — `find . -type f -iname "*<name>*"` with same exclusions.
 - **Identifier match** — `rg -n "(class|interface|type|function|const|enum)\s+<Name>"`.
 - **String reference** — `rg -nF "<name>"` (literal) for i18n keys / config / comments.
@@ -62,7 +62,7 @@ Score:
 
 Cluster results: primary module / related modules / DB layer / tests.
 
-If primary not found, read 1-2 sibling modules to infer convention, suggest where it WOULD live (`src/modules/<noun>/` or `apps/<app>/src/<noun>/`).
+If primary not found, read 1-2 sibling modules to infer convention, suggest where it WOULD live (the project's actual module-shape, per `_extracted-codebase.md § Top-level layout`).
 
 ## Phase 4 — Generate (the report)
 
@@ -87,24 +87,24 @@ Pure read; no learning hook. (If repeated "not found" on same query reveals a mi
 Query: subscription
 
 Primary:
-  src/modules/subscriptions/         14 files
+  <modules-root>/subscriptions/         14 files
   Registered in ai/modules.md: yes
 
 Related:
-  src/shared/guards/subscription-active.guard.ts
-  src/modules/billing/                references subscription tier in 4 files
+  <shared-root>/guards/subscription-active.<ext>
+  <modules-root>/billing/                references subscription tier in 4 files
 
 Database:
-  prisma/migrations/20250310-subscriptions/migration.sql
-  src/modules/subscriptions/infrastructure/persistence/subscription.orm-entity.ts
+  <migrations-root>/20250310-subscriptions/migration.sql
+  <modules-root>/subscriptions/infrastructure/persistence/subscription.orm-entity.<ext>
 
 Tests:
-  src/modules/subscriptions/**/*.<test-ext>   18 files
+  <modules-root>/subscriptions/**/*.<test-ext>   18 files
   e2e/subscriptions.e2e-spec.<test-ext>       1 file
 
 Sibling modules (similar shape, useful for new code):
-  src/modules/orders/        — same module structure
-  src/modules/invoices/      — same module structure
+  <modules-root>/orders/        — same module structure
+  <modules-root>/invoices/      — same module structure
 ```
 
 ## Output (not found)
@@ -115,14 +115,14 @@ Query: refunds
 No matching module.
 
 Suggested location based on conventions:
-  src/modules/refunds/
+  <modules-root>/refunds/
     core/
     application/
     infrastructure/
-    refunds.module.ts
+    refunds.module.<ext>
 
 Related concepts already in repo:
-  src/modules/orders/  (refund logic might attach here — confirm domain ownership before deciding)
+  <modules-root>/orders/  (refund logic might attach here — confirm domain ownership before deciding)
 ```
 
 ## Failure modes

@@ -72,7 +72,7 @@ Examples:
 /optimize                                          # whole project
 /optimize the orders module                        # one module
 /optimize the dashboard, focus on performance      # scoped + intent hint
-/optimize src/modules/orders/                      # explicit path
+/optimize <modules-root>/orders/                   # explicit path
 /optimize "everything except tests and migrations" # exclusion-by-description
 ```
 
@@ -246,19 +246,19 @@ Skipped (test fixtures): 12 findings
 Next: /optimize the next module  OR  inspect commits via git log --oneline
 ```
 
-Frontend example (a Vue module):
+Frontend example (any frontend stack — concrete primitive names depend on framework: composable / hook / store / service / etc.):
 
 ```
 Optimization complete
 
-Scope:               the orders module (frontend-vue)
+Scope:               the orders module (frontend-*)
 Architectural fixes: 2
-  Moved data-fetching from page components → OrderService composable (eliminated 8 N+1 patterns)
-  Introduced PaginationComposable (eliminated 4 dedup sites + 2 inconsistent loaders)
+  Moved data-fetching from page components → OrderService data-access primitive (eliminated 8 N+1 patterns)
+  Introduced shared pagination primitive (eliminated 4 dedup sites + 2 inconsistent loaders)
 
 Tactical findings closed: 14 (down from 36 — 22 dissolved by foundations)
-  refactoring:           5 (extract-composable ×2, flatten-template-conditional ×2, rename ×1)
-  duplicated-logic:      4 (dedupe to introduced composable)
+  refactoring:           5 (extract-shared-primitive ×2, flatten-conditional ×2, rename ×1)
+  duplicated-logic:      4 (dedupe to introduced shared primitive)
   dead-code:             3 (unused exports + dead branches)
   over-abstraction:      2 (single-consumer wrappers inlined)
 

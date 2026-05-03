@@ -16,19 +16,19 @@ The agent:
 3. **Fixes violations in parallel** by routing each one to the right closure verb (replace-with-shared, remove, dedupe, etc.).
 
 Detects + fixes:
-- **Layer violations** — components importing services directly (must go through composables); services importing Vue / framework primitives (must be framework-agnostic); core/ importing UI; circular dependencies.
-- **Module-shape violations** — feature module missing required directories; cross-module imports that should go through `shared/`; modules using global state when local would do.
-- **Naming convention violations** — files / classes / types / locale keys not matching the project's pattern (e.g., `useFoo.ts` for composables, `{Entity}Page.vue` for pages, `{Module}.{entity}.{action}` for i18n keys).
-- **Reinvented wrappers** — custom code where a shared component exists (e.g., raw `<Button>` from PrimeVue where `AppButton` exists).
-- **Silent catches** — empty `catch {}` routed through the project's error handler.
-- **Forbidden imports** — `axios.create()` outside `core/api/`; cross-import V1↔V2; unauthorized libraries.
-- **Default-true wrapper props left implicit** — `<CrudActions>` / `<TableHeader>` rendered without explicit `:show-*="false"` when affordance should be hidden.
-- **Permission-gate drops** — actions rendered without `v-if="hasPermission(...)"` / equivalent.
-- **Lifecycle hook misuse** — KeepAlive-cached children that fetch data using only `onMounted` (need `onActivated` paired).
+- **Layer violations** — components importing services directly (must route through the project's data-access layer); services importing UI-framework primitives (must stay framework-agnostic); core/ importing UI; circular dependencies.
+- **Module-shape violations** — feature module missing required directories; cross-module imports that should go through the project's shared/ layer; modules using global state when local would do.
+- **Naming convention violations** — files / classes / types / locale keys not matching the project's pattern (per `_extracted-idioms.md § Naming`).
+- **Reinvented wrappers** — custom code where a shared component / util / hook exists in the project's gold-standard inventory.
+- **Silent catches** — empty error-swallow blocks not routed through the project's error handler.
+- **Forbidden imports** — HTTP clients constructed outside the project's API-core module; cross-import V1↔V2; unauthorized libraries.
+- **Default-true wrapper props left implicit** — wrapper components rendered without explicit `show-*="false"` / `can-*="false"` when affordance should be hidden.
+- **Permission-gate drops** — actions rendered without the project's permission-gate primitive.
+- **Lifecycle hook misuse** — cached children that fetch data using only the mount hook (need the mount-AND-reactivate hook pair, per the project's framework conventions).
 - **Design-token drift** — hardcoded colors / spacing where tokens exist.
 - **i18n key drift** — hardcoded user-visible strings.
 - **a11y violations** — missing alt, focus states, contrast issues.
-- **Allowlist violations** — Pinia stores outside the project's allowed list; routes outside the configured router; etc.
+- **Allowlist violations** — state stores outside the project's allowed list; routes outside the configured router; etc.
 
 This is **structure enforcement** — no creative work, no new abstractions, just "make the code follow the project's stated structure."
 
@@ -54,7 +54,7 @@ Examples:
 /align                                  # whole project
 /align the orders module                # one module
 /align the sidebar                      # one component
-/align src/modules/auth/                # explicit path
+/align <modules-root>/auth/             # explicit path
 /align "auth pages including login"     # multi-page scope
 ```
 

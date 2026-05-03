@@ -293,13 +293,13 @@ Flat YAML-ish ledger, one row per finding. Schema from `ai/patterns/align-ledger
 # substitute your stack's extension and shared-wrapper inventory; pattern is identical across stacks)
 - id: A001
   class: reinvented-wrapper
-  scope: [src/components/auth/LoginForm.<ext>, src/components/auth/SignupForm.<ext>, src/components/auth/PasswordReset.<ext>]
+  scope: [<components-root>/auth/LoginForm.<ext>, <components-root>/auth/SignupForm.<ext>, <components-root>/auth/PasswordReset.<ext>]
   evidence:
-    - src/components/auth/LoginForm.<ext>:42     # raw <Button> from a UI lib; project has its shared <AppButton>
-    - src/components/auth/SignupForm.<ext>:67
-    - src/components/auth/PasswordReset.<ext>:31
+    - <components-root>/auth/LoginForm.<ext>:42     # raw <Button> from a UI lib; project has its shared <AppButton>
+    - <components-root>/auth/SignupForm.<ext>:67
+    - <components-root>/auth/PasswordReset.<ext>:31
   closure_verb: replace-with-shared
-  shared_equivalent: src/components/AppButton.<ext> (per _extracted-idioms.md § Buttons)
+  shared_equivalent: <components-root>/AppButton.<ext> (per _extracted-idioms.md § Buttons)
   tier: standard
   tier_reason: "3 files; cross-component swap; mechanical (API-equivalent)"
   status: detected
@@ -310,9 +310,9 @@ Flat YAML-ish ledger, one row per finding. Schema from `ai/patterns/align-ledger
 # Structural — dead code
 - id: A002
   class: dead-code
-  scope: [src/utils/old-formatter.ts]
+  scope: [<utils-root>/old-formatter.<ext>]
   evidence:
-    - src/utils/old-formatter.ts:1               # exported, no inbound import
+    - <utils-root>/old-formatter.<ext>:1         # exported, no inbound import
   closure_verb: remove
   tier: trivial
   status: detected
@@ -323,11 +323,11 @@ Flat YAML-ish ledger, one row per finding. Schema from `ai/patterns/align-ledger
   class: security
   subclass: sql-injection
   severity: critical
-  scope: [src/reports/orders.ts]
+  scope: [<source-root>/reports/orders.<ext>]
   evidence:
-    - src/reports/orders.ts:88                   # `WHERE status = '${req.query.status}'` — string interpolation
+    - <source-root>/reports/orders.<ext>:88      # `WHERE status = '<interpolated-user-input>'` — string interpolation
   closure_verb: parameterize
-  idiom_cited: src/db/query.ts:14 (parameterized query primitive per _extracted-idioms.md § DB)
+  idiom_cited: <source-root>/db/query.<ext>:14 (parameterized query primitive per _extracted-idioms.md § DB)
   tier: heavy
   tier_reason: "critical security — SQL injection on production endpoint; auto-promoted"
   status: detected
@@ -340,11 +340,11 @@ Flat YAML-ish ledger, one row per finding. Schema from `ai/patterns/align-ledger
   class: security
   subclass: missing-auth-gate
   severity: high
-  scope: [src/routes/admin/export.ts]
+  scope: [<source-root>/routes/admin/export.<ext>]
   evidence:
-    - src/routes/admin/export.ts:12              # GET /admin/export — no auth middleware
+    - <source-root>/routes/admin/export.<ext>:12 # GET /admin/export — no auth middleware
   closure_verb: add-gate
-  idiom_cited: src/auth/gates.ts:7 (requireAdmin gate per _extracted-idioms.md § Auth)
+  idiom_cited: <source-root>/auth/gates.<ext>:7 (requireAdmin gate per _extracted-idioms.md § Auth)
   tier: standard
   tier_reason: "security finding — never trivial; auto-promoted to standard"
   status: detected
@@ -354,24 +354,24 @@ Flat YAML-ish ledger, one row per finding. Schema from `ai/patterns/align-ledger
 - id: A082
   class: performance
   subclass: n-plus-one
-  scope: [src/services/listOrders.ts]
+  scope: [<services-root>/listOrders.<ext>]
   evidence:
-    - src/services/listOrders.ts:42              # Promise.all over orders, each calls getCustomer(id)
+    - <services-root>/listOrders.<ext>:42        # parallel iteration over orders, each calls getCustomer(id)
   closure_verb: batch
-  idiom_cited: src/repos/customers.ts:88 (getByIds batch primitive)
+  idiom_cited: <source-root>/repos/customers.<ext>:88 (getByIds batch primitive)
   tier: standard
   tier_reason: "hot-path perf finding; standard floor"
   status: detected
-  notes: "Baseline: 51 queries / 200ms p95 for 50-order list (Grafana board ID xyz)"
+  notes: "Baseline: 51 queries / 200ms p95 for 50-order list (observability dashboard ID xyz)"
   ...
 
 # SOLID — SRP
 - id: A105
   class: solid-violation
   subclass: SRP
-  scope: [src/services/checkoutService.ts]
+  scope: [<services-root>/checkoutService.<ext>]
   evidence:
-    - src/services/checkoutService.ts:1          # 540-line class; tax + shipping + payment + notification
+    - <services-root>/checkoutService.<ext>:1    # 540-line class; tax + shipping + payment + notification
   closure_verb: split-extract
   idiom_cited: _extracted-idioms.md § Service responsibilities (TaxCalculator, ShippingCalculator, PaymentProcessor, NotificationService — all already exist)
   tier: heavy
@@ -383,9 +383,9 @@ Flat YAML-ish ledger, one row per finding. Schema from `ai/patterns/align-ledger
 - id: A130
   class: clean-code
   subclass: long-function
-  scope: [src/checkout/processOrder.ts]
+  scope: [<source-root>/checkout/processOrder.<ext>]
   evidence:
-    - src/checkout/processOrder.ts:42            # 143 lines; project max is 50 (per ai/conventions.md § complexity)
+    - <source-root>/checkout/processOrder.<ext>:42  # 143 lines; project max is 50 (per ai/conventions.md § complexity)
   closure_verb: extract-to-shared
   idiom_cited: _extracted-idioms.md § Service responsibilities (existing services)
   tier: trivial
@@ -404,13 +404,13 @@ One section per finding with the full detector context (excerpts from source, th
 
 ### Evidence
 
-src/components/auth/LoginForm.<ext>:42
+<components-root>/auth/LoginForm.<ext>:42
 ```text
 # pseudocode — concrete syntax varies by stack
 RawButton(variant="primary", onClick=handleLogin) { "Login" }
 ```
 
-src/components/auth/SignupForm.<ext>:67
+<components-root>/auth/SignupForm.<ext>:67
 ```text
 RawButton(variant="outlined", onClick=handleSignup) { "Sign up" }
 ```
@@ -419,7 +419,7 @@ RawButton(variant="outlined", onClick=handleSignup) { "Sign up" }
 
 ### Shared equivalent (per _extracted-idioms.md § Buttons)
 
-src/components/AppButton.<ext>
+<components-root>/AppButton.<ext>
 ```text
 # the project's button wrapper — wraps the raw UI-library button with project tokens
 AppButton(kind, ...props)

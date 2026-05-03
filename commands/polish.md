@@ -130,7 +130,7 @@ Examples:
 /polish the dashboard                    # one page (frontend)
 /polish the /orders endpoints            # backend scope
 /polish the analytics schema             # data scope
-/polish src/modules/auth/                # explicit path
+/polish <modules-root>/auth/             # explicit path
 /polish "the customer-facing pages"      # multi-page semantic scope
 /polish the login page --direction="cleaner padding, stronger CTA"  # frontend with iteration hint
 ```

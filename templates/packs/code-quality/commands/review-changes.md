@@ -246,16 +246,16 @@ Phase 6 (Validated): <N> reviewers ran in parallel; <N> skills run.
 **Verdict: APPROVE | REQUEST_CHANGES | BLOCK**
 
 ### Blockers (N)
-1. [security] src/modules/admin/export.controller.ts:18 — missing auth guard on admin endpoint
-   Fix: @UseGuards(JwtAuthGuard, AdminRoleGuard)
+1. [security] <modules-root>/admin/export.controller.<ext>:18 — missing auth guard on admin endpoint
+   Fix: apply the project's auth + admin-role gate primitive (per `_extracted-idioms.md § Auth`).
    Verify: e2e test asserts 401 unauthenticated.
-   
-2. [tenant] src/modules/reports/reports.repository.impl.ts:84 — raw SQL missing tenant filter
+
+2. [tenant] <modules-root>/reports/reports.repository.impl.<ext>:84 — raw SQL missing tenant filter
    Fix: add `AND tenant_id = :tenantId`
    Verify: cross-tenant leak test.
 
 ### Requests (N)
-1. [perf] src/modules/orders/list.use-case.ts:24 — N+1 on customer lookup
+1. [perf] <modules-root>/orders/list.use-case.<ext>:24 — N+1 on customer lookup
    Fix: eager-load customer in the list query.
    
 2. [test] Missing regression test for the webhook idempotency path.

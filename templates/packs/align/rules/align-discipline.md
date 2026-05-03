@@ -574,9 +574,9 @@ Phase 4: over-abstraction in the order domain (6 findings, all `inline`).
 ```text
 # ❌ Reinvented Wrapper (alignment finding that itself reinvents)
 Finding: 4 files have a copy of `formatCurrency(amount, locale)`
-Closure: extract to `src/utils/format-currency.ts`, import in all 4
+Closure: extract to `<utils-root>/format-currency.<ext>`, import in all 4
 
-→ Wait — `_extracted-idioms.md` already names `src/lib/i18n.formatMoney(amount)` as the project's currency formatter.
+→ Wait — `_extracted-idioms.md` already names `<source-root>/lib/i18n.formatMoney(amount)` as the project's currency formatter.
 → The "extract" is a reinvention. Halt.
 
 # ✅ Replace with shared
@@ -628,7 +628,7 @@ Severity: critical
 → Heavy tier: impact analysis required. Lists every consumer of the affected query.
 → Reviewer approval required before merge.
 → Test added: a known-injection payload returns 400 (validator rejects) AND the query log shows parameterised execution.
-→ Notes: "Threat: arbitrary SQL execution as DB user; observed in red-team report 2026-04-15. Test fixture: tests/security/sql-injection.test.ts:42."
+→ Notes: "Threat: arbitrary SQL execution as DB user; observed in red-team report 2026-04-15. Test fixture: tests/security/sql-injection.<test-ext>:42."
 ```
 
 ### Performance findings (idiom citation required for added lines)
@@ -642,37 +642,37 @@ Diff:
 + function getCustomer(id) { if (!cache.has(id)) cache.set(id, query(...)); return cache.get(id); }
 
 → Halt #6: functional fix doesn't cite idiom.
-→ The added cache is a NEW abstraction. The project has `src/cache/requestScopedCache.ts` named in _extracted-idioms.md.
+→ The added cache is a NEW abstraction. The project has `<source-root>/cache/requestScopedCache.<ext>` named in _extracted-idioms.md.
 → Re-do using `replace-with-shared`: route through `requestScopedCache.get('customer:' + id, () => fetchCustomer(id), { ttl: 60_000 })`.
 
 # ✅ Parity-preserving perf with idiom citation
 Finding A082: N+1 in listOrders()
 Closure verb: batch
-Idiom cited: src/repos/customers.ts:88 (getByIds() batch primitive)
-Diff:
-- const customers = await Promise.all(orders.map(o => getCustomer(o.customerId)));
-+ const customers = await getByIds([...new Set(orders.map(o => o.customerId))]);
+Idiom cited: <source-root>/repos/customers.<ext>:88 (getByIds() batch primitive)
+Diff (pseudocode):
+- customers = parallel_each(orders, o => getCustomer(o.customerId))
++ customers = getByIds(unique(orders.map(o => o.customerId)))
 
 → Net: −1 line.
 → Perf assertion added: query log shows 2 queries instead of N+1 for a 50-order list.
-→ Notes: "V1 cost: 51 queries / 200ms p95. V2: 2 queries / 35ms p95. Measured in tests/perf/list-orders.test.ts:18."
+→ Notes: "V1 cost: 51 queries / 200ms p95. V2: 2 queries / 35ms p95. Measured in tests/perf/list-orders.<test-ext>:18."
 ```
 
 ### Clean code / SOLID (extract to NAMED idioms only)
 
 ```text
 # ❌ extract-to-shared inventing a new abstraction
-Finding A055: long function (143 lines) in src/checkout/processOrder.ts:42
+Finding A055: long function (143 lines) in <source-root>/checkout/processOrder.<ext>:42
 Closure verb: extract-to-shared
-Diff:
-+ // src/checkout/helpers/calculateTax.ts (NEW FILE)
-+ export function calculateTax(items, region) { ... }
+Diff (pseudocode):
++ // <source-root>/checkout/helpers/calculateTax.<ext> (NEW FILE)
++ export calculateTax(items, region) { ... }
 
 → Halt #9: new symbol introduced (not in _extracted-idioms.md).
 → Either route to /setup-project --refine (add calculateTax to idioms first), OR re-classify (the long function is a god function; the right verb may be split-extract into pre-named responsibilities, not a fresh extract).
 
 # ✅ extract-to-shared using a pre-named idiom
-Finding A055: long function (143 lines) in src/checkout/processOrder.ts:42
+Finding A055: long function (143 lines) in <source-root>/checkout/processOrder.<ext>:42
 Closure verb: split-extract
 Idiom cited: _extracted-idioms.md § Service responsibilities (TaxCalculator, ShippingCalculator already named)
 Diff:

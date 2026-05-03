@@ -187,7 +187,7 @@ Positives (only if genuinely notable):
 
 ### Blocker — missing tenant filter
 ```
-src/modules/reports/infrastructure/reports.repository.impl.ts:84
+<modules-root>/reports/infrastructure/reports.repository.impl.<ext>:84
 Raw SQL bypasses tenant scope:
   SELECT * FROM orders WHERE created_at >= $1
 Missing: AND tenant_id = $2
@@ -197,7 +197,7 @@ Fix: use this.scope(qb) OR add explicit tenant filter.
 
 ### Request — N+1 detected
 ```
-src/modules/orders/application/list-orders.use-case.ts:24
+<modules-root>/orders/application/list-orders.<ext>:24
 Loop calls customerRepo.findById(o.customerId) per order.
 With 100 orders, 101 queries. Fix: eager-load via JOIN in list query,
 or use DataLoader.
@@ -205,7 +205,7 @@ or use DataLoader.
 
 ### Nit — missing i18n key
 ```
-src/modules/products/ui/product-card.<ext>:17
+<modules-root>/products/ui/product-card.<ext>:17
 Hardcoded "Add to cart" in template. Add to locales/en.json + locales/<other-locale>.json.
 ```
 

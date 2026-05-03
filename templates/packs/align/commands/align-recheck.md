@@ -30,7 +30,7 @@ Examples:
 - `/align-recheck the orders module`
 - `/align-recheck the page builder`
 - `/align-recheck the navigation header`
-- `/align-recheck src/modules/orders/` (paths still work)
+- `/align-recheck <modules-root>/orders/` (paths still work)
 - `/align-recheck "auth pages including login and signup"` (multi-concept)
 
 Use this when:
@@ -56,7 +56,7 @@ Same discipline as `/align-phase` (the per-finding loop), just multi-finding + p
 
 ## When to use
 
-- "Re-check the orders module" — `/align-recheck the orders module` OR `/align-recheck src/modules/orders/`
+- "Re-check the orders module" — `/align-recheck the orders module` OR `/align-recheck <modules-root>/orders/`
 - "Re-check the sidebar" — `/align-recheck the sidebar`
 - "Re-check the page-builder for security/quality issues" — `/align-recheck the page builder`
 - "Re-check store + products" — `/align-recheck the store and products modules`
@@ -171,14 +171,14 @@ For each matched finding:
 Per-finding output streams to `ai/align/runs/<YYYY-MM-DD-HHMMSS>-recheck.log`. End-of-run summary surfaces to user.
 
 ```
-Align recheck — paths: src/modules/orders/, src/modules/store/
+Align recheck — paths: <modules-root>/orders/, <modules-root>/store/
 
 Pre-flight:                    PASS
 (--rescan-fresh):              ran; 3 new findings added to ledger
 Findings matched:              28
   By path:
-    src/modules/orders/:       16
-    src/modules/store/:        12
+    <modules-root>/orders/:       16
+    <modules-root>/store/:        12
   By class:
     reinvented-wrapper:        9
     silent-catch:              5
@@ -215,7 +215,7 @@ Total impact:
 
 Next:
   Resolve A067 halt (run /setup-project --refine to add parameterized-query idiom).
-  Re-run /align-recheck src/modules/orders/ to drain A067.
+  Re-run /align-recheck <modules-root>/orders/ to drain A067.
 ```
 
 ## Phase 5 — Update (persist changes to the knowledge base)
@@ -280,17 +280,17 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 ### Path-based
 
 ```bash
-/align-recheck src/modules/orders/
-/align-recheck src/modules/store/ src/modules/products/
-/align-recheck src/components/Sidebar.<ext>   # extension is stack-specific (.vue / .tsx / .svelte / .razor / etc.)
-/align-recheck "src/modules/{auth,permissions,roles}/"
+/align-recheck <modules-root>/orders/
+/align-recheck <modules-root>/store/ <modules-root>/products/
+/align-recheck <components-root>/Sidebar.<ext>   # extension is stack-specific (.vue / .tsx / .svelte / .razor / etc.)
+/align-recheck "<modules-root>/{auth,permissions,roles}/"
 ```
 
 ### Mixed + modifiers
 
 ```bash
 # Description + path
-/align-recheck the sidebar src/modules/orders/
+/align-recheck the sidebar <modules-root>/orders/
 
 # Re-detect only (no fixes)
 /align-recheck the orders module --re-detect-only

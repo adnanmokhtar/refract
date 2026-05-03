@@ -43,7 +43,7 @@ Examples:
 /migrate                                   # whole project (every V1 feature)
 /migrate the orders module                 # one module
 /migrate the auth flow                     # multi-page flow
-/migrate src/modules/orders/               # explicit path
+/migrate <modules-root>/orders/            # explicit path
 /migrate "everything except admin"         # exclusion-by-description
 ```
 
@@ -54,7 +54,7 @@ The agent does ALL of this silently — you don't see it:
 1. **Scan** — reads V1 + V2 source for the scope. Builds a feature inventory + dead-code reachability check (skips dead V1 code per discipline). Handles deep nav tree (tabs, sub-tabs, modal-shell tabs — not just routes). Compute V1 + V2 line counts (`wc -l`) for each leaf-component pair; emit `loc_ratio = v2_lines / v1_lines` on the discovery inventory. Tier promoter: `loc_ratio < 0.5` AND `v1_lines >= 200` → auto-promote tier from `trivial` → `standard` (V2 dramatically smaller than V1 signals likely missing form fields).
 2. **Resolve scope** — if `<scope>` is a description, semantic-resolve to V1 + V2 source paths via codebase-profile + idioms.
 3. **Plan internally** — group features by dependency. Foundation first (auth, tenant, shared). Heavy-tier work isolated. NO phase output to user.
-4. **Multi-agent parallel port** — dispatch one agent per feature. Each agent runs the per-feature loop: read V1 contract → port to V2 (V2 structure, V1 behaviour) → verify (lint, typecheck, scoped tests) → commit. For UI-leaf rows (v2_path ending `.vue` / `.tsx` / `.svelte`), the audit MUST emit per-axis enumeration tables with `<v1-path:line>` and `<v2-path:line>` citations on Form fields, UI affordances, Event handlers, and Per-button permission gates — regardless of PARITY or DRIFT verdict. Writing "clean" under an axis without the enumeration table is a Trusted-Summary failure and HALTS via `check_per_axis_enumeration`. PARITY claims pay MORE enumeration cost than DRIFT, because PARITY needs to convince the validator that the auditor actually compared the surfaces.
+4. **Multi-agent parallel port** — dispatch one agent per feature. Each agent runs the per-feature loop: read V1 contract → port to V2 (V2 structure, V1 behaviour) → verify (lint, typecheck, scoped tests) → commit. For UI-leaf rows (v2_path with the project's UI-leaf extension per `_extracted-codebase.md § Stack`), the audit MUST emit per-axis enumeration tables with `<v1-path:line>` and `<v2-path:line>` citations on Form fields, UI affordances, Event handlers, and Per-button permission gates — regardless of PARITY or DRIFT verdict. Writing "clean" under an axis without the enumeration table is a Trusted-Summary failure and HALTS via `check_per_axis_enumeration`. PARITY claims pay MORE enumeration cost than DRIFT, because PARITY needs to convince the validator that the auditor actually compared the surfaces.
 5. **Self-resolve common questions** — V1-parity is the default. Cosmetic deviations: V1 wins, no questions. Locale-key drift: V1 wins. V2-only-extras: removed unless an accepted ADR exists. Permission gates: match V1.
 6. **Halt only on genuine blockers**:
    - Cross-repo dependency (V2 backend route shape changed; needs upstream PR).
@@ -204,9 +204,9 @@ Migration complete
 
 Scope:               the orders module
 Features ported:     12
-  src/modules/orders/pages/OrderListPage.vue
-  src/modules/orders/pages/OrderDetailsPage.vue
-  src/modules/orders/components/OrderForm.vue
+  <modules-root>/orders/pages/OrderListPage.<ext>
+  <modules-root>/orders/pages/OrderDetailsPage.<ext>
+  <modules-root>/orders/components/OrderForm.<ext>
   ... (9 more)
 
 Commits:             12 (one per feature)

@@ -40,36 +40,36 @@ await service.process(order, dummyLogger);
 
 ### Stub
 Canned responses. No interaction tracking.
-```ts
-const userRepo = { findById: () => Promise.resolve({ id: 1, name: 'Alice' }) };
+```pseudo
+userRepo = { findById: (id) => { id: 1, name: "Alice" } }
 ```
 
 ### Mock
 Canned responses + asserts on interactions.
-```ts
-const emailClient = jest.fn();
-await userService.signup({ email: 'a@b.com' });
-expect(emailClient).toHaveBeenCalledWith('a@b.com', 'welcome');
-expect(emailClient).toHaveBeenCalledTimes(1);
+```pseudo
+emailClient = mock()
+userService.signup({ email: "a@b.com" })
+assert emailClient.calledWith("a@b.com", "welcome")
+assert emailClient.callCount == 1
 ```
 
 ### Spy
-Wraps a REAL object, records calls, delegates to real behavior.
-```ts
-const logger = new Logger();
-const spy = jest.spyOn(logger, 'error');
-await service.handle(bad);
-expect(spy).toHaveBeenCalledWith(expect.stringContaining('validation'));
+Wraps a REAL object, records calls, delegates to real behaviour.
+```pseudo
+logger = new Logger()
+spy = wrapAndSpy(logger, "error")
+service.handle(bad)
+assert spy.calledWithMatching(contains("validation"))
 ```
 
 ### Fake
 Alternative working implementation. Functional but simplified.
-```ts
+```pseudo
 class InMemoryUserRepo implements UserRepo {
-  private users = new Map<string, User>();
-  async save(user) { this.users.set(user.id, user); }
-  async findById(id) { return this.users.get(id) ?? null; }
-  async findAll() { return [...this.users.values()]; }
+  users = map<id, User>()
+  save(user)    { users[user.id] = user }
+  findById(id)  { return users[id] or null }
+  findAll()     { return values(users) }
 }
 ```
 
@@ -77,7 +77,7 @@ class InMemoryUserRepo implements UserRepo {
 
 | Scenario | Prefer |
 |---|---|
-| External API (Stripe, SendGrid, Twilio) | Mock (assert specific calls made correctly) |
+| External API (payment provider / email vendor / SMS vendor / etc.) | Mock (assert specific calls made correctly) |
 | Logger / metrics / tracer | Spy (verify side effects, delegate real work) |
 | Database / repository with state | Fake (in-memory impl preserving query semantics) |
 | Clock / random / UUID | Fake (seeded generators for determinism) |
@@ -87,18 +87,18 @@ class InMemoryUserRepo implements UserRepo {
 ## Fake > Mock for stateful dependencies
 
 Mocks get brittle when state matters:
-```ts
+```pseudo
 // MOCK — brittle
-userRepo.findById.mockResolvedValueOnce({ id: 1, name: 'Alice' });
-userRepo.findById.mockResolvedValueOnce({ id: 1, name: 'Alice Updated' });
+userRepo.findById.returnsOnce({ id: 1, name: "Alice" })
+userRepo.findById.returnsOnce({ id: 1, name: "Alice Updated" })
 ```
 
-```ts
+```pseudo
 // FAKE — natural
-const userRepo = new InMemoryUserRepo();
-await userRepo.save({ id: 1, name: 'Alice' });
+userRepo = new InMemoryUserRepo()
+userRepo.save({ id: 1, name: "Alice" })
 // test runs, maybe calls save again
-const user = await userRepo.findById(1);
+user = userRepo.findById(1)
 // reflects actual state — no per-call scripting
 ```
 
@@ -107,29 +107,34 @@ Invest once in a fake; reuse forever.
 ## Mocking at the right boundary
 
 ### BAD — mocking internal functions
-```ts
+```pseudo
 // TESTING UserService
-jest.mock('./helpers', () => ({ formatDate: () => '...' }));
+mockModule("./helpers", { formatDate: () => "..." })
 // Brittle: refactoring the helper breaks tests.
 ```
 
 ### GOOD — mocking PORTS (dependencies declared by interface)
-```ts
-const userRepo: UserRepo = new InMemoryUserRepo();
-const emailClient: EmailClient = jest.fn();
-const service = new UserService(userRepo, emailClient);
+```pseudo
+userRepo: UserRepo       = new InMemoryUserRepo()
+emailClient: EmailClient = mock()
+service = new UserService(userRepo, emailClient)
 ```
 
 Rule: mock what the system-under-test OWNS as a dependency, not its internals.
 
-## Mocking frameworks
+## Mocking frameworks (per stack)
 
-- Jest / Vitest: `jest.fn()`, `jest.spyOn()`, auto-mocking.
-- Sinon (vanilla JS): spies + stubs + mocks.
-- Python: `unittest.mock`, `pytest-mock`.
-- Go: interface-based — write fakes by hand (it's idiomatic).
-- Rust: `mockall` crate for trait mocks.
-- Java: Mockito, MockK (Kotlin).
+Pick the project's idiomatic library — examples per language family:
+
+- JS / TS: jest, vitest, sinon, msw (network).
+- Python: unittest.mock, pytest-mock, responses (HTTP).
+- Go: interface-based — write fakes by hand (idiomatic).
+- Rust: mockall (trait mocks), wiremock (HTTP).
+- Java / Kotlin: Mockito, MockK.
+- Ruby: RSpec mocks, webmock.
+- .NET: Moq, NSubstitute.
+- PHP: PHPUnit mocks, Mockery.
+- Elixir: Mox, Hammox.
 
 ## Anti-patterns
 

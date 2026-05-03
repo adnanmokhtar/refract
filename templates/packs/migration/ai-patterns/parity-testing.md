@@ -103,12 +103,12 @@ testGroup("feature parity (golden master)") {
 3. Replay against V1 again in a parity-test harness (deterministic check — V1 should match its own recording within tolerance) → catches non-determinism.
 4. Replay against V2 in the same harness → divergences = parity bugs.
 
-```python
-# Pseudocode (pytest-style)
-@pytest.mark.parametrize('sample', load_replay_corpus('feature', n=200))
-def test_v2_matches_v1_replay(sample):
-    v2_output = call_v2(sample.input)
-    assert tolerant_equal(v2_output, sample.v1_output, tolerance=PARITY_TOLERANCES['feature'])
+```pseudo
+// Pseudocode — adjust to the project's test framework's parameterised-test idiom.
+parameterizedTest("v2 matches v1 replay", over: load_replay_corpus("feature", n=200)) { sample =>
+  v2_output = call_v2(sample.input)
+  assert tolerant_equal(v2_output, sample.v1_output, tolerance=PARITY_TOLERANCES["feature"])
+}
 ```
 
 **Refresh policy**:
@@ -122,17 +122,18 @@ def test_v2_matches_v1_replay(sample):
 
 **Setup**:
 
-1. Declare invariants in tests using `fast-check` / `hypothesis` / `proptest`.
+1. Declare invariants using the project's property-based library (e.g., fast-check / Hypothesis / proptest / PropEr / jqwik / RapidCheck — whichever the project uses).
 2. Each property: generates an input, calls V1 + V2, asserts the property holds for both AND that V1 ≡ V2 within tolerance.
 
-```ts
-// Pseudocode (fast-check)
-test.prop([validOrderArb])('V2 totals match V1 totals (within $0.01)', (order) => {
-  const v1 = computeV1(order);
-  const v2 = computeV2(order);
-  expect(v2.total).toBeCloseTo(v1.total, 2);
-  expect(v2.lineItems.length).toBe(v1.lineItems.length);
-});
+```pseudo
+// Pseudocode — adjust to the project's property-based library
+property("V2 totals match V1 totals (within $0.01)",
+  forall(validOrderGen, (order) => {
+    v1 = computeV1(order)
+    v2 = computeV2(order)
+    assert close_to(v2.total, v1.total, 0.01)
+    assert v2.lineItems.length == v1.lineItems.length
+  }))
 ```
 
 **Strengths**:
@@ -218,7 +219,7 @@ Parity tests assert the **contract**, which means:
 
 ## Tolerance file convention
 
-Per-feature tolerance lives in `tests/parity/<feature>/tolerance.yaml`:
+Per-feature tolerance lives in `<parity-test-root>/<feature>/tolerance.yaml`:
 
 ```yaml
 exact:

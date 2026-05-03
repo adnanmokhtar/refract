@@ -122,15 +122,15 @@ Action:    retry + circuit breaker around that client (see circuit-breaker.md pa
 |---|---|---|---|---|---|
 | 1 | SyntaxError JSON parse | 12,430 | 42% | Bug | NEW — file ticket |
 | 2 | DB connection timeout | 8,920 | 30% | Capacity | KNOWN — in progress |
-| 3 | Stripe 503 | 3,200 | 11% | Transient | ACCEPTED — retry handles |
+| 3 | payment-provider 503 | 3,200 | 11% | Transient | ACCEPTED — retry handles |
 | 4 | Validation: missing email | 1,850 | 6% | Bug | NEW — fix frontend |
 | 5 | ... |
 
 ### Root cause analysis for #1
 Stack top 3 frames:
   at JSON.parse
-  at processEventResponse (src/modules/events/handler.ts:42)
-  at ProcessEventsUseCase (src/modules/events/use-case.ts:24)
+  at processEventResponse (<modules-root>/events/handler.<ext>:42)
+  at ProcessEventsUseCase (<modules-root>/events/use-case.<ext>:24)
 
 Sample correlation: abc-123, def-456, ghi-789
 
@@ -159,7 +159,7 @@ Fix:
 
 ### Noise reduction
 - 8,920 DB timeouts are CASCADE of root #1 in most cases. Dedupe by trace root.
-- Stripe 503 is handled; silence the low-severity variant.
+- payment-provider 503 is handled; silence the low-severity variant.
 
 ### Next investigation
 - Why retry logic in caller didn't fire. Suspect: missing on that client.

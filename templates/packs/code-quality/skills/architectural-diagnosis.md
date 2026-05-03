@@ -26,7 +26,7 @@ This is the first skill /optimize dispatches. Output is consumed by /optimize Ph
 | Codebase root | Orchestrator | YES |
 | `PROJECT_KIND` | `_extracted-codebase.md § Gold standards` | YES (sets layer rules + stack-specific detectors) |
 | Layer definition | `ai/architecture.md` OR `_extracted-idioms.md § Layers` | YES (without it, layer-violation detector skips with WARN) |
-| Module boundary list | `_extracted-idioms.md § Modules` OR auto-detected from `src/modules/*` / `apps/*` / `packages/*` | YES |
+| Module boundary list | `_extracted-idioms.md § Modules` OR auto-detected from the project's actual layout (e.g., `<modules-root>/*`, `apps/*`, `packages/*`, the ecosystem's standard module locations) | YES |
 | Scope filter (optional) | Caller flag (e.g., `--scope=orders`) | NO (default: full repo) |
 
 ## Outputs (precise contract)
@@ -50,12 +50,12 @@ This is the first skill /optimize dispatches. Output is consumed by /optimize Ph
 - **Class**: layer-violation
 - **Subclass**: presentation-imports-data
 - **Evidence**:
-  - src/modules/orders/pages/OrderListPage.<ext>:42 imports `db.query()` directly
-  - src/modules/orders/pages/OrderDetailsPage.<ext>:18 imports the project's data-access primitive directly
+  - <modules-root>/orders/pages/OrderListPage.<ext>:42 imports `db.query()` directly
+  - <modules-root>/orders/pages/OrderDetailsPage.<ext>:18 imports the project's data-access primitive directly
   - 5 more (see _dep-graph.json query: presentation→data)
 - **Cascade**: closes 14 tactical findings (8 N+1, 4 SELECT-*, 2 sequential await) that originate in these UI files
 - **Closure verb**: move-responsibility
-- **Foundation fix**: extract OrderService at src/modules/orders/services/OrderService.<ext>; route page fetches through it
+- **Foundation fix**: extract OrderService at <modules-root>/orders/services/OrderService.<ext>; route page fetches through it
 - **Net-lines estimate**: +120 (service) / -340 (consumer code shrinks) = -220 net
 - **Behaviour**: preserved
 - **Risk**: low (mechanical move; tests cover the affected paths)
@@ -64,7 +64,7 @@ This is the first skill /optimize dispatches. Output is consumed by /optimize Ph
 - **Class**: god-module
 - **Subclass**: outward-imports-bloat
 - **Evidence**:
-  - src/modules/orders/services/OrderService.ts has 38 methods + 47 outward imports + 1240 LOC
+  - <modules-root>/orders/services/OrderService.<ext> has 38 methods + 47 outward imports + 1240 LOC
   - 12 distinct conceptual responsibilities detected (events, payments, refunds, shipping, …)
 - **Cascade**: closes 8 SOLID/SRP findings + simplifies 4 future fix sites
 - **Closure verb**: split-god-module
@@ -100,7 +100,7 @@ This is the first skill /optimize dispatches. Output is consumed by /optimize Ph
 
 **How to detect**:
 1. Read layer rules from `ai/architecture.md` § Layers (or `_extracted-idioms.md § Layers`). Expected shape: `presentation → application → domain → infrastructure` OR project-specific `core / domain / api / ui`.
-2. For each module, build its layer attribution from path conventions (e.g., `src/components/*` = presentation, `src/services/*` = application, `src/repositories/*` = data).
+2. For each module, build its layer attribution from path conventions (e.g., `<components-root>/*` = presentation, `<services-root>/*` = application, `<repos-root>/*` = data — actual roots per `_extracted-idioms.md § Layers`).
 3. Build the project's import graph (1 line per `import` statement; resolve relative paths to module attribution).
 4. Flag every edge that crosses a forbidden boundary.
 

@@ -106,14 +106,14 @@ Mechanical:
 Review verdict: REQUEST_CHANGES
 
 Blockers (1):
-  src/modules/orders/orders.service.ts:42
+  <modules-root>/orders/orders.service.<ext>:42
     Raw query missing tenant filter — cross-tenant leak risk
-    Fix: chain .where('order.tenant_id = :tid', { tid: this.context.tenantId }) before returning
+    Fix: add tenant scope (the project's tenant-filter primitive) before returning
 
 Requests (2):
-  src/modules/orders/orders.controller.ts:88
+  <modules-root>/orders/orders.controller.<ext>:88
     No test for the new error path (404 when product missing)
-  src/locales/en/orders.json
+  <locales-root>/en/orders.json
     Hardcoded copy in OrderList — extract orders.list.empty key
 
 Nits (3): see full report

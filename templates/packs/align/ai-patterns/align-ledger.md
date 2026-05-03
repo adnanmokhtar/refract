@@ -78,7 +78,7 @@ status: verified                # detected | in-progress | fixed | verified | pa
 class: silent-catch             # one of the 11 universal classes (or stack-conditional class)
 tier: trivial                   # trivial | standard | heavy
 source:
-  - path: src/services/order.ts
+  - path: <services-root>/order.<ext>
     lines: 138-142
 evidence: "swallowed catch in fetchOrders; no logger call, no rethrow"
 closure_verb: surface-error     # from align-discipline.md § Closure-verb vocabulary

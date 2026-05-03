@@ -63,15 +63,15 @@ Find real issues, cite `<path:line>` for every finding. "DEFINITELY DEAD" requir
 Dead branch scan
 
 DEFINITELY DEAD (delete):
-  src/modules/legacy/migrate.ts:142-167
-    Code after `throw new Error(...)` on line 141 — unreachable.
+  <modules-root>/legacy/migrate.<ext>:142-167
+    Code after a fatal-throw / panic / raise on line 141 — unreachable.
 
-  src/modules/orders/service.ts:84
-    `if (false)` — was a feature toggle, flag fully rolled out 6 months ago.
+  <modules-root>/orders/service.<ext>:84
+    `if (false)` (or language-equivalent) — was a feature toggle, flag fully rolled out 6 months ago.
 
 LIKELY DEAD (confirm):
-  src/modules/auth/session.ts:23
-    `catch (e: CustomAuthError)` — type narrowing in try-block shows it's never thrown here.
+  <modules-root>/auth/session.<ext>:23
+    Catch clause for an exception type that no callee throws — type narrowing in the try-block shows it's never thrown here.
 
 FEATURE FLAG TTL:
   FLAG_NEW_CHECKOUT    enabled 8 months ago, no off-branch usage → remove flag + dead branch

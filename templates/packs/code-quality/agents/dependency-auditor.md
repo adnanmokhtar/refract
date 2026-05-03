@@ -85,7 +85,7 @@ Rule: every dep > 20kb gzipped justifies its weight. New addition = ADR.
 ### CRITICAL — vulnerability in runtime dep
 ```
 axios@0.21.4 → CVE-2024-28849 (SSRF)
-Used by: src/modules/http/client.ts
+Used by: <modules-root>/http/client.<ext>
 Exploit surface: YES — user-supplied URLs are fetched server-side
 Fix available: upgrade to axios@1.7.4 (no breaking change)
 Priority: IMMEDIATE (security)
