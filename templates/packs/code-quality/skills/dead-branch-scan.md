@@ -17,7 +17,7 @@ Find real issues, cite `<path:line>` for every finding. "DEFINITELY DEAD" requir
 - Refuse to flag exhaustiveness `default: const _: never = x` — that's intentional.
 - Halt if the build doesn't compile — reachability analysis is unreliable on broken types.
 - Don't auto-delete; propose, get author confirmation, ship as a separate cleanup PR.
-- Tests intentionally hit "impossible" paths via mocks — exclude `__tests__/` and `*.spec.ts`.
+- Tests intentionally hit "impossible" paths via mocks — exclude the project's test directories + naming patterns (`__tests__/` / `tests/` / `spec/` and `*.spec.<ext>` / `test_*.py` / `*_test.go` / framework-equivalent).
 
 ## When to use
 
@@ -80,8 +80,8 @@ FEATURE FLAG TTL:
 
 ## False positives / gotchas
 
-- TypeScript exhaustiveness `default: const _: never = x; throw ...` LOOKS unreachable but is intentional — keep it.
+- Exhaustiveness sentinels (TypeScript's `default: const _: never = x; throw ...`, Rust's `unreachable!()`, Kotlin's `else -> error(...)`, language-equivalent) LOOK unreachable but are intentional — keep them.
 - Type narrowing across module boundaries can be wrong if a caller circumvents types — don't delete catches without checking call sites.
-- Tests intentionally hit "impossible" paths via mocks — exclude `__tests__/` and `*.spec.ts` from runtime-dead detection.
+- Tests intentionally hit "impossible" paths via mocks — exclude the project's test directories + naming patterns (`__tests__/` / `tests/` / `spec/` and `*.spec.<ext>` / `test_*.py` / `*_test.go` / framework-equivalent) from runtime-dead detection.
 - Flags may have non-config consumers (admin override, A/B framework) — audit beyond the static config.
 - Don't auto-delete. Propose, let the author confirm, ship as a separate cleanup PR.

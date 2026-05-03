@@ -50,7 +50,7 @@ Memorize. Every design that assumes otherwise is wrong.
 ## Should
 
 - Use async via queue / event bus when the caller doesn't need an immediate answer. Decouples availability — A is no longer at most as available as B.
-- Wrap every external dependency in a circuit breaker (`opossum`, Resilience4j, Polly, Hystrix-style). Fail fast when the downstream is sick; let it recover.
+- Wrap every external dependency in a circuit breaker (every mainstream language has at least one library — e.g., `opossum` / `cockatiel` for Node, Resilience4j for JVM, Polly for .NET, `gobreaker` / `hystrix-go` for Go, `pybreaker` for Python, `Stoplight` / `circuit_breaker` for Ruby). Fail fast when the downstream is sick; let it recover.
 - Bulkheads: separate connection pools / thread pools per dependency. One slow dep MUST NOT starve the others.
 - Graceful degradation: cached / default response when downstream is down. Catalog without prices beats no catalog.
 - End-to-end backpressure: producer slows when consumer / queue is full. Unbounded buffers are forbidden.
@@ -62,7 +62,7 @@ Memorize. Every design that assumes otherwise is wrong.
 
 - Sync (HTTP/gRPC) when caller needs the result NOW and downstream is in-region + fast.
 - Async (queue / event) when caller doesn't need the result, or to decouple availability.
-- Stream (Kafka / Pulsar / Kinesis) for fan-out, replay, log-based integration.
+- Stream (the project's log-based / partitioned event-stream platform — e.g., Kafka, Pulsar, Kinesis, Redpanda, NATS JetStream) for fan-out, replay, log-based integration.
 - RPC pattern names (`order.created`, `payment.captured`) live in a shared constants file or schema registry — never inline magic strings.
 
 ## Review checklist
@@ -78,9 +78,9 @@ Memorize. Every design that assumes otherwise is wrong.
 
 ## Enforcement
 
-- Contract tests (Pact, Spring Cloud Contract, schema registry) gate consumer-incompatible changes.
-- Trace coverage SLO — every endpoint has spans visible in Jaeger / Tempo / Datadog APM.
-- Chaos drills (LitmusChaos, Gremlin, kill -9 in staging) validate timeout / retry / circuit breaker actually engages.
+- Contract tests (the project's contract-test stack — e.g., Pact, Spring Cloud Contract, the schema-registry compatibility check for the project's serialization format) gate consumer-incompatible changes.
+- Trace coverage SLO — every endpoint has spans visible in the project's trace backend.
+- Chaos drills (the project's chaos tooling — LitmusChaos / Gremlin / Chaos Mesh / kill-the-process in staging) validate timeout / retry / circuit breaker actually engages.
 - Cross-tenant smoke tests on multi-tenant boundaries (cache key, event filter, query filter).
 
 ## References
@@ -88,4 +88,4 @@ Memorize. Every design that assumes otherwise is wrong.
 - L. Peter Deutsch, "The 8 fallacies of distributed computing".
 - Pat Helland, "Life Beyond Distributed Transactions".
 - microservices.io patterns catalog (Saga, Outbox, CQRS, API Gateway).
-- AWS / GCP / Azure Well-Architected (resilience pillars).
+- Cloud-vendor Well-Architected frameworks (AWS / GCP / Azure / etc., resilience pillars).

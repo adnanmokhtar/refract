@@ -20,8 +20,8 @@ Distributed transactions go wrong silently. Sagas stuck waiting on missing event
 ## Phase 1 — Understand
 
 - Flows in scope: orders / signups / billing / shipping / etc.
-- Saga implementation: Temporal / Step Functions / custom orchestrator / choreography-only.
-- Event broker: Kafka / SQS / EventBridge / RabbitMQ / Cloud Pub/Sub.
+- Saga implementation: the project's choice (durable workflow engine — Temporal / Cadence / Step Functions / Durable Functions / Inngest / etc., custom orchestrator on the project's DB, or choreography-only).
+- Event broker: the project's message bus / event-stream platform (Kafka / Pulsar / SQS / EventBridge / RabbitMQ / NATS / Cloud Pub/Sub / Redis Streams / etc.).
 
 ## Phase 2 — Organize
 
@@ -35,11 +35,10 @@ Five concerns audited:
 
 ## Phase 3 — Retrieve
 
-- **Temporal**: query for workflows in `Running` state > N hours.
-- **Step Functions**: list executions in `RUNNING` > threshold.
+- **Durable workflow engine** (Temporal / Cadence / Step Functions / Durable Functions / Inngest / etc.): query for workflows in running state > N hours via the engine's API.
 - **Custom orchestrator**: query saga ledger / state table.
 - **Choreography**: harder — need event-flow tracing across services. Use OpenTelemetry trace context.
-- DLQ depth + oldest message age from broker (SQS GetQueueAttributes / Kafka consumer-group lag).
+- DLQ depth + oldest message age from the project's broker (per the broker's stats / metrics API — e.g., SQS `GetQueueAttributes`, Kafka consumer-group lag, RabbitMQ management API).
 - Application logs / traces for failed-without-compensation patterns.
 
 Read project's:

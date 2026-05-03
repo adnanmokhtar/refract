@@ -69,7 +69,7 @@ For every claim in the audit doc:
 For frontend features (`project_kind: frontend-*` per project anchor), enumerate these axes EXPLICITLY:
 - **Navigation inventory (MANDATORY for any module-scoped or multi-tab audit; runs FIRST as Section 0; TWO-LAYER scan)** — list every user-clickable navigation target reachable from the V1 module entry: top-level tabs, in-page sub-tabs, sidebar items, accordion groups gating distinct content, modal-shell tabs, inner-routes (`<router-view>` siblings), tab-bar entries, and any other tab-shaped affordance. The scan MUST run in two layers; Layer-A-only is incomplete and HALTS:
     - **Layer A — Route tree**: read every router file in V1 + V2; build the route hierarchy. Catches top-level tabs + route children + redirects.
-    - **Layer B — Per-leaf template grep (MANDATORY, not optional)**: for EACH leaf component identified in Layer A, open its source file and grep for in-template tab patterns. If ANY match, those are ADDITIONAL nav leaves to enumerate under that parent. Patterns to scan: framework-specific tab components (`<v-tabs>`, `<TabView>`, `<TabMenu>`, `<Tabs>`, `<Tab>`, `<v-tab>`, `role="tab"`, `<nav>` with role=tablist), sidebar config arrays / sidebar `links` lists / menu data files, in-page tab arrays (`v-for tab in tabs|items|sections`, `tabs.map(t => …)`, `[{label, path|value}]` literals at template scope), `<router-view>` siblings inside a component (nested sub-routing), accordion title arrays.
+    - **Layer B — Per-leaf template grep (MANDATORY, not optional)**: for EACH leaf component identified in Layer A, open its source file and grep for in-template tab patterns. If ANY match, those are ADDITIONAL nav leaves to enumerate under that parent. Patterns to scan: the project's tab primitive (concrete tag/component vocabulary varies by stack — see the project's frontend pack rule § Tab patterns), the project's role-based ARIA tab markers (`role="tab"`, `role="tablist"`), sidebar config arrays / sidebar link lists / menu data files, in-page tab arrays (the project's iteration construct over a `tabs|items|sections` collection, `[{label, path|value}]` literals at template scope), nested-routing siblings inside a component, accordion title arrays.
     - Same two-layer scan applied to V2. Then 1:1 mapping table. Any V1 navigation leaf with no V2 equivalent navigation surface is **DRIFT, not STRUCTURE_OK**, even if the underlying form fields/components/data exist somewhere in V2's source. Burying a V1 sub-tab as a section in another V2 tab is drift; splitting one V1 tab into multiple V2 routes is drift unless an accepted ADR documents the restructure (with `user_decision_quote`). Per-axis enumeration of remaining axes only proceeds on tabs that exist on BOTH sides; if the inventory section surfaces drift, the audit halts at Section 0 and the remediation list begins there.
     - **Section 0 completion checklist** (every box ticks before audit advances): V1 routes extracted from every router file ✓ · V2 routes extracted ✓ · for EACH V1 route leaf, component source opened + grep'd for tab patterns; matches enumerated ✓ · same for V2 ✓ · V1 leaf set ↔ V2 leaf set diffed ✓ · every V1 leaf has a V2 equivalent OR is flagged DRIFT (with closure verb) ✓ · every V2-extra leaf flagged for V1-parity decision ✓.
     - **Section 0 MUST emit machine-verifiable evidence in the audit body** — without this evidence the validator's `check_section_0_evidence` halts the audit. Required block shape (paste verbatim into the audit, one per side):
@@ -84,7 +84,7 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
       ### Section 0 — Layer B — V1 per-leaf grep evidence
       For EACH leaf component above, paste the grep command + matches found.
       Leaf: <v1-leaf-component-path>
-        Command: rg -n '<TabView|TabMenu|v-tabs|v-tab|tabs\\.map|v-for.*tab in|role="tab"|role="tablist"|router-view|<Tabs|<Tab\\b' <v1-leaf-component-path>
+        Command: rg -n '<the project's tab primitive(s) per its frontend pack>|tabs[\\.\\[]\\s*(map|forEach)|<iteration-directive>.*tab in|role="tab"|role="tablist"|<nested-routing-sibling-tag>' <v1-leaf-component-path>
         Matches (paste full output OR "no matches"):
           <line>: <excerpt>
           <line>: <excerpt>
@@ -105,8 +105,8 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
       ...
       ```
       The validator parses these sections by header. Missing block → HALT. Empty grep output without "no matches" annotation → HALT. Leaf-set diff with no rows where both Layer-B passes returned matches → HALT (Layer-A-only scan recurrence).
-    - **Halt #13a (operational sub-halt)**: if the leaf component file uses dynamic tab generation (e.g., `tabs = computed(() => ...)`, factory function, async tab loader), the grep evidence MUST include the source of the tab data (the component's setup / data / computed / Pinia store / config file) AND list every tab the source can resolve to in the production data. A grep that returns "matches the pattern but the array is built dynamically; will enumerate at runtime" is a Layer-A-Only scan in disguise — HALTS. The auditor reads the data source and enumerates statically.
-    - **Why two layers**: routes-only extraction misses in-component tab UIs (e.g., a marketing page that uses one route but renders 14 platform tabs via a radio-button + `v-if` pattern inside its template). The "Layer-A-Only Scan" failure mode produces high-confidence false-PARITY verdicts on tabs whose internal navigation was never compared. Per-stack packs add their own framework-specific patterns to the Layer-B grep list.
+    - **Halt #13a (operational sub-halt)**: if the leaf component file uses dynamic tab generation (a derived/computed tab array, factory function, async tab loader, or any data-driven tab construction), the grep evidence MUST include the source of the tab data (the component's setup / data / computed / store / config file) AND list every tab the source can resolve to in the production data. A grep that returns "matches the pattern but the array is built dynamically; will enumerate at runtime" is a Layer-A-Only scan in disguise — HALTS. The auditor reads the data source and enumerates statically.
+    - **Why two layers**: routes-only extraction misses in-component tab UIs (e.g., a marketing page that uses one route but renders many platform tabs via a radio-button + conditional-render pattern inside its template). The "Layer-A-Only Scan" failure mode produces high-confidence false-PARITY verdicts on tabs whose internal navigation was never compared. Per-stack packs add their own framework-specific patterns to the Layer-B grep list.
 - **Form fields** — every input on V1's page, with type + validators + defaults. Then V2's. Mapping table.
 - **UI affordances** — every button, link, dropdown trigger, modal trigger, file-upload, toggle, copy-button. Per item: V1 path:line + V2 path:line + permission gate (or "ungated") + verdict.
 - **Templated query params** — every key the V1 list call sends. Cite the V1 service constructor line; enumerate explicitly.
@@ -122,7 +122,7 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
 
 ### Density rule for axes (Trusted-Summary protection)
 
-For UI-leaf rows (any row whose `v2_path` is a `.vue` / `.tsx` / `.svelte` / `.jsx` file), every axis verdict requires evidence proportional to the V1 surface size. Specifically:
+For UI-leaf rows (any row whose `v2_path` is a leaf-component / view-template file in the project's stack), every axis verdict requires evidence proportional to the V1 surface size. Specifically:
 
 - **Forms-bearing UI-leaf** (V1 file contains ≥5 form-input elements — concrete tags / components vary by stack and live in `frontend/rules/migration-frontend.md § Forms-bearing fingerprints`; check that pack for the project's stack):
   - Axes "Form fields", "UI affordances", "Event handlers", "Per-button permission gates" MUST emit a per-row enumeration table with `<v1-path:line>` and `<v2-path:line>` citations — REGARDLESS of verdict (PARITY or DRIFT).
@@ -133,8 +133,10 @@ For UI-leaf rows (any row whose `v2_path` is a `.vue` / `.tsx` / `.svelte` / `.j
 
 #### Worked example — Form fields axis on a PARITY-claimed UI-leaf
 
-V1: `<v1-root>/path/to/<feature>-form.vue` (~1500 lines)
-V2: `<v2-root>/path/to/<Feature>FormPanel.vue` (~250 lines — V2 is ~17% of V1, signals likely missing fields)
+V1: `<v1-root>/path/to/<feature>-form.<ext>` (~1500 lines)
+V2: `<v2-root>/path/to/<Feature>FormPanel.<ext>` (~250 lines — V2 is ~17% of V1, signals likely missing fields)
+
+The `<ext>` substitutes the project's stack-native leaf-component / view-template extension (declared in the project's `_extracted-codebase.md § Stack` and the project's frontend pack rule). The discipline is identical across stacks; only the file extension and tag vocabulary differ.
 
 INCORRECT (the kind of audit that slips past review when discipline is shallow):
 
@@ -143,20 +145,20 @@ INCORRECT (the kind of audit that slips past review when discipline is shallow):
 clean — form preserved per ADR-NNN; no field drift detected.
 ```
 
-CORRECT (the auditor must produce a table like this):
+CORRECT (the auditor must produce a table like this; field names below are illustrative — substitute the project's actual field identifiers):
 
 | # | V1 field | V1 path:line | V2 field | V2 path:line | Verdict |
 |---|---|---|---|---|---|
-| 1 | `form_type` | <feature>-form.vue:124 | `form_type` | <Feature>FormPanel.vue:54 | PARITY |
-| 2 | `purchase_method` | <feature>-form.vue:148 | `purchase_method` | <Feature>FormPanel.vue:71 | PARITY |
-| 3 | `show_header` | <feature>-form.vue:172 | `show_header` | <Feature>FormPanel.vue:88 | PARITY |
-| 4 | `auto_select` | <feature>-form.vue:196 | `auto_select` | <Feature>FormPanel.vue:112 | PARITY |
-| 5 | `shipping_type` | <feature>-form.vue:220 | (missing) | — | DRIFT — V2 missing |
-| 6 | `shipping_cost` | <feature>-form.vue:248 | (missing) | — | DRIFT — V2 missing |
-| 7 | `min_phone` | <feature>-form.vue:285 | `min_phone` | <Feature>FormPanel.vue:138 | PARITY |
-| 8 | `max_phone` | <feature>-form.vue:303 | `max_phone` | <Feature>FormPanel.vue:152 | PARITY |
-| 9 | `button_label` | <feature>-form.vue:341 | (missing) | — | DRIFT |
-| 10 | `name_active` | <feature>-form.vue:387 | (missing) | — | DRIFT |
+| 1 | `form_type` | <v1-leaf>:124 | `form_type` | <v2-leaf>:54 | PARITY |
+| 2 | `purchase_method` | <v1-leaf>:148 | `purchase_method` | <v2-leaf>:71 | PARITY |
+| 3 | `show_header` | <v1-leaf>:172 | `show_header` | <v2-leaf>:88 | PARITY |
+| 4 | `auto_select` | <v1-leaf>:196 | `auto_select` | <v2-leaf>:112 | PARITY |
+| 5 | `shipping_type` | <v1-leaf>:220 | (missing) | — | DRIFT — V2 missing |
+| 6 | `shipping_cost` | <v1-leaf>:248 | (missing) | — | DRIFT — V2 missing |
+| 7 | `min_phone` | <v1-leaf>:285 | `min_phone` | <v2-leaf>:138 | PARITY |
+| 8 | `max_phone` | <v1-leaf>:303 | `max_phone` | <v2-leaf>:152 | PARITY |
+| 9 | `button_label` | <v1-leaf>:341 | (missing) | — | DRIFT |
+| 10 | `name_active` | <v1-leaf>:387 | (missing) | — | DRIFT |
 | ... (20 more rows) | ... | ... | ... | ... | ... |
 
 If even one field in V1 isn't enumerated in this table, the auditor failed the discipline. The "Optimistic Form Field Match" anti-pattern is what this rule exists to prevent.
@@ -175,7 +177,7 @@ See `migration-discipline.md` § Required artifacts per feature — tiered floor
 For backend features (`project_kind: backend-*`), enumerate:
 - **Endpoints** — every V1 route + V2 route mapping. HTTP method, path, status codes, request shape, response shape.
 - **Side effects** — DB writes, external HTTP, queue publishes, cache writes, log lines downstream consumers depend on.
-- **Auth/permission decorators** — V1 middleware + V2 `@Permissions()` decorators per route.
+- **Auth/permission decorators** — V1 middleware + V2 per-route auth gating (decorator / annotation / middleware / guard / policy — concrete syntax varies by stack; see `backend/rules/migration-backend.md` for the project's stack).
 - **Layering** — domain framework-free? application uses ports? infrastructure adapter wired?
 
 ### V2-structure conformance check (all layers, all tiers)

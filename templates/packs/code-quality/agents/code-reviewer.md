@@ -205,8 +205,8 @@ or use DataLoader.
 
 ### Nit — missing i18n key
 ```
-src/modules/products/ui/product-card.vue:17
-Hardcoded "Add to cart" in template. Add to locales/en.json + locales/ar.json.
+src/modules/products/ui/product-card.<ext>:17
+Hardcoded "Add to cart" in template. Add to locales/en.json + locales/<other-locale>.json.
 ```
 
 ## Hard rules

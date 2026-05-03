@@ -121,17 +121,17 @@ Phase 1 MUST run this BEFORE any read of the contract or any planning work. The 
 
 ```bash
 ~/.claude/scripts/migration-validate-paths.sh "$V2_ROOT" "$FEATURE_SLUG" - <<'PATHS'
-src/modules/<feature>/pages/<Feature>Page.vue
-src/modules/<feature>/services/index.ts
+<v2_module_path>/<feature>/<page-or-leaf-component-with-stack-extension>
+<v2_module_path>/<feature>/<service-or-equivalent-layer>
 ... every file the architect plans to write ...
 PATHS
 ```
 
 Phase 4 MUST run this on the FULL list of planned files BEFORE writing any of them. Validates against the project's detected stack + module shape + naming conventions (read from `codebase-profile.md`):
 
-- Top-level dir whitelist (no writes outside `src/`, `tests/`, `public/`, `docs/`, `ai/`, `.claude/`).
-- Module shape: `src/modules/<feature>/<kind>/...` where `<kind>` is one of the kinds detected in existing modules (`pages, components, composables, services, types, locales` for the typical Vue project).
-- Filename conventions: PascalCase + recognized suffix for `.vue`; camelCase for `.ts`; framework-stack matched (no `.tsx` in a Vue project).
+- Top-level dir whitelist (no writes outside the project's source/test/build-output dirs declared in `_extracted-codebase.md § Top-level layout`).
+- Module shape: matches the project's actual module convention as extracted (e.g., `src/modules/<feature>/<kind>/...` for module-by-feature stacks; `src/<layer>/<feature>.<ext>` for layer-by-tech stacks; `apps/<service>/...` for monorepo-by-service). The `<kind>` set is read from existing modules in the project.
+- Filename conventions: case (PascalCase / kebab-case / snake_case) + suffix-extension matrix as declared in the project's `_extracted-idioms.md § Naming conventions`. Cross-stack extensions are forbidden — only extensions declared in `_extracted-codebase.md § Stack` for the project's actual stack are allowed (introducing a leaf-component extension from a different framework is a structural violation).
 - Forbidden zones: `node_modules/`, `dist/`, `.git/`, build outputs.
 
 If ANY path fails, the script exits 1 with the violation list. Phase 4 MUST refuse to write until all paths pass. Override with `--override-paths` (logged) only when the architect can defend the deviation in writing.
@@ -333,8 +333,8 @@ Phase 7 (Improve): queued for post-V1-deletion
 
 This command is stack-agnostic in shape. The specifics differ:
 
-- **Backend (e.g., Django, NestJS, Rails, Spring)**: V1 = controllers/views; V2 = the new service-layer module. Parity at HTTP boundary.
-- **Frontend (e.g., React, Vue, Angular)**: V1 = component / page; V2 = the new component / page (possibly different framework). Parity at DOM observable + a11y output + visual snapshot. Tolerance taxonomy includes `dom-equivalent` (semantically equal markup).
+- **Backend** (any server-side framework — see the project's stack declaration): V1 = controllers/views; V2 = the new service-layer module. Parity at HTTP boundary.
+- **Frontend** (any UI framework — see the project's stack declaration): V1 = component / page; V2 = the new component / page (possibly a different framework). Parity at DOM observable + a11y output + visual snapshot. Tolerance taxonomy includes `dom-equivalent` (semantically equal markup).
 - **API**: V1 = endpoint at `/v1/...` (or unversioned); V2 = endpoint at `/v2/...`. Parity at request/response shape; cutover via API gateway routing rule.
 
 For multi-stack features (e.g., "the orders flow" — frontend page + backend API + DB query), each stack ships as its own ledger row, with dependencies recorded — frontend depends on V2 API; V2 API depends on V2 DB layer.

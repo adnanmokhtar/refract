@@ -2,7 +2,7 @@
 
 Every project running the migration pack declares an `ai/migration/_v2-anchors.md` file that the validator + agents READ to know what's project-specific.
 
-> **All inline examples in this schema use Vue 3 + PrimeVue + TypeScript syntax purely as illustration** — they are NOT defaults the validator assumes. The validator's `check_v2_structure` is stack-conditional via `PROJECT_KIND`; it applies the per-stack pack's fingerprint set (`frontend/rules/migration-frontend.md` for frontend-vue3 etc.). Substitute your project's actual primitives when filling in the anchor file.
+> **All inline examples in this schema are illustrative only** — they are NOT defaults the validator assumes. Concrete component / hook / library / template tag names belong in PER-STACK packs. The validator's `check_v2_structure` is stack-conditional via `PROJECT_KIND` and applies the per-stack pack's fingerprint set (e.g., `frontend/rules/migration-frontend.md` for frontend stacks, `backend/rules/migration-backend.md` for backend stacks). Substitute your project's actual primitives when filling in the anchor file.
 
 ## File location
 
@@ -42,58 +42,57 @@ runbooks_dir: ai/runbooks
 
 ## Shared component wrappers (raw-equivalent → wrapper map)
 
-> *Vue 3 + PrimeVue example — substitute your stack's primitives.*
+> *Illustrative example — substitute your stack's primitives. The shape is universal: name the raw library primitive, the project's wrapper around it, and why the wrapper exists.*
 
 | Raw / forbidden | Wrapper to use | Reason |
 |---|---|---|
-| `<Dialog>` (PrimeVue) | `<BaseModal>` (project wrapper) | unified header + RTL + focus trap |
-| `<Paginator>` (PrimeVue) | `<CrudPaginator>` (project wrapper) | wired to useCrud |
-| `<InputSwitch>` raw in forms | `<StatusSwitch>` (project wrapper) | typed + label-aware |
+| Raw modal/dialog primitive from the project's UI library | The project's modal wrapper | unified header + RTL + focus trap |
+| Raw paginator primitive from the project's UI library | The project's paginator wrapper | wired to the project's CRUD primitive |
+| Raw toggle/switch primitive used in forms | The project's typed status-switch wrapper | typed + label-aware |
 | ... | ... | ... |
 
 ## Shared composables / hooks (open-coded → reusable map)
 
-> *Vue 3 example — substitute your stack's hook / composable / service convention.*
+> *Illustrative example — substitute your stack's hook / composable / service / mixin convention.*
 
 | Open-coded fingerprint | Reusable to use |
 |---|---|
-| `reactive({ items: [], page: 1, perPage: ..., total: ... })` | `useCrud` / `useTable` |
-| Cascading dropdown chain (country → state → city) | `useGeoCascade` (or stack equivalent) |
-| Form values + schema + setFieldValue | `useForm` (or `react-hook-form` / `formik` / etc.) |
+| Open-coded list state (items array + page + perPage + total) | The project's CRUD/table primitive |
+| Cascading dropdown chain (country → state → city) | The project's geo-cascade primitive |
+| Form values + schema + field-mutation pattern | The project's form-state primitive |
 | ... | ... |
 
 ## Layering rules (forbidden import directions)
 
-> *Vue 3 frontend example — substitute your stack's layer names + file extensions. The shape is universal: name each layer, what it MAY import from, what it MUST NOT.*
+> *Illustrative example — substitute your stack's layer names + file extensions. The shape is universal: name each layer, what it MAY import from, what it MUST NOT.*
 
 | Layer | May import from | May NOT import from |
 |---|---|---|
-| Components (e.g. `<v2_root>/**/*.vue`) | composables / hooks, services, types, shared/ | http client, other modules |
-| Composables / hooks | services, types, core/ | components, pages |
-| Services | core/ (http client), types | framework runtime, router, state library |
+| Leaf components / pages (e.g. `<v2_root>/**/*.<leaf-ext>`) | hooks / composables / mixins, services, types, shared/ | http client, other modules |
+| Hooks / composables / shared logic | services, types, core/ | leaf components, pages |
+| Services / data-access layer | core/ (http client), types | framework runtime, router, state library |
 | Core | (nothing — leaf) | framework ecosystem |
 
 ## Lifecycle anchors
 
-> *Vue 3 + KeepAlive example. Other frameworks: declare the equivalent route-cache mechanism (Next.js route cache, Nuxt page cache, React Router data revalidation, etc.).*
+> *Illustrative example. Each stack has its own route-cache / data-revalidation mechanism — declare the equivalent in your project's anchors. See the per-stack pack rule for the concrete hook / lifecycle pair.*
 
 ```yaml
-keepalive_layout: <path to project's route-cache layout file>
-keepalive_exclude_pattern: <regex matching the cache-exclude declaration>
+route_cache_layout: <path to the project's route-cache / cache-shell layout file>
+route_cache_exclude_pattern: <regex matching the cache-exclude declaration>
 ```
 
-The validator reads this to know which pages bypass route caching (and thus may safely use the mount-only hook instead of the mount-AND-reactivate pair).
+The validator reads this to know which pages bypass route caching (and thus may safely use the project's mount-only hook instead of the mount-AND-reactivate pair).
 
 ## V1 fingerprints to forbid in V2 (project-specific)
 
-> *Vue 3 + PrimeVue example. Stack-conditional fingerprints live in the per-stack pack rule (`frontend/rules/migration-frontend.md` enumerates the frontend ones); projects extend by appending entries here.*
+> *Illustrative shape only — fingerprints below are placeholders. Stack-conditional fingerprints live in the per-stack pack rule (`frontend/rules/migration-frontend.md` enumerates the frontend ones, `backend/rules/migration-backend.md` the backend ones); projects extend by appending entries here.*
 
 ```
 forbidden_patterns:
-  - { regex: '<Dialog\b', severity: fail, message: "raw <Dialog> — use <BaseModal>" }
-  - { regex: ':label="\$t\(', context: '<FormField|<TranslatedInput', severity: fail, message: "FormField double-translation" }
-  - { regex: '<div class="col-(md|sm|lg)-[0-9]+[^>]*>\s*<FormField', severity: fail, message: "wrapper col around FormField" }
-  - { regex: 'phone-row', severity: warn, message: "hand-rolled phone field — use <PhoneInput>" }
+  - { regex: '<RawModalPrimitive\b', severity: fail, message: "raw modal primitive — use the project's modal wrapper" }
+  - { regex: '<wrapping-grid-class>\s*<FormField', severity: fail, message: "wrapper grid around shared field component" }
+  - { regex: 'open-coded-phone-row', severity: warn, message: "hand-rolled phone field — use the project's phone-input wrapper" }
   ...
 ```
 
@@ -101,12 +100,12 @@ The defaults in `validate-migration-artifacts.sh § check_v2_structure` are stac
 
 ## Required V2 patterns (positive — must appear in new V2 code)
 
-> *Vue 3 example.*
+> *Illustrative shape only — substitute your stack's primitives.*
 
 ```
 required_patterns:
-  - { in: '<v2_root>/**/*Page.vue', regex: '\bonActivated\(', message: "page must use onActivated for KeepAlive" }
-  - { in: '<v2_root>/**/services/index.ts', regex: 'BaseCrudService', message: "CRUD services must use BaseCrudService" }
+  - { in: '<v2_root>/**/*Page.<leaf-ext>', regex: '<project mount-AND-reactivate hook regex>', message: "page must use the project's mount-AND-reactivate hook pair" }
+  - { in: '<v2_root>/**/services/<index-file>', regex: '<project base CRUD service symbol>', message: "CRUD services must use the project's base CRUD service" }
 ```
 
 ## ADR catalog reference
@@ -118,15 +117,17 @@ adr_pattern: ADR-[0-9]{3,4}
 
 ## Backend-specific (only if `project_kind: backend-*`)
 
+> *Illustrative shape only — substitute your stack's domain layering convention. See `backend/rules/migration-backend.md` for stack-specific specifics.*
+
 ```
 hex_layers:
-  domain: src/<feature>/domain/
-  application: src/<feature>/application/
-  infrastructure: src/<feature>/infrastructure/
+  domain: <v2_root>/<feature>/domain/
+  application: <v2_root>/<feature>/application/
+  infrastructure: <v2_root>/<feature>/infrastructure/
 
-aggregate_root_pattern: '@AggregateRoot'
-repository_interface_suffix: 'Repository'
-command_handler_suffix: 'CommandHandler'
+aggregate_root_pattern: '<project's DI/decorator marker for aggregate roots>'
+repository_interface_suffix: '<project's repository suffix>'
+command_handler_suffix: '<project's command-handler suffix>'
 ```
 
 ## Cross-stack contract (only for repos depending on another)

@@ -50,12 +50,12 @@ This is the first skill /optimize dispatches. Output is consumed by /optimize Ph
 - **Class**: layer-violation
 - **Subclass**: presentation-imports-data
 - **Evidence**:
-  - src/modules/orders/pages/OrderListPage.vue:42 imports `db.query()` directly
-  - src/modules/orders/pages/OrderDetailsPage.vue:18 imports `prisma.order.findMany`
+  - src/modules/orders/pages/OrderListPage.<ext>:42 imports `db.query()` directly
+  - src/modules/orders/pages/OrderDetailsPage.<ext>:18 imports the project's data-access primitive directly
   - 5 more (see _dep-graph.json query: presentation→data)
 - **Cascade**: closes 14 tactical findings (8 N+1, 4 SELECT-*, 2 sequential await) that originate in these UI files
 - **Closure verb**: move-responsibility
-- **Foundation fix**: extract OrderService at src/modules/orders/services/OrderService.ts; route page fetches through it
+- **Foundation fix**: extract OrderService at src/modules/orders/services/OrderService.<ext>; route page fetches through it
 - **Net-lines estimate**: +120 (service) / -340 (consumer code shrinks) = -220 net
 - **Behaviour**: preserved
 - **Risk**: low (mechanical move; tests cover the affected paths)

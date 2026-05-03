@@ -26,10 +26,10 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 
 ## Must not
 
-- `console.log` / `print` / `fmt.Println` in committed code. Use the project logger with fields.
+- Direct stdout / unstructured print calls (any language's `console.log` / `print` / `fmt.Println` / `puts` / `echo` / `System.out.println`) in committed code. Use the project logger with fields.
 - Log passwords, full tokens, full PANs, full national IDs, full health data. Mask: last 4 digits or hash.
-- Log objects whole (`logger.info(user)`) without scrubbing — leaks PII via field names you forgot.
-- High-cardinality labels on metrics: `userId`, `requestId`, `email`, `path` with IDs in it. Will explode Prometheus / TSDB cardinality.
+- Log objects whole (e.g., logging the entire user / request object) without scrubbing — leaks PII via field names you forgot.
+- High-cardinality labels on metrics: `userId`, `requestId`, `email`, `path` with IDs in it. Will explode time-series-DB cardinality.
 - Alert on causes (CPU > 80%, queue depth > 100) when the symptom is what users feel (latency, error rate, saturation of a SLO).
 - Sample errors. 100% of errors trace; 1-10% of successes is fine.
 - Ship a metric without a dashboard or alert. Dead metrics = paid storage, no value.
@@ -38,10 +38,10 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 ## Should
 
 - Sample 100% of errors; sample 1–10% of successes head-based (tail-based is better when affordable).
-- Add exemplars on metrics (Prometheus exemplars) so a histogram bucket links back to a specific trace.
-- Log + metric + trace MUST use the SAME identifiers (`traceId`, `tenantId`) — easy navigation between pillars in Grafana / Datadog.
+- Add exemplars on metrics (where the metrics backend supports them) so a histogram bucket links back to a specific trace.
+- Log + metric + trace MUST use the SAME identifiers (`traceId`, `tenantId`) — easy navigation between pillars in the project's observability backend.
 - Run synthetic monitoring on critical user journeys (login, checkout, primary CRUD). Black-box probes catch what white-box misses.
-- Version-control dashboards (Grafana JSON / Terraform / Jsonnet). UI-edited dashboards drift and disappear.
+- Version-control dashboards (export to JSON / IaC modules / templating language). UI-edited dashboards drift and disappear.
 - Maintain one canonical service map + one critical-path latency dashboard. On-call MUST NOT have to hunt.
 
 ## Review checklist
@@ -56,8 +56,8 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 
 ## Enforcement
 
-- ESLint / lint rule banning `console.log` outside of dev tooling.
-- `semgrep` rules to flag `logger.info(<user>)` / `log.debug(<request>)` whole-object logs.
+- The project's stack-native linter bans direct stdout / unstructured print calls outside of dev tooling.
+- `semgrep` rules (multi-language) flag whole-object logs (logger calls passing a user / request object directly).
 - Cardinality budget per metric in alerting platform; CI fails on regression.
-- Dashboards + alert rules in code (Terraform / Crossplane / Jsonnet) reviewed in PRs.
-- OpenTelemetry collector configured with a bounded memory queue + drop policy.
+- Dashboards + alert rules in code (IaC / Terraform / Crossplane / templating language) reviewed in PRs.
+- OpenTelemetry collector (or equivalent telemetry pipeline) configured with a bounded memory queue + drop policy.

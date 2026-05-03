@@ -29,7 +29,7 @@ pack: migration
 >
 > - **V1 root**: `<extracted>` (e.g., `Reports/views.py`, `apps/web-v1/`, `legacy/`)
 > - **V2 root**: `<extracted>` (e.g., `apps/web/`, `reports_v2/`, `src/v2/`)
-> - **Module-shape in V2**: `<extracted>` (e.g., `<feature>/{controller,service,repo,dto}.ts` OR Django app per feature OR feature folder per route)
+> - **Module-shape in V2**: `<extracted>` (e.g., feature-folder containing service/repo/dto/controller-equivalent files; OR app-per-feature in framework-native shape; OR feature folder per route — the actual convention extracted from V2)
 > - **Cutover mechanism**: `<extracted>` (feature flag library + path / URL routing rule / build-time toggle / env var)
 > - **Parity test root**: `<extracted>` (e.g., `tests/parity/`, `__tests__/parity/`)
 > - **Migration ledger**: `ai/migration/ledger.md`

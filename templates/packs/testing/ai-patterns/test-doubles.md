@@ -17,7 +17,7 @@ pack: testing
 **When NOT to apply**
 - Pure functions and value objects — use the real thing.
 - Internal helpers and private methods — exercise via the public surface.
-- Dependencies the system doesn't own (`express.Router`, framework internals).
+- Dependencies the system doesn't own (your web framework's request router, framework internals).
 
 **Halt conditions / mandatory cites**
 - Cite the port interface file as `<path:line>` before mocking it; mocking concrete classes without an interface is a halt.
@@ -25,6 +25,8 @@ pack: testing
 - Cite the clock / RNG / UUID injection point as `<path:line>` before asserting on time-dependent behaviour; `Date.now = ...` rewrites are forbidden.
 - Cite the production code path that requires the special case before adding any test-only branch (`if (process.env.TEST)`); mock creep into production is a halt.
 - Hand-wave grep ban — never claim "no real network in tests" without citing the MSW/nock setup file or CI guard rule.
+
+> **Code samples below are illustrative.** Concrete syntax shown uses one stack (TypeScript + a JS-family test runner) for readability; the principles apply across language families. Substitute your stack's mocking primitives (`MagicMock` / `monkeypatch` / `Mockito.mock` / `instance_double` / `gomock` / framework-equivalent) using the substitution table in `testing/STACK.md`.
 
 Wrong double = brittle test OR false confidence. Know the difference.
 
@@ -162,7 +164,7 @@ Production code gains a special code path for tests (`if (process.env.TEST)`). S
 ## Determinism essentials
 
 Always fake:
-- **Time** — `Date.now()`, `new Date()`, `performance.now()`. Inject a clock OR use `jest.useFakeTimers`.
+- **Time** — `Date.now()`, `new Date()`, `performance.now()` and language-equivalents. Inject a clock OR use the project's fake-timer helper (`jest.useFakeTimers` / `vi.useFakeTimers` / `freezegun.freeze_time` / `Timecop.freeze` / `Clock.fixed` / framework-equivalent).
 - **UUID / random** — seed in tests OR inject a generator.
 - **Network** — mock or use a local fake server (MSW, nock, recorded fixtures via vcr).
 - **File system** — use a tmpdir + cleanup, or a memory FS.

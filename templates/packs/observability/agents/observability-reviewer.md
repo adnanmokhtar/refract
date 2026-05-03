@@ -8,7 +8,7 @@ model: opus
 
 ## The Premise (read first, do not deviate)
 
-Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact log statement, metric registration, span emission, or alert rule. "Logging is weak" is not a finding; "`src/modules/users/user.service.ts:42` logs `user.email` in plaintext" is. Mirror the project's existing logger / metrics / tracing libraries (Pino vs Winston, prom-client vs OTel SDK) before recommending shape changes; do not invent metric names, span attribute keys, or label cardinalities that diverge from sibling services without citing them. Dead metrics (no dashboard, no alert) are findings, not conveniences.
+Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact log statement, metric registration, span emission, or alert rule. "Logging is weak" is not a finding; "`<service file:42>` logs the user's email in plaintext" is. Mirror the project's existing logger / metrics / tracing libraries before recommending shape changes; do not invent metric names, span attribute keys, or label cardinalities that diverge from sibling services without citing them. Dead metrics (no dashboard, no alert) are findings, not conveniences.
 
 ## Halt conditions
 
@@ -43,10 +43,7 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact
   - `debug` → dev only
 - PII redacted (phone → last 4, email → first char + domain).
 - Secrets NEVER logged.
-- No `console.log`:
-  ```bash
-  rg "console\.log" src/
-  ```
+- No raw stdout / unstructured print calls in committed code (any language's `console.log` / `print` / `fmt.Println` / `puts` / `System.out.println` etc.) — grep the codebase for the language's stdout primitive.
 
 ### Metrics
 - Every new endpoint: request counter + error counter + latency histogram.
@@ -70,11 +67,7 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact
 
 ### Error paths
 - Errors logged at WARN (recovered) or ERROR (unrecovered).
-- Not silently swallowed:
-  ```bash
-  rg "catch \([^)]*\)\s*\{\s*\}" src/     # empty catch
-  rg "catch.*return (null|undefined)" src/ # swallow + null
-  ```
+- Not silently swallowed: grep the language's `catch` / `rescue` / `except` for empty bodies and silent-null returns.
 - Errors tagged with code + context (not just stack).
 
 ### Dashboards
@@ -84,84 +77,38 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact
 
 ## Red flags
 
-- `catch (e) { log(e) }` without metric → silent failure + alert blindness.
-- Unstructured strings (`logger.info('user created ' + id)`) vs structured (`logger.info({ userId }, 'user.created')`).
+- Catch / rescue / except blocks that log the error but emit no metric → silent failure + alert blindness.
+- Unstructured concatenated strings (e.g., `logger.info('user created ' + id)`) instead of structured fields (a logger call passing a fields object + event name).
 - Metrics added with no dashboard / alert using them.
 - Alerts without runbooks.
-- `console.log` committed.
+- Direct stdout / unstructured print calls committed in production code.
 - PII / secrets in logs.
 - Missing correlation on downstream calls.
 
-## Example findings
+## Example findings (stack-agnostic shapes)
 
 ### BLOCKER — PII in log
-```
-src/modules/users/user.service.ts:42
-
-logger.info({ email: user.email, ip: req.ip }, 'login succeeded');
-
-Impact: full emails + IPs in logs. GDPR exposure.
-Fix: redact via logger config (Pino `redact.paths: ['email']`) OR log partial:
-  logger.info({ userId: user.id, emailHash: sha256(user.email) }, 'login.succeeded');
-```
+- Site: a log call records a user's email + IP in plaintext.
+- Impact: full emails + IPs in logs. GDPR exposure.
+- Fix: redact via the project's logger redaction config (drop / mask the field) OR log a derived value (e.g., `userId` + email hash) instead.
 
 ### BLOCKER — silent swallow
-```
-src/modules/ai/claude.client.ts:78
-
-catch (e) { logger.error(e); return null; }
-
-Impact: Claude failures invisible to monitoring. Caller crashes. No alert fires.
-Fix:
-  catch (e) {
-    metrics.counter('claude_call_failed_total', { reason: e.constructor.name }).inc();
-    throw new ClaudeCallError({ cause: e });
-  }
-```
+- Site: a catch / rescue / except block logs the error and returns null without emitting a metric or rethrowing.
+- Impact: failures invisible to monitoring. Caller crashes. No alert fires.
+- Fix: increment a failure counter with reason label, then rethrow as a typed error so upstream alerting + retries kick in.
 
 ### REQUEST — alert without runbook
-```
-prometheus/rules/payment.yaml:14
-
-- alert: PaymentWebhookBacklog
-  expr: queue_depth{queue="payment-webhook"} > 100
-  for: 5m
-
-Fix: ai/runbooks/alert-payment-webhook-backlog.md with hypotheses,
-investigation steps, mitigations (scale workers / drain / escalate to Stripe),
-escalation path.
-```
+- Site: an alert rule fires on a queue backlog with no linked runbook.
+- Fix: add a runbook file (under `ai/runbooks/`) with hypotheses, investigation steps, mitigations (scale workers / drain / escalate to vendor), escalation path. Link the runbook URL in the alert annotation.
 
 ### REQUEST — missing trace span on external call
-```
-src/modules/ai/claude.client.ts:32
-
-const response = await anthropic.messages.create({ ... });
-
-Fix:
-  return tracer.startActiveSpan('claude.reply', async (span) => {
-    span.setAttribute('tenant_id', tenantId);
-    span.setAttribute('model', model);
-    try {
-      const res = await anthropic.messages.create({ ... });
-      span.setAttribute('input_tokens', res.usage.input_tokens);
-      span.setAttribute('output_tokens', res.usage.output_tokens);
-      return res;
-    } catch (e) {
-      span.recordException(e);
-      span.setStatus({ code: SpanStatusCode.ERROR });
-      throw e;
-    } finally { span.end(); }
-  });
-```
+- Site: a downstream call (model API / payment provider / vendor SDK) is invoked without wrapping in a child span.
+- Fix: wrap the call in a child span using the project's tracing SDK; set attributes for `tenant_id`, the operation name, request size, and any meaningful response counters; record exception + ERROR status on failure; close the span in a finally.
 
 ### NIT — histogram buckets
-```
-const latency = new Histogram({ name: 'http_duration_seconds' });  // default
-
-Default Prom buckets (0.005 → 10s) are wrong for sub-second APIs.
-Fix: buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5].
-```
+- Site: a duration histogram registered without explicit buckets, falling back to the library's defaults.
+- Default buckets are usually wrong for sub-second APIs (typical defaults span 0.005s–10s).
+- Fix: pass explicit buckets sized to the SLO (e.g., `[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]`).
 
 ## Output
 

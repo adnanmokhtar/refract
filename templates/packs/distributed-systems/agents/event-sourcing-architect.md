@@ -56,28 +56,15 @@ Events are FACTS about the past:
 - Keep small (IDs + essential data; consumers refetch rest if needed).
 - Avoid "XChanged" — too generic. Be specific: `OrderPaid`, `OrderRefunded`.
 
-Schema:
-```ts
-interface OrderPlaced {
-  type: 'OrderPlaced';
-  version: 1;
-  aggregateId: string;
-  aggregateVersion: number;      // optimistic concurrency
-  timestamp: string;
-  userId: string;
-  payload: {
-    customerId: string;
-    items: Array<{ productId: string; qty: number; priceAtPlacement: number }>;
-    totalCents: number;
-    currency: string;
-  };
-  metadata: {
-    correlationId: string;
-    causationId: string;           // id of the command that caused this
-    tenantId: string;
-  };
-}
-```
+Event envelope (illustrative shape — adapt to the project's serialization format / schema language):
+
+- `type`: a stable past-tense name (e.g., `OrderPlaced`).
+- `version`: integer, bumped on schema evolution.
+- `aggregateId` + `aggregateVersion`: optimistic-concurrency keys.
+- `timestamp`: occurrence time.
+- `userId`: actor.
+- `payload`: domain fields (IDs + essential data).
+- `metadata`: correlation id, causation id (the command that produced the event), tenant id, any other cross-cutting context.
 
 ### Event store
 
@@ -87,17 +74,17 @@ Requirements:
 - Global feed (for projections + external subscribers).
 - At-least-once delivery to subscribers.
 
-Options:
-- **Postgres** — single-node, simple, works to ~low millions of events.
-- **EventStoreDB** — purpose-built, supports catch-up subscriptions + projections.
-- **Apache Kafka** — stream-native; use with careful partition design.
-- **AWS DynamoDB Streams** — managed; good for AWS-native.
+Options (pick the project's existing primitive when possible):
+- **A SQL DB with an append-only events table** (e.g., Postgres) — single-node, simple, works to ~low millions of events.
+- **Purpose-built event store** (e.g., EventStoreDB / Marten) — supports catch-up subscriptions + projections out of the box.
+- **A stream-native log** (Kafka / Pulsar / Redpanda / Kinesis / NATS JetStream) — careful partition design required.
+- **A managed change-stream service** (e.g., DynamoDB Streams, Cosmos DB change feed) — good for cloud-native deployments.
 
 ### Projections
 
 Derived read models:
 - Consume events.
-- Store in any structure optimal for queries (Postgres table, Elasticsearch index, Redis, etc.).
+- Store in any structure optimal for queries (the project's choice — a SQL table, a search-index, a key-value cache, a graph DB, an OLAP store, etc.).
 - Rebuildable from scratch by replaying.
 - Eventually consistent (replay lag = projection lag).
 - Multiple projections from same events; add new ones freely.
@@ -167,9 +154,9 @@ Event store: <choice> + <rationale>
 Projections:
 | Name | Storage | Purpose | Rebuild time |
 |---|---|---|---|
-| order_list_view | Postgres | List page | 5min |
-| order_search | Elasticsearch | Full-text | 20min |
-| analytics_daily | Snowflake | BI | 1h |
+| order_list_view | <transactional DB> | List page | 5min |
+| order_search | <search index> | Full-text | 20min |
+| analytics_daily | <OLAP / data warehouse> | BI | 1h |
 
 Snapshots: every 50 events
 Schema evolution: upcasters via version field

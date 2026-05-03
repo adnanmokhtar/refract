@@ -72,7 +72,7 @@ Event Store ──────────────────────�
 - Denormalized projections tailored per query.
 - Materialized views OR separate read DB.
 - Eventually consistent with writes.
-- Can use different tech (Postgres write → Elastic read for search).
+- Can use different tech (a relational write store → a search-index for full-text reads, or → a wide-column / OLAP store for aggregates).
 
 ### Event bus
 - Connects write model to projections.
@@ -82,7 +82,7 @@ Event Store ──────────────────────�
 ## Projection examples
 
 - **Order listing** — flat table with customer name + order total + status (denormalized).
-- **Search** — Elasticsearch index with tokenized fields.
+- **Search** — a search index (the project's choice — Elasticsearch / OpenSearch / Meilisearch / Typesense / a managed equivalent) with tokenized fields.
 - **Analytics** — time-series aggregates updated on each event.
 - **Notifications** — user's "unread" count cached per user.
 

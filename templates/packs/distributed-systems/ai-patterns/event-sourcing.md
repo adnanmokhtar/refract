@@ -52,57 +52,22 @@ Command → Aggregate → Event → Event Store → Projections (read models)
 - Versioned. Schema evolution requires upcasters.
 - Self-describing. Include all context needed to replay.
 
-### Aggregate
+### Aggregate (stack-agnostic shape)
 - Loaded by replaying events from the event store.
 - Validates commands against current state.
 - Emits new events.
 
-```ts
-class Order {
-  private events: Event[] = [];
-  private state: OrderState;
+The aggregate has:
+- A `fromEvents(events)` factory that replays events to rebuild state.
+- Public command methods (e.g., `place(items)`) that check invariants and append a new event.
+- A private `apply(event)` method that dispatches on event type and mutates state.
 
-  static fromEvents(events: Event[]): Order {
-    const o = new Order();
-    events.forEach(e => o.apply(e));
-    return o;
-  }
-
-  place(items: Item[]) {
-    if (this.state.placed) throw new AlreadyPlacedError();
-    this.apply(new OrderPlaced(this.id, items));
-  }
-
-  private apply(event: Event) {
-    switch (event.type) {
-      case 'OrderPlaced':
-        this.state = { ...this.state, placed: true, items: event.items };
-        break;
-      // ...
-    }
-    this.events.push(event);
-  }
-}
-```
-
-### Event store
+### Event store (stack-agnostic schema)
 - Append-only table.
 - Index on `aggregate_id` + `version` for loading.
 - Concurrency control via `expected_version` on append (optimistic locking).
 
-```sql
-CREATE TABLE events (
-  id            bigserial PRIMARY KEY,
-  aggregate_id  uuid NOT NULL,
-  aggregate_type text NOT NULL,
-  type          text NOT NULL,
-  payload       jsonb NOT NULL,
-  metadata      jsonb NOT NULL,
-  version       int NOT NULL,
-  created_at    timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (aggregate_id, version)
-);
-```
+Required columns: `id` (sequential), `aggregate_id` (UUID/identifier), `aggregate_type`, event `type`, `payload` (the project's JSON / structured-data column type), `metadata` (correlation id / causation id / tenant), `version` (int), `created_at` (timestamp). Unique constraint on `(aggregate_id, version)` for optimistic locking.
 
 ### Projections
 - Derived read models built by consuming events.

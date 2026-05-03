@@ -172,7 +172,7 @@ The port is "done" but V2's code violates V2's own conventions. The audit may pa
 - **Suggested mechanism**: validator runs i18n-audit module; if any new key in `en.ts` lacks the same path in `ar.ts`, log_fail.
 
 ### B7. Backend hexagonal-boundary violation
-- **What**: V2 NestJS service in `application/` imports from `infrastructure/`; controller calls repository directly bypassing CommandService; `@Injectable` appears in `domain/` or `application/service/`.
+- **What**: V2 service in the application layer imports from the infrastructure layer; controller calls repository directly bypassing the command/service layer; the project's DI/framework service-registration decorator/marker appears in domain or pure-application layers. *Concrete syntax varies by stack — see `backend/rules/migration-backend.md § DI markers` for the project's stack.*
 - **Stack**: Backend (<backend-v2> hexagonal).
 - **Where it bit us**: Projected — `<backend-v2>/CLAUDE.md` warns; the `/hex-purity` skill exists.
 - **Current coverage**: ⚠️ Project-side only — `/hex-purity` static scan exists in <backend-v2>; NOT wired into the migration validator.
@@ -247,8 +247,8 @@ The contract was written; the implementation matches the contract; but the contr
 - **Current coverage**: ⚠️ Tolerance taxonomy + corpus must include empty-state inputs (per `parity-test-generate.md § 2`). Soft enforcement.
 - **Severity**: P0.
 
-### C6. Reactive lifecycle mismatch (`onMounted` vs `onActivated`)
-- **What**: V1 uses `onMounted` for a non-cached page; V2 page is cached under `<KeepAlive>` but uses `onMounted` — data goes stale on tab return / tenant switch.
+### C6. Reactive lifecycle mismatch (mount-only hook on cached/reactivating page)
+- **What**: V1 uses a mount-only lifecycle hook on a non-cached page; V2 page is cached / kept-alive but uses only the mount-only hook — data goes stale on tab return / tenant switch. *(Concrete hook pair varies by stack — see the project's frontend pack rule § Lifecycle for the project's mount-only hook vs its mount-AND-reactivate hook pair.)*
 - **Stack**: Frontend.
 - **Where it bit us**: Documented in `<frontend-v2>/CLAUDE.md` (KeepAlive section); F032 audit verified V2 uses `onActivated` correctly. Risk recurs every port.
 - **Current coverage**: ⚠️ Spec-only — frontend axes list "Reactive lifecycle". No mechanical check.

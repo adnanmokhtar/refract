@@ -10,7 +10,7 @@ pack: observability
 > **Hard rule:** Every log is JSON with `timestamp`, `level`, `message`, `traceId`, and structured context fields; no string interpolation of variables into the message. PII (emails, names, tokens, full card numbers) and stack traces in user-visible responses are forbidden — they go to logs only, redacted per policy.
 
 **When to apply**
-- A service runs in production where logs are aggregated (Datadog, Loki, ELK, CloudWatch).
+- A service runs in production where logs are aggregated (any centralised log backend — Datadog, Loki, ELK, CloudWatch, Splunk, etc.).
 - An incident retro shows logs were unsearchable or PII leaked through them.
 - A new request-scoped value (tenant, feature flag, A/B bucket) needs to appear in every line for that request.
 
@@ -19,9 +19,9 @@ pack: observability
 - A short-lived script that prints to stdout once.
 
 **Halt conditions / mandatory cites**
-- Each log call MUST cite the structured fields it emits at `<path:line>` — no `JSON.stringify` of arbitrary objects.
+- Each log call MUST cite the structured fields it emits at `<path:line>` — no whole-object dumps of arbitrary structures.
 - Any field that may contain PII MUST cite the redaction helper or schema policy.
-- A doc proposing `logger.info(\`user ${u.email} did X\`)` is a bug — reject; use structured fields.
+- A doc proposing string-interpolated log messages (e.g., a logger call concatenating `user ${u.email} did X` into the message) is a bug — reject; use structured fields.
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is enough context".
 - If the logger library + correlation-ID propagation aren't extracted, halt.
 
@@ -44,15 +44,9 @@ Every log line is a JSON object with:
 }
 ```
 
-## Library choices (by stack)
+## Library choices (by stack — pick one structured logger, not the language's default print)
 
-- **Node**: Pino (fast, structured by default) > Winston.
-- **Python**: structlog > logging with JSON formatter.
-- **Go**: zerolog / slog (1.21+).
-- **Rust**: tracing + tracing-subscriber.
-- **Java**: Logback + logstash-encoder.
-- **Ruby**: Ougai / lograge.
-- **PHP**: Monolog + JsonFormatter.
+Every mainstream language ecosystem has at least one structured logger with first-class JSON output (e.g., Pino / Winston for Node, structlog for Python, zerolog or `slog` for Go, `tracing` / `log` for Rust, Logback + JSON encoder for Java, Ougai / Lograge for Ruby, Monolog with JsonFormatter for PHP, Serilog for .NET, Logger with Logstash backend for Elixir). Pick the one already used in sibling services; if greenfield, pick one with structured-JSON-by-default to avoid a parallel formatter config.
 
 ## Levels (use correctly)
 
@@ -83,21 +77,12 @@ NEVER log:
 - Full email (`john@example.com` → `j**@example.com`)
 - Full names with other PII on the same line
 
-Redaction at the log library level — not "remember not to log it":
-```ts
-// Pino example
-const logger = pino({
-  redact: {
-    paths: ['password', 'token', '*.password', '*.token', 'card.number'],
-    censor: '[REDACTED]',
-  },
-});
-```
+Redaction at the log library level — not "remember not to log it". Configure the project's logger with redaction paths for sensitive field names (e.g., `password`, `token`, nested variants `*.password`, `*.token`, payment fields like `card.number`); the censor renders as `[REDACTED]`.
 
 ## Transport
 
 - Dev: pretty-print to stdout.
-- Prod: JSON to stdout → collected by Docker/K8s log driver → shipped to central sink (Datadog / Loki / CloudWatch / OpenSearch).
+- Prod: JSON to stdout → collected by the runtime's log driver (container runtime, orchestrator log shipper, syslog, etc.) → shipped to the project's centralised log backend.
 - NEVER write to local files in prod (ephemeral containers lose them; size bombs disk).
 
 ## Query patterns
@@ -110,7 +95,7 @@ With structured logs, common queries:
 
 ## Forbidden
 
-- `console.log` in committed code.
+- Direct stdout / unstructured print calls in committed code (any language's `console.log` / `print` / `fmt.Println` / `puts` / `System.out.println`).
 - Unstructured strings in prod logs.
 - Logging objects that might contain secrets (log explicit fields only).
 - Logging inside hot loops without rate limiting.

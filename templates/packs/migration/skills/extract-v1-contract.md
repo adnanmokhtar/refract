@@ -281,9 +281,9 @@ Before you start, read `ai/migration/_v2-anchors.md` (schema at `templates/packs
 
 - `project_kind` (frontend / backend / API / mixed) — drives which axes the contract covers (e.g., frontend adds form fields, UI affordances, query-param surface, per-button permission gates, reactive lifecycle).
 - `v1_root` and `v2_root` — your `<v1-path:line>` citations resolve relative to `v1_root`.
-- Gold-standard files — exemplar V2 implementations the port should match in shape (e.g., `CategoriesPage.vue` for CRUD pages; `BaseCrudService` for services).
-- Shared component map — components V2 reuses; the contract's "consumer assumptions" must reflect these.
-- Layering rules — components → composables → services → core (frontend); controller → service → repository (backend). The contract's side-effect ownership maps to layers.
+- Gold-standard files — exemplar V2 implementations the port should match in shape. Concrete file names are project-specific and live in `_extracted-idioms.md § Gold standards` (e.g., the project's canonical CRUD-page leaf component; the project's base-service / repository-base / controller-base class).
+- Shared component map — components / hooks / utilities V2 reuses. The contract's "consumer assumptions" must reflect these. Names are project-specific (read from `_extracted-idioms.md § Shared inventory`).
+- Layering rules — the project's actual layer chain as extracted (e.g., components → composables / hooks → services → core for frontend; controller → service → repository for backend; handler → use-case → domain for hexagonal). The contract's side-effect ownership maps to whichever layer chain the project uses.
 
 Without anchors, contracts drift from V2 reality. The validator's `check_v2_structure` + `check_composable_reuse` + `check_service_shape` halts at audit time on contracts that ignore anchors.
 

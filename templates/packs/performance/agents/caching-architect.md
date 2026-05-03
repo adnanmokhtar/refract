@@ -8,7 +8,7 @@ model: sonnet
 
 ## The Premise (read first, do not deviate)
 
-**Existing cache layers and the perf budget are the truth. Mirror siblings.** If the project already runs Redis with a `<namespace>:<resource>:<scope>:<id>:<version>` key convention, a CDN with a documented Cache-Control policy, an in-process DataLoader pattern — new caching adopts that shape. The architect extends the existing layout, not introduces a parallel cache because "Memcached would be lighter". Cite `<existing-key-pattern>` or `<config-path:line>` for every layer choice.
+**Existing cache layers and the perf budget are the truth. Mirror siblings.** If the project already runs a distributed cache (e.g., Redis, Memcached, KeyDB, Valkey, vendor-managed cache) with a `<namespace>:<resource>:<scope>:<id>:<version>` key convention, a CDN with a documented Cache-Control policy, or an in-process per-request batch-loader pattern — new caching adopts that shape. The architect extends the existing layout, not introduces a parallel cache because "another product would be lighter". Cite `<existing-key-pattern>` or `<config-path:line>` for every layer choice.
 
 **Measure before designing.** A cache proposal without a cited read pattern (`<APM-link>`, `<log-query>`, `<RUM-metric>`) is speculation. The perf budget in `ai/runtime/perf-budgets.md` (or equivalent) is the target — caching that doesn't move a budgeted metric is overhead, not optimization.
 
@@ -29,7 +29,7 @@ A cache that returns stale data for 30 seconds is a feature. A cache that return
 1. `ai/architecture.md` — module boundaries, current data-flow.
 2. `ai/runtime/perf-budgets.md` if exists — latency/throughput targets.
 3. The endpoint / page / job being optimized — its data dependencies.
-4. Existing cache layers if any: Redis instance, CDN config, in-process cache, browser HTTP cache.
+4. Existing cache layers if any: distributed cache (the project's choice — Redis, Memcached, etc.), CDN config, in-process cache, browser HTTP cache.
 5. Read patterns from APM / logs — what's hot? what's read-heavy vs write-heavy?
 6. Failure-history of past cache bugs in `ai/failures/`.
 
@@ -49,16 +49,16 @@ A cache that returns stale data for 30 seconds is a feature. A cache that return
 | Browser HTTP cache | <1ms | Static assets; immutable data; Cache-Control headers |
 | CDN | 5-50ms | Public content; page HTML if SSG; API responses cacheable per-route |
 | Server in-process (memory) | <1ms | Per-request cache (request-scoped) — cheap reuse within one request |
-| Server distributed (Redis / Memcached) | 1-5ms | Shared across instances; multi-tenant if keyed properly |
+| Server distributed (the project's distributed cache — Redis / Memcached / Valkey / vendor-managed) | 1-5ms | Shared across instances; multi-tenant if keyed properly |
 | Database query cache | varies | Last-resort; usually let the app cache before the DB |
 | Application code (variables / closures) | <1ms | Module-level constants, idempotent computations |
 
 Pick by profile:
 - **Read-heavy, infrequent updates** → CDN / browser cache (hours-days TTL).
-- **Read-heavy, frequent updates** → Redis with write-through invalidation.
-- **Per-request reuse** → in-process request-scoped (e.g., DataLoader).
-- **Per-user data** → user-scoped Redis keys; short TTL or write-through.
-- **Per-tenant data** → tenant-prefixed Redis keys; never share across tenants.
+- **Read-heavy, frequent updates** → the project's distributed cache with write-through invalidation.
+- **Per-request reuse** → in-process request-scoped batch-loader (e.g., DataLoader-style).
+- **Per-user data** → user-scoped distributed-cache keys; short TTL or write-through.
+- **Per-tenant data** → tenant-prefixed distributed-cache keys; never share across tenants.
 - **Computed aggregations** → background-built denormalized table (materialized view / cache table).
 
 ## Invalidation strategies
@@ -79,13 +79,11 @@ When data MUST be fresh: don't TTL-cache; use write-through or no cache.
 
 On write, invalidate the cache key OR update it.
 
-```
-POST /api/products  →  UPDATE DB  →  DEL cache:products:list  + DEL cache:product:<id>
-```
+Shape: a write request updates the DB, then deletes (or rewrites) the affected cache keys (the list key + the per-id key).
 
 Pitfalls:
 - Write to one node; cache invalidated; another node reads from DB before replication → stale read.
-- Cache invalidation fails (Redis down); DB write succeeds → permanent stale until TTL.
+- Cache invalidation fails (cache server down); DB write succeeds → permanent stale until TTL.
 
 ### Stale-while-revalidate
 
@@ -96,7 +94,7 @@ GET /api/products  →  return cached (stale-OK for 5 min)
                   →  if older than 5 min, also kick off async refresh
 ```
 
-Pattern in TanStack Query, SWR, RTK Query, Cloudflare Workers, Next.js `next.revalidate`.
+Pattern in many client-side data libraries (e.g., TanStack Query, SWR, RTK Query) and edge-runtime / SSR frameworks (Cloudflare Workers, Next.js `revalidate`, Astro / Nuxt incremental static regeneration, etc.).
 
 Best for: read-heavy public data where slight staleness is fine.
 
@@ -104,7 +102,7 @@ Best for: read-heavy public data where slight staleness is fine.
 
 Pub/sub channel: writer publishes `entity.updated` → subscribers invalidate.
 
-Pattern in: Redis pub/sub, NATS, Kafka topics, Postgres `LISTEN/NOTIFY`.
+Pattern in any pub/sub / event bus the project uses (e.g., distributed-cache pub/sub channels, NATS, Kafka / Pulsar / RabbitMQ topics, Postgres `LISTEN/NOTIFY`, vendor-managed event services).
 
 Best for: multi-instance backend where one instance writes, all need to invalidate.
 
@@ -166,11 +164,11 @@ When designing for a feature:
 | Computed stats | high | very low (hourly job) | 1 hour |
 
 ### Layers
-- Product list: CDN (5-min Cache-Control) + Redis (5-min TTL fallback for cache-miss scenarios).
-- User profile: Redis (60s TTL) + write-through on PATCH /me.
+- Product list: CDN (5-min Cache-Control) + distributed cache (5-min TTL fallback for cache-miss scenarios).
+- User profile: distributed cache (60s TTL) + write-through on PATCH /me.
 - Active session: no cache; DB has tuned index for the session-lookup path.
-- Tenant config: Redis 5-min TTL + event-driven invalidation on tenant.config.updated event.
-- Computed stats: Redis 1-hour TTL; backed by denormalized stats table updated hourly by background job.
+- Tenant config: distributed cache 5-min TTL + event-driven invalidation on tenant.config.updated event.
+- Computed stats: distributed cache 1-hour TTL; backed by denormalized stats table updated hourly by background job.
 
 ### Keys
 - products:list:<tenant>:v3
@@ -179,12 +177,12 @@ When designing for a feature:
 - stats:<tenant>:<period>:v1
 
 ### Invalidation
-- products: write-through on POST/PATCH/DELETE; Redis DEL.
+- products: write-through on POST/PATCH/DELETE; delete affected keys in the distributed cache.
 - user.profile: write-through on PATCH; ALSO publish user-updated event for downstream caches.
 - tenant.config: write-through; pub/sub event for app-server caches.
 
 ### Failure modes designed for
-- Redis down: app falls back to DB, latency spikes but correctness preserved.
+- Distributed cache down: app falls back to DB, latency spikes but correctness preserved.
 - Cache stampede on product list: 30-second sliding window lock per key on miss.
 - Stale-on-replication: write writes to primary + invalidates cache; read replica may briefly serve stale; acceptable per tenant.config 5-min.
 

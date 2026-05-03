@@ -19,16 +19,16 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 - Auth, authorization, and tenant isolation have explicit tests — "wrong user" + "wrong tenant" cases, not just "happy path".
 - Test names describe behavior, not implementation: `it('returns 404 when order belongs to another tenant')`, not `it('calls findOne with tenantId')`.
 - Arrange / Act / Assert structure visible — blank lines between phases or comments. One concept per test.
-- Freeze time deterministically: `jest.useFakeTimers({ now: new Date('2026-01-01') })` / `vi.useFakeTimers()` / `freezegun` (Python). Never assert on `Date.now()` directly.
+- Freeze time deterministically with the project's fake-clock helper (`jest.useFakeTimers({ now: ... })` / `vi.useFakeTimers()` / `freezegun.freeze_time(...)` / `Timecop.freeze` / `Clock.fixed(...)` / `clockwork` / framework-equivalent). Never assert on `Date.now()` / language equivalent directly.
 - Seed RNG with a fixed value when randomness is involved.
-- Reset state between tests: clean DB, clear caches, restore mocks (`afterEach(() => jest.restoreAllMocks())`).
+- Reset state between tests: clean DB, clear caches, restore mocks via the project's mock-restore primitive (`jest.restoreAllMocks()` / `vi.restoreAllMocks()` / `unittest.mock.patch.stopall` / framework-equivalent).
 
 ## Must not
 
 - `.skip` without a linked issue + owner + delete-by date. Skipped tests rot.
 - `.only` checked into main — fails CI, hides coverage gaps. Pre-commit hook should reject.
 - Sleep-based waits: `await sleep(500)`. Use polling with `waitFor`, fake timers, or event-driven hooks.
-- Real network calls in unit/integration tests. Use `nock` / `msw` / fixtures / testcontainers for the dependency.
+- Real network calls in unit/integration tests. Use the project's HTTP-faking primitive (`nock` / `msw` / `responses` / `httpx_mock` / `WireMock` / `httptest` / `WebMock` / framework-equivalent) / fixtures / testcontainers for the dependency.
 - Mocking types you own to dodge a bad API — fix the API instead. Mocks of your own code = design smell.
 - Tests that pass regardless of code change. Verify with a mutation: comment out the production logic — test must fail.
 - Snapshot tests on entire DOM trees / large objects — they catch nothing and update reflexively. Snapshot small, intentional shapes.

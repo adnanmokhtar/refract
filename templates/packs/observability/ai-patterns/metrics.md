@@ -23,7 +23,7 @@ pack: observability
 - Each label set MUST cite its cardinality bound — no `user_id`, `request_id`, or unbounded enums.
 - A doc proposing a new metric without a dashboard or alert that uses it is a bug — reject.
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is observable".
-- If the metric backend (Prometheus, Datadog, OTel collector) isn't extracted, halt.
+- If the metric backend (the project's TSDB / vendor / OTel collector — whatever is in use) isn't extracted, halt.
 
 Numerical time series describing how the system is behaving — request rates, queue depths, business KPIs. Metrics are cheaper than logs (one number per minute vs one log line per request), aggregate naturally, and form the backbone of dashboards + alerts. Without them, you find out something's broken from a customer email.
 
@@ -76,13 +76,15 @@ You need all three. Each answers a different question.
 
 Histogram > summary in distributed systems: histograms aggregate across instances (you can compute `p95(global)` from per-instance buckets), summaries do not (a per-instance p95 doesn't average to a global p95).
 
-## Naming conventions (Prometheus / OpenTelemetry)
+## Naming conventions (Prometheus / OpenTelemetry style; adapt to the project's convention)
 
 - Lowercase with underscores: `http_request_duration_seconds`.
 - Counter suffix: `_total`. So `http_requests_total`, NOT `http_requests`.
-- Unit suffix: `_seconds`, `_bytes`, `_ratio`. NEVER `_milliseconds` (Prometheus convention is base SI units).
+- Unit suffix: `_seconds`, `_bytes`, `_ratio`. NEVER `_milliseconds` (base SI units convention).
 - Service prefix: `orders_requests_total` not `requests_total` — disambiguates when you have many services.
 - Labels lowercase: `status`, `method`, `endpoint`, `tenant`.
+
+If the project's metrics backend uses a different convention (e.g., dot-separated names, OTel semantic conventions like `http.server.duration`), mirror sibling services rather than this pattern.
 
 ## Cardinality discipline
 
@@ -103,54 +105,16 @@ Rule of thumb: each label should have ≤ ~100 distinct values, and the cross pr
 
 If you need per-user analysis, that's logs or traces — not metrics.
 
-## Code example (Prometheus client, Node)
+## Shape of instrumentation (stack-agnostic)
 
-```ts
-import { Counter, Histogram, Gauge } from 'prom-client';
+Per service, register:
 
-// RED: rate + duration
-const httpRequests = new Counter({
-  name: 'orders_http_requests_total',
-  help: 'Total HTTP requests to orders service',
-  labelNames: ['method', 'endpoint', 'status'],
-});
+- A **request counter** labeled by `method`, `endpoint`, `status` — tracks RED rate + errors.
+- A **duration histogram** labeled by `method`, `endpoint` with explicit buckets sized to the service's SLO (e.g., `[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]` seconds for sub-second web APIs).
+- A **resource saturation gauge** for the heaviest pool / queue (DB connection pool waiting, job queue depth) — tracks USE saturation.
+- A **business counter** for the most important domain event (orders placed, signups completed) labeled by tenant + channel (only if cardinality stays bounded).
 
-const httpDuration = new Histogram({
-  name: 'orders_http_request_duration_seconds',
-  help: 'HTTP request duration',
-  labelNames: ['method', 'endpoint'],
-  buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],  // explicit buckets
-});
-
-// USE: pool saturation
-const dbPoolWaiting = new Gauge({
-  name: 'orders_db_pool_waiting',
-  help: 'Number of operations waiting for a DB connection',
-});
-
-// Business
-const ordersPlaced = new Counter({
-  name: 'orders_placed_total',
-  help: 'Orders successfully placed',
-  labelNames: ['tenant', 'channel'],
-});
-
-// Middleware (Express/Fastify)
-app.use((req, res, next) => {
-  const end = httpDuration.startTimer({ method: req.method, endpoint: routePattern(req) });
-  res.on('finish', () => {
-    end();
-    httpRequests.inc({
-      method: req.method,
-      endpoint: routePattern(req),
-      status: res.statusCode.toString(),
-    });
-  });
-  next();
-});
-```
-
-Note `routePattern(req)` returns `/orders/:id`, NOT `/orders/abc-123`. Raw paths explode cardinality.
+Wire request recording into the framework's middleware / interceptor / decorator chain so every route emits without per-handler boilerplate. Use the route pattern (e.g., `/orders/:id`) as the `endpoint` label — never the raw path with substituted values, which explodes cardinality.
 
 ## Histogram buckets — pick deliberately
 
@@ -198,15 +162,9 @@ If a panel hasn't been looked at in 90 days, delete it. Dead dashboards rot.
 - **Page only on user impact.** "Error rate > X%" is a page if X represents user pain. CPU at 90% is NOT a page (the user doesn't care; the system might cope).
 - **Burn-rate alerts on SLOs**, not raw thresholds — see `slo.md`.
 - **Saturation alerts as warnings** — DB pool waiters > 10 for 5min ticket, > 50 page.
-- **Absent alerts** — `absent(http_requests_total{service="api"})` catches "the service died and stopped reporting".
+- **Absent alerts** — the project's alerting backend's "no data" / `absent(...)` predicate catches "the service died and stopped reporting".
 
-```promql
-# fast SLO burn: 14.4x over 1h burns 2% of monthly budget
-(
-  sum(rate(orders_http_requests_total{status=~"5..|4.."}[1h])) /
-  sum(rate(orders_http_requests_total[1h]))
-) > (1 - 0.999) * 14.4
-```
+Fast SLO burn: 14.4× over 1h burns 2% of monthly budget. Express in the project's alerting backend syntax: ratio of error-status rate over total rate, compared to `(1 − SLO) × 14.4`.
 
 ## Trade-offs
 
@@ -216,24 +174,24 @@ For per-request investigation, use traces. For "what was in this exact request",
 
 ## Common mistakes
 
-- **Labelling by user_id, request_id, or anything user-input.** TSDB fills up, queries slow to a crawl, eventually pager goes off because Prometheus itself is at capacity.
-- **`gauge.inc()` as a counter.** Gauges are for "current value"; using them as counters loses data on restart and races between instances. Use `Counter`.
+- **Labelling by user_id, request_id, or anything user-input.** TSDB fills up, queries slow to a crawl, eventually pager goes off because the metrics backend itself is at capacity.
+- **Using a gauge increment as a counter.** Gauges are for "current value"; using them as counters loses data on restart and races between instances. Use a counter primitive.
 - **Average latency, not percentiles.** A mean of 100ms across 99% fast + 1% timeout is meaningless. p95/p99 reveal the slow tail.
 - **Same metric name across services.** `requests_total` in three services = ambiguous in queries. Prefix: `orders_requests_total`, `auth_requests_total`.
 - **Dead metrics.** Emitted but never graphed or alerted = pure cost. Delete or hide behind a feature flag.
 - **Panel screenshots in incident reports.** A panel from "10 minutes ago" doesn't reproduce the data — link the dashboard at a time range.
-- **Counters that reset.** A counter that goes back to 0 on restart breaks `rate()` calculations. Counters must monotonically increase across the process lifetime; cumulative across restarts is the TSDB's job.
+- **Counters that reset.** A counter that goes back to 0 on restart breaks rate calculations. Counters must monotonically increase across the process lifetime; cumulative across restarts is the TSDB's job.
 
 ## Testing
 
 - Unit-test that the metric is emitted with expected labels: spy on the registry and assert.
-- Integration test: hit the endpoint, scrape `/metrics`, assert the line exists with non-zero value.
+- Integration test: hit the endpoint, scrape the project's metrics endpoint, assert the line exists with non-zero value.
 - Cardinality test in CI: count distinct label combinations after a representative test run; fail if > threshold.
 
 ## Migration path
 
 If you have no metrics today:
-1. Add the Prometheus client (or OTel SDK) to one service. Expose `/metrics`.
+1. Add the project's metrics client (OTel SDK preferred for vendor neutrality, or a stack-native client) to one service. Expose the metrics endpoint the project's backend scrapes.
 2. Auto-instrument HTTP via the framework middleware. Now you have RED for free.
 3. Add USE for the heaviest resource (usually DB pool or job queue).
 4. Add ONE business metric — the most important domain counter. Prove the value.
@@ -242,8 +200,8 @@ If you have no metrics today:
 
 ## References
 
-- Prometheus naming conventions (prometheus.io/docs/practices/naming) — the canonical reference.
+- Prometheus naming conventions — the canonical naming reference (still useful even if your backend isn't Prometheus).
 - "Site Reliability Engineering" Google book, ch. 6 — RED + USE methodology origin.
-- Brendan Gregg's USE method (brendangregg.com/usemethod.html) — resource saturation methodology.
-- Tom Wilkie's RED method talk (RED Method for Microservices) — request-driven services.
-- OpenTelemetry metrics SDK docs — vendor-neutral alternative to Prometheus client libs.
+- Brendan Gregg's USE method — resource saturation methodology.
+- Tom Wilkie's RED method talk — request-driven services.
+- OpenTelemetry metrics SDK docs — vendor-neutral instrumentation across stacks.

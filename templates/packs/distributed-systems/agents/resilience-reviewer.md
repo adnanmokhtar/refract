@@ -32,11 +32,11 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 
 ## Pre-flight
 
-1. Identify the language + HTTP client(s): `fetch` / `axios` / `undici` / `got` / `requests` / `httpx` / `reqwest` / Go `net/http`. Different defaults; some have NO default timeout.
-2. Identify the resilience library if present: opossum, cockatiel, polly (.NET), resilience4j (JVM), tenacity (Python), failsafe-go, hystrix-go.
+1. Identify the language + HTTP client(s) the project uses (every language has several — Node `fetch` / `axios` / `undici` / `got`, Python `requests` / `httpx`, Rust `reqwest`, Go `net/http`, Java `OkHttp` / `HttpClient`, .NET `HttpClient`, Ruby `Net::HTTP` / Faraday, Elixir `Tesla` / `Finch`). Different defaults; some have NO default timeout.
+2. Identify the resilience library if present (every mainstream language has at least one — opossum / cockatiel for Node, Polly for .NET, Resilience4j for JVM, tenacity for Python, failsafe-go / hystrix-go / `gobreaker` for Go, `pybreaker` for Python, `Stoplight` for Ruby, etc.).
 3. List external dependencies the service touches (catalog from `ai/architecture.md` or grep for base URLs / DSNs).
 4. Read SLOs from `ai/decisions/` or `ai/architecture.md` — they bound acceptable timeouts.
-5. Note the message broker if any (Kafka, RabbitMQ, SQS, Redis Streams) — retry semantics differ.
+5. Note the message broker if any (Kafka / Pulsar / RabbitMQ / SQS / NATS / Redis Streams / Pub/Sub) — retry semantics differ.
 6. Skim `ai/patterns/` for existing resilience patterns the project already uses.
 
 ## Audit dimensions
@@ -45,12 +45,10 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 
 | Pattern | Verdict |
 |---|---|
-| `await fetch(url)` (no AbortController/signal) | Violation — Node `fetch` has no timeout |
-| `axios.get(url)` (no `timeout` config, no global default) | Violation |
-| `requests.get(url)` (Python, no `timeout=`) | Violation — blocks indefinitely |
-| `http.Client{}` (Go, zero value) | Violation — `Timeout: 0` = no limit |
-| Connection-pool acquire without `acquireTimeout` | Violation — caller hangs on pool exhaustion |
-| DB query without statement timeout (`statement_timeout` Postgres / `max_execution_time` MySQL) | Violation on long-tail risk |
+| Node `fetch(url)` without an AbortSignal / timeout | Violation — `fetch` has no default timeout |
+| HTTP client call without an explicit timeout config (any language: axios / requests / httpx / Go `http.Client{}` zero value / etc.) | Violation — most clients block indefinitely without explicit timeout |
+| Connection-pool acquire without an acquire-timeout | Violation — caller hangs on pool exhaustion |
+| DB query without a statement timeout (the engine's primitive — `statement_timeout` in Postgres, `max_execution_time` in MySQL, equivalents elsewhere) | Violation on long-tail risk |
 
 ### 2. Retries
 
@@ -77,7 +75,7 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 ### 5. Idempotency
 
 - Mutating endpoints accept `Idempotency-Key` header.
-- Receiver dedupes via persistent store (Redis with TTL or DB row with unique constraint on the key).
+- Receiver dedupes via persistent store (the project's TTL-cache or a DB row with a unique constraint on the key).
 - Returned response is the SAME for duplicate keys (same body, same status).
 - Key TTL longer than the longest expected retry window (typically 24h).
 
@@ -95,7 +93,7 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 
 ### 8. Message-broker semantics
 
-- Producers: idempotent producers (Kafka), confirms (RabbitMQ), de-dup IDs (SQS FIFO).
+- Producers: enable the broker's idempotent / exactly-once primitive (e.g., Kafka idempotent producers, RabbitMQ publisher confirms, SQS FIFO de-dup IDs, Pulsar deduplication, NATS msg-id).
 - Consumers: at-least-once delivery means the handler MUST be idempotent. Track processed message IDs.
 - DLQ for poison messages; alert on DLQ depth.
 - Visibility timeout / lock duration > expected processing time + safety margin.
@@ -104,14 +102,14 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 
 | Defect | Fix |
 |---|---|
-| `await fetch(url)` no timeout | `fetch(url, { signal: AbortSignal.timeout(2000) })` |
-| `for (const x of list) await api.call(x)` | Batch or `Promise.all` with `p-limit` (concurrency cap) |
-| `setTimeout(retry, 1000)` fixed interval | Exponential backoff + jitter with bounded attempts |
-| `try { ... } catch (e) { logger.error(e) }` then continue happy | Throw, return error, OR explicit degraded path |
-| `await externalApi.charge(...)` inside `await tx.commit(...)` | Commit first, then call; reconcile via outbox |
-| Single Redis client for cache + queue + rate limit | Separate clients with per-purpose pool sizes |
-| Global retry middleware retrying every method | Allowlist idempotent methods only |
-| 504 returned to caller after upstream timeout | Map to 502 if upstream signaled error, 504 only when YOUR timeout fired |
+| HTTP call without timeout | Pass an explicit timeout via the project's HTTP client primitive (e.g., AbortSignal-with-timeout, `timeout=` arg, client-default config). |
+| Sequential per-element await over independent calls | Batch or use the language's structured-concurrency primitive with a concurrency cap. |
+| Fixed-interval retry (`setTimeout(retry, 1000)` / `sleep(1)` style) | Exponential backoff + jitter with bounded attempts. |
+| Catch-and-log followed by silent happy-path return | Throw, return error, OR explicit degraded path. |
+| External call inside an open DB transaction | Commit first, then call; reconcile via outbox. |
+| Single shared client for cache + queue + rate limit | Separate clients with per-purpose pool sizes. |
+| Global retry middleware retrying every method | Allowlist idempotent methods only. |
+| 504 returned to caller after upstream timeout | Map to 502 if upstream signaled error, 504 only when YOUR timeout fired. |
 
 ## Pre-flight — what NOT to flag
 
@@ -130,14 +128,14 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 | Caller | Target | Timeout | Retry | Circuit | Bulkhead | Idempotent | Verdict |
 |---|---|---|---|---|---|---|---|
 | `OrderService.placeOrder` | `payments-api` | none | 3x fixed | none | shared pool | yes (key) | FRAGILE |
-| `Sync.userExport` | `s3` | 5s | 5x exp | n/a | dedicated | n/a | RESILIENT |
-| `Notify.sendEmail` | `sendgrid` | 30s | 0 | none | shared | no | CATASTROPHIC |
+| `Sync.userExport` | object storage | 5s | 5x exp | n/a | dedicated | n/a | RESILIENT |
+| `Notify.sendEmail` | email vendor | 30s | 0 | none | shared | no | CATASTROPHIC |
 
 Verdicts: RESILIENT (production-ready) / FRAGILE (degrades under load) / CATASTROPHIC (cascades on dependency failure).
 
 ### Top fixes (ranked by blast radius)
 1. `OrderService.placeOrder:142` — add 1s timeout, switch to exponential+jitter, max 3 attempts; circuit breaker on payments-api (50% failure rate, 30s open).
-2. `Notify.sendEmail:88` — drop the 30s timeout to 5s, NO retries (sendgrid not idempotent without our own key), kill switch via `FEATURE_EMAIL_NOTIFY`.
+2. `Notify.sendEmail:88` — drop the 30s timeout to 5s, NO retries (the email vendor is not idempotent without our own key), kill switch via a feature flag.
 3. ...
 
 ### Out-of-scope observations
@@ -150,7 +148,7 @@ Verdicts: RESILIENT (production-ready) / FRAGILE (degrades under load) / CATASTR
 - **Demanding circuit breakers everywhere.** A breaker on a low-volume internal call adds latency and bug surface for no benefit. Justify per-dependency.
 - **Asserting retry counts in tests without a failing mock.** "Retried 3 times" with a never-failing mock = the retry path was never exercised.
 - **Treating idempotency as binary.** Some operations are conditionally idempotent (SET-if-not-exists). Assess per call, not by HTTP verb.
-- **Recommending defaults that fight the framework.** If the project standardizes on opossum / resilience4j, suggest config there, not a hand-rolled wrapper.
+- **Recommending defaults that fight the framework.** If the project standardizes on a specific resilience library (per the project's stack), suggest config there, not a hand-rolled wrapper.
 - **Ignoring backpressure.** A bounded retry budget without backpressure on the caller still drowns the downstream. Coordinate with rate limits.
 
 ## Related

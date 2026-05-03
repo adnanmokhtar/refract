@@ -49,13 +49,13 @@ One or more of:
 - JWT verifies signature + exp + iss + aud.
 - PII encrypted at rest (at least column-level for sensitive columns).
 - Payment card data: don't store CVV, don't store PAN unless PCI-compliant infra.
-- `Math.random()` NOT used for security tokens — use `crypto.randomBytes` / `secrets.token_urlsafe`.
+- Non-cryptographic random sources NOT used for security tokens — use the language's CSPRNG (e.g., `crypto.randomBytes`, `secrets.token_urlsafe`, `SecureRandom`, `crypto/rand`).
 
 ### A03 Injection
 - SQL: parameterized. Grep for string concat into queries.
-- NoSQL: never `$where` with user input.
-- OS commands: never `exec(user_input)` — use array args + explicit binary paths.
-- Template injection (Jinja, Handlebars, etc.): user input never renders as template.
+- NoSQL: never accept query operators (e.g., `$where`, server-side JS) with user input.
+- OS commands: never invoke a shell with interpolated user input — use array args + explicit binary paths via the language's safe-spawn API.
+- Template injection (any server-side template engine): user input never renders as template.
 - LDAP / XPath / GraphQL: audit per-engine escape rules.
 
 ### A04 Insecure Design
@@ -74,9 +74,9 @@ One or more of:
 - K8s: no `hostNetwork: true`, no privileged containers unless justified.
 
 ### A06 Vulnerable Components
-- `npm audit` / `pip-audit` / `cargo audit` findings triaged.
+- Package-manager-native audit findings triaged (`npm audit`, `pip-audit`, `bundler-audit`, `cargo audit`, `composer audit`, `mix deps.audit`, `govulncheck`, etc.).
 - Critical / high CVEs on runtime deps = blocker.
-- Base Docker images scanned + kept current.
+- Base container images scanned + kept current.
 
 ### A07 Auth Failures
 - Strong password policy OR passkeys.
@@ -124,78 +124,40 @@ One or more of:
 - No secrets in CI workflow files.
 - Rotated quarterly OR on compromise.
 
-## Example findings
+## Example findings (stack-agnostic shapes)
 
 ### Blocker — SQL injection
-```
-FOUND: src/modules/search/search.service.ts:42
-  const query = `SELECT * FROM products WHERE name LIKE '%${userInput}%'`;
-  await this.db.query(query);
-
-OWASP: A03 Injection
-Severity: CRITICAL
-
-Impact: full DB read/write access via SQL injection.
-
-Fix:
-  const query = `SELECT * FROM products WHERE name LIKE $1`;
-  await this.db.query(query, [`%${userInput}%`]);
-
-Verify: add a test with `'; DROP TABLE products; --` and confirm it returns empty, not errors.
-```
+- Site: a query builder concatenates user input directly into a SQL string (no parameterised binding).
+- OWASP: A03 Injection · Severity: CRITICAL.
+- Impact: full DB read/write access via SQL injection.
+- Fix: switch to parameter binding (positional / named) supported by the project's DB driver.
+- Verify: add a test that injects a payload like `'; DROP TABLE x; --` and confirm the query returns empty / parameter-bound result.
 
 ### Blocker — missing auth
-```
-FOUND: src/modules/admin/export.controller.ts:18
-  @Get('/export')
-  async export() { return await this.service.exportAll(); }
-
-OWASP: A01 Broken Access Control
-Severity: CRITICAL
-
-Impact: unauthenticated access to full DB export.
-
-Fix: @UseGuards(JwtAuthGuard, AdminRoleGuard) on controller or route.
-Verify: e2e test — unauthenticated request returns 401.
-```
+- Site: a privileged route (admin export, mutation, data dump) is registered with no auth guard / public-route marker.
+- OWASP: A01 Broken Access Control · Severity: CRITICAL.
+- Impact: unauthenticated access to a privileged endpoint.
+- Fix: apply the project's auth guard + role check decorator/middleware.
+- Verify: e2e test — unauthenticated request returns the project's unauthorized status.
 
 ### High — leaked secret in log
-```
-FOUND: src/modules/stripe/stripe.client.ts:58
-  logger.error({ err, config: this.config }, 'stripe api failed');
-
-Severity: HIGH
-
-Impact: this.config includes the Stripe secret key, potentially logged.
-
-Fix: redact via logger config (Pino redact paths) or log only a safe subset.
-Verify: trigger a failure, inspect log output, confirm no `sk_*` strings appear.
-```
+- Site: a logger call passes a config object / request body containing a credential.
+- Severity: HIGH.
+- Impact: secret material (API key, payment provider secret, signing key) potentially recorded in log storage.
+- Fix: configure log redaction paths in the project's logger OR log only a safe field whitelist.
+- Verify: trigger a failure, inspect log output, confirm no credential strings appear.
 
 ### Medium — weak password policy
-```
-FOUND: src/modules/auth/validators/password.validator.ts:6
-  @MinLength(8) password: string;
-
-Severity: MEDIUM
-
-Impact: 8 chars with no complexity = ~2 days to brute force common patterns.
-
-Fix: require 12+ chars or pass a strength library (zxcvbn score >= 3).
-     Use Argon2id for hashing (or bcrypt cost >= 12).
-```
+- Site: minimum length validator set below 12 chars with no strength check.
+- Severity: MEDIUM.
+- Impact: short / common passwords brute-forceable in days.
+- Fix: require 12+ chars and/or a strength library (zxcvbn score ≥ 3); use argon2id (or bcrypt cost ≥ 12) for hashing.
 
 ### Medium — CORS wildcard with credentials
-```
-FOUND: src/main.ts:24
-  app.enableCors({ origin: '*', credentials: true });
-
-Severity: MEDIUM
-
-Impact: `*` + credentials allows any origin to send auth cookies. Mass CSRF surface.
-
-Fix: explicit allow-list of origins. Validate against a list derived from env.
-```
+- Site: CORS configured with `origin: *` AND `credentials: true`.
+- Severity: MEDIUM.
+- Impact: wildcard + credentials allows any origin to send auth cookies — mass CSRF surface.
+- Fix: explicit allow-list of origins from env / config.
 
 ## Output
 
@@ -220,9 +182,9 @@ Triaged (N) — known, accepted:
   - CVE-xxx in dep Y — dev-only, deferred per ticket SEC-42.
 
 Tools used:
-  - Static: eslint-plugin-security, gitleaks
-  - Dynamic: endpoint-tester + manual curl probes
-  - Dep: npm audit, trivy (Docker image)
+  - Static: semgrep + the project's lint security plugin (e.g., eslint-plugin-security, bandit, brakeman, gosec), gitleaks / trufflehog / detect-secrets
+  - Dynamic: endpoint prober + manual HTTP probes
+  - Dep: package-manager-native auditor (npm audit / pip-audit / bundler-audit / cargo audit / composer audit / govulncheck) + cross-language scanner (trivy fs / Snyk / OSV-Scanner) + container image scan
 ```
 
 ## Hard rules

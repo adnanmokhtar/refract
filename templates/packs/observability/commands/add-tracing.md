@@ -52,7 +52,7 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 - What service / endpoint / job?
 - Existing tracing (none, partial, vendor-specific)?
-- Backend (Jaeger / Tempo / Datadog APM / Honeycomb / New Relic / Cloud Trace / Lightstep / etc.)?
+- Backend (the project's trace backend — vendor-neutral examples include Jaeger, Tempo; vendor-managed examples include Datadog APM, Honeycomb, New Relic, Cloud Trace, Lightstep)?
 - Existing log aggregator? Trace ↔ log correlation needed?
 
 ## Phase 2 — Organize
@@ -69,14 +69,7 @@ Per ecosystem, the work decomposes:
 
 ## Phase 3 — Retrieve
 
-Tools:
-- Node.js: `@opentelemetry/sdk-node` + auto-instrumentations.
-- Python: `opentelemetry-distro` + `opentelemetry-instrumentation`.
-- Go: `go.opentelemetry.io/otel` + `otelhttp`/`otelgin` etc.
-- Java: OpenTelemetry Java agent (zero-code) OR manual SDK.
-- Ruby: `opentelemetry-instrumentation-all`.
-- .NET: OpenTelemetry SDK.
-- Browser: `@opentelemetry/sdk-trace-web` + Browser Range header propagator.
+Use the project's stack-native OpenTelemetry SDK (every mainstream language has one) plus the auto-instrumentations for the project's HTTP server / client / DB / queue libraries. If a vendor APM agent is already in use, mirror that; otherwise prefer the OTel SDK + OTLP exporter for vendor neutrality.
 
 Read project's:
 - `ai/architecture.md` — service topology.
@@ -86,80 +79,14 @@ Read project's:
 
 ## Phase 4 — Generate
 
-For Node.js (illustrative; adapt per stack):
+Bootstrap tracing in the project's entry point BEFORE any instrumented library loads. The conceptual setup is identical across SDKs:
 
-```ts
-// tracing.ts — bootstrapped FIRST in main entry
-import { NodeSDK } from '@opentelemetry/sdk-node'
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
-import { Resource } from '@opentelemetry/resources'
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
-
-const sdk = new NodeSDK({
-  resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: process.env.SERVICE_NAME ?? 'api',
-    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.GIT_SHA ?? 'unknown',
-    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV ?? 'production',
-  }),
-  traceExporter: new OTLPTraceExporter({
-    url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318/v1/traces',
-  }),
-  instrumentations: [getNodeAutoInstrumentations({
-    '@opentelemetry/instrumentation-fs': { enabled: false }, // noisy
-  })],
-})
-sdk.start()
-```
-
-Manual span around a business op:
-
-```ts
-import { trace } from '@opentelemetry/api'
-const tracer = trace.getTracer('orders-service')
-
-async function placeOrder(order) {
-  return tracer.startActiveSpan('orders.placeOrder', async span => {
-    span.setAttribute('order.tenant_id', order.tenantId)
-    span.setAttribute('order.line_count', order.lines.length)
-    try {
-      const result = await processOrder(order)
-      span.setAttribute('order.id', result.id)
-      return result
-    } catch (err) {
-      span.recordException(err)
-      span.setStatus({ code: SpanStatusCode.ERROR })
-      throw err
-    } finally {
-      span.end()
-    }
-  })
-}
-```
-
-Logger correlation (pino example):
-
-```ts
-import { context, trace } from '@opentelemetry/api'
-import pino from 'pino'
-
-const logger = pino({
-  mixin: () => {
-    const ctx = trace.getSpanContext(context.active())
-    return ctx ? { trace_id: ctx.traceId, span_id: ctx.spanId } : {}
-  }
-})
-```
-
-Sampling (parent-based + head-based 10%):
-
-```ts
-import { ParentBasedSampler, TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-base'
-
-const sampler = new ParentBasedSampler({
-  root: new TraceIdRatioBasedSampler(0.1)
-})
-```
+1. Create a tracer provider with a `Resource` carrying `service.name`, `service.version`, `deployment.environment` (read from env / build metadata).
+2. Configure an exporter pointing at the project's trace backend (OTLP for vendor-neutral; vendor-specific exporter where committed).
+3. Register auto-instrumentations for the project's HTTP server / client / DB / queue libraries; disable noisy ones (e.g., raw filesystem ops).
+4. For business operations not covered by auto-instrumentation, wrap the operation in a manual span: open span, set attributes (`tenant_id`, `entity.id`, counts), record exception + ERROR status on failure, end span in finally.
+5. Configure logger to inject the active span's `trace_id` + `span_id` as fields on every log line.
+6. Configure sampler — parent-based with head-based ratio (1–10%) for steady-state; tail-based at the collector for "always sample errors / slow requests" where the collector supports it.
 
 Production: use head-based 1-10% for steady-state + a tail-based collector for "always sample errors / slow requests."
 
@@ -167,13 +94,13 @@ Production: use head-based 1-10% for steady-state + a tail-based collector for "
 
 - `ai/runbooks/tracing.md` — runbook entry. How to correlate trace + log; how to find a specific request; common queries.
 - `ai/architecture.md` — note that observability stack now includes tracing.
-- `.env.example` — add `OTEL_*` env vars with defaults / placeholders.
-- Add `tracing.ts` (or equivalent) to bootstrap.
+- The project's env-config example file — add `OTEL_*` env vars with defaults / placeholders.
+- Add the tracing-bootstrap source file to be loaded first.
 - Update CI to verify env vars set in production.
 
 ## Phase 6 — Validate
 
-- A trace appears in the backend (Jaeger / Tempo / Datadog) for a synthetic request.
+- A trace appears in the project's trace backend for a synthetic request.
 - Cross-service trace works (front-end → api → DB → cache → queue) — span graph reflects reality.
 - Trace ID present in log lines.
 - Sampling configured (you're not sampling 100% in production).
@@ -192,7 +119,7 @@ Production: use head-based 1-10% for steady-state + a tail-based collector for "
 ## /add-tracing complete
 
 Service:                  <name>
-Backend:                  <Jaeger / Tempo / DD / etc.>
+Backend:                  <project's trace backend>
 Auto-instrumentations:    <count>
 Manual spans:             <count>
 Sampling rate:            <%>
@@ -200,9 +127,9 @@ Trace↔log correlation:    enabled
 Sensitive data filtering: configured
 
 Files written:
-- tracing.ts
+- <tracing-bootstrap source file>
 - ai/runbooks/tracing.md
-- .env.example (additions)
+- env-config example file (additions)
 
 First trace landed: <link>
 ```

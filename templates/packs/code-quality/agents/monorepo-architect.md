@@ -105,7 +105,7 @@ Fix: extract the shared piece into libs/c; a + b both depend on c.
 
 ### BLOCKER — app-to-app import
 ```
-apps/admin/src/Dashboard.tsx imports from '@org/web/Home'
+apps/admin/src/Dashboard.<ext> imports from '@org/web/Home'
 
 Impact: admin now depends on web's internal structure. Break independence.
 Fix: extract the shared component to libs/ui; both apps depend on it.

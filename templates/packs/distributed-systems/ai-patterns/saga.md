@@ -45,34 +45,17 @@ Long-running distributed transaction via a sequence of local transactions + comp
 - Compensations triggered by orchestrator on failure.
 - Clearer for complex flows, easier to visualize + debug.
 
-## Shape (orchestrated)
+## Shape (orchestrated, stack-agnostic)
 
-```ts
-class PlaceOrderSaga {
-  async execute(orderId: string) {
-    try {
-      const reservation = await inventory.reserve(orderId);
-      try {
-        const charge = await payments.charge(orderId);
-        try {
-          await shipments.create(orderId);
-        } catch (e) {
-          await payments.refund(charge.id);    // compensate
-          throw e;
-        }
-      } catch (e) {
-        await inventory.release(reservation.id); // compensate
-        throw e;
-      }
-    } catch (e) {
-      await orders.markFailed(orderId, e);
-      throw e;
-    }
-  }
-}
-```
+The orchestrator runs each forward step in sequence, persisting state after each one. On any step failure, it runs the compensations in reverse order. Concretely, for a place-order saga:
 
-Saga state persisted at each step (Postgres / dedicated table) so crashes resume correctly.
+1. `inventory.reserve(orderId)` → on failure: mark order failed.
+2. `payments.charge(orderId)` → on failure: `inventory.release(reservation.id)`.
+3. `shipments.create(orderId)` → on failure: `payments.refund(charge.id)` + `inventory.release(reservation.id)`.
+
+Implement using the language's structured exception / try-finally semantics OR (preferred) a durable workflow engine (per `workflow-orchestrator.md`).
+
+Saga state persisted at each step (a saga-state table in the project's DB) so crashes resume correctly.
 
 ## Compensations
 

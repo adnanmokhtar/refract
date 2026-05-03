@@ -20,7 +20,7 @@ All 7.
 
 ## When to use / NOT to use
 
-- USE: a service needs to react to an event (Kafka topic / SQS message / EventBridge rule / pub-sub message).
+- USE: a service needs to react to an event on the project's message bus / queue / event-stream platform (e.g., Kafka / Pulsar / Kinesis / SQS / RabbitMQ / NATS / EventBridge / Cloud Pub/Sub / Redis Streams).
 - USE: cross-service communication where the producer doesn't care who consumes.
 - NOT: complex multi-step coordination → use `/add-saga`.
 - NOT: synchronous request/response → use a regular endpoint.
@@ -38,8 +38,8 @@ All 7.
 
 The handler has 5 standard parts:
 
-1. **Subscription** — register handler with broker (Kafka consumer / SQS poller / EventBridge rule / Cloud Pub/Sub subscription).
-2. **Idempotency check** — was this event already processed? (idempotency key in DB / Redis).
+1. **Subscription** — register handler with the project's broker / queue / event-stream platform using the platform's native consumer / poller / subscription API.
+2. **Idempotency check** — was this event already processed? (idempotency key in the project's transactional DB or distributed cache).
 3. **Validation** — schema check; ignore unknown event versions.
 4. **Effect** — the actual work.
 5. **Ack / DLQ** — on success ack; on failure retry with backoff; on max-retry → DLQ.
@@ -49,83 +49,18 @@ The handler has 5 standard parts:
 - `ai/architecture.md` — message bus topology.
 - `ai/patterns/event-sourcing.md` if event-sourced.
 - Existing handlers in same service — mirror their shape (logger, metrics, idempotency table name).
-- Schema of the event (Avro / JSON Schema / Protobuf).
+- Schema of the event (per the project's serialization choice — Avro / JSON Schema / Protobuf / Cap'n Proto / etc.).
 
-## Phase 4 — Generate
+## Phase 4 — Generate (stack-agnostic shape)
 
-```ts
-// handlers/order-created.handler.ts
+The handler function:
 
-import { z } from 'zod'
-const OrderCreatedSchema = z.object({
-  eventVersion: z.literal(1),
-  orderId: z.string().uuid(),
-  tenantId: z.string().uuid(),
-  totalCents: z.number().int().positive(),
-  occurredAt: z.string().datetime(),
-})
-type OrderCreated = z.infer<typeof OrderCreatedSchema>
+1. **Validate** — parse the raw event with the project's schema validator (per the project's stack); reject malformed events. Set span attributes for the event's identifying fields (e.g., `event.orderId`, `event.tenantId`).
+2. **Idempotency** — compute a key (e.g., `handler:onOrderCreated:<orderId>`). Atomically check + reserve the key in the project's idempotency store with a TTL longer than the broker's max-retry window; if already processed, return `skipped`.
+3. **Effect** — perform the side effect (call other services, write to DB, etc.).
+4. **Outcome** — on success, increment success counter, return `processed`. On retryable failure (network blip, 5xx, timeout), record exception, release the idempotency reservation, increment retryable-failure counter, rethrow so the broker re-delivers. On non-retryable failure (validation, business-rule violation), record exception, increment permanent-failure counter, publish to the DLQ, return `dead-lettered`.
 
-export async function onOrderCreated(rawEvent: unknown, context: HandlerContext) {
-  const tracer = context.tracer
-  return tracer.startActiveSpan('handler.onOrderCreated', async span => {
-    // 1. Validate
-    const event = OrderCreatedSchema.parse(rawEvent)
-    span.setAttribute('event.orderId', event.orderId)
-    span.setAttribute('event.tenantId', event.tenantId)
-
-    // 2. Idempotency
-    const idempKey = `handler:onOrderCreated:${event.orderId}`
-    const alreadyProcessed = await context.idempotency.checkAndReserve(idempKey, { ttl: '7d' })
-    if (alreadyProcessed) {
-      span.setAttribute('idempotent.skipped', true)
-      return { status: 'skipped' }
-    }
-
-    // 3. Effect
-    try {
-      await context.notifications.sendOrderConfirmation({
-        orderId: event.orderId,
-        tenantId: event.tenantId,
-      })
-      await context.metrics.counter('handler.onOrderCreated.success').add(1)
-      return { status: 'processed' }
-    } catch (e) {
-      // Distinguish retryable vs non-retryable
-      if (isRetryableError(e)) {
-        span.recordException(e)
-        await context.idempotency.release(idempKey)  // allow retry to re-attempt
-        await context.metrics.counter('handler.onOrderCreated.retryable_failure').add(1)
-        throw e   // throw → broker re-delivers
-      }
-      // Non-retryable: log, alert, DLQ
-      span.recordException(e)
-      await context.metrics.counter('handler.onOrderCreated.permanent_failure').add(1)
-      await context.deadLetter.publish({
-        handler: 'onOrderCreated',
-        event: rawEvent,
-        error: e.message,
-      })
-      return { status: 'dead-lettered', reason: e.message }
-    }
-  })
-}
-```
-
-Configure the broker:
-
-```yaml
-# (Kafka example via Helm / Confluent Cloud config)
-consumers:
-  - name: notifications-on-order-created
-    topic: orders.OrderCreated.v1
-    group: notifications-service
-    handler: onOrderCreated
-    max_retries: 3
-    backoff: exponential
-    backoff_base_ms: 1000
-    dead_letter_topic: notifications.dlq
-```
+Configure the broker / queue / event-stream platform's consumer with: max retries, exponential backoff base, dead-letter topic / queue. Use the platform's native consumer-config primitive.
 
 ## Phase 5 — Update
 

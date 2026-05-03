@@ -282,7 +282,7 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 ```bash
 /align-recheck src/modules/orders/
 /align-recheck src/modules/store/ src/modules/products/
-/align-recheck src/components/Sidebar.vue
+/align-recheck src/components/Sidebar.<ext>   # extension is stack-specific (.vue / .tsx / .svelte / .razor / etc.)
 /align-recheck "src/modules/{auth,permissions,roles}/"
 ```
 

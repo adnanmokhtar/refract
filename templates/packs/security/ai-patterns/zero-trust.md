@@ -60,7 +60,7 @@ pack: security
 - **Scoped tokens** — a service account can only access what it needs.
 
 ### At the data layer
-- **Row-level security** in the DB (Postgres RLS) as a belt-and-suspenders check on top of app-level filtering.
+- **Row-level security** in the DB (e.g., Postgres RLS, or the equivalent policy mechanism in your DB engine) as a belt-and-suspenders check on top of app-level filtering.
 - **Tenant isolation** enforced at every query.
 - **Read-only replicas** for analytical access — no writes possible.
 - **Encryption at rest** for sensitive data. Key management via KMS (AWS KMS, GCP KMS, Vault).

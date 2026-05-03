@@ -6,7 +6,7 @@ description: Profile a slow endpoint / page / flow. Identify the dominant bottle
 
 ## The Premise (read this first, internalize, do not deviate)
 
-**The bottleneck is real. The pattern almost always repeats — same import / same query / same render path.** An N+1 in `orders.list` is an N+1 in `invoices.list` and `customers.list` because they share the same loader shape. A sequential `await` in one Stripe enrichment is a sequential `await` in every enrichment that copy-pasted from it. A regex compiled-per-call in `validate.ts` is compiled-per-call wherever the project's "validate inline" idiom landed. The profile's job is to find ONE concrete hot path with measurement, then **scan for the same shape across the rest of the codebase** before reporting.
+**The bottleneck is real. The pattern almost always repeats — same import / same query / same render path.** An N+1 in `orders.list` is an N+1 in `invoices.list` and `customers.list` because they share the same loader shape. A sequential `await` in one vendor-API enrichment is a sequential `await` in every enrichment that copy-pasted from it. A regex compiled-per-call in one validator is compiled-per-call wherever the project's "validate inline" idiom landed. The profile's job is to find ONE concrete hot path with measurement, then **scan for the same shape across the rest of the codebase** before reporting.
 
 **The agent's job is exactly this:**
 1. Profile the slow subject under representative load (CPU / IO / network / GC axes).
@@ -78,21 +78,24 @@ Profile across 5 axes in parallel:
 
 ## Phase 3 — Retrieve
 
-Tools by ecosystem:
+Tools by ecosystem (illustrative; pick the one available in the project's stack — every mainstream language has at least one sampling profiler + an IO/SQL log + a tracing integration):
 
 | Stack | CPU profile | IO profile | Network |
 |---|---|---|---|
-| Node.js | `--prof` + `0x`, Clinic.js | `pino-http` + APM | OpenTelemetry |
+| Node.js | `--prof` + `0x`, Clinic.js | structured logger + APM | OpenTelemetry |
 | Python | `py-spy`, `cProfile`, `pyinstrument` | SQL log + APM | OpenTelemetry |
 | Go | `pprof` (CPU + heap + goroutine + mutex) | `database/sql` traces | net/http/httptrace |
-| Java | JFR + Mission Control, async-profiler | JDBC events | OpenTelemetry |
-| Rust | `perf`, `flamegraph` | tracing crate | tracing-opentelemetry |
-| Ruby | `stackprof`, `rbspy` | rack-mini-profiler | Skylight |
-| .NET | dotnet-trace, dotMemory | EF Core logs | OpenTelemetry |
-| Browser | Chrome DevTools Performance, Lighthouse | DevTools Network | DevTools Network |
+| Java / JVM | JFR + Mission Control, async-profiler | JDBC events | OpenTelemetry |
+| Rust | `perf`, `flamegraph`, `samply` | tracing crate | tracing-opentelemetry |
+| Ruby | `stackprof`, `rbspy` | rack-mini-profiler | OpenTelemetry / Skylight |
+| .NET | `dotnet-trace`, dotMemory, PerfView | EF Core logs | OpenTelemetry |
+| PHP | xdebug, Blackfire, SPX | DB driver logs | OpenTelemetry |
+| Elixir / BEAM | observer, fprof, eprof | Ecto logs | OpenTelemetry |
+| Browser | Browser dev-tools Performance panel + web-vitals profiler | dev-tools Network | dev-tools Network |
+| Mobile native | Xcode Instruments (iOS), Android Studio Profiler (Android) | platform's network inspector | platform's network inspector |
 
 Read project's:
-- APM / tracing / metrics dashboards (Datadog / New Relic / Grafana / Honeycomb / Jaeger).
+- APM / tracing / metrics dashboards (whatever the project's observability stack uses).
 - Last successful baseline metrics if any.
 - `ai/runtime/perf-budgets.md` if exists.
 
@@ -135,10 +138,10 @@ N+1 detected: query #2 fires once per order returned by query #1.
 ### External calls
 | Endpoint | Count | Avg | Sequential? |
 |---|---|---|---|
-| stripe/charges/get | 50 | 80 ms | YES — total 4000 ms wall |
-| sendgrid/send | 1 | 200 ms | n/a |
+| <payment-vendor charges/get> | 50 | 80 ms | YES — total 4000 ms wall |
+| <email vendor send> | 1 | 200 ms | n/a |
 
-50 sequential awaits of independent calls. With Promise.all → ~80 ms total instead of 4000 ms.
+50 sequential awaits of independent calls. With the language's structured-concurrency primitive (e.g., `Promise.all` / `asyncio.gather` / errgroup) → ~80 ms total instead of 4000 ms.
 
 ### Memory + GC
 - Allocation rate: <MB/s>
@@ -152,58 +155,25 @@ No GC pressure; not a contributor here.
 | # | Cause | Current contribution | Fixed contribution | Effort |
 |---|---|---|---|---|
 | 1 | N+1 DB query (order_items) | 400 ms | 12 ms (single JOIN) | 1h |
-| 2 | Sequential Stripe awaits | 4000 ms | 80 ms (Promise.all + 10-bound) | 2h |
+| 2 | Sequential vendor-API awaits | 4000 ms | 80 ms (structured concurrency + 10-bound) | 2h |
 | 3 | Per-item regex validation | 240 ms | 50 ms (compile once + skip on N most-trusted fields) | 4h |
 
 ### Targeted fixes (ranked by impact / effort)
 
 #### Fix 1 (highest impact / lowest effort) — N+1 query
-File: `src/orders/list.ts:42`
-```sql
--- Before
-SELECT * FROM orders WHERE tenant_id = $1
--- Then per-order:
-SELECT * FROM order_items WHERE order_id = $1
-
--- After
-SELECT o.*, json_agg(oi.*) as items
-FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id
-WHERE o.tenant_id = $1
-GROUP BY o.id
-```
+File: `<orders list use-case file:line>`. Replace the per-order `SELECT * FROM order_items WHERE order_id = $1` loop with a single `SELECT … FROM orders LEFT JOIN order_items …` aggregating items per order (or use the project's batch-loader primitive).
 Impact: -388 ms P95.
 Effort: 1 hour incl. test update.
 Risk: low (preserves API shape).
 
-#### Fix 2 — Parallel Stripe calls
-File: `src/orders/enrich.ts:88`
-```ts
-// Before
-for (const order of orders) {
-  order.charge = await stripe.charges.retrieve(order.chargeId)
-}
-
-// After (bounded parallel via p-limit)
-import pLimit from 'p-limit'
-const limit = pLimit(10)
-await Promise.all(orders.map(o =>
-  limit(async () => o.charge = await stripe.charges.retrieve(o.chargeId))
-))
-```
+#### Fix 2 — Parallel vendor-API calls (bounded)
+File: `<orders enrich file:line>`. Replace the sequential `for ... await` loop with the language's structured-concurrency primitive (`Promise.all` / `asyncio.gather` / errgroup / `Task.WhenAll`) bounded by a concurrency limiter (e.g., a semaphore / `p-limit` / language-native equivalent) at ≤ vendor's rate-limit budget.
 Impact: -3920 ms P95.
 Effort: 2 hours incl. testing rate-limit handling.
-Risk: medium (Stripe rate limits; must validate behavior under burst).
+Risk: medium (vendor rate limits; must validate behavior under burst).
 
 #### Fix 3 — Regex compile-once
-File: `src/orders/validate.ts:14`
-```ts
-// Before — compiled per call
-const isValid = (s) => /^[A-Z]{2}\d{8}$/.test(s)
-
-// After — compiled once
-const PATTERN = /^[A-Z]{2}\d{8}$/
-const isValid = (s) => PATTERN.test(s)
-```
+File: `<orders validate file:line>`. Move the regex literal out of the per-call function body to a module-scope constant; `.test()` against the precompiled pattern.
 Impact: -190 ms P95.
 Effort: 30 min.
 Risk: low.

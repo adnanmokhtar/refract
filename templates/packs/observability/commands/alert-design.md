@@ -6,7 +6,7 @@ description: Design alerts for a service. Uses RED + USE + SLO-based alerts. Avo
 
 ## The Premise (read this first, internalize, do not deviate)
 
-**Existing alerts are the truth.** If this repo already ships alerts (Prometheus rules, Datadog monitors, Grafana alerts), those thresholds, severity tiers, burn-rate windows, and runbook conventions ARE the convention. New alerts MUST match sibling alerts: same severity labels (`page` / `ticket` / `info`), same threshold magnitudes for comparable signals (error-rate, latency, saturation), same multi-window burn-rate windows (1h fast / 6h slow), same annotation keys (`summary`, `runbook`). Match thresholds and severity tiers to sibling alerts unless data justifies divergence.
+**Existing alerts are the truth.** If this repo already ships alerts (in whatever alerting backend the project uses — Prometheus Alertmanager rules, Datadog monitors, Grafana alerts, vendor monitor JSON, etc.), those thresholds, severity tiers, burn-rate windows, and runbook conventions ARE the convention. New alerts MUST match sibling alerts: same severity labels (`page` / `ticket` / `info`), same threshold magnitudes for comparable signals (error-rate, latency, saturation), same multi-window burn-rate windows (1h fast / 6h slow), same annotation keys (`summary`, `runbook`). Match thresholds and severity tiers to sibling alerts unless data justifies divergence.
 
 **The agent's job is exactly this:**
 1. Audit existing alerts first (Phase 1 already requires this — enforce it). Read sibling thresholds, severity labels, windows, annotation shapes.
@@ -52,7 +52,7 @@ Confirm:
 - SLOs / SLAs (or "we don't have any" — define them first).
 - On-call structure (who pages, what hours, escalation policy).
 - Existing alerts (audit them — many will be deletable).
-- Backend: PagerDuty / Opsgenie / Datadog Monitors / Prometheus Alertmanager / Grafana Alerts.
+- Backend: the project's alerting + paging stack (e.g., Prometheus Alertmanager / Datadog Monitors / Grafana Alerts / vendor monitor JSON, paging via PagerDuty / Opsgenie / Grafana OnCall / equivalent).
 
 ## Phase 2 — Organize
 
@@ -80,29 +80,12 @@ For an SLO of "99.9% of HTTP requests succeed in 30 days":
 - Burning the budget over 1 hour at 14× speed → alarms PAGE (likely outage now).
 - Burning the budget over 6 hours at 6× speed → alarms TICKET (slower; investigate).
 
-```yaml
-# Prometheus Alertmanager
-- alert: APIHighErrorRate_FastBurn
-  expr: |
-    sum(rate(http_server_error_count{service="api"}[1h]))
-      /
-    sum(rate(http_server_request_count{service="api"}[1h]))
-    > (1 - 0.999) * 14
-  for: 5m
-  labels: { severity: page, slo: api_availability }
-  annotations:
-    summary: "API error rate burning SLO budget at >14× rate (1h window)"
-    runbook: "ai/runbooks/api-error-rate.md"
+Express the alert in the project's alerting backend syntax. Conceptually, both windows compute `error_rate = errors / total` over their respective windows and compare to `(1 − SLO) × burn_multiplier`:
 
-- alert: APIHighErrorRate_SlowBurn
-  expr: |
-    sum(rate(http_server_error_count{service="api"}[6h]))
-      /
-    sum(rate(http_server_request_count{service="api"}[6h]))
-    > (1 - 0.999) * 6
-  for: 30m
-  labels: { severity: ticket, slo: api_availability }
-```
+- **Fast burn (1h window, 14× multiplier, severity: page)** — fires after a short `for:` (e.g., 5m); annotations include `summary` and `runbook` pointing at `ai/runbooks/<feature>-error-rate.md`.
+- **Slow burn (6h window, 6× multiplier, severity: ticket)** — fires after a longer `for:` (e.g., 30m).
+
+Match label keys (`severity`, `slo`) and annotation keys (`summary`, `runbook`) to sibling alerts.
 
 ### Cause-based alerts (limited set)
 
@@ -116,20 +99,13 @@ Alert when:
 
 Don't alert when:
 - CPU is high (often misleading; doesn't correlate with user impact).
-- One pod restarted (let Kubernetes handle it; alert only if ALL pods restart).
-- Single 500 (statistical noise; SLO-burn handles aggregates).
+- One container instance restarted (let the orchestrator handle it; alert only if ALL replicas restart).
+- Single error response (statistical noise; SLO-burn handles aggregates).
 - Slow query (let APM handle; alert if P95 SLO burns).
 
 ### Heartbeat / liveness
 
-```yaml
-- alert: APIServiceMissingMetrics
-  expr: absent(http_server_request_count{service="api"})
-  for: 5m
-  labels: { severity: page }
-  annotations:
-    summary: "API service emitting no metrics for 5 min — likely down"
-```
+Configure the project's alerting backend to fire `severity: page` when the service stops emitting its primary request counter for 5 minutes (e.g., Prometheus `absent(...)`, Datadog `no data`, etc.). Annotation: "service emitting no metrics for 5 min — likely down".
 
 ### Alert hygiene
 
@@ -145,7 +121,7 @@ For every alert:
 - `ai/runtime/slos.md` — SLO definitions.
 - `ai/runtime/alerts.md` — alert catalog with severity / runbook / rationale per alert.
 - `ai/runbooks/<alert-name>.md` — per-alert runbook.
-- Backend config (Prometheus rules / Datadog Monitors / Grafana Alerts) — checked in to repo.
+- Backend config (the project's alerting backend rules — Prometheus rules / Datadog Monitors / Grafana Alerts / vendor monitor JSON) — checked in to repo.
 
 ## Phase 6 — Validate
 

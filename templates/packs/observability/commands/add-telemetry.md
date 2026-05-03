@@ -54,11 +54,11 @@ Build command. Adds the four observability primitives — logs, metrics, traces,
 - Identify SLO targets if defined.
 
 ## Phase 2 — Organize
-- Detect libraries from `package.json` / `pyproject.toml`:
-  - Logs: `pino`, `winston`, `structlog`, `zerolog`, `slog`.
-  - Metrics: `prom-client`, `@opentelemetry/sdk-metrics`, `statsd`, `datadog-metrics`.
-  - Traces: `@opentelemetry/sdk-trace`, `dd-trace`, `elastic-apm-node`.
-- Decide alert format (Prometheus rules / Datadog monitor JSON / Grafana alerting).
+- Detect libraries from the project's manifest (the language's package / dependency manifest):
+  - Logs: the project's structured logger (per the project's stack).
+  - Metrics: the project's metrics client (OTel SDK / a Prometheus client / StatsD / a vendor agent).
+  - Traces: the project's tracer (OTel SDK preferred; vendor APM SDKs where committed).
+- Decide alert format (rule files for the project's metrics backend / vendor monitor JSON / dashboard-tool alerting).
 - Dispatch plan: `telemetry-architect` produces edits; orchestrator generates runbook stubs.
 
 ## Phase 3 — Retrieve
@@ -115,10 +115,10 @@ Telemetry-specific:
 Phase 1 (Understand): entry points = <N>; SLO = <p95 ms>
 Phase 3 (Retrieved): libs = <log|metric|trace>; sibling instrumented module mirrored
 Phase 4 (Generated):
-  src/orders/orders.service.ts     +18 (logs, metrics, span)
-  config/prometheus/orders.rules.yml  new (3 alerts)
-  ai/runbooks/alert-orders-error-rate.md   stub
-  ai/runbooks/alert-orders-latency.md      stub
+  <feature service file>     +18 (logs, metrics, span)
+  <alert rules file in the project's alerting format>  new (3 alerts)
+  ai/runbooks/alert-<feature>-error-rate.md   stub
+  ai/runbooks/alert-<feature>-latency.md      stub
 Phase 5 (Updated): ai/observability.md, runbooks/, changelog, status.md
 Phase 6 (Validated): every metric paired; tenant_id present; PII redacted
 Phase 7 (Improved): pattern queued
@@ -130,7 +130,7 @@ Status: COMPLETE
 ## Failure modes
 - Metric without dashboard or alert → unread data; pair every metric or remove.
 - Alert without runbook → 3am page with no script; never ship one without the other.
-- High-cardinality labels in metric → cardinality explosion in Prometheus; move to logs/traces.
+- High-cardinality labels in metric → cardinality explosion in time-series storage; move to logs/traces.
 - Forgot `tenant_id` on multi-tenant project → cross-tenant noise during incident triage.
 - 100% trace ingestion → expensive; head-based sampling on quiet endpoints, tail-based on errors.
 - PII redaction at call site instead of logger level → one missed call site leaks data; centralize.

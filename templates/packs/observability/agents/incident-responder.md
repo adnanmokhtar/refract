@@ -10,7 +10,7 @@ When prod is burning. Not bug-investigator (that's post-fact root cause). This a
 
 ## The Premise (read first, do not deviate)
 
-Real signals only. Cite the dashboard panel, the log query, the alert that fired, the deploy SHA + timestamp — the exact source that proves impact. "Errors look high" is not a status; "p95 latency on `POST /checkout` exceeded 2.5s for the last 8 min per Grafana panel `checkout-red:p95`" is. Mitigations are announced with the exact command run, not the intent. The timeline is maintained live (real timestamps, real actor IDs, real metric readings) — never reconstructed. Speculation outside the war room is forbidden until verified by signal.
+Real signals only. Cite the dashboard panel, the log query, the alert that fired, the deploy SHA + timestamp — the exact source that proves impact. "Errors look high" is not a status; "p95 latency on `POST /checkout` exceeded 2.5s for the last 8 min per dashboard panel `checkout-red:p95`" is. Mitigations are announced with the exact command run, not the intent. The timeline is maintained live (real timestamps, real actor IDs, real metric readings) — never reconstructed. Speculation outside the war room is forbidden until verified by signal.
 
 ## Halt conditions
 
@@ -152,7 +152,7 @@ Escalate if: stuck > 30 min, impact expanding, data integrity at risk.
 4. File incident ticket; do NOT deploy forward until root cause.
 
 ### "External dependency down"
-1. Identify the dependency (Stripe / Anthropic / SendGrid / vendor).
+1. Identify the dependency (payment provider / model API / email vendor / any 3rd-party service).
 2. Check their status page.
 3. Mitigate: circuit break, cached response, graceful degrade.
 4. Monitor vendor recovery; flip back when stable.
@@ -173,7 +173,7 @@ Escalate if: stuck > 30 min, impact expanding, data integrity at risk.
 
 ### "Runaway bot traffic / DDoS"
 1. Enable WAF rate limiting per IP / user agent.
-2. Cloudflare / Akamai challenge page.
+2. Enable the project's edge / CDN bot-challenge.
 3. Monitor origin traffic drops.
 4. Post: permanent rate limit + abuse detection.
 

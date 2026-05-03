@@ -73,26 +73,9 @@ If sample fails: STOP. Don't bulk replay.
 
 Rate-limited. Don't dump 10,000 messages at once.
 
-```bash
-# AWS SQS — pseudo-code
-while [ $(aws sqs get-queue-attributes --queue-url $DLQ --attribute-names ApproximateNumberOfMessages --query 'Attributes.ApproximateNumberOfMessages' --output text) -gt 0 ]; do
-  msg=$(aws sqs receive-message --queue-url $DLQ --wait-time-seconds 5 --max-number-of-messages 1)
-  receipt=$(echo $msg | jq -r '.Messages[0].ReceiptHandle')
-  body=$(echo $msg | jq -r '.Messages[0].Body')
-  attrs=$(echo $msg | jq -r '.Messages[0].MessageAttributes // {}')
+Generic loop: while DLQ depth > 0, receive a message, send it to the primary queue/topic, delete it from the DLQ once the primary accepts, sleep briefly to rate-limit (e.g., 10 msg/sec). Use the broker's native CLI / SDK for receive / send / delete (the project's stack).
 
-  # Send to primary
-  aws sqs send-message --queue-url $PRIMARY --message-body "$body" --message-attributes "$attrs"
-
-  # Delete from DLQ after primary accepts
-  aws sqs delete-message --queue-url $DLQ --receipt-handle $receipt
-
-  # Rate limit (e.g., 10 msg/sec)
-  sleep 0.1
-done
-```
-
-For Kafka: use a one-off consumer that reads from DLQ topic and produces to primary topic. Be aware of partition-key preservation (the original message's key may matter for downstream ordering).
+For partitioned event streams (Kafka / Pulsar / Kinesis): use a one-off consumer that reads from the DLQ topic and produces to the primary topic. Be aware of partition-key preservation (the original message's key may matter for downstream ordering).
 
 ### 6. Monitor replay impact
 

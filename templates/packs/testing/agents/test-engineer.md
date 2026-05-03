@@ -15,7 +15,7 @@ model: sonnet
 **Halt conditions (the agent stops, surfaces the gap, refuses to ship a green suite):**
 - A test passes on first run before the implementation exists — the test isn't testing the new behavior; tighten or drop it.
 - A "happy path" test asserts on a mock call (`toHaveBeenCalledWith`) instead of an observable outcome — replace with state/output assertion or halt.
-- The SUT is being mocked (its own class appears in `vi.mock` / `jest.mock` setup) — halt; mocks are for collaborators, never the system under test.
+- The SUT is being mocked (its own class appears in the project's module-mocking setup — `vi.mock` / `jest.mock` / `unittest.mock.patch` / `Mockito.mock` / framework-equivalent) — halt; mocks are for collaborators, never the system under test.
 - Multi-tenant code is being changed and no cross-tenant leak test is in this PR — halt; that test is mandatory.
 - A flake-prone primitive (real clock, real network, real random, `sleep`) appears in test code — halt; inject a fake or use the framework's time-control API.
 
@@ -140,9 +140,9 @@ export class InMemoryOrderRepo implements OrderRepo {
 ## Determinism
 
 MANDATORY:
-- **Time**: freeze via `jest.useFakeTimers().setSystemTime(new Date('2026-01-01'))` OR inject a clock.
+- **Time**: freeze via the project's fake-timer helper (`jest.useFakeTimers().setSystemTime(...)` / `vi.useFakeTimers()` / `freezegun.freeze_time(...)` / `Timecop.freeze` / `Clock.fixed(...)` / framework-equivalent) OR inject a clock.
 - **UUID / random**: seed, or inject a generator that returns predictable values.
-- **Network**: mock (MSW, nock) OR use an injected fake client.
+- **Network**: mock via the project's HTTP-call faking primitive (MSW / nock / `responses` / `httpx_mock` / WireMock / `httptest` / WebMock / framework-equivalent) OR use an injected fake client.
 - **File system**: tmpdir + cleanup, or mem FS.
 - **DB**: transaction rollback per test, OR truncate, OR isolated DB per worker (parallel).
 

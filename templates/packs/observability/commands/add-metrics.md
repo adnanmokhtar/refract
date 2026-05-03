@@ -51,7 +51,7 @@ All 7.
 ## Phase 1 — Understand
 
 - What service / endpoint / job?
-- Backend: Prometheus / Datadog / CloudWatch / New Relic / Grafana Cloud / OpenTelemetry collector?
+- Backend: the project's metrics backend (vendor-neutral OTel collector + a TSDB OR a managed vendor — Datadog, New Relic, Grafana Cloud, CloudWatch, etc.)?
 - SLO targets if defined.
 - Existing dashboards if any.
 
@@ -65,89 +65,34 @@ Two methods + custom:
 
 ## Phase 3 — Retrieve
 
-Tools by ecosystem:
-- Node.js: `@opentelemetry/sdk-metrics` + Prometheus exporter OR `prom-client`.
-- Python: `opentelemetry-sdk-metrics` OR `prometheus_client`.
-- Go: `go.opentelemetry.io/otel/metric` OR `prometheus/client_golang`.
-- Java: Micrometer + Prometheus registry.
-- Ruby: `prometheus-client`.
-- .NET: System.Diagnostics.Metrics + OpenTelemetry.
+Use the project's stack-native metrics library — every mainstream language has at least one OpenTelemetry SDK plus a native client (e.g., a Prometheus client for the language, a vendor agent SDK, or the standard library's metrics namespace if applicable). Pick the one already in use; if greenfield, prefer the OpenTelemetry SDK for vendor neutrality.
 
 Read project's:
 - `ai/architecture.md` — service topology.
-- Existing dashboards / Grafana JSON.
+- Existing dashboards (exported JSON / IaC / templating language).
 - SLO declarations if any.
 
 ## Phase 4 — Generate
 
-OpenTelemetry (Node.js example):
+Define the meter, then register one counter for request count, one counter for error count, one histogram for duration, and observable gauges for resource utilization (e.g., DB connection pool used / max). Use the project's stack-native API for whichever metrics library is in use; the conceptual shape is identical across libraries:
 
-```ts
-import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http'
-import { Resource } from '@opentelemetry/resources'
+- A meter scoped to the service name.
+- RED counters/histograms labeled by `method`, `route`, `status` (bounded cardinality).
+- Business counters labeled by `tenant`, `plan` (only if cardinality is bounded for your scale).
+- Observable gauges for resource saturation (pool used, queue depth, FD count).
 
-const meterProvider = new MeterProvider({
-  resource: new Resource({ 'service.name': 'api' }),
-  readers: [new PeriodicExportingMetricReader({
-    exporter: new OTLPMetricExporter({ url: 'http://collector:4318/v1/metrics' }),
-    exportIntervalMillis: 10_000,
-  })],
-})
-const meter = meterProvider.getMeter('api')
-
-// RED — HTTP server
-const httpRequestCounter = meter.createCounter('http.server.request.count', {
-  description: 'Total HTTP requests handled',
-})
-const httpErrorCounter = meter.createCounter('http.server.error.count', {
-  description: 'HTTP responses with status >= 500',
-})
-const httpDurationHistogram = meter.createHistogram('http.server.duration', {
-  description: 'HTTP request duration ms',
-  unit: 'ms',
-})
-
-// In middleware
-app.use((req, res, next) => {
-  const start = Date.now()
-  res.on('finish', () => {
-    const labels = { method: req.method, route: req.route?.path ?? 'unknown', status: res.statusCode }
-    httpRequestCounter.add(1, labels)
-    if (res.statusCode >= 500) httpErrorCounter.add(1, labels)
-    httpDurationHistogram.record(Date.now() - start, labels)
-  })
-  next()
-})
-
-// Business metric
-const orderCounter = meter.createCounter('orders.placed.count', {
-  description: 'Orders placed',
-})
-function onOrderPlaced(order) {
-  orderCounter.add(1, { tenant: order.tenantId, plan: order.plan })
-}
-```
-
-USE method (DB connection pool):
-
-```ts
-const dbConnUsed = meter.createObservableGauge('db.connections.used')
-const dbConnMax = meter.createObservableGauge('db.connections.max')
-dbConnUsed.addCallback(obs => obs.observe(pool.totalCount - pool.idleCount))
-dbConnMax.addCallback(obs => obs.observe(pool.options.max))
-```
+Wire metric recording into request middleware / interceptors / decorators per the project's framework. Set unit + bucket boundaries explicitly on histograms — defaults are usually wrong.
 
 ## Phase 5 — Update
 
 - `ai/runtime/metrics-catalog.md` — list every metric, what it measures, what alerts on it.
 - `ai/runtime/dashboards.md` — links to each dashboard.
 - `ai/runbooks/metrics.md` — what to do when each metric alarms.
-- `.env.example` — `OTEL_*` env vars.
+- The project's env-config example file — telemetry exporter env vars.
 
 ## Phase 6 — Validate
 
-- Metrics arrive at backend (Prometheus / Datadog / etc.).
+- Metrics arrive at the project's metrics backend.
 - Cardinality is bounded (no high-cardinality labels like `user_id` — use trace_id at the trace layer instead).
 - Dashboards render (RED dashboard, USE dashboard, business KPI dashboard).
 - No PII in metric labels.
@@ -177,15 +122,15 @@ Catalog: ai/runtime/metrics-catalog.md
 ## Hard rules
 
 - **No PII / secrets / high-cardinality labels.** `user_id` as a label = exploding cardinality. Use trace_id (one-off identifier) for those queries.
-- **Cardinality budget** declared per metric. Without bounds, Prometheus dies.
+- **Cardinality budget** declared per metric. Without bounds, time-series storage dies.
 - **Histograms have explicit buckets.** Default buckets are usually wrong; set per metric (e.g., HTTP duration: 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000 ms).
 - **Resource attributes set** so multi-environment dashboards work.
 
 ## Failure modes
 
-- Cardinality explosion (every `user_id` as label) → Prometheus OOM.
+- Cardinality explosion (every `user_id` as label) → metrics backend OOM.
 - No buckets set on histograms → useless P99.
-- Counter that never resets across deploys (use `_total` suffix; Prometheus convention).
+- Counter that never resets across deploys (use `_total` suffix where the project's metrics convention requires it).
 - Custom metric named `error_count` then later `errors_count` → broken dashboards.
 - Metric only in one environment → dashboards break in others.
 

@@ -6,7 +6,7 @@ description: Add tests for a target file or feature, mirroring the repo's test f
 
 ## The Premise (read this first, internalize, do not deviate)
 
-**Existing tests are the truth. Mirror sibling test shape: same fixture pattern, same assertion style, same setup/teardown.** The repo already has a runner, a fixture convention, an arrange/act/assert idiom, a way to mock HTTP, a way to spin up the DB, a way to name files (`*.spec.ts` vs `*.test.ts`, `__tests__/` vs adjacent). New tests do not get to invent a new style — they copy the closest sibling. Convention drift in tests is convention drift in the codebase; the test layer is where the convention is most visible and most copied.
+**Existing tests are the truth. Mirror sibling test shape: same fixture pattern, same assertion style, same setup/teardown.** The repo already has a runner, a fixture convention, an arrange/act/assert idiom, a way to mock HTTP, a way to spin up the DB, a way to name files (the project's naming convention: `*.spec.<ext>` vs `*.test.<ext>` vs `test_*.py` vs `*_test.go` vs `*_spec.rb` vs framework-equivalent; `__tests__/` vs adjacent vs `tests/` vs `spec/`). New tests do not get to invent a new style — they copy the closest sibling. Convention drift in tests is convention drift in the codebase; the test layer is where the convention is most visible and most copied.
 
 **The agent's job is exactly this:**
 1. Resolve the target file / feature.
@@ -15,7 +15,7 @@ description: Add tests for a target file or feature, mirroring the repo's test f
 4. Generate the new tests; run them green; report mirroring evidence.
 
 **The agent does NOT:**
-- Pick a different runner from the one in use ("vitest is nicer than jest" is not an argument here).
+- Pick a different runner from the one in use ("the other runner is nicer" is not an argument here — match the project's existing test runner).
 - Introduce a new fixture-builder pattern when one exists.
 - Use `setTimeout` waits when the codebase already uses fake timers.
 - Mock at a different boundary than siblings (e.g., mocking the SDK when siblings mock at the HTTP layer).
@@ -32,7 +32,7 @@ Before declaring a test file done, the agent MUST verify shape parity with its m
 
 ```
 new.runner            == sibling.runner
-new.filename_scheme   == sibling.filename_scheme       (e.g., *.spec.ts in __tests__/)
+new.filename_scheme   == sibling.filename_scheme       (e.g., the project's pattern — `*.spec.<ext>` in `__tests__/`, `test_*.py` in `tests/`, `*_test.go` adjacent, framework-equivalent)
 new.import_style      == sibling.import_style          (named vs namespace, helpers location)
 new.describe_nesting  == sibling.describe_nesting      (depth + naming idiom)
 new.fixture_pattern   == sibling.fixture_pattern       (factory / builder / inline literal)
@@ -61,7 +61,7 @@ Build command. Generates unit + integration + (optional) e2e tests using project
 ## Phase 2 — Organize
 - Read target file: signatures, dependencies, control flow, error branches.
 - Identify which sibling test to mirror (same module preferred).
-- Decide test framework from `jest.config.*`, `vitest.config.*`, `pytest.ini`, `go test`, etc.
+- Decide test framework from the project's runner config (`jest.config.*`, `vitest.config.*`, `pytest.ini` / `pyproject.toml`, `phpunit.xml`, `Gemfile` + `.rspec`, `go test`, `Cargo.toml` test config, framework-equivalent).
 
 ## Phase 3 — Retrieve
 
@@ -75,7 +75,7 @@ ALWAYS (universal pre-flight):
 - `ai/status.md` — current phase + in-flight work + recent changes.
 
 Test-specific:
-- 1-2 sibling tests in the same module — copy style verbatim (`*.spec.ts` vs `*.test.ts`, `__tests__/` vs adjacent).
+- 1-2 sibling tests in the same module — copy style verbatim (the project's naming convention: `*.spec.<ext>` vs `*.test.<ext>` vs `test_*.py` vs `*_test.go` vs `*_spec.rb` vs framework-equivalent; `__tests__/` vs adjacent vs `tests/` vs `spec/`).
 - Test config (runner, setup files, fixtures, testcontainers).
 - `ai/patterns/test-strategy.md` if present.
 
@@ -84,7 +84,7 @@ Test-specific:
 - Generate test files:
   - **Unit** — pure logic, mocked deps. One file per use-case / service.
   - **Integration** — real DB via testcontainers or in-memory equivalent. Only for repository / persistence layers.
-  - **E2E** — Playwright / Cypress / supertest, only if the flow is user-facing AND uncovered.
+  - **E2E** — the project's E2E runner (Playwright / Cypress / supertest / Capybara / Selenium / framework-equivalent), only if the flow is user-facing AND uncovered.
 - Run them: `<runner> path/to/new-tests`.
 - Iterate until green.
 
@@ -96,7 +96,7 @@ Test-specific:
 - All new tests pass; previously-green tests still green.
 - No `setTimeout` waits (use fake timers).
 - No `.skip` / `.only` left in the file (reviewer-blocker).
-- No real external HTTP in unit tests (`msw` / `nock` / framework HTTP test client).
+- No real external HTTP in unit tests (the project's HTTP-faking primitive — `msw` / `nock` / `responses` / `httpx_mock` / `WireMock` / `httptest` / `WebMock` / framework-equivalent).
 - Naming mirrors existing convention exactly.
 
 ## Phase 7 — Improve
@@ -125,7 +125,7 @@ Status: COMPLETE
 - Tests assert internal calls instead of behavior → brittle; rewrite to assert outputs.
 - Adding tests that pass against the buggy code → wrong; reproduce bug first, fix second.
 - Real network / filesystem in unit tests → flakiness incoming; mock at HTTP / FS boundary.
-- `setTimeout` waits → fake timers (`jest.useFakeTimers()` / `vi.useFakeTimers()`).
+- `setTimeout` waits → fake timers (the project's fake-timer helper — `jest.useFakeTimers()` / `vi.useFakeTimers()` / `freezegun.freeze_time(...)` / `Timecop.freeze` / `Clock.fixed(...)` / framework-equivalent).
 - `.only` / `.skip` left in committed file → CI silently skips other tests; reviewer-blocker.
 - E2E added when integration would suffice → slow + flaky; only when user-facing flow is uncovered.
 

@@ -225,7 +225,7 @@ Verdict: REFUSE  →  phase <N> stays in-progress.
 
 Remediation:
   Row A007: re-run /align-phase <N> --start-from=A007 to close the remaining evidence site
-            (the fix closed src/.../*.tsx:42 but missed src/.../*.tsx:67 — re-detect confirms)
+            (the fix closed src/.../<leaf>:42 but missed src/.../<leaf>:67 — re-detect confirms)
   Row A012: halted (see ai/align/halts/A012.md). Resolve manually OR /align-park A012 <reason>.
 
 Re-run /align-gate <N> after resolving.

@@ -35,10 +35,9 @@ Read `ai/runtime/slos.md`. Per SLO, capture:
 
 ### 2. Pull last 90 days of measurement
 
-Tools:
-- Prometheus + Grafana → SLO dashboard.
-- Sloth (open-source SLO generator).
-- Cloud-vendor SLO tools (Datadog SLO, New Relic SLO, GCP Service Monitoring).
+Tools (use whichever the project's observability stack provides):
+- Self-hosted: Prometheus / a TSDB + a dashboard tool → SLO dashboard; Sloth or similar SLO generator.
+- Vendor-managed SLO products (Datadog SLO, New Relic SLO, Grafana Cloud SLO, Cloud-vendor service monitoring, Honeycomb SLO, etc.).
 
 For each SLO, compute:
 - Achieved % over last 30 days.

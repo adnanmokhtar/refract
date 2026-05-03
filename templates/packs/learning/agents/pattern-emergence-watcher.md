@@ -16,7 +16,7 @@ model: sonnet
 
 - Proposing a pattern with <3 occurrences → HALT — Rule of Three is the floor.
 - Proposing a pattern that duplicates an existing entry in `ai/patterns/` or `learned-patterns.md` → HALT — propose to EXTEND the existing one instead.
-- Proposing a pattern whose shape is the framework's default (NestJS module, React component, Express middleware signature) → HALT — that's stack, not pattern.
+- Proposing a pattern whose shape is the framework's default (e.g., the framework's module / component / middleware-signature shape — whatever the project's stack defines as the default unit of composition) → HALT — that's stack, not pattern.
 - Auto-promoting `WATCHING → READY` without the documented threshold met (≥3 files AND ≥2 weeks) → HALT — promotion is `knowledge-curator`'s call, not yours.
 
 By the time the same code shape appears in 4 places, the 5th implementation will diverge. You catch the repetition at occurrence 3 and surface it before drift sets in.
@@ -24,7 +24,7 @@ By the time the same code shape appears in 4 places, the 5th implementation will
 ## Invariants
 
 - Wait for the 3rd occurrence (Rule of Three). Premature abstraction is worse than duplication.
-- Don't propose patterns for stack-given shapes (NestJS modules, React components — those are framework, not project-emergent).
+- Don't propose patterns for stack-given shapes (the framework's default module / component / unit-of-composition — whatever your stack provides — those are framework, not project-emergent).
 - Surface to `learned-patterns.md` with status `WATCHING`; don't auto-promote.
 - Each proposed pattern has: name, description, occurrences (paths), worked example.
 - Skip if a formal pattern in `ai/patterns/` already covers this shape (might need to update existing rather than propose new).

@@ -46,56 +46,23 @@ CLOSED ─────────────────────▶ OPEN
 - **Open** — recent failures exceeded threshold. Calls fail fast without hitting downstream.
 - **Half-open** — after a cooldown, let ONE probe through. Success → close. Failure → back to open.
 
-## Config per dependency
+## Config per dependency (illustrative — adapt to the project's chosen library)
 
-```ts
-{
-  name: 'claude-api',
-  failureThreshold: 0.5,        // 50% of window failing opens the breaker
-  windowSize: 10,                // last 10 calls
-  openDuration: 30_000,          // 30s in open state before probing
-  timeout: 3_000,                // call timeout
-}
-```
+- `name`: the dependency this breaker guards (e.g., `payments-api`, `model-vendor`).
+- `failureThreshold`: e.g. 50% of window failing opens the breaker.
+- `windowSize`: e.g. last 10 calls.
+- `openDuration`: e.g. 30s in open state before probing.
+- `timeout`: per-call timeout.
 
-## Shape
+## Shape (stack-agnostic)
 
-```ts
-class CircuitBreaker {
-  private state: 'closed' | 'open' | 'half-open' = 'closed';
-  private failures: boolean[] = [];
-  private openedAt: number = 0;
+The breaker wraps the call with three behaviours:
 
-  async call<T>(fn: () => Promise<T>, fallback?: () => T): Promise<T> {
-    if (this.state === 'open') {
-      if (Date.now() - this.openedAt > this.config.openDuration) {
-        this.state = 'half-open';
-      } else {
-        if (fallback) return fallback();
-        throw new CircuitOpenError();
-      }
-    }
+1. **Open state**: time-since-open is checked; if expired, transition to half-open; otherwise return the fallback (or throw a typed `CircuitOpenError`).
+2. **Closed / half-open state**: invoke the function under the per-call timeout; on success, record success (transitions half-open → closed); on failure, record failure and either return the fallback or rethrow.
+3. **State transitions**: failure rate over the window crossing the threshold transitions closed → open; a single half-open success transitions to closed; a half-open failure transitions back to open.
 
-    try {
-      const result = await withTimeout(fn(), this.config.timeout);
-      this.recordSuccess();
-      return result;
-    } catch (e) {
-      this.recordFailure();
-      if (fallback) return fallback();
-      throw e;
-    }
-  }
-}
-```
-
-## Libraries (don't hand-roll if one exists)
-
-- Node: `opossum`, `cockatiel`
-- Java/Kotlin: `resilience4j`
-- Go: `sony/gobreaker`, `afex/hystrix-go`
-- .NET: `Polly`
-- Python: `pybreaker`
+Use the project's stack-native circuit-breaker library — every mainstream language has at least one (e.g., `opossum` / `cockatiel` for Node, Resilience4j for JVM, Polly for .NET, `gobreaker` / `hystrix-go` for Go, `pybreaker` for Python). Do not hand-roll when an option exists.
 
 ## When to use
 

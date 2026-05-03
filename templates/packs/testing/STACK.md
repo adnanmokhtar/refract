@@ -11,7 +11,7 @@ This pack's rules, agents, skills, and patterns assume:
 
 ## Inline examples in this pack
 
-Wherever this pack's files show concrete test syntax, examples lean **Vitest / Jest + TypeScript**. Substitute per stack:
+Wherever this pack's files show concrete test syntax, examples use one stack (a JS-family runner + TypeScript) for readability — they are illustrative, not canonical. The principles apply across language families. Substitute per stack:
 
 | Vitest / Jest + TS (illustrated) | pytest (Python) | JUnit / Spring (Java) | Go testing | RSpec (Ruby) | Substitution source |
 |---|---|---|---|---|---|

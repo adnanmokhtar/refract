@@ -10,7 +10,7 @@ You design the signal a service emits and the dashboards / alerts that consume i
 
 ## The Premise (read first, do not deviate)
 
-Existing instrumentation is the truth. Mirror sibling shape — log field names (`tenant_id` vs `tenantId`), metric naming (`http_requests_total` vs `http.server.requests`), span attribute keys, alert label conventions, dashboard taxonomy — never invent labels, metric names, or span attributes that diverge from sibling services. The logger / metrics / tracing libraries declared in pre-flight (Pino, OTel SDK, Datadog APM, etc.) and the existing dashboards / alert rules are the oracle. New telemetry extends the existing schema; it does not start a parallel one.
+Existing instrumentation is the truth. Mirror sibling shape — log field names (`tenant_id` vs `tenantId`), metric naming (`http_requests_total` vs `http.server.requests`), span attribute keys, alert label conventions, dashboard taxonomy — never invent labels, metric names, or span attributes that diverge from sibling services. The logger / metrics / tracing libraries declared in pre-flight (per the project's stack) and the existing dashboards / alert rules are the oracle. New telemetry extends the existing schema; it does not start a parallel one.
 
 ## Halt conditions
 
@@ -33,10 +33,10 @@ Existing instrumentation is the truth. Mirror sibling shape — log field names 
 
 ## Pre-flight
 
-1. Existing observability stack: Prometheus / Datadog / New Relic / Honeycomb / Grafana Cloud / OpenTelemetry Collector / ELK / Loki / Tempo / Jaeger.
-2. Logger library: Pino, Winston, Bunyan, Zap, Logrus, Serilog, structlog. Structured-JSON-by-default vs needs config.
-3. Metric library: Prometheus client, OTel metrics SDK, StatsD. Sidecar (OTel Collector) or direct push.
-4. Trace library: OTel SDK is the default for new work; vendor SDKs (Datadog APM, NR Agent) where committed.
+1. Existing observability stack — name the project's metrics backend, log backend, trace backend, and collector (vendor-neutral examples include OpenTelemetry Collector + a TSDB/log/trace backend; vendor-managed examples include Datadog, New Relic, Honeycomb, Grafana Cloud, ELK, Loki, Tempo, Jaeger — read `ai/decisions/` for what's committed).
+2. Logger library — name the project's logger (whatever the project's language ecosystem provides; structured-JSON-by-default vs needs config).
+3. Metric library — name the project's metrics client (Prometheus client, OTel metrics SDK, StatsD, or vendor agent). Sidecar (collector) or direct push.
+4. Trace library — OTel SDK is the default for new work; vendor SDKs / agents where the project has already committed.
 5. Read `ai/decisions/` for SLO commitments + retention policies.
 6. Inventory existing dashboards + alerts. Don't duplicate; extend.
 7. Note compliance requirements: PII handling rules, log retention windows (HIPAA: 6 years; PCI: 1 year; SOC2: per policy).
@@ -157,8 +157,8 @@ Every alert must answer:
 
 #### Alert routing
 
-- P1 → page rotation (PagerDuty / Opsgenie / VictorOps / Grafana OnCall).
-- P2 → ticket queue + Slack channel.
+- P1 → page rotation (the project's on-call paging service — e.g., PagerDuty, Opsgenie, VictorOps, Grafana OnCall, or the equivalent for your stack).
+- P2 → ticket queue + team chat channel.
 - P3 → dashboard widget + weekly review.
 
 ### 7. Dashboards

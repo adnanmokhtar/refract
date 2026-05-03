@@ -20,11 +20,13 @@ pack: testing
 - Library that's already mature and barely changes — extending strategy adds churn.
 
 **Halt conditions / mandatory cites**
-- Cite the layer's speed budget config as `<path:line>` (jest config / playwright config) before adding tests in that layer; budget-less layers are a halt.
+- Cite the layer's speed budget config as `<path:line>` (the project's test runner config — jest / vitest / pytest / RSpec / phpunit / go test / cargo test / xUnit / framework-equivalent) before adding tests in that layer; budget-less layers are a halt.
 - Cite the tenant-isolation test for any new repo / service touching tenant data as `<path:line>`; multi-tenant code without an isolation test is a halt.
 - Cite the regression test alongside any bug fix PR — `<path:line>` for the failing-then-fixed test; fix-without-test is a halt.
 - Cite the flake quarantine list (`ai/runbooks/flaky-tests.md` or equivalent) when re-enabling a quarantined test; silent re-enable is forbidden.
 - Hand-wave grep ban — never claim "covered by E2E" without citing the specific spec file `<path:line>`.
+
+> **Code samples below are illustrative.** Concrete syntax shown uses one stack (TypeScript + a JS-family test runner) for readability; the principles apply across language families. Substitute your stack's equivalents (pytest / RSpec / phpunit / go test / cargo test / xUnit / JUnit / ExUnit / framework-equivalent) using the substitution table in `testing/STACK.md`.
 
 Tests have a cost (write time, run time, maintenance). They have a value (regression prevention, design pressure, documentation). The strategy is matching the right kind of test to the right concern, in the right ratio, so the value/cost ratio stays positive as the codebase grows.
 
@@ -52,7 +54,7 @@ For a 200-LOC script you're going to throw away next week, full pyramid is overk
 
 Rough ratio targets: 80% unit / 15% integration / 5% E2E.
 
-Critics ("test trophy" — Kent C. Dodds) argue integration tests are underused. They're right for stateless React components and REST APIs that have no domain logic. They're wrong for systems with rich domain models — unit tests on the domain layer are the cheapest defect-prevention.
+Critics ("test trophy" — Kent C. Dodds) argue integration tests are underused. They're right for stateless UI components and thin REST APIs that have no domain logic. They're wrong for systems with rich domain models — unit tests on the domain layer are the cheapest defect-prevention.
 
 Pick the model honestly. If the codebase is 80% glue between services and 20% logic, you'll have more integration than unit. If it's 60% domain logic, the classic pyramid wins.
 
@@ -74,7 +76,7 @@ Test:
 - Tenant isolation explicitly — see Multi-tenancy section below.
 
 Don't test:
-- Framework internals (NestJS' `@Body` parses JSON — they tested it).
+- Framework internals (e.g., your web framework's request-body parser — the framework's authors tested it).
 - Trivial getters/setters (no logic = no test value).
 - Private methods directly — exercise via public surface.
 - The same behavior at multiple pyramid levels (DRY: test once at the lowest level that's meaningful).
@@ -196,7 +198,7 @@ These are the most boring tests in the codebase and the most important.
 ## Common mistakes
 
 - **Mocks that return "whatever makes the test pass".** The test asserts the code calls `mock.x()`; the mock returns `42`; the code uses `42`; the test passes. The test is a tautology.
-- **Asserting on framework internals.** Testing that `@Body()` decorator extracts JSON — that's NestJS's test, not yours.
+- **Asserting on framework internals.** Testing that your web framework's request-body parser extracts JSON — that's the framework's test, not yours.
 - **Slow unit tests.** A "unit" test that hits a real DB is an integration test. Unit tests should be < 100ms; if you can't, you've coupled to infrastructure that should be abstracted.
 - **E2E that re-tests business logic.** E2E asserts the wires are connected; unit tests assert the logic. E2E checking "order total is correct" duplicates the unit test that already covers totals.
 - **No test for the bug fix.** The bug shipped; the fix shipped without a regression test. Same bug returns in 6 months.

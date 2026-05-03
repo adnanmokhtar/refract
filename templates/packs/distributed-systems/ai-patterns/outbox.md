@@ -29,68 +29,27 @@ Guarantees that a DB write AND an event publish happen atomically. Solves the cl
 
 ## The problem
 
-```ts
-// BAD — two-step operation, no atomicity
-await db.orders.insert(order);
-await kafka.publish('order.placed', order);  // ← what if this fails?
-```
-
-Order saved but event never sent. Downstream consumers never see it. Classic silent data loss.
+The naive two-step "insert business row, then publish to message bus" is NOT atomic. If the publish fails (network blip, broker down) the row is saved but the event is never sent — downstream consumers never see it. Classic silent data loss.
 
 ## The solution
 
 Write the event to an **outbox table** in the SAME DB transaction as the business write. A background process reads the outbox and publishes to the message bus.
 
-```ts
-await db.transaction(async (tx) => {
-  await tx.orders.insert(order);
-  await tx.outbox.insert({
-    topic: 'order.placed',
-    payload: order,
-    created_at: now(),
-    published_at: null,
-  });
-});
-```
+Inside one DB transaction: insert the business row AND insert a row into `outbox` (topic, payload, created_at, published_at = null). Both rows commit together or both rollback.
 
 Separately, a worker polls (or uses CDC):
 
-```ts
-// Worker loop
-while (true) {
-  const batch = await db.outbox
-    .where('published_at IS NULL')
-    .orderBy('created_at')
-    .limit(100)
-    .forUpdate('SKIP LOCKED');
+1. Select up to N unpublished outbox rows (`WHERE published_at IS NULL`), ordered by `created_at`, locked `FOR UPDATE SKIP LOCKED` so multiple workers don't process the same rows.
+2. For each row: publish to the message bus, then update `published_at = now()`.
+3. Sleep briefly between batches (back off when empty).
 
-  for (const msg of batch) {
-    await bus.publish(msg.topic, msg.payload);
-    await db.outbox.update(msg.id, { published_at: now() });
-  }
+## Schema (stack-agnostic)
 
-  await sleep(1000);
-}
-```
-
-## Schema
-
-```sql
-CREATE TABLE outbox (
-  id         bigserial PRIMARY KEY,
-  topic      text NOT NULL,
-  payload    jsonb NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  published_at timestamptz,
-  attempts   int NOT NULL DEFAULT 0,
-  last_error text
-);
-CREATE INDEX idx_outbox_pending ON outbox(created_at) WHERE published_at IS NULL;
-```
+`outbox` table with columns: `id` (PK, sequential), `topic` (string), `payload` (the project's JSON / structured-data column type), `created_at` (timestamp), `published_at` (timestamp, nullable), `attempts` (int, default 0), `last_error` (string, nullable). Partial index on `created_at` filtered to `published_at IS NULL` for fast scan.
 
 ## Alternatives / complements
 
-- **CDC (Change Data Capture)** — Debezium reads WAL/binlog, publishes to Kafka. No polling. Operationally heavier.
+- **CDC (Change Data Capture)** — a CDC tool (e.g., Debezium for Postgres/MySQL/MongoDB, the equivalent for the project's DB) reads the DB's write-ahead-log / binlog and publishes to the message bus. No polling. Operationally heavier.
 - **Event-carried state transfer** — if the event has the full entity, downstreams don't need to re-query.
 
 ## Retention

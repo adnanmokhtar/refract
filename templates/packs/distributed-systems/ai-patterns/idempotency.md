@@ -46,8 +46,8 @@ Networks fail. Clients retry. Without idempotency:
 - **PATCH** — NOT guaranteed. Depends on semantics (increment = not idempotent; set-if-match = idempotent).
 
 ### At the DB level
-- `INSERT ... ON CONFLICT (k) DO NOTHING` — idempotent insert.
-- `INSERT ... ON CONFLICT (k) DO UPDATE SET ...` — idempotent upsert.
+- Conditional insert (the engine's "insert if not exists" / "on conflict do nothing" syntax) — idempotent insert.
+- Upsert (insert-or-update on conflict / merge) — idempotent upsert.
 - `DELETE WHERE id = ?` — idempotent.
 - `UPDATE ... SET status = 'X' WHERE id = ? AND status != 'X'` — idempotent "set once".
 
@@ -62,25 +62,14 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 
 Server stores first response by key. Subsequent requests with same key return stored response without re-executing.
 
-### Server-side storage
+### Server-side storage (stack-agnostic schema)
 
-```sql
-CREATE TABLE idempotency_records (
-  key             text PRIMARY KEY,
-  request_hash    text NOT NULL,        -- prevents key reuse with different body
-  response_body   jsonb NOT NULL,
-  response_status int NOT NULL,
-  created_at      timestamptz NOT NULL DEFAULT now(),
-  expires_at      timestamptz NOT NULL  -- TTL, typically 24h
-);
-
-CREATE INDEX idx_idempotency_expires ON idempotency_records(expires_at);
-```
+`idempotency_records` table with columns: `key` (PK), `request_hash` (prevents key reuse with different body), `response_body` (JSON / structured-data column), `response_status` (int), `created_at` (timestamp), `expires_at` (timestamp, TTL typically 24h). Index on `expires_at` for the cleanup job.
 
 Flow:
 ```
 1. Receive request with Idempotency-Key.
-2. Lock on key (advisory lock or SELECT FOR UPDATE).
+2. Lock on key (advisory lock / row-level "select for update" / the project's distributed lock primitive).
 3. Check idempotency_records:
    - Found + same hash → return stored response. Done.
    - Found + different hash → 409 Conflict (client bug: key reused with different body).
@@ -102,83 +91,35 @@ Flow:
 Messages may be delivered multiple times (at-least-once delivery).
 
 ### Dedup by event id
-```sql
-CREATE TABLE processed_events (
-  event_id   text PRIMARY KEY,
-  processed_at timestamptz DEFAULT now()
-);
-```
 
-Handler:
-```ts
-async function handle(event) {
-  try {
-    await db.processed_events.insert({ event_id: event.id });
-  } catch (e) {
-    if (isDuplicateKey(e)) return; // already processed
-    throw e;
-  }
-  // do the work
-}
-```
+`processed_events` table with `event_id` PK + `processed_at` timestamp. The handler attempts to insert the event_id first; on duplicate-key error, the event is already processed — return early. Otherwise, do the work.
 
 ### Dedup within the business write
-Combine the processing write + event id in one transaction:
-```ts
-await db.transaction(async tx => {
-  await tx.processed_events.insert({ event_id });   // fails if duplicate
-  await tx.orders.update({ id: orderId, status: 'paid' });
-});
-```
+Combine the processing write + event id in one DB transaction: insert the event id (fails if duplicate) and update the business row in the same transaction. Both succeed or both rollback.
 
 ## Payment / financial operations
 
-Stripe, most payment APIs, require idempotency keys on creates. Use them.
-
-```ts
-await stripe.charges.create(
-  { amount: 1000, currency: 'usd', customer: c },
-  { idempotencyKey: orderId }          // Stripe dedupes on their side
-);
-```
-
-Your side: same idempotency pattern for your internal state changes.
+Most payment vendors require idempotency keys on creates — pass the key as the vendor SDK / API expects. Your side: same idempotency pattern for your internal state changes.
 
 ## Idempotent operation design
 
 Prefer operations where repetition is NATURALLY idempotent:
 
 ### SET rather than INCREMENT
-```
-BAD: await counter.increment(5);     // 2 runs = 10
-GOOD: await counter.setToAtLeast(currentValue + 5, via CAS);
-```
+- BAD: `counter.increment(5)` — two runs = double-counted.
+- GOOD: `counter.setToAtLeast(target)` via compare-and-swap — repeated runs converge on the same value.
 
 ### Upsert rather than insert
-```
-BAD: INSERT INTO users ...;            // 2 runs = duplicate row error
-GOOD: INSERT INTO users ... ON CONFLICT DO UPDATE;
-```
+- BAD: plain `INSERT INTO users ...` — second run = duplicate-row error.
+- GOOD: insert-or-update / upsert (the engine's merge / on-conflict-do-update primitive).
 
 ### State transitions with preconditions
-```
-BAD: UPDATE orders SET status='paid' WHERE id = ?;   // re-runs overwrite, no safety
-GOOD: UPDATE orders SET status='paid', paid_at=now()
-      WHERE id = ? AND status = 'pending';           // only if expected state
-      -- returns 0 rows if already paid; caller knows to skip
-```
+- BAD: `UPDATE orders SET status='paid' WHERE id = ?` — re-runs overwrite, no safety.
+- GOOD: `UPDATE orders SET status='paid', paid_at=now() WHERE id = ? AND status = 'pending'` — affected-rows = 0 if already paid; caller knows to skip.
 
 ## Retry safety
 
-Retries are safe IF the operation is idempotent. Never retry a non-idempotent POST without an idempotency key.
-
-```ts
-// Safe — idempotency key carried on every retry
-await retry(() => api.post('/orders', body, { headers: { 'Idempotency-Key': key }}), {
-  retries: 3,
-  backoff: exponential,
-});
-```
+Retries are safe IF the operation is idempotent. Never retry a non-idempotent POST without an idempotency key. Use the project's retry primitive (the language's structured retry library) and pass the idempotency key on every attempt.
 
 ## Observability
 

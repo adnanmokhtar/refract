@@ -29,7 +29,7 @@ pack: performance
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Stack`.
 >
 > - **Code splitting strategy**: `<route-based / feature-based / vendor-split>`
-> - **Image lazy-load primitive**: `<next/image / loading="lazy" / IntersectionObserver / vue-lazyload>`
+> - **Image lazy-load primitive**: the project's image primitive (framework's image component / native `loading="lazy"` / IntersectionObserver / a lazy-image library)
 > - **Route-based code-split detected at**: `<paths>`
 > - **Heavy modules deferred**: `<list>`
 
@@ -37,13 +37,13 @@ pack: performance
 
 | Tier | Examples | Strategy |
 |---|---|---|
-| **Routes** | Settings page, admin panel, infrequently-visited flows | Route-based code split. React.lazy + Suspense; Next/Nuxt automatic route splitting. |
+| **Routes** | Settings page, admin panel, infrequently-visited flows | Route-based code split via the framework's lazy-route primitive (every modern frontend framework has one). |
 | **Heavy modules** | Charting library, rich-text editor, video player, map SDK | Dynamic import on first use; show placeholder while loading. |
-| **Below-the-fold images** | Anything not visible on first paint | `loading="lazy"` (HTML), `next/image` with default lazy, IntersectionObserver. |
+| **Below-the-fold images** | Anything not visible on first paint | `loading="lazy"` (HTML), the framework's image primitive's default lazy mode, IntersectionObserver. |
 | **Off-screen videos** | Tutorials, hero videos that auto-play | `preload="none"` + autoplay-on-intersection. |
 | **Third-party scripts** | Chat widget, ad scripts, analytics, A/B testing | Lazy-load on user gesture or after main content interactive. |
 | **Modal/drawer contents** | Account settings dialog, share sheet | Render placeholder; populate on open. |
-| **Large lists** | Threads with 1000+ items, message history | Virtualization (react-window, vue-virtual-scroller, list virtualizer). |
+| **Large lists** | Threads with 1000+ items, message history | Virtualization (the framework's virtualisation library). |
 | **Server data not needed yet** | Tab content not currently selected | Fetch on tab activate. |
 
 ## When NOT to lazy-load
@@ -60,90 +60,33 @@ pack: performance
 
 A 200 KB lazy-load saves ~200 KB. A 5 KB lazy-load saves nothing meaningful and adds complexity.
 
-## Per-tier patterns
+## Per-tier patterns (stack-agnostic)
 
 ### Route-based code splitting
 
-```ts
-// Before (everything in main bundle)
-import SettingsPage from './SettingsPage'
+Use the framework's lazy-route primitive (every modern web framework has one — `lazy()` + Suspense in some, file-system route splitting in meta-frameworks, dynamic-import-style in others). Always pair with a placeholder while the route chunk loads.
 
-// After
-const SettingsPage = lazy(() => import('./SettingsPage'))
-
-// Use in router
-<Route path="/settings" element={
-  <Suspense fallback={<Spinner />}>
-    <SettingsPage />
-  </Suspense>
-} />
-```
-
-Next.js / Nuxt: automatic per-page splitting — usually no work needed.
+Most meta-frameworks (file-system routing) split per page automatically — usually no work needed.
 
 ### Heavy module dynamic import
 
-```ts
-// Before — chart lib imported at top
-import Chart from 'heavy-charting-library'
-
-// After — imported only when chart actually rendered
-const ChartContainer = () => {
-  const [Chart, setChart] = useState(null)
-  useEffect(() => {
-    import('heavy-charting-library').then(mod => setChart(() => mod.default))
-  }, [])
-  if (!Chart) return <Spinner />
-  return <Chart {...props} />
-}
-```
+Defer the import until the component that uses the module mounts. Conceptually: replace a top-level static import of the heavy module with a dynamic import inside an effect / mount hook; render a placeholder until the dynamic import resolves; on resolve, render the real component.
 
 ### Image lazy-load
 
-```html
-<!-- Native HTML -->
-<img src="/photo.jpg" loading="lazy" width="800" height="600" alt="..." />
-
-<!-- Next.js -->
-<Image src="/photo.jpg" loading="lazy" width={800} height={600} alt="..." />
-
-<!-- Above-the-fold (don't lazy) -->
-<Image src="/hero.jpg" priority width={1920} height={1080} alt="..." />
-```
+Use the platform's native lazy-loading attribute (`loading="lazy"` on `<img>`) for raw HTML, OR the framework's image primitive's default lazy mode. For above-the-fold images, mark them as priority (the framework's priority-hint API) so they load eagerly.
 
 ALWAYS set `width` + `height` (or `aspect-ratio` CSS) — without them, lazy images cause layout shift (CLS regression).
 
 ### Third-party scripts
 
-```ts
-// Bad — loads on every page
-<script src="https://chat-widget.example/widget.js" />
-
-// Good — load on user gesture
-const loadChat = () => {
-  if (window.ChatWidget) return // already loaded
-  const s = document.createElement('script')
-  s.src = 'https://chat-widget.example/widget.js'
-  s.async = true
-  document.body.append(s)
-}
-<button onClick={loadChat}>Need help?</button>
-```
+Defer third-party script tags until a user gesture (button click) OR after first idle / first interaction. The bad pattern is shipping a `<script>` tag in `<head>` that loads on every page; the good pattern is appending the `<script>` element to the DOM on demand and guarding against double-load.
 
 For analytics: load after `requestIdleCallback` or after first interaction.
 
 ### Virtualization
 
-```ts
-// react-window for long lists
-import { FixedSizeList } from 'react-window'
-
-<FixedSizeList height={600} itemCount={10000} itemSize={50}>
-  {({ index, style }) => <div style={style}>{items[index].name}</div>}
-</FixedSizeList>
-```
-
-Renders only visible rows. Memory + render-time both bounded.
+Use the framework's virtualisation library (every modern frontend framework has at least one — windowed-list components for the visible viewport). Conceptually: render only the rows that fit in the visible viewport plus an over-render buffer; the underlying list metadata stays in memory. Memory + render-time both bounded.
 
 ## Anti-patterns
 

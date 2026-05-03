@@ -64,18 +64,18 @@ Frontend ports add specific recipes — generic golden-master alone is insuffici
 
 | Feature shape | Recipes | Tooling |
 |---|---|---|
-| Page with inline business logic | Page-level mount + `defineExpose`-based driver test + DOM assertion | Vue Test Utils / React Testing Library / Svelte Testing Library |
-| Page with composable-extracted logic | Composable golden master (unit-test the composable directly) + page-level smoke test | Vue Test Utils + composable runner pattern |
-| Component (reusable) | Component-level snapshot per render-state + interaction test (click/submit/change) | Vue Test Utils / RTL / Storybook + Chromatic |
-| User flow (multi-page) | E2E parity (Playwright/Cypress) — drive V1 + V2 in parallel; compare DOM / screenshots | Playwright / Cypress / WebdriverIO |
-| Visual fidelity | Visual regression (pixel-level with tolerance) | Percy / Chromatic / Playwright snapshots / BackstopJS |
-| Accessibility | a11y baseline + diff (axe-core) | axe-core via Playwright / RTL `jest-axe` |
-| Multi-locale | Render in every locale; assert i18n keys + RTL/LTR flip | Vue Test Utils + i18n harness |
+| Page with inline business logic | Page-level mount + driver-test the page's exposed surface (the project's component-instance / imperative-handle / expose primitive — see the project's frontend pack for the concrete API) + DOM assertion | The project's component-test runner |
+| Page with shared-logic primitive (hook / composable / mixin / store) extracted | Shared-logic golden master (unit-test the primitive directly) + page-level smoke test | The project's unit-test runner + component-test runner |
+| Component (reusable) | Component-level snapshot per render-state + interaction test (click/submit/change) | The project's component-test runner / visual-regression tooling |
+| User flow (multi-page) | E2E parity — drive V1 + V2 in parallel; compare DOM / screenshots | The project's E2E browser-driver tool |
+| Visual fidelity | Visual regression (pixel-level with tolerance) | The project's visual-regression tool |
+| Accessibility | a11y baseline + diff | The project's a11y-audit tool (e.g., axe-core or framework equivalent) |
+| Multi-locale | Render in every locale; assert i18n keys + RTL/LTR flip | The project's component-test runner + i18n harness |
 
 **Frontend recipe details:**
 
-- **Page-level mount + driver test**: render the V2 page with mock services; drive interactions; assert the resulting requests / store mutations / route pushes / toast invocations match the V1 contract. Use `defineExpose({...})` (Vue) or component refs (React) when business logic is inline.
-- **Composable golden master**: extract logic to a composable (Vue) / hook (React); test the composable's exposed API as a unit. The page becomes a thin wrapper — much easier to test. Encouraged by `migration-discipline.md` § Frontend anti-patterns ("Per-page inline business logic" → fix: composable extraction).
+- **Page-level mount + driver test**: render the V2 page with mock services; drive interactions; assert the resulting requests / store mutations / route pushes / toast invocations match the V1 contract. Use the project's component-instance / imperative-handle / expose primitive when business logic is inline.
+- **Shared-logic golden master**: extract logic to the project's shared-logic primitive (hook / composable / mixin / store helper); test the primitive's exposed API as a unit. The page becomes a thin wrapper — much easier to test. Encouraged by `migration-discipline.md` § Frontend anti-patterns ("Per-page inline business logic" → fix: extract to shared-logic primitive).
 - **Component snapshot per state**: render the component with N input states (loading / loaded / empty / error / readonly / etc.); snapshot each. Combine with interaction tests (click button → assert event emitted).
 - **E2E parity**: high-confidence but slow + flaky-prone. Reserve for high-traffic flows (auth, checkout, ordering). Drive Playwright against both V1 and V2 hosts; capture and compare.
 - **Visual regression**: use a tolerance threshold (e.g., 0.1% pixel diff) to absorb minor anti-aliasing / font-rendering differences. Pin a single browser + viewport.
@@ -84,23 +84,22 @@ Frontend ports add specific recipes — generic golden-master alone is insuffici
 
 #### Auto-import test-config requirement (frontend)
 
-Any test that mounts a `.vue` / `.tsx` / `.jsx` file from a project that uses `unplugin-auto-import` (Vue), Nuxt's auto-imports, Vite's auto-import plugin, etc. requires the SAME plugin in the test config (`vitest.config.ts`, `jest.config.js`). Otherwise the auto-imported `useI18n`, `useRouter`, `computed`, etc. resolve in production but not in tests. **First mount fails with `useI18n is not defined`-type errors.** This is the #8 named anti-pattern in `audit-failure-modes.md` ("The Auto-import Trip"); pre-empt it by writing the test config alongside the test files.
+Any test that mounts a leaf-component / view-template file from a project that uses any auto-import plugin (build-tool plugin, framework auto-import, IDE-driven import-on-resolve) requires the SAME plugin in the test config. Otherwise auto-imported helpers (i18n hook, router hook, reactive primitives, etc.) resolve in production but not in tests. **First mount fails with `<helper-name> is not defined`-type errors.** This is the named "Auto-import Trip" anti-pattern in `audit-failure-modes.md`; pre-empt it by writing the test config alongside the test files.
 
-#### KeepAlive-aware mount (Vue)
+#### Route-cache-aware mount (when the project's stack supports route caching)
 
-For pages whose data fetch fires on the framework's route-cache reactivate hook (e.g., Vue 3 `onActivated` under `<KeepAlive>`, Next.js route cache, etc.), the test mount MUST simulate the cache so the reactivate hook fires:
+For pages whose data fetch fires on the project's route-cache reactivate hook (concrete hook varies by stack — see the project's frontend pack rule § Lifecycle), the test mount MUST simulate the cache so the reactivate hook fires:
 
-```ts
-const wrapper = mount(
-  {
-    components: { Page },
-    template: '<KeepAlive><Page /></KeepAlive>',
-  },
-  { /* options */ }
-)
+```pseudo
+mount(Page, {
+  // wrap the page in the project's route-cache shell
+  // so the reactivate hook fires during the test
+  wrapper: <project's route-cache wrapper component>,
+  options: { /* ... */ }
+})
 ```
 
-Otherwise reactivate-fired API calls don't run and the mock-call assertion fails. This is the #10 named anti-pattern in `audit-failure-modes.md`.
+Otherwise reactivate-fired API calls don't run and the mock-call assertion fails. This is a named anti-pattern in `audit-failure-modes.md`.
 
 Aim for ≥2 recipes per non-trivial feature so a gap in one is caught by another.
 

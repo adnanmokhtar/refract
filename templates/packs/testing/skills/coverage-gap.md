@@ -40,9 +40,15 @@ Find real gaps, no hand-waves. Every reported gap cites `<path:line>` for the un
    git diff --unified=0 "$BASE"..HEAD | \
      awk '/^\+\+\+ b\// {f=substr($2,3)} /^@@/ {match($0,/\+[0-9]+(,[0-9]+)?/); split(substr($0,RSTART+1,RLENGTH-1),a,","); for(i=0;i<(a[2]?a[2]:1);i++) print f":"(a[1]+i)}'
    ```
-3. Run coverage:
+3. Run coverage with the project's test runner. Examples (substitute the project's actual invocation):
    ```bash
+   # JS/TS (jest example)
    npx jest --coverage --coverageReporters=lcov --changedSince="$BASE"
+   # Python: pytest --cov --cov-report=lcov --cov-report=xml
+   # Go:     go test -coverprofile=coverage.out ./...
+   # Ruby:   bundle exec rspec  (with simplecov configured)
+   # PHP:    vendor/bin/phpunit --coverage-clover coverage.xml
+   # Rust:   cargo tarpaulin --out Lcov
    ```
 4. Intersect changed lines with `coverage/lcov.info` — for each `DA:<line>,<hits>` and `BRDA:<line>,<block>,<branch>,<hits|->`, mark `0` or `-` as uncovered.
 5. Classify each changed line: covered, line-uncovered, or branch-partial (one side of an `if/else` taken, the other not).
@@ -71,7 +77,7 @@ LOW PRIORITY:
 
 ## False positives / gotchas
 
-- Generated code (Prisma client, OpenAPI types) shows as uncovered — exclude via `coveragePathIgnorePatterns`.
+- Generated code (the project's ORM client output, OpenAPI / GraphQL / protobuf types, framework-equivalent codegen output) shows as uncovered — exclude via the project's coverage-ignore mechanism (`coveragePathIgnorePatterns` / `.coveragerc` `omit` / framework-equivalent).
 - TypeScript `?.` and `??` compile to multiple branches; partial coverage on one transpiled branch is usually acceptable.
 - Snapshot tests inflate line coverage but don't exercise branches — don't be misled.
 - A branch shown as "0 hits" in `lcov` may be reachable only under a specific Node version flag — check before deleting.

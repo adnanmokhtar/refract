@@ -58,13 +58,13 @@ Four parallel scans (Explore subagents, capped per `--max-subagents`). **Scans 1
 
 1. **V1 inventory — DEEP NAV TREE (not just routes)**. Walk every clickable navigation surface, not just top-level routes:
    - Top-level routes (the obvious one — every entry in V1's router config).
-   - **In-page tabs** — every `<v-tabs>` / `<TabView>` / `<TabMenu>` / `<Tabs>` / equivalent component in V1 templates. Each tab is a separate inventory entry, not a single "tabs container."
+   - **In-page tabs** — every instance of the project's tab primitive in V1 templates (concrete tag/component vocabulary varies by stack — see the project's frontend pack rule § Tab patterns). Each tab is a separate inventory entry, not a single "tabs container."
    - **Sub-tabs / nested tabs** — recursively enumerate every nested tab system (a tab containing another tabs container = leaf-level entries for each inner tab).
    - **Sidebar items** — every clickable item in the sidebar/menu/drawer config. Includes collapsible groups and nested items.
    - **Modal-shell tabs** — modals that have their own tab system (settings dialogs, "edit X" multi-step modals).
    - **Accordion groups** — if expanding/collapsing reveals distinct surfaces, each is an entry.
    - **Inner-routes** — child routes / nested routes / dynamic segment routes.
-   - **Templates** — every `.vue` / `.tsx` / template file in V1's view layer, not just "pages". A re-usable template that surfaces unique user-clickable affordances counts.
+   - **Templates** — every leaf-component / view-template file in V1's view layer (any extension declared in the project's stack), not just "pages". A re-usable template that surfaces unique user-clickable affordances counts.
    - **CRUD action surfaces** — bulk-action menus, row-action dropdowns, context menus reachable from list pages.
    For each clickable surface: capture the **full click path** from V1 root (e.g., "Settings → Appearance → Colors → Primary tab → Color picker") and the **leaf-level component / route**. The output is a tree, not a flat list — depth-N entries belong to depth-(N-1) parents.
    This is what the user means by "deep nav tree." The discipline halt #13 (Module/page audit missing navigation inventory) DEMANDS this — and it can only deliver if scan-time inventory captured it.
@@ -85,8 +85,8 @@ Four parallel scans (Explore subagents, capped per `--max-subagents`). **Scans 1
 ## Phase 3 — Retrieve (read the right context)
 
 For each subagent's scan:
-- Read framework/router config (e.g., `app/`, `pages/`, `urls.py`, `routes.rb`, NestJS modules).
-- Read manifest (`package.json`, `requirements.txt`, etc.) for version + dependency surface.
+- Read framework/router config (the project's router primitive — concrete file names / patterns vary by stack; see `_extracted-codebase.md § Stack` for the actual locations).
+- Read the project's manifest / dependency descriptor for version + dependency surface.
 - Sample 2-3 representative files per module to understand conventions in use.
 
 For V2 specifically — also read:

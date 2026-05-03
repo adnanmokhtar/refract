@@ -54,7 +54,7 @@ PATH-BASED reviewer selection:
 | Touched | Agent + rules to read |
 |---|---|
 | `apps/**/controllers/`, `services/`, `repositories/` | `api-reviewer` (+ `tenant-isolation-reviewer` if multi-tenant) |
-| `app/`, `pages/`, `components/`, `*.vue`, `*.tsx` | `ui-reviewer` + `i18n-auditor` |
+| `app/`, `pages/`, `components/`, `*.vue`, `*.tsx`, `*.jsx`, `*.svelte`, `*.razor`, `*.component.ts` | `ui-reviewer` + `i18n-auditor` |
 | DB migrations | `schema-reviewer` (internally invoke `/migration-review`) |
 | `__tests__/`, `*.spec.*` | `test-reviewer` |
 | `auth/`, `crypto/`, `secrets/`, `payment` | `security-auditor` |

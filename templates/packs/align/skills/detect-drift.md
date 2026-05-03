@@ -115,7 +115,7 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 **Tool**: grep against fingerprints derived from `_extracted-idioms.md`.
 
 **Procedure**:
-1. For each named wrapper in `_extracted-idioms.md` (e.g., `<AppButton>` wraps MUI's `<Button>`), derive the fingerprint of the underlying library (e.g., `import { Button } from '@mui/material'`).
+1. For each named wrapper in `_extracted-idioms.md` (e.g., the project's button wrapper wraps a raw button from the project's UI library), derive the fingerprint of the underlying raw component (the import path / module reference / tag name that pulls the raw component — concrete shape varies by stack).
 2. Grep the codebase for the fingerprint at non-shared call sites (i.e., outside the wrapper file itself).
 3. Each hit is a finding.
 

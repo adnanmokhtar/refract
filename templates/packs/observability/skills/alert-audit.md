@@ -9,7 +9,7 @@ Alert fatigue kills teams. Half of "oncall hell" is garbage alerts drowning out 
 
 ## Premise
 
-Find real issues. Every "dead", "noisy", "missing runbook", "missing owner" finding cites a specific alert name, the rule file path, and the query / pager-history that supports the verdict. Fire counts come from the actual alert history (Prometheus API, PagerDuty incidents) — not estimates. A "broken query" finding cites the metric name that was renamed and the commit that did it. SLO burn-rate gaps cite the SLO from `slos.md` that lacks coverage.
+Find real issues. Every "dead", "noisy", "missing runbook", "missing owner" finding cites a specific alert name, the rule file path, and the query / pager-history that supports the verdict. Fire counts come from the actual alert history (the project's alerting backend API + paging service incidents) — not estimates. A "broken query" finding cites the metric name that was renamed and the commit that did it. SLO burn-rate gaps cite the SLO from `slos.md` that lacks coverage.
 
 ## Halt conditions
 
@@ -20,22 +20,16 @@ Find real issues. Every "dead", "noisy", "missing runbook", "missing owner" find
 
 ## Sources
 
-- **Prometheus / Alertmanager** — `rules/` YAML + alert history from Prometheus API.
-- **Grafana** — alerting UI + API.
-- **Datadog** — monitors API.
-- **PagerDuty / Opsgenie** — incident / page history.
-- **Sentry** — error alerts.
+- **The project's alerting backend** — rule files (whatever format the backend uses) + alert history via its API (Prometheus / Alertmanager, Grafana alerting, Datadog Monitors, vendor monitor APIs).
+- **The project's paging service** — incident / page history (PagerDuty, Opsgenie, Grafana OnCall, etc.).
+- **The project's error tracker** — error alerts (Sentry, Rollbar, Bugsnag, etc.).
 
 ## Checks
 
 ### Dead alerts
 Never fired in the last 90 days.
 
-```bash
-# Prometheus — list alerts + check history
-curl -s http://prometheus:9090/api/v1/alerts
-# Cross-reference against pager history: did they fire recently?
-```
+Query the project's alerting backend API for the rule list, then cross-reference against the paging service's incident history: did they fire recently?
 
 Possible reasons:
 - Threshold too high — never triggered (maybe good).
@@ -61,10 +55,7 @@ Flapping alerts burn trust. Fix the rule (add `for: 5m`, raise threshold, group 
 
 ### Alerts without runbooks
 
-Every alert should link to a runbook. Grep:
-```bash
-grep -L "runbook" prometheus/rules/*.yaml
-```
+Every alert should link to a runbook. Grep the project's alert rule files for a `runbook`-style annotation; flag any rule lacking one.
 
 Alert without runbook = nobody knows what to do at 3am. Remediation: write the runbook OR delete the alert.
 
@@ -87,10 +78,10 @@ Check: do you have burn-rate alerts on the defined SLOs?
 - Slow burn (6h window, 6x budget) → page.
 - Neither configured = you won't detect slow-burn issues.
 
-## Output
+## Output (illustrative shape)
 
 ```
-Alert audit — Prometheus + PagerDuty
+Alert audit — <alerting backend> + <paging service>
 
 Total alerts: 42
 Active (fired in 90d): 28
@@ -98,23 +89,23 @@ Dead (0 fires in 90d): 14
 
 Dead alerts (candidates for removal):
   - cpu_high_api               query returns data, never > threshold 90% — raise threshold or delete
-  - redis_evictions            metric renamed 3mo ago, query broken — FIX
-  - kafka_consumer_lag_staging   staging-only, shouldn't be in prod alerts — move
+  - cache_evictions            metric renamed 3mo ago, query broken — FIX
+  - consumer_lag_staging       staging-only, shouldn't be in prod alerts — move
 
 Noisy (flapping):
-  - db_pool_near_capacity      fired 47x/7d, median 45s — add `for: 5m`
+  - db_pool_near_capacity      fired 47x/7d, median 45s — add a "for: 5m" debounce
   - certificate_expiring       fired 12x/7d, cert auto-renews — bump threshold to 7d
 
 Missing runbooks:
-  - payment_webhook_backlog    add runbook: rate limit Stripe? process queue manually?
-  - ai_latency_high            add runbook: escalate to external AI? fall back?
+  - payment_webhook_backlog    add runbook: rate limit upstream? process queue manually?
+  - external_api_latency_high  add runbook: escalate to vendor? fall back?
 
 Missing owners:
   - legacy_import_job_failed   last owner left Q2 2024 — assign or delete
 
 Cause-based alerts (review — should these page?):
-  - cpu_usage_high_8_cores     historically not correlated with user pain — demote to dashboard only
-  - memory_pressure_node       K8s auto-evicts — alert is redundant
+  - cpu_usage_high             historically not correlated with user pain — demote to dashboard only
+  - memory_pressure_node       orchestrator auto-evicts — alert is redundant
 
 SLO coverage:
   ✓ api.availability      burn-rate 1h + 6h alerts configured
@@ -122,12 +113,12 @@ SLO coverage:
   ✓ search.latency.p95    burn-rate 1h alert only — add 6h
 
 Action plan:
-  1. Remove 3 obviously dead alerts.
-  2. Fix 1 broken query (redis_evictions).
-  3. Add `for: 5m` to 2 flapping alerts.
-  4. Write 2 runbooks.
-  5. Reassign 1 orphaned alert.
-  6. Add burn-rate alert for checkout.success SLO.
+  1. Remove obviously dead alerts.
+  2. Fix broken queries.
+  3. Add debounce to flapping alerts.
+  4. Write missing runbooks.
+  5. Reassign orphaned alerts.
+  6. Add burn-rate alerts for SLOs lacking coverage.
 ```
 
 ## Rules

@@ -85,13 +85,13 @@ If multiple runners (e.g., vitest for unit + playwright for e2e), run them in se
 ```
 /run-tests src/modules/orders/
 
-Test runner:           vitest 3.2 + @vue/test-utils + jsdom
+Test runner:           <project's runner + helpers from package.json / pyproject.toml / etc.>
 Scope:                 src/modules/orders/ (28 test files)
 
 Running...
-  ✓ src/modules/orders/__tests__/OrderListPage.spec.ts (12 tests, 245ms)
-  ✓ src/modules/orders/__tests__/OrderForm.spec.ts (8 tests, 142ms)
-  ✗ src/modules/orders/__tests__/OrderRefund.spec.ts (5 of 6, 89ms)
+  ✓ src/modules/orders/__tests__/OrderListPage.spec.<ext> (12 tests, 245ms)
+  ✓ src/modules/orders/__tests__/OrderForm.spec.<ext> (8 tests, 142ms)
+  ✗ src/modules/orders/__tests__/OrderRefund.spec.<ext> (5 of 6, 89ms)
        FAIL: "applies refund tax correctly" — expected 12.50, got 12.55
        file: src/modules/orders/__tests__/OrderRefund.spec.ts:42
   ⊝ src/modules/orders/__tests__/OrderArchive.spec.ts (3 skipped)

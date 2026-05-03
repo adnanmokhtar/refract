@@ -7,7 +7,7 @@ This pack's reviewers, linters, and quality gates assume:
 - **Unit-test runner** (Vitest / Jest / JUnit / pytest / etc.)
 - **Coverage tooling** (c8 / Jacoco / coverage.py)
 
-Inline examples lean **TypeScript + Vue 3** for illustration; the principles apply to any strict-typed component-based stack. Substitute your project's primitives from `_extracted-idioms.md`.
+Where inline examples appear, they use abstract pseudocode or `<ext>` placeholders for file extensions; the principles apply to any strict-typed component-based stack. Substitute your project's primitives from `_extracted-idioms.md`.
 
 ## Stack-conditional behaviour
 

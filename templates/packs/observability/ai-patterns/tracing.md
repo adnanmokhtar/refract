@@ -37,49 +37,28 @@ Follow a request across services. Find where time is spent + where errors origin
 
 Vendor-neutral standard. Use it over vendor-specific SDKs.
 
-- **Collector** — local daemon/sidecar that receives spans from apps + ships to backend (Jaeger, Tempo, Datadog, New Relic, Honeycomb).
+- **Collector** — local daemon/sidecar that receives spans from apps + ships to the project's trace backend (vendor-neutral examples: Jaeger, Tempo; vendor-managed examples: Datadog, New Relic, Honeycomb, Lightstep, Cloud Trace).
 - **SDKs** per language auto-instrument HTTP clients, DBs, popular libraries.
 
-## Setup per service
+## Setup per service (stack-agnostic)
 
-```ts
-// Node example
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+In each service's entry point (loaded BEFORE any instrumented library), bootstrap the project's stack-native OpenTelemetry SDK:
 
-const sdk = new NodeSDK({
-  traceExporter: new OTLPTraceExporter({ url: 'http://otel-collector:4318/v1/traces' }),
-  serviceName: 'api',
-  instrumentations: [getNodeAutoInstrumentations()],
-});
-sdk.start();
-```
+- Configure resource attributes (`service.name`, `service.version`, `deployment.environment`).
+- Configure an exporter pointing at the project's trace backend (OTLP for vendor-neutral; vendor-specific exporter where committed).
+- Register auto-instrumentations for the project's HTTP server / client / DB / queue libraries.
+- Start the SDK before any instrumented module loads.
 
-## Manual spans for business logic
+## Manual spans for business logic (stack-agnostic)
 
-Auto-instrumentation catches HTTP + DB. For business logic, add spans manually:
+Auto-instrumentation catches HTTP + DB. For business logic, wrap the operation in a manual span using the project's tracer API:
 
-```ts
-const tracer = trace.getTracer('orders');
+1. Open a span with a stable name (`placeOrder`, `<domain>.<verb>` per sibling convention).
+2. Set bounded attributes on the span (`tenant_id`, counts, `entity_id`).
+3. On exception, record the exception and set status to ERROR; rethrow.
+4. End the span in finally.
 
-async function placeOrder(input) {
-  return tracer.startActiveSpan('placeOrder', async (span) => {
-    span.setAttribute('tenant_id', input.tenantId);
-    span.setAttribute('items_count', input.items.length);
-    try {
-      const result = await doPlace(input);
-      span.setAttribute('order_id', result.id);
-      return result;
-    } catch (e) {
-      span.recordException(e);
-      span.setStatus({ code: SpanStatusCode.ERROR });
-      throw e;
-    } finally {
-      span.end();
-    }
-  });
-}
-```
+Match the project's tracer SDK calls and attribute key conventions to sibling services.
 
 ## Propagation across services
 

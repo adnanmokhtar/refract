@@ -33,8 +33,8 @@ If description suggests a different intent, halt with redirect: "fix the auth bu
 - Dispatch plan:
   - Always: `security-auditor` (OWASP Top 10 + Top 25 CWE).
   - If diff touches `auth/`, `session`, `jwt`, `password`, `oauth`, `2fa` → `auth-reviewer`.
-  - If multi-tenant (detect via `tenantId` columns / `Context` service / `X-Tenant` header) → tenant-isolation pass.
-  - If diff touches infra (`Dockerfile`, `k8s/`, `terraform/`) → container/runtime hardening cross-check.
+  - If multi-tenant (detect via tenant-id columns / a request-scoped tenant context primitive / a tenant header) → tenant-isolation pass.
+  - If diff touches infra (container build files, K8s manifests, IaC modules) → container/runtime hardening cross-check.
 
 ## Phase 3 — Retrieve
 
@@ -60,17 +60,17 @@ Security-specific:
   - REQUESTS — fixable in this PR but non-blocker (rate-limit gap, weaker cookie attr).
   - NITS — style / hygiene.
 - Verdict: NO-GO if ANY blocker exists; otherwise GO.
-- Print:
+- Print (shape, not literal paths):
   ```
   Security audit  base=origin/main  files=24
 
   Blockers (2):
-    - apps/api/src/admin/export.controller.ts:18  No auth guard on GET /admin/export — tier-1 data exposure
-    - libs/payments/src/stripe.service.ts:142  Logs full card token (PCI scope leak)
+    - <admin/export route file:line>  No auth guard on privileged endpoint — tier-1 data exposure
+    - <payments client file:line>  Logs full card token (PCI scope leak)
   Requests (3):
-    - SQL string concat in OrderRepo.searchByName — switch to parameterized query
-    - Rate limiter not applied to /auth/login
-    - Cookie missing SameSite=Strict on session
+    - SQL string concatenation in <repo file> — switch to parameter binding
+    - Rate limiter not applied to login route
+    - Session cookie missing SameSite=Strict
   Nits (4): ...
   Verdict: NO-GO. 2 blockers must be fixed and re-audited before merge.
   ```
@@ -89,15 +89,15 @@ Security-specific:
 ## Phase 6 — Validate
 - Each blocker has a concrete remediation (not just a finding).
 - No fabricated findings — say "no blockers" plainly when clean.
-- Cross-tenant reads via raw SQL specifically scanned (`getRepository().createQueryBuilder()`, `datasource.query`) even on clean-looking files.
-- `eslint-disable security/*` comments surfaced as blockers.
+- Cross-tenant reads via raw SQL specifically scanned (the project's raw-query / query-builder escape hatches) even on clean-looking files.
+- Linter / SAST suppression comments that disable security rules (any language's `disable`/`ignore` pragma applied to a security check) surfaced as blockers.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture each blocker class.
-- If same auth bypass class found 2+ audits → queue ADR: enforce guard via decorator on every controller.
-- If tenant leak in raw SQL recurs → queue lint rule + base-class refactor.
+- If same auth bypass class found 2+ audits → queue ADR: enforce the project's auth guard primitive on every route uniformly.
+- If tenant leak in raw SQL recurs → queue lint / static-analysis rule + base-class refactor.
 - If secret-in-log recurs → queue logger-level redaction enforcement.
-- **Pattern-escalation enforcement:** if a finding's pattern has appeared ≥2 times across audits (check `ai/security/audit-log.md` history), promote to `ai/decisions/` as an ADR proposal AND open an `eslint` / linter rule task. Patterns that repeat without escalation are themselves a finding (log under Phase 4 REQUESTS as `META: pattern X recurred N times, no ADR/lint rule filed`).
+- **Pattern-escalation enforcement:** if a finding's pattern has appeared ≥2 times across audits (check `ai/security/audit-log.md` history), promote to `ai/decisions/` as an ADR proposal AND open a lint / static-analysis rule task in the project's stack-native linter. Patterns that repeat without escalation are themselves a finding (log under Phase 4 REQUESTS as `META: pattern X recurred N times, no ADR/lint rule filed`).
 
 ## Output format
 ```
@@ -117,8 +117,8 @@ Status: COMPLETE | BLOCKED on <B> blockers
 - Auth + payment + secret findings deferred to "follow-up PR" → forbidden; always blockers.
 - Fabricated findings to look thorough → say "no blockers" plainly when clean.
 - Linters/SAST missing business-logic flaws (privilege escalation, IDOR) → agent review catches those; don't substitute one for the other.
-- `eslint-disable security/*` comments hidden → blockers; agent must surface.
-- Raw SQL paths skipped because they "look fine" → #1 false-clean; explicitly scan `createQueryBuilder` + `datasource.query`.
+- Lint / static-analysis suppression comments on security rules hidden → blockers; agent must surface.
+- Raw SQL paths skipped because they "look fine" → #1 false-clean; explicitly scan the project's raw-query / query-builder escape hatches.
 - Whole-repo scan launched without warning user → can run hours; flag before starting.
 
 ## Related

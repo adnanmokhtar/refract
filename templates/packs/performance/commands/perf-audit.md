@@ -21,7 +21,7 @@ Audit command. Profiles changed code or a named endpoint and returns ranked find
 - Confirm: are we measuring an actual SLO breach, or speculating? Speculative wins under 5% are discarded.
 
 ## Phase 2 — Organize
-- Decide tooling per scope: `EXPLAIN ANALYZE` for DB, Lighthouse / React profiler for frontend, `hey`/`autocannon` for HTTP.
+- Decide tooling per scope: the DB engine's plan-explainer for DB, the project's web-vitals profiler + framework dev-tools for frontend, the project's HTTP load-tester for endpoint-level measurement.
 - Dispatch plan: single dispatch of `performance-optimizer` (covers N+1, missing indexes, blocking I/O, memory, renders, bundle). Add `caching-architect` only if scope is explicitly cache-strategy.
 
 ## Phase 3 — Retrieve
@@ -36,16 +36,16 @@ ALWAYS (universal pre-flight):
 - `ai/status.md` — current phase + in-flight work + recent changes.
 
 Perf-specific:
-- `ai/patterns/caching-strategy.md`, `ai/patterns/indexing-strategy.md` — project's existing approach (don't propose Redis if Memcached is the standard).
+- `ai/patterns/caching-strategy.md`, `ai/patterns/indexing-strategy.md` — project's existing approach (don't propose a different distributed cache product if the project has already standardised on one).
 - Existing dashboards / SLO docs (`ai/observability.md`).
 - Recent migrations affecting the scope (new column / index changes).
 
 ## Phase 4 — Generate (measurements + proposals)
 - Dispatch `performance-optimizer` with the resolved scope (single agent, single dispatch). It covers DB queries / indexes / N+1 in addition to code-level perf.
 - For each finding, capture a baseline if locally measurable:
-  - HTTP path: `curl -w "@curl-format.txt" <url>` or `hey -n 100 -c 10 <url>`.
-  - Query: `EXPLAIN ANALYZE` (Postgres) / `EXPLAIN FORMAT=JSON` (MySQL).
-  - JS render: React DevTools profiler / Lighthouse.
+  - HTTP path: a quick load test via the project's load-tester (e.g., k6 / hey / wrk / autocannon / `oha`) or a timed `curl` loop.
+  - Query: the DB engine's plan-explainer (`EXPLAIN ANALYZE` in Postgres, `EXPLAIN FORMAT=JSON` in MySQL, or the equivalent in your DB).
+  - Frontend render: the framework's dev-tools profiler / the project's web-vitals profiler.
 - Rank by `(impact / effort)`. Discard speculative wins under 5%.
 - Print ranked table:
   ```

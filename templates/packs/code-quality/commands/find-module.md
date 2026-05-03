@@ -99,8 +99,8 @@ Database:
   src/modules/subscriptions/infrastructure/persistence/subscription.orm-entity.ts
 
 Tests:
-  src/modules/subscriptions/**/*.spec.ts   18 files
-  e2e/subscriptions.e2e-spec.ts            1 file
+  src/modules/subscriptions/**/*.<test-ext>   18 files
+  e2e/subscriptions.e2e-spec.<test-ext>       1 file
 
 Sibling modules (similar shape, useful for new code):
   src/modules/orders/        — same module structure

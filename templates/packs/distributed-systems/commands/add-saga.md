@@ -21,7 +21,7 @@ All 7.
 
 ## Phase 1 — Understand
 
-**Pre-flight (infrastructure check)**: Verify the project's saga infrastructure exists (Temporal worker config / Step Functions ARN / event broker URL) in `.claude/codebase-profile.md` or env. If absent, halt and ask the user to confirm the saga runtime before generating saga code.
+**Pre-flight (infrastructure check)**: Verify the project's saga infrastructure exists (the durable workflow engine's worker config / state-machine ARN / event broker URL — per the project's stack) in `.claude/codebase-profile.md` or env. If absent, halt and ask the user to confirm the saga runtime before generating saga code.
 
 Confirm:
 - The flow's steps (each = a service call OR DB write).
@@ -40,9 +40,9 @@ Choose orchestration vs choreography:
 | **Orchestration** (central coordinator) | 3+ steps; complex compensation logic; need single-source-of-truth for state. |
 | **Choreography** (event-driven) | 2-3 steps; simple flow; teams own services independently; loose coupling preferred. |
 
-Orchestration tools: Temporal (preferred — durable execution), AWS Step Functions, Azure Durable Functions, Camunda Zeebe, Cadence.
+Orchestration tools: pick a durable workflow engine (vendor-neutral examples include Temporal, Cadence, Camunda Zeebe; vendor-managed examples include AWS Step Functions, Azure Durable Functions, Inngest, Restate; serverless event-driven options like Trigger.dev). The project's choice is the oracle.
 
-Choreography: just events on a bus (Kafka / RabbitMQ / SQS / EventBridge) + per-service handlers.
+Choreography: just events on the project's bus (the message bus / queue / event-stream platform — Kafka / Pulsar / RabbitMQ / SQS / NATS / EventBridge / Cloud Pub/Sub / Redis Streams) + per-service handlers.
 
 ## Phase 3 — Retrieve
 
@@ -53,93 +53,25 @@ Choreography: just events on a bus (Kafka / RabbitMQ / SQS / EventBridge) + per-
 
 ## Phase 4 — Generate
 
-### Orchestration (Temporal example)
+### Orchestration (stack-agnostic, durable workflow engine)
 
-```ts
-// place-order.workflow.ts
-import { proxyActivities } from '@temporalio/workflow'
+Define a workflow function with the engine's SDK. The workflow:
 
-const { reserveInventory, chargePayment, scheduleShipping, sendConfirmation,
-        releaseInventory, refundPayment, cancelShipping }
-  = proxyActivities<typeof activities>({
-    startToCloseTimeout: '30s',
-    retry: { maximumAttempts: 3 }
-  })
+1. Step 1 — `reserveInventory(orderId, lineItems)`. On failure, return `{status: 'failed', step: 'reserveInventory'}`.
+2. Step 2 — `chargePayment(orderId, paymentMethodId)`. On failure, run `releaseInventory` if step 1 succeeded; return failed.
+3. Step 3 — `scheduleShipping(orderId, shippingAddress)`. On failure, run `refundPayment` then `releaseInventory`; return failed.
+4. Step 4 — `sendConfirmation(orderId)` as best-effort (catch + log + don't compensate).
+5. Return `{status: 'completed', orderId, paymentId, shippingId}`.
 
-export async function placeOrderWorkflow(input: OrderInput): Promise<OrderResult> {
-  const { orderId, lineItems, paymentMethodId, shippingAddress } = input
+Each step is registered as an activity / task with the engine's per-step timeout + retry policy. The workflow body is deterministic (no direct I/O / clock / random — use the engine's SDK equivalents).
 
-  // Step 1: reserve inventory
-  let inventoryReserved = false
-  try {
-    await reserveInventory(orderId, lineItems)
-    inventoryReserved = true
-  } catch (e) {
-    return { status: 'failed', step: 'reserveInventory', reason: e.message }
-  }
+### Choreography (events example, stack-agnostic)
 
-  // Step 2: charge payment
-  let payment = null
-  try {
-    payment = await chargePayment(orderId, paymentMethodId)
-  } catch (e) {
-    if (inventoryReserved) await releaseInventory(orderId, lineItems)
-    return { status: 'failed', step: 'chargePayment', reason: e.message }
-  }
+- **inventory-service** handles `OrderRequested` → calls `reserveInventory`. On success publishes `InventoryReserved`; on failure publishes `InventoryReservationFailed`.
+- **payment-service** handles `InventoryReserved` → calls `chargePayment`. On success publishes `PaymentSucceeded`; on failure publishes `PaymentFailed`.
+- **inventory-service** handles `PaymentFailed` (compensation) → calls `releaseInventory`, publishes `InventoryReleased`.
 
-  // Step 3: schedule shipping
-  let shipping = null
-  try {
-    shipping = await scheduleShipping(orderId, shippingAddress)
-  } catch (e) {
-    await refundPayment(payment.id)
-    if (inventoryReserved) await releaseInventory(orderId, lineItems)
-    return { status: 'failed', step: 'scheduleShipping', reason: e.message }
-  }
-
-  // Step 4: send confirmation (best-effort; not in critical path)
-  await sendConfirmation(orderId)
-    .catch(e => { /* log; don't compensate; user can re-trigger */ })
-
-  return {
-    status: 'completed',
-    orderId,
-    paymentId: payment.id,
-    shippingId: shipping.id,
-  }
-}
-```
-
-### Choreography (events example)
-
-```ts
-// inventory-service: handles OrderRequested
-async function onOrderRequested(event: OrderRequested) {
-  try {
-    await reserveInventory(event.orderId, event.lineItems)
-    await publish('InventoryReserved', { orderId: event.orderId })
-  } catch (e) {
-    await publish('InventoryReservationFailed', { orderId: event.orderId, reason: e.message })
-  }
-}
-
-// payment-service: handles InventoryReserved
-async function onInventoryReserved(event: InventoryReserved) {
-  try {
-    const payment = await chargePayment(event.orderId)
-    await publish('PaymentSucceeded', { orderId: event.orderId, paymentId: payment.id })
-  } catch (e) {
-    await publish('PaymentFailed', { orderId: event.orderId, reason: e.message })
-    // inventory-service listens for PaymentFailed and compensates
-  }
-}
-
-// inventory-service: handles PaymentFailed (compensation)
-async function onPaymentFailed(event: PaymentFailed) {
-  await releaseInventory(event.orderId)
-  await publish('InventoryReleased', { orderId: event.orderId })
-}
-```
+All publishes go through the project's message bus / event-stream platform; consumers are idempotent and dedup by event id.
 
 ### Common requirements (BOTH patterns)
 
@@ -147,7 +79,7 @@ async function onPaymentFailed(event: PaymentFailed) {
 - **Retry** — transient failures retry with backoff; non-transient (4xx) don't.
 - **Timeout** — every step has a max time; saga halts and compensates if exceeded.
 - **Observability** — saga state visible at every step; trace ID propagates across services.
-- **Persistence** — saga state durable across crashes (Temporal handles; choreography needs explicit ledger).
+- **Persistence** — saga state durable across crashes (a durable workflow engine handles this automatically; choreography needs an explicit saga-state ledger in the project's DB).
 - **Compensations** — per step, the inverse operation defined. Compensations are themselves idempotent.
 - **Failure surfaces** — user-facing message on failure (don't silently retry forever).
 
@@ -164,7 +96,7 @@ async function onPaymentFailed(event: PaymentFailed) {
 - Failure at each step: verify correct compensation order.
 - Idempotent retry: re-run same input twice → same final state.
 - Timeout at each step: saga halts + compensates.
-- Crash recovery: kill the worker mid-flow; saga resumes from last persisted state (Temporal: automatic; choreography: harder — requires careful design).
+- Crash recovery: kill the worker mid-flow; saga resumes from last persisted state (durable workflow engine: automatic; choreography: harder — requires careful design).
 - Observability: trace shows all steps + status.
 - Manual unstick path: documented.
 
@@ -206,7 +138,7 @@ Tested:
 - **Every step idempotent.** Same input + same effect on retry.
 - **Every step has compensation OR is documented as fire-and-forget acceptable.**
 - **Every step has timeout.** No unbounded waits.
-- **Saga state durable across crashes.** Temporal / Step Functions / event ledger.
+- **Saga state durable across crashes.** Durable workflow engine / state-machine service / explicit event ledger.
 - **User-facing failure surface.** Don't silently retry forever.
 - **Observable.** Trace ID through every step.
 

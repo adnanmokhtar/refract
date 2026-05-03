@@ -262,8 +262,8 @@ Phase 6 (Validated): <N> reviewers ran in parallel; <N> skills run.
    Fix: add test POSTing same message_id twice, assert single DB row.
 
 ### Nits (N)
-1. [i18n] Hardcoded "Save changes" in products/form.vue:42
-   Fix: add to en.json + ar.json as `products.form.save`.
+1. [i18n] Hardcoded "Save changes" in products/form.<ext>:42
+   Fix: add to en.json + <other-locale>.json as `products.form.save`.
 
 ### Positives (genuine only)
 - Tenant isolation test coverage improved — new cross-tenant leak tests in 3 repos.

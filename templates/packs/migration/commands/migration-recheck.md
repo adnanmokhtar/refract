@@ -69,7 +69,7 @@ Same discipline as `/find-and-fix` (the per-feature loop), just multi-feature + 
 
 The first arg can be:
 
-1. **Path** — anything that looks like a path: starts with `src/`, `apps/`, `lib/`, etc., contains `/`, or has a file extension (`.vue`, `.tsx`, `.ts`, `.py`, etc.). Used directly as-is.
+1. **Path** — anything that looks like a path: starts with `src/`, `apps/`, `lib/`, etc., contains `/`, or has a file extension matching the project's stack (declared in `_extracted-codebase.md § Stack`). Used directly as-is.
 2. **Description** — anything else. Plain-language description of what to re-check. The agent resolves it to features (see below).
 
 Mixed input is allowed:
@@ -134,7 +134,7 @@ Optional flags:
 1. PRE-FLIGHT      — verify oracle + clean tree (ledger / plan NOT required)
 2. RESOLVE         — for each input arg: classify as path or description; resolve descriptions to V1 + V2 source paths via semantic understanding
 3. CONFIRM         — if resolution was ambiguous, surface candidates and confirm
-4. NAV-TREE        — for any module-scoped or multi-tab area: build V1 navigation tree AND V2 navigation tree via the MANDATORY TWO-LAYER scan, then diff. Layer A: route tree from router files. Layer B: per-leaf template grep — for EACH component identified by Layer A, open the source and grep for in-template tab patterns (`<v-tabs>`, `<TabView>`, `<TabMenu>`, `<Tabs>`, `<Tab>`, `role="tab"`, `nav_tabs`, in-page tab arrays `v-for tab in tabs|items|sections`, accordion title arrays, in-component `<router-view>` siblings). Layer-A-only scans are incomplete and HALT. Any V1 leaf (route OR in-template) without a V2 equivalent navigation surface is HALT-tier nav drift, surfaced BEFORE per-axis enumeration. Per `migration-discipline.md` halt #13: burying a V1 sub-tab as a section in another V2 tab is drift, not STRUCTURE_OK. If nav drift surfaces, the auditor halts at this step; per-axis work runs only on tabs that exist in both sides. Section 0 completion checklist (in `migration-discipline.md` halt #13) must tick all boxes before audit can advance.
+4. NAV-TREE        — for any module-scoped or multi-tab area: build V1 navigation tree AND V2 navigation tree via the MANDATORY TWO-LAYER scan, then diff. Layer A: route tree from every router file in the project's stack. Layer B: per-leaf template grep — for EACH component identified by Layer A, open the source and grep for in-template tab patterns (the project's tab primitive — concrete tag/component vocabulary varies by stack; see the project's frontend pack rule § Tab patterns; plus role-based markers `role="tab"` / `role="tablist"`, sidebar nav-tab arrays, in-page tab iteration constructs over `tabs|items|sections` collections, accordion title arrays, in-component nested-routing siblings). Layer-A-only scans are incomplete and HALT. Any V1 leaf (route OR in-template) without a V2 equivalent navigation surface is HALT-tier nav drift, surfaced BEFORE per-axis enumeration. Per `migration-discipline.md` halt #13: burying a V1 sub-tab as a section in another V2 tab is drift, not STRUCTURE_OK. If nav drift surfaces, the auditor halts at this step; per-axis work runs only on tabs that exist in both sides. Section 0 completion checklist (in `migration-discipline.md` halt #13) must tick all boxes before audit can advance.
 5. SCAN-FRESH      — for each resolved area: enumerate V1 + V2 source files; pin V1 commit hash for the run
 6. AUDIT-FRESH     — dispatch parity-auditor per area: read V1 source + V2 source line-by-line, output gap list (NO cache lookup, NO prior-audit reuse). Section 0 of every module-scoped audit is the Navigation Inventory from step 4.
 7. TRIAGE          — split into clean / drifted / halted
@@ -167,10 +167,10 @@ The agent treats your description the same way `/add-feature` treats yours: read
 
 Like a teammate who knows the project. Example flow for `/migration-recheck the customer tabs in the dashboard`:
 
-1. Reads `codebase-profile.md`. Sees: "Dashboard at `src/modules/dashboard/pages/DashboardPage.vue` has tabbed sections: customer profile, orders, addresses, payment-methods."
+1. Reads `codebase-profile.md`. Sees: "Dashboard at `<v2-root>/<dashboard-leaf-component>` has tabbed sections: customer profile, orders, addresses, payment-methods." *(extension is stack-specific — declared in `_extracted-codebase.md § Stack`.)*
 2. Reads ledger. Finds rows F082 (`customer-profile-tab`), F083 (`customer-orders-tab`), F084 (`customer-addresses-tab`), F085 (`customer-payment-methods-tab`).
 3. Concludes: the user means those 4 features.
-4. If the project profile didn't have explicit "customer tabs" naming, the agent would also read source: open `DashboardPage.vue`, see the `<v-tabs>` block with named tab labels, cross-reference against ledger rows whose `v2_path` is inside that file's directory.
+4. If the project profile didn't have explicit "customer tabs" naming, the agent would also read source: open the dashboard leaf, find the in-template tab construct (the project's tab primitive — concrete tag/component vocabulary varies by stack; see the project's frontend pack rule § Tab patterns), and cross-reference labels against ledger rows whose `v2_path` is inside that file's directory.
 5. Surfaces the resolution to user for confirmation if the mapping isn't certain.
 
 ### What "understanding" means here
@@ -197,8 +197,8 @@ Default behaviour:
 - **Agent is uncertain** (multiple plausible interpretations, or the codebase has surfaces that match overlapping intents) → halts and asks:
   ```
   Description "the sidebar" could mean:
-    [1] The app-wide navigation sidebar (F042 — AppSidebar.vue)
-    [2] The orders-list filter sidebar (F156 — orders/SidebarFilter.vue)
+    [1] The app-wide navigation sidebar (F042 — AppSidebar)
+    [2] The orders-list filter sidebar (F156 — orders/SidebarFilter)
     [3] Both
 
   Which did you mean?
@@ -222,7 +222,7 @@ Default behaviour:
 ### Edge cases
 
 - **Empty description** → halt; ask for a description or path.
-- **Path-like string** (e.g., `"Sidebar.vue"`) → handled as path-basename match (no semantic resolution needed).
+- **Path-like string** (a basename with a stack-native extension, e.g., `"Sidebar.<leaf-ext>"`) → handled as path-basename match (no semantic resolution needed).
 - **Compound descriptions** ("login and signup") → resolved as one intent (auth-flow features), not split into separate keyword groups. The agent reads context to figure out what login + signup means in this codebase.
 - **Mixed input** (description + path) → both resolve, results unioned.
 - **Description references something the agent can't find** → asks for clarification with concrete next-step suggestions.
@@ -374,9 +374,9 @@ Path matching is recursive — `src/modules/orders/` matches any feature whose p
 # Multiple paths
 /migration-recheck src/modules/store/ src/modules/products/ src/modules/orders/
 
-# A specific component / page
-/migration-recheck src/components/Sidebar.vue
-/migration-recheck src/modules/builder/pages/BuilderPage.vue
+# A specific component / page (extension is stack-specific — declared in _extracted-codebase.md § Stack)
+/migration-recheck src/components/Sidebar.<leaf-ext>
+/migration-recheck src/modules/builder/pages/BuilderPage.<leaf-ext>
 
 # Glob
 /migration-recheck "src/modules/{auth,permissions,roles}/"

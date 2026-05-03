@@ -32,7 +32,7 @@ Frontend stacks (`frontend-*`) additionally run UI/UX detectors (a11y, design to
 
 - Mid-feature work — the diff dominates findings; finish the feature, then run.
 - Mechanical CI red (lint / typecheck / build / tests failing) — fix mechanical first via `/check-health`.
-- Empty oracle — neither `_extracted-idioms.md` nor `codebase-profile.md` exists or both are empty. Run `/setup-project --refine` first. (NOTE: for projects without class-inheritance hierarchies — Vue 3 Composition API, React functional, etc. — Phase 2.5 of refine explicitly skips `_extracted-idioms.md` and writes only `codebase-profile.md`. The scan accepts either file as the oracle.)
+- Empty oracle — neither `_extracted-idioms.md` nor `codebase-profile.md` exists or both are empty. Run `/setup-project --refine` first. (NOTE: for projects without class-inheritance hierarchies — composition-style / functional-component stacks — Phase 2.5 of refine explicitly skips `_extracted-idioms.md` and writes only `codebase-profile.md`. The scan accepts either file as the oracle.)
 
 ## First-run guidance — what to expect
 
@@ -262,8 +262,8 @@ Critical security: <C> (subset of heavy; auto-priority for phase 2)
 ## Top 10 findings by impact
 | ID | Class | Tier | Files | Closure verb | Evidence |
 |---|---|---|---|---|---|
-| A001 | reinvented-wrapper | standard | 18 | replace-with-shared | src/.../*.tsx:42 (+17 more) |
-| A002 | dead-code | trivial | 1 | remove | src/utils/old.ts:1 |
+| A001 | reinvented-wrapper | standard | 18 | replace-with-shared | src/.../<leaf-component>:42 (+17 more) |
+| A002 | dead-code | trivial | 1 | remove | src/utils/old.<ext>:1 |
 | ... | | | | | |
 
 ## Recommended phasing (input to /align-plan)
@@ -289,16 +289,17 @@ Critical security ALWAYS in phase 2 (or first phase after mechanical pre-flight 
 Flat YAML-ish ledger, one row per finding. Schema from `ai/patterns/align-ledger.md`:
 
 ```yaml
-# Structural example
+# Structural example (extension and shared-wrapper names abstracted —
+# substitute your stack's extension and shared-wrapper inventory; pattern is identical across stacks)
 - id: A001
   class: reinvented-wrapper
-  scope: [src/components/auth/LoginForm.tsx, src/components/auth/SignupForm.tsx, src/components/auth/PasswordReset.tsx]
+  scope: [src/components/auth/LoginForm.<ext>, src/components/auth/SignupForm.<ext>, src/components/auth/PasswordReset.<ext>]
   evidence:
-    - src/components/auth/LoginForm.tsx:42       # raw <Button> from MUI; project has <AppButton>
-    - src/components/auth/SignupForm.tsx:67
-    - src/components/auth/PasswordReset.tsx:31
+    - src/components/auth/LoginForm.<ext>:42     # raw <Button> from a UI lib; project has its shared <AppButton>
+    - src/components/auth/SignupForm.<ext>:67
+    - src/components/auth/PasswordReset.<ext>:31
   closure_verb: replace-with-shared
-  shared_equivalent: src/components/AppButton.tsx (per _extracted-idioms.md § Buttons)
+  shared_equivalent: src/components/AppButton.<ext> (per _extracted-idioms.md § Buttons)
   tier: standard
   tier_reason: "3 files; cross-component swap; mechanical (API-equivalent)"
   status: detected
@@ -403,32 +404,30 @@ One section per finding with the full detector context (excerpts from source, th
 
 ### Evidence
 
-src/components/auth/LoginForm.tsx:42
-```tsx
-<Button variant="contained" color="primary" onClick={handleLogin}>
-  Login
-</Button>
+src/components/auth/LoginForm.<ext>:42
+```text
+# pseudocode — concrete syntax varies by stack
+RawButton(variant="primary", onClick=handleLogin) { "Login" }
 ```
 
-src/components/auth/SignupForm.tsx:67
-```tsx
-<Button variant="outlined" onClick={handleSignup}>
-  Sign up
-</Button>
+src/components/auth/SignupForm.<ext>:67
+```text
+RawButton(variant="outlined", onClick=handleSignup) { "Sign up" }
 ```
 
 (... 1 more cited in ledger ...)
 
 ### Shared equivalent (per _extracted-idioms.md § Buttons)
 
-src/components/AppButton.tsx
-```tsx
-export function AppButton({ kind, ...props }) { ... }   // wraps MUI Button with project tokens
+src/components/AppButton.<ext>
+```text
+# the project's button wrapper — wraps the raw UI-library button with project tokens
+AppButton(kind, ...props)
 ```
 
 ### Closure verb: replace-with-shared
 
-For each evidence line, replace `<Button ...>` with `<AppButton kind="primary" ...>` (or `kind="secondary"` for `outlined`). Preserve all other props.
+For each evidence line, replace the raw button with the project's wrapper (`AppButton kind="primary"` etc.). Preserve all other props. (Concrete syntax varies by stack.)
 
 ### Tier: standard
 Reason: 3 files touched; API-equivalent swap; mechanical.
@@ -544,7 +543,7 @@ Every row in the output must be re-derivable by another reader given the same co
 
 ## Failure modes
 
-- **Empty oracle** — neither `_extracted-idioms.md` NOR `codebase-profile.md` exists / populated. Halt; route to `/setup-project --refine`. The scan accepts EITHER file as the oracle (preferring idioms when present, falling back to profile when idioms is absent — which is the normal case for Vue 3 Composition API / React functional projects where Phase 2.5 of refine skips idioms because there's no class-inheritance hierarchy to extract).
+- **Empty oracle** — neither `_extracted-idioms.md` NOR `codebase-profile.md` exists / populated. Halt; route to `/setup-project --refine`. The scan accepts EITHER file as the oracle (preferring idioms when present, falling back to profile when idioms is absent — which is the normal case for composition-style / functional-component projects where Phase 2.5 of refine skips idioms because there's no class-inheritance hierarchy to extract).
 - **Mechanical red** — lint / typecheck / build / tests failing. Halt; the existing red drowns alignment findings.
 - **Detector tool missing** — e.g., `jscpd` not installed. Halt; surface the install command from the project's `package.json` / `Makefile`.
 - **Stack pack missing** — `PROJECT_KIND=frontend-vue` but no `frontend/` pack loaded. Halt; surface the missing pack and offer `--no-stack` as a workaround (with the explicit downgrade noted in the report).

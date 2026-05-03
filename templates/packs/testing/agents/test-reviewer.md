@@ -19,6 +19,8 @@ model: opus
 - Multi-tenant or webhook code changed without the mandatory cross-tenant / idempotency test — BLOCK.
 - An assertion is `expect(true).toBe(true)` or equivalent always-pass — BLOCK; cite the line.
 
+> **Code samples below are illustrative.** Concrete syntax shown uses one stack (TypeScript + a JS-family test runner) for readability; the principles apply across language families. Substitute your stack's primitives (`pytest` / `RSpec` / `phpunit` / `go test` / `cargo test` / `xUnit` / `JUnit` / `ExUnit` / framework-equivalent) using the substitution table in `testing/STACK.md`.
+
 ## Pre-flight
 
 1. Read `CLAUDE.md` + `ai/conventions.md` + `ai/patterns/test-strategy.md` + `test-doubles.md`.
