@@ -56,9 +56,9 @@ Documented: `core → application → infrastructure → adapters` (or whatever 
 
 Documented in `ai/runtime/domain-anti-patterns.md` + `.claude/rules/`.
 
-- `console.log` count vs documented "use Logger" rule.
-- `any` type usage vs "no any" rule.
-- Swallowed errors (`catch {}`) vs "errors typed + bubbled" rule.
+- Direct stdout / unstructured print calls (the language's `console.log` / `print` / `fmt.Println` / `puts` / equivalent) count vs the documented "use the project's structured logger" rule.
+- Untyped escape hatches (e.g., TypeScript `any`, Python `Any`, Go `interface{}`, Java raw types, C# `dynamic`) vs the project's "no untyped escape hatch" rule.
+- Swallowed errors (empty `catch` / `rescue` / `except` blocks) vs the project's "errors typed + bubbled" rule.
 - Hardcoded values where conventions specify tokens (colors, spacing, env vars, magic numbers).
 - Cross-tenant query without tenant filter.
 
@@ -75,7 +75,7 @@ Documented in `ai/patterns/`.
 
 Documented expectations vs reality:
 - Rule says "`BaseService` has 147 extenders" — actual count = 162. Rule is stale.
-- Rule says "use TypeORM 0.3.x"; package.json has 0.4.x. Rule is stale.
+- Rule says "use library X version 0.3.x"; the project's manifest has 0.4.x. Rule is stale.
 - Convention names entity `User` but glossary says we renamed to `Account`. Drift.
 
 ## Categorization

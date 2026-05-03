@@ -105,7 +105,7 @@ Aim for ≥2 recipes per non-trivial feature so a gap in one is caught by anothe
 
 ### 2. Build the input corpus (golden master)
 
-`tests/parity/<feature>/inputs/`:
+`<parity-test-root>/<feature>/inputs/`:
 
 - **Happy paths**: at least one input per documented happy code path.
 - **Each error path**: at least one input that triggers it (per the contract's `Outputs § Error path: <name>` sections).
@@ -125,13 +125,19 @@ If a feature's tier isn't set in the ledger, default to heavy. See `migration-di
 Run V1 against the corpus once, in a controlled environment (test DB seeded; deterministic time/random; no external calls real or stubbed):
 
 ```bash
-node scripts/parity/capture-v1.js \
+# Stack-equivalent capture script (the project's runtime + entry point).
+# Examples per common stacks — pick the one matching `_extracted-codebase.md § Stack`:
+#   Node:    node   scripts/parity/capture-v1.js  --feature=<feature> --inputs=<inputs> --outputs=<golden>
+#   Python:  python scripts/parity/capture_v1.py  --feature=<feature> --inputs=<inputs> --outputs=<golden>
+#   Go:      go run scripts/parity/capture_v1.go  --feature=<feature> --inputs=<inputs> --outputs=<golden>
+#   Ruby:    ruby   scripts/parity/capture_v1.rb  --feature=<feature> --inputs=<inputs> --outputs=<golden>
+#   Java:    ./mvnw exec:java -Dexec.mainClass=parity.CaptureV1 ...
+#   .NET:    dotnet run --project tools/Parity.CaptureV1 -- --feature=<feature> ...
+<runtime> <capture-script> \
   --feature=<feature> \
-  --inputs=tests/parity/<feature>/inputs \
-  --outputs=tests/parity/<feature>/__golden__
+  --inputs=<parity-test-root>/<feature>/inputs \
+  --outputs=<parity-test-root>/<feature>/__golden__
 ```
-
-(Equivalent script per stack — Python: `python scripts/parity/capture_v1.py ...`; Go: `go run scripts/parity/capture_v1.go ...`.)
 
 The capture script:
 - Resets seed data + time mocks before each input (otherwise non-determinism poisons the snapshots).
@@ -142,7 +148,7 @@ Commit `__golden__/`. These snapshots are sacred — no `--update-snapshots` bli
 
 ### 4. Build the tolerance file
 
-`tests/parity/<feature>/tolerance.yaml`:
+`<parity-test-root>/<feature>/tolerance.yaml`:
 
 ```yaml
 exact:
@@ -169,43 +175,43 @@ Generate this from the contract's **Outputs** section. Each field listed in the 
 
 ### 5. Author the golden-master test
 
-```ts
-// Pseudocode (adjust to project's framework + path conventions from extraction)
-import { runParity } from '../helpers/run-parity';
+```pseudo
+// Pseudocode — adjust to the project's test framework + path conventions from extraction.
+// Concrete syntax depends on stack (xUnit / RSpec / pytest / go test / JUnit / ExUnit / vitest / jest / etc.).
+import runParity from "<helpers>/run-parity"
 
-describe('feature parity (golden master)', () => {
+testGroup("feature parity (golden master)") {
   runParity({
-    feature: 'feature',
-    corpus: 'tests/parity/feature/inputs',
-    golden: 'tests/parity/feature/__golden__',
-    tolerance: 'tests/parity/feature/tolerance.yaml',
-    runV2: (input) => v2.handleFeature(input),
-  });
-});
+    feature:   "feature",
+    corpus:    "<parity-test-root>/feature/inputs",
+    golden:    "<parity-test-root>/feature/__golden__",
+    tolerance: "<parity-test-root>/feature/tolerance.yaml",
+    runV2:     (input) => v2.handleFeature(input),
+  })
+}
 ```
 
 `runParity()` is a shared helper (one per project) that loads inputs + golden + tolerance, runs V2, applies tolerance-aware diff, asserts equivalence. The skill creates this helper if it doesn't already exist (Phase 4.6 anchors it to the project's test framework).
 
 ### 6. Author property-based tests
 
-For each invariant in the contract's **Invariants** section, add a property test:
+For each invariant in the contract's **Invariants** section, add a property test using the project's property-based testing library (e.g., fast-check / Hypothesis / PropEr / QuickCheck / jqwik / RapidCheck — pick the one in `_extracted-idioms.md § Test stack`):
 
-```ts
-import { fc, test } from '@fast-check/vitest';
-
-test.prop([validOrderArb])('V1 ≡ V2 totals (within $0.01) — invariant: total = sum(lines) + tax', (order) => {
-  const v1 = handleV1(order);
-  const v2 = handleV2(order);
-  expect(v2.total).toBeCloseTo(v1.total, 2);
-});
+```pseudo
+property("V1 ≡ V2 totals (within $0.01) — invariant: total = sum(lines) + tax",
+  forall(validOrderGen, (order) => {
+    v1 = handleV1(order)
+    v2 = handleV2(order)
+    assert close_to(v2.total, v1.total, 0.01)
+  }))
 ```
 
-Generators (`validOrderArb` here) must reflect prod input distributions — calibrate against the replay corpus's input shapes (sizes, value ranges, locale variations).
+Generators (`validOrderGen` here) must reflect prod input distributions — calibrate against the replay corpus's input shapes (sizes, value ranges, locale variations).
 
 ### 7. Build the record-replay harness (when applicable)
 
 ```text
-1. Capture production traffic samples (input, V1 output) → tests/parity/<feature>/replay/<NNN>.json
+1. Capture production traffic samples (input, V1 output) → <parity-test-root>/<feature>/replay/<NNN>.json
    - Anonymise PII at the tap. Don't capture anything that can re-identify a user.
    - Include 1000+ samples for high-traffic features; 100+ for low-traffic.
    - Refresh weekly OR on every V1 deploy that touches the feature.
@@ -254,7 +260,7 @@ Tightening tolerance is always allowed without ceremony.
 ## Output format
 
 ```
-tests/parity/<feature>/
+<parity-test-root>/<feature>/
 ├── inputs/
 │   ├── 001-happy-basic.json
 │   ├── 002-happy-with-discount.json
@@ -274,17 +280,17 @@ tests/parity/<feature>/
 │   │   ├── 0001.json
 │   │   └── ...
 ├── tolerance.yaml
-├── parity.test.ts                 # golden-master + property-based
-└── replay.test.ts                 # record-replay
+├── parity.<test-ext>               # golden-master + property-based (extension per project's test stack)
+└── replay.<test-ext>               # record-replay
 ```
 
 Plus, optionally:
 
 ```
 scripts/parity/
-├── capture-v1.ts
-├── run-comparator.ts              # for shadow / dual-write
-└── refresh-replay.ts              # weekly cron entry point
+├── capture-v1.<ext>                # extension matches the project's scripting runtime
+├── run-comparator.<ext>            # for shadow / dual-write
+└── refresh-replay.<ext>            # weekly cron entry point
 ```
 
 Update the ledger row's `parity_tests` to point at the directory.

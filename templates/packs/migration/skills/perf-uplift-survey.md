@@ -205,14 +205,14 @@ V2 background:                                                  → emailJob →
 - **Saving**: ~6 queries per request avoided.
 - **Decision**: applied.
 
-### 5. Cross-request Redis cache for tax rate — DEFERRED
+### 5. Cross-request distributed cache for tax rate — DEFERRED
 - **Detect**: getTaxRate(jurisdiction) called per order; rates change infrequently.
-- **Plan**: Redis cache, TTL 6h, invalidate on tax-config-update event.
-- **Blocker**: Redis infra not in V2's stack yet; ETA 2026-05-15.
+- **Plan**: distributed cache (the project's shared-cache primitive), TTL 6h, invalidate on tax-config-update event.
+- **Blocker**: shared-cache infra not in V2's stack yet; ETA 2026-05-15.
 - **Decision**: deferred until infra lands. Captured here so it isn't forgotten; ledger row notes `deferred-perf` flag.
 
 ### 6. Move email send off hot path — REJECTED
-- **Detect**: POST /orders synchronously calls SendGrid; p95 contribution 250ms.
+- **Detect**: POST /orders synchronously calls the email vendor; p95 contribution 250ms.
 - **Plan**: enqueue email job; respond immediately; worker sends.
 - **Reject reason**: contract break — current callers expect "if 200 OK, email is sent". Compliance team requires synchronous send for tax-receipt orders. ADR-014 explored async; rejected. Defer indefinitely.
 

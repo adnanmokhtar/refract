@@ -8,7 +8,7 @@ A cross-feature scan. Asks the question: "for every action the user can take, is
 
 ## Premise
 
-Find real issues. Every cycle in the matrix cites the forward action + inverse action with concrete UI paths or API endpoints. "Inverse missing" requires having searched and confirmed: no route handler, no UI button, no settings entry. Severity (CRITICAL / HIGH / MEDIUM) cites the regulatory / security / business consequence — GDPR Article, Stripe rule, App Store guideline, security class. Role coverage findings cite the role + the actual response code observed.
+Find real issues. Every cycle in the matrix cites the forward action + inverse action with concrete UI paths or API endpoints. "Inverse missing" requires having searched and confirmed: no route handler, no UI button, no settings entry. Severity (CRITICAL / HIGH / MEDIUM) cites the regulatory / security / business consequence — GDPR Article, payment-vendor rule, app-store guideline, security class. Role coverage findings cite the role + the actual response code observed.
 
 ## Halt conditions
 

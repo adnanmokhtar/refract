@@ -117,9 +117,9 @@ Deep report with:
 ## Structural deltas (V1 → V2)
 | Concern | V1 | V2 | Migration impact |
 |---|---|---|---|
-| Routing | <e.g. pages/> | <e.g. app/ App Router> | Every page has a route shape change |
-| Data layer | <e.g. ActiveRecord> | <e.g. Prisma> | Every query rewrites |
-| Auth | <e.g. Devise> | <e.g. NextAuth> | Cross-cutting; do first |
+| Routing | <V1 routing primitive> | <V2 routing primitive> | Every page has a route shape change |
+| Data layer | <V1 ORM / data-access primitive> | <V2 ORM / data-access primitive> | Every query rewrites |
+| Auth | <V1 auth primitive> | <V2 auth primitive> | Cross-cutting; do first |
 | ... | | | |
 
 ## Feature inventory

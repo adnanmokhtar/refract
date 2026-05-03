@@ -35,7 +35,7 @@ severity: must
 - Track time-to-completion per actor. If admin approval bottlenecks the flow, the metric reveals it.
 - A/B test copy on action buttons when conversion is measured — wording shifts conversion 5–15%.
 - Group related actions ("Subscription") in one settings area; never scatter across 3 menus.
-- Use plain-language error messages: "Card declined by your bank — try another card" beats "Stripe error code 4002."
+- Use plain-language error messages: "Card declined by your bank — try another card" beats a vendor-specific error-code dump.
 
 ## Review checklist
 

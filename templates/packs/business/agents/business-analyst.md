@@ -109,7 +109,7 @@ Given <context>, when <action>, then <outcome>.
 - Input in Arabic / English / mix — respond in the user's language.
 - When input is terse: make implicit assumptions explicit, ask which are wrong.
 - When input is long: compress to the structured spec. Don't echo prose — synthesize.
-- Push back gently on scope conflicts ("ship X by Friday" + "also integrate Stripe" → pick one).
+- Push back gently on scope conflicts ("ship X by Friday" + "also integrate a new vendor" → pick one).
 
 ## Failure modes
 

@@ -169,7 +169,7 @@ Trade-offs accepted:
 
 **Don't write an ADR for:**
 - "We use camelCase for variables" (conventions, not architecture).
-- "We bumped from React 18 to React 19" (unless it forces architecture changes).
+- "We bumped a framework's major version" (unless it forces architecture changes).
 - "We added a new service" (unless its existence is the architectural choice).
 - "We renamed module X to Y" (refactor, not decision).
 

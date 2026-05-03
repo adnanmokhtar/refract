@@ -81,7 +81,7 @@ Feature-specific:
   Feature: subscriptions
 
   Broken flows (1):
-    - User can upgrade plan but downgrade returns 500 (StripeService.changePlan doesn't handle prorate=false)
+    - User can upgrade plan but downgrade returns 500 (the payment-vendor service's change-plan call doesn't handle prorate=false)
   Missing cycles (3):
     - No "cancel subscription" UI; only available via API
     - Failed payment doesn't surface in app — user only sees it in email

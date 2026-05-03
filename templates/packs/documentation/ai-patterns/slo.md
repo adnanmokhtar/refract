@@ -11,7 +11,7 @@ pack: documentation
 
 **When to apply**
 - Service has real users in production and on-call exists.
-- Telemetry is rich enough that the SLI is a Prometheus / Datadog query you can paste today.
+- Telemetry is rich enough that the SLI is a query you can paste today against the project's metrics backend.
 - Team needs a shared definition of "stable enough" to negotiate feature vs reliability work.
 
 **When NOT to apply**
@@ -20,7 +20,7 @@ pack: documentation
 - Staging or non-production environments — SLOs are production-only.
 
 **Halt conditions / mandatory cites**
-- Cite the SLI query file as `<path:line>` (e.g. `infra/prometheus/slo-rules.yaml:14`) before publishing the SLO; "we'll write the query later" is a halt.
+- Cite the SLI query file as `<path:line>` (e.g. the project's alerting/SLO rule file in whatever format the backend uses) before publishing the SLO; "we'll write the query later" is a halt.
 - Cite two weeks of measured baseline as `<path>` (dashboard URL or recorded run) before setting the target; never set SLO = current best quarter.
 - Cite the burn-rate alert rule as `<path:line>` for at least the fast (1h, 14.4×) tier before claiming the SLO is active.
 - Cite the runbook on breach (`ai/runbooks/<slo>-breach.md`) by path; SLO without runbook is a halt.
@@ -128,20 +128,7 @@ Standard SRE recommendations (Google SRE Workbook, ch. 5):
 | Page (medium) | 6× | 6h | 6h burns 10% of budget | Wake someone if business hours, ticket otherwise |
 | Ticket | 1× | 3d | Steady drift through entire budget | Investigate next business day |
 
-Alert manager rule sketch:
-
-```yaml
-- alert: APILatencyBurnRateFast
-  expr: |
-    (
-      sum(rate(http_request_duration_seconds_count{le="0.5",service="api",status="success"}[1h]))
-      /
-      sum(rate(http_request_duration_seconds_count{service="api"}[1h]))
-    ) < (1 - 14.4 * (1 - 0.999))
-  for: 5m
-  annotations:
-    summary: "API latency p95 SLO burning 14.4x — 1h burns 2% of monthly budget"
-```
+Alert rule sketch (express in the project's alerting backend syntax). Conceptually: ratio of "good" to "total" measurements over a 1h window, compared to the threshold `1 − 14.4 × (1 − SLO_target)`, with a short `for:` (e.g., 5m) and a `summary` annotation like "API latency p95 SLO burning 14.4× — 1h burns 2% of monthly budget".
 
 ## Common mistakes
 

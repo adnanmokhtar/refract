@@ -132,7 +132,7 @@ Phase 4 MUST run this on the FULL list of planned files BEFORE writing any of th
 - Top-level dir whitelist (no writes outside the project's source/test/build-output dirs declared in `_extracted-codebase.md § Top-level layout`).
 - Module shape: matches the project's actual module convention as extracted (e.g., `src/modules/<feature>/<kind>/...` for module-by-feature stacks; `src/<layer>/<feature>.<ext>` for layer-by-tech stacks; `apps/<service>/...` for monorepo-by-service). The `<kind>` set is read from existing modules in the project.
 - Filename conventions: case (PascalCase / kebab-case / snake_case) + suffix-extension matrix as declared in the project's `_extracted-idioms.md § Naming conventions`. Cross-stack extensions are forbidden — only extensions declared in `_extracted-codebase.md § Stack` for the project's actual stack are allowed (introducing a leaf-component extension from a different framework is a structural violation).
-- Forbidden zones: `node_modules/`, `dist/`, `.git/`, build outputs.
+- Forbidden zones: dependency caches (`node_modules/`, `vendor/`, `.venv/`, `target/`, etc.), build outputs (`dist/`, `build/`, `out/`, etc.), `.git/`.
 
 If ANY path fails, the script exits 1 with the violation list. Phase 4 MUST refuse to write until all paths pass. Override with `--override-paths` (logged) only when the architect can defend the deviation in writing.
 

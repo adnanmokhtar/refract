@@ -32,7 +32,7 @@ Examples:
 - `/migration-recheck the page builder`
 - `/migration-recheck the customer tabs in the dashboard`
 - `/migration-recheck the navigation header`
-- `/migration-recheck src/modules/orders/` (paths still work)
+- `/migration-recheck <modules-root>/orders/` (paths still work)
 - `/migration-recheck "the auth flow including login and signup"` (multi-concept descriptions)
 
 Use this when:
@@ -58,11 +58,11 @@ Same discipline as `/find-and-fix` (the per-feature loop), just multi-feature + 
 
 ## When to use
 
-- "Re-check the orders module" — `/migration-recheck the orders module` OR `/migration-recheck src/modules/orders/`
+- "Re-check the orders module" — `/migration-recheck the orders module` OR `/migration-recheck <modules-root>/orders/`
 - "Re-check the sidebar" — `/migration-recheck the sidebar`
 - "Re-check the page-builder" — `/migration-recheck the page builder`
 - "Re-check customer tabs" — `/migration-recheck the customer tabs`
-- "Re-check store + products" — `/migration-recheck the store and products modules` OR `/migration-recheck src/modules/store/ src/modules/products/`
+- "Re-check store + products" — `/migration-recheck the store and products modules` OR `/migration-recheck <modules-root>/store/ <modules-root>/products/`
 - After a feature merge that touched many files in a module, to verify nothing rotted.
 
 ## Input forms — description OR path
@@ -74,9 +74,9 @@ The first arg can be:
 
 Mixed input is allowed:
 ```
-/migration-recheck the sidebar src/modules/orders/
+/migration-recheck the sidebar <modules-root>/orders/
 ```
-→ resolves "the sidebar" to its feature(s), then ORs with the explicit `src/modules/orders/` path. Both contribute to the matched-features set.
+→ resolves "the sidebar" to its feature(s), then ORs with the explicit `<modules-root>/orders/` path. Both contribute to the matched-features set.
 
 ## When NOT to use
 
@@ -160,7 +160,7 @@ The agent treats your description the same way `/add-feature` treats yours: read
 
 1. **`.claude/codebase-profile.md`** (or `_extracted-codebase.md`) — the project's UI surface inventory. Names key components, pages, modules, layouts, navigation patterns. The agent reads this to know "in THIS project, what is the sidebar / header / dashboard / customer tabs."
 2. **`ai/migration/ledger.md`** — feature inventory with names, domains, paths, notes. The agent reads it to know which features exist and what they're called.
-3. **`ai/architecture.md` + `ai/conventions.md`** — module structure, naming conventions, layout patterns. Helps the agent disambiguate (e.g., "the orders module" → `src/modules/orders/` vs "an orders endpoint" → could be elsewhere).
+3. **`ai/architecture.md` + `ai/conventions.md`** — module structure, naming conventions, layout patterns. Helps the agent disambiguate (e.g., "the orders module" → `<modules-root>/orders/` vs "an orders endpoint" → could be elsewhere).
 4. **`.claude/_extracted-idioms.md`** (when present) — named shared components / wrappers. Helps interpret descriptions referencing shared surfaces ("the toolbar", "the data table").
 
 ### How the agent interprets your description
@@ -178,7 +178,7 @@ Like a teammate who knows the project. Example flow for `/migration-recheck the 
 The agent uses its full read-the-context capability:
 
 - Reads source files when the profile doesn't directly name what you described.
-- Cross-references descriptions against module domains (e.g., "the auth flow" → reads `src/modules/auth/` to enumerate the actual flow steps: login, signup, password-reset, MFA, etc.).
+- Cross-references descriptions against module domains (e.g., "the auth flow" → reads `<modules-root>/auth/` to enumerate the actual flow steps: login, signup, password-reset, MFA, etc.).
 - Handles compound descriptions ("the auth flow including login and signup") as one semantic intent — figures out which features comprise the auth flow first, then narrows to the named subset.
 - Handles UI-element descriptions ("the dropdown in the header") by reading the header component's source to find dropdown sub-components.
 - Asks a clarifying question when the description is genuinely ambiguous in this codebase — not because tokenization failed, but because two different features genuinely match.
@@ -258,13 +258,13 @@ When the user replies with "do like V1" / "match V1" / "fix it" without per-row 
 Per-feature output streams to `ai/migration/runs/<YYYY-MM-DD-HHMMSS>-recheck.log`. End-of-run summary surfaces to user.
 
 ```
-Migration recheck — paths: src/modules/orders/, src/modules/store/
+Migration recheck — paths: <modules-root>/orders/, <modules-root>/store/
 
 Pre-flight:                    PASS
 Features matched:              23
   By path:
-    src/modules/orders/:       12
-    src/modules/store/:        11
+    <modules-root>/orders/:    12
+    <modules-root>/store/:     11
 
 Triage (after re-audit):
   Clean (no drift):            18
@@ -289,7 +289,7 @@ Total impact:
 
 Next:
   Resolve F045 halt (cross-repo dependency).
-  Re-run /migration-recheck src/modules/orders/ to drain F045 once resolved.
+  Re-run /migration-recheck <modules-root>/orders/ to drain F045 once resolved.
   OR /find-and-fix F045 directly after the cross-repo PR lands.
 ```
 
@@ -325,7 +325,7 @@ For each feature in `ai/migration/ledger.md`:
 
 Glob patterns are expanded before matching. Multiple `<path>` args are OR'd.
 
-Path matching is recursive — `src/modules/orders/` matches any feature whose path is inside that directory, including subdirectories.
+Path matching is recursive — `<modules-root>/orders/` matches any feature whose path is inside that directory, including subdirectories.
 
 ## Hard rules
 
@@ -369,24 +369,24 @@ Path matching is recursive — `src/modules/orders/` matches any feature whose p
 
 ```bash
 # Single path
-/migration-recheck src/modules/orders/
+/migration-recheck <modules-root>/orders/
 
 # Multiple paths
-/migration-recheck src/modules/store/ src/modules/products/ src/modules/orders/
+/migration-recheck <modules-root>/store/ <modules-root>/products/ <modules-root>/orders/
 
 # A specific component / page (extension is stack-specific — declared in _extracted-codebase.md § Stack)
-/migration-recheck src/components/Sidebar.<leaf-ext>
-/migration-recheck src/modules/builder/pages/BuilderPage.<leaf-ext>
+/migration-recheck <components-root>/Sidebar.<leaf-ext>
+/migration-recheck <modules-root>/builder/pages/BuilderPage.<leaf-ext>
 
 # Glob
-/migration-recheck "src/modules/{auth,permissions,roles}/"
+/migration-recheck "<modules-root>/{auth,permissions,roles}/"
 ```
 
 ### Mixed (description + path)
 
 ```bash
 # Combine: resolve "the sidebar" + add explicit path
-/migration-recheck the sidebar src/modules/orders/
+/migration-recheck the sidebar <modules-root>/orders/
 ```
 
 ### Modifier flags

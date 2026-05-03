@@ -16,7 +16,7 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 - USE: a code shape repeats across 3+ modules and you want it codified before the 4th repetition diverges.
 - USE: after a successful spike where the spike's approach proved durable.
 - NOT: for one-off shapes (use Rule of Three: wait for the third occurrence before formalizing).
-- NOT: for framework-default patterns (NestJS modules, React components — those are stack-given, not project-emergent).
+- NOT: for framework-default patterns (the framework's default module / component / unit-of-composition — whatever the stack provides — those are stack-given, not project-emergent).
 - NOT: for patterns that contradict an existing formal pattern (resolve the contradiction first; don't have two competing patterns).
 
 ## Phase 1 — Understand (the ask)

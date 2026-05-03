@@ -122,8 +122,8 @@ For each cutover stage, the architect names:
 
 The plan EXPLICITLY states:
 - What's NOT changing in this port (e.g., "the response shape is preserved; column projection wins are deferred to a follow-up PR").
-- What's deferred (e.g., "Redis caching on this endpoint deferred to milestone 2").
-- What's rejected (e.g., "we considered moving SendGrid call off the hot path; rejected — compliance requires synchronous send").
+- What's deferred (e.g., "shared-cache layer on this endpoint deferred to milestone 2").
+- What's rejected (e.g., "we considered moving the email-vendor call off the hot path; rejected — compliance requires synchronous send").
 
 Non-goals prevent reviewer + author drift mid-implementation.
 

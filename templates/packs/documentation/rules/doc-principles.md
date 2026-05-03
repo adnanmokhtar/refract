@@ -110,13 +110,13 @@ On-call: @platform
 
 ## Anti-patterns to flag in review
 
-- Doc says "we use X" but `package.json` / `requirements.txt` shows Y → fix one of them in the PR.
+- Doc says "we use X" but the project's dependency manifest shows Y → fix one of them in the PR.
 - ADR phrased as a tutorial → three sections only: Context / Decision / Consequences.
-- README listing 30 npm scripts → link to `package.json`, document only non-obvious ones.
+- README listing 30 task-runner scripts → link to the project's task-runner manifest, document only non-obvious ones.
 - Inline comment paraphrasing the next line → delete it; rename the variable instead.
 - Wiki / external link without a permalink (defaults to "latest") → link to a specific revision/SHA.
 - Long FAQ where the answers belong in source → fix the source.
-- "How to set up" no one re-tested in 6 months → automate via `make setup` / `bun run setup` and document the script.
+- "How to set up" no one re-tested in 6 months → automate via the project's task runner (e.g., `make setup`, `bun run setup`, `just setup`, `mix setup`) and document the script.
 
 ## Review checklist
 

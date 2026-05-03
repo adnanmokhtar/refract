@@ -139,10 +139,10 @@ For V1: pin a commit (`git -C <v1-root> rev-parse HEAD`). Future re-runs compare
 |---|---|
 | Insert into orders table | Insert into orders table ✓ |
 | Insert into order_items table | Insert into order_items table ✓ |
-| Publish OrderCreated to RabbitMQ | Publish OrderCreated to Kafka **DIVERGENT** (different broker) |
-| Send email via SendGrid | Send email via Postmark **DIVERGENT** (vendor change) |
+| Publish OrderCreated to broker-A | Publish OrderCreated to broker-B **DIVERGENT** (different broker) |
+| Send email via email-vendor-A | Send email via email-vendor-B **DIVERGENT** (vendor change) |
 | Audit log entry | Audit log entry ✓ |
-| Stripe charge | Stripe charge ✓ |
+| Charge via payment-provider | Charge via payment-provider ✓ |
 
 #### Performance envelope
 | Metric | V1 (last 7d) | V2 (last 7d) | Status |
@@ -156,13 +156,13 @@ For V1: pin a commit (`git -C <v1-root> rev-parse HEAD`). Future re-runs compare
 
 **Intentional breaks (with cited ADR):**
 - ADR-0017: tenant from JWT (not header) — design choice.
-- ADR-0023: Switch from RabbitMQ to Kafka — infra consolidation.
+- ADR-0023: Switch broker (broker-A → broker-B) — infra consolidation.
 - ADR-0029: Snake_case → camelCase API naming.
 
 **Unintentional divergences (need attention):**
 - Validation error status: 400 → 422 (BREAKING for clients). Was this discussed? No ADR. **Action**: confirm intentional or revert.
 - Wrapper field `order` removed from response. Was this discussed? No ADR. **Action**: confirm intentional or revert.
-- Email vendor change SendGrid → Postmark. ADR present. ✓
+- Email vendor change (vendor-A → vendor-B). ADR present. ✓
 - P99 regression + throughput drop. **Action**: investigate via `/profile-perf`.
 
 ### Parity-test recommendations

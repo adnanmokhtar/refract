@@ -70,25 +70,21 @@ The tolerance for each assertion is a **decision** that goes in the contract. Fu
 
 **Setup**:
 
-1. Curate an input corpus: `tests/parity/<feature>/inputs/<NN>.json`. Cover happy paths, every error path, every business rule from the contract, every edge case. Aim for ≥ 30 inputs for non-trivial features.
-2. Run V1 against the corpus once; capture outputs into `tests/parity/<feature>/__golden__/<NN>.json`. Commit the golden snapshots.
+1. Curate an input corpus: `<parity-test-root>/<feature>/inputs/<NN>.json`. Cover happy paths, every error path, every business rule from the contract, every edge case. Aim for ≥ 30 inputs for non-trivial features.
+2. Run V1 against the corpus once; capture outputs into `<parity-test-root>/<feature>/__golden__/<NN>.json`. Commit the golden snapshots.
 3. Test body: load each input → call V2 → compare V2 output to the golden snapshot per tolerance taxonomy.
 
-```ts
-// Pseudocode (Vitest-style)
-import { readdirSync, readFileSync } from 'fs';
-import { handleFeature } from '../../../src/v2/feature';
-
-describe('feature parity (golden master)', () => {
-  for (const file of readdirSync('tests/parity/feature/inputs')) {
-    test(file, () => {
-      const input = JSON.parse(readFileSync(`tests/parity/feature/inputs/${file}`, 'utf8'));
-      const golden = JSON.parse(readFileSync(`tests/parity/feature/__golden__/${file}`, 'utf8'));
-      const v2 = handleFeature(input);
-      expect(stripVolatile(v2)).toEqual(stripVolatile(golden));   // tolerance: timestamp-insensitive, ID-insensitive
-    });
-  }
-});
+```pseudo
+// Pseudocode — adjust to the project's test framework (xUnit / RSpec / pytest / go test / JUnit / vitest / jest / etc.)
+testGroup("feature parity (golden master)") {
+  for file in listdir("<parity-test-root>/<feature>/inputs"):
+    test(file) {
+      input  = readJson("<parity-test-root>/<feature>/inputs/" + file)
+      golden = readJson("<parity-test-root>/<feature>/__golden__/" + file)
+      v2     = handleFeature(input)
+      assertEqual(stripVolatile(v2), stripVolatile(golden))   // tolerance: timestamp-insensitive, ID-insensitive
+    }
+}
 ```
 
 **Refresh policy**:

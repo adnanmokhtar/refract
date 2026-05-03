@@ -105,7 +105,7 @@ Decision needed when count reaches threshold: PROMOTE (formalize) | EXPAND (exte
   → Run `/promote-pattern outbox-pattern` to graduate.
 
 ### Discarded (false positive on review)
-- `controller-with-validation-pipe` — too generic; this is NestJS default, not project pattern. REJECTED.
+- `controller-with-validation-pipe` — too generic; this is the framework's default request-validation shape, not a project pattern. REJECTED.
 
 ### Drift candidates (sent to drift-log.md instead)
 - 4 services use raw `dataSource.getRepository()` instead of base class. Likely a code smell, not a positive pattern.
@@ -114,7 +114,7 @@ Decision needed when count reaches threshold: PROMOTE (formalize) | EXPAND (exte
 ## Failure modes
 
 - **Over-eager naming**: "service-with-db-call" isn't a pattern; it's a tautology. Pattern names must capture the SHAPE that's specific (e.g., "tenant-scoped-cached-aggregate-query").
-- **Missing stack-default classification**: proposing patterns for things every NestJS project does. Check `ai/conventions.md` + framework reference first.
+- **Missing stack-default classification**: proposing patterns for things every project on the same framework does. Check `ai/conventions.md` + the framework's reference docs first.
 - **Cluster contamination**: 5 files import the same library — that's not a pattern, that's just imports. Look at the BEHAVIOR shape, not just imports.
 - **Confusing emergence with divergence**: if the repetition is the WRONG approach, it goes to `drift-log.md` (drift detector), not `learned-patterns.md` (pattern watcher). Categorize correctly.
 

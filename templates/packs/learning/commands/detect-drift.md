@@ -66,7 +66,7 @@ This is where the command's value lands. Persist:
 
 ## Phase 7 — Improve
 
-- If same drift class recurs across runs (e.g. `console.log` instead of `Logger`), queue lint rule promotion to `ai/dynamic/feedback-learned.md` — drift detection is a stopgap; CI lint is the fix.
+- If same drift class recurs across runs (e.g. direct stdout / print calls instead of the project's structured logger), queue lint rule promotion to `ai/dynamic/feedback-learned.md` — drift detection is a stopgap; CI lint is the fix.
 - If `rule-vs-reality` rate > 30%, conventions are stale — queue `/refresh-knowledge` invocation.
 - Archive RESOLVED entries from drift-log monthly via `/audit-knowledge` to `ai/audits/drift-resolved-YYYY-MM.md`.
 
@@ -76,7 +76,7 @@ This is where the command's value lands. Persist:
 ## /detect-drift report — <commit hash> · <YYYY-MM-DD>
 
 ### High (3)
-- src/modules/billing/billing.service.ts:42 — uses `console.log` (rule: `.claude/rules/observability.md` line 12 says use `Logger`).
+- <billing service file:42> — uses a direct stdout / print call (rule: `.claude/rules/observability.md` line 12 says use the project's structured logger).
   -> FIX CODE
 - src/legacy/admin.controller.ts:88 — bypasses tenant filter via raw SQL (rule: `.claude/rules/multi-tenancy.md`).
   -> FIX CODE (security-relevant)

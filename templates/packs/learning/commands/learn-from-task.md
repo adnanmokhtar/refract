@@ -118,28 +118,28 @@ Phase 1 (Understand): reflected on task — feature/orders-perf, COMPLETE.
 Phase 3 (Retrieved): interaction-log.md last 5 entries, learned-patterns.md (1 watching match), feedback-learned.md (no match).
 Phase 5 (Updated):
   - interaction-log.md (+1 entry)
-  - decisions-pending.md (+1: BullMQ over Redis Streams)
+  - decisions-pending.md (+1: queue-library choice)
   - learned-patterns.md (+1 WATCHING: idempotency-key cache wrapper)
   - feedback-learned.md (no entries this task)
-  - drift-log.md (+1: console.log in billing.service.ts)
+  - drift-log.md (+1: direct stdout call in <billing service file>)
   - changelog.md (+1 line)
 Phase 6 (Validated): all entries shape-conformant.
 Phase 7 (Improved): downstream handlers (session-start, watcher, curator) will pick up automatically.
 
 Decisions queued for ADR consideration:
-- "Prefer BullMQ over Redis Streams for our queue layer" (will graduate after 2 weeks if held)
+- "Prefer queue-library X over queue-library Y for our queue layer" (will graduate after 2 weeks if held)
 
 Patterns queued for promotion watch:
-- "Idempotency-Key + cache lookup wrapper" (1st occurrence: src/modules/orders/place-order.use-case.ts)
+- "Idempotency-Key + cache lookup wrapper" (1st occurrence: <place-order use-case file>)
 
 User corrections recorded:
 - (none in this task)
 
 Drift findings added:
-- src/modules/billing/billing.service.ts:42 uses console.log (rule violation) — high severity, OPEN
+- <billing service file:42> uses a direct stdout / print call (rule violation) — high severity, OPEN
 
 Follow-ups for next session:
-- TODO: complete the Stripe webhook handler — currently stubbed
+- TODO: complete the payment-webhook handler — currently stubbed
 - TODO: add e2e test for the new endpoint
 
 Status: COMPLETE
