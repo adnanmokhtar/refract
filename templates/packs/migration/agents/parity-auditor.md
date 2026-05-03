@@ -163,6 +163,40 @@ CORRECT (the auditor must produce a table like this; field names below are illus
 
 If even one field in V1 isn't enumerated in this table, the auditor failed the discipline. The "Optimistic Form Field Match" anti-pattern is what this rule exists to prevent.
 
+### Stack-aware primitive accounting (mandatory enumeration target)
+
+The validator runs `extract_inventory_primitives` over every audit's V1 + V2 leaf paths and emits a per-primitive count comparison. Every primitive class where V1 count > 0 AND V2 count differs by > 30% is a **drift count the audit MUST account for** in the relevant axis section.
+
+Mapping table (primitive → axis):
+
+| Primitive class | Stack family | Axis section in audit |
+|---|---|---|
+| `v_model` (form fields bound) | frontend | "Form fields" |
+| `dropdown` | frontend | "UI affordances" or "Form fields" |
+| `button` | frontend | "UI affordances" |
+| `click_handler` | frontend | "Event handlers" |
+| `permission_gate` | frontend | "Per-button permission gates" |
+| `tabs` | frontend | "Section 0 — Navigation Inventory" (already mandated) |
+| `route_def` | frontend | "Section 0 — Navigation Inventory" |
+| `input_html` | frontend | "Form fields" |
+| `conditional_render` | frontend | "Event handlers" or "Reactive lifecycle" |
+| `route_handler` | backend | "Endpoints / route handlers" |
+| `dto_class` | backend | "Request/Response DTO shape" |
+| `auth_guard` | backend | "Auth + permissions" |
+| `validator` | backend | "Inputs / validation" |
+| `service_method` | backend | "Service-layer methods" |
+| `exception_throw` | backend | "Error contract" |
+| `db_query` | backend | "Side effects (DB writes/reads)" |
+| `event_emit` | backend | "Side effects (events / queue)" |
+| `table_def` / `column_def` | data | "Schema" |
+| `foreign_key` / `index_def` / `constraint` | data | "Schema integrity" |
+| `screen` / `text_input` / `nav_route` | mobile | "Form fields" / "Navigation Inventory" |
+| `native_call` / `platform_branch` | mobile | "Native bridge calls" / "Platform-specific branches" |
+
+For every primitive's drift, the audit MUST enumerate the missing items with `<v1-path:line>` citations in the corresponding axis section. The validator's `check_inventory_primitives_match` halts when citation count < drift count.
+
+PARITY verdict on a row whose primitives show V2 < 70% of V1 is **forbidden** — re-classify as DRIFT or document the legitimate count drop (e.g., V1 had unreachable dead code; cite the dead branches).
+
 **Enumerate ALL gap kinds, not just divergence.** For every axis, the auditor must surface three categories:
 - **ADDED in V1, missing in V2** (V1 has the affordance / endpoint / field; V2 omits it) — most common.
 - **EXTRA in V2, absent in V1** (V2 has scaffolding V1 never had — extra button, route, default-true wrapper prop) — the F040 default-true class.

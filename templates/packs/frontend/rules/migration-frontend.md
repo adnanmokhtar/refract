@@ -15,6 +15,24 @@ The universal `migration-discipline.md` rule (in the migration pack) defines the
 
 If your project's frontend is in this pack's covered stack family (any modern component framework — Vue, React, Svelte, Angular, Nuxt, Next, etc.), follow the rules below in addition to the universal discipline. Stack-specific examples in this file are **illustrative** — substitute the actual primitives from your project's `_extracted-idioms.md`.
 
+## Stack-aware primitive set (frontend)
+
+The validator's `extract_inventory_primitives` extracts these primitive classes from frontend leaf-component files. Auto-promote thresholds (count differential > 30%) trigger standard-tier audit requirements.
+
+| Primitive | What it counts (across Vue / React / Svelte / Angular / Solid) | Axis (where the audit must enumerate the gap) |
+|---|---|---|
+| `v_model` | Form-field bindings: Vue `v-model=`, React `value=` + `onChange=` paired (proxy: `useState` form-state hooks), Svelte `bind:value=` / `bind:checked=`, Angular `[(ngModel)]=` | Form fields |
+| `dropdown` | `<Dropdown>`, `<Select>`, `<MultiSelect>`, native `<select>`, framework-specific equivalents (`<v-select>`, `<mat-select>`, `<MenuItem>`, `<Combobox>`) | UI affordances / Form fields |
+| `button` | `<Button>`, `<button>`, `<v-btn>`, `<AppButton>`, `<IconButton>`, `<mat-button>` | UI affordances |
+| `click_handler` | Vue `@click=` / `@submit=`, React `onClick=` / `onSubmit=` / `onChange=`, Svelte `on:click=` / `on:submit=`, Angular `(click)=` / `(submit)=` / `(ngSubmit)=` | Event handlers |
+| `permission_gate` | `hasPermission(`, `meta.permission`, `<RequirePerm>`, `useAuth(`, `<ProtectedRoute>`, `*ngIf="canAccess"`, `v-can=` | Per-button permission gates |
+| `tabs` | `<v-tabs>`, `<TabView>`, `<Tabs>`, `<NavLink>` in nav role, `<mat-tab-group>`, in-page tab arrays | Section 0 — Navigation Inventory |
+| `route_def` | Inside `*routes*` / `*router*` files: `path:` + `name:` (Vue/Angular Router), `<Route>` (React Router), `+page.svelte` filenames (SvelteKit), `pages/` files (Next/Nuxt) | Section 0 — Navigation Inventory |
+| `input_html` | Raw + framework form inputs: `<input>`, `<textarea>`, `<TextField>`, `<TextareaAutosize>`, `<Input>`, `<TextInput>`, `<v-text-field>`, `<v-textarea>` | Form fields |
+| `conditional_render` | Vue `v-if=` / `v-show=` / `v-else-if=`, React `&&` JSX / ternary in JSX, Svelte `{#if}` / `{#else if}`, Angular `*ngIf=` | Event handlers / Reactive lifecycle |
+
+The `extract_inventory_primitives` function is framework-comprehensive within `frontend-*` — it patterns Vue, React, Svelte, Angular, Solid, plus the major UI-library primitives (Vuetify, PrimeVue, MUI, Ant Design, Mantine, Chakra, shadcn). Adding a new framework requires only a new pattern alternation in the function (no new check needed).
+
 ## Frontend audit axes (when feature is a UI page / component / route)
 
 The 6 generic comparison axes from the universal rule (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) are necessary but NOT sufficient for frontend ports. Add these axes for any feature whose V1/V2 entry is a page / component / route / screen:

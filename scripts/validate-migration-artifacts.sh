@@ -876,14 +876,17 @@ check_per_axis_enumeration() {
   [[ -n "$v2_full" && -f "$v2_full" ]] && v2_loc=$(wc -l < "$v2_full" 2>/dev/null | tr -d ' ' || echo 0)
   v1_loc=${v1_loc:-0}; v2_loc=${v2_loc:-0}
 
-  # LOC-ratio halt: V2 < 50% of V1 LOC + PARITY verdict + V1 LOC ≥ 200 = suspect.
-  # Trivial-tier rows with V1 < 100 LOC soften to warn.
-  if [[ $is_parity -eq 1 && $v1_loc -ge 200 && $v2_loc -gt 0 ]]; then
-    # Compute v2_loc * 100 / v1_loc (avoid bc dependency)
+  # LOC-ratio backup signal: V2 < 35% of V1 LOC + PARITY verdict + V1 LOC ≥ 400 → warn.
+  # Tightened from 50%/200LOC → 35%/400LOC because primitive-count check
+  # (check_inventory_primitives_match) is now the primary auto-promote trigger.
+  # LOC catches edge cases primitives miss: V1 with mostly comments / large helper
+  # functions that don't surface as v-models. We warn here so the primitive check
+  # gets first crack at halting; this only fires when the file is unusually small
+  # AND no primitive-class flagged it.
+  if [[ $is_parity -eq 1 && $v1_loc -ge 400 && $v2_loc -gt 0 ]]; then
     local ratio_pct=$(( v2_loc * 100 / v1_loc ))
-    if [[ $ratio_pct -lt 50 ]]; then
-      log_fail "per-axis enumeration: V2 file is ${ratio_pct}% the size of V1 file (V2=${v2_loc} LOC, V1=${v1_loc} LOC) on PARITY verdict in $file. Per discipline rule \"The Optimistic Form Field Match\", produce full per-axis enumeration tables with V1+V2 path:line citations OR re-classify as DRIFT. v1_path=$v1_file v2_path=$v2_file"
-      return 1
+    if [[ $ratio_pct -lt 35 ]]; then
+      log_warn "per-axis enumeration (LOC backup signal): V2 is ${ratio_pct}% the size of V1 (V2=${v2_loc} LOC, V1=${v1_loc} LOC) on PARITY verdict in $file. If primitive-count check passed, the gap may be in non-form code (helpers, computed properties); review manually. v1_path=$v1_file v2_path=$v2_file"
     fi
   fi
 
@@ -1025,6 +1028,613 @@ check_per_axis_enumeration() {
     return 1
   fi
   log_pass "per-axis enumeration: $feature (forms_bearing=$forms_bearing, v1_loc=$v1_loc, v2_loc=$v2_loc)"
+  return 0
+}
+
+# ── Stack-aware structural primitive extractor ──────────────────────────────
+# Replaces LOC-ratio as the PRIMARY auto-promote signal. LOC ratio is noisy
+# (V1 may be verbose markup; V2 may be compact via shared wrappers). Counting
+# meaningful primitives per stack is more accurate.
+#
+# Output format (one per line, key=count):
+#   v_model=47
+#   dropdown=8
+#   button=5
+#   ...
+#
+# Args: $1=file_path  $2=project_kind
+# Stdout: lines of "<primitive>=<count>". Empty / 0 if file doesn't exist.
+extract_inventory_primitives() {
+  local file="$1"
+  local pk="$2"
+  if [[ -z "$file" || ! -f "$file" ]]; then
+    return 0
+  fi
+
+  # Determine the stack family from PROJECT_KIND. Within a family, regex
+  # patterns are mostly portable (Vue / React / Svelte / Angular all share
+  # similar primitive concepts for the frontend family).
+  local family=""
+  case "$pk" in
+    frontend-*) family="frontend" ;;
+    backend-*)  family="backend"  ;;
+    data-*)     family="data"     ;;
+    mobile-*)   family="mobile"   ;;
+    *)          family="frontend" ;;  # safe default for unknown/missing PROJECT_KIND
+  esac
+
+  case "$family" in
+    frontend)
+      # v_model — two-way form binding across major frameworks.
+      # Vue: v-model / v-model:slot=. Svelte: bind:value / bind:checked / bind:group.
+      # Angular: [(ngModel)]=. React/Solid don't have a true two-way primitive —
+      # we proxy via useState (form-state hook) PLUS controlled-input pairs
+      # (value={...} adjacent to onChange={...}).
+      local v_model react_state svelte_bind ng_model
+      v_model=$(grep -oE 'v-model(:[a-zA-Z-]+)?="[^"]+"' "$file" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+      v_model=${v_model:-0}
+      svelte_bind=$(grep -oE 'bind:(value|checked|group|files|this|innerHTML|textContent)=' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      svelte_bind=${svelte_bind:-0}
+      ng_model=$(grep -oE '\[\(ngModel\)\]=' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      ng_model=${ng_model:-0}
+      # React useState calls — strong proxy for form fields when this is a React/Solid file
+      react_state=$(grep -oE '\buseState[[:space:]]*(<[^>]+>)?[[:space:]]*\(' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      react_state=${react_state:-0}
+      v_model=$(( v_model + svelte_bind + ng_model + react_state ))
+
+      # dropdown / select-shaped components — Vue + PrimeVue + Vuetify + React (MUI/Antd/Mantine/Chakra/shadcn) + Angular Material + native
+      local dropdown
+      dropdown=$(grep -oE '<Dropdown\b|<MultiSelect\b|<BaseDropdown\b|<v-select\b|<TranslatedInput\b|<Select\b|<Combobox\b|<Listbox\b|<MenuItem\b|<mat-select\b|<select\b|<NativeSelect\b' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      dropdown=${dropdown:-0}
+
+      # button-shaped affordances — Vue + Vuetify + React (incl. MUI IconButton) + Angular Material + native
+      local button
+      button=$(grep -oE '<Button\b|<button\b|<v-btn\b|<AppButton\b|<IconButton\b|<LoadingButton\b|<mat-button\b|<mat-raised-button\b|<mat-icon-button\b|mat-raised-button\b|mat-stroked-button\b' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      button=${button:-0}
+
+      # click / submit handlers — Vue (@click / v-on:click) + Svelte (on:click) + Angular ((click)) + React/Solid (onClick / onSubmit / onChange)
+      local click_handler
+      click_handler=$(grep -oE '@click(\.[a-zA-Z]+)?=|@submit(\.[a-zA-Z]+)?=|v-on:(click|submit)=|on:(click|submit)=|\(click\)=|\(submit\)=|\(ngSubmit\)=|onClick[[:space:]]*=[[:space:]]*\{|onSubmit[[:space:]]*=[[:space:]]*\{|onChange[[:space:]]*=[[:space:]]*\{' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      click_handler=${click_handler:-0}
+
+      # permission-gate sites — security axis across Vue/React/Svelte/Angular idioms
+      local permission_gate
+      permission_gate=$(grep -oE 'hasPermission[[:space:]]*\(|meta\.permission|v-permission|v-can=|<RequirePerm\b|<RequirePermission\b|<ProtectedRoute\b|<Can\b|<auth-gate\b|user\.can[[:space:]]*\(|usePermissions[[:space:]]*\(|useAuth[[:space:]]*\(|permissionStore\.has[[:space:]]*\(|canAccess\b|\*ngIf="canAccess|@PreAuthorize[[:space:]]*\(' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      permission_gate=${permission_gate:-0}
+
+      # in-template tabs — Vue + React + Svelte + Angular Material
+      local tabs
+      tabs=$(grep -oE '<v-tabs\b|<TabView\b|<TabMenu\b|<Tabs\b|<Tab\b|<v-tab\b|<TabList\b|<TabPanel\b|<TabPanels\b|<mat-tab-group\b|<mat-tab\b|role="tab"|nav-tabs\b|nav_tabs\b|RouteTabs\b|InnerTabs\b' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      tabs=${tabs:-0}
+
+      # route_def — only counted on router-shaped files OR file-based-routing (pages/, routes/, +page.svelte)
+      local route_def=0
+      local fb_pages_file=0
+      case "$file" in
+        */pages/*|*/routes/*|*+page.svelte|*+layout.svelte|*+page.ts|*+page.js)
+          fb_pages_file=1
+          ;;
+      esac
+      case "$file" in
+        *routes*.ts|*routes*.js|*routes*.tsx|*routes*.jsx|*router*.ts|*router*.js|*-routing.module.ts|*App.tsx|*App.jsx)
+          # Vue Router / generic config: path: / name:
+          # React Router: <Route path=...> / { path: '...' } objects
+          # Angular Router: path: ... in Routes array
+          route_def=$(grep -oE "path:[[:space:]]*['\"\`]|name:[[:space:]]*['\"\`].*['\"\`][[:space:]]*,|<Route\b|component:[[:space:]]*[A-Z][A-Za-z0-9_]*|loadChildren:[[:space:]]*" "$file" 2>/dev/null | wc -l | tr -d ' ')
+          route_def=${route_def:-0}
+          ;;
+      esac
+      # File-based routing frameworks (Next/Nuxt/SvelteKit/Astro) — each leaf file counts as 1 route
+      if [[ $fb_pages_file -eq 1 && $route_def -eq 0 ]]; then
+        route_def=1
+      fi
+
+      # raw input/textarea/InputText — across PrimeVue, Vuetify, MUI, Antd, Mantine, Chakra, native HTML
+      local input_html
+      input_html=$(grep -oE '<input\b|<textarea\b|<InputText\b|<InputNumber\b|<InputSwitch\b|<v-text-field\b|<v-textarea\b|<TextField\b|<TextareaAutosize\b|<TextInput\b|<Textarea\b|<NumberInput\b|<Input\b|<Input\.TextArea\b' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      input_html=${input_html:-0}
+
+      # conditional render branches — Vue (v-if/v-show/v-else-if), Svelte ({#if/{:else if}), Angular (*ngIf), React (&& JSX, ternary in JSX)
+      local conditional_render
+      conditional_render=$(grep -oE '\bv-if=|\bv-show=|\bv-else-if=|\{#if[[:space:]]|\{:else[[:space:]]+if[[:space:]]|\*ngIf=|\{[^}]*&&[[:space:]]*<|\{[^}]*\?[[:space:]]*<' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      conditional_render=${conditional_render:-0}
+
+      echo "v_model=$v_model"
+      echo "dropdown=$dropdown"
+      echo "button=$button"
+      echo "click_handler=$click_handler"
+      echo "permission_gate=$permission_gate"
+      echo "tabs=$tabs"
+      echo "route_def=$route_def"
+      echo "input_html=$input_html"
+      echo "conditional_render=$conditional_render"
+      ;;
+    backend)
+      # route_handler — request entry points across NestJS, Express, Fastify, Laravel,
+      # Django, FastAPI, Flask, Rails, Sinatra, Spring, Go (gin/echo), Phoenix, ASP.NET.
+      local route_handler
+      route_handler=$(grep -oE \
+"@(Get|Post|Put|Delete|Patch|All)[[:space:]]*\(|\
+@(Get|Post|Put|Delete|Patch)Mapping[[:space:]]*\(|\
+@RequestMapping[[:space:]]*\(|\
+\bapp\.(get|post|put|delete|patch|all)[[:space:]]*\(|\
+\brouter\.(get|post|put|delete|patch|all)[[:space:]]*\(|\
+\bfastify\.(get|post|put|delete|patch)[[:space:]]*\(|\
+Route::(get|post|put|delete|patch|any|match)[[:space:]]*\(|\
+@app\.(get|post|put|delete|patch|route)[[:space:]]*\(|\
+@router\.(get|post|put|delete|patch)[[:space:]]*\(|\
+@blueprint\.route[[:space:]]*\(|\
+\bpath[[:space:]]*\([\"\\']|\
+\bre_path[[:space:]]*\([\"\\']|\
+\burl[[:space:]]*\([\"\\']|\
+^[[:space:]]*(get|post|put|delete|patch)[[:space:]]+[\"\\']/|\
+\.(GET|POST|PUT|DELETE|PATCH)[[:space:]]*\(|\
+\[Http(Get|Post|Put|Delete|Patch)\]|\
+\bbefore[[:space:]]+[\"\\']/" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      route_handler=${route_handler:-0}
+
+      # dto_class — request / response / schema shapes across major language idioms.
+      # TS/JS classes & interfaces, Pydantic BaseModel, DRF Serializer, Java/Spring DTOs,
+      # Ruby form objects, Go structs, C# DTOs, Phoenix/Ecto schemas, @dataclass.
+      local dto_class
+      dto_class=$(grep -oE \
+"^[[:space:]]*(export[[:space:]]+|public[[:space:]]+|private[[:space:]]+|internal[[:space:]]+|sealed[[:space:]]+|abstract[[:space:]]+)*(class|interface)[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(Dto|Request|Response|Schema|Serializer|Resource|Form|VO|Bean|ViewModel)\b|\
+^[[:space:]]*class[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\([[:space:]]*BaseModel[[:space:]]*\)|\
+^[[:space:]]*class[[:space:]]+[A-Za-z_][A-Za-z0-9_]*Serializer[[:space:]]*\(|\
+^@dataclass\b|\
+^[[:space:]]*type[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(Request|Response|Dto)[[:space:]]+struct\b|\
+^[[:space:]]*defmodule[[:space:]]+[A-Za-z_.][A-Za-z0-9_.]*(Schema|Request|Response)\b" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      dto_class=${dto_class:-0}
+
+      # auth_guard — auth/permission enforcement across frameworks.
+      local auth_guard
+      auth_guard=$(grep -oE \
+"@UseGuards[[:space:]]*\(|\
+@AuthGuard[[:space:]]*\(|\
+@(Pre|Post)Authorize[[:space:]]*\(|\
+@Secured[[:space:]]*\(|\
+@RolesAllowed[[:space:]]*\(|\
+@login_required\b|\
+@permission_required\b|\
+@require_auth\b|\
+LoginRequiredMixin\b|\
+PermissionRequiredMixin\b|\
+\bDepends[[:space:]]*\([[:space:]]*get_current_user\b|\
+\bDepends[[:space:]]*\([[:space:]]*verify_token\b|\
+\bauth\.login_required\b|\
+\bbefore_action[[:space:]]+:authenticate|\
+\bbefore_filter[[:space:]]+:authenticate|\
+\bauthenticate_user!|\
+\bmiddleware[[:space:]]*\([[:space:]]*[\"\\']auth|\
+->middleware[[:space:]]*\(|\
+\bplug[[:space:]]+:authenticate\b|\
+\bplug[[:space:]]+Auth\b|\
+\[Authorize\]|\[Authorize\(|\
+\bRequireAuth[[:space:]]*\(|\
+\.use[[:space:]]*\([[:space:]]*[\"\\']auth|\
+passport\.authenticate[[:space:]]*\(" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      auth_guard=${auth_guard:-0}
+
+      # validator — per-field validation decorators / schema declarations across stacks.
+      # TS class-validator, Joi/Yup/Zod, Pydantic Field/validator, DRF fields,
+      # Java Bean Validation, Rails validates, Laravel rule strings, Go struct tags, ASP.NET attrs.
+      local validator
+      validator=$(grep -oE \
+"@(IsString|IsNumber|IsBoolean|IsEmail|IsOptional|IsNotEmpty|MinLength|MaxLength|IsEnum|ValidateNested|Min|Max|IsInt|IsDate|IsArray|IsUUID|IsUrl|Matches)[[:space:]]*\(|\
+\bJoi\.(object|string|number|boolean|array|date)[[:space:]]*\(|\
+\byup\.(object|string|number|boolean|array|date)[[:space:]]*\(|\
+\bz\.(object|string|number|boolean|array|date|enum|union)[[:space:]]*\(|\
+\bField[[:space:]]*\(|\
+\bvalidator[[:space:]]*\(|\
+[A-Za-z_]+Field[[:space:]]*\(|\
+^[[:space:]]*class[[:space:]]+[A-Za-z_][A-Za-z0-9_]*Schema\b|\
+@(NotNull|NotBlank|Size|Email|Pattern|Valid)\b|\
+^[[:space:]]*validates[[:space:]]+:[a-z_]+|\
+[\"\\'](required|email|min|max|nullable|integer|numeric)[\"\\']|\
+\bvalidate:\"|\
+\[(Required|MaxLength|MinLength|EmailAddress|StringLength|RegularExpression|Range)\]" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      validator=${validator:-0}
+
+      # service_method — only counted when filename matches a service/handler shape.
+      # Match public methods across language idioms (TS/JS, Python def, Go func, Ruby def, Java/C# methods).
+      local service_method=0
+      case "$file" in
+        *service.ts|*Service.ts|*_service.py|*service.js|*Service.js|*service.go|*service.rb|*Service.java|*Service.cs|*service.ex|*service.exs|*service.kt|*Service.kt)
+          service_method=$(grep -oE \
+"^[[:space:]]*(public|private|protected|async)?[[:space:]]*(async[[:space:]]+)?[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\([^)]*\)[[:space:]]*[:{]|\
+^[[:space:]]*def[[:space:]]+[a-z_][a-zA-Z0-9_]*[[:space:]]*\(|\
+^[[:space:]]*func[[:space:]]+(\([^)]+\)[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\(|\
+^[[:space:]]*fn[[:space:]]+[a-z_][a-zA-Z0-9_]*[[:space:]]*\(|\
+^[[:space:]]*(public|private|protected|internal)[[:space:]]+[A-Za-z_<>][A-Za-z0-9_<>,[:space:]]*[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\(" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+          service_method=${service_method:-0}
+          ;;
+      esac
+
+      # exception_throw — error contract surface across languages.
+      local exception_throw
+      exception_throw=$(grep -oE \
+"throw[[:space:]]+new[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(Error|Exception)\b|\
+raise[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(Error|Exception)\b|\
+abort[[:space:]]*\(|\
+\berrors\.New[[:space:]]*\(|\
+\bfmt\.Errorf[[:space:]]*\(|\
+\{:error,|\
+panic[[:space:]]*\(" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      exception_throw=${exception_throw:-0}
+
+      # db_query — write/read sites across ORMs and raw SQL.
+      # Generic ORM verbs, Eloquent ::, Active Record .where, SQLAlchemy .query/.filter,
+      # Django ORM objects.filter/get, Ecto Repo.X, raw SQL keywords.
+      local db_query
+      db_query=$(grep -oEi \
+"\.findOne[[:space:]]*\(|\
+\.findAll[[:space:]]*\(|\
+\.findMany[[:space:]]*\(|\
+\.find[[:space:]]*\(|\
+\.findBy[a-zA-Z]*[[:space:]]*\(|\
+\.find_by[[:space:]]*\(|\
+\.create[[:space:]]*\(|\
+\.update[[:space:]]*\(|\
+\.delete[[:space:]]*\(|\
+\.save[[:space:]]*\(|\
+\.insert[[:space:]]*\(|\
+\.select[[:space:]]*\(|\
+\.where[[:space:]]*\(|\
+\.join[[:space:]]*\(|\
+::where[[:space:]]*\(|\
+::find[[:space:]]*\(|\
+::create[[:space:]]*\(|\
+\bobjects\.(filter|get|create|all|exclude)[[:space:]]*\(|\
+\bdb\.session\.query[[:space:]]*\(|\
+\bRepo\.(get|all|insert|update|delete|one)\b|\
+\bSELECT\b|\bINSERT[[:space:]]+INTO\b|\bUPDATE\b|\bDELETE[[:space:]]+FROM\b" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      db_query=${db_query:-0}
+
+      # event_emit — pub/sub surface across stacks.
+      local event_emit
+      event_emit=$(grep -oE \
+"\.emit[[:space:]]*\(|\
+\.publish[[:space:]]*\(|\
+\.broadcast[[:space:]]*\(|\
+\bdispatch[[:space:]]*\(|\
+@OnEvent[[:space:]]*\(|\
+@EventListener[[:space:]]*\(|\
+\bsignals\.[a-zA-Z_][a-zA-Z0-9_]*\.send[[:space:]]*\(|\
+applicationEventPublisher\.publishEvent[[:space:]]*\(|\
+Phoenix\.PubSub\.broadcast[[:space:]]*\(|\
+ActiveSupport::Notifications\.publish[[:space:]]*\(" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      event_emit=${event_emit:-0}
+
+      echo "route_handler=$route_handler"
+      echo "dto_class=$dto_class"
+      echo "auth_guard=$auth_guard"
+      echo "validator=$validator"
+      echo "service_method=$service_method"
+      echo "exception_throw=$exception_throw"
+      echo "db_query=$db_query"
+      echo "event_emit=$event_emit"
+      ;;
+    data)
+      # SQL-ish files PLUS migration-tool DSLs (Knex, Prisma, TypeORM, ActiveRecord,
+      # Alembic, Mongoose). table_def, column_def, foreign_key, index_def, constraint, migration_file.
+      local table_def column_def foreign_key index_def constraint migration_file=0
+      # CREATE TABLE (raw SQL) + Knex/TypeORM createTable() + Rails/Alembic add_table/create_table +
+      # Prisma `model X {` + Mongoose `new Schema(`
+      table_def=$(grep -ciE \
+"CREATE[[:space:]]+TABLE\b|\
+\bcreateTable[[:space:]]*\(|\
+\bcreate_table\b|\
+^[[:space:]]*model[[:space:]]+[A-Z][A-Za-z0-9_]*[[:space:]]*\{|\
+\bnew[[:space:]]+Schema[[:space:]]*\(|\
+\bmongoose\.Schema[[:space:]]*\(" \
+"$file" 2>/dev/null | tr -d ' ')
+      table_def=${table_def:-0}
+
+      # column_def — count lines inside CREATE TABLE blocks (rough but workable for raw SQL).
+      column_def=$(awk '
+        BEGIN { depth=0; cols=0 }
+        /CREATE[[:space:]]+TABLE/ { depth=1; next }
+        depth==1 && /\(/ { in_body=1; next }
+        in_body && /\)[[:space:]]*;/ { in_body=0; depth=0; next }
+        in_body && /^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]+/ { cols++ }
+        END { print cols }
+      ' "$file" 2>/dev/null)
+      column_def=${column_def:-0}
+
+      foreign_key=$(grep -ciE "FOREIGN[[:space:]]+KEY\b|REFERENCES\b|\.references[[:space:]]*\(|@relation[[:space:]]*\(" "$file" 2>/dev/null | tr -d ' ')
+      foreign_key=${foreign_key:-0}
+
+      # CREATE INDEX (SQL) + addIndex() (Knex/TypeORM) + add_index (Rails/Alembic) +
+      # @@index (Prisma) + .index() (Mongoose)
+      index_def=$(grep -ciE \
+"CREATE[[:space:]]+(UNIQUE[[:space:]]+)?INDEX\b|\
+ADD[[:space:]]+(UNIQUE[[:space:]]+)?INDEX\b|\
+\baddIndex[[:space:]]*\(|\
+\badd_index\b|\
+@@index[[:space:]]*\(|\
+@@unique[[:space:]]*\(|\
+\.index[[:space:]]*\(" \
+"$file" 2>/dev/null | tr -d ' ')
+      index_def=${index_def:-0}
+
+      constraint=$(grep -ciE "CHECK[[:space:]]*\(|UNIQUE[[:space:]]*\(|NOT[[:space:]]+NULL|@@unique\b|\.notNullable[[:space:]]*\(" "$file" 2>/dev/null | tr -d ' ')
+      constraint=${constraint:-0}
+
+      # Filename-shape heuristic for migrations across tools.
+      # Raw SQL (timestamp-prefixed), Flyway (V*__), Rails/Alembic (.rb / .py), Knex/TypeORM (.ts/.js with -migration / .migration.).
+      case "$(basename "$file")" in
+        [0-9]*_*.sql|*migration*.sql|*migration*.py|*migration*.rb|*-migration.ts|*.migration.ts|*.migration.js|V[0-9]*__*.sql)
+          migration_file=1
+          ;;
+      esac
+
+      echo "table_def=$table_def"
+      echo "column_def=$column_def"
+      echo "foreign_key=$foreign_key"
+      echo "index_def=$index_def"
+      echo "constraint=$constraint"
+      echo "migration_file=$migration_file"
+      ;;
+    mobile)
+      # screen / nav / native-bridge / platform-branch shape across React Native, Flutter,
+      # native iOS (UIKit/SwiftUI), native Android (Activity/Fragment).
+      local screen=0 text_input nav_route native_call platform_branch
+      case "$(basename "$file")" in
+        *Screen.tsx|*Screen.jsx|*_screen.dart|*ViewController.swift|*View.swift|*Activity.kt|*Activity.java|*Fragment.kt|*Fragment.java) screen=1 ;;
+      esac
+
+      # text_input — RN <TextInput>, Flutter TextField()/TextFormField(), iOS UITextField/SwiftUI TextField, Android EditText
+      text_input=$(grep -oE \
+'<TextInput\b|<TextField\b|TextField[[:space:]]*\(|TextFormField[[:space:]]*\(|UITextField\b|EditText\b|<EditText\b' \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      text_input=${text_input:-0}
+
+      # nav_route — RN Stack.Screen, Flutter MaterialPageRoute/GoRoute, iOS push/segue, Android Intent/NavController.navigate
+      nav_route=$(grep -oE \
+'Stack\.Screen\b|MaterialPageRoute\b|GoRoute\b|pushViewController\b|performSegue\b|NavigationLink\b|navController\.navigate\b|startActivity\b' \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      nav_route=${nav_route:-0}
+
+      # native_call — RN NativeModules, Flutter MethodChannel, iOS Bridging-Header symbols, Android JNI native funcs
+      native_call=$(grep -oE \
+'NativeModules\.[A-Za-z_][A-Za-z0-9_]*|MethodChannel\b|EventChannel\b|@_objc\b|external[[:space:]]+fun\b' \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      native_call=${native_call:-0}
+
+      # platform_branch — RN Platform.OS, Flutter Platform.isIOS/isAndroid, native if-defs
+      platform_branch=$(grep -oE \
+"Platform\.OS[[:space:]]*===[[:space:]]*['\"]ios|Platform\.OS[[:space:]]*===[[:space:]]*['\"]android|Platform\.isIOS\b|Platform\.isAndroid\b|#if[[:space:]]+os\(iOS\)|#if[[:space:]]+os\(macOS\)" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      platform_branch=${platform_branch:-0}
+
+      # findViewById / setOnClickListener — Android-specific click surface (extra signal for Android files)
+      local android_click
+      android_click=$(grep -oE 'findViewById[[:space:]]*[<\(]|setOnClickListener[[:space:]]*\(|@IBAction\b' "$file" 2>/dev/null | wc -l | tr -d ' ')
+      android_click=${android_click:-0}
+      native_call=$(( native_call + android_click ))
+
+      echo "screen=$screen"
+      echo "text_input=$text_input"
+      echo "nav_route=$nav_route"
+      echo "native_call=$native_call"
+      echo "platform_branch=$platform_branch"
+      ;;
+  esac
+}
+
+# Map a primitive class to its expected audit axis section name. Used by
+# check_inventory_primitives_match to find evidence of the gap being enumerated.
+# Stdout: regex-friendly axis-section title, or empty when no mapping.
+primitive_to_axis() {
+  case "$1" in
+    v_model|input_html)        echo "Form fields" ;;
+    dropdown)                  echo "Form fields|UI affordances" ;;
+    button)                    echo "UI affordances" ;;
+    click_handler)             echo "Event handlers" ;;
+    permission_gate)           echo "Per-button permission gates" ;;
+    tabs)                      echo "Section 0|Navigation Inventory|UI affordances" ;;
+    conditional_render)        echo "Reactive lifecycle|UI affordances" ;;
+    route_def)                 echo "Section 0|Navigation Inventory" ;;
+    route_handler|dto_class)   echo "Inputs|Outputs" ;;
+    auth_guard|permission_gate) echo "Auth + permissions" ;;
+    validator)                 echo "Inputs" ;;
+    db_query)                  echo "Side effects" ;;
+    exception_throw)           echo "Error contract" ;;
+    event_emit)                echo "Side effects" ;;
+    table_def|column_def|foreign_key|index_def|constraint) echo "Schema|Outputs" ;;
+    *)                         echo "" ;;
+  esac
+}
+
+check_inventory_primitives_match() {
+  # Stack-aware primitive count comparator. For each meaningful primitive
+  # extracted on each side, halt when V2 has < 70% of V1's count AND the
+  # audit body doesn't enumerate the gap in the relevant axis section.
+  #
+  # This supersedes LOC-ratio as the primary auto-promote signal: counting
+  # what matters per stack (form fields, buttons, handlers, permission gates,
+  # routes, DTOs, schema columns) beats counting raw lines, which can be
+  # inflated by verbose markup or comments.
+  #
+  # Bypass: audit_scope: backend-only frontmatter behaves consistently with
+  # check_section_0_evidence — but for backend-* PROJECT_KIND, primitives
+  # are computed against backend regexes regardless.
+  local feature="$1"; local id="${2:-}"; local tier="${3:-trivial}"
+  local file
+  file=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
+  [[ -z "$file" ]] && return 0  # check_audit will have already failed
+
+  # Extract V1 + V2 leaf paths from header block (mirroring check_per_axis_enumeration)
+  local header_block all_v1_files all_v2_files
+  header_block=$(awk 'NR<=25; NR>25 { exit }' "$file" 2>/dev/null)
+  all_v1_files=$(echo "$header_block" | awk '
+    /^>?[[:space:]]*[Vv]1 path:/ { capture=1 }
+    capture && /^>?[[:space:]]*[Vv]2 path:/ { capture=0 }
+    capture { print }
+  ' | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js)' | sort -u)
+  all_v2_files=$(echo "$header_block" | awk '
+    /^>?[[:space:]]*[Vv]2 path:/ { capture=1 }
+    capture && /^>?[[:space:]]*(ADR|v1_commit|Tier|Verdict|##)/ { capture=0 }
+    capture { print }
+  ' | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js)' | sort -u)
+
+  # Resolve representative files. Pick the largest candidate by LOC on each
+  # side (inline-ports often cite a tab-shell + the actual leaf; the leaf is
+  # the larger one). Reuse the helper from check_per_axis_enumeration's
+  # closure pattern, but redefined locally for self-containment.
+  pick_largest_file_for_primitives() {
+    local candidates="$1" root_hint="$2"
+    local best="" best_loc=0
+    local cand full_path loc
+    while IFS= read -r cand; do
+      [[ -z "$cand" ]] && continue
+      full_path=""
+      if [[ -f "$cand" ]]; then
+        full_path="$cand"
+      elif [[ -n "$root_hint" && -f "${root_hint}/${cand}" ]]; then
+        full_path="${root_hint}/${cand}"
+      else
+        local bn="${cand##*/}"
+        if [[ "$root_hint" == "$V1_ROOT" ]]; then
+          build_v1_basename_index
+          full_path=$(v1_basename_lookup "$bn" 2>/dev/null || echo "")
+        else
+          build_v2_basename_index
+          full_path=$(v2_basename_lookup "$bn" 2>/dev/null || echo "")
+        fi
+      fi
+      [[ -z "$full_path" || ! -f "$full_path" ]] && continue
+      loc=$(wc -l < "$full_path" 2>/dev/null | tr -d ' ' || echo 0)
+      [[ "$loc" =~ ^[0-9]+$ ]] || loc=0
+      if [[ $loc -gt $best_loc ]]; then
+        best_loc=$loc
+        best="$full_path"
+      fi
+    done <<< "$candidates"
+    echo "$best"
+  }
+
+  local v1_full v2_full
+  v1_full=$(pick_largest_file_for_primitives "$all_v1_files" "$V1_ROOT")
+  v2_full=$(pick_largest_file_for_primitives "$all_v2_files" "$V2_ROOT")
+
+  # If neither side resolved to a real file, this isn't a leaf-level audit — skip
+  if [[ -z "$v1_full" && -z "$v2_full" ]]; then
+    return 0
+  fi
+
+  # Determine effective project kind (default frontend-vue3 with warning if anchors
+  # didn't load PROJECT_KIND). Note: PROJECT_KIND is a global already populated by
+  # load_project_anchors with a non-empty default at script start.
+  local pk="${PROJECT_KIND:-frontend-vue3}"
+  if [[ -z "$PROJECT_KIND" ]]; then
+    log_warn "primitive-match: PROJECT_KIND not set; defaulting to frontend-vue3 for $feature"
+  fi
+
+  # Read overall verdict from frontmatter (`> Verdict: ...`)
+  local verdict is_parity=0
+  verdict=$(awk '/^>?[[:space:]]*[Vv]erdict:/ {sub(/^>?[[:space:]]*[Vv]erdict:[[:space:]]*/, ""); print; exit}' "$file" 2>/dev/null | head -1)
+  if echo "$verdict" | grep -qiE '^PARITY\b|^parity-?clean\b|\bPASS\b'; then
+    is_parity=1
+  fi
+
+  # Extract primitives from each side
+  local v1_prims v2_prims
+  v1_prims=$(extract_inventory_primitives "$v1_full" "$pk")
+  v2_prims=$(extract_inventory_primitives "$v2_full" "$pk")
+
+  # Walk every primitive present on the V1 side. For each, compute V2's count
+  # and compare. Drift fires when V1 > 0 AND V2 / V1 < 0.7 (V2 missing > 30%).
+  local violations=0
+  local primitive v1_count v2_count drift gap_axis citations_in_axis
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    primitive="${line%%=*}"
+    v1_count="${line#*=}"
+    [[ "$v1_count" =~ ^[0-9]+$ ]] || continue
+    [[ $v1_count -eq 0 ]] && continue   # nothing to compare on this primitive
+
+    v2_count=$(echo "$v2_prims" | awk -F= -v k="$primitive" '$1 == k { print $2; exit }')
+    [[ -z "$v2_count" ]] && v2_count=0
+    [[ "$v2_count" =~ ^[0-9]+$ ]] || v2_count=0
+
+    # Threshold: V2 must have ≥ 70% of V1's count (i.e. V2 * 100 >= V1 * 70)
+    if [[ $(( v2_count * 100 )) -ge $(( v1_count * 70 )) ]]; then
+      continue
+    fi
+
+    drift=$(( v1_count - v2_count ))
+    gap_axis=$(primitive_to_axis "$primitive")
+
+    # Trivial-tier softening: only halt when drift is large (> 5) AND verdict is PARITY.
+    # Standard / heavy: any drift counts.
+    if [[ "$tier" == "trivial" ]]; then
+      if [[ $drift -le 5 || $is_parity -eq 0 ]]; then
+        log_warn "primitive-match: '$primitive' V1=$v1_count V2=$v2_count (gap=$drift) on trivial-tier row $feature — below halt threshold (gap≤5 OR non-PARITY verdict)."
+        continue
+      fi
+    fi
+
+    # Count enumeration evidence inside the relevant axis section. The axis
+    # body is the slice between "### N. <axis>" and the next "### " heading
+    # (or "## " section break). path:line citations inside that slice are
+    # the per-row enumeration the discipline rule mandates.
+    citations_in_axis=0
+    if [[ -n "$gap_axis" ]]; then
+      # gap_axis may contain "|" alternations ("Form fields|UI affordances").
+      # For each candidate axis, grab body + count citations; sum.
+      local axis_alt total=0
+      IFS='|' read -r -a axis_alts <<< "$gap_axis"
+      for axis_alt in "${axis_alts[@]}"; do
+        # Allow either "### N. <axis>" or "## <axis>" headings
+        local body c
+        body=$(awk -v pat="^#{2,4}[[:space:]]+([0-9]+\\.[[:space:]]+)?${axis_alt}\\b" '
+          $0 ~ pat { capture=1; next }
+          capture && /^#{2,4}[[:space:]]/ { exit }
+          capture { print }
+        ' "$file" 2>/dev/null)
+        c=$(echo "$body" | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js):[0-9]+' | wc -l | tr -d ' ')
+        c=${c:-0}
+        total=$(( total + c ))
+      done
+      citations_in_axis=$total
+    fi
+
+    # If verdict is PARITY but a primitive class shows V2 < 70% of V1 → halt
+    # regardless of axis enumeration. PARITY contradicts an unaccounted gap.
+    if [[ $is_parity -eq 1 ]]; then
+      log_fail "primitive-match: '$primitive' has V1=$v1_count V2=$v2_count (gap=$drift) on PARITY verdict in $file. Verdict contradicted by primitive inventory; either re-classify as DRIFT or explain the drop in '$gap_axis' axis (e.g. V1 had dead code, fields are legacy, etc.) with v1+v2 path:line citations. Citations in axis: $citations_in_axis < drift: $drift."
+      violations=$((violations + 1))
+      continue
+    fi
+
+    # Verdict is DRIFT (or other). Audit must enumerate every missing primitive
+    # in the relevant axis: citations_in_axis MUST be ≥ drift for standard/heavy.
+    if [[ "$tier" == "standard" || "$tier" == "heavy" ]]; then
+      if [[ $citations_in_axis -lt $drift ]]; then
+        log_fail "primitive-match: '$primitive' V1=$v1_count V2=$v2_count (gap=$drift) but axis '$gap_axis' enumerates only $citations_in_axis path:line citations in $file. Audit MUST enumerate every missing primitive (one citation per gap) per migration-discipline.md § Per-axis enumeration."
+        violations=$((violations + 1))
+      fi
+    fi
+  done <<< "$v1_prims"
+
+  if [[ $violations -gt 0 ]]; then
+    return 1
+  fi
+
+  # Pass message — summarise the primitive comparison so reviewers see what was checked
+  local v1_summary v2_summary
+  v1_summary=$(echo "$v1_prims" | tr '\n' ' ')
+  v2_summary=$(echo "$v2_prims" | tr '\n' ' ')
+  log_pass "primitive-match: $feature (project_kind=$pk; V1: $v1_summary; V2: $v2_summary)"
   return 0
 }
 
@@ -2008,6 +2618,7 @@ validate_feature() {
   check_audit_freshness "$feature" "$id" || true
   check_audit_body_consistency "$feature" "$id" || true
   check_per_axis_enumeration "$feature" "$id" "$tier" || true
+  check_inventory_primitives_match "$feature" "$id" "$tier" || true
   check_adr_signoff_completed "$feature" "$id" || true
   check_intentional_break_adr "$feature" "$id" || true
   check_v1_path_drift_acknowledged "$feature" "$id" || true
