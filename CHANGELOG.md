@@ -6,6 +6,15 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Final review fixes
+
+**Changed**
+- **`scripts/lint-tool-parity.sh`** — Phase 4.8.0 contract scan reads **`commands/setup-project-adapters.md`** (M2 split); **`parity_label_for`** adds **Kimi** / **Qwen**.
+- **`commands/setup-project-adapters.md`** — Phase 4.8.0 table rows for **kimi** and **qwen** (native paths per `_registry.md` + adapters).
+- **`templates/repo-baseline/ai/references/tool-parity.md`** — **Kimi Code** and **Qwen Code** columns (capabilities aligned with registry; Hooks row lifecycle parity **❌** for both).
+- **`README.md`**, **`docs/setup-project-cheatsheet.md`** — track count **17 → 18**; **`align`** in the catalog list.
+- **`~/.claude/` sync** — `scripts/sync-to-global.sh --apply` for missing symlinks (`templates/snippets`, `audit-command-dry.sh`, `audit-stack-leakage.sh`, `migration-reachability.sh`).
+
 ### Command DRY + SOLID single-source-of-truth
 
 **Changed / Added**

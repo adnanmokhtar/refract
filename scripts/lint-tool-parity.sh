@@ -65,7 +65,9 @@ parity_label_for() {
     copilot)      echo "Copilot" ;;
     cursor)       echo "Cursor" ;;
     gemini)       echo "Gemini" ;;
+    kimi)         echo "Kimi" ;;
     opencode)     echo "OpenCode" ;;
+    qwen)         echo "Qwen" ;;
     windsurf)     echo "Windsurf" ;;
     *)            echo "" ;;
   esac
@@ -88,10 +90,11 @@ if [ -n "$DOCUMENTED_COUNT" ] && [ "$DOCUMENTED_COUNT" != "$ADAPTER_COUNT" ]; th
 fi
 
 # 6. Phase 4.8.0 contract presence (sanity).
-SETUP_CMD="$ROOT/commands/setup-project.md"
+# Table lives in setup-project-adapters.md (M2 split — see commands/setup-project-adapters.md § Phase B).
+SETUP_CMD="$ROOT/commands/setup-project-adapters.md"
 for a in "${ADAPTERS[@]}"; do
   if ! grep -q "^| \`$a\`" "$SETUP_CMD"; then
-    fail "setup-project.md Phase 4.8.0: no contract row for \`$a\`"
+    fail "setup-project-adapters.md Phase 4.8.0: no contract row for \`$a\`"
   fi
 done
 
@@ -114,11 +117,9 @@ declare -a NATIVE_PATHS=(
 for entry in "${NATIVE_PATHS[@]}"; do
   adapter="${entry%%:*}"
   path="${entry#*:}"
-  # Scan ALL `| \`<adapter>\` |` rows in setup-project.md (the file has several tables that
-  # share the same key column). The native path must appear in at least ONE of those rows
-  # — that row is the Phase 4.8.0 contract row.
+  # Scan ALL `| \`<adapter>\` |` rows in setup-project-adapters.md (several tables share the key column).
   if ! grep "^| \`$adapter\` |" "$SETUP_CMD" | grep -qF "$path"; then
-    fail "setup-project.md Phase 4.8.0 contract for \`$adapter\` is missing native path \`$path\` — drift back to legacy shape?"
+    fail "setup-project-adapters.md Phase 4.8.0 contract for \`$adapter\` is missing native path \`$path\` — drift back to legacy shape?"
   fi
 done
 

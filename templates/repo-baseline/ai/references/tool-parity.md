@@ -12,17 +12,17 @@ Key question this answers: when I run the project in Cursor (or OpenCode, or Cli
 
 ## Parity matrix
 
-| Capability | Claude Code | OpenCode | Cursor | Aider | Continue.dev | Cline/Roo | Windsurf | Copilot | Codex | Gemini CLI |
-|---|---|---|---|---|---|---|---|---|---|---|
-| **Rules** (project instructions) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Path-scoped rules (globs) | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | ~ (nested) | ❌ |
-| **Commands** (user-invoked `/<name>`) | ✅ | ✅ (`.opencode/commands/`) | ✅ (`.cursor/commands/` ≥ 2.3) | ❌ | ✅ (`.continue/prompts/` `invokable:true`) | ✅ (`.clinerules/workflows/`) | ✅ (`.windsurf/workflows/`) | ✅ (`.github/prompts/`) | ❌ | ❌ |
-| **Agents** (specialized personas) | ✅ (auto-dispatch) | ✅ (`.opencode/agents/`) | ~ (as commands) | ❌ | ~ (as prompts) | ❌ (index file) | ~ (trigger_words rules) | ✅ (`.github/agents/`) | ❌ | ❌ |
-| Agent auto-routing (no manual invoke) | ✅ | ~ (intent-match) | ❌ | ❌ | ❌ | ❌ | ~ (trigger_words) | ~ (skill-match) | ❌ | ❌ |
-| **Skills** (scripted procedures) | ✅ | ✅ (`.opencode/skills/<name>/`) | ✅ (`.cursor/skills/<name>/` ≥ 2.3) | ❌ | ~ (as prompts) | ❌ (index file) | ❌ (index file) | ✅ (`.github/skills/<name>/`) | ❌ | ❌ |
-| **Hooks** (lifecycle shell scripts) | ✅ | ❌ | ✅ (`.cursor/hooks.json` ≥ 2.3) | ~ (lint-cmd, test-cmd) | ❌ | ❌ | ❌ | ~ (instructions advise) | ❌ | ❌ |
-| **Knowledge base** (`ai/` reference) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Model routing** (non-default provider) | ✅ (via `ANTHROPIC_BASE_URL`) | ✅ (`opencode.json`) | ✅ (UI BYOK) | ✅ (LiteLLM) | ✅ (`models:`) | ✅ (UI) | ~ (hosted only) | ~ (hosted only) | ~ (via proxy) | ✅ (flags) |
+| Capability | Claude Code | OpenCode | Cursor | Aider | Continue.dev | Cline/Roo | Windsurf | Copilot | Codex | Gemini CLI | Kimi Code | Qwen Code |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Rules** (project instructions) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Path-scoped rules (globs) | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | ~ (nested) | ❌ | ❌ | ❌ |
+| **Commands** (user-invoked `/<name>`) | ✅ | ✅ (`.opencode/commands/`) | ✅ (`.cursor/commands/` ≥ 2.3) | ❌ | ✅ (`.continue/prompts/` `invokable:true`) | ✅ (`.clinerules/workflows/`) | ✅ (`.windsurf/workflows/`) | ✅ (`.github/prompts/`) | ❌ | ❌ | ❌ | ✅ (`.qwen/commands/`) |
+| **Agents** (specialized personas) | ✅ (auto-dispatch) | ✅ (`.opencode/agents/`) | ~ (as commands) | ❌ | ~ (as prompts) | ❌ (index file) | ~ (trigger_words rules) | ✅ (`.github/agents/`) | ❌ | ❌ | ~ (`.kimi/subagents/*.yaml`) | ✅ (`.qwen/agents/`) |
+| Agent auto-routing (no manual invoke) | ✅ | ~ (intent-match) | ❌ | ❌ | ❌ | ❌ | ~ (trigger_words) | ~ (skill-match) | ❌ | ❌ | ❌ | ❌ |
+| **Skills** (scripted procedures) | ✅ | ✅ (`.opencode/skills/<name>/`) | ✅ (`.cursor/skills/<name>/` ≥ 2.3) | ❌ | ~ (as prompts) | ❌ (index file) | ❌ (index file) | ✅ (`.github/skills/<name>/`) | ❌ | ❌ | ✅ (`.kimi/skills/<name>/`) | ✅ (`.qwen/skills/<name>/`) |
+| **Hooks** (lifecycle shell scripts) | ✅ | ❌ | ✅ (`.cursor/hooks.json` ≥ 2.3) | ~ (lint-cmd, test-cmd) | ❌ | ❌ | ❌ | ~ (instructions advise) | ❌ | ❌ | ❌ | ❌ |
+| **Knowledge base** (`ai/` reference) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Model routing** (non-default provider) | ✅ (via `ANTHROPIC_BASE_URL`) | ✅ (`opencode.json`) | ✅ (UI BYOK) | ✅ (LiteLLM) | ✅ (`models:`) | ✅ (UI) | ~ (hosted only) | ~ (hosted only) | ~ (via proxy) | ✅ (flags) | ✅ | ✅ |
 
 **As of Apr 2026**, the matrix above promotes Commands / Skills / Hooks for Cursor (2.3+), OpenCode, Copilot (Agent Skills GA), Cline (workflows), Windsurf (workflows), and Continue (prompts) from `~ translated` to `✅ native`. Older versions of those tools may not have these primitives — `setup-project --refresh --tools=<name>` re-emits in the current native shape; keep legacy artifacts as harmless fallbacks until the user runs `--refresh`.
 

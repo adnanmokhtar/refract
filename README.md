@@ -84,7 +84,7 @@ The 18 packs: align, backend, business, code-quality, database, devops, distribu
 
 ### Why role-based packs, not frameworks
 
-Work is organized by **role** — **17 tracks** under `templates/packs/`: backend, frontend, database, testing, security, devops, performance, UI/UX, business, documentation, code-quality, learning, observability, infrastructure, distributed-systems, mobile, migration. Framework specifics (NestJS vs Django vs Laravel) live as `references/<framework>.md` inside each track.
+Work is organized by **role** — **18 tracks** under `templates/packs/`: align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Framework specifics (NestJS vs Django vs Laravel) live as `references/<framework>.md` inside each track.
 
 So one `api-architect` agent works for every backend. One `schema-architect` works for Postgres, MySQL, Mongo. Add a new framework → drop a reference file → same agents adapt.
 
@@ -370,7 +370,7 @@ Machine state (gitignored): `projects/`, `todos/`, `tasks/`, `sessions/`, `shell
 ```bash
 git init
 git add .
-git commit -m "initial claude config — /setup-project + 17 tracks + workspace template"
+git commit -m "initial claude config — /setup-project + 18 tracks + workspace template"
 git branch -M main
 git remote add origin git@github.com:YOUR_USERNAME/claude-config.git
 git push -u origin main
