@@ -199,7 +199,7 @@ resolve_artifact_path() {
   fi
   # Sub-feature fallback: if the row has `parent: FNNN` in its ledger block,
   # try resolving the parent's audit/contract/plan. Many sub-features (e.g.
-  # `F015a-<sub-area-slug>`) are audited under the parent (F015) rather
+  # `FNNN<letter>-<sub-area-slug>`) are audited under the parent (FNNN) rather
   # than having their own file.
   if [[ -n "$id" ]]; then
     local parent
@@ -1139,7 +1139,82 @@ extract_inventory_primitives() {
       conditional_render=$(grep -oE '\bv-if=|\bv-show=|\bv-else-if=|\{#if[[:space:]]|\{:else[[:space:]]+if[[:space:]]|\*ngIf=|\{[^}]*&&[[:space:]]*<|\{[^}]*\?[[:space:]]*<' "$file" 2>/dev/null | wc -l | tr -d ' ')
       conditional_render=${conditional_render:-0}
 
+      # form_state_field — fields declared in `type FormValues = { ... }` or
+      # `interface FormValues { ... }`. The canonical V2 idiom for typed
+      # form-state ports (vee-validate / react-hook-form / formik / generic
+      # `useForm<FormValues>(...)` shapes). V1-style files using direct
+      # `v-model="formData.<name>"` continue to register under v_model;
+      # V2-style files using <FormField> wrappers + a typed FormValues record
+      # would otherwise count zero. Brace-tracking awk handles nested types.
+      local form_state_field
+      form_state_field=$(awk '
+        /^(type|interface)[ \t]+FormValues[ \t]*[={]/ { in_block=1; brace=0 }
+        in_block {
+          n = gsub(/\{/, "&"); m = gsub(/\}/, "&"); brace += n - m
+          print
+          if (brace <= 0 && /\}/ && NR > 1) { in_block=0 }
+        }
+      ' "$file" 2>/dev/null | grep -cE '^[[:space:]]+[a-zA-Z_][a-zA-Z_0-9]*\??[[:space:]]*:' | tr -d ' ')
+      form_state_field=${form_state_field:-0}
+
+      # form_state_field_children — depth-1 aggregation. A page that delegates
+      # its form to a child component (`<v2-feature-form>`, `<x-form-dialog>`,
+      # `<modal-form>`, drawer variants, etc.) registers 0 form fields itself
+      # while the child file holds them all. Resolve relative imports +
+      # alias-prefixed imports (`@/` mapped to V2_ROOT) and recurse one level.
+      local form_state_field_children=0
+      local file_dir child_imports child_path child_rel child_v_model child_form_state
+      file_dir=$(dirname "$file")
+      child_imports=$(grep -oE "import[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(Form|Dialog|Modal|Drawer)[[:space:]]+from[[:space:]]+['\"][^'\"]+['\"]" "$file" 2>/dev/null \
+        | grep -oE "['\"][^'\"]+['\"]" | tr -d "'\"" | sort -u)
+      while IFS= read -r child_rel; do
+        [[ -z "$child_rel" ]] && continue
+        child_path=""
+        case "$child_rel" in
+          ./*|../*) child_path="${file_dir}/${child_rel}" ;;
+          @/*)      child_path="${V2_ROOT%/}/${child_rel#@/}" ;;
+          /*)       child_path="$child_rel" ;;
+          *)        continue ;;  # bare-module imports skipped (node_modules)
+        esac
+        # Try the literal path; if missing, try common Vue/TS/JSX extensions.
+        if [[ ! -f "$child_path" ]]; then
+          for ext in .vue .tsx .ts .jsx .js; do
+            [[ -f "${child_path}${ext}" ]] && { child_path="${child_path}${ext}"; break; }
+            [[ -f "${child_path%.*}${ext}" ]] && { child_path="${child_path%.*}${ext}"; break; }
+          done
+        fi
+        [[ ! -f "$child_path" ]] && continue
+        # Re-extract v_model + form_state from the child (single-level only).
+        child_v_model=$(grep -oE 'v-model(:[a-zA-Z-]+)?="[^"]+"' "$child_path" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+        child_v_model=${child_v_model:-0}
+        child_form_state=$(awk '
+          /^(type|interface)[ \t]+FormValues[ \t]*[={]/ { in_block=1; brace=0 }
+          in_block {
+            n = gsub(/\{/, "&"); m = gsub(/\}/, "&"); brace += n - m
+            print
+            if (brace <= 0 && /\}/ && NR > 1) { in_block=0 }
+          }
+        ' "$child_path" 2>/dev/null | grep -cE '^[[:space:]]+[a-zA-Z_][a-zA-Z_0-9]*\??[[:space:]]*:' | tr -d ' ')
+        child_form_state=${child_form_state:-0}
+        # Use whichever form-state idiom dominates in the child.
+        if [[ $child_form_state -gt $child_v_model ]]; then
+          form_state_field_children=$(( form_state_field_children + child_form_state ))
+        else
+          form_state_field_children=$(( form_state_field_children + child_v_model ))
+        fi
+      done <<< "$child_imports"
+
+      # form_total — the comparator the match check should consume for the
+      # form-field axis. max(v_model, form_state_field) picks whichever idiom
+      # the file actually uses; child counts are additive on top.
+      local form_total=$v_model
+      [[ $form_state_field -gt $form_total ]] && form_total=$form_state_field
+      form_total=$(( form_total + form_state_field_children ))
+
       echo "v_model=$v_model"
+      echo "form_state_field=$form_state_field"
+      echo "form_state_field_children=$form_state_field_children"
+      echo "form_total=$form_total"
       echo "dropdown=$dropdown"
       echo "button=$button"
       echo "click_handler=$click_handler"
@@ -1435,7 +1510,7 @@ ADD[[:space:]]+(UNIQUE[[:space:]]+)?INDEX\b|\
 # Stdout: regex-friendly axis-section title, or empty when no mapping.
 primitive_to_axis() {
   case "$1" in
-    v_model|input_html)        echo "Form fields" ;;
+    v_model|input_html|form_state_field|form_state_field_children|form_total) echo "Form fields" ;;
     dropdown)                  echo "Form fields|UI affordances" ;;
     button)                    echo "UI affordances" ;;
     click_handler)             echo "Event handlers" ;;
@@ -1561,6 +1636,13 @@ check_inventory_primitives_match() {
     v1_count="${line#*=}"
     [[ "$v1_count" =~ ^[0-9]+$ ]] || continue
     [[ $v1_count -eq 0 ]] && continue   # nothing to compare on this primitive
+
+    # Form-field axis: form_total is the canonical comparator (it folds
+    # v_model + form_state_field + child-component aggregation). Skip the
+    # constituent primitives so a single form-field gap fires once, not 3×.
+    case "$primitive" in
+      v_model|form_state_field|form_state_field_children) continue ;;
+    esac
 
     v2_count=$(echo "$v2_prims" | awk -F= -v k="$primitive" '$1 == k { print $2; exit }')
     [[ -z "$v2_count" ]] && v2_count=0
