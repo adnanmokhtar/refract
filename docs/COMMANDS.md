@@ -15,6 +15,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
   - [`/migrate`](#migrate)
   - [`/align`](#align)
   - [`/optimize`](#optimize)
+  - [`/refactor`](#refactor)
   - [`/polish`](#polish)
 - Meta
   - [`/do`](#do)
@@ -38,6 +39,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/migrate [<scope>]`          | One-command V1→V2 port. Deep multi-agent. Brief output.                | No (writes) |
 | `/align [<scope>]`            | One-command convention drift sweep.                                    | No (writes) |
 | `/optimize [<scope>]`         | One-command architectural diagnosis + tactical sweep.                  | No (writes) |
+| `/refactor [<scope>]`        | Targeted behaviour-preserving refactor (Fowler verbs only); not whole-project. See [`commands/refactor.md`](../commands/refactor.md). | No (writes) |
 | `/polish [<scope>]`           | One-command UI/UX + API + schema + platform polish.                    | No (writes) |
 | `/do <description>`           | Universal meta-router → dispatches to the right specialized command.   | Routes only |
 | `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
@@ -467,16 +469,21 @@ Properties:
 - **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
 - **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
 
-### The 4 simple commands (start here)
+### The 5 simple commands (start here)
 
-These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path).
+These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted for migrate/align/optimize/polish, or natural-language description / explicit path). **`/refactor`** defaults to git-changed paths when scope is omitted — omit whole-repo refactor here; use `/optimize` instead.
 
 | Command | Purpose |
 |---|---|
 | `/migrate [<scope>]` | Deep V1↔V2 scan + compare + port everything. V1 wins on behaviour; V2 wins on structure. Doesn't leave any live V1 feature behind (skips only dead V1 code). |
 | `/optimize [<scope>]` | Make code high-quality at architectural AND tactical level. Phase 0 diagnoses bigger picture (layer violations, god modules, missing abstractions, wrong-level responsibilities, cross-cutting duplication, cyclic dependencies), applies foundations FIRST. Phase 2 closes remaining tactical findings (clean code, refactoring, SOLID, performance, dead code, dedup). Architectural fixes cascade — fixing the right layer dissolves dozens of tactical findings. Stack-agnostic. |
+| `/refactor [<scope>]` | Targeted behaviour-preserving refactor only — closed vocabulary from `refactoring-sweep` (extract-method, rename, flatten-conditional, …). No architectural moves, no perf, no dead-code sweeps. Ledger at `ai/refactor/ledger.md`; validator `scripts/validate-refactor-artifacts.sh`. |
 | `/align [<scope>]` | Detect where code doesn't follow the project's structure (layering, naming, idioms, conventions, design tokens, a11y, i18n) + fix. |
 | `/polish [<scope>]` | Stack-conditional polish. Frontend-* → visual hierarchy, spacing rhythm, design tokens, missing empty/loading/error states, CTA consistency, motion, focus, type scale, icon vocabulary. Backend-* → API consistency (envelope drift, error contract, pagination, idempotency, log/metric/trace uniformity, OpenAPI gaps). Data-* → schema consistency (column naming, types, indexes, audit fields, migration patterns). Mobile-* → frontend polish + iOS HIG / Material conformance. Distinct from `/enhance-ui` (single-area iteration loop) and `/ui-sweep` (frontend specialist with HTML report). |
+
+## `/optimize`
+
+Full contract: [`commands/optimize.md`](../commands/optimize.md).
 
 Each runs in one shot. End-of-run shows: findings closed, commits made, diff stats, test status. Internal discipline is preserved (V1-parity, no fabrication, gap-count parity, idiom citation) but invisible.
 
@@ -486,13 +493,15 @@ Examples:
 /migrate the orders module
 /optimize                             # whole project quality
 /optimize the dashboard, focus on perf
+/refactor src/orders/service.ts       # targeted behaviour-preserving refactor
+/refactor                             # git-changed paths only (default scope)
 /align                                # whole project convention drift
 /align the sidebar
 /polish                               # whole project UI/UX polish (frontend only)
 /polish the dashboard
 ```
 
-**Multi-day workflow** — each command writes to its own progress file (`ai/{migrate,optimize,align,polish}/progress.md`). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags:
+**Multi-day workflow** — each command writes to its own progress file (`ai/{migrate,optimize,refactor,align,polish}/progress.md`). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags:
 
 ```
 /<cmd>                                # next pending area (or first run: build inventory)
@@ -511,6 +520,10 @@ Examples:
 ```
 
 `--restart` does NOT revert any commits already made — use `git` for that.
+
+## `/refactor`
+
+Source: [`commands/refactor.md`](../commands/refactor.md). Pack overlays: `templates/packs/{code-quality,backend,frontend,mobile}/commands/refactor.md`. Adapter coverage: [`templates/tool-adapters/_refactor-pack-coverage.md`](../templates/tool-adapters/_refactor-pack-coverage.md).
 
 For phase-by-phase or per-feature control, the detailed pack commands (`/migration-scan`, `/migration-plan`, `/migration-phase`, `/migration-fast`, `/migration-gate`, `/migration-final`, `find-and-fix`, `/align-scan`, `/align-plan`, `/align-phase`, `/align-fast`, `/align-recheck`, etc.) live under `templates/packs/migration/commands/` and `templates/packs/align/commands/`. Documented in [`docs/REFERENCE.md`](REFERENCE.md).
 

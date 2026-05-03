@@ -480,7 +480,7 @@ The 5-step per-finding loop (mirrors `find-and-fix` for migration):
 | Structural (5) | `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared` |
 | Functional (11) | `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename` |
 
-A verb outside this list = NOT alignment. Route to `/refactor` / `/setup-project --refine` / a feature flow.
+A verb outside this list = NOT alignment. Route to [`/refactor`](../commands/refactor.md) / `/setup-project --refine` / a feature flow.
 
 **Functional verbs USE existing idioms.** A `add-gate` uses the project's auth gate from `_extracted-idioms.md`; a `cache-with-explicit-ttl` uses the project's cache primitive. Inventing a NEW gate / cache / validator is forbidden — the validator's `check_added_lines_cite_idioms` halts the gate.
 
@@ -713,6 +713,7 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 | `validate-migration-artifacts.sh` | Per-feature migration artifacts: contract sections, parity tests, audit provenance, V2-structure conformance, gap-count parity, hand-wave detection. |
 | `validate-align-artifacts.sh` | **v1.5.0 — 7 of 14 checks shipped (589 lines)**: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum. Remaining 7 (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) stay agent-side until v2. |
 | `validate-optimize-artifacts.sh` | **`/optimize` gate** — Phase 0 (`ai/optimize/_architecture-decisions.md`): four non-empty evidence blocks, detector `Modules scanned ≥ 1`, each `### F-A-*` cites `<path:line>`, hand-wave grep, `.claude/_extracted-idioms.md` present (`--strict`: oracle referenced). **Ledger** (`ai/optimize/ledger.md`): fenced YAML `id:` rows; terminal rows `gaps_in == gaps_closed`; structural-class net-lines vs `--phase-base..HEAD` (warn if git/base missing); functional-style net-positive rows should cite idioms in `ai/optimize/findings/<id>.md`. Optional scan of `ai/optimize/findings/*.md` for hand-waves. |
+| `validate-refactor-artifacts.sh` | **`/refactor` gate** — **Ledger** (`ai/refactor/ledger.md`): fenced YAML `id:` rows; `closure_verb` must be one of the 10 `refactoring-sweep` verbs; terminal rows `gaps_in == gaps_closed`; class `refactoring` net-lines vs `--phase-base..HEAD` (warn if git/base missing). Optional scan of `ai/refactor/findings/*.md` for hand-waves. `--self-test` smoke test (writes under `tmp/`). See [`templates/tool-adapters/_refactor-pack-coverage.md`](../templates/tool-adapters/_refactor-pack-coverage.md). |
 | `validate-polish-artifacts.sh` | Per-surface artifacts for `/polish`: stack-conditional checks (frontend visual hierarchy / backend API consistency / data schema consistency / mobile platform conventions), no hand-waves, evidence-resolves. |
 | `migration-detect-existing.sh` | Phase 1 of `/port-feature`: detects whether V2 already implements a feature (none / partial / full). |
 | `migration-validate-paths.sh` | Phase 4 of `/port-feature`: validates planned file paths against V2 module shape. |
@@ -725,7 +726,7 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 
 ### Parallel orchestrators (close the gap for non-Claude tools)
 
-The `/migrate`, `/align`, `/optimize`, `/polish`, `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/db-audit`, `/ui-sweep` commands all depend on **parallel sub-agent dispatch** — only Claude Code (and OpenCode) implement the primitive natively. For other headless-capable tools (Kimi / Aider / Codex), these orchestrator scripts fan out N parallel CLI processes, one per ledger row. Same discipline runs in each worker; coordination is via the ledger file with file locks.
+The `/migrate`, `/align`, `/optimize`, `/polish`, `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/db-audit`, `/ui-sweep` commands all depend on **parallel sub-agent dispatch** (`/refactor` is targeted-only — no parallel orchestrator). — only Claude Code (and OpenCode) implement the primitive natively. For other headless-capable tools (Kimi / Aider / Codex), these orchestrator scripts fan out N parallel CLI processes, one per ledger row. Same discipline runs in each worker; coordination is via the ledger file with file locks.
 
 | Script | Mirrors | Reads ledger |
 |---|---|---|

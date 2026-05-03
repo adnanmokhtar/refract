@@ -379,6 +379,19 @@ if [[ -x "$SCRIPTS_DIR/audit-command-dry.sh" ]]; then
   echo ""
 fi
 
+# Refactor artifact validator — smoke test (template pack source scripts/)
+if [[ -x "$SCRIPTS_DIR/validate-refactor-artifacts.sh" ]]; then
+  echo "C2i: validate-refactor-artifacts.sh --self-test"
+  if refactor_self=$("$SCRIPTS_DIR/validate-refactor-artifacts.sh" --self-test 2>&1); then
+    echo "$refactor_self"
+    ok "validate-refactor-artifacts.sh --self-test passed"
+  else
+    echo "$refactor_self" >&2
+    err "validate-refactor-artifacts.sh --self-test failed"
+  fi
+  echo ""
+fi
+
 # Summary
 echo "=== summary ==="
 echo "fail: $fail"

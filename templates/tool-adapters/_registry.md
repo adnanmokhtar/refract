@@ -36,12 +36,12 @@ Legend:
 
 ## Top-level orchestration commands (Claude-Code-only — by design)
 
-The 11 commands at this repo's `commands/` are split into two groups:
+The 12 commands at this repo's `commands/` are split into two groups:
 
 | Group | Commands | Adapter coverage |
 |---|---|---|
 | **Setup family** (translatable) | `/setup-project`, `/setup-project-adapters`, `/setup-project-health`, `/scaffold-project`, `/refine-prompt`, `/learn-from-task` | Each adapter MAY surface these as its own slash command / prompt / instruction file. Optional — these commands also run end-to-end inside Claude Code and produce per-adapter outputs as a side effect. |
-| **Simple-surface multi-agent** (Claude-only as native commands) | `/migrate`, `/align`, `/optimize`, `/polish`, `/do` | **Not translated to other adapters as slash commands.** These commands depend on Claude Code's parallel sub-agent dispatch — no other tool ships an equivalent primitive. Other tools have two equivalent paths: (a) call the underlying pack commands directly (`/migration-fast 1`, `/align-fast 2`, `find-and-fix <id>`) which DO have per-adapter translations via `_<pack>-pack-coverage.md`; OR (b) use the **parallel orchestrator scripts** (see below) that fan out N parallel CLI processes externally — closes the gap without needing the tool to add the primitive. |
+| **Simple-surface multi-agent** (Claude-only as native commands) | `/migrate`, `/align`, `/optimize`, `/refactor`, `/polish`, `/do` | **Not translated to other adapters as slash commands.** These commands depend on Claude Code's parallel sub-agent dispatch — no other tool ships an equivalent primitive. Other tools have two equivalent paths: (a) call the underlying pack commands directly (`/migration-fast 1`, `/align-fast 2`, `find-and-fix <id>`) which DO have per-adapter translations via `_<pack>-pack-coverage.md`; OR (b) use the **parallel orchestrator scripts** (see below) that fan out N parallel CLI processes externally — closes the gap without needing the tool to add the primitive. |
 
 This is a deliberate split, not adapter drift. Any future adapter that gains parallel-agent dispatch becomes a candidate to add the simple-surface group as native slash commands.
 

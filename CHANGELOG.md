@@ -6,6 +6,17 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/refactor` command
+
+**Added**
+- **`commands/refactor.md`** — Simple-surface targeted refactor (behaviour-preserving; `refactoring-sweep` verbs only); progress **`ai/refactor/`**, validator **`scripts/validate-refactor-artifacts.sh`** (`--self-test`).
+- **Pack overlays** — `templates/packs/{code-quality,backend,frontend,mobile}/commands/refactor.md` + **`_examples/refactor.md`** per pack.
+- **`templates/tool-adapters/_refactor-pack-coverage.md`** — adapter expectations; companion-script bullet on all **12** `templates/tool-adapters/*/adapter.md`.
+- **`templates/tool-adapters/_registry.md`** — **12** top-level `commands/` entries; **`/refactor`** listed with simple-surface group.
+- **`commands/do.md`** — routes narrow “refactor / extract / rename … + specific target” to **`/refactor`**; broad quality sweep stays **`/optimize`**.
+- **`scripts/audit-setup.sh`** — **C2i**: `validate-refactor-artifacts.sh --self-test`.
+- **Docs** — `README.md`, `docs/COMMANDS.md`, `docs/REFERENCE.md`.
+
 ### Final review fixes
 
 **Changed**

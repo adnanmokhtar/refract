@@ -168,6 +168,7 @@ Kimi's "Custom Plugins (Beta)" surface (sidebar item) is documented separately. 
 
 - **Migration pack — companion scripts (2026-05):** Hook snippet above runs only `validate-migration-artifacts.sh`; users MUST also install **`migration-doctor.sh`**, **`migration-reachability.sh`**, **`migration-detect-existing.sh`**, **`migrate-parallel.sh`**, **`parallel-fan-out.sh`** into `~/.claude/scripts/` for workspace CI + parallel runs. Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Also install **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** for `/optimize`; see `templates/tool-adapters/_optimize-pack-coverage.md`.
+- **Refactor pack — companion scripts (2026-05):** Also install **`validate-refactor-artifacts.sh`** for `/refactor`; see `templates/tool-adapters/_refactor-pack-coverage.md`.
 - Kimi data-locations doc: `~/.kimi/{config.toml, kimi.json, mcp.json, credentials/, sessions/, plans/, user-history/, logs/kimi.log}`. Override with `KIMI_SHARE_DIR` env.
 - Adapter registry row: `templates/tool-adapters/_registry.md`.
 - Universal `AGENTS.md` writer: `templates/tool-adapters/codex/adapter.md` (Codex owns the file; Kimi consumes + appends Kimi-specific markers).

@@ -240,6 +240,7 @@ Continue has no lifecycle hooks. Fallbacks:
 
 - **Migration pack — companion scripts (2026-05):** Install the **full** `claude-config/scripts/` bundle into `~/.claude/scripts/` for pre-commit / CI (not only `validate-migration-artifacts.sh`). See `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Add **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** for `/optimize`; see `templates/tool-adapters/_optimize-pack-coverage.md`.
+- **Refactor pack — companion scripts (2026-05):** Add **`validate-refactor-artifacts.sh`** for `/refactor`; see `templates/tool-adapters/_refactor-pack-coverage.md`.
 - `claude-code/adapter.md` — rules source.
 - `ai/references/models.md` — Kimi/local routing via Continue's `models:` block.
 - `ai/references/tool-parity.md` — gap disclosure.

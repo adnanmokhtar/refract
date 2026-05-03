@@ -176,6 +176,7 @@ Cline has no lifecycle hooks:
 
 - **Migration pack — companion scripts (2026-05):** IDE-bound — document shell / CI install of the **full** script bundle per `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Document **`validate-optimize-artifacts.sh`** / **`optimize-parallel.sh`** for `/optimize` per `templates/tool-adapters/_optimize-pack-coverage.md`.
+- **Refactor pack — companion scripts (2026-05):** Document **`validate-refactor-artifacts.sh`** for `/refactor` per `templates/tool-adapters/_refactor-pack-coverage.md`.
 - `claude-code/adapter.md` — rules source.
 - `cursor/adapter.md` — similar folder-based structure.
 - `windsurf/adapter.md` — Cline also reads `.windsurfrules`.

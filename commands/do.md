@@ -50,7 +50,9 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "align" / "drift" + single area, narrow scope | `/align-recheck <description>` (align pack) |
 | "port" / "migrate" / "match V1" / "compare V1" + whole-project / multi-feature scope | `/migrate [<scope>]` |
 | "port" + single feature, narrow scope | `/migration-recheck <description>` (migration pack) |
-| "optimize" / "clean up" / "refactor" / "improve quality" + whole-project / multi-area scope | `/optimize [<scope>]` |
+| "refactor" / "extract" / "rename" / "move" / "flatten" + **specific file / module / symbol** (narrow target) | `/refactor <target>` |
+| "optimize" / "clean up" / "improve quality" + whole-project / multi-area scope | `/optimize [<scope>]` |
+| "clean up" + **ambiguous** (could mean tidy diff vs whole codebase) | Ask one question: narrow target → `/refactor`; broad sweep → `/optimize` |
 | "iterate" / "try variants" / "few options" + visual | invoke `design-iterate` skill |
 | "playground" / "test in isolation" + component | invoke `component-playground` skill |
 | "deploy" / "ship to staging" / "release" | `/deploy-stage` |

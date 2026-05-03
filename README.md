@@ -41,11 +41,12 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 | `/migrate [<scope>]`           | One-command V1→V2 port. Deep multi-agent. Brief output.                           |
 | `/align [<scope>]`             | One-command convention drift sweep.                                               |
 | `/optimize [<scope>]`          | One-command architectural diagnosis + tactical sweep.                             |
+| `/refactor [<scope>]`          | Targeted behaviour-preserving refactor (closed vocabulary); ledger `ai/refactor/`. |
 | `/polish [<scope>]`            | One-command UI/UX + API + schema + platform polish.                               |
 | `/do <description>`            | Universal meta-router → dispatches to the right specialized command.              |
 | `/learn-from-task`             | Phase 6 manual entry — promote concrete learnings into `ai/`.                     |
 
-The four simple-surface commands (`/migrate /align /optimize /polish`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level detailed commands (`/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` for power-user control. See `docs/COMMANDS.md` for every flag.
+The five simple-surface commands (`/migrate /align /optimize /refactor /polish`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level detailed commands (`/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` for power-user control. See `docs/COMMANDS.md` for every flag.
 
 ## `/setup-project` — the brain
 

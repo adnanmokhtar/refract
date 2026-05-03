@@ -3,6 +3,9 @@
 .AppleDouble
 .LSOverride
 
+# Validator self-test temp dirs
+tmp/
+
 # Editor
 .vscode/
 .idea/
