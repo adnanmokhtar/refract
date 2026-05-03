@@ -82,77 +82,25 @@ description: Reviews code changes against project conventions + universal qualit
 
 ## Stack-specific addenda
 
-### NestJS / Hexagonal NestJS
-- `core/` imports nothing from `@nestjs/*` / `typeorm`.
-- DI tokens = `Symbol('...')` in `tokens.ts`, not string literals.
-- Controllers thin — delegate to use-case/service.
-- DTOs use `class-validator` on every field.
-- Response shape consistent (`{ status, code, message, data }`).
+Use the rows below that match **your** stack (from `_extracted-idioms.md`). Tokens name several ecosystems together so this file stays stack-agnostic — substitute your project's primitives.
 
-### Django / DRF
-- Views are thin; logic in services.
-- Serializers validate + shape; don't expose model internals.
-- N+1 check: `select_related` / `prefetch_related` on FK / M2M reads.
-- Permissions declared on view, not inline.
+### Backend review cues (NestJS · Django · Laravel · Rails · Go · FastAPI · Spring Boot · ASP.NET Core)
 
-### Laravel
-- Controllers thin; actions / services hold logic.
-- FormRequests for validation — never in controller.
-- Eloquent returns wrapped in JsonResource (no model leak).
-- Eager-load in `with()` — prevent N+1.
+- **Node (NestJS / Express / Fastify)** — `core/` imports nothing from framework packages against project rules; DI tokens stable (not stringly-typed); controllers thin → services/use-cases; DTO validation on boundaries; consistent API envelope if the project uses one.
+- **Python (Django / FastAPI)** — views/controllers thin; serializers / `response_model` validate + shape; N+1 guarded (`select_related` / `prefetch_related` or ORM equivalents); permissions declared at boundary.
+- **PHP (Laravel)** — FormRequests / typed validation; thin controllers; eager-load to avoid N+1; JsonResource-style shaping if that is the project norm.
+- **Ruby (Rails)** — strong params; service extraction when models/controllers grow; authZ via policy objects; `includes` / eager-load discipline.
+- **Go (chi / gin / fiber)** — wrapped errors with `%w`; `context` propagated; small interfaces; no naked `panic` in libraries.
+- **JVM (Spring Boot / Quarkus / Micronaut)** — constructor injection; entities not leaked from controllers; `@Transactional` or framework transaction boundary at service layer; validation on request bodies.
+- **.NET** — `CancellationToken` on async endpoints; no sync-over-async; `ProblemDetails` or project error shape; one validation strategy (FluentValidation vs annotations).
 
-### Rails
-- Fat models, thin controllers — but extract to service objects past ~200 LOC.
-- Strong parameters.
-- Pundit/CanCan for authZ — not inline.
-- `includes` for N+1.
+### Frontend review cues (React · Vue · Angular · Svelte — plus Next / Nuxt)
 
-### Go (chi/gin/fiber)
-- Errors wrapped with context: `fmt.Errorf("...: %w", err)`.
-- Context propagated.
-- Small interfaces at consumer side.
-- No naked panic in library code.
-
-### FastAPI
-- `response_model=` set on every endpoint.
-- Pydantic V2 models (not V1 unless legacy).
-- `Depends(...)` for shared deps.
-- Async endpoints only for async I/O.
-
-### Spring Boot
-- Constructor injection (no field `@Autowired`).
-- No JPA entity returned from controller.
-- `@Transactional` at service, not repo.
-- `@Valid` on request body.
-
-### .NET (ASP.NET Core)
-- `CancellationToken` on every endpoint.
-- No `.Result` / `.Wait()`.
-- `ProblemDetails` for errors.
-- FluentValidation OR DataAnnotations, not both.
-
-### React
-- No `fetch` / `axios` in components (use hooks / services).
-- No untyped props.
-- `useEffect` dependencies correct (no stale closures).
-- Memoization only where profiler shows waste.
-
-### Vue
-- `<script setup lang="ts">` with typed `defineProps` / `defineEmits`.
-- No business logic in templates.
-- Composables named `use*`.
-- No direct DOM manipulation.
-
-### Angular
-- Standalone components (unless legacy NgModule repo).
-- `@if` / `@for` control flow.
-- `ChangeDetectionStrategy.OnPush`.
-- `takeUntilDestroyed()` on subscriptions.
-
-### Nuxt / Next
-- Use SSR-aware fetchers (`useFetch` / `fetch()` in Server Component).
-- No `window` access outside client guards.
-- `useSeoMeta` / `generateMetadata` on indexed pages.
+- **React** — no raw `fetch` in leaf UI if the project mandates hooks/services; props typed; `useEffect` dependency arrays correct; memoization only when justified.
+- **Vue** — `<script setup lang="ts">` with typed `defineProps` / `defineEmits` when the project uses them; logic out of templates; composables `use*`; no ad-hoc DOM surgery.
+- **Angular** — standalone components where adopted; modern control flow (`@if` / `@for`) when enabled; `ChangeDetectionStrategy.OnPush` where appropriate; tear down subscriptions (`takeUntilDestroyed` or equivalent).
+- **Svelte / meta-frameworks** — idiomatic reactivity and SSR boundaries per project; no `window` on server paths.
+- **Next / Nuxt** — SSR-aware data fetching; metadata / SEO helpers on indexed routes; client-only APIs behind guards.
 
 ## Output format
 

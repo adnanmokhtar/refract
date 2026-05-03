@@ -7,9 +7,9 @@ imported-by: commands/setup-project.md (orchestrator) — listed but not always 
 ## Reference implementations
 
 When in doubt, match the shape of mature reference projects with these characteristics:
-- A mature multi-tenant NestJS API (~14 agents, ~19 commands, ~10 ai/ files, idiom-rich) — references for backend track + multi-tenant signal + AI signal.
+- A mature multi-tenant backend API (NestJS / Express / Django-class shapes illustrated in references; ~14 agents, ~19 commands, ~10 ai/ files, idiom-rich) — references for backend track + multi-tenant signal + AI signal.
 - A Nuxt SSR multi-theme storefront — references for frontend track + SSR pattern + multi-theme variant.
-- A Vue 3.5 Composition Pinia portal (~15 agents, ai/core, ai/references) — references for frontend-vue-composition variant + dynamic-tracking extension.
+- A Vue / React Composition-style SPA + `<TBD: store>` (~15 agents, ai/core, ai/references) — references for frontend-vue-composition variant + dynamic-tracking extension.
 - A workspace orchestration root with dispatcher agent + sibling registry (PROJECTS.md) — references for ext:workspace-cascade + cross-repo commands.
 
 Tool adapter specs (one per driver):
@@ -226,7 +226,7 @@ Detection: scan existing agents' `description:` field. If it names a specific fr
 
 Project-idiom rules (naming specific base class paths or custom names) are NEVER overwritten. Apply our generic principles as NEW files with distinct names.
 
-Example: their `base-classes.md` (V1 NestJS specific) stays; ours `backend-principles.md` adds alongside.
+Example: their `base-classes.md` (V1 backend-framework-specific) stays; ours `backend-principles.md` adds alongside.
 
 ### Orchestration commands
 
@@ -344,7 +344,7 @@ Consistency: ✓ / flagged
 
 Traceable so a future maintainer knows WHY each rule exists.
 
-### From mature NestJS V1 reference projects
+### From mature backend V1 reference projects (NestJS · Django · Rails · Laravel · …)
 - Reference-path specificity → injection rule in Appendix C.
 - Specialized > generic for framework agents → matrix in Appendix C.
 - V1-idiom rules preserved → merge rules in Appendix C.

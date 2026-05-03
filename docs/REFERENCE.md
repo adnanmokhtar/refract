@@ -718,6 +718,7 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 | `migration-validate-paths.sh` | Phase 4 of `/port-feature`: validates planned file paths against V2 module shape. |
 | `audit-adapter-coverage.sh` | Per-pack adapter coverage: every pack rule has equivalent translations in Cursor / OpenCode / Aider / etc. |
 | `audit-file-health.sh` | Heuristic risk scan: line count, hand-waves, MUSTs, phase-ladder count, inbound refs. Used to triage which files deserve attention. |
+| `audit-stack-leakage.sh` | **Template pack hygiene** — scans `commands/` + universal/pack `templates/**` for single-stack-only wording; **FAIL** when diversity / `<TBD:...>` contract is violated; **WARN** on isolated tokens in pack-level files. Run from claude-config root; wired into `audit-setup.sh` as C2f. |
 | `sync-to-global.sh` | Symlinks this repo's `commands/`, `templates/packs/migration/`, etc. into `~/.claude/`. |
 | `verify-sync.sh` | Detects drift between this repo and `~/.claude/` symlinks. |
 

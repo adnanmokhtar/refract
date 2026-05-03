@@ -129,7 +129,7 @@ Compare the `setup-project: vN` marker stamped into the repo vs the current comm
 
 1. Add ADRs for the 4 flagged commits OR mark them as non-architectural in this run's history log:
    - <sha-1>: switched session storage to Redis
-   - <sha-2>: moved auth middleware to FastAPI dependency
+   - <sha-2>: moved auth middleware to FastAPI / Express / Django-style dependency injection
    - …
 
 2. Trim `ai/conventions.md`:

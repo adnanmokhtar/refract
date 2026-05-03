@@ -6,6 +6,17 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Stack-agnostic language sweep
+
+**Changed / Added**
+- **`templates/rule-7-phase-4-6-file-adaptation.md`** — documented `<TBD: …>` vocabulary (tab primitive, router file, store, form helpers, hooks) + optional **STACK-AGNOSTIC** banner; Phase 4.6 substitution contract.
+- **`scripts/apply-anchors.sh`** — per-file anchor block includes **Stack placeholders pending** when `<TBD:…>` tokens remain in the injected artifact (counted before injection).
+- **`templates/packs/learning/skills/apply-pack-adaptation.md`** — Phase 4.6-DEEP section maps each `<TBD:…>` family to `_extracted-codebase.md` / `_extracted-idioms.md` reads.
+- **`scripts/audit-stack-leakage.sh`** (new) — mechanical lint: universal docs must show multi-stack diversity or placeholders; pack-level files warn when tokens lack sibling stacks in ±5 lines. Exit 1 on FAIL.
+- **`scripts/audit-setup.sh`** — invokes `audit-stack-leakage.sh` against the template pack source repo (C2f).
+- **Docs** — `docs/REFERENCE.md` validator row; universal commands + templates swept for Vue-only / React-only leakage (notably `scaffold-project`, `migrate`, `appendices`, code-quality agents).
+- **Frontend pack** — `templates/packs/frontend/rules/migration-frontend.md` Layer-A-Only Scan row uses `<TBD: …>` + primitive-table cross-reference; translation anti-pattern lists Vue / React / Angular / Svelte cues.
+
 ### Migration cycle accuracy — validator + tooling hardening
 
 **Changed / Added**

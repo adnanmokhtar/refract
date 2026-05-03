@@ -7,6 +7,33 @@ purpose: Per-file adaptation procedure for Phase 4.6. Loaded ONLY during apply. 
 
 Pack-added files (rules + agents + patterns + skills copied via Phase 4.2 / 4.4 / 4.4b) start out GENERIC — they cite hypothetical bases (e.g. "the project's `<service-base>` / `<repository-base>` / `<controller-base>`" with placeholders). By this point in the run you have the BIGGEST possible picture of the codebase (Phase 0 extract, Phase 2 profile, Phase 2.5 idioms, business-domain detection, ADRs, failure catalog, prior conventions). Phase 4.6 is where you USE that picture to make judgment calls per-file: **does this pack file align with the project? If not, what specifically needs to change to align it?** The replacement values come from extraction — never from any other project's run.
 
+### `<TBD: …>` stack-placeholder vocabulary (Phase 4.6)
+
+Universal-style docs must not pin to a single frontend/backend/mobile stack. Either enumerate multiple stacks in one breath **or** leave a typed placeholder for Phase 4.6 / 4.6-DEEP to substitute from `.claude/_extracted-codebase.md` and `.claude/_extracted-idioms.md`. Recognized tokens (extend only with CHANGELOG + `audit-stack-leakage.sh` allowlist updates):
+
+| Token | Meaning |
+|---|---|
+| `<TBD: tab-primitive>` | Tab UI component for the project (e.g. Vue `<v-tabs>` · React `<Tabs>` / `<TabView>` · Svelte tab containers · Angular `<mat-tab-group>`). |
+| `<TBD: form-input>` | Bound input primitive (`<v-text-field>`, `<TextField>`, `<input>`, …). |
+| `<TBD: form-state-helper>` | Form state library (vee-validate, react-hook-form, Formik, Angular Reactive Forms, …). |
+| `<TBD: store>` | Client/app store (Pinia, Redux, Zustand, NgRx, …). |
+| `<TBD: router-file>` | Router module (`routes.ts`, Next `pages/` / `app/`, SvelteKit `+page`, Angular routing module, …). |
+| `<TBD: iteration-construct>` | List iteration (`v-for`, `.map(…)`, `{#each}`, `*ngFor`). |
+| `<TBD: conditional-construct>` | Conditional render (`v-if`, JSX `&&`, `{#if}`, `*ngIf`). |
+| `<TBD: framework-mount-hook>` | Mount/init hook per framework (`onMounted`, `useEffect(..., [])`, `onMount`, `ngOnInit`, …). |
+| `<TBD: framework-effect-hook>` | Reactive/effect hook per framework (`watch`, `useEffect`, Svelte reactive blocks, RxJS pipe, …). |
+
+**Optional banner** for swept markdown (YAML frontmatter blockquote or first paragraph after frontmatter):
+
+```markdown
+> **STACK-AGNOSTIC**: Inline syntax in this doc is illustrative. Stack-specific
+> primitives are filled by `/setup-project` Phase 4.6 from the project's
+> `_extracted-codebase.md` / `_extracted-idioms.md`. `<TBD: ...>` placeholders
+> survive until then.
+```
+
+`scripts/apply-anchors.sh` counts `<TBD:...>` tokens per injected file and adds a **Stack placeholders pending** line inside the auto-generated `## Project-specific` block; Phase 4.6-DEEP (`apply-pack-adaptation`) replaces tokens using extraction.
+
 **The historical bug**: under context pressure, the LLM running `/setup-project` "saves time" by skipping Phase 4.6 — the user opens the regenerated `.claude/rules/<name>.md` and finds it talks about generic `<concept>` patterns instead of the project's actual `<project-base-class>` base class. The user correctly says "you didn't adapt — you just copied templates." This is the failure mode this rule exists to prevent.
 
 **The contract — STUDY → DECIDE → ACT, per file**:

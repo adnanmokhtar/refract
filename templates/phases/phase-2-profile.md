@@ -178,7 +178,7 @@ Profile content (written to `.claude/codebase-profile.md`):
 
 #### 2.x Business-domain detection (separate from technical signals)
 
-Stack tells us "what tech is in use." Domain tells us "what business is the product actually running." Each business domain has its own canonical entities, flows, compliance regime, stakeholder vocabulary, and anti-patterns. A NestJS+Postgres ecommerce store and a NestJS+Postgres LMS share zero domain knowledge.
+Stack tells us "what tech is in use." Domain tells us "what business is the product actually running." Each business domain has its own canonical entities, flows, compliance regime, stakeholder vocabulary, and anti-patterns. A `<TBD: backend-framework>` + Postgres ecommerce store and a Django + Postgres LMS share zero domain knowledge — stack similarity does not imply domain similarity.
 
 **Catalog**: `~/.claude/templates/business-domains/` — the authoritative list of supported business domains lives in `~/.claude/templates/business-domains/_registry.md` (every entry there has `name`, `summary`, `regulatory_overlay_hints`). The brain MUST resolve the catalog from `_registry.md` rather than from any hard-coded list in this command, because new domains can be added without spec edits. Each domain folder has `glossary.md` + `core-flows.md` + `feature-checklist.md` + `compliance.md` + `stakeholders.md` + `anti-patterns.md` + `_version.json`.
 

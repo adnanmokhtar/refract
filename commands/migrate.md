@@ -81,7 +81,7 @@ The agent does ALL of this silently — you don't see it:
 - `--exclude=<scope>` — exclude specific areas (e.g., `--exclude=admin,internal-tools`).
 - `--include-dead` — port dead V1 code too (default: skip per discipline).
 - `--surface-blockers` — show every halted row, not just the brief end summary. Use for debugging.
-- `--re-detect-fields` — mechanical field-by-field diff per leaf-component pair (extracts every `v-model` / `<input>` / `<Dropdown>` / `<InputSwitch>` / `<TranslatedInput>` / `<FormField>` / yup schema field from V1+V2) and emits the comparison table directly into the audit. Removes auditor judgement from the Form fields axis. Recommended ON for form-heavy modules.
+- `--re-detect-fields` — mechanical field-by-field diff per leaf-component pair (extracts every Vue `v-model`, React controlled-field binding, Svelte two-way bind, Angular `ngModel` / reactive forms, plain `<input>` / `<Dropdown>` / `<InputSwitch>` / `<TranslatedInput>` / `<FormField>` / schema-bound field from V1+V2) and emits the comparison table directly into the audit. Removes auditor judgement from the Form fields axis. Recommended ON for form-heavy modules.
 
 ## Progress tracking (multi-day workflow)
 

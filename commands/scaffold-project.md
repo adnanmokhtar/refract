@@ -11,7 +11,7 @@ Idea → working repo. Single command, multiple confirmation gates, opinionated 
 The output is a project that:
 - **Boots locally** out of the box (`pnpm dev` works; smoke test passes).
 - **Has Claude Code orchestration installed** (via `/setup-project --create` chain-call).
-- **Looks beautiful by default** (Tailwind 4 + Radix + shadcn/reka-ui + lucide icons + 8pt grid + Inter Variable + light/dark theme).
+- **Looks beautiful by default** (Tailwind 4 + Radix — React **shadcn/ui**, Vue **reka-ui**, Svelte **bits-ui** — + lucide icons + 8pt grid + Inter Variable + light/dark theme).
 - **Has clean architecture** (layered or modular per stack) with a working auth flow + dashboard scaffold.
 - **Documents every choice** as ADRs in `ai/decisions/` so future maintainers know why.
 
@@ -154,7 +154,7 @@ Project name:        <slug>
 Destination:         <path>
 Stack:               <#1 picked> with versions <list>
 Architecture:        <layered / modular / service-oriented / atomic>
-Design system:       Tailwind 4 + Radix + shadcn-ui + lucide + Inter; brand hue = <h>°
+Design system:       Tailwind 4 + Radix + React shadcn-ui / Vue reka-ui / Svelte bits-ui + lucide + Inter; brand hue = <h>°
 First feature:       Auth (sign-up / sign-in / forgot password) + Dashboard
 Database:            <Postgres / SQLite / Convex / MongoDB / etc.>
 Migrations:          <Drizzle Kit / Prisma / etc.>
@@ -201,8 +201,7 @@ For React stacks:
 ```bash
 pnpm add tailwindcss@latest @tailwindcss/vite postcss autoprefixer
 pnpm add @radix-ui/react-slot @radix-ui/react-dialog @radix-ui/react-dropdown-menu lucide-react clsx tailwind-merge class-variance-authority
-pnpm dlx shadcn@latest init -d
-pnpm dlx shadcn@latest add button input label card dialog dropdown-menu form sheet separator tooltip toast
+pnpm dlx shadcn@latest init -d && pnpm dlx shadcn@latest add button input label card dialog dropdown-menu form sheet separator tooltip toast   # React-oriented CLI; Vue → reka-ui / Svelte → bits-ui installers for parity
 ```
 
 For Vue stacks:
@@ -316,7 +315,7 @@ Runs **after** Phase 6 confirms the scaffold boots. ADRs document choices that s
 - **ADRs** — write one per major choice in `ai/decisions/` (now that Phase 6 confirmed the scaffold boots):
   - `0001-stack.md` — "Why <framework> over the alternatives we considered."
   - `0002-architecture.md` — "Why <layered/modular/service> for this domain."
-  - `0003-design-system.md` — "Why Tailwind + Radix + shadcn/reka + lucide; brand hue."
+  - `0003-design-system.md` — "Why Tailwind + Radix + React/Vue/Svelte component kits (shadcn/reka/bits) + lucide; brand hue."
   - `0004-database.md` — "Why <Postgres/SQLite/Convex>" + ORM choice.
   - `0005-auth.md` — "Why <Better Auth/Clerk/Lucia>."
   - `0006-deployment.md` — "Why <Vercel/Cloudflare/Fly>."
@@ -379,7 +378,7 @@ Phase 1 (Understand): <domain> for <audience>; constraints = <list>
 Phase 2 (Organize):
    Stack:        <#1 picked from 3 ranked options>
    Architecture: <picked>
-   Design:       Tailwind + Radix + shadcn/reka + lucide; brand hue = <h>°
+   Design:       Tailwind + Radix + React shadcn / Vue reka / Svelte bits + lucide; brand hue = <h>°
 Phase 3 (Retrieved): N package versions pinned; M docs read
 Phase 4 (Generated):
    Repo:           <files written count>
@@ -422,7 +421,7 @@ Next:   `/add-feature "<first feature>"`
 ## Hard rules
 
 - **Three confirmation gates between Phase 2a / 2b / 3a.** Skipping any of them produces a project the user didn't actually want. `--no-prompt` is logged in the first commit.
-- **Default to opinionated, not maximally configurable.** Tailwind 4 + Radix + shadcn/reka + lucide + Inter is the floor — chosen because it ships beautiful UIs in days, not weeks. Override per-idea but don't water down the default.
+- **Default to opinionated, not maximally configurable.** Tailwind 4 + Radix + React/Vue/Svelte kits (shadcn/reka/bits) + lucide + Inter is the floor — chosen because it ships beautiful UIs in days, not weeks. Override per-idea but don't water down the default.
 - **Run real scaffolders.** `pnpm create <thing>` is more current and better-maintained than any custom template. We layer Claude orchestration on top; we don't replace the ecosystem.
 - **Pin versions at scaffold time.** Read what `pnpm create` wrote and freeze. Future `pnpm update` is the user's choice.
 - **One ADR per major decision.** "Why React over Vue" / "Why Postgres over Mongo" — answered in writing or it's not a real decision.

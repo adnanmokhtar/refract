@@ -27,7 +27,7 @@ The brain refuses to proceed past detection if any input is genuinely unknown. I
 
 ### Decision rules (how inputs combine)
 
-1. **Stack alone is insufficient.** A NestJS+Postgres ecommerce project and a NestJS+Postgres LMS share zero domain knowledge. Domain wins on what content gets generated; stack wins on HOW it's expressed.
+1. **Stack alone is insufficient.** A Rails + Postgres ecommerce project and a FastAPI + Postgres LMS share zero domain knowledge. Domain wins on what content gets generated; stack wins on HOW it's expressed.
 2. **Project intent overrides domain defaults.** If domain = ecommerce but intent = "internal tool, not for sale", skip billing/compliance bloat.
 3. **Existing setup wins on overlap.** Project-idiom files (>200 lines, framework-specific) NEVER get replaced by generic packs; generic packs go alongside.
 4. **Specialized agent wins over generic.** If `nestjs-architect` exists in repo, don't add `api-architect`; add the gap-fillers only.

@@ -142,15 +142,21 @@ if [[ -f "$IDIOMS" ]]; then
                  | awk 'NF { printf "%s`%s`", (NR>1 ? ", " : ""), $0 } END { print "" }')
 fi
 
-# Compose anchor block — uniform across artifacts. Round-one floor; REFINE
-# specializes per-artifact based on `compute-anchor-density` scoring.
-# When _extracted-idioms.md is present, append an extra "Detected base classes"
+# Compose anchor block — uniform across artifacts except optional TBD token count.
+# Round-one floor; REFINE specializes per-artifact based on `compute-anchor-density`
+# scoring. When _extracted-idioms.md is present, append an extra "Detected base classes"
 # line so the anchor names the project's real architecture, not just five
 # generic facets.
+# $1 = optional count of <TBD:...> placeholders in the target file body (Phase 4.6 contract).
 build_block() {
+  local tbd_count="${1:-0}"
   local idiom_line=""
   if [[ -n "$BASE_CLASSES" ]]; then
     idiom_line="> - **Detected base classes** (\`_extracted-idioms.md\`): ${BASE_CLASSES}"$'\n'">"
+  fi
+  local tbd_line=""
+  if [[ "${tbd_count}" -gt 0 ]]; then
+    tbd_line=$'\n''> - **Stack placeholders pending**: '"${tbd_count}"' `<TBD:...>` token(s) in this file — Phase 4.6-DEEP / REFINE substitutes from `_extracted-codebase.md` / `_extracted-idioms.md`.'
   fi
   cat <<BLOCK
 <!-- project-specific:start -->
@@ -163,15 +169,13 @@ build_block() {
 > - **Testing** (\`codebase-profile.md:${testing_ln:-1}\`): ${TESTING_LINE:-<not declared in codebase-profile.md>}
 > - **Data access** (\`codebase-profile.md:${data_ln:-1}\`): ${DATA_LINE:-<not declared in codebase-profile.md>}
 > - **Error handling** (\`codebase-profile.md:${err_ln:-1}\`): ${ERR_LINE:-<not declared in codebase-profile.md>}
-${idiom_line}
+${idiom_line}${tbd_line}
 > Cite-able sources: ${MANIFESTS}, top-level: ${SRC_DIRS}.
 
 <!-- project-specific:end -->
 
 BLOCK
 }
-
-ANCHOR_BLOCK=$(build_block)
 
 # ---------- Inject into eligible artifacts ----------
 
@@ -200,17 +204,18 @@ find_insertion_line() {
 inject_block() {
   local f="$1"
   local insert_after="$2"
+  local block="$3"
   local tmp
   tmp=$(mktemp)
   if [[ "$insert_after" -eq 0 ]]; then
     {
-      printf '%s\n' "$ANCHOR_BLOCK"
+      printf '%s\n' "$block"
       cat "$f"
     } > "$tmp"
   else
     {
       head -n "$insert_after" "$f"
-      printf '\n%s\n' "$ANCHOR_BLOCK"
+      printf '\n%s\n' "$block"
       tail -n +$((insert_after + 1)) "$f"
     } > "$tmp"
   fi
@@ -269,7 +274,9 @@ for kind in commands agents skills rules ai-patterns; do
       mkdir -p "$(dirname "$bak")"
       cp "$f" "$bak"
 
-      inject_block "$f" "$insert_line"
+      tbd_count=$(grep -oE '<TBD:[^>]+>' "$f" 2>/dev/null | wc -l | tr -d ' ')
+      ANCHOR_BLOCK=$(build_block "${tbd_count:-0}")
+      inject_block "$f" "$insert_line" "$ANCHOR_BLOCK"
       echo "  INJECT  $rel  (after line $insert_line)"
     else
       echo "  would-INJECT $kind/$base  (after line $insert_line)"

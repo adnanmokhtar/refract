@@ -52,13 +52,13 @@ Tools by ecosystem:
 
 For each source file:
 1. Is it imported anywhere? (Grep path variants — relative, aliased, barrel re-export.)
-2. Is it an entry point? Check `package.json` `main`/`bin`/`exports`, `pyproject.toml` scripts, build config, framework conventions (e.g., NestJS auto-discovers `*.module.ts`; Next.js auto-routes `pages/`/`app/`).
+2. Is it an entry point? Check `package.json` `main`/`bin`/`exports`, `pyproject.toml` scripts, build config, framework conventions (e.g., NestJS auto-discovers `*.module.ts`; Next.js auto-routes `pages/`/`app/`; Django uses `INSTALLED_APPS`; Rails loads `config/routes.rb`).
 3. Is it a test, spec, or fixture? (Match `*.spec.*`, `*.test.*`, `test/`, `__tests__/`, `fixtures/`.)
 4. If not imported + not an entry + not a test: flag as zombie.
 
 Common false positives:
 - Files imported via dynamic `require()` / `import()` with a variable path.
-- Files loaded via glob (`import.meta.glob()`, `require.context`, Django apps list).
+- Files loaded via glob (`import.meta.glob()`, `require.context`, `vite.glob`, Django `INSTALLED_APPS`, Rails eager-load paths).
 - Files referenced in non-JS config (Docker, CI, shell scripts).
 
 ### Pass 3 — Commented-out code blocks

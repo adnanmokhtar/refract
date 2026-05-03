@@ -352,6 +352,20 @@ if [[ -x "$SCRIPTS_DIR/audit-adapter-coverage.sh" ]]; then
   echo ""
 fi
 
+# Stack-agnostic template lint — scans this repo's `commands/` + `templates/**` (not TARGET).
+# Ensures universal docs never pin a single stack without multi-stack diversity / `<TBD:...>`.
+PACK_TEMPLATE_ROOT="$(cd "$SCRIPTS_DIR/.." && pwd)"
+if [[ -x "$SCRIPTS_DIR/audit-stack-leakage.sh" ]]; then
+  echo "C2f: stack-agnostic language (template pack source)"
+  if leakage_out=$("$SCRIPTS_DIR/audit-stack-leakage.sh" --repo-root="$PACK_TEMPLATE_ROOT" 2>&1); then
+    ok "stack leakage audit clean ($PACK_TEMPLATE_ROOT)"
+  else
+    echo "$leakage_out" >&2
+    err "audit-stack-leakage.sh failed — fix universal docs or placeholders in claude-config"
+  fi
+  echo ""
+fi
+
 # Summary
 echo "=== summary ==="
 echo "fail: $fail"

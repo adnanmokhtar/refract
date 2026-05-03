@@ -64,6 +64,19 @@ The skill reads (must exist before invocation):
 | `templates/tool-adapters/<adapter>/_translate.md` | Tool-adapter pack | Per-adapter translation rules — how a `.claude/<kind>/<name>.md` becomes the adapter's output format (the same logic regular Phase 4.8 uses, scoped to ONE artifact at a time). When this file is absent, the skill falls back to Phase 4.8.0's per-adapter contract table in `commands/setup-project.md` (the canonical source). | optional in ADAPTER-SYNC mode (fallback to Phase 4.8.0 contract) |
 | `templates/tool-adapters/<adapter>/_user-customization.md` | Tool-adapter pack | Per-adapter customization surface — declares which adapter files are wholly auto-generated (re-write freely) vs which have user-customizable sections (use `<!-- generated:start/end -->` markers + hash-check). When this file is absent, the skill defaults to **"wholly auto-generated, no markers, full overwrite is safe"** for every adapter output (consistent with how regular Phase 4.8 currently writes). | optional in ADAPTER-SYNC mode (fallback to wholly-auto-generated default) |
 
+## `<TBD: …>` substitution contract (Phase 4.6-DEEP)
+
+Pack bodies may retain typed placeholders (`<TBD: tab-primitive>`, `<TBD: router-file>`, `<TBD: store>`, `<TBD: form-input>`, `<TBD: form-state-helper>`, `<TBD: iteration-construct>`, `<TBD: conditional-construct>`, `<TBD: framework-mount-hook>`, `<TBD: framework-effect-hook>`, `<TBD: backend-framework>`, … — full vocabulary in `templates/rule-7-phase-4-6-file-adaptation.md`). **Round two** replaces them using facts from `.claude/_extracted-codebase.md` and `.claude/_extracted-idioms.md` (never invention):
+
+| Token family | Read from |
+|---|---|
+| Router paths, route modules, file naming | `_extracted-codebase.md` § routing / structure + idioms |
+| Tab / form / store primitives | `_extracted-idioms.md` (per-base-class and leaf-component idioms) |
+| Hooks / lifecycle names | `_extracted-idioms.md` + concrete sibling files cited in codebase overview |
+| Backend framework wording | `codebase-profile.md` + `_extracted-codebase.md` |
+
+If extraction lacks signal for a token, leave `<TBD:…>` in place and record `<NOT-DETECTED: …>` in the decision row — do not substitute a guessed framework string.
+
 Skill parameters:
 
 - **`pack_added_files`** — list of file paths to process. In round one: pack files added by Phase 4.2 / 4.4 / 4.4b in the current run. In REFINE: list of artifacts targeted for round-two deepening (typically those with score < 70). In ADAPTER-SYNC: the affected-artifact list (union of round-two ANCHOR-DEEP + NEW-FILE + 4.7-DEEP markered changes).
