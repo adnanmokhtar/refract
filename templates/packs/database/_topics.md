@@ -100,4 +100,12 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { migration_tool_detected: true }
   fallback: _examples/migration-rehearsal.md
+
+- name: schema-consistency-audit
+  kind: skill
+  triggers: { db_introspection_available: true }
+  extracts_from: _extracted-idioms.md § "Schema conventions" + ai/schema-conventions.md + migration history
+  sections: [purpose, when_to_use, inputs, outputs, the_12_detectors, procedure, hard_rules, failure_modes]
+  fallback: _examples/schema-consistency-audit.md
+  cite_evidence: strict
 ```

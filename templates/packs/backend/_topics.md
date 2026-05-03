@@ -299,6 +299,15 @@ Each topic declares:
   sections: [understand, organize, retrieve, generate, validate]
   fallback: _examples/endpoint-test.md
 
+- name: api-consistency-audit
+  kind: skill
+  triggers:
+    api_surface_detected: true
+  extracts_from: _extracted-idioms.md § "API conventions" + ai/api-conventions.md + OpenAPI spec
+  sections: [purpose, when_to_use, inputs, outputs, the_15_detectors, procedure, hard_rules, failure_modes]
+  fallback: _examples/api-consistency-audit.md
+  cite_evidence: strict
+
 - name: log-tail
   kind: command
   triggers:

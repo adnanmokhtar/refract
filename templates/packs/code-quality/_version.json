@@ -1,9 +1,9 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-05-03",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "Adds architectural-diagnosis + refactoring-sweep skills (back the new /optimize Phase 0 + refactoring class)."
 }

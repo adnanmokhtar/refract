@@ -29,7 +29,9 @@ Above the phased `/migration-scan` → `/migration-plan` → `/migration-fast` c
 
 - **Source**: `commands/migrate.md` (top-level, NOT in pack folder — installed alongside pack commands).
 - **Progress tracking**: `ai/migrate/progress.md` (single source of truth across multi-day runs).
-- **Flags**: `--status`, `--resume`, `--reset <area>`, `--refresh`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--include-dead`, `--surface-blockers`.
+- **Flags**: `--status`, `--resume`, `--reset <area>`, `--refresh`, `--re-audit`, `--re-audit --include-superseded`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--include-dead`, `--surface-blockers`.
+
+**`--re-audit` semantics** — discards `verified` / `done` verdicts in `ai/migration/ledger.md` AND ignores `final-report.md`'s authority to skip rows; re-dispatches the per-feature loop (DETECT → DECIDE → FIX → VERIFY → RECORD) on every row. Mirrors `/migration-fast --re-audit` from the pack. Use when: V1 / V2 changed since the original audit, detector improvements, suspected drift on a "complete" migration. `--include-superseded` adds superseded / deprecated rows back into the audit pool (rare; for verifying dead-V1 reachability claims still hold).
 
 **`--refresh` semantics** — re-scans V1 + V2, merges with existing progress: newly-added V1 features → `pending`, removed V1 features → `archived`, existing rows preserved. Re-checks dead-V1 reachability for all rows; newly-dead rows flip to `deprecated`. NO port work. Auto-creates `progress.md` if missing.
 

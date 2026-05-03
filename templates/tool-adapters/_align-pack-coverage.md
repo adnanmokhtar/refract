@@ -25,13 +25,24 @@ The align pack is **non-negotiable** in the same sense the migration pack is —
 
 The align pack ships **no agents** (unlike migration). All detection is delegated to the `detect-drift` skill (which itself dispatches existing agents from `code-quality/`, `security/`, `frontend/`, `ui-ux/` packs). This simplifies adapter coverage — every tool that supports rules + skills gets the full surface.
 
+## Sibling top-level commands — `/optimize` and `/polish` (NOT in this pack)
+
+`/optimize` and `/polish` are top-level orchestration commands (siblings to `/align`, NOT pack members). They dispatch different skill sets:
+
+- **`/optimize`** is backed by `architectural-diagnosis` + `refactoring-sweep` (code-quality pack v1.1+) — Phase 0 architectural diagnosis runs FIRST, then tactical refactoring + SOLID + perf sweep. Foundation-first ordering means architectural fixes cascade and dissolve tactical findings (47 N+1 → 22 after fetching moves to right layer; etc.).
+- **`/polish`** is stack-conditional, dispatching `a11y-quick-check`/`design-iterate`/`design-token-audit`/`motion-audit` (ui-ux pack) for `frontend-*`, `api-consistency-audit` (backend pack v1.1+) for `backend-*`, `schema-consistency-audit` (database pack v1.1+) for `data-*`, and `platform-conventions-audit` (mobile pack v1.1+) for `mobile-*`.
+
+Adapters MUST surface all four top-level commands (`/migrate`, `/optimize`, `/align`, `/polish`) in their command surface; they are the recommended user entry-points above the pack-level phased commands.
+
 ## Simple-surface entry — `/align` (top-level command)
 
 Above the phased `/align-scan` → `/align-plan` → `/align-fast` ceremony, the top-level `/align [<scope>]` command provides a one-shot entry point. Same discipline runs internally; user sees only the brief end-of-run summary.
 
 - **Source**: `commands/align.md` (top-level, NOT in pack folder — installed alongside pack commands).
 - **Progress tracking**: `ai/align/progress.md` (single source of truth across multi-day runs).
-- **Flags**: `--status`, `--resume`, `--reset <area>`, `--refresh`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers`.
+- **Flags**: `--status`, `--resume`, `--reset <area>`, `--refresh`, `--re-audit`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers`.
+
+**`--re-audit` semantics** — discards `verified`/`done` verdicts in the discipline ledger; re-dispatches the per-row loop on every row. Rows that re-verify clean stay `verified`; rows with reappearing fingerprints flip to `halted` and re-fix in same run. Combinable with scope (re-audit one area only) and with `--restart` (full reset).
 
 **`--refresh` semantics** — re-scans codebase, merges with existing progress: new areas → `pending`, missing → `archived`, existing rows preserved. NO fix work. Safe to run anytime; auto-creates `progress.md` if missing.
 

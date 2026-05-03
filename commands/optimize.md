@@ -1,5 +1,5 @@
 ---
-description: One command code optimization. Deep multi-agent execution. Takes optional scope (whole project OR specific module/area). NO phases visible, NO terminology, NO mid-run questions. Internally runs scan + fix in parallel waves for performance + clean code + dedup + dead code + over-abstraction. Output is brief: findings closed, commits, diff stats, test status. The simple-surface alternative to /align-scan + /align-fast cycles for code quality.
+description: One command code optimization. Deep architectural diagnosis FIRST, then tactical sweep in parallel waves. Stack-agnostic — works on frontend / backend / data / mobile. Takes optional scope (whole project OR specific module/area). NO phases visible, NO terminology, NO mid-run questions. Internally diagnoses bigger picture (layer violations, god modules, missing abstractions, wrong-level responsibilities, cyclic dependencies, cross-cutting duplication), applies architectural foundations FIRST, then closes remaining tactical findings (clean code, refactoring, SOLID, performance, dead code, dedup, over-abstraction). Architectural fixes cascade — fixing the right layer often dissolves dozens of tactical findings. Output is brief: architectural fixes shown FIRST, tactical findings closed second, commits, diff stats, test status. The simple-surface alternative to phase-by-phase quality cycles.
 kind: command
 pack: orchestration
 ---
@@ -8,28 +8,46 @@ pack: orchestration
 
 ## What this does
 
-**Single command. Make the codebase high-quality: clean code + clean architecture + SOLID.** Deep multi-agent scan + fix. Whole project or scoped.
+**Single command. Make the codebase high-quality at the architectural AND tactical level.** Deep multi-agent diagnosis + foundation-first fixes + parallel tactical sweep. Whole project or scoped. **Stack-agnostic** — works on frontend (Vue / React / Svelte / Angular), backend (Node / Python / Go / Java / Ruby / .NET), data (SQL / migrations / pipelines), and mobile (iOS / Android / RN).
 
 The agent:
-1. **Deep-scans the codebase** for every quality concern in one pass.
-2. **Detects + fixes** all of these in parallel:
+
+1. **Diagnoses the bigger picture FIRST** — reads the codebase as a whole, builds dependency + responsibility maps, surfaces architectural smells. Decides which fixes are foundation-level (cascade impact across many findings) vs cosmetic.
+
+   **Architectural detectors**:
+   - **Layer violation** — UI doing DB queries; services importing UI primitives; core/ importing presentation; controllers doing business logic that belongs in services.
+   - **Cyclic dependency** — module A → B → A loops.
+   - **Bottleneck module** — every request flows through one module (single-point-of-N+1).
+   - **God module** — ≥30 outward imports OR ≥500 LOC with mixed responsibilities.
+   - **Anemic module** — only data, no behaviour (suggests merging into consumer or adding behaviour).
+   - **Wrong-level responsibility** — fetching / validation / error handling / transformation at the wrong tier (e.g., component doing the work of a service).
+   - **Cross-cutting duplication** — auth / logging / error handling / metrics / retries duplicated across modules instead of centralised.
+   - **Missing abstraction** — ≥3 sites duplicating the same shape (begs for a shared primitive).
+
+2. **Applies architectural foundations FIRST** — moves responsibility to the right layer, introduces shared abstractions, fixes layering, centralises cross-cutting concerns, splits god modules, decouples cycles. These are larger commits with bigger leverage.
+
+3. **Re-detects tactical findings** — many findings dissolve automatically after architectural fixes (e.g., 47 N+1 queries become 22 after fetching moves to service layer; 5 dedup sites disappear once a shared primitive is introduced; 14 ad-hoc try/catch patches disappear once error middleware is centralised).
+
+4. **Applies remaining tactical findings in parallel** for these classes:
    - **Clean code** — long functions, deep nesting, magic numbers, bad naming, redundant comments, comment-as-rename.
-   - **Clean architecture** — modules in the wrong layer, circular dependencies, components importing services directly when they should go through composables, services importing UI primitives, leaking abstractions.
-   - **SOLID principles**:
-     - **SRP** (Single Responsibility) — split god classes / multi-purpose modules into named-in-idioms responsibilities.
-     - **OCP** (Open/Closed) — extend instead of modify closed modules.
-     - **LSP** (Liskov Substitution) — fix subtype contract breaks (override changes pre/post-condition).
-     - **ISP** (Interface Segregation) — split fat interfaces with unused members.
-     - **DIP** (Dependency Inversion) — high-level modules depend on abstractions, not concretions.
+   - **Refactoring** — method extraction (≥30 lines OR cyclomatic ≥10 OR mixed responsibilities), conditional flattening (nesting ≥3 → guard clauses or polymorphism), parameter object (≥5 args, or 3+ args always travelling together), magic→constant, move-to-right-module, decompose long file (≥500 lines, mixed responsibilities), replace temp with query, replace loop with pipeline (manual `for` → `map`/`filter`/`reduce`), rename for clarity (single-letter / `data` / `tmp` / `info`), encapsulate exposed state.
+   - **Clean architecture** — leftover layer violations, leaking abstractions, module/layer boundaries.
+   - **SOLID**:
+     - **SRP** — split god classes / multi-purpose modules.
+     - **OCP** — extend instead of modify closed modules.
+     - **LSP** — fix subtype contract breaks.
+     - **ISP** — split fat interfaces with unused members.
+     - **DIP** — high-level modules depend on abstractions, not concretions.
    - **Performance** — N+1 queries, sequential awaits where parallelism is safe, sync HTTP in hot paths, missing cache at known-cacheable sites, missing index where query shape demands one, `SELECT *` consumed by < 5 fields, in-app filtering pushable to database.
    - **Dead code** — unused exports, unreachable branches, dead variables.
-   - **Duplicated logic** — same code in N files (dedupes to existing shared helper).
+   - **Duplicated logic** — same code in N files (dedupes to introduced or existing shared helpers).
    - **Over-abstraction** — wrapper with one consumer (inline), useless `options: {foo?:bool}` where every caller passes the same value.
 
-3. **Behaviour-preserving for structural fixes** (clean code, dead code, dedup, over-abstraction). Tests must stay green.
-4. **Behaviour-changing where safe** for perf fixes (parallelize, batch, cache) — adds assertions in same commit.
+5. **Behaviour-preserving** for architectural moves and tactical structural fixes (clean code, refactoring, dead code, dedup, over-abstraction). Tests must stay green; observable behaviour unchanged.
 
-Output: what got optimized, commits, diff stats, test status, perf wins (measured).
+6. **Behaviour-changing where safe** for perf fixes (parallelize, batch, cache) — adds assertions in same commit.
+
+Output: architectural fixes FIRST, then tactical findings, commits, diff stats, test status, perf wins (measured).
 
 ## When to use
 
@@ -60,18 +78,40 @@ Examples:
 
 ## What happens internally (silent)
 
-1. **Scan** — runs the relevant detectors across the scope: dead-code, duplicated-logic, over-abstraction, performance (N+1, sequential awaits, missing cache, etc.), clean-code (long functions, magic numbers, naming), SOLID violations.
-2. **Resolve scope** — semantic resolution of description to source paths.
-3. **Plan internally** — group by class + dependency. Foundation patterns first (e.g., introduce a shared helper before deduping consumers). NO phase output to user.
-4. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Each agent: re-detect → apply fix → verify → commit.
-5. **Verify continuously** — lint + typecheck + scoped tests after each fix. Coverage must not drop. Behaviour-preserving for all structural fixes; security/perf fixes ship with assertions.
-6. **Self-resolve common questions** — closure verbs are mechanical (`remove`, `inline`, `dedupe`, `replace-with-shared`, `parallelize`, `batch`, `cache-with-explicit-ttl`). Agent doesn't ask for permission per fix.
-7. **Halt only on genuine blockers**:
-   - A fix would change observable behaviour where it must be preserved (re-classify as refactor; user decides).
+1. **Phase 0 — Architectural diagnosis** (the bigger picture, dispatched via `architectural-diagnosis` skill in code-quality pack). Builds project-wide maps:
+   - Dependency graph (modules → modules; flags cycles, bottlenecks).
+   - Responsibility map (what each module owns; flags god modules, anemic modules).
+   - Layer audit (which module imports across layers; flags layer violations).
+   - Cross-cutting scan (auth / logging / error / metrics — centralised or duplicated?).
+   - Repetition analysis (≥3 sites of same shape → missing-abstraction candidate).
+   Emits internal `ai/optimize/_architecture-decisions.md` listing foundation-level fixes (cascade impact) vs cosmetic (would be tactical anyway). NOT shown to user.
+
+2. **Phase 1 — Apply foundations FIRST** (architectural closure verbs):
+   `move-responsibility`, `introduce-abstraction`, `fix-layering`, `centralize-cross-cutting`, `split-god-module`, `decouple-cycle`, `merge-anemic-module`. Each foundation fix gets one commit. Re-runs typecheck + scoped tests after each.
+
+3. **Phase 2 — Tactical scan** (after foundations land). Dispatches `detect-drift` skill (from align pack) with `--include-classes=dead-code,duplicated-logic,over-abstraction,performance,refactoring,clean-code,solid-violation` and re-runs against the now-restructured tree. Many earlier findings dissolve automatically.
+
+4. **Resolve scope** — semantic resolution of description to source paths.
+
+5. **Plan internally** — group remaining tactical findings by class + dependency. Foundation patterns within tactical (e.g., introduce shared helper before deduping consumers). NO phase output to user.
+
+6. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Each agent: re-detect → apply fix → verify → commit. Closure verbs:
+   - **Refactoring** (via `refactoring-sweep` skill): `extract-method`, `extract-class`, `extract-param-object`, `flatten-conditional`, `move-to-module`, `replace-magic-with-constant`, `replace-temp-with-query`, `replace-loop-with-pipeline`, `rename`, `encapsulate`.
+   - **Tactical**: `remove`, `inline`, `dedupe`, `replace-with-shared`.
+   - **Performance**: `parallelize`, `batch`, `cache-with-explicit-ttl`, `add-index`, `project-columns`, `push-down-filter`.
+
+7. **Verify continuously** — lint + typecheck + scoped tests after each fix. Coverage must not drop. Behaviour-preserving for all structural fixes (architectural moves, refactoring, dead code, dedup, over-abstraction); perf fixes ship with assertions + before/after measurement.
+
+8. **Self-resolve common questions** — closure verbs are mechanical. Agent doesn't ask permission per fix.
+
+9. **Halt only on genuine blockers**:
+   - Architectural move would change observable behaviour where it must be preserved (re-classify as refactor; user decides).
    - Idiom missing for a functional fix (e.g., user wants caching but project has no cache primitive — surfaces "add primitive first via /setup-project --refine").
    - Security-sensitive change beyond mechanical fix.
+   - Cyclic dependency that requires multi-PR decoupling (surfaces a small plan).
    - Otherwise: just optimize.
-8. **Skip findings that aren't load-bearing** — clean-code findings in test fixtures / one-time scripts skip; only ship-path code gets optimized.
+
+10. **Skip findings that aren't load-bearing** — clean-code findings in test fixtures / one-time scripts skip; only ship-path code gets optimized.
 
 ## Progress tracking (multi-day workflow)
 
@@ -148,39 +188,97 @@ Overrides:
                                 #     * existing rows (done / in-progress / blocked / pending) → preserved untouched
                                 #   - Updates Summary counts to reflect new totals
                                 #   - NO fix work performed; safe to run anytime
+/optimize --re-audit            # IGNORE cached verdicts; re-detect EVERY area
+                                #   - Discards `verified` / `done` rows in the optimize ledger (if any)
+                                #   - Re-runs Phase 0 (architectural diagnosis) + Phase 2 (tactical) on every area
+                                #   - Rows that re-verify clean stay `verified`; rows with reappearing fingerprints flip to `halted` and re-fix in same run
+                                #   - Use when: project changed since last sweep OR detector improvements OR you suspect drift
+                                #   - Combinable with <scope>: /optimize the orders module --re-audit
 /optimize --restart             # WIPE progress, start over from the beginning
                                 #   - Backs up current progress to ai/optimize/progress-<iso>.bak.md
                                 #   - Resets every area to pending
                                 #   - Begins with the first pending area
                                 #   - Does NOT revert any commits already made (use git for that)
+                                #   - For "ignore everything AND re-audit", combine: /optimize --restart --re-audit
 ```
 
 ## What you see (output)
 
+Backend example (a REST API module):
+
 ```
 Optimization complete
 
-Scope:               the orders module
-Findings closed:     34
-  performance:        8 (N+1 queries → batched; 3 sequential awaits → parallel)
-  duplicated-logic:   12 (dedupe to existing shared helpers)
-  dead-code:          7 (unused exports removed)
-  over-abstraction:   4 (single-consumer wrappers inlined)
-  clean-code:         3 (long functions extracted to existing services)
+Scope:               the orders module (backend-nest)
+Architectural fixes: 3
+  Moved DB queries from controllers → OrderRepository (eliminated 22 N+1 patterns + 8 raw query duplicates)
+  Introduced PaginationStrategy abstraction (eliminated 5 dedup sites)
+  Centralized error-handling middleware (eliminated 14 ad-hoc try/catch patches)
 
-Commits:             34 (one per finding)
-Diff:                +89 / -612 = -523 lines
-Tests:               124/124 passing
-Coverage:            87.4% → 87.6% (no regression)
-Wall-clock:          12m 47s
+Tactical findings closed: 18 (down from 67 — 49 dissolved by foundations)
+  refactoring:           7 (extract-method ×4, flatten-conditional ×2, replace-magic ×1)
+  performance:           4 (sequential awaits → parallel; SELECT * → projected)
+  duplicated-logic:      3 (dedupe to introduced abstractions)
+  dead-code:             4 (unused exports removed)
+
+Commits:             21 (3 architectural + 18 tactical)
+Diff:                +312 / -1894 = -1582 lines
+Tests:               298/298 passing
+Coverage:            84.1% → 84.5% (no regression)
+Wall-clock:          18m 47s
 
 Perf wins (measured):
-  listOrders(): 51 queries / 200ms p95 → 2 queries / 35ms p95 (-83%)
-  getCustomer batch: 47 calls → 1 batched call
+  POST /orders p95: 410ms → 95ms (-77%)
+  GET /orders/:id p95: 220ms → 38ms (-83%)
 
-Skipped (clean-code in test fixtures): 23 findings (out of scope)
+Skipped (test fixtures): 12 findings
 
 Next: /optimize the next module  OR  inspect commits via git log --oneline
+```
+
+Frontend example (a Vue module):
+
+```
+Optimization complete
+
+Scope:               the orders module (frontend-vue)
+Architectural fixes: 2
+  Moved data-fetching from page components → OrderService composable (eliminated 8 N+1 patterns)
+  Introduced PaginationComposable (eliminated 4 dedup sites + 2 inconsistent loaders)
+
+Tactical findings closed: 14 (down from 36 — 22 dissolved by foundations)
+  refactoring:           5 (extract-composable ×2, flatten-template-conditional ×2, rename ×1)
+  duplicated-logic:      4 (dedupe to introduced composable)
+  dead-code:             3 (unused exports + dead branches)
+  over-abstraction:      2 (single-consumer wrappers inlined)
+
+Commits:             16 (2 architectural + 14 tactical)
+Diff:                +189 / -847 = -658 lines
+Tests:               124/124 passing
+Bundle delta:        -2.1% (smaller)
+Wall-clock:          11m 23s
+
+Skipped (test fixtures): 7 findings
+```
+
+Data-layer example (migrations + queries):
+
+```
+Optimization complete
+
+Scope:               the analytics schema (data)
+Architectural fixes: 1
+  Split AnalyticsRepository (god class, 38 methods) → 4 responsibility-aligned repos (Events / Sessions / Funnels / Cohorts)
+
+Tactical findings closed: 11
+  performance:           5 (added 3 covering indexes; replaced 2 N+1 join patterns; pushed 1 in-app filter to DB)
+  refactoring:           3 (extract-method ×2, replace-magic-with-constant ×1)
+  dead-code:             3 (unused materialized view + 2 unused columns)
+
+Commits:             12
+Perf wins (measured):
+  funnel_query_p95: 4.2s → 280ms (-93%)
+  cohort_export_p95: 18s → 4s (-78%)
 ```
 
 ## What you DON'T see
@@ -211,11 +309,13 @@ All internal. Just results.
 ## Hard rules (internal)
 
 Applied silently per the discipline:
-- Closure verbs from a closed vocabulary (no new abstractions invented).
-- Net-lines ≤ 0 for structural fixes; functional fixes cite existing idioms.
-- Behaviour preserved (lint, typecheck, scoped tests, coverage all green).
-- Re-detect after each fix.
-- One commit per finding.
+- **Architectural diagnosis ALWAYS runs first**. Tactical fixes are skipped on findings that would dissolve under a foundation fix; agent picks the foundation.
+- **Foundation-first ordering**: architectural commits land before tactical commits. The architecture-decisions document records the order + rationale.
+- Closure verbs from a closed vocabulary (no new abstractions invented; `introduce-abstraction` only applies when ≥3 sites duplicate the same shape).
+- Net-lines ≤ 0 for tactical structural fixes; refactoring class allowed small +/- but cites why; architectural fixes net-lines budgeted (move-responsibility may +N then -2N when consumer code shrinks).
+- Behaviour preserved (lint, typecheck, scoped tests, coverage all green) for ALL structural + refactoring + dead-code + dedup + over-abstraction fixes.
+- Re-detect after each fix; gap-count parity (`gaps_in == gaps_closed`) before the row advances.
+- One commit per finding (architectural or tactical).
 - Security findings always ship with assertions (test added in same commit).
 - Performance findings always ship with baseline + post-fix measurement.
 

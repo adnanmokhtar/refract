@@ -180,11 +180,18 @@ A pack file in `_pack-coverage-report.md` is marked `Missing` and was not addres
 
 ---
 
-## The 3 simple commands — `/migrate`, `/optimize`, `/align`
+## The 4 simple commands — `/migrate`, `/optimize`, `/align`, `/polish`
 
 Top-level user surface above the detailed phased commands. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path) and runs deep multi-agent execution silently. NO phases / halts / ADRs / terminology surfaced — internal discipline (V1-parity, gap-count parity, idiom citation, no fabrication) is preserved but invisible.
 
-Progress tracking via `ai/{migrate,optimize,align}/progress.md` (single source of truth per command). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags shared by all three:
+| Command | Concern | Stack |
+|---|---|---|
+| `/migrate` | V1→V2 ports (V1 wins on behaviour; V2 wins on structure) | any |
+| `/optimize` | architectural diagnosis FIRST (layer violations, god modules, missing abstractions) + tactical sweep (clean code, refactoring, SOLID, performance, dead code, dedup, over-abstraction). Foundation-first ordering — architectural fixes cascade and dissolve tactical findings. Backed by `architectural-diagnosis` + `refactoring-sweep` skills (code-quality pack v1.1+). | any |
+| `/align` | convention drift, structure enforcement, design-token / a11y / i18n / layering. Backed by `detect-drift` + `find-and-align` skills (align pack). | any |
+| `/polish` | **Stack-conditional**: frontend-* → visual hierarchy / spacing / tokens / UI states / motion / focus (backed by `a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit` in ui-ux pack). backend-* → API consistency (backed by `api-consistency-audit` in backend pack v1.1+). data-* → schema consistency (backed by `schema-consistency-audit` in database pack v1.1+). mobile-* → frontend polish + platform conformance (backed by `platform-conventions-audit` in mobile pack v1.1+). | any (PROJECT_KIND must be set) |
+
+Progress tracking via `ai/{migrate,optimize,align,polish}/progress.md` (single source of truth per command). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags shared by all four:
 
 | Flag | Behaviour |
 |---|---|
@@ -192,7 +199,8 @@ Progress tracking via `ai/{migrate,optimize,align}/progress.md` (single source o
 | `--resume` | Pick up the in-progress area. |
 | `--reset <area>` | Mark one area pending; re-run from scratch. |
 | `--refresh` | Re-scan codebase + merge into existing `progress.md`. New areas appended as `pending`; missing areas marked `archived`; existing rows (done / in-progress / blocked / pending) preserved untouched. Updates Summary counts. NO fix work performed — safe to run anytime. If `progress.md` is missing, builds it from scratch (same as first run). |
-| `--restart` | WIPE progress entirely; back up to `ai/{cmd}/progress-<iso>.bak.md`; reset every area to pending; begin from the first area. Does NOT revert any commits already made (use `git` for that). |
+| `--re-audit` | IGNORE cached verdicts in the discipline ledger (`ai/{migration,align,polish}/ledger.md`) AND `final-report.md`. Re-dispatch the per-row loop on EVERY row (verified / done included). Rows that re-verify clean stay `verified` (no code change); rows where the fingerprint reappears flip to `halted` and are re-fixed in the same run. Use when: source changed since last audit, detector improvements, suspected drift. Combinable with `<scope>` to re-audit one area only. Combinable with `--restart` for "wipe progress AND ignore ledger AND re-audit everything". |
+| `--restart` | WIPE progress entirely; back up to `ai/{cmd}/progress-<iso>.bak.md`; reset every area to pending; begin from the first area. Does NOT revert any commits already made (use `git` for that). Does NOT touch the discipline ledger by itself — pair with `--re-audit` for full reset. |
 | `--dry-run` | Show what would change; no edits. |
 | `--allow-dirty` | Proceed with uncommitted changes. |
 | `--max-parallel=<N>` | Cap concurrent dispatch (default: 5–6). |

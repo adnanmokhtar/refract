@@ -4,7 +4,7 @@ purpose: General code review, refactoring, and pre-commit health gates.
 essentials:
   agents: [code-reviewer, refactorer]
   commands: [pre-commit, check-health]
-  skills: [dead-branch-scan]
+  skills: [dead-branch-scan, architectural-diagnosis, refactoring-sweep]
   rules: [quality-principles]
   ai-patterns: []
 ---

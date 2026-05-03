@@ -140,11 +140,18 @@ Overrides:
                                 #     * existing rows (done / in-progress / blocked / pending) → preserved untouched
                                 #   - Updates Summary counts to reflect new totals
                                 #   - NO fix work performed; safe to run anytime
+/align --re-audit               # IGNORE cached verdicts; re-detect EVERY area
+                                #   - Discards `verified` / `done` rows in ai/align/ledger.md
+                                #   - Re-dispatches the per-finding loop on every row
+                                #   - Rows that re-verify clean stay `verified`; rows with reappearing fingerprints flip to `halted` and re-fix in same run
+                                #   - Use when: codebase changed since last sweep OR detector improvements OR you suspect drift
+                                #   - Combinable with <scope>: /align the orders module --re-audit
 /align --restart                # WIPE progress, start over from the beginning
                                 #   - Backs up current progress to ai/align/progress-<iso>.bak.md
                                 #   - Resets every area to pending
                                 #   - Begins with the first pending area
                                 #   - Does NOT revert any commits already made (use git for that)
+                                #   - For "ignore ledger AND re-audit", combine: /align --restart --re-audit
 ```
 
 ## What you see (output)

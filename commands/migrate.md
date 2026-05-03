@@ -160,11 +160,22 @@ You can also override:
                                 #     * dead-V1 reachability re-checked; newly-dead rows flip to `deprecated`
                                 #   - Updates Summary counts to reflect new totals
                                 #   - NO port work performed; safe to run anytime
+/migrate --re-audit             # IGNORE cached verdicts; re-detect EVERY feature
+                                #   - Discards `verified` / `done` verdicts in ai/migration/ledger.md
+                                #   - Discards ai/migration/final-report.md's authority to skip rows
+                                #   - Re-dispatches the per-feature loop (DETECT → DECIDE → FIX → VERIFY → RECORD) on every row, not just pending
+                                #   - Rows that re-verify clean stay `verified` (no code change)
+                                #   - Rows whose V2 fingerprint diverges from V1 flip to `halted` and are re-fixed in the same run
+                                #   - Use this when: ledger says done but you suspect drift OR detector improvements would surface new gaps OR V1 / V2 changed since the original audit
+                                #   - Combinable with <scope>: /migrate the orders module --re-audit  (re-audit one area only)
+/migrate --re-audit --include-superseded  # re-audit even rows marked `superseded` or `deprecated` (rare; typically dead V1 code)
 /migrate --restart              # WIPE progress, start over from the beginning
                                 #   - Backs up current progress to ai/migrate/progress-<iso>.bak.md
                                 #   - Resets every area to pending
                                 #   - Begins with the first pending area
                                 #   - Does NOT revert any commits already made (use git for that)
+                                #   - Does NOT touch ai/migration/ledger.md — that's the discipline ledger and survives across resets
+                                #   - For "ignore ledger entirely AND re-audit", combine: /migrate --restart --re-audit
 ```
 
 ## What you see (output)

@@ -4,7 +4,7 @@ purpose: Server-side API/service development — design, implement, debug, and t
 essentials:
   agents: [api-architect, api-reviewer, bug-investigator]
   commands: [add-feature, add-endpoint, fix-bug]
-  skills: [endpoint-test, parallelize-independent-ops]
+  skills: [endpoint-test, parallelize-independent-ops, api-consistency-audit]
   rules: [backend-principles, concurrency-discipline]
   ai-patterns: [api-contract, error-handling, parallel-io]
 ---

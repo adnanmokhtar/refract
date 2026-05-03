@@ -4,9 +4,20 @@ Cross-cuts the tool-adapter registry. Documents how each tool surfaces the UI/UX
 
 The pack provides three commands and a critical skill:
 - `/design-review` — read-only audit (cite-or-halt)
-- `/enhance-ui <description>` — single-area enhancement orchestrator
+- `/enhance-ui <description>` — single-area enhancement orchestrator (cleanup → 3 variants → pick → verify)
 - `/ui-sweep [<phase>]` — project-wide UI/UX **specialist** (visual hierarchy, coverage metrics, cross-surface consistency, visual baseline + drift, flow-based phasing, HTML visual report)
 - `design-iterate` skill — generates 3 visual variants (style-only) per page
+
+**`--re-audit` flag on `/polish`** — discards `verified`/`done` verdicts in `ai/polish/ledger.md`; re-dispatches the per-surface audit on every row. Use when design system / API conventions / schema / platform spec changed, or you suspect drift on a "complete" polish. Combinable with scope and with `--restart`.
+
+**Top-level simple-surface entry — `/polish`** (NOT in this pack — top-level orchestration, sibling to `/migrate` / `/optimize` / `/align`). One command, multi-day workflow, brief output, NO phases / halts / ADRs / variant menus surfaced unless audit explicitly opts in. Whole project or scoped. `/polish` is **stack-conditional** — dispatches different skills per `PROJECT_KIND`:
+
+- `frontend-*` → reuses this pack's skills (`a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit`).
+- `backend-*` → dispatches `api-consistency-audit` from the backend pack (envelope / error / pagination / idempotency / log / metric / trace / OpenAPI uniformity).
+- `data-*` → dispatches `schema-consistency-audit` from the database pack (column naming / types / indexes / audit fields / migration patterns / soft-delete / nullability).
+- `mobile-*` → dispatches `platform-conventions-audit` from the mobile pack PLUS reused frontend skills (iOS HIG / Material conformance + frontend polish).
+
+Power users still drop down to `/enhance-ui` (explicit single-area iteration), `/ui-sweep` (HTML report + coverage metrics), or `/design-review` (read-only) when they need finer control.
 
 **`/ui-sweep` is a specialist, not a wrapper.** It has its own 8 deep detectors, 12 UI/UX-specific verbs, quantified coverage metrics, visual baselines, flow-based phasing, and HTML report. Adapters MUST preserve all of these in translation — flattening to "just runs align with UI/UX classes" is forbidden.
 

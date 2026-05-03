@@ -90,4 +90,20 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { vcs_detected: true }
   fallback: _examples/dead-branch-scan.md
+
+- name: architectural-diagnosis
+  kind: skill
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § "Repository shape" + _extracted-idioms.md § Layers + § Modules + ai/architecture.md
+  sections: [purpose, when_to_use, inputs, outputs, detectors, procedure, hard_rules, failure_modes]
+  fallback: _examples/architectural-diagnosis.md
+  cite_evidence: strict
+
+- name: refactoring-sweep
+  kind: skill
+  triggers: { always: true }
+  extracts_from: _extracted-idioms.md (project's refactoring conventions)
+  sections: [purpose, when_to_use, the_10_closure_verbs, procedure, hard_rules, failure_modes]
+  fallback: _examples/refactoring-sweep.md
+  cite_evidence: strict
 ```

@@ -4,7 +4,7 @@ purpose: Schema design, migrations, and query performance for the data layer.
 essentials:
   agents: [schema-architect, schema-reviewer]
   commands: [add-migration, db-audit]
-  skills: [schema-diff]
+  skills: [schema-diff, schema-consistency-audit]
   rules: [database-principles]
   ai-patterns: [migrations]
 ---

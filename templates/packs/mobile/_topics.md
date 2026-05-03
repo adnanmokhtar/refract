@@ -55,6 +55,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [when_to_use, procedure, inputs, outputs, hard_rules]
   fallback: skills/native-bridge-audit.md
 
+- name: platform-conventions-audit
+  kind: skill
+  triggers: { mobile_framework_detected: true }
+  extracts_from: _extracted-idioms.md § "Mobile platforms" + per-platform build configs (Info.plist, AndroidManifest.xml)
+  sections: [purpose, when_to_use, inputs, outputs, the_10_detectors, procedure, hard_rules, failure_modes]
+  fallback: skills/platform-conventions-audit.md
+  cite_evidence: strict
+
 - name: offline-sync
   kind: ai-pattern
   triggers: { mobile_framework_detected: true }

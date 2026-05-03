@@ -458,15 +458,16 @@ Properties:
 - **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
 - **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
 
-### The 3 simple commands (start here)
+### The 4 simple commands (start here)
 
 These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path).
 
 | Command | Purpose |
 |---|---|
 | `/migrate [<scope>]` | Deep V1↔V2 scan + compare + port everything. V1 wins on behaviour; V2 wins on structure. Doesn't leave any live V1 feature behind (skips only dead V1 code). |
-| `/optimize [<scope>]` | Make code high-quality: clean code + clean architecture + SOLID + performance + dead code + dedup + over-abstraction. |
+| `/optimize [<scope>]` | Make code high-quality at architectural AND tactical level. Phase 0 diagnoses bigger picture (layer violations, god modules, missing abstractions, wrong-level responsibilities, cross-cutting duplication, cyclic dependencies), applies foundations FIRST. Phase 2 closes remaining tactical findings (clean code, refactoring, SOLID, performance, dead code, dedup). Architectural fixes cascade — fixing the right layer dissolves dozens of tactical findings. Stack-agnostic. |
 | `/align [<scope>]` | Detect where code doesn't follow the project's structure (layering, naming, idioms, conventions, design tokens, a11y, i18n) + fix. |
+| `/polish [<scope>]` | Stack-conditional polish. Frontend-* → visual hierarchy, spacing rhythm, design tokens, missing empty/loading/error states, CTA consistency, motion, focus, type scale, icon vocabulary. Backend-* → API consistency (envelope drift, error contract, pagination, idempotency, log/metric/trace uniformity, OpenAPI gaps). Data-* → schema consistency (column naming, types, indexes, audit fields, migration patterns). Mobile-* → frontend polish + iOS HIG / Material conformance. Distinct from `/enhance-ui` (single-area iteration loop) and `/ui-sweep` (frontend specialist with HTML report). |
 
 Each runs in one shot. End-of-run shows: findings closed, commits made, diff stats, test status. Internal discipline is preserved (V1-parity, no fabrication, gap-count parity, idiom citation) but invisible.
 
@@ -478,9 +479,11 @@ Examples:
 /optimize the dashboard, focus on perf
 /align                                # whole project convention drift
 /align the sidebar
+/polish                               # whole project UI/UX polish (frontend only)
+/polish the dashboard
 ```
 
-**Multi-day workflow** — each command writes to its own progress file (`ai/{migrate,optimize,align}/progress.md`). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags:
+**Multi-day workflow** — each command writes to its own progress file (`ai/{migrate,optimize,align,polish}/progress.md`). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags:
 
 ```
 /<cmd>                                # next pending area (or first run: build inventory)
@@ -489,6 +492,7 @@ Examples:
 /<cmd> --resume                       # pick up the in-progress area
 /<cmd> --reset <area>                 # mark one area pending (re-run it)
 /<cmd> --refresh                      # re-scan codebase, MERGE into progress.md (new → pending, missing → archived, existing preserved)
+/<cmd> --re-audit                     # IGNORE cached verdicts; re-detect EVERY area (verified/done rows re-checked; reappearing drift re-fixed). Combinable with scope.
 /<cmd> --restart                      # WIPE progress, back up to progress-<iso>.bak.md, start over
 /<cmd> --dry-run                      # show what would change, no edits
 /<cmd> --max-parallel=<N>             # cap concurrent dispatch (default: 5–6)

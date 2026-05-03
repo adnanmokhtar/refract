@@ -4,7 +4,7 @@ purpose: Mobile app architecture (iOS / Android / cross-platform) — screens + 
 essentials:
   agents: [mobile-architect, app-store-reviewer]
   commands: [add-screen, add-feature, optimize-bundle]
-  skills: [bundle-analyze, native-bridge-audit]
+  skills: [bundle-analyze, native-bridge-audit, platform-conventions-audit]
   rules: [mobile-principles]
   ai-patterns: [offline-sync, native-storage, deep-linking]
 ---
