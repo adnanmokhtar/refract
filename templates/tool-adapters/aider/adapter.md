@@ -224,6 +224,7 @@ These cover `post-edit-check.sh` use case. For everything else (pre-edit guards,
 
 ## Cross-references
 
+- **Migration pack — companion scripts (2026-05):** Rule-only tools rely on shell CI — install the **full** `claude-config/scripts/` bundle into `~/.claude/scripts/` (validator + doctor + reachability + parallel helpers). Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - `claude-code/adapter.md` — rules source.
 - `ai/references/models.md` — Kimi + local model routing through Aider.
 - `ai/references/tool-parity.md` — what's not replicable in Aider.

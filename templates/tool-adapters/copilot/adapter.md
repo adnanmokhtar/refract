@@ -235,6 +235,7 @@ If the project has no agents flagged for chatmode translation, the adapter write
 
 ## Cross-references
 
+- **Migration pack — companion scripts (2026-05):** Document in `.github/copilot-instructions.md` / Actions that users install the **full** `claude-config/scripts/` bundle (validator + doctor + reachability + parallel helpers). Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - `claude-code/adapter.md` — rules source.
 - `codex/adapter.md` — AGENTS.md (Copilot fallback).
 - `ai/references/tool-parity.md` — gap matrix.

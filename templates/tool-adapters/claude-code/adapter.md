@@ -145,6 +145,7 @@ Claude Code is the source of truth — no translation needed. All 4 artifact typ
 
 ## Cross-references
 
+- **Migration pack — companion scripts (2026-05):** With `--include=migration`, install the **full** `claude-config/scripts/` bundle into `~/.claude/scripts/` (validator + `migration-doctor.sh` + `migration-reachability.sh` + `migration-detect-existing.sh` + `migrate-parallel.sh` / `parallel-fan-out.sh`), not only `validate-migration-artifacts.sh`. Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - `~/.claude/templates/packs/` — the pack catalog this adapter pulls from.
 - `~/.claude/templates/repo-baseline/.claude/` — baseline hooks + settings.
 - `~/.claude/commands/setup-project.md` — the orchestrator that invokes this adapter.

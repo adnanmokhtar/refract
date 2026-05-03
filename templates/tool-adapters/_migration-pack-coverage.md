@@ -67,10 +67,34 @@ Every adapter setup that includes `--include=migration` MUST also propagate thes
 
 3. **`/migration-doctor`** workspace command — for multi-repo workspaces. Backed by `claude-config/scripts/migration-doctor.sh`. Walks every registered repo with a ledger, runs validator, surfaces cross-repo dependency drift + stale audits.
 
-4. **12 new validator checks** (script-shipped — no per-adapter code change needed; just install the script):
+4. **Baseline validator checks** (script-shipped — no per-adapter code change needed; install the script bundle — see **§ Companion scripts (2026-05)** below):
    `check_audit_provenance`, `check_audit_freshness`, `check_audit_body_consistency`, `check_intentional_break_adr`, `check_porter_vs_auditor`, `check_corpus_distribution`, `check_tolerance_coverage`, `check_parity_run_v1_commit`, `check_v2_structure` (frontend + backend dispatch via `project_kind`), `check_composable_reuse`, `check_service_shape`, `check_lifecycle_keepalive`, `check_permission_gate_divergence`.
 
-The validator script is location-agnostic — installed once at `~/.claude/scripts/validate-migration-artifacts.sh` (or shell-PATH equivalent) and invoked from any tool's hook system, CI, or pre-commit.
+5. **Additional mechanical gates (2026-05 accuracy audit)** — same script bundle; no per-adapter code: Section 0 navigation inventory (`check_section_0_evidence`), 6-axis reachability doc (`check_migration_reachability_axes` + `migration-reachability.sh`), cutover JSON evidence for shadow/canary/V2-only rows, strict corpus / gap-marker enforcement (`--strict`), trivial-tier primitive gate fix, `mixed` / strict `project_kind`, tolerance YAML drift vs ADR warnings, PR scope vs `v2_path` warnings, forms-bearing aggregation across cited leaves, backend-only bypass for inventory primitives. Details: repo root `CHANGELOG.md` **[Unreleased]** → Migration cycle accuracy.
+
+### Companion scripts (2026-05) — install the **full** bundle
+
+**Every adapter** that ships migration MUST document this: enforcement is **not** only `validate-migration-artifacts.sh`. Users (and CI) should symlink or copy **all** of these from `claude-config/scripts/` into `~/.claude/scripts/` (or add that directory to `PATH`):
+
+| Script | Role |
+|--------|------|
+| `validate-migration-artifacts.sh` | Primary gate; hooks use `--hook-mode`. |
+| `migration-doctor.sh` | Multi-repo workspace health walk; **non-zero exit** on validator failures, cross-repo dependency violations, or stale audits (do not rely on stdout alone). |
+| `migration-reachability.sh` | Template + `--lint` for `ai/migration/reachability/<feature>.md` (cron / queue / route / admin / deploy / runbook axes). |
+| `migration-detect-existing.sh` | Pre-port collision scoring; reads `v2_root` from `ai/migration/_v2-anchors.md` (not hard-coded `src/`). |
+| `migrate-parallel.sh` | Headless ledger dispatch; parses rows with `## <feature-id>` headings and fenced YAML accepting **`state:`** or **`status:`**. |
+| `parallel-fan-out.sh` | Parallel worker wrapper; **flocks** `ai/migration/ledger.md` by default — set `LEDGER_LOCK=""` only when serializing writes elsewhere. |
+
+**New canonical artifact paths** (discipline + validators):
+
+- `ai/migration/cutover-evidence/<feature>-<stage>.json` — cutover stage evidence when the ledger row advances through shadow / canary / V2-only (example shape: `templates/packs/migration/_examples/cutover-evidence-stage.json`).
+- `ai/migration/reachability/<feature>.md` — per-feature 6-axis reachability matrix.
+
+**Anchors:** When `ai/migration/_v2-anchors.md` exists, declare a valid **`project_kind`** (including **`mixed`** for monorepos). Schema: `templates/packs/migration/_v2-anchors-schema.md`.
+
+**Recovery flags (`/migrate`):** `--restart` resets progress only; **`--ignore-ledger`** backs up and wipes ledger + related authority — see `commands/migrate.md` (recovery / symptom → flag table).
+
+The validator script is location-agnostic — installed once at `~/.claude/scripts/validate-migration-artifacts.sh` (or shell-PATH equivalent) and invoked from any tool's hook system, CI, or pre-commit. **Hooks alone are insufficient** for workspace doctor + reachability lint + parallel coordination; install the bundle above.
 
 ## Per-tool translation expectations
 

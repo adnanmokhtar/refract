@@ -62,6 +62,8 @@ The pack ecosystem ships ~70 commands (`/add-feature`, `/fix-bug`, `/add-endpoin
 - Audits: `ai/<pack>/audits/<id>.md`
 - Contracts: `ai/migration/contracts/<feature>.md` (migration only)
 - Mapping: `ai/migration/mapping/<feature>.md` (migration only)
+- Cutover evidence: `ai/migration/cutover-evidence/<feature>-<stage>.json` (migration — stage metrics when row is in shadow / canary / V2-only)
+- Reachability matrix: `ai/migration/reachability/<feature>.md` (migration — 6-axis dead/alive)
 - API samples: `ai/migration/api-samples/<feature>/<endpoint>.json` (migration only)
 - Perf decisions: `ai/migration/perf-decisions/<feature>.md` + `ai/perf-audit/measurements/<row>.md`
 - Visual baselines: `ai/polish/baseline/<iso>/<page>.png` + `ai/ui-sweep/baseline/<iso>/<page>.png`

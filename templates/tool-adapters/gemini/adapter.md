@@ -124,6 +124,7 @@ Avoids duplicating content across two files.
 
 ## Cross-references
 
+- **Migration pack — companion scripts (2026-05):** Rule-only — users run the **full** `claude-config/scripts/` bundle from shell / CI (`migration-doctor.sh`, `migration-reachability.sh`, etc.). See `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - `codex/adapter.md` — AGENTS.md is the content source.
 - `ai/references/models.md` — routing Gemini CLI to non-Google models via OpenAI-compat endpoints.
 - `ai/references/tool-parity.md` — gap matrix.

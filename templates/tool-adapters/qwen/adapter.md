@@ -334,6 +334,8 @@ Adapter contributes a `tool_qwen_invoke` function in `scripts/_parallel-tool-con
 
 ## Cross-references
 
+- **Migration pack — companion scripts (2026-05):** Hooks above invoke `validate-migration-artifacts.sh` only — install the **full** script bundle (`migration-doctor.sh`, `migration-reachability.sh`, `migration-detect-existing.sh`, `migrate-parallel.sh`, `parallel-fan-out.sh`) per `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
+
 - Adapter registry row: `templates/tool-adapters/_registry.md` (capability matrix).
 - Universal `AGENTS.md` writer: `templates/tool-adapters/codex/adapter.md` (Codex owns; Qwen consumes + appends Qwen-specific content via marker blocks).
 - Discipline enforcement block: `templates/tool-adapters/_discipline-enforcement.md` (Qwen mirrors into `QWEN.md` AND consumes the `AGENTS.md` block).

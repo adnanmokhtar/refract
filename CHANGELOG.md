@@ -16,6 +16,7 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 - **`scripts/migration-detect-existing.sh`** — `v2_root` from `_v2-anchors.md`; broader scan roots / patterns.
 - **`scripts/migration-reachability.sh`** (new) — 6-axis reachability template + `--lint`.
 - **Docs / schema** — `mixed` in `_v2-anchors-schema.md`; tier default narrative unified (trivial until audit); `commands/migrate.md` recovery flags; example `cutover-evidence-stage.json`.
+- **Tool adapters** — `_migration-pack-coverage.md` documents the **full** `scripts/` bundle (validator + doctor + reachability + detect-existing + parallel flock); `_discipline-enforcement.md` lists cutover + reachability paths; `_registry.md` notes flock / ledger parsing; every `templates/tool-adapters/*/adapter.md` cross-references the companion-script contract.
 
 ### M21 — Decisions-first batch flow for migration pack
 

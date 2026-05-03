@@ -238,6 +238,7 @@ Continue has no lifecycle hooks. Fallbacks:
 
 ## Cross-references
 
+- **Migration pack — companion scripts (2026-05):** Install the **full** `claude-config/scripts/` bundle into `~/.claude/scripts/` for pre-commit / CI (not only `validate-migration-artifacts.sh`). See `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - `claude-code/adapter.md` — rules source.
 - `ai/references/models.md` — Kimi/local routing via Continue's `models:` block.
 - `ai/references/tool-parity.md` — gap disclosure.
