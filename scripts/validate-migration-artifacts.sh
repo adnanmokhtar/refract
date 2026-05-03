@@ -20,6 +20,10 @@
 #   9.  Audit file exists at ai/migration/audits/<feature>.md with required sections
 #       (no hand-waves: no "&...", "etc.", "..." in axis enumeration)
 #   10. Ledger row exists with required fields per state (per migration-ledger.md)
+#   11. Section 0 navigation inventory evidence (frontend-* / mixed) — check_section_0_evidence
+#   12. 6-axis reachability doc — check_migration_reachability_axes
+#   13. Cutover JSON evidence when status is V2-shadow | V2-canary | V2-only
+#   14. tolerance.yaml git drift vs ADR citation; PR scope vs v2_path (warnings)
 #
 # Usage:
 #   validate-migration-artifacts.sh --phase=<N>           # validate every feature in phase N
@@ -163,6 +167,7 @@ discover_features() {
     in_block && /^feature: / { feature=$2; next }
     in_block && /^phase: /   { phase=$2;   next }
     in_block && /^status: /  { status=$2;  next }
+    in_block && /^state: /   { if (status == "") status=$2; next }
     in_block && /^tier: /    { tier=$2;    next }
     in_block && /^parity_test: / { parity_test=$2; next }
     END {
@@ -406,6 +411,10 @@ check_parity_corpus() {
     local spec_files
     spec_files=$(find src tests -path "*__tests__/parity*" -name "*${feature}*" 2>/dev/null | head -5)
     if [[ -n "$spec_files" ]]; then
+      if [[ $STRICT -eq 1 ]]; then
+        log_fail "[strict] parity tests are spec-file only (no tests/parity/$feature/inputs/) — standard/heavy tiers require a corpus dir + tolerance.yaml"
+        return 1
+      fi
       log_warn "parity tests found in spec-file form (no corpus dir): $feature — corpus check skipped, ensure ≥30 cases or record-replay"
       return 0
     fi
@@ -716,9 +725,9 @@ check_section_0_evidence() {
     return 0
   fi
 
-  # Only enforce when project_kind is frontend-* (route + tab navigation is a frontend concept)
+  # Only enforce when project_kind is frontend-* or mixed (hybrid UI surface)
   case "$PROJECT_KIND" in
-    frontend-*) ;;
+    frontend-*|mixed) ;;
     *) return 0 ;;
   esac
 
@@ -762,6 +771,14 @@ check_section_0_evidence() {
     return 1
   fi
 
+  # Multi-route surfaces: require deeper Layer-B evidence (per-leaf grep signals, not Layer-A-only).
+  if [[ "${layer_a_v1:-0}" -ge 2 ]] || [[ "${layer_a_v2:-0}" -ge 2 ]]; then
+    if [[ "${layer_b_v1:-0}" -lt 3 ]] || [[ "${layer_b_v2:-0}" -lt 3 ]]; then
+      log_fail "audit Section 0: multiple Layer-A routes detected (V1=$layer_a_v1 V2=$layer_a_v2) but Layer-B grep depth looks shallow (V1=$layer_b_v1 V2=$layer_b_v2). Each route leaf must be opened and grep'd for tab/sub-tab patterns (Halt #13 / #13a). See parity-auditor.md § Section 0."
+      return 1
+    fi
+  fi
+
   log_pass "section-0 evidence: $feature (Layer A: V1=$layer_a_v1, V2=$layer_a_v2; Layer B: V1=$layer_b_v1, V2=$layer_b_v2; Diff rows: $diff_rows)"
   return 0
 }
@@ -785,9 +802,9 @@ check_per_axis_enumeration() {
     log_pass "per-axis enumeration: $feature (skipped — audit_scope: backend-only)"
     return 0
   fi
-  # Only enforce when project_kind is frontend-*
+  # Only enforce when project_kind is frontend-* or mixed
   case "$PROJECT_KIND" in
-    frontend-*) ;;
+    frontend-*|mixed) ;;
     *) return 0 ;;
   esac
 
@@ -890,15 +907,29 @@ check_per_axis_enumeration() {
     fi
   fi
 
-  # Forms-bearing test on V1 — ≥ 5 form-element matches makes the page "forms-bearing"
+  # Forms-bearing test on V1 — aggregate ≥ 5 form-element matches across ALL cited V1 paths
+  # (tab shell + leaf components), not only the LOC-largest file.
   local forms_bearing=0
-  if [[ -n "$v1_full" && -f "$v1_full" ]]; then
+  local form_hits_total=0
+  build_v1_basename_index 2>/dev/null || true
+  while IFS= read -r cand_v1; do
+    [[ -z "$cand_v1" ]] && continue
+    local vf_res=""
+    if [[ -f "$cand_v1" ]]; then
+      vf_res="$cand_v1"
+    elif [[ -n "${V1_ROOT:-}" && -f "${V1_ROOT%/}/$cand_v1" ]]; then
+      vf_res="${V1_ROOT%/}/$cand_v1"
+    else
+      vf_res=$(v1_basename_lookup "${cand_v1##*/}" 2>/dev/null || echo "")
+    fi
+    [[ -z "$vf_res" || ! -f "$vf_res" ]] && continue
     local form_hits
-    form_hits=$(grep -cE '<input\b|<v-text-field|v-model=|<InputText\b|<InputSwitch\b|<InputNumber\b|<Dropdown\b|<TranslatedInput\b|<FormField\b|<Textarea\b|<Select\b|<Checkbox\b' "$v1_full" 2>/dev/null || echo 0)
+    form_hits=$(grep -cE '<input\b|<v-text-field|v-model=|<InputText\b|<InputSwitch\b|<InputNumber\b|<Dropdown\b|<TranslatedInput\b|<FormField\b|<Textarea\b|<Select\b|<Checkbox\b' "$vf_res" 2>/dev/null || echo 0)
     form_hits=${form_hits:-0}
     [[ "$form_hits" =~ ^[0-9]+$ ]] || form_hits=0
-    if [[ $form_hits -ge 5 ]]; then forms_bearing=1; fi
-  fi
+    form_hits_total=$((form_hits_total + form_hits))
+  done <<< "$(echo "$all_v1_files" | sort -u)"
+  [[ $form_hits_total -ge 5 ]] && forms_bearing=1
 
   # Reads-query test on V2 — does the V2 file read route.query / useSearchParams?
   local v2_reads_query=0
@@ -1056,11 +1087,14 @@ extract_inventory_primitives() {
   # similar primitive concepts for the frontend family).
   local family=""
   case "$pk" in
-    frontend-*) family="frontend" ;;
+    frontend-*|mixed) family="frontend" ;;
     backend-*)  family="backend"  ;;
     data-*)     family="data"     ;;
     mobile-*)   family="mobile"   ;;
-    *)          family="frontend" ;;  # safe default for unknown/missing PROJECT_KIND
+    *)
+      echo "extract_inventory_primitives: ERROR unknown project_kind='$pk' (run passes validate_project_kind_strict first)" >&2
+      family="frontend"
+      ;;
   esac
 
   case "$family" in
@@ -1165,7 +1199,7 @@ extract_inventory_primitives() {
       local form_state_field_children=0
       local file_dir child_imports child_path child_rel child_v_model child_form_state
       file_dir=$(dirname "$file")
-      child_imports=$(grep -oE "import[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(Form|Dialog|Modal|Drawer)[[:space:]]+from[[:space:]]+['\"][^'\"]+['\"]" "$file" 2>/dev/null \
+      child_imports=$(grep -oE "import[[:space:]]+[A-Za-z_][A-Za-z0-9_]*(Form|Dialog|Modal|Drawer|Tabs|TabView|TabPanel|Panel)[[:space:]]+from[[:space:]]+['\"][^'\"]+['\"]" "$file" 2>/dev/null \
         | grep -oE "['\"][^'\"]+['\"]" | tr -d "'\"" | sort -u)
       while IFS= read -r child_rel; do
         [[ -z "$child_rel" ]] && continue
@@ -1547,6 +1581,12 @@ check_inventory_primitives_match() {
   file=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
   [[ -z "$file" ]] && return 0  # check_audit will have already failed
 
+  # Bypass: explicit backend-only UI audit scope (match Section 0 / per-axis enumeration)
+  if grep -qE '^audit_scope:[[:space:]]*backend-only' "$file" 2>/dev/null; then
+    log_pass "primitive-match: $feature (skipped — audit_scope: backend-only)"
+    return 0
+  fi
+
   # Extract V1 + V2 leaf paths from header block (mirroring check_per_axis_enumeration)
   local header_block all_v1_files all_v2_files
   header_block=$(awk 'NR<=25; NR>25 { exit }' "$file" 2>/dev/null)
@@ -1656,13 +1696,11 @@ check_inventory_primitives_match() {
     drift=$(( v1_count - v2_count ))
     gap_axis=$(primitive_to_axis "$primitive")
 
-    # Trivial-tier softening: only halt when drift is large (> 5) AND verdict is PARITY.
-    # Standard / heavy: any drift counts.
-    if [[ "$tier" == "trivial" ]]; then
-      if [[ $drift -le 5 || $is_parity -eq 0 ]]; then
-        log_warn "primitive-match: '$primitive' V1=$v1_count V2=$v2_count (gap=$drift) on trivial-tier row $feature — below halt threshold (gap≤5 OR non-PARITY verdict)."
-        continue
-      fi
+    # Trivial-tier softening: warn-only for small drift (≤5) when verdict is PARITY.
+    # DRIFT / non-PARITY rows must NOT bypass — they fall through to DRIFT enumeration below.
+    if [[ "$tier" == "trivial" && $is_parity -eq 1 && $drift -le 5 ]]; then
+      log_warn "primitive-match: '$primitive' V1=$v1_count V2=$v2_count (gap=$drift) on trivial-tier PARITY row $feature — small drift; verify manually or promote tier."
+      continue
     fi
 
     # Count enumeration evidence inside the relevant axis section. The axis
@@ -1698,11 +1736,11 @@ check_inventory_primitives_match() {
       continue
     fi
 
-    # Verdict is DRIFT (or other). Audit must enumerate every missing primitive
-    # in the relevant axis: citations_in_axis MUST be ≥ drift for standard/heavy.
-    if [[ "$tier" == "standard" || "$tier" == "heavy" ]]; then
+    # Verdict is DRIFT (or other). Audit must enumerate every missing primitive in the relevant axis.
+    # Include trivial tier: non-PARITY trivial rows must not silently skip enumeration.
+    if [[ $is_parity -eq 0 ]]; then
       if [[ $citations_in_axis -lt $drift ]]; then
-        log_fail "primitive-match: '$primitive' V1=$v1_count V2=$v2_count (gap=$drift) but axis '$gap_axis' enumerates only $citations_in_axis path:line citations in $file. Audit MUST enumerate every missing primitive (one citation per gap) per migration-discipline.md § Per-axis enumeration."
+        log_fail "primitive-match: '$primitive' V1=$v1_count V2=$v2_count (gap=$drift) but axis '$gap_axis' enumerates only $citations_in_axis path:line citations in $file (DRIFT / non-PARITY). Audit MUST enumerate every missing primitive per migration-discipline.md § Per-axis enumeration."
         violations=$((violations + 1))
       fi
     fi
@@ -2607,7 +2645,119 @@ check_gap_count_parity() {
     log_fail "ledger row $id ($feature) gap-count mismatch: gaps_in=$gaps_in gaps_closed=$gaps_closed — partial fix shipped. Re-run /find-and-fix $feature OR escalate via /port-feature $feature --heavy."
     return 1
   fi
+  # When gaps were tracked, audit body should mention gap IDs / drift (forgery guard).
+  if [[ "$gaps_in" =~ ^[1-9][0-9]*$ ]] && [[ "$gaps_in" -gt 0 ]]; then
+    local audit_g
+    audit_g=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
+    if [[ -n "$audit_g" && -f "$audit_g" ]]; then
+      if ! grep -qE 'GAP-[0-9]+|gaps_in|gaps_closed|DRIFT|Finding|gap_count' "$audit_g"; then
+        if [[ $STRICT -eq 1 ]]; then
+          log_fail "[strict] ledger gaps_in=$gaps_in but audit $audit_g lacks gap/drift enumeration markers — audit may be out of sync with ledger"
+          return 1
+        fi
+        log_warn "ledger gaps_in=$gaps_in but audit $audit_g has no obvious gap enumeration markers — verify body lists each gap"
+      fi
+    fi
+  fi
   log_pass "gap-count parity: $feature ($gaps_in gaps in, $gaps_closed closed)"
+  return 0
+}
+
+# Six-axis dead-V1 reachability (cron / queue / route / admin / deploy / runbook) — discipline § zombie port.
+check_migration_reachability_axes() {
+  local feature="$1"; local id="${2:-}"
+  local rf=""
+  if [[ -n "$id" && -f "ai/migration/reachability/${id}-${feature}.md" ]]; then
+    rf="ai/migration/reachability/${id}-${feature}.md"
+  elif [[ -f "ai/migration/reachability/${feature}.md" ]]; then
+    rf="ai/migration/reachability/${feature}.md"
+  fi
+  if [[ ! -f "$rf" ]]; then
+    log_warn "6-axis reachability not documented — add ai/migration/reachability/${feature}.md (see scripts/migration-reachability.sh)"
+    [[ $STRICT -eq 1 ]] && { log_fail "[strict] missing reachability doc for $feature"; return 1; }
+    return 0
+  fi
+  local score=0
+  grep -qiE 'cron|schedule|@Cron|@Scheduled|crontab' "$rf" && score=$((score + 1))
+  grep -qiE 'queue|consumer|worker|subscriber|kafka|sns|pub.?sub' "$rf" && score=$((score + 1))
+  grep -qiE 'route|router|endpoint|handler|RPC|controller' "$rf" && score=$((score + 1))
+  grep -qiE 'admin|internal.?tool|django\.admin|backstage' "$rf" && score=$((score + 1))
+  grep -qiE 'deploy|pipeline|helm|k8s|terraform|docker|ci\b' "$rf" && score=$((score + 1))
+  grep -qiE 'runbook|playbook|on-?call|operat' "$rf" && score=$((score + 1))
+  if [[ $score -ge 4 ]]; then
+    log_pass "reachability axes documented ($score/6 signals): $rf"
+  else
+    log_warn "reachability doc $rf looks thin ($score/6 axis signals) — cover cron/queue/route/admin/deploy/runbook"
+    [[ $STRICT -eq 1 ]] && { log_fail "[strict] reachability doc insufficient: $rf"; return 1; }
+  fi
+  return 0
+}
+
+# Cutover Stage B–D evidence (metrics snapshots) — parity-auditor Stages B–D are narrative-only without files.
+check_cutover_evidence_for_status() {
+  local feature="$1"; local id="$2"; local status="$3"
+  case "${status// /}" in
+    V2-shadow|V2-canary|V2-only)
+      local dir="ai/migration/cutover-evidence"
+      [[ ! -d "$dir" ]] && mkdir -p "$dir" 2>/dev/null || true
+      local found=""
+      found=$(find "$dir" -maxdepth 1 \( -name "${id}-${feature}.json" -o -name "${feature}.json" -o -name "${id}-${feature}-*.json" \) -print -quit 2>/dev/null || true)
+      if [[ -n "$found" ]]; then
+        log_pass "cutover evidence present: $found"
+        return 0
+      fi
+      log_warn "status=$status but no cutover evidence JSON in ai/migration/cutover-evidence/ — add shadow/canary/KPI snapshot (see templates/packs/migration/_examples/cutover-evidence-stage.json)"
+      [[ $STRICT -eq 1 ]] && { log_fail "[strict] cutover evidence JSON required for status=$status"; return 1; }
+      ;;
+  esac
+  return 0
+}
+
+check_tolerance_loosening_adr_evidence() {
+  local feature="$1"; local id="${2:-}"
+  local audit
+  audit=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
+  [[ -z "$audit" || ! -f "$audit" ]] && return 0
+  local tol=""
+  tol=$(find . -path "*/parity/${feature}/tolerance.yaml" -print -quit 2>/dev/null)
+  [[ -z "$tol" ]] && tol=$(find . -path "*/parity/${id}-${feature}/tolerance.yaml" -print -quit 2>/dev/null)
+  [[ -z "$tol" || ! -f "$tol" ]] && return 0
+  git rev-parse --git-dir >/dev/null 2>&1 || return 0
+  git diff --quiet HEAD -- "$tol" 2>/dev/null && return 0
+  if grep -qiE 'ADR-[0-9]{3,4}|tolerance.*ADR|loosen.*ADR|Tightening tolerance|tolerance.*reviewer' "$audit"; then
+    log_pass "tolerance.yaml differs from HEAD — audit cites ADR / tolerance discipline: $audit"
+    return 0
+  fi
+  log_warn "tolerance.yaml differs from git HEAD but audit may not document ADR sign-off for loosening — $audit"
+  [[ $STRICT -eq 1 ]] && { log_fail "[strict] tolerance change requires ADR citation in audit per parity-auditor § Tolerance decisions"; return 1; }
+  return 0
+}
+
+check_port_diff_scope_warning() {
+  local feature="$1"; local id="$2"
+  git rev-parse --git-dir >/dev/null 2>&1 || return 0
+  local ledger_block v2_path
+  ledger_block=$(awk -v id="$id" '$0 ~ ("^id: " id "$") { in_block=1 } in_block { print } in_block && /^```/ { exit }' "$LEDGER_PATH" 2>/dev/null)
+  v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
+  [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
+  local changed
+  changed=$(git diff --name-only HEAD 2>/dev/null | head -40)
+  [[ -z "$changed" ]] && return 0
+  local base
+  base=$(echo "$v2_path" | sed 's/\*.*//; s|/[^/]*$||')
+  [[ -z "$base" ]] && return 0
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    case "$f" in
+      ai/migration/*|.claude/*|CHANGELOG*|docs/*|*.md|package-lock.json|yarn.lock|pnpm-lock.yaml) continue ;;
+    esac
+    case "$f" in
+      ${base}*|${V2_ROOT%/}/*|"${V2_ROOT%/}"/*) ;;
+      *)
+        log_warn "changed file outside declared v2_path prefix (\`$base\`): $f — verify parity-auditor halt #9 (scope creep)"
+        ;;
+    esac
+  done <<< "$changed"
   return 0
 }
 
@@ -2699,6 +2849,7 @@ validate_feature() {
   check_audit "$feature" "$id" || true
   check_audit_freshness "$feature" "$id" || true
   check_audit_body_consistency "$feature" "$id" || true
+  check_section_0_evidence "$feature" "$id" || true
   check_per_axis_enumeration "$feature" "$id" "$tier" || true
   check_inventory_primitives_match "$feature" "$id" "$tier" || true
   check_adr_signoff_completed "$feature" "$id" || true
@@ -2716,6 +2867,10 @@ validate_feature() {
   # Phase 9 additions (May 2026 — themes port lessons): every-tier artifact gates
   check_v2_mapping_doc "$feature" "$id" "$tier" || true
   check_api_response_sample "$feature" "$id" || true
+  check_migration_reachability_axes "$feature" "$id" || true
+  check_cutover_evidence_for_status "$feature" "$id" "$status" || true
+  check_tolerance_loosening_adr_evidence "$feature" "$id" || true
+  check_port_diff_scope_warning "$feature" "$id" || true
 }
 
 # ── Project anchors ─────────────────────────────────────────────────────────
@@ -2763,9 +2918,30 @@ load_project_anchors() {
   fi
 }
 
+# Fail-closed when anchors exist: require explicit project_kind matching schema families.
+validate_project_kind_strict() {
+  [[ ! -f "$ANCHORS_FILE" ]] && return 0
+  local pk
+  pk=$(awk '/^---[[:space:]]*$/{n++; next} n==1{print} n>=2{exit}' "$ANCHORS_FILE" 2>/dev/null | grep -m1 '^project_kind:' | sed 's/^project_kind:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  [[ -z "$pk" ]] && {
+    log_fail "ai/migration/_v2-anchors.md exists but project_kind is unset — set project_kind (fail-closed). See templates/packs/migration/_v2-anchors-schema.md"
+    return 1
+  }
+  case "$pk" in
+    frontend-*|backend-*|data-*|mobile-*|mixed|api-other)
+      return 0
+      ;;
+    *)
+      log_fail "Unknown project_kind '$pk' in _v2-anchors.md — use frontend-*, backend-*, data-*, mobile-*, mixed, or api-other."
+      return 1
+      ;;
+  esac
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────
 main() {
   load_project_anchors
+  validate_project_kind_strict || exit 3
   if [[ $QUIET -eq 0 ]]; then
     echo "validate-migration-artifacts.sh"
     echo "  ledger: $LEDGER_PATH"

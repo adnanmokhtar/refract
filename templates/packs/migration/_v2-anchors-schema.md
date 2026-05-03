@@ -14,7 +14,7 @@ Every project running the migration pack declares an `ai/migration/_v2-anchors.m
 
 ```yaml
 ---
-project_kind: frontend-vue3 | frontend-react | frontend-svelte | frontend-nuxt | backend-nest | backend-laravel | backend-python | api-other
+project_kind: frontend-vue3 | frontend-react | frontend-svelte | frontend-nuxt | backend-nest | backend-laravel | backend-python | api-other | mixed
 v1_root: <path>                     # absolute or repo-relative; e.g. ../<frontend-v1>/
 v2_root: <path>                     # repo-relative; e.g. src/
 parity_test_root: <path>            # repo-relative; e.g. tests/parity/

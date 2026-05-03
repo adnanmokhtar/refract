@@ -18,6 +18,8 @@
 #     [--log-dir=<path>] \
 #     [--dry-run]
 #
+# Ledger: set LEDGER_LOCK="" to disable flock on ai/migration/ledger.md (default locks per worker).
+#
 # Example:
 #   echo "orders\nproducts\ncategories" > /tmp/features.txt
 #   ./parallel-fan-out.sh \
@@ -46,6 +48,8 @@ TASK_FILE=""
 PROMPT_TEMPLATE=""
 LOG_DIR=""
 DRY_RUN=0
+# Serialize migrations touching the ledger (optional). Set LEDGER_LOCK="" to disable.
+LEDGER_LOCK="${LEDGER_LOCK:-ai/migration/ledger.md}"
 
 usage() {
   sed -n '2,30p' "$0"
@@ -118,7 +122,7 @@ fi
 # ---- worker function (exported to xargs subshell) ----
 
 # We export everything xargs's subshell needs to run a single task.
-export TOOL PROMPT_TEMPLATE LOG_DIR
+export TOOL PROMPT_TEMPLATE LOG_DIR LEDGER_LOCK
 export -f "tool_${TOOL}_invoke"
 
 run_one() {
@@ -131,7 +135,18 @@ run_one() {
   local log="$LOG_DIR/$slug.log"
 
   echo "[$(date +%H:%M:%S)] START $task"
-  if "tool_${TOOL}_invoke" "$prompt" > "$log" 2>&1; then
+  local rc=0
+  if [[ -n "${LEDGER_LOCK:-}" && -f "${LEDGER_LOCK}" ]] && command -v flock >/dev/null 2>&1; then
+    # Exclusive lock for the whole tool invocation — avoids interleaved ledger edits.
+    exec {LOCK_FD}>>"${LEDGER_LOCK}"
+    flock "$LOCK_FD"
+    if "tool_${TOOL}_invoke" "$prompt" > "$log" 2>&1; then rc=0; else rc=$?; fi
+    flock -u "$LOCK_FD" 2>/dev/null || true
+    exec {LOCK_FD}>&- 2>/dev/null || true
+  else
+    if "tool_${TOOL}_invoke" "$prompt" > "$log" 2>&1; then rc=0; else rc=$?; fi
+  fi
+  if [[ "$rc" -eq 0 ]]; then
     echo "[$(date +%H:%M:%S)] OK    $task ($log)"
     return 0
   else

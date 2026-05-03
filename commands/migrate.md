@@ -195,6 +195,17 @@ You can also override:
                                 #   - For "ignore ledger entirely AND re-audit", combine: /migrate --restart --re-audit
 ```
 
+### Recovery flags — which one to use
+
+| Symptom | Flag | Effect on `ai/migrate/progress.md` | Effect on `ai/migration/ledger.md` |
+|--------|------|-----------------------------------|-----------------------------------|
+| Reset area workflow only; keep audit history / ledger authority | `--restart` | Wiped (with backup) | **Untouched** |
+| Full re-discovery + replace ledger + final report + progress (belt-and-braces) | `--ignore-ledger` | Backed up then replaced | **Backed up then replaced** |
+| Re-run audits on existing ledger rows without wiping progress file semantics | `--re-audit` | Optional touch only | Discards cached “verified” semantics per command prose |
+| Merge new V1 features into progress without porting | `--refresh` | Merged | **Untouched** |
+
+**Warning:** `--ignore-ledger` deletes migration narrative authority in the ledger after backup — use when you intentionally want a from-zero audit. **`--restart` alone does not fix stale ledger rows.**
+
 ## What you see (output)
 
 End-of-run, the user sees ONE summary block:

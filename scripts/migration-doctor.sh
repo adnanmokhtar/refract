@@ -133,9 +133,26 @@ check_cross_repo_deps() {
         continue
       fi
       local dep_status
-      dep_status=$(awk -v feat="$dep_feature" '
-        $1 == "feature:" && $2 == feat { in_block = 1 }
-        in_block && $1 == "status:" { print $2; exit }
+      dep_status=$(awk -v wanted="$dep_feature" '
+        /^id: F[0-9]+[a-z]?$/ {
+          if (in_block) try_emit()
+          feat=""; status=""
+          in_block = 1
+          next
+        }
+        /^```/ {
+          try_emit()
+          feat=""; status=""
+          in_block = 0
+          next
+        }
+        in_block && /^feature: / { feat = $2; next }
+        in_block && /^status: / { status = $2; next }
+        in_block && /^state: / { if (status == "") status = $2; next }
+        function try_emit() {
+          if (feat == wanted && status != "") { print status; exit }
+        }
+        END { if (in_block) try_emit() }
       ' "$dep_ledger")
       if [[ "$dep_status" != "done" ]] && [[ "$dep_status" != "intentional-break" ]]; then
         echo "  ✗ $repo depends on $dep_repo:$dep_feature (status=$dep_status — blocker)"
@@ -162,7 +179,10 @@ check_stale_audits() {
       local audit_epoch now_epoch diff_days
       audit_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "${audit_date%+*}" +%s 2>/dev/null || date -d "$audit_date" +%s 2>/dev/null || echo 0)
       now_epoch=$(date +%s)
-      [[ $audit_epoch -eq 0 ]] && continue
+      if [[ $audit_epoch -eq 0 ]]; then
+        echo "  ⚠ $repo:$(basename "$audit") could not parse audit_date=$audit_date — stale check skipped"
+        continue
+      fi
       diff_days=$(( (now_epoch - audit_epoch) / 86400 ))
       if [[ $diff_days -gt 30 ]]; then
         echo "  ⚠ $repo:$(basename "$audit") audit_date=$audit_date ($diff_days days old) — re-audit recommended"
@@ -170,7 +190,8 @@ check_stale_audits() {
       fi
     done < <(find "$audits_dir" -maxdepth 1 -name '*.md' ! -name 'phase-*.md' ! -name '*-relook.md' 2>/dev/null)
   done
-  return $stale
+  [[ $stale -gt 0 ]] && return 1
+  return 0
 }
 
 # ── Main ────────────────────────────────────────────────────────────────────
@@ -202,20 +223,23 @@ main() {
     fi
   done
 
+  local cross_rc=0 stale_rc=0
   echo
   echo "Cross-repo dependencies:"
-  check_cross_repo_deps "$repos" || true
+  check_cross_repo_deps "$repos" || cross_rc=1
 
   echo
   echo "Stale audits (>30 days):"
-  check_stale_audits "$repos" || true
+  check_stale_audits "$repos" || stale_rc=1
 
   echo
-  if [[ $total_failures -eq 0 ]]; then
+  if [[ $total_failures -eq 0 && $cross_rc -eq 0 && $stale_rc -eq 0 ]]; then
     echo "Verdict: HEALTHY"
     exit 0
   else
-    echo "Verdict: $total_failures repo(s) with failures — fix before phase advance"
+    [[ $cross_rc -ne 0 ]] && echo "Verdict: UNHEALTHY — cross-repo dependency violations (see above)" >&2
+    [[ $stale_rc -ne 0 ]] && echo "Verdict: UNHEALTHY — stale audits (>30 days) detected" >&2
+    [[ $total_failures -ne 0 ]] && echo "Verdict: $total_failures repo(s) validator failures — fix before phase advance" >&2
     exit 1
   fi
 }

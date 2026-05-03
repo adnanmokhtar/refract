@@ -6,6 +6,17 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Migration cycle accuracy — validator + tooling hardening
+
+**Changed / Added**
+- **`scripts/validate-migration-artifacts.sh`** — Section 0 wired into `validate_feature`; trivial-tier primitive gate fixed; `mixed` `project_kind`; strict corpus / gap-marker checks; reachability + cutover-evidence + tolerance/scope hooks; forms-bearing aggregation; backend-only bypass for primitives.
+- **`scripts/migration-doctor.sh`** — Cross-repo deps + stale audits affect exit code; YAML/fenced ledger parsing aligned with canonical ledger shape.
+- **`scripts/migrate-parallel.sh`** — Row discovery aligned with `## <id>` + `state:`/`status:` blocks.
+- **`scripts/parallel-fan-out.sh`** — Optional `LEDGER_LOCK` flock around worker ledger writes.
+- **`scripts/migration-detect-existing.sh`** — `v2_root` from `_v2-anchors.md`; broader scan roots / patterns.
+- **`scripts/migration-reachability.sh`** (new) — 6-axis reachability template + `--lint`.
+- **Docs / schema** — `mixed` in `_v2-anchors-schema.md`; tier default narrative unified (trivial until audit); `commands/migrate.md` recovery flags; example `cutover-evidence-stage.json`.
+
 ### M21 — Decisions-first batch flow for migration pack
 
 User pain point: "running /port-feature per row takes very long and I need to keep my eye on the CLI." Per-feature interactive ports re-prompt the user for the same cross-cutting decisions (RBAC slug renames, payload shape changes, `is_active` defaults) once per affected feature. M21 adds a **decisions-first batch flow** that decouples decisions from execution.

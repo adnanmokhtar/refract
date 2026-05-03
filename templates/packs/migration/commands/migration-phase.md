@@ -199,7 +199,7 @@ Each halt is logged to `ai/migration/audits/<feature-id>.md`'s "Hard-halt findin
 
 Output: `ai/migration/audits/<feature-id>.md`. Required structure (validator-enforced):
 
-**Tier requirement**: the audit doc MUST include a `tier:` field in its frontmatter — one of `trivial` / `standard` / `heavy` — with a 1-2 sentence justification in the body citing P0/P1 counts + risk axes from `migration-discipline.md` § Tier classification. The tier propagates from this audit to the ledger row's `tier:` field; downstream artifacts (contract scope, parity-test corpus floor, plan depth, perf-decisions, runbook) are scoped to the tier. Without a tier on the audit, the row defaults to heavy and `/migration-gate` enforces the heavy artifact set. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+**Tier requirement**: the audit doc MUST include a `tier:` field in its frontmatter — one of `trivial` / `standard` / `heavy` — with a 1-2 sentence justification in the body citing P0/P1 counts + risk axes from `migration-discipline.md` § Tier classification. The tier propagates from this audit to the ledger row's `tier:` field; downstream artifacts (contract scope, parity-test corpus floor, plan depth, perf-decisions, runbook) are scoped to the tier. **Without a tier on the ledger row, `validate-migration-artifacts.sh` defaults `tier` to `trivial`** — do not rely on implicit heavy artifacts; set `tier:` explicitly before gate when the feature needs standard/heavy floors. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
 
 ```markdown
 ---

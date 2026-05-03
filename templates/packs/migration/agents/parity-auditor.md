@@ -115,7 +115,10 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
 - **Lifecycle / cache** — when V2's framework supports route caching, the V2 fetch hook must align with the cache mechanism (the project's anchors file declares the pair). Mount-only fetches on cached routes are stale-on-tab-return.
 - **Bulk actions** — every batch operation V1 supports.
 
-**Tier-aware enumeration** (per ledger row's `tier:` field, set by audit per `migration-discipline.md` § "Required artifacts per feature — tiered floor"):
+**Tier-aware enumeration** (per ledger row's `tier:` field, set by audit per `migration-discipline.md` § "Required artifacts per feature — tiered floor").
+
+**Default until audit:** ledger `tier` defaults to `trivial` in `validate-migration-artifacts.sh` when unset — classification still requires full per-gap enumeration when gaps exist.
+
 - **Heavy tier**: full enumeration of every axis as above. No `...` / `etc.` hand-waves anywhere. This is the F039 anti-Trusted-Summary protection.
 - **Standard tier**: enumerate axes that show ≥1 gap (any severity, any kind: ADD / DELETE / CHANGE) with full per-row tables. Axes with 0 gaps may be summarised in 1 line ("8 form fields, all match — see V1 `<path>` vs V2 `<path>`"). The summary still cites both paths; no `etc.` allowed.
 - **Trivial tier**: same rule as standard — any axis with ≥1 gap (ADD / DELETE / CHANGE, frontend OR API) requires the full per-row enumeration table for that axis with `<v1-path:line>` ↔ `<v2-path:line>` citations. Axes with zero gaps may be 1-line summarised. Summary-only text hiding ≥1 gap is forbidden — the validator's `check_audit` hand-wave grep HALTs on `etc.` / `...` / `N+ items` / `and so on` / `deferred to port-phase parity author` / `by audit-by-inspection`. Trivial differs from standard ONLY in the artifact set produced (no contract / plan / parity tests / runbook), NOT in detection rigor.

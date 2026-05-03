@@ -69,8 +69,8 @@ fi
 #   class: ...
 #   ...
 #
-# Strategy: walk lines, when we hit `## <id>`, remember the id; when we hit
-# the next `status: <state>` line within that block, decide.
+# Strategy: same fenced-yaml ledger blocks as validate-migration-artifacts.sh discover_features.
+# Emits ledger row ids (F001, …) whose status:/state: matches --status.
 
 TASK_FILE="$(mktemp -t migrate-tasks.XXXXXX)"
 trap 'rm -f "$TASK_FILE"' EXIT
@@ -78,19 +78,31 @@ trap 'rm -f "$TASK_FILE"' EXIT
 awk -v states="$STATES" '
   BEGIN {
     n = split(states, arr, ",")
-    for (i = 1; i <= n; i++) want[arr[i]] = 1
+    for (i = 1; i <= n; i++) {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", arr[i])
+      want[arr[i]] = 1
+    }
   }
-  /^## [A-Za-z0-9_-]+/ {
-    current = $2
-    have_status = 0
+  /^id: F[0-9]+[a-z]?$/ {
+    if (id != "") emit()
+    id = $2
+    st = ""
+    in_block = 1
     next
   }
-  /^status: / && current && !have_status {
-    s = $2
-    have_status = 1
-    if (s in want) print current
-    current = ""
+  /^```/ {
+    if (in_block) emit()
+    id = ""
+    st = ""
+    in_block = 0
+    next
   }
+  in_block && /^status: / { st = $2; gsub(/^[[:space:]]+|[[:space:]]+$/, "", st); next }
+  in_block && /^state: / { if (st == "") { st = $2; gsub(/^[[:space:]]+|[[:space:]]+$/, "", st) }; next }
+  function emit() {
+    if (id != "" && st != "" && (st in want)) print id
+  }
+  END { if (id != "") emit() }
 ' "$LEDGER" > "$TASK_FILE"
 
 if [[ -n "$MAX_TASKS" ]]; then

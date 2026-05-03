@@ -45,6 +45,22 @@ done
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 [[ "$FEATURE" =~ ^[a-z][a-z0-9_-]*$ ]] || { echo "ERR: feature slug must match [a-z][a-z0-9_-]*" >&2; exit 2; }
 
+# Prefer v2_root from ai/migration/_v2-anchors.md over hard-coded src/ (monorepos, Python trees, etc.)
+V2_SCAN_ROOT="$TARGET/src"
+ANCHORS_FILE="$TARGET/ai/migration/_v2-anchors.md"
+if [[ -f "$ANCHORS_FILE" ]]; then
+  _vr=$(awk '/^---[[:space:]]*$/{n++; next} n==1{print} n>=2{exit}' "$ANCHORS_FILE" 2>/dev/null | grep -m1 '^v2_root:' | sed 's/^v2_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  if [[ -n "$_vr" ]]; then
+    _vr="${_vr%/}"
+    if [[ "${_vr#/}" != "$_vr" ]]; then
+      V2_SCAN_ROOT="$_vr"
+    else
+      V2_SCAN_ROOT="$TARGET/${_vr#./}"
+    fi
+  fi
+fi
+[[ -d "$V2_SCAN_ROOT" ]] || V2_SCAN_ROOT="$TARGET/src"
+
 REPORT="$TARGET/.claude/_migration-detect-$FEATURE.md"
 mkdir -p "$(dirname "$REPORT")"
 
@@ -80,7 +96,7 @@ done
 # ---------- Service / composable file ----------
 service_hits=$(grep -rlE "^(export[[:space:]]+(class|const|function)[[:space:]]+(${PASCAL}Service|use${PASCAL}|${CAMEL}Service))" \
   --include='*.ts' --include='*.tsx' --include='*.js' --include='*.vue' \
-  "$TARGET/src" 2>/dev/null | head -10 || true)
+  "$V2_SCAN_ROOT" 2>/dev/null | head -10 || true)
 if [[ -n "$service_hits" ]]; then
   count=$(echo "$service_hits" | wc -l | tr -d ' ')
   matches+=("service/composable definitions: $count file(s)")
@@ -94,7 +110,7 @@ fi
 # ---------- Route registration ----------
 route_hits=$(grep -rlE "(path:[[:space:]]*['\"]/${KEBAB}|name:[[:space:]]*['\"]${PASCAL}|component:.*${PASCAL})" \
   --include='*.ts' --include='*.tsx' --include='*.vue' --include='*.js' \
-  "$TARGET/src" 2>/dev/null | head -5 || true)
+  "$V2_SCAN_ROOT" 2>/dev/null | head -5 || true)
 if [[ -n "$route_hits" ]]; then
   count=$(echo "$route_hits" | wc -l | tr -d ' ')
   matches+=("route definitions: $count file(s)")
@@ -103,7 +119,7 @@ if [[ -n "$route_hits" ]]; then
 fi
 
 # ---------- i18n keys ----------
-locale_dirs=$(find "$TARGET/src" -type d \( -name 'locales' -o -name 'i18n' -o -name 'translations' \) 2>/dev/null | head -5)
+locale_dirs=$(find "$V2_SCAN_ROOT" "$TARGET/src" -type d \( -name 'locales' -o -name 'i18n' -o -name 'translations' \) 2>/dev/null | head -8)
 if [[ -n "$locale_dirs" ]]; then
   i18n_hits=$(grep -rlE "(\"${PASCAL}\\.|\"${CAMEL}\\.|^[[:space:]]+${PASCAL}:|^[[:space:]]+${CAMEL}:)" \
     $locale_dirs 2>/dev/null | head -5 || true)

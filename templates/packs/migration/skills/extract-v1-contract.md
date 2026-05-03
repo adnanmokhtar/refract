@@ -24,7 +24,7 @@ This skill is the procedural arm of `migration-discipline.md` + `feature-port.md
 
 ## Tier-aware contract scope
 
-The contract's required scope scales with the ledger row's `tier:` field (set by audit, default `heavy` if absent). See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+The contract's required scope scales with the ledger row's `tier:` field (set by audit). **Canonical default:** `trivial` until the parity audit sets `tier:` on the ledger (`migration-discipline.md`); `validate-migration-artifacts.sh` defaults missing ledger `tier` to `trivial`. Do not assume `heavy` when `tier` is absent — read the ledger row after audit.
 
 - **Heavy tier**: full 9-section contract (Inputs / Outputs / Side effects / Business rules / Invariants / Performance characteristics / Caller assumptions / Edge cases V1 handles / Known V1 bugs). All sections populated; every claim cited `<path:line>` with one-line excerpt.
 - **Standard tier**: 3 sections only — § 1 Inputs, § 2 Outputs (per code path), § 9 Known V1 bugs. Skip § 3–§ 8 as separate sections; fold any load-bearing item flagged by audit into the relevant section. Citation discipline still applies.

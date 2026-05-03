@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Example cutover evidence file for parity-auditor Stage B–D (shadow → canary → V2-only). Place under ai/migration/cutover-evidence/<id>-<feature>.json or <feature>.json when ledger status is V2-shadow | V2-canary | V2-only.",
+  "feature": "feature-slug",
+  "ledger_id": "F001",
+  "stage": "shadow",
+  "stage_started": "2026-05-01T00:00:00Z",
+  "shadow_min_days_met": true,
+  "mismatch_rate_last_7d": 0.0005,
+  "mismatch_rate_threshold": 0.001,
+  "error_rate_v2_vs_v1_ratio": 1.1,
+  "p95_latency_v2_vs_v1_ratio": 1.2,
+  "staging_rollback_tested_within_days": 5,
+  "dashboard_or_report_url": "https://metrics.example/shadow/F001",
+  "notes": "Links must be real in production gates; validator checks file existence under strict mode."
+}
