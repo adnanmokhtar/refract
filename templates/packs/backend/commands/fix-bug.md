@@ -65,12 +65,10 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 Parse the user's description for keywords that indicate a different command is the right choice. `/fix-bug` is for INCORRECT BEHAVIOR — wrong output, crash, error, regression. NOT for visual polish, enhancement, or new features.
 
+**Universal keyword routing** (add / enhance / audit / …): see [`templates/snippets/intent-gate-skeleton.md`](../../../snippets/intent-gate-skeleton.md).
+
 | User description contains | Right command | Action |
 |---|---|---|
-| "enhance" / "improve" / "polish" / "cleaner" / "better look" / "redesign" — visual / UX work | `/enhance-ui` (frontend) | Halt; suggest `/enhance-ui <description>` |
-| "add" / "new" / "create" / "build" — new functionality | `/add-feature` | Halt; suggest `/add-feature <description>` |
-| "align" / "drift" / "convention" / "cleanup" — codebase quality, not a bug | `/align-recheck` | Halt; suggest `/align-recheck <description>` |
-| "audit" / "review" — read-only intent | `/security-audit`, `/design-review`, etc. | Halt; suggest the right audit |
 | "broken" / "crash" / "error" / "wrong output" / "regression" / "doesn't work" — actual bug | `/fix-bug` (this command) | Proceed |
 
 If ambiguous: ASK "is this incorrect behavior, or a quality / enhancement task?" Route based on answer.
@@ -107,15 +105,11 @@ If prod is burning: shorten Phase 2 to "stabilize first, then proper flow on fol
 
 ## Phase 3 — Retrieve (read the right context)
 
-ALWAYS (the universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
-- All `.claude/rules/`.
+ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
+
+**MUST read** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) before generating code.
+
+Also read **all** `.claude/rules/` applicable to this bug.
 
 CONTEXT-GATHERING SKILLS:
 

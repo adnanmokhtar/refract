@@ -66,6 +66,7 @@ Four parallel scans (Explore subagents, capped per `--max-subagents`). **Scans 1
    - **Inner-routes** — child routes / nested routes / dynamic segment routes.
    - **Templates** — every leaf-component / view-template file in V1's view layer (any extension declared in the project's stack), not just "pages". A re-usable template that surfaces unique user-clickable affordances counts.
    - **CRUD action surfaces** — bulk-action menus, row-action dropdowns, context menus reachable from list pages.
+   - **Unmapped components check (DEAD-CODE FILTER)** — for each module, list every component file in the module's views/pages folder. Cross-reference against the navigation tree: any file that is NOT (a) imported by a route, (b) rendered by a reachable tab array, (c) conditionally rendered by a reachable interaction state, is flagged as **unmapped / dead-code candidate**. Do NOT port these as standalone features. Example: a parent component defines conditional renders for values 2+3, but the tab array max is 1 — those child components are dead UI code, not standalone pages.
    For each clickable surface: capture the **full click path** from V1 root (e.g., "Settings → Appearance → Colors → Primary tab → Color picker") and the **leaf-level component / route**. The output is a tree, not a flat list — depth-N entries belong to depth-(N-1) parents.
    This is what the user means by "deep nav tree." The discipline halt #13 (Module/page audit missing navigation inventory) DEMANDS this — and it can only deliver if scan-time inventory captured it.
 
@@ -73,14 +74,15 @@ Four parallel scans (Explore subagents, capped per `--max-subagents`). **Scans 1
 
 3. **V1↔V2 mapping** — for each V1 leaf-level entry (every tab, sub-tab, modal-tab, sidebar item, in-page navigation surface), identify the corresponding V2 entry (or absence). A V1 leaf with no V2 leaf is a `nav-drift` finding (see migration-discipline.md halt #13). NOT a feature mapping — a navigation mapping.
 
-4. **V1 dead-code reachability** — for each V1 feature in the inventory, run the 6-axis reachability check (per `migration-discipline.md § What counts as dead V1 code`):
+4. **V1 dead-code reachability + unmapped component filter** — for each V1 feature in the inventory, run the 6-axis reachability check (per `migration-discipline.md § What counts as dead V1 code`) AND the unmapped-component filter from scan step 1:
    - Axis 1: app source callers (`git grep -F` for the feature's exported symbols / route paths / endpoint names across V1's app source, excluding the feature's own files + tests).
    - Axis 2: test references (same grep across V1's test directories; the feature's own unit test does NOT count as a caller).
    - Axis 3: cron / scheduler config references.
    - Axis 4: route / API / event-bus registration.
    - Axis 5: infra / deploy config references (Dockerfile, k8s, terraform, CI workflows).
    - Axis 6: production telemetry (if observability link exists in `_extracted-codebase.md`): zero invocations / zero log lines for ≥ 90 days.
-   A feature is dead iff **all 6 axes** report zero (or axes 1–5 if telemetry is unavailable). Flag dead features for halt unless `--include-dead` / `--external-consumer` / `--in-development` covers the feature.
+   - **Axis 7 (frontend-specific, added 2026-05-03): navigation reachability** — the component/file is rendered by a reachable tab array, route, or interaction state. A component file that exists in the views folder but is only referenced by unreachable conditional branches (e.g., `selectedItem == 2` when the tab array max is 1) is **navigation-dead** and treated the same as a dead feature. This prevents the Zombie Tab Component anti-pattern.
+   A feature is dead iff **all applicable axes** report zero (or axes 1–5 if telemetry is unavailable; axis 7 for frontend components). Flag dead features for halt unless `--include-dead` / `--external-consumer` / `--in-development` covers the feature.
 
 ## Phase 3 — Retrieve (read the right context)
 

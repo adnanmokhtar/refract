@@ -73,12 +73,10 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 Parse the user's description for keywords that indicate a different command is the right choice. `/fix-bug` is for INCORRECT BEHAVIOR — wrong output, crash, error, regression. NOT for visual polish, enhancement, or new features.
 
+**Universal keyword routing** (add / enhance / audit / …): see [`templates/snippets/intent-gate-skeleton.md`](../templates/snippets/intent-gate-skeleton.md).
+
 | User description contains | Right command | Action |
 |---|---|---|
-| "enhance" / "improve" / "polish" / "cleaner" / "better look" / "redesign" — visual / UX work | `/enhance-ui` (frontend) | Halt; suggest `/enhance-ui <description>` |
-| "add" / "new" / "create" / "build" — new functionality | `/add-feature` | Halt; suggest `/add-feature <description>` |
-| "align" / "drift" / "convention" / "cleanup" — codebase quality, not a bug | `/align-recheck` | Halt; suggest `/align-recheck <description>` |
-| "audit" / "review" — read-only intent | `/security-audit`, `/design-review`, etc. | Halt; suggest the right audit |
 | "broken" / "crash" / "error" / "wrong output" / "regression" / "doesn't work" — actual bug | `/fix-bug` (this command) | Proceed |
 
 If ambiguous: ASK "is this incorrect behavior, or a quality / enhancement task?" Route based on answer.
@@ -120,6 +118,8 @@ Detect the bug class:
 Stack detection from `CLAUDE.md` declares stack. The command dispatches to relevant agents (see Phase 4).
 
 ## Phase 3 — Retrieve
+
+**MUST read** [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) before generating code fixes.
 
 Read in order:
 1. The reproducer steps + any attached evidence (logs, screenshots, traces).

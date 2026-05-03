@@ -30,12 +30,7 @@ That's it. Everything else is silent sibling-parity emission.
 
 ## Mechanical halt — instrumentation-naming parity
 
-Before finishing Phase 4, run these checks. Any failure = HALT, surface, do not advance:
-
-1. **Span name parity** — collect existing span names via `grep` for `startActiveSpan` / `start_as_current_span`. New span names MUST follow the same casing + separator (`<domain>.<verb>` vs `<Class>.<method>`).
-2. **Attribute key parity** — every new `setAttribute` key MUST match sibling spans for the same semantic (`tenant_id`, `user_id`, `order.id`, `route`). No new attribute keys without an ADR.
-3. **Resource attribute parity** — new bootstrap reuses sibling `service.name` / `service.version` / `deployment.environment` keys verbatim.
-4. **Sampler parity** — new sampler config matches sibling services (rate, parent-based, tail-based) unless data-justified divergence is documented inline.
+See [`templates/snippets/instrumentation-parity.md`](../../../snippets/instrumentation-parity.md). **This command** emphasizes span names, span attributes, resource attributes, and sampler config — mirror sibling traces per the premise above.
 
 Add the check results to the output block under `Naming-parity: ✓ | halts=<N>`.
 

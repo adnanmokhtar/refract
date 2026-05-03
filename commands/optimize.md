@@ -32,12 +32,7 @@ The agent:
    - **Clean code** — long functions, deep nesting, magic numbers, bad naming, redundant comments, comment-as-rename.
    - **Refactoring** — method extraction (≥30 lines OR cyclomatic ≥10 OR mixed responsibilities), conditional flattening (nesting ≥3 → guard clauses or polymorphism), parameter object (≥5 args, or 3+ args always travelling together), magic→constant, move-to-right-module, decompose long file (≥500 lines, mixed responsibilities), replace temp with query, replace loop with pipeline (manual `for` → `map`/`filter`/`reduce`), rename for clarity (single-letter / `data` / `tmp` / `info`), encapsulate exposed state.
    - **Clean architecture** — leftover layer violations, leaking abstractions, module/layer boundaries.
-   - **SOLID**:
-     - **SRP** — split god classes / multi-purpose modules.
-     - **OCP** — extend instead of modify closed modules.
-     - **LSP** — fix subtype contract breaks.
-     - **ISP** — split fat interfaces with unused members.
-     - **DIP** — high-level modules depend on abstractions, not concretions.
+   - **SOLID** — dispatch via [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) (linked packs hold SRP/OCP/LSP/ISP/DIP closure vocabulary — do not restate glossaries here).
    - **Performance** — N+1 queries, sequential awaits where parallelism is safe, sync HTTP in hot paths, missing cache at known-cacheable sites, missing index where query shape demands one, `SELECT *` consumed by < 5 fields, in-app filtering pushable to database.
    - **Dead code** — unused exports, unreachable branches, dead variables.
    - **Duplicated logic** — same code in N files (dedupes to introduced or existing shared helpers).
@@ -77,6 +72,8 @@ Examples:
 ```
 
 ## What happens internally (silent)
+
+**Discipline:** MUST read [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) before generating code fixes (SOLID + clean-code single source of truth).
 
 1. **Phase 0 — Architectural diagnosis** (the bigger picture, dispatched via `architectural-diagnosis` skill in code-quality pack). Builds project-wide maps:
    - Dependency graph (modules → modules; flags cycles, bottlenecks).

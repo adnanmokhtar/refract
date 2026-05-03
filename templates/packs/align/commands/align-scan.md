@@ -8,6 +8,8 @@ pack: align
 
 ## The Premise (read this first)
 
+**Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — SOLID / clean-code / detector vocabulary (single source of truth; do not restate glossaries here).
+
 **Read before flagging. Cite real `<path:line>` evidence, never invented.** The scan reads the actual codebase against the actual gold-standard inventory — preferring `_extracted-idioms.md` when present, falling back to `codebase-profile.md` when idioms is absent (the latter is normal for Composition-API / functional projects where Phase 2.5 of refine has no class-inheritance hierarchy to extract from). Plus `ai/conventions.md` + `ai/architecture.md`. Writes a finding row per real fingerprint hit. No paraphrasing, no "this module probably has dead code," no inferred entries from memory or vibe-check. Every finding row's `evidence` is a real `<path:line>` containing the cited fingerprint at the pinned commit. If a detector tool is unavailable (binary missing, config invalid), halt and surface — do NOT silently drop a class.
 
 The deep-comparison entry point. Run this FIRST before `/align-plan` or `/align-fast`.

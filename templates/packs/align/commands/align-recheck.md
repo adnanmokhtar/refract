@@ -160,6 +160,8 @@ Key difference vs `/align-fast` / `/align-phase`:
 
 ## Phase 3 — Retrieve (read the right context)
 
+**MUST read** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) before generating code fixes.
+
 For each matched finding:
 - Ledger row.
 - 5K shared context blob (idioms summary).

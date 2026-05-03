@@ -65,14 +65,7 @@ Build command. Generates unit + integration + (optional) e2e tests using project
 
 ## Phase 3 — Retrieve
 
-ALWAYS (universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
+ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
 Test-specific:
 - 1-2 sibling tests in the same module — copy style verbatim (the project's naming convention: `*.spec.<ext>` vs `*.test.<ext>` vs `test_*.py` vs `*_test.go` vs `*_spec.rb` vs framework-equivalent; `__tests__/` vs adjacent vs `tests/` vs `spec/`).

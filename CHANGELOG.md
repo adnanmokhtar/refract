@@ -6,6 +6,19 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Command DRY + SOLID single-source-of-truth
+
+**Changed / Added**
+- **`templates/governance/core-discipline.md`** — single pointer to SOLID + clean-code rules (`align-discipline`, `engineering-principles`, `quality-principles`).
+- **`templates/snippets/`** — `phase-3-always-reads.md`, `hand-wave-grep.md`, `intent-gate-skeleton.md`, `instrumentation-parity.md` (canonical reusable blocks with front matter).
+- **`templates/canonical-command-template.md`** — Phase 3 references snippets + `core-discipline.md` instead of inlining the ALWAYS list; **Reusable snippets** subsection.
+- **Dedupe pass** — `db-audit`, `migration-review`, `add-telemetry` / `add-metrics` / `add-tracing`, baseline + backend `fix-bug` intent gate, `commands/optimize.md`; bulk Phase 3 ALWAYS → snippet link across pack commands that still inlined all seven paths.
+- **Code-writing commands** — Phase 3 (or equivalent) **MUST read** `core-discipline.md` on `add-feature`, `add-component`, `add-crud-page`, `add-endpoint`, `fix-bug`, `align-recheck`, `commands/{optimize,align,polish}.md`, `refactorer` agent.
+- **`scripts/audit-command-dry.sh`** — mechanical lint for duplicated SOLID prose / full Phase 3 paste / hand-wave grep; **`scripts/audit-setup.sh`** invokes it as **C2g**.
+- **Docs** — `docs/REFERENCE.md`, `docs/COMMANDS.md`, this changelog.
+- **Tool adapters** — `templates/tool-adapters/_template-author-scripts.md` (C2f/C2g + canonical pointers); README + `_registry.md` + `_discipline-enforcement.md` + `claude-code` / `cursor` adapter cross-references.
+- **Setup-project link hygiene** — `templates/repo-baseline/.claude/templates/{snippets,governance}/` ships canonical snippet + `core-discipline.md` into targets; `apply-study-decisions.sh` rewrites `../../../snippets/` and `../../../governance/` → `../templates/...` when copying pack **commands** and **agents** so links work under `.claude/` (baseline `fix-bug.md` uses `../templates/` links directly).
+
 ### enhance-ui DRY fix — design-system-tier scope detection
 
 **Changed / Added**

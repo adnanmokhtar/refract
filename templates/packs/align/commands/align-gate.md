@@ -8,6 +8,8 @@ pack: align
 
 ## The Premise (read this first)
 
+**Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — SOLID / clean-code / functional-class vocabulary (single source of truth).
+
 **The gate decides whether phase N can advance.** It is read-only: it does NOT fix findings, does NOT modify ledger rows, does NOT touch source. It validates that the phase met its exit criteria and writes a single history-entry line at `ai/align/gate-history.md`. If any check fails, the gate REFUSES — surfaces the failure, points to the remediation, and exits non-zero. The phase stays in the in-progress state until the user resolves the blocker (via `/align-phase` continuation, `/align-park`, or `/align-rollback`).
 
 **Gates fail loudly. Silent passes are the failure mode.** Every check produces an explicit pass / fail line. Skipping a check (because the tool is unavailable, the test suite is slow, the visual regression baseline drifted) is a HALT, not a soft warning. The discipline is hard-edged on purpose — soft gates are how regressions ship.

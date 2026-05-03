@@ -366,6 +366,19 @@ if [[ -x "$SCRIPTS_DIR/audit-stack-leakage.sh" ]]; then
   echo ""
 fi
 
+# Command DRY — SOLID/clean-code pointers + Phase 3 snippet links (template pack source).
+if [[ -x "$SCRIPTS_DIR/audit-command-dry.sh" ]]; then
+  echo "C2g: command DRY (SOLID/clean-code + Phase 3 snippets)"
+  if dry_out=$("$SCRIPTS_DIR/audit-command-dry.sh" 2>&1); then
+    echo "$dry_out"
+    ok "audit-command-dry.sh clean"
+  else
+    echo "$dry_out" >&2
+    err "audit-command-dry.sh failed — link core-discipline.md / phase-3-always-reads.md or remove duplicated prose"
+  fi
+  echo ""
+fi
+
 # Summary
 echo "=== summary ==="
 echo "fail: $fail"

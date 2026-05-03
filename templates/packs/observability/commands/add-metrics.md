@@ -30,12 +30,7 @@ That's it. Everything else is silent sibling-parity emission.
 
 ## Mechanical halt — instrumentation-naming parity
 
-Before finishing Phase 4, run these checks. Any failure = HALT, surface, do not advance:
-
-1. **Metric prefix parity** — `grep` the repo for existing meter `createCounter` / `createHistogram` / `createGauge` calls. Every new metric name MUST share the prefix root (e.g., `http.server.*` vs `http_server_*`) of the closest sibling. New prefix = ADR required.
-2. **Label key parity** — collect the union of label keys used by sibling metrics in the same domain. New metrics MUST use the same key spellings (`route` not `path`, `status` not `status_code`) when the semantic is the same.
-3. **No new field/label names without ADR** — if the new metric introduces a label key that no sibling metric uses, halt. Either drop the label, reuse a sibling key, or write an ADR.
-4. **Unit + bucket parity** — histograms in the same dimension (latency ms, payload bytes) reuse sibling buckets unless data-justified divergence is documented inline.
+See [`templates/snippets/instrumentation-parity.md`](../../../snippets/instrumentation-parity.md). **This command** emphasizes metric prefix, label keys, units, and histogram buckets — mirror sibling meters per the premise above.
 
 Add the check results to the output block under `Naming-parity: ✓ | halts=<N>`.
 

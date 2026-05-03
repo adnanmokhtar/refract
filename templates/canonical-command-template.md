@@ -56,14 +56,13 @@ description: <one line — first ≤90 chars front-load the matching keywords>
 
 ## Phase 3 — Retrieve (read the right context)
 
-ALWAYS (the universal pre-flight — non-negotiable):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
+**ALWAYS** — see [`templates/snippets/phase-3-always-reads.md`](snippets/phase-3-always-reads.md) (single canonical list). Do not paste the seven-path block inline in generated commands.
+
+**SOLID + clean-code discipline** — read [`templates/governance/core-discipline.md`](governance/core-discipline.md) before generating or refactoring code.
+
+### Reusable snippets
+
+If your command uses a **hand-wave grep** gate, **intent routing**, or **instrumentation parity** checks, link to the canonical snippets under [`templates/snippets/`](snippets/) — do not restate long procedural blocks.
 
 SIGNAL-BASED (read additional context based on detected signals):
 | Signal | Read these |

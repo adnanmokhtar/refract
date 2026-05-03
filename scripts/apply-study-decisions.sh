@@ -43,6 +43,18 @@ done
 
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
+# Pack commands use ../../../snippets/ + ../../../governance/ (valid under templates/packs/.../commands/).
+# Targets receive files under .claude/commands/ — rewrite so links resolve to .claude/templates/{snippets,governance}/.
+rewrite_deployed_command_links() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  if command -v perl >/dev/null 2>&1; then
+    perl -i -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g' "$f"
+  else
+    echo "  WARN perl missing — cannot rewrite snippet/governance links in ${f#$TARGET/}" >&2
+  fi
+}
+
 REPORT="$TARGET/.claude/_study-existing-report.md"
 [[ -f "$REPORT" ]] || { echo "ERR: study report not found at $REPORT — run scripts/study-existing.sh first" >&2; exit 3; }
 
@@ -126,6 +138,7 @@ for action in "${actions[@]:-}"; do
       if [[ "$APPLY" -eq 1 ]]; then
         mkdir -p "$tgt_dir"
         cp "$pack_src" "$tgt"
+        [[ "$kind" == "commands" || "$kind" == "agents" ]] && rewrite_deployed_command_links "$tgt"
         echo "  ADD     $pack/$kind/$base → $(basename "$tgt_dir")/$base"
       else
         echo "  would-ADD $pack/$kind/$base → $(basename "$tgt_dir")/$base"
@@ -148,6 +161,7 @@ for action in "${actions[@]:-}"; do
         cp "$tgt" "$bak_path"
 
         cp "$pack_src" "$tgt"
+        [[ "$kind" == "commands" || "$kind" == "agents" ]] && rewrite_deployed_command_links "$tgt"
         echo "  REPLACE $rel  ($rest; backup: $bak_dir/$rel)"
       else
         echo "  would-REPLACE ${tgt#$TARGET/}  ($rest)"

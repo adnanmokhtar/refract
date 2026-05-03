@@ -19,6 +19,8 @@ What "polish" means depends on the stack:
 | `data-*` | Schema + migration consistency | Column naming drift (snake/camel); type-choice drift (VARCHAR vs TEXT for same concept); index-naming drift; audit-field gaps; migration pattern drift; soft-delete coverage |
 | `mobile-*` | Frontend polish + platform conventions | All frontend findings + iOS HIG conformance + Material spec conformance + per-platform surface adaptations |
 
+**Discipline:** MUST read [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) before generating code fixes.
+
 The agent:
 1. **Reads the project's design / API / schema / platform conventions** — `_extracted-idioms.md`, `ai/conventions.md`, `ai/architecture.md`, `_extracted-codebase.md § Gold standards`. These are the oracle for what "polished" means in this codebase.
 2. **Audits every relevant surface** — pages/modals/dashboards (frontend); endpoints/handlers/responses (backend); tables/migrations/queries (data); screens + platform manifests (mobile).

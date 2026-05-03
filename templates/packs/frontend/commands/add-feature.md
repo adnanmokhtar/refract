@@ -157,6 +157,8 @@ Use `ui-architect` agent to produce the design. Output:
 
 ## Phase 3 — Retrieve (read the right context)
 
+**MUST read** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) before generating code.
+
 Read, in this order:
 
 1. `CLAUDE.md` — declared stack, conventions, anti-patterns.

@@ -8,6 +8,8 @@ pack: align
 
 ## The Premise (read this first)
 
+**Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — finding-class vocabulary including `solid-violation` (single source of truth).
+
 **Read-only progress reader.** This command does NOT modify the ledger, source, or any artifact. It reports the current state of the alignment effort across all phases — per-finding status, per-phase progress, stalled rows, halted rows, security findings awaiting fixes, perf findings without baselines. Use it to surface drift, surface blockers, surface readiness for the next phase.
 
 ## When to use

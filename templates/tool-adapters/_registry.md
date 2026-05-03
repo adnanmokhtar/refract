@@ -94,3 +94,7 @@ Even without Claude Code selected, the Claude Code adapter runs **partially** to
 4. **Idempotency** — how to detect + update without clobbering user edits (usually: delimiter comments or dedicated top-of-file section).
 5. **Known gotchas** — character limits, ordering constraints, activation triggers.
 6. **Sample output** — a small worked example of what the generator emits.
+
+## Maintaining pack templates (claude-config repo)
+
+Editing `templates/packs/**` or `commands/` in this repository triggers Phase 5 checks (`audit-stack-leakage.sh`, `audit-command-dry.sh`). Canonical discipline links: **`_template-author-scripts.md`**.

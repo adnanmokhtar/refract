@@ -30,12 +30,7 @@ That's it. Everything else is silent sibling-parity emission.
 
 ## Mechanical halt — instrumentation-naming parity
 
-Before finishing Phase 4, run these checks. Any failure = HALT, surface, do not advance:
-
-1. **Span attribute parity** — `grep` the repo for `setAttribute` / `set_attribute` calls. Every new span attribute name MUST match sibling spans for the same semantic (`tenant_id`, `user_id`, `request_id`, `route`).
-2. **Metric prefix parity** — new metric names share the prefix root + separator of the closest sibling. New prefix = ADR required.
-3. **Log field parity** — every new log field is either reused from sibling logs OR documented in an ADR. No new field names smuggled in via this command.
-4. **Alert severity parity** — `severity: page | ticket | info` labels mirror sibling alerts; no new severity tiers introduced.
+See [`templates/snippets/instrumentation-parity.md`](../../../snippets/instrumentation-parity.md). Weight all four dimensions (span, metric, log, alert) per the premise above.
 
 Add the check results to the output block under `Naming-parity: ✓ | halts=<N>`.
 
@@ -63,14 +58,7 @@ Build command. Adds the four observability primitives — logs, metrics, traces,
 
 ## Phase 3 — Retrieve
 
-ALWAYS (universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
+ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
 Telemetry-specific:
 - Existing dashboards / alert configs — match conventions, don't invent a new format.

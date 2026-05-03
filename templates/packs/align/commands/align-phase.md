@@ -8,6 +8,8 @@ pack: align
 
 ## The Premise (read this first, internalize, do not deviate)
 
+**Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — SOLID / clean-code closure vocabulary (single source of truth).
+
 **The gold-standard inventory is the truth.** `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md` define the intended shape of the codebase. Every finding is a deviation; every fix moves toward the intended shape. The closure verbs are mechanical (`remove` / `inline` / `dedupe` / `rename-comment-out` / `replace-with-shared`) — alignment is an entropy reducer, not a designer.
 
 **The agent's job is exactly this:**

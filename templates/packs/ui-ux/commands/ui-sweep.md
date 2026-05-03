@@ -8,6 +8,8 @@ pack: ui-ux
 
 ## The Premise (read this first)
 
+**Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — when routing to `/align-scan` for SOLID / structural work, use linked vocabulary (single source of truth).
+
 **This is the UI/UX specialist command — not a thin align wrapper.** It has its own detectors, its own metrics, its own phasing strategy, its own verbs, and its own visual report. It overlaps with align on a few classes (a11y, design tokens) but goes substantially deeper on UX-specific concerns align doesn't measure.
 
 Use it when you want **measurable UI/UX quality** across the project, not just "code structure is clean".

@@ -43,12 +43,7 @@ A migration review without locations is theatre. "Consider expand-contract" is n
 
 ## Mechanical halt — hand-wave grep
 
-**Before emitting the verdict, the agent MUST run the hand-wave grep:**
-
-1. Grep the draft review for hand-wave tokens: `looks risky`, `might lock`, `may rewrite`, `consider expand-contract`, `could be slow`, `seems unsafe`, `appears to`, `possibly`, `unclear`.
-2. For each hit: anchor with `<migration-file:line>` + `<table>` + row-count assumption, OR delete the line.
-3. Re-grep. If any hand-wave survives without anchor → HALT.
-4. The validator-equivalent check: `findings_emitted = findings_with_anchor_and_rowcount`. If unequal → HALT, do not emit verdict.
+See [`templates/snippets/hand-wave-grep.md`](../../../snippets/hand-wave-grep.md). **Migration-review supplements:** also grep the draft for migration-specific vague tokens: `looks risky`, `might lock`, `may rewrite`, `consider expand-contract`, `could be slow`, `seems unsafe`, `appears to`, `possibly`, `unclear`. Anchors require `<migration-file:line>` + `<table>` + row-count assumption.
 
 If row count is missing on any BLOCKER/REQUEST → HALT and ask user before issuing verdict. A verdict without row-count grounding is unreliable per Phase 6 self-audit.
 

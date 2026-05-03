@@ -135,6 +135,10 @@ When enhance-mode detects a project uses a tool whose adapter is missing:
 
 See individual `<tool>/adapter.md` files for each tool's translation spec.
 
+## Template authoring (claude-config maintainers)
+
+When you change pack commands, snippets, or governance files under `templates/`, Phase 5 runs **`audit-stack-leakage.sh`** (C2f) and **`audit-command-dry.sh`** (C2g) via `audit-setup.sh`. Canonical SOLID/clean-code and Phase 3 snippet links live in **`templates/governance/core-discipline.md`** and **`templates/snippets/`**. Details: [**`_template-author-scripts.md`**](_template-author-scripts.md).
+
 ## Per-pack adapter coverage
 
 Some packs define their own discipline that every adapter must preserve faithfully. These packs ship a coverage doc that explains the per-tool translation expectations:

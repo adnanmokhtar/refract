@@ -42,14 +42,7 @@ An audit report without locations is a hallucination. "There may be missing inde
 
 ## Mechanical halt — hand-wave grep
 
-**Before emitting the report, the agent MUST run the hand-wave grep:**
-
-1. Grep the draft report for hand-wave tokens: `potentially`, `might`, `may`, `consider`, `could be`, `seems`, `appears to`, `possibly`, `unclear`, `unsure`, `TBD`.
-2. For each hit: either anchor it (`<file:line>` or `<table.column>`) or delete the line.
-3. Re-grep. If any hand-wave token survives without an anchor on the same line → HALT.
-4. The validator-equivalent check: `findings_emitted = findings_with_anchors`. If unequal → HALT.
-
-If hand-waves persist after one rewrite cycle → halt and ask user whether to drop the unanchored findings or extend the audit window to gather evidence.
+See [`templates/snippets/hand-wave-grep.md`](../../../snippets/hand-wave-grep.md). Use the audit report draft as the grep target; anchors are `<file:line>` / `<table.column>` / `<query_id>` per the premise above. **Also** grep for DB-audit tokens: `potentially`, `might`, `may`, `consider`, `could be`, `seems`, `appears to`, `possibly`, `unclear`, `unsure`, `TBD`.
 
 ## Lightweight default
 

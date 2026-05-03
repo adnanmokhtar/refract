@@ -191,8 +191,11 @@ The block lives between `<!-- discipline-enforcement:start -->` / `<!-- discipli
 
 The validator scripts (`validate-migration-artifacts.sh`, `validate-align-artifacts.sh`, `validate-optimize-artifacts.sh`, `validate-polish-artifacts.sh`) mechanically gate **specific artifact shapes** per pack (see each script header + `templates/tool-adapters/_*-pack-coverage.md`). Coverage differs by pack: migration is the deepest gate; optimize gates Phase 0 + ledger rows + findings hand-waves; align ships 7 of 14 checks; polish is stack-conditional evidence headings. **Discipline halts in AGENTS.md below still apply as universal intent** even when a pack's validator does not yet automate every halt (see `commands/*.md` + pack rules). Tools that ignore this discipline block will drift off canonical paths. This block is the **soft-enforcement layer**; the validators are the **hard-enforcement layer** for what they implement.
 
+**Pack source hygiene (claude-config repo only):** Editing commands under `templates/packs/` must stay DRY — link **`templates/governance/core-discipline.md`** and shared snippets instead of pasting SOLID glossaries; Phase 5 **`audit-command-dry.sh`** enforces this. See **`templates/tool-adapters/_template-author-scripts.md`**.
+
 ## See also
 
+- `templates/tool-adapters/_template-author-scripts.md` — C2f/C2g scripts + canonical snippet pointers (claude-config maintainers)
 - `templates/tool-adapters/_registry.md` — capability matrix per tool
 - `templates/tool-adapters/_<pack>-pack-coverage.md` — per-pack adapter expectations (`_migration-pack-coverage.md`, `_align-pack-coverage.md`, `_optimize-pack-coverage.md`, `_ui-ux-pack-coverage.md`, …)
 - `templates/packs/migration/rules/migration-discipline.md` § canonical paths

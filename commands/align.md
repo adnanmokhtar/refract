@@ -60,6 +60,8 @@ Examples:
 
 ## What happens internally (silent)
 
+**Discipline:** MUST read [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) before generating code fixes.
+
 1. **Scan** — runs convention detectors: drift (vs `ai/conventions.md` / `ai/architecture.md`), reinvented-wrapper, silent-catch. Plus stack-conditional UI/UX detectors for `frontend-*` (a11y, design-token-drift, i18n-key-drift, raw-library-component, lifecycle-hook-wrong, default-true-prop, permission-gate-drop).
 2. **Resolve scope** — semantic resolution.
 3. **Plan internally** — group by class + page/domain (UI/UX findings group by page; structural by class).

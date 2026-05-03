@@ -61,6 +61,7 @@ Refactor = change the shape, not the behavior. If behavior changes, it's not a r
 
 ## Before you touch anything
 
+- Read [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — SOLID + clean-code pointers (single source of truth).
 - Read `CLAUDE.md` — stack, phase, conventions.
 - Read `.claude/rules/` — project-specific naming, layering, DI rules.
 - Read `ai/conventions.md` — code style.

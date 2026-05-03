@@ -30,6 +30,8 @@ That's it. Everything else is silent sibling-parity emission.
 
 ## Mechanical halt — hand-wave grep on rationale
 
+Canonical procedure: [`templates/snippets/hand-wave-grep.md`](../../../snippets/hand-wave-grep.md). Below adds alert-specific tokens + sibling parity checks.
+
 Before finishing Phase 4, every alert MUST have an inline rationale tied to either (a) a sibling threshold or (b) historical data. Run these checks. Any failure = HALT, surface, do not advance:
 
 1. **Hand-wave grep** — scan generated alert annotations + rationale notes for hand-wave phrases: `"reasonable"`, `"sensible default"`, `"industry standard"`, `"common practice"`, `"typical value"`, `"seems right"`, `"should be enough"`. Any match = HALT. Replace with either a sibling-threshold citation (`matches alert <name>`) or a data citation (`based on P95 over last 30d = X ms`).

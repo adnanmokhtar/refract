@@ -719,6 +719,7 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 | `audit-adapter-coverage.sh` | Per-pack adapter coverage: every pack rule has equivalent translations in Cursor / OpenCode / Aider / etc. |
 | `audit-file-health.sh` | Heuristic risk scan: line count, hand-waves, MUSTs, phase-ladder count, inbound refs. Used to triage which files deserve attention. |
 | `audit-stack-leakage.sh` | **Template pack hygiene** — scans `commands/` + universal/pack `templates/**` for single-stack-only wording; **FAIL** when diversity / `<TBD:...>` contract is violated; **WARN** on isolated tokens in pack-level files. Run from claude-config root; wired into `audit-setup.sh` as C2f. |
+| `audit-command-dry.sh` | **Command DRY** — scans `commands/*.md` + `templates/packs/*/commands/*.md`. **FAIL** if `\bSOLID\b` / SOLID expansions / `solid-violation` / `clean code` appear without a `core-discipline.md` link; **FAIL** if all 7 canonical Phase 3 path markers appear without `phase-3-always-reads.md`; **WARN** if a `## Mechanical halt — hand-wave grep` section lacks `hand-wave-grep.md`. Wired into `audit-setup.sh` as **C2g** (after C2f). |
 | `sync-to-global.sh` | Symlinks this repo's `commands/`, `templates/packs/migration/`, etc. into `~/.claude/`. |
 | `verify-sync.sh` | Detects drift between this repo and `~/.claude/` symlinks. |
 

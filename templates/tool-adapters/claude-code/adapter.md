@@ -145,6 +145,7 @@ Claude Code is the source of truth — no translation needed. All 4 artifact typ
 
 ## Cross-references
 
+- **Template-pack authoring:** When editing commands/snippets in `claude-config` `templates/`, run Phase 5 checks documented in `templates/tool-adapters/_template-author-scripts.md` (`audit-stack-leakage.sh`, `audit-command-dry.sh`; canonical pointers `templates/governance/core-discipline.md`, `templates/snippets/`).
 - **Migration pack — companion scripts (2026-05):** With `--include=migration`, install the **full** `claude-config/scripts/` bundle into `~/.claude/scripts/` (validator + `migration-doctor.sh` + `migration-reachability.sh` + `migration-detect-existing.sh` + `migrate-parallel.sh` / `parallel-fan-out.sh`), not only `validate-migration-artifacts.sh`. Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** `/optimize` installs **`validate-optimize-artifacts.sh`**, **`optimize-parallel.sh`**, and uses **`parallel-fan-out.sh --ledger=ai/optimize/ledger.md`** (via the optimize wrapper). See `templates/tool-adapters/_optimize-pack-coverage.md`.
 - `~/.claude/templates/packs/` — the pack catalog this adapter pulls from.

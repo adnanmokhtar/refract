@@ -44,6 +44,8 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 
 Generated commands ship INTO target repos when a track is selected: `/add-endpoint`, `/add-module`, `/add-feature`, `/fix-bug`, `/review-changes`, `/migration-status`, `/port-feature`, etc. See [Generated commands](#generated-commands-in-target-repo).
 
+**SOLID + clean-code discipline:** commands that write or refactor code point Phase 3 at [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) (single pointer to `align-discipline` + engineering/quality principles). Universal Phase 3 file list: [`templates/snippets/phase-3-always-reads.md`](../templates/snippets/phase-3-always-reads.md).
+
 ---
 
 ## `/setup-project`
