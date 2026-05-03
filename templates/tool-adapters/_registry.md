@@ -40,9 +40,25 @@ The 11 commands at this repo's `commands/` are split into two groups:
 | Group | Commands | Adapter coverage |
 |---|---|---|
 | **Setup family** (translatable) | `/setup-project`, `/setup-project-adapters`, `/setup-project-health`, `/scaffold-project`, `/refine-prompt`, `/learn-from-task` | Each adapter MAY surface these as its own slash command / prompt / instruction file. Optional — these commands also run end-to-end inside Claude Code and produce per-adapter outputs as a side effect. |
-| **Simple-surface multi-agent** (Claude-only) | `/migrate`, `/align`, `/optimize`, `/polish`, `/do` | **Not translated to other adapters.** These commands depend on Claude Code's parallel sub-agent dispatch — no other tool ships an equivalent primitive. Other tools should call the underlying pack commands directly (e.g. `/migration-fast 1`, `/align-fast 2`, `find-and-fix <id>`) which DO have per-adapter translations via the pack-coverage docs (`_migration-pack-coverage.md`, `_align-pack-coverage.md`, etc.). |
+| **Simple-surface multi-agent** (Claude-only as native commands) | `/migrate`, `/align`, `/optimize`, `/polish`, `/do` | **Not translated to other adapters as slash commands.** These commands depend on Claude Code's parallel sub-agent dispatch — no other tool ships an equivalent primitive. Other tools have two equivalent paths: (a) call the underlying pack commands directly (`/migration-fast 1`, `/align-fast 2`, `find-and-fix <id>`) which DO have per-adapter translations via `_<pack>-pack-coverage.md`; OR (b) use the **parallel orchestrator scripts** (see below) that fan out N parallel CLI processes externally — closes the gap without needing the tool to add the primitive. |
 
-This is a deliberate split, not adapter drift. Any future adapter that gains parallel-agent dispatch becomes a candidate to add the simple-surface group.
+This is a deliberate split, not adapter drift. Any future adapter that gains parallel-agent dispatch becomes a candidate to add the simple-surface group as native slash commands.
+
+### Parallel orchestrator scripts (close the gap externally)
+
+For tools without native parallel sub-agent dispatch (Kimi, Aider, Codex, OpenCode partially), the repo ships shell-script orchestrators at `scripts/*-parallel.sh` that fan out per-row CLI invocations. Each worker is a separate headless tool process; coordination is via the ledger file with file locks.
+
+| Script | Mirrors | Reads ledger |
+|---|---|---|
+| `migrate-parallel.sh` | `/migrate` | `ai/migration/ledger.md` |
+| `align-parallel.sh` | `/align` | `ai/align/ledger.md` |
+| `optimize-parallel.sh` | `/optimize` | `ai/optimize/ledger.md` |
+| `polish-parallel.sh` | `/polish` | `ai/polish/ledger.md` |
+| `audit-parallel.sh --pack=<name>` | `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/db-audit`, `/ui-sweep` | `ai/<pack>/ledger.md` |
+
+Tool support (per `_parallel-tool-config.sh`): kimi, aider, opencode, codex, claude. Adding a new tool = one function in the config file. Adapter responsibility: ensure the chosen tool ships a headless / non-interactive invocation flag (verified per-tool: `kimi --headless --prompt`, `aider --message --no-stream --yes`, `opencode run`, `codex exec`, `claude --print`).
+
+Adapters with no headless mode (Cursor, Cline, Windsurf — IDE-bound) cannot be drivers for parallel orchestrators. Their users either run the underlying pack commands serially OR switch tools for the whole-project sweep step.
 
 ## Standalone-tool guarantee
 

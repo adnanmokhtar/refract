@@ -721,6 +721,43 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 | `sync-to-global.sh` | Symlinks this repo's `commands/`, `templates/packs/migration/`, etc. into `~/.claude/`. |
 | `verify-sync.sh` | Detects drift between this repo and `~/.claude/` symlinks. |
 
+### Parallel orchestrators (close the gap for non-Claude tools)
+
+The `/migrate`, `/align`, `/optimize`, `/polish`, `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/db-audit`, `/ui-sweep` commands all depend on **parallel sub-agent dispatch** — only Claude Code (and OpenCode) implement the primitive natively. For other headless-capable tools (Kimi / Aider / Codex), these orchestrator scripts fan out N parallel CLI processes, one per ledger row. Same discipline runs in each worker; coordination is via the ledger file with file locks.
+
+| Script | Mirrors | Reads ledger |
+|---|---|---|
+| `parallel-fan-out.sh` | engine — generic xargs-based dispatcher (used by all wrappers below) | n/a |
+| `_parallel-tool-config.sh` | engine — tool→headless-invocation map (kimi / aider / opencode / codex / claude) | n/a |
+| `migrate-parallel.sh` | `/migrate` | `ai/migration/ledger.md` |
+| `align-parallel.sh` | `/align` | `ai/align/ledger.md` |
+| `optimize-parallel.sh` | `/optimize` | `ai/optimize/ledger.md` |
+| `polish-parallel.sh` | `/polish` | `ai/polish/ledger.md` |
+| `audit-parallel.sh` | 6 pack-level audits via `--pack=<name>`: security, perf, i18n, a11y, db, ui-sweep | `ai/<pack>/ledger.md` |
+
+**Workflow**: build the ledger once in Claude Code (`/migration-scan`, `/align-scan`, `/security-audit`, etc.), then run the parallel script with any tool to drive per-row execution:
+
+```bash
+# 4 simple-surface
+~/.claude/scripts/migrate-parallel.sh   --tool=kimi --parallel=6
+~/.claude/scripts/align-parallel.sh     --tool=kimi --parallel=6
+~/.claude/scripts/optimize-parallel.sh  --tool=kimi --parallel=6
+~/.claude/scripts/polish-parallel.sh    --tool=kimi --parallel=6
+
+# 6 pack-level audits via single wrapper
+~/.claude/scripts/audit-parallel.sh --pack=security --tool=kimi --parallel=6
+~/.claude/scripts/audit-parallel.sh --pack=perf     --tool=aider --parallel=4
+~/.claude/scripts/audit-parallel.sh --pack=i18n     --tool=opencode --parallel=8
+```
+
+Common flags (work on every wrapper): `--tool`, `--parallel`, `--max-tasks`, `--status`, `--ledger`, `--log-dir`, `--dry-run`. Per-worker logs land at `ai/_parallel-runs/<cmd>-<iso>/<row-id>.log`; failed rows surface at end.
+
+**Tradeoffs vs Claude's native parallel**:
+- Each worker is a separate tool process (independent context window — no shared scratchpad).
+- Token cost ~30–50% higher (each process re-reads project files); offset by using cheaper models (Kimi K2 / DeepSeek).
+- 2–3× slower than Claude's native dispatch, but way faster than serial.
+- File locking on the ledger handles concurrent row updates cleanly.
+
 ### Reading audit failures
 
 Every `ERR` line is anchored to a specific check function in the script. If you grep the script for the failing check name (e.g., `check_audit`, `check_v2_structure`, `check_gap_count_parity`), you'll see the exact regex / condition that triggered.
