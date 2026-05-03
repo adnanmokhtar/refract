@@ -44,6 +44,8 @@ Above the phased `/align-scan` → `/align-plan` → `/align-fast` ceremony, the
 
 **`--re-audit` semantics** — discards `verified`/`done` verdicts in the discipline ledger; re-dispatches the per-row loop on every row. Rows that re-verify clean stay `verified`; rows with reappearing fingerprints flip to `halted` and re-fix in same run. Combinable with scope (re-audit one area only) and with `--restart` (full reset).
 
+**`--ignore-ledger` semantics** — backs up `ai/align/*` (ledger, findings, scan-report, plan, progress) to timestamped `*.bak.md` files; re-discovers idiom inventory from source; re-runs all detectors against current state; re-creates the scan report + plan + ledger from scratch. KEEPS ADR pre-check (intentional convention exemptions preserved). IMPLIES `--re-audit`. Use when: idioms changed materially OR you suspect previous align was incomplete. Combinable with `<scope>`.
+
 **`--refresh` semantics** — re-scans codebase, merges with existing progress: new areas → `pending`, missing → `archived`, existing rows preserved. NO fix work. Safe to run anytime; auto-creates `progress.md` if missing.
 
 **`--restart` semantics** — backs up current progress to `ai/align/progress-<iso>.bak.md`, resets every area to pending, begins from the first area. Does NOT revert commits already made.

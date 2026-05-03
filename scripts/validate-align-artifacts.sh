@@ -264,6 +264,39 @@ evidence_resolves() {
 }
 
 # ── CHECK 2: no hand-waves in any field ─────────────────────────────────────
+check_scan_report_evidence() {
+  # Equivalent of migration's check_section_0_evidence — for /align, verify the scan-report.md
+  # shows machine-verifiable evidence per detector class. Without per-detector run evidence,
+  # the scan is a Trusted Summary and the gate refuses it.
+  local scan_report="${ALIGN_DIR:-ai/align}/scan-report.md"
+  if [[ ! -f "$scan_report" ]]; then
+    [[ $QUIET -eq 0 ]] && echo "  ▸ scan-report.md not present at $scan_report (skipping evidence check)"
+    return 0
+  fi
+
+  # Required: per-detector run evidence — each of the 11 universal classes must show
+  # "Detector: <class> | Modules scanned: N | Fingerprint matches: M" or equivalent
+  local detector_blocks
+  detector_blocks=$(grep -cE 'Detector:[[:space:]]+(dead-code|duplicated-logic|reinvented-wrapper|silent-catch|over-abstraction|drift|solid-violation|clean-code|performance|security|stack-specific)' "$scan_report" 2>/dev/null || echo 0)
+  detector_blocks=${detector_blocks:-0}
+  if [[ "$detector_blocks" -lt 1 ]]; then
+    log_fail "scan-report.md has zero per-detector evidence blocks. Each of the 11 universal classes (dead-code, duplicated-logic, reinvented-wrapper, silent-catch, over-abstraction, drift, solid-violation, clean-code, performance, security, stack-specific) MUST emit \"Detector: <class>\" + scan counts. Without this evidence the scan is Trusted-Summary."
+    return 1
+  fi
+
+  # Required: oracle citation — _extracted-idioms.md or codebase-profile.md must be cited
+  local oracle_cited
+  oracle_cited=$(grep -cE '_extracted-idioms\.md|codebase-profile\.md|ai/conventions\.md|ai/architecture\.md' "$scan_report" 2>/dev/null || echo 0)
+  oracle_cited=${oracle_cited:-0}
+  if [[ "$oracle_cited" -lt 1 ]]; then
+    log_fail "scan-report.md doesn't cite the convention oracle. The detector MUST consult _extracted-idioms.md (or codebase-profile.md / ai/conventions.md / ai/architecture.md) and reference it in the report."
+    return 1
+  fi
+
+  log_pass "scan-report evidence: $detector_blocks detector blocks, $oracle_cited oracle citations"
+  return 0
+}
+
 check_no_handwaves() {
   local id="$1"
   local row_block
@@ -549,6 +582,11 @@ main() {
     echo "$dupes" | sed 's/^/  /' >&2
     exit 4
   fi
+
+  # Run the run-level evidence check ONCE before per-finding validation
+  # This catches Trusted-Summary scans that produce findings without per-detector evidence
+  log_section "Run-level evidence check (scan-report.md)"
+  check_scan_report_evidence
 
   local findings
   findings=$(discover_findings | filter_findings)

@@ -129,7 +129,7 @@ Single source of truth: **`ai/optimize/progress.md`**.
 # Optimize progress
 
 Started: 2026-05-02
-Codebase: /Users/mac/Workspace/Projects/sahlcart/tenant-portal-v2/src/
+Codebase: <project-root>/src/
 
 ## Summary
 - Total areas:   22 modules + shared/ + core/
@@ -188,6 +188,16 @@ Overrides:
                                 #     * existing rows (done / in-progress / blocked / pending) → preserved untouched
                                 #   - Updates Summary counts to reflect new totals
                                 #   - NO fix work performed; safe to run anytime
+/optimize --ignore-ledger       # TRULY FRESH SCAN — act as if no optimize was ever done
+                                #   - Backs up ai/optimize/* (ledger, decisions, progress) to *-<iso>.bak.md
+                                #   - Re-discovers modules + dependency graph + responsibility map from source
+                                #   - Re-runs Phase 0 (architectural diagnosis) from scratch
+                                #   - Re-runs Phase 2 (tactical sweep) on every discovered module
+                                #   - WRITES new ledger + architecture-decisions + final-report at end
+                                #   - KEEPS ADR pre-check (intentional architectural decisions preserved)
+                                #   - IMPLIES --re-audit semantics on every row
+                                #   - Combinable with <scope>: /optimize the orders module --ignore-ledger
+                                #   - Use when: absolute belt-and-braces; suspect original sweep was incomplete; project structure changed substantially
 /optimize --re-audit            # IGNORE cached verdicts; re-detect EVERY area
                                 #   - Discards `verified` / `done` rows in the optimize ledger (if any)
                                 #   - Re-runs Phase 0 (architectural diagnosis) + Phase 2 (tactical) on every area
@@ -309,6 +319,7 @@ All internal. Just results.
 ## Hard rules (internal)
 
 Applied silently per the discipline:
+- **Validator gate is mandatory.** After Phase 0 produces `ai/optimize/_architecture-decisions.md`, the agent MUST run `~/.claude/scripts/validate-optimize-artifacts.sh`. The validator's `check_phase_0_evidence` halts the run if the 4 required evidence blocks (Dependency map / Responsibility map / Layer attribution / Detector run) are missing or empty. A failed validator forces the diagnosis to be re-emitted. Without this gate, Phase 0 can produce a summary diagnosis instead of an actual scan — the F039 anti-Trusted-Summary recurrence applied to /optimize.
 - **Architectural diagnosis ALWAYS runs first**. Tactical fixes are skipped on findings that would dissolve under a foundation fix; agent picks the foundation.
 - **Foundation-first ordering**: architectural commits land before tactical commits. The architecture-decisions document records the order + rationale.
 - Closure verbs from a closed vocabulary (no new abstractions invented; `introduce-abstraction` only applies when ≥3 sites duplicate the same shape).

@@ -171,7 +171,7 @@ Single source of truth: **`ai/polish/progress.md`**.
 
 Started: 2026-05-03
 Stack: frontend-vue
-Codebase: /Users/mac/Workspace/Projects/sahlcart/tenant-portal-v2/src/
+Codebase: <project-root>/src/
 
 ## Summary
 - Total surfaces:  47 (22 pages + 18 modals + 7 shared layouts)
@@ -202,7 +202,7 @@ Codebase: /Users/mac/Workspace/Projects/sahlcart/tenant-portal-v2/src/
 
 Started: 2026-05-03
 Stack: backend-nest
-Codebase: /Users/mac/Workspace/Projects/myco/api/
+Codebase: <project-root>/api/
 
 ## Summary
 - Total surfaces:  68 endpoints + 12 middlewares
@@ -230,7 +230,7 @@ Codebase: /Users/mac/Workspace/Projects/myco/api/
 
 Started: 2026-05-03
 Stack: data
-Codebase: /Users/mac/Workspace/Projects/myco/db/
+Codebase: <project-root>/db/
 
 ## Summary
 - Total surfaces:  42 tables + 18 active migrations
@@ -263,6 +263,15 @@ Overrides:
 /polish --refresh               # RE-SCAN, MERGE into existing progress.md
                                 #   - new surfaces → `pending`; missing → `archived`
                                 #   - existing rows preserved
+/polish --ignore-ledger         # TRULY FRESH SCAN — act as if no polish was ever done
+                                #   - Backs up ai/polish/* (ledger, progress, decisions) to *-<iso>.bak.md
+                                #   - Re-discovers surface inventory (pages/modals/components for frontend; endpoints for backend; tables for data; screens for mobile)
+                                #   - Re-runs the stack-conditional audit on every surface
+                                #   - Re-creates the polish report from scratch
+                                #   - KEEPS ADR pre-check (intentional design / API / schema / platform deviations preserved)
+                                #   - IMPLIES --re-audit semantics
+                                #   - Combinable with <scope>: /polish the dashboard --ignore-ledger
+                                #   - Use when: design system / API conventions / schema / platform spec changed materially OR you suspect previous polish was incomplete
 /polish --re-audit              # IGNORE cached verdicts; re-audit EVERY surface
                                 #   - Discards `verified` / `done` rows in ai/polish/ledger.md
                                 #   - Re-dispatches the per-surface audit on every row
@@ -371,6 +380,7 @@ All internal. Just results.
 ## Hard rules (internal)
 
 Applied silently per the discipline:
+- **Validator gate is mandatory.** After the stack-conditional audit produces its artifact (`_visual-decisions.md` for frontend / `_api-decisions.md` for backend / `_schema-decisions.md` for data / `_platform-decisions.md` for mobile), the agent MUST run `~/.claude/scripts/validate-polish-artifacts.sh`. The validator dispatches per `PROJECT_KIND` and halts if the stack's required evidence blocks are missing (visual baseline + a11y + design-token for frontend; endpoint registry + OpenAPI + envelope + error contract for backend; schema introspection + migration history + column drift for data; per-platform UI tree + iOS HIG + Material 3 for mobile). A failed validator forces the audit to be re-emitted.
 - **Conventions are the truth** — design system / API spec / schema / platform spec is the oracle.
 - **Closure verbs from the stack's closed vocabulary** — no ad-hoc inventions.
 - **Behaviour preserved** — frontend: business logic untouched; backend: API contract preserved (rename happens with deprecation flow, not blind rewrite); data: data preserved (renames via reversible migrations + dual-read window).

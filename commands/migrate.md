@@ -100,7 +100,7 @@ Each command writes a single progress file you can refer to across days:
 # Migration progress
 
 Started: 2026-05-02
-V1 root: ../tenant-portal/
+V1 root: <v1-project-root>/
 V2 root: src/
 
 ## Summary
@@ -130,7 +130,7 @@ V2 root: src/
 - (will be processed next)
 
 ### auth [blocked]
-- Reason: cross-repo (capsolah-api needs `/v2/auth/refresh` endpoint)
+- Reason: cross-repo (<sibling-api-repo> needs `/v2/auth/refresh` endpoint)
 - Tracking: ai/migration/cross-repo-tasks.md XR-007
 ```
 
@@ -160,6 +160,22 @@ You can also override:
                                 #     * dead-V1 reachability re-checked; newly-dead rows flip to `deprecated`
                                 #   - Updates Summary counts to reflect new totals
                                 #   - NO port work performed; safe to run anytime
+/migrate --ignore-ledger        # TRULY FRESH SCAN — act as if no migration was ever done
+                                #   - Backs up ai/migration/ledger.md → ledger-<iso>.bak.md
+                                #   - Backs up ai/migration/final-report.md → final-report-<iso>.bak.md
+                                #   - Backs up ai/migrate/progress.md → progress-<iso>.bak.md
+                                #   - Re-discovers V1 features from V1 source (NOT from ledger inventory)
+                                #   - Re-derives V1 → V2 path mappings from source
+                                #   - Re-pins V1 to HEAD (no stale SHA pin)
+                                #   - Re-classifies tiers (trivial / standard / heavy) from audit triggers
+                                #   - Runs the full per-feature audit loop on every discovered feature
+                                #   - WRITES new ledger.md + final-report.md at end (replaces backed-up versions)
+                                #   - KEEPS ADR pre-check (accepted intentional V2 improvements preserved; no silent revert)
+                                #   - KEEPS 6-axis dead-V1 exclusion (no Zombie Port — dead V1 code still skipped)
+                                #   - IMPLIES --re-audit semantics on every row
+                                #   - Combinable with <scope>: /migrate the inventory module --ignore-ledger
+                                #   - Use when: absolute belt-and-braces verification; suspect original audit was incomplete; treat the project as fresh-from-zero
+                                #   - Cost: heavier than --re-audit; re-discovery adds ~30-50% wall-clock vs --re-audit on same scope
 /migrate --re-audit             # IGNORE cached verdicts; re-detect EVERY feature
                                 #   - Discards `verified` / `done` verdicts in ai/migration/ledger.md
                                 #   - Discards ai/migration/final-report.md's authority to skip rows
@@ -201,7 +217,7 @@ Skipped:             2 features (dead V1 code — no callers)
   F087 (legacy-pdf-export)
   F112 (unused-bulk-import)
 
-Blockers (1):        F045 (order-bulk-update) — needs capsolah-api refund endpoint shape
+Blockers (1):        F045 (order-bulk-update) — needs <sibling-api-repo> refund endpoint shape
                      → routed to /cross-repo-task XR-007
 
 Next: /migrate the next thing  OR  inspect commits via git log --oneline
@@ -229,6 +245,9 @@ For each blocker, the agent suggests the resolution path (e.g., "→ routed to /
 
 The agent applies these silently:
 
+- **Validator gate is mandatory.** After every per-feature audit produces `ai/migration/audits/<feature>.md`, the agent MUST run `~/.claude/scripts/validate-migration-artifacts.sh --feature <feature>`. The validator's `check_section_0_evidence` halts the run if Section 0 (Navigation Inventory) doesn't contain Layer A route extraction + Layer B per-leaf grep evidence + Leaf-set diff table. A failed validator forces the auditor to re-emit the audit with proper evidence — the run cannot advance until evidence is present. This is the canonical anti-Trusted-Summary protection.
+- **Halt #13 (Navigation Inventory) is non-negotiable.** Layer-A-only scans halt at audit time. Per-leaf template grep on every V1 + V2 leaf component is required.
+- **Gap-count parity is mandatory.** `gaps_in == gaps_closed` enforced before any row advances from `halted` to `done`. Audit finds N drifts → fix step closes N drifts. Nothing left silently.
 - V1 is the production reference. No "verify V1 is correct" halts.
 - V1 wins on observable behaviour; V2 structure wins on layout / wrappers / lifecycle hooks.
 - Dead V1 code is not ported (per discipline § What counts as dead V1 code).

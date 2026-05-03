@@ -696,6 +696,76 @@ check_audit() {
   return 0
 }
 
+check_section_0_evidence() {
+  # Halt #13 enforcement: every audit on a frontend feature OR a multi-tab / module / settings-shell
+  # scope MUST emit Layer A (route extraction) AND Layer B (per-leaf template grep) evidence in the
+  # audit body. The validator parses the evidence headers and refuses the gate if Layer B is missing
+  # OR present-but-empty (Layer-A-only scan recurrence — the canonical F039 / advanced/purchase tab
+  # drift failure mode).
+  #
+  # Bypass (rare): audit explicitly declares non-UI scope at the top with `audit_scope: backend-only`
+  # in frontmatter. Frontend project_kind without that bypass = required.
+  local feature="$1"; local id="${2:-}"
+  local file
+  file=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
+  [[ -z "$file" ]] && return 0  # check_audit will have already failed; no need to double-fail
+
+  # Bypass: explicit backend-only scope
+  if grep -qE '^audit_scope:[[:space:]]*backend-only' "$file" 2>/dev/null; then
+    log_pass "section-0 evidence: $feature (skipped — audit_scope: backend-only)"
+    return 0
+  fi
+
+  # Only enforce when project_kind is frontend-* (route + tab navigation is a frontend concept)
+  case "$PROJECT_KIND" in
+    frontend-*) ;;
+    *) return 0 ;;
+  esac
+
+  # Require a Section 0 header. Any of these acceptable:
+  #   ## Section 0 — Navigation Inventory
+  #   ## Section 0 — Layer A — V1 routes
+  #   ### Section 0 — ...
+  if ! grep -qE '^#{2,4}[[:space:]]+Section 0\b' "$file"; then
+    log_fail "audit MISSING Section 0 — Navigation Inventory in $file. Halt #13 mandates this section for every frontend audit. Auditor MUST emit Layer A (route extraction) + Layer B (per-leaf template grep) before any per-axis enumeration. See parity-auditor.md § \"Section 0 MUST emit machine-verifiable evidence\"."
+    return 1
+  fi
+
+  # Require Layer A evidence — at least one route entry on each side
+  local layer_a_v1 layer_a_v2
+  layer_a_v1=$(awk '/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Layer A[[:space:]]*[-—][[:space:]]*V1/,/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Layer/' "$file" 2>/dev/null | grep -cE '^[[:space:]]*/.+→.+\.(vue|tsx?|jsx?|svelte|html)' || echo 0)
+  layer_a_v2=$(awk '/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Layer A[[:space:]]*[-—][[:space:]]*V2/,/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Layer/' "$file" 2>/dev/null | grep -cE '^[[:space:]]*/.+→.+\.(vue|tsx?|jsx?|svelte|html)' || echo 0)
+  layer_a_v1=${layer_a_v1:-0}
+  layer_a_v2=${layer_a_v2:-0}
+  if [[ "$layer_a_v1" -lt 1 || "$layer_a_v2" -lt 1 ]]; then
+    log_fail "audit Section 0 Layer A is empty in $file (V1 routes: $layer_a_v1, V2 routes: $layer_a_v2). Auditor MUST list every route + leaf component path on both sides. See parity-auditor.md § \"Section 0 MUST emit machine-verifiable evidence\" — Layer A block."
+    return 1
+  fi
+
+  # Require Layer B evidence — at least one grep command output OR explicit "no matches" annotation per side
+  local layer_b_v1 layer_b_v2
+  layer_b_v1=$(awk '/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Layer B[[:space:]]*[-—][[:space:]]*V1/,/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*(Layer|Leaf)/' "$file" 2>/dev/null | grep -cE 'Command:|Matches:|no matches|TabView|TabMenu|v-tabs|v-tab|tabs\.map|v-for.*tab|router-view|role="tab"' || echo 0)
+  layer_b_v2=$(awk '/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Layer B[[:space:]]*[-—][[:space:]]*V2/,/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*(Leaf|Section)/' "$file" 2>/dev/null | grep -cE 'Command:|Matches:|no matches|TabView|TabMenu|v-tabs|v-tab|tabs\.map|v-for.*tab|router-view|role="tab"' || echo 0)
+  layer_b_v1=${layer_b_v1:-0}
+  layer_b_v2=${layer_b_v2:-0}
+  if [[ "$layer_b_v1" -lt 1 || "$layer_b_v2" -lt 1 ]]; then
+    log_fail "audit Section 0 Layer B is empty in $file (V1 grep evidence: $layer_b_v1 lines, V2: $layer_b_v2 lines). Auditor MUST open EACH leaf component on both sides + paste grep command + matches (or 'no matches' annotation). Layer-A-only scan = HALT per migration-discipline.md Halt #13. The canonical failure mode that missed advanced/purchase sub-tab drift in inventory."
+    return 1
+  fi
+
+  # Require Leaf-set diff table — at least one row indicating both sides were enumerated
+  local diff_rows
+  diff_rows=$(awk '/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Leaf[- ]?set diff/,/^#{2,4}/' "$file" 2>/dev/null | grep -cE '^\|.+\|.+\|.+\|.+\|' || echo 0)
+  diff_rows=${diff_rows:-0}
+  if [[ "$diff_rows" -lt 2 ]]; then  # 2 = header row + ≥1 data row
+    log_fail "audit Section 0 Leaf-set diff table is missing or empty in $file (rows: $diff_rows). Auditor MUST emit a 4-column table: V1 leaf | V2 leaf | Verdict | Closure verb. One row per leaf on either side. See parity-auditor.md § \"Section 0 — Leaf-set diff\"."
+    return 1
+  fi
+
+  log_pass "section-0 evidence: $feature (Layer A: V1=$layer_a_v1, V2=$layer_a_v2; Layer B: V1=$layer_b_v1, V2=$layer_b_v2; Diff rows: $diff_rows)"
+  return 0
+}
+
 check_audit_freshness() {
   # A4 — Stale audit / oracle drift.
   # If audit_date is older than the most-recent V2 file change, the audit is stale; re-audit required.

@@ -72,6 +72,40 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
     - **Layer B — Per-leaf template grep (MANDATORY, not optional)**: for EACH leaf component identified in Layer A, open its source file and grep for in-template tab patterns. If ANY match, those are ADDITIONAL nav leaves to enumerate under that parent. Patterns to scan: framework-specific tab components (`<v-tabs>`, `<TabView>`, `<TabMenu>`, `<Tabs>`, `<Tab>`, `<v-tab>`, `role="tab"`, `<nav>` with role=tablist), sidebar config arrays / sidebar `links` lists / menu data files, in-page tab arrays (`v-for tab in tabs|items|sections`, `tabs.map(t => …)`, `[{label, path|value}]` literals at template scope), `<router-view>` siblings inside a component (nested sub-routing), accordion title arrays.
     - Same two-layer scan applied to V2. Then 1:1 mapping table. Any V1 navigation leaf with no V2 equivalent navigation surface is **DRIFT, not STRUCTURE_OK**, even if the underlying form fields/components/data exist somewhere in V2's source. Burying a V1 sub-tab as a section in another V2 tab is drift; splitting one V1 tab into multiple V2 routes is drift unless an accepted ADR documents the restructure (with `user_decision_quote`). Per-axis enumeration of remaining axes only proceeds on tabs that exist on BOTH sides; if the inventory section surfaces drift, the audit halts at Section 0 and the remediation list begins there.
     - **Section 0 completion checklist** (every box ticks before audit advances): V1 routes extracted from every router file ✓ · V2 routes extracted ✓ · for EACH V1 route leaf, component source opened + grep'd for tab patterns; matches enumerated ✓ · same for V2 ✓ · V1 leaf set ↔ V2 leaf set diffed ✓ · every V1 leaf has a V2 equivalent OR is flagged DRIFT (with closure verb) ✓ · every V2-extra leaf flagged for V1-parity decision ✓.
+    - **Section 0 MUST emit machine-verifiable evidence in the audit body** — without this evidence the validator's `check_section_0_evidence` halts the audit. Required block shape (paste verbatim into the audit, one per side):
+      ```
+      ### Section 0 — Layer A — V1 routes
+      Router file: <v1-path:line>
+      Routes extracted: (one per line, full path + leaf component path)
+        /<route1> → <v1-leaf-component-path>
+        /<route2> → <v1-leaf-component-path>
+        ...
+
+      ### Section 0 — Layer B — V1 per-leaf grep evidence
+      For EACH leaf component above, paste the grep command + matches found.
+      Leaf: <v1-leaf-component-path>
+        Command: rg -n '<TabView|TabMenu|v-tabs|v-tab|tabs\\.map|v-for.*tab in|role="tab"|role="tablist"|router-view|<Tabs|<Tab\\b' <v1-leaf-component-path>
+        Matches (paste full output OR "no matches"):
+          <line>: <excerpt>
+          <line>: <excerpt>
+        Sub-tabs / nav leaves enumerated: (per match, list each as a separate leaf)
+          - <sub-tab-label-1> @ <line>
+          - <sub-tab-label-2> @ <line>
+
+      ### Section 0 — Layer A — V2 routes
+      (same shape as V1)
+
+      ### Section 0 — Layer B — V2 per-leaf grep evidence
+      (same shape as V1)
+
+      ### Section 0 — Leaf-set diff (V1 vs V2)
+      | V1 leaf | V2 leaf | Verdict | Closure verb |
+      |---|---|---|---|
+      | <v1-leaf> | <v2-leaf or "MISSING"> | MATCH / V1-only / V2-only | (verb if drift) |
+      ...
+      ```
+      The validator parses these sections by header. Missing block → HALT. Empty grep output without "no matches" annotation → HALT. Leaf-set diff with no rows where both Layer-B passes returned matches → HALT (Layer-A-only scan recurrence).
+    - **Halt #13a (operational sub-halt)**: if the leaf component file uses dynamic tab generation (e.g., `tabs = computed(() => ...)`, factory function, async tab loader), the grep evidence MUST include the source of the tab data (the component's setup / data / computed / Pinia store / config file) AND list every tab the source can resolve to in the production data. A grep that returns "matches the pattern but the array is built dynamically; will enumerate at runtime" is a Layer-A-Only scan in disguise — HALTS. The auditor reads the data source and enumerates statically.
     - **Why two layers**: routes-only extraction misses in-component tab UIs (e.g., a marketing page that uses one route but renders 14 platform tabs via a radio-button + `v-if` pattern inside its template). The "Layer-A-Only Scan" failure mode produces high-confidence false-PARITY verdicts on tabs whose internal navigation was never compared. Per-stack packs add their own framework-specific patterns to the Layer-B grep list.
 - **Form fields** — every input on V1's page, with type + validators + defaults. Then V2's. Mapping table.
 - **UI affordances** — every button, link, dropdown trigger, modal trigger, file-upload, toggle, copy-button. Per item: V1 path:line + V2 path:line + permission gate (or "ungated") + verdict.

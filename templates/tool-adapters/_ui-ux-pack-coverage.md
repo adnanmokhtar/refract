@@ -10,6 +10,8 @@ The pack provides three commands and a critical skill:
 
 **`--re-audit` flag on `/polish`** — discards `verified`/`done` verdicts in `ai/polish/ledger.md`; re-dispatches the per-surface audit on every row. Use when design system / API conventions / schema / platform spec changed, or you suspect drift on a "complete" polish. Combinable with scope and with `--restart`.
 
+**`--ignore-ledger` flag on `/polish`** — backs up `ai/polish/*` to timestamped `*.bak.md`; re-discovers surface inventory (stack-appropriate: pages/modals for frontend; endpoints for backend; tables for data; screens for mobile) from source; re-runs the stack-conditional audit on every surface; re-creates the polish report. KEEPS ADR pre-check (intentional design / API / schema / platform deviations preserved). IMPLIES `--re-audit`. Use when: design system / API conventions / schema / platform spec changed materially OR you suspect previous polish was incomplete.
+
 **Top-level simple-surface entry — `/polish`** (NOT in this pack — top-level orchestration, sibling to `/migrate` / `/optimize` / `/align`). One command, multi-day workflow, brief output, NO phases / halts / ADRs / variant menus surfaced unless audit explicitly opts in. Whole project or scoped. `/polish` is **stack-conditional** — dispatches different skills per `PROJECT_KIND`:
 
 - `frontend-*` → reuses this pack's skills (`a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit`).

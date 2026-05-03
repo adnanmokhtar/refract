@@ -87,7 +87,7 @@ Single source of truth: **`ai/align/progress.md`**.
 # Align progress
 
 Started: 2026-05-02
-Codebase: /Users/mac/Workspace/Projects/sahlcart/tenant-portal-v2/src/
+Codebase: <project-root>/src/
 
 ## Summary
 - Total areas:   22 modules + shared/ + core/
@@ -140,6 +140,15 @@ Overrides:
                                 #     * existing rows (done / in-progress / blocked / pending) → preserved untouched
                                 #   - Updates Summary counts to reflect new totals
                                 #   - NO fix work performed; safe to run anytime
+/align --ignore-ledger          # TRULY FRESH SCAN — act as if no align was ever done
+                                #   - Backs up ai/align/* (ledger, findings, scan-report, plan, progress) to *-<iso>.bak.md
+                                #   - Re-discovers idiom inventory from source
+                                #   - Re-runs all detectors against current state
+                                #   - Re-creates the scan report + plan + ledger from scratch
+                                #   - KEEPS ADR pre-check (intentional convention exemptions preserved)
+                                #   - IMPLIES --re-audit semantics on every row
+                                #   - Combinable with <scope>: /align the orders module --ignore-ledger
+                                #   - Use when: idioms changed materially OR you suspect previous align was incomplete
 /align --re-audit               # IGNORE cached verdicts; re-detect EVERY area
                                 #   - Discards `verified` / `done` rows in ai/align/ledger.md
                                 #   - Re-dispatches the per-finding loop on every row
@@ -207,6 +216,7 @@ All internal. Just results.
 ## Hard rules (internal)
 
 Applied silently per the discipline:
+- **Validator gate is mandatory.** After scan produces `ai/align/scan-report.md` AND after every per-finding fix lands, the agent MUST run `~/.claude/scripts/validate-align-artifacts.sh`. The validator's `check_scan_report_evidence` halts the run if the scan-report doesn't show per-detector run evidence (≥1 of the 11 universal classes scanned with explicit module count) AND oracle citation. A failed validator forces the scan to be re-emitted with evidence. This catches the Trusted-Summary recurrence where align claims "11 detectors run" without evidence any actually executed.
 - Convention is the truth — no questioning the project's idioms.
 - Closure verbs from the closed vocabulary; no new abstractions invented.
 - Net-lines ≤ 0 for structural alignments.

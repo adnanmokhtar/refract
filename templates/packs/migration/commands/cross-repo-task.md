@@ -40,10 +40,10 @@ Tasks live at `ai/migration/cross-repo-tasks.md` (managed-block; one row per tas
 
 Registers a new cross-repo blocker. Args:
 - `<feature-id>` — the migration ledger row that's blocked (e.g., `F042`).
-- `<description>` — what's needed upstream (e.g., "tenant-portal-api needs `GET /v2/orders/<id>/payments` endpoint added").
+- `<description>` — what's needed upstream (e.g., "<upstream-api-repo> needs `GET /v2/orders/<id>/payments` endpoint added").
 
 Flags:
-- `--upstream=<repo>` — name of the upstream repo (e.g., `capsolah-api`). Used for tracking + dispatch.
+- `--upstream=<repo>` — name of the upstream repo (e.g., `<sibling-api-repo>`). Used for tracking + dispatch.
 - `--owner=<name>` — name / handle of the person who owns the upstream change. Required for follow-up.
 - `--severity=<low|medium|high|critical>` — default `medium`. Critical = blocking V1 retirement.
 - `--upstream-pr=<url>` — if a PR is already open upstream, link it.
@@ -57,8 +57,8 @@ Side effects:
 
 Example:
 ```
-/cross-repo-task register F042 "tenant-portal-api needs POST /v2/orders/<id>/refund endpoint" \
-  --upstream=capsolah-api \
+/cross-repo-task register F042 "<upstream-api-repo> needs POST /v2/orders/<id>/refund endpoint" \
+  --upstream=<sibling-api-repo> \
   --owner=alice \
   --severity=high
 ```
@@ -67,16 +67,16 @@ Output:
 ```
 Task XR-003 registered:
   Feature blocked:    F042 (order-refund)
-  Upstream:           capsolah-api (owner: alice)
+  Upstream:           <sibling-api-repo> (owner: alice)
   Severity:           high
-  Description:        tenant-portal-api needs POST /v2/orders/<id>/refund endpoint
+  Description:        <upstream-api-repo> needs POST /v2/orders/<id>/refund endpoint
   Status:             open
 
 Ledger updated:
   F042: status=halted, halt_reason=cross-repo (XR-003)
 
 Next:
-  - Notify owner@capsolah-api (alice).
+  - Notify owner@<sibling-api-repo> (alice).
   - Track upstream PR via /cross-repo-task update XR-003 --upstream-pr=<url>
   - When upstream lands: /cross-repo-task close XR-003 --evidence=<merged-pr-url>
   - To drain blocked rows after closure: /cross-repo-task drain
@@ -90,16 +90,16 @@ Read-only. Lists all cross-repo tasks with their state.
 Cross-repo task registry — 2026-05-02
 
 Open (3):
-  XR-001 [high]    F042 → capsolah-api: tenant-portal-api needs ... (3d ago, owner: alice)
-  XR-002 [medium]  F058 → tenant-portal-v1: deprecation header on /api/v1/orders (8d ago, owner: bob)
+  XR-001 [high]    F042 → <sibling-api-repo>: <upstream-api-repo> needs ... (3d ago, owner: alice)
+  XR-002 [medium]  F058 → <v1-deprecation-target>: deprecation header on /api/v1/orders (8d ago, owner: bob)
   XR-003 [low]     F112 → docs-site: V2 endpoint URLs updated (2d ago, owner: carol)
 
 Landed (5):
-  XR-004 [high]    F015 → capsolah-api: tenant-context middleware (closed 2026-04-28)
+  XR-004 [high]    F015 → <sibling-api-repo>: tenant-context middleware (closed 2026-04-28)
   ...
 
 Abandoned (1):
-  XR-006 [low]    F098 → tenant-portal-v1: cleanup (abandoned — V1 retirement scheduled instead)
+  XR-006 [low]    F098 → <v1-deprecation-target>: cleanup (abandoned — V1 retirement scheduled instead)
 
 Total: 9 (3 open / 5 landed / 1 abandoned)
 Blocking phase 4 advance: XR-001
@@ -179,10 +179,10 @@ For `register`:
 
 - id: XR-003
   feature_blocked: F042
-  upstream_repo: capsolah-api
+  upstream_repo: <sibling-api-repo>
   owner: alice
   severity: high
-  description: "tenant-portal-api needs POST /v2/orders/<id>/refund endpoint"
+  description: "<upstream-api-repo> needs POST /v2/orders/<id>/refund endpoint"
   status: open
   registered_at: 2026-05-02T18:30Z
   upstream_pr: ""

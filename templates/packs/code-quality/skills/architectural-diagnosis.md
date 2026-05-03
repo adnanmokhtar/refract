@@ -219,6 +219,50 @@ This is the first skill /optimize dispatches. Output is consumed by /optimize Ph
 - Closure verbs are the closed set above; no novel architectural moves invented at fix time.
 - If a finding's risk is `high` (cyclic dependency requires multi-PR; god-module split would change a public API), surface for user decision rather than auto-applying.
 
+## Mandatory Phase-0 evidence emission
+
+The artifact at `ai/optimize/_architecture-decisions.md` MUST contain machine-verifiable evidence in the body. Without it, `validate-optimize-artifacts.sh § check_phase_0_evidence` halts the run. Required block shape (paste verbatim):
+
+```
+## Phase 0 — Dependency map evidence
+Source files walked: <count>
+Import statements parsed: <count>
+Sample (first 20 rows; full graph at ai/optimize/_dep-graph.json):
+  <module-A> → <module-B>  (via <import-statement-path:line>)
+  <module-A> → <module-C>  (via <import-statement-path:line>)
+  ...
+
+## Phase 0 — Responsibility map evidence
+Source: ai/optimize/_responsibility-map.md
+Sample (first 20 modules):
+  <module-path>: owns <responsibility>; exports <symbol-count> symbols at <path:lines>
+  ...
+
+## Phase 0 — Layer attribution evidence
+Layer rules read from: <ai/architecture.md OR _extracted-idioms.md § Layers>
+Modules attributed (per layer):
+  presentation: [<module-paths>]
+  application: [<module-paths>]
+  domain: [<module-paths>]
+  infrastructure: [<module-paths>]
+
+## Phase 0 — Detector run evidence
+For EACH of the 8 detectors, paste:
+  Detector: <detector-name>
+  Modules scanned: <count>
+  Fingerprint matches: <count>
+  Sample matches (first 10):
+    - <path:line> — <fingerprint-excerpt>
+    - <path:line> — <fingerprint-excerpt>
+  No-match modules: <count>
+```
+
+Without these blocks the validator halts with: "Phase 0 evidence missing in <file>; architectural diagnosis cannot be trusted."
+
+## Halt #A1 — Phase 0 must be auditable
+
+A Phase 0 run that outputs only architecture-decisions.md without the four evidence blocks above is a "summary diagnosis" — flagged equivalent to the F039 anti-Trusted-Summary recurrence. The validator refuses to advance /optimize past Phase 0 without visible evidence.
+
 ## Failure modes
 
 - **No findings** → emit "Codebase already architecturally clean; tactical sweep proceeds directly."

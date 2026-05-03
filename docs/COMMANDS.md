@@ -493,6 +493,7 @@ Examples:
 /<cmd> --reset <area>                 # mark one area pending (re-run it)
 /<cmd> --refresh                      # re-scan codebase, MERGE into progress.md (new → pending, missing → archived, existing preserved)
 /<cmd> --re-audit                     # IGNORE cached verdicts; re-detect EVERY area (verified/done rows re-checked; reappearing drift re-fixed). Combinable with scope.
+/<cmd> --ignore-ledger                # TRULY FRESH SCAN — act as if no migration/optimize/align/polish was ever done. Backs up ledger + report + progress; re-discovers everything from source; re-creates report. KEEPS ADR pre-check + dead-code exclusion as safety nets. Combinable with scope. Heavier than --re-audit by 30-50%.
 /<cmd> --restart                      # WIPE progress, back up to progress-<iso>.bak.md, start over
 /<cmd> --dry-run                      # show what would change, no edits
 /<cmd> --max-parallel=<N>             # cap concurrent dispatch (default: 5–6)
