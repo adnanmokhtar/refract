@@ -47,7 +47,7 @@ This is a deliberate split, not adapter drift. Any future adapter that gains par
 
 ### Parallel orchestrator scripts (close the gap externally)
 
-For tools without native parallel sub-agent dispatch (Kimi, Aider, Codex, OpenCode partially), the repo ships shell-script orchestrators at `scripts/*-parallel.sh` that fan out per-row CLI invocations. Each worker is a separate headless tool process; coordination is via the ledger file with file locks. **`parallel-fan-out.sh`** wraps workers and **flocks** `ai/migration/ledger.md` by default (`LEDGER_LOCK` env — see `templates/tool-adapters/_migration-pack-coverage.md` § Companion scripts). **`migrate-parallel.sh`** parses canonical ledger rows (`## <id>` + `state:` / `status:`).
+For tools without native parallel sub-agent dispatch (Kimi, Aider, Codex, OpenCode partially), the repo ships shell-script orchestrators at `scripts/*-parallel.sh` that fan out per-row CLI invocations. Each worker is a separate headless tool process; coordination is via the ledger file with file locks. **`parallel-fan-out.sh`** wraps workers and **flocks** a ledger file — pass **`--ledger=ai/<pack>/ledger.md`** so the lock matches the pack (default remains `ai/migration/ledger.md` when omitted); `LEDGER_LOCK=""` disables flock. Wrapper scripts (`migrate-parallel.sh`, `optimize-parallel.sh`, etc.) forward **`--ledger`** automatically. **`migrate-parallel.sh`** / **`optimize-parallel.sh`** parse fenced YAML rows beginning with **`id: <token>`** plus **`status:`** / **`state:`**.
 
 | Script | Mirrors | Reads ledger |
 |---|---|---|

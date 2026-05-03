@@ -220,6 +220,7 @@ OpenCode has no lifecycle hooks. Fallbacks:
 ## Cross-references
 
 - **Migration pack — companion scripts (2026-05):** OpenCode has no hooks — run the **full** script bundle from the shell / CI (`validate-migration-artifacts.sh`, `migration-doctor.sh`, `migration-reachability.sh`, etc.). Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
+- **Optimize pack — companion scripts (2026-05):** Run **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** from shell/CI; see `templates/tool-adapters/_optimize-pack-coverage.md`.
 
 - `codex/adapter.md` — AGENTS.md format lives there.
 - `claude-code/adapter.md` — source of rules content.

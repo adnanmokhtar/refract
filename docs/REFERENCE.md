@@ -712,7 +712,7 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 | `audit-setup.sh` | Phase 5 audit for `/setup-project` runs. TBDs filled, pack coverage, anchoring, adapter coverage. |
 | `validate-migration-artifacts.sh` | Per-feature migration artifacts: contract sections, parity tests, audit provenance, V2-structure conformance, gap-count parity, hand-wave detection. |
 | `validate-align-artifacts.sh` | **v1.5.0 — 7 of 14 checks shipped (589 lines)**: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum. Remaining 7 (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) stay agent-side until v2. |
-| `validate-optimize-artifacts.sh` | Per-finding artifacts for `/optimize`: architectural diagnosis cited, tactical findings closed, gap-count parity, no hand-waves, security tier respected. |
+| `validate-optimize-artifacts.sh` | **`/optimize` gate** — Phase 0 (`ai/optimize/_architecture-decisions.md`): four non-empty evidence blocks, detector `Modules scanned ≥ 1`, each `### F-A-*` cites `<path:line>`, hand-wave grep, `.claude/_extracted-idioms.md` present (`--strict`: oracle referenced). **Ledger** (`ai/optimize/ledger.md`): fenced YAML `id:` rows; terminal rows `gaps_in == gaps_closed`; structural-class net-lines vs `--phase-base..HEAD` (warn if git/base missing); functional-style net-positive rows should cite idioms in `ai/optimize/findings/<id>.md`. Optional scan of `ai/optimize/findings/*.md` for hand-waves. |
 | `validate-polish-artifacts.sh` | Per-surface artifacts for `/polish`: stack-conditional checks (frontend visual hierarchy / backend API consistency / data schema consistency / mobile platform conventions), no hand-waves, evidence-resolves. |
 | `migration-detect-existing.sh` | Phase 1 of `/port-feature`: detects whether V2 already implements a feature (none / partial / full). |
 | `migration-validate-paths.sh` | Phase 4 of `/port-feature`: validates planned file paths against V2 module shape. |
@@ -727,7 +727,7 @@ The `/migrate`, `/align`, `/optimize`, `/polish`, `/security-audit`, `/perf-audi
 
 | Script | Mirrors | Reads ledger |
 |---|---|---|
-| `parallel-fan-out.sh` | engine — generic xargs-based dispatcher (used by all wrappers below) | n/a |
+| `parallel-fan-out.sh` | engine — generic xargs-based dispatcher (used by all wrappers below); pass **`--ledger=<path>`** so `flock` targets the correct pack ledger (default lock remains `ai/migration/ledger.md` when omitted) | n/a |
 | `_parallel-tool-config.sh` | engine — tool→headless-invocation map (kimi / aider / opencode / codex / claude) | n/a |
 | `migrate-parallel.sh` | `/migrate` | `ai/migration/ledger.md` |
 | `align-parallel.sh` | `/align` | `ai/align/ledger.md` |

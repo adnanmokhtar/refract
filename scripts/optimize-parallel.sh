@@ -19,9 +19,13 @@
 #
 # IMPORTANT: foundation-first ordering matters. Architectural fixes cascade
 # (one fix dissolves dozens of tactical findings). For best results:
-#   1. Run with --status=architectural FIRST (sequential, --parallel=1).
-#   2. Re-scan via /optimize-scan (Claude) or equivalent.
-#   3. Run with --status=tactical SECOND (parallel-safe, --parallel=6+).
+#   1. Run with --parallel=1 and narrow --status=... to architectural-class rows FIRST.
+#   2. Re-scan via /optimize (Claude) or equivalent.
+#   3. Run tactical-class rows with higher --parallel (e.g. 6+).
+#
+# Ledger rows MUST use fenced YAML blocks with `id: <token>` + `status:` or `state:`
+# (same shape as migration / migrate-parallel.sh). Legacy `## Heading` + lone `status:`
+# lines are not supported — normalize the ledger.
 
 set -euo pipefail
 
@@ -66,21 +70,33 @@ TASK_FILE="$(mktemp -t optimize-tasks.XXXXXX)"
 trap 'rm -f "$TASK_FILE"' EXIT
 
 awk -v states="$STATES" '
+  function emit() {
+    if (id != "" && st != "" && (st in want)) print id
+  }
   BEGIN {
     n = split(states, arr, ",")
-    for (i = 1; i <= n; i++) want[arr[i]] = 1
+    for (i = 1; i <= n; i++) {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", arr[i])
+      want[arr[i]] = 1
+    }
   }
-  /^## [A-Za-z0-9_-]+/ {
-    current = $2
-    have_status = 0
+  /^id: [A-Za-z0-9][A-Za-z0-9_-]*$/ {
+    if (id != "") emit()
+    id = $2
+    st = ""
+    in_block = 1
     next
   }
-  /^status: / && current && !have_status {
-    s = $2
-    have_status = 1
-    if (s in want) print current
-    current = ""
+  /^```/ {
+    if (in_block) emit()
+    id = ""
+    st = ""
+    in_block = 0
+    next
   }
+  in_block && /^status: / { st = $2; gsub(/^[[:space:]]+|[[:space:]]+$/, "", st); next }
+  in_block && /^state: / { if (st == "") { st = $2; gsub(/^[[:space:]]+|[[:space:]]+$/, "", st) }; next }
+  END { if (id != "") emit() }
 ' "$LEDGER" > "$TASK_FILE"
 
 if [[ -n "$MAX_TASKS" ]]; then
@@ -106,6 +122,7 @@ ARGS=(
   --task-file="$TASK_FILE"
   --prompt-template="$PROMPT_TEMPLATE"
   --log-dir="$LOG_DIR"
+  --ledger="$LEDGER"
 )
 [[ "$DRY_RUN" -eq 1 ]] && ARGS+=(--dry-run)
 

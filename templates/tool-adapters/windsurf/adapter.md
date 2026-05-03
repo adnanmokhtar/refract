@@ -170,6 +170,7 @@ trigger_words: ["scaffold module", "new module", "module-scaffold"]
 ## Cross-references
 
 - **Migration pack — companion scripts (2026-05):** IDE-bound — document shell / CI install of the **full** script bundle per `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
+- **Optimize pack — companion scripts (2026-05):** Document **`validate-optimize-artifacts.sh`** / **`optimize-parallel.sh`** for `/optimize` per `templates/tool-adapters/_optimize-pack-coverage.md`.
 - `claude-code/adapter.md` — rules source.
 - `cline/adapter.md` — Cline also reads legacy `.windsurfrules` if present.
 - `ai/references/tool-parity.md` — gap matrix.

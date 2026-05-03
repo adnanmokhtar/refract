@@ -18,6 +18,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 - **Docs / schema** — `mixed` in `_v2-anchors-schema.md`; tier default narrative unified (trivial until audit); `commands/migrate.md` recovery flags; example `cutover-evidence-stage.json`.
 - **Tool adapters** — `_migration-pack-coverage.md` documents the **full** `scripts/` bundle (validator + doctor + reachability + detect-existing + parallel flock); `_discipline-enforcement.md` lists cutover + reachability paths; `_registry.md` notes flock / ledger parsing; every `templates/tool-adapters/*/adapter.md` cross-references the companion-script contract.
 
+### Optimize cycle accuracy — validator + tooling hardening
+
+**Changed / Added**
+- **`scripts/validate-optimize-artifacts.sh`** — Phase 0 non-empty blocks, per-`### F-A-*` citations, oracle presence + `--strict` idioms reference, hand-waves, optional ledger parsing (`id:` fenced YAML), terminal `gaps_in == gaps_closed`, structural net-lines / functional idiom heuristic, findings-dir hand-waves.
+- **`scripts/optimize-parallel.sh`** — Canonical **`id:`** + fenced-block ledger picker (matches migrate-parallel); forwards **`--ledger`** to `parallel-fan-out.sh`.
+- **`scripts/parallel-fan-out.sh`** — **`--ledger=<path>`** sets the flock target (CLI overrides default `ai/migration/ledger.md`).
+- **`scripts/migrate-parallel.sh`**, **`align-parallel.sh`**, **`polish-parallel.sh`**, **`audit-parallel.sh`** — Pass **`--ledger`** through to the fan-out engine.
+- **`templates/tool-adapters/_optimize-pack-coverage.md`** (new) + optimize companion-script bullets on every `templates/tool-adapters/*/adapter.md`.
+- **Docs** — `docs/REFERENCE.md` (validator truth table + `--ledger`); `templates/tool-adapters/_discipline-enforcement.md` (validator scope caveat); `commands/optimize.md` (mechanical vs agent-side tags).
+
 ### M21 — Decisions-first batch flow for migration pack
 
 User pain point: "running /port-feature per row takes very long and I need to keep my eye on the CLI." Per-feature interactive ports re-prompt the user for the same cross-cutting decisions (RBAC slug renames, payload shape changes, `is_active` defaults) once per affected feature. M21 adds a **decisions-first batch flow** that decouples decisions from execution.

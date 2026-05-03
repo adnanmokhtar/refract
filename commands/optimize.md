@@ -319,16 +319,16 @@ All internal. Just results.
 ## Hard rules (internal)
 
 Applied silently per the discipline:
-- **Validator gate is mandatory.** After Phase 0 produces `ai/optimize/_architecture-decisions.md`, the agent MUST run `~/.claude/scripts/validate-optimize-artifacts.sh`. The validator's `check_phase_0_evidence` halts the run if the 4 required evidence blocks (Dependency map / Responsibility map / Layer attribution / Detector run) are missing or empty. A failed validator forces the diagnosis to be re-emitted. Without this gate, Phase 0 can produce a summary diagnosis instead of an actual scan — the F039 anti-Trusted-Summary recurrence applied to /optimize.
-- **Architectural diagnosis ALWAYS runs first**. Tactical fixes are skipped on findings that would dissolve under a foundation fix; agent picks the foundation.
-- **Foundation-first ordering**: architectural commits land before tactical commits. The architecture-decisions document records the order + rationale.
-- Closure verbs from a closed vocabulary (no new abstractions invented; `introduce-abstraction` only applies when ≥3 sites duplicate the same shape).
-- Net-lines ≤ 0 for tactical structural fixes; refactoring class allowed small +/- but cites why; architectural fixes net-lines budgeted (move-responsibility may +N then -2N when consumer code shrinks).
-- Behaviour preserved (lint, typecheck, scoped tests, coverage all green) for ALL structural + refactoring + dead-code + dedup + over-abstraction fixes.
-- Re-detect after each fix; gap-count parity (`gaps_in == gaps_closed`) before the row advances.
-- One commit per finding (architectural or tactical).
-- Security findings always ship with assertions (test added in same commit).
-- Performance findings always ship with baseline + post-fix measurement.
+- **Validator gate is mandatory.** *(Mechanical — `validate-optimize-artifacts.sh`: Phase 0 blocks + citations + hand-waves + oracle; ledger + `--strict`.)* After Phase 0 produces `ai/optimize/_architecture-decisions.md`, the agent MUST run `~/.claude/scripts/validate-optimize-artifacts.sh`. The validator halts if the four evidence blocks (Dependency map / Responsibility map / Layer attribution / Detector run) are missing or empty, if detectors report zero modules scanned, if any `### F-A-*` lacks `<path:line>`, or if hand-waves are present (see `validate-optimize-artifacts.sh`: `check_phase_0_blocks_nonempty`, `check_per_finding_citations_phase0`, `check_no_handwaves_file`). **`--strict`** also requires the idioms oracle to be referenced and requires `ai/optimize/ledger.md` for per-row gates. A failed validator forces the diagnosis to be re-emitted. Without this gate, Phase 0 can produce a summary diagnosis instead of an actual scan — the F039 anti-Trusted-Summary recurrence applied to /optimize.
+- **Architectural diagnosis ALWAYS runs first**. *(Agent-side orchestration.)* Tactical fixes are skipped on findings that would dissolve under a foundation fix; agent picks the foundation.
+- **Foundation-first ordering**: architectural commits land before tactical commits. The architecture-decisions document records the order + rationale. *(Agent-side.)*
+- Closure verbs from a closed vocabulary (no new abstractions invented; `introduce-abstraction` only applies when ≥3 sites duplicate the same shape). *(Agent-side.)*
+- Net-lines ≤ 0 for tactical structural fixes; refactoring class allowed small +/- but cites why; architectural fixes net-lines budgeted (move-responsibility may +N then -2N when consumer code shrinks). *(Structural rows: mechanical when `--phase-base` + git commits match `<id>:` / `optimize/<id>:` — else warn-only.)*
+- Behaviour preserved (lint, typecheck, scoped tests, coverage all green) for ALL structural + refactoring + dead-code + dedup + over-abstraction fixes. *(Agent-side verification.)*
+- Re-detect after each fix; gap-count parity (`gaps_in == gaps_closed`) before the row advances. *(Mechanical for terminal ledger statuses when ledger exists.)*
+- One commit per finding (architectural or tactical). *(Agent-side.)*
+- Security findings always ship with assertions (test added in same commit). *(Agent-side.)*
+- Performance findings always ship with baseline + post-fix measurement. *(Agent-side.)*
 
 User sees the result, not the policing.
 

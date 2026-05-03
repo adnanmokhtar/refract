@@ -238,6 +238,7 @@ This part of the contract did not change. See **§ Translation recipe** above fo
 ## Cross-references
 
 - **Migration pack — companion scripts (2026-05):** Install the **full** `claude-config/scripts/` bundle into `~/.claude/scripts/` for hooks + CI (not only `validate-migration-artifacts.sh`). See `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
+- **Optimize pack — companion scripts (2026-05):** Include **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** for `/optimize`; see `templates/tool-adapters/_optimize-pack-coverage.md`.
 - `claude-code/adapter.md` — source of rule/command/agent/skill content.
 - `codex/adapter.md` — AGENTS.md (Cursor falls back to this if no `.cursor/rules/`).
 - `ai/references/tool-parity.md` — honest matrix of what's supported vs translated.

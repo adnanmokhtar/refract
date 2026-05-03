@@ -335,9 +335,10 @@ Adapter contributes a `tool_qwen_invoke` function in `scripts/_parallel-tool-con
 ## Cross-references
 
 - **Migration pack — companion scripts (2026-05):** Hooks above invoke `validate-migration-artifacts.sh` only — install the **full** script bundle (`migration-doctor.sh`, `migration-reachability.sh`, `migration-detect-existing.sh`, `migrate-parallel.sh`, `parallel-fan-out.sh`) per `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
+- **Optimize pack — companion scripts (2026-05):** Add **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** for `/optimize`; see `templates/tool-adapters/_optimize-pack-coverage.md`.
 
 - Adapter registry row: `templates/tool-adapters/_registry.md` (capability matrix).
 - Universal `AGENTS.md` writer: `templates/tool-adapters/codex/adapter.md` (Codex owns; Qwen consumes + appends Qwen-specific content via marker blocks).
 - Discipline enforcement block: `templates/tool-adapters/_discipline-enforcement.md` (Qwen mirrors into `QWEN.md` AND consumes the `AGENTS.md` block).
-- Pack coverage docs: `_migration-pack-coverage.md`, `_align-pack-coverage.md`, `_ui-ux-pack-coverage.md` — Qwen sections describe the per-pack file layout.
+- Pack coverage docs: `_migration-pack-coverage.md`, `_align-pack-coverage.md`, `_optimize-pack-coverage.md`, `_ui-ux-pack-coverage.md` — Qwen sections describe the per-pack file layout.
 - Parallel orchestrator config: `scripts/_parallel-tool-config.sh` — `tool_qwen_invoke` function.

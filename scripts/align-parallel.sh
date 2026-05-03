@@ -99,6 +99,7 @@ ARGS=(
   --task-file="$TASK_FILE"
   --prompt-template="$PROMPT_TEMPLATE"
   --log-dir="$LOG_DIR"
+  --ledger="$LEDGER"
 )
 [[ "$DRY_RUN" -eq 1 ]] && ARGS+=(--dry-run)
 

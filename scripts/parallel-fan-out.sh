@@ -15,10 +15,13 @@
 #     --parallel=<N> \
 #     --task-file=<path> \
 #     --prompt-template="<text with {{TASK}} placeholder>" \
+#     [--ledger=<path>] \
 #     [--log-dir=<path>] \
 #     [--dry-run]
 #
-# Ledger: set LEDGER_LOCK="" to disable flock on ai/migration/ledger.md (default locks per worker).
+# Ledger lock: pass --ledger=ai/optimize/ledger.md (etc.) so flock targets the pack ledger.
+# Default lock file is ai/migration/ledger.md when --ledger is omitted.
+# Set LEDGER_LOCK="" to disable flock entirely.
 #
 # Example:
 #   echo "orders\nproducts\ncategories" > /tmp/features.txt
@@ -48,11 +51,10 @@ TASK_FILE=""
 PROMPT_TEMPLATE=""
 LOG_DIR=""
 DRY_RUN=0
-# Serialize migrations touching the ledger (optional). Set LEDGER_LOCK="" to disable.
-LEDGER_LOCK="${LEDGER_LOCK:-ai/migration/ledger.md}"
+CLI_LEDGER=""
 
 usage() {
-  sed -n '2,30p' "$0"
+  sed -n '2,35p' "$0"
   exit 2
 }
 
@@ -62,12 +64,20 @@ for arg in "$@"; do
     --parallel=*)         PARALLEL="${arg#*=}" ;;
     --task-file=*)        TASK_FILE="${arg#*=}" ;;
     --prompt-template=*)  PROMPT_TEMPLATE="${arg#*=}" ;;
+    --ledger=*)           CLI_LEDGER="${arg#*=}" ;;
     --log-dir=*)          LOG_DIR="${arg#*=}" ;;
     --dry-run)            DRY_RUN=1 ;;
     -h|--help)            usage ;;
     *) echo "ERR: unknown arg: $arg" >&2; usage ;;
   esac
 done
+
+# Lock file for optional flock: CLI --ledger wins; else env LEDGER_LOCK; else migration default.
+if [[ -n "${CLI_LEDGER:-}" ]]; then
+  LEDGER_LOCK="$CLI_LEDGER"
+else
+  LEDGER_LOCK="${LEDGER_LOCK:-ai/migration/ledger.md}"
+fi
 
 [[ -z "$TOOL"            ]] && { echo "ERR: --tool required"            >&2; exit 2; }
 [[ -z "$PARALLEL"        ]] && { echo "ERR: --parallel required"        >&2; exit 2; }
@@ -107,6 +117,7 @@ echo "  tool       : $TOOL"
 echo "  parallel   : $PARALLEL"
 echo "  tasks      : $TASK_COUNT (from $TASK_FILE)"
 echo "  log dir    : $LOG_DIR"
+echo "  ledger lock: ${LEDGER_LOCK:-<disabled>}"
 echo "  template   : $PROMPT_TEMPLATE"
 echo
 
