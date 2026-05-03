@@ -1,9 +1,29 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "released": "2026-05-03",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Adds api-consistency-audit skill (backs /polish on backend stacks)."
+  "summary": "Adds migration-backend.md rule (backend-specific extensions to migration discipline — audit axes, stack-aware primitive set, anti-pattern catalogue, Transposition Trap fingerprints). Closes the parallel-to-migration-frontend gap; cross-referenced from migration/_v2-anchors-schema.md, migration-discipline.md, parity-auditor, perf-uplift-survey, port-feature, _failure-surface, align-discipline, align-scan, detect-drift.",
+  "changelog": {
+    "1.2.0": {
+      "released": "2026-05-03",
+      "changes": [
+        "Add rules/migration-backend.md (79 lines): backend audit axes (endpoints / DTOs / auth+permissions / validators / side effects / service-layer / error contract / tenant isolation / transaction boundaries), stack-aware primitive set covering 13+ frameworks (NestJS / Express / Fastify / Laravel / Django / FastAPI / Flask / Rails / Sinatra / Spring / Go / Phoenix / ASP.NET), Transposition Trap fingerprints, Phase 3 (Retrieve) backend specifics.",
+        "_topics.md gains migration-backend rule entry (gated by migration_layout_detected trigger).",
+        "Closes drift: 9 cross-references to backend/rules/migration-backend.md across migration + align packs now resolve."
+      ]
+    },
+    "1.1.0": {
+      "released": "2026-05-03",
+      "changes": [
+        "Adds api-consistency-audit skill (backs /polish on backend stacks)."
+      ]
+    },
+    "1.0.0": {
+      "released": "2026-04-26",
+      "changes": ["Initial backend pack release."]
+    }
+  }
 }

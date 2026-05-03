@@ -206,6 +206,15 @@ Each topic declares:
   mirror_existing: true
   fallback: _examples/backend-principles.md
 
+- name: migration-backend
+  kind: rule
+  triggers:
+    migration_layout_detected: true   # only ships when migration pack is loaded
+  extracts_from: _extracted-codebase.md § Stack + § Layering + _extracted-idioms.md (full)
+  sections: [stack_assumption, backend_audit_axes, stack_aware_primitive_set, transposition_trap_fingerprints, phase_3_retrieve_specifics, cross_references]
+  mirror_existing: true
+  fallback: rules/migration-backend.md   # canonical authored shape; AUTHOR mode anchors stack-aware substitutions to project
+
 - name: database
   kind: rule
   triggers:

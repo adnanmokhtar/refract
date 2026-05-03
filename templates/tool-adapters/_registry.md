@@ -25,6 +25,7 @@ Single-source registry of what each adapter produces and which capabilities it c
 | GitHub Copilot | `copilot` | ✓ | ✓ | ✓ | ✓ | — | ✓ | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `.github/agents/*.agent.md`, `.github/skills/<name>/SKILL.md`, `.github/prompts/*.prompt.md`, `.github/chatmodes/*.chatmode.md` |
 | Codex (OpenAI) | `codex` | ✓ | ~ | — | — | — | ✓ | `AGENTS.md`, optional `AGENTS.override.md` |
 | Gemini CLI | `gemini` | ✓ | — | — | — | — | — | `GEMINI.md` |
+| Kimi Code (Moonshot) | `kimi` | ✓ | ~ | ✓ | — | ✓ | — | `.kimi/skills/<name>/SKILL.md`, `.kimi/subagents/<name>.yaml`, `AGENTS.md` (consumed) |
 
 Legend:
 - ✓ = first-class support

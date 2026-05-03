@@ -1,0 +1,18 @@
+{
+  "kind": "tool-adapter",
+  "name": "kimi",
+  "version": "1.0.0",
+  "released": "2026-05-03",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial Kimi Code adapter. Native skills (.kimi/skills/<name>/SKILL.md), native hooks (~/.kimi/config.toml [[hooks]]), subagent support via YAML, AGENTS.md as project-memory fallback.",
+  "docs_urls": [
+    "https://www.kimi.com/code/docs/en/",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/configuration-files.html",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/data-locations.html",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/agents.html"
+  ],
+  "last_verified": "2026-05-03"
+}
