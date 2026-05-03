@@ -83,7 +83,7 @@ await verifier.verify();
 ## When NOT to use
 
 - Single monolith — unit + integration tests cover it.
-- External APIs you don't own (Stripe, Meta) — those are test doubles, not contracts.
+- External APIs you don't own (third-party SaaS / vendor APIs) — those are test doubles, not contracts.
 
 ## Rules
 

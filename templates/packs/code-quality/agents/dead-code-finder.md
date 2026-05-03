@@ -98,9 +98,9 @@ Group by actionability — "obvious delete" at top, "needs a human" at bottom.
 ## DEAD CODE REPORT
 
 ### 🔴 Safe to delete (high confidence)
-- `src/utils/legacy-formatter.ts` — zero callers, zero barrel exports, not an entry point. Last modified 2024-03-11.
-- `src/checkout/calculateLegacyTax()` — exported but grepped 0 callers. Test at `checkout.spec.ts:142` can be removed with it.
-- `if (false) { /* old shadow code */ }` at `src/payment/processor.ts:88-112` — unreachable.
+- `<utils-root>/legacy-formatter.<ext>` — zero callers, zero barrel exports, not an entry point. Last modified 2024-03-11.
+- `<source-root>/checkout/calculateLegacyTax()` — exported but grepped 0 callers. Test at `checkout.<test-ext>:142` can be removed with it.
+- `if (false) { /* old shadow code */ }` (or language-equivalent always-false guard) at `<source-root>/payment/processor.<ext>:88-112` — unreachable.
 
 ### 🟡 Investigate before deleting (medium confidence)
 - `src/adapters/shopify-v1.adapter.ts` — no imports, but referenced in `docs/integrations.md`. May be a public plugin.

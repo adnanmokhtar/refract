@@ -128,9 +128,9 @@ On confirmation:
 ### Profile changes (12 detected)
 
 ADDED:
-- Entity `Subscription` (8 references in src/modules/billing/) — propose to `ai/core/glossary.md`
-- New base class `EventSubscriber` at libs/events/src/base/event-subscriber.ts (4 extenders) — propose to conventions
-- Dependency `bullmq@5.30` — propose to stack.md + propose `background-jobs` domain tooling
+- Entity `Subscription` (8 references in <modules-root>/billing/) — propose to `ai/core/glossary.md`
+- New base class `EventSubscriber` at <libs-root>/events/base/event-subscriber.<ext> (4 extenders) — propose to conventions
+- Dependency `<background-jobs-library>@<version>` — propose to stack.md + propose `background-jobs` domain tooling
 
 CHANGED:
 - Controller suffix matrix expanded: now also `.gateway.ts` for WebSocket controllers (12 instances)

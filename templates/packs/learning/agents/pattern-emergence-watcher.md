@@ -97,7 +97,7 @@ Decision needed when count reaches threshold: PROMOTE (formalize) | EXPAND (exte
 ## Pattern Emergence Watcher report — <YYYY-MM-DD>
 
 ### Newly proposed (this scan)
-- `auth-token-rotation` — 3 occurrences in src/modules/auth/, src/modules/billing/, src/modules/admin/.
+- `auth-token-rotation` — 3 occurrences in <modules-root>/auth/, <modules-root>/billing/, <modules-root>/admin/.
   → Status: WATCHING. Will mature in 2 weeks if 4th occurrence appears OR pattern stabilizes.
 
 ### Status updates on existing watches

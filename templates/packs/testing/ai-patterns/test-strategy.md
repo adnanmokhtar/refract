@@ -103,18 +103,18 @@ class InMemoryOrderRepo implements OrderRepository {
 }
 
 // Mock — script + assert (use for outbound API calls)
-const stripeMock = { charge: jest.fn().mockResolvedValue({ id: 'ch_1' }) };
-expect(stripeMock.charge).toHaveBeenCalledWith({ amount: 1000, currency: 'usd' });
+paymentProviderMock = { charge: mock().returns({ id: "ch_1" }) }
+assert paymentProviderMock.charge.calledWith({ amount: 1000, currency: "usd" })
 ```
 
 ## Determinism
 
 Flaky tests are bugs, not "just retry". Fix the root cause:
 
-```ts
-// Time
-beforeEach(() => jest.useFakeTimers().setSystemTime(new Date('2026-04-24T10:00:00Z')));
-afterEach(() => jest.useRealTimers());
+```pseudo
+// Time — use the project's fake-clock helper
+beforeEach: fakeClock.set("2026-04-24T10:00:00Z")
+afterEach:  fakeClock.restore()
 
 // RNG / UUID — inject, don't import
 class OrderService {

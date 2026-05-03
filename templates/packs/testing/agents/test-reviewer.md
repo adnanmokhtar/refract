@@ -8,7 +8,7 @@ model: opus
 
 ## The Premise (read first, do not deviate)
 
-**The test file + the code it covers are the truth.** Read both side-by-side. Every finding cites `<test-path:line>` AND, when the gap is in coverage, `<source-path:line>` for the uncovered branch. "Looks fine" is not a verdict; "fails to assert observable output at `orders.spec.ts:42` while the SUT branch at `create-order.ts:88` returns a typed error" is.
+**The test file + the code it covers are the truth.** Read both side-by-side. Every finding cites `<test-path:line>` AND, when the gap is in coverage, `<source-path:line>` for the uncovered branch. "Looks fine" is not a verdict; "fails to assert observable output at `orders.<test-ext>:42` while the SUT branch at `create-order.<ext>:88` returns a typed error" is.
 
 **Find real issues, no hand-waves.** A review that says "consider adding more edge cases" without naming the branch is noise. If you can't point to the missed behavior with a path:line, you haven't found a gap — you've expressed a preference. Preferences go in NITs, not BLOCKERs.
 
@@ -84,7 +84,7 @@ done
 
 ### Structural
 
-- Test file name matches source file: `user.service.ts` ↔ `user.service.spec.ts`.
+- Test file name matches source file per the project's convention (e.g., `user.service.<ext>` ↔ `user.service.<test-ext>`, or whatever the project uses — `_test.go`, `_spec.rb`, `Test<Class>.java`, etc.).
 - Test folder matches source (or colocated per repo convention).
 - Fixtures in `test/fixtures/` (or project convention), not inlined.
 - Shared test utilities in `test/helpers/`.
@@ -111,64 +111,64 @@ done
 
 ### BLOCKER — test doesn't catch the bug it claims to
 ```
-src/modules/orders/__tests__/list-orders.spec.ts:18
+<modules-root>/orders/<test-dir>/list-orders.<test-ext>:18
 
-it('filters by tenant', async () => {
-  await service.listOrders('tenantA');
-  expect(service.listOrders).toHaveBeenCalledWith('tenantA');  // ← asserts a CALL, not BEHAVIOR
-});
+test("filters by tenant") {
+  service.listOrders("tenantA")
+  assert service.listOrders.calledWith("tenantA")  // ← asserts a CALL, not BEHAVIOUR
+}
 
 Impact: test passes even if the filter is broken.
 Fix:
-  it('filters by tenant', async () => {
-    await seed({ tenantId: 'A', amount: 100 });
-    await seed({ tenantId: 'B', amount: 200 });
-    const result = await service.listOrders('tenantA');
-    expect(result).toHaveLength(1);
-    expect(result[0].amount).toBe(100);
-  });
+  test("filters by tenant") {
+    seed({ tenantId: "A", amount: 100 })
+    seed({ tenantId: "B", amount: 200 })
+    result = service.listOrders("tenantA")
+    assert result.length == 1
+    assert result[0].amount == 100
+  }
 ```
 
 ### BLOCKER — flaky (timing-dependent)
 ```
-src/modules/jobs/__tests__/delayed-job.spec.ts:24
+<modules-root>/jobs/<test-dir>/delayed-job.<test-ext>:24
 
-await jobQueue.schedule(job, 100);
-await sleep(200);                         // ← flake bomb
-expect(await jobRepo.find()).toHaveLength(1);
+jobQueue.schedule(job, 100)
+sleep(200)                                // ← flake bomb
+assert jobRepo.find().length == 1
 
 Impact: fails randomly on slow CI.
-Fix: use fake timers, advance time, then assert.
-  jest.useFakeTimers();
-  await jobQueue.schedule(job, 100);
-  jest.advanceTimersByTime(100);
-  await Promise.resolve();  // flush microtasks
-  expect(await jobRepo.find()).toHaveLength(1);
+Fix: use the project's fake-clock helper, advance time, then assert.
+  fakeClock.install()
+  jobQueue.schedule(job, 100)
+  fakeClock.advance(100)
+  flushScheduledTasks()
+  assert jobRepo.find().length == 1
 ```
 
 ### REQUEST — missing regression test
 ```
 PR fixes "webhook fires reply twice on retry".
 
-src/modules/webhooks/__tests__/ — no new test file.
+<modules-root>/webhooks/<test-dir>/ — no new test file.
 
 Impact: bug can regress silently.
 Fix: add idempotency test:
-  it('does not re-process a retried webhook', async () => {
-    const payload = { messageId: 'abc-123', ... };
-    await handler.process(payload);
-    await handler.process(payload);  // retry
-    expect(await messageRepo.find()).toHaveLength(1);
-  });
+  test("does not re-process a retried webhook") {
+    payload = { messageId: "abc-123", ... }
+    handler.process(payload)
+    handler.process(payload)  // retry
+    assert messageRepo.find().length == 1
+  }
 ```
 
 ### REQUEST — mock returning whatever
 ```
-src/modules/ai/__tests__/generate-reply.spec.ts:42
+<modules-root>/ai/<test-dir>/generate-reply.<test-ext>:42
 
-  claudeClient.reply.mockResolvedValue({ text: 'ok' });
+  llmClient.reply.returns({ text: "ok" })
 
-Fake `{ text: 'ok' }` doesn't reflect real Claude responses (includes tokens, etc.).
+Fake `{ text: "ok" }` doesn't reflect real LLM responses (full shape includes tokens, finish-reason, etc.).
 Tests pass but missing-field bugs slip through.
 
 Fix: use a realistic fixture or a minimal fake that returns the full shape:

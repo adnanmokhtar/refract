@@ -64,17 +64,17 @@ Doc drift — 4 findings
 
 BROKEN (blockers):
   ai/patterns/project-structure.md:23
-    References `src/modules/legacy/` which was deleted in commit def456a.
+    References `<modules-root>/legacy/` which was deleted in commit def456a.
 
   ai/stack.md:31
-    Mentions WHATSAPP_API_V17 — actual .env.example has WHATSAPP_API_V20.
+    Mentions VENDOR_API_V17 — actual .env.example has VENDOR_API_V20.
 
 STALE:
   ai/status.md `Updated:` is 67 days old.
     Since: 23 commits, 5 new modules. Run /doc-refresh.
 
   ai/modules.md
-    Missing row for `src/modules/billing/` (exists in code, not in docs).
+    Missing row for `<modules-root>/billing/` (exists in code, not in docs).
 
 OK: 84 file refs, 12 scripts, 19 env vars, 7 ADR citations all resolved.
 ```

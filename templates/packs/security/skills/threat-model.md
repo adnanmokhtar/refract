@@ -44,12 +44,12 @@ Components:
  - Client (web browser)
  - /orders POST endpoint
  - OrderService
- - PostgreSQL orders table
- - Stripe (external)
+ - relational-DB orders table
+ - payment provider (external)
 
 Trust boundaries:
  1. Client → /orders endpoint (untrusted input)
- 2. OrderService → Stripe (we trust Stripe, but verify webhooks)
+ 2. OrderService → payment provider (we trust the provider, but verify its webhooks)
 
 Threats:
 

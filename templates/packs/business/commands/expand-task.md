@@ -167,7 +167,7 @@ Edge cases:
   - Tenant with 0 orders — must return [] not 404.
   - Filter combinations — verify each still uses the new index.
 
-Affected modules: src/modules/orders
+Affected modules: <modules-root>/orders
 
 Complexity: M  (migration + repo rewrite + perf re-test)
 

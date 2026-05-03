@@ -17,7 +17,7 @@ The output is what enables an agent working on a related task to say "I see — 
 - Every step cites `<file:function:line>` resolved at the current commit; every side effect is read from the actual method body, not inferred from class names.
 - Error paths are walked the same way as happy paths — they reveal where recovery / retry / silent-fail lives.
 - Empty extraction is honest — a flow with `idempotency: none` is a finding (not a gap); a `[REFINE-WEAK: flows-coverage]` flag is a valid output when <5 flows trace.
-- Fabrication — inferring a Stripe call from an `EmailService` name, asserting a transaction boundary that isn't in code, mixing two flows that share a middle — produces a runbook the team will trust and follow incorrectly.
+- Fabrication — inferring an external-vendor call from a class name (e.g., guessing payment-provider use from an `EmailService`), asserting a transaction boundary that isn't in code, mixing two flows that share a middle — produces a runbook the team will trust and follow incorrectly.
 
 ## Mechanical halt
 
@@ -45,8 +45,8 @@ Auto-discover sources for flow candidates (combine and dedupe):
 
 1. **Lifecycle events from Phase 2.7** — every event that has ≥2 emitters or is consumed by ≥1 handler is a flow.
 2. **README.md / CONTRIBUTING.md / docs/** — search for headings matching `## How <X> works`, `## <Verb>ing <noun>`, `## End-to-end`, `### Flow`, `## Lifecycle`.
-3. **Test file names** — `*_e2e.spec.ts`, `*_integration_test.py`, `test_<flow>_flow.py`. The flow name is often in the filename.
-4. **Sentry / monitoring config** — if accessible, transactions named `<verb>.<noun>` are critical user paths.
+3. **Test file names** — the project's e2e / integration test naming convention (e.g., `*_e2e.<test-ext>`, `*_integration_test.<test-ext>`, `test_<flow>_flow.<test-ext>`, `<Flow>IntegrationTest.<ext>`). The flow name is often in the filename.
+4. **Observability / monitoring config** — if accessible, transactions named `<verb>.<noun>` in the project's APM tool are critical user paths.
 5. **High-coverage endpoints / consumers** — heuristic: top 10 by coverage % or git churn.
 
 Pick:
@@ -77,7 +77,7 @@ For each picked flow:
    - Outbox-pattern + at-least-once consumer?
    - **Or no idempotency mechanism** — if so, record `idempotency: NONE` (this is itself an important finding for round-two perf/reliability artifacts).
 7. **Concurrency mode**: are steps sequential? batched? parallel? Cross-reference with Phase 2 Step 15 concurrency-primitive detection.
-8. **Total side-effect surface**: sum at the end — "1 invoice row, N ledger rows, 1 outbox event, 1 Stripe charge call, 0 emails."
+8. **Total side-effect surface**: sum at the end — "1 invoice row, N ledger rows, 1 outbox event, 1 payment-provider charge call, 0 emails."
 
 ### Step 3 — Output
 
@@ -105,7 +105,7 @@ flows:
         caught_at: <file:line>
         response: <e.g. 402 + customer email>
     idempotency: <key-mechanism|unique-constraint|outbox|none>
-    transaction_boundary: <file:line of `with transaction.atomic()` / `BEGIN` / equivalent, or "no explicit boundary">
+    transaction_boundary: <file:line of the project's transaction primitive (e.g., `BEGIN ... COMMIT`, `transaction { ... }`, framework-equivalent), or "no explicit boundary">
     total_side_effects:
       db_writes: { Invoice: 1, LedgerEntry: 5 }
       external_calls: [<list>]
@@ -114,7 +114,7 @@ flows:
     concurrency: <sequential|batched|parallel|mixed>
     notes: |
       <2-3 lines on what's surprising / notable about this flow,
-       e.g. "Stripe call is BEFORE DB write — payment success without DB persist
+       e.g. "Payment-provider call is BEFORE DB write — payment success without DB persist
        requires manual reconciliation. See ADR-0034.">
   # repeat per flow
 ```

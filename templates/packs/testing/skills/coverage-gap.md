@@ -62,16 +62,16 @@ Coverage gap — feature/ai-reply-tuning  (base=origin/main)
 Files changed: 8  |  Lines changed: 142  |  Covered: 98  |  Uncovered: 44
 
 HIGH PRIORITY (untested branches):
-  src/modules/ai/core/prompt-builder.service.ts:67-72
+  <modules-root>/ai/core/prompt-builder.service.<ext>:67-72
     if (override != null) { ... }   ← else branch hit 0 times
     No test exercises override == null path.
 
-  src/modules/ai/infrastructure/claude.client.ts:103-108
+  <modules-root>/ai/infrastructure/llm-provider.client.<ext>:103-108
     catch (RateLimitError) { ... }   ← caught 0 times
-    No test forces 429 from Anthropic SDK mock.
+    No test forces 429 from the LLM-provider SDK mock.
 
 LOW PRIORITY:
-  src/modules/ai/core/pricing.ts:18
+  <modules-root>/ai/core/pricing.<ext>:18
     Fallback `return 0` — likely unreachable, candidate for delete.
 ```
 

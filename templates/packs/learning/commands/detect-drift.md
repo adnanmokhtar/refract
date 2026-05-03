@@ -78,20 +78,20 @@ This is where the command's value lands. Persist:
 ### High (3)
 - <billing service file:42> — uses a direct stdout / print call (rule: `.claude/rules/observability.md` line 12 says use the project's structured logger).
   -> FIX CODE
-- src/legacy/admin.controller.ts:88 — bypasses tenant filter via raw SQL (rule: `.claude/rules/multi-tenancy.md`).
+- <legacy-root>/admin.controller.<ext>:88 — bypasses tenant filter via raw SQL (rule: `.claude/rules/multi-tenancy.md`).
   -> FIX CODE (security-relevant)
-- src/modules/orders/order.entity.ts:15 — uses `Float` for price (`ai/conventions.md` says integer minor units / Decimal).
+- <modules-root>/orders/order.entity.<ext>:15 — uses a binary-float type for price (`ai/conventions.md` says integer minor units / fixed-precision decimal).
   -> FIX CODE
 
 ### Medium (8)
-- src/modules/auth/*.ts — file naming uses `auth.guard.ts`. Conventions say `.<name>.guard.ts`. Either:
-  -> FIX CODE (rename) or -> UPDATE CONVENTION (allow `.guard.ts`)
-- src/modules/notifications/notifier.ts — class lacks `Service` suffix.
-  -> FIX CODE (rename to `notification.service.ts`)
+- <modules-root>/auth/*.<ext> — file naming uses `auth.guard.<ext>`. Conventions say `.<name>.guard.<ext>`. Either:
+  -> FIX CODE (rename) or -> UPDATE CONVENTION (allow `.guard.<ext>`)
+- <modules-root>/notifications/notifier.<ext> — class lacks `Service` suffix.
+  -> FIX CODE (rename to `notification.service.<ext>`)
 - ... (6 more)
 
 ### Rule-vs-reality (2 — your conventions are stale)
-- `.claude/rules/dtos-mappers.md` says "DTOs use `class-validator@0.13`". Actually using `0.14.x`.
+- `.claude/rules/dtos-mappers.md` says "DTOs use `<validator-lib>@0.13`". Actually using `0.14.x`.
   -> UPDATE CONVENTION
 - `ai/conventions.md` lists `BaseService` as having 147 extenders; actual is 162.
   -> UPDATE CONVENTION (auto via `/refresh-knowledge`)

@@ -100,11 +100,11 @@ Output to `ai/audits/threat-model-<feature>-<date>.md`:
 | T-07 | I | Cross-tenant data read | High | Critical | Auto-applied tenant filter via RLS or middleware | Low |
 | T-08 | I | Backup files exposed | Low | Critical | Backups encrypted at rest; access via IAM with audit log | Low |
 
-### Boundary: API service → Stripe
+### Boundary: API service → external payment provider
 
 | ID | Class | Threat | Likelihood | Impact | Mitigation | Residual |
 |---|---|---|---|---|---|---|
-| T-09 | S | Webhook from spoofed Stripe | High | Critical | Webhook signature verification (`Stripe-Signature` header); reject unsigned | Low |
+| T-09 | S | Webhook from spoofed payment provider | High | Critical | Webhook signature verification (provider's signed-header convention); reject unsigned | Low |
 | T-10 | T | Replay attack on webhook | Medium | High | Idempotency keys + timestamp window check | Low |
 | T-11 | R | "I didn't authorize this charge" with no evidence | Medium | High | Audit log: who initiated, when, IP, user-agent, signed; immutable store | Low |
 

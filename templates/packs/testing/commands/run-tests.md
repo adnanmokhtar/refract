@@ -83,18 +83,18 @@ If multiple runners (e.g., vitest for unit + playwright for e2e), run them in se
 ## Phase 4 — Generate (output template)
 
 ```
-/run-tests src/modules/orders/
+/run-tests <modules-root>/orders/
 
-Test runner:           <project's runner + helpers from package.json / pyproject.toml / etc.>
-Scope:                 src/modules/orders/ (28 test files)
+Test runner:           <project's runner + helpers from its manifest>
+Scope:                 <modules-root>/orders/ (28 test files)
 
 Running...
-  ✓ src/modules/orders/__tests__/OrderListPage.spec.<ext> (12 tests, 245ms)
-  ✓ src/modules/orders/__tests__/OrderForm.spec.<ext> (8 tests, 142ms)
-  ✗ src/modules/orders/__tests__/OrderRefund.spec.<ext> (5 of 6, 89ms)
+  ✓ <modules-root>/orders/<test-dir>/OrderListPage.<test-ext> (12 tests, 245ms)
+  ✓ <modules-root>/orders/<test-dir>/OrderForm.<test-ext> (8 tests, 142ms)
+  ✗ <modules-root>/orders/<test-dir>/OrderRefund.<test-ext> (5 of 6, 89ms)
        FAIL: "applies refund tax correctly" — expected 12.50, got 12.55
-       file: src/modules/orders/__tests__/OrderRefund.spec.ts:42
-  ⊝ src/modules/orders/__tests__/OrderArchive.spec.ts (3 skipped)
+       file: <modules-root>/orders/<test-dir>/OrderRefund.<test-ext>:42
+  ⊝ <modules-root>/orders/<test-dir>/OrderArchive.<test-ext> (3 skipped)
   ...
 
 Result: PARTIAL (147/148 passing)
@@ -109,7 +109,7 @@ Summary:
   Flakes:              0
 
 Failures:
-  src/modules/orders/__tests__/OrderRefund.spec.ts:42
+  <modules-root>/orders/<test-dir>/OrderRefund.<test-ext>:42
     "applies refund tax correctly" — expected 12.50, got 12.55
 
 Next:

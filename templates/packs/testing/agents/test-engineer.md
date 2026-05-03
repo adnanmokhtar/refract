@@ -118,7 +118,7 @@ Decision matrix:
 
 | Scenario | Prefer |
 |---|---|
-| External API (Stripe, SendGrid, LLM) | Mock at port boundary, assert calls |
+| External API (payment provider / email vendor / LLM provider / etc.) | Mock at port boundary, assert calls |
 | Logger / metrics / tracer | Spy |
 | DB / repository with state | FAKE (in-memory impl) — NOT mocks |
 | Clock / random / UUID | Fake with seeded values |
@@ -211,10 +211,10 @@ await waitFor(async () => {
 ```
 Tests written for: <feature / fix>
 
-Files:
-  - src/modules/orders/__tests__/create-order.use-case.spec.ts  (unit)
-  - src/modules/orders/__tests__/order.repository.spec.ts        (integration)
-  - test/e2e/orders.e2e-spec.ts                                   (e2e)
+Files (paths + extensions per the project's test conventions):
+  - <modules-root>/orders/<test-dir>/create-order.use-case.<test-ext>  (unit)
+  - <modules-root>/orders/<test-dir>/order.repository.<test-ext>        (integration)
+  - <e2e-root>/orders.e2e.<test-ext>                                    (e2e)
 
 Scenarios covered:
   - Happy: create with valid input → pending status, persisted
@@ -226,7 +226,7 @@ Scenarios covered:
 
 Test doubles used:
   - Fake: InMemoryOrderRepo, FakeClock
-  - Mock: StripeClient (at port boundary)
+  - Mock: PaymentProviderClient (at port boundary)
 
 Coverage delta:
   - Lines: 72% → 84%

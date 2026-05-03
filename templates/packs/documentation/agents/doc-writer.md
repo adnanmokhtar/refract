@@ -103,22 +103,22 @@ Flag drift separately from current work + propose fix.
 - Why: Phase 2 monetization per ai/runbooks/phase-2-plan.md.
 - How:
   - Schema: `subscriptions` with tenant_id FK + CHECK constraint on plan.
-  - Service: `SubscriptionService` wraps Stripe customer + Stripe subscription.
-  - Webhook: handles `customer.subscription.updated`.
+  - Service: `SubscriptionService` wraps the payment provider's customer + subscription objects.
+  - Webhook: handles the `customer.subscription.updated` event from the provider.
   - ADR 0007 records plan-change migration strategy.
 - Follow-ups: usage meter (BILLING-42), admin UI (P3).
 ```
 
 ### Bug fix
 ```
-### Bug fix — WhatsApp webhook silently drops replies on Claude timeout
-- Symptom: tenants reported "messages not being replied to" during Anthropic capacity incident.
-- Root cause: ClaudeClient swallowed timeout errors, returned null; caller crashed on `reply.text`.
-- Fix: propagate typed ClaudeTimeoutError; caller falls back to tenant.fallback_reply.
-- Regression test: test/e2e/webhook-claude-timeout.spec.ts.
-- Similar bugs: same swallow pattern in StripeClient + TwilioClient, fixed in same PR.
-- Observability: added `claude_call_failed_total` metric + alert on rate > 5/min.
-- Postmortem: ai/audits/2026-04-28-whatsapp-silent-drop.md.
+### Bug fix — messaging webhook silently drops replies on LLM-provider timeout
+- Symptom: tenants reported "messages not being replied to" during the LLM provider's capacity incident.
+- Root cause: LLMClient swallowed timeout errors, returned null; caller crashed on `reply.text`.
+- Fix: propagate typed LLMTimeoutError; caller falls back to tenant.fallback_reply.
+- Regression test: <e2e-root>/webhook-llm-timeout.<test-ext>.
+- Similar bugs: same swallow pattern in PaymentProviderClient + SMSProviderClient, fixed in same PR.
+- Observability: added `llm_call_failed_total` metric + alert on rate > 5/min.
+- Postmortem: ai/audits/2026-04-28-messaging-silent-drop.md.
 ```
 
 ### ADR
@@ -129,7 +129,7 @@ Date: 2026-04-30
 Status: Accepted
 
 ## Context
-During a Stripe connectivity incident, retry logic caused 12 duplicate orders across 3 tenants.
+During a payment-provider connectivity incident, retry logic caused 12 duplicate orders across 3 tenants.
 Root cause: POST /orders accepted retries but didn't dedupe. Support spent 4 hours reconciling.
 
 ## Decision
@@ -137,7 +137,7 @@ Root cause: POST /orders accepted retries but didn't dedupe. Support spent 4 hou
 with TTL 48h. Replays return stored response. Missing key → 400.
 
 ## Consequences
-Pro: single-order guarantee under retry; matches Stripe's own pattern.
+Pro: single-order guarantee under retry; matches the payment provider's own idempotency pattern.
 Con: clients must generate + track keys — breaking API change.
      Storage ~10kb/min in DB writes; needs retention job.
 Mitigation: ship as v2 of POST /orders. v1 accepting-without-key kept with

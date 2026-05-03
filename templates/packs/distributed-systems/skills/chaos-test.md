@@ -94,8 +94,8 @@ Root cause:
   Fallback path calls DB without timeout; pool exhausted under retry storm.
 
 Action items:
-  1. Add 200ms timeout on the DB fallback path (src/modules/cache/fallback.ts).
-  2. Cap concurrent DB calls during Redis outage with a bulkhead.
+  1. Add 200ms timeout on the DB fallback path (<modules-root>/cache/fallback.<ext>).
+  2. Cap concurrent DB calls during the cache outage with a bulkhead.
   3. Re-run experiment after fix — must show error rate < 1%.
 ```
 

@@ -76,7 +76,7 @@ Dependency audit — 3 findings
 CRITICAL:
   axios@0.21.4   CVE-2024-28849   SSRF
     Fixed:  1.7.4
-    Used:   src/modules/http/client.ts (runtime)
+    Used:   <modules-root>/http/client.<ext> (runtime)
     Surface: outbound HTTP with user-supplied URLs — exploitable.
     Action: upgrade today, regression-test outbound paths.
 

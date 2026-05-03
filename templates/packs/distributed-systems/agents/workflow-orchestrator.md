@@ -122,7 +122,7 @@ Scope: <one-line purpose>
 | Name | Timeout | Retry policy | Idempotent? | Compensation? |
 |---|---|---|---|---|
 | reserve_inventory | 30s | exp-3x | ✓ | release_inventory |
-| charge_payment | 60s | exp-3x | ✓ (Stripe key) | refund_payment |
+| charge_payment | 60s | exp-3x | ✓ (idempotency key from payment provider) | refund_payment |
 | ... |
 
 ### Determinism audit

@@ -142,29 +142,28 @@ Pick the project's idiomatic library — examples per language family:
 Every dependency mocked → test passes but verifies nothing real.
 
 ### Mocking time incorrectly
-```ts
-// BAD
-Date.now = () => 1234567890;
+```pseudo
+// BAD — monkey-patch the global
+now() = () => 1234567890
 
-// GOOD
-jest.useFakeTimers().setSystemTime(new Date('2026-01-01'));
-// or inject a clock
+// GOOD — use the project's fake-clock helper, OR inject a clock dependency
+fakeClock.set("2026-01-01T00:00:00Z")
 ```
 
 ### Partial mocks
 Mocking some methods of an object, leaving others real → confusing behavior, hard to debug.
 
 ### Asserting on implementation
-```ts
+```pseudo
 // BAD — couples test to internal call sequence
-expect(db.query).toHaveBeenCalledWith('SELECT ...');
+assert db.query.calledWith("SELECT ...")
 
-// GOOD — assert on observable behavior
-expect(await service.getUserCount()).toBe(5);
+// GOOD — assert on observable behaviour
+assert service.getUserCount() == 5
 ```
 
 ### Mock creep
-Production code gains a special code path for tests (`if (process.env.TEST)`). Sign you're testing wrong.
+Production code gains a special code path for tests (`if testEnvActive() { ... }`). Sign you're testing wrong.
 
 ## Determinism essentials
 
