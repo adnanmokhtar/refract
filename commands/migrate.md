@@ -204,9 +204,9 @@ Migration complete
 
 Scope:               the orders module
 Features ported:     12
-  <modules-root>/orders/pages/OrderListPage.<ext>
-  <modules-root>/orders/pages/OrderDetailsPage.<ext>
-  <modules-root>/orders/components/OrderForm.<ext>
+  <modules-root>/orders/<page-or-leaf>/<feature-list>.<ext>
+  <modules-root>/orders/<page-or-leaf>/<feature-detail>.<ext>
+  <modules-root>/orders/<components-or-equivalent>/<feature-form>.<ext>
   ... (9 more)
 
 Commits:             12 (one per feature)

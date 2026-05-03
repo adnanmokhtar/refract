@@ -172,13 +172,13 @@ Aggregate the rows in `ai/migration/perf-decisions/<feature>.md` (initial draft 
 
 - Path: `<v2-root>/<feature>/`
 - Files:
-  - `controller.ts` — HTTP entry; thin
-  - `service.ts` — business logic
-  - `repository.ts` — data access (uses ORM-X per V2 convention)
-  - `dto.ts` — input + output shapes (validated by V2's class-validator)
-  - `errors.ts` — feature-specific error types (extends V2's BaseError)
+  - HTTP-entry layer — thin handler / controller / view (per the project's web-framework convention)
+  - Business-logic layer — the project's service / use-case / interactor primitive
+  - Data-access layer — the project's repository / DAO / model primitive
+  - Input/output shapes — the project's DTO / schema / validator primitive
+  - Errors — feature-specific types extending the project's base-error class
 - Public surface: route `POST /v2/<resource>` (V1 served `/<resource>` — V2 prefixes for the cutover window)
-- DI wiring: registered in `<v2-root>/modules/<feature>.module.ts`
+- DI wiring / module registration — registered per the project's framework's service-registration primitive (e.g., DI module file, framework manifest, route table — concrete file path varies by stack)
 
 ## Parity strategy
 

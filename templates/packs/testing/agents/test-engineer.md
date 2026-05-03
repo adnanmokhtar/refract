@@ -212,8 +212,8 @@ await waitFor(async () => {
 Tests written for: <feature / fix>
 
 Files (paths + extensions per the project's test conventions):
-  - <modules-root>/orders/<test-dir>/create-order.use-case.<test-ext>  (unit)
-  - <modules-root>/orders/<test-dir>/order.repository.<test-ext>        (integration)
+  - <modules-root>/orders/<test-dir>/<create-order-handler>.<test-ext>  (unit)
+  - <modules-root>/orders/<test-dir>/<order-data-access>.<test-ext>     (integration)
   - <e2e-root>/orders.e2e.<test-ext>                                    (e2e)
 
 Scenarios covered:

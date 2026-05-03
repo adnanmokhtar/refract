@@ -89,12 +89,12 @@ Test runner:           <project's runner + helpers from its manifest>
 Scope:                 <modules-root>/orders/ (28 test files)
 
 Running...
-  ✓ <modules-root>/orders/<test-dir>/OrderListPage.<test-ext> (12 tests, 245ms)
-  ✓ <modules-root>/orders/<test-dir>/OrderForm.<test-ext> (8 tests, 142ms)
-  ✗ <modules-root>/orders/<test-dir>/OrderRefund.<test-ext> (5 of 6, 89ms)
+  ✓ <modules-root>/orders/<test-dir>/<feature-list-test>.<test-ext> (12 tests, 245ms)
+  ✓ <modules-root>/orders/<test-dir>/<feature-form-test>.<test-ext> (8 tests, 142ms)
+  ✗ <modules-root>/orders/<test-dir>/<feature-refund-test>.<test-ext> (5 of 6, 89ms)
        FAIL: "applies refund tax correctly" — expected 12.50, got 12.55
-       file: <modules-root>/orders/<test-dir>/OrderRefund.<test-ext>:42
-  ⊝ <modules-root>/orders/<test-dir>/OrderArchive.<test-ext> (3 skipped)
+       file: <modules-root>/orders/<test-dir>/<feature-refund-test>.<test-ext>:42
+  ⊝ <modules-root>/orders/<test-dir>/<feature-archive-test>.<test-ext> (3 skipped)
   ...
 
 Result: PARTIAL (147/148 passing)
@@ -109,11 +109,11 @@ Summary:
   Flakes:              0
 
 Failures:
-  <modules-root>/orders/<test-dir>/OrderRefund.<test-ext>:42
+  <modules-root>/orders/<test-dir>/<feature-refund-test>.<test-ext>:42
     "applies refund tax correctly" — expected 12.50, got 12.55
 
 Next:
-  /fix-bug "OrderRefund applies wrong tax" --evidence=<test-file:line>
+  /fix-bug "refund tax mis-calculated" --evidence=<test-file:line>
   OR run /run-tests --update-snapshots if this was an intentional change
 ```
 

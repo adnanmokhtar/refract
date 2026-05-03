@@ -255,7 +255,7 @@ Phase 6 (Validated): <N> reviewers ran in parallel; <N> skills run.
    Verify: cross-tenant leak test.
 
 ### Requests (N)
-1. [perf] <modules-root>/orders/list.use-case.<ext>:24 — N+1 on customer lookup
+1. [perf] <modules-root>/orders/<list-handler>.<ext>:24 — N+1 on customer lookup
    Fix: eager-load customer in the list query.
    
 2. [test] Missing regression test for the webhook idempotency path.
