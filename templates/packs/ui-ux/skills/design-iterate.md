@@ -1,36 +1,60 @@
 ---
 name: design-iterate
-description: Generate 2-3 style variants of a component or page (scoped SCSS diffs only), screenshot each via Playwright MCP, present side-by-side so the user can pick a direction. Invoke when the user says "try a few variants", "iterate on the design", "what if it looked like X", or isn't sure about visual direction.
+description: Generate 2–3 style variants at the correct design-system layer (leaf scoped styles, shared wrapper, or design tokens), screenshot via Playwright MCP, present side-by-side so the user picks. Honors $SCOPE_TIER from /enhance-ui so the same affordance is not duplicated across pages. Invoke when the user says "try a few variants", "iterate on the design", or isn't sure about visual direction.
 ---
 
 # Design Iterate
 
-For when the user isn't sure what they want and "just describe it" isn't working. You generate 2–3 variants, screenshot each, and let them point.
+For when the user isn't sure what they want and "just describe it" isn't working. You generate 2–3 variants, screenshot each, and let them point. **Layer depends on `$SCOPE_TIER`** — see Inputs.
 
 ## Inputs
 
-- `$TARGET` — file path to a `.vue` component or page
+- `$TARGET` — file path:
+  - **`leaf-local`** — `.vue` / `.tsx` / `.svelte` page or leaf component.
+  - **`wrapper-variant`** — shared wrapper component named in `_extracted-idioms.md`.
+  - **`token`** — design tokens / theme file (SCSS variables, CSS custom properties module, `tailwind.config` extension — path from idioms).
+  - **`wrapper-extract`** — **do not invoke this skill** until the orchestrator has finished extraction and re-targets `wrapper-variant`; if called prematurely, halt and return to `/enhance-ui`.
+- `$SCOPE_TIER` — **`leaf-local`** | **`wrapper-variant`** | **`token`** | (never **`wrapper-extract`** at iterate time). Default **`leaf-local`** when omitted (backward compatible).
+- `$CONSUMER_ROUTES` — optional list of routes / URLs / story paths to screenshot when `$SCOPE_TIER` is **`token`** or **`wrapper-variant`**. Provided by `/enhance-ui` Phase 1.5. When absent, fall back to `visual-check` resolution for `$TARGET` only (legacy behaviour).
 - `$DIRECTION` — optional: "more minimal", "more colorful", "card-based", etc.
 
 ## Steps
 
-1. Read `$TARGET` and capture the current styles (scoped `<style lang="scss">` block only).
-2. Run `visual-check` on the route that renders `$TARGET` to get the baseline screenshot.
-3. Generate 3 style variants in separate branches via `git stash`:
-   - **Variant A** — closer to current, polished (spacing tighter, cleaner borders).
-   - **Variant B** — bolder (more color, larger type, heavier shadows).
-   - **Variant C** — minimal (flat, less chrome, more whitespace).
-   Each variant modifies ONLY the scoped `<style>` block — no template or script changes.
-4. For each variant: apply, screenshot via Playwright MCP, save to `.claude/artifacts/design-iterate/<timestamp>/<variant>.png`, then revert before applying the next.
-5. Leave the file in its original state. Present the user with:
-   - 3 screenshots side-by-side in the response
-   - A one-line summary of each variant's tradeoffs
-   - "Pick A/B/C or say how to tune one" as the call to action
-6. Once they pick, apply that variant and run `visual-check` one more time.
+### All tiers — variants A/B/C
+
+Generate three variants (polished / bolder / minimal) unless user tune requests otherwise:
+
+- **Variant A** — closer to current, polished (spacing tighter, cleaner borders).
+- **Variant B** — bolder (more color, larger type, heavier shadows).
+- **Variant C** — minimal (flat, less chrome, more whitespace).
+
+Use **design tokens** (`$primary`, `$space-md`, CSS vars, Tailwind theme keys) — no arbitrary hex in variants unless the project's idiom allows it.
+
+### Tier-specific — what to edit
+
+| `$SCOPE_TIER` | Step 1 — Read | Step 3 — Apply variants to |
+|---|---|---|
+| **`leaf-local`** | Scoped `<style>` / CSS modules / styled blocks on `$TARGET` only. | Scoped style block only — **no template or script changes.** |
+| **`wrapper-variant`** | Wrapper component's styles + existing props API from `_extracted-idioms.md`. | Wrapper scoped styles; **template / script / prop changes only after explicit user confirmation** in Step 5 (e.g. new `variant=` prop). |
+| **`token`** | Token definitions in `$TARGET` (theme file). | Token values only — no component template edits in this skill (orchestrator may chain a separate token-sync doc edit). |
+
+### Steps (numbered)
+
+1. Read `$TARGET` and capture the editable style surface per tier (table above).
+2. **Baseline screenshots** — If `$CONSUMER_ROUTES` is non-empty, run `visual-check` (or Playwright) on **each** consumer route and save baselines. If empty, run `visual-check` on the route that renders `$TARGET` (legacy).
+3. Generate 3 variants (stash / branch / patch workflow per repo convention). Each variant modifies only the allowed layer for that tier.
+4. For each variant: apply, screenshot via Playwright MCP — **when `$CONSUMER_ROUTES` is set, capture each route** so propagation is visible; save to `.claude/artifacts/design-iterate/<timestamp>/<variant>-<route-slug>.png`, then revert before the next variant.
+5. Leave `$TARGET` in original state until pick. Present:
+   - Screenshots side-by-side (group by variant or by route — whichever reads clearer).
+   - One-line tradeoffs per variant.
+   - For **`wrapper-variant`**: if a variant needs a new prop or slot, say so and **ask confirm** before applying template/script edits.
+   - "Pick A/B/C or tune" as CTA.
+6. Once they pick, apply that variant. Run **`visual-check` on every route in `$CONSUMER_ROUTES`** again for final verification; if empty, single-route check.
 
 ## Rules
 
-- NEVER change template or script — variants are style-only.
-- NEVER leave a variant applied without user confirmation.
-- Use design tokens (`$primary`, `$space-md`, mixins) — no hardcoded values even in variants.
-- Stay scoped — no global style bleed.
+- **Template / script:** **NEVER** change template or script when `$SCOPE_TIER == leaf-local`. For **`wrapper-variant`**, template / prop-API changes require **explicit user confirmation** before applying the picked variant.
+- **NEVER** leave a variant applied without user confirmation (pick step).
+- Use design tokens — no hardcoded raw values where the project supplies a token.
+- **Stay scoped** — no global style bleed unless `$SCOPE_TIER == token` and the tokens file is the intentional global surface.
+- **`wrapper-extract`** is not handled here — orchestrator runs extraction first.

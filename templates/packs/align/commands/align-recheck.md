@@ -130,7 +130,7 @@ Optional flags:
 - `--ledger-only` — restrict the scan to existing ledger rows whose scope is inside the resolved area (legacy behavior). Use when the area has already been scanned and you want the strict prior behavior. Without this flag, the command scans source directly via the universal detectors.
 
 **Detection flags**:
-- `--class=<list>` — limit to specific classes (e.g., `--class=security,reinvented-wrapper,a11y-violation`).
+- `--class=<list>` — limit to specific classes (e.g., `--class=security,reinvented-wrapper,a11y-violation,duplicated-surface-styles`).
 
 **Run-control flags**:
 - `--max-parallel=<N>` — cap parallel finding dispatch (default: 5 trivial; 3 standard; 1 heavy).

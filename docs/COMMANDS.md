@@ -266,7 +266,7 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 | Command                | Purpose                                                                          |
 |------------------------|----------------------------------------------------------------------------------|
 | `/design-review`       | Read-only audit: cite-or-halt findings on UX, design-system, a11y. |
-| `/enhance-ui <description>` | **Single-area enhancement**. Runs cleanup (`/align-recheck` for token / a11y / wrapper drift) → `design-iterate` skill (3 variants) → re-enforce. For "make the sidebar look better". |
+| `/enhance-ui <description>` | **Single-area enhancement (DRY-aware)**. Phase 1.5 picks scope tier: **token** / **wrapper-variant** / **wrapper-extract** / **leaf-local** so the same button is not styled twice on two pages. Cleanup includes `duplicated-surface-styles` for `frontend-*`. Flags: `--scope`, `--auto-extract`, `--dry-detect`. Then `design-iterate` (`$SCOPE_TIER`, consumer-route screenshots) → re-enforce. |
 | `/ui-sweep [<phase>]`  | **Project-wide UI/UX specialist sweep**. Goes beyond align — runs 8 UI/UX-specific deep detectors (visual hierarchy, component utilization %, token coverage %, cross-surface consistency, ui-state coverage, responsive matrix, design-language coherence, visual baseline + drift). Phases by user flow (auth / checkout / dashboard / etc.), not by class. Outputs an HTML visual report with screenshots + metrics. Frontend stacks only. |
 
 **UI-UX skills:**

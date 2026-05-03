@@ -6,6 +6,15 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### enhance-ui DRY fix — design-system-tier scope detection
+
+**Changed / Added**
+- **`templates/packs/ui-ux/commands/enhance-ui.md`** — Phase **1.5 Surface scope detection**: tiers `token` · `wrapper-variant` · `wrapper-extract` · `leaf-local`; duplicate call-site map; `$CONSUMER_ROUTES` for multi-route screenshots; cleanup includes **`duplicated-surface-styles`**. New flags: `--scope`, `--auto-extract`, `--dry-detect`. Hard rule: never repeat scoped iterate on ≥2 leaves for one shared affordance.
+- **`templates/packs/ui-ux/skills/design-iterate.md`** — **`$SCOPE_TIER`** + **`$CONSUMER_ROUTES`**; per-tier edit surfaces; template/script locked for `leaf-local`; wrapper/token tiers with consumer screenshots.
+- **`templates/packs/align/rules/align-discipline.md`** — UI/UX subclass **duplicated surface styles** → closure verb **`extract-to-shared`**.
+- **`templates/packs/align/commands/align-recheck.md`** — `--class` example lists `duplicated-surface-styles`.
+- **`docs/COMMANDS.md`** — `/enhance-ui` row documents DRY tiers and flags.
+
 ### Stack-agnostic language sweep
 
 **Changed / Added**
