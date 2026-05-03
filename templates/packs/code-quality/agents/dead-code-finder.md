@@ -108,15 +108,14 @@ Group by actionability — "obvious delete" at top, "needs a human" at bottom.
 - `test/fixtures/mega-catalog.json` — 4MB file, not loaded by any spec. Kept "for perf testing"?
 
 ### 🟢 Monitor (low confidence / rotting)
-- 23 `// TODO` comments without owner/date — attach `@owner` + target date, or delete.
-- `// FIXME: will fix after v2` at `src/auth/guard.ts:57` — written 2023-11. v2 already shipped.
-- Commented-out `old-validator` block at `src/order/validate.ts:201-237` — 18 months old.
+- 23 TODO comments without owner/date — attach `@owner` + target date, or delete.
+- `// FIXME: will fix after v2` at `<source-root>/auth/guard.<ext>:57` — written 2023-11. v2 already shipped.
+- Commented-out `old-validator` block at `<source-root>/order/validate.<ext>:201-237` — 18 months old.
 
 ### Entry-point inference
-I treated these as entry points (not flagged as unused):
-- `package.json` bin: `scripts/migrate.ts`
-- NestJS auto-loaded: `**/*.module.ts`, `**/*.controller.ts`
-- Next.js auto-routed: `app/**`, `pages/api/**`
+I treated these as entry points (not flagged as unused), per the project's framework conventions:
+- Manifest-declared entry points (e.g., `package.json` `bin`, `pyproject.toml` scripts, Cargo `[[bin]]`, etc.).
+- Framework-auto-loaded files (per the project's framework — examples: NestJS `*.module.<ext>` / `*.controller.<ext>`, Django `INSTALLED_APPS`, Rails `config/routes.rb`, Next.js `app/**` / `pages/api/**`, Spring `@Component`, etc.).
 Confirm I didn't miss any in your build config.
 ```
 

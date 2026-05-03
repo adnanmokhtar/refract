@@ -8,7 +8,7 @@ Run after EVERY significant change. Keeps `ai/` honest with reality. This comman
 
 ## The Premise (read this first, internalize, do not deviate)
 
-**Existing docs are the truth, but code is the supreme truth.** Refresh = **re-derive from code; never invent**. If `ai/architecture.md` says the auth module lives at `src/modules/auth/session/` and the code says `src/modules/auth/jwt/`, **docs lose**. The repair is to update docs to match code, not to lament the rename or to ADR-justify the doc state. Docs that drift from code stop being read; the way back is honest re-derivation.
+**Existing docs are the truth, but code is the supreme truth.** Refresh = **re-derive from code; never invent**. If `ai/architecture.md` says the auth module lives at `<modules-root>/auth/session/` and the code says `<modules-root>/auth/jwt/`, **docs lose**. The repair is to update docs to match code, not to lament the rename or to ADR-justify the doc state. Docs that drift from code stop being read; the way back is honest re-derivation.
 
 **The agent's job is exactly this:**
 1. Walk `git log <base>..HEAD --stat` to find what changed.
@@ -199,14 +199,14 @@ Flag drift separately from the current change. Drift findings reported, not sile
 
 ```
 git diff main..HEAD:
-  + src/modules/subscriptions/ (new module — 14 files)
-  + migrations/012-create-subscriptions-table.sql
-  + src/modules/subscriptions/application/use-cases/*
-  + locales/en.json: +8 keys (subscriptions.*)
-  + locales/ar.json: +8 keys
-  ~ src/app.module.ts: SubscriptionsModule added
-  ~ package.json: +@stripe/stripe-node
-  ~ .env.example: +STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+  + <modules-root>/subscriptions/ (new module — 14 files)
+  + <migrations-root>/012-create-subscriptions-table.sql
+  + <modules-root>/subscriptions/application/use-cases/*
+  + <locales-root>/en.json: +8 keys (subscriptions.*)
+  + <locales-root>/ar.json: +8 keys
+  ~ <source-root>/app.module.<ext>: SubscriptionsModule added
+  ~ <project-manifest>: +<payment-provider-sdk>
+  ~ .env.example: +PAYMENT_PROVIDER_SECRET_KEY, PAYMENT_PROVIDER_WEBHOOK_SECRET
 ```
 
 ### Documents updated
@@ -214,12 +214,12 @@ git diff main..HEAD:
 1. **ai/status.md** — prepended Recent Changes entry:
 ```
 ### Subscription tier management (P2 start)
-- What changed: added /subscriptions module (CRUD + Stripe sync), `subscriptions` table, 3-tier plan (trial/starter/pro).
+- What changed: added /subscriptions module (CRUD + payment-provider sync), `subscriptions` table, 3-tier plan (trial/starter/pro).
 - Why: kicks off Phase 2 monetization per ai/runbooks/phase-2-plan.md.
 - How:
-  - Schema: `subscriptions(tenant_id, plan, started_at, expires_at, stripe_subscription_id)` with CHECK on plan enum.
-  - Service: `SubscriptionService` wraps Stripe customer + subscription APIs.
-  - Webhook: `customer.subscription.updated` → state sync.
+  - Schema: `subscriptions(tenant_id, plan, started_at, expires_at, provider_subscription_id)` with CHECK on plan enum.
+  - Service: `SubscriptionService` wraps the payment provider's customer + subscription APIs.
+  - Webhook: `customer.subscription.updated` (provider event) → state sync.
   - ADR 0007 records plan-change migration strategy.
 - Follow-ups:
   - Usage meter (ticket BILLING-42).
@@ -229,13 +229,13 @@ git diff main..HEAD:
 
 2. **ai/modules.md** — new row:
 ```
-| subscriptions | src/modules/subscriptions | Stripe-synced subscription tier management | P2 |
+| subscriptions | <modules-root>/subscriptions | provider-synced subscription tier management | P2 |
 ```
 
 3. **ai/stack.md** — added:
 ```
-- Payments: Stripe via @stripe/stripe-node
-- Env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+- Payments: payment provider (the project's chosen vendor SDK)
+- Env: PAYMENT_PROVIDER_SECRET_KEY, PAYMENT_PROVIDER_WEBHOOK_SECRET
 ```
 
 4. **ai/decisions/0007-subscription-plan-migration-strategy.md** — new ADR.
@@ -244,7 +244,7 @@ git diff main..HEAD:
 
 ### Drift found
 
-- `ai/architecture.md` references `src/modules/auth/session/` which was renamed to `src/modules/auth/jwt/` in a prior PR. 
+- `ai/architecture.md` references `<modules-root>/auth/session/` which was renamed to `<modules-root>/auth/jwt/` in a prior PR. 
   → Fix: update reference. (Separate mini-PR or include.)
 
 - `ai/status.md` `Updated:` was 42 days old before this refresh.
@@ -260,7 +260,7 @@ Phase 3 (Retrieved): CLAUDE.md, all 7 universals, ai/modules.md + stack.md + arc
 Phase 5 (Updated):
   - ai/status.md (prepended Recent Changes entry)
   - ai/modules.md (+1 row)
-  - ai/stack.md (Stripe added)
+  - ai/stack.md (payment provider added)
   - ai/decisions/0007-*.md (new ADR)
 Phase 6 (Validated): no placeholders, markdown renders, Updated: bumped.
 Phase 7 (Improved): drift log appended (1 finding); /learn-from-task queued.
@@ -270,7 +270,7 @@ Files left untouched:
   - ai/patterns/* (no new pattern)
 
 Drift detected (flag separately, appended to ai/dynamic/drift-log.md):
-  1. ai/architecture.md references src/modules/auth/session/ — renamed to src/modules/auth/jwt/.
+  1. ai/architecture.md references <modules-root>/auth/session/ — renamed to <modules-root>/auth/jwt/.
 
 Recommended follow-ups:
   - Fix the drift finding (mini-PR).

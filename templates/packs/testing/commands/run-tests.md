@@ -19,7 +19,7 @@ Other commands (`/align-phase`, `/migration-fast`, `/find-and-fix`, `/fix-bug`'s
 ## When to use
 
 - Manual: `/run-tests` to run the full suite.
-- Scoped: `/run-tests src/modules/orders/` to run tests under a path.
+- Scoped: `/run-tests <modules-root>/orders/` to run tests under a path.
 - Specific: `/run-tests --feature=F042` to run tests for one ledger row.
 - Changed-only: `/run-tests --since=HEAD~1` to run tests touching changed files.
 - After a fix: confirm nothing regressed.

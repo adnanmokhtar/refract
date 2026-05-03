@@ -111,9 +111,9 @@ Test-specific:
 Phase 1 (Understand): target = <file|feature>; layers = <unit|integration|e2e>
 Phase 3 (Retrieved): siblings mirrored; runner = <jest|vitest|pytest|...>
 Phase 4 (Generated):
-  src/orders/__tests__/create-order.spec.ts (unit, 12 cases)
-  src/orders/__tests__/order-repo.integration.spec.ts (integration, 6 cases)
-  e2e/orders.e2e.spec.ts (e2e, 5 cases)
+  <source-root>/orders/<test-dir>/create-order.<test-ext> (unit, 12 cases)
+  <source-root>/orders/<test-dir>/order-repo.integration.<test-ext> (integration, 6 cases)
+  <e2e-root>/orders.e2e.<test-ext> (e2e, 5 cases)
 Phase 5 (Updated): changelog; coverage 64% → 89%
 Phase 6 (Validated): green; no .only/.skip; no real HTTP
 Phase 7 (Improved): patterns queued
