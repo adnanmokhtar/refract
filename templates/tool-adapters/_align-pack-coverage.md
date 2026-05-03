@@ -51,7 +51,7 @@ Above the phased `/align-scan` → `/align-plan` → `/align-fast` ceremony, the
 **`--restart` semantics** — backs up current progress to `ai/align/progress-<iso>.bak.md`, resets every area to pending, begins from the first area. Does NOT revert commits already made.
 
 Adapter responsibility:
-1. Every tool that exposes commands MUST surface `/align` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
+1. Every tool that exposes commands MUST surface `/align` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.qwen/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
 2. The "no phases / halts / ADRs in user-facing output" contract MUST be preserved — adapters MUST NOT downgrade the simple command into the verbose phased flow.
 3. Progress file location (`ai/align/progress.md`) MUST be honoured so multi-day runs survive across sessions.
 4. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area; agent reads project profile, scans source via universal detectors, fixes drift in parallel, brief end-of-run summary."
@@ -60,7 +60,7 @@ Adapter responsibility:
 
 `/align-fast <N> --re-audit` and `/align-final --re-audit` re-dispatch the detector for every row, including ones at `status: verified`. Mirrors `/migration-fast --re-audit`. Catches false-verified or drifted rows; re-fixes them in the same run.
 
-Adapter responsibility: this flag MUST be exposed in tool-native command surfaces (Cursor `.cursor/commands/align-fast.md`, OpenCode `.opencode/commands/`, Copilot `.github/prompts/`, Cline `.clinerules/workflows/`, Windsurf `.windsurf/workflows/`). For rule-only tools (Aider / Codex / Gemini), document the flag in the rule's "Tool-agnostic procedure" section so users can invoke the equivalent re-detection manually.
+Adapter responsibility: this flag MUST be exposed in tool-native command surfaces (Cursor `.cursor/commands/align-fast.md`, OpenCode `.opencode/commands/`, Qwen `.qwen/commands/`, Copilot `.github/prompts/`, Cline `.clinerules/workflows/`, Windsurf `.windsurf/workflows/`). For rule-only tools (Aider / Codex / Gemini), document the flag in the rule's "Tool-agnostic procedure" section so users can invoke the equivalent re-detection manually.
 
 ## Validator script — `validate-align-artifacts.sh` (v1.5+)
 
@@ -93,7 +93,7 @@ Adapter responsibility: include the drift section in the scan command's output t
 `/align-recheck <description-or-path>` is the user's bypass-the-ceremony tool (v1.4.0). **NO plan / phase / ledger required.** Accepts natural-language descriptions OR paths. Semantic resolution via codebase-profile + idioms (same intent-interpretation model as `/add-feature`). Scans source FRESH via the 11 universal detectors directly — no cache lookup, no ledger-row dependency.
 
 Adapter responsibility:
-1. Every tool that exposes commands MUST surface `/align-recheck` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
+1. Every tool that exposes commands MUST surface `/align-recheck` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.qwen/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
 2. The semantic resolution flow (read codebase-profile + idioms → understand intent → confirm-or-run) MUST be preserved. Adapters MUST NOT downgrade to keyword tokenization.
 3. The plan-independence MUST be preserved. Adapters MUST NOT add a "ledger required" pre-flight check that wasn't in the source rule.
 4. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area you want re-checked; the agent reads the project profile, scans source via the universal detectors, fixes drift, optionally records into ledger if one exists."
@@ -168,6 +168,12 @@ Every adapter setup that includes `--include=align` MUST also propagate these el
 - Rule → `GEMINI.md` "Codebase alignment" section.
 - **Rule-only tool.** Same as Aider/Codex.
 
+### Qwen Code (`QWEN.md` + `.qwen/`)
+- Rule → `.claude/rules/align-discipline.md` content mirrored into `QWEN.md` § `## Codebase alignment`.
+- Skills → `.qwen/skills/detect-drift/SKILL.md`, `.qwen/skills/find-and-align/SKILL.md`.
+- Commands → `.qwen/commands/align-scan.md`, `.qwen/commands/align-fast.md`, etc. (one file per align command).
+- Hooks → `.qwen/settings.json` `hooks.PostToolUse` triggering `validate-align-artifacts.sh` on edits to `ai/align/**`.
+
 ## Validator script — universal callable
 
 `scripts/validate-align-artifacts.sh` is callable from any tool's hook system or directly from the shell. Setup per tool:
@@ -179,6 +185,7 @@ Every adapter setup that includes `--include=align` MUST also propagate these el
 | Copilot | GitHub Actions workflow (no native pre-commit) |
 | Continue | (no native hook) — manual pre-commit hook or CI workflow |
 | Cline / Windsurf | (no native hook) — manual pre-commit or CI |
+| Qwen Code | `.qwen/settings.json` `hooks.PostToolUse` matcher on edits to `ai/align/**` |
 | Aider / Codex / Gemini | Pre-commit hook in `.git/hooks/pre-commit` (manual install) OR CI workflow |
 
 The script returns non-zero on any failure; tool integrations should treat that as a blocking error.

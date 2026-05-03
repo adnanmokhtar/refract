@@ -40,7 +40,7 @@ Above the phased `/migration-scan` → `/migration-plan` → `/migration-fast` c
 **`--restart` semantics** — backs up current progress to `ai/migrate/progress-<iso>.bak.md`, resets every area to pending, begins from the first area. Does NOT revert commits already made.
 
 Adapter responsibility:
-1. Every tool that exposes commands MUST surface `/migrate` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
+1. Every tool that exposes commands MUST surface `/migrate` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.qwen/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
 2. The "no phases / halts / ADRs in user-facing output" contract MUST be preserved — adapters MUST NOT downgrade the simple command into the verbose phased flow.
 3. The internal CORE PHILOSOPHY (V1 wins on behaviour; V2 wins on structure; no V1-verification halts) MUST flow into the simple command's silent execution.
 4. Progress file location (`ai/migrate/progress.md`) MUST be honoured so multi-day runs survive across sessions.
@@ -128,6 +128,13 @@ The validator script is location-agnostic — installed once at `~/.claude/scrip
 - Rule → `GEMINI.md` migration section
 - **Rule-only tool.** Same as Aider/Codex.
 
+### Qwen Code (`QWEN.md` + `.qwen/`)
+- Rule → `.claude/rules/migration-discipline.md` content mirrored into `QWEN.md` § `## Migration discipline` + cross-referenced from `AGENTS.md`.
+- Agents → `.qwen/agents/parity-auditor.md`, `.qwen/agents/migration-architect.md` (Markdown + YAML frontmatter; `tools:` whitelist set per agent).
+- Skills → `.qwen/skills/extract-v1-contract/SKILL.md`, `.qwen/skills/parity-test-generate/SKILL.md`, `.qwen/skills/perf-uplift-survey/SKILL.md`.
+- Commands → `.qwen/commands/migration-phase.md`, `.qwen/commands/find-and-fix.md`, `.qwen/commands/port-feature.md`, `.qwen/commands/migration-gate.md`, etc. Nested-namespace form (`.qwen/commands/migration/phase.md` → `/migration:phase`) is acceptable when the project ships many migration commands.
+- Hooks → `.qwen/settings.json` `hooks.PostToolUse` triggering `validate-migration-artifacts.sh` on edits to `ai/migration/**`.
+
 ## Validator script — universal callable
 
 `scripts/validate-migration-artifacts.sh` is callable from any tool's hook system or directly from the shell. Setup per tool:
@@ -137,6 +144,7 @@ The validator script is location-agnostic — installed once at `~/.claude/scrip
 | Claude Code | `.claude/settings.json` PostToolUse hook on edits to `ai/migration/**` |
 | Cursor | `.cursor/hooks.json` `onSave` for `ai/migration/**` |
 | Copilot | GitHub Actions workflow (no native pre-commit) |
+| Qwen Code | `.qwen/settings.json` `hooks.PostToolUse` matcher on edits to `ai/migration/**` |
 | Other (Aider, Codex, Gemini, etc.) | Pre-commit hook in `.git/hooks/pre-commit` (manual install) OR CI workflow |
 
 The script returns non-zero on any failure; tool integrations should treat that as a blocking error.
@@ -194,6 +202,7 @@ Per-tool surface:
 - Cline: `.clinerules/workflows/migration-recheck.md`
 - Windsurf: `.windsurf/workflows/migration-recheck.md`
 - Continue: `.continue/prompts/migration-recheck.md`
+- Qwen Code: `.qwen/commands/migration-recheck.md`
 - Aider / Codex / Gemini: documented in `CONVENTIONS.md` / `AGENTS.md` / `GEMINI.md` as a manual procedure ("describe the area; agent reads the profile + ledger; confirms; runs the per-feature loop").
 
 ## Failure mode protections

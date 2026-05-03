@@ -4,7 +4,7 @@
 # `ai/optimize/ledger.md`, fans out one tool process per finding.
 #
 # Usage:
-#   optimize-parallel.sh --tool=<kimi|aider|opencode|codex|claude> --parallel=<N> [--dry-run]
+#   optimize-parallel.sh --tool=<kimi|qwen|aider|opencode|codex|claude> --parallel=<N> [--dry-run]
 #
 # Optional:
 #   --ledger=<path>         (default: ai/optimize/ledger.md)

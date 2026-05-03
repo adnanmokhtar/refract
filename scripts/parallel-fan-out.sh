@@ -11,7 +11,7 @@
 #
 # Usage:
 #   parallel-fan-out.sh \
-#     --tool=<kimi|aider|opencode|codex|claude> \
+#     --tool=<kimi|qwen|aider|opencode|codex|claude> \
 #     --parallel=<N> \
 #     --task-file=<path> \
 #     --prompt-template="<text with {{TASK}} placeholder>" \

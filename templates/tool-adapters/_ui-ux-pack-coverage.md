@@ -121,6 +121,14 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 - Rule → `GEMINI.md § UI/UX` section.
 - Same rule-only fallback as Aider.
 
+### Qwen Code (`QWEN.md` + `.qwen/`)
+
+- Commands → `.qwen/commands/{ui-sweep,enhance-ui,design-review}.md` (Markdown + YAML frontmatter).
+- Skill → `.qwen/skills/design-iterate/SKILL.md`.
+- Rule → `QWEN.md § UI/UX` section + cross-reference in `AGENTS.md`.
+- Hooks: `.qwen/settings.json` `hooks.PostToolUse` may trigger `verify-with-playwright` on edits to UI source globs (optional).
+- HTML report renders via `open ai/ui-sweep/report-<date>.html` (same as Claude Code).
+
 ## Adapter responsibilities
 
 When an adapter ships the UI-UX pack:

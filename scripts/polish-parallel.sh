@@ -4,7 +4,7 @@
 # `ai/polish/ledger.md`, fans out one tool process per finding.
 #
 # Usage:
-#   polish-parallel.sh --tool=<kimi|aider|opencode|codex|claude> --parallel=<N> [--dry-run]
+#   polish-parallel.sh --tool=<kimi|qwen|aider|opencode|codex|claude> --parallel=<N> [--dry-run]
 #
 # Optional:
 #   --ledger=<path>         (default: ai/polish/ledger.md)

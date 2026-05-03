@@ -13,6 +13,7 @@
 #
 # Verified flags as of 2026-05-03:
 #   kimi      — `kimi --headless --prompt "<text>"`  (Moonshot docs)
+#   qwen      — `qwen -p "<text>" --print` (Qwen Code; -p alias --prompt)
 #   aider     — `aider --message "<text>" --no-stream --yes`
 #   opencode  — `opencode run "<text>"` (CLI runner; verify against installed version)
 #   codex     — `codex exec "<text>"`   (OpenAI CLI; verify against installed version)
@@ -23,6 +24,11 @@
 tool_kimi_invoke() {
   local prompt="$1"
   kimi --headless --prompt "$prompt"
+}
+
+tool_qwen_invoke() {
+  local prompt="$1"
+  qwen -p "$prompt" --print
 }
 
 tool_aider_invoke() {

@@ -4,7 +4,7 @@
 # fans out one tool process per finding.
 #
 # Usage:
-#   align-parallel.sh --tool=<kimi|aider|opencode|codex|claude> --parallel=<N> [--dry-run]
+#   align-parallel.sh --tool=<kimi|qwen|aider|opencode|codex|claude> --parallel=<N> [--dry-run]
 #
 # Optional:
 #   --ledger=<path>         (default: ai/align/ledger.md)

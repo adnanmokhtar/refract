@@ -4,7 +4,7 @@
 # `ai/migration/ledger.md`, fans out one tool process per row.
 #
 # Usage:
-#   migrate-parallel.sh --tool=<kimi|aider|opencode|codex|claude> --parallel=<N> [--dry-run]
+#   migrate-parallel.sh --tool=<kimi|qwen|aider|opencode|codex|claude> --parallel=<N> [--dry-run]
 #
 # Optional:
 #   --ledger=<path>         (default: ai/migration/ledger.md)

@@ -53,7 +53,8 @@ The `instructions` array is an **extension point** — any markdown listed here 
 
 ## Translation recipe
 
-1. If `AGENTS.md` doesn't exist → write it (source: Claude Code adapter's `CLAUDE.md` compacted).
+1. If `AGENTS.md` doesn't exist → write it (source: Claude Code adapter's `CLAUDE.md` compacted). If it exists → verify the discipline-enforcement block is present (between `<!-- discipline-enforcement:start -->` / `<!-- discipline-enforcement:end -->` markers); if missing, inject the block from `templates/tool-adapters/_discipline-enforcement.md` near the top of the file (after Project overview, before Architecture). **MANDATORY when migration / align / optimize / polish / per-pack-audit packs are loaded**. Without the block, OpenCode invents non-canonical paths (e.g. `.claude/_v1-scan-inventory.md` instead of `ai/migration/scan-report.md`) — breaks validators + gates.
+1a. **Sync the block on every refresh.** SHA-256 hash check on bytes outside the marker block; user-authored content preserved verbatim.
 2. If `opencode.json` doesn't exist → write it with ONLY schema-valid keys:
    - `$schema` → `"https://opencode.ai/config.json"`.
    - `provider` block (defaults: anthropic; user fills API keys).

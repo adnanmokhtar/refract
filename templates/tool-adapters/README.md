@@ -23,6 +23,8 @@ The single source of truth for which adapters exist + their capabilities is `_re
 | GitHub Copilot | `copilot/` | `.github/copilot-instructions.md` + `.github/instructions/*.instructions.md` |
 | Codex (OpenAI) | `codex/` | `AGENTS.md` + `~/.codex/config.toml` |
 | Gemini CLI | `gemini/` | `GEMINI.md` |
+| Kimi Code (Moonshot) | `kimi/` | `.kimi/skills/<name>/SKILL.md` + `.kimi/subagents/*.yaml` + `AGENTS.md` |
+| Qwen Code (Alibaba) | `qwen/` | `QWEN.md` + `.qwen/{settings.json,commands,agents,skills}` |
 
 ## The universal anchor: AGENTS.md
 
@@ -30,6 +32,7 @@ The single source of truth for which adapters exist + their capabilities is `_re
 
 Claude Code reads `CLAUDE.md` (superset) + `.claude/`.
 Gemini CLI reads `GEMINI.md`.
+Qwen Code reads `QWEN.md` + `.qwen/` (settings, commands, agents, skills, hooks).
 
 ## How adapters compose (defense in depth)
 
@@ -70,6 +73,12 @@ repo-root/
 │   └── chatmodes/*.chatmode.md
 ├── .aider.conf.yml                            ← Aider (single-doc tool)
 ├── opencode.json                              ← OpenCode (provider config + instructions globs)
+├── QWEN.md                                    ← Qwen Code (project memory, loaded automatically)
+├── .qwen/                                     ← Qwen Code (full native surface)
+│   ├── settings.json                          ← project settings + hooks block
+│   ├── commands/<name>.md                     ← slash commands (Markdown + YAML frontmatter)
+│   ├── agents/<name>.md                       ← subagents (Markdown + YAML frontmatter)
+│   └── skills/<name>/SKILL.md                 ← skills
 └── ai/                                        ← Universal knowledge base, referenced by all
 ```
 
@@ -114,6 +123,8 @@ When `--tools` is not passed, auto-detect from the repo:
 | `.windsurf/` or `.windsurfrules` exists | Windsurf |
 | `.github/copilot-instructions.md` exists | Copilot |
 | `GEMINI.md` exists | Gemini CLI |
+| `.kimi/` or `~/.kimi/config.toml` exists | Kimi Code |
+| `.qwen/` or `QWEN.md` or `~/.qwen/` exists | Qwen Code |
 | No AI config detected | Default: Claude Code + AGENTS.md |
 
 ## Missing-tool mode

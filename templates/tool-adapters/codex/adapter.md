@@ -40,10 +40,11 @@ Same format. Codex reads this BEFORE `AGENTS.md` and lets its content override. 
 
 `AGENTS.md` is the **compacted superset** of:
 1. Project overview from `ai/README.md` intro.
-2. Architecture from `ai/architecture.md` top section.
-3. Conventions from `CLAUDE.md` + `.claude/rules/` summaries.
-4. Commands from `package.json` scripts (detected).
-5. AI-tool pointers to `.claude/`, `.cursor/rules/`, `.continue/rules/`, `.github/instructions/`, etc.
+2. **Discipline-enforcement block** (`templates/tool-adapters/_discipline-enforcement.md` — paste verbatim between `<!-- discipline-enforcement:start -->` / `<!-- discipline-enforcement:end -->` markers). Locks every AGENTS.md-reading tool (OpenCode, Cursor fallback, Aider, Copilot, Cline, Windsurf, Codex, Kimi) into canonical pack paths + halts. **MANDATORY when any of migration / align / optimize / polish / per-pack-audit packs are loaded** — without this block, OpenCode and other tools deviate from canonical paths (e.g. write `.claude/_v1-scan-inventory.md` instead of `ai/migration/scan-report.md`). Inject AFTER project overview, BEFORE Architecture.
+3. Architecture from `ai/architecture.md` top section.
+4. Conventions from `CLAUDE.md` + `.claude/rules/` summaries.
+5. Commands from `package.json` scripts (detected).
+6. AI-tool pointers to `.claude/`, `.cursor/rules/`, `.continue/rules/`, `.github/instructions/`, etc.
 
 Template structure:
 ```markdown

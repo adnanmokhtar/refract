@@ -26,6 +26,7 @@ Single-source registry of what each adapter produces and which capabilities it c
 | Codex (OpenAI) | `codex` | ✓ | ~ | — | — | — | ✓ | `AGENTS.md`, optional `AGENTS.override.md` |
 | Gemini CLI | `gemini` | ✓ | — | — | — | — | — | `GEMINI.md` |
 | Kimi Code (Moonshot) | `kimi` | ✓ | ~ | ✓ | — | ✓ | — | `.kimi/skills/<name>/SKILL.md`, `.kimi/subagents/<name>.yaml`, `AGENTS.md` (consumed) |
+| Qwen Code (Alibaba) | `qwen` | ✓ | ✓ | ✓ | ✓ | ✓ | — | `QWEN.md`, `.qwen/settings.json`, `.qwen/commands/*.md`, `.qwen/agents/<name>.md`, `.qwen/skills/<name>/SKILL.md`, `AGENTS.md` (consumed) |
 
 Legend:
 - ✓ = first-class support
@@ -56,7 +57,7 @@ For tools without native parallel sub-agent dispatch (Kimi, Aider, Codex, OpenCo
 | `polish-parallel.sh` | `/polish` | `ai/polish/ledger.md` |
 | `audit-parallel.sh --pack=<name>` | `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/db-audit`, `/ui-sweep` | `ai/<pack>/ledger.md` |
 
-Tool support (per `_parallel-tool-config.sh`): kimi, aider, opencode, codex, claude. Adding a new tool = one function in the config file. Adapter responsibility: ensure the chosen tool ships a headless / non-interactive invocation flag (verified per-tool: `kimi --headless --prompt`, `aider --message --no-stream --yes`, `opencode run`, `codex exec`, `claude --print`).
+Tool support (per `_parallel-tool-config.sh`): kimi, qwen, aider, opencode, codex, claude. Adding a new tool = one function in the config file. Adapter responsibility: ensure the chosen tool ships a headless / non-interactive invocation flag (verified per-tool: `kimi --headless --prompt`, `qwen -p`, `aider --message --no-stream --yes`, `opencode run`, `codex exec`, `claude --print`).
 
 Adapters with no headless mode (Cursor, Cline, Windsurf — IDE-bound) cannot be drivers for parallel orchestrators. Their users either run the underlying pack commands serially OR switch tools for the whole-project sweep step.
 
