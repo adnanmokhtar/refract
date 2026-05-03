@@ -1,12 +1,18 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.5.0",
-  "released": "2026-05-02",
+  "version": "1.5.1",
+  "released": "2026-05-03",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API).",
   "changelog": {
+    "1.5.1": {
+      "released": "2026-05-03",
+      "changes": [
+        "Sync-chain repair: _topics.md now declares migration-promote-tier, draft-phase-adrs, and find-and-fix as commands (previously shipped under commands/ but absent from the topic list, breaking /setup-project AUTHOR-mode generation for these surfaces)."
+      ]
+    },
     "1.5.0": {
       "released": "2026-05-02",
       "changes": [

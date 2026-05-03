@@ -260,6 +260,33 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   mirror_existing: true
   fallback: commands/compare-v1.md
 
+- name: migration-promote-tier
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/ledger.md
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/migration-promote-tier.md
+
+- name: draft-phase-adrs
+  kind: command
+  triggers:
+    always: true
+  extracts_from: ai/migration/audits/ + ai/migration/phase-<N>.md
+  sections: [understand, organize, retrieve, generate, update, validate, output_format, hard_rules]
+  mirror_existing: false
+  fallback: commands/draft-phase-adrs.md
+
+- name: find-and-fix
+  kind: command
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md + _extracted-idioms.md + ai/migration/ledger.md
+  sections: [premise, the_loop_5_steps, closure_verb_procedures, project_anchors, preflight, optional_flags, mechanical_halt, hard_rules, failure_modes, related]
+  mirror_existing: true
+  fallback: commands/find-and-fix.md
+
 # --- Suite B: per-feature (legacy) ---
 
 - name: port-feature

@@ -5,7 +5,7 @@ essentials:
   agents: [code-reviewer, refactorer]
   commands: [pre-commit, check-health]
   skills: [dead-branch-scan, architectural-diagnosis, refactoring-sweep]
-  rules: [quality-principles]
+  rules: [quality-principles, engineering-principles]
   ai-patterns: []
 ---
 
@@ -17,5 +17,5 @@ Rationale per category (one line each):
 - agents: code-reviewer is the daily reviewer; refactorer covers the most common follow-up action.
 - commands: pre-commit is the per-change gate; check-health is the periodic project gate.
 - skills: dead-branch-scan flags unreachable code — high-signal cleanup with low risk.
-- rules: quality-principles is the single rules file in the pack.
+- rules: quality-principles is the per-change discipline; engineering-principles is the project governance layer (both ship together — minimal install is incomplete without governance).
 - ai-patterns: none — this is a utility track and the pack ships without ai-patterns.

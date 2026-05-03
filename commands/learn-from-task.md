@@ -1,5 +1,7 @@
 ---
 description: Phase 6 manual entry point. Promote concrete learnings from the just-completed task into the persistent knowledge layer (ADRs, conventions, patterns, failure catalog).
+kind: command
+pack: orchestration
 version: 1.0.0
 related-commands:
   - /setup-project — initial setup

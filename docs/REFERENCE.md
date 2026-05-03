@@ -712,6 +712,8 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 | `audit-setup.sh` | Phase 5 audit for `/setup-project` runs. TBDs filled, pack coverage, anchoring, adapter coverage. |
 | `validate-migration-artifacts.sh` | Per-feature migration artifacts: contract sections, parity tests, audit provenance, V2-structure conformance, gap-count parity, hand-wave detection. |
 | `validate-align-artifacts.sh` | **v1.5.0 — 7 of 14 checks shipped (589 lines)**: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum. Remaining 7 (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) stay agent-side until v2. |
+| `validate-optimize-artifacts.sh` | Per-finding artifacts for `/optimize`: architectural diagnosis cited, tactical findings closed, gap-count parity, no hand-waves, security tier respected. |
+| `validate-polish-artifacts.sh` | Per-surface artifacts for `/polish`: stack-conditional checks (frontend visual hierarchy / backend API consistency / data schema consistency / mobile platform conventions), no hand-waves, evidence-resolves. |
 | `migration-detect-existing.sh` | Phase 1 of `/port-feature`: detects whether V2 already implements a feature (none / partial / full). |
 | `migration-validate-paths.sh` | Phase 4 of `/port-feature`: validates planned file paths against V2 module shape. |
 | `audit-adapter-coverage.sh` | Per-pack adapter coverage: every pack rule has equivalent translations in Cursor / OpenCode / Aider / etc. |

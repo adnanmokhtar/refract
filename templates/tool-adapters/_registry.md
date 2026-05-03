@@ -32,6 +32,17 @@ Legend:
 - — = not supported
 - † = behavior reported but version-dependent — verify against the tool's current docs
 
+## Top-level orchestration commands (Claude-Code-only — by design)
+
+The 11 commands at this repo's `commands/` are split into two groups:
+
+| Group | Commands | Adapter coverage |
+|---|---|---|
+| **Setup family** (translatable) | `/setup-project`, `/setup-project-adapters`, `/setup-project-health`, `/scaffold-project`, `/refine-prompt`, `/learn-from-task` | Each adapter MAY surface these as its own slash command / prompt / instruction file. Optional — these commands also run end-to-end inside Claude Code and produce per-adapter outputs as a side effect. |
+| **Simple-surface multi-agent** (Claude-only) | `/migrate`, `/align`, `/optimize`, `/polish`, `/do` | **Not translated to other adapters.** These commands depend on Claude Code's parallel sub-agent dispatch — no other tool ships an equivalent primitive. Other tools should call the underlying pack commands directly (e.g. `/migration-fast 1`, `/align-fast 2`, `find-and-fix <id>`) which DO have per-adapter translations via the pack-coverage docs (`_migration-pack-coverage.md`, `_align-pack-coverage.md`, etc.). |
+
+This is a deliberate split, not adapter drift. Any future adapter that gains parallel-agent dispatch becomes a candidate to add the simple-surface group.
+
 ## Standalone-tool guarantee
 
 Each adapter's output MUST let the tool work end-to-end **without `.claude/` present**. If a tool natively supports skills / commands / agents / hooks, the adapter writes those into the tool's native folder (e.g. `.cursor/skills/<name>/SKILL.md`, `.opencode/commands/<name>.md`, `.github/agents/<name>.agent.md`). It does NOT cram everything into the tool's rules folder with prefixes. If a tool has no native equivalent for a Claude artifact (e.g. Cline has no agent dispatch), the adapter falls back to a documented translation that the tool can still consume on its own.

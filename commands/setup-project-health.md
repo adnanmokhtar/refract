@@ -1,5 +1,7 @@
 ---
 description: Report the health of /setup-project artifacts in the current repo. Drift, staleness, budget breaches, dead files, missing ADRs. Read-only — never writes.
+kind: command
+pack: orchestration
 version: 1.0.0
 related-commands:
   - /setup-project — generate or refresh setup

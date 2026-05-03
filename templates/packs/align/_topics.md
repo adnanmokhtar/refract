@@ -27,7 +27,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
     - reporting_views              # by-class, by-tier, by-phase, blocked, security-only, perf-only
     - drift_detection              # ledger says fixed but git history says no commit → halt
   mirror_existing: true
-  fallback: _examples/align-ledger.md
+  fallback: ai-patterns/align-ledger.md
   cite_evidence: strict
 
 # ============ RULES (.claude/rules/<name>.md) ============
@@ -54,7 +54,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
     - anti_patterns                # named anti-patterns with detection
     - references                   # cross-pack pointers
   mirror_existing: true
-  fallback: _examples/align-discipline.md
+  fallback: rules/align-discipline.md
   cite_evidence: strict
 
 # ============ COMMANDS (.claude/commands/<name>.md) ============
@@ -66,7 +66,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md + _extracted-idioms.md (full)
   sections: [premise, when_to_use, anchors, phases_1_to_7, output, halts, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-scan.md
+  fallback: commands/align-scan.md
 
 - name: align-plan
   kind: command
@@ -75,7 +75,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md (architecture boundaries; domain partitioning)
   sections: [premise, prereqs, phases_1_to_7, phasing_template_per_stack, output, halts, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-plan.md
+  fallback: commands/align-plan.md
 
 - name: align-phase
   kind: command
@@ -84,7 +84,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-idioms.md + _extracted-codebase.md § "Tests"
   sections: [premise, the_loop_5_steps, closure_verb_procedures, project_anchors, preflight, optional_flags, mechanical_halt, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-phase.md
+  fallback: commands/align-phase.md
 
 - name: align-gate
   kind: command
@@ -93,7 +93,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md § "Tests" + _extracted-idioms.md
   sections: [premise, when_to_use, fourteen_check_matrix, preflight, phases_1_to_7, output, mechanical_halt, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-gate.md
+  fallback: commands/align-gate.md
 
 - name: align-fast
   kind: command
@@ -102,7 +102,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md + _extracted-idioms.md
   sections: [premise, modes, when_to_use_vs_not, what_happens_per_row, parallel_dispatch_strategy, project_anchors, optional_flags, preflight, phases_1_to_7, mechanical_halt, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-fast.md
+  fallback: commands/align-fast.md
 
 - name: align-status
   kind: command
@@ -111,7 +111,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md (project_kind for class breakdown)
   sections: [premise, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-status.md
+  fallback: commands/align-status.md
 
 - name: align-final
   kind: command
@@ -120,7 +120,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md
   sections: [premise, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-final.md
+  fallback: commands/align-final.md
 
 - name: align-rollback
   kind: command
@@ -129,7 +129,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md (test_runner)
   sections: [premise, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-rollback.md
+  fallback: commands/align-rollback.md
 
 - name: align-park
   kind: command
@@ -138,7 +138,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md
   sections: [premise, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-park.md
+  fallback: commands/align-park.md
 
 - name: align-replan
   kind: command
@@ -147,7 +147,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md
   sections: [premise, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-replan.md
+  fallback: commands/align-replan.md
 
 - name: align-recheck
   kind: command
@@ -156,7 +156,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md (codebase-profile + module names + UI surface inventory) + _extracted-idioms.md
   sections: [premise, when_to_use, input_forms, resolution_semantic, phases_1_to_7, examples_description_and_path, hard_rules, failure_modes, related]
   mirror_existing: true
-  fallback: _examples/align-recheck.md
+  fallback: commands/align-recheck.md
 
 # ============ SKILLS (.claude/skills/<name>.md) ============
 
@@ -167,7 +167,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md (PROJECT_KIND, dead-code tool, complexity tool, security scanner) + _extracted-idioms.md (full)
   sections: [purpose, when_to_use, inputs, outputs, procedure_step_by_step, halts, notes, related]
   mirror_existing: true
-  fallback: _examples/detect-drift.md
+  fallback: skills/detect-drift.md
 
 - name: find-and-align
   kind: skill
@@ -176,7 +176,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-idioms.md + _extracted-codebase.md § "Tests"
   sections: [purpose, when_to_use, inputs, outputs, the_5_step_loop, halt_conditions, hard_rules, notes, related]
   mirror_existing: true
-  fallback: _examples/find-and-align.md
+  fallback: skills/find-and-align.md
 ```
 
 ## Triggers per topic — key decisions

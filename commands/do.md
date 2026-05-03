@@ -46,8 +46,11 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "audit" / "review" + security / vuln | `/security-audit` |
 | "audit" / "review" + perf / slow | `/perf-audit` |
 | "audit" / "review" + i18n | `/i18n-audit` |
-| "align" / "convention drift" / "cleanup conventions" / "match design system" | `/align-recheck <description>` |
-| "port" / "migrate" / "match V1" / "compare V1" | `/migration-recheck <description>` |
+| "align" / "convention drift" / "cleanup conventions" / "match design system" + whole-project / multi-area scope | `/align [<scope>]` |
+| "align" / "drift" + single area, narrow scope | `/align-recheck <description>` (align pack) |
+| "port" / "migrate" / "match V1" / "compare V1" + whole-project / multi-feature scope | `/migrate [<scope>]` |
+| "port" + single feature, narrow scope | `/migration-recheck <description>` (migration pack) |
+| "optimize" / "clean up" / "refactor" / "improve quality" + whole-project / multi-area scope | `/optimize [<scope>]` |
 | "iterate" / "try variants" / "few options" + visual | invoke `design-iterate` skill |
 | "playground" / "test in isolation" + component | invoke `component-playground` skill |
 | "deploy" / "ship to staging" / "release" | `/deploy-stage` |
@@ -216,6 +219,7 @@ Proceed with /add-feature? [y / n / different command]
 ## Related
 
 ### Sibling commands (this command routes to)
+- `/migrate`, `/align`, `/optimize`, `/polish` — top-level simple-surface (whole-project / multi-area)
 - `/add-feature`, `/add-page`, `/add-component`, `/add-endpoint`, `/add-module`, `/add-migration`
 - `/enhance-ui`, `/fix-bug`, `/align-recheck`, `/migration-recheck`
 - `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/design-review`

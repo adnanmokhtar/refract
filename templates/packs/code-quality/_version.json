@@ -1,9 +1,27 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "released": "2026-05-03",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Adds architectural-diagnosis + refactoring-sweep skills (back the new /optimize Phase 0 + refactoring class)."
+  "summary": "General code review, refactoring, and pre-commit health gates. Includes engineering-principles + quality-principles rules, architectural-diagnosis + refactoring-sweep + dead-branch-scan skills.",
+  "changelog": {
+    "1.2.0": {
+      "released": "2026-05-03",
+      "changes": [
+        "Sync-chain repair: _essentials.md now lists engineering-principles alongside quality-principles. The rule was orphaned in _essentials despite being shipped as a peer governance rule."
+      ]
+    },
+    "1.1.0": {
+      "released": "2026-05-03",
+      "changes": [
+        "Adds architectural-diagnosis + refactoring-sweep skills (back the new /optimize Phase 0 + refactoring class)."
+      ]
+    },
+    "1.0.0": {
+      "released": "2026-04-26",
+      "changes": ["Initial code-quality pack release."]
+    }
+  }
 }

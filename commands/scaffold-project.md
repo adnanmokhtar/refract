@@ -1,5 +1,7 @@
 ---
 description: Take a refined idea (or raw prompt) and generate a working project from scratch — proposes stack with rationale, runs official scaffolders, layers clean architecture + design system + auth + dashboard, writes ADRs for every choice, installs Claude orchestration, validates dev server boots.
+kind: command
+pack: orchestration
 ---
 
 # /scaffold-project "<idea-or-refined-spec-path>"

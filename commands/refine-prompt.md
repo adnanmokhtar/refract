@@ -1,5 +1,7 @@
 ---
 description: Take a rough idea / prompt / one-liner and produce a deep, structured spec ready to feed `/scaffold-project` or to share with stakeholders. Single-cycle draft with one final confirmation gate.
+kind: command
+pack: orchestration
 ---
 
 # /refine-prompt "<idea>"

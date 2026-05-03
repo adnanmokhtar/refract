@@ -25,26 +25,27 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 
 `~/.claude/settings.json` and `~/.claude/settings.local.json` are NOT touched by sync — they stay user-managed.
 
-### Refactor done (M1 → M3 shipped 2026-04-28)
-
-The 5,153-line `commands/setup-project.md` has been split into an orchestrator + pluggable phases/tracks/adapters/capabilities. See `CHANGELOG.md` for details.
-
-- **M1** (a712053) — sync scripts, verify-sync, fixtures, workflow doc.
-- **M2** (1bc91cd) — orchestrator (236 lines) + 7 phase files + decision engine + idempotency contract + track plugin system + sibling `/setup-project-adapters` command.
-- **M3** (this release) — Phase 4 sub-phase split, capabilities split per-file, hard-rules table reformat, persona compression, Phase 5 audit checklist, `/setup-project-health`, `/learn-from-task`, knowledge-curator agent, observability log, CHANGELOG.
-
-The original monolith is preserved at `.archive/setup-project.M1.monolith.md` for diff review.
+> **Refactor history**: M1 → M3 (2026-04-28) split the 5,153-line `commands/setup-project.md` into an orchestrator + pluggable phases/tracks/adapters/capabilities. M14 → M21 (later 2026-04-28 → 2026-05-03) shipped the simple-surface entry points (`/migrate`, `/align`, `/optimize`, `/polish`, `/do`, `/scaffold-project`, `/refine-prompt`) + per-pack validators. Full timeline: `CHANGELOG.md`. Pre-M1 monolith preserved at `.archive/setup-project.M1.monolith.md`.
 
 ---
 
 ## Commands
 
-| Command                        | Purpose                                                            |
-|--------------------------------|--------------------------------------------------------------------|
-| `/setup-project`               | The brain — scaffold or enhance any project, any stack             |
-| `/setup-project-adapters`      | Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, …)          |
-| `/setup-project-health`        | Read-only health report (drift, staleness, budgets, parity)        |
-| `/learn-from-task`             | Phase 6 manual entry — promote concrete learnings into ai/         |
+| Command                        | Purpose                                                                           |
+|--------------------------------|-----------------------------------------------------------------------------------|
+| `/setup-project`               | The brain — scaffold or enhance any project, any stack.                           |
+| `/setup-project-adapters`      | Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, …).                        |
+| `/setup-project-health`        | Read-only health report (drift, staleness, budgets, parity).                      |
+| `/scaffold-project`            | Generate a working project from scratch (prompt → stack → boot).                  |
+| `/refine-prompt`               | Turn a rough prompt into a structured spec (feeds `/scaffold-project`).           |
+| `/migrate [<scope>]`           | One-command V1→V2 port. Deep multi-agent. Brief output.                           |
+| `/align [<scope>]`             | One-command convention drift sweep.                                               |
+| `/optimize [<scope>]`          | One-command architectural diagnosis + tactical sweep.                             |
+| `/polish [<scope>]`            | One-command UI/UX + API + schema + platform polish.                               |
+| `/do <description>`            | Universal meta-router → dispatches to the right specialized command.              |
+| `/learn-from-task`             | Phase 6 manual entry — promote concrete learnings into `ai/`.                     |
+
+The four simple-surface commands (`/migrate /align /optimize /polish`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level detailed commands (`/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` for power-user control. See `docs/COMMANDS.md` for every flag.
 
 ## `/setup-project` — the brain
 
@@ -63,29 +64,23 @@ Vibe-coding discipline: **plan first, write once, no placeholders, no filler**. 
 
 ```
 claude-config/
-├── commands/
-│   └── setup-project.md           # the one command
+├── commands/                # 11 top-level commands (table above)
 ├── templates/
-│   ├── repo-baseline/             # universal — copied into every new repo
-│   ├── workspace-baseline/        # for multi-repo workspaces (dispatcher, cross-repo cmds)
-│   └── packs/                     # 17 ROLE-based tracks (see § "Why role-based packs" below for full list)
-│       ├── code-quality/          # code-reviewer, refactorer, dead-code-finder, /review-changes, /simplify
-│       ├── documentation/         # doc-writer, /doc-refresh, /add-adr
-│       ├── backend/               # api-architect, api-reviewer, endpoint-tester, /add-module, /add-endpoint, /endpoint-test, /log-tail
-│       │   └── references/        # FILES (not dirs): nestjs.md, hexagonal-nestjs.md, express.md, fastapi.md, django.md, laravel.md, rails.md, go.md, dotnet.md, flask.md, phoenix-elixir.md, spring-boot.md
-│       ├── frontend/              # ui-architect, ui-reviewer, i18n-auditor, accessibility-auditor, /add-page, /add-component, /add-crud-page, /i18n-audit, /a11y-audit
-│       │   └── references/        # FILES (not dirs): angular.md, react.md, vue.md, nuxt.md, nextjs.md, svelte.md
-│       ├── database/              # schema-architect, schema-reviewer, query-optimizer, /add-migration, /optimize-query, /db-audit
-│       │   └── references/        # FILES (not dirs): postgres.md, mysql.md, mongodb.md
-│       ├── testing/               # test-engineer, test-reviewer, /add-test, /flaky-test-hunt
-│       ├── security/              # security-auditor, auth-reviewer, /security-audit
-│       ├── devops/                # devops-architect, ci-reviewer, /dockerize, /add-ci
-│       ├── performance/           # performance-optimizer, /perf-audit
-│       ├── ui-ux/                 # ux-reviewer, design-system-guardian, /design-review
-│       └── business/              # business-analyst, business-auditor, /analyze-task, /audit-business
-├── settings.json                  # your global Claude settings
-└── README.md
+│   ├── repo-baseline/       # universal — copied into every new repo
+│   ├── workspace-baseline/  # for multi-repo workspaces (dispatcher, cross-repo cmds)
+│   ├── packs/               # 18 ROLE-based tracks — full inventory in templates/knowledge-hub.md
+│   ├── tracks/              # stack-specific scaffolders (web-backend-django, web-frontend-nextjs)
+│   ├── tool-adapters/       # per-tool translations (Cursor, OpenCode, Aider, Cline, …)
+│   ├── phases/              # /setup-project's phase files (1, 2, 3, 4, 4.2, 4.6, 5)
+│   ├── domains/             # business-domain knowledge (saas, ecommerce, healthcare, …)
+│   └── regulatory-overlays/ # compliance overlays (GDPR, PCI-DSS, SOC2, …)
+├── docs/                    # COMMANDS.md (manual) + REFERENCE.md (failure modes)
+├── scripts/                 # validators, sync, verify, audit
+├── settings.json            # your global Claude settings
+└── README.md                # you are here
 ```
+
+The 18 packs: align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Each pack ships agents/, skills/, commands/, rules/, ai-patterns/, _essentials.md, _topics.md, _version.json.
 
 ### Why role-based packs, not frameworks
 
@@ -282,183 +277,30 @@ See "Plan-then-implement workflow" section below for the full handoff story.
 
 ---
 
-## Plan-then-implement workflow (universal handoff)
+## Plan-then-implement workflow (`--plan`)
 
-Use Claude Code to **PLAN**, any other tool (OpenCode, Cursor, Aider, a human) to **IMPLEMENT**, then Claude to **VERIFY**. The split is "expensive thinking once, cheap mechanical execution + drift-checked verification."
-
-### `--plan` is universal
-
-Every command in the system supports `--plan` — not just `/setup-project`:
+Use Claude Code to **PLAN**, any other tool (OpenCode, Cursor, Aider, a human) to **IMPLEMENT**, then Claude to **VERIFY**. Every command supports `--plan`:
 
 ```
-/add-feature "let pharmacists filter prescriptions by status" --plan
+/add-feature "filter prescriptions by status" --plan
 /fix-bug 42 --plan
-/add-module billing --plan
-/refactor src/auth/* --plan
 ```
 
-What it does: runs Phases 1-3 (Understand / Organize / Retrieve), expands the plan with full detail, writes a structured plan file to `.claude/plans/<command>-<slug>-<YYYYMMDD-HHmm>.md`, exits BEFORE Phase 4 (Generate). The plan file is the handoff artifact.
+The flag runs Phases 1–3, writes `.claude/plans/<cmd>-<slug>-<ts>.md`, exits before code change. Hand the plan file to any tool. Verify drift later via `/verify-plan <plan-file>`.
 
-### The plan file format
-
-Tool-agnostic markdown with these sections: **Context**, **Inputs** (files to read), **Outputs** (files to create / modify / delete), **Steps**, **Constraints** (DO NOT rules), **Verification** (lint/test/curl commands), **Known unknowns**, **Status** checkboxes. Every plan has a Plan ID (short hash) for cross-referencing.
-
-Full spec: `commands/setup-project.md` § "Phase 3.5 — Handoff" + `templates/repo-baseline/.claude/plans/README.md`.
-
-### Hand off to any tool
-
-```bash
-$ claude
-> /add-feature "..." --plan
-# writes .claude/plans/add-feature-...-20260427-1430.md, prints Plan ID, exits
-
-$ opencode
-> /add-feature --from-plan .claude/plans/add-feature-...-20260427-1430.md
-# OpenCode reads plan, implements per Outputs + Steps, respects Constraints
-```
-
-Or paste the plan file content into Cursor / Aider / any tool's prompt as input. Plan file is markdown — universally readable. No native `--from-plan` required for the basic workflow.
-
-### Verify drift after implementation
-
-```bash
-$ claude
-> /verify-plan .claude/plans/add-feature-...-20260427-1430.md
-# Diffs filesystem vs plan: ✓ matched / ⚠ deviated / ✗ missing.
-# Verdict: PLAN FULFILLED | PLAN DRIFTED | PLAN VIOLATED.
-```
-
-`/verify-plan` ships in `repo-baseline/.claude/commands/` — every new project (or `--enhance` / `--refresh` upgrade) gets it automatically.
-
-`.claude/plans/` is gitignored by default within projects (plans are per-engineer working artifacts). Teams can flip the gitignore to commit plans as PR-attached design docs — that's a project decision.
-
-### Retrofitting existing projects
-
-Projects scaffolded BEFORE the `--plan` machinery was added won't have it on their installed commands.
-
-**Symptoms**: `<command> --plan` runs but the command implements anyway, ignoring the flag — the on-disk command file has no Phase 3.5 logic.
-
-**Two retrofit paths**:
-
-| Path | When to use | What it does |
-|---|---|---|
-| `/setup-project --refresh` | >2 commands or any team rollout | Regenerates commands with `--plan` support. Phase 0 backup + Phase 0.2 knowledge extract preserve project-specific edits. Non-destructive by design. |
-| Manual per-command edit | 1-2 commands, surgical fix | Copy `## Phase 3.5 — Handoff` block from `commands/setup-project.md` into the command file. Add `--plan` to its documented flags. |
-
-**`/verify-plan` standalone install** (no full refresh): `cp ~/.claude/templates/repo-baseline/.claude/commands/verify-plan.md <project>/.claude/commands/`.
-
-**`.claude/plans/` directory standalone**: `mkdir -p <project>/.claude/plans && cp ~/.claude/templates/repo-baseline/.claude/plans/README.md <project>/.claude/plans/` + add `.claude/plans/*.md` (with `!.claude/plans/README.md` exception) to the project's `.gitignore`.
-
-### When NOT to use `--plan`
-
-- Trivial changes (one-line fixes, typos) — overhead exceeds benefit.
-- Spike / exploration where the plan would change as you go.
-- Read-only commands (no implementation to plan for) — they exit at Phase 3 anyway.
-
-The flag is FOR non-trivial, decomposable, verifiable work. Use judgment.
+Full spec — including plan file format, retrofitting existing projects, and `--from-plan` handoff — in [`docs/REFERENCE.md` § Plan-then-implement workflow](docs/REFERENCE.md). Skip it for trivial / spike / read-only work.
 
 ---
 
 ## Round-two deepening (`--refine`)
 
-Round one (`/setup-project` / `--enhance`) gets the floor right: every load-bearing track has its minimum artifacts present, anchored to the project's surface signals (file paths, base classes, suffix matrix, stack identifiers). Sufficient for "the setup exists" — but the auto-generated `## Project-specific` blocks may still read as generic ("the project's billing service") instead of concrete ("`app/services/billing.py:BillingService.create_invoice` line 128").
+Round one (`/setup-project --enhance`) puts every load-bearing artifact in place anchored to surface signals. Round two (`/setup-project --refine`) deepens the auto-generated `## Project-specific` blocks against the real code via 6 deep-extraction phases (entities → architecture → flows → conventions → hot paths → failure history), then re-anchors anything scoring < 70/100 plus propagates the deepening into every selected tool adapter.
 
-Round two (`--refine`) closes that gap.
+Safety: user-authored sections preserved verbatim (marker-bracketed; SHA-256 verified). Idempotent — repeated runs converge. Failure-history is opt-in. Cost-capped via `--max-subagents=<N>`.
 
-### What `--refine` does
+Verdicts after each run: `PLATEAU-DEEP` (stop), `PLATEAU-WEAK` (grow upstream signal first), `NOT-PLATEAU` (run again).
 
-After your initial setup is in place, run `/setup-project --refine`. The command performs **6 deep-extraction phases** (Phases 2.7–2.12 in the spec):
-
-| Phase | Reads | Produces |
-|---|---|---|
-| 2.7 — Domain entities | ORM/model classes, migrations, repositories, integration tests | Real entity list with fields + relationships + invariants + lifecycle events with `file:line` citations |
-| 2.8 — Architecture | Import graph, request lifecycles, bounded-context boundaries | ASCII layer diagram + 3-5 traced lifecycles + cross-cutting concerns located |
-| 2.9 — End-to-end flows | ≥3 business + ≥2 admin flows | Step-by-step narration per flow with side effects + error paths + idempotency mechanism |
-| 2.10 — Emergent conventions | 8 categories sweeping for 5+ recurrences | Error shape, pagination shape, validation pattern, logging shape, transaction boundaries, async-work naming, time/money/ID handling |
-| 2.11 — Performance hot paths | Hotness-scored endpoints (monitoring + git churn + fan-in + coverage) | Top-10 hot paths with N+1 risk + missing indexes + cache layer status + 1-line uplift recommendation |
-| 2.12 — Failure history | git log + (opt-in) `docs/postmortems/` | Recurring failure themes for `ai/failures/<theme>.md` (auto-injected in architectural agents' pre-flight) |
-
-Then **Phase 4.6-DEEP** re-anchors the `## Project-specific` blocks of every artifact scoring < 70/100 — using the deep-extraction substrate. **Phase 4.7-DEEP** enriches `ai/architecture.md`, `ai/business-domain.md`, `ai/conventions.md` with the round-two findings. **Phase 4.8-DEEP** propagates those deepenings into every selected non-claude-code adapter (Cursor / OpenCode / Aider / Continue / Cline / Windsurf / Copilot / Codex / Gemini) — incrementally, only re-translating outputs whose source artifact actually changed. **Phase 5** verifies per-adapter coverage. **Phase 5.5** emits `.claude/_setup-quality.md` showing per-artifact 0-100 scores on 4 axes (name density / path density / signal density / specificity) plus plateau detection.
-
-### Adapter sync (Phase 4.8-DEEP)
-
-REFINE deepens the `.claude/` source-of-truth artifacts. The `claude-code` adapter is auto-current (it reads `.claude/` directly). **Every other selected adapter embeds translations into its native shape** — `.cursor/{rules,commands,skills,hooks.json}` (Cursor 2.3+); `.opencode/{agents,commands,skills}/`; `.github/{prompts,agents,skills}/`; `.clinerules/workflows/`; `.windsurf/workflows/`; `.continue/prompts/`; `AGENTS.md` § "Named procedures"; `CONVENTIONS.md`; etc. Without Phase 4.8-DEEP, REFINE produces the failure mode "Claude got smarter, Cursor still talks generic prose."
-
-Phase 4.8-DEEP closes the gap **incrementally and cost-bounded**:
-
-- Reads the affected-artifact list from `_phase-4-6-decisions.md` REFINE section + `_phase-4-7-decisions.md` REFINE section (rows with action `ANCHOR-DEEP` / `NEW-FILE` / markered-rewrite).
-- For each selected adapter, re-translates only the per-artifact outputs whose source is in the affected list.
-- Regenerates "index" outputs (`AGENTS.md` § "Invokable commands", `.continue/config.yaml` `rules:` block, `.cursor/rules/00-project.mdc` cross-refs, optional `opencode.json` legacy mirror, etc.) only when the affected list contains a `NEW-FILE` row.
-- Skips entirely (`SKIPPED-NO-CHANGES`) when the affected list maps to nothing for an adapter (e.g. `gemini` thin-pointer always; `claude-code` always).
-- Respects `--max-subagents=<N>`; per-(adapter × artifact) work fans out under the same cap.
-- Same marker safety contract as 4.6-DEEP / 4.7-DEEP — adapter outputs with user-customizable sections use `<!-- generated:start/end -->` markers; pre/post hash check; mismatch → rollback.
-- Decision log written to `.claude/_phase-4-8-decisions.md`.
-
-### Safety guarantees
-
-1. **User-authored sections preserved verbatim.** REFINE only rewrites between markers — `<!-- project-specific:start/end -->` for `.claude/{rules,commands,agents,skills}/*.md`, `<!-- refine-enriched:start/end -->` for `ai/*.md`, and `<!-- generated:start/end -->` for adapter outputs that have user-customizable sections (4.8-DEEP). Pre/post SHA-256 hash comparison of bytes-outside-markers in all three cases; mismatch → rollback. User content is bit-identical pre/post run across `.claude/`, `ai/`, AND adapter directories.
-2. **Idempotent.** Repeated `--refine` runs converge. The plateau report distinguishes **PLATEAU-DEEP** (everything is anchored ≥ 85, nothing left to deepen) from **PLATEAU-WEAK** (extraction was weak so we can't go further; you may need to grow git history, opt into postmortems, etc.) — see "Plateau diagnosis" below. On a fully-idempotent rerun, Phase 4.8-DEEP records `SKIPPED-NO-CHANGES` (affected list empty).
-3. **WEAK extraction = no rewrite.** If a deep-extraction phase doesn't yield enough signal (e.g. too few git commits for failure-history), the round-one anchor stays intact. No shallow-rewrite risk. Adapter outputs whose source didn't change are also untouched.
-4. **Failure-history is opt-in.** Postmortem docs read only when you pass `--include-incidents=<path>`. Customer names, dollar amounts, and individual blame are sanitized.
-5. **Compatible with `--dry-run`.** Preview the per-artifact anchor-density delta, proposed rewrites, AND per-adapter sync plan without writing.
-6. **Cost-capped.** `--max-subagents=<N>` (default `8`) bounds parallel Explore + re-anchor + adapter-sync subagents across all REFINE phases. Lower the cap for large codebases; raise it for small ones where speed matters more than cost.
-7. **Adapter coverage gates the run.** Phase 5 verifies per-adapter completeness contracts after 4.8-DEEP — every command listed, every rule translated, every agent persona present. Shortfalls trigger the standard retry loop. So `--refine` is "Claude got smarter AND every other tool got smarter too."
-
-### Common pipeline
-
-```bash
-# Round 1 — initial setup or gap-fill
-/setup-project --enhance
-
-# (work in the project for a while; codebase grows; conventions emerge)
-
-# Round 2 — deepen the auto-generated blocks against the real code
-/setup-project --refine
-
-# Quick visibility into where you stand
-/setup-project --health     # any time — shows anchor-density score per artifact
-
-# Pack version upgrade later (not the same as deepening)
-/setup-project --refresh
-```
-
-### When to run `--refine`
-
-- After `--create` / `--enhance-retrofit` on a substantial codebase, when the round-one artifacts feel generic.
-- After significant code growth (new modules, new entities, new flows) that round-one detection couldn't have seen.
-- Periodically (monthly / quarterly) on a maturing project — the more code there is, the more deep extraction has to surface.
-
-### When NOT to run `--refine`
-
-- Greenfield project with < 1 week of code (round-one detection is already as deep as the substrate allows).
-- Right after `--refresh` (refresh just regenerated everything from latest templates; let it settle first).
-- When `--health` reports avg score ≥ 85 (you're already in the DEEP band; further `--refine` would plateau immediately).
-
-### Output files
-
-REFINE writes (in addition to whatever Phase 4 normally writes):
-
-- `.claude/_refine-extract.md` — the 6-phase deep extraction substrate.
-- `.claude/_setup-quality.md` — per-artifact anchor-density report with round-1 vs round-2 deltas, plus a **three-way plateau verdict** (`PLATEAU-DEEP` / `PLATEAU-WEAK` / `NOT-PLATEAU`).
-- `.claude/_phase-4-6-decisions.md` — appended with `## REFINE — round two (<timestamp>)` section per run.
-- `.claude/_phase-4-7-decisions.md` — `ai/*.md` enrichment decisions (per-file ANCHOR-DEEP / LEAVE-DEEP / MARKERS-INJECTED / ROLLBACK-MARKER-DRIFT).
-- `.claude/_phase-4-8-decisions.md` — adapter-sync decisions (per `(adapter, output-file)` tuple — RE-TRANSLATED / INDEX-REFRESHED / SKIPPED-NO-CHANGES / NO-OP-ADAPTER / NEEDS-FULL-PHASE-4.8 / ROLLBACK-MARKER-DRIFT).
-- `ai/failures/<theme>.md` — one file per recurring failure theme (only if Phase 2.12 was STRONG).
-- Updated `.cursor/rules/`, `opencode.json`, `CONVENTIONS.md`, `.continue/`, `.clinerules/`, `.windsurf/rules/`, `.github/instructions/`, `.github/prompts/`, `AGENTS.md`, `GEMINI.md` — the per-adapter outputs that Phase 4.8-DEEP re-translated to match the deepened `.claude/` and `ai/`.
-
-### Plateau diagnosis
-
-`--refine` always emits a verdict — never a bare "plateau reached":
-
-| Verdict | What it means | Next step |
-|---|---|---|
-| **PLATEAU-DEEP** | Avg score ≥ 80 AND ≥ 85% of available signal consumed. Setup is anchored; further `--refine` adds nothing. | Stop running `--refine` until significant new code lands. |
-| **PLATEAU-WEAK** | Δ score ≤ 2 BUT extraction was thin (some Phase 2.7–2.12 phase produced WEAK output, OR avg score < 80). Setup is NOT yet deeply anchored — but no further refinement is possible from current substrate. | Grow upstream signal (more code, more git history, opt into `--include-incidents=<path>`, etc.), THEN re-run `--refine`. |
-| **NOT-PLATEAU** | Δ score > 2 (or first run, no baseline). REFINE is still climbing. | Run `--refine` again if avg score < 70. |
-
-A WEAK plateau verdict enumerates every WEAK phase + its recommended user action. Exit code is `2` for `PLATEAU-WEAK` (signals "user action required upstream" — distinct from healthy `0` and hard-error `1`).
-
-Full spec: `commands/setup-project.md` § "Phase 2.7-2.12", "Phase 4.6-DEEP", "Phase 4.7-DEEP", "Phase 4.8-DEEP", "Phase 5.5".
+Full walkthrough — phase tables, adapter sync details, output files, plateau diagnosis — in [`docs/REFERENCE.md` § Refine — round-two deepening](docs/REFERENCE.md).
 
 ---
 

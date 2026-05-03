@@ -229,97 +229,23 @@ These are REGENERATED, not hand-edited. Source of truth is the full files; compa
 
 ---
 
-## 📑 How this command is organized (post-M2 split)
+## Modules — see imports
 
-This command is now a thin orchestrator. The detail lives in imported files:
+This command is a thin orchestrator. The full detail lives in the files declared via `imports:` in this file's frontmatter — execution flow modules (phases 0–6), governance overlays (critical-execution-rules, hard-rules, idempotency), the decision engine, the track plugin loader, capabilities, the canonical command template (META — for generated commands), and the appendices. Each module is self-contained with frontmatter declaring its inputs / outputs / exit criteria. Read each on demand; do not paraphrase across modules.
 
-| Concern                                | File                                                |
-|----------------------------------------|-----------------------------------------------------|
-| Critical execution rules (read first)  | `@templates/critical-execution-rules.md`            |
-| Quick start, flags, end states         | `@templates/quick-start.md`                         |
-| What this command knows about          | `@templates/knowledge-hub.md`                       |
-| 4-input decision engine + tie-breaks   | `@templates/decision-engine.md`                     |
-| Re-run safety (markers, merge rules)   | `@templates/idempotency.md`                         |
-| Track plugin schema + loader           | `@templates/tracks/_loader.md`                      |
-| Phase 0 — backup + extract             | `@templates/phases/phase-0-backup-extract.md`       |
-| Phase 1 — detect mode                  | `@templates/phases/phase-1-detect-mode.md`          |
-| Phase 2 — profile + deep extraction    | `@templates/phases/phase-2-profile.md`              |
-| Phase 3 — parse + delta + plan         | `@templates/phases/phase-3-plan.md`                 |
-| Phase 4 — apply (write artifacts)      | `@templates/phases/phase-4-apply.md`                |
-| Phase 5 — verify + report              | `@templates/phases/phase-5-verify.md`               |
-| Phase 6 — continuous learning loop     | `@templates/phases/phase-6-learn.md`                |
-| Hard rules (Always / Never overlay)    | `@templates/governance/hard-rules.md`               |
-| Canonical command template (META)      | `@templates/canonical-command-template.md`          |
-| Cross-cutting capabilities (1-7)       | `@templates/capabilities.md`                        |
-| Appendices A-F (detection, filter, …)  | `@templates/appendices.md`                          |
-| Tool-adapter command (sibling)         | `commands/setup-project-adapters.md`                |
-
-## 🛑 Critical execution rules
-
-Before executing any phase, read `@templates/critical-execution-rules.md`. The seven rules there override anything else in this command. They exist because each represents a previously-shipped bug class.
-
-## 🚀 Quick start
-
-Flags, end states, and a one-page cheat sheet live in `@templates/quick-start.md`. New users start there.
-
-## 🧠 Decision engine
-
-Four inputs (domain / stack / intent / history) → six rules → tie-breaking → uncertainty handling → self-audit. Full text in `@templates/decision-engine.md`.
-
-## 🔁 Idempotency contract (re-run safety)
-
-A second run on the same repo MUST be safe. Per-file class behavior, marker conventions, ADR append-only rule, version interaction — all in `@templates/idempotency.md`.
-
-## 🧩 Track plugin system
-
-Tracks are pluggable. Drop a directory under `templates/tracks/<name>/` with `detect.md` + `pack.md` + `conventions.md` + `meta.yaml`. Loader behavior in `@templates/tracks/_loader.md`. Existing `templates/packs/*` remain the body content.
-
-## 🔄 Execution flow (phases)
+**Execution flow** — phase files, gated by mode:
 
 ```
-Phase 0 — Backup + extract        (REFRESH / REFINE only)   @templates/phases/phase-0-backup-extract.md
-Phase 1 — Detect mode             (always)                  @templates/phases/phase-1-detect-mode.md
-Phase 2 — Profile codebase        (ENHANCE / REFRESH / REFINE) @templates/phases/phase-2-profile.md
-Phase 3 — Plan + delta            (always)                  @templates/phases/phase-3-plan.md
-Phase 4 — Apply                   (always)                  @templates/phases/phase-4-apply.md
-Phase 5 — Verify + report         (always; HALT + RETRY)    @templates/phases/phase-5-verify.md
-Phase 6 — Continuous learning     (forever, after setup)    @templates/phases/phase-6-learn.md
+Phase 0 — Backup + extract        (REFRESH / REFINE only)
+Phase 1 — Detect mode             (always)
+Phase 2 — Profile codebase        (ENHANCE / REFRESH / REFINE)
+Phase 3 — Plan + delta            (always)
+Phase 4 — Apply                   (always)
+Phase 5 — Verify + report         (always; HALT + RETRY)
+Phase 6 — Continuous learning     (forever, after setup)
 ```
 
-Each phase file is self-contained with frontmatter declaring its inputs / outputs / exit criteria. Read each phase before executing it; do not paraphrase across phases.
-
-## 📕 Hard rules (Always / Never)
-
-The Always / Never governance overlay is `@templates/governance/hard-rules.md`. A `must` / `must-not` violation surfaced in Phase 5 audit means the command refuses to report success. Format: Rule | Severity | Applies-To-Phases (the table is already in that shape).
-
-## 🛠 Capabilities (cross-cutting features)
-
-Seven capabilities thread through multiple phases:
-
-1. Setup versioning + migration (every artifact carries `setup-project: vN`)
-2. Setup health score + telemetry (`/setup-project --health`)
-3. Schema validation harness (frontmatter + dry-invoke smoke)
-4. Failure catalog (don't re-attempt previously-failed approaches)
-5. Test fixtures + factories generation (per business-domain)
-6. Multi-language UX (interactive prompts + bilingual headers)
-7. Conversational wizard mode
-
-Detail: `@templates/capabilities.md` (index) + `templates/capabilities/<N>-<name>.md` (one file per capability — already split).
-
-## 🧱 Canonical command template (META — for generated commands)
-
-When Phase 4 generates an operational command into a target repo's `.claude/commands/`, that command follows the canonical 8-phase template in `@templates/canonical-command-template.md`. This is META: it describes the shape of GENERATED commands, not the shape of `/setup-project` itself.
-
-## 📚 Appendices
-
-- A — Detection commands (scripted signals used by Phase 2)
-- B — Relevance filter (when to pull a track / pattern / domain)
-- C — Merge decision matrix (file overlap rules)
-- D — Codebase profile shape (the schema of `ai/codebase-profile.md`)
-- E — Learnings encoded (where each rule comes from — traceability)
-- F — Glossary (single canonical definition per term)
-
-All in `@templates/appendices.md`.
+Critical execution rules at `@templates/critical-execution-rules.md` override anything below; read first. Quick start at `@templates/quick-start.md`. Decision engine at `@templates/decision-engine.md`. Tool-adapter sibling: `commands/setup-project-adapters.md`.
 
 ---
 

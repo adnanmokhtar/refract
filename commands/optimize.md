@@ -341,11 +341,14 @@ User sees the result, not the policing.
 
 ## Related (advanced)
 
-For phase-by-phase control or class-specific runs, the existing detailed commands still exist:
-- `/align-scan` — inventory only.
-- `/align-fast <N>` — run one phase.
-- `/align-recheck <scope>` — focused area.
-- `/perf-audit` — perf-only deep audit.
+For specialist or class-specific runs, the existing detailed surfaces still exist:
+- `/perf-audit` — perf-only deep audit (performance pack).
+- `/profile-perf` — runtime profile capture (performance pack).
+- `/simplify` — code simplification command (code-quality pack).
+- `/check-health` — read-only quality + boundary audit (code-quality pack).
+- `architectural-diagnosis` skill — layer-violation / god-module detection.
+- `refactoring-sweep` skill — tactical close-out (clean code / SOLID / dedup).
+- `dead-branch-scan` skill — dead-code detection.
 - `/db-audit` — database-only.
 
 `/optimize` dispatches these internally with sensible defaults.

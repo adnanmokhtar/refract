@@ -1,26 +1,26 @@
 # Commands reference
 
-The full user-facing reference for the four `/setup-project`-family commands. Source of truth: this file. Sync to `~/.claude/` is symlink-managed, so changes here apply live.
+User-facing reference for every top-level command in `commands/`. Source of truth: this file. Sync to `~/.claude/` is symlink-managed, so changes here apply live.
 
 ## Table of contents
 
 - [Commands at a glance](#commands-at-a-glance)
-- [`/setup-project`](#setup-project)
-  - [Modes](#modes)
-  - [Flags (full list)](#flags-full-list)
-  - [Flag combinations + conflicts](#flag-combinations--conflicts)
-- [`/setup-project-adapters`](#setup-project-adapters)
-- [`/setup-project-health`](#setup-project-health)
-- [`/learn-from-task`](#learn-from-task)
+- Setup family
+  - [`/setup-project`](#setup-project)
+  - [`/setup-project-adapters`](#setup-project-adapters)
+  - [`/setup-project-health`](#setup-project-health)
+  - [`/scaffold-project`](#scaffold-project)
+  - [`/refine-prompt`](#refine-prompt)
+- Simple-surface (whole-project, multi-area, deep multi-agent)
+  - [`/migrate`](#migrate)
+  - [`/align`](#align)
+  - [`/optimize`](#optimize)
+  - [`/polish`](#polish)
+- Meta
+  - [`/do`](#do)
+  - [`/learn-from-task`](#learn-from-task)
 - [Generated commands (in target repo)](#generated-commands-in-target-repo)
-- [Workflows](#workflows)
-  - [First setup of a new project](#first-setup-of-a-new-project)
-  - [First setup of an existing project](#first-setup-of-an-existing-project)
-  - [Refresh a stale setup](#refresh-a-stale-setup)
-  - [Refine — make output project-specific](#refine--make-output-project-specific)
-  - [V1 → V2 migration](#v1--v2-migration)
-  - [Codebase alignment — the comprehensive quality sweep](#codebase-alignment--the-comprehensive-quality-sweep)
-  - [Plan-only mode (any command)](#plan-only-mode-any-command)
+- [Workflows](#workflows) — see also [`docs/REFERENCE.md`](REFERENCE.md) for the canonical end-to-end walkthroughs
 - [Hard rules summary](#hard-rules-summary)
 - [Where things live](#where-things-live)
 
@@ -28,12 +28,19 @@ The full user-facing reference for the four `/setup-project`-family commands. So
 
 ## Commands at a glance
 
-| Command                       | Purpose                                           | Read-only? |
-|-------------------------------|---------------------------------------------------|------------|
-| `/setup-project`              | Scaffold or enhance a project. The brain.         | No (writes) |
-| `/setup-project-adapters`     | Re-sync tool adapters (Cursor / OpenCode / Aider…) | No (writes) |
-| `/setup-project-health`       | Drift / staleness / budget report                 | **Yes (no writes)** |
-| `/learn-from-task`            | Promote learnings into ai/ (Phase 6 manual entry) | No (writes managed blocks only) |
+| Command                       | Purpose                                                                | Read-only? |
+|-------------------------------|------------------------------------------------------------------------|------------|
+| `/setup-project`              | Scaffold or enhance a project. The brain.                              | No (writes) |
+| `/setup-project-adapters`     | Re-sync tool adapters (Cursor / OpenCode / Aider…).                    | No (writes) |
+| `/setup-project-health`       | Drift / staleness / budget report.                                     | **Yes** |
+| `/scaffold-project`           | Generate a working project from scratch (prompt → stack → boot).       | No (writes) |
+| `/refine-prompt`              | Turn a rough prompt into a structured spec.                            | No (writes ai/ only) |
+| `/migrate [<scope>]`          | One-command V1→V2 port. Deep multi-agent. Brief output.                | No (writes) |
+| `/align [<scope>]`            | One-command convention drift sweep.                                    | No (writes) |
+| `/optimize [<scope>]`         | One-command architectural diagnosis + tactical sweep.                  | No (writes) |
+| `/polish [<scope>]`           | One-command UI/UX + API + schema + platform polish.                    | No (writes) |
+| `/do <description>`           | Universal meta-router → dispatches to the right specialized command.   | Routes only |
+| `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
 
 Generated commands ship INTO target repos when a track is selected: `/add-endpoint`, `/add-module`, `/add-feature`, `/fix-bug`, `/review-changes`, `/migration-status`, `/port-feature`, etc. See [Generated commands](#generated-commands-in-target-repo).
 
@@ -503,7 +510,7 @@ Examples:
 
 `--restart` does NOT revert any commits already made — use `git` for that.
 
-For phase-by-phase or per-feature control, the detailed commands (`/migration-fast`, `/align-fast`, `/find-and-fix`, etc.) still exist below.
+For phase-by-phase or per-feature control, the detailed pack commands (`/migration-scan`, `/migration-plan`, `/migration-phase`, `/migration-fast`, `/migration-gate`, `/migration-final`, `find-and-fix`, `/align-scan`, `/align-plan`, `/align-phase`, `/align-fast`, `/align-recheck`, etc.) live under `templates/packs/migration/commands/` and `templates/packs/align/commands/`. Documented in [`docs/REFERENCE.md`](REFERENCE.md).
 
 ### Universal entry point — `/do`
 

@@ -113,7 +113,7 @@ Closure verbs: ALL frontend closure verbs PLUS:
 
 - Single-area iteration with style-variant picking → `/enhance-ui <area>` (frontend pack-level).
 - Specialist whole-project visual audit with HTML report → `/ui-sweep` (frontend only, deeper).
-- Read-only audit, no edits → `/design-review` (frontend) / `/api-audit` (backend, if the project has it) / `/db-audit` (data).
+- Read-only audit, no edits → `/design-review` (frontend) / `api-consistency-audit` skill (backend) / `/db-audit` (data).
 - Pure convention drift across all classes (not just polish) → `/align`.
 - Code quality / perf / refactoring → `/optimize`.
 - New features → `/add-feature`.
@@ -412,7 +412,7 @@ For phase-by-phase or specialist control, the existing detailed commands still e
   - `/ui-sweep` — UI/UX whole-project specialist (HTML report, coverage metrics).
   - `/design-review` — read-only design audit.
 - **Backend**:
-  - `/api-audit` (if installed) — read-only API consistency audit.
+  - `api-consistency-audit` skill — read-only API consistency audit (envelope / errors / pagination / naming).
 - **Data**:
   - `/db-audit` — read-only schema/query audit.
   - `/add-migration` — author a single migration.

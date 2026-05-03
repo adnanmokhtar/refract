@@ -1,5 +1,7 @@
 ---
 description: Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, Codex, Continue, Copilot, Gemini, Windsurf) so every selected tool offers the same surface as Claude Code in this repo. Sibling to /setup-project — split out in M2 to keep the orchestrator small.
+kind: command
+pack: orchestration
 ---
 
 # /setup-project-adapters
