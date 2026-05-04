@@ -2983,6 +2983,56 @@ check_actionable_next_steps() {
   return 0
 }
 
+check_plan_completeness() {
+  # Per commands/migration-plan.md § Phase 6, the generated plan.md MUST contain
+  # three load-bearing sections AND its Phase 1 foundation MUST cover core
+  # primitives. Halts the gate when missing — prevents the all-trivial-by-default
+  # bias where heavy-tier rows close without reviewer-approval.
+  local plan="${1:-ai/migration/plan.md}"
+  [[ ! -f "$plan" ]] && return 0
+
+  local missing=()
+
+  # 1. Cross-cutting audit dimensions section
+  if ! grep -qE '^##[[:space:]]+Cross-cutting audit dimensions' "$plan"; then
+    missing+=("Cross-cutting audit dimensions section (tenant-isolation / cache-NS / translation-parity / etc.)")
+  fi
+
+  # 2. Heavy-tier promoter rollup section
+  if ! grep -qE '^##[[:space:]]+Heavy-tier promoter rollup' "$plan"; then
+    missing+=("Heavy-tier promoter rollup section (pre-flag auth/payment/order/cart/security rows for reviewer-approval)")
+  fi
+
+  # 3. Actionable next steps section (already enforced by check_actionable_next_steps;
+  # surfaced here too with plan-specific guidance for clearer error message)
+  if ! grep -qE '^##[[:space:]]+Actionable next steps' "$plan"; then
+    missing+=("## Actionable next steps section (paste-ready commands per templates/snippets/actionable-next-steps.md)")
+  fi
+
+  # 4. Foundation phase contains core primitive language
+  # Look at content under "Phase 1" header — should mention at least 2 foundation primitives
+  local phase1_block primitives_found=0
+  phase1_block=$(awk '
+    /^##[[:space:]]+Phase 1/ { in_p1=1; next }
+    in_p1 && /^##[[:space:]]+Phase [2-9]/ { in_p1=0 }
+    in_p1 { print }
+  ' "$plan")
+  for keyword in "tenant.*context|RequestContext|AsyncLocalStorage" "cache|Redis" "DomainException|error.*envelope|exception.*filter" "audit.*field|soft.*delete|SoftDelete" "concurrency|p-limit|Promise\.all" "locale|i18n|translation"; do
+    echo "$phase1_block" | grep -qiE "$keyword" && primitives_found=$((primitives_found + 1))
+  done
+  if [[ $primitives_found -lt 2 ]]; then
+    missing+=("Phase 1 foundation appears thin — only $primitives_found/6 core primitives (tenant-context / cache / error-envelope / audit / concurrency / locale) referenced; auth/security audits in Phase 1 will be un-verifiable")
+  fi
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    log_fail "plan.md missing required sections (per commands/migration-plan.md § Phase 6 / Phase 4): ${missing[*]}"
+    return 1
+  fi
+
+  log_pass "plan.md completeness: cross-cutting + heavy-tier rollup + actionable next steps + foundation primitives"
+  return 0
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────
 main() {
   load_project_anchors
@@ -3019,6 +3069,8 @@ main() {
   done <<< "$features"
 
   check_actionable_next_steps "ai/migration/final-report.md" || true
+  check_actionable_next_steps "ai/migration/plan.md" || true
+  check_plan_completeness "ai/migration/plan.md" || true
 
   echo
   echo "── Summary ──"

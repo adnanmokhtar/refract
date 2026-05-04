@@ -285,7 +285,11 @@ for kind in commands agents skills rules ai-patterns; do
     fi
 
     # Already anchored?
-    if grep -qF '<!-- project-specific:start -->' "$f" 2>/dev/null; then
+    # Match the marker only when it appears as its own line (a real injected block),
+    # NOT when it appears as text inside prose / backticks (pointer documentation).
+    # Without `^...$` anchors, descriptive prose like "the `<!-- project-specific:start -->` block"
+    # would be treated as already-anchored and skipped, leaving the file un-injected.
+    if grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$f" 2>/dev/null; then
       already=$((already + 1))
       continue
     fi

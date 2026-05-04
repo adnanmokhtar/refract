@@ -6,6 +6,22 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Migration plan completeness — 3 system improvements
+
+**Root cause** — observed in May 2026: a downstream project ran `/migration-scan` + `/migration-plan` and got incomplete output. The LLM that produced the plan skipped (a) heavy-tier promoter rows for auth/payment/order/cart/security (b) a cross-cutting audit dimensions preamble (tenant-isolation, cache namespacing, translation parity) (c) the `## Actionable next steps` section (the contract was new) (d) ~5 V1 directories without `.module.ts` markers were silently dropped from the ledger. Commands didn't fail; they just produced silently incomplete output.
+
+**Fix** — three system improvements making this class of drift mechanically impossible going forward:
+
+- **`templates/packs/migration/commands/migration-scan.md`** — added "Backend / API dir-walk completeness gate" subsection in Phase 2. For `PROJECT_KIND in {backend-*, api-other}`, scan MUST `find $v1_root -type d` recursively, filter to dirs with source files, and produce `dir_walk_total: N; mapped_to_rows: M; umbrella_excluded: K; dead_excluded: L; N == M + K + L` count assertion in scan-report. Halts when unmapped V1 dirs exist (catches the "module-marker filter missed alt-shape dirs" failure).
+
+- **`templates/packs/migration/commands/migration-plan.md`** — restructured Phase 4 output template to require three load-bearing sections BEFORE Phase 1: (1) "Cross-cutting audit dimensions" preamble (tenant-isolation gate, cache-key namespacing, translation parity, naming-boundary integrity, audit/soft-delete columns, concurrency primitive parity, error envelope shape — stack-conditional), (2) "Heavy-tier promoter rollup" pre-flagging every auth / payment / order / cart / subscription / financial-transaction / saved-card / security / s2s / cron-write-path / multi-tenant-blast-radius row with `tier: heavy` so reviewer-approval engages, (3) `## Actionable next steps` per `templates/snippets/actionable-next-steps.md`. Phase 6 validate step expanded with foundation-completeness check (Phase 1 must mention ≥2 of: tenant-context, cache, error-envelope, audit-fields, concurrency, locale primitives).
+
+- **`scripts/validate-migration-artifacts.sh`** — new `check_plan_completeness` function called against `ai/migration/plan.md`. Halts the gate when any of the 3 required sections is missing OR when Phase 1 foundation language references fewer than 2 of 6 core primitives. Self-tested 3 cases (good / missing-rollup-thin-foundation / missing-actionable) — all expected pass/fail outcomes confirmed.
+
+**Why this is the right fix** — the migration system itself wasn't broken; the LLM running the commands had no mechanical gate forcing the output shape. Now the gate is mechanical: validators reject incomplete plans BEFORE `/migration-fast` fires, so the LLM is force-prompted to backfill the missing sections instead of advancing into per-feature audits with a thin plan. Same anti-Trusted-Summary discipline as the other halt-checks in the validator (`check_section_0_evidence`, `check_inventory_primitives_match`, etc.).
+
+**Bug fix during implementation** — caught my own regex bug via unit test: `\|` inside double-quoted bash strings becomes literal pipe under `grep -E`, breaking OR matching. Fixed before sync.
+
 ### Bug fix — apply-anchors.sh leaves stale `<extracted-from-codebase>` placeholders
 
 **Root cause** — three rule source files (`migration-discipline.md`, `concurrency-discipline.md`, `align-discipline.md`) shipped with an upstream **instructional blockquote** (`> Project-specific block — Phase 4.6 fills this in...`) full of `<extracted-from-codebase>` placeholders, plus a downstream `<!-- project-specific:start --> ... <!-- project-specific:end -->` marker block. `scripts/apply-anchors.sh` correctly populated the marker block but did not remove the upstream blockquote, so the placeholders survived into every project that ran `/setup-project --refresh`.

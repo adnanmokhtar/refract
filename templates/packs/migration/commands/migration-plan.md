@@ -52,7 +52,7 @@ This is heavy work; fan out via Explore subagents capped per `--max-subagents`.
 
 ## Phase 4 — Generate (produce the output)
 
-Write `ai/migration/plan.md`:
+Write `ai/migration/plan.md` following this exact structure. **Each MUST-section is a halt condition checked by `validate-migration-artifacts.sh § check_plan_completeness`**:
 
 ```markdown
 # Migration plan — V1 → V2
@@ -70,6 +70,40 @@ Ledger source: ai/migration/ledger.md (revision pinned)
 - Data layer: <V2's ORM / repository pattern>
 - Auth: <V2's auth library>
 - Conventions: <V2's naming + structure rules from ai/conventions.md>
+
+## Cross-cutting audit dimensions (MUST appear before Phase 1)
+
+> Every per-row audit in every phase MUST verify these dimensions in addition to the per-axis enumeration. Stack-conditional — populate from `_extracted-idioms.md`.
+
+- **Tenant-isolation gate** (multi-tenant projects): every query scopes by `tenant_id` (or project equivalent); cross-tenant read = security incident; AsyncLocalStorage / RequestContext token preserved across async boundaries.
+- **Cache-key namespacing** (when Redis / cache primitive present): every cache key includes tenant scope or explicit "global" justification; TTLs match V1; invalidation paths match V1.
+- **Translation parity** (multi-locale projects): for every translatable entity, all V1 locales (e.g., `en`, `ar`, `fr`) port together; `resolveOwnTranslation` / equivalent applied consistently; locale-filtered joins in list queries.
+- **Naming-boundary integrity**: snake_case ↔ camelCase boundary at HTTP/DTO layer (or stack-equivalent); no leakage of V1's case style into V2's domain types.
+- **Audit / soft-delete columns**: every entity preserves V1's audit fields (`created_at`, `updated_by`, `deleted_at`, etc.); base classes match per `_extracted-idioms.md`.
+- **Concurrency primitive parity**: V1's bounded-concurrency choice (e.g., `p-limit`, `Semaphore`, `errgroup`) preserved in V2; sequential→parallel changes ship as documented perf-uplift only, not silent.
+- **Error envelope shape**: V1's exception → response mapping preserved (e.g., `DomainException` → `{ code, message, translationKey }`); no exception class drift mid-port.
+
+> Stack-specific: per-stack packs add their own dimensions (frontend → focus-state, contrast, motion-reduce, layout-shift; backend → idempotency-key, rate-limit headers, OpenAPI parity, log-field naming).
+
+## Heavy-tier promoter rollup (MUST appear before Phase 1)
+
+> Per `migration-discipline.md § Tier classification`, the following rows are PRE-FLAGGED `tier: heavy` so the reviewer-approval flow engages at audit time. Heavy-tier triggers (any one promotes): P0 finding, cross-repo blocker, contract break, write-path mutation, security-sensitive surface, multi-tenant blast radius. Pre-flagging at plan time prevents the "all-trivial-by-default" bias that lets auth/payment/order rows close as trivial.
+
+| Row | Heavy trigger | Reason |
+|---|---|---|
+| F<NNN> auth-login | security + write-path | login mutation + JWT issuance |
+| F<NNN> tenant-auth | security + multi-tenant | tenant-scope leak risk |
+| F<NNN> payment-method | PCI surface | card data + idempotency |
+| F<NNN> order | write-path + revenue | order-create mutation |
+| F<NNN> cart | write-path + revenue | cart pipeline + cross-row consistency |
+| F<NNN> subscription | cron + write-path | billing cron + subscription state |
+| F<NNN> financial-transaction | write-path + audit | money mutation |
+| F<NNN> saved-card | PCI surface | tokenized card storage |
+| F<NNN> security primitives | foundation + security | guards / DDoS / rate-limit |
+| F<NNN> s2s | external-auth | server-to-server credentials |
+| ... | | |
+
+> Audit MUST set `tier: heavy` on every row in this rollup. Trivial-tier closure on these rows = audit halt + tier-promotion required.
 
 ## Phase 1 — Foundation
 **Goal**: every feature in later phases depends on these. Land first; nothing else can audit-pass until they're done.
@@ -121,9 +155,15 @@ Ledger source: ai/migration/ledger.md (revision pinned)
 
 - Every ledger row is assigned a phase (no orphans).
 - Foundation phase has no incoming dependencies from later phases.
+- **Foundation phase 1 includes core primitives** — error-envelope base class, tenant context primitive, cache primitive, audit/soft-delete base, concurrency primitive, locale primitive (per `_extracted-idioms.md § Detected base classes`). A foundation phase that doesn't ship these makes auth/security audits in Phase 1 un-verifiable.
+- **Heavy-tier promoter rollup is present + complete** — every row matching a heavy trigger (auth, payment, order, cart, subscription, financial-transaction, saved-card, security primitives, s2s, cron-write-path, multi-tenant blast radius) appears in the rollup with reason cited. Missing rows = audit halt at execution time.
+- **Cross-cutting audit dimensions section is present** before Phase 1.
+- **`## Actionable next steps` section is present at the end** per `templates/snippets/actionable-next-steps.md` — paste-ready commands routing each gap / heavy-tier row to its receiving command (`/migration-fast N --audit-only`, `/migration-promote-tier`, `/migration-park`, etc.).
 - No phase exceeds `--max-features-per-phase`.
 - Phase exit criteria are measurable (status + parity-test, not vague language).
 - ADR-references resolve (every cited ADR exists in `ai/decisions/`).
+
+`scripts/validate-migration-artifacts.sh § check_plan_completeness` enforces these mechanically.
 
 If any check fails → halt + report.
 

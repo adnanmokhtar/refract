@@ -56,6 +56,25 @@ Optional flags:
 
 Four parallel scans (Explore subagents, capped per `--max-subagents`). **Scans 1–3 walk the FULL navigation tree** — not just top-level routes. Halt #13 in `migration-discipline.md` (Module/page audit missing navigation inventory) depends on this depth.
 
+### Backend / API dir-walk completeness gate (added 2026-05)
+
+For backend projects (`PROJECT_KIND in {backend-*, api-other}`), the "navigation tree" concept maps to **directory tree completeness**. The scan MUST account for every directory containing source code under `v1_root` — every module, submodule, controller cluster, cron handler, queue listener, infrastructure adapter. **This is a HARD HALT**: a V1 directory containing source code that is NOT mapped to either (a) a ledger row OR (b) the scan-report's "umbrella module excluded" list with a stated reason → halts the scan.
+
+Mechanical procedure (run BEFORE writing scan-report):
+
+1. `find $v1_root -type d -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*'` — enumerate every dir.
+2. Filter to dirs containing source files (`*.ts`, `*.js`, `*.py`, `*.go`, `*.rb`, `*.java`, etc. per `_extracted-codebase.md § Stack`).
+3. Cluster sibling subdirs into module roots (e.g., `apps/master/src/account/master-admin/` → module `master-admin`).
+4. For each module root: produce ONE of:
+   - A ledger row `F<NNN>` with `v1_path: <dir>` (the normal case),
+   - An umbrella exclusion entry in scan-report § "V1 umbrella modules (excluded from ledger; structural-only)" with the reason (`reason: structural-only`, `reason: shared-library-no-features`, `reason: build-tooling-only`),
+   - A dead-code entry per the 6-axis check (axes 1-5 zero) → status: `deprecated`.
+5. Emit a count assertion in scan-report: `dir_walk_total: N; mapped_to_rows: M; umbrella_excluded: K; dead_excluded: L; N == M + K + L`.
+
+The scan-report § "V1 structure (detected)" section MUST end with this count assertion. If `M + K + L != N`, halt with the unmapped paths listed.
+
+**Why this matters**: an observed drift class (May 2026) had several V1 directories silently dropped from the ledger because the scan filtered on `.module.ts` (or equivalent module-marker file) presence, and the missed directories had alternative entry-point shapes — HTML/static policies, listener registration via decorator, listener-only sub-clusters under a sibling module, helper-service folders without their own framework module. Pure dir-walk + per-dir source-file presence test catches this; module-marker filtering doesn't.
+
 1. **V1 inventory — DEEP NAV TREE (not just routes)**. Walk every clickable navigation surface, not just top-level routes:
    - Top-level routes (the obvious one — every entry in V1's router config).
    - **In-page tabs** — every instance of the project's tab primitive in V1 templates (concrete tag/component vocabulary varies by stack — see the project's frontend pack rule § Tab patterns). Each tab is a separate inventory entry, not a single "tabs container."
