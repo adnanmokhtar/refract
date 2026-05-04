@@ -6,6 +6,18 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Universal "Actionable next steps" report contract
+
+**Added**
+- **`templates/snippets/actionable-next-steps.md`** (new) — canonical contract every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`) follows. Every `final-report.md` MUST end with a `## Actionable next steps` section: comment line (WHAT + WHY + scope) + exact paste-ready command + sorted by leverage. Closes the dead-end-deferral failure mode where reports list "deferred items" with no routing.
+- **`check_actionable_next_steps`** function added to all 5 validators (`validate-{optimize,polish,align,refactor,migration}-artifacts.sh`). Halts when the section is missing, when commands are outside a bash fence (not paste-ready), or when a `/<command>` line lacks a concrete path / `--scope=<path>` (i.e., hand-wave like `/refactor god files`). Migration accepts ledger-row tokens (`F<NNN>`) in addition to paths.
+- **Per-command flag mapping** in the snippet — names the closure-verb vocabulary each command's actionable lines should cite via `--focus=<verb>` (`refactoring-sweep` 10 verbs for `/refactor`; `ui-design-sweep` 18 verbs for `/polish` frontend; `api-consistency-audit` for `/polish` backend; etc.).
+
+**Changed**
+- **`commands/optimize.md`** + **`commands/polish.md`** + **`commands/align.md`** + **`commands/migrate.md`** + **`commands/refactor.md`** — each gained a "## Final report contract" section pointing at the snippet, plus a "Final report MUST end with paste-ready next steps" rule under Hard rules.
+
+**Why this matters** — without this contract, `/optimize` reports list "275 inline styles deferred" / "5 god files deferred" with no routing; users (and other tools) must manually translate deferrals into the next command. With it, the report ends with paste-ready commands like `/polish src/modules/inventory/` and `/refactor src/modules/orders/pages/OrdersListPage.vue --focus=extract-method` — direct user agency, no translation step.
+
 ### `/polish` frontend specialist — `ui-design-sweep` skill
 
 **Added**

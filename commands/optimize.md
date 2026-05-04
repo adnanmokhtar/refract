@@ -313,10 +313,15 @@ All internal. Just results.
 - Mechanical CI green.
 - Working tree clean (or `--allow-dirty`).
 
+## Final report contract
+
+Every run that produces `ai/optimize/final-report.md` MUST end with an **`## Actionable next steps`** section per `~/.claude/templates/snippets/actionable-next-steps.md`. Every deferred / out-of-scope / "consider doing this" finding gets one paste-ready follow-up command — comment line (WHAT + WHY + scope) + exact command + sorted by leverage. The validator's `check_actionable_next_steps` halts when the section is missing OR when a deferral is described in prose without a corresponding paste-ready command line. Routes deferrals to receivers (`/refactor` for god files with `--focus=<refactoring-sweep verb>`, `/polish` for visual deferrals, `/add-test` / `/add-adr` / `/add-ci` for follow-ups).
+
 ## Hard rules (internal)
 
 Applied silently per the discipline:
 - **Validator gate is mandatory.** *(Mechanical — `validate-optimize-artifacts.sh`: Phase 0 blocks + citations + hand-waves + oracle; ledger + `--strict`.)* After Phase 0 produces `ai/optimize/_architecture-decisions.md`, the agent MUST run `~/.claude/scripts/validate-optimize-artifacts.sh`. The validator halts if the four evidence blocks (Dependency map / Responsibility map / Layer attribution / Detector run) are missing or empty, if detectors report zero modules scanned, if any `### F-A-*` lacks `<path:line>`, or if hand-waves are present (see `validate-optimize-artifacts.sh`: `check_phase_0_blocks_nonempty`, `check_per_finding_citations_phase0`, `check_no_handwaves_file`). **`--strict`** also requires the idioms oracle to be referenced and requires `ai/optimize/ledger.md` for per-row gates. A failed validator forces the diagnosis to be re-emitted. Without this gate, Phase 0 can produce a summary diagnosis instead of an actual scan — the F039 anti-Trusted-Summary recurrence applied to /optimize.
+- **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-optimize-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
 - **Architectural diagnosis ALWAYS runs first**. *(Agent-side orchestration.)* Tactical fixes are skipped on findings that would dissolve under a foundation fix; agent picks the foundation.
 - **Foundation-first ordering**: architectural commits land before tactical commits. The architecture-decisions document records the order + rationale. *(Agent-side.)*
 - Closure verbs from a closed vocabulary (no new abstractions invented; `introduce-abstraction` only applies when ≥3 sites duplicate the same shape). *(Agent-side.)*

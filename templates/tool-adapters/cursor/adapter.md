@@ -243,6 +243,7 @@ This part of the contract did not change. See **§ Translation recipe** above fo
 - **Refactor pack — companion scripts (2026-05):** Include **`validate-refactor-artifacts.sh`** for `/refactor`; see `templates/tool-adapters/_refactor-pack-coverage.md`.
 - **Polish pack — companion scripts (2026-05):** Include **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
 - **Align pack — companion scripts (2026-05):** Include **`validate-align-artifacts.sh`** + **`align-parallel.sh`** for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
+- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands. Validator gate: **`check_actionable_next_steps`** halts when missing or prose-not-args. Hook integration via `.cursor/hooks.json`.
 - `claude-code/adapter.md` — source of rule/command/agent/skill content.
 - `codex/adapter.md` — AGENTS.md (Cursor falls back to this if no `.cursor/rules/`).
 - `ai/references/tool-parity.md` — honest matrix of what's supported vs translated.

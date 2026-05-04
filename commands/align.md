@@ -215,10 +215,15 @@ All internal. Just results.
 - Mechanical CI green.
 - Working tree clean (or `--allow-dirty`).
 
+## Final report contract
+
+Every run that produces `ai/align/final-report.md` MUST end with an **`## Actionable next steps`** section per `~/.claude/templates/snippets/actionable-next-steps.md`. Every deferred / out-of-scope / `halted` row gets one paste-ready follow-up command — comment line (WHAT + WHY + scope) + exact command + sorted by leverage. Routes deferrals to receivers (`/refactor` for code-structure deferrals, `/polish` for visual deferrals, `/add-test` / `/add-adr` for follow-ups, `/align-recheck <area>` for re-detection). The validator's `check_actionable_next_steps` halts when the section is missing OR when a deferral is described without a paste-ready command line.
+
 ## Hard rules (internal)
 
 Applied silently per the discipline:
 - **Validator gate is mandatory.** After scan produces `ai/align/scan-report.md` AND after every per-finding fix lands, the agent MUST run `~/.claude/scripts/validate-align-artifacts.sh`. The validator's `check_scan_report_evidence` halts the run if the scan-report doesn't show per-detector run evidence (≥1 of the 11 universal classes scanned with explicit module count) AND oracle citation. A failed validator forces the scan to be re-emitted with evidence. This catches the Trusted-Summary recurrence where align claims "11 detectors run" without evidence any actually executed.
+- **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-align-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
 - Convention is the truth — no questioning the project's idioms.
 - Closure verbs from the closed vocabulary; no new abstractions invented.
 - Net-lines ≤ 0 for structural alignments.

@@ -2938,6 +2938,51 @@ validate_project_kind_strict() {
   esac
 }
 
+check_actionable_next_steps() {
+  # Per templates/snippets/actionable-next-steps.md: if a final-report.md exists,
+  # it MUST end with an `## Actionable next steps` section containing paste-ready
+  # commands for every halted / parked / deferred row.
+  local report="${1:-ai/migration/final-report.md}"
+  [[ ! -f "$report" ]] && return 0
+
+  if ! grep -qE '^##[[:space:]]+Actionable next steps' "$report"; then
+    log_fail "final-report missing '## Actionable next steps' section at $report — every halted / parked / deferred row MUST be a paste-ready command (see templates/snippets/actionable-next-steps.md)"
+    return 1
+  fi
+
+  local extracted bad=0
+  extracted=$(awk '
+    /^##[[:space:]]+Actionable next steps/ { in_sec=1; next }
+    in_sec && /^##[[:space:]]/ { in_sec=0 }
+    in_sec { print }
+  ' "$report")
+
+  if ! echo "$extracted" | grep -qE '^[[:space:]]*```'; then
+    log_fail "actionable next steps section has no bash fence at $report — commands must be inside \`\`\`bash\`\`\` so they are paste-ready"
+    return 1
+  fi
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*/[a-z-]+ ]] || continue
+    local clean args arg_count
+    clean=$(echo "$line" | sed 's/#.*$//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    args=$(echo "$clean" | cut -s -d' ' -f2-)
+    arg_count=$(echo "$args" | wc -w | tr -d ' ')
+    [[ "$arg_count" == "0" ]] && continue
+    [[ "$arg_count" == "1" ]] && continue
+    if echo "$args" | grep -qE '/|=|--|\.[a-zA-Z]+|F[0-9]+'; then
+      continue
+    fi
+    log_fail "actionable next-step line looks like prose, not a paste-ready command (no path / flag / extension / ledger-id F<NNN> marker): $line"
+    bad=$((bad + 1))
+  done <<< "$extracted"
+
+  [[ $bad -gt 0 ]] && return 1
+  log_pass "final report ends with paste-ready actionable next steps"
+  return 0
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────
 main() {
   load_project_anchors
@@ -2972,6 +3017,8 @@ main() {
     [[ -n "$id" ]] || continue
     validate_feature "$id" "$feature" "$phase" "$status" "$parity_test" "$tier"
   done <<< "$features"
+
+  check_actionable_next_steps "ai/migration/final-report.md" || true
 
   echo
   echo "── Summary ──"

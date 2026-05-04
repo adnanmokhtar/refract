@@ -385,10 +385,15 @@ All internal. Just results.
   - Data: schema introspection access (a connected DB or migration history).
   - Mobile: per-platform build configurations present.
 
+## Final report contract
+
+Every run that produces `ai/polish/final-report.md` MUST end with an **`## Actionable next steps`** section per `~/.claude/templates/snippets/actionable-next-steps.md`. Every deferred / out-of-scope / "consider doing this" finding gets one paste-ready follow-up command — comment line (WHAT + WHY + scope) + exact command + sorted by leverage. The validator's `check_actionable_next_steps` halts when the section is missing OR when a deferral is described in prose without a corresponding paste-ready command line. Each line cites the relevant closure verb via `--focus=<verb>` when applicable (frontend → `ui-design-sweep` 18-verb set; backend → `api-consistency-audit` verbs; data → `schema-consistency-audit` verbs; mobile → `platform-conventions-audit` verbs).
+
 ## Hard rules (internal)
 
 Applied silently per the discipline:
 - **Validator gate is mandatory.** After the stack-conditional audit produces its artifact (`_visual-decisions.md` for frontend / `_api-decisions.md` for backend / `_schema-decisions.md` for data / `_platform-decisions.md` for mobile), the agent MUST run `~/.claude/scripts/validate-polish-artifacts.sh`. The validator dispatches per `PROJECT_KIND` and halts if the stack's required evidence blocks are missing (visual baseline + a11y + design-token for frontend; endpoint registry + OpenAPI + envelope + error contract for backend; schema introspection + migration history + column drift for data; per-platform UI tree + iOS HIG + Material 3 for mobile). A failed validator forces the audit to be re-emitted.
+- **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-polish-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
 - **Conventions are the truth** — design system / API spec / schema / platform spec is the oracle.
 - **Closure verbs from the stack's closed vocabulary** — no ad-hoc inventions.
 - **Behaviour preserved** — frontend: business logic untouched; backend: API contract preserved (rename happens with deprecation flow, not blind rewrite); data: data preserved (renames via reversible migrations + dual-read window).

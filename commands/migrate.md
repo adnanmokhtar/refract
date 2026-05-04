@@ -253,11 +253,16 @@ If a feature genuinely can't be ported (cross-repo dependency, V1 source unreada
 
 For each blocker, the agent suggests the resolution path (e.g., "→ routed to /cross-repo-task" or "→ needs ADR for security boundary change").
 
+## Final report contract
+
+Every run that produces `ai/migration/final-report.md` MUST end with an **`## Actionable next steps`** section per `~/.claude/templates/snippets/actionable-next-steps.md`. Every halted / deferred / parked row gets one paste-ready follow-up command — comment line (WHAT + WHY + ledger row id) + exact command + sorted by leverage. Routes per row state: `halted` rows → `/find-and-fix <id>` or `/port-feature <id> --heavy` per tier; `parked` rows → `/migration-unpark <id>` once blocker clears; cross-repo blockers → `/cross-repo-task <id>`; ADR-required → `/add-adr <feature>-v2-break`. The validator's `check_actionable_next_steps` halts when the section is missing OR when a deferral is described without a paste-ready command line.
+
 ## Hard rules (internal — invisible to user)
 
 The agent applies these silently:
 
 - **Validator gate is mandatory.** After every per-feature audit produces `ai/migration/audits/<feature>.md`, the agent MUST run `~/.claude/scripts/validate-migration-artifacts.sh --feature <feature>`. The validator's `check_section_0_evidence` halts the run if Section 0 (Navigation Inventory) doesn't contain Layer A route extraction + Layer B per-leaf grep evidence + Leaf-set diff table. A failed validator forces the auditor to re-emit the audit with proper evidence — the run cannot advance until evidence is present. This is the canonical anti-Trusted-Summary protection.
+- **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-migration-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
 - **Halt #13 (Navigation Inventory) is non-negotiable.** Layer-A-only scans halt at audit time. Per-leaf template grep on every V1 + V2 leaf component is required.
 - **`check_inventory_primitives_match` is mandatory.** For every audit, the validator runs `extract_inventory_primitives` on V1 + V2 leaf paths and halts when ANY primitive's count differs by > 30% AND the audit doesn't enumerate the gap with `<path:line>` citations in the relevant axis section. Stack-aware via `PROJECT_KIND`: frontend primitives map to "Form fields" / "UI affordances" / "Event handlers" / "Per-button permission gates" axes; backend primitives map to route-handler / DTO / auth-guard / validator / exception-throw axes. PARITY verdicts contradicted by primitive inventory halt unconditionally — the auditor must either re-classify as DRIFT or explain the count drop with citations (e.g., V1 had dead code, fields are legacy).
 - **`check_per_axis_enumeration` (secondary)** still parses axis section headers and halts on hand-wave / shallow `clean` summaries with insufficient citations. LOC ratio is now a backup signal (warns at < 35% with V1 ≥ 400 LOC) — the primary auto-promote driver is primitive-count differential.

@@ -326,6 +326,61 @@ check_net_lines_structural() {
   fi
 }
 
+check_actionable_next_steps() {
+  # Per templates/snippets/actionable-next-steps.md: if a final-report.md exists,
+  # it MUST end with an `## Actionable next steps` section containing paste-ready
+  # commands for every deferred / out-of-scope finding. Halts when the section
+  # is missing OR when a `/<command>` line lacks a concrete path / --scope=<path>.
+  local report="${1:-ai/optimize/final-report.md}"
+  [[ ! -f "$report" ]] && return 0
+
+  if ! grep -qE '^##[[:space:]]+Actionable next steps' "$report"; then
+    log_fail "final-report missing '## Actionable next steps' section at $report — every deferred finding MUST be a paste-ready command (see templates/snippets/actionable-next-steps.md)"
+    return 1
+  fi
+
+  # Extract content under the actionable section, then check each /<command> line
+  # has a path or --scope= argument.
+  local extracted bad=0
+  extracted=$(awk '
+    /^##[[:space:]]+Actionable next steps/ { in_sec=1; next }
+    in_sec && /^##[[:space:]]/ { in_sec=0 }
+    in_sec { print }
+  ' "$report")
+
+  if ! echo "$extracted" | grep -qE '^[[:space:]]*```'; then
+    log_fail "actionable next steps section has no bash fence at $report — commands must be inside ```bash``` so they are paste-ready"
+    return 1
+  fi
+
+  # Per-command-line check: lines starting with / must have a path token (/ in arg) or --scope=
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*/[a-z-]+ ]] || continue
+    # Strip inline comments + leading whitespace, then drop the command word.
+    local clean args arg_count
+    clean=$(echo "$line" | sed 's/#.*$//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    args=$(echo "$clean" | cut -s -d' ' -f2-)
+    arg_count=$(echo "$args" | wc -w | tr -d ' ')
+    # 0 args (bare command, e.g., `/polish`) → intentional whole-project, accept.
+    [[ "$arg_count" == "0" ]] && continue
+    # 1 arg (single token: path / identifier / name, e.g., `/add-adr crossModuleServices`) → accept.
+    [[ "$arg_count" == "1" ]] && continue
+    # 2+ args → reject if it looks like prose (no path / flag / extension markers).
+    if echo "$args" | grep -qE '/|=|--|\.[a-zA-Z]+'; then
+      continue
+    fi
+    log_fail "actionable next-step line looks like prose, not a paste-ready command (no path / flag / extension marker): $line"
+    bad=$((bad + 1))
+  done <<< "$extracted"
+
+  if [[ $bad -gt 0 ]]; then
+    return 1
+  fi
+  log_pass "final report ends with paste-ready actionable next steps"
+  return 0
+}
+
 check_idiom_citation_functional() {
   local id="$1" cls="$2"
 
@@ -450,6 +505,9 @@ main() {
 
   log_section "Findings directory hand-waves"
   scan_findings_handwaves || true
+
+  log_section "Final report — actionable next steps"
+  check_actionable_next_steps "ai/optimize/final-report.md" || true
 
   echo
   echo "── Summary ──"

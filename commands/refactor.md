@@ -81,3 +81,7 @@ Support the same ergonomics as other simple-surface commands where they make sen
 ## Output (brief)
 
 Scope, verbs applied, commits, diff stat, test result, link to `ai/refactor/ledger.md`.
+
+## Final report contract
+
+When `/refactor` writes `ai/refactor/final-report.md` (typically after multi-file runs), the report MUST end with an **`## Actionable next steps`** section per `~/.claude/templates/snippets/actionable-next-steps.md`. Every halted row, every refactor that surfaced an out-of-scope concern (architectural move → `/optimize`, visual concern → `/polish`, missing test → `/add-test`), and every "needs follow-up" gets one paste-ready follow-up command — comment line (WHAT + WHY + scope) + exact command + sorted by leverage. The validator's `check_actionable_next_steps` halts when the section is missing OR when a deferral is described without a paste-ready command line.
