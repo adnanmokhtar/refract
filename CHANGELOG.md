@@ -6,6 +6,33 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/polish` frontend specialist — `ui-design-sweep` skill
+
+**Added**
+- **`templates/packs/ui-ux/skills/ui-design-sweep.md`** (new, ~340 LOC) — closed 18-verb closure vocabulary for the frontend half of `/polish`. Sibling to `refactoring-sweep` (code-quality), `api-consistency-audit` (backend), and `schema-consistency-audit` (data). Per-verb fingerprint + procedure + verify + WCAG / iOS HIG / Material / Refactoring UI citation. The 18 verbs: `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`, `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`, `wire-empty-state`, `wire-loading-state`, `wire-error-state`, `lift-contrast`, `align-focus-ring`, `unify-iconography`, `normalize-motion`, `expand-tap-target`, `unify-cta-placement`, `clarify-affordance`, `normalize-surface`.
+- **`templates/packs/ui-ux/rules/ui-principles.md`** — added "Axis catalog" section: 16 axes (tokens / wrappers / patterns / hierarchy / type-scale / rhythm / density / states / contrast / focus / iconography / motion / tap-target / cta / affordance / surface), each with heuristic + the closure verbs that operate on it. The skill cites this catalog per verb.
+- **`scripts/validate-polish-artifacts.sh`** — new `check_frontend_verb_vocabulary` function rejects any `closure_verb:` outside the closed 18-verb set in `ai/polish/ledger.md` or `_visual-decisions.md`. Mirrors how `validate-refactor-artifacts.sh` enforces refactoring-sweep's 10 verbs.
+- **`templates/packs/ui-ux/_essentials.md`** — `ui-design-sweep` added to the skills minimal-mode list (the closed-verb spec is essential, not optional).
+- **`templates/packs/ui-ux/_topics.md`** — `ui-design-sweep` topic spec added with extraction sources + sections.
+- **`templates/packs/ui-ux/_version.json`** — bumped `1.0.0 → 1.1.0` with summary.
+
+**Changed**
+- **`commands/polish.md` § Frontend (`frontend-*`)** — replaced ad-hoc detector / verb comma-list with reference to `ui-design-sweep`'s closed vocabulary; lists the 18 verbs by axis cluster.
+- **`templates/packs/ui-ux/commands/ui-sweep.md`** — pruned the in-file verb table (was 12 verbs, half overlapping with polish's list); replaced with detector→verb mapping table that cross-references the canonical `ui-design-sweep.md` spec.
+- **`docs/COMMANDS.md`** + **`docs/REFERENCE.md`** — `/polish` row references the 18-verb vocabulary + validator gate.
+- **`templates/tool-adapters/_polish-pack-coverage.md`** — stack-conditional table now lists `ui-design-sweep` as the frontend closure-verb spec; new "Frontend-only — `check_frontend_verb_vocabulary`" validator-gate section enumerates the 18-verb set.
+- **`templates/tool-adapters/_ui-ux-pack-coverage.md`** — `ui-design-sweep` added as a critical skill; capability table extended with `ui-design-sweep` column for all 12 tools (Kimi + Qwen rows added too).
+- **All 12 `templates/tool-adapters/<tool>/adapter.md`** — Polish bullet extended with "frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set". Verb preserved per adapter (Include / Document / Add / Run / Also install / Shell CI should run / installs).
+- **Project sync — `sahlcart/tenant-portal-v2/.claude/`** — `ui-principles.md` gained the Axis catalog section; `skills/ui-design-sweep.md` copied; `commands/polish.md` + `commands/ui-sweep.md` updated to reference the new skill (project-specific marker blocks preserved).
+
+### Adapter coverage — `/polish` + `/align`
+
+**Added**
+- **`templates/tool-adapters/_polish-pack-coverage.md`** (new) — capability mapping, stack-conditional evidence routing (`PROJECT_KIND` → `_visual-decisions.md` / `_api-decisions.md` / `_schema-decisions.md` / `_platform-decisions.md`), validator + `polish-parallel.sh` + `parallel-fan-out.sh --ledger=ai/polish/ledger.md` bundle.
+- **Polish pack — companion scripts (2026-05)** bullet on all **12** `templates/tool-adapters/*/adapter.md` (verb preserved per adapter: Include / Document / Add / Run / Also install / Shell CI should run).
+- **Align pack — companion scripts (2026-05)** bullet on all **12** `templates/tool-adapters/*/adapter.md` (closes prior gap — `_align-pack-coverage.md` shipped, validator existed, but no per-adapter bullet propagated).
+- **`templates/tool-adapters/qwen/adapter.md`** — `_polish-pack-coverage.md` added to the Pack-coverage-docs cross-reference list.
+
 ### `/refactor` command
 
 **Added**

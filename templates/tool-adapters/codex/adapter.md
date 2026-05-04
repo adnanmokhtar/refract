@@ -242,6 +242,8 @@ When all 4 artifact types translate to AGENTS.md, the file can grow past 500 lin
 - **Migration pack — companion scripts (2026-05):** Document in `AGENTS.md` / setup notes that migration users install the **full** script bundle from `claude-config/scripts/` into `~/.claude/scripts/`, not only `validate-migration-artifacts.sh`. Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Document **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** for `/optimize`; see `templates/tool-adapters/_optimize-pack-coverage.md`.
 - **Refactor pack — companion scripts (2026-05):** Document **`validate-refactor-artifacts.sh`** for `/refactor`; see `templates/tool-adapters/_refactor-pack-coverage.md`.
+- **Polish pack — companion scripts (2026-05):** Document **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
+- **Align pack — companion scripts (2026-05):** Document **`validate-align-artifacts.sh`** + **`align-parallel.sh`** for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 - Every other adapter references this one — it writes the shared file.
 - `claude-code/adapter.md` — source of rule content.
 - `gemini/adapter.md` — GEMINI.md is parallel to AGENTS.md for Gemini CLI.

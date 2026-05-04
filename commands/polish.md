@@ -32,13 +32,19 @@ The agent:
 
 ### Frontend (`frontend-*`)
 
-Skills: `a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit` (ui-ux pack).
+**Closure-verb skill (the spec): `ui-design-sweep` (ui-ux pack).** The frontend half of `/polish` operates from this skill's closed 18-verb vocabulary — sibling to `api-consistency-audit` (backend) and `schema-consistency-audit` (data). Per-verb fingerprint + procedure + verify + WCAG / iOS HIG / Material citation lives in the skill; the validator (`scripts/validate-polish-artifacts.sh § check_frontend_verb_vocabulary`) rejects any `closure_verb:` outside this set.
 
-Detectors:
-- visual-hierarchy / spacing-rhythm / hardcoded-design-values / missing-empty-state / missing-loading-skeleton / missing-error-state / cta-placement-drift / density / motion-inconsistency / icon-mismatch / type-scale-drift / color-drift / affordance-clarity / focus-state-missing / responsive-drift / cross-page-consistency
+Detector skills (feed findings into the closure verbs): `design-token-audit` → `consolidate-tokens` / `extract-token`; `motion-audit` → `normalize-motion`; `a11y-quick-check` → `lift-contrast` / `align-focus-ring` / `clarify-affordance` / `expand-tap-target`; `design-iterate` → visual variant generator (used by `--with-iterate`, NOT a closure verb).
 
-Closure verbs:
-- `apply-token`, `extract-token` (propose new token when ≥3 duplicates), `add-empty-state`, `add-loading-skeleton`, `add-error-state`, `unify-cta-placement`, `consolidate-icon`, `apply-type-scale`, `simplify-density`, `clarify-affordance`, `add-focus-animation`, `extract-pattern` (≥5 instance duplicates).
+Axis catalog (16 axes; see `templates/packs/ui-ux/rules/ui-principles.md § Axis catalog` for heuristics): tokens · wrappers · patterns · hierarchy · type-scale · rhythm · density · states · contrast · focus · iconography · motion · tap-target · cta · affordance · surface.
+
+The 18 closure verbs (cross-reference: `templates/packs/ui-ux/skills/ui-design-sweep.md § The 18 closure verbs`):
+- **tokens / wrappers / patterns**: `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`
+- **hierarchy / type / rhythm / density**: `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`
+- **states**: `wire-empty-state`, `wire-loading-state`, `wire-error-state`
+- **contrast / focus**: `lift-contrast`, `align-focus-ring`
+- **iconography / motion / tap-target**: `unify-iconography`, `normalize-motion`, `expand-tap-target`
+- **cta / affordance / surface**: `unify-cta-placement`, `clarify-affordance`, `normalize-surface`
 
 ### Backend (`backend-*`)
 

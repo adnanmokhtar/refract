@@ -127,6 +127,8 @@ Avoids duplicating content across two files.
 - **Migration pack — companion scripts (2026-05):** Rule-only — users run the **full** `claude-config/scripts/` bundle from shell / CI (`migration-doctor.sh`, `migration-reachability.sh`, etc.). See `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Shell CI should run **`validate-optimize-artifacts.sh`** (+ **`optimize-parallel.sh`** as needed); see `templates/tool-adapters/_optimize-pack-coverage.md`.
 - **Refactor pack — companion scripts (2026-05):** Shell CI should run **`validate-refactor-artifacts.sh`** for `/refactor` artifacts; see `templates/tool-adapters/_refactor-pack-coverage.md`.
+- **Polish pack — companion scripts (2026-05):** Shell CI should run **`validate-polish-artifacts.sh`** (+ **`polish-parallel.sh`** as needed) for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+, the closed-verb spec is self-sufficient and inlines into rule-only tools); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
+- **Align pack — companion scripts (2026-05):** Shell CI should run **`validate-align-artifacts.sh`** (+ **`align-parallel.sh`** as needed) for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 - `codex/adapter.md` — AGENTS.md is the content source.
 - `ai/references/models.md` — routing Gemini CLI to non-Google models via OpenAI-compat endpoints.
 - `ai/references/tool-parity.md` — gap matrix.

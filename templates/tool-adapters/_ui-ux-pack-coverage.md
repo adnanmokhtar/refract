@@ -2,10 +2,11 @@
 
 Cross-cuts the tool-adapter registry. Documents how each tool surfaces the UI/UX pack's artifacts when `--include=ui-ux` is selected by `/setup-project` (or auto-included for `frontend-*` projects).
 
-The pack provides three commands and a critical skill:
+The pack provides three commands and two critical skills:
 - `/design-review` — read-only audit (cite-or-halt)
 - `/enhance-ui <description>` — single-area enhancement orchestrator (cleanup → 3 variants → pick → verify)
 - `/ui-sweep [<phase>]` — project-wide UI/UX **specialist** (visual hierarchy, coverage metrics, cross-surface consistency, visual baseline + drift, flow-based phasing, HTML visual report)
+- **`ui-design-sweep` skill (v1.1+)** — closed 18-verb closure vocabulary (sibling to `refactoring-sweep` / `api-consistency-audit` / `schema-consistency-audit`); per-verb fingerprint + procedure + verify + WCAG / iOS HIG / Material citation. The frontend half of `/polish` and the verb-spec `/ui-sweep` + `/enhance-ui` dispatch into. Cited axes live in `ui-principles.md § Axis catalog`.
 - `design-iterate` skill — generates 3 visual variants (style-only) per page
 
 **`--re-audit` flag on `/polish`** — discards `verified`/`done` verdicts in `ai/polish/ledger.md`; re-dispatches the per-surface audit on every row. Use when design system / API conventions / schema / platform spec changed, or you suspect drift on a "complete" polish. Combinable with scope and with `--restart`.
@@ -14,29 +15,31 @@ The pack provides three commands and a critical skill:
 
 **Top-level simple-surface entry — `/polish`** (NOT in this pack — top-level orchestration, sibling to `/migrate` / `/optimize` / `/align`). One command, multi-day workflow, brief output, NO phases / halts / ADRs / variant menus surfaced unless audit explicitly opts in. Whole project or scoped. `/polish` is **stack-conditional** — dispatches different skills per `PROJECT_KIND`:
 
-- `frontend-*` → reuses this pack's skills (`a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit`).
+- `frontend-*` → dispatches **`ui-design-sweep`** (closed 18-verb closure vocabulary — the spec, sibling to backend's `api-consistency-audit`); fed by detector skills `a11y-quick-check`, `design-token-audit`, `motion-audit`, with `design-iterate` as the visual-variant generator (NOT a closure verb). Validator `validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 18-verb set.
 - `backend-*` → dispatches `api-consistency-audit` from the backend pack (envelope / error / pagination / idempotency / log / metric / trace / OpenAPI uniformity).
 - `data-*` → dispatches `schema-consistency-audit` from the database pack (column naming / types / indexes / audit fields / migration patterns / soft-delete / nullability).
 - `mobile-*` → dispatches `platform-conventions-audit` from the mobile pack PLUS reused frontend skills (iOS HIG / Material conformance + frontend polish).
 
 Power users still drop down to `/enhance-ui` (explicit single-area iteration), `/ui-sweep` (HTML report + coverage metrics), or `/design-review` (read-only) when they need finer control.
 
-**`/ui-sweep` is a specialist, not a wrapper.** It has its own 8 deep detectors, 12 UI/UX-specific verbs, quantified coverage metrics, visual baselines, flow-based phasing, and HTML report. Adapters MUST preserve all of these in translation — flattening to "just runs align with UI/UX classes" is forbidden.
+**`/ui-sweep` is a specialist, not a wrapper.** It has its own 8 deep detectors, the 18-verb closure vocabulary from `ui-design-sweep`, quantified coverage metrics, visual baselines, flow-based phasing, and HTML report. Adapters MUST preserve all of these in translation — flattening to "just runs align with UI/UX classes" is forbidden.
 
 ## Capability mapping per tool
 
-| Tool | `/ui-sweep` full | `design-iterate` skill | Visual baseline (Playwright) | HTML report rendering |
-|---|---|---|---|---|
-| Claude Code | ✓ | ✓ (native skill) | ✓ (Playwright MCP) | ✓ (browser-side) |
-| OpenCode | ✓ | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
-| Cursor | ✓ | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
-| Copilot | ✓ | ✓ (native skill) | conditional (if MCP wired) | conditional |
-| Continue | ✓ rule + commands | as prompt template | conditional | partial |
-| Cline / Roo | ✓ rule + workflows | inlined in rule | conditional | partial |
-| Windsurf | ✓ rule + workflows | inlined in rule | conditional | partial |
-| Aider | rule-only | inlined in rule | rule documents manual procedure | NO (markdown summary instead) |
-| Codex | rule-only | inlined in rule | rule documents manual procedure | NO |
-| Gemini CLI | rule-only | inlined in rule | rule documents manual procedure | NO |
+| Tool | `/ui-sweep` full | `ui-design-sweep` skill | `design-iterate` skill | Visual baseline (Playwright) | HTML report rendering |
+|---|---|---|---|---|---|
+| Claude Code | ✓ | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ (browser-side) |
+| OpenCode | ✓ | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
+| Cursor | ✓ | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
+| Copilot | ✓ | ✓ (native skill) | ✓ (native skill) | conditional (if MCP wired) | conditional |
+| Qwen | ✓ | ✓ (native skill) | ✓ (native skill) | conditional | partial |
+| Kimi | ✓ | ✓ (native skill) | ✓ (native skill) | conditional | partial |
+| Continue | ✓ rule + commands | as prompt template | as prompt template | conditional | partial |
+| Cline / Roo | ✓ rule + workflows | inlined in rule | inlined in rule | conditional | partial |
+| Windsurf | ✓ rule + workflows | inlined in rule | inlined in rule | conditional | partial |
+| Aider | rule-only | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO (markdown summary instead) |
+| Codex | rule-only | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
+| Gemini CLI | rule-only | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
 
 **Conclusion**: tools without Playwright MCP support fall back to a manual procedure documented in the rule (the rule is self-sufficient for the detection + verb logic; only the visual-baseline + HTML-report steps require the MCP).
 

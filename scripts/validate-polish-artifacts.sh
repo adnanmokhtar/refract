@@ -28,6 +28,29 @@ FAILURES=()
 log_pass() { TOTAL_PASS=$((TOTAL_PASS + 1)); [[ $QUIET -eq 0 ]] && echo "  ✓ $1"; }
 log_fail() { TOTAL_FAIL=$((TOTAL_FAIL + 1)); FAILURES+=("$1"); echo "  ✗ $1" >&2; }
 
+# Closed UI/UX closure-verb vocabulary from ui-design-sweep.md.
+# Frontend polish findings MUST use one of these verbs (or no verb at all).
+# Verbs not on this list = either (a) an architectural concern routed elsewhere,
+# (b) a code-structure concern (refactoring-sweep), or (c) a 19th-verb invention
+# the skill explicitly forbids. Rejecting them here mirrors the way
+# validate-refactor-artifacts.sh enforces refactoring-sweep's 10-verb set.
+UI_DESIGN_SWEEP_VERBS=(
+  consolidate-tokens extract-token unify-component extract-pattern
+  normalize-hierarchy apply-type-scale tighten-rhythm simplify-density
+  wire-empty-state wire-loading-state wire-error-state
+  lift-contrast align-focus-ring unify-iconography normalize-motion
+  expand-tap-target unify-cta-placement clarify-affordance normalize-surface
+)
+
+is_ui_design_sweep_verb() {
+  local v="$1"
+  local ok
+  for ok in "${UI_DESIGN_SWEEP_VERBS[@]}"; do
+    [[ "$v" == "$ok" ]] && return 0
+  done
+  return 1
+}
+
 check_frontend_evidence() {
   local file="$POLISH_DIR/_visual-decisions.md"
   if [[ ! -f "$file" ]]; then
@@ -53,6 +76,39 @@ check_frontend_evidence() {
     return 1
   fi
   log_pass "frontend polish evidence: 4 blocks present, $cited citations"
+  return 0
+}
+
+check_frontend_verb_vocabulary() {
+  # Frontend polish findings under ai/polish/ledger.md (or _visual-decisions.md
+  # inline rows) must use the ui-design-sweep closed verb set. Mirrors
+  # validate-refactor-artifacts.sh's closure_verb gate.
+  local ledger="$POLISH_DIR/ledger.md"
+  local visual="$POLISH_DIR/_visual-decisions.md"
+  local sources=()
+  [[ -f "$ledger" ]] && sources+=("$ledger")
+  [[ -f "$visual" ]] && sources+=("$visual")
+  [[ ${#sources[@]} -eq 0 ]] && return 0
+
+  local bad=()
+  local total=0
+  local f line verb
+  for f in "${sources[@]}"; do
+    while IFS= read -r line; do
+      verb=$(echo "$line" | sed -E 's/.*closure_verb:[[:space:]]*//; s/[[:space:]#].*//; s/["'"'"']//g')
+      [[ -z "$verb" ]] && continue
+      total=$((total + 1))
+      is_ui_design_sweep_verb "$verb" || bad+=("$f: $verb")
+    done < <(grep -E 'closure_verb:' "$f" 2>/dev/null || true)
+  done
+
+  if [[ ${#bad[@]} -gt 0 ]]; then
+    log_fail "frontend polish uses verbs outside ui-design-sweep closed vocabulary: ${bad[*]} (allowed: ${UI_DESIGN_SWEEP_VERBS[*]})"
+    return 1
+  fi
+  if [[ $total -gt 0 ]]; then
+    log_pass "frontend polish closure_verb vocabulary: $total/$total in ui-design-sweep set"
+  fi
   return 0
 }
 
@@ -171,10 +227,10 @@ main() {
   [[ $QUIET -eq 0 ]] && echo "  POLISH_DIR:   $POLISH_DIR"
 
   case "$PROJECT_KIND" in
-    frontend-*) check_frontend_evidence || true ;;
+    frontend-*) check_frontend_evidence || true; check_frontend_verb_vocabulary || true ;;
     backend-*)  check_backend_evidence  || true ;;
     data-*)     check_data_evidence     || true ;;
-    mobile-*)   check_mobile_evidence || check_frontend_evidence || true ;;
+    mobile-*)   check_mobile_evidence || check_frontend_evidence || true; check_frontend_verb_vocabulary || true ;;
     *)
       log_fail "unknown PROJECT_KIND: $PROJECT_KIND — set in .claude/_extracted-codebase.md § Gold standards"
       ;;

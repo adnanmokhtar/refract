@@ -337,9 +337,11 @@ Adapter contributes a `tool_qwen_invoke` function in `scripts/_parallel-tool-con
 - **Migration pack — companion scripts (2026-05):** Hooks above invoke `validate-migration-artifacts.sh` only — install the **full** script bundle (`migration-doctor.sh`, `migration-reachability.sh`, `migration-detect-existing.sh`, `migrate-parallel.sh`, `parallel-fan-out.sh`) per `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Add **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** for `/optimize`; see `templates/tool-adapters/_optimize-pack-coverage.md`.
 - **Refactor pack — companion scripts (2026-05):** Add **`validate-refactor-artifacts.sh`** for `/refactor`; see `templates/tool-adapters/_refactor-pack-coverage.md`.
+- **Polish pack — companion scripts (2026-05):** Add **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
+- **Align pack — companion scripts (2026-05):** Add **`validate-align-artifacts.sh`** + **`align-parallel.sh`** for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 
 - Adapter registry row: `templates/tool-adapters/_registry.md` (capability matrix).
 - Universal `AGENTS.md` writer: `templates/tool-adapters/codex/adapter.md` (Codex owns; Qwen consumes + appends Qwen-specific content via marker blocks).
 - Discipline enforcement block: `templates/tool-adapters/_discipline-enforcement.md` (Qwen mirrors into `QWEN.md` AND consumes the `AGENTS.md` block).
-- Pack coverage docs: `_migration-pack-coverage.md`, `_align-pack-coverage.md`, `_optimize-pack-coverage.md`, `_refactor-pack-coverage.md`, `_ui-ux-pack-coverage.md` — Qwen sections describe the per-pack file layout.
+- Pack coverage docs: `_migration-pack-coverage.md`, `_align-pack-coverage.md`, `_optimize-pack-coverage.md`, `_refactor-pack-coverage.md`, `_polish-pack-coverage.md`, `_ui-ux-pack-coverage.md` — Qwen sections describe the per-pack file layout.
 - Parallel orchestrator config: `scripts/_parallel-tool-config.sh` — `tool_qwen_invoke` function.

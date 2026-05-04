@@ -58,3 +58,28 @@ Prevents the three failures users punish: confusing labels, broken keyboard nav,
 - Storybook + `@storybook/addon-a11y` for component-level audits.
 - Lighthouse CI budget on a11y score (≥ 95) gating PRs.
 - Visual regression via Playwright / Chromatic on critical pages.
+
+## Axis catalog (cited by `ui-design-sweep` closure verbs)
+
+The skill `ui-design-sweep.md` operates from a closed vocabulary of 18 verbs; each verb closes a finding on ONE of these axes. This catalog is the single source of truth — when a tool reports "design-token drift" or "hierarchy violation", it cites the axis name from this list.
+
+| Axis | Heuristic | Closure verbs that operate on it |
+|---|---|---|
+| **tokens** | Every conceptual value (color / spacing / radius / shadow / type / motion) lives in `_extracted-idioms.md § Tokens`; literals in components are drift. | `consolidate-tokens`, `extract-token` |
+| **wrappers** | A shared wrapper exists for every recurring component shape; raw HTML / library components used where a wrapper exists is drift. | `unify-component` |
+| **patterns** | ≥5 instances of the same affordance pattern means the wrapper is missing and should be extracted. | `extract-pattern` |
+| **hierarchy** | Exactly one primary action per screen (visually dominant); heading levels descend without skips; primary-action prominence ≥ 80 score. | `normalize-hierarchy` |
+| **type-scale** | Every `font-size` matches a declared scale step (no `17.5px` when scale is `12 / 14 / 16 / 18 / 20 / 24 / 32 / 48`). | `apply-type-scale` |
+| **rhythm** | Every margin / padding / gap is a multiple of the spacing-token base (typically 4 or 8 px). | `tighten-rhythm` |
+| **density** | A single surface uses one density (compact / cozy / comfortable); density chosen for context (admin → compact, marketing → comfortable). | `simplify-density` |
+| **states** | Every async surface renders a specific empty / loading / error state; data + spinner never simultaneous (no CLS). | `wire-empty-state`, `wire-loading-state`, `wire-error-state` |
+| **contrast** | Body text ≥ 4.5:1, large text + UI components ≥ 3:1 (WCAG 2.2 AA), at every interactive state (default / hover / focus / disabled). | `lift-contrast` |
+| **focus** | Every interactive element has visible `:focus-visible` ring with ≥ 3:1 contrast; never `outline: none` without replacement. | `align-focus-ring` |
+| **iconography** | One canonical icon set per project (no Heroicons + Material + FontAwesome mixed). | `unify-iconography` |
+| **motion** | Animation duration + easing comes from motion tokens; respects `prefers-reduced-motion`; targets `transform` / `opacity` (no layout-thrash). | `normalize-motion` |
+| **tap-target** | Every interactive element ≥ 44×44 CSS px at mobile breakpoint (WCAG 2.5.5 / iOS HIG / Material 48dp). | `expand-tap-target` |
+| **cta** | Primary CTA position is canonical per surface type (list / detail / form / modal). | `unify-cta-placement` |
+| **affordance** | Action elements LOOK interactive (hover / focus / cursor); icon-only has `aria-label`; disabled buttons explain WHY. | `clarify-affordance` |
+| **surface** | Each page matches the prototypical example for its surface type (list / detail / form / modal); divergent skeletons are drift. | `normalize-surface` |
+
+Any UI/UX finding NOT on this catalog is either (a) an architectural concern (route to `architectural-diagnosis`), (b) a code-structure concern (route to `refactoring-sweep` / `align-recheck`), or (c) outside scope — halt and surface, do not invent a 17th axis.

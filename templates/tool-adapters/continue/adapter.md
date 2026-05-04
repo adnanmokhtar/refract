@@ -241,6 +241,8 @@ Continue has no lifecycle hooks. Fallbacks:
 - **Migration pack — companion scripts (2026-05):** Install the **full** `claude-config/scripts/` bundle into `~/.claude/scripts/` for pre-commit / CI (not only `validate-migration-artifacts.sh`). See `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Add **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** for `/optimize`; see `templates/tool-adapters/_optimize-pack-coverage.md`.
 - **Refactor pack — companion scripts (2026-05):** Add **`validate-refactor-artifacts.sh`** for `/refactor`; see `templates/tool-adapters/_refactor-pack-coverage.md`.
+- **Polish pack — companion scripts (2026-05):** Add **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
+- **Align pack — companion scripts (2026-05):** Add **`validate-align-artifacts.sh`** + **`align-parallel.sh`** for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 - `claude-code/adapter.md` — rules source.
 - `ai/references/models.md` — Kimi/local routing via Continue's `models:` block.
 - `ai/references/tool-parity.md` — gap disclosure.

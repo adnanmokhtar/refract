@@ -90,4 +90,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { primary_frontend_framework_detected: true }
   sections: [when_to_use, procedure, inputs, outputs, failure_modes]
   fallback: skills/a11y-quick-check.md
+
+- name: ui-design-sweep
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice / Breakpoints + ui-principles.md § Axis catalog
+  sections: [purpose, when_to_use, inputs, outputs, the_18_closure_verbs, procedure, hard_rules, failure_modes]
+  fallback: skills/ui-design-sweep.md
+  cite_evidence: strict
 ```

@@ -152,24 +152,23 @@ Compares against the prior baseline (if exists). Surfaces:
 
 ## UI/UX-specific verb taxonomy
 
-Beyond align's 21 verbs, `/ui-sweep` adds:
+`/ui-sweep` dispatches the closed 18-verb vocabulary defined in **`templates/packs/ui-ux/skills/ui-design-sweep.md`** — the same skill `/polish` (frontend), `/enhance-ui`, and `/align-recheck` use. Per-verb fingerprint / procedure / verify / WCAG-iOS-HIG-Material citation live in the skill; this command does not redefine them.
 
-| Verb | What it does | Class |
-|---|---|---|
-| `consolidate-tokens` | Replace N hardcoded values with 1 token (e.g., 5 shades of blue → `$primary` / `$primary-light` / etc.). Affects ALL hardcoded sites for that color/spacing in one fix. | tokens |
-| `unify-component` | Swap raw HTML / raw library component for shared wrapper across all eligible sites. Higher-leverage than per-site `replace-with-shared`. | utilization |
-| `normalize-hierarchy` | Adjust font-weight / color-contrast / size to bring primary action prominence above threshold. | hierarchy |
-| `wire-empty-state` | Add empty-state UI to a data-fetching component. | ui-state |
-| `wire-loading-state` | Add loading skeleton / spinner. | ui-state |
-| `wire-error-state` | Add error UI + retry affordance. | ui-state |
-| `add-mobile-affordance` | Increase tap-target size / fix touch interactions. | responsive |
-| `fix-responsive` | Resolve layout collapse / horizontal-scroll at small breakpoints. | responsive |
-| `normalize-surface` | Bring an outlier page in line with the prototypical example for its surface type. | consistency |
-| `unify-iconography` | Replace mixed icon sets with the project's chosen set. | language |
-| `normalize-typography` | Replace off-scale font-sizes with scale tokens. | language |
-| `tighten-rhythm` | Adjust vertical spacing to match the project's spacing rhythm. | language |
+Detector → verb mapping (this command's 8 detectors → ui-design-sweep's verbs):
 
-These verbs operate at scale — `consolidate-tokens` typically touches 20–50 sites in one fix, vs align's per-site `replace-with-shared`.
+| `/ui-sweep` detector | `ui-design-sweep` verbs dispatched |
+|---|---|
+| 1. Visual hierarchy | `normalize-hierarchy` |
+| 2. Component utilization | `unify-component`, `extract-pattern` |
+| 3. Token coverage | `consolidate-tokens`, `extract-token` |
+| 4. Cross-surface consistency | `normalize-surface` |
+| 5. UI-state coverage | `wire-empty-state`, `wire-loading-state`, `wire-error-state` |
+| 6. Responsive matrix | `expand-tap-target`, `unify-cta-placement` |
+| 7. Design-language coherence | `apply-type-scale`, `tighten-rhythm`, `simplify-density`, `unify-iconography`, `normalize-motion` |
+| 8. Visual baseline + drift | (no fix verbs — diff-only; surfaces drift, the fix verb is decided per finding) |
+| (a11y axis cross-cutting) | `lift-contrast`, `align-focus-ring`, `clarify-affordance` |
+
+These verbs operate at scale — `consolidate-tokens` typically touches 20–50 sites in one fix, vs align's per-site `replace-with-shared`. `validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 18-verb set.
 
 ## Phasing strategy — by USER FLOW
 
@@ -380,6 +379,7 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 - `/align-scan` — structural quality (orthogonal to this command).
 
 ### Skills
+- `ui-design-sweep` — closed 18-verb closure vocabulary (the spec this command's 8 detectors dispatch into).
 - `design-iterate` — visual variant generator (dispatched with --with-iterate).
 - `verify-with-playwright` — screenshots + DOM analysis (required infra).
 - `a11y-scan` — a11y subset (this command's a11y goes deeper but uses the skill's primitives).

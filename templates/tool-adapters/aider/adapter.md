@@ -227,6 +227,8 @@ These cover `post-edit-check.sh` use case. For everything else (pre-edit guards,
 - **Migration pack — companion scripts (2026-05):** Rule-only tools rely on shell CI — install the **full** `claude-config/scripts/` bundle into `~/.claude/scripts/` (validator + doctor + reachability + parallel helpers). Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Include **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** for `/optimize`; see `templates/tool-adapters/_optimize-pack-coverage.md`.
 - **Refactor pack — companion scripts (2026-05):** Include **`validate-refactor-artifacts.sh`** for `/refactor`; see `templates/tool-adapters/_refactor-pack-coverage.md`.
+- **Polish pack — companion scripts (2026-05):** Include **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally enforced by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
+- **Align pack — companion scripts (2026-05):** Include **`validate-align-artifacts.sh`** + **`align-parallel.sh`** for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 - `claude-code/adapter.md` — rules source.
 - `ai/references/models.md` — Kimi + local model routing through Aider.
 - `ai/references/tool-parity.md` — what's not replicable in Aider.

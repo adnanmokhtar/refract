@@ -222,6 +222,8 @@ OpenCode has no lifecycle hooks. Fallbacks:
 - **Migration pack — companion scripts (2026-05):** OpenCode has no hooks — run the **full** script bundle from the shell / CI (`validate-migration-artifacts.sh`, `migration-doctor.sh`, `migration-reachability.sh`, etc.). Canonical list: `templates/tool-adapters/_migration-pack-coverage.md` § **Companion scripts (2026-05)**.
 - **Optimize pack — companion scripts (2026-05):** Run **`validate-optimize-artifacts.sh`** + **`optimize-parallel.sh`** from shell/CI; see `templates/tool-adapters/_optimize-pack-coverage.md`.
 - **Refactor pack — companion scripts (2026-05):** Run **`validate-refactor-artifacts.sh`** for `/refactor` ledger rows; see `templates/tool-adapters/_refactor-pack-coverage.md`.
+- **Polish pack — companion scripts (2026-05):** Run **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** from shell/CI for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
+- **Align pack — companion scripts (2026-05):** Run **`validate-align-artifacts.sh`** + **`align-parallel.sh`** from shell/CI for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 
 - `codex/adapter.md` — AGENTS.md format lives there.
 - `claude-code/adapter.md` — source of rules content.
