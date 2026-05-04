@@ -301,6 +301,8 @@ All internal. Just results.
 ## Optional flags
 
 - `--dry-run` — show what would be optimized, no edits.
+- `--strict` — forwarded to **`validate-optimize-artifacts.sh`**: Phase 0 must reference `_extracted-idioms.md`; **`ai/optimize/ledger.md`** required for full per-row gates.
+- `--quiet` — forwarded to **`validate-optimize-artifacts.sh`** (`-q`) when invoking the validator from hooks / CI.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--max-parallel=<N>` — cap concurrent dispatch (default: 5).
 - `--focus=<list>` — narrow to specific concerns (e.g., `--focus=performance,dead-code`). Default: all classes.

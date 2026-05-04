@@ -63,7 +63,7 @@ Mechanical checks (install to `~/.claude/scripts/`):
 - Terminal statuses (`verified` / `done` / `fixed`): `gaps_in == gaps_closed`.
 - Frontend rows additionally pass `check_frontend_verb_vocabulary`.
 
-Flags: `--strict`, `--quiet`, `--ledger=`, `--polish-dir=`.
+Env / overrides: `QUIET=1`, `POLISH_DIR=ai/polish`, `PROJECT_KIND=…` (script does not parse `--strict`; failures are blocking).
 
 ## Companion scripts (2026-05) — install the **full** bundle
 

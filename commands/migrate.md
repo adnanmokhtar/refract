@@ -49,6 +49,8 @@ Examples:
 
 ## What happens internally
 
+**Discipline:** MUST read [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) before generating or refactoring ported code (clean-code + SOLID pointer). Stack-specific migration rules live in `migration-discipline.md` / pack rules after `/setup-project`.
+
 The agent does ALL of this silently — you don't see it:
 
 1. **Scan** — reads V1 + V2 source for the scope. Builds a feature inventory + dead-code reachability check (skips dead V1 code per discipline). Handles deep nav tree (tabs, sub-tabs, modal-shell tabs — not just routes). For each leaf-component pair, run the validator's `extract_inventory_primitives <file> <PROJECT_KIND>` helper to extract a stack-aware structural inventory: counts of form fields, dropdowns, buttons, click handlers, permission gates, tabs, route definitions, conditional renders (frontend); route handlers, DTO classes, auth guards, validators, service methods, exception throws, db queries, event emissions (backend); table definitions, foreign keys, indexes, constraints, migration files (data); screen counts, text inputs, navigation routes, native bridge calls, platform branches (mobile). The PROJECT_KIND from `_v2-anchors.md` selects the right primitive set automatically. Tier promoter: if ANY primitive's V2 count is < 70% of V1's count (V1 ≥ 5 instances), auto-promote tier from `trivial` → `standard`. Primitive-count differential is a stronger signal than raw LOC ratio because it tracks meaningful structure (a verbose V1 file with the same field count as V2 is parity, not drift).

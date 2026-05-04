@@ -468,17 +468,17 @@ This is the user's manual override / safety check + the "I just want this area c
 The 5-step per-finding loop (mirrors `find-and-fix` for migration):
 
 1. **DETECT** — re-verify the fingerprint at evidence lines is still present. (Findings can age out.)
-2. **DECIDE** — confirm closure verb is in the 16-verb vocabulary; confirm fix is appropriate to row's class; for functional verbs, confirm `idiom_cited` resolves.
+2. **DECIDE** — confirm closure verb is in the 21-verb vocabulary; confirm fix is appropriate to row's class; for functional verbs, confirm `idiom_cited` resolves.
 3. **FIX** — apply the verb's edit. Touch only files in `scope`. Net-lines ≤ 0 for structural rows; small + budget for functional rows (added lines must cite the row's `idiom_cited`).
 4. **VERIFY** — universal: lint + typecheck + scoped tests + re-detect + coverage non-decreasing. Class-specific: security assertion (gate denies / validator rejects / escape neutralises) for security rows; perf baseline + assertion for perf rows; a11y / visual / bundle-size for frontend UI/UX rows.
 5. **RECORD** — update ledger row (`status: fixed`, `commit`, `gaps_closed`, `notes`); commit (one finding = one commit).
 
-### Closure-verb vocabulary (16 verbs)
+### Closure-verb vocabulary (21 verbs)
 
 | Group | Verbs |
 |---|---|
 | Structural (5) | `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared` |
-| Functional (11) | `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename` |
+| Functional (16) | `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename` |
 
 A verb outside this list = NOT alignment. Route to [`/refactor`](../commands/refactor.md) / `/setup-project --refine` / a feature flow.
 

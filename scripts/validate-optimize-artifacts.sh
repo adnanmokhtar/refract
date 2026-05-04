@@ -27,7 +27,10 @@ export LC_ALL=C
 ARCH_ARTIFACT="${ARCH_ARTIFACT:-ai/optimize/_architecture-decisions.md}"
 LEDGER_PATH="${LEDGER_PATH:-ai/optimize/ledger.md}"
 FINDINGS_DIR="${FINDINGS_DIR:-ai/optimize/findings}"
+# At least one convention oracle (matches commands/optimize.md pre-requisites).
 ORACLE_IDIOMS=".claude/_extracted-idioms.md"
+ORACLE_PROFILE=".claude/codebase-profile.md"
+ORACLE_PROFILE_ROOT="codebase-profile.md"
 
 STRICT=0
 QUIET=0
@@ -237,18 +240,25 @@ check_no_handwaves_file() {
 }
 
 check_oracle_present() {
-  if [[ ! -f "$ORACLE_IDIOMS" ]]; then
-    log_fail "idioms oracle MISSING at $ORACLE_IDIOMS — run /setup-project --refine"
+  local oracle_path=""
+  if [[ -f "$ORACLE_IDIOMS" ]]; then
+    oracle_path="$ORACLE_IDIOMS"
+  elif [[ -f "$ORACLE_PROFILE" ]]; then
+    oracle_path="$ORACLE_PROFILE"
+  elif [[ -f "$ORACLE_PROFILE_ROOT" ]]; then
+    oracle_path="$ORACLE_PROFILE_ROOT"
+  else
+    log_fail "convention oracle MISSING — need $ORACLE_IDIOMS, $ORACLE_PROFILE, or $ORACLE_PROFILE_ROOT — run /setup-project --refine"
     return 1
   fi
-  log_pass "idioms oracle present at $ORACLE_IDIOMS"
+  log_pass "convention oracle present at $oracle_path"
 
   if [[ $STRICT -eq 1 ]]; then
-    if ! grep -qE '_extracted-idioms|\.claude/_extracted-idioms' "$ARCH_ARTIFACT" 2>/dev/null; then
-      log_fail "[strict] Phase 0 doc must reference _extracted-idioms.md (discipline oracle)"
+    if ! grep -qE '_extracted-idioms|codebase-profile|\.claude/_extracted-idioms' "$ARCH_ARTIFACT" 2>/dev/null; then
+      log_fail "[strict] Phase 0 doc must reference _extracted-idioms.md or codebase-profile (discipline oracle)"
       return 1
     fi
-    log_pass "[strict] Phase 0 references idioms oracle"
+    log_pass "[strict] Phase 0 references discipline oracle"
   fi
   return 0
 }

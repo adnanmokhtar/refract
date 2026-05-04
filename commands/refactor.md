@@ -57,9 +57,17 @@ Any other verb (e.g. `parallelize`, `split-god-module`, `centralize-cross-cuttin
 
 | File | Role |
 |------|------|
-| `ai/refactor/progress.md` | Session / area notes (optional; lighter than optimize) |
+| `ai/refactor/progress.md` | Session / area notes (optional; lighter than `/optimize`) |
 | `ai/refactor/ledger.md` | Row state machine for multi-step refactors |
 | `ai/refactor/findings/<id>.md` | Per-row evidence |
+
+`/refactor` does **not** run the multi-day “inventory → pending areas → pick next” workflow used by `/migrate`, `/optimize`, `/align`, and `/polish`. Default scope is **git-changed paths**; whole-repo structural work belongs to **`/optimize`**.
+
+## Pre-requisites
+
+- `_extracted-idioms.md` OR `codebase-profile.md` populated (sibling patterns + oracle).
+- Mechanical CI green (lint, typecheck, tests) before starting.
+- Working tree: prefer clean; **`--allow-dirty`** to proceed with local edits.
 
 ## When to use
 
@@ -74,14 +82,61 @@ Any other verb (e.g. `parallelize`, `split-god-module`, `centralize-cross-cuttin
 - V1→V2 port → **`/migrate`**.
 - New feature / bug fix → **`/add-feature`** / **`/fix-bug`**.
 
-## Flags (optional; mirror optimize where applicable)
+## Optional flags
 
-Support the same ergonomics as other simple-surface commands where they make sense: `--dry-run`, `--status`, `--resume`, `--allow-dirty`. Project-specific tuning stays in pack overlays.
+**User-facing**
 
-## Output (brief)
+- `--dry-run` — show planned edits; no writes.
+- `--allow-dirty` — proceed with uncommitted changes.
+- `--status` — read-only session / ledger summary when supported by the runner.
+- `--resume` — continue an in-progress refactor when supported by the runner.
 
-Scope, verbs applied, commits, diff stat, test result, link to `ai/refactor/ledger.md`.
+**Validator / CI** (passed through to `validate-refactor-artifacts.sh` when invoking the gate)
+
+- `--strict` — treat warnings as failures where applicable.
+- `--quiet` / `-q` — minimal output.
+- `--phase-base=<git-ref>` — git range for net-lines checks on `refactoring` rows.
+- `--ledger=<path>` / `--findings-dir=<path>` — override default `ai/refactor/ledger.md` and `ai/refactor/findings/`.
+
+**Not supported on `/refactor`** (multi-area orchestration belongs to **`/optimize`** / **`/align`** / **`/polish`** / **`/migrate`): `--refresh`, `--re-audit`, `--ignore-ledger`, `--restart`, `--reset`, `--max-parallel`, `--exclude`, `--surface-blockers`. Pack overlays may document extra toggles.
+
+## What you see (output)
+
+```
+Refactor complete
+
+Scope:               src/orders/service.ts (or git-changed paths)
+Verbs:               extract-method ×2, rename ×1
+Commits:             3
+Diff:                +42 / -38 = +4 lines
+Tests:               84/84 passing
+Ledger:              ai/refactor/ledger.md
+
+Next: review commits  OR  /optimize the module if architectural work surfaced
+```
+
+## Failure modes
+
+- **Empty default scope** (no git-changed files and no `<scope>`) → halt; pass an explicit path or use `/optimize` for broad sweeps.
+- **Validator failure** → fix ledger / findings / final-report per script output; re-run gate.
+- **Breaking API change required** → halt; split to a dedicated PR + ADR — not a pure `/refactor`.
+
+## Hard rules (internal)
+
+Applied silently:
+
+- **Validator gate is mandatory.** After edits, run `~/.claude/scripts/validate-refactor-artifacts.sh`. Enforces `closure_verb` ∈ 10 refactoring-sweep verbs, gap-count parity for terminal rows, optional net-lines check with `--phase-base`, hand-wave scan on findings, and **`## Actionable next steps`** in `ai/refactor/final-report.md` when that file exists.
+- **Only refactoring-sweep verbs** in `ai/refactor/ledger.md` — route architectural / perf / convention classes to `/optimize` or `/align`.
+- **Behaviour-preserving** unless user explicitly accepts breaking change + ADR.
+- **One discrete edit cluster per commit** where practical; tests stay green; coverage must not drop.
 
 ## Final report contract
 
 When `/refactor` writes `ai/refactor/final-report.md` (typically after multi-file runs), the report MUST end with an **`## Actionable next steps`** section per `~/.claude/templates/snippets/actionable-next-steps.md`. Every halted row, every refactor that surfaced an out-of-scope concern (architectural move → `/optimize`, visual concern → `/polish`, missing test → `/add-test`), and every "needs follow-up" gets one paste-ready follow-up command — comment line (WHAT + WHY + scope) + exact command + sorted by leverage. The validator's `check_actionable_next_steps` halts when the section is missing OR when a deferral is described without a paste-ready command line.
+
+## Related (advanced)
+
+- **`/optimize`** — architectural diagnosis + tactical sweep + whole-repo quality; use when `/refactor` is too narrow or work spans modules.
+- **`/align`** — convention / idiom drift only (align closure verbs), not extract/rename focused refactors.
+- **Pack overlays** — `templates/packs/<track>/commands/refactor.md` after `/setup-project`.
+- **`refactoring-sweep`** skill — full procedure for the 10 verbs.

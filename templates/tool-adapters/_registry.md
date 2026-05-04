@@ -45,6 +45,8 @@ The 12 commands at this repo's `commands/` are split into two groups:
 
 This is a deliberate split, not adapter drift. Any future adapter that gains parallel-agent dispatch becomes a candidate to add the simple-surface group as native slash commands.
 
+**Adapter sync:** When documenting validators, hooks, or canonical `ai/` paths in any **`templates/tool-adapters/<tool>/adapter.md`**, cross-reference **`templates/tool-adapters/_orchestration-sync.md`** so Codex / Cursor / rule-only tools stay aligned with `commands/*.md` (migrate progress exception, optimize oracle fallbacks, align 21-verb vocabulary, polish `QUIET` env, `/refactor` vs inventory flags).
+
 ### Parallel orchestrator scripts (close the gap externally)
 
 For tools without native parallel sub-agent dispatch (Kimi, Aider, Codex, OpenCode partially), the repo ships shell-script orchestrators at `scripts/*-parallel.sh` that fan out per-row CLI invocations. Each worker is a separate headless tool process; coordination is via the ledger file with file locks. **`parallel-fan-out.sh`** wraps workers and **flocks** a ledger file — pass **`--ledger=ai/<pack>/ledger.md`** so the lock matches the pack (default remains `ai/migration/ledger.md` when omitted); `LEDGER_LOCK=""` disables flock. Wrapper scripts (`migrate-parallel.sh`, `optimize-parallel.sh`, etc.) forward **`--ledger`** automatically. **`migrate-parallel.sh`** / **`optimize-parallel.sh`** parse fenced YAML rows beginning with **`id: <token>`** plus **`status:`** / **`state:`**.

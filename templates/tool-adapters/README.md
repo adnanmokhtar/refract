@@ -143,7 +143,9 @@ When you change pack commands, snippets, or governance files under `templates/`,
 
 Some packs define their own discipline that every adapter must preserve faithfully. These packs ship a coverage doc that explains the per-tool translation expectations:
 
+- [`_orchestration-sync.md`](_orchestration-sync.md) — **cross-cutting:** simple-surface commands (`/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`), validator oracle paths, hook globs, `/refactor` vs inventory commands. Reference from every `<tool>/adapter.md` Cross-references block.
 - [`_migration-pack-coverage.md`](_migration-pack-coverage.md) — V1→V2 migration (per-feature port discipline, parity-auditor, migration-fast).
+- [`_optimize-pack-coverage.md`](_optimize-pack-coverage.md), [`_polish-pack-coverage.md`](_polish-pack-coverage.md), [`_refactor-pack-coverage.md`](_refactor-pack-coverage.md) — top-level orchestration validators + parallel runners.
 - [`_align-pack-coverage.md`](_align-pack-coverage.md) — codebase quality gate (alignment scan, per-finding fix loop, align-fast). Covers structural drift, SOLID, clean code, performance, security, and stack-specific UI/UX (a11y / design tokens / i18n / motion for `frontend-*`).
 - [`_ui-ux-pack-coverage.md`](_ui-ux-pack-coverage.md) — UI/UX specialist work (`/ui-sweep`, `/enhance-ui`, `/design-review`, `design-iterate` skill). Goes beyond align: visual hierarchy, quantified coverage metrics, cross-surface consistency, visual baseline + drift, flow-based phasing, HTML visual report. Adapters MUST preserve specialist depth (no downgrade to "thin align wrapper").
 

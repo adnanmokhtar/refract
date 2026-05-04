@@ -65,7 +65,7 @@ Examples:
 1. **Scan** — runs convention detectors: drift (vs `ai/conventions.md` / `ai/architecture.md`), reinvented-wrapper, silent-catch. Plus stack-conditional UI/UX detectors for `frontend-*` (a11y, design-token-drift, i18n-key-drift, raw-library-component, lifecycle-hook-wrong, default-true-prop, permission-gate-drop).
 2. **Resolve scope** — semantic resolution.
 3. **Plan internally** — group by class + page/domain (UI/UX findings group by page; structural by class).
-4. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Closure verbs are mechanical: `replace-with-shared`, `remove`, `dedupe`, `add-gate` (for missing auth gates), `escape` (for unescaped user output).
+4. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Closure verbs are mechanical — **only** from the closed **21-verb** set (5 structural + 16 functional) in [`templates/packs/align/rules/align-discipline.md`](../templates/packs/align/rules/align-discipline.md) § Closure-verb vocabulary / procedures (examples: `replace-with-shared`, `remove`, `dedupe`, `add-gate`, `escape`).
 5. **Verify continuously** — lint + typecheck + scoped tests + (frontend) a11y check + bundle-size after each fix.
 6. **Self-resolve common questions** — convention is the truth. Project's idiom inventory (`_extracted-idioms.md` / `codebase-profile.md`) is the oracle. No "is this the right pattern" prompts.
 7. **Halt only on genuine blockers**:
@@ -203,6 +203,8 @@ All internal. Just results.
 ## Optional flags
 
 - `--dry-run` — show what would be aligned, no edits.
+- `--strict` — forwarded to **`validate-align-artifacts.sh`**: treat warnings as failures where applicable.
+- `--quiet` — forwarded to **`validate-align-artifacts.sh`** (`--quiet`) when invoking the validator from hooks / CI.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--max-parallel=<N>` — cap concurrent dispatch (default: 5).
 - `--focus=<list>` — narrow to specific drift classes (e.g., `--focus=design-token-drift,a11y-violation`).

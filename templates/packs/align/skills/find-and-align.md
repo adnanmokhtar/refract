@@ -103,7 +103,7 @@ Plus side effects:
 
 ### Step 2: DECIDE — confirm closure verb is mechanical-or-tested
 
-1. Confirm closure verb ∈ vocabulary (16 verbs across structural + functional groups).
+1. Confirm closure verb ∈ vocabulary (21 verbs across structural + functional groups).
 2. Confirm fix is appropriate to row's class:
    - Structural classes (dead-code, dups, reinvented, silent-catch, over-abstraction, drift) use structural verbs (`remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared`); behaviour MUST be preserved.
    - Functional classes (SOLID, clean-code, performance, security) use functional verbs; behaviour may change intentionally for security / perf — the change is documented + tested in the same commit.

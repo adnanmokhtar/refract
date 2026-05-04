@@ -21,7 +21,7 @@ The align pack is **non-negotiable** in the same sense the migration pack is —
 | Codex | rule only | full reliance on self-sufficient rule |
 | Gemini | rule only | full reliance on self-sufficient rule |
 
-**Conclusion**: every tool MUST receive a faithful translation of `align-discipline.md` (the self-sufficient rule). The 11 finding categories, 16-verb closure vocabulary, 11 per-finding audit halts, 14-check phase-exit gate, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate) are all inlined in the rule precisely so rule-only tools have the full surface.
+**Conclusion**: every tool MUST receive a faithful translation of `align-discipline.md` (the self-sufficient rule). The 11 finding categories, 21-verb closure vocabulary, 11 per-finding audit halts, 14-check phase-exit gate, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate) are all inlined in the rule precisely so rule-only tools have the full surface.
 
 The align pack ships **no agents** (unlike migration). All detection is delegated to the `detect-drift` skill (which itself dispatches existing agents from `code-quality/`, `security/`, `frontend/`, `ui-ux/` packs). This simplifies adapter coverage — every tool that supports rules + skills gets the full surface.
 
@@ -210,7 +210,7 @@ The script implements 14 checks:
 
 When an adapter ships the align pack:
 
-1. **MUST translate the rule** (`align-discipline.md`) faithfully — including the inlined 11 finding categories, 16-verb closure vocabulary, 11 per-finding audit halts, 14 phase-exit checks, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate). Do NOT abridge.
+1. **MUST translate the rule** (`align-discipline.md`) faithfully — including the inlined 11 finding categories, 21-verb closure vocabulary, 11 per-finding audit halts, 14 phase-exit checks, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate). Do NOT abridge.
 2. **MUST translate or document skills** (`detect-drift`, `find-and-align`) to the tool's native format if supported. If not supported, document in the rule's "Tool-agnostic procedure" that the procedural detail is inlined.
 3. **MUST install or document `validate-align-artifacts.sh`** as a pre-commit / CI / hook integration.
 4. **MUST translate all 9 commands** (`align-scan`, `align-plan`, `align-phase`, `align-gate`, `align-fast`, `align-status`, `align-final`, `align-rollback`, `align-park`) — or for rule-only tools, document them as procedural recipes in the rule.

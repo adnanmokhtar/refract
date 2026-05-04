@@ -405,7 +405,7 @@ The align pack is the **codebase quality gate** — a comprehensive sweep agains
 |------------------------|----------------------------------------------------------------------------------|
 | `/align-scan`          | Deep scan. Runs 11 universal detectors (6 structural + 4 functional + stack-conditional). Builds `ai/align/ledger.md` (every row `detected`), `scan-report.md`, `findings.md`. Frontend stacks auto-dispatch UI/UX detectors. Security findings always ≥ standard tier; critical security always heavy. |
 | `/align-plan`          | Reads scan + ledger. Produces `ai/align/plan.md` — phased plan grouped by class + domain + tier. Mechanical first; security front-loaded; UI/UX grouped by domain. Cap: 12 findings/phase. |
-| `/align-phase <N>`     | Executes phase N. Per-finding loop: DETECT (re-verify fingerprint) → DECIDE (closure verb in 16-verb vocabulary) → FIX (mechanical edit; touch only `scope`) → VERIFY (lint + typecheck + tests + re-detect + class-specific assertions) → RECORD (one commit per finding). |
+| `/align-phase <N>`     | Executes phase N. Per-finding loop: DETECT (re-verify fingerprint) → DECIDE (closure verb in 21-verb vocabulary) → FIX (mechanical edit; touch only `scope`) → VERIFY (lint + typecheck + tests + re-detect + class-specific assertions) → RECORD (one commit per finding). |
 | `/align-gate <N>`      | Phase exit gate. 14-check matrix (ledger completeness, gap-count parity, net-lines on structural, no-new-symbols-except-idioms, no scope creep, mechanical, coverage non-decreasing, frontend regressions, oracle unmodified, per-tier artifacts, idiom citation, security assertion, perf baseline, security tier minimum). Read-only; refuses on any check fail. |
 | `/align-final`         | Full sweep across all phases. Re-runs the audit; surfaces regressions; produces `final-report-<date>.md` with recommendations (cadence, hooks, idiom gaps). |
 
@@ -463,7 +463,7 @@ Mixed (manual for heavy phases, fast for routine):
 Properties:
 - **Comprehensive sweep** — covers structural drift + SOLID + clean code + performance + security + stack-specific UI/UX.
 - **Stack-agnostic** — same pack, different detector dispatch via `PROJECT_KIND` (frontend / backend / data / mobile).
-- **Closure-verb vocabulary is closed** — 16 verbs (5 structural + 11 functional). No new abstractions; functional adds must cite idioms from `_extracted-idioms.md`.
+- **Closure-verb vocabulary is closed** — 21 verbs (5 structural + 16 functional; see `align-discipline.md`). No new abstractions; functional adds must cite idioms from `_extracted-idioms.md`.
 - **Net-lines rule split by class group** — structural rows ≤ 0 hard; functional rows small + budgeted (with idiom citation).
 - **Security findings always ≥ standard tier** — critical security ALWAYS heavy.
 - **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
@@ -501,7 +501,9 @@ Examples:
 /polish the dashboard
 ```
 
-**Multi-day workflow** — each command writes to its own progress file (`ai/{migrate,optimize,refactor,align,polish}/progress.md`). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags:
+**Multi-day workflow** — `/migrate`, `/optimize`, `/align`, and `/polish` each write to `ai/<cmd>/progress.md`. First run builds the inventory; subsequent runs pick the next pending area automatically. **`/refactor`** is different: it targets explicit paths or git-changed files by default; optional `ai/refactor/progress.md` is session notes only — it does **not** use the inventory / `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` orchestration. For whole-repo refactors, use **`/optimize`**. See [`commands/refactor.md`](../commands/refactor.md).
+
+**Common flags** (orchestrated simple-surface commands: `/migrate`, `/optimize`, `/align`, `/polish` — **not** `/refactor` unless noted in [`commands/refactor.md`](../commands/refactor.md)):
 
 ```
 /<cmd>                                # next pending area (or first run: build inventory)
@@ -839,7 +841,7 @@ Reads scan + ledger. Produces `ai/align/plan.md` — phases grouped by class + d
 
 For every finding in phase 1, the per-finding loop:
 1. **DETECT** — re-verify the fingerprint at evidence lines is still present.
-2. **DECIDE** — confirm closure verb is in the 16-verb vocabulary; confirm fix is appropriate to row's class.
+2. **DECIDE** — confirm closure verb is in the 21-verb vocabulary; confirm fix is appropriate to row's class.
 3. **FIX** — apply the verb-specific edit. Touch only files in `scope`. Net-lines ≤ 0 for structural rows; small + budget for functional rows (added lines must cite the row's `idiom_cited`).
 4. **VERIFY** — lint + typecheck + scoped tests + re-detect (universal); plus class-specific assertions (security gates / perf baselines / frontend regressions).
 5. **RECORD** — update ledger; one commit per finding.
@@ -902,7 +904,7 @@ Confirms every finding closed across all phases. Optionally `--re-scan` to surfa
 #### Hard rules for align (from `align-discipline.md`)
 
 - **One finding = one commit.** Bundling hides regressions.
-- **Closure-verb vocabulary is closed (16 verbs).** No new abstractions; functional verbs (add-gate, parameterize, etc.) USE existing idioms from `_extracted-idioms.md` — never invent.
+- **Closure-verb vocabulary is closed (21 verbs).** No new abstractions; functional verbs (add-gate, parameterize, etc.) USE existing idioms from `_extracted-idioms.md` — never invent.
 - **Net-lines ≤ 0 for structural rows.** Alignment is entropy-reducing.
 - **Functional adds must cite idioms.** Every block of added lines references `<path:line>` in `_extracted-idioms.md` (gate / validator / cache primitive / etc.).
 - **Security findings always ≥ standard tier.** Critical security ALWAYS heavy; never trivial.

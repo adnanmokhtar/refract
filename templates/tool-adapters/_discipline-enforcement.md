@@ -70,6 +70,7 @@ The pack ecosystem ships ~70 commands (`/add-feature`, `/fix-bug`, `/add-endpoin
 - Halts: `ai/<pack>/halts/<id>-<iso>.md`
 - Backups: `ai/<pack>/_backups/<iso>/`
 - History: `ai/<pack>/_history.md`
+- **Simple-surface `/migrate` progress (exception):** `ai/migrate/progress.md` — multi-day run tracking for the top-level `/migrate` command. Co-located with `ai/migration/` (ledger, audits, final-report). **Only** this file is allowed under `ai/migrate/`; do not place other workflow artifacts there.
 
 **Per-task work:**
 - Plans (from `--plan` flag on any command): `.claude/plans/<command>-<slug>-<iso>.md`
@@ -100,7 +101,7 @@ The pack ecosystem ships ~70 commands (`/add-feature`, `/fix-bug`, `/add-endpoin
 
 **Forbidden:**
 - NEVER write workflow artifacts to `.claude/` (`.claude/` is for Claude config — rules, skills, agents, commands, settings)
-- NEVER invent new top-level dirs under `ai/` (no `ai/migrate/`, `ai/aligns/`, `ai/optimizes/`, `ai/sec/`, etc.)
+- NEVER invent new top-level dirs under `ai/` (no `ai/aligns/`, `ai/optimizes/`, `ai/sec/`, etc.). **Exception:** `ai/migrate/progress.md` is the only allowed path under `ai/migrate/` (see above).
 - NEVER split scan output into per-side files (use ONE `scan-report.md` with sections)
 - NEVER write outside `src/`, `tests/`, `public/`, `docs/`, `ai/`, `.claude/`, `.<adapter>/`, `<configured-build-output>` — every other path is forbidden
 
@@ -189,12 +190,13 @@ The block lives between `<!-- discipline-enforcement:start -->` / `<!-- discipli
 
 ## Validation
 
-The validator scripts (`validate-migration-artifacts.sh`, `validate-align-artifacts.sh`, `validate-optimize-artifacts.sh`, `validate-polish-artifacts.sh`) mechanically gate **specific artifact shapes** per pack (see each script header + `templates/tool-adapters/_*-pack-coverage.md`). Coverage differs by pack: migration is the deepest gate; optimize gates Phase 0 + ledger rows + findings hand-waves; align ships 7 of 14 checks; polish is stack-conditional evidence headings. **Discipline halts in AGENTS.md below still apply as universal intent** even when a pack's validator does not yet automate every halt (see `commands/*.md` + pack rules). Tools that ignore this discipline block will drift off canonical paths. This block is the **soft-enforcement layer**; the validators are the **hard-enforcement layer** for what they implement.
+The validator scripts (`validate-migration-artifacts.sh`, `validate-align-artifacts.sh`, `validate-optimize-artifacts.sh`, `validate-polish-artifacts.sh`, `validate-refactor-artifacts.sh`) mechanically gate **specific artifact shapes** per pack (see each script header + `templates/tool-adapters/_*-pack-coverage.md` + **`templates/tool-adapters/_orchestration-sync.md`** for adapter-facing facts). Coverage differs by pack: migration is the deepest gate; optimize gates Phase 0 + ledger rows + findings hand-waves; align ships 7 of 14 checks; polish is stack-conditional evidence headings. **Discipline halts in AGENTS.md below still apply as universal intent** even when a pack's validator does not yet automate every halt (see `commands/*.md` + pack rules). Tools that ignore this discipline block will drift off canonical paths. This block is the **soft-enforcement layer**; the validators are the **hard-enforcement layer** for what they implement.
 
 **Pack source hygiene (claude-config repo only):** Editing commands under `templates/packs/` must stay DRY — link **`templates/governance/core-discipline.md`** and shared snippets instead of pasting SOLID glossaries; Phase 5 **`audit-command-dry.sh`** enforces this. See **`templates/tool-adapters/_template-author-scripts.md`**.
 
 ## See also
 
+- `templates/tool-adapters/_orchestration-sync.md` — adapter sync for simple-surface commands, validators, hooks (`ai/migrate/progress.md`, optimize oracles, align 21 verbs, polish env, refactor paths)
 - `templates/tool-adapters/_template-author-scripts.md` — C2f/C2g scripts + canonical snippet pointers (claude-config maintainers)
 - `templates/tool-adapters/_registry.md` — capability matrix per tool
 - `templates/tool-adapters/_<pack>-pack-coverage.md` — per-pack adapter expectations (`_migration-pack-coverage.md`, `_align-pack-coverage.md`, `_optimize-pack-coverage.md`, `_refactor-pack-coverage.md`, `_ui-ux-pack-coverage.md`, …)

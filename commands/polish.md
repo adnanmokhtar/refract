@@ -364,6 +364,7 @@ All internal. Just results.
 ## Optional flags
 
 - `--dry-run` — show what would be polished, no edits.
+- **`validate-polish-artifacts.sh` (hooks / CI)** — run after the stack-conditional audit; exits non-zero on failure. Set env `QUIET=1` for quieter output (script-supported). There is **no** `--strict` flag on this validator yet — failures are already blocking.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--max-parallel=<N>` — cap concurrent dispatch (default: 4).
 - `--focus=<list>` — narrow to specific concerns (e.g., `--focus=missing-empty-state` for frontend; `--focus=idempotency-key-missing,log-field-drift` for backend).

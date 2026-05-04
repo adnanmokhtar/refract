@@ -403,7 +403,7 @@ The skills `detect-drift` and `find-and-align` describe canonical procedures. AI
 For each ledger row in the current phase, in dependency order (rows that consume a shared helper come AFTER rows that introduce / fix that helper):
 
 1. **DETECT** — re-read the row's `evidence` lines. Confirm the fingerprint still matches. (A finding can age out — another PR may have already fixed it.) If the fingerprint is gone, mark `status: archived-pre-existing` and skip. If still present, proceed.
-2. **DECIDE** — confirm the closure verb is in the combined vocabulary (16 verbs across structural + functional groups). Confirm the fix is appropriate to the row's class:
+2. **DECIDE** — confirm the closure verb is in the combined vocabulary (21 verbs across structural + functional groups). Confirm the fix is appropriate to the row's class:
    - Structural classes use structural verbs; behaviour MUST be preserved.
    - Functional classes use functional verbs; observable behaviour may change intentionally for security (an added auth gate denies unauth) or perf (a parallelize halves wall-clock) — such changes are documented in `notes` and tests are updated in the same commit.
    - For functional verbs that add lines: the row MUST have `idiom_cited: <path:line>` resolving to a real entry in `_extracted-idioms.md`. If not, halt; route to `/setup-project --refine` to update idioms first.
@@ -491,7 +491,7 @@ If any check fails → REFUSE the gate. Surface the specific failure. Validator 
 - **Net-lines rule by class group:**
   - Structural rows: ≤ 0 per row, per phase. Entropy-reducing.
   - Functional rows: small + budget; every added block cites an idiom from `_extracted-idioms.md`.
-- **Closure-verb vocabulary is the combined list of 16.** Structural verbs (5) + functional verbs (11). If the fix doesn't fit, it's not alignment; route elsewhere.
+- **Closure-verb vocabulary is the combined list of 21.** Structural verbs (5) + functional verbs (16). If the fix doesn't fit, it's not alignment; route elsewhere.
 - **No new abstractions.** Even functional verbs like `add-validator` / `cache-with-explicit-ttl` use the project's existing helper named in `_extracted-idioms.md` — never invent a new validator / cache helper. `extract-to-shared` and `split-extract` move code to PRE-NAMED idioms; creating new abstractions in those verbs is forbidden.
 - **Test before declaring fixed.** Lint + typecheck + scoped tests + re-detect. All four must pass. For security rows: + the security assertion exists. For perf rows: + the perf assertion exists. For frontend UI/UX rows: + a11y / visual / bundle-size all green. Skipping any is a Trusted-Summary failure waiting to surface.
 - **Update the ledger on every state transition.** `detected → planned → in-progress → fixed → verified → archived` (with side states `halted`, `parked`, `archived-pre-existing`). The ledger is the source of truth — code grep is not.

@@ -83,7 +83,7 @@
       "released": "2026-05-01",
       "changes": [
         "Initial align pack release.",
-        "rules/align-discipline.md: 11 finding classes (6 structural + 4 functional + stack-specific UI/UX); 16-verb closure vocabulary (5 structural + 11 functional); tier rules (security ALWAYS ≥ standard; critical security ALWAYS heavy); 11 per-finding audit halts; 14-check phase-exit gate; anti-pattern catalogue.",
+        "rules/align-discipline.md: 11 finding classes (6 structural + 4 functional + stack-specific UI/UX); 21-verb closure vocabulary (5 structural + 16 functional); tier rules (security ALWAYS ≥ standard; critical security ALWAYS heavy); 11 per-finding audit halts; 14-check phase-exit gate; anti-pattern catalogue.",
         "commands/: align-scan, align-plan, align-phase, align-gate, align-fast, align-status, align-final, align-rollback, align-park.",
         "skills/: detect-drift (universal 11 detectors + stack-conditional dispatch); find-and-align (per-finding 5-step loop).",
         "_essentials.md + _topics.md: pack metadata + AUTHOR-mode topic specs.",
