@@ -9,12 +9,7 @@ pack: backend
 
 > **Hard rule.** Independent I/O calls in a per-request / per-batch / per-job code path MUST run concurrently with a bounded primitive. Sequential `await` of independent calls, unbounded `Promise.all` over user-controlled arrays, and parallel work inside a DB transaction are forbidden — each is a review halt.
 
-> **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`. Do **not** delete; if extraction is empty, leave the placeholder + open a TODO.
->
-> - **Concurrency primitive in use**: `<extracted-from-codebase>` (e.g., native `Promise.all` / `Promise.allSettled` / `Bluebird.map(coll, fn, { concurrency: N })` / `p-limit` / `asyncio.gather` / `asyncio.Semaphore` / `errgroup.WithContext` / `CompletableFuture.allOf` / `Parallel.ForEachAsync`)
-> - **Bounded-concurrency helper**: `<path:line>` if the project ships one (e.g., `libs/concurrency/run-with-limit.ts`); else "use `p-limit` / `asyncio.Semaphore` / equivalent"
-> - **Default concurrency cap for outbound HTTP**: `<extracted N>` (commonly 5–10 for 3rd-party APIs)
-> - **Default concurrency cap for DB**: never exceed `<connection-pool-size> - <safety-margin>` (extracted from pool config)
+> **Project-specific values** — concurrency primitive in use, bounded-concurrency helper path, default outbound-HTTP concurrency cap, default DB concurrency cap — are auto-injected by `scripts/apply-anchors.sh` during `/setup-project --refresh` into the `<!-- project-specific:start --> ... <!-- project-specific:end -->` block at the bottom of this file. Sourced from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`. Do **not** edit those values here; edit the extraction sources and re-run `apply-anchors.sh` (or `/setup-project --refresh`) to propagate.
 
 This rule prevents the most common backend perf failure: **sequential `await` of independent I/O**. The agent that writes `for (const x of xs) await f(x)` when `f` calls are independent is leaving 70–95% of wall-clock time on the table. This rule makes that mistake a review halt.
 

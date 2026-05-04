@@ -1,14 +1,6 @@
 # Align Rule: codebase alignment discipline
 
-> **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md § Gold standards` + `_extracted-idioms.md`. Do **not** delete; if extraction is empty, leave the placeholder + open a TODO.
->
-> - **Codebase root**: `<extracted-from-codebase>` (the directory the alignment scans)
-> - **Gold-standard inventory**: `<extracted-from _extracted-idioms.md>` (the named shared wrappers / utils / hooks / types / patterns the codebase reuses)
-> - **Architecture doc**: `ai/architecture.md` (declared module boundaries)
-> - **Conventions doc**: `ai/conventions.md` (V2's naming + structure rules)
-> - **Findings ledger**: `ai/align/ledger.md` (per-finding state machine)
-> - **Test runner**: `<extracted>` (e.g., `vitest`, `jest`, `pytest`, `playwright`, `rspec`, `go test`)
-> - **PROJECT_KIND**: `<extracted>` (e.g., `frontend-vue`, `frontend-react`, `backend-node`, `backend-python`, `data-pipeline`) — switches stack-conditional detector fingerprints
+> **Project-specific values** — codebase root, gold-standard inventory, test runner, PROJECT_KIND, plus the architecture / conventions / findings-ledger paths — are auto-injected by `scripts/apply-anchors.sh` during `/setup-project --refresh` into the `<!-- project-specific:start --> ... <!-- project-specific:end -->` block at the bottom of this file. Sourced from `.claude/_extracted-codebase.md § Gold standards` + `_extracted-idioms.md`. Do **not** edit those values here; edit the extraction sources and re-run `apply-anchors.sh` (or `/setup-project --refresh`) to propagate.
 
 This rule governs every codebase-alignment sweep. It exists because the most common codebase-rot failure is **drift from the gold standard** — a project starts with clean conventions, then accretes one-off helpers, custom wrappers, silent catches, dead branches, and copy-pasted logic until "the codebase" and "the conventions" describe two different repos. Routine work surfaces N+1 papercuts that nobody fixes alone, but every refactor that *would* fix them gets pulled into a feature PR and cut for scope. The second most common failure is **scope creep during refactor** — a "small cleanup" becomes a redesign, a perf project, and a refactor in one PR, none of which can be safely reviewed. The third most common is **trusted summary** — an executor delegates "is this code duplicated / dead / drift?" to a search agent, the agent says "looks fine" in confident summary language, and the executor echoes that into the alignment report without verifying the claim against source.
 

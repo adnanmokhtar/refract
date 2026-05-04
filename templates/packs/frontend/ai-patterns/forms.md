@@ -163,6 +163,25 @@ if (err.code in SERVER_ERROR_FIELD_MAP) {
 
 If the server's `ValidationError` already returns `fieldErrors: { field, code, message }[]`, iterate and set each.
 
+### Auto-clear on edit (generic UX rule)
+
+A server-side validation error MUST disappear the moment the user edits the offending field — not on the next submit. Otherwise the user fixes the input, sees the error stay, and concludes the form is broken. This applies regardless of framework or form library.
+
+The trap: most frameworks expose a clear-on-change hook tied to native DOM `input` / `change` events. That works for `<input>` / `<textarea>` / `<select>` but **silently fails on custom widgets** — a Combobox / Dropdown / DatePicker / MultiSelect built from `<div>` elements updates its bound value via reactive prop binding and emits library-specific events that don't bubble as DOM `input` / `change`. The form's clear hook never fires; the error stays.
+
+The fix is framework-idiomatic but uniform in shape:
+
+| Framework | Clear-on-edit mechanism |
+|---|---|
+| React Hook Form | `watch(field)` callback OR `useEffect(() => clearErrors(field), [value])` |
+| Vue (vee-validate / custom) | `watch(() => model.field, () => clearError(field))` |
+| Svelte | `$: clearError(field)` reactive statement on the bound value |
+| Angular | `valueChanges.subscribe(() => clearError(field))` on the FormControl |
+
+Apply this in the shared field-wrapper component (FormField / FormItem / FormControl) so every form gets it for free — not per-page wiring.
+
+The fall-back to native DOM events alone is the failure mode: works for the demo, fails in production the first time someone wraps an input in a custom widget.
+
 ## Async validation (e.g., SKU uniqueness)
 
 ```tsx
@@ -230,6 +249,7 @@ For genuinely simple forms (search input, single-field subscribe), this pattern 
 - **Generic error toast, no field detail.** "Something went wrong" hides the actual problem. Map server `code` → field error.
 - **Placeholder as label.** Disappears when user types. Not announced by screen readers as a label. Always real `<label>`.
 - **Trusting `required` HTML attribute as full validation.** Some browsers ignore it; assistive tech varies. Use it AND validate in JS AND validate on the server.
+- **The Sticky Error.** Server validation error displayed; user fixes the field; error stays until next submit. Root cause: clear-on-edit hook listens only to native DOM `input`/`change` events while the actual input is a custom widget (Combobox / Dropdown / DatePicker / MultiSelect built from `<div>`s) that updates via reactive prop binding instead. Fix: the shared field-wrapper watches the bound value, not the DOM event — see `Auto-clear on edit` above.
 
 ## Testing
 

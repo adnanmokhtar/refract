@@ -9,15 +9,7 @@ pack: migration
 
 # Migration Rule: V1→V2 port discipline
 
-> **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md § Migration` + `_extracted-idioms.md`. Do **not** delete; if extraction is empty, leave the placeholder + open a TODO.
->
-> - **V1 root**: `<extracted-from-codebase>` (e.g., `apps/web-v1/`, `Reports/views.py`, `legacy/`)
-> - **V2 root**: `<extracted-from-codebase>` (e.g., `apps/web/`, `reports_v2/`, `src/v2/`)
-> - **Migration ledger**: `ai/migration/ledger.md` (per-feature state machine)
-> - **Parity test location**: `<extracted>` (e.g., `tests/parity/`, `__tests__/parity/`)
-> - **Cutover mechanism**: `<extracted>` (feature flag system OR router rule OR env var OR build flag)
-> - **Caching primitive in V2**: `<extracted>` (e.g., Redis client at `<path:line>`, in-process LRU helper, framework cache adapter)
-> - **DB query primitive in V2**: `<extracted>` (ORM + connection-pool location + index migration tool)
+> **Project-specific values** — V1 root, V2 root, parity-test location, cutover mechanism, caching primitive, DB query primitive — are auto-injected by `scripts/apply-anchors.sh` during `/setup-project --refresh` into the `<!-- project-specific:start --> ... <!-- project-specific:end -->` block at the bottom of this file. Migration-pack-specific anchors live in `ai/migration/_v2-anchors.md`.
 
 This rule governs every per-feature port. It exists because the most common migration failure is **subtle behavioural drift** — V2 *almost* matches V1, ships, and a long-tail of customer issues surface over months. The second most common is **scope creep** — the port becomes a redesign, a perf project, and a refactor in one PR, none of which can be safely reviewed.
 

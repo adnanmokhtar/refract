@@ -222,6 +222,32 @@ inject_block() {
   mv "$tmp" "$f"
 }
 
+# Safety-net: scrub leftover upstream "Project-specific block" instructional
+# blockquotes that contain `<extracted-from-codebase>` placeholders. These
+# blockquotes are obsolete (replaced by the canonical marker block this script
+# injects); some pack source files still ship them and they survive into the
+# downstream project as confusing stale prose. We only scrub blockquotes that
+# both reference Phase 4.6 AND contain a placeholder line — never user content.
+scrub_upstream_placeholder_blockquote() {
+  local f="$1"
+  grep -qF '<extracted-from-codebase>' "$f" 2>/dev/null || return 0
+  grep -qE '^>[[:space:]]*\*\*Project-specific block\*\*' "$f" 2>/dev/null || return 0
+
+  local tmp
+  tmp=$(mktemp)
+  awk '
+    BEGIN { in_blockquote=0; saw_marker=0 }
+    /^>[[:space:]]*\*\*Project-specific block\*\*.*Phase 4\.6/ {
+      in_blockquote=1; saw_marker=1; next
+    }
+    in_blockquote && /^>/ { next }
+    in_blockquote && !/^>/ { in_blockquote=0 }
+    { print }
+    END { exit (saw_marker ? 0 : 0) }
+  ' "$f" > "$tmp"
+  mv "$tmp" "$f"
+}
+
 ts=$(date +%Y%m%d-%H%M%S)
 backup_dir="$TARGET/.claude/backups/anchors-$ts"
 
@@ -274,9 +300,10 @@ for kind in commands agents skills rules ai-patterns; do
       mkdir -p "$(dirname "$bak")"
       cp "$f" "$bak"
 
-      tbd_count=$(grep -oE '<TBD:[^>]+>' "$f" 2>/dev/null | wc -l | tr -d ' ')
+      tbd_count=$({ grep -oE '<TBD:[^>]+>' "$f" 2>/dev/null || true; } | wc -l | tr -d ' ')
       ANCHOR_BLOCK=$(build_block "${tbd_count:-0}")
       inject_block "$f" "$insert_line" "$ANCHOR_BLOCK"
+      scrub_upstream_placeholder_blockquote "$f"
       echo "  INJECT  $rel  (after line $insert_line)"
     else
       echo "  would-INJECT $kind/$base  (after line $insert_line)"

@@ -6,6 +6,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Bug fix — apply-anchors.sh leaves stale `<extracted-from-codebase>` placeholders
+
+**Root cause** — three rule source files (`migration-discipline.md`, `concurrency-discipline.md`, `align-discipline.md`) shipped with an upstream **instructional blockquote** (`> Project-specific block — Phase 4.6 fills this in...`) full of `<extracted-from-codebase>` placeholders, plus a downstream `<!-- project-specific:start --> ... <!-- project-specific:end -->` marker block. `scripts/apply-anchors.sh` correctly populated the marker block but did not remove the upstream blockquote, so the placeholders survived into every project that ran `/setup-project --refresh`.
+
+**Fix**
+- **Source rules cleaned** — `templates/packs/{migration,backend,align}/rules/*-discipline.md` (+ matching `_examples/*.md`). Replaced the obsolete blockquote + 6-line placeholder list with a 1-line pointer at the canonical marker block (and `_v2-anchors.md` for migration).
+- **`scripts/apply-anchors.sh`** — added `scrub_upstream_placeholder_blockquote()` safety-net function called per-file after `inject_block`. Mechanically removes any leftover blockquote that both starts with `> **Project-specific block** ... Phase 4.6` AND contains `<extracted-from-codebase>` — touches user content only when both fingerprints match (no false positives).
+
+**Why this matters** — the placeholder text was confusing to any tool reading the rule top-to-bottom (Aider / Codex / Gemini in rule-only mode would see `<extracted-from-codebase>` first and misinterpret it as a missing extraction). Now the rule body either has no blockquote at all (source files updated) OR the scrub function removes it (existing project files re-anchored on next refresh).
+
 ### Universal "Actionable next steps" report contract
 
 **Added**
