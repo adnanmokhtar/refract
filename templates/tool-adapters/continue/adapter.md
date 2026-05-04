@@ -101,7 +101,7 @@ Body = prose rules. Like Cursor's MDC but with `.md` extension and no special `@
 
 `.continue/config.yaml`:
 ```yaml
-name: wa-sales-agent
+name: your-project-name
 version: 0.0.1
 schema: v1
 
@@ -131,7 +131,7 @@ description: Read before editing any file
 alwaysApply: true
 ---
 
-# wa-sales-agent project rules
+# your-project-name project rules
 
 ## #1 Rule: Read before you write
 Before creating or modifying any file, read the same type of file elsewhere in the codebase.

@@ -6,7 +6,7 @@ This file is the **canonical hard-rules block** every adapter that writes or rea
 
 Claude Code is tuned + tested against the pack discipline rules. Other tools have weaker discipline-following by default — they invent file paths, skip halts, write outside canonical directories, paraphrase across commands, hand-wave findings. This block forces them to behave for every command in the pack ecosystem.
 
-Real incident (2026-05-03): user ran `/migrate` in OpenCode against tenant-portal-v2. OpenCode performed the parallel scan correctly but landed scan output at `.claude/_v1-scan-inventory.md` + `.claude/_v2-scan-inventory.md` and progress backup at `ai/migrate/...` instead of canonical `ai/migration/scan-report.md`. The validator (`validate-migration-artifacts.sh`) couldn't find the artifacts; gate would have failed. Same class of drift hits **every command** without explicit guardrails — `/add-feature` invents file structures, `/fix-bug` skips path conventions, `/security-audit` writes to wrong directories.
+Observed drift class (2026-05): when a non-Claude-Code tool runs `/migrate` against a downstream project, the parallel scan can complete correctly but land scan output at `.claude/_v1-scan-inventory.md` + `.claude/_v2-scan-inventory.md` and progress backup at `ai/migrate/...` instead of the canonical `ai/migration/scan-report.md`. The validator (`validate-migration-artifacts.sh`) then can't find the artifacts and the gate fails. Same drift class hits **every command** without explicit guardrails — `/add-feature` invents file structures, `/fix-bug` skips path conventions, `/security-audit` writes to wrong directories.
 
 ## Inject contract
 

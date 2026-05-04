@@ -23,7 +23,7 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 - **`templates/tool-adapters/_polish-pack-coverage.md`** — stack-conditional table now lists `ui-design-sweep` as the frontend closure-verb spec; new "Frontend-only — `check_frontend_verb_vocabulary`" validator-gate section enumerates the 18-verb set.
 - **`templates/tool-adapters/_ui-ux-pack-coverage.md`** — `ui-design-sweep` added as a critical skill; capability table extended with `ui-design-sweep` column for all 12 tools (Kimi + Qwen rows added too).
 - **All 12 `templates/tool-adapters/<tool>/adapter.md`** — Polish bullet extended with "frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set". Verb preserved per adapter (Include / Document / Add / Run / Also install / Shell CI should run / installs).
-- **Project sync — `sahlcart/tenant-portal-v2/.claude/`** — `ui-principles.md` gained the Axis catalog section; `skills/ui-design-sweep.md` copied; `commands/polish.md` + `commands/ui-sweep.md` updated to reference the new skill (project-specific marker blocks preserved).
+- **Downstream project propagation** — projects with the prior ui-ux pack already installed pick up the new skill via `/setup-project --refresh`: `ui-principles.md` gains the Axis catalog section; `skills/ui-design-sweep.md` is copied; `commands/polish.md` + `commands/ui-sweep.md` are re-rendered to reference the new skill. Project-specific marker blocks (`<!-- project-specific:start -->` / `<!-- project-specific:end -->`) are preserved by the SHA-256 hash check in the refresh routine.
 
 ### Adapter coverage — `/polish` + `/align`
 
