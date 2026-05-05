@@ -299,7 +299,48 @@ For each of the 10 candidate areas (N+1, missing index, column projection, cachi
 - **Update the ledger on every state transition.** `V1-only → In-progress → V2-shadow → V2-canary → V2-only → V1-deleted`. The ledger is the source of truth — code grep is not.
 - **Cutover is gated.** Move from V2-canary → V2-only only when: (1) parity tests green, (2) shadow / canary metrics show no regression on error rate / latency / business KPIs for the agreed observation window, (3) the relevant ADR (if any) is merged, (4) rollback path tested.
 - **Delete V1 only when last reference is gone.** Use `git grep` + dead-code analyser + telemetry "no traffic in N days" before deletion. The ledger transition `V2-only → V1-deleted` requires evidence attached.
-- **Structure → V2 wins; observable behaviour → V1 wins** (added 2026-05-01). This resolves the apparent conflict between "Use V2's primitives" and "Default to V1-parity". They apply on different axes: **structure** (file layout, component shape, naming, layering, which shared wrapper is used, where state lives, layer boundaries) follows V2 unconditionally — V1 conflicts are forfeit. **Observable behaviour** (inputs accepted, outputs returned, events fired, side effects performed, error contracts, response shape consumed) follows V1 unless the user explicitly opts to break it. The Transposition Trap recurs when porters confuse the two and copy V1's structure to "preserve behaviour"; the Silent Break recurs when porters change V2's behaviour to "match V2's structure". Neither is correct. Concrete shapes of the rule: a V1-only routing pattern → use V2's routing primitive (structure); a V1 query param V2 omits → add it to V2 (behaviour); a V1 nullable return V2 throws on → V2 returns null (behaviour) but routes through V2's service/repository layout (structure).
+- **Structure → V2 wins; observable behaviour → V1 wins** (added 2026-05-01; clarified 2026-05-05). This resolves the apparent conflict between "Use V2's primitives" and "Default to V1-parity". They apply on **different axes** — never substitute one for the other.
+
+    **Decision checklist — ask in order, stop at first YES:**
+    1. Would a *user* (or *caller / API consumer*) notice the difference if we changed it? → **BEHAVIOUR axis → V1 wins.**
+    2. Is it about *where code lives*, *which shared primitive renders it*, *which layer owns it*, or *what file it sits in*? → **STRUCTURE axis → V2 wins.**
+    3. Still ambiguous? Default to **BEHAVIOUR (V1 wins)** and surface to user — under-changing structure is recoverable; under-preserving behaviour ships a regression.
+
+    **Axis lookup table:**
+
+    | Axis | Belongs to | V1 wins (behaviour) | V2 wins (structure) |
+    |---|---|---|---|
+    | Inputs accepted (form fields, query params, headers, body shape) | behaviour | ✓ port every V1 input | — |
+    | Outputs returned (response shape, field names, nullability, status codes) | behaviour | ✓ match V1 exactly | — |
+    | Error contracts (error shape, error codes, when each fires) | behaviour | ✓ match V1 | — |
+    | Side effects (DB writes, queue publishes, external HTTP, log fields) | behaviour | ✓ preserve | — |
+    | Events fired / emitted | behaviour | ✓ preserve names + payloads | — |
+    | Permission gates (which user roles see / can do what) | behaviour | ✓ match V1 gate set | — |
+    | Navigation paths (clickable routes, tab labels reachable) | behaviour | ✓ user-clickable surface = V1 | — |
+    | UI affordances (buttons present, default-true wrapper props) | behaviour | ✓ same affordances visible | — |
+    | Copy / labels / i18n keys (visible text users read) | behaviour | ✓ V1 copy unless ADR | — |
+    | Performance characteristics (latency p95, error rate ceiling) | behaviour | ✓ V1 baseline or better | — |
+    | File layout / directory structure | structure | — | ✓ V2's convention |
+    | Layering (controller / service / repo split) | structure | — | ✓ V2's layers |
+    | Shared wrappers / utils / hooks chosen | structure | — | ✓ V2's gold-standard inventory |
+    | Routing / state-management / DI primitive | structure | — | ✓ V2's primitive |
+    | Naming conventions (file names, symbol names, casing) | structure | — | ✓ V2's conventions |
+    | Type / DTO authoring style (where types live, how they're shaped) | structure | — | ✓ V2's pattern (field NAMES still come from V1's response — that's behaviour) |
+    | Lifecycle hooks / mount semantics | structure | — | ✓ V2's framework idioms |
+    | Error-handling primitive (which error handler is called) | structure | — | ✓ V2's project handler (the FACT that errors surface = behaviour; HOW = structure) |
+
+    **Worked examples:**
+    - V1 has a `?include_archived=true` query param V2 omits → BEHAVIOUR (input axis) → **add it to V2**.
+    - V1 returns `null` for missing user; V2 throws → BEHAVIOUR (output axis) → **V2 returns null**.
+    - V1 puts logic in a fat controller; V2 has service+repo layers → STRUCTURE → **port logic into V2's service+repo, do not copy the fat controller**.
+    - V1 ships a custom date-picker; V2 has a shared `<DateField>` wrapper → STRUCTURE → **use V2's `<DateField>`** (the date semantics it accepts/returns must still match V1 — that's behaviour).
+    - V1 has a delete button gated by `permissions.delete`; V2 renders it ungated → BEHAVIOUR (permission gate) → **add the gate to V2**.
+    - V1 has tab "Colors" reachable at `/settings/branding/colors`; V2 buries it inside `/settings/branding` as a scroll section → BEHAVIOUR (navigation path) → **expose it as a tab in V2** (it can use V2's tab primitive — that's structure — but the user-clickable leaf must exist).
+
+    **Failure modes this rule names:**
+    - **The Transposition Trap**: porter copies V1's *structure* to "preserve behaviour" — wrong; structure is V2's.
+    - **The Silent Break**: porter changes V2's *behaviour* to "match V2's structure" — wrong; behaviour is V1's.
+    - **The "I made it cleaner"** (variant of Transposition): porter normalises V1's "weird" inputs/outputs to V2's "cleaner" shape — that's a contract break, requires ADR + user_decision_quote.
 - **Default to V1-parity, ADR is opt-in (BEHAVIOURAL axis).** When audit finds V2's *behaviour* deviates (extra button, missing field, flipped default), the **default action is to remove V2's deviation** to match V1. An ADR is required ONLY when the user explicitly chooses to keep V2's behaviour (or V1 is a security / privacy / legal regression). The architect/port agent MUST NOT silently draft an ADR to legitimize V2 deviations — that pattern (observed in a real-world Phase 7 incident: ~6 ADRs drafted to preserve V2 over V1) inflates documentation while leaving the user-visible parity gap unfixed. Surface the divergence to the user, offer "match V1 / keep V2 + ADR / deprecate-V1-feature + ADR", wait for explicit choice. **This rule applies to BEHAVIOUR ONLY, not structure** — see the rule above.
 - **No frontend compensation for backend gaps.** If V2's API is missing a field, returning a wrong shape, or behaving differently than V1's API, the fix is a backend ticket — not a UI workaround. Workarounds (mapping `c.name` to `c.label` in the component, hardcoding a missing field, sending a fake parameter) drift the contract silently and re-surface as bugs in every other consumer. File the API ticket; if the port is blocked waiting, mark the feature `status: halted` with an explicit dependency, do not ship a UI patch.
 - **No silent catches** (added 2026-05-01). A `catch { /* fail silent */ }` or empty `catch {}` swallow makes failures indistinguishable from empty success states — empty lists, missing widgets, no error indicator. Every catch in port code must either (a) call the project's error handler (named in `_extracted-idioms.md`) or (b) include a one-line comment explaining why this specific failure mode is recoverable AND log at debug level. The validator's `check_v2_structure` flags both patterns. The user reports "looks empty" rather than "is erroring", and the bug hides for weeks.
