@@ -6,6 +6,32 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `apply-adapter-sync.sh` normalizes agent `tools:` frontmatter for OpenCode
+
+**Root cause** — Claude Code accepts agent frontmatter `tools:` as a comma-separated string (`tools: Bash, Read, Grep, Glob`), but OpenCode's schema requires a YAML record (`tools:\n  bash: true\n  read: true`). `sync_opencode()` did a verbatim 1:1 copy of `.claude/agents/<name>.md` → `.opencode/agents/<name>.md`. When a project's agent had been customized with the Claude string form (e.g. via `/setup-project --refine`), OpenCode refused to load: `Configuration is invalid… Invalid input: expected record, received string tools`. Hit a downstream project (May 2026) with `endpoint-tester.md`.
+
+**Fix** — new helper `opencode_normalize_agent_tools()` runs after each agent copy in `sync_opencode()`:
+- Detects string-form `tools:` lines inside the frontmatter (regex anchored to `fm==1` block + `^tools:[[:space:]]*[A-Za-z]` — won't match record-form, where the same line ends in whitespace).
+- Splits values by `,`, trims, lowercases each, emits as a YAML record (`<name>: true` per line).
+- Idempotent — second run on already-converted file is a no-op (detection short-circuits).
+- Frontmatter-only — body markdown is never touched.
+
+**Self-test verified** — converted `endpoint-tester.md` (Bash, Read, Grep, Glob) cleanly; second run no-op; OpenCode now loads.
+
+### `apply-adapter-sync.sh` preserves project-specific blocks across all adapters
+
+**Root cause** — `apply-anchors.sh` injects `<!-- project-specific:start --> ... <!-- project-specific:end -->` blocks into `.claude/{commands,agents,skills,rules}/`. `apply-adapter-sync.sh` then propagates `.claude/<file>` → adapter-native paths (`.cursor/commands/<file>`, `.opencode/commands/<file>`, `.qwen/commands/<file>`, `.github/agents/<name>.agent.md`, etc.). On REFRESH (overwrite), the old `sync_file()` did `cp "$src" "$dst"` blindly — wiping any project-specific block the destination had accumulated. This bit a downstream project (May 2026) when ~38 adapter files lost their blocks.
+
+**Fix** — single chokepoint, scales to all 12 adapters automatically:
+
+- **`extract_project_specific_block()`** (new helper) — `awk` extracts the block from a file when markers appear on their own line (real injected block); ignores prose mentions of the marker text inside backticks (safe against false positives).
+- **`reinject_project_specific_block()`** (new helper) — re-injects extracted block at the canonical insertion point (after frontmatter / after first H1 / before first H2). No-ops if destination already carries a real block (avoids double-injection). Block passed via temp file because `awk -v` can't carry newlines.
+- **`sync_file()`** (modified) — on REFRESH path: extract dst block to temp file, then `cp src dst`, then re-inject. NO-OP path and ADD path unchanged. Single line of net new behavior, single chokepoint, automatically protects every adapter (`.cursor/`, `.opencode/`, `.qwen/`, `.kimi/`, `.github/`, `.clinerules/`, `.windsurf/`, `.continue/`, plus future ones).
+
+**Why this is the right place to fix it** — `apply-adapter-sync.sh` is the one script that copies `.claude/` → other adapters. Fixing here means we don't have to enumerate adapter folders in `apply-anchors.sh` (Option A would have hardcoded 12 paths and broken silently when adapters are added). Fixing the propagation chokepoint covers all adapters present and future with zero per-adapter mapping.
+
+**Self-test verified** — clobbered `.opencode/commands/draft-phase-adrs.md` (lost block + lost project content), ran `apply-adapter-sync.sh --apply --adapters=opencode`, block + content restored cleanly. End-to-end on a real adapter file.
+
 ### Migration plan completeness — 3 system improvements
 
 **Root cause** — observed in May 2026: a downstream project ran `/migration-scan` + `/migration-plan` and got incomplete output. The LLM that produced the plan skipped (a) heavy-tier promoter rows for auth/payment/order/cart/security (b) a cross-cutting audit dimensions preamble (tenant-isolation, cache namespacing, translation parity) (c) the `## Actionable next steps` section (the contract was new) (d) ~5 V1 directories without `.module.ts` markers were silently dropped from the ledger. Commands didn't fail; they just produced silently incomplete output.

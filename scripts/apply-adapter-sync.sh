@@ -108,7 +108,63 @@ total_nooped=0
 total_missing_author=0
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
+# Extract a real project-specific block (lines between markers, anchored).
+# Matches only when markers appear on their own line — never matches prose
+# mentions inside backticks like "the `<!-- project-specific:start -->` block".
+# Returns block content (including markers) on stdout; empty if no real block.
+extract_project_specific_block() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  awk '
+    /^<!-- project-specific:start -->[[:space:]]*$/ { in_block=1 }
+    in_block { print }
+    /^<!-- project-specific:end -->[[:space:]]*$/ && in_block { exit }
+  ' "$f"
+}
+
+# Re-inject a project-specific block into a file at the canonical insertion
+# point: after frontmatter (if any), after first H1, before first H2.
+# If the file already has a real block (e.g. caller used a fresh src that
+# already carries one), this is a no-op to avoid double-injection.
+# Block is passed via temp file (awk -v cannot accept newlines in values).
+reinject_project_specific_block() {
+  local f="$1" block_file="$2"
+  [[ -f "$block_file" ]] || return 0
+  [[ -s "$block_file" ]] || return 0
+  [[ -f "$f" ]] || return 0
+  # Skip if the destination already carries a real (anchored) block.
+  if grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$f" 2>/dev/null; then
+    return 0
+  fi
+  local tmp; tmp=$(mktemp)
+  awk -v bf="$block_file" '
+    function emit_block(   line) {
+      print ""
+      while ((getline line < bf) > 0) print line
+      close(bf)
+      print ""
+    }
+    BEGIN { state="start"; injected=0 }
+    NR == 1 && /^---[[:space:]]*$/ { state="fm"; print; next }
+    state == "fm" && /^---[[:space:]]*$/ { state="body"; print; next }
+    state == "body" && /^# / && !h1 { h1=1; print; next }
+    state == "body" && /^## / && !injected { emit_block(); injected=1 }
+    state == "start" && /^# / && !h1 { h1=1; state="body"; print; next }
+    state == "start" && /^## / && !injected { emit_block(); injected=1 }
+    { print }
+    END { if (!injected) emit_block() }
+  ' "$f" > "$tmp"
+  mv "$tmp" "$f"
+}
+
 # Copy src → dst with backup of overwritten file.
+# **Preserves project-specific blocks** in dst (added 2026-05): if dst has a
+# real `<!-- project-specific:start --> ... <!-- project-specific:end -->`
+# block (anchored on its own line), the block is extracted before overwrite
+# and re-injected into the freshly-copied src content. Single chokepoint
+# that protects per-tool blocks across ALL adapters (.cursor/, .opencode/,
+# .qwen/, .kimi/, .github/, .clinerules/, .windsurf/, .continue/, etc.).
 sync_file() {
   local src="$1" dst="$2"
   if [[ ! -f "$dst" ]]; then
@@ -119,11 +175,18 @@ sync_file() {
     echo "    ADD       $(rel_to_target "$dst")"
     total_added=$((total_added + 1))
   elif ! cmp -s "$src" "$dst"; then
+    # Extract project-specific block from dst BEFORE overwrite (via temp file).
+    local block_tmp=""
+    block_tmp=$(mktemp)
+    extract_project_specific_block "$dst" > "$block_tmp"
     if [[ $APPLY -eq 1 ]]; then
       mkdir -p "$backup_dir/$(dirname "${dst#$TARGET/}")"
       cp "$dst" "$backup_dir/${dst#$TARGET/}"
       cp "$src" "$dst"
+      # Re-inject extracted block (no-op if src already carries one OR block empty).
+      reinject_project_specific_block "$dst" "$block_tmp"
     fi
+    rm -f "$block_tmp"
     echo "    REFRESH   $(rel_to_target "$dst")"
     total_refreshed=$((total_refreshed + 1))
   else
@@ -142,12 +205,51 @@ report_missing_author() {
 
 # ── Per-adapter sync recipes ───────────────────────────────────────────────
 
+# OpenCode agent frontmatter requires `tools:` as a YAML record
+# (`tools:\n  bash: true\n  read: true`), but Claude Code accepts the
+# comma-separated string form (`tools: Bash, Read, Grep, Glob`). When a
+# project's `.claude/agents/<name>.md` was customized with the Claude form,
+# a 1:1 copy into `.opencode/agents/` fails OpenCode's schema with
+# "expected record, received string tools" and refuses to load.
+#
+# This helper rewrites the frontmatter of a destination .opencode agent file
+# in-place, converting only string-form `tools:` lines to record form.
+# Record-form `tools:` lines (followed by indented children) are left intact.
+# Operates on the body BEFORE the second `---` only — never touches markdown.
+opencode_normalize_agent_tools() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  # Detect string-form: `tools: Foo, Bar` on a single line. Skip if not present.
+  awk 'BEGIN{fm=0} /^---[[:space:]]*$/{fm++; next} fm==1 && /^tools:[[:space:]]*[A-Za-z]/{found=1; exit} fm>=2{exit} END{exit !found}' "$f" || return 0
+  local tmp; tmp=$(mktemp)
+  awk '
+    BEGIN { fm=0 }
+    /^---[[:space:]]*$/ { fm++; print; next }
+    fm==1 && /^tools:[[:space:]]*[A-Za-z]/ {
+      val=$0; sub(/^tools:[[:space:]]*/, "", val)
+      n=split(val, parts, /[[:space:]]*,[[:space:]]*/)
+      print "tools:"
+      for (i=1; i<=n; i++) {
+        t=parts[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", t)
+        if (t=="") continue
+        # lowercase
+        lc=""; for (j=1; j<=length(t); j++) { c=substr(t,j,1); lc=lc tolower(c) }
+        print "  " lc ": true"
+      }
+      next
+    }
+    { print }
+  ' "$f" > "$tmp" && mv "$tmp" "$f"
+}
+
 sync_opencode() {
   echo "  [opencode]"
   # 1:1 markdown copies — agents, commands, skills (folder-form).
   for f in "$TARGET"/.claude/agents/*.md; do
     [[ -f "$f" ]] || continue
-    sync_file "$f" "$TARGET/.opencode/agents/$(basename "$f")"
+    local dst="$TARGET/.opencode/agents/$(basename "$f")"
+    sync_file "$f" "$dst"
+    [[ $APPLY -eq 1 ]] && opencode_normalize_agent_tools "$dst"
   done
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
