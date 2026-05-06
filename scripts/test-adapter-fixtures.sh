@@ -74,6 +74,8 @@ ADAPTERS=(
   "aider:rules"                                   # single-doc tool — every kind in CONVENTIONS.md
   "codex:rules"                                   # single-doc — AGENTS.md
   "gemini:rules"                                  # single-doc — GEMINI.md
+  "kimi:commands,agents,skills,rules"             # commands→skills, agents→subagents, rules→AGENTS.md
+  "qwen:commands,agents,skills,rules"             # near-1:1 with Claude Code
 )
 
 # Native path map — for each (adapter, kind), the expected native path fragment that MUST
@@ -109,6 +111,14 @@ declare -a NATIVE_PATHS=(
   "aider:rules:CONVENTIONS.md"
   "codex:rules:AGENTS.md"
   "gemini:rules:GEMINI.md"
+  # kimi — native skills folder; commands fold into skills
+  "kimi:commands:.kimi/skills/"
+  "kimi:skills:.kimi/skills/"
+  "kimi:agents:.kimi/subagents/"
+  # qwen — near-1:1 native folders
+  "qwen:commands:.qwen/commands/"
+  "qwen:agents:.qwen/agents/"
+  "qwen:skills:.qwen/skills/"
   # claude-code — canonical paths
   "claude-code:commands:.claude/commands/"
   "claude-code:agents:.claude/agents/"

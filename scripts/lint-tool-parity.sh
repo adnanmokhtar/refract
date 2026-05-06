@@ -83,7 +83,7 @@ for a in "${ADAPTERS[@]}"; do
   fi
 done
 
-# 5. Cross-doc count consistency: README.md says "10 adapters" — make it match the actual count.
+# 5. Cross-doc count consistency: README.md adapter count must match actual folder count.
 DOCUMENTED_COUNT=$(grep -oE 'The [0-9]+ adapters' "$README" | grep -oE '[0-9]+' | head -1)
 if [ -n "$DOCUMENTED_COUNT" ] && [ "$DOCUMENTED_COUNT" != "$ADAPTER_COUNT" ]; then
   fail "README.md says '$DOCUMENTED_COUNT adapters' but $ADAPTER_COUNT folders exist"
@@ -113,6 +113,10 @@ declare -a NATIVE_PATHS=(
   "cline:.clinerules/workflows/"
   "windsurf:.windsurf/workflows/"
   "continue:.continue/prompts/"
+  "kimi:.kimi/skills/"
+  "qwen:.qwen/commands/"
+  "qwen:.qwen/agents/"
+  "qwen:.qwen/skills/"
 )
 for entry in "${NATIVE_PATHS[@]}"; do
   adapter="${entry%%:*}"
@@ -136,6 +140,10 @@ declare -a NATIVE_PATHS_IN_ADAPTERS=(
   "cline:.clinerules/workflows/"
   "windsurf:.windsurf/workflows/"
   "continue:.continue/prompts/"
+  "kimi:.kimi/skills/"
+  "qwen:.qwen/commands/"
+  "qwen:.qwen/agents/"
+  "qwen:.qwen/skills/"
 )
 for entry in "${NATIVE_PATHS_IN_ADAPTERS[@]}"; do
   adapter="${entry%%:*}"

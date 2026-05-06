@@ -1,5 +1,5 @@
 ---
-description: Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, Codex, Continue, Copilot, Gemini, Windsurf) so every selected tool offers the same surface as Claude Code in this repo. Sibling to /setup-project — split out in M2 to keep the orchestrator small.
+description: Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, Codex, Continue, Copilot, Gemini, Windsurf, Kimi, Qwen) so every selected tool offers the same surface as Claude Code in this repo. Sibling to /setup-project — split out in M2 to keep the orchestrator small.
 kind: command
 pack: orchestration
 ---
@@ -167,7 +167,7 @@ To prevent this, each adapter has a **minimum-output contract**. Phase 5 verifie
 | `copilot` | (a) `.github/copilot-instructions.md` (repo-wide, ≤2k tokens, summary of CLAUDE.md). (b) `.github/instructions/<domain>.instructions.md` for every `.claude/rules/*.md` (with `applyTo:` glob). (c) `.github/prompts/<name>.prompt.md` for every command (NATIVE). (d) `.github/agents/<name>.agent.md` for every agent (NATIVE — Apr 2026 GA). (e) `.github/skills/<name>/SKILL.md` (+ scripts) for every skill (NATIVE — Agent Skills GA). (f) Optional `.github/chatmodes/<name>.chatmode.md` for any agent flagged for chat-mode translation. |
 | `codex` | `AGENTS.md` at root with these sections: project overview, architecture, conventions (MUST/MUST-NOT), code style, testing, deployment, `## Invokable commands`, `## Named personas`, `## Named procedures`, `## Driver-dependent safety`, `## AI-tool adapters present`. |
 | `gemini` | `GEMINI.md` at root either (a) full content like AGENTS.md if no AGENTS.md exists, OR (b) thin pointer file referencing AGENTS.md if AGENTS.md exists. Plus optional Gemini-specific notes. |
-| `kimi` | (a) `.kimi/skills/<name>/SKILL.md` for every `.claude/skills/<name>/` (NATIVE folder). (b) `.kimi/subagents/<name>.yaml` for every `.claude/agents/<name>.md` (NATIVE — Kimi has no slash-command primitive; commands fold into skills). (c) `AGENTS.md` with consolidated rules + driver-gap disclosure. (d) Recommended `[[hooks]]` snippet for user-global `~/.kimi/config.toml` (documented in adapter — not auto-written per-project). |
+| `kimi` | (a) `.kimi/skills/<name>/SKILL.md` for every `.claude/skills/<name>/` (NATIVE folder). (b) `.kimi/skills/<name>/SKILL.md` for every `.claude/commands/<name>.md` (NATIVE — Kimi has no slash-command primitive; commands fold into skills). (c) `.kimi/subagents/<name>.yaml` for every `.claude/agents/<name>.md` (NATIVE). (d) `AGENTS.md` with consolidated rules + driver-gap disclosure. (e) Recommended `[[hooks]]` snippet for user-global `~/.kimi/config.toml` (documented in adapter — not auto-written per-project). |
 | `qwen` | (a) `QWEN.md` at root (+ `AGENTS.md` cross-tool canonical). (b) `.qwen/settings.json` with hooks + provider defaults (NATIVE). (c) `.qwen/commands/<name>.md` for every `.claude/commands/<name>.md` (NATIVE). (d) `.qwen/agents/<name>.md` for every `.claude/agents/<name>.md` (NATIVE). (e) `.qwen/skills/<name>/SKILL.md` for every `.claude/skills/<name>/` (NATIVE folder copy). |
 
 #### Coverage check (Phase 5 verifies, retries on shortfall)
@@ -259,7 +259,32 @@ case <adapter> in
   gemini)
     [ ! -f GEMINI.md ] && SHORTFALL=1
     ;;
-esac
+  kimi)
+    # Commands fold into skills; skills copy 1:1.
+    cmds_as_skills=$(ls .kimi/skills/*/SKILL.md 2>/dev/null | wc -l)
+    cmds_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
+    skills_expected=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l)
+    total_expected=$((cmds_expected + skills_expected))
+    [ "$cmds_as_skills" -lt "$total_expected" ] && SHORTFALL=1 && echo "Kimi .kimi/skills/: $cmds_as_skills/$total_expected (commands + skills)"
+    agents_native=$(ls .kimi/subagents/*.yaml 2>/dev/null | wc -l)
+    agents_expected=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
+    [ "$agents_native" -lt "$agents_expected" ] && SHORTFALL=1 && echo "Kimi .kimi/subagents/: $agents_native/$agents_expected"
+    [ ! -f AGENTS.md ] && SHORTFALL=1 && echo "Kimi: AGENTS.md missing"
+    ;;
+  qwen)
+    cmds_native=$(ls .qwen/commands/*.md 2>/dev/null | wc -l)
+    cmds_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
+    [ "$cmds_native" -lt "$cmds_expected" ] && SHORTFALL=1 && echo "Qwen .qwen/commands/: $cmds_native/$cmds_expected"
+    agents_native=$(ls .qwen/agents/*.md 2>/dev/null | wc -l)
+    agents_expected=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
+    [ "$agents_native" -lt "$agents_expected" ] && SHORTFALL=1 && echo "Qwen .qwen/agents/: $agents_native/$agents_expected"
+    skills_native=$(ls -d .qwen/skills/*/ 2>/dev/null | wc -l)
+    skills_expected=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l)
+    [ "$skills_native" -lt "$skills_expected" ] && SHORTFALL=1 && echo "Qwen .qwen/skills/: $skills_native/$skills_expected"
+    [ ! -f QWEN.md ] && SHORTFALL=1 && echo "Qwen: QWEN.md missing"
+    [ ! -f .qwen/settings.json ] && SHORTFALL=1 && echo "Qwen: .qwen/settings.json missing"
+    ;;
+  esac
 ```
 
 If shortfall detected: re-run that adapter's translation (Phase 5 retry loop). If retry also fails: halt with explicit error.
@@ -274,6 +299,8 @@ The Claude Code `.claude/commands/<name>.md` file has frontmatter `description:`
 - **Continue**: write `.continue/prompts/<name>.md` (NATIVE) with frontmatter `{name, description, invokable: true}` and body. Optional minimal `prompts:` mirror in `config.yaml` for Continue < 1.0.
 - **Cline**: write `.clinerules/workflows/<name>.md` (NATIVE — Cline workflows = slash commands).
 - **Windsurf**: write `.windsurf/workflows/<name>.md` (NATIVE — Cascade workflows = slash commands).
+- **Kimi**: write `.kimi/skills/<name>/SKILL.md` (NATIVE — Kimi has no slash-command primitive; commands fold into skills).
+- **Qwen**: write `.qwen/commands/<name>.md` (NATIVE folder) with body 1:1 from `.claude/commands/<name>.md`.
 - **Aider / Codex / Gemini**: append section to `CONVENTIONS.md` / `AGENTS.md` / `GEMINI.md` "Invokable commands" section with `### <name>` header + 5-30 line summary (full body stays in `.claude/commands/<name>.md` — referenced).
 
 Same pattern for agents:
@@ -282,9 +309,11 @@ Same pattern for agents:
 - **Cursor**: `.cursor/commands/agent-<name>.md` (translated as a command — Cursor has no agent dispatch).
 - **Continue**: `.continue/prompts/agent-<name>.md` (translated as a prompt).
 - **Cline / Windsurf**: section in `.clinerules/81-agents.md` / `.windsurf/rules/81-agents.md` (no native dispatch).
+- **Kimi**: `.kimi/subagents/<name>.yaml` (NATIVE — YAML with `description`, `system_prompt`, `tools`).
+- **Qwen**: `.qwen/agents/<name>.md` (NATIVE — frontmatter `{name, description, mode, model, tools}`).
 
 And for skills:
-- **OpenCode / Cursor / Copilot**: copy `.claude/skills/<name>/` folder verbatim to `.opencode/skills/<name>/` / `.cursor/skills/<name>/` / `.github/skills/<name>/` (NATIVE folder copy — `SKILL.md` + supporting scripts copied 1:1).
+- **OpenCode / Cursor / Copilot / Kimi / Qwen**: copy `.claude/skills/<name>/` folder verbatim to `.opencode/skills/<name>/` / `.cursor/skills/<name>/` / `.github/skills/<name>/` / `.kimi/skills/<name>/` / `.qwen/skills/<name>/` (NATIVE folder copy — `SKILL.md` + supporting scripts copied 1:1).
 - **Continue**: `.continue/prompts/skill-<name>.md` (translated as a prompt).
 - **Cline / Windsurf**: section in `.clinerules/82-skills.md` / `.windsurf/rules/82-skills.md`.
 

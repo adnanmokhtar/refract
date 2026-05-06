@@ -85,6 +85,8 @@ detect_adapters() {
   [[ -f "$TARGET/.aider.conf.yml" ]] || [[ -f "$TARGET/.aiderignore" ]] && detected+=" aider"
   [[ -f "$TARGET/AGENTS.override.md" ]]          && detected+=" codex"
   [[ -f "$TARGET/GEMINI.md" ]]                   && detected+=" gemini"
+  [[ -d "$TARGET/.kimi" ]]                       && detected+=" kimi"
+  [[ -d "$TARGET/.qwen" ]]                       && detected+=" qwen"
   echo "$detected" | tr -s ' ' | sed 's/^ //'
 }
 
@@ -406,6 +408,68 @@ sync_gemini() {
   [[ -f "$TARGET/GEMINI.md" ]] || report_missing_author "gemini-md" "GEMINI.md" "single-file composite; run /setup-project-adapters"
 }
 
+sync_kimi() {
+  echo "  [kimi]"
+  # Commands → skills (Kimi has no slash-command primitive; commands fold into skills).
+  for f in "$TARGET"/.claude/commands/*.md; do
+    [[ -f "$f" ]] || continue
+    name=$(basename "$f" .md)
+    sync_file "$f" "$TARGET/.kimi/skills/$name/SKILL.md"
+  done
+  # Skills (folder-form).
+  for skill_dir in "$TARGET"/.claude/skills/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    skill_name=$(basename "$skill_dir")
+    if [[ -f "$skill_dir/SKILL.md" ]]; then
+      sync_file "$skill_dir/SKILL.md" "$TARGET/.kimi/skills/$skill_name/SKILL.md"
+    fi
+  done
+  # Flat skills.
+  for f in "$TARGET"/.claude/skills/*.md; do
+    [[ -f "$f" ]] || continue
+    skill_name=$(basename "$f" .md)
+    sync_file "$f" "$TARGET/.kimi/skills/$skill_name/SKILL.md"
+  done
+  # Agents → subagents (format conversion .md → .yaml — LLM-authored).
+  for f in "$TARGET"/.claude/agents/*.md; do
+    [[ -f "$f" ]] || continue
+    name=$(basename "$f" .md)
+    [[ -f "$TARGET/.kimi/subagents/$name.yaml" ]] || report_missing_author "subagent.yaml" ".kimi/subagents/$name.yaml" "YAML frontmatter conversion from .claude/agents/ — run /setup-project-adapters"
+  done
+  # Rules → AGENTS.md (composite — LLM-authored).
+  [[ -f "$TARGET/AGENTS.md" ]] || report_missing_author "agents-md" "AGENTS.md" "cross-tool composite; run /setup-project-adapters"
+}
+
+sync_qwen() {
+  echo "  [qwen]"
+  # 1:1 markdown copies — commands, agents, skills (folder-form).
+  for f in "$TARGET"/.claude/commands/*.md; do
+    [[ -f "$f" ]] || continue
+    sync_file "$f" "$TARGET/.qwen/commands/$(basename "$f")"
+  done
+  for f in "$TARGET"/.claude/agents/*.md; do
+    [[ -f "$f" ]] || continue
+    sync_file "$f" "$TARGET/.qwen/agents/$(basename "$f")"
+  done
+  for skill_dir in "$TARGET"/.claude/skills/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    skill_name=$(basename "$skill_dir")
+    if [[ -f "$skill_dir/SKILL.md" ]]; then
+      sync_file "$skill_dir/SKILL.md" "$TARGET/.qwen/skills/$skill_name/SKILL.md"
+    fi
+  done
+  # Flat skills.
+  for f in "$TARGET"/.claude/skills/*.md; do
+    [[ -f "$f" ]] || continue
+    skill_name=$(basename "$f" .md)
+    sync_file "$f" "$TARGET/.qwen/skills/$skill_name/SKILL.md"
+  done
+  # Rules → QWEN.md (composite — LLM-authored).
+  [[ -f "$TARGET/QWEN.md" ]] || report_missing_author "qwen-md" "QWEN.md" "cross-tool composite; run /setup-project-adapters"
+  # Hooks → settings.json (format conversion — LLM-authored).
+  [[ -f "$TARGET/.qwen/settings.json" ]] || report_missing_author "settings.json" ".qwen/settings.json" "JSON shape; run /setup-project-adapters"
+}
+
 # ── Main loop ──────────────────────────────────────────────────────────────
 
 echo "=== apply-adapter-sync ==="
@@ -425,6 +489,8 @@ for adapter in $SELECTED_ADAPTERS; do
     aider)    sync_aider    ;;
     codex)    sync_codex    ;;
     gemini)   sync_gemini   ;;
+    kimi)     sync_kimi     ;;
+    qwen)     sync_qwen     ;;
     claude-code) ;; # Source of truth; no sync needed
     *) echo "  [unknown adapter: $adapter — skipping]" ;;
   esac

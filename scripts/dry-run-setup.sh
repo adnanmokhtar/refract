@@ -106,7 +106,7 @@ for adapter_dir in "$ROOT"/templates/tool-adapters/*/; do
   done
 done
 ADAPTER_FAILS=$ERRORS
-[ $ADAPTER_FAILS -eq 0 ] && pass "all 10 adapters have the four required sections"
+[ $ADAPTER_FAILS -eq 0 ] && pass "all 12 adapters have the four required sections"
 
 # 6. Phase 4.8.0 contract rows match folder set
 info ""
@@ -165,7 +165,7 @@ fi
 echo
 echo "════════════════════════════════════════════════════════════════"
 if [ "$ERRORS" -eq 0 ]; then
-  printf '\033[32m  Smoke test: PASS (%d schemas, %d _version.json files, 10 adapters)\033[0m\n' "$SCHEMA_COUNT" "$VERSION_COUNT"
+  printf '\033[32m  Smoke test: PASS (%d schemas, %d _version.json files, 12 adapters)\033[0m\n' "$SCHEMA_COUNT" "$VERSION_COUNT"
   exit 0
 else
   printf '\033[31m  Smoke test: FAIL (%d issue(s))\033[0m\n' "$ERRORS"
