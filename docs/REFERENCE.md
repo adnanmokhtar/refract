@@ -456,10 +456,14 @@ Examples:
 /migration-recheck the sidebar
 /migration-recheck the page builder
 /migration-recheck the customer tabs in the dashboard
+/migration-recheck --phase=3                        # loop every feature in phase 3 (done rows included; status preserved unless drift surfaces; NO rollback)
+/migration-recheck --phase=3 --re-detect-only       # phase-wide drift report, no edits
 /align-recheck the orders module
 /align-recheck the navigation header --re-detect-only
 /align-recheck the auth pages --register-ledger     # also tracks findings
 ```
+
+`/migration-recheck --phase=<N>` is the **non-rollback alternative** to `/migration-rollback <N>` + `/migration-fast <N>`. Reach for rollback+fast when you want a full re-port from scratch; reach for `--phase=<N>` when you want detect-and-fix-in-place that leaves clean done rows alone and only re-touches rows where fresh audit surfaces drift. Plan + ledger are required in this mode (it's the one mode where the command depends on the migration plan).
 
 This is the user's manual override / safety check + the "I just want this area cleaned up" tool — independent of whether the formal migration/alignment workflow has been initialized for the project.
 

@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.5.1",
-  "released": "2026-05-03",
+  "version": "1.5.2",
+  "released": "2026-05-07",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API).",
   "changelog": {
+    "1.5.2": {
+      "released": "2026-05-07",
+      "changes": [
+        "/migration-recheck: NEW --phase=<N> mode. Reads ledger / plan, expands to phase N's full feature set (done rows included), runs fresh audit + in-place fix per row WITHOUT rolling back the phase or downgrading clean done rows. Status only flips when fresh audit surfaces drift. The non-rollback alternative to /migration-rollback <N> + /migration-fast <N>.",
+        "Mutually exclusive with description / path inputs in the same invocation. Combinable with --re-detect-only for phase-wide drift report without edits.",
+        "Doc updates: COMMANDS.md row, REFERENCE.md plan-independent section, _topics.md sections list."
+      ]
+    },
     "1.5.1": {
       "released": "2026-05-03",
       "changes": [

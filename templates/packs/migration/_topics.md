@@ -219,8 +219,8 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   kind: command
   triggers:
     always: true
-  extracts_from: _extracted-codebase.md (codebase-profile + UI surface inventory + module names) + ai/migration/ledger.md
-  sections: [premise, when_to_use, input_forms_description_or_path, resolution_semantic, phases_1_to_7, examples, hard_rules, failure_modes, related]
+  extracts_from: _extracted-codebase.md (codebase-profile + UI surface inventory + module names) + ai/migration/ledger.md + ai/migration/plan.md (only when --phase=<N> is passed)
+  sections: [premise, when_to_use, input_forms_description_path_or_phase, resolution_semantic, phase_mode_loop, phases_1_to_7, examples, hard_rules, failure_modes, related]
   mirror_existing: false
   fallback: commands/migration-recheck.md
 

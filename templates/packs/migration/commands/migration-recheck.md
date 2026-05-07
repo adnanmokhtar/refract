@@ -1,10 +1,10 @@
 ---
-description: Independent V1↔V2 spot-check + fix. Accepts a natural-language description ("the sidebar", "the orders module", "customer tabs") OR explicit paths. Scans V1 + V2 source FRESH for the described area, audits parity, fixes drift in V2 to match V1. NO plan dependency, NO phase concept, NO required ledger row. Bypasses the full migration ceremony — just: find the area, audit, fix. Works whether or not the area is in the migration plan / ledger.
+description: Independent V1↔V2 spot-check + fix. Accepts a natural-language description ("the sidebar", "the orders module", "customer tabs"), explicit paths, OR `--phase=<N>` to loop a whole phase. Scans V1 + V2 source FRESH for the described area, audits parity, fixes drift in V2 to match V1 — without rolling back the phase or downgrading `done` rows. NO plan dependency required (except for `--phase=<N>`), NO required ledger row. Bypasses the full migration ceremony — just: find the area, audit, fix. Works whether or not the area is in the migration plan / ledger.
 kind: command
 pack: migration
 ---
 
-# /migration-recheck <description-or-path> [<more>...]
+# /migration-recheck <description-or-path> [<more>...] | --phase=<N>
 
 ## The Premise (read this first)
 
@@ -34,6 +34,7 @@ Examples:
 - `/migration-recheck the navigation header`
 - `/migration-recheck <modules-root>/orders/` (paths still work)
 - `/migration-recheck "the auth flow including login and signup"` (multi-concept descriptions)
+- `/migration-recheck --phase=3` (loop every feature in phase 3 — done rows included, status preserved)
 
 Use this when:
 - You want a fast, focused parity check on a specific area without ceremony.
@@ -65,12 +66,13 @@ Same discipline as `/find-and-fix` (the per-feature loop), just multi-feature + 
 - "Re-check store + products" — `/migration-recheck the store and products modules` OR `/migration-recheck <modules-root>/store/ <modules-root>/products/`
 - After a feature merge that touched many files in a module, to verify nothing rotted.
 
-## Input forms — description OR path
+## Input forms — description, path, OR phase
 
 The first arg can be:
 
 1. **Path** — anything that looks like a path: starts with `src/`, `apps/`, `lib/`, etc., contains `/`, or has a file extension matching the project's stack (declared in `_extracted-codebase.md § Stack`). Used directly as-is.
 2. **Description** — anything else. Plain-language description of what to re-check. The agent resolves it to features (see below).
+3. **`--phase=<N>`** — read every feature row in phase N from `ai/migration/ledger.md` (or `ai/migration/plan.md § Phase <N>` if the ledger doesn't carry phase metadata) and use that as the matched-features set. Includes rows already at `status: done` — recheck audits them fresh and only flips status if drift surfaces. Plan + ledger MUST exist for this mode (it's the one mode that depends on the migration plan). Combinable with `--re-detect-only` for a phase-wide drift report without any edits.
 
 Mixed input is allowed:
 ```
@@ -78,10 +80,13 @@ Mixed input is allowed:
 ```
 → resolves "the sidebar" to its feature(s), then ORs with the explicit `<modules-root>/orders/` path. Both contribute to the matched-features set.
 
+`--phase=<N>` is mutually exclusive with description/path inputs in the same invocation. Pick one mode per run.
+
 ## When NOT to use
 
 - For a single feature → `/find-and-fix <id>` is more direct.
-- For a whole phase → `/migration-fast <N> --re-audit` is the phase-scoped variant.
+- For a whole phase **with rollback semantics** (re-port from scratch, reset done rows) → `/migration-rollback <N>` then `/migration-fast <N>`.
+- For a whole phase **without rollback** (detect drift + fix in place, leave done status alone unless drift found) → `/migration-recheck --phase=<N>` (this command).
 - For a fresh full-repo sweep → `/migration-scan` then phased flow.
 - Mid-feature work (your own dirty diff) — finish the feature first, then recheck.
 
@@ -112,6 +117,9 @@ Inputs:
 
 Optional flags:
 
+**Phase-mode flag**:
+- `--phase=<N>` — match every feature in phase N (reads ledger / plan). Includes `done` rows; status only flips when fresh audit surfaces drift. Mutually exclusive with description / path args.
+
 **Resolution flags** (description-input behavior):
 - `--no-confirm` — never confirm ambiguous matches; pick the highest-scoring candidate silently. Use only in scripted contexts.
 - `--always-confirm` — show the resolution table even for high-confidence matches. Verify what the agent picked.
@@ -131,8 +139,11 @@ Optional flags:
 ## Phase 2 — Organize (decompose the work)
 
 ```
-1. PRE-FLIGHT      — verify oracle + clean tree (ledger / plan NOT required)
-2. RESOLVE         — for each input arg: classify as path or description; resolve descriptions to V1 + V2 source paths via semantic understanding
+1. PRE-FLIGHT      — verify oracle + clean tree (ledger / plan NOT required EXCEPT for --phase=<N>, which requires both)
+2. RESOLVE         — three branches:
+                       (a) --phase=<N>   → read ledger / plan, expand to feature set for phase N (done rows included)
+                       (b) path arg(s)   → use directly as match set
+                       (c) description   → semantic resolution to V1 + V2 source paths
 3. CONFIRM         — if resolution was ambiguous, surface candidates and confirm
 4. NAV-TREE        — for any module-scoped or multi-tab area: build V1 navigation tree AND V2 navigation tree via the MANDATORY TWO-LAYER scan, then diff. Layer A: route tree from every router file in the project's stack. Layer B: per-leaf template grep — for EACH component identified by Layer A, open the source and grep for in-template tab patterns (the project's tab primitive — concrete tag/component vocabulary varies by stack; see the project's frontend pack rule § Tab patterns; plus role-based markers `role="tab"` / `role="tablist"`, sidebar nav-tab arrays, in-page tab iteration constructs over `tabs|items|sections` collections, accordion title arrays, in-component nested-routing siblings). Layer-A-only scans are incomplete and HALT. Any V1 leaf (route OR in-template) without a V2 equivalent navigation surface is HALT-tier nav drift, surfaced BEFORE per-axis enumeration. Per `migration-discipline.md` halt #13: burying a V1 sub-tab as a section in another V2 tab is drift, not STRUCTURE_OK. If nav drift surfaces, the auditor halts at this step; per-axis work runs only on tabs that exist in both sides. Section 0 completion checklist (in `migration-discipline.md` halt #13) must tick all boxes before audit can advance.
 5. SCAN-FRESH      — for each resolved area: enumerate V1 + V2 source files; pin V1 commit hash for the run
@@ -329,7 +340,8 @@ Path matching is recursive — `<modules-root>/orders/` matches any feature whos
 
 ## Hard rules
 
-- **No phase concept.** This command is path-scoped, not phase-scoped. Ledger phase fields are ignored.
+- **Phase support is opt-in via `--phase=<N>`.** Default mode is path / description scoped — ledger phase fields are ignored. Pass `--phase=<N>` to expand a phase's feature set into the match set; in that mode, plan + ledger are required and `done` rows are included (their status is preserved unless fresh audit surfaces drift).
+- **Done-row protection in phase mode.** A `done` row stays `done` if its fresh audit comes back clean. It only flips to `halted` (or whatever the per-feature loop decides) when new gaps surface. No silent status downgrades. No rollback. No re-port of clean rows.
 - **Same discipline as /find-and-fix.** Per-feature: DETECT → DECIDE → FIX → VERIFY → RECORD. One commit per feature. V2 wins on structure; V1 wins on observable behaviour.
 - **Tier defaults preserved.** Trivial / standard / heavy auto-routes per feature based on its ledger row's tier.
 - **Halts are aggregated, not blocking.** A halted feature surfaces in the summary; other features continue.
@@ -389,6 +401,18 @@ Path matching is recursive — `<modules-root>/orders/` matches any feature whos
 /migration-recheck the sidebar <modules-root>/orders/
 ```
 
+### Phase-based (loop a whole phase, no rollback)
+
+```bash
+# Recheck every feature in phase 3 — done rows included; status preserved unless drift found
+/migration-recheck --phase=3
+
+# Phase-wide drift report only, no edits
+/migration-recheck --phase=3 --re-detect-only
+
+# Phase 3 + extra ad-hoc area in the same run is NOT supported (mutually exclusive)
+```
+
 ### Modifier flags
 
 ```bash
@@ -406,7 +430,8 @@ Path matching is recursive — `<modules-root>/orders/` matches any feature whos
 
 ### Sibling commands in migration pack
 - `/find-and-fix <id>` — single-feature variant of this command.
-- `/migration-fast <N> --re-audit` — phase-scoped re-audit (vs path-scoped here).
+- `/migration-fast <N> --re-audit` — phase-scoped re-audit that re-runs the full port chain (skips `done` rows at pre-flight). Reach for this when you want re-port-on-drift; reach for `/migration-recheck --phase=<N>` when you want detect-and-fix-in-place without rollback or status changes on clean rows.
+- `/migration-rollback <N>` — the rollback path; pair with `/migration-fast <N>` for full re-port. The non-rollback alternative is `/migration-recheck --phase=<N>`.
 - `/migration-scan --since=<commit>` — pick up newly-added features before rechecking.
 - `/compare-v1 <feature>` — read-only V1↔V2 diff for inspection.
 
