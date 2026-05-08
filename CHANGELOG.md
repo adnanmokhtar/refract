@@ -6,6 +6,44 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/audit` — full-stack engineering audit (new top-level orchestrator)
+
+**Why** — `/optimize` covers architecture / SOLID / clean code / tactical perf, but stops short on security and on a scale-lens (the engineering-principle a heavily-trafficked system actually fails on first). Pre-`/audit`, the user had to chain `/optimize` + `/security-audit` + `/db-audit` + `/perf-audit` + `/design-system` and merge findings by hand — five commands, five plans, no cross-axis ranker, no scale anchor.
+
+**What ships** — **`commands/audit.md`** (new ~360-LOC orchestrator). Sibling to `/migrate` / `/optimize` / `/align` / `/polish` / `/refactor`. Single command:
+
+- **Eight-axis parallel scan in one pass**: architecture, SOLID + clean code, security (`security-auditor` + `auth-reviewer` + `secret-scan` + `deps-audit` + `threat-model`), DB perf (`database-optimizer` + `query-optimizer` + `schema-reviewer`), runtime perf (`performance-optimizer` + `caching-architect` + `n-plus-one-scan`), **scale + resilience** (own 13 scale-lens detectors + `system-architect` + `resilience-reviewer`), infra/capacity (`infra-architect` + `k8s-reviewer`), observability (`observability-reviewer` + `telemetry-architect`).
+- **Differentiation vs `/optimize`**: 13 scale-lens detectors — hot-path scan, fan-out depth, sync HTTP in request path, single-instance bottleneck, lock contention, queue back-pressure, write amplification, tenant blast radius, capacity headroom, SLO delta, idempotency gaps, statelessness violations, cold-start cost. None of these are in `/optimize`'s detector set.
+- **Cross-axis ranker** — orders findings by `impact-at-target-scale × blast-radius × fix-cost`, NOT by axis. P0 scale-blockers → P1 security/correctness → P2 high-leverage scale fixes → P3 architectural foundations → P4 tactical cleanup.
+- **Scale anchors**: `--target-rps=<N>` and `--target-p95=<ms>` flags drive ranking. Defaults: 2× current measured RPS (from observability) OR 100 RPS / 200ms.
+- **Plan + execute**: writes `ai/audit/plan.md`; executes in tier order. P0/P1 ship with regression tests in same commit. P2 ships with measured before/after. `--plan-only` short-circuits before execute.
+- **Multi-day workflow** — `ai/audit/progress.md` matches the `/migrate /optimize /align /polish` pattern. Same common flags (`--status`, `--resume`, `--re-audit`, `--refresh`, `--restart`, `--ignore-ledger`, `--max-parallel`, `--exclude`, `--surface-blockers`).
+- **Ends with paste-ready next steps** per `actionable-next-steps.md` snippet contract — deferrals route to `/optimize`, `/security-audit`, `/db-audit`, `/k8s-generate`, `/add-metrics`, `/refactor`, etc.
+- **Validator** `validate-audit-artifacts.sh` is **planned**: P0 findings must cite a failure mode at target RPS; P0/P1/P2 findings must cite `<file:line>` + measured-or-estimated impact; rejects hand-waves (`etc.`, `would be slow`, `at scale this is bad`).
+
+**Stack-agnostic by construction** (added 2026-05-08, same release):
+- Stack list expanded in frontmatter + intro to enumerate every common backend (Node / TS / Python / Ruby / PHP / Java / Kotlin / Scala / C# / F# / Go / Rust / Elixir / Erlang / Crystal / Haskell / OCaml / Swift), frontend (Vue / Nuxt / React / Next / Remix / Svelte / SvelteKit / Solid / Qwik / Astro / Angular / Lit / Stencil / Preact / vanilla), mobile (Swift / SwiftUI / UIKit / Kotlin / Compose / RN / Flutter / Expo / Capacitor / .NET MAUI / KMP), data layer (relational / document / k-v / graph / search / time-series / warehouse / pipelines / streaming), CLI / library / SDK, serverless / edge, monorepo / polyglot.
+- **Stack-conditional detector matrix** (13 axes × 6 stack shapes) added to `commands/audit.md`. Each scale-lens axis has a concrete fingerprint per `PROJECT_KIND` — backend (`every endpoint × RPS × cost`), frontend (`every route mount × visit-rate × LCP cost`), mobile (`every screen × open-rate × jank cost`), CLI / library / SDK (`every entry-point × invoke-rate × wallclock`), serverless (`every handler × invoke-rate × billed-ms`), data pipeline (`every step × per-batch rows × stage time`). The detector logic is universal; the fingerprint adapts. Multi-tenant axis (#8) is the only axis gated on a tenancy anchor.
+- **Stack-appropriate target flags** — `--target-rps` (backend/serverless/pipeline), `--target-p95` (backend), `--target-vitals=fcp:N,lcp:N,tti:N,inp:N,cls:N` (frontend), `--target-cold-start` (serverless/mobile), `--target-startup` (CLI/library), `--target-bundle` (frontend/mobile). In polyglot monorepos, each `PROJECT_KIND` subtree picks up the flags that apply; non-applicable flags are ignored for that subtree.
+- **Polyglot monorepo handling** — per-subtree PROJECT_KIND drives axis routing; cross-`PROJECT_KIND` fixes (e.g., backend idempotency key + frontend retry handler) bundle into one plan row.
+- **Three load-bearing claims documented**: (1) detectors are shape-based not name-based, (2) specialist agents are themselves stack-agnostic, (3) no hard-coded language tokens — agent reads idioms from `_extracted-idioms.md` per project.
+- Output examples added: backend (Laravel SaaS), frontend (Vue 3 storefront), **mobile (React Native)**, **serverless (AWS Lambda)**, **CLI / SDK (TypeScript)**, **polyglot monorepo (Next.js + NestJS + Python ETL)**.
+
+**Sync chain** (per `feedback_full_sync_chain` discipline):
+- `commands/audit.md` (new + stack-agnostic expansion)
+- `docs/COMMANDS.md` — TOC, glance table, dedicated `## /audit` section (with stack matrix link + stack-appropriate flag block), multi-day workflow paragraph, common-flag block.
+- `docs/REFERENCE.md` — "The 5 simple commands" section + flag table; row expanded with stack-conditional detector matrix description.
+- `templates/tool-adapters/_orchestration-sync.md` — purpose line, validator table (planned), hook globs, `/refactor` callout.
+- `templates/tool-adapters/_registry.md` — Simple-surface row + rule-only-tool fallback note.
+- `templates/tool-adapters/{12 adapters}/adapter.md` — Audit pack bullet inserted after Align bullet; orchestrator list includes `/audit` in the Actionable next steps universal contract.
+- `commands/do.md` — intent → routing table + bottom command list.
+- `README.md` — top-level table (with stack list + flag list) + simple-surface count.
+- Global `~/.claude/commands/audit.md` (symlink) + `~/.kimi/skills/audit/SKILL.md` (auto-generated).
+- Downstream projects: `tenant-portal-v2` and `claude-v2` each got `audit.md` propagated to `.claude/commands/`, `.opencode/commands/`, `.cursor/commands/`, and Kimi skill wrapper at `.kimi/skills/audit/SKILL.md`.
+- `CHANGELOG.md` — this entry.
+
+**Distinct from siblings** — `/optimize` (no security, no scale lens), `/security-audit` (security-only), `/db-audit` (DB-only), `/perf-audit` (runtime perf only), `/design-system` (design-time only, not codebase scan). `/audit` is the simple-surface alternative that fans out and cross-ranks.
+
 ### `apply-adapter-sync.sh` normalizes agent `tools:` frontmatter for OpenCode
 
 **Root cause** — Claude Code accepts agent frontmatter `tools:` as a comma-separated string (`tools: Bash, Read, Grep, Glob`), but OpenCode's schema requires a YAML record (`tools:\n  bash: true\n  read: true`). `sync_opencode()` did a verbatim 1:1 copy of `.claude/agents/<name>.md` → `.opencode/agents/<name>.md`. When a project's agent had been customized with the Claude string form (e.g. via `/setup-project --refine`), OpenCode refused to load: `Configuration is invalid… Invalid input: expected record, received string tools`. Hit a downstream project (May 2026) with `endpoint-tester.md`.

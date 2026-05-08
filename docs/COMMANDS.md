@@ -17,6 +17,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
   - [`/optimize`](#optimize)
   - [`/refactor`](#refactor)
   - [`/polish`](#polish)
+  - [`/audit`](#audit)
 - Meta
   - [`/do`](#do)
   - [`/learn-from-task`](#learn-from-task)
@@ -41,6 +42,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/optimize [<scope>]`         | One-command architectural diagnosis + tactical sweep.                  | No (writes) |
 | `/refactor [<scope>]`        | Targeted behaviour-preserving refactor (Fowler verbs only); not whole-project. See [`commands/refactor.md`](../commands/refactor.md). | No (writes) |
 | `/polish [<scope>]`           | One-command UI/UX + API + schema + platform polish.                    | No (writes) |
+| `/audit [<scope>]`            | One-command full-stack engineering audit — architecture / SOLID / clean code / security / DB perf / runtime perf / scale + resilience / infra / observability. Cross-axis ranked plan + parallel fixes. Scale-first. | No (writes) |
 | `/do <description>`           | Universal meta-router → dispatches to the right specialized command.   | Routes only |
 | `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
 
@@ -499,11 +501,14 @@ Examples:
 /align the sidebar
 /polish                               # whole project UI/UX polish (frontend only)
 /polish the dashboard
+/audit                                # whole project engineering + scale audit
+/audit --target-rps=50000             # scale lens at 10× target traffic
+/audit the orders module --plan-only  # scoped, plan only
 ```
 
-**Multi-day workflow** — `/migrate`, `/optimize`, `/align`, and `/polish` each write to `ai/<cmd>/progress.md`. First run builds the inventory; subsequent runs pick the next pending area automatically. **`/refactor`** is different: it targets explicit paths or git-changed files by default; optional `ai/refactor/progress.md` is session notes only — it does **not** use the inventory / `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` orchestration. For whole-repo refactors, use **`/optimize`**. See [`commands/refactor.md`](../commands/refactor.md).
+**Multi-day workflow** — `/migrate`, `/optimize`, `/align`, `/polish`, and `/audit` each write to `ai/<cmd>/progress.md`. First run builds the inventory; subsequent runs pick the next pending area automatically. **`/refactor`** is different: it targets explicit paths or git-changed files by default; optional `ai/refactor/progress.md` is session notes only — it does **not** use the inventory / `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` orchestration. For whole-repo refactors, use **`/optimize`**. See [`commands/refactor.md`](../commands/refactor.md).
 
-**Common flags** (orchestrated simple-surface commands: `/migrate`, `/optimize`, `/align`, `/polish` — **not** `/refactor` unless noted in [`commands/refactor.md`](../commands/refactor.md)):
+**Common flags** (orchestrated simple-surface commands: `/migrate`, `/optimize`, `/align`, `/polish`, `/audit` — **not** `/refactor` unless noted in [`commands/refactor.md`](../commands/refactor.md)):
 
 ```
 /<cmd>                                # next pending area (or first run: build inventory)
@@ -522,6 +527,57 @@ Examples:
 ```
 
 `--restart` does NOT revert any commits already made — use `git` for that.
+
+## `/audit`
+
+Full contract: [`commands/audit.md`](../commands/audit.md).
+
+One command, full-stack engineering audit against system-design + engineering principles. Detects gaps across **eight axes in one pass** — architecture quality, SOLID + clean code, security (OWASP / auth / tenant / secrets / deps), database performance (schema + indexes + query plans), runtime performance (N+1, hot paths, caching), **scalability + resilience (the differentiating axis — 13 scale-lens detectors: hot-path scan, fan-out depth, sync I/O in critical path, single-instance bottleneck, lock contention, queue back-pressure, write amplification, tenant blast radius, capacity headroom, SLO delta, idempotency gaps, statelessness violations, cold-start cost)**, infrastructure + capacity, observability gaps. Cross-axis ranks findings by `impact-at-target-scale × blast-radius × fix-cost`, generates ONE unified plan, executes in tier order: **P0 scale-blockers → P1 security/correctness → P2 high-leverage scale fixes → P3 architectural foundations → P4 tactical cleanup**.
+
+**Universal across stacks.** Works on ANY codebase — any language, any framework, any project shape:
+
+- **Backends** — Node / TS / Python / Ruby / PHP / Java / Kotlin / Scala / C# / F# / Go / Rust / Elixir / Erlang / Crystal / Haskell / OCaml / Swift, in any framework (Express / NestJS / Fastify / Koa / Django / Flask / FastAPI / Rails / Sinatra / Laravel / Symfony / Spring / Quarkus / Micronaut / Ktor / ASP.NET / Phoenix / Echo / Gin / Fiber / Actix / Axum / Rocket).
+- **Frontends** — Vue / Nuxt / React / Next / Remix / Svelte / SvelteKit / Solid / Qwik / Astro / Angular / Lit / Stencil / Preact / vanilla / jQuery legacy, SPA / SSR / SSG / ISR / streaming-SSR / islands / RSC.
+- **Mobile** — iOS native (Swift / SwiftUI / UIKit), Android (Kotlin / Compose / Java), React Native, Flutter, Expo, Capacitor / Ionic, .NET MAUI, Kotlin Multiplatform.
+- **Data** — Postgres / MySQL / SQL Server / Oracle / SQLite / Mongo / Dynamo / Redis / Cassandra / Neo4j / Elastic / Influx / Snowflake / BigQuery; pipelines (Airflow / Dagster / dbt); streaming (Kafka / Pulsar / Kinesis / RabbitMQ / NATS).
+- **CLI / TUI / library / SDK** — startup time, public-API contract, lazy-load gaps, tree-shake regressions.
+- **Serverless / edge** — AWS Lambda, Cloudflare Workers, Vercel Edge, Deno Deploy, Fastly Compute, Azure Functions, GCP CFN / Cloud Run.
+- **Monorepos / polyglot** — Nx / Turborepo / Bazel / Pants / Lerna / pnpm workspaces / Cargo workspaces / Gradle multi-project. Each subtree's `PROJECT_KIND` drives axis routing for that subtree; cross-`PROJECT_KIND` fixes (e.g., backend idempotency key + frontend retry handler) bundle into one plan row.
+
+**Stack-agnostic by construction**, not by accident. The 13 scale-lens detectors are **shape-based** (entry-point × invoke-rate × cost-per-invoke) rather than name-based. Concrete fingerprint differs per `PROJECT_KIND` — see the stack-conditional detector matrix in `commands/audit.md` (every axis × backend / frontend / mobile / CLI / serverless / data fingerprint cataloged). Specialist agents (`architectural-diagnosis`, `security-auditor`, `database-optimizer`, `system-architect`, `performance-optimizer`) are themselves stack-agnostic. New language or new framework = no detector change required; the agent learns idioms from `_extracted-idioms.md`.
+
+Scale-first by design. Pass stack-appropriate target flags to anchor capacity-headroom + hot-path ranking. Output reports the capacity headroom delta against the target.
+
+Distinct from siblings:
+- `/optimize` — code quality + tactical perf only; no security; no scale lens.
+- `/security-audit` — security only; no DB / scale / arch.
+- `/db-audit` — database only.
+- `/perf-audit` — runtime perf only.
+- `/audit` — fuses all of the above + adds the 13 scale-lens detectors + cross-axis ranker, applied stack-conditionally. The simple-surface alternative to running them separately.
+
+Specialist flags (in addition to common flags above) — stack-appropriate targets:
+```
+# Backend / serverless / pipeline (rate-driven)
+/audit --target-rps=<N>               # default: 2× current OR 100
+/audit --target-p95=<ms>              # default: SLOs from ai/observability.md OR 200
+
+# Frontend (vitals-driven)
+/audit --target-vitals=fcp:<ms>,lcp:<ms>,tti:<ms>,inp:<ms>,cls:<n>
+/audit --target-bundle=<bytes>        # e.g., 200KB
+
+# Serverless / mobile (cold-start-driven)
+/audit --target-cold-start=<ms>
+
+# CLI / library / SDK (startup-driven)
+/audit --target-startup=<ms>
+
+# Universal flags
+/audit --plan-only                    # scan + rank + write plan; no fixes
+/audit --focus=<list>                 # narrow axes (security,db,scale,perf,arch,quality,infra,obs)
+/audit --skip-p4                      # skip tactical cleanup; focus on P0–P3
+```
+
+In a polyglot monorepo, mix flags freely — each `PROJECT_KIND` subtree picks up the flags that apply to it; non-applicable flags are ignored for that subtree.
 
 ## `/refactor`
 

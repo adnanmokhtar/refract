@@ -43,16 +43,21 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "add migration" / "new migration" | `/add-migration <description>` |
 | "fix" / "broken" / "crash" / "error" / "wrong" / "regression" | `/fix-bug <description>` |
 | "audit" / "review" + design / UX / a11y | `/design-review <path>` |
-| "audit" / "review" + security / vuln | `/security-audit` |
-| "audit" / "review" + perf / slow | `/perf-audit` |
+| "audit" / "review" + security / vuln (security-only) | `/security-audit` |
+| "audit" / "review" + perf / slow (perf-only) | `/perf-audit` |
 | "audit" / "review" + i18n | `/i18n-audit` |
+| "audit" / "review" + **multi-axis** (architecture + SOLID + security + DB + perf + scale) / "engineering principles" / "system design" / "ready for traffic" / "scale to N RPS" / "production hardening" / "pre-launch sweep" | `/audit [<scope>] [--target-rps=<N>]` |
 | "align" / "convention drift" / "cleanup conventions" / "match design system" + whole-project / multi-area scope | `/align [<scope>]` |
-| "align" / "drift" + single area, narrow scope | `/align-recheck <description>` (align pack) |
+| "unify" / "harmonize" / "make consistent" / "consistent codebase" / "uniform" / "standardize" / "single way" / **"some-X-some-Y"** ("some in one way and some in another", "half the files do X and half do Y") + codebase / project / module scope | `/align [<scope>]` |
+| "match the original structure" / "match the gold standard" / "follow the existing pattern" / "use the shared wrapper instead of custom" / "stop reinventing" / "one canonical way" + codebase / project scope | `/align [<scope>]` |
+| "drift" / "inconsistencies" / "fork(s) of the same thing" / "duplicate implementations of X" / "all over the place" / "inconsistent naming" / "inconsistent error shape" / "mixed patterns" + multi-area scope | `/align [<scope>]` |
+| "align" / "drift" / "unify" / "harmonize" / "make consistent" + **single area**, narrow scope (one page, one module, one file) | `/align-recheck <description>` (align pack) |
 | "port" / "migrate" / "match V1" / "compare V1" + whole-project / multi-feature scope | `/migrate [<scope>]` |
 | "port" + single feature, narrow scope | `/migration-recheck <description>` (migration pack) |
 | "refactor" / "extract" / "rename" / "move" / "flatten" + **specific file / module / symbol** (narrow target) | `/refactor <target>` |
 | "optimize" / "clean up" / "improve quality" + whole-project / multi-area scope | `/optimize [<scope>]` |
 | "clean up" + **ambiguous** (could mean tidy diff vs whole codebase) | Ask one question: narrow target → `/refactor`; broad sweep → `/optimize` |
+| "unify" / "consistent" / "harmonize" + **ambiguous** (could mean drift vs perf vs arch) | Ask one question: convention drift / inconsistent patterns → `/align`; architecture / SOLID / clean code → `/optimize`; production-readiness / scale → `/audit` |
 | "iterate" / "try variants" / "few options" + visual | invoke `design-iterate` skill |
 | "playground" / "test in isolation" + component | invoke `component-playground` skill |
 | "deploy" / "ship to staging" / "release" | `/deploy-stage` |
@@ -221,7 +226,7 @@ Proceed with /add-feature? [y / n / different command]
 ## Related
 
 ### Sibling commands (this command routes to)
-- `/migrate`, `/align`, `/optimize`, `/polish` — top-level simple-surface (whole-project / multi-area)
+- `/migrate`, `/align`, `/optimize`, `/polish`, `/audit` — top-level simple-surface (whole-project / multi-area)
 - `/add-feature`, `/add-page`, `/add-component`, `/add-endpoint`, `/add-module`, `/add-migration`
 - `/enhance-ui`, `/fix-bug`, `/align-recheck`, `/migration-recheck`
 - `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/design-review`

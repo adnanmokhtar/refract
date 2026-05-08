@@ -43,10 +43,11 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 | `/optimize [<scope>]`          | One-command architectural diagnosis + tactical sweep.                             |
 | `/refactor [<scope>]`          | Targeted behaviour-preserving refactor (closed vocabulary); ledger `ai/refactor/`. |
 | `/polish [<scope>]`            | One-command UI/UX + API + schema + platform polish.                               |
+| `/audit [<scope>]`             | One-command full-stack engineering audit — architecture / SOLID / clean code / security / DB perf / runtime perf / scale + resilience / infra / observability. Cross-axis ranked plan + parallel fixes. **Universal across stacks** — any language, any framework, any project shape (backend / frontend / mobile / data / CLI / library / serverless / monorepo / polyglot). 13 scale-lens detectors stack-routed via `PROJECT_KIND`. Scale-first targets: `--target-rps`, `--target-vitals`, `--target-cold-start`, `--target-startup`, `--target-bundle`. |
 | `/do <description>`            | Universal meta-router → dispatches to the right specialized command.              |
 | `/learn-from-task`             | Phase 6 manual entry — promote concrete learnings into `ai/`.                     |
 
-The five simple-surface commands (`/migrate /align /optimize /refactor /polish`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level detailed commands (`/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` for power-user control. See `docs/COMMANDS.md` for every flag.
+The six simple-surface commands (`/migrate /align /optimize /refactor /polish /audit`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level detailed commands (`/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` for power-user control. See `docs/COMMANDS.md` for every flag.
 
 ## `/setup-project` — the brain
 

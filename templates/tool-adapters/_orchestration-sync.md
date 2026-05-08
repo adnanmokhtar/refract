@@ -1,10 +1,10 @@
 ---
-purpose: Adapter-facing sync for simple-surface commands (`/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
+purpose: Adapter-facing sync for simple-surface commands (`/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
 ---
 
 # Orchestration & validator sync (for adapters)
 
-Use when translating pack bundles, CI hooks, or discipline blocks. Authoritative command prose: `commands/{migrate,optimize,polish,align,refactor}.md`. Validator sources: `scripts/validate-*-artifacts.sh`.
+Use when translating pack bundles, CI hooks, or discipline blocks. Authoritative command prose: `commands/{migrate,optimize,polish,align,refactor,audit}.md`. Validator sources: `scripts/validate-*-artifacts.sh`.
 
 ## Discipline enforcement (`AGENTS.md` inject)
 
@@ -21,14 +21,15 @@ Source: **`templates/tool-adapters/_discipline-enforcement.md`** (verbatim block
 | `validate-align-artifacts.sh` | `ai/align/ledger.md` format | `--strict` / `--quiet`; **21** closure verbs (5 structural + 16 functional) — see `align-discipline.md` + script |
 | `validate-polish-artifacts.sh` | `PROJECT_KIND`, stack evidence files | Env **`QUIET=1`** for quieter logs; **no** `--strict` CLI (failures already exit non-zero). Env `POLISH_DIR`, `PROJECT_KIND` |
 | `validate-refactor-artifacts.sh` | `ai/refactor/ledger.md` | `--strict`, `--quiet`, `--phase-base`, `--ledger`, `--findings-dir` |
+| `validate-audit-artifacts.sh` *(planned)* | `ai/audit/plan.md` + ranked-tier ledger | Will check P0/P1/P2 citations + measured-or-estimated impact; `--strict` rejects hand-waves (`etc.`, `would be slow`) and missing failure-mode citations on P0 rows |
 
 ## Hook globs (when wiring PostToolUse / pre-commit)
 
-Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/polish/**`, `ai/refactor/**` (plus pack-specific paths per coverage docs).
+Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/polish/**`, `ai/refactor/**`, `ai/audit/**` (plus pack-specific paths per coverage docs).
 
-## `/refactor` vs the four inventory commands
+## `/refactor` vs the five inventory commands
 
-**`/refactor`** is scoped (default: git-changed paths); it does **not** implement `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` multi-area orchestration. Those flags apply to **`/migrate`**, **`/optimize`**, **`/align`**, **`/polish`** — see `docs/COMMANDS.md` and `commands/refactor.md`.
+**`/refactor`** is scoped (default: git-changed paths); it does **not** implement `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` multi-area orchestration. Those flags apply to **`/migrate`**, **`/optimize`**, **`/align`**, **`/polish`**, **`/audit`** — see `docs/COMMANDS.md`, `commands/refactor.md`, and `commands/audit.md`.
 
 ## See also
 
