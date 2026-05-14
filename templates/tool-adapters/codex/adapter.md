@@ -174,19 +174,49 @@ Codex / AGENTS.md consumers have NO native command/agent/skill/hook support — 
 
 ### Commands → `## Invokable commands` section in AGENTS.md
 
+Codex has no native command/agent/skill/hook surface — the AGENTS.md file is **passively-loaded reference prose**. To prevent the model from reading translated commands as descriptions (and then asking the user what to do when invoked), each command MUST start with an **explicit imperative preamble**. This is what flips the loaded text from "documentation" to "directive" when the user says "run optimize".
+
+**Translation template — every translated command uses this exact shape:**
+
 ```markdown
 ## Invokable commands
 
-Invoke by asking: "Please run <command>".
+Invoke by asking: "Please run <command>" / "/optimize <scope>" / "run the <name> procedure".
 
-### endpoint-test
-<body of .claude/commands/endpoint-test.md — trimmed to ~30 lines>
+### `optimize` (action command — execute when invoked)
 
-### tenant-leak-audit
-<body — trimmed>
+**Invocation phrases**: "run optimize", "optimize <scope>", "/optimize <scope>".
+
+**EXECUTE NOW directive**:
+When the user invokes this command, do NOT summarise the workflow below and
+ask the user what to do. Begin executing immediately against the scope
+the user named (default: whole repo). Drive the workflow to completion or
+to an explicit halt; report results, not intent. Read `.claude/commands/optimize.md`
+for the full body if needed; this section is a load-bearing summary.
+
+**Workflow** (≤30-line summary from `.claude/commands/optimize.md`):
+
+<command body — trimmed>
+
+**Tool gating** (Codex has no per-section gates — self-gate via this line):
+This is a <read-only audit | full-action edit | plan-only write> command.
+<For audit-only: "Do not modify files; emit findings only.">
+<For plan-only: "Write to `ai/<pack>/plan.md` only; do not edit code.">
+
+**Output contract**: write the final report to `ai/<pack>/final-report.md`
+ending with `## Actionable next steps`.
+
+### `tenant-leak-audit` (audit-only — execute when invoked)
+<same shape>
 ```
 
-Keep each command ≤30 lines to avoid bloating AGENTS.md. Full bodies stay in `.claude/commands/` — the AGENTS.md section is a summary + pointer.
+**Failure mode this preamble prevents**: without "EXECUTE NOW", a user typing "run optimize" in Codex gets a response like "Sure — would you like me to start with architecture or quality findings? Here's what /optimize covers..." The preamble flips that to autonomous execution. The discipline is the same as Kimi subagents' `system_prompt:` field — Codex just has no native subagent primitive to hold it, so it lives inline in AGENTS.md.
+
+**Length discipline**: keep each command ≤30 lines to avoid bloating AGENTS.md (which is loaded on every Codex request). Full bodies stay in `.claude/commands/` — the AGENTS.md section is a summary + pointer. EXCEPT the EXECUTE NOW directive — that block is mandatory and counts toward the 30-line cap; trim the workflow summary first, never the directive.
+
+**Codex-specific limitations**:
+- No parallel dispatch — Codex executes serially. For commands that benefit from fan-out (`/optimize`, `/migrate`, `/polish`, `/align`), document that the user can drive parallel execution via `scripts/<command>-parallel.sh` (Codex spawns workers per row via `codex exec`, ledger flock coordinates).
+- No headless mode for fully autonomous loops — Codex stays interactive; the user must press through approval prompts. This is a tool-level constraint, not adapter-fixable.
 
 ### Agents → `## Named personas` section
 
@@ -245,8 +275,9 @@ When all 4 artifact types translate to AGENTS.md, the file can grow past 500 lin
 - **Polish pack — companion scripts (2026-05):** Document **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
 - **Align pack — companion scripts (2026-05):** Document **`validate-align-artifacts.sh`** + **`align-parallel.sh`** for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 - **Audit pack — companion scripts (2026-05):** `/audit` artifacts live under `ai/audit/**` (`plan.md`, `progress.md`, per-axis subfiles `_arch.md` / `_quality.md` / `_security.md` / `_db.md` / `_perf.md` / `_scale.md` / `_infra.md` / `_obs.md`, `final-report.md`). Validator **`validate-audit-artifacts.sh`** is **planned** — will halt on hand-waves (`etc.`, `would be slow`, `at scale this is bad`) and require P0 findings to cite a target-RPS failure mode. Dispatches existing pack scripts internally (`validate-optimize-artifacts.sh`, `validate-align-artifacts.sh`, `validate-polish-artifacts.sh`) for the architecture / SOLID / clean-code / API-consistency axes; security + DB + scale axes use their respective pack agents and skills directly. See `commands/audit.md` + `templates/tool-adapters/_orchestration-sync.md`.
+- **Unify-surfaces pack — companion scripts (2026-05):** `/unify-surfaces` (frontend-only, sibling to `/polish`) artifacts live under `ai/unify-surfaces/**` (`progress.md`, per-category inventory, canonical-wrapper decision evidence, `final-report.md`). Validator **`validate-unify-surfaces-artifacts.sh`** is **planned** — will check per-category inventory completeness, canonical-wrapper decision citations, idioms-update co-commit (`_extracted-idioms.md § Wrappers` updated in same commit), `Reuse-Before-Create` enforcement (extracting a duplicate where a shared wrapper exists fails). 7 default categories: tables / forms / headers / tabs / filters / buttons / validation. Validation is a 3-part pipeline (composable + components + API-error mapper), not a single wrapper. Halts on `PROJECT_KIND` not in `frontend-* / mobile-web / mobile-rn` with redirect to `/polish`. See `commands/unify-surfaces.md` + `templates/tool-adapters/_orchestration-sync.md`.
 - **Orchestration / validator sync:** **`templates/tool-adapters/_orchestration-sync.md`** — discipline paths (`ai/migrate/progress.md`), optimize oracle fallbacks, align 21-verb closure vocabulary, polish validator env (`QUIET=1`; no `--strict` CLI), refactor hook paths.
-- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands. Validator gate: **`check_actionable_next_steps`** halts when missing or prose-not-args. Document in `AGENTS.md` for AGENTS.md-consuming tools.
+- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`, `/unify-surfaces`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands. Validator gate: **`check_actionable_next_steps`** halts when missing or prose-not-args. Document in `AGENTS.md` for AGENTS.md-consuming tools.
 - Every other adapter references this one — it writes the shared file.
 - `claude-code/adapter.md` — source of rule content.
 - `gemini/adapter.md` — GEMINI.md is parallel to AGENTS.md for Gemini CLI.

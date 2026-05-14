@@ -80,12 +80,40 @@ Same pattern as Codex adapter — Gemini CLI has no native commands/agents/skill
 
 ### Commands → `## Invokable commands` in GEMINI.md
 
-```markdown
-## Invokable commands (ask Gemini to "run <name>")
+Gemini CLI has no native command/agent/skill/hook surface — `GEMINI.md` is **passively-loaded reference prose**. Same constraint as Codex: each translated command MUST start with an **explicit imperative preamble** so the model treats the loaded text as a directive (not documentation) when the user says "run optimize".
 
-### endpoint-test
-<body — trimmed>
+**Translation template — every translated command uses this exact shape:**
+
+```markdown
+## Invokable commands
+
+Invoke by asking: "run <command>" / "/optimize <scope>" / "do <procedure>".
+
+### `optimize` (action command — execute when invoked)
+
+**Invocation phrases**: "run optimize", "optimize <scope>", "/optimize <scope>".
+
+**EXECUTE NOW directive**:
+When the user invokes this command, do NOT summarise the workflow below and
+ask the user what to do. Begin executing immediately against the scope
+the user named (default: whole repo). Drive the workflow to completion or
+to an explicit halt; report results, not intent.
+
+**Workflow** (≤30-line summary from `.claude/commands/optimize.md`):
+<command body — trimmed>
+
+**Tool gating** (Gemini has no per-section gates — self-gate via this line):
+This is a <read-only audit | full-action edit | plan-only write> command.
+
+**Output contract**: write the final report to `ai/<pack>/final-report.md`
+ending with `## Actionable next steps`.
 ```
+
+**Failure mode**: without "EXECUTE NOW", `GEMINI.md` reads as a reference manual and the model responds to "run optimize" with clarification questions instead of action. The imperative preamble is the load-bearing fix.
+
+**Gemini-specific notes**:
+- If `AGENTS.md` already populates `## Invokable commands` with imperative preambles, `GEMINI.md` can simply reference it: "See `AGENTS.md § Invokable commands` — preamble + workflow apply identically to Gemini." Don't duplicate.
+- Gemini CLI runs interactively; no parallel dispatch. For commands that benefit from fan-out, point users at `scripts/<command>-parallel.sh` (Gemini is not currently in the `_parallel-tool-config.sh` driver set — workers run via another tool's headless mode).
 
 ### Agents → `## Named personas` in GEMINI.md
 
@@ -130,8 +158,9 @@ Avoids duplicating content across two files.
 - **Polish pack — companion scripts (2026-05):** Shell CI should run **`validate-polish-artifacts.sh`** (+ **`polish-parallel.sh`** as needed) for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+, the closed-verb spec is self-sufficient and inlines into rule-only tools); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
 - **Align pack — companion scripts (2026-05):** Shell CI should run **`validate-align-artifacts.sh`** (+ **`align-parallel.sh`** as needed) for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 - **Audit pack — companion scripts (2026-05):** `/audit` artifacts live under `ai/audit/**` (`plan.md`, `progress.md`, per-axis subfiles `_arch.md` / `_quality.md` / `_security.md` / `_db.md` / `_perf.md` / `_scale.md` / `_infra.md` / `_obs.md`, `final-report.md`). Validator **`validate-audit-artifacts.sh`** is **planned** — will halt on hand-waves (`etc.`, `would be slow`, `at scale this is bad`) and require P0 findings to cite a target-RPS failure mode. Dispatches existing pack scripts internally (`validate-optimize-artifacts.sh`, `validate-align-artifacts.sh`, `validate-polish-artifacts.sh`) for the architecture / SOLID / clean-code / API-consistency axes; security + DB + scale axes use their respective pack agents and skills directly. See `commands/audit.md` + `templates/tool-adapters/_orchestration-sync.md`.
+- **Unify-surfaces pack — companion scripts (2026-05):** `/unify-surfaces` (frontend-only, sibling to `/polish`) artifacts live under `ai/unify-surfaces/**` (`progress.md`, per-category inventory, canonical-wrapper decision evidence, `final-report.md`). Validator **`validate-unify-surfaces-artifacts.sh`** is **planned** — will check per-category inventory completeness, canonical-wrapper decision citations, idioms-update co-commit (`_extracted-idioms.md § Wrappers` updated in same commit), `Reuse-Before-Create` enforcement (extracting a duplicate where a shared wrapper exists fails). 7 default categories: tables / forms / headers / tabs / filters / buttons / validation. Validation is a 3-part pipeline (composable + components + API-error mapper), not a single wrapper. Halts on `PROJECT_KIND` not in `frontend-* / mobile-web / mobile-rn` with redirect to `/polish`. See `commands/unify-surfaces.md` + `templates/tool-adapters/_orchestration-sync.md`.
 - **Orchestration / validator sync:** **`templates/tool-adapters/_orchestration-sync.md`** — discipline paths (`ai/migrate/progress.md`), optimize oracle fallbacks, align 21-verb closure vocabulary, polish validator env (`QUIET=1`; no `--strict` CLI), refactor hook paths.
-- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands. Shell CI runs **`check_actionable_next_steps`** (in all 5 `validate-*-artifacts.sh`); halts when missing or prose-not-args. Rule-only — `GEMINI.md` documents the contract for users.
+- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`, `/unify-surfaces`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands. Shell CI runs **`check_actionable_next_steps`** (in all 5 `validate-*-artifacts.sh`); halts when missing or prose-not-args. Rule-only — `GEMINI.md` documents the contract for users.
 - `codex/adapter.md` — AGENTS.md is the content source.
 - `ai/references/models.md` — routing Gemini CLI to non-Google models via OpenAI-compat endpoints.
 - `ai/references/tool-parity.md` — gap matrix.

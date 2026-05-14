@@ -34,6 +34,36 @@ Legend:
 - — = not supported
 - † = behavior reported but version-dependent — verify against the tool's current docs
 
+## Command translation — does invoking a translated `/<command>` actually EXECUTE?
+
+The C column above marks whether each tool has a NATIVE command primitive. That's necessary but not sufficient — the adapter must also translate `commands/*.md` into the **right kind of primitive** for the tool. The wrong choice (e.g., routing an action command into a passive "reference skill") makes invocation load a document and ask the user "what now?" instead of running.
+
+Verdict per adapter:
+
+| Tool | Primitive used for action commands (`/optimize`, `/migrate`, ...) | Verdict | Notes |
+|---|---|---|---|
+| Claude Code | `.claude/commands/<name>.md` (native slash command) | ✅ Executes | Source of truth — slash commands ARE the native action primitive. |
+| OpenCode | `.opencode/commands/<name>.md` (native slash command) | ✅ Executes | Native command primitive — direct 1:1. |
+| Qwen | `.qwen/commands/<name>.md` (native slash command) | ✅ Executes | Native command primitive — direct 1:1. |
+| Cursor | `.cursor/commands/<name>.md` (native slash command) | ✅ Executes | Native command primitive. |
+| Continue.dev | `.continue/prompts/<name>.md` with frontmatter `invokable: true` | ✅ Executes | Native invokable prompt — activates as slash command. |
+| Copilot | `.github/prompts/<name>.prompt.md` with frontmatter `mode: agent` | ✅ Executes | Native reusable prompt; `mode: agent` dispatches agent tool. |
+| Cline | `.clinerules/workflows/<name>.md` (native workflow) | ✅ Executes | Native slash command via workflows folder. |
+| Windsurf | `.windsurf/workflows/<name>.md` (native workflow) | ✅ Executes | Native Cascade slash command. |
+| **Kimi** | **`.kimi/subagents/<name>.yaml`** (custom subagent — dispatchable) | ⊕ Executes via dispatch | **Subagents EXECUTE; skills only LOAD as reference.** The adapter MUST route action commands → subagents, NOT skills. Pre-2026-05 versions mis-routed to skills, producing the "loaded the manual, did nothing" failure. See `kimi/adapter.md § Skills vs subagents — which primitive for what`. |
+| Aider | `CONVENTIONS.md § User-invoked procedures` (passive reference prose) | ⚠️ Executes via imperative preamble | No executable primitive at all. Every translated command MUST start with an "EXECUTE NOW" directive in the second person so the model treats the loaded text as a directive, not documentation. See `aider/adapter.md § Commands`. |
+| Codex | `AGENTS.md § Invokable commands` (passive reference prose) | ⚠️ Executes via imperative preamble | Same as Aider — no executable primitive; imperative preamble is the load-bearing convention. See `codex/adapter.md § Commands`. |
+| Gemini | `GEMINI.md § Invokable commands` (passive reference prose) | ⚠️ Executes via imperative preamble | Same as Codex. See `gemini/adapter.md § Commands`. |
+
+Verdict legend:
+- ✅ = native action primitive — invocation executes the workflow autonomously
+- ⊕ = no native command primitive but the tool DOES have an executable secondary (subagent / dispatched agent) — adapter routes commands to that
+- ⚠️ = no executable primitive at any layer — adapter falls back to imperative-preamble reference prose; user must invoke verbally and the model self-directs
+
+**Rule for adapter authors**: when the tool has no native command primitive, prefer ⊕ (dispatchable secondary) over ⚠️ (preamble-only) wherever a dispatchable secondary exists. The Kimi adapter previously violated this — it had subagents available but routed commands to skills anyway. Routing to the weaker primitive is a structural defect, not a stylistic choice.
+
+**Translation contract for future adapters**: a new adapter MUST declare in its `adapter.md` which primitive it uses for `commands/*.md` AND justify the choice in one paragraph against this matrix. PRs that route commands to a passive primitive when a dispatchable one exists are rejected.
+
 ## Top-level orchestration commands (Claude-Code-only — by design)
 
 The 12 commands at this repo's `commands/` are split into two groups:
@@ -41,7 +71,7 @@ The 12 commands at this repo's `commands/` are split into two groups:
 | Group | Commands | Adapter coverage |
 |---|---|---|
 | **Setup family** (translatable) | `/setup-project`, `/setup-project-adapters`, `/setup-project-health`, `/scaffold-project`, `/refine-prompt`, `/learn-from-task` | Each adapter MAY surface these as its own slash command / prompt / instruction file. Optional — these commands also run end-to-end inside Claude Code and produce per-adapter outputs as a side effect. |
-| **Simple-surface multi-agent** (Claude-only as native commands) | `/migrate`, `/align`, `/optimize`, `/refactor`, `/polish`, `/audit`, `/do` | **Not translated to other adapters as slash commands.** These commands depend on Claude Code's parallel sub-agent dispatch — no other tool ships an equivalent primitive. Other tools have two equivalent paths: (a) call the underlying pack commands directly (`/migration-fast 1`, `/align-fast 2`, `find-and-fix <id>`, `/security-audit`, `/perf-audit`, `/db-audit`, `/design-system <feature>`) which DO have per-adapter translations via `_<pack>-pack-coverage.md`; OR (b) use the **parallel orchestrator scripts** (see below) that fan out N parallel CLI processes externally — closes the gap without needing the tool to add the primitive. **`/audit`** specifically fans out across 8 specialist axes (architecture / SOLID / security / DB / perf / scale-resilience / infra / observability) and cross-axis ranks; rule-only tools approximate it by running `/security-audit` + `/db-audit` + `/perf-audit` + `/design-system` sequentially and merging findings by hand. |
+| **Simple-surface multi-agent** (Claude-only as native commands) | `/migrate`, `/align`, `/optimize`, `/refactor`, `/polish`, `/audit`, `/unify-surfaces`, `/do` | **Not translated to other adapters as slash commands.** These commands depend on Claude Code's parallel sub-agent dispatch — no other tool ships an equivalent primitive. Other tools have two equivalent paths: (a) call the underlying pack commands directly (`/migration-fast 1`, `/align-fast 2`, `find-and-fix <id>`, `/security-audit`, `/perf-audit`, `/db-audit`, `/design-system <feature>`) which DO have per-adapter translations via `_<pack>-pack-coverage.md`; OR (b) use the **parallel orchestrator scripts** (see below) that fan out N parallel CLI processes externally — closes the gap without needing the tool to add the primitive. **`/audit`** specifically fans out across 8 specialist axes (architecture / SOLID / security / DB / perf / scale-resilience / infra / observability) and cross-axis ranks; rule-only tools approximate it by running `/security-audit` + `/db-audit` + `/perf-audit` + `/design-system` sequentially and merging findings by hand. |
 
 This is a deliberate split, not adapter drift. Any future adapter that gains parallel-agent dispatch becomes a candidate to add the simple-surface group as native slash commands.
 
@@ -58,6 +88,7 @@ For tools without native parallel sub-agent dispatch (Kimi, Aider, Codex, OpenCo
 | `optimize-parallel.sh` | `/optimize` | `ai/optimize/ledger.md` |
 | `polish-parallel.sh` | `/polish` | `ai/polish/ledger.md` |
 | `audit-parallel.sh --pack=<name>` | `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/db-audit`, `/ui-sweep` | `ai/<pack>/ledger.md` |
+| `unify-surfaces-parallel.sh` *(planned)* | `/unify-surfaces` | `ai/unify-surfaces/progress.md` (per-category fan-out — buttons / headers / tabs / forms / tables / filters / validation; respects category dependency edges) |
 
 Tool support (per `_parallel-tool-config.sh`): kimi, qwen, aider, opencode, codex, claude. Adding a new tool = one function in the config file. Adapter responsibility: ensure the chosen tool ships a headless / non-interactive invocation flag (verified per-tool: `kimi --headless --prompt`, `qwen -p`, `aider --message --no-stream --yes`, `opencode run`, `codex exec`, `claude --print`).
 

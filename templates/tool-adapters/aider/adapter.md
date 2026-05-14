@@ -151,18 +151,44 @@ build/
 
 ### Commands — `.claude/commands/*.md` → named sections in `CONVENTIONS.md`
 
-Aider has no slash-command system. Translate each command into a named section of `CONVENTIONS.md` under `## User-invoked procedures`:
+Aider has no slash-command system, no agent dispatch, no skill primitive. **Every translated command is a passively-loaded reference doc** — the user must invoke verbally for anything to happen. To prevent the model from reading the doc as a *description* of the workflow (and then asking the user what to do), each section MUST start with an **explicit imperative preamble** in the second person. This is what makes the LLM treat the loaded text as a directive when the user says "run optimize".
+
+**Translation template — every command-as-section uses this exact shape:**
 
 ```markdown
 ## User-invoked procedures
 
-### endpoint-test <controller>
-When user asks "run endpoint-test for <X>" or similar, follow this procedure:
+### `optimize` (action command — execute when invoked)
 
-<body of .claude/commands/endpoint-test.md>
+**Invocation phrases**: "run optimize", "optimize <scope>", "do an optimization pass on <scope>", "/optimize".
+
+**EXECUTE NOW directive (LLM reads this as imperative, not descriptive):**
+
+When the user invokes this procedure, do NOT summarise the workflow below
+and ask the user what to do. Begin executing immediately, against the scope
+the user named (default: whole repo). Drive the workflow to completion or
+to an explicit halt; report results, not intent.
+
+**Workflow** (from `.claude/commands/optimize.md`, inlined ≤30 lines or pointer):
+
+<command body — trimmed to load-bearing steps, with hand-waves stripped>
+
+**Closure verbs** (closed vocabulary — do not invent new ones):
+
+<closed verb list from the command, inlined>
+
+**Output contract**: write the final report to `ai/optimize/final-report.md`
+ending with `## Actionable next steps` per
+`templates/snippets/actionable-next-steps.md`.
 ```
 
-User invokes verbally: "Please run the endpoint-test procedure on OrderController." Aider reads `CONVENTIONS.md` (via `read:` in `.aider.conf.yml`) and executes.
+**Failure mode this preamble prevents**: without "EXECUTE NOW", a user typing "run optimize" gets the LLM responding "I can do that — would you like me to scope it to the whole repo or a specific module? Here's what the optimize procedure covers: ..." That's the model treating the loaded doc as documentation. The imperative preamble makes the doc a *directive* the model is supposed to *act on*, not *describe*.
+
+**Tool whitelist note** (Aider has no per-section tool gates — all sections run with Aider's session-wide permissions): audit-only procedures MUST include an explicit "Read-only — do not edit files" line in the EXECUTE NOW directive so the model self-gates.
+
+**Aider-specific limitations**:
+- Aider has no parallel dispatch, so workflows that depend on parallel sub-agent fan-out in Claude Code (e.g., `/optimize`'s wave-based execution) run **sequentially** in Aider. Document this in the command's translated section: "Aider runs steps serially; expect longer wall-clock than Claude Code."
+- For commands that *require* parallel fan-out (e.g., heavy migration phases), point the user at `scripts/<command>-parallel.sh` instead — Aider drives one row per process, the script coordinates via ledger flock.
 
 ### Agents — `.claude/agents/*.md` → personas in `CONVENTIONS.md`
 
@@ -230,8 +256,9 @@ These cover `post-edit-check.sh` use case. For everything else (pre-edit guards,
 - **Polish pack — companion scripts (2026-05):** Include **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally enforced by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
 - **Align pack — companion scripts (2026-05):** Include **`validate-align-artifacts.sh`** + **`align-parallel.sh`** for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 - **Audit pack — companion scripts (2026-05):** `/audit` artifacts live under `ai/audit/**` (`plan.md`, `progress.md`, per-axis subfiles `_arch.md` / `_quality.md` / `_security.md` / `_db.md` / `_perf.md` / `_scale.md` / `_infra.md` / `_obs.md`, `final-report.md`). Validator **`validate-audit-artifacts.sh`** is **planned** — will halt on hand-waves (`etc.`, `would be slow`, `at scale this is bad`) and require P0 findings to cite a target-RPS failure mode. Dispatches existing pack scripts internally (`validate-optimize-artifacts.sh`, `validate-align-artifacts.sh`, `validate-polish-artifacts.sh`) for the architecture / SOLID / clean-code / API-consistency axes; security + DB + scale axes use their respective pack agents and skills directly. See `commands/audit.md` + `templates/tool-adapters/_orchestration-sync.md`.
+- **Unify-surfaces pack — companion scripts (2026-05):** `/unify-surfaces` (frontend-only, sibling to `/polish`) artifacts live under `ai/unify-surfaces/**` (`progress.md`, per-category inventory, canonical-wrapper decision evidence, `final-report.md`). Validator **`validate-unify-surfaces-artifacts.sh`** is **planned** — will check per-category inventory completeness, canonical-wrapper decision citations, idioms-update co-commit (`_extracted-idioms.md § Wrappers` updated in same commit), `Reuse-Before-Create` enforcement (extracting a duplicate where a shared wrapper exists fails). 7 default categories: tables / forms / headers / tabs / filters / buttons / validation. Validation is a 3-part pipeline (composable + components + API-error mapper), not a single wrapper. Halts on `PROJECT_KIND` not in `frontend-* / mobile-web / mobile-rn` with redirect to `/polish`. See `commands/unify-surfaces.md` + `templates/tool-adapters/_orchestration-sync.md`.
 - **Orchestration / validator sync:** **`templates/tool-adapters/_orchestration-sync.md`** — discipline paths (`ai/migrate/progress.md`), optimize oracle fallbacks, align 21-verb closure vocabulary, polish validator env (`QUIET=1`; no `--strict` CLI), refactor hook paths.
-- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands with comment + exact path / `--scope=<path>` / `--focus=<verb>`. Validator gate: **`check_actionable_next_steps`** function (in all 5 `validate-*-artifacts.sh`) halts when section is missing OR when a command line is prose-not-args (e.g., `/refactor god files`). Include in shell-CI rule-only invocations.
+- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`, `/unify-surfaces`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands with comment + exact path / `--scope=<path>` / `--focus=<verb>`. Validator gate: **`check_actionable_next_steps`** function (in all 5 `validate-*-artifacts.sh`) halts when section is missing OR when a command line is prose-not-args (e.g., `/refactor god files`). Include in shell-CI rule-only invocations.
 - `claude-code/adapter.md` — rules source.
 - `ai/references/models.md` — Kimi + local model routing through Aider.
 - `ai/references/tool-parity.md` — what's not replicable in Aider.
