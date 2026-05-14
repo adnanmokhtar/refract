@@ -2,7 +2,9 @@
 
 **Tool:** Google Gemini CLI.
 **Docs:** https://github.com/google-gemini/gemini-cli
-**Capabilities:** R only — no agents, commands, hooks, skills.
+**Capabilities:** R (via `GEMINI.md`), **C (native — TOML custom commands at `.gemini/commands/<name>.toml`)** — no agents, hooks, skills.
+
+> **Custom commands correction (2026-05)**: prior versions of this adapter claimed Gemini CLI had "no executable primitive." That was wrong. Gemini CLI ships a TOML custom-command primitive (per `docs/cli/custom-commands.md`): `.gemini/commands/<name>.toml` (project) or `~/.gemini/commands/<name>.toml` (global), with subdirectory namespacing (`git/commit.toml` → `/git:commit`). Action commands like `/optimize` translate to TOML custom commands, NOT to imperative-prose-only `GEMINI.md` sections. Format is **TOML with a `prompt = """..."""` field** — not markdown. Reload with `/commands reload`.
 
 ## Target files
 
@@ -78,9 +80,45 @@ Same content as AGENTS.md — see `codex/adapter.md` sample output. Same structu
 
 Same pattern as Codex adapter — Gemini CLI has no native commands/agents/skills/hooks. Translate each into a section of `GEMINI.md`.
 
-### Commands → `## Invokable commands` in GEMINI.md
+### Commands → `.gemini/commands/<name>.toml` (NATIVE — TOML custom commands)
 
-Gemini CLI has no native command/agent/skill/hook surface — `GEMINI.md` is **passively-loaded reference prose**. Same constraint as Codex: each translated command MUST start with an **explicit imperative preamble** so the model treats the loaded text as a directive (not documentation) when the user says "run optimize".
+Gemini CLI has a real custom-command primitive — **TOML** (not markdown) — at `.gemini/commands/<name>.toml`. Path namespacing via subdirectories: `.gemini/commands/git/commit.toml` exposes `/git:commit`. After authoring, run `/commands reload` inside Gemini.
+
+**Format** (per `docs/cli/custom-commands.md`):
+
+```toml
+# .gemini/commands/optimize.toml
+description = "Run the /optimize workflow — deep architectural diagnosis then tactical sweep."
+
+prompt = """
+# EXECUTE NOW
+
+You are running the /optimize workflow. Do NOT summarise this document and ask
+the user what to do — immediately begin executing against the scope: {{args}}
+(default: whole repo if no args given).
+
+[... full workflow body from .claude/commands/optimize.md, inlined ...]
+
+## Closure verbs
+[... 21-verb vocabulary ...]
+
+## Output contract
+Write final report to ai/optimize/final-report.md.
+"""
+```
+
+**Interpolation tokens** (per the TOML custom-commands spec):
+- `{{args}}` — raw argument string the user passed after `/optimize`
+- `!{shell_command}` — shell injection (Gemini prompts for confirmation)
+- `@{path/to/file}` — file content injection
+
+**User invocation**: `/optimize src/api/` in the Gemini CLI prompt. Tab-completion lists all `.gemini/commands/` entries.
+
+**Tool-gating** for read-only commands: Gemini has no per-command tool whitelist. Self-gate via the `prompt`'s EXECUTE NOW preamble (e.g., "This is a read-only audit. Do not modify files.").
+
+### Commands fallback → `## Invokable commands` in GEMINI.md (when project doesn't ship TOML commands)
+
+For projects where the `gemini` adapter is documented but the user hasn't generated `.gemini/commands/` (e.g., quick-setup), `GEMINI.md` carries the workflow as **passively-loaded reference prose** with an imperative preamble. This is a fallback, not the primary surface — prefer TOML commands.
 
 **Translation template — every translated command uses this exact shape:**
 

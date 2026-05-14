@@ -2,7 +2,9 @@
 
 **Tool:** OpenAI Codex CLI + the cross-tool `AGENTS.md` standard.
 **Docs:** https://developers.openai.com/codex/guides/agents-md | https://agents.md
-**Capabilities:** R, partial A (conventions), N (nested AGENTS.md) — no hooks/skills/commands.
+**Capabilities:** R, partial A (conventions), N (nested AGENTS.md), **S (native Agent Skills at `.agents/skills/<name>/SKILL.md`)** — no hooks, no user-extensible slash commands (built-in slash set is closed: `/model`, `/permissions`, `/compact`, etc.).
+
+> **Agent Skills correction (2026-05)**: prior versions of this adapter claimed Codex had "no executable primitive." That was wrong. Codex implements the **Open Agent Skills standard** — `.agents/skills/<name>/SKILL.md` (repo) / `~/.agents/skills/` (user) / `/etc/codex/skills/` (system). Skills are invoked via the `/skills` picker, by `$mention`, or auto-selected when description matches. Action commands like `/optimize` translate to **Agent Skills**, not to imperative-prose-only AGENTS.md sections. The AGENTS.md fallback remains for tools that consume `AGENTS.md` but lack the Agent Skills standard.
 
 **Canonical owner of `AGENTS.md`.** This adapter writes the universal `AGENTS.md` file consumed by Codex, Cursor (fallback), Aider (via `read:`), Amp, Cline, Copilot, Windsurf, OpenCode, Gemini CLI (fallback), and any future AGENTS.md-aware tool. **The `claude-code` adapter intentionally does not write `AGENTS.md`** — it produces `CLAUDE.md` + `.claude/`, and this adapter compacts those into the cross-tool anchor. Writing AGENTS.md correctly is the single highest-leverage action across the whole adapter system.
 
@@ -170,11 +172,43 @@ The brain MUST source every value above from this codebase's extraction. Inventi
 
 ## Full artifact translation
 
-Codex / AGENTS.md consumers have NO native command/agent/skill/hook support — the AGENTS.md file is prose only. Translate each artifact as a named section the user invokes verbally.
+Codex CLI has the Open **Agent Skills** standard (`.agents/skills/<name>/SKILL.md`) plus AGENTS.md prose. Commands and skills translate to Agent Skills; agents and reference-only blocks translate to AGENTS.md sections. Other AGENTS.md-only consumers (without Agent Skills support) fall back to the imperative-prose convention.
 
-### Commands → `## Invokable commands` section in AGENTS.md
+### Commands → `.agents/skills/<name>/SKILL.md` (NATIVE — Agent Skills standard)
 
-Codex has no native command/agent/skill/hook surface — the AGENTS.md file is **passively-loaded reference prose**. To prevent the model from reading translated commands as descriptions (and then asking the user what to do when invoked), each command MUST start with an **explicit imperative preamble**. This is what flips the loaded text from "documentation" to "directive" when the user says "run optimize".
+**Path**: `.agents/skills/<name>/SKILL.md` (repo-level — discovered by Codex automatically).
+**Invocation**: three paths — (a) `/skills` picker, (b) `$<name>` mention in chat, (c) Codex auto-selects when the user's request matches the skill's `description`.
+**Frontmatter**: per the Open Agent Skills spec — `name` (required, `[a-z0-9-]{1,64}`), `description` (required, 1-1024 chars). Body is the workflow prose.
+
+```markdown
+.agents/skills/optimize/SKILL.md
+---
+name: optimize
+description: One-command code optimization — deep architectural diagnosis then tactical sweep in parallel waves. Invoke when the user asks to "optimize", "improve quality", "find tech debt", or names this skill via /skills picker / $optimize.
+---
+
+# Optimize workflow
+
+> **EXECUTE NOW directive**: When this skill activates (via `/skills`, `$optimize`, or auto-match), do NOT summarise this document and ask the user what to do — immediately begin executing the workflow below against the scope the user named (default: whole repo).
+
+[... workflow body inlined from .claude/commands/optimize.md ...]
+
+## Closure verbs
+[... 21-verb closure vocabulary ...]
+
+## Output contract
+Write final report to `ai/optimize/final-report.md` ending with `## Actionable next steps`.
+```
+
+**Skills list cap**: Codex caps the skills index at ~2% of context (~8K chars total across all skill `description:` fields). Keep descriptions concise — the BODY can be long, the description must be tight.
+
+**Sub-path discovery**: `.agents/skills/<namespace>/<name>/SKILL.md` works for namespacing (e.g., `.agents/skills/migration/scan/SKILL.md`).
+
+### Commands fallback → `## Invokable commands` section in AGENTS.md (for non-Codex AGENTS.md consumers)
+
+For AGENTS.md consumers that do NOT implement the Agent Skills standard (rule-only tools reading AGENTS.md as prose), the adapter ALSO emits an `## Invokable commands` section with the imperative-preamble pattern. Codex itself prefers the Agent Skills path; the AGENTS.md prose is a safety net for AGENTS.md-only consumers (Aider, Gemini, Cline-pre-skills) reading the same file.
+
+**Translation template — imperative-preamble fallback for non-Codex consumers:**
 
 **Translation template — every translated command uses this exact shape:**
 

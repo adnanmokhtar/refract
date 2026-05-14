@@ -38,31 +38,45 @@ Legend:
 
 The C column above marks whether each tool has a NATIVE command primitive. That's necessary but not sufficient — the adapter must also translate `commands/*.md` into the **right kind of primitive** for the tool. The wrong choice (e.g., routing an action command into a passive "reference skill") makes invocation load a document and ask the user "what now?" instead of running.
 
-Verdict per adapter:
+Verdict per adapter (refreshed 2026-05-14, verified against official docs):
 
 | Tool | Primitive used for action commands (`/optimize`, `/migrate`, ...) | Verdict | Notes |
 |---|---|---|---|
 | Claude Code | `.claude/commands/<name>.md` (native slash command) | ✅ Executes | Source of truth — slash commands ARE the native action primitive. |
-| OpenCode | `.opencode/commands/<name>.md` (native slash command) | ✅ Executes | Native command primitive — direct 1:1. |
-| Qwen | `.qwen/commands/<name>.md` (native slash command) | ✅ Executes | Native command primitive — direct 1:1. |
-| Cursor | `.cursor/commands/<name>.md` (native slash command) | ✅ Executes | Native command primitive. |
-| Continue.dev | `.continue/prompts/<name>.md` with frontmatter `invokable: true` | ✅ Executes | Native invokable prompt — activates as slash command. |
-| Copilot | `.github/prompts/<name>.prompt.md` with frontmatter `mode: agent` | ✅ Executes | Native reusable prompt; `mode: agent` dispatches agent tool. |
-| Cline | `.clinerules/workflows/<name>.md` (native workflow) | ✅ Executes | Native slash command via workflows folder. |
-| Windsurf | `.windsurf/workflows/<name>.md` (native workflow) | ✅ Executes | Native Cascade slash command. |
-| **Kimi** | **BOTH `.kimi/skills/<name>/SKILL.md` AND `.kimi/subagents/<name>.yaml`** (dual surface) | ⊕ Executes via dispatch + ✅ executes via `/skill:<name>` | **Dual-surface mapping.** Kimi has built-in `/skill:<name>` slash command (loads a named skill into context) but no user-extensible slash commands. Action commands generate BOTH a skill (so `/skill:optimize` works) AND a subagent (so "run optimize on src/" dispatches), each with an EXECUTE NOW preamble at top of body / `system_prompt:` so loading or dispatching triggers autonomous execution. Skill-only would lose dispatch + tool-whitelisting; subagent-only would break the native `/skill:<name>` invocation surface. See `kimi/adapter.md § Skills vs subagents — which primitive for what`. |
-| Aider | `CONVENTIONS.md § User-invoked procedures` (passive reference prose) | ⚠️ Executes via imperative preamble | No executable primitive at all. Every translated command MUST start with an "EXECUTE NOW" directive in the second person so the model treats the loaded text as a directive, not documentation. See `aider/adapter.md § Commands`. |
-| Codex | `AGENTS.md § Invokable commands` (passive reference prose) | ⚠️ Executes via imperative preamble | Same as Aider — no executable primitive; imperative preamble is the load-bearing convention. See `codex/adapter.md § Commands`. |
-| Gemini | `GEMINI.md § Invokable commands` (passive reference prose) | ⚠️ Executes via imperative preamble | Same as Codex. See `gemini/adapter.md § Commands`. |
+| OpenCode | `.opencode/commands/<name>.md` with frontmatter **`agent: build`** | ✅ Executes | `agent: build` REQUIRED for full tool access (read+write+shell). Without it, command routes to Plan/Chat mode and can't edit files. |
+| Qwen | `.qwen/commands/<name>.md` (Markdown w/ optional YAML frontmatter — current) | ✅ Executes | Markdown is the canonical format as of 2026-05. Legacy TOML still supported for backwards compat (recent TOML→Markdown migration). |
+| **Cursor** | **`.cursor/skills/<name>/SKILL.md`** (PRIMARY, since Cursor 2.3+) — `.cursor/commands/<name>.md` legacy fallback | ✅ Executes | Cursor migrated off slash commands to Skills; `/migrate-to-skills` is a built-in conversion command. Skills appear as `/<skill-name>` slash AND auto-match by description. New projects MUST generate skills. |
+| Continue.dev | `.continue/prompts/<name>.md` with frontmatter **`invokable: true`** | ✅ Executes | `invokable: true` REQUIRED or the prompt doesn't appear in the `/` picker. User MUST be in Agent mode (Chat / Plan / Agent toggle) for autonomous tool execution. |
+| Copilot | `.github/prompts/<name>.prompt.md` with frontmatter **`mode: agent`** | ✅ Executes | `mode: agent` REQUIRED for tool loop; `mode: ask` answers without tools, `mode: edit` edits files but no shell. |
+| **Cline** | **`.cline/skills/<name>/SKILL.md`** (PRIMARY, also reads `.claude/skills/`) — `.clinerules/workflows/<name>.md` legacy fallback | ✅ Executes | Cline merged workflows into Skills (workflows docs page now 404s). Auto-discovers from `.cline/skills/`, `.clinerules/skills/`, AND `.claude/skills/` directly — adapter can share Claude Code skills. **Experimental — must enable in Settings → Features → Enable Skills.** |
+| Windsurf | `.windsurf/workflows/<name>.md` (native Cascade workflow) | ✅ Executes | **Manual-invoke only** by design — Cascade NEVER auto-invokes workflows (perfect fit for `/optimize`-style user-dispatched commands). |
+| **Kimi** | **PRIMARY: `.kimi/skills/<name>/SKILL.md` with `type: flow` + Mermaid diagram (Flow Skill → `/flow:<name>`)** — fallback: regular skill with EXECUTE NOW preamble (`/skill:<name>`) | ✅ Executes (Flow Skill) / ⚠️ "contextual guidance" (regular skill) | Flow Skills are Kimi's only **explicit autonomous-execution** primitive — `/flow:<name>` walks BEGIN→END nodes. Regular `/skill:<name>` only injects body as "contextual guidance, not strict system prompt override" per docs — EXECUTE NOW preamble works in practice but isn't guaranteed. **Subagents (`.kimi/subagents/`) do NOT auto-discover** — they require declaration in a parent agent YAML's `subagents:` section. Orphan subagent files don't dispatch. |
+| **Codex** | **`.agents/skills/<name>/SKILL.md`** (Open Agent Skills standard) | ✅ Executes | Codex implements the Open Agent Skills standard. Invocation: `/skills` picker, `$<name>` mention, OR auto-selection by description match. Skills list capped ~2% of context (~8K chars total across descriptions). No direct `/<name>` slash — goes through `/skills` or `$mention`. |
+| **Gemini** | **`.gemini/commands/<name>.toml`** (TOML — required format) | ✅ Executes | Gemini CLI custom commands are TOML-only (NOT markdown). `prompt = """..."""` field carries the workflow body. Reload via `/commands reload`. Subdir namespacing via colons (`git/commit.toml` → `/git:commit`). |
+| Aider | `CONVENTIONS.md § User-invoked procedures` (passive reference prose) | ⚠️ Executes via imperative preamble | Confirmed: closed slash set (`/add`, `/code`, `/architect`, etc.) — NO user-extensible primitive at any layer. Every translated command MUST start with "EXECUTE NOW" directive in second person. User invokes verbally. |
 
 Verdict legend:
 - ✅ = native action primitive — invocation executes the workflow autonomously
-- ⊕ = no native command primitive but the tool DOES have an executable secondary (subagent / dispatched agent) — adapter routes commands to that
 - ⚠️ = no executable primitive at any layer — adapter falls back to imperative-preamble reference prose; user must invoke verbally and the model self-directs
 
-**Rule for adapter authors**: when the tool has no native command primitive, prefer ⊕ (dispatchable secondary) over ⚠️ (preamble-only) wherever a dispatchable secondary exists. The Kimi adapter previously violated this — it had subagents available but routed commands to skills anyway. Routing to the weaker primitive is a structural defect, not a stylistic choice.
+**Mandatory frontmatter / config fields per adapter** (most-missed by translators):
+- **OpenCode**: `agent: build` on action commands
+- **Continue**: `invokable: true` on action prompts
+- **Copilot**: `mode: agent` on action prompts
+- **Kimi (Flow Skill)**: `type: flow` in frontmatter + Mermaid/D2 diagram in body with `BEGIN` and `END` nodes
+- **Codex (Agent Skill)**: `name` and `description` required (per Open Agent Skills standard)
+- **Gemini**: TOML format with `description` and `prompt` fields (no markdown)
 
-**Translation contract for future adapters**: a new adapter MUST declare in its `adapter.md` which primitive it uses for `commands/*.md` AND justify the choice in one paragraph against this matrix. PRs that route commands to a passive primitive when a dispatchable one exists are rejected.
+**Translation contract for future adapters**: a new adapter MUST declare in its `adapter.md` which primitive it uses for `commands/*.md` AND justify the choice in one paragraph against this matrix. PRs that route commands to a passive primitive when an executable one exists are rejected.
+
+**Doc-verified anti-claims** (corrected 2026-05-14 after reading official docs):
+- "Codex has no executable primitive" — **FALSE**; Codex has Agent Skills (`.agents/skills/`).
+- "Gemini has no executable primitive" — **FALSE**; Gemini has TOML custom commands (`.gemini/commands/`).
+- "Cursor commands are the modern primitive" — **FALSE**; Cursor migrated to Skills.
+- "Cline uses workflows" — **STALE**; Cline merged workflows into Skills.
+- "Kimi subagents auto-discover from `.kimi/subagents/`" — **FALSE**; subagents require parent-agent YAML registration.
+- "Qwen uses TOML" — **STALE**; Qwen migrated TOML→Markdown.
+- "Gemini uses Markdown" — **FALSE**; Gemini is TOML-only (NOT the same as Qwen despite shared upstream).
 
 ## Top-level orchestration commands (Claude-Code-only — by design)
 

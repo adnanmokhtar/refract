@@ -133,8 +133,8 @@ OpenCode reads `.opencode/commands/<name>.md` natively. The adapter copies each 
 ```markdown
 ---
 description: Hit a dev endpoint via curl and verify DTO shape
-agent: build
-model: anthropic/claude-sonnet-4-6
+agent: build                          # REQUIRED for action commands — see frontmatter note below
+model: anthropic/claude-sonnet-4-6   # optional — falls back to project default
 ---
 
 # /endpoint-test
@@ -143,6 +143,27 @@ model: anthropic/claude-sonnet-4-6
 
 Arguments: $ARGUMENTS
 ```
+
+**Frontmatter discipline (`agent:` field — load-bearing for execution semantics)**:
+
+The `agent:` frontmatter routes the command to one of OpenCode's agent modes. For action commands that edit files / run shell / call MCP tools (`/optimize`, `/migrate`, `/polish`, `/align`, `/refactor`, etc.), `agent: build` is **REQUIRED** — Build mode is the only mode with full tool access. Without it, OpenCode routes the command to the default mode (typically Plan or Chat) which restricts tool calls. Symptom of the miss: user types `/optimize` and OpenCode responds "I would do X, Y, Z" instead of executing.
+
+Per-command-class mapping for `agent:`:
+
+| Command class | `agent:` value | Why |
+|---|---|---|
+| Audit-only (`/audit`, `/security-audit`, `/perf-audit`, `/db-audit`) | `plan` or a custom read-only subagent | Audits should not edit; Plan mode gives reasoning + read tools without write/shell |
+| Plan-only (`/refine-prompt`, `/migration-plan`, `/draft-phase-adrs`) | `plan` | Plan mode emits plans, not edits |
+| Full-action (`/optimize`, `/migrate`, `/polish`, `/align`, `/refactor`, `/unify-surfaces`, `/setup-project`, `/do`) | `build` | Build mode = full tool access (read + write + shell + MCP) |
+| Knowledge/help (`/setup-project-health`, `/learn-from-task`) | `build` (low-risk) | These write to `ai/` but don't shell out aggressively |
+
+If a `commands/*.md` source file in this repo doesn't have a `kind:` frontmatter, default to `agent: build` (action-style is the common case for the 12 top-level commands).
+
+**Token interpolation in command body**:
+- `$ARGUMENTS` — full raw argument string
+- `$1`, `$2`, ... — positional args (OpenCode parses on whitespace by default)
+- `!`shell-cmd`` — shell injection (user confirms before execution)
+- `@file` — inlines file contents at render time
 
 User invokes: `/endpoint-test <controller>` in OpenCode chat.
 
@@ -225,8 +246,9 @@ OpenCode has no lifecycle hooks. Fallbacks:
 - **Polish pack — companion scripts (2026-05):** Run **`validate-polish-artifacts.sh`** + **`polish-parallel.sh`** from shell/CI for `/polish` (stack-conditional — frontend / backend / data / mobile evidence); frontend rows additionally gated by **`check_frontend_verb_vocabulary`** against the closed 18-verb **`ui-design-sweep`** set (ui-ux pack v1.1+); see `templates/tool-adapters/_polish-pack-coverage.md` + `templates/tool-adapters/_ui-ux-pack-coverage.md`.
 - **Align pack — companion scripts (2026-05):** Run **`validate-align-artifacts.sh`** + **`align-parallel.sh`** from shell/CI for `/align`; see `templates/tool-adapters/_align-pack-coverage.md`.
 - **Audit pack — companion scripts (2026-05):** `/audit` artifacts live under `ai/audit/**` (`plan.md`, `progress.md`, per-axis subfiles `_arch.md` / `_quality.md` / `_security.md` / `_db.md` / `_perf.md` / `_scale.md` / `_infra.md` / `_obs.md`, `final-report.md`). Validator **`validate-audit-artifacts.sh`** is **planned** — will halt on hand-waves (`etc.`, `would be slow`, `at scale this is bad`) and require P0 findings to cite a target-RPS failure mode. Dispatches existing pack scripts internally (`validate-optimize-artifacts.sh`, `validate-align-artifacts.sh`, `validate-polish-artifacts.sh`) for the architecture / SOLID / clean-code / API-consistency axes; security + DB + scale axes use their respective pack agents and skills directly. See `commands/audit.md` + `templates/tool-adapters/_orchestration-sync.md`.
+- **Unify-surfaces pack — companion scripts (2026-05):** `/unify-surfaces` (frontend-only, sibling to `/polish`) artifacts live under `ai/unify-surfaces/**` (`progress.md`, per-category inventory, canonical-wrapper decision evidence, `final-report.md`). Validator **`validate-unify-surfaces-artifacts.sh`** is **planned** — will check per-category inventory completeness, canonical-wrapper decision citations, idioms-update co-commit (`_extracted-idioms.md § Wrappers` updated in same commit), `Reuse-Before-Create` enforcement (extracting a duplicate where a shared wrapper exists fails). 7 default categories: tables / forms / headers / tabs / filters / buttons / validation. Validation is a 3-part pipeline (composable + components + API-error mapper), not a single wrapper. Halts on `PROJECT_KIND` not in `frontend-* / mobile-web / mobile-rn` with redirect to `/polish`. See `commands/unify-surfaces.md` + `templates/tool-adapters/_orchestration-sync.md`.
 - **Orchestration / validator sync:** **`templates/tool-adapters/_orchestration-sync.md`** — discipline paths (`ai/migrate/progress.md`), optimize oracle fallbacks, align 21-verb closure vocabulary, polish validator env (`QUIET=1`; no `--strict` CLI), refactor hook paths.
-- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands. Validator gate: **`check_actionable_next_steps`** halts when missing or prose-not-args. Run from shell/CI on edits under `ai/{optimize,polish,align,migration,refactor}/**`.
+- **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`, `/unify-surfaces`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands. Validator gate: **`check_actionable_next_steps`** halts when missing or prose-not-args. Run from shell/CI on edits under `ai/{optimize,polish,align,migration,refactor}/**`.
 
 - `codex/adapter.md` — AGENTS.md format lives there.
 - `claude-code/adapter.md` — source of rules content.

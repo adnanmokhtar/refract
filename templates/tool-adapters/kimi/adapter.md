@@ -6,6 +6,66 @@
 
 > **Brand-group sibling.** Kimi shares the "brand directory" pattern with Claude Code and Codex: per the Skills doc, "Brand group (mutually exclusive): `~/.kimi/skills/`, `~/.claude/skills/`, or `~/.codex/skills/`." Project-level mirrors that: `.kimi/skills/`, `.claude/skills/`, `.codex/skills/`. Kimi's primary user surface is **skills + subagents** — there is no separate `/<command>` surface. **Custom subagents replace what Claude Code calls slash-command-driven agents** — and this distinction is load-bearing: subagents EXECUTE when invoked, skills LOAD as reference. The adapter MUST route `commands/*.md` (action-style workflows like `/optimize`, `/migrate`, `/polish`) to subagents, NOT to skills.
 
+## Kimi primitives reference (verified against docs.kimi.com 2026-05-14)
+
+Kimi has **THREE** primitives that touch the command-translation question, plus closed built-in slash commands:
+
+1. **Regular Skills** — `.kimi/skills/<name>/SKILL.md`. Auto-discovered from `.kimi/skills/`. Invoked via Kimi's built-in `/skill:<name>` slash command (injects body as **prompt — "contextual guidance, not strict system prompt override"**, per docs). Bodies can be imperative; the AI may comply but Kimi explicitly does NOT guarantee execution semantics.
+
+2. **Flow Skills** — same path, but `type: flow` in frontmatter PLUS an embedded **Mermaid or D2 diagram** in the body defining `BEGIN → ... → END` nodes. Invoked via Kimi's built-in `/flow:<name>` slash command which **autonomously walks the diagram from BEGIN to END**, executing each node. This is Kimi's **explicit autonomous-execution primitive** for multi-step workflows.
+
+3. **Subagents** — `.kimi/subagents/<name>.yaml` is NOT auto-discovered by Kimi. Per docs, subagents must be **declared in a parent agent YAML** under a `subagents:` section with `path:` entries. There is **NO `/subagent:` or `/agent:` slash command** — subagent dispatch is only available via the main agent's `Agent` tool (natural-language description match). Subagents that aren't declared in a parent agent file are **orphans Kimi cannot dispatch**.
+
+4. **Closed built-in slash set** — `/help`, `/skill:<name>`, `/flow:<name>`, `/login`, `/clear`, `/model`, `/theme`, `/sessions`, `/yolo`, `/plan`, `/mcp`, `/hooks`, `/usage`, `/init`, `/task`, `/btw`, `/web`, `/vis`, `/add-dir`, `/feedback`, `/changelog`, `/version`, `/import`, `/export`, `/compact`, `/debug`, `/reload`, `/new`, `/title`, `/undo`, `/fork`, `/editor`. Users **cannot** register new slash commands.
+
+## Which primitive for which artifact
+
+| Source artifact | Nature | Primary Kimi primitive | Why |
+|---|---|---|---|
+| `commands/*.md` action commands (`/optimize`, `/migrate`, `/polish`, etc.) | **Multi-step autonomous workflow** | **Flow Skill** at `.kimi/skills/<name>/SKILL.md` with `type: flow` + Mermaid/D2 diagram | `/flow:<name>` autonomously executes BEGIN→END. This is Kimi's only built-in primitive with **explicit execute-without-asking semantics**. |
+| `commands/*.md` action commands — **fallback** when authoring a Flow diagram is too costly | Same | **Regular Skill** at `.kimi/skills/<name>/SKILL.md` with an "EXECUTE NOW" preamble at the top of the body | `/skill:<name>` loads body as prompt (contextual guidance, not strict). Preamble in second person makes the AI usually treat it as a directive, but Kimi's docs explicitly say loading is "contextual guidance" — execution is best-effort. |
+| `skills/*.md` reference procedures (`extract-v1-contract`, `parity-test-generate`, `perf-uplift-survey`) | **Read when relevant** | **Regular Skill** at `.kimi/skills/<name>/SKILL.md`, no preamble | These ARE reference. Skills auto-discover; AI consults SKILL.md when description matches user's task. |
+| `agents/*.md` personas (`parity-auditor`, `migration-architect`) | **Dispatched by main agent for a focused task** | **Subagent** at `.kimi/subagents/<name>.yaml` — **PLUS a parent-agent registration entry** | Subagents only work when declared in a parent `agent.yaml`. Orphan subagents in `.kimi/subagents/` are not discoverable by Kimi. The adapter MUST also write a parent agent file that lists every generated subagent. |
+| `rules/*.md` (`migration-discipline`) | **Always-loaded guidance** | `AGENTS.md § Rules — <name>` + optionally a knowledge skill | Rules are reference. |
+
+## Subagent registration (critical — easy to miss)
+
+Subagent YAMLs at `.kimi/subagents/<name>.yaml` are **inert** without registration. Kimi does not auto-discover this directory. To make subagents dispatchable, the adapter MUST also write a parent agent YAML that declares them. Recommended location: `.kimi/agent.yaml` (or whichever path the project's `~/.kimi/config.toml` `agent_config:` field points at).
+
+```yaml
+# .kimi/agent.yaml — main agent for this project
+version: 1
+agent:
+  extend: kimi:coder           # inherit built-in Coder behaviour
+  description: "Main agent for <project>"
+
+subagents:
+  code-reviewer:
+    path: ./.kimi/subagents/code-reviewer.yaml
+    description: "Reviews code changes against project conventions"
+  migration-architect:
+    path: ./.kimi/subagents/migration-architect.yaml
+    description: "Plans per-feature V1→V2 ports"
+  # ... one entry per generated subagent
+```
+
+Without this file, **subagents do not work** — Kimi has no way to discover them. Pre-2026-05 adapter versions emitted subagent files without this registration and the result was orphan files. The validator's planned `check_kimi_subagent_registration` halts when subagent files exist but no parent agent declares them.
+
+## When user types `/skill:optimize` vs `/flow:optimize` vs "run the optimize subagent"
+
+| User typed | What Kimi does | Outcome |
+|---|---|---|
+| `/skill:optimize` (Flow Skill) | Loads SKILL.md body as prompt **without** walking the flow diagram | AI reads the body. May or may not execute — Flow Skills loaded this way are reference, not execution. |
+| `/flow:optimize` (Flow Skill) | Walks BEGIN→END nodes, executing each step's prompt | **Autonomous execution** — Kimi's actual run-the-workflow semantic. |
+| `/skill:optimize` (Regular Skill with EXECUTE NOW preamble) | Loads SKILL.md body as prompt | "Contextual guidance"; AI usually complies with imperative preamble but not guaranteed. |
+| "run the optimize subagent" (subagent registered in parent agent) | Main agent uses `Agent` tool to dispatch | Executes in isolated context with subagent's `tools:` whitelist. |
+| "run the optimize subagent" (subagent file exists but NOT registered) | Nothing — Kimi can't find it | Silent failure. |
+
+**Recommendation hierarchy for action commands**:
+1. **Best**: Flow Skill at `.kimi/skills/<name>/` with `type: flow` + Mermaid diagram → user invokes `/flow:<name>` → autonomous execution.
+2. **Good**: Regular Skill with EXECUTE NOW preamble → user invokes `/skill:<name>` → usually executes (contextual guidance).
+3. **For dispatched use**: Subagent + parent-agent registration → main agent dispatches via description match.
+
 ## Skills vs subagents — which primitive for what
 
 This is the most-frequently-mis-translated rule for Kimi. Kimi has **two complementary primitives** for executable work — and action commands generate to **BOTH**, not just one:
