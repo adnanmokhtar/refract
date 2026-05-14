@@ -8,16 +8,39 @@
 
 ## Skills vs subagents — which primitive for what
 
-This is the most-frequently-mis-translated rule for Kimi. Get it wrong and the user types `/skill:optimize` and Kimi just opens a manual.
+This is the most-frequently-mis-translated rule for Kimi. Kimi has **two complementary primitives** for executable work — and action commands generate to **BOTH**, not just one:
 
-| Source artifact | Nature | Kimi primitive | Why |
+| Source artifact | Nature | Kimi primitives generated | Why both |
 |---|---|---|---|
-| `.claude/commands/<name>.md` (e.g., `/optimize`, `/migrate`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`, `/do`, `/setup-project`) | **Action** — user invokes, work happens | `.kimi/subagents/<name>.yaml` | Subagents are dispatched and EXECUTE. The user's intent ("run optimize") matches subagent semantics. |
-| `.claude/skills/<name>/SKILL.md` (e.g., `extract-v1-contract`, `parity-test-generate`, `perf-uplift-survey`) | **Procedure / runbook** — read when relevant, follow steps | `.kimi/skills/<name>/SKILL.md` | Skills are knowledge surfaces. Kimi loads them as reference when the description matches the user's situation. |
-| `.claude/agents/<name>.md` (e.g., `parity-auditor`, `migration-architect`) | **Persona / reviewer** — main agent dispatches for a focused task | `.kimi/subagents/<name>.yaml` | Subagents handle agent-style dispatch. |
+| `.claude/commands/<name>.md` (e.g., `/optimize`, `/migrate`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`, `/do`, `/setup-project`) | **Action** — user invokes, work happens | **BOTH** `.kimi/skills/<name>/SKILL.md` (with EXECUTE NOW preamble) **AND** `.kimi/subagents/<name>.yaml` (with the same preamble + tool whitelist) | Two invocation surfaces. `/skill:<name>` is Kimi's native built-in slash command that loads a named skill into context; the EXECUTE NOW preamble makes the loaded text imperative so the model executes instead of summarising. Subagents support description-based dispatch ("run optimize on src/") and provide tool whitelisting (`tools: read` for audit-only, etc.). Users pick whichever surface feels natural. |
+| `.claude/skills/<name>/SKILL.md` (e.g., `extract-v1-contract`, `parity-test-generate`, `perf-uplift-survey`) | **Procedure / runbook** — read when relevant, follow steps | `.kimi/skills/<name>/SKILL.md` (no EXECUTE NOW preamble) | True reference procedures — they ARE supposed to load as documentation when context matches. No subagent generated. |
+| `.claude/agents/<name>.md` (e.g., `parity-auditor`, `migration-architect`) | **Persona / reviewer** — main agent dispatches for a focused task | `.kimi/subagents/<name>.yaml` | Subagents handle agent-style dispatch; agents are not user-invoked directly. |
 | `.claude/rules/<name>.md` (e.g., `migration-discipline`) | **Constraint / contract** — always-loaded guidance | `AGENTS.md § Rules` + optionally a knowledge skill at `.kimi/skills/<rule-name>/SKILL.md` | Rules are reference; project-memory is the right surface. |
 
-**Failure mode this rule prevents**: pre-2026-05 adapter versions mapped `commands/*.md` → `.kimi/skills/...`. Users who typed `/skill:optimize` got: Kimi loaded the SKILL.md, treated it as documentation, and asked "what now?" instead of running. The fix is structural — the primitive must match the artifact's nature (action vs. reference), not just "anything Kimi can hold."
+**The EXECUTE NOW preamble** (mandatory for command-derived skills + subagents):
+
+```markdown
+<!-- EXECUTE NOW preamble — injected by migrate-kimi-commands. Do not edit this block. -->
+> **Direct-invoke directive (read first when this skill loads, e.g. via `/skill:<name>`):**
+>
+> You are executing the `<name>` workflow. When this skill is loaded into context — by
+> any means (`/skill:<name>`, agent dispatch, description match, or main agent request) —
+> do NOT summarise the workflow below and ask the user what to do. Immediately begin
+> executing against the scope the user named (default: the whole project if no scope given).
+> Drive to completion or to an explicit halt; report results, not intent.
+>
+> This applies BEFORE the rest of the document. The body below is the workflow you execute.
+<!-- /EXECUTE NOW preamble -->
+```
+
+For skills: prepend AFTER the frontmatter `---` close. For subagents: include at the top of `system_prompt:`.
+
+**Failure modes this dual-surface rule prevents**:
+- **"Loaded the manual, did nothing"** — pre-2026-05 adapter generated SKILL.md with no imperative preamble. User typed `/skill:optimize`, Kimi loaded the SKILL.md, treated it as documentation, asked "what now?" Fix: EXECUTE NOW preamble at top of every command-derived skill.
+- **"Slash command not found"** — converting skills → subagents only (deleting skills) removes the `/skill:<name>` invocation surface entirely. Users who type `/skill:optimize` get nothing. Fix: keep skills AND add subagents.
+- **"Untriggerable by description"** — a skill-only surface can't be dispatched by the main agent via description matching. Fix: subagent provides the dispatch surface.
+
+**Migration script** for projects generated under the old single-surface rule: `scripts/migrate-kimi-commands-to-subagents.py` (creates subagents) + `scripts/kimi-restore-skills-with-preamble.py` (restores skills with preamble injected). Run both in order on each affected project.
 
 > **Standalone-tool goal**: a project generated by `/setup-project` with the `kimi` adapter selected MUST work end-to-end in Kimi Code with **no `.claude/` present**. Skills land in `.kimi/skills/`; subagents in YAML files Kimi discovers; hooks in user-global `~/.kimi/config.toml`; project rules in `AGENTS.md` (cross-tool canonical) at repo root.
 
@@ -43,7 +66,7 @@ repo-root/
 
 **Project-level config is `.kimi/skills/` + `.kimi/subagents/` + `AGENTS.md`.** Kimi's main config (`~/.kimi/config.toml`) is user-level — installed once per machine. The adapter does NOT write to it by default; it generates a recommended `[[hooks]]` snippet the user pastes into their global config.
 
-**No native slash commands.** Per the Customization sidebar (Official Plugins / MCP / Hooks / Skills / Custom Plugins / Agents and Subagents / Wire Protocol), Kimi has no separate command surface. Project workflows ship as either **skills** (knowledge / reference procedures the model loads when the description matches the user's situation) or **subagents** (custom workers the main agent dispatches and EXECUTES). The adapter maps `/setup-project`'s **action commands** (`/optimize`, `/migrate`, `/polish`, etc.) to **subagents** (so invocation runs the workflow), and maps **reference procedures** (`extract-v1-contract`, `parity-test-generate`, etc.) to **skills** (so they load as context when relevant). See § "Skills vs subagents — which primitive for what" below for the full mapping rule.
+**No user-extensible slash commands.** Per the Customization sidebar (Official Plugins / MCP / Hooks / Skills / Custom Plugins / Agents and Subagents / Wire Protocol), Kimi ships built-in slash commands (`/help`, `/skill:<name>`, `/feedback`, `/theme`) but users cannot register new ones. Project workflows ship via two complementary primitives: **skills** (loadable via Kimi's built-in `/skill:<name>` command) and **subagents** (custom workers dispatched by description). The adapter maps `/setup-project`'s **action commands** (`/optimize`, `/migrate`, `/polish`, etc.) to **BOTH** — a skill (so `/skill:optimize` works) AND a subagent (so "run optimize on src/" works), each with an "EXECUTE NOW" preamble so loading or dispatching produces autonomous execution. **Reference procedures** (`extract-v1-contract`, `parity-test-generate`, etc.) map to skill only. See § "Skills vs subagents — which primitive for what" below.
 
 ## File formats
 
@@ -128,7 +151,7 @@ How `/setup-project`'s artifacts map to Kimi's primitives:
 | `.claude/rules/<name>.md` (rules) | `AGENTS.md` § `## Rules — <name>` (consolidated) + `.kimi/skills/<rule-name>/SKILL.md` (if rule has procedural body) | Kimi has no separate rules folder; rules become project-memory paragraphs OR knowledge skills (rules are reference, not action — skills are the right primitive). |
 | `.claude/skills/<name>.md` (skills) | `.kimi/skills/<name>/SKILL.md` | Direct 1:1 with frontmatter rewrite (Kimi's `name` regex differs from Claude's). Skills stay as skills because they ARE reference procedures. |
 | `.claude/agents/<name>.md` (agents) | `.kimi/subagents/<name>.yaml` (custom subagent) | Persona body becomes `system_prompt:`; Claude's tool-use config maps to Kimi `tools:` list. Agents are dispatched → subagents are the executable primitive. |
-| `.claude/commands/<name>.md` (slash commands) | **`.kimi/subagents/<name>.yaml`** (custom subagent — NOT a skill) | Commands are **actions**. Subagents EXECUTE when dispatched; skills only LOAD as reference. The command body becomes the subagent's `system_prompt:` (with an explicit "EXECUTE NOW" preamble — see Sample output § Command-as-subagent below). Tool whitelist (`tools:`) is derived from the command's expected I/O (read-only audit-style commands omit `write` + `shell`; full-action commands like `/optimize`, `/migrate` get `read` + `write` + `shell`). Project rules / reference procedures the command depends on stay as `.kimi/skills/<name>/SKILL.md` and are loaded by the subagent at dispatch time via prompt text. |
+| `.claude/commands/<name>.md` (slash commands) | **BOTH `.kimi/skills/<name>/SKILL.md` AND `.kimi/subagents/<name>.yaml`** (dual-surface) | Commands need two invocation surfaces in Kimi: `/skill:<name>` (Kimi's native built-in slash command that loads a named skill) AND description-based dispatch (main agent picks the subagent by description). The same command body lives in both — with an "EXECUTE NOW" preamble at top so loading OR dispatching produces autonomous execution. Subagent's `tools:` whitelist is derived from the command's expected I/O (read-only audit-style commands omit `write` + `shell`; full-action commands like `/optimize`, `/migrate` get `read` + `write` + `shell`). Removing the skill in favor of subagent-only breaks `/skill:<name>` autocomplete; removing the subagent in favor of skill-only breaks description-based dispatch. Both surfaces are needed. |
 | `.claude/settings.json` (hooks) | `~/.kimi/config.toml` `[[hooks]]` snippet (in adapter README) | User-level; not auto-written. |
 | `ai/patterns/*.md` (knowledge) | Read by Kimi via `references/` in skills that need them, OR via `AGENTS.md` cross-references. | Kimi has no project-knowledge folder; patterns are referenced from skills. |
 
@@ -141,7 +164,7 @@ How `/setup-project`'s artifacts map to Kimi's primitives:
 ## Known gotchas
 
 1. **No path-scoped rules.** Kimi has no equivalent of Cursor's `globs:` or Cline's per-folder rules. All project rules live in one `AGENTS.md` plus skills the user invokes contextually.
-2. **No native slash commands — action commands MUST become subagents, not skills.** Workflows that depend on `/<name>` invocation in Claude Code map to Kimi **subagents** (executable; main-agent dispatches the work). Reference procedures map to Kimi **skills** (loaded as context when the description matches the user's situation). The distinction is load-bearing — see § "Skills vs subagents — which primitive for what". Document the mapping in `AGENTS.md` § "Available subagents" + "Available skills" so users know which to invoke. User invocation in Kimi: subagents are addressed by name in the main-agent prompt (e.g., "run the `optimize` subagent on `src/api/`"); skills surface via the model's description-matching when the user asks for the relevant procedure.
+2. **Slash commands — Kimi has only built-ins (`/help`, `/skill:<name>`, `/feedback`, `/theme`), not user-extensible.** Workflows that depend on `/<name>` invocation in Claude Code map to Kimi via **dual surfaces**: (a) `.kimi/skills/<name>/SKILL.md` invokable via Kimi's native `/skill:<name>` slash command, and (b) `.kimi/subagents/<name>.yaml` dispatched by description match (e.g., "run optimize on src/"). Both bodies start with an "EXECUTE NOW" preamble so loading OR dispatching produces autonomous execution. Reference procedures (true skills like `extract-v1-contract`, `parity-test-generate`) map to skill only — they ARE supposed to load as documentation. See § "Skills vs subagents — which primitive for what" for the full rule. Document available commands in `AGENTS.md § Available skills + Available subagents` so users know both invocation surfaces exist.
 3. **User-level config not auto-written.** Hooks are user-level (`~/.kimi/config.toml`). The adapter generates a paste-ready snippet but does not modify the file (would touch user state outside the project).
 4. **Skill `name` regex.** Kimi enforces `[a-z0-9-]{1,64}`. Claude's skill names that include uppercase or underscores must be lowercased + hyphenated when translating.
 5. **Subagent dispatch is from the main agent only.** Custom subagents cannot fan out further. Workflows that depend on multi-level agent dispatch (claude-code's nested Agent calls) flatten into a single subagent layer in Kimi.
