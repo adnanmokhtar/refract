@@ -2,10 +2,12 @@
 
 Cross-cuts the tool-adapter registry. Documents how each tool surfaces the UI/UX pack's artifacts when `--include=ui-ux` is selected by `/setup-project` (or auto-included for `frontend-*` projects).
 
-The pack provides three commands and two critical skills:
+The pack provides five commands and two critical skills:
 - `/design-review` — read-only audit (cite-or-halt)
 - `/enhance-ui <description>` — single-area enhancement orchestrator (cleanup → 3 variants → pick → verify)
 - `/ui-sweep [<phase>]` — project-wide UI/UX **specialist** (visual hierarchy, coverage metrics, cross-surface consistency, visual baseline + drift, flow-based phasing, HTML visual report)
+- **`/ui-crawl [<scope>]` (v1.2+)** — Playwright-driven cross-route crawler (login once, visit every route, screenshots × 3 breakpoints + dark + RTL, axe-core a11y per route, walks tabs / dialogs / dropdowns, captures console + network errors, writes ranked findings JSON + MD). Detect-only. Sibling to `/ui-sweep` — faster, broader, machine-readable output; `/ui-sweep` is deeper with HTML report.
+- **`/ui-crawl-fix [<class>] (v1.2+)`** — auto-fixer that consumes the `/ui-crawl` findings JSON and patches at the **wrapper level** (one fix → hundreds of cascading call sites). Closes color-contrast (token swap), button-name (aria-label injection), label (for/id wiring), v-html-without-sanitize, raw-library-component, hardcoded-translations. Skips bugs needing human judgment. Re-runs `/ui-crawl` in verify mode for gap-count parity. Inherits closure-verb discipline from `align-discipline.md`.
 - **`ui-design-sweep` skill (v1.1+)** — closed 18-verb closure vocabulary (sibling to `refactoring-sweep` / `api-consistency-audit` / `schema-consistency-audit`); per-verb fingerprint + procedure + verify + WCAG / iOS HIG / Material citation. The frontend half of `/polish` and the verb-spec `/ui-sweep` + `/enhance-ui` dispatch into. Cited axes live in `ui-principles.md § Axis catalog`.
 - `design-iterate` skill — generates 3 visual variants (style-only) per page
 
@@ -26,20 +28,20 @@ Power users still drop down to `/enhance-ui` (explicit single-area iteration), `
 
 ## Capability mapping per tool
 
-| Tool | `/ui-sweep` full | `ui-design-sweep` skill | `design-iterate` skill | Visual baseline (Playwright) | HTML report rendering |
-|---|---|---|---|---|---|
-| Claude Code | ✓ | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ (browser-side) |
-| OpenCode | ✓ | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
-| Cursor | ✓ | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
-| Copilot | ✓ | ✓ (native skill) | ✓ (native skill) | conditional (if MCP wired) | conditional |
-| Qwen | ✓ | ✓ (native skill) | ✓ (native skill) | conditional | partial |
-| Kimi | ✓ | ✓ (native skill) | ✓ (native skill) | conditional | partial |
-| Continue | ✓ rule + commands | as prompt template | as prompt template | conditional | partial |
-| Cline / Roo | ✓ rule + workflows | inlined in rule | inlined in rule | conditional | partial |
-| Windsurf | ✓ rule + workflows | inlined in rule | inlined in rule | conditional | partial |
-| Aider | rule-only | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO (markdown summary instead) |
-| Codex | rule-only | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
-| Gemini CLI | rule-only | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
+| Tool | `/ui-sweep` full | `/ui-crawl` + `/ui-crawl-fix` | `ui-design-sweep` skill | `design-iterate` skill | Visual baseline (Playwright) | HTML report rendering |
+|---|---|---|---|---|---|---|
+| Claude Code | ✓ | ✓ (Playwright project at `tests/crawl/`) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ (browser-side) |
+| OpenCode | ✓ | ✓ (same Playwright project; commands at `.opencode/commands/`) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
+| Cursor | ✓ | ✓ (commands at `.cursor/commands/`; runs against same Playwright project) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
+| Copilot | ✓ | ✓ prompt + Playwright runner via Actions | ✓ (native skill) | ✓ (native skill) | conditional (if MCP wired) | conditional |
+| Qwen | ✓ | ✓ command translation; Playwright project shared | ✓ (native skill) | ✓ (native skill) | conditional | partial |
+| Kimi | ✓ | ✓ skill wrapper; Playwright project shared | ✓ (native skill) | ✓ (native skill) | conditional | partial |
+| Continue | ✓ rule + commands | as prompt template; relies on Playwright in repo | as prompt template | as prompt template | conditional | partial |
+| Cline / Roo | ✓ rule + workflows | inlined workflow; Playwright in repo | inlined in rule | inlined in rule | conditional | partial |
+| Windsurf | ✓ rule + workflows | inlined workflow; Playwright in repo | inlined in rule | inlined in rule | conditional | partial |
+| Aider | rule-only | rule documents manual `pnpm crawl` invocation; no Playwright orchestration | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO (markdown summary instead) |
+| Codex | rule-only | rule documents manual invocation | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
+| Gemini CLI | rule-only | rule documents manual invocation | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
 
 **Conclusion**: tools without Playwright MCP support fall back to a manual procedure documented in the rule (the rule is self-sufficient for the detection + verb logic; only the visual-baseline + HTML-report steps require the MCP).
 
@@ -60,50 +62,53 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 ### Claude Code (`.claude/`)
 
 - `/ui-sweep` → `.claude/commands/ui-sweep.md`
+- `/ui-crawl` → `.claude/commands/ui-crawl.md`
+- `/ui-crawl-fix` → `.claude/commands/ui-crawl-fix.md`
 - `/enhance-ui` → `.claude/commands/enhance-ui.md`
 - `/design-review` → `.claude/commands/design-review.md`
 - `design-iterate` skill → `.claude/skills/design-iterate/SKILL.md`
 - Playwright MCP: `~/.claude/mcp/playwright/` (user installs once globally)
-- HTML report renders in default browser via `open ai/ui-sweep/report-<date>.html`.
+- Playwright crawler project: `tests/crawl/` (auth.setup.ts + ui-crawl.spec.ts + aggregate.ts + lib/)
+- HTML report renders in default browser via `open ai/ui-sweep/report-<date>.html`; Playwright crawler report at `tests/crawl/.report/index.html`.
 
 ### OpenCode (`AGENTS.md` + `.opencode/`)
 
-- Commands → `.opencode/commands/{ui-sweep,enhance-ui,design-review}.md`
+- Commands → `.opencode/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md`
 - Skill → `.opencode/skills/design-iterate/SKILL.md`
 - Rule (UI principles) → `AGENTS.md § UI/UX` section
 - HTML report renders the same way.
 
 ### Cursor (`.cursor/`)
 
-- Commands → `.cursor/commands/{ui-sweep,enhance-ui,design-review}.md`
+- Commands → `.cursor/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md`
 - Skill → `.cursor/skills/design-iterate/SKILL.md`
 - Rule → `.cursor/rules/ui-principles.mdc` (with `globs: src/**/*.{vue,tsx,jsx,svelte}`)
 - Hooks: `.cursor/hooks.json` triggers `verify-with-playwright` on edits to `src/**/*.{vue,tsx}` (optional).
 
 ### Copilot (`.github/`)
 
-- Commands → `.github/prompts/{ui-sweep,enhance-ui,design-review}.prompt.md`
+- Commands → `.github/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.prompt.md`
 - Skill → `.github/skills/design-iterate/SKILL.md`
 - Rule → `.github/instructions/ui-principles.instructions.md`
 - Visual baseline / HTML report: requires GitHub Actions with Playwright runner; or local fallback if user's local machine has Playwright MCP.
 
 ### Continue (`.continue/`)
 
-- Commands → `.continue/prompts/{ui-sweep,enhance-ui,design-review}.md` (Continue treats commands as prompts)
+- Commands → `.continue/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md` (Continue treats commands as prompts)
 - Skill → `.continue/prompts/design-iterate.md` (prompt-style)
 - Rule → `.continue/rules/ui-principles.md`
 - Visual baseline: documented as manual step (Continue has no native MCP integration).
 
 ### Cline (`.clinerules/`)
 
-- Commands → `.clinerules/workflows/{ui-sweep,enhance-ui,design-review}.md`
+- Commands → `.clinerules/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md`
 - Skill content → inlined into the rule (Cline doesn't have native skills).
 - Rule → `.clinerules/ui-principles.md`
 - Visual baseline: rule documents manual screenshot procedure.
 
 ### Windsurf (`.windsurf/`)
 
-- Commands → `.windsurf/workflows/{ui-sweep,enhance-ui,design-review}.md`
+- Commands → `.windsurf/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md`
 - Same rule-only fallback as Cline for skills + visual baseline.
 
 ### Aider (`CONVENTIONS.md`)
@@ -126,7 +131,7 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 
 ### Qwen Code (`QWEN.md` + `.qwen/`)
 
-- Commands → `.qwen/commands/{ui-sweep,enhance-ui,design-review}.md` (Markdown + YAML frontmatter).
+- Commands → `.qwen/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md` (Markdown + YAML frontmatter).
 - Skill → `.qwen/skills/design-iterate/SKILL.md`.
 - Rule → `QWEN.md § UI/UX` section + cross-reference in `AGENTS.md`.
 - Hooks: `.qwen/settings.json` `hooks.PostToolUse` may trigger `verify-with-playwright` on edits to UI source globs (optional).
@@ -152,6 +157,13 @@ When an adapter ships the UI-UX pack:
    /ui-sweep                      # repeatedly until done
    ```
    Adapters should preserve this 3-command simplicity in their docs.
+6. **MUST translate `/ui-crawl` + `/ui-crawl-fix` as a paired loop.** They are NOT thin wrappers around `/ui-sweep` — `/ui-crawl` is the QA-style crawler with its own scoring rubric (see `severity_scoring` section), Playwright project layout (`tests/crawl/`), and machine-readable findings format (`ai/audits/ui-crawl-findings.json`). `/ui-crawl-fix` is the auto-fix loop that consumes those findings and patches at the wrapper level using `align-discipline.md`'s closure verbs. Adapters MUST preserve:
+   - The paired DETECT (`/ui-crawl`) → FIX (`/ui-crawl-fix`) → VERIFY (`/ui-crawl --filter=<modules>`) loop.
+   - The auto-fixable safe-list (8 classes) AND the human-only triage list (broken triggers, layout overflow, page-load failures, heading-hierarchy skips, 5xx, aria-required structural mismatches, raw-color leaks).
+   - The wrapper-level fix discipline (one fix → hundreds of cascading call sites; never per-call-site).
+   - The Playwright + axe-core dependency declaration.
+   - Auth-setup-once + reuse-storageState pattern.
+   Flattening to "just `/ui-sweep` with `--auto-fix`" is forbidden.
 
 ## Rule-only tool fallback (Aider / Codex / Gemini)
 
@@ -186,3 +198,6 @@ The rule's "Tool-agnostic procedure" section walks through this for rule-only to
 - `_migration-pack-coverage.md` — sibling for V1↔V2 ports.
 - `templates/packs/ui-ux/_essentials.md` — the pack's command + skill list.
 - `templates/packs/ui-ux/commands/ui-sweep.md` — the canonical specialist command spec.
+- `templates/packs/ui-ux/commands/ui-crawl.md` — the cross-route Playwright crawler spec (v1.2+).
+- `templates/packs/ui-ux/commands/ui-crawl-fix.md` — the wrapper-level auto-fixer spec (v1.2+).
+- `templates/packs/align/rules/align-discipline.md` — closure-verb vocabulary `/ui-crawl-fix` operates on.

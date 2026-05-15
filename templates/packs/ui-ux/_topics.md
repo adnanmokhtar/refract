@@ -73,6 +73,22 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { primary_frontend_framework_detected: true }
   fallback: _examples/design-review.md
 
+- name: ui-crawl
+  kind: command
+  triggers: { primary_frontend_framework_detected: true, e2e_browser_runner_supported: true }
+  extracts_from: _extracted-codebase.md § Stack (test root + package runner) + _extracted-idioms.md § Wrappers (sidebar config + route manifest path) + _extracted-business.md § Auth (test-account selectors)
+  sections: [premise, when_to_use, prerequisites, what_it_produces, phases, flags, severity_scoring, hard_rules, output, cross_references, implementation_notes]
+  fallback: commands/ui-crawl.md
+  cite_evidence: strict
+
+- name: ui-crawl-fix
+  kind: command
+  triggers: { primary_frontend_framework_detected: true, e2e_browser_runner_supported: true }
+  extracts_from: _extracted-idioms.md § Wrappers (FormField / CrudActions / TableActions / BaseModal / sanitize helper / translation builder) + align/rules/align-discipline.md § closure verbs
+  sections: [premise, when_to_use, auto_fixable_classes, not_auto_fixed, phases, flags, hard_rules, output, cross_references, stack_scope]
+  fallback: commands/ui-crawl-fix.md
+  cite_evidence: strict
+
 - name: design-token-audit
   kind: skill
   triggers: { primary_frontend_framework_detected: true }

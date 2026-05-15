@@ -20,6 +20,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [Align (codebase quality sweep) end-to-end](#align-codebase-quality-sweep-end-to-end)
 - [Universal commands (`/do`, intent gates, gap-fill commands)](#universal-commands)
 - [`/ui-sweep` — project-wide UI/UX specialist](#ui-sweep--project-wide-uiux-specialist)
+- [`/ui-crawl` + `/ui-crawl-fix` — paired QA crawler + auto-fixer](#ui-crawl--ui-crawl-fix--paired-qa-crawler--auto-fixer-v12)
 - [Memory system](#memory-system)
 - [Validator scripts](#validator-scripts)
 - [Common pitfalls](#common-pitfalls)
@@ -180,7 +181,7 @@ A pack file in `_pack-coverage-report.md` is marked `Missing` and was not addres
 
 ---
 
-## The 5 simple commands — `/migrate`, `/optimize`, `/align`, `/polish`, `/audit`
+## The 6 simple commands — `/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/unify-surfaces`
 
 Top-level user surface above the detailed phased commands. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path) and runs deep multi-agent execution silently. NO phases / halts / ADRs / terminology surfaced — internal discipline (V1-parity, gap-count parity, idiom citation, no fabrication) is preserved but invisible.
 
@@ -190,9 +191,10 @@ Top-level user surface above the detailed phased commands. Each takes optional `
 | `/optimize` | architectural diagnosis FIRST (layer violations, god modules, missing abstractions) + tactical sweep (clean code, refactoring, SOLID, performance, dead code, dedup, over-abstraction). Foundation-first ordering — architectural fixes cascade and dissolve tactical findings. Backed by `architectural-diagnosis` + `refactoring-sweep` skills (code-quality pack v1.1+). | any |
 | `/align` | convention drift, structure enforcement, design-token / a11y / i18n / layering. Backed by `detect-drift` + `find-and-align` skills (align pack). | any |
 | `/polish` | **Stack-conditional**: frontend-* → 18-verb closed vocabulary in `ui-design-sweep` (ui-ux pack v1.1+) — tokens / wrappers / hierarchy / type-scale / rhythm / density / states / contrast / focus / iconography / motion / tap-target / cta / affordance / surface — fed by `a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit`. backend-* → `api-consistency-audit` (backend pack v1.1+, 15 detectors). data-* → `schema-consistency-audit` (database pack v1.1+). mobile-* → `platform-conventions-audit` (mobile pack v1.1+) + frontend fallback. **Validator** `validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 18-verb set. | any (PROJECT_KIND must be set) |
+| `/unify-surfaces` | **Surface-type unification across the entire frontend codebase.** Sibling to `/polish`, but typed by SURFACE CATEGORY (tables / forms / headers / tabs / filters / buttons / validation) instead of by axis. For each requested category: inventories every consumer across the codebase, decides the canonical wrapper (from `_extracted-idioms.md § Wrappers` or by promoting the most-used pattern), extracts or extends the shared wrapper, migrates every consumer in **one cascade-rewrite commit per category**, verifies (typecheck + lint + scoped tests + visual-regression on non-target surfaces). Validation extracts a **3-part pipeline** — frontend validator composable + `<ErrorList>` / `<FieldError>` + API-validation-error mapper — wired as a global response interceptor. Reuse-Before-Create enforced (extracting a duplicate where a shared wrapper exists fails the verify gate). Idioms updated in the same commit. Composable with `/polish` (run `/unify-surfaces` first to consolidate wrappers, then `/polish` to polish each canonical wrapper to spec). | `frontend-*`, `mobile-web`, `mobile-rn` (halts on backend / data / library / CLI / mobile-native) |
 | `/audit` | **Full-stack engineering audit — universal across stacks.** Fans out across 8 specialist axes in one pass: architecture, SOLID + clean code, security (`security-auditor` + `auth-reviewer` + `secret-scan` + `deps-audit` + `threat-model`), database performance (`database-optimizer` + `query-optimizer` + `schema-reviewer`), runtime performance (`performance-optimizer` + `caching-architect` + `n-plus-one-scan`), **scalability + resilience (the differentiating axis — 13 scale-lens detectors stack-routed via `PROJECT_KIND`: hot-path, fan-out depth, sync I/O in critical path, single-instance bottleneck, lock contention, queue back-pressure, write amplification, tenant blast radius, capacity headroom, SLO delta, idempotency, statelessness, cold-start)** plus `system-architect` + `resilience-reviewer` agents, infrastructure + capacity (`infra-architect` + `k8s-reviewer`), observability gaps (`observability-reviewer` + `telemetry-architect`). **Stack-agnostic by construction** — detectors are shape-based, not name-based. Same axis applies to backend (`every endpoint × RPS × cost`), frontend (`every route mount × visit-rate × LCP cost`), mobile (`every screen × open-rate × jank cost`), CLI / library / SDK (`every entry-point × invoke-rate × wallclock`), serverless (`every handler × invoke-rate × billed-ms`), data pipeline (`every step × per-batch row count × stage time`) — concrete fingerprint per `PROJECT_KIND`, full matrix in `commands/audit.md`. Polyglot monorepo support: per-subtree `PROJECT_KIND` drives routing; cross-stack fixes bundle into one plan row. **Cross-axis ranks** by `impact-at-target-scale × blast-radius × fix-cost`, NOT by axis. Tier order: P0 scale-blockers → P1 security/correctness → P2 high-leverage scale fixes → P3 architectural foundations → P4 tactical cleanup. Stack-appropriate target flags: `--target-rps=<N>` (backend/serverless/pipeline), `--target-p95=<ms>` (backend), `--target-vitals=<spec>` (frontend), `--target-cold-start=<ms>` (serverless/mobile), `--target-startup=<ms>` (CLI/library), `--target-bundle=<bytes>` (frontend/mobile). Plus `--plan-only`, `--focus=<axes>`, `--skip-p4`. | any (any language, any framework, any shape — including monoliths, microservices, monorepos, polyglot) |
 
-Progress tracking via `ai/{migrate,optimize,align,polish,audit}/progress.md` (single source of truth per command). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags shared by all five:
+Progress tracking via `ai/{migrate,optimize,align,polish,audit,unify-surfaces}/progress.md` (single source of truth per command). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags shared by all five:
 
 | Flag | Behaviour |
 |---|---|
@@ -673,6 +675,63 @@ If anchors missing → run `/setup-project --refine` first.
 - Playwright MCP wired (for screenshots + DOM analysis).
 - Mechanical CI green at HEAD.
 - Working tree clean.
+
+## `/ui-crawl` + `/ui-crawl-fix` — paired QA crawler + auto-fixer (v1.2+)
+
+**`/ui-crawl` is the cross-route QA crawler; `/ui-sweep`'s sibling, not its replacement.** `/ui-sweep` is the deep specialist with HTML report + visual baselines + flow-based phasing; `/ui-crawl` is the fast machine-readable crawler — log in once, hit every route, screenshot at 3 breakpoints + dark + RTL, run axe-core, walk tabs / dialogs / dropdowns, capture console + network errors, output ranked findings JSON + MD.
+
+### When to use which
+
+| Scenario | Command |
+|---|---|
+| Pre-release sweep, recurring CI, post-token-change regression scan | `/ui-crawl` |
+| Quarterly UI/UX cadence, baseline + drift, hierarchy / coverage metrics, HTML report | `/ui-sweep` |
+| Mechanical findings to mass-fix at the wrapper level | `/ui-crawl-fix` after `/ui-crawl` |
+| Single-area visual polish | `/enhance-ui <description>` |
+| Read-only UX audit | `/design-review` |
+
+### Workflow — paired DETECT → FIX → VERIFY loop
+
+```
+/ui-crawl --smoke                    # ~5 min triage — 1 route per module
+/ui-crawl                            # full crawl across all routes (~30–60 min)
+/ui-crawl-fix --safe-only --verify   # auto-fix mechanical findings; re-crawl to confirm
+/ui-crawl --filter=<area>            # spot-check after manual fixes
+```
+
+### What `/ui-crawl-fix` auto-fixes (8 safe-list classes)
+
+`color-contrast` (token swap) · `button-name` (aria-label injection on icon-only buttons inside shared wrappers) · `label` (`for`/`id` wiring in `FormField`) · raw `<Dialog>` / `<Dropdown>` / `<MultiSelect>` in pages (swap to `<BaseModal>` / `<BaseDropdown>` / `<BaseMultiSelect>`) · `<v-html>` / `dangerouslySetInnerHTML` without sanitize wrapper · hardcoded `{ en: '', ar: '' }` translation refs · `<a target="_blank">` missing `rel="noopener noreferrer"` · empty `catch {}` swallows.
+
+### What `/ui-crawl-fix` does NOT auto-fix (human triage)
+
+Broken dialog triggers · horizontal overflow at any breakpoint · page didn't load / uncaught JS error · heading hierarchy skip · network 5xx · `aria-required-parent` / `aria-required-children` mismatches · color values not rooted in tokens.
+
+### Output
+
+- `ai/audits/ui-crawl-inventory.json` — route manifest (routes + dialogs + dropdowns + tabs counts).
+- `ai/audits/ui-crawl-findings.json` — full machine-readable findings.
+- `ai/audits/ui-crawl-findings.md` — human triage report, ranked by severity.
+- `ai/audits/ui-crawl-fix-log.md` — append-only log of auto-fix runs.
+- `tests/crawl/.screenshots/` — 5+ per route.
+- `tests/crawl/.report/` — Playwright HTML report.
+
+### Pre-requisites
+
+- `PROJECT_KIND` is `frontend-*` (or `mobile-web`).
+- Dev server running at a known URL (default `http://localhost:3000`).
+- Test account with broad permissions; credentials in `tests/crawl/.env` (gitignored).
+- `_extracted-idioms.md` populated (selectors + wrapper inventory).
+- `@playwright/test` + `@axe-core/playwright` (auto-installed if missing).
+- Playwright project at `tests/crawl/` (`auth.setup.ts` + `ui-crawl.spec.ts` + `aggregate.ts` + `lib/`).
+
+### Hard rules
+
+- **No fixes during `/ui-crawl`.** It's read-only against the running app.
+- **One finding-class = one commit** (inherited from `align-discipline.md`).
+- **No new abstractions.** If a fix needs a wrapper that doesn't exist in `_extracted-idioms.md`, halt; route to `/setup-project --refine`.
+- **Re-detect mandatory.** `--verify` re-crawls affected modules; gap-count parity (closed == in-count) is the gate.
+- **Halt on regression.** New findings after a fix → revert the commit and surface.
 
 ## Memory system
 

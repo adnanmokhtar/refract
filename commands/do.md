@@ -49,6 +49,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "audit" / "review" + **multi-axis** (architecture + SOLID + security + DB + perf + scale) / "engineering principles" / "system design" / "ready for traffic" / "scale to N RPS" / "production hardening" / "pre-launch sweep" | `/audit [<scope>] [--target-rps=<N>]` |
 | "align" / "convention drift" / "cleanup conventions" / "match design system" + whole-project / multi-area scope | `/align [<scope>]` |
 | "unify" / "harmonize" / "make consistent" / "consistent codebase" / "uniform" / "standardize" / "single way" / **"some-X-some-Y"** ("some in one way and some in another", "half the files do X and half do Y") + codebase / project / module scope | `/align [<scope>]` |
+| "unify all tables" / "unify all forms" / "unify all headers" / "unify all tabs" / "unify all filters" / "unify all buttons" / "unify validation" / "every page has the same header" / "all list pages should share the same filter panel" / "every table chrome the same" / "standardize form validation" / "consistent error display across all forms" / "fully unified UI/UX system" / "make every X look the same" + **surface-type vocabulary** (tables / forms / headers / tabs / filters / buttons / validation) | `/unify-surfaces [--surfaces=<list>] [<scope>]` |
 | "match the original structure" / "match the gold standard" / "follow the existing pattern" / "use the shared wrapper instead of custom" / "stop reinventing" / "one canonical way" + codebase / project scope | `/align [<scope>]` |
 | "drift" / "inconsistencies" / "fork(s) of the same thing" / "duplicate implementations of X" / "all over the place" / "inconsistent naming" / "inconsistent error shape" / "mixed patterns" + multi-area scope | `/align [<scope>]` |
 | "align" / "drift" / "unify" / "harmonize" / "make consistent" + **single area**, narrow scope (one page, one module, one file) | `/align-recheck <description>` (align pack) |
@@ -57,7 +58,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "refactor" / "extract" / "rename" / "move" / "flatten" + **specific file / module / symbol** (narrow target) | `/refactor <target>` |
 | "optimize" / "clean up" / "improve quality" + whole-project / multi-area scope | `/optimize [<scope>]` |
 | "clean up" + **ambiguous** (could mean tidy diff vs whole codebase) | Ask one question: narrow target → `/refactor`; broad sweep → `/optimize` |
-| "unify" / "consistent" / "harmonize" + **ambiguous** (could mean drift vs perf vs arch) | Ask one question: convention drift / inconsistent patterns → `/align`; architecture / SOLID / clean code → `/optimize`; production-readiness / scale → `/audit` |
+| "unify" / "consistent" / "harmonize" + **ambiguous** (could mean drift vs perf vs arch vs surface-type) | Ask one question: surface-type unification (tables / forms / headers / tabs / filters / buttons / validation across the project) → `/unify-surfaces`; convention drift / inconsistent patterns → `/align`; architecture / SOLID / clean code → `/optimize`; production-readiness / scale → `/audit` |
 | "iterate" / "try variants" / "few options" + visual | invoke `design-iterate` skill |
 | "playground" / "test in isolation" + component | invoke `component-playground` skill |
 | "deploy" / "ship to staging" / "release" | `/deploy-stage` |
@@ -201,6 +202,15 @@ Proceed with /add-feature? [y / n / different command]
 ```
 /do fix the crash on order filter
 → /fix-bug fix the crash on order filter
+
+/do unify all tables and forms across the codebase
+→ /unify-surfaces --surfaces=tables,forms
+
+/do every page should have the same header and tabs
+→ /unify-surfaces --surfaces=headers,tabs
+
+/do standardize form validation and error display everywhere
+→ /unify-surfaces --surfaces=validation
 ```
 
 ### Medium-confidence (asks)
@@ -226,7 +236,7 @@ Proceed with /add-feature? [y / n / different command]
 ## Related
 
 ### Sibling commands (this command routes to)
-- `/migrate`, `/align`, `/optimize`, `/polish`, `/audit` — top-level simple-surface (whole-project / multi-area)
+- `/migrate`, `/align`, `/optimize`, `/polish`, `/audit`, `/unify-surfaces` — top-level simple-surface (whole-project / multi-area)
 - `/add-feature`, `/add-page`, `/add-component`, `/add-endpoint`, `/add-module`, `/add-migration`
 - `/enhance-ui`, `/fix-bug`, `/align-recheck`, `/migration-recheck`
 - `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/design-review`

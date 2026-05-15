@@ -1,10 +1,10 @@
 ---
-purpose: Adapter-facing sync for simple-surface commands (`/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
+purpose: Adapter-facing sync for simple-surface commands (`/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
 ---
 
 # Orchestration & validator sync (for adapters)
 
-Use when translating pack bundles, CI hooks, or discipline blocks. Authoritative command prose: `commands/{migrate,optimize,polish,align,refactor,audit}.md`. Validator sources: `scripts/validate-*-artifacts.sh`.
+Use when translating pack bundles, CI hooks, or discipline blocks. Authoritative command prose: `commands/{migrate,optimize,polish,align,refactor,audit,unify-surfaces}.md`. Validator sources: `scripts/validate-*-artifacts.sh`.
 
 ## Discipline enforcement (`AGENTS.md` inject)
 
@@ -22,10 +22,11 @@ Source: **`templates/tool-adapters/_discipline-enforcement.md`** (verbatim block
 | `validate-polish-artifacts.sh` | `PROJECT_KIND`, stack evidence files | Env **`QUIET=1`** for quieter logs; **no** `--strict` CLI (failures already exit non-zero). Env `POLISH_DIR`, `PROJECT_KIND` |
 | `validate-refactor-artifacts.sh` | `ai/refactor/ledger.md` | `--strict`, `--quiet`, `--phase-base`, `--ledger`, `--findings-dir` |
 | `validate-audit-artifacts.sh` *(planned)* | `ai/audit/plan.md` + ranked-tier ledger | Will check P0/P1/P2 citations + measured-or-estimated impact; `--strict` rejects hand-waves (`etc.`, `would be slow`) and missing failure-mode citations on P0 rows |
+| `validate-unify-surfaces-artifacts.sh` *(planned)* | `ai/unify-surfaces/progress.md` + per-category inventory | Will check per-category inventory completeness, canonical-wrapper-decision evidence, idioms-update co-commit (`_extracted-idioms.md § Wrappers`), `Reuse-Before-Create` violations (extracting a duplicate where a shared wrapper exists fails). Frontend-only — halts on `PROJECT_KIND` not in `frontend-* / mobile-web / mobile-rn`. |
 
 ## Hook globs (when wiring PostToolUse / pre-commit)
 
-Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/polish/**`, `ai/refactor/**`, `ai/audit/**` (plus pack-specific paths per coverage docs).
+Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/polish/**`, `ai/refactor/**`, `ai/audit/**`, `ai/unify-surfaces/**` (plus pack-specific paths per coverage docs).
 
 ## `/refactor` vs the five inventory commands
 

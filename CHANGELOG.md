@@ -6,6 +6,77 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/unify-surfaces` — surface-type unification orchestrator (new top-level, frontend-only)
+
+**Why** — `/polish` polishes per-axis (tokens / rhythm / motion / type-scale / states / contrast / etc.) across surfaces; `/align` closes per-class structural drift. Neither does what users keep asking for: *"unify all tables and forms across the entire codebase. If a page has a title, one unified header. If a page has tabs, one tab design. List filters move into one unified filter panel. Buttons / colors / spacing / styles / interactions consistent. Forms aligned with consistent spacing + layouts + input structures. Validation handling unified — frontend validators, error states, required-field handling, API-validation errors displayed consistently."* That request is **typed by surface category**, not by axis. The closest workflow today is `/ui-sweep --first-run` → `/align` (`duplicated-surface-styles`) → `/polish` → `/ui-crawl-fix --verify` — 4 commands the user has to know to chain. And **form-validation pipeline unification** (frontend validator + error rendering + API-error mapping as one extracted system) was emergent across 3 generic detectors with no first-class command.
+
+**What ships** — **`commands/unify-surfaces.md`** (new ~280-LOC orchestrator). Sibling to `/polish` / `/migrate` / `/optimize` / `/align` / `/refactor` / `/audit`. Single command:
+
+- **7 default surface categories**: tables, forms, headers, tabs, filters, buttons, validation. `--surfaces=<list>` narrows.
+- **Per category, in parallel where independent** (foundation order: buttons → headers / tabs / forms / tables / filters → validation):
+  - **INVENTORY** — find every consumer of this surface type (per-category detection signals stack-conditional, listed in command spec).
+  - **DECIDE CANONICAL** — `_extracted-idioms.md § Wrappers` if named there; else cluster by shape and pick most-used; else halt + ask.
+  - **EXTRACT / EXTEND** — extend the existing shared wrapper (Reuse-Before-Create), or extract a new one. Add to `_extracted-idioms.md § Wrappers` in the same commit.
+  - **MIGRATE CONSUMERS** — rewrite every non-canonical consumer in **one cascade-rewrite commit per category** (per-consumer commits hide unification).
+  - **VERIFY** — typecheck + lint + scoped tests + visual-regression on non-target surfaces (must not change pixels).
+- **Validation pipeline (special-cased)** — extracts a 3-part system, not a single wrapper:
+  1. Frontend validator composable (`useFormValidation()` or project-specific).
+  2. Error rendering primitives (`<ErrorList>` + `<FieldError>` with one convention for placement + tone + required-field marker + summary placement).
+  3. API-validation-error mapper wired as a global response interceptor; turns server `{field: [msg]}` into field-level errors the composable attaches.
+  Migration order: ship 3 primitives → wire mapper → migrate forms one at a time (each removes its bespoke validator + bespoke error renderer + bespoke server-error handler).
+- **Stack scope**: frontend-* / mobile-web / mobile-rn only. Halts on backend / data / library / CLI / mobile-native with redirect to `/polish`.
+- **Multi-day workflow** — `ai/unify-surfaces/progress.md` matches the `/migrate /optimize /align /polish /audit` pattern. Same common flags (`--status`, `--resume`, `--re-audit`, `--refresh`, `--restart`, `--ignore-ledger`, `--max-parallel`, `--exclude`, `--surface-blockers`, `--dry-run`). Plus category-specific: `--surfaces=`, `--canonical=<category>=<wrapper-path>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>`.
+- **Ends with paste-ready next steps** per `actionable-next-steps.md` snippet contract — surfaces skipped consumers, halted categories, and follow-ups (`/enhance-ui` for visual iteration after unification; `/polish --focus=<verb>` for residual axis drift; `/ui-crawl-fix` for mechanical findings on the now-unified wrappers).
+- **Validator** `validate-unify-surfaces-artifacts.sh` is **planned**: per-category inventory completeness, canonical-wrapper-decision evidence, idioms-update co-commit, Reuse-Before-Create violations.
+
+**Differentiation vs siblings**:
+- **vs `/polish`** (frontend) — `/polish` is axis-typed (per-surface, across 18 axes); `/unify-surfaces` is surface-type-typed (per-category, across the project). They compose: unify the wrappers first, then polish each canonical wrapper to spec.
+- **vs `/align`** — `/align` closes any `duplicated-surface-styles` finding via `extract-to-shared`; `/unify-surfaces` is opinionated about WHICH surface types to consolidate AND drives a per-category 5-step pipeline (inventory / decide / extract / migrate / verify) plus the special-cased validation pipeline.
+- **vs `/enhance-ui`** — single-area iteration with style variants; this is whole-project type-level consolidation.
+- **vs `/ui-sweep`** — measurement + HTML report + flow-based phasing; this is type-level unification with cascade-rewrite commits.
+- **vs `/ui-crawl-fix`** — mechanical wrapper-level patches against `/ui-crawl` findings; this is surface-type-level extraction + migration.
+
+**Sync chain** (per `feedback_full_sync_chain` discipline):
+- `commands/unify-surfaces.md` (new)
+- `docs/COMMANDS.md` — TOC, glance table row, dedicated `## /unify-surfaces` section with 7 categories table + pipeline + validation pipeline + flag block + output sample.
+- `docs/REFERENCE.md` — "The 6 simple commands" section (was 5) + flag table; row added with frontend-stack scope + 3-part validation pipeline note.
+- `README.md` — top-level table row added; "seven simple-surface commands" updated (was six).
+- `templates/tool-adapters/_orchestration-sync.md` — purpose line, validator table (planned), hook globs (`ai/unify-surfaces/**`), brace-list `{migrate,optimize,polish,align,refactor,audit,unify-surfaces}` propagated.
+- `templates/tool-adapters/_registry.md` — Simple-surface row updated; planned `unify-surfaces-parallel.sh` parallel-orchestrator entry added.
+- `templates/tool-adapters/_discipline-enforcement.md` — `ai/unify-surfaces/progress.md` ledger entry; pack-ecosystem command list updated.
+- `templates/tool-adapters/{12 adapters}/adapter.md` — Unify-surfaces pack bullet inserted after Audit bullet; orchestrator list in Actionable next steps universal contract includes `/unify-surfaces`.
+- `commands/do.md` — intent → routing table row + ambiguous-disambiguation row + 3 routing examples + bottom command list.
+- `CHANGELOG.md` — this entry.
+
+**Distinct from siblings** — `/polish` (axis-typed across 18 axes; per-surface), `/align` (any-class structural drift), `/enhance-ui` (single-area iteration), `/ui-sweep` (HTML report specialist), `/ui-crawl` + `/ui-crawl-fix` (Playwright crawler + wrapper-level mechanical fix). `/unify-surfaces` is the simple-surface entry that explicitly types by surface category and runs the full extract-and-migrate pipeline.
+
+### `/ui-crawl` + `/ui-crawl-fix` — Playwright cross-route QA crawler + wrapper-level auto-fixer (ui-ux pack v1.2.0)
+
+**Why** — pre-`/ui-crawl`, surfacing regressions across 100+ routes was a manual click-through; `/ui-sweep` is the right tool for quarterly UI/UX cadence (HTML report, baselines, hierarchy metrics) but too heavy for "did the design-token change break anything". Needed a fast, repeatable, machine-readable crawler — and a wrapper-level auto-fixer so `/ui-crawl`'s typical output (~700 contrast + ~300 button-name + ~300 label findings) doesn't translate into 1,000 commits when 5 wrappers can close them all.
+
+**What ships** — two new commands in `templates/packs/ui-ux/commands/`:
+
+- **`/ui-crawl [<scope>] [--smoke] [--filter=<substr>] [--full-matrix]`** — Playwright + axe-core. Logs in once via `auth.setup.ts`, visits every crawlable route in `ai/audits/ui-crawl-inventory.json`, screenshots at 3 breakpoints (375 / 768 / 1440) plus dark mode plus RTL, walks in-page tabs (cap 8), opens up to 3 dialogs / dropdowns per route, runs `wcag2a` / `wcag2aa` / `wcag21aa` axe rules, captures console + page errors + network 4xx/5xx + horizontal-overflow detection per viewport. Severity scoring per route (load-fail 100, page-error 20, axe-critical 8, dialog-open-fail 6, etc.) → ranked `ai/audits/ui-crawl-findings.md` + machine-readable `.json`. Detect-only.
+- **`/ui-crawl-fix [<class>] [--dry-run] [--safe-only] [--verify]`** — consumes the findings JSON and patches at the **wrapper level** (`FormField`, `CrudActions`, `TableActions`, `BaseModal`, etc.) so one fix cascades through hundreds of call sites. 8-class safe-list: `color-contrast` (token swap in `_variables.scss`), `button-name` (aria-label injection from i18n key), `label` (`for`/`id` wiring), raw `<Dialog>` / `<Dropdown>` / `<MultiSelect>` (swap to project's shared wrappers), `<v-html>` / `dangerouslySetInnerHTML` without sanitize, hardcoded `{ en: '', ar: '' }` translation refs, `<a target="_blank">` missing `rel="noopener noreferrer"`, empty silent `catch {}`. Skips human-judgment bugs (broken triggers, page-load failures, layout overflow, heading skips, 5xx, structural aria mismatches). Inherits closure-verb discipline from `align-discipline.md`: one finding-class = one commit, no new abstractions, behaviour-preservation gate, security findings ship with assertions, re-detect mandatory.
+
+**Differentiation vs siblings**:
+- **vs `/ui-sweep`** — `/ui-crawl` is faster (~30–60 min full crawl), broader (every route, not just sampled per phase), machine-readable (JSON for CI consumption); `/ui-sweep` is deeper (visual hierarchy / coverage % / cross-surface consistency / HTML report / visual baselines + drift). Use `/ui-crawl` for pre-release sweeps + recurring CI; `/ui-sweep` for quarterly cadence.
+- **vs `/align-recheck`** — `/align-recheck` is structural-only (static-source detection); `/ui-crawl-fix` is browser-driven (axe in real DOM, network probes, dialog-trigger checks).
+- **vs `/enhance-ui`** — `/enhance-ui` is single-area visual polish with iterate loop; this is whole-app mechanical detection + bulk fix.
+
+**Stack scope** — frontend stacks only (`PROJECT_KIND in {frontend-*, mobile-web}`). Halts on backend / data / library / CLI.
+
+**Sync chain** (per `feedback_full_sync_chain` discipline):
+- `templates/packs/ui-ux/commands/ui-crawl.md` (new)
+- `templates/packs/ui-ux/commands/ui-crawl-fix.md` (new)
+- `templates/packs/ui-ux/_essentials.md` — rationale row updated (kept out of minimal due to Playwright + axe + scaffold dependency)
+- `templates/packs/ui-ux/_topics.md` — two new topic specs with extracts_from + sections + cite_evidence: strict
+- `templates/packs/ui-ux/_version.json` — bumped to 1.2.0
+- `templates/tool-adapters/_ui-ux-pack-coverage.md` — capability matrix gains a column; per-tool translation rows updated; `{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}` brace-list applied across 6 adapter sections; new responsibility item #6 forbids flattening `/ui-crawl` to "`/ui-sweep --auto-fix`".
+- `docs/COMMANDS.md` — UI-UX track table gains 2 rows; new walkthrough section with the paired DETECT → FIX → VERIFY loop.
+- `docs/REFERENCE.md` — TOC entry; new section after `/ui-sweep` covering when-to-use-which, auto-fixable safe-list, human-only triage list, output paths, hard rules.
+- Downstream: `tenant-portal-v2/.claude/commands/{ui-crawl,ui-crawl-fix}.md` already in place (origin); propagated to `.opencode/commands/`, `.cursor/commands/`, `.kimi/skills/{ui-crawl,ui-crawl-fix}/SKILL.md`.
+
 ### `/audit` — full-stack engineering audit (new top-level orchestrator)
 
 **Why** — `/optimize` covers architecture / SOLID / clean code / tactical perf, but stops short on security and on a scale-lens (the engineering-principle a heavily-trafficked system actually fails on first). Pre-`/audit`, the user had to chain `/optimize` + `/security-audit` + `/db-audit` + `/perf-audit` + `/design-system` and merge findings by hand — five commands, five plans, no cross-axis ranker, no scale anchor.

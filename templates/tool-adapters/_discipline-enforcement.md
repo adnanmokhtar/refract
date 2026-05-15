@@ -22,7 +22,7 @@ The block lives between `<!-- discipline-enforcement:start -->` / `<!-- discipli
 
 This project follows the claude-config pack discipline. Every tool reading this file — Claude Code, OpenCode, Cursor, Aider, Copilot, Cline, Windsurf, Codex, Gemini, Kimi — MUST honor the rules below for **every command**, regardless of how cleverly the tool's default behavior would otherwise route the work.
 
-The pack ecosystem ships ~70 commands (`/add-feature`, `/fix-bug`, `/add-endpoint`, `/add-module`, `/add-page`, `/add-component`, `/add-migration`, `/migrate`, `/align`, `/optimize`, `/polish`, `/do`, `/security-audit`, `/perf-audit`, `/db-audit`, `/a11y-audit`, `/i18n-audit`, `/find-and-fix`, `/port-feature`, `/review-changes`, `/simplify`, `/run-tests`, `/enhance-ui`, `/ui-sweep`, `/design-review`, `/threat-model`, `/secret-scan`, `/add-tracing`, `/add-metrics`, `/add-telemetry`, `/alert-design`, `/add-saga`, `/audit-distributed-tx`, `/dockerize`, `/add-ci`, `/deploy-stage`, `/add-test`, `/flaky-test-hunt`, `/promote-pattern`, `/detect-drift`, `/learn-from-task`, `/pre-commit`, `/check-health`, `/threat-model`, `/scaffold-project`, `/refine-prompt`, `/setup-project*`, plus pack-specific siblings). The rules below cover every one.
+The pack ecosystem ships ~70 commands (`/add-feature`, `/fix-bug`, `/add-endpoint`, `/add-module`, `/add-page`, `/add-component`, `/add-migration`, `/migrate`, `/align`, `/optimize`, `/polish`, `/unify-surfaces`, `/do`, `/security-audit`, `/perf-audit`, `/db-audit`, `/a11y-audit`, `/i18n-audit`, `/find-and-fix`, `/port-feature`, `/review-changes`, `/simplify`, `/run-tests`, `/enhance-ui`, `/ui-sweep`, `/design-review`, `/threat-model`, `/secret-scan`, `/add-tracing`, `/add-metrics`, `/add-telemetry`, `/alert-design`, `/add-saga`, `/audit-distributed-tx`, `/dockerize`, `/add-ci`, `/deploy-stage`, `/add-test`, `/flaky-test-hunt`, `/promote-pattern`, `/detect-drift`, `/learn-from-task`, `/pre-commit`, `/check-health`, `/threat-model`, `/scaffold-project`, `/refine-prompt`, `/setup-project*`, plus pack-specific siblings). The rules below cover every one.
 
 ### Universal rules — apply to EVERY command
 
@@ -55,6 +55,7 @@ The pack ecosystem ships ~70 commands (`/add-feature`, `/fix-bug`, `/add-endpoin
 - `ai/a11y-audit/ledger.md` — a11y violations
 - `ai/db-audit/ledger.md` — schema / query drift
 - `ai/ui-sweep/ledger.md` — UI-UX whole-project sweep findings
+- `ai/unify-surfaces/progress.md` — surface-type unification progress (tables / forms / headers / tabs / filters / buttons / validation; per-category inventory + canonical-wrapper decision + consumer migration count)
 
 **Per-pack supporting artifacts:**
 - Scan reports: `ai/<pack>/scan-report.md` — ONE file per pack with all sides (V1+V2 sections in migration; etc.)

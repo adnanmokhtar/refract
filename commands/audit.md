@@ -1,10 +1,10 @@
 ---
-description: One command full-stack engineering audit. Scans the codebase against system-design + engineering principles — architecture quality, SOLID, clean code, maintainability, security (OWASP + auth + tenant + secrets + deps), database performance (schema + indexes + query plans), runtime performance (N+1, hot paths, caching), scalability + resilience (fan-out, sync I/O in critical path, lock contention, queue back-pressure, write amplification, blast radius, capacity headroom), infrastructure + capacity, observability gaps. **Works on ANY codebase — any language, any framework, any project shape: backend (Node / Python / Go / Java / Ruby / .NET / Rust / Elixir / PHP / Kotlin / Scala / Haskell / OCaml), frontend (Vue / React / Svelte / Angular / Solid / Qwik / vanilla), mobile (iOS / Android / React Native / Flutter), data (SQL / NoSQL / pipelines / streaming), CLI / TUI tools, libraries / SDKs, serverless / edge functions, monoliths, microservices, monorepos.** Each axis routes through `PROJECT_KIND` so the SAME 13 scale-lens detectors apply meaningfully whether the artefact is an HTTP request handler, a route component mount, a screen render, a CLI subcommand, a library entry point, or a Lambda invocation. Detects gaps across ALL axes in one pass, generates a unified prioritized fix plan ranked by `impact-at-target-scale × blast-radius × fix-cost`, then fixes in parallel waves. NO phases visible, NO terminology, NO mid-run questions. Output is brief: critical scale-blockers FIRST, axis-specific findings second, commits, diff stats, test status, perf wins. The simple-surface alternative to running /optimize + /security-audit + /db-audit + /perf-audit + /design-system separately.
+description: One command full-stack engineering audit. Scans the codebase against system-design + engineering principles — architecture quality, SOLID, clean code, maintainability, security (OWASP + auth + tenant + secrets + deps), database performance (schema + indexes + query plans), runtime performance (N+1, hot paths, caching), scalability + resilience (fan-out, sync I/O in critical path, lock contention, queue back-pressure, write amplification, blast radius, capacity headroom), infrastructure + capacity, observability gaps. **Works on ANY codebase — any language, any framework, any project shape: backend (Node / Python / Go / Java / Ruby / .NET / Rust / Elixir / PHP / Kotlin / Scala / Haskell / OCaml), frontend (Vue / React / Svelte / Angular / Solid / Qwik / vanilla), mobile (iOS / Android / React Native / Flutter), data (SQL / NoSQL / pipelines / streaming), CLI / TUI tools, libraries / SDKs, serverless / edge functions, monoliths, microservices, monorepos.** Each axis routes through `PROJECT_KIND` so the SAME 13 scale-lens detectors apply meaningfully whether the artefact is an HTTP request handler, a route component mount, a screen render, a CLI subcommand, a library entry point, or a Lambda invocation. Detects gaps across ALL axes in one pass, generates a unified prioritized fix plan ranked by `impact-at-target-scale × blast-radius × fix-cost`, then fixes in parallel waves. **Three output modes**: default (scan + rank + execute), `--plan-only` (scan + ranked fix-plan, no execute), `--assess` (scan + senior-engineer narrative assessment report — 8 sections: what's good / improve / unify / extract / simplify / redesign / remove / optimize — no plan, no execute; the "read me the state of the codebase" mode). NO phases visible, NO terminology, NO mid-run questions. Output is brief: critical scale-blockers FIRST, axis-specific findings second, commits, diff stats, test status, perf wins. The simple-surface alternative to running /optimize + /security-audit + /db-audit + /perf-audit + /design-system separately.
 kind: command
 pack: orchestration
 ---
 
-# /audit [<scope>] [--target-rps=<N>] [--target-p95=<ms>] [--plan-only]
+# /audit [<scope>] [--target-rps=<N>] [--target-p95=<ms>] [--plan-only | --assess]
 
 ## What this does
 
@@ -100,6 +100,9 @@ Output: P0 scale-blockers FIRST, then ranked findings, commits, diff stats, test
 - "Audit the orders module against SOLID + perf + security." → `/audit the orders module`
 - "What would block us from going to 100K RPS?" → `/audit --target-rps=100000 --plan-only`
 - "Pre-launch hardening sweep." → `/audit`
+- "Give me a senior-engineer assessment of the frontend — what's good, what to improve, what to unify, what to extract, what to simplify, what to redesign, what to remove, what to optimize." → `/audit --assess`
+- "Senior engineer write-up of the NestJS backend quality and scalability." → `/audit --assess apps/api`
+- "Architecture review report for stakeholders — no fixes yet, just the lay of the land." → `/audit --assess`
 
 ## When NOT to use
 
@@ -119,7 +122,8 @@ Output: P0 scale-blockers FIRST, then ranked findings, commits, diff stats, test
 - `--target-cold-start=<ms>` (optional, **serverless / mobile**) — target cold-start time. Defaults: serverless 1000 ms, mobile 1500 ms.
 - `--target-startup=<ms>` (optional, **CLI / library / SDK**) — target startup-to-first-byte time. Default: 100 ms.
 - `--target-bundle=<bytes>` (optional, **frontend / mobile**) — target compressed bundle size. Format: `300KB`, `2MB`, `bytes`. Default: project-budget from `ai/observability.md` else 250KB (frontend) / 50MB (mobile).
-- `--plan-only` — scan + rank + write plan; no fixes.
+- `--plan-only` — scan + rank + write `ai/audit/plan.md` (ranked P0–P4 fix-plan with `<file:line>` citations + closure verbs). No fixes. The handoff artifact for "agent / human executor will pick this up later". Mutually exclusive with `--assess`.
+- `--assess` — scan + write `ai/audit/assessment.md` (senior-engineer narrative report, 8 sections: what's already good / what needs improvement / what should be unified / what should be extracted-or-shared / what should be simplified / what should be redesigned / what should be removed / what should be optimized). No ranked plan, no closure verbs, no fixes. The handoff artifact for "show me a written assessment of the codebase a senior engineer or tech lead would read". **Stack-conditional rendering** — frontend-* assessments inline component-structure / composable-design / state-management / routing-organisation / styling-architecture / design-system / a11y / typing narrative; backend-* inline module-shape / DTO / validation / guards-interceptors-filters / repository / transaction / API-design / testing-quality narrative; mobile-* / data-* / serverless inherit the same 8 sections with stack-appropriate axis emphasis. Mutually exclusive with `--plan-only` and with execution. Distinct from `--plan-only`: the plan is a closure-verb checklist for an executor; the assessment is prose for a reader.
 
 When NO target flag matches the project's `PROJECT_KIND`, the agent picks the right one from anchors and warns once. When MULTIPLE flags are provided in a polyglot monorepo, each `PROJECT_KIND` subtree uses its applicable flags; flags that don't apply to a subtree are ignored for that subtree.
 
@@ -145,7 +149,10 @@ Examples:
 
 # Whole project, default targets
 /audit
-/audit --plan-only                                  # produce plan, don't fix
+/audit --plan-only                                  # produce ranked fix-plan, don't fix
+/audit --assess                                     # senior-engineer narrative assessment, no plan, no fix
+/audit --assess apps/web                            # narrative assessment of one workspace
+/audit --assess --focus=arch,quality,scale         # narrative scoped to specific axes
 /audit "request path only" --target-rps=100000     # request-path hot loop only
 /audit --focus=security,db                          # narrow axes
 /audit --focus=security                             # security-only scan (any stack)
@@ -187,6 +194,42 @@ Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<
 
 ### Phase 3 — Plan-only short-circuit
 If `--plan-only`: stop here. User reads `ai/audit/plan.md`. Re-run without flag to execute.
+
+### Phase 3a — Assessment short-circuit (`--assess`)
+
+If `--assess`: skip ranking + skip execution. Instead, read all 8 axis subfiles + the project's `_extracted-idioms.md` / `_extracted-codebase.md § Gold standards` / `ai/architecture.md` / `ai/conventions.md` and **author a narrative senior-engineer report** at `ai/audit/assessment.md`. Stop after writing. No `plan.md`, no `progress.md` advance, no commits.
+
+**Report contract — exactly 8 top-level sections, in this order:**
+
+1. **What's already good** — load-bearing strengths the codebase has earned. Concrete: "feature modules are well-isolated with one-import-graph-per-module; cross-cutting concerns (auth / logging / error envelope) are centralised in `<path>`; tests cover the critical paths in `<path>`; design tokens cover ~80% of color + spacing usage; the validation pipeline at `<path>` is reused across N forms". Cite `<file:line>` per claim. **No empty-praise prose** ("the code is well organised") — every line names a specific artefact + cites it. If the codebase has < 3 genuine strengths, say so honestly: "Strengths are thin — see § What needs improvement; foundation work required before optimisation has leverage."
+
+2. **What needs improvement** — substantive engineering quality gaps that aren't structural enough to be "redesign" but aren't trivial cleanup either. Examples: "DTO definitions are inconsistent across modules — `apps/api/users/` uses class-validator decorators, `apps/api/orders/` uses plain interfaces; pick one"; "guards / interceptors / filters are partially wired — `OrdersModule` is missing the global tenant guard"; "composable design — 3 of 17 composables encode 2+ responsibilities and should split". Group by axis where natural; cite `<file:line>`.
+
+3. **What should be unified** — visible inconsistencies across instances of the SAME surface or pattern. Frontend: "11 tables with 4 different filter-bar shapes — canonical wrapper at `<path>` exists; 7 consumers don't use it"; "forms — 3 validation patterns coexist (composable-based at `<path>`, ad-hoc in `<path>`, server-only in `<path>`); pick one"; "page headers — 5 shapes; canonical `<PageHeader>` at `<path>`". Backend: "response envelope drift — 4 modules return `{ data, meta }`; 2 return naked arrays; 1 returns `{ result }`"; "error contract — `HttpException` direct-throws in `<path>`, custom error class in `<path>`, returned status codes diverge". Route candidates to `/unify-surfaces` (frontend) / `/polish` (backend API consistency).
+
+4. **What should be extracted or shared** — repeated logic / markup / styles / queries / DTOs / utilities that should be promoted to the shared layer. Examples: "3 components reimplement debounced-search-input — extract to `composables/`"; "5 services re-implement the same `findActiveByTenant` query — extract to a shared repository base"; "color values `#1d4ed8` / `#2563eb` / `#3b82f6` are scattered across N components — promote to design tokens"; "the order-status badge appears in 7 places with 4 visual variants — single shared component". Cite the sites and propose the destination.
+
+5. **What should be simplified** — over-abstraction, unnecessary wrappers, premature interfaces, excessive layering for the actual size of the codebase. Examples: "5 wrapper composables that just re-export the underlying function — inline + delete"; "`OrderService` → `OrderServiceImpl` indirection serves no DI need — collapse"; "deeply nested provider/factory pattern in `<path>` where a single function would do". Be specific about which simplification + estimated effort.
+
+6. **What should be redesigned** — load-bearing things that are architecturally wrong and need rework, not cleanup. Examples: "tenant isolation is enforced at the controller layer in some modules and at the repository layer in others; pick one boundary"; "state management — 3 stores hold overlapping order data that drifts; consolidate to one store with derived selectors"; "auth middleware composes JWT + tenant + permission in one giant guard; split into 3 composable guards"; "router structure mixes feature-grouped and role-grouped routes — pick one organising principle". These are bigger commits; route to `/optimize <scope>` or surface as ADR-needed decisions.
+
+7. **What should be removed** — dead code, unused styles, unused components / utilities / DTOs / endpoints, deprecated patterns. Examples: "12 components in `<path>` have zero references"; "4 SCSS utilities with no consumers"; "3 unused API endpoints — telemetry shows zero traffic"; "legacy auth middleware at `<path>` replaced by `<newer path>` but not deleted". Cite each. Route to `/optimize --focus=dead-code`.
+
+8. **What should be optimized** — concrete performance / scale / cost wins. Examples: "N+1 on `GET /orders` index (1 + N customer lookup)"; "bundle 2.4MB — moment.js + lodash full imports + 3 oversized images"; "queries on `(tenant_id, status, created_at)` need a composite index"; "sequential awaits in `<path>` parallelize safely". Cite + name target win where reasonable. Route to `/audit` (no flag) to execute, or `/audit --plan-only` for the ranked fix-plan.
+
+**Closing paragraph** — 3-5 sentence senior-engineer verdict: how production-grade the codebase is, how scalable for large teams, how easy to maintain long-term, the 2-3 highest-leverage next steps named with their commands. No empty superlatives; honest grading.
+
+**Section content rules**:
+- Every claim cites `<file:line>` — same anti-hand-wave grep that `--strict` enforces on the fix-plan (rejects `etc.` / `several places` / `multiple endpoints` / `appears to`).
+- Every section labels findings with axis (e.g., `[scale]`, `[security]`, `[arch]`, `[quality]`, `[styling]`, `[a11y]`) so a reader can filter mentally.
+- Stack-conditional sub-headings under each top-level section — the agent picks the project's vocabulary from `_extracted-idioms.md` and uses those terms (e.g., "composables" for Vue, "hooks" for React, "modules" for NestJS, "service+repo" for layered backends).
+- Cross-references to closure verbs from `/optimize` / `/polish` / `/align` / `/unify-surfaces` wherever a finding has a natural execution path — but `--assess` itself NEVER drafts closure verbs as the primary surface (those are for the executable fix-plan, not the narrative).
+- **`## Actionable next steps` at the end of the report** (per `templates/snippets/actionable-next-steps.md`) — paste-ready follow-up commands per the universal report contract: `/audit` (execute the implicit plan), `/audit --plan-only` (write the ranked plan), `/optimize <scope>` (architectural fixes), `/polish` (consistency drift), `/unify-surfaces` (surface-type unification), `/align` (convention drift), `/security-audit` (deep security pass).
+
+**Failure modes for `--assess`**:
+- Phase 1 axis scan returned zero findings → assessment is mostly § What's already good (honest) + a short "no urgent improvements" note in the remaining sections. The 8-section shape is preserved (skipped sections explicitly say "no findings").
+- Codebase too small to be meaningfully assessed → still emits the report; closing paragraph names the smallness as the verdict.
+- `_extracted-idioms.md` absent → soft warning; agent still produces the report using generic stack vocabulary. Recommends running `/setup-project --refresh` to anchor future assessments.
 
 ### Phase 4 — Execute P0 (scale-blockers, sequential)
 - One commit per P0 finding. Each commit:
@@ -466,6 +509,80 @@ Bundle (consumer):   -34% on tree-shaking sites
 Public API:          61 → 53 surface symbols (8 internals hidden)
 ```
 
+`--assess` example (Vue 3 frontend, storefront — `/audit --assess`):
+
+```
+Assessment complete
+
+Scope:               whole project (frontend-vue3, storefront)
+Report:              ai/audit/assessment.md (8 sections, ~2400 words)
+
+Headline verdict:
+  Foundation is solid; surface inconsistency + design-token drift are the two
+  highest-leverage next steps. Production-grade once those are closed.
+
+Section highlights:
+  § What's already good       — feature-module isolation, validation pipeline reuse,
+                                ~80% token coverage for color
+  § What needs improvement    — composable design (3 over-scoped), state mgmt drift
+                                across 2 stores
+  § What should be unified    — 11 tables / 4 filter shapes; 5 page-header shapes;
+                                3 validation patterns
+  § What should be extracted  — debounced-search-input (3 sites); order-status badge
+                                (7 sites, 4 variants); shared error-list renderer
+  § What should be simplified — 5 pass-through composables; 2 unnecessary wrapper
+                                layers in feature/orders
+  § What should be redesigned — router mixes feature- and role-grouped routes;
+                                pick one principle
+  § What should be removed    — 12 unreferenced components; 4 unused SCSS utilities
+  § What should be optimized  — bundle 2.4MB (moment + lodash full); LCP image not
+                                preloaded; N+1 on dashboard
+
+Next steps (paste-ready):
+  /unify-surfaces --surfaces=tables,headers,validation   # unify the 3 surface drifts
+  /optimize the composables layer                        # simplify over-scoped
+  /audit --plan-only                                     # generate ranked fix-plan
+  /audit                                                 # execute fixes
+```
+
+`--assess` example (NestJS backend — `/audit --assess apps/api`):
+
+```
+Assessment complete
+
+Scope:               apps/api (backend-nest, multi-tenant)
+Report:              ai/audit/assessment.md (8 sections, ~2800 words)
+
+Headline verdict:
+  Module boundaries are clean; DTO + error-contract drift are the two surface gaps;
+  one tenant-isolation P1 finding requires attention before scale-out is safe.
+
+Section highlights:
+  § What's already good       — module isolation, repository pattern consistent,
+                                test coverage on critical endpoints
+  § What needs improvement    — DTO authoring inconsistent across 5 modules;
+                                guards/interceptors partially wired (OrdersModule)
+  § What should be unified    — response envelope drift (4 shapes); error contract
+                                drift; pagination contract across 6 endpoints
+  § What should be extracted  — findActiveByTenant query (5 sites); audit-log
+                                emission (8 sites)
+  § What should be simplified — 3 service interface indirections with single impl;
+                                deeply-layered provider factory in UsersModule
+  § What should be redesigned — tenant isolation enforced at 2 layers
+                                inconsistently; pick one boundary
+  § What should be removed    — 3 unused endpoints; deprecated auth middleware;
+                                7 unused DTOs
+  § What should be optimized  — N+1 on /orders index; missing index
+                                (tenant_id,status,created_at); sequential awaits
+                                in /dashboard
+
+Next steps (paste-ready):
+  /security-audit apps/api                              # close tenant-isolation P1
+  /polish apps/api --focus=envelope,error-contract     # API consistency drift
+  /optimize the tenant-isolation boundary              # architectural redesign
+  /audit --plan-only                                    # full ranked fix-plan
+```
+
 Polyglot monorepo example (Next.js frontend + NestJS API + Python data pipeline):
 
 ```
@@ -513,7 +630,8 @@ All internal. Just results.
 
 - `--target-rps=<N>` — target throughput (anchors P0 + P2 ranking).
 - `--target-p95=<ms>` — target latency.
-- `--plan-only` — scan + rank + write plan; no fixes.
+- `--plan-only` — scan + rank + write `ai/audit/plan.md` (ranked fix-plan); no fixes. For executor handoff.
+- `--assess` — scan + write `ai/audit/assessment.md` (8-section senior-engineer narrative); no plan, no fixes. For reader handoff. Mutually exclusive with `--plan-only`.
 - `--dry-run` — show what would be fixed, no edits.
 - `--strict` — forwarded to **`validate-audit-artifacts.sh`** (planned): every P0/P1/P2 finding must cite `<file:line>` + a measured or explicitly-estimated impact; no hand-waves.
 - `--quiet` — forwarded to validator (`-q`) when invoking from hooks / CI.

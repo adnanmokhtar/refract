@@ -18,6 +18,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
   - [`/refactor`](#refactor)
   - [`/polish`](#polish)
   - [`/audit`](#audit)
+  - [`/unify-surfaces`](#unify-surfaces)
 - Meta
   - [`/do`](#do)
   - [`/learn-from-task`](#learn-from-task)
@@ -42,7 +43,8 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/optimize [<scope>]`         | One-command architectural diagnosis + tactical sweep.                  | No (writes) |
 | `/refactor [<scope>]`        | Targeted behaviour-preserving refactor (Fowler verbs only); not whole-project. See [`commands/refactor.md`](../commands/refactor.md). | No (writes) |
 | `/polish [<scope>]`           | One-command UI/UX + API + schema + platform polish.                    | No (writes) |
-| `/audit [<scope>]`            | One-command full-stack engineering audit — architecture / SOLID / clean code / security / DB perf / runtime perf / scale + resilience / infra / observability. Cross-axis ranked plan + parallel fixes. Scale-first. | No (writes) |
+| `/audit [<scope>]`            | One-command full-stack engineering audit — architecture / SOLID / clean code / security / DB perf / runtime perf / scale + resilience / infra / observability. Cross-axis ranked plan + parallel fixes. Scale-first. **Three modes**: default (scan + rank + fix), `--plan-only` (ranked fix-plan for executor handoff), `--assess` (8-section senior-engineer narrative report — what's good / improve / unify / extract / simplify / redesign / remove / optimize — read-only, for reader handoff). | No (writes) |
+| `/unify-surfaces [<scope>]`   | One-command surface-type unification (frontend-*). Tables / forms / headers / tabs / filters / buttons / validation. For each: inventory every consumer, decide canonical wrapper, extract or extend, migrate every consumer in one cascade-rewrite commit. Validation extracts a 3-part pipeline (composable + `<ErrorList>` + API-error mapper). Sibling to `/polish` (axis-typed); this is surface-type-typed. | No (writes) |
 | `/do <description>`           | Universal meta-router → dispatches to the right specialized command.   | Routes only |
 | `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
 
@@ -274,6 +276,8 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 | `/design-review`       | Read-only audit: cite-or-halt findings on UX, design-system, a11y. |
 | `/enhance-ui <description>` | **Single-area enhancement (DRY-aware)**. Phase 1.5 picks scope tier: **token** / **wrapper-variant** / **wrapper-extract** / **leaf-local** so the same button is not styled twice on two pages. Cleanup includes `duplicated-surface-styles` for `frontend-*`. Flags: `--scope`, `--auto-extract`, `--dry-detect`. Then `design-iterate` (`$SCOPE_TIER`, consumer-route screenshots) → re-enforce. |
 | `/ui-sweep [<phase>]`  | **Project-wide UI/UX specialist sweep**. Goes beyond align — runs 8 UI/UX-specific deep detectors (visual hierarchy, component utilization %, token coverage %, cross-surface consistency, ui-state coverage, responsive matrix, design-language coherence, visual baseline + drift). Phases by user flow (auth / checkout / dashboard / etc.), not by class. Outputs an HTML visual report with screenshots + metrics. Frontend stacks only. |
+| `/ui-crawl [<scope>]`  | **Automated cross-route UI crawler** (v1.2+). Playwright + axe-core. Logs in once, visits every route in the project's route manifest, screenshots at 3 breakpoints + dark mode + RTL, walks in-page tabs, opens dialogs and dropdowns, captures console/network errors, runs axe-core per route, writes a ranked findings JSON + MD. Detect-only — pair with `/ui-crawl-fix` for auto-fix. Flags: `<scope>` (modules), `--smoke`, `--filter=`, `--full-matrix`, `--skip-interactions`, `--refresh-inventory`, `--workers=N`, `--no-dark` / `--no-rtl`. Frontend stacks only. |
+| `/ui-crawl-fix [<class>]` | **Wrapper-level auto-fixer for `/ui-crawl` findings** (v1.2+). Patches at shared wrappers (`FormField`, `CrudActions`, `TableActions`, `BaseModal`, etc.) so one fix cascades through hundreds of call sites. Closes `color-contrast` (token swap), `button-name` (aria-label injection), `label` (for/id wiring), `v-html`-without-sanitize, raw library components, hardcoded translations, `target=_blank` without `rel=noopener`, empty silent catches. Skips human-judgment bugs. Re-runs `/ui-crawl` in verify mode for gap-count parity. Inherits closure-verb discipline from `align-discipline.md`. Flags: `<class>`, `--dry-run`, `--safe-only`, `--verify`, `--no-commit`, `--module=`. Frontend stacks only. |
 
 **UI-UX skills:**
 - `design-iterate` — generate 3 visual variants (polished / bolder / minimal); screenshot each; user picks.
@@ -313,6 +317,36 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 - HTML report at `ai/ui-sweep/report-<date>.html` — screenshots, hierarchy heatmaps, coverage dashboards (e.g., "73% token coverage; target 95%"), cross-surface consistency matrix.
 - Visual baselines at `ai/ui-sweep/baseline/<iso>/<page>.png` — comparable across sweeps.
 - UI/UX-specific ledger at `ai/ui-sweep/ledger.md` (separate from align's structural ledger).
+
+#### `/ui-crawl` + `/ui-crawl-fix` — paired DETECT → FIX → VERIFY loop
+
+**`/ui-crawl` is the QA-style cross-route crawler.** `/ui-sweep` is the deeper specialist with HTML report + visual baselines; `/ui-crawl` is faster, broader, machine-readable. Use `/ui-crawl` for pre-release sweeps, post-token-change regression scans, and recurring CI; use `/ui-sweep` for quarterly UI/UX cadence.
+
+**Typical loop**:
+
+```
+/ui-crawl --smoke               # ~5 min triage — 1 route per module
+/ui-crawl                       # full crawl — every route, 3 breakpoints + dark + RTL + axe
+/ui-crawl-fix --safe-only --verify   # auto-fix the mechanical findings; re-crawl to confirm
+/ui-crawl --filter=<area>       # spot-check a fixed area
+```
+
+**What `/ui-crawl` produces**:
+- `ai/audits/ui-crawl-inventory.json` — route manifest with dialog/DDL/tab counts.
+- `ai/audits/ui-crawl-findings.json` — full machine-readable per-route findings.
+- `ai/audits/ui-crawl-findings.md` — human triage report, ranked by severity.
+- `tests/crawl/.screenshots/` — 5+ screenshots per route.
+- `tests/crawl/.report/` — Playwright HTML report.
+
+**What `/ui-crawl-fix` produces**:
+- `ai/audits/ui-crawl-fix-log.md` — per-class summary: closures, commits, routes affected, residual human-triage list.
+- One commit per finding-class (`fix(<class>): <verb> <wrapper> — closes <N> findings across <M> routes`).
+
+**Pre-requisites**:
+- Dev server running (`http://localhost:3000` by default).
+- Test account credentials in `tests/crawl/.env` (gitignored).
+- `@playwright/test` + `@axe-core/playwright` (auto-installed if missing).
+- `_extracted-idioms.md` populated (selectors + wrapper inventory).
 
 ### Code-quality track
 
@@ -572,12 +606,128 @@ Specialist flags (in addition to common flags above) — stack-appropriate targe
 /audit --target-startup=<ms>
 
 # Universal flags
-/audit --plan-only                    # scan + rank + write plan; no fixes
+/audit --plan-only                    # scan + rank + write fix-plan; no fixes (executor handoff)
+/audit --assess                       # scan + write 8-section narrative assessment; no plan, no fixes (reader handoff)
 /audit --focus=<list>                 # narrow axes (security,db,scale,perf,arch,quality,infra,obs)
 /audit --skip-p4                      # skip tactical cleanup; focus on P0–P3
 ```
 
 In a polyglot monorepo, mix flags freely — each `PROJECT_KIND` subtree picks up the flags that apply to it; non-applicable flags are ignored for that subtree.
+
+### `--assess` — senior-engineer narrative assessment
+
+`--assess` is the **read-only narrative mode**. Same eight-axis scan as the default; instead of ranking and executing, it writes `ai/audit/assessment.md` — an 8-section prose report a senior engineer or tech lead can read end-to-end:
+
+1. **What's already good** — load-bearing strengths, with `<file:line>` citations (no empty praise)
+2. **What needs improvement** — substantive engineering quality gaps short of redesign
+3. **What should be unified** — visible inconsistencies across instances of the same surface/pattern
+4. **What should be extracted or shared** — repeated logic / markup / styles / queries / DTOs / utilities to promote
+5. **What should be simplified** — over-abstraction, unnecessary wrappers, premature interfaces
+6. **What should be redesigned** — architecturally wrong, needs rework not cleanup
+7. **What should be removed** — dead code, unused styles / components / DTOs / endpoints
+8. **What should be optimized** — concrete performance / scale / cost wins
+
+Closes with a 3–5 sentence verdict and a paste-ready `## Actionable next steps` block routing each section to its execution command (`/optimize`, `/polish`, `/unify-surfaces`, `/align`, `/security-audit`, or `/audit` without flag to execute).
+
+**Stack-conditional rendering** — frontend-* inlines component / composable / state-management / routing / styling / design-system / a11y / typing narrative; backend-* inlines module / DTO / validation / guards-interceptors-filters / repository / transaction / API-design / testing narrative; mobile / data / serverless inherit the 8 sections with stack-appropriate axis emphasis.
+
+Distinct from `--plan-only`:
+- `--plan-only` writes `ai/audit/plan.md` — ranked P0–P4 fix-plan, closure verbs, citations, for an executor (agent or human) to act on.
+- `--assess` writes `ai/audit/assessment.md` — narrative prose for a reader (stakeholder / tech lead / new joiner).
+- Both are read-only and mutually exclusive. Both run the same Phase 1 multi-axis scan underneath; only the rendering differs.
+
+```
+/audit --assess                       # whole project, narrative assessment
+/audit --assess apps/web              # scoped to one workspace
+/audit --assess --focus=arch,quality  # narrative scoped to specific axes
+/audit --assess apps/api              # senior-engineer write-up of the NestJS backend
+```
+
+## `/unify-surfaces`
+
+Source: [`commands/unify-surfaces.md`](../commands/unify-surfaces.md). Adapter coverage: each `templates/tool-adapters/<tool>/adapter.md` (Unify-surfaces pack bullet).
+
+**One command, surface-type unification across the entire frontend codebase.** Sibling to `/polish`, but typed by SURFACE CATEGORY instead of by axis. Where `/polish` operates per-axis (tokens / rhythm / motion / type-scale / states), `/unify-surfaces` operates per-surface-type (tables / forms / headers / tabs / filters / buttons / validation). They compose: `/unify-surfaces` first to consolidate the wrappers, then `/polish` to polish each canonical wrapper to spec.
+
+### The 7 default categories
+
+| Category | What gets unified |
+|---|---|
+| **tables** | List/data table chrome — header row, filter bar position, pagination, empty/loading states, action column, density toggle |
+| **forms** | Form layout — field rhythm, label placement, input width grid, fieldset grouping, submit-row position, dirty cue |
+| **headers** | Page header — title + subtitle + breadcrumb + actions zone, height, spacing, sticky behaviour |
+| **tabs** | In-page tabs — strip, indicator, active state, badge, overflow, body container |
+| **filters** | List-page filter panel — search + dropdowns + date-range + chip-display + clear-all + position |
+| **buttons** | Button primitive variants — primary / secondary / tertiary / danger / ghost; size scale; loading / disabled / pressed; tap-target floor |
+| **validation** | **3-part pipeline** — frontend validator composable + `<ErrorList>` / `<FieldError>` rendering + API-validation-error mapper that turns server `{field: [msg]}` into field-level errors. Not a single wrapper — a system. |
+
+### The pipeline (silent, per category)
+
+1. **INVENTORY** — find every consumer of this surface type across the codebase.
+2. **DECIDE CANONICAL** — `_extracted-idioms.md § Wrappers` if named there; else cluster by shape and pick the most-used; else halt + ask.
+3. **EXTRACT / EXTEND** — extend the existing shared wrapper, or extract a new one from the chosen consumer.
+4. **MIGRATE CONSUMERS** — rewrite every non-canonical consumer in **one cascade-rewrite commit per category** (the point of unification).
+5. **VERIFY** — typecheck + lint + scoped tests + visual-regression on non-target surfaces (must not change).
+
+### Validation pipeline (special-cased)
+
+Forms-then-validation order ensures each form is on the canonical layout before its validation gets unified. The validation category extracts:
+
+- **Frontend validator composable** — single source of truth for declaring per-field rules (e.g., `useFormValidation()`).
+- **Error rendering primitives** — `<ErrorList>` + `<FieldError>` with one convention for placement, tone, required-field marker, summary location.
+- **API-validation-error mapper** — wired as a global response interceptor; turns server errors into field-level errors the composable attaches.
+
+Migration order: ship the 3 primitives → wire the API mapper → migrate forms one at a time (each removes its bespoke validator + bespoke error renderer + bespoke server-error handler, replacing all three with the unified pipeline).
+
+### Examples
+
+```
+/unify-surfaces                                 # all 7 categories, whole project
+/unify-surfaces --surfaces=tables,filters       # only list-page surfaces
+/unify-surfaces --surfaces=validation           # form-validation pipeline only
+/unify-surfaces --surfaces=headers,tabs         # page chrome only
+/unify-surfaces the orders module               # scoped — only orders pages
+/unify-surfaces "the customer-facing pages"     # semantic scope
+/unify-surfaces --canonical=tables=src/shared/ui/BaseDataTable.vue --canonical=headers=src/shared/ui/PageHeader.vue
+```
+
+### Multi-day workflow + common flags
+
+Same flag set as `/migrate` / `/optimize` / `/align` / `/polish` / `/audit` — `--status` / `--resume` / `--re-audit` / `--refresh` / `--restart` / `--ignore-ledger` / `--max-parallel` / `--exclude` / `--surface-blockers` / `--dry-run`. Plus category-specific:
+
+- `--surfaces=<list>` — subset of the 7 categories.
+- `--canonical=<category>=<wrapper-path>` — force canonical wrapper (overrides idioms + inventory). Repeatable.
+- `--keep-ad-hoc=<glob>` — preserve specific consumers as ad-hoc (legacy / one-offs).
+- `--validation-library=<name>` — when 2+ form libraries are present, pick one.
+
+### Output
+
+```
+Unify-surfaces complete
+
+Stack:               frontend-vue
+Scope:               whole project
+Categories:          7 / 7 done
+
+  buttons       canonical=<BaseButton>(5 variants)        298 / 312 consumers migrated
+  headers       canonical=<PageHeader>(extracted)          47 /  47 consumers migrated
+  tabs          canonical=<RouteTabs>(extracted)           14 /  14 consumers migrated
+  forms         canonical=<BaseForm>(extended)             31 /  31 consumers migrated
+  tables        canonical=<BaseDataTable>(extended)        24 /  24 consumers migrated
+  filters       canonical=<FilterPanel>(extracted)         22 /  22 consumers migrated
+  validation    pipeline=useFormValidation+ErrorList+apiErrorMapper  31 forms wired
+
+Wrappers extracted: 4   Wrappers reused/extended: 3   Variants removed: 18
+Commits: 7 (one per category)  Diff: +2,148 / -5,492 = -3,344 lines
+Tests: 487/487  Visual-regression: target-only  Bundle: -2.1%  a11y: 81 → 96
+```
+
+### Pre-requisites
+
+- `PROJECT_KIND` is `frontend-*` (or `mobile-web` / `mobile-rn`). Halts on backend / data / library / CLI.
+- `_extracted-idioms.md § Wrappers` populated (the canonical-shape oracle).
+- Mechanical CI green; working tree clean (or `--allow-dirty`).
+- Playwright MCP wired (visual-regression gate; soft-fails to text-only).
 
 ## `/refactor`
 
