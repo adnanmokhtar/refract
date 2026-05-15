@@ -6,6 +6,34 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/audit --assess` — senior-engineer narrative assessment mode (new flag)
+
+**Why** — `/audit` is fix-it oriented (scan → rank → execute) with `--plan-only` as the executor-handoff alternative. Neither produced what users keep asking for when they paste a long "evaluate the entire frontend / backend codebase deeply across architecture / SOLID / DRY / scalability / maintainability / styling / design-system / etc., report what's good / what to improve / what to unify / what to extract / what to simplify / what to redesign / what to remove / what to optimize" prompt. That request is a **narrative senior-engineer assessment for a reader** (tech lead / stakeholder / new joiner), not a ranked closure-verb checklist for an executor. The decomposition existed across `/audit + /polish + /unify-surfaces + /align + /optimize`, but the simple-surface answer was missing. Users were either running all 5 commands and merging by hand, or pasting the long prompt and getting hand-waved prose without `<file:line>` citations.
+
+**What ships** — **`--assess` mode added to `commands/audit.md`** (mutually exclusive with `--plan-only`). Same Phase 1 eight-axis scan as today (architecture, SOLID + clean code, security, DB perf, runtime perf, scale + resilience, infra, observability). Different rendering:
+
+- Phase 3a short-circuit: skip ranking + execution; author `ai/audit/assessment.md` with **exactly 8 top-level sections in order**: (1) What's already good, (2) What needs improvement, (3) What should be unified, (4) What should be extracted or shared, (5) What should be simplified, (6) What should be redesigned, (7) What should be removed, (8) What should be optimized.
+- **Stack-conditional rendering** — frontend-* inlines component / composable / state-management / routing / styling / design-system / a11y / typing narrative; backend-* (NestJS / Django / Rails / Spring / FastAPI / etc.) inlines module / DTO / validation / guards-interceptors-filters / repository / transaction / API-design / testing narrative; mobile / data / serverless inherit the 8 sections with stack-appropriate emphasis. Agent reads project vocabulary from `_extracted-idioms.md`.
+- **Anti-hand-wave discipline preserved** — every claim cites `<file:line>`; same grep that `--strict` enforces on the ranked fix-plan rejects `etc.` / `several places` / `multiple endpoints` / `appears to`. Empty-praise prose ("the code is well organised") is forbidden — each strength names a specific artefact.
+- **Closes with paste-ready `## Actionable next steps`** per `templates/snippets/actionable-next-steps.md`: routes each section to its execution command (`/optimize` for arch + redesign + simplify, `/unify-surfaces` for unify, `/polish` for backend API consistency + frontend tokens, `/align` for convention drift, `/security-audit` for deep security pass, `/audit` no-flag to execute, `/audit --plan-only` for ranked fix-plan).
+- **Read-only** — no commits, no `progress.md` advance, no `plan.md` written. Distinct artifact: `assessment.md` next to `plan.md` (`--plan-only`) and `final-report.md` (default execute).
+
+**Distinct from siblings**:
+- `--plan-only` writes `plan.md` — ranked P0–P4 fix-plan with closure verbs + citations — executor handoff.
+- `--assess` writes `assessment.md` — 8-section narrative prose — reader handoff.
+- Default execute writes `final-report.md` after fixing.
+- Same Phase 1 scan underneath; only rendering differs.
+
+**Files touched**:
+- `commands/audit.md` — new `--assess` flag in args + description + examples + Phase 3a short-circuit spec + two stack-flavoured output examples (Vue storefront + NestJS backend).
+- `docs/COMMANDS.md` — glance-row updated; new `### --assess` subsection in the `/audit` doc.
+- `docs/REFERENCE.md` — `/audit` row in the simple-commands table includes the three-modes description.
+- `templates/tool-adapters/{12 adapters}/adapter.md` — Audit-pack bullet adds `assessment.md` artifact + three-modes description (single-line patch consistent across all 12).
+- `templates/tool-adapters/_orchestration-sync.md` — `validate-audit-artifacts.sh` planned-row updated to validate the 8 sections + `## Actionable next steps` when `--assess` is used.
+- Adapter coverage docs unchanged — `ai/audit/**` glob already covered.
+- Global `~/.claude/commands/audit.md` (symlink) auto-propagates.
+- Downstream: `tenant-portal-v2` + `claude-v2` `.claude/commands/audit.md` resynced.
+
 ### `/unify-surfaces` — surface-type unification orchestrator (new top-level, frontend-only)
 
 **Why** — `/polish` polishes per-axis (tokens / rhythm / motion / type-scale / states / contrast / etc.) across surfaces; `/align` closes per-class structural drift. Neither does what users keep asking for: *"unify all tables and forms across the entire codebase. If a page has a title, one unified header. If a page has tabs, one tab design. List filters move into one unified filter panel. Buttons / colors / spacing / styles / interactions consistent. Forms aligned with consistent spacing + layouts + input structures. Validation handling unified — frontend validators, error states, required-field handling, API-validation errors displayed consistently."* That request is **typed by surface category**, not by axis. The closest workflow today is `/ui-sweep --first-run` → `/align` (`duplicated-surface-styles`) → `/polish` → `/ui-crawl-fix --verify` — 4 commands the user has to know to chain. And **form-validation pipeline unification** (frontend validator + error rendering + API-error mapping as one extracted system) was emergent across 3 generic detectors with no first-class command.
