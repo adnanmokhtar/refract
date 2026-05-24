@@ -72,7 +72,8 @@ audit_cursor() {
   [[ -d "$TARGET/.cursor" ]] || return 1
   local hits=0 expected=$((SRC_COMMANDS + SRC_AGENTS + SRC_SKILLS + SRC_RULES))
   while IFS= read -r b; do
-    [[ -f "$TARGET/.cursor/commands/$b.md" ]] && hits=$((hits + 1))
+    # Skills-first: command's primary surface is .cursor/skills/<name>/SKILL.md; .cursor/commands/ is the fallback.
+    [[ -f "$TARGET/.cursor/skills/$b/SKILL.md" || -f "$TARGET/.cursor/commands/$b.md" ]] && hits=$((hits + 1))
   done < <(list_basenames_kind commands)
   while IFS= read -r b; do
     [[ -f "$TARGET/.cursor/commands/agent-$b.md" ]] && hits=$((hits + 1))
@@ -165,21 +166,77 @@ audit_continue() {
   echo "$hits|$expected"
 }
 
-# ---------- single-doc adapters: aider / codex / gemini ----------
+# ---------- single-doc adapter: aider (genuinely rule-only) ----------
 audit_singledoc() {
   local file="$1" name="$2"
   [[ -f "$TARGET/$file" ]] || return 1
   local lines hits=0 expected=4  # presence of major sections
   lines=$(wc -l < "$TARGET/$file" | tr -d ' ')
   if [[ $lines -ge 100 ]]; then hits=$((hits + 1)); fi
-  if grep -qE '^##.*[Cc]ommand' "$TARGET/$file"; then hits=$((hits + 1)); fi
+  if grep -qE '^##.*[Cc]ommand|^##.*[Pp]rocedure' "$TARGET/$file"; then hits=$((hits + 1)); fi
   if grep -qE '^##.*[Aa]gent|##.*[Pp]ersona' "$TARGET/$file"; then hits=$((hits + 1)); fi
   if grep -qE '^##.*[Ss]kill|##.*[Pp]rocedure' "$TARGET/$file"; then hits=$((hits + 1)); fi
   echo "$hits|$expected"
 }
 audit_aider()  { audit_singledoc "CONVENTIONS.md" "aider"; }
-audit_codex()  { audit_singledoc "AGENTS.md" "codex"; }
-audit_gemini() { audit_singledoc "GEMINI.md" "gemini"; }
+
+# ---------- codex: native Agent Skills (primary) + AGENTS.md (fallback) ----------
+audit_codex() {
+  [[ -f "$TARGET/AGENTS.md" ]] || return 1
+  local hits=0 expected=$((SRC_COMMANDS + SRC_SKILLS + 1))
+  hits=$((hits + 1))  # AGENTS.md present (checked above)
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.agents/skills/$b/SKILL.md" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind commands)
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.agents/skills/$b/SKILL.md" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind skills)
+  echo "$hits|$expected"
+}
+
+# ---------- gemini: native TOML commands (primary) + GEMINI.md (fallback) ----------
+audit_gemini() {
+  [[ -f "$TARGET/GEMINI.md" ]] || return 1
+  local hits=0 expected=$((SRC_COMMANDS + 1))
+  hits=$((hits + 1))  # GEMINI.md present (checked above)
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.gemini/commands/$b.toml" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind commands)
+  echo "$hits|$expected"
+}
+
+# ---------- kimi: commands dual-surface (skill + subagent); skills→skill; agents→subagent ----------
+audit_kimi() {
+  [[ -d "$TARGET/.kimi" ]] || return 1
+  local hits=0 expected=$(((SRC_COMMANDS * 2) + SRC_SKILLS + SRC_AGENTS))
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.kimi/skills/$b/SKILL.md" ]] && hits=$((hits + 1))
+    [[ -f "$TARGET/.kimi/subagents/$b.yaml" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind commands)
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.kimi/skills/$b/SKILL.md" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind skills)
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.kimi/subagents/$b.yaml" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind agents)
+  echo "$hits|$expected"
+}
+
+# ---------- qwen: native 1:1 commands + agents + skills ----------
+audit_qwen() {
+  [[ -d "$TARGET/.qwen" ]] || return 1
+  local hits=0 expected=$((SRC_COMMANDS + SRC_AGENTS + SRC_SKILLS))
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.qwen/commands/$b.md" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind commands)
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.qwen/agents/$b.md" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind agents)
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.qwen/skills/$b/SKILL.md" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind skills)
+  echo "$hits|$expected"
+}
 
 # Run all adapters; record verdicts
 verdict_for() {
@@ -225,6 +282,8 @@ run_one continue  audit_continue
 run_one aider     audit_aider
 run_one codex     audit_codex
 run_one gemini    audit_gemini
+run_one kimi      audit_kimi
+run_one qwen      audit_qwen
 
 # ---------- report ----------
 {

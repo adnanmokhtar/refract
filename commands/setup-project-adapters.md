@@ -88,8 +88,8 @@ The standalone test: open the generated repo in just one tool (e.g. Cursor, no C
    | `cline` | For each affected `.claude/rules/<x>.md`: re-render `.clinerules/<NN>-<x>.md`. | Regenerate `.clinerules/{80-commands,81-agents,82-skills}.md` indexes. |
    | `windsurf` | For each affected `.claude/rules/<x>.md`: re-render `.windsurf/rules/<NN>-<x>.md`. | Regenerate `.windsurf/rules/{80-commands,81-agents,82-skills}.md` indexes. |
    | `copilot` | For each affected `.claude/rules/<x>.md`: re-render `.github/instructions/<x>.instructions.md`. For each affected command/agent/skill: re-render `.github/prompts/{<command>,agent-<name>,skill-<name>}.prompt.md`. | Regenerate `.github/copilot-instructions.md` (≤2k tokens summary of CLAUDE.md). |
-   | `codex` | NO per-artifact files — `codex` puts everything into a single `AGENTS.md`. | Regenerate `AGENTS.md` sections impacted: "Conventions" (if a rule changed), "Invokable commands" / "Named personas" / "Named procedures" (always when `index_refresh = true`, OR when any of those artifacts changed). Other sections (project overview, architecture, code style, deployment) are NOT touched unless the corresponding source file changed. |
-   | `gemini` | If `GEMINI.md` is the **thin-pointer** variant (AGENTS.md exists): NO-OP — pointer is already current. If `GEMINI.md` is the **full-copy** variant: same as `codex`. | Same as per-artifact column. |
+   | `codex` | For each affected `.claude/commands/<x>.md` or `.claude/skills/<x>/SKILL.md`: re-render `.agents/skills/<x>/SKILL.md` (native Agent Skill, EXECUTE NOW body). For each affected rule/agent: refresh the matching `AGENTS.md` fallback section. | Regenerate `AGENTS.md` sections impacted: "Conventions" (if a rule changed), "Invokable commands" / "Named personas" / "Named procedures" (always when `index_refresh = true`, OR when any of those artifacts changed). Other sections (project overview, architecture, code style, deployment) are NOT touched unless the corresponding source file changed. |
+   | `gemini` | For each affected `.claude/commands/<x>.md`: re-render `.gemini/commands/<x>.toml` (native TOML, `# EXECUTE NOW` + `{{args}}`). If `GEMINI.md` is the **thin-pointer** variant (AGENTS.md exists): pointer is already current. If **full-copy** variant: refresh impacted sections same as `codex`. | Regenerate `.gemini/commands/*.toml` for any `index_refresh = true`; GEMINI.md fallback sections as per-artifact column. |
 
 3. **Concurrency cap**: respects `--max-subagents=<N>` (default 8). Per-adapter generation can fan out across adapters in parallel; within an adapter, per-artifact re-translation can also fan out. Total concurrent subagents at any instant ≤ N, shared with the prior REFINE phases' caps (phase boundaries are sequential — by the time 4.8-DEEP starts, all 4.6-DEEP + 4.7-DEEP subagents have completed).
 
@@ -134,8 +134,8 @@ The `--plan` flag is universal in Claude Code (the canonical 7-phase command str
 | `aider` | `.aider.conf.yml` — add `read: .claude/plans/README.md` so the plan format is in context. `CONVENTIONS.md` includes a "Plan mode" section: when user types `/plan <command> "<prompt>"`, write plan to `.claude/plans/`, exit. Implementation mode is the default. |
 | `continue` | `.continue/prompts/<command>.prompt.md` — branch on `--plan` arg as in OpenCode; same plan-file output. |
 | `cline` / `windsurf` / `copilot` | Each command's translated prompt branches on `--plan` per the same pattern. |
-| `codex` | `AGENTS.md` § "Invokable commands" — each command entry notes "supports `--plan` flag for handoff" with the format reference. |
-| `gemini` | Same as codex — note in `GEMINI.md` command catalog. |
+| `codex` | `.agents/skills/<command>/SKILL.md` body branches on `--plan` per the same pattern as OpenCode (write plan to `.claude/plans/`, exit before implementation); the `AGENTS.md` fallback entry notes "supports `--plan` flag for handoff" with the format reference. |
+| `gemini` | `.gemini/commands/<command>.toml` `prompt` branches on `{{args}}` containing `--plan` (write plan to `.claude/plans/`, exit); the `GEMINI.md` fallback catalog notes the same. |
 
 **Plan file format is tool-agnostic markdown** — every adapter consumes the same format. The only thing that varies is HOW each adapter is taught to write the plan (and how `--from-plan <file>` invokes implementation from a plan, where supported).
 
@@ -158,16 +158,16 @@ To prevent this, each adapter has a **minimum-output contract**. Phase 5 verifie
 | Adapter | Required outputs |
 |---|---|
 | `claude-code` | `.claude/{agents,commands,skills,rules,hooks}/` populated per pack copy (Phase 4.2) + `.claude/settings.json` + `CLAUDE.md` at root. Note: `.claude/codebase-profile.md` is a Phase 2 output (not an adapter output); the claude-code adapter relies on it but never writes it. |
-| `opencode` | (a) `opencode.json` with: `provider` block (defaults), `instructions` glob array. (b) `.opencode/agents/<name>.md` for every `.claude/agents/<name>.md` (NATIVE folder). (c) `.opencode/commands/<name>.md` for every `.claude/commands/<name>.md` (NATIVE folder). (d) `.opencode/skills/<name>/SKILL.md` (+ supporting scripts) for every `.claude/skills/<name>/` (NATIVE folder copy). (e) `AGENTS.md` with sections: `## Invokable commands`, `## Named personas`, `## Named procedures`. (f) Optional legacy mirror in `opencode.json` `commands` block when `--legacy-opencode` is set. |
-| `cursor` | (a) `.cursor/rules/00-project.mdc` (alwaysApply, project-wide) + per-rule MDC files for every `.claude/rules/*.md`. (b) `.cursor/commands/<name>.md` for every `.claude/commands/<name>.md` (NATIVE folder). (c) `.cursor/commands/agent-<name>.md` for every `.claude/agents/<name>.md` (NATIVE folder — Cursor has no agent dispatch, personas are commands). (d) `.cursor/skills/<name>/SKILL.md` (+ scripts) for every `.claude/skills/<name>/` (NATIVE folder copy). (e) `.cursor/hooks.json` translating every `.claude/hooks/*.sh` to its lifecycle event (NATIVE; ≥ Cursor 2.3). |
+| `opencode` | (a) `opencode.json` with: `provider` block (defaults), `instructions` glob array. (b) `.opencode/agents/<name>.md` for every `.claude/agents/<name>.md` (NATIVE folder). (c) `.opencode/commands/<name>.md` for every `.claude/commands/<name>.md` (NATIVE folder) **with frontmatter `agent: build`** (or `agent: plan` for audit/plan commands) — load-bearing for execution. (d) `.opencode/skills/<name>/SKILL.md` (+ supporting scripts) for every `.claude/skills/<name>/` (NATIVE folder copy). (e) `AGENTS.md` with sections: `## Invokable commands`, `## Named personas`, `## Named procedures`. (f) Optional legacy mirror in `opencode.json` `commands` block when `--legacy-opencode` is set. |
+| `cursor` | (a) `.cursor/rules/00-project.mdc` (alwaysApply, project-wide) + per-rule MDC files for every `.claude/rules/*.md`. (b) **Commands (skills-first)**: for every `.claude/commands/<name>.md`, write `.cursor/skills/<name>/SKILL.md` (PRIMARY — Cursor is migrating slash commands to Skills) AND `.cursor/commands/<name>.md` (fallback mirror, deprecation path). (c) `.cursor/commands/agent-<name>.md` for every `.claude/agents/<name>.md` (NATIVE folder — Cursor has no agent dispatch, personas are commands). (d) `.cursor/skills/<name>/SKILL.md` (+ scripts) for every `.claude/skills/<name>/` (NATIVE folder copy). (e) `.cursor/hooks.json` translating every `.claude/hooks/*.sh` to its lifecycle event (NATIVE; ≥ Cursor 2.3). |
 | `aider` | (a) `.aider.conf.yml` with `read:` listing — in this exact order — `CONVENTIONS.md`, `AGENTS.md`, `ai/README.md`, `ai/status.md`, and `ai/business-domain.md` IF that file exists in the project. (b) `CONVENTIONS.md` containing: project intro + must/must-not (top 6-10 from `ai/_convention-cheatsheet.md`) + named procedures (every command) + named personas (every agent) + skill-style runbook entries (every skill) + `## Driver-dependent safety` disclosure. (c) `.aiderignore` with `.env*`, `*.lock`, `node_modules/`, `dist/`, `build/` plus project-specific migrations directories detected during Phase 2. |
 | `continue` | (a) `.continue/config.yaml` with `models:` (commented stub for user keys), `rules:` listing every `.claude/rules/*.md` translated to `.continue/rules/<name>.md`, `docs:` pointing at `ai/`. (b) `.continue/rules/<name>.md` per rule (one-to-one with `.claude/rules/*.md`). (c) `.continue/prompts/<name>.md` (NATIVE prompts folder, `invokable: true`) for every command, plus `.continue/prompts/agent-<name>.md` per agent and `.continue/prompts/skill-<name>.md` per skill. (d) `.continueignore` covering `.env*`, `*.lock`, project migrations dirs (sensitive-file fallback for missing hooks). (e) Optional minimal `prompts:` mirror in `config.yaml` for Continue < 1.0 backward compat. |
 | `cline` | (a) `.clinerules/00-project.md` (always loaded — project rules + driver-gap disclosure). (b) `.clinerules/<NN>-<domain>.md` per `.claude/rules/<domain>.md` (one-to-one; `<NN>` ∈ {10..79}). (c) `.clinerules/workflows/<name>.md` for every `.claude/commands/<name>.md` (NATIVE — Cline workflows = slash commands). (d) `.clinerules/81-agents.md` (every agent persona — no native dispatch). (e) `.clinerules/82-skills.md` (every skill procedure — no native skills primitive). (f) Optional `.clinerules/80-commands.md` catalog for Cline < 3.0 backward compat. |
 | `windsurf` | (a) `.windsurf/rules/00-project.md` (always activation) + per-rule files. (b) `.windsurf/workflows/<name>.md` for every `.claude/commands/<name>.md` (NATIVE — Cascade workflows = slash commands). (c) `.windsurf/rules/81-agents.md` (trigger_words activation per agent). (d) `.windsurf/rules/82-skills.md`. (e) Optional `.windsurf/rules/80-commands.md` catalog for backward compat. |
 | `copilot` | (a) `.github/copilot-instructions.md` (repo-wide, ≤2k tokens, summary of CLAUDE.md). (b) `.github/instructions/<domain>.instructions.md` for every `.claude/rules/*.md` (with `applyTo:` glob). (c) `.github/prompts/<name>.prompt.md` for every command (NATIVE). (d) `.github/agents/<name>.agent.md` for every agent (NATIVE — Apr 2026 GA). (e) `.github/skills/<name>/SKILL.md` (+ scripts) for every skill (NATIVE — Agent Skills GA). (f) Optional `.github/chatmodes/<name>.chatmode.md` for any agent flagged for chat-mode translation. |
-| `codex` | `AGENTS.md` at root with these sections: project overview, architecture, conventions (MUST/MUST-NOT), code style, testing, deployment, `## Invokable commands`, `## Named personas`, `## Named procedures`, `## Driver-dependent safety`, `## AI-tool adapters present`. |
-| `gemini` | `GEMINI.md` at root either (a) full content like AGENTS.md if no AGENTS.md exists, OR (b) thin pointer file referencing AGENTS.md if AGENTS.md exists. Plus optional Gemini-specific notes. |
-| `kimi` | (a) `.kimi/skills/<name>/SKILL.md` for every `.claude/skills/<name>/` (NATIVE folder). (b) `.kimi/skills/<name>/SKILL.md` for every `.claude/commands/<name>.md` (NATIVE — Kimi has no slash-command primitive; commands fold into skills). (c) `.kimi/subagents/<name>.yaml` for every `.claude/agents/<name>.md` (NATIVE). (d) `AGENTS.md` with consolidated rules + driver-gap disclosure. (e) Recommended `[[hooks]]` snippet for user-global `~/.kimi/config.toml` (documented in adapter — not auto-written per-project). |
+| `codex` | (a) `.agents/skills/<name>/SKILL.md` (NATIVE Open Agent Skills) for every `.claude/commands/<name>.md` AND every `.claude/skills/<name>/` — each with an EXECUTE NOW directive in the body (the primary executable surface). (b) `AGENTS.md` at root with these sections: project overview, architecture, conventions (MUST/MUST-NOT), code style, testing, deployment, `## Invokable commands`, `## Named personas`, `## Named procedures`, `## Driver-dependent safety`, `## AI-tool adapters present` — the `## Invokable commands` / `## Named procedures` prose is the **fallback** for AGENTS.md consumers lacking the Agent Skills standard. |
+| `gemini` | (a) `.gemini/commands/<name>.toml` (NATIVE TOML custom command) for every `.claude/commands/<name>.md` — `prompt = """..."""` body opening with `# EXECUTE NOW` + `{{args}}` scope interpolation (the primary executable surface). (b) `GEMINI.md` at root either full content like AGENTS.md if no AGENTS.md exists, OR thin pointer referencing AGENTS.md if it exists; its `## Invokable commands` prose is the **fallback** when TOML commands aren't generated. Plus optional Gemini-specific notes. |
+| `kimi` | (a) `.kimi/skills/<name>/SKILL.md` for every `.claude/skills/<name>/` (NATIVE folder, reference skills — no preamble). (b) **Dual-surface for commands**: for every `.claude/commands/<name>.md`, write BOTH `.kimi/skills/<name>/SKILL.md` (so Kimi's built-in `/skill:<name>` loads it) AND `.kimi/subagents/<name>.yaml` (so the main agent can dispatch it by description) — **each carrying the EXECUTE NOW preamble** at the top so loading OR dispatch EXECUTES instead of loading as reference (Kimi treats a loaded skill as "contextual guidance, not strict"). Subagent `tools:` whitelist derived from command type (audit-only → `read`; plan → `read,write`; full-action → `read,write,shell`). (c) `.kimi/subagents/<name>.yaml` for every `.claude/agents/<name>.md` (NATIVE persona). (d) `AGENTS.md` with consolidated rules + driver-gap disclosure. (e) Recommended `[[hooks]]` snippet for user-global `~/.kimi/config.toml` (documented in adapter — not auto-written per-project). See `templates/tool-adapters/kimi/adapter.md § "Skills vs subagents — which primitive for what"`. |
 | `qwen` | (a) `QWEN.md` at root (+ `AGENTS.md` cross-tool canonical). (b) `.qwen/settings.json` with hooks + provider defaults (NATIVE). (c) `.qwen/commands/<name>.md` for every `.claude/commands/<name>.md` (NATIVE). (d) `.qwen/agents/<name>.md` for every `.claude/agents/<name>.md` (NATIVE). (e) `.qwen/skills/<name>/SKILL.md` for every `.claude/skills/<name>/` (NATIVE folder copy). |
 
 #### Coverage check (Phase 5 verifies, retries on shortfall)
@@ -181,6 +181,13 @@ case <adapter> in
     cmds_native=$(ls .opencode/commands/*.md 2>/dev/null | wc -l)
     cmds_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
     [ "$cmds_native" -lt "$cmds_expected" ] && SHORTFALL=1 && echo "OpenCode .opencode/commands/: $cmds_native/$cmds_expected"
+    # Action commands MUST carry `agent:` frontmatter or OpenCode describes instead of executes.
+    missing_agent=0
+    for c in .opencode/commands/*.md; do
+      [ -f "$c" ] || continue
+      grep -q "^agent:" "$c" || missing_agent=$((missing_agent + 1))
+    done
+    [ "$missing_agent" -gt 0 ] && SHORTFALL=1 && echo "OpenCode: $missing_agent command(s) missing 'agent:' frontmatter"
     agents_native=$(ls .opencode/agents/*.md 2>/dev/null | wc -l)
     agents_expected=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
     [ "$agents_native" -lt "$agents_expected" ] && SHORTFALL=1 && echo "OpenCode .opencode/agents/: $agents_native/$agents_expected"
@@ -191,15 +198,14 @@ case <adapter> in
     grep -q "^## Named personas" AGENTS.md || { SHORTFALL=1; echo "AGENTS.md missing 'Named personas' section"; }
     ;;
   cursor)
-    cmd_native=$(ls .cursor/commands/*.md 2>/dev/null | grep -v '^.cursor/commands/agent-' | wc -l)
-    cmd_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
-    [ "$cmd_native" -lt "$cmd_expected" ] && SHORTFALL=1 && echo "Cursor .cursor/commands/: $cmd_native/$cmd_expected"
+    # Skills-first: commands' PRIMARY surface is .cursor/skills/<name>/SKILL.md (+ optional
+    # .cursor/commands/<name>.md fallback). Reference skills also live in .cursor/skills/.
+    skill_native=$(ls -d .cursor/skills/*/ 2>/dev/null | wc -l)
+    skill_expected=$(($(ls .claude/commands/*.md 2>/dev/null | wc -l) + $(ls -d .claude/skills/*/ 2>/dev/null | wc -l)))
+    [ "$skill_native" -lt "$skill_expected" ] && SHORTFALL=1 && echo "Cursor .cursor/skills/: $skill_native/$skill_expected (commands + skills)"
     agent_native=$(ls .cursor/commands/agent-*.md 2>/dev/null | wc -l)
     agent_expected=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
     [ "$agent_native" -lt "$agent_expected" ] && SHORTFALL=1 && echo "Cursor agent commands: $agent_native/$agent_expected"
-    skill_native=$(ls -d .cursor/skills/*/ 2>/dev/null | wc -l)
-    skill_expected=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l)
-    [ "$skill_native" -lt "$skill_expected" ] && SHORTFALL=1 && echo "Cursor .cursor/skills/: $skill_native/$skill_expected"
     if ls .claude/hooks/*.sh >/dev/null 2>&1; then
       [ ! -f .cursor/hooks.json ] && SHORTFALL=1 && echo "Cursor: .cursor/hooks.json missing despite .claude/hooks/ being present"
     fi
@@ -241,6 +247,12 @@ case <adapter> in
     [ ! -f CONVENTIONS.md ]  && SHORTFALL=1
     [ ! -f .aiderignore ]    && SHORTFALL=1
     grep -q "^read:" .aider.conf.yml || SHORTFALL=1
+    # Command sections fold into CONVENTIONS.md under `## User-invoked procedures`, EACH with an
+    # EXECUTE NOW imperative preamble — without it "run optimize" gets described, not executed.
+    if [ -f CONVENTIONS.md ] && ls .claude/commands/*.md >/dev/null 2>&1; then
+      grep -q "## User-invoked procedures" CONVENTIONS.md || { SHORTFALL=1; echo "Aider: CONVENTIONS.md missing '## User-invoked procedures' section"; }
+      grep -q "EXECUTE NOW" CONVENTIONS.md || { SHORTFALL=1; echo "Aider: CONVENTIONS.md command sections missing EXECUTE NOW preamble"; }
+    fi
     ;;
   windsurf)
     [ ! -f .windsurf/rules/00-project.md ] && SHORTFALL=1
@@ -255,20 +267,42 @@ case <adapter> in
     [ ! -f AGENTS.md ] && SHORTFALL=1
     grep -q "^## Architecture" AGENTS.md || SHORTFALL=1
     grep -q "^## Conventions" AGENTS.md  || SHORTFALL=1
+    # Commands + skills translate to NATIVE Agent Skills (primary surface); AGENTS.md prose is fallback.
+    skills_native=$(ls .agents/skills/*/SKILL.md 2>/dev/null | wc -l)
+    skills_expected=$(($(ls .claude/commands/*.md 2>/dev/null | wc -l) + $(ls -d .claude/skills/*/ 2>/dev/null | wc -l)))
+    [ "$skills_native" -lt "$skills_expected" ] && SHORTFALL=1 && echo "Codex .agents/skills/: $skills_native/$skills_expected (commands + skills)"
     ;;
   gemini)
     [ ! -f GEMINI.md ] && SHORTFALL=1
+    # Commands translate to NATIVE TOML custom commands (primary surface); GEMINI.md prose is fallback.
+    toml_native=$(ls .gemini/commands/*.toml 2>/dev/null | wc -l)
+    cmds_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
+    [ "$toml_native" -lt "$cmds_expected" ] && SHORTFALL=1 && echo "Gemini .gemini/commands/: $toml_native/$cmds_expected"
     ;;
   kimi)
-    # Commands fold into skills; skills copy 1:1.
-    cmds_as_skills=$(ls .kimi/skills/*/SKILL.md 2>/dev/null | wc -l)
+    # Commands are DUAL-SURFACE: each command → BOTH a skill (so /skill:<name> works)
+    # AND a subagent (so description-dispatch works), each with the EXECUTE NOW preamble.
+    # Reference skills fold into skills only. See templates/tool-adapters/kimi/adapter.md.
     cmds_expected=$(ls .claude/commands/*.md 2>/dev/null | wc -l)
     skills_expected=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l)
-    total_expected=$((cmds_expected + skills_expected))
-    [ "$cmds_as_skills" -lt "$total_expected" ] && SHORTFALL=1 && echo "Kimi .kimi/skills/: $cmds_as_skills/$total_expected (commands + skills)"
-    agents_native=$(ls .kimi/subagents/*.yaml 2>/dev/null | wc -l)
     agents_expected=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
-    [ "$agents_native" -lt "$agents_expected" ] && SHORTFALL=1 && echo "Kimi .kimi/subagents/: $agents_native/$agents_expected"
+    # Skill surface: command-skills + reference-skills.
+    skills_native=$(ls .kimi/skills/*/SKILL.md 2>/dev/null | wc -l)
+    skills_total_expected=$((cmds_expected + skills_expected))
+    [ "$skills_native" -lt "$skills_total_expected" ] && SHORTFALL=1 && echo "Kimi .kimi/skills/: $skills_native/$skills_total_expected (commands + skills)"
+    # Subagent surface: one per command (dual-surface) + one per agent persona.
+    subagents_native=$(ls .kimi/subagents/*.yaml 2>/dev/null | wc -l)
+    subagents_expected=$((cmds_expected + agents_expected))
+    [ "$subagents_native" -lt "$subagents_expected" ] && SHORTFALL=1 && echo "Kimi .kimi/subagents/: $subagents_native/$subagents_expected (commands + agents)"
+    # Every command-derived skill + subagent MUST carry the EXECUTE NOW preamble.
+    missing_preamble=0
+    for c in .claude/commands/*.md; do
+      [ -f "$c" ] || continue
+      n=$(basename "$c" .md)
+      [ -f ".kimi/skills/$n/SKILL.md" ] && ! grep -q "EXECUTE NOW" ".kimi/skills/$n/SKILL.md" && missing_preamble=$((missing_preamble + 1))
+      [ -f ".kimi/subagents/$n.yaml" ] && ! grep -q "EXECUTE NOW" ".kimi/subagents/$n.yaml" && missing_preamble=$((missing_preamble + 1))
+    done
+    [ "$missing_preamble" -gt 0 ] && SHORTFALL=1 && echo "Kimi: $missing_preamble command-derived skill/subagent file(s) missing EXECUTE NOW preamble"
     [ ! -f AGENTS.md ] && SHORTFALL=1 && echo "Kimi: AGENTS.md missing"
     ;;
   qwen)
@@ -293,15 +327,17 @@ If shortfall detected: re-run that adapter's translation (Phase 5 retry loop). I
 
 The Claude Code `.claude/commands/<name>.md` file has frontmatter `description:` + body. To translate to other tools:
 
-- **OpenCode**: write `.opencode/commands/<name>.md` (NATIVE folder) with body 1:1 from `.claude/commands/<name>.md`.
-- **Cursor (≥ 2.3)**: write `.cursor/commands/<name>.md` (NATIVE folder) with frontmatter `{description}` and body 1:1 from source. No prefix; filename = slash-command name.
+- **OpenCode**: write `.opencode/commands/<name>.md` (NATIVE folder) with body 1:1 from `.claude/commands/<name>.md` **PLUS required frontmatter `agent: build`** (or `agent: plan` for audit/plan-only commands). The `agent:` field is **load-bearing for execution** — without it OpenCode routes to a no-tool mode and the command *describes* instead of *executes*. Default to `agent: build` when the source has no `kind:`. See `templates/tool-adapters/opencode/adapter.md § Frontmatter discipline`.
+- **Cursor (≥ 2.3, skills-first)**: write `.cursor/skills/<name>/SKILL.md` (PRIMARY — frontmatter `{name, description}`, body from source; Cursor is migrating slash commands → Skills) AND `.cursor/commands/<name>.md` (fallback mirror — frontmatter `{description}`, body 1:1, no prefix). Both resolve to `/<name>` in chat; the skill also auto-matches by description. See `templates/tool-adapters/cursor/adapter.md § Skills-first correction`.
 - **Copilot**: write `.github/prompts/<name>.prompt.md` (NATIVE) with frontmatter `{mode: agent, description}` and body.
 - **Continue**: write `.continue/prompts/<name>.md` (NATIVE) with frontmatter `{name, description, invokable: true}` and body. Optional minimal `prompts:` mirror in `config.yaml` for Continue < 1.0.
 - **Cline**: write `.clinerules/workflows/<name>.md` (NATIVE — Cline workflows = slash commands).
 - **Windsurf**: write `.windsurf/workflows/<name>.md` (NATIVE — Cascade workflows = slash commands).
-- **Kimi**: write `.kimi/skills/<name>/SKILL.md` (NATIVE — Kimi has no slash-command primitive; commands fold into skills).
+- **Kimi**: write BOTH `.kimi/skills/<name>/SKILL.md` (so `/skill:<name>` loads it) AND `.kimi/subagents/<name>.yaml` (so the main agent dispatches it by description) — **each prefixed with the EXECUTE NOW preamble** so the body EXECUTES rather than loading as reference (Kimi treats a loaded skill as "contextual guidance, not strict"). Subagent `tools:` whitelist by command type (audit-only → `read`; plan → `read,write`; full-action → `read,write,shell`). Reference skills (not commands) get a skill only, no preamble. See `templates/tool-adapters/kimi/adapter.md`.
 - **Qwen**: write `.qwen/commands/<name>.md` (NATIVE folder) with body 1:1 from `.claude/commands/<name>.md`.
-- **Aider / Codex / Gemini**: append section to `CONVENTIONS.md` / `AGENTS.md` / `GEMINI.md` "Invokable commands" section with `### <name>` header + 5-30 line summary (full body stays in `.claude/commands/<name>.md` — referenced).
+- **Aider** (rule-only — no native command primitive): append a `### <name>` section under `## User-invoked procedures` in `CONVENTIONS.md`. **Each section MUST start with an EXECUTE NOW imperative preamble** (second person) so the model treats the loaded text as a directive when the user says "run <name>", not as documentation to describe. Audit-only procedures add an explicit "Read-only — do not edit files" line. See `templates/tool-adapters/aider/adapter.md`.
+- **Codex** (native Agent Skills): write `.agents/skills/<name>/SKILL.md` (NATIVE — Open Agent Skills standard) with an EXECUTE NOW directive in the body. The `AGENTS.md` `## Invokable commands` prose section is the **fallback** for AGENTS.md consumers that lack the Agent Skills standard — generate it too, but the Agent Skill is the primary executable surface. See `templates/tool-adapters/codex/adapter.md § Agent Skills correction`.
+- **Gemini** (native TOML commands): write `.gemini/commands/<name>.toml` (NATIVE) — TOML with a `prompt = """..."""` field whose body opens with `# EXECUTE NOW` and uses `{{args}}` for scope interpolation. The `GEMINI.md` `## Invokable commands` prose is the **fallback** when TOML commands aren't generated. See `templates/tool-adapters/gemini/adapter.md § Custom commands correction`.
 
 Same pattern for agents:
 - **OpenCode**: `.opencode/agents/<name>.md` (NATIVE — frontmatter `{name, description, mode, model, tools}`).
@@ -309,7 +345,7 @@ Same pattern for agents:
 - **Cursor**: `.cursor/commands/agent-<name>.md` (translated as a command — Cursor has no agent dispatch).
 - **Continue**: `.continue/prompts/agent-<name>.md` (translated as a prompt).
 - **Cline / Windsurf**: section in `.clinerules/81-agents.md` / `.windsurf/rules/81-agents.md` (no native dispatch).
-- **Kimi**: `.kimi/subagents/<name>.yaml` (NATIVE — YAML with `description`, `system_prompt`, `tools`).
+- **Kimi**: `.kimi/subagents/<name>.yaml` (NATIVE — YAML with `description`, `system_prompt`, `tools`). Note: this directory holds one subagent per agent persona AND one per command (command-derived subagents above) — both carry the EXECUTE NOW preamble in `system_prompt`.
 - **Qwen**: `.qwen/agents/<name>.md` (NATIVE — frontmatter `{name, description, mode, model, tools}`).
 
 And for skills:

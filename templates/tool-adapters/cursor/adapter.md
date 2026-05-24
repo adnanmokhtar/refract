@@ -127,9 +127,26 @@ When editing database code:
 
 ## Full artifact translation
 
-### Commands — `.claude/commands/<name>.md` → `.cursor/commands/<name>.md` (NATIVE)
+### Commands — `.claude/commands/<name>.md` → `.cursor/skills/<name>/SKILL.md` (PRIMARY) + `.cursor/commands/<name>.md` (fallback)
 
-Cursor 2.3+ has native slash commands. One file per command, mirroring the Claude source 1:1 (no prefix, no wrapper text — Cursor recognises the file directly):
+Per the **Skills-first correction** at the top of this adapter, action commands translate **primarily to a native Cursor Skill** at `.cursor/skills/<name>/SKILL.md` — it appears in chat as `/<name>` AND auto-matches by description, and is the surface Cursor's `/migrate-to-skills` steers slash commands toward. A `.cursor/commands/<name>.md` mirror is ALSO written as a **fallback** (still works today; on the deprecation path) so existing `/<name>` muscle-memory keeps working until the user runs Cursor's `/migrate-to-skills` cleanup.
+
+**Primary** — `.cursor/skills/<name>/SKILL.md` (needs a `name:` field the source command lacks, so this is LLM-authored, not a raw copy):
+
+```markdown
+---
+name: endpoint-test
+description: Hit dev endpoint via curl and verify DTO shape — use when testing a controller's response shape
+---
+
+# /endpoint-test
+
+<body of .claude/commands/endpoint-test.md>
+
+Arguments: the user's text after `/endpoint-test` is the skill's input.
+```
+
+**Fallback** — `.cursor/commands/<name>.md` (1:1 mirror of the source, no prefix — Cursor recognises the file directly):
 
 ```markdown
 ---
@@ -143,9 +160,9 @@ description: Hit dev endpoint via curl and verify DTO shape
 Arguments: $ARGUMENTS (Cursor expands the user's typed args after `/endpoint-test`).
 ```
 
-User invokes by typing `/endpoint-test <controller>` in Cursor chat — exactly as in Claude Code.
+User invokes by typing `/endpoint-test <controller>` in Cursor chat (resolves to the skill, or the command-fallback if skills aren't migrated yet) — exactly as in Claude Code.
 
-Path: `.cursor/commands/<name>.md` (mirrors the source filename — no prefix).
+Paths: `.cursor/skills/<name>/SKILL.md` (primary) + `.cursor/commands/<name>.md` (fallback mirror — same filename, no prefix).
 
 ### Agents — `.claude/agents/<name>.md` → `.cursor/commands/agent-<name>.md` (NATIVE — translated as a command)
 

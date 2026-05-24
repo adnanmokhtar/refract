@@ -255,7 +255,12 @@ sync_opencode() {
   done
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
-    sync_file "$f" "$TARGET/.opencode/commands/$(basename "$f")"
+    local cdst="$TARGET/.opencode/commands/$(basename "$f")"
+    sync_file "$f" "$cdst"
+    # `agent:` frontmatter is load-bearing — without it OpenCode describes instead of executes.
+    if [[ -f "$cdst" ]] && ! grep -q "^agent:" "$cdst"; then
+      report_missing_author "opencode-agent-field" ".opencode/commands/$(basename "$f")" "add 'agent: build' (or 'agent: plan' for audit/plan commands) frontmatter — run /setup-project-adapters"
+    fi
   done
   for skill_dir in "$TARGET"/.claude/skills/*/; do
     [[ -d "$skill_dir" ]] || continue
@@ -277,10 +282,14 @@ sync_opencode() {
 
 sync_cursor() {
   echo "  [cursor]"
-  # 1:1 markdown copies — commands + skills.
+  # Commands are skills-first: PRIMARY = .cursor/skills/<name>/SKILL.md (LLM-authored — needs a
+  # `name:` field the source command lacks); fallback = .cursor/commands/<name>.md (1:1 mirror,
+  # still works, on Cursor's slash-command→Skills deprecation path).
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
-    sync_file "$f" "$TARGET/.cursor/commands/$(basename "$f")"
+    name=$(basename "$f" .md)
+    sync_file "$f" "$TARGET/.cursor/commands/$name.md"
+    [[ -f "$TARGET/.cursor/skills/$name/SKILL.md" ]] || report_missing_author "cursor-command-skill" ".cursor/skills/$name/SKILL.md" "command→native Skill (PRIMARY) with name/description frontmatter — run /setup-project-adapters"
   done
   # Agents → cursor commands (Cursor has no agent dispatch; agent-<name>.md prefix).
   for f in "$TARGET"/.claude/agents/*.md; do
@@ -349,44 +358,88 @@ sync_copilot() {
 
 sync_cline() {
   echo "  [cline]"
-  # Cline workflows = commands. 1:1 markdown copy.
+  # Cline workflows = commands. 1:1 markdown copy (no frontmatter conversion needed).
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
     sync_file "$f" "$TARGET/.clinerules/workflows/$(basename "$f")"
   done
-  # Rules: cline reads `.clinerules/*.md` flat (no frontmatter required).
+  # Rules → .clinerules/<NN>-<domain>.md — numeric load-order prefix ({10..79}); LLM assigns the
+  # domain number, so flag (don't raw-copy to a non-prefixed name that fails the coverage glob).
   for f in "$TARGET"/.claude/rules/*.md; do
     [[ -f "$f" ]] || continue
-    sync_file "$f" "$TARGET/.clinerules/$(basename "$f")"
+    rule_name=$(basename "$f" .md)
+    find "$TARGET/.clinerules" -maxdepth 1 -name "[1-7][0-9]-$rule_name.md" 2>/dev/null | grep -q . || \
+      report_missing_author "cline-rule" ".clinerules/<NN>-$rule_name.md" "rule needs numeric <NN>- load-order prefix ({10..79}) — run /setup-project-adapters"
   done
+  # Composite + index files (LLM-authored).
+  [[ -f "$TARGET/.clinerules/00-project.md" ]] || report_missing_author "cline-project" ".clinerules/00-project.md" "always-loaded project rules + driver-gap disclosure — run /setup-project-adapters"
+  [[ -f "$TARGET/.clinerules/81-agents.md" ]]  || report_missing_author "cline-agents-index" ".clinerules/81-agents.md" "agent persona index (every agent) — run /setup-project-adapters"
+  [[ -f "$TARGET/.clinerules/82-skills.md" ]]  || report_missing_author "cline-skills-index" ".clinerules/82-skills.md" "skill procedure index (every skill) — run /setup-project-adapters"
 }
 
 sync_windsurf() {
   echo "  [windsurf]"
-  # Windsurf workflows = commands. 1:1.
+  # Windsurf workflows = commands. 1:1 markdown copy.
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
     sync_file "$f" "$TARGET/.windsurf/workflows/$(basename "$f")"
   done
+  # Rules → .windsurf/rules/<NN>-<domain>.md WITH activation-mode frontmatter (format conversion —
+  # LLM required; raw copy would lack activation_mode and the <NN>- prefix the coverage glob needs).
   for f in "$TARGET"/.claude/rules/*.md; do
     [[ -f "$f" ]] || continue
-    sync_file "$f" "$TARGET/.windsurf/rules/$(basename "$f")"
+    rule_name=$(basename "$f" .md)
+    find "$TARGET/.windsurf/rules" -maxdepth 1 -name "[1-7][0-9]-$rule_name.md" 2>/dev/null | grep -q . || \
+      report_missing_author "windsurf-rule" ".windsurf/rules/<NN>-$rule_name.md" "rule needs <NN>- prefix + activation_mode frontmatter (always/glob/trigger_words) — run /setup-project-adapters"
   done
+  # Composite + index files (LLM-authored).
+  [[ -f "$TARGET/.windsurf/rules/00-project.md" ]] || report_missing_author "windsurf-project" ".windsurf/rules/00-project.md" "activation_mode: always project rules — run /setup-project-adapters"
+  [[ -f "$TARGET/.windsurf/rules/81-agents.md" ]]  || report_missing_author "windsurf-agents-index" ".windsurf/rules/81-agents.md" "agent index (trigger_words activation) — run /setup-project-adapters"
+  [[ -f "$TARGET/.windsurf/rules/82-skills.md" ]]  || report_missing_author "windsurf-skills-index" ".windsurf/rules/82-skills.md" "skill index — run /setup-project-adapters"
 }
 
 sync_continue() {
   echo "  [continue]"
-  # Continue.dev prompts = commands. 1:1.
+  # Command prompts → .continue/prompts/<name>.md WITH `invokable: true` + name/description
+  # frontmatter (format conversion — raw copy lacks the frontmatter Continue needs to invoke it).
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
-    sync_file "$f" "$TARGET/.continue/prompts/$(basename "$f")"
+    name=$(basename "$f" .md)
+    local ctgt=""
+    [[ -f "$TARGET/.continue/prompts/$name.md" ]] && ctgt="$TARGET/.continue/prompts/$name.md"
+    [[ -z "$ctgt" && -f "$TARGET/.continue/prompts/$name.prompt.md" ]] && ctgt="$TARGET/.continue/prompts/$name.prompt.md"
+    if [[ -n "$ctgt" ]]; then
+      grep -q "invokable:" "$ctgt" || report_missing_author "continue-prompt-frontmatter" ".continue/prompts/$name.md" "add 'invokable: true' + name/description frontmatter — run /setup-project-adapters"
+    else
+      report_missing_author "continue-prompt" ".continue/prompts/$name.md" "command→prompt with 'invokable: true' frontmatter — run /setup-project-adapters"
+    fi
   done
+  # Agents → agent-<name>.md prompts (LLM-authored).
+  for f in "$TARGET"/.claude/agents/*.md; do
+    [[ -f "$f" ]] || continue
+    name=$(basename "$f" .md)
+    [[ -f "$TARGET/.continue/prompts/agent-$name.md" ]] || report_missing_author "continue-agent-prompt" ".continue/prompts/agent-$name.md" "agent→prompt — run /setup-project-adapters"
+  done
+  # Skills → skill-<name>.md prompts (LLM-authored).
+  for skill_dir in "$TARGET"/.claude/skills/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    name=$(basename "$skill_dir")
+    [[ -f "$skill_dir/SKILL.md" ]] || continue
+    [[ -f "$TARGET/.continue/prompts/skill-$name.md" ]] || report_missing_author "continue-skill-prompt" ".continue/prompts/skill-$name.md" "skill→prompt — run /setup-project-adapters"
+  done
+  # Rules → .continue/rules/<name>.md WITH required `name:` frontmatter (silently ignored without it).
   for f in "$TARGET"/.claude/rules/*.md; do
     [[ -f "$f" ]] || continue
-    sync_file "$f" "$TARGET/.continue/rules/$(basename "$f")"
+    rule_name=$(basename "$f" .md)
+    if [[ -f "$TARGET/.continue/rules/$rule_name.md" ]]; then
+      grep -q "^name:" "$TARGET/.continue/rules/$rule_name.md" || report_missing_author "continue-rule-frontmatter" ".continue/rules/$rule_name.md" "rule needs 'name:' frontmatter (silently ignored without it) — run /setup-project-adapters"
+    else
+      report_missing_author "continue-rule" ".continue/rules/$rule_name.md" "rule→.continue/rules with 'name:' frontmatter — run /setup-project-adapters"
+    fi
   done
-  # config.yaml composite (format conversion).
-  [[ -f "$TARGET/.continue/config.yaml" ]] || report_missing_author "config" ".continue/config.yaml" "YAML schema; run /setup-project-adapters"
+  # config.yaml + .continueignore composites (LLM-authored).
+  [[ -f "$TARGET/.continue/config.yaml" ]] || report_missing_author "config" ".continue/config.yaml" "YAML schema (models/rules/docs); run /setup-project-adapters"
+  [[ -f "$TARGET/.continueignore" ]]       || report_missing_author "continueignore" ".continueignore" "sensitive-file fallback (.env*, *.lock, migrations dirs) — run /setup-project-adapters"
 }
 
 sync_aider() {
@@ -394,6 +447,12 @@ sync_aider() {
   # Aider has no native skills/commands/agents — single config + CONVENTIONS.md.
   [[ -f "$TARGET/.aider.conf.yml" ]] || report_missing_author "config" ".aider.conf.yml" "YAML schema; run /setup-project-adapters"
   [[ -f "$TARGET/CONVENTIONS.md" ]]   || report_missing_author "conventions" "CONVENTIONS.md" "compact rules digest; run /setup-project-adapters"
+  # Command sections fold into CONVENTIONS.md under `## User-invoked procedures`, EACH with an
+  # EXECUTE NOW imperative preamble — without it "run optimize" gets described, not executed.
+  if [[ -f "$TARGET/CONVENTIONS.md" ]] && ls "$TARGET"/.claude/commands/*.md >/dev/null 2>&1; then
+    grep -q "## User-invoked procedures" "$TARGET/CONVENTIONS.md" || report_missing_author "aider-procedures" "CONVENTIONS.md" "add '## User-invoked procedures' section — run /setup-project-adapters"
+    grep -q "EXECUTE NOW" "$TARGET/CONVENTIONS.md" || report_missing_author "aider-preamble" "CONVENTIONS.md" "command sections need EXECUTE NOW imperative preamble — run /setup-project-adapters"
+  fi
 }
 
 sync_codex() {
@@ -401,20 +460,46 @@ sync_codex() {
   # Codex consumes AGENTS.md + AGENTS.override.md; both are composites.
   [[ -f "$TARGET/AGENTS.md" ]]          || report_missing_author "agents-md" "AGENTS.md" "cross-tool composite; run /setup-project-adapters"
   [[ -f "$TARGET/AGENTS.override.md" ]] || echo "    (info: AGENTS.override.md is optional; only present if codex-specific rules diverge from AGENTS.md)"
+  # Commands + skills translate to NATIVE Agent Skills (primary surface); AGENTS.md prose is fallback.
+  for f in "$TARGET"/.claude/commands/*.md; do
+    [[ -f "$f" ]] || continue
+    name=$(basename "$f" .md)
+    [[ -f "$TARGET/.agents/skills/$name/SKILL.md" ]] || report_missing_author "codex-agent-skill" ".agents/skills/$name/SKILL.md" "command→native Agent Skill with EXECUTE NOW body — run /setup-project-adapters"
+  done
+  for skill_dir in "$TARGET"/.claude/skills/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    name=$(basename "$skill_dir")
+    [[ -f "$skill_dir/SKILL.md" ]] || continue
+    [[ -f "$TARGET/.agents/skills/$name/SKILL.md" ]] || report_missing_author "codex-agent-skill" ".agents/skills/$name/SKILL.md" "skill→native Agent Skill — run /setup-project-adapters"
+  done
 }
 
 sync_gemini() {
   echo "  [gemini]"
   [[ -f "$TARGET/GEMINI.md" ]] || report_missing_author "gemini-md" "GEMINI.md" "single-file composite; run /setup-project-adapters"
+  # Commands translate to NATIVE TOML custom commands (primary surface); GEMINI.md prose is fallback.
+  for f in "$TARGET"/.claude/commands/*.md; do
+    [[ -f "$f" ]] || continue
+    name=$(basename "$f" .md)
+    [[ -f "$TARGET/.gemini/commands/$name.toml" ]] || report_missing_author "gemini-toml-command" ".gemini/commands/$name.toml" "command→native TOML (prompt=\"\"\"# EXECUTE NOW ... {{args}}\"\"\") — run /setup-project-adapters"
+  done
 }
 
 sync_kimi() {
   echo "  [kimi]"
-  # Commands → skills (Kimi has no slash-command primitive; commands fold into skills).
+  # Commands are DUAL-SURFACE: each command → BOTH a skill (so /skill:<name> works) AND a
+  # subagent (so description-dispatch works), EACH carrying the EXECUTE NOW preamble so the
+  # body EXECUTES instead of loading as reference. See templates/tool-adapters/kimi/adapter.md.
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
     name=$(basename "$f" .md)
     sync_file "$f" "$TARGET/.kimi/skills/$name/SKILL.md"
+    # Command-skill must carry the EXECUTE NOW preamble (loaded text must be imperative).
+    if [[ -f "$TARGET/.kimi/skills/$name/SKILL.md" ]] && ! grep -q "EXECUTE NOW" "$TARGET/.kimi/skills/$name/SKILL.md"; then
+      report_missing_author "kimi-skill-preamble" ".kimi/skills/$name/SKILL.md" "inject EXECUTE NOW preamble at top of command-skill — run /setup-project-adapters"
+    fi
+    # Command also gets a subagent (description-dispatch surface) — LLM-authored YAML + preamble + tools whitelist.
+    [[ -f "$TARGET/.kimi/subagents/$name.yaml" ]] || report_missing_author "subagent.yaml" ".kimi/subagents/$name.yaml" "command→subagent (dual-surface) with EXECUTE NOW preamble + tools whitelist by command type — run /setup-project-adapters"
   done
   # Skills (folder-form).
   for skill_dir in "$TARGET"/.claude/skills/*/; do
