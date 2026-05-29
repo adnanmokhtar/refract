@@ -101,7 +101,7 @@ Output: P0 scale-blockers FIRST, then ranked findings, commits, diff stats, test
 - "What would block us from going to 100K RPS?" → `/audit --target-rps=100000 --plan-only`
 - "Pre-launch hardening sweep." → `/audit`
 - "Give me a senior-engineer assessment of the frontend — what's good, what to improve, what to unify, what to extract, what to simplify, what to redesign, what to remove, what to optimize." → `/audit --assess`
-- "Senior engineer write-up of the NestJS backend quality and scalability." → `/audit --assess apps/api`
+- "Senior engineer write-up of the NestJS / Django backend quality and scalability." → `/audit --assess apps/api`
 - "Architecture review report for stakeholders — no fixes yet, just the lay of the land." → `/audit --assess`
 
 ## When NOT to use
@@ -395,7 +395,7 @@ P0 scale-blockers (1 fixed):
     → moved to beacon + sendBeacon fallback
 
 P1 security/correctness (4 fixed):
-  XSS in user-review rendering — unescaped v-html
+  XSS in user-review rendering — unescaped HTML interpolation (`v-html` / `dangerouslySetInnerHTML`)
   Stored token in localStorage (vulnerable to XSS) — moved to httpOnly cookie + CSRF
   CSP missing — added strict CSP header
   3 outdated npm deps with HIGH CVEs
@@ -545,7 +545,7 @@ Next steps (paste-ready):
   /audit                                                 # execute fixes
 ```
 
-`--assess` example (NestJS backend — `/audit --assess apps/api`):
+`--assess` example (NestJS / Django-class backend — `/audit --assess apps/api`):
 
 ```
 Assessment complete

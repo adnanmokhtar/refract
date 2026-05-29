@@ -28,7 +28,11 @@ check_file() {
 
   # FAIL — SOLID / clean-code vocabulary without governance pointer
   # Word-boundary on SOLID avoids matching "consolidates" / unrelated tokens.
-  if grep -qiE '\bSOLID\b|Single Responsibility|Open/Closed|Liskov|Interface Segregation|Dependency Inversion|\bclean code\b|solid-violation' "$f"; then
+  # The `\bSOLID\b` / `solid-violation` tokens are matched CASE-SENSITIVELY: the principle
+  # is always uppercase, so this avoids false-matching the SolidJS framework ("Solid" in a
+  # "React / Next / Svelte / Solid / Angular" stack list). The prose phrases stay case-insensitive.
+  if grep -qE '\bSOLID\b|solid-violation' "$f" || \
+     grep -qiE 'Single Responsibility|Open/Closed|Liskov|Interface Segregation|Dependency Inversion|\bclean code\b' "$f"; then
     if ! grep -q 'core-discipline\.md' "$f"; then
       echo "FAIL: $f — SOLID/clean-code keywords without templates/governance/core-discipline.md link"
       fail=$((fail + 1))

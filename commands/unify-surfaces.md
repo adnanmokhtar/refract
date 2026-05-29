@@ -118,7 +118,7 @@ The `validation` category does NOT extract a single wrapper. It extracts a **3-p
 
 1. **Frontend validator composable** — single source of truth for declaring per-field rules. Project-conventional name from `_extracted-idioms.md` (e.g., `useFormValidation()` / `useValidation()` / `useForm()` — extends the project's existing form library or wraps it). One declarative API for all forms.
 2. **Error rendering primitives** — `<ErrorList>` / `<FieldError>` (whichever the project's idioms name). Single rendering convention: where errors appear relative to the input (below, right-of, tooltip), error tone (red text + icon), required-field marker convention (asterisk + accessible-text), error-summary placement at form top.
-3. **API-validation-error mapper** — single function that takes a server error response (the project's specific shape — `{errors: {field: [msg]}}` / `{message, errors}` / Laravel-422 / RFC-7807) and returns field-level errors that the validator composable can attach to the form. Lives next to the API client, registered as a global response interceptor where the project supports it.
+3. **API-validation-error mapper** — single function that takes a server error response (the project's specific shape — `{errors: {field: [msg]}}` / `{message, errors}` / Rails/Laravel 422 / RFC-7807) and returns field-level errors that the validator composable can attach to the form. Lives next to the API client, registered as a global response interceptor where the project supports it.
 
 **Migration order** (ensures consumers always have a working pipeline):
 1. Add the 3 primitives to the shared layer (composable + components + mapper).

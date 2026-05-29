@@ -69,6 +69,8 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 
 For ambiguous descriptions, the agent asks one clarifying question.
 
+> The SOLID / clean-code / architecture vocabulary the `/optimize` and `/audit` routes enforce is defined canonically in `templates/governance/core-discipline.md` — this router points at those commands rather than restating the discipline.
+
 ## Pre-requisites
 
 - A project with at least some commands installed (otherwise `/do` has nothing to route to).

@@ -70,14 +70,17 @@ passes_stack_diversity() {
   [[ "$w" == *'<TBD:'* ]] && return 0
 
   local vf=0 rf=0 sf=0 af=0
-  grep -qE '\bVue\b|\bv-[a-z]{2,}|\bvee-validate\b|\bPinia\b|\bVuex\b|\bVuetify\b|\bPrimeVue\b|<script setup|\b@click=' <<<"$w" && vf=1
-  grep -qE '\bReact\b|\buseState\b|\buseEffect\b|\bdangerouslySetInnerHTML\b|\breact-hook-form\b|\bformik\b|\bshadcn\b|\bMUI\b|\bredux\b|\bzustand\b|\bMobX\b|<TabView>|\{user\.can|\{\s*user\.can' <<<"$w" && rf=1
+  # Nuxt is Vue; Next.js / Remix are React — count meta-frameworks under their base family
+  # so genuinely-diverse polyglot lines (e.g. "Next.js + NestJS") aren't false-flagged.
+  grep -qE '\bVue\b|\bNuxt\b|\bv-[a-z]{2,}|\bvee-validate\b|\bPinia\b|\bVuex\b|\bVuetify\b|\bPrimeVue\b|<script setup|\b@click=' <<<"$w" && vf=1
+  grep -qE '\bReact\b|\bNext\.js\b|\bRemix\b|\buseState\b|\buseEffect\b|\bdangerouslySetInnerHTML\b|\breact-hook-form\b|\bformik\b|\bshadcn\b|\bMUI\b|\bredux\b|\bzustand\b|\bMobX\b|<TabView>|\{user\.can|\{\s*user\.can' <<<"$w" && rf=1
   grep -qE '\bSvelte\b|\bSvelteKit\b|\{#each|\{#if|\$:' <<<"$w" && sf=1
   grep -qE '\bAngular\b|\*ngIf|\*ngFor|\bNgRx\b|\bAngular Material\b|\bChangeDetectionStrategy\b' <<<"$w" && af=1
 
   local fe=$((vf + rf + sf + af))
+  # Express idioms (`app.get(`, `app.use(`, …) count as an Express backend dimension.
   local be
-  be=$(grep -oiE '\b(NestJS|Django|Rails|Laravel|FastAPI|Express|Spring Boot|Phoenix|Flask|Fastify|Hono|ASP\.NET|dotnet|Sequelize|Prisma|SQLAlchemy|TypeORM|Mongoose)\b|(^|[ (/])\.NET\b|\bgo\b' <<<"$w" | sed 's/^ //' | sort -u | wc -l | tr -d ' ')
+  be=$(grep -oiE '\b(NestJS|Django|Rails|Laravel|FastAPI|Express|Spring Boot|Phoenix|Flask|Fastify|Hono|ASP\.NET|dotnet|Sequelize|Prisma|SQLAlchemy|TypeORM|Mongoose)\b|app\.(get|post|put|patch|delete|use)\(|(^|[ (/])\.NET\b|\bgo\b' <<<"$w" | sed 's/^ //' | sort -u | wc -l | tr -d ' ')
 
   [[ "$fe" -ge 2 ]] && return 0
   [[ "${be:-0}" -ge 2 ]] && return 0
