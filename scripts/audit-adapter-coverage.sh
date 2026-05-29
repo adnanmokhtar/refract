@@ -183,6 +183,15 @@ audit_aider()  { audit_singledoc "CONVENTIONS.md" "aider"; }
 # ---------- codex: native Agent Skills (primary) + AGENTS.md (fallback) ----------
 audit_codex() {
   [[ -f "$TARGET/AGENTS.md" ]] || return 1
+  # AGENTS.md is ALWAYS written (the codex adapter is the canonical AGENTS.md writer and runs
+  # even when codex is NOT a selected tool, because 8+ other tools fall back to AGENTS.md).
+  # Only grade the full native Agent-Skills surface when codex was actually selected as a full
+  # adapter — i.e. its native .agents/skills/ dir exists. Otherwise grade only the AGENTS.md
+  # anchor (codex's sole always-on deliverable) so an unselected codex isn't scored ~1%.
+  if [[ ! -d "$TARGET/.agents/skills" ]]; then
+    echo "1|1"
+    return
+  fi
   local hits=0 expected=$((SRC_COMMANDS + SRC_SKILLS + 1))
   hits=$((hits + 1))  # AGENTS.md present (checked above)
   while IFS= read -r b; do
