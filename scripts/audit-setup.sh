@@ -301,7 +301,10 @@ fi
 echo "C2i: foundational ai/ files populated (not baseline stubs)"
 BASELINE_AI="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/repo-baseline/ai"
 FOUNDATIONAL=( architecture stack modules status conventions business-domain _convention-cheatsheet )
-STUB_TOKENS='<name>|<src/path|<e\.g\.,|<YYYY-MM-DD>|<detected|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-line'
+# Tokens UNIQUE to unpopulated baseline stubs. NB: bare `<name>` is excluded — it is a
+# legitimate code/path placeholder in populated docs (`get_logger(<name>)`, `app/modules/<name>/`)
+# and would false-positive. The diff-identical check + these stub-only tokens still catch real stubs.
+STUB_TOKENS='<src/path|<e\.g\.,|<YYYY-MM-DD>|<detected|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-line'
 stub_count=0
 for fname in "${FOUNDATIONAL[@]}"; do
   tgt="$TARGET/ai/$fname.md"

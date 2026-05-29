@@ -179,7 +179,10 @@ done
 FOUNDATIONAL_AI="architecture stack modules status conventions business-domain _convention-cheatsheet"
 BASELINE_DIR="$HOME/.claude/templates/repo-baseline/ai"
 # Tokens that ONLY appear in un-populated baseline stubs (NOT in real populated content).
-STUB_TOKENS='<name>|<src/path|<e\.g\.,|<YYYY-MM-DD>|<detected|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-line'
+# Bare `<name>` is deliberately EXCLUDED — it is a legitimate code/path placeholder in populated
+# docs (`get_logger(<name>)`, `app/modules/<name>/`) and would false-positive. The diff-identical
+# check + these stub-only tokens (`<src/path`, `<EntityA>`, `<DetectedBase>`, …) still catch real stubs.
+STUB_TOKENS='<src/path|<e\.g\.,|<YYYY-MM-DD>|<detected|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-line'
 for f in $FOUNDATIONAL_AI; do
   tgt="ai/$f.md"
   [ -f "$tgt" ] || { SHORTFALL="$SHORTFALL\n  $tgt: MISSING (foundational file must be present + populated)"; continue; }
