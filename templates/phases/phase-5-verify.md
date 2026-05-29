@@ -164,6 +164,40 @@ extract_anchor_identifiers() {
 
 These helpers MUST be available in shell scope before the audit runs. Phase 5.1 verifies `.claude/_phase-4-6-decisions.md` exists; if it's missing, the audit halts with `MISSING_PHASE_4_6_DECISIONS_FILE` and instructs the user to re-run Phase 4.6.
 
+#### 5.3.0 Foundational `ai/` populate gate (EVERY mode — CREATE / ENHANCE / REFRESH)
+
+This is the safety net for the failure mode where ENHANCE/REFRESH scaffolds the foundational `ai/` files from baseline and then never populates them (the old "leave user-authored files untouched" rule could not tell a 2-second-old stub from real user content, so the stub survived). The 5.3.2 audit below only covers **pack-added** files (Phase 4.2/4.4/4.4b) — the baseline-scaffolded foundational files are added by Phase 4.1 and fall entirely outside it. 5.3.0 closes that gap and runs in **every** mode (the prior `ai/`-validator mode-split wrongly exempted ENHANCE/REFRESH).
+
+```bash
+# Deep-extraction source — first that exists (Fix C resolution order).
+EXTRACT=""
+for cand in .claude/_extracted-codebase.md .claude/_codebase-scan.md .claude/codebase-profile.md; do
+  [ -f "$cand" ] && { EXTRACT="$cand"; break; }
+done
+[ -z "$EXTRACT" ] && { SHORTFALL="$SHORTFALL\n  no deep-extraction file found (.claude/_extracted-codebase.md | _codebase-scan.md | codebase-profile.md) — Phase 0/2 extraction never ran"; }
+
+FOUNDATIONAL_AI="architecture stack modules status conventions business-domain _convention-cheatsheet"
+BASELINE_DIR="$HOME/.claude/templates/repo-baseline/ai"
+# Tokens that ONLY appear in un-populated baseline stubs (NOT in real populated content).
+STUB_TOKENS='<name>|<src/path|<e\.g\.,|<YYYY-MM-DD>|<detected|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-line'
+for f in $FOUNDATIONAL_AI; do
+  tgt="ai/$f.md"
+  [ -f "$tgt" ] || { SHORTFALL="$SHORTFALL\n  $tgt: MISSING (foundational file must be present + populated)"; continue; }
+  # (a) byte-identical to baseline stub → Phase 4.7 never populated it (the ENHANCE-skip bug)
+  if [ -f "$BASELINE_DIR/$f.md" ] && diff -q "$BASELINE_DIR/$f.md" "$tgt" >/dev/null 2>&1; then
+    SHORTFALL="$SHORTFALL\n  $tgt: IDENTICAL to baseline stub (never populated from $EXTRACT)"
+    continue
+  fi
+  # (b) still carries baseline placeholder tokens → partial / failed population
+  grep -qE "$STUB_TOKENS" "$tgt" \
+    && SHORTFALL="$SHORTFALL\n  $tgt: contains baseline placeholder tokens (population incomplete)"
+done
+```
+
+**Scope note**: intent files that legitimately carry undecided facets — `ai/project-goals.md`, `ai/users-and-personas.md`, `ai/roadmap.md`, `ai/business-model.md`, `ai/competitive-context.md` — are NOT in this set (per §5.0: placeholders OK there, flagged-not-halted). The gate covers ONLY the extraction-derived foundational files, which always have a concrete answer in the deep-extraction source.
+
+**On shortfall**: auto-retry Phase 4.7 population for the flagged files (resolve `$EXTRACT` → fill the stub from it, CREATE-style). After `MAX_RETRIES=2`, **HARD HALT** listing each surviving stub. A stub foundational file is NEVER a passing state — same mechanical gate as 5.3.2. This makes the `phase-4-templates.md:150` "MUST-populate non-stub" validator real (it was specced there but never implemented).
+
 #### 5.3.2 Audit body
 
 For each pack-added file (added by Phase 4.2 / 4.4 / 4.4b — i.e. files that exist in current but NOT in the backup snapshot for REFRESH mode, OR all files added by those phases for CREATE/ENHANCE), verify that Phase 4.6's STUDY → DECIDE → ACT step actually fired:
@@ -220,7 +254,8 @@ For each pack-added file (added by Phase 4.2 / 4.4 / 4.4b — i.e. files that ex
 
            # Each cited identifier must trace to extraction (cross-check with leak scan §5.3.5).
            for ident in $(extract_anchor_identifiers "$f"); do
-             grep -qF "$ident" .claude/_extracted-codebase.md .claude/_extracted-idioms.md 2>/dev/null \
+             # Trace against whichever deep-extraction files exist (Fix C resolution — names drifted).
+             grep -qF "$ident" .claude/_extracted-codebase.md .claude/_codebase-scan.md .claude/codebase-profile.md .claude/_extracted-idioms.md 2>/dev/null \
                || SHORTFALL="$SHORTFALL\n  $f: anchor cites '$ident' which is NOT in extraction (leak — re-run with extraction loaded)"
            done
          fi
@@ -286,7 +321,7 @@ This is the safety net for the failure mode the user reported: generated rules /
 
 The scan does three things:
 
-1. **Cross-reference every concrete class name + import path in generated `.claude/rules/*.md`, `.claude/agents/*.md`, `ai/patterns/*.md`, `ai/conventions.md`, `CLAUDE.md`, `AGENTS.md` against `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`**. If a generated file cites `<ClassX>` at `<libs/foo/bar.ts>` but extraction has no record of that class or path → flag as leak. Any concrete identifier in a project-specific block must trace to extraction.
+1. **Cross-reference every concrete class name + import path in generated `.claude/rules/*.md`, `.claude/agents/*.md`, `ai/patterns/*.md`, `ai/conventions.md`, `CLAUDE.md`, `AGENTS.md` against the deep-extraction source (resolve `.claude/_extracted-codebase.md` → `.claude/_codebase-scan.md` → `.claude/codebase-profile.md`, first that exists) + `.claude/_extracted-idioms.md`**. If a generated file cites `<ClassX>` at `<libs/foo/bar.ts>` but extraction has no record of that class or path → flag as leak. Any concrete identifier in a project-specific block must trace to extraction.
 
 2. **Cross-reference every concrete library / framework name in generated content against detected stack** (`.claude/codebase-profile.md` § stack). If generated content says "this project uses <FrameworkX>" but the stack section doesn't include FrameworkX → flag as leak.
 

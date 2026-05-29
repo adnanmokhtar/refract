@@ -291,6 +291,37 @@ if [[ "$MODE" != "create" ]]; then
   echo ""
 fi
 
+# C2i — Foundational ai/ populate gate (EVERY mode). The baseline scaffold copies
+# stub templates into ai/; ENHANCE/REFRESH historically left them untouched (could
+# not tell a freshly-copied stub from real user content), shipping placeholder
+# conventions.md / stack.md / modules.md green. C2g (presence) + C2f (mtime
+# freshness) BOTH pass on a fresh stub, so neither caught it. This check fails when
+# a foundational file is byte-identical to its repo-baseline source OR still carries
+# baseline placeholder tokens. Spec: templates/phases/phase-5-verify.md §5.3.0.
+echo "C2i: foundational ai/ files populated (not baseline stubs)"
+BASELINE_AI="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/repo-baseline/ai"
+FOUNDATIONAL=( architecture stack modules status conventions business-domain _convention-cheatsheet )
+STUB_TOKENS='<name>|<src/path|<e\.g\.,|<YYYY-MM-DD>|<detected|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-line'
+stub_count=0
+for fname in "${FOUNDATIONAL[@]}"; do
+  tgt="$TARGET/ai/$fname.md"
+  if [[ ! -f "$tgt" ]]; then
+    err "foundational ai/ file missing: ai/$fname.md"
+    stub_count=$((stub_count + 1)); continue
+  fi
+  base="$BASELINE_AI/$fname.md"
+  if [[ -f "$base" ]] && diff -q "$base" "$tgt" >/dev/null 2>&1; then
+    err "UNPOPULATED_STUB: ai/$fname.md is byte-identical to repo-baseline stub — Phase 4.7 never populated it (run /setup-project --refresh)"
+    stub_count=$((stub_count + 1)); continue
+  fi
+  if grep -qE "$STUB_TOKENS" "$tgt" 2>/dev/null; then
+    err "UNPOPULATED_STUB: ai/$fname.md still carries baseline placeholder tokens — population incomplete"
+    stub_count=$((stub_count + 1))
+  fi
+done
+[[ $stub_count -eq 0 ]] && ok "all foundational ai/ files populated"
+echo ""
+
 # Anchoring audit (M25.4): per-artifact coverage of the canonical
 # `<!-- project-specific:start --> ... :end -->` block + `path:line` citations.
 # REFUSE when anchors are missing in REFRESH / REFINE / ENHANCE modes (Phase 4.6
