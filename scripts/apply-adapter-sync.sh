@@ -125,6 +125,53 @@ extract_project_specific_block() {
   ' "$f"
 }
 
+# Strip the adapter-injected EXECUTE NOW preamble (kimi/codex/aider command-skills carry
+# it; the .claude source does not). Used so drift comparison reflects REAL body changes,
+# not the intentional preamble. Without this, every preamble-carrying file false-flags as
+# drifted AND a subsequent --apply cp's the raw source over it, STRIPPING the preamble —
+# regressing the exact behaviour the preamble enforces ("execute on load, don't describe").
+strip_injected_preamble() {
+  # The preamble is bounded by `<!-- EXECUTE NOW preamble ... -->` (open) and
+  # `<!-- /EXECUTE NOW preamble -->` (close). Drop everything between them inclusive.
+  # Residual blank-line count differences vs the source are tolerated by `diff -B`.
+  awk '
+    /<!-- EXECUTE NOW preamble/        { inpre=1; next }
+    inpre && /<!-- \/EXECUTE NOW preamble -->/ { inpre=0; next }
+    inpre                              { next }
+    { print }
+  ' "$1"
+}
+
+# Extract just the injected EXECUTE NOW preamble block (marker comment + contiguous
+# blockquote) so a real refresh can re-inject it after the body is overwritten.
+extract_injected_preamble() {
+  awk '
+    /<!-- EXECUTE NOW preamble/        { inpre=1; print; next }
+    inpre                              { print }
+    inpre && /<!-- \/EXECUTE NOW preamble -->/ { exit }
+  ' "$1"
+}
+
+# Re-inject a captured EXECUTE NOW preamble after the frontmatter, before the body.
+# No-op if the file already carries one (src may already include it) or block is empty.
+reinject_injected_preamble() {
+  local f="$1" pre_file="$2"
+  [[ -s "$pre_file" ]] || return 0
+  [[ -f "$f" ]] || return 0
+  grep -q "<!-- EXECUTE NOW preamble" "$f" 2>/dev/null && return 0
+  local tmp; tmp=$(mktemp)
+  awk -v pf="$pre_file" '
+    function emit(   line) { print ""; while ((getline line < pf) > 0) print line; close(pf) }
+    BEGIN { state="start"; done=0 }
+    NR==1 && /^---[[:space:]]*$/        { state="fm"; print; next }
+    state=="fm" && /^---[[:space:]]*$/  { state="body"; print; emit(); done=1; next }
+    state=="fm"                          { print; next }
+    state=="start"                       { emit(); done=1; state="body"; print; next }
+    { print }
+  ' "$f" > "$tmp"
+  mv "$tmp" "$f"
+}
+
 # Re-inject a project-specific block into a file at the canonical insertion
 # point: after frontmatter (if any), after first H1, before first H2.
 # If the file already has a real block (e.g. caller used a fresh src that
@@ -176,23 +223,29 @@ sync_file() {
     fi
     echo "    ADD       $(rel_to_target "$dst")"
     total_added=$((total_added + 1))
-  elif ! cmp -s "$src" "$dst"; then
-    # Extract project-specific block from dst BEFORE overwrite (via temp file).
-    local block_tmp=""
-    block_tmp=$(mktemp)
+  elif diff -q -B <(strip_injected_preamble "$dst") "$src" >/dev/null 2>&1; then
+    # Bodies match once the injected EXECUTE NOW preamble (and blank-line noise) is
+    # discounted — the dst differs ONLY by its intentional preamble. Not real drift.
+    total_nooped=$((total_nooped + 1))
+  else
+    # Real body drift. Extract BOTH the project-specific block AND any injected preamble
+    # from dst BEFORE overwrite, then re-inject after copying the fresh source — so a
+    # legitimate refresh never strips the preamble (the latent half of the same bug).
+    local block_tmp pre_tmp
+    block_tmp=$(mktemp); pre_tmp=$(mktemp)
     extract_project_specific_block "$dst" > "$block_tmp"
+    extract_injected_preamble "$dst" > "$pre_tmp"
     if [[ $APPLY -eq 1 ]]; then
       mkdir -p "$backup_dir/$(dirname "${dst#$TARGET/}")"
       cp "$dst" "$backup_dir/${dst#$TARGET/}"
       cp "$src" "$dst"
-      # Re-inject extracted block (no-op if src already carries one OR block empty).
+      # Re-inject extracted block + preamble (each a no-op if src already carries one OR empty).
       reinject_project_specific_block "$dst" "$block_tmp"
+      reinject_injected_preamble "$dst" "$pre_tmp"
     fi
-    rm -f "$block_tmp"
+    rm -f "$block_tmp" "$pre_tmp"
     echo "    REFRESH   $(rel_to_target "$dst")"
     total_refreshed=$((total_refreshed + 1))
-  else
-    total_nooped=$((total_nooped + 1))
   fi
 }
 
@@ -315,8 +368,13 @@ sync_cursor() {
     [[ -f "$f" ]] || continue
     rule_name=$(basename "$f" .md)
     expected=".cursor/rules/30-$rule_name.mdc"
-    [[ -f "$TARGET/$expected" ]] || [[ -f "$TARGET/.cursor/rules/00-$rule_name.mdc" ]] || \
-      [[ -f "$TARGET/.cursor/rules/10-$rule_name.mdc" ]] || [[ -f "$TARGET/.cursor/rules/20-$rule_name.mdc" ]] || \
+    # Accept the bare `<name>.mdc` form too — Cursor loads any `*.mdc` regardless of an
+    # `NN-` ordering prefix, and the generator emits bare names. (audit-adapter-coverage.sh
+    # already accepts bare; this aligns apply-adapter-sync.sh with it so a correctly-generated
+    # rule isn't false-flagged MISSING-AUTHOR.)
+    [[ -f "$TARGET/.cursor/rules/$rule_name.mdc" ]] || [[ -f "$TARGET/$expected" ]] || \
+      [[ -f "$TARGET/.cursor/rules/00-$rule_name.mdc" ]] || [[ -f "$TARGET/.cursor/rules/10-$rule_name.mdc" ]] || \
+      [[ -f "$TARGET/.cursor/rules/20-$rule_name.mdc" ]] || \
       report_missing_author "rule.mdc" "$expected" ".mdc with YAML frontmatter (globs/applyTo) — needs author"
   done
   # hooks.json (format conversion).
@@ -493,6 +551,15 @@ sync_kimi() {
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
     name=$(basename "$f" .md)
+    # Name collision: a skill of the same name owns the .kimi/skills/<name>/ surface (the skill
+    # loops below write it from the skill source). The command is still covered by its subagent.
+    # Writing the skill here too would double-write the same path and perpetually false-flag drift
+    # (the on-disk file can only match ONE of the two sources). Skip the skill write; keep the
+    # subagent obligation.
+    if [[ -f "$TARGET/.claude/skills/$name.md" || -f "$TARGET/.claude/skills/$name/SKILL.md" ]]; then
+      [[ -f "$TARGET/.kimi/subagents/$name.yaml" ]] || report_missing_author "subagent.yaml" ".kimi/subagents/$name.yaml" "command→subagent (dual-surface, name collides with a skill) — run /setup-project-adapters"
+      continue
+    fi
     sync_file "$f" "$TARGET/.kimi/skills/$name/SKILL.md"
     # Command-skill must carry the EXECUTE NOW preamble (loaded text must be imperative).
     if [[ -f "$TARGET/.kimi/skills/$name/SKILL.md" ]] && ! grep -q "EXECUTE NOW" "$TARGET/.kimi/skills/$name/SKILL.md"; then
