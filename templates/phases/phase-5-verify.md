@@ -181,7 +181,7 @@ extract_anchor_identifiers() {
 
 These helpers MUST be available in shell scope before the audit runs. Phase 5.1 verifies `.claude/_phase-4-6-decisions.md` exists; if it's missing, the audit halts with `MISSING_PHASE_4_6_DECISIONS_FILE` and instructs the user to re-run Phase 4.6.
 
-#### 5.3.0 Foundational `ai/` populate gate (EVERY mode — CREATE / ENHANCE / REFRESH)
+#### 5.3.6 Foundational `ai/` populate gate (EVERY mode — CREATE / ENHANCE / REFRESH)
 
 This is the safety net for the failure mode where ENHANCE/REFRESH scaffolds the foundational `ai/` files from baseline and then never populates them (the old "leave user-authored files untouched" rule could not tell a 2-second-old stub from real user content, so the stub survived). The 5.3.2 audit below only covers **pack-added** files (Phase 4.2/4.4/4.4b) — the baseline-scaffolded foundational files are added by Phase 4.1 and fall entirely outside it. 5.3.0 closes that gap and runs in **every** mode (the prior `ai/`-validator mode-split wrongly exempted ENHANCE/REFRESH).
 

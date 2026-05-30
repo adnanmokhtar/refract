@@ -106,6 +106,6 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { db_introspection_available: true }
   extracts_from: _extracted-idioms.md § "Schema conventions" + ai/schema-conventions.md + migration history
   sections: [purpose, when_to_use, inputs, outputs, the_12_detectors, procedure, hard_rules, failure_modes]
-  fallback: _examples/schema-consistency-audit.md
+  fallback: skills/schema-consistency-audit.md
   cite_evidence: strict
 ```

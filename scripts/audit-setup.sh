@@ -304,7 +304,7 @@ fi
 # conventions.md / stack.md / modules.md green. C2g (presence) + C2f (mtime
 # freshness) BOTH pass on a fresh stub, so neither caught it. This check fails when
 # a foundational file is byte-identical to its repo-baseline source OR still carries
-# baseline placeholder tokens. Spec: templates/phases/phase-5-verify.md §5.3.0.
+# baseline placeholder tokens. Spec: templates/phases/phase-5-verify.md §5.3.6.
 echo "C2i: foundational ai/ files populated (not baseline stubs)"
 # --lightweight (#25) deliberately skips Phase 4.7 ai/ population (~80% faster, trivial pack
 # additions / status checks), so an unpopulated stub is EXPECTED, not a failure. Downgrade C2i

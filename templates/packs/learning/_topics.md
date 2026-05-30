@@ -10,7 +10,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   extracts_from: _extracted-codebase.md (full) — to know which patterns/decisions exist + dynamic/ files
   sections: [persona, methodology, promotion_rules, project_specific_dynamic_files, output_format]
-  fallback: _examples/knowledge-curator.md
+  fallback: agents/knowledge-curator.md
   cite_evidence: lenient
 
 - name: convention-drift-detector
@@ -18,35 +18,35 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § Conventions + § "Anti-patterns" + ai/conventions.md if exists
   sections: [persona, drift_detection_methodology, project_conventions_to_watch, output_format]
-  fallback: _examples/convention-drift-detector.md
+  fallback: agents/convention-drift-detector.md
 
 - name: pattern-emergence-watcher
   kind: agent
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § "Recent activity" + § Modules + dynamic/learned-patterns.md if exists
   sections: [persona, recurrence_threshold, project_pattern_promotion_signals, output_format]
-  fallback: _examples/pattern-emergence-watcher.md
+  fallback: agents/pattern-emergence-watcher.md
 
 - name: extract-project-context
   kind: skill
   triggers: { always: true }
-  fallback: _examples/extract-project-context.md
+  fallback: skills/extract-project-context.md
 
 - name: extract-codebase-overview
   kind: skill
   triggers: { always: true }
   # The orchestrator skill itself — no fallback because if this is missing, AUTHOR mode is broken everywhere.
-  fallback: _examples/extract-codebase-overview.md
+  fallback: skills/extract-codebase-overview.md
 
 - name: extract-business-context
   kind: skill
   triggers: { always: true }
-  fallback: _examples/extract-business-context.md
+  fallback: skills/extract-business-context.md
 
 - name: extract-base-class-idiom
   kind: skill
   triggers: { codebase_has_base_classes: true }
-  fallback: _examples/extract-base-class-idiom.md
+  fallback: skills/extract-base-class-idiom.md
 
 # REFINE-mode skills (round-two deep extraction). All gate on the --refine flag.
 # Each consumes round-one extraction PLUS authors a section of .claude/_refine-extract.md.
@@ -101,17 +101,17 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: refresh-knowledge
   kind: command
   triggers: { always: true }
-  fallback: _examples/refresh-knowledge.md
+  fallback: commands/refresh-knowledge.md
 
 - name: detect-drift
   kind: command
   triggers: { always: true }
-  fallback: _examples/detect-drift.md
+  fallback: commands/detect-drift.md
 
 - name: promote-pattern
   kind: command
   triggers: { always: true }
-  fallback: _examples/promote-pattern.md
+  fallback: commands/promote-pattern.md
 
 - name: promote-decision
   kind: command
@@ -128,7 +128,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: learn-from-task
   kind: command
   triggers: { always: true }
-  fallback: _examples/learn-from-task.md
+  fallback: commands/learn-from-task.md
 ```
 
 ## Note on AUTHOR mode for the learning pack

@@ -61,6 +61,15 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/quality-principles.md
 
+- name: engineering-principles
+  kind: rule
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Conventions + ai/architecture.md
+  sections: [project_specific_first, solid, clean_code, separation_of_concerns, dependency_direction]
+  mirror_existing: true
+  fallback: rules/engineering-principles.md
+  note: "Ships as a peer governance rule alongside quality-principles (both always-on). Phase 4.6 apply-pack-adaptation has a dedicated special case for it."
+
 - name: review-changes
   kind: command
   triggers: { vcs_detected: true }
@@ -96,7 +105,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § "Repository shape" + _extracted-idioms.md § Layers + § Modules + ai/architecture.md
   sections: [purpose, when_to_use, inputs, outputs, detectors, procedure, hard_rules, failure_modes]
-  fallback: _examples/architectural-diagnosis.md
+  fallback: skills/architectural-diagnosis.md
   cite_evidence: strict
 
 - name: refactoring-sweep
@@ -104,7 +113,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   extracts_from: _extracted-idioms.md (project's refactoring conventions)
   sections: [purpose, when_to_use, the_10_closure_verbs, procedure, hard_rules, failure_modes]
-  fallback: _examples/refactoring-sweep.md
+  fallback: skills/refactoring-sweep.md
   cite_evidence: strict
 
 # Universal safety skills (COPY-mode — verbatim, not authored-from-extraction). Wired as the

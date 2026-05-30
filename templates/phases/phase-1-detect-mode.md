@@ -21,6 +21,7 @@ Decide mode:
 
 | Signal | Mode |
 |---|---|
+| `--upgrade` flag set AND existing `.claude/` present | **UPGRADE** — first run `~/.claude/scripts/migrate-setup.sh "$TARGET_REPO"` to migrate the setup artifacts from their recorded version to the current schema (idempotent; backs up first), THEN continue as **REFRESH** (Phase 0 → prior-knowledge-aware Phase 2/4). `--upgrade` without existing `.claude/` is a user error — suggest plain `/setup-project` (CREATE). |
 | `--refine` flag set AND existing `.claude/` artifacts present (≥1 generated agent/skill/rule/command) | **REFINE** (skip Phase 0 backup unless `--refresh` also set; jump to Phase 2 + Phase 2.7–2.12 deep extraction; then Phase 4.6-DEEP re-anchor; then Phase 4.7-DEEP ai/ refresh; then Phase 4.8-DEEP adapter sync; then Phase 5 verify; then Phase 5.5 quality score) |
 | `--refine` flag set AND nothing to refine (no `.claude/` artifacts) | User error — refuse. Suggest plain `/setup-project` (CREATE) first. |
 | `--refresh` flag set AND existing `.claude/` or `ai/` present | **REFRESH** (run Phase 0 first; then continue with prior-knowledge-aware variants of Phase 2/4) |
@@ -30,7 +31,7 @@ Decide mode:
 | `.claude/` + `ai/` + `CLAUDE.md` all present | **ENHANCE-extend** |
 | Ambiguous | Ask ONE consolidated question |
 
-Announce mode in one line. Respect `--create` / `--enhance` / `--refresh` / `--refine` flag overrides per the precedence table in Quick Start.
+Announce mode in one line. Respect `--create` / `--enhance` / `--refresh` / `--refine` / `--upgrade` flag overrides per the precedence table in Quick Start. (`--upgrade` runs `migrate-setup.sh` then proceeds as REFRESH — it is NOT a silent fall-through to ENHANCE.)
 
 **REFINE-specific**: announce includes the per-artifact anchor-density baseline + the deep-extraction items count:
 ```
