@@ -212,7 +212,16 @@ pnpm add reka-ui lucide-vue-next clsx tailwind-merge class-variance-authority
 
 For Svelte stacks: similar pattern with `bits-ui` + `lucide-svelte`.
 
-Write the tokens (CSS custom properties for spacing, colors, radii, fonts) into `src/app.css` or equivalent, with light + dark themes.
+For **mobile stacks** (#35 — the shadcn / Radix web CLIs do NOT apply; there is no DOM):
+```bash
+# Expo / React Native — utility styling + a styled RN primitive layer
+pnpm add nativewind tailwindcss react-native-reanimated   # NativeWind (Tailwind-for-RN)
+#   alternative: pnpm add tamagui @tamagui/config         # Tamagui (tokens + styled RN primitives)
+```
+- **Flutter** — no JS step: use Material 3 (`useMaterial3: true` in `ThemeData`) or Cupertino; define `ColorScheme.fromSeed` + a typography scale + spacing constants as the token layer.
+- The mobile token layer lives in the framework theme object (NativeWind `tailwind.config.js` / Tamagui `tokens` / Flutter `ThemeData`), NOT a CSS file — light + dark variants still required.
+
+Write the tokens (CSS custom properties for spacing, colors, radii, fonts) into `src/app.css` or equivalent for **web**, or the framework theme object for **mobile**, with light + dark themes.
 
 ### 4.4 — Write the architecture skeleton
 

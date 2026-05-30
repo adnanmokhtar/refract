@@ -336,6 +336,27 @@ done
 [[ $stub_count -eq 0 ]] && ok "all foundational ai/ files populated"
 echo ""
 
+# C2j — App-code stub scan (#46). The "no placeholders" promise was enforced only on the 7
+# foundational ai/ docs (C2i), not on generated app code — so a scaffolded route handler left as
+# `throw new Error('not implemented')` shipped green. This scans the target's SOURCE for
+# high-signal stub markers. WARN-level only (not REFUSE): some markers are legitimate work-in-
+# progress; the signal is "you scaffolded a surface and left it hollow." Skips deps + this script's
+# own kind (libraries legitimately raise NotImplementedError in abstract bases).
+echo "C2j: app-code stub scan (generated surfaces not left hollow)"
+STUB_MARKERS='throw new Error\(["'"'"']?[Nn]ot implemented|raise NotImplementedError|TODO:?[[:space:]]*implement\b|coming soon|FIXME:?[[:space:]]*stub|placeholder implementation'
+app_stubs=$(grep -rInE "$STUB_MARKERS" "$TARGET" \
+  --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.vue' \
+  --include='*.py' --include='*.go' --include='*.rb' --include='*.java' --include='*.kt' \
+  2>/dev/null | grep -vE '/(node_modules|dist|build|\.git|vendor|tests?|__tests__|spec)/' | head -20 || true)
+if [[ -n "$app_stubs" ]]; then
+  n=$(printf '%s\n' "$app_stubs" | grep -c . )
+  warn_msg "app-code stub markers found ($n shown, ≤20) — a scaffolded surface may be hollow. Review:"
+  printf '%s\n' "$app_stubs" | sed 's#^#      #' | head -8
+else
+  ok "no app-code stub markers in source"
+fi
+echo ""
+
 # Anchoring audit (M25.4): per-artifact coverage of the canonical
 # `<!-- project-specific:start --> ... :end -->` block + `path:line` citations.
 # REFUSE when anchors are missing in REFRESH / REFINE / ENHANCE modes (Phase 4.6
