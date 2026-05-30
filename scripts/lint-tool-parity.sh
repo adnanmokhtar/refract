@@ -78,8 +78,12 @@ for a in "${ADAPTERS[@]}"; do
     yellow "  (no parity-label mapping for adapter \`$a\` — add to lint-tool-parity.sh)"
     continue
   fi
-  if ! grep -qi "$label" "$PARITY"; then
-    fail "tool-parity.md: column for \`$a\` ($label) not found"
+  # #43 — anchor to a TABLE ROW (line starting with `|`), not anywhere in prose: a bare
+  # `grep -qi "$label"` matched the tool's name in a paragraph, so a deleted column passed.
+  # Escape regex metacharacters in the label first.
+  label_rx="$(printf '%s' "$label" | sed 's/[][(){}.*+?^$|\\/]/\\&/g')"
+  if ! grep -qiE "^\|.*${label_rx}" "$PARITY"; then
+    fail "tool-parity.md: table column for \`$a\` ($label) not found (must appear in a \`|\`-delimited row)"
   fi
 done
 

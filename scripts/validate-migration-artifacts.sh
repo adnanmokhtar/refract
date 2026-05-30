@@ -597,7 +597,7 @@ check_perf_decisions() {
   fi
   # If anything is applied, look for a measurement
   if [[ $applied -gt 0 ]]; then
-    if grep -qE '(measured|measurement|p[0-9]+|ms|queries|saving)' "$file"; then
+    if grep -qE '\bmeasured\b|\bmeasurement\b|\bp(50|90|95|99)\b|\b[0-9.]+ ?ms\b|\bqueries\b|\bsaving\b' "$file"; then
       log_pass "perf-decisions has measurements: $feature"
     else
       log_warn "perf-decisions has applied candidates but no apparent measurements: $feature"
@@ -620,6 +620,33 @@ check_runbook() {
     log_fail "rollback runbook MISSING: $f2 (also tried $f1)"
     return 1
   fi
+}
+
+# #36 — extracted from check_audit so the name cited across migration-gate / parity-auditor /
+# port-feature / migration-phase / migration-fast resolves to a REAL function (was prose inside
+# check_audit, so the "(new) check_audit_provenance" claim was un-locatable). F039/F030/F032:
+# prove the audit came from a parity-auditor agent dispatch, not an inline-executor echo.
+check_audit_provenance() {
+  local file="$1" feature="${2:-}"
+  local provenance_line
+  provenance_line=$(grep -m1 -E '^auditor_agent_id:' "$file" 2>/dev/null || echo "")
+  if [[ -z "$provenance_line" ]]; then
+    log_fail "audit missing 'auditor_agent_id' frontmatter field in $file — every audit MUST declare its provenance. See migration-phase.md § 4b. Add: auditor_agent_id: <Agent run ID> OR auditor_agent_id: rule-only-mode/<tool>/<UTC>. Empty/missing = inline-executor verdict (the F039 / Phase-6 trigger) — REFUSED."
+    return 1
+  fi
+  local provenance_value
+  provenance_value="${provenance_line#auditor_agent_id:}"
+  provenance_value="$(echo "$provenance_value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^["'\'']*//' -e 's/["'\'']*$//')"
+  case "$provenance_value" in
+    ""|"TODO"|"todo"|"pending"|"inline"|"executor"|"unknown"|"<"*">")
+      log_fail "audit has placeholder 'auditor_agent_id' in $file (value: '$provenance_value') — must be a real agent run ID OR 'rule-only-mode/<tool>/<UTC>'. See migration-phase.md § 4b."
+      return 1
+      ;;
+    *)
+      log_pass "audit provenance: $feature ($provenance_value)"
+      ;;
+  esac
+  return 0
 }
 
 check_audit() {
@@ -653,24 +680,7 @@ check_audit() {
   # Rejected:
   #   missing or empty value
   #   auditor_agent_id: TODO / pending / inline / executor / unknown
-  local provenance_line
-  provenance_line=$(grep -m1 -E '^auditor_agent_id:' "$file" 2>/dev/null || echo "")
-  if [[ -z "$provenance_line" ]]; then
-    log_fail "audit missing 'auditor_agent_id' frontmatter field in $file — every audit MUST declare its provenance. See migration-phase.md § 4b. Add: auditor_agent_id: <Agent run ID> OR auditor_agent_id: rule-only-mode/<tool>/<UTC>. Empty/missing = inline-executor verdict (the F039 / Phase-6 trigger) — REFUSED."
-    return 1
-  fi
-  local provenance_value
-  provenance_value="${provenance_line#auditor_agent_id:}"
-  provenance_value="$(echo "$provenance_value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^["'\'']*//' -e 's/["'\'']*$//')"
-  case "$provenance_value" in
-    ""|"TODO"|"todo"|"pending"|"inline"|"executor"|"unknown"|"<"*">")
-      log_fail "audit has placeholder 'auditor_agent_id' in $file (value: '$provenance_value') — must be a real agent run ID OR 'rule-only-mode/<tool>/<UTC>'. See migration-phase.md § 4b."
-      return 1
-      ;;
-    *)
-      log_pass "audit provenance: $feature ($provenance_value)"
-      ;;
-  esac
+  check_audit_provenance "$file" "$feature" || return 1
   # Hand-wave detection — F039 + F030 + F032 lesson: "Trusted Summary" anti-pattern
   # Strict patterns that MUST fail the gate (not warn):
   #   - "&..." or trailing "..." in axis tables (hand-waved query params)
