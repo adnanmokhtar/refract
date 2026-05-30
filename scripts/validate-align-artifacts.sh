@@ -14,10 +14,14 @@
 #   5.  Net-lines non-positive   — structural rows: lines-removed ≥ lines-added
 #   6.  Scope boundary           — diff touched files ⊂ row.scope
 #   7.  Security tier minimum    — security rows ≥ standard tier; critical → heavy
+#   8.  Perf baseline present    — perf rows carry a before/after or pNN / ms figure
+#   9.  Security assertion        — security rows reference a test/assertion
+#   10. Idiom citation            — functional rows that ADD code cite idiom_cited (git-confirmed)
+#   11. Oracle unmodified         — PR diff must not touch _extracted-idioms.md / ai/conventions.md
 #
-# Remaining 7 checks (test-coverage, frontend-regression, idiom-citation,
-# security-assertion, perf-baseline, oracle-unmodified, ledger-completeness)
-# are agent-side enforcement until v2 ships them as script checks.
+# Genuinely agent-side (runtime tooling, not deterministic in a validator):
+# test-coverage-nondecreasing (runs the suite), frontend-regressions (a11y/visual/bundle),
+# parallel-consistency (post-hoc race). Tagged "(agent-side — not script-enforced)" in the rule.
 #
 # Usage:
 #   validate-align-artifacts.sh --phase=<N>             # validate every row in phase N
@@ -519,6 +523,83 @@ check_security_tier_minimum() {
   log_pass "$id: security tier '$tier' valid for severity '$severity'"
 }
 
+# Extract the YAML block for a ledger row id (shared helper).
+align_row_block() {
+  awk -v id="$1" '
+    /^- id: / { in_block = ($3 == id) ? 1 : 0; next }
+    in_block && /^[[:space:]]*$/ { exit }
+    in_block { print }
+  ' "$LEDGER_PATH"
+}
+
+# ── CHECK: perf row carries a baseline measurement ("The Hopeful Perf Fix") ──
+check_perf_baseline_present() {
+  local id="$1" cls="$2"
+  [[ "$cls" == "performance" ]] || return 0
+  local blk; blk=$(align_row_block "$id")
+  if printf '%s' "$blk" | grep -qiE 'baseline|before/after|[0-9.]+[[:space:]]*ms\b|\bp(50|95|99)\b'; then
+    log_pass "$id: perf baseline present"
+  else
+    log_fail "$id: perf-class row has no baseline (need a before/after or pNN / ms figure in notes) — The Hopeful Perf Fix."
+  fi
+}
+
+# ── CHECK: security row references a test/assertion ("The Bare Security Fix") ─
+check_security_assertion_present() {
+  local id="$1" cls="$2"
+  [[ "$cls" == "security" ]] || return 0
+  local blk; blk=$(align_row_block "$id")
+  if printf '%s' "$blk" | grep -qiE 'tests?/|\.spec\.|\.test\.|test_|assert|test:|covered by'; then
+    log_pass "$id: security assertion/test referenced"
+  else
+    log_fail "$id: security-class row has no test/assertion reference — a security fix must add a test asserting the gate (The Bare Security Fix)."
+  fi
+}
+
+# ── CHECK: functional row that ADDS code cites the reused idiom ("Reinvented Idiom") ─
+# Only fires when git confirms net-positive added lines for the row (mirrors net-lines);
+# pure-deletion / rename functional rows are exempt. Warn-skips when git/phase-base absent.
+check_added_lines_cite_idioms() {
+  local id="$1" cls="$2"
+  is_structural_class "$cls" && return 0   # structural rows use the net-lines rule instead
+  command -v git >/dev/null 2>&1 || { log_warn "$id: git not on PATH; skipping idiom-citation"; return 0; }
+  [[ -z "$PHASE_BASE" ]] && { log_warn "$id: --phase-base not provided; skipping idiom-citation"; return 0; }
+  local row_commits added=0
+  row_commits=$(git log --grep="${id}:" --format='%H' "$PHASE_BASE..HEAD" 2>/dev/null || true)
+  [[ -z "$row_commits" ]] && { log_warn "$id: no commit found for row; skipping idiom-citation"; return 0; }
+  while IFS= read -r sha; do
+    [[ -z "$sha" ]] && continue
+    local a; a=$(git show --shortstat "$sha" 2>/dev/null | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo 0)
+    added=$((added + ${a:-0}))
+  done <<< "$row_commits"
+  if (( added <= 0 )); then
+    log_pass "$id: functional row added no lines — idiom citation N/A"
+    return 0
+  fi
+  local blk; blk=$(align_row_block "$id")
+  if printf '%s' "$blk" | grep -qiE '^[[:space:]]*idiom_cited:[[:space:]]*\S'; then
+    log_pass "$id: functional row adds code + cites an idiom"
+  else
+    log_fail "$id: functional row adds $added line(s) without an 'idiom_cited:' reference — The Reinvented Idiom (cite the shared util/wrapper reused)."
+  fi
+}
+
+# ── CHECK: alignment PR must not modify the convention oracles ("Oracle Drift") ─
+ORACLE_CHECKED=0
+check_oracle_unmodified() {
+  [[ "${ORACLE_CHECKED:-0}" == "1" ]] && return 0
+  ORACLE_CHECKED=1
+  command -v git >/dev/null 2>&1 || { log_warn "git not on PATH; skipping oracle-unmodified"; return 0; }
+  [[ -z "$PHASE_BASE" ]] && { log_warn "--phase-base not provided; skipping oracle-unmodified"; return 0; }
+  local touched
+  touched=$(git diff --name-only "$PHASE_BASE..HEAD" 2>/dev/null | grep -E '(_extracted-idioms\.md|ai/conventions\.md)$' || true)
+  if [[ -n "$touched" ]]; then
+    log_fail "alignment PR modifies the convention oracle(s): $(echo "$touched" | tr '\n' ' ')— The Oracle Drift (fix the code, don't edit _extracted-idioms.md / ai/conventions.md to legitimize drift)."
+  else
+    log_pass "convention oracles unmodified by this alignment"
+  fi
+}
+
 # ── Per-finding orchestrator ────────────────────────────────────────────────
 validate_finding() {
   local id="$1" cls="$2" phase="$3" status="$4" tier="$5" verb="$6" severity="$7"
@@ -558,6 +639,18 @@ validate_finding() {
   fi
   if [[ -z "$CHECK_FILTER" || "$CHECK_FILTER" == "security-tier" ]]; then
     check_security_tier_minimum "$id" "$cls" "$tier" "$severity"
+  fi
+  if [[ -z "$CHECK_FILTER" || "$CHECK_FILTER" == "perf-baseline" ]]; then
+    check_perf_baseline_present "$id" "$cls"
+  fi
+  if [[ -z "$CHECK_FILTER" || "$CHECK_FILTER" == "security-assertion" ]]; then
+    check_security_assertion_present "$id" "$cls"
+  fi
+  if [[ -z "$CHECK_FILTER" || "$CHECK_FILTER" == "idiom-citation" ]]; then
+    check_added_lines_cite_idioms "$id" "$cls"
+  fi
+  if [[ -z "$CHECK_FILTER" || "$CHECK_FILTER" == "oracle" ]]; then
+    check_oracle_unmodified
   fi
 }
 

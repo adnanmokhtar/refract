@@ -80,7 +80,7 @@ The migration discipline rule's Phase 7 lesson — "~95% docs / ~5% code on simp
   - **Structural classes** — net-lines must be ≤ 0 per phase. Lines-removed ≥ lines-added across all structural findings, summed. A net-positive structural phase is a halt; the closure verb was applied wrong (likely a `replace-with-shared` that imported but didn't delete the local copy).
   - **Functional classes** — small + budget allowed (typically + 5 to + 30 lines per finding for security gates / validators / cache primitives / index migrations). The added lines MUST cite an idiom — every block of added lines references a `<path:line>` in `_extracted-idioms.md` (or the project's framework primitive) for what it's adding (the gate wrapper, the validator helper, the cache primitive, the safe deserializer). Validator: `check_added_lines_cite_idioms` walks the diff hunks and refuses any added block that doesn't cite an idiom.
   - **Cumulative phase rule** — for phases that mix structural + functional findings, the structural rows must net ≤ 0 AND the functional rows must each cite idioms. The phase's overall diff may net positive when functional findings dominate (a phase that adds 8 auth gates is + 16 lines net; that's allowed).
-- **Per-finding enumeration is required at every tier.** Hand-waves (`etc.`, `...`, `and similar`, `N+ duplicates`, `several call sites`, `a few places`, `multiple endpoints`) HALT the gate. The validator's `check_findings_enumeration` greps for these tokens. If 8 dead exports exist, the ledger lists 8 rows (or 1 row with 8 explicit `<path:line>` citations in `evidence`). Never `~8 dead exports`. Same applies to security findings: never `several missing auth gates` — each endpoint gets its own row.
+- **Per-finding enumeration is required at every tier.** Hand-waves (`etc.`, `...`, `and similar`, `N+ duplicates`, `several call sites`, `a few places`, `multiple endpoints`) HALT the gate. The validator's `check_no_handwaves` greps for these tokens. If 8 dead exports exist, the ledger lists 8 rows (or 1 row with 8 explicit `<path:line>` citations in `evidence`). Never `~8 dead exports`. Same applies to security findings: never `several missing auth gates` — each endpoint gets its own row.
 - **Single-agent dispatch is the default.** Parallel sub-agents are heavy-tier-only AND require a deduplicated context blob (each sub-agent reading the project's full source independently is forbidden — same wasted-token pattern migration's Phase 7 fixed).
 - **Findings cite source.** Every finding row has `evidence: <path:line>` for at least one fingerprint. If you can't cite source, the finding doesn't exist (Trusted-Summary failure mode).
 - **Trivial-tier rows do not produce rationales.** The closure verb + the `<path:line>` evidence is the rationale. A trivial row whose `notes` field is filled with prose is over-production; the validator flags `notes_excess_chars > 200` on trivial rows. Note: security findings are NEVER trivial-tier — they always have rationale (≥ standard tier).
@@ -96,7 +96,7 @@ The "coverage non-decreasing" rule allows a tolerance of **±0.5%** (configurabl
 - Coverage instrumentation rounding.
 - Test parallelism affecting which fixtures load.
 
-A drop within tolerance is NOT a halt. A drop beyond tolerance IS a halt — the closure removed a load-bearing branch. The validator's `check_test_coverage_nondecreasing` reads the project's coverage tolerance from `ai/conventions.md § Coverage` (default 0.5%) and applies it.
+A drop within tolerance is NOT a halt. A drop beyond tolerance IS a halt — the closure removed a load-bearing branch. The validator's `check_test_coverage_nondecreasing` (agent-side — not script-enforced) reads the project's coverage tolerance from `ai/conventions.md § Coverage` (default 0.5%) and applies it.
 
 ### Parallel race serialization (per-file lock)
 
@@ -111,7 +111,7 @@ Serialization mechanism (per-file lock):
 
 Trivial implementation: process rows in dependency order; for each row, wait until all its scope files are unlocked; acquire locks; run; release.
 
-The validator's `check_parallel_consistency` (post-hoc) verifies no two phase commits touched the same file at overlapping timestamps. A race condition (two commits modifying the same file in the same wave) = halt.
+The validator's `check_parallel_consistency` (agent-side — not script-enforced) (post-hoc) verifies no two phase commits touched the same file at overlapping timestamps. A race condition (two commits modifying the same file in the same wave) = halt.
 
 ### Baseline capture fallback (no-observability projects)
 
@@ -701,31 +701,31 @@ Diff:
 
 - **`/align-gate <N>`** halts on: any of the 14 phase-exit checks failing, any row's per-tier artifacts incomplete, any net-positive line count on structural rows, any functional row whose added lines don't cite an idiom, any `halted` row, any security row without an assertion, any perf row without a baseline / assertion.
 - **`/align-status`** reports per-finding state and flags rows older than the SLA (default: a row in `in-progress` for >7d is flagged stalled; a security row halted for >24h is flagged escalated).
-- **Validator script** `scripts/validate-align-artifacts.sh` operationalises the enforcement of the named anti-patterns:
-  - "Hand-waved enumeration" → `check_findings_enumeration` greps for hand-wave tokens.
+- **Validator script** `scripts/validate-align-artifacts.sh` operationalises the enforcement of the named anti-patterns (11 of 14 checks are script-enforced; the 3 tagged `(agent-side — not script-enforced)` below require runtime tooling and run agent-side):
+  - "Hand-waved enumeration" → `check_no_handwaves` greps for hand-wave tokens.
   - "Reinvented Wrapper in fix" → `check_no_new_symbols` runs `git diff --diff-filter=A` against the alignment PR and fails on new public exports NOT named in `_extracted-idioms.md`.
-  - "Net-positive line count on structural row" → `check_net_lines_nonpositive_structural` measures diff for structural-class rows and fails if `+>−`.
+  - "Net-positive line count on structural row" → `check_net_lines_structural` measures diff for structural-class rows and fails if `+>−`.
   - "Functional add without idiom citation" → `check_added_lines_cite_idioms` parses each added hunk and validates that the row's `idiom_cited` resolves AND covers the added lines (the cited idiom file appears in the diff's import lines OR the added block calls the named symbol).
-  - "Behaviour change" → `check_test_coverage_nondecreasing` runs the test suite + coverage, fails if either regresses (with security-row exception: coverage may shift; absolute % must not drop).
+  - "Behaviour change" → `check_test_coverage_nondecreasing` (agent-side — not script-enforced) runs the test suite + coverage, fails if either regresses (with security-row exception: coverage may shift; absolute % must not drop).
   - "Trusted Summary" → `check_evidence_resolves` validates every row's `evidence` is a real `<path:line>` containing the claimed fingerprint.
   - "Scope creep" → `check_scope_boundary` runs `git diff --name-only` and fails if touched files are outside any row's `scope`.
   - "Security row without assertion" → `check_security_assertion_present` for each security row, looks for a co-committed test file change that asserts the gate / validator / escape; fails if absent.
   - "Perf row without baseline" → `check_perf_baseline_present` for each perf row, looks for a `notes` field containing baseline numbers (latency / queries / HTTP) OR a co-committed observability annotation; fails if absent.
   - "Oracle modification" → `check_oracle_unmodified` runs `git diff` against `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md`; fails if non-empty.
-  - "Frontend regression" → `check_frontend_regressions` (when `PROJECT_KIND in {frontend-*}`) runs scoped a11y / visual / bundle-size; fails on regression.
+  - "Frontend regression" → `check_frontend_regressions` (agent-side — not script-enforced) (when `PROJECT_KIND in {frontend-*}`) runs scoped a11y / visual / bundle-size; fails on regression.
 
 ## Anti-patterns (named)
 
-- **The Refactor in Disguise** — a finding whose fix introduces a new abstraction (not in `_extracted-idioms.md`), renames a public API, or changes observable behaviour where preservation was the contract. Looks like alignment in the ledger; ships as a redesign in PR review. Caught by: closure-verb vocabulary check + `check_no_new_symbols` (with idioms exemption) + `check_test_coverage_nondecreasing`.
+- **The Refactor in Disguise** — a finding whose fix introduces a new abstraction (not in `_extracted-idioms.md`), renames a public API, or changes observable behaviour where preservation was the contract. Looks like alignment in the ledger; ships as a redesign in PR review. Caught by: closure-verb vocabulary check + `check_no_new_symbols` (with idioms exemption) + `check_test_coverage_nondecreasing` (agent-side — not script-enforced).
 - **The Trusted Summary** (inherited from migration) — agent says "looks duplicated" / "looks dead" / "looks reinvented" / "no security issues" without `<path:line>` evidence; executor echoes into ledger. Caught by: `check_evidence_resolves` + audit halt #1.
-- **The Hand-waved Finding** (inherited) — `~8 dead exports`, `several silent catches`, `multiple reinvented wrappers`, `a few missing auth gates`. Caught by: `check_findings_enumeration` + audit halt #2.
-- **The Net-Positive Cleanup** (structural) — fix imports a shared helper but doesn't delete the local copy; OR introduces a wrapper "to make the swap easier"; OR adds a comment explaining the new shape. Net lines go up on a structural row. Caught by: `check_net_lines_nonpositive_structural` + audit halt #5.
+- **The Hand-waved Finding** (inherited) — `~8 dead exports`, `several silent catches`, `multiple reinvented wrappers`, `a few missing auth gates`. Caught by: `check_no_handwaves` + audit halt #2.
+- **The Net-Positive Cleanup** (structural) — fix imports a shared helper but doesn't delete the local copy; OR introduces a wrapper "to make the swap easier"; OR adds a comment explaining the new shape. Net lines go up on a structural row. Caught by: `check_net_lines_structural` + audit halt #5.
 - **The Bundled Phase** — phase PR mixes 5 finding classes; reviewer can't localise regressions. Caught by: review-checklist row "PR title = single-class-or-domain"; reviewer responsibility.
 - **The Stale Ledger** — a phase merges without updating ledger rows to `fixed`. Code grep claims "no more silent catches" but ledger rows are still `in-progress`. Caught by: `/align-gate` halt #1; `/align-status` reports stalled rows.
 - **The Oracle Drift** — alignment PR also modifies `_extracted-idioms.md` / `ai/conventions.md` to "explain" the fix. Caught by: review-checklist + `check_oracle_unmodified` (PR diff against `_extracted-idioms.md` must be empty).
 - **The Eternal Phase** — phase opens, 30+ findings detected, phase never closes because new findings keep getting added. Caught by: phase-cap rule (≤ 12 findings); excess routes to phase N+1.
 - **The Re-Detection Skip** — porter applies the fix and marks `status: fixed` without re-running the detector to confirm the fingerprint is gone. The fingerprint sometimes lingers (the fix targeted the wrong line). Caught by: VERIFY step's mandatory re-detect; `check_evidence_resolves` re-run at gate.
-- **The Silent Coverage Drop** — fix removes a branch; tests pass; but the branch was the only path exercising a downstream code path. Coverage drops 0.3%; nobody notices in a 1500-test suite. Caught by: `check_test_coverage_nondecreasing` (any drop is a halt).
+- **The Silent Coverage Drop** — fix removes a branch; tests pass; but the branch was the only path exercising a downstream code path. Coverage drops 0.3%; nobody notices in a 1500-test suite. Caught by: `check_test_coverage_nondecreasing` (agent-side — not script-enforced) (any drop is a halt).
 - **The Reinvented Idiom in Functional Verb** — porter writes a new validator schema, cache helper, escape function, gate wrapper inside an `add-validator` / `cache-with-explicit-ttl` / `escape` / `add-gate` fix. The functional verbs are supposed to USE the project's existing idiom — inventing a new one is the same anti-pattern as Reinvented Wrapper, just on functional adds. Caught by: `check_added_lines_cite_idioms` + `check_no_new_symbols` (with idioms exemption).
 - **The Bare Security Fix** — porter adds a gate / validator / escape but doesn't add a test asserting it works. Six months later, a refactor accidentally removes the gate and no test catches it. Caught by: `check_security_assertion_present`.
 - **The Hopeful Perf Fix** — porter parallelises / batches / caches without measuring before or after. The fix may be a perf regression (e.g., `Promise.all` overwhelms a downstream service); nobody knows because there's no baseline. Caught by: `check_perf_baseline_present`.
@@ -733,7 +733,7 @@ Diff:
 - **The Tier Demotion** — porter sets a security row to trivial because "it's just one missing gate, easy fix". Caught by: audit halt #11 + `check_security_tier_minimum`.
 - **The Behaviour Change Conflation** — security gate that changes behaviour (denies unauth) is bundled with an unrelated alignment fix in the same commit. The security change becomes invisible in the diff. Caught by: review-checklist + one-finding-per-commit rule.
 - **The Cross-Class Phase** — phase PR contains a mix of structural + security + perf rows. Net-lines rule is ambiguous; reviewer attention is scattered. Caught by: phasing strategy in `/align-plan` (single-class or single-domain phases preferred).
-- **The Frontend Regression Skip** — porter ignores a11y / visual / bundle-size regression "because it's mechanical". Caught by: `check_frontend_regressions` at gate.
+- **The Frontend Regression Skip** — porter ignores a11y / visual / bundle-size regression "because it's mechanical". Caught by: `check_frontend_regressions` (agent-side — not script-enforced) at gate.
 - **The Idiom Inventory Gap** — porter halts repeatedly because the idiom they need (a validator, a cache helper, a gate wrapper) doesn't exist in `_extracted-idioms.md`. The right move is to update idioms first via `/setup-project --refine`, then resume alignment — not to invent the idiom inline. Symptom: `halts/` directory full of "missing idiom: X" entries.
 
 ## References

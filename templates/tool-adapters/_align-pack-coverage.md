@@ -222,8 +222,8 @@ When an adapter ships the align pack:
 The same anti-patterns that hit migration ports also hit alignment sweeps. The validator script pattern-recognises:
 
 - **Trusted Summary** — `check_evidence_resolves` validates every row's `evidence` is a real `<path:line>` containing the claimed fingerprint.
-- **Hand-waved Finding** — `check_findings_enumeration` greps for hand-wave tokens (`etc.`, `...`, `several`, `multiple`, `~N`).
-- **Net-Positive Cleanup** — `check_net_lines_nonpositive_structural` measures structural-row diffs.
+- **Hand-waved Finding** — `check_no_handwaves` greps for hand-wave tokens (`etc.`, `...`, `several`, `multiple`, `~N`).
+- **Net-Positive Cleanup** — `check_net_lines_structural` measures structural-row diffs.
 - **Reinvented Idiom in Functional Verb** — `check_added_lines_cite_idioms` enforces idiom citation for functional adds.
 - **Silent Coverage Drop** — `check_test_coverage_nondecreasing`.
 - **Bare Security Fix** — `check_security_assertion_present` fails if a security row's commit lacks a co-committed assertion test.

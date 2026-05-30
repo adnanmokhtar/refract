@@ -26,13 +26,13 @@ jobs:
       - name: Command DRY (SOLID/clean-code without governance link)
         run: bash scripts/audit-command-dry.sh
 
-      # ---- REPORT-ONLY gates (surface findings in the log; FLIP to blocking by removing
-      #      `continue-on-error` once the existing findings are cleared — Wave 2:
-      #      implement the 10 dangling validators + document the 18 commands) ----
-      - name: Validator parity (cited check_* must be defined or disclosed) [report-only until Wave 2]
+      # Validator parity is now GREEN (Wave 2 implemented the 10 dangling validators /
+      # tagged the agent-side ones) — BLOCKING.
+      - name: Validator parity (cited check_* must be defined or disclosed)
         run: bash scripts/lint-validator-parity.sh
-        continue-on-error: true
 
-      - name: Doc sync (every command documented; no dangling refs) [report-only until Wave 2]
+      # ---- REPORT-ONLY until the 18 undocumented commands are added to COMMANDS.md
+      #      (finding #40) — then drop continue-on-error. ----
+      - name: Doc sync (every command documented; no dangling refs) [report-only until finding #40 closed]
         run: bash scripts/verify-doc-sync.sh
         continue-on-error: true

@@ -1994,6 +1994,36 @@ check_intentional_break_adr() {
   return 0
 }
 
+# migration-discipline.md § "ADRs for V1↔V2 divergence require user_decision_quote:".
+# Every ai/decisions/*-v2-break.md MUST carry a NON-EMPTY `user_decision_quote:` line — a
+# verbatim quote of the user explicitly choosing keep-V2. Empty / placeholder / TODO → halt.
+# This blocks the agent-self-ratified-ADR anti-pattern (the Phase-7 ~6-ADR incident): an
+# agent legitimizing its own V2 deviation by drafting a quote-less ADR. Repo-global; runs once.
+ADR_QUOTE_CHECKED=0
+check_adr_user_decision_quote() {
+  [[ "${ADR_QUOTE_CHECKED:-0}" == "1" ]] && return 0
+  ADR_QUOTE_CHECKED=1
+  local rc=0 f any=0
+  for f in ai/decisions/*-v2-break.md; do
+    [[ -f "$f" ]] || continue
+    any=1
+    local q val
+    q=$(grep -iE '^[[:space:]]*user_decision_quote:' "$f" 2>/dev/null | head -1)
+    if [[ -z "$q" ]]; then
+      log_fail "$(basename "$f"): missing 'user_decision_quote:' — a V1↔V2 divergence ADR MUST quote the user choosing keep-V2, else the default closure reverts to 'edit V2 to match V1'. See migration-discipline.md."
+      rc=1; continue
+    fi
+    val="${q#*:}"
+    val=$(printf '%s' "$val" | sed -E "s/^[[:space:]]*//; s/[[:space:]]*$//; s/^[\"']//; s/[\"']$//")
+    if [[ -z "$val" ]] || printf '%s' "$val" | grep -qiE '^(<.*>|todo|tbd|n/?a|\.\.\.)$'; then
+      log_fail "$(basename "$f"): 'user_decision_quote:' is empty/placeholder — needs a verbatim user quote (e.g. \"I prefer the new dropdown\" — user, <date>)."
+      rc=1; continue
+    fi
+  done
+  [[ $any -eq 1 && $rc -eq 0 ]] && log_pass "every *-v2-break.md carries a real user_decision_quote"
+  return $rc
+}
+
 check_v1_path_drift_acknowledged() {
   # F054-class — audit body self-flags that v1_path is wrong but the row advanced anyway.
   # If the audit contains markers like "v1_path must be corrected" / "ledger-drift" /
@@ -2854,6 +2884,7 @@ validate_feature() {
   check_inventory_primitives_match "$feature" "$id" "$tier" || true
   check_adr_signoff_completed "$feature" "$id" || true
   check_intentional_break_adr "$feature" "$id" || true
+  check_adr_user_decision_quote || true
   check_v1_path_drift_acknowledged "$feature" "$id" || true
   check_porter_vs_auditor "$feature" "$id" || true
   check_v2_structure "$feature" "$id" || true
