@@ -36,16 +36,35 @@ done
 OUT="ai/migration/reachability/${FEATURE}.md"
 mkdir -p "$(dirname "$OUT")"
 
-axis_keywords() {
-  local f="$1"
-  local n=0
-  grep -qiE 'cron|schedule|@Cron|crontab' "$f" && n=$((n+1))
-  grep -qiE 'queue|consumer|worker|subscriber|kafka' "$f" && n=$((n+1))
-  grep -qiE 'route|router|endpoint|handler|HTTP' "$f" && n=$((n+1))
-  grep -qiE 'admin|internal.?tool|django\.admin' "$f" && n=$((n+1))
-  grep -qiE 'deploy|pipeline|helm|terraform|docker' "$f" && n=$((n+1))
-  grep -qiE 'runbook|playbook|on-?call' "$f" && n=$((n+1))
-  echo "$n"
+# Lint the EVIDENCE, not the axis labels (#8). The OLD keyword scorer grepped the whole file,
+# but the template's own labels (Cron / Queue / route / admin / deploy / runbook) match all 6
+# keyword groups — so a BLANK, unfilled template scored 6/6 and passed. Instead, parse each axis
+# ROW: its decision cell must be a real choice (yes|no|n/a, NOT the literal "yes / no / n/a"
+# placeholder), and every decided axis must carry non-empty evidence/reason. Prints "<filled>/<total>"
+# on stdout; per-axis problems go to stderr (so they survive command substitution).
+reachability_lint() {
+  local f="$1" total=0 filled=0
+  while IFS= read -r line; do
+    echo "$line" | grep -qiE '^\|[[:space:]]*Axis\b' && continue              # header
+    echo "$line" | grep -qE  '^\|[-: |]+\|[[:space:]]*$' && continue          # separator
+    local axis dec ev
+    axis=$(echo "$line" | awk -F'|' '{print $2}' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    dec=$(echo  "$line" | awk -F'|' '{print $3}' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    ev=$(echo   "$line" | awk -F'|' '{print $4}' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    [[ -z "$axis" ]] && continue
+    total=$((total + 1))
+    if [[ -z "$dec" ]] || echo "$dec" | grep -qiE 'yes[[:space:]]*/[[:space:]]*no'; then
+      echo "  '$axis': no decision (still the 'yes / no / n/a' placeholder)" >&2; continue
+    fi
+    if ! echo "$dec" | grep -qiE '^(yes|no|n/?a)$'; then
+      echo "  '$axis': decision '$dec' is not one of yes/no/n/a" >&2; continue
+    fi
+    if [[ -z "$ev" ]]; then
+      echo "  '$axis' = $dec but the Evidence cell is empty (cite path:line / job name, or the n/a reason)" >&2; continue
+    fi
+    filled=$((filled + 1))
+  done < <(grep -E '^\|' "$f" 2>/dev/null)
+  echo "$filled/$total"
 }
 
 if [[ ! -f "$OUT" ]]; then
@@ -75,11 +94,18 @@ EOF
 fi
 
 if [[ $LINT -eq 1 ]]; then
-  score=$(axis_keywords "$OUT")
-  if [[ "${score:-0}" -lt 4 ]]; then
-    echo "ERR: $OUT documents only $score/6 axis signals (need ≥4 keyword hits or expand table)" >&2
+  # Problems stream to stderr from inside the function; capture only the count from stdout.
+  echo "Reachability lint — $OUT:" >&2
+  result=$(reachability_lint "$OUT")   # "<filled>/<total>"
+  filled="${result%%/*}"; total="${result##*/}"
+  if [[ "${total:-0}" -lt 6 ]]; then
+    echo "ERR: $OUT has only $total axis rows (need all 6: cron / queue / route / admin / deploy / runbook)" >&2
     exit 1
   fi
-  echo "OK: reachability doc passes lint ($score axis signals)"
+  if [[ "$filled" -ne "$total" ]]; then
+    echo "ERR: $OUT incompletely filled — $filled/$total axes have a real decision + evidence (a blank template no longer passes)." >&2
+    exit 1
+  fi
+  echo "OK: reachability doc fully documented ($filled/$total axes decided with evidence)"
 fi
 exit 0

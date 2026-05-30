@@ -2707,18 +2707,29 @@ check_migration_reachability_axes() {
     [[ $STRICT -eq 1 ]] && { log_fail "[strict] missing reachability doc for $feature"; return 1; }
     return 0
   fi
-  local score=0
-  grep -qiE 'cron|schedule|@Cron|@Scheduled|crontab' "$rf" && score=$((score + 1))
-  grep -qiE 'queue|consumer|worker|subscriber|kafka|sns|pub.?sub' "$rf" && score=$((score + 1))
-  grep -qiE 'route|router|endpoint|handler|RPC|controller' "$rf" && score=$((score + 1))
-  grep -qiE 'admin|internal.?tool|django\.admin|backstage' "$rf" && score=$((score + 1))
-  grep -qiE 'deploy|pipeline|helm|k8s|terraform|docker|ci\b' "$rf" && score=$((score + 1))
-  grep -qiE 'runbook|playbook|on-?call|operat' "$rf" && score=$((score + 1))
-  if [[ $score -ge 4 ]]; then
-    log_pass "reachability axes documented ($score/6 signals): $rf"
+  # Evidence-based (#15): the OLD keyword scorer grepped the whole file, but the template's own
+  # axis labels match all 6 keyword groups — so a BLANK template scored 6/6 and the Zombie-Port
+  # gate was unenforceable. Parse each axis ROW instead: decision must be yes|no|n/a (NOT the
+  # "yes / no / n/a" placeholder) AND carry non-empty evidence. A blank template now fails.
+  local total=0 filled=0 line axis dec ev
+  while IFS= read -r line; do
+    echo "$line" | grep -qiE '^\|[[:space:]]*Axis\b' && continue
+    echo "$line" | grep -qE  '^\|[-: |]+\|[[:space:]]*$' && continue
+    axis=$(echo "$line" | awk -F'|' '{print $2}' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    dec=$(echo  "$line" | awk -F'|' '{print $3}' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    ev=$(echo   "$line" | awk -F'|' '{print $4}' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+    [[ -z "$axis" ]] && continue
+    total=$((total + 1))
+    { [[ -z "$dec" ]] || echo "$dec" | grep -qiE 'yes[[:space:]]*/[[:space:]]*no'; } && continue
+    echo "$dec" | grep -qiE '^(yes|no|n/?a)$' || continue
+    [[ -z "$ev" ]] && continue
+    filled=$((filled + 1))
+  done < <(grep -E '^\|' "$rf" 2>/dev/null)
+  if [[ $total -ge 6 && $filled -eq $total ]]; then
+    log_pass "reachability axes fully documented ($filled/$total decided with evidence): $rf"
   else
-    log_warn "reachability doc $rf looks thin ($score/6 axis signals) — cover cron/queue/route/admin/deploy/runbook"
-    [[ $STRICT -eq 1 ]] && { log_fail "[strict] reachability doc insufficient: $rf"; return 1; }
+    log_warn "reachability doc $rf incomplete ($filled/$total axes decided with evidence; need all 6 — a blank template no longer counts)"
+    [[ $STRICT -eq 1 ]] && { log_fail "[strict] reachability doc incomplete: $rf ($filled/$total)"; return 1; }
   fi
   return 0
 }
@@ -2811,6 +2822,10 @@ check_ledger_row() {
     "V2-shadow"|"done"|"divergent")
       required_for_state=(feature contract plan v1_commit_pinned parity_tests)
       ;;
+    "pending-review")
+      # Heavy-tier rows pause here; reviewer_approval must be present AND non-empty (checked below).
+      required_for_state=(feature contract plan v1_commit_pinned parity_tests reviewer_approval)
+      ;;
     *)
       required_for_state=(feature)
       ;;
@@ -2826,6 +2841,17 @@ check_ledger_row() {
   else
     log_fail "ledger row $id ($feature) missing required fields for status=$status: ${missing[*]}"
     return 1
+  fi
+  # #14 — reviewer-approval gate. `pending-review` is terminal-non-fix ONLY when reviewer_approval
+  # is a real `<reviewer>@<iso>` signoff. A present-but-empty/placeholder line must NOT advance to done.
+  if [[ "$status" == "pending-review" ]]; then
+    local appr
+    appr=$(echo "$ledger_block" | grep -E '^reviewer_approval:' | head -1 | sed 's/^reviewer_approval:[[:space:]]*//; s/[[:space:]]*$//')
+    if [[ -z "$appr" ]] || echo "$appr" | grep -qiE '^(<.*>|todo|tbd|pending|none)$'; then
+      log_fail "ledger row $id ($feature): status=pending-review but reviewer_approval is empty/placeholder — a heavy-tier row needs a real <reviewer>@<iso> signoff before it can advance to done."
+      return 1
+    fi
+    log_pass "ledger row $id ($feature): reviewer_approval present ($appr)"
   fi
   return 0
 }

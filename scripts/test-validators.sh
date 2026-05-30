@@ -24,8 +24,11 @@ QUIET=0
 invoke() {  # $1=script-name $2=case-dir → prints exit code
   local script="$1" case="$2"
   case "$script" in
-    # All currently-fixtured scripts honour --repo-root. New non-repo-root scripts get
-    # an explicit invocation arm here.
+    # migration-reachability.sh: positional `--lint <slug>`, reads cwd-relative
+    # ai/migration/reachability/<slug>.md. Case-dir basename = the slug.
+    migration-reachability.sh)
+      ( cd "$case" && bash "$REPO_ROOT/scripts/migration-reachability.sh" --lint "$(basename "$case")" ) >/dev/null 2>&1; echo $? ;;
+    # All other fixtured scripts honour --repo-root. New non-repo-root scripts get an arm here.
     *) bash "$REPO_ROOT/scripts/$script" --repo-root="$case" >/dev/null 2>&1; echo $? ;;
   esac
 }
