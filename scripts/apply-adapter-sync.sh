@@ -83,7 +83,7 @@ detect_adapters() {
   [[ -d "$TARGET/.windsurf"   ]]                 && detected+=" windsurf"
   [[ -d "$TARGET/.continue"   ]]                 && detected+=" continue"
   [[ -f "$TARGET/.aider.conf.yml" ]] || [[ -f "$TARGET/.aiderignore" ]] && detected+=" aider"
-  [[ -f "$TARGET/AGENTS.override.md" ]]          && detected+=" codex"
+  { [[ -d "$TARGET/.agents/skills" ]] || [[ -f "$TARGET/AGENTS.override.md" ]]; } && detected+=" codex"
   [[ -f "$TARGET/GEMINI.md" ]]                   && detected+=" gemini"
   [[ -d "$TARGET/.kimi" ]]                       && detected+=" kimi"
   [[ -d "$TARGET/.qwen" ]]                       && detected+=" qwen"

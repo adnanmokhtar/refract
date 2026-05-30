@@ -72,8 +72,10 @@ audit_cursor() {
   [[ -d "$TARGET/.cursor" ]] || return 1
   local hits=0 expected=$((SRC_COMMANDS + SRC_AGENTS + SRC_SKILLS + SRC_RULES))
   while IFS= read -r b; do
-    # Skills-first: command's primary surface is .cursor/skills/<name>/SKILL.md; .cursor/commands/ is the fallback.
-    [[ -f "$TARGET/.cursor/skills/$b/SKILL.md" || -f "$TARGET/.cursor/commands/$b.md" ]] && hits=$((hits + 1))
+    # Skills-first (Cursor ≥ 2.3): grade the PRIMARY surface only. The legacy .cursor/commands/<name>.md
+    # mirror is ALWAYS written by apply, so OR-counting it would let a missing primary skill grade ok
+    # while the command never surfaces in Cursor's native picker (#6).
+    [[ -f "$TARGET/.cursor/skills/$b/SKILL.md" ]] && hits=$((hits + 1))
   done < <(list_basenames_kind commands)
   while IFS= read -r b; do
     [[ -f "$TARGET/.cursor/commands/agent-$b.md" ]] && hits=$((hits + 1))
@@ -206,6 +208,14 @@ audit_codex() {
 # ---------- gemini: native TOML commands (primary) + GEMINI.md (fallback) ----------
 audit_gemini() {
   [[ -f "$TARGET/GEMINI.md" ]] || return 1
+  # GEMINI.md is always written (cross-tool anchor / thin pointer), even when gemini is NOT a
+  # selected tool. Only grade the full native TOML command surface when gemini was actually
+  # selected — i.e. its .gemini/commands/ dir exists. Otherwise grade the anchor at 1/1, so an
+  # unselected gemini isn't scored ~3% and false-REFUSED under --strict (#5; mirrors audit_codex).
+  if [[ ! -d "$TARGET/.gemini/commands" ]]; then
+    echo "1|1"
+    return
+  fi
   local hits=0 expected=$((SRC_COMMANDS + 1))
   hits=$((hits + 1))  # GEMINI.md present (checked above)
   while IFS= read -r b; do
