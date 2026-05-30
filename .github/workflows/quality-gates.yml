@@ -36,3 +36,9 @@ jobs:
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.
       - name: Doc sync (every command documented; pack sync-files present)
         run: bash scripts/verify-doc-sync.sh
+
+      # Pack manifest consistency (#49) — every pack has the 3 sync files + valid _version.json,
+      # every path-like _topics fallback resolves, every _essentials entry has an artifact.
+      # BLOCKING on FAIL; WARNs (artifacts with no _topics entry) are informational.
+      - name: Pack consistency (manifests internally consistent)
+        run: bash scripts/validate-pack-consistency.sh
