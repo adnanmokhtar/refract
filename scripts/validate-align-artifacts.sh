@@ -341,29 +341,38 @@ check_closure_verb_in_vocab() {
 # _extracted-idioms.md, otherwise it's a Reinvented Wrapper.
 check_no_new_symbols() {
   local id="$1"
+  # Fail-closed (#30): when we CAN'T verify, surface it — under --strict it's a halt, not a
+  # silent pass, so a missing phase-base / git doesn't let a Reinvented Wrapper slip through.
   if [[ -z "$PHASE_BASE" ]]; then
-    log_warn "$id: --phase-base not provided; skipping no-new-symbols check"
+    log_warn "$id: --phase-base not provided; no-new-symbols UNVERIFIED"
+    [[ $STRICT -eq 1 ]] && { log_fail "[strict] $id: cannot verify no-new-symbols without --phase-base"; return 1; }
     return
   fi
   if ! command -v git >/dev/null 2>&1; then
-    log_warn "$id: git not on PATH; skipping no-new-symbols check"
+    log_warn "$id: git not on PATH; no-new-symbols UNVERIFIED"
+    [[ $STRICT -eq 1 ]] && { log_fail "[strict] $id: cannot verify no-new-symbols without git"; return 1; }
     return
   fi
 
+  # #18 — scan ALL added lines, not just added FILES. The Reinvented-Wrapper anti-pattern most
+  # often adds a new `export function fooWrapper()` INTO an existing module; --diff-filter=A
+  # (added files only) never saw it. The `^\+(export …)` grep already restricts to added lines.
   local diff_added
-  diff_added=$(git diff --diff-filter=A "$PHASE_BASE..HEAD" 2>/dev/null \
+  diff_added=$(git diff "$PHASE_BASE..HEAD" 2>/dev/null \
     | grep -E '^\+(export\s+(default\s+)?(function|class|const|let|interface|type)|export\s+\{)' \
     | grep -v '^+++' \
-    | head -20 || true)
+    | head -40 || true)
 
   if [[ -z "$diff_added" ]]; then
     log_pass "$id: no new exports"
     return
   fi
 
+  # New exports exist but no idioms inventory to check them against = un-verifiable → FAIL
+  # (fail-closed, #30): we cannot claim these are exempt reuses without the inventory.
   if [[ ! -f "_extracted-idioms.md" ]]; then
-    log_warn "$id: _extracted-idioms.md not found; cannot verify exemption"
-    return
+    log_fail "$id: new exports added but _extracted-idioms.md not found — cannot verify they reuse existing idioms (Reinvented Wrapper un-verifiable; add the idioms inventory or justify)."
+    return 1
   fi
 
   local violations=0
@@ -600,6 +609,43 @@ check_oracle_unmodified() {
   fi
 }
 
+# ── CHECK: code-level smells in the row's ACTUAL scope files (#30) ──────────
+# The align/optimize/polish validators historically checked only the report/ledger, so a "fix"
+# that ADDED a silent catch or a debug print shipped green (only migration greps real source).
+# This greps each existing scope file for unambiguous swallows: a truly-EMPTY catch `{}` or python
+# `except: pass` (FAIL), and debug prints console.log / bare print( (WARN). Empty-body match keeps
+# false positives near-zero (a catch with a comment/handler body does not match).
+check_scope_code_smells() {
+  local id="$1"
+  local blk; blk=$(align_row_block "$id")
+  # scope files: inline `[a, b]` OR a `- file` list under `scope:`.
+  local scope_files
+  scope_files=$(printf '%s\n' "$blk" | awk '
+    /^[[:space:]]*scope:/ {
+      s=1; line=$0; sub(/^[[:space:]]*scope:[[:space:]]*/,"",line)
+      if (line ~ /\[/) { gsub(/[][]/,"",line); gsub(/,/,"\n",line); print line; s=0 }
+      next
+    }
+    s && /^[[:space:]]*-[[:space:]]*/ { l=$0; sub(/^[[:space:]]*-[[:space:]]*/,"",l); print l; next }
+    s && /^[[:space:]]*[a-z_]+:/ { s=0 }
+  ' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/["'\'']//g' | grep -v '^$')
+  [[ -z "$scope_files" ]] && { log_pass "$id: no scope files to code-scan"; return 0; }
+  local smells=0 f
+  while IFS= read -r f; do
+    [[ -z "$f" || ! -f "$f" ]] && continue
+    if grep -qE 'catch[[:space:]]*(\([^)]*\))?[[:space:]]*\{[[:space:]]*\}|except[^:]*:[[:space:]]*pass[[:space:]]*$' "$f" 2>/dev/null; then
+      log_fail "$id: silent catch (empty catch{} / except: pass) in $f — route failures through the project error handler (No Silent Catch)"
+      smells=$((smells + 1))
+    fi
+    if grep -qE '\bconsole\.(log|debug)\(|^[[:space:]]*print\(' "$f" 2>/dev/null; then
+      log_warn "$id: debug print (console.log / print) in $f — use the project logger"
+    fi
+  done <<< "$scope_files"
+  [[ $smells -eq 0 ]] && log_pass "$id: scope files free of silent-catch smells"
+  [[ $smells -gt 0 ]] && return 1
+  return 0
+}
+
 # ── Per-finding orchestrator ────────────────────────────────────────────────
 validate_finding() {
   local id="$1" cls="$2" phase="$3" status="$4" tier="$5" verb="$6" severity="$7"
@@ -651,6 +697,9 @@ validate_finding() {
   fi
   if [[ -z "$CHECK_FILTER" || "$CHECK_FILTER" == "oracle" ]]; then
     check_oracle_unmodified
+  fi
+  if [[ -z "$CHECK_FILTER" || "$CHECK_FILTER" == "code-smells" ]]; then
+    check_scope_code_smells "$id"
   fi
 }
 
