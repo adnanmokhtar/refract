@@ -283,6 +283,35 @@ _git_net_for_row() {
   echo "$added $removed ${commits_shas:-}"
 }
 
+# ── CHECK: code-level smells in the row's ACTUAL commit diff (#30) ──────────
+# The optimize validator checked only the ledger/report, so an optimization "fix" that ADDED a
+# silent catch or debug print shipped green. optimize has no per-row scope field, but it ties a
+# row to its commits by message convention — so grep the ADDED lines of those commits for an
+# unambiguous silent swallow (empty catch{} / except: pass → FAIL) + debug prints (WARN).
+check_row_code_smells() {
+  local id="$1"
+  command -v git >/dev/null 2>&1 || { log_warn "$id: git not on PATH; code-smell scan skipped"; return 0; }
+  local range=() commits_shas
+  [[ -n "${PHASE_BASE:-}" ]] && range=("${PHASE_BASE}..HEAD")
+  commits_shas=$(git log --grep="${id}:" --grep="optimize/${id}:" --format='%H' "${range[@]}" 2>/dev/null || true)
+  [[ -z "$commits_shas" ]] && { log_pass "$id: no commit found; code-smell scan skipped"; return 0; }
+  local smells=0 sha added
+  while IFS= read -r sha; do
+    [[ -z "$sha" ]] && continue
+    added=$(git show "$sha" 2>/dev/null | grep -E '^\+' | grep -vE '^\+\+\+' || true)
+    if echo "$added" | grep -qE 'catch[[:space:]]*(\([^)]*\))?[[:space:]]*\{[[:space:]]*\}|except[^:]*:[[:space:]]*pass[[:space:]]*$'; then
+      log_fail "$id: commit $sha ADDS a silent catch (empty catch{} / except: pass) — route failures through the error handler (No Silent Catch)"
+      smells=$((smells + 1))
+    fi
+    if echo "$added" | grep -qE '\bconsole\.(log|debug)\(|^\+[[:space:]]*print\('; then
+      log_warn "$id: commit $sha ADDS a debug print (console.log / print) — use the project logger"
+    fi
+  done <<< "$commits_shas"
+  [[ $smells -eq 0 ]] && log_pass "$id: optimization commits free of silent-catch smells"
+  [[ $smells -gt 0 ]] && return 1
+  return 0
+}
+
 check_gap_count_parity() {
   local id="$1" status="$2" gin="$3" gcl="$4"
 
@@ -444,6 +473,7 @@ validate_optimize_row() {
   check_gap_count_parity "$id" "$status" "$gin" "$gcl" || true
   check_net_lines_structural "$id" "$cls" || true
   check_idiom_citation_functional "$id" "$cls" || true
+  check_row_code_smells "$id" || true
 
   local ffile="$FINDINGS_DIR/${id}.md"
   if [[ -f "$ffile" ]]; then
