@@ -1,12 +1,18 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.5.1",
-  "released": "2026-05-03",
+  "version": "1.5.2",
+  "released": "2026-05-30",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.",
   "changelog": {
+    "1.5.2": {
+      "released": "2026-05-30",
+      "changes": [
+        "Adds /align-unpark (reverses /align-park; restores prior status+phase) — the previously-referenced-but-missing revival command (audit #42). Plus validator-parity fixes: 4 new check_* functions implemented (perf-baseline, security-assertion, idiom-citation, oracle-unmodified), 2 name-drifts renamed, 3 tagged agent-side; check_no_new_symbols fail-closed + scope code-smell grep."
+      ]
+    },
     "1.5.1": {
       "released": "2026-05-03",
       "changes": [

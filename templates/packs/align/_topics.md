@@ -140,6 +140,14 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   mirror_existing: true
   fallback: commands/align-park.md
 
+- name: align-unpark
+  kind: command
+  triggers:
+    always: true
+  sections: [premise, when_to_use, prereqs, what_happens, output, related]
+  mirror_existing: true
+  fallback: commands/align-unpark.md
+
 - name: align-replan
   kind: command
   triggers:

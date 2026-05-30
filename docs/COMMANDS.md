@@ -415,7 +415,15 @@ These ship with their respective packs when the track is selected/detected.
 |---|---|
 | `/detect-drift` | Compare current code against documented conventions in `ai/conventions.md`. |
 | `/promote-pattern` | Graduate an emerging pattern from `ai/dynamic/learned-patterns.md` to a convention. |
+| `/promote-decision` | Graduate a resolved entry from `ai/dynamic/decisions-pending.md` to a numbered ADR. |
+| `/audit-knowledge` | Curator health audit — stale `dynamic/` entries, drifted conventions, dead ADRs, derived-file staleness. |
 | `/refresh-knowledge` | Re-run Phase 2 profiling; diff against current `ai/` and update. |
+
+**DevOps track**
+
+| Command | Purpose |
+|---|---|
+| `/rollback-deploy` | Roll back the environment to a previous known-good deploy (the recovery pair of `/deploy-stage`); `--to=<version>`. |
 
 **Code-quality / Database / Migration (additional)**
 

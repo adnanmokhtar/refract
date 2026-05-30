@@ -1,9 +1,9 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-05-30",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "Phase-6 continuous-learning pack — curator + drift/pattern watchers. 1.1.0 adds /promote-decision (pending-decision → ADR) + /audit-knowledge (curator staleness audit), the previously-phantom curator commands."
 }

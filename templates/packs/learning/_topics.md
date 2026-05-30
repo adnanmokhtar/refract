@@ -113,6 +113,18 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   fallback: _examples/promote-pattern.md
 
+- name: promote-decision
+  kind: command
+  triggers: { always: true }
+  mirror_existing: true
+  fallback: commands/promote-decision.md
+
+- name: audit-knowledge
+  kind: command
+  triggers: { always: true }
+  mirror_existing: true
+  fallback: commands/audit-knowledge.md
+
 - name: learn-from-task
   kind: command
   triggers: { always: true }

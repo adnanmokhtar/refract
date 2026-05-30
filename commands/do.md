@@ -37,7 +37,8 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "polish" / "enhance" / "improve" / "tighten" / "consistent" + UI sweep / whole project / module / page (no explicit variant ask) | `/polish [<scope>]` |
 | "redesign" / "iterate" / "try variants" / "few options" / "different look" + single UI surface (creative iteration ask) | `/enhance-ui <description>` |
 | "match colors" / "fix padding" / "cleaner spacing" + single UI surface (mechanical cleanup) | `/enhance-ui <description>` |
-| "add" / "new" / "create" / "build" + UI noun (page / component / form / modal / etc.) | `/add-feature <description>` (frontend) |
+| "new project" / "from scratch" / "scaffold" / "start a new app / website / service" / "greenfield" / "build a \<product\> from nothing" | `/scaffold-project "<description>"` (run `/refine-prompt` first if the idea is still rough) |
+| "add" / "new" / "create" / "build" + UI noun (page / component / form / modal / etc.) into an EXISTING app | `/add-feature <description>` (frontend) |
 | "add" / "new" + endpoint / route / API noun | `/add-endpoint <description>` (backend) |
 | "add" / "new" + module noun | `/add-module <description>` |
 | "add migration" / "new migration" | `/add-migration <description>` |
