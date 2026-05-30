@@ -212,7 +212,7 @@ pnpm add reka-ui lucide-vue-next clsx tailwind-merge class-variance-authority
 
 For Svelte stacks: similar pattern with `bits-ui` + `lucide-svelte`.
 
-For **mobile stacks** (#35 — the shadcn / Radix web CLIs do NOT apply; there is no DOM):
+For **mobile stacks** (#35 — the web component-library installers above do NOT apply; there is no DOM):
 ```bash
 # Expo / React Native — utility styling + a styled RN primitive layer
 pnpm add nativewind tailwindcss react-native-reanimated   # NativeWind (Tailwind-for-RN)
