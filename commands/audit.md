@@ -87,9 +87,11 @@ The agent:
 
 4. **Executes the plan** — P0 blockers FIRST (sequentially, with verification), then P1 (sequential, with assertions added), then P2 (parallel waves with measurement), then P3 (architectural foundations, sequential — each cascades dissolves P4 candidates), then P4 (parallel waves). After each phase, re-detects against the now-changed tree.
 
-5. **Behaviour-preserving** for architectural / refactoring / dead code / dedup. **Behaviour-changing where safe** for perf + scale fixes (parallelize, batch, cache, circuit-breaker insertion) — adds assertions in same commit. **Security fixes always ship with regression test in same commit.**
+5. **Behaviour-preserving** for architectural / refactoring / dead code / dedup. **Behaviour-changing where safe** for perf + scale fixes (parallelize, batch, cache, circuit-breaker insertion) — adds assertions in same commit. **Security fixes always ship with regression test in same commit.** Before a behaviour-preserving fix touches an UNCOVERED branch, the `test-shield` skill (code-quality pack) pins current behaviour with a characterization test (`/add-test`) first, or marks the finding `blocked` — "tests stay green" only proves preservation when a test exercises the touched branch.
 
 6. **Halts ONLY on genuine blockers** — fix would change observable behaviour where it must be preserved (re-classify, surface to user); idiom missing (e.g., user wants Redis but project has no cache primitive); cross-PR decoupling required (surfaces a small plan); infra change beyond mechanical (e.g., add HPA — surfaces ops ticket).
+
+7. **Boot-check (final)** — after the last fix commit, the `smoke-verify` skill (code-quality pack) boots the app per `PROJECT_KIND` (dev server / server + health probe / CLI / library import) and HALTS if it doesn't start — a green suite doesn't prove the app still wires up (DI / route registration / import cycles). Skippable with `--no-boot-check` for pure libraries. (Not run in `--plan-only` / `--assess`.)
 
 Output: P0 scale-blockers FIRST, then ranked findings, commits, diff stats, test status, perf wins (measured), capacity-headroom delta.
 

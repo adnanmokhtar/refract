@@ -1,12 +1,18 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.2.0",
-  "released": "2026-05-03",
+  "version": "1.3.0",
+  "released": "2026-05-30",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "General code review, refactoring, and pre-commit health gates. Includes engineering-principles + quality-principles rules, architectural-diagnosis + refactoring-sweep + dead-branch-scan skills.",
+  "summary": "General code review, refactoring, and pre-commit health gates. Includes engineering-principles + quality-principles rules, architectural-diagnosis + refactoring-sweep + dead-branch-scan + test-shield + smoke-verify skills.",
   "changelog": {
+    "1.3.0": {
+      "released": "2026-05-30",
+      "changes": [
+        "Adds test-shield (pre-sweep coverage gate) + smoke-verify (post-sweep stack-agnostic boot-check) skills, wired into /optimize (Phase 0.5 + final) and /audit (steps 5 + 7). Closes audit #9/#11: 'tests stay green' only proves preservation when a test covers the touched branch, and a green suite doesn't prove the app boots."
+      ]
+    },
     "1.2.0": {
       "released": "2026-05-03",
       "changes": [

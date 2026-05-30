@@ -106,4 +106,16 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [purpose, when_to_use, the_10_closure_verbs, procedure, hard_rules, failure_modes]
   fallback: _examples/refactoring-sweep.md
   cite_evidence: strict
+
+# Universal safety skills (COPY-mode — verbatim, not authored-from-extraction). Wired as the
+# pre-sweep coverage gate + post-sweep boot-check in /optimize + /audit (#9/#11).
+- name: test-shield
+  kind: skill
+  triggers: { always: true }
+  sections: [purpose, when_to_use, procedure, verify, anti_patterns]
+
+- name: smoke-verify
+  kind: skill
+  triggers: { always: true }
+  sections: [purpose, when_to_use, procedure, verify, anti_patterns]
 ```

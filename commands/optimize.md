@@ -83,6 +83,8 @@ Examples:
    - Repetition analysis (≥3 sites of same shape → missing-abstraction candidate).
    Emits internal `ai/optimize/_architecture-decisions.md` listing foundation-level fixes (cascade impact) vs cosmetic (would be tactical anyway). NOT shown to user.
 
+1.5. **Phase 0.5 — test-shield (coverage gate)** (dispatched via `test-shield` skill in code-quality pack). Before any behaviour-preserving fix touches a branch, measure coverage of the in-scope set; for each touched-but-uncovered branch, pin current behaviour with a characterization test (`/add-test`) BEFORE the fix, or mark the finding `blocked`. "Tests stay green" is only proof of preservation when a test exercises the touched branch. This baseline is what step 7's "coverage must not drop" compares against.
+
 2. **Phase 1 — Apply foundations FIRST** (architectural closure verbs):
    `move-responsibility`, `introduce-abstraction`, `fix-layering`, `centralize-cross-cutting`, `split-god-module`, `decouple-cycle`, `merge-anemic-module`. Each foundation fix gets one commit. Re-runs typecheck + scoped tests after each.
 
@@ -109,6 +111,8 @@ Examples:
    - Otherwise: just optimize.
 
 10. **Skip findings that aren't load-bearing** — clean-code findings in test fixtures / one-time scripts skip; only ship-path code gets optimized.
+
+11. **Boot-check (final)** — dispatch the `smoke-verify` skill (code-quality pack) after the last commit. A green suite doesn't prove the app starts; smoke-verify boots it per `PROJECT_KIND` (dev server / server + health probe / CLI / library import) and HALTS if it doesn't come up — catching DI / route-registration / import-cycle breaks no unit test covers. Skippable with `--no-boot-check` for pure libraries.
 
 ## Progress tracking (multi-day workflow)
 
