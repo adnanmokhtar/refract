@@ -80,7 +80,10 @@ passes_stack_diversity() {
   local fe=$((vf + rf + sf + af))
   # Express idioms (`app.get(`, `app.use(`, …) count as an Express backend dimension.
   local be
-  be=$(grep -oiE '\b(NestJS|Django|Rails|Laravel|FastAPI|Express|Spring Boot|Phoenix|Flask|Fastify|Hono|ASP\.NET|dotnet|Sequelize|Prisma|SQLAlchemy|TypeORM|Mongoose)\b|app\.(get|post|put|patch|delete|use)\(|(^|[ (/])\.NET\b|\bgo\b' <<<"$w" | sed 's/^ //' | sort -u | wc -l | tr -d ' ')
+  # Case-SENSITIVE: framework names are always capitalized, so this stops English prose
+  # ("express checkout", "go to") from false-counting as backend dimensions (the sibling
+  # scorer at family_score_window already omits bare go/Express — this aligns the two).
+  be=$(grep -oE '\b(NestJS|Django|Rails|Laravel|FastAPI|Express|Spring Boot|Phoenix|Flask|Fastify|Hono|ASP\.NET|dotnet|Sequelize|Prisma|SQLAlchemy|TypeORM|Mongoose)\b|app\.(get|post|put|patch|delete|use)\(|(^|[ (/])\.NET\b' <<<"$w" | sed 's/^ //' | sort -u | wc -l | tr -d ' ')
 
   [[ "$fe" -ge 2 ]] && return 0
   [[ "${be:-0}" -ge 2 ]] && return 0

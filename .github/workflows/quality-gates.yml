@@ -1,0 +1,38 @@
+name: quality-gates
+
+# The framework's own immune system. Runs the validator/parity/doc-sync gates on every
+# push + PR so a doc↔script drift or a validator silently regressing to always-pass becomes
+# a red build instead of shipping (the root cause of the latent-bug class — audit findings
+# #12 + #31). See scripts/{test-validators,lint-validator-parity,verify-doc-sync}.sh.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---- BLOCKING gates (green today; keep them green) ----
+      - name: Validator test harness (good/bad fixtures)
+        run: bash scripts/test-validators.sh
+
+      - name: Stack-leakage (single-stack wording in universal docs)
+        run: bash scripts/audit-stack-leakage.sh
+
+      - name: Command DRY (SOLID/clean-code without governance link)
+        run: bash scripts/audit-command-dry.sh
+
+      # ---- REPORT-ONLY gates (surface findings in the log; FLIP to blocking by removing
+      #      `continue-on-error` once the existing findings are cleared — Wave 2:
+      #      implement the 10 dangling validators + document the 18 commands) ----
+      - name: Validator parity (cited check_* must be defined or disclosed) [report-only until Wave 2]
+        run: bash scripts/lint-validator-parity.sh
+        continue-on-error: true
+
+      - name: Doc sync (every command documented; no dangling refs) [report-only until Wave 2]
+        run: bash scripts/verify-doc-sync.sh
+        continue-on-error: true

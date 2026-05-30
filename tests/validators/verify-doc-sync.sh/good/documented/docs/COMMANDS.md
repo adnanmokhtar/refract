@@ -1,0 +1,3 @@
+# Commands
+
+- `/foo` — does foo.

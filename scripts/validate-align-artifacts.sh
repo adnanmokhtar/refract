@@ -307,7 +307,7 @@ check_no_handwaves() {
   ' "$LEDGER_PATH")
 
   local hits
-  hits=$(echo "$row_block" | grep -iE '\betc\.\b|\.\.\.|\bseveral\b|\bmultiple (call sites|endpoints|places)\b|\bN\+ (duplicates|items)\b|\band so on\b|\band similar\b' || true)
+  hits=$(echo "$row_block" | grep -iE '\betc\.|\.\.\.|\bseveral\b|\bmultiple (call sites|endpoints|places)\b|\bN\+ (duplicates|items)\b|\band so on\b|\band similar\b' || true)
   if [[ -n "$hits" ]]; then
     log_fail "$id: hand-wave token detected — refactor row to enumerate instances explicitly"
     if [[ $QUIET -eq 0 ]]; then
