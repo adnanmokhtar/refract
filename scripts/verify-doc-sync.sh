@@ -43,7 +43,8 @@ done
 echo "[2] command → docs coverage"
 DOCS_BLOB="$( { [ -f "$COMMANDS_DOC" ] && cat "$COMMANDS_DOC"; [ -f "$REFERENCE_DOC" ] && cat "$REFERENCE_DOC"; } 2>/dev/null )"
 # Real command names: root commands/ + every pack commands/ (dedup; ignore _* helpers).
-REAL_CMDS="$( { ls commands/*.md 2>/dev/null; find templates/packs/*/commands -name '*.md' 2>/dev/null; } \
+REAL_CMDS="$( { ls commands/*.md 2>/dev/null; find templates/packs/*/commands -name '*.md' 2>/dev/null; \
+                ls templates/repo-baseline/.claude/commands/*.md 2>/dev/null; } \
               | xargs -n1 basename 2>/dev/null | sed 's/\.md$//' | grep -vE '^_' | sort -u || true )"
 missing_doc=0
 for c in $REAL_CMDS; do
@@ -62,7 +63,8 @@ DOC_TOKENS="$(grep -rhoE '`/[a-z][a-z0-9]+(-[a-z0-9]+)*' "$COMMANDS_DOC" "$REFER
 dangling=0
 for t in $DOC_TOKENS; do
   # Backed if a command file of that exact name exists.
-  if [ -f "commands/$t.md" ] || find templates/packs/*/commands -name "$t.md" 2>/dev/null | grep -q .; then
+  if [ -f "commands/$t.md" ] || [ -f "templates/repo-baseline/.claude/commands/$t.md" ] \
+     || find templates/packs/*/commands -name "$t.md" 2>/dev/null | grep -q .; then
     continue
   fi
   # Skip if it's an example invocation = a real command name followed by '-<args>'.

@@ -363,6 +363,68 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 | `/optimize-query`  | Analyze + rewrite a slow query with EXPLAIN.                                     |
 | `/db-audit`        | Schema audit — missing indexes, FK gaps, naming, NULL discipline.                |
 
+### Additional track commands
+
+These ship with their respective packs when the track is selected/detected.
+
+**Security track**
+
+| Command | Purpose |
+|---|---|
+| `/secret-scan` | Scan repo + commit history for leaked secrets; report findings + remediation. |
+| `/dependency-vuln-check` | Audit dependencies for known CVEs, abandoned maintainers, license issues. |
+| `/threat-model` | Structured STRIDE threat-model session against a feature / system. |
+
+**Observability track**
+
+| Command | Purpose |
+|---|---|
+| `/alert-design` | Design alerts for a service (RED + USE + SLO-based); avoids alert fatigue. |
+
+**Distributed-systems track**
+
+| Command | Purpose |
+|---|---|
+| `/add-event-handler` | Add an event handler — idempotent / retryable / observable / DLQ-aware. |
+| `/add-saga` | Implement a saga (orchestration / choreography) for a multi-step distributed flow. |
+| `/design-system` | Produce a system design — service boundaries, data ownership, consistency model. |
+
+**Mobile track**
+
+| Command | Purpose |
+|---|---|
+| `/add-screen` | Add a screen — route + screen component + navigation wiring. |
+| `/optimize-bundle` | Mobile bundle-size + cold-start optimization (app size, startup path). |
+
+**Business track**
+
+| Command | Purpose |
+|---|---|
+| `/analyze-task` | Turn a rough business idea into structured requirements + user stories. |
+| `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context. |
+
+**Infrastructure track**
+
+| Command | Purpose |
+|---|---|
+| `/provision-tier` | Provision a new environment tier (dev / staging / prod / DR) — IaC-driven. |
+
+**Learning track (Phase 6 maintenance)**
+
+| Command | Purpose |
+|---|---|
+| `/detect-drift` | Compare current code against documented conventions in `ai/conventions.md`. |
+| `/promote-pattern` | Graduate an emerging pattern from `ai/dynamic/learned-patterns.md` to a convention. |
+| `/refresh-knowledge` | Re-run Phase 2 profiling; diff against current `ai/` and update. |
+
+**Code-quality / Database / Migration (additional)**
+
+| Command | Purpose |
+|---|---|
+| `/find-module` | Locate a module, feature, or concept across the codebase quickly. |
+| `/migration-review` | Review a DB migration for safety, lock impact, reversibility, deploy order. |
+| `/compare-v1` | Compare a feature / module / endpoint between V1 and V2 (read-only parity report). |
+
 ### Migration track (when `--include=migration` or auto-detected)
 
 The migration pack ships **two suites** of commands. Use the suite that fits.

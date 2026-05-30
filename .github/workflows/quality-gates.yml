@@ -31,8 +31,8 @@ jobs:
       - name: Validator parity (cited check_* must be defined or disclosed)
         run: bash scripts/lint-validator-parity.sh
 
-      # ---- REPORT-ONLY until the 18 undocumented commands are added to COMMANDS.md
-      #      (finding #40) — then drop continue-on-error. ----
-      - name: Doc sync (every command documented; no dangling refs) [report-only until finding #40 closed]
+      # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
+      # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
+      # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.
+      - name: Doc sync (every command documented; pack sync-files present)
         run: bash scripts/verify-doc-sync.sh
-        continue-on-error: true
