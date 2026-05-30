@@ -78,12 +78,16 @@ passes_stack_diversity() {
   grep -qE '\bAngular\b|\*ngIf|\*ngFor|\bNgRx\b|\bAngular Material\b|\bChangeDetectionStrategy\b' <<<"$w" && af=1
 
   local fe=$((vf + rf + sf + af))
-  # Express idioms (`app.get(`, `app.use(`, …) count as an Express backend dimension.
+  # Two-pass backend count (#24):
+  #  pass 1 (case-INSENSITIVE): unambiguous framework names — so lowercase policy-doc lists
+  #          (django, laravel, rails, …) still count as diversity.
+  #  pass 2 (case-SENSITIVE):   `Express` / `Go` — the only English-colliding tokens — match
+  #          ONLY in capitalized framework form, so "express checkout" / "go to" prose does NOT
+  #          count, but "Express to NestJS" does. (app.get( idioms also imply Express.)
+  # Combined, lowercased, de-duped, counted.
   local be
-  # Case-SENSITIVE: framework names are always capitalized, so this stops English prose
-  # ("express checkout", "go to") from false-counting as backend dimensions (the sibling
-  # scorer at family_score_window already omits bare go/Express — this aligns the two).
-  be=$(grep -oE '\b(NestJS|Django|Rails|Laravel|FastAPI|Express|Spring Boot|Phoenix|Flask|Fastify|Hono|ASP\.NET|dotnet|Sequelize|Prisma|SQLAlchemy|TypeORM|Mongoose)\b|app\.(get|post|put|patch|delete|use)\(|(^|[ (/])\.NET\b' <<<"$w" | sed 's/^ //' | sort -u | wc -l | tr -d ' ')
+  be=$( { grep -oiE '\b(NestJS|Django|Rails|Laravel|FastAPI|Spring Boot|Quarkus|Micronaut|Phoenix|Flask|Fastify|Hono|Ktor|ASP\.NET|dotnet|Sequelize|Prisma|SQLAlchemy|TypeORM|Mongoose)\b|app\.(get|post|put|patch|delete|use)\(|(^|[ (/])\.NET\b' <<<"$w"; grep -oE '\bExpress\b|\bGo\b' <<<"$w"; } \
+        | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//' | sort -u | sed '/^$/d' | wc -l | tr -d ' ')
 
   [[ "$fe" -ge 2 ]] && return 0
   [[ "${be:-0}" -ge 2 ]] && return 0

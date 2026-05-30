@@ -23,6 +23,23 @@ hard-rule: HALT + RETRY, not "report and continue"
 
 ### Phase 5 — Verify + report
 
+> **MANDATORY DETERMINISTIC EXIT GATE (M17 — do not skip).** Phase 5 is NOT complete until the
+> deterministic audit script has run and exited 0. The inline LLM checks below are necessary but
+> NOT sufficient — the authoritative gate is the script. As the FINAL step of Phase 5, run:
+>
+> ```bash
+> ~/.claude/scripts/audit-setup.sh "$TARGET_REPO" --mode=$MODE
+> #   exit 0 → safe to report success
+> #   exit 1 → REFUSED: address every ERR and re-run. Do NOT report success / idempotent / no-work.
+> #   exit 2 → usage error
+> # Append --lightweight when the run was lightweight (exempts the C2i ai/-populate gate, which is
+> # legitimately unpopulated in lightweight mode).
+> ```
+>
+> This invocation lives HERE, not only in the orchestrator, on purpose: tiered context loading means
+> a Phase-5 agent may read only this file, so the gate must be reachable from it (audit finding #3).
+> `$MODE` is passed verbatim and normalized inside the script (CREATE / ENHANCE-retrofit / … → lower).
+
 **5.1 File presence verification**:
 - List full tree of created/modified files.
 - Confirm hooks are executable.

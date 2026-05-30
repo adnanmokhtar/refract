@@ -23,12 +23,19 @@ fi
 
 TARGET="$1"; shift
 MODE="refresh"
+LIGHTWEIGHT=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --mode=*) MODE="${1#--mode=}"; shift ;;
-    *)        shift ;;
+    --mode=*)      MODE="${1#--mode=}"; shift ;;
+    --lightweight) LIGHTWEIGHT=1; shift ;;
+    *)             shift ;;
   esac
 done
+# Normalize the mode string (#4): Phase 1 emits CREATE / ENHANCE-retrofit / ENHANCE-extend /
+# REFRESH / REFINE, but every check below string-matches lowercase create|enhance|refresh|refine.
+# Without this, `ENHANCE-retrofit` never matches "enhance" (adapter-sync + baseline gates silently
+# no-op) and `CREATE` runs checks the file says CREATE is exempt from.
+MODE=$(printf '%s' "$MODE" | tr 'A-Z' 'a-z' | sed 's/enhance-.*/enhance/; s/refresh-.*/refresh/; s/refine-.*/refine/')
 
 CL="$TARGET/.claude"
 fail=0
@@ -299,6 +306,10 @@ fi
 # a foundational file is byte-identical to its repo-baseline source OR still carries
 # baseline placeholder tokens. Spec: templates/phases/phase-5-verify.md §5.3.0.
 echo "C2i: foundational ai/ files populated (not baseline stubs)"
+# --lightweight (#25) deliberately skips Phase 4.7 ai/ population (~80% faster, trivial pack
+# additions / status checks), so an unpopulated stub is EXPECTED, not a failure. Downgrade C2i
+# to a warn under --lightweight rather than REFUSE the run. Full runs keep the hard gate.
+C2I_REPORT() { if [[ $LIGHTWEIGHT -eq 1 ]]; then warn_msg "$*"; else err "$*"; fi; }
 BASELINE_AI="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/repo-baseline/ai"
 FOUNDATIONAL=( architecture stack modules status conventions business-domain _convention-cheatsheet )
 # Tokens UNIQUE to unpopulated baseline stubs. NB: bare `<name>` is excluded — it is a
@@ -309,16 +320,16 @@ stub_count=0
 for fname in "${FOUNDATIONAL[@]}"; do
   tgt="$TARGET/ai/$fname.md"
   if [[ ! -f "$tgt" ]]; then
-    err "foundational ai/ file missing: ai/$fname.md"
+    C2I_REPORT "foundational ai/ file missing: ai/$fname.md"
     stub_count=$((stub_count + 1)); continue
   fi
   base="$BASELINE_AI/$fname.md"
   if [[ -f "$base" ]] && diff -q "$base" "$tgt" >/dev/null 2>&1; then
-    err "UNPOPULATED_STUB: ai/$fname.md is byte-identical to repo-baseline stub — Phase 4.7 never populated it (run /setup-project --refresh)"
+    C2I_REPORT "UNPOPULATED_STUB: ai/$fname.md is byte-identical to repo-baseline stub — Phase 4.7 never populated it (run /setup-project --refresh)"
     stub_count=$((stub_count + 1)); continue
   fi
   if grep -qE "$STUB_TOKENS" "$tgt" 2>/dev/null; then
-    err "UNPOPULATED_STUB: ai/$fname.md still carries baseline placeholder tokens — population incomplete"
+    C2I_REPORT "UNPOPULATED_STUB: ai/$fname.md still carries baseline placeholder tokens — population incomplete"
     stub_count=$((stub_count + 1))
   fi
 done

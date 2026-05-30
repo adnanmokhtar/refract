@@ -15,6 +15,14 @@ exit-criteria: backup tarball written; prior knowledge serialized to ai/_extract
 
 **Three shell scripts MUST run before any other Phase 0 substep.** They write structured reports the agent MUST read. The agent CANNOT skip them by claiming "I already know what's there." Bash output is the authority; LLM judgment is not.
 
+**Canonical wrapper (preferred):** run all of these as ONE command — `run-preflight.sh` also runs
+`detect-tracks.sh` (M28) + `detect-mcp.sh` (M29), which the four individual calls below omit (audit
+finding #3). The individual invocations are what the wrapper calls, kept here for reference:
+
+```bash
+~/.claude/scripts/run-preflight.sh "$TARGET_REPO" --mode=$MODE $SELECTED_PACKS
+```
+
 ```bash
 # 1. Pack-source coverage scan — what files in selected packs are missing/present in target
 ~/.claude/scripts/pack-coverage-scan.sh "$TARGET_REPO" $SELECTED_PACKS

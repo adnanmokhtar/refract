@@ -45,6 +45,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Normalize the mode string (#4): Phase 1 emits CREATE / ENHANCE-retrofit / ENHANCE-extend /
+# REFRESH / REFINE; downstream string-matches lowercase create|enhance|refresh|refine.
+MODE=$(printf '%s' "$MODE" | tr 'A-Z' 'a-z' | sed 's/enhance-.*/enhance/; s/refresh-.*/refresh/; s/refine-.*/refine/')
+
 # When --force is set, propagate to the LLM-section-preserving sub-scripts
 # (refresh-extract-checklist + deep-codebase-scan) so they regenerate fresh
 # templates and overwrite existing LLM-filled content. Default = preserve.
