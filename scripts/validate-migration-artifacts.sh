@@ -60,6 +60,11 @@ PROJECT_KIND="frontend-vue3"      # frontend-vue3 | frontend-react | backend-nes
 V2_ROOT="src/"
 V1_ROOT=""
 ANCHORS_FILE="ai/migration/_v2-anchors.md"
+# Project-specific V2-structure fingerprints, parsed from the `forbidden_patterns:` list in
+# _v2-anchors.md (#13). When non-empty, check_v2_structure uses THESE instead of the frozen
+# tenant-portal-v2 reference set hardcoded in the script — making the Transposition-Trap /
+# Reinvented-Wrapper detection portable to any project.
+declare -a PROJECT_FINGERPRINTS=()
 # Lifecycle / KeepAlive checks (frontend) — anchor these per project via _v2-anchors.md
 KEEPALIVE_LAYOUT=""               # e.g. src/shared/layouts/MainLayout.vue (Vue) — empty = lifecycle check disabled
 KEEPALIVE_EXCLUDE_VAR="noCache"   # variable name in the layout that holds the exclude list
@@ -2215,6 +2220,15 @@ check_v2_structure() {
       ;;
   esac
 
+  # #13 — portability: if the project declared its OWN fingerprints in _v2-anchors.md, use those
+  # (the hardcoded case-block above is the tenant-portal-v2 REFERENCE set, kept as the fallback).
+  if [[ ${#PROJECT_FINGERPRINTS[@]} -gt 0 ]]; then
+    fingerprints=("${PROJECT_FINGERPRINTS[@]}")
+    [[ $QUIET -eq 0 ]] && echo "  v2-structure: ${#fingerprints[@]} project fingerprint(s) from _v2-anchors.md"
+  elif [[ ${#fingerprints[@]} -gt 0 && $QUIET -eq 0 ]]; then
+    echo "  v2-structure: using ${#fingerprints[@]} built-in reference fingerprints (PROJECT_KIND=$PROJECT_KIND) — declare a forbidden_patterns: list in _v2-anchors.md for project-specific detection (#13)"
+  fi
+
   local file_failures=0 file_warnings=0
   for file in "${scan_targets[@]}"; do
     # Allowlist: the canonical HTTP client + tokenProvider are EXEMPT from the
@@ -2970,8 +2984,26 @@ load_project_anchors() {
   [[ -n "$runbooks" ]] && RUNBOOKS_DIR="$runbooks"
   [[ -n "$ka_layout" ]] && KEEPALIVE_LAYOUT="$ka_layout"
   [[ -n "$ka_var" ]]    && KEEPALIVE_EXCLUDE_VAR="$ka_var"
+
+  # Parse the `forbidden_patterns:` list (#13) — the exact format _v2-anchors-schema.md §
+  # "V1 fingerprints to forbid in V2" documents but the script never read (the doc↔script gap
+  # that IS #13). Each entry: `- { regex: '<rx>', severity: <fail|warn>, message: "<msg>" }`.
+  # Converted to the internal `<rx>|<sev>|<msg>` form. Lets ANY project declare its own
+  # wrappers/primitives instead of inheriting the frozen tenant-portal-v2 set hardcoded below.
+  PROJECT_FINGERPRINTS=()
+  while IFS= read -r ln; do
+    echo "$ln" | grep -qE '^[[:space:]]*-[[:space:]]*\{.*regex:' || continue
+    local rx sev msg
+    rx=$(echo "$ln" | sed -nE "s/.*regex:[[:space:]]*'([^']*)'.*/\1/p")
+    [[ -z "$rx" ]] && rx=$(echo "$ln" | sed -nE 's/.*regex:[[:space:]]*"([^"]*)".*/\1/p')
+    sev=$(echo "$ln" | sed -nE 's/.*severity:[[:space:]]*([a-zA-Z]+).*/\1/p')
+    msg=$(echo "$ln" | sed -nE 's/.*message:[[:space:]]*"([^"]*)".*/\1/p')
+    [[ -z "$rx" || -z "$sev" ]] && continue
+    PROJECT_FINGERPRINTS+=("${rx}|${sev}|${msg:-V1 transposition fingerprint}")
+  done < "$ANCHORS_FILE"
+
   if [[ $QUIET -eq 0 ]]; then
-    echo "  anchors: $ANCHORS_FILE (project_kind=$PROJECT_KIND, v2_root=$V2_ROOT)"
+    echo "  anchors: $ANCHORS_FILE (project_kind=$PROJECT_KIND, v2_root=$V2_ROOT, fingerprints=${#PROJECT_FINGERPRINTS[@]})"
   fi
 }
 

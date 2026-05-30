@@ -96,7 +96,7 @@ forbidden_patterns:
   ...
 ```
 
-The defaults in `validate-migration-artifacts.sh § check_v2_structure` are stack-conditional via `PROJECT_KIND`; projects override or extend.
+`validate-migration-artifacts.sh § check_v2_structure` **parses this `forbidden_patterns:` list at runtime** (via `load_project_anchors`) and, when non-empty, uses it INSTEAD of the built-in reference set — so detection is portable to any project (#13). Each entry must be `- { regex: '<rx>', severity: fail|warn, message: "<msg>" }`. When no `forbidden_patterns:` is declared, the script falls back to its built-in tenant-portal-v2 reference fingerprints (stack-conditional via `PROJECT_KIND`) and prints a notice recommending you declare your own.
 
 ## Required V2 patterns (positive — must appear in new V2 code)
 
