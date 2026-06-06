@@ -43,7 +43,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
     - relationship_to_migration    # align is migration turned inward
     - tiered_floor                 # trivial / standard / heavy with promoter rules
     - anti_bloat_rules             # closure-verb vocabulary; net-lines rule split by class group; idiom citation
-    - finding_categories           # 7 universal classes (structural) + 4 (functional) + per-stack
+    - finding_categories           # 6 universal classes (structural) + 5 (functional) + per-stack
     - per_stack_extensions         # frontend UI/UX detectors (mandatory for frontend-*); backend; data; mobile
     - per_finding_audit_halts      # 11 halts
     - tool_agnostic_procedure      # scan + find-and-align + gate (inlined for rule-only tools)
@@ -191,7 +191,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
 
 - **align-discipline** is `always: true` because the rule is the contract; without it, the commands lose discipline.
 - **align-fast** is `always: true` because `/migration-fast` set the precedent — fast is the routine path; manual is the exception.
-- **detect-drift** is `always: true` because it's the universal detector; per-stack packs ADD detectors, but the universal 11 always run.
+- **detect-drift** is `always: true` because it's the universal detector; per-stack packs ADD detectors, but the universal 12 always run.
 - **find-and-align** is `always: true` because every fix uses the per-finding loop.
 
 ## Per-stack additions

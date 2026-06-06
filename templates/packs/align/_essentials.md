@@ -17,10 +17,10 @@ This pack is loaded **on demand** via `--include=align` (no auto-load — alignm
 
 ## What align covers
 
-Align is the codebase's quality gate. The 11 universal detector classes (split into structural + functional groups) plus per-stack extensions:
+Align is the codebase's quality gate. The 12 universal detector classes (split into structural + functional groups) plus per-stack extensions:
 
 - **Structural** (net-lines ≤ 0; entropy-reducing) — dead code, duplicated logic, reinvented wrappers, silent catches, over-abstraction, drift from gold standard.
-- **Functional** (small + budget; added lines must cite idioms) — SOLID violations (SRP/OCP/LSP/ISP/DIP), clean-code (long functions / deep nesting / magic numbers / bad naming), performance (N+1 / sequential await / sync HTTP in hot path / missing cache / missing index / `SELECT *` / in-app filter), security (missing auth gate / SQL injection / XSS / secrets / unsafe deserialize / missing validator / vuln deps / tenant isolation / CSRF / rate-limit).
+- **Functional** (small + budget; added lines must cite idioms) — SOLID violations (SRP/OCP/LSP/ISP/DIP), clean-code (long functions / deep nesting / magic numbers / bad naming), performance (N+1 / sequential await / sync HTTP in hot path / missing cache / missing index / `SELECT *` / in-app filter), security (missing auth gate / SQL injection / XSS / secrets / unsafe deserialize / missing validator / vuln deps / tenant isolation / CSRF / rate-limit), unhandled-io (happy-path-only I/O — call sites with no error path / no timeout / no failure surfacing; the absent-error-path sibling of silent-catch).
 - **Frontend stack** — a11y violations, design-token drift, i18n key drift, raw library components in pages, missing UI states (loading/empty/error), motion drift, responsive drift, lifecycle hook on wrong child, default-true wrapper props, permission-gate drop.
 - **Backend stack** — tenant-gate-missing, transaction-boundary, query-without-tenant-filter.
 - **Data stack** — column-projection-mismatch, idempotency-key-missing, sync-http-in-batch.
@@ -29,7 +29,7 @@ Align is the codebase's quality gate. The 11 universal detector classes (split i
 ## Rationale per category (one line each)
 
 - **commands**: Run in order: `/align-scan` (deep codebase scan; fresh ledger), `/align-plan` (phased plan honoring gold standards). Then per phase EITHER the manual flow `/align-phase <N>` → `/align-gate <N>` (interactive, supervised) OR the fast flow `/align-fast <N>` (one-shot: per-finding loop in parallel + auto-gate, same discipline, no human-watch pauses). After the last phase's gate PASSes, `/align-final` (cross-phase verification + recommendations). **Sidecar commands**: `/align-status` (read-only progress), `/align-rollback <N>` (undo phase), `/align-park <id>` (defer hairy findings). Use `/align-fast <N>` for routine mechanical phases; manual flow when heavy-tier rows benefit from per-row supervision.
-- **skills**: `detect-drift` runs the 11 universal detectors (parallel waves: structural / functional / stack-conditional); `find-and-align` is the per-finding fix loop (DETECT → DECIDE → FIX → VERIFY → RECORD; one commit per finding; net-lines ≤ 0 for structural / cite-idiom for functional).
+- **skills**: `detect-drift` runs the 12 universal detectors (parallel waves: structural / functional / stack-conditional); `find-and-align` is the per-finding fix loop (DETECT → DECIDE → FIX → VERIFY → RECORD; one commit per finding; net-lines ≤ 0 for structural / cite-idiom for functional).
 - **rules**: `align-discipline` codifies the contract — closure-verb vocabulary (21 verbs across structural + functional groups); tier rules (trivial default for structural; security always ≥ standard; critical security always heavy); per-finding audit halts (11); phase-exit gate checks (14); anti-patterns (Trusted Summary, Hand-waved, Net-Positive Cleanup, Reinvented Idiom, Bare Security Fix, Hopeful Perf Fix, etc.).
 - **ai-patterns**: `align-ledger` is the state-tracking convention (what's `detected` / `in-progress` / `fixed` / `verified` / `archived` / `parked` / `halted`).
 

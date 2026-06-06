@@ -90,7 +90,7 @@ Adapter responsibility: include the drift section in the scan command's output t
 
 ## Plan-independent ad-hoc spot-check — `/align-recheck`
 
-`/align-recheck <description-or-path>` is the user's bypass-the-ceremony tool (v1.4.0). **NO plan / phase / ledger required.** Accepts natural-language descriptions OR paths. Semantic resolution via codebase-profile + idioms (same intent-interpretation model as `/add-feature`). Scans source FRESH via the 11 universal detectors directly — no cache lookup, no ledger-row dependency.
+`/align-recheck <description-or-path>` is the user's bypass-the-ceremony tool (v1.4.0). **NO plan / phase / ledger required.** Accepts natural-language descriptions OR paths. Semantic resolution via codebase-profile + idioms (same intent-interpretation model as `/add-feature`). Scans source FRESH via the 12 universal detectors directly — no cache lookup, no ledger-row dependency.
 
 Adapter responsibility:
 1. Every tool that exposes commands MUST surface `/align-recheck` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.qwen/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).

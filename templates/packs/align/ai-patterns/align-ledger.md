@@ -75,7 +75,7 @@ Every row is a YAML block under a `## <id>` heading in `ai/align/ledger.md`:
 ```yaml
 ## ALIGN-0042
 status: verified                # detected | in-progress | fixed | verified | parked | archived | halted
-class: silent-catch             # one of the 11 universal classes (or stack-conditional class)
+class: silent-catch             # one of the 12 universal classes (or stack-conditional class)
 tier: trivial                   # trivial | standard | heavy
 source:
   - path: <services-root>/order.<ext>

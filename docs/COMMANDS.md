@@ -501,7 +501,7 @@ Properties:
 
 ### Align track (when `--include=align` — opt-in only)
 
-The align pack is the **codebase quality gate** — a comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically.
+The align pack is the **codebase quality gate** — a comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, unhandled I/O (happy-path-only call sites), over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically.
 
 **Precondition**: `_extracted-idioms.md` must be populated. If not, run `/setup-project --refine` first.
 
@@ -509,7 +509,7 @@ The align pack is the **codebase quality gate** — a comprehensive sweep agains
 
 | Command                | Purpose                                                                          |
 |------------------------|----------------------------------------------------------------------------------|
-| `/align-scan`          | Deep scan. Runs 11 universal detectors (6 structural + 4 functional + stack-conditional). Builds `ai/align/ledger.md` (every row `detected`), `scan-report.md`, `findings.md`. Frontend stacks auto-dispatch UI/UX detectors. Security findings always ≥ standard tier; critical security always heavy. |
+| `/align-scan`          | Deep scan. Runs 12 universal detectors (6 structural + 5 functional + stack-conditional). Builds `ai/align/ledger.md` (every row `detected`), `scan-report.md`, `findings.md`. Frontend stacks auto-dispatch UI/UX detectors. Security findings always ≥ standard tier; critical security always heavy. |
 | `/align-plan`          | Reads scan + ledger. Produces `ai/align/plan.md` — phased plan grouped by class + domain + tier. Mechanical first; security front-loaded; UI/UX grouped by domain. Cap: 12 findings/phase. |
 | `/align-phase <N>`     | Executes phase N. Per-finding loop: DETECT (re-verify fingerprint) → DECIDE (closure verb in 21-verb vocabulary) → FIX (mechanical edit; touch only `scope`) → VERIFY (lint + typecheck + tests + re-detect + class-specific assertions) → RECORD (one commit per finding). |
 | `/align-gate <N>`      | Phase exit gate. 14-check matrix (ledger completeness, gap-count parity, net-lines on structural, no-new-symbols-except-idioms, no scope creep, mechanical, coverage non-decreasing, frontend regressions, oracle unmodified, per-tier artifacts, idiom citation, security assertion, perf baseline, security tier minimum). Read-only; refuses on any check fail. |
@@ -529,7 +529,7 @@ The align pack is the **codebase quality gate** — a comprehensive sweep agains
 | `/align-rollback <N>`    | Undo phase N. Reverts commits via `git revert` (preserves audit trail), restores ledger rows to `detected`, archives halt files. Mandatory user confirmation; cascade warning if later phases depend on phase N. |
 | `/align-park <id> [reason]` | Defer a hairy finding. Sets `status: parked` with rationale; excludes from phase gate. Reversible via `/align-unpark`. |
 | `/align-replan`          | Regenerate the phased plan from current ledger state. Run when plan ages out (codebase changed, parked rows piled up, prior phases revealed sequencing wrong, `/setup-project --refine` updated idioms). Preserves verified rows; re-phases the rest. Mirrors `/migration-replan`. |
-| `/align-recheck <description-or-path>` | **Plan-independent quality spot-check + fix.** NO plan / phase / ledger required. Accepts natural-language descriptions OR paths. Scans source FRESH for the area via the 11 universal detectors (+ stack-conditional UI/UX); fixes drift; updates ledger best-effort. Pass `--register-ledger` to track findings going forward. Works whether or not alignment was ever set up. |
+| `/align-recheck <description-or-path>` | **Plan-independent quality spot-check + fix.** NO plan / phase / ledger required. Accepts natural-language descriptions OR paths. Scans source FRESH for the area via the 12 universal detectors (+ stack-conditional UI/UX); fixes drift; updates ledger best-effort. Pass `--register-ledger` to track findings going forward. Works whether or not alignment was ever set up. |
 
 Workflow (manual — fully supervised):
 ```
@@ -1094,9 +1094,9 @@ For routine cadence sweeps (after the first run), use the full scan:
 /align-scan
 ```
 
-Reads the codebase against `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md`. Runs 10 universal detectors in parallel waves:
+Reads the codebase against `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md`. Runs 11 universal detectors in parallel waves:
 - **Structural** (6): dead-code, duplicated-logic, reinvented-wrapper, silent-catch, over-abstraction, drift.
-- **Functional** (4): SOLID violation, clean-code, performance, security (security includes deps-audit as a sub-class).
+- **Functional** (5): SOLID violation, clean-code, performance, security (security includes deps-audit as a sub-class), unhandled-io (happy-path-only I/O — call sites with no error path / timeout / failure surfacing; the absent-error-path sibling of silent-catch).
 - **Stack-conditional**: a11y / design tokens / i18n / motion / lifecycle / default-true wrappers / permission gates for `frontend-*`; tenant-gate / N+1 / transaction-boundary for `backend-*`; etc.
 
 Outputs `ai/align/ledger.md` (every row `detected`, with `<path:line>` evidence), `scan-report.md`, `findings.md`. Security findings always ≥ standard tier; critical security (SQL injection, secret-in-code, RCE vectors) ALWAYS heavy.

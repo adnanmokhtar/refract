@@ -18,7 +18,7 @@ What it does NOT do:
 
 What it DOES:
 - ✅ Resolve your description to actual source paths (semantic understanding via codebase-profile + idioms).
-- ✅ Run a **fresh detection sweep** for the area: dispatches the 11 universal detectors (dead-code, dups, reinvented-wrapper, silent-catch, over-abstraction, drift, SOLID, clean-code, performance, security) + stack-conditional UI/UX detectors for `frontend-*` (a11y, design-tokens, i18n, motion, lifecycle, default-true-prop, permission-gate-drop).
+- ✅ Run a **fresh detection sweep** for the area: dispatches the 12 universal detectors (dead-code, dups, reinvented-wrapper, silent-catch, over-abstraction, drift, SOLID, clean-code, performance, security, unhandled-io) + stack-conditional UI/UX detectors for `frontend-*` (a11y, design-tokens, i18n, motion, lifecycle, default-true-prop, permission-gate-drop).
 - ✅ Apply closure-verb fixes (21-verb vocabulary; structural net-lines ≤ 0; functional cite-idiom).
 - ✅ Verify (lint + typecheck + scoped tests + re-detect + class-specific assertions).
 - ✅ Commit (one commit per finding).
@@ -144,7 +144,7 @@ Optional flags:
 1. PRE-FLIGHT      — verify oracle + clean tree (ledger / plan NOT required)
 2. RESOLVE         — for each input arg: classify as path or description; resolve descriptions to source paths via semantic understanding
 3. CONFIRM         — if resolution was ambiguous, surface candidates and confirm
-4. SCAN-FRESH      — for the resolved area: dispatch the 11 universal detectors (+ stack-conditional UI/UX detectors for frontend-*) directly against current source. NO cache lookup, NO ledger-row lookup as input.
+4. SCAN-FRESH      — for the resolved area: dispatch the 12 universal detectors (+ stack-conditional UI/UX detectors for frontend-*) directly against current source. NO cache lookup, NO ledger-row lookup as input.
 5. TRIAGE          — split detected findings into trivial / standard / heavy
 6. FIX             — apply closure-verb edits per finding (one commit per finding; net-lines ≤ 0 structural / cite-idiom functional)
 7. VERIFY          — lint + typecheck + scoped tests + re-detect + class-specific assertions (security / perf / a11y / bundle-size)

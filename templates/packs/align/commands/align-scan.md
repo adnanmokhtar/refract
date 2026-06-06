@@ -1,5 +1,5 @@
 ---
-description: Deep codebase quality scan. Reads source against the gold-standard inventory (_extracted-idioms.md), runs the 11 universal detectors (structural + functional: SOLID, clean code, performance, security) plus stack-specific detectors, builds ai/align/findings.md + ai/align/ledger.md. Run before /align-plan. Stack-agnostic — frontend / backend / data / mobile. Frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Security findings are always ≥ standard tier; critical security always heavy.
+description: Deep codebase quality scan. Reads source against the gold-standard inventory (_extracted-idioms.md), runs the 12 universal detectors (structural + functional: SOLID, clean code, performance, security, unhandled-io) plus stack-specific detectors, builds ai/align/findings.md + ai/align/ledger.md. Run before /align-plan. Stack-agnostic — frontend / backend / data / mobile. Frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Security findings are always ≥ standard tier; critical security always heavy.
 kind: command
 pack: align
 ---
@@ -16,9 +16,9 @@ The deep-comparison entry point. Run this FIRST before `/align-plan` or `/align-
 
 **Trust nothing.** This command does NOT take any prior "fixed" status as truth — every finding from a previous run is freshly re-verified against current source. The ledger that comes out reflects current reality, not history.
 
-**Stack-conditional dispatch.** The detector set is PROJECT_KIND-conditional. Every project gets the 11 universal detectors:
+**Stack-conditional dispatch.** The detector set is PROJECT_KIND-conditional. Every project gets the 12 universal detectors:
 - **6 structural**: dead-code, duplicates, reinvented-wrapper, silent-catch, over-abstraction, drift.
-- **5 functional**: SOLID violations, clean-code violations, performance, security, dependencies (sub-class of security).
+- **6 functional**: SOLID violations, clean-code violations, performance, security, unhandled-io (happy-path-only I/O — no error path / no timeout / no failure surfacing at an I/O call site), dependencies (sub-class of security).
 
 Frontend stacks (`frontend-*`) additionally run UI/UX detectors (a11y, design tokens, i18n, motion, lifecycle, permission gates, default-true wrapper props) — UI/UX is mandatory for frontend, not optional. Backend stacks add tenant-gate / N+1 / transaction-boundary detectors. Mobile stacks add native-bridge detectors.
 
@@ -133,7 +133,7 @@ Optional flags:
 - `--max-findings-per-class=<N>` — cap findings per detector (default: unlimited; first-run sets to 20). When the cap is hit, the scan reports "<class>: capped at <N> findings; <K> additional findings deferred to next sweep" and writes the deferred fingerprints to `ai/align/_deferred.md` for follow-up.
 - `--include-archived` — also re-scan findings marked `archived-pre-existing` in a prior run.
 - `--since=<commit>` — incremental scan. Only re-evaluate files changed since the given commit. Existing ledger rows for unchanged files keep their current status. Use on large repos (10k+ files) where re-detecting everything is expensive.
-- `--no-stack` — disable PROJECT_KIND-specific detectors (universal 10 only). Use when stack pack is not loaded.
+- `--no-stack` — disable PROJECT_KIND-specific detectors (universal 12 only). Use when stack pack is not loaded.
 - `--max-subagents=<N>` — cap parallel detector dispatch (default: 5).
 
 ## Phase 2 — Organize (decompose the work)
@@ -145,7 +145,7 @@ The detector dispatch is parallel where independent. Orchestration:
                                   |
         +-------------------------+-------------------------+
         |                         |                         |
-   universal-11             stack-conditional         ledger build
+   universal-12             stack-conditional         ledger build
    (parallel waves)         (parallel waves)         (sequential after)
         |                         |
    STRUCTURAL (6):                 frontend-*:
@@ -464,7 +464,7 @@ One-line summary: scan complete, N findings, K phases recommended.
 - No hand-wave tokens (`etc.`, `...`, `several`, `multiple`) in any field.
 - Every row has a `closure_verb` in the universal vocabulary.
 - Every row has a `tier` ∈ `{trivial, standard, heavy}` matching the promoter rules in `align-discipline.md`.
-- All 11 universal detectors ran (none silently skipped). For frontend stacks: + a11y / i18n / design-token / data-flow / motion. For backend stacks: + tenant-gate / N+1 / transaction-boundary.
+- All 12 universal detectors ran (none silently skipped). For frontend stacks: + a11y / i18n / design-token / data-flow / motion. For backend stacks: + tenant-gate / N+1 / transaction-boundary.
 - Every security finding has `severity ∈ {low, medium, high, critical}`.
 - Every security finding has `tier ≥ standard` (no security-trivial rows).
 - Every functional finding (SOLID / clean-code / perf / security) has `idiom_cited` resolving to an entry in `_extracted-idioms.md`.
@@ -516,7 +516,7 @@ Align scan complete:
     Security:                 <N> (critical: <C>, high: <Hi>, medium: <M>, low: <L>)
     Stack-specific:           <N>
 
-  Detectors run:              <count> (universal: 11, stack-specific: <K>)
+  Detectors run:              <count> (universal: 12, stack-specific: <K>)
   Recommended phases:         <P> (cap: 12 findings/phase)
   Critical security front-loaded to phase 2.
   Pinned commit:              <sha>

@@ -21,6 +21,7 @@ Detects + fixes:
 - **Naming convention violations** — files / classes / types / locale keys not matching the project's pattern (per `_extracted-idioms.md § Naming`).
 - **Reinvented wrappers** — custom code where a shared component / util / hook exists in the project's gold-standard inventory.
 - **Silent catches** — empty error-swallow blocks not routed through the project's error handler.
+- **Happy-path-only I/O** — network / DB / queue / file call sites with no error path at all (no catch, no error-return check, no timeout, no failure state surfaced) — the absent-error-path sibling of silent catches. Fix: route through the project's wrapped I/O primitive.
 - **Forbidden imports** — HTTP clients constructed outside the project's API-core module; cross-import V1↔V2; unauthorized libraries.
 - **Default-true wrapper props left implicit** — wrapper components rendered without explicit `show-*="false"` / `can-*="false"` when affordance should be hidden.
 - **Permission-gate drops** — actions rendered without the project's permission-gate primitive.
@@ -62,7 +63,7 @@ Examples:
 
 **Discipline:** MUST read [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) before generating code fixes.
 
-1. **Scan** — runs convention detectors: drift (vs `ai/conventions.md` / `ai/architecture.md`), reinvented-wrapper, silent-catch. Plus stack-conditional UI/UX detectors for `frontend-*` (a11y, design-token-drift, i18n-key-drift, raw-library-component, lifecycle-hook-wrong, default-true-prop, permission-gate-drop).
+1. **Scan** — runs convention detectors: drift (vs `ai/conventions.md` / `ai/architecture.md`), reinvented-wrapper, silent-catch, unhandled-io (happy-path-only I/O call sites). Plus stack-conditional UI/UX detectors for `frontend-*` (a11y, design-token-drift, i18n-key-drift, raw-library-component, lifecycle-hook-wrong, default-true-prop, permission-gate-drop).
 2. **Resolve scope** — semantic resolution.
 3. **Plan internally** — group by class + page/domain (UI/UX findings group by page; structural by class).
 4. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Closure verbs are mechanical — **only** from the closed **21-verb** set (5 structural + 16 functional) in [`templates/packs/align/rules/align-discipline.md`](../templates/packs/align/rules/align-discipline.md) § Closure-verb vocabulary / procedures (examples: `replace-with-shared`, `remove`, `dedupe`, `add-gate`, `escape`).
@@ -224,7 +225,7 @@ Every run that produces `ai/align/final-report.md` MUST end with an **`## Action
 ## Hard rules (internal)
 
 Applied silently per the discipline:
-- **Validator gate is mandatory.** After scan produces `ai/align/scan-report.md` AND after every per-finding fix lands, the agent MUST run `~/.claude/scripts/validate-align-artifacts.sh`. The validator's `check_scan_report_evidence` halts the run if the scan-report doesn't show per-detector run evidence (≥1 of the 11 universal classes scanned with explicit module count) AND oracle citation. A failed validator forces the scan to be re-emitted with evidence. This catches the Trusted-Summary recurrence where align claims "11 detectors run" without evidence any actually executed.
+- **Validator gate is mandatory.** After scan produces `ai/align/scan-report.md` AND after every per-finding fix lands, the agent MUST run `~/.claude/scripts/validate-align-artifacts.sh`. The validator's `check_scan_report_evidence` halts the run if the scan-report doesn't show per-detector run evidence (≥1 of the 12 universal classes scanned with explicit module count) AND oracle citation. A failed validator forces the scan to be re-emitted with evidence. This catches the Trusted-Summary recurrence where align claims "12 detectors run" without evidence any actually executed.
 - **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-align-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
 - Convention is the truth — no questioning the project's idioms.
 - Closure verbs from the closed vocabulary; no new abstractions invented.

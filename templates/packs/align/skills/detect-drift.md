@@ -1,5 +1,5 @@
 ---
-description: Stack-conditional drift detector for codebase alignment. Runs the 11 universal detectors (structural + functional: SOLID, clean code, performance, security) plus per-stack detectors against the gold-standard inventory. Emits a finding row per fingerprint hit with evidence cited to <path:line>. Used by /align-scan and /align-fast.
+description: Stack-conditional drift detector for codebase alignment. Runs the 12 universal detectors (structural + functional: SOLID, clean code, performance, security, unhandled-io) plus per-stack detectors against the gold-standard inventory. Emits a finding row per fingerprint hit with evidence cited to <path:line>. Used by /align-scan and /align-fast.
 kind: skill
 pack: align
 ---
@@ -29,7 +29,7 @@ This skill is the **detector** half of alignment. The fix half is `find-and-alig
 | `ai/conventions.md` | Project | NO (drift class skipped if missing) |
 | `ai/architecture.md` | Project | NO (drift class skipped if missing) |
 | Per-class detector tool name | `_extracted-codebase.md § Gold standards` | YES (per class) |
-| Class filter (optional) | Caller flag | NO (default: all 10 universal + stack-conditional) |
+| Class filter (optional) | Caller flag | NO (default: all 12 universal + stack-conditional) |
 | Scope filter (optional) | Caller flag | NO (default: full repo) |
 | Max-findings-per-class cap (optional) | Caller flag | NO (default: unlimited) |
 
@@ -40,7 +40,7 @@ A finding-draft array — ONE row per detected fingerprint. Each row:
 ```yaml
 class: <one of: dead-code | duplicated-logic | reinvented-wrapper | silent-catch |
                 over-abstraction | drift | solid-violation | clean-code |
-                performance | security | stack-specific>
+                performance | security | unhandled-io | stack-specific>
 subclass: <optional sub-classification, e.g.:
            "SRP" | "OCP" | "LSP" | "ISP" | "DIP" for solid-violation
            "long-function" | "deep-nesting" | "magic-number" | "bad-naming" for clean-code
@@ -261,6 +261,23 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 **Tier**: standard floor for security; critical → heavy; high → standard or heavy depending on exposure.
 
 **Output**: `<path:line>` per security finding + severity + the gate/escape/validator/secret that should wrap the site.
+
+#### Detector 11: unhandled-io (happy-path-only I/O)
+
+**Tool**: grep + caller-chain trace against the project's I/O primitives from `_extracted-idioms.md`.
+
+**Procedure**:
+1. **Enumerate I/O call sites**: grep for the project's HTTP client, DB primitive, queue producer/consumer, file I/O, external-process spawn (concrete primitive names from `_extracted-idioms.md` — never generic `fetch(`-style greps when the project has a named client).
+2. **Classify each site**: routed through the project's wrapped I/O primitive / error boundary? → not a finding. Raw call?
+3. **Trace the failure path for raw calls**: is the error surfaced — handler call, error-return checked, rejection awaited-and-handled, UI error state wired? Does the medium need a timeout and is one set?
+4. **Cross-check the caller chain before flagging**: a raw call whose CALLER handles the rejection is NOT a finding (cite the handling site in `notes`); a raw call whose only "handler" is a top-level crash logger IS one.
+5. **Skip frontend fetch-in-component sites** — those belong to the `missing UI state` sub-class (frontend stack-conditional detector). This universal detector covers the non-UI layers: services, jobs, queue handlers, CLI paths, scripts.
+
+**Closure verb suggestion**: `replace-with-shared` (route through the project's wrapped I/O primitive — the wrapper provides the error path / timeout / failure surfacing). If no wrapped primitive exists for that I/O medium: halt → `/setup-project --refine`; do NOT hand-roll per-site try/catch.
+
+**Tier**: standard floor for hot-path or user-facing call sites; write-path I/O (DB mutation / queue publish / payment) ALWAYS ≥ standard; trivial only for dev-tooling / one-time-script paths.
+
+**Output**: `<path:line>` per unguarded call site + the wrapped primitive it should route through.
 
 ### Step 3: Stack-conditional detectors (parallel)
 

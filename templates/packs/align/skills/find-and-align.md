@@ -32,7 +32,7 @@ Row schema (the input the orchestrator passes per dispatch):
 
 ```yaml
 id: A047                                    # stable id from scan
-class: security                             # one of 10 universal + stack-specific
+class: security                             # one of 11 universal named classes + stack-specific
 subclass: missing-auth-gate                 # optional sub-classification
 severity: high                              # security only: low | medium | high | critical
 scope: [src/routes/admin/export.ts]         # files the fix may touch (others = halt)

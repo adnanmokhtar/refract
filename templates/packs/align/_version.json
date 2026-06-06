@@ -1,12 +1,22 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.5.2",
-  "released": "2026-05-30",
+  "version": "1.6.0",
+  "released": "2026-06-06",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.",
+  "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, security weaknesses, and unhandled I/O (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.",
   "changelog": {
+    "1.6.0": {
+      "released": "2026-06-06",
+      "changes": [
+        "NEW functional class: unhandled-io (happy-path-only I/O). Detects I/O call sites (network / DB / queue / file / external process) with NO error path at all — no catch, no error-return check, no timeout, no failure surfacing. The absent-error-path sibling of silent-catch (which is catch-exists-but-swallows). Canonical fingerprint: AI-generated fetch-and-render / fetch-and-write code that works first run and crashes/hangs on the first failure.",
+        "Detector 11 added to detect-drift skill: enumerate I/O call sites from _extracted-idioms.md primitives → trace failure path → cross-check caller chain before flagging (caller-handled rejections are NOT findings). Frontend fetch-in-component sites stay with the missing-UI-state sub-class; this detector covers services / jobs / queue handlers / CLI paths.",
+        "Closure: replace-with-shared (route through the project's wrapped I/O primitive). No wrapped primitive for the medium → halt to /setup-project --refine; hand-rolled per-site try/catch is forbidden (no-new-abstractions rule).",
+        "Tier: standard floor for hot-path / user-facing sites; write-path I/O (DB mutation / queue publish / payment) ALWAYS >= standard; trivial only for dev-tooling paths.",
+        "Count consistency: 11 universal named classes (6 structural + 5 functional) in align-discipline.md; 12 universal detectors (incl. dependencies sub-class / stack-specific per file convention) across align-scan, detect-drift, recheck, validator, _essentials, docs, adapter coverage. validate-align-artifacts.sh check_scan_report_evidence regex extended with unhandled-io; is_structural_class unchanged (unhandled-io is functional — idiom-citation budget applies, net-lines<=0 does not)."
+      ]
+    },
     "1.5.2": {
       "released": "2026-05-30",
       "changes": [

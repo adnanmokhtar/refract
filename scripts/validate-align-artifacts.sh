@@ -278,13 +278,13 @@ check_scan_report_evidence() {
     return 0
   fi
 
-  # Required: per-detector run evidence — each of the 11 universal classes must show
+  # Required: per-detector run evidence — each of the 12 universal classes must show
   # "Detector: <class> | Modules scanned: N | Fingerprint matches: M" or equivalent
   local detector_blocks
-  detector_blocks=$(grep -cE 'Detector:[[:space:]]+(dead-code|duplicated-logic|reinvented-wrapper|silent-catch|over-abstraction|drift|solid-violation|clean-code|performance|security|stack-specific)' "$scan_report" 2>/dev/null || echo 0)
+  detector_blocks=$(grep -cE 'Detector:[[:space:]]+(dead-code|duplicated-logic|reinvented-wrapper|silent-catch|over-abstraction|drift|solid-violation|clean-code|performance|security|unhandled-io|stack-specific)' "$scan_report" 2>/dev/null || echo 0)
   detector_blocks=${detector_blocks:-0}
   if [[ "$detector_blocks" -lt 1 ]]; then
-    log_fail "scan-report.md has zero per-detector evidence blocks. Each of the 11 universal classes (dead-code, duplicated-logic, reinvented-wrapper, silent-catch, over-abstraction, drift, solid-violation, clean-code, performance, security, stack-specific) MUST emit \"Detector: <class>\" + scan counts. Without this evidence the scan is Trusted-Summary."
+    log_fail "scan-report.md has zero per-detector evidence blocks. Each of the 12 universal classes (dead-code, duplicated-logic, reinvented-wrapper, silent-catch, over-abstraction, drift, solid-violation, clean-code, performance, security, unhandled-io, stack-specific) MUST emit \"Detector: <class>\" + scan counts. Without this evidence the scan is Trusted-Summary."
     return 1
   fi
 
