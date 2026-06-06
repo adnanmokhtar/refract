@@ -44,7 +44,8 @@ The agent:
    - Missing indexes, wrong index shape (composite ordering), unbounded `SELECT *`, N+1, sequential scans on large tables, missing pagination, no batch insert, no connection pool sizing, no read replica routing, no query timeout, transaction-too-long, lock-escalation patterns, write amplification, missing FKs / cascading deletes, schema drift.
 
    **Runtime performance** (dispatch `performance-optimizer` + `caching-architect` + `n-plus-one-scan` + `profile-endpoint`):
-   - Sequential awaits where parallelism is safe, sync external HTTP in hot paths, missing cache at known-cacheable sites, in-app filtering pushable to DB, payload bloat, render thrash, bundle bloat.
+   - Sequential awaits where parallelism is safe, sync external HTTP in hot paths, missing cache at known-cacheable sites, in-app filtering pushable to DB, payload bloat, bundle bloat.
+   - Render / rebuild waste (stack-routed): oversized state scope, side-effects in the build/render body, missing const / memo / stable subtree, per-item allocations in list hot paths, unvirtualized lists, animation invalidating the whole tree, store over-invalidation. Fingerprints per `PROJECT_KIND`: `mobile-*` → `mobile/rules/render-discipline.md` (Flutter / RN / Compose / SwiftUI tables); `frontend-*` → frontend pack equivalents. Every render-waste fix ships with a before/after rebuild-count or frame-time measurement.
 
    **Scalability + resilience** (the differentiating axis — dispatch `system-architect` + `resilience-reviewer` + own 13 scale-lens detectors). Each detector routes through `PROJECT_KIND` so the SAME axis applies to every stack — only the concrete fingerprint changes. Stack-conditional detector matrix:
 

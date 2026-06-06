@@ -5,7 +5,7 @@ essentials:
   agents: [mobile-architect, app-store-reviewer]
   commands: [add-screen, add-feature, optimize-bundle]
   skills: [bundle-analyze, native-bridge-audit, platform-conventions-audit]
-  rules: [mobile-principles]
+  rules: [mobile-principles, render-discipline]
   ai-patterns: [offline-sync, native-storage, deep-linking]
 ---
 
@@ -17,7 +17,7 @@ Rationale per category:
 - **agents**: `mobile-architect` designs (screens, features, navigation, state); `app-store-reviewer` audits releases pre-submission.
 - **commands**: `/add-screen` (single screen), `/add-feature` (multi-screen feature), `/optimize-bundle` (size + cold-start).
 - **skills**: `bundle-analyze` (one-shot size analysis), `native-bridge-audit` (audit JS↔native bridge code).
-- **rules**: `mobile-principles` (foundational rules — touch targets, permissions, offline, lifecycle).
+- **rules**: `mobile-principles` (foundational rules — touch targets, permissions, offline, lifecycle); `render-discipline` (rebuild / re-render waste — 8 detectors with Flutter / RN / Compose / SwiftUI fingerprint tables; backs the render-waste class in `/optimize` + `/audit` for `mobile-*`).
 - **ai-patterns**: `offline-sync` (read/write strategies offline), `native-storage` (right primitive per data class), `deep-linking` (URL schemes / universal links / push routing).
 
 ## What this pack is NOT for

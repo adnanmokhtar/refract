@@ -34,6 +34,7 @@ The agent:
    - **Clean architecture** — leftover layer violations, leaking abstractions, module/layer boundaries.
    - **SOLID** — dispatch via [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) (linked packs hold SRP/OCP/LSP/ISP/DIP closure vocabulary — do not restate glossaries here).
    - **Performance** — N+1 queries, sequential awaits where parallelism is safe, sync HTTP in hot paths, missing cache at known-cacheable sites, missing index where query shape demands one, `SELECT *` consumed by < 5 fields, in-app filtering pushable to database.
+   - **Render / rebuild waste** (`frontend-*` / `mobile-*` only) — oversized state scope (state at screen/page root re-rendering the whole subtree), side-effects in the build/render body, missing const / memo / stable subtree, per-item allocations in list hot paths (inline closures / style literals), unvirtualized lists, animation invalidating the whole tree, store over-invalidation (whole-store subscription where a selector exists). Fingerprints per `PROJECT_KIND`: `mobile-*` → `mobile/rules/render-discipline.md` (Flutter / RN / Compose / SwiftUI tables + the 8 detectors); `frontend-*` → frontend pack equivalents. Closure verbs: `scope-state-down`, `move-to-lifecycle`, `extract-const-subtree`, `memoize`, `virtualize-list`, `scope-animation`, `select-store-slice`; logic-in-view findings route to `/align` (layer violation, not memoization). Every fix ships with a before/after rebuild-count or frame-time measurement — no speculative memoization (blanket memo on cold paths is itself an over-abstraction finding).
    - **Dead code** — unused exports, unreachable branches, dead variables.
    - **Duplicated logic** — same code in N files (dedupes to introduced or existing shared helpers).
    - **Over-abstraction** — wrapper with one consumer (inline), useless `options: {foo?:bool}` where every caller passes the same value.
@@ -98,6 +99,7 @@ Examples:
    - **Refactoring** (via `refactoring-sweep` skill): `extract-method`, `extract-class`, `extract-param-object`, `flatten-conditional`, `move-to-module`, `replace-magic-with-constant`, `replace-temp-with-query`, `replace-loop-with-pipeline`, `rename`, `encapsulate`.
    - **Tactical**: `remove`, `inline`, `dedupe`, `replace-with-shared`.
    - **Performance**: `parallelize`, `batch`, `cache-with-explicit-ttl`, `add-index`, `project-columns`, `push-down-filter`.
+   - **Render waste** (`frontend-*` / `mobile-*`): `scope-state-down`, `move-to-lifecycle`, `extract-const-subtree`, `memoize`, `virtualize-list`, `scope-animation`, `select-store-slice` (per `mobile/rules/render-discipline.md` § The 8 detectors; measured rebuild-count / frame-time delta required).
 
 7. **Verify continuously** — lint + typecheck + scoped tests after each fix. Coverage must not drop. Behaviour-preserving for all structural fixes (architectural moves, refactoring, dead code, dedup, over-abstraction); perf fixes ship with assertions + before/after measurement.
 

@@ -19,6 +19,15 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/mobile-principles.md
 
+- name: render-discipline
+  kind: rule
+  triggers: { mobile_framework_detected: true }
+  extracts_from: _extracted-codebase.md § Stack (mobile framework) + _extracted-idioms.md § State management
+  sections: [hard_rule, the_8_detectors, per_framework_fingerprints, must, must_not, review_checklist, enforcement]
+  mirror_existing: true
+  fallback: rules/render-discipline.md
+  cite_evidence: strict
+
 - name: app-store-reviewer
   kind: agent
   triggers: { mobile_framework_detected: true }

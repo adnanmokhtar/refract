@@ -6,6 +6,14 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### mobile pack v1.2.0 — `render-discipline` rule (rebuild / re-render waste) + `/optimize` + `/audit` wiring
+
+**Why** — rebuild-waste guidance (the Flutter "fetch + setState at screen root" defect: works first run, rebuilds the whole screen per keystroke) lived as prose in `references/flutter.md` with no detector in `/optimize` or `/audit` — review skims past it because every test passes.
+
+**What ships** — **new `templates/packs/mobile/rules/render-discipline.md`**: 8 shape-based detectors (oversized-state-scope, side-effect-in-build, missing-stable-subtree, unstable-list-item-props, unvirtualized-list, animation-rebuilds-subtree, store-overinvalidation, logic-in-view) with per-framework fingerprint tables for Flutter / React Native / Jetpack Compose / SwiftUI. Closure verbs: `scope-state-down`, `move-to-lifecycle`, `extract-const-subtree`, `memoize`, `virtualize-list`, `scope-animation`, `select-store-slice`; logic-in-view routes to `/align` (architecture finding wearing a perf costume). Every fix requires a measured before/after rebuild-count or frame-time delta; blanket defensive memoization is itself flagged (over-abstraction). Wired into `/optimize` (Performance class + render-waste verb list) and `/audit` (runtime-perf axis, stack-routed via `PROJECT_KIND`). Enforcement: flutter_lints const rules + DevTools rebuild stats, eslint-plugin-react-perf + Profiler, Compose compiler metrics in CI, `Self._printChanges()` + Instruments.
+
+**Files touched**: `templates/packs/mobile/{rules/render-discipline.md (new), _essentials.md, _topics.md, _version.json}`, `commands/{optimize.md, audit.md}`, `docs/REFERENCE.md`.
+
 ### align pack v1.6.0 — `unhandled-io` detector (happy-path-only I/O) + `/audit` unhandled-I/O pass
 
 **Why** — the canonical AI-generated-code defect (works first run, crashes/hangs on the first failure) had no universal detector: frontend fetch-in-component was caught as missing-UI-states, swallowed errors as silent-catch — but an I/O call with NO error path at all (no catch, no error-return check, no timeout, no failure surfacing) in services / jobs / queue handlers / CLI paths had no mechanical surface.

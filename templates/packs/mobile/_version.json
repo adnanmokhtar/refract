@@ -1,9 +1,26 @@
 {
   "kind": "pack",
   "name": "mobile",
-  "version": "1.1.0",
-  "released": "2026-05-03",
+  "version": "1.2.0",
+  "released": "2026-06-06",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Adds platform-conventions-audit skill (backs /polish on mobile stacks)."
+  "summary": "Adds render-discipline rule (rebuild / re-render waste — 8 detectors, Flutter / RN / Compose / SwiftUI fingerprint tables; backs the render-waste class in /optimize + /audit for mobile-*). Prior: platform-conventions-audit skill (backs /polish on mobile stacks).",
+  "changelog": {
+    "1.2.0": {
+      "released": "2026-06-06",
+      "changes": [
+        "NEW rule: rules/render-discipline.md — rebuild / re-render waste discipline. 8 shape-based detectors (oversized-state-scope, side-effect-in-build, missing-stable-subtree, unstable-list-item-props, unvirtualized-list, animation-rebuilds-subtree, store-overinvalidation, logic-in-view) with per-framework fingerprint tables for Flutter / React Native / Jetpack Compose / SwiftUI. Promotes the setState/rebuild guidance previously buried in references/flutter.md into an enforceable rule.",
+        "Closure verbs: scope-state-down, move-to-lifecycle, extract-const-subtree, memoize, virtualize-list, scope-animation, select-store-slice; logic-in-view routes to /align (layer violation). Every fix requires a before/after rebuild-count or frame-time measurement; blanket defensive memoization is itself flagged (over-abstraction).",
+        "Wired into /optimize (Performance class — render/rebuild waste detectors + verbs for frontend-*/mobile-*) and /audit (runtime-perf axis, stack-routed via PROJECT_KIND).",
+        "_essentials.md rules list + _topics.md topic spec updated in the same change."
+      ]
+    },
+    "1.1.0": {
+      "released": "2026-05-03",
+      "changes": [
+        "Adds platform-conventions-audit skill (backs /polish on mobile stacks)."
+      ]
+    }
+  }
 }
