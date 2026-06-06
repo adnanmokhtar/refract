@@ -169,7 +169,7 @@ If any red:
 - Typecheck/lint red → fix before continuing. Do not advance with broken V2.
 - Parity-test red → either V2 fix is wrong (re-fix) or V1 oracle drifted (re-pin V1 + re-run; never loosen tolerance to make a test pass).
 
-No new parity tests are required for trivial-tier ports — the audit + ledger note carry the risk register per `migration-discipline.md` § Trivial-tier artifact spec. If the audit flags a missing test as a P1 gap, that promotes the row to standard-tier (≥10 fixtures) per the discipline rule.
+No new parity tests are required for trivial-tier ports — the audit + ledger note carry the risk register per `.claude/references/migration-discipline-procedures.md § Trivial-tier artifact spec`. If the audit flags a missing test as a P1 gap, that promotes the row to standard-tier (≥10 fixtures) per the discipline rule.
 
 ### 5. RECORD — ledger note + audit verdict
 

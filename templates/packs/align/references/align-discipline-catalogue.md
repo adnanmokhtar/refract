@@ -1,6 +1,6 @@
 # Align discipline — examples & anti-pattern catalogue
 
-> Companion to `rules/align-discipline.md` (the always-loaded core). Loaded on demand during audits and reviews — NOT auto-loaded into every session.
+> Companion to `.claude/rules/align-discipline.md` (the always-loaded core). Loaded on demand during audits and reviews — NOT auto-loaded into every session.
 > Rule-only tools: ships alongside the core rule in your adapter bundle.
 > Content relocated verbatim from the core rule on 2026-06-07; wording unchanged.
 

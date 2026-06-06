@@ -69,7 +69,7 @@ Confirm:
 
 ### 3. FIX — apply the closure-verb edit
 
-The verb-specific procedures live in `align-discipline.md § Closure-verb procedures`. The 21 verbs split into structural (5) + functional (16). Summary:
+The verb-specific procedures live in `.claude/references/align-discipline-procedures.md § Closure-verb procedures`. The 21 verbs split into structural (5) + functional (16). Summary:
 
 **Structural verbs (net-lines ≤ 0 per row):**
 

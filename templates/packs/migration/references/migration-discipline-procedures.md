@@ -1,6 +1,6 @@
 # Migration discipline — procedures & operational reference
 
-> Companion to `rules/migration-discipline.md` (the always-loaded core). This file is **loaded on demand** — by migration commands/skills/agents when extracting contracts, generating parity tests, auditing, reviewing, or re-tiering — NOT auto-loaded into every session.
+> Companion to `.claude/rules/migration-discipline.md` (the always-loaded core). This file is **loaded on demand** — by migration commands/skills/agents when extracting contracts, generating parity tests, auditing, reviewing, or re-tiering — NOT auto-loaded into every session.
 > Rule-only tools (Aider / Codex / Gemini): this file ships alongside the core rule in your adapter bundle — read both; together they are the complete discipline.
 > Content relocated verbatim from the core rule on 2026-06-07 (40k-char always-on limit); wording unchanged.
 

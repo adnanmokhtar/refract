@@ -4,7 +4,7 @@
 
 This rule governs every codebase-alignment sweep. It exists because the most common codebase-rot failure is **drift from the gold standard** — a project starts with clean conventions, then accretes one-off helpers, custom wrappers, silent catches, dead branches, and copy-pasted logic until "the codebase" and "the conventions" describe two different repos. Routine work surfaces N+1 papercuts that nobody fixes alone, but every refactor that *would* fix them gets pulled into a feature PR and cut for scope. The second most common failure is **scope creep during refactor** — a "small cleanup" becomes a redesign, a perf project, and a refactor in one PR, none of which can be safely reviewed. The third most common is **trusted summary** — an executor delegates "is this code duplicated / dead / drift?" to a search agent, the agent says "looks fine" in confident summary language, and the executor echoes that into the alignment report without verifying the claim against source.
 
-This rule is the universal contract — it must be enforceable by any AI tool. Tools with full capability (commands + agents + skills + hooks) compose the discipline by dispatching `/align-scan` → `/align-plan` → `/align-phase` → `/align-gate` → `/align-final` (with `/align-fast` as the one-shot equivalent). Tools with rules only (Aider, Codex, Gemini, partial: Cline, Windsurf) enforce the discipline by reading and following this file directly. Therefore: the complete discipline = THIS file + its two companion reference files (`references/align-discipline-procedures.md` + `references/align-discipline-catalogue.md`), which hold the verbatim procedural detail (split 2026-06-07 to respect the 40k-char always-on context limit). Every adapter bundle ships all three together; rule-only tools read all three as one discipline.
+This rule is the universal contract — it must be enforceable by any AI tool. Tools with full capability (commands + agents + skills + hooks) compose the discipline by dispatching `/align-scan` → `/align-plan` → `/align-phase` → `/align-gate` → `/align-final` (with `/align-fast` as the one-shot equivalent). Tools with rules only (Aider, Codex, Gemini, partial: Cline, Windsurf) enforce the discipline by reading and following this file directly. Therefore: the complete discipline = THIS file + its two companion reference files (`.claude/references/align-discipline-procedures.md` + `.claude/references/align-discipline-catalogue.md`), which hold the verbatim procedural detail (split 2026-06-07 to respect the 40k-char always-on context limit). Every adapter bundle ships all three together; rule-only tools read all three as one discipline.
 
 ## Scope — what align covers (the comprehensive sweep)
 
@@ -33,7 +33,7 @@ A finding's class drives:
 
 ## Relationship to migration discipline
 
-Align is the migration discipline turned inward — same tiering, same audit rigor, same closure-verb model, but the oracle is the project's OWN gold-standard inventory (`_extracted-idioms.md`) instead of V1. Full mapping table: `references/align-discipline-procedures.md § Relationship to migration discipline`.
+Align is the migration discipline turned inward — same tiering, same audit rigor, same closure-verb model, but the oracle is the project's OWN gold-standard inventory (`_extracted-idioms.md`) instead of V1. Full mapping table: `.claude/references/align-discipline-procedures.md § Relationship to migration discipline`.
 
 ## Required artifacts per finding — tiered floor
 
@@ -62,11 +62,11 @@ Every finding-fix produces an artifact set scaled to its actual risk. The discip
 
 ## Anti-bloat rules
 
-Merge gates: code edits are the deliverable · per-axis enumeration wherever a gap exists · hand-wave grep HALTs (`etc.` / `...` / `N+ items`) · single dispatch + shared context blob default · audit verdict = convention-parity, not plan-execution. Full gate definitions: `references/align-discipline-catalogue.md § Anti-bloat rules`.
+Merge gates: code edits are the deliverable · per-axis enumeration wherever a gap exists · hand-wave grep HALTs (`etc.` / `...` / `N+ items`) · single dispatch + shared context blob default · audit verdict = convention-parity, not plan-execution. Full gate definitions: `.claude/references/align-discipline-catalogue.md § Anti-bloat rules`.
 
 ## Realism guards
 
-Eight execution-time guards keep the discipline survivable on real codebases — scope caps, batch ceilings, skip-list honoring, mechanical-red short-circuits, oracle-absence fallbacks, dirty-tree behaviour, flaky-test quarantine, large-file sampling. Full guard definitions + thresholds: `references/align-discipline-procedures.md § Realism guards`. Commands apply them silently; audits cite a guard by name when one fires.
+Eight execution-time guards keep the discipline survivable on real codebases — scope caps, batch ceilings, skip-list honoring, mechanical-red short-circuits, oracle-absence fallbacks, dirty-tree behaviour, flaky-test quarantine, large-file sampling. Full guard definitions + thresholds: `.claude/references/align-discipline-procedures.md § Realism guards`. Commands apply them silently; audits cite a guard by name when one fires.
 
 ## Finding categories — universal taxonomy
 
@@ -124,11 +124,11 @@ The DETECT step runs against a finding row + its evidence. The audit HALTS (refu
 
 ## Per-stack extensions
 
-The universal finding classes are necessary but not sufficient per stack — frontend / backend / mobile / data packs add their own detectors, fingerprints, and closure-verb vocabularies. Stack routing is via `PROJECT_KIND`. Full per-stack detector tables: `references/align-discipline-catalogue.md § Per-stack extensions`.
+The universal finding classes are necessary but not sufficient per stack — frontend / backend / mobile / data packs add their own detectors, fingerprints, and closure-verb vocabularies. Stack routing is via `PROJECT_KIND`. Full per-stack detector tables: `.claude/references/align-discipline-catalogue.md § Per-stack extensions`.
 
 ## Tool-agnostic procedure (for tools without skill dispatch)
 
-The canonical detect → decide → fix → verify → record loop, per-class detection recipes, and closure-verb application steps are inlined verbatim in `references/align-discipline-procedures.md § Tool-agnostic procedure`. Tools with skill dispatch use `detect-drift` / `find-and-align`; rule-only tools follow the reference file (ships alongside this rule in every adapter bundle).
+The canonical detect → decide → fix → verify → record loop, per-class detection recipes, and closure-verb application steps are inlined verbatim in `.claude/references/align-discipline-procedures.md § Tool-agnostic procedure`. Tools with skill dispatch use `detect-drift` / `find-and-align`; rule-only tools follow the reference file (ships alongside this rule in every adapter bundle).
 
 ## Must
 
@@ -167,28 +167,28 @@ The canonical detect → decide → fix → verify → record loop, per-class de
 
 ## Should
 
-Lowest-risk class first · batch by class not by file · re-run detectors after each phase · prefer extending shared primitives over new ones · cite occurrence counts in every finding. Full guidance: `references/align-discipline-catalogue.md § Should — full guidance`.
+Lowest-risk class first · batch by class not by file · re-run detectors after each phase · prefer extending shared primitives over new ones · cite occurrence counts in every finding. Full guidance: `.claude/references/align-discipline-catalogue.md § Should — full guidance`.
 
 ## Examples per concern
 
-Worked examples per finding class (reinvented-wrapper, silent-catch, design-token-drift, unhandled-io, dead-code, …): `references/align-discipline-catalogue.md § Examples per concern`.
+Worked examples per finding class (reinvented-wrapper, silent-catch, design-token-drift, unhandled-io, dead-code, …): `.claude/references/align-discipline-catalogue.md § Examples per concern`.
 
 ## Review checklist (per phase PR)
 
-Per-phase-PR checklist: `references/align-discipline-procedures.md § Review checklist`.
+Per-phase-PR checklist: `.claude/references/align-discipline-procedures.md § Review checklist`.
 
 ## Enforcement
 
-Validator mapping (each named anti-pattern → its `validate-align-artifacts.sh` check function), gate behaviour, and SLA flags: `references/align-discipline-procedures.md § Enforcement matrix`.
+Validator mapping (each named anti-pattern → its `validate-align-artifacts.sh` check function), gate behaviour, and SLA flags: `.claude/references/align-discipline-procedures.md § Enforcement matrix`.
 
 ## Anti-patterns (named)
 
-The named catalogue with fingerprints and fixes: `references/align-discipline-catalogue.md § Anti-patterns`. The names are load-bearing vocabulary; audits cite them; the catalogue holds definitions.
+The named catalogue with fingerprints and fixes: `.claude/references/align-discipline-catalogue.md § Anti-patterns`. The names are load-bearing vocabulary; audits cite them; the catalogue holds definitions.
 
 ## References
 
 **Companion reference files (ship with this rule in every adapter bundle):**
-- `references/align-discipline-procedures.md` — realism guards, per-stack extensions, tool-agnostic procedure, review checklist, enforcement matrix.
-- `references/align-discipline-catalogue.md` — worked examples, anti-pattern catalogue, per-tool dispatch + cross-pack pointers.
+- `.claude/references/align-discipline-procedures.md` — realism guards, per-stack extensions, tool-agnostic procedure, review checklist, enforcement matrix.
+- `.claude/references/align-discipline-catalogue.md` — worked examples, anti-pattern catalogue, per-tool dispatch + cross-pack pointers.
 
 **Key dispatch surfaces**: skills `detect-drift` / `find-and-align`; commands `/align` (simple surface) / `align-scan` / `align-fast` / `align-recheck` / `align-gate`. Validator: `scripts/validate-align-artifacts.sh` (21 closure verbs). Oracle: `_extracted-idioms.md`. Rule-only tools: this rule + the two reference files together are the complete discipline.

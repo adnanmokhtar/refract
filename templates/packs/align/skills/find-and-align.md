@@ -114,7 +114,7 @@ Plus side effects:
 
 ### Step 3: FIX — apply the closure-verb edit
 
-Apply the verb-specific procedure (see `align-discipline.md § Closure-verb procedures`). Summary by verb:
+Apply the verb-specific procedure (see `.claude/references/align-discipline-procedures.md § Closure-verb procedures`). Summary by verb:
 
 #### Structural verbs (net-lines ≤ 0 per row)
 
