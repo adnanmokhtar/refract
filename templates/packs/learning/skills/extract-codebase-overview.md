@@ -16,12 +16,14 @@ The output (`.claude/_extracted-codebase.md`) is the **single source of truth** 
 - Real source is the truth. Walk manifests + source files + migrations + tests + git log before populating a single section.
 - Every cited path, base class, entity, controller, signal, and convention claim resolves to a real file at the current commit.
 - Every confidence assertion (e.g. "multi-tenant: confirmed") is backed by ≥2 corroborating cites per Step 15.
+- **Every claim declares its provenance class** (per `phase-2-profile.md § Provenance discipline`): a resolving `<path:line>` citation = found; no citation → the claim MUST carry `[inferred: <basis>]` or `[unconfirmed]`. Inference stated as fact is the Trusted Summary anti-pattern applied to the oracle itself.
 - Empty extraction is honest — the explicit "no ORM-like data layer detected" / "no modules detected" / `[EXTRACTION-WEAK: <reason>]` flag is a valid section outcome.
 - Fabrication — inventing a base class from a folder name, a convention from one occurrence, a signal from a dep that isn't actually used — corrupts every Phase 4 generator that reads this file.
 
 ## Mechanical halt
 
 - Hand-wave content in any section — `etc.`, `...`, `roughly layered MVC`, `appears multi-tenant`, a row without `<path>` citation, a signal claim without ≥2 corroborating files — REFUSE to write.
+- An uncited claim with no `[inferred: <basis>]` / `[unconfirmed]` marker is the same violation — regenerate with a citation or downgrade the claim to its honest provenance class (per `phase-2-profile.md § Provenance discipline`).
 - Regenerate the section with concrete cites OR downgrade it to `[EXTRACTION-WEAK: <section>]` per Step 15.
 - When a section genuinely has nothing (empty repo, no ORM, no controllers, no tests), record `<NOT-DETECTED: <section>: <reason>>` instead of synthesizing a placeholder row.
 - Quality flags propagate to Phase 4.2-AUTHOR which falls through to COPY mode for affected topics — silent fabrication breaks that fallback.
@@ -220,6 +222,9 @@ Write `.claude/_extracted-codebase.md` with all 12 sections above (skipping Step
 Generated: <ISO timestamp> by `/setup-project` Phase 2
 Source: `extract-codebase-overview` skill
 Consumed by: Phase 4.2-AUTHOR generators (every output that mentions paths / base classes / conventions reads this)
+approved_by:          <!-- empty at generation — human reviewer stamps <name>@<iso> after reading; see phase-2-profile.md § Oracle approval -->
+approved_hash:        <!-- body hash at approval — /setup-project-health check 9 prints the paste-ready stamp command -->
+Provenance: every claim is [found: <path:line>] (citation = marker), [inferred: <basis>], or [unconfirmed] — per phase-2-profile.md § Provenance discipline
 
 > ⚠ THIS FILE IS REGENERATED — never hand-edit. Hand-edits in companion files:
 > - `ai/conventions.md` (the human-readable summary of `## Conventions` here)
@@ -234,6 +239,7 @@ Before returning success:
 - `## Base classes` section accounts for every `extends X` with ≥3 hits found in Step 5.
 - `## Data model` section has ≥1 entity OR an explicit "no ORM-like data layer detected" note.
 - Every confidence claim (e.g., "multi-tenant: confirmed") cites ≥2 corroborating files.
+- **Provenance sweep**: no factual claim is both uncited AND unmarked — each is `[found:]` (via citation), `[inferred: <basis>]`, or `[unconfirmed]`. Count per class; the counts go to stdout and feed `/setup-project-health` check 9.
 
 If any check fails: regenerate the offending section (one retry). If still failing: write the section with `[EXTRACTION-WEAK: <reason>]` flag — Phase 4.2-AUTHOR will fall back to COPY mode for affected topics.
 
@@ -253,6 +259,7 @@ Extracted codebase overview → .claude/_extracted-codebase.md
   Signals confirmed: <list>
   Anti-patterns flagged: <count by type>
   Business context: → .claude/_extracted-business.md
+  Provenance: <N> found / <N> inferred / <N> unconfirmed
   Quality flags: <none | list of [EXTRACTION-WEAK]>
 ```
 

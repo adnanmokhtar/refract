@@ -188,6 +188,10 @@ Wall-clock:          8m 14s
 
 Skipped (intentional V2 design — has accepted ADR): 3 findings
 
+Not validated:       visual regression on non-target routes (no snapshot baseline) — review token changes visually
+Risks:               none identified — all closures are convention-mechanical
+Revert:              git revert <first-sha>..<last-sha>  (one commit per finding — revert individually if needed)
+
 Next: /align the next module  OR  inspect commits via git log --oneline
 ```
 
@@ -225,6 +229,7 @@ Every run that produces `ai/align/final-report.md` MUST end with an **`## Action
 ## Hard rules (internal)
 
 Applied silently per the discipline:
+- **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` appear before `Next:` in every run summary — name what did NOT run (or `none — <what fully ran>`), residual risks (or `none identified`), and the exact revert command for this run's commit range. Omitting the negative space is the Trusted Summary failure mode applied to the run report.
 - **Validator gate is mandatory.** After scan produces `ai/align/scan-report.md` AND after every per-finding fix lands, the agent MUST run `~/.claude/scripts/validate-align-artifacts.sh`. The validator's `check_scan_report_evidence` halts the run if the scan-report doesn't show per-detector run evidence (≥1 of the 12 universal classes scanned with explicit module count) AND oracle citation. A failed validator forces the scan to be re-emitted with evidence. This catches the Trusted-Summary recurrence where align claims "12 detectors run" without evidence any actually executed.
 - **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-align-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
 - Convention is the truth — no questioning the project's idioms.

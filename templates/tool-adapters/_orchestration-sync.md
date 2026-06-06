@@ -6,6 +6,8 @@ purpose: Adapter-facing sync for simple-surface commands (`/migrate`, `/optimize
 
 Use when translating pack bundles, CI hooks, or discipline blocks. Authoritative command prose: `commands/{migrate,optimize,polish,align,refactor,audit,unify-surfaces}.md`. Validator sources: `scripts/validate-*-artifacts.sh`.
 
+**Honesty clause (2026-06-07, all simple-surface summaries)**: every run summary of `/migrate`, `/optimize`, `/align`, `/polish`, `/unify-surfaces` closes with three mandatory lines — `Not validated:` (what did NOT run + why, or `none — <what fully ran>`), `Risks:` (residual risk, or `none identified`), `Revert:` (exact git command for the run's commit range). Adapters that approximate these commands via pack commands or the parallel orchestrator scripts MUST carry the same three lines in their end-of-run report. `Tests: green` without the negative space is the Trusted Summary failure mode applied to the run report.
+
 ## Discipline enforcement (`AGENTS.md` inject)
 
 Source: **`templates/tool-adapters/_discipline-enforcement.md`** (verbatim block between `<!-- discipline-enforcement:start/end -->`).

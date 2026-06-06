@@ -315,6 +315,10 @@ Patterns extracted:  1
 Variants generated:  3 → user picked "polished"
 
 Commits: 31  Diff: +203 / -489  Tests: 124/124  a11y: 81→94  Visual-regression: target-only  Bundle: -0.4%
+
+Not validated:  cross-browser pass (Playwright ran chromium-only)
+Risks:          none identified — visual-only changes, logic untouched
+Revert:         git revert <first-sha>..<last-sha>  (one commit per finding)
 ```
 
 Backend example:
@@ -334,6 +338,10 @@ Findings closed:     34
   openapi-coverage-gap:       1
 
 Commits: 34  Diff: +287 / -156  Tests: 298/298  Contract tests: 87/87  OpenAPI: 6 endpoints added; 0 breaking changes
+
+Not validated:  consumer smoke against the deprecated envelope aliases (no consumer repo in env) — verify before alias removal
+Risks:          log-field renames may break saved dashboard queries — check Grafana/Kibana saved searches
+Revert:         git revert <first-sha>..<last-sha>  (one commit per finding)
 ```
 
 Data example:
@@ -351,6 +359,10 @@ Findings closed:     19
   soft-delete-drift:          1
 
 Commits: 4 (combined into reversible migrations)  Schema delta: 12 columns renamed; 24 columns added; 6 indexes renamed
+
+Not validated:  dual-read window not yet closed — old column names still served until <date>
+Risks:          renames touch 3 downstream ETL jobs — coordinate before closing the window
+Revert:         each migration ships a tested down() — bun run migrate:down <id>
 ```
 
 ## What you DON'T see
@@ -395,6 +407,7 @@ Every run that produces `ai/polish/final-report.md` MUST end with an **`## Actio
 Applied silently per the discipline:
 - **Validator gate is mandatory.** After the stack-conditional audit produces its artifact (`_visual-decisions.md` for frontend / `_api-decisions.md` for backend / `_schema-decisions.md` for data / `_platform-decisions.md` for mobile), the agent MUST run `~/.claude/scripts/validate-polish-artifacts.sh`. The validator dispatches per `PROJECT_KIND` and halts if the stack's required evidence blocks are missing (visual baseline + a11y + design-token for frontend; endpoint registry + OpenAPI + envelope + error contract for backend; schema introspection + migration history + column drift for data; per-platform UI tree + iOS HIG + Material 3 for mobile). A failed validator forces the audit to be re-emitted.
 - **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-polish-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
+- **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` close every run summary — name what did NOT run (or `none — <what fully ran>`), residual risks (or `none identified`), and the exact revert path (git range, or migration `down()` for data). Omitting the negative space is the Trusted Summary failure mode applied to the run report.
 - **Conventions are the truth** — design system / API spec / schema / platform spec is the oracle.
 - **Closure verbs from the stack's closed vocabulary** — no ad-hoc inventions.
 - **Behaviour preserved** — frontend: business logic untouched; backend: API contract preserved (rename happens with deprecation flow, not blind rewrite); data: data preserved (renames via reversible migrations + dual-read window).

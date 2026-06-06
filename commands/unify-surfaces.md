@@ -240,6 +240,10 @@ Idioms updated:            _extracted-idioms.md § Wrappers (7 entries refreshed
 Commits: 7 (one per category)  Diff: +2,148 / -5,492 = -3,344 lines
 Tests: 487/487  Visual-regression: target-only  Bundle: -2.1%  a11y: 81 → 96
 Skipped (surfaced for user): 14 buttons inside legacy admin pages (outside scope)
+
+Not validated:  visual-regression on the 14 skipped legacy admin pages (outside scope)
+Risks:          BaseForm extension adds a `dense` prop — 31 consumers re-render once on mount; profile if any list page feels slower
+Revert:         git revert <category-sha>  (one cascade commit per category — revert per category)
 ```
 
 Validation-only example:
@@ -270,6 +274,10 @@ Commits: 1 (cascade-rewrite — `unify-validation-pipeline`)
 Diff: +412 / -1,873 = -1,461 lines
 Tests: 134/134 (added 9 new tests for the composable + mapper)
 a11y: 88 → 94 (every error now wired via aria-describedby + role=alert)
+
+Not validated:  none — full suite + visual-regression on all routes ran
+Risks:          server-error mapping assumes the {errors: {field: [msgs]}} API shape — confirm with backend before deploy
+Revert:         git revert <sha>  (single cascade commit)
 ```
 
 ## What you DON'T see
@@ -319,6 +327,7 @@ Applied silently per the discipline:
 - **No new abstractions beyond the canonical wrapper.** A category extracts ONE wrapper (or extends ONE existing wrapper). No "while I'm here, also extract a sub-wrapper" — that's `/enhance-ui` territory.
 - **Validation pipeline ships as a system, not as parts.** The composable + components + mapper land in one commit; consumers migrate in subsequent commits using the now-available pipeline.
 - **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-unify-surfaces-artifacts.sh § check_actionable_next_steps`, planned.)*
+- **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` close every run summary — name what did NOT run (or `none — <what fully ran>`), residual risks (or `none identified`), and the exact revert command (per-category cascade commits). Omitting the negative space is the Trusted Summary failure mode applied to the run report.
 
 User sees results, not the policing.
 

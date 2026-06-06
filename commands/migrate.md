@@ -234,6 +234,10 @@ Skipped:             2 features (dead V1 code — no callers)
 Blockers (1):        F045 (order-bulk-update) — needs <sibling-api-repo> refund endpoint shape
                      → routed to /cross-repo-task XR-007
 
+Not validated:       e2e suite (no staging DB in this environment) — run before merge
+Risks:               F031 touches the payment summary widget — manual smoke-check recommended
+Revert:              git revert a1b2c3d..f9e8d7c  (or per-feature: git revert <sha> — one commit per feature)
+
 Next: /migrate the next thing  OR  inspect commits via git log --oneline
 ```
 
@@ -276,6 +280,7 @@ The agent applies these silently:
 - One commit per feature. Net-lines ≤ 0 for structural ports; functional ports cite idioms.
 - Re-detect after every fix (gap-count parity).
 - No silent assumptions — every claim cites V1 or V2 source.
+- **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` appear before `Next:` in every run summary. `Tests: N/N passing` alone is insufficient — the agent MUST name validation that did NOT run (suites skipped, environments unavailable, manual checks recommended) or state `none — full suite ran`. `Risks:` names residual risk worth a human glance or `none identified`. `Revert:` gives the exact git command for this run's commit range. Omitting the negative space ("what we didn't verify") is the same failure mode as the Trusted Summary — confident output hiding unverified claims.
 
 These run internally. User doesn't see the policing.
 

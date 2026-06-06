@@ -441,6 +441,15 @@ Use when a port halts because a sibling repo needs to ship something first. With
 - `/migration-replan --include-drifted` / `/align-replan --include-drifted` re-phases affected rows.
 - `verified` / `done` rows flip back to active states ONLY if the change materially affects them (signature change, primitive replaced, architectural rename); cosmetic changes leave them alone.
 
+### Oracle provenance + human approval (2026-06-07)
+
+The extraction artifacts (`_extracted-idioms.md`, `_extracted-codebase.md`, `_extracted-business.md`, `_refine-extract.md`) carry two trust layers (spec: `templates/phases/phase-2-profile.md § Provenance discipline` + `§ Oracle approval`):
+
+- **Claim-level provenance**: every claim is `[found: <path:line>]` (a resolving citation counts as the marker), `[inferred: <basis>]`, or `[unconfirmed]` (`_extracted-business.md` uses the equivalent `[CONFIDENT]/[INFERRED]/[UNKNOWN]`). Phase 4 generators anchor rules only to `[found:]`; migration/align oracle readers treat `[inferred:]` rows as needs-source-check and never close an audit finding against an `[unconfirmed]` claim.
+- **File-level approval stamp**: `approved_by:` / `approved_hash:` frontmatter — empty at generation, stamped by a human reviewer after reading. Regeneration preserves the lines; a body-hash mismatch flags "changed since approval". Surfaced by `/setup-project-health` check 9 (warn-only — advisory for solo projects, a visible review guarantee for teams).
+
+**Why**: the oracle is what every generator and audit trusts — an inferred claim presented as found there is the Trusted Summary anti-pattern applied to our own pipeline.
+
 ### Plan-independent spot-check — `/align-recheck` and `/migration-recheck`
 
 These are the bypass-the-ceremony commands. **No plan, no phase, no ledger required.**

@@ -246,6 +246,10 @@ Perf wins (measured):
 
 Skipped (test fixtures): 12 findings
 
+Not validated:       load test at production RPS (no load-test env) — perf wins measured at dev concurrency
+Risks:               PaginationStrategy touches every list endpoint — staging smoke pass recommended
+Revert:              git revert <first-sha>..<last-sha>  (architectural commits land first — revert tactical-only range to keep foundations)
+
 Next: /optimize the next module  OR  inspect commits via git log --oneline
 ```
 
@@ -292,6 +296,10 @@ Commits:             12
 Perf wins (measured):
   funnel_query_p95: 4.2s → 280ms (-93%)
   cohort_export_p95: 18s → 4s (-78%)
+
+Not validated:       none — full suite + EXPLAIN ANALYZE on prod-sized snapshot ran
+Risks:               dropped columns are in last night's backup until <date> — restore window closes then
+Revert:              git revert <first-sha>..<last-sha>  (index migrations are reversible; see down() in each)
 ```
 
 ## What you DON'T see
@@ -330,6 +338,7 @@ Every run that produces `ai/optimize/final-report.md` MUST end with an **`## Act
 Applied silently per the discipline:
 - **Validator gate is mandatory.** *(Mechanical — `validate-optimize-artifacts.sh`: Phase 0 blocks + citations + hand-waves + oracle; ledger + `--strict`.)* After Phase 0 produces `ai/optimize/_architecture-decisions.md`, the agent MUST run `~/.claude/scripts/validate-optimize-artifacts.sh`. The validator halts if the four evidence blocks (Dependency map / Responsibility map / Layer attribution / Detector run) are missing or empty, if detectors report zero modules scanned, if any `### F-A-*` lacks `<path:line>`, or if hand-waves are present (see `validate-optimize-artifacts.sh`: `check_phase_0_blocks_nonempty`, `check_per_finding_citations_phase0`, `check_no_handwaves_file`). **`--strict`** also requires the idioms oracle to be referenced and requires `ai/optimize/ledger.md` for per-row gates. A failed validator forces the diagnosis to be re-emitted. Without this gate, Phase 0 can produce a summary diagnosis instead of an actual scan — the F039 anti-Trusted-Summary recurrence applied to /optimize.
 - **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-optimize-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
+- **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` close every run summary. The agent MUST name validation that did NOT run (load tests, prod-sized data, environments unavailable) or state `none — <what fully ran>`. `Tests: N/N passing` alone hides the negative space — the same failure mode as the Trusted Summary. `Revert:` gives the exact git command for this run's commit range.
 - **Architectural diagnosis ALWAYS runs first**. *(Agent-side orchestration.)* Tactical fixes are skipped on findings that would dissolve under a foundation fix; agent picks the foundation.
 - **Foundation-first ordering**: architectural commits land before tactical commits. The architecture-decisions document records the order + rationale. *(Agent-side.)*
 - Closure verbs from a closed vocabulary (no new abstractions invented; `introduce-abstraction` only applies when ≥3 sites duplicate the same shape). *(Agent-side.)*

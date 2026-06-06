@@ -15,6 +15,25 @@ note: Phase 2.6 prose appears textually before Phase 2 body in this file because
 
 **Stage-gate concession (extraction artifacts ≠ deliverables)**: The four deep-extraction files this phase can produce (`_extracted-codebase.md`, `_extracted-idioms.md`, `_extracted-business.md`, `_refine-extract.md`) are **CONTEXT for later phases, not user-facing deliverables**. They exist to make Phase 4 generation cheaper and more project-specific. With `--lightweight`, only `codebase-profile.md` is required; the other three are skipped, and Phase 4 reads source directly when it needs deeper detail.
 
+### Provenance discipline (every extraction artifact — added 2026-06-07)
+
+Every factual claim written to `_extracted-codebase.md`, `_extracted-idioms.md`, `_extracted-business.md`, or `_refine-extract.md` carries exactly one provenance class:
+
+| Marker | Meaning | Example |
+|---|---|---|
+| `[found: <path:line>]` | Read directly from source; the citation resolves at the current commit. An existing `<path:line>` citation on the claim row counts as this marker — no double-annotation. | `Errors route through handleApiError [found: src/utils/errors.ts:12]` |
+| `[inferred: <basis>]` | Derived from structure / naming / co-occurrence — NOT read from an authoritative source. The basis is mandatory: name what it was derived from. | `Hexagonal architecture [inferred: core/ + adapters/ folder split; import graph not walked]` |
+| `[unconfirmed]` | Load-bearing claim that cannot be established from the repo — needs a human answer. | `Payment retry policy [unconfirmed — no retry code or doc found; ask team]` |
+
+**Rules**:
+- An uncited, unmarked factual claim is invalid — same mechanical-halt family as the hand-wave grep (`extract-codebase-overview § Mechanical halt`). Regenerate with a citation OR downgrade to `[inferred: <basis>]` / `[unconfirmed]`. Honest downgrade beats confident fabrication.
+- **Downstream consumer contract**: Phase 4 generators anchor rules ONLY to `[found:]` claims. `[inferred:]` claims may inform topic selection, but any generated artifact that relies on one must first re-verify it against source (promoting it to `[found:]`) or carry the marker forward into the generated text. Oracle readers in the migration / align packs (mapping-doc authors, Reuse-Before-Create checks, `check_v2_structure` fingerprint sources) treat `[inferred:]` rows as needs-source-check before use, and NEVER close an audit finding against an `[unconfirmed]` claim.
+- `[unconfirmed]` items are the question queue for the team — they surface in `/setup-project-health` (check 9) and in the Phase 3 plan's open-questions block. They are visible debt, not silent gaps.
+- Section-level flags (`[EXTRACTION-WEAK: ...]`, `<NOT-DETECTED: ...>`) are unchanged — they operate at section granularity; provenance markers operate at claim granularity. A `[NOT-DETECTED]` section needs no per-claim markers.
+- `_extracted-business.md` keeps its pre-existing facet vocabulary — `[CONFIDENT]` / `[INFERRED]` / `[UNKNOWN]` map 1:1 onto `[found:]` / `[inferred:]` / `[unconfirmed]` (see `extract-business-context.md § Premise`). One semantic, two spellings; consumers count both.
+
+**Why**: the extraction artifacts are the oracle every downstream generator and migration audit trusts. An inferred claim presented as found is the Trusted Summary anti-pattern applied to our own pipeline — a wrong idiom in the oracle propagates into wrong mapping docs and wrong audits, with no way to tell afterwards which oracle lines were guesses.
+
 ### Phase 2.6 — Profile-informed coverage gap check (ENHANCE + REFRESH modes)
 
 **Critical for ENHANCE-extend** — prevents the failure mode where the command sees `.claude/` exists, runs delta-against-prompt, finds "no new prompt = no work," and concludes "idempotent" while the existing setup is missing 50+ files.
@@ -311,6 +330,8 @@ project_kind: <kind>
 extraction_strategy: class-inheritance | composables | shared-wrappers | shared-services | type-system | minimal | mixed
 patterns_matched: [list]
 extracted_at: <iso>
+approved_by:          # empty at generation — human reviewer stamps <name>@<iso> after reading (§ Oracle approval below)
+approved_hash:        # body hash at approval time — /setup-project-health prints the paste-ready stamp command
 ---
 
 # Project idioms — <project>
@@ -339,13 +360,25 @@ extracted_at: <iso>
 - ...
 
 ## Conventions (always)
-- Naming: <project's naming convention>
-- Layering: <project's architectural layering>
-- Error handling: <project's error-handler primitive>
+- Naming: <project's naming convention> [found: <path:line> | inferred: <basis>]
+- Layering: <project's architectural layering> [found: <path:line> | inferred: <basis>]
+- Error handling: <project's error-handler primitive> [found: <path:line>]
 - ... (mirrors codebase-profile.md content)
 ```
 
+**Provenance in this schema**: idiom rows (`Wrappers` / `Composables` / `Shared services` / `Base classes` / `Type primitives`) carry `(<path>)` + a dependent count by construction — that IS their `[found:]` provenance; no extra marker needed. The `## Conventions` section is where inference creeps in (naming/layering claims generalized from samples) — every row there carries an explicit marker per § Provenance discipline.
+
 **Quality gate**: if extraction yields zero load-bearing idioms across ALL patterns AND `codebase-profile.md` shows the project has > 1000 LOC → flag as `[EXTRACTION-WEAK]` in the plan; consumers should still proceed (the file exists), but the agent surfaces "low-confidence idiom inventory; recommend manual review of `_extracted-idioms.md` before relying on it for `/align-scan`."
+
+#### Oracle approval (human sign-off — added 2026-06-07)
+
+`_extracted-idioms.md` + `_extracted-codebase.md` become the oracle for every downstream consumer the moment they're written — without this stamp, no human ever confirms them. The approval flow:
+
+- Generation writes `approved_by:` / `approved_hash:` **empty**. Setup completes normally — approval is non-blocking.
+- The user reads the file once and stamps it: set `approved_by: <name>@<iso>` and `approved_hash:` to the body hash (`grep -v '^approved_' .claude/_extracted-idioms.md | shasum -a 256 | cut -c1-12`). `/setup-project-health` prints this as a paste-ready command.
+- Regeneration (REFRESH / REFINE) **preserves the two lines verbatim** but the body changes → hash mismatch → health reports "oracle changed since approval" until re-stamped. NEVER auto-restamp — the mismatch is the signal that a human needs to re-read.
+- `/setup-project-health` check 9 reports: empty stamp → `warn` ("oracle never human-reviewed"); hash mismatch → `warn` ("oracle changed since approval by <name>@<date>"); `[unconfirmed]` count > 0 → `warn` with the list.
+- Approval is **advisory** (`warn`, never `fail`) — solo projects can ignore it; teams get a visible "the oracle was reviewed by <who> at <when>" guarantee before audits build on it.
 
 **Skip individual idiom (not the whole file) when**: idiom has <3 dependents (insufficient signal — not load-bearing) OR idiom is a thin wrapper (<50 lines AND no automatic behaviors AND no override hooks).
 

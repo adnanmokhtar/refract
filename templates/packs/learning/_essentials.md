@@ -23,6 +23,8 @@ refine_mode_patterns:
 
 CRITICAL: this track is ALWAYS included regardless of `--minimal`. The learning loop is what keeps every other pack from rotting.
 
+Pack v1.2.0: the extraction engine enforces provenance discipline (`[found:]/[inferred:]/[unconfirmed]` on every `_extracted-*` claim) + the oracle approval stamp (`approved_by:`/`approved_hash:`) — see `templates/phases/phase-2-profile.md § Provenance discipline` / `§ Oracle approval`.
+
 Files listed above are the full intended set for minimal mode (which here equals standard, except `promote-pattern` is a power-user command kept out of minimal).
 
 Rationale per category (one line each):

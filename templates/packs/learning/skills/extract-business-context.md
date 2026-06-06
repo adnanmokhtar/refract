@@ -17,6 +17,7 @@ Without this output, generated content (CLAUDE.md opener, agent personas, rule p
 - Every `[CONFIDENT]` claim cites the source file (or `<path:line>` for inline mentions).
 - Every `[INFERRED]` claim names the circumstantial signal it derived from (e.g. "maturity inferred from 18-month repo age + 14 ADRs").
 - Empty extraction is honest — `[UNKNOWN]` + `_UNKNOWN — fill in when decided_` is a valid facet outcome.
+- These three classes ARE this skill's provenance markers — they map 1:1 onto the universal vocabulary in `phase-2-profile.md § Provenance discipline` (`[CONFIDENT]` = `[found:]`, `[INFERRED]` = `[inferred:]`, `[UNKNOWN]` = `[unconfirmed]`). Downstream consumers and `/setup-project-health` check 9 count both vocabularies.
 - Fabrication — inferring a persona from a logo, a KPI from a hunch, a competitor from training-data memory — is the failure mode downstream files inherit forever.
 
 ## Mechanical halt

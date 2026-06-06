@@ -202,6 +202,7 @@ Checks:
 6. Tool-adapter parity (per-adapter contract from Phase 4.8.0).
 7. Idempotency markers (`<!-- setup-project:managed -->` discipline).
 8. Setup version drift (repo-stamped version vs current command version).
+9. Oracle approval + provenance (`_extracted-idioms.md` / `_extracted-codebase.md`: `approved_by:` stamp present + body hash unchanged since approval; `[unconfirmed]` claim count). Warn-only by design; prints the paste-ready stamp command when unapproved.
 
 Output: a markdown table with one row per check + a "Recommended actions" section.
 
@@ -591,7 +592,7 @@ These are the recommended user surface. One command per concern. Deep multi-agen
 
 Full contract: [`commands/optimize.md`](../commands/optimize.md).
 
-Each runs in one shot. End-of-run shows: findings closed, commits made, diff stats, test status. Internal discipline is preserved (V1-parity, no fabrication, gap-count parity, idiom citation) but invisible.
+Each runs in one shot. End-of-run shows: findings closed, commits made, diff stats, test status — **plus the mandatory honesty clause**: `Not validated:` (what did NOT run + why, or `none — <what fully ran>`), `Risks:` (residual risk worth a human glance, or `none identified`), `Revert:` (the exact git command for the run's commit range). `Tests: green` without naming the negative space is forbidden — the Trusted Summary failure mode applied to the run report. Internal discipline is preserved (V1-parity, no fabrication, gap-count parity, idiom citation) but invisible.
 
 Examples:
 ```

@@ -1,9 +1,9 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "1.1.0",
-  "released": "2026-05-30",
+  "version": "1.2.0",
+  "released": "2026-06-07",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Phase-6 continuous-learning pack — curator + drift/pattern watchers. 1.1.0 adds /promote-decision (pending-decision → ADR) + /audit-knowledge (curator staleness audit), the previously-phantom curator commands."
+  "summary": "Phase-6 continuous-learning pack — curator + drift/pattern watchers. 1.2.0 adds provenance discipline to the extraction engine (every claim in _extracted-* files is [found:]/[inferred:]/[unconfirmed]) + oracle approval stamp (approved_by/approved_hash frontmatter, surfaced by /setup-project-health check 9). 1.1.0 added /promote-decision + /audit-knowledge."
 }

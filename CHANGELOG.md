@@ -6,6 +6,17 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### learning pack v1.2.0 — oracle provenance + approval stamp; honesty clause on simple-surface summaries
+
+**Why** — gap surfaced by reviewing an external repo (HosamZewain/ai-assisted-development-framework): we enforce `<path:line>` citation discipline on migration artifacts while the oracle they all trust (`_extracted-idioms.md` / `_extracted-codebase.md`) was unverified, uncited at claim level, and auto-trusted the moment `/setup-project` wrote it — the Trusted Summary anti-pattern applied to our own pipeline. Separately, simple-surface run summaries reported only the positive space (`Tests: N/N passing`) with no declaration of what was NOT validated.
+
+**What ships** —
+1. **Provenance discipline** (`templates/phases/phase-2-profile.md § Provenance discipline`): every claim in `_extracted-codebase.md` / `_extracted-idioms.md` / `_extracted-business.md` / `_refine-extract.md` is `[found: <path:line>]` (resolving citation = marker), `[inferred: <basis>]`, or `[unconfirmed]`; `_extracted-business.md`'s pre-existing `[CONFIDENT]/[INFERRED]/[UNKNOWN]` maps 1:1. Uncited + unmarked claims join the mechanical-halt family in `extract-codebase-overview § Mechanical halt`. Downstream contract: Phase 4 generators anchor only to `[found:]`; migration/align oracle readers treat `[inferred:]` as needs-source-check, never close findings against `[unconfirmed]`. Step 15 provenance sweep + stdout counts.
+2. **Oracle approval stamp** (`§ Oracle approval`): `approved_by:` / `approved_hash:` frontmatter on `_extracted-idioms.md` + header lines on `_extracted-codebase.md` — empty at generation, human-stamped after review, hash-mismatch flags "changed since approval". New **check 9 in `/setup-project-health` (v1.1.0)** — warn-only, prints the paste-ready stamp command.
+3. **Honesty clause** on the 5 simple-surface command summaries (`/migrate`, `/optimize`, `/align`, `/polish`, `/unify-surfaces`): mandatory `Not validated:` / `Risks:` / `Revert:` lines close every run summary; `Tests: green` without naming the negative space is forbidden (hard rule added per command).
+
+**Files touched**: `templates/phases/phase-2-profile.md`, `templates/packs/learning/{skills/extract-codebase-overview.md, skills/extract-business-context.md, _essentials.md, _topics.md, _version.json}`, `commands/{setup-project-health.md, migrate.md, optimize.md, align.md, polish.md, unify-surfaces.md}`, `docs/{COMMANDS.md, REFERENCE.md}`.
+
 ### code-quality pack v1.4.0 — `change-brief` skill (the comprehension gate)
 
 **Why** — "if you can't explain the code, it isn't yours" was advisory in `engineering-principles.md § AI-assisted development` with zero enforcement: AI code accepted because it ran, defect surfaces in production weeks later, nobody can navigate the code that caused it.

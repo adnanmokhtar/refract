@@ -2,7 +2,7 @@
 description: Report the health of /setup-project artifacts in the current repo. Drift, staleness, budget breaches, dead files, missing ADRs. Read-only — never writes.
 kind: command
 pack: orchestration
-version: 1.0.0
+version: 1.1.0
 related-commands:
   - /setup-project — generate or refresh setup
   - /setup-project-adapters — re-sync tool adapters
@@ -109,6 +109,30 @@ A managed file without markers cannot be safely re-run. This is the single most 
 
 Compare the `setup-project: vN` marker stamped into the repo vs the current command version. Mismatch → suggest `/setup-project --upgrade`.
 
+### 9. Oracle approval + provenance
+
+The extraction artifacts (`.claude/_extracted-idioms.md`, `.claude/_extracted-codebase.md`) are the oracle every Phase 4 generator and migration/align audit trusts. Source rule: `templates/phases/phase-2-profile.md § Oracle approval` + `§ Provenance discipline`.
+
+```
+file missing                                → n/a   (extraction never ran — e.g. --lightweight setup)
+approved_by: empty                          → warn  "oracle never human-reviewed"
+approved_hash ≠ recomputed body hash        → warn  "oracle changed since approval by <name>@<date>"
+[unconfirmed] / [UNKNOWN] claim count       → reported; > 0 → warn (list each claim)
+[inferred:] / [INFERRED] claim count        → reported (informational — no warn)
+```
+
+Body hash recompute: `grep -v '^approved_' <file> | shasum -a 256 | cut -c1-12`. Count both marker spellings (`_extracted-business.md` uses `[CONFIDENT]/[INFERRED]/[UNKNOWN]`; the others use `[found:]/[inferred:]/[unconfirmed]`).
+
+Approval is advisory by design — this check emits `warn`, never `fail`. When it warns, the *Recommended actions* section prints the paste-ready stamp command:
+
+```bash
+# after reading .claude/_extracted-idioms.md and confirming it matches reality:
+HASH=$(grep -v '^approved_' .claude/_extracted-idioms.md | shasum -a 256 | cut -c1-12)
+sed -i '' "s/^approved_by:.*/approved_by: <your-name>@$(date -u +%Y-%m-%dT%H:%MZ)/; s/^approved_hash:.*/approved_hash: $HASH/" .claude/_extracted-idioms.md
+```
+
+(The stamp command is the ONE write in this command's orbit — and it is run by the USER, not the agent. The read-only contract of this command itself is unchanged.)
+
 ## Output format
 
 ```markdown
@@ -124,6 +148,7 @@ Compare the `setup-project: vN` marker stamped into the repo vs the current comm
 | Tool-adapter parity      | n/a    | no adapters configured                |
 | Idempotency markers      | ok     | 47/47 managed files marked            |
 | Setup version            | ok     | repo v2.0.0 == current v2.0.0         |
+| Oracle approval          | warn   | _extracted-idioms.md never human-reviewed; 2 [unconfirmed] claims |
 
 ## Recommended actions
 
@@ -135,6 +160,11 @@ Compare the `setup-project: vN` marker stamped into the repo vs the current comm
 2. Trim `ai/conventions.md`:
    - Promote duplicates into a single rule.
    - Move stale rules to ai/_archive/conventions-2026-Q1.md.
+
+3. Review + stamp the oracle (2 [unconfirmed] claims need answers first):
+   - "Payment retry policy [unconfirmed]" — _extracted-codebase.md § Cross-cutting concerns
+   - "Tenant cache TTL [unconfirmed]" — _extracted-idioms.md § Conventions
+   Then run the stamp command from check 9.
 ```
 
 ## Exit codes
