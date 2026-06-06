@@ -63,17 +63,7 @@ Every feature port produces an artifact set scaled to its actual risk. The disci
 
 ## Anti-bloat rules
 
-A real-world Phase 7 incident (Apr 2026) burned ~95% of port-time tokens on documentation that did not enable any code change. These rules prevent recurrence — they are merge gates, not suggestions.
-
-- **Code edits are the deliverable.** A doc that doesn't enable a code change is waste. Contracts/plans/runbooks/perf-decisions exist when they unblock a code decision; they are not deliverables themselves.
-- **ADRs justify user-decided breaks, not agent-default closures.** When V2 deviates from V1, the agent's default closure verb is **edit V2 to match V1** — a code change. Drafting an ADR to legitimize V2's deviation is forbidden as a closure unless the user explicitly chose keep-V2 OR V1 is a security/privacy/legal regression. The Phase 7 anti-pattern (~6 ADRs drafted to preserve V2-over-V1) MUST NOT recur.
-- **Per-axis enumeration is required wherever a gap exists, at every tier.** Heavy-tier audits enumerate every axis fully (F039 anti-Trusted-Summary protection). Standard- and trivial-tier audits MAY summarise axes with zero gaps in 1 line, but ANY axis with ≥1 detected gap (add / delete / change, frontend or API) MUST produce the full per-row enumeration table for that axis with `<v1-path:line>` and `<v2-path:line>` citations. Trivial-tier audits with summary-only text and ≥1 gap detected silently are forbidden — the validator's `check_audit` hand-wave grep (in `validate-migration-artifacts.sh`) HALTs on `etc.`, `...`, `N+ items`, `and so on`, `deferred to port-phase parity author`, and `by audit-by-inspection`.
-- **Single agent dispatch with a shared 5K-token context blob is the default.** Parallel sub-agents are heavy-tier-only AND require a deduplicated context blob (each sub-agent reading 50K+ token files independently is forbidden — prior Phase 7 cost: 200-360K duplicate tokens per port).
-- **Default-true wrapper props MUST be set explicitly when removing UI affordances.** Components like `<CrudActions>`, `<TableHeader>`, `<TableActions>` default `show-*` / `can-*` props to `true`. Removing a `@delete-selected` event handler does NOT hide the button. The fix is `:show-delete="false"` / `:can-delete="false"` set explicitly. Removing the handler alone is the F040-class default-true bug.
-- **Audit verdict criterion is V1-parity, not plan-execution.** "PASS" means V2 matches V1, NOT "the agent shipped what the plan said." Phase 7 audits drifted into plan-execution checks; the discipline reverts.
-- **Trivial-tier ports do not produce contracts, plans, perf-decisions, or runbooks.** The audit + ledger note carry the risk register. Heavy-tier opt-in is required for those artifacts.
-
-> **Tier artifact specs (heavy / standard / trivial)** — full per-tier artifact tables + specs moved to `references/migration-discipline-procedures.md § Tier artifact specs`. The gate validates per the row's tier; load the reference when authoring or auditing artifacts.
+Merge gates (not suggestions), from the Phase 7 incident (~95% docs / ~5% code): **code edits are the deliverable** · ADRs justify USER-decided breaks only (agent-default closure = edit V2 to match V1) · per-axis enumeration required wherever a gap exists, at every tier (hand-wave grep HALTs on `etc.` / `...` / `N+ items`) · single agent dispatch + shared 5K context blob by default · default-true wrapper props set explicitly when removing UI affordances (F040) · audit verdict = V1-parity, NOT plan-execution · trivial tier produces no contracts/plans/perf-docs/runbooks. Full gate definitions + tier artifact specs: `references/migration-discipline-procedures.md § Anti-bloat rules`.
 
 ## Contract — 9 required sections
 
@@ -106,13 +96,7 @@ A V1 feature is dead — and must NOT be ported — only when **all six** reacha
 
 ## Per-stack extensions (frontend / backend specifics)
 
-The 6 generic comparison axes (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) are necessary but NOT sufficient for stack-specific ports. Stack-specific audit axes, anti-pattern catalogues, and Transposition-Trap fingerprints live in the per-stack packs:
-
-- **Frontend ports** — see `frontend/rules/migration-frontend.md`. Adds: form-field axis, UI-affordance axis, templated-query-param axis, event-handler axis, per-button permission-gate axis, accessibility axis, DOM-equivalent axis, reactive-lifecycle axis. Plus the frontend anti-pattern catalogue (raw library components in pages, mount-hook on cached routes, hardcoded language keys, etc.) and Transposition-Trap fingerprints the validator's `check_v2_structure` enforces under `PROJECT_KIND in frontend-*`.
-- **Backend / API ports** — see `backend/rules/migration-backend.md` (if your backend pack defines one). Adds: DTO-shape axis, query-param surface axis, response-envelope axis, validator-stack axis, tenant-isolation axis, transaction-boundary axis. Plus the backend anti-pattern catalogue and fingerprints the validator enforces under `PROJECT_KIND in backend-*`.
-- **If your project has no per-stack pack file**, extract one from this universal rule's history (the catalogues lived here pre-2026-05-01) or author one against your stack's primitives — `_extracted-idioms.md` is the source of truth.
-
-The universal rule below stays stack-agnostic. All concrete component / hook / library names belong in the per-stack packs.
+The 6 generic axes (Inputs / Outputs / Errors / Auth / Side effects / Performance) are necessary but NOT sufficient — frontend ports add form-field / UI-affordance / query-param / event-handler / per-button-permission / a11y / DOM / lifecycle axes per `frontend/rules/migration-frontend.md`; backend ports add DTO-shape / query-param-surface / envelope / validator-stack / tenant-isolation / transaction-boundary axes per `backend/rules/migration-backend.md`. Detail: `references/migration-discipline-procedures.md § Per-stack extensions`.
 
 ## Tool-agnostic procedure (for tools without skill dispatch)
 

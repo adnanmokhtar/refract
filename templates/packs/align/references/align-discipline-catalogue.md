@@ -298,3 +298,45 @@ If your project has no per-stack pack file, the universal 7-class taxonomy above
 The universal rule below stays stack-agnostic. All concrete component / hook / library / ORM / migration-tool / a11y-tool / token-system names belong in the per-stack packs.
 
 
+
+## Anti-bloat rules (full gate definitions)
+
+## Anti-bloat rules
+
+The migration discipline rule's Phase 7 lesson — "~95% docs / ~5% code on simple ports" — applies double here. Alignment is *by definition* small atomic edits. A doc-heavy alignment run is a category error.
+
+- **Code edits are the deliverable.** A doc that doesn't enable a code change is waste. Rationales / notes exist when they unblock a code decision; they are not deliverables themselves.
+- **The closure-verb vocabulary is finite.** Two semantic groups:
+  - **Structural verbs** (used by structural classes; net-lines ≤ 0): `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared`.
+  - **Functional verbs** (used by functional classes; small + budget): `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename`.
+  A finding whose fix needs a verb outside this combined vocabulary IS NOT an alignment finding. Route to `/refactor` or `/setup-project --refine` instead. **No verb introduces a NEW abstraction not named in `_extracted-idioms.md`.** A `split-extract` that creates a brand-new abstraction (rather than splitting into responsibilities the project's idiom inventory already names) is forbidden.
+- **Net-lines rule (split by class group):**
+  - **Structural classes** — net-lines must be ≤ 0 per phase. Lines-removed ≥ lines-added across all structural findings, summed. A net-positive structural phase is a halt; the closure verb was applied wrong (likely a `replace-with-shared` that imported but didn't delete the local copy).
+  - **Functional classes** — small + budget allowed (typically + 5 to + 30 lines per finding for security gates / validators / cache primitives / index migrations). The added lines MUST cite an idiom — every block of added lines references a `<path:line>` in `_extracted-idioms.md` (or the project's framework primitive) for what it's adding (the gate wrapper, the validator helper, the cache primitive, the safe deserializer). Validator: `check_added_lines_cite_idioms` walks the diff hunks and refuses any added block that doesn't cite an idiom.
+  - **Cumulative phase rule** — for phases that mix structural + functional findings, the structural rows must net ≤ 0 AND the functional rows must each cite idioms. The phase's overall diff may net positive when functional findings dominate (a phase that adds 8 auth gates is + 16 lines net; that's allowed).
+- **Per-finding enumeration is required at every tier.** Hand-waves (`etc.`, `...`, `and similar`, `N+ duplicates`, `several call sites`, `a few places`, `multiple endpoints`) HALT the gate. The validator's `check_no_handwaves` greps for these tokens. If 8 dead exports exist, the ledger lists 8 rows (or 1 row with 8 explicit `<path:line>` citations in `evidence`). Never `~8 dead exports`. Same applies to security findings: never `several missing auth gates` — each endpoint gets its own row.
+- **Single-agent dispatch is the default.** Parallel sub-agents are heavy-tier-only AND require a deduplicated context blob (each sub-agent reading the project's full source independently is forbidden — same wasted-token pattern migration's Phase 7 fixed).
+- **Findings cite source.** Every finding row has `evidence: <path:line>` for at least one fingerprint. If you can't cite source, the finding doesn't exist (Trusted-Summary failure mode).
+- **Trivial-tier rows do not produce rationales.** The closure verb + the `<path:line>` evidence is the rationale. A trivial row whose `notes` field is filled with prose is over-production; the validator flags `notes_excess_chars > 200` on trivial rows. Note: security findings are NEVER trivial-tier — they always have rationale (≥ standard tier).
+
+
+
+## Should — full guidance
+
+## Should
+
+- **Order findings within a phase by dependency.** A row that introduces a shared helper (or repairs one) goes BEFORE rows that swap local copies for it. A row that removes a wrapper goes AFTER rows that remove its callers.
+- **Pick the lowest-blast-radius class first.** Dead code (touch-and-go) is the safest first phase; silent-catches → error-handler routing next; reinvented-wrapper swaps with shared equivalents come next; UI/UX domain phases (frontend) next; over-abstraction inlines later (those touch more files); SOLID splits last.
+- **Front-load security in the plan.** Security findings have user-facing risk; ship them in early phases (phase 2 or 3 typically — after mechanical cleanup unblocks the test signal). Don't bury critical security at phase 8.
+- **Group perf findings by hot-path domain.** A "checkout flow perf" phase (parallelize + batch + cache the cart + project columns on the order list) reads as a coherent perf uplift; mixing perf findings across domains is harder to validate.
+- **Run `/align-fast` for routine sweeps** — most alignment work is mechanical, parallelisable, and the manual `/align-phase` flow's human-watch pauses are pure wall-clock waste. Reach for the manual flow when a phase has heavy-tier rows that benefit from per-row supervision.
+- **Anchor a phase to a domain when possible.** A phase that aligns "all auth" or "all order processing" reads better in PR review than a phase that aligns "dead code + duplicates + silent catches + auth gates across the repo".
+- **Run `/check-health` before `/align-scan`** — if mechanical (lint / typecheck / build / tests) is red, alignment fixes will be drowned by the existing red. Fix mechanical first.
+- **Stop at the gold standard.** If a finding closure pushes the codebase *past* `_extracted-idioms.md` (e.g., introduces a "better" wrapper than the documented one), halt; either the gold standard is wrong (update via `/setup-project --refine`) or the fix is over-reach.
+- **Cap a phase at 12 findings.** Larger phases hide regressions in PR review and slow the gate. If the scan surfaces 80 findings, that's 7+ phases.
+- **Re-scan after every K phases.** Findings age. A phase that closed 12 rows may have surfaced new ones (a `replace-with-shared` row that introduced a new consumer of the shared helper might have surfaced a previously-hidden drift in a sibling file). Re-running `/align-scan` periodically catches drift.
+- **For perf findings, capture an observability baseline before the fix.** Latency p95, query count per request, external HTTP per request — record from the project's observability dashboard at HEAD before the fix; the post-fix delta is the perf claim. Without a baseline, "I parallelized it" is unverifiable.
+- **For security findings, file a separate ticket for any leaked secret rotation.** A `move-to-secrets` finding fixes the inline reference; the leaked secret itself must be rotated out-of-band. Don't conflate the two.
+- **Wire detected anti-patterns into pre-commit hooks / lint rules where feasible.** A class that ships > 50 findings probably indicates the convention isn't enforced — alignment will rot back without a hook. Queue ADRs for hook creation.
+
+

@@ -317,3 +317,19 @@ If any check fails → REFUSE the gate. Surface the specific failure. Validator 
   - "Oracle modification" → `check_oracle_unmodified` runs `git diff` against `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md`; fails if non-empty.
   - "Frontend regression" → `check_frontend_regressions` (agent-side — not script-enforced) (when `PROJECT_KIND in {frontend-*}`) runs scoped a11y / visual / bundle-size; fails on regression.
 
+
+## Relationship to migration discipline
+
+## Relationship to migration discipline
+
+The align discipline is **migration discipline turned inward**. Migration ports V1 features to V2; align ports the codebase's *current shape* to its *intended shape* (the gold standards in `_extracted-idioms.md`). The same anti-patterns apply (Reinvented Wrapper, Silent Catch, Trusted Summary, Hand-waved enumeration), the same tiered floor (trivial / standard / heavy), the same atomic-fix discipline, the same gap-count parity rule (`gaps_in == gaps_closed`).
+
+The differences:
+- **No V1/V2 split.** One codebase. The "oracle" is `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md`, not a sibling V1 source.
+- **No parity tests.** Existing test suites validate behaviour preservation. A finding-fix MUST NOT change observable behaviour (entropy-reducer, not redesigner — see `/simplify` § The Premise).
+- **No cutover mechanism.** A finding is fixed in-place; no shadow / canary / feature-flag stage. Atomicity comes from one-finding-per-commit, not staged rollout.
+- **No contract document.** Findings are scoped (one issue, one or few files, one closure verb). The contract is implicit: "after the fix, behaviour is unchanged AND the codebase is closer to the gold standard."
+
+If a finding is large enough to need a parity test, a contract, a cutover plan, or a behaviour-change ADR — it is NOT an alignment finding. It is a migration / refactor / feature task. Mis-categorisation is the #1 way alignment sweeps creep into multi-week rewrites. Halt and route to the right surface.
+
+
