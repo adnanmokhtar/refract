@@ -32,6 +32,12 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
 
 # ============ RULES (.claude/rules/<name>.md) ============
 
+- name: align-discipline-references
+  kind: reference-pair
+  files: [references/align-discipline-procedures.md, references/align-discipline-catalogue.md]
+  triggers: { always: true }            # copied to .claude/references/ alongside the rule — loaded ON DEMAND by commands/skills, never auto-loaded
+  note: the rule core + these two files are ONE discipline (split 2026-06-07, 40k always-on limit); never install the rule without them
+
 - name: align-discipline
   kind: rule
   triggers:

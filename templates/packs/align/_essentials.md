@@ -6,6 +6,7 @@ essentials:
   commands: [align-scan, align-plan, align-phase, align-gate, align-fast, align-status, align-final, align-rollback, align-park, align-replan, align-recheck, align-promote-tier]
   skills: [detect-drift, find-and-align]
   rules: [align-discipline]
+  rule_references: [align-discipline-procedures, align-discipline-catalogue]   # references/ — ship WITH the rule; on-demand load (NOT auto-loaded); split 2026-06-07 for the 40k always-on limit
   ai-patterns: [align-ledger]
 ---
 

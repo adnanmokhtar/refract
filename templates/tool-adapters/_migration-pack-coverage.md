@@ -234,3 +234,7 @@ Per-tool surface:
 The F039-class failures (Trusted Summary, Hand-waved Query Param, Optimistic Form Field Match, etc.) catalogued in `_examples/audit-failure-modes.md` are pattern-recognised by the validator script. The script flags hand-wave tokens in audit files, missing contract sections, undersized corpus, and missing artifacts — regardless of which tool produced the artifacts.
 
 This means: a Cursor user, a Copilot user, an Aider user, and a Claude Code user all get the same enforcement floor when they run the validator. The discipline is universal; the tool surface is per-adapter convenience.
+
+## Rule-bundle requirement (2026-06-07)
+
+The discipline rule was split for the 40k-char always-on limit: `rules/<name>-discipline.md` (core, always-loaded) + `references/<name>-discipline-procedures.md` + `references/<name>-discipline-catalogue.md` (on-demand). **Every adapter translation MUST ship all three files together** — the core alone is NOT the complete discipline. Rule-only tools (Aider / Codex / Gemini) read all three as one contract; tools with on-demand file loading reference the two companions by path. Never re-inline the references into the core (that recreates the truncation bug); never drop them from a bundle.

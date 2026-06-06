@@ -6,6 +6,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### migration pack v1.6.0 + align pack v1.7.0 — discipline rules split for the 40k always-on limit
+
+**Why** — Claude Code truncates always-loaded files at 40k chars. `migration-discipline.md` was 79.5k and `align-discipline.md` 94.4k — **roughly half of each rule was silently never loaded** in every session, and project copies + a global symlink multiplied the waste (tenant-portal-v2 carried 176k of truncated rule text; a global `~/.claude/rules/` symlink loaded migration rules into every project including non-migration V1 repos).
+
+**What ships** — each rule split into an always-on core (<40k) + two on-demand companions under `references/` (content relocated **verbatim**, zero rewording): `<name>-discipline-procedures.md` (tier specs, contract template, full halt elaborations, tool-agnostic procedures, operational protocols, enforcement matrix) + `<name>-discipline-catalogue.md` (worked examples, anti-pattern catalogue, per-tool dispatch tables). Core keeps the philosophy, tier rules, anti-bloat gates, all halts (12-13 compacted with pointers), Must/Must-not, and the structure-vs-behaviour axis table. The "procedures are inlined here" contract is replaced by the **rule-bundle contract**: core + 2 references = ONE discipline; every adapter bundle ships all three (`_migration-pack-coverage.md` / `_align-pack-coverage.md` § Rule-bundle requirement). Manifests declare the pair (`rule_references:` in `_essentials.md`, `reference-pair` topic in `_topics.md`).
+
+**Deployed**: slim cores + references pushed to master-portal-v2 / tenant-portal-v2 / claude-v2; global `~/.claude/rules/migration-discipline.md` symlink removed (double-load + loaded migration rules in V1/non-migration repos); claude-v2's 85.6k CLAUDE.md relocated to 29.5k (4 sections → `.claude/references/`, verbatim).
+
+**Files touched**: `templates/packs/migration/{rules/migration-discipline.md, references/* (new), _essentials.md, _topics.md, _version.json}`, `templates/packs/align/{rules/align-discipline.md, references/* (new), _essentials.md, _topics.md, _version.json}`, `templates/tool-adapters/{_migration-pack-coverage.md, _align-pack-coverage.md}`.
+
 ### learning pack v1.2.0 — oracle provenance + approval stamp; honesty clause on simple-surface summaries
 
 **Why** — gap surfaced by reviewing an external repo (HosamZewain/ai-assisted-development-framework): we enforce `<path:line>` citation discipline on migration artifacts while the oracle they all trust (`_extracted-idioms.md` / `_extracted-codebase.md`) was unverified, uncited at claim level, and auto-trusted the moment `/setup-project` wrote it — the Trusted Summary anti-pattern applied to our own pipeline. Separately, simple-surface run summaries reported only the positive space (`Tests: N/N passing`) with no declaration of what was NOT validated.

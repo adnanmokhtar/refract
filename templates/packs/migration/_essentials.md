@@ -6,6 +6,7 @@ essentials:
   commands: [migration-scan, migration-plan, migration-phase, migration-fast, migration-gate, migration-final, migration-rollback, migration-replan, migration-park, migration-unpark, migration-deprecate, compare-v1, port-feature, migration-status, draft-phase-adrs, migration-recheck, cross-repo-task, migration-promote-tier]
   skills: [extract-v1-contract, parity-test-generate, perf-uplift-survey]
   rules: [migration-discipline]
+  rule_references: [migration-discipline-procedures, migration-discipline-catalogue]   # references/ — ship WITH the rule; on-demand load (NOT auto-loaded); split 2026-06-07 for the 40k always-on limit
   ai-patterns: [feature-port, parity-testing, migration-ledger]
 ---
 

@@ -92,6 +92,12 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
 
 # ============ RULES (.claude/rules/<name>.md) ============
 
+- name: migration-discipline-references
+  kind: reference-pair
+  files: [references/migration-discipline-procedures.md, references/migration-discipline-catalogue.md]
+  triggers: { always: true }            # copied to .claude/references/ alongside the rule — loaded ON DEMAND by commands/skills, never auto-loaded
+  note: the rule core + these two files are ONE discipline (split 2026-06-07, 40k always-on limit); never install the rule without them
+
 - name: migration-discipline
   kind: rule
   triggers:

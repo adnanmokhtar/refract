@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.6.0",
-  "released": "2026-06-06",
+  "version": "1.7.0",
+  "released": "2026-06-07",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, security weaknesses, and unhandled I/O (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.",
+  "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, security weaknesses, and unhandled I/O (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast. 1.7.0: split align-discipline.md into always-on core (<40k chars, respects Claude Code's 40k-char always-on limit — prior size was truncating ~half the rule in every session) + two on-demand reference files under references/ (procedures + catalogue), content relocated verbatim. Adapter bundles MUST ship all three files together.",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-06",

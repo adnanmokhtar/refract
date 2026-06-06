@@ -264,3 +264,7 @@ Auto-detection signals that surface a recommendation (but don't auto-include):
 - A scheduled cron job pointing to `/align-scan` (recurring sweep).
 
 When a signal is detected, `/setup-project` surfaces: "Detected potential alignment workflow. Add `--include=align`? [y/N]".
+
+## Rule-bundle requirement (2026-06-07)
+
+The discipline rule was split for the 40k-char always-on limit: `rules/<name>-discipline.md` (core, always-loaded) + `references/<name>-discipline-procedures.md` + `references/<name>-discipline-catalogue.md` (on-demand). **Every adapter translation MUST ship all three files together** — the core alone is NOT the complete discipline. Rule-only tools (Aider / Codex / Gemini) read all three as one contract; tools with on-demand file loading reference the two companions by path. Never re-inline the references into the core (that recreates the truncation bug); never drop them from a bundle.

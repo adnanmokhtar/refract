@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.5.2",
-  "released": "2026-05-07",
+  "version": "1.6.0",
+  "released": "2026-06-07",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API).",
+  "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API). 1.6.0: split migration-discipline.md into always-on core (<40k chars, respects Claude Code's 40k-char always-on limit — prior size was truncating ~half the rule in every session) + two on-demand reference files under references/ (procedures + catalogue), content relocated verbatim. Adapter bundles MUST ship all three files together.",
   "changelog": {
     "1.5.2": {
       "released": "2026-05-07",
@@ -96,7 +96,9 @@
     },
     "1.0.0": {
       "released": "2026-04-27",
-      "changes": ["Initial migration pack release."]
+      "changes": [
+        "Initial migration pack release."
+      ]
     }
   }
 }
