@@ -4,7 +4,7 @@ purpose: General code review, refactoring, and pre-commit health gates.
 essentials:
   agents: [code-reviewer, refactorer]
   commands: [pre-commit, check-health]
-  skills: [dead-branch-scan, architectural-diagnosis, refactoring-sweep, test-shield, smoke-verify]
+  skills: [dead-branch-scan, architectural-diagnosis, refactoring-sweep, test-shield, smoke-verify, change-brief]
   rules: [quality-principles, engineering-principles]
   ai-patterns: []
 ---
@@ -16,6 +16,6 @@ Files listed above are the minimal subset copied when `/setup-project --minimal`
 Rationale per category (one line each):
 - agents: code-reviewer is the daily reviewer; refactorer covers the most common follow-up action.
 - commands: pre-commit is the per-change gate; check-health is the periodic project gate.
-- skills: dead-branch-scan flags unreachable code — high-signal cleanup with low risk. test-shield + smoke-verify are the safety pair `/optimize` + `/audit` wire in (coverage gate before a behaviour-preserving fix; boot-check after) — shipped even in minimal installs so the sweeps can't ship un-pinned or non-booting changes.
+- skills: dead-branch-scan flags unreachable code — high-signal cleanup with low risk. test-shield + smoke-verify are the safety pair `/optimize` + `/audit` wire in (coverage gate before a behaviour-preserving fix; boot-check after) — shipped even in minimal installs so the sweeps can't ship un-pinned or non-booting changes. change-brief is the comprehension gate ("if you can't explain the code, it isn't yours" made mechanical — 5-field brief validated by `/pre-commit` + `/review-changes`).
 - rules: quality-principles is the per-change discipline; engineering-principles is the project governance layer (both ship together — minimal install is incomplete without governance).
 - ai-patterns: none — this is a utility track and the pack ships without ai-patterns.

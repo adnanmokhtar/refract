@@ -84,6 +84,11 @@ If any mechanical step fails → STOP, do not run agents.
 - Path-selected reviewers (table in Phase 3).
 - Each returns: blockers, requests, nits.
 
+### Comprehension gate (change-brief)
+- Dispatch the `change-brief` skill (mode B — validate; mode A — generate first if the commit body has none) when the staged change matches a trigger tier (> 20 lines, new dependency / public symbol / abstraction, touches I/O / auth / payments, changes an error path / default / permission gate).
+- The brief's 5 fields (What / Why this shape / Edge cases / Blast radius / Verified by) must PASS the skill's hand-wave + citation + echo + verification checks. Missing or failing brief = **blocker** — "the code runs" is not "the code is owned".
+- Exempt: typo/comment fixes, mechanical renames, formatting, lockfile-only, generated files. Don't manufacture ceremony on trivial diffs.
+
 ### Self-audit
 - Did every selected reviewer return? Missing reviewer = incomplete gate.
 - Partial-stage check (`git add -p` half a file): lint/test scope = staged content; agents read full file from disk including unstaged lines. Note this gap in the report.

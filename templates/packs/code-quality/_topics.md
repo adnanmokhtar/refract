@@ -127,4 +127,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { always: true }
   sections: [purpose, when_to_use, procedure, verify, anti_patterns]
+
+# Comprehension gate (COPY-mode — verbatim). Dispatched by /pre-commit (generate + validate)
+# and /review-changes (validate). Mechanizes engineering-principles § AI-assisted development:
+# "if you can't explain the code, it isn't yours."
+- name: change-brief
+  kind: skill
+  triggers: { always: true }
+  sections: [purpose, when_to_use, the_brief_contract, procedure, verify, anti_patterns]
 ```

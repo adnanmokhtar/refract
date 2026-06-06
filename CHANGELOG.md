@@ -6,6 +6,14 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### code-quality pack v1.4.0 — `change-brief` skill (the comprehension gate)
+
+**Why** — "if you can't explain the code, it isn't yours" was advisory in `engineering-principles.md § AI-assisted development` with zero enforcement: AI code accepted because it ran, defect surfaces in production weeks later, nobody can navigate the code that caused it.
+
+**What ships** — **new `templates/packs/code-quality/skills/change-brief.md`**: every non-trivial change carries a 5-field brief (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit/PR body. Mode A generates (reading the actual diff, citing the convention/idiom/ADR the shape follows — a shape that follows no convention surfaces the missing-idiom-or-ADR decision before merge); mode B validates mechanically (field presence, hand-wave grep — `should work` / `looks good` / `standard approach` fail, citation check — ≥ 1 resolving `<path:line>`/ADR per explanatory field, echo check — diff paraphrases fail, verification check — future tense / modals fail). Writing the brief takes 2 minutes when the change is understood and is impossible when it isn't — that asymmetry is the gate. Dispatched by `/pre-commit` (new Comprehension-gate step in Phase 6; missing/failing brief is a blocker) and `/review-changes` (universal dispatch alongside `code-reviewer`). Trigger tiers scale with risk (> 20-line diff, new dependency / public symbol / abstraction, I/O-auth-payments touch, error-path / default / permission-gate change); typo fixes, mechanical renames, formatting, lockfile-only changes exempt — no manufactured ceremony.
+
+**Files touched**: `templates/packs/code-quality/{skills/change-brief.md (new), rules/engineering-principles.md, commands/pre-commit.md, commands/review-changes.md, _essentials.md, _topics.md, _version.json}`.
+
 ### mobile pack v1.2.0 — `render-discipline` rule (rebuild / re-render waste) + `/optimize` + `/audit` wiring
 
 **Why** — rebuild-waste guidance (the Flutter "fetch + setState at screen root" defect: works first run, rebuilds the whole screen per keystroke) lived as prose in `references/flutter.md` with no detector in `/optimize` or `/audit` — review skims past it because every test passes.

@@ -144,6 +144,7 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 
 #### Universal (ALWAYS)
 - `code-reviewer`
+- `change-brief` skill (mode B — validate): the PR/commit body must carry a passing 5-field change brief (What / Why this shape / Edge cases / Blast radius / Verified by) for any change matching the skill's trigger tiers. Missing/failing brief is a blocker finding — the comprehension gate ("if you can't explain the code, it isn't yours") applied at review time.
 
 #### Category-based (based on diff categories)
 | Category | Reviewers |
