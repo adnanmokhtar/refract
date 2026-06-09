@@ -39,7 +39,7 @@ That's it. Three escalation triggers. Everything else — style, error handling,
 
 ## Phases applied
 
-All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
+Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). Trivial / standard tiers run the subset their ceremony requires (see closure-verb table) — skipping phases outside your tier's ceremony is sanctioned; skipping phases inside it is not.
 
 ## Invariants
 
@@ -195,6 +195,8 @@ After generation, dispatch (gated by tier):
 - **Standard-tier:** add `@i18n-auditor` (if i18n in scope) and `@accessibility-auditor`.
 - **Heavy-tier:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@<framework>-reviewer` (e.g., `@vue-reviewer`, `@react-reviewer`), `@security-auditor` (if auth/payment in scope). Run in parallel.
 
+If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
+
 ### Sibling-shape mechanical halt (mandatory, all tiers)
 
 Before declaring success, the auditor compares the new page/component against ≥2 sibling files in the same module. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (introduced a new break on an unrelated axis).
@@ -232,6 +234,13 @@ Gated by tier. Trivial-tier writes only the bare minimum; ADR drafts are heavy-t
   2. `verify-with-playwright` skill — drive the new feature through the Playwright MCP server: navigate → assert visible → fill form → assert success → screenshot. Multi-locale + multi-viewport when `i18n`/breakpoints declared.
   3. Console-error pass — zero errors on load; warnings logged to report.
   - Skipping live verification is allowed only for backend-shaped changes (API contracts, types, store internals) where no rendered surface changed. Use `--no-verify-browser` to opt out explicitly with rationale.
+- **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md` for an error-tracker / analytics / RUM layer):
+  - Error tracking (Sentry / Bugsnag / equivalent) captures errors from the new routes/components — error boundary or handler wired the same way siblings wire it.
+  - Route-level performance signal exists if the project records one (web-vitals / RUM route timing) — new route reports like siblings do.
+  - Product analytics events added if siblings of this surface emit them (same naming convention).
+  - No console.* left as the only failure signal on any error path.
+  - If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
+- **Release note (heavy tier only)**: one PR-description paragraph — feature flag or flagless-with-rationale, rollback path (flag off / revert), and what gets checked on staging/preview before production.
 
 ## Phase 7 — Improve (feed the learning loop)
 

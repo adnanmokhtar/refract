@@ -331,7 +331,7 @@ Based on prompt signals, `/setup-project` creates tools the project will actuall
 |---|---|
 | AI / LLM | `/prompt-eval`, `/token-audit`, `prompt-reviewer` |
 | Webhooks (Stripe / WhatsApp / GitHub) | `/simulate-webhook`, `webhook-signature-verifier` |
-| Payment / billing | `/replay-charge`, `payment-idempotency-reviewer` |
+| Payment / billing | `/replay-charge`, `payment-reviewer` |
 | Multi-tenant | `/tenant-leak-audit`, `tenant-isolation-reviewer` |
 | Real-time / websockets | `/ws-trace`, `ws-contract-reviewer` |
 | E-commerce | `/seed-catalog`, `checkout-flow-reviewer` |

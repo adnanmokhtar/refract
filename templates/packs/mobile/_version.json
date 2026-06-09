@@ -1,12 +1,22 @@
 {
   "kind": "pack",
   "name": "mobile",
-  "version": "1.2.0",
-  "released": "2026-06-06",
+  "version": "1.3.0",
+  "released": "2026-06-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Adds render-discipline rule (rebuild / re-render waste — 8 detectors, Flutter / RN / Compose / SwiftUI fingerprint tables; backs the render-waste class in /optimize + /audit for mobile-*). Prior: platform-conventions-audit skill (backs /polish on mobile stacks).",
+  "summary": "add-feature lifecycle hardening: observability sign-off in Phase 6 (crash reporting / screen perf signal / offline-queue failure telemetry), heavy-tier release note (kill switch + staged rollout + store metadata), /learn-from-task dispatch in Phase 7, missing-agent inline fallback on the reviewer cascade, tier-scoped phases-applied wording.",
   "changelog": {
+    "1.3.0": {
+      "released": "2026-06-10",
+      "changes": [
+        "add-feature Phase 6: NEW observability sign-off — crash reporting covers new screens, screen-view/perf signal mirrors siblings, offline-queue failures surface to telemetry (not just local logs); projects with no observability layer report 'observability: none configured' explicitly.",
+        "add-feature Phase 6: NEW release note (heavy tier) — feature flag / remote-config kill switch (store review latency makes a flag the only same-day rollback), staged rollout plan (iOS phased / Android staged %), store-metadata changes, rollback path.",
+        "add-feature Phase 7: /learn-from-task dispatch added (was the only add-feature variant without it — learning loop now closes).",
+        "add-feature Phase 4: missing-agent fallback — uninstalled reviewers in the serial cascade are performed inline against their pack/domain checklist, never silently skipped.",
+        "add-feature: 'Phases applied' now tier-scoped (heavy = all 7; trivial/standard run their ceremony's subset) — matches the closure-verb table instead of contradicting it."
+      ]
+    },
     "1.2.0": {
       "released": "2026-06-06",
       "changes": [

@@ -107,6 +107,13 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [understand, organize, retrieve, generate, update, validate, improve]
   fallback: _examples/add-crud-page.md
 
+- name: add-feature
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md § Modules (sibling pages + module shape) + _extracted-idioms.md (wrappers/composables)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/add-feature.md
+
 - name: a11y-audit
   kind: command
   triggers: { primary_frontend_framework_detected: true }

@@ -69,7 +69,7 @@ Every command has at least one halt rule **enforced by a validator script** (not
 - `migration-gate` — refuses PASS if any feature row in the phase has missing artifacts.
 - `align-gate` — 14-check matrix in `validate-align-artifacts.sh` (gap-count parity, net-lines on structural ≤ 0, no new symbols except idioms-named, idiom-citation for functional adds, security assertion present, perf baseline present, security tier minimum, oracle unmodified, frontend regressions for `frontend-*`).
 - All audit commands — hand-wave grep refuses outputs containing `etc.` / `...` / `N+ items` / `appears to` / `several places` / `multiple endpoints`.
-- `add-feature` — sibling-shape conformance check refuses new files that diverge from sibling shape without an ADR.
+- `add-feature` — sibling-shape conformance check refuses new files that diverge from sibling shape without an ADR; heavy tier additionally gates on `reviewers_clean == reviewers_dispatched`, observability sign-off, and security + release pre-flights. Dispatched agents that aren't installed are performed inline against their pack/domain checklist (`inline:<agent-name>`), never silently skipped.
 
 The pattern: **mechanical enforcement beats agent self-policing**. If the agent forgets the rule, the script catches it.
 

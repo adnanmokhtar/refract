@@ -1,9 +1,25 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-06-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "add-feature lifecycle hardening: observability sign-off in Phase 6 (error tracking / route perf signal / analytics events, gated on what the project ships, explicit 'none configured' note otherwise), heavy-tier release note (flag / rollback / staging), missing-agent inline fallback on reviewer dispatch, tier-scoped phases-applied wording. _topics.md gains the previously missing add-feature topic entry.",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-06-10",
+      "changes": [
+        "add-feature Phase 6: NEW observability sign-off — error tracking covers new routes/components, route-level perf signal + analytics events mirror siblings, no console.* as the only failure signal; projects with no observability layer report 'observability: none configured' explicitly.",
+        "add-feature Phase 6: NEW release note (heavy tier) — feature flag or flagless-with-rationale, rollback path, staging/preview verification.",
+        "add-feature Phase 4: missing-agent fallback — uninstalled reviewers are performed inline against their pack/domain checklist, never silently skipped.",
+        "add-feature: 'Phases applied' now tier-scoped (heavy = all 7; trivial/standard run their ceremony's subset) — matches the closure-verb table instead of contradicting it.",
+        "_topics.md: add-feature topic entry added (was missing — AUTHOR-mode generation never produced the command despite it shipping in the pack)."
+      ]
+    },
+    "1.0.0": {
+      "released": "2026-04-26",
+      "changes": ["Initial baseline."]
+    }
+  }
 }

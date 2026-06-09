@@ -251,6 +251,9 @@ Dispatch:
 - `security-auditor` — if auth / crypto / secrets / sensitive data.
 - `tenant-isolation-reviewer` — if multi-tenant.
 - `prompt-reviewer` — if AI code touched.
+- `payment-reviewer` — if payment code touched.
+
+If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
 
 If any check fails: HALT, report the failure, do not paper over.
 

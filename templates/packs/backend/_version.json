@@ -1,12 +1,23 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.2.0",
-  "released": "2026-05-03",
+  "version": "1.3.0",
+  "released": "2026-06-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Adds migration-backend.md rule (backend-specific extensions to migration discipline — audit axes, stack-aware primitive set, anti-pattern catalogue, Transposition Trap fingerprints). Closes the parallel-to-migration-frontend gap; cross-referenced from migration/_v2-anchors-schema.md, migration-discipline.md, parity-auditor, perf-uplift-survey, port-feature, _failure-surface, align-discipline, align-scan, detect-drift.",
+  "summary": "add-feature lifecycle hardening: payment-idempotency-reviewer renamed to payment-reviewer (agent now resolves), missing-agent inline fallback rule on every dispatch table, Release pre-flight (heavy tier: flag / migration ordering / rollback / staging), tier-scoped hard rules, trivial/standard output template. Payment-reviewer dispatch + fallback added to fix-bug, add-endpoint, add-module.",
   "changelog": {
+    "1.3.0": {
+      "released": "2026-06-10",
+      "changes": [
+        "add-feature + _examples/add-feature: rename payment-idempotency-reviewer → payment-reviewer (the agent that actually ships in domains/payment/agents/); drops the '(if present)' hedge so payment features no longer silently skip specialist review.",
+        "add-feature + _examples/add-feature: missing-agent fallback rule — any dispatched agent not installed in the project is performed inline against its pack/domain checklist and noted as inline:<agent-name>; never silently skipped. Applied to Phase 2 architects and Phase 6 reviewers.",
+        "add-feature + _examples/add-feature: NEW Release pre-flight (heavy tier) in Phase 6 — feature-flag decision, expand→migrate→contract migration ordering, one-sentence rollback path ('cannot roll back' requires ADR), staging verification note. Closes the missing release stage in the lifecycle.",
+        "add-feature + _examples/add-feature: hard rules scoped to tier ('never skip phases within your tier's ceremony'; Phase 1/2 pauses are heavy-tier only) — removes the contradiction with the closure-verbs tiering table.",
+        "add-feature + _examples/add-feature: trivial/standard output template added — runs without architects/reviewers no longer report against the heavy-tier template.",
+        "fix-bug / add-endpoint / add-module: payment-reviewer dispatch row added (payment signal parity with add-feature) + missing-agent inline fallback rule."
+      ]
+    },
     "1.2.0": {
       "released": "2026-05-03",
       "changes": [

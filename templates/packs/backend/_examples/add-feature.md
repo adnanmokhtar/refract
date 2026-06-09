@@ -184,7 +184,9 @@ Update via `doc-writer`:
 |---|---|
 | Multi-tenant | `tenant-isolation-reviewer` |
 | AI | `prompt-reviewer` |
-| Payment | `payment-idempotency-reviewer` (if present) |
+| Payment | `payment-reviewer` |
+
+**Missing-agent fallback (applies to every dispatch table in this command):** if a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<agent-name>`).
 
 Consolidate findings. Block on any CRITICAL / BLOCKER finding.
 
@@ -214,6 +216,15 @@ Run based on signals:
 
 Dispatch `/security-audit` scoped to the diff. Block on any BLOCKER.
 
+### Release pre-flight (heavy tier)
+
+One short note in the PR description — not a new ceremony:
+
+- **Flag decision**: behind a feature flag, or flagless with rationale.
+- **Migration ordering**: if schema changed, expand → migrate → contract sequence stated; deploy is safe with old + new code running simultaneously.
+- **Rollback path**: one sentence — flag off / revert commit / down-migration. "Cannot roll back" requires an ADR.
+- **Staging verification**: what gets checked on staging before production.
+
 If any check fails: HALT, report the failure, do not paper over.
 
 ## Phase 7 — Improve (feed the learning loop)
@@ -225,6 +236,22 @@ If any check fails: HALT, report the failure, do not paper over.
 - If review surfaced drift between code + convention: append to `ai/dynamic/drift-log.md`.
 
 ## Output
+
+**Trivial / standard tier** (most runs) — report only what actually ran:
+
+```
+✅ Feature: <name>  (tier: trivial|standard)
+
+Sibling(s) mirrored: <paths>
+Files created/modified: <counts>
+Tests added: <count> — passing
+Sibling-shape halt: aligned (<N> axes checked)
+Docs: ai/status.md updated <+ plan paragraph if standard>
+
+Next: commit + open PR
+```
+
+**Heavy tier** — full report:
 
 ```
 ✅ Feature: <name>
@@ -270,8 +297,8 @@ Next:
 
 ## Hard rules
 
-- Never skip phases to save time.
-- Pause at Phase 1 (requirements) and Phase 2 (design).
+- Never skip phases within your tier's ceremony to save time. Tier selection is the only sanctioned way to shrink the flow.
+- Pause at Phase 1 (requirements) and Phase 2 (design) — heavy tier only. Trivial / standard run unpaused.
 - No feature ships without tests for every acceptance criterion.
 - No feature ships without telemetry.
 - No feature ships with any security BLOCKER open.

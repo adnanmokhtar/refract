@@ -44,7 +44,7 @@ Trivial is the default. Heavy is rare-by-design — match what `/find-and-fix` d
 
 ## Phases applied
 
-All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
+Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). Trivial / standard tiers run the subset their ceremony requires (see closure-verb table) — skipping phases outside your tier's ceremony is sanctioned; skipping phases inside it is not.
 
 ## Invariants
 
@@ -190,6 +190,8 @@ After generation, dispatch reviewers **serially** (not parallel — each re-read
 | `@security-auditor` | Diff touches biometric / keychain / secrets / auth | no |
 | `@ux-reviewer` | Always | yes |
 
+If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
+
 **Halt rule**: if ANY agent returns BLOCKER, stop the cascade. Do not run remaining reviewers on a blocked feature; fix the blocker, re-run from the failed agent. This is the `find-and-fix § 3.5 RE-DETECT` pattern from the migration pack — every blocker closes before advance, no silent partial-pass.
 
 ### Sibling-shape mechanical halt
@@ -223,9 +225,16 @@ These are mechanical (string-match / file-presence / config-presence checks), no
 - Push-notification manual test (cold tap, warm tap, foreground display).
 - Offline mode manual test (toggle airplane mode mid-flow).
 - Permission denial handling — if user denies camera, the flow has a graceful path.
+- **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`):
+  - Crash reporting (Crashlytics / Sentry / equivalent) covers the new screens — error boundaries / handlers wired the same way siblings wire them.
+  - Screen-view / performance signal recorded if siblings record one (screen TTI, cold-start contribution, analytics screen events) — same naming convention.
+  - Offline queue failures surface to telemetry, not just local logs — a silently-dropped sync is the worst mobile failure mode.
+  - If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
+- **Release note (heavy tier only)**: one PR-description paragraph — feature flag / remote-config kill switch decision (store review takes days; a flag is the only same-day rollback), staged rollout plan (iOS phased release / Android staged %), store-metadata changes (privacy disclosures, permission strings), and rollback path.
 
 ## Phase 7 — Improve
 
+- Run `/learn-from-task` to capture: sibling mirrored, native surface touched, offline strategy, corrections, follow-ups.
 - New offline strategy → propose pattern.
 - New native bridge → ADR proposed.
 - Recurring permission-denial UX → propose pattern.

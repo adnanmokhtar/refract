@@ -103,6 +103,8 @@ Dispatch architects in parallel:
 - `ui-architect` (if frontend) — page/component shape, state, services, i18n keys.
 - `design-system-architect` (if new UI patterns) — tokens + primitives needed.
 
+If a named architect is not installed in this project, produce that design axis inline against its pack's checklist — never silently skip the axis.
+
 Cross-reference outputs for contradictions. Resolve before proceeding.
 
 **Pause. Get user confirmation on design.** Designs are cheap to change; code isn't.
@@ -226,7 +228,9 @@ Update via `doc-writer`:
 |---|---|
 | Multi-tenant | `tenant-isolation-reviewer` |
 | AI | `prompt-reviewer` |
-| Payment | `payment-idempotency-reviewer` (if present) |
+| Payment | `payment-reviewer` |
+
+**Missing-agent fallback (applies to every dispatch table in this command):** if a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<agent-name>`).
 
 Consolidate findings. **Mechanical halt**: HALT unless EVERY dispatched reviewer returns 0 BLOCKER and 0 CRITICAL findings. Record `reviewers_dispatched=N` and `reviewers_clean=N` in the consolidation note — proceed only when `reviewers_clean == reviewers_dispatched`. If any reviewer flags a blocker, re-run that specific reviewer after the fix; do not paper over, do not aggregate-and-ignore.
 
@@ -256,6 +260,15 @@ Run based on signals:
 
 Dispatch `/security-audit` scoped to the diff. Block on any BLOCKER.
 
+### Release pre-flight (heavy tier)
+
+One short note in the PR description — not a new ceremony:
+
+- **Flag decision**: behind a feature flag, or flagless with rationale (e.g., additive endpoint, no existing-path risk).
+- **Migration ordering**: if schema changed, expand → migrate → contract sequence stated; deploy is safe with old + new code running simultaneously.
+- **Rollback path**: one sentence — flag off / revert commit / down-migration. "Cannot roll back" requires an ADR.
+- **Staging verification**: what gets checked on staging before production (the `chaos-test` ticket for cross-service features lands here).
+
 If any check fails: HALT, report the failure, do not paper over.
 
 ## Phase 7 — Improve (feed the learning loop)
@@ -267,6 +280,22 @@ If any check fails: HALT, report the failure, do not paper over.
 - If review surfaced drift between code + convention: append to `ai/dynamic/drift-log.md`.
 
 ## Output
+
+**Trivial / standard tier** (most runs) — report only what actually ran:
+
+```
+✅ Feature: <name>  (tier: trivial|standard)
+
+Sibling(s) mirrored: <paths>
+Files created/modified: <counts>
+Tests added: <count> — passing
+Sibling-shape halt: aligned (<N> axes checked)
+Docs: ai/status.md updated <+ plan paragraph if standard>
+
+Next: commit + open PR
+```
+
+**Heavy tier** — full report:
 
 ```
 ✅ Feature: <name>
@@ -312,8 +341,8 @@ Next:
 
 ## Hard rules
 
-- Never skip phases to save time.
-- Pause at Phase 1 (requirements) and Phase 2 (design).
+- Never skip phases within your tier's ceremony to save time. Tier selection (Closure verbs table) is the only sanctioned way to shrink the flow.
+- Pause at Phase 1 (requirements) and Phase 2 (design) — heavy tier only. Trivial / standard run unpaused.
 - No feature ships without tests for every acceptance criterion.
 - No feature ships without telemetry.
 - No feature ships with any security BLOCKER open.

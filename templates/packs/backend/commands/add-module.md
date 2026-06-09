@@ -276,6 +276,7 @@ Run in order:
 - `pnpm dev` + `endpoint-test` skill for each endpoint (200 / 400 / 401 verified).
 - `schema-diff` skill — entity matches DB after migration.
 - Self-audit: do the generated files cross-reference correctly? Any contradictions with `ai/conventions.md`?
+- Heavy-tier rows additionally dispatch signal-aware reviewers: `security-auditor` (auth/secrets), `tenant-isolation-reviewer` (multi-tenant), `prompt-reviewer` (AI), `payment-reviewer` (payment). If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. HALT on any BLOCKER.
 
 If any check fails: HALT, report the failure, do not paper over.
 

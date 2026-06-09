@@ -278,6 +278,9 @@ Any gap: dispatch `/add-telemetry` for detection improvement.
 |---|---|
 | Multi-tenant (any DB change) | `tenant-isolation-reviewer` |
 | AI code touched | `prompt-reviewer` |
+| Payment code touched | `payment-reviewer` |
+
+If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
 
 Block on any BLOCKER.
 
