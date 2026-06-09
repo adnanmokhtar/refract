@@ -1,9 +1,22 @@
 {
   "kind": "domain",
   "name": "ai",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-06-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "Adds ai-patterns/prompt-builder.md — the 4-layer prompt structure (system + context + strategy + user) that prompt-reviewer, ai-cost-discipline, backend add-feature/fix-bug, and repo-baseline patterns README already referenced but which never existed. Closes the dangling reference.",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-06-10",
+      "changes": [
+        "NEW ai-patterns/prompt-builder.md: 4-layer prompt builder pattern (system + context + strategy + user) with hard rule (one builder, fixed layer order, user input as data), halt conditions (anti-override language cited, context serializer budgeted ≤1500 tokens, grep ban on ad-hoc prompt concatenation), and cross-links to prompt-reviewer / ai-cost-tracking / ai-cost-discipline / prompt-eval.",
+        "Resolves dangling references from: prompt-reviewer.md pre-flight, backend add-feature.md + fix-bug.md Phase 3 tables, code-quality review-changes.md, repo-baseline ai/patterns/README.md, canonical-command-template.md."
+      ]
+    },
+    "1.0.0": {
+      "released": "2026-04-26",
+      "changes": ["Initial baseline."]
+    }
+  }
 }
