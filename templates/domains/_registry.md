@@ -18,14 +18,20 @@ Each signal folder under `~/.claude/templates/domains/<name>/` ships:
 
 | Key | Detection signal | What it ships |
 |---|---|---|
+| `admin` | admin route namespaces / guards (`/admin`, `role=admin` / `is_staff`), impersonation / act-as, back-office frameworks (AdminJS / react-admin / Forest / Django admin) | Granular-capability + audited-action + safe-impersonation pattern, audit-every-action + least-privilege + reauth-for-destructive + bounded-blast-radius rule, admin-surface audit command, admin reviewer |
 | `ai` | LLM SDKs, prompt templates, embeddings DBs, agent frameworks | LLM-call pattern, prompt-injection rules, eval patterns |
+| `analytics` | product-analytics SDKs (Segment / Amplitude / Mixpanel / PostHog / GA), `track()` / `capture()` call-sites, event schemas / data layer | Typed-tracking-plan + consent-gated + idempotent-event pattern, PII-minimization + consent + no-ad-hoc-events + analytics-≠-audit-log rule, tracking-plan audit command, analytics reviewer |
 | `audit-log` | append-only audit / activity tables, who-did-what records, immutable event trail | Tamper-evident append-only rule (hash-chain), audit-trail pattern, coverage+integrity verify command, audit-log reviewer |
 | `auth` | auth libs (passport / next-auth / devise / spring-security), JWT/session middleware, password hashing (argon2/bcrypt), OAuth/OIDC clients, guards/RBAC | AuthN-vs-AuthZ architecture pattern, session/token/RBAC discipline rule, access-control (IDOR) audit command, auth reviewer |
 | `background-jobs` | bull / sidekiq / celery / temporal / agenda / cron | Job pattern, retry/idempotency rules, queue agent |
+| `caching` | cache clients (Redis / Memcached), CDN / `Cache-Control` / `ETag` config, `@Cacheable` / react-query / SWR | Cache-aside + stampede-protection pattern, scoped-key (no cross-tenant leak) + invalidate-on-write + bounded-jittered-TTL + fail-open rule, probe-cache command, caching reviewer |
 | `compliance` | references to HIPAA / GDPR / PCI / SOC2 in code/docs/CI | Compliance-aware logging, PII handling rules |
 | `event-sourced` | event-store / CQRS infra / projections | Aggregate pattern, projection rebuild runbook |
 | `feature-flags` | LaunchDarkly / Unleash / Flagsmith / homegrown gates | Flag-introduction pattern, cleanup runbook |
 | `file-upload` | multipart endpoints, S3/GCS SDKs, virus-scan hooks | Upload pattern, AV-scan rule, content-type allowlist |
+| `i18n` | i18n libs (i18next / react-intl / formatjs / vue-i18n / gettext), locale catalogs, ICU messages, `t()` call-sites, `Accept-Language` | Message-catalog + ICU + locale-negotiation pattern, no-hardcoded-strings + CLDR-pluralization + locale-edge-formatting + RTL + translation-isn't-HTML rule, i18n-coverage scan command, i18n reviewer |
+| `import` | bulk CSV/XLSX upload+parse endpoints, batch insert/upsert, parse libs (papaparse / xlsx / csv-parse), ingest jobs | Streamed-parse + per-row-validate + idempotent-tenant-scoped-upsert pattern, partial-failure-policy + cross-tenant-write + formula-injection + bounded-size rule, dry-run-import command, import reviewer |
+| `media-processing` | image/video toolchains (sharp / ImageMagick / ffmpeg), transcode / thumbnail jobs, CDN image pipelines, EXIF handling | Validated sandboxed-async-transcode pipeline pattern, magic-byte-validation + resource/bomb-limits + codec-hardening (ImageTragick / ffmpeg-protocol) + EXIF-strip + signed-delivery rule, media-pipeline audit command, media reviewer |
 | `multi-tenant` | tenant_id columns / row-level-security / per-tenant DB | Tenant isolation rule, query-scope agent, leak audit |
 | `notifications` | email/SMS/push providers, template engines | Template + channel pattern, rate-limit rule |
 | `payment` | Stripe / Paddle / Adyen / PSP SDKs, webhook signatures | PCI-aware pattern, idempotency rule, reconciliation runbook |
