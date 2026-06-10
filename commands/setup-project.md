@@ -1,6 +1,6 @@
 ---
 description: The brain. Scaffold new projects OR analyze + enhance existing ones. Detects mode, refines the prompt, mixes track-based packs, generates domain-specific tooling. One command. Any stack. Any shape. New or existing.
-version: 2.0.0
+version: 2.1.0
 # Tier 1 = HOT (load every session). Tier 2 = WARM (load by phase/task type).
 # Tier 3 = COLD (load on demand only). The orchestrator always loads tier 1;
 # tier 2/3 are pulled by the active phase. See @templates/import-tiers.md.
@@ -59,7 +59,7 @@ related-commands:
 |-----------|-------------------------------------------------------------|-------------------------------------------------------------------|------------------------------------|
 | CREATE    | Empty / near-empty repo, or `--create`                      | **FULL**: all phases 0→6, all packs, full anchoring               | "scaffolded + anchored + audited"  |
 | ENHANCE   | Existing repo, no `.claude/` yet, or `--enhance`            | **LIGHTER**: Phase 0/2 read-only extract, Phase 4 anchored writes | "extracted + layered + audited"    |
-| REFRESH   | `.claude/` present + `--refresh`                            | **READ-ONLY-THEN-TARGETED**: full study report, then apply only flagged rows | "studied + targeted-applied + audited" |
+| REFRESH   | `.claude/` present + `--refresh`                            | **BACKUP-THEN-STUDY-THEN-TARGETED**: deterministic Phase 0 backup (in preflight), full study report, every flagged row APPLIED or LEDGER-RECORDED, reconciliation audit | "backed-up + studied + reconciled + audited" |
 | REFINE    | `.claude/` present + `--refine` (or post-REFRESH deepening) | **DEEP-ONLY-ON-FLAGGED**: 4.6/4.7/4.8-DEEP rewrite shallow blocks; untouched files = no-op | "deepened-where-shallow + audited" |
 
 The agent does NOT run CREATE ceremony on REFINE flag, does NOT run REFINE deep-pass on a fresh CREATE, does NOT promote ENHANCE into a full re-scaffold. **Mode-mismatch = bug.**
@@ -140,6 +140,23 @@ Skip only when:
 Why this is mandatory: `.claude/` is the source of truth, but Cursor reads `.cursor/`, OpenCode reads `.opencode/` + `opencode.json`, Copilot reads `.github/agents/` + `.github/prompts/`, Cline reads `.clinerules/`, etc. Without auto-chaining adapters, Claude gets every M25/M28/M29/M30/M31 improvement and the other tools fall behind ("Claude got smarter, Cursor still talks generic prose"). The hard contract closes this gap.
 
 Pack-level changes propagate automatically through adapter translation — anchoring blocks, new skills, new agents, new MCP entries all reach Cursor / OpenCode / etc. via `/setup-project-adapters`. Global meta-commands (`/setup-project`, `/refine-prompt`, `/scaffold-project`) remain Claude-Code-only (other tools have their own command systems).
+
+**Hard contract (M35) — deterministic backup + durable refresh decisions:**
+
+Refresh's purpose: re-audit because claude-config changed OR the project's code/business changed — keep what must be kept, change what must change, add the new, and NEVER lose the current setup. Two failure modes observed 2026-06-10 broke this: (a) a run that studied and stopped, (b) a run that curated by judgment, skipped the backup, and skipped the audit. M35 closes both:
+
+1. **Backup is deterministic.** `run-preflight.sh` itself creates `.claude/backups/<ts>/` (`.claude/` artifacts + `ai/` + CLAUDE.md/AGENTS.md) in REFRESH / REFINE mode before any report is generated. The agent never decides whether to back up. `audit-setup.sh` C2a refuses success if no backup exists.
+
+2. **Curation is sanctioned ONLY through the decisions ledger** `.claude/_refresh-decisions.md`. Every actionable study row must end in exactly one of two states — APPLIED (copy / merge / enhance) or RECORDED:
+   ```bash
+   apply-study-decisions.sh <target> --reject='pack/kind/file.md:rationale'     # permanent: artifact class wrong for this project
+   apply-study-decisions.sh <target> --keep-ours='pack/kind/file.md:rationale'  # our version beats the CURRENT pack version
+   apply-study-decisions.sh <target> --resolve='pack/kind/file.md:note'         # MERGE/INJECT performed by hand
+   apply-study-decisions.sh <target> --keep='kind/file.md:rationale'            # project-only orphan keeper
+   ```
+   `KEEP-OURS` / `RESOLVED` entries are stamped `pack@sha8` and **re-open automatically when the pack source changes** — so a kept file is re-audited exactly when there's something new to audit, never sooner. `REJECTED` / `KEEP` are permanent until a human deletes the line. Ledger rows are never re-proposed (kills the "same 95 rows every refresh" loop).
+
+3. **Reconciliation is audited.** `audit-setup.sh` C2k regenerates the study report against the post-apply state and REFUSES success while any actionable row is neither applied nor ledger-recorded. "I curated, so I skipped the audit" is forbidden — curate all you want, in the ledger, with rationale; the audit still runs.
 
 This block exists because prose rules in lower-priority sections were skipped under context pressure. Step Zero is the load-bearing contract.
 

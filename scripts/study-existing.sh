@@ -31,6 +31,46 @@ TARGET="$1"; shift
 REPORT="$TARGET/.claude/_study-existing-report.md"
 mkdir -p "$(dirname "$REPORT")"
 
+# M35 — durable decisions ledger. Rows recorded here are reconciled instead of
+# re-proposed on every run (the "95 rows again every refresh" failure mode).
+# Refresh's aim: keep what must be kept, change what must change, add the new —
+# WITHOUT re-litigating every kept row each run. Verbs encode exactly that:
+#   - `pack/kind/file.md` → REJECTED (YYYY-MM-DD) — rationale            (permanent: artifact class is wrong for this project)
+#   - `pack/kind/file.md` → KEEP-OURS (YYYY-MM-DD, pack@sha8) — why ours wins   (re-opens when pack source changes)
+#   - `pack/kind/file.md` → RESOLVED (YYYY-MM-DD, pack@sha8) — how merged       (re-opens when pack source changes)
+#   - `kind/file.md` → KEEP (YYYY-MM-DD) — rationale                     (project-only orphan keeper)
+LEDGER="$TARGET/.claude/_refresh-decisions.md"
+
+# ledger_lookup <key> → prints "VERB|date|sha8|rationale" (sha8 empty unless stamped). Empty if no entry.
+ledger_lookup() {
+  local key="$1" line verb ldate sha why
+  [[ -f "$LEDGER" ]] || return 0
+  line=$(grep -F "\`$key\`" "$LEDGER" 2>/dev/null | grep -E '→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(' | tail -1 || true)
+  [[ -z "$line" ]] && return 0
+  verb=$(echo "$line" | sed -E 's/^.*→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(.*/\1/')
+  ldate=$(echo "$line" | sed -E 's/^.*\(([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/')
+  sha=$(echo "$line" | sed -nE 's/^.*pack@([0-9a-f]{8}).*/\1/p')
+  why="${line#*— }"   # text after the first " — " separator (byte-safe vs sed multibyte classes)
+  printf '%s|%s|%s|%s' "$verb" "$ldate" "$sha" "$why"
+}
+
+pack_sha8() { shasum "$1" 2>/dev/null | cut -c1-8; }
+
+# apply-study-decisions.sh rewrites snippet/governance links on deploy
+# (../../../snippets/ → ../templates/snippets/). Compare against the DEPLOYED
+# shape, or every applied command re-flags as MERGE forever (false drift).
+NORM_TMP=""
+normalized_src() {
+  local src="$1" kind="$2"
+  if [[ "$kind" != "commands" && "$kind" != "agents" ]] || ! command -v perl >/dev/null 2>&1; then
+    printf '%s' "$src"; return
+  fi
+  [[ -z "$NORM_TMP" ]] && NORM_TMP=$(mktemp -d "${TMPDIR:-/tmp}/study-norm.XXXXXX")
+  local out="$NORM_TMP/$(basename "$src")"
+  perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g' "$src" > "$out" 2>/dev/null || { printf '%s' "$src"; return; }
+  printf '%s' "$out"
+}
+
 PACKS=("$@")
 if [[ ${#PACKS[@]} -eq 0 ]]; then
   # Auto-detect installed packs from target's codebase-profile.md if present.
@@ -127,6 +167,14 @@ decide() {
   total_keep=0
   total_missing=0
   total_orphan=0
+  total_ledger=0
+  total_reopened=0
+
+  # Union of pack basenames per kind — used after the loop to report each
+  # project-only orphan ONCE (previously each orphan re-appeared under every
+  # scanned pack: ~80 orphans × ~20 packs = ~1600 noise rows).
+  UNION_TMP=$(mktemp -d "${TMPDIR:-/tmp}/study-union.XXXXXX")
+  trap 'rm -rf "$UNION_TMP" ${NORM_TMP:+"$NORM_TMP"}' EXIT
 
   for pack in "${PACKS[@]}"; do
     pack_dir="$PACKS_ROOT/$pack"
@@ -146,12 +194,36 @@ decide() {
       while IFS= read -r src; do
         base="$(basename "$src")"
         [[ "$base" == _* ]] && continue
+        echo "$base" >> "$UNION_TMP/$kind"
         tgt="$tgt_dir/$base"
 
+        # M35: a ledger entry reconciles this row unless the pack source changed
+        # since the decision was stamped (content hash, not mtime).
+        ledger_entry="$(ledger_lookup "$pack/$kind/$base")"
+        if [[ -n "$ledger_entry" ]]; then
+          IFS='|' read -r lverb ldate lsha lwhy <<<"$ledger_entry"
+          cur_sha="$(pack_sha8 "$src")"
+          if [[ "$lverb" == "REJECTED" ]]; then
+            kind_rows+=$'\n'"  - \`$base\` — → **REJECTED-BY-LEDGER** — $lwhy ($ldate)"
+            total_ledger=$(( total_ledger + 1 ))
+            continue
+          elif [[ "$lverb" == "KEEP-OURS" || "$lverb" == "RESOLVED" ]]; then
+            if [[ -n "$lsha" && "$lsha" == "$cur_sha" ]]; then
+              kind_rows+=$'\n'"  - \`$base\` — → **${lverb}-BY-LEDGER** — $lwhy ($ldate, pack@$lsha)"
+              total_ledger=$(( total_ledger + 1 ))
+              continue
+            fi
+            # Pack source changed since the decision → re-open for re-audit.
+            kind_rows+=$'\n'"  - \`$base\` — ledger $lverb ($ldate) is STALE: pack changed pack@${lsha:-?}→pack@$cur_sha — re-opened below"
+            total_reopened=$(( total_reopened + 1 ))
+          fi
+        fi
+
         if [[ -f "$tgt" ]]; then
-          src_lines=$(wc -l < "$src" | tr -d ' ')
+          cmp_src="$(normalized_src "$src" "$kind")"
+          src_lines=$(wc -l < "$cmp_src" | tr -d ' ')
           tgt_lines=$(wc -l < "$tgt" | tr -d ' ')
-          decision=$(decide "$tgt" "$src")
+          decision=$(decide "$tgt" "$cmp_src")
           kind_rows+=$'\n'"  - \`$base\` — target $tgt_lines / pack $src_lines lines → **$decision**"
 
           case "$decision" in
@@ -170,16 +242,6 @@ decide() {
         fi
       done < <(find "$kind_dir" -maxdepth 1 -name '*.md' -not -name '_*' | sort)
 
-      # Reverse: target files NOT in pack — orphans (project-specific or deprecated upstream)
-      while IFS= read -r tgtf; do
-        base="$(basename "$tgtf")"
-        [[ "$base" == _* ]] && continue
-        if [[ ! -f "$kind_dir/$base" ]]; then
-          kind_rows+=$'\n'"  - \`$base\` — target-only (not in pack) → **REVIEW: project-specific keeper OR deprecated upstream**"
-          total_orphan=$(( total_orphan + 1 ))
-        fi
-      done < <(find "$tgt_dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | sort)
-
       [[ -n "$kind_rows" ]] && pack_section+=$'\n\n### '"$kind"$''$kind_rows
     done
 
@@ -189,6 +251,31 @@ decide() {
       printf '\n\nactionable in this pack: **%d**\n\n---\n\n' "$pack_actionable"
     fi
   done
+
+  # Project-only orphans — reported ONCE per file across all scanned packs.
+  printf '## Project-only files (target has them; no scanned pack does)\n'
+  for kind in commands agents skills rules ai-patterns; do
+    tgt_dir="$(target_dir_for_kind "$kind")"
+    [[ -d "$tgt_dir" ]] || continue
+    orphan_rows=""
+    while IFS= read -r tgtf; do
+      base="$(basename "$tgtf")"
+      [[ "$base" == _* ]] && continue
+      if [[ ! -f "$UNION_TMP/$kind" ]] || ! grep -qxF "$base" "$UNION_TMP/$kind"; then
+        ledger_entry="$(ledger_lookup "$kind/$base")"
+        if [[ -n "$ledger_entry" ]]; then
+          IFS='|' read -r lverb ldate lsha lwhy <<<"$ledger_entry"
+          orphan_rows+=$'\n'"  - \`$base\` — → **KEEP-BY-LEDGER** — $lwhy ($ldate)"
+          total_ledger=$(( total_ledger + 1 ))
+        else
+          orphan_rows+=$'\n'"  - \`$base\` — target-only (not in pack) → **REVIEW: project-specific keeper OR deprecated upstream**"
+          total_orphan=$(( total_orphan + 1 ))
+        fi
+      fi
+    done < <(find "$tgt_dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | sort)
+    [[ -n "$orphan_rows" ]] && { printf '\n### %s' "$kind"; printf '%b\n' "$orphan_rows"; }
+  done
+  printf '\n---\n\n'
 
   printf '## Decision legend\n\n'
   cat <<'LEGEND'
@@ -200,6 +287,14 @@ decide() {
 * KEEP-OURS-ADD-SIDE-DOC — target slightly shallower; keep target, add pack as side-doc with different name.
 * KEEP-OURS-DEEP — target ≥ 2× pack size; pack adds nothing. No action.
 * REVIEW — file in target but NOT in pack. Could be project-specific (keep) or deprecated upstream (consider deleting). Human judgment required.
+* REJECTED-BY-LEDGER / KEEP-OURS-BY-LEDGER / RESOLVED-BY-LEDGER / KEEP-BY-LEDGER — reconciled by `.claude/_refresh-decisions.md`. Not actionable. KEEP-OURS / RESOLVED entries re-open automatically when the pack source changes (pack@sha8 mismatch).
+
+Recording decisions (M35 — the ONLY sanctioned way to skip an actionable row):
+
+    apply-study-decisions.sh <target> --reject='pack/kind/file.md:rationale'     # permanent: wrong for this project
+    apply-study-decisions.sh <target> --keep-ours='pack/kind/file.md:rationale'  # ours is better than current pack version
+    apply-study-decisions.sh <target> --resolve='pack/kind/file.md:note'         # merge/inject performed by hand
+    apply-study-decisions.sh <target> --keep='kind/file.md:rationale'            # project-only orphan keeper
 LEGEND
 
   printf '\n## Summary\n\n'
@@ -207,15 +302,17 @@ LEGEND
   printf '  ADD (missing): %d\n' "$total_missing"
   printf '  ENHANCE / MERGE / INJECT: %d\n' "$total_act"
   printf 'Files to keep as-is: %d\n' "$total_keep"
-  printf 'Files to review (orphans): %d\n\n' "$total_orphan"
+  printf 'Ledger-reconciled (not re-proposed): %d\n' "$total_ledger"
+  printf 'Ledger entries re-opened (pack changed since decision): %d\n' "$total_reopened"
+  printf 'Files to review (orphans, deduped): %d\n\n' "$total_orphan"
 
   if [[ $(( total_act + total_missing )) -eq 0 && "$total_orphan" -eq 0 ]]; then
     printf 'No actionable items. Setup is converged.\n'
   else
-    printf '⚠ Phase 4 MUST address every actionable row. Phase 5 audit refuses success otherwise.\n'
+    printf '⚠ Phase 4 MUST end every actionable row in one of two states: APPLIED (copy / merge / enhance) or RECORDED in `.claude/_refresh-decisions.md` with rationale. Phase 5 audit (C2k) regenerates this report and refuses success otherwise.\n'
   fi
 } > "$REPORT"
 
 echo "Study report written: $REPORT"
-echo "Actionable: $(( total_act + total_missing )) | Keep: $total_keep | Orphans: $total_orphan"
+echo "Actionable: $(( total_act + total_missing )) | Keep: $total_keep | Ledger: $total_ledger (re-opened: $total_reopened) | Orphans: $total_orphan"
 exit 0

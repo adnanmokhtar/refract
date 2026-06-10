@@ -64,7 +64,7 @@ The orchestrator. Detects mode, runs phases, applies tracks, generates project-s
 |-----------|------------------------------------------------|-------------------------------------------------------------------------------|
 | `CREATE`  | Empty folder + prompt                          | Full scaffold from prompt. Architecture, schema, phase plan, all tooling.     |
 | `ENHANCE` | Existing codebase, no prior setup OR partial   | **Adds what's missing.** Doesn't overwrite custom work. Round one.            |
-| `REFRESH` | Existing setup is stale or pre-dates this cmd  | Backup → extract knowledge → re-detect → merge → regen. Preserves ADRs + corrections. |
+| `REFRESH` | Existing setup is stale or pre-dates this cmd  | Backup (deterministic, in preflight) → extract knowledge → re-detect → study → apply or ledger-reject every flagged row → reconciliation audit. Preserves ADRs + corrections. Rejections persist in `.claude/_refresh-decisions.md` — never re-proposed; kept-ours/resolved rows re-open only when the pack source actually changes. |
 | `REFINE`  | Round-two deepening pass                       | Reads code deeply (Phases 2.7–2.12). Rewrites only `## Project-specific` blocks. Idempotent — exits with "plateau reached" when no further refinement available. |
 
 Phase 1 detects which mode applies by scanning the target repo. You can force a mode with `--create` / `--enhance` / `--refresh` / `--refine`.
@@ -108,7 +108,7 @@ Phase 1 detects which mode applies by scanning the target repo. You can force a 
 
 | Flag                   | Meaning                                                                       | Default |
 |------------------------|-------------------------------------------------------------------------------|---------|
-| `--no-backup`          | **Dangerous.** Skip the Phase 0 backup. Refused unless explicitly confirmed in plan. | off (backup ON in REFRESH) |
+| `--no-backup`          | **Dangerous.** Skip the Phase 0 full backup (tarball). Refused unless explicitly confirmed in plan. M35: the preflight safety-copy (`.claude/` + `ai/` + CLAUDE.md) is always taken regardless. | off (backup ON in REFRESH) |
 | `--backup-dir=<path>`  | Override default backup location (`.claude/backups/<YYYYMMDD-HHmm>/`).        | default |
 
 #### REFINE-only

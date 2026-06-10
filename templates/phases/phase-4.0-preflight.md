@@ -61,6 +61,18 @@ This is the gate that everything downstream assumes has run. It validates that e
 - For every REPLACE-OR-ENHANCE row → backs up target, replaces with pack version.
 - For MERGE / KEEP-OURS-PLUS-INJECT rows → lists for human review (manual merge needed; deterministic auto-merge unsafe).
 - For KEEP-OURS-DEEP / IDENTICAL-NO-OP → no action.
+- For *-BY-LEDGER rows → no action (reconciled by `.claude/_refresh-decisions.md`).
+
+**Curation (M35):** when a row should NOT be applied (pack version is wrong for this project, or yours is better), record the decision instead of skipping it:
+
+```bash
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --reject='pack/kind/file.md:rationale'     # permanent
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --keep-ours='pack/kind/file.md:rationale'  # re-opens when pack changes
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --resolve='pack/kind/file.md:note'         # after a manual MERGE/INJECT
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --keep='kind/file.md:rationale'            # orphan keeper
+```
+
+Phase 5 `audit-setup.sh` C2k regenerates the study report and REFUSES success while any actionable row is neither applied nor recorded. Recorded rows are never re-proposed on future refreshes.
 
 **Why mandatory:**
 The historic bug (M11 → M22 series): agent ran preflight, generated reports, then ignored the actionable rows under various interpretations of scope. This script removes LLM judgment from the application step. The reports are deterministic; the application is now also deterministic.

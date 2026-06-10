@@ -11,10 +11,22 @@
 #
 # Usage:
 #   apply-study-decisions.sh <target-repo> [--apply] [--include=replace,add,merge]
+#   apply-study-decisions.sh <target-repo> --reject='pack/kind/file.md:rationale'     (repeatable)
+#                                          --keep-ours='pack/kind/file.md:rationale'
+#                                          --resolve='pack/kind/file.md:note'
+#                                          --keep='kind/file.md:rationale'
 #
 # Default mode: dry-run (lists actions; writes nothing).
 # --apply executes.
 # --include limits which decision classes to apply (default: replace,add).
+#
+# M35 ledger flags append durable decisions to <target>/.claude/_refresh-decisions.md:
+#   --reject     permanent skip (artifact class is wrong for this project; never re-proposed)
+#   --keep-ours  target file beats the CURRENT pack version (stamped pack@sha8; re-opens when pack changes)
+#   --resolve    a MERGE / KEEP-OURS-PLUS-INJECT row was merged by hand (stamped pack@sha8; re-opens when pack changes)
+#   --keep       project-only orphan is a keeper (key has no pack segment: kind/file.md)
+# These are the ONLY sanctioned way to close an actionable row without applying it.
+# audit-setup.sh C2k refuses success on rows that are neither applied nor recorded.
 #
 # Exit codes: 0 ok / 1 target not found / 2 usage / 3 study report missing
 
@@ -32,16 +44,71 @@ fi
 TARGET="$1"; shift
 APPLY=0
 INCLUDE="replace,add"
+declare -a LEDGER_OPS=()   # "VERB|key|rationale"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --apply)     APPLY=1; shift ;;
-    --include=*) INCLUDE="${1#--include=}"; shift ;;
-    *)           echo "unknown arg: $1" >&2; exit 2 ;;
+    --apply)       APPLY=1; shift ;;
+    --include=*)   INCLUDE="${1#--include=}"; shift ;;
+    --reject=*)    LEDGER_OPS+=("REJECTED|${1#--reject=}"); shift ;;
+    --keep-ours=*) LEDGER_OPS+=("KEEP-OURS|${1#--keep-ours=}"); shift ;;
+    --resolve=*)   LEDGER_OPS+=("RESOLVED|${1#--resolve=}"); shift ;;
+    --keep=*)      LEDGER_OPS+=("KEEP|${1#--keep=}"); shift ;;
+    *)             echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
 
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
+
+# ---------- M35 ledger mode: record decisions, then exit ----------
+LEDGER="$TARGET/.claude/_refresh-decisions.md"
+if [[ ${#LEDGER_OPS[@]} -gt 0 ]]; then
+  mkdir -p "$(dirname "$LEDGER")"
+  if [[ ! -f "$LEDGER" ]]; then
+    cat > "$LEDGER" <<'HDR'
+# Refresh decisions ledger (M35)
+
+Durable per-file decisions from /setup-project refresh runs. study-existing.sh
+reconciles rows recorded here instead of re-proposing them every run.
+KEEP-OURS / RESOLVED entries re-open automatically when the pack source changes
+(pack@sha8 mismatch). REJECTED / KEEP are permanent until a human deletes the line.
+
+Append via: apply-study-decisions.sh <target> --reject='pack/kind/file.md:rationale'
+(or --keep-ours= / --resolve= / --keep=). Manual edits are fine — keep the line shape.
+
+---
+HDR
+  fi
+  today=$(date +%Y-%m-%d)
+  recorded=0
+  for op in "${LEDGER_OPS[@]}"; do
+    verb="${op%%|*}"; rest="${op#*|}"
+    key="${rest%%:*}"; why="${rest#*:}"
+    if [[ -z "$key" || -z "$why" || "$key" == "$why" ]]; then
+      echo "  ERR malformed ledger op (need key:rationale): $rest" >&2; continue
+    fi
+    stamp="($today)"
+    if [[ "$verb" == "KEEP-OURS" || "$verb" == "RESOLVED" ]]; then
+      pack_src="$REPO_ROOT/templates/packs/$key"
+      if [[ -f "$pack_src" ]]; then
+        sha=$(shasum "$pack_src" | cut -c1-8)
+        stamp="($today, pack@$sha)"
+      else
+        echo "  WARN pack source not found for $key — stamping without pack@sha (entry will hold until manually removed)" >&2
+      fi
+    fi
+    # Replace any prior entry for the same key (last-write-wins, one line per key)
+    if grep -qF "\`$key\`" "$LEDGER" 2>/dev/null; then
+      grep -vF "\`$key\`" "$LEDGER" > "$LEDGER.tmp" && mv "$LEDGER.tmp" "$LEDGER"
+    fi
+    printf -- '- `%s` → %s %s — %s\n' "$key" "$verb" "$stamp" "$why" >> "$LEDGER"
+    echo "  RECORDED $verb $key — $why"
+    recorded=$((recorded + 1))
+  done
+  echo ""
+  echo "$recorded decision(s) recorded in ${LEDGER#$TARGET/}. Re-run study-existing.sh to see them reconciled."
+  exit 0
+fi
 
 # Pack commands use ../../../snippets/ + ../../../governance/ (valid under templates/packs/.../commands/).
 # Targets receive files under .claude/commands/ — rewrite so links resolve to .claude/templates/{snippets,governance}/.
@@ -80,6 +147,7 @@ current_kind=""
 applied=0
 listed=0
 skipped=0
+ledgered=0
 errors=0
 
 declare -a actions  # array of "decision|pack|kind|base|reason"
@@ -176,6 +244,10 @@ for action in "${actions[@]:-}"; do
     KEEP-OURS-DEEP|KEEP-OURS-ADD-SIDE-DOC|IDENTICAL-NO-OP)
       # No action needed
       ;;
+    REJECTED-BY-LEDGER|KEEP-OURS-BY-LEDGER|RESOLVED-BY-LEDGER|KEEP-BY-LEDGER)
+      # M35: reconciled by the decisions ledger — nothing to do
+      ledgered=$((ledgered + 1))
+      ;;
     *)
       # Unknown decision; warn
       echo "  WARN unknown decision '$decision' for $pack/$kind/$base"
@@ -187,6 +259,7 @@ echo ""
 echo "=== summary ==="
 echo "Applied (or would-apply): $applied"
 echo "Listed for human review:  $listed"
+echo "Ledger-reconciled:        $ledgered"
 echo "Skipped (source missing): $skipped"
 echo ""
 

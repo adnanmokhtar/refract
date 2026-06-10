@@ -58,6 +58,8 @@ The historic bug (M11 / M15): the agent read prose rules saying "scan the direct
 
 #### 0.1 Backup (the rollback safety net)
 
+> **M35**: `run-preflight.sh` already creates a deterministic backup (`.claude/` artifacts + `ai/` + CLAUDE.md/AGENTS.md) at Step −1 in REFRESH / REFINE mode — `audit-setup.sh` C2a verifies it exists and refuses success otherwise. The block below remains the FULL backup (tarball, honors `--backup-dir` / `--no-backup`); run it for anything the preflight copy doesn't cover. Even if this step is interrupted, the preflight safety net already exists.
+
 ```bash
 # Default backup target
 BACKUP_DIR=".claude/backups/$(date +%Y%m%d-%H%M)"

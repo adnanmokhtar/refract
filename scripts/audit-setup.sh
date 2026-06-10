@@ -48,6 +48,20 @@ ok() { echo "  ok   $*"; }
 echo "=== Phase 5 audit — target=$TARGET mode=$MODE ==="
 echo ""
 
+# C2a (M35) — Phase 0 backup present for REFRESH / REFINE.
+# run-preflight.sh creates it deterministically; if it's absent the preflight
+# itself was skipped — the run is structurally invalid, refuse before anything else.
+if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
+  echo "C2a: Phase 0 backup (M35)"
+  recent_bk=$( { find "$CL/backups" -mindepth 1 -maxdepth 1 -type d -mmin -1440 2>/dev/null || true; } | sort | tail -1)
+  if [[ -n "$recent_bk" ]]; then
+    ok "backup present: ${recent_bk#$TARGET/}"
+  else
+    err "no backup created in the last 24h — run-preflight.sh (M35 Phase 0 backup) did not run; re-run: ~/.claude/scripts/run-preflight.sh \"$TARGET\" --mode=$MODE"
+  fi
+  echo ""
+fi
+
 # C2b — required reports exist
 echo "C2b: deterministic-coverage reports present"
 for rpt in _pack-coverage-report.md _study-existing-report.md _codebase-scan.md; do
@@ -179,6 +193,42 @@ if [[ -f "$CL/_pack-coverage-report.md" ]]; then
 fi
 
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# C2k (M35) — study-decision reconciliation. Regenerates the study report against
+# the CURRENT (post-apply) target state, then requires ZERO unreconciled actionable
+# rows: each must have been APPLIED (state change reclassifies it) or RECORDED in
+# .claude/_refresh-decisions.md (REJECTED / KEEP-OURS / RESOLVED / KEEP + rationale).
+# This kills the observed drift "agent curated by judgment and skipped the audit" —
+# curation is fine, but only through the ledger, and the audit still runs.
+if [[ "$MODE" != "create" && -x "$SCRIPTS_DIR/study-existing.sh" ]]; then
+  echo "C2k: study-decision reconciliation (M35)"
+  # Scope to detected tracks (same signal source as preflight) — don't trust the
+  # profile's track lines alone; they can be reverted/absent, and an unscoped run
+  # falls back to ALL packs, inflating actionable counts with never-selected packs.
+  c2k_packs=""
+  if [[ -x "$SCRIPTS_DIR/detect-tracks.sh" ]]; then
+    c2k_packs=$("$SCRIPTS_DIR/detect-tracks.sh" "$TARGET" --quiet 2>/dev/null | tr '\n' ' ' || true)
+  fi
+  # shellcheck disable=SC2086 — pack names are single safe words; word-splitting intended
+  "$SCRIPTS_DIR/study-existing.sh" "$TARGET" $c2k_packs >/dev/null 2>&1 || true
+  if [[ -f "$CL/_study-existing-report.md" ]]; then
+    act=$(grep -E '^Files with action needed: \*\*[0-9]+\*\*' "$CL/_study-existing-report.md" | grep -oE '[0-9]+' | head -1 || true)
+    reopened=$(grep -E '^Ledger entries re-opened' "$CL/_study-existing-report.md" | grep -oE '[0-9]+' | head -1 || true)
+    if [[ -z "$act" ]]; then
+      warn_msg "could not parse actionable count from regenerated study report"
+    elif [[ "$act" == "0" ]]; then
+      ok "all actionable rows reconciled (applied or ledger-recorded)"
+    else
+      err "$act actionable row(s) unreconciled — APPLY them (apply-study-decisions.sh \"$TARGET\" --apply) OR RECORD the decision (--reject= / --keep-ours= / --resolve= per row). Silent skip is forbidden."
+    fi
+    if [[ -n "${reopened:-}" && "${reopened:-0}" != "0" ]]; then
+      warn_msg "$reopened ledger entr(ies) re-opened — pack source changed since the recorded decision; re-audit those rows"
+    fi
+  else
+    err "study report missing after regeneration — study-existing.sh failed; run it manually to see why"
+  fi
+  echo ""
+fi
 
 # C2h — Adapter sync coverage: when ≥1 adapter is enabled in target, every
 # .claude/ source artifact must have its native counterpart in the adapter's

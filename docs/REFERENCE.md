@@ -70,6 +70,7 @@ Every command has at least one halt rule **enforced by a validator script** (not
 - `align-gate` — 14-check matrix in `validate-align-artifacts.sh` (gap-count parity, net-lines on structural ≤ 0, no new symbols except idioms-named, idiom-citation for functional adds, security assertion present, perf baseline present, security tier minimum, oracle unmodified, frontend regressions for `frontend-*`).
 - All audit commands — hand-wave grep refuses outputs containing `etc.` / `...` / `N+ items` / `appears to` / `several places` / `multiple endpoints`.
 - `add-feature` — sibling-shape conformance check refuses new files that diverge from sibling shape without an ADR; heavy tier additionally gates on `reviewers_clean == reviewers_dispatched`, observability sign-off, and security + release pre-flights. Dispatched agents that aren't installed are performed inline against their pack/domain checklist (`inline:<agent-name>`), never silently skipped.
+- `setup-project --refresh` (M35) — `run-preflight.sh` takes the Phase 0 backup deterministically; `audit-setup.sh` C2a refuses success without it, and C2k regenerates the study report post-apply and refuses success while any actionable row is neither APPLIED nor RECORDED in `.claude/_refresh-decisions.md` (`--reject` / `--keep-ours` / `--resolve` / `--keep` with rationale). Kept/resolved rows re-open automatically when the pack source changes (`pack@sha8` mismatch).
 
 The pattern: **mechanical enforcement beats agent self-policing**. If the agent forgets the rule, the script catches it.
 

@@ -60,6 +60,35 @@ FORCE_FLAG=""
 echo "=== run-preflight: mode=$MODE target=$TARGET ==="
 echo ""
 
+# STEP -1 (M35): deterministic Phase 0 backup — REFRESH / REFINE only.
+# The backup is taken by THIS script, not by agent discipline: two observed runs
+# (2026-06-10) skipped it when left to judgment. Skips only if a backup younger
+# than 60 minutes already exists (re-running preflight within one session).
+if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
+  BK_ROOT="$TARGET/.claude/backups"
+  recent_bk=$( { find "$BK_ROOT" -mindepth 1 -maxdepth 1 -type d -mmin -60 2>/dev/null || true; } | head -1)
+  if [[ -n "$recent_bk" ]]; then
+    echo "[backup] recent backup exists (<60 min): ${recent_bk#$TARGET/} — not duplicating"
+  else
+    BK="$BK_ROOT/$(date +%Y%m%d-%H%M)"
+    mkdir -p "$BK/.claude"
+    for d in commands agents skills rules hooks; do
+      [[ -d "$TARGET/.claude/$d" ]] && cp -R "$TARGET/.claude/$d" "$BK/.claude/$d"
+    done
+    for f in settings.json settings.local.json codebase-profile.md GUIDE.md _refresh-decisions.md; do
+      [[ -f "$TARGET/.claude/$f" ]] && cp "$TARGET/.claude/$f" "$BK/.claude/$f"
+    done
+    [[ -d "$TARGET/ai" ]] && cp -R "$TARGET/ai" "$BK/ai"
+    for f in CLAUDE.md AGENTS.md; do
+      [[ -f "$TARGET/$f" ]] && cp "$TARGET/$f" "$BK/$f"
+    done
+    printf 'mode: %s\ncreated: %s\nby: run-preflight.sh (M35 deterministic Phase 0 backup)\nrestore: cp -R the pieces you need back over the target\n' \
+      "$MODE" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$BK/_backup-manifest.txt"
+    echo "[backup] Phase 0 backup → ${BK#$TARGET/}"
+  fi
+  echo ""
+fi
+
 # STEP 0 (M28): if no packs were supplied explicitly, run signal-driven track
 # detection BEFORE any pack-coverage / study work. This replaces the old
 # fallback ("scan all 17 packs when no tracks declared") which polluted
