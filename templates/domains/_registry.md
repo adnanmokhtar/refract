@@ -19,6 +19,8 @@ Each signal folder under `~/.claude/templates/domains/<name>/` ships:
 | Key | Detection signal | What it ships |
 |---|---|---|
 | `ai` | LLM SDKs, prompt templates, embeddings DBs, agent frameworks | LLM-call pattern, prompt-injection rules, eval patterns |
+| `audit-log` | append-only audit / activity tables, who-did-what records, immutable event trail | Tamper-evident append-only rule (hash-chain), audit-trail pattern, coverage+integrity verify command, audit-log reviewer |
+| `auth` | auth libs (passport / next-auth / devise / spring-security), JWT/session middleware, password hashing (argon2/bcrypt), OAuth/OIDC clients, guards/RBAC | AuthN-vs-AuthZ architecture pattern, session/token/RBAC discipline rule, access-control (IDOR) audit command, auth reviewer |
 | `background-jobs` | bull / sidekiq / celery / temporal / agenda / cron | Job pattern, retry/idempotency rules, queue agent |
 | `compliance` | references to HIPAA / GDPR / PCI / SOC2 in code/docs/CI | Compliance-aware logging, PII handling rules |
 | `event-sourced` | event-store / CQRS infra / projections | Aggregate pattern, projection rebuild runbook |
@@ -27,8 +29,11 @@ Each signal folder under `~/.claude/templates/domains/<name>/` ships:
 | `multi-tenant` | tenant_id columns / row-level-security / per-tenant DB | Tenant isolation rule, query-scope agent, leak audit |
 | `notifications` | email/SMS/push providers, template engines | Template + channel pattern, rate-limit rule |
 | `payment` | Stripe / Paddle / Adyen / PSP SDKs, webhook signatures | PCI-aware pattern, idempotency rule, reconciliation runbook |
+| `rate-limiting` | rate-limit middleware (express-rate-limit / @nestjs/throttler / rack-attack), Redis token buckets, 429 handlers | Algorithm + distributed-counter rule, limiter pattern, probe-limits command, rate-limit reviewer |
 | `real-time` | websockets / SSE / WebRTC / pub-sub | Connection-lifecycle pattern, backpressure rule |
+| `reporting` | report/export endpoints, CSV/XLSX generation, BI/analytics queries, scheduled report jobs | Async/streaming/read-replica + tenant-scope rule, report-generation pattern, query-profile command, reporting reviewer |
 | `search` | Elasticsearch / Algolia / Typesense / Meilisearch / pgvector | Indexing pattern, relevance-tuning runbook |
+| `subscriptions` | Stripe Billing / Paddle / Chargebee subscriptions, plan/price tables, recurring invoices, dunning | State-machine + server-derived-entitlements + proration + dunning rule, lifecycle pattern, simulate-renewal command, subscription reviewer |
 | `webhook` | endpoints labelled "webhook", signature verification, replay-protection | Webhook receiver pattern, signature/idempotency rule |
 
 ## Registry (cataloged but generate-on-detection)
