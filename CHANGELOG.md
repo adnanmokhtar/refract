@@ -6,6 +6,22 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### repo-baseline hardening — verification gate, secret scan, format-on-save, statusline, path-scoped rules
+
+**Why** — a best-practice gap analysis (official Claude Code docs + dotclaude/showcase reference repos + senior-engineer write-ups) against the baseline surfaced six gaps versus what makes a setup "right the first time". Two levers drive first-time-correctness: a machine-checkable verification signal wired into the loop, and context discipline (load only what the task needs). The baseline had the breadth but was light on the per-turn verification signal and was not path-scoping track rules.
+
+**What ships** —
+1. **Verification gate** (`repo-baseline/.claude/hooks/verify-gate.sh`, Stop hook) — closes the "looks done" gap: when the session left uncommitted source changes AND a test command is detected AND it FAILS, blocks the stop (exit 2) so red tests get fixed instead of declared done. No-op when nothing changed / no runner / tests green. Opt-out `.claude/.no-verify-gate`. (Claude Code overrides a Stop block after 8 consecutive blocks, so it can't trap a session.)
+2. **Secret scan** (`hooks/secret-scan.sh`, PreToolUse Edit|Write|MultiEdit) — blocks writes introducing 11 high-confidence credential shapes (sk-ant / OpenAI sk- / AWS AKIA·ASIA / Google AIza / GitHub gh*_ + fine-grained PAT / Slack xox / Twilio / private-key blocks / JWT). Conservative by shape to keep false positives near zero; skips `*.example`/test files; opt-out `.claude/.no-secret-scan`.
+3. **Format-on-save** (`hooks/format-on-save.sh`, PostToolUse) — auto-formats the touched file via biome/prettier/ruff/black/gofmt/rustfmt/rubocop; never blocks (lint gating stays in `post-edit-check.sh`); opt-out `.claude/.no-format`.
+4. **Statusline** (`repo-baseline/.claude/statusline.sh` + `statusLine` in settings) — surfaces the #1 constraint live: dir • branch • model • **context %** • cost. jq-optional.
+5. **Path-scoped track rules** (`scripts/scope-rules.sh` + Phase 4.2 wiring) — idempotent frontmatter injector adds `paths:` globs to TRACK/DOMAIN rules in MULTI-track projects so a track's rules load only when Claude touches that track's source (no cross-track pollution). Single-track projects skip it; core baseline rules are never scoped.
+6. **Listing-budget trim** — `audit` / `polish` / `unify-surfaces` / `optimize` frontmatter `description:` trimmed (total 8149 → 5373 chars, under the default skill-listing budget; `audit` was 2038 > the 1536 per-skill cap and got truncated). Trigger keywords + differentiators preserved; specialist depth stays in the body + docs.
+
+Added `"$schema"` to `repo-baseline/.claude/settings.json`; new hooks wired alongside existing ones (additive — nothing removed).
+
+**Files touched**: `templates/repo-baseline/.claude/{settings.json, statusline.sh (new), hooks/{verify-gate.sh, secret-scan.sh, format-on-save.sh} (new)}`, `scripts/scope-rules.sh` (new), `templates/phases/phase-4.2-apply.md`, `commands/{audit,polish,unify-surfaces,optimize}.md` (description only).
+
 ### migration pack v1.6.0 + align pack v1.7.0 — discipline rules split for the 40k always-on limit
 
 **Why** — Claude Code truncates always-loaded files at 40k chars. `migration-discipline.md` was 79.5k and `align-discipline.md` 94.4k — **roughly half of each rule was silently never loaded** in every session, and project copies + a global symlink multiplied the waste (tenant-portal-v2 carried 176k of truncated rule text; a global `~/.claude/rules/` symlink loaded migration rules into every project including non-migration V1 repos).

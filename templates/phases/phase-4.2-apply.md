@@ -111,6 +111,19 @@ cp -R ~/.claude/templates/packs/<track>/skills/* .claude/skills/ 2>/dev/null || 
 mkdir -p .claude/rules
 cp -R ~/.claude/templates/packs/<track>/rules/*.md .claude/rules/ 2>/dev/null || true
 
+# Path-scope TRACK rules in MULTI-TRACK projects (full-stack / monorepo) so a track's
+# rules load only when Claude touches that track's source — prevents cross-track context
+# pollution (backend rules loading during frontend work). SINGLE-track projects skip this:
+# they never install a sibling track's rules, so there is nothing to pollute.
+# <track-src-root> comes from the Phase 2 profile (detected source root for this track).
+# Core baseline rules in .claude/rules/ (read-before-write, code-quality, think-simplify-surgical,
+# read-codebase-deeply) are UNIVERSAL — never scope them.
+if [ "<is-multi-track>" = "true" ]; then
+  for r in ~/.claude/templates/packs/<track>/rules/*.md; do
+    ~/.claude/scripts/scope-rules.sh ".claude/rules/$(basename "$r")" "<track-src-root>/**" 2>/dev/null || true
+  done
+fi
+
 # Copy ai-patterns INTO ai/patterns (renamed destination)
 mkdir -p ai/patterns
 cp -R ~/.claude/templates/packs/<track>/ai-patterns/*.md ai/patterns/ 2>/dev/null || true
