@@ -1,5 +1,5 @@
 ---
-description: Codifies the 10 Fowler-style refactoring closure verbs as detector + procedure pairs. Used by /optimize Phase 2 (tactical) and any /align-recheck run that hits the refactoring class. Each verb has a fingerprint (what triggers it), a procedure (how to apply it safely), and a verify step (what must stay green). Behaviour-preserving — refactoring NEVER changes observable output.
+description: Codifies the 10 Fowler-style refactoring closure verbs as detector + procedure pairs. Is the core apply-engine of /refactor (these 10 verbs ARE /refactor's closed vocabulary) and is also used by /optimize Phase 2 (tactical) and any /align-recheck run that hits the refactoring class. Each verb has a fingerprint (what triggers it), a procedure (how to apply it safely), and a verify step (what must stay green). Behaviour-preserving — refactoring NEVER changes observable output.
 kind: skill
 pack: code-quality
 ---
@@ -12,6 +12,7 @@ Apply Fowler-style refactorings as closure verbs in /optimize and /align-recheck
 
 ## When to use
 
+- **Core apply-engine of `/refactor`** — the 10 verbs below ARE `/refactor`'s closed vocabulary; `/refactor` dispatches this skill with `--target=<paths>` and the `refactorer` agent gates abstractions on top. See [`commands/refactor.md`](../../../../commands/refactor.md).
 - Dispatched by `/optimize` Phase 2 (tactical) when class = refactoring.
 - Dispatched by `/align-recheck` when the finding's class = refactoring.
 - Dispatched by `/align-fast <N>` if the phase contains refactoring findings.

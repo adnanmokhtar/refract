@@ -6,6 +6,31 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### add-feature / fix-bug / optimize command-suite hardening (SDLC audit fixes)
+
+**Why** — a multi-agent review of the developer-loop commands (add-feature, fix-bug, optimize + refactor / audit and their sibling skills/agents) against the canonical 7-phase template surfaced 2 P0 SDLC violations and a set of P1/P2 consistency gaps. The suite was a genuine specialist family, but two paths shipped broken code and several contracts were advertised-but-unwired.
+
+**P0 fixes**
+
+- **repo-baseline `/fix-bug` is now failing-test-first (TDD).** Phase 4 was Reproduce → Diagnose → Fix → (then) test — fix-before-test, violating the canonical Phase-4-=-TDD mandate and diverging from the backend pack sibling. Reordered to Reproduce → Diagnose → **write FAILING test** → minimal fix → verify; Hard rule "Regression test before merge" → "Failing test BEFORE fix. Always."
+- **mobile `/add-feature` trivial tier now requires tests.** Deliverable was `Code only.`, allowing untested feature code to ship and contradicting its own Phase 6 gate. Now `Code + tests` with a "tests ship every tier" invariant.
+
+**P1 fixes**
+
+- **Universal `--plan` flag wired** across optimize / refactor / add-feature (×3) / fix-bug (×2) via new `templates/snippets/plan-flag.md`; `/audit --plan` accepted as alias of `--plan-only`. The docs already advertised universal `--plan`; the commands now honour it.
+- **`scripts/validate-audit-artifacts.sh` shipped** (was referenced 3× by `/audit` as a mandatory gate that did not exist). Checks `check_no_handwaves_audit_plan`, `check_p0_failure_mode_cited`, `--strict` `<file:line>` citations, actionable-next-steps, ledger gap-parity. "planned" flipped → present in audit.md + all 12 adapter docs + `_orchestration-sync.md`.
+- **refactor vocabulary reconciled.** `refactorer` agent's 3 out-of-vocabulary verbs (value-object, conditional→polymorphism, reduce-fan-out) removed and routed to `/optimize`; `refactoring-sweep` skill now names `/refactor` as its core apply-engine consumer.
+- **perf/db specialist agents wired into `/optimize`** (`performance-optimizer`, `query-optimizer`, `database-optimizer`) instead of inline reimplementation; `/optimize` named as the applier of the propose-only DB agents.
+- **baseline ↔ backend `/fix-bug` locked as subset ↔ superset** via relationship banners + shared invariants snippet `templates/snippets/fix-bug-core.md`; baseline `ai/failures/` reads softened to optional.
+
+**P2 fixes**
+
+- backend `/add-feature` got its mandatory `## Phases applied` block.
+- backend `_examples/{add-feature,fix-bug}.md` regenerated faithfully from their command sources (stale snapshots contradicted the source) + `generated-from` headers.
+- halt-verdict vocabulary unified across the three add-feature variants via `templates/snippets/sibling-shape-halt.md` (aligned / drifted / no-siblings); `/review-changes` independent-pass handoff added to optimize / refactor / audit Next blocks.
+
+Pack bumps: backend 1.3.1, frontend 1.1.1, mobile 1.3.1, code-quality 1.4.1.
+
 ### repo-baseline hardening — verification gate, secret scan, format-on-save, statusline, path-scoped rules
 
 **Why** — a best-practice gap analysis (official Claude Code docs + dotclaude/showcase reference repos + senior-engineer write-ups) against the baseline surfaced six gaps versus what makes a setup "right the first time". Two levers drive first-time-correctness: a machine-checkable verification signal wired into the loop, and context discipline (load only what the task needs). The baseline had the breadth but was light on the per-turn verification signal and was not path-scoping track rules.

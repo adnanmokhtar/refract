@@ -1,19 +1,26 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.4.0",
-  "released": "2026-06-06",
+  "version": "1.4.1",
+  "released": "2026-06-13",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "General code review, refactoring, and pre-commit health gates. Includes engineering-principles + quality-principles rules, architectural-diagnosis + refactoring-sweep + dead-branch-scan + test-shield + smoke-verify + change-brief skills.",
+  "summary": "refactor vocabulary reconciliation: refactorer agent's 3 out-of-vocabulary verbs removed (route to /optimize), refactoring-sweep skill now names /refactor as its core apply-engine consumer.",
   "changelog": {
+    "1.4.1": {
+      "released": "2026-06-13",
+      "changes": [
+        "refactorer agent: removed 3 verbs from the 'Safe refactors' table that fell outside refactoring-sweep's closed 10 AND tripped the agent's own new-symbol auto-halt \u2014 value-object introduction, conditional\u2192polymorphism, reduce-fan-out; these now route to /optimize.",
+        "refactoring-sweep skill: now names /refactor as its core apply-engine consumer (the 10 verbs ARE /refactor's closed vocabulary) \u2014 fixes the one-directional wiring where /refactor dispatched the skill but the skill never named it."
+      ]
+    },
     "1.4.0": {
       "released": "2026-06-06",
       "changes": [
-        "Adds change-brief skill — the comprehension gate. 'If you can't explain the code, it isn't yours' was advisory in engineering-principles § AI-assisted development; now mechanical: every non-trivial change carries a 5-field brief (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit/PR body, generated (mode A) + validated (mode B: presence, hand-wave grep, citation check, echo check, verification check) by the skill.",
-        "Wired into /pre-commit (new 'Comprehension gate' step in Phase 6 — missing/failing brief is a blocker) and /review-changes (universal dispatch alongside code-reviewer).",
-        "Trigger tiers scale the gate with risk (>20-line diff, new dependency/public symbol/abstraction, I/O-auth-payments touch, error-path/default/permission-gate change); typo fixes, mechanical renames, formatting, lockfile-only changes are exempt — no manufactured ceremony.",
-        "engineering-principles.md § AI-assisted development gains the operationalizing bullet; _essentials.md + _topics.md updated in the same change."
+        "Adds change-brief skill \u2014 the comprehension gate. 'If you can't explain the code, it isn't yours' was advisory in engineering-principles \u00a7 AI-assisted development; now mechanical: every non-trivial change carries a 5-field brief (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit/PR body, generated (mode A) + validated (mode B: presence, hand-wave grep, citation check, echo check, verification check) by the skill.",
+        "Wired into /pre-commit (new 'Comprehension gate' step in Phase 6 \u2014 missing/failing brief is a blocker) and /review-changes (universal dispatch alongside code-reviewer).",
+        "Trigger tiers scale the gate with risk (>20-line diff, new dependency/public symbol/abstraction, I/O-auth-payments touch, error-path/default/permission-gate change); typo fixes, mechanical renames, formatting, lockfile-only changes are exempt \u2014 no manufactured ceremony.",
+        "engineering-principles.md \u00a7 AI-assisted development gains the operationalizing bullet; _essentials.md + _topics.md updated in the same change."
       ]
     },
     "1.3.0": {

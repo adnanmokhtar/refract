@@ -6,6 +6,8 @@ pack: orchestration
 
 # /refactor [<scope>]
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/refactor <scope> --plan` lists the planned verb edits and exits before writing.
+
 ## What this does
 
 **Single focused command: change structure, not behaviour.** Dispatches [`templates/packs/code-quality/skills/refactoring-sweep.md`](../templates/packs/code-quality/skills/refactoring-sweep.md) (10 closure verbs) plus [`templates/packs/code-quality/agents/refactorer.md`](../templates/packs/code-quality/agents/refactorer.md) for SOLID / naming discipline. Reads Phase 3 MUST-list via [`templates/snippets/phase-3-always-reads.md`](../templates/snippets/phase-3-always-reads.md) and [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md).
@@ -47,7 +49,7 @@ Any other verb (e.g. `parallelize`, `split-god-module`, `centralize-cross-cuttin
 1. Resolve scope to concrete paths; infer primary pack (`backend` / `frontend` / `mobile` / other) from [`templates/packs/_registry.md`](../templates/packs/_registry.md) signals and `.claude/_extracted-codebase.md`.
 2. Read pack overlay when present: `templates/packs/<pack>/commands/refactor.md` (after `/setup-project`, under `.claude/commands/` from the same pack copy).
 3. Dispatch **`refactoring-sweep`** with `--target=<resolved-paths>` and allowed verbs = table above.
-4. **`refactorer`** agent validates no new abstraction without Rule-of-Three / sibling precedent.
+4. **`refactorer`** agent runs as a **validation gate only** — it confirms no new abstraction without Rule-of-Three / sibling precedent. It does NOT introduce apply-verbs beyond the closed 10; any SOLID-level move it surfaces that isn't in the table (value-object introduction, conditional→polymorphism, fan-out reduction) is **routed to `/optimize`**, not applied here. Division of labour: `refactoring-sweep` applies the 10 verbs; `refactorer` gates; `/optimize` owns architectural moves.
 5. After each discrete edit: lint + typecheck + **scoped tests**; coverage must not drop.
 6. Record rows in **`ai/refactor/ledger.md`** (fenced YAML: `id`, `class: refactoring`, `status`/`state`, `gaps_in`, `gaps_closed`, `closure_verb`).
 7. Optional per-row notes in **`ai/refactor/findings/<id>.md`**.
@@ -112,7 +114,7 @@ Diff:                +42 / -38 = +4 lines
 Tests:               84/84 passing
 Ledger:              ai/refactor/ledger.md
 
-Next: review commits  OR  /optimize the module if architectural work surfaced
+Next: /review-changes (independent pass before merge)  OR  /optimize the module if architectural work surfaced
 ```
 
 ## Failure modes
