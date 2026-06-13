@@ -5,13 +5,18 @@
 # commands/skills/rules to each one in its native format. Never edit tool dirs
 # directly — they are managed by this script.
 #
-# Tools supported (auto-detected):
+# Tools supported (auto-detected — each writes to the tool's NATIVE global
+# command surface so /<command> works there even when Claude Code is unavailable):
 #   Claude Code  -> ~/.claude/{commands,templates,scripts}/  (symlinks)
 #   Kimi Code    -> ~/.kimi/skills/<cmd>/SKILL.md            (copies with frontmatter)
 #   Qwen Code    -> ~/.qwen/commands/*.md                    (copies)
-#   Cursor       -> ~/.cursor/skills/                        (if global skills dir exists)
-#   OpenCode     -> ~/.opencode/skills/                      (if global skills dir exists)
-#   Codex        -> ~/.codex/skills/                         (if global skills dir exists)
+#   Gemini CLI   -> ~/.gemini/commands/<cmd>.toml           (TOML custom command)
+#   OpenCode     -> ~/.config/opencode/commands/<cmd>.md    (native md + agent: field)
+#   Codex CLI    -> ~/.agents/skills/<cmd>/SKILL.md         (Open Agent Skills, user-level)
+#
+# Honest no-ops (these tools have NO global command primitive — only global
+# rules, which are out of scope for command sync):
+#   Cursor / Windsurf / Codeium / Cline / Continue / Copilot / Aider
 #
 # Auto-detection: checks for tool config dirs. No flags needed.
 #
@@ -26,6 +31,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Source of truth for the cross-tool command set = the REAL global Claude install
+# (repo-symlinked core commands + pack-installed commands like the migration suite).
+# Use -L when iterating so symlinked entries resolve to files. Override for tests.
+SRC_COMMANDS="${CLAUDE_COMMANDS:-$HOME/.claude/commands}"
 APPLY=0
 FORCE=0
 UNLINK=0
@@ -46,6 +55,42 @@ done
 log()  { printf '%s\n' "$*"; }
 warn() { printf 'WARN: %s\n' "$*" >&2; }
 err()  { printf 'ERR:  %s\n' "$*" >&2; }
+
+# Marker written into every generated artifact so --unlink can recognise ours.
+GEN_MARK="source: claude-config/commands/"
+
+# Extract the one-line description from a command's frontmatter.
+cmd_description() {
+  local f="$1" d
+  d="$(awk '/^description:/{sub(/^description:[[:space:]]*/,""); print; exit}' "$f")"
+  [ -n "$d" ] && printf '%s' "$d" || printf 'Global command from claude-config'
+}
+
+# Print the command BODY (frontmatter stripped) prefixed with an EXECUTE-NOW
+# preamble, so ported commands run instead of loading as inert reference.
+# $1 = command file, $2 = name, $3 = args token for this tool (e.g. {{args}} or $ARGUMENTS)
+emit_exec_body() {
+  local f="$1" name="$2" args_tok="$3"
+  printf '# EXECUTE NOW\n\n'
+  printf 'You are running the /%s workflow, ported from Claude Code so it works in this\n' "$name"
+  printf 'tool when Claude Code is unavailable. Do NOT summarise this document and ask the\n'
+  printf 'user what to do — immediately begin executing the workflow below against the\n'
+  printf 'scope: %s (default: the whole repo if no scope is given).\n\n' "$args_tok"
+  awk 'BEGIN{fm=0} /^---$/{fm++; next} fm>=2' "$f"
+}
+
+# Escape a string for embedding inside a TOML basic string / triple-quote body.
+toml_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+# OpenCode agent mode for a command: plan-only / audit commands run read-only,
+# everything else needs build mode (full tool access) to actually execute.
+opencode_agent_for() {
+  case "$1" in
+    refine-prompt|migration-plan|migration-replan|draft-phase-adrs|migration-scan) echo plan ;;
+    audit|migration-status|migration-gate|migration-final|setup-project-health|compare-v1) echo plan ;;
+    *) echo build ;;
+  esac
+}
 
 drift=0
 
@@ -157,7 +202,7 @@ sync_kimi() {
       log "would  $skill_name -> $skill_file"
     fi
     count=$((count + 1))
-  done < <(find "$REPO_ROOT/commands" -maxdepth 1 -name "*.md" -type f | sort)
+  done < <(find -L "$SRC_COMMANDS" -maxdepth 1 -name "*.md" -type f | sort)
 
   log "       ($count skills)"
 }
@@ -194,34 +239,170 @@ sync_qwen() {
       log "would  $name -> $dst"
     fi
     count=$((count + 1))
-  done < <(find "$REPO_ROOT/commands" -maxdepth 1 -name "*.md" -type f | sort)
+  done < <(find -L "$SRC_COMMANDS" -maxdepth 1 -name "*.md" -type f | sort)
 
   log "       ($count commands)"
 }
 
-# ── Cursor (global skills, if supported) ────────────────────────────────────
-sync_cursor_global() {
-  local target="${CURSOR_HOME:-$HOME/.cursor}"
+# ── Gemini CLI ──────────────────────────────────────────────────────────────
+# Native global custom-command primitive: ~/.gemini/commands/<name>.toml
+sync_gemini() {
+  local target="${GEMINI_HOME:-$HOME/.gemini}"
   [ -d "$target" ] || return 0
-  # Cursor doesn't have a standard global skills dir, but some users create one
-  local skills_dir="$target/skills"
-  [ -d "$skills_dir" ] || return 0
 
   log ""
-  log "=== Cursor (global skills) ==="
-  log "       (Cursor is primarily project-scoped; global skills at $skills_dir)"
+  log "=== Gemini CLI (~/.gemini/commands) ==="
+
+  local cmds_dir="$target/commands"
+  mkdir -p "$cmds_dir"
+  local count=0
+
+  while IFS= read -r cmd_file; do
+    [ -z "$cmd_file" ] && continue
+    local name; name="$(basename "$cmd_file" .md)"
+    local dst="$cmds_dir/$name.toml"
+
+    if [ "$UNLINK" -eq 1 ]; then
+      if [ -f "$dst" ] && grep -q "$GEN_MARK" "$dst" 2>/dev/null; then
+        [ "$APPLY" -eq 1 ] && rm "$dst"
+        log "unlink $dst"
+      fi
+      continue
+    fi
+
+    if [ "$APPLY" -eq 1 ]; then
+      {
+        printf '# %s%s.md\n' "$GEN_MARK" "$name"
+        printf 'description = "%s"\n\n' "$(toml_escape "$(cmd_description "$cmd_file")")"
+        # Literal multiline string ('''…''') — TOML processes NO escapes inside it,
+        # so backslashes/quotes in the command body survive verbatim. Bodies are
+        # pre-verified to contain no ''' sequence (which would terminate it early).
+        printf "prompt = '''\n"
+        emit_exec_body "$cmd_file" "$name" '{{args}}'
+        printf "\n'''\n"
+      } > "$dst"
+      log "toml   $name.toml"
+    else
+      log "would  $name -> $dst"
+    fi
+    count=$((count + 1))
+  done < <(find -L "$SRC_COMMANDS" -maxdepth 1 -name "*.md" -type f | sort)
+
+  log "       ($count commands)"
 }
 
-# ── OpenCode (global skills, if supported) ──────────────────────────────────
+# ── OpenCode ──────────────────────────────────────────────────────────────--
+# Native global commands: ~/.config/opencode/commands/<name>.md (user-level)
 sync_opencode_global() {
-  local target="${OPENCODE_HOME:-$HOME/.opencode}"
+  local target="${OPENCODE_HOME:-$HOME/.config/opencode}"
   [ -d "$target" ] || return 0
-  local skills_dir="$target/skills"
-  [ -d "$skills_dir" ] || return 0
 
   log ""
-  log "=== OpenCode (global skills) ==="
-  log "       (OpenCode reads ~/.claude/skills/ directly; no sync needed)"
+  log "=== OpenCode (~/.config/opencode/commands) ==="
+
+  local cmds_dir="$target/commands"
+  mkdir -p "$cmds_dir"
+  local count=0
+
+  while IFS= read -r cmd_file; do
+    [ -z "$cmd_file" ] && continue
+    local name; name="$(basename "$cmd_file" .md)"
+    local dst="$cmds_dir/$name.md"
+
+    if [ "$UNLINK" -eq 1 ]; then
+      if [ -f "$dst" ] && grep -q "$GEN_MARK" "$dst" 2>/dev/null; then
+        [ "$APPLY" -eq 1 ] && rm "$dst"
+        log "unlink $dst"
+      fi
+      continue
+    fi
+
+    if [ "$APPLY" -eq 1 ]; then
+      {
+        printf -- '---\n'
+        printf 'description: %s\n' "$(cmd_description "$cmd_file")"
+        printf 'agent: %s\n' "$(opencode_agent_for "$name")"
+        printf '%s%s.md\n' "$GEN_MARK" "$name"
+        printf -- '---\n\n'
+        emit_exec_body "$cmd_file" "$name" '$ARGUMENTS'
+      } > "$dst"
+      log "cmd    $name.md ($(opencode_agent_for "$name"))"
+    else
+      log "would  $name -> $dst"
+    fi
+    count=$((count + 1))
+  done < <(find -L "$SRC_COMMANDS" -maxdepth 1 -name "*.md" -type f | sort)
+
+  log "       ($count commands)"
+}
+
+# ── Codex CLI ─────────────────────────────────────────────────────────────--
+# Open Agent Skills, user-level: ~/.agents/skills/<name>/SKILL.md
+sync_codex() {
+  ([ -d "$HOME/.codex" ] || [ -d "$HOME/.agents" ]) || return 0
+  local skills_dir="$HOME/.agents/skills"
+
+  log ""
+  log "=== Codex CLI (~/.agents/skills) ==="
+
+  mkdir -p "$skills_dir"
+  local count=0
+
+  while IFS= read -r cmd_file; do
+    [ -z "$cmd_file" ] && continue
+    local name; name="$(basename "$cmd_file" .md)"
+    local skill_name; skill_name="$(echo "$name" | tr '[:upper:]_' '[:lower:]-' | sed 's/[^a-z0-9-]//g')"
+    local skill_dir="$skills_dir/$skill_name"
+    local skill_file="$skill_dir/SKILL.md"
+
+    if [ "$UNLINK" -eq 1 ]; then
+      if [ -f "$skill_file" ] && grep -q "$GEN_MARK" "$skill_file" 2>/dev/null; then
+        [ "$APPLY" -eq 1 ] && rm -rf "$skill_dir"
+        log "unlink $skill_dir"
+      fi
+      continue
+    fi
+
+    if [ "$APPLY" -eq 1 ]; then
+      mkdir -p "$skill_dir"
+      {
+        printf -- '---\n'
+        printf 'name: %s\n' "$skill_name"
+        printf 'description: %s\n' "$(cmd_description "$cmd_file")"
+        printf 'metadata:\n'
+        printf '  %s%s.md\n' "$GEN_MARK" "$name"
+        printf -- '---\n\n'
+        emit_exec_body "$cmd_file" "$name" 'the scope you name'
+      } > "$skill_file"
+      log "skill  $skill_name"
+    else
+      log "would  $skill_name -> $skill_file"
+    fi
+    count=$((count + 1))
+  done < <(find -L "$SRC_COMMANDS" -maxdepth 1 -name "*.md" -type f | sort)
+
+  log "       ($count skills)"
+}
+
+# ── Cursor / Windsurf / others — no GLOBAL surface, but covered LOCALLY ────────
+# These tools have no global command primitive (only global RULES). That is NOT
+# a dead end: their commands are installed PER-PROJECT at setup time by
+# apply-adapter-sync.sh (Phase 4.8 of /setup-project) into each tool's native
+# local command surface — Cursor .cursor/commands/, Windsurf/Cline workflows/,
+# Copilot .github/prompts/, Continue .continue/prompts/, Aider CONVENTIONS.md.
+# This note points the user there instead of reading as "unsupported".
+note_rules_only_tools() {
+  local notes=()
+  [ -d "${CURSOR_HOME:-$HOME/.cursor}" ] && notes+=("Cursor — local: .cursor/commands/<name>.md")
+  [ -d "$HOME/.windsurf" ] && notes+=("Windsurf — local: .windsurf/workflows/<name>.md")
+  [ -d "$HOME/.codeium" ] && notes+=("Codeium — global RULES only; commands via local adapter if Windsurf")
+  [ -d "$HOME/.continue" ] && notes+=("Continue — local: .continue/prompts/<name>.md")
+  { [ -d "$HOME/.clinerules" ] || [ -d "$HOME/.cline" ]; } && notes+=("Cline — local: .clinerules/workflows/<name>.md")
+  [ ${#notes[@]} -eq 0 ] && return 0
+  log ""
+  log "=== No GLOBAL command surface — installed PER-PROJECT at setup instead ==="
+  log "       (run /setup-project-adapters in a repo → apply-adapter-sync.sh writes these)"
+  local n; for n in "${notes[@]}"; do log "       $n"; done
 }
 
 # ── Main ────────────────────────────────────────────────────────────────────
@@ -234,8 +415,10 @@ log "═════════════════════════
 sync_claude
 sync_kimi
 sync_qwen
-sync_cursor_global
+sync_gemini
 sync_opencode_global
+sync_codex
+note_rules_only_tools
 
 log ""
 if [ "$APPLY" -eq 0 ]; then
