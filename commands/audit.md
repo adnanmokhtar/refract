@@ -384,6 +384,7 @@ Capacity headroom delta:
 Next:
   /audit                              # continue P2 parallel wave (14 pending)
   /audit --status                     # progress detail
+  /review-changes                     # independent pass before merge
   Read ai/audit/plan.md for full ranked list
 ```
 
@@ -635,10 +636,10 @@ All internal. Just results.
 
 - `--target-rps=<N>` — target throughput (anchors P0 + P2 ranking).
 - `--target-p95=<ms>` — target latency.
-- `--plan-only` — scan + rank + write `ai/audit/plan.md` (ranked fix-plan); no fixes. For executor handoff.
+- `--plan-only` — scan + rank + write `ai/audit/plan.md` (ranked fix-plan); no fixes. For executor handoff. `--plan` is accepted as the universal-flag alias (see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md)).
 - `--assess` — scan + write `ai/audit/assessment.md` (8-section senior-engineer narrative); no plan, no fixes. For reader handoff. Mutually exclusive with `--plan-only`.
 - `--dry-run` — show what would be fixed, no edits.
-- `--strict` — forwarded to **`validate-audit-artifacts.sh`** (planned): every P0/P1/P2 finding must cite `<file:line>` + a measured or explicitly-estimated impact; no hand-waves.
+- `--strict` — forwarded to **`validate-audit-artifacts.sh`**: every P0/P1/P2 finding must cite `<file:line>` + a measured or explicitly-estimated impact; no hand-waves.
 - `--quiet` — forwarded to validator (`-q`) when invoking from hooks / CI.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--max-parallel=<N>` — cap concurrent dispatch in P2/P4 (default 5).
@@ -672,11 +673,11 @@ Every run that produces `ai/audit/final-report.md` MUST end with an **`## Action
 Applied silently per the discipline:
 
 - **Scale-lens detector pass is mandatory.** *(Agent-side.)* The 13 scale-lens detectors (hot-path, fan-out depth, sync HTTP in request path, single-instance bottleneck, lock contention, queue back-pressure, write amplification, tenant blast radius, capacity headroom, SLO delta, idempotency gaps, statelessness violations, cold-start cost) run on every `/audit` invocation. They are the differentiation vs `/optimize` — skipping them collapses `/audit` into `/optimize` + axis fan-out, which is not the contract.
-- **P0 findings must cite the scale failure mode.** *(Mechanical — `validate-audit-artifacts.sh § check_p0_failure_mode_cited`, planned.)* "Would deadlock at 50K RPS because lock held across HTTP call" is acceptable; "would be slow at scale" is rejected.
+- **P0 findings must cite the scale failure mode.** *(Mechanical — `validate-audit-artifacts.sh § check_p0_failure_mode_cited`.)* "Would deadlock at 50K RPS because lock held across HTTP call" is acceptable; "would be slow at scale" is rejected.
 - **P0 + P1 findings ship with regression assertions in same commit.** *(Agent-side verification.)* Without an assertion, the gap reappears on the next refactor.
 - **P2 perf/scale findings ship with baseline + post-fix measurement.** *(Agent-side.)* Same rule as `/optimize` — speculative wins under 5% are discarded.
 - **Cross-axis ranker enforced.** *(Mechanical.)* Plan ordered by `impact-at-target-rps × blast-radius × fix-cost`, NOT by axis. A "fix all security first then all DB then all perf" order is rejected — that's just running 5 separate audits sequentially.
-- **No hand-waves in plan.** *(Mechanical — `validate-audit-artifacts.sh § check_no_handwaves_audit_plan`, planned.)* Greps `etc.`, `...`, `&...`, `N+ items`, `would be slow`, `at scale this is bad`. Every finding has a citation + measured-or-estimated impact.
+- **No hand-waves in plan.** *(Mechanical — `validate-audit-artifacts.sh § check_no_handwaves_audit_plan`.)* Greps `etc.`, `...`, `&...`, `N+ items`, `would be slow`, `at scale this is bad`. Every finding has a citation + measured-or-estimated impact.
 - **Foundation-first within tier.** *(Agent-side.)* P3 architectural fixes land before P4 tactical. P3 may dissolve dozens of P4 findings.
 - **Behaviour preserved** for architectural / refactoring / dead-code / dedup. Perf/scale/security fixes ship with assertions OR measurements.
 - **One commit per finding** (P0, P1, P2, P3, P4). Multi-finding commits hide regressions.

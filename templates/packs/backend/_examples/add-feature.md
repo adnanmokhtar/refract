@@ -2,30 +2,90 @@
 description: Comprehensive orchestration for a new feature. Detects domain signals, consults every relevant pattern, dispatches every applicable agent, runs every safety skill, produces ready-to-ship code + tests + docs + telemetry.
 ---
 
+<!-- generated-from: templates/packs/backend/commands/add-feature.md
+     Faithful seed copy of the backend /add-feature command (literal-copy fallback for
+     /setup-project Phase 4.2-AUTHOR when extraction has no signal). REGENERATE whenever the command
+     changes — part of the pack sync chain. Do not hand-edit; edit the command and re-copy. -->
+
 # /add-feature
 
-The most important command in the repo. Delivers a feature end-to-end at best-practice quality the FIRST time.
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
+
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing siblings are the truth.** When 50 endpoints in this codebase follow pattern X — same controller shape, same DI primitive, same error envelope, same validation library, same file path under `<module>/<kind>/...` — that pattern IS the project's intentional truth. The 51st endpoint does not get to invent pattern Y. Future maintainers can't predict where things live, fixes can't be applied uniformly, and the codebase fragments by one more weight every time someone improvises.
+
+**The agent's job is exactly this:**
+1. Find ≥2 sibling endpoints / services / modules in the same pack (same module if it exists; nearest neighbor module if not).
+2. Read their shape — file paths, naming, layer boundaries, error envelopes, validation, DI primitives, logging, test layout.
+3. Mirror that shape for the new feature. Innovating without precedent is the failure mode.
+
+**The agent does NOT:**
+- Ask the user about cosmetic style (camelCase vs snake_case, file naming, import order). **Mirror the sibling silently.**
+- Ask the user which error type / DI primitive / validation library to use. **Mirror the sibling silently.**
+- Draft an ADR to legitimize a one-off shape. **Mirror the sibling, no ADR.**
+- Reach for a pattern from training data when the codebase already has one. **Sibling wins.**
+
+**The agent ONLY asks the user when:**
+- **No siblings exist** — this is genuinely the first feature in a new module / new layer / new primitive class. Ask once, get the shape blessed, then mirror it forever after.
+- **Requirements conflict with existing patterns** — the new feature's shape genuinely cannot be expressed in the project's existing primitives (e.g., first async job in a sync-only codebase).
+- **Cross-module dependency requires architecture decision** — a new coupling between modules that didn't talk before; this is an ADR, not a code question.
+
+That's it. Three escalation triggers. Everything else is silent sibling-mirror with the closure verbs below.
+
+## Closure verbs (complexity → ceremony)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
+
+| Tier | Triggers | Artifacts | Phases |
+|---|---|---|---|
+| **Trivial** (default) | 1 file added, mirrors 1 sibling exactly. No new pattern element. | Code + tests. **No plan, no ADR, no Phase 5 docs.** | Understand (light) → Generate → Validate (sibling-shape halt) |
+| **Standard** | 2-5 files, includes 1 new pattern element (new endpoint kind, new DTO shape) but reuses existing primitives. | Code + tests + 1-paragraph plan + sibling-shape note in PR. **No ADR unless pattern is genuinely new.** | Understand → Retrieve (siblings) → Generate → Validate |
+| **Heavy** | Cross-module, new layer, new primitive, schema change, write-path mutation, payment / auth / multi-tenant surface. | ADR + plan + reviewer dispatch + parity tests for affected existing endpoints. Full 7-phase ceremony below. | All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve) |
+
+**Most adds are 2 files. Default to trivial.** If the audit (Phase 6 sibling-shape halt) flags new primitives or cross-module touch, it promotes the row to standard or heavy — the agent does NOT pre-emptively pick heavy "to be safe."
+
+## Invariants (all tiers)
+
+- **Zero placeholders** in output. Every file has real content.
+- **Sibling shape mirrored** — paths, naming, primitives match ≥2 existing siblings.
+- **Zero untested business logic ships.**
+- **Signal-aware at heavy tier** — multi-tenant code → multi-tenant reviewers; AI → AI reviewers.
+- **Telemetry designed, not bolted on** (heavy tier).
 
 ## Phases applied
 
-All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
-
-## Invariants
-
-- **Zero placeholders** in output. Every file has real content.
-- **All relevant patterns consulted** — not just principles, specific pattern docs.
-- **All applicable agents dispatched** — parallel where independent.
-- **Signal-aware** — if CLAUDE.md / code says multi-tenant, multi-tenant reviewers fire. AI → AI reviewers. Etc.
-- **Zero untested business logic ships.**
-- **Telemetry designed, not bolted on.**
+Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). Trivial / standard tiers run the subset their closure-verb tier requires (see the table above) — skipping phases outside your tier's ceremony is sanctioned; skipping phases inside it is not. Per canonical line 27, this declaration is mandatory even when the answer is "all 7 at heavy tier."
 
 ## When to use / NOT to use
 
-- USE: a new feature, end-to-end, that touches multiple layers.
-- USE: when scope merits architecture + tests + telemetry + docs.
-- NOT: single-endpoint addition to an existing module → use `/add-endpoint`.
+- USE (trivial/standard): a new feature that mirrors existing siblings — most cases.
+- USE (heavy, opt-in): a feature that touches multiple layers, introduces a new primitive, or hits the heavy-tier triggers above.
+- NOT: single-endpoint addition that mirrors an existing endpoint → use `/add-endpoint`.
 - NOT: bug fix → use `/fix-bug`.
 - NOT: pure refactor → use `/refactor`.
+
+## Sibling-shape halt (mechanical gate, all tiers)
+
+**Before declaring success / before merge, the auditor compares the new file(s) against ≥2 sibling files in the same module.** This is the same `regressed` mechanism from `parity-auditor.md` (V2-structure conformance) — borrowed, adapted for greenfield adds.
+
+Halt if the new file:
+- **Imports utilities sibling files don't import** (sign of pattern drift — fetched from training data instead of mirrored).
+- **Uses an error type / DI primitive / validation library siblings don't use** (e.g., raw `try/catch` when siblings use a `Result` envelope; raw `axios` when siblings use a typed client; `zod` when siblings use `class-validator`).
+- **Sits at a path that doesn't match the existing module shape** (e.g., `src/foo/handlers/` when siblings live at `src/<module>/controllers/`).
+- **Names exports / classes / files differently from siblings** (PascalCase vs camelCase drift, suffix drift like `*Service` vs `*Manager`).
+
+Halt verdict for each new file uses the shared vocabulary in [`templates/snippets/sibling-shape-halt.md`](../../../snippets/sibling-shape-halt.md): `aligned` (matches ≥2 siblings) | `drifted` (one or more axes diverge) | `no-siblings` (escalate to user — first feature in module, get shape blessed).
+
+Any `drifted` → HALT before merge. Either re-shape to match siblings (default closure) or — if the deviation is intentional and load-bearing — write an ADR justifying it and promote the row to heavy tier. Drift without ADR is forbidden.
+
+For trivial-tier ports, this halt is the only gate. No reviewers, no telemetry sign-off — just sibling parity.
+
+---
+
+## Heavy-tier 7-phase ceremony (opt-in)
+
+Everything below applies ONLY when the row is heavy-tier per the table above. Trivial / standard rows skip directly to Phase 4 (Generate), apply siblings-mirror, run the sibling-shape halt, and ship.
 
 ## Phase 1 — Understand (the ask)
 
@@ -54,20 +114,15 @@ Dispatch architects in parallel:
 - `ui-architect` (if frontend) — page/component shape, state, services, i18n keys.
 - `design-system-architect` (if new UI patterns) — tokens + primitives needed.
 
+If a named architect is not installed in this project, produce that design axis inline against its pack's checklist — never silently skip the axis.
+
 Cross-reference outputs for contradictions. Resolve before proceeding.
 
 **Pause. Get user confirmation on design.** Designs are cheap to change; code isn't.
 
 ## Phase 3 — Retrieve (read the right context)
 
-ALWAYS (the universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
+ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
 Plus:
 - `.claude/rules/` — every file (auto-loaded, but re-scan for this task).
@@ -188,7 +243,7 @@ Update via `doc-writer`:
 
 **Missing-agent fallback (applies to every dispatch table in this command):** if a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<agent-name>`).
 
-Consolidate findings. Block on any CRITICAL / BLOCKER finding.
+Consolidate findings. **Mechanical halt**: HALT unless EVERY dispatched reviewer returns 0 BLOCKER and 0 CRITICAL findings. Record `reviewers_dispatched=N` and `reviewers_clean=N` in the consolidation note — proceed only when `reviewers_clean == reviewers_dispatched`. If any reviewer flags a blocker, re-run that specific reviewer after the fix; do not paper over, do not aggregate-and-ignore.
 
 ### Observability sign-off
 
@@ -220,10 +275,10 @@ Dispatch `/security-audit` scoped to the diff. Block on any BLOCKER.
 
 One short note in the PR description — not a new ceremony:
 
-- **Flag decision**: behind a feature flag, or flagless with rationale.
+- **Flag decision**: behind a feature flag, or flagless with rationale (e.g., additive endpoint, no existing-path risk).
 - **Migration ordering**: if schema changed, expand → migrate → contract sequence stated; deploy is safe with old + new code running simultaneously.
 - **Rollback path**: one sentence — flag off / revert commit / down-migration. "Cannot roll back" requires an ADR.
-- **Staging verification**: what gets checked on staging before production.
+- **Staging verification**: what gets checked on staging before production (the `chaos-test` ticket for cross-service features lands here).
 
 If any check fails: HALT, report the failure, do not paper over.
 
@@ -297,10 +352,32 @@ Next:
 
 ## Hard rules
 
-- Never skip phases within your tier's ceremony to save time. Tier selection is the only sanctioned way to shrink the flow.
+- Never skip phases within your tier's ceremony to save time. Tier selection (Closure verbs table) is the only sanctioned way to shrink the flow.
 - Pause at Phase 1 (requirements) and Phase 2 (design) — heavy tier only. Trivial / standard run unpaused.
 - No feature ships without tests for every acceptance criterion.
 - No feature ships without telemetry.
 - No feature ships with any security BLOCKER open.
 - Domain signals drive automatic reviewer dispatch — don't forget them.
 - Every consulted pattern logged in the report for traceability.
+
+## Related
+
+### Sibling commands in backend pack
+- `/add-endpoint` — sibling command in backend pack
+- `/add-module` — sibling command in backend pack
+- `/analyze-module` — sibling command in backend pack
+- `/endpoint-test` — sibling command in backend pack
+- `/fix-bug` — sibling command in backend pack
+- `/log-tail` — sibling command in backend pack
+- `/trace-flow` — sibling command in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

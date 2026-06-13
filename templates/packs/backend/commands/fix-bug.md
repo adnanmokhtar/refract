@@ -6,6 +6,10 @@ description: Comprehensive orchestration for a bug fix. Gathers context via skil
 
 Bugs are undersold in reports. This flow prevents "fixed" bugs from reappearing and catches their siblings.
 
+> **This is the backend-pack enriched superset** of the universal baseline (`templates/repo-baseline/.claude/commands/fix-bug.md`). It inherits the two non-negotiable invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md) — **failing-test-first** and the **similar-bugs ledger** — and ADDS telemetry-gap check, signal-aware reviewer cascade, and postmortems. It never relaxes the baseline.
+>
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md).
+
 ## The Premise (read this first, internalize, do not deviate)
 
 **The bug is real. The fix is small. The pattern almost always exists elsewhere.** A defect reported at site A is a sample, not a population. The same missing null-check, the same forgotten tenant filter, the same un-awaited promise — these cluster. The site that got reported is the one a user happened to hit; siblings B, C, D are silent until they aren't.

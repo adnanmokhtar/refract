@@ -4,6 +4,8 @@ description: Comprehensive orchestration for a new feature. Detects domain signa
 
 # /add-feature
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
+
 ## The Premise (read this first, internalize, do not deviate)
 
 **Existing siblings are the truth.** When 50 endpoints in this codebase follow pattern X — same controller shape, same DI primitive, same error envelope, same validation library, same file path under `<module>/<kind>/...` — that pattern IS the project's intentional truth. The 51st endpoint does not get to invent pattern Y. Future maintainers can't predict where things live, fixes can't be applied uniformly, and the codebase fragments by one more weight every time someone improvises.
@@ -46,6 +48,10 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 - **Signal-aware at heavy tier** — multi-tenant code → multi-tenant reviewers; AI → AI reviewers.
 - **Telemetry designed, not bolted on** (heavy tier).
 
+## Phases applied
+
+Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). Trivial / standard tiers run the subset their closure-verb tier requires (see the table above) — skipping phases outside your tier's ceremony is sanctioned; skipping phases inside it is not. Per canonical line 27, this declaration is mandatory even when the answer is "all 7 at heavy tier."
+
 ## When to use / NOT to use
 
 - USE (trivial/standard): a new feature that mirrors existing siblings — most cases.
@@ -64,7 +70,7 @@ Halt if the new file:
 - **Sits at a path that doesn't match the existing module shape** (e.g., `src/foo/handlers/` when siblings live at `src/<module>/controllers/`).
 - **Names exports / classes / files differently from siblings** (PascalCase vs camelCase drift, suffix drift like `*Service` vs `*Manager`).
 
-Halt verdict for each new file: `aligned` (matches ≥2 siblings) | `drifted` (one or more axes diverge) | `no-siblings-found` (escalate to user — first feature in module, get shape blessed).
+Halt verdict for each new file uses the shared vocabulary in [`templates/snippets/sibling-shape-halt.md`](../../../snippets/sibling-shape-halt.md): `aligned` (matches ≥2 siblings) | `drifted` (one or more axes diverge) | `no-siblings` (escalate to user — first feature in module, get shape blessed).
 
 Any `drifted` → HALT before merge. Either re-shape to match siblings (default closure) or — if the deviation is intentional and load-bearing — write an ADR justifying it and promote the row to heavy tier. Drift without ADR is forbidden.
 

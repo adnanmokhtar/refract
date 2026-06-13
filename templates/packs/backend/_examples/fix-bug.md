@@ -2,9 +2,52 @@
 description: Comprehensive orchestration for a bug fix. Gathers context via skills, investigates root cause, writes failing test first, fixes, verifies, scans for similar bugs, reviews with domain-appropriate agents, and updates telemetry if the bug went undetected.
 ---
 
+<!-- generated-from: templates/packs/backend/commands/fix-bug.md
+     Faithful seed copy of the backend /fix-bug command (literal-copy fallback for
+     /setup-project Phase 4.2-AUTHOR when extraction has no signal). REGENERATE whenever the command
+     changes — part of the pack sync chain. Do not hand-edit; edit the command and re-copy. -->
+
 # /fix-bug
 
 Bugs are undersold in reports. This flow prevents "fixed" bugs from reappearing and catches their siblings.
+
+> **This is the backend-pack enriched superset** of the universal baseline (`templates/repo-baseline/.claude/commands/fix-bug.md`). It inherits the two non-negotiable invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md) — **failing-test-first** and the **similar-bugs ledger** — and ADDS telemetry-gap check, signal-aware reviewer cascade, and postmortems. It never relaxes the baseline.
+>
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md).
+
+## The Premise (read this first, internalize, do not deviate)
+
+**The bug is real. The fix is small. The pattern almost always exists elsewhere.** A defect reported at site A is a sample, not a population. The same missing null-check, the same forgotten tenant filter, the same un-awaited promise — these cluster. The site that got reported is the one a user happened to hit; siblings B, C, D are silent until they aren't.
+
+**The agent's job is exactly this:**
+1. Find the root cause of the reported defect (one sentence, named).
+2. Fix it minimally at the reported site — change only what makes the failing test pass.
+3. Grep the codebase for the same root-cause pattern, count hits, fix ALL N occurrences in the same diff (or explicitly account for each).
+
+**The agent does NOT:**
+- Ship a fix that closes only the reported site while siblings B, C, D remain. **That is the failure mode that causes the same bug to be reported again next month.**
+- Refactor adjacent code "while I'm here." One feature per fix run.
+- Draft an ADR or investigation doc for a trivial 1-line null-check fix. Trivial-tier is default.
+- Ask the user to validate which sites are "really" the same pattern. Grep is the validator; the auditor counts hits.
+
+**The agent ONLY asks the user when:**
+- The root cause requires changing a shared utility / library / framework primitive (ripple risk across many call sites the agent can't unilaterally take on).
+- The fix needs another repo or service (cross-repo blocker — genuinely cannot proceed without external confirmation).
+- The bug reveals a missing test class entirely (e.g., no integration tests exist for this layer; introducing one is a scope decision).
+
+That's it. Three escalation triggers. Everything else is silent fix + similar-pattern scan + ALL occurrences fixed in one diff, batched into one end-of-run summary.
+
+**Ceremony scales with bug complexity, not bug presence.** Trivial-tier (1 site, 1-line fix) ships via "fix + test" with no plan, no ADR, no investigation doc. The full investigation-then-plan-then-fix-then-ADR ceremony described below is opt-in for heavy-tier (library-level pattern, race condition, security implication, data-loss).
+
+## Closure-verb table (bug complexity → ceremony)
+
+| Tier | Triggers | Required artifacts | Skipped artifacts |
+|---|---|---|---|
+| **Trivial** (default) | 1 site, 1-line fix, root-cause obvious from the stack trace | failing test → fix → test passes | plan, ADR, investigation doc, postmortem |
+| **Standard** | ≥2 sites of same pattern OR fix touches ≥3 lines OR root-cause requires reading 2+ files | + similar-bugs scan with `N_found == N_fixed` ledger; + 1-paragraph "what was wrong" note in PR | ADR, investigation doc (unless new pattern) |
+| **Heavy** | library-level pattern, race condition, security implication, data-loss, prod-affecting outage | + ADR if introducing new defensive pattern; + investigation doc; + reviewer dispatch (security/resilience/etc.); + postmortem if prod-affecting | — (full ceremony) |
+
+Trivial-tier is the default. Promote to Standard or Heavy only when a trigger actually fires. Bundling a 1-line null-check fix into the heavy ceremony is the same anti-pattern as shipping a fix that ignores siblings — both waste the run.
 
 ## Phases applied
 
@@ -26,6 +69,22 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 - NOT: pure refactor → use `/refactor`.
 
 ## Phase 1 — Understand (the bug)
+
+### Intent gate (mandatory pre-step)
+
+Parse the user's description for keywords that indicate a different command is the right choice. `/fix-bug` is for INCORRECT BEHAVIOR — wrong output, crash, error, regression. NOT for visual polish, enhancement, or new features.
+
+**Universal keyword routing** (add / enhance / audit / …): see [`templates/snippets/intent-gate-skeleton.md`](../../../snippets/intent-gate-skeleton.md).
+
+| User description contains | Right command | Action |
+|---|---|---|
+| "broken" / "crash" / "error" / "wrong output" / "regression" / "doesn't work" — actual bug | `/fix-bug` (this command) | Proceed |
+
+If ambiguous: ASK "is this incorrect behavior, or a quality / enhancement task?" Route based on answer.
+
+If user insists on `/fix-bug` for a non-bug task, proceed but flag in the run summary that a redirect was suggested but overridden.
+
+### Standard inputs
 
 One consolidated question if info missing:
 - Exact symptom.
@@ -55,15 +114,11 @@ If prod is burning: shorten Phase 2 to "stabilize first, then proper flow on fol
 
 ## Phase 3 — Retrieve (read the right context)
 
-ALWAYS (the universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
-- All `.claude/rules/`.
+ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
+
+**MUST read** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) before generating code.
+
+Also read **all** `.claude/rules/` applicable to this bug.
 
 CONTEXT-GATHERING SKILLS:
 
@@ -118,20 +173,31 @@ Output: symptom → reproducer → ROOT CAUSE (one sentence) → call chain → 
 
 **Root cause named before proceeding.**
 
-### Similar-bugs scan
+### Similar-bugs scan (mechanical halt — analogue of RE-DETECT)
 
-BEFORE fixing, grep for the root-cause pattern across the codebase.
+**This step is mandatory at standard-tier and above. Skipping it is the failure mode that ships partial fixes and gets the same bug re-reported next month.**
 
-Example: bug is "raw SQL missing tenant filter in reports.repository" — grep ALL repos for the pattern.
+After fixing the reported site, the auditor:
 
-```bash
-rg "createQueryBuilder|datasource\.query|em\.createQueryBuilder" src/modules/*/infrastructure/
-# For each hit: is the tenant filter applied?
-```
+1. **Greps the codebase for the root-cause pattern** — the actual buggy expression, not a vague concept. If the bug is "raw SQL missing tenant filter in reports.repository", the grep is a literal pattern over query construction APIs, not a hand-wave like "audit all DB code."
 
-Report: "this bug exists in N files" OR "localized to one file".
+   ```bash
+   rg "createQueryBuilder|datasource\.query|em\.createQueryBuilder" src/modules/*/infrastructure/
+   # For each hit: is the tenant filter applied?
+   ```
 
-Plan the fix — sometimes broader fix (with approval), sometimes just this file + tickets for others.
+2. **Counts hits.** Record `N_found = <count>` in the PR description.
+
+3. **Each hit gets one of three closure verbs:**
+   - **(a) fixed in this PR** (preferred default) — the same fix applied to the sibling site.
+   - **(b) explained as intentionally different** — 1-line rationale: "this hit is intentionally different because X" (e.g., "internal admin tool, no tenant context", "called only from migration script with explicit super-tenant"). Explicit, not implicit.
+   - **(c) escalated as a follow-up ticket** — link the ticket id; row out of scope for this PR but tracked.
+
+4. **PR refuses merge if `N_found != N_fixed + N_explained + N_followup`.** The reviewer halts merge on count mismatch. No silent advance. The validator reads `N_found`, `N_fixed`, `N_explained`, `N_followup` from the PR description; missing or mismatched fields HALT.
+
+**Trivial-tier opt-out:** if the closure-verb table places this fix at trivial (1 site, 1-line fix, root-cause obvious), the scan is a quick `rg` confirming `N_found == 1`; no ledger required. The mechanical halt activates the moment a second hit appears — at which point the row promotes to standard-tier.
+
+Plan the fix accordingly — sometimes a broader fix (with approval), sometimes just this file + tickets for others, sometimes a mix. Whichever path, every hit is accounted for.
 
 ### Failing test FIRST
 
@@ -221,6 +287,9 @@ Any gap: dispatch `/add-telemetry` for detection improvement.
 |---|---|
 | Multi-tenant (any DB change) | `tenant-isolation-reviewer` |
 | AI code touched | `prompt-reviewer` |
+| Payment code touched | `payment-reviewer` |
+
+If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
 
 Block on any BLOCKER.
 
@@ -276,8 +345,31 @@ Next:
 
 - Failing test BEFORE fix. Always.
 - Root cause named before fix attempted.
-- Similar-bugs scan done first — blast radius known.
+- Similar-bugs scan done first — blast radius known. `N_found == N_fixed + N_explained + N_followup` enforced at merge.
 - Observability gap checked — "why didn't we know sooner?".
-- No incidental refactor in bug-fix PR.
+- No incidental refactor in bug-fix PR. One feature per fix run.
 - No skipping review.
 - Prod-affecting bugs get a write-up.
+- Trivial-tier is the default. Heavy ceremony (ADR + investigation doc + reviewer dispatch) is opt-in for library-level / race / security / data-loss bugs.
+
+## Related
+
+### Sibling commands in backend pack
+- `/add-endpoint` — sibling command in backend pack
+- `/add-feature` — sibling command in backend pack
+- `/add-module` — sibling command in backend pack
+- `/analyze-module` — sibling command in backend pack
+- `/endpoint-test` — sibling command in backend pack
+- `/log-tail` — sibling command in backend pack
+- `/trace-flow` — sibling command in backend pack
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/api-versioning.md`
+- `ai/patterns/caching-strategy.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/parallel-io.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

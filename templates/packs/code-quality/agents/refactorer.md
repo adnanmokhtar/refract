@@ -36,10 +36,11 @@ Refactor = change the shape, not the behavior. If behavior changes, it's not a r
 | Simplify control flow | Early returns replace pyramid of doom; guard clauses replace nested ifs. |
 | Replace duplication | Same shape ≥3 times (Rule of Three). Not 2 — premature abstraction is worse than duplication. |
 | Replace magic number with named constant | Literal has meaning (`60_000` → `ONE_MINUTE_MS`). |
-| Replace primitive with value object | Primitive is used across many boundaries (phone, money, id) — wrap it for type safety. |
-| Replace conditional with polymorphism | Switch/if-chain dispatches on a type field and is duplicated. |
 | Introduce parameter object | A function has ≥5 args with natural grouping. |
-| Reduce fan-out | A module imports from >10 others — consider merging or introducing a facade. |
+
+These map onto the closed refactoring vocabulary (`extract-method`, `extract-class`, `extract-param-object`, `flatten-conditional`, `move-to-module`, `replace-magic-with-constant`, `replace-temp-with-query`, `replace-loop-with-pipeline`, `rename`, `encapsulate`) that `refactoring-sweep` applies and `/refactor` enforces — see [`templates/packs/code-quality/skills/refactoring-sweep.md`](../skills/refactoring-sweep.md).
+
+**Route to `/optimize`, do NOT apply here:** introducing a value object, replacing a conditional with polymorphism, and reducing fan-out (facade / merge) each introduce a NEW symbol or move responsibilities across boundaries — they trip this agent's own auto-halt above ("adds new symbols") and fall outside the closed vocabulary. Surface them as `/optimize` follow-ups (it owns `split-god-module`, `decouple-cycle`, `introduce-abstraction`); never smuggle them through a refactor.
 
 ## Never do inside a refactor
 

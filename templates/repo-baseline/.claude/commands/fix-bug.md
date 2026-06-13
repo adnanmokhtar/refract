@@ -1,8 +1,12 @@
 ---
-description: Universal bug-fix workflow. Stack-aware (detects backend / frontend / mobile / fullstack from CLAUDE.md). Reproduce → diagnose → fix → verify → regression test → root-cause notes. The default fix-bug command for any project.
+description: Universal bug-fix workflow. Stack-aware (detects backend / frontend / mobile / fullstack from CLAUDE.md). Reproduce → diagnose → failing test FIRST → fix → verify → root-cause notes (TDD). The default fix-bug command for any project.
 ---
 
 # /fix-bug
+
+> **This is the universal-minimum baseline.** It is the subset every project inherits. Pack equivalents (e.g. `templates/packs/backend/commands/fix-bug.md`) are **enriched supersets** that add ceremony (telemetry-gap check, signal-aware reviewer cascade, postmortems) on top of — never instead of — this baseline. Both share the two non-negotiable invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md): **failing-test-first** and the **similar-bugs ledger**. If this file ever contradicts that snippet, the snippet wins.
+>
+> **`--plan`**: this command honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/fix-bug <desc> --plan` diagnoses + plans, writes the plan file, and exits before any edit.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -12,7 +16,7 @@ A reported bug is a sample, not the population. The same root cause that broke s
 
 **The agent's job is exactly this:**
 1. Find the **root cause**, not the symptom — the smallest expression / line / branch that produces the bad behavior.
-2. Apply the **minimum fix** at that site.
+2. Write a **failing test FIRST** that reproduces the root cause, then apply the **minimum fix** at that site — change only what makes the failing test pass.
 3. **Grep the codebase** for the same root-cause pattern (the literal expression, not a vague concept).
 4. Fix **all N occurrences** in the same diff — or explicitly account for each hit (intentional / follow-up).
 
@@ -33,7 +37,7 @@ That's it. Three escalation triggers. Everything else — sibling-scan, fix-all-
 
 | Tier | Trigger | Required artifacts | Skipped |
 |---|---|---|---|
-| **Trivial** (default) | 1 site, 1-line fix, root cause obvious from the report | Code edit + the project's existing test passes | Plan, ADR, investigation doc, similar-bugs scan (only because there's one site by definition) |
+| **Trivial** (default) | 1 site, 1-line fix, root cause obvious from the report | Failing test → fix → test passes | Plan, ADR, investigation doc, similar-bugs scan (only because there's one site by definition) |
 | **Standard** | ≥2 sites of the same pattern OR fix touches ≥3 lines OR root cause requires reading 2+ files to understand | Code edit + similar-bugs scan with `N_found == N_fixed + N_explained + N_followup` accounting + 1-paragraph "what was wrong" note in PR description | ADR (unless introducing a new defensive pattern), separate investigation doc |
 | **Heavy** | Library-level pattern, race condition, security/privacy/data-loss implication, schema migration | Code edit + ADR (new defensive pattern) + investigation doc + reviewer dispatch (whatever review agent the project's pack provides) | — |
 
@@ -56,7 +60,7 @@ After the reported-site fix is applied:
 
 Trivial-tier collapses Phases 5 (Update) and 7 (Improve) into one-line entries. Heavy-tier ceremony (all 7 phases) is opt-in.
 
-All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve) — described below for the heavy-tier case.
+All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve), with **Phase 4 = TDD (failing test FIRST, then fix)** — described below for the heavy-tier case.
 
 ## When to use / NOT to use
 
@@ -125,7 +129,7 @@ Read in order:
 1. The reproducer steps + any attached evidence (logs, screenshots, traces).
 2. `CLAUDE.md` — declared stack + anti-patterns.
 3. `ai/architecture.md` — module boundaries.
-4. `ai/failures/` — has this class shipped before? Cite the failure entry if so.
+4. `ai/failures/` *(if the project maintains a failure catalog)* — has this class shipped before? Cite the failure entry if so; skip silently if the directory doesn't exist.
 5. The file(s) the symptom points to (controller / view / endpoint).
 6. Recent commits to those files (`git log --oneline -10 <file>`) — bisect candidate.
 7. Relevant patterns from `ai/patterns/`.
@@ -167,22 +171,37 @@ The bug-investigator agent does this systematically. Dispatch:
 
 Output: root-cause file path + line + explanation.
 
-### 4c. Fix
+### 4c. Failing test FIRST (TDD — mandatory, before any fix)
+
+Write the regression test **before** touching the fix. Dispatch the project's test specialist (or write inline if none) with the diagnosed root cause + a spec for a test that REPRODUCES the bug:
+
+```
+@bug-investigator named the root cause; now write a test that fails BECAUSE of it.
+```
+
+Requirements:
+- The test currently **FAILS** — and fails for the diagnosed reason, proving it catches *this* bug (not some unrelated assertion).
+- **Deterministic** — no `sleep`, seeded randomness, real clock; fake time / fixed seeds only.
+- **Right level** — unit for pure logic; integration for DB; e2e for HTTP; widget/render test for UI.
+
+**Do not proceed to the fix until the test reliably fails.** A fix written before a failing test is a hypothesis, not a verified repair — this ordering is the whole point of the command.
+
+### 4d. Fix (minimal)
 
 The fix should be:
-- **Minimal** — change only what's necessary.
+- **Minimal** — change only what makes the failing test pass.
 - **Targeted** — at the root cause, not a workaround.
-- **Reversible** — should be safe to revert if the fix has unintended consequences.
+- **Reversible** — safe to revert if the fix has unintended consequences.
 - **Anchored** to existing conventions (don't introduce new patterns to fix one bug).
 
 If the fix requires a new pattern → flag for ADR before merging.
 
-### 4d. Verify
+### 4e. Verify
 
 Three layers of verification:
-1. **The reproducer no longer fires the bug.** (Deterministic.)
-2. **A regression test exists** that catches this bug class. Add if missing.
-3. **No new regressions in surrounding tests.** Run full test suite.
+1. **The failing test from 4c now passes.** (Same test, flipped red → green by the fix.)
+2. **The regression test generalizes** beyond the exact reproducer to the whole bug class — broaden it if it only pins the single reported input.
+3. **No new regressions in surrounding tests.** Run the full test suite; no new lint / type errors.
 
 For UI bugs: visual verification (screenshot or video).
 For mobile bugs: verify on iOS + Android.
@@ -190,6 +209,7 @@ For backend bugs: verify with production-shaped data.
 
 Dispatch reviewers:
 - `@code-reviewer` — fix quality + convention adherence.
+- `@test-reviewer` — does the regression test genuinely catch the bug class, not just the one input?
 - `@bug-investigator` — verify the diagnosis was correct.
 - `@security-auditor` if the bug class touches auth / tenant / data integrity.
 
@@ -251,9 +271,9 @@ Open follow-ups:
 
 ## Hard rules
 
-- **Reproduce first, fix second.** A fix without a reproducer is a hypothesis.
+- **Reproduce first, failing test second, fix third.** A fix without a reproducer is a hypothesis; a fix without a *failing* test is unverified.
+- **Failing test BEFORE fix. Always.** The test must fail for the diagnosed reason before a single line of the fix is written (matches the backend pack sibling and the canonical Phase-4-=-TDD rule).
 - **Root cause, not symptom.** Don't paper over with try/catch + log.
-- **Regression test before merge.** Bug fixed without a test = bug returns.
 - **Failure-catalog entry.** Future you (or your colleague) shouldn't repeat the diagnosis.
 - **Cross-stack verification when applicable.** A backend fix that needs a frontend change isn't done.
 - **Surgical scope.** Don't bundle "while I'm here, let me clean up X" into a bug fix PR.
@@ -275,4 +295,4 @@ Open follow-ups:
 - Stack-specific `/fix-bug` commands in pack equivalents (backend has its own enriched version; this is the universal baseline).
 - `/profile-perf` — when the "bug" is actually slowness.
 - `ai/patterns/api-contract.md`, `error-handling.md`, etc. — patterns the fix should respect.
-- `ai/failures/_index.md` — read this first; the bug class may already be cataloged.
+- `ai/failures/_index.md` — read first **if present**; the bug class may already be cataloged. Absent on projects without a failure catalog — skip silently, don't fabricate the path.

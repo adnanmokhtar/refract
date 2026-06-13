@@ -9,6 +9,8 @@ description: End-to-end mobile feature — multi-screen flow + state + offline +
 
 Mobile feature orchestration. Use when a feature touches more than one screen OR introduces native capabilities (camera, notifications, biometric).
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
+
 ## The Premise (read this first, internalize, do not deviate)
 
 **Existing screens, native bridges, and offline patterns are the truth.** The app already ships. Sibling features in the same module already solved navigation, state placement, offline replay, permission timing, native config wiring, and locale coverage. Their shape is the intentional shape unless an ADR says otherwise.
@@ -36,7 +38,7 @@ That's it. Three escalation triggers. Everything else — i18n key naming, error
 
 | Tier | Trigger | Deliverable | Reviewers |
 |---|---|---|---|
-| **Trivial** (default) | New screen mirrors a sibling; no new permission; no native bridge; no new offline pattern. | Code only. | None — sibling-mirror is its own audit. |
+| **Trivial** (default) | New screen mirrors a sibling; no new permission; no native bridge; no new offline pattern. | Code + tests (widget/unit test mirroring the sibling's, green on iOS + Android). | None — sibling-mirror is its own audit. |
 | **Standard** | New permission OR new offline pattern OR new native config entry (Info.plist key / AndroidManifest entry / Podfile dep). | Code + 1-paragraph plan. | `@accessibility-auditor` always; `@i18n-auditor` if any locale string lands. **No ADR.** |
 | **Heavy** | New native bridge, biometric / Keychain / secrets touch, app-store-blocking change, write-path mutation, new push-notification class. | Code + ADR + full cascade. | Full serial cascade per § Phase 4 (mobile-architect → accessibility → i18n → app-store → security → ux), halt-on-blocker. |
 
@@ -48,6 +50,7 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 
 ## Invariants
 
+- **Tests ship with the feature — every tier, no exceptions.** A sibling-mirrored screen inherits its sibling's test shape; trivial tier is not a test exemption. No untested feature code reaches Phase 6 (which gates on "tests pass on iOS + Android").
 - **Online + offline behavior decided up front** — not bolted on.
 - **iOS + Android parity decided up front** — feature works equivalently on both unless explicitly platform-only.
 - **Deep-link entry registered.**
@@ -204,7 +207,7 @@ Before any reviewer runs, the cascade's first dispatch (`@mobile-architect` in a
 - **Native config / linking config / push handlers not registered.** If sibling registered a deep link in `linking.config`, an intent filter in `AndroidManifest.xml`, and a push topic handler — the new feature does all three or none, matching the sibling's surface.
 - **Locale strings missing from one locale.** Every sibling-supported locale has the new keys. Missing `ar.ts` when `en.ts` has the key = halt.
 
-These are mechanical (string-match / file-presence / config-presence checks), not opinion. Halt = the audit returns `BLOCKER` with the divergent axis named, and the cascade stops per the halt rule above.
+These are mechanical (string-match / file-presence / config-presence checks), not opinion. The criteria above are mobile-specific; the **verdict vocabulary is the shared one** in [`templates/snippets/sibling-shape-halt.md`](../../../snippets/sibling-shape-halt.md): a clean compare is `aligned`, any divergent axis is `drifted` (the `BLOCKER:<axis>` output maps onto `drifted`), and a module with no sibling screen is `no-siblings` (escalate). Any `drifted` halts the cascade per the rule above.
 
 ## Phase 5 — Update
 

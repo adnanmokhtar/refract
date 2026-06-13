@@ -6,6 +6,8 @@ pack: orchestration
 
 # /optimize [<scope>]
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/optimize <scope> --plan` runs the architectural diagnosis + tactical scan, writes the ranked fix-plan, and exits before any edit.
+
 ## What this does
 
 **Single command. Make the codebase high-quality at the architectural AND tactical level.** Deep multi-agent diagnosis + foundation-first fixes + parallel tactical sweep. Whole project or scoped. **Stack-agnostic** — works on frontend (Vue / React / Svelte / Angular), backend (Node / Python / Go / Java / Ruby / .NET), data (SQL / migrations / pipelines), and mobile (iOS / Android / RN).
@@ -98,7 +100,7 @@ Examples:
 6. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Each agent: re-detect → apply fix → verify → commit. Closure verbs:
    - **Refactoring** (via `refactoring-sweep` skill): `extract-method`, `extract-class`, `extract-param-object`, `flatten-conditional`, `move-to-module`, `replace-magic-with-constant`, `replace-temp-with-query`, `replace-loop-with-pipeline`, `rename`, `encapsulate`.
    - **Tactical**: `remove`, `inline`, `dedupe`, `replace-with-shared`.
-   - **Performance**: `parallelize`, `batch`, `cache-with-explicit-ttl`, `add-index`, `project-columns`, `push-down-filter`.
+   - **Performance** — for data-layer and runtime hotspots, dispatch the specialist that owns the detector and APPLY its proposal in-band rather than reimplementing inline: `performance-optimizer` (hot-path CPU / allocation / async), `query-optimizer` + `database-optimizer` (index / query-plan / N+1). These DB agents are **propose-only**; `/optimize` is the applier — it takes their index/migration proposal, runs the before/after query-plan, applies, and commits. Closure verbs: `parallelize`, `batch`, `cache-with-explicit-ttl`, `add-index`, `project-columns`, `push-down-filter`.
    - **Render waste** (`frontend-*` / `mobile-*`): `scope-state-down`, `move-to-lifecycle`, `extract-const-subtree`, `memoize`, `virtualize-list`, `scope-animation`, `select-store-slice` (per `mobile/rules/render-discipline.md` § The 8 detectors; measured rebuild-count / frame-time delta required).
 
 7. **Verify continuously** — lint + typecheck + scoped tests after each fix. Coverage must not drop. Behaviour-preserving for all structural fixes (architectural moves, refactoring, dead code, dedup, over-abstraction); perf fixes ship with assertions + before/after measurement.
@@ -250,7 +252,7 @@ Not validated:       load test at production RPS (no load-test env) — perf win
 Risks:               PaginationStrategy touches every list endpoint — staging smoke pass recommended
 Revert:              git revert <first-sha>..<last-sha>  (architectural commits land first — revert tactical-only range to keep foundations)
 
-Next: /optimize the next module  OR  inspect commits via git log --oneline
+Next: /review-changes (independent pass before merge)  OR  /optimize the next module  OR  inspect commits via git log --oneline
 ```
 
 Frontend example (any frontend stack — concrete primitive names depend on framework: composable / hook / store / service / etc.):
