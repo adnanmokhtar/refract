@@ -1,4 +1,5 @@
 ---
+name: api-consistency-audit
 description: API surface consistency audit. Detects drift across endpoints in: response envelope shape, error contract, pagination convention, naming case (snake/camel), idempotency-key coverage, auth header convention, rate-limit header coverage, log-field naming, metric/trace naming, OpenAPI documentation coverage, timeout/retry policy uniformity. Emits one finding per drift fingerprint with <path:line> evidence + closure verb. Used by /polish on backend-* stacks. Behaviour-preserving (envelope unification + naming changes ship through deprecation flow, not blind rewrite).
 kind: skill
 pack: backend

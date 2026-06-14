@@ -1,4 +1,5 @@
 ---
+name: platform-conventions-audit
 description: Platform conventions audit for mobile apps. Detects iOS HIG / Material 3 / per-platform spec drift across screens. Covers touch target sizing, navigation patterns, system-font usage, platform-specific affordances, icon vocabulary (Cupertino vs Material), typography scale (San Francisco vs Roboto), elevation/shadow conventions, ripple states, haptic feedback coverage, safe-area handling. Emits findings with closure verbs that apply per-platform conformance. Used by /polish on mobile-* stacks. Co-runs with frontend skills (a11y-quick-check, design-token-audit, motion-audit) — frontend findings + platform findings combined.
 kind: skill
 pack: mobile

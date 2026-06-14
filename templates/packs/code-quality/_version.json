@@ -1,12 +1,19 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.4.1",
-  "released": "2026-06-13",
+  "version": "1.4.2",
+  "released": "2026-06-14",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "refactor vocabulary reconciliation: refactorer agent's 3 out-of-vocabulary verbs removed (route to /optimize), refactoring-sweep skill now names /refactor as its core apply-engine consumer.",
+  "summary": "Skill frontmatter consistency: architectural-diagnosis + refactoring-sweep now carry a name: field; fixed a dangling 'step 4.7' reference in architectural-diagnosis (procedure has no 4.7).",
   "changelog": {
+    "1.4.2": {
+      "released": "2026-06-14",
+      "changes": [
+        "architectural-diagnosis + refactoring-sweep skills: added the `name:` frontmatter field (was missing; the 3 migration skills already had it) \u2014 makes Cursor/Codex SKILL.md translation mechanical instead of LLM-authored.",
+        "architectural-diagnosis: fixed dangling reference to a non-existent 'step 4.7' in the migration-discipline cross-ref \u2014 now points at the detector pass (Procedure step 4)."
+      ]
+    },
     "1.4.1": {
       "released": "2026-06-13",
       "changes": [
