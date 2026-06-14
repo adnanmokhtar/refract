@@ -6,6 +6,15 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Major-skills review — frontmatter consistency
+
+**Why** — a review of the 8 global cross-cutting skills (the ones backing `/optimize`, `/polish`, `/audit`, `/migrate`) found them production-grade with no structural gaps, but surfaced two small consistency issues.
+
+- **`name:` frontmatter added** to the 5 skills missing it — `architectural-diagnosis`, `api-consistency-audit`, `schema-consistency-audit`, `platform-conventions-audit`, `refactoring-sweep`. The 3 migration skills already had it. Without `name:`, every Cursor/Codex SKILL.md translation had to LLM-author the field; now it's mechanical.
+- **Dangling reference fixed** in `architectural-diagnosis` — a cross-ref cited a non-existent "step 4.7" (the procedure only has steps 1–8); now points at the detector pass (step 4).
+
+Pack bumps: code-quality 1.4.2, backend 1.3.2, database 1.1.1, mobile 1.3.2.
+
 ### add-feature / fix-bug / optimize command-suite hardening (SDLC audit fixes)
 
 **Why** — a multi-agent review of the developer-loop commands (add-feature, fix-bug, optimize + refactor / audit and their sibling skills/agents) against the canonical 7-phase template surfaced 2 P0 SDLC violations and a set of P1/P2 consistency gaps. The suite was a genuine specialist family, but two paths shipped broken code and several contracts were advertised-but-unwired.

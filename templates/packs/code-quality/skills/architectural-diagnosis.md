@@ -1,4 +1,5 @@
 ---
+name: architectural-diagnosis
 description: Project-wide architectural diagnosis. Builds dependency + responsibility maps, flags layer violations, cyclic dependencies, god modules, anemic modules, wrong-level responsibilities, cross-cutting duplication, missing abstractions, bottleneck modules. Emits the foundation fix list (cascade impact) — these run BEFORE tactical fixes in /optimize. Stack-agnostic; reads PROJECT_KIND for stack-specific layer rules.
 kind: skill
 pack: code-quality
@@ -274,4 +275,4 @@ A Phase 0 run that outputs only architecture-decisions.md without the four evide
 - `align-discipline.md` — the closure-verb closed vocabulary (architectural verbs are a sub-set).
 - `engineering-principles.md` (this pack) — the principles foundation fixes restore.
 - `quality-principles.md` (this pack) — the principles tactical sweep enforces.
-- `migration-discipline.md` — referenced for the 6-axis dead-code check (used in step 4.7 to flag dead modules as deletion candidates).
+- `migration-discipline.md` — referenced for the 6-axis dead-code check (applied within the detector pass in Procedure step 4 to flag dead modules as deletion candidates).

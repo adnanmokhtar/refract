@@ -1,12 +1,18 @@
 {
   "kind": "pack",
   "name": "mobile",
-  "version": "1.3.1",
-  "released": "2026-06-13",
+  "version": "1.3.2",
+  "released": "2026-06-14",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "add-feature P0 fix: trivial tier now requires tests (was 'Code only', allowing untested code to ship); universal --plan handoff flag; shared sibling-shape-halt verdict vocabulary.",
+  "summary": "platform-conventions-audit skill: added the missing `name:` frontmatter field for consistent, mechanical adapter translation.",
   "changelog": {
+    "1.3.2": {
+      "released": "2026-06-14",
+      "changes": [
+        "platform-conventions-audit skill: added `name:` frontmatter field (was missing)."
+      ]
+    },
     "1.3.1": {
       "released": "2026-06-13",
       "changes": [
