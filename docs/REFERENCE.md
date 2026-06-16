@@ -427,7 +427,7 @@ Heavy-tier rows pause for reviewer approval before they can flip to `done` / `ve
 
 ### Cross-repo task tracking (v1.5+, migration-only)
 
-`/cross-repo-task` registers + tracks + drains cross-repo blockers. Subcommands: `register`, `list`, `update`, `close`, `drain`. Registry at `ai/migration/cross-repo-tasks.md`.
+`/cross-repo-task` registers + tracks + drains cross-repo blockers. Subcommands: `register`, `list` (`--stale`), `update`, `close`, `reopen`, `drain`. `register` captures the `expected_contract` and generates a paste-ready upstream-request file (`ai/migration/cross-repo-requests/<id>.md`); `drain` contract-checks before flipping a feature `done` (so `close` alone never does); `reopen` recovers a premature closure. Registry at `ai/migration/cross-repo-tasks.md`. `/migration-final` forces INCOMPLETE while any task is open.
 
 - `register <feature-id> "<description>"` — creates task ID, links blocked feature, sets row to halted with cross-repo reason.
 - `drain` — re-runs `/find-and-fix` on rows whose blockers landed.
@@ -620,7 +620,7 @@ User can override ("no, run /add-feature anyway") — the run summary flags the 
 | `/add-runbook <name>` | documentation | Author ops runbook with mandatory verify-after-each-step + rollback section. |
 | `/migration-promote-tier <id> <tier>` | migration | Mid-port tier change. Backfills artifacts on promotion. Demotion forbidden for security/P0/cross-repo. |
 | `/align-promote-tier <id> <tier>` | align | Same as above for align findings. |
-| `/cross-repo-task` | migration | Register / list / drain cross-repo blockers when ports halt due to upstream changes. |
+| `/cross-repo-task` | migration | Register / list / drain / reopen cross-repo blockers when ports halt due to upstream changes; captures the expected contract + generates a paste-ready upstream request. |
 
 ## `/ui-sweep` — project-wide UI/UX specialist
 

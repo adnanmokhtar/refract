@@ -1,12 +1,21 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.6.0",
-  "released": "2026-06-07",
+  "version": "1.7.0",
+  "released": "2026-06-16",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API). 1.6.0: split migration-discipline.md into always-on core (<40k chars, respects Claude Code's 40k-char always-on limit — prior size was truncating ~half the rule in every session) + two on-demand reference files under references/ (procedures + catalogue), content relocated verbatim. Adapter bundles MUST ship all three files together.",
+  "summary": "cross-repo-task hardening: contract capture (expected_contract) + paste-ready upstream-request artifact at register; reopen subcommand for premature closures; drain verifies the registered contract before flipping a feature done; list --stale. migration-final now reads the registry and forces INCOMPLETE while any cross-repo task is open.",
   "changelog": {
+    "1.7.0": {
+      "released": "2026-06-16",
+      "changes": [
+        "cross-repo-task: NEW reopen <task-id> --reason subcommand — reverses a premature close/abandon (landed→open) and re-blocks the feature in the ledger; previously a premature closure left the feature in a false-done limbo with no recovery path.",
+        "cross-repo-task: register now captures expected_contract (--contract, or derived-and-confirmed) and generates a paste-ready upstream-request artifact at ai/migration/cross-repo-requests/<task-id>.md (the exact contract + which downstream features are blocked + acceptance criteria) — turns 'notify the owner' into a concrete handoff.",
+        "cross-repo-task: drain now contract-checks each landed task before retrying the port; a feature reaches done only via a clean drain, never via close alone. Mismatch ⇒ suggest reopen. Added list --stale (open > 30d).",
+        "migration-final: now reads cross-repo-tasks.md — any open/in-flight task forces INCOMPLETE and blocks the V1 retirement plan (new pre-req + Phase 2 check + deterministic-verdict condition + hard rule). A feature waiting on an upstream change isn't truly ported."
+      ]
+    },
     "1.5.2": {
       "released": "2026-05-07",
       "changes": [

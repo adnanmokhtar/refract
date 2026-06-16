@@ -6,7 +6,7 @@ kind: rule
 
 # Workspace rules
 
-> **Hard rule (TL;DR):** Cross-repo work follows the registry. Read every affected sibling's root `CLAUDE.md` before editing it. API contracts ship first; frontends follow. Each repo commits separately. No assumed state, no cross-repo commits.
+> **Hard rule (TL;DR):** Cross-repo work follows the registry. Read every affected sibling's root `CLAUDE.md` before editing it. Define the contract first; every repo codes against it, not a paraphrase. The producer (API / shared lib) ships first and backward-compatible; consumers follow and are verified against the shipped shape. Each repo commits separately. No assumed state, no cross-repo commits, no breaking a shape a third repo depends on.
 
 Apply when Claude is rooted at the workspace parent directory.
 
@@ -20,10 +20,18 @@ Apply when Claude is rooted at the workspace parent directory.
 - Only edit files in the registered sibling repos (see `PROJECTS.md`).
 - Don't touch sibling directories outside the registry without explicit approval.
 
+## Contract-first
+
+- **Write the contract before any consumer code.** The exact shape of each changed boundary — path + method + request + response + error envelope, or the shared type / schema — is defined and approved first. Every repo codes against that artifact, never a paraphrase or a remembered shape.
+- **Classify every contract change `additive` or `breaking`.** A breaking change to a contract consumed by a repo not in scope halts — version it (new endpoint / `/v2`) or widen scope. Never silently change a shape a third repo depends on; grep the workspace for all consumers first.
+- **Verify the consumer against the producer's shipped shape**, not the spec on paper — generated/checked types, a real call, or a contract test. A green consumer build alone doesn't prove the shapes match.
+
 ## Sequencing
 
-- **API first, frontends after.** Contract changes go in the API repo; frontends consume the new contract.
+- **Producer first, consumers after.** Contract changes go in the shared lib / API repo (in dependency order if more than two repos); consumers build against the new contract.
+- **Producer ships backward-compatible (or behind a version/flag).** PRs in different repos can't merge atomically — so a breaking change that requires both to land at once is forbidden. Additive-first lets each consumer PR merge on its own schedule.
 - If a frontend-only change would require an API change, flag and stop — don't patch the frontend around a missing API change.
+- A new dependency in any repo gets a dependency review before install — no silent cross-repo dependency growth.
 
 ## i18n (if multiple locales)
 
@@ -40,5 +48,9 @@ Apply when Claude is rooted at the workspace parent directory.
 
 - Commit across repos
 - Skip reading per-repo `CLAUDE.md`
+- Code a consumer against an assumed / paraphrased contract instead of the approved artifact
+- Ship a breaking contract change that requires two repos' PRs to merge at once
+- Silently change a shape a third (out-of-scope) repo depends on
+- Add a dependency in any repo without a review
 - Assume siblings use the same patterns (v1 vs v2, Options vs Composition API, etc.)
 - Apply a frontend change that depends on an unshipped API change
