@@ -56,8 +56,8 @@ The mirror of C2b for technical-signal **domains** (Phase 4.4). Without this gat
 |------------------------------------------------------------------------|----------|------|
 | `.claude/_domain-coverage-report.md` exists (written by Phase 4.4)     | must     | C2c  |
 | Profile §11 emits a machine-readable `technical_signals: [...]` array of **canonical registry keys** (not prose) | must | C2c |
-| Every key in `technical_signals:` resolves to a real `templates/domains/<key>/` folder (no un-normalized alias like `media-transcoding`) | must | C2c |
-| Every detected signal is `✅ applied` in `_domain-coverage-report.md` OR explicitly skipped with a one-line rationale | must | C2c |
+| Every key in `technical_signals:` AND every `--include=<key>` resolves to a real `templates/domains/<key>/` folder (no un-normalized alias like `media-transcoding`) | must | C2c |
+| Every detected-or-forced signal (§11 union `--include=`) is `✅ applied` in `_domain-coverage-report.md` OR explicitly skipped with a one-line rationale | must | C2c |
 | Any `❌ NO SUCH DOMAIN` line in the report → HALT (alias not normalized in §11) | must | C2c |
 
 ## C2c. Deep codebase analysis discipline (M16)

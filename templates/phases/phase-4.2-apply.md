@@ -320,8 +320,14 @@ When the LLM was previously responsible for writing each pack file by hand, it c
 **4.4 Apply technical-domain tooling** — for every TECHNICAL signal in the profile's `technical_signals:` array (§11), copy the matching domain folder. **Deterministic + enforced — same model as 4.2 (`cp` cannot skip); the LLM's only job is to read the key list, the shell does the copy.** A prose instruction here is NOT sufficient: this step previously shipped as one sentence with no shell enforcement and no coverage report, and so a run could silently install ZERO domains while the profile's prose "detected" all of them. It is now mechanical:
 
 ```bash
-# Read the canonical keys Phase 2 §11 emitted (NOT prose — exact registry keys).
-SIGNALS=$(grep -oP 'technical_signals:\s*\[\K[^\]]*' "$TARGET_REPO/.claude/codebase-profile.md" | tr ',' '\n' | sed 's/ //g')
+# Apply the UNION of (a) canonical keys Phase 2 §11 detected and (b) keys forced via --include=.
+# (a) detected — NOT prose, exact registry keys from §11.
+DETECTED=$(grep -oP 'technical_signals:\s*\[\K[^\]]*' "$TARGET_REPO/.claude/codebase-profile.md" | tr ',' '\n' | sed 's/ //g')
+# (b) forced — every --include=<key> passed to this run that resolves to a real domain folder.
+#     --include ADDS scope, never subtracts (per setup-project.md); a forced key may not be in §11
+#     (the user knows a concern the scan couldn't infer). Honor it here so the deterministic copy covers it.
+FORCED=$(printf '%s\n' "$INCLUDE_FLAGS" | tr ', ' '\n' | sed 's/ //g')   # INCLUDE_FLAGS = the run's --include= values
+SIGNALS=$(printf '%s\n%s\n' "$DETECTED" "$FORCED" | grep -v '^$' | sort -u)   # union, de-duplicated
 
 : > "$TARGET_REPO/.claude/_domain-coverage-report.md"
 for sig in $SIGNALS; do
@@ -341,7 +347,8 @@ for sig in $SIGNALS; do
 done
 ```
 
-- **Resolve every §11 key to a real folder.** A key with no `templates/domains/<key>/` folder is an un-normalized alias (e.g. `media-transcoding` instead of `media-processing`) — HALT and fix §11, do not silently skip.
+- **Apply the union of detected + forced.** The applied set is `technical_signals:` (what Phase 2 detected) **unioned with** every `--include=<key>` passed to the run (`INCLUDE_FLAGS`). `--include` adds scope it can't subtract — a forced key absent from §11 (a concern the scan couldn't infer) is still applied. De-duplicate so a key in both is copied once.
+- **Resolve every key (detected or forced) to a real folder.** A key with no `templates/domains/<key>/` folder is an un-normalized alias (e.g. `media-transcoding` instead of `media-processing`) or a bad `--include=` value — HALT and fix it, do not silently skip.
 - **`_domain-coverage-report.md` is the source of truth** for "which domains should be present" — the Phase 5 audit (C2c) fails the run if any detected signal is neither applied nor explicitly skipped-with-rationale. This mirrors `_pack-coverage-report.md` for tracks.
 - Each file passes through the merge matrix (user-edited regions preserved); the shell copies the rest verbatim — no LLM hand-copying, no skipping under context pressure.
 
