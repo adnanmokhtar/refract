@@ -111,6 +111,7 @@ Phase 5 must NOT report success unless every `must` row passes. `should` rows wa
 | Check                                                                  | Severity | Rule              |
 |------------------------------------------------------------------------|----------|-------------------|
 | `.claude/_telemetry.jsonl` is `.gitignore`d                            | must     | A33               |
+| Learning/scheduler hook outputs are `.gitignore`d (`ai/dynamic/changelog.md`, `ai/dynamic/session-log.md`, `ai/dynamic/.review-queue`, `.claude/scheduled_tasks.lock`) AND not tracked — else every commit re-dirties the tree (Phase 4.1) | must | observability |
 | Telemetry contains zero PII / network calls                            | must     | A33               |
 | `ai/_setup-history.md` got a one-line entry for this run               | should   | observability     |
 

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Stop hook — appends a brief session summary to ai/dynamic/session-log.md.
 # Enables cross-session continuity: next session reads recent context without full git log.
+#
+# CONTRACT: ai/dynamic/session-log.md MUST be .gitignored (setup-project Phase 4.1
+# enforces it). A hook that writes a TRACKED file leaves the tree perpetually dirty.
 
 set -uo pipefail
 

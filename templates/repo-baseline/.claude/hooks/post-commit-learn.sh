@@ -2,6 +2,11 @@
 # post-commit-learn.sh — runs after each git commit
 # Scans the commit's diff for learnable signals; queues findings for the next session
 # to surface (does NOT block the commit; learning is async).
+#
+# CONTRACT: the files this writes (ai/dynamic/changelog.md, ai/dynamic/.review-queue)
+# MUST be .gitignored. A post-commit hook that writes a TRACKED file makes a clean
+# working tree impossible (commit -> this appends -> dirty -> commit -> ...).
+# setup-project Phase 4.1 enforces those .gitignore entries.
 
 set -uo pipefail
 
