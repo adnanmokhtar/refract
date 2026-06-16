@@ -48,6 +48,18 @@ Phase 5 must NOT report success unless every `must` row passes. `should` rows wa
 | Sections 2-8 of `_refresh-extract.md` are non-empty (no `<TBD>`)       | must     | M15               |
 | Section 9 non-empty when `--include=migration` set                     | must     | M15               |
 
+## C2c. Technical-domain coverage discipline
+
+The mirror of C2b for technical-signal **domains** (Phase 4.4). Without this gate a run can detect every signal in the profile prose yet install ZERO domain tooling and still pass (the original failure: a media-streaming project got generic backend packs but no `media-processing` / `streaming-delivery` / `background-jobs` / `real-time` specialists).
+
+| Check                                                                  | Severity | Rule |
+|------------------------------------------------------------------------|----------|------|
+| `.claude/_domain-coverage-report.md` exists (written by Phase 4.4)     | must     | C2c  |
+| Profile §11 emits a machine-readable `technical_signals: [...]` array of **canonical registry keys** (not prose) | must | C2c |
+| Every key in `technical_signals:` resolves to a real `templates/domains/<key>/` folder (no un-normalized alias like `media-transcoding`) | must | C2c |
+| Every detected signal is `✅ applied` in `_domain-coverage-report.md` OR explicitly skipped with a one-line rationale | must | C2c |
+| Any `❌ NO SUCH DOMAIN` line in the report → HALT (alias not normalized in §11) | must | C2c |
+
 ## C2c. Deep codebase analysis discipline (M16)
 
 | Check                                                                  | Severity | Rule              |

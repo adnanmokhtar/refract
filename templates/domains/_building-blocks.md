@@ -41,6 +41,7 @@ A reference taxonomy of the **functional building blocks** software is assembled
 |---|---|
 | File upload / storage | ✅ `file-upload` |
 | Media processing (transcode / thumbnails) | ✅ `media-processing` |
+| Streaming delivery (HLS/DASH, encrypted segments, decryption) | ✅ `streaming-delivery` |
 | Bulk import / ingest | ✅ `import` |
 | Reporting / export / dashboards | ✅ `reporting` |
 | Search / autocomplete | ✅ `search` |

@@ -189,6 +189,28 @@ Profile content (written to `.claude/codebase-profile.md`):
 9. **Auth** — JWT/session/OAuth + guard / middleware names.
 10. **i18n** — library, locales, key convention.
 11. **Technical signals detected** — multi-tenant, webhook, payment, AI, real-time, etc.
+
+    **CRITICAL — emit canonical registry keys, not prose labels.** Phase 4.4 consumes this section by running `cp templates/domains/<signal>/…` with `<signal>` used *literally*. A free-text label like `media-transcoding`, `queue/async-jobs`, or `token-protected delivery` resolves to **no folder** and the domain is silently skipped. Therefore §11 MUST record each detected signal as its **exact key from `~/.claude/templates/domains/_registry.md`**, machine-readable on its own line:
+
+    ```
+    technical_signals: [multi-tenant, media-processing, streaming-delivery, background-jobs, real-time, webhook, file-upload, caching, auth]
+    ```
+
+    A human-readable prose line (with evidence `<path:line>`) MAY follow, but the `technical_signals:` array is the contract Phase 4.4 reads. Normalize every observation to its registry key — common aliases:
+
+    | If you observe… | Canonical key |
+    |---|---|
+    | transcode / thumbnail / ffmpeg / sharp / image-resize / HLS *packaging* | `media-processing` |
+    | HLS / DASH / CMAF / `.m3u8` / `.mpd` / manifest / segment delivery / byte-range / adaptive bitrate / `EXT-X-KEY` / DRM / encrypted-segment / video *playback* | `streaming-delivery` |
+    | queue / job / worker / BullMQ / Sidekiq / Celery / Temporal / Agenda / cron | `background-jobs` |
+    | websocket / SSE / Socket.io / WebRTC / pub-sub / presence | `real-time` |
+    | tenant / `tenant_id` / `app_id` scoping / row-level-security | `multi-tenant` |
+    | Redis / Memcached / `Cache-Control` / CDN cache | `caching` |
+    | JWT / session / OAuth / login / token auth / guards | `auth` |
+    | upload / multipart / presigned / `express-fileupload` | `file-upload` |
+    | callback URL / `*_url` POST-on-event | `webhook` |
+
+    A key that has no folder under `templates/domains/` is NOT a valid signal — drop it or map it to the nearest real key. If a genuinely-new concern has no registry key, note it as `[SIGNAL-UNMAPPED: <desc>]` so the gap is visible (it will not be auto-applied).
 12. **Business domain detected** — see §2.x below. THIS IS DIFFERENT FROM technical signals — it's "what business is this product running" (ecommerce / lms / fintech / etc.). Without this, the setup gives generic backend scaffolding instead of domain-aware tooling.
 13. **Anti-patterns** — console.log / any / swallowed errors counts (acknowledge; don't fix).
 14. **Phase + status** — declared phase + code-vs-doc consistency.
