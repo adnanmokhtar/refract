@@ -1,0 +1,9 @@
+{
+  "kind": "domain",
+  "name": "streaming-delivery",
+  "version": "1.0.0",
+  "released": "2026-06-16",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "Initial baseline — adaptive streaming delivery (HLS/DASH manifests, byte-range/206, ABR, live vs VOD) + encrypted-segment delivery & decryption (AES-128 / SAMPLE-AES / CENC-DRM / clear-key) with entitlement-gated key/license delivery, server-side-decrypt cleartext containment, and key-management discipline."
+}
