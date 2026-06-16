@@ -152,6 +152,29 @@ if compgen -G "$TARGET/*.tf" >/dev/null 2>&1 || [[ -d "$TARGET/terraform" ]]; th
     "Terraform config detected — plan/show/state inspection without ad-hoc shell."
 fi
 
+# ---------- Project management (Trello) ----------
+# No codebase footprint — gate on this repo's OWN Trello credentials so each
+# repo wires its own board/account. Keys live in the repo's .env, never here.
+if grep -qE 'TRELLO_(API_KEY|TOKEN|BOARD_ID|BOARD_NAME)' "$TARGET/.env" "$TARGET/.env.example" 2>/dev/null \
+   || [[ -f "$TARGET/.trello.json" ]]; then
+  add_rec "trello" "Trello MCP" "@delorenj/mcp-server-trello" \
+    "Trello credentials detected (\`TRELLO_*\` in .env) — pull this repo's board into the dev loop: read cards/lists, move cards, comment, check off items. Per-repo board via \`TRELLO_BOARD_ID\`. Backs /task (provider=trello)."
+fi
+
+# ---------- Project management (Jira) ----------
+# Gate on this repo's own Atlassian credentials. Backs /task (provider=jira).
+if grep -qE '(JIRA|ATLASSIAN)_(URL|SITE_NAME|USER|USER_EMAIL|USERNAME|API_TOKEN|TOKEN)' "$TARGET/.env" "$TARGET/.env.example" 2>/dev/null; then
+  add_rec "jira" "Jira MCP" "@aashari/mcp-server-atlassian-jira" \
+    "Jira/Atlassian credentials detected in .env — pull this repo's issues into /task: read issue, transition status, comment. Per-repo project. Verify env-var names against the server README."
+fi
+
+# ---------- Project management (Linear) ----------
+# Gate on this repo's own Linear API key. Backs /task (provider=linear).
+if grep -qE 'LINEAR_API_KEY' "$TARGET/.env" "$TARGET/.env.example" 2>/dev/null; then
+  add_rec "linear" "Linear MCP" "@tacticlaunch/mcp-linear" \
+    "Linear API key detected in .env — pull this repo's issues into /task: read issue, set workflow state, comment. Per-repo team. Backs /task (provider=linear)."
+fi
+
 # ---------- Migration (V1/V2) ----------
 parent_dir=$(dirname "$TARGET")
 target_name=$(basename "$TARGET")
@@ -209,6 +232,15 @@ fi
       figma)
         printf '    "figma": {\n      "command": "npx",\n      "args": ["-y", "%s"],\n      "env": { "FIGMA_ACCESS_TOKEN": "${FIGMA_TOKEN}" }\n    }' "$pkg"
         ;;
+      trello)
+        printf '    "trello": {\n      "command": "npx",\n      "args": ["-y", "%s"],\n      "env": { "TRELLO_API_KEY": "${TRELLO_API_KEY}", "TRELLO_TOKEN": "${TRELLO_TOKEN}", "TRELLO_BOARD_ID": "${TRELLO_BOARD_ID}" }\n    }' "$pkg"
+        ;;
+      jira)
+        printf '    "jira": {\n      "command": "npx",\n      "args": ["-y", "%s"],\n      "env": { "ATLASSIAN_SITE_NAME": "${ATLASSIAN_SITE_NAME}", "ATLASSIAN_USER_EMAIL": "${ATLASSIAN_USER_EMAIL}", "ATLASSIAN_API_TOKEN": "${ATLASSIAN_API_TOKEN}" }\n    }' "$pkg"
+        ;;
+      linear)
+        printf '    "linear": {\n      "command": "npx",\n      "args": ["-y", "%s"],\n      "env": { "LINEAR_API_KEY": "${LINEAR_API_KEY}" }\n    }' "$pkg"
+        ;;
       migration-fs)
         printf '    "filesystem-v1": {\n      "command": "npx",\n      "args": ["-y", "%s", "%s/%s"]\n    }' "$pkg" "$parent_dir" "$v1_candidate"
         ;;
@@ -223,7 +255,7 @@ fi
 
   printf '## Notes\n\n'
   printf -- '- **Idempotent recommendation**: re-running this script regenerates `_mcp-recommendations.md` from current signals. If you accept a recommendation, copy it into `.mcp.json` once — that file is yours to maintain.\n'
-  printf -- '- **Per-developer secrets**: `${GITHUB_TOKEN}`, `${DATABASE_URL}`, `${FIGMA_TOKEN}` are env-var placeholders. Set them in your shell profile or `.env`, not in `.mcp.json` (which may be committed).\n'
+  printf -- '- **Per-developer secrets**: `${GITHUB_TOKEN}`, `${DATABASE_URL}`, `${FIGMA_TOKEN}`, `${TRELLO_API_KEY}` / `${TRELLO_TOKEN}` / `${TRELLO_BOARD_ID}`, `${ATLASSIAN_SITE_NAME}` / `${ATLASSIAN_USER_EMAIL}` / `${ATLASSIAN_API_TOKEN}`, `${LINEAR_API_KEY}` are env-var placeholders. Set them in your shell profile or `.env`, not in `.mcp.json` (which may be committed). Task-provider servers (`trello` / `jira` / `linear`) back the `/task` command — verify each server'"'"'s exact env-var names against its README.\n'
   printf -- '- **Community servers** are flagged as `(community)` when no official `@modelcontextprotocol/server-*` package exists. Verify on npm before installing.\n'
   printf -- '- **MCP server inventory** (recommended at this point, %d servers):\n' "${#RECS[@]}"
   for r in "${RECS[@]}"; do
@@ -286,6 +318,32 @@ def server_config(rec):
             "command": "npx",
             "args": ["-y", pkg],
             "env": {"FIGMA_ACCESS_TOKEN": "${FIGMA_TOKEN}"},
+        }
+    if rid == "trello":
+        return {
+            "command": "npx",
+            "args": ["-y", pkg],
+            "env": {
+                "TRELLO_API_KEY": "${TRELLO_API_KEY}",
+                "TRELLO_TOKEN": "${TRELLO_TOKEN}",
+                "TRELLO_BOARD_ID": "${TRELLO_BOARD_ID}",
+            },
+        }
+    if rid == "jira":
+        return {
+            "command": "npx",
+            "args": ["-y", pkg],
+            "env": {
+                "ATLASSIAN_SITE_NAME": "${ATLASSIAN_SITE_NAME}",
+                "ATLASSIAN_USER_EMAIL": "${ATLASSIAN_USER_EMAIL}",
+                "ATLASSIAN_API_TOKEN": "${ATLASSIAN_API_TOKEN}",
+            },
+        }
+    if rid == "linear":
+        return {
+            "command": "npx",
+            "args": ["-y", pkg],
+            "env": {"LINEAR_API_KEY": "${LINEAR_API_KEY}"},
         }
     if rid == "migration-fs":
         # The package field is filesystem; the args carry the V1 dir.

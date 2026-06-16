@@ -41,4 +41,5 @@ Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/pol
 - `templates/tool-adapters/_align-pack-coverage.md`
 - `templates/tool-adapters/_polish-pack-coverage.md`
 - `templates/tool-adapters/_refactor-pack-coverage.md`
+- `templates/tool-adapters/_task-integration-coverage.md` — `/task` (MCP-backed task executor: Trello / Jira / Linear / GitHub) per-tool primitive + the `/do`→native-dispatch substitution
 - `templates/tool-adapters/_registry.md` § Top-level orchestration commands

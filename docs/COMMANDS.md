@@ -21,6 +21,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
   - [`/unify-surfaces`](#unify-surfaces)
 - Meta
   - [`/do`](#do)
+  - [`/task`](#task)
   - [`/learn-from-task`](#learn-from-task)
 - [Generated commands (in target repo)](#generated-commands-in-target-repo)
 - [Workflows](#workflows) — see also [`docs/REFERENCE.md`](REFERENCE.md) for the canonical end-to-end walkthroughs
@@ -46,6 +47,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/audit [<scope>]`            | One-command full-stack engineering audit — architecture / SOLID / clean code / security / DB perf / runtime perf / scale + resilience / infra / observability. Cross-axis ranked plan + parallel fixes. Scale-first. **Three modes**: default (scan + rank + fix), `--plan-only` (ranked fix-plan for executor handoff), `--assess` (8-section senior-engineer narrative report — what's good / improve / unify / extract / simplify / redesign / remove / optimize — read-only, for reader handoff). | No (writes) |
 | `/unify-surfaces [<scope>]`   | One-command surface-type unification (frontend-*). Tables / forms / headers / tabs / filters / buttons / validation. For each: inventory every consumer, decide canonical wrapper, extract or extend, migrate every consumer in one cascade-rewrite commit. Validation extracts a 3-part pipeline (composable + `<ErrorList>` + API-error mapper). Sibling to `/polish` (axis-typed); this is surface-type-typed. | No (writes) |
 | `/do <description>`           | Universal meta-router → dispatches to the right specialized command.   | Routes only |
+| `/task <ref>`                 | Provider-agnostic task executor — Trello / Jira / Linear / GitHub Issue (URL, key, or `next`) → fetch title + description + attachments + checklist → execute via `/do` → write status back (in-progress → comment → done). Per-repo provider via `.env` + MCP from `detect-mcp.sh`. | No (writes + updates the card/issue) |
 | `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
 
 Generated commands ship INTO target repos when a track is selected: `/add-endpoint`, `/add-module`, `/add-feature`, `/fix-bug`, `/review-changes`, `/migration-status`, `/port-feature`, etc. See [Generated commands](#generated-commands-in-target-repo).
@@ -205,6 +207,32 @@ Checks:
 9. Oracle approval + provenance (`_extracted-idioms.md` / `_extracted-codebase.md`: `approved_by:` stamp present + body hash unchanged since approval; `[unconfirmed]` claim count). Warn-only by design; prints the paste-ready stamp command when unapproved.
 
 Output: a markdown table with one row per check + a "Recommended actions" section.
+
+---
+
+## `/task`
+
+`/task <ref>` pulls ONE task from your project-management tool and does it end-to-end. Provider-agnostic — one command for Trello, Jira, Linear, or GitHub Issues.
+
+```
+/task https://trello.com/c/aB12cD34   # by URL (provider inferred from host)
+/task PROJ-128                          # by key (jira)
+/task next                              # top unstarted item assigned to you
+/task #57 --no-writeback                # GitHub issue, don't touch labels/comments
+```
+
+**What it does** (the command owns the *lifecycle*; code work routes through `/do`):
+1. **Resolve** the provider from the ref (URL host / `jira:`-`linear:`-`trello:`-`gh:` prefix / bare key / the single provider MCP in `.mcp.json` for `next`).
+2. **Fetch + normalize** the card/issue to a canonical **TaskSpec** (title, description, acceptance-criteria, subtasks, attachments, status-flow) via that provider's adapter.
+3. **Ingest attachments** → `.claude/tasks/<provider>-<key>/`, classified (image→design/repro ref, `.md`/`.pdf`→spec, data→fixtures).
+4. **Execute** by dispatching the synthesized description to `/do` → the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, …).
+5. **Write back**: move source to In-Progress on start → comment summary + commit/PR + per-AC ✓/✗ on finish → move to Review (or Done). Never deletes.
+
+**Per-repo, swappable backend.** Each repo declares its provider + creds in its own `.env`; the matching MCP is wired by `scripts/detect-mcp.sh` (gated on those creds). Adding a provider = one adapter block in [`templates/integrations/task-providers.md`](../templates/integrations/task-providers.md) + one `detect-mcp.sh` entry; the command never changes.
+
+**Flags**: `--no-writeback` (don't touch the source), `--review-only` (stop at Review, never auto-Done).
+
+See [`commands/task.md`](../commands/task.md).
 
 ---
 
