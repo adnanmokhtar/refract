@@ -317,7 +317,33 @@ When the LLM was previously responsible for writing each pack file by hand, it c
 
 **4.3 Apply framework references** — only for frameworks detected in profile. Copy from `packs/<track>/references/<name>.md` into repo's `.claude/references/`.
 
-**4.4 Apply technical-domain tooling** — for every TECHNICAL signal detected in profile (multi-tenant, webhook, payment, AI, real-time, etc.), copy from `~/.claude/templates/domains/<signal>/` (agents, commands, rules, ai-patterns). Each file passes through merge matrix.
+**4.4 Apply technical-domain tooling** — for every TECHNICAL signal in the profile's `technical_signals:` array (§11), copy the matching domain folder. **Deterministic + enforced — same model as 4.2 (`cp` cannot skip); the LLM's only job is to read the key list, the shell does the copy.** A prose instruction here is NOT sufficient: this step previously shipped as one sentence with no shell enforcement and no coverage report, and so a run could silently install ZERO domains while the profile's prose "detected" all of them. It is now mechanical:
+
+```bash
+# Read the canonical keys Phase 2 §11 emitted (NOT prose — exact registry keys).
+SIGNALS=$(grep -oP 'technical_signals:\s*\[\K[^\]]*' "$TARGET_REPO/.claude/codebase-profile.md" | tr ',' '\n' | sed 's/ //g')
+
+: > "$TARGET_REPO/.claude/_domain-coverage-report.md"
+for sig in $SIGNALS; do
+  src=~/.claude/templates/domains/"$sig"
+  if [ ! -d "$src" ]; then
+    echo "- ❌ $sig — NO SUCH DOMAIN under templates/domains/ (alias not normalized in §11 → HALT)" >> "$TARGET_REPO/.claude/_domain-coverage-report.md"
+    continue
+  fi
+  for kind in agents commands rules ai-patterns; do
+    [ -d "$src/$kind" ] || continue
+    dest="$TARGET_REPO/.claude/$kind"; [ "$kind" = ai-patterns ] && dest="$TARGET_REPO/ai/patterns"
+    mkdir -p "$dest"
+    # each file still passes through the merge matrix (skip-if-user-edited); shell copies the rest verbatim
+    cp -Rn "$src/$kind/." "$dest/"
+  done
+  echo "- ✅ $sig — applied (agents/commands/rules/ai-patterns)" >> "$TARGET_REPO/.claude/_domain-coverage-report.md"
+done
+```
+
+- **Resolve every §11 key to a real folder.** A key with no `templates/domains/<key>/` folder is an un-normalized alias (e.g. `media-transcoding` instead of `media-processing`) — HALT and fix §11, do not silently skip.
+- **`_domain-coverage-report.md` is the source of truth** for "which domains should be present" — the Phase 5 audit (C2c) fails the run if any detected signal is neither applied nor explicitly skipped-with-rationale. This mirrors `_pack-coverage-report.md` for tracks.
+- Each file passes through the merge matrix (user-edited regions preserved); the shell copies the rest verbatim — no LLM hand-copying, no skipping under context pressure.
 
 **4.4b Apply BUSINESS-domain content** (THIS IS THE STEP THAT WAS MISSING — the cause of generic-feeling output):
 
