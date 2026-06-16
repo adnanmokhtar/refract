@@ -13,10 +13,11 @@ pack: migration
 This is the **registry + workflow** for cross-repo blockers. Subcommands:
 
 ```
-/cross-repo-task register <feature-id> <description> [--upstream=<repo>] [--owner=<name>]
-/cross-repo-task list [--status=<open|landed|abandoned>]
+/cross-repo-task register <feature-id> <description> [--upstream=<repo>] [--owner=<name>] [--contract=<spec>]
+/cross-repo-task list [--status=<open|in-flight|landed|abandoned>] [--stale]
 /cross-repo-task update <task-id> --status=<status> [--evidence=<url>]
 /cross-repo-task close <task-id> --evidence=<url>
+/cross-repo-task reopen <task-id> --reason=<text>   # landed/abandoned → open; re-blocks the feature
 /cross-repo-task drain                       # re-runs blocked rows whose tasks are landed
 ```
 
@@ -47,13 +48,15 @@ Flags:
 - `--owner=<name>` — name / handle of the person who owns the upstream change. Required for follow-up.
 - `--severity=<low|medium|high|critical>` — default `medium`. Critical = blocking V1 retirement.
 - `--upstream-pr=<url>` — if a PR is already open upstream, link it.
+- `--contract=<spec>` — the **exact shape** the downstream needs (endpoint path + method + request + response + error envelope, or the shared type/schema). Captured so `close`/`drain` can check the upstream actually delivered *this*, not just *something*. If omitted, the agent derives it from `<description>` and asks the user to confirm before writing the task.
 
 Side effects:
 1. Generates a task ID (e.g., `XR-001`).
-2. Writes the task to `ai/migration/cross-repo-tasks.md` (managed-block).
+2. Writes the task to `ai/migration/cross-repo-tasks.md` (managed-block), including the captured `expected_contract`.
 3. Updates the blocked feature's ledger row with `cross_repo_task: <task-id>`.
 4. Sets the feature row's `status: halted` if not already, with `halt_reason: cross-repo (XR-001)`.
-5. Surfaces a remediation message — what the upstream owner needs to do, how to update the task when the upstream lands.
+5. **Generates a paste-ready upstream request** at `ai/migration/cross-repo-requests/<task-id>.md` — a ready-to-file issue / PR description the owner can use verbatim: the exact contract needed, **why** (which downstream feature(s) are blocked and what they can't do until it lands), acceptance criteria (the contract is the spec), and a back-reference to the task ID. This turns "notify the owner" into a concrete handoff instead of a verbal ask.
+6. Surfaces a remediation message — points at the generated request file, names the owner, and shows the update/close/drain commands.
 
 Example:
 ```
@@ -75,16 +78,19 @@ Task XR-003 registered:
 Ledger updated:
   F042: status=halted, halt_reason=cross-repo (XR-003)
 
+Upstream request generated:
+  ai/migration/cross-repo-requests/XR-003.md  ← paste into the upstream issue/PR
+
 Next:
-  - Notify owner@<sibling-api-repo> (alice).
+  - Send the request file to alice@<sibling-api-repo> (it's ready to paste verbatim).
   - Track upstream PR via /cross-repo-task update XR-003 --upstream-pr=<url>
   - When upstream lands: /cross-repo-task close XR-003 --evidence=<merged-pr-url>
   - To drain blocked rows after closure: /cross-repo-task drain
 ```
 
-### `list [--status=<filter>]`
+### `list [--status=<filter>] [--stale]`
 
-Read-only. Lists all cross-repo tasks with their state.
+Read-only. Lists all cross-repo tasks with their state. `--stale` filters to open tasks untouched for > 30 days (the Phase 7 escalation threshold) so a weekly review can surface them on demand instead of only as a passive note.
 
 ```
 Cross-repo task registry — 2026-05-02
@@ -121,13 +127,20 @@ Shorthand for `update <task-id> --status=landed --evidence=<url>`. Surfaces:
 - Confirmation that the task is closed.
 - List of blocked features that can now be drained (`/cross-repo-task drain`).
 
+**Closure is provisional, not a trust fall.** The evidence URL is recorded, but the real proof the upstream delivered the *right* shape is `drain` re-running `/find-and-fix` against the registered `expected_contract` — a parity halt there means the upstream landed *something*, not what was needed. So: `close` does not flip the feature to `done`; only a clean `drain` does. If `drain` halts on a just-closed task, the closure was premature → `reopen` it (see below) rather than leaving the feature silently stuck.
+
+### `reopen <task-id> --reason=<text>`
+
+Reverses a premature `close` / `abandoned`. Moves the task `landed|abandoned → open` and **re-blocks** its feature(s): the ledger row goes back to `status: halted, halt_reason: cross-repo (XR-NNN)`. `--reason` is required (e.g., "upstream PR merged but response shape omits `currency`; drain halted F042 on parity"). Without `reopen`, a premature closure leaves the feature in a false `done`/limbo state with no recovery path — this closes that hole. The reopen + reason is appended to the task history and `_history.md`.
+
 ### `drain`
 
 For every closed task with `status: landed`:
 1. Find the feature(s) blocked by that task (via ledger `cross_repo_task` field).
-2. For each blocked feature, run `/find-and-fix <id>` to retry the port.
-3. If the retry succeeds (gaps closed), the feature flips to `done` automatically.
-4. If the retry still halts (new gap surfaced), the feature stays halted with the new halt reason.
+2. **Contract check first** — confirm the upstream actually shipped the task's `expected_contract` (the registered shape is present in the upstream's now-merged code / live API). If the registered contract is NOT satisfied, the closure was premature: surface it and suggest `/cross-repo-task reopen <task-id> --reason=...` instead of retrying a port that can't pass.
+3. For each blocked feature whose contract check passed, run `/find-and-fix <id>` to retry the port.
+4. If the retry succeeds (gaps closed), the feature flips to `done` automatically.
+5. If the retry still halts (new gap surfaced), the feature stays halted with the new halt reason. If the halt is a parity mismatch against `expected_contract`, prompt `reopen` — the upstream landed *something*, not the agreed shape.
 
 Output:
 ```
@@ -160,10 +173,11 @@ Inputs depend on subcommand. The command parses args + reads the registry + ledg
 ## Phase 2 — Organize (decompose the work)
 
 Per subcommand:
-- `register`: validate args → assign task ID → write registry + ledger → surface message.
-- `list`: read registry → format output.
+- `register`: validate args → capture/confirm `expected_contract` → assign task ID → write registry + ledger → generate the upstream-request artifact → surface message.
+- `list`: read registry → format output (apply `--status` / `--stale` filters).
 - `update` / `close`: validate task ID → update registry → emit history entry.
-- `drain`: read landed tasks → for each, dispatch `/find-and-fix` per blocked feature in parallel waves (per-file lock applies).
+- `reopen`: validate task ID is `landed`/`abandoned` → move to `open` → re-block the feature(s) in the ledger → append reason to history.
+- `drain`: read landed tasks → contract-check each → dispatch `/find-and-fix` per satisfied blocked feature in parallel waves (per-file lock applies); prompt `reopen` for any whose contract isn't satisfied.
 
 ## Phase 3 — Retrieve (read the right context)
 
@@ -183,6 +197,8 @@ For `register`:
   owner: alice
   severity: high
   description: "<upstream-api-repo> needs POST /v2/orders/<id>/refund endpoint"
+  expected_contract: "POST /v2/orders/{id}/refund {amount:int, currency:str} -> 201 {refund_id:str, status:str}; 409 on already-refunded"
+  request_artifact: ai/migration/cross-repo-requests/XR-003.md
   status: open
   registered_at: 2026-05-02T18:30Z
   upstream_pr: ""
@@ -190,24 +206,29 @@ For `register`:
     - 2026-05-02T18:30Z: registered (via /cross-repo-task register F042)
 ```
 
+`expected_contract` is the shape `drain` checks before retrying a port; `request_artifact` is the paste-ready upstream request generated at register time.
+
 ## Phase 5 — Update (persist changes)
 
-- `ai/migration/cross-repo-tasks.md` — managed-block updates.
-- `ai/migration/ledger.md` — `cross_repo_task: <task-id>` field on blocked rows; `status: halted`, `halt_reason: cross-repo (XR-NNN)`.
-- `ai/migration/_history.md` — one line per task lifecycle event.
+- `ai/migration/cross-repo-tasks.md` — managed-block updates (incl. `expected_contract`, `request_artifact`).
+- `ai/migration/cross-repo-requests/<task-id>.md` — the paste-ready upstream request (written at register; the only file outside the managed block).
+- `ai/migration/ledger.md` — `cross_repo_task: <task-id>` field on blocked rows; `status: halted`, `halt_reason: cross-repo (XR-NNN)`. `reopen` restores this halt after a premature close.
+- `ai/migration/_history.md` — one line per task lifecycle event (register / update / close / reopen / drain).
 
 ## Phase 6 — Validate (verify correctness)
 
 - Every registered task has a feature_blocked that exists in the ledger.
+- Every registered task has a non-empty `expected_contract` and a `request_artifact` file on disk.
 - Every blocked feature has its `cross_repo_task` field populated.
 - Every closed task has an evidence URL.
 - No task is in both `open` and `landed` states (mutex).
+- A feature is `done` only via a clean `drain`, never via `close` alone — `close` records evidence, `drain` proves the contract.
 
 ## Phase 7 — Improve (feed the learning loop)
 
 - If the same upstream repo accumulates 5+ open tasks, surface "consider a coordination meeting with that team."
-- If a task has been open > 30 days, surface "stalled cross-repo blocker; escalate or abandon."
-- If a task is closed but the drain step halts the same feature, the closure was premature — flag.
+- If a task has been open > 30 days, surface "stalled cross-repo blocker; escalate or abandon." (`list --stale` surfaces these on demand.)
+- If a task is closed but the drain step halts the same feature on a contract mismatch, the closure was premature — auto-suggest `reopen <task-id> --reason=...` and do not leave the feature in a false-done state.
 
 ## Output to user
 
@@ -216,10 +237,13 @@ Per subcommand, see Examples above.
 ## Hard rules
 
 - **No silent registration.** Every task lands in the registry with a task ID. No "I'll remember it" workflow.
+- **Contract captured at registration.** No task without an `expected_contract` — it's what makes closure verifiable instead of a trust fall.
 - **Closure requires evidence.** No task can flip to `landed` / `abandoned` without `--evidence=<url>`.
+- **`done` only via `drain`.** `close` records that the upstream merged; only a clean `drain` (contract satisfied + parity green) flips the feature to `done`. A premature `close` is recovered with `reopen`, never left as a false-done.
+- **Open tasks block V1 retirement.** `/migration-final` reads this registry and forces INCOMPLETE while any cross-repo task is `open`/`in-flight` (a `critical` one most obviously — but any open blocker means a feature isn't truly ported). Drain or abandon-with-evidence every task before retirement.
 - **Drain is idempotent.** Re-running `drain` on already-drained tasks is a no-op.
 - **Cross-repo tasks survive `/migration-rollback`.** Rolling back a phase doesn't clear the cross-repo registry; tasks stay tracked across phases.
-- **No upstream auto-execution.** This command does NOT push commits / open PRs / send messages to the upstream repo. It tracks; humans drive the upstream work.
+- **No upstream auto-execution.** This command generates a paste-ready request **file** for the human to send; it does NOT push commits / open PRs / message the upstream repo. It tracks and drafts; humans drive the upstream work.
 
 ## Failure modes
 
@@ -228,6 +252,9 @@ Per subcommand, see Examples above.
 - **Multiple features blocked by same task** — handled (registry stores them as a list).
 - **Task-blocking cycle** (XR-A blocks F1, XR-B blocks F2, F2 blocks XR-A) — surface as a cycle warning; user resolves manually.
 - **Upstream owner unresolvable** — register surfaces "owner field empty; assign before drain works."
+- **Contract not derivable** — if `--contract` is omitted and the description is too vague to derive a concrete shape, register halts and asks for the contract rather than writing an unverifiable task.
+- **Upstream landed a different shape** — `drain`'s contract check fails; the task is flagged premature-close and `reopen` is suggested. The feature is NOT marked done.
+- **`reopen` on a task that's already `open`** — no-op with a note (idempotent).
 
 ## Related
 

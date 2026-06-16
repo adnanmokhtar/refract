@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.1.1",
-  "released": "2026-06-13",
+  "version": "1.2.0",
+  "released": "2026-06-16",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "add-feature: universal --plan handoff flag + shared sibling-shape-halt verdict vocabulary (per-gap tracking maps onto aligned/drifted/no-siblings).",
+  "summary": "add-feature: three new detection gates — prior-art (duplicate-capability) gate, new-dependency gate, and standard-tier bundle-size delta check on new shared wrappers / lazy routes.",
   "changelog": {
+    "1.2.0": {
+      "released": "2026-06-16",
+      "changes": [
+        "add-feature: NEW prior-art gate (Phase 1, all tiers) — distinct from the intent gate (which routes the request); searches by behavior for an already-shipped page/flow/component and HALTs to the user on a near-duplicate.",
+        "add-feature: NEW new-dependency gate (Phase 4, all tiers) — an npm package no sibling imports halts for a dependency review (maintenance / license / bundle-size / supply-chain) before it lands; replaces the weaker Phase 7 'ADR proposed' afterthought. Added matching invariant.",
+        "add-feature: standard-tier closure-verb row now requires a bundle-size delta check on any new shared wrapper / lazy-route / heavy import (was Phase 6, ungated by tier)."
+      ]
+    },
     "1.1.1": {
       "released": "2026-06-13",
       "changes": [

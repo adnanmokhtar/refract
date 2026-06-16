@@ -34,7 +34,7 @@ That's it. Three escalation triggers. Everything else — style, error handling,
 | Tier | Trigger | Ceremony | Default? |
 |---|---|---|---|
 | **Trivial** | New CRUD page that mirrors an existing one | Code only — page + service + types + locale keys (en + ar). Tests + i18n in both locales required. **No plan, no ADR.** | YES |
-| **Standard** | New shape, requires 1 small composable OR 1 new shared wrapper | Trivial + 1-paragraph plan + sibling-shape note inline | NO |
+| **Standard** | New shape, requires 1 small composable OR 1 new shared wrapper | Trivial + 1-paragraph plan + sibling-shape note inline + **bundle-size delta check** (any new shared wrapper / lazy-route / heavy import) | NO |
 | **Heavy** | New framework-level pattern, multi-route flow, new shared component family, accessibility-critical surface | Standard + ADR + reviewer dispatch (a11y-auditor at minimum) + visual snapshot tests + the 6-cascading-reviewer pattern below | NO |
 
 **Lightweight default.** Trivial-tier is the default. The full reviewer cascade and the Phase 5 ADR draft only fire at heavy-tier. Asking for an ADR on a sibling-mirror CRUD page is the same anti-pattern as the migration pack's "ADR-as-closure" trap.
@@ -46,6 +46,7 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 ## Invariants
 
 - **Zero placeholders** in output. Every file has real content. No `<TODO>` comments.
+- **New npm dependency is gated** — a package no sibling already imports halts for a dependency review (maintenance / license / bundle-size / supply-chain) before it lands. No silent `npm install`, any tier. See Phase 4 § New-dependency gate.
 - **All relevant patterns consulted** — not just principles, specific pattern docs (`ai/patterns/forms.md`, `rendering-strategy.md`, `i18n.md`, etc.).
 - **All applicable agents dispatched** — `ui-architect` designs; `ui-reviewer` reviews; `accessibility-auditor` audits; `i18n-auditor` if i18n in scope; framework-specific reviewer if detected.
 - **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → design-system-guardian audits.
@@ -82,6 +83,14 @@ Before anything else, parse the user's description for **enhancement / fix / bug
 If the description is ambiguous, ASK the user one clarifying question: "are you adding new functionality, or improving existing UI/UX?" Then route based on the answer.
 
 If the user explicitly insists on `/add-feature` for an enhancement task (e.g., "no, run add-feature anyway"), proceed but flag in the run summary that a redirect was suggested but overridden.
+
+### Prior-art gate (mandatory, all tiers)
+
+The intent gate above routes the *request*. This gate checks the *capability*: **does the page / flow / component already exist** under another name? Sibling search finds a shape to copy — it does not tell you the feature is already shipped on another route.
+
+1. Search by **behavior, not name** — existing routes, page components, composables, or services that already cover the user-facing capability (a "saved filters" feature may already live inside an existing list page's `useCrud` state).
+2. **Near-duplicate found → HALT.** Surface the existing surface (route + what it does) and ask: extend it, replace it, or ship a deliberate parallel (rare — record the rationale inline).
+3. Nothing matches → continue.
 
 ### Standard inputs
 
@@ -199,6 +208,16 @@ After generation, dispatch (gated by tier):
 
 If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
 
+### New-dependency gate (all tiers)
+
+If implementing the feature pulls in an npm package **no sibling already imports**, it never lands silently — the cost on frontend is paid by every user on every page load.
+
+- **Confirm it's actually new** — check `package.json` + lockfile; a sibling may already ship an equivalent (date lib, form lib, icon set). Reuse it.
+- **Run a dependency review** (dispatch `security-auditor`, or inline against the checklist): maintenance health, license, **bundle-size delta** (gzipped, and whether it tree-shakes), and whether a platform API or an already-installed primitive covers the need.
+- **Record the decision** — one PR line (trivial / standard) or an ADR (heavy, or any auth / payment / crypto dep).
+
+HALT on an unreviewed new dependency. Prefer the design-system / already-present primitive over a new package by default.
+
 ### Sibling-shape mechanical halt (mandatory, all tiers)
 
 Before declaring success, the auditor compares the new page/component against ≥2 sibling files in the same module. Per gap, track `closed` (matches sibling shape) / `still-open` (divergent) / `regressed` (introduced a new break on an unrelated axis). The **per-file verdict** uses the shared vocabulary in [`templates/snippets/sibling-shape-halt.md`](../../../snippets/sibling-shape-halt.md): all gaps `closed` → `aligned`; any `still-open` or `regressed` → `drifted` (HALT); no sibling to compare → `no-siblings` (escalate).
@@ -249,7 +268,7 @@ Gated by tier. Trivial-tier writes only the bare minimum; ADR drafts are heavy-t
 - If a new pattern emerged → `/learn-from-task` to promote.
 - If a stale convention was caught → propose update to `ai/conventions.md`.
 - If an a11y/i18n drift was found → log to `ai/dynamic/drift-log.md`.
-- If the feature involved a new external dependency → ADR proposed.
+- If the feature involved a new external dependency → it was already gated in Phase 4; promote to ADR here if it's load-bearing or touches auth/payment/crypto.
 
 ## Output format
 

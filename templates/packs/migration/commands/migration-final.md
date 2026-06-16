@@ -16,6 +16,7 @@ The final verifier. Run when every phase has passed `/migration-gate`. Confirms 
 
 - Every phase in `ai/migration/plan.md` has a corresponding entry in `ai/migration/_history.md` with `passed`.
 - All ledger rows have `status: done` OR `intentional-break: ADR-NNNN`.
+- No `open` / `in-flight` cross-repo task in `ai/migration/cross-repo-tasks.md` (if the registry exists). An open cross-repo blocker means a feature still depends on an upstream change that hasn't landed — V1 cannot retire over it.
 
 If any phase isn't passed → halt; tell user which phase is incomplete.
 
@@ -25,6 +26,7 @@ Inputs:
 - `ai/migration/ledger.md` — feature inventory.
 - `ai/migration/plan.md` — original plan.
 - `ai/migration/_history.md` — phase completion log.
+- `ai/migration/cross-repo-tasks.md` — cross-repo blocker registry (if it exists).
 - All `ai/migration/audits/*.md`.
 
 Optional flags:
@@ -37,7 +39,8 @@ Three checks in sequence:
 
 1. **Ledger completeness** — every row `done` or `intentional-break`.
 2. **Audit consistency** — every `done` row has an audit file; every `intentional-break` cites a real ADR.
-3. **Re-audit (optional)** — re-run parity tests on a sample (or all if `--re-audit`).
+3. **Cross-repo clearance** — no `open`/`in-flight` task in `cross-repo-tasks.md` (if present). Any open task ⇒ INCOMPLETE; list the blocked features.
+4. **Re-audit (optional)** — re-run parity tests on a sample (or all if `--re-audit`).
 
 Then produce:
 - Final report.
@@ -62,6 +65,7 @@ Then produce:
 - Status=done:              <D>
 - Intentional-break:        <I>
 - Failed:                   <F>     ← MUST be 0
+- Open cross-repo tasks:    <C>     ← MUST be 0
 - Phases completed:         <K>/<K>
 
 ## Re-audit results (if --re-audit)
@@ -168,12 +172,13 @@ Fix the blockers; re-run /migration-phase <N> for the affected phase; then re-ru
 
 ## Mechanical halt — refuse retirement plan on any red
 
-Verdict computation is deterministic: `failed_count == 0` AND `regression_count == 0` (when `--re-audit`) AND every phase in `plan.md` has a corresponding `passed` entry in `_history.md` AND every `intentional-break` cites an `Accepted` ADR file that exists on disk. If any condition fails → verdict = INCOMPLETE; do NOT write `retirement-plan.md`; surface the per-feature blocker list. There is no "passed with notes" mode.
+Verdict computation is deterministic: `failed_count == 0` AND `regression_count == 0` (when `--re-audit`) AND `open_cross_repo_task_count == 0` AND every phase in `plan.md` has a corresponding `passed` entry in `_history.md` AND every `intentional-break` cites an `Accepted` ADR file that exists on disk. If any condition fails → verdict = INCOMPLETE; do NOT write `retirement-plan.md`; surface the per-feature blocker list (incl. any open cross-repo tasks + their blocked features). There is no "passed with notes" mode.
 
 ## Hard rules
 
 - **No PASS without all phases gated.** This command refuses to run if any phase entry in `_history.md` is missing.
 - **No retirement plan without COMPLETE.** Refuse to write `retirement-plan.md` while any feature is failing.
+- **No retirement over an open cross-repo blocker.** Any `open`/`in-flight` task in `cross-repo-tasks.md` forces INCOMPLETE — a feature waiting on an upstream change isn't truly ported. Drain or abandon (with evidence) every cross-repo task first.
 - **Re-audit re-runs the validator.** When `--re-audit`, run `~/.claude/scripts/validate-migration-artifacts.sh --all --strict` across the full ledger. Treats artifact decay (a contract whose citations no longer resolve because V1 evolved; a tolerance.yaml that no longer covers a contract field) as a regression — refuses COMPLETE.
 - **Re-audit is opt-in.** It's slow and runs the parity tests against current state. Important when phases shipped over weeks/months and code may have drifted since each phase was gated.
 - **Append-only history.** Final entries in `_history.md` are immutable. A new run appends another entry; never edits past ones.
@@ -181,6 +186,7 @@ Verdict computation is deterministic: `failed_count == 0` AND `regression_count 
 ## Related
 
 - `/migration-gate <N>` — must have run + passed for every phase before this command can succeed.
+- `/cross-repo-task` — its registry must be fully drained/abandoned; any open task forces INCOMPLETE here.
 - `/migration-status` — lighter read of the ledger; doesn't enforce.
 - `/migration-rollback <N>` — use if final reveals a regression in a previously-gated phase.
 - `ai/patterns/migration-ledger.md` — schema for the ledger this command verifies.

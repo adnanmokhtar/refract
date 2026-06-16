@@ -6,6 +6,29 @@ description: Comprehensive, signal-aware review of pending changes. Classifies t
 
 Use before opening a PR. Use before every commit if the habit fits. Never wave changes through.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every comment cites `<file:line>`.** A review is a list of findings, each anchored to a specific location in the diff with a concrete fix. Generic advice ("consider error handling", "think about performance", "this could be cleaner") is noise. If the agent cannot cite the file and line, the finding does not exist.
+
+**The closure verb is `cite-or-drop`.** Each finding row MUST contain:
+- A `<path>:<line>` reference inside the current diff.
+- A 1-line description of the actual defect (not a category label).
+- A concrete fix (code snippet, command, or named pattern from the project's pattern library).
+- Optionally a verification step (test name, manual check) — required for blockers.
+
+If any of those are missing, the agent drops the finding rather than emitting a hand-wave.
+
+**Forbidden:**
+- "Consider X" / "you might want to Y" / "in some codebases people Z" — hand-wave grep. Drop or cite.
+- Findings on lines NOT in the diff (out-of-scope nags) unless they're caused by the diff (new caller of an existing buggy helper — cite both lines).
+- Filler praise ("great job", "looks clean overall") — only `Positives` if a genuine improvement is named with `<file:line>`.
+- Restating the diff back as a finding ("you added a function" — that's not a finding).
+- Inventing a violation of a pattern that the project doesn't have a documented rule for. Cite the rule file or drop the finding.
+
+**Mechanical halt — hand-wave grep on comments:** before emitting, the agent self-greps every finding for hand-wave shapes (`consider`, `might want`, `could be`, `in general`, `often`, `sometimes`, `it would be nice`). Any match without a `<file:line>` + concrete fix HALTS that finding — drop it or rewrite it with the citation. The final output passes the grep.
+
+**Lightweight default.** Read-only review; no code generated, no `ai/` files written. The implementer who acts on findings runs `/learn-from-task` after fixes land. The verdict is one of `APPROVE` / `REQUEST_CHANGES` / `BLOCK` — single-line at the top, then findings grouped by severity.
+
 ## Phases applied
 
 1, 2, 3, 6, 7. Phases 4 + 5 = N/A — review doesn't generate or persist changes; output is a verdict + list of fixes for the implementer.
@@ -17,6 +40,10 @@ Use before opening a PR. Use before every commit if the habit fits. Never wave c
 - **Specialist reviewers BASED on area touched**.
 - **Domain reviewers BASED on project signals** (from `CLAUDE.md`).
 - **Patterns consulted**, not just principles.
+- **No axis silently skipped** — a reviewer that isn't installed is performed inline against its checklist, never dropped.
+- **Secrets scanned on every changed file** — not just `auth`-category files; a leaked key in a test fixture or config is still a blocker.
+- **New dependencies reviewed** — a diff that adds a package (not a version bump) is gated like the rest of the suite.
+- **New logic ships with tests** — added behaviour with no covering test is flagged even when no test file was touched.
 - **Single consolidated output** — blockers first, then requests, then nits.
 
 ## When to use / NOT to use
@@ -57,6 +84,7 @@ Classify touched files into categories:
 | `**/webhook*` / `**/*-webhook/**` | webhook |
 | `**/events/**` / `**/handlers/**` / queue consumers | events |
 | `**/metrics*` / `**/logger*` / `**/tracer*` | telemetry |
+| `package.json` / `*-lock.*` / `yarn.lock` / `pnpm-lock.yaml` / `go.mod` / `go.sum` / `requirements.txt` / `poetry.lock` / `Pipfile*` / `Gemfile*` / `Cargo.toml` / `Cargo.lock` / `*.csproj` / `pom.xml` / `build.gradle` / `Podfile*` | dependency-manifest |
 
 One file can be in multiple categories.
 
@@ -85,14 +113,7 @@ Read `ai/status.md` current phase. Plan the scope-creep check.
 
 ## Phase 3 — Retrieve (read context + patterns)
 
-ALWAYS (the universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
+ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
 Plus:
 - All `.claude/rules/` (auto-loaded, re-confirm).
@@ -128,6 +149,7 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 
 #### Universal (ALWAYS)
 - `code-reviewer`
+- `change-brief` skill (mode B — validate): the PR/commit body must carry a passing 5-field change brief (What / Why this shape / Edge cases / Blast radius / Verified by) for any change matching the skill's trigger tiers. Missing/failing brief is a blocker finding — the comprehension gate ("if you can't explain the code, it isn't yours") applied at review time.
 
 #### Category-based (based on diff categories)
 | Category | Reviewers |
@@ -148,6 +170,7 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 | events | `resilience-reviewer` |
 | telemetry | `observability-reviewer` |
 | Hot-path / performance-sensitive changes | `performance-optimizer` + `n-plus-one-scan` skill |
+| dependency-manifest | `security-auditor` (dep review) + `deps-audit` skill — for each **added** package (ignore pure version bumps): maintenance health, license compatibility, transitive/install-size cost, known-CVE check, and whether an already-present primitive or the stdlib covers it. A new dep on a security / data-handling surface with no rationale is a blocker. |
 
 #### Signal-based (based on project, always when signal present)
 | Signal | Reviewer |
@@ -159,6 +182,10 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 #### Universal skill checks
 - `dead-branch-scan` (on changed files) — find unreachable code you just added.
 - `doc-drift-scan` — does the change need doc updates? `ai/status.md`? `ai/modules.md`? `ai/conventions.md`?
+- `secret-scan` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
+- `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change.
+
+**Missing-agent fallback (applies to every dispatch table above):** if a named reviewer is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<reviewer-name>`). A skipped axis is the worst failure mode for a comprehensive sweep: it reads as "clean" when it was never checked.
 
 ### Pattern-specific invariant checks
 
@@ -189,6 +216,12 @@ Quick sweep per diff:
 **Any new env var**:
 - Added to `.env.example`?
 - Added to env schema (Joi / Zod / Pydantic)?
+
+**Any added dependency** (manifest/lockfile diff shows a NEW package, not a version bump):
+- Actually new, or does a sibling already ship an equivalent?
+- Maintained (recent release, no known CVEs) and license-compatible?
+- Transitive / install-size cost justified vs an existing primitive or the stdlib?
+- Rationale present in the PR body? (A new dep on a security / data-handling path needs one — or an ADR.)
 
 ### Phase discipline check
 
@@ -223,24 +256,24 @@ Phase 6 (Validated): <N> reviewers ran in parallel; <N> skills run.
 **Verdict: APPROVE | REQUEST_CHANGES | BLOCK**
 
 ### Blockers (N)
-1. [security] src/modules/admin/export.controller.ts:18 — missing auth guard on admin endpoint
-   Fix: @UseGuards(JwtAuthGuard, AdminRoleGuard)
+1. [security] <modules-root>/admin/export.controller.<ext>:18 — missing auth guard on admin endpoint
+   Fix: apply the project's auth + admin-role gate primitive (per `_extracted-idioms.md § Auth`).
    Verify: e2e test asserts 401 unauthenticated.
-   
-2. [tenant] src/modules/reports/reports.repository.impl.ts:84 — raw SQL missing tenant filter
+
+2. [tenant] <modules-root>/reports/reports.repository.impl.<ext>:84 — raw SQL missing tenant filter
    Fix: add `AND tenant_id = :tenantId`
    Verify: cross-tenant leak test.
 
 ### Requests (N)
-1. [perf] src/modules/orders/list.use-case.ts:24 — N+1 on customer lookup
+1. [perf] <modules-root>/orders/<list-handler>.<ext>:24 — N+1 on customer lookup
    Fix: eager-load customer in the list query.
    
 2. [test] Missing regression test for the webhook idempotency path.
    Fix: add test POSTing same message_id twice, assert single DB row.
 
 ### Nits (N)
-1. [i18n] Hardcoded "Save changes" in products/form.vue:42
-   Fix: add to en.json + ar.json as `products.form.save`.
+1. [i18n] Hardcoded "Save changes" in products/form.<ext>:42
+   Fix: add to en.json + <other-locale>.json as `products.form.save`.
 
 ### Positives (genuine only)
 - Tenant isolation test coverage improved — new cross-tenant leak tests in 3 repos.
@@ -268,6 +301,21 @@ Status: REQUEST_CHANGES
 - Don't filler-praise.
 - Don't propose changes outside the PR's declared intent.
 - Don't skip signal-based reviewers — tenant leaks slip through when tenant-isolation-reviewer is skipped because "it's a small change".
-- Block on: security, data integrity, tenant isolation, correctness. Request on: perf, DX, maintainability. Nit on: style, i18n, minor docs.
+- Never silently skip an axis — an uninstalled reviewer is performed inline (`inline:<reviewer-name>`), not dropped.
+- Run `secret-scan` on every changed file regardless of category — a committed credential is a BLOCK.
+- A diff that adds a dependency (not a version bump) gets a dependency review — flag it, don't wave it through.
+- Block on: security, data integrity, tenant isolation, correctness, committed secrets. Request on: perf, DX, maintainability, unreviewed new dependency. Nit on: style, i18n, minor docs.
 - Every blocker has a fix AND a verification step.
 - Scope creep gets called out, not silently approved.
+
+## Related
+
+### Sibling commands in code-quality pack
+- `/check-health` — sibling command in code-quality pack
+- `/find-module` — sibling command in code-quality pack
+- `/pre-commit` — sibling command in code-quality pack
+- `/simplify` — sibling command in code-quality pack
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

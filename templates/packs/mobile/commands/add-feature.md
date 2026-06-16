@@ -39,7 +39,7 @@ That's it. Three escalation triggers. Everything else — i18n key naming, error
 | Tier | Trigger | Deliverable | Reviewers |
 |---|---|---|---|
 | **Trivial** (default) | New screen mirrors a sibling; no new permission; no native bridge; no new offline pattern. | Code + tests (widget/unit test mirroring the sibling's, green on iOS + Android). | None — sibling-mirror is its own audit. |
-| **Standard** | New permission OR new offline pattern OR new native config entry (Info.plist key / AndroidManifest entry / Podfile dep). | Code + 1-paragraph plan. | `@accessibility-auditor` always; `@i18n-auditor` if any locale string lands. **No ADR.** |
+| **Standard** | New permission OR new offline pattern OR new native config entry (Info.plist key / AndroidManifest entry / Podfile dep). | Code + 1-paragraph plan + **bundle / cold-start delta check** against the Phase 2 budget (any new screen or heavy import). | `@accessibility-auditor` always; `@i18n-auditor` if any locale string lands. **No ADR.** |
 | **Heavy** | New native bridge, biometric / Keychain / secrets touch, app-store-blocking change, write-path mutation, new push-notification class. | Code + ADR + full cascade. | Full serial cascade per § Phase 4 (mobile-architect → accessibility → i18n → app-store → security → ux), halt-on-blocker. |
 
 Trivial is the default. Heavy is rare-by-design — match what `/find-and-fix` does for migration: most rows ship trivially.
@@ -58,6 +58,7 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - **A11y from the start.**
 - **i18n from the start.**
 - **No native bridge code without an ADR** — bridges are leaky abstractions.
+- **New dependency is gated** — a JS package, Pod, or Gradle dep no sibling already uses halts for a dependency review (maintenance / license / bundle + binary-size / supply-chain / native-permission footprint) before it lands. No silent dep additions, any tier. See Phase 4 § New-dependency gate.
 - **Battery + data usage considered** — long-running listeners, large image uploads, polling.
 
 ## When to use / NOT to use
@@ -70,6 +71,14 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - NOT: a UI tweak → just edit + `/review-changes`.
 
 ## Phase 1 — Understand
+
+### Prior-art gate (mandatory, all tiers)
+
+Sibling search finds a screen to copy. This gate asks first: **does the capability already exist** under another name? On mobile a duplicate is doubly expensive — a second offline queue, a second permission prompt, a second native-config block all drift independently.
+
+1. Search by **behavior, not name** — existing screens, navigation entries, services, or native bridges that already cover the capability (a "scan receipt" feature may already have camera + upload wired in an existing flow).
+2. **Near-duplicate found → HALT.** Surface the existing screen / flow (path + what it does) and ask: extend it, replace it, or ship a deliberate parallel (rare — record the rationale).
+3. Nothing matches → continue.
 
 Ask one consolidated question if any unknown:
 - What user-facing capability?
@@ -196,6 +205,16 @@ After generation, dispatch reviewers **serially** (not parallel — each re-read
 If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
 
 **Halt rule**: if ANY agent returns BLOCKER, stop the cascade. Do not run remaining reviewers on a blocked feature; fix the blocker, re-run from the failed agent. This is the `find-and-fix § 3.5 RE-DETECT` pattern from the migration pack — every blocker closes before advance, no silent partial-pass.
+
+### New-dependency gate (all tiers)
+
+If the feature pulls in a JS package, CocoaPod, or Gradle dependency **no sibling already uses**, it never lands silently. On mobile a dependency costs binary size, can drag in extra native permissions (store-review risk), and may break one platform.
+
+- **Confirm it's actually new** — check `package.json` + lockfile, `Podfile.lock`, `build.gradle`. A sibling may already ship an equivalent. Reuse it.
+- **Run a dependency review** (dispatch `security-auditor`, or inline against the checklist): maintenance health, license, **bundle + binary-size delta**, **new native permissions the dep forces** (extra `Info.plist` / `AndroidManifest` entries trigger store review), iOS + Android support parity, and whether a native API or already-present lib covers the need.
+- **Record the decision** — one PR line (trivial / standard) or an ADR (heavy, native bridge, or any auth / biometric / keychain dep).
+
+HALT on an unreviewed new dependency, and on any dep that silently adds a permission not in the feature's declared native surface.
 
 ### Sibling-shape mechanical halt
 

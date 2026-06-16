@@ -1,12 +1,22 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.3.2",
-  "released": "2026-06-14",
+  "version": "1.4.0",
+  "released": "2026-06-16",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "api-consistency-audit skill: added the missing `name:` frontmatter field for consistent, mechanical adapter translation.",
+  "summary": "Suite-wide dependency-gate hardening: add-feature + fix-bug now gate new dependencies; add-feature also adds a prior-art (duplicate-capability) gate + standard-tier n-plus-one-scan.",
   "changelog": {
+    "1.4.0": {
+      "released": "2026-06-16",
+      "changes": [
+        "add-feature: NEW prior-art gate (all tiers, before tier selection) — searches by behavior for an already-shipped capability and HALTs to the user on a near-duplicate; sibling-mirror copies a shape but never catches feature duplication.",
+        "add-feature: NEW new-dependency gate (all tiers, Phase 4) — a package no sibling imports halts for a dependency review (maintenance / license / supply-chain / size); decision recorded in PR (trivial/standard) or ADR (heavy / auth / crypto / payment / data). Added matching invariant.",
+        "add-feature: standard-tier closure-verb row now requires n-plus-one-scan on any new list/query endpoint (was heavy-tier-only); catches slow queries before they ship.",
+        "fix-bug: NEW new-dependency gate (enriched-superset guardrail) — a fix that grows the dependency tree halts for a dependency review and re-confirmation that the root cause can't be closed with an existing primitive; added invariant + hard rule + Phase 4 Minimal-fix note. Baseline fix-bug left minimal by design.",
+        "_examples/add-feature.md + _examples/fix-bug.md regenerated faithfully from their (now-gated) command sources."
+      ]
+    },
     "1.3.2": {
       "released": "2026-06-14",
       "changes": [

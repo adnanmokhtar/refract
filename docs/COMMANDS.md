@@ -242,8 +242,8 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 |-------------------|------------------------------------------------------------------------------------|
 | `/add-endpoint`   | New endpoint on existing module. Full chain: DTO + use-case + controller + tests.  |
 | `/add-module`     | New module with entity, repository, service, endpoints.                            |
-| `/add-feature`    | Cross-module orchestration (multi-module change). Tiered: trivial (default, sibling-mirror only) / standard / heavy (architect + reviewer dispatch, observability + security + release pre-flights). |
-| `/fix-bug`        | Structured bug-fix workflow.                                                       |
+| `/add-feature`    | Cross-module orchestration (multi-module change). All tiers gate on prior-art (duplicate-capability HALT) + new-dependency review. Tiered: trivial (default, sibling-mirror only) / standard (+ `n-plus-one-scan` on new list/query endpoints) / heavy (architect + reviewer dispatch, observability + security + release pre-flights). |
+| `/fix-bug`        | Structured bug-fix workflow (failing-test-first + similar-bugs ledger; gates new dependencies — a fix that grows the dep tree halts for review). |
 | `/endpoint-test`  | Generate + run an endpoint test against a running server.                          |
 | `/log-tail`       | Tail logs filtered by request-id / tenant.                                          |
 | `/trace-flow`     | Trace a request from controller → service → repository → DB.                       |
@@ -258,7 +258,7 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 | `/add-crud-page`       | Full CRUD UI (list + detail + form).                                              |
 | `/i18n-audit`          | Find missing translations.                                                       |
 | `/a11y-audit`          | Accessibility audit.                                                             |
-| `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests + observability sign-off). Now intent-gated: routes to `/enhance-ui` if description is enhancement, `/fix-bug` if bug, etc. Heavy tier adds a release note (flag / rollback / staging). |
+| `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests + observability sign-off). Intent-gated (routes to `/enhance-ui` if enhancement, `/fix-bug` if bug) + prior-art gate (duplicate-capability HALT) + new-dependency gate (bundle/license/supply-chain review). Standard tier adds a bundle-size delta check. Heavy tier adds a release note (flag / rollback / staging). |
 
 **Frontend skills (agent invokes when relevant):**
 - `visual-check` — Playwright screenshot at the route under change.
@@ -353,7 +353,7 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 
 | Command           | Purpose                                                                            |
 |-------------------|------------------------------------------------------------------------------------|
-| `/review-changes` | Multi-axis review (correctness, conventions, perf, security) on diff vs base.     |
+| `/review-changes` | Multi-axis review (correctness, conventions, perf, security) on diff vs base. Universal secret-scan (every file) + coverage-gap (untested new logic) + added-dependency review; uninstalled reviewers run inline, never skipped. |
 | `/simplify`       | Surfaces simplification candidates (over-abstraction, dead code, redundancy).      |
 
 ### Database track
@@ -497,7 +497,7 @@ Properties:
 | `/port-feature <n>`  | Port one feature V1 → V2: extract V1 contract → architect V2 → parity tests → impl → audit. Use for one-off ports outside the phased flow. |
 | `/migration-status`  | Read `ai/migration/ledger.md`, report done / in-flight / not-started + per-phase. Lighter than `/migration-gate` (no enforcement). |
 | `/migration-recheck <description-or-path> \| --phase=<N>` | **Plan-independent V1↔V2 spot-check + fix.** NO plan / phase / ledger required (except `--phase=<N>` mode). Accepts natural-language descriptions, paths, OR `--phase=<N>` to loop a whole phase WITHOUT rollback (done rows audited fresh, status preserved unless drift surfaces). Scans V1 + V2 source FRESH for the area, audits parity, fixes drift in V2 to match V1; updates ledger best-effort. Pass `--register-ledger` to track. The non-rollback alternative to `/migration-rollback <N>` + `/migration-fast <N>`. |
-| `/cross-repo-task <subcommand>`           | **Cross-repo blocker registry + drain.** When a port halts with `reason: cross-repo` (e.g., backend route shape change needed). Subcommands: `register`, `list`, `update`, `close`, `drain`. Tracks blockers in `ai/migration/cross-repo-tasks.md`. Drain re-runs `/find-and-fix` on rows whose blockers landed. |
+| `/cross-repo-task <subcommand>`           | **Cross-repo blocker registry + drain.** When a port halts with `reason: cross-repo` (e.g., backend route shape change needed). Subcommands: `register`, `list` (`--stale`), `update`, `close`, `reopen`, `drain`. `register` captures the expected contract + writes a paste-ready upstream request; `drain` contract-checks then re-runs `/find-and-fix` (a feature reaches `done` only via a clean drain, not via `close`); `reopen` recovers premature closures. Tracks blockers in `ai/migration/cross-repo-tasks.md`. `/migration-final` blocks V1 retirement while any task is open. |
 | `/migration-promote-tier <id> <new-tier>` | **Mid-port tier promotion**. Halt → user demands tier change → backfill artifacts → resume fix loop. Demotion requires `--reason`; security demotion forbidden. |
 
 ### Align track (when `--include=align` — opt-in only)
