@@ -67,6 +67,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "test" / "run tests" / "coverage" | `/run-tests` |
 | "scan" / "inventory" + V1↔V2 | `/migration-scan` |
 | "scan" / "inventory" + alignment / drift | `/align-scan` |
+| a task-tracker **URL / key / `next`** (`trello.com/c/…`, `*.atlassian.net/browse/PROJ-123`, `linear.app/…/issue/ABC-123`, `github.com/…/issues/N`, bare `PROJ-123` / `#42`, `trello:`/`jira:`/`linear:`/`gh:` prefix, or "the next ticket / next card") | `/task <ref>` |
 
 For ambiguous descriptions, the agent asks one clarifying question.
 
@@ -245,6 +246,7 @@ Proceed with /add-feature? [y / n / different command]
 - `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/design-review`
 - `/run-tests`, `/deploy-stage`, `/rollback-deploy`
 - `/migration-scan`, `/align-scan`
+- `/task` — provider-agnostic task executor (Trello / Jira / Linear / GitHub Issue → execute → write status back)
 
 ### Skills (this command can dispatch via)
 - `design-iterate`, `component-playground`
