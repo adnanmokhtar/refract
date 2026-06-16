@@ -11,7 +11,7 @@ description: Comprehensive orchestration for a bug fix. Gathers context via skil
 
 Bugs are undersold in reports. This flow prevents "fixed" bugs from reappearing and catches their siblings.
 
-> **This is the backend-pack enriched superset** of the universal baseline (`templates/repo-baseline/.claude/commands/fix-bug.md`). It inherits the two non-negotiable invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md) — **failing-test-first** and the **similar-bugs ledger** — and ADDS telemetry-gap check, signal-aware reviewer cascade, and postmortems. It never relaxes the baseline.
+> **This is the backend-pack enriched superset** of the universal baseline (`templates/repo-baseline/.claude/commands/fix-bug.md`). It inherits the two non-negotiable invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md) — **failing-test-first** and the **similar-bugs ledger** — and ADDS telemetry-gap check, signal-aware reviewer cascade, postmortems, and a **new-dependency gate**. It never relaxes the baseline.
 >
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md).
 
@@ -59,6 +59,7 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 - **Root cause, not symptom.**
 - **Similar-bug scan** — one bug is often N bugs.
 - **Observability gap check** — was this detectable? If not, fix the gap.
+- **New dependency in a bug fix is a smell** — a fix that pulls in a package the project doesn't already use halts for a dependency review (maintenance / license / supply-chain) before install; first confirm the root cause can't be closed with an existing primitive. No silent dep additions. See Phase 4 § Minimal fix.
 - **Zero placeholders** in test / fix.
 
 ## When to use / NOT to use
@@ -215,6 +216,7 @@ Requirements:
 - Change only what's needed to make the test pass.
 - No incidental cleanup / refactor. File separately.
 - Match existing code style exactly.
+- **No new dependency without a gate.** If the minimal fix appears to need a package the project doesn't already use, STOP — a bug fix that grows the dependency tree is almost always the wrong shape. Re-confirm the root cause can't be fixed with an existing primitive / stdlib; if the dep is genuinely required, run a dependency review (dispatch `security-auditor` or inline against the checklist: maintenance / license / size / supply-chain) and record it in the PR (or an ADR for a security / data-handling dep).
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
@@ -348,6 +350,7 @@ Next:
 - Similar-bugs scan done first — blast radius known. `N_found == N_fixed + N_explained + N_followup` enforced at merge.
 - Observability gap checked — "why didn't we know sooner?".
 - No incidental refactor in bug-fix PR. One feature per fix run.
+- No new dependency in a bug-fix PR without a dependency review — a growing dep tree is a smell on a fix. See Phase 4 § Minimal fix.
 - No skipping review.
 - Prod-affecting bugs get a write-up.
 - Trivial-tier is the default. Heavy ceremony (ADR + investigation doc + reviewer dispatch) is opt-in for library-level / race / security / data-loss bugs.

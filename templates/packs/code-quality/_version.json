@@ -1,12 +1,22 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.4.2",
-  "released": "2026-06-14",
+  "version": "1.5.0",
+  "released": "2026-06-16",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Skill frontmatter consistency: architectural-diagnosis + refactoring-sweep now carry a name: field; fixed a dangling 'step 4.7' reference in architectural-diagnosis (procedure has no 4.7).",
+  "summary": "review-changes hardening: dependency-manifest review category + universal secret-scan (every file, not just auth) + universal coverage-gap (flags untested new logic) + missing-agent inline fallback (no silently-skipped axis).",
   "changelog": {
+    "1.5.0": {
+      "released": "2026-06-16",
+      "changes": [
+        "review-changes: NEW dependency-manifest category + reviewer — a diff that ADDS a package (package.json / lockfiles / go.mod / requirements.txt / Cargo / pom / gradle / Podfile) triggers a dependency review (maintenance / license / size / CVE / already-present-primitive); version bumps ignored. Closes the suite-wide dependency gate at the final PR gate.",
+        "review-changes: NEW universal secret-scan — runs on EVERY changed file, not just auth-category (security-auditor previously only fired on auth files); a committed credential is a BLOCK regardless of file category. Inline fallback (entropy + known key prefixes) when the skill isn't installed.",
+        "review-changes: NEW universal coverage-gap check — added business logic with no covering test is flagged even when no test file was touched (test-reviewer otherwise never dispatches); blocker on security / data-integrity / write-path changes.",
+        "review-changes: NEW missing-agent inline fallback (parity with add-feature / fix-bug) — an uninstalled reviewer is performed inline against its checklist (inline:<reviewer-name>), never silently skipped. Added matching invariants + rules.",
+        "_examples/review-changes.md synced on the four new dimensions (pre-existing drift — missing '## The Premise' section + change-brief universal reviewer — left as-is; flagged for a separate regeneration)."
+      ]
+    },
     "1.4.2": {
       "released": "2026-06-14",
       "changes": [

@@ -40,6 +40,10 @@ If any of those are missing, the agent drops the finding rather than emitting a 
 - **Specialist reviewers BASED on area touched**.
 - **Domain reviewers BASED on project signals** (from `CLAUDE.md`).
 - **Patterns consulted**, not just principles.
+- **No axis silently skipped** — a reviewer that isn't installed is performed inline against its checklist, never dropped.
+- **Secrets scanned on every changed file** — not just `auth`-category files; a leaked key in a test fixture or config is still a blocker.
+- **New dependencies reviewed** — a diff that adds a package (not a version bump) is gated like the rest of the suite.
+- **New logic ships with tests** — added behaviour with no covering test is flagged even when no test file was touched.
 - **Single consolidated output** — blockers first, then requests, then nits.
 
 ## When to use / NOT to use
@@ -80,6 +84,7 @@ Classify touched files into categories:
 | `**/webhook*` / `**/*-webhook/**` | webhook |
 | `**/events/**` / `**/handlers/**` / queue consumers | events |
 | `**/metrics*` / `**/logger*` / `**/tracer*` | telemetry |
+| `package.json` / `*-lock.*` / `yarn.lock` / `pnpm-lock.yaml` / `go.mod` / `go.sum` / `requirements.txt` / `poetry.lock` / `Pipfile*` / `Gemfile*` / `Cargo.toml` / `Cargo.lock` / `*.csproj` / `pom.xml` / `build.gradle` / `Podfile*` | dependency-manifest |
 
 One file can be in multiple categories.
 
@@ -165,6 +170,7 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 | events | `resilience-reviewer` |
 | telemetry | `observability-reviewer` |
 | Hot-path / performance-sensitive changes | `performance-optimizer` + `n-plus-one-scan` skill |
+| dependency-manifest | `security-auditor` (dep review) + `deps-audit` skill — for each **added** package (ignore pure version bumps): maintenance health, license compatibility, transitive/install-size cost, known-CVE check, and whether an already-present primitive or the stdlib covers it. A new dep on a security / data-handling surface with no rationale is a blocker. |
 
 #### Signal-based (based on project, always when signal present)
 | Signal | Reviewer |
@@ -176,6 +182,10 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 #### Universal skill checks
 - `dead-branch-scan` (on changed files) — find unreachable code you just added.
 - `doc-drift-scan` — does the change need doc updates? `ai/status.md`? `ai/modules.md`? `ai/conventions.md`?
+- `secret-scan` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
+- `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change.
+
+**Missing-agent fallback (applies to every dispatch table above):** if a named reviewer is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<reviewer-name>`). A skipped axis is the worst failure mode for a comprehensive sweep: it reads as "clean" when it was never checked.
 
 ### Pattern-specific invariant checks
 
@@ -206,6 +216,12 @@ Quick sweep per diff:
 **Any new env var**:
 - Added to `.env.example`?
 - Added to env schema (Joi / Zod / Pydantic)?
+
+**Any added dependency** (manifest/lockfile diff shows a NEW package, not a version bump):
+- Actually new, or does a sibling already ship an equivalent?
+- Maintained (recent release, no known CVEs) and license-compatible?
+- Transitive / install-size cost justified vs an existing primitive or the stdlib?
+- Rationale present in the PR body? (A new dep on a security / data-handling path needs one — or an ADR.)
 
 ### Phase discipline check
 
@@ -285,7 +301,10 @@ Status: REQUEST_CHANGES
 - Don't filler-praise.
 - Don't propose changes outside the PR's declared intent.
 - Don't skip signal-based reviewers — tenant leaks slip through when tenant-isolation-reviewer is skipped because "it's a small change".
-- Block on: security, data integrity, tenant isolation, correctness. Request on: perf, DX, maintainability. Nit on: style, i18n, minor docs.
+- Never silently skip an axis — an uninstalled reviewer is performed inline (`inline:<reviewer-name>`), not dropped.
+- Run `secret-scan` on every changed file regardless of category — a committed credential is a BLOCK.
+- A diff that adds a dependency (not a version bump) gets a dependency review — flag it, don't wave it through.
+- Block on: security, data integrity, tenant isolation, correctness, committed secrets. Request on: perf, DX, maintainability, unreviewed new dependency. Nit on: style, i18n, minor docs.
 - Every blocker has a fix AND a verification step.
 - Scope creep gets called out, not silently approved.
 

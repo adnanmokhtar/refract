@@ -110,6 +110,7 @@ Examples:
 9. **Halt only on genuine blockers**:
    - Architectural move would change observable behaviour where it must be preserved (re-classify as refactor; user decides).
    - Idiom missing for a functional fix (e.g., user wants caching but project has no cache primitive — surfaces "add primitive first via /setup-project --refine").
+   - **New dependency required for a perf fix** — a fix that pulls in a package the project doesn't already use (caching client, faster parser, a utility lib for one micro-opt) halts for a dependency review (maintenance / license / size / supply-chain) before install. Prefer an already-present primitive or the stdlib; a 2% perf win is rarely worth a new transitive tree. Decision recorded in the run summary, or an ADR if the dep touches a security / data surface.
    - Security-sensitive change beyond mechanical fix.
    - Cyclic dependency that requires multi-PR decoupling (surfaces a small plan).
    - Otherwise: just optimize.
@@ -350,6 +351,7 @@ Applied silently per the discipline:
 - One commit per finding (architectural or tactical). *(Agent-side.)*
 - Security findings always ship with assertions (test added in same commit). *(Agent-side.)*
 - Performance findings always ship with baseline + post-fix measurement. *(Agent-side.)*
+- **No silent new dependency.** A perf fix that adds a package the project doesn't already use halts for a dependency review before install (see § blocker list); prefer an already-present primitive. *(Agent-side.)*
 
 User sees the result, not the policing.
 

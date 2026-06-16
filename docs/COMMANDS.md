@@ -242,8 +242,8 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 |-------------------|------------------------------------------------------------------------------------|
 | `/add-endpoint`   | New endpoint on existing module. Full chain: DTO + use-case + controller + tests.  |
 | `/add-module`     | New module with entity, repository, service, endpoints.                            |
-| `/add-feature`    | Cross-module orchestration (multi-module change). Tiered: trivial (default, sibling-mirror only) / standard / heavy (architect + reviewer dispatch, observability + security + release pre-flights). |
-| `/fix-bug`        | Structured bug-fix workflow.                                                       |
+| `/add-feature`    | Cross-module orchestration (multi-module change). All tiers gate on prior-art (duplicate-capability HALT) + new-dependency review. Tiered: trivial (default, sibling-mirror only) / standard (+ `n-plus-one-scan` on new list/query endpoints) / heavy (architect + reviewer dispatch, observability + security + release pre-flights). |
+| `/fix-bug`        | Structured bug-fix workflow (failing-test-first + similar-bugs ledger; gates new dependencies — a fix that grows the dep tree halts for review). |
 | `/endpoint-test`  | Generate + run an endpoint test against a running server.                          |
 | `/log-tail`       | Tail logs filtered by request-id / tenant.                                          |
 | `/trace-flow`     | Trace a request from controller → service → repository → DB.                       |
@@ -258,7 +258,7 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 | `/add-crud-page`       | Full CRUD UI (list + detail + form).                                              |
 | `/i18n-audit`          | Find missing translations.                                                       |
 | `/a11y-audit`          | Accessibility audit.                                                             |
-| `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests + observability sign-off). Now intent-gated: routes to `/enhance-ui` if description is enhancement, `/fix-bug` if bug, etc. Heavy tier adds a release note (flag / rollback / staging). |
+| `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests + observability sign-off). Intent-gated (routes to `/enhance-ui` if enhancement, `/fix-bug` if bug) + prior-art gate (duplicate-capability HALT) + new-dependency gate (bundle/license/supply-chain review). Standard tier adds a bundle-size delta check. Heavy tier adds a release note (flag / rollback / staging). |
 
 **Frontend skills (agent invokes when relevant):**
 - `visual-check` — Playwright screenshot at the route under change.
@@ -353,7 +353,7 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 
 | Command           | Purpose                                                                            |
 |-------------------|------------------------------------------------------------------------------------|
-| `/review-changes` | Multi-axis review (correctness, conventions, perf, security) on diff vs base.     |
+| `/review-changes` | Multi-axis review (correctness, conventions, perf, security) on diff vs base. Universal secret-scan (every file) + coverage-gap (untested new logic) + added-dependency review; uninstalled reviewers run inline, never skipped. |
 | `/simplify`       | Surfaces simplification candidates (over-abstraction, dead code, redundancy).      |
 
 ### Database track

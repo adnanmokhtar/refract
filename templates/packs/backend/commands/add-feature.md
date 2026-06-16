@@ -28,6 +28,16 @@ description: Comprehensive orchestration for a new feature. Detects domain signa
 
 That's it. Three escalation triggers. Everything else is silent sibling-mirror with the closure verbs below.
 
+## Prior-art gate (all tiers, runs before tier selection)
+
+Sibling search finds a pattern to *copy*. This gate asks a different question first: **does the capability already exist** under another name? Building a second copy of something the codebase already has is the single most expensive waste mode in a mature project, and sibling-mirror does not catch it.
+
+1. Search by **behavior, not name** — handler/route names, service methods, domain verbs, table/column names that would already cover the ask. A "send invoice email" feature may already live inside a `NotificationService.dispatch(...)` path.
+2. **Near-duplicate found → HALT.** Surface the existing implementation (path + what it does) and ask the user: extend it, replace it, or ship a deliberate parallel (rare — requires a one-line rationale recorded in the PR).
+3. Nothing matches → proceed to tier selection.
+
+This is the cheapest check in the command and prevents the costliest rework. It runs even at trivial tier.
+
 ## Closure verbs (complexity → ceremony)
 
 Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
@@ -35,7 +45,7 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 | Tier | Triggers | Artifacts | Phases |
 |---|---|---|---|
 | **Trivial** (default) | 1 file added, mirrors 1 sibling exactly. No new pattern element. | Code + tests. **No plan, no ADR, no Phase 5 docs.** | Understand (light) → Generate → Validate (sibling-shape halt) |
-| **Standard** | 2-5 files, includes 1 new pattern element (new endpoint kind, new DTO shape) but reuses existing primitives. | Code + tests + 1-paragraph plan + sibling-shape note in PR. **No ADR unless pattern is genuinely new.** | Understand → Retrieve (siblings) → Generate → Validate |
+| **Standard** | 2-5 files, includes 1 new pattern element (new endpoint kind, new DTO shape) but reuses existing primitives. | Code + tests + 1-paragraph plan + sibling-shape note in PR. **`n-plus-one-scan` on any new list / query endpoint.** **No ADR unless pattern is genuinely new.** | Understand → Retrieve (siblings) → Generate → Validate |
 | **Heavy** | Cross-module, new layer, new primitive, schema change, write-path mutation, payment / auth / multi-tenant surface. | ADR + plan + reviewer dispatch + parity tests for affected existing endpoints. Full 7-phase ceremony below. | All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve) |
 
 **Most adds are 2 files. Default to trivial.** If the audit (Phase 6 sibling-shape halt) flags new primitives or cross-module touch, it promotes the row to standard or heavy — the agent does NOT pre-emptively pick heavy "to be safe."
@@ -43,6 +53,7 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 ## Invariants (all tiers)
 
 - **Zero placeholders** in output. Every file has real content.
+- **New external dependency is gated** — pulling in a package siblings don't already use halts for a dependency review (see § New-dependency gate). No silent dep additions, any tier.
 - **Sibling shape mirrored** — paths, naming, primitives match ≥2 existing siblings.
 - **Zero untested business logic ships.**
 - **Signal-aware at heavy tier** — multi-tenant code → multi-tenant reviewers; AI → AI reviewers.
@@ -75,6 +86,18 @@ Halt verdict for each new file uses the shared vocabulary in [`templates/snippet
 Any `drifted` → HALT before merge. Either re-shape to match siblings (default closure) or — if the deviation is intentional and load-bearing — write an ADR justifying it and promote the row to heavy tier. Drift without ADR is forbidden.
 
 For trivial-tier ports, this halt is the only gate. No reviewers, no telemetry sign-off — just sibling parity.
+
+## New-dependency gate (all tiers)
+
+The sibling-shape halt flags an unfamiliar import as *drift* — fetched from training data instead of mirrored. This gate covers the other case: a dependency the feature **genuinely needs** that no sibling already uses (first HTTP client, first PDF lib, first crypto package).
+
+Adding it is not automatically wrong, but it is never silent. Before the package lands:
+
+- **Confirm it's actually new** — not already in the lockfile under a sibling's import. Reuse the existing one if so.
+- **Run a dependency review** (dispatch `security-auditor` on the dep, or inline against the checklist if not installed): maintenance health (last release, open-CVE count), license compatibility, transitive bloat / install size, and whether a stdlib or already-present primitive does the job.
+- **Record the decision** — one line in the PR (trivial / standard) or an ADR (heavy, or any dep touching auth / crypto / payment / data-handling).
+
+HALT on an unreviewed new dependency. A new package on a write-path / security surface with no ADR is forbidden.
 
 ---
 
