@@ -230,7 +230,7 @@ Output: a markdown table with one row per check + a "Recommended actions" sectio
 
 **Per-repo, swappable backend.** Each repo declares its provider + creds in its own `.env`; the matching MCP is wired by `scripts/detect-mcp.sh` (gated on those creds). Adding a provider = one adapter block in [`templates/integrations/task-providers.md`](../templates/integrations/task-providers.md) + one `detect-mcp.sh` entry; the command never changes.
 
-**Flags**: `--no-writeback` (don't touch the source), `--review-only` (stop at Review, never auto-Done).
+**Flags**: `--prompt-only` (fetch + normalize, then print a paste-ready prompt and stop — no execution, no write-back; hand-off mode), `--to=<command>` (dispatch directly to `/<command>` instead of routing via `/do`), `--no-writeback` (don't touch the source), `--review-only` (stop at Review, never auto-Done).
 
 See [`commands/task.md`](../commands/task.md).
 

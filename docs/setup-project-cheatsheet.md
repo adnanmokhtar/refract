@@ -305,3 +305,4 @@ To skip a track entirely: run `--dry-run`, see the plan, request changes interac
 - `templates/business-domains/` — 15 business domains
 - `templates/tool-adapters/` — 10 tool adapters
 - `templates/repo-baseline/` — baseline scaffolding (`.claude/` + `ai/`)
+- [`docs/TASK-PROVIDERS.md`](TASK-PROVIDERS.md) — set up `/task` (Trello / Jira / Linear / GitHub). Setup's `scripts/detect-mcp.sh --apply` wires the provider MCP per repo, gated on `.env` creds.

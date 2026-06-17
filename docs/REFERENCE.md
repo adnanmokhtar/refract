@@ -18,7 +18,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [Phase 5 audit failure modes](#phase-5-audit-failure-modes)
 - [Migration end-to-end](#migration-end-to-end)
 - [Align (codebase quality sweep) end-to-end](#align-codebase-quality-sweep-end-to-end)
-- [Universal commands (`/do`, intent gates, gap-fill commands)](#universal-commands)
+- [Universal commands (`/do`, `/task`, intent gates, gap-fill commands)](#universal-commands)
 - [`/ui-sweep` — project-wide UI/UX specialist](#ui-sweep--project-wide-uiux-specialist)
 - [`/ui-crawl` + `/ui-crawl-fix` — paired QA crawler + auto-fixer](#ui-crawl--ui-crawl-fix--paired-qa-crawler--auto-fixer-v12)
 - [Memory system](#memory-system)
@@ -591,7 +591,33 @@ Use cases:
 /do fix the order list crash      → /fix-bug
 /do clean up the auth module      → asks: align? enhance? migration-recheck?
 /do audit security                → /security-audit
+/do https://trello.com/c/NBswBsfN → /task   (task-tracker URL / key / `next`)
 ```
+
+### `/task <ref>` — pull a ticket → execute → write back
+
+Provider-agnostic task executor (Trello / Jira / Linear / GitHub Issues). `<ref>` is a
+card/issue **URL**, a **key** (`PROJ-128`, `#57`, `trello:<id>`), or **`next`** (top unstarted
+item assigned to you). Full setup + troubleshooting: [`TASK-PROVIDERS.md`](TASK-PROVIDERS.md).
+
+End-to-end:
+```
+/task https://trello.com/c/NBswBsfN
+  → resolve provider (trello, from URL host)
+  → load .env; use the trello MCP, or fall back to REST if it 401s (stale env)
+  → fetch + normalize → TaskSpec (title, description, AC, subtasks, attachments, statusFlow)
+  → ingest attachments → .claude/tasks/trello-NBswBsfN/
+  → move card → "in progress"
+  → /do <synthesized description> → /add-feature (or /fix-bug, …)
+  → verify each AC → comment (commit/PR + ✓/✗) → move card → "Need Testing"
+```
+
+Flags: `--prompt-only` (emit a paste-ready prompt and stop — no run, no write-back),
+`--to=<command>` (skip `/do`, dispatch directly), `--no-writeback`, `--review-only`.
+
+Setup once per repo: creds in `.env` → `scripts/detect-mcp.sh <repo> --apply` → launch with
+`set -a; source .env; set +a` (the editor expands `${VAR}` from the shell, not `.env`). Drain a
+queue by looping `/task next`.
 
 ### Intent gates (on specialized commands)
 

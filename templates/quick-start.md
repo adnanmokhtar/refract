@@ -127,5 +127,9 @@ imported-by: commands/setup-project.md (orchestrator) — visible near the top s
 
 **End state (existing codebase)**: zero overwrites of user-authored content; additive track files; adapted knowledge-base with detected reference paths; Recent Changes entry documenting what happened; tool adapters added for any new driver (Cursor, Aider, OpenCode, ...) detected or requested.
 
+## 🎫 Task providers (`/task`)
+
+Setup wires task-tracker MCPs per repo: add provider creds to the repo's `.env` (Trello / Jira / Linear / GitHub), and `scripts/detect-mcp.sh --apply` (run by setup) writes them into `.mcp.json`. Then `/task <url|key|next>` pulls a ticket → executes via `/do` → writes status back. Full guide: [`docs/TASK-PROVIDERS.md`](../docs/TASK-PROVIDERS.md).
+
 ---
 
