@@ -35,9 +35,24 @@ Everything else — provider resolution, fetch, TaskSpec normalization, attachme
 
 **Rule of thumb**: any tool with MCP support gets the full `/task` (same lifecycle, native primitive, native dispatch substitution). Only Aider degrades to API-fetch + imperative preamble.
 
-## Degradation when no provider MCP is wired
+## Flags (every adapter's `/task` MUST expose these)
 
-If a repo has selected a tool but NOT added provider creds to `.env` (so `detect-mcp.sh` provisioned no task-provider MCP), every adapter's `/task` halts the same way: *"No task-provider MCP in this repo — add `TRELLO_*` / `JIRA_*` / `LINEAR_*` creds to `.env` and re-run setup (or `detect-mcp.sh --apply`)."* No silent no-op.
+| Flag | Effect |
+|---|---|
+| `--prompt-only` | Fetch + normalize, then **print a paste-ready prompt and stop** — no dispatch, no write-back. The hand-off mode (give the prompt to another command/tool/agent). |
+| `--to=<command>` | Dispatch directly to `/<command>` (this tool's native specialist) instead of the default routing — the per-adapter equivalent of skipping `/do`. |
+| `--no-writeback` | Execute, but make no status move / comment on the source. |
+| `--review-only` | On finish, stop at the Review state; never auto-advance to Done. |
+
+Translators MUST carry all four — they are part of the command surface, not Claude-only behavior. `--prompt-only` in particular is the universal "emit, don't run" escape hatch for any tool.
+
+## Resilience: env-load + MCP→REST fallback (built into `/task`)
+
+`/task` Phase 1 loads the repo's `.env` and probes the provider MCP. **If the MCP is missing or returns 401 / 0% health (stale or empty env — common when the editor was launched without the provider vars exported), `/task` falls back to the provider's REST API using the `.env` creds** for BOTH fetch and write-back, rather than halting. Every adapter's translation MUST preserve this fallback — it is what keeps `/task` working when a tool spawns the MCP server without the env loaded. This also means **Aider's "degraded path" below is simply this same built-in fallback**, not a special case.
+
+## Degradation when no provider creds exist at all
+
+`/task` halts **only** when there is no provider MCP **and** no provider creds in `.env` (so neither MCP nor REST can authenticate): *"Provider not configured — add `TRELLO_*` / `JIRA_*` / `LINEAR_*` creds to `.env` and re-run setup (or `detect-mcp.sh --apply`)."* No silent no-op. A 401 from a wired MCP is NOT this case — that takes the REST fallback above.
 
 ## Honesty clause (inherited from `_orchestration-sync.md`)
 

@@ -4,7 +4,7 @@ kind: command
 pack: orchestration
 ---
 
-# /task <ref> [--no-writeback] [--review-only]
+# /task <ref> [--prompt-only] [--to=<command>] [--no-writeback] [--review-only]
 
 Pull ONE task from your project-management tool and do it. `<ref>` is a card/issue
 **URL**, a **key** (`PROJ-123`, `#42`, `trello:<id>`), or **`next`** (the top unstarted
@@ -31,12 +31,22 @@ fetch → normalize → ingest attachments → execute → write status back.
    - Prefix → `jira:` / `linear:` / `trello:` / `gh:`.
    - Bare key shape → `PROJ-123`→jira, `ABC-123`→linear, `#42`→github (current repo).
    - `next` or bare → the **single task-provider MCP present in `.mcp.json`** (trello/jira/linear/github). If more than one is configured and the ref is ambiguous → ask which provider (one question).
-2. **Verify the provider MCP is available** (ToolSearch for its tools). If absent → halt: "Provider `<x>` isn't wired in this repo. Add its creds to `.env` and run `/setup-project` (or `detect-mcp.sh --apply`)."
-3. **Fetch + normalize** to the canonical **TaskSpec** using that provider's adapter (field map in the reference doc). Read title, description, checklist/sub-issues, attachments metadata, labels, current status, and the status-flow target names.
-4. **Echo the resolved spec** (title, key, AC count, subtask count, attachment count) in 4–5 lines and state the plan. Proceed without a pause unless the AC are empty AND the title is vague (then ask one scoping question).
+2. **Load credentials from `.env`** (the MCP server is spawned at editor startup and may have been launched without the provider vars in its environment → it will 401 with empty creds). Before any provider call, make the creds available to this session's shell:
+   ```bash
+   [ -f .env ] && set -a && . ./.env && set +a    # exports TRELLO_*/JIRA_*/LINEAR_* for direct API calls
+   ```
+   This does NOT retroactively fix an already-spawned MCP's environment — that's what the fallback in step 3 is for.
+3. **Establish a WORKING provider connection** (MCP-first, REST-fallback — never halt while valid `.env` creds exist):
+   - Probe the provider MCP (ToolSearch for its tools, then a cheap auth check — e.g. Trello `get_health` / a whoami call).
+   - **MCP healthy** → use it for fetch + write-back.
+   - **MCP missing, OR returns 401 / auth failure / 0% health** → do NOT halt. Fall back to the provider's **direct REST API via Bash** using the `.env` creds loaded in step 2 (Trello: `curl "https://api.trello.com/1/cards/<id>?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN&..."`; Jira/Linear: their REST/GraphQL endpoints). Fetch AND write-back both work over REST. Note in the run summary that REST fallback was used (so the user knows to fix the MCP env via `set -a; source .env; set +a` before relaunching).
+   - **Only halt** if there is no provider MCP AND `.env` has no creds for the resolved provider → "Provider `<x>` not configured: add its creds to `.env` and run `/setup-project` (or `detect-mcp.sh --apply`)."
+4. **Fetch + normalize** to the canonical **TaskSpec** over whichever channel works (MCP or REST), using that provider's adapter (field map in the reference doc). Read title, description, checklist/sub-issues, attachments metadata, labels, current status, and the status-flow target names.
+5. **Echo the resolved spec** (title, key, AC count, subtask count, attachment count) in 4–5 lines and state the plan. Proceed without a pause unless the AC are empty AND the title is vague (then ask one scoping question).
 
 ## Phase 2 — Organize (decompose)
 ```
+0. ENV       — load .env creds; pick MCP if healthy, else REST fallback (never halt with valid creds)
 1. RESOLVE   — provider + fetch + normalize → TaskSpec
 2. INGEST    — download attachments, read specs/screenshots
 3. PLAN      — AC + subtasks → ordered worklist; classify intent (feature/fix/refactor/audit)
@@ -45,6 +55,7 @@ fetch → normalize → ingest attachments → execute → write status back.
 6. VERIFY    — check each AC / subtask against the change
 7. CLOSE     — comment summary + commit/PR on the source; move to Review or Done
 ```
+All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP if healthy, else REST over `.env` creds).
 
 ## Phase 3 — Retrieve (ingest context)
 - **ALWAYS** — see [`templates/snippets/phase-3-always-reads.md`](../templates/snippets/phase-3-always-reads.md).
@@ -56,11 +67,26 @@ fetch → normalize → ingest attachments → execute → write status back.
 
 ## Phase 4 — Generate (execute the work)
 - Synthesize a single, faithful description from `title` + `description` + `acceptanceCriteria` + `subtasks` + attachment findings — verbatim intent, not paraphrased away.
-- **Dispatch to `/do`** with that description so it routes to the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …). `/task` does NO code work itself.
+- **`--prompt-only`** (emit, don't execute) → **STOP here.** Print a clean, paste-ready prompt block and do NOT dispatch, do NOT write back. Format:
+  ```
+  # Task: <title>  (<provider>:<key> · <priority>)
+  ## Context
+  <synthesized description>
+  ## Acceptance criteria
+  - [ ] <each AC>            (or: "none stated — verify title intent")
+  ## Subtasks
+  - <each subtask>           (omit section if none)
+  ## Attachments (downloaded)
+  - <name> → <localPath>     (omit section if none)
+  ## Suggested command
+  /<routed-or-`--to`-command> <one-line synthesized description>
+  ```
+  The "Suggested command" line uses `--to`'s value if given, else the command `/do` would route to. End the run after printing — this is the hand-off mode.
+- **`--to=<command>`** (pin the target) → skip `/do` routing; dispatch the synthesized description **directly** to `/<command>` (must exist in this repo). Without `--to`, **dispatch to `/do`** so it routes to the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …). `/task` does NO code work itself.
 - If the task obviously spans multiple specialists (e.g. "add endpoint AND its UI"), run them in dependency order; record each in the worklist.
 
 ## Phase 5 — Update (write back to the source)
-Unless `--no-writeback`:
+Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless `--no-writeback`:
 - **On start** — move the source to its `statusFlow.start` (Trello list / Jira transition / Linear state / GitHub `in-progress` label).
 - **On finish** — post ONE comment via the adapter's comment verb: 1-line summary, the commit SHA(s)/PR link, and a per-AC ✓/✗ checklist. Tick completed checklist items / close sub-issues.
 - **Move** to `statusFlow.review` by default (human verifies), or `statusFlow.done` if `--review-only` is NOT set and all AC pass and tests are green. **Never delete** a card/issue.
@@ -84,7 +110,7 @@ Unless `--no-writeback`:
 - **Secrets stay in `.env`.** `/task` reads creds only via the provider MCP's env; it never prints or echoes tokens.
 
 ## Failure modes
-- **No provider MCP in repo** → halt with the `.env` + `detect-mcp.sh --apply` fix.
+- **Provider MCP missing or 401 (stale/empty env)** → do NOT halt; load `.env` and use the REST fallback (Phase 1 step 3). Halt only when there is ALSO no `.env` creds for the provider.
 - **Ambiguous `next` (multiple providers)** → ask which provider (one question).
 - **Card not found / no access** → halt; surface the provider's error verbatim.
 - **Empty description AND empty AC AND vague title** → ask one scoping question before executing.
@@ -106,7 +132,24 @@ Unless `--no-writeback`:
 
 /task #57 --no-writeback
 → github issue #57 → executed; no labels/comments written (dry lifecycle)
+
+/task https://trello.com/c/NBswBsfN --prompt-only
+→ fetch + normalize, then PRINT a paste-ready prompt block (+ suggested command); no execution, no write-back
+
+/task PROJ-128 --to=fix-bug
+→ fetch → dispatch directly to /fix-bug (skips /do routing) → write-back as normal
+
+/task PROJ-128 --to=add-feature --prompt-only
+→ print an /add-feature-shaped prompt for PROJ-128; you run it elsewhere
 ```
+
+## Flags
+| Flag | Effect |
+|---|---|
+| `--prompt-only` | Fetch + normalize, then **print a paste-ready prompt and stop** — no `/do`, no execution, no write-back. Hand-off mode. |
+| `--to=<command>` | Dispatch directly to `/<command>` instead of routing through `/do` (command must exist in this repo). |
+| `--no-writeback` | Execute, but don't touch the source (no status move, no comment). |
+| `--review-only` | On finish, stop at the Review state — never auto-advance to Done. |
 
 ## Related
 - **Routes to**: `/do` (which dispatches to `/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …).
