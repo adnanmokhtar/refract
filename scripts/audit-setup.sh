@@ -90,7 +90,7 @@ if [[ "$MODE" != "create" ]]; then
     # Empty file or file with no `# <BaseName>` H1 sections = Phase 2.5 ran but
     # found no extenders — that's a valid outcome for true-greenfield code, but
     # the agent should have logged WHY. Just confirm the file exists.
-    idioms_h1=$(grep -cE '^# ' "$CL/_extracted-idioms.md" 2>/dev/null || echo 0)
+    idioms_h1=$(grep -cE '^# ' "$CL/_extracted-idioms.md" 2>/dev/null || true)
     if [[ "${idioms_h1:-0}" -gt 0 ]]; then
       ok "_extracted-idioms.md (${idioms_h1} base class section(s) — AUTHOR-mode substrate present)"
     else
@@ -153,7 +153,7 @@ if [[ -f "$CL/_codebase-scan.md" ]]; then
     in_sec && /^## / { exit }
     in_sec && /^- \*\*What\*\*:/ { count++ }
     END { print count + 0 }
-  ' "$CL/_codebase-scan.md" 2>/dev/null || echo 0)
+  ' "$CL/_codebase-scan.md" 2>/dev/null || true)
   recs="${recs:-0}"
 
   # Compute LOC from section 5 to gate "non-trivial" check
@@ -240,11 +240,11 @@ if [[ -x "$SCRIPTS_DIR/apply-adapter-sync.sh" ]]; then
   if echo "$adapter_out" | grep -q "No adapters enabled"; then
     ok "no adapters enabled — adapter-sync skipped"
   else
-    add_count=$(echo "$adapter_out" | grep -cE '^    ADD ' || echo 0)
+    add_count=$(echo "$adapter_out" | grep -cE '^    ADD ' || true)
     add_count=${add_count:-0}
-    refresh_count=$(echo "$adapter_out" | grep -cE '^    REFRESH ' || echo 0)
+    refresh_count=$(echo "$adapter_out" | grep -cE '^    REFRESH ' || true)
     refresh_count=${refresh_count:-0}
-    missing_author=$(echo "$adapter_out" | grep -cE '^    MISSING-AUTHOR ' || echo 0)
+    missing_author=$(echo "$adapter_out" | grep -cE '^    MISSING-AUTHOR ' || true)
     missing_author=${missing_author:-0}
     if [[ "$add_count" -gt 0 || "$refresh_count" -gt 0 ]]; then
       if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; then
@@ -268,7 +268,7 @@ fi
 if [[ -x "$SCRIPTS_DIR/apply-baseline-sync.sh" ]]; then
   echo "C2g: repo-baseline coverage (ai/ + .claude/ scaffolds present)"
   baseline_out=$("$SCRIPTS_DIR/apply-baseline-sync.sh" "$TARGET" 2>&1 || true)
-  add_count=$(echo "$baseline_out" | grep -cE '^  ADD ' || echo 0)
+  add_count=$(echo "$baseline_out" | grep -cE '^  ADD ' || true)
   add_count=${add_count:-0}
   if [[ "$add_count" -gt 0 ]]; then
     if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; then
@@ -303,7 +303,7 @@ if [[ "$MODE" != "create" ]]; then
   if [[ -d "$PACKS_ROOT" ]]; then
     # find the newest .md file across pack sources (resolves symlinks via -L)
     while IFS= read -r f; do
-      m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+      m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || true)
       [[ $m -gt $pack_newest ]] && pack_newest=$m
     done < <(find -L "$PACKS_ROOT" -type f -name '*.md' -not -name '_*' 2>/dev/null | head -2000)
   fi
@@ -330,7 +330,7 @@ if [[ "$MODE" != "create" ]]; then
         fi
         continue
       fi
-      file_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+      file_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || true)
       if [[ $file_mtime -lt $pack_newest ]]; then
         # Format both timestamps for the message
         pack_iso=$(date -r "$pack_newest" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "@$pack_newest" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "?")
@@ -451,9 +451,9 @@ if [[ -x "$SCRIPTS_DIR/audit-adapter-coverage.sh" ]]; then
   if [[ -f "$CL/_adapter-coverage-audit.md" ]]; then
     # Extract pass/warn/fail counts from the table
     # Use awk — always exits 0 and prints a number, no grep -c "1 on no match" trap.
-    err_n=$(awk '/^\| ❌/  {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || echo 0)
-    warn_n=$(awk '/^\| ⚠/ {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || echo 0)
-    ok_n=$(awk  '/^\| ✅/ {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || echo 0)
+    err_n=$(awk '/^\| ❌/  {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || true)
+    warn_n=$(awk '/^\| ⚠/ {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || true)
+    ok_n=$(awk  '/^\| ✅/ {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || true)
     err_n="${err_n:-0}"; warn_n="${warn_n:-0}"; ok_n="${ok_n:-0}"
     if [[ "$ok_n" == "0" && "$warn_n" == "0" && "$err_n" == "0" ]]; then
       warn_msg "no adapter native files detected — run /setup-project-adapters to translate .claude/ to Cursor/OpenCode/etc native shapes"

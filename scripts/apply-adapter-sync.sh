@@ -142,6 +142,43 @@ strip_injected_preamble() {
   ' "$1"
 }
 
+# Strip a leading-frontmatter `agent:` line. OpenCode command files carry it as a
+# load-bearing field (without it OpenCode describes instead of executes), but the
+# `.claude/commands/*.md` source never does — so it must be discounted in drift
+# comparison, exactly like the EXECUTE NOW preamble. Reads stdin (chains after
+# strip_injected_preamble). Without this, every command with the (correct, contract-
+# required) `agent:` field false-flags as drift AND a subsequent --apply cp's the raw
+# source over it, STRIPPING the field — regressing the exact execution it enforces.
+strip_frontmatter_agent_line() {
+  awk '
+    NR==1 && /^---[[:space:]]*$/ { fm=1; print; next }
+    fm && /^---[[:space:]]*$/    { fm=0; print; next }
+    fm && /^agent:[[:space:]]/   { next }
+    { print }
+  '
+}
+
+# Extract the frontmatter `agent:` line (whole line) from a file, if present.
+extract_frontmatter_agent_line() {
+  awk '
+    NR==1 && /^---[[:space:]]*$/ { fm=1; next }
+    fm && /^---[[:space:]]*$/    { exit }
+    fm && /^agent:[[:space:]]/   { print; exit }
+  ' "$1"
+}
+
+# Re-inject an `agent:` line into the frontmatter (immediately after the opening ---).
+# No-op if the file already carries one (src already had it) or the line is empty.
+reinject_frontmatter_agent_line() {
+  local f="$1" line="$2"
+  [[ -n "$line" ]] || return 0
+  [[ -f "$f" ]] || return 0
+  grep -q '^agent:' "$f" 2>/dev/null && return 0
+  local tmp; tmp=$(mktemp)
+  awk -v al="$line" 'NR==1 && /^---[[:space:]]*$/ { print; print al; next } { print }' "$f" > "$tmp"
+  mv "$tmp" "$f"
+}
+
 # Extract just the injected EXECUTE NOW preamble block (marker comment + contiguous
 # blockquote) so a real refresh can re-inject it after the body is overwritten.
 extract_injected_preamble() {
@@ -216,6 +253,12 @@ reinject_project_specific_block() {
 # .qwen/, .kimi/, .github/, .clinerules/, .windsurf/, .continue/, etc.).
 sync_file() {
   local src="$1" dst="$2"
+  # OpenCode command targets carry an intentional, contract-required `agent:`
+  # frontmatter field that the .claude source lacks — discount + preserve it
+  # (same treatment as the EXECUTE NOW preamble) so it is neither false-flagged
+  # as drift nor stripped on --apply.
+  local oc_cmd=0
+  [[ "$dst" == *"/.opencode/commands/"* ]] && oc_cmd=1
   if [[ ! -f "$dst" ]]; then
     if [[ $APPLY -eq 1 ]]; then
       mkdir -p "$(dirname "$dst")"
@@ -223,25 +266,28 @@ sync_file() {
     fi
     echo "    ADD       $(rel_to_target "$dst")"
     total_added=$((total_added + 1))
-  elif diff -q -B <(strip_injected_preamble "$dst") "$src" >/dev/null 2>&1; then
-    # Bodies match once the injected EXECUTE NOW preamble (and blank-line noise) is
-    # discounted — the dst differs ONLY by its intentional preamble. Not real drift.
+  elif diff -q -B <(if [[ $oc_cmd -eq 1 ]]; then strip_injected_preamble "$dst" | strip_frontmatter_agent_line; else strip_injected_preamble "$dst"; fi) "$src" >/dev/null 2>&1; then
+    # Bodies match once the injected EXECUTE NOW preamble (and, for OpenCode commands,
+    # the load-bearing `agent:` field) plus blank-line noise is discounted — the dst
+    # differs ONLY by intentional, contract-required additions. Not real drift.
     total_nooped=$((total_nooped + 1))
   else
-    # Real body drift. Extract BOTH the project-specific block AND any injected preamble
-    # from dst BEFORE overwrite, then re-inject after copying the fresh source — so a
-    # legitimate refresh never strips the preamble (the latent half of the same bug).
-    local block_tmp pre_tmp
+    # Real body drift. Extract the project-specific block, any injected preamble, AND
+    # (for OpenCode commands) the agent: field from dst BEFORE overwrite, then re-inject
+    # after copying the fresh source — so a legitimate refresh never strips them.
+    local block_tmp pre_tmp agent_line=""
     block_tmp=$(mktemp); pre_tmp=$(mktemp)
     extract_project_specific_block "$dst" > "$block_tmp"
     extract_injected_preamble "$dst" > "$pre_tmp"
+    [[ $oc_cmd -eq 1 ]] && agent_line=$(extract_frontmatter_agent_line "$dst")
     if [[ $APPLY -eq 1 ]]; then
       mkdir -p "$backup_dir/$(dirname "${dst#$TARGET/}")"
       cp "$dst" "$backup_dir/${dst#$TARGET/}"
       cp "$src" "$dst"
-      # Re-inject extracted block + preamble (each a no-op if src already carries one OR empty).
+      # Re-inject extracted block + preamble + agent field (each a no-op if src already carries one OR empty).
       reinject_project_specific_block "$dst" "$block_tmp"
       reinject_injected_preamble "$dst" "$pre_tmp"
+      [[ $oc_cmd -eq 1 ]] && reinject_frontmatter_agent_line "$dst" "$agent_line"
     fi
     rm -f "$block_tmp" "$pre_tmp"
     echo "    REFRESH   $(rel_to_target "$dst")"
