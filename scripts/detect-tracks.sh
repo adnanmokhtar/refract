@@ -205,6 +205,12 @@ if has_dep '@lhci/cli' || has_dep lighthouse \
    || has_dep clinic || has_dep autocannon; then
   trace "perf tooling → performance"
   add performance
+elif [[ $FRONTEND -eq 1 ]]; then
+  # Every shipped UI benefits from a perf budget (Core Web Vitals / bundle size),
+  # exactly like ui-ux above — don't gate the pack behind Lighthouse already being
+  # wired (chicken-and-egg: you need the pack to know you should add Lighthouse).
+  trace "frontend without explicit perf tooling — adding performance anyway (every UI ships with a perf budget)"
+  add performance
 fi
 
 # ---------- Security ----------
