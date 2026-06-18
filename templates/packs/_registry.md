@@ -32,6 +32,16 @@ Folder shape and per-pack metadata are documented in `templates/packs/README.md`
 
 **Always-applied** tracks: `code-quality`, `documentation`, `learning`, `security`. They are added to `selected_tracks` even when no signal is detected — they're the base substrate every project benefits from.
 
+## Reserved non-track namespaces
+
+Not every `pack:` frontmatter value names a track. The top-level core commands in `commands/` (`/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/refactor`, `/do`, `/scaffold-project`, `/refine-prompt`, `/task`, `/setup-project-adapters`, `/setup-project-health`, `/unify-surfaces`, `/learn-from-task`) carry `pack: orchestration`. This is a **logical grouping label**, not a track:
+
+- It has **no `templates/packs/orchestration/` folder** — these commands ship repo-symlinked from `commands/`, not installed via `/setup-project` tracks.
+- It is therefore **not a table row above** and is **excluded from the folder↔row drift check** below (a row would falsely report "row without folder").
+- The adapter layer refers to this set as the "Top-level orchestration commands" (`templates/tool-adapters/_registry.md`, `templates/tool-adapters/_orchestration-sync.md`).
+
+Reserved non-track namespace: `orchestration`.
+
 ## Maintenance
 
 - **Adding a track**: create `~/.claude/templates/packs/<key>/` per `templates/packs/README.md` (with `_version.json` + `_essentials.md` + `_topics.md` minimum), then add a row above. Phase 4.0 preflight enforces presence.
@@ -40,4 +50,4 @@ Folder shape and per-pack metadata are documented in `templates/packs/README.md`
 
 ## Drift detection
 
-`scripts/lint-tool-parity.sh` (and the planned `scripts/lint-registry-drift.sh`) cross-check this file against the actual `~/.claude/templates/packs/*/` folder list. Any folder without a row, or any row without a folder, is reported as drift.
+`scripts/lint-tool-parity.sh` (and the planned `scripts/lint-registry-drift.sh`) cross-check this file against the actual `~/.claude/templates/packs/*/` folder list. Any folder without a row, or any row without a folder, is reported as drift. The reserved non-track namespace `orchestration` (see above) is exempt — it intentionally has no folder and no table row.
