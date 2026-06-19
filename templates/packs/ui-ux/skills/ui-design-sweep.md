@@ -1,5 +1,5 @@
 ---
-description: Codifies the 18 UI/UX design closure verbs as detector + procedure + verify triples. Used by /polish on frontend-* stacks, /ui-sweep, /enhance-ui, and any /align-recheck run that hits a UI/UX class. Each verb has a fingerprint (what triggers it), a procedure (how to apply it safely), a verify step (what must stay green visually + a11y), and a citation (WCAG / iOS HIG / Material / Refactoring UI). Behaviour-preserving — design changes ship through visual baseline diff + a11y re-check, never blind rewrite.
+description: Codifies the 19 UI/UX design closure verbs as detector + procedure + verify triples. Used by /polish on frontend-* stacks, /ui-sweep, /enhance-ui, and any /align-recheck run that hits a UI/UX class. Each verb has a fingerprint (what triggers it), a procedure (how to apply it safely), a verify step (what must stay green visually + a11y), and a citation (WCAG / iOS HIG / Material / Refactoring UI). Behaviour-preserving — design changes ship through visual baseline diff + a11y re-check, never blind rewrite.
 kind: skill
 pack: ui-ux
 ---
@@ -8,7 +8,7 @@ pack: ui-ux
 
 ## Purpose
 
-Apply UI/UX design corrections as closure verbs in `/polish` (frontend branch), `/ui-sweep`, `/enhance-ui`, and `/align-recheck`. Each verb is a small, named, design-system-respecting transformation with a clear fingerprint and verification step. The skill does NOT invent verbs; it operates from a **closed vocabulary of 18 verbs** drawn from `ui-principles.md` axes + the project's `_extracted-idioms.md` token / wrapper / surface inventory.
+Apply UI/UX design corrections as closure verbs in `/polish` (frontend branch), `/ui-sweep`, `/enhance-ui`, and `/align-recheck`. Each verb is a small, named, design-system-respecting transformation with a clear fingerprint and verification step. The skill does NOT invent verbs; it operates from a **closed vocabulary of 19 verbs** drawn from `ui-principles.md` axes + the project's `_extracted-idioms.md` token / wrapper / surface inventory.
 
 This skill is the **frontend half of `/polish`** — the structural twin of `api-consistency-audit` (backend) and `schema-consistency-audit` (data). The backend half checks envelope / error / pagination drift; this skill checks design-token / hierarchy / state / focus / motion / surface drift.
 
@@ -20,6 +20,8 @@ This skill is the **frontend half of `/polish`** — the structural twin of `api
 - Dispatched by `/align-recheck` when the finding's class is a UI/UX axis.
 - NOT for new components / pages (use `/add-component` / `/add-feature`).
 - NOT for fixing broken behaviour (use `/fix-bug`).
+- NOT for *mechanically enforcing an EXISTING token / a11y rule / ui-state contract* — that is `/align`'s job (enforce what exists, no creative work). This skill owns the *creative finish* verbs (extract NEW tokens, wire missing states, rhythm / hierarchy / motion / cta / surface). Boundary table: `_orchestration-sync.md`.
+- NOT for responsive / breakpoint or dark-mode / theme-mode drift — defer to `/enhance-ui` (deliberately outside the closed 19-verb set).
 
 ## Inputs (precise contract)
 
@@ -40,19 +42,19 @@ A finding-draft array — one row per detected design-fingerprint match. Each ro
 
 ```yaml
 class: ui-design
-subclass: <one of the 18 verbs below>
+subclass: <one of the 19 verbs below>
 axis: <one of: tokens | hierarchy | rhythm | density | states | contrast |
                 focus | iconography | motion | tap-target | cta | affordance |
                 surface | type-scale | wrappers | patterns>
 site: <component-path:line>
 canonical: <what _extracted-idioms.md or ui-principles.md says — the token / wrapper / scale step / contrast tier>
 divergence: <what this site does differently>
-closure_verb: <one of the 18 verbs>
+closure_verb: <one of the 19 verbs>
 risk: low | medium | high
 citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 ```
 
-## The 18 closure verbs
+## The 19 closure verbs
 
 ### 1. consolidate-tokens
 
@@ -380,7 +382,7 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 
 - **Behaviour-preserving.** The page's data flow / API calls / route navigation are unchanged. Only visual / design-system / a11y attributes change.
 - **One verb per commit.** Don't bundle (`consolidate-tokens` + `wire-empty-state` in same commit is forbidden — they have different verify steps).
-- **No new abstractions outside the closed verb set.** If a finding doesn't match one of the 18 verbs, halt and surface — don't invent a 19th verb. Architectural moves go to `architectural-diagnosis`; new wrappers go through `extract-pattern` (which IS in the set).
+- **No new abstractions outside the closed verb set.** If a finding doesn't match one of the 19 verbs, halt and surface — don't invent a 20th verb. Architectural moves go to `architectural-diagnosis`; new wrappers go through `extract-pattern` (which IS in the set). Responsive / breakpoint drift and dark-mode / theme-mode drift are deliberately NOT in the set — defer those to `/enhance-ui`.
 - **No frontend compensation for backend gaps.** If the API is missing a field, file a backend ticket — don't add a UI workaround. Mark the finding `halted` with explicit dependency.
 - **Visual baseline is the verify oracle.** Skipping baseline = skipping verify. If Playwright is unavailable, the verb runs in `--no-visual-verify` mode and the row is marked `pending-review` (not `done`).
 - **a11y must not regress.** Every verb's verify includes an a11y re-check; a verb that improves visuals but drops a11y score is a halt, not a fix.
@@ -398,7 +400,7 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 
 ## Examples per verb
 
-(See "The 18 closure verbs" section above; each verb has a worked fingerprint + procedure + verify.)
+(See "The 19 closure verbs" section above; each verb has a worked fingerprint + procedure + verify.)
 
 ## References
 

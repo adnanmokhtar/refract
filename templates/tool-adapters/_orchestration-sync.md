@@ -6,7 +6,48 @@ purpose: Adapter-facing sync for simple-surface commands (`/migrate`, `/optimize
 
 Use when translating pack bundles, CI hooks, or discipline blocks. Authoritative command prose: `commands/{migrate,optimize,polish,align,refactor,audit,unify-surfaces}.md`. Validator sources: `scripts/validate-*-artifacts.sh`.
 
-**Honesty clause (2026-06-07, all simple-surface summaries)**: every run summary of `/migrate`, `/optimize`, `/align`, `/polish`, `/unify-surfaces` closes with three mandatory lines — `Not validated:` (what did NOT run + why, or `none — <what fully ran>`), `Risks:` (residual risk, or `none identified`), `Revert:` (exact git command for the run's commit range). Adapters that approximate these commands via pack commands or the parallel orchestrator scripts MUST carry the same three lines in their end-of-run report. `Tests: green` without the negative space is the Trusted Summary failure mode applied to the run report.
+**Honesty clause (2026-06-07, all simple-surface summaries)**: every run summary of `/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/unify-surfaces` closes with three mandatory lines — `Not validated:` (what did NOT run + why, or `none — <what fully ran>`), `Risks:` (residual risk, or `none identified`), `Revert:` (exact git command for the run's commit range). Adapters that approximate these commands via pack commands or the parallel orchestrator scripts MUST carry the same three lines in their end-of-run report. `Tests: green` without the negative space is the Trusted Summary failure mode applied to the run report. **`/audit` is in scope for every execution summary** (it commits P0–P4 fixes); its read-only `--assess` / `--plan-only` short-circuits produce a report, not an execution summary, and are exempt. **`/refactor` is deliberately exempt** from this mandate — it is git-scoped, behaviour-preserving, and lighter by design (no scale/perf/security claims to under-validate), so "all simple-surface summaries" above does not include it; `/refactor` carries only the standard one-commit-per-finding revert note.
+
+## Command boundary table (authoritative split)
+
+The five quality-sweep commands overlap in what they *can* see but differ in what they *own*. This table is the canonical owner-of-record for each command's exclusive domain and for every shared finding class. Adapters that translate these commands MUST preserve the split — a translation that lets `/align` extract new tokens, or `/polish` claim measured perf wins, has drifted from the contract.
+
+| Command | Exclusive domain | Net-lines | Phase-0 diagnosis | Behaviour |
+|---|---|---|---|---|
+| **`/align`** | Enforce **existing** conventions / tokens / a11y rules — mechanical drift only. No creative work, no new abstractions, no new tokens. Reinvented-wrapper collapse, silent-catch fix, i18n/a11y rule drift, design-token *drift* (snap to an existing token). | **≤ 0** (drift removal nets non-positive) | none | preserving |
+| **`/polish`** | Introduce **new** finish — extract NEW tokens, wire empty/loading/error states, rhythm / hierarchy / motion / CTA / focus / type-scale (frontend); envelope / error-contract / pagination / idempotency uniformity (backend); schema consistency (data). May add code. | may be > 0 | none | additive (new finish) |
+| **`/optimize`** | Perf + architecture, **measured**. Phase-0 architectural diagnosis (layer / god-module / cycle / missing abstraction) → foundation fixes → tactical sweep (clean code, dedup, dead code, SOLID, perf). Every perf claim ships a baseline + post-fix number. | varies | **required** (Phase 0) | preserving (arch) / measured-change (perf) |
+| **`/refactor`** | Behaviour-preserving **structural** change only — the closed Fowler vocabulary (extract / inline / move / rename / replace-conditional-with-polymorphism, …). Git-changed default scope. **No perf work, no Phase-0 diagnosis, no dead-code sweep.** | ~0 | none | strictly preserving |
+| **`/audit`** | Rank **everything** across 8 axes + the 13 scale-lens detectors (superset of the above). Cross-axis ranking by `impact-at-target-scale × blast-radius × fix-cost`, then P0–P4 execution. Triage-only via `--assess`; ranked plan via `--plan-only`. | varies | inherits `/optimize` Phase-0 (P3 tier) | per-tier (P0–P3 measured/asserted, P4 preserving) |
+
+### Shared finding-class ownership
+
+When a finding could plausibly be claimed by two commands, the canonical owner is decided by the **kind of work**, not the surface it touches:
+
+| Shared finding class | Canonical owner(s) | Rule |
+|---|---|---|
+| **Design-token drift** | `/align` (enforce-existing) **/** `/polish` (extract-new) | Snapping a hard-coded value to a **token that already exists** → `/align`. Identifying a repeated raw value with **no token yet** and promoting it to a NEW token → `/polish`. |
+| **Accessibility (a11y)** | `/align` (existing-rule drift) **/** `/polish` (new finish) | A violation of an **already-adopted** a11y rule (missing `aria-*` the convention requires, focus-ring drift) → `/align`. Introducing a11y finish the project does **not yet have** (wiring focus management, new skip-links, motion-reduction) → `/polish`. |
+| **Layer / boundary violation** | `/optimize` (diagnose + fix) **⇄** `/align` (enforce the rule) | **Bidirectional handoff.** `/optimize` Phase-0 *discovers* a layer violation and may fix it as a P3 foundation; once the boundary rule is codified, repeat *mechanical* drift against that rule is `/align`'s to enforce. Conversely, `/align` finding a violation that needs **structural** rework (not a mechanical snap) hands **back** to `/optimize`. Today only `/optimize → /align` was documented; the reverse `/align → /optimize` direction is equally canonical. |
+| **Clean-code / dedup / dead-code** | `/optimize` (P4 tactical) | `/refactor` applies only the closed Fowler vocabulary on git-changed scope; broad dedup / dead-code sweeps belong to `/optimize`'s tactical phase (or `/audit` P4). |
+| **Perf / scale** | `/optimize` (measured) **/** `/audit` (ranked at target scale) | Standalone perf work → `/optimize`. Perf ranked against a throughput/latency target alongside security + DB + resilience → `/audit`. Neither `/align` nor `/polish` nor `/refactor` may claim measured perf wins. |
+| **Security** | `/audit` (P1 tier) | Security is exclusive to `/audit` (and `/security-audit` for the deep external pass). Never claimed by align / polish / optimize / refactor. |
+
+## Afterburner sequence (full quality sweep)
+
+When a codebase needs the complete pass — diagnose, fix foundations, snap drift, add finish, capture learnings — run the commands in this order so each stage hands a cleaner tree to the next:
+
+```
+/audit --assess          # triage — senior-engineer narrative, no fixes (what's the lay of the land)
+/optimize                # foundation — Phase-0 architectural diagnosis + tactical sweep (measured)
+/align                   # drift — snap conventions / tokens / a11y to existing rules (net-lines ≤ 0)
+/polish                  # finish — extract new tokens, wire states, hierarchy / motion / CTA
+/learn-from-task         # capture — promote ADRs / conventions / patterns into the knowledge layer
+```
+
+Rationale for the order: `--assess` triages before any edit; `/optimize` fixes foundations first (so `/align` and `/polish` operate on a settled structure); `/align` removes mechanical drift before `/polish` adds new finish (so polish doesn't decorate code that's about to be snapped); `/learn-from-task` runs last to promote what was learned.
+
+**Each sweep's `Next:` block should chain to `/learn-from-task`** — every one of `/audit`, `/optimize`, `/align`, `/polish`, `/migrate` ends its run summary by offering `/learn-from-task` as a follow-up so the learnings from the sweep are not lost. (`/audit`'s execution examples already carry this in `commands/audit.md`.)
 
 ## Discipline enforcement (`AGENTS.md` inject)
 
@@ -41,5 +82,6 @@ Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/pol
 - `templates/tool-adapters/_align-pack-coverage.md`
 - `templates/tool-adapters/_polish-pack-coverage.md`
 - `templates/tool-adapters/_refactor-pack-coverage.md`
+- `templates/tool-adapters/_audit-pack-coverage.md`
 - `templates/tool-adapters/_task-integration-coverage.md` — `/task` (MCP-backed task executor: Trello / Jira / Linear / GitHub) per-tool primitive + the `/do`→native-dispatch substitution
 - `templates/tool-adapters/_registry.md` § Top-level orchestration commands

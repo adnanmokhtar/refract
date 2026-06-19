@@ -381,10 +381,15 @@ Capacity headroom delta:
   Before: ~12000 RPS at p95=200ms (24% of target)
   After:  ~58000 RPS at p95=140ms (116% of target — passes)
 
+Not validated:       load test at target 50000 RPS (no load-test env) — P2 wins measured at dev concurrency; 14 P2 + P3/P4 tiers still pending
+Risks:               tenant-pool partition (P0) changes connection allocation under contention — staging soak recommended before prod
+Revert:              git revert <first-sha>..<last-sha>  (one commit per finding — P0 land first; revert the tail range to keep blockers fixed)
+
 Next:
   /audit                              # continue P2 parallel wave (14 pending)
   /audit --status                     # progress detail
   /review-changes                     # independent pass before merge
+  /learn-from-task                    # promote audit learnings into the knowledge layer
   Read ai/audit/plan.md for full ranked list
 ```
 
@@ -418,6 +423,10 @@ Tests:               167/167 passing (5 new regression tests)
 Bundle delta:        -59% (2.4MB → 980KB)
 Lighthouse:          P 64 → 91, FCP 2.8s → 1.1s, TTI 5.4s → 2.6s
 Wall-clock:          22m 41s
+
+Not validated:       real-device throttled-3G pass (Lighthouse ran emulated) — verify LCP on a physical mid-tier Android
+Risks:               httpOnly-cookie + CSRF move changes the auth flow — smoke login/logout before release
+Revert:              git revert <first-sha>..<last-sha>  (one commit per finding)
 ```
 
 Mobile example (a React Native shopping app):
@@ -450,6 +459,10 @@ Commits:             14
 Tests:               203/203 passing (jank assertions added)
 Cold start:          2.1s → 0.95s (iOS), 2.6s → 1.3s (Android)
 Bundle:              JS 18MB → 11MB; APK 38MB → 24MB; IPA 45MB → 28MB
+
+Not validated:       low-end-device jank pass (measured on iPhone 14 + Pixel 7 only) — verify on a 2GB-RAM Android
+Risks:               Keychain / EncryptedSharedPreferences migration leaves legacy AsyncStorage tokens until next login — confirm migration path
+Revert:              git revert <first-sha>..<last-sha>  (one commit per finding)
 ```
 
 Serverless / edge example (an AWS Lambda image-processing pipeline):
@@ -483,6 +496,10 @@ Tests:               89/89 passing (5 new chaos tests for retry semantics)
 Cold start p95:      1100ms → 320ms (within target)
 p95 latency:         1240ms → 410ms
 Cost:                $187/day → $73/day (-61%)
+
+Not validated:       sustained 5000-RPS load with cold-start churn (measured single-invoke + warm p95) — run a load profile before the traffic ramp
+Risks:               idempotency via DDB conditional-put adds a write per invoke — confirm the table's WCU headroom at target RPS
+Revert:              git revert <first-sha>..<last-sha>  (one commit per finding)
 ```
 
 CLI / SDK example (a developer-facing TypeScript SDK):
@@ -513,6 +530,10 @@ Tests:               142/142 passing (8 new contract tests)
 Startup:             220ms → 35ms
 Bundle (consumer):   -34% on tree-shaking sites
 Public API:          61 → 53 surface symbols (8 internals hidden)
+
+Not validated:       downstream-consumer build matrix (verified ESM + CJS import locally, not against real consumer repos) — verify before publishing
+Risks:               narrowing 8 internal symbols is a potential breaking change for consumers reaching past the public API — note in the changelog
+Revert:              git revert <first-sha>..<last-sha>  (one commit per finding)
 ```
 
 `--assess` example (Vue 3 frontend, storefront — `/audit --assess`):
@@ -620,6 +641,10 @@ Cross-cutting:
 Commits:             37 (8 web + 19 api + 7 pipeline + 3 cross-cutting)
 Tests:               1247/1247 passing
 Wall-clock:          1h 14m
+
+Not validated:       end-to-end trace propagation across all 3 PROJECT_KINDs under load (wired, asserted in unit tests, not load-exercised) — verify in staging
+Risks:               idempotency keys now flow frontend → API → pipeline; a mismatch silently drops retries — smoke the full retry path before prod
+Revert:              git revert <first-sha>..<last-sha>  (one commit per finding — cross-cutting commits land last; revert them first to keep per-kind fixes)
 ```
 
 ## What you DON'T see
@@ -684,6 +709,7 @@ Applied silently per the discipline:
 - **Closure verbs from a closed vocabulary.** No new abstractions invented; `introduce-abstraction` only when ≥3 sites duplicate the same shape.
 - **Re-detect after each tier.** Gap-count parity (`gaps_in == gaps_closed`) before the tier advances.
 - **Halts on**: idiom missing (e.g., scale fix needs Redis but project has no cache primitive); cross-PR decoupling required; behaviour change risk; infra change beyond mechanical (surfaces ops ticket).
+- **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` close every run summary — name what did NOT run (or `none — <what fully ran>`), residual risks (or `none identified`), and the exact revert command for this run's commit range. `Tests: N/N passing` alone hides the negative space — the same Trusted Summary failure mode. `/audit` executes P0–P4 commits, so the clause is non-negotiable: load tests, prod-sized data, and unavailable environments that the scale/perf wins could not exercise MUST be named.
 
 User sees the result, not the policing.
 

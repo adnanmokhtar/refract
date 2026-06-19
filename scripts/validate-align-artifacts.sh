@@ -19,8 +19,17 @@
 #   10. Idiom citation            — functional rows that ADD code cite idiom_cited (git-confirmed)
 #   11. Oracle unmodified         — PR diff must not touch _extracted-idioms.md / ai/conventions.md
 #
+# Run-level checks (not per-finding):
+#   - scan-report evidence — per-detector run evidence + oracle citation. If the ledger CLAIMS
+#     findings-closed (terminal rows) but no scan-report.md exists → FAIL (a skipped scan must
+#     not look like a clean codebase).
+#   - progress/ledger reconciliation — ai/align/ledger.md is the single source of truth; the
+#     derived ai/align/progress.md roll-up must not mark a module `done` while the ledger holds
+#     non-terminal rows in its scope (false-complete guard).
+#
 # Genuinely agent-side (runtime tooling, not deterministic in a validator):
 # test-coverage-nondecreasing (runs the suite), frontend-regressions (a11y/visual/bundle),
+# re-detect-to-zero (re-runs detectors), fingerprint-still-present (post-fix re-scan),
 # parallel-consistency (post-hoc race). Tagged "(agent-side — not script-enforced)" in the rule.
 #
 # Usage:
@@ -274,7 +283,18 @@ check_scan_report_evidence() {
   # the scan is a Trusted Summary and the gate refuses it.
   local scan_report="${ALIGN_DIR:-ai/align}/scan-report.md"
   if [[ ! -f "$scan_report" ]]; then
-    [[ $QUIET -eq 0 ]] && echo "  ▸ scan-report.md not present at $scan_report (skipping evidence check)"
+    # Absent scan-report is only acceptable when the run makes NO findings-closed claim.
+    # If the ledger carries terminal rows (fixed / verified / archived-pre-existing), the run
+    # CLAIMS it closed findings — but with no scan-report there's no evidence any detector ran.
+    # A skipped scan must NOT look like a clean codebase → FAIL (Trusted-Summary recurrence).
+    local terminal_rows
+    terminal_rows=$(grep -cE '^[[:space:]]+status:[[:space:]]*(fixed|verified|archived-pre-existing)\b' "$LEDGER_PATH" 2>/dev/null || echo 0)
+    terminal_rows=${terminal_rows:-0}
+    if [[ "$terminal_rows" -gt 0 ]]; then
+      log_fail "scan-report.md absent at $scan_report but the ledger holds $terminal_rows terminal (findings-closed) row(s). A run that claims findings closed MUST emit a scan-report with per-detector evidence — a skipped scan must not look like a clean codebase (Trusted-Summary)."
+      return 1
+    fi
+    [[ $QUIET -eq 0 ]] && echo "  ▸ scan-report.md not present at $scan_report and no findings-closed claim in ledger (skipping evidence check)"
     return 0
   fi
 
@@ -299,6 +319,82 @@ check_scan_report_evidence() {
 
   log_pass "scan-report evidence: $detector_blocks detector blocks, $oracle_cited oracle citations"
   return 0
+}
+
+# ── CHECK: progress.md ↔ ledger.md reconciliation (single source of truth) ──
+# ai/align/ledger.md is the validated source of truth; ai/align/progress.md is a derived
+# module roll-up. They can silently disagree → false-complete (progress says a module is
+# `done` while the ledger still holds non-terminal rows for it). When BOTH files exist, every
+# module marked `done` / `[done]` in progress.md MUST have zero non-terminal ledger rows whose
+# scope falls under that module. Absent progress.md = nothing to reconcile (ledger is canonical).
+PROGRESS_CHECKED=0
+check_progress_ledger_reconciliation() {
+  [[ "${PROGRESS_CHECKED:-0}" == "1" ]] && return 0
+  PROGRESS_CHECKED=1
+  local progress="${ALIGN_DIR:-ai/align}/progress.md"
+  if [[ ! -f "$progress" ]]; then
+    [[ $QUIET -eq 0 ]] && echo "  ▸ progress.md not present (ledger is the sole source of truth; nothing to reconcile)"
+    return 0
+  fi
+
+  # Module names marked done in progress.md.
+  # Shapes accepted: "### <module> [done]"  OR  "- <module>: done".
+  local done_modules
+  done_modules=$(grep -iE '^###[[:space:]]+\S+[[:space:]]+\[done\]|^-[[:space:]]+\S+:[[:space:]]*done\b' "$progress" 2>/dev/null \
+    | sed -E 's/^###[[:space:]]+([^[:space:]]+).*/\1/; s/^-[[:space:]]+([^:]+):.*/\1/' \
+    | sed 's/[[:space:]]*$//' | sort -u || true)
+  if [[ -z "$done_modules" ]]; then
+    log_pass "progress.md ↔ ledger: no modules marked done; nothing to reconcile"
+    return 0
+  fi
+
+  # Non-terminal ledger rows: status ∈ {detected, in-progress, halted}. Buffer each row's full
+  # block first (scope: and status: can appear in either order), then emit "<id>|<status>|<scope>"
+  # lines only for rows whose status is non-terminal.
+  local nonterminal
+  nonterminal=$(awk '
+    function flush() {
+      if (id != "" && (status=="detected" || status=="in-progress" || status=="halted")) {
+        for (i=1; i<=ns; i++) print id "|" status "|" scopes[i]
+      }
+      id=""; status=""; ns=0
+    }
+    /^- id: / { flush(); id=$3; next }
+    id != "" && /^[[:space:]]+status:/ { status=$2; next }
+    id != "" && /^[[:space:]]+scope:/ {
+      line=$0; sub(/^[[:space:]]+scope:[[:space:]]*/,"",line)
+      gsub(/[][]/,"",line)
+      n=split(line, parts, ",")
+      for (i=1;i<=n;i++) { gsub(/^[[:space:]]+|[[:space:]]+$/,"",parts[i]); if (parts[i]!="") scopes[++ns]=parts[i] }
+      inscope=1; next
+    }
+    id != "" && inscope && /^[[:space:]]+-[[:space:]]/ {
+      line=$0; sub(/^[[:space:]]+-[[:space:]]*/,"",line); if (line!="") scopes[++ns]=line; next
+    }
+    id != "" && /^[[:space:]]+[a-z_]+:/ { inscope=0 }
+    END { flush() }
+  ' "$LEDGER_PATH" 2>/dev/null || true)
+
+  local violations=0 mod
+  while IFS= read -r mod; do
+    [[ -z "$mod" ]] && continue
+    local hit
+    hit=$(printf '%s\n' "$nonterminal" | grep -F "$mod" | head -3 || true)
+    if [[ -n "$hit" ]]; then
+      log_fail "progress.md marks module '$mod' done, but the ledger holds non-terminal row(s) in its scope (false-complete). ledger.md is the source of truth — re-project progress.md after these rows reach a terminal state:"
+      while IFS='|' read -r vid vstatus vscope; do
+        [[ -z "$vid" ]] && continue
+        echo "        $vid (status=$vstatus): $vscope" >&2
+      done <<< "$hit"
+      violations=$((violations + 1))
+    fi
+  done <<< "$done_modules"
+
+  if [[ $violations -eq 0 ]]; then
+    log_pass "progress.md ↔ ledger reconciled: every done module has only terminal ledger rows"
+    return 0
+  fi
+  return 1
 }
 
 check_no_handwaves() {
@@ -772,8 +868,16 @@ main() {
 
   # Run the run-level evidence check ONCE before per-finding validation
   # This catches Trusted-Summary scans that produce findings without per-detector evidence
+  # NOTE: run-level checks are called with `|| true` so a single FAIL (which `return`s non-zero)
+  # does not trip `set -e` and abort before later checks run. Failures are recorded in FAILURES /
+  # TOTAL_FAIL by log_fail; the real gate is the TOTAL_FAIL count at the end of main().
   log_section "Run-level evidence check (scan-report.md)"
-  check_scan_report_evidence
+  check_scan_report_evidence || true
+
+  # Single-source-of-truth reconciliation: progress.md (derived roll-up) must not claim a
+  # module done while the ledger (canonical) still holds non-terminal rows for it.
+  log_section "Progress/ledger reconciliation"
+  check_progress_ledger_reconciliation || true
 
   local findings
   findings=$(discover_findings | filter_findings)
@@ -806,9 +910,12 @@ main() {
 
   if [[ $QUIET -eq 0 ]]; then
     echo
-    echo "Note: 7 checks remain agent-side enforcement (test-coverage, frontend-regression,"
-    echo "      idiom-citation, security-assertion, perf-baseline, oracle-unmodified,"
-    echo "      ledger-completeness). Implement in v2 when patterns stabilize."
+    echo "Note: the following remain AGENT-side enforcement (need runtime tooling — the script"
+    echo "      cannot re-run detectors / the test suite / a11y / bundle): test-coverage,"
+    echo "      frontend-regression, re-detect-to-zero, fingerprint-still-present,"
+    echo "      ledger-completeness, mechanical-at-HEAD, per-tier-artifact-set."
+    echo "      (idiom-citation, security-assertion, perf-baseline, oracle-unmodified are now"
+    echo "      SCRIPT-enforced above.)"
   fi
   exit 0
 }

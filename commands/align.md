@@ -7,6 +7,8 @@ pack: orchestration
 # /align [<scope>]
 
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/align <scope> --plan` runs the convention scan + writes the ranked fix-plan, and exits before any edit — executable later via `/execute-plan <file>`.
+>
+> **Note — two distinct "plan" artifacts.** `--plan` writes a one-off **handoff doc** to `.claude/plans/align-<scope>-<iso>.md` (the universal plan-flag location, for review / `/execute-plan`). This is NOT the pack's executable `ai/align/plan.md` (the phased plan produced by `/align-plan` that `/align-fast <N>` consumes). The handoff doc is a snapshot for a human; `ai/align/plan.md` is the live, ledger-coupled plan.
 
 ## What this does
 
@@ -28,9 +30,9 @@ Detects + fixes:
 - **Default-true wrapper props left implicit** — wrapper components rendered without explicit `show-*="false"` / `can-*="false"` when affordance should be hidden.
 - **Permission-gate drops** — actions rendered without the project's permission-gate primitive.
 - **Lifecycle hook misuse** — cached children that fetch data using only the mount hook (need the mount-AND-reactivate hook pair, per the project's framework conventions).
-- **Design-token drift** — hardcoded colors / spacing where tokens exist.
-- **i18n key drift** — hardcoded user-visible strings.
-- **a11y violations** — missing alt, focus states, contrast issues.
+- **Design-token drift** — hardcoded colors / spacing where a token **already exists** → `replace-with-shared` (swap the literal for the existing token). *Enforce-existing only.* Introducing a NEW token (no equivalent exists yet) is creative finish → `/polish`.
+- **i18n key drift** — hardcoded user-visible strings where the project's i18n primitive already exists → route through it. *Enforce-existing only.*
+- **a11y violations** — restoring the project's **existing** a11y convention where a site dropped it (missing alt, missing focus state already standard elsewhere, contrast that violates a defined token). *Enforce-existing only.* Designing a NEW a11y pattern the project doesn't yet have → `/polish`.
 - **Allowlist violations** — state stores outside the project's allowed list; routes outside the configured router; etc.
 
 This is **structure enforcement** — no creative work, no new abstractions, just "make the code follow the project's stated structure."
@@ -47,6 +49,7 @@ This is **structure enforcement** — no creative work, no new abstractions, jus
 - For V1→V2 port → `/migrate`.
 - For performance / clean-code optimization → `/optimize`.
 - For new features → `/add-feature`.
+- **For introducing NEW finish → `/polish`.** This is the canonical split: **`/align` enforces EXISTING tokens / a11y / conventions** (mechanical drift → shared primitive, via `replace-with-shared`); **`/polish` introduces NEW finish** (new tokens, new states, new visual polish). If a fix would *add* a design token that doesn't exist yet, *introduce* a missing-state pattern, or do creative visual work, it is a `/polish` job, not an `/align` job. See the boundary table in [`templates/tool-adapters/_orchestration-sync.md`](../templates/tool-adapters/_orchestration-sync.md).
 
 ## Args
 
@@ -68,7 +71,10 @@ Examples:
 1. **Scan** — runs convention detectors: drift (vs `ai/conventions.md` / `ai/architecture.md`), reinvented-wrapper, silent-catch, unhandled-io (happy-path-only I/O call sites). Plus stack-conditional UI/UX detectors for `frontend-*` (a11y, design-token-drift, i18n-key-drift, raw-library-component, lifecycle-hook-wrong, default-true-prop, permission-gate-drop).
 2. **Resolve scope** — semantic resolution.
 3. **Plan internally** — group by class + page/domain (UI/UX findings group by page; structural by class).
-4. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Closure verbs are mechanical — **only** from the closed **21-verb** set (5 structural + 16 functional) in [`templates/packs/align/rules/align-discipline.md`](../templates/packs/align/rules/align-discipline.md) § Closure-verb vocabulary / procedures (examples: `replace-with-shared`, `remove`, `dedupe`, `add-gate`, `escape`).
+4. **Multi-agent parallel fix** — dispatch one agent per finding cluster. Closure verbs are mechanical — **only** from the closed **21-verb** set in [`templates/packs/align/rules/align-discipline.md`](../templates/packs/align/rules/align-discipline.md) § Closure-verb vocabulary / procedures. The set partitions as:
+   - **5 structural** (entropy-reducing — net-lines ≤ 0): `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared`.
+   - **16 functional** (correctness-improving — small + line budget when added lines cite an idiom): `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename`.
+   - This partition matches `validate-align-artifacts.sh` (`STRUCTURAL_VERBS` / `FUNCTIONAL_VERBS`) and `align-discipline.md` exactly.
 5. **Verify continuously** — lint + typecheck + scoped tests + (frontend) a11y check + bundle-size after each fix.
 6. **Self-resolve common questions** — convention is the truth. Project's idiom inventory (`_extracted-idioms.md` / `codebase-profile.md`) is the oracle. No "is this the right pattern" prompts.
 7. **Halt only on genuine blockers**:
@@ -78,18 +84,20 @@ Examples:
 
 ## Progress tracking (multi-day workflow)
 
-Single source of truth: **`ai/align/progress.md`**.
+**Single source of truth: `ai/align/ledger.md`** (finding-level, validated by `validate-align-artifacts.sh`). `ai/align/progress.md` is a derived, human-readable *module roll-up* — a convenience view, NOT an independent source of truth. It MUST be kept reconciled with the ledger; the ledger wins on every disagreement.
+
+> **Why this matters.** A run that marks a module `done` in `progress.md` while the ledger still holds non-terminal rows (`detected` / `in-progress` / `halted`) for that module is a **false-complete** — the headline says clean, the validated ledger says otherwise. `progress.md` is therefore always projected FROM the ledger, never asserted independently. The validator enforces this: when both files exist, a module marked `done` in `progress.md` MUST have zero non-terminal ledger rows in its scope (see `validate-align-artifacts.sh § check_progress_ledger_reconciliation`).
 
 ### How it works
 
-- **First run** → builds module inventory + writes progress file (all `pending`). Runs first module.
-- **Subsequent runs** → reads progress file, picks next `pending` module (or use `<scope>` arg). Already-`done` modules skipped automatically.
-- **`/align --status`** → read-only progress report; no work done.
+- **First run** → builds module inventory in the ledger, then projects the `progress.md` roll-up (all `pending`). Runs first module.
+- **Subsequent runs** → reads the ledger, picks the next module whose ledger rows are not all terminal (or use `<scope>` arg). Modules whose every ledger row is terminal (`verified` / `archived-*` / `parked`) are skipped automatically; `progress.md` is re-projected to match.
+- **`/align --status`** → read-only progress report **derived from `ai/align/ledger.md`** (terminal-vs-non-terminal row counts per module), reconciled against `progress.md`. If the two disagree, `--status` reports the ledger truth and flags the drift ("progress.md stale — re-projecting from ledger"). No work done.
 
-### Progress file shape
+### Progress file shape (derived roll-up — projected from the ledger)
 
 ```markdown
-# Align progress
+# Align progress  (derived from ai/align/ledger.md — do not hand-edit)
 
 Started: 2026-05-02
 Codebase: <project-root>/src/
@@ -234,13 +242,15 @@ Applied silently per the discipline:
 - **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` appear before `Next:` in every run summary — name what did NOT run (or `none — <what fully ran>`), residual risks (or `none identified`), and the exact revert command for this run's commit range. Omitting the negative space is the Trusted Summary failure mode applied to the run report.
 - **Validator gate is mandatory.** After scan produces `ai/align/scan-report.md` AND after every per-finding fix lands, the agent MUST run `~/.claude/scripts/validate-align-artifacts.sh`. The validator's `check_scan_report_evidence` halts the run if the scan-report doesn't show per-detector run evidence (≥1 of the 12 universal classes scanned with explicit module count) AND oracle citation. A failed validator forces the scan to be re-emitted with evidence. This catches the Trusted-Summary recurrence where align claims "12 detectors run" without evidence any actually executed.
 - **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-align-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
-- Convention is the truth — no questioning the project's idioms.
-- Closure verbs from the closed vocabulary; no new abstractions invented.
-- Net-lines ≤ 0 for structural alignments.
-- Behaviour preserved (no convention enforcement changes user-observable output, except where security gates are added).
-- Re-detect after each fix; gap-count parity.
-- One commit per finding.
-- (Frontend) a11y / bundle-size do not regress.
+- Convention is the truth — no questioning the project's idioms. *(AGENT-enforced.)*
+- Closure verbs from the closed vocabulary; no new abstractions invented. *(SCRIPT-enforced — `check_closure_verb_in_vocab` / `check_no_new_symbols`.)*
+- Net-lines ≤ 0 for structural alignments. *(SCRIPT-enforced — `check_net_lines_structural`.)*
+- Behaviour preserved (no convention enforcement changes user-observable output, except where security gates are added). *(AGENT-enforced.)*
+- Re-detect after each fix; gap-count parity. *(AGENT-enforced — re-detect-to-zero / fingerprint-still-present run the detectors live; the script cannot re-run detectors.)*
+- One commit per finding. *(AGENT-enforced; SCRIPT side-effect — `check_scope_boundary` / `check_net_lines_structural` resolve per-row commits by the `align/<phase>/<id>:` message convention.)*
+- (Frontend) a11y / bundle-size do not regress. *(AGENT-enforced — frontend-regression checks need runtime tooling, not deterministic in the validator.)*
+
+> **Check-matrix enforcement split (don't be misled by "the validator covers it").** Not every check above is mechanical. **SCRIPT-enforced** (deterministic, in `validate-align-artifacts.sh`): evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols, structural-net-lines, scope-boundary, security-tier-minimum, security-assertion, perf-baseline, idiom-citation, oracle-unmodified, scope-code-smells, scan-report-evidence, progress/ledger-reconciliation, actionable-next-steps. **AGENT-enforced only** (runtime tooling — a rule-only tool must run these by hand): re-detect-to-zero, fingerprint-still-present, test-coverage-nondecreasing, frontend-regression (a11y / visual / bundle). Rule-only adapters (Aider / Codex / Gemini) MUST NOT assume the script covers the agent-side checks.
 
 User sees results, not the policing.
 

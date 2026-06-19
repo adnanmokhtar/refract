@@ -6,7 +6,7 @@ Cross-cuts the tool-adapter registry. Documents how each tool surfaces **`/polis
 
 | `PROJECT_KIND` | Closure-verb spec | Detector skills | Evidence file |
 |---|---|---|---|
-| `frontend-*` | **`ui-design-sweep`** (ui-ux pack v1.1+) — closed 18-verb vocabulary | `a11y-quick-check`, `design-token-audit`, `motion-audit`; `design-iterate` for visual variants | `ai/polish/_visual-decisions.md` |
+| `frontend-*` | **`ui-design-sweep`** (ui-ux pack v1.1+) — closed 19-verb vocabulary | `a11y-quick-check`, `design-token-audit`, `motion-audit`; `design-iterate` for visual variants | `ai/polish/_visual-decisions.md` |
 | `backend-*` | `api-consistency-audit` (backend pack v1.1+) — 15 detectors | (skill is its own detector) | `ai/polish/_api-decisions.md` |
 | `data-*` | `schema-consistency-audit` (database pack v1.1+) | (skill is its own detector) | `ai/polish/_schema-decisions.md` |
 | `mobile-*` | `platform-conventions-audit` (mobile pack v1.1+) + falls back to `ui-design-sweep` for shared frontend axes | reuses frontend detector skills | `ai/polish/_platform-decisions.md` |
@@ -53,17 +53,31 @@ Mechanical checks (install to `~/.claude/scripts/`):
 **Frontend-only — `check_frontend_verb_vocabulary`** (added v1.1, 2026-05):
 
 - Greps `ai/polish/ledger.md` + `ai/polish/_visual-decisions.md` for `closure_verb:` lines.
-- Rejects any verb outside the closed 18-verb `ui-design-sweep` set: `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`, `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`, `wire-empty-state`, `wire-loading-state`, `wire-error-state`, `lift-contrast`, `align-focus-ring`, `unify-iconography`, `normalize-motion`, `expand-tap-target`, `unify-cta-placement`, `clarify-affordance`, `normalize-surface`.
+- Rejects any verb outside the closed 19-verb `ui-design-sweep` set: `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`, `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`, `wire-empty-state`, `wire-loading-state`, `wire-error-state`, `lift-contrast`, `align-focus-ring`, `unify-iconography`, `normalize-motion`, `expand-tap-target`, `unify-cta-placement`, `clarify-affordance`, `normalize-surface`.
+- The validator's `UI_DESIGN_SWEEP_VERBS` array is the authoritative count (19). Responsive / breakpoint + dark-mode / theme-mode drift are deliberately NOT verbs — they defer to `/enhance-ui`.
 - Mirrors how `validate-refactor-artifacts.sh` enforces refactoring-sweep's 10 verbs.
 - Active when `PROJECT_KIND` is `frontend-*` or `mobile-*`.
 
-**Ledger** (when `ai/polish/ledger.md` exists)
+**Backend — `check_backend_verb_vocabulary`** (added; mirrors the frontend gate):
 
-- Rows parsed from fenced YAML: `id:`, `class:`, `status:`/`state:`, `gaps_in`, `gaps_closed`, `closure_verb`.
-- Terminal statuses (`verified` / `done` / `fixed`): `gaps_in == gaps_closed`.
-- Frontend rows additionally pass `check_frontend_verb_vocabulary`.
+- Greps `ai/polish/ledger.md` + `ai/polish/_api-decisions.md` for `closure_verb:` lines.
+- Rejects any verb outside the closed 15-verb `api-consistency-audit` set (`API_CONSISTENCY_VERBS`): `unify-envelope`, `unify-error-contract`, `unify-naming`, `unify-pagination`, `unify-versioning`, `unify-auth-header`, `add-idempotency-key`, `unify-rate-limit-headers`, `unify-log-fields`, `unify-metric-names`, `unify-trace-spans`, `unify-timeout-policy`, `unify-retry-policy`, `add-openapi-doc`, `add-endpoint-example`.
+- Active when `PROJECT_KIND` is `backend-*`.
 
-Env / overrides: `QUIET=1`, `POLISH_DIR=ai/polish`, `PROJECT_KIND=…` (script does not parse `--strict`; failures are blocking).
+**Data — `check_data_verb_vocabulary`** (added; mirrors the frontend gate):
+
+- Greps `ai/polish/ledger.md` + `ai/polish/_schema-decisions.md` for `closure_verb:` lines.
+- Rejects any verb outside the closed 12-verb `schema-consistency-audit` set (`SCHEMA_CONSISTENCY_VERBS`): `unify-column-naming`, `unify-type-choice`, `unify-index-naming`, `unify-fk-naming`, `unify-migration-pattern`, `unify-timestamp-cols`, `add-soft-delete`, `add-audit-fields`, `unify-timezone`, `unify-charset`, `unify-collation`, `unify-nullable`.
+- Active when `PROJECT_KIND` is `data-*`.
+
+**Ledger** (when `ai/polish/ledger.md` exists) — rows parsed from fenced YAML (`id:`, `class:`, `status:`/`state:`, `gaps_in`, `gaps_closed`, `closure_verb`, `a11y_delta`/`openapi_delta`/`schema_delta`/`commits`/`diff`, `baseline`/`visual_baseline`/`review`):
+
+- **`check_gaps_parity`** — any terminal row (`done` / `verified` / `fixed`) MUST have `gaps_in == gaps_closed` (mirrors migration/align row parsing). An unbalanced terminal row FAILS the gate.
+- **`check_outcome_delta`** — a no-op polish (zero diff, identical a11y / OpenAPI / schema) must NOT be `done`. Every terminal row must show a non-empty delta (`a11y_delta` / `openapi_delta` / `schema_delta` / `commits > 0` / non-empty `diff`) OR be classed `no-change` (via `class: no-change` or `outcome: no-change`).
+- **`check_visual_baseline`** (frontend / mobile only) — terminal frontend rows must carry a `baseline:` / `visual_baseline:` reference and must NOT be marked terminal while still `pending-review` (ui-design-sweep marks no-visual-verify rows `pending-review`, not `done`).
+- Verb-vocabulary gates run per stack: frontend → `check_frontend_verb_vocabulary`; backend → `check_backend_verb_vocabulary`; data → `check_data_verb_vocabulary`.
+
+Env / overrides: `QUIET=1`, `POLISH_DIR=ai/polish`, `PROJECT_KIND=…`. **The validator is env-var-only — there are NO CLI flags (no `--strict`).** Every failure is blocking; there is no soft/advisory tier to gate, so quieting (`QUIET=1`) is the only knob, and the same invocation works identically in a hook, in CI, and from a shell.
 
 ## Companion scripts (2026-05) — install the **full** bundle
 

@@ -34,19 +34,23 @@ The agent:
 
 ### Frontend (`frontend-*`)
 
-**Closure-verb skill (the spec): `ui-design-sweep` (ui-ux pack).** The frontend half of `/polish` operates from this skill's closed 18-verb vocabulary — sibling to `api-consistency-audit` (backend) and `schema-consistency-audit` (data). Per-verb fingerprint + procedure + verify + WCAG / iOS HIG / Material citation lives in the skill; the validator (`scripts/validate-polish-artifacts.sh § check_frontend_verb_vocabulary`) rejects any `closure_verb:` outside this set.
+**Closure-verb skill (the spec): `ui-design-sweep` (ui-ux pack).** The frontend half of `/polish` operates from this skill's closed 19-verb vocabulary — sibling to `api-consistency-audit` (backend, 15 verbs) and `schema-consistency-audit` (data, 12 verbs). Per-verb fingerprint + procedure + verify + WCAG / iOS HIG / Material citation lives in the skill; the validator (`scripts/validate-polish-artifacts.sh § check_frontend_verb_vocabulary`) rejects any `closure_verb:` outside this set. The validator's `UI_DESIGN_SWEEP_VERBS` array is the authoritative count (19).
 
 Detector skills (feed findings into the closure verbs): `design-token-audit` → `consolidate-tokens` / `extract-token`; `motion-audit` → `normalize-motion`; `a11y-quick-check` → `lift-contrast` / `align-focus-ring` / `clarify-affordance` / `expand-tap-target`; `design-iterate` → visual variant generator (used by `--with-iterate`, NOT a closure verb).
 
 Axis catalog (16 axes; see `templates/packs/ui-ux/rules/ui-principles.md § Axis catalog` for heuristics): tokens · wrappers · patterns · hierarchy · type-scale · rhythm · density · states · contrast · focus · iconography · motion · tap-target · cta · affordance · surface.
 
-The 18 closure verbs (cross-reference: `templates/packs/ui-ux/skills/ui-design-sweep.md § The 18 closure verbs`):
+The 19 closure verbs (cross-reference: `templates/packs/ui-ux/skills/ui-design-sweep.md § The 19 closure verbs`):
 - **tokens / wrappers / patterns**: `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`
 - **hierarchy / type / rhythm / density**: `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`
 - **states**: `wire-empty-state`, `wire-loading-state`, `wire-error-state`
 - **contrast / focus**: `lift-contrast`, `align-focus-ring`
 - **iconography / motion / tap-target**: `unify-iconography`, `normalize-motion`, `expand-tap-target`
 - **cta / affordance / surface**: `unify-cta-placement`, `clarify-affordance`, `normalize-surface`
+
+**Boundary vs `/align` (per finding).** When a frontend finding is **"hardcoded value that should map to an EXISTING token"** or **"a11y drift from an existing rule"**, that is mechanical enforcement of an existing primitive → **defer to `/align`** (it routes the value to the shared primitive, no creative work). `/polish` keeps the *creative / finish* verbs: extract a NEW token (`extract-token` / `extract-pattern`), wire missing empty/loading/error states, and the rhythm / hierarchy / motion / cta / surface verbs that introduce finish. Rule of thumb: **`/align` enforces what already exists; `/polish` introduces NEW finish.** The canonical split lives in the boundary table in [`_orchestration-sync.md`](../templates/tool-adapters/_orchestration-sync.md).
+
+**Responsive + theme-mode are out of scope (documented deferral).** The closed 19-verb set intentionally does NOT cover responsive / breakpoint drift or dark-mode / theme-mode drift. There is no `normalize-responsive` or `unify-theme-mode` verb — those concerns defer to **`/enhance-ui`** (single-area iteration with breakpoint + theme handling). Keeping the set closed at 19 preserves the clean per-verb verify contract; adding responsive/theme verbs would require viewport-matrix + theme-matrix verify steps that belong to the iteration loop, not the closure sweep.
 
 ### Backend (`backend-*`)
 
@@ -124,6 +128,8 @@ Closure verbs: ALL frontend closure verbs PLUS:
 - Single-area iteration with style-variant picking → `/enhance-ui <area>` (frontend pack-level).
 - Specialist whole-project visual audit with HTML report → `/ui-sweep` (frontend only, deeper).
 - Read-only audit, no edits → `/design-review` (frontend) / `api-consistency-audit` skill (backend) / `/db-audit` (data).
+- **Enforcing EXISTING tokens / a11y rules / ui-state contracts (mechanical drift → shared primitive, no creative work) → `/align`.** Canonical split: **`/align` enforces what already exists; `/polish` introduces NEW finish.** A "hardcoded value that should map to an EXISTING token" or "a11y drift from an existing rule" is `/align` territory; `/polish` keeps the creative/finish verbs (extract NEW tokens, wire empty/loading/error states, rhythm/hierarchy/motion/cta). See the boundary table in [`_orchestration-sync.md`](../templates/tool-adapters/_orchestration-sync.md).
+- Responsive / breakpoint drift + dark-mode / theme-mode drift → `/enhance-ui` (NOT in the `/polish` closed verb set — see "Responsive + theme-mode" note in the frontend branch).
 - Pure convention drift across all classes (not just polish) → `/align`.
 - Code quality / perf / refactoring → `/optimize`.
 - New features → `/add-feature`.
@@ -378,7 +384,7 @@ All internal. Just results.
 ## Optional flags
 
 - `--dry-run` — show what would be polished, no edits.
-- **`validate-polish-artifacts.sh` (hooks / CI)** — run after the stack-conditional audit; exits non-zero on failure. Set env `QUIET=1` for quieter output (script-supported). There is **no** `--strict` flag on this validator yet — failures are already blocking.
+- **`validate-polish-artifacts.sh` (hooks / CI)** — run after the stack-conditional audit; exits non-zero on failure. Set env `QUIET=1` for quieter output (script-supported). **Deliberate design: the validator is env-var-only — `QUIET`, `POLISH_DIR`, `PROJECT_KIND` — and has NO CLI flags.** There is no `--strict` because every failure is already blocking (no soft/advisory tier to gate); quieting is the only knob, exposed as `QUIET=1` so the same invocation works identically in a hook, in CI, and from a shell.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--max-parallel=<N>` — cap concurrent dispatch (default: 4).
 - `--focus=<list>` — narrow to specific concerns (e.g., `--focus=missing-empty-state` for frontend; `--focus=idempotency-key-missing,log-field-drift` for backend).
@@ -402,7 +408,7 @@ All internal. Just results.
 
 ## Final report contract
 
-Every run that produces `ai/polish/final-report.md` MUST end with an **`## Actionable next steps`** section per `~/.claude/templates/snippets/actionable-next-steps.md`. Every deferred / out-of-scope / "consider doing this" finding gets one paste-ready follow-up command — comment line (WHAT + WHY + scope) + exact command + sorted by leverage. The validator's `check_actionable_next_steps` halts when the section is missing OR when a deferral is described in prose without a corresponding paste-ready command line. Each line cites the relevant closure verb via `--focus=<verb>` when applicable (frontend → `ui-design-sweep` 18-verb set; backend → `api-consistency-audit` verbs; data → `schema-consistency-audit` verbs; mobile → `platform-conventions-audit` verbs).
+Every run that produces `ai/polish/final-report.md` MUST end with an **`## Actionable next steps`** section per `~/.claude/templates/snippets/actionable-next-steps.md`. Every deferred / out-of-scope / "consider doing this" finding gets one paste-ready follow-up command — comment line (WHAT + WHY + scope) + exact command + sorted by leverage. The validator's `check_actionable_next_steps` halts when the section is missing OR when a deferral is described in prose without a corresponding paste-ready command line. Each line cites the relevant closure verb via `--focus=<verb>` when applicable (frontend → `ui-design-sweep` 19-verb set; backend → `api-consistency-audit` 15-verb set; data → `schema-consistency-audit` 12-verb set; mobile → `platform-conventions-audit` verbs).
 
 ## Hard rules (internal)
 

@@ -7,12 +7,25 @@
 #
 # Per ledger row (when ai/optimize/ledger.md exists): fenced YAML rows with
 #   id: <token> (same shape as migrate-parallel / optimize-parallel).
-#   — gaps_in == gaps_closed for terminal statuses
+#   — gaps_in == gaps_closed for terminal statuses (re-detect parity; runs
+#     whenever the ledger exists — NOT gated behind --strict)
 #   — structural classes: net-lines ≤ 0 (when git + --phase-base available)
 #   — non-structural classes with net line additions: idiom citation in findings file
+#   — performance / render-waste rows: findings file MUST carry a measured
+#     baseline + after pair (no perf claim without a measured pair)
+# The ledger is MANDATORY for any run that fixed findings (findings/*.md present)
+#   — it is the only re-detect proof surface.
+#
+# Run summary (final-report.md), always when present:
+#   — coverage not dropped (baseline at ai/optimize/_coverage-baseline vs the
+#     report's Coverage: line; warn-only if either surface is absent)
+#   — boot-check: pass | skipped(<reason>) line REQUIRED; if skipped the reason
+#     must also appear under Not validated:
+#   — any perf claim (perf-win: / p95 / latency / throughput) needs a measured pair
 #
 # Usage:
 #   validate-optimize-artifacts.sh [--artifact=PATH] [--ledger=PATH] [--findings-dir=PATH]
+#   validate-optimize-artifacts.sh [--report=PATH] [--coverage-baseline=PATH]
 #   validate-optimize-artifacts.sh [--strict] [--quiet] [--phase-base=<git-ref>]
 #   validate-optimize-artifacts.sh                    # legacy: first positional = artifact path
 #
@@ -27,6 +40,8 @@ export LC_ALL=C
 ARCH_ARTIFACT="${ARCH_ARTIFACT:-ai/optimize/_architecture-decisions.md}"
 LEDGER_PATH="${LEDGER_PATH:-ai/optimize/ledger.md}"
 FINDINGS_DIR="${FINDINGS_DIR:-ai/optimize/findings}"
+FINAL_REPORT="${FINAL_REPORT:-ai/optimize/final-report.md}"
+COVERAGE_BASELINE="${COVERAGE_BASELINE:-ai/optimize/_coverage-baseline}"
 # At least one convention oracle (matches commands/optimize.md pre-requisites).
 ORACLE_IDIOMS=".claude/_extracted-idioms.md"
 ORACLE_PROFILE=".claude/codebase-profile.md"
@@ -461,6 +476,161 @@ check_idiom_citation_functional() {
   fi
 }
 
+# ── CHECK: performance rows ship a measured baseline + after pair (fix #1) ──
+# commands/optimize.md states perf wins MUST ship with baseline + post-fix
+# measurement (~46 / ~106 / ~353), but nothing enforced it — a perf "win" could
+# ship as prose. Any row with class: performance (or render-waste, which the doc
+# also requires a before/after rebuild-count / frame-time for) MUST carry BOTH a
+# baseline: token and an after: token in its findings/<id>.md. Mirrors the
+# check_per_finding_citations_phase0 style (per-finding evidence presence).
+_row_is_perf_class() {
+  case "${1:-}" in
+    performance|perf|render-waste|render|rebuild|frame-time)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+
+# A measurement token = a baseline/after key, OR a comparison arrow with units
+# (e.g. 410ms → 95ms, 4.2s → 280ms, p95 200ms→35ms, 60fps).
+_has_measurement_pair() {
+  local file="$1"
+  [[ -f "$file" ]] || return 1
+  local has_baseline has_after has_arrow
+  has_baseline=$(grep -ciE '(^|[^a-z])baseline[[:space:]]*[:=]' "$file" 2>/dev/null); has_baseline=${has_baseline:-0}
+  has_after=$(grep -ciE '(^|[^a-z])after[[:space:]]*[:=]' "$file" 2>/dev/null); has_after=${has_after:-0}
+  has_arrow=$(grep -cE '[0-9][0-9.]*[[:space:]]*(ms|s|µs|us|fps|MB|KB|%|rps|qps)[[:space:]]*(->|→|=>)[[:space:]]*[0-9]' "$file" 2>/dev/null); has_arrow=${has_arrow:-0}
+  if [[ "$has_baseline" -ge 1 && "$has_after" -ge 1 ]]; then return 0; fi
+  if [[ "$has_arrow" -ge 1 ]]; then return 0; fi
+  return 1
+}
+
+check_perf_measurement_row() {
+  local id="$1" cls="$2"
+
+  if ! _row_is_perf_class "$cls"; then
+    log_pass "$id: class '$cls' — perf measurement gate N/A"
+    return 0
+  fi
+
+  local ff="$FINDINGS_DIR/${id}.md"
+  if [[ ! -f "$ff" ]]; then
+    log_fail "$id: performance row has no findings file ($ff) — a perf win MUST ship a measured baseline + after pair (commands/optimize.md hard rule)"
+    return 1
+  fi
+  if _has_measurement_pair "$ff"; then
+    log_pass "$id: performance row carries a measured baseline + after pair"
+    return 0
+  fi
+  log_fail "$id: performance row in $ff lacks a measured baseline + after pair (need 'baseline:' AND 'after:' tokens, or an 'N ms → M ms'-style measured pair) — no perf claim without a measured pair"
+  return 1
+}
+
+# ── CHECK: perf claims in the final report carry a measured pair (fix #1) ────
+# Guards the prose surface too: if final-report.md asserts a perf win
+# (perf-win: / p95 / latency / throughput) the report's perf-wins block MUST
+# contain a measured pair. Catches perf claims that never became a ledger row.
+check_perf_claims_final_report() {
+  local report="$1"
+  [[ ! -f "$report" ]] && return 0
+
+  local claims
+  claims=$(grep -ciE 'perf-win:|p95|p99|latency|throughput|Perf wins' "$report" 2>/dev/null); claims=${claims:-0}
+  if [[ "$claims" -lt 1 ]]; then
+    log_pass "final report makes no perf claim — perf measurement gate N/A"
+    return 0
+  fi
+
+  if _has_measurement_pair "$report"; then
+    log_pass "final report perf claim carries a measured pair"
+    return 0
+  fi
+  log_fail "final report asserts a perf win (perf-win: / p95 / latency / throughput) at $report without a measured baseline + after pair — reject perf claims lacking a measured pair"
+  return 1
+}
+
+# ── CHECK: boot-check record present in the summary (fix #3) ─────────────────
+# smoke-verify is skippable (--no-boot-check) but was skippable with NO record.
+# The run summary (final-report.md) MUST carry a `boot-check: pass` or
+# `boot-check: skipped(<reason>)` line. When skipped, the reason MUST also appear
+# under the `Not validated:` honesty line (negative space must be surfaced).
+check_boot_check_record() {
+  local report="$1"
+  [[ ! -f "$report" ]] && return 0
+
+  local line
+  line=$(grep -iE '^[[:space:]]*boot-check:' "$report" | head -1 || true)
+  if [[ -z "$line" ]]; then
+    log_fail "final report missing a 'boot-check: pass | skipped(<reason>)' line at $report — smoke-verify result MUST be recorded, not silently skipped"
+    return 1
+  fi
+
+  if echo "$line" | grep -qiE 'boot-check:[[:space:]]*pass'; then
+    log_pass "boot-check recorded as pass"
+    return 0
+  fi
+
+  if echo "$line" | grep -qiE 'boot-check:[[:space:]]*skipped[[:space:]]*\(.+\)'; then
+    # Skipped → reason must also appear under Not validated:
+    local reason notvalidated
+    reason=$(echo "$line" | sed -E 's/.*skipped[[:space:]]*\((.*)\).*/\1/')
+    notvalidated=$(awk '
+      /^[[:space:]]*Not validated:/ { print; in_nv=1; next }
+      in_nv && /^[[:space:]]*(Risks:|Revert:)/ { in_nv=0 }
+      in_nv { print }
+    ' "$report")
+    if echo "$notvalidated" | grep -qiE 'boot-check|smoke|boot|did not (boot|start)'; then
+      log_pass "boot-check skipped($reason) and surfaced under 'Not validated:'"
+      return 0
+    fi
+    log_fail "boot-check skipped($reason) but the skip is not surfaced under 'Not validated:' at $report — a skipped smoke-verify is negative space and MUST be named"
+    return 1
+  fi
+
+  log_fail "final report 'boot-check:' line is malformed at $report — expected 'pass' or 'skipped(<reason>)': $line"
+  return 1
+}
+
+# ── CHECK: coverage not dropped (fix #2 — mechanical) ───────────────────────
+# Phase 0.5 test-shield captures a coverage baseline; commands/optimize.md states
+# 3× that coverage must not drop. Enforce it mechanically: read the baseline
+# percentage from ai/optimize/_coverage-baseline and the reported after-coverage
+# from the final report's `Coverage:` line, and require after >= baseline.
+# If neither surface exists this is best-effort (agent-side) and only warns.
+_extract_pct() {
+  # First N.M% (or N%) token from stdin.
+  grep -oE '[0-9]+(\.[0-9]+)?%' | head -1 | tr -d '%'
+}
+
+check_coverage_not_dropped() {
+  local report="$1"
+  local baseline_pct after_pct
+
+  if [[ -f "$COVERAGE_BASELINE" ]]; then
+    baseline_pct=$(_extract_pct < "$COVERAGE_BASELINE")
+  fi
+  if [[ -f "$report" ]]; then
+    after_pct=$(grep -iE '^[[:space:]]*Coverage:' "$report" | tail -1 | _extract_pct)
+  fi
+
+  if [[ -z "${baseline_pct:-}" || -z "${after_pct:-}" ]]; then
+    log_warn "coverage-not-dropped is best-effort (agent-side): need a baseline at $COVERAGE_BASELINE AND a 'Coverage:' line in $report to enforce mechanically"
+    return 0
+  fi
+
+  # Compare as integers scaled ×100 to avoid bc dependency.
+  local b a
+  b=$(awk -v v="$baseline_pct" 'BEGIN { printf "%d", v * 100 }')
+  a=$(awk -v v="$after_pct" 'BEGIN { printf "%d", v * 100 }')
+  if (( a >= b )); then
+    log_pass "coverage not dropped (baseline ${baseline_pct}% → after ${after_pct}%)"
+    return 0
+  fi
+  log_fail "coverage DROPPED (baseline ${baseline_pct}% → after ${after_pct}%) at $report — behaviour-preserving fixes must not reduce coverage"
+  return 1
+}
+
 validate_optimize_row() {
   local line="$1"
   local id cls status gin gcl verb
@@ -473,6 +643,7 @@ validate_optimize_row() {
   check_gap_count_parity "$id" "$status" "$gin" "$gcl" || true
   check_net_lines_structural "$id" "$cls" || true
   check_idiom_citation_functional "$id" "$cls" || true
+  check_perf_measurement_row "$id" "$cls" || true
   check_row_code_smells "$id" || true
 
   local ffile="$FINDINGS_DIR/${id}.md"
@@ -494,7 +665,7 @@ scan_findings_handwaves() {
 
 # ── Args ──────────────────────────────────────────────────────────────────────
 usage() {
-  sed -n '2,22p' "$0"
+  sed -n '2,35p' "$0"
   exit 2
 }
 
@@ -503,6 +674,8 @@ while [[ $# -gt 0 ]]; do
     --artifact=*)       ARCH_ARTIFACT="${1#*=}"; shift ;;
     --ledger=*)         LEDGER_PATH="${1#*=}"; shift ;;
     --findings-dir=*)   FINDINGS_DIR="${1#*=}"; shift ;;
+    --report=*)         FINAL_REPORT="${1#*=}"; shift ;;
+    --coverage-baseline=*) COVERAGE_BASELINE="${1#*=}"; shift ;;
     --strict)           STRICT=1; shift ;;
     --quiet|-q)         QUIET=1; shift ;;
     --phase-base=*)     PHASE_BASE="${1#*=}"; shift ;;
@@ -528,26 +701,57 @@ main() {
   check_no_handwaves_file "architecture-decisions" "$ARCH_ARTIFACT" || true
   check_oracle_present || true
 
-  log_section "Ledger rows (optional)"
+  log_section "Ledger rows"
+  # The ledger is the ONLY re-detect proof surface (gap-count parity). Any run
+  # that FIXED findings (findings/<id>.md present, or a final report claiming
+  # closed findings) MUST have a ledger — otherwise parity is unprovable.
+  local findings_present=0
+  if [[ -d "$FINDINGS_DIR" ]]; then
+    shopt -s nullglob
+    local _ff
+    for _ff in "$FINDINGS_DIR"/*.md; do
+      [[ -f "$_ff" ]] && { findings_present=1; break; }
+    done
+    shopt -u nullglob
+  fi
+
   if [[ ! -f "$LEDGER_PATH" ]]; then
     if [[ $STRICT -eq 1 ]]; then
       log_fail "[strict] ledger required at $LEDGER_PATH"
+    elif [[ $findings_present -eq 1 ]]; then
+      log_fail "ledger MANDATORY at $LEDGER_PATH — findings were fixed (findings/*.md present) and the ledger is the only re-detect proof surface (gap-count parity)"
     else
-      log_warn "ledger not found at $LEDGER_PATH — skipping per-row checks"
+      log_warn "ledger not found at $LEDGER_PATH and no findings fixed — skipping per-row checks"
     fi
   else
+    # Robustness (fix #6): a non-empty ledger that parses to zero rows is almost
+    # always malformed (e.g. indented YAML under the fence) — warn, don't pass.
+    local parsed_rows
+    parsed_rows=$(discover_optimize_rows)
+    if [[ -s "$LEDGER_PATH" ]] && [[ -z "$(echo "$parsed_rows" | sed '/^[[:space:]]*$/d')" ]]; then
+      log_warn "ledger at $LEDGER_PATH is non-empty but ZERO rows parsed — check for indented YAML or a missing 'id:' key (re-detect parity cannot be verified)"
+    fi
     local row
     while IFS= read -r row; do
       [[ -z "$row" ]] && continue
       validate_optimize_row "$row" || true
-    done < <(discover_optimize_rows)
+    done <<< "$parsed_rows"
   fi
 
   log_section "Findings directory hand-waves"
   scan_findings_handwaves || true
 
+  log_section "Coverage — not dropped"
+  check_coverage_not_dropped "$FINAL_REPORT" || true
+
+  log_section "Boot-check record"
+  check_boot_check_record "$FINAL_REPORT" || true
+
+  log_section "Performance claims — measured pair"
+  check_perf_claims_final_report "$FINAL_REPORT" || true
+
   log_section "Final report — actionable next steps"
-  check_actionable_next_steps "ai/optimize/final-report.md" || true
+  check_actionable_next_steps "$FINAL_REPORT" || true
 
   echo
   echo "── Summary ──"

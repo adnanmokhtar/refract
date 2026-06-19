@@ -21,7 +21,9 @@ The align pack is **non-negotiable** in the same sense the migration pack is —
 | Codex | rule only | full reliance on self-sufficient rule |
 | Gemini | rule only | full reliance on self-sufficient rule |
 
-**Conclusion**: every tool MUST receive a faithful translation of `align-discipline.md` (the self-sufficient rule). The 11 finding categories, 21-verb closure vocabulary, 11 per-finding audit halts, 14-check phase-exit gate, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate) are all inlined in the rule precisely so rule-only tools have the full surface.
+**Conclusion**: every tool MUST receive a faithful translation of `align-discipline.md` (the self-sufficient rule). The 11 named finding categories, 21-verb closure vocabulary, 11 per-finding audit halts, 14-check phase-exit gate, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate) are all inlined in the rule precisely so rule-only tools have the full surface.
+
+> **11 classes vs 12 detectors — reconciliation.** Per `templates/packs/align/_version.json` (1.6.0 "Count consistency"): there are **11 universal named classes** (6 structural + 5 functional) in `align-discipline.md`, but **12 universal detectors** in the scan/validator surface — the extra detector is the `dependencies` (vuln-deps) sub-class plus the stack-specific file-convention detector counted separately. So "11 classes" and "12 detectors" are both correct and refer to different counts; this doc uses "12 detectors" wherever it means the scan-evidence surface and "11 classes" wherever it means the named taxonomy.
 
 The align pack ships **no agents** (unlike migration). All detection is delegated to the `detect-drift` skill (which itself dispatches existing agents from `code-quality/`, `security/`, `frontend/`, `ui-ux/` packs). This simplifies adapter coverage — every tool that supports rules + skills gets the full surface.
 
@@ -64,9 +66,9 @@ Adapter responsibility: this flag MUST be exposed in tool-native command surface
 
 ## Validator script — `validate-align-artifacts.sh` (v1.5+)
 
-Now ships at `scripts/validate-align-artifacts.sh` (589 lines). Implements 7 of the 14 gate checks mechanically: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum.
+Now ships at `scripts/validate-align-artifacts.sh`. Enforces the `[SCRIPT]`-tagged checks **mechanically** (see the tagged 14-check matrix below): evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum, security-assertion, perf-baseline, idiom-citation, oracle-unmodified, scope-code-smells — plus the run-level scan-report-evidence, progress/ledger-reconciliation, and actionable-next-steps checks.
 
-Remaining 7 (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) stay agent-side until v2.
+The `[AGENT]`-tagged checks (test-coverage, frontend-regression, re-detect-to-zero, fingerprint-still-present, ledger-completeness, mechanical-at-HEAD, per-tier-artifact-set) stay agent-side — they require running detectors / the test suite / a11y / bundle tooling, which a deterministic validator cannot do. The validator's own header (`§ Genuinely agent-side`) admits this; rule-only tools MUST NOT assume the script covers them.
 
 Adapter responsibility: install the script as a hook integration per tool (see Validator script — universal callable section).
 
@@ -190,27 +192,44 @@ Every adapter setup that includes `--include=align` MUST also propagate these el
 
 The script returns non-zero on any failure; tool integrations should treat that as a blocking error.
 
-The script implements 14 checks:
-1. Ledger completeness — every phase row in `{fixed, archived-pre-existing, parked}`.
-2. Gap-count parity — `gaps_closed == len(evidence)` for every fixed row.
-3. Net-lines on structural rows ≤ 0.
-4. No new symbols (with idioms-named exemption).
-5. No scope creep — every commit's files ⊂ row.scope.
-6. Mechanical (lint + typecheck + tests) at HEAD.
-7. Coverage non-decreasing.
-8. Frontend regressions (a11y, visual, bundle-size) for `frontend-*`.
-9. Oracle unmodified (`_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md`).
-10. Per-tier artifact set complete.
-11. Functional adds cite idiom — `check_added_lines_cite_idioms`.
-12. Security assertion present — for every security row.
-13. Perf baseline + assertion present — for every perf row.
-14. Security tier minimum — no security row at trivial; critical at heavy.
+The 14-check phase-exit matrix — **tagged by enforcement surface**. `[SCRIPT]` = deterministic, enforced by `validate-align-artifacts.sh`. `[AGENT]` = needs runtime tooling (re-runs detectors / the test suite / a11y / bundle), so it is **agent-side only** — a rule-only tool MUST run it by hand; the script cannot. Do NOT translate this matrix as if it were fully mechanical:
+
+1. `[AGENT]` Ledger completeness — every phase row in `{fixed, archived-pre-existing, parked}`.
+2. `[AGENT]` Gap-count parity — `gaps_closed == len(evidence)` for every fixed row (re-detect-to-zero / fingerprint-still-present run the detectors live).
+3. `[SCRIPT]` Net-lines on structural rows ≤ 0 — `check_net_lines_structural`.
+4. `[SCRIPT]` No new symbols (with idioms-named exemption) — `check_no_new_symbols`.
+5. `[SCRIPT]` No scope creep — every commit's files ⊂ row.scope — `check_scope_boundary`.
+6. `[AGENT]` Mechanical (lint + typecheck + tests) at HEAD.
+7. `[AGENT]` Coverage non-decreasing.
+8. `[AGENT]` Frontend regressions (a11y, visual, bundle-size) for `frontend-*`.
+9. `[SCRIPT]` Oracle unmodified (`_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md`) — `check_oracle_unmodified`.
+10. `[AGENT]` Per-tier artifact set complete.
+11. `[SCRIPT]` Functional adds cite idiom — `check_added_lines_cite_idioms`.
+12. `[SCRIPT]` Security assertion present — for every security row — `check_security_assertion_present`.
+13. `[SCRIPT]` Perf baseline present — for every perf row — `check_perf_baseline_present`.
+14. `[SCRIPT]` Security tier minimum — no security row at trivial; critical at heavy — `check_security_tier_minimum`.
+
+Plus run-level `[SCRIPT]` checks not in the original 14: scan-report evidence (FAILs when the ledger claims findings-closed but no scan-report exists), progress/ledger reconciliation (`ai/align/ledger.md` is the single source of truth — `progress.md` may not mark a module done while non-terminal ledger rows remain in its scope), scope-code-smells, and actionable-next-steps.
+
+> **Reconcile gate "live" vs validator "[PLANNED]".** `align-gate.md` historically tagged `validate-align-artifacts.sh` as `[PLANNED — v1.1]` and ran the checks inline (agent-side). As of validator v1.5+ the script **ships and is live** for the `[SCRIPT]`-tagged checks above; the `[AGENT]`-tagged checks remain agent-side (the gate still runs those inline). Treat the script as the live floor for mechanical checks and the agent as the enforcer for runtime checks — not "all 14 are mechanical."
+
+## Companion scripts — install the **full** bundle
+
+Mirrors the optimize / polish coverage docs: the validator alone is not the full executable surface. Ship the bundle.
+
+| Script | Role |
+|--------|------|
+| `validate-align-artifacts.sh` | Primary gate for the scan-report + ledger (the `[SCRIPT]` checks above) |
+| `align-parallel.sh` | Headless dispatch; parses **`id:`** rows + `status:` like `migrate-parallel.sh`; drives the per-finding fix waves |
+| `parallel-fan-out.sh` | Worker engine; pass **`--ledger=ai/align/ledger.md`** so `flock` targets the align ledger (not the migration default) |
+
+**Parallel runners MUST pass `--ledger=`** — wrappers (`align-parallel.sh`, `optimize-parallel.sh`, `polish-parallel.sh`, `migrate-parallel.sh`, `audit-parallel.sh`) forward their ledger path to `parallel-fan-out.sh`. Adapters MUST install the bundle, not only the validator script.
 
 ## Adapter responsibilities
 
 When an adapter ships the align pack:
 
-1. **MUST translate the rule** (`align-discipline.md`) faithfully — including the inlined 11 finding categories, 21-verb closure vocabulary, 11 per-finding audit halts, 14 phase-exit checks, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate). Do NOT abridge.
+1. **MUST translate the rule** (`align-discipline.md`) faithfully — including the inlined 11 named finding categories (= 12 detectors counting the dependencies sub-class + stack-specific; see reconciliation note above), 21-verb closure vocabulary, 11 per-finding audit halts, 14 phase-exit checks, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate). Do NOT abridge.
 2. **MUST translate or document skills** (`detect-drift`, `find-and-align`) to the tool's native format if supported. If not supported, document in the rule's "Tool-agnostic procedure" that the procedural detail is inlined.
 3. **MUST install or document `validate-align-artifacts.sh`** as a pre-commit / CI / hook integration.
 4. **MUST translate all 9 commands** (`align-scan`, `align-plan`, `align-phase`, `align-gate`, `align-fast`, `align-status`, `align-final`, `align-rollback`, `align-park`) — or for rule-only tools, document them as procedural recipes in the rule.

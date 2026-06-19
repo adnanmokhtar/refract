@@ -28,12 +28,13 @@ FAILURES=()
 log_pass() { TOTAL_PASS=$((TOTAL_PASS + 1)); [[ $QUIET -eq 0 ]] && echo "  ✓ $1"; }
 log_fail() { TOTAL_FAIL=$((TOTAL_FAIL + 1)); FAILURES+=("$1"); echo "  ✗ $1" >&2; }
 
-# Closed UI/UX closure-verb vocabulary from ui-design-sweep.md.
+# Closed UI/UX closure-verb vocabulary from ui-design-sweep.md (19 verbs).
 # Frontend polish findings MUST use one of these verbs (or no verb at all).
 # Verbs not on this list = either (a) an architectural concern routed elsewhere,
-# (b) a code-structure concern (refactoring-sweep), or (c) a 19th-verb invention
+# (b) a code-structure concern (refactoring-sweep), or (c) a 20th-verb invention
 # the skill explicitly forbids. Rejecting them here mirrors the way
 # validate-refactor-artifacts.sh enforces refactoring-sweep's 10-verb set.
+# This array is the SOURCE OF TRUTH for the frontend verb count (19).
 UI_DESIGN_SWEEP_VERBS=(
   consolidate-tokens extract-token unify-component extract-pattern
   normalize-hierarchy apply-type-scale tighten-rhythm simplify-density
@@ -42,10 +43,43 @@ UI_DESIGN_SWEEP_VERBS=(
   expand-tap-target unify-cta-placement clarify-affordance normalize-surface
 )
 
+# Closed backend closure-verb vocabulary from commands/polish.md § Backend (15 verbs).
+API_CONSISTENCY_VERBS=(
+  unify-envelope unify-error-contract unify-naming unify-pagination
+  unify-versioning unify-auth-header add-idempotency-key unify-rate-limit-headers
+  unify-log-fields unify-metric-names unify-trace-spans unify-timeout-policy
+  unify-retry-policy add-openapi-doc add-endpoint-example
+)
+
+# Closed data closure-verb vocabulary from commands/polish.md § Data (12 verbs).
+SCHEMA_CONSISTENCY_VERBS=(
+  unify-column-naming unify-type-choice unify-index-naming unify-fk-naming
+  unify-migration-pattern unify-timestamp-cols add-soft-delete add-audit-fields
+  unify-timezone unify-charset unify-collation unify-nullable
+)
+
 is_ui_design_sweep_verb() {
   local v="$1"
   local ok
   for ok in "${UI_DESIGN_SWEEP_VERBS[@]}"; do
+    [[ "$v" == "$ok" ]] && return 0
+  done
+  return 1
+}
+
+is_api_consistency_verb() {
+  local v="$1"
+  local ok
+  for ok in "${API_CONSISTENCY_VERBS[@]}"; do
+    [[ "$v" == "$ok" ]] && return 0
+  done
+  return 1
+}
+
+is_schema_consistency_verb() {
+  local v="$1"
+  local ok
+  for ok in "${SCHEMA_CONSISTENCY_VERBS[@]}"; do
     [[ "$v" == "$ok" ]] && return 0
   done
   return 1
@@ -70,6 +104,7 @@ check_frontend_evidence() {
 
   local cited
   cited=$(grep -cE '<[^>]+:[0-9]+>|`[^`]+:[0-9]+`' "$file" 2>/dev/null || echo 0)
+  cited=$(printf '%s\n' "$cited" | tail -1)
   cited=${cited:-0}
   if [[ "$cited" -lt 1 ]]; then
     log_fail "frontend polish has no <path:line> citations in $file"
@@ -112,6 +147,72 @@ check_frontend_verb_vocabulary() {
   return 0
 }
 
+check_backend_verb_vocabulary() {
+  # Backend polish findings under ai/polish/ledger.md (or _api-decisions.md
+  # inline rows) must use the api-consistency-audit closed 15-verb set.
+  # Mirrors check_frontend_verb_vocabulary.
+  local ledger="$POLISH_DIR/ledger.md"
+  local api="$POLISH_DIR/_api-decisions.md"
+  local sources=()
+  [[ -f "$ledger" ]] && sources+=("$ledger")
+  [[ -f "$api" ]] && sources+=("$api")
+  [[ ${#sources[@]} -eq 0 ]] && return 0
+
+  local bad=()
+  local total=0
+  local f line verb
+  for f in "${sources[@]}"; do
+    while IFS= read -r line; do
+      verb=$(echo "$line" | sed -E 's/.*closure_verb:[[:space:]]*//; s/[[:space:]#].*//; s/["'"'"']//g')
+      [[ -z "$verb" ]] && continue
+      total=$((total + 1))
+      is_api_consistency_verb "$verb" || bad+=("$f: $verb")
+    done < <(grep -E 'closure_verb:' "$f" 2>/dev/null || true)
+  done
+
+  if [[ ${#bad[@]} -gt 0 ]]; then
+    log_fail "backend polish uses verbs outside api-consistency-audit closed vocabulary: ${bad[*]} (allowed: ${API_CONSISTENCY_VERBS[*]})"
+    return 1
+  fi
+  if [[ $total -gt 0 ]]; then
+    log_pass "backend polish closure_verb vocabulary: $total/$total in api-consistency-audit set"
+  fi
+  return 0
+}
+
+check_data_verb_vocabulary() {
+  # Data polish findings under ai/polish/ledger.md (or _schema-decisions.md
+  # inline rows) must use the schema-consistency-audit closed 12-verb set.
+  # Mirrors check_frontend_verb_vocabulary.
+  local ledger="$POLISH_DIR/ledger.md"
+  local schema="$POLISH_DIR/_schema-decisions.md"
+  local sources=()
+  [[ -f "$ledger" ]] && sources+=("$ledger")
+  [[ -f "$schema" ]] && sources+=("$schema")
+  [[ ${#sources[@]} -eq 0 ]] && return 0
+
+  local bad=()
+  local total=0
+  local f line verb
+  for f in "${sources[@]}"; do
+    while IFS= read -r line; do
+      verb=$(echo "$line" | sed -E 's/.*closure_verb:[[:space:]]*//; s/[[:space:]#].*//; s/["'"'"']//g')
+      [[ -z "$verb" ]] && continue
+      total=$((total + 1))
+      is_schema_consistency_verb "$verb" || bad+=("$f: $verb")
+    done < <(grep -E 'closure_verb:' "$f" 2>/dev/null || true)
+  done
+
+  if [[ ${#bad[@]} -gt 0 ]]; then
+    log_fail "data polish uses verbs outside schema-consistency-audit closed vocabulary: ${bad[*]} (allowed: ${SCHEMA_CONSISTENCY_VERBS[*]})"
+    return 1
+  fi
+  if [[ $total -gt 0 ]]; then
+    log_pass "data polish closure_verb vocabulary: $total/$total in schema-consistency-audit set"
+  fi
+  return 0
+}
+
 check_backend_evidence() {
   local file="$POLISH_DIR/_api-decisions.md"
   if [[ ! -f "$file" ]]; then
@@ -131,6 +232,7 @@ check_backend_evidence() {
 
   local endpoints
   endpoints=$(grep -cE '^[[:space:]]*(GET|POST|PUT|PATCH|DELETE)[[:space:]]+/' "$file" 2>/dev/null || echo 0)
+  endpoints=$(printf '%s\n' "$endpoints" | tail -1)
   endpoints=${endpoints:-0}
   if [[ "$endpoints" -lt 1 ]]; then
     log_fail "backend polish lists zero endpoints in $file — Endpoint registry must enumerate every {method, path}."
@@ -159,6 +261,7 @@ check_data_evidence() {
 
   local tables
   tables=$(grep -cE '^[[:space:]]*Table:[[:space:]]+\w+' "$file" 2>/dev/null || echo 0)
+  tables=$(printf '%s\n' "$tables" | tail -1)
   tables=${tables:-0}
   if [[ "$tables" -lt 1 ]]; then
     log_fail "data polish lists zero tables in $file — Schema introspection must enumerate every table."
@@ -211,6 +314,9 @@ check_no_handwaves() {
   ' "$file" > "$scrubbed"
   handwaves=$(grep -cE '\.\.\.[[:space:]]*$|, etc\.| etc\.\)|\b[0-9]+\+[[:space:]]+(surfaces?|endpoints?|tables?|screens?|fields?|tabs?)\b|\band so on\b|\bdeferred\b|\bby inspection\b' "$scrubbed" 2>/dev/null || echo 0)
   rm -f "$scrubbed"
+  # grep -c on no match prints "0" AND exits 1, so `|| echo 0` can append a
+  # second line ("0\n0"); collapse to the last numeric token.
+  handwaves=$(printf '%s\n' "$handwaves" | tail -1)
   handwaves=${handwaves:-0}
 
   if [[ "$handwaves" -gt 0 ]]; then
@@ -266,21 +372,166 @@ check_actionable_next_steps() {
   return 0
 }
 
+# --- Fenced-YAML ledger row parsing (mirrors migrate/align row parsing) -------
+#
+# The ledger is a series of ``` fenced blocks; each block that contains an `id:`
+# line is one row. Each gate below runs a single self-contained awk pass that
+# walks fences, collects the fields it needs per row, and prints one token per
+# OFFENDING terminal row. Bash then inspects the offending tokens. Doing the
+# field extraction inside awk (rather than bash subshells) avoids the
+# lost-array pitfall of `while read` in a pipe and keeps the parser robust.
+#
+# A terminal row is one whose `status:` or `state:` is done / verified / fixed.
+
+check_gaps_parity() {
+  # Any terminal row MUST have gaps_in == gaps_closed. Mirrors migration/align.
+  local ledger="$POLISH_DIR/ledger.md"
+  [[ ! -f "$ledger" ]] && return 0
+
+  local report checked bad
+  report=$(awk '
+    function val(key,  v) { v=line; sub("^[[:space:]]*" key ":[[:space:]]*","",v); gsub(/^[[:space:]]+|[[:space:]]+$/,"",v); gsub(/["\047]/,"",v); return v }
+    function flush() {
+      if (have_id) {
+        terminal = (status ~ /^(done|verified|fixed)$/) || (state ~ /^(done|verified|fixed)$/)
+        if (terminal && (gi != "" || gc != "")) {
+          g_in = (gi == "" ? "0" : gi); g_cl = (gc == "" ? "0" : gc)
+          checked++
+          if (g_in != g_cl) bad = bad sprintf("%s(gaps_in=%s!=gaps_closed=%s) ", (id==""?"<no-id>":id), g_in, g_cl)
+        }
+      }
+      have_id=0; id=""; status=""; state=""; gi=""; gc=""
+    }
+    /^[[:space:]]*```/ { flush(); next }
+    { line=$0; sub(/[[:space:]]*#.*/,"",line) }
+    line ~ /^[[:space:]]*id:/          { id=val("id"); have_id=1 }
+    line ~ /^[[:space:]]*status:/      { status=val("status") }
+    line ~ /^[[:space:]]*state:/       { state=val("state") }
+    line ~ /^[[:space:]]*gaps_in:/     { gi=val("gaps_in") }
+    line ~ /^[[:space:]]*gaps_closed:/ { gc=val("gaps_closed") }
+    END { flush(); printf "%d\037%s", checked, bad }
+  ' "$ledger")
+  checked="${report%%$'\037'*}"
+  bad="${report#*$'\037'}"
+
+  if [[ -n "${bad// /}" ]]; then
+    log_fail "polish terminal rows with unbalanced gaps (gaps_in != gaps_closed): ${bad% }"
+    return 1
+  fi
+  [[ "${checked:-0}" -gt 0 ]] && log_pass "polish gaps parity: $checked terminal row(s) balanced (gaps_in == gaps_closed)"
+  return 0
+}
+
+check_outcome_delta() {
+  # A no-op polish (zero diff, identical a11y/OpenAPI/schema) must NOT be `done`.
+  # Terminal rows must show a non-empty delta (a11y / OpenAPI / schema / commits /
+  # diff) OR be classed `no-change`.
+  local ledger="$POLISH_DIR/ledger.md"
+  [[ ! -f "$ledger" ]] && return 0
+
+  local bad
+  bad=$(awk '
+    function val(key,  v) { v=line; sub("^[[:space:]]*" key ":[[:space:]]*","",v); gsub(/^[[:space:]]+|[[:space:]]+$/,"",v); gsub(/["\047]/,"",v); return v }
+    function nonzero(x) { return (x != "" && x != "0" && x != "none" && x != "+0 / -0") }
+    function flush() {
+      if (have_id) {
+        terminal = (status ~ /^(done|verified|fixed)$/) || (state ~ /^(done|verified|fixed)$/)
+        if (terminal && class != "no-change" && outcome != "no-change") {
+          has = nonzero(a11y) || nonzero(openapi) || nonzero(schema) || nonzero(commits) || nonzero(diff)
+          if (!has) bad = bad (id==""?"<no-id>":id) " "
+        }
+      }
+      have_id=0; id=""; status=""; state=""; class=""; outcome=""
+      a11y=""; openapi=""; schema=""; commits=""; diff=""
+    }
+    /^[[:space:]]*```/ { flush(); next }
+    { line=$0; sub(/[[:space:]]*#.*/,"",line) }
+    line ~ /^[[:space:]]*id:/            { id=val("id"); have_id=1 }
+    line ~ /^[[:space:]]*status:/        { status=val("status") }
+    line ~ /^[[:space:]]*state:/         { state=val("state") }
+    line ~ /^[[:space:]]*class:/         { class=val("class") }
+    line ~ /^[[:space:]]*outcome:/       { outcome=val("outcome") }
+    line ~ /^[[:space:]]*a11y_delta:/    { a11y=val("a11y_delta") }
+    line ~ /^[[:space:]]*openapi_delta:/ { openapi=val("openapi_delta") }
+    line ~ /^[[:space:]]*schema_delta:/  { schema=val("schema_delta") }
+    line ~ /^[[:space:]]*commits:/       { commits=val("commits") }
+    line ~ /^[[:space:]]*diff:/          { diff=val("diff") }
+    END { flush(); printf "%s", bad }
+  ' "$ledger")
+
+  if [[ -n "${bad// /}" ]]; then
+    log_fail "polish terminal rows with no measurable outcome (zero diff / identical a11y / OpenAPI / schema) — class them 'no-change', not 'done': ${bad% }"
+    return 1
+  fi
+  log_pass "polish outcome-delta: every terminal row shows a delta or is classed no-change"
+  return 0
+}
+
+check_visual_baseline() {
+  # Terminal FRONTEND rows must reference a visual baseline AND must not be
+  # marked done while still `pending-review`. ui-design-sweep marks
+  # no-visual-verify rows `pending-review` (not `done`) — enforce that here.
+  case "$PROJECT_KIND" in
+    frontend-*|mobile-*) ;;
+    *) return 0 ;;
+  esac
+  local ledger="$POLISH_DIR/ledger.md"
+  [[ ! -f "$ledger" ]] && return 0
+
+  local bad
+  bad=$(awk '
+    function val(key,  v) { v=line; sub("^[[:space:]]*" key ":[[:space:]]*","",v); gsub(/^[[:space:]]+|[[:space:]]+$/,"",v); gsub(/["\047]/,"",v); return v }
+    function flush() {
+      if (have_id) {
+        terminal = (status ~ /^(done|verified|fixed)$/) || (state ~ /^(done|verified|fixed)$/)
+        if (terminal) {
+          if (status == "pending-review" || state == "pending-review" || review == "pending")
+            bad = bad (id==""?"<no-id>":id) "(pending-review-marked-terminal) "
+          else {
+            b = (baseline != "" ? baseline : vbaseline)
+            if (b == "" || b == "none" || b == "missing")
+              bad = bad (id==""?"<no-id>":id) "(no-baseline) "
+          }
+        }
+      }
+      have_id=0; id=""; status=""; state=""; review=""; baseline=""; vbaseline=""
+    }
+    /^[[:space:]]*```/ { flush(); next }
+    { line=$0; sub(/[[:space:]]*#.*/,"",line) }
+    line ~ /^[[:space:]]*id:/              { id=val("id"); have_id=1 }
+    line ~ /^[[:space:]]*status:/          { status=val("status") }
+    line ~ /^[[:space:]]*state:/           { state=val("state") }
+    line ~ /^[[:space:]]*review:/          { review=val("review") }
+    line ~ /^[[:space:]]*baseline:/        { baseline=val("baseline") }
+    line ~ /^[[:space:]]*visual_baseline:/ { vbaseline=val("visual_baseline") }
+    END { flush(); printf "%s", bad }
+  ' "$ledger")
+
+  if [[ -n "${bad// /}" ]]; then
+    log_fail "polish terminal frontend rows missing a visual baseline OR marked done while pending-review: ${bad% }"
+    return 1
+  fi
+  log_pass "polish visual-baseline: every terminal frontend row has a baseline and is not pending-review"
+  return 0
+}
+
 main() {
   [[ $QUIET -eq 0 ]] && echo "validate-polish-artifacts.sh"
   [[ $QUIET -eq 0 ]] && echo "  PROJECT_KIND: $PROJECT_KIND"
   [[ $QUIET -eq 0 ]] && echo "  POLISH_DIR:   $POLISH_DIR"
 
   case "$PROJECT_KIND" in
-    frontend-*) check_frontend_evidence || true; check_frontend_verb_vocabulary || true ;;
-    backend-*)  check_backend_evidence  || true ;;
-    data-*)     check_data_evidence     || true ;;
-    mobile-*)   check_mobile_evidence || check_frontend_evidence || true; check_frontend_verb_vocabulary || true ;;
+    frontend-*) check_frontend_evidence || true; check_frontend_verb_vocabulary || true; check_visual_baseline || true ;;
+    backend-*)  check_backend_evidence  || true; check_backend_verb_vocabulary || true ;;
+    data-*)     check_data_evidence     || true; check_data_verb_vocabulary || true ;;
+    mobile-*)   check_mobile_evidence || check_frontend_evidence || true; check_frontend_verb_vocabulary || true; check_visual_baseline || true ;;
     *)
       log_fail "unknown PROJECT_KIND: $PROJECT_KIND — set in .claude/_extracted-codebase.md § Gold standards"
       ;;
   esac
   check_no_handwaves || true
+  check_gaps_parity || true
+  check_outcome_delta || true
   check_actionable_next_steps || true
 
   echo

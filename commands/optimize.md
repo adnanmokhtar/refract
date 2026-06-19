@@ -86,7 +86,7 @@ Examples:
    - Repetition analysis (≥3 sites of same shape → missing-abstraction candidate).
    Emits internal `ai/optimize/_architecture-decisions.md` listing foundation-level fixes (cascade impact) vs cosmetic (would be tactical anyway). NOT shown to user.
 
-1.5. **Phase 0.5 — test-shield (coverage gate)** (dispatched via `test-shield` skill in code-quality pack). Before any behaviour-preserving fix touches a branch, measure coverage of the in-scope set; for each touched-but-uncovered branch, pin current behaviour with a characterization test (`/add-test`) BEFORE the fix, or mark the finding `blocked`. "Tests stay green" is only proof of preservation when a test exercises the touched branch. This baseline is what step 7's "coverage must not drop" compares against.
+1.5. **Phase 0.5 — test-shield (coverage gate)** (dispatched via `test-shield` skill in code-quality pack). Before any behaviour-preserving fix touches a branch, measure coverage of the in-scope set; for each touched-but-uncovered branch, pin current behaviour with a characterization test (`/add-test`) BEFORE the fix, or mark the finding `blocked`. "Tests stay green" is only proof of preservation when a test exercises the touched branch. **Write the measured baseline percentage to `ai/optimize/_coverage-baseline`** — this is the artifact step 7's "coverage must not drop" compares against, and the validator reads it mechanically (`check_coverage_not_dropped`: after-coverage from the report's `Coverage:` line must be ≥ baseline). If the baseline file or the `Coverage:` line is absent the gate degrades to best-effort (agent-side) and only warns.
 
 2. **Phase 1 — Apply foundations FIRST** (architectural closure verbs):
    `move-responsibility`, `introduce-abstraction`, `fix-layering`, `centralize-cross-cutting`, `split-god-module`, `decouple-cycle`, `merge-anemic-module`. Each foundation fix gets one commit. Re-runs typecheck + scoped tests after each.
@@ -103,7 +103,7 @@ Examples:
    - **Performance** — for data-layer and runtime hotspots, dispatch the specialist that owns the detector and APPLY its proposal in-band rather than reimplementing inline: `performance-optimizer` (hot-path CPU / allocation / async), `query-optimizer` + `database-optimizer` (index / query-plan / N+1). These DB agents are **propose-only**; `/optimize` is the applier — it takes their index/migration proposal, runs the before/after query-plan, applies, and commits. Closure verbs: `parallelize`, `batch`, `cache-with-explicit-ttl`, `add-index`, `project-columns`, `push-down-filter`.
    - **Render waste** (`frontend-*` / `mobile-*`): `scope-state-down`, `move-to-lifecycle`, `extract-const-subtree`, `memoize`, `virtualize-list`, `scope-animation`, `select-store-slice` (per `mobile/rules/render-discipline.md` § The 8 detectors; measured rebuild-count / frame-time delta required).
 
-7. **Verify continuously** — lint + typecheck + scoped tests after each fix. Coverage must not drop. Behaviour-preserving for all structural fixes (architectural moves, refactoring, dead code, dedup, over-abstraction); perf fixes ship with assertions + before/after measurement.
+7. **Verify continuously** — lint + typecheck + scoped tests after each fix. **Coverage must not drop** — enforced mechanically by the validator (`check_coverage_not_dropped`) against the `ai/optimize/_coverage-baseline` written in Phase 0.5; degrades to best-effort warn if the baseline / `Coverage:` line is missing. Behaviour-preserving for all structural fixes (architectural moves, refactoring, dead code, dedup, over-abstraction); perf fixes ship with assertions + before/after measurement (a measured `baseline:` + `after:` pair recorded in `findings/<id>.md` — the validator rejects perf rows without one).
 
 8. **Self-resolve common questions** — closure verbs are mechanical. Agent doesn't ask permission per fix.
 
@@ -117,7 +117,7 @@ Examples:
 
 10. **Skip findings that aren't load-bearing** — clean-code findings in test fixtures / one-time scripts skip; only ship-path code gets optimized.
 
-11. **Boot-check (final)** — dispatch the `smoke-verify` skill (code-quality pack) after the last commit. A green suite doesn't prove the app starts; smoke-verify boots it per `PROJECT_KIND` (dev server / server + health probe / CLI / library import) and HALTS if it doesn't come up — catching DI / route-registration / import-cycle breaks no unit test covers. Skippable with `--no-boot-check` for pure libraries.
+11. **Boot-check (final)** — dispatch the `smoke-verify` skill (code-quality pack) after the last commit. A green suite doesn't prove the app starts; smoke-verify boots it per `PROJECT_KIND` (dev server / server + health probe / CLI / library import) and HALTS if it doesn't come up — catching DI / route-registration / import-cycle breaks no unit test covers. Skippable with `--no-boot-check` for pure libraries. **The result MUST be recorded in the run summary as a `boot-check: pass` or `boot-check: skipped(<reason>)` line** — a skip is never silent. When skipped, the reason ALSO goes under `Not validated:` (the validator enforces both: presence of the line, and that a skip is surfaced as negative space). See `validate-optimize-artifacts.sh § check_boot_check_record`.
 
 ## Progress tracking (multi-day workflow)
 
@@ -249,6 +249,7 @@ Perf wins (measured):
 
 Skipped (test fixtures): 12 findings
 
+boot-check:          pass (dev server + /health probe)
 Not validated:       load test at production RPS (no load-test env) — perf wins measured at dev concurrency
 Risks:               PaginationStrategy touches every list endpoint — staging smoke pass recommended
 Revert:              git revert <first-sha>..<last-sha>  (architectural commits land first — revert tactical-only range to keep foundations)
@@ -278,6 +279,7 @@ Tests:               124/124 passing
 Bundle delta:        -2.1% (smaller)
 Wall-clock:          11m 23s
 
+boot-check:          pass (dev server booted, route smoke ok)
 Skipped (test fixtures): 7 findings
 ```
 
@@ -300,7 +302,8 @@ Perf wins (measured):
   funnel_query_p95: 4.2s → 280ms (-93%)
   cohort_export_p95: 18s → 4s (-78%)
 
-Not validated:       none — full suite + EXPLAIN ANALYZE on prod-sized snapshot ran
+boot-check:          skipped(data-only schema change — no app boot surface)
+Not validated:       boot-check skipped (data-only schema change); full suite + EXPLAIN ANALYZE on prod-sized snapshot ran
 Risks:               dropped columns are in last night's backup until <date> — restore window closes then
 Revert:              git revert <first-sha>..<last-sha>  (index migrations are reversible; see down() in each)
 ```
@@ -318,11 +321,11 @@ All internal. Just results.
 ## Optional flags
 
 - `--dry-run` — show what would be optimized, no edits.
-- `--strict` — forwarded to **`validate-optimize-artifacts.sh`**: Phase 0 must reference `_extracted-idioms.md`; **`ai/optimize/ledger.md`** required for full per-row gates.
+- `--strict` — forwarded to **`validate-optimize-artifacts.sh`**: Phase 0 must reference `_extracted-idioms.md`; **`ai/optimize/ledger.md`** required unconditionally (even for a no-fix audit). **Note: the ledger is already MANDATORY without `--strict` for any run that fixed findings** — it is the only re-detect proof surface, so the validator fails when `findings/*.md` exist but no ledger does. `--strict` only extends that requirement to runs that fixed nothing.
 - `--quiet` — forwarded to **`validate-optimize-artifacts.sh`** (`-q`) when invoking the validator from hooks / CI.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--max-parallel=<N>` — cap concurrent dispatch (default: 5).
-- `--focus=<list>` — narrow to specific concerns (e.g., `--focus=performance,dead-code`). Default: all classes.
+- `--focus=<list>` — narrow the **tactical** classes (e.g., `--focus=performance,dead-code`). Default: all classes. **`--focus` narrows the tactical sweep only — Phase 0 architectural diagnosis ALWAYS runs in full and stays gated by the validator regardless of `--focus`.** You cannot use `--focus` to skip the bigger-picture scan; it only trims which tactical fix classes the parallel wave touches.
 - `--exclude=<scope>` — exclude areas (e.g., `--exclude=tests,migrations,_examples`).
 - `--surface-blockers` — show all halted findings, not just the summary.
 
@@ -339,18 +342,24 @@ Every run that produces `ai/optimize/final-report.md` MUST end with an **`## Act
 ## Hard rules (internal)
 
 Applied silently per the discipline:
-- **Validator gate is mandatory.** *(Mechanical — `validate-optimize-artifacts.sh`: Phase 0 blocks + citations + hand-waves + oracle; ledger + `--strict`.)* After Phase 0 produces `ai/optimize/_architecture-decisions.md`, the agent MUST run `~/.claude/scripts/validate-optimize-artifacts.sh`. The validator halts if the four evidence blocks (Dependency map / Responsibility map / Layer attribution / Detector run) are missing or empty, if detectors report zero modules scanned, if any `### F-A-*` lacks `<path:line>`, or if hand-waves are present (see `validate-optimize-artifacts.sh`: `check_phase_0_blocks_nonempty`, `check_per_finding_citations_phase0`, `check_no_handwaves_file`). **`--strict`** also requires the idioms oracle to be referenced and requires `ai/optimize/ledger.md` for per-row gates. A failed validator forces the diagnosis to be re-emitted. Without this gate, Phase 0 can produce a summary diagnosis instead of an actual scan — the F039 anti-Trusted-Summary recurrence applied to /optimize.
+- **Validator gate is mandatory.** *(Mechanical — `validate-optimize-artifacts.sh`: Phase 0 blocks + citations + hand-waves + oracle; ledger + `--strict`; perf-measurement + coverage + boot-check gates.)* After Phase 0 produces `ai/optimize/_architecture-decisions.md`, the agent MUST run `~/.claude/scripts/validate-optimize-artifacts.sh`. The validator halts if the four evidence blocks (Dependency map / Responsibility map / Layer attribution / Detector run) are missing or empty, if detectors report zero modules scanned, if any `### F-A-*` lacks `<path:line>`, or if hand-waves are present (see `validate-optimize-artifacts.sh`: `check_phase_0_blocks_nonempty`, `check_per_finding_citations_phase0`, `check_no_handwaves_file`). It also halts on:
+  - **Measurement gate** (`check_perf_measurement_row` + `check_perf_claims_final_report`): any ledger row with `class: performance` (or `render-waste`) MUST carry a measured `baseline:` AND `after:` pair (or an `N ms → M ms`-style measured pair) in its `findings/<id>.md`; and any perf claim in `final-report.md` (`perf-win:` / `p95` / `latency` / `throughput`) MUST be backed by a measured pair. Perf claims lacking a measured pair are rejected.
+  - **Coverage gate** (`check_coverage_not_dropped`): after-coverage (report `Coverage:` line) must be ≥ the `ai/optimize/_coverage-baseline` from Phase 0.5; warn-only if either surface is absent.
+  - **Boot-check record** (`check_boot_check_record`): a `boot-check: pass | skipped(<reason>)` line must be present; a skip must also appear under `Not validated:`.
+  - **Re-detect parity** (`check_gap_count_parity`): runs whenever the ledger exists (not behind `--strict`); the ledger is MANDATORY when findings were fixed.
+
+  **`--strict`** also requires the idioms oracle to be referenced and requires `ai/optimize/ledger.md` even for no-fix runs. A failed validator forces the diagnosis to be re-emitted. Without this gate, Phase 0 can produce a summary diagnosis instead of an actual scan — the F039 anti-Trusted-Summary recurrence applied to /optimize.
 - **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-optimize-artifacts.sh § check_actionable_next_steps`.)* Per `actionable-next-steps.md` snippet contract; halts the gate when missing or when deferrals are described without commands.
-- **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` close every run summary. The agent MUST name validation that did NOT run (load tests, prod-sized data, environments unavailable) or state `none — <what fully ran>`. `Tests: N/N passing` alone hides the negative space — the same failure mode as the Trusted Summary. `Revert:` gives the exact git command for this run's commit range.
+- **Honesty clause in the summary block is mandatory.** The lines `boot-check:` / `Not validated:` / `Risks:` / `Revert:` close every run summary. The agent MUST record `boot-check: pass | skipped(<reason>)` (mechanical — `check_boot_check_record`; a skip must also be named under `Not validated:`), MUST name validation that did NOT run (load tests, prod-sized data, environments unavailable) or state `none — <what fully ran>`. `Tests: N/N passing` alone hides the negative space — the same failure mode as the Trusted Summary. `Revert:` gives the exact git command for this run's commit range.
 - **Architectural diagnosis ALWAYS runs first**. *(Agent-side orchestration.)* Tactical fixes are skipped on findings that would dissolve under a foundation fix; agent picks the foundation.
 - **Foundation-first ordering**: architectural commits land before tactical commits. The architecture-decisions document records the order + rationale. *(Agent-side.)*
 - Closure verbs from a closed vocabulary (no new abstractions invented; `introduce-abstraction` only applies when ≥3 sites duplicate the same shape). *(Agent-side.)*
 - Net-lines ≤ 0 for tactical structural fixes; refactoring class allowed small +/- but cites why; architectural fixes net-lines budgeted (move-responsibility may +N then -2N when consumer code shrinks). *(Structural rows: mechanical when `--phase-base` + git commits match `<id>:` / `optimize/<id>:` — else warn-only.)*
 - Behaviour preserved (lint, typecheck, scoped tests, coverage all green) for ALL structural + refactoring + dead-code + dedup + over-abstraction fixes. *(Agent-side verification.)*
-- Re-detect after each fix; gap-count parity (`gaps_in == gaps_closed`) before the row advances. *(Mechanical for terminal ledger statuses when ledger exists.)*
+- Re-detect after each fix; gap-count parity (`gaps_in == gaps_closed`) before the row advances. *(Mechanical for terminal ledger statuses — runs whenever the ledger exists, NOT gated behind `--strict`.)* **The ledger is MANDATORY for any run that fixes findings** — it is the only surface that proves re-detect happened. A run that fixed findings (`findings/*.md` present) with no ledger fails the validator (`ledger MANDATORY`). A non-empty ledger that parses to zero rows (e.g. indented YAML) warns rather than silently passing.
 - One commit per finding (architectural or tactical). *(Agent-side.)*
 - Security findings always ship with assertions (test added in same commit). *(Agent-side.)*
-- Performance findings always ship with baseline + post-fix measurement. *(Agent-side.)*
+- **Performance findings always ship with a measured baseline + post-fix `after` pair.** *(Mechanical — `validate-optimize-artifacts.sh § check_perf_measurement_row` for `class: performance` / `render-waste` rows; `§ check_perf_claims_final_report` for perf claims in the report.)* Record both as `baseline:` / `after:` tokens (or an `N ms → M ms` measured pair) in `findings/<id>.md`. No perf claim ships without a measured pair — the validator rejects it.
 - **No silent new dependency.** A perf fix that adds a package the project doesn't already use halts for a dependency review before install (see § blocker list); prefer an already-present primitive. *(Agent-side.)*
 
 User sees the result, not the policing.
