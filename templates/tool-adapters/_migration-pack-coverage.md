@@ -21,7 +21,7 @@ The migration pack is **non-negotiable** in the sense that its discipline rule (
 | Codex | rule only (+ agents convention) | full reliance on self-sufficient rule |
 | Gemini | rule only | full reliance on self-sufficient rule |
 
-**Conclusion**: every tool MUST receive a faithful translation of `migration-discipline.md` (the self-sufficient rule). The 9 contract sections, 10 hard halts, frontend audit axes, frontend anti-pattern catalogue, and tool-agnostic procedures are inlined in the rule precisely so rule-only tools have the full surface.
+**Conclusion**: every tool MUST receive a faithful translation of `migration-discipline.md` (the self-sufficient rule). The 9 contract sections, 13 hard halts, frontend audit axes, frontend anti-pattern catalogue, and tool-agnostic procedures are inlined in the rule precisely so rule-only tools have the full surface.
 
 ## Simple-surface entry — `/migrate` (top-level command)
 
@@ -177,7 +177,7 @@ The script returns non-zero on any failure; tool integrations should treat that 
 
 When an adapter ships the migration pack:
 
-1. **MUST translate the rule** (`migration-discipline.md`) faithfully — including the inlined 9 contract sections, 11 hard halts (including the dead-V1-code halt added 2026-05-02), 6-axis reachability check, frontend axes, anti-pattern catalogue (including "Zombie Port"), and tool-agnostic procedures. Do NOT abridge.
+1. **MUST translate the rule** (`migration-discipline.md`) faithfully — including the inlined 9 contract sections, 13 hard halts, 6-axis reachability check, frontend axes, anti-pattern catalogue (including "Zombie Port"), and tool-agnostic procedures. Do NOT abridge.
 2. **MUST translate or document agents/skills/commands** to the tool's native format if supported. If not supported, document in the rule's "References" section that the procedural detail is inlined.
 3. **MUST install or document `validate-migration-artifacts.sh`** as a pre-commit / CI / hook integration.
 4. **MUST translate `port-feature.md`** as the per-feature orchestrator (or its 6-phase procedure inlined).
