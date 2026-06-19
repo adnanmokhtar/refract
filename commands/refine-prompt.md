@@ -81,15 +81,17 @@ Run outline → deep refine → open-questions sweep as one internal cycle. No i
 
 The deep-refine pass is **not** a single sequential write. For `medium`/`heavy` weight, after the outline (sections 1-8) is saved, dispatch parallel specialist sub-agents via the Agent tool — **all in one message so they run concurrently**. Each receives identical shared context — the Phase 1 restatement, the Phase 2 refinement weight, the Phase 3 prior-idea/ADR notes, and the full outline (sections 1-8) — and returns **only** its assigned section(s) in the exact markdown shape below: raw spec content, no preamble, no commentary.
 
-| Specialist | Owns | Specialist lens (own detectors / contract) |
-|---|---|---|
-| `flows-and-permissions` | §9 user flows + §11 permissions/roles | Flows reveal the actors that define roles; each role's can/cannot list must trace to a step in some flow. |
-| `data-model` | §10 entities/fields/relations | Reads §4-5 (jobs + scope); every entity must trace to a capability, every relation must be bidirectional-consistent. |
-| `non-functional` | §12 perf/scale/reliability/compliance/i18n/a11y | Budgets weighted by the Phase 2 scale-tier signal; refuses "TBD" — names a concrete number or marks it an open question. |
-| `risk` | §13 risks + §14 assumptions | Forces ≥1 risk in each impact tier (anti risk-theater); each assumption names the section it would invalidate if false. |
-| `metrics` | §15 success metrics | North-star + secondary, each metric traceable to a specific job-to-be-done in §4. |
+| Specialist | Owns | Model | Specialist lens (own detectors / contract) |
+|---|---|---|---|
+| `flows-and-permissions` | §9 user flows + §11 permissions/roles | `sonnet` | Flows reveal the actors that define roles; each role's can/cannot list must trace to a step in some flow. |
+| `data-model` | §10 entities/fields/relations | `sonnet` | Reads §4-5 (jobs + scope); every entity must trace to a capability, every relation must be bidirectional-consistent. |
+| `non-functional` | §12 perf/scale/reliability/compliance/i18n/a11y | `sonnet` | Budgets weighted by the Phase 2 scale-tier signal; refuses "TBD" — names a concrete number or marks it an open question. |
+| `risk` | §13 risks + §14 assumptions | `sonnet` | Forces ≥1 risk in each impact tier (anti risk-theater); each assumption names the section it would invalidate if false. |
+| `metrics` | §15 success metrics | `sonnet` | North-star + secondary, each metric traceable to a specific job-to-be-done in §4. |
 
 The split is deliberate (specialist value, not slicing): the agents are **independent — none can see another's draft**. That independence is the point — independent perspectives surface gaps a single linear pass smooths over.
+
+**Model strategy — Opus reasons, Sonnet drafts.** The five drafting specialists run on **`sonnet`** (parallel, bounded, contract-shaped section drafting — fast and cheap at fan-out width). The adversarial reconcile (§16, third pass below) runs on **`opus`** — it is the hardest reasoning step (cross-section contradiction hunting) and the one most worth the stronger model. Pass the model explicitly via the Agent tool's `model` parameter on each dispatch (`model: "sonnet"` for the specialists, `model: "opus"` for the reconcile). When the session is already on Opus (e.g. `opusplan` in plan mode), these overrides still hold — the specialists deliberately step *down* to Sonnet for the parallel width, and the reconcile stays on Opus. Omit the override only if you want everything to inherit the session model.
 
 `light` weight does **not** fan out. It drafts sections 1-8 in a single inline pass and runs the contrarian sweep inline — dispatching five sub-agents for a "dark-mode toggle" idea is exactly the bloat this command warns against.
 
@@ -187,7 +189,7 @@ Third pass — synthesis + adversarial reconcile. Re-read sections 4-13 (or 4-7 
 - What's a "yes" that should be a "maybe"?
 - What's a "maybe" that should be a hard "no"?
 
-**For `heavy` weight, run this as a dedicated reconcile sub-agent** (perspective-diverse verify / completeness-critic pattern) prompted to *refute the spec's coherence*: "find every claim in sections 1-15 not supported by another section — an entity with no owning persona, a risk with no mitigation, a metric not traceable to a job, a permission for a role absent from every flow." Its findings become section 16. For `light`/`medium`, the orchestrator runs this reconcile inline. Either way it is silent — only the resulting section 16 is written.
+**For `heavy` weight, run this as a dedicated reconcile sub-agent on `opus`** (perspective-diverse verify / completeness-critic pattern) prompted to *refute the spec's coherence*: "find every claim in sections 1-15 not supported by another section — an entity with no owning persona, a risk with no mitigation, a metric not traceable to a job, a permission for a role absent from every flow." Its findings become section 16. Dispatch it with the Agent tool's `model: "opus"` override — this is the reasoning-heaviest step and the one place the stronger model earns its cost. For `light`/`medium`, the orchestrator runs this reconcile inline at the session model. Either way it is silent — only the resulting section 16 is written.
 
 APPEND to the file:
 
@@ -256,7 +258,7 @@ For each unmet target, print a flag line such as: `3 risks listed; target 5 — 
 Phase 1 (Understand): "you want a <domain> for <audience> at <scale>" — restated (non-blocking; correct at final gate)
 Phase 2 (Organize): refinement weight = <class> (B2C / B2B SaaS / internal tool / solo / marketplace / real-time)
 Phase 3 (Retrieved): N prior ideas scanned for overlap; M ADRs reviewed (if applicable)
-Phase 4 (Draft + refine + sweep): outline drafted; <N> specialists dispatched in parallel for deep refine (skipped for light weight); adversarial reconcile produced section 16; single cycle; final "Ready to scaffold?" gate confirmed
+Phase 4 (Draft + refine + sweep): outline drafted; <N> specialists dispatched in parallel on sonnet for deep refine (skipped for light weight); adversarial reconcile on opus produced section 16; single cycle; final "Ready to scaffold?" gate confirmed
 Phase 5 (Updated): spec file saved; changelog + status.md updated (if applicable)
 Phase 6 (Validated): N sections present (light=1-8 / full=1-17); thresholds reported and flagged where under target — user accepted
 Phase 7 (Improved): next-command suggested; similar prior ideas flagged
@@ -283,6 +285,7 @@ File: ai/ideas/<date>-<slug>.md (~<line count> lines)
 
 - **One final confirmation gate at the end of Phase 4 ("Ready to scaffold?").** Outline / deep refine / open-questions sweep iterate internally without inter-stage user pauses. `--no-prompt` is the only way to skip the final gate; that flag is logged.
 - **Deep refine fans out to parallel specialists (medium/heavy weight).** Sections 9-15 are drafted by independent specialist sub-agents dispatched in one message; section 16 comes from an adversarial reconcile. Light weight stays single-pass inline. The fan-out is silent — discipline internal, output brief.
+- **Opus reasons, Sonnet drafts.** The five drafting specialists run on `sonnet` (parallel width, cheap); the adversarial reconcile (§16) runs on `opus` (hardest reasoning). Pass the model explicitly via the Agent tool's `model` parameter; these overrides hold even under an `opusplan` session.
 - **Adversarial questioning, not stenography.** If the user says something contradictory, surface the contradiction; don't smooth it over.
 - **Open questions are mandatory.** A "complete" refined idea has ≥5 unknowns, not zero.
 - **No technical decisions.** Stack / architecture / hosting choices belong in `/scaffold-project`. Refining a spec that pre-commits the stack constrains design unnecessarily.
