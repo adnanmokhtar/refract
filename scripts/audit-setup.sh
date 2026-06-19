@@ -457,7 +457,7 @@ STUB_MARKERS='throw new Error\(["'"'"']?[Nn]ot implemented|raise NotImplementedE
 app_stubs=$(grep -rInE "$STUB_MARKERS" "$TARGET" \
   --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.vue' \
   --include='*.py' --include='*.go' --include='*.rb' --include='*.java' --include='*.kt' \
-  2>/dev/null | grep -vE '/(node_modules|dist|build|\.git|vendor|tests?|__tests__|spec|\.output|\.nuxt|\.next|\.svelte-kit|\.cache|out|coverage)/' | head -20 || true)
+  2>/dev/null | grep -vE '/(node_modules|dist|build|\.git|vendor|tests?|__tests__|spec|\.output|\.nuxt|\.next|\.svelte-kit|\.cache|out|coverage|generated|__generated__|\.prisma|prisma|migrations|\.gen)/' | grep -vE '\.(min|bundle|gen)\.(js|ts)$' | head -20 || true)
 if [[ -n "$app_stubs" ]]; then
   n=$(printf '%s\n' "$app_stubs" | grep -c . )
   warn_msg "app-code stub markers found ($n shown, ≤20) — a scaffolded surface may be hollow. Review:"

@@ -84,7 +84,10 @@ audit_cursor() {
     [[ -f "$TARGET/.cursor/skills/$b/SKILL.md" || -f "$TARGET/.cursor/skills/$b.md" ]] && hits=$((hits + 1))
   done < <(list_basenames_kind skills)
   while IFS= read -r b; do
-    [[ -f "$TARGET/.cursor/rules/$b.mdc" ]] && hits=$((hits + 1))
+    # Cursor rules use the documented numeric-prefix ordering convention
+    # (.cursor/rules/<NN>-<name>.mdc — see tool-adapters/cursor/adapter.md § Rules);
+    # accept both the prefixed and bare forms so the audit doesn't false-flag a correct sync.
+    { [[ -f "$TARGET/.cursor/rules/$b.mdc" ]] || compgen -G "$TARGET/.cursor/rules/[0-9]*-$b.mdc" >/dev/null; } && hits=$((hits + 1))
   done < <(list_basenames_kind rules)
   echo "$hits|$expected"
 }
