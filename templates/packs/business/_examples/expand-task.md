@@ -91,11 +91,11 @@ Produce the full task prompt in this shape:
 3. /pre-commit before opening PR
 ```
 
-End with ONE suggested next command — the most likely tool for this task (`/add-feature`, `/fix-bug`, `/analyze-task`, `/enhance-ui`).
+End with ONE suggested next command — the most likely tool for this task (`/add-feature`, `/fix-bug`, `/analyze-task`, `/enhance-ui`). If the spec was saved to `specs/`, cite the path (`Next: /add-feature specs/<YYYYMMDD>-<slug>.md`); if inline, `Next: /add-feature with the spec above`.
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
-- Save to `specs/<YYYYMMDD>-<slug>.md` if the user asks for a doc; otherwise return inline.
+- Save to `specs/<YYYYMMDD>-<slug>.md` if the user asks for a doc — stamp a `Spec-ID: <slug>-<4char-hash>` header so `/add-feature specs/<file>` can consume + backreference it; otherwise return inline.
 - If a stakeholder open-question was surfaced → append to `ai/dynamic/decisions-pending.md`.
 - No `ai/status.md` entry yet (this is pre-work; wait for execution).
 
@@ -114,7 +114,7 @@ End with ONE suggested next command — the most likely tool for this task (`/ad
 ## Output
 
 ```
-Saved: specs/20260424-orders-performance.md
+Saved: specs/20260424-orders-performance.md   [Spec-ID: orders-performance-7f4a]
 
 Task: Reduce GET /orders p95 latency below 200ms
 
@@ -143,7 +143,7 @@ Affected modules: src/modules/orders
 
 Complexity: M  (migration + repo rewrite + perf re-test)
 
-Next: /add-feature with the spec above.
+Next: /add-feature specs/20260424-orders-performance.md
 ```
 
 ## Failure modes
