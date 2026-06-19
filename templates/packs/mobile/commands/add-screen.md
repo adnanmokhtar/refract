@@ -34,9 +34,31 @@ Before writing any new file, the agent MUST name (in the Phase 2 design output) 
 
 If no sibling exists in the same stack — HALT. Ask the user to point at the gold-standard screen. Do not invent shape from training data.
 
+## Prior-art gate (mandatory, all tiers, runs before tier selection)
+
+Sibling search finds a screen to *copy*; this gate asks first: **does the capability already exist** under another name? On mobile a duplicate is doubly expensive — a second permission prompt, a second native-config block all drift independently.
+
+1. Search by **behavior, not name** — existing screens, navigation entries, services that already cover the capability.
+2. **Near-duplicate found → HALT.** Surface the existing screen / flow (path + what it does) and ask: extend it, replace it, or ship a deliberate parallel (rare — record the rationale).
+3. Nothing matches → proceed to tier selection.
+
+## Closure verb — complexity → ceremony
+
+| Tier | Trigger | Deliverable | Reviewers |
+|---|---|---|---|
+| **Trivial** (default) | New screen mirrors a sibling; no new permission; no native bridge; no new offline pattern. | Code + tests (widget/unit test mirroring the sibling's, green on iOS + Android). | None — sibling-mirror is its own audit. |
+| **Standard** | New permission OR new native config entry (Info.plist key / AndroidManifest entry / Podfile dep). | Code + 1-paragraph plan + bundle / cold-start delta check. | `@accessibility-auditor` always; `@i18n-auditor` if any locale string lands. **No ADR.** |
+| **Heavy** | New native bridge OR new native permission class, biometric / Keychain / secrets touch, app-store-blocking change, write-path mutation. | Code + ADR + full cascade. | Full cascade per Phase 4, halt-on-blocker. |
+
+Trivial is the default. Heavy is rare-by-design.
+
+## New-dependency gate (all tiers)
+
+A JS package, CocoaPod, or Gradle dependency no sibling already uses never lands silently — confirm it's actually new (check `package.json` + lockfile, `Podfile.lock`, `build.gradle`), run a dependency review (maintenance / license / bundle + binary-size delta / new native permissions the dep forces; dispatch `security-auditor` or inline the checklist), and record the decision (one PR line; ADR for native bridge or auth / biometric / keychain deps). HALT on an unreviewed new dependency, and on any dep that silently adds a permission not in the declared native surface.
+
 ## Phases applied
 
-All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
+Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). Trivial / standard tiers run the subset their ceremony requires (see closure-verb table) — skipping phases outside your tier's ceremony is sanctioned; skipping phases inside it is not.
 
 ## When to use / NOT to use
 
@@ -167,6 +189,10 @@ After generation, dispatch:
 - Locale completeness — no missing keys.
 - Manual smoke — open from list → see content → navigate back → state preserved.
 - Deep-link test — `xcrun simctl openurl booted "app://orders/123"` lands on the screen.
+- **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`):
+  - Crash reporting (Crashlytics / Sentry / equivalent) covers the new screen — error boundaries / handlers wired the same way siblings wire them.
+  - Screen-view / analytics signal recorded if siblings record one (screen TTI, screen-view events) — same naming convention.
+  - If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 
 ## Phase 7 — Improve
 

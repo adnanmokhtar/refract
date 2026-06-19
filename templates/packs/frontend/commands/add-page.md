@@ -26,6 +26,10 @@ All 7. Standard build/add command.
 
 Everything else — loading/empty/error state shape, lazy-load wrapper, i18n key naming, lifecycle hook, default-true wrapper props — is silent sibling-mirror.
 
+**Prior-art gate (all tiers):** before scaffolding, search by **behaviour, not name** — does an existing route/page already cover this user-facing capability under another name? Near-duplicate found → **HALT**: surface it (route + what it does) and ask extend / replace / deliberate parallel. (Inherited from `/add-feature` when invoked via it; runs mechanically when called standalone.)
+
+**New-dependency gate (all tiers):** a package **no sibling already imports** needs justification + **bundle-size delta** (gzipped, tree-shakeable?) before it lands — a platform API or already-present primitive is preferred by default. **HALT** on an unreviewed new dependency; no silent `npm install`.
+
 **Closure-verb table — page complexity → ceremony:**
 
 | Tier | Trigger | Ceremony | Default? |
@@ -116,6 +120,7 @@ Before declaring success, compare the new page against ≥2 sibling pages in the
 - Run tests scoped to new files.
 - `visual-check` skill — render in dev server, confirm states (loading/empty/error).
 - Verify i18n keys exist in every locale file declared in the repo.
+- **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking captures errors from the new route the way siblings wire it; route-level perf signal (web-vitals / RUM) + analytics events added if siblings of this surface emit them. If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 
 ## Phase 7 — Improve
 

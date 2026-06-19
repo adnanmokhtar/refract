@@ -42,7 +42,7 @@ A spec produced without sibling-shape parity is rejected; regenerate or halt.
 
 - USE: owner / stakeholder dropped a one-liner in chat.
 - USE: before opening a real ticket / starting work.
-- USE: ahead of `/add-feature`, `/fix-bug`, `/analyze-task`.
+- USE: ahead of `/add-feature`, `/fix-bug`. For a larger idea that needs a full spec, use `/analyze-task` instead (sibling entry point, not a later step).
 - NOT: when the brief is already structured (acceptance criteria, scope, etc. already present).
 - NOT: mid-implementation (`/learn-from-task` instead).
 
@@ -112,7 +112,7 @@ Produce the full task prompt in this shape:
 3. /pre-commit before opening PR
 ```
 
-End with ONE suggested next command — the most likely tool for this task (`/add-feature`, `/fix-bug`, `/analyze-task`, `/design-system`).
+End with ONE suggested next command — the most likely tool for this task (`/add-feature`, `/fix-bug`, `/analyze-task`, `/enhance-ui`).
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 

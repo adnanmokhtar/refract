@@ -5,6 +5,7 @@ Portable, intelligent Claude Code configuration. One `git clone` on any device =
 > **📖 Looking for the full reference?**
 > - **[docs/COMMANDS.md](docs/COMMANDS.md)** — every command, every flag, mode behaviors, flag conflicts, V1→V2 migration walkthrough, where things live.
 > - **[docs/REFERENCE.md](docs/REFERENCE.md)** — when something refuses or surprises: `<TBD>` lifecycle, Phase 5 audit failure modes, the four discipline patterns (premise / closure-verb / mechanical halt / lightweight default), migration end-to-end with halts, memory system, validator scripts, common pitfalls.
+> - **[docs/FEATURE-LIFECYCLE.md](docs/FEATURE-LIFECYCLE.md)** — the feature-lifecycle playbook: new project + new feature, mapped to commands.
 >
 > This README is the elevator pitch; `COMMANDS.md` is the manual; `REFERENCE.md` is what you read when something fails.
 

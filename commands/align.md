@@ -6,6 +6,8 @@ pack: orchestration
 
 # /align [<scope>]
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/align <scope> --plan` runs the convention scan + writes the ranked fix-plan, and exits before any edit — executable later via `/execute-plan <file>`.
+
 ## What this does
 
 **Single command. Detect where the code doesn't follow the project's structure + fix it.** Deep multi-agent scan + fix. Whole project or scoped.

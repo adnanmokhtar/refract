@@ -29,6 +29,18 @@ Create a complete module. Called directly OR from inside `/add-feature`.
 
 That's it. Three escalation triggers. Everything else is silent sibling-mirror with the closure verbs below.
 
+## Prior-art gate (all tiers, runs before tier selection)
+
+Sibling search finds a module to *copy*; this gate asks first: **does the capability already exist** under another module name? A second module covering the same bounded context is the costliest waste mode and sibling-mirror does not catch it.
+
+1. Search by **behavior, not name** — existing modules, entities, table/column names, domain verbs that would already cover the ask.
+2. **Near-duplicate found → HALT.** Surface the existing module (path + what it does) and ask: extend it, replace it, or ship a deliberate parallel (rare — one-line PR rationale).
+3. Nothing matches → proceed to tier selection.
+
+## New-dependency gate (all tiers)
+
+A package no sibling module already uses never lands silently — confirm it's actually new (check the lockfile), run a dependency review (maintenance / license / bloat / stdlib-alternative; dispatch `security-auditor` or inline the checklist), and record the decision (one PR line; ADR for auth / crypto / payment / data-handling deps). HALT on an unreviewed new dependency.
+
 ## Closure verbs (complexity → ceremony)
 
 Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.

@@ -28,7 +28,7 @@ Verify that an implementation (done by Claude Code, OpenCode, Cursor, Aider, or 
 ## Phase 1 — Understand (parse the plan)
 
 - Resolve plan file path (explicit / `--latest` / `--plan-id` lookup).
-- Validate plan file structure: must contain headers `## Context`, `## Inputs`, `## Outputs`, `## Steps`, `## Constraints`, `## Verification`, `## Status`. Missing headers = malformed plan = halt.
+- Validate plan file structure: must contain headers `## Context`, `## Inputs`, `## Outputs`, `## Steps`, `## Constraints`, `## Verification`, `## Status`. Missing headers = malformed plan = halt. `## Known unknowns` is an accepted OPTIONAL section — a plan with it must not fail; a plan without it must not fail.
 - Extract:
   - Plan ID (`Plan ID: <hash>` from frontmatter — used in cross-references).
   - Generated timestamp (compare against current time for staleness check).

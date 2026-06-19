@@ -9,9 +9,33 @@ description: Add a new endpoint to an EXISTING module. Full chain — DTO + use-
 
 Use when extending a module. Smaller than `/add-module` (no new entity), deeper than hand-editing the controller (full chain with tests + telemetry).
 
+## Prior-art gate (all tiers, runs before tier selection)
+
+Sibling search finds an endpoint to *copy*; this gate asks first: **does the behavior already exist** under another route/handler name? A second copy of an existing capability is the costliest waste mode and sibling-mirror does not catch it.
+
+1. Search by **behavior, not name** — route paths, handler/use-case names, domain verbs that would already cover the ask.
+2. **Near-duplicate found → HALT.** Surface the existing endpoint (path + what it does) and ask: extend it, replace it, or ship a deliberate parallel (rare — one-line PR rationale).
+3. Nothing matches → proceed to tier selection.
+
+## Closure verbs (complexity → ceremony)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
+
+| Tier | Triggers | Artifacts | Phases |
+|---|---|---|---|
+| **Trivial** (default) | 1 endpoint mirroring a sibling endpoint exactly (same module, read or simple write). No new pattern element. | Code + tests (happy + invalid body + unauth). **No plan, no ADR, no Phase 5 docs.** | Understand (light) → Generate → Validate (sibling-shape halt) |
+| **Standard** | New DTO shape / new query method / new event handler, but reuses existing primitives. | Code + tests + 1-paragraph plan + sibling-shape note in PR. **`n-plus-one-scan` on any new list / query endpoint.** **No ADR unless pattern is genuinely new.** | Understand → Retrieve (siblings) → Generate → Validate |
+| **Heavy** | New auth surface, write-path mutation, cross-module orchestration, schema change, payment / multi-tenant surface, breaking API change. | ADR + plan + reviewer dispatch + parity tests for affected siblings. Full 7-phase ceremony below. | All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve) |
+
+**Most endpoints are trivial.** If the sibling-shape halt (Phase 6) flags a new primitive or cross-module touch, it promotes the row to standard or heavy — the agent does NOT pre-emptively pick heavy "to be safe."
+
+## New-dependency gate (all tiers)
+
+Inherited from `/add-feature` (§ New-dependency gate). Condensed: a package no sibling already uses never lands silently — confirm it's actually new (check the lockfile), run a dependency review (maintenance / license / bloat / stdlib-alternative; dispatch `security-auditor` or inline the checklist), and record the decision (one PR line; ADR for auth / crypto / payment / data-handling deps). HALT on an unreviewed new dependency.
+
 ## Phases applied
 
-All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
+Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). Trivial / standard tiers run the subset their closure-verb tier requires (see the table above) — skipping phases outside your tier's ceremony is sanctioned; skipping phases inside it is not.
 
 ## When to use / NOT to use
 

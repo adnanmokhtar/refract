@@ -25,6 +25,10 @@ Build command. Generates a presentational component matching the repo's framewor
 
 Everything else — prop default-true vs default-false, slot vs prop for header, locale-key path, test-file naming — is silent sibling-mirror.
 
+**Prior-art gate (all tiers):** before scaffolding, search by **behaviour, not name** — does a sibling primitive already cover this capability (an existing `<StatusChip>` when asked for a `<Badge>`)? Near-duplicate found → **HALT**: surface it and ask extend / replace / deliberate parallel. (Inherited from `/add-feature` when invoked via it; runs mechanically when called standalone.)
+
+**New-dependency gate (all tiers):** a package **no sibling already imports** needs justification + **bundle-size delta** (gzipped, tree-shakeable?) before it lands — a platform API or design-system primitive is preferred by default. **HALT** on an unreviewed new dependency; no silent `npm install`.
+
 **Closure-verb table — component complexity → ceremony:**
 
 | Tier | Trigger | Ceremony | Default? |
@@ -108,6 +112,7 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - Component file < 200 lines (warn if larger — likely doing too much).
 - Visual diff via `visual-check` skill if present.
 - Hardcoded English (untranslated string) → blocker.
+- **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking wired the way siblings wire it; analytics events added if siblings of this primitive emit them. If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture pattern if a new prop convention or composition shape emerged.

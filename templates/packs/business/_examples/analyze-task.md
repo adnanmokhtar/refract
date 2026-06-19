@@ -8,7 +8,7 @@ Build command for the spec layer (not code yet). Two-pass: business spec → con
 
 ## When to use / NOT to use
 - USE: owner / stakeholder gave a one-liner that needs unpacking before code.
-- USE: before `/expand-task` — `analyze-task` produces what `expand-task` consumes.
+- USE: sibling of `/expand-task` — reach for `/analyze-task` when an idea needs a full business + technical spec; reach for `/expand-task` when a one-liner just needs an implementer-ready prompt. Neither consumes the other.
 - NOT: when a spec already exists in `specs/` or a tracker ticket — use that.
 - NOT: for trivial single-file changes — over-process for under-scope.
 

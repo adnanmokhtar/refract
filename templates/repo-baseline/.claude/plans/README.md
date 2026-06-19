@@ -44,10 +44,10 @@ Every plan must have these sections:
 | `## Steps` | Ordered execution recipe |
 | `## Constraints` | DON'T-style rules (`/verify-plan` audits these) |
 | `## Verification` | Lint / typecheck / test / curl commands to run after implementing |
-| `## Known unknowns` | Decisions deferred to implementation time |
+| `## Known unknowns` **(optional)** | Decisions deferred to implementation time |
 | `## Status` | Checkboxes the implementing tool ticks off |
 
-`/verify-plan` validates this structure; missing headers = malformed plan.
+`/verify-plan` validates this structure; a missing **required** header = malformed plan. The seven required sections are Context, Inputs, Outputs, Steps, Constraints, Verification, Status. `## Known unknowns` is optional: a plan with it is valid; a plan without it is valid.
 
 ## Lifecycle
 

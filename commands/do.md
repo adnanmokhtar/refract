@@ -38,6 +38,9 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "redesign" / "iterate" / "try variants" / "few options" / "different look" + single UI surface (creative iteration ask) | `/enhance-ui <description>` |
 | "match colors" / "fix padding" / "cleaner spacing" + single UI surface (mechanical cleanup) | `/enhance-ui <description>` |
 | "new project" / "from scratch" / "scaffold" / "start a new app / website / service" / "greenfield" / "build a \<product\> from nothing" | `/scaffold-project "<description>"` (run `/refine-prompt` first if the idea is still rough) |
+| "figure out what to build" / "requirements" / "user stories" / "turn this idea into a spec" / "what should this feature do" (vague / spec intent) | `/analyze-task "<description>"` (business pack) |
+| "turn this ticket into a task" / "unpack this one-liner" / "make this brief implementer-ready" (one-line-ticket intent) | `/expand-task "<description>"` (business pack) |
+| "refine this prompt" / "tighten this idea" / "deepen this spec" (prompt-refinement intent) | `/refine-prompt "<description>"` |
 | "add" / "new" / "create" / "build" + UI noun (page / component / form / modal / etc.) into an EXISTING app | `/add-feature <description>` (frontend) |
 | "add" / "new" + endpoint / route / API noun | `/add-endpoint <description>` (backend) |
 | "add" / "new" + module noun | `/add-module <description>` |
@@ -70,6 +73,8 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | a task-tracker **URL / key / `next`** (`trello.com/c/…`, `*.atlassian.net/browse/PROJ-123`, `linear.app/…/issue/ABC-123`, `github.com/…/issues/N`, bare `PROJ-123` / `#42`, `trello:`/`jira:`/`linear:`/`gh:` prefix, or "the next ticket / next card") | `/task <ref>` |
 
 For ambiguous descriptions, the agent asks one clarifying question.
+
+> The spec-layer rows (`/analyze-task`, `/expand-task`) apply only when the **business pack** is installed — same "scoped to commands that exist in this project" rule as everything else. If the business pack is absent, fall back to the closest available command (e.g. `/refine-prompt` for spec shaping, or `/add-feature` / `/scaffold-project` for the downstream build).
 
 > The SOLID / clean-code / architecture vocabulary the `/optimize` and `/audit` routes enforce is defined canonically in `templates/governance/core-discipline.md` — this router points at those commands rather than restating the discipline.
 
@@ -243,6 +248,7 @@ Proceed with /add-feature? [y / n / different command]
 - `/migrate`, `/align`, `/optimize`, `/polish`, `/audit`, `/unify-surfaces` — top-level simple-surface (whole-project / multi-area)
 - `/add-feature`, `/add-page`, `/add-component`, `/add-endpoint`, `/add-module`, `/add-migration`
 - `/enhance-ui`, `/fix-bug`, `/align-recheck`, `/migration-recheck`
+- `/analyze-task`, `/expand-task`, `/refine-prompt` — spec layer (business pack: idea → requirements / user stories → implementer-ready brief)
 - `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/design-review`
 - `/run-tests`, `/deploy-stage`, `/rollback-deploy`
 - `/migration-scan`, `/align-scan`

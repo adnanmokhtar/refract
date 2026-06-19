@@ -43,7 +43,7 @@ severity: must
 
 ## Enforcement
 
-- Injected agent pre-flight blocks reference this rule.
+- Auto-loaded from `.claude/rules/` by Claude Code's native rule mechanism, so it applies to every agent + command without per-call injection.
 - `read-before-write.md` gives the strict edit checklist; PR review traces Read-before-Edit.
 
 ## Cross-references

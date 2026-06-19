@@ -125,7 +125,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 
 ## Enforcement
 
-- Injected into every agent's pre-flight (alongside `read-before-write.md` and `read-codebase-deeply.md`).
+- Auto-loaded from `.claude/rules/` by Claude Code's native rule mechanism (alongside `read-before-write.md` and `read-codebase-deeply.md`), so it applies to every agent + command without per-call injection.
 - PR-review prompt: any reviewer who sees scope creep, speculative abstraction, hidden tradeoffs, or "make it work" verification should reject and cite this rule.
 - Surfaces in the Phase 5 audit when a generated artifact violates the principles (e.g. an agent file that says "implement X" without a verify step is a quality miss).
 
