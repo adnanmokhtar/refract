@@ -6,6 +6,8 @@ pack: ui-ux
 
 # /enhance-ui <description-or-path> [<more>...]
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/enhance-ui <scope> --plan` runs scope-tier detection + the cleanup/design diagnosis, writes the enhancement plan to `.claude/plans/`, and exits before any edit. Execute it later with `/execute-plan <file>` (or hand it to any tool).
+
 ## The Premise (read this first)
 
 **You describe what you want enhanced; this command runs the cleanup → iterate → verify loop.** Cleanup ensures the surface uses the design system correctly BEFORE you iterate on visuals (no point polishing on top of hardcoded colors). **Before iterate, it decides a scope tier** so you do not paste the same scoped styles on two leaf pages for one shared button — that fragments the design system and violates DRY. Iterate generates 3 style variants at the **correct layer** (token, shared wrapper, or single leaf). Verify catches anything the iteration drifted.

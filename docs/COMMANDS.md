@@ -78,7 +78,7 @@ Phase 1 detects which mode applies by scanning the target repo. You can force a 
 | Flag             | Meaning                                                                    | Default |
 |------------------|----------------------------------------------------------------------------|---------|
 | `--dry-run`      | Preview the plan; write nothing.                                            | off     |
-| `--plan`         | **Plan-only mode.** Runs phases 1-3, expands plan via Phase 3.5, writes `.claude/plans/<command>-<slug>-<ts>.md`, exits BEFORE generation. The plan file is the handoff artifact for any tool (Cursor / OpenCode / Aider / a human). After implementation: `/verify-plan <file>` audits drift. **Universal — also works on every generated command** (`/add-feature --plan`, `/fix-bug --plan`, etc.). | off |
+| `--plan`         | **Plan-only mode.** Runs phases 1-3, expands plan via Phase 3.5, writes `.claude/plans/<command>-<slug>-<ts>.md`, exits BEFORE generation. The plan file is the handoff artifact for any tool (Cursor / OpenCode / Aider / a human). Execute it in-place with `/execute-plan <file>` (executors default to Sonnet — pairs with an Opus planning pass); `/verify-plan <file>` audits drift afterwards. Full loop: `--plan` → `/execute-plan` → `/verify-plan`. **Universal — also works on every generated command** (`/add-feature --plan`, `/fix-bug --plan`, etc.). | off |
 | `--no-telemetry` | Disable local telemetry (`.claude/_telemetry.jsonl`).                       | off     |
 
 #### Mode forcing
@@ -885,7 +885,10 @@ Every generated command supports `--plan`. Example:
 # → writes .claude/plans/add-feature-checkout-<ts>.md
 # → exits before any code is written
 
-# Hand the plan to a different tool, or review it, then:
+# Execute it in-place (executor sub-agents run on Sonnet):
+/execute-plan .claude/plans/add-feature-checkout-<ts>.md
+# → implements Steps + Outputs, honours Constraints, runs Verification, auto-audits via /verify-plan
+# ...or hand the plan to a different tool / a human instead, then audit:
 /verify-plan .claude/plans/add-feature-checkout-<ts>.md
 # audits drift between plan and final implementation
 ```
@@ -1233,7 +1236,14 @@ What it does:
 3. Writes `.claude/plans/<command>-<slug>-<YYYYMMDD-HHmm>.md`.
 4. Exits BEFORE any code generation.
 
-The plan file is the canonical handoff artifact: hand it to OpenCode, Cursor, Aider, or another human. After implementation:
+The plan file is the canonical handoff artifact. Execute it in-place with `/execute-plan` (Claude-native; executor sub-agents default to Sonnet, pairing with an Opus planning pass), or hand it to OpenCode / Cursor / Aider / a human:
+
+```
+/execute-plan .claude/plans/add-feature-subscription-billing-<ts>.md
+# implements the plan, then auto-runs /verify-plan
+```
+
+To audit drift independently (or after a non-Claude tool implemented it):
 
 ```
 /verify-plan .claude/plans/add-feature-subscription-billing-<ts>.md

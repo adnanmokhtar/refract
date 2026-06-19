@@ -264,6 +264,7 @@ Defaults are theoretical (calibrated against synthetic fixtures). Tune as you ac
 
 ```
 /<command> "..." --plan              # plan only; writes .claude/plans/<file>.md; exits before implementation
+/execute-plan <plan-file>            # implements the plan (executor sub-agents default to Sonnet); auto-verifies
 /verify-plan <plan-file>             # audits implementation against plan; reports drift
 ```
 
@@ -283,16 +284,21 @@ See "Plan-then-implement workflow" section below for the full handoff story.
 
 ## Plan-then-implement workflow (`--plan`)
 
-Use Claude Code to **PLAN**, any other tool (OpenCode, Cursor, Aider, a human) to **IMPLEMENT**, then Claude to **VERIFY**. Every command supports `--plan`:
+**PLAN → EXECUTE → VERIFY.** Plan on a strong model, execute on a cheap one, verify independently. Every command supports `--plan`:
 
 ```
 /add-feature "filter prescriptions by status" --plan
 /fix-bug 42 --plan
 ```
 
-The flag runs Phases 1–3, writes `.claude/plans/<cmd>-<slug>-<ts>.md`, exits before code change. Hand the plan file to any tool. Verify drift later via `/verify-plan <plan-file>`.
+The flag runs Phases 1–3, writes `.claude/plans/<cmd>-<slug>-<ts>.md`, exits before code change. Then **execute** the plan one of two ways:
 
-Full spec — including plan file format, retrofitting existing projects, and `--from-plan` handoff — in [`docs/REFERENCE.md` § Plan-then-implement workflow](docs/REFERENCE.md). Skip it for trivial / spike / read-only work.
+- **In Claude** — `/execute-plan <plan-file>` implements it; its executor sub-agents default to **Sonnet**, so authoring the plan under **Opus** (or `opusplan` plan mode) gives you "Opus plans, Sonnet executes" for free. It auto-runs `/verify-plan` at the end.
+- **In any other tool** — hand the self-contained plan file to OpenCode / Cursor / Aider / a human. (`<command> --from-plan <file>` is the per-command/adapter spelling of the same implement-from-plan entry, e.g. in OpenCode.)
+
+Audit drift any time with `/verify-plan <plan-file>`.
+
+Full spec — including plan file format and retrofitting existing projects — in [`docs/REFERENCE.md`](docs/REFERENCE.md). Skip it for trivial / spike / read-only work.
 
 ---
 

@@ -6,6 +6,8 @@ pack: orchestration
 
 # /polish [<scope>]
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/polish <scope> --plan` runs the stack-conditional diagnosis + detector scan, writes the ranked polish plan to `.claude/plans/`, and exits before any edit. Execute it later with `/execute-plan <file>` (or hand it to any tool).
+
 ## What this does
 
 **Single command. Make the project's surface look + feel finished.** Deep multi-agent diagnosis + creative cleanup. Whole project or scoped. Multi-day workflow. **Stack-conditional** — dispatches detectors + closure verbs based on `PROJECT_KIND`.

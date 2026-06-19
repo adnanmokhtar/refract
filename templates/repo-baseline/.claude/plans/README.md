@@ -6,9 +6,14 @@ This directory holds **plan files**: structured markdown specs produced by `<com
 
 ```
 1. /add-feature "..." --plan        →  writes .claude/plans/<command>-<slug>-<timestamp>.md
-2. <hand off plan to any tool>      →  tool reads plan, implements per Outputs + Steps, respects Constraints
+2a. /execute-plan <plan-file>       →  Claude-native executor; implements Steps+Outputs, honours
+                                        Constraints, runs Verification (executors default to Sonnet)
+2b. <or hand off to any tool>       →  OpenCode / Cursor / Aider / a human reads the file + implements
 3. /verify-plan <plan-file>         →  diffs actual filesystem vs plan; reports drift; decides verdict
+                                        (/execute-plan auto-invokes this at the end)
 ```
+
+Step 2a is the "Opus plans, Sonnet executes" path: author the plan under Opus (or `opusplan` plan mode), then `/execute-plan` it — its executor sub-agents run on Sonnet. Step 2b is the cross-tool path: the file is self-contained, so any tool or model can implement it.
 
 ## Naming convention
 

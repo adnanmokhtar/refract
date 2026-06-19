@@ -128,7 +128,7 @@ The `--plan` flag is universal in Claude Code (the canonical 7-phase command str
 
 | Adapter | How `--plan` lands |
 |---|---|
-| `claude-code` | Native — Phase 3.5 runs as written; plan written to `.claude/plans/`. |
+| `claude-code` | Native — Phase 3.5 runs as written; plan written to `.claude/plans/`. **Execution: `/execute-plan <file>` implements a saved plan (parallel executor sub-agents default to `model: sonnet` — pairs with an Opus `--plan` pass), then auto-runs `/verify-plan`.** |
 | `opencode` | `opencode.json` `commands` block — each command's `prompt` includes "If the user appends `--plan` to the command invocation, write a plan in the canonical format defined at `.claude/plans/README.md` to `.claude/plans/<command>-<slug>-<timestamp>.md` and exit before implementation. Otherwise implement normally." Implementation entry: `--from-plan <file>` reads a plan and runs Phases 4-6 only. |
 | `cursor` | `.cursor/rules/command-<name>.mdc` — append a section: "**Plan mode**: when user prompts `<command> ... --plan`, instead of implementing, write the plan to `.claude/plans/<command>-<slug>-<timestamp>.md` per the format in `.claude/plans/README.md`, then stop. Implementation mode (no `--plan`) runs as written above." |
 | `aider` | `.aider.conf.yml` — add `read: .claude/plans/README.md` so the plan format is in context. `CONVENTIONS.md` includes a "Plan mode" section: when user types `/plan <command> "<prompt>"`, write plan to `.claude/plans/`, exit. Implementation mode is the default. |
@@ -140,6 +140,8 @@ The `--plan` flag is universal in Claude Code (the canonical 7-phase command str
 **Plan file format is tool-agnostic markdown** — every adapter consumes the same format. The only thing that varies is HOW each adapter is taught to write the plan (and how `--from-plan <file>` invokes implementation from a plan, where supported).
 
 **Universal fallback (always works)**: any tool that reads markdown can implement from a plan by pasting the plan-file content into the tool's prompt + "implement per this plan." No native `--from-plan` required for the basic workflow.
+
+**`/execute-plan` is universal (Claude-native fan-out; degrades per adapter)** — it ships in `repo-baseline/.claude/commands/execute-plan.md` (like `/verify-plan`) and lands in EVERY project. In Claude Code it implements a saved plan with **parallel `model: sonnet` executor sub-agents** — the "Opus plans, Sonnet executes" handoff. Non-Claude adapters have no parallel sub-agent dispatch, so their plan-execution degrades to the **sequential** path: the native `--from-plan <file>` entry where supported (`opencode`), else the universal paste-the-plan-and-implement fallback above. Same plan file, same Outputs/Steps/Constraints/Verification — only the fan-out is Claude-native (same split as `/refine-prompt`'s deep pass and the simple-surface multi-agent group; see `templates/tool-adapters/_registry.md`).
 
 **`/verify-plan` is universal** — it ships in `repo-baseline/.claude/commands/verify-plan.md` and is included in EVERY project regardless of which adapters are selected. Each adapter translates it the same way it translates other commands. The canonical implementation reads + audits + reports — there's no tool-specific behavior beyond that.
 

@@ -158,7 +158,7 @@ Verdict: PLAN FULFILLED  → archive plan to _archive/? [y/n]
 $ /verify-plan --latest
 [...]
 Verdict: PLAN DRIFTED — 2 outputs missing
-  Run /add-feature --from-plan ... to close gaps, OR run /add-feature --plan to re-plan against current state.
+  Run /execute-plan <plan-file> to close the gaps from the plan, OR run /add-feature --plan to re-plan against current state.
 
 $ /verify-plan --plan-id phc-7f4a
 [...]

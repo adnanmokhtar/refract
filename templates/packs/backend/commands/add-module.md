@@ -4,6 +4,8 @@ description: Scaffold a new backend module end-to-end following the project's de
 
 # /add-module
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-module <name> --plan` plans the full module (entity + ports + use-cases + repo + controller + DTOs + migration + DI + tests) against the closest sibling module and exits before any edit. Execute it later with `/execute-plan <file>` (or hand it to any tool).
+
 Create a complete module. Called directly OR from inside `/add-feature`.
 
 ## The Premise (read this first, internalize, do not deviate)

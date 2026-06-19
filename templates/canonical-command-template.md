@@ -90,7 +90,7 @@ When `--plan` is NOT set: skip this phase entirely; proceed to Phase 4.
 1. **Expand the mini-plan from Phase 2** into a full plan with all the detail an external tool would need.
 2. **Compute a Plan ID** — short hash of `(command + slug + timestamp + project-name)`, prefixed with the project's slug (e.g., `phc-7f4a`). The Plan ID is stable for the file (used to cross-reference from commits / PRs / `/verify-plan --plan-id`).
 3. **Write to** `.claude/plans/<command>-<short-slug>-<YYYYMMDD-HHmm>.md`. Slug is derived from the command's first argument (kebab-case, ≤30 chars).
-4. **Print** the plan file path + Plan ID + a brief summary of what's in the plan.
+4. **Print** the plan file path + Plan ID + a brief summary, and the next step: `/execute-plan <file>` to implement it (Claude-native, executors on Sonnet), or hand the file to any tool; `/verify-plan <file>` audits drift after.
 5. **Exit cleanly** — don't run Phase 4-7. Don't update `ai/status.md` (no implementation happened yet). Don't append to `ai/dynamic/changelog.md`.
 
 ### Plan file format (the canonical handoff artifact)
@@ -162,8 +162,8 @@ When `--plan` is NOT set: skip this phase entirely; proceed to Phase 4.
 
 ### Cross-tool semantics
 
-- **Claude Code** (native): `--plan` is recognized at the orchestration layer; this phase runs as written.
-- **OpenCode**: `opencode.json` exposes a `plan` mode for each command; output is the same plan-file format. Implementation entry: `/<command> --from-plan <file>` reads the plan and runs Phases 4-6 against it.
+- **Claude Code** (native): `--plan` is recognized at the orchestration layer; this phase runs as written. Execute a saved plan with **`/execute-plan <file>`** (repo-baseline command) — it runs the implementation phases with parallel `model: sonnet` executor sub-agents and auto-invokes `/verify-plan`. Author the plan under Opus (or `opusplan`) and the handoff is "Opus plans, Sonnet executes."
+- **OpenCode**: `opencode.json` exposes a `plan` mode for each command; output is the same plan-file format. Implementation entry: `/<command> --from-plan <file>` reads the plan and runs Phases 4-6 against it — the sequential, per-command spelling of what `/execute-plan` does natively (no parallel fan-out outside Claude Code).
 - **Cursor / Aider / Continue / Cline / Windsurf / Copilot / Codex / Gemini**: each adapter's `command-<name>` translation includes a "When user appends `--plan` to the prompt, write a plan in the canonical format to `.claude/plans/...`, do not implement" instruction. Phase 4.8 per-adapter spec wires this.
 - **Universal fallback**: ANY tool that can read markdown can consume the plan file as a prompt. Paste the file content into Claude Code chat / Cursor chat / OpenCode prompt, instruct "implement per this plan," done.
 
