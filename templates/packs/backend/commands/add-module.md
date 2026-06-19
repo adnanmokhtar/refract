@@ -29,6 +29,10 @@ Create a complete module. Called directly OR from inside `/add-feature`.
 
 That's it. Three escalation triggers. Everything else is silent sibling-mirror with the closure verbs below.
 
+## Nested-invocation mode
+
+**Nested invocation (called from /add-feature):** if invoked by `/add-feature` with a passed payload (Spec-ID/spec path + the parent's Phase-1 requirements + the relevant Phase-2 architect design slice + resolved signals) → SKIP the Phase-1 Ask block, SKIP the Phase-2 architect re-dispatch, and SKIP the prior-art gate (the parent already cleared the capability); consume the payload and proceed to Generate. Still run the sibling-shape halt on the files this command produces (its own grain). When called DIRECTLY (no payload) → run the full flow as written.
+
 ## Prior-art gate (all tiers, runs before tier selection)
 
 Sibling search finds a module to *copy*; this gate asks first: **does the capability already exist** under another module name? A second module covering the same bounded context is the costliest waste mode and sibling-mirror does not catch it.

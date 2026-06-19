@@ -11,7 +11,7 @@ Mobile feature orchestration. Use when a feature touches more than one screen OR
 
 Accepts **either** a bare `"<description>"` (the command derives requirements itself) **or** a `specs/<file>` path / `Spec-ID` produced by `/analyze-task` (the command consumes that spec as the requirements contract instead of re-deriving — see Phase 1).
 
-> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit; the plan lands in `.claude/plans/` — re-enter and execute it later with `/execute-plan <file>` (or hand the file to any tool). When planning from a spec, the saved plan carries a `Spec: <Spec-ID>` header so the plan stays traceable to its contract.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -46,6 +46,8 @@ That's it. Three escalation triggers. Everything else — i18n key naming, error
 
 Trivial is the default. Heavy is rare-by-design — match what `/find-and-fix` does for migration: most rows ship trivially.
 
+**Spec-path tier seeding.** When Phase 1 consumed a spec, **seed** the tier from the spec's `Sizing signal` (the spec already classified the work). The audit may still **promote** if it finds heavier triggers (new native bridge, new permission class, biometric / keychain / secrets touch, write-path mutation, new push class, store-blocking change) — never **silently demote** below the spec's seed. If the derived tier ≠ the spec's `Sizing signal`, record the divergence + the trigger in the PR description (`Tier: <derived> (spec seeded <spec-tier>; promoted because <trigger>)`).
+
 ## Phases applied
 
 Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). Trivial / standard tiers run the subset their ceremony requires (see closure-verb table) — skipping phases outside your tier's ceremony is sanctioned; skipping phases inside it is not.
@@ -62,6 +64,8 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - **No native bridge code without an ADR** — bridges are leaky abstractions.
 - **New dependency is gated** — a JS package, Pod, or Gradle dep no sibling already uses halts for a dependency review (maintenance / license / bundle + binary-size / supply-chain / native-permission footprint) before it lands. No silent dep additions, any tier. See Phase 4 § New-dependency gate.
 - **Battery + data usage considered** — long-running listeners, large image uploads, polling.
+- **Spec backreference on every tier** — when the feature was built from a spec, a `Spec: <Spec-ID>` line ships with the deliverable on ALL tiers (trivial included), so even a sibling-mirrored screen traces back to its `/analyze-task` contract. See Phase 5 + Output.
+- **Open-questions HALT (spec path only)** — unresolved spec `Open questions` HALT before Generate (Phase 4). Resolve or explicitly defer-out-of-scope first; never design around an open question.
 
 ## When to use / NOT to use
 
@@ -76,7 +80,18 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 
 ### Spec-consumption branch (when given a `specs/` path or `Spec-ID`)
 
-If the argument is a path under `specs/` (or a `Spec-ID`), **READ that spec and treat it as the requirements CONTRACT** — user stories, acceptance criteria, traceability table, Affected modules/screens, native-capability requirements + iOS/Android parity, Test plan, Out-of-scope. **Do NOT re-derive requirements the spec already contains** — skip the consolidated-question block below and proceed straight to design/generate from the spec. Still run the **prior-art gate**, the **sibling-shape mechanical halt** (Phase 4), and the **new-dependency gate** (Phase 4) — the spec does not exempt a feature from those. Surface any unresolved **Open questions** from the spec and pause before generating.
+If the argument is a path under `specs/` (or a `Spec-ID`), **READ that spec and treat it as the requirements CONTRACT** — read the spec in full, not just the screen list. The contract carries:
+- **User stories + acceptance criteria** (with AC-IDs) and the **traceability table** (AC-ID → screen/component/test).
+- **Affected modules/screens**, **native-capability requirements + iOS/Android parity** (which platforms, which native API per capability).
+- **NFR / performance budgets** — cold-start delta, time-to-interactive, **bundle / binary-size delta**, RAM delta.
+- **Authorization & data-sensitivity** — which roles may reach the feature, per-screen/per-action authorization rules, and every declared **PII / sensitive field** (the data-sensitivity classification).
+- **Observability** requirements — crash-reporting coverage, analytics / screen-view signals expected, offline-queue-failure telemetry.
+- **Rollout** — staged-rollout plan (iOS phased release / Android staged %), store-release / store-metadata changes, feature-flag / remote-config kill-switch expectation.
+- **Success metrics** — the instrumented outcomes the feature must move (and their measurement signal).
+- **Sizing signal** — the spec's own tier classification.
+- **Test plan** and explicit **Out-of-scope**.
+
+**Do NOT re-derive requirements the spec already contains** — skip the consolidated-question block below and proceed straight to design/generate from the spec. Still run the **prior-art gate**, the **sibling-shape mechanical halt** (Phase 4), the **new-dependency gate** (Phase 4), and the **spec-conformance gate** (Phase 6) — the spec does not exempt a feature from those; it is what the conformance gate checks against. **Open-questions HALT**: if the spec carries unresolved **Open questions**, surface them and HALT before Generate (Phase 4) — do not design around an open question.
 
 If the argument is a bare description (no `specs/` path / `Spec-ID`), use the prior-art gate + consolidated-question path below unchanged.
 
@@ -243,7 +258,7 @@ These are mechanical (string-match / file-presence / config-presence checks), no
 - `ai/decisions/<NNNN>-*.md` — for architectural choices (offline strategy, state placement, native bridge introduction).
 - `ai/status.md` § Recent Changes.
 - `app-store-metadata/` — privacy disclosure + permission rationale strings (if relevant).
-- **Spec backreference (only when built from a spec)** — add a `Spec: <Spec-ID>` line to the changelog entry and to the `ai/status.md` § Recent Changes entry, so the shipped feature traces back to its `/analyze-task` spec. This `Spec: <Spec-ID>` line also belongs in the PR description.
+- **Spec backreference (only when built from a spec — ALL tiers, trivial included)** — add a `Spec: <Spec-ID>` line to the changelog entry, the `ai/status.md` § Recent Changes entry, the PR description, **and the command's own output** (see Output format — including the trivial-tier output), so the shipped feature traces back to its `/analyze-task` spec on every closure path. A trivial sibling-mirror that skips Phase 5 docs still emits the `Spec:` line in its output.
 
 ## Phase 6 — Validate
 
@@ -263,6 +278,27 @@ These are mechanical (string-match / file-presence / config-presence checks), no
   - If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 - **Release note (heavy tier only)**: one PR-description paragraph — feature flag / remote-config kill switch decision (store review takes days; a flag is the only same-day rollback), staged rollout plan (iOS phased release / Android staged %), store-metadata changes (privacy disclosures, permission strings), and rollback path.
 
+### Spec-conformance gate (spec path only — skip when built from a bare description)
+
+When Phase 1 consumed a spec, the feature is not done until it is **conformant to the contract**. Walk the spec section-by-section; each section is a **per-section HALT-on-unmet** — any unmet requirement HALTS the ship (no aggregate pass, no "mostly met"). Each check is mobile-specialized:
+
+- **Native-capability / iOS+Android parity** — each native-capability or parity requirement is verified on **both** platforms (iOS check AND Android check). A capability working on one platform when the spec says universal = HALT.
+- **NFR / performance** — each NFR is **measured, not asserted**: cold-start delta measured against baseline, **bundle / binary-size delta** measured, TTI + RAM where the spec set a budget. Over budget with no waiver = HALT.
+- **Authorization** — each authorization rule gets an **unauthorized-access test** (a role/state the spec forbids is exercised and proven blocked on both platforms). No negative test = HALT.
+- **Data-sensitivity / PII** — each declared PII / sensitive field has a **secure-storage check** (Keychain / Keystore / hardware-backed, never plaintext / AsyncStorage) and a **redaction check** (absent from logs, crash payloads, and analytics). Plaintext or leaked field = HALT.
+- **Observability** — each Observability requirement is matched to a real signal: crash-reporting covers the new screens, the declared analytics / screen-view signal fires, offline-queue failures reach telemetry. A declared signal with no wiring = HALT. (If the project ships no observability layer, the spec requirement is unmeetable → HALT and surface, do not silently pass.)
+- **Success metrics** — each success metric is **instrumented** (the measurement signal is wired) **or explicitly deferred** in the report with a reason. Silently un-instrumented = HALT.
+
+Record `spec_sections_checked=N / spec_sections_met=N` in the report; ship only when met == checked.
+
+### Build-time traceability rebuild (spec path only)
+
+Rebuild the spec's traceability table from the actual code at ship time — do not trust the design-time table:
+
+- **Every spec AC-ID → a named test.** Resolve each acceptance-criterion ID to the concrete test(s) that exercise it, **green on iOS AND Android**.
+- **HALT if any AC-ID is untested** (no test, or a test that is red / skipped / single-platform).
+- **Emit the AC→test map** in the report (`AC-3 → FeatureFlow.itemSubmit.test [iOS ✓ Android ✓]`), so the shipped feature's coverage is auditable against the contract.
+
 ## Phase 7 — Improve
 
 - Run `/learn-from-task` to capture: sibling mirrored, native surface touched, offline strategy, corrections, follow-ups.
@@ -270,6 +306,7 @@ These are mechanical (string-match / file-presence / config-presence checks), no
 - New native bridge → ADR proposed.
 - Recurring permission-denial UX → propose pattern.
 - Battery/data drain detected → flag for follow-up.
+- **Spec-drift learning (spec path only)** — if the shipped feature diverged from the spec (a deferred success metric, a parity exception, a tier promotion, a budget waiver, a native API the spec didn't anticipate): **annotate the spec** with the divergence + rationale, **queue the learning** to `ai/dynamic/feedback-learned.md`, and surface it in the PR description. Reuse the existing learning file — do not create a new one. Spec drift that ships unrecorded is the worst case: the contract and the code silently disagree.
 
 ## Output format
 
@@ -277,6 +314,7 @@ These are mechanical (string-match / file-presence / config-presence checks), no
 ## /add-feature — <feature-name>
 
 Status: SHIPPED | NEEDS REVIEW | BLOCKED
+Spec: <Spec-ID>            (only when built from a spec — present on EVERY tier, trivial included; omit the line entirely when built from a bare description)
 
 Platforms verified: iOS <v>, Android <v>
 Files written: <count>
@@ -285,6 +323,13 @@ Bundle delta: +<KB>
 Cold-start delta: +<ms>
 A11y score: <number>
 i18n: <count> new keys per locale, no missing
+
+Spec conformance:          (spec path only)
+  Sections met:           <met>/<checked>   (HALT if not all met)
+  AC → test map:
+    AC-1 → <test> [iOS ✓ Android ✓]
+    AC-2 → <test> [iOS ✓ Android ✓]
+  Success metrics:        <instrumented | deferred: reason>
 
 Native:
   Permissions added:        <list>

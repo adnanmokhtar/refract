@@ -11,7 +11,7 @@ The frontend orchestration command. Delivers a UI feature end-to-end at best-pra
 
 **Accepts either** a bare `"<description>"` (re-derives requirements) **or** a `specs/<file>` path / `Spec-ID` produced by `/analyze-task` (consumes the spec as the requirements contract — see Phase 1).
 
-> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit. The plan is written to `.claude/plans/` and is executed later via `/execute-plan <file>`. When planning from a spec (`/add-feature <Spec-ID> --plan`), the emitted plan carries a `Spec: <Spec-ID>` header so the re-entry run rejoins the spec branch (full-depth ingestion, conformance gate, traceability rebuild) instead of re-deriving requirements.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -71,7 +71,25 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 
 ### Spec-driven branch (when given a spec path / Spec-ID)
 
-If the argument is a path under `specs/` (or a `Spec-ID`), READ that spec and treat it as the requirements **CONTRACT** — user stories, acceptance criteria, traceability table, Affected modules, components/screens/state, API consumed, Test plan, a11y + i18n requirements, Out-of-scope. Do NOT re-derive requirements the spec already contains; proceed to design/generate from the spec (skip the Standard-inputs re-interview below). Still run the prior-art gate, the sibling-shape halt (Phase 4), and the new-dependency gate (Phase 4). Surface any unresolved **Open questions** the spec carries and pause before generating.
+If the argument is a path under `specs/` (or a `Spec-ID`), READ that spec **in full** and treat it as the requirements **CONTRACT**. Ingest every section, not just stories + AC:
+
+- **User stories + acceptance criteria** — each AC carries an AC-ID; these drive the traceability rebuild (Phase 6).
+- **Traceability table** — AC-ID → component/screen/test mapping; this is the seed for the Phase 6 AC→test map.
+- **Affected modules, components/screens/state, API consumed, Test plan, Out-of-scope.**
+- **a11y requirements** — each becomes a Phase 6 axe/keyboard conformance check.
+- **i18n requirements** — each becomes a Phase 6 both-locale check.
+- **NFR / perf-budget** — bundle-size ceilings, LCP/INP/CLS targets, route-timing budgets; each becomes a Phase 6 bundle-size/LCP gate.
+- **Authorization & data-sensitivity** — per-role access rules + sensitive-field handling; each rule becomes a Phase 6 unauthorized-access test.
+- **Observability** — required error/analytics/RUM signals; each must be matched by a wired signal in Phase 6.
+- **Rollout** — flag strategy, staged exposure, rollback path; carried into the Phase 6 release note.
+- **Success metrics** — each must be instrumented (event wired) or explicitly deferred in Phase 6.
+- **Sizing signal** — the spec's own complexity estimate; seeds the closure-verb tier (see Phase 1 § Sizing-signal seeding).
+
+Do NOT re-derive requirements the spec already contains; proceed to design/generate from the spec (skip the Standard-inputs re-interview below). Still run the prior-art gate, the sibling-shape halt (Phase 4), and the new-dependency gate (Phase 4).
+
+**Sizing-signal seeding.** Seed the closure-verb tier from the spec's **Sizing signal** rather than re-estimating from scratch. The seed is **promotion-only**: a stronger local signal (heavy reviewer triggers met, accessibility-critical surface, framework-level decision) may promote the tier above the spec's seed, never demote below it. Record any divergence (`spec sized standard; promoted to heavy because <reason>`) inline and in the run summary.
+
+**Open-questions HALT invariant.** If the spec carries unresolved **Open questions**, HALT before Phase 4 (Generate). Surface them and require resolution (answer recorded back to the spec, or an explicit accept-with-assumption from the user) before any code is generated. Unresolved open questions are a hard stop, not a warning.
 
 Otherwise (bare description) proceed with the existing flow below.
 
@@ -251,7 +269,13 @@ Gated by tier. Trivial-tier writes only the bare minimum; ADR drafts are heavy-t
 - **Standard-tier:** add `ai/modules.md` module entry + 1-paragraph sibling-shape note inline.
 - **Heavy-tier:** add `ai/patterns/<new-pattern>.md` (only if new pattern has ≥3 callsites) + `ai/decisions/<NNNN>-<slug>.md` (only if a framework-level decision was made — new state library, new router pattern, CSR↔SSR switch). `ai/dynamic/changelog.md` entry.
 
-**When built from a spec:** add a `Spec: <Spec-ID>` backreference to the `ai/dynamic/changelog.md` entry and the `ai/status.md` § Recent Changes line, so the shipped feature traces back to its source spec. The same `Spec: <Spec-ID>` line belongs in the PR description.
+**When built from a spec — `Spec: <Spec-ID>` on ALL tiers.** The backreference is not gated by tier. Wherever this tier writes, the `Spec: <Spec-ID>` line goes with it:
+
+- **Trivial-tier:** on the `ai/status.md` § Recent Changes one-line entry (and in the trivial output block — see Output format).
+- **Standard-tier:** the above + on the `ai/modules.md` module entry.
+- **Heavy-tier:** the above + on the `ai/dynamic/changelog.md` entry (and any ADR header it drafts).
+
+The same `Spec: <Spec-ID>` line belongs in the PR description on every tier, so the shipped feature traces back to its source spec regardless of ceremony.
 
 ## Phase 6 — Validate (verify correctness)
 
@@ -273,12 +297,37 @@ Gated by tier. Trivial-tier writes only the bare minimum; ADR drafts are heavy-t
   - If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 - **Release note (heavy tier only)**: one PR-description paragraph — feature flag or flagless-with-rationale, rollback path (flag off / revert), and what gets checked on staging/preview before production.
 
+### Spec-conformance gate (spec-path only — HALT per unmet section)
+
+When the feature was built from a spec (Phase 1 spec branch), every spec section ingested in Phase 1 gets a frontend-specialized conformance check. Walk the sections one by one; **HALT on the first unmet requirement** — do not aggregate-and-ship. Per requirement:
+
+- **Each a11y requirement → axe + keyboard test.** The requirement is met only when an automated axe assertion AND a keyboard-reachability/focus test cover it. Missing either → HALT.
+- **Each i18n requirement → both-locale check.** Every required string resolves in BOTH declared locales (en + ar) at the same key path, verified rendered. Any locale gap → HALT.
+- **Each perf-budget / NFR → bundle-size / LCP check.** Measure the actual bundle-size delta against the spec's ceiling and the rendered LCP (and INP/CLS if the spec sets them) against the spec's target. Over budget → HALT.
+- **Each Authorization rule → unauthorized-access test.** For every per-role rule the spec states, there is a test asserting the surface is denied/hidden for a role that should NOT have access (not just allowed for the role that should). Missing the negative test → HALT.
+- **Observability → matched signal.** Each required signal (error capture, analytics event, RUM/route timing) is wired the way siblings wire it and verified emitted. Unmatched signal → HALT.
+- **Each Success metric → instrumented OR deferred.** The metric's event is wired and firing, OR it is explicitly deferred with a recorded reason. Silently-absent metric → HALT.
+
+If a named agent (`@accessibility-auditor`, `@i18n-auditor`, `@security-auditor`) is not installed, run the corresponding check inline — never skip the section.
+
+### Build-time traceability rebuild (spec-path only — HALT on any untested AC-ID)
+
+Rebuild the AC→test map from the live test suite at build time — do not trust the spec's traceability table as-written; it predates the code. For every **acceptance-criterion AC-ID** in the spec:
+
+1. Resolve it to a **named test** (file + test name) that actually asserts it.
+2. **HALT if any AC-ID has no test** — an untested AC-ID is an unmet contract, not a follow-up.
+3. **Emit the AC→test map in the run output** (see Output format § Traceability), so the shipped feature's coverage is auditable line-by-line.
+
 ## Phase 7 — Improve (feed the learning loop)
 
 - If a new pattern emerged → `/learn-from-task` to promote.
 - If a stale convention was caught → propose update to `ai/conventions.md`.
 - If an a11y/i18n drift was found → log to `ai/dynamic/drift-log.md`.
 - If the feature involved a new external dependency → it was already gated in Phase 4; promote to ADR here if it's load-bearing or touches auth/payment/crypto.
+- **If the implementation diverged from the spec** (a requirement was changed, dropped, or satisfied differently than written) → close the loop three ways, do NOT invent a new file:
+  1. **Annotate the spec in place** — append a `Deviation: <what changed and why>` line to the affected spec section; if the divergence was reconciled (spec updated to match reality), use `Resolved: <how>` instead.
+  2. **Queue the learning** — append the divergence to `ai/dynamic/feedback-learned.md` so the next spec authored avoids the same gap.
+  3. **Surface in the PR** — list each `Deviation:` / `Resolved:` in the PR description so the reviewer sees spec-vs-code drift explicitly.
 
 ## Output format
 
@@ -286,6 +335,7 @@ Gated by tier. Trivial-tier writes only the bare minimum; ADR drafts are heavy-t
 ## /add-feature — <feature-name>
 
 Status: SHIPPED | NEEDS REVIEW | BLOCKED
+Spec:   <Spec-ID>        (always present when built from a spec — every tier, including trivial)
 
 Files written:
   - <path>
@@ -301,14 +351,24 @@ i18n:
   - new keys: <count> per locale
   - missing:  <0 expected>
 
+Traceability (spec-path only — every AC-ID maps to a named test):
+  - <AC-ID> → <test file>::<test name>
+  - <AC-ID> → <test file>::<test name>
+  - untested AC-IDs: <0 expected — any non-zero = HALT>
+
 Knowledge updates:
   - ai/modules.md      ✓
   - ADR <NNNN>         (if applicable)
   - new pattern        (if extracted)
 
+Spec divergences (if any):
+  - Deviation: <section> — <what / why>   (annotated in spec + queued to ai/dynamic/feedback-learned.md)
+
 Open follow-ups:
   - <thing flagged for next session>
 ```
+
+The trivial-tier output is the same block minus the Traceability / Knowledge / divergence sections — but the `Spec: <Spec-ID>` line is still written whenever the feature was built from a spec.
 
 ## Failure modes
 

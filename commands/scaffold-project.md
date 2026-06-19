@@ -297,16 +297,55 @@ Write `drizzle.config.ts`. Create initial schema with the auth tables Better Aut
 
 Unless `--no-claude-orchestration` was passed:
 
+Invoke `/setup-project --create` as a **single UNIT** — not a hand-picked subset of its
+scripts. This step inherits the ENTIRE `setup-project` Step-Zero contract: **every mechanical
+halt in `setup-project.md` § "Mechanical halt" + § "🛑 STEP ZERO" applies here unchanged**
+(M17 audit refusal, M23 deterministic study-decisions, M25 deterministic anchors, M34 adapter
+auto-chain, mode-drift). Do NOT re-list a partial subset and do NOT skip any deterministic floor —
+the chained command is the contract. See `commands/setup-project.md` (Step-Zero, ~lines 67–142)
+for the canonical, load-bearing definition; this region must not drift from it.
+
 ```bash
-# This invocation creates .claude/, ai/, CLAUDE.md, runs preflight + applies pack
-# content scoped to the detected stack via M28 detect-tracks.
+# /setup-project --create runs ITS full Step-Zero pipeline in this session.
+# The deterministic floor below is non-negotiable and runs in this exact order:
+
+# 1) Preflight — creates .claude/, ai/, the 4 reports; scopes packs to the detected
+#    stack via M28 detect-tracks.
 ~/.claude/scripts/run-preflight.sh "$DEST" --mode=create
-# Then the agent runs the rest of /setup-project --create logic in this session
-# (writing the orchestration files, anchoring artifacts via apply-anchors.sh,
-# generating .mcp.json via detect-mcp.sh --apply).
+
+# 2) M23 — apply study decisions deterministically (REPLACE-OR-ENHANCE + ADD by file copy).
+#    Skipping this is a documented halt (setup-project § Mechanical halt #3).
+~/.claude/scripts/apply-study-decisions.sh "$DEST" --apply --include=replace,add
+
+# 3) M25 — apply Phase-4.6 round-one anchors deterministically (project-specific blocks).
+~/.claude/scripts/apply-anchors.sh "$DEST" --apply
+
+# 4) Generate .mcp.json for the detected stack.
+~/.claude/scripts/detect-mcp.sh "$DEST" --apply
+
+# 5) M17 FINAL GATE — audit. Exits 0 = safe. Exits non-zero = run REFUSED.
+~/.claude/scripts/audit-setup.sh "$DEST" --mode=create
 ```
 
-After this step the new project has the FULL orchestration layer — agents, skills, rules, patterns, MCP servers, all scoped to its stack.
+**HARD HALT (inherited M17):** scaffold-project MUST NOT report `SCAFFOLDED` / `success` /
+`done` if `audit-setup.sh` exits non-zero. It inherits setup-project's M17 refusal verbatim:
+the run is REFUSED. Surface the audit findings (the actionable rows it printed), leave the dir
+in a usable state, and do not advance to Phase 5/6/7. This audit is the orchestration gate; it is
+**separate from** Phase 6's boot-check (which still runs independently — see Phase 6).
+
+**M34 — auto-chain adapters:** after `audit-setup.sh` exits 0, chain `/setup-project-adapters`
+to translate `.claude/` artifacts to each enabled tool's native shape:
+
+```
+/setup-project-adapters
+```
+
+Skip ONLY when `--no-adapters` (or `--no-claude-orchestration`) was passed, or zero non-Claude
+adapters are enabled. Skipping silently without one of these reasons is a halt (setup-project
+§ Mechanical halt #4).
+
+After this step the new project has the FULL orchestration layer — agents, skills, rules, patterns,
+MCP servers, adapters — all scoped to its stack, and the M17 audit has confirmed it.
 
 ### 4.9 — (ADRs deferred to Phase 5)
 

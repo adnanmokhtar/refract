@@ -9,7 +9,7 @@ description: Comprehensive orchestration for a new feature. Detects domain signa
 
 # /add-feature
 
-> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit; the plan lands in `.claude/plans/` — execute it later with `/execute-plan <file>` (or hand it to any tool). When planning from a spec, the plan carries a `Spec: <Spec-ID>` header so the saved plan stays traceable to its contract.
 
 > **Argument**: accepts either a `"<description>"` (re-derives requirements) OR a `specs/<file>` path / `Spec-ID` produced by `/analyze-task` (consumes the spec as the requirements contract — see Phase 1).
 
@@ -57,6 +57,8 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 
 **Most adds are 2 files. Default to trivial.** If the audit (Phase 6 sibling-shape halt) flags new primitives or cross-module touch, it promotes the row to standard or heavy — the agent does NOT pre-emptively pick heavy "to be safe."
 
+**Spec-path tier seeding.** When Phase 1 consumed a spec, **seed** the tier from the spec's `Sizing signal` (the spec already classified the work). The audit may still **promote** if it finds heavier triggers (new primitive, cross-module touch, write-path, security surface) — never **silently demote** below the spec's seed. If the derived tier ≠ the spec's `Sizing signal`, record the divergence + the trigger that caused it in the PR description (`Tier: <derived> (spec seeded <spec-tier>; promoted because <trigger>)`).
+
 ## Invariants (all tiers)
 
 - **Zero placeholders** in output. Every file has real content.
@@ -65,6 +67,9 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 - **Zero untested business logic ships.**
 - **Signal-aware at heavy tier** — multi-tenant code → multi-tenant reviewers; AI → AI reviewers.
 - **Telemetry designed, not bolted on** (heavy tier).
+- **Spec backreference at every tier** — when built from a spec, the `Spec: <Spec-ID>` backref ships in the output block and the PR, regardless of tier (Phase 5 may be skipped; the backref is not — see § All-tier Spec backreference).
+- **Unresolved spec Open questions → HALT before Generate.** A spec carried into Phase 1 with open questions is not a contract yet; surface them and pause — never generate against an unresolved question.
+- **All-tier floor on risk-bearing diffs** — whenever the diff adds an endpoint / external call / write path, the minimal observability sign-off AND the diff-scoped security pre-flight run at EVERY tier, not just heavy (see § All-tier floors).
 
 ## Phases applied
 
@@ -106,6 +111,19 @@ Adding it is not automatically wrong, but it is never silent. Before the package
 
 HALT on an unreviewed new dependency. A new package on a write-path / security surface with no ADR is forbidden.
 
+## All-tier floors (risk-bearing diffs)
+
+Backend is the outlier: it parks observability sign-off and the security pre-flight inside the heavy-only Phase 6 ceremony, while frontend/mobile keep these all-tier. This section lifts the **minimal** versions out into an all-tier floor — gated exactly the way `n-plus-one-scan` already is at standard tier (triggered by the diff, not the tier label).
+
+**Trigger:** the diff adds an **endpoint**, an **external call**, or a **write path** (DB mutation, queue publish, state change). When none of these are present, the floor is a no-op and trivial stays trivial.
+
+When triggered, run regardless of tier:
+
+- **Minimal observability sign-off** — the new endpoint emits a request counter + latency histogram; the external call emits success/failure + latency; sensitive data is redacted in logs. (The full Phase 6 sign-off — alert rules, correlation-id propagation, trace spans on hot paths — remains heavy-tier.)
+- **Diff-scoped security pre-flight** — `/security-audit` scoped to the diff (or the inline checklist if not installed). Block on any BLOCKER. (The full Phase 6 security ceremony remains heavy-tier; this floor is the diff-scoped minimum.)
+
+HALT on a failure here at any tier. This floor is what makes a trivial-tier write-path add safe to ship without promoting to heavy.
+
 ---
 
 ## Heavy-tier 7-phase ceremony (opt-in)
@@ -114,20 +132,28 @@ Everything below applies ONLY when the row is heavy-tier per the table above. Tr
 
 ## Phase 1 — Understand (the ask)
 
-0. If the argument is a path under `specs/` (or a `Spec-ID`) → READ that spec file and treat it as the requirements **CONTRACT** — its user stories, acceptance criteria, traceability table, Affected modules, DB changes, API surface, Test plan, NFR/authz/observability/rollout, Out-of-scope. Do NOT re-dispatch `business-analyst` to re-derive requirements the spec already contains; proceed to design/generate using the spec. Still run the prior-art gate, sibling-shape halt, and new-dependency gate. If the spec has unresolved **Open questions** → surface them and pause before generating. (Bare-description path below applies only when no spec was given.)
+**Two mutually-exclusive input paths. Determine which one is live, then run only its block.**
+
+**Path A — Spec given (argument is a `specs/<file>` path or a `Spec-ID`).**
+
+0. READ that spec file and treat it as the requirements **CONTRACT** — its user stories, acceptance criteria, traceability table (Story → AC-ID → test → module), Affected modules, DB changes, API surface, Test plan, NFR/SLO, Authorization rules, PII/data-handling, Observability requirements, Rollout/migration, Success metric, Sizing signal, Out-of-scope, Open questions.
+1. **Skip the entire bare-description path below** — do NOT run `/expand-task`, do NOT dispatch `business-analyst`, do NOT re-derive any requirement the spec already contains. Re-deriving what the spec already states is forbidden; the spec is the contract. Seed the tier from the spec's `Sizing signal` (see § Spec-path tier seeding). Still run the prior-art gate, sibling-shape halt, new-dependency gate, and the all-tier floors.
+2. **Unresolved spec Open questions → HALT before Generate.** Surface them and pause; do not generate against an open question (invariant).
+
+**Path B — bare description given (no spec).** Run this block ONLY when Path A did not fire.
+
 1. If prompt is vague → run `/expand-task "<brief>"` first. Get full spec. Pause for user confirmation.
 2. If prompt is clear → continue.
-3. Identify signals from ask AND `CLAUDE.md`:
+
+   **Requirements (business-analyst).** Dispatch `business-analyst` with the refined prompt + current phase from `ai/status.md`. Output: goal, actors, user stories, acceptance criteria, edge cases, non-functional requirements, dependencies, explicit out-of-scope, open questions. **Pause. Get user confirmation on requirements.** Don't design on shaky requirements.
+
+   > **Path B only.** When Path A fired (Phase 1 consumed a spec), this `/expand-task` + `business-analyst` block is skipped entirely — the spec already carries every output it would produce.
+
+**Both paths then continue:**
+
+3. Identify signals from ask/spec AND `CLAUDE.md`:
    - Multi-tenant? AI? Webhook? Payment? Real-time? Event-sourced? File-upload? Search? Notifications? Background job? Cross-service? Compliance?
 4. Define scope boundaries: what's IN, what's explicitly OUT.
-
-### Requirements (business-analyst)
-
-Dispatch `business-analyst` with the refined prompt + current phase from `ai/status.md`.
-
-Output: goal, actors, user stories, acceptance criteria, edge cases, non-functional requirements, dependencies, explicit out-of-scope, open questions.
-
-**Pause. Get user confirmation on requirements.** Don't design on shaky requirements.
 
 ## Phase 2 — Organize (design the work)
 
@@ -193,6 +219,13 @@ EXISTING CODE:
 - DB changes? → `/add-migration`, then `schema-diff` skill to verify; if populated table touched, run `migration-rehearsal` skill.
 - Frontend? → `/add-page` / `/add-component` / `/add-crud-page` per ui-architect's design.
 
+**Dispatch contract (leaves don't re-derive).** When this command calls `/add-module` or `/add-endpoint` internally, PASS down — never make the leaf re-derive what this orchestration already resolved:
+- the **Spec-ID / spec path** (so the leaf reads the same contract, not a fresh interpretation),
+- the **Phase-1 requirements** (the acceptance criteria + AC-IDs relevant to that leaf),
+- the relevant **Phase-2 architect design slice** (the module-shape / API-surface / DTO / DI decisions for that leaf, not the whole design),
+- the **resolved signals** (multi-tenant / AI / webhook / payment / cross-service) so the leaf applies the right domain requirements without re-detecting them.
+A leaf that re-runs `business-analyst` or re-detects signals is a contract breach — the parent already did that work once.
+
 ### Implement
 
 Mirror sibling modules EXACTLY. Never invent a layout / name / export style.
@@ -219,6 +252,8 @@ Dispatch `test-engineer` with:
 - Webhook? → signature verification test + idempotency test.
 - Cross-service? → `contract-test` if applicable.
 
+**Build-time traceability rebuild (spec path).** When Phase 1 consumed a spec, consume its `Story → AC-ID → test → module` traceability table and **rebuild it against the code you just generated**: for every AC-ID, name the specific new test(s) that cover it and the file each lives in. This makes the "tests for every AC" hard rule mechanical rather than aspirational. **HALT if any AC-ID has no covering test** — an unmapped AC-ID is an untested acceptance criterion and may not ship. Carry the resulting **AC-ID → test → file** map forward; it is emitted in the Phase 6 output (see § Spec-conformance gate).
+
 Verify:
 - Unit tests exist for every use-case.
 - Integration tests exist for every repo change.
@@ -238,7 +273,7 @@ Update via `doc-writer`:
 - `ai/patterns/<new>.md` — if a new reusable pattern emerged.
 - `ai/decisions/NNNN-*.md` — ADR if an architectural decision was made.
 - `ai/dynamic/changelog.md` — one-line summary.
-- When built from a spec: add a `Spec: <Spec-ID>` backreference to the `ai/status.md` Recent Changes entry and the `ai/dynamic/changelog.md` line (and include it in the PR description) so "which spec built this?" is answerable.
+- When built from a spec: add a `Spec: <Spec-ID>` backreference to the `ai/status.md` Recent Changes entry and the `ai/dynamic/changelog.md` line (and include it in the PR description) so "which spec built this?" is answerable. **This backref is an all-tier invariant (see § Invariants):** trivial / standard tiers skip the rest of Phase 5, but they still emit `Spec: <Spec-ID>` in their output block and the PR — a spec-built trivial feature must not lose its backreference just because it skipped the knowledge-base update.
 - For UI changes: regenerate i18n keys in `locales/`.
 
 ## Phase 6 — Validate (review + observability + domain + security)
@@ -272,6 +307,22 @@ Update via `doc-writer`:
 
 Consolidate findings. **Mechanical halt**: HALT unless EVERY dispatched reviewer returns 0 BLOCKER and 0 CRITICAL findings. Record `reviewers_dispatched=N` and `reviewers_clean=N` in the consolidation note — proceed only when `reviewers_clean == reviewers_dispatched`. If any reviewer flags a blocker, re-run that specific reviewer after the fix; do not paper over, do not aggregate-and-ignore.
 
+### Spec-conformance gate (spec path only)
+
+**Spec depth in → enforced out.** When Phase 1 consumed a spec, iterate the spec's depth sections and emit a per-section **verdict**. This is the gate that makes the ingested spec binding rather than decorative — a spec is only worth its depth if every section it declared is checked against the shipped code. **HALT on any unmet section.**
+
+| Spec section | Conformance check (per item) | Verdict |
+|---|---|---|
+| Acceptance criteria | every AC-ID maps to a named new test in a named file (the Phase-4 traceability rebuild) | `met` / **HALT** |
+| NFR / SLO | each one is implemented AND the note states **how it is measured** (which metric / load test / budget) | `met` / **HALT** |
+| Authorization rules | each rule has a test asserting **denial** for the unauthorized role(s), not just allow-path coverage | `met` / **HALT** |
+| PII / declared sensitive fields | each declared PII field has a **redaction check** (log-redaction test or assertion it never serializes) | `met` / **HALT** |
+| Observability requirements | each required signal (log / metric / trace / alert) is **matched to an actually-emitted signal** in the diff | `met` / **HALT** |
+| Rollout / migration | the Release pre-flight note is **populated FROM the spec's rollout section**, not re-derived (flag / migration ordering / rollback / staging come from the spec) | `met` / **HALT** |
+| Success metric | the success metric is **instrumented** (an emitted signal proves it) OR **explicitly deferred** with a one-line reason in the PR | `met` / `deferred` / **HALT** |
+
+Emit this table — plus the **AC-ID → test → file** map from Phase 4 — in the Phase 6 output. Any row that is neither `met` nor (for Success metric) explicitly `deferred` → HALT; do not paper over a missing section, and do not silently downgrade the spec's depth.
+
 ### Observability sign-off
 
 Verify:
@@ -300,7 +351,7 @@ Dispatch `/security-audit` scoped to the diff. Block on any BLOCKER.
 
 ### Release pre-flight (heavy tier)
 
-One short note in the PR description — not a new ceremony:
+One short note in the PR description — not a new ceremony. **When built from a spec, populate this FROM the spec's Rollout/migration section — do not re-derive it.** Each field below is copied from the spec and confirmed against the diff; a field the spec specified but the code contradicts is a Spec-conformance-gate HALT (and a Phase-7 `Deviation:` annotation):
 
 - **Flag decision**: behind a feature flag, or flagless with rationale (e.g., additive endpoint, no existing-path risk).
 - **Migration ordering**: if schema changed, expand → migrate → contract sequence stated; deploy is safe with old + new code running simultaneously.
@@ -316,6 +367,10 @@ If any check fails: HALT, report the failure, do not paper over.
 - If a user correction during architecture review reset the design direction: append to `ai/dynamic/feedback-learned.md`.
 - If a decision warrants formal ADR: queue to `ai/dynamic/decisions-pending.md`.
 - If review surfaced drift between code + convention: append to `ai/dynamic/drift-log.md`.
+- **Spec-drift learning (spec path).** If implementation diverged from the spec contract — a section was wrong or incomplete, or an Open question got resolved during the build — close the loop in TWO places (do not invent a new file):
+  - **Annotate the source spec** in place: a `Deviation: <section> — <what the code does instead + why>` note where a section proved wrong/incomplete, or a `Resolved: <open question> — <answer chosen during build>` note where an Open question was answered.
+  - **Queue the delta to `ai/dynamic/feedback-learned.md`** so the divergence feeds the learning layer.
+  - **Surface it in the PR** (a "Spec deviations / resolutions" line) so the reviewer sees the spec is no longer the literal blueprint.
 
 ## Output
 
@@ -324,10 +379,12 @@ If any check fails: HALT, report the failure, do not paper over.
 ```
 ✅ Feature: <name>  (tier: trivial|standard)
 
+Spec: <Spec-ID>            (only when built from a spec — all-tier invariant)
 Sibling(s) mirrored: <paths>
 Files created/modified: <counts>
 Tests added: <count> — passing
 Sibling-shape halt: aligned (<N> axes checked)
+All-tier floor: <observability sign-off + security pre-flight, if diff added endpoint/external call/write path — else "n/a">
 Docs: ai/status.md updated <+ plan paragraph if standard>
 
 Next: commit + open PR
@@ -344,7 +401,9 @@ Phase 3 (Retrieved): 7 universals + <N> signal-specific patterns + <N> sibling m
 Phase 4 (Generated): <files created>; tests passing.
 Phase 5 (Updated): ai/modules.md (+1), ai/status.md (Recent Changes), ai/patterns/<new>.md.
 Phase 6 (Validated): <reviewers> ran; security pre-flight clean; observability sign-off.
-Phase 7 (Improved): /learn-from-task queued.
+  Spec-conformance gate (if spec): <met N / N sections; HALT none>
+  AC-ID → test → file: <map, one row per AC-ID>
+Phase 7 (Improved): /learn-from-task queued. <Spec deviations / resolutions: ... if any>
 
 Scope:
   Modules touched: <list>
@@ -381,9 +440,12 @@ Next:
 
 - Never skip phases within your tier's ceremony to save time. Tier selection (Closure verbs table) is the only sanctioned way to shrink the flow.
 - Pause at Phase 1 (requirements) and Phase 2 (design) — heavy tier only. Trivial / standard run unpaused.
-- No feature ships without tests for every acceptance criterion.
-- No feature ships without telemetry.
-- No feature ships with any security BLOCKER open.
+- No feature ships without tests for every acceptance criterion. On the spec path this is mechanical: every AC-ID maps to a named test in a named file (Phase 4 traceability rebuild) or it HALTs.
+- No feature ships without telemetry. The minimal observability sign-off is an all-tier floor on any diff that adds an endpoint / external call / write path — not heavy-tier-only.
+- No feature ships with any security BLOCKER open. The diff-scoped security pre-flight is an all-tier floor on the same risk-bearing diffs.
+- Spec depth in → enforced out: when built from a spec, every depth section passes the Phase 6 Spec-conformance gate or it HALTs; unresolved spec Open questions HALT before Generate.
+- The two Phase-1 input paths are mutually exclusive: a spec consumed in Phase 1 skips `/expand-task` + `business-analyst` entirely — never re-derive what the spec states.
+- The `Spec: <Spec-ID>` backreference is emitted at every tier when built from a spec, even when Phase 5 is skipped.
 - Domain signals drive automatic reviewer dispatch — don't forget them.
 - Every consulted pattern logged in the report for traceability.
 
