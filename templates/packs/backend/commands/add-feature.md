@@ -6,6 +6,8 @@ description: Comprehensive orchestration for a new feature. Detects domain signa
 
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
 
+> **Argument**: accepts either a `"<description>"` (re-derives requirements) OR a `specs/<file>` path / `Spec-ID` produced by `/analyze-task` (consumes the spec as the requirements contract — see Phase 1).
+
 ## The Premise (read this first, internalize, do not deviate)
 
 **Existing siblings are the truth.** When 50 endpoints in this codebase follow pattern X — same controller shape, same DI primitive, same error envelope, same validation library, same file path under `<module>/<kind>/...` — that pattern IS the project's intentional truth. The 51st endpoint does not get to invent pattern Y. Future maintainers can't predict where things live, fixes can't be applied uniformly, and the codebase fragments by one more weight every time someone improvises.
@@ -107,6 +109,7 @@ Everything below applies ONLY when the row is heavy-tier per the table above. Tr
 
 ## Phase 1 — Understand (the ask)
 
+0. If the argument is a path under `specs/` (or a `Spec-ID`) → READ that spec file and treat it as the requirements **CONTRACT** — its user stories, acceptance criteria, traceability table, Affected modules, DB changes, API surface, Test plan, NFR/authz/observability/rollout, Out-of-scope. Do NOT re-dispatch `business-analyst` to re-derive requirements the spec already contains; proceed to design/generate using the spec. Still run the prior-art gate, sibling-shape halt, and new-dependency gate. If the spec has unresolved **Open questions** → surface them and pause before generating. (Bare-description path below applies only when no spec was given.)
 1. If prompt is vague → run `/expand-task "<brief>"` first. Get full spec. Pause for user confirmation.
 2. If prompt is clear → continue.
 3. Identify signals from ask AND `CLAUDE.md`:
@@ -230,6 +233,7 @@ Update via `doc-writer`:
 - `ai/patterns/<new>.md` — if a new reusable pattern emerged.
 - `ai/decisions/NNNN-*.md` — ADR if an architectural decision was made.
 - `ai/dynamic/changelog.md` — one-line summary.
+- When built from a spec: add a `Spec: <Spec-ID>` backreference to the `ai/status.md` Recent Changes entry and the `ai/dynamic/changelog.md` line (and include it in the PR description) so "which spec built this?" is answerable.
 - For UI changes: regenerate i18n keys in `locales/`.
 
 ## Phase 6 — Validate (review + observability + domain + security)

@@ -24,9 +24,9 @@ One page. How a new project or a new feature moves from idea → shipped, mapped
 
 | You have… | Command | Produces |
 |---|---|---|
-| A vague feature/business idea | `/analyze-task "<idea>"` | business spec → (confirm gate) → technical spec in `specs/` |
+| A vague feature/business idea | `/analyze-task "<idea>"` | business spec → (confirm gate) → technical spec (with a **Spec-ID**) in `specs/`; then `/add-feature specs/<file>` builds from it (consumes the spec, doesn't re-derive) |
 | A one-line ticket | `/expand-task "<brief>"` | an implementer-ready prompt + ONE suggested next command |
-| A clear feature to build | `/add-feature "<desc>"` | scaffold + implement + tests |
+| A clear feature to build | `/add-feature "<desc>"` ·or· `/add-feature specs/<file>` | scaffold + implement + tests |
 | One specific artifact | `/add-module` · `/add-endpoint` · `/add-component` · `/add-page` · `/add-crud-page` · `/add-screen` | just that piece |
 | A bug | `/fix-bug "<desc>"` | failing test → fix → postmortem |
 | Not sure which | `/do "<anything>"` | routes to the right execution command |
@@ -43,6 +43,8 @@ One page. How a new project or a new feature moves from idea → shipped, mapped
 1. **Prior-art gate** — HALT on duplicate capability (behaviour, not name).
 2. **Sibling-shape halt** — new code must match an existing sibling's layout/naming/errors; invented shapes rejected.
 3. **New-dependency gate** — a new dependency needs explicit justification.
+
+> `/add-feature` accepts either a free-text description **or** a `specs/<file>` path. Given a spec, it consumes it as-is (no re-derivation) and threads the spec's **Spec-ID** into the PR title + commits for traceability back to `/analyze-task`.
 
 ---
 
@@ -90,7 +92,8 @@ The plan file is a tool-agnostic contract (`Context · Inputs · Outputs · Step
 
 ```
 NEW PROJECT:   /refine-prompt → /scaffold-project (⤷ /setup-project) → features ↓
-NEW FEATURE:   /do  ·or·  /analyze-task → /expand-task → /add-feature
+NEW FEATURE:   /do  ·or·  /analyze-task → specs/<file> → /add-feature specs/<file>   (Spec-ID threads into PR/commits)
+                          ·or·  /expand-task → /add-feature
                                               │
                          (tiers: trivial/standard/heavy · gates: prior-art/sibling-shape/new-dep)
                                               ↓

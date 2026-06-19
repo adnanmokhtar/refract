@@ -429,7 +429,7 @@ These ship with their respective packs when the track is selected/detected.
 
 | Command | Purpose |
 |---|---|
-| `/analyze-task` | Turn a rough business idea into structured requirements + user stories. |
+| `/analyze-task` | Turn a rough business idea into structured requirements + user stories. Writes a technical spec (with a Spec-ID) to `specs/`; build it with `/add-feature specs/<file>`, which consumes the spec instead of re-deriving (the spec→build seam). |
 | `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context. |
 
 **Infrastructure track**

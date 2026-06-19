@@ -9,6 +9,8 @@ description: End-to-end mobile feature — multi-screen flow + state + offline +
 
 Mobile feature orchestration. Use when a feature touches more than one screen OR introduces native capabilities (camera, notifications, biometric).
 
+Accepts **either** a bare `"<description>"` (the command derives requirements itself) **or** a `specs/<file>` path / `Spec-ID` produced by `/analyze-task` (the command consumes that spec as the requirements contract instead of re-deriving — see Phase 1).
+
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
 
 ## The Premise (read this first, internalize, do not deviate)
@@ -71,6 +73,12 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - NOT: a UI tweak → just edit + `/review-changes`.
 
 ## Phase 1 — Understand
+
+### Spec-consumption branch (when given a `specs/` path or `Spec-ID`)
+
+If the argument is a path under `specs/` (or a `Spec-ID`), **READ that spec and treat it as the requirements CONTRACT** — user stories, acceptance criteria, traceability table, Affected modules/screens, native-capability requirements + iOS/Android parity, Test plan, Out-of-scope. **Do NOT re-derive requirements the spec already contains** — skip the consolidated-question block below and proceed straight to design/generate from the spec. Still run the **prior-art gate**, the **sibling-shape mechanical halt** (Phase 4), and the **new-dependency gate** (Phase 4) — the spec does not exempt a feature from those. Surface any unresolved **Open questions** from the spec and pause before generating.
+
+If the argument is a bare description (no `specs/` path / `Spec-ID`), use the prior-art gate + consolidated-question path below unchanged.
 
 ### Prior-art gate (mandatory, all tiers)
 
@@ -235,6 +243,7 @@ These are mechanical (string-match / file-presence / config-presence checks), no
 - `ai/decisions/<NNNN>-*.md` — for architectural choices (offline strategy, state placement, native bridge introduction).
 - `ai/status.md` § Recent Changes.
 - `app-store-metadata/` — privacy disclosure + permission rationale strings (if relevant).
+- **Spec backreference (only when built from a spec)** — add a `Spec: <Spec-ID>` line to the changelog entry and to the `ai/status.md` § Recent Changes entry, so the shipped feature traces back to its `/analyze-task` spec. This `Spec: <Spec-ID>` line also belongs in the PR description.
 
 ## Phase 6 — Validate
 

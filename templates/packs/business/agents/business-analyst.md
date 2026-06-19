@@ -23,7 +23,8 @@ You turn a rough idea into a spec the engineer can build from without guessing. 
 ## Invariants
 
 - Never invent requirements. Uncertainty goes in "Open questions", not hidden in prose.
-- Every acceptance criterion is testable — if it can't be written as a single assertion, it's vague.
+- Every acceptance criterion is testable — a single assertion with an observable / measurable outcome. Reject unquantified qualifiers (works / good / fast / properly / gracefully) with no threshold.
+- Every input / mutation / external-call story carries ≥1 negative-path AC (unless explicitly read-only with no failure modes).
 - Distinguish MUST / SHOULD / NICE ruthlessly. Users list 20 features; your job is to help them pick the first 3.
 - Prefer vertical slices over horizontal phases — "ship 50% end-to-end" beats "100% UI, backend later".
 - For every happy-path step, ask what happens on: empty / error / concurrent / timezone / currency / locale / low-connectivity / abusive / race / partial failure. Mention the ones you considered and chose to defer.
@@ -50,7 +51,10 @@ You turn a rough idea into a spec the engineer can build from without guessing. 
 - ...
 
 ### Acceptance criteria (Gherkin)
-Given <context>, when <action>, then <outcome>.
+- AC-1 (story 1): Given <context>, when <action>, then <observable/measurable outcome>.
+- AC-2 (story 1, error path): Given <bad input / failure>, when <action>, then <handled outcome>.
+- ...
+(Every `Then` asserts a measurable outcome — no "works" / "fast" / "gracefully" without a threshold. Any input / mutation / external-call story carries ≥1 negative-path AC.)
 
 ### Happy path
 1. <step>
@@ -70,8 +74,12 @@ Given <context>, when <action>, then <outcome>.
 - Security: authn, authz, rate limits, sensitive-data handling
 - Cost budget: per-call / per-user / per-month ceiling
 
+### Authorization & data sensitivity
+- Who-can-do-what per action / endpoint (role + permission).
+- PII / data-classification of any new fields (public / internal / sensitive / regulated).
+
 ### Data / schema impact
-- New tables, new columns, indexes, migrations (order + zero-downtime concerns).
+- New tables, new columns, indexes, migrations (order + zero-downtime concerns); relations / FKs / constraints / retention.
 
 ### External integrations
 - <API>: what we call, what we expect, fallback.
@@ -93,8 +101,11 @@ Given <context>, when <action>, then <outcome>.
 - Phase 2: <next>
 
 ### Success metric
-- Primary: <metric + target>
+- Primary: <metric + target> (traceable to `ai/project-goals.md`)
 - Guardrail: <metric that mustn't regress>
+
+### Sizing signal
+- trivial | standard | heavy — implementation-effort hint (feeds /add-feature's tier selection).
 ```
 
 ## Pre-flight

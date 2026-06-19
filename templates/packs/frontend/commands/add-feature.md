@@ -9,6 +9,8 @@ description: End-to-end frontend feature — pages + components + state + i18n +
 
 The frontend orchestration command. Delivers a UI feature end-to-end at best-practice quality the FIRST time. Use when a feature touches more than one component or screen.
 
+**Accepts either** a bare `"<description>"` (re-derives requirements) **or** a `specs/<file>` path / `Spec-ID` produced by `/analyze-task` (consumes the spec as the requirements contract — see Phase 1).
+
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/add-feature <desc> --plan` plans the feature and exits before any edit.
 
 ## The Premise (read this first, internalize, do not deviate)
@@ -66,6 +68,12 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - NOT: a backend feature → use the backend pack's `/add-feature`.
 
 ## Phase 1 — Understand (the ask)
+
+### Spec-driven branch (when given a spec path / Spec-ID)
+
+If the argument is a path under `specs/` (or a `Spec-ID`), READ that spec and treat it as the requirements **CONTRACT** — user stories, acceptance criteria, traceability table, Affected modules, components/screens/state, API consumed, Test plan, a11y + i18n requirements, Out-of-scope. Do NOT re-derive requirements the spec already contains; proceed to design/generate from the spec (skip the Standard-inputs re-interview below). Still run the prior-art gate, the sibling-shape halt (Phase 4), and the new-dependency gate (Phase 4). Surface any unresolved **Open questions** the spec carries and pause before generating.
+
+Otherwise (bare description) proceed with the existing flow below.
 
 ### Intent gate (mandatory pre-step)
 
@@ -242,6 +250,8 @@ Gated by tier. Trivial-tier writes only the bare minimum; ADR drafts are heavy-t
 - **Trivial-tier:** `ai/status.md` § Recent Changes — one-line entry. Nothing else.
 - **Standard-tier:** add `ai/modules.md` module entry + 1-paragraph sibling-shape note inline.
 - **Heavy-tier:** add `ai/patterns/<new-pattern>.md` (only if new pattern has ≥3 callsites) + `ai/decisions/<NNNN>-<slug>.md` (only if a framework-level decision was made — new state library, new router pattern, CSR↔SSR switch). `ai/dynamic/changelog.md` entry.
+
+**When built from a spec:** add a `Spec: <Spec-ID>` backreference to the `ai/dynamic/changelog.md` entry and the `ai/status.md` § Recent Changes line, so the shipped feature traces back to its source spec. The same `Spec: <Spec-ID>` line belongs in the PR description.
 
 ## Phase 6 — Validate (verify correctness)
 
