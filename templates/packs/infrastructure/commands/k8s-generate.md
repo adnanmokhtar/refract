@@ -21,7 +21,7 @@ Default-secure manifests for one service: probes, resources, non-root, default-d
 3. Missing-probes halt: any container in Deployment / StatefulSet without BOTH `livenessProbe` AND `readinessProbe` (and `startupProbe` if sibling has one) → halt.
 4. Missing-limits halt: any container without BOTH `resources.requests` AND `resources.limits` for cpu+memory → halt.
 5. Missing-securityContext halt: any container without `runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, `capabilities.drop` matching sibling → halt.
-6. PDB-replica-coherence halt: `pdb.minAvailable >= deployment.replicas` → halt.
+6. PDB-replica-coherence halt: `pdb.minAvailable >= deployment.replicas` → halt. Also halt on a degenerate single-replica PDB: a PDB emitted for `replicas == 1`, or any `pdb.minAvailable == 0` → halt (skip the PDB or raise replicas to ≥ 2).
 7. Image-tag halt: `:latest` or unpinned digest → halt.
 8. NetworkPolicy halt: default-deny without explicit DNS egress allow → halt.
 
@@ -72,7 +72,7 @@ Generate under `k8s/<service>/`:
 - **Service** — `ClusterIP`, named port matching Deployment.
 - **Ingress** — TLS via cert-manager / equivalent; sane annotations (rate-limit, body size).
 - **HorizontalPodAutoscaler** — CPU + memory target; min/max bounded.
-- **PodDisruptionBudget** — `minAvailable: <replicas - 1>` for replicas > 1.
+- **PodDisruptionBudget** — `minAvailable: <replicas - 1>` for `replicas >= 3`. Single-replica (`replicas == 1`): a PDB is degenerate — `minAvailable: 0` protects nothing and `minAvailable: 1` blocks every voluntary drain forever. Either **skip the PDB** (single-replica service tolerates disruption — note it inline) OR, if the service must stay available, **require `replicas >= 2`** and emit the PDB against that. Two replicas → `minAvailable: 1`. Never emit a PDB for a 1-replica Deployment.
 - **NetworkPolicy** — default-deny ingress + egress; explicit allows (DNS, observability, dependencies).
 - **ConfigMap** for non-secret env. Secret references via External Secrets Operator / Sealed Secrets — never inline base64.
 
@@ -89,7 +89,7 @@ If repo uses Helm, scaffold under `charts/<service>/` with `Chart.yaml`, `values
 
 - `kubeconform` (or `kubeval`) — `0 errors` required.
 - Dispatch `k8s-reviewer` on the manifests against project conventions.
-- Verify: requests AND limits both set; PDB `minAvailable` < `replicas`; NetworkPolicy egress includes DNS; no `:latest` image tag.
+- Verify: requests AND limits both set; PDB present only for `replicas >= 2` with `0 < minAvailable < replicas` (no PDB for single-replica); NetworkPolicy egress includes DNS; no `:latest` image tag.
 - Apply to dev cluster + verify `kubectl rollout status` succeeds before declaring done.
 
 ## Phase 7 — Improve
@@ -120,7 +120,7 @@ Linter: kubeconform PASS, 0 errors.
 - Confused liveness vs readiness — silent dead pods OR cascading restarts during slow startup.
 - NetworkPolicy default-deny without DNS allow — pods can't resolve anything.
 - HPA without resource requests — never scales (computes percent-of-request).
-- PDB `minAvailable >= replicas` — node drains hang forever.
+- PDB `minAvailable >= replicas` — node drains hang forever. Single-replica PDB is the same trap inverted: `minAvailable: 1` on 1 replica blocks every drain; `minAvailable: 0` is a no-op. Skip the PDB or run ≥ 2 replicas.
 - Secrets in ConfigMap `data:` committed to git — leak; use ESO / Sealed Secrets / Vault.
 - Read-only root FS breaks apps writing logs/temp — mount `emptyDir` for those paths instead of disabling RO.
 

@@ -1,4 +1,5 @@
 ---
+name: dlq-replay
 description: Replay messages from a dead-letter queue back to a primary handler. Selective (filter by criteria) or full. Idempotency-safe; rate-limited; observable; reversible (re-DLQ on failure).
 ---
 

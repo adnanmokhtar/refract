@@ -1,9 +1,9 @@
 {
   "kind": "pack",
   "name": "documentation",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-06-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "Register add-runbook in _topics; doc-refresh dispatches doc-drift-scan + portable date; add-adr maintains _decision-index; normalized command frontmatter (kind/pack)."
 }

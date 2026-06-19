@@ -22,7 +22,7 @@ Detect committed secrets in working tree, staged changes, and recent git history
   # or
   pip install detect-secrets
   ```
-- Optional: a committed `.gitleaks.toml` allow-list for known false positives.
+- Optional: a committed `.gitleaksignore` allow-list for known false positives.
 
 ## Procedure
 
@@ -87,7 +87,7 @@ Next steps:
 
 ## False positives / gotchas
 
-- Test fixtures intentionally use fake-looking keys (`sk_test_...`, `dummy-token-1234`) — allow-list them in `.gitleaks.toml`.
+- Test fixtures intentionally use fake-looking keys (`sk_test_...`, `dummy-token-1234`) — allow-list them in `.gitleaksignore`.
 - Generated JWTs in tests look like real tokens; the body is base64 — entropy scanners may flag.
 - Long config values (e.g., a 200-char URL) trip high-entropy detection — review context, don't auto-flag.
 - `git filter-repo` rewrites history — every collaborator must re-clone or `git fetch && git reset --hard` to the new history.

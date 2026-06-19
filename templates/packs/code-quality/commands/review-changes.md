@@ -152,25 +152,28 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 - `change-brief` skill (mode B — validate): the PR/commit body must carry a passing 5-field change brief (What / Why this shape / Edge cases / Blast radius / Verified by) for any change matching the skill's trigger tiers. Missing/failing brief is a blocker finding — the comprehension gate ("if you can't explain the code, it isn't yours") applied at review time.
 
 #### Category-based (based on diff categories)
-| Category | Reviewers |
-|---|---|
-| backend-code | `api-reviewer` |
-| db-entity / db-repo | `schema-reviewer`, `query-optimizer` |
-| db-migration | `schema-reviewer` + invoke `/migration-review` |
-| ui | `ui-reviewer`, `design-system-guardian`, `accessibility-auditor` (+ skill `a11y-scan` on changed routes if significant) |
-| i18n | `i18n-auditor` |
-| auth | `security-auditor`, `auth-reviewer` |
-| docker | invoke `dockerfile-lint` skill |
-| k8s | `k8s-reviewer` |
-| ci | `ci-reviewer` |
-| api-contract | invoke `api-snapshot` skill for breaking-change detection |
-| tests | `test-reviewer` |
-| ai-code | `prompt-reviewer` |
-| webhook | `resilience-reviewer` (idempotency + signature check) |
-| events | `resilience-reviewer` |
-| telemetry | `observability-reviewer` |
-| Hot-path / performance-sensitive changes | `performance-optimizer` + `n-plus-one-scan` skill |
-| dependency-manifest | `security-auditor` (dep review) + `deps-audit` skill — for each **added** package (ignore pure version bumps): maintenance health, license compatibility, transitive/install-size cost, known-CVE check, and whether an already-present primitive or the stdlib covers it. A new dep on a security / data-handling surface with no rationale is a blocker. |
+
+Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **skills** (procedures the dispatcher invokes inline). Route each to its own primitive; do not dispatch a skill as an agent or vice-versa.
+
+| Category | Agents (dispatch) | Skills (invoke) |
+|---|---|---|
+| backend-code | `api-reviewer` | — |
+| db-entity / db-repo | `schema-reviewer`, `query-optimizer` | — |
+| db-migration | `schema-reviewer` + invoke `/migration-review` | — |
+| ui | `ui-reviewer`, `design-system-guardian`, `accessibility-auditor` | `a11y-scan` (on changed routes if significant) |
+| i18n | `i18n-auditor` | — |
+| auth | `security-auditor`, `auth-reviewer` | — |
+| docker | — | `dockerfile-lint` |
+| k8s | `k8s-reviewer` | — |
+| ci | `ci-reviewer` | — |
+| api-contract | — | `api-snapshot` (breaking-change detection) |
+| tests | `test-reviewer` | — |
+| ai-code | `prompt-reviewer` | — |
+| webhook | `resilience-reviewer` (idempotency + signature check) | — |
+| events | `resilience-reviewer` | — |
+| telemetry | `observability-reviewer` | — |
+| Hot-path / performance-sensitive changes | `performance-optimizer` | `n-plus-one-scan` |
+| dependency-manifest | `security-auditor` (dep review) | `deps-audit` — for each **added** package (ignore pure version bumps): maintenance health, license compatibility, transitive/install-size cost, known-CVE check, and whether an already-present primitive or the stdlib covers it. A new dep on a security / data-handling surface with no rationale is a blocker. |
 
 #### Signal-based (based on project, always when signal present)
 | Signal | Reviewer |
@@ -183,7 +186,7 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 - `dead-branch-scan` (on changed files) — find unreachable code you just added.
 - `doc-drift-scan` — does the change need doc updates? `ai/status.md`? `ai/modules.md`? `ai/conventions.md`?
 - `secret-scan` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
-- `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change.
+- `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change. If the skill isn't installed, run the inline check: for each added function / branch / write-path in the diff, grep the test tree (`*.test.*` / `*.spec.*` / `test/**`) for a reference to the symbol or route; absence of any covering assertion is the finding. Never skip the axis — an unchecked coverage gap reads as "tested".
 
 **Missing-agent fallback (applies to every dispatch table above):** if a named reviewer is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<reviewer-name>`). A skipped axis is the worst failure mode for a comprehensive sweep: it reads as "clean" when it was never checked.
 

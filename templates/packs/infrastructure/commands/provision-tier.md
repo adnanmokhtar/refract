@@ -181,15 +181,33 @@ Manifest checklist (every tier MUST have):
 
 ## Phase 6 — Validate
 
-- `terraform plan` clean.
-- `terraform apply` succeeds.
-- Smoke deploy a hello-world service → reaches the tier through the full stack (DNS → CDN → ALB → EKS → app → DB).
-- Logs visible in centralized backend.
-- Metrics visible in centralized backend.
-- One alert tested (deliberately trigger; verify it fires + routes correctly).
-- IAM Access Analyzer + IAM Access Advisor clean.
-- Cost tags audit: 100% of resources tagged.
-- Budget + anomaly alarms configured.
+Validation splits into two classes. The agent runs the first class itself; the second class is a **live** checklist a human operator runs against the applied tier — the agent cannot verify these without executing `apply` and live traffic, so it MUST NOT report them as auto-passed.
+
+### 6a — Static gates (agent-run, before apply)
+
+These are checkable from the plan + IaC source, so the agent does them and gates the apply:
+
+- `terraform plan` clean (produces `tfplan`).
+- Dispatch the `tf-plan-review` skill on `tfplan.json` — pre-apply review for data-loss replacements, IAM widening, public exposure, missing `prevent_destroy`, removal of observability/backup resources. **A BLOCK verdict halts before apply.**
+- Cost-tag static audit: every resource block in the generated `.tf` carries `tags = local.tags` and `local.tags` has the full sibling key set (re-run of the mechanical halt).
+- IAM static scope: no `*:*` outside an explicit break-glass role; OIDC federation present, no long-lived `aws_iam_access_key`.
+- `min_size`/`max_size` set on every compute module; backup config present on every stateful resource.
+- Budget + anomaly alarm resources declared in the plan.
+
+### 6b — OPERATOR CHECKLIST (live — human runs post-apply, NOT auto-passed)
+
+The agent prints this as an unchecked checklist for the operator to work through after `terraform apply`. These require a real apply + live traffic + a deliberate fault, none of which the agent performs:
+
+- [ ] `terraform apply` succeeded (operator ran it; no partial-apply / tainted resources).
+- [ ] Smoke deploy a hello-world service → reaches the tier through the full stack (DNS → CDN → ALB → EKS → app → DB).
+- [ ] Logs visible in centralized backend (confirm a real log line landed).
+- [ ] Metrics visible in centralized backend (confirm a real series appeared).
+- [ ] One alert deliberately fired → verify it triggers AND routes to the right channel/rotation.
+- [ ] IAM Access Analyzer + IAM Access Advisor run against the live account → clean.
+- [ ] Cost-tag audit against live resources (cloud-side, not just IaC) → 100% tagged.
+- [ ] Budget + anomaly alarms confirmed active in the console.
+
+Until the operator confirms 6b, the tier is **PROVISIONED, NOT VALIDATED** — the agent reports it as such.
 
 ## Phase 7 — Improve
 
@@ -208,13 +226,24 @@ Resources: <count> across <module-count> modules
 IaC: <terraform/cf/pulumi> in <path>
 Compliance: <if applicable>
 
-Validations:
-- terraform apply: clean
-- smoke deploy: passed
-- alert test: passed
-- IAM Access Analyzer: clean
-- cost tagging: 100%
-- budget alerts: configured
+Status: PROVISIONED, NOT VALIDATED (live gates pending operator)
+
+Static gates (agent-verified, pre-apply):
+- terraform plan: clean
+- tf-plan-review: <APPROVE | BLOCK — blockers listed>
+- cost-tag static audit: 100% of IaC resources tagged
+- IAM static scope: no `*:*` outside break-glass; OIDC only
+- limits + backups: set on all compute / stateful modules
+- budget + anomaly resources: declared in plan
+
+Operator checklist (live — NOT auto-passed, run after apply):
+- [ ] terraform apply succeeded
+- [ ] smoke deploy reaches app through full stack
+- [ ] logs + metrics visible in backend
+- [ ] deliberate alert fired + routed correctly
+- [ ] IAM Access Analyzer/Advisor clean (live)
+- [ ] cost-tag audit clean (live, cloud-side)
+- [ ] budget + anomaly alarms active in console
 
 Files written:
 - infra/terraform/tiers/<name>/

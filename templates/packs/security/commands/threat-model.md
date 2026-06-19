@@ -50,7 +50,7 @@ For each YES answer: that's a threat. Document.
 - `ai/architecture.md` — trust boundaries, auth model.
 - `ai/decisions/` — past ADRs about security choices.
 - `ai/failures/` — past security incidents.
-- `.claude/rules/security-principles.md` — applicable rules (A19+).
+- `.claude/rules/security-principles.md` — applicable rules.
 - OWASP ASVS for the relevant level (1/2/3).
 - The feature's API surface + data schema.
 
@@ -157,6 +157,13 @@ This threat model invalidates if:
 
 ## Phase 6 — Validate
 
+Cite-or-halt per threat row (imported from the threat-model skill's Halt conditions):
+
+- HALT on any threat row without a component path + trust-boundary citation (`<path:line>` for the entry handler / auth check / data store it crosses).
+- HALT on impact / likelihood ratings without a one-line justification grounded in the attacker persona ("anonymous internet rando" vs "authenticated tenant user" vs "disgruntled employee").
+- HALT on mitigations recorded as prose ("we'll add rate limits", "our WAF handles it") without a ticket id OR a `<path:line>` for where the control exists / must live.
+
+Then:
 - Every documented threat has a mitigation OR an explicit "accepted" with risk justification.
 - Every mitigation cites concrete code path / config (not "we have rate limiting").
 - ADRs cited exist in `ai/decisions/`.

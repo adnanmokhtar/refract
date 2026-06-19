@@ -119,6 +119,7 @@ Apply [1,2,3] / [1,3] / none?
 - `/find-module` — sibling command in code-quality pack
 - `/pre-commit` — sibling command in code-quality pack
 - `/review-changes` — sibling command in code-quality pack
+- `/refactor` — the boundary: `/simplify` only **reuses an existing** helper (dedupe/inline against what's already there) and refuses to add a new symbol; the moment a fix needs a **new** helper / abstraction extracted, it routes to `/refactor`.
 
 ### Rules
 - `.claude/rules/engineering-principles.md`

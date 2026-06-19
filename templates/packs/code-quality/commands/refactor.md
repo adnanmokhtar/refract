@@ -22,3 +22,7 @@ description: Language-agnostic targeted refactor — behaviour-preserving struct
 ### When this pack leads
 
 Greenfield or polyglot repos where backend/frontend/mobile overlays are not primary; library packages; scripts.
+
+### Boundary vs `/simplify`
+
+`/simplify` is the entropy-reducer — it only **reuses an existing** helper (dedupe/inline) and refuses to introduce a new symbol. `/refactor` is where a fix is allowed to **create a new** helper / abstraction (Rule of Three, ≥2 call sites) and perform behaviour-preserving structure moves. If `/simplify` halts a candidate because it would add a new abstraction, that candidate belongs here.

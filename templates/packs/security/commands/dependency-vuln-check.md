@@ -220,4 +220,4 @@ Action plan: <P0 count / P1 count / P2 count>
 - `@security-auditor` — runs broader audit; this is one dimension.
 - `@dependency-auditor` (code-quality pack) — overlap on freshness; this is security-focused.
 - `secret-scan` — different concern; pair them in security workflows.
-- `.claude/rules/security-principles.md` — A06 (vulnerable components), A07 (auth failures).
+- `.claude/rules/security-principles.md` — the vulnerable-components + dependency-audit rules this command enforces.

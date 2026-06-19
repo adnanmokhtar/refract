@@ -4,6 +4,8 @@ description: Profile a slow endpoint / page / flow. Identify the dominant bottle
 
 # /profile-perf
 
+> **`--plan` / `--plan-only`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/profile-perf <subject> --plan` runs the read-only profiling phases (1-3 + the Phase 4 report), writes the ranked fix proposals as a plan to `.claude/plans/`, and exits before applying any fix — execute it later with `/execute-plan <file>`. Honesty clause: a plan-only run still profiles real load; it never proposes a fix without the measured `<before>` it's reducing.
+
 ## The Premise (read this first, internalize, do not deviate)
 
 **The bottleneck is real. The pattern almost always repeats — same import / same query / same render path.** An N+1 in `orders.list` is an N+1 in `invoices.list` and `customers.list` because they share the same loader shape. A sequential `await` in one vendor-API enrichment is a sequential `await` in every enrichment that copy-pasted from it. A regex compiled-per-call in one validator is compiled-per-call wherever the project's "validate inline" idiom landed. The profile's job is to find ONE concrete hot path with measurement, then **scan for the same shape across the rest of the codebase** before reporting.
@@ -66,15 +68,22 @@ Confirm:
 - Environment: production-like? Synthetic test?
 - Reproducibility: does it manifest under specific conditions (cold cache, specific tenant, large dataset, peak hours)?
 
-## Phase 2 — Organize
+## Phase 2 — Organize (dispatch, don't hand-run)
 
-Profile across 5 axes in parallel:
+This command **orchestrates two specialists** rather than restating the profiling mechanics inline:
+
+- **Dispatch the `profile-endpoint` skill** to do the actual capture — warm-up, baseline + ramp load runs, flamegraph, slow-query log, per-axis attribution. It owns the halt conditions (no p95 without the load-tool output it came from; refuse empty-table runs). Feed it the resolved subject from Phase 1.
+- **Dispatch `@performance-optimizer`** to turn the captured artifacts into ranked fix proposals (`<before>` → `<after>`, `impact / risk`). It owns the "no measurement → no finding" rule.
+
+The five axes below are what the dispatched skill measures — they are the contract this command expects back, not a procedure for this command to run by hand:
 
 1. **Wall-clock breakdown** — what fraction is CPU vs IO vs network vs idle?
 2. **CPU profiling** — flame graph; hottest functions.
 3. **IO profiling** — DB queries, cache hits/misses, file I/O.
 4. **Network profiling** — external API calls; latency per call; sequential vs parallel.
 5. **Memory + GC** — allocation rate; GC pause frequency + duration.
+
+After both return, this command's own job is the **similar-pattern scan** (the premise above) + the mechanical balance equation — the part neither specialist does.
 
 ## Phase 3 — Retrieve
 
@@ -224,7 +233,8 @@ Report: ai/runtime/profile-<subject>-<date>.md
 
 ## Related
 
-- `@performance-optimizer` — broader perf agent; runs this command + others.
+- `profile-endpoint` skill — the capture engine this command dispatches in Phase 2 (load runs + flamegraph + slow-query log).
+- `@performance-optimizer` — the agent this command dispatches to rank fixes; also a broader perf agent that runs this command + others.
 - `database/optimize-query` — for DB-specific deep optimization.
 - `mobile/optimize-bundle` — for mobile cold-start / bundle-size.
 - `caching-strategy` pattern — apply when this command surfaces repeated reads.

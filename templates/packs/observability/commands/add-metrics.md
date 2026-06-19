@@ -87,10 +87,19 @@ Wire metric recording into request middleware / interceptors / decorators per th
 
 ## Phase 6 — Validate
 
-- Metrics arrive at the project's metrics backend.
-- Cardinality is bounded (no high-cardinality labels like `user_id` — use trace_id at the trace layer instead).
-- Dashboards render (RED dashboard, USE dashboard, business KPI dashboard).
-- No PII in metric labels.
+Split: gates the agent verifies from code/config, and a live checklist the operator confirms against the running backend (the agent can't see the backend UI — do NOT report "metrics arrived" / "dashboards render" as auto-passed).
+
+Agent-verified (static + synthetic):
+- Cardinality is bounded (no high-cardinality labels like `user_id` — use trace_id at the trace layer instead) — grep label keys + assert the label allow-list in a test.
+- No PII in metric labels — same label-allow-list assertion.
+- Histograms declare explicit buckets — assert on the meter config.
+- The metric is reachable: scrape the local `/metrics` endpoint (or run the exporter in a test) and assert the new series names + label keys appear.
+
+OPERATOR CHECKLIST (live — confirm against the metrics backend, NOT auto-passed):
+- [ ] Fire a synthetic request / run the documented smoke step → the new metrics arrive at the project's metrics backend.
+- [ ] Dashboards render (RED dashboard, USE dashboard, business KPI dashboard) with real data.
+
+Record the synthetic-request / scrape command in `ai/runbooks/metrics.md` so the operator step is repeatable.
 
 ## Phase 7 — Improve
 

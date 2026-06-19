@@ -70,11 +70,23 @@ Test-specific:
 - 1-2 sibling tests that are stable — compare patterns.
 
 ## Phase 4 — Generate (the hunt + the fix)
-- Run suite 5 times serially with `--shuffle` if supported:
+- Run suite 5 times serially with shuffle/randomization if the runner supports it, capturing machine-readable output. **The capture flags are runner-specific — `--reporter json` is a JS-runner idiom; pytest / go / cargo use different flags (or none).** Pick the row for the detected runner:
+
+  | Runner | Capture + shuffle invocation (per run) |
+  |---|---|
+  | jest | `jest --reporters=jest-junit --outputFile=run-$i.xml` (or `--json --outputFile=run-$i.json`); shuffle via `--shuffle` |
+  | vitest | `vitest run --reporter=json --outputFile=run-$i.json`; shuffle via `--sequence.shuffle` |
+  | mocha | `mocha --reporter json > run-$i.json`; shuffle via `--sort=false` + a shuffle plugin |
+  | playwright | `playwright test --reporter=json > run-$i.json`; order varies by sharding |
+  | pytest | `pytest -p no:randomly --junitxml=run-$i.xml` (or `--json-report --json-report-file=run-$i.json` via `pytest-json-report`); shuffle via `pytest-randomly` (default-on; set `-p randomly` / a fixed `--randomly-seed` per run to vary) |
+  | go test | `go test -count=1 -json ./... > run-$i.json`; Go has no global shuffle — use `-shuffle=on` (Go 1.17+) for test-order randomization |
+  | cargo test | `cargo test -- -Z unstable-options --format json > run-$i.json` (nightly) or parse plain output; order via `--test-threads=1` + `RUST_TEST_SHUFFLE` where available |
+
+  Run the chosen invocation in a loop:
   ```bash
-  for i in 1 2 3 4 5; do <runner> --reporter json > run-$i.json || true; done
+  for i in 1 2 3 4 5; do <runner-invocation-from-table-above> || true; done
   ```
-- Diff pass/fail sets across runs. Tests that flip state ≥ 1× = flaky.
+- Diff pass/fail sets across runs (parse the JSON/JUnit artifacts; don't eyeball stdout). Tests that flip state ≥ 1× = flaky.
 - For each flaky test, inspect canonical causes:
   - **Time** — `setTimeout` / `sleep` / language-equivalent timer / `Date.now()` (or language-equivalent) without freezing via the project's fake-clock primitive (`vi.useFakeTimers()` / `jest.useFakeTimers()` / `freezegun.freeze_time(...)` / `Timecop.freeze` / `Clock.fixed(...)` / framework-equivalent).
   - **Randomness** — RNG / UUID generators called without a fixed seed (`Math.random()` / `crypto.randomUUID()` / `random.random()` / `SecureRandom.uuid` / language-equivalent).
@@ -136,6 +148,8 @@ Status: COMPLETE
 
 ### Sibling commands in testing pack
 - `/add-test` — sibling command in testing pack
+- `/tdd` — test-first feature driver (red→green→refactor)
+- `/run-tests` — the universal runner
 
 ### Patterns
 - `ai/patterns/test-doubles.md`

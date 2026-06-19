@@ -151,6 +151,7 @@ Next:
 ## Related
 
 - `/add-test` — author a new test.
+- `/tdd` — drive a feature test-first (red→green→refactor).
 - `/flaky-test-hunt` — debug intermittent failures.
 - `coverage-gap` skill — find untested code paths.
 - `contract-test` skill — author a parity / contract test.

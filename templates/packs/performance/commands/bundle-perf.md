@@ -4,6 +4,8 @@ description: Web bundle + page-load performance audit. Bundle size, JS execution
 
 # /bundle-perf
 
+> **`--plan` / `--plan-only`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/bundle-perf <pages> --plan` runs the read-only audit phases (1-3 + the Phase 4 report), writes the ranked fixes as a plan to `.claude/plans/`, and exits before applying any fix — execute it later with `/execute-plan <file>`. Honesty clause: a plan-only run still measures real Web Vitals + bundle sizes; it never lists a KB/ms saving without the measured `<before>` behind it.
+
 ## The Premise (read this first, internalize, do not deviate)
 
 **The bottleneck is real. The pattern almost always repeats — same import / same query / same render path.** A heavy date library imported in one route is the same heavy import in 14 routes. A render-blocking font declared in the project's root layout is render-blocking on every page that extends it. A client-runtime marker placed on a leaf primitive bloats every parent that imports the primitive. The audit's job is to find ONE concrete bottleneck with measurement, then **scan for the same shape across the rest of the bundle** before reporting.

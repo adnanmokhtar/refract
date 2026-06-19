@@ -27,7 +27,7 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 ## Phase 2 — Organize (decompose the work)
 
-Draft the pattern inline first, then surface for one-shot user edit. Do NOT pause for approval before drafting. The user reviews the draft, not the proposal-to-draft.
+ONE approval gate, and it is AFTER the draft. Draft the pattern inline first, then pause once for the user to approve/edit the completed draft (Phase 4 step 3). Do NOT pause before drafting to ask "may I draft?" — the user reviews the draft, not the proposal-to-draft. (This is the same single gate Phase 4 enforces; there is no second, earlier gate.)
 
 Plan the steps:
 1. Locate the source entry in `learned-patterns.md`.
@@ -80,7 +80,7 @@ PATTERN-SPECIFIC:
    ## References
    <links to occurrence files; related ADRs / rules>
    ```
-3. Show draft to user. **Pause for approval.**
+3. Show draft to user. **Pause for approval — this is the ONE and only approval gate** (Phase 2 deliberately skips a pre-draft gate so the user reviews real content, not a promise).
 4. On approval: write `ai/patterns/<name>.md` with the draft.
 
 ## Phase 5 — Update (persist changes to the knowledge base)

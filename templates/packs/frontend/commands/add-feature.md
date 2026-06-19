@@ -50,7 +50,7 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - **Zero placeholders** in output. Every file has real content. No `<TODO>` comments.
 - **New npm dependency is gated** — a package no sibling already imports halts for a dependency review (maintenance / license / bundle-size / supply-chain) before it lands. No silent `npm install`, any tier. See Phase 4 § New-dependency gate.
 - **All relevant patterns consulted** — not just principles, specific pattern docs (`ai/patterns/forms.md`, `rendering-strategy.md`, `i18n.md`, etc.).
-- **All applicable agents dispatched** — `ui-architect` designs; `ui-reviewer` reviews; `accessibility-auditor` audits; `i18n-auditor` if i18n in scope; framework-specific reviewer if detected.
+- **All applicable agents dispatched** — `ui-architect` designs; `ui-reviewer` reviews (carrying the framework-specific lens — Vue/React/Svelte/etc.); `accessibility-auditor` audits; `i18n-auditor` if i18n in scope.
 - **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → design-system-guardian audits.
 - **Zero unverified UI ships.** Real Playwright/Cypress test or, at minimum, manual checklist with screenshots.
 - **Accessibility from the start, not retrofitted.** WCAG 2.2 AA is the floor.
@@ -230,7 +230,7 @@ After generation, dispatch (gated by tier):
 
 - **Trivial-tier (default):** `@ui-reviewer` only — convention adherence, prop types, no business logic in templates. The sibling-shape halt below is the primary gate.
 - **Standard-tier:** add `@i18n-auditor` (if i18n in scope) and `@accessibility-auditor`.
-- **Heavy-tier:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@<framework>-reviewer` (e.g., `@vue-reviewer`, `@react-reviewer`), `@security-auditor` (if auth/payment in scope). Run in parallel.
+- **Heavy-tier:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@security-auditor` (if auth/payment in scope). Run in parallel. `@ui-reviewer` carries the framework-specific lens (Vue/React/Svelte/etc.) — there is no separate per-framework reviewer agent.
 
 If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
 

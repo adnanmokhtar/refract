@@ -4,6 +4,8 @@ description: Add tests for a target file or feature, mirroring the repo's test f
 
 # /add-test [target]
 
+> **`--review`** (optional): after the new tests are green and the Phase 6 mutation gate passes, dispatch `@test-reviewer` over the generated files for an independent audit (assertion strength, mock-boundary correctness, behavior-vs-implementation naming, missing negative/edge cases). Findings are surfaced in the output; the run does not auto-apply them. Off by default — a normal `/add-test` run authors + self-validates without the extra review pass.
+
 ## The Premise (read this first, internalize, do not deviate)
 
 **Existing tests are the truth. Mirror sibling test shape: same fixture pattern, same assertion style, same setup/teardown.** The repo already has a runner, a fixture convention, an arrange/act/assert idiom, a way to mock HTTP, a way to spin up the DB, a way to name files (the project's naming convention: `*.spec.<ext>` vs `*.test.<ext>` vs `test_*.py` vs `*_test.go` vs `*_spec.rb` vs framework-equivalent; `__tests__/` vs adjacent vs `tests/` vs `spec/`). New tests do not get to invent a new style — they copy the closest sibling. Convention drift in tests is convention drift in the codebase; the test layer is where the convention is most visible and most copied.
@@ -91,8 +93,12 @@ Test-specific:
 - No `.skip` / `.only` left in the file (reviewer-blocker).
 - No real external HTTP in unit tests (the project's HTTP-faking primitive — `msw` / `nock` / `responses` / `httpx_mock` / `WireMock` / `httptest` / `WebMock` / framework-equivalent).
 - Naming mirrors existing convention exactly.
+- **Mutation gate (satisfies `testing-principles.md` review checklist — "test fails when the production logic is reverted").** A green generated test proves nothing if it cannot fail. For **at least one core assertion per generated file**, mutate the system-under-test: revert or break the branch the assertion covers (flip a comparison, return the wrong value, short-circuit the guard), re-run that test, and **confirm it goes RED**. Then **restore the SUT** and confirm GREEN again.
+  - **Mechanical HALT:** if the test stays GREEN while the SUT is broken, the assertion is theatre — it's coupled to incidental state, not the behavior. Tighten the assertion (or fix the mock boundary) until the mutation turns it red, then restore. Do not report the file done with an un-falsifiable assertion.
+  - Restore the SUT to its original state before moving on — leaving a mutation in place is a worse bug than a weak test.
 
 ## Phase 7 — Improve
+- **If `--review` was passed:** dispatch `@test-reviewer` over the generated files; attach its verdict (assertion strength, mock boundary, naming, missing cases) to the output. Do not auto-apply — surface for the author to act on.
 - `/learn-from-task` — capture test-shape patterns introduced.
 - If same test setup boilerplate repeats 3+ times → queue to `ai/dynamic/learned-patterns.md` as a candidate fixture/helper.
 - If coverage gap was systemic (multiple modules at < 60%) → queue ADR: enforce coverage threshold in CI.
@@ -108,7 +114,7 @@ Phase 4 (Generated):
   <source-root>/orders/<test-dir>/order-repo.integration.<test-ext> (integration, 6 cases)
   <e2e-root>/orders.e2e.<test-ext> (e2e, 5 cases)
 Phase 5 (Updated): changelog; coverage 64% → 89%
-Phase 6 (Validated): green; no .only/.skip; no real HTTP
+Phase 6 (Validated): green; mutation gate passed (≥1 assertion/file went red on broken SUT, restored); no .only/.skip; no real HTTP
 Phase 7 (Improved): patterns queued
 
 Status: COMPLETE
@@ -125,7 +131,12 @@ Status: COMPLETE
 ## Related
 
 ### Sibling commands in testing pack
+- `/run-tests` — run the new (or full) suite after authoring; the universal runner this command's Phase 4 leans on.
 - `/flaky-test-hunt` — sibling command in testing pack
+- `/tdd` — when the tests should come first (red→green→refactor), use this instead of authoring after the fact.
+
+### Agents
+- `@test-reviewer` — dispatched by `--review` for an independent audit of the generated tests.
 
 ### Patterns
 - `ai/patterns/test-doubles.md`

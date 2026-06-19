@@ -25,7 +25,7 @@ All 7. Phase 4 = the design doc + ADRs (no code generation here).
 - Sub-tasks: context diagram, data ownership table, communication matrix, failure-mode matrix, consistency model, SLO contract, ADRs, rollout plan.
 - Sequence: architect first (the design), then resilience-reviewer (the failure modes), then ADR authoring.
 - Pause after architect's draft — user confirms before resilience pass.
-- **Scope gate**: If the design has ≤2 services and no cross-region/event-sourcing/saga concerns, run `architect` only and skip `resilience-reviewer` + auto-ADR. Promote to full chain only when the architect flags ≥1 distributed-systems risk (network partition, exactly-once requirement, eventual-consistency window).
+- **Scope gate**: If the design has ≤2 services and no cross-region/event-sourcing/saga concerns, run `system-architect` only and skip `resilience-reviewer` + auto-ADR. Promote to full chain only when the architect flags ≥1 distributed-systems risk (network partition, exactly-once requirement, eventual-consistency window).
 
 ## Phase 3 — Retrieve
 
@@ -40,7 +40,7 @@ SIGNAL-BASED:
 | Signal | Read |
 |---|---|
 | Event-driven | `ai/patterns/event-bus.md`, `ai/patterns/outbox.md` |
-| Saga / cross-tx | `ai/patterns/saga.md`, `ai/patterns/idempotency.md` |
+| Saga / cross-tx | `ai/patterns/saga-*.md` (per-feature saga docs written by `/add-saga`), `ai/patterns/idempotency.md` |
 | Multi-region | `ai/patterns/replication.md` |
 
 ## Phase 4 — Generate
@@ -110,7 +110,7 @@ Rollout phases:
 - `ai/patterns/event-sourcing.md`
 - `ai/patterns/idempotency.md`
 - `ai/patterns/outbox.md`
-- `ai/patterns/saga.md`
+- `ai/patterns/saga-*.md` (per-feature, written by `/add-saga`)
 
 ### Rules
 - `.claude/rules/distributed-principles.md`

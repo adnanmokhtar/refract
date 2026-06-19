@@ -132,17 +132,16 @@ If a secret was in git history (not just current state):
 4. Have all collaborators re-clone (no merge — re-clone).
 5. Rotate the secret regardless. The old version is in attackers' Wayback / GitHub Archive caches.
 
-### Prevention
+### Recommended prevention (not installed/verified by this command)
 
 - `.gitignore` — confirm `.env*`, `*.pem`, `*.p12`, `*.key`, `secrets/`, `.aws/` are ignored.
 - Pre-commit hook running gitleaks (in `.githooks/` or `.husky/`).
-- CI step blocking merge on any HIGH+CRITICAL finding.
+- CI step blocking merge on any HIGH+CRITICAL finding (e.g., a gitleaks CI job).
 - Secrets manager (AWS Secrets Manager / HashiCorp Vault / Doppler / 1Password CLI) for runtime secrets — NOT in env files committed to repo.
 
-### Verified
+### Verified (observable from the scan itself)
 - `.gitignore` covers expected secret paths.
-- Pre-commit hook installed.
-- CI gitleaks step configured.
+- Allowlist entries in `.gitleaksignore` each carry a justification comment.
 ```
 
 ## Phase 6 — Validate
@@ -184,4 +183,4 @@ Report: ai/audits/secret-scan-<date>.md
 
 - `@security-auditor` — runs broader audit; this command is one dimension.
 - `@auth-reviewer` — overlap on credential handling.
-- `.claude/rules/security-principles.md` — A02 + A33 + N14 rules this command enforces.
+- `.claude/rules/security-principles.md` — the secret-management + never-log-secrets rules this command enforces.

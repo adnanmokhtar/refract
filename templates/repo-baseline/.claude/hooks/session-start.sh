@@ -30,11 +30,15 @@ if [ -f "ai/status.md" ]; then
   awk '/^## Recent Changes/{flag=1} flag' ai/status.md | head -25
 fi
 
-# Surface learning-queue items from post-commit / post-merge hooks
+# Surface learning-queue items from post-commit / post-merge hooks.
+# NOTE: this hook only PRINTS the queue — nothing auto-runs the curator. Drain it
+# manually with /audit-knowledge (sweep) or /learn-from-task (scoped to current work).
 if [ -f "ai/dynamic/.review-queue" ] && [ -s "ai/dynamic/.review-queue" ]; then
+  QUEUE_COUNT=$(grep -c . ai/dynamic/.review-queue 2>/dev/null || echo "0")
   echo ""
-  echo "--- 🔁 Learning queue (from recent commits/merges) ---"
+  echo "--- 🔁 Learning queue ($QUEUE_COUNT pending — surfaced for MANUAL dispatch) ---"
   tail -10 ai/dynamic/.review-queue
+  echo "→ drain with: /audit-knowledge  (or /learn-from-task for the current task)"
 fi
 
 # Surface OPEN drift findings (HIGH severity only — keep noise low)

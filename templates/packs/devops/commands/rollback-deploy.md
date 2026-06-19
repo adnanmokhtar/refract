@@ -29,7 +29,7 @@ pack: devops
 2. **Resolve the rollback target** — the previous successful revision from the platform's deploy history (`kubectl rollout history`, `helm history`, Vercel deployments list, etc.), or the explicit `--to=<version>`. Confirm the target is a *known-good* (previously-healthy) revision; refuse to roll back to another red one.
 3. **Pre-flight (read-confirm-execute)** — show: current (bad) revision → target (good) revision, the exact command, blast radius (which env/namespace/service). For prod or `--to` skipping intermediate revisions, require explicit confirmation. `--dry-run` stops here.
 4. **Execute the revert** via the native mechanism (reversible operation only — never a destructive re-deploy).
-5. **Monitor health** until green — health/readiness probe, error rate, and the `smoke-verify` skill (boot-check) where applicable. Watch for the agreed observation window.
+5. **Monitor health** until green — dispatch the `monitor-deploy` skill on the rolled-back revision (health/readiness probe, error rate, latency vs baseline) plus the `smoke-verify` skill (boot-check) where applicable. Watch for the agreed observation window; declare recovery only on observed GREEN.
 6. **Data reconciliation** — if the bad deploy ran a forward DB migration, surface whether a down-migration / reconciliation is needed (do NOT auto-run destructive down-migrations; name the step).
 7. **Write the runbook entry** — append to `ai/runbooks/` (or the project's incident log): what failed, target rolled back to, health-recovery evidence, follow-ups.
 
@@ -46,5 +46,6 @@ pack: devops
 ## See also
 
 - `/deploy-stage` — the forward deploy this reverses.
+- `devops/skills/monitor-deploy.md` — the health-watch used to confirm the rolled-back revision recovered to GREEN.
 - `code-quality/skills/smoke-verify.md` — the boot-check used to confirm recovery.
 - `ai/runbooks/` — where the rollback evidence lands.

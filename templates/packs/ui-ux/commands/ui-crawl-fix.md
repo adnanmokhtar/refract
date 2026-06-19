@@ -152,7 +152,7 @@ For each approved class:
 - `_extracted-idioms.md` — the source of truth for which wrappers exist; this command never invents.
 - `/enhance-ui` — visual polish on one surface (different scope).
 - `/ui-sweep` — deeper specialist sweep with HTML report + visual baselines; orthogonal to this fix loop.
-- `/polish` — the simple-surface entry; for `frontend-*` it dispatches the same 18-verb closure vocabulary `ui-crawl-fix` patches at the wrapper level.
+- `/polish` — the simple-surface entry; for `frontend-*` it dispatches the same 19-verb closure vocabulary `ui-crawl-fix` patches at the wrapper level.
 
 ## Stack scope
 

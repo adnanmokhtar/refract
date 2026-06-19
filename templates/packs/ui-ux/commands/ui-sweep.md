@@ -373,6 +373,21 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 
 ## Related
 
+### UI-UX command map (which one to reach for)
+
+Six commands touch UI surfaces — they differ by intent, scope, and whether they write. Pick by the verb you actually want:
+
+| Command | Intent | Scope | Writes code? |
+|---|---|---|---|
+| `/ui-crawl` | **detect** — Playwright crawl, axe a11y, console/network probes, ranked findings | project-wide (read-only) | NO (report only) |
+| `/ui-crawl-fix` | **fix** — consume a `/ui-crawl` report, patch findings at the wrapper level | the crawled findings | YES |
+| `/ui-sweep` (this) | **deep** — specialist sweep with quantified metrics + HTML visual report + baselines | project-wide | YES (FIX phase) |
+| `/enhance-ui` | **iterate** — visual polish + variant exploration on ONE area | single surface | YES |
+| `/design-review` | **audit** — cite-or-halt review of changed UI (UX + design-system + a11y) | changed files / screenshot | NO (audit only) |
+| `/polish` | **simple-surface** — the one-command entry that routes `frontend-*` into the same 19-verb vocabulary | scope arg or whole project | YES |
+
+Rule of thumb: detect with `/ui-crawl`, fix routine findings with `/ui-crawl-fix`, go deep + measurable with `/ui-sweep`, polish/explore one area with `/enhance-ui`, gate a change with `/design-review`, or take the simple-surface entry with `/polish`.
+
 ### Sibling commands
 - `/enhance-ui <description>` — single-area version.
 - `/design-review` — read-only audit (different focus: cite-or-halt findings).

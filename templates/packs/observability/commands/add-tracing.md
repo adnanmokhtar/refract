@@ -95,12 +95,19 @@ Production: use head-based 1-10% for steady-state + a tail-based collector for "
 
 ## Phase 6 — Validate
 
-- A trace appears in the project's trace backend for a synthetic request.
-- Cross-service trace works (front-end → api → DB → cache → queue) — span graph reflects reality.
-- Trace ID present in log lines.
-- Sampling configured (you're not sampling 100% in production).
-- Resource attributes set (service.name, version, env).
-- Sensitive data NOT in span attributes (no full request bodies; no auth tokens).
+Split: gates the agent verifies from code/config, and a live checklist the operator confirms against the running backend (the agent cannot see the backend UI — it must NOT report "trace appeared" as auto-passed).
+
+Agent-verified (static + synthetic):
+- Trace ID present in log lines (assert programmatically: emit a log inside an active span in a unit/integration test, parse the line, confirm `trace_id`/`span_id` fields).
+- Sampling configured (you're not sampling 100% in production) — read the sampler config.
+- Resource attributes set (service.name, version, env) — assert on the `Resource` in a test.
+- Sensitive data NOT in span attributes (no full request bodies; no auth tokens) — grep instrumentation + run a span-export test asserting the attribute allow-list.
+
+OPERATOR CHECKLIST (live — confirm against the trace backend, NOT auto-passed):
+- [ ] Fire a synthetic request through the entry point (curl the endpoint / enqueue a job / run the documented `make trace-smoke`) → a trace appears in the project's trace backend.
+- [ ] Cross-service trace works (front-end → api → DB → cache → queue) — span graph reflects reality.
+
+Name the synthetic-request mechanism in `ai/runbooks/tracing.md` (the exact curl / job-enqueue / smoke command) so the operator step is repeatable, not vague.
 
 ## Phase 7 — Improve
 

@@ -63,6 +63,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [understand, retrieve, generate]
   fallback: _examples/flaky-test-hunt.md
 
+- name: tdd
+  kind: command
+  triggers: { test_framework_detected: true }
+  extracts_from: _extracted-codebase.md § Tests (runner + assertion style)
+  sections: [understand, dispatch, surface]
+  dispatches: tdd-orchestrator
+  fallback: stub-from-sections
+
 - name: coverage-gap
   kind: skill
   triggers: { test_framework_detected: true }

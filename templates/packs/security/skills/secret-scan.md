@@ -9,7 +9,7 @@ Detect committed secrets in working tree, staged changes, and recent git history
 
 ## Premise
 
-Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line>`, the matched rule (gitleaks rule id / trufflehog detector name), and a redacted excerpt of the match. The provider is identified by prefix when possible (`sk_live_`, `AKIA`, `ghp_`, `-----BEGIN ... PRIVATE KEY-----`). High-entropy hits are flagged separately from prefix-matched hits — entropy alone is suspicion, prefix is confirmation. Allow-listed test fixtures are documented in `.gitleaks.toml`, not silently dropped. "Looks like a secret" without rule + redacted match is not a finding.
+Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line>`, the matched rule (gitleaks rule id / trufflehog detector name), and a redacted excerpt of the match. The provider is identified by prefix when possible (`sk_live_`, `AKIA`, `ghp_`, `-----BEGIN ... PRIVATE KEY-----`). High-entropy hits are flagged separately from prefix-matched hits — entropy alone is suspicion, prefix is confirmation. Allow-listed test fixtures are documented in `.gitleaksignore`, not silently dropped. "Looks like a secret" without rule + redacted match is not a finding.
 
 ## Halt conditions
 
@@ -32,7 +32,7 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
   # or
   pip install detect-secrets
   ```
-- Optional: a committed `.gitleaks.toml` allow-list for known false positives.
+- Optional: a committed `.gitleaksignore` allow-list for known false positives.
 
 ## Procedure
 
@@ -97,7 +97,7 @@ Next steps:
 
 ## False positives / gotchas
 
-- Test fixtures intentionally use fake-looking keys (`sk_test_...`, `dummy-token-1234`) — allow-list them in `.gitleaks.toml`.
+- Test fixtures intentionally use fake-looking keys (`sk_test_...`, `dummy-token-1234`) — allow-list them in `.gitleaksignore`.
 - Generated JWTs in tests look like real tokens; the body is base64 — entropy scanners may flag.
 - Long config values (e.g., a 200-char URL) trip high-entropy detection — review context, don't auto-flag.
 - `git filter-repo` rewrites history — every collaborator must re-clone or `git fetch && git reset --hard` to the new history.

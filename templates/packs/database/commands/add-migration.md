@@ -64,6 +64,14 @@ Escalated to user: <K>
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).
 
+## `--plan`
+
+Accepts `--plan` (see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md)). With the flag set: run Phases 1-3 read-only (classify the op, size the table, run the sibling-shape scan), then emit the migration file(s) it WOULD generate — full `up()`/`down()` SQL, the expand-contract step sequence, batch constants — as a plan artifact under `.claude/plans/`. **Write no migration file, run no rehearsal, touch `ai/` not at all.** A normal run (no flag) generates as documented.
+
+## Honesty clause
+
+No claim without the artifact behind it: do not report a duration, lock window, or rollback time without a real `migration-rehearsal` timed run (per its "no number without a real timed run" discipline); do not list a Phase-3 read (e.g. `zero-downtime-deploys.md`) the agent did not actually open; do not mark a safety-checklist line ✓ without verifying it against the generated SQL. Unrun checks are reported as `not run`, never as ✓.
+
 ## When to use / NOT to use
 
 - USE: schema change (add/drop/alter column or table).
@@ -74,11 +82,14 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 ## Phase 1 — Understand (the change)
 
-Ask (one consolidated question):
-- What changes? (add column / rename / drop / add table / add index / data transformation / ...)
-- Target table(s) + current size (rows + bytes).
-- Multi-tenant? (tenant filter on new indexes.)
-- Deploy compatibility: backward-compat (app works post-mig) or forward-compat (app deploys first)?
+**Inference-first — do NOT interrogate the user.** Derive the four facts mechanically, then escalate only on a declared trigger:
+
+- **What changes?** — read the entity/schema diff (uncommitted entity edits, or the diff vs `origin/main`). The op (add column / rename / drop / add table / add index / data transformation) IS the diff. No question.
+- **Target table(s) + current size** — size up via `SELECT COUNT(*), pg_total_relation_size(...)` (Phase 3). Use the live count; fall back to the sibling migrations' recorded estimate if the DB is unreachable.
+- **Multi-tenant?** — infer from `.claude/codebase-profile.md` (multi-tenancy declaration) + whether sibling tables on the same family carry `tenant_id`. If siblings have it, the new index gets the tenant prefix.
+- **Deploy compatibility** — infer from the op class: breaking ops (DROP / RENAME / type-incompat) ⇒ expand-contract + backward-compat by construction; additive ops ⇒ backward-compat single migration. State the chosen mode; do not ask.
+
+**Escalate to the user ONLY on the three declared triggers** (per The Premise): no sibling migrations exist, sibling shapes contradict, or the change is irreversible by physics and `down()` cannot mirror a sibling. Everything else is silent inference.
 
 State the success criteria: a reversible, concurrent-write-safe migration (or expand-contract sequence) that ships with rehearsal evidence.
 
@@ -159,8 +170,8 @@ ALTER TABLE child VALIDATE CONSTRAINT fk_name;
 ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
 DB-SPECIFIC:
-- `ai/patterns/migrations.md`, `indexing-strategy.md`, `zero-downtime-deploys.md`.
-- Detect engine + migration tool (TypeORM / Prisma / Alembic / Django / Flyway / goose / Laravel / Rails).
+- `ai/patterns/migrations.md`, `indexing-strategy.md`. Also `ai/patterns/zero-downtime-deploys.md` (infrastructure pack, if present) — read only when it exists; never claim a read of it otherwise.
+- Engine + migration tool (TypeORM / Prisma / Alembic / Django / Flyway / goose / Laravel / Rails) from `.claude/codebase-profile.md` — the canonical engine/ORM source for every Retrieve phase in this pack.
 - Size up target table(s): `SELECT COUNT(*), pg_total_relation_size(...)` — migration safety depends on size.
 - Read existing migrations in the repo — match naming + style.
 - The ORM entity / schema file the migration will sync with.
@@ -275,7 +286,7 @@ Total deploy: 4 migrations + 2 app deploys over ~1 week.
 
 Phase 1 (Understand): ADD COLUMN status to orders (5.2M rows), fixed enum.
 Phase 2 (Organize): expand-contract — 3 migrations + 2 app deploys.
-Phase 3 (Retrieved): migrations.md, indexing-strategy.md, zero-downtime.md, 7 universals.
+Phase 3 (Retrieved): migrations.md, indexing-strategy.md, 7 universals.
 Phase 4 (Generated): migrations/<NNNN>-<slug>.ts (or equivalent).
 Phase 5 (Updated): ai/status.md Recent Changes, ai/architecture.md schema section.
 Phase 6 (Validated): rehearsal passed (forward 4.2min, rollback 1.1min); schema-diff clean.

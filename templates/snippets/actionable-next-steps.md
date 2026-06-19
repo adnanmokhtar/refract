@@ -41,7 +41,7 @@ When a finding maps to a closed verb vocabulary, the actionable line MUST includ
 | Producing command | Verb vocabulary cited | Common receivers |
 |---|---|---|
 | `/optimize` | `architectural-diagnosis` (foundations) + `refactoring-sweep` (10 verbs) | `/refactor` (with `--focus=extract-method` etc.), `/polish` (for visual deferrals) |
-| `/polish` (frontend) | `ui-design-sweep` (18 verbs: `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`, `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`, `wire-empty-state`, `wire-loading-state`, `wire-error-state`, `lift-contrast`, `align-focus-ring`, `unify-iconography`, `normalize-motion`, `expand-tap-target`, `unify-cta-placement`, `clarify-affordance`, `normalize-surface`) | `/enhance-ui`, `/refactor` |
+| `/polish` (frontend) | `ui-design-sweep` (19 verbs: `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`, `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`, `wire-empty-state`, `wire-loading-state`, `wire-error-state`, `lift-contrast`, `align-focus-ring`, `unify-iconography`, `normalize-motion`, `expand-tap-target`, `unify-cta-placement`, `clarify-affordance`, `normalize-surface`) | `/enhance-ui`, `/refactor` |
 | `/polish` (backend) | `api-consistency-audit` (15 detectors → `unify-envelope`, `unify-error-contract`, `unify-naming`, `unify-pagination`, …) | `/add-endpoint`, `/refactor` |
 | `/polish` (data) | `schema-consistency-audit` | `/add-migration` |
 | `/align` | per-axis closure verbs from `align-discipline.md` | `/refactor`, `/polish` |

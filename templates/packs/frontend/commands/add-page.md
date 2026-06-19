@@ -2,6 +2,9 @@
 description: Scaffold a page/route with view, store slice, service, types, i18n keys, and tests.
 ---
 
+> **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses Vue 3 + PrimeVue + TypeScript for illustration; substitute your stack's primitives from `_extracted-idioms.md`.
+
+
 # /add-page <route>
 
 Scaffolds a new top-level route or sub-route, mirroring an existing page in the same area. Lazy-loads if the repo's convention says so.

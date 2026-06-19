@@ -5,5 +5,5 @@
   "released": "2026-05-11",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Add ui-crawl + ui-crawl-fix commands (Playwright-driven cross-route crawler with axe-core a11y, console/network probes, ranked findings; auto-fixer that patches at the wrapper level using align-discipline closure verbs). Frontend stacks only. Sibling to ui-sweep (deeper specialist with HTML report) — ui-crawl is the fast, repeatable QA-style coverage with machine-readable output. v1.1.0 unchanged: ui-design-sweep 18-verb skill."
+  "summary": "Add ui-crawl + ui-crawl-fix commands (Playwright-driven cross-route crawler with axe-core a11y, console/network probes, ranked findings; auto-fixer that patches at the wrapper level using align-discipline closure verbs). Frontend stacks only. Sibling to ui-sweep (deeper specialist with HTML report) — ui-crawl is the fast, repeatable QA-style coverage with machine-readable output. v1.1.0 unchanged: ui-design-sweep 19-verb skill."
 }

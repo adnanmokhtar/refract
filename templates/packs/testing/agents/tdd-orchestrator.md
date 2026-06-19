@@ -165,6 +165,9 @@ DISCIPLINE MAINTAINED · MINOR DEVIATIONS · MAJOR VIOLATIONS
 
 ## Related
 
+### Command entry point
+- `/tdd [feature]` — the command that dispatches this agent (resolve feature → run RED→GREEN→REFACTOR). This agent is the engine; `/tdd` is the surface.
+
 ### Sibling agents in testing pack
 - `@test-engineer` — sibling agent in testing pack
 - `@test-reviewer` — sibling agent in testing pack

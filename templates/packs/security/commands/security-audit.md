@@ -33,7 +33,7 @@ If description suggests a different intent, halt with redirect: "fix the auth bu
 - Dispatch plan:
   - Always: `security-auditor` (OWASP Top 10 + Top 25 CWE).
   - If diff touches `auth/`, `session`, `jwt`, `password`, `oauth`, `2fa` → `auth-reviewer`.
-  - If multi-tenant (detect via tenant-id columns / a request-scoped tenant context primitive / a tenant header) → tenant-isolation pass.
+  - If multi-tenant (detect via tenant-id columns / a request-scoped tenant context primitive / a tenant header) → `tenant-isolation-reviewer`.
   - If diff touches infra (container build files, K8s manifests, IaC modules) → container/runtime hardening cross-check.
 
 ## Phase 3 — Retrieve
@@ -68,10 +68,11 @@ Security-specific:
   Verdict: NO-GO. 2 blockers must be fixed and re-audited before merge.
   ```
 
-### RE-DETECT (mechanical gate)
-- After developer fixes blockers, re-run `/security-audit` against the patched code.
-- The audit cannot return PASS without a second pass that confirms each blocker from the first pass is closed (`blockers_in == blockers_closed`).
-- This is the same pattern as `find-and-fix § 3.5 RE-DETECT` in the migration pack.
+### RE-DETECT (re-run discipline)
+- This command is a read-only audit — it does not persist a blocker ledger or wire a gate. The discipline below is a procedure the operator follows, not an automated check.
+- After the developer fixes blockers, re-run `/security-audit` against the patched code.
+- To confirm closure, list each first-pass blocker by its `<file:line>` and re-run the same detection on the patched lines; a blocker is closed only when it no longer reproduces there. Treat the prior audit report in `ai/audits/<date>-security.md` as the checklist for this second pass.
+- This mirrors `find-and-fix § 3.5 RE-DETECT` in the migration pack as a workflow, not a wired gate.
 - If any first-pass blocker still reproduces on re-audit → verdict stays NO-GO; do not advance.
 
 ## Phase 5 — Update
@@ -90,7 +91,7 @@ Security-specific:
 - If same auth bypass class found 2+ audits → queue ADR: enforce the project's auth guard primitive on every route uniformly.
 - If tenant leak in raw SQL recurs → queue lint / static-analysis rule + base-class refactor.
 - If secret-in-log recurs → queue logger-level redaction enforcement.
-- **Pattern-escalation enforcement:** if a finding's pattern has appeared ≥2 times across audits (check `ai/security/audit-log.md` history), promote to `ai/decisions/` as an ADR proposal AND open a lint / static-analysis rule task in the project's stack-native linter. Patterns that repeat without escalation are themselves a finding (log under Phase 4 REQUESTS as `META: pattern X recurred N times, no ADR/lint rule filed`).
+- **Pattern-escalation enforcement:** if a finding's pattern has appeared ≥2 times across audits (check prior `ai/audits/<date>-security.md` reports), promote to `ai/decisions/` as an ADR proposal AND open a lint / static-analysis rule task in the project's stack-native linter. Patterns that repeat without escalation are themselves a finding (log under Phase 4 REQUESTS as `META: pattern X recurred N times, no ADR/lint rule filed`).
 
 ## Output format
 ```

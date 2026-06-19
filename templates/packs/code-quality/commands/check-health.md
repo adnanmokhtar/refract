@@ -87,6 +87,8 @@ If any step fails: STOP, do not run agents. Fix mechanical first.
 - `ui-reviewer` — frontend track present.
 - `schema-reviewer` — DB migrations present.
 
+**Missing-agent fallback (applies to every agent above):** if a named agent is not installed in this project, perform that axis inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the verdict (`inline:<agent-name>`). A skipped axis scores GREEN by absence, which is the worst failure mode for a health check: it reads as "clean" when it was never checked. (Same discipline as `review-changes.md` § Phase 6 missing-agent fallback.)
+
 ### Self-audit
 - Did every selected agent return? Missing = incomplete check.
 - Are findings consistent across overlapping agents (perf + schema both flagging same query)? De-dup.

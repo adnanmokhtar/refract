@@ -59,7 +59,7 @@ Workflow file:
 - **Coverage threshold** on the `test` job — emit coverage and fail under the project's threshold (`ai/conventions.md § Coverage`, default advisory). Coverage tool from `ai/stack.md § Scripts`.
 - Cache step keyed on `<lockfile>-<runs-on>`.
 - Artifact upload on successful build.
-- Optional `docker-build` job gated on tag push.
+- Optional `docker-build` job gated on tag push. When present, add a **`hadolint` / image-lint step** before the build (mirrors the `dockerfile-lint` skill: non-root, multi-stage, pinned base, HEALTHCHECK) so a bad Dockerfile fails CI rather than shipping. GitHub Actions: `hadolint/hadolint-action`; GitLab/Bitbucket/Circle: run `hadolint Dockerfile` in the job script (the image is published on Docker Hub).
 - `concurrency: ci-${{ github.ref }}` with `cancel-in-progress: true`.
 
 ## Phase 5 — Update
@@ -72,7 +72,13 @@ Workflow file:
 ## Phase 6 — Validate
 
 - Open generated file path so user can review.
-- After commit, watch the workflow run via `gh run watch`. If exit code != 0, halt immediately. Do not advance to Phase 7 with a red CI run.
+- After commit, watch the first run to green; **halt on red**, do not advance to Phase 7 with a failing run. The green-gate command is platform-specific:
+  - **GitHub Actions** — `gh run watch` (named; blocks until the run finishes, exits non-zero on failure).
+  - **GitLab CI** — no `gh run watch` equivalent; poll `glab ci status` / `glab ci view`, or watch the pipeline in the UI.
+  - **Bitbucket Pipelines** — no named CLI watch; poll the Pipelines REST API or watch the UI.
+  - **CircleCI** — no named CLI watch; poll `circleci` / the v2 API or watch the UI.
+
+  Only GitHub Actions has the named blocking watch; for the others, surface the poll command and require a green run before Phase 7.
 - Confirm cache hit on second run — miss = key is wrong.
 
 ## Phase 7 — Improve

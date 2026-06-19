@@ -127,11 +127,13 @@ For every alert:
 
 ## Phase 6 — Validate
 
-For each alert:
-- Trigger it deliberately (toy app, staging) → verify it fires + pages right person.
-- Wait for it to clear → verify auto-resolves.
-- Tune threshold by replaying historical data: would this have fired during last week's incident?
-- Verify alert volume budget: target ≤ 5 pages / week per on-call OR ≤ 1 / 24h.
+Agent-verified:
+- **Dispatch the `alert-audit` skill** on the generated alerts for the historical-replay check: it queries the alerting backend + paging history to answer "would this threshold have fired during past incidents?" and flags dead-on-arrival rules (query references an uninstrumented metric), missing runbooks/owners, and cause-vs-symptom misclassification. Findings halt before completion. This is the executor for the "would this have fired" gate — the agent does NOT eyeball it.
+- Verify alert volume budget against the audit's projection: target ≤ 5 pages / week per on-call OR ≤ 1 / 24h.
+
+OPERATOR CHECKLIST (live — NOT auto-passed):
+- [ ] Trigger each alert deliberately (toy app, staging) → it fires AND pages the right person.
+- [ ] Wait for it to clear → it auto-resolves.
 
 ## Phase 7 — Improve
 
@@ -177,6 +179,7 @@ Alert volume estimate (based on past 30d data): <P/T/I per week>
 ## Related
 
 - `add-tracing` + `add-metrics` — feed this command.
+- `alert-audit` skill — dispatched in Phase 6 for the historical-replay "would this have fired" check + dead/noisy/orphaned vetting.
 - `slo-audit` — uses alert + SLO data.
 - `@incident-responder` agent — runs the runbook this command links to.
 - `@sre-engineer` agent — broader SRE concerns; alert-design is one dimension.

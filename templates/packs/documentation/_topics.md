@@ -57,6 +57,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   fallback: _examples/add-adr.md
 
+- name: add-runbook
+  kind: command
+  triggers: { always: true }
+  fallback: _examples/add-runbook.md
+
 - name: doc-drift-scan
   kind: skill
   triggers: { always: true }

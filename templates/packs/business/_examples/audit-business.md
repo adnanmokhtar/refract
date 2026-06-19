@@ -63,7 +63,7 @@ Feature-specific:
     - Trial countdown banner
     - Plan comparison table on billing page
   ```
-- Suggest next-step commands per finding (`/add-feature` / `/fix-bug` / `/expand-task`).
+- Suggest next-step commands per finding (`/add-feature` / `/fix-bug` / `/expand-task`). Note: `/add-feature` is **pack-specific** (backend / frontend / mobile) — route through the pack-neutral `/do` meta-router when you can't be sure which pack is installed.
 
 ## Phase 5 — Update
 - `ai/audits/<YYYYMMDD>-business-<feature>.md` — append timestamped report.

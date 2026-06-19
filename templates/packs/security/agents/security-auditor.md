@@ -107,6 +107,7 @@ One or more of:
 ## Beyond OWASP
 
 ### Tenant isolation (multi-tenant)
+- Deep multi-tenant review belongs to `@tenant-isolation-reviewer`; this is the surface pass.
 - Every query filters by tenant_id.
 - Cache keys tenant-prefixed.
 - Event handlers scope to tenant from metadata.
@@ -199,6 +200,7 @@ Tools used:
 
 ### Sibling agents in security pack
 - `@auth-reviewer` — sibling agent in security pack
+- `@tenant-isolation-reviewer` — multi-tenant deep dive; dispatched when the audit detects multi-tenant signals
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

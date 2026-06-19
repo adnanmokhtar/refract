@@ -64,6 +64,10 @@ Escalated to user: <K> (e.g., row count unknown on table X; ADR contradiction on
 
 All 7. Phase 6 = the verdict; Phase 4 = the per-pattern findings.
 
+## Honesty clause
+
+No verdict without the grounding behind it: every BLOCKER/REQUEST cites a real `<migration-file:line>` + `<table>` + the prod row-count assumption that made it dangerous — no remembered or inferred locations. A lock-duration or "rewrites the table" claim is an estimate from the row count, never a measured number unless `migration-rehearsal` actually ran (per its "no number without a real timed run" discipline); say "estimated" when it is estimated. If prod row count is unknown and no sibling inference exists, the verdict is reported as `unreliable — row count ungrounded`, never as a confident APPROVE.
+
 ## When to use / NOT to use
 - USE: any uncommitted migration file; right before merging a PR with migrations; before promoting staging → prod.
 - NOT: never skip — every migration gets reviewed.
@@ -84,7 +88,7 @@ All 7. Phase 6 = the verdict; Phase 4 = the per-pattern findings.
 ## Phase 3 — Retrieve
 
 ALWAYS:
-- `CLAUDE.md` + `ai/stack.md` — DB engine + ORM (Postgres / MySQL; TypeORM / Prisma).
+- `CLAUDE.md` + `.claude/codebase-profile.md` — DB engine + ORM (Postgres / MySQL; TypeORM / Prisma) — the canonical engine/ORM source for every Retrieve phase in this pack.
 - `ai/patterns/migrations.md` — expand-contract pattern.
 - `ai/patterns/indexing-strategy.md` — concurrent index requirement.
 - `ai/runbooks/deployment.md` — does code or migration ship first?
@@ -132,7 +136,13 @@ Reviewer checks each pattern:
 ## Phase 6 — Validate
 
 - For each finding: confirm SQL pattern actually present in the file (no false-positive on similar-looking syntax).
-- For "expand-contract proposed": confirm the 3 follow-up migrations are planned, not just promised.
+- For "expand-contract proposed": **planned, not promised — verify mechanically.** When a BLOCKER's fix is an N-step expand-contract sequence, grep the branch / PR for the follow-up migration files (the M2 backfill, M3 `SET NOT NULL`, etc.) by their expected slugs:
+  ```bash
+  git diff --name-only origin/main...HEAD -- '*migrations*' '*migration*'
+  # cross-check the expand-contract step slugs against this list
+  ```
+  - If every follow-up step has a matching migration file on the branch → the sequence is **planned**; note it as satisfied.
+  - If one or more follow-up files are absent → do NOT silently pass. Downgrade to a `REQUEST` on the reviewed migration: "expand-contract step(s) `<slug>` not present on branch — note as REQUEST until the follow-up migrations land." A promise in prose is not a planned migration.
 - Self-audit: did the reviewer ask for prod row count? If not, the verdict is unreliable.
 
 ## Phase 7 — Improve

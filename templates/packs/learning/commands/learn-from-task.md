@@ -4,6 +4,23 @@ description: After a task finishes, capture decisions made / patterns followed /
 
 # /learn-from-task
 
+## Canonical sink set (read first — this command + `knowledge-curator` write the SAME files)
+
+The learning loop has ONE sink set. Every observation lands in exactly one of these append-only `ai/dynamic/` files (plus the failure catalog), and `knowledge-curator` later promotes the mature ones into the formal layer. The two writers (this command + the curator) never diverge on WHERE things go:
+
+| Sink (raw, append-only)                  | Holds                                   | Promotes to (curator)                |
+|------------------------------------------|-----------------------------------------|--------------------------------------|
+| `ai/dynamic/learnings.md`                | raw observations + corrections-as-notes | `ai/conventions.md` (managed section) |
+| `ai/dynamic/learned-patterns.md`         | recurring code shapes                    | `ai/patterns/<name>.md`              |
+| `ai/dynamic/feedback-learned.md`         | user corrections taken                   | `.claude/rules/<rule>.md`            |
+| `ai/dynamic/decisions-pending.md`        | informal decisions awaiting validation   | `ai/decisions/<NNNN>-<slug>.md` (ADR) |
+| `ai/dynamic/drift-log.md`                | code-vs-convention divergence            | resolved / convention update         |
+| `ai/failures/_index.md`                  | approaches that did NOT work             | stays (don't-retry catalog, append-only) |
+| `ai/dynamic/interaction-log.md`          | per-task summary (the spine)             | archived monthly                     |
+| `ai/dynamic/changelog.md`                | one-line activity log                    | pruned                               |
+
+This is the SAME table the root `commands/learn-from-task.md` and `.claude/agents/knowledge-curator.md` use. If you change a sink here, change it in all three.
+
 ## Pre-flight gate (mechanical)
 
 If the just-completed task touched 0 files OR the task description is <30 chars, halt with: `task too small to learn from; nothing to promote.` This prevents promoting empty/spammy patterns.
@@ -44,9 +61,11 @@ This is a reflection + write command, not a multi-step plan.
 
 ALWAYS:
 - `ai/dynamic/interaction-log.md` — recent entries (style, format).
+- `ai/dynamic/learnings.md` — does this raw observation already exist (increment `Seen:`) or is it new?
 - `ai/dynamic/learned-patterns.md` — does this new shape match an already-watching entry (increment count) or is it new (add)?
 - `ai/dynamic/feedback-learned.md` — does this user correction repeat a known one (increment Repeated counter) or is it new?
 - `ai/dynamic/decisions-pending.md` — does this decision relate to a pending one?
+- `ai/failures/_index.md` — is this "approach to try" in fact a previously-failed one? If so, don't re-record; cite the failure entry.
 - `ai/status.md` current `Updated:` date for context.
 
 ## Phase 4 — N/A (no code generation)
@@ -87,9 +106,13 @@ This command produces knowledge entries, not code.
 
 4. If user corrected the AI: append to `ai/dynamic/feedback-learned.md` (with `Repeated: 1` or increment if existing).
 
-5. If the task surfaced a drift between code and convention: append to `ai/dynamic/drift-log.md`.
+5. If a raw observation emerged that isn't a code shape, a decision, or a correction (a low-confidence "noticed once" note): append to `ai/dynamic/learnings.md` with status `RAW`. Increment `Seen:` if it recurs. This is the persistence-pyramid's first rung (`session-context → learnings.md → ai/conventions.md`); the curator promotes it at 3 sightings.
 
-6. Append a one-line summary to `ai/dynamic/changelog.md`.
+6. If an approach was tried and did NOT work: append ONE entry to the single append-only catalog `ai/failures/_index.md` under `## Catalog` (cite what was tried + root cause + the alternative that worked). Never create per-file `ai/failures/<NNNN>-<slug>.md` entries — the baseline ships ONE index.
+
+7. If the task surfaced a drift between code and convention: append to `ai/dynamic/drift-log.md`.
+
+8. Append a one-line summary to `ai/dynamic/changelog.md`.
 
 ## Phase 6 — Validate (verify correctness)
 
@@ -100,14 +123,24 @@ This command produces knowledge entries, not code.
 
 ## Phase 7 — Improve (this command IS the loop closer)
 
-After this runs, downstream automation handles propagation:
-- Next session's `session-start.sh` surfaces the open follow-ups.
+After this runs, the sinks are surfaced for manual dispatch (the loop is NOT auto-draining — see "Dispatch" below):
+- Next session's `session-start.sh` PRINTS the open follow-ups + the learning queue + READY patterns so a human notices them.
 - The next session's agents read `feedback-learned.md` and don't repeat the corrected mistake.
-- `pattern-emergence-watcher` sees the new entry and starts counting occurrences.
-- `knowledge-curator` (on schedule) graduates anything that meets promotion criteria via `/promote-pattern`.
-- `/refresh-knowledge` quarterly catches the long-term changes the per-task entries don't.
+- `pattern-emergence-watcher`, when invoked, sees the new entry and starts counting occurrences.
+- `knowledge-curator`, when invoked (manually or via `/audit-knowledge` / `/promote-pattern` / `/promote-decision`), graduates anything that meets promotion criteria.
+- `/refresh-knowledge` catches the long-term changes the per-task entries don't, when you run it after a major refactor / quarterly.
 
-This command is the foundation; nothing further needed.
+This command writes the sinks; promotion is a human-dispatched follow-up.
+
+## Dispatch (how the sinks get drained — honest wording)
+
+There is **no auto-invoking post-task hook and no cron** in the shipped baseline. The git hooks (`post-commit-learn.sh`, `post-merge-learn.sh`) only APPEND review hints to `ai/dynamic/.review-queue`, and `session-start.sh` only PRINTS that queue. Nothing automatically runs the curator. To drain the queue and promote mature sinks, a human runs one of:
+
+- `/learn-from-task` — this command (synchronous, scoped to the just-finished task).
+- `/promote-pattern <name>` / `/promote-decision <id>` — graduate a single READY entry.
+- `/audit-knowledge` — sweep all sinks via `knowledge-curator` and report what's ready.
+
+If you want it automated, wire `/audit-knowledge` into `/schedule` yourself — the baseline does not do this for you.
 
 ## Output
 
@@ -118,13 +151,15 @@ Phase 1 (Understand): reflected on task — feature/orders-perf, COMPLETE.
 Phase 3 (Retrieved): interaction-log.md last 5 entries, learned-patterns.md (1 watching match), feedback-learned.md (no match).
 Phase 5 (Updated):
   - interaction-log.md (+1 entry)
+  - learnings.md (+1 RAW: prefer TaskGroup over gather)
   - decisions-pending.md (+1: queue-library choice)
   - learned-patterns.md (+1 WATCHING: idempotency-key cache wrapper)
   - feedback-learned.md (no entries this task)
+  - failures/_index.md (+1: TypeORM decorator in V2 setup — don't retry)
   - drift-log.md (+1: direct stdout call in <billing service file>)
   - changelog.md (+1 line)
 Phase 6 (Validated): all entries shape-conformant.
-Phase 7 (Improved): downstream handlers (session-start, watcher, curator) will pick up automatically.
+Phase 7 (Improved): sinks written; session-start will PRINT follow-ups + queue for manual dispatch (no auto-run).
 
 Decisions queued for ADR consideration:
 - "Prefer queue-library X over queue-library Y for our queue layer" (will graduate after 2 weeks if held)
@@ -154,9 +189,10 @@ Status: COMPLETE
 
 ## See also
 
-- `ai/dynamic/interaction-log.md` — main destination.
-- `ai/dynamic/learned-patterns.md`, `feedback-learned.md`, `decisions-pending.md`, `drift-log.md` — supporting destinations.
-- `knowledge-curator` agent — graduates these entries to the formal layer over time.
+- `ai/dynamic/interaction-log.md` — the spine (per-task summary).
+- `ai/dynamic/learnings.md`, `learned-patterns.md`, `feedback-learned.md`, `decisions-pending.md`, `drift-log.md` — supporting sinks.
+- `ai/failures/_index.md` — single append-only don't-retry catalog.
+- `knowledge-curator` agent — reads the full sink set above and graduates mature entries to the formal layer (manual dispatch).
 - `/promote-pattern` — promotes ready patterns to formal docs.
 
 ## Related

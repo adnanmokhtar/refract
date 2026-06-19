@@ -85,11 +85,18 @@ Telemetry-specific:
 - `ai/status.md` — `## Recent Changes` bullet.
 
 ## Phase 6 — Validate
+
+Agent-verified (static — this command generates alerts, so it audits them):
 - Every metric has a dashboard or alert paired (no unread metrics).
 - Every alert has a runbook (no 3am page without script).
 - No high-cardinality labels (user_id, request_id, full URL) in metric labels — those go in logs/traces only.
 - Multi-tenant projects: `tenant_id` field present on every log entry.
 - PII redacted at the logger level (passwords, tokens, full PANs, full PII), not at call sites.
+- **Dispatch the `alert-audit` skill** on the alerts this command just generated — confirm none are dead-on-arrival (query references a metric that was actually instrumented here), every alert has a runbook + owner, and each fires on a symptom not a cause. A broken-query / orphaned finding halts before completion.
+
+OPERATOR CHECKLIST (live — confirm against the backends, NOT auto-passed):
+- [ ] Fire a synthetic request through the feature → the new logs / metrics / trace appear in their backends.
+- [ ] Deliberately trip one generated alert → it fires AND pages/tickets the right rotation.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture instrumentation patterns introduced.
@@ -124,6 +131,9 @@ Status: COMPLETE
 - PII redaction at call site instead of logger level → one missed call site leaks data; centralize.
 
 ## Related
+
+### Skills
+- `alert-audit` — dispatched in Phase 6 to vet the alerts this command generates (dead/noisy/runbook-less/orphaned/cause-based).
 
 ### Patterns
 - `ai/patterns/metrics.md`

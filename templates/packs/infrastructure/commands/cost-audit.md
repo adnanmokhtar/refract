@@ -206,5 +206,5 @@ Report: ai/audits/cost-<date>.md
 
 - `audit-iam` — pair when restructuring resources (IAM stays in sync).
 - `provision-tier` — applies cost-optimal patterns to new resources.
-- `@cost-optimizer` agent if pack has it.
+- `@infra-architect` agent — for structural cost recommendations (re-architecting a workload, not a line-item right-size).
 - `tf-plan-review` skill — verify cost implications of next IaC change.

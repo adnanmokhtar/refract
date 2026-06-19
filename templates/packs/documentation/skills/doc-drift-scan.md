@@ -50,10 +50,11 @@ Find real issues, cite `<path:line>` for every drift finding. Each "MISSING" rep
    ```
 4. Cross-check tables/columns named in `ai/architecture.md` against the latest migration files.
 5. Verify ADR cross-references resolve (each "see ADR-NNNN" maps to a file in `ai/decisions/`).
-6. Check `ai/status.md` `Updated:` line age:
+6. Check `ai/status.md` `Updated:` line age (portable: GNU date first, BSD/macOS date as fallback):
    ```bash
-   awk '/^Updated:/ {print $2}' ai/status.md | xargs -I{} date -j -f "%Y-%m-%d" "{}" +%s \
-     | awk -v now=$(date +%s) '{print int((now-$1)/86400)" days"}'
+   updated=$(awk '/^Updated:/ {print $2}' ai/status.md)
+   updated_epoch=$(date -d "$updated" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$updated" +%s 2>/dev/null)
+   echo "$(( ($(date +%s) - updated_epoch) / 86400 )) days"
    ```
 7. Check `ai/modules.md` rows against actual module directories — flag both directions (in-tree-not-in-docs and in-docs-not-in-tree).
 

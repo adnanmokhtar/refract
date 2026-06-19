@@ -66,6 +66,14 @@ Escalated to user: <K>
 
 All 7. Phase 6 = before/after `EXPLAIN ANALYZE` on prod-shaped data.
 
+## `--plan`
+
+Accepts `--plan` (see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md)). With the flag set: run Phases 1-3 read-only (trace the SQL, capture the baseline `EXPLAIN`, run the similar-query-scan, classify the dominant cost), then emit the index / rewrite / migration it WOULD generate — the exact DDL or rewritten SQL, the bucket it maps to, the siblings it covers — as a plan artifact under `.claude/plans/`. **Write no migration file, touch `ai/` not at all.** A normal run (no flag) generates the migration (still never auto-applied) as documented.
+
+## Honesty clause
+
+No number without the run behind it: do not report a before/after timing or "index used" claim without a real `EXPLAIN ANALYZE` against prod-shaped data (per `migration-rehearsal`'s "no number without a real timed run" discipline). A fix validated only on dev's empty table is reported as `unvalidated`, never with fabricated millisecond figures. Do not list a Phase-3 read the agent did not open.
+
 ## When to use / NOT to use
 - USE: slow endpoint surfaced by `/perf-audit` or APM; N+1 detected in code review; pre-launch query review for high-traffic endpoints.
 - NOT: rarely-called paths (admin one-offs, batch jobs without SLO).
@@ -91,7 +99,7 @@ If description suggests a different intent, halt with redirect: "add / new" → 
 ## Phase 3 — Retrieve
 
 ALWAYS:
-- `CLAUDE.md` + `ai/conventions.md` — migration tool + folder.
+- `CLAUDE.md` + `.claude/codebase-profile.md` — engine + ORM + migration tool + folder (the canonical engine/ORM source for every Retrieve phase in this pack).
 - `ai/patterns/indexing-strategy.md` — when to add composite vs covering.
 - `ai/patterns/migrations.md` — concurrent index, expand-contract.
 

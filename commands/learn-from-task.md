@@ -39,32 +39,59 @@ The learning loop's manual handle. Run after a non-trivial task to convert raw c
 - A failed approach should be cataloged so future agents don't retry it.
 - A decision was made that future readers need to understand.
 
-The recurring counterpart is the `knowledge-curator` agent (auto-invoked via post-task hook + weekly cron). This command is the manual fallback.
+The recurring counterpart is the `knowledge-curator` agent. It is NOT auto-invoked — the shipped baseline has no post-task hook and no cron that runs it. The git hooks only append review hints to `ai/dynamic/.review-queue` and `session-start.sh` only PRINTS that queue; a human drains it by running `/learn-from-task`, `/audit-knowledge`, `/promote-pattern`, or `/promote-decision`. This command is the synchronous, scoped handle on that loop.
 
 ## Inputs
 
 - The current conversation context (the task that just finished).
 - Optional: a specific commit range (`--since <ref>`) to scope the analysis.
 
-## Outputs (zero, one, or more of)
+## Canonical sink set (this command + the pack copy + `knowledge-curator` write the SAME files)
 
-| Output target                            | Trigger                                             |
-|------------------------------------------|-----------------------------------------------------|
-| `ai/decisions/<NNNN>-<slug>.md`          | Architectural decision (append-only ADR)            |
-| `ai/conventions.md` (managed section)    | New convention: 3 sightings AND ≥2 cited examples   |
-| `ai/patterns/<name>.md`                  | Reusable pattern across modules                     |
-| `ai/failures/_index.md` (append entry) | Approach we tried that did NOT work (failure entry) |
-| `ai/dynamic/learnings.md` (append)       | Lower-confidence note; not yet promoted             |
+The learning loop has ONE sink set. This command writes ONLY to the raw append-only sinks below; the `knowledge-curator` agent later promotes mature entries into the formal layer (right column). This is the SAME table the pack copy (`templates/packs/learning/commands/learn-from-task.md`) and `knowledge-curator` use — change a sink in one place, change it in all three.
+
+| Sink (raw, append-only)                  | Holds                                   | Promotes to (curator)                |
+|------------------------------------------|-----------------------------------------|--------------------------------------|
+| `ai/dynamic/learnings.md`                | raw observations + corrections-as-notes | `ai/conventions.md` (managed section) |
+| `ai/dynamic/learned-patterns.md`         | recurring code shapes                    | `ai/patterns/<name>.md`              |
+| `ai/dynamic/feedback-learned.md`         | user corrections taken                   | `.claude/rules/<rule>.md`            |
+| `ai/dynamic/decisions-pending.md`        | informal decisions awaiting validation   | `ai/decisions/<NNNN>-<slug>.md` (ADR) |
+| `ai/dynamic/drift-log.md`                | code-vs-convention divergence            | resolved / convention update         |
+| `ai/failures/_index.md`                  | approaches that did NOT work             | stays (don't-retry catalog, append-only) |
+| `ai/dynamic/interaction-log.md`          | per-task summary (the spine)             | archived monthly                     |
+| `ai/dynamic/changelog.md`                | one-line activity log                    | pruned                               |
+
+## Outputs (zero, one, or more of — all are raw sinks)
+
+| Output target                            | Trigger                                                  |
+|------------------------------------------|----------------------------------------------------------|
+| `ai/dynamic/interaction-log.md` (append) | Always (the per-task spine: type, status, files, sections) |
+| `ai/dynamic/learnings.md` (append)       | Lower-confidence raw note / correction-as-note; not yet promoted |
+| `ai/dynamic/learned-patterns.md` (append/incr) | A reusable code shape emerged (status `WATCHING`)   |
+| `ai/dynamic/feedback-learned.md` (append/incr) | The user corrected the AI (`Repeated:` counter)     |
+| `ai/dynamic/decisions-pending.md` (append) | A decision was made that may graduate to an ADR        |
+| `ai/dynamic/drift-log.md` (append)       | Code-vs-convention divergence surfaced during the task   |
+| `ai/failures/_index.md` (append entry)   | Approach we tried that did NOT work (don't-retry entry)   |
+| `ai/dynamic/changelog.md` (append)       | One-line summary of the task                              |
+
+Formal-layer files (`ai/decisions/<NNNN>-*.md`, `ai/conventions.md` managed section, `ai/patterns/<name>.md`, `.claude/rules/`) are written by `knowledge-curator` on promotion — NOT by this command. This command feeds the sinks; the curator graduates them.
 
 ## Promotion rules
 
-This command DOES NOT publish raw observations to formal knowledge. It uses the persistence pyramid:
+This command DOES NOT publish raw observations to formal knowledge. It writes the raw sinks above; the curator applies the persistence pyramid:
 
 ```
-session-context        → ai/dynamic/learnings.md     (raw, append-only)
+session-context        → ai/dynamic/learnings.md          (raw, append-only)
+recurring code shape    → ai/dynamic/learned-patterns.md   (WATCHING → READY)
+user correction         → ai/dynamic/feedback-learned.md   (Repeated counter)
+informal decision       → ai/dynamic/decisions-pending.md  (VALIDATED after holding)
+failed approach         → ai/failures/_index.md            (append entry — don't-retry catalog)
+
+           ── curator promotes (manual dispatch) ──▶
 3 sightings + ≥2 cited examples → ai/conventions.md   (managed section)
-explicit decision      → ai/decisions/<NNNN>-*.md     (ADR, append-only)
-failed approach        → ai/failures/_index.md        (append entry — don't-retry catalog)
+READY pattern (≥3 files, ≥2 wks) → ai/patterns/<name>.md
+VALIDATED decision      → ai/decisions/<NNNN>-*.md     (ADR, append-only)
+Repeated ≥2 feedback    → .claude/rules/<rule>.md
 ```
 
 A learning surfaced once goes to dynamic. Promote to a convention only when BOTH gates are met: 3 sightings of the same observation AND ≥2 cited example files (halt #3). The pyramid prevents premature codification of one-offs.
@@ -135,10 +162,11 @@ Never create per-file `ai/failures/<NNNN>-<slug>.md` entries — the baseline sh
 
 ## Relation to the curator agent
 
-- This command is **synchronous + scoped**: invoked by the user, runs once, on the current task.
-- `knowledge-curator` is **asynchronous + sweeping**: invoked by hooks/cron, scans `ai/dynamic/`, promotes mature observations, prunes dead entries, regenerates compact derived files.
+- This command is **synchronous + scoped**: invoked by the user, runs once, on the current task. It writes the raw sinks (the Outputs table above).
+- `knowledge-curator` is **manually-dispatched + sweeping**: invoked by the user (directly, or via `/audit-knowledge` / `/promote-pattern` / `/promote-decision`), scans the FULL sink set, promotes mature observations, prunes dead entries, regenerates compact derived files. It is NOT run by a hook or cron in the shipped baseline.
 
-Both write through the same managed markers. They never conflict because:
-1. The curator only promotes from `ai/dynamic/`, which is append-only.
-2. Both commands respect ADR append-only.
-3. Both regenerate (not edit) compact derived files (`_session-digest.md`, etc.).
+They share the same canonical sink set (see "Canonical sink set" above) and never conflict because:
+1. This command writes ONLY the raw `ai/dynamic/` sinks + `ai/failures/_index.md` (append-only); the curator is the only writer of the formal layer.
+2. The curator only promotes FROM those sinks, which are append-only.
+3. Both respect ADR append-only.
+4. Both regenerate (not edit) compact derived files (`_session-digest.md`, etc.).

@@ -1,9 +1,9 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-06-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "perf-audit: Phase-6 post-change re-measurement (HALT if win < projected) + sibling boundary block; profile-perf dispatches profile-endpoint + performance-optimizer; --plan/--plan-only on perf-audit/profile-perf/bundle-perf; _essentials.md corrected (3 commands, 2 agents)."
 }

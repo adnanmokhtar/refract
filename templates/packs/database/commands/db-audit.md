@@ -62,6 +62,10 @@ Escalated to user: <K>
 
 AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the report; Phase 5/7 minimal.
 
+## Honesty clause
+
+No finding without the artifact behind it: every FAIL/WARN cites a real `<file:line>` / `<table.column>` / `<query_id>` the agent actually queried — no inferred or remembered locations (per `migration-rehearsal`'s "no number without a real timed run" discipline, applied to audit numbers). A bloat %, slow-query timing, or unused-index count is reported only from a real `pgstattuple` / `pg_stat_statements` / `pg_stat_user_indexes` read; if a check could not run (DB unreachable, extension absent, short window), it is reported as `not run`, never as OK or with a guessed number.
+
 ## When to use / NOT to use
 - USE: quarterly health check; before a feature that adds high-volume tables; after unexplained slow query alerts.
 - NOT: prod without written approval and a read-only role.
@@ -101,6 +105,15 @@ Run checks (parallelizable):
 
 Print findings table per check with severity, location, fix.
 
+### Dispatch (deep checks)
+
+Run the seven inline checks, then dispatch two specialists in parallel — the audit's findings table is the union of inline checks + both agents' reports (folded under their own sections, de-duped against inline findings):
+
+- **`schema-reviewer`** — with the schema files + multi-tenancy declaration. Owns the tenant-filter-leak and soft-delete-bypass scans (the leakage checks above are its mechanical surface; it confirms each `<file:line>` and catches the dynamic-SQL cases regex misses). Folds in under "Schema / leakage review".
+- **`database-optimizer`** — with engine + version + the bloat / vacuum / autovacuum + index-usage snapshot. Owns the bloat, unused-index, and vacuum-tuning findings beyond the inline `pgstattuple` pass (autovacuum scale-factor, dead-tuple trend, parameter-group deltas). Folds in under "DB-layer health". This is the command that exercises `database-optimizer`.
+
+Both run read-only: they emit anchored findings + PROPOSED fixes; neither applies anything (db-audit never writes to the DB).
+
 ## Phase 5 — Update
 
 - `ai/audits/<YYYY-MM-DD>-db-audit.md` — full report.
@@ -110,7 +123,6 @@ Print findings table per check with severity, location, fix.
 
 ## Phase 6 — Validate
 
-- Re-run any failed check after fix to confirm.
 - Verify "unused index" count against ≥ 30 days of stats — short-window data is unreliable.
 - Soft-delete leakage findings on raw SQL: read each flagged file manually — dynamic SQL builders escape regex.
 
@@ -158,6 +170,10 @@ Schema drift: NONE
 - `/add-migration` — sibling command in database pack
 - `/migration-review` — sibling command in database pack
 - `/optimize-query` — sibling command in database pack
+
+### Agents
+- `@schema-reviewer` — dispatched in Phase 4 for tenant-filter-leak + soft-delete-bypass review.
+- `@database-optimizer` — dispatched in Phase 4 for bloat / vacuum / index-usage health.
 
 ### Skills
 - `schema-consistency-audit` — dispatched in Phase 4 for schema-consistency findings (naming / type / index / audit-field / soft-delete drift).

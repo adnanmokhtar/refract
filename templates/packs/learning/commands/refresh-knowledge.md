@@ -92,7 +92,7 @@ Reason for halt: <verb-missing | marker-shadowed | scope-ambiguous>
 
 The halt prints, the user reads, the user types `y` — then Phase 5 overwrites the digest with the source-derived line. There is no "keep digest" branch. If the user genuinely wants the digest text kept, they move it BELOW the idempotency marker (where it becomes a user edit) and re-run; the auto-populated section above the marker is always source-derived.
 
-**The validator's `check_source_wins_resolution` (called from Phase 6) reads the halt log and confirms each cited conflict was closed by overwriting the digest, not by reverting the source-derived line. Reverting source loses the refresh; that is the exact failure mode this halt prevents.**
+**Self-policed (no external validator):** there is no `check_source_wins_resolution` function — the agent itself, in Phase 6, re-reads the halt log and confirms each cited conflict was closed by overwriting the digest, not by reverting the source-derived line. Reverting source loses the refresh; that is the exact failure mode this halt prevents. If any cited conflict shows the digest text surviving above the marker, the refresh is incomplete — redo Phase 5 for that key.
 
 ## Phase 5 — Update (the knowledge layer — this command's purpose)
 
@@ -112,6 +112,7 @@ On confirmation:
 - Spot-check one ADDED entity / one CHANGED suffix against actual files (no phantom updates).
 - Confirm `ai/status.md` `Updated:` line is the new date.
 - Self-audit: did the diff include items already in `learned-patterns.md` or `decisions-pending.md`? Don't double-queue.
+- Source-wins self-check (no external validator): for each conflict in the halt log, confirm the digest line was overwritten with the source-derived fact above the marker — not reverted. A surviving stale digest line above the marker means the refresh is incomplete; redo Phase 5 for that key.
 - Run `/detect-drift` next — if findings drop sharply, the refresh worked; if they don't, conventions are too generic.
 
 ## Phase 7 — Improve

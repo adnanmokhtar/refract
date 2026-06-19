@@ -16,9 +16,9 @@ All 7. Phase 6 includes a smoke test against the built image.
 
 ## Phase 1 — Understand
 
-- Confirm runtime port + health endpoint.
+- Confirm runtime port + health endpoint. Record them as `$PORT` and `$HEALTH_PATH` (default `$HEALTH_PATH=/health`) — Phase 6's smoke test uses these, not hardcoded values. If the app serves health on a non-default path or a separate admin port, capture both.
 - Consolidated question if env-var inventory not in `.env.example`.
-- Success: image builds reproducibly, runs as non-root, smoke test against `/health` returns 200, `.dockerignore` excludes secrets and lock-rebuilt artifacts.
+- Success: image builds reproducibly, runs as non-root, smoke test against `$HEALTH_PATH` on `$PORT` returns 200, `dockerfile-lint` passes, `.dockerignore` excludes secrets and lock-rebuilt artifacts.
 
 ## Phase 2 — Organize
 
@@ -61,10 +61,14 @@ If repo has DB / Redis dep AND no compose → generate `docker-compose.yml` for 
 
 ## Phase 6 — Validate
 
+Dispatch the `dockerfile-lint` skill on the generated Dockerfile first — it ships hadolint + the project-rule checks (non-root, multi-stage, pinned base, HEALTHCHECK, `.dockerignore`, secret-in-history). A BLOCK finding (`:latest`, final `USER root`, baked secret) halts before the smoke test.
+
+Then smoke-test against the Phase 1 `$PORT` / `$HEALTH_PATH` (never hardcoded `8080` / `/health`):
+
 ```bash
 docker build -t app:test .
-docker run --rm -p 8080:8080 app:test &
-sleep 5 && curl -f http://localhost:8080/health
+docker run --rm -p "$PORT:$PORT" app:test &
+sleep 5 && curl -f "http://localhost:$PORT$HEALTH_PATH"
 ```
 
 - Print image size + layer breakdown (`docker image inspect`).
@@ -85,7 +89,8 @@ Files:
   .dockerignore    new
   docker-compose.yml   new (postgres + redis for local dev)
 
-Smoke test: PASS  (200 from /health in 4.2s)
+dockerfile-lint: PASS  (hadolint clean; non-root, multi-stage, pinned base, HEALTHCHECK)
+Smoke test: PASS  (200 from $HEALTH_PATH on $PORT in 4.2s)
 
 Image:  app:test  142MB  (builder discarded; 6 runtime layers)
 ```
@@ -103,6 +108,9 @@ Image:  app:test  142MB  (builder discarded; 6 runtime layers)
 
 ### Sibling commands in devops pack
 - `/add-ci` — sibling command in devops pack
+
+### Skills
+- `dockerfile-lint` — dispatched in Phase 6 to lint the generated Dockerfile before the smoke test.
 
 ### Patterns
 - `ai/patterns/cicd-pipeline.md`

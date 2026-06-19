@@ -2,9 +2,9 @@
 
 Patterns observed in the code or in AI interactions that aren't yet formal `ai/patterns/` entries — but might graduate. The `pattern-emergence-watcher` agent appends here; `knowledge-curator` promotes to formal patterns.
 
-## Promotion criteria
+## Promotion criteria (Rule of Three — same wording as the curators + watcher + /promote-pattern)
 
-- Same code shape repeated **3+ files** OR same fix recipe applied **2+ PRs**.
+- **≥3 occurrences** of the same behavioural shape (3+ files, or the same fix recipe applied across 3+ PRs) **AND ≥2 weeks** held up. Both gates required for `READY`; 2 occurrences is duplication, not a pattern.
 - Has a clear name, problem statement, and at least one worked example.
 - Doesn't contradict an existing formal pattern (if it does, the existing one needs updating, not a competing pattern).
 

@@ -63,7 +63,7 @@ Prevents the three failures users punish: confusing labels, broken keyboard nav,
 
 ## Axis catalog (cited by `ui-design-sweep` closure verbs)
 
-The skill `ui-design-sweep.md` operates from a closed vocabulary of 18 verbs; each verb closes a finding on ONE of these axes. This catalog is the single source of truth — when a tool reports "design-token drift" or "hierarchy violation", it cites the axis name from this list.
+The skill `ui-design-sweep.md` operates from a closed vocabulary of 19 verbs; each verb closes a finding on ONE of these axes. This catalog is the single source of truth — when a tool reports "design-token drift" or "hierarchy violation", it cites the axis name from this list.
 
 | Axis | Heuristic | Closure verbs that operate on it |
 |---|---|---|

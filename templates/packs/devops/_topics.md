@@ -63,4 +63,9 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { dockerfile_detected: true }
   fallback: _examples/dockerfile-lint.md
+
+- name: monitor-deploy
+  kind: skill
+  triggers: { deploy_target_detected: true }
+  fallback: skills/monitor-deploy.md
 ```

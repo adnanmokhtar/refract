@@ -1,5 +1,7 @@
 ---
 description: Write a new ADR in ai/decisions/ with proper numbering and Recent Changes log.
+kind: command
+pack: documentation
 ---
 
 # /add-adr [title]
@@ -56,6 +58,7 @@ ADR-specific:
 
 ## Phase 5 — Update
 - `ai/status.md` — append bullet to `## Recent Changes`: `- ADR-NNNN: <title> (Proposed|Accepted)`.
+- `ai/_decision-index.md` — append the new ADR row so the Tier-2 index stays current (`add-runbook` reads it for related-decision lookup; skipping it guarantees staleness). If the project regenerates derived files via `knowledge-curator` / `/audit-knowledge`, delegate the regen and say so. Either way the index reflects the new ADR before COMPLETE.
 - `ai/decisions/MMMM-*.md` (if superseding) — set `Status: Superseded by NNNN-<slug>` with link.
 - `ai/dynamic/decisions-pending.md` — remove entry if this ADR resolves a queued decision.
 
@@ -64,6 +67,7 @@ ADR-specific:
 - Both options listed have real pros/cons (no straw-man alternative).
 - Consequences section has at least one negative bullet.
 - Cross-link: superseded ADR (if any) points back to the new one.
+- `ai/_decision-index.md` contains a row for the new ADR (or knowledge-curator regen was triggered) — the index must not lag the ADR file.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture decision + alternatives + tradeoffs as a teachable moment.
@@ -76,7 +80,7 @@ ADR-specific:
 Phase 1 (Understand): real choice confirmed (alternative was X)
 Phase 3 (Retrieved): N prior ADRs scanned for overlap
 Phase 4 (Generated): ai/decisions/NNNN-<slug>.md (Status: Proposed)
-Phase 5 (Updated): ai/status.md Recent Changes; ai/decisions/MMMM superseded
+Phase 5 (Updated): ai/status.md Recent Changes; ai/_decision-index.md row appended (or knowledge-curator regen triggered); ai/decisions/MMMM superseded
 Phase 6 (Validated): unique number, both alternatives substantive, negative consequences listed
 Phase 7 (Improved): captured to /learn-from-task
 

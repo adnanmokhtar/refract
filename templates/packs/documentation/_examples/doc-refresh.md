@@ -1,5 +1,7 @@
 ---
 description: Comprehensive post-work documentation refresh. Prepends Recent Changes entry, updates modules / stack / conventions if they changed, runs drift detection, writes ADRs / patterns / runbooks as discovered, and flags stale docs.
+kind: command
+pack: documentation
 ---
 
 # /doc-refresh
@@ -134,7 +136,11 @@ If a new operational procedure is needed:
 - New ADRs have Alternatives section.
 - Markdown renders correctly (tables aligned, code blocks closed).
 
-### Drift detection (cross-repo sweep)
+### Drift detection (dispatch `doc-drift-scan` — primary path)
+
+**Dispatch the purpose-built `doc-drift-scan` skill** — it owns the full cross-check (file refs, package scripts, env vars, schema tables, ADR cross-refs, `Updated:` age, module-row drift) with rename-aware halts and glob-stripping the inline bash below does not have. Consume its `BROKEN` / `STALE` findings directly.
+
+The inline bash below is a **fallback only** — run it when the skill is not installed (never skip the drift axis: a silent-clean sweep reads as "docs are honest" when they were never checked):
 
 ```bash
 # File paths in ai/ that no longer exist
@@ -150,9 +156,10 @@ comm -23 /tmp/stack_vars /tmp/env_vars  # in stack.md but not .env.example
 # Commands in CLAUDE.md not in package.json scripts
 # (framework-specific — extract script names + verify)
 
-# ai/status.md age
+# ai/status.md age (portable: GNU date first, BSD/macOS date as fallback)
 updated=$(head -1 ai/status.md | sed 's/Updated: //')
-age_days=$(( ($(date +%s) - $(date -j -f "%Y-%m-%d" "$updated" +%s)) / 86400 ))
+updated_epoch=$(date -d "$updated" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$updated" +%s 2>/dev/null)
+age_days=$(( ($(date +%s) - updated_epoch) / 86400 ))
 [ "$age_days" -gt 30 ] && echo "ai/status.md is $age_days days old"
 ```
 

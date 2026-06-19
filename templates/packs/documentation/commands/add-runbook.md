@@ -145,9 +145,8 @@ If steps fail mid-way OR the change makes things worse:
 
 ## Phase 5 — Update
 
-- `ai/runbooks/<name>.md` — the runbook file.
+- `ai/runbooks/<name>.md` — the runbook file (the `ai/runbooks/` directory is the runbook catalog; there is no separate `ai/index.md` in the baseline, so do not write one).
 - `ai/_decision-index.md` — append entry if linked to ADR.
-- `ai/index.md` — entry pointing to the runbook.
 
 ## Phase 6 — Validate
 

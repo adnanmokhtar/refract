@@ -68,7 +68,7 @@ If none detected → halt; route to `/setup-project --refine` to populate `_extr
 2. DETECT         — deploy mechanism + staging endpoint
 3. BUILD          — produce the deployable artifact (image / bundle / archive)
 4. DEPLOY         — push to staging
-5. MONITOR        — health check + log tail for 5 min (or --watch=)
+5. MONITOR        — dispatch `monitor-deploy` skill: health + error-rate + latency for 5 min (or --watch=); skipped under --no-monitor
 6. REPORT         — surface deploy URL, version, health status
 ```
 
@@ -142,12 +142,14 @@ Suggested:
 
 ## Phase 6 — Validate
 
+The `monitor-deploy` skill owns this gate (unless `--no-monitor`, which skips it and exits with an unverified-deploy warning):
+
 - Health check endpoint returns 200 within timeout.
 - Pod / function / container reaches READY state.
 - Log tail shows no ERROR-level entries in monitoring window.
-- Error rate stays within configured threshold.
+- Error rate + latency stay within configured threshold / baseline drift.
 
-If any fail → mark RED; suggest `/rollback-deploy`.
+If any fail → the skill marks RED and triggers `/rollback-deploy`.
 
 ## Phase 7 — Improve
 

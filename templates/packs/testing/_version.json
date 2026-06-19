@@ -1,9 +1,9 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-06-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "add-test: Phase-6 mutation gate (break SUT → test must go red → restore) + optional --review (test-reviewer); new /tdd command dispatching tdd-orchestrator (previously orphaned); flaky-test-hunt capture loop made runner-conditional (per-runner table); cross-links to /run-tests."
 }
