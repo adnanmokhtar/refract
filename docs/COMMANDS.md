@@ -853,8 +853,9 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 | Command                | Purpose                                                                          |
 |------------------------|----------------------------------------------------------------------------------|
 | `/run-tests [<scope>]` | Run the project's test suite (or scoped subset). Detects vitest / jest / pytest / playwright / etc. Reports pass/fail/coverage delta. Called by `/align-phase`, `/migration-fast`, `/find-and-fix` VERIFY steps. |
-| `/add-test`            | Author a new test. |
-| `/flaky-test-hunt`     | Debug intermittent failures. |
+| `/add-test`            | Author a new test (`--review` dispatches `test-reviewer`). Phase-6 mutation gate: a core assertion must go red when its SUT branch is broken. |
+| `/flaky-test-hunt`     | Debug intermittent failures (runner-conditional 5-run repro loop). |
+| `/tdd [<feature>]`     | Red→green→refactor TDD loop — dispatches the `tdd-orchestrator` agent (failing test first, minimal pass, refactor under green). |
 
 ### DevOps track
 
