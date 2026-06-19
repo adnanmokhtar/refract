@@ -3,6 +3,8 @@ name: engineering-principles
 description: Engineering Principles (project governance layer)
 kind: rule
 pack: code-quality
+severity: must
+applies-to: code-quality-track, every-code-writing-task-in-code-quality
 ---
 
 # Engineering Principles (project governance layer)

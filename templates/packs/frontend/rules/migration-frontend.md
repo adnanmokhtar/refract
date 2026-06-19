@@ -3,6 +3,8 @@ name: migration-frontend
 description: Frontend-specific extensions to migration-discipline — audit axes, anti-patterns, fingerprints. Stack examples are illustrative; substitute equivalents from your project's `_extracted-idioms.md`.
 kind: rule
 pack: frontend
+severity: must
+applies-to: frontend-track, every-code-writing-task-in-frontend
 extends: migration/rules/migration-discipline.md
 ---
 

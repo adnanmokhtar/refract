@@ -3,6 +3,8 @@ name: security-principles
 description: Security Principles
 kind: rule
 pack: security
+severity: must
+applies-to: security-track, every-code-writing-task-in-security
 ---
 
 # Security Principles

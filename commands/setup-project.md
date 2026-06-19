@@ -64,15 +64,21 @@ related-commands:
 
 The agent does NOT run CREATE ceremony on REFINE flag, does NOT run REFINE deep-pass on a fresh CREATE, does NOT promote ENHANCE into a full re-scaffold. **Mode-mismatch = bug.**
 
-## Mechanical halt (refuse to declare success on any of these)
+## Halt conditions (refuse to declare success on any of these)
 
-1. **Phase 5 audit failure**: if `audit-setup.sh` exits non-zero, the run is REFUSED. The agent MUST NOT report `success` / `idempotent` / `no work to do`. Address every actionable row OR document a skip rationale.
-2. **Generic-over-project violation**: if `_codebase-scan.md` shows project-specific idioms (named base classes, real conventions, real file paths) AND a generated artifact contains generic skeleton prose with no anchor block citing those facts → halt. Project wins; align generics, don't ship them.
-3. **Skipped deterministic step**: if `apply-study-decisions.sh` (M23) or `apply-anchors.sh` (M25) was not invoked in Phase 4 → halt. LLM judgment cannot substitute for the deterministic floor.
-4. **Adapter chain skipped silently**: post-Phase 5, if `--no-adapters` was not passed and adapters are enabled, `/setup-project-adapters` MUST chain. Skipping it without a logged reason → halt.
-5. **Mode drift**: if Phase 1 detected mode X but ceremony Y was executed → halt. Re-run with the correct mode.
+Two enforcement classes — be honest about which is which:
+- **[mechanical]** = a shell check in `audit-setup.sh` / `audit-anchoring.sh` fails the run deterministically. The agent cannot talk its way past it.
+- **[self-policed]** = the LLM must police itself; no shell catches it. These are the soft spots — treat them with extra discipline.
 
-These halts override every other instruction below. The audit script + this section are the load-bearing contract.
+1. **Phase 5 audit failure** [mechanical]: if `audit-setup.sh` exits non-zero, the run is REFUSED. The agent MUST NOT report `success` / `idempotent` / `no work to do`. Address every actionable row OR document a skip rationale.
+2. **Generic-over-project / skeleton violation** [mechanical]: `audit-anchoring.sh` (surfaced via `audit-setup.sh` C2d) fails when a pack-derived artifact's anchor block is missing, is a placeholder skeleton (carries `<src/path`, `<e.g.,`, `<EntityA>`, `<DetectedBase>`, …), has fewer than 3 substantive lines, or cites no real identifier/path. Project wins; align generics, don't ship them.
+3. **Skipped deterministic step** [self-policed]: if `apply-study-decisions.sh` (M23) or `apply-anchors.sh` (M25) was not invoked in Phase 4 → halt. The audit infers this indirectly (C2k reconciliation, C2d anchoring), but invocation itself is LLM-policed — do not skip the scripts.
+4. **Adapter chain skipped** [mechanical]: `audit-setup.sh` C2m FAILS the run when adapters are enabled, `--no-adapters` was not passed, and `claude_config.adapters: false` is not set, yet `/setup-project-adapters` did not produce native artifacts. (Was WARN-only before M34 promotion.)
+5. **Mode drift** [self-policed]: if Phase 1 detected mode X but ceremony Y was executed → halt. No shell check verifies the executed ceremony matches the detected mode — the agent MUST self-audit this in Phase 5.
+6. **Cross-project leak** [mechanical]: `audit-anchoring.sh` (C2d) fails when a generated anchor cites identifiers/paths that exist in NO file of the target codebase — the "ships another project's class names" failure.
+7. **Knowledge loss** [mechanical]: `audit-setup.sh` C2n fails a REFRESH/REFINE when `ai/decisions/` or `ai/patterns/` shrank vs the pre-refresh backup, or any backed-up ADR is absent post-refresh.
+
+These halts override every other instruction below. The audit scripts + this section are the load-bearing contract.
 
 ## 🛑 STEP ZERO — deterministic preflight (M17 — runs FIRST, no exceptions)
 
@@ -93,6 +99,8 @@ This produces 4 reports under `$TARGET_REPO/.claude/`:
 
 ```bash
 ~/.claude/scripts/audit-setup.sh "$TARGET_REPO" --mode=$MODE
+# When the run skipped adapters, forward the flag so C2m records the sanctioned skip:
+#   ~/.claude/scripts/audit-setup.sh "$TARGET_REPO" --mode=$MODE --no-adapters
 # Exits 0 = safe to report success. Exits 1 = REFUSED — must address findings.
 ```
 
@@ -132,10 +140,12 @@ After Phase 5 audit passes (`audit-setup.sh` exits 0) in CREATE / REFRESH / REFI
 /setup-project-adapters
 ```
 
-Skip only when:
-- `--no-adapters` flag is passed (logged in the run output).
+This is a **mechanical** gate: `audit-setup.sh` C2m FAILS the run (not warns) when adapters are enabled, no sanctioned skip applies, and the chain produced no native artifacts. Pass `--no-adapters` through to the audit so C2m records the skip.
+
+Skip only when (sanctioned — C2m treats these as a pass):
+- `--no-adapters` flag is passed (logged in the run output, forwarded to `audit-setup.sh --no-adapters`).
 - Target's `.claude/settings.json` has `claude_config.adapters: false`.
-- ZERO adapters are enabled in `.claude/codebase-profile.md` (only `claude-code` selected — auto-current; nothing to translate).
+- ZERO adapters are enabled (no native folder/config present — only `claude-code`; nothing to translate).
 
 Why this is mandatory: `.claude/` is the source of truth, but Cursor reads `.cursor/`, OpenCode reads `.opencode/` + `opencode.json`, Copilot reads `.github/agents/` + `.github/prompts/`, Cline reads `.clinerules/`, etc. Without auto-chaining adapters, Claude gets every M25/M28/M29/M30/M31 improvement and the other tools fall behind ("Claude got smarter, Cursor still talks generic prose"). The hard contract closes this gap.
 
@@ -275,7 +285,10 @@ Critical execution rules at `@templates/critical-execution-rules.md` override an
 /setup-project --health           # report current setup health
 /setup-project --validate-schemas # run schema validation harness only
 /setup-project --diff             # preview changes against current state
+/setup-project --no-adapters      # sanctioned M34 skip: do NOT chain /setup-project-adapters
 ```
+
+`--no-adapters` is the **only** sanctioned key for skipping the M34 adapter chain (besides `claude_config.adapters: false` in settings.json, or zero adapters enabled). Pass it through to the audit (`audit-setup.sh … --no-adapters`) so C2m records the skip instead of failing the run.
 
 For tool adapters (Cursor, OpenCode, Aider, …): `/setup-project-adapters`.
 

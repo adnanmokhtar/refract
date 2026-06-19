@@ -245,14 +245,16 @@ When emitting a gap, the auditor MUST choose `closure_verb` per this table. Emit
 | Cosmetic divergence (empty-cell text, swatch vs picker, padding, spacing) | P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
 | Locale key drift (V1 `Inventory.Variants.foo` → V2 `Table.foo`) | P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
 | Permission-gate divergence (V1 gated, V2 ungated or vice versa) | P0 / P1 | `code-edit` (V1-parity); only emit `user-decision` if V2 is the auth-correct side and V1 was wrong |
-| Audit cannot determine V1 (file missing, source ambiguous, no caller) | — | `escalate` |
+| Audit cannot determine V1 (file missing, source ambiguous, no caller) | — | `user-decision` (condition 3 of the three above) |
 | New V2 file violates V2 structure (Transposition Trap, raw V1 components) | — | `regressed` (halts RE-DETECT) |
 
-**Key rule:** the auditor's job is to FIND the gap, not to ask permission to close it. Default to V1-parity. Only escalate when the user genuinely needs to pick between two correct answers (cross-repo, security, V1-bug-V2-fixed). Cosmetic and shape-level gaps NEVER need a question — V1 is the oracle, V2 is the port, edit V2.
+**Verb vocabulary (canonical — do not invent synonyms):** `code-edit` (default, V1-parity), `keep-v2-per-adr` (accepted ADR documents the deviation), `user-decision` (one of the THREE conditions above — cross-repo, V1-security-regression, OR V1-undeterminable), `regressed` (RE-DETECT found the fix broke an axis). There is NO separate `escalate` verb — "escalate" is the *action* a `user-decision` triggers (halt, surface, wait), not a distinct closure verb. `find-and-fix.md`'s DETECT vocabulary `escalate-heavy` is the routing action for a P0 that needs `/port-feature --heavy`, not a closure verb either.
+
+**Key rule:** the auditor's job is to FIND the gap, not to ask permission to close it. Default to V1-parity. Only emit `user-decision` when the user genuinely needs to pick between two correct answers OR V1 is undeterminable (the three conditions above). Cosmetic and shape-level gaps NEVER need a question — V1 is the oracle, V2 is the port, edit V2.
 
 ### Stage A — Implementation audit (Shadow gate)
 
-**Tier-gated halts**: halts 1, 2, 4, 5, 8 are artifact-existence checks gated by the row's `tier:` field. A missing parity test halts a heavy feature; it does NOT halt a trivial feature (where parity tests aren't required). Trivial = halts 6, 7, 9 only. Standard = halts 1 (3-section contract), 2 (≥10 fixtures), 4 (short plan), 6, 7, 9. Heavy = all 10. Halts 3, 6, 7, 9, 10 (process / scope / freshness) apply across all tiers. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+**Tier-gated halts**: halts 1, 2, 4, 5, 8 are artifact-existence checks gated by the row's `tier:` field. A missing parity test halts a heavy feature; it does NOT halt a trivial feature (where parity tests aren't required). Halts 3, 6, 7, 9, 10, 11, 12, 13 (process / scope / freshness / dead-code / UI-state / navigation-inventory) apply across ALL tiers — they are structural facts, not artifact ceremony. Trivial = halts 3, 6, 7, 9, 10, 11, 12, 13. Standard = trivial set + halt 1 (3-section contract) + halt 2 (≥10 fixtures) + halt 4 (short plan). Heavy = all 13. See `migration-discipline.md` § "Per-feature audit — 13 hard halts" and § Required artifacts per feature — tiered floor.
 
 Hard-halt conditions (any one fails the audit, subject to tier gating above):
 
@@ -301,6 +303,18 @@ Hard-halt conditions (any one fails the audit, subject to tier gating above):
 
 10. **Cutover mechanism tested in staging**
     - Evidence (CI run, deploy-pipeline log, screenshot) that the rollback path was executed in staging within the last 7 days.
+
+11. **Dead V1 code in port queue**
+    - The V1 source of this feature has zero callers across all 6 reachability axes (app source · tests · cron/scheduler · route registration · infra config · production telemetry — see `migration-discipline.md` § "What counts as dead V1 code").
+    - If dead: do NOT port. Mark the ledger row `status: deprecated` with `deprecation_reason: dead-v1-no-callers`. Override only via `--include-dead` + `caller_evidence: <path:line>` proving a missed caller.
+
+12. **UI surface audit row missing `v1_states` / `v2_states` enumeration**
+    - Any audit row whose `v1_path` is a UI file MUST enumerate every interaction state V1 exposes (idle / loading / opened / single-result / empty / error / hover / disabled / each conditional-render branch) as `v1_states: [list]` / `v2_states: [list]` / `gap: any v1_state not in v2_states`.
+    - One-line rows ("navigate-to-X", "shows the list") HALT — a stateful V1 affordance vs a one-shot V2 navigation is invisible without state enumeration.
+
+13. **Module/page audit missing Navigation Inventory (Section 0)**
+    - Any module / settings-shell / page-with-tabs / multi-nav-target audit MUST produce a two-layer Navigation Inventory BEFORE per-axis work: Layer A (route tree from every router file) + Layer B (per-leaf template grep for in-component tab patterns — MANDATORY). A Layer-A-only scan HALTS (`check_section_0_evidence`).
+    - Any V1 nav leaf with no V2 navigation surface is **DRIFT, not STRUCTURE_OK** — burying a V1 tab as a scroll-section inside another V2 tab is drift; splitting/consolidating navigation requires an accepted ADR. See also Halt #13a (dynamic-tab sub-halt) above.
 
 Output if any halt fires: a structured report with **specific** remediation per finding. NO advance.
 

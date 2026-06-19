@@ -1,6 +1,6 @@
 # Architecture
 
-System shape, boundaries, and integration points. **Expanded** at `/setup-project` from codebase profile + prompt. One-page reference; deep layering lives in `.claude/codebase-profile.md` and `ai/core/architecture-overview.md`.
+System shape, boundaries, and integration points. **Expanded** at `/setup-project` from codebase profile + prompt. One-page reference; deep layering lives in `.claude/codebase-profile.md`. The one-line shape is mirrored into `ai/_session-digest.md`.
 
 Last updated: <YYYY-MM-DD>
 
@@ -28,6 +28,7 @@ Last updated: <YYYY-MM-DD>
 
 ## See also
 
-- `ai/core/architecture-overview.md` — shorter one-page overview
+- `ai/_session-digest.md` — Tier-1 one-line shape (mirrored from this file)
+- `.claude/codebase-profile.md` — machine-oriented deep layering
 - `ai/stack.md` — versions and scripts
 - `ai/decisions/` — ADRs that constrain architecture

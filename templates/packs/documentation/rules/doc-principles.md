@@ -3,6 +3,8 @@ name: doc-principles
 description: Documentation Principles
 kind: rule
 pack: documentation
+severity: must
+applies-to: documentation-track, every-code-writing-task-in-documentation
 ---
 
 # Documentation Principles

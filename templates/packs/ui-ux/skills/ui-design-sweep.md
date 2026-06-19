@@ -6,6 +6,8 @@ pack: ui-ux
 
 # Skill: ui-design-sweep
 
+> **19 verbs across 16 axes** — the counts differ on purpose: some axes carry more than one verb (e.g. the `tokens` axis has both `consolidate-tokens` and `extract-token`; `states` has `wire-empty/loading/error-state`). 19 ≠ 16 is expected, not a drift.
+
 ## Purpose
 
 Apply UI/UX design corrections as closure verbs in `/polish` (frontend branch), `/ui-sweep`, `/enhance-ui`, and `/align-recheck`. Each verb is a small, named, design-system-respecting transformation with a clear fingerprint and verification step. The skill does NOT invent verbs; it operates from a **closed vocabulary of 19 verbs** drawn from `ui-principles.md` axes + the project's `_extracted-idioms.md` token / wrapper / surface inventory.
@@ -16,8 +18,8 @@ This skill is the **frontend half of `/polish`** — the structural twin of `api
 
 - Dispatched by `/polish` on `frontend-*` (and `mobile-*` falling back) stacks.
 - Dispatched by `/ui-sweep` Phase 5 (FIX) — verbs map 1:1 to ui-sweep's 8 detectors.
-- Dispatched by `/enhance-ui` after the cleanup phase produces findings.
-- Dispatched by `/align-recheck` when the finding's class is a UI/UX axis.
+- Reached via `/enhance-ui`'s `/align-recheck` cleanup step (UI/UX classes) — `/enhance-ui` does not dispatch this skill directly; it composes `/align-recheck`, which routes UI/UX-axis findings here.
+- Dispatched by `/align-recheck` when the finding's class is a UI/UX axis (see its Phase 4 per-class routing table).
 - NOT for new components / pages (use `/add-component` / `/add-feature`).
 - NOT for fixing broken behaviour (use `/fix-bug`).
 - NOT for *mechanically enforcing an EXISTING token / a11y rule / ui-state contract* — that is `/align`'s job (enforce what exists, no creative work). This skill owns the *creative finish* verbs (extract NEW tokens, wire missing states, rhythm / hierarchy / motion / cta / surface). Boundary table: `_orchestration-sync.md`.

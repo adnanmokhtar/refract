@@ -170,6 +170,19 @@ For each matched finding:
 
 ## Phase 4 — Generate (produce the output)
 
+### Per-class → pack-skill routing (the FIX dispatch)
+
+The 21-verb vocabulary above is the closure-verb floor for structural / functional drift. For findings whose class is owned by a specialist pack skill, the FIX step (Phase 2 step 6) routes the finding to that skill — the skill owns the verb taxonomy, procedure, and verify for its class; `/align-recheck` keeps the per-finding loop (DETECT → DECIDE → FIX → VERIFY → RECORD) around it.
+
+| Finding class | Dispatched skill | Pack |
+|---|---|---|
+| refactoring (extract-method / inline / rename / move / dedup — behaviour-preserving structure) | `refactoring-sweep` | code-quality |
+| UI/UX axes (tokens / hierarchy / rhythm / states / contrast / focus / motion / tap-target / cta / affordance / surface / type-scale) | `ui-design-sweep` | ui-ux |
+| api (envelope / error-contract / pagination / naming-case / idempotency / log-metric-trace naming / openapi coverage) | `api-consistency-audit` | backend |
+| schema (column-naming / type / index-naming / audit-field / soft-delete / timestamp drift) | `schema-consistency-audit` | database |
+
+Class-to-skill routing fires only when the resolved area's `PROJECT_KIND` makes the skill applicable (UI/UX skills on `frontend-*` / `mobile-*`; api/schema on `backend-*` / `data-*`). Findings outside these four classes stay on the universal 21-verb closure path. The dispatched skill's own pre-flight (idioms / conventions present) and verify (visual baseline / a11y / migration reversibility) apply.
+
 Per-finding output streams to `ai/align/runs/<YYYY-MM-DD-HHMMSS>-recheck.log`. End-of-run summary surfaces to user.
 
 ```
@@ -314,6 +327,12 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 - `/align-fast <N> --re-audit` — phase-scoped re-audit (vs path-scoped here).
 - `/align-scan --scope=<path>` — pick up new findings before rechecking.
 - `/align-status` — read-only ledger reader.
+
+### Skills (per-class FIX dispatch — see Phase 4 routing table)
+- `code-quality/skills/refactoring-sweep.md` — refactoring-class findings.
+- `ui-ux/skills/ui-design-sweep.md` — UI/UX-axis findings (frontend/mobile).
+- `backend/skills/api-consistency-audit.md` — api-class findings (backend).
+- `database/skills/schema-consistency-audit.md` — schema-class findings (data).
 
 ### Cross-pack
 - `migration/commands/migration-recheck.md` — sibling pattern in migration; this command mirrors it for align.

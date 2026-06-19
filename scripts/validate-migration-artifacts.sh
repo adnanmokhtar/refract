@@ -55,6 +55,7 @@ AUDITS_DIR="ai/migration/audits"
 PERF_DIR="ai/migration/perf-decisions"
 RUNBOOKS_DIR="ai/runbooks"
 PARITY_TEST_ROOT_DEFAULT="tests/parity"
+PARITY_RUNS_DIR="ai/migration/parity-runs"
 MIN_CORPUS=30
 PROJECT_KIND="frontend-vue3"      # frontend-vue3 | frontend-react | backend-nest | api-other
 V2_ROOT="src/"
@@ -391,6 +392,11 @@ check_plan_exists() {
 
 check_parity_corpus() {
   local feature="$1"; local id="${2:-}"; local tier="${3:-heavy}"
+  # NOTE: this checks the parity-test CORPUS (fixtures + tolerance.yaml exist). It does NOT
+  # assert the tests passed — that is check_parity_run_report's job (which reads a recorded
+  # run-report artifact and verifies result=pass against the pinned V1 commit; it never runs
+  # the suite). Corpus presence is necessary but not sufficient: a fat corpus with no recorded
+  # passing run is still an unverified parity claim.
   # Tier-scoped minimum corpus per migration-discipline.md § Required artifacts per feature
   # Heavy: ≥30 fixtures. Standard: ≥10 fixtures. Trivial: skipped.
   local min_corpus="$MIN_CORPUS"
@@ -575,6 +581,103 @@ check_parity_run_v1_commit() {
   return 0
 }
 
+first_parity_run_file() {
+  # Echo the first parity-run report file for a feature (or nothing). Tolerates non-matching
+  # globs (unlike `ls a b c`, which returns nonzero if ANY arg is missing). Order: id-prefixed
+  # variants first, then bare-feature variants.
+  local feature="$1"; local id="${2:-}"
+  [[ -d "$PARITY_RUNS_DIR" ]] || return 0
+  local f
+  for f in \
+    "$PARITY_RUNS_DIR/${id}-${feature}-"*.md \
+    "$PARITY_RUNS_DIR/${id}-${feature}.md" \
+    "$PARITY_RUNS_DIR/${feature}-"*.md \
+    "$PARITY_RUNS_DIR/${feature}.md"; do
+    # Skip id-prefixed patterns when id is empty (they'd be literal "-<feature>-*.md").
+    [[ -z "$id" && "$f" == "$PARITY_RUNS_DIR/-"* ]] && continue
+    if [[ -f "$f" ]]; then
+      echo "$f"
+      return 0
+    fi
+  done
+  return 0
+}
+
+check_parity_run_report() {
+  # PARITY PARITY-ASSERTION (artifact-only — this function NEVER executes a test suite).
+  # For a row that claims parity is green (status=done AND parity_test: passing), REQUIRE
+  # a recorded run-report artifact backing that claim:
+  #   (A) a `parity_runs:` entry in the ledger row with `result: pass` + `v1_commit: <sha>`, OR
+  #   (B) a file at `ai/migration/parity-runs/<feature>-<run-id>.md` (or `<id>-<feature>-*.md`)
+  #       whose frontmatter/body declares `result: pass` + `v1_commit: <sha>`.
+  # The recorded run's v1_commit MUST match the ledger's v1_commit_pinned. Absent or
+  # mismatched → FAIL. We do NOT run tests; we read the asserted artifact.
+  local feature="$1"; local id="${2:-}"; local status="$3"; local parity_test="${4:-}"
+  # Only enforce when the row asserts a passing parity test on a done-class row.
+  case "$status" in
+    done|V2-shadow|divergent) ;;
+    *) return 0 ;;
+  esac
+  # Normalise the parity_test claim (bash 3.2 has no ${x,,}; use tr)
+  local pt
+  pt=$(printf '%s' "$parity_test" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
+  [[ "$pt" != "passing" && "$pt" != "pass" && "$pt" != "green" ]] && return 0
+
+  # Pull the ledger row block + the pinned commit.
+  local ledger_block pinned
+  ledger_block=$(awk -v id="$id" '
+    $0 ~ ("^id: " id "$") { in_block=1 }
+    in_block { print }
+    in_block && /^```/ { exit }
+  ' "$LEDGER_PATH" 2>/dev/null)
+  pinned=$(echo "$ledger_block" | grep -m1 '^v1_commit_pinned:' | sed 's/^v1_commit_pinned:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
+  if [[ -z "$pinned" || "$pinned" == "null" ]]; then
+    log_fail "parity-run report unverifiable for $feature: status=$status claims parity_test=passing but ledger has no v1_commit_pinned to check the recorded run against. Pin V1 first. See migration-discipline.md § halt #3 / D4."
+    return 1
+  fi
+
+  # (A) Ledger parity_runs[] entry — find an indented `result:` / `v1_commit:` line under the
+  # parity_runs block. Tolerate the optional `- ` list-item prefix and any leading indentation.
+  local run_result run_commit
+  run_result=$(echo "$ledger_block" | grep -m1 -E '^[[:space:]]+(- )?result:' | sed 's/.*result:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
+  run_commit=$(echo "$ledger_block" | grep -m1 -E '^[[:space:]]+(- )?v1_commit:' | sed 's/.*v1_commit:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
+
+  # (B) Standalone run-report file fallback.
+  local run_file=""
+  run_file=$(first_parity_run_file "$feature" "$id")
+  if [[ -z "$run_result" && -n "$run_file" && -f "$run_file" ]]; then
+    run_result=$(grep -m1 -iE '^[[:space:]]*result:[[:space:]]' "$run_file" 2>/dev/null | sed 's/.*[Rr]esult:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
+    run_commit=$(grep -m1 -iE '^[[:space:]]*v1_commit:[[:space:]]' "$run_file" 2>/dev/null | sed 's/.*[Vv]1_commit:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
+  fi
+
+  # No recorded run anywhere → FAIL (the passing claim is a Trusted Summary).
+  if [[ -z "$run_result" ]]; then
+    log_fail "parity-run report MISSING for $feature: status=$status claims parity_test=passing but no recorded run backs it — need a ledger parity_runs[] entry (result: pass + v1_commit) OR a file at $PARITY_RUNS_DIR/${id:+$id-}${feature}-<run-id>.md. A 'passing' claim with no run-report artifact is unverifiable. See migration-discipline.md § halt #3."
+    return 1
+  fi
+
+  # Recorded run must declare pass.
+  local rr
+  rr=$(printf '%s' "$run_result" | tr '[:upper:]' '[:lower:]')
+  if [[ "$rr" != "pass" && "$rr" != "passing" && "$rr" != "green" ]]; then
+    log_fail "parity-run report for $feature records result='$run_result' (not pass) but the ledger claims parity_test=passing — reconcile the recorded run with the row claim. See migration-discipline.md § halt #3."
+    return 1
+  fi
+
+  # Recorded run's v1_commit must match the pinned oracle commit (substring-tolerant: short vs full SHA).
+  if [[ -z "$run_commit" ]]; then
+    log_fail "parity-run report for $feature records result=pass but no v1_commit — cannot prove the run executed against the pinned oracle ($pinned). Record the commit the run ran against. See migration-discipline.md § D4."
+    return 1
+  fi
+  if [[ "$pinned" == "$run_commit"* ]] || [[ "$run_commit" == "$pinned"* ]]; then
+    log_pass "parity-run report backs passing claim: $feature (result=pass @ $run_commit == pinned $pinned)"
+  else
+    log_fail "parity-run report for $feature ran against v1_commit '$run_commit' but the ledger pins v1_commit_pinned='$pinned' — the recorded pass is against a DIFFERENT V1 oracle. Re-run parity against the pinned commit OR re-pin. See migration-discipline.md § D4 / halt #3."
+    return 1
+  fi
+  return 0
+}
+
 check_perf_decisions() {
   local feature="$1"; local id="${2:-}"
   local file
@@ -595,12 +698,22 @@ check_perf_decisions() {
   else
     log_pass "perf-decisions classified: $feature (applied=$applied, deferred=$deferred, rejected=$rejected)"
   fi
-  # If anything is applied, look for a measurement
+  # If anything is applied, REQUIRE a numeric before/after measurement.
+  # An `applied` perf candidate with no number is noise (migration-discipline.md § halt #5,
+  # parity-auditor.md § "Approving without measurements"). This is a HARD FAIL, not a warning:
+  # the whole point of capturing a migration-time perf win is the measured delta.
   if [[ $applied -gt 0 ]]; then
-    if grep -qE '\bmeasured\b|\bmeasurement\b|\bp(50|90|95|99)\b|\b[0-9.]+ ?ms\b|\bqueries\b|\bsaving\b' "$file"; then
-      log_pass "perf-decisions has measurements: $feature"
+    # A numeric measurement = a latency/throughput/count figure with a unit, a percentile,
+    # or an explicit before→after / N→M numeric pair.
+    local has_numeric=0
+    if grep -qE '\bp(50|75|90|95|99)\b|\b[0-9][0-9.]* ?(ms|s|µs|us|ns|MB|KB|GB|rows?|queries|req/s|qps|ops/s)\b|[0-9][0-9.]*[[:space:]]*(→|->|to)[[:space:]]*[0-9]|\b(before|after)\b[^0-9]{0,40}[0-9]' "$file"; then
+      has_numeric=1
+    fi
+    if [[ $has_numeric -eq 1 ]]; then
+      log_pass "perf-decisions has numeric before/after measurements: $feature"
     else
-      log_warn "perf-decisions has applied candidates but no apparent measurements: $feature"
+      log_fail "perf-decisions has $applied applied candidate(s) with NO numeric before/after measurement: $feature — every applied perf change MUST cite a measured delta (e.g., 'p95 420ms → 110ms', '14 queries → 1', 'before 1.2s / after 0.3s'). An applied candidate with no number is unverifiable. See migration-discipline.md § halt #5."
+      return 1
     fi
   fi
   return 0
@@ -2877,6 +2990,24 @@ check_ledger_row() {
     fi
     log_pass "ledger row $id ($feature): reviewer_approval present ($appr)"
   fi
+  # Parity-assertion presence: a done-class row must have a recorded parity-run artifact backing it.
+  # Existence check only here (content/commit match is enforced by check_parity_run_report). Accept
+  # either an inline `parity_runs:` block in the row OR a file under ai/migration/parity-runs/.
+  case "$status" in
+    "V2-shadow"|"done"|"divergent")
+      local has_run=0
+      echo "$ledger_block" | grep -qE '^parity_runs:' && has_run=1
+      if [[ $has_run -eq 0 ]]; then
+        local rf
+        rf=$(first_parity_run_file "$feature" "$id")
+        [[ -n "$rf" ]] && has_run=1
+      fi
+      if [[ $has_run -eq 0 ]]; then
+        log_fail "ledger row $id ($feature): status=$status but no recorded parity-run artifact — add a parity_runs[] block to the row (result + v1_commit) OR a file at $PARITY_RUNS_DIR/${id:+$id-}${feature}-<run-id>.md. A done-class row's parity claim must be backed by a recorded run (artifact, not a re-executed suite). See migration-discipline.md § halt #3."
+        return 1
+      fi
+      ;;
+  esac
   return 0
 }
 
@@ -2945,6 +3076,10 @@ validate_feature() {
   check_lifecycle_keepalive "$feature" "$id" || true
   check_permission_gate_divergence "$feature" "$id" || true
   check_gap_count_parity "$feature" "$id" || true
+  # Parity-assertion gate: a done-class row claiming parity_test=passing MUST have a recorded
+  # run-report artifact (ledger parity_runs[] OR ai/migration/parity-runs/<feature>-<run-id>.md)
+  # with result=pass against the pinned V1 commit. Artifact-only — never executes tests.
+  check_parity_run_report "$feature" "$id" "$status" "$parity_test" || true
   # Phase 9 additions (May 2026 — themes port lessons): every-tier artifact gates
   check_v2_mapping_doc "$feature" "$id" "$tier" || true
   check_api_response_sample "$feature" "$id" || true

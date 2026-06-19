@@ -2,6 +2,8 @@
 
 Revenue, pricing, and commercial constraints that affect product and engineering.
 
+> **Read by:** feature work that touches money, plans, or access. **Load trigger:** pricing / billing / entitlement / metering / quota / trial / refund work.
+
 Last updated: <YYYY-MM-DD>
 
 ## Model type

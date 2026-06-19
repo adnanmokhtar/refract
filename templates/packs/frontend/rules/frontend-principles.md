@@ -3,6 +3,8 @@ name: frontend-principles
 description: Frontend Principles
 kind: rule
 pack: frontend
+severity: must
+applies-to: frontend-track, every-code-writing-task-in-frontend
 ---
 
 # Frontend Principles

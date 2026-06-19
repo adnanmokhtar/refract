@@ -2,6 +2,8 @@
 
 Third-party libraries this project uses that have KNOWN footguns. Adding a dep here means: "this isn't just `npm install` and forget — the docs hide a trap, behavior surprised us, or wrong version causes real bugs."
 
+> **Read by:** bug fixes and any code that calls a listed library. **Load trigger:** debugging behavior that "should work", touching code that uses a trapped dependency, or a dependency upgrade.
+
 ## Format per entry
 
 ```

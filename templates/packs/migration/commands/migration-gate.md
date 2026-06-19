@@ -81,7 +81,7 @@ A feature failing any check is **BLOCKED**. The phase REFUSES until every blocke
 ~/.claude/scripts/validate-migration-artifacts.sh --phase=<N> --strict
 ```
 
-The validator returns exit 0 if every check passes for every feature in phase N; non-zero with per-feature finding list otherwise. If the script is unavailable in the current tool environment, the executor MUST manually verify each check above against `migration-discipline.md` § "Per-feature audit — 11 hard halts" and § "Required artifacts per feature".
+The validator returns exit 0 if every check passes for every feature in phase N; non-zero with per-feature finding list otherwise. If the script is unavailable in the current tool environment, the executor MUST manually verify each check above against `migration-discipline.md` § "Per-feature audit — 13 hard halts" and § "Required artifacts per feature".
 
 ## Phase 4 — Generate (produce the output)
 

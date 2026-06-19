@@ -7,7 +7,7 @@ severity: must
 
 # #1 Rule: Read Before You Write
 
-> **Hard rule (TL;DR):** Read the file you're about to edit AND ≥1 sibling in the same layer. Read `codebase-profile.md` if it exists. Cite real classes/paths — never invent. PR review fails any edit without prior Read of the touched file.
+> **Hard rule (TL;DR):** Read the file you're about to edit AND ≥1 sibling in the same layer. Read `codebase-profile.md` if it exists. Cite real classes/paths — never invent. PR review should fail any edit without prior Read of the touched file (convention; no CI gate ships).
 
 ## Must
 
@@ -34,7 +34,7 @@ severity: must
 
 ## Enforcement
 
-- `PreToolUse` / project hooks where configured.
+- There is currently **no read-before-edit hook** — this rule is enforced by convention + review, not automatically. (The shipped `pre-edit-guard` hook only blocks writes to sensitive paths like `.env` / lock files / build output; it does not check whether the target file was read first.)
 - PR review: edits without prior Read of the touched file should fail review.
 
 **Consistency with existing code is more important than personal preference.**

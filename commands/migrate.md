@@ -77,6 +77,7 @@ The agent does ALL of this silently — you don't see it:
 
 ## Optional flags
 
+- `--plan` — run the read-only phases (scan + resolve scope + internal plan), then STOP before porting. Writes a full handoff plan to `.claude/plans/migrate-<slug>-<YYYYMMDD-HHmm>.md` (path + Plan ID printed), makes NO code edits, writes NO ledger transitions. Full contract: `~/.claude/templates/snippets/plan-flag.md`. Hand the plan to `/execute-plan <file>` (or `/migrate --from-plan <file>`) to port it. (`--dry-run` shows *what* would be ported as a quick summary; `--plan` produces the durable, executable cross-tool plan artifact.)
 - `--dry-run` — shows what would be ported, no edits.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--max-parallel=<N>` — cap concurrent feature dispatch (default: 6 for trivial, 3 for standard, 1 for heavy).
@@ -89,18 +90,26 @@ The agent does ALL of this silently — you don't see it:
 
 Each command writes a single progress file you can refer to across days:
 
-**`ai/migrate/progress.md`** — single source of truth for migration progress.
+**`ai/migrate/progress.md`** — a human-friendly **projection** of migration progress.
+
+### Single source of truth
+
+**`ai/migration/ledger.md` is the single source of truth.** It is the canonical, append-only record every migration command reads and writes (`/migration-*`, `/find-and-fix`, `/port-feature`, the gate, the validator). `/migrate` writes the ledger as the primary artifact for every feature it ports — status, tier, `v1_commit_pinned`, `gaps_in`/`gaps_closed`, `parity_runs[]`, audit pointer.
+
+`ai/migrate/progress.md` is a **derived projection of the ledger**, NOT a second source of truth. It exists only to give a day-over-day, area-grouped reading view; it carries no state the ledger doesn't already hold. On every `/migrate` run (and on `--status` / `--refresh`), the progress file is **regenerated from the ledger**: each area's `done`/`in-progress`/`pending`/`blocked` count is computed by reading the ledger rows that map to that area. If the two ever disagree, **the ledger wins** and the projection is rebuilt from it. Never hand-edit `progress.md` to change state — edit the ledger (via the migration commands) and let the projection re-derive.
 
 ### How it works
 
-- **First run** (file doesn't exist) → command builds the inventory + writes the progress file with every area marked `pending`. Then runs the first area.
-- **Subsequent runs** → command reads the progress file, picks the next `pending` area (or uses your `<scope>` arg to override), does the work, updates the file. Already-`done` areas are skipped automatically.
-- **`/migrate --status`** → read-only progress report. No work done. Tells you what's done, what's pending, what's blocked.
+- **First run** (progress file doesn't exist) → command builds/loads the ledger, then **projects** it into `ai/migrate/progress.md` with every area's state derived from its ledger rows (areas with no ported rows show `pending`). Then runs the first area, updating the ledger; the projection is refreshed at end-of-run.
+- **Subsequent runs** → command reads the **ledger** to pick the next `pending` area (or uses your `<scope>` arg to override), does the work, writes the ledger, and re-projects `progress.md`. Already-`done` ledger rows are skipped automatically.
+- **`/migrate --status`** → read-only: re-project the ledger into `progress.md` and report. No port work done. Tells you what's done, what's pending, what's blocked — all read from the ledger.
 
 ### Progress file shape
 
+> Projection of `ai/migration/ledger.md` — regenerated each run. Do not hand-edit; change state via the migration commands (which write the ledger), then re-run `/migrate` to re-project.
+
 ```markdown
-# Migration progress
+# Migration progress  (projection of ai/migration/ledger.md)
 
 Started: <YYYY-MM-DD>
 V1 root: <v1-project-root>/

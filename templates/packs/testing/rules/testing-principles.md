@@ -3,6 +3,8 @@ name: testing-principles
 description: Testing Principles
 kind: rule
 pack: testing
+severity: must
+applies-to: testing-track, every-code-writing-task-in-testing
 ---
 
 # Testing Principles

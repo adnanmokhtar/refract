@@ -33,7 +33,14 @@ Round-two surfaces these so the `query-optimizer.md` rule's `## Project-specific
 ## When to use
 
 - `/setup-project --refine` Phase 2.11 — once per project.
-- Manually when authoring `ai/patterns/parallel-io.md` or refreshing the `query-optimizer` skill anchor for a project that has substantial backend code.
+- Manually when refreshing `ai/patterns/parallel-io.md` or the `query-optimizer` skill anchor for a project that has substantial backend code.
+
+## Where the output lands
+
+The rows written to `_refine-extract.md § Hot paths` are enriched (by Phase 4.7-DEEP / `apply-pack-adaptation`) into targets that **always exist after setup**:
+
+- **`ai/patterns/parallel-io.md`** — the canonical sequential-await / parallel-I/O target. The baseline ships `repo-baseline/ai/patterns/parallel-io.md` as a stub, so this file is present in every project; the hot-path rows (file:line + N+1 site + uplift) fill its project-specific block. If a `--refine` run somehow finds it absent, the enrichment creates it (NEW-FILE) from the same shape.
+- **`.claude/rules/database.md` + the `query-optimizer` agent anchor** *(when the backend pack / database pack is applied)* — the N+1 / missing-index / cache rows land here via ANCHOR-DEEP (`.claude/rules/database.md` is the `database` rule the backend pack authors; the `query-optimizer` agent ships in the database pack). These are conditional on those packs; `ai/patterns/parallel-io.md` above is the unconditional baseline target that always exists.
 
 ## Inputs
 

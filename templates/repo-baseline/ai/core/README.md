@@ -4,11 +4,9 @@ The IMMUTABLE foundation — domain language, architecture invariants, base abst
 
 ## What goes here
 
-- `glossary.md` — domain entities + vocabulary (populated from `business-domains/<domain>/glossary.md` if a business domain was detected).
-- `entities.md` — top-level entity diagram + relationships (ERD-style or text).
+- `glossary.md` — domain entities + vocabulary (populated from `business-domains/<domain>/glossary.md` if a business domain was detected); the entity inventory / ERD lives inline here.
 - `stakeholders.md` — roles + their workflows (from `business-domains/<domain>/stakeholders.md`).
 - `invariants.md` — system-wide rules that MUST hold (e.g., "every order has a tenant_id", "no PHI in logs").
-- `architecture-overview.md` — high-level architecture if `ai/architecture.md` is too detailed for one-page reference.
 
 ## How to use
 

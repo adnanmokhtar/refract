@@ -3,6 +3,8 @@ name: mobile-principles
 description: Mobile Principles
 kind: rule
 pack: mobile
+severity: must
+applies-to: mobile-track, every-code-writing-task-in-mobile
 ---
 
 # Mobile Principles

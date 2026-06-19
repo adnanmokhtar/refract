@@ -3,6 +3,8 @@ name: migration-backend
 description: Backend-specific extensions to migration-discipline — audit axes, primitive set, anti-patterns, fingerprints. Stack examples are illustrative; substitute equivalents from your project's `_extracted-idioms.md`.
 kind: rule
 pack: backend
+severity: must
+applies-to: backend-track, every-code-writing-task-in-backend
 extends: migration/rules/migration-discipline.md
 ---
 

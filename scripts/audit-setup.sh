@@ -24,10 +24,12 @@ fi
 TARGET="$1"; shift
 MODE="refresh"
 LIGHTWEIGHT=0
+NO_ADAPTERS=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode=*)      MODE="${1#--mode=}"; shift ;;
     --lightweight) LIGHTWEIGHT=1; shift ;;
+    --no-adapters) NO_ADAPTERS=1; shift ;;
     *)             shift ;;
   esac
 done
@@ -56,8 +58,66 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
   recent_bk=$( { find "$CL/backups" -mindepth 1 -maxdepth 1 -type d -mmin -1440 2>/dev/null || true; } | sort | tail -1)
   if [[ -n "$recent_bk" ]]; then
     ok "backup present: ${recent_bk#$TARGET/}"
+    # Full-manifest verification (#5): a thin backup that omits adapter files +
+    # restore.sh used to pass C2a, so a refresh could destroy unbacked adapter
+    # files. Require restore.sh AND — when the target HAS adapter files — that the
+    # manifest actually lists them.
+    if [[ -x "$recent_bk/restore.sh" ]]; then
+      ok "restore.sh present in backup"
+    else
+      err "backup has no restore.sh — thin backup; re-run run-preflight.sh so adapter files + restore are captured"
+    fi
+    # Detect adapter presence in the target (same signatures as M34).
+    adapter_present=0
+    for ap in .cursor .opencode .clinerules .windsurf .continue .kimi .qwen .agents \
+              .github/agents .github/prompts opencode.json .cursorrules .aider.conf.yml \
+              .aiderignore GEMINI.md AGENTS.override.md .github/copilot-instructions.md; do
+      [[ -e "$TARGET/$ap" ]] && { adapter_present=1; break; }
+    done
+    if [[ $adapter_present -eq 1 ]]; then
+      if grep -qE '^- (\.cursor|\.opencode|\.clinerules|\.windsurf|\.continue|\.kimi|\.qwen|\.agents|\.github/|opencode\.json|\.cursorrules|\.aider|GEMINI\.md|AGENTS\.override)' "$recent_bk/_backup-manifest.txt" 2>/dev/null; then
+        ok "backup manifest covers adapter files"
+      else
+        err "target has adapter files but backup manifest omits them — REFRESH could destroy adapter files unbacked. Re-run run-preflight.sh."
+      fi
+    fi
   else
     err "no backup created in the last 24h — run-preflight.sh (M35 Phase 0 backup) did not run; re-run: ~/.claude/scripts/run-preflight.sh \"$TARGET\" --mode=$MODE"
+  fi
+  echo ""
+fi
+
+# C2n (knowledge-preservation) — REFRESH/REFINE must NOT silently drop extract-
+# captured knowledge. ADRs are append-only; documented patterns survive a refresh.
+# Compare the pre-refresh BACKUP (run-preflight.sh Phase 0) against the post-apply
+# state: if ai/decisions/ or ai/patterns/ shrank, the refresh destroyed knowledge.
+# CREATE is exempt (greenfield — no prior knowledge to preserve).
+if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
+  echo "C2n: knowledge preservation (ADRs + patterns survive refresh)"
+  bk=$( { find "$CL/backups" -mindepth 1 -maxdepth 1 -type d -mmin -1440 2>/dev/null || true; } | sort | tail -1)
+  if [[ -z "$bk" ]]; then
+    warn_msg "no recent backup to compare against — cannot verify knowledge preservation (C2a should have already failed)"
+  else
+    count_md() { { find "$1" -name '*.md' -not -name '_*' -not -name 'README*' 2>/dev/null || true; } | grep -c . || true; }
+    for sub in decisions patterns; do
+      pre=$(count_md "$bk/ai/$sub")
+      post=$(count_md "$TARGET/ai/$sub")
+      pre="${pre:-0}"; post="${post:-0}"
+      if [[ "$post" -lt "$pre" ]]; then
+        err "KNOWLEDGE_LOSS: ai/$sub/ dropped from $pre → $post since pre-refresh backup. ADRs/patterns are append-only — restore the dropped file(s) from ${bk#$TARGET/}/ai/$sub/"
+      else
+        ok "ai/$sub/ preserved ($pre → $post)"
+      fi
+    done
+    # Extract-captured ADR IDs must each still exist post-refresh (presence, not just count).
+    if [[ -d "$bk/ai/decisions" ]]; then
+      missing_adr=0
+      while IFS= read -r adr; do
+        bn=$(basename "$adr")
+        [[ -f "$TARGET/ai/decisions/$bn" ]] || { err "KNOWLEDGE_LOSS: ADR $bn present in backup, absent post-refresh"; missing_adr=$((missing_adr + 1)); }
+      done < <(find "$bk/ai/decisions" -name '*.md' -not -name '_*' -not -name 'README*' 2>/dev/null)
+      [[ $missing_adr -eq 0 ]] && ok "every backed-up ADR still present by ID"
+    fi
   fi
   echo ""
 fi
@@ -104,7 +164,7 @@ echo ""
 
 # C2b — extract sections non-empty
 if [[ -f "$CL/_refresh-extract.md" ]]; then
-  echo "C2b: refresh-extract sections filled"
+  echo "C2b1: refresh-extract sections filled"
   for section in "ADRs preserved" "Validated user corrections" "Project intent" "Custom rules" "Custom agents" "Architecture decisions" "Detected stack"; do
     # Find section header, then check next non-empty non-blockquote line for <TBD>
     section_first_line=$(awk -v sec="$section" '
@@ -176,7 +236,7 @@ fi
 
 # Pack coverage — every "Missing" row should be addressed (now present in target)
 if [[ -f "$CL/_pack-coverage-report.md" ]]; then
-  echo "C2b: pack coverage — Missing rows addressed"
+  echo "C2b2: pack coverage — Missing rows addressed"
   # Extract every "Missing" target path; check that each file now exists
   missing_unaddressed=0
   while IFS= read -r line; do
@@ -421,6 +481,18 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
           | grep -oE '[0-9]+' | head -1 || true)
     unanchored=$(grep -E '^Unanchored:' "$CL/_anchoring-audit.md" 2>/dev/null \
                  | grep -oE '[0-9]+$' | head -1 || true)
+    leaks=$(grep -E '^Cross-project leaks:' "$CL/_anchoring-audit.md" 2>/dev/null \
+            | grep -oE '[0-9]+$' | head -1 || true)
+    leaks="${leaks:-0}"
+    # Cross-project leak is always a hard failure in non-CREATE modes — an artifact
+    # citing another project's identifiers ships wrong guidance regardless of coverage.
+    if [[ "$leaks" -gt 0 ]]; then
+      if [[ "$MODE" == "create" ]]; then
+        warn_msg "anchoring: $leaks cross-project leak(s) — anchor cites facts absent from target (CREATE mode; verify before chaining adapters)"
+      else
+        err "anchoring: $leaks cross-project leak(s) — generated artifact cites identifiers/paths NOT in the target codebase. See $CL/_anchoring-audit.md § Cross-project leaks; re-run apply-anchors.sh \"$TARGET\" --apply"
+      fi
+    fi
     # When audit-anchoring.sh detects 0 pack-derived files, no `Coverage:` line is
     # emitted (audit-anchoring.sh:180-183 only writes it when total_eligible > 0).
     # Treat that case as a pass: every eligible artifact is anchored when there
@@ -435,6 +507,54 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
         warn_msg "anchoring coverage ${pct}% — ${unanchored} unanchored (CREATE mode; Phase 4.6 may not have run yet — re-run apply-anchors.sh)"
       else
         err "anchoring coverage ${pct}% — ${unanchored} pack-derived artifact(s) lack project anchors. Phase 4.6 must run: ~/.claude/scripts/apply-anchors.sh \"$TARGET\" --apply"
+      fi
+    fi
+  fi
+  echo ""
+fi
+
+# C2m (M34) — adapter-chain HALT. Promoted from WARN to ERR: in
+# refresh/refine/enhance/create with adapters enabled and --no-adapters NOT
+# passed, a skipped /setup-project-adapters chain FAILS the audit. Previously the
+# only adapter signal was C2e's warn-only "no adapter native files" line, so the
+# mandatory M34 chain could be silently skipped and the run still reported success.
+# Sanctioned skips: --no-adapters flag, claude_config.adapters:false, or zero
+# adapters enabled (only claude-code — nothing to translate).
+if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" || "$MODE" == "create" ]]; then
+  echo "C2m: adapter chain executed (M34)"
+  if [[ $NO_ADAPTERS -eq 1 ]]; then
+    ok "--no-adapters passed — M34 chain sanctioned-skip"
+  elif grep -qE '"adapters"[[:space:]]*:[[:space:]]*false' "$CL/settings.json" 2>/dev/null; then
+    ok "claude_config.adapters:false in settings.json — M34 chain sanctioned-skip"
+  else
+    # An adapter is "enabled" when its native folder/config exists (same signatures
+    # as apply-adapter-sync.sh detect_adapters). ZERO enabled = nothing to translate.
+    adapters_enabled=0
+    [[ -d "$TARGET/.opencode" ]] && adapters_enabled=1
+    { [[ -d "$TARGET/.cursor" ]] || [[ -f "$TARGET/.cursorrules" ]]; } && adapters_enabled=1
+    { [[ -d "$TARGET/.github/agents" ]] || [[ -d "$TARGET/.github/prompts" ]] || [[ -f "$TARGET/.github/copilot-instructions.md" ]]; } && adapters_enabled=1
+    [[ -d "$TARGET/.clinerules" ]] && adapters_enabled=1
+    [[ -d "$TARGET/.windsurf" ]] && adapters_enabled=1
+    [[ -d "$TARGET/.continue" ]] && adapters_enabled=1
+    { [[ -f "$TARGET/.aider.conf.yml" ]] || [[ -f "$TARGET/.aiderignore" ]]; } && adapters_enabled=1
+    { [[ -d "$TARGET/.agents/skills" ]] || [[ -f "$TARGET/AGENTS.override.md" ]]; } && adapters_enabled=1
+    [[ -f "$TARGET/GEMINI.md" ]] && adapters_enabled=1
+    [[ -d "$TARGET/.kimi" ]] && adapters_enabled=1
+    [[ -d "$TARGET/.qwen" ]] && adapters_enabled=1
+    if [[ $adapters_enabled -eq 0 ]]; then
+      ok "zero adapters enabled (claude-code only) — nothing to translate"
+    else
+      # Adapters enabled + no sanctioned skip → the chain MUST have produced native
+      # files. apply-adapter-sync.sh reports ADD/REFRESH rows if the chain is stale
+      # or never ran; C2h already runs it. Reuse that signal: any pending ADD means
+      # the chain was skipped/incomplete.
+      chain_out=$("$SCRIPTS_DIR/apply-adapter-sync.sh" "$TARGET" 2>&1 || true)
+      pending=$(echo "$chain_out" | grep -cE '^    (ADD|REFRESH|MISSING-AUTHOR) ' || true)
+      pending=${pending:-0}
+      if [[ "$pending" -gt 0 ]]; then
+        err "M34 adapter chain skipped or incomplete — $pending native artifact(s) pending with adapters enabled and --no-adapters not passed. Chain it: /setup-project-adapters (or pass --no-adapters to skip)"
+      else
+        ok "adapter chain in sync — native artifacts present for enabled adapters"
       fi
     fi
   fi
@@ -472,7 +592,7 @@ fi
 # Ensures universal docs never pin a single stack without multi-stack diversity / `<TBD:...>`.
 PACK_TEMPLATE_ROOT="$(cd "$SCRIPTS_DIR/.." && pwd)"
 if [[ -x "$SCRIPTS_DIR/audit-stack-leakage.sh" ]]; then
-  echo "C2f: stack-agnostic language (template pack source)"
+  echo "C2p: stack-agnostic language (template pack source)"
   if leakage_out=$("$SCRIPTS_DIR/audit-stack-leakage.sh" --repo-root="$PACK_TEMPLATE_ROOT" 2>&1); then
     ok "stack leakage audit clean ($PACK_TEMPLATE_ROOT)"
   else
@@ -484,7 +604,7 @@ fi
 
 # Command DRY — SOLID/clean-code pointers + Phase 3 snippet links (template pack source).
 if [[ -x "$SCRIPTS_DIR/audit-command-dry.sh" ]]; then
-  echo "C2g: command DRY (SOLID/clean-code + Phase 3 snippets)"
+  echo "C2q: command DRY (SOLID/clean-code + Phase 3 snippets)"
   if dry_out=$("$SCRIPTS_DIR/audit-command-dry.sh" 2>&1); then
     echo "$dry_out"
     ok "audit-command-dry.sh clean"
@@ -497,7 +617,7 @@ fi
 
 # Refactor artifact validator — smoke test (template pack source scripts/)
 if [[ -x "$SCRIPTS_DIR/validate-refactor-artifacts.sh" ]]; then
-  echo "C2i: validate-refactor-artifacts.sh --self-test"
+  echo "C2r: validate-refactor-artifacts.sh --self-test"
   if refactor_self=$("$SCRIPTS_DIR/validate-refactor-artifacts.sh" --self-test 2>&1); then
     echo "$refactor_self"
     ok "validate-refactor-artifacts.sh --self-test passed"

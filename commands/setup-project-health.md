@@ -2,7 +2,7 @@
 description: Report the health of /setup-project artifacts in the current repo. Drift, staleness, budget breaches, dead files, missing ADRs. Read-only — never writes.
 kind: command
 pack: orchestration
-version: 1.1.0
+version: 1.2.0
 related-commands:
   - /setup-project — generate or refresh setup
   - /setup-project-adapters — re-sync tool adapters
@@ -93,7 +93,7 @@ Dead files are `warn` — never auto-deleted. The user decides.
 
 ### 6. Tool-adapter parity (if adapters present)
 
-For each adapter under `.opencode/`, `.cursor/`, `.aider*/`, etc., verify the per-adapter completeness contract from `commands/setup-project-adapters.md` (Phase 4.8.0). A missing artifact type = `fail`.
+For each adapter under `.opencode/`, `.cursor/`, `.aider*/`, etc., verify the per-adapter completeness contract from `commands/setup-project-adapters.md` (**Phase B — Per-adapter completeness contract**, § "Per-adapter minimum output"). A missing artifact type = `fail`.
 
 ### 7. Idempotency markers
 
@@ -133,6 +133,28 @@ sed -i '' "s/^approved_by:.*/approved_by: <your-name>@$(date -u +%Y-%m-%dT%H:%MZ
 
 (The stamp command is the ONE write in this command's orbit — and it is run by the USER, not the agent. The read-only contract of this command itself is unchanged.)
 
+### 10. Plan seam (Phase 3.5 — `--plan` / verify-plan / execute-plan)
+
+The spec→plan→build seam ships in every repo's baseline. Without it, `--plan` is a dead flag and the "Opus plans, Sonnet executes" handoff silently doesn't exist. Source rule: `commands/setup-project-adapters.md § "--plan flag translation (Phase 3.5)"` + `repo-baseline/.claude/commands/{verify-plan,execute-plan}.md`.
+
+```
+.claude/commands/verify-plan.md present                          → ok; missing → fail
+.claude/commands/execute-plan.md present                         → ok; missing → fail
+.claude/plans/ directory OR .claude/plans/README.md present      → ok; missing → warn (plan format undocumented)
+Each selected adapter has its `--plan` translation                → ok; any selected adapter missing it → fail
+```
+
+Per-adapter `--plan` translation check (only for adapters actually selected, read from `.claude/codebase-profile.md`'s adapter list — the same map in `setup-project-adapters.md § "--plan flag translation"`):
+
+- `opencode` → the command's `prompt` in `.opencode/commands/*.md` (or `opencode.json` `commands` block) branches on `--plan`.
+- `cursor` → `.cursor/commands/command-*.mdc` (or the skills-first `.cursor/skills/*/SKILL.md`) carries a "Plan mode" section.
+- `aider` → `CONVENTIONS.md` has a "Plan mode" section AND `.aider.conf.yml` `read:` includes `.claude/plans/README.md`.
+- `continue` / `cline` / `windsurf` / `copilot` → the translated command prompt branches on `--plan`.
+- `codex` → `.agents/skills/*/SKILL.md` body branches on `--plan`; `AGENTS.md` notes "supports `--plan`".
+- `gemini` → `.gemini/commands/*.toml` `prompt` branches on `{{args}}` containing `--plan`.
+
+`claude-code` is native (Phase 3.5 runs as written) → always `ok`. A selected non-Claude adapter whose commands don't honor `--plan` = `fail` (the flag is dead in that tool). No adapters selected → the per-adapter sub-check is `n/a`; the verify-plan/execute-plan presence sub-checks still run.
+
 ## Output format
 
 ```markdown
@@ -149,6 +171,7 @@ sed -i '' "s/^approved_by:.*/approved_by: <your-name>@$(date -u +%Y-%m-%dT%H:%MZ
 | Idempotency markers      | ok     | 47/47 managed files marked            |
 | Setup version            | ok     | repo v2.0.0 == current v2.0.0         |
 | Oracle approval          | warn   | _extracted-idioms.md never human-reviewed; 2 [unconfirmed] claims |
+| Plan seam                | fail   | execute-plan.md present; cursor missing `--plan` translation |
 
 ## Recommended actions
 

@@ -34,7 +34,7 @@ Before applying a V1-parity edit that would (a) remove a V2-only feature OR (b) 
 
 If no ADR is found, proceed with the V1-parity edit as the default rule says.
 
-**The simple loop.** Code edits are the deliverable; docs only when they enable a code change. Replaces the 6-phase ceremony for routine ports — most rows in the ledger are trivial-tier and ship via this command.
+**The simple loop.** Code edits are the deliverable; docs only when they enable a code change. Replaces the 7-phase ceremony for routine ports — most rows in the ledger are trivial-tier and ship via this command.
 
 ## When to use
 
@@ -43,6 +43,10 @@ If no ADR is found, proceed with the V1-parity edit as the default rule says.
 - Closing a parity gap surfaced by `/migration-status` triage.
 
 Use `/port-feature --heavy` instead when audit flags any of: P0 finding, cross-repo blocker, contract break, security/privacy/legal regression, write-path data-mutation, storefront blast radius. The heavy ceremony is rare-by-design.
+
+## Flags
+
+- `--plan` — run INVENTORY + ROUTING FLOOR + DETECT (steps 0–1, read-only), then STOP before FIX. Emit the gap list + tier-floor decision as a full handoff plan under `.claude/plans/` (path + Plan ID printed); make NO code edits, write NO ledger row. Full contract: `templates/snippets/plan-flag.md`. Hand the plan to `/execute-plan <file>` (or `/find-and-fix <feature> --from-plan <file>`) to apply the fixes.
 
 ## The loop (6 steps)
 
@@ -67,6 +71,20 @@ Before any V1 read, produce two artifacts (required at every tier — see migrat
 2. **API samples** at `ai/migration/api-samples/<feature>/<endpoint>.json` — captured real responses, ONE per endpoint the service calls. Required only if the port touches the project's service / data-access layer (the path convention is project-specific; see `_extracted-codebase.md`). The V2 type's field names + nullability are derived from this sample, NOT guessed from V1 caller code. Auto-fail at gate (`check_api_response_sample`) if missing.
 
 If the mapping doc surfaces "no V2 wrapper exists for X" → halt, surface to user, do not author a custom one without explicit approval (otherwise = Reinvented Wrapper anti-pattern).
+
+### 0.5. ROUTING FLOOR — mechanical tier minimum (runs BEFORE DETECT; overrides auditor judgment)
+
+**This is a pre-route check, not a judgment call.** Before the auditor sets a tier, grep the feature's V1 + V2 paths (and any diff already staged) for surface signals. If ANY of these surfaces is touched, the row's tier floor is **≥ standard** — regardless of what the auditor would otherwise classify. A trivial classification on one of these surfaces is a routing bug, not a fast path.
+
+| Surface | Mechanical signal (stack-conditional; extend per `_extracted-idioms.md`) | Floor |
+|---|---|---|
+| **Write-path / data mutation** | `INSERT`/`UPDATE`/`DELETE`/`UPSERT`, repository `save`/`create`/`update`/`delete`/`destroy`, ORM `transaction`, queue publish/emit on a write | ≥ standard |
+| **Auth / permission** | auth guard / middleware, `can*` / `hasPermission` / `authorize` / role check, session / token mint, `:can-*` / `:show-*` permission props | ≥ standard |
+| **Contract surface** | DTO / serializer / response-envelope / API route handler / public type export / OpenAPI schema | ≥ standard |
+
+Additionally, if the surface is **write-path AND (auth OR contract)** OR carries a P0 signal (data-loss, auth-bypass, tenant-leak, payment), the floor is **heavy** → STOP and route to `/port-feature --heavy` (this command does not handle heavy rows). 
+
+The floor only ever *raises* the tier; it never lowers it. Record the floor decision in the audit (`routing_floor: standard (write-path: <v2-path:line>)`) so the gate can see why a row that "looks trivial" is standard. Skipping this check is how a silent auth-gate drop or an unguarded write ships under the trivial fast path.
 
 ### 1. DETECT — line-by-line V1↔V2 read
 
@@ -99,7 +117,7 @@ No P0 + no cross-repo + no user-ambiguity → proceed to step 2.
 | **P0** without that signal | `code-edit` (V1-parity) | NO — auto-fix |
 | **P1** | `code-edit` (V1-parity) | NO — auto-fix |
 | **P2** (cosmetic, locale-key drift, V2-only-extras, empty-cell text, swatch-vs-picker, etc.) | `code-edit` (V1-parity) — silent | NO — auto-fix; batched into final summary |
-| Audit cannot determine V1 behavior (V1 source ambiguous, file missing) | `escalate` | YES — halt, surface |
+| Audit cannot determine V1 behavior (V1 source ambiguous, file missing) | `user-decision` | YES — halt, surface |
 
 **Forbidden:** the auditor / find-and-fix MUST NOT emit `user-decision` for P2 gaps. The Phase 7 anti-pattern (auditor asking "should `--` be `----------`?") is exactly the noise this rule kills. If V2 deviates from V1 on cosmetic surface, the answer is always "edit V2 to match V1" without asking.
 
@@ -170,6 +188,8 @@ If any red:
 - Parity-test red → either V2 fix is wrong (re-fix) or V1 oracle drifted (re-pin V1 + re-run; never loosen tolerance to make a test pass).
 
 No new parity tests are required for trivial-tier ports — the audit + ledger note carry the risk register per `.claude/references/migration-discipline-procedures.md § Trivial-tier artifact spec`. If the audit flags a missing test as a P1 gap, that promotes the row to standard-tier (≥10 fixtures) per the discipline rule.
+
+**Self-validate the artifacts before RECORD.** Run `~/.claude/scripts/validate-migration-artifacts.sh --feature=<feature>`. This is the SAME tier-scoped check the phase gate runs — running it here catches an unequal `gaps_in`/`gaps_closed`, a missing mapping doc / API sample, a thin standard-tier corpus, an un-measured perf candidate, or a `done`+`parity_test: passing` row with no recorded parity-run artifact (`check_parity_run_report`) while the context is hot. Non-zero exit → do NOT record the row as `done`; fix the flagged artifact and re-run. A row that can't pass its own per-feature validation is not done.
 
 ### 5. RECORD — ledger note + audit verdict
 
@@ -245,11 +265,17 @@ DETECT:    <N> gaps found (P0=<a> P1=<b> P2=<c>; ADD=<x> DEL=<y> CHG=<z>; FE=<f>
 DECIDE:    <ok> code-edit closures, <esc> escalated to user
 FIX:       <files> files edited (<lines>+/<lines>- LOC)
 RE-DETECT: gaps_in=<N> gaps_closed=<N> (must match) ✓; new=<0> regressed=<0>
-VERIFY:    typecheck ✓  lint ✓  parity ✓
+VERIFY:    typecheck ✓  lint ✓  parity ✓  validator ✓ (--feature=<feature>)
 RECORD:    ledger row → done; audit at ai/migration/audits/<feature>.md
+
+Not validated: <suites/environments skipped, manual checks recommended | none — full suite ran>
+Risks:         <residual risk worth a human glance | none identified>
+Revert:        git revert <sha>   (one commit for this feature)
 
 Halts: <none | list>
 ```
+
+**Honesty clause (mandatory).** `Not validated:` / `Risks:` / `Revert:` appear in every run's output before the `Halts:` line. `VERIFY ✓` alone is insufficient — name what did NOT run (skipped suites, unavailable environments, recommended manual checks) or state `none — full suite ran`; name residual risk or `none identified`; give the exact git revert command for this run's commit. Omitting the negative space is the Trusted-Summary failure mode. Sibling commands (`/migrate`, `/port-feature`, `/migration-fast`) mandate the same clause.
 
 ## Hard rules
 
@@ -265,5 +291,5 @@ Halts: <none | list>
 - `migration-discipline.md` § Required artifacts per feature — tiered floor, § Anti-bloat rules
 - `migration-discipline.md` § "Default to V1-parity, ADR is opt-in"
 - `parity-auditor.md` — the single agent dispatched
-- `port-feature.md` — `--heavy` flag for the rare 6-phase ceremony case
+- `port-feature.md` — `--heavy` flag for the rare 7-phase ceremony case
 - `migration-phase.md` — chains via this command per phase row at default tier

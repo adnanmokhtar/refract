@@ -3,6 +3,8 @@ name: performance-principles
 description: Performance Principles
 kind: rule
 pack: performance
+severity: must
+applies-to: performance-track, every-code-writing-task-in-performance
 ---
 
 # Performance Principles

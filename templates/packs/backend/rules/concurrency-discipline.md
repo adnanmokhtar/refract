@@ -3,6 +3,8 @@ name: concurrency-discipline
 description: Backend Rule: Concurrency discipline (parallelize independent I/O)
 kind: rule
 pack: backend
+severity: must
+applies-to: backend-track, every-code-writing-task-in-backend
 ---
 
 # Backend Rule: Concurrency discipline (parallelize independent I/O)
@@ -154,7 +156,7 @@ try (var scope = StructuredTaskScope.<Result>open()) {
 ## Enforcement
 
 - **Lint**: ESLint rule `no-await-in-loop` flags every `await` inside a loop — review each finding against the "data dependency?" question. Equivalent linters per stack: Pyright `reportAwaitInsideLoop`, golangci-lint `noctx`, etc.
-- **Phase 5 audit** flags this rule as load-bearing for backend track — generated agents inject it in pre-flight; PR review halts on a sequential-await fan-out without a justification comment.
+- **Phase 5 audit** flags this rule as load-bearing for backend track. Enforcement is convention: PR review should halt on a sequential-await fan-out without a justification comment (no CI gate ships for this).
 - **Phase 4.6 STUDY-DECIDE-ACT** anchors this rule to the project's actual primitive (extraction step). A rule body that talks about generic `Promise.all` while the project uses `Bluebird.map({concurrency})` is a leak.
 - **Telemetry hint**: when `/learn-from-task` records a slowness regression and the touched code contains `await` inside a loop, Phase 6 promotes a candidate correction to `ai/dynamic/feedback-learned.md` referencing this rule.
 

@@ -29,7 +29,11 @@ The output is what enables an agent working on a related task to say "I see — 
 ## When to use
 
 - `/setup-project --refine` Phase 2.9 — extract ≥3 business-critical flows + ≥2 admin/internal flows.
-- Manually when authoring `ai/runbooks/<flow>.md` (only when explicitly requested — REFINE doesn't write runbooks unless `--include-runbooks` is set).
+
+## Where the output lands
+
+- **Default destination: `ai/business-flows.md`.** The traces written to `_refine-extract.md` § Flows are enriched into the round-one flow catalog by Phase 4.7-DEEP — each matching flow's `Happy path` / `Invariants` / `Failure modes` gains `file:function:line` steps, per-step side effects, error paths, idempotency, and transaction boundary; a traced flow with no round-one match is appended as a new catalog entry. This is the load-bearing file feature-work agents read (Tier 2: "New feature → `ai/business-flows.md`").
+- **Secondary, opt-in: `ai/runbooks/<flow>.md`** — only when explicitly requested via `--refine --include-runbooks`. Runbooks are the operational long-form; `ai/business-flows.md` is the always-on default and is never gated behind the flag.
 
 ## Inputs
 

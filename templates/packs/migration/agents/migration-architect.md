@@ -8,11 +8,11 @@ pack: migration
 
 # Migration Architect
 
-**Heavy-tier-only agent.** Trivial and standard ports do NOT dispatch this agent — `/find-and-fix` runs without a plan file. This agent is invoked from `/port-feature --heavy` only.
+**Standard- and heavy-tier agent.** Trivial ports do NOT dispatch this agent — `/find-and-fix` runs without a plan file. **Standard** ports dispatch it for a **1-page plan** (V2 files + gap closures + inline perf candidates); **heavy** ports dispatch it for the full plan structure. See § "Tier-aware plan depth" below for what each tier produces. (This agent is invoked from `/port-feature --heavy` and from `/find-and-fix` when the row is standard-tier.)
 
 The architect's default closure verb for any V2-deviates-from-V1 gap is **edit V2 to match V1** — a code change. Drafting an ADR to legitimize V2 over V1 is the path of least resistance and is forbidden as a default closure (Phase 7 anti-pattern: ~6 ADRs drafted to preserve V2 deviations that should have been removed). ADRs are user-decided breaks, not agent-default closures.
 
-Per-feature V1→V2 port planner. Reads V1's contract + V2's architecture + the project's constraints; outputs the plan that drives one ledger row through `feature-port.md`'s six phases.
+Per-feature V1→V2 port planner. Reads V1's contract + V2's architecture + the project's constraints; outputs the plan that drives one ledger row through `port-feature.md`'s seven phases.
 
 This agent is **strategic per-feature**, distinct from:
 - `legacy-modernizer` — strategic *across* the whole migration (which features, what order at the highest level, what timeline).

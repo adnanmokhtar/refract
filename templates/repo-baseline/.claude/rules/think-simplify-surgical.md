@@ -9,7 +9,7 @@ severity: must
 
 > **Hard rule (TL;DR):** State assumptions explicitly. Push back when a simpler approach exists. Stop when confused. Write the minimum that solves the stated problem. Every changed line traces to the request. Define a verifiable success criterion before declaring done.
 
-**This rule auto-applies to every agent + every command + every code-writing task in this project.** It complements `read-before-write.md` (what you must read), `read-codebase-deeply.md` (how deep to go), and `code-quality.md` (what "clean" means). Read those FIRST; this rule layers task-discipline on top.
+**This rule is imported via the project `CLAUDE.md` (`@.claude/rules/think-simplify-surgical.md`), so it loads every session and applies to every agent + command + code-writing task in this project.** It complements `read-before-write.md` (what you must read), `read-codebase-deeply.md` (how deep to go), and `code-quality.md` (what "clean" means). Read those FIRST; this rule layers task-discipline on top.
 
 Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to our schema and cross-referenced with existing rules.
 
@@ -125,7 +125,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 
 ## Enforcement
 
-- Auto-loaded from `.claude/rules/` by Claude Code's native rule mechanism (alongside `read-before-write.md` and `read-codebase-deeply.md`), so it applies to every agent + command without per-call injection.
+- Imported via the project `CLAUDE.md` (`@.claude/rules/think-simplify-surgical.md`, alongside `read-before-write.md` and `read-codebase-deeply.md`), so it loads every session and applies to every agent + command. (`.claude/rules/` files are not auto-loaded on their own — the `CLAUDE.md` import is what wires them in.)
 - PR-review prompt: any reviewer who sees scope creep, speculative abstraction, hidden tradeoffs, or "make it work" verification should reject and cite this rule.
 - Surfaces in the Phase 5 audit when a generated artifact violates the principles (e.g. an agent file that says "implement X" without a verify step is a quality miss).
 

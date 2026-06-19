@@ -3,6 +3,8 @@ name: quality-principles
 description: Code-quality pack — concrete MUST rules (function size cap, custom exceptions, parameterized queries, etc.). Layered ON TOP of the universal repo-baseline/.claude/rules/code-quality.md (A19).
 kind: rule
 pack: code-quality
+severity: must
+applies-to: code-quality-track, every-code-writing-task-in-code-quality
 extends: repo-baseline/.claude/rules/code-quality.md
 ---
 

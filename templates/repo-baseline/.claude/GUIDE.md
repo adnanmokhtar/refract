@@ -24,7 +24,7 @@ _None yet. Add under `.claude/skills/<name>/SKILL.md`._
 
 ## Rules
 
-See `.claude/rules/` — auto-loaded into every session in this repo.
+See `.claude/rules/`. The four foundational rules load every session because the project `CLAUDE.md` `@`-imports them (`@.claude/rules/<name>.md`) — files in `.claude/rules/` are not auto-loaded on their own.
 
 ## Hooks
 

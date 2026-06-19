@@ -2,6 +2,7 @@
 description: Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, Codex, Continue, Copilot, Gemini, Windsurf, Kimi, Qwen) so every selected tool offers the same surface as Claude Code in this repo. Sibling to /setup-project — split out in M2 to keep the orchestrator small.
 kind: command
 pack: orchestration
+version: 1.0.0
 ---
 
 # /setup-project-adapters
@@ -27,6 +28,21 @@ pack: orchestration
 5. **Source-of-truth inversion**: refuse to read FROM an adapter file and propagate INTO `.claude/`. Adapters are sinks, never sources. If `.claude/` needs an update, run `/setup-project --refine` instead.
 
 This command translates already-generated rules, commands, agents, and skills into each enabled tool's native shape. It does NOT regenerate those source artifacts — run `/setup-project` first.
+
+## Phase-number map (this file's labels ↔ the orchestrator's)
+
+This command was split out of the `/setup-project` orchestrator, so its body still references the orchestrator's phase numbers. They map to this file's local headings as follows — when another doc (e.g. `setup-project-health` check 6) points at a number, resolve it here:
+
+| Orchestrator number (as referenced below) | Resolves to (in this file) |
+|---|---|
+| Phase 4.8 / Phase 4.8.0 (per-adapter contract) | **Phase B — Per-adapter completeness contract** (§ "Per-adapter minimum output") |
+| Phase 4.8-DEEP (re-sync affected slice) | **Phase A — Re-sync tool adapters** |
+| Phase 4.8.1 (cross-adapter parity audit) | the sequential join after Phase B fan-out |
+| Phase 3.2 (adapter selection) | done upstream in `/setup-project`; read from `.claude/codebase-profile.md` |
+| Phase 3.5 (canonical command structure / `--plan`) | done upstream; the `--plan` translation table lives under Phase A here |
+| Phase 5 (verification + retry/halt loop) | runs in `/setup-project` AFTER this command's outputs; the coverage check in Phase B is what Phase 5 retries against |
+
+**When invoked directly** (`/setup-project-adapters` outside the orchestrator's REFINE flow), there is no 4.6-DEEP/4.7-DEEP affected-artifact list to scope against — treat the **full selected-adapter set** (read from `.claude/codebase-profile.md`'s adapter list) as the affected list, and run Phase B's per-adapter completeness contract for every selected adapter from the full `.claude/{rules,commands,agents,skills}/` source.
 
 ## When to use
 

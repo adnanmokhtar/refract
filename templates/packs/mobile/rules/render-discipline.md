@@ -3,6 +3,8 @@ name: render-discipline
 description: Render Discipline (rebuild / re-render waste)
 kind: rule
 pack: mobile
+severity: must
+applies-to: mobile-track, every-code-writing-task-in-mobile
 ---
 
 # Render Discipline (rebuild / re-render waste)

@@ -3,6 +3,8 @@ name: devops-principles
 description: DevOps Principles
 kind: rule
 pack: devops
+severity: must
+applies-to: devops-track, every-code-writing-task-in-devops
 ---
 
 # DevOps Principles

@@ -2,6 +2,7 @@
 description: One command surface-type unification for frontend codebases, deep multi-agent. Typed by surface category (tables, forms, headers, tabs, filters, buttons, validation): inventories every instance, picks the canonical shape (from _extracted-idioms.md or the most-used pattern), creates/extends the shared wrapper, migrates every consumer, verifies parity. Form-validation gets a dedicated pipeline — validator composable + <ErrorList>/<FieldError> + API-error-to-field mapper. Frontend stacks only. Distinct from /polish (axis-typed) and /align (drift-typed).
 kind: command
 pack: orchestration
+version: 1.0.0
 ---
 
 # /unify-surfaces [<scope>] [--surfaces=<list>]
@@ -319,14 +320,14 @@ Every run that produces `ai/unify-surfaces/final-report.md` MUST end with an **`
 
 Applied silently per the discipline:
 
-- **Reuse-Before-Create.** Before extracting a new wrapper, check `_extracted-idioms.md § Wrappers`. If something close exists → extend it; do NOT fork a parallel wrapper. The migration-pack `Reuse-Before-Create` rule is the canonical statement; this command enforces it as a hard halt — extracting a duplicate where a shared wrapper exists fails the verify gate.
+- **Reuse-Before-Create.** Before extracting a new wrapper, check `_extracted-idioms.md § Wrappers`. If something close exists → extend it; do NOT fork a parallel wrapper. The migration-pack `Reuse-Before-Create` rule is the canonical statement; this command enforces it as a hard halt — extracting a duplicate where a shared wrapper exists fails the verify gate (`scripts/validate-unify-surfaces-artifacts.sh § check_reuse_before_create`).
 - **One commit per category, not per consumer.** Cascade-rewrite is the point. Per-consumer commits hide the unification.
 - **Behaviour preserved.** Each consumer migration is structural — the same form fields submit the same data; the same table rows render the same content; the same buttons fire the same handlers. Functional changes happen via separate `/enhance-ui` / `/polish` runs.
 - **Visual-regression gate after each category.** Non-target surfaces must not change pixels. A category whose migration causes off-target visual diff halts the commit; the residual is surfaced for triage.
 - **Idioms updated as part of the commit.** Every category that extracts / extends a wrapper updates `_extracted-idioms.md § Wrappers` in the same commit so future runs (and future agents) inherit the canonical decision.
 - **No new abstractions beyond the canonical wrapper.** A category extracts ONE wrapper (or extends ONE existing wrapper). No "while I'm here, also extract a sub-wrapper" — that's `/enhance-ui` territory.
 - **Validation pipeline ships as a system, not as parts.** The composable + components + mapper land in one commit; consumers migrate in subsequent commits using the now-available pipeline.
-- **Final report MUST end with paste-ready next steps.** *(Mechanical — `validate-unify-surfaces-artifacts.sh § check_actionable_next_steps`, planned.)*
+- **Final report MUST end with paste-ready next steps.** *(Mechanical — `scripts/validate-unify-surfaces-artifacts.sh § check_actionable_next_steps`.)*
 - **Honesty clause in the summary block is mandatory.** The three lines `Not validated:` / `Risks:` / `Revert:` close every run summary — name what did NOT run (or `none — <what fully ran>`), residual risks (or `none identified`), and the exact revert command (per-category cascade commits). Omitting the negative space is the Trusted Summary failure mode applied to the run report.
 
 User sees results, not the policing.

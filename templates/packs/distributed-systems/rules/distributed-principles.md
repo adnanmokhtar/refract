@@ -3,6 +3,8 @@ name: distributed-principles
 description: Distributed Systems Principles
 kind: rule
 pack: distributed-systems
+severity: must
+applies-to: distributed-systems-track, every-code-writing-task-in-distributed-systems
 ---
 
 # Distributed Systems Principles

@@ -2,6 +2,8 @@
 
 Traps specific to this product domain. **Populated** at `/setup-project` from `~/.claude/templates/business-domains/<detected>/anti-patterns.md` when a business domain is detected.
 
+> **Read by:** new-feature work in this domain (and bug fixes that touch domain logic). **Load trigger:** building or changing a domain flow/entity — read before designing so you don't reintroduce a known domain trap.
+
 Last updated: <YYYY-MM-DD>
 
 ## Anti-patterns (add as you learn)

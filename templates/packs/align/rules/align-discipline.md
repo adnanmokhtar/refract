@@ -1,3 +1,12 @@
+---
+name: align-discipline
+description: Align Rule — codebase alignment discipline (drift from gold standard, refactor scope creep, trusted-summary failure)
+kind: rule
+pack: align
+severity: must
+applies-to: align-track, every-alignment-sweep
+---
+
 # Align Rule: codebase alignment discipline
 
 > **Project-specific values** — codebase root, gold-standard inventory, test runner, PROJECT_KIND, plus the architecture / conventions / findings-ledger paths — are auto-injected by `scripts/apply-anchors.sh` during `/setup-project --refresh` into the `<!-- project-specific:start --> ... <!-- project-specific:end -->` block at the bottom of this file. Sourced from `.claude/_extracted-codebase.md § Gold standards` + `_extracted-idioms.md`. Do **not** edit those values here; edit the extraction sources and re-run `apply-anchors.sh` (or `/setup-project --refresh`) to propagate.

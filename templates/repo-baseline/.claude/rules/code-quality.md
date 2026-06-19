@@ -7,7 +7,7 @@ severity: must
 
 # Code Quality Principles
 
-> **Hard rule (TL;DR):** Clean, efficient, stable, DRY, secure. No `any` without justification, no debug prints, no orphan TODOs, no `--no-verify`, no mixed commits. PR fails review on any of these.
+> **Hard rule (TL;DR):** Clean, efficient, stable, DRY, secure. No `any` without justification, no debug prints, no orphan TODOs, no `--no-verify`, no mixed commits. Each of these should fail review (convention; no CI gate ships with the baseline).
 
 ## Must
 
@@ -37,7 +37,8 @@ severity: must
 
 ## Enforcement
 
-- `PostToolUse` lint hook where configured; CI on merge.
+- `PostToolUse` lint hook where configured; CI on merge if the project sets one up.
+- Otherwise convention + review — the baseline ships no CI gate for these rules. The only real shipped hooks are `secret-scan`, `verify-gate`, and `pre-edit-guard`.
 
 ## Anti-patterns (avoid)
 

@@ -3,6 +3,8 @@ name: ui-principles
 description: UI / UX Principles
 kind: rule
 pack: ui-ux
+severity: must
+applies-to: ui-ux-track, every-code-writing-task-in-ui-ux
 ---
 
 # UI / UX Principles

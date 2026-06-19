@@ -3,6 +3,8 @@ name: observability-principles
 description: Observability Principles
 kind: rule
 pack: observability
+severity: must
+applies-to: observability-track, every-code-writing-task-in-observability
 ---
 
 # Observability Principles

@@ -3,6 +3,8 @@ name: migration-discipline
 description: Migration Rule: V1→V2 port discipline
 kind: rule
 pack: migration
+severity: must
+applies-to: migration-track, every-code-writing-task-in-migration
 ---
 
 # Migration Rule: V1→V2 port discipline

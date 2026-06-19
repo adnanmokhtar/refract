@@ -352,6 +352,17 @@ done
 - **`_domain-coverage-report.md` is the source of truth** for "which domains should be present" — the Phase 5 audit (C2c) fails the run if any detected signal is neither applied nor explicitly skipped-with-rationale. This mirrors `_pack-coverage-report.md` for tracks.
 - Each file passes through the merge matrix (user-edited regions preserved); the shell copies the rest verbatim — no LLM hand-copying, no skipping under context pressure.
 
+**4.4a Project CODEBASE-overview content into the load-bearing `ai/` files** (round-one — consume `.claude/_extracted-codebase.md` from `extract-codebase-overview`):
+
+`extract-codebase-overview` enumerates the project's modules + stack into `.claude/_extracted-codebase.md`, but nothing previously projected them into the two `ai/` files agents actually read for "where does new code go" + "what is this built with". This step does that projection (round-one; Phase 4.7-DEEP deepens conventions/architecture/flows separately). Source resolution follows the same order as Fix C (`_extracted-codebase.md` → `_codebase-scan.md` → `codebase-profile.md`; first that exists wins).
+
+| Source section in `_extracted-codebase.md` | Destination | What gets projected |
+|---|---|---|
+| `## Modules` | `ai/modules.md` | One row per enumerated module into the `## Module catalog` table — name, path (real, not `<placeholder>`), Owns (one-line responsibility), Public surface, Cross-cuts. Module boundaries from `## Architecture` (declared layer/context constraints) fill `## Module boundaries`; omit when none detected. This is the file Hard Rule A16 ("every new file maps to a home") depends on. |
+| `## Stack` | `ai/stack.md` | Runtime/language, framework(s), database + ORM, build tool, test framework, package manager — every value traced to a real manifest file. Leave `<e.g., …>` rows only where the manifest had no signal. |
+
+Population obeys the stub-vs-authored test from `phase-4-templates.md § 4.7`: a scaffolded stub (absent / byte-identical to baseline / placeholder-only) is populated from extraction; a user-diverged file is left untouched (append a dated line only). Phase 5.3.6 then verifies both files are non-stub.
+
 **4.4b Apply BUSINESS-domain content** (THIS IS THE STEP THAT WAS MISSING — the cause of generic-feeling output):
 
 For every business domain detected in profile (`ecommerce`, `lms`, `fintech`, etc., from §2.x), pull content from `~/.claude/templates/business-domains/<domain>/` into the repo's `ai/`:

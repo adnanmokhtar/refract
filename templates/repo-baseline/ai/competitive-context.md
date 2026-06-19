@@ -2,6 +2,8 @@
 
 Positioning vs alternatives — informs prioritization and UX, not day-to-day coding.
 
+> **Read by:** prioritization / scoping and differentiating-UX decisions. **Load trigger:** "should we build X", positioning / messaging, or competitive-parity feature work.
+
 Last updated: <YYYY-MM-DD>
 
 ## Competitors / alternatives

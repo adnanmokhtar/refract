@@ -2,6 +2,8 @@
 
 Roles + their workflows + their KPIs + what irritates them. Auto-populated from `business-domains/<domain>/stakeholders.md` when a business domain is detected. Otherwise: filled in as the team identifies who interacts with the system.
 
+> **Read by:** new-feature work that affects a role's workflow / permissions. **Load trigger:** building or changing a user-facing flow, an admin/operator surface, or a permission scope.
+
 ## Per-stakeholder template
 
 ```

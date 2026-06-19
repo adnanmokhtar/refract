@@ -42,7 +42,7 @@ A project's STACK answers "what tech is in use?" — its DOMAIN answers "what bu
 └── factories.md         # OPTIONAL — required only when run sets `--with-factories` OR a factory framework (Faker / factory_boy / FactoryBot / fishery) is detected in deps. Phase 4.0.3 step 7 emits a WARN (not HALT) when missing without those triggers. Per Hard rule A34 (severity: should).
 ```
 
-These files get COPIED (or referenced) into the user's `ai/` knowledge base when their project's domain is detected — into `ai/business-domain.md`, `ai/core/glossary.md`, `ai/core/entities.md`, etc.
+These files get COPIED (or referenced) into the user's `ai/` knowledge base when their project's domain is detected — into `ai/business-domain.md`, `ai/core/glossary.md` (entity inventory lives inline here), etc.
 
 ## Detection signals (Phase 2 of `/setup-project`)
 

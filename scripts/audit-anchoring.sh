@@ -83,6 +83,25 @@ pack_basenames_for_kind() {
 # source-file extension AND be followed by `:<digits>`.
 CITATION_RE='[a-zA-Z0-9._/-]+\.(ts|tsx|js|jsx|mjs|cjs|vue|py|go|rb|php|java|kt|swift|md|yaml|yml|json|toml|sh|env|html|css|scss|sql)[[:space:]]*:[[:space:]]*[0-9]+'
 
+# Placeholder tokens that prove an anchor block is a SKELETON, not a real anchor.
+# An anchor block carrying any of these has been left in template state — it cites
+# no real project fact. Kept conservative: each token is a literal pack-template
+# placeholder that never appears in a genuinely populated block.
+PLACEHOLDER_RE='<src/path|<e\.g\.,|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-line|<YYYY-MM-DD>|<ClassName>|<path/to|<detected'
+
+# Extract just the canonical anchor block body (between the start/end markers) so
+# quality checks (line count, placeholder, identifier presence) measure the BLOCK,
+# not the whole artifact. Falls back to the `## Project-specific` heading-to-next-H2
+# slice for older pack templates that use form 2.
+extract_anchor_block() {
+  local f="$1"
+  if grep -qF '<!-- project-specific:start -->' "$f" 2>/dev/null; then
+    awk '/<!-- project-specific:start -->/{in_b=1; next} /<!-- project-specific:end -->/{in_b=0} in_b' "$f" 2>/dev/null
+  else
+    awk '/^##[[:space:]]+Project-specific/{in_b=1; next} in_b && /^##[[:space:]]/{exit} in_b' "$f" 2>/dev/null
+  fi
+}
+
 # Returns 0 if file has anchor block + ≥1 citation in it; else 1, with reason on stderr.
 #
 # Detects the canonical Phase-4.6 anchor block as established by the existing
@@ -101,9 +120,41 @@ check_anchor() {
     echo "no-anchor-section"
     return 1
   fi
-  # Check for at least one path:line citation. We don't restrict to the anchor
-  # block itself — some pack templates cite inline; that still proves anchoring.
-  if grep -qE "$CITATION_RE" "$f" 2>/dev/null; then
+
+  # --- Anti-skeleton QUALITY gate (M25.5) -------------------------------------
+  # A block that exists but is template boilerplate gives no project help. Measure
+  # the BLOCK body, not the whole file: it must have ≥3 substantive lines AND must
+  # NOT carry placeholder tokens AND must cite ≥1 real identifier/path.
+  local block
+  block=$(extract_anchor_block "$f")
+
+  # (a) reject placeholder tokens left in the block
+  if printf '%s\n' "$block" | grep -qE "$PLACEHOLDER_RE" 2>/dev/null; then
+    echo "anchor-placeholder-skeleton"
+    return 1
+  fi
+
+  # (b) require ≥3 non-blank, non-comment, substantive lines in the block. A line
+  # is "substantive" only if it carries word content (not a bare bullet / marker).
+  local substantive
+  substantive=$(printf '%s\n' "$block" \
+    | grep -vE '^[[:space:]]*$' \
+    | grep -vE '^[[:space:]]*<!--' \
+    | grep -vE '^[[:space:]]*[-*][[:space:]]*$' \
+    | grep -cE '[A-Za-z0-9]' 2>/dev/null || true)
+  substantive="${substantive:-0}"
+  if [[ "$substantive" -lt 3 ]]; then
+    echo "anchor-too-thin(${substantive}-lines)"
+    return 1
+  fi
+
+  # (c) require ≥1 real identifier or path cited anywhere in the file: either a
+  # `path:line` citation, OR a backticked path-with-slash, OR a backticked
+  # CamelCase / snake_case identifier (proves a real symbol was named).
+  if grep -qE "$CITATION_RE" "$f" 2>/dev/null \
+     || grep -qE '`[a-zA-Z0-9_./-]+/[a-zA-Z0-9_.-]+`' "$f" 2>/dev/null \
+     || grep -qE '`[A-Z][a-zA-Z0-9]+[A-Z][a-zA-Z0-9]*`' "$f" 2>/dev/null \
+     || grep -qE '`[a-z]+_[a-z_]+`' "$f" 2>/dev/null; then
     return 0
   else
     echo "anchor-without-citation"
@@ -111,11 +162,73 @@ check_anchor() {
   fi
 }
 
+# --- Cross-project LEAK scan (M25.6) ------------------------------------------
+# Failure mode: a generated artifact "ships another project's class names" — an
+# anchor block populated from a DIFFERENT repo's facts (copy-paste, stale cache).
+# We flag a high-confidence identifier cited in an anchor block that does NOT
+# appear ANYWHERE in the target codebase. Conservative by design (false-positives
+# would block legitimate runs): we only consider `path:line` citations and
+# backticked paths-with-slash, and we ignore anything that resolves under the
+# target (file exists OR string is grep-findable in source).
+#
+# Builds a one-time corpus of source basenames + a fast grep against the tree.
+LEAK_SRC_GREP_DIRS=()
+for d in src app lib packages apps services internal pkg components; do
+  [[ -d "$TARGET/$d" ]] && LEAK_SRC_GREP_DIRS+=("$TARGET/$d")
+done
+# Fall back to the whole target (minus deps) if no conventional source root.
+[[ ${#LEAK_SRC_GREP_DIRS[@]} -eq 0 ]] && LEAK_SRC_GREP_DIRS=("$TARGET")
+
+# Returns 0 (token exists in target) / 1 (not found → leak candidate).
+token_in_target() {
+  local tok="$1"
+  # path form: strip an optional :line suffix, test for a matching file by basename
+  local pathpart="${tok%%:*}"
+  if [[ "$pathpart" == */* ]]; then
+    local bn="${pathpart##*/}"
+    [[ -e "$TARGET/$pathpart" ]] && return 0
+    find "$TARGET" -name "$bn" -not -path '*/node_modules/*' -not -path '*/.git/*' \
+      -not -path '*/vendor/*' -not -path '*/dist/*' -not -path '*/build/*' \
+      2>/dev/null | grep -q . && return 0
+    return 1
+  fi
+  # identifier form: must appear literally in some source file
+  grep -rqIF -- "$tok" "${LEAK_SRC_GREP_DIRS[@]}" \
+    --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
+    --exclude-dir=dist --exclude-dir=build 2>/dev/null && return 0
+  return 1
+}
+
+# Scan one artifact's anchor block; echo any high-confidence leaked tokens.
+scan_leaks_in_file() {
+  local f="$1" block tok
+  block=$(extract_anchor_block "$f")
+  [[ -z "$block" ]] && return 0
+  # high-confidence tokens: backticked path-with-slash, and path:line citations
+  while IFS= read -r tok; do
+    [[ -z "$tok" ]] && continue
+    # skip our own generated paths + universal scaffolds (never "leaks")
+    case "$tok" in
+      .claude/*|ai/*|templates/*|CLAUDE.md*|AGENTS.md*) continue ;;
+    esac
+    if ! token_in_target "$tok"; then
+      printf '%s\n' "$tok"
+    fi
+  done < <(
+    printf '%s\n' "$block" \
+      | grep -oE '`[a-zA-Z0-9_./-]+/[a-zA-Z0-9_.-]+`' 2>/dev/null | tr -d '`'
+    printf '%s\n' "$block" \
+      | grep -oE "$CITATION_RE" 2>/dev/null
+  )
+}
+
 total_eligible=0
 total_anchored=0
 total_unanchored=0
 total_orphans=0
+total_leaks=0
 declare -a unanchored_list
+declare -a leak_list
 
 {
   printf '# Anchoring audit — %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -159,6 +272,13 @@ declare -a unanchored_list
         unanchored_list+=("$kind/$base ($reason)")
         kind_rows+=$'\n'"  - \`$base\` — **$reason**"
       fi
+
+      # LEAK scan (M25.6): high-confidence identifiers/paths not present in target
+      while IFS= read -r leaked; do
+        [[ -z "$leaked" ]] && continue
+        total_leaks=$((total_leaks + 1))
+        leak_list+=("$kind/$base → \`$leaked\`")
+      done < <(scan_leaks_in_file "$f")
     done < <(find "$tgt_dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | sort)
 
     [[ $kind_eligible -eq 0 && $kind_orphans -eq 0 ]] && continue
@@ -172,30 +292,42 @@ declare -a unanchored_list
     printf '\n'
   done
 
+  # Cross-project LEAK findings (M25.6)
+  if [[ $total_leaks -gt 0 ]]; then
+    printf '## Cross-project leaks (high-confidence)\n\n'
+    printf '> These identifiers/paths are cited in an anchor block but do NOT exist anywhere in the target codebase — a sign the block was populated from another project.\n\n'
+    for row in "${leak_list[@]}"; do
+      printf -- '- %s\n' "$row"
+    done
+    printf '\n'
+  fi
+
   printf -- '---\n\n## Summary\n\n'
   printf 'Pack-derived artifacts:        **%d**\n' "$total_eligible"
   printf 'Anchored (with citation):      %d\n' "$total_anchored"
   printf 'Unanchored:                    %d\n' "$total_unanchored"
+  printf 'Cross-project leaks:           %d\n' "$total_leaks"
   printf 'Orphans (project-only, skipped): %d\n\n' "$total_orphans"
   if [[ $total_eligible -gt 0 ]]; then
     pct=$(( total_anchored * 100 / total_eligible ))
     printf 'Coverage: **%d%%**\n\n' "$pct"
   fi
-  if [[ $total_unanchored -eq 0 ]]; then
-    printf '✓ All pack-derived artifacts are anchored.\n'
+  if [[ $total_unanchored -eq 0 && $total_leaks -eq 0 ]]; then
+    printf '✓ All pack-derived artifacts are anchored with real project facts.\n'
   else
-    printf '⚠ %d pack-derived artifact(s) lack a `## Project-specific (anchored)` block or have it without any `path:line` citation.\n' "$total_unanchored"
+    [[ $total_unanchored -gt 0 ]] && printf '⚠ %d pack-derived artifact(s) lack an anchor block, carry a placeholder skeleton, are too thin (<3 lines), or cite nothing real.\n' "$total_unanchored"
+    [[ $total_leaks -gt 0 ]] && printf '⚠ %d cross-project leak(s) — anchor cites a fact absent from the target codebase.\n' "$total_leaks"
     printf '\nNext: run `apply-anchors.sh %s` (M25.3) to populate from `_codebase-scan.md` + `codebase-profile.md`.\n' "$TARGET"
   fi
 } > "$REPORT"
 
 # stderr summary
 if [[ $QUIET -eq 0 ]]; then
-  echo "Anchoring audit: $total_anchored/$total_eligible anchored, $total_unanchored unanchored ($total_orphans orphans skipped). Report: $REPORT" >&2
+  echo "Anchoring audit: $total_anchored/$total_eligible anchored, $total_unanchored unanchored, $total_leaks leaks ($total_orphans orphans skipped). Report: $REPORT" >&2
 fi
 
-if [[ $STRICT -eq 1 && $total_unanchored -gt 0 ]]; then
-  echo "REFUSED — $total_unanchored pack-derived artifact(s) lack project anchoring (--strict)." >&2
+if [[ $STRICT -eq 1 && ( $total_unanchored -gt 0 || $total_leaks -gt 0 ) ]]; then
+  echo "REFUSED — $total_unanchored unanchored/skeleton + $total_leaks cross-project leak(s) (--strict)." >&2
   exit 1
 fi
 exit 0

@@ -40,6 +40,5 @@ For entities with non-trivial lifecycles, draw the state diagram here in ASCII o
 ## See also
 
 - `ai/business-domain.md` — overarching domain identity.
-- `ai/core/entities.md` — entity inventory (a deeper drill-down).
 - `ai/core/invariants.md` — system-wide rules entities must obey.
 - `ai/dynamic/glossary-evolution.md` (optional) — entries being watched before they enter here.

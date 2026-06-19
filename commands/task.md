@@ -2,6 +2,7 @@
 description: Provider-agnostic task executor. Take ONE task reference (Trello / Jira / Linear / GitHub Issue — URL, key, or "next"), fetch its title + description + attachments + checklist, normalize to a canonical spec, then execute it end-to-end via /do and write status back to the source (in-progress → comment → done). One command, swappable backends. Per-repo provider via .env + the MCP wired by detect-mcp.sh.
 kind: command
 pack: orchestration
+version: 1.0.0
 ---
 
 # /task <ref> [--prompt-only] [--to=<command>] [--no-writeback] [--review-only]
@@ -90,7 +91,12 @@ Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless
 - **On start** — move the source to its `statusFlow.start` (Trello list / Jira transition / Linear state / GitHub `in-progress` label).
 - **On finish** — post ONE comment via the adapter's comment verb: 1-line summary, the commit SHA(s)/PR link, and a per-AC ✓/✗ checklist. Tick completed checklist items / close sub-issues.
 - **Move** to `statusFlow.review` by default (human verifies), or `statusFlow.done` if `--review-only` is NOT set and all AC pass and tests are green. **Never delete** a card/issue.
-- Append a local audit line to `ai/_history.md`: `<iso> /task <provider>:<key> → /<routed-command> → <review|done>`.
+- **Write-back is post-execution — the work is already done and committed.** A failed status move / comment post (MCP error, REST 4xx/5xx, network) must NOT lose the work or leave the user without a record. When write-back fails AFTER execution:
+  1. Do NOT halt silently and do NOT retry-loop forever (one retry max).
+  2. **Print the exact comment body** that failed to post (the 1-line summary + commit SHA(s)/PR link + per-AC ✓/✗ list) so nothing is lost.
+  3. **Print the exact command the user can run to post it manually** — the same channel that was being used: the MCP tool call args, OR a ready-to-paste `curl`/REST command using `.env` creds (e.g. Trello `curl -X POST "https://api.trello.com/1/cards/<id>/actions/comments?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN&text=<body>"`; Jira/Linear comment endpoints similarly). Include the status-move command too.
+  4. **STILL append the local audit line** (below) with a `writeback=FAILED(<reason>)` marker so the history reflects reality — the execution happened even though the source wasn't updated.
+- Append a local audit line to `ai/_history.md` (**create the file with a `# Task history` header if absent** — never assume it exists): `<iso> /task <provider>:<key> → /<routed-command> → <review|done>` (on write-back failure, append ` writeback=FAILED(<reason>)`).
 
 ## Phase 6 — Validate (verify against the card)
 - Each `acceptanceCriteria` item → checked against the actual change (test, run, or inspection). Empty AC → verify the title's intent is satisfied.
@@ -115,6 +121,7 @@ Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless
 - **Card not found / no access** → halt; surface the provider's error verbatim.
 - **Empty description AND empty AC AND vague title** → ask one scoping question before executing.
 - **Routed specialist halts** (its own intent gate) → re-surface both routings; do not force.
+- **Write-back fails AFTER execution** (MCP/REST error on the status move or comment post) → do NOT lose the work: print the comment body + the exact manual post command (MCP args or `curl`/REST with `.env` creds), still append the `ai/_history.md` audit line marked `writeback=FAILED(<reason>)`. The committed change stays; only the source update is deferred to the user.
 
 ## Examples
 ```

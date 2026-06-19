@@ -16,7 +16,7 @@ pack: migration
 - Every row still gets a `parity-auditor` agent dispatch (with `auditor_agent_id` provenance — `check_audit_provenance` enforced).
 - Every audit still enumerates per-axis (no `etc.` / `...` / `&...` hand-waves — `check_audit` enforced).
 - Trivial/standard ports run `/find-and-fix` with its mandatory RE-DETECT step (`gaps_in == gaps_closed` enforced).
-- Heavy ports run `/port-feature --heavy --unattended` with the full 6-phase ceremony (contract / plan / parity tests / perf decisions / runbook / audit).
+- Heavy ports run `/port-feature --heavy --unattended` with the full 7-phase ceremony (contract / plan / parity tests / perf decisions / runbook / audit).
 - Every artifact the row's tier requires is still produced.
 - `/migration-gate <N>` still runs at the end with the full tier-scoped 14-check matrix.
 - ADR-needed halts surface to `ai/migration/halts/` per row — they don't halt the whole run, but they do block that specific row from advancing until the user resolves.
@@ -37,7 +37,7 @@ The existing multi-step flow (`/migration-phase --audit-only` etc.) is **untouch
 - Per-row supervision with `--stop-on-halt` semantics.
 - Sequential dispatch with no parallelism.
 
-Fast mode does NOT silently downgrade heavy → trivial. Heavy rows still get the full 6-phase ceremony — fast just dispatches that ceremony in parallel with the trivial/standard rows of the same dependency level instead of forcing the user to run `/port-feature --heavy` separately afterward.
+Fast mode does NOT silently downgrade heavy → trivial. Heavy rows still get the full 7-phase ceremony — fast just dispatches that ceremony in parallel with the trivial/standard rows of the same dependency level instead of forcing the user to run `/port-feature --heavy` separately afterward.
 
 ## What happens per row (deep migration, not lift-and-shift)
 
@@ -179,7 +179,11 @@ The fast loop, in order:
 1. PRE-FLIGHT     — verify hard pre-reqs (scan + plan + valid N); warn on dirty tree
 2. AUDIT-ALL      — dispatch parity-auditor per row IN PARALLEL (one sub-agent per row,
                     each with its own 5K context blob); reuse cached audits pinned to V1 HEAD
-3. TIER ROUTE     — per-row dispatch decision based on audit's tier field:
+2.5 ROUTING FLOOR — mechanical pre-route per row (OVERRIDES auditor tier, only ever raises):
+                      if V1/V2 paths or staged diff touch write-path / auth / contract
+                      surfaces → tier floor ≥ standard;
+                      if write-path AND (auth OR contract), or any P0 signal → floor = heavy
+3. TIER ROUTE     — per-row dispatch decision based on max(audit tier, routing floor):
                       trivial   → /find-and-fix <id>
                       standard  → /find-and-fix <id>
                       heavy     → /port-feature <id> --heavy --unattended
@@ -233,16 +237,21 @@ For each row needing audit, dispatch in parallel waves of `--max-parallel` (defa
 2. Dispatch `parity-auditor` agent — `Agent({subagent_type: "parity-auditor", prompt: <blob + audit instruction>})`. The agent's prompt MUST include:
    - Feature ID + V1 path:line entry points + V2 destination path:lines.
    - V1 commit hash to pin.
-   - The 11 hard halts (by reference to `migration-discipline.md`).
+   - The 13 hard halts (by reference to `migration-discipline.md`).
    - The frontend axes list (form fields, UI affordances, templated query params, event handlers, per-button permission gates, a11y, DOM-equivalent, reactive lifecycle) — for frontend features only.
    - Explicit instruction: "Read V1 source line-by-line. Do NOT trust prior audit docs. Do NOT use `...`, `etc.`, `N+ filters`, `and so on`, `deferred to port-phase parity author`, or `by audit-by-inspection`. Enumerate every item in every axis table. Set `tier:` field per migration-discipline.md § Tier classification."
    - Output target: `ai/migration/audits/<feature-id>.md` (full structure per `migration-phase.md § 4d`).
 
 3. Capture the agent's run ID; it lands in the audit doc's `auditor_agent_id` frontmatter (provenance proof — `validate-migration-artifacts.sh § check_audit_provenance` enforces this).
 
-4. Read the audit's `tier:` field. Three outcomes:
-   - `trivial` or `standard` → mark row eligible for fast chain.
-   - `heavy` → mark row heavy; defer to tier gate (4c).
+4. Read the audit's `tier:` field, then apply the **ROUTING FLOOR** (mechanical, overrides the auditor — only ever raises tier, never lowers). Grep the row's V1 + V2 paths (and any staged diff) for surface signals; the effective tier is `max(audit tier, floor)`:
+   - **write-path** (`INSERT`/`UPDATE`/`DELETE`/`UPSERT`, repo `save`/`create`/`update`/`delete`, ORM transaction, queue publish on a write) → floor ≥ standard.
+   - **auth / permission** (guard / middleware, `can*` / `hasPermission` / `authorize` / role check, session / token mint, `:can-*` / `:show-*` props) → floor ≥ standard.
+   - **contract** (DTO / serializer / response-envelope / API route handler / public type export / OpenAPI schema) → floor ≥ standard.
+   - **write-path AND (auth OR contract)**, OR any P0 signal (data-loss, auth-bypass, tenant-leak, payment) → floor = heavy.
+   Stack-conditional signals extend per `_extracted-idioms.md`. Record the floor in the audit (`routing_floor: <tier> (<signal>: <v2-path:line>)`). This is the same floor `find-and-fix.md § 0.5 ROUTING FLOOR` applies; fast applies it centrally so a "looks-trivial" auth-gate drop or unguarded write cannot slip onto the trivial fast path. Three outcomes (after the floor):
+   - effective `trivial` or `standard` → mark row eligible for fast chain.
+   - effective `heavy` → mark row heavy; defer to tier gate (4c).
 
 If any audit dispatch itself halts (V1 source ambiguous, file missing, contradictory signals), log the halt and mark the row `audit-halted`. Continue auditing the rest.
 
@@ -256,7 +265,7 @@ After all audits complete, route each row to the right per-row command — fast 
 |---|---|---|
 | `trivial` | `/find-and-fix <id>` | Audit + code edit + ledger note (~5 min/row). |
 | `standard` | `/find-and-fix <id>` | Audit + 3-section contract + short plan + ≥10-fixture parity test + code edit + ledger row (~30 min/row). |
-| `heavy` | `/port-feature <id> --heavy --unattended` | Full 6-phase ceremony — V1 contract extraction (9 sections) + V2 plan + ≥30-fixture parity tests + perf-decisions + rollback runbook + parity-auditor Stage A + ledger row (~2-4 hr/row). |
+| `heavy` | `/port-feature <id> --heavy --unattended` | Full 7-phase ceremony — V1 contract extraction (9 sections) + V2 plan + ≥30-fixture parity tests + perf-decisions + rollback runbook + parity-auditor Stage A + ledger row (~2-4 hr/row). |
 | `audit-halted` (parity-auditor itself failed on V1 ambiguity) | Halt note → `halts/`, advance to next row | The ledger row stays at its prior state until the user resolves the V1-source ambiguity. |
 
 **Every row gets ported, deeply, following V2 structure.** The fast in fast-mode is parallel dispatch + automatic routing, not "skip the hard rows". Heavy ceremony happens inside fast — the user does NOT have to run `/port-feature --heavy` afterward.
@@ -271,7 +280,7 @@ Build the dependency graph from `ai/migration/ledger.md`'s `depends_on` field. T
 
 - `trivial` / `standard` → `Agent({subagent_type: <executor>, prompt: "/find-and-fix <id>"})`. The simple loop per `find-and-fix.md`. RE-DETECT step (`gaps_in == gaps_closed`) is mandatory; pre-advance verifier dispatches `parity-auditor` in verify-only mode before the ledger row flips to `done`.
 
-- `heavy` → `Agent({subagent_type: <executor>, prompt: "/port-feature <id> --heavy --unattended"})`. The full 6-phase ceremony per `port-feature.md`. `--unattended` means the per-decision halts only fire on ambiguities NOT covered by an accepted ADR; pre-approved ADRs auto-confirm.
+- `heavy` → `Agent({subagent_type: <executor>, prompt: "/port-feature <id> --heavy --unattended"})`. The full 7-phase ceremony per `port-feature.md`. `--unattended` means the per-decision halts only fire on ambiguities NOT covered by an accepted ADR; pre-approved ADRs auto-confirm.
 
 **V2 structure is non-negotiable** — both dispatched commands have hard rules that V2 ports follow V2's NEW structure (gold-standard equivalents, shared wrappers, layer boundaries, naming conventions). Per `find-and-fix.md § INVENTORY — V2 first, V1 second` and `port-feature.md § Phase 3 (Retrieve)`, the per-row sub-agent reads V2's gold-standard files BEFORE diffing V1 and writes the V2 port mirroring V2's shape — never V1's. Fast mode does NOT relax this; the V2-structure discipline is what makes the migration "deep" rather than a copy-paste.
 
@@ -371,10 +380,16 @@ Auto-gate (/migration-gate <N>):
 
 Total wall-time: <duration>           (max-parallel: <N>)
 
+Not validated: <suites/environments skipped across the phase | none — full suite ran>
+Risks:         <residual risk worth a human glance | none identified>
+Revert:        git revert <first-sha>..<last-sha>   (or per-row: git revert <sha>)
+
 Next steps:
   PASS:    /migration-fast <N+1>     (continue to next phase)
   REFUSED: review halts/ + audits/; fix blockers; re-run /migration-fast <N>
 ```
+
+**Honesty clause (mandatory).** The phase report ends with `Not validated:` / `Risks:` / `Revert:` before `Next steps:`. `Total ported: N` + a PASS gate is insufficient — name the validation that did NOT run (suites skipped, environments unavailable, manual checks recommended) or state `none — full suite ran`; name residual risk or `none identified`; give the exact git revert range for the phase's commits. Omitting the negative space is the Trusted-Summary failure mode. Sibling commands (`/migrate`, `/find-and-fix`, `/port-feature`) mandate the same clause.
 
 ## Halt conditions (whole-run halt)
 

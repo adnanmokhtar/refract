@@ -2,6 +2,8 @@
 
 Phased delivery — high level only; detailed steps live in `ai/runbooks/phase-*-plan.md` (created per phase).
 
+> **Read by:** sequencing / planning decisions. **Load trigger:** "what's next", phase planning, or deciding whether a request fits the current phase vs the parking lot.
+
 Last updated: <YYYY-MM-DD>
 
 ## Current phase

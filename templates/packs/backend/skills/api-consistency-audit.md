@@ -16,8 +16,7 @@ This skill is the API-half of /polish (the frontend half is the design-token / a
 ## When to use
 
 - Dispatched by `/polish` on `backend-*` stacks.
-- Dispatched by `/api-audit` (read-only audit, if the project has it).
-- Standalone: `/polish --diagnose-only --stack=backend` writes the artifact, no fixes.
+- No command wrapper ships for this skill; invoke via `/polish --diagnose-only --stack=backend` (writes the artifact, no fixes) or run the skill directly.
 - NOT for adding new endpoints (use `/add-endpoint`) or fixing functional bugs (use `/fix-bug`).
 
 ## Inputs (precise contract)

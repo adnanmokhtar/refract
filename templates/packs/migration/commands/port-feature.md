@@ -1,22 +1,22 @@
 ---
-description: Per-feature V1→V2 port orchestrator. Drives one ledger row through all six phases — Understand V1 → Plan V2 → Port → Parity-test → Perf uplift → Cutover. Halts on every gate that fails the migration discipline rule. Cross-stack (backend / frontend / API).
+description: Per-feature V1→V2 port orchestrator. Drives one ledger row through all seven phases — Understand → Organize (plan V2) → Retrieve → Generate (port + parity tests) → Update (ledger) → Validate (audit + cutover) → Improve (perf uplift post-cutover). Halts on every gate that fails the migration discipline rule. Cross-stack (backend / frontend / API).
 kind: command
 pack: migration
 ---
 
 # /port-feature
 
-**For routine ports use `/find-and-fix <feature>` instead.** That command runs the simple detect → decide → fix → verify → record loop with single-agent dispatch and a 5K context blob — the right tool for trivial-tier rows (which is most rows). `/port-feature` defaults to a wrapper around `/find-and-fix` for that reason; the heavy 6-phase ceremony only runs when you pass `--heavy`.
+**For routine ports use `/find-and-fix <feature>` instead.** That command runs the simple detect → decide → fix → verify → record loop with single-agent dispatch and a 5K context blob — the right tool for trivial-tier rows (which is most rows). `/port-feature` defaults to a wrapper around `/find-and-fix` for that reason; the heavy 7-phase ceremony only runs when you pass `--heavy`.
 
 `/port-feature --heavy` is reserved for: P0 findings, cross-repo blockers, contract breaks, security/privacy/legal regressions, write-path data-mutation, storefront blast radius. Reach for it deliberately, not by default.
 
 The full-ceremony command takes a feature name (matching a row in `ai/migration/ledger.md`) and orchestrates the per-feature port — reading V1 deeply, planning V2, writing V2 against parity tests, applying parity-preserving perf wins, and gating cutover. Idempotent: re-invoking on the same feature resumes where the ledger says it is.
 
-`--heavy` mode implements `feature-port.md`'s six-phase lifecycle. It dispatches `migration-architect` and `parity-auditor`. It uses skills `extract-v1-contract`, `parity-test-generate`, and `perf-uplift-survey`. It enforces `migration-discipline.md` at every gate.
+`--heavy` mode implements the seven-phase lifecycle (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). It dispatches `migration-architect` and `parity-auditor`. It uses skills `extract-v1-contract`, `parity-test-generate`, and `perf-uplift-survey`. It enforces `migration-discipline.md` at every gate.
 
 ## Default mode (`--simple`, implicit)
 
-Without `--heavy`, this command **delegates to `/find-and-fix <feature>`**. Same arguments, same halts. The 6-phase machinery below does NOT run. Read `find-and-fix.md` for the loop semantics.
+Without `--heavy`, this command **delegates to `/find-and-fix <feature>`**. Same arguments, same halts. The 7-phase machinery below does NOT run. Read `find-and-fix.md` for the loop semantics.
 
 ## Phases applied (`--heavy` ONLY)
 
@@ -47,7 +47,7 @@ All 7 of the standard pipeline (Understand → Organize → Retrieve → Generat
 ## Flags
 
 - `--simple` (default) — delegate to `/find-and-fix <feature>`. Use this for routine ports.
-- `--heavy` — opt into the full 6-phase ceremony below. Required when audit flags P0 / cross-repo / contract-break / security-sensitive / write-path mutation. Without `--heavy`, none of Phases 1-7 run; the command shells out to `/find-and-fix`.
+- `--heavy` — opt into the full 7-phase ceremony below. Required when audit flags P0 / cross-repo / contract-break / security-sensitive / write-path mutation. Without `--heavy`, none of Phases 1-7 run; the command shells out to `/find-and-fix`.
 - `--no-prompt` — `--heavy` only. Auto-confirm contract review summary in Phase 1 step 5. Does NOT skip decision halts.
 - `--resume` — resume at the appropriate phase based on ledger row state (default behaviour; flag is explicit-form).
 - `--advance` — used post-merge to advance Shadow→Canary→V2-only (Phase 6 stage advance).
@@ -56,6 +56,7 @@ All 7 of the standard pipeline (Understand → Organize → Retrieve → Generat
 - `--merge-existing` — proceed when detection returns `partial` (V2 has scaffolding); merge with what's there instead of overwriting.
 - `--override-paths` — bypass `migration-validate-paths.sh` when the architect can defend the deviation in writing (logged).
 - `--unattended` — run without per-decision prompts; skip halts ONLY for decisions covered by an accepted ADR (`Status: accepted` in `ai/decisions/`). See "Unattended mode" below.
+- `--plan` — produce the per-feature port plan and STOP before Phase 4 (Generate); write no V2 code, no ledger transition. Runs Phases 1-3 (Understand → Organize → Retrieve) read-only, expands the V2 plan to a full handoff doc under `.claude/plans/`, prints the path + Plan ID, exits. Full contract: `templates/snippets/plan-flag.md`. Hand the plan to `/execute-plan <file>` (or `/port-feature <feature> --from-plan <file>`) to implement.
 
 ## Unattended mode (`--unattended`)
 
@@ -240,6 +241,30 @@ After parallel completes, sequentially:
 |---|---|
 | 4e. **Wire DI / routing** | V2 module registered |
 | 4f. **Write V2 unit tests** | V2 internal tests (separate from parity tests) |
+| 4g. **Capture gap counts** | `gaps_in` (audit's gap count) + `gaps_closed` (gaps confirmed closed by re-audit); MUST be equal before the row can leave `Halted` |
+
+### Phase-4 ledger schema (the row this port writes)
+
+Phase 4 records the closure counts the gate enforces. The ledger row carries — at minimum — these fields (filled here in Phase 4, finalised with state + parity_runs in Phase 5):
+
+```yaml
+- id: <feature>
+  status: in-progress        # → V2-shadow / done finalised in Phase 5
+  tier: heavy                # or standard
+  v1_commit_pinned: <sha>
+  contract: ai/migration/contracts/<feature>.md
+  plan: ai/migration/plans/<feature>.md
+  audit: ai/migration/audits/<feature>.md
+  audit_provenance: <parity-auditor agent run ID>
+  gaps_in: <N>               # gap count surfaced by the Phase-6 audit / DETECT
+  gaps_closed: <N>           # gaps confirmed-closed by re-audit; MUST equal gaps_in before status=done
+  perf_decisions: ai/migration/perf-decisions/<feature>.md
+  parity_runs:               # finalised in Phase 5 — recorded run-report backing the passing claim
+    - result: pass
+      v1_commit: <sha>       # MUST match v1_commit_pinned (validator check_parity_run_report)
+```
+
+`gaps_in` / `gaps_closed` are NOT optional: the gate's `check_gap_count_parity` HALTs any row missing them or where `gaps_in != gaps_closed`. A heavy port that fixes N drifts must record `gaps_in: N` + `gaps_closed: N`.
 
 ## Phase 5 — Update (ledger + contract revisions)
 
@@ -255,21 +280,22 @@ After parallel completes, sequentially:
      - **Query optimisation**: N+1 → batch / JOIN; in-app filter → DB filter; subquery → CTE / lateral.
      - **Column projection**: SELECT * → minimal columns based on consumed-columns list in the contract.
    - These four DO NOT silently ship. Every applied row has a measurement. Every applied row preserves parity (verified by re-running parity tests).
-4. **Update ledger row**: state → `V2-shadow` (or appropriate next state); fill required fields (parity_runs entry, perf_decisions path, plan path, contract path).
+4. **Update ledger row**: state → `V2-shadow` (or appropriate next state); fill required fields per the Phase-4 ledger schema — `gaps_in` / `gaps_closed` (equal, per `check_gap_count_parity`), `parity_runs[]` entry (a recorded run-report with `result: pass` + `v1_commit` matching `v1_commit_pinned`, per `check_parity_run_report` — the gate reads this artifact, it does NOT re-run the suite), `perf_decisions` path, `plan` path, `contract` path.
 
 Halt conditions: parity tests can't be made green AND contract can't be revised (i.e., V1 has behaviour V2 fundamentally cannot replicate without a contract break) — escalate to migration owner for an ADR.
 
 ## Phase 6 — Validate (audit + cutover stage)
 
 1. **Run `parity-auditor` Stage A** on the implementation by dispatching the agent: `Agent({subagent_type: "parity-auditor", prompt: <feature-context-and-axes>})`. Hard-halt on any fail. The agent's run ID MUST land in the audit doc's frontmatter as `auditor_agent_id: <run-id>`. The validator (`scripts/validate-migration-artifacts.sh § check_audit_provenance`) refuses any audit without a populated provenance field — this is the F039 / Phase-6 lesson made mechanical: prove the agent ran, don't echo prior summaries.
-2. **If audit PASSES**: open the port PR. Reviewer (human) reviews. Merge to main.
-3. **Cutover stage advance** (this command may be re-invoked at each stage):
+2. **Self-validate the artifacts**: run `~/.claude/scripts/validate-migration-artifacts.sh --feature=<id>` (use `--strict` for heavy rows). This is the SAME tier-scoped check the phase gate runs — running it here, before the PR opens, catches missing contract sections / thin corpus / unbacked parity claim (`check_parity_run_report`) / unequal `gaps_in`/`gaps_closed` / un-measured perf candidate while the context is hot. Non-zero exit → HALT; fix the flagged artifacts and re-run. Do not open the PR on a red validator.
+3. **If audit PASSES and validator is green**: open the port PR. Reviewer (human) reviews. Merge to main.
+4. **Cutover stage advance** (this command may be re-invoked at each stage):
    - `Shadow` start: deploy V2 in shadow mode; comparator reports begin streaming.
    - `Shadow → Canary 1%`: re-invoke `/port-feature <feature> --advance`. Runs `parity-auditor` Stage B. If PASS, advance.
    - Repeat for 1% → 10% → 50% → 100%. Each invocation runs Stage C and advances if PASS.
    - `100% sustained ≥ observation_window` → re-invoke with `--advance`. Stage C confirms; ledger transitions to `V2-only`.
    - `V2-only ≥ 14d zero traffic` → re-invoke with `--advance`. Stage D confirms; produces a V1-deletion PR (separate). Ledger transitions to `V1-deleted` after that PR merges.
-4. **On halt at any stage**: ledger row → `Halted`; root-cause file at `ai/migration/halts/<feature>-<iso>.md`. The user resumes with `/port-feature <feature> --resume` after fixing the cause.
+5. **On halt at any stage**: ledger row → `Halted`; root-cause file at `ai/migration/halts/<feature>-<iso>.md`. The user resumes with `/port-feature <feature> --resume` after fixing the cause.
 
 ## Phase 7 — Improve (post-cutover)
 
@@ -304,11 +330,12 @@ Phase 4 (Generate, parallel):
   ✓ 4b parity tests: 47 inputs, 6 properties, tolerance.yaml
   ✓ 4c perf-decisions: 10 candidates surveyed
   ✓ 4d rollback runbook: ai/runbooks/migration-rollback-<feature>.md
+  ✓ 4g gap counts: gaps_in=8 gaps_closed=8 (equal — gate passes)
 
 Phase 5 (Update):
-  ✓ parity tests: green (47/47)
+  ✓ parity tests: green (47/47)  [recorded: parity_runs result=pass @ <sha> == v1_commit_pinned]
   ✓ perf applied: 4 (n+1 fix, composite index, column projection, request-cache); deferred: 1 (Redis); rejected: 1 (sync→async email send)
-  ✓ ledger updated: V1-only → In-progress → (ready for V2-shadow on merge)
+  ✓ ledger updated: V1-only → In-progress → (ready for V2-shadow on merge); gaps_in=8 gaps_closed=8
 
 Phase 6 (Validate):
   ✓ parity-auditor Stage A: PASS
@@ -317,7 +344,13 @@ Phase 6 (Validate):
 Phase 7 (Improve): queued for post-V1-deletion
   - Redis caching for tax-rate (deferred candidate)
   - ADR-014: async email send (rejected candidate; revisit post-V1)
+
+Not validated:  e2e suite (no staging DB here) — run before merge
+Risks:          touches the payment summary widget — manual smoke-check recommended
+Revert:         git revert <sha>   (one commit for this feature)
 ```
+
+**Honesty clause (mandatory).** Every `/port-feature` run ends with `Not validated:` / `Risks:` / `Revert:` lines before any "next" line. `parity tests: green (N/N)` alone is insufficient — name the validation that did NOT run (suites skipped, environments unavailable, manual checks recommended) or state `none — full suite ran`; name residual risk worth a human glance or `none identified`; give the exact git revert command for this port's commit. Omitting the negative space ("what we didn't verify") is the Trusted-Summary failure mode this clause exists to prevent. Sibling commands (`/migrate`, `/find-and-fix`, `/migration-fast`) mandate the same clause.
 
 ## Failure modes
 

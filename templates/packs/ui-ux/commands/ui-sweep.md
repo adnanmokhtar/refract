@@ -152,7 +152,7 @@ Compares against the prior baseline (if exists). Surfaces:
 
 ## UI/UX-specific verb taxonomy
 
-`/ui-sweep` dispatches the closed 18-verb vocabulary defined in **`templates/packs/ui-ux/skills/ui-design-sweep.md`** — the same skill `/polish` (frontend), `/enhance-ui`, and `/align-recheck` use. Per-verb fingerprint / procedure / verify / WCAG-iOS-HIG-Material citation live in the skill; this command does not redefine them.
+`/ui-sweep` dispatches the closed 19-verb vocabulary defined in **`templates/packs/ui-ux/skills/ui-design-sweep.md`** — the same skill `/polish` (frontend), `/enhance-ui`, and `/align-recheck` use. Per-verb fingerprint / procedure / verify / WCAG-iOS-HIG-Material citation live in the skill; this command does not redefine them.
 
 Detector → verb mapping (this command's 8 detectors → ui-design-sweep's verbs):
 
@@ -168,7 +168,7 @@ Detector → verb mapping (this command's 8 detectors → ui-design-sweep's verb
 | 8. Visual baseline + drift | (no fix verbs — diff-only; surfaces drift, the fix verb is decided per finding) |
 | (a11y axis cross-cutting) | `lift-contrast`, `align-focus-ring`, `clarify-affordance` |
 
-These verbs operate at scale — `consolidate-tokens` typically touches 20–50 sites in one fix, vs align's per-site `replace-with-shared`. `validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 18-verb set.
+These verbs operate at scale — `consolidate-tokens` typically touches 20–50 sites in one fix, vs align's per-site `replace-with-shared`. `validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 19-verb set.
 
 ## Phasing strategy — by USER FLOW
 
@@ -379,7 +379,7 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 - `/align-scan` — structural quality (orthogonal to this command).
 
 ### Skills
-- `ui-design-sweep` — closed 18-verb closure vocabulary (the spec this command's 8 detectors dispatch into).
+- `ui-design-sweep` — closed 19-verb closure vocabulary (the spec this command's 8 detectors dispatch into).
 - `design-iterate` — visual variant generator (dispatched with --with-iterate).
 - `verify-with-playwright` — screenshots + DOM analysis (required infra).
 - `a11y-scan` — a11y subset (this command's a11y goes deeper but uses the skill's primitives).

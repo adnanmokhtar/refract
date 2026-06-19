@@ -3,6 +3,8 @@ name: database-principles
 description: Database Principles
 kind: rule
 pack: database
+severity: must
+applies-to: database-track, every-code-writing-task-in-database
 ---
 
 # Database Principles

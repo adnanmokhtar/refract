@@ -1,11 +1,18 @@
 ---
 name: extract-project-context
-description: Bootstraps the project's full context from existing code (READMEs, manifests, git history, sibling repos) OR from a user prompt for greenfield projects. Populates ai/business-domain.md, ai/project-goals.md, ai/users-and-personas.md, codebase-profile.md.
+description: GREENFIELD / Path-B project-context bootstrap — derives mission, domain, personas, KPIs, anti-goals from a user PROMPT when there's no codebase to read yet, and writes ai/project-goals.md + ai/users-and-personas.md + ai/business-domain.md. For EXISTING codebases the canonical pipeline (extract-codebase-overview → extract-business-context → Phase 4.7b) owns these targets; this skill is the greenfield path only.
 ---
 
 # Skill: extract-project-context
 
-The Phase 1 + Phase 2 workhorse. Without this, every session re-derives "what is this project" from scratch — a token + cognitive cost. With it, the project's identity is captured ONCE in durable files, then referenced cheaply.
+The **greenfield / Path-B** project-context bootstrap. Without it, a brand-new project (empty folder + a prompt) has no durable record of "what is this" — every session re-derives it from the prompt. This skill captures the prompt-derived identity ONCE into durable files.
+
+> **Scope boundary (existing-codebase path is owned elsewhere).** When the target already has source code, the canonical pipeline owns the `ai/` context targets:
+> - `extract-codebase-overview` → `.claude/_extracted-codebase.md` (modules, stack, conventions, signals).
+> - `extract-business-context` → `.claude/_extracted-business.md` (mission, personas, KPIs, business model, anti-goals).
+> - Phase 4.7b → projects `_extracted-business.md` into `ai/project-goals.md`, `ai/users-and-personas.md`, `ai/business-model.md`, `ai/competitive-context.md`, `ai/roadmap.md`.
+>
+> That pipeline has mechanical halts + provenance markers this skill does not. **Do NOT run this skill's Path A on an existing codebase** — it would collide with those skills for the same files. This skill runs ONLY when there is no code to read (greenfield / CREATE mode from a prompt). Path A below is retained only for the degenerate case "a repo exists but has zero source files and the user is bootstrapping from a prompt" — in that case it behaves as greenfield.
 
 ## Premise
 
@@ -24,9 +31,10 @@ The Phase 1 + Phase 2 workhorse. Without this, every session re-derives "what is
 
 ## When to use
 
-- Run by `/setup-project` Phase 2 + 2.x + 2.y on greenfield + existing codebases.
-- Run on demand when project context files (`ai/business-domain.md`, `ai/project-goals.md`) are missing or stale.
-- Run after a major repository change (acquisition, merger, monorepo split) when the project's identity may have shifted.
+- **Greenfield only**: `/setup-project` in CREATE mode (Path B — prompt, no codebase). This is the canonical use.
+- A degenerate "repo exists but has zero source files" bootstrap from a prompt — behaves as greenfield.
+
+**Do NOT use** on an existing codebase — `extract-codebase-overview` + `extract-business-context` + Phase 4.7b own those targets (see the scope boundary at the top). On stale-context refresh for an existing project, run `/refresh-knowledge`, which re-runs the canonical pipeline, NOT this skill.
 
 ## Prerequisites
 
@@ -35,7 +43,10 @@ The Phase 1 + Phase 2 workhorse. Without this, every session re-derives "what is
 
 ## Procedure
 
-### Path A — Existing codebase (extraction)
+### Path A — Degenerate bootstrap (a repo dir exists but has no source code to analyze)
+
+> For a repo with real source, STOP — this is not your path. Use `extract-codebase-overview` + `extract-business-context`. Path A applies only when the only signals available are README / manifest / git metadata with no code body to walk (treat as a richer greenfield).
+
 
 1. **README mining**:
    ```bash
@@ -159,7 +170,8 @@ Next step:
 
 ## See also
 
-- `/setup-project` Phase 2 + 2.x + 2.y — invokes this skill.
-- `/refresh-knowledge` — re-runs this on existing projects to catch drift.
+- `/setup-project` CREATE mode (Path B, greenfield) — the canonical invoker.
+- `extract-codebase-overview` + `extract-business-context` + Phase 4.7b — the **existing-codebase** owners of these `ai/` targets; this skill defers to them.
+- `/refresh-knowledge` — re-runs the canonical pipeline on existing projects to catch drift (NOT this skill).
 - `ai/business-domain.md`, `ai/project-goals.md`, `ai/users-and-personas.md` — destinations.
 - `knowledge-curator` agent — uses this skill's output to maintain compact derived files.

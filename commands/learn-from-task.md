@@ -25,7 +25,7 @@ related-commands:
 
 1. **Refuse if conversation is under 30 chars**: a session shorter than that is a ping, not a task. No memory entry. Exit silently.
 2. **Refuse if file edits == 0**: if no files were edited (no Write/Edit tool calls in the session, no commits since `--since` ref), the "task" produced no diff to learn from. Exit silently.
-3. **Refuse promotion to conventions on sample size of 1**: convention rows REQUIRE ≥2 cited example files. One example → goes to `ai/dynamic/learnings.md`, not `ai/conventions.md`.
+3. **Refuse promotion to conventions below threshold**: convention rows REQUIRE ≥2 cited example files AND 3 sightings of the observation (the persistence pyramid's "repeat 3x"). Either gate unmet → goes to `ai/dynamic/learnings.md`, not `ai/conventions.md`. The two gates are independent: 3 sightings of the same rule with only 1 cited example still stays in dynamic until a 2nd example is cited.
 4. **Refuse to edit existing ADRs**: ADRs are append-only. Supersede with a new ADR; never mutate.
 5. **Refuse to write a learning that contradicts an accepted ADR** without explicit supersession: cite the ADR being overturned, write a new ADR, then proceed.
 6. **Refuse re-recording**: if the observation already exists in dynamic / conventions / ADRs / failures (text match or paraphrase match), no-op. Re-running the command produces no diff.
@@ -51,9 +51,9 @@ The recurring counterpart is the `knowledge-curator` agent (auto-invoked via pos
 | Output target                            | Trigger                                             |
 |------------------------------------------|-----------------------------------------------------|
 | `ai/decisions/<NNNN>-<slug>.md`          | Architectural decision (append-only ADR)            |
-| `ai/conventions.md` (managed section)    | New convention with ≥2 supporting examples          |
+| `ai/conventions.md` (managed section)    | New convention: 3 sightings AND ≥2 cited examples   |
 | `ai/patterns/<name>.md`                  | Reusable pattern across modules                     |
-| `ai/failures/<NNNN>-<slug>.md` | Approach we tried that did NOT work (failure entry) |
+| `ai/failures/_index.md` (append entry) | Approach we tried that did NOT work (failure entry) |
 | `ai/dynamic/learnings.md` (append)       | Lower-confidence note; not yet promoted             |
 
 ## Promotion rules
@@ -61,19 +61,19 @@ The recurring counterpart is the `knowledge-curator` agent (auto-invoked via pos
 This command DOES NOT publish raw observations to formal knowledge. It uses the persistence pyramid:
 
 ```
-session-context     → ai/dynamic/learnings.md     (raw, append-only)
-repeat 3x           → ai/conventions.md           (managed section)
-explicit decision   → ai/decisions/<NNNN>-*.md   (ADR, append-only)
-failed approach     → ai/failures/     (don't-retry catalog)
+session-context        → ai/dynamic/learnings.md     (raw, append-only)
+3 sightings + ≥2 cited examples → ai/conventions.md   (managed section)
+explicit decision      → ai/decisions/<NNNN>-*.md     (ADR, append-only)
+failed approach        → ai/failures/_index.md        (append entry — don't-retry catalog)
 ```
 
-A learning surfaced once goes to dynamic. Same observation 3 times = promote to formal. The pyramid prevents premature codification of one-offs.
+A learning surfaced once goes to dynamic. Promote to a convention only when BOTH gates are met: 3 sightings of the same observation AND ≥2 cited example files (halt #3). The pyramid prevents premature codification of one-offs.
 
 ## Hard rules (inherits from `templates/governance/hard-rules.md`)
 
 - ADRs are append-only — never edit an existing one. Supersede with a new ADR that references the old.
 - Failure catalog entries cite the failed approach + root cause + the alternative that worked. No editorializing.
-- Convention promotions require ≥2 example files cited in the rule's RATIONALE.
+- Convention promotions require BOTH 3 sightings AND ≥2 example files cited in the rule's RATIONALE (the two gates of halt #3).
 - The command writes ONLY through managed markers — see `templates/idempotency.md`.
 
 ## Anti-patterns (do NOT do these)
@@ -105,11 +105,27 @@ A learning surfaced once goes to dynamic. Same observation 3 times = promote to 
 
 ## Failure catalog entries
 
-- [Failure 0007] TypeORM @InjectRepository in V2 setup
+- [Failure] TypeORM @InjectRepository in V2 setup
   - Root cause: V2 uses Drizzle, not TypeORM
   - Don't retry: yes
-  - Path: ai/failures/0007-typeorm-inject-v2.md
+  - Appended to: ai/failures/_index.md (§ Catalog) — one `### <date> — <label>` entry
 ```
+
+Failure entries are appended to the single append-only catalog `ai/failures/_index.md` under `## Catalog`, using its documented per-entry format:
+
+```markdown
+### 2026-06-19 — TypeORM @InjectRepository in V2 setup
+Source: <session ref / commit / PR / plan id>
+Where: src/orders (V2 repository layer)
+
+What was tried: wired @InjectRepository(Order) expecting a TypeORM data source
+Why it failed: V2 uses Drizzle, not TypeORM — the decorator resolves to nothing
+What to do instead: use the Drizzle repository pattern (see ai/patterns/drizzle-repo.md)
+
+Status: ACTIVE (still a trap) | RESOLVED | SUPERSEDED
+```
+
+Never create per-file `ai/failures/<NNNN>-<slug>.md` entries — the baseline ships ONE append-only index.
 
 ## Implementation notes
 

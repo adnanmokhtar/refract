@@ -127,129 +127,22 @@ EXISTING CODE:
 
 ## Phase 4 — Generate (scaffold + tests)
 
-Generate in this order (dependencies build up):
+**The scaffold contract is OWNED by the `module-scaffold` skill — this command dispatches it, it does not re-implement it.** Mirror how `/refactor` dispatches `refactoring-sweep` (single source of the verb set): there, the command owns the gates and the skill owns the transformation; here, `/add-module` owns the gates above (prior-art / new-dependency / sibling-shape / nested-invocation mode) and `module-scaffold` owns the file tree, the generated-file invariants, and the per-layer generation order.
 
-### core/ layer (pure, no framework)
+### Dispatch
 
-```
-core/
-├── entities/<name>.ts              # domain entity — plain TS class or record
-├── errors/<name>-not-found.error.ts
-├── errors/<name>-already-exists.error.ts  (if uniqueness relevant)
-├── ports/<name>.repository.ts       # interface
-└── ports/<name>-external.port.ts    (if external dep needed)
-```
+Dispatch [`templates/packs/backend/skills/module-scaffold.md`](../skills/module-scaffold.md) with the resolved inputs (module name, purpose, signals, multi-tenant / soft-delete / i18n flags, the chosen sibling path, and — for heavy tier — the architects' design slices from Phase 2). The skill generates:
 
-### application/ layer
+- `core/` (entity, errors, ports), `application/use-cases/` (CRUD), `infrastructure/persistence/` (orm-entity + mapper + repository.impl), `adapters/http/` (controller + DTOs).
+- DI wiring (`tokens.ts` Symbols + `<name>.module.ts`), reversible migration, the test tree (unit + integration + e2e + wiring smoke spec).
+- `ai/modules.md` row + `ai/status.md` Recent Changes entry + app-root module import.
+- All under the skill's generated-file invariants (every DTO validated, tenant filter on every query if multi-tenant, soft-delete base class, Symbol DI tokens, reversible `up()`/`down()`, real assertions — no `// TODO`).
 
-```
-application/use-cases/
-├── create-<name>.use-case.ts
-├── get-<name>.use-case.ts
-├── list-<name>s.use-case.ts
-├── update-<name>.use-case.ts
-└── delete-<name>.use-case.ts
-```
+`/add-module` does NOT duplicate that file tree or those invariants here — see the skill for the authoritative contract. The CRUD endpoints (`POST /<plural>` 201, `GET` list+paginate, `GET /:id` 404, `PATCH /:id`, `DELETE /:id` soft-delete) and locale keys (`en.json` / `ar.json` for success + error messages) are part of that contract.
 
-Each use-case: single intent. Constructor-injected dependencies via interfaces.
+### What `/add-module` layers ON TOP of the scaffold (its own value beyond the skill)
 
-### infrastructure/ layer
-
-```
-infrastructure/persistence/
-├── <name>.orm-entity.ts           # ORM entity
-├── <name>.mapper.ts                # ORM <-> domain mapper
-└── <name>.repository.impl.ts       # implements the port
-```
-
-ORM entity includes:
-- `tenant_id` + `@Index` (if multi-tenant).
-- Base entity fields (id, createdAt, updatedAt, deletedAt if soft-delete).
-- Audit fields (createdBy, updatedBy) per project convention.
-- Indexes per schema-architect's design.
-
-Repository.impl.ts extends project's base repo (tenant-scoped, soft-delete-aware).
-
-### adapters/ layer
-
-```
-adapters/http/
-├── <name>.controller.ts
-└── dtos/
-    ├── create-<name>.dto.ts         # class-validator / zod / pydantic
-    ├── update-<name>.dto.ts
-    ├── list-<name>s-query.dto.ts    # pagination + filters
-    └── <name>.response.dto.ts
-```
-
-Controller: thin. Parses → calls use-case → maps response via mapper.
-
-Endpoints (standard CRUD — adjust per project conventions):
-- `POST /<plural>` → create, returns 201
-- `GET /<plural>` → list, with pagination
-- `GET /<plural>/:id` → get one, 404 if not found
-- `PATCH /<plural>/:id` → update, 200
-- `DELETE /<plural>/:id` → soft-delete, 204
-
-All require auth by default. Multi-tenant filter applied automatically via base repo + `TenantContext`.
-
-### DI wiring
-
-```
-tokens.ts:
-  export const <name>Tokens = {
-    SERVICE: Symbol.for('<Name>.Service'),
-    REPOSITORY: Symbol.for('<Name>.Repository'),
-    MAPPER: Symbol.for('<Name>.Mapper'),
-  };
-
-<name>.module.ts:
-  providers: [
-    { provide: tokens.REPOSITORY, useClass: <Name>RepositoryImpl },
-    { provide: tokens.SERVICE, useClass: <Name>Service },
-    { provide: tokens.MAPPER, useClass: <Name>Mapper },
-  ],
-  exports: [tokens.SERVICE, tokens.MAPPER],
-```
-
-No magic strings. Tokens are symbols in `tokens.ts`.
-
-### Migration
-
-Invoke `/add-migration`:
-- Create table per schema-architect's design.
-- All indexes + FKs + constraints.
-- Reversible.
-
-### Tests
-
-```
-__tests__/
-├── create-<name>.use-case.spec.ts            # unit
-├── get-<name>.use-case.spec.ts
-├── list-<name>s.use-case.spec.ts
-├── update-<name>.use-case.spec.ts
-├── delete-<name>.use-case.spec.ts
-├── <name>.repository.impl.spec.ts            # integration (real DB)
-└── <name>.controller.e2e-spec.ts              # e2e (HTTP)
-```
-
-Required scenarios:
-- Happy path per use-case.
-- Error path per typed error.
-- Cross-tenant leak test on the repo.
-- Auth test on each endpoint (unauth = 401).
-- Validation test (invalid body = 400).
-
-### Locales (if project has i18n messages)
-
-```
-<module>/locales/
-├── en.json
-└── ar.json
-```
-
-Keys for success + error messages referenced from the controller's response.
+`module-scaffold` produces CRUD plumbing. `/add-module` adds the domain-signal + observability layers below before the sibling-shape halt runs.
 
 ### Domain-specific additions (signal-based)
 
@@ -380,6 +273,9 @@ Next:
 - `/fix-bug` — sibling command in backend pack
 - `/log-tail` — sibling command in backend pack
 - `/trace-flow` — sibling command in backend pack
+
+### Skills
+- `module-scaffold` — the apply-engine this command dispatches in Phase 4 (owns the file tree + generated-file invariants; single source of the scaffold contract).
 
 ### Patterns
 - `ai/patterns/api-contract.md`

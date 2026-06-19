@@ -2,6 +2,13 @@
 
 System-wide rules that MUST hold. Different from `.claude/rules/` (which are coding conventions): invariants are about CORRECTNESS — violating one is a bug, not a style issue.
 
+> **Read by:** `fix-bug` (and pack `fix-bug` supersets) before proposing a fix, so a fix never silently breaks an invariant.
+> **Load trigger:** bug fixes, schema/data-model changes, and any state-changing endpoint work.
+>
+> **FILL ME IN.** The entries below are GENERIC EXAMPLES drawn from common multi-tenant SaaS shapes — they are placeholders, not facts about THIS project. Replace each section with the invariants that actually hold here (cite the ADR or incident that established each one). Delete the ones that don't apply; keep the headings as a checklist of categories to think through. `/setup-project` Phase 4 populates this from the codebase + detected domain.
+
+<!-- EXAMPLES TO REPLACE — everything below this line is illustrative until project-filled -->
+
 ## Data integrity
 
 - Every entity belongs to a tenant (if multi-tenant); `tenantId` is non-null + foreign-keyed.

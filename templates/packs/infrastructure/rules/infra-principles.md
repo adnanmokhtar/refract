@@ -3,6 +3,8 @@ name: infra-principles
 description: Infrastructure Principles
 kind: rule
 pack: infrastructure
+severity: must
+applies-to: infrastructure-track, every-code-writing-task-in-infrastructure
 ---
 
 # Infrastructure Principles

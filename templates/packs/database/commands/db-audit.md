@@ -97,6 +97,7 @@ Run checks (parallelizable):
 - **Soft-delete leakage** — grep `createQueryBuilder` / raw SQL touching tables with `deletedAt`; flag missing soft-delete WHERE.
 - **Tenant leakage** — multi-tenant repos: same scan for queries on tenant-scoped tables missing `tenant_id =` filter.
 - **Schema drift** — `prisma migrate diff` / `typeorm schema:log` — non-empty = drift.
+- **Schema consistency** — runs the `schema-consistency-audit` skill for schema-consistency findings (column-naming / type / index-naming / audit-field / timestamp / soft-delete drift across tables). The skill emits one finding per drift fingerprint with closure verbs; fold its findings into this report under their own "Schema consistency" section.
 
 Print findings table per check with severity, location, fix.
 
@@ -157,6 +158,9 @@ Schema drift: NONE
 - `/add-migration` — sibling command in database pack
 - `/migration-review` — sibling command in database pack
 - `/optimize-query` — sibling command in database pack
+
+### Skills
+- `schema-consistency-audit` — dispatched in Phase 4 for schema-consistency findings (naming / type / index / audit-field / soft-delete drift).
 
 ### Patterns
 - `ai/patterns/indexing-strategy.md`

@@ -3,6 +3,8 @@ name: backend-principles
 description: Backend Principles
 kind: rule
 pack: backend
+severity: must
+applies-to: backend-track, every-code-writing-task-in-backend
 ---
 
 # Backend Principles

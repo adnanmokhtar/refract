@@ -2,6 +2,8 @@
 
 Things that go wrong in your DEV environment but work in prod (or vice versa). Saves a new contributor 4 hours of debugging.
 
+> **Read by:** bug fixes and "works on my machine" / setup debugging. **Load trigger:** dev-env failures (ports, Docker, DB/Redis connection, certs, webhooks/tunnels), CI-only failures, or onboarding a new contributor.
+
 ## Local dev setup
 
 ### Ports
