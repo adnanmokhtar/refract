@@ -145,6 +145,8 @@ The `--plan` flag is universal in Claude Code (the canonical 7-phase command str
 
 **`/verify-plan` is universal** — it ships in `repo-baseline/.claude/commands/verify-plan.md` and is included in EVERY project regardless of which adapters are selected. Each adapter translates it the same way it translates other commands. The canonical implementation reads + audits + reports — there's no tool-specific behavior beyond that.
 
+**The spec→build seam is tool-agnostic (parallel to the plan-file seam above).** `/analyze-task` (and `/expand-task` when it saves a doc) writes the spec to `specs/<YYYYMMDD>-<slug>.md` with a `Spec-ID:` header; `/add-feature` accepts a `specs/<file>` path and consumes it as the requirements CONTRACT instead of re-deriving, threading the `Spec-ID` into commits/PR for traceability. The spec file is tool-agnostic markdown — every adapter's `analyze-task` / `add-feature` translation honors the same handoff (spec out → spec in). The conformance enforcement `/add-feature` runs from a spec (NFR / authorization / observability / rollout verified, AC→test traceability rebuilt, sizing-signal-seeded tier) lives in the canonical command body, so it rides the generic per-command translation; its **parallel reviewer fan-out is Claude-native and degrades to sequential** per adapter (same split as the plan seam). Universal fallback: any tool that reads markdown treats the spec's stories + AC + traceability table as the build contract.
+
 
 ---
 
