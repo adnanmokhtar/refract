@@ -263,3 +263,26 @@ These cover `post-edit-check.sh` use case. For everything else (pre-edit guards,
 - `claude-code/adapter.md` — rules source.
 - `ai/references/models.md` — Kimi + local model routing through Aider.
 - `ai/references/tool-parity.md` — what's not replicable in Aider.
+
+## Local model recipe (llama.cpp / llama-server)
+
+Aider is the recommended **driver for a local GGUF model** — it edits files + git without needing the model to support tool-calling (it uses diff/whole edit format), so it fits small local models better than Claude Code does. Run the model as a server, point Aider at it.
+
+```bash
+# Terminal 1 — serve the model (OpenAI-compatible API at :8080/v1)
+llama-server -hf <org>/<model>-GGUF:Q4_K_M -ngl 999 -c 16384 --port 8080
+```
+
+Add these keys to the generated `.aider.conf.yml` (they compose with the `read:` bridge above):
+```yaml
+openai-api-base: http://localhost:8080/v1
+openai-api-key: dummy            # required by Aider; llama-server ignores it
+model: openai/local              # openai/ prefix = OpenAI-compatible endpoint; name is a label
+edit-format: diff                # small models: switch to `whole` if edits garble
+auto-commits: false              # review before commit on a weak model
+show-model-warnings: false       # silence unknown-context/pricing noise
+```
+
+**Capability expectation:** light commands (`fix-bug`, `add-endpoint`, light `add-feature`, follow-rules-as-context, implement-from-plan) work on a ~12B local model; the Claude-only multi-agent sweeps (`/audit`, `/optimize`, `/migrate`) degrade to single-pass and are better left to a stronger model. Keep `CONVENTIONS.md` tight — it reloads every session and local context is limited.
+
+Full end-to-end walkthrough (install → download → server → wire setup → run → daily usage): **`docs/AIDER-LOCAL-MODEL.md`**.
