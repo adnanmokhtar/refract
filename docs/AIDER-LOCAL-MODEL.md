@@ -104,6 +104,60 @@ Aider connects to your local Gemma model **and** follows the setup's rules/knowl
 
 ---
 
+## Variant: model on the Mac mini, Aider on your MacBook (same network)
+
+Run the heavy model on the Mac mini and code from the MacBook — they talk over your LAN.
+
+### On the Mac mini (the model host)
+Bind to all interfaces with `--host 0.0.0.0` so other machines can reach it:
+```bash
+llama-server \
+  -hf yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M \
+  -ngl 999 \
+  -c 16384 \
+  --host 0.0.0.0 \      # exposes it on the LAN (default 127.0.0.1 = this machine only)
+  --port 8080
+```
+Find the Mac mini's address:
+```bash
+ipconfig getifaddr en0          # e.g. 192.168.1.50  (try en1 on Wi-Fi)
+scutil --get LocalHostName      # e.g. "macmini" → reachable as macmini.local
+```
+
+### On the MacBook (where Aider runs)
+Point `openai-api-base` at the Mac mini instead of localhost — by IP **or** `.local` name:
+```yaml
+# .aider.conf.yml on the MacBook
+openai-api-base: http://192.168.1.50:8080/v1      # or: http://macmini.local:8080/v1
+openai-api-key: dummy
+model: openai/local
+edit-format: diff
+auto-commits: false
+show-model-warnings: false
+read:
+  - CONVENTIONS.md
+  - ai/_session-digest.md
+  - .claude/rules/read-before-write.md
+  - .claude/rules/code-quality.md
+  - ai/conventions.md
+```
+Verify the MacBook can reach it, then run Aider:
+```bash
+curl http://192.168.1.50:8080/v1/models   # should return JSON
+cd /path/to/your/project && aider
+```
+
+> **Only difference from the single-machine setup:** `--host 0.0.0.0` on the server, and the MacBook's `openai-api-base` uses the Mac mini's IP/hostname instead of `localhost`. The `read:` bridge + CONVENTIONS.md still live in the **project on the MacBook** (where Aider edits files).
+
+**Security note:** `--host 0.0.0.0` opens the port to **everyone on your network** (llama-server has no auth — the `dummy` key isn't checked). Fine on a trusted home/office LAN. On an untrusted network, prefer an **SSH tunnel** instead of `0.0.0.0`:
+```bash
+# on the MacBook — tunnel local :8080 to the Mac mini's :8080, keep server on 127.0.0.1
+ssh -N -L 8080:localhost:8080 you@192.168.1.50
+# then use openai-api-base: http://localhost:8080/v1  (and drop --host 0.0.0.0 on the mini)
+```
+
+---
+
 ## Daily usage (no re-download)
 
 ```bash
@@ -135,6 +189,7 @@ Keep `CONVENTIONS.md` tight: Aider reloads it every session, and a small model h
 | `-hf` unsupported | download the `.gguf` manually, use `-m /path/to/model.gguf` |
 | Slow / runs out of memory | lower `-c` (e.g. `-c 8192`) or use a smaller quant |
 | Aider ignores the rules | confirm the files in `read:` exist and paths are correct (run from the project root) |
+| (split machines) MacBook can't reach the Mac mini | server must use `--host 0.0.0.0`; both on the same network; check the Mac mini's IP (`ipconfig getifaddr en0`); allow incoming connections for `llama-server` in System Settings → Network → Firewall (or temporarily disable it) |
 
 ## How this maps to the setup
 
