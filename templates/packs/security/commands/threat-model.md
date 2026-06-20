@@ -199,6 +199,10 @@ Re-audit triggers: <list>
 - **Re-audit triggers documented.** Threat model goes stale; document when it expires.
 - **Compliance overlap captured.** PCI / HIPAA / GDPR-relevant threats flag the regulation.
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the threats re-expressed as ONE ordered, numbered to-do — **MUST FIX** (high-likelihood × high-impact, unmitigated) → **SHOULD FIX** (medium risk) → **OPTIONAL** (low / accepted-with-note) — each step carrying the threat + the affected `<file:line>`/surface + **Fix** (the concrete mitigation) + **Verify** (the test/config that proves the mitigation is real, not just claimed), then the closing steps (re-run `/threat-model` after mitigations, `/learn-from-task`, then ship). A clean run collapses to a single line ("No unmitigated threats — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Threat model done after launch. Cost is order-of-magnitude higher to mitigate.

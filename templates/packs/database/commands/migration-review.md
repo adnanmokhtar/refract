@@ -179,6 +179,10 @@ NIT  Type choice
   VARCHAR(32) for an enum — consider native enum or CHECK constraint.
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (data-loss, irreversibility, table-locking / blocking DDL on a hot table) → **SHOULD FIX** (missing index for the new access path, naming/convention drift) → **OPTIONAL** (cosmetic) — each step carrying the migration step / `<file:line>` + **Fix** (concrete; the safe rewrite — e.g. expand-contract, `CONCURRENTLY`, batched backfill) + **Verify** (lock check / dry-run / rollback test), then the closing steps (re-run `/migration-review` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("Safe — clear to apply"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Reviewing against dev's empty table — meaningless; always assess vs prod row count.

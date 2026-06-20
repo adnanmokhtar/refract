@@ -103,6 +103,10 @@ Phase 7 (Improved): N recurring patterns queued
 Status: COMPLETE | BLOCKED on <N> violations
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (a11y / broken-state / design-system violations) → **SHOULD FIX** (UX + consistency opinions) → **OPTIONAL** (polish nits) — each step carrying `<file:line>` + **Fix** (concrete; cite the token / component / WCAG rule) + **Verify**, then the closing steps (re-run `/design-review` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No violations — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 - "Feels off" without grounding → noise; tie every UX finding to Nielsen / WCAG / declared style guide.
 - Recently-introduced raw value flagged as violation → may be intentional; warn before treating as broken.

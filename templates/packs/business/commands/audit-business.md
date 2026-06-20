@@ -115,6 +115,10 @@ Phase 7 (Improved): N systemic patterns queued
 Status: COMPLETE | BLOCKED on <B> broken flows
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (broken or blocking gaps in the user journey) → **SHOULD FIX** (friction / missing states / unclear copy) → **OPTIONAL** (polish) — each step carrying the journey step / `<file:line or screen>` + **Fix** (concrete, in user POV) + **Verify** (the user-facing check that proves it), then the closing steps (re-run `/audit-business` to confirm the journey is whole, `/learn-from-task`, then ship). A clean run collapses to a single line ("No gaps — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 - Auditing code style instead of UX → working code with bad UX still fails this audit; stay in user POV.
 - Padding blockers list with `[opinion]` enhancements → distorts severity; label and segregate.

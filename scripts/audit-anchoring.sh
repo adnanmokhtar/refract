@@ -95,10 +95,27 @@ PLACEHOLDER_RE='<src/path|<e\.g\.,|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-l
 # slice for older pack templates that use form 2.
 extract_anchor_block() {
   local f="$1"
+  # Track fenced-code state and ignore markers/content inside ``` fences — a
+  # fenced block is documentation (e.g. a skill that shows what an anchor block
+  # looks like), not a live anchor. Without this, example marker blocks inside
+  # code fences are mis-read as real anchors and their placeholders / example
+  # paths surface as skeleton + cross-project-leak false-positives.
   if grep -qF '<!-- project-specific:start -->' "$f" 2>/dev/null; then
-    awk '/<!-- project-specific:start -->/{in_b=1; next} /<!-- project-specific:end -->/{in_b=0} in_b' "$f" 2>/dev/null
+    awk '
+      /^[[:space:]]*```/ { fence = !fence; next }
+      fence { next }
+      /^<!-- project-specific:start -->[[:space:]]*$/ { in_b=1; next }
+      /^<!-- project-specific:end -->[[:space:]]*$/ { in_b=0; next }
+      in_b { print }
+    ' "$f" 2>/dev/null
   else
-    awk '/^##[[:space:]]+Project-specific/{in_b=1; next} in_b && /^##[[:space:]]/{exit} in_b' "$f" 2>/dev/null
+    awk '
+      /^[[:space:]]*```/ { fence = !fence; next }
+      fence { next }
+      /^##[[:space:]]+Project-specific/ { in_b=1; next }
+      in_b && /^##[[:space:]]/ { exit }
+      in_b { print }
+    ' "$f" 2>/dev/null
   fi
 }
 

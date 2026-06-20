@@ -122,6 +122,10 @@ Phase 7 (Improved): patterns queued
 Status: COMPLETE | BLOCKED on <H> hardcoded
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (hardcoded user-facing strings, missing keys that break a locale, RTL breakage) → **SHOULD FIX** (parity gaps, inconsistent keys) → **OPTIONAL** (tidy-ups) — each step carrying `<file:line>` + **Fix** (concrete; the key name + which locale files) + **Verify** (key resolves in every locale), then the closing steps (re-run `/i18n-audit` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No findings — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 - Auto-translating missing values → machine output is a placeholder, never shippable copy.
 - Collapsing pluralization to en's two-form set → breaks ar / ru / pl users; preserve full category set.

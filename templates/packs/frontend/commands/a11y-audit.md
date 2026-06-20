@@ -115,6 +115,10 @@ Phase 7 (Improved): N recurring patterns queued
 Status: COMPLETE | BLOCKED on <B> blockers
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (WCAG A/AA failures, keyboard traps, missing labels) → **SHOULD FIX** (AA edge cases / best practice) → **OPTIONAL** (AAA / nice-to-have) — each step carrying `<file:line>` + **Fix** (concrete; cite the WCAG criterion) + **Verify** (axe rule and/or the keyboard/SR check that proves it), then the closing steps (re-run `/a11y-audit` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No violations — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 - Axe in headless Chrome misses focus order — manual keyboard walk is non-negotiable; never claim "all clear" on axe alone.
 - `aria-label` on a `<div>` doesn't make it a button. Use semantic HTML first; ARIA is patching, not the cure.

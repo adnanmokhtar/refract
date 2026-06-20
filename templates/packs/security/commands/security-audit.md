@@ -107,6 +107,10 @@ Phase 7 (Improved): N systemic patterns queued
 Status: COMPLETE | BLOCKED on <B> blockers
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (critical + high / blockers) → **SHOULD FIX** (medium) → **OPTIONAL** (low / hardening) — each step carrying `<file:line>` + **Fix** (concrete) + **Verify**, then the closing steps (re-run `/security-audit` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No findings — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 - Auth + payment + secret findings deferred to "follow-up PR" → forbidden; always blockers.
 - Fabricated findings to look thorough → say "no blockers" plainly when clean.

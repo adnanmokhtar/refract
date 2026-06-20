@@ -194,6 +194,10 @@ Report: ai/audits/cost-<date>.md
 - **Tag everything.** Untagged = unattributable = uncuttable.
 - **Anomaly alerting on.** Catch the next runaway before it costs $10K.
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — ordered by **savings**, not severity: **BIGGEST SAVINGS** → **SMALLER** → **MARGINAL** — each step carrying the resource / `<file:line or resource-id>` + **Fix** (concrete change — rightsize / delete idle / reserved-vs-on-demand) + **Verify** (projected monthly $ saved + the safety check that it won't break the workload), then the closing steps (re-run `/cost-audit` after changes land, `/learn-from-task`, then proceed). A clean run collapses to a single line ("No material waste — clear"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Right-sized EC2 to 50% memory then a memory leak resurfaced → OOM under load.

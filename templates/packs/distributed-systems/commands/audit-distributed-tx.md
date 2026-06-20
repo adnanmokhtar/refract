@@ -158,6 +158,10 @@ Recovery actions: <count> (P0: <count>, P1: <count>)
 - **Idempotency violations open an ADR if root cause is design-level.**
 - **Schema-version drift surfaces as alert, not just audit finding.**
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (correctness holes: non-idempotent consumers, missing compensation, lost updates, no outbox) → **SHOULD FIX** (resilience gaps: retries, DLQ, timeouts) → **OPTIONAL** (hardening) — each step carrying the flow / `<file:line>` + **Fix** (concrete; cite the saga / outbox / idempotency pattern) + **Verify** (the test proving exactly-once / replay-safety), then the closing steps (re-run `/audit-distributed-tx` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No correctness holes — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Audited but didn't validate that "stuck" sagas ARE actually stuck (some legitimately long-running).

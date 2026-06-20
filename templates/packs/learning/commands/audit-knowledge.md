@@ -36,6 +36,10 @@ pack: learning
 
 A categorized report: stale entries (with promote/archive recommendation), drifted conventions, unreferenced patterns, dead ADRs, derived-file staleness, budget breaches. With `--fix`: the safe actions taken + what was left for human judgement.
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the recommendations re-expressed as ONE ordered, numbered to-do — **DO NOW** (clearly-resolved items to promote, dead entries to archive, derived files to regen) → **REVIEW** (drifted conventions / unreferenced patterns needing judgement) → **OPTIONAL** (budget tidy-ups) — each step carrying the `ai/` file + **Action** as a paste-ready command where one exists (`/promote-pattern <name>`, `/promote-decision <id>`, `/refresh-knowledge`) per [`actionable-next-steps.md`](../../../snippets/actionable-next-steps.md), then the closing step (re-run `/audit-knowledge` to confirm the layer is honest). A clean run collapses to a single line ("ai/ is honest — nothing stale"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Halts
 
 - None — read-only by default. `--fix` only applies unambiguous mechanical actions (promotions of clearly-resolved items, derived-file regen, archival of >90d dead entries); anything requiring judgement is reported, not done.

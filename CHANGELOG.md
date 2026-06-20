@@ -6,6 +6,14 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Review/feedback commands must end with a clear "What to do next" action plan
+
+**Why** — a user ran `/review-changes` after `/add-feature` and couldn't tell *what to actually do*: the findings were grouped by severity (each with a fix), but there was no single ordered to-do at the bottom, so the reader had to assemble the next steps themselves. Read-only review/feedback commands exist to produce a list of things to fix — they should hand the user that list, ordered.
+
+- **New snippet `templates/snippets/review-action-plan.md`** — canonical closing-section contract for read-only review/feedback commands: end every report with `## What to do next`, the findings re-expressed as ONE ordered numbered to-do (MUST FIX → SHOULD FIX → OPTIONAL), each step carrying `<file:line>` + Fix + Verify, then the closing steps (re-run the command, `/learn-from-task`, ship). Clean run collapses to one line. Sibling to `actionable-next-steps.md` (which routes *deferred* findings of fix-commands into follow-up slash commands); this one orders the *findings themselves* into a by-hand fix-list.
+- **Wired into the entire read-only review/feedback family (14 commands)**: `review-changes` (full inline example), `security-audit`, `db-audit`, `perf-audit`, `threat-model`, `design-review`, `a11y-audit`, `i18n-audit`, `migration-review`, `audit-business`, `audit-distributed-tx`, `audit-iam`, `cost-audit`, `audit-knowledge` — each now ends with the `## What to do next` block. Framing is adapted per command (severity for most; **savings** for `cost-audit`; **recommended-actions** for `audit-knowledge`).
+- **Synced** to `sahlcart/capsolah-api` for every one of these installed there (`review-changes`, `security-audit`, `db-audit`, `perf-audit`, `threat-model`, `migration-review`, `audit-business`, `audit-iam`, `cost-audit`, `audit-knowledge`).
+
 ### ui-ux pack v1.3.0 — new `/redesign` command
 
 **Why** — the pack had `/enhance-ui` + `/polish` (refine, structure preserved) and `/align` (drift enforcement), but no command for the genuinely-different job of **rethinking a page from scratch** — new layout + IA + UX flow — while staying inside the app's existing design system. `/enhance-ui` is the wrong tool for "this screen's whole structure is wrong"; forcing it produced restyles, not redesigns.

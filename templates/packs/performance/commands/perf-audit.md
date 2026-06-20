@@ -92,6 +92,10 @@ Phase 7 (Improved): patterns queued
 Status: COMPLETE
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (measured regressions / SLO breaches) → **SHOULD FIX** (real measured wins) → **OPTIONAL** (marginal) — each step carrying `<file:line>` + **Fix** (concrete; index proposals route through `/migration-review`) + **Verify** (the measurement that proves the win), then the closing steps (re-run `/perf-audit` to confirm the number improved, `/learn-from-task`, then ship). A clean run collapses to a single line ("No findings — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 - "Looks slow" without a number → mark `speculative` and stop; don't ship guess-work.
 - Premature optimization in P1 → feature ships, audit later.

@@ -29,6 +29,8 @@ If any of those are missing, the agent drops the finding rather than emitting a 
 
 **Lightweight default.** Read-only review; no code generated, no `ai/` files written. The implementer who acts on findings runs `/learn-from-task` after fixes land. The verdict is one of `APPROVE` / `REQUEST_CHANGES` / `BLOCK` — single-line at the top, then findings grouped by severity.
 
+**Always end with an ordered action plan.** The review is not finished until the **last** section is a `## What to do next` checklist: the findings re-expressed as numbered, prioritized steps (must-fix → should-fix → optional), each step carrying the `<file:line>`, the fix, and the verify, then the closing steps (re-run `/review-changes`, `/learn-from-task`, open the PR). Severity groups are the *detail*; the action plan is the *to-do*. A reader must never have to assemble the next steps themselves — the command does it for them. If the verdict is `APPROVE`, the action plan says so in one line (no blockers — clear to open the PR; optional nits listed). Canonical contract shared with every review/feedback command: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Phases applied
 
 1, 2, 3, 6, 7. Phases 4 + 5 = N/A — review doesn't generate or persist changes; output is a verdict + list of fixes for the implementer.
@@ -239,6 +241,15 @@ Merge all reviewer outputs into one report, grouped by severity. GO / NO-GO verd
 - Only requests/nits + all tests green → **APPROVE**.
 - No reviewer ran cleanly → investigate before approving.
 
+### Build the action plan (mandatory closing section)
+
+After consolidating, re-express the findings as an **ordered, numbered to-do list** — this is the section the implementer actually works from. Rules:
+- **Order by priority**, not by severity-group: MUST FIX (every blocker) → SHOULD FIX (every request) → OPTIONAL (nits). Number continuously (1, 2, 3 …) so it reads as one sequence of actions.
+- Each step restates the `<file:line>`, the **Fix** (concrete — snippet / command / named pattern), and the **Verify** (test or check; required on every MUST-FIX step).
+- End with the **closing steps**: re-run `/review-changes` to confirm the verdict flips to APPROVE, run `/learn-from-task`, then open the PR.
+- If the verdict is **APPROVE**, the plan is a single line ("No blockers — clear to open the PR" + any optional nits), not an empty section.
+- Do not invent steps that aren't backed by a cited finding (same `cite-or-drop` discipline). The action plan is a re-ordering of real findings, never new advice.
+
 ## Phase 7 — Improve (feed the learning loop)
 
 - If the same blocker class repeats across reviews (e.g., 3 PRs in a row missed tenant filters): queue to `ai/dynamic/learned-patterns.md` AND propose adding to `.claude/rules/multi-tenancy.md`.
@@ -297,7 +308,36 @@ api-contract, error-handling, multi-tenancy, tenant-isolation, idempotency, stru
 Phase 7 (Improved): 0 recurring blocker classes; 1 false-positive captured to feedback-learned.md.
 
 Status: REQUEST_CHANGES
+
+---
+
+## What to do next  (do these in order)
+
+MUST FIX — merge is blocked until these are done:
+1. <modules-root>/admin/export.controller.<ext>:18 — add the auth + admin-role gate.
+   Fix: wrap the route with the project's auth guard primitive (`_extracted-idioms.md § Auth`).
+   Verify: e2e test asserts 401 when unauthenticated.
+2. <modules-root>/reports/reports.repository.impl.<ext>:84 — add the missing tenant filter.
+   Fix: `AND tenant_id = :tenantId` on the raw query.
+   Verify: cross-tenant leak test passes.
+
+SHOULD FIX — fix now unless you have a reason not to:
+3. <modules-root>/orders/<list-handler>.<ext>:24 — resolve the N+1 on customer lookup.
+   Fix: eager-load customer in the list query.
+4. webhook idempotency path has no regression test.
+   Fix: add a test POSTing the same message_id twice; assert one DB row.
+
+OPTIONAL — nits, safe to defer:
+5. products/form.<ext>:42 — hardcoded "Save changes".
+   Fix: add `products.form.save` to en.json + <other-locale>.json.
+
+Then:
+6. Re-run `/review-changes` — confirm the verdict flips to APPROVE.
+7. Run `/learn-from-task` to capture what was learned.
+8. Open the PR.
 ```
+
+(When the verdict is **APPROVE**, this section collapses to one line — e.g. `What to do next: No blockers — clear to open the PR. Optional: fix nit #1 (products/form.<ext>:42).`)
 
 ## Rules
 

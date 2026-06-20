@@ -198,6 +198,10 @@ Report: ai/audits/iam-<date>.md
 - **Cross-account chains documented with trust rationale.** Implicit chains = invisible blast radius.
 - **Access Analyzer / Policy Analyzer enabled.** Continuous detection beats periodic audits.
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (public exposure, wildcard / admin-equivalent grants, privilege escalation paths) → **SHOULD FIX** (over-broad scopes that should be tightened) → **OPTIONAL** (cleanup of unused roles) — each step carrying the policy / principal / `<file:line>` + **Fix** (concrete least-privilege grant) + **Verify** (the access test proving the principal can still do its job and no more), then the closing steps (re-run `/audit-iam` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("Least-privilege holds — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Removed "dead" permission that was actually used by a once-monthly job → broke job.

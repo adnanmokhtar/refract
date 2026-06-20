@@ -156,6 +156,10 @@ Soft-delete leakage (FAIL, 2):
 Schema drift: NONE
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (correctness / data-integrity / blocking-perf) → **SHOULD FIX** (meaningful perf wins) → **OPTIONAL** (housekeeping) — each step carrying `<file:line>`/object + **Fix** (concrete; index/migration proposals route through `/migration-review`) + **Verify**, then the closing steps (re-run `/db-audit` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No findings — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Auto-running `DROP INDEX` / `DROP COLUMN` — never; propose, confirm, route through `/migration-review`.
