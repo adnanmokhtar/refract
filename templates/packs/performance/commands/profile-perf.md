@@ -223,6 +223,10 @@ Report: ai/runtime/profile-<subject>-<date>.md
 - **Note effort vs impact.** A 4-hour fix that saves 50ms vs a 30-min fix that saves 3 seconds — pick the second.
 - **Production-like data.** Synthetic data with 10 rows hides N+1; production has 10,000.
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the ranked fixes re-expressed as ONE ordered, numbered to-do — **ordered by measured time saved**, not severity: **BIGGEST WIN** (the largest P95 / wall-clock reduction first — the N+1, the sequential-await fan-out) → **SMALLER** → **MARGINAL** — each step carrying the hot path's `<file:line>` + **Fix** (concrete — the named JOIN / batch-loader / structured-concurrency primitive / compile-once move) + **Verify** (the measurement: re-profile under the same load and confirm the `<before> → <after>` ms it claimed). Drop any line below the lightweight `< 50 ms P95` budget into OPTIONAL or `Out of scope` — never above a real win. Close with: re-run `/profile-perf` under the same conditions to confirm P95 hits target, `/learn-from-task`, then ship one change per PR. A clean run collapses to a single line ("Within budget — no bottleneck above threshold"). The reader must never re-rank the bottleneck table themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Profiled in dev → numbers wrong; production data shape differs.

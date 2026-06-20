@@ -188,6 +188,10 @@ Detect from `CLAUDE.md` declared stack. If the module path matches a frontend fe
 - **Coverage % is not quality.** A test-reviewer that says 95% but never asserts anything is failing the audit.
 - **Stack-aware reviewer dispatch.** Backend reviewers on frontend modules produce noise; pick the right set.
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the analysis findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (BLOCKERS — structural / coupling / layer-boundary / security-relevant problems that gate extending the module) → **SHOULD FIX** (REQUESTS — fix now unless you have a reason not to) → **OPTIONAL** (NITS — safe to defer) — each step carrying `<file:line>` + **Fix** (concrete — the named refactor / index / guard, never "consider X") + **Verify** (required on every MUST-FIX step; the test or re-check that proves it's closed), then the closing steps (re-run `/analyze-module` to confirm the verdict comes back clean, `/learn-from-task`, then extend the module). A clean run collapses to a single line ("No blockers — clear to extend"). The reader must never reassemble the next steps from the severity groups themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Running AFTER changes — confirmation bias on the diff. Run BEFORE.

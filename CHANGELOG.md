@@ -6,6 +6,14 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### All-command review — completed the audit action-plan rollout + fixed align-gate count
+
+**Why** — a parallel semantic review of all 107 pack commands (not line-count) found the surface is healthy: 99 were complete-and-correct (including dense short ones like `rollback-deploy`/`perf-audit`). Only a small, consistent set of real gaps remained.
+
+- **`## What to do next` action plan added to 5 audit commands missed in the first rollout**: `backend/analyze-module`, `code-quality/check-health`, `learning/detect-drift`, `performance/bundle-perf`, `performance/profile-perf` — each now closes with the ordered MUST/SHOULD/OPTIONAL fix-list per `templates/snippets/review-action-plan.md`, like the other audit/review commands.
+- **`align/align-gate`** — description said "10-check matrix" but the body defines a **14-check matrix**; fixed the description plus 4 stale "10 checks" references in the body (PASS verdict, self-correctness, two hard rules) so the count is consistent (matches `docs/REFERENCE.md`).
+- The review's one ENHANCE candidate (`mobile/add-feature` prior-art gate) was a false positive — it already has a dedicated Prior-art gate; left untouched.
+
 ### Refresh: kept-command capability gaps must not stay silent (audit C2s)
 
 **Why** — observed 2026-06-20 in `sahlcart/store` (a bespoke, hand-curated `.claude/`): a conservative refresh correctly chose `KEEP-OURS` for hand-written commands (`add-feature`, `fix-bug`, `review-changes`, …) over the longer generic pack versions — but those curated commands were missing standard safety gates (intent / prior-art / new-dependency / action-plan / coverage-gap / secret-scan), and nothing surfaced it. The user discovered the shallowness by accident. Preserving bespoke is right; hiding the capability gap is not.

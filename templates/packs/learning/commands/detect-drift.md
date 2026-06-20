@@ -104,6 +104,10 @@ This is where the command's value lands. Persist:
 Append all findings to `ai/dynamic/drift-log.md`? [y/n]
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the drift findings re-expressed as ONE ordered, numbered to-do — **DO NOW** (high-severity `code-vs-rule` FIX CODE + stale conventions to promote/refresh) → **REVIEW** (medium-severity drifted conventions + `ambiguous` / `rule-vs-rule` items needing a human call) → **OPTIONAL** (low-severity variation, codify-or-accept) — each step carrying `<file:line>` + **Fix** (concrete) + **Verify** on every DO-NOW step. Where a sibling command does the work better, the step IS the paste-ready command — `/promote-pattern <name>` for a convention that should become a rule, `/refresh-knowledge` for `rule-vs-reality` staleness, `/audit-knowledge` to archive resolved entries — composing with the drift-log writes from Phase 5. Close with: re-run `/detect-drift` to confirm the drift is cleared, `/learn-from-task`, then ship. A clean run collapses to a single line ("No drift — code matches documented conventions"). This supersedes the bare `Suggested actions` block as the actionable closer. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Pattern false-positive (generated code looks like violation) — add path to `.claude/drift-ignore.txt`.

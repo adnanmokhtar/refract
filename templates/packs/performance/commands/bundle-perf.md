@@ -210,6 +210,10 @@ Report: ai/runtime/bundle-perf-<date>.md
 - **Web Vitals from field data trumps lab data.** Real users in real conditions are the truth.
 - **Image formats: WebP (broad), AVIF (smaller, narrower support).** Serve via picture/srcset.
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the ranked fixes re-expressed as ONE ordered, numbered to-do — **ordered by measured savings**, not severity: **BIGGEST SAVINGS** (the largest KB / LCP / TBT wins first) → **SMALLER** → **MARGINAL** — each step carrying the resource + `<file:line>` (the heavy module / asset / script tag) + **Fix** (concrete — the named replacement / lazy-load / purge / re-encode) + **Verify** (the measured delta: re-run the web-vitals profiler + bundle analyzer and confirm the `<before> → <after>` KB / ms it claimed). Drop any line whose saving is below the lightweight `< 50 KB / 100 ms` budget into OPTIONAL or `Out of scope` — never above a real win. Close with: re-run `/bundle-perf` on the same network + device profile to confirm Web Vitals hit target, `/learn-from-task`, then ship one change per PR. A clean run collapses to a single line ("Within budget — no fixes above threshold"). The reader must never re-rank the fixes table themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Replaced a heavy date library but missed one timezone call in a deep code path → date wrong on holidays.

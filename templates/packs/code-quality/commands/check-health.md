@@ -125,6 +125,10 @@ Top 3:
   3. Run /doc-refresh and re-run /check-health  (docs, ~15min)
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the health findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (RED items — blockers that hold the overall verdict at RED) → **SHOULD FIX** (AMBER items — fix now unless you have a reason not to) → **OPTIONAL** (GREEN-with-nits — safe to defer) — each step carrying `<file:line>` + **Fix** (concrete — the named fix / command / pattern, never "consider X") + **Verify** (required on every MUST-FIX step; the mechanical check or test that flips it green), then the closing steps (re-run `/check-health` to confirm the verdict comes back GREEN, `/learn-from-task`, then declare the milestone / proceed). A clean run collapses to a single line ("All GREEN — no blockers"). This supersedes the bare `Top 3` list as the actionable closer: the reader must never reassemble next steps from the RAG grid themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Mechanical greens hide design rot — never skip the agent pass.

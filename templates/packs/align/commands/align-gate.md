@@ -1,5 +1,5 @@
 ---
-description: Phase exit gate. Reads ai/align/ledger.md + ai/align/plan.md, validates every row in phase N is status=fixed (or archived/parked), runs the 10-check matrix (gap-count parity, net-lines ≤ 0, no new symbols, no scope creep, test/coverage/lint/typecheck green, frontend regressions green). Read-only — never writes (except a one-line history entry).
+description: Phase exit gate. Reads ai/align/ledger.md + ai/align/plan.md, validates every row in phase N is status=fixed (or archived/parked), runs the 14-check matrix (gap-count parity, net-lines ≤ 0, no new symbols, no scope creep, test/coverage/lint/typecheck green, frontend regressions green, idiom citation, security assertion + tier, perf baseline). Read-only — never writes (except a one-line history entry).
 kind: command
 pack: align
 ---
@@ -143,7 +143,7 @@ Aggregate outputs into a verdict.
 
 Verdict has three states:
 
-- **PASS** — all 10 checks green. Write 1-line history entry to `ai/align/gate-history.md`. Phase advances.
+- **PASS** — all 14 checks green. Write 1-line history entry to `ai/align/gate-history.md`. Phase advances.
 - **REFUSE** — any check failed. Surface failure + remediation. Phase stays in-progress.
 - **REFUSE-HARD** — multiple critical checks failed (1, 2, 6, 7, 9 simultaneously). Indicates the phase was rushed or mis-scoped; recommends `/align-rollback`.
 
@@ -159,7 +159,7 @@ On REFUSE: NO writes. The gate is read-only when refusing.
 ## Phase 6 — Validate (verify correctness)
 
 The gate's own correctness:
-- All 10 checks defined have an explicit pass / fail / skip outcome.
+- All 14 checks defined have an explicit pass / fail / skip outcome.
 - Skip outcomes (e.g., "frontend regression skipped because stack is backend") are documented in the verdict.
 - The verdict is REFUSE on any explicit fail.
 - The verdict is REFUSE-HARD on multiple critical fails.
@@ -245,9 +245,9 @@ The gate REFUSES on any check failure. It does NOT:
 
 - **Read-only on REFUSE.** Zero writes when any check fails.
 - **One history line on PASS.** No multi-line summaries; the verdict + commit-range are the record.
-- **All 10 checks run.** Skip-with-justification is allowed (e.g., frontend regression skipped on backend stack); silent skip is a refusal.
+- **All 14 checks run.** Skip-with-justification is allowed (e.g., frontend regression skipped on backend stack); silent skip is a refusal.
 - **Halted rows block the gate.** Resolve via `/align-park` (defer with reason) or fix manually before re-running.
-- **No partial passes.** Either all 10 checks green → PASS, or any check red → REFUSE.
+- **No partial passes.** Either all 14 checks green → PASS, or any check red → REFUSE.
 
 ## Failure modes
 
