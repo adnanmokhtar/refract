@@ -244,6 +244,13 @@ if [[ -f "$CL/_pack-coverage-report.md" ]]; then
     target_rel=$(echo "$line" | sed -nE 's/^- `([^`]+)` ← from .*/\1/p')
     [[ -z "$target_rel" ]] && continue
     if [[ ! -f "$TARGET/$target_rel" ]]; then
+      # Honor the curate-out ledger: a "Missing" row deliberately rejected / kept-ours
+      # in _refresh-decisions.md is addressed-by-decision, not an unaddressed gap
+      # (parity with C2k, which honors the study-decision ledger). Lean/curated refreshes
+      # legitimately leave whole tracks uninstalled.
+      if [[ -f "$CL/_refresh-decisions.md" ]] && grep -qF "$target_rel" "$CL/_refresh-decisions.md"; then
+        continue
+      fi
       err "pack-coverage said missing → $target_rel still missing in target"
       missing_unaddressed=$((missing_unaddressed + 1))
     fi

@@ -207,9 +207,12 @@ scan_leaks_in_file() {
   # high-confidence tokens: backticked path-with-slash, and path:line citations
   while IFS= read -r tok; do
     [[ -z "$tok" ]] && continue
-    # skip our own generated paths + universal scaffolds (never "leaks")
+    # skip our own generated paths + universal scaffolds (never "leaks").
+    # `scripts/*` covers the round-one floor block's generator-provenance line
+    # ("Auto-populated by `scripts/apply-anchors.sh` …") — a setup-internal reference,
+    # not a cross-project identifier leak.
     case "$tok" in
-      .claude/*|ai/*|templates/*|CLAUDE.md*|AGENTS.md*) continue ;;
+      .claude/*|ai/*|templates/*|scripts/*|CLAUDE.md*|AGENTS.md*) continue ;;
     esac
     if ! token_in_target "$tok"; then
       printf '%s\n' "$tok"
