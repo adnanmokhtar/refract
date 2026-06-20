@@ -1,0 +1,3 @@
+# audit-anchoring.sh writes its report into <target>/.claude/ on every run.
+# That's a per-run test artifact, not part of the fixture — never commit it.
+**/.claude/_anchoring-audit.md

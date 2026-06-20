@@ -28,6 +28,12 @@ invoke() {  # $1=script-name $2=case-dir → prints exit code
     # ai/migration/reachability/<slug>.md. Case-dir basename = the slug.
     migration-reachability.sh)
       ( cd "$case" && bash "$REPO_ROOT/scripts/migration-reachability.sh" --lint "$(basename "$case")" ) >/dev/null 2>&1; echo $? ;;
+    # audit-anchoring.sh: positional <target> + --strict (no --repo-root). --strict
+    # makes a skeleton/leak finding exit non-zero (the bad-case contract). Pins the
+    # extract_anchor_block fence-skip: good/ proves a FENCED example anchor is ignored,
+    # bad/ proves a real (unfenced) skeleton anchor is still caught.
+    audit-anchoring.sh)
+      bash "$REPO_ROOT/scripts/audit-anchoring.sh" "$case" --strict --quiet >/dev/null 2>&1; echo $? ;;
     # All other fixtured scripts honour --repo-root. New non-repo-root scripts get an arm here.
     *) bash "$REPO_ROOT/scripts/$script" --repo-root="$case" >/dev/null 2>&1; echo $? ;;
   esac
