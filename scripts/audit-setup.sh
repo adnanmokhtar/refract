@@ -345,8 +345,11 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   c2s_packs_root="$SCRIPTS_DIR/../templates/packs"
   c2s_report=""
   c2s_seen=" "
-  # each line = one substantive gate token (fixed-string, case-insensitive match)
-  c2s_gates=$'prior-art\nnew-dependency\nintent gate\n## What to do next\nsibling-shape\ncoverage-gap\nsecret-scan\nchange-brief\nmissing-agent'
+  # each line = `display::regex` — match the CAPABILITY (spelling-tolerant), not one
+  # exact token, so a gate worded "coverage gap"/"coverage gate"/"covering test" is
+  # recognised as present and not mis-flagged. Each regex still names a real gate, never
+  # boilerplate. (Fixed-string matching here would cry wolf on legitimate synonyms.)
+  c2s_gates=$'prior-art::prior[ -]?art\nnew-dependency::new[ -]?dependency\nintent gate::intent gate\n## What to do next::what to do next\nsibling-shape::sibling[ -]?shape\ncoverage-gap::coverage[ -]?gap|coverage gate|covering test\nsecret-scan::secret[ -]?scan\nchange-brief::change[ -]?brief\nmissing-agent::missing[ -]?agent|inline:<'
   while IFS= read -r line; do
     key=$(printf '%s' "$line" | grep -oE '`[^`]+/commands/[^`]+\.md`' | head -1 | tr -d '`')
     [[ -z "$key" ]] && continue
@@ -359,17 +362,18 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
     [[ -z "$packs" ]] && continue
     c2s_seen+="$name "
     missing=""
-    while IFS= read -r tok; do
-      [[ -z "$tok" ]] && continue
+    while IFS= read -r gate; do
+      [[ -z "$gate" ]] && continue
+      disp="${gate%%::*}"; rx="${gate#*::}"
       # does ANY pack counterpart carry this gate?
       pack_has=0
       while IFS= read -r p; do
         [[ -z "$p" ]] && continue
-        if grep -qiF -- "$tok" "$p" 2>/dev/null; then pack_has=1; break; fi
+        if grep -qiE -- "$rx" "$p" 2>/dev/null; then pack_has=1; break; fi
       done <<< "$packs"
       [[ "$pack_has" -eq 1 ]] || continue
-      grep -qiF -- "$tok" "$cur" 2>/dev/null && continue          # curated has it too → fine
-      missing+="${missing:+, }$tok"
+      grep -qiE -- "$rx" "$cur" 2>/dev/null && continue          # curated has it too → fine
+      missing+="${missing:+, }$disp"
     done <<< "$c2s_gates"
     [[ -n "$missing" ]] && c2s_report+="    /$name — missing: $missing"$'\n'
   done < <(grep -E '/commands/.*→ KEEP' "$CL/_refresh-decisions.md" || true)
