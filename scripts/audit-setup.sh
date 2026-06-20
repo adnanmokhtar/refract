@@ -329,6 +329,59 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   echo ""
 fi
 
+# C2s — a curated COMMAND kept over a richer pack counterpart (KEEP-OURS) must not
+# silently HIDE missing standard safety gates. Conservative refresh preserves the
+# bespoke body (correct — project-over-generic), but if the pack counterpart carries a
+# substantive gate the curated one lacks, the user should be TOLD — not discover a
+# capability-shallow command by accident weeks later. Same "no silent gap" principle as
+# C2l (rejected commands), applied to kept ones. Warn-only: preserve stays the default;
+# this just surfaces a deepen recommendation (the missing gates + `/setup-project
+# --refine`). High-precision sampled token set (each names a real gate, never
+# boilerplate) — not exhaustive, but enough to flag a shallow kept command. Observed
+# 2026-06-20 (sahlcart/store): add-feature/fix-bug/review-changes kept but missing
+# intent / prior-art / new-dependency / action-plan / coverage / secret-scan gates.
+if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
+  echo "C2s: kept-command capability gap (KEEP-OURS shallowness)"
+  c2s_packs_root="$SCRIPTS_DIR/../templates/packs"
+  c2s_report=""
+  c2s_seen=" "
+  # each line = one substantive gate token (fixed-string, case-insensitive match)
+  c2s_gates=$'prior-art\nnew-dependency\nintent gate\n## What to do next\nsibling-shape\ncoverage-gap\nsecret-scan\nchange-brief\nmissing-agent'
+  while IFS= read -r line; do
+    key=$(printf '%s' "$line" | grep -oE '`[^`]+/commands/[^`]+\.md`' | head -1 | tr -d '`')
+    [[ -z "$key" ]] && continue
+    name=$(basename "$key" .md)
+    case "$c2s_seen" in *" $name "*) continue ;; esac           # dedupe (same cmd in >1 pack)
+    cur="$CL/commands/$name.md"
+    [[ -f "$cur" ]] || continue
+    # all pack counterparts of this command (add-feature exists in several packs)
+    packs=$(find "$c2s_packs_root" -path "*/commands/$name.md" 2>/dev/null)
+    [[ -z "$packs" ]] && continue
+    c2s_seen+="$name "
+    missing=""
+    while IFS= read -r tok; do
+      [[ -z "$tok" ]] && continue
+      # does ANY pack counterpart carry this gate?
+      pack_has=0
+      while IFS= read -r p; do
+        [[ -z "$p" ]] && continue
+        if grep -qiF -- "$tok" "$p" 2>/dev/null; then pack_has=1; break; fi
+      done <<< "$packs"
+      [[ "$pack_has" -eq 1 ]] || continue
+      grep -qiF -- "$tok" "$cur" 2>/dev/null && continue          # curated has it too → fine
+      missing+="${missing:+, }$tok"
+    done <<< "$c2s_gates"
+    [[ -n "$missing" ]] && c2s_report+="    /$name — missing: $missing"$'\n'
+  done < <(grep -E '/commands/.*→ KEEP' "$CL/_refresh-decisions.md" || true)
+  if [[ -z "$c2s_report" ]]; then
+    ok "kept commands carry the standard safety gates (no capability gap)"
+  else
+    n=$(printf '%s' "$c2s_report" | grep -c .)
+    warn_msg "$n kept command(s) are shallower than the standard — they lack safety gates the pack version has. Preserving them is fine, but deepen them (keep your flow + graft the gates) via \`/setup-project --refine\`:"$'\n'"$c2s_report"
+  fi
+  echo ""
+fi
+
 # C2h — Adapter sync coverage: when ≥1 adapter is enabled in target, every
 # .claude/ source artifact must have its native counterpart in the adapter's
 # folder (.opencode/, .cursor/, .github/, etc.). Reports ADD rows from

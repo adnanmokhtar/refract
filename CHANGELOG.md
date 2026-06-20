@@ -6,6 +6,13 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Refresh: kept-command capability gaps must not stay silent (audit C2s)
+
+**Why** — observed 2026-06-20 in `sahlcart/store` (a bespoke, hand-curated `.claude/`): a conservative refresh correctly chose `KEEP-OURS` for hand-written commands (`add-feature`, `fix-bug`, `review-changes`, …) over the longer generic pack versions — but those curated commands were missing standard safety gates (intent / prior-art / new-dependency / action-plan / coverage-gap / secret-scan), and nothing surfaced it. The user discovered the shallowness by accident. Preserving bespoke is right; hiding the capability gap is not.
+
+- **`audit-setup.sh` C2s** (warn-only) — for every `KEEP-OURS` command row in `_refresh-decisions.md`, compares the kept curated command against its pack counterpart(s) for a sampled high-value gate set (prior-art / new-dependency / intent gate / `## What to do next` / sibling-shape / coverage-gap / secret-scan / change-brief / missing-agent). When the pack has a gate the curated lacks, it names the missing gates and recommends `/setup-project --refine` — without overwriting (conservative stays conservative). Commands with no pack counterpart (bespoke crown-jewels) are never flagged. Same "no silent gap" principle as C2l (rejected commands). Documented in `docs/REFERENCE.md`.
+- Verified against `sahlcart/store`: C2s flags the counterpart-having shallow commands with their specific missing gates, leaves the bespoke commands (`design`, `onboard`, `tenant-safety`, …) untouched, and stays warn-only (audit still PASSES: fail 0). Warn-only checks aren't covered by the exit-code `test-validators.sh` harness; behavior verified by the per-command differential output.
+
 ### Review/feedback commands must end with a clear "What to do next" action plan
 
 **Why** — a user ran `/review-changes` after `/add-feature` and couldn't tell *what to actually do*: the findings were grouped by severity (each with a fix), but there was no single ordered to-do at the bottom, so the reader had to assemble the next steps themselves. Read-only review/feedback commands exist to produce a list of things to fix — they should hand the user that list, ordered.
