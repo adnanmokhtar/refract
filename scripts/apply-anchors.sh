@@ -164,11 +164,11 @@ build_block() {
 
 > Auto-populated by \`scripts/apply-anchors.sh\` from \`.claude/codebase-profile.md\` + \`.claude/_codebase-scan.md\`$([[ -n "$BASE_CLASSES" ]] && echo " + \`.claude/_extracted-idioms.md\`"). Round-one floor — \`/setup-project --refine\` deepens shallow blocks based on \`compute-anchor-density\` scoring.
 >
-> - **Architecture** (\`codebase-profile.md:${arch_ln:-1}\`): ${ARCH_LINE:-<not declared in codebase-profile.md>}
-> - **Naming** (\`codebase-profile.md:${naming_ln:-1}\`): ${NAMING_LINE:-<not declared in codebase-profile.md>}
-> - **Testing** (\`codebase-profile.md:${testing_ln:-1}\`): ${TESTING_LINE:-<not declared in codebase-profile.md>}
-> - **Data access** (\`codebase-profile.md:${data_ln:-1}\`): ${DATA_LINE:-<not declared in codebase-profile.md>}
-> - **Error handling** (\`codebase-profile.md:${err_ln:-1}\`): ${ERR_LINE:-<not declared in codebase-profile.md>}
+> - **Architecture** (\`.claude/codebase-profile.md:${arch_ln:-1}\`): ${ARCH_LINE:-<not declared in codebase-profile.md>}
+> - **Naming** (\`.claude/codebase-profile.md:${naming_ln:-1}\`): ${NAMING_LINE:-<not declared in codebase-profile.md>}
+> - **Testing** (\`.claude/codebase-profile.md:${testing_ln:-1}\`): ${TESTING_LINE:-<not declared in codebase-profile.md>}
+> - **Data access** (\`.claude/codebase-profile.md:${data_ln:-1}\`): ${DATA_LINE:-<not declared in codebase-profile.md>}
+> - **Error handling** (\`.claude/codebase-profile.md:${err_ln:-1}\`): ${ERR_LINE:-<not declared in codebase-profile.md>}
 ${idiom_line}${tbd_line}
 > Cite-able sources: ${MANIFESTS}, top-level: ${SRC_DIRS}.
 

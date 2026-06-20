@@ -6,6 +6,13 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Fix: anchor structural citations now skip-listed (no more bare-citation false leaks)
+
+**Why** — `apply-anchors.sh`'s round-one floor emitted its 5 structural citations as **bare** `codebase-profile.md:NN`. The anchoring leak scan (`audit-anchoring.sh`) skip-lists `.claude/*` tokens, but a bare `codebase-profile.md:NN` doesn't match that pattern, so each one is scanned and — finding no literal match in source — flagged as a cross-project leak. With 5 per anchored file across ~150 files that's hundreds of false leaks (observed: 852 on sahlcart-website, 966 on media-streaming), then hand-normalized per-repo (non-durable — the next `apply-anchors --apply` re-introduced the bare form).
+
+- **`apply-anchors.sh` build_block** — the 5 structural citations now emit as `.claude/codebase-profile.md:NN` (path-form, matching the provenance prose right above them). Because the leak scan already skip-lists `.claude/*`, these citations are now never scanned and can never false-leak. Durable: every future generation is correct, no per-repo hand-fix needed.
+- **Scope note** — this fixes the dominant cause (the structural `codebase-profile.md` citations). Project-file citations embedded in extracted prose (e.g. `nuxt.config.ts:55`) are a separate, smaller case: they resolve to real files but aren't `.claude/*` skip-listed. A robust `token_in_target` bare-filename resolution was prototyped but **reverted unvalidated** — synthetic reproduction gave contradictory results, and a shared-auditor change should not ship without a reproduction against the real failing case.
+
 ### Refresh durability: C2s now catches structural shallowness, not just missing gates
 
 **Why** — C2s (kept-command shallowness) only checked for missing safety *gates*. But a kept command can carry every gate and still be a 90-line stub missing the whole *structure* (decompose / validate / improve / failure-modes / output) — which is exactly how `sahlcart/store add-feature` stayed thin (89 lines, all gates, vs the 402-line standard) even after C2s passed it. Gates alone could not guarantee a refresh never silently keeps a thin command.
