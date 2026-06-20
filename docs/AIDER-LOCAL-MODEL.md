@@ -94,6 +94,14 @@ read:
   - ai/conventions.md
 ```
 
+> ⚠️ **Slim the `read:` list for a local model — this is the #1 gotcha.** `/setup-project --add-tool=aider` generates a `read:` list tuned for *big-context cloud models* (it loads `CONVENTIONS.md` + `AGENTS.md` + several `ai/` files — easily **25k–30k tokens every session**). On a `-c 16384` local server that **overflows the whole context before you type anything.** For a local model, cut `read:` to the essentials:
+> ```yaml
+> read:
+>   - CONVENTIONS.md          # the discipline + command list (~6k tok)
+>   - ai/_session-digest.md   # the slim project snapshot (~2k tok)
+> ```
+> That's ~8k tokens — fits 16k with room to work. Pull anything else in **on demand** during a session with Aider's `/read <file>` (e.g. `/read ai/business-domain.md`). Also consider raising the server to `-c 32768` if your Mac has the RAM (24 GB handles a 12B Q4 + 32k fine), and let the agent trim `CONVENTIONS.md` to one-line command pointers to halve it again.
+
 ## 6. Run — Terminal 2
 
 ```bash
