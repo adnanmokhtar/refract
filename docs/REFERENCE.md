@@ -21,6 +21,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [Universal commands (`/do`, `/task`, intent gates, gap-fill commands)](#universal-commands)
 - [`/ui-sweep` — project-wide UI/UX specialist](#ui-sweep--project-wide-uiux-specialist)
 - [`/ui-crawl` + `/ui-crawl-fix` — paired QA crawler + auto-fixer](#ui-crawl--ui-crawl-fix--paired-qa-crawler--auto-fixer-v12)
+- [`/redesign` — from-scratch page rework with approval gate](#redesign--from-scratch-page-rework-with-approval-gate-v13)
 - [Memory system](#memory-system)
 - [Validator scripts](#validator-scripts)
 - [Common pitfalls](#common-pitfalls)
@@ -70,7 +71,7 @@ Every command has at least one halt rule **enforced by a validator script** (not
 - `align-gate` — 14-check matrix in `validate-align-artifacts.sh` (gap-count parity, net-lines on structural ≤ 0, no new symbols except idioms-named, idiom-citation for functional adds, security assertion present, perf baseline present, security tier minimum, oracle unmodified, frontend regressions for `frontend-*`).
 - All audit commands — hand-wave grep refuses outputs containing `etc.` / `...` / `N+ items` / `appears to` / `several places` / `multiple endpoints`.
 - `add-feature` — a **prior-art gate** (all tiers, before tier selection) searches by behavior for an already-shipped capability and HALTs on a near-duplicate (sibling-mirror copies a shape but never catches feature duplication); a **new-dependency gate** (all tiers) halts any package/Pod/Gradle dep no sibling already uses for a dependency review (maintenance / license / size / supply-chain; mobile also checks forced native permissions) before it lands; the sibling-shape conformance check refuses new files that diverge from sibling shape without an ADR; standard tier adds a perf delta check (backend `n-plus-one-scan` on new list/query endpoints; frontend/mobile bundle-size delta); heavy tier additionally gates on `reviewers_clean == reviewers_dispatched`, observability sign-off, and security + release pre-flights. Dispatched agents that aren't installed are performed inline against their pack/domain checklist (`inline:<agent-name>`), never silently skipped.
-- `setup-project --refresh` (M35) — `run-preflight.sh` takes the Phase 0 backup deterministically; `audit-setup.sh` C2a refuses success without it, and C2k regenerates the study report post-apply and refuses success while any actionable row is neither APPLIED nor RECORDED in `.claude/_refresh-decisions.md` (`--reject` / `--keep-ours` / `--resolve` / `--keep` with rationale). Kept/resolved rows re-open automatically when the pack source changes (`pack@sha8` mismatch).
+- `setup-project --refresh` (M35) — `run-preflight.sh` takes the Phase 0 backup deterministically; `audit-setup.sh` C2a refuses success without it, and C2k regenerates the study report post-apply and refuses success while any actionable row is neither APPLIED nor RECORDED in `.claude/_refresh-decisions.md` (`--reject` / `--keep-ours` / `--resolve` / `--keep` with rationale). Kept/resolved rows re-open automatically when the pack source changes (`pack@sha8` mismatch). **C2l** warns when a pack **command** was rejected on capability-overlap ("repo has" / "covered by" / "handled by" / "v1 has curated") yet leaves no native same-named command and no `→ use /<equivalent>` breadcrumb — so a user typing `/<cmd>` gets nothing (M35 rule 4; observed 2026-06-20 when `/enhance-ui` silently vanished from tenant-portal). Out-of-scope rejections ("not applicable", "out of scope") are exempt.
 
 The pattern: **mechanical enforcement beats agent self-policing**. If the agent forgets the rule, the script catches it.
 
@@ -769,6 +770,43 @@ Broken dialog triggers · horizontal overflow at any breakpoint · page didn't l
 - **No new abstractions.** If a fix needs a wrapper that doesn't exist in `_extracted-idioms.md`, halt; route to `/setup-project --refine`.
 - **Re-detect mandatory.** `--verify` re-crawls affected modules; gap-count parity (closed == in-count) is the gate.
 - **Halt on regression.** New findings after a fix → revert the commit and surface.
+
+## `/redesign` — from-scratch page rework with approval gate (v1.3+)
+
+`/redesign <description-or-path>` is the pack's only **from-scratch** command. `/enhance-ui` and `/polish` preserve a page's structure and tighten it; `/redesign` is allowed to throw the current layout away, rethink the information architecture and user flow, and produce a genuinely new design — like handing the page to a UX designer. The one hard constraint: the new design **must speak the app's existing visual language** (same tokens, components, spacing/type scale, locale + text-direction). A redesign that introduces a foreign look is a failed run.
+
+### When `/redesign` vs the refinement commands
+
+| Want | Command |
+|---|---|
+| Rethink a page whose layout / UX is genuinely wrong | `/redesign` |
+| Add finish (states, rhythm, hierarchy, variants), structure preserved | `/enhance-ui` · `/polish` |
+| Hardcoded value → token, or a11y drift → existing rule | `/align` |
+| A brand-new page that doesn't exist yet | `/add-feature` |
+
+### The flow (7 phases, one hard gate)
+
+1. **Understand** — intent gate (route tidy/enforce/new-page intents elsewhere); locate the page, its data sources, every interactive element + state.
+2. **Organize** — extract system → inventory current page → draft proposal → **(gate)** → build → verify.
+3. **Retrieve** — `design-system-architect` extracts tokens / component library / locale + RTL setup from `_extracted-idioms.md` (the design-system oracle).
+4. **Generate** — `ux-reviewer` drafts a concrete proposal (new layout + IA + flow + every state + responsive behavior + how old features map in). **GATE: no code until the user approves.** After approval, rebuild with design-system primitives, finish with the `ui-design-sweep` closure verbs; optionally dispatch `design-iterate` for screenshotted visual variants of the approved structure.
+5. **Update** — `ai/status.md` Recent Changes; ADR if it sets a new layout pattern or adds a shared token/component.
+6. **Validate** — **rendered, not asserted**: screenshot the rebuilt surface at each breakpoint × theme mode × locale; verify feature parity, system conformance (`design-token-audit`), a11y (`a11y-quick-check`), RTL. No screenshot harness → claims marked `SKIPPED`, never faked.
+7. **Improve** — promote a reusable layout to `ai/patterns/`; land any new token/component in the design system.
+
+### Hard rules
+
+- **If structure didn't change, it wasn't a redesign** — that's `/enhance-ui`. Don't ship a restyle as a redesign.
+- **Never skip the approval gate** and build a guess.
+- **No feature or state dropped silently** — every old capability survives or is explicitly approved for removal.
+- **No off-system colors / fonts / spacing** — extract or add a token (to the system, not inline).
+- **Never break RTL / locale**; never print a verification checkmark the run didn't render.
+- **Rollback is `git`** — starts from a clean tree, lands as discrete commits.
+
+### Pre-requisites
+
+- `PROJECT_KIND` is `frontend-*` / `mobile-*` (backend/data-only → HALT with a redirect to the frontend repo).
+- Working tree clean; `_extracted-idioms.md` populated; Playwright MCP (or project screenshot harness) wired for Phase 6.
 
 ## Memory system
 

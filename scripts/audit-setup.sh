@@ -297,6 +297,38 @@ if [[ "$MODE" != "create" && -x "$SCRIPTS_DIR/study-existing.sh" ]]; then
   echo ""
 fi
 
+# C2l — a pack COMMAND rejected because "we already do this HERE under another name"
+# (capability-overlap) must not silently delete the command surface: a user typing
+# /<cmd> then gets "not found" with no pointer. This fires ONLY on the overlap family
+# (rationale asserts an in-repo equivalent: "repo has" / "covered by" / "handled by" /
+# "v1 has curated") — NOT on out-of-scope rejections ("not applicable to this SPA",
+# "out of scope", "owned outside"), where the capability is correctly absent. The
+# rejection is complete when a native same-named command exists OR the ledger line
+# carries a `→ use /<equivalent>` breadcrumb. See setup-project.md M35 rule 4.
+# Observed 2026-06-20 (tenant-portal): /enhance-ui vanished with no breadcrumb and a
+# review reported all-OK. Consolidated to one line — the detail lives in the ledger.
+if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
+  echo "C2l: rejected-command surface preservation"
+  c2m_missing=""
+  while IFS= read -r line; do
+    # overlap family only — rationale claims the capability exists here under another name
+    printf '%s' "$line" | grep -qiE 'repo has|covered by|handled by|v1 has curated' || continue
+    key=$(printf '%s' "$line" | grep -oE '`[^`]+/commands/[^`]+\.md`' | head -1 | tr -d '`')
+    [[ -z "$key" ]] && continue
+    name=$(basename "$key" .md)
+    [[ -f "$CL/commands/$name.md" ]] && continue                           # native replacement exists
+    printf '%s' "$line" | grep -qE '→ use /' && continue                    # breadcrumb to equivalent
+    c2m_missing+="${c2m_missing:+, }/$name"
+  done < <(grep -E '/commands/.*→ REJECTED ' "$CL/_refresh-decisions.md" || true)
+  if [[ -z "$c2m_missing" ]]; then
+    ok "overlap-rejected commands all have a native replacement or breadcrumb"
+  else
+    n=$(printf '%s' "$c2m_missing" | tr ',' '\n' | grep -c .)
+    warn_msg "$n command(s) rejected as 'covered here under another name' but a user typing them gets nothing — add a native router or a \`→ use /<equivalent>\` breadcrumb in _refresh-decisions.md (M35 rule 4): $c2m_missing"
+  fi
+  echo ""
+fi
+
 # C2h — Adapter sync coverage: when ≥1 adapter is enabled in target, every
 # .claude/ source artifact must have its native counterpart in the adapter's
 # folder (.opencode/, .cursor/, .github/, etc.). Reports ADD rows from

@@ -6,6 +6,21 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### ui-ux pack v1.3.0 — new `/redesign` command
+
+**Why** — the pack had `/enhance-ui` + `/polish` (refine, structure preserved) and `/align` (drift enforcement), but no command for the genuinely-different job of **rethinking a page from scratch** — new layout + IA + UX flow — while staying inside the app's existing design system. `/enhance-ui` is the wrong tool for "this screen's whole structure is wrong"; forcing it produced restyles, not redesigns.
+
+- **`commands/redesign.md`** — from-scratch page/flow rework with a **mandatory approval gate** (a concrete proposal is presented; no code is written until the user approves). Composes the pack's design specialists rather than hand-rolling: `design-system-architect` (system extraction in Phase 3 + conformance re-check in Phase 6), `ux-reviewer` (drives the Phase 4 IA/flow/micro-copy proposal), `ui-design-sweep` closure verbs (finish the rebuilt surface), and optional post-approval `design-iterate` (screenshotted visual variants of the approved structure). Phase 6 **renders** the rebuilt surface (Playwright) at each breakpoint × theme × locale to earn its RTL / a11y / responsive checkmarks — and prints `SKIPPED` rather than faking them when no harness is wired. Pre-requisites (clean tree + idioms populated + frontend PROJECT_KIND), Args (`--direction`, `--plan`), and a Failure-modes section. Frontend / mobile only.
+- **Sync chain** — `_essentials.md` + `_topics.md` (strict cite_evidence; sections include prerequisites / args / failure_modes) + `_version.json` → 1.3.0 + `docs/COMMANDS.md` UI-UX table row + `docs/REFERENCE.md` section & TOC anchor. `validate-pack-consistency.sh` green (redesign resolves in both manifests).
+
+### Refresh: rejected-command surfaces must stay discoverable (M35 rule 4 + audit C2l)
+
+**Why** — observed 2026-06-20 in `sahlcart/tenant-portal`: a lean refresh rejected the whole `ui-ux` pack on capability-overlap ("repo has v1 design-iterate/a11y/visual skills … would collide"), so `/enhance-ui` silently vanished — the deterministic study had classed it ADD, a manual `--reject` overrode that, and a follow-up review reported all-OK. The capability existed under other names; the *command surface* did not, with no breadcrumb.
+
+- **`setup-project.md` M35 rule 4** — rejecting a pack **command** on capability-overlap (vs a same-name collision) is incomplete until BOTH: the rationale names the replacement (`→ use /<equivalent>`) AND a native same-named command routes to the curated equivalent (a real specialist, never a copy of the pack version, which assumes pack-only deps like `/align-recheck`). Agents/skills/rules are exempt — only commands are user-typed.
+- **`audit-setup.sh` C2l** — warns (consolidated, one line) when an overlap-rejected command leaves neither a native router nor a `→ use /` breadcrumb. Rationale-filtered to the overlap family ("repo has" / "covered by" / "handled by" / "v1 has curated"); out-of-scope rejections ("not applicable", "out of scope") are exempt. Documented in `docs/REFERENCE.md`.
+- **tenant-portal fix** — authored a native `.claude/commands/enhance-ui.md` routing to curated `design-iterate`(v1) + `/visual-check` + `/a11y-audit` + `ui-reviewer`; updated its ledger line. `/enhance-ui` now resolves and works; C2l confirms it passes (45 other overlap-rejected pack commands surface as a backlog to breadcrumb).
+
 ### Major-skills review — frontmatter consistency
 
 **Why** — a review of the 8 global cross-cutting skills (the ones backing `/optimize`, `/polish`, `/audit`, `/migrate`) found them production-grade with no structural gaps, but surfaced two small consistency issues.
