@@ -350,6 +350,14 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   # recognised as present and not mis-flagged. Each regex still names a real gate, never
   # boilerplate. (Fixed-string matching here would cry wolf on legitimate synonyms.)
   c2s_gates=$'prior-art::prior[ -]?art\nnew-dependency::new[ -]?dependency\nintent gate::intent gate\n## What to do next::what to do next\nsibling-shape::sibling[ -]?shape\ncoverage-gap::coverage[ -]?gap|coverage gate|covering test\nsecret-scan::secret[ -]?scan\nchange-brief::change[ -]?brief\nmissing-agent::missing[ -]?agent|inline:<'
+  # standard STRUCTURAL sections (`display::header-keyword-regex`). A kept command can
+  # carry every gate above yet still be a 90-line stub missing the decompose / validate /
+  # improve / failure-mode / output scaffold that makes the standard comprehensive — the
+  # exact hole a gate-only check missed (observed 2026-06-21 on sahlcart/store: add-feature
+  # had all gates but was 89 lines, 5 sections vs the standard's 14). We flag a kept
+  # command as structurally shallow when it lacks >=3 standard sections its pack
+  # counterpart has. Matched against header lines only, so prose mentions don't count.
+  c2s_sections=$'Phase 2 / Organize::Phase 2|Organize|Decompose\nPhase 5 / Update::Phase 5|Update\nPhase 6 / Validate::Phase 6|Validate\nPhase 7 / Improve::Phase 7|Improve\nFailure modes::Failure modes\nOutput::Output\nInvariants::Invariants'
   while IFS= read -r line; do
     key=$(printf '%s' "$line" | grep -oE '`[^`]+/commands/[^`]+\.md`' | head -1 | tr -d '`')
     [[ -z "$key" ]] && continue
@@ -361,11 +369,11 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
     packs=$(find "$c2s_packs_root" -path "*/commands/$name.md" 2>/dev/null)
     [[ -z "$packs" ]] && continue
     c2s_seen+="$name "
+    # --- (1) gate check: substantive gates the pack has but the curated lacks ---
     missing=""
     while IFS= read -r gate; do
       [[ -z "$gate" ]] && continue
       disp="${gate%%::*}"; rx="${gate#*::}"
-      # does ANY pack counterpart carry this gate?
       pack_has=0
       while IFS= read -r p; do
         [[ -z "$p" ]] && continue
@@ -375,13 +383,47 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
       grep -qiE -- "$rx" "$cur" 2>/dev/null && continue          # curated has it too → fine
       missing+="${missing:+, }$disp"
     done <<< "$c2s_gates"
-    [[ -n "$missing" ]] && c2s_report+="    /$name — missing: $missing"$'\n'
+    # --- (2) structural-depth check: standard SECTIONS the pack has but the curated lacks ---
+    struct=""
+    while IFS= read -r sec; do
+      [[ -z "$sec" ]] && continue
+      sdisp="${sec%%::*}"; srx="${sec#*::}"
+      pack_has=0
+      while IFS= read -r p; do
+        [[ -z "$p" ]] && continue
+        grep -qiE -- "^#+[[:space:]].*($srx)" "$p" 2>/dev/null && { pack_has=1; break; }
+      done <<< "$packs"
+      [[ "$pack_has" -eq 1 ]] || continue
+      grep -qiE -- "^#+[[:space:]].*($srx)" "$cur" 2>/dev/null && continue  # curated has the section → fine
+      struct+="${struct:+, }$sdisp"
+    done <<< "$c2s_sections"
+    # only call it shallow when SEVERAL standard sections are absent (avoid one-off noise)
+    [[ $(printf '%s' "$struct" | tr ',' '\n' | grep -c .) -lt 3 ]] && struct=""
+    # corroborate with length: a complete-but-FLAT command (similar length, different
+    # header names) is NOT thin — only flag structure when the curated is ALSO
+    # substantially shorter than its pack counterpart (< ~55%). This spares dense audits
+    # / differently-structured-but-complete commands, and keeps the flag on genuine stubs
+    # (e.g. an 89-line build command vs the 402-line standard).
+    if [[ -n "$struct" ]]; then
+      pack_lines=0
+      while IFS= read -r p; do
+        [[ -z "$p" ]] && continue
+        pl=$(wc -l < "$p" 2>/dev/null || echo 0); (( pl > pack_lines )) && pack_lines=$pl
+      done <<< "$packs"
+      cur_lines=$(wc -l < "$cur" 2>/dev/null || echo 0)
+      (( pack_lines > 0 && cur_lines * 100 >= pack_lines * 55 )) && struct=""
+    fi
+    # --- combine gate + structure findings into one report line ---
+    rpt=""
+    [[ -n "$missing" ]] && rpt="missing gates: $missing"
+    [[ -n "$struct" ]] && rpt="${rpt:+$rpt; }thin structure — missing sections: $struct"
+    [[ -n "$rpt" ]] && c2s_report+="    /$name — $rpt"$'\n'
   done < <(grep -E '/commands/.*→ KEEP' "$CL/_refresh-decisions.md" || true)
   if [[ -z "$c2s_report" ]]; then
-    ok "kept commands carry the standard safety gates (no capability gap)"
+    ok "kept commands carry the standard gates + section structure (no shallowness)"
   else
     n=$(printf '%s' "$c2s_report" | grep -c .)
-    warn_msg "$n kept command(s) are shallower than the standard — they lack safety gates the pack version has. Preserving them is fine, but deepen them (keep your flow + graft the gates) via \`/setup-project --refine\`:"$'\n'"$c2s_report"
+    warn_msg "$n kept command(s) are shallower than the standard — missing safety gates and/or the full section structure (decompose / validate / improve / failure-modes / output) the pack version has. Preserving the bespoke version is fine, but deepen each to the standard's structure (keep its agents + anchor block intact):"$'\n'"$c2s_report"
   fi
   echo ""
 fi

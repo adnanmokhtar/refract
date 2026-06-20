@@ -6,6 +6,13 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Refresh durability: C2s now catches structural shallowness, not just missing gates
+
+**Why** — C2s (kept-command shallowness) only checked for missing safety *gates*. But a kept command can carry every gate and still be a 90-line stub missing the whole *structure* (decompose / validate / improve / failure-modes / output) — which is exactly how `sahlcart/store add-feature` stayed thin (89 lines, all gates, vs the 402-line standard) even after C2s passed it. Gates alone could not guarantee a refresh never silently keeps a thin command.
+
+- **`audit-setup.sh` C2s — second axis (structural depth)**: for every `KEEP-OURS` command, C2s now also compares its **section structure** to the pack counterpart and flags it when it's missing ≥3 standard sections (Phase 2 Organize / Phase 5 Update / Phase 6 Validate / Phase 7 Improve / Failure modes / Output / Invariants) **AND** is < 55% of the pack's length. The length gate spares complete-but-flat commands (a dense audit) from a false flag, while catching genuine stubs. The warning names both the missing gates and the missing sections, and recommends deepening to the standard's structure (keeping the command's agents + anchor block).
+- Verified on `sahlcart/store`: the now-deepened build commands (add-feature 275, fix-bug 341, review-changes 335) are NOT flagged; the still-thin stubs (check-health 80, pre-commit 50, expand-task 65) ARE flagged for thin structure with their missing sections; the complete-but-flat `i18n-audit` (86 lines, ~57% of pack) is correctly spared. Warn-only.
+
 ### All-command review — completed the audit action-plan rollout + fixed align-gate count
 
 **Why** — a parallel semantic review of all 107 pack commands (not line-count) found the surface is healthy: 99 were complete-and-correct (including dense short ones like `rollback-deploy`/`perf-audit`). Only a small, consistent set of real gaps remained.
