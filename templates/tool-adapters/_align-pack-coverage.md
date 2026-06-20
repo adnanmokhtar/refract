@@ -120,7 +120,7 @@ Every adapter setup that includes `--include=align` MUST also propagate these el
 - Full pack as-is.
 - `align-discipline.md` → `.claude/rules/align-discipline.md`
 - `detect-drift.md`, `find-and-align.md` → `.claude/skills/`
-- All 9 commands → `.claude/commands/`
+- All 13 commands → `.claude/commands/`
 - `validate-align-artifacts.sh` → `~/.claude/scripts/` (user installs once globally)
 - Hooks: `.claude/settings.json` PostToolUse hook on edits to `ai/align/**` runs the validator.
 
@@ -232,7 +232,7 @@ When an adapter ships the align pack:
 1. **MUST translate the rule** (`align-discipline.md`) faithfully — including the inlined 11 named finding categories (= 12 detectors counting the dependencies sub-class + stack-specific; see reconciliation note above), 21-verb closure vocabulary, 11 per-finding audit halts, 14 phase-exit checks, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate). Do NOT abridge.
 2. **MUST translate or document skills** (`detect-drift`, `find-and-align`) to the tool's native format if supported. If not supported, document in the rule's "Tool-agnostic procedure" that the procedural detail is inlined.
 3. **MUST install or document `validate-align-artifacts.sh`** as a pre-commit / CI / hook integration.
-4. **MUST translate all 9 commands** (`align-scan`, `align-plan`, `align-phase`, `align-gate`, `align-fast`, `align-status`, `align-final`, `align-rollback`, `align-park`) — or for rule-only tools, document them as procedural recipes in the rule.
+4. **MUST translate all 13 commands** (`align-scan`, `align-plan`, `align-phase`, `align-gate`, `align-fast`, `align-recheck`, `align-status`, `align-final`, `align-rollback`, `align-park`, `align-unpark`, `align-promote-tier`, `align-replan`) — or for rule-only tools, document them as procedural recipes in the rule.
 5. **MUST verify `_extracted-idioms.md` precondition** — align halts on empty oracle. Adapter setup surfaces a recommendation to run `/setup-project --refine` first if the oracle is missing.
 6. **MUST NOT silently drop the align pack on tools with limited capability.** A rule-only tool gets the rule (which is sufficient — the self-sufficient rule has the full surface inlined).
 

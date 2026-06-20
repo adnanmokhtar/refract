@@ -775,6 +775,8 @@ Broken dialog triggers · horizontal overflow at any breakpoint · page didn't l
 
 `/redesign <description-or-path>` is the pack's only **from-scratch** command. `/enhance-ui` and `/polish` preserve a page's structure and tighten it; `/redesign` is allowed to throw the current layout away, rethink the information architecture and user flow, and produce a genuinely new design — like handing the page to a UX designer. The one hard constraint: the new design **must speak the app's existing visual language** (same tokens, components, spacing/type scale, locale + text-direction). A redesign that introduces a foreign look is a failed run.
 
+**Method-driven, not taste-driven.** Quality is anchored to an **11-lens Design-principles rubric** — information architecture, visual hierarchy, layout & rhythm, cognitive load & flow, states-as-first-class, consistency, accessibility-by-design, mobile-first responsive, locale & direction, purposeful motion, content & micro-copy. The run **diagnoses** the current page against the rubric (cited failures), **designs** the proposal to satisfy it, **self-critiques** the draft against it before the gate, and **scores** the rendered result against it (Phase 6) — and must *measurably beat the diagnosis* on every lens it targeted. "Looks nicer" is not a passing bar.
+
 ### When `/redesign` vs the refinement commands
 
 | Want | Command |
@@ -789,9 +791,9 @@ Broken dialog triggers · horizontal overflow at any breakpoint · page didn't l
 1. **Understand** — intent gate (route tidy/enforce/new-page intents elsewhere); locate the page, its data sources, every interactive element + state.
 2. **Organize** — extract system → inventory current page → draft proposal → **(gate)** → build → verify.
 3. **Retrieve** — `design-system-architect` extracts tokens / component library / locale + RTL setup from `_extracted-idioms.md` (the design-system oracle).
-4. **Generate** — `ux-reviewer` drafts a concrete proposal (new layout + IA + flow + every state + responsive behavior + how old features map in). **GATE: no code until the user approves.** After approval, rebuild with design-system primitives, finish with the `ui-design-sweep` closure verbs; optionally dispatch `design-iterate` for screenshotted visual variants of the approved structure.
+4. **Generate** — **diagnose** the current page against the rubric → **design** to fix it → **self-critique** the draft → present a **structured proposal** (diagnosis → the screen's one job → direction & rationale → new layout/IA with action ranking → component map → full state inventory → mobile-first responsive plan → a11y + locale/RTL plan → old→new parity map → risks + one alternative if the space forks; `ux-reviewer`-driven). **GATE: no code until the user approves.** After approval, rebuild with design-system primitives, finish with the `ui-design-sweep` closure verbs; optionally dispatch `design-iterate` for screenshotted visual variants of the approved structure.
 5. **Update** — `ai/status.md` Recent Changes; ADR if it sets a new layout pattern or adds a shared token/component.
-6. **Validate** — **rendered, not asserted**: screenshot the rebuilt surface at each breakpoint × theme mode × locale; verify feature parity, system conformance (`design-token-audit`), a11y (`a11y-quick-check`), RTL. No screenshot harness → claims marked `SKIPPED`, never faked.
+6. **Validate** — **rendered, not asserted**: screenshot the rebuilt surface at each breakpoint × theme mode × locale; verify feature parity, system conformance (`design-token-audit`), a11y (`a11y-quick-check`), RTL; emit a **design-quality scorecard** against each rubric lens that must beat the Phase-4 diagnosis. No screenshot harness → claims marked `SKIPPED`, never faked.
 7. **Improve** — promote a reusable layout to `ai/patterns/`; land any new token/component in the design system.
 
 ### Hard rules

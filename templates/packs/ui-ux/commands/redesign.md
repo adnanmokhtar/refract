@@ -57,13 +57,29 @@ This command composes the pack's design specialists — it does not hand-roll th
 
 1. **Extract the design system** (`design-system-architect`) — tokens, component library, spacing/type scale, motion, locale + text-direction conventions. This is the non-negotiable vocabulary.
 2. **Read the current page** — every feature, state, and data binding, so nothing is silently dropped in the redesign.
-3. **Propose a new design** (`ux-reviewer` drives layout + IA + flow + micro-copy) — described concretely (structure, component choices, every state, responsive behavior), and **GATE on user approval before writing code**.
+3. **Diagnose, then propose a new design** (`ux-reviewer` drives) — name the current page's failures against the Design-principles rubric, design the new layout + IA + flow + micro-copy to fix them, self-critique against the rubric, then present a structured proposal and **GATE on user approval before writing code**.
 4. **Rebuild** — implement the approved design using only design-system primitives, finishing the surface with the `ui-design-sweep` closure verbs; preserve all behavior / data / feature parity unless the user approved removing something.
 5. **Verify** (`design-system-architect` re-checks conformance) — feature parity, token / component conformance, locale + direction correctness, a11y, responsive + theme-mode — **rendered, not asserted** (Phase 6 screenshots the result).
 
 **The agent does NOT:** keep the old layout "to be safe" (that's `/enhance-ui`); invent a new visual language / off-system colors / fonts; drop a feature or state without surfacing it; skip the approval gate; ship without verifying RTL / locale parity.
 
 **The agent ONLY asks the user when:** presenting the redesign proposal (mandatory gate), or when feature parity forces a UX decision ("the old page had X; the new layout has no obvious home for it — keep, move, or drop?").
+
+## Design principles (the rubric — design against it, then score against it)
+
+A redesign is not a matter of taste; it is judged against established UX/UI best practice. The agent **diagnoses the current page against this rubric** (Phase 4), **designs the proposal to satisfy it**, and **scores the result against it** (Phase 6). Cite the specific lens when a decision turns on it.
+
+1. **Information architecture** — every screen has *one* primary job; rank actions primary / secondary / tertiary and make that ranking visible; progressive disclosure (advanced / rare options behind expandos, steps, or a secondary view); group by user task, not by data model; minimize on-screen decisions (Hick's law).
+2. **Visual hierarchy** — the squint test: the most important element is seen first; size / weight / color / spacing encode importance; one clear focal point + primary CTA per view; respect F- / Z- reading patterns.
+3. **Layout & rhythm** — snap to the design system's spacing grid (e.g. 8pt) and type scale (a modular ratio); align to a grid; generous, *consistent* whitespace; readable measure (~50–75ch) for text blocks.
+4. **Cognitive load & flow** — shortest path to the user's goal; sensible defaults; recognition over recall; chunk related fields; Fitts's law (large, near targets for frequent actions); forgiving (undo / confirm destructive).
+5. **States as first-class** — design *every* state, not just the happy path: loading (skeletons, not spinners where possible), empty (with a helpful next action), error (specific + recoverable), success, zero-results, partial / offline. Immediate feedback on every action.
+6. **Consistency** — match the design system and the gold-standard screen; same pattern for the same problem; honor platform conventions.
+7. **Accessibility by design** (not bolted on) — contrast ≥ WCAG AA; never signal by color alone; logical focus order + visible focus ring; labels + roles; target size ≥ 44px; honor `prefers-reduced-motion`.
+8. **Responsive, mobile-first** — design the smallest breakpoint first, then enhance up; reflow, don't shrink; content priority survives at every width.
+9. **Locale & direction** — design *in the actual locale*: RTL mirrors the whole layout (not just text); logical properties; lay out with real translated copy (Arabic / German expansion), never lorem.
+10. **Motion with purpose** — animation clarifies causation or spatial relationship, never decoration; fast (≤ 200–300ms), interruptible, reduced-motion-safe.
+11. **Content & micro-copy** — voice matches the personas; buttons are verbs (the action), not "OK / Submit"; empty / error copy is genuinely helpful; headings are scannable.
 
 ## Phases
 
@@ -86,10 +102,24 @@ ALWAYS read, in priority order:
 - **Locale + direction** — i18n setup, RTL handling, font stack for the locale. If the page is RTL, the redesign MUST preserve correct text-direction + mirroring.
 - An existing "gold standard" screen the team is proud of — match its caliber.
 
-### Phase 4 — Generate (proposal, then build after gate)
-1. **Proposal (no code yet — `ux-reviewer` drafts it):** present the new design concretely — new layout & IA (sections, grouping, order), component choices (which design-system components compose it), every state, responsive behavior, and how it maps the old page's features into the new structure. Call out anything the new layout drops or moves. Offer 1–2 alternative directions only if the design space is genuinely open (seed with `--direction` if given).
-2. **GATE:** ask the user to approve / adjust / pick a direction. Do not proceed without it. (Under `--plan`, this proposal IS the plan artifact — write it to `.claude/plans/` and exit here; approval happens later via `/execute-plan`.)
-3. **Build (after approval):** implement using only design-system primitives, then finish the surface with the `ui-design-sweep` closure verbs (hierarchy / rhythm / states / contrast / focus / motion / …). Add a new token/component ONLY if the system lacks it — and add it to the system, not inline. Preserve all behavior + data bindings + feature parity. **Optional:** when the approved structure leaves the visual treatment open, dispatch `design-iterate` (passing the rebuilt surface as `$TARGET`) to generate 3 screenshotted variants and let the user pick — the structure is fixed by the gate, so this only tunes the look.
+### Phase 4 — Generate (diagnose → design → self-critique → propose → gate → build)
+
+1. **Diagnose first (no design yet).** Name *why* the current page is wrong — its specific failures against the **Design principles** rubric, each cited to a real element (e.g. "no hierarchy: 14 fields at equal weight; primary action buried at the bottom; 3 states unhandled; 11 decisions on one screen — Hick's law"). A redesign with no diagnosis is a guess. State the **one job** this screen exists to do, and rank its actions.
+2. **Design against the rubric** (`ux-reviewer` drives) — produce the new IA + layout + flow so that each rubric lens is satisfied *by construction*, tied to the personas and the screen's one job.
+3. **Self-critique before showing the user (red-team your own proposal).** Score the draft against every rubric lens and against feature parity; find where it still fails; fix it. Only a proposal that passes its own critique reaches the gate. Surface residual tradeoffs honestly rather than hiding them.
+4. **Proposal (structured — no code yet).** Present, in this order:
+   - **Diagnosis** — what's wrong today (cited).
+   - **The screen's job** — the one primary task + secondary tasks.
+   - **Direction & rationale** — why this design, tied to personas + the rubric lenses it improves.
+   - **New layout & IA** — sections, grouping, order, action ranking (primary / secondary / tertiary).
+   - **Component mapping** — which design-system components compose each part.
+   - **State inventory** — every state designed (loading / empty / error / success / zero / partial).
+   - **Responsive plan** — mobile-first → up; what reflows at each breakpoint.
+   - **a11y + locale/RTL plan** — focus order, contrast, target size; mirroring + real translated copy.
+   - **Parity map** — old feature → new home (keep / move / drop), nothing silently lost.
+   - **Risks & tradeoffs** — and **one** genuine alternative direction only if the design space truly forks (seed with `--direction`). Lead with a recommendation.
+5. **GATE:** ask the user to approve / adjust / pick a direction. Do not proceed without it. (Under `--plan`, this structured proposal IS the plan artifact — write it to `.claude/plans/` and exit here; approval happens later via `/execute-plan`.)
+6. **Build (after approval):** implement using only design-system primitives, then finish the surface with the `ui-design-sweep` closure verbs (hierarchy / rhythm / states / contrast / focus / motion / …). Add a new token/component ONLY if the system lacks it — and add it to the system, not inline. Preserve all behavior + data bindings + feature parity. **Optional:** when the approved structure leaves the visual treatment open, dispatch `design-iterate` (passing the rebuilt surface as `$TARGET`) to generate 3 screenshotted variants and let the user pick — the structure is fixed by the gate, so this only tunes the look.
 
 ### Phase 5 — Update
 - `ai/status.md` — Recent Changes entry (page redesigned, what changed structurally).
@@ -105,6 +135,7 @@ ALWAYS read, in priority order:
 - **Locale + direction:** screenshot in the page's locale — RTL/locale renders correctly (mirroring, alignment, font); strings go through i18n, not hardcoded.
 - **a11y** (`a11y-quick-check`): focus order, labels, contrast, tap-targets on the new layout.
 - **Responsive + theme-mode:** screenshot at each breakpoint and in light/dark (or each theme) — all hold.
+- **Design-quality scorecard** — score the rendered result against each **Design principles** lens (✓ / Δ with a one-line note). The redesign must *measurably beat the diagnosis from Phase 4* on the lenses it targeted — if a lens the diagnosis flagged isn't visibly improved, the redesign didn't do its job. This scorecard, not vibes, is the bar.
 
 ### Phase 7 — Improve
 - If the new layout is reusable, promote it to `ai/patterns/`.
@@ -117,18 +148,23 @@ Redesign: dashboard/orders/settings-list  (column-visibility settings)
 Design system extracted:
   tokens: <source>  ·  components: <library>  ·  direction: RTL (ar)
 
-Proposal (approved): <one-line summary of the new layout/IA>
+Diagnosis: <the 2–3 worst UX failures of the current page, cited>
+Proposal (approved): <one-line summary of the new layout/IA + the direction chosen>
 
 Built:
   <files changed>
   parity: 14/14 features preserved · 0 off-system values
   rendered: 3 breakpoints × {light,dark} × RTL → RTL ✓ · a11y ✓ (axe clean)
+  scorecard: hierarchy ✓ · IA ✓ (11→4 decisions) · states 6/6 ✓ · rhythm ✓ · a11y AA ✓ · motion ✓
   screenshots: .claude/artifacts/redesign/<iso>/*.png
 ```
 
 If the screenshot harness was unavailable, the `rendered:` line reads `rendered: SKIPPED (no Playwright MCP) — RTL / a11y NOT verified` instead of printing unearned checkmarks.
 
 ## Hard rules
+- **Diagnose before designing.** No proposal without a cited critique of the current page against the Design-principles rubric. A redesign that can't say what was wrong is a guess dressed as a redesign.
+- **Design against the rubric, then beat the diagnosis.** The Phase 6 scorecard must show measurable improvement on every lens the diagnosis flagged. "Looks nicer" is not a passing bar.
+- **Self-critique before the gate.** Red-team the proposal against the rubric + parity and fix the gaps *before* showing the user — don't outsource quality control to them.
 - If structure didn't change, it wasn't a redesign — that's `/enhance-ui`. Do not ship a restyle as a redesign.
 - No off-system colors / fonts / spacing because they "look better" — extract or add a token instead.
 - No feature or state dropped silently — every old capability survives or is explicitly approved for removal.

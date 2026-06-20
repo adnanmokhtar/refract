@@ -156,7 +156,7 @@ The validator script is location-agnostic — installed once at `~/.claude/scrip
 - Rule → `.claude/rules/migration-discipline.md` content mirrored into `QWEN.md` § `## Migration discipline` + cross-referenced from `AGENTS.md`.
 - Agents → `.qwen/agents/parity-auditor.md`, `.qwen/agents/migration-architect.md` (Markdown + YAML frontmatter; `tools:` whitelist set per agent).
 - Skills → `.qwen/skills/extract-v1-contract/SKILL.md`, `.qwen/skills/parity-test-generate/SKILL.md`, `.qwen/skills/perf-uplift-survey/SKILL.md`.
-- Commands → `.qwen/commands/migration-phase.md`, `.qwen/commands/find-and-fix.md`, `.qwen/commands/port-feature.md`, `.qwen/commands/migration-gate.md`, etc. Nested-namespace form (`.qwen/commands/migration/phase.md` → `/migration:phase`) is acceptable when the project ships many migration commands.
+- Commands → `.qwen/commands/<name>.md` for **all 19** migration commands (`compare-v1`, `cross-repo-task`, `draft-phase-adrs`, `find-and-fix`, `migration-deprecate`, `migration-fast`, `migration-final`, `migration-gate`, `migration-park`, `migration-phase`, `migration-plan`, `migration-promote-tier`, `migration-recheck`, `migration-replan`, `migration-rollback`, `migration-scan`, `migration-status`, `migration-unpark`, `port-feature`). Nested-namespace form (`.qwen/commands/migration/phase.md` → `/migration:phase`) is acceptable when the project ships many migration commands.
 - Hooks → `.qwen/settings.json` `hooks.PostToolUse` triggering `validate-migration-artifacts.sh` on edits to `ai/migration/**`.
 
 ## Validator script — universal callable

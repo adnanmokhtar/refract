@@ -80,7 +80,7 @@ Verdict legend:
 
 ## Top-level orchestration commands (Claude-Code-only — by design)
 
-The 12 commands at this repo's `commands/` are split into two groups:
+The 15 commands at this repo's `commands/` are split into the groups below (the **Build / spec** row covers pack commands too, for translation-completeness):
 
 | Group | Commands | Adapter coverage |
 |---|---|---|

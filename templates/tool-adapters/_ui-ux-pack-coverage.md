@@ -2,9 +2,10 @@
 
 Cross-cuts the tool-adapter registry. Documents how each tool surfaces the UI/UX pack's artifacts when `--include=ui-ux` is selected by `/setup-project` (or auto-included for `frontend-*` projects).
 
-The pack provides five commands and two critical skills:
+The pack provides six commands and two critical skills:
 - `/design-review` — read-only audit (cite-or-halt)
 - `/enhance-ui <description>` — single-area enhancement orchestrator (cleanup → 3 variants → pick → verify)
+- **`/redesign <description-or-path>` (v1.3+)** — from-scratch page/flow rework (rethinks layout + IA + UX, NOT a restyle) rebuilt inside the existing design system, with a **mandatory approval gate before any code**. Method-driven: an **11-lens Design-principles rubric** the run DIAGNOSES the current page against, DESIGNS the proposal to satisfy, self-critiques before the gate, and SCORES the rendered result against (must beat the diagnosis). Composes `design-system-architect` (extraction + conformance) + `ux-reviewer` (proposal) + `ui-design-sweep` closure verbs + optional post-approval `design-iterate`; renders the rebuilt surface (Playwright) to earn its RTL / a11y / responsive checkmarks. Sibling to `/enhance-ui` (which preserves structure). Frontend / mobile only.
 - `/ui-sweep [<phase>]` — project-wide UI/UX **specialist** (visual hierarchy, coverage metrics, cross-surface consistency, visual baseline + drift, flow-based phasing, HTML visual report)
 - **`/ui-crawl [<scope>]` (v1.2+)** — Playwright-driven cross-route crawler (login once, visit every route, screenshots × 3 breakpoints + dark + RTL, axe-core a11y per route, walks tabs / dialogs / dropdowns, captures console + network errors, writes ranked findings JSON + MD). Detect-only. Sibling to `/ui-sweep` — faster, broader, machine-readable output; `/ui-sweep` is deeper with HTML report.
 - **`/ui-crawl-fix [<class>] (v1.2+)`** — auto-fixer that consumes the `/ui-crawl` findings JSON and patches at the **wrapper level** (one fix → hundreds of cascading call sites). Closes color-contrast (token swap), button-name (aria-label injection), label (for/id wiring), unsanitized-html (`v-html` / `dangerouslySetInnerHTML`), raw-library-component, hardcoded-translations. Skips bugs needing human judgment. Re-runs `/ui-crawl` in verify mode for gap-count parity. Inherits closure-verb discipline from `align-discipline.md`.
@@ -22,26 +23,26 @@ The pack provides five commands and two critical skills:
 - `data-*` → dispatches `schema-consistency-audit` from the database pack (column naming / types / indexes / audit fields / migration patterns / soft-delete / nullability).
 - `mobile-*` → dispatches `platform-conventions-audit` from the mobile pack PLUS reused frontend skills (iOS HIG / Material conformance + frontend polish).
 
-Power users still drop down to `/enhance-ui` (explicit single-area iteration), `/ui-sweep` (HTML report + coverage metrics), or `/design-review` (read-only) when they need finer control.
+Power users still drop down to `/enhance-ui` (explicit single-area iteration), `/redesign` (from-scratch page rework with approval gate), `/ui-sweep` (HTML report + coverage metrics), or `/design-review` (read-only) when they need finer control.
 
 **`/ui-sweep` is a specialist, not a wrapper.** It has its own 8 deep detectors, the 19-verb closure vocabulary from `ui-design-sweep`, quantified coverage metrics, visual baselines, flow-based phasing, and HTML report. Adapters MUST preserve all of these in translation — flattening to "just runs align with UI/UX classes" is forbidden.
 
 ## Capability mapping per tool
 
-| Tool | `/ui-sweep` full | `/ui-crawl` + `/ui-crawl-fix` | `ui-design-sweep` skill | `design-iterate` skill | Visual baseline (Playwright) | HTML report rendering |
-|---|---|---|---|---|---|---|
-| Claude Code | ✓ | ✓ (Playwright project at `tests/crawl/`) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ (browser-side) |
-| OpenCode | ✓ | ✓ (same Playwright project; commands at `.opencode/commands/`) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
-| Cursor | ✓ | ✓ (commands at `.cursor/commands/`; runs against same Playwright project) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
-| Copilot | ✓ | ✓ prompt + Playwright runner via Actions | ✓ (native skill) | ✓ (native skill) | conditional (if MCP wired) | conditional |
-| Qwen | ✓ | ✓ command translation; Playwright project shared | ✓ (native skill) | ✓ (native skill) | conditional | partial |
-| Kimi | ✓ | ✓ skill wrapper; Playwright project shared | ✓ (native skill) | ✓ (native skill) | conditional | partial |
-| Continue | ✓ rule + commands | as prompt template; relies on Playwright in repo | as prompt template | as prompt template | conditional | partial |
-| Cline / Roo | ✓ rule + workflows | inlined workflow; Playwright in repo | inlined in rule | inlined in rule | conditional | partial |
-| Windsurf | ✓ rule + workflows | inlined workflow; Playwright in repo | inlined in rule | inlined in rule | conditional | partial |
-| Aider | rule-only | rule documents manual `pnpm crawl` invocation; no Playwright orchestration | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO (markdown summary instead) |
-| Codex | rule-only | rule documents manual invocation | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
-| Gemini CLI | rule-only | rule documents manual invocation | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
+| Tool | `/ui-sweep` full | `/ui-crawl` + `/ui-crawl-fix` | `/redesign` (gate + rubric + render) | `ui-design-sweep` skill | `design-iterate` skill | Visual baseline (Playwright) | HTML report rendering |
+|---|---|---|---|---|---|---|---|
+| Claude Code | ✓ | ✓ (Playwright project at `tests/crawl/`) | ✓ (native command; gate pauses for approval) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ (browser-side) |
+| OpenCode | ✓ | ✓ (same Playwright project; commands at `.opencode/commands/`) | ✓ (`agent: build`; gate = explicit user-approval step) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
+| Cursor | ✓ | ✓ (commands at `.cursor/commands/`; runs against same Playwright project) | ✓ (Skill `redesign`; gate pauses for approval) | ✓ (native skill) | ✓ (native skill) | ✓ (Playwright MCP) | ✓ |
+| Copilot | ✓ | ✓ prompt + Playwright runner via Actions | ✓ prompt; gate = approval checkpoint in prompt | ✓ (native skill) | ✓ (native skill) | conditional (if MCP wired) | conditional |
+| Qwen | ✓ | ✓ command translation; Playwright project shared | ✓ (command; gate pauses for approval) | ✓ (native skill) | ✓ (native skill) | conditional | partial |
+| Kimi | ✓ | ✓ skill wrapper; Playwright project shared | ✓ (skill wrapper; gate pauses for approval) | ✓ (native skill) | ✓ (native skill) | conditional | partial |
+| Continue | ✓ rule + commands | as prompt template; relies on Playwright in repo | as prompt template; gate = approval checkpoint | as prompt template | as prompt template | conditional | partial |
+| Cline / Roo | ✓ rule + workflows | inlined workflow; Playwright in repo | inlined workflow; gate = explicit `ask` step before edits | inlined in rule | inlined in rule | conditional | partial |
+| Windsurf | ✓ rule + workflows | inlined workflow; Playwright in repo | inlined workflow; gate = approval step before edits | inlined in rule | inlined in rule | conditional | partial |
+| Aider | rule-only | rule documents manual `pnpm crawl` invocation; no Playwright orchestration | rule-only (EXECUTE-NOW preamble); gate = "STOP, present proposal, await approval" | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO (markdown summary instead) |
+| Codex | rule-only | rule documents manual invocation | rule-only; gate = explicit approval step in the procedure | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
+| Gemini CLI | TOML command | rule documents manual invocation | `.gemini/commands/redesign.toml`; gate = approval step in `prompt` | inlined in rule (closed-verb spec self-sufficient) | inlined in rule | rule documents manual procedure | NO |
 
 **Conclusion**: tools without Playwright MCP support fall back to a manual procedure documented in the rule (the rule is self-sufficient for the detection + verb logic; only the visual-baseline + HTML-report steps require the MCP).
 
@@ -65,6 +66,7 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 - `/ui-crawl` → `.claude/commands/ui-crawl.md`
 - `/ui-crawl-fix` → `.claude/commands/ui-crawl-fix.md`
 - `/enhance-ui` → `.claude/commands/enhance-ui.md`
+- `/redesign` → `.claude/commands/redesign.md`
 - `/design-review` → `.claude/commands/design-review.md`
 - `design-iterate` skill → `.claude/skills/design-iterate/SKILL.md`
 - Playwright MCP: `~/.claude/mcp/playwright/` (user installs once globally)
@@ -73,48 +75,49 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 
 ### OpenCode (`AGENTS.md` + `.opencode/`)
 
-- Commands → `.opencode/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md`
+- Commands → `.opencode/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,design-review}.md`
 - Skill → `.opencode/skills/design-iterate/SKILL.md`
 - Rule (UI principles) → `AGENTS.md § UI/UX` section
 - HTML report renders the same way.
 
 ### Cursor (`.cursor/`)
 
-- Commands → `.cursor/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md`
+- Commands → `.cursor/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,design-review}.md`
 - Skill → `.cursor/skills/design-iterate/SKILL.md`
 - Rule → `.cursor/rules/ui-principles.mdc` (with `globs: src/**/*.{vue,tsx,jsx,svelte}`)
 - Hooks: `.cursor/hooks.json` triggers `verify-with-playwright` on edits to `src/**/*.{vue,tsx}` (optional).
 
 ### Copilot (`.github/`)
 
-- Commands → `.github/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.prompt.md`
+- Commands → `.github/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,design-review}.prompt.md`
 - Skill → `.github/skills/design-iterate/SKILL.md`
 - Rule → `.github/instructions/ui-principles.instructions.md`
 - Visual baseline / HTML report: requires GitHub Actions with Playwright runner; or local fallback if user's local machine has Playwright MCP.
 
 ### Continue (`.continue/`)
 
-- Commands → `.continue/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md` (Continue treats commands as prompts)
+- Commands → `.continue/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,design-review}.md` (Continue treats commands as prompts)
 - Skill → `.continue/prompts/design-iterate.md` (prompt-style)
 - Rule → `.continue/rules/ui-principles.md`
 - Visual baseline: documented as manual step (Continue has no native MCP integration).
 
 ### Cline (`.clinerules/`)
 
-- Commands → `.clinerules/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md`
+- Commands → `.clinerules/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,design-review}.md`
 - Skill content → inlined into the rule (Cline doesn't have native skills).
 - Rule → `.clinerules/ui-principles.md`
 - Visual baseline: rule documents manual screenshot procedure.
 
 ### Windsurf (`.windsurf/`)
 
-- Commands → `.windsurf/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md`
+- Commands → `.windsurf/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,design-review}.md`
 - Same rule-only fallback as Cline for skills + visual baseline.
 
 ### Aider (`CONVENTIONS.md`)
 
 - Rule → appended to `CONVENTIONS.md § UI/UX`
-- Commands → documented as manual procedures in the rule (Aider has no command surface).
+- Commands → documented as manual procedures in the rule (Aider has no command surface). Each opens with an **EXECUTE-NOW** second-person preamble (Aider loads prose as reference otherwise).
+- `/redesign` → manual procedure with the **approval gate made explicit**: "diagnose the page against the 11-lens rubric → design → self-critique → present the structured proposal → **STOP and await the user's approval before editing any file** → build → render/verify → scorecard." The gate is the load-bearing step; a rule-only tool MUST halt there, not auto-build.
 - `design-iterate` skill content → inlined as a manual procedure ("describe the page; iterate by hand on style; capture before/after manually").
 - Visual baseline: rule documents manual screenshot procedure (e.g., "use browser DevTools → Capture full-size screenshot; save to `ai/ui-sweep/baseline/<iso>/`").
 - HTML report: substituted with a markdown summary of metrics and findings.
@@ -122,16 +125,18 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 ### Codex (`AGENTS.md`)
 
 - Rule → `AGENTS.md § UI/UX` section.
-- Same rule-only fallback as Aider.
+- Same rule-only fallback as Aider — including `/redesign`'s explicit approval-gate halt before any edit.
 
-### Gemini CLI (`GEMINI.md`)
+### Gemini CLI (`GEMINI.md` + `.gemini/`)
 
 - Rule → `GEMINI.md § UI/UX` section.
-- Same rule-only fallback as Aider.
+- Commands → `.gemini/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,design-review}.toml` (Gemini custom commands are **TOML-only**; the workflow body goes in `prompt = """..."""`).
+- `/redesign`'s `prompt` MUST keep the **approval gate** as an explicit checkpoint ("present the structured proposal, then STOP and await approval before editing") and carry the 11-lens rubric + diagnose / self-critique / scorecard method — not a flattened "restyle the page" prompt.
+- Visual baseline / HTML report: rule documents the manual procedure (no Playwright MCP).
 
 ### Qwen Code (`QWEN.md` + `.qwen/`)
 
-- Commands → `.qwen/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}.md` (Markdown + YAML frontmatter).
+- Commands → `.qwen/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,design-review}.md` (Markdown + YAML frontmatter).
 - Skill → `.qwen/skills/design-iterate/SKILL.md`.
 - Rule → `QWEN.md § UI/UX` section + cross-reference in `AGENTS.md`.
 - Hooks: `.qwen/settings.json` `hooks.PostToolUse` may trigger `verify-with-playwright` on edits to UI source globs (optional).
@@ -164,6 +169,12 @@ When an adapter ships the UI-UX pack:
    - The Playwright + axe-core dependency declaration.
    - Auth-setup-once + reuse-storageState pattern.
    Flattening to "just `/ui-sweep` with `--auto-fix`" is forbidden.
+7. **MUST translate `/redesign` with its gate and method intact.** `/redesign` is a from-scratch specialist, NOT a restyle and NOT `/enhance-ui`. Adapters MUST preserve:
+   - The **mandatory approval gate** — no file is edited until the user approves the proposal. On tools with a native pause (Claude Code, Cursor, OpenCode) this is a real halt; on rule-only tools (Aider / Codex / Gemini) it is an explicit "STOP and await approval" step in the procedure. An adapter that auto-builds without the gate is a failed translation.
+   - The **11-lens Design-principles rubric** and the **diagnose → design → self-critique → structured proposal → score** method. The Phase-6 **scorecard must beat the Phase-4 diagnosis**; "looks nicer" is not a passing bar.
+   - The specialist composition (`design-system-architect` + `ux-reviewer` + `ui-design-sweep` closure verbs + optional `design-iterate`), or the rule-inlined equivalent on tools without agent/skill dispatch.
+   - **Rendered, not asserted** verification — print `SKIPPED` rather than faking `RTL ✓ / a11y ✓` when no Playwright/visual harness is wired.
+   Flattening `/redesign` to "`/enhance-ui` without the gate" or "a restyle pass" is forbidden.
 
 ## Rule-only tool fallback (Aider / Codex / Gemini)
 
@@ -198,6 +209,7 @@ The rule's "Tool-agnostic procedure" section walks through this for rule-only to
 - `_migration-pack-coverage.md` — sibling for V1↔V2 ports.
 - `templates/packs/ui-ux/_essentials.md` — the pack's command + skill list.
 - `templates/packs/ui-ux/commands/ui-sweep.md` — the canonical specialist command spec.
+- `templates/packs/ui-ux/commands/redesign.md` — the from-scratch redesign command spec (gate + 11-lens rubric + diagnose/scorecard method) (v1.3+).
 - `templates/packs/ui-ux/commands/ui-crawl.md` — the cross-route Playwright crawler spec (v1.2+).
 - `templates/packs/ui-ux/commands/ui-crawl-fix.md` — the wrapper-level auto-fixer spec (v1.2+).
 - `templates/packs/align/rules/align-discipline.md` — closure-verb vocabulary `/ui-crawl-fix` operates on.

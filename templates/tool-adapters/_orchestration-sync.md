@@ -47,7 +47,7 @@ When a codebase needs the complete pass — diagnose, fix foundations, snap drif
 
 Rationale for the order: `--assess` triages before any edit; `/optimize` fixes foundations first (so `/align` and `/polish` operate on a settled structure); `/align` removes mechanical drift before `/polish` adds new finish (so polish doesn't decorate code that's about to be snapped); `/learn-from-task` runs last to promote what was learned.
 
-**Each sweep's `Next:` block should chain to `/learn-from-task`** — every one of `/audit`, `/optimize`, `/align`, `/polish`, `/migrate` ends its run summary by offering `/learn-from-task` as a follow-up so the learnings from the sweep are not lost. (`/audit`'s execution examples already carry this in `commands/audit.md`.)
+**Each sweep's `Next:` block should chain to `/learn-from-task`** — every one of `/audit`, `/optimize`, `/align`, `/polish`, `/migrate`, `/unify-surfaces` ends its run summary by offering `/learn-from-task` as a follow-up so the learnings from the sweep are not lost. (`/audit`'s execution examples already carry this in `commands/audit.md`.)
 
 ## Discipline enforcement (`AGENTS.md` inject)
 

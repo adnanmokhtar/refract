@@ -77,7 +77,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-idioms.md § Wrappers (shared component library) + _extracted-codebase.md § Stack (design-token source + i18n/RTL setup) + _extracted-business.md (personas — affects UX direction)
-  sections: [premise, comparison_table, when_to_use, when_not_to_use, prerequisites, args, agent_job, phases, approval_gate, output, hard_rules, failure_modes, cross_references, stack_scope]
+  sections: [premise, comparison_table, when_to_use, when_not_to_use, prerequisites, args, agent_job, design_principles_rubric, phases, diagnose_design_critique, approval_gate, design_quality_scorecard, output, hard_rules, failure_modes, cross_references, stack_scope]
   fallback: commands/redesign.md
   cite_evidence: strict
 
