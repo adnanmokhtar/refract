@@ -6,6 +6,15 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Plan schema: add `## Goal` (required) + `## Approach` (optional) — implementation-plan best practice
+
+**Why** — our `--plan` output was a strong *execution* spec (Context / Inputs / Outputs / Steps / Constraints / Verification / Status) but jumped straight into background — it never stated the **objective**, the **acceptance criterion** (the observable "done", distinct from the mechanical Verification commands), or the **out-of-scope**. That's the single most important part of an implementation plan, and it matches our own `think-simplify-surgical` rule ("transform imperative requests into verifiable goals"). It also had no slot for the **design rationale** (why this approach).
+
+- **`## Goal`** (now a **required** section, top of the plan) — Objective (the why) + a single Acceptance criterion (observable success) + Out-of-scope / non-goals. The required-section count goes 7 → **8** (Goal, Context, Inputs, Outputs, Steps, Constraints, Verification, Status).
+- **`## Approach`** (optional) — chosen design + why + alternatives considered + key risk (omit when the Steps are self-evident).
+- **Wired through the whole loop, consistently:** the generator (`canonical-command-template.md` Phase 3.5), the contract (`.claude/plans/README.md`), and **both validators** — `execute-plan` reads the acceptance criterion as the bar (green commands aren't "done" if the criterion isn't observably true) + uses out-of-scope to reject creep; `verify-plan` ranks a plan whose Outputs landed but acceptance criterion is unmet as **DRIFTED**, not FULFILLED.
+- Repo-baseline change — existing projects pick it up on their next `--refresh`.
+
 ### execute-plan — close 4 robustness gaps (read-before-write, resume, partial-failure, known-unknowns)
 
 **Why** — a deep review of the repo-baseline `/execute-plan` against the baseline rules and multi-Output reality found the command strong but missing four guarantees a plan executor needs.

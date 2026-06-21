@@ -103,12 +103,23 @@ When `--plan` is NOT set: skip this phase entirely; proceed to Phase 4.
 > Plan ID: <project-slug>-<4-char-hash>  (cite when reporting back via /verify-plan)
 > Mode: handoff to <tool — defaults to "any tool"; user can specify with `--target=opencode|cursor|aider|...`>
 
+## Goal (what done looks like — the objective, not the steps)
+- **Objective**: <the problem this solves + the outcome the user wants, in 1-2 lines. WHY, not how.>
+- **Acceptance criterion**: <the ONE observable check that proves the whole plan succeeded — a user-visible behaviour, a named passing test, a measured number. Distinct from `## Verification` (those are the mechanical commands); this is "are we actually done".>
+- **Out of scope** (non-goals): <what this plan deliberately does NOT do, so the executor doesn't expand the work. "None" is a valid answer.>
+
 ## Context (everything the implementing tool needs)
 - Module: <target-module> (from ai/modules.md)
 - Architecture layer: <layer> (from ai/architecture.md)
 - Conventions: see ai/_convention-cheatsheet.md
 - Cross-cutting rules: <list of relevant .claude/rules/*.md>
 - Failure-catalog warnings: <relevant ai/failures/<NNNN> entries, if any>
+
+## Approach (optional — the design + why this shape; omit only when the Steps are self-evident)
+- **Chosen design**: <the pattern / structure being used, in 1-3 lines>.
+- **Why**: <rationale — why it fits this codebase + the Constraints>.
+- **Alternatives considered**: <1-2 other approaches + why rejected> (drop this line for trivial plans).
+- **Key risk**: <the most likely way this goes wrong + how the plan guards against it; rollback path is the per-Output commit range — see /execute-plan>.
 
 ## Inputs (files to read BEFORE implementing)
 - <path/to/file:LINE-LINE> — <why; what to look for>

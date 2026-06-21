@@ -38,7 +38,9 @@ Every plan must have these sections:
 
 | Section | Purpose |
 |---|---|
+| `## Goal` | Objective (the WHY) + the single acceptance criterion (observable "done") + out-of-scope / non-goals |
 | `## Context` | Module, layer, conventions, cross-cutting rules, failure-catalog warnings |
+| `## Approach` **(optional)** | Chosen design + why + alternatives considered + key risk (omit when the Steps are self-evident) |
 | `## Inputs` | Files the implementing tool reads BEFORE doing anything |
 | `## Outputs` | Files to CREATE / MODIFY / DELETE — the spec |
 | `## Steps` | Ordered execution recipe |
@@ -47,7 +49,7 @@ Every plan must have these sections:
 | `## Known unknowns` **(optional)** | Decisions deferred to implementation time |
 | `## Status` | Checkboxes the implementing tool ticks off |
 
-`/verify-plan` validates this structure; a missing **required** header = malformed plan. The seven required sections are Context, Inputs, Outputs, Steps, Constraints, Verification, Status. `## Known unknowns` is optional: a plan with it is valid; a plan without it is valid.
+`/verify-plan` validates this structure; a missing **required** header = malformed plan. The eight required sections are **Goal**, Context, Inputs, Outputs, Steps, Constraints, Verification, Status. `## Approach` and `## Known unknowns` are optional: a plan with them is valid; a plan without them is valid. (`## Goal` is what makes the plan an *implementation* plan and not just a diff recipe — it states what success is, separate from the mechanical `## Verification` commands.)
 
 ## Lifecycle
 
