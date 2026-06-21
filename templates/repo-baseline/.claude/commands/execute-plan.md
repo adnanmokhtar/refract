@@ -34,7 +34,10 @@ This is the executor side of the contract written in `.claude/plans/README.md` a
 /execute-plan --plan-id phc-7f4a        # locate by Plan ID embedded in any plan file
 /execute-plan <file> --dry-run          # print the execution DAG + intended file ops, change nothing
 /execute-plan <file> --no-verify        # skip the trailing /verify-plan (not recommended)
+/execute-plan <file> --allow-dirty      # proceed even if the tree has uncommitted changes on Output paths
 ```
+
+Re-running `/execute-plan` on a plan with already-`[x]` Outputs **resumes** — it skips the completed Outputs and continues from the first incomplete one (Phase 2 resume check).
 
 ## Phase 1 — Understand (parse + validate the plan)
 
@@ -50,6 +53,8 @@ This is the executor side of the contract written in `.claude/plans/README.md` a
 
 ## Phase 2 — Organize (staleness + safety gate, build the DAG)
 
+- **Clean-tree precondition.** If the working tree has uncommitted changes that touch any `## Output` path, halt — per-Output commits would bundle unrelated work. Ask the user to stash/commit first (or pass `--allow-dirty` to accept the mix, owning the bundling).
+- **Resume check (idempotent re-run).** If the plan's `## Status` already has `[x]` Outputs (a prior partial run), treat this as a **resume**: re-confirm each completed Output still exists + still satisfies its Constraints, skip it, and continue from the first incomplete Output. Never redo a committed Output.
 - **Staleness check** (the top failure mode — executing a plan written against a codebase that has since moved):
   - `git log` each `## Output` path since the plan timestamp. If any was touched after the plan was written → ⚠ surface the commits and **ask**: proceed / re-plan (`<command> --plan`) / abort. Under `--dry-run`, just report.
 - **Build the execution DAG** from `## Steps` order + Output dependencies (create-before-modify, helper-before-consumer, remove-callers-before-remove-target). Independent Output groups become parallel Sonnet sub-agents in Phase 4.
@@ -58,6 +63,7 @@ This is the executor side of the contract written in `.claude/plans/README.md` a
 ## Phase 3 — Retrieve (load exactly what the plan names)
 
 - Read every file in `## Inputs` BEFORE any edit — the plan lists them precisely so the executor doesn't guess.
+- **Read each MODIFY / DELETE Output file before editing it**, even when the plan did not list it under `## Inputs` — the `read-before-write` rule applies to the executor too. You cannot apply a surgical MODIFY to a file you haven't read; a DELETE needs its current callers checked first.
 - Read `templates/governance/core-discipline.md` (SOLID + clean-code) before generating code — the same gate every executor in this system honours.
 - Read any project `ai/conventions.md` / `ai/architecture.md` the plan's `## Context` cites.
 
@@ -66,6 +72,7 @@ This is the executor side of the contract written in `.claude/plans/README.md` a
 - Execute `## Steps` in DAG order. For each `## Output`, apply the CREATE / MODIFY / DELETE exactly as specified — no extra files, no extra behaviour.
 - **Parallel executors**: dispatch independent Output groups as concurrent sub-agents (`model: sonnet`, one message). Each sub-agent receives: the plan's `## Context`, only the `## Inputs` it needs, its assigned `## Output(s)` + the `## Steps` slice that produces them, and the **full `## Constraints` list**. It returns the edits it applied with `<file:line>` citations.
 - **Constraints are hard.** If a Step, as written, would breach a Constraint → **halt**: the plan is internally inconsistent. Report which Step and which Constraint collide; the user re-plans or writes an ADR override. Never silently resolve it.
+- **`## Known unknowns` resolution.** For each deferred decision the plan left open: if the plan states the criterion to decide it, resolve it that way and **log the choice + rationale** in the Phase 5 `## Execute run`. If it's a genuine judgment call with no stated criterion, **stop and ask** (per `think-simplify-surgical` — don't pick silently). Never invent a resolution and bury it in the code.
 - One commit per logical Output (or per coherent Step group); commit message cites the **Plan ID**.
 
 ## Phase 5 — Update (the plan's Status + project ledger)
@@ -77,6 +84,7 @@ This is the executor side of the contract written in `.claude/plans/README.md` a
 ## Phase 6 — Validate (Verification, then auto-/verify-plan)
 
 - Run every command in `## Verification` (Bash). Any failure → surface stderr, mark the run **FAILED**, stop. Do NOT report success on a red verification.
+- **On any mid-run halt (here, a Constraint collision in Phase 4, or a stale-plan abort), report the partial state, never leave it silent:** which Outputs were committed (with shas), which are incomplete, and the exact revert path — `git revert`/`reset` over the Plan-ID commit range. Tick only the truly-complete Outputs in `## Status` so a later `/execute-plan` resumes cleanly (Phase 2 resume check) rather than redoing them.
 - Then auto-invoke **`/verify-plan <file>`** for the independent drift audit (Outputs / Constraints / Verification / staleness) and surface its verdict. Skip only with `--no-verify`.
 - The two are complementary: this command *did* the work and self-checks Verification; `/verify-plan` *independently* confirms the filesystem matches the contract and catches scope creep.
 
@@ -109,6 +117,8 @@ Verdict: EXECUTED + VERIFIED | EXECUTED + DRIFT | HALTED (<reason>)
 - **A Step violates a Constraint** → halt and report the collision; never silently route around a Constraint the plan committed to.
 - **Scope creep (files outside `## Outputs`)** → forbidden; the trailing `/verify-plan` flags it as a violation anyway.
 - **Verification needs interactive input** (DB password, prompt) → flag ⚠, ask the user to run it and report, rather than marking it green.
+- **Halt mid-run leaves the repo partially changed** → committed Outputs stay; report them + the Plan-ID revert range and tick only completed Outputs in `## Status`, so the next `/execute-plan` resumes instead of duplicating work. Don't silently leave a half-applied plan with a clean-looking summary.
+- **Editing a MODIFY Output without reading it first** → violates `read-before-write`; you can't apply a surgical change to an unread file. Read every Output you touch, even ones absent from `## Inputs`.
 
 ## Related
 

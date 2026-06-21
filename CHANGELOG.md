@@ -6,6 +6,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### execute-plan — close 4 robustness gaps (read-before-write, resume, partial-failure, known-unknowns)
+
+**Why** — a deep review of the repo-baseline `/execute-plan` against the baseline rules and multi-Output reality found the command strong but missing four guarantees a plan executor needs.
+
+- **Read-before-write for Outputs** — Phase 3 now reads each MODIFY/DELETE Output *before* editing it, even when it's not in `## Inputs`. Honors `read-before-write.md` (you can't surgically modify an unread file; a DELETE needs its callers checked).
+- **Resume / idempotent re-run** — Phase 2 detects already-`[x]` Outputs and resumes from the first incomplete one instead of redoing committed work.
+- **Partial-failure recovery state** — on any mid-run halt (Constraint collision, red verification, stale abort), it now reports which Outputs committed + the Plan-ID revert range, and ticks only completed Outputs in `## Status` so a re-run resumes cleanly — instead of silently leaving a half-applied plan.
+- **`## Known unknowns` execution policy** — the executor now resolves a deferred decision per the plan's stated criterion (logging the choice) or **stops and asks** when it's a genuine judgment call — never invents a resolution and buries it.
+- Plus a **clean-tree precondition** + `--allow-dirty` escape hatch (per-Output commits shouldn't bundle unrelated dirty work). All additive (+10 lines); the command's voice/structure preserved.
+
 ### Fix: anchor structural citations now skip-listed (no more bare-citation false leaks)
 
 **Why** — `apply-anchors.sh`'s round-one floor emitted its 5 structural citations as **bare** `codebase-profile.md:NN`. The anchoring leak scan (`audit-anchoring.sh`) skip-lists `.claude/*` tokens, but a bare `codebase-profile.md:NN` doesn't match that pattern, so each one is scanned and — finding no literal match in source — flagged as a cross-project leak. With 5 per anchored file across ~150 files that's hundreds of false leaks (observed: 852 on sahlcart-website, 966 on media-streaming), then hand-normalized per-repo (non-durable — the next `apply-anchors --apply` re-introduced the bare form).
