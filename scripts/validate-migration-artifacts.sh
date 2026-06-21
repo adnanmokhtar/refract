@@ -142,21 +142,26 @@ log_section() {
 }
 
 # ── Parse the ledger to discover features in scope ──────────────────────────
-# Ledger format (per migration-ledger.md): yaml-fenced blocks under `## <feature-name>` headers,
-# each with `id: F<NNN>`, `feature: <slug>`, `phase: <N>`, `status: <state>` etc.
+# Ledger format (per migration-ledger.md): indented YAML-list rows, each row a
+# `- id: F<NNN>` item with indented `feature: <slug>`, `phase: <N>`, `status: <state>` etc.
 #
 # Feature output format (one per line): "<id>|<feature-slug>|<phase>|<status>|<parity_test>"
 discover_features() {
-  # Parse ledger respecting yaml-block boundaries. A row starts at `id: FNNN[a-z]?`,
-  # ends at the closing ``` fence (or the next id: line). Only accept field-setters
-  # while in_block=1 — prevents cross-block leakage where superseded blocks contribute
-  # `feature:` lines to a previous block.
+  # Parse ledger respecting yaml-row boundaries. A row starts at an (optionally `- `-prefixed,
+  # optionally indented) `id: FNNN[a-z]?` line, ends at the closing ``` fence (or the next id:
+  # line). Only accept field-setters while in_block=1 — prevents cross-block leakage where
+  # superseded blocks contribute `feature:` lines to a previous block. Field values are taken
+  # from $2 (indented `key: value` → $1=key:, $2=value); the id is sub()-stripped so a leading
+  # "- " and any indentation are ignored.
   awk '
-    /^id: F[0-9]+[a-z]?$/ {
+    /^[[:space:]]*(- )?id: F[0-9]+[a-z]?[[:space:]]*$/ {
       if (id != "") {
         print id "|" feature "|" phase "|" status "|" parity_test "|" tier
       }
-      id = $2; feature=""; phase=""; status=""; parity_test=""; tier=""
+      id = $0
+      sub(/^[[:space:]]*(- )?id:[[:space:]]*/, "", id)
+      sub(/[[:space:]]+$/, "", id)
+      feature=""; phase=""; status=""; parity_test=""; tier=""
       in_block = 1
       next
     }
@@ -170,12 +175,12 @@ discover_features() {
       }
       next
     }
-    in_block && /^feature: / { feature=$2; next }
-    in_block && /^phase: /   { phase=$2;   next }
-    in_block && /^status: /  { status=$2;  next }
-    in_block && /^state: /   { if (status == "") status=$2; next }
-    in_block && /^tier: /    { tier=$2;    next }
-    in_block && /^parity_test: / { parity_test=$2; next }
+    in_block && /^[[:space:]]*feature: / { feature=$2; next }
+    in_block && /^[[:space:]]*phase: /   { phase=$2;   next }
+    in_block && /^[[:space:]]*status: /  { status=$2;  next }
+    in_block && /^[[:space:]]*state: /   { if (status == "") status=$2; next }
+    in_block && /^[[:space:]]*tier: /    { tier=$2;    next }
+    in_block && /^[[:space:]]*parity_test: / { parity_test=$2; next }
     END {
       if (id != "") {
         print id "|" feature "|" phase "|" status "|" parity_test "|" tier
@@ -215,9 +220,9 @@ resolve_artifact_path() {
   if [[ -n "$id" ]]; then
     local parent
     parent=$(awk -v id="$id" '
-      $0 ~ ("^id: " id "$") { in_block=1; next }
-      in_block && /^parent:[[:space:]]/ { sub(/^parent:[[:space:]]*/, "", $0); print $0; exit }
-      in_block && /^id:|^```/ { exit }
+      $0 ~ ("^[[:space:]]*(- )?id: " id "$") { in_block=1; next }
+      in_block && /^[[:space:]]*parent:[[:space:]]/ { sub(/^[[:space:]]*parent:[[:space:]]*/, "", $0); print $0; exit }
+      in_block && /^[[:space:]]*(- )?id:|^```/ { exit }
     ' "$LEDGER_PATH" 2>/dev/null | tr -d ' \r')
     if [[ -n "$parent" ]]; then
       # Try parent's <id>-*.md (any feature slug under the parent id)
@@ -562,12 +567,12 @@ check_parity_run_v1_commit() {
   local feature="$1"; local id="${2:-}"
   local ledger_block
   ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
+    $0 ~ ("^[[:space:]]*(- )?id: " id "$") { in_block=1 }
     in_block { print }
     in_block && /^```/ { exit }
   ' "$LEDGER_PATH" 2>/dev/null)
   local pinned latest_run_commit
-  pinned=$(echo "$ledger_block" | grep -m1 '^v1_commit_pinned:' | sed 's/^v1_commit_pinned:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
+  pinned=$(echo "$ledger_block" | grep -m1 -E '^[[:space:]]*v1_commit_pinned:' | sed 's/.*v1_commit_pinned:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
   latest_run_commit=$(echo "$ledger_block" | grep -m1 '    v1_commit:' | sed 's/.*v1_commit:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
   [[ -z "$pinned" ]] || [[ "$pinned" == "null" ]] && return 0
   [[ -z "$latest_run_commit" ]] && return 0
@@ -626,11 +631,11 @@ check_parity_run_report() {
   # Pull the ledger row block + the pinned commit.
   local ledger_block pinned
   ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
+    $0 ~ ("^[[:space:]]*(- )?id: " id "$") { in_block=1 }
     in_block { print }
     in_block && /^```/ { exit }
   ' "$LEDGER_PATH" 2>/dev/null)
-  pinned=$(echo "$ledger_block" | grep -m1 '^v1_commit_pinned:' | sed 's/^v1_commit_pinned:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
+  pinned=$(echo "$ledger_block" | grep -m1 -E '^[[:space:]]*v1_commit_pinned:' | sed 's/.*v1_commit_pinned:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
   if [[ -z "$pinned" || "$pinned" == "null" ]]; then
     log_fail "parity-run report unverifiable for $feature: status=$status claims parity_test=passing but ledger has no v1_commit_pinned to check the recorded run against. Pin V1 first. See migration-discipline.md § halt #3 / D4."
     return 1
@@ -3281,8 +3286,11 @@ main() {
 
   # Pre-check: detect duplicate IDs in the ledger (data-integrity issue).
   # Two rows with the same `id:` cause the validator + reports to skip-or-overwrite each other.
+  # Match the canonical INDENTED YAML-list row marker (optional leading whitespace + "- "),
+  # then strip the prefix so only the F-id is compared.
   local dupe_ids
-  dupe_ids=$(grep -oE '^id: F[0-9]+[a-z]?$' "$LEDGER_PATH" 2>/dev/null | sort | uniq -d)
+  dupe_ids=$(grep -oE '^[[:space:]]*(- )?id: F[0-9]+[a-z]?$' "$LEDGER_PATH" 2>/dev/null \
+    | sed -E 's/^[[:space:]]*(- )?id: //' | sort | uniq -d)
   if [[ -n "$dupe_ids" ]]; then
     echo "FATAL: duplicate ledger IDs detected (data-integrity issue):" >&2
     echo "$dupe_ids" | sed 's/^/  /' >&2

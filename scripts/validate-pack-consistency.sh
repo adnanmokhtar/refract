@@ -104,6 +104,67 @@ for d in templates/packs/*/; do
         || warn_msg "$p: $sub/$n.md has no '- name: $n' entry in _topics.md"
     done
   done
+
+  # 6. version-in-changelog (WARN — #SYNC-05). When _version.json carries a
+  #    `changelog` block, the current top-level `version` SHOULD have a matching
+  #    changelog entry. Packs with NO changelog block use a different convention
+  #    (a single `summary:`) — skip them silently. WARN-only for now; a later wave
+  #    backfills existing drift (a hard FAIL here would red the build immediately).
+  if command -v python3 >/dev/null 2>&1; then
+    chg_status=$(python3 -c "
+import json,sys
+try: d=json.load(open('$d/_version.json'))
+except Exception: print('skip'); sys.exit(0)
+cl=d.get('changelog')
+if not isinstance(cl,dict): print('skip'); sys.exit(0)
+v=d.get('version')
+print('ok' if v in cl else ('drift:'+str(v)))
+" 2>/dev/null)
+    case "$chg_status" in
+      drift:*) warn_msg "$p: _version.json version '${chg_status#drift:}' has no matching changelog entry — add a changelog block for the current version" ;;
+      ok)      ok "$p: _version.json version present in changelog" ;;
+      *)       : ;;  # skip / no changelog convention
+    esac
+  fi
+
+  # 7. rule_references resolve (WARN — #SYNC-05). _essentials.md may carry a
+  #    `rule_references: [name, ...]` array; each name ships as references/<name>.md
+  #    alongside the rule (on-demand load). Warn on any that does not resolve.
+  rr_line=$(grep -E "^[[:space:]]*rule_references:" "$d/_essentials.md" 2>/dev/null | head -1)
+  if [[ -n "$rr_line" ]]; then
+    rr_names=$(echo "$rr_line" | sed -E 's/^[[:space:]]*rule_references:[[:space:]]*\[?//; s/\].*//; s/#.*//; s/,/ /g')
+    for rn in $rr_names; do
+      rn=$(echo "$rn" | tr -d ' "'"'"'')
+      [[ -z "$rn" ]] && continue
+      [[ -f "$d/references/$rn.md" ]] \
+        || warn_msg "$p: _essentials rule_references '$rn' has no references/$rn.md"
+    done
+  fi
+
+  # 8. source-vs-examples drift (WARN — #SYNC-05). Each _examples/<name>.md is an
+  #    abridged snapshot of a same-named source artifact in the pack (NOT a literal
+  #    mirror — see project_examples_are_abridged note), so we do NOT diff content.
+  #    We only flag an ORPHANED example: one whose source artifact no longer exists
+  #    anywhere in the pack (renamed / removed). When a `generated-from:` header is
+  #    present, resolve that exact path instead (more precise provenance).
+  if [[ -d "${d}_examples" ]]; then
+    for ex in "${d}_examples"/*.md; do
+      [[ -f "$ex" ]] || continue
+      gen=$(grep -m1 -oE 'generated-from:[[:space:]]*[A-Za-z0-9._/-]+' "$ex" 2>/dev/null | sed 's/generated-from:[[:space:]]*//')
+      if [[ -n "$gen" ]]; then
+        [[ -f "$gen" || -f "$REPO_ROOT/$gen" ]] \
+          || warn_msg "$p: _examples/$(basename "$ex") generated-from source missing: $gen"
+        continue
+      fi
+      exn=$(basename "$ex" .md)
+      ex_found=0
+      for sub in commands agents skills rules ai-patterns references; do
+        if [[ -f "$d$sub/$exn.md" || -f "$d$sub/$exn/SKILL.md" ]]; then ex_found=1; break; fi
+      done
+      [[ $ex_found -eq 1 ]] \
+        || warn_msg "$p: _examples/$exn.md has no matching source artifact in the pack (orphaned example — source renamed/removed?)"
+    done
+  fi
 done
 
 echo ""

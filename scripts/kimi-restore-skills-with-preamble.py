@@ -54,7 +54,7 @@ def inject_preamble(content, name):
                 # Add a blank line after frontmatter close if not already there
                 if not after.startswith("\n"):
                     return before + "\n" + preamble + after
-                return before + preamble + after.lstrip("\n").lstrip()
+                return before + preamble + after.lstrip("\n")
 
         # Frontmatter never closed — treat whole thing as no-frontmatter
         return preamble + content

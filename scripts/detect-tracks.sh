@@ -45,7 +45,9 @@ done
 
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
-trace() { [[ $QUIET -eq 0 ]] && echo "  • $*" >&2; }
+# NOTE: returns 0 even when quiet — a bare `[[…]] && echo` would yield exit 1
+# under `set -e` when QUIET=1 and abort the whole run on the first trace call.
+trace() { [[ $QUIET -eq 0 ]] && echo "  • $*" >&2; return 0; }
 add()   { TRACKS+=("$1"); }
 
 declare -a TRACKS
@@ -61,9 +63,17 @@ add testing
 # ---------- Read package.json once if it exists ----------
 PKG="$TARGET/package.json"
 PKG_DEPS=""
-if [[ -f "$PKG" ]]; then
-  # All declared deps + devDeps as a single space-joined string for grep
-  PKG_DEPS=$(awk '
+# All declared deps + devDeps + peerDeps as a single space-joined string for grep.
+# jq-first: the awk parser below silently returns ZERO keys on minified/compact
+# JSON (no per-line braces to anchor on). Fall back to awk only when jq is
+# missing OR jq yields nothing (e.g. malformed JSON jq couldn't parse).
+parse_pkg_deps() {
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '[(.dependencies//{}|keys[]),(.devDependencies//{}|keys[]),(.peerDependencies//{}|keys[])] | .[]' "$1" 2>/dev/null
+  fi
+}
+parse_pkg_deps_awk() {
+  awk '
     /"(dependencies|devDependencies|peerDependencies)"[[:space:]]*:/ { in_block=1; next }
     in_block && /^[[:space:]]*}/ { in_block=0; next }
     in_block && /"[^"]+"[[:space:]]*:/ {
@@ -71,7 +81,13 @@ if [[ -f "$PKG" ]]; then
       sub(/"[[:space:]]*:.*$/, "")
       print
     }
-  ' "$PKG" 2>/dev/null | tr '\n' ' ')
+  ' "$1" 2>/dev/null
+}
+if [[ -f "$PKG" ]]; then
+  PKG_DEPS=$(parse_pkg_deps "$PKG" | tr '\n' ' ')
+  if [[ -z "${PKG_DEPS// /}" ]]; then
+    PKG_DEPS=$(parse_pkg_deps_awk "$PKG" | tr '\n' ' ')
+  fi
 fi
 
 has_dep() {
@@ -122,7 +138,16 @@ if has_dep express || has_dep fastify || has_dep koa || has_dep '@nestjs/core' \
   add backend
 fi
 # Python backend
-if [[ -f "$TARGET/manage.py" ]] || [[ -f "$TARGET/requirements.txt" ]] && grep -qE '^(django|fastapi|flask|tornado|starlette)' "$TARGET/requirements.txt" 2>/dev/null; then
+# Precedence: `A || B && C` binds as `A || (B && C)` — the old form let the
+# grep gate the requirements.txt branch only. Group the requirement-file checks
+# explicitly. grep is case-insensitive (-i) and NOT line-anchored, so pinned/
+# extras specs like "Django==4.2" or "fastapi[all]" still match. Cover
+# requirements.txt, pyproject.toml, and Pipfile as dependency sources.
+PY_BACKEND_RE='(django|fastapi|flask|tornado|starlette)'
+if [[ -f "$TARGET/manage.py" ]] \
+   || { [[ -f "$TARGET/requirements.txt" ]] && grep -qiE "$PY_BACKEND_RE" "$TARGET/requirements.txt" 2>/dev/null; } \
+   || { [[ -f "$TARGET/pyproject.toml" ]] && grep -qiE "$PY_BACKEND_RE" "$TARGET/pyproject.toml" 2>/dev/null; } \
+   || { [[ -f "$TARGET/Pipfile" ]] && grep -qiE "$PY_BACKEND_RE" "$TARGET/Pipfile" 2>/dev/null; }; then
   BACKEND=1
   trace "python backend → backend"
   add backend
@@ -280,20 +305,37 @@ MGD
 )
 
   if grep -qF "$block_start" "$PROFILE" 2>/dev/null; then
-    # Replace existing managed block (use perl for portability — sed -i differs on macOS/GNU).
-    perl -i -pe '
-      BEGIN { local $/; }
-      s|<!-- detect-tracks:start -->.*?<!-- detect-tracks:end -->|'"$(printf '%s' "$managed_block" | perl -pe 's/[\\\@\$]/\\$&/g; s/\n/\\n/g')"'|s
-    ' "$PROFILE" 2>/dev/null || {
-      # Perl substitution can be touchy with shell quoting; fall back to awk in-place.
-      tmp=$(mktemp)
-      awk -v start="$block_start" -v end="$block_end" -v body="$managed_block" '
-        $0 ~ start { print body; in_block=1; next }
-        in_block && $0 ~ end { in_block=0; next }
-        !in_block { print }
-      ' "$PROFILE" > "$tmp" && mv "$tmp" "$PROFILE"
-    }
-    [[ $QUIET -eq 0 ]] && echo "  ✓ updated managed tracks block in $PROFILE" >&2
+    # Replace existing managed block. No perl: `perl -i -pe 'BEGIN{local $/}'`
+    # does NOT slurp (the -p loop still reads line-by-line, so a multi-line
+    # block never refreshes on macOS). Pass the replacement body to awk via a
+    # FILE + getline — NOT `-v body=…`, which errors ("newline in string") on
+    # BSD awk when the value contains embedded newlines.
+    before_md5=$(md5 -q "$PROFILE" 2>/dev/null || md5sum "$PROFILE" 2>/dev/null | awk '{print $1}')
+    body_file=$(mktemp)
+    printf '%s\n' "$managed_block" > "$body_file"
+    tmp=$(mktemp)
+    awk -v start="$block_start" -v end="$block_end" -v bodyfile="$body_file" '
+      $0 ~ start {
+        while ((getline line < bodyfile) > 0) print line
+        close(bodyfile)
+        in_block=1; next
+      }
+      in_block && $0 ~ end { in_block=0; next }
+      !in_block { print }
+    ' "$PROFILE" > "$tmp" && mv "$tmp" "$PROFILE"
+    rm -f "$body_file"
+    # Post-write assertion: the managed block must actually have changed (or at
+    # least be present). A no-op write means the replacement silently failed.
+    after_md5=$(md5 -q "$PROFILE" 2>/dev/null || md5sum "$PROFILE" 2>/dev/null | awk '{print $1}')
+    if ! grep -qF "$block_start" "$PROFILE" 2>/dev/null; then
+      echo "  ✗ ERR: managed tracks block lost after write to $PROFILE" >&2
+      exit 1
+    fi
+    if [[ "$before_md5" == "$after_md5" ]]; then
+      [[ $QUIET -eq 0 ]] && echo "  = managed tracks block already up to date in $PROFILE" >&2
+    else
+      [[ $QUIET -eq 0 ]] && echo "  ✓ updated managed tracks block in $PROFILE" >&2
+    fi
   else
     printf '\n%s\n' "$managed_block" >> "$PROFILE"
     [[ $QUIET -eq 0 ]] && echo "  ✓ appended managed tracks block to $PROFILE" >&2

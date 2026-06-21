@@ -1,5 +1,7 @@
 ---
 description: After an API contract change, find frontend consumers and propose synced edits.
+kind: command
+pack: workspace-baseline
 ---
 
 # /sync-contract

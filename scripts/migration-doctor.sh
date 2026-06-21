@@ -69,8 +69,11 @@ discover_repos() {
       }
     ' "$WORKSPACE/PROJECTS.md" 2>/dev/null | sort -u
   else
-    # Strategy 2: scan immediate subdirectories that look like git repos with ai/migration/
-    find "$WORKSPACE" -maxdepth 2 -name 'ledger.md' -path '*/ai/migration/*' 2>/dev/null \
+    # Strategy 2: scan subdirectories that look like git repos with ai/migration/.
+    # The ledger sits at <repo>/ai/migration/ledger.md — 4 path components below the
+    # workspace root (repo/ai/migration/ledger.md), so -maxdepth must be ≥4 or the
+    # find matches zero repos. (Was 2 → silently found nothing.)
+    find "$WORKSPACE" -maxdepth 4 -name 'ledger.md' -path '*/ai/migration/*' 2>/dev/null \
       | sed -E 's|/ai/migration/ledger.md$||' \
       | sed -E "s|^${WORKSPACE}/||" \
       | sort -u
@@ -93,16 +96,27 @@ validate_repo() {
   fi
 
   local out exitcode
-  # Run validator inside the repo (subshell — never cd in main shell)
-  out=$( (cd "$repo_path" && "$VALIDATOR" --all --quiet 2>&1) || true )
+  # Run validator inside the repo (subshell — never cd in main shell). Capture the REAL
+  # exit status: no `|| true` swallow (that pinned $? to 0 and let a failing validator
+  # report HEALTHY). `set -e` is disabled around the capture so a nonzero exit doesn't
+  # abort the doctor before we can read + act on $?.
+  set +e
+  out=$( cd "$repo_path" && "$VALIDATOR" --all --quiet 2>&1 )
   exitcode=$?
+  set -e
   local features pass fail
   features=$(echo "$out" | grep -E '^[[:space:]]*features checked:' | awk -F: '{print $2}' | tr -d ' ' || echo 0)
   pass=$(echo "$out"     | grep -E '^[[:space:]]*checks passed:'    | awk -F: '{print $2}' | tr -d ' ' || echo 0)
   fail=$(echo "$out"     | grep -E '^[[:space:]]*checks failed:'    | awk -F: '{print $2}' | tr -d ' ' || echo 0)
   features=${features:-0}; pass=${pass:-0}; fail=${fail:-0}
   printf "  %-22s | %8s | %4s | %6s\n" "$repo" "$features" "$pass" "$fail"
-  if [[ ${fail:-0} -gt 0 ]]; then
+  # Fail the repo on a nonzero validator exit OR a parsed failure count > 0. The exit
+  # status is authoritative: env errors (exit 3) and unparseable output still fail here
+  # even when the summary line that feeds $fail is absent.
+  if [[ "$exitcode" -ne 0 ]] || [[ ${fail:-0} -gt 0 ]]; then
+    if [[ "$exitcode" -ne 0 && ${fail:-0} -eq 0 ]]; then
+      echo "    [$repo] validator exited $exitcode (no failure summary parsed — env/usage error?)"
+    fi
     echo "$out" | grep -E '^[[:space:]]*✗|Failures:' | sed "s|^|    [$repo] |" | head -20
     return 1
   fi
@@ -134,7 +148,7 @@ check_cross_repo_deps() {
       fi
       local dep_status
       dep_status=$(awk -v wanted="$dep_feature" '
-        /^id: F[0-9]+[a-z]?$/ {
+        /^[[:space:]]*(- )?id: F[0-9]+[a-z]?[[:space:]]*$/ {
           if (in_block) try_emit()
           feat=""; status=""
           in_block = 1
@@ -146,9 +160,9 @@ check_cross_repo_deps() {
           in_block = 0
           next
         }
-        in_block && /^feature: / { feat = $2; next }
-        in_block && /^status: / { status = $2; next }
-        in_block && /^state: / { if (status == "") status = $2; next }
+        in_block && /^[[:space:]]*feature: / { feat = $2; next }
+        in_block && /^[[:space:]]*status: / { status = $2; next }
+        in_block && /^[[:space:]]*state: / { if (status == "") status = $2; next }
         function try_emit() {
           if (feat == wanted && status != "") { print status; exit }
         }
@@ -160,9 +174,38 @@ check_cross_repo_deps() {
       else
         echo "  ✓ $repo depends on $dep_repo:$dep_feature ($dep_status)"
       fi
-    done < <(grep -E '^dependency:' "$ledger" 2>/dev/null | sed 's/^dependency:[[:space:]]*//' | tr -d '"' | tr -d "'")
+    done < <(grep -E '^[[:space:]]*dependenc(y|ies):' "$ledger" 2>/dev/null | sed -E 's/^[[:space:]]*dependenc(y|ies):[[:space:]]*//' | tr -d '"' | tr -d "'")
   done
   return $violations
+}
+
+# ── Date → epoch (tolerant) ─────────────────────────────────────────────────
+# Parse an ISO-ish audit_date to epoch seconds across BSD (macOS) and GNU (CI) date,
+# accepting: a literal `Z`, a numeric offset (`+02:00` / `-0500`), OR a bare datetime,
+# AND a date-only value (`YYYY-MM-DD`). The old parser hard-coded a trailing-Z format
+# string, so offset/date-only audits parsed to epoch 0 and the stale check was silently
+# skipped on macOS. Echoes epoch seconds, or 0 if genuinely unparseable.
+parse_date_epoch() {
+  local raw="$1" norm
+  norm="$raw"
+  norm="${norm%Z}"                       # drop a trailing Z
+  # drop a trailing numeric offset (+02:00 / -0500) — only when a time part is present,
+  # so the date's own '-' separators are never eaten.
+  case "$norm" in
+    *T*) norm="$(printf '%s' "$norm" | sed -E 's/([+-][0-9]{2}:?[0-9]{2})$//')" ;;
+  esac
+  # BSD: date -j -f <fmt>. Try datetime (with/without seconds) then date-only.
+  if [[ "$norm" == *T* ]]; then
+    case "$norm" in
+      *T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]) date -j -f "%Y-%m-%dT%H:%M:%S" "$norm" +%s 2>/dev/null && return 0 ;;
+      *T[0-9][0-9]:[0-9][0-9])            date -j -f "%Y-%m-%dT%H:%M"    "$norm" +%s 2>/dev/null && return 0 ;;
+    esac
+  else
+    date -j -f "%Y-%m-%d" "$norm" +%s 2>/dev/null && return 0
+  fi
+  # GNU fallback (CI / Linux): date -d handles all of the above (and the raw offset/Z).
+  date -d "$raw" +%s 2>/dev/null && return 0
+  echo 0
 }
 
 # ── Stale audit aggregate ──────────────────────────────────────────────────
@@ -177,7 +220,7 @@ check_stale_audits() {
       audit_date=$(grep -m1 '^audit_date:' "$audit" 2>/dev/null | sed 's/^audit_date:[[:space:]]*//' | tr -d '"' | tr -d "'")
       [[ -z "$audit_date" ]] && continue
       local audit_epoch now_epoch diff_days
-      audit_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "${audit_date%+*}" +%s 2>/dev/null || date -d "$audit_date" +%s 2>/dev/null || echo 0)
+      audit_epoch=$(parse_date_epoch "$audit_date")
       now_epoch=$(date +%s)
       if [[ $audit_epoch -eq 0 ]]; then
         echo "  ⚠ $repo:$(basename "$audit") could not parse audit_date=$audit_date — stale check skipped"

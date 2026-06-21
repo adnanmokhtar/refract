@@ -97,6 +97,22 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   fallback: commands/ui-crawl-fix.md
   cite_evidence: strict
 
+- name: enhance-ui
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md § Wrappers / Tokens (scope-tier detection inputs) + _extracted-codebase.md § Stack (design-token source + i18n/RTL setup)
+  sections: [premise, plan_flag, composes, when_to_use, when_not_to_use, examples, scope_tier_detection, phases, hard_rules, cross_references, stack_scope]
+  fallback: commands/enhance-ui.md
+  cite_evidence: strict
+
+- name: ui-sweep
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice / Breakpoints + _extracted-codebase.md § Stack (route manifest + test runner for screenshots)
+  sections: [premise, what_it_does_that_align_does_not, when_to_use, detectors, metrics_with_targets, phases_by_user_flow, ui_ux_verbs, output_visual_report, hard_rules, cross_references, stack_scope]
+  fallback: commands/ui-sweep.md
+  cite_evidence: strict
+
 - name: design-token-audit
   kind: skill
   triggers: { primary_frontend_framework_detected: true }

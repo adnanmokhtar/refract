@@ -1,12 +1,18 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.7.0",
-  "released": "2026-06-16",
+  "version": "1.7.1",
+  "released": "2026-06-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "cross-repo-task hardening: contract capture (expected_contract) + paste-ready upstream-request artifact at register; reopen subcommand for premature closures; drain verifies the registered contract before flipping a feature done; list --stale. migration-final now reads the registry and forces INCOMPLETE while any cross-repo task is open.",
+  "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API). 1.7.1: migration-ledger.md per-feature record shape rewritten to the canonical single fenced-YAML list — two-space-indented `- id: F<NNN>` rows with fields indented beneath (was per-feature markdown `## <feature>` headings); aligns the documented shape with the parsers (discover_features / migrate-parallel.sh / migration-doctor.sh) that anchor on the indented `- id: FNNN` marker. 1.7.0: cross-repo-task hardening — contract capture (expected_contract) + paste-ready upstream-request artifact at register; reopen subcommand for premature closures; drain verifies the registered contract before flipping a feature done; list --stale. migration-final now reads the registry and forces INCOMPLETE while any cross-repo task is open.",
   "changelog": {
+    "1.7.1": {
+      "released": "2026-06-22",
+      "changes": [
+        "migration-ledger.md § Per-feature record shape: rewritten to the canonical single fenced-YAML list. Each feature is now a two-space-indented `- id: F<NNN>` list item with fields indented one level beneath it (id is the row key; feature: carries the human slug), replacing the prior per-feature markdown `## <feature-name>` heading + separate yaml block. This aligns the documented shape with the actual parsers (discover_features, migrate-parallel.sh, migration-doctor.sh), which anchor on the indented `- id: FNNN` row marker and read each field as an indented `key: value` — the old `##`-heading shape would extract zero rows."
+      ]
+    },
     "1.7.0": {
       "released": "2026-06-16",
       "changes": [
@@ -14,6 +20,15 @@
         "cross-repo-task: register now captures expected_contract (--contract, or derived-and-confirmed) and generates a paste-ready upstream-request artifact at ai/migration/cross-repo-requests/<task-id>.md (the exact contract + which downstream features are blocked + acceptance criteria) — turns 'notify the owner' into a concrete handoff.",
         "cross-repo-task: drain now contract-checks each landed task before retrying the port; a feature reaches done only via a clean drain, never via close alone. Mismatch ⇒ suggest reopen. Added list --stale (open > 30d).",
         "migration-final: now reads cross-repo-tasks.md — any open/in-flight task forces INCOMPLETE and blocks the V1 retirement plan (new pre-req + Phase 2 check + deterministic-verdict condition + hard rule). A feature waiting on an upstream change isn't truly ported."
+      ]
+    },
+    "1.6.0": {
+      "released": "2026-06-07",
+      "changes": [
+        "Split migration-discipline.md (was 79.5k — roughly half silently truncated every session by Claude Code's 40k always-on limit) into an always-on core (<40k) + two on-demand companions under references/ (content relocated VERBATIM, zero rewording): migration-discipline-procedures.md (tier specs, contract template, full halt elaborations, tool-agnostic procedures, operational protocols, enforcement matrix) + migration-discipline-catalogue.md (worked examples, anti-pattern catalogue, per-tool dispatch tables).",
+        "The 'procedures are inlined here' contract is replaced by the rule-bundle contract: core + 2 references = ONE discipline. Every adapter bundle MUST ship all three files together (_migration-pack-coverage.md § Rule-bundle requirement).",
+        "Manifests declare the pair: rule_references: [migration-discipline-procedures, migration-discipline-catalogue] in _essentials.md; reference-pair topic in _topics.md.",
+        "Follow-up trims (07c22ec): core reduced to ~36.2k to leave headroom for a project-specific apply-anchors block so an anchored project copy stays under 40k; companion pointers repointed to the project-consumption path (.claude/references/migration-discipline-procedures.md / -catalogue.md) so every tool resolves them from the repo root (c92a955)."
       ]
     },
     "1.5.2": {

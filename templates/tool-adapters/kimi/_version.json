@@ -14,5 +14,13 @@
     "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html",
     "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/agents.html"
   ],
-  "last_verified": "2026-05-03"
+  "last_verified": "2026-06-22",
+  "last_verified_hashes": {
+    "https://www.kimi.com/code/docs/en/": "d3fecbf72e841dc87d8d211cfe44bbea414f06b3d346120fd6efa6e0bd2a219f",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/configuration-files.html": "244991dde4301a8f7c0c9a3635fc0eae801af08d33028d5f37fb96e801745522",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/data-locations.html": "6646a333f698a6d9a5fee7ade9d987adcb0cbda7b980d8afe99624ced9c0a80a",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html": "7a0cea1410f1860519f480daf434c6cbea2dc1edab6329aacdb18f7a43a31805",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html": "2c03088bb574d81648d0655313ccb05a613f0ab80f04949a03066262abdbab01",
+    "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/agents.html": "61696422b669fee4d944efa6425bf30785fbf4ede5a0a9e8bf98f51935626b0e"
+  }
 }

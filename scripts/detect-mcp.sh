@@ -47,13 +47,24 @@ done
 REPORT="$TARGET/.claude/_mcp-recommendations.md"
 mkdir -p "$(dirname "$REPORT")"
 
-trace() { [[ $QUIET -eq 0 ]] && echo "  • $*" >&2; }
+# NOTE: returns 0 even when quiet — a bare `[[…]] && echo` would yield exit 1
+# under `set -e` when QUIET=1, and since add_rec ends in a trace call that would
+# abort the run on the first recommendation.
+trace() { [[ $QUIET -eq 0 ]] && echo "  • $*" >&2; return 0; }
 
-# Read package.json deps if present (same parser shape as detect-tracks.sh)
+# Read package.json deps if present (same parser shape as detect-tracks.sh).
+# jq-first: the awk parser silently returns ZERO keys on minified/compact JSON
+# (no per-line braces to anchor on). Fall back to awk only when jq is missing OR
+# jq yields nothing (e.g. malformed JSON jq couldn't parse).
 PKG="$TARGET/package.json"
 PKG_DEPS=""
-if [[ -f "$PKG" ]]; then
-  PKG_DEPS=$(awk '
+parse_pkg_deps() {
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '[(.dependencies//{}|keys[]),(.devDependencies//{}|keys[]),(.peerDependencies//{}|keys[])] | .[]' "$1" 2>/dev/null
+  fi
+}
+parse_pkg_deps_awk() {
+  awk '
     /"(dependencies|devDependencies|peerDependencies)"[[:space:]]*:/ { in_block=1; next }
     in_block && /^[[:space:]]*}/ { in_block=0; next }
     in_block && /"[^"]+"[[:space:]]*:/ {
@@ -61,7 +72,13 @@ if [[ -f "$PKG" ]]; then
       sub(/"[[:space:]]*:.*$/, "")
       print
     }
-  ' "$PKG" 2>/dev/null | tr '\n' ' ')
+  ' "$1" 2>/dev/null
+}
+if [[ -f "$PKG" ]]; then
+  PKG_DEPS=$(parse_pkg_deps "$PKG" | tr '\n' ' ')
+  if [[ -z "${PKG_DEPS// /}" ]]; then
+    PKG_DEPS=$(parse_pkg_deps_awk "$PKG" | tr '\n' ' ')
+  fi
 fi
 has_dep() { [[ " $PKG_DEPS " == *" $1 "* ]]; }
 has_dep_prefix() { [[ " $PKG_DEPS " == *" $1"* ]]; }

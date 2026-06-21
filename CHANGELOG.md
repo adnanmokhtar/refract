@@ -6,6 +6,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Docs deep-review: reconcile stale counts + contradictory simple-command lists
+
+**Why** — a deep review of the top-level docs against the live repo found numbers that had drifted as packs / commands / adapters grew, plus a "simple-command count" that disagreed three ways (README said 7, COMMANDS said 5, REFERENCE said 6). Every number below was re-derived from the actual repo (`ls` / `grep`), not trusted from the prose.
+
+- **`README.md`** — always-applied track list corrected to `code-quality · documentation · learning · security` (per `templates/packs/_registry.md`; previously omitted `learning` and wrongly added `business` / `testing`, which are now listed as signal-gated conditional tracks). Top-level command count `11 → 15`. Phase-file list reconciled with `templates/phases/` (`0, 1, 2, 3, 4, 4.0, 4.2, 4.6, 4.7, 4.8, 5, 5.0, 5.1, 5.5, 6`).
+- **SYNC-04 — simple-command count unified to 7** across README / COMMANDS / REFERENCE (`/migrate /optimize /refactor /align /polish /audit /unify-surfaces`). COMMANDS gained the missing `/audit` + `/unify-surfaces` rows; REFERENCE gained the missing `/refactor` row. The progress-orchestrated subset (six; `/refactor` excluded — targeted-only) is now spelled consistently in both files.
+- **`docs/setup-project-cheatsheet.md`** — added `kimi` + `qwen` to the tool-adapter keys; adapter count `10 → 12`; pack-catalog counts `41 commands / 51+ agents → 107 commands / 59 agents`.
+- **`docs/REFERENCE.md`** — re-derived the `validate-align-artifacts.sh` shipped-check list directly from the script (12 mechanical per-finding checks + 3 run-level checks) and dropped the stale `v1.5.0 — 7 of 14 checks (589 lines)` figures (the script is now 923 lines).
+- **`docs/COMMANDS.md`** — migration-pack command count `7 → 19`; align-pack command count `9 → 13` (with the actual command lists enumerated).
+
 ### Plan schema: add `## Goal` (required) + `## Approach` (optional) — implementation-plan best practice
 
 **Why** — our `--plan` output was a strong *execution* spec (Context / Inputs / Outputs / Steps / Constraints / Verification / Status) but jumped straight into background — it never stated the **objective**, the **acceptance criterion** (the observable "done", distinct from the mechanical Verification commands), or the **out-of-scope**. That's the single most important part of an implementation plan, and it matches our own `think-simplify-surgical` rule ("transform imperative requests into verifiable goals"). It also had no slot for the **design rationale** (why this approach).

@@ -69,7 +69,7 @@ def extract_description(skill_text, cmd):
     # Find the description: line and capture until the next field-like prefix
     # or until two consecutive newlines (end of YAML block).
     m = re.search(
-        r'^description:\s*(.+?)(?=\n[a-z_]+:\s|\n---\s*\n|\n\n)',
+        r'^description:\s*(.+?)(?=\n[A-Za-z_][A-Za-z0-9_-]*:\s|\n---\s*\n|\n\s*\n|\Z)',
         skill_text,
         re.MULTILINE | re.DOTALL,
     )
@@ -132,7 +132,7 @@ def main():
         print(f"=== {target.name} ===")
 
         if not skills_dir.exists():
-            print(f"  SKIP — no .kimi/skills/")
+            print("  SKIP — no .kimi/skills/")
             continue
 
         if not DRY_RUN:

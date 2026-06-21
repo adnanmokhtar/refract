@@ -245,6 +245,29 @@ check_actionable_next_steps() {
   return 0
 }
 
+# Slice out the "§ Wrappers" section of _extracted-idioms.md (the contract is
+# "_extracted-idioms.md § Wrappers § <Category>", per commands/unify-surfaces.md).
+# A Wrappers heading is any markdown/section heading whose text mentions Wrappers
+# (e.g. "## Wrappers", "### Wrappers", "§ Wrappers"). The slice runs from that
+# heading until the next heading at the SAME-or-higher level (i.e. a heading with
+# the same-or-fewer leading '#'), so § Wrappers § <Category> sub-headings stay in.
+# Prints the section body to stdout (empty if no Wrappers section exists).
+wrappers_section_slice() {
+  local file="$1"
+  awk '
+    function hashes(s,  n) { n=0; while (substr(s,n+1,1)=="#") n++; return n }
+    {
+      level = ($0 ~ /^#+[[:space:]]/) ? hashes($0) : 0
+      is_heading = (level > 0)
+      if (in_sec && is_heading && level <= sec_level) { in_sec=0 }
+      if (!in_sec && is_heading && tolower($0) ~ /wrappers/) {
+        in_sec=1; sec_level=level; print; next
+      }
+      if (in_sec) print
+    }
+  ' "$file"
+}
+
 # ── CHECK 2: reuse-before-create gate ────────────────────────────────────────
 # Per § "Hard rules § Reuse-Before-Create": before extracting a new wrapper for a category,
 # the agent MUST check _extracted-idioms.md § Wrappers. If idioms ALREADY name a wrapper for
@@ -275,7 +298,9 @@ check_reuse_before_create() {
   # Does the idioms oracle already name a wrapper for this category under § Wrappers?
   # Categories map to idiom headings: tables→Tables, forms→Forms, headers→PageHeader,
   # tabs→Tabs, filters→FilterPanel, buttons→Button. Match the category word OR its common
-  # wrapper noun in a Wrappers context.
+  # wrapper noun — but ONLY inside the § Wrappers section (per the documented
+  # "_extracted-idioms.md § Wrappers § <Category>" contract), and as a WHOLE WORD so a
+  # stray "Button" in unrelated prose elsewhere can't trigger a false-positive halt.
   local needle="$cat"
   case "$cat" in
     headers) needle='headers|PageHeader|Header' ;;
@@ -286,12 +311,23 @@ check_reuse_before_create() {
     tabs)    needle='tabs|Tab' ;;
   esac
 
-  if grep -qiE "Wrappers" "$IDIOMS_FILE" 2>/dev/null && grep -qiE "$needle" "$IDIOMS_FILE" 2>/dev/null; then
+  # Scope to the Wrappers section slice — if the oracle has no Wrappers section at
+  # all, there is no canonical wrapper to collide with → legitimate extraction.
+  local wrappers_slice
+  wrappers_slice=$(wrappers_section_slice "$IDIOMS_FILE")
+  if [[ -z "${wrappers_slice//[[:space:]]/}" ]]; then
+    log_pass "$cat: $IDIOMS_FILE has no § Wrappers section — no pre-existing wrapper to collide with"
+    return 0
+  fi
+
+  # Whole-word match (mirrors the (^|[^A-Za-z]) idiom used elsewhere in these validators)
+  # so "Button" matches but "ButtonGroupLegacyNotes" / inline prose substrings do not.
+  if printf '%s\n' "$wrappers_slice" | grep -qiE "(^|[^A-Za-z])($needle)([^A-Za-z]|\$)" 2>/dev/null; then
     log_fail "$cat: progress row EXTRACTED a new wrapper, but $IDIOMS_FILE § Wrappers already names a wrapper for this category — Reinvented Wrapper (Reuse-Before-Create violation: extend the existing wrapper, do NOT fork a parallel one)."
     return 1
   fi
 
-  log_pass "$cat: extracted wrapper has no pre-existing idiom entry — legitimate extraction"
+  log_pass "$cat: extracted wrapper has no pre-existing idiom entry under § Wrappers — legitimate extraction"
   return 0
 }
 

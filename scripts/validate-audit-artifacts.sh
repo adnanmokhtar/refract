@@ -42,6 +42,63 @@ _scrub_prose() {
   awk 'BEGIN{inf=0} /^```/{inf=1-inf; next} inf{next} {gsub(/`[^`]*`/,""); print}' "$1"
 }
 
+# ── audit produced output but no plan → vacuous green ────────────────────────
+# A run that emitted a final-report, findings, OR terminal ledger rows CLAIMS it
+# audited the codebase — but with no ai/audit/plan.md there's no ranked-plan
+# evidence any axis actually ran. Mirror validate-align / validate-optimize: an
+# absent plan is only acceptable when the run makes NO output claim. Otherwise a
+# skipped audit must NOT look like a clean codebase (Trusted-Summary) → FAIL.
+check_plan_exists_when_output() {
+  [[ -f "$PLAN_PATH" ]] && return 0   # plan present → other gates cover it
+
+  local output_claimed=0 why=""
+  if [[ -f "$REPORT_PATH" ]]; then
+    output_claimed=1; why="final-report.md present at $REPORT_PATH"
+  elif [[ -f "$ASSESSMENT_PATH" ]]; then
+    output_claimed=1; why="assessment.md present at $ASSESSMENT_PATH"
+  fi
+  if [[ $output_claimed -eq 0 && -d "$FINDINGS_DIR" ]]; then
+    local _ff
+    for _ff in "$FINDINGS_DIR"/*.md; do
+      [[ -f "$_ff" ]] && { output_claimed=1; why="findings present in $FINDINGS_DIR"; break; }
+    done
+  fi
+  if [[ $output_claimed -eq 0 && -f "$LEDGER_PATH" ]]; then
+    local terminal_rows
+    terminal_rows=$(grep -cE '^[[:space:]]*(status|state):[[:space:]]*(verified|done|fixed)\b' "$LEDGER_PATH" 2>/dev/null || true)
+    terminal_rows=$(printf '%s' "${terminal_rows:-0}" | tr -cd '0-9'); terminal_rows=${terminal_rows:-0}
+    [[ "$terminal_rows" -gt 0 ]] && { output_claimed=1; why="$terminal_rows terminal ledger row(s) in $LEDGER_PATH"; }
+  fi
+
+  if [[ $output_claimed -eq 1 ]]; then
+    log_fail "audit produced output ($why) but the ranked plan is ABSENT at $PLAN_PATH — a run that claims it audited the codebase MUST emit a plan with per-axis ranked findings; a skipped audit must not pass green (Trusted-Summary)."
+    return 1
+  fi
+  [[ $QUIET -eq 0 ]] && echo "  ▸ no plan at $PLAN_PATH and no output claimed (no report / findings / terminal rows) — nothing to validate"
+  return 0
+}
+
+# ── findings present → ledger MANDATORY (ported from validate-optimize) ───────
+# The ledger is the only re-detect proof surface (gap-count parity). Any run that
+# FIXED findings (findings/<id>.md present) MUST carry a ledger — otherwise parity
+# is unprovable. Mirrors validate-optimize-artifacts.sh main()'s findings-present
+# escalation.
+check_ledger_mandatory_when_findings() {
+  [[ -f "$LEDGER_PATH" ]] && return 0   # ledger present → check_ledger_gap_parity covers it
+
+  local findings_present=0 _ff
+  if [[ -d "$FINDINGS_DIR" ]]; then
+    for _ff in "$FINDINGS_DIR"/*.md; do
+      [[ -f "$_ff" ]] && { findings_present=1; break; }
+    done
+  fi
+  if [[ $findings_present -eq 1 ]]; then
+    log_fail "ledger MANDATORY at $LEDGER_PATH — findings were fixed (findings/*.md present) and the ledger is the only re-detect proof surface (gap-count parity)."
+    return 1
+  fi
+  return 0
+}
+
 # ── §679 — no hand-waves in the ranked plan ──────────────────────────────────
 check_no_handwaves_audit_plan() {
   local file="$1" label="$2"
@@ -144,18 +201,20 @@ check_ledger_gap_parity() {
   [[ ! -f "$LEDGER_PATH" ]] && return 0
   local bad
   bad=$(awk '
-    /^id: /        { id=$2; gi=""; gc=""; st="" }
-    /^status: /    { st=$2 }
-    /^state: /     { if (st=="") st=$2 }
-    /^gaps_in: /   { gi=$2 }
-    /^gaps_closed: /{ gc=$2 }
-    /^```/ {
+    function flush() {
       if (id!="" && (st=="verified"||st=="done"||st=="fixed")) {
         g1=gi; g2=gc; gsub(/[^0-9]/,"",g1); gsub(/[^0-9]/,"",g2)
         if (g1+0 != g2+0) print id":"g1"!="g2
       }
       id=""; gi=""; gc=""; st=""
     }
+    /^id: /        { id=$2; gi=""; gc=""; st="" }
+    /^status: /    { st=$2 }
+    /^state: /     { if (st=="") st=$2 }
+    /^gaps_in: /   { gi=$2 }
+    /^gaps_closed: /{ gc=$2 }
+    /^```/         { flush() }
+    END            { flush() }
   ' "$LEDGER_PATH")
   if [[ -n "$bad" ]]; then
     log_fail "ledger rows with gaps_in != gaps_closed on terminal status: $bad"
@@ -180,6 +239,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 main() {
+  log_section "Ranked plan — existence"
+  check_plan_exists_when_output || true
+
   log_section "Ranked plan — hand-waves"
   check_no_handwaves_audit_plan "$PLAN_PATH" "audit plan" || true
   check_no_handwaves_audit_plan "$ASSESSMENT_PATH" "assessment" || true
@@ -189,6 +251,7 @@ main() {
   check_finding_citations || true
 
   log_section "Ledger rows (optional)"
+  check_ledger_mandatory_when_findings || true
   check_ledger_gap_parity || true
 
   log_section "Final report — actionable next steps"

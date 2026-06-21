@@ -27,7 +27,7 @@ FAILURES=()
 
 log_pass() {
   TOTAL_PASS=$((TOTAL_PASS + 1))
-  [[ $QUIET -eq 0 ]] && echo "  ✓ $1"
+  [[ $QUIET -eq 0 ]] && echo "  ✓ $1" || true
 }
 
 log_fail() {
@@ -45,7 +45,7 @@ log_warn() {
 }
 
 log_section() {
-  [[ $QUIET -eq 0 ]] && echo && echo "── $1 ──"
+  [[ $QUIET -eq 0 ]] && echo && echo "── $1 ──" || true
 }
 
 is_valid_refactor_verb() {
@@ -372,8 +372,21 @@ fi
 main() {
   log_section "Ledger rows"
   if [[ ! -f "$LEDGER_PATH" ]]; then
+    # findings present → ledger MANDATORY (ported from validate-optimize). The
+    # ledger is the only re-detect proof surface (gap-count parity); a run that
+    # FIXED findings without one cannot prove parity.
+    local _findings_present=0 _ff
+    if [[ -d "$FINDINGS_DIR" ]]; then
+      shopt -s nullglob
+      for _ff in "$FINDINGS_DIR"/*.md; do
+        [[ -f "$_ff" ]] && { _findings_present=1; break; }
+      done
+      shopt -u nullglob
+    fi
     if [[ $STRICT -eq 1 ]]; then
       log_fail "[strict] ledger required at $LEDGER_PATH"
+    elif [[ $_findings_present -eq 1 ]]; then
+      log_fail "ledger MANDATORY at $LEDGER_PATH — findings were fixed (findings/*.md present) and the ledger is the only re-detect proof surface (gap-count parity)."
     else
       log_warn "ledger not found at $LEDGER_PATH — skipping per-row checks"
     fi

@@ -58,7 +58,7 @@ FAILURES=()
 
 log_pass() {
   TOTAL_PASS=$((TOTAL_PASS + 1))
-  [[ $QUIET -eq 0 ]] && echo "  ✓ $1"
+  [[ $QUIET -eq 0 ]] && echo "  ✓ $1" || true
 }
 
 log_fail() {
@@ -76,7 +76,7 @@ log_warn() {
 }
 
 log_section() {
-  [[ $QUIET -eq 0 ]] && echo && echo "── $1 ──"
+  [[ $QUIET -eq 0 ]] && echo && echo "── $1 ──" || true
 }
 
 # ── Structural vs functional-style (optimize / align taxonomy) ───────────────

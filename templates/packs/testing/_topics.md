@@ -71,6 +71,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   dispatches: tdd-orchestrator
   fallback: stub-from-sections
 
+- name: run-tests
+  kind: command
+  triggers: { test_framework_detected: true }
+  extracts_from: _extracted-codebase.md § Tests (runner + per-scope test commands)
+  sections: [understand, retrieve, generate]
+  fallback: commands/run-tests.md   # no _examples/ stub — fall back to the live source
+
 - name: coverage-gap
   kind: skill
   triggers: { test_framework_detected: true }

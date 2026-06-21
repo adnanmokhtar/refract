@@ -1,5 +1,7 @@
 ---
 description: Dump the workspace registry or locate a concept across sibling repos.
+kind: command
+pack: workspace-baseline
 ---
 
 # /project-map

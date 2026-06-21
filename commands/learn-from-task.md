@@ -46,22 +46,20 @@ The recurring counterpart is the `knowledge-curator` agent. It is NOT auto-invok
 - The current conversation context (the task that just finished).
 - Optional: a specific commit range (`--since <ref>`) to scope the analysis.
 
-## Canonical sink set (this command + the pack copy + `knowledge-curator` write the SAME files)
+## Canonical sink set (this command + the pack copy + both `knowledge-curator` copies write the SAME files)
 
-The learning loop has ONE sink set. This command writes ONLY to the raw append-only sinks below; the `knowledge-curator` agent later promotes mature entries into the formal layer (right column). This is the SAME table the pack copy (`templates/packs/learning/commands/learn-from-task.md`) and `knowledge-curator` use — change a sink in one place, change it in all three.
+The learning loop has ONE sink set. This command writes ONLY to the raw append-only sinks; the `knowledge-curator` agent later promotes mature entries into the formal layer. The table is **defined once** in [`templates/snippets/learning-sink.md`](../templates/snippets/learning-sink.md) — read it there. Every consumer links to that snippet, so the producer and the promoter can never silently diverge. The consumers (all kept in sync via the snippet) are:
 
-| Sink (raw, append-only)                  | Holds                                   | Promotes to (curator)                |
-|------------------------------------------|-----------------------------------------|--------------------------------------|
-| `ai/dynamic/learnings.md`                | raw observations + corrections-as-notes | `ai/conventions.md` (managed section) |
-| `ai/dynamic/learned-patterns.md`         | recurring code shapes                    | `ai/patterns/<name>.md`              |
-| `ai/dynamic/feedback-learned.md`         | user corrections taken                   | `.claude/rules/<rule>.md`            |
-| `ai/dynamic/decisions-pending.md`        | informal decisions awaiting validation   | `ai/decisions/<NNNN>-<slug>.md` (ADR) |
-| `ai/dynamic/drift-log.md`                | code-vs-convention divergence            | resolved / convention update         |
-| `ai/failures/_index.md`                  | approaches that did NOT work             | stays (don't-retry catalog, append-only) |
-| `ai/dynamic/interaction-log.md`          | per-task summary (the spine)             | archived monthly                     |
-| `ai/dynamic/changelog.md`                | one-line activity log                    | pruned                               |
+- `commands/learn-from-task.md` (this file)
+- `templates/packs/learning/commands/learn-from-task.md` (pack mirror)
+- `templates/packs/learning/agents/knowledge-curator.md` (canonical curator)
+- `templates/repo-baseline/.claude/agents/knowledge-curator.md` (installed curator)
+
+Change a sink in the snippet, not here — there is no per-consumer copy to keep in sync.
 
 ## Outputs (zero, one, or more of — all are raw sinks)
+
+The targets below are the same 8 raw sinks defined in [`templates/snippets/learning-sink.md`](../templates/snippets/learning-sink.md); this table adds only the per-target write **trigger** (when each is written + append-vs-increment) — the sink set itself is owned by the snippet.
 
 | Output target                            | Trigger                                                  |
 |------------------------------------------|----------------------------------------------------------|

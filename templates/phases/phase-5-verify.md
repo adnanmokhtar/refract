@@ -11,7 +11,7 @@ sub-phases:
   - 5.2 — self-consistency checks                      (inline below)
   - 5.3 — Phase 4.6 adaptation audit                   (inline below)
   - 5.3.5 — cross-project leak scan                    (inline below)
-  - 5.4 — schema validation harness                    (inline below)
+  - 5.4 — schema validation (DESIGN SPEC — not wired)  (inline below)
   - 5.4b — health score + telemetry emit (every mode)  (inline below; distinct from 5.5)
   - 5.5 — setup-quality score (REFINE only)            @templates/phases/phase-5.5-quality.md
   - 5.6 — version drift report (every mode)            (inline below)
@@ -392,31 +392,32 @@ CROSS-PROJECT LEAK SCAN:
 
 If the scan fails after retry, the halt message MUST list every leaking file + the offending identifier so the user can decide: was it correct (extraction missed it → re-run with deeper Phase 2) or was it a leak (regenerate that file).
 
-**5.4 Schema validation (Advanced Capabilities § 3 — opt-in; reconciles with Hard Rules § 3.5)**:
+**5.4 Schema validation (Advanced Capabilities § 3 — DESIGN SPEC, NOT WIRED)**:
 
-Schema validation is **opt-in by default** — see Hard Rules § 3.5 (where this policy was softened from "every adapter MUST have a schema or halt" to "validate when schemas are present + `--validate-schemas` was passed").
+> **Not implemented.** Schema validation is a design spec, not a shipped step — see `templates/capabilities/3-schema-validation.md` (§ 3, "NOT WIRED") and `templates/schemas/README.md` (reference shapes). There is no `--validate-schemas` flag and no `ajv` / `yamllint` invocation in any phase or hook. The trigger matrix and per-artifact rules below describe how a future harness WOULD behave; today Phase 5.4 is effectively a no-op and the real wired gate is `audit-setup.sh` (§ Phase 5 header). Skip this sub-phase in practice; report line: "Schema validation: skipped (not implemented)".
 
 ```
-Trigger matrix:
+Trigger matrix (PROPOSED — describes future behaviour, nothing runs today):
   --validate-schemas passed             → validate every generated config; missing schemas → SCHEMA_MISSING warning, no halt
   --refresh + schemas present on disk   → SHOULD validate (warn-on-miss, no halt)
   --strict added                        → SCHEMA_MISSING + validation failure both promoted to halts
   Neither flag, no schemas              → skip 5.4 entirely; report line: "Schema validation: skipped (no schemas; opt-in)"
 ```
 
-For each generated artifact when validation runs:
+For each generated artifact when validation runs (proposed):
 
 - **JSON configs** (e.g. `opencode.json`, `.continue/config.yaml`-converted-to-JSON, `.aider.conf.yml`-converted-to-JSON, `.claude/settings.json`): validate against `~/.claude/templates/schemas/<adapter>/<file>.schema.json` if it exists. Missing schema → `SCHEMA_MISSING <adapter>/<file>` warning. Failed validation → retry generator once, then either halt (if `--strict`) or warn-and-continue.
 - **YAML frontmatter** (in `.claude/agents/*.md`, `.claude/commands/*.md`, `.claude/skills/<name>/SKILL.md`): extract the frontmatter block, validate against the corresponding schema if present. Same warn/halt policy as JSON.
 - **`AGENTS.md` / `CLAUDE.md`**: structural validation only (required sections present per the codex / claude-code adapter contracts in Phase 4.8.0). Missing required section → halt regardless of `--strict` (this is a contract violation, not a schema miss).
 - **`--validate-schemas` flag** also enables **dry-invoke smoke test** for every generated command: parse YAML frontmatter, verify referenced agents/skills/commands exist, verify any inline Bash blocks parse via `bash -n`. Smoke-test failures behave like schema failures (warn unless `--strict`).
 
-Final report line under every mode:
+Final report line under every mode (today this always reports "skipped (not implemented)"; the populated form below is what the proposed harness would emit):
 ```
-Schema validation: <run|skipped>
-  Schemas present:  <N>/<expected>
-  Validated:        <K> (<ok> ok, <warn> warnings, <fail> failures)
-  Strict mode:      <on|off>
+Schema validation: skipped (not implemented)
+  # If the harness is ever built:
+  # Schemas present:  <N>/<expected>
+  # Validated:        <K> (<ok> ok, <warn> warnings, <fail> failures)
+  # Strict mode:      <on|off>
 ```
 
 **5.4b Health score + telemetry emit (Advanced Capabilities § 2 — runs at end of every Phase 5; distinct from REFINE-only 5.5 setup-quality score in `phase-5.5-quality.md`)**:

@@ -62,15 +62,17 @@ fi
 
 # ---- extract pending row ids from the ledger ----
 #
-# Format expected (per migration-ledger.md ai-pattern):
+# Format expected (per migration-ledger.md ai-pattern) — indented YAML-list rows:
 #
-#   ## <ROW-ID>
-#   status: V1-only
-#   class: ...
-#   ...
+#   - id: F001
+#     status: V1-only
+#     class: ...
+#     ...
 #
-# Strategy: same fenced-yaml ledger blocks as validate-migration-artifacts.sh discover_features.
-# Emits ledger row ids (F001, …) whose status:/state: matches --status.
+# Strategy: same indented-yaml ledger rows as validate-migration-artifacts.sh discover_features.
+# Emits ledger row ids (F001, …) whose status:/state: matches --status. A row starts at an
+# (optionally `- `-prefixed, optionally indented) `id: FNNN[letter]` line; capture the F-id
+# ignoring leading whitespace + "- "; accept indented status:/state:.
 
 TASK_FILE="$(mktemp -t migrate-tasks.XXXXXX)"
 trap 'rm -f "$TASK_FILE"' EXIT
@@ -83,9 +85,11 @@ awk -v states="$STATES" '
       want[arr[i]] = 1
     }
   }
-  /^id: F[0-9]+[a-z]?$/ {
+  /^[[:space:]]*(- )?id: F[0-9]+[a-z]?[[:space:]]*$/ {
     if (id != "") emit()
-    id = $2
+    id = $0
+    sub(/^[[:space:]]*(- )?id:[[:space:]]*/, "", id)
+    sub(/[[:space:]]+$/, "", id)
     st = ""
     in_block = 1
     next
@@ -97,8 +101,8 @@ awk -v states="$STATES" '
     in_block = 0
     next
   }
-  in_block && /^status: / { st = $2; gsub(/^[[:space:]]+|[[:space:]]+$/, "", st); next }
-  in_block && /^state: / { if (st == "") { st = $2; gsub(/^[[:space:]]+|[[:space:]]+$/, "", st) }; next }
+  in_block && /^[[:space:]]*status:[[:space:]]/ { st = $0; sub(/^[[:space:]]*status:[[:space:]]*/, "", st); gsub(/^[[:space:]]+|[[:space:]]+$/, "", st); next }
+  in_block && /^[[:space:]]*state:[[:space:]]/ { if (st == "") { st = $0; sub(/^[[:space:]]*state:[[:space:]]*/, "", st); gsub(/^[[:space:]]+|[[:space:]]+$/, "", st) }; next }
   function emit() {
     if (id != "" && st != "" && (st in want)) print id
   }

@@ -41,10 +41,18 @@ done
 
 # ---- (2) every real command documented ----
 echo "[2] command → docs coverage"
-DOCS_BLOB="$( { [ -f "$COMMANDS_DOC" ] && cat "$COMMANDS_DOC"; [ -f "$REFERENCE_DOC" ] && cat "$REFERENCE_DOC"; } 2>/dev/null )"
-# Real command names: root commands/ + every pack commands/ (dedup; ignore _* helpers).
+# The workspace-baseline ships its own workspace-level commands that the project-level
+# docs (COMMANDS.md / REFERENCE.md) do NOT cover — they are documented IN the baseline
+# itself (the `workspace.md` rule's "## Commands" index). Fold that rule into the doc blob
+# so those commands count as documented without forcing them into the project-level docs.
+WORKSPACE_RULE="templates/workspace-baseline/.claude/rules/workspace.md"
+DOCS_BLOB="$( { [ -f "$COMMANDS_DOC" ] && cat "$COMMANDS_DOC"; [ -f "$REFERENCE_DOC" ] && cat "$REFERENCE_DOC"; \
+                [ -f "$WORKSPACE_RULE" ] && cat "$WORKSPACE_RULE"; } 2>/dev/null || true )"
+# Real command names: root commands/ + every pack commands/ + repo-baseline + workspace-baseline
+# (dedup; ignore _* helpers).
 REAL_CMDS="$( { ls commands/*.md 2>/dev/null; find templates/packs/*/commands -name '*.md' 2>/dev/null; \
-                ls templates/repo-baseline/.claude/commands/*.md 2>/dev/null; } \
+                ls templates/repo-baseline/.claude/commands/*.md 2>/dev/null; \
+                ls templates/workspace-baseline/.claude/commands/*.md 2>/dev/null; } \
               | xargs -n1 basename 2>/dev/null | sed 's/\.md$//' | grep -vE '^_' | sort -u || true )"
 missing_doc=0
 for c in $REAL_CMDS; do
@@ -60,13 +68,23 @@ echo "[3] docs → command backing (dangling refs)"
 # (e.g. `templates/governance/core-discipline.md`) that a bare `/foo` regex would false-match.
 DOC_TOKENS="$(grep -rhoE '`/[a-z][a-z0-9]+(-[a-z0-9]+)*' "$COMMANDS_DOC" "$REFERENCE_DOC" 2>/dev/null \
               | sed 's#^`/##' | sort -u || true)"
+# Harness builtins (Claude Code itself, not repo command files) that legitimately appear in
+# the docs as `/token` — allowlisted so they don't read as dangling repo-command refs.
+HARNESS_BUILTINS="continue resume schedule"
 dangling=0
 for t in $DOC_TOKENS; do
-  # Backed if a command file of that exact name exists.
+  # Backed if a command file of that exact name exists (root / pack / repo- / workspace-baseline).
   if [ -f "commands/$t.md" ] || [ -f "templates/repo-baseline/.claude/commands/$t.md" ] \
+     || [ -f "templates/workspace-baseline/.claude/commands/$t.md" ] \
      || find templates/packs/*/commands -name "$t.md" 2>/dev/null | grep -q .; then
     continue
   fi
+  # Skip known harness builtins (not repo commands).
+  is_builtin=0
+  for b in $HARNESS_BUILTINS; do
+    [ "$t" = "$b" ] && { is_builtin=1; break; }
+  done
+  [ "$is_builtin" -eq 1 ] && continue
   # Skip if it's an example invocation = a real command name followed by '-<args>'.
   is_example=0
   for c in $REAL_CMDS; do

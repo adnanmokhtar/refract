@@ -24,6 +24,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=./_parallel-tool-config.sh
+source "$SCRIPT_DIR/_parallel-tool-config.sh"
+
 TOOL=""
 PARALLEL=""
 LEDGER="ai/polish/ledger.md"
@@ -62,30 +65,20 @@ fi
 TASK_FILE="$(mktemp -t polish-tasks.XXXXXX)"
 trap 'rm -f "$TASK_FILE"' EXIT
 
-awk -v states="$STATES" '
-  BEGIN {
-    n = split(states, arr, ",")
-    for (i = 1; i <= n; i++) want[arr[i]] = 1
-  }
-  /^## [A-Za-z0-9_-]+/ {
-    current = $2
-    have_status = 0
-    next
-  }
-  /^status: / && current && !have_status {
-    s = $2
-    have_status = 1
-    if (s in want) print current
-    current = ""
-  }
-' "$LEDGER" > "$TASK_FILE"
+# Canonical polish ledger is fenced-YAML (indented YAML-list rows; see
+# migration-ledger.md). Use the shared parser from _parallel-tool-config.sh so
+# polish-parallel and migrate-parallel agree on the row format — the legacy
+# `## heading` + flush-left `status:` parser extracted ZERO rows from it.
+ledger_extract_rows "$LEDGER" "$STATES" > "$TASK_FILE"
 
 if [[ -n "$MAX_TASKS" ]]; then
   head -n "$MAX_TASKS" "$TASK_FILE" > "$TASK_FILE.capped"
   mv "$TASK_FILE.capped" "$TASK_FILE"
 fi
 
-TASK_COUNT=$(wc -l < "$TASK_FILE" | tr -d ' ')
+# awk NR counts the last row even when the parser's output has no trailing
+# newline (BSD `wc -l` would undercount it by 1).
+TASK_COUNT=$(awk 'END { print NR }' "$TASK_FILE")
 
 if [[ "$TASK_COUNT" -eq 0 ]]; then
   echo "INFO: no rows in $LEDGER match status ($STATES). Nothing to do."

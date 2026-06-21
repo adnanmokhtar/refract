@@ -25,7 +25,7 @@ TOTAL_PASS=0
 TOTAL_FAIL=0
 FAILURES=()
 
-log_pass() { TOTAL_PASS=$((TOTAL_PASS + 1)); [[ $QUIET -eq 0 ]] && echo "  ✓ $1"; }
+log_pass() { TOTAL_PASS=$((TOTAL_PASS + 1)); [[ $QUIET -eq 0 ]] && echo "  ✓ $1" || true; }
 log_fail() { TOTAL_FAIL=$((TOTAL_FAIL + 1)); FAILURES+=("$1"); echo "  ✗ $1" >&2; }
 
 # Closed UI/UX closure-verb vocabulary from ui-design-sweep.md (19 verbs).

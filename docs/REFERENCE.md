@@ -183,20 +183,21 @@ A pack file in `_pack-coverage-report.md` is marked `Missing` and was not addres
 
 ---
 
-## The 6 simple commands — `/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/unify-surfaces`
+## The 7 simple commands — `/migrate`, `/optimize`, `/refactor`, `/align`, `/polish`, `/audit`, `/unify-surfaces`
 
-Top-level user surface above the detailed phased commands. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path) and runs deep multi-agent execution silently. NO phases / halts / ADRs / terminology surfaced — internal discipline (V1-parity, gap-count parity, idiom citation, no fabrication) is preserved but invisible.
+Top-level user surface above the detailed phased commands. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path) and runs deep multi-agent execution silently. NO phases / halts / ADRs / terminology surfaced — internal discipline (V1-parity, gap-count parity, idiom citation, no fabrication) is preserved but invisible. (`/refactor` is the odd one out: targeted-only, defaults to git-changed paths, and is NOT progress-orchestrated — see the flag note below.)
 
 | Command | Concern | Stack |
 |---|---|---|
 | `/migrate` | V1→V2 ports (V1 wins on behaviour; V2 wins on structure) | any |
 | `/optimize` | architectural diagnosis FIRST (layer violations, god modules, missing abstractions) + tactical sweep (clean code, refactoring, SOLID, performance, render/rebuild waste for frontend-*/mobile-* per `mobile/rules/render-discipline.md` (mobile pack v1.2+), dead code, dedup, over-abstraction). Foundation-first ordering — architectural fixes cascade and dissolve tactical findings. Backed by `architectural-diagnosis` + `refactoring-sweep` skills (code-quality pack v1.1+). New-dependency halt: a perf fix that would add a package the project doesn't already use stops for a dependency review before install (prefer an existing primitive). | any |
+| `/refactor` | Targeted behaviour-preserving refactor only — closed `refactoring-sweep` vocabulary (extract-method, rename, flatten-conditional, …). No architectural moves, no perf, no dead-code sweeps. Defaults to git-changed paths when scope omitted (NOT whole-repo). Ledger `ai/refactor/ledger.md`; validator `scripts/validate-refactor-artifacts.sh`. NOT part of the progress-orchestrated flag set below. | any |
 | `/align` | convention drift, structure enforcement, design-token / a11y / i18n / layering, silent catches + unhandled I/O (happy-path-only call sites — align pack v1.6+ `unhandled-io` class). Backed by `detect-drift` + `find-and-align` skills (align pack). | any |
 | `/polish` | **Stack-conditional**: frontend-* → 19-verb closed vocabulary in `ui-design-sweep` (ui-ux pack v1.1+) — tokens / wrappers / hierarchy / type-scale / rhythm / density / states / contrast / focus / iconography / motion / tap-target / cta / affordance / surface — fed by `a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit`. backend-* → `api-consistency-audit` (backend pack v1.1+, 15 detectors). data-* → `schema-consistency-audit` (database pack v1.1+). mobile-* → `platform-conventions-audit` (mobile pack v1.1+) + frontend fallback. **Validator** `validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 19-verb set. | any (PROJECT_KIND must be set) |
 | `/unify-surfaces` | **Surface-type unification across the entire frontend codebase.** Sibling to `/polish`, but typed by SURFACE CATEGORY (tables / forms / headers / tabs / filters / buttons / validation) instead of by axis. For each requested category: inventories every consumer across the codebase, decides the canonical wrapper (from `_extracted-idioms.md § Wrappers` or by promoting the most-used pattern), extracts or extends the shared wrapper, migrates every consumer in **one cascade-rewrite commit per category**, verifies (typecheck + lint + scoped tests + visual-regression on non-target surfaces). Validation extracts a **3-part pipeline** — frontend validator composable + `<ErrorList>` / `<FieldError>` + API-validation-error mapper — wired as a global response interceptor. Reuse-Before-Create enforced (extracting a duplicate where a shared wrapper exists fails the verify gate). Idioms updated in the same commit. Composable with `/polish` (run `/unify-surfaces` first to consolidate wrappers, then `/polish` to polish each canonical wrapper to spec). | `frontend-*`, `mobile-web`, `mobile-rn` (halts on backend / data / library / CLI / mobile-native) |
 | `/audit` | **Full-stack engineering audit — universal across stacks.** Fans out across 8 specialist axes in one pass: architecture, SOLID + clean code, security (`security-auditor` + `auth-reviewer` + `tenant-isolation-reviewer` + `secret-scan` + `deps-audit` + `threat-model`), database performance (`database-optimizer` + `query-optimizer` + `schema-reviewer`), runtime performance (`performance-optimizer` + `caching-architect` + `n-plus-one-scan`), **scalability + resilience (the differentiating axis — 13 scale-lens detectors stack-routed via `PROJECT_KIND`: hot-path, fan-out depth, sync I/O in critical path, single-instance bottleneck, lock contention, queue back-pressure, write amplification, tenant blast radius, capacity headroom, SLO delta, idempotency, statelessness, cold-start)** plus `system-architect` + `resilience-reviewer` agents and the **unhandled-I/O pass** (happy-path-only call sites with no error path / timeout / failure surfacing — ranks P1 correctness; same contract as align's `unhandled-io` class), infrastructure + capacity (`infra-architect` + `k8s-reviewer`), observability gaps (`observability-reviewer` + `telemetry-architect`). **Stack-agnostic by construction** — detectors are shape-based, not name-based. Same axis applies to backend (`every endpoint × RPS × cost`), frontend (`every route mount × visit-rate × LCP cost`), mobile (`every screen × open-rate × jank cost`), CLI / library / SDK (`every entry-point × invoke-rate × wallclock`), serverless (`every handler × invoke-rate × billed-ms`), data pipeline (`every step × per-batch row count × stage time`) — concrete fingerprint per `PROJECT_KIND`, full matrix in `commands/audit.md`. Polyglot monorepo support: per-subtree `PROJECT_KIND` drives routing; cross-stack fixes bundle into one plan row. **Cross-axis ranks** by `impact-at-target-scale × blast-radius × fix-cost`, NOT by axis. Tier order: P0 scale-blockers → P1 security/correctness → P2 high-leverage scale fixes → P3 architectural foundations → P4 tactical cleanup. Stack-appropriate target flags: `--target-rps=<N>` (backend/serverless/pipeline), `--target-p95=<ms>` (backend), `--target-vitals=<spec>` (frontend), `--target-cold-start=<ms>` (serverless/mobile), `--target-startup=<ms>` (CLI/library), `--target-bundle=<bytes>` (frontend/mobile). **Three output modes** (mutually exclusive): default (scan + rank + execute), `--plan-only` (writes `ai/audit/plan.md` — ranked P0–P4 fix-plan with closure verbs + `<file:line>` citations — executor handoff), `--assess` (writes `ai/audit/assessment.md` — 8-section senior-engineer narrative: what's good / improve / unify / extract / simplify / redesign / remove / optimize — reader handoff; stack-conditional rendering inlines Vue / React / NestJS / Rails / Django / etc. vocabulary from `_extracted-idioms.md`; closes with paste-ready `## Actionable next steps` routing to `/optimize` / `/polish` / `/unify-surfaces` / `/align` / `/security-audit`). Plus `--focus=<axes>`, `--skip-p4`. | any (any language, any framework, any shape — including monoliths, microservices, monorepos, polyglot) |
 
-Progress tracking via `ai/{migrate,optimize,align,polish,audit,unify-surfaces}/progress.md` (single source of truth per command). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags shared by all five:
+Progress tracking via `ai/{migrate,optimize,align,polish,audit,unify-surfaces}/progress.md` (single source of truth per command). First run builds the inventory; subsequent runs pick the next pending area automatically. Common flags shared by these six progress-orchestrated commands (`/refactor` is excluded — it is targeted-only and uses no inventory):
 
 | Flag | Behaviour |
 |---|---|
@@ -515,18 +516,28 @@ It only halts on:
 
 ### Validator script — `validate-align-artifacts.sh`
 
-**Status: `[v1.5.0 — 7 of 14 checks shipped]`**. The script (`scripts/validate-align-artifacts.sh`) ships 7 mechanical checks; the remaining 7 stay agent-side until v2. Universal callable from any tool's hook system, CI, or pre-commit.
+The script (`scripts/validate-align-artifacts.sh`) ships mechanical checks; the rest stay agent-side (they need runtime tooling — re-running detectors / the test suite / a11y / bundle). Universal callable from any tool's hook system, CI, or pre-commit.
 
-**Shipped checks (mechanical)**:
+**Shipped per-finding checks (mechanical)** — derived directly from the script:
 1. `check_evidence_resolves` — every row's `<path:line>` resolves at the cited line.
 2. `check_no_handwaves` — refuses `etc.` / `...` / `several` / `multiple endpoints` / `N+ items`.
 3. `check_closure_verb_in_vocab` — verb in 21-verb closed list.
-4. `check_no_new_symbols` — `git diff --diff-filter=A` shows no new exports unless named in idioms.
+4. `check_no_new_symbols` — `git diff <phase-base>..HEAD` added lines show no new exports unless named in idioms (fail-closed under `--strict`).
 5. `check_net_lines_structural` — git stat for row's commit; structural rows ≤ 0 net.
 6. `check_scope_boundary` — `git show --name-only` for row's commit; touched files ⊂ row.scope.
 7. `check_security_tier_minimum` — security ≥ standard; critical → heavy.
+8. `check_perf_baseline_present` — perf rows carry a before/after or pNN / ms figure ("The Hopeful Perf Fix").
+9. `check_security_assertion_present` — security rows reference a test/assertion ("The Bare Security Fix").
+10. `check_added_lines_cite_idioms` — functional rows that ADD code cite `idiom_cited` ("The Reinvented Idiom").
+11. `check_oracle_unmodified` — PR diff must not touch `_extracted-idioms.md` / `ai/conventions.md` ("The Oracle Drift").
+12. `check_scope_code_smells` — greps each scope file for empty `catch{}` / `except: pass` (FAIL) + debug prints (WARN).
 
-**Remaining 7 (agent-side)**: test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness.
+**Shipped run-level checks (mechanical)**:
+- `check_scan_report_evidence` — a findings-closed ledger with no `scan-report.md` per-detector evidence FAILS (Trusted-Summary guard).
+- `check_progress_ledger_reconciliation` — `progress.md` may not mark a module `done` while the ledger holds non-terminal rows in its scope (false-complete guard).
+- `check_actionable_next_steps` — if a `final-report.md` exists, it must end with a paste-ready `## Actionable next steps` section.
+
+**Still agent-side (runtime tooling, not deterministic in a validator)**: test-coverage-nondecreasing, frontend-regressions (a11y / visual / bundle), re-detect-to-zero, fingerprint-still-present, ledger-completeness, mechanical-green-at-HEAD, per-tier-artifact-set, parallel-consistency.
 
 Usage:
 ```
@@ -537,22 +548,7 @@ scripts/validate-align-artifacts.sh --strict
 scripts/validate-align-artifacts.sh --check=<name>
 ```
 
-The 14 checks (see `align-gate.md`):
-
-1. Ledger completeness — every phase row in `{fixed, archived-pre-existing, parked}`.
-2. Gap-count parity — `gaps_closed == len(evidence)`.
-3. Net-lines on structural rows ≤ 0.
-4. No new symbols (with idioms-named exemption).
-5. No scope creep.
-6. Mechanical green at HEAD.
-7. Coverage non-decreasing.
-8. Frontend regressions green (`frontend-*`).
-9. Oracle unmodified.
-10. Per-tier artifacts complete.
-11. Functional adds cite idiom.
-12. Security assertion present.
-13. Perf baseline + assertion present.
-14. Security tier minimum.
+The full phase-exit gate matrix (script-enforced where possible + agent-side where not) lives in `align-gate.md`.
 
 Returns non-zero on any fail. Wire into pre-commit / CI / tool-specific hook (Claude Code: `.claude/settings.json`; Cursor: `.cursor/hooks.json`; Copilot: GitHub Actions; Aider/Codex/Gemini: `.git/hooks/pre-commit`).
 
@@ -852,7 +848,7 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 |---|---|
 | `audit-setup.sh` | Phase 5 audit for `/setup-project` runs. TBDs filled, pack coverage, anchoring, adapter coverage. |
 | `validate-migration-artifacts.sh` | Per-feature migration artifacts: contract sections, parity tests, audit provenance, V2-structure conformance, gap-count parity, hand-wave detection. |
-| `validate-align-artifacts.sh` | **v1.5.0 — 7 of 14 checks shipped (589 lines)**: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum. Remaining 7 (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) stay agent-side until v2. |
+| `validate-align-artifacts.sh` | **`/align` gate** — mechanical per-finding checks: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum, perf-baseline, security-assertion, functional-adds-cite-idiom, oracle-unmodified, scope-code-smells; plus run-level scan-report-evidence, progress↔ledger reconciliation, and actionable-next-steps. Genuinely-agent-side checks (test-coverage, frontend-regression, re-detect-to-zero, fingerprint-still-present, ledger-completeness, mechanical-green-at-HEAD, per-tier-artifact-set) need runtime tooling and stay outside the script. |
 | `validate-optimize-artifacts.sh` | **`/optimize` gate** — Phase 0 (`ai/optimize/_architecture-decisions.md`): four non-empty evidence blocks, detector `Modules scanned ≥ 1`, each `### F-A-*` cites `<path:line>`, hand-wave grep, `.claude/_extracted-idioms.md` present (`--strict`: oracle referenced). **Ledger** (`ai/optimize/ledger.md`): fenced YAML `id:` rows; terminal rows `gaps_in == gaps_closed`; structural-class net-lines vs `--phase-base..HEAD` (warn if git/base missing); functional-style net-positive rows should cite idioms in `ai/optimize/findings/<id>.md`. Optional scan of `ai/optimize/findings/*.md` for hand-waves. |
 | `validate-refactor-artifacts.sh` | **`/refactor` gate** — **Ledger** (`ai/refactor/ledger.md`): fenced YAML `id:` rows; `closure_verb` must be one of the 10 `refactoring-sweep` verbs; terminal rows `gaps_in == gaps_closed`; class `refactoring` net-lines vs `--phase-base..HEAD` (warn if git/base missing). Optional scan of `ai/refactor/findings/*.md` for hand-waves. `--self-test` smoke test (writes under `tmp/`). See [`templates/tool-adapters/_refactor-pack-coverage.md`](../templates/tool-adapters/_refactor-pack-coverage.md). |
 | `validate-polish-artifacts.sh` | Per-surface artifacts for `/polish`: stack-conditional checks (frontend visual hierarchy / backend API consistency / data schema consistency / mobile platform conventions), no hand-waves, evidence-resolves. **Frontend-only**: `check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the closed 19-verb `ui-design-sweep` set (mirrors how `validate-refactor-artifacts.sh` enforces refactoring-sweep's 10 verbs). |

@@ -42,18 +42,7 @@ You're the librarian of the project's `ai/` knowledge base. Without you, raw obs
 
 ## Pre-flight — read the FULL canonical sink set (do before any write)
 
-The curator reads EVERY sink that `/learn-from-task` writes (the same canonical sink set those commands document). This is the superset — there is no second curator reading a different subset.
-
-| Sink read                          | What you promote it to                          |
-|------------------------------------|-------------------------------------------------|
-| `ai/dynamic/learnings.md`          | `ai/conventions.md` (managed section) at 3 sightings + ≥2 cited examples |
-| `ai/dynamic/learned-patterns.md`   | `ai/patterns/<name>.md` at status `READY` (≥3 files, ≥2 weeks) |
-| `ai/dynamic/feedback-learned.md`   | `.claude/rules/<rule>.md` at `Repeated >= 2`     |
-| `ai/dynamic/decisions-pending.md`  | `ai/decisions/<NNNN>-<slug>.md` (ADR) at `VALIDATED` (≥2 weeks, ≥1 implementation) |
-| `ai/dynamic/drift-log.md`          | mark `RESOLVED` / propose convention update      |
-| `ai/failures/_index.md`            | stays (append-only don't-retry catalog — never delete) |
-| `ai/dynamic/interaction-log.md`    | archive entries >90 days                          |
-| `ai/dynamic/changelog.md`          | prune at >200 lines                               |
+The curator reads EVERY sink that `/learn-from-task` writes (the same canonical sink set those commands document). This is the superset — there is no second curator reading a different subset. The sink set + each sink's promotion target and threshold are **defined once** in [`templates/snippets/learning-sink.md`](../../../snippets/learning-sink.md) — read it there (the "Promotes to (curator) + threshold" column is exactly what this curator graduates each sink to). Change a sink in the snippet, not here; the producer (`/learn-from-task`) and both curator copies all link to it so they cannot diverge.
 
 Also read (context, not sinks): `.claude/codebase-profile.md`, `ai/conventions.md`, `ai/decisions/*.md` (do NOT modify), `ai/patterns/*.md`, `ai/business-domain.md`, `ai/project-goals.md`, the relevant module, and recent git log (last 30 days) — same as every other agent.
 

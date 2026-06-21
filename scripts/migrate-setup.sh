@@ -103,7 +103,12 @@ case "$MIGRATION" in
 
     log ""
     log "rollback command:"
-    log "  rm -rf '$TARGET/CLAUDE.md' '$TARGET/AGENTS.md' '$TARGET/.claude' '$TARGET/ai'"
+    log "  # Restore FROM the backup first — the backup lives at $backup,"
+    log "  # nested under .claude/, so do NOT 'rm -rf .claude' before restoring (that"
+    log "  # deletes the backup and leaves the target unrecoverable). Remove only the"
+    log "  # non-backup target paths, then copy the backup back over the target."
+    log "  rm -rf '$TARGET/CLAUDE.md' '$TARGET/AGENTS.md' '$TARGET/ai'"
+    log "  find '$TARGET/.claude' -mindepth 1 -maxdepth 1 ! -name backups -exec rm -rf {} +"
     log "  cp -R '$backup'/* '$TARGET/'"
 
     log ""

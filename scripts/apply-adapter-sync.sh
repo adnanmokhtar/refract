@@ -79,7 +79,7 @@ detect_adapters() {
   [[ -d "$TARGET/.opencode" ]]                   && detected+=" opencode"
   [[ -d "$TARGET/.cursor"   ]] || [[ -f "$TARGET/.cursorrules" ]]  && detected+=" cursor"
   [[ -d "$TARGET/.github/agents" ]] || [[ -d "$TARGET/.github/prompts" ]] || [[ -f "$TARGET/.github/copilot-instructions.md" ]] && detected+=" copilot"
-  [[ -d "$TARGET/.clinerules" ]]                 && detected+=" cline"
+  { [[ -d "$TARGET/.clinerules" ]] || [[ -d "$TARGET/.cline" ]]; } && detected+=" cline"
   [[ -d "$TARGET/.windsurf"   ]]                 && detected+=" windsurf"
   [[ -d "$TARGET/.continue"   ]]                 && detected+=" continue"
   [[ -f "$TARGET/.aider.conf.yml" ]] || [[ -f "$TARGET/.aiderignore" ]] && detected+=" aider"
@@ -462,10 +462,28 @@ sync_copilot() {
 
 sync_cline() {
   echo "  [cline]"
-  # Cline workflows = commands. 1:1 markdown copy (no frontmatter conversion needed).
+  # Commands are skills-first: PRIMARY = .cline/skills/<name>/SKILL.md (LLM-authored — needs a
+  # `name:` field the source command lacks); fallback = .clinerules/workflows/<name>.md (1:1 mirror,
+  # still works, on Cline's workflows→Skills deprecation path — the workflows docs page now 404s).
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
-    sync_file "$f" "$TARGET/.clinerules/workflows/$(basename "$f")"
+    name=$(basename "$f" .md)
+    sync_file "$f" "$TARGET/.clinerules/workflows/$name.md"
+    [[ -f "$TARGET/.cline/skills/$name/SKILL.md" ]] || report_missing_author "cline-command-skill" ".cline/skills/$name/SKILL.md" "command→native Skill (PRIMARY) with name/description frontmatter — run /setup-project-adapters"
+  done
+  # Reference skills → .cline/skills/<name>/SKILL.md (NATIVE folder copy).
+  for skill_dir in "$TARGET"/.claude/skills/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    skill_name=$(basename "$skill_dir")
+    if [[ -f "$skill_dir/SKILL.md" ]]; then
+      sync_file "$skill_dir/SKILL.md" "$TARGET/.cline/skills/$skill_name/SKILL.md"
+    fi
+  done
+  # Flat skills.
+  for f in "$TARGET"/.claude/skills/*.md; do
+    [[ -f "$f" ]] || continue
+    skill_name=$(basename "$f" .md)
+    sync_file "$f" "$TARGET/.cline/skills/$skill_name/SKILL.md"
   done
   # Rules → .clinerules/<NN>-<domain>.md — numeric load-order prefix ({10..79}); LLM assigns the
   # domain number, so flag (don't raw-copy to a non-prefixed name that fails the coverage glob).
@@ -478,7 +496,7 @@ sync_cline() {
   # Composite + index files (LLM-authored).
   [[ -f "$TARGET/.clinerules/00-project.md" ]] || report_missing_author "cline-project" ".clinerules/00-project.md" "always-loaded project rules + driver-gap disclosure — run /setup-project-adapters"
   [[ -f "$TARGET/.clinerules/81-agents.md" ]]  || report_missing_author "cline-agents-index" ".clinerules/81-agents.md" "agent persona index (every agent) — run /setup-project-adapters"
-  [[ -f "$TARGET/.clinerules/82-skills.md" ]]  || report_missing_author "cline-skills-index" ".clinerules/82-skills.md" "skill procedure index (every skill) — run /setup-project-adapters"
+  [[ -f "$TARGET/.clinerules/82-skills.md" ]]  || report_missing_author "cline-skills-index" ".clinerules/82-skills.md" "skill procedure catalog/index (PRIMARY surface is .cline/skills/) — run /setup-project-adapters"
 }
 
 sync_windsurf() {

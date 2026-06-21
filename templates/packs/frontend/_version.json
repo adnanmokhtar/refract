@@ -1,12 +1,18 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.2.0",
-  "released": "2026-06-16",
+  "version": "1.3.0",
+  "released": "2026-06-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "add-feature: three new detection gates — prior-art (duplicate-capability) gate, new-dependency gate, and standard-tier bundle-size delta check on new shared wrappers / lazy routes.",
+  "summary": "Sync-chain repair — _topics.md now declares migration-frontend as a rule (gated by migration_layout_detected, mirroring backend/migration-backend); the file shipped under rules/ but was absent from the topic list, so /setup-project AUTHOR-mode generation never surfaced it. v1.2.0 unchanged: add-feature three new detection gates — prior-art (duplicate-capability) gate, new-dependency gate, and standard-tier bundle-size delta check on new shared wrappers / lazy routes.",
   "changelog": {
+    "1.3.0": {
+      "released": "2026-06-22",
+      "changes": [
+        "Sync-chain repair: _topics.md now declares migration-frontend as a rule (kind:rule, gated by migration_layout_detected so it only ships when the migration pack is loaded — mirrors backend/migration-backend). rules/migration-frontend.md shipped in the pack but was absent from the topic list, so /setup-project AUTHOR-mode generation never surfaced it. Fallback points at the canonical authored shape (rules/migration-frontend.md)."
+      ]
+    },
     "1.2.0": {
       "released": "2026-06-16",
       "changes": [

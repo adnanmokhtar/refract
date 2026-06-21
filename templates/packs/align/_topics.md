@@ -172,7 +172,14 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   mirror_existing: true
   fallback: commands/align-recheck.md
 
-# ============ SKILLS (.claude/skills/<name>.md) ============
+- name: align-promote-tier
+  kind: command
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md (PROJECT_KIND for tier floors) + _extracted-idioms.md (critical-idiom inventory — promote-only rows)
+  sections: [premise, args, forbidden_demotions, prerequisites, procedure, output, forbidden_demotion_example, hard_rules, related]
+  mirror_existing: true
+  fallback: commands/align-promote-tier.md   # align ships no _examples/ dir — fall back to the live source
 
 - name: detect-drift
   kind: skill

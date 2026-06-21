@@ -26,7 +26,7 @@ while [[ $# -gt 0 ]]; do
 done
 cd "$REPO_ROOT" || exit 1
 
-QUALIFIER='[Pp]lanned|\(agent-side|agent-side until|not script[ -]enforced|not[ -]yet (implemented|shipped)|until v[0-9]'
+QUALIFIER='[Pp]lanned|\(agent-side|agent-side until|not script[ -]enforced|not[ -]yet (implemented|shipped)|until v[0-9]|no external validator|[Ss]elf-policed|there is no .?check_|not (a|an) (script|validator|external)|agent-enforced|AGENT-enforced'
 
 # 1. DEFINED — every check_* function defined in any shell script.
 # `|| true` so set -e doesn't abort when a path is absent (find/grep on a missing dir
@@ -36,8 +36,13 @@ DEFINED="$(grep -rhoE '^[[:space:]]*check_[a-z0-9_]+\(\)' scripts/*.sh 2>/dev/nu
 
 # 2. CITATION surfaces — the rule/doc/phase/command files that promise gate behaviour.
 # Newline list (repo paths are space-free); bash 3.2 has no mapfile.
-SURFACES="$(find templates/packs/*/rules templates/governance templates/phases commands \
+# Includes docs/ + pack-command mirrors + README so false "check_X enforces this" guarantees
+# stated there are linted too (not just rules/governance/phases/top-level commands). README.md
+# is a single file (not a dir), appended after the find so its absence can't abort the find.
+SURFACES="$(find templates/packs/*/rules templates/packs/*/commands templates/governance templates/phases commands docs \
               -name '*.md' 2>/dev/null || true)"
+[ -f README.md ] && SURFACES="$SURFACES
+README.md"
 
 # 3. Distinct cited names.
 CITED="$(grep -rhoE 'check_[a-z0-9_]+' $SURFACES 2>/dev/null | sort -u || true)"

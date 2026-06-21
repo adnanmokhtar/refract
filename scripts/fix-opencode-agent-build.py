@@ -101,10 +101,6 @@ def patch_frontmatter(text, name):
     # Reconstruct: ---\n<fm_body>\nagent: X\n---\n<rest>
     rest = "\n".join(lines[fm_end_idx:])
     new_text = f"---\n{fm_body}\nagent: {agent}\n---\n{rest}"
-    # Avoid producing `---\n\n---\n` (double blank after close) — collapse
-    new_text = re.sub(r"---\n\n+(---\n)?", "---\n\n", new_text, count=1)
-    # Actually that's too aggressive. Just leave it.
-    new_text = f"---\n{fm_body}\nagent: {agent}\n---\n{rest}"
     return new_text
 
 

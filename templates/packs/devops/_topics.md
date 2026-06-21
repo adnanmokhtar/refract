@@ -59,6 +59,20 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { vcs_detected: true }
   fallback: _examples/add-ci.md
 
+- name: deploy-stage
+  kind: command
+  triggers: { deploy_target_detected: true }
+  extracts_from: _extracted-codebase.md § Deploy (deploy mechanism + target env) + CI config (green-gate)
+  sections: [premise, when_to_use, when_not_to_use, prerequisites, optional_flags, phases, halts, hard_rules, cross_references]
+  fallback: commands/deploy-stage.md   # no _examples/ stub — fall back to the live source
+
+- name: rollback-deploy
+  kind: command
+  triggers: { deploy_target_detected: true }
+  extracts_from: _extracted-codebase.md § Deploy (deploy mechanism + revision history source)
+  sections: [premise, when_to_use, args, what_happens, halts, hard_rules, cross_references]
+  fallback: commands/rollback-deploy.md   # no _examples/ stub — fall back to the live source
+
 - name: dockerfile-lint
   kind: skill
   triggers: { dockerfile_detected: true }

@@ -605,9 +605,9 @@ Properties:
 - **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
 - **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
 
-### The 5 simple commands (start here)
+### The 7 simple commands (start here)
 
-These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted for migrate/align/optimize/polish, or natural-language description / explicit path). **`/refactor`** defaults to git-changed paths when scope is omitted — omit whole-repo refactor here; use `/optimize` instead.
+These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted for migrate/align/optimize/polish/audit/unify-surfaces, or natural-language description / explicit path). **`/refactor`** defaults to git-changed paths when scope is omitted — omit whole-repo refactor here; use `/optimize` instead.
 
 | Command | Purpose |
 |---|---|
@@ -616,6 +616,8 @@ These are the recommended user surface. One command per concern. Deep multi-agen
 | `/refactor [<scope>]` | Targeted behaviour-preserving refactor only — closed vocabulary from `refactoring-sweep` (extract-method, rename, flatten-conditional, …). No architectural moves, no perf, no dead-code sweeps. Ledger at `ai/refactor/ledger.md`; validator `scripts/validate-refactor-artifacts.sh`. |
 | `/align [<scope>]` | Detect where code doesn't follow the project's structure (layering, naming, idioms, conventions, design tokens, a11y, i18n) + fix. |
 | `/polish [<scope>]` | Stack-conditional polish. Frontend-* → closed 19-verb vocabulary in `ui-design-sweep` (ui-ux pack v1.1+) covering tokens / wrappers / hierarchy / type-scale / rhythm / density / states / contrast / focus / iconography / motion / tap-target / cta / affordance / surface — sibling to `api-consistency-audit` (backend) and `schema-consistency-audit` (data). Backend-* → API consistency (envelope, error contract, pagination, idempotency, log/metric/trace uniformity, OpenAPI gaps). Data-* → schema consistency (column naming, types, indexes, audit fields, migration patterns). Mobile-* → frontend polish + iOS HIG / Material conformance. Validator `scripts/validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 19-verb set (mirrors how `validate-refactor-artifacts.sh` enforces refactoring-sweep). Distinct from `/enhance-ui` (single-area iteration loop) and `/ui-sweep` (frontend specialist with HTML report). |
+| `/audit [<scope>]` | Full-stack engineering audit — universal across stacks. One pass across architecture / SOLID + clean code / security / DB perf / runtime perf / scalability + resilience (13 scale-lens detectors routed via `PROJECT_KIND`) / infra / observability. Cross-axis ranked by `impact-at-target-scale × blast-radius × fix-cost`. Three modes: default (scan + rank + execute), `--plan-only`, `--assess` (senior-engineer narrative). Scale-first targets: `--target-rps`, `--target-vitals`, `--target-cold-start`, `--target-startup`, `--target-bundle`. |
+| `/unify-surfaces [<scope>]` | Surface-type unification across the frontend codebase — typed by SURFACE CATEGORY (tables / forms / headers / tabs / filters / buttons / validation) rather than by axis. Inventories every consumer, decides the canonical wrapper, extracts/extends it, migrates every consumer in one cascade-rewrite commit per category. Validation extracts a 3-part pipeline (validator composable + `<ErrorList>` / `<FieldError>` + API-error mapper). Frontend stacks only. |
 
 ## `/optimize`
 
@@ -640,9 +642,9 @@ Examples:
 /audit the orders module --plan-only  # scoped, plan only
 ```
 
-**Multi-day workflow** — `/migrate`, `/optimize`, `/align`, `/polish`, and `/audit` each write to `ai/<cmd>/progress.md`. First run builds the inventory; subsequent runs pick the next pending area automatically. **`/refactor`** is different: it targets explicit paths or git-changed files by default; optional `ai/refactor/progress.md` is session notes only — it does **not** use the inventory / `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` orchestration. For whole-repo refactors, use **`/optimize`**. See [`commands/refactor.md`](../commands/refactor.md).
+**Multi-day workflow** — `/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, and `/unify-surfaces` each write to `ai/<cmd>/progress.md`. First run builds the inventory; subsequent runs pick the next pending area automatically. **`/refactor`** is different: it targets explicit paths or git-changed files by default; optional `ai/refactor/progress.md` is session notes only — it does **not** use the inventory / `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` orchestration. For whole-repo refactors, use **`/optimize`**. See [`commands/refactor.md`](../commands/refactor.md).
 
-**Common flags** (orchestrated simple-surface commands: `/migrate`, `/optimize`, `/align`, `/polish`, `/audit` — **not** `/refactor` unless noted in [`commands/refactor.md`](../commands/refactor.md)):
+**Common flags** (orchestrated simple-surface commands: `/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/unify-surfaces` — **not** `/refactor` unless noted in [`commands/refactor.md`](../commands/refactor.md)):
 
 ```
 /<cmd>                                # next pending area (or first run: build inventory)
@@ -999,7 +1001,7 @@ In Claude Code:
 
 What happens:
 - Phase 2 Step 16 looks for V1 layout. If V1 is a sibling directory or different repo, the command may prompt: "Where is V1?" — answer with the absolute path.
-- Phase 4.2 ships the migration pack: rule, patterns, agents, skills, and 7 commands (the 5 phased commands + `/port-feature` + `/migration-status`).
+- Phase 4.2 ships the migration pack: rule, patterns, agents, skills, and 19 commands — the phased flow (`/migration-scan`, `/migration-plan`, `/migration-phase`, `/migration-gate`, `/migration-final`) + `/port-feature` + `/find-and-fix` + `/migration-fast` + lifecycle commands (`/migration-status`, `/migration-replan`, `/migration-rollback`, `/migration-recheck`, `/migration-park`, `/migration-unpark`, `/migration-deprecate`, `/migration-promote-tier`, `/draft-phase-adrs`, `/compare-v1`, `/cross-repo-task`).
 - Phase 4.6 anchors every migration artifact to your V1 root + V2 root + cutover mechanism.
 - The merge matrix decides per command — ADD if no project equivalent, SKIP-with-redirect if you already have a specialized version.
 
@@ -1104,7 +1106,7 @@ Mechanical CI (lint / typecheck / build / tests) MUST be green at HEAD. Existing
 
 What happens:
 - Phase 2 confirms `_extracted-idioms.md` is non-empty + identifies `PROJECT_KIND` (frontend-* / backend-* / data-* / mobile-*).
-- Phase 4.2 ships the align pack: rule (`align-discipline.md`), 2 skills, 9 commands, validator script.
+- Phase 4.2 ships the align pack: rule (`align-discipline.md`), 2 skills (`detect-drift`, `find-and-align`), 13 commands (`/align-scan`, `/align-plan`, `/align-phase`, `/align-gate`, `/align-final`, `/align-status`, `/align-fast`, `/align-recheck`, `/align-replan`, `/align-rollback`, `/align-park`, `/align-unpark`, `/align-promote-tier`), validator script.
 - Phase 4.6 anchors every align artifact to your codebase root + test runner + lint commands + (frontend) a11y / visual / bundle-size tools.
 - Per-stack detectors auto-include from sibling packs (`code-quality`, `security`, plus `frontend` + `ui-ux` for `frontend-*`).
 

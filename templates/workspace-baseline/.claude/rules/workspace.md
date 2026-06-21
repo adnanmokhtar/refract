@@ -10,6 +10,16 @@ kind: rule
 
 Apply when Claude is rooted at the workspace parent directory.
 
+## Commands
+
+The workspace baseline ships these workspace-level commands (in `.claude/commands/`). They are documented here — this rule is the workspace baseline's command index (the main `docs/COMMANDS.md` covers the project-level `/setup-project` surface, not these):
+
+- `/project-map` — dump the workspace registry or locate a concept across sibling repos.
+- `/sync-contract` — after an API contract change, find frontend consumers and propose synced edits.
+- `/cross-repo-task` — orchestrate a feature spanning multiple sibling repos: contract-first, dependency-ordered, end-to-end verified (producer ships first + backward-compatible; consumers follow).
+- `/migration-doctor` — find real ledger / artifact issues across the workspace's per-repo migration ledgers; every finding cites `<repo>/<ledger-row>` or `<repo>/<artifact-path>` (no hand-waves).
+- `/migration-workspace-status` — aggregate per-repo migration ledgers into a workspace-level status report; read-only.
+
 ## Read-before-edit across repo boundaries
 
 - Per-repo `.claude/rules/` do NOT auto-load across boundaries.

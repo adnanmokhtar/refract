@@ -1,9 +1,18 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "1.2.0",
-  "released": "2026-06-07",
+  "version": "1.2.1",
+  "released": "2026-06-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Phase-6 continuous-learning pack — curator + drift/pattern watchers. 1.2.0 adds provenance discipline to the extraction engine (every claim in _extracted-* files is [found:]/[inferred:]/[unconfirmed]) + oracle approval stamp (approved_by/approved_hash frontmatter, surfaced by /setup-project-health check 9). 1.1.0 added /promote-decision + /audit-knowledge."
+  "summary": "Phase-6 continuous-learning pack — curator + drift/pattern watchers. 1.2.1: DRY — the curator's learning-sink table extracted to a shared snippet (templates/snippets/learning-sink.md) so the canonical curator + repo-baseline copy stop diverging; plus the audit action-plan rollout in learn-from-task. v1.2.0 unchanged: provenance discipline in the extraction engine (every claim in _extracted-* files is [found:]/[inferred:]/[unconfirmed]) + oracle approval stamp (approved_by/approved_hash frontmatter, surfaced by /setup-project-health check 9). v1.1.0 added /promote-decision + /audit-knowledge.",
+  "changelog": {
+    "1.2.1": {
+      "released": "2026-06-22",
+      "changes": [
+        "knowledge-curator.md: the inline 4-column learning-sink table (sink read → what you promote it to) extracted to templates/snippets/learning-sink.md and linked, so the canonical curator and the repo-baseline copy (which must stay body-identical) no longer carry a divergence-prone duplicate.",
+        "learn-from-task.md: audit action-plan rollout carried into the version record."
+      ]
+    }
+  }
 }

@@ -97,7 +97,10 @@ audit_opencode() {
   [[ -d "$TARGET/.opencode" || -f "$TARGET/opencode.json" ]] || return 1
   local hits=0 expected=$((SRC_COMMANDS + SRC_AGENTS + SRC_SKILLS))
   while IFS= read -r b; do
-    [[ -f "$TARGET/.opencode/commands/$b.md" ]] && hits=$((hits + 1))
+    # The `agent:` frontmatter is load-bearing — without it OpenCode routes the command to a no-tool
+    # mode and it DESCRIBES instead of EXECUTES. A command file that lacks it is not a real hit, so
+    # require BOTH presence AND an `agent:` line (any value, mirroring apply-adapter-sync.sh tolerance).
+    [[ -f "$TARGET/.opencode/commands/$b.md" ]] && grep -q "^agent:" "$TARGET/.opencode/commands/$b.md" 2>/dev/null && hits=$((hits + 1))
   done < <(list_basenames_kind commands)
   while IFS= read -r b; do
     [[ -f "$TARGET/.opencode/agents/$b.md" ]] && hits=$((hits + 1))
@@ -129,11 +132,17 @@ audit_copilot() {
 
 # ---------- cline ----------
 audit_cline() {
-  [[ -d "$TARGET/.clinerules" ]] || return 1
-  local hits=0 expected=$((SRC_COMMANDS + SRC_RULES))
+  [[ -d "$TARGET/.clinerules" || -d "$TARGET/.cline" ]] || return 1
+  local hits=0 expected=$((SRC_COMMANDS + SRC_RULES + SRC_SKILLS))
   while IFS= read -r b; do
-    [[ -f "$TARGET/.clinerules/workflows/$b.md" ]] && hits=$((hits + 1))
+    # Skills-first (Cline merged workflows into Skills): grade the PRIMARY surface only. The legacy
+    # .clinerules/workflows/<name>.md mirror is ALWAYS written by apply, so OR-counting it would let a
+    # missing primary skill grade ok while the command never surfaces in Cline's native Skills picker.
+    [[ -f "$TARGET/.cline/skills/$b/SKILL.md" ]] && hits=$((hits + 1))
   done < <(list_basenames_kind commands)
+  while IFS= read -r b; do
+    [[ -f "$TARGET/.cline/skills/$b/SKILL.md" || -f "$TARGET/.cline/skills/$b.md" ]] && hits=$((hits + 1))
+  done < <(list_basenames_kind skills)
   while IFS= read -r b; do
     # Cline uses NN-name.md naming; check by suffix match
     if find "$TARGET/.clinerules" -maxdepth 1 -name "*-$b.md" 2>/dev/null | grep -q .; then
@@ -227,6 +236,60 @@ audit_gemini() {
   echo "$hits|$expected"
 }
 
+# Resolve the parent agent file(s) that may declare Kimi subagents. Subagents at
+# .kimi/subagents/<name>.yaml are INERT until declared in a parent agent YAML's
+# `subagents:` section. Accept the documented default (.kimi/agent.yaml) OR a
+# configured one ($KIMI_AGENT_CONFIG env, resolved relative to TARGET if not absolute),
+# OR any project-side .kimi/*.yaml (not under subagents/) that carries a `subagents:` block.
+kimi_parent_agent_files() {
+  local found=""
+  if [[ -n "${KIMI_AGENT_CONFIG:-}" ]]; then
+    if [[ "$KIMI_AGENT_CONFIG" = /* ]]; then
+      [[ -f "$KIMI_AGENT_CONFIG" ]] && found+=" $KIMI_AGENT_CONFIG"
+    else
+      [[ -f "$TARGET/$KIMI_AGENT_CONFIG" ]] && found+=" $TARGET/$KIMI_AGENT_CONFIG"
+    fi
+  fi
+  [[ -f "$TARGET/.kimi/agent.yaml" ]] && found+=" $TARGET/.kimi/agent.yaml"
+  local f
+  for f in "$TARGET"/.kimi/*.yaml; do
+    [[ -f "$f" ]] || continue
+    grep -qE '^[[:space:]]*subagents:[[:space:]]*$' "$f" 2>/dev/null && found+=" $f"
+  done
+  echo "$found" | tr -s ' ' | sed 's/^ //'
+}
+
+# check_kimi_subagent_registration — named guard. FAILS (exit 1) when subagent YAMLs
+# exist under .kimi/subagents/ but at least one is NOT declared in any parent agent
+# file. Orphan subagents cannot be dispatched by Kimi, so a 100%-file-coverage audit
+# that ignores registration would grade green while dispatch is silently broken.
+# Exit 0 = clean (no subagents, or every subagent registered). Emits diagnostics to stderr.
+check_kimi_subagent_registration() {
+  local any=0 b
+  for f in "$TARGET"/.kimi/subagents/*.yaml; do
+    [[ -f "$f" ]] || continue
+    any=1
+  done
+  [[ $any -eq 1 ]] || return 0   # no subagents → nothing to register
+  local parents
+  parents=$(kimi_parent_agent_files)
+  if [[ -z "$parents" ]]; then
+    echo "kimi: subagents present but NO parent agent file (.kimi/agent.yaml or configured) declares any — all orphaned" >&2
+    return 1
+  fi
+  local broken=0
+  for f in "$TARGET"/.kimi/subagents/*.yaml; do
+    [[ -f "$f" ]] || continue
+    b=$(basename "$f" .yaml)
+    # Registered if some parent file references the subagent by name (key) or by its path/basename.
+    if ! grep -hqE "(^[[:space:]]+$b:[[:space:]]*$)|($b\.yaml)|(subagents/$b)" $parents 2>/dev/null; then
+      echo "kimi: subagent '$b' is not declared in any parent agent file — orphan, cannot dispatch" >&2
+      broken=$((broken + 1))
+    fi
+  done
+  [[ $broken -eq 0 ]]
+}
+
 # ---------- kimi: commands dual-surface (skill + subagent); skills→skill; agents→subagent ----------
 audit_kimi() {
   [[ -d "$TARGET/.kimi" ]] || return 1
@@ -241,6 +304,12 @@ audit_kimi() {
   while IFS= read -r b; do
     [[ -f "$TARGET/.kimi/subagents/$b.yaml" ]] && hits=$((hits + 1))
   done < <(list_basenames_kind agents)
+  # Subagent registration guard: orphan subagents (not declared in a parent agent YAML) cannot
+  # dispatch. Force an err verdict when registration is broken — file coverage alone is a lie.
+  if ! check_kimi_subagent_registration; then
+    echo "0|$expected"
+    return
+  fi
   echo "$hits|$expected"
 }
 

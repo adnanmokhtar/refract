@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/schemas/generic/agents-md/v1.json",
-  "title": "AGENTS.md section-presence schema",
-  "description": "Validates that an AGENTS.md document has the required headings. Used by --validate-schemas to enforce the cross-tool universal anchor's structure. Run after parsing the markdown into a section-presence object: { sections: [\"Architecture\", \"Key commands\", ...] }.",
+  "title": "AGENTS.md section-presence schema (reference shape — not runtime-enforced)",
+  "description": "Reference shape for an AGENTS.md document's required headings. Documents the cross-tool universal anchor's structure; no script in this repo validates against it at runtime. To check it manually, parse the markdown into a section-presence object, e.g. { \"sections\": [\"Architecture\", \"Key commands\", \"Conventions\"] }.",
   "type": "object",
   "additionalProperties": true,
   "required": ["sections"],

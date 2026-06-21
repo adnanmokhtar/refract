@@ -152,9 +152,13 @@ for p in "${PATHS[@]}"; do
   ext="${base##*.}"
   stem="${base%.$ext}"
 
+  # STACK=unknown → stack-detection was inconclusive (no codebase-profile signal,
+  # no package.json hit). Be PERMISSIVE: accept the common web/mobile component
+  # extensions instead of rejecting every .vue/.tsx/.svelte path as "non-<stack>".
+  # The stack-specific extension gate below only fires when STACK is a known value.
   case "$ext" in
     vue)
-      if [[ "$STACK" != "vue" ]]; then
+      if [[ "$STACK" != "vue" && "$STACK" != "unknown" ]]; then
         emit "fail" "$p" ".vue file in non-Vue project (detected stack: $STACK)"
         continue
       fi
@@ -166,7 +170,9 @@ for p in "${PATHS[@]}"; do
       fi
       ;;
     tsx|jsx)
-      if [[ "$STACK" != "react" && "$STACK" != "next" ]]; then
+      # React/Next both set STACK=react (detection never yields "next"), so the
+      # gate is `!= react`; allow STACK=unknown through as well.
+      if [[ "$STACK" != "react" && "$STACK" != "unknown" ]]; then
         emit "fail" "$p" ".$ext in non-React project (detected stack: $STACK)"
         continue
       fi
@@ -179,7 +185,7 @@ for p in "${PATHS[@]}"; do
       fi
       ;;
     svelte)
-      if [[ "$STACK" != "svelte" ]]; then
+      if [[ "$STACK" != "svelte" && "$STACK" != "unknown" ]]; then
         emit "fail" "$p" ".svelte in non-Svelte project (detected stack: $STACK)"
         continue
       fi

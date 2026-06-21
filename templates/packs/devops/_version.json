@@ -1,9 +1,18 @@
 {
   "kind": "pack",
   "name": "devops",
-  "version": "1.1.0",
-  "released": "2026-05-30",
+  "version": "1.2.0",
+  "released": "2026-06-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "DevOps pack — CI scaffolding, containerization, staged deploy + rollback. 1.1.0 adds /rollback-deploy (the recovery pair of /deploy-stage)."
+  "summary": "DevOps pack — CI scaffolding, containerization, staged deploy + rollback. 1.2.0: sync-chain repair — _topics.md now declares deploy-stage AND rollback-deploy as commands (both shipped under commands/ but absent from the topic list, so /setup-project AUTHOR-mode generation silently dropped them; no _examples/ stubs exist so their fallbacks point at the live sources); plus the long-tail audit fixes landed across the pack (add-ci security+coverage job, app-code stub scan). 1.1.0 unchanged: /rollback-deploy added as the recovery pair of /deploy-stage.",
+  "changelog": {
+    "1.2.0": {
+      "released": "2026-06-22",
+      "changes": [
+        "Sync-chain repair: _topics.md now declares deploy-stage and rollback-deploy as commands (kind:command, deploy_target_detected trigger). Both shipped under commands/ but were absent from the topic list, so /setup-project AUTHOR-mode generation silently dropped them. No _examples/ stubs exist, so the fallbacks point at the live sources (commands/deploy-stage.md, commands/rollback-deploy.md).",
+        "Version record now reflects the long-tail audit fixes already landed in pack content (add-ci security + coverage job, app-code stub scan) that had not been version-stamped."
+      ]
+    }
+  }
 }

@@ -15,5 +15,14 @@
     "https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/",
     "https://qwenlm.github.io/qwen-code-docs/en/users/common-workflow/"
   ],
-  "last_verified": "2026-05-03"
+  "last_verified": "2026-06-22",
+  "last_verified_hashes": {
+    "https://qwenlm.github.io/qwen-code-docs/en/users/overview/": "71cf395aa95c84dbe21e6f5649a739c5f134b3d69d19b56e825e67a8a7b3e9fa",
+    "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/": "e1e9a017f7b49e8035bde902e9506854e78b5c9b242c195195f9949f06887904",
+    "https://qwenlm.github.io/qwen-code-docs/en/users/features/commands/": "c05182ce0c8b221defcea2a2bff58ccc0eb250528e00f7cd7b0dee01c3e22337",
+    "https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/": "132fbf66e43eacc0f0bf5dbd38c2c77af19bc2b8ad70bce1d1e1543cf6fff58b",
+    "https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/": "34fed7d8545306f30c99907dff9c40a7a2e5b02f4ff6b4a1d711c5c9de1d71d8",
+    "https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/": "28a5a5120937efd3257402dc5cd4a5342d34208b7b6f7a2c2405548b15983d82",
+    "https://qwenlm.github.io/qwen-code-docs/en/users/common-workflow/": "633d3ccb81b90bb5ce97d6d088cacab63f78540b1bdd32f007e3fe021f61016c"
+  }
 }

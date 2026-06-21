@@ -95,9 +95,13 @@ sync_managed_regions() {
       # Pre-load baseline blocks keyed by id="X"
       while ((getline line < BASELINE) > 0) {
         if (line ~ /<!-- setup-project:managed start id=/) {
-          match(line, /id=([^ >]+)/, m)
-          if (m[1] != "") {
-            current_id = m[1]
+          id = ""
+          if (match(line, /id=[^ >]+/)) {
+            id = substr(line, RSTART, RLENGTH)
+            sub(/^id=/, "", id)
+          }
+          if (id != "") {
+            current_id = id
             blocks[current_id] = line "\n"
             in_block = 1
             continue
@@ -114,11 +118,15 @@ sync_managed_regions() {
       close(BASELINE)
     }
     /<!-- setup-project:managed start id=/ {
-      match($0, /id=([^ >]+)/, m)
-      if (m[1] != "" && (m[1] in blocks)) {
-        printf "%s", blocks[m[1]]
+      id = ""
+      if (match($0, /id=[^ >]+/)) {
+        id = substr($0, RSTART, RLENGTH)
+        sub(/^id=/, "", id)
+      }
+      if (id != "" && (id in blocks)) {
+        printf "%s", blocks[id]
         in_skip = 1
-        skip_id = m[1]
+        skip_id = id
         next
       }
     }

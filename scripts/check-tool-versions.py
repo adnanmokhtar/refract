@@ -135,7 +135,12 @@ def main() -> int:
             fail(f"{name}: no _version.json")
             errors += 1
             continue
-        data = json.loads(vf.read_text())
+        try:
+            data = json.loads(vf.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError) as e:
+            fail(f"{name}: malformed _version.json ({e})")
+            errors += 1
+            continue
         urls = data.get("docs_urls", [])
         if not urls:
             info(f"{name}: no docs_urls — skipped")
@@ -167,9 +172,9 @@ def main() -> int:
             new_hashes[url] = h
 
         if args.update and new_hashes:
-            data["last_verified_hashes"] = {**recorded, **new_hashes}
+            data["last_verified_hashes"] = new_hashes
             data["last_verified"] = today
-            vf.write_text(json.dumps(data, indent=2) + "\n")
+            vf.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
             print(f"  updated {vf.relative_to(ROOT)}: {len(new_hashes)} hash(es) recorded")
 
     summary = f"checked {len(adapters)} adapter(s); {drift} drift / {errors} error(s)"

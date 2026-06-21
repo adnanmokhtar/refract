@@ -71,45 +71,65 @@ The ledger is the **single source of truth** for migration state. Its existence 
 
 ## Per-feature record shape
 
-Each feature is a markdown section in `ai/migration/ledger.md`:
-
-```markdown
-## <feature-name>
+The ledger body is a **single YAML list** of feature rows under one fenced block in
+`ai/migration/ledger.md`. Each row is a list item — a two-space-indented `- id: F<NNN>`
+line followed by the row's fields, indented one further level under that item. The id is
+the row key; `feature:` carries the human slug. (The parsers — `discover_features`,
+`migrate-parallel.sh`, `migration-doctor.sh` — anchor on the indented `- id: FNNN` row
+marker and read each field as an indented `key: value`, tolerating the leading `- ` and
+any indentation.)
 
 ```yaml
-state: V2-shadow                          # one of the states above
-owner: alice@team
-v1_path: Reports/views.py:report_orders   # entry point (function / class / route)
-v2_path: src/reports/orders/handler.ts    # entry point
-v1_commit_pinned: 7a3b9c1                 # the V1 commit the parity tests run against
-contract: ai/migration/contracts/report-orders.md
-plan: ai/migration/plans/report-orders.md
-parity_tests: tests/parity/report-orders/
-parity_runs:                              # most-recent first
-  - id: 2026-04-26T14:22Z
-    result: green
-    tolerance_overrides: []
-perf_decisions: ai/migration/perf-decisions/report-orders.md
-shadow_started: 2026-04-20
-shadow_mismatch_rate: 0.0001              # 0.01% — well under threshold
-canary_started: null
-canary_stage: null
-cutover_stage_targets:                    # configured plan
-  shadow_min_days: 7
-  canary_stages: [1, 10, 50, 100]
-  v1_idle_min_days: 14
-related_adrs:                             # for any intentional contract break
-  - ADR-007: drop deprecated `legacy_id` field on response
-dependencies:                             # other features that must be done first
-  - getUser    # V2-only ✓
-  - getOrders  # V2-only ✓
-notes: |
-  Shadow rate is healthy. One tolerance override added for a millisecond-level
-  timestamp diff; recorded in parity_runs.tolerance_overrides.
-```
+# ai/migration/ledger.md — features:
+  - id: F001
+    feature: report-orders
+    state: V2-shadow                          # one of the states above
+    phase: 4
+    owner: alice@team
+    v1_path: Reports/views.py:report_orders   # entry point (function / class / route)
+    v2_path: src/reports/orders/handler.ts    # entry point
+    v1_commit_pinned: 7a3b9c1                 # the V1 commit the parity tests run against
+    contract: ai/migration/contracts/report-orders.md
+    plan: ai/migration/plans/report-orders.md
+    parity_tests: tests/parity/report-orders/
+    parity_runs:                              # most-recent first
+      - id: 2026-04-26T14:22Z
+        result: green
+        tolerance_overrides: []
+    perf_decisions: ai/migration/perf-decisions/report-orders.md
+    shadow_started: 2026-04-20
+    shadow_mismatch_rate: 0.0001              # 0.01% — well under threshold
+    canary_started: null
+    canary_stage: null
+    cutover_stage_targets:                    # configured plan
+      shadow_min_days: 7
+      canary_stages: [1, 10, 50, 100]
+      v1_idle_min_days: 14
+    related_adrs:                             # for any intentional contract break
+      - ADR-007: drop deprecated `legacy_id` field on response
+    dependencies:                             # other features that must be done first
+      - getUser    # V2-only ✓
+      - getOrders  # V2-only ✓
+    notes: |
+      Shadow rate is healthy. One tolerance override added for a millisecond-level
+      timestamp diff; recorded in parity_runs.tolerance_overrides.
+
+  - id: F002
+    feature: get-user
+    state: V2-only
+    phase: 2
+    owner: bob@team
+    v1_path: accounts/views.py:get_user
+    v2_path: src/accounts/user/handler.ts
+    # ... same field set as above, indented under this row ...
 ```
 
-The YAML frontmatter is the canonical, machine-readable per-feature record. The free-text `notes:` block is for humans; the structured fields are for `/migration-status` + parity-auditor + Phase 5 verification.
+The indented YAML list is the canonical, machine-readable per-feature record: one
+`- id: FNNN` item per feature, fields indented beneath it. The free-text `notes:` block
+is for humans; the structured fields are for `/migration-status` + parity-auditor +
+Phase 5 verification. Cross-repo dependencies are written as `dependencies:` (or the
+singular `dependency:`) entries of the form `<repo>:<feature>` — see § Drift detection
+and `migration-doctor.sh`'s cross-repo check.
 
 ## Extended states (M12 — phased flow)
 

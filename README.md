@@ -70,14 +70,14 @@ Vibe-coding discipline: **plan first, write once, no placeholders, no filler**. 
 
 ```
 claude-config/
-├── commands/                # 11 top-level commands (table above)
+├── commands/                # 15 top-level commands (table above)
 ├── templates/
 │   ├── repo-baseline/       # universal — copied into every new repo
 │   ├── workspace-baseline/  # for multi-repo workspaces (dispatcher, cross-repo cmds)
 │   ├── packs/               # 18 ROLE-based tracks — full inventory in templates/knowledge-hub.md
 │   ├── tracks/              # stack-specific scaffolders (web-backend-django, web-frontend-nextjs)
 │   ├── tool-adapters/       # per-tool translations (Cursor, OpenCode, Aider, Cline, …)
-│   ├── phases/              # /setup-project's phase files (1, 2, 3, 4, 4.2, 4.6, 5)
+│   ├── phases/              # /setup-project's phase files (0, 1, 2, 3, 4, 4.0, 4.2, 4.6, 4.7, 4.8, 5, 5.0, 5.1, 5.5, 6)
 │   ├── domains/             # business-domain knowledge (saas, ecommerce, healthcare, …)
 │   └── regulatory-overlays/ # compliance overlays (GDPR, PCI-DSS, SOC2, …)
 ├── docs/                    # COMMANDS.md (manual) + REFERENCE.md (failure modes)
@@ -318,15 +318,18 @@ Full walkthrough — phase tables, adapter sync details, output files, plateau d
 
 ## The track mix logic
 
-Always applied:
-- `code-quality` · `documentation` · `security` · `business` · `testing` (rules)
+Always applied (per `templates/packs/_registry.md`):
+- `code-quality` · `documentation` · `learning` · `security`
 
-Conditional:
+Conditional (selected on detection signals):
 - `backend` → if backend code / API mentioned
 - `frontend` + `ui-ux` → if frontend code / UI mentioned
 - `database` → if DB code / schema mentioned
 - `devops` → if deploy / Docker / CI mentioned, or Phase 2+
 - `performance` → rules always; agents on demand or if scale target mentioned
+- `testing` → if test folders / runners detected
+- `business` → if domain models / billing / multi-tenant identity detected
+- (other signal-gated tracks: `distributed-systems`, `infrastructure`, `migration`, `mobile`, `observability`)
 
 Framework references copied automatically from the pack into the project's `.claude/references/`.
 

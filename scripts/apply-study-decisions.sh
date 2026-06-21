@@ -188,6 +188,11 @@ echo "Include: $INCLUDE"
 echo "Rows:    ${#actions[@]}"
 echo ""
 
+# One backup timestamp/dir per run so a single invocation's rollback set lives
+# together (the summary below points at exactly one dir).
+ts=$(date +%Y%m%d-%H%M%S)
+bak_dir="$TARGET/.claude/backups/study-decisions-$ts"
+
 # Apply per action
 if [[ ${#actions[@]} -eq 0 ]]; then
   echo "  (no actionable rows parsed from report — either nothing to do, or report is malformed)"
@@ -218,10 +223,9 @@ for action in "${actions[@]:-}"; do
       [[ -f "$pack_src" ]] || { echo "  SKIP $pack/$kind/$base — pack source missing"; skipped=$((skipped + 1)); continue; }
       [[ -f "$tgt" ]] || { echo "  SKIP $pack/$kind/$base — target missing (was ADD before report; now ADD instead of REPLACE)"; skipped=$((skipped + 1)); continue; }
 
-      # Backup the existing file before replace (safety net)
+      # Backup the existing file before replace (safety net). ts/bak_dir are
+      # hoisted above the loop so all of this run's backups share one dir.
       if [[ "$APPLY" -eq 1 ]]; then
-        ts=$(date +%Y%m%d-%H%M%S)
-        bak_dir="$TARGET/.claude/backups/study-decisions-$ts"
         mkdir -p "$bak_dir"
         rel="${tgt#$TARGET/}"
         bak_path="$bak_dir/$rel"
@@ -264,7 +268,7 @@ echo "Skipped (source missing): $skipped"
 echo ""
 
 if [[ "$APPLY" -eq 1 && "$applied" -gt 0 ]]; then
-  echo "Files modified. Backup at: $TARGET/.claude/backups/study-decisions-<ts>/"
+  echo "Files modified. Backup at: ${bak_dir#$TARGET/}/"
   echo ""
   echo "Next steps:"
   echo "  1. Run /setup-project anchoring (Phase 4.6) to inject project-specific blocks into the replaced files."

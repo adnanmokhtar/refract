@@ -81,6 +81,11 @@ matches=()
 trace "scanning V2 for feature '$FEATURE' (variants: $PASCAL / $CAMEL / $KEBAB)"
 
 # ---------- Module path ----------
+# Score the module-dir signal AT MOST ONCE. A feature can match several candidate
+# path layouts (e.g. both src/modules/<kebab>/ and src/<kebab>/), and without a break
+# each match added +30 — two layouts alone hit the "full" (≥60) threshold and falsely
+# reported "already present". The presence of a module dir is a single +30 signal;
+# break after the first non-empty match.
 for path in "src/modules/$KEBAB" "src/modules/$CAMEL" "src/features/$KEBAB" \
             "app/$KEBAB" "app/(features)/$KEBAB" "src/$KEBAB"; do
   if [[ -d "$TARGET/$path" ]]; then
@@ -89,6 +94,7 @@ for path in "src/modules/$KEBAB" "src/modules/$CAMEL" "src/features/$KEBAB" \
       matches+=("module-dir: $path/ ($files source files)")
       score=$((score + 30))
       trace "+30 module dir: $path ($files files)"
+      break
     fi
   fi
 done

@@ -1,14 +1,16 @@
 ---
 artifact: capability-3-schema-validation
-purpose: Schema validation harness (B4). Phase 5.4 validates every JSON config + frontmatter against templates/schemas/.
+purpose: Schema-validation DESIGN SPEC (B4) — NOT WIRED. Describes how a schema-validation harness over templates/schemas/ would work. No script in this repo runs it; treat as future-work reference, not an active guarantee.
 imported-by: templates/capabilities.md (index), commands/setup-project.md (orchestrator)
 ---
 
-### 🔬 3. Schema validation harness (B4)
+### 🔬 3. Schema-validation design spec (B4) — NOT WIRED
 
-**Problem solved**: Phase 5 verifies file PRESENCE, not file VALIDITY. Generated `settings.json` could have a typo. Generated `opencode.json` could miss required keys. `.cursor/rules/*.mdc` frontmatter could be malformed. No automated catch.
+> **Status: reference / future-work, NOT runtime-enforced.** The harness described below is a DESIGN, not a shipped mechanism. There is no `ajv` / `yamllint` / `--validate-schemas` step that runs in any phase or hook — the schemas under `templates/schemas/` are reference shapes (see `templates/schemas/README.md`), and the validation steps, the `--validate-schemas` flag, and the dry-invoke smoke test in this document are all unimplemented. Phase 5's real, wired gate is `audit-setup.sh` (file presence + self-consistency), NOT schema validation. Read this section as the spec a future validator would implement, not as something that runs today.
 
-**Design**:
+**Problem this WOULD solve**: Phase 5 verifies file PRESENCE, not file VALIDITY. Generated `settings.json` could have a typo. Generated `opencode.json` could miss required keys. `.cursor/rules/*.mdc` frontmatter could be malformed. There is currently no automated catch — the snippets below are the proposed design for one.
+
+**Design (proposed, not wired)**:
 
 #### 3.1 Schema directory
 
@@ -33,11 +35,11 @@ imported-by: templates/capabilities.md (index), commands/setup-project.md (orche
     session-digest.schema.json     # ai/_session-digest.md shape            [PLANNED]
 ```
 
-Each schema is JSON Schema Draft 2020-12. `[SHIPPED]` schemas exist on disk; `[PLANNED]` are referenced by future-work only — Phase 5.4 emits a `SCHEMA_MISSING` warning (per § 3.5) and continues without halting. Adapter version bumps update the corresponding schema version.
+Each schema is JSON Schema Draft 2020-12. `[SHIPPED]` schemas exist on disk as **reference shapes** (nothing validates against them at runtime); `[PLANNED]` are referenced by future-work only. Adapter version bumps update the corresponding schema version.
 
-#### 3.2 Phase 5.4 — Schema validation step (NEW)
+#### 3.2 Phase 5.4 — Schema validation step (PROPOSED — not wired)
 
-After Phase 5 file-presence + self-consistency audit:
+The snippet below is the design for a validation step that would run after Phase 5's file-presence + self-consistency audit. It is **not implemented** — `ajv` and `yamllint` are not invoked anywhere in this repo. Shown as the contract a future harness would fulfil:
 
 ```bash
 for config in $(find . -name "settings.json" -path "*/.claude/*" -o \
@@ -56,9 +58,9 @@ done
 
 If any failure → halt + retry the offending generator. If retry also fails → halt with report.
 
-#### 3.3 Dry-invoke smoke test
+#### 3.3 Dry-invoke smoke test (PROPOSED — not implemented)
 
-For each generated command: parse the frontmatter, simulate invocation with a minimal test prompt, verify output matches expected shape:
+`validate_command_invocation` is a proposed helper; it does not exist. The design: for each generated command, parse the frontmatter, simulate invocation with a minimal test prompt, verify output matches expected shape:
 
 ```bash
 for cmd in .claude/commands/*.md; do
@@ -76,9 +78,9 @@ The validator checks:
 - All referenced skills exist in `.claude/skills/`.
 - Phase numbers are sequential (1→7) per the canonical 7-phase structure.
 
-#### 3.4 `--validate-schemas` flag
+#### 3.4 `--validate-schemas` flag (PROPOSED — not implemented)
 
-Standalone read-only run:
+This flag does not exist on `/setup-project` today. The mock transcript below illustrates what a standalone read-only validation run would print if the harness were built:
 
 ```
 $ /setup-project --validate-schemas
@@ -105,12 +107,12 @@ RESULT: 2 issues found.
 Run /setup-project --refresh to regenerate (auto-fixes structural violations).
 ```
 
-#### 3.5 Rules (graceful degradation)
+#### 3.5 Rules (graceful degradation) — describe the PROPOSED behaviour, not current behaviour
 
-- **Schema validation is opt-in.** When `--validate-schemas` is passed (or the user runs `--refresh` and schemas are present), Phase 4.8 validates every generated config against its schema. If a schema is missing for a selected adapter, Phase 4.8 emits a `SCHEMA_MISSING <adapter>` warning in the report and continues. It does NOT halt.
+- **Schema validation is not implemented.** The rules below describe how the proposed harness would behave (opt-in, warn-on-miss, never-halt). Today none of it runs: there is no `--validate-schemas` flag and no schema check in any phase. When/if the harness is built, it would validate every generated config against its schema, emit `SCHEMA_MISSING <adapter>` for missing schemas, and continue without halting.
 - **Recommended seed schemas** (ship in `~/.claude/templates/schemas/` over time): `claude-code/settings.schema.json`, `claude-code/agents.schema.json`, `claude-code/commands.schema.json`, `claude-code/skills.schema.json`, `cursor/rules.schema.json`, `opencode/config.schema.json`, `aider/config.schema.json`, `generic/agents-md.schema.json`. Anything beyond these is a future enhancement, not a hard requirement.
 - **Schema version pinning** (when schemas exist): schemas declare `$id` with version (e.g. `https://<your-org>.com/schemas/claude-code/settings/v1.json`). Adapter version bump = schema version bump.
-- **`--refresh` SHOULD run schema validation** as part of Phase 5 when schemas are present. Failures degrade to warnings unless `--strict` is also passed.
+- **(Proposed)** a future `--refresh` would run schema validation as part of Phase 5 when schemas are present, with failures degrading to warnings unless `--strict` is also passed. Not implemented today.
 
 ---
 

@@ -1,12 +1,29 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.7.0",
-  "released": "2026-06-07",
+  "version": "1.8.0",
+  "released": "2026-06-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, security weaknesses, and unhandled I/O (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast. 1.7.0: split align-discipline.md into always-on core (<40k chars, respects Claude Code's 40k-char always-on limit — prior size was truncating ~half the rule in every session) + two on-demand reference files under references/ (procedures + catalogue), content relocated verbatim. Adapter bundles MUST ship all three files together.",
+  "summary": "Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, security weaknesses, and unhandled I/O (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast. 1.8.0: sync-chain repair — _topics.md now declares align-promote-tier as a command (was shipped under commands/ but absent from the topic list, so AUTHOR-mode setup silently dropped it; align ships no _examples/ dir so the fallback points at the live source); plus audit follow-through (action-plan rollout in review/feedback commands, align-gate check-count alignment, project-explicit .claude/references/ companion paths). 1.7.0: split align-discipline.md into always-on core (<40k chars, respects Claude Code's 40k-char always-on limit — prior size was truncating ~half the rule in every session) + two on-demand reference files under references/ (procedures + catalogue), content relocated verbatim. Adapter bundles MUST ship all three files together.",
   "changelog": {
+    "1.8.0": {
+      "released": "2026-06-22",
+      "changes": [
+        "Sync-chain repair: _topics.md now declares align-promote-tier as a command (kind:command, always-trigger, mirror_existing). It shipped under commands/ since 1.5.0 but was absent from the topic list, so /setup-project AUTHOR-mode generation silently dropped it. align ships NO _examples/ dir, so its fallback points at the live source (commands/align-promote-tier.md) rather than a non-existent _examples/ stub.",
+        "align-gate check-count alignment + audit action-plan rollout in the review / feedback commands (carries the 1562aa6 audit follow-through into the version record).",
+        "Companion-reference pointers in align-discipline.md core + commands now use the project-consumption path (.claude/references/<rule>-procedures.md / -catalogue.md) so every tool resolves them from the repo root (07c22ec / c92a955)."
+      ]
+    },
+    "1.7.0": {
+      "released": "2026-06-07",
+      "changes": [
+        "Split align-discipline.md (was 94.4k — roughly half silently truncated every session by Claude Code's 40k always-on limit) into an always-on core (<40k) + two on-demand companions under references/ (content relocated VERBATIM, zero rewording): align-discipline-procedures.md (tier specs, contract template, full halt elaborations, tool-agnostic procedures, enforcement matrix) + align-discipline-catalogue.md (worked examples, anti-pattern catalogue, per-tool dispatch tables).",
+        "The 'procedures are inlined here' contract is replaced by the rule-bundle contract: core + 2 references = ONE discipline. Every adapter bundle MUST ship all three files together (_align-pack-coverage.md § Rule-bundle requirement).",
+        "Manifests declare the pair: rule_references: [align-discipline-procedures, align-discipline-catalogue] in _essentials.md; reference-pair topic in _topics.md.",
+        "Follow-up trims (07c22ec): cores reduced to ~31.6k to leave headroom for a project-specific apply-anchors block (2-6k) so an anchored project copy stays under 40k; Anti-bloat gate detail, Per-stack extensions, Relationship-to-migration, and Should guidance moved to the companions verbatim."
+      ]
+    },
     "1.6.0": {
       "released": "2026-06-06",
       "changes": [

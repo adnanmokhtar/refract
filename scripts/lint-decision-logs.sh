@@ -24,12 +24,34 @@
 set -o pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SETUP_CMD="$ROOT/commands/setup-project.md"
 ADAPTERS_DIR="$ROOT/templates/tool-adapters"
 ERRORS=0
 fail()  { printf '\033[31m✗ %s\033[0m\n' "$*"; ERRORS=$((ERRORS+1)); }
 pass()  { printf '\033[32m✓ %s\033[0m\n' "$*"; }
 group() { printf '\033[1m\n%s\033[0m\n' "$*"; }
+
+# The M2 split moved the decision-log / phase-helper tokens out of setup-project.md into the
+# LIVE phase + rule + skill sources below. A token now lives in WHICHEVER owner inherited it,
+# so each check is satisfied if the token is found in ANY candidate (not a single hardcoded
+# file). Point at live sources — NOT abridged _examples/ copies. bash 3.2: plain space-joined
+# list, no arrays-of-paths gymnastics needed.
+DECISION_LOG_OWNERS="
+$ROOT/templates/rule-7-phase-4-6-file-adaptation.md
+$ROOT/templates/phases/phase-4.6-deep.md
+$ROOT/templates/phases/phase-4.8-deep.md
+$ROOT/templates/phases/phase-5-verify.md
+$ROOT/templates/packs/learning/skills/apply-pack-adaptation.md
+"
+
+# grep_owners <fixed-string> — succeed (0) if the literal is present in ANY owner file.
+grep_owners() {
+  local needle="$1" f
+  for f in $DECISION_LOG_OWNERS; do
+    [ -f "$f" ] || continue
+    if grep -qF "$needle" "$f"; then return 0; fi
+  done
+  return 1
+}
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Decision-log + hooks.json structural validator"
@@ -45,10 +67,10 @@ PHASE_4_6_TOKENS=(
   "EXTRACTION-WEAK"
 )
 for tok in "${PHASE_4_6_TOKENS[@]}"; do
-  if grep -qF "$tok" "$SETUP_CMD"; then
+  if grep_owners "$tok"; then
     pass "Phase 4.6 token: $tok"
   else
-    fail "Phase 4.6 token MISSING from setup-project.md: $tok"
+    fail "Phase 4.6 token MISSING from decision-log owners: $tok"
   fi
 done
 
@@ -67,10 +89,10 @@ DEEP_TOKENS=(
   "SKIPPED-NO-CHANGES"
 )
 for tok in "${DEEP_TOKENS[@]}"; do
-  if grep -qF "$tok" "$SETUP_CMD"; then
+  if grep_owners "$tok"; then
     pass "DEEP token: $tok"
   else
-    fail "DEEP token MISSING from setup-project.md: $tok"
+    fail "DEEP token MISSING from decision-log owners: $tok"
   fi
 done
 
@@ -78,7 +100,7 @@ done
 group "3. Phase 4.8-DEEP decision-log column shape"
 # The canonical row is: | Adapter | Output file | Action | Triggered by | Notes |
 PATTERN_4_8="| Adapter | Output file | Action | Triggered by | Notes |"
-if grep -qF "$PATTERN_4_8" "$SETUP_CMD"; then
+if grep_owners "$PATTERN_4_8"; then
   pass "Phase 4.8-DEEP table header documented: \`$PATTERN_4_8\`"
 else
   fail "Phase 4.8-DEEP table header MISSING — expected exact row: $PATTERN_4_8"
@@ -93,10 +115,10 @@ HELPERS=(
   "IDIOMS_FILE"
 )
 for h in "${HELPERS[@]}"; do
-  if grep -qF "$h" "$SETUP_CMD"; then
+  if grep_owners "$h"; then
     pass "audit helper documented: \`$h\`"
   else
-    fail "audit helper MISSING from setup-project.md: \`$h\`"
+    fail "audit helper MISSING from decision-log owners: \`$h\`"
   fi
 done
 
@@ -107,7 +129,7 @@ HALT_TOKENS=(
   "MISSING_PHASE_4_6_DECISIONS_FILE"
 )
 for tok in "${HALT_TOKENS[@]}"; do
-  if grep -qF "$tok" "$SETUP_CMD"; then
+  if grep_owners "$tok"; then
     pass "Phase 5.1 halt token: $tok"
   else
     fail "Phase 5.1 halt token MISSING: $tok"

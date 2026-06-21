@@ -42,3 +42,30 @@ jobs:
       # BLOCKING on FAIL; WARNs (artifacts with no _topics entry) are informational.
       - name: Pack consistency (manifests internally consistent)
         run: bash scripts/validate-pack-consistency.sh
+
+      # ---- Repo-level gates wired in (F2-CI / ET-05) ----
+      # Previously orphaned: defined + green locally but never run in CI, so drift in the
+      # tool-adapter matrix, track schemas, decision-log spec, or adapter contract could ship
+      # unnoticed. Each was verified to exit 0 with the invocation below before wiring. The
+      # per-target validators (audit-adapter-coverage.sh, the validate-*-artifacts.sh family,
+      # migration-reachability.sh) are NOT bare repo-level steps — they need a populated
+      # <target>/.claude/ or ai/<cmd>/ tree; the fixtured ones run via test-validators.sh above.
+
+      # Tool-adapter matrix consistency: registry vs README vs parity matrix vs 4.8.0 contract,
+      # plus every adapter folder has adapter.md + _version.json.
+      - name: Tool-adapter parity (matrix consistent across docs)
+        run: bash scripts/lint-tool-parity.sh
+
+      # Track schema: each templates/tracks/<name>/ has the required files + valid frontmatter.
+      - name: Track schema (every track valid)
+        run: bash scripts/lint-track.sh
+
+      # Decision-log + hooks.json spec drift: action tokens, 4-8 table shape, helper-fn names,
+      # adapter hooks.json event schema all still documented in their live owners.
+      - name: Decision-log spec (tokens + table shape + hooks schema documented)
+        run: bash scripts/lint-decision-logs.sh
+
+      # Adapter fixture test (ET-02): for a synthetic .claude/ fixture, every adapter doc
+      # covers every artifact kind the contract promises (no asymmetric doc↔contract drift).
+      - name: Adapter fixtures (contract achievable per adapter)
+        run: bash scripts/test-adapter-fixtures.sh

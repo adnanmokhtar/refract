@@ -68,13 +68,13 @@ ADAPTERS=(
   "cursor:commands,agents,skills,hooks,rules"
   "opencode:commands,agents,skills,rules"        # no native hooks
   "copilot:commands,agents,skills,rules"          # hooks via instruction advise (translated)
-  "cline:commands,rules"                          # agents/skills/hooks translated as index/sections
+  "cline:commands,skills,rules"                   # commands+skills→.cline/skills/ (PRIMARY); agents/hooks translated as index/sections
   "windsurf:commands,rules"                       # agents/skills/hooks translated
   "continue:commands,rules"                       # agents/skills as prompts (still covered as kind)
   "aider:rules"                                   # single-doc tool — every kind in CONVENTIONS.md
-  "codex:rules"                                   # single-doc — AGENTS.md
-  "gemini:rules"                                  # single-doc — GEMINI.md
-  "kimi:commands,agents,skills,rules"             # commands→skills, agents→subagents, rules→AGENTS.md
+  "codex:commands,skills,rules"                   # commands+skills→.agents/skills/ (native Agent Skills, PRIMARY); rules→AGENTS.md
+  "gemini:commands,rules"                         # commands→.gemini/commands/*.toml (native, PRIMARY); rules→GEMINI.md
+  "kimi:commands,agents,skills,rules"             # commands→dual-surface (skill+subagent), agents→subagents, skills→skills, rules→AGENTS.md
   "qwen:commands,agents,skills,rules"             # near-1:1 with Claude Code
 )
 
@@ -98,8 +98,10 @@ declare -a NATIVE_PATHS=(
   "copilot:agents:.github/agents/"
   "copilot:skills:.github/skills/"
   "copilot:rules:.github/instructions/"
-  # cline — native workflows for commands
-  "cline:commands:.clinerules/workflows/"
+  # cline — skills-first: commands + reference skills land in .cline/skills/ (PRIMARY);
+  # .clinerules/workflows/ is a graded fallback mirror, not the canonical command surface.
+  "cline:commands:.cline/skills/"
+  "cline:skills:.cline/skills/"
   "cline:rules:.clinerules/"
   # windsurf — native workflows for commands
   "windsurf:commands:.windsurf/workflows/"
@@ -107,11 +109,17 @@ declare -a NATIVE_PATHS=(
   # continue — native prompts as files
   "continue:commands:.continue/prompts/"
   "continue:rules:.continue/rules/"
-  # aider/codex/gemini — single-doc (rules only check)
+  # aider — single-doc (rules only check)
   "aider:rules:CONVENTIONS.md"
+  # codex — native Agent Skills (PRIMARY) for commands + skills; AGENTS.md prose is the fallback
+  "codex:commands:.agents/skills/"
+  "codex:skills:.agents/skills/"
   "codex:rules:AGENTS.md"
+  # gemini — native TOML custom commands (PRIMARY); GEMINI.md prose is the fallback
+  "gemini:commands:.gemini/commands/"
   "gemini:rules:GEMINI.md"
-  # kimi — native skills folder; commands fold into skills
+  # kimi — dual-surface: commands → BOTH a skill (.kimi/skills/) AND a subagent (.kimi/subagents/);
+  # reference skills → skills; agents → subagents.
   "kimi:commands:.kimi/skills/"
   "kimi:skills:.kimi/skills/"
   "kimi:agents:.kimi/subagents/"

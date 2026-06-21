@@ -73,10 +73,13 @@ for arg in "$@"; do
 done
 
 # Lock file for optional flock: CLI --ledger wins; else env LEDGER_LOCK; else migration default.
+# Single-dash (unset-only) is intentional: an explicit `LEDGER_LOCK=""` must be
+# preserved so it disables flock (per usage header), which colon-dash would clobber
+# back to the default.
 if [[ -n "${CLI_LEDGER:-}" ]]; then
   LEDGER_LOCK="$CLI_LEDGER"
 else
-  LEDGER_LOCK="${LEDGER_LOCK:-ai/migration/ledger.md}"
+  LEDGER_LOCK="${LEDGER_LOCK-ai/migration/ledger.md}"
 fi
 
 [[ -z "$TOOL"            ]] && { echo "ERR: --tool required"            >&2; exit 2; }
@@ -106,7 +109,12 @@ mkdir -p "$LOG_DIR"
 
 # ---- preview / dry-run ----
 
-TASK_COUNT=$(grep -cve '^[[:space:]]*$' "$TASK_FILE" || true)
+# Count non-blank task lines robustly. `grep -cve` (BSD) drops a final line that
+# has no trailing newline, so a 1-line task file with no EOL counted as 0 → a
+# silent no-op exit 0 even though the fan-out feed below WOULD run it. Reuse the
+# exact feed pattern and count emitted lines via awk's NR (counts the last line
+# whether or not it ends in a newline).
+TASK_COUNT=$(grep -ve '^[[:space:]]*$' "$TASK_FILE" | awk 'END { print NR }')
 if [[ "$TASK_COUNT" -eq 0 ]]; then
   echo "INFO: task file is empty; nothing to do."
   exit 0
@@ -141,14 +149,26 @@ run_one() {
   [[ -z "$task" ]] && return 0
 
   local prompt="${PROMPT_TEMPLATE//\{\{TASK\}\}/$task}"
-  local slug
-  slug="$(echo "$task" | tr '/ ' '__' | tr -cd 'A-Za-z0-9_.-' | cut -c1-80)"
+  # Slug = readable prefix + short checksum of the FULL task. The prefix alone
+  # collides when two tasks differ only past char 80 or only in stripped chars
+  # (one worker's log would clobber the other's). cksum (POSIX; on macOS + CI)
+  # disambiguates while keeping the prefix human-readable.
+  local slug prefix hash
+  prefix="$(echo "$task" | tr '/ ' '__' | tr -cd 'A-Za-z0-9_.-' | cut -c1-72)"
+  hash="$(printf '%s' "$task" | cksum | cut -d' ' -f1)"
+  slug="${prefix}-${hash}"
   local log="$LOG_DIR/$slug.log"
 
   echo "[$(date +%H:%M:%S)] START $task"
   local rc=0
   if [[ -n "${LEDGER_LOCK:-}" && -f "${LEDGER_LOCK}" ]] && command -v flock >/dev/null 2>&1; then
-    # Exclusive lock for the whole tool invocation — avoids interleaved ledger edits.
+    # NOTE (serialization): this lock wraps the entire tool invocation, so on
+    # flock hosts the fan-out runs effectively serial. The correct scope is the
+    # ledger-append critical section only, but this dispatcher never appends to
+    # the ledger itself — the spawned tool does, inside its own opaque run (see
+    # migrate-parallel.sh header: "the tool, not this script, holds the lock").
+    # Narrowing the lock here is not possible without that broader redesign, so
+    # we keep the conservative coarse lock rather than risk interleaved edits.
     exec {LOCK_FD}>>"${LEDGER_LOCK}"
     flock "$LOCK_FD"
     if "tool_${TOOL}_invoke" "$prompt" > "$log" 2>&1; then rc=0; else rc=$?; fi
@@ -161,6 +181,10 @@ run_one() {
     echo "[$(date +%H:%M:%S)] OK    $task ($log)"
     return 0
   else
+    # Drop a sentinel so the summary can count failures reliably. The FAIL line
+    # below goes to stdout (xargs-aggregated), never into "$log" — so grepping
+    # the per-task logs for it always found 0 (PFO-02). Count these markers.
+    : > "$log.failed"
     echo "[$(date +%H:%M:%S)] FAIL  $task ($log)"
     return 1
   fi
@@ -179,10 +203,13 @@ set -e
 # ---- summarize ----
 
 if [[ "$EXIT" -ne 0 ]]; then
-  FAILED_TASKS="$(grep -lE '^\[..:..:..\] FAIL' "$LOG_DIR"/*.log 2>/dev/null | wc -l | tr -d ' ')"
+  # Count the per-task .failed sentinels dropped by run_one (the FAIL marker is
+  # emitted to stdout, never written into the per-task .log — so the old grep
+  # over *.log always counted 0). ls is null-safe via the nullglob-free guard.
+  FAILED_TASKS="$(find "$LOG_DIR" -maxdepth 1 -name '*.log.failed' 2>/dev/null | awk 'END { print NR }')"
   echo
   echo "Done. Some workers failed. Logs: $LOG_DIR/"
-  echo "Failed task count (approx): $FAILED_TASKS"
+  echo "Failed task count: $FAILED_TASKS"
   exit 1
 fi
 

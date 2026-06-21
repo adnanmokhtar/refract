@@ -6,20 +6,14 @@ description: After a task finishes, capture decisions made / patterns followed /
 
 ## Canonical sink set (read first — this command + `knowledge-curator` write the SAME files)
 
-The learning loop has ONE sink set. Every observation lands in exactly one of these append-only `ai/dynamic/` files (plus the failure catalog), and `knowledge-curator` later promotes the mature ones into the formal layer. The two writers (this command + the curator) never diverge on WHERE things go:
+The learning loop has ONE sink set. Every observation lands in exactly one of the append-only `ai/dynamic/` files (plus the failure catalog), and `knowledge-curator` later promotes the mature ones into the formal layer. The two writers (this command + the curator) never diverge on WHERE things go because the table is **defined once** in [`templates/snippets/learning-sink.md`](../../../snippets/learning-sink.md) — read it there. The consumers kept in sync via that snippet are:
 
-| Sink (raw, append-only)                  | Holds                                   | Promotes to (curator)                |
-|------------------------------------------|-----------------------------------------|--------------------------------------|
-| `ai/dynamic/learnings.md`                | raw observations + corrections-as-notes | `ai/conventions.md` (managed section) |
-| `ai/dynamic/learned-patterns.md`         | recurring code shapes                    | `ai/patterns/<name>.md`              |
-| `ai/dynamic/feedback-learned.md`         | user corrections taken                   | `.claude/rules/<rule>.md`            |
-| `ai/dynamic/decisions-pending.md`        | informal decisions awaiting validation   | `ai/decisions/<NNNN>-<slug>.md` (ADR) |
-| `ai/dynamic/drift-log.md`                | code-vs-convention divergence            | resolved / convention update         |
-| `ai/failures/_index.md`                  | approaches that did NOT work             | stays (don't-retry catalog, append-only) |
-| `ai/dynamic/interaction-log.md`          | per-task summary (the spine)             | archived monthly                     |
-| `ai/dynamic/changelog.md`                | one-line activity log                    | pruned                               |
+- `commands/learn-from-task.md` (root)
+- `templates/packs/learning/commands/learn-from-task.md` (this file)
+- `templates/packs/learning/agents/knowledge-curator.md` (canonical curator)
+- `templates/repo-baseline/.claude/agents/knowledge-curator.md` (installed curator)
 
-This is the SAME table the root `commands/learn-from-task.md` and `.claude/agents/knowledge-curator.md` use. If you change a sink here, change it in all three.
+Change a sink in the snippet, not here — there is no per-consumer copy to keep in sync.
 
 ## Pre-flight gate (mechanical)
 
