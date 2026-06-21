@@ -228,8 +228,14 @@ scan_leaks_in_file() {
     # `scripts/*` covers the round-one floor block's generator-provenance line
     # ("Auto-populated by `scripts/apply-anchors.sh` …") — a setup-internal reference,
     # not a cross-project identifier leak.
+    # The bare reference-file citations (`codebase-profile.md:N`, `_codebase-scan.md`,
+    # `_extracted-idioms.md`) are emitted by apply-anchors.sh WITHOUT a `.claude/`
+    # prefix; they resolve under .claude/ and are setup-internal, not cross-project
+    # leaks. Without these patterns the slashless names fall through to the identifier
+    # grep and false-positive once per anchored artifact.
     case "$tok" in
       .claude/*|ai/*|templates/*|scripts/*|CLAUDE.md*|AGENTS.md*) continue ;;
+      codebase-profile.md*|_codebase-scan.md*|_extracted-idioms.md*) continue ;;
     esac
     if ! token_in_target "$tok"; then
       printf '%s\n' "$tok"
