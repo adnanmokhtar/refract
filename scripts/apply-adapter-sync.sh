@@ -710,6 +710,26 @@ echo "Mode:             $([[ $APPLY -eq 1 ]] && echo APPLY || echo dry-run)"
 echo "Selected adapters: $SELECTED_ADAPTERS"
 echo ""
 
+# ── Dual-form skill collision guard ────────────────────────────────────────
+# A skill present as BOTH a flat `.claude/skills/<name>.md` AND a folder
+# `.claude/skills/<name>/SKILL.md` is a latent bug: every adapter's skills sync
+# writes BOTH into the SAME `<adapter>/skills/<name>/SKILL.md` (folder loop then
+# flat loop), so the flat copy silently wins on --apply and the other form's
+# content is lost. Warn loudly — this is exactly the failure that let a stale
+# visual-check body keep clobbering the correct one. Non-fatal; reconcile to ONE form.
+total_dual_form=0
+if [[ -d "$TARGET/.claude/skills" ]]; then
+  for sd in "$TARGET"/.claude/skills/*/; do
+    [[ -d "$sd" ]] || continue
+    sn=$(basename "$sd")
+    if [[ -f "$sd/SKILL.md" && -f "$TARGET/.claude/skills/$sn.md" ]]; then
+      echo "  WARN  skill '$sn' exists in BOTH forms (.claude/skills/$sn.md + $sn/SKILL.md) — they collide on one adapter target (flat wins on --apply); reconcile to ONE form"
+      total_dual_form=$((total_dual_form + 1))
+    fi
+  done
+  if [[ $total_dual_form -gt 0 ]]; then echo ""; fi
+fi
+
 for adapter in $SELECTED_ADAPTERS; do
   case "$adapter" in
     opencode) sync_opencode ;;
@@ -735,6 +755,7 @@ echo "ADD:                  $total_added"
 echo "REFRESH (overwrite):  $total_refreshed"
 echo "NO-OP:                $total_nooped"
 echo "MISSING-AUTHOR:       $total_missing_author  (need /setup-project-adapters for format conversions)"
+if [[ $total_dual_form -gt 0 ]]; then echo "DUAL-FORM SKILLS:     $total_dual_form  (same-named flat + folder skill collide on one adapter target — reconcile to one form)"; fi
 
 if [[ $APPLY -eq 1 && ($total_added -gt 0 || $total_refreshed -gt 0) ]]; then
   echo ""
