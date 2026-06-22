@@ -259,6 +259,17 @@ sync_file() {
   # as drift nor stripped on --apply.
   local oc_cmd=0
   [[ "$dst" == *"/.opencode/commands/"* ]] && oc_cmd=1
+  # OpenCode AGENTS carry `tools:` in record form: opencode_normalize_agent_tools
+  # rewrites the string-form `.claude` tools (`tools: Bash, Read`) into a YAML record
+  # on the dst at --apply (sync_opencode). That transform is ONE-WAY, so comparing a
+  # synced dst against the raw src re-flags every faithfully-synced agent as drift
+  # forever. Compare against a copy of src run through the SAME normalization so a
+  # correctly-synced agent reads as NO-OP. (No-op for agents with no `tools:` line.)
+  local oc_agent=0 cmp_src="$src" cmp_tmp=""
+  [[ "$dst" == *"/.opencode/agents/"* ]] && oc_agent=1
+  if [[ $oc_agent -eq 1 ]]; then
+    cmp_tmp=$(mktemp); cp "$src" "$cmp_tmp"; opencode_normalize_agent_tools "$cmp_tmp"; cmp_src="$cmp_tmp"
+  fi
   if [[ ! -f "$dst" ]]; then
     if [[ $APPLY -eq 1 ]]; then
       mkdir -p "$(dirname "$dst")"
@@ -266,7 +277,7 @@ sync_file() {
     fi
     echo "    ADD       $(rel_to_target "$dst")"
     total_added=$((total_added + 1))
-  elif diff -q -B <(if [[ $oc_cmd -eq 1 ]]; then strip_injected_preamble "$dst" | strip_frontmatter_agent_line; else strip_injected_preamble "$dst"; fi) "$src" >/dev/null 2>&1; then
+  elif diff -q -B <(if [[ $oc_cmd -eq 1 ]]; then strip_injected_preamble "$dst" | strip_frontmatter_agent_line; else strip_injected_preamble "$dst"; fi) "$cmp_src" >/dev/null 2>&1; then
     # Bodies match once the injected EXECUTE NOW preamble (and, for OpenCode commands,
     # the load-bearing `agent:` field) plus blank-line noise is discounted — the dst
     # differs ONLY by intentional, contract-required additions. Not real drift.
@@ -293,6 +304,8 @@ sync_file() {
     echo "    REFRESH   $(rel_to_target "$dst")"
     total_refreshed=$((total_refreshed + 1))
   fi
+  # Use an `if` (not `&&`) so an empty cmp_tmp can't return non-zero and trip `set -e`.
+  if [[ -n "$cmp_tmp" ]]; then rm -f "$cmp_tmp"; fi
 }
 
 rel_to_target() { echo "${1#$TARGET/}"; }
