@@ -737,6 +737,27 @@ if [[ -d "$TARGET/.claude/skills" ]]; then
   if [[ $total_dual_form -gt 0 ]]; then echo ""; fi
 fi
 
+# ── Malformed-frontmatter guard ─────────────────────────────────────────────
+# A command/skill whose frontmatter opens with `---` but is never closed by a
+# second `---` is malformed: Claude Code can't parse its name/description, AND
+# reinject_injected_preamble loops in the frontmatter state and SILENTLY DROPS
+# the EXECUTE NOW preamble on --apply (root cause of an observed kimi command-skill
+# corruption — a historical pipeline left 24 such commands in a real target). Warn
+# loudly so the SOURCE frontmatter is repaired (add the closing ---). Non-fatal.
+total_bad_fm=0
+while IFS= read -r f; do
+  [[ -f "$f" ]] || continue
+  # Opening fence on line 1 but NO closing fence within the frontmatter region (first
+  # 25 lines) = unterminated. Counting fences (not field shapes) tolerates valid YAML
+  # list/nested values like `tools:\n  - Bash`. A body `---` rule sits well past line 25.
+  head -1 "$f" 2>/dev/null | grep -qx -- '---' || continue
+  if [[ "$(head -25 "$f" 2>/dev/null | grep -cx -- '---')" -lt 2 ]]; then
+    echo "  WARN  malformed frontmatter (opening --- never closed): ${f#$TARGET/} — breaks name/description parsing AND drops the EXECUTE NOW preamble on --apply; add the closing ---"
+    total_bad_fm=$((total_bad_fm + 1))
+  fi
+done < <( { ls "$TARGET"/.claude/commands/*.md 2>/dev/null; find "$TARGET"/.claude/skills -name '*.md' 2>/dev/null; } )
+if [[ $total_bad_fm -gt 0 ]]; then echo ""; fi
+
 for adapter in $SELECTED_ADAPTERS; do
   case "$adapter" in
     opencode) sync_opencode ;;
@@ -763,6 +784,7 @@ echo "REFRESH (overwrite):  $total_refreshed"
 echo "NO-OP:                $total_nooped"
 echo "MISSING-AUTHOR:       $total_missing_author  (need /setup-project-adapters for format conversions)"
 if [[ $total_dual_form -gt 0 ]]; then echo "DUAL-FORM SKILLS:     $total_dual_form  (same-named flat + folder skill collide on one adapter target — reconcile to one form)"; fi
+if [[ ${total_bad_fm:-0} -gt 0 ]]; then echo "MALFORMED FRONTMATTER: $total_bad_fm  (opening --- never closed — add the closing --- to the source)"; fi
 
 if [[ $APPLY -eq 1 && ($total_added -gt 0 || $total_refreshed -gt 0) ]]; then
   echo ""
