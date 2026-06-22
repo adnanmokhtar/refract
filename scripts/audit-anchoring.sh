@@ -199,16 +199,41 @@ done
 # Returns 0 (token exists in target) / 1 (not found → leak candidate).
 token_in_target() {
   local tok="$1"
-  # path form: strip an optional :line suffix, test for a matching file by basename
-  local pathpart="${tok%%:*}"
-  if [[ "$pathpart" == */* ]]; then
+  # Strip a trailing :<line> citation suffix (numeric only) → resolve the file itself.
+  # Done BEFORE the slash test so ROOT-level citations (package.json:14, vite.config.ts:97)
+  # resolve as files instead of falling through to the identifier grep with the :line glued
+  # on (which never matches → the dominant cross-project-leak false-positive).
+  local pathpart="$tok"
+  [[ "$tok" =~ :[0-9][0-9]*$ ]] && pathpart="${tok%:*}"
+
+  # Absolute path: a cross-repo / sibling-project reference (e.g. the workspace
+  # PROJECTS.md). Resolve at its REAL location, not under $TARGET — exists there → a
+  # legitimate cross-repo citation, not a leak. A leading-slash token with no file
+  # extension is an app ROUTE (/orders/all), not a filesystem path → out of scope.
+  if [[ "$pathpart" == /* ]]; then
+    [[ -e "$pathpart" ]] && return 0
+    [[ "$pathpart" != *.* ]] && return 0
+  fi
+
+  # Exact relative path under target — handles root files (package.json) AND nested.
+  [[ -e "$TARGET/$pathpart" ]] && return 0
+
+  # Build-output / generated paths are intentionally excluded from the source scan,
+  # so a citation under them could never resolve — they are legitimate references to
+  # artifacts that exist only after a build, not cross-project leaks.
+  case "$pathpart" in
+    dist/*|build/*|coverage/*|.next/*|out/*|.nuxt/*|.output/*) return 0 ;;
+  esac
+
+  # File-shaped token (has an extension): match by basename anywhere in the tree.
+  if [[ "$pathpart" == *.* ]]; then
     local bn="${pathpart##*/}"
-    [[ -e "$TARGET/$pathpart" ]] && return 0
     find "$TARGET" -name "$bn" -not -path '*/node_modules/*' -not -path '*/.git/*' \
       -not -path '*/vendor/*' -not -path '*/dist/*' -not -path '*/build/*' \
       2>/dev/null | grep -q . && return 0
     return 1
   fi
+
   # identifier form: must appear literally in some source file
   grep -rqIF -- "$tok" "${LEAK_SRC_GREP_DIRS[@]}" \
     --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
