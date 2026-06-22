@@ -125,37 +125,40 @@ extract_project_specific_block() {
   ' "$f"
 }
 
-# Strip the adapter-injected EXECUTE NOW preamble (kimi/codex/aider command-skills carry
-# it; the .claude source does not). Used so drift comparison reflects REAL body changes,
-# not the intentional preamble. Without this, every preamble-carrying file false-flags as
-# drifted AND a subsequent --apply cp's the raw source over it, STRIPPING the preamble —
-# regressing the exact behaviour the preamble enforces ("execute on load, don't describe").
-strip_injected_preamble() {
-  # The preamble is bounded by `<!-- EXECUTE NOW preamble ... -->` (open) and
-  # `<!-- /EXECUTE NOW preamble -->` (close). Drop everything between them inclusive.
-  # Residual blank-line count differences vs the source are tolerated by `diff -B`.
-  awk '
-    /<!-- EXECUTE NOW preamble/        { inpre=1; next }
-    inpre && /<!-- \/EXECUTE NOW preamble -->/ { inpre=0; next }
-    inpre                              { next }
+# strip_for_compare <file> [strip_agent] — emit a file's body with the THREE intentional,
+# sync-preserved adapter additions discounted, so the drift comparison reflects only REAL
+# body changes (one awk pass per side keeps the per-file fork count low on 480-file sweeps):
+#   (1) the injected EXECUTE NOW preamble — kimi/codex/aider command-skills carry it, the
+#       .claude source does not. TWO forms exist in the ecosystem and BOTH are discounted:
+#       the `<!-- EXECUTE NOW preamble ... -->` HTML-comment block (migrate-kimi / apply-
+#       adapter-sync form) AND the bare `> # EXECUTE NOW` blockquote (sync-to-global /
+#       LLM-authored form). Matching only the first is what made Kimi command-skills churn.
+#   (2) the anchored `<!-- project-specific:start --> ... :end -->` block — sync_file
+#       PRESERVES it across overwrites (extract + re-inject below), so a block in the dst
+#       but not the source is an intentional per-tool addition, NOT drift.
+#   (3) (only when strip_agent=1, i.e. OpenCode command targets) the load-bearing
+#       frontmatter `agent:` line the .claude source never carries.
+# Each is also re-injected on --apply, so without discounting them every faithfully-synced
+# artifact false-flags as REFRESH forever (the C2h/C2m churn) even though --apply is
+# idempotent. Anchored project-specific markers only (mirrors extract_project_specific_block)
+# so a backtick mention of the marker in prose is not treated as a real block. Blank-line
+# count differences vs the source are tolerated by `diff -B` at the call site.
+strip_for_compare() {
+  awk -v sa="${2:-0}" '
+    /<!-- EXECUTE NOW preamble/                           { inpre=1; next }
+    inpre && /<!-- \/EXECUTE NOW preamble -->/            { inpre=0; next }
+    inpre                                                 { next }
+    /^>[[:space:]]*#[[:space:]]*EXECUTE NOW[[:space:]]*$/ { inbq=1; next }
+    inbq && /^>/                                          { next }
+    inbq                                                  { inbq=0 }
+    /^<!-- project-specific:start -->[[:space:]]*$/       { inps=1; next }
+    inps && /^<!-- project-specific:end -->[[:space:]]*$/ { inps=0; next }
+    inps                                                  { next }
+    NR==1 && /^---[[:space:]]*$/                          { fm=1; print; next }
+    fm && /^---[[:space:]]*$/                             { fm=0; print; next }
+    sa==1 && fm && /^agent:[[:space:]]/                   { next }
     { print }
   ' "$1"
-}
-
-# Strip a leading-frontmatter `agent:` line. OpenCode command files carry it as a
-# load-bearing field (without it OpenCode describes instead of executes), but the
-# `.claude/commands/*.md` source never does — so it must be discounted in drift
-# comparison, exactly like the EXECUTE NOW preamble. Reads stdin (chains after
-# strip_injected_preamble). Without this, every command with the (correct, contract-
-# required) `agent:` field false-flags as drift AND a subsequent --apply cp's the raw
-# source over it, STRIPPING the field — regressing the exact execution it enforces.
-strip_frontmatter_agent_line() {
-  awk '
-    NR==1 && /^---[[:space:]]*$/ { fm=1; print; next }
-    fm && /^---[[:space:]]*$/    { fm=0; print; next }
-    fm && /^agent:[[:space:]]/   { next }
-    { print }
-  '
 }
 
 # Extract the frontmatter `agent:` line (whole line) from a file, if present.
@@ -277,7 +280,7 @@ sync_file() {
     fi
     echo "    ADD       $(rel_to_target "$dst")"
     total_added=$((total_added + 1))
-  elif diff -q -B <(if [[ $oc_cmd -eq 1 ]]; then strip_injected_preamble "$dst" | strip_frontmatter_agent_line; else strip_injected_preamble "$dst"; fi) "$cmp_src" >/dev/null 2>&1; then
+  elif diff -q -B <(strip_for_compare "$dst" "$oc_cmd") <(strip_for_compare "$cmp_src" 0) >/dev/null 2>&1; then
     # Bodies match once the injected EXECUTE NOW preamble (and, for OpenCode commands,
     # the load-bearing `agent:` field) plus blank-line noise is discounted — the dst
     # differs ONLY by intentional, contract-required additions. Not real drift.
