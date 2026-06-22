@@ -182,13 +182,19 @@ reinject_frontmatter_agent_line() {
   mv "$tmp" "$f"
 }
 
-# Extract just the injected EXECUTE NOW preamble block (marker comment + contiguous
-# blockquote) so a real refresh can re-inject it after the body is overwritten.
+# Extract just the injected EXECUTE NOW preamble so a real refresh can re-inject it
+# after the body is overwritten. Handles BOTH forms (mirrors strip_for_compare): the
+# `<!-- EXECUTE NOW preamble ... -->` HTML-comment block AND the bare `> # EXECUTE NOW`
+# blockquote (LLM-authored kimi/cursor/opencode command-skills). Capturing only the HTML
+# form silently dropped blockquote preambles on --apply REFRESH → MISSING-AUTHOR churn.
 extract_injected_preamble() {
   awk '
-    /<!-- EXECUTE NOW preamble/        { inpre=1; print; next }
-    inpre                              { print }
-    inpre && /<!-- \/EXECUTE NOW preamble -->/ { exit }
+    /<!-- EXECUTE NOW preamble/                           { inpre=1; print; next }
+    inpre && /<!-- \/EXECUTE NOW preamble -->/            { print; exit }
+    inpre                                                 { print; next }
+    /^>[[:space:]]*#[[:space:]]*EXECUTE NOW[[:space:]]*$/ { inbq=1; print; next }
+    inbq && /^>/                                          { print; next }
+    inbq                                                  { exit }
   ' "$1"
 }
 
@@ -199,6 +205,7 @@ reinject_injected_preamble() {
   [[ -s "$pre_file" ]] || return 0
   [[ -f "$f" ]] || return 0
   grep -q "<!-- EXECUTE NOW preamble" "$f" 2>/dev/null && return 0
+  grep -qE '^>[[:space:]]*#[[:space:]]*EXECUTE NOW' "$f" 2>/dev/null && return 0
   local tmp; tmp=$(mktemp)
   awk -v pf="$pre_file" '
     function emit(   line) { print ""; while ((getline line < pf) > 0) print line; close(pf) }
