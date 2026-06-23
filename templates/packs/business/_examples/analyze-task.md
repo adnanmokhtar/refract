@@ -55,7 +55,7 @@ Spec-specific:
 
 **4b — Technical spec (after confirmation):**
 
-> **Resume (4a → 4b):** reply in-session, or re-run `/analyze-task --resume specs/<…>.md` — skip 4a, ingest draft + answers, append 4b only (idempotent; never regenerate 4a or change the `Spec-ID`).
+> **Resume (4a → 4b):** reply in-session, or re-run `/analyze-task --resume specs/<…>.md` — skip 4a, **fold answers into the existing `Resolved decisions` (no new section), reconcile `Open questions`, flip Status → COMPLETE**, append 4b only (idempotent; never regenerate 4a or change the `Spec-ID`). `--decisions <plan-file>` supplies answers up front (e.g. a Plan Mode plan) → 4a+4b in one pass, no gate.
 > **Section-shape rule:** mirror sibling specs; add a section below only when its signal applies — NFR/SLO, authorization, observability are strongly recommended for any non-trivial feature.
 
 - Append to the same file:
@@ -109,7 +109,7 @@ Phase 7 (Improved): decisions-pending updated; patterns queued
 
 Next: /add-feature specs/<date>-<slug>.md  (add --plan to plan-only)
 
-Status: AWAITING CONFIRMATION (gate between 4a + 4b) | INSUFFICIENT BRIEF | EPIC (split suggested) | COMPLETE
+Status: AWAITING CONFIRMATION (gate between 4a + 4b) | INSUFFICIENT BRIEF | EPIC (split suggested) | COMPLETE (gate passed, or one-pass via --decisions)
 ```
 
 ## Failure modes
@@ -122,4 +122,5 @@ Status: AWAITING CONFIRMATION (gate between 4a + 4b) | INSUFFICIENT BRIEF | EPIC
 - AC with no test/module, or module with no AC → broken traceability; HALT.
 - Unquantified ACs ("works", "fast") → untestable; vague-AC detector rejects.
 - Mutation/external-call story with only happy-path ACs → error-path floor unmet.
+- Resume/`--decisions` adds a new `Gate answers` section instead of folding into `Resolved decisions` → sibling-shape drift; decisions get one home, not three.
 - Oversized multi-context spec → flag `EPIC`, propose sibling specs.

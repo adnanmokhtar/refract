@@ -15,6 +15,7 @@ Most "fix login bug" / "make orders faster" tickets are one line. This produces 
 - USE: owner / stakeholder dropped a one-liner in chat.
 - USE: before opening a real ticket / starting work.
 - USE: ahead of `/add-feature`, `/fix-bug`. For a larger idea that needs a full spec, use `/analyze-task` instead (sibling entry point, not a later step).
+- USE: **cross-repo handoff** (feature shipped in one repo → sibling repo needs its half). Two anchors: run expand-task in the **target** repo (mirrors its conventions), and anchor the brief to the upstream **Spec-ID** + real endpoints so it consumes the shipped contract, not a guess. If a cross-repo spec already holds the target's half (`Part A`, shared Spec-ID) → skip expand-task, run `/add-feature specs/<file>` against it.
 - NOT: when the brief is already structured (acceptance criteria, scope, etc. already present).
 - NOT: mid-implementation (`/learn-from-task` instead).
 

@@ -6,6 +6,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/analyze-task` (business pack v1.1.0): fix `--resume` answer-folding + add `--decisions` one-pass path
+
+**Why** — a real run exposed two gaps. (1) On `--resume`, the command appended a fresh `Gate answers` section instead of folding the confirmed answers into the existing `Resolved decisions` section — so the same decisions scattered across three places (`Open questions` + `Resolved decisions` + `Gate answers`), and the invented section violated the command's own sibling-shape parity rule (no sibling spec has it). The resume instruction said "append 4b only" but was silent on where the answers go, so the agent improvised. (2) Users who already decided everything in a prior Plan Mode discussion still hit the 4a→4b confirmation gate and had to re-answer — deciding twice.
+
+- **`--resume` now specifies answer-handling** (`templates/packs/business/commands/analyze-task.md`): fold each confirmed answer into the existing `Resolved decisions` section (no new section), reconcile `Open questions` in place (`→ resolved: …` or remove), flip `Status` to `COMPLETE`, then append 4b only.
+- **New `--decisions <plan-file>` (or inline) one-pass path** — when answers are supplied up front (e.g. a Plan Mode plan), emit 4a+4b in a single run with no gate. The gate guards against *guessing*; given answers, that risk is gone.
+- **Phase 6 `Single decision-home` HALT** enforces it: a duplicate answers section or still-open answered questions is rejected and re-emitted. Same in-command HALT mechanism as the existing traceability/vague-AC gates (not a new shell validator → no fixture risk).
+- **Synced**: source command + `_examples/analyze-task.md` (abridged — same resume line carried the bug) + `_version.json` (1.0.0 → 1.1.0) + `docs/FEATURE-LIFECYCLE.md` (analyze-task row notes the one-pass path). Adapter coverage unaffected (generic-translate spec command — no per-adapter special). doc-sync + pack-consistency validators green.
+- **`/expand-task`** — checked whether it needed the same fixes: it does **not** (single-pass, no 4a→4b gate, no `--resume`, no decisions section → neither bug can occur). Instead documented the **cross-repo handoff rule** (`commands/expand-task.md` + `_examples/`): run expand-task in the *target* repo and anchor the brief to the upstream **Spec-ID** + real endpoints, so the handoff prompt consumes the shipped contract instead of inventing it; if a cross-repo spec already carries the target's half, skip expand-task and `/add-feature` against it directly.
+
 ### Docs deep-review: reconcile stale counts + contradictory simple-command lists
 
 **Why** — a deep review of the top-level docs against the live repo found numbers that had drifted as packs / commands / adapters grew, plus a "simple-command count" that disagreed three ways (README said 7, COMMANDS said 5, REFERENCE said 6). Every number below was re-derived from the actual repo (`ls` / `grep`), not trusted from the prose.

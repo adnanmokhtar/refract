@@ -24,7 +24,7 @@ One page. How a new project or a new feature moves from idea → shipped, mapped
 
 | You have… | Command | Produces |
 |---|---|---|
-| A vague feature/business idea | `/analyze-task "<idea>"` | business spec → (confirm gate) → technical spec (with a **Spec-ID**) in `specs/`; then `/add-feature specs/<file>` builds from it (consumes the spec, doesn't re-derive) |
+| A vague feature/business idea | `/analyze-task "<idea>"` | business spec → (confirm gate) → technical spec (with a **Spec-ID**) in `specs/`; then `/add-feature specs/<file>` builds from it (consumes the spec, doesn't re-derive). Already decided it (e.g. via Plan Mode)? `--decisions <plan-file>` skips the gate and writes 4a+4b in one pass |
 | A one-line ticket | `/expand-task "<brief>"` | an implementer-ready prompt + ONE suggested next command |
 | A clear feature to build | `/add-feature "<desc>"` ·or· `/add-feature specs/<file>` | scaffold + implement + tests |
 | One specific artifact | `/add-module` · `/add-endpoint` · `/add-component` · `/add-page` · `/add-crud-page` · `/add-screen` | just that piece |

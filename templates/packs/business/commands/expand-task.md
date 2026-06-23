@@ -43,8 +43,14 @@ A spec produced without sibling-shape parity is rejected; regenerate or halt.
 - USE: owner / stakeholder dropped a one-liner in chat.
 - USE: before opening a real ticket / starting work.
 - USE: ahead of `/add-feature`, `/fix-bug`. For a larger idea that needs a full spec, use `/analyze-task` instead (sibling entry point, not a later step).
+- USE: **cross-repo handoff** — a feature shipped in one repo (e.g. the API) and the sibling repo (e.g. the frontend) now needs its half. expand-task turns "do the frontend for this" into an implementer-ready prompt. See the handoff rule below.
 - NOT: when the brief is already structured (acceptance criteria, scope, etc. already present).
 - NOT: mid-implementation (`/learn-from-task` instead).
+
+> **Cross-repo handoff rule (read when the brief points at work shipped in another repo).** Two anchors keep the handoff prompt grounded instead of invented:
+> 1. **Run expand-task in the *target* repo** (the one that will do the work — e.g. the frontend repo), never the upstream repo. It mirrors the *target's* `CLAUDE.md` + sibling specs, not the upstream's.
+> 2. **Anchor the brief to the upstream contract** — pass the upstream **Spec-ID** + the real endpoints / payload shapes, so the spec consumes the *shipped* contract rather than guessing it. e.g. `/expand-task "frontend for Spec-ID <id>: GET …/unread-count + POST …/read-all, live onMessage, badge + sound"`.
+> If a cross-repo spec already carries the target's half (e.g. a `Part A (frontend)` section with a shared Spec-ID), skip expand-task — run `/add-feature specs/<file>` against that half directly.
 
 ## Phase 1 — Understand (the ask)
 

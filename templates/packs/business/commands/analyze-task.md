@@ -6,7 +6,9 @@ description: Turn a rough business idea into structured requirements, user stori
 
 Build command for the spec layer (not code yet). Two-pass: business spec → confirmation → technical spec. All 7 phases apply with a hard pause between Phase 4a and 4b.
 
-> **`--resume <spec-file>`**: resume a paused spec after answering its open questions — skip 4a, ingest the existing draft + answers, append 4b only (idempotent; never regenerate 4a, never change the `Spec-ID`). See Phase 4b.
+> **`--resume <spec-file>`**: resume a paused spec after answering its open questions — skip 4a, **fold the confirmed answers into the existing `Resolved decisions` section** (do NOT add a new section), mark the answered `Open questions` resolved, flip `Status` to `COMPLETE`, then append 4b only (idempotent; never regenerate 4a, never change the `Spec-ID`). See Phase 4b.
+>
+> **`--decisions <plan-file>`** (or inline `--decisions "q1=…; q2=…"`): decisions are already made — e.g. from a prior Plan Mode discussion — so there is nothing left to confirm. Ingest them, fold into `Resolved decisions`, and emit **4a + 4b in one pass with no gate/pause**. See Phase 4.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -21,9 +23,10 @@ Build command for the spec layer (not code yet). Two-pass: business spec → con
 **The agent does NOT:**
 - Invent sections that no sibling spec has (e.g., "Strategic alignment", "Vision statement"). If no sibling has it, the new spec doesn't either.
 - Drop required sections because the brief is short. `Out of scope` empty = scope creep guaranteed; force the section non-empty.
-- Skip the confirmation gate between 4a and 4b. The whole point of this command is the clarification round.
+- Skip the confirmation gate between 4a and 4b. The whole point of this command is the clarification round. **Exception:** when decisions are supplied up front via `--decisions` (e.g. a prior Plan Mode plan), the round is already complete — fold the answers into `Resolved decisions` and emit 4a+4b in one pass. Skipping the gate is legal ONLY when there are no open questions left to ask, never to save time.
 - Tag every criterion `MVP`. That's broken scope discipline; force a real MVP/v2 split.
-- Substitute its own assumptions for stakeholder answers. Open questions stay open.
+- Substitute its own assumptions for stakeholder answers. Open questions stay open — UNLESS the answer was explicitly supplied (`--decisions`, or a `--resume` answer set), in which case it is a recorded decision, not an assumption.
+- Add a separate section to record confirmed answers (`Gate answers`, `Confirmed decisions`, …). Answers have ONE home: the `Resolved decisions` section. A second section is sibling-shape drift (no sibling spec has it) and scatters the same decision across three places.
 
 **Mechanical halt — sibling-shape parity (mandatory before Phase 4a draft):**
 
@@ -49,6 +52,7 @@ Section renaming or section invention without a sibling precedent is rejected; t
 - Decide the two passes:
   - 4a Business spec → user confirmation gate.
   - 4b Technical spec (only after confirmation).
+- **One-pass branch:** if invoked with `--decisions` (or the brief itself already resolves every open question — e.g. it pastes a finished Plan Mode plan), there is no gate. Produce 4a, fold the supplied answers into `Resolved decisions`, set `Status: COMPLETE`, and continue straight to 4b in the same run. The gate guards against *guessing*; when answers are given, that risk is gone.
 - Identify which agents to dispatch: `business-analyst` for 4a, defer technical agent until after the gate.
 
 ## Phase 3 — Retrieve
@@ -82,7 +86,14 @@ Spec-ID: <slug>-<4char-hash>
 
 **4b — Technical spec (after confirmation):**
 
-> **Resume mechanism (4a → 4b).** To resume after answering the open questions: reply in-session, or re-run `/analyze-task --resume specs/<YYYYMMDD>-<slug>.md`. On resume, skip 4a entirely — ingest the existing draft + the answers, and append 4b only. This is idempotent: never regenerate 4a, never re-ask answered questions, never change the `Spec-ID`.
+> **Resume mechanism (4a → 4b).** To resume after answering the open questions: reply in-session, or re-run `/analyze-task --resume specs/<YYYYMMDD>-<slug>.md`. On resume, skip 4a entirely — ingest the existing draft + the answers, then in this exact order:
+> 1. **Fold each confirmed answer into the existing `Resolved decisions` section.** Do NOT add a new section (`Gate answers`, `Confirmed`, etc.) — no sibling spec has one, so it is sibling-shape drift. One home for decisions, not three.
+> 2. **Update the `Open questions` section in place** — append `→ resolved: <answer>` to each, or drop the section. Never leave an answered question phrased as still-open.
+> 3. **Flip `Status`** from `AWAITING CONFIRMATION (gate between 4a + 4b)` to `COMPLETE (gate passed — answers folded into Resolved decisions)`.
+> 4. **Append 4b only.**
+> Idempotent: never regenerate 4a, never re-ask answered questions, never change the `Spec-ID`.
+>
+> **One-pass mechanism (`--decisions`).** When decisions are supplied up front (a prior Plan Mode plan, or inline `--decisions`), there is no pause: produce 4a, run steps 1–3 above against the supplied answers (same one-home rule), then append 4b in the same run. The gate exists to avoid *guessing*; when the answers are given, guessing isn't a risk, so the gate is satisfied — not skipped.
 
 > **Section-shape rule (read before listing sections).** Mirror the section list of sibling specs in `specs/`. Where a concern below applies to *this* task and no sibling covers it, add its section — `Non-functional requirements & SLOs`, `Authorization & data sensitivity`, and `Observability requirements` are strongly recommended for any non-trivial feature. The list below is **signal-gated**, not a checklist to fill on every spec: add a section when its signal is present, omit it (don't stub it) when it isn't.
 
@@ -116,6 +127,7 @@ Spec-ID: <slug>-<4char-hash>
 - Out-of-scope section is non-empty (forces explicit boundary).
 - If spec conflicts with an active ADR → surface the conflict, don't redesign around it.
 - Each criterion tagged `MVP` or `v2`.
+- **Single decision-home (HALT on failure):** confirmed answers live ONLY in `Resolved decisions`. If a `--resume` / `--decisions` run produced a duplicate section (`Gate answers`, `Confirmed decisions`, …) OR left answered questions still phrased as open in `Open questions` → reject: fold into `Resolved decisions`, reconcile `Open questions`, and re-emit. No sibling has a separate answers section.
 - **Traceability closure (HALT on failure):** every AC-ID maps to exactly one test-plan item AND ≥1 affected module. Every affected module traces back to ≥1 AC (catches fabricated modules). HALT if any AC has no test or no module, or any module has no AC.
 - **Vague-AC detector:** each `Then` clause must assert an observable / measurable outcome. Reject unquantified qualifiers (works / good / fast / properly / gracefully) carrying no threshold — rewrite with a number or move to Open questions.
 - **Error-path floor:** any story involving input / mutation / external-call requires ≥1 negative-path AC (unless the story is explicitly "read-only, no failure modes").
@@ -147,7 +159,7 @@ Phase 7 (Improved): decisions-pending updated; patterns queued
 
 Next: /add-feature specs/<date>-<slug>.md  (add --plan to plan-only)
 
-Status: AWAITING CONFIRMATION (gate between 4a + 4b) | INSUFFICIENT BRIEF | EPIC (split suggested) | COMPLETE
+Status: AWAITING CONFIRMATION (gate between 4a + 4b) | INSUFFICIENT BRIEF | EPIC (split suggested) | COMPLETE (gate passed, or one-pass via --decisions)
 ```
 
 ## Failure modes
