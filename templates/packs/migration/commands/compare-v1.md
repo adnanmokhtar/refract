@@ -172,10 +172,27 @@ Tests that should exist (some may already; verify):
 2. Validation error response: snapshot the V1 + V2 shapes; if a 3rd-party client integrates, surface the change.
 3. Payment-declined response: V2 subsumes under 422; verify clients can still detect "payment specifically failed" from the error body.
 
-### Open questions (for human review)
-- Was the response wrapper removal intentional or oversight?
-- Was the validation status code change (400 → 422) discussed?
-- Is the P99 regression in V2 acceptable or a bug to fix before more cutover?
+### Open questions (decide before the fix lands)
+
+Each row is a decision YOU make. State the recommendation, WHERE the answer gets recorded, and WHICH command consumes it — never leave a bare question.
+
+| # | Question | Recommendation | Where to answer | Consumed by |
+|---|---|---|---|---|
+| 1 | Was the response wrapper removal intentional? | revert (no ADR justifies it) | reply here, or add `ADR-NNNN` if intentional | `/find-and-fix <feature>` |
+| 2 | Validation status 400 → 422 — discussed? | keep 422, document it | new `ADR-NNNN` (new error contract) | `/find-and-fix <feature>` |
+| 3 | Is the P99 regression acceptable? | investigate before cutover | reply here | `/profile-perf <feature>` |
+
+### Next steps (do this next)
+
+This was a **read-only** audit — nothing was changed. To act on it:
+
+1. **Answer the open questions above** (reply in chat, or create the ADR(s) noted in the "Where to answer" column). Any question marked *new error contract* / *intentional break* needs an ADR before the fix; routine reverts just need your "yes, fix it".
+2. **Apply the fixes** — for each `divergent (no ADR)` finding:
+   - routine port → `/find-and-fix <feature>` (drives detect→fix→verify→record).
+   - security / contract-breaking / cross-repo → `/port-feature --heavy <feature>`.
+3. **Verify parity** — `/migration-gate <phase>` (or re-run `/compare-v1 <feature>`) to confirm the divergence is closed.
+
+> If verdict is `parity-clean` and there are no open questions, there is nothing to do — stop here.
 ```
 
 ## Output format
@@ -194,7 +211,15 @@ Divergences (summary):
 - missing in V2: <count>
 
 Report: ai/migration/audits/<feature>-compare-<date>.md
+
+Next steps:
+1. Decide the open questions (see report § Open questions) — reply here, or add the ADR(s) noted.
+2. Apply fixes: /find-and-fix <feature>  (or /port-feature --heavy for security/contract/cross-repo).
+3. Verify: /migration-gate <phase>  (or re-run /compare-v1 <feature>).
+(parity-clean + no open questions → nothing to do.)
 ```
+
+Every `/compare-v1` run MUST end its terminal output with this **Next steps** block. A report that states a verdict but leaves the user without a next command is incomplete — surface what to run and where to answer.
 
 ## Hard rules
 
