@@ -64,6 +64,18 @@ src/main/java/com/company/app/
 - Micrometer for metrics.
 - OpenTelemetry agent for traces.
 
+## Resilience, streaming & conditional requests
+
+- **Rate limiting** (inbound, per-tenant): Bucket4j with per-key buckets (`ProxyManager` over a shared store — Redis/Hazelcast — for multi-instance), or Resilience4j `RateLimiter`. Wrap in an `OncePerRequestFilter`/`HandlerInterceptor` keyed on tenant/API-key; on miss return `429 Too Many Requests` (RFC 6585) + `Retry-After` (RFC 9110 §10.2.3) + `RateLimit-Limit`/`RateLimit-Remaining`/`RateLimit-Reset` (IETF draft-ietf-httpapi-ratelimit-headers — a DRAFT, prefer unprefixed over legacy `X-RateLimit-*`). Decide FAIL-OPEN vs FAIL-CLOSED on store outage; emit `503` for admission control. → see `../ai-patterns/rate-limiting.md`.
+- **Conditional requests**: register `ShallowEtagHeaderFilter` for auto-computed ETags on read responses, or set them explicitly via `ResponseEntity.eTag(...)` / `.lastModified(...)`; honour `If-None-Match` → `304 Not Modified` (revalidation). For writes, read `@RequestHeader(value = "If-Match", required = false)` → `412 Precondition Failed` on mismatch, `428 Precondition Required` when absent on a guarded resource; back the check with a JPA `@Version` column so optimistic-lock conflicts surface as `412` not `500` (`OptimisticLockingFailureException` → mapped in `@ControllerAdvice`). All per RFC 9110 (obsoletes RFC 7232). → see `../ai-patterns/conditional-requests.md`.
+- **Streaming** (unbounded results): MVC — return `StreamingResponseBody` (chunked, RFC 9112) or `ResponseBodyEmitter`/`SseEmitter` for push; WebFlux — return `Flux<T>` with `produces = MediaType.APPLICATION_NDJSON_VALUE` (or `TEXT_EVENT_STREAM_VALUE` for SSE). Flush incrementally, emit a mid-stream terminal-error sentinel (status is already `200` once headers flush — a trailing error object, not a thrown exception), and cancel the producing query/Flux on client disconnect. → see `../ai-patterns/response-streaming.md`.
+- **Async job offload** (long work off the request thread): `@Async` service method (or Spring Batch / a broker for durable jobs) → controller returns `202 Accepted` + `Location` header pointing at a status URL; expose a `GET /jobs/{id}` status endpoint over a `PENDING→RUNNING→{SUCCEEDED,FAILED}` state machine; make submit idempotent (dedupe on an `Idempotency-Key`) and TTL the stored result. → see `../ai-patterns/async-job-offload.md`.
+
+> **Problem Details for errors**: serialise the above failures (`429`/`412`/`428`/`503`) as `application/problem+json` (RFC 9457, obsoletes RFC 7807) — Spring 6's `ProblemDetail` / `ErrorResponseException` do this natively; the `type` is a stable dereferenceable URI per error class, not the human `title`.
+> **Integration hooks** (owned by sibling packs — pointer, not policy):
+> - Outbound resilience (retry/circuit-breaker/bulkhead via Resilience4j, DLQ, stored idempotency-replay) → `distributed-systems` pack; this section covers only *inbound* limiting.
+> - RED metrics / OTel spans on the rate-limit filter, stream emitter, and job state transitions (watch tag cardinality on tenant/job-id) + audit-log on admission decisions → `observability` pack.
+
 ## Anti-patterns
 
 - Field injection (`@Autowired` private field).

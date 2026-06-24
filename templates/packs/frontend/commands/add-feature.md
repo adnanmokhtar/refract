@@ -78,7 +78,7 @@ If the argument is a path under `specs/` (or a `Spec-ID`), READ that spec **in f
 - **Affected modules, components/screens/state, API consumed, Test plan, Out-of-scope.**
 - **a11y requirements** — each becomes a Phase 6 axe/keyboard conformance check.
 - **i18n requirements** — each becomes a Phase 6 both-locale check.
-- **NFR / perf-budget** — bundle-size ceilings, LCP/INP/CLS targets, route-timing budgets; each becomes a Phase 6 bundle-size/LCP gate.
+- **NFR / perf-budget** — bundle-size ceilings, LCP/INP/CLS targets, route-timing budgets, **navigation budgets** (route prefetch on primary nav links, instant-loading route-change→paint target, streaming targets for SSR routes); each becomes a Phase 6 bundle-size/LCP/nav-speed gate.
 - **Authorization & data-sensitivity** — per-role access rules + sensitive-field handling; each rule becomes a Phase 6 unauthorized-access test.
 - **Observability** — required error/analytics/RUM signals; each must be matched by a wired signal in Phase 6.
 - **Rollout** — flag strategy, staged exposure, rollback path; carried into the Phase 6 release note.
@@ -282,6 +282,7 @@ The same `Spec: <Spec-ID>` line belongs in the PR description on every tier, so 
 - Lint + type-check pass on all touched files.
 - Unit tests pass; e2e test passes against running dev server.
 - Bundle-size delta acceptable (`@bundle-analyzer` skill if present).
+- **Navigation-speed / streaming / instant-loading MUSTs verified** on every new route (frontend-principles, not optional) — via the `navigation-speed` (prefetch / Speculation Rules / bfcache / View Transitions), `streaming-ssr` (stream-the-shell boundary scan), and `lcp-audit` (LCP-resource priority hints) skills; field INP via `web-vitals-field` (authoritative; lab INP is a proxy) with per-interaction budget from the `inp-responsiveness` pattern. Framework specifics come from `references/<framework>.md` + these skills — keep this stack-agnostic. A missing MUST HALTs (see Spec-conformance gate).
 - A11y automated check passes (axe, Lighthouse a11y category ≥95).
 - Locale completeness — no missing keys for declared locales.
 - **Live browser verification (default for any user-visible feature):**
@@ -291,7 +292,7 @@ The same `Spec: <Spec-ID>` line belongs in the PR description on every tier, so 
   - Skipping live verification is allowed only for backend-shaped changes (API contracts, types, store internals) where no rendered surface changed. Use `--no-verify-browser` to opt out explicitly with rationale.
 - **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md` for an error-tracker / analytics / RUM layer):
   - Error tracking (Sentry / Bugsnag / equivalent) captures errors from the new routes/components — error boundary or handler wired the same way siblings wire it.
-  - Route-level performance signal exists if the project records one (web-vitals / RUM route timing) — new route reports like siblings do.
+  - Route-level performance signal exists if the project records one (web-vitals / RUM route timing) — new route reports like siblings do. **Nav-speed parity:** the new route prefetches its primary inbound links AND ships an instant loading state (skeleton / streamed shell) the same way its siblings do — a sibling that prefetches + has a loading boundary while the new route does neither is drift (HALT, per the Sibling-shape mechanical halt). Verify via the `navigation-speed` / `streaming-ssr` skills.
   - Product analytics events added if siblings of this surface emit them (same naming convention).
   - No console.* left as the only failure signal on any error path.
   - If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
@@ -303,7 +304,7 @@ When the feature was built from a spec (Phase 1 spec branch), every spec section
 
 - **Each a11y requirement → axe + keyboard test.** The requirement is met only when an automated axe assertion AND a keyboard-reachability/focus test cover it. Missing either → HALT.
 - **Each i18n requirement → both-locale check.** Every required string resolves in BOTH declared locales (en + ar) at the same key path, verified rendered. Any locale gap → HALT.
-- **Each perf-budget / NFR → bundle-size / LCP check.** Measure the actual bundle-size delta against the spec's ceiling and the rendered LCP (and INP/CLS if the spec sets them) against the spec's target. Over budget → HALT.
+- **Each perf-budget / NFR → bundle-size / LCP check.** Measure the actual bundle-size delta against the spec's ceiling and the rendered LCP (and INP/CLS if the spec sets them) against the spec's target. Over budget → HALT. **ALSO enforce the frontend-principles navigation-speed / streaming / instant-loading MUSTs on every new route the feature adds — regardless of whether the spec names them (they are mandatory MUSTs):** primary inbound nav links prefetch the route (`navigation-speed` skill — Speculation Rules / prefetch / bfcache safety, no `unload`/`beforeunload`); SSR routes whose above-the-fold doesn't depend on a slow query stream the shell (`streaming-ssr` skill); data-dependent routes paint an instant layout-stable skeleton with no CLS (`lcp-audit` skill for LCP-resource priority hints). AUTHORITATIVE field INP via the `web-vitals-field` skill (lab/Lighthouse INP is a synthetic proxy only); per-interaction budget via the `inp-responsiveness` pattern. Missing any MUST → HALT, same as over-budget.
 - **Each Authorization rule → unauthorized-access test.** For every per-role rule the spec states, there is a test asserting the surface is denied/hidden for a role that should NOT have access (not just allowed for the role that should). Missing the negative test → HALT.
 - **Observability → matched signal.** Each required signal (error capture, analytics event, RUM/route timing) is wired the way siblings wire it and verified emitted. Unmatched signal → HALT.
 - **Each Success metric → instrumented OR deferred.** The metric's event is wired and firing, OR it is explicitly deferred with a recorded reason. Silently-absent metric → HALT.

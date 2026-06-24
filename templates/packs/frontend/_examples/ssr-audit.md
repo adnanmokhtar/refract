@@ -56,6 +56,16 @@ export default defineNuxtPlugin(() => {
 
 If multi-tenant — tenant must come from the REQUEST (host header), not from browser localStorage or cookies read on client.
 
+### Client-boundary cost (React Server Components)
+
+React / Next App Router specific. Every `"use client"` directive ships JS + hydrates from that file down.
+
+- **Unjustified directive** — among `"use client"` files, `grep -L 'useState|useEffect|useReducer|onClick|onChange|window\.|document\.|addEventListener'` → each hit can DELETE the directive (renders server-side, 0 JS). False-positive: a `useContext`-of-client-context consumer still needs it.
+- **Boundary too high** — a `"use client"` file importing large server-safe children → push the directive down to the interactive leaf; pass the subtree via the `children` prop.
+- **Server-only leak (BLOCKER)** — a db/`fs`/secret module imported into a `"use client"` file → that code is now in the client bundle.
+
+Halt: never strip a directive without the `grep -L` proving zero state/effect/event/browser usage.
+
 ## Output
 
 ```

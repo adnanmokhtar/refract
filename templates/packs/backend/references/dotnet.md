@@ -26,7 +26,7 @@ tests/
 - Minimal APIs for small / microservice-style apps.
 - Controllers (`ControllerBase`) for larger apps with complex routing / model binding.
 - `[ApiController]` attribute for automatic model validation + ProblemDetails errors.
-- `ProblemDetails` (RFC 7807) for all error responses.
+- `ProblemDetails` (RFC 9457, obsoletes 7807) for all error responses.
 - Endpoint grouping: `/api/v1/...` + OpenAPI per group.
 
 ### DI

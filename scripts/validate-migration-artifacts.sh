@@ -63,7 +63,7 @@ V1_ROOT=""
 ANCHORS_FILE="ai/migration/_v2-anchors.md"
 # Project-specific V2-structure fingerprints, parsed from the `forbidden_patterns:` list in
 # _v2-anchors.md (#13). When non-empty, check_v2_structure uses THESE instead of the frozen
-# tenant-portal-v2 reference set hardcoded in the script — making the Transposition-Trap /
+# built-in reference set hardcoded in the script — making the Transposition-Trap /
 # Reinvented-Wrapper detection portable to any project.
 declare -a PROJECT_FINGERPRINTS=()
 # Lifecycle / KeepAlive checks (frontend) — anchor these per project via _v2-anchors.md
@@ -2349,7 +2349,7 @@ check_v2_structure() {
   esac
 
   # #13 — portability: if the project declared its OWN fingerprints in _v2-anchors.md, use those
-  # (the hardcoded case-block above is the tenant-portal-v2 REFERENCE set, kept as the fallback).
+  # (the hardcoded case-block above is the built-in REFERENCE set, kept as the fallback).
   if [[ ${#PROJECT_FINGERPRINTS[@]} -gt 0 ]]; then
     fingerprints=("${PROJECT_FINGERPRINTS[@]}")
     [[ $QUIET -eq 0 ]] && echo "  v2-structure: ${#fingerprints[@]} project fingerprint(s) from _v2-anchors.md"
@@ -3139,7 +3139,7 @@ load_project_anchors() {
   # "V1 fingerprints to forbid in V2" documents but the script never read (the doc↔script gap
   # that IS #13). Each entry: `- { regex: '<rx>', severity: <fail|warn>, message: "<msg>" }`.
   # Converted to the internal `<rx>|<sev>|<msg>` form. Lets ANY project declare its own
-  # wrappers/primitives instead of inheriting the frozen tenant-portal-v2 set hardcoded below.
+  # wrappers/primitives instead of inheriting the frozen built-in reference set hardcoded below.
   PROJECT_FINGERPRINTS=()
   while IFS= read -r ln; do
     echo "$ln" | grep -qE '^[[:space:]]*-[[:space:]]*\{.*regex:' || continue

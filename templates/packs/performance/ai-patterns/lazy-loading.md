@@ -45,6 +45,7 @@ pack: performance
 | **Modal/drawer contents** | Account settings dialog, share sheet | Render placeholder; populate on open. |
 | **Large lists** | Threads with 1000+ items, message history | Virtualization (the framework's virtualisation library). |
 | **Server data not needed yet** | Tab content not currently selected | Fetch on tab activate. |
+| **Hydration scheduling (interactive islands)** | Counter widget, accordion, carousel, comment box | Hydrate only what is interactive, and schedule WHEN: `client:visible` for below-fold islands (default), `client:load` only for above-fold interactivity, `client:idle` / `client:media` / `client:only` for the rest. (Qwik: resumability = zero hydration.) |
 
 ## When NOT to lazy-load
 
@@ -74,9 +75,27 @@ Defer the import until the component that uses the module mounts. Conceptually: 
 
 ### Image lazy-load
 
-Use the platform's native lazy-loading attribute (`loading="lazy"` on `<img>`) for raw HTML, OR the framework's image primitive's default lazy mode. For above-the-fold images, mark them as priority (the framework's priority-hint API) so they load eagerly.
+Use the platform's native lazy-loading attribute (`loading="lazy"` on `<img>`) for raw HTML, OR the framework's image primitive's default lazy mode. For above-the-fold images, mark them as priority (the framework's priority-hint API) so they load eagerly. See `references/<framework>.md § Core Web Vitals / Images` for the concrete attribute (Next `<Image priority>`, Nuxt `<NuxtImg preload :loading="eager">`, Angular `NgOptimizedImage [priority]` via `ngSrc`, plain React/Vue/Svelte `fetchpriority="high"`). For LCP-element priority-hint verification, see the `lcp-audit` skill.
 
 ALWAYS set `width` + `height` (or `aspect-ratio` CSS) — without them, lazy images cause layout shift (CLS regression).
+
+### Hydration scheduling (interactive islands)
+
+Don't hydrate the whole page — hydrate only the islands that are actually interactive, and schedule WHEN each one hydrates. In Astro this is the `client:*` directive on the island:
+
+- `client:load` — hydrate eagerly on page load. Reserve for **above-the-fold** interactivity.
+- `client:idle` — hydrate during `requestIdleCallback`. Good for non-urgent interactivity.
+- `client:visible` — hydrate when the island enters the viewport (IntersectionObserver). **Default for below-the-fold islands.**
+- `client:media={...}` — hydrate only when a media query matches (e.g. mobile-only controls).
+- `client:only={...}` — skip SSR entirely; client-render only.
+
+**Rule** — default below-the-fold islands to `client:visible`; reserve `client:load` for above-the-fold interactivity.
+
+**Detector** — an Astro island using `client:load` for a below-the-fold widget → flag, cite `<file:line>` + the `client:load` directive, propose `client:visible` (or `client:idle` if it must pre-warm).
+
+When the stack is **Qwik**, resumability is the zero-hydration option: listeners are serialized in HTML and resume on interaction — no hydration step runs at all, so there is no per-island `client:*` schedule to tune.
+
+Cross-link the **Measure first** section before reclassifying any island: only flag the schedule once you've confirmed the island is below the fold and its current eager hydration costs measured main-thread time.
 
 ### Third-party scripts
 

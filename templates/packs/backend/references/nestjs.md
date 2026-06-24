@@ -34,6 +34,13 @@ Violation = block at review.
 - Controllers catch domain errors and map to HTTP status via a global filter.
 - Never throw `new Error(...)` — use a typed error class.
 
+## Resilience, streaming & conditional requests
+
+- **Rate limiting**: gate inbound load with `@nestjs/throttler` — `ThrottlerModule.forRoot([...])` globally, `@Throttle({ default: { limit, ttl } })` / `@SkipThrottle()` per route. The default in-memory `ThrottlerStorage` resets per pod, so multi-instance deploys MUST use `@nestjs/throttler-storage-redis` (shared store) or each replica enforces its own quota. Throttler emits `429` + `Retry-After`; surface unprefixed `RateLimit-Limit/Remaining/Reset` over legacy `X-RateLimit-*`. Defect: `@Throttle()` on a controller with no shared storage in a >1-replica chart `<deploy/values.yaml>`. → ai/patterns/rate-limiting.md
+- **Conditional requests**: enable `ETag` (`app.use(etag())` in `main.ts`, or a response interceptor that hashes the serialized body) so reads revalidate to `304`. For writes, read `If-Match` in a guard/interceptor and compare it to the entity's `version` column (TypeORM `@VersionColumn`); mismatch → `412 Precondition Failed`, missing on an unsafe method → `428 Precondition Required`. Defect: a PATCH controller writing the ORM entity with no `If-Match` check `<*.controller.ts:PATCH>` — last-writer-wins. → conditional-requests.md
+- **Streaming**: return `StreamableFile` for file/download responses; use `@Sse('events')` returning an `Observable` for server-sent events; for NDJSON write to the raw `@Res() res` and respect backpressure (await `res.write()` / honor the `drain` event) and `req.on('close')` to cancel work on disconnect. Defect: building a full array then `res.json()` for an unbounded query `<*.controller.ts>` — heap blow-up, no mid-stream error sentinel. → response-streaming.md
+- **Async jobs**: offload work >~1s — a `@nestjs/bullmq` producer enqueues in the controller and returns `202 Accepted` + `Location: /jobs/:id`, a `@Processor()` consumer runs the job, and `GET /jobs/:id` exposes the status state machine (queued→running→done/failed, result behind a TTL). Make submit idempotent via a client key → existing-job lookup. Defect: a controller doing the heavy work inline and returning `200` only after it finishes `<*.controller.ts>`. → async-job-offload.md
+
 ## Tests
 
 - Unit tests next to the code (`*.spec.ts`).

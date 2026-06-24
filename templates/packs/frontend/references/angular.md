@@ -49,6 +49,12 @@ src/app/
 
 - Lazy-load every feature route: `loadChildren: () => import('./...')`.
 - Route guards are functions (`canActivate: [authGuard]`), not classes (deprecated).
+- Preload lazy chunks after initial load: `provideRouter(routes, withPreloading(PreloadAllModules))`, or a custom `PreloadingStrategy` / network-aware `quicklink` (`ngx-quicklink`) so the next route's chunk is already fetched on navigation.
+
+## Deferred views & images
+
+- `@defer` to lazy-load a block's chunk on a trigger: `(on viewport)`, `on idle`, `on interaction`, `on hover`, `on timer(2s)`. Pair with `@placeholder`, `@loading (minimum 500ms)`, and `@error` blocks. Add `prefetch on idle` to fetch the chunk early without rendering it yet.
+- `NgOptimizedImage`: use `ngSrc` (not `src`) with required `width`/`height`; set `priority` on the LCP image — it emits a preload `<link>` + `fetchpriority=high` so the hero loads first.
 
 ## Testing
 
@@ -63,3 +69,6 @@ src/app/
 - Subscription leaks — use `takeUntilDestroyed()` or `async` pipe
 - Manual `subscribe()` without cleanup
 - Business logic in templates
+- Lazy routes with no `PreloadingStrategy` on a fast network — chunks fetch only on click
+- Raw `<img src>` instead of `ngSrc` (`NgOptimizedImage`)
+- No `priority` on the LCP image — hero loads late, LCP regresses

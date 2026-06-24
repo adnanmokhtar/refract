@@ -305,7 +305,7 @@ fi
 # "out of scope", "owned outside"), where the capability is correctly absent. The
 # rejection is complete when a native same-named command exists OR the ledger line
 # carries a `→ use /<equivalent>` breadcrumb. See setup-project.md M35 rule 4.
-# Observed 2026-06-20 (tenant-portal): /enhance-ui vanished with no breadcrumb and a
+# Observed 2026-06-20 (a consumer project): /enhance-ui vanished with no breadcrumb and a
 # review reported all-OK. Consolidated to one line — the detail lives in the ledger.
 if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   echo "C2l: rejected-command surface preservation"
@@ -338,7 +338,7 @@ fi
 # this just surfaces a deepen recommendation (the missing gates + `/setup-project
 # --refine`). High-precision sampled token set (each names a real gate, never
 # boilerplate) — not exhaustive, but enough to flag a shallow kept command. Observed
-# 2026-06-20 (sahlcart/store): add-feature/fix-bug/review-changes kept but missing
+# 2026-06-20 (a consumer project): add-feature/fix-bug/review-changes kept but missing
 # intent / prior-art / new-dependency / action-plan / coverage / secret-scan gates.
 if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   echo "C2s: kept-command capability gap (KEEP-OURS shallowness)"
@@ -353,7 +353,7 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   # standard STRUCTURAL sections (`display::header-keyword-regex`). A kept command can
   # carry every gate above yet still be a 90-line stub missing the decompose / validate /
   # improve / failure-mode / output scaffold that makes the standard comprehensive — the
-  # exact hole a gate-only check missed (observed 2026-06-21 on sahlcart/store: add-feature
+  # exact hole a gate-only check missed (observed 2026-06-21 on a consumer project: add-feature
   # had all gates but was 89 lines, 5 sections vs the standard's 14). We flag a kept
   # command as structurally shallow when it lacks >=3 standard sections its pack
   # counterpart has. Matched against header lines only, so prose mentions don't count.

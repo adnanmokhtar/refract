@@ -68,6 +68,24 @@ Two POSTs with the same key → second returns the same body, no duplicate side-
 - Soft-delete: `deletedAt` set (not physically removed).
 - Tenant side-effects: after mutation, other tenants' data unchanged.
 
+### Conditional requests (API-1) — for endpoints that emit `ETag`
+GET the resource, capture `ETag` from the response.
+- `If-None-Match: "<current-tag>"` on the GET → expect **304 Not Modified**, empty body.
+- Stale `If-Match: "<old-tag>"` on a write (PUT/PATCH) → expect **412 Precondition Failed**.
+- Absent `If-Match` on a guarded write (one that documents mandatory precondition) → expect **428 Precondition Required**.
+- Lost-update race: A & B both GET v7; B writes `If-Match: "v7"` → 200, new tag v8; A then writes `If-Match: "v7"` → expect **412** (A's stale write is rejected, not silently clobbering B). A 200 on A's write is a lost update.
+Ref `ai/patterns/conditional-requests.md` (RFC 9110 — ETag / If-Match / If-None-Match / 304 / 412 / 428).
+
+### Content negotiation (API-4)
+- POST `Content-Type: text/plain` to a JSON endpoint → expect **415 Unsupported Media Type**.
+- `Accept: application/xml` on a JSON-only endpoint → expect **406 Not Acceptable** (or a documented "ignore Accept, always return JSON" — assert whichever the contract declares).
+
+### Rate limit (ENF-1)
+Loop N+1 calls on a rate-limited endpoint → after the bucket drains, expect **429 Too Many Requests** + `Retry-After` (RFC 6585 / RFC 9110 §10.2.3). Prefer asserting unprefixed `RateLimit-Remaining` / `RateLimit-Reset` decay over the loop. Ref `ai/patterns/rate-limiting.md`.
+
+### Async 202 offload (PERF-3) — for endpoints that defer work
+POST the job → expect **202 Accepted** + `Location` (status URL). Poll the status URL until a terminal state (`succeeded` / `failed`); assert the state machine never skips states and that a re-POST with the same idempotency key returns the same job, not a duplicate. Ref `ai/patterns/async-job-offload.md`.
+
 ## Output
 
 ```
@@ -116,6 +134,9 @@ Don't start it yourself (side-effects). Report the dev command from `CLAUDE.md` 
 - `ai/patterns/caching-strategy.md`
 - `ai/patterns/error-handling.md`
 - `ai/patterns/parallel-io.md`
+- `ai/patterns/conditional-requests.md`
+- `ai/patterns/rate-limiting.md`
+- `ai/patterns/async-job-offload.md`
 
 ### Rules
 - `.claude/rules/backend-principles.md`

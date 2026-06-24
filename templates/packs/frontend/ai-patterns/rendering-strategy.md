@@ -66,6 +66,8 @@ Modern frameworks (Next App Router, Nuxt, SvelteKit, Remix) let you pick strateg
 - `/docs/*` → SSG
 - `/admin/*` → CSR (auth'd, interactive dashboard)
 
+This pattern owns the **initial-render** axis (first paint of a route). The **page-to-page navigation** axis (prefetch, bfcache, instant-loading, View Transitions) is owned by the **navigation-speed.md** skill — keep the two in sync so a route's strategy choice and its navigation behavior don't drift.
+
 ## SSR pitfalls
 
 - **Hydration mismatch** — server HTML ≠ client HTML on first render. Fix: deterministic render, no `Date.now()` / `Math.random()` / `window` in render.
@@ -107,6 +109,17 @@ Database
 ```
 
 Invalidate upward when a cached item changes: DB write → app cache evict → framework revalidate → CDN purge (via tag).
+
+## TTFB levers (ranked)
+
+When TTFB is the bottleneck (server slow to first byte, blocking LCP), apply in this order. Each lever cites the metric it moves — `<file:line>` where the lever lives + the metric, per the cite-or-halt rule:
+
+1. **Parallelize data** (`Promise.all` / React `use()` / `Nuxt useFetch` parallel) — collapse the server-render waterfall. Moves **TTFB** (server stops blocking on serial awaits). Cite the serial-await site at `<route-or-loader:line>`.
+2. **Edge render** — move SSR to the CDN edge (see Edge SSR specifics), cutting the client→origin RTT. Moves **TTFB** (origin distance drops, <50ms typical). Cite the render runtime at `<config:line>`.
+3. **`Cache-Control: stale-while-revalidate`** — serve the cached document instantly while regenerating in the background. Moves **TTFB** (cache hit, no render on the hot path). Cite the header value at `<response-or-config:line>`.
+4. **103 Early Hints** — a HOST/CDN feature (Vercel, Cloudflare) that emits a `Link: rel=preload` / `rel=preconnect` header *before* the `200`, so the browser starts critical-resource fetches during server think-time. Moves **LCP** (resource discovery overlaps TTFB), not TTFB itself. This is DISTINCT from a framework injecting `<link rel=preload>` tags into the HTML `<head>` — 103 is a transport-level interim response from the host, not a `next.config` / framework emission. Cite the host config enabling it at `<host-config:line>`.
+
+For streaming-boundary placement (which shell flushes first, where Suspense splits the stream), see the **streaming-ssr.md** skill.
 
 ## Edge SSR specifics
 

@@ -94,6 +94,12 @@ Generate:
 - i18n keys in EVERY locale file the repo declares.
 - Tests: render + data fetch (mocked) + interaction.
 
+Fast-by-default (mirror siblings; framework specifics → `references/<framework>.md`):
+- An instant, layout-stable loading state (no CLS) — skeleton mirroring the loaded shape, NOT a spinner or blank.
+- Primary inbound nav links to this route prefetch via the framework primitive (mirror siblings; see `navigation-speed.md`).
+- If the route is SSR and its above-the-fold does NOT depend on a slow query, slow regions stream behind a Suspense/await boundary (see `streaming-ssr.md`).
+- If the route has a hero / above-the-fold LCP image, set the framework priority hint (see `lcp-audit.md`).
+
 ### Sibling-shape mechanical halt (mandatory, all tiers)
 
 Before declaring success, compare the new page against ≥2 sibling pages in the same area. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (introduced a new break on an unrelated axis).
@@ -107,6 +113,10 @@ Before declaring success, compare the new page against ≥2 sibling pages in the
 - Default-true wrapper props left implicit when affordances should be hidden — pass `:show-delete="false"` / `:can-edit="false"` explicitly.
 - New file placed outside the area's path convention (e.g., `pages/orders/NewOrder.vue` when siblings live at `views/orders/Form.vue`).
 - Lazy-load convention diverges from siblings (sibling pages use `defineAsyncComponent` / dynamic-import; new page is statically imported, or vice versa).
+- Inbound nav links to the new route don't prefetch where siblings' equivalents do (and there's no documented prefetch=off).
+- Loading state missing or not layout-stable (spinner / blank / CLS) where siblings paint a skeleton.
+- SSR route blocks TTFB on a below-the-fold query when siblings stream the shell behind a Suspense/await boundary.
+- An unconditional `unload` / `beforeunload` listener was introduced (bfcache evictor) where it should be `pagehide`.
 
 **Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
@@ -123,7 +133,8 @@ Before declaring success, compare the new page against ≥2 sibling pages in the
 - Run tests scoped to new files.
 - `visual-check` skill — render in dev server, confirm states (loading/empty/error).
 - Verify i18n keys exist in every locale file declared in the repo.
-- **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking captures errors from the new route the way siblings wire it; route-level perf signal (web-vitals / RUM) + analytics events added if siblings of this surface emit them. If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
+- **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking captures errors from the new route the way siblings wire it; route-level perf signal (web-vitals / RUM) + analytics events added if siblings of this surface emit them. Authoritative field INP arrives via `web-vitals-field` (Lighthouse lab INP is a synthetic proxy only). If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
+- **Fast-by-default dispatch:** run the `navigation-speed` skill on the new route (prefetch / bfcache / instant-loading); add `lcp-audit` if the route has a hero; add `streaming-ssr` if the route is SSR with a slow query.
 
 ## Phase 7 — Improve
 
@@ -152,6 +163,7 @@ Created:
 - Loading/empty/error states omitted — required, not optional.
 - Lazy-loading mismatch with sibling pages — hurts code-split coherence; mirror the convention.
 - API URL hardcoded in component — services own that.
+- Navigation into the new route doesn't prefetch / no instant layout-stable loading state — the page feels slow even when it's fast.
 
 ## Related
 
@@ -160,6 +172,11 @@ Created:
 - `/add-component` — sibling command in frontend pack
 - `/add-crud-page` — sibling command in frontend pack
 - `/i18n-audit` — sibling command in frontend pack
+
+### Skills
+- `navigation-speed` — prefetch / Speculation Rules / bfcache / instant-loading / View Transitions audit.
+- `streaming-ssr` — streaming-boundary scanner (stream the shell, cut TTFB).
+- `lcp-audit` — LCP-resource priority-hint scanner (fetchpriority / preload / preconnect / lazy-hero).
 
 ### Patterns
 - `ai/patterns/forms.md`

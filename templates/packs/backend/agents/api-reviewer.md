@@ -55,6 +55,30 @@ grep -rn "import.*@nestjs\|import.*typeorm" src/modules/*/core/
 - Idempotency-Key accepted on mutating endpoints (when applicable).
 - Response wrapped per project shape (`{ status, code, message, data, meta? }`).
 - Swagger / OpenAPI annotations complete (operationId, description, responses).
+- **(ENF-1) Rate limit declared on unauthenticated OR expensive endpoints** (search / export / bulk / LLM / report) — REQUEST if absent. The `429 Too Many Requests` (RFC 6585) reply MUST carry `Retry-After` (RFC 9110 §10.2.3 — seconds or HTTP-date) + `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` (IETF `draft-ietf-httpapi-ratelimit-headers` — a draft, prefer unprefixed over legacy `X-RateLimit-*`). Detector — flag a handler whose route matches `/search|/export|/report|/bulk|/upload` with no throttle declaration:
+
+```bash
+# Should return 0 — expensive routes with no limiter
+rg -n '@(Get|Post)\([^)]*(/search|/export|/report|/bulk|/upload)' src/ -A6 | rg -v '@Throttle|@RateLimit|RateLimiter|limiter|throttle'
+```
+
+  Ref `ai/patterns/rate-limiting.md` (per-tenant buckets, shared store, fail-open vs fail-closed, 503 admission control).
+- **(ENF-4) Streaming endpoints are OUT of the buffered-DTO assumption.** A `text/event-stream` / chunked / NDJSON handler is not held to the response-envelope or `response_model` checks — but flag a streaming handler with **no idle/total timeout** OR **no disconnect cancellation** (consume the request abort signal / `req.on('close')` / `CancellationToken`). Defer real-time push depth (heartbeats, fan-out, reconnection) to `@websocket-engineer`. Ref `ai/patterns/response-streaming.md`.
+- **(API-4) Content negotiation** — rejects an unexpected request `Content-Type` with `415 Unsupported Media Type`; returns `406 Not Acceptable` when the `Accept` header cannot be satisfied; sets `Vary: Accept` on any response whose representation is negotiated.
+
+### Contract evolution
+
+**(ENF-2) A diff that removes/renames a response field, changes a field's type, or supersedes an endpoint/version is BLOCK** — not REQUEST — unless ALL of:
+- The old surface still emits `Deprecation: true` (RFC 9745) + `Sunset: <HTTP-date>` (RFC 8594) for the transition window.
+- An ADR records per-consumer traffic tracking + a removal date (you cannot retire what you cannot prove is unused).
+- GraphQL: the field carries `@deprecated(reason: "...")` FIRST — removal only after the deprecation has shipped and drained.
+
+```bash
+# Removed/renamed response fields in this diff — each must be justified by the above
+git diff --staged -- '*.dto.ts' '*serializer*' '*.graphql' | rg '^-\s' | rg -i 'field|@Field|@Expose|attribute'
+```
+
+  Wire to `@api-snapshot` / `ai/patterns/api-contract.md`: a breaking snapshot diff with no governing ADR escalates the verdict to **BLOCK** (not REQUEST). The error contract itself stays Problem Details (RFC 9457, obsoletes 7807; `application/problem+json`; `type` is a stable dereferenceable URI per error class, NOT the human title).
 
 ### DTOs
 
@@ -64,6 +88,15 @@ grep -rn "import.*@nestjs\|import.*typeorm" src/modules/*/core/
 - Nested objects use `@ValidateNested()` + `@Type()` (or equivalent).
 - No `any` types.
 - Output DTOs separate from ORM entities — mapper converts.
+
+**(SEC-01) Mass-assignment / over-posting** — BLOCKER when the request body is bound wholesale into a persisted entity that carries privilege/ownership fields (`role` / `isAdmin` / `tenantId` / `ownerId` / `balance` / `status`). Stack-agnostic grep probes:
+
+```bash
+# Should return 0 — wholesale body bind into a model
+rg -n 'Object\.assign\(\s*\w+,\s*req\.body|\{\s*\.\.\.req\.body|Model\(\*\*|new \w+Entity\(req\.body|\.save\(req\.body\)|update\(req\.body\)' src/
+```
+
+  Fix = explicit field-allowlist bind (pick named writable fields; never spread the raw body). Forms/input-binding is the deep owner — pointer to the forms domain; the backend hook here is the always-on entity-bind probe above.
 
 ### Services / use-cases
 
@@ -94,6 +127,16 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 - `SELECT *` avoided when specific columns suffice.
 - FK columns indexed (check entity / migration).
 - N+1 check: any `findOne` / `findById` inside a `.map()` / loop?
+- **(PERF-5) Result-size & shape** (REQUEST):
+  - **Unbounded full-result buffering** — `.toArray()` / `fetchall()` / `JSON.stringify(allRows)` over a **user-controlled** (or absent) limit materializes the whole result set in memory → stream it (`ai/patterns/response-streaming.md` — NDJSON/SSE/chunked, mid-stream terminal-error sentinel, backpressure).
+  - **Large JSON route with no compression** — a payload-heavy response with no gzip/br negotiation.
+  - **Over-fetch DTO** — a list endpoint returning a full entity DTO where the client uses few fields → projection (database pack owns `SELECT *` / over-fetch depth — pointer to `@db-reviewer`; the backend hook is the route-returns-full-DTO observation).
+  - **Inline heavy work** — a controller doing `>50ms` CPU OR a slow upstream call **inline** on the request path → `202 Accepted` offload (`ai/patterns/async-job-offload.md` — `Location` + status URL, job-status state machine, idempotent submit, result TTL).
+
+```bash
+# Should return 0 — full-buffer materialization on an unbounded query
+rg -n '\.toArray\(\)|\.fetchall\(\)|JSON\.stringify\(\s*(all|rows|results)' src/
+```
 
 ### Error handling
 
@@ -113,6 +156,22 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 - Latency + error metric emitted.
 - External secrets from env, not code.
 
+**(SEC-02) SSRF** — if the outbound URL/host derives from request input, it MUST pass an egress allowlist BEFORE the fetch: reject RFC1918 ranges + `169.254.169.254` (cloud metadata) + loopback, enforce `https-only`, and validate the RESOLVED IP (re-check after DNS resolution to defeat DNS-rebinding), not just the literal hostname.
+
+```bash
+# Outbound fetch whose target comes from request input — each must hit an allowlist first
+rg -n 'fetch\(|axios\.(get|post)\(|http\.request\(|requests\.get\(|HttpClient' src/ -A2 | rg 'req\.|request\.|body|query|params'
+```
+
+  `@security-auditor` (OWASP A10) is the deep owner of the egress policy — pointer only; do NOT relocate or duplicate the allowlist here. The backend hook is the request-derived-fetch probe above.
+
+**Inline-resilience floor** (when this backend owns the fallback rather than deferring to the platform):
+- **(RES-2a)** Inner per-call timeout is STRICTLY LESS than the outer handler / SLO budget (a downstream timeout must fire before the client's does).
+- **(RES-2b)** Retry is gated on idempotency (never retry a non-idempotent write), uses exp-backoff + jitter, and is bounded BOTH by attempt count AND total elapsed time.
+- **(RES-2c)** Per-downstream pool / semaphore — no single shared client/connection pool spanning cache + queue + http (one slow dependency must not starve the others).
+
+  `@resilience-reviewer` (distributed-systems pack) owns outbound resilience / DLQ / stored-idempotency-replay depth — pointer only; these three are the always-on backend floor.
+
 ### Events / async
 
 - `@EventPattern` handlers + guards applied.
@@ -130,6 +189,20 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 - Latency metric per endpoint (histogram).
 - External calls: success/failure metric + latency.
 - PII redacted in logs (phone → last 4, email → first char + domain).
+- **(OBS-2) Metric-label cardinality** — flag `user_id` / `request_id` / `email` / a raw path containing an id (`/orders/8431`) used as a metric LABEL — a cardinality bomb (unbounded series). Route templates (`/orders/:id`) and tenant-id (bounded) are fine; identifiers go in logs/traces, not label sets. AND assert the RED triad — a new endpoint emits **rate + errors + duration** (histogram), not just a bare hit counter.
+
+```bash
+# Should return 0 — high-cardinality identifiers as metric labels
+rg -n '(counter|histogram|gauge|metric)\(' src/ -A3 | rg 'user_?id|request_?id|email|/\d+'
+```
+
+  Hand telemetry-heavy changes (new span attributes, OTel wiring, sampling, cardinality budget) to `@observability-reviewer` — deep owner; the probe above is the always-on backend hook.
+- **(OBS-4) Readiness / shutdown** — `/readyz` actually PINGS each declared dependency (DB / cache / queue probe), not a bare `return 200`; a readiness flip emits a structured log + a gauge; graceful shutdown logs the in-flight-request count as the server drains.
+
+```bash
+# A /readyz that returns static 200 without probing deps is a false-green
+rg -n '/readyz|/ready|readiness' src/ -A8 | rg -v 'ping|isHealthy|check\(|SELECT 1|redis|queue|db\.'
+```
 
 ### Tests
 
@@ -160,6 +233,7 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 - `select_related` / `prefetch_related` on read queries to prevent N+1.
 - Permission classes, not inline checks.
 - `serializer.is_valid(raise_exception=True)`.
+- **(PERF-5)** Evaluating a `QuerySet` whole (`list(qs)` / `[o for o in qs]` / DRF serializing an unbounded queryset) buffers every row → use `StreamingHttpResponse` + `.iterator()` for export-shaped reads (`ai/patterns/response-streaming.md`).
 
 ### Laravel
 - FormRequest for validation (never in controller).
@@ -172,6 +246,7 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 - Pundit / CanCanCan for authZ.
 - `includes` for eager load.
 - Service objects past ~200 LOC model.
+- **(PERF-5)** `relation.to_a` / `.all.map` materializes the whole relation → use `find_each` / `find_in_batches` and stream the response for export-shaped reads (`ai/patterns/response-streaming.md`).
 
 ### Go (chi/gin/fiber)
 - Context propagated through handlers → services → repos.
@@ -184,6 +259,7 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 - `@ControllerAdvice` for exception → response mapping.
 - `@Transactional` at service, not repo.
 - JPA entities NEVER returned from controllers.
+- **(PERF-5)** `repository.findAll()` (or a `List<T>` return over an unbounded query) loads every row into the heap → return a `Stream<T>` / `Slice` / `StreamingResponseBody` for export-shaped reads (`ai/patterns/response-streaming.md`).
 
 ### .NET (ASP.NET Core)
 - `CancellationToken` on every endpoint.
@@ -294,9 +370,13 @@ Patterns consulted: api-contract, error-handling, <signal-based>
 ### Patterns
 - `ai/patterns/api-contract.md`
 - `ai/patterns/api-versioning.md`
+- `ai/patterns/async-job-offload.md`
 - `ai/patterns/caching-strategy.md`
+- `ai/patterns/conditional-requests.md`
 - `ai/patterns/error-handling.md`
 - `ai/patterns/parallel-io.md`
+- `ai/patterns/rate-limiting.md`
+- `ai/patterns/response-streaming.md`
 
 ### Rules
 - `.claude/rules/backend-principles.md`

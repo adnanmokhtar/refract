@@ -18,11 +18,13 @@ from pathlib import Path
 
 DRY_RUN = "--apply" not in sys.argv
 
-CLAUDE_CONFIG = Path("/Users/mac/Workspace/Projects/claude-config")
-TARGETS = [
-    Path("/Users/mac/Workspace/Projects/sahlcart/tenant-portal-v2"),
-    Path("/Users/mac/Workspace/Projects/sahlcart/claude-v2"),
-]
+# Source repo = this checkout (scripts/ -> repo root). No hardcoded path.
+CLAUDE_CONFIG = Path(__file__).resolve().parent.parent
+# Targets: pass one or more consuming-project dirs as CLI args.
+#   usage: migrate-kimi-commands-to-subagents.py [--apply] <project-dir> [<project-dir> ...]
+TARGETS = [Path(a) for a in sys.argv[1:] if not a.startswith("-")]
+if not TARGETS:
+    sys.exit("usage: migrate-kimi-commands-to-subagents.py [--apply] <project-dir> [<project-dir> ...]")
 
 AUDIT_ONLY = {
     "audit", "audit-business", "audit-distributed-tx", "audit-iam",

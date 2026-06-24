@@ -1,12 +1,27 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.3.0",
-  "released": "2026-06-22",
+  "version": "1.4.0",
+  "released": "2026-06-25",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Sync-chain repair — _topics.md now declares migration-frontend as a rule (gated by migration_layout_detected, mirroring backend/migration-backend); the file shipped under rules/ but was absent from the topic list, so /setup-project AUTHOR-mode generation never surfaced it. v1.2.0 unchanged: add-feature three new detection gates — prior-art (duplicate-capability) gate, new-dependency gate, and standard-tier bundle-size delta check on new shared wrappers / lazy routes.",
+  "summary": "Fast-render / page-navigation pack — 3 new specialist skills (navigation-speed: prefetch / Speculation Rules / bfcache / instant-loading / View Transitions; streaming-ssr: fast-SSR streaming-boundary scanner; lcp-audit: LCP-resource priority-hint scanner), ssr-audit gains an RSC client-boundary-cost section, lighthouse-ci budgets adopt INP (interaction-to-next-paint) + TTFB (server-response-time) + bf-cache and drop the removed-TTI assertion, all six references/<framework>.md gain Navigation & streaming + Core Web Vitals sections, frontend-principles adds navigation-speed / streaming / instant-loading MUSTs + bfcache-safety MUST-NOT, rendering-strategy adds a ranked TTFB-levers block. Pairs with performance v1.2.0 (web-vitals-field, inp-responsiveness).",
   "changelog": {
+    "1.4.0": {
+      "released": "2026-06-25",
+      "changes": [
+        "NEW skill navigation-speed (kind:skill, primary_frontend_framework_detected) — the dedicated fast page-to-page navigation specialist: detects missing/disabled link & router prefetch, absent Speculation Rules on MPA surfaces, bfcache breakers (unload/beforeunload → pagehide; no-store warn per Chrome CCNS 2025), missing route loading-UI, full-reload-instead-of-soft-nav, scroll-restoration mishandling, and View Transitions for perceived-instant nav. Per-framework prefetch-primitive table.",
+        "NEW skill streaming-ssr (kind:skill, ssr_enabled) — fast-SSR execution specialist (sibling to correctness-only ssr-audit): finds routes that block TTFB on the slowest query and proposes Suspense / loading.tsx / streamed-promise / renderToPipeableStream boundaries + Next 15 PPR candidates, each citing the blocking call file:line + latency + expected TTFB delta.",
+        "NEW skill lcp-audit (kind:skill, primary_frontend_framework_detected) — static LCP-resource priority-hint scanner: lazy hero images, missing fetchpriority=high, absent preload/preconnect for the LCP image, framework image-primitive priority flag missing. (fetchpriority previously appeared nowhere in the pack.)",
+        "ssr-audit: NEW '### Client-boundary cost (React Server Components)' scan section — unjustified 'use client' directives, boundary-leak of server-only modules, push-down candidates.",
+        "lighthouse-ci: default budgets now assert interaction-to-next-paint (warn 200) + server-response-time/TTFB (error 600) + bf-cache; dropped the proposed TTI 'interactive' assertion (removed from Lighthouse 10 scored set); added lab-can't-field-measure-INP callout (→ web-vitals-field) and the no-store-is-warn / unload-is-hard bfcache note.",
+        "All six references/<framework>.md (nextjs, nuxt, react, vue, svelte, angular) gained Navigation & streaming + Core Web Vitals / Images sections teaching the framework's actual prefetch + streaming + LCP-priority primitives.",
+        "frontend-principles: added Must — Navigation speed (prefetch primary links / Speculation Rules), Must — Streaming (stream the shell), Must — Instant loading state (layout-stable skeleton), and Must-not — bfcache safety.",
+        "rendering-strategy: added a ranked 'TTFB levers' block (parallelize → edge → SWR → 103 Early Hints) + a navigation-speed cross-link.",
+        "Creation commands now ENFORCE the new fast-render/nav MUSTs (not just reference them): add-page + add-crud-page wire prefetch / instant-loading / streaming / LCP-priority into Phase-4 generate + their Sibling-shape mechanical halt (counts toward gap_count_in==gap_count_closed) + a Phase-6 navigation-speed dispatch; add-crud-page adds list→detail row-prefetch + list/form skeletons + virtualization for the hot list↔detail path; add-feature's Phase-6 perf-budget gate now HALTs on a missing navigation-speed / streaming / instant-loading MUST on any new route (regardless of spec) and routes field INP to web-vitals-field; add-component gates LCP-priority + INP-budget parity for hero / heavy-handler components. New '### Skills' Related subsections list the specialists.",
+        "Review-time enforcement (symmetry with create-time): ui-reviewer gained Navigation-speed + Core-Web-Vitals (LCP/INP) checklist sections + streaming + RSC client-boundary checks in SSR review, reads inp-responsiveness, and lists the four specialist skills for deep audit; ui-architect now decides the streaming boundary in §1 Rendering strategy and budgets INP/TTFB/navigation + LCP-element priority in §7 + instant layout-stable loading in §8; data-flow-auditor cross-links streaming-ssr on SSR render-time waterfalls. Closes the agent gap the original review didn't scope."
+      ]
+    },
     "1.3.0": {
       "released": "2026-06-22",
       "changes": [

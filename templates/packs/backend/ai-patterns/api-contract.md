@@ -183,6 +183,67 @@ return { status: 'error', code: 'TENANT_NOT_FOUND', message, data: null };
 
 `code` never changes per locale. `message` does. Clients in a long-running session cache `code → local copy` mappings — they don't have to call you for translations. This is critical for offline-capable mobile apps.
 
+## Bulk / batch endpoints (API-3)
+
+A batch endpoint (`POST /orders/batch`, `PATCH /products` with an array body) MUST declare ONE failure semantic per endpoint — it is part of the contract, not an implementation detail:
+
+- **All-or-nothing (atomic).** The whole batch commits in a single transaction or none of it does. Success is a plain `200` carrying the envelope; any item failing rolls the transaction back and returns a single `4xx` describing the first offending item. Use this when items are interdependent (an order + its line items) and a partial commit would corrupt state.
+- **Best-effort (per-item).** Items are independent and each succeeds or fails on its own. Respond `207 Multi-Status`, and put the per-item outcomes in the envelope `data.results[]`, each row `{ id?, status, code, error? }` — `id` echoing the submitted item (or its index when no id exists yet), `status` one of `success` / `error`, `code` the same stable machine code vocabulary as a top-level error, `error` the human-readable message only on failures. The overall HTTP status is `207` even when some rows failed; clients branch on `results[].status`, never on the envelope-level status alone.
+
+```json
+{
+  "status": "success",
+  "code": "BATCH_PROCESSED",
+  "message": null,
+  "data": {
+    "results": [
+      { "id": "ord_1", "status": "success", "code": "OK" },
+      { "id": "ord_2", "status": "error", "code": "INSUFFICIENT_STOCK", "error": "SKU-44 is out of stock" }
+    ]
+  },
+  "meta": { "requestId": "req_abc", "succeeded": 1, "failed": 1 }
+}
+```
+
+Rules:
+- **Bound the batch size server-side.** A batch DTO without `@ArrayMaxSize` (or the framework equivalent) is the same parser-killing hole as an unbounded list input — reject an oversize batch up front with `413` (payload too large) or `422` (semantic limit exceeded), never start processing then OOM mid-stream.
+- **One batch-scoped `Idempotency-Key` covers the whole batch.** A retried submit with the same key MUST replay the identical per-item `results[]` set — not re-process, not re-process-the-failures. Storing and replaying the recorded result by key is owned by the distributed-systems pack (`ai-patterns/idempotency` / stored-idempotency-replay); this endpoint's job is to scope the key to the batch and return the stored response verbatim on replay.
+- A batch endpoint whose code path silently does best-effort while its OpenAPI says `200` (or vice-versa) is a contract bug — the declared semantic and the wire status MUST agree. Cite the handler `<path:line>` and the schema row.
+
+## Field selection / expansion (API-5, opt-in)
+
+Sparse fieldsets and relation expansion are an **opt-in** capability. Declare ONE convention project-wide, or explicitly opt out — mixing two selection grammars across endpoints is the same bug-parity trap as inconsistent envelopes:
+
+- **Selection:** either JSON:API `fields[<type>]=id,name` OR a flat `?fields=id,name`. Pick one.
+- **Expansion:** either `?expand=customer,items` OR `?include=customer,items`. Pick one.
+- **Opt out:** if the API does not support selection, say so in the docs and ignore the param — never half-implement it on three endpoints.
+
+Rules:
+- **Allow-list selection against the output DTO, never reflectively against ORM columns.** `?fields=` resolved by `Object.keys(entity)` or a dynamic `SELECT` of requested columns is a contract-and-security hole — it re-leaks exactly the internal columns the Output DTO section exists to hide (`password_hash`, `tenant_id`, `deleted_at`). The selectable set is the DTO's field names; an unknown requested field is dropped or `422`'d, never passed through to the ORM.
+- **`?expand=` respects the N+1 budget.** Each expandable relation MUST resolve through a batched/joined load, not a per-row lazy fetch — an `?expand=items` that fires one query per parent row is a latency cliff a client can trigger at will. Cap expansion depth and the number of expandable relations per request. Cross-ref `performance` pack `skills/n-plus-one-scan` for the detector.
+- An `?expand=` that crosses a tenant or authorization boundary (expanding a relation the caller can't read directly) is a broken-object-level-authorization leak — the expanded relation goes through the same authorization check as a direct read.
+
+## Response compression (PERF-2)
+
+Compression is negotiated, never assumed:
+
+- **Negotiate via `Accept-Encoding`; advertise via `Content-Encoding` + `Vary: Accept-Encoding`.** A compressed response served without `Vary: Accept-Encoding` poisons every shared/CDN cache in front of it — a client that sent `Accept-Encoding: identity` gets handed a cached `br` body it cannot decode (and vice-versa). The missing `Vary` is the classic shared-cache corruption bug; emit it on every negotiated response.
+- **Only compress what pays.** Compress bodies above ~1KB (below that the framing + CPU cost loses to the few saved bytes) and only compressible types — `application/json`, `text/*`. Never re-compress already-compressed payloads: `image/*`, `video/*`, `application/zip`, `application/gzip` gain nothing and waste CPU.
+- **Algorithm preference.** `br` (brotli) preferred for text where the client advertises it; `zstd` where both ends support it; `gzip` as the universal fallback. Honor the client's `Accept-Encoding` q-values rather than forcing one.
+
+**SECURITY HALT — BREACH / CRIME.** Do NOT compress a response body that mixes a server-held secret (CSRF token, session identifier, signed cookie value reflected in-body) with attacker-influenced reflected input. Compression ratio leaks the secret byte-by-byte under a chosen-plaintext attack. If a body contains both, disable compression for that endpoint or strip the reflected input. This is a security-pack-owned threat (`security` pack) — cite the endpoint `<path:line>` and route the policy there; this file's job is the always-on hook: a compression filter with no allow-list of safe content + no secret/reflection exclusion is a finding.
+
+## Response shaping & size limits (PERF-4)
+
+The response body and the accepted request body are both contract surfaces with size consequences:
+
+- **Prefer narrow list-projection DTOs over full-entity rows.** A list endpoint returning the same fat per-item DTO as the single-resource read ships fields no list view renders (long descriptions, embedded blobs, audit metadata) × N rows. Define a dedicated list-projection DTO (`OrderListItemDto`) carrying only what the collection view needs; the full `OrderDto` stays on `GET /orders/:id`. (Column-level over-fetch / `SELECT *` at the query layer is owned by the `database` pack — shape the DTO here, fix the query there.)
+- **Document a max request body-size limit per endpoint; default-deny large bodies.** An endpoint with no body-size cap accepts a multi-megabyte POST that exhausts memory before validation ever runs. Set a per-endpoint limit (a JSON write needs kilobytes; an upload route is the deliberate exception) and reject oversize with `413 Payload Too Large`. The framework body-parser limit that enforces this is wired in `references/<framework>.md` — route the concrete config there, declare the contract here.
+
+**Cross-references for unbounded / cacheable reads:**
+- A single-resource read that clients poll should emit an `ETag` and honor `If-None-Match` so an unchanged resource costs a `304` instead of a re-serialized body — see `ai-patterns/conditional-requests`.
+- When a list is genuinely unbounded (export, full-table scan, log tail), do NOT buffer it into one `data[]` and compress it — stream it as NDJSON/SSE so the first row leaves before the last is computed. See `ai-patterns/response-streaming`; the choice between a bounded paginated list and a stream is part of the endpoint's declared contract.
+
 ## Common mistakes
 
 - **Returning the ORM entity directly.** `return this.userRepo.findOne(id)` ships every column including `password_hash`, `created_by_ip`, `internal_notes`. The fix is a mapper layer, not "remember to delete the field" before returning.

@@ -62,6 +62,31 @@ export default defineNuxtPlugin(() => {
 
 If multi-tenant — tenant must come from the REQUEST (host header), not from browser localStorage or cookies read on client.
 
+### Client-boundary cost (React Server Components)
+
+React / Next App Router specific (the sections above are Nuxt-leaning). Every `"use client"` directive marks a hydration boundary — everything from that file down ships JS and hydrates. An unjustified directive is wasted client-JS.
+
+```
+BAD:
+"use client";                         // file has no state/effect/event/browser API
+export function Price({ amount }) { return <span>{format(amount)}</span>; }
+
+GOOD:
+export function Price({ amount }) { return <span>{format(amount)}</span>; }  // server component, ships 0 JS
+```
+
+Detectors:
+
+- **Detector 1 — unjustified directive.** Among files starting with `"use client"`, `grep -L` for `useState|useEffect|useReducer|onClick|onChange|window\.|document\.|addEventListener`. Each `grep -L` hit = a boundary with no interactivity → candidate to DELETE the directive so the component renders on the server.
+- **Detector 2 — boundary too high.** A `"use client"` file importing large server-safe children → push `"use client"` DOWN to the interactive leaf; pass the server-rendered subtree via the `children` prop/slot instead of importing it under the boundary.
+- **Detector 3 — server-only leak (BLOCKER).** A server-only module (db client / `fs` / secret / env key) imported into a `"use client"` file → boundary-leak BLOCKER. The secret/server code is now in the client bundle.
+- **False-positive:** a component consuming a client Context (`useContext` of a client context) still needs the directive — do NOT strip it just because Detector 1's grep missed `useState`/`useEffect`.
+- **Halt:** never strip a directive without proving (grep) zero state/effect/event/browser usage. The verdict must show the `grep -L` that matched.
+
+Output per finding: `file:line` of the directive + why it's unjustified + the demotion/push-down fix + estimated client-JS / hydration saved.
+
+> bfcache note: `grep` for `addEventListener('unload'|'beforeunload')` → cite `<file:line>` + `bfcache-blocking; switch to pagehide`. See `navigation-speed.md` for the full prefetch / Speculation Rules / bfcache audit.
+
 ## Output
 
 ```

@@ -1,6 +1,6 @@
 ---
 name: api-consistency-audit
-description: API surface consistency audit. Detects drift across endpoints in: response envelope shape, error contract, pagination convention, naming case (snake/camel), idempotency-key coverage, auth header convention, rate-limit header coverage, log-field naming, metric/trace naming, OpenAPI documentation coverage, timeout/retry policy uniformity. Emits one finding per drift fingerprint with <path:line> evidence + closure verb. Used by /polish on backend-* stacks. Behaviour-preserving (envelope unification + naming changes ship through deprecation flow, not blind rewrite).
+description: API surface consistency audit. Detects drift across endpoints in: response envelope shape, error contract, pagination convention, naming case (snake/camel), idempotency-key coverage, auth header convention, rate-limit header coverage, rate-limit enforcement coverage, conditional-request (ETag/If-Match) coverage, batch-endpoint contract, field-selection uniformity, security-header uniformity, log-field naming, metric/trace naming, OpenAPI documentation coverage, timeout/retry policy uniformity. Emits one finding per drift fingerprint with <path:line> evidence + closure verb. Used by /polish on backend-* stacks. Behaviour-preserving (envelope unification + naming changes ship through deprecation flow, not blind rewrite).
 kind: skill
 pack: backend
 ---
@@ -39,7 +39,10 @@ class: api-consistency
 subclass: <one of: response-envelope-drift | error-contract-drift |
                    naming-convention-drift | pagination-drift | versioning-drift |
                    auth-header-drift | idempotency-key-missing |
-                   rate-limit-header-drift | log-field-drift |
+                   rate-limit-header-drift | rate-limit-enforcement-missing |
+                   etag-conditional-drift | optimistic-concurrency-missing |
+                   batch-endpoint-contract-drift | field-selection-drift |
+                   security-header-drift | log-field-drift |
                    metric-name-drift | trace-span-drift |
                    timeout-policy-drift | retry-policy-drift |
                    openapi-coverage-gap | example-coverage-gap>
@@ -51,7 +54,7 @@ closure_verb: <one of the verbs below>
 risk: low | medium | high
 ```
 
-## The 15 detectors
+## The 21 detectors
 
 ### 1. response-envelope-drift
 
@@ -73,11 +76,13 @@ Drift: mixing them. Example: `GET /orders` returns `{ data: [...], meta: {...} }
 **Fingerprint**: 4xx/5xx responses have different shapes across endpoints.
 
 Common canonical shapes:
-- RFC 7807 problem+json: `{ type, title, status, detail, instance, errors? }`
+- RFC 9457 (obsoletes RFC 7807, 2023) Problem Details — `{ type, title, status, detail, instance, errors? }` served as `application/problem+json`. The `type` is a stable, dereferenceable URI per error class (e.g. `https://errors.acme.com/insufficient-funds`), NOT the human-readable `title`.
 - `{ error, code, message, details? }`
 - `{ message, code }`
 
 Drift: some endpoints return `{ error: "msg" }`, others `{ message: "msg" }`, others throw raw stack traces in the body.
+
+**Detection**: cluster 4xx/5xx body schemas by shape. When the canonical is Problem Details, the fingerprint is BOTH the body keys AND the `Content-Type` — an endpoint that returns the right keys but `application/json` (not `application/problem+json`), or uses `type` as a free-text title rather than a stable URI, is drift. Flag any error path emitting a raw stack trace / framework default body.
 
 **Closure verb**: `unify-error-contract`.
 
@@ -128,6 +133,62 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 **Fingerprint**: some endpoints expose `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`, others don't. Or naming drift in the headers themselves (`X-Rate-Limit-*` vs `RateLimit-*` standard).
 
 **Closure verb**: `unify-rate-limit-headers`.
+
+### 8b. rate-limit-enforcement-missing
+
+**Fingerprint**: sibling to `rate-limit-header-drift` (#8) — that one checks header NAMING; this one checks whether a limiter is WIRED AT ALL. A mutating (`POST`/`PUT`/`PATCH`/`DELETE`) or expensive-read endpoint (search, export, report, fan-out, fuzzy/`LIKE` query) has NO limiter middleware/decorator on its path while sibling endpoints do.
+
+**Detection**: per route, look for an inbound limiter binding — middleware in the chain (`rateLimit(...)`, `@Throttle`, `throttle:`, `RateLimiterMiddleware`, gateway/Kong/Envoy `rate-limit` plugin) OR a decorator/guard. Cluster routes that HAVE one; any mutating/expensive route NOT in that cluster (and not explicitly exempted in `api-conventions.md § Rate limiting`) is drift. Emits e.g. `POST /reports/export` at `src/reports/reports.controller.ts:88` — no limiter, while `POST /orders` at `src/orders/orders.controller.ts:41` carries `@Throttle({ default: { limit: 20, ttl: 60000 } })`.
+
+**Detection (always-on hook)**: an unlimited mutating endpoint is also a server-side resilience gap, not just a uniformity gap — flag it even when NO sibling has a limiter (the cluster is empty). The enforcement SHAPE (429 + `Retry-After` + unprefixed `RateLimit-*` headers, per-tenant buckets over a shared store, FAIL-OPEN vs FAIL-CLOSED on store outage, 503 admission control) is OWNED by `ai-patterns/rate-limiting.md` — point there; do NOT re-specify the algorithm here. 429 = RFC 6585; `Retry-After` = RFC 9110 §10.2.3; `RateLimit-*` / `RateLimit-Policy` = IETF draft-ietf-httpapi-ratelimit-headers (a DRAFT, not an RFC).
+
+**Closure verb**: `add-rate-limiter` (wire the limiter per `ai-patterns/rate-limiting.md`; do NOT hand-roll a new shape).
+
+### 8c. etag-conditional-drift
+
+**Fingerprint**: a cacheable `GET` (single-resource read, or a list with a stable representation) returns no `ETag` (and no `Last-Modified`) while sibling reads do — so clients can't revalidate. Conversely, an endpoint emits an `ETag` but ignores `If-None-Match`, never returning `304 Not Modified`.
+
+**Detection**: per `GET` route, check the response builder for an `ETag`/`Last-Modified` header and the handler for `If-None-Match` short-circuit logic. Cluster reads that revalidate; cacheable siblings outside the cluster are drift. Emits e.g. `GET /orders/:id` at `src/orders/orders.controller.ts:120` — no `ETag`, while `GET /customers/:id` at `src/customers/customers.controller.ts:96` sets `res.setHeader('ETag', weakEtag(body))` and returns `304` on match.
+
+**Detection (pointer)**: the revalidation contract (strong vs weak ETag, `If-None-Match` → `304`, RFC 9110 obsoletes RFC 7232) is OWNED by `ai-patterns/conditional-requests.md` — point there for the exact handling.
+
+**Closure verb**: `add-etag-revalidation`.
+
+### 8d. optimistic-concurrency-missing
+
+**Fingerprint**: a write endpoint (`PUT`/`PATCH`/`DELETE`) targets a resource whose model carries a concurrency token — a `version` / `row_version` / `etag` / `updated_at` column — but the handler accepts NO `If-Match` precondition, so concurrent writers silently last-write-wins (lost update).
+
+**Detection**: cross-reference the route's target model (from the ORM entity / migration) for a version/`updated_at` column against the handler's request parsing for `If-Match`. A write with the column but no precondition check is drift; bonus-flag handlers that don't return `412 Precondition Failed` on mismatch or `428 Precondition Required` when the project mandates the header. Emits e.g. `PATCH /documents/:id` at `src/documents/documents.controller.ts:64` — model `Document` has `version` (`migrations/0007_documents.sql:12`) but no `If-Match` read.
+
+**Detection (pointer)**: the over-HTTP optimistic-concurrency contract (`If-Match` → `412`, `428 Precondition Required`, RFC 9110) is OWNED by `ai-patterns/conditional-requests.md`. The DB-side stored-version replay / compare-and-swap belongs to the distributed-systems pack (`stored-idempotency-replay`) — point there, do not duplicate.
+
+**Closure verb**: `add-if-match-precondition`.
+
+### 8e. batch-endpoint-contract-drift
+
+**Fingerprint**: a route accepts an ARRAY body (bulk create/update/delete) but returns a single scalar status for the whole batch — `200`/`204` with no per-item result — so a caller can't tell WHICH items succeeded and which failed. Partial failure is invisible.
+
+**Detection**: per route, detect array-shaped request bodies (OpenAPI `type: array`, or handler iterating the parsed body). Check the response schema for a sibling per-item status array (e.g. `{ results: [{ id, status, error? }, ...] }`) and/or a `207 Multi-Status`-style envelope. A batch route returning a bare scalar is drift. Emits e.g. `POST /orders/bulk` at `src/orders/orders.controller.ts:152` — accepts `Order[]`, returns `201` with no `results[]`, while `POST /invoices/bulk` at `src/invoices/invoices.controller.ts:71` returns `{ results: [{ index, id, status }] }`.
+
+**Closure verb**: `add-batch-item-status` — return a per-item status array (stable order or explicit `index`) so partial failure is addressable. Ships additively (add `results[]` alongside the existing status; deprecate the bare shape).
+
+### 8f. field-selection-drift
+
+**Fingerprint** (opt-in — fires ONLY if `api-conventions.md § Field selection` declares a `?fields=` / `?expand=` / sparse-fieldset convention): some list/detail endpoints honour `?fields=`/`?expand=` (sparse fieldsets / relation expansion) while sibling endpoints silently ignore the param and return the full representation.
+
+**Detection**: skip entirely unless the convention is declared. When declared, per read route check the handler for parsing of the declared param (projection / expansion logic). Cluster endpoints that honour it; sibling reads of comparable resources that ignore it are drift. Emits e.g. `GET /customers` at `src/customers/customers.controller.ts:40` honours `?fields=`, but `GET /orders` at `src/orders/orders.controller.ts:33` ignores it and returns all columns.
+
+**Detection (pointer)**: the underlying `SELECT *` / over-fetch at the data layer is OWNED by the database pack — point there; this detector only flags the HTTP-surface UNIFORMITY of the param contract.
+
+**Closure verb**: `unify-field-selection`.
+
+### 8g. security-header-drift
+
+**Fingerprint** (low weight — presence-UNIFORMITY only): some response paths set baseline security headers (`X-Content-Type-Options: nosniff`, `Strict-Transport-Security`, `X-Frame-Options` / CSP) while others omit them, so the header set is inconsistent across the surface.
+
+**Detection**: sample response headers across route groups (global middleware vs per-route overrides that strip/skip the security middleware). Flag groups whose responses lack a header that the majority of paths set. This detector asserts ONLY uniformity of presence — it does NOT define which headers are required, their values, or threat coverage. The security-header POLICY (which headers, correct values, HSTS max-age/preload, CSP shape) is OWNED by the security pack (`security-headers`) — point there.
+
+**Closure verb**: `unify-security-headers` — apply the missing baseline header at the shared response layer so every path is uniform; defer value/policy decisions to the security pack.
 
 ### 9. log-field-drift
 
@@ -199,7 +260,7 @@ Common drifts:
    - `_extracted-idioms.md § API conventions` OR `ai/api-conventions.md` exists. Halt if missing — without canonical conventions, drift is undefined.
    - OpenAPI spec discoverable (warn-only if missing; openapi-coverage detector skips).
 2. **Build endpoint registry** — walk controllers / route table; emit one row per `{method, path, file, line}`.
-3. **For each detector** (1–15 above):
+3. **For each detector** (1–15 + siblings 8b–8g above):
    - Apply the detector's fingerprint procedure across the registry.
    - Emit findings.
 4. **Cross-cutting check** — if a finding's closure verb would break a public contract (rename a response field; change envelope shape), flag `risk: high` and require ADR.
@@ -226,3 +287,7 @@ Common drifts:
 - `ai/api-conventions.md` (alternative location).
 - `align-discipline.md` — closed-vocabulary closure-verb discipline.
 - `polish` command — dispatches this skill on backend stacks.
+- `ai-patterns/rate-limiting.md` — server-side inbound limit + load shedding (429 + `Retry-After` + `RateLimit-*` headers; per-tenant buckets; shared store; FAIL-OPEN/CLOSED; 503 admission control). Owner of the `add-rate-limiter` shape (8b).
+- `ai-patterns/conditional-requests.md` — `ETag`/`If-None-Match` → `304` (read revalidation) + `If-Match` → `412` / `428` (optimistic concurrency over HTTP); RFC 9110. Owner of 8c + 8d.
+- `ai-patterns/response-streaming.md` — NDJSON/SSE/chunked for unbounded results; mid-stream terminal error sentinel; backpressure; disconnect cancellation; RFC 9112. Consider when a list/export route would otherwise return an unbounded body.
+- `ai-patterns/async-job-offload.md` — `202 Accepted` + `Location` + status URL; job-status state machine; idempotent submit; result TTL. Consider for the expensive endpoints surfaced by 8b instead of holding a synchronous connection.

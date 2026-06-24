@@ -1,0 +1,101 @@
+---
+name: async-job-offload
+description: 'Pattern: Async Job Offload (202 Accepted + status URL, job-status state machine, result TTL)'
+kind: ai-pattern
+pack: backend
+---
+
+# Pattern: Async Job Offload
+
+> **Hard rule:** Work that exceeds the request hot-path budget (> ~500ms wall or > 50ms CPU) or depends on a flaky upstream MUST be enqueued, not run inline — the endpoint returns `202 Accepted` + a job id + a `Location` / status URL, and the client polls (or is webhooked) for a terminal state. A controller that blocks on slow work caps your throughput at (workers ÷ job-time) and makes p99 hostage to the slowest dependency. This file owns the HTTP submit/status CONTRACT; the queue/consumer mechanics (visibility timeout, DLQ, redrive) are owned by the distributed-systems pack.
+
+**When to apply**
+- Report/export generation, video/image processing, bulk import, ML inference, third-party fan-out — anything measured (not guessed) to exceed the hot-path budget.
+- Work that must survive a request timeout, a client disconnect, or a deploy mid-flight.
+- An operation whose retry should not re-run the whole HTTP request (the job is the unit of retry).
+
+**When NOT to apply**
+- Fast, deterministic work under the budget — inline is simpler; don't add a queue for a 20ms call.
+- Work the client genuinely needs synchronously to proceed (it blocks the user's next step and can't show a "processing" state) — optimize it instead, or stream partial results (`response-streaming.md`).
+- Fire-and-forget telemetry — that's an event, not a job with a status the client tracks.
+
+**Halt conditions / mandatory cites**
+- Proposing an offload MUST cite the measured/expected latency at `<path:line>` that exceeds the budget — don't queue work that's already fast.
+- A controller doing > ~50ms CPU or a slow/flaky external call inline (no offload) MUST be cited.
+- A `202` response with no `Location` / status path is incomplete — the client can't find the result.
+- A job-submit endpoint with no idempotency key MUST be cited — a client retry would enqueue a duplicate job.
+
+## HTTP contract
+
+```
+POST /reports
+  Idempotency-Key: 9f1c...            (client-generated; a retry returns the SAME jobId)
+  { ...params }
+→ 202 Accepted
+  Location: /jobs/4271
+  { "jobId": "4271", "status": "queued", "statusUrl": "/jobs/4271" }
+
+GET /jobs/4271
+→ 200 OK
+  { "jobId": "4271", "status": "running", ... }          (poll; honor Retry-After for backoff)
+
+GET /jobs/4271   (later)
+→ 200 OK
+  { "jobId": "4271", "status": "succeeded",
+    "result": { "downloadUrl": "/reports/4271.csv" } }    (or "status":"failed","error":{code,message})
+```
+
+- `202 Accepted` + `Location` header + body `{ jobId, status, statusUrl }`.
+- The status endpoint reuses the project's response envelope (`api-contract.md`) — don't invent a new shape.
+- Use `Retry-After` on the status response (or document a poll interval) so clients back off instead of busy-polling. A webhook callback is the push alternative to polling.
+
+## Job-status state machine
+
+```
+queued ──► running ──► succeeded   (carries result or a result URL)
+                  └──► failed      (carries a typed error: code + message)
+              (└──► cancelled, if cancellation is supported)
+```
+
+- Terminal states are immutable. `result` / `error` lives on the terminal record.
+- **Result TTL:** results expire (e.g. 24h) — document it; the status endpoint returns `410 Gone` after expiry rather than `404` (the job existed).
+- Large results go to object storage; the status returns a (signed, expiring) `downloadUrl`, not the bytes inline.
+
+## Idempotent submission
+
+- The client sends an `Idempotency-Key`; a retry with the same key returns the **same** `jobId` (and `200` with the existing job, not a new `202`) — never a duplicate job.
+- The stored-replay record (key → response) is owned by `ai/patterns/idempotency.md` (distributed-systems) — this pattern just requires that submit endpoints participate.
+
+## Graceful shutdown interaction
+
+- On shutdown, drain/ack in-flight jobs within the deadline (cross-ref `backend-principles.md` graceful-shutdown). A job killed mid-flight must be safe to redrive (idempotent consumer).
+- Consumer-side durability (visibility timeout, DLQ, bounded retry, redrive) is owned by the distributed-systems pack — **reference `outbox.md` + the dlq-replay skill; do not duplicate** them here. This file stops at the HTTP boundary.
+
+## Detectors (cite-or-halt)
+
+- A controller doing > ~Nms synchronous CPU or a slow/flaky external call inline → `offload-to-202` (cite the measured latency).
+- A job-submit endpoint with no `Idempotency-Key` handling → `add-idempotent-submit`.
+- A `202` with no `Location` / no status endpoint → `add-status-endpoint`.
+- A job whose result never expires (unbounded storage) → `add-result-ttl`.
+
+**Closure verbs:** `offload-to-202`, `add-status-endpoint`, `add-idempotent-submit`, `add-result-ttl`.
+
+## Framework hooks (queue/runner — mechanics live in distributed-systems)
+
+| Stack | Job runner |
+|---|---|
+| NestJS / Node | BullMQ, Bee-Queue |
+| Rails | Sidekiq, ActiveJob |
+| Django / FastAPI | Celery, RQ, Dramatiq, arq |
+| Spring | `@Async` + a broker (Spring Batch for batch) |
+| .NET | Hangfire, `BackgroundService` + a queue |
+| Go | asynq, river, or a channel + workers |
+| Laravel | Queues (`ShouldQueue` jobs) |
+
+## Forbidden
+
+- Blocking a request thread on work that exceeds the hot-path budget (caps throughput, poisons p99).
+- A `202` with no `Location` / status URL (orphaned job).
+- A submit endpoint with no idempotency key (duplicate jobs on retry).
+- Returning a large result inline from the status endpoint instead of a storage URL.
+- A job result that never expires.

@@ -286,7 +286,7 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 | `/add-crud-page`       | Full CRUD UI (list + detail + form).                                              |
 | `/i18n-audit`          | Find missing translations.                                                       |
 | `/a11y-audit`          | Accessibility audit.                                                             |
-| `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests + observability sign-off). Intent-gated (routes to `/enhance-ui` if enhancement, `/fix-bug` if bug) + prior-art gate (duplicate-capability HALT) + new-dependency gate (bundle/license/supply-chain review). Standard tier adds a bundle-size delta check. Heavy tier adds a release note (flag / rollback / staging). |
+| `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests + observability sign-off). Intent-gated (routes to `/enhance-ui` if enhancement, `/fix-bug` if bug) + prior-art gate (duplicate-capability HALT) + new-dependency gate (bundle/license/supply-chain review). Standard tier adds a bundle-size delta check. Heavy tier adds a release note (flag / rollback / staging). Phase-6 perf gate now HALTs on a missing navigation-speed / streaming / instant-loading MUST on any new route (prefetch, stream-the-shell, instant layout-stable skeleton), with field INP via `web-vitals-field`. |
 
 **Frontend skills (agent invokes when relevant):**
 - `visual-check` — Playwright screenshot at the route under change.
@@ -294,9 +294,13 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 - `verify-with-playwright` — full Playwright run.
 - `dev-server-start` — start the dev server with proper env.
 - `bundle-analyze` — bundle-size deltas.
-- `lighthouse-ci` — Lighthouse perf score.
+- `lighthouse-ci` — Lighthouse perf budgets (LCP / INP / CLS / TTFB / bf-cache).
 - `a11y-scan` — axe-core scan.
-- `ssr-audit` — SSR-safety check.
+- `ssr-audit` — SSR-safety + RSC client-boundary-cost check.
+- `streaming-ssr` — fast-SSR streaming-boundary scanner (stream the shell, cut TTFB).
+- `navigation-speed` — page-to-page nav audit: prefetch / Speculation Rules / bfcache / instant-loading / View Transitions.
+- `lcp-audit` — LCP-resource priority-hint scanner (fetchpriority / preload / preconnect / lazy-hero).
+- `web-vitals-field` — *(performance pack)* field CWV with attribution: the only path to citing real INP / LCP to an element.
 
 ### UI-UX track
 

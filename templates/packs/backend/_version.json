@@ -1,12 +1,29 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.4.0",
-  "released": "2026-06-16",
+  "version": "1.5.0",
+  "released": "2026-06-25",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Suite-wide dependency-gate hardening: add-feature + fix-bug now gate new dependencies; add-feature also adds a prior-art (duplicate-capability) gate + standard-tier n-plus-one-scan.",
+  "summary": "Quality-review pass — 4 new specialist ai-patterns close confirmed backend-owned gaps: rate-limiting (inbound 429 + RateLimit-* + load shedding — the biggest gap), conditional-requests (ETag / If-Match / 304 / 412 / 428 optimistic concurrency), response-streaming (NDJSON/SSE/chunked, mid-stream sentinels, backpressure), async-job-offload (202 + Location + job-status contract). Enforcement threaded into api-reviewer (rate-limit / contract-evolution / streaming / content-negotiation / mass-assignment / SSRF / cardinality / readiness axes), add-endpoint signal table (rate-limit / 202 / streaming / batch / conditional / over-post / SSRF / audit rows), api-consistency-audit (rate-limit-enforcement, etag/optimistic-concurrency, batch, field-selection, security-header detectors), backend-principles (rate-limit / statelessness MUSTs + idempotency-stored-replay + observability-DoD cross-refs), endpoint-tester. Standards corrected: RFC 7807 → RFC 9457 (Problem Details), RateLimit-* cited as the IETF draft (not RFC 9239). Adjacent axes (SSRF, mass-assignment, RED/OTel, outbound resilience, DLQ) REFERENCE the security / observability / distributed-systems packs rather than duplicating them. Framework bindings added to nestjs/fastapi/express/django/spring-boot/rails references.",
   "changelog": {
+    "1.5.0": {
+      "released": "2026-06-25",
+      "changes": [
+        "NEW ai-pattern rate-limiting.md (RES-1, the single biggest confirmed gap) — server-side inbound self-protection: algorithm decision table (fixed/sliding/token-bucket/GCRA), key dimensions (per-tenant fairness, never a shared global counter), distributed atomic counter store (Redis Lua / CL.THROTTLE, FAIL-OPEN vs FAIL-CLOSED), 429 + Retry-After (RFC 6585 / RFC 9110) + RateLimit-* (IETF draft) response contract, quotas vs rate limits, load shedding / 503 admission control, cite-or-halt detectors + closure verbs, per-framework limiter table.",
+        "NEW ai-pattern conditional-requests.md (API-1) — HTTP conditional requests + optimistic concurrency (entirely absent before): strong/weak ETag, If-None-Match → 304 read revalidation, If-Match → 412 / 428 write preconditions mapped to a version column inside the write transaction, RFC 9110, detectors + endpoint-tester cases.",
+        "NEW ai-pattern response-streaming.md (PERF-1) — stream unbounded results (NDJSON/SSE/chunked) instead of buffering: transport decision table, the mid-stream terminal-error-sentinel rule (no 5xx after flush), per-stack backpressure, idle/total timeout + disconnect cancellation, keyset cursor, LLM token cap+metering, RFC 9112.",
+        "NEW ai-pattern async-job-offload.md (PERF-3) — the 202 Accepted + Location + job-status state-machine contract, idempotent submission, result TTL, graceful-shutdown drain; consumer mechanics (visibility timeout / DLQ) REFERENCE distributed-systems, not duplicated.",
+        "api-reviewer: added rate-limiting axis, a Contract-evolution BLOCK block (Deprecation RFC 9745 + Sunset RFC 8594 + ADR), perf detectors (unbounded buffering / projection / 202-offload), streaming caveat, content-negotiation (415/406/Vary), mass-assignment (→forms) + SSRF (→security-auditor A10) probes, metric-cardinality + RED-triad + readiness/shutdown checks, External-calls floor thickening (→distributed-systems resilience-reviewer).",
+        "add-endpoint: signal table gained rate-limit / async-202 / streaming / bulk-batch / conditional-write / over-post-bind / user-supplied-URL-SSRF / sensitive-mutation-audit rows + Phase-6 websocket-engineer-on-stream and Deprecation/Sunset-on-breaking-diff dispatch.",
+        "api-consistency-audit: NEW detectors rate-limit-enforcement-missing, etag-conditional-drift / optimistic-concurrency-missing, batch-endpoint-contract-drift, field-selection-drift, security-header-drift; error-contract canonical shape updated to RFC 9457.",
+        "backend-principles: added Must — rate-limit unauthenticated/expensive endpoints; Must-not — request/per-user state in process memory (statelessness for horizontal scale); idempotency stored-replay cross-ref; outbound-resilience + observability-DoD Should pointers.",
+        "api-contract: added Bulk/batch (207 Multi-Status), Field-selection/expansion, Response-compression (Vary + BREACH/CRIME halt), and Response-shaping/body-size (413) sections.",
+        "error-handling: RFC 7807 → RFC 9457 (+ application/problem+json + stable type URI); 429 row gained RateLimit-* emission (IETF draft, not RFC 9239).",
+        "endpoint-tester: conditional-request (304/412/428 + lost-update), content-negotiation (415/406), rate-limit (429), and async-202 test cases.",
+        "Framework reference bindings (rate-limiting / conditional-requests / streaming / async-jobs) added to nestjs, fastapi, express, django, spring-boot, rails; references/dotnet.md ProblemDetails RFC 7807 → 9457."
+      ]
+    },
     "1.4.0": {
       "released": "2026-06-16",
       "changes": [

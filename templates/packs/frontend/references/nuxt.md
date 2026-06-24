@@ -37,3 +37,22 @@
 
 - Themes are runtime variants. Single component tree, themed via CSS variables or a Vue provide/inject token.
 - NEVER fork pages / composables / stores per theme.
+
+## Navigation & streaming
+
+- `<NuxtLink>` for ALL internal nav — prefetches in-viewport links by default. `:prefetch="false"` disables it; `prefetchOn="interaction"` defers to hover/focus instead of viewport. (Sibling audit: `frontend/skills/navigation-speed.md`.)
+- `useFetch(url, { lazy: true })` / `useLazyFetch` to NOT block navigation — the route renders immediately and data fills in. Use `{ server: false }` for client-only data that needn't be in the SSR payload.
+- Payload extraction: `experimental: { payloadExtraction: true }` emits a static `_payload.json` per prerendered route, so navigations hydrate from a flat file instead of re-running fetches.
+- Islands / server components: `.server.vue` + `<NuxtIsland>` render server-only HTML with no client JS — zero hydration cost for static-ish regions.
+
+## Core Web Vitals levers
+
+- Images: `<NuxtImg>` / `<NuxtPicture>` (`@nuxt/image`) with explicit `width`/`height` + `sizes` + `format="avif"` — fixed dimensions prevent CLS, responsive `sizes` cuts bytes. (Sibling audit: `frontend/skills/lcp-audit.md`.)
+- LCP image: set `preload` and `:loading="'eager'"` (default is `lazy`) — NEVER lazy-load the hero / above-the-fold LCP image. Reinforce with `useHead({ link: [{ rel: 'preload', as: 'image', href }] })` when the LCP source isn't statically discoverable.
+- Fonts: `@nuxt/fonts` for self-hosted + `font-display` + preload, avoiding layout shift from late web-font swaps.
+- INP: keep main-thread work off the interaction path — field INP (good = 200ms at p75) is measured in the field, not in lab (sibling: `performance/skills/web-vitals-field.md`, `performance/ai-patterns/inp-responsiveness.md`).
+
+## Anti-patterns
+
+- Raw `<a>` / `<router-link>` for internal nav — skips `<NuxtLink>` prefetch + client-side routing → full reloads.
+- Blocking `useFetch` on slow, non-critical data instead of `{ lazy: true }` — the whole route waits on data the user doesn't need yet.

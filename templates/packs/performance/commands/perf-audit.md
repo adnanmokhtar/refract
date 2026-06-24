@@ -22,7 +22,9 @@ Audit command. Profiles changed code or a named endpoint and returns ranked find
 | Job | Command | Why |
 |---|---|---|
 | One known-slow path, cause unknown | `/profile-perf` | single-bottleneck deep-dive with flame-graph + per-axis attribution; goes deeper than a sweep |
-| Web bundle / page-load / Core Web Vitals | `/bundle-perf` | bundle size + hydration + LCP/INP/CLS; perf-audit doesn't measure the browser |
+| Web bundle / page-load / Core Web Vitals + page-to-page navigation timing (soft-nav / route-change→paint) | `/bundle-perf` | bundle size + hydration + LCP/INP/CLS + nav timing; perf-audit doesn't measure the browser |
+| Authoritative field INP / real-user CWV | `web-vitals-field` skill | field CWV with attribution is the ONLY authoritative INP source — Lighthouse lab INP is a synthetic proxy, not the measurement |
+| Page-to-page navigation speed (prefetch / Speculation Rules / bfcache / instant-loading / View Transitions) | `navigation-speed` skill | fast-nav specialist that `/bundle-perf` routes to |
 | The slowness is structural (layer violation, god module, wrong-level responsibility) | `/optimize` | architectural diagnosis; perf-audit only sees the symptom, not the layering that caused it |
 | Whole-system review across security + DB + scale + perf | `/audit` | full-stack multi-axis pass; perf-audit is the perf slice of it |
 
@@ -107,7 +109,7 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 
 ### Sibling commands in performance pack
 - `/profile-perf` — one slow path deep-dive (flame graph + per-axis attribution). Route here when a finding needs a real profile.
-- `/bundle-perf` — web bundle + Core Web Vitals audit. Route here for frontend page-load work.
+- `/bundle-perf` — web bundle + Core Web Vitals audit; now ALSO covers navigation timing (soft-nav / route-change→paint). Route here for frontend page-load work. For authoritative field INP / real-user CWV route to the `web-vitals-field` skill (Lighthouse lab INP is a synthetic proxy, not the measurement); for page-to-page navigation speed route to the `navigation-speed` skill.
 
 ### Route out
 - `/optimize` — architectural diagnosis when the slowness is structural, not local.

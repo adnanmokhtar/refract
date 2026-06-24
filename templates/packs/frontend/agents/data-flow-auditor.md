@@ -131,6 +131,8 @@ Fix: parallel where possible.
   ]);
 ```
 
+On an SSR route, a render-time waterfall blocks TTFB on the sum of the serial calls — parallelizing is the first TTFB lever, and any remaining slow-but-non-critical fetch should stream behind a Suspense / await boundary rather than block the shell. See the `streaming-ssr` skill.
+
 ### Invalidation miss
 ```
 Mutation: POST /orders → adds new order

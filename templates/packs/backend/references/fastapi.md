@@ -34,6 +34,18 @@ app/
 - Use `HTTPException` for error responses; custom exception handlers for domain errors.
 - `response_model=` on every endpoint — don't let ORM objects leak.
 
+## Resilience, streaming & conditional requests
+
+> See sibling ai-patterns for the contract each one implements: `ai-patterns/rate-limiting.md`, `ai-patterns/conditional-requests.md`, `ai-patterns/response-streaming.md`, `ai-patterns/async-job-offload.md`.
+
+- **Rate limiting** — use `slowapi` (`Limiter` + `@limiter.limit("100/minute")`, attach `app.state.limiter` + the `_rate_limit_exceeded_handler`) or `fastapi-limiter` (Redis-backed). The store MUST be shared (Redis), never in-process `slowapi` default storage — with multiple Uvicorn/Gunicorn workers each worker keeps its own counter and the real limit becomes `limit × workers`. Emit `Retry-After` (RFC 9110 §10.2.3) and unprefixed `RateLimit-Limit`/`RateLimit-Remaining`/`RateLimit-Reset` headers on the 429 (RFC 6585). → `ai-patterns/rate-limiting.md`.
+- **Conditional requests** (RFC 9110) — for cacheable reads compute a strong/weak ETag and set `response.headers["ETag"] = etag`; if `request.headers.get("if-none-match") == etag` return `Response(status_code=304)` (empty body, keep the `ETag`). For writes, gate on `If-Match`: missing → `Response(status_code=428)` (Precondition Required), stale → `412` (Precondition Failed) — this is optimistic concurrency over HTTP, not a DB lock. → `ai-patterns/conditional-requests.md`.
+- **Streaming** — return `StreamingResponse(async_gen(), media_type="application/x-ndjson")` for unbounded result sets (one JSON object + `\n` per line), or `EventSourceResponse(async_gen())` from `sse-starlette` for SSE. Because the route `await`s the async generator, a slow client gives natural backpressure; check `await request.is_disconnected()` inside the loop to cancel server work when the client hangs up. Emit a terminal error sentinel as the last record (you cannot change the already-sent `200` status mid-stream). → `ai-patterns/response-streaming.md`.
+- **Async job offload** — for work longer than a request budget, enqueue to `Celery` / `arq` / `Dramatiq` and return `Response(status_code=202, headers={"Location": f"/jobs/{job_id}"})`; expose a `GET /jobs/{id}` status route (`queued → running → succeeded/failed`, result URL + TTL when done). `BackgroundTasks` is fire-and-forget (runs in-process after the response, dies with the worker, no status, no retry) — NOT a tracked job. → `ai-patterns/async-job-offload.md`.
+
+> **Error contract**: raise structured errors as `application/problem+json` (Problem Details, RFC 9457 — obsoletes 7807) via a custom exception handler returning `JSONResponse(..., media_type="application/problem+json")`; the `type` is a stable dereferenceable URI per error class, not the human `title`.
+> **Adjacent-pack hooks** (detect + point, don't duplicate): unbounded streaming/job repository queries are a `SELECT *` / over-fetch smell → see the database pack; outbound calls inside a job (retry/timeout/DLQ, stored idempotency keys for the submit endpoint) are owned by the distributed-systems pack; per-stream/per-job RED metrics + trace propagation belong to the observability pack.
+
 ## Anti-patterns
 
 - Mixing sync and async DB calls within the same endpoint

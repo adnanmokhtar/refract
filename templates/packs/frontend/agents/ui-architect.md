@@ -15,7 +15,7 @@ model: opus
 ## Pre-flight
 
 1. Read `CLAUDE.md`, `.claude/rules/`, `ai/architecture.md`, `ai/conventions.md`.
-2. Read `ai/patterns/rendering-strategy.md`, `design-systems.md`, `theming.md`, `i18n.md`, `forms.md`, `rtl.md` (if RTL locales), `ssr-safety.md` (if SSR).
+2. Read `ai/patterns/rendering-strategy.md`, `design-systems.md`, `theming.md`, `i18n.md`, `forms.md`, `rtl.md` (if RTL locales), `ssr-safety.md` (if SSR), `inp-responsiveness.md`.
 3. Detect framework from `package.json` / `angular.json` / `nuxt.config` / `next.config`. Consult `.claude/references/<framework>.md`.
 4. Read an existing sibling page + component + store + service. Mirror their shape EXACTLY.
 
@@ -34,7 +34,7 @@ Per route. Consult `ai/patterns/rendering-strategy.md`.
 | Admin panel (auth'd) | CSR |
 | Interactive tool | CSR |
 
-State the choice in the design + justify.
+State the choice in the design + justify. For SSR/ISR routes, also decide the **streaming boundary**: if above-the-fold doesn't depend on a slow query, render the shell immediately and stream slow regions behind a Suspense / await boundary (Next `loading.tsx` + `<Suspense>`, SvelteKit streamed promises, Nuxt lazy components) — consult the `streaming-ssr` skill. Don't block TTFB on a below-the-fold query.
 
 ### 2. State location
 
@@ -84,8 +84,11 @@ Fields needed, types, validation rules, async validators (uniqueness check), sub
 ### 7. Performance budget
 
 Declare for this feature:
-- LCP target (< 2.5s mobile / < 1.8s desktop).
+- LCP target (< 2.5s mobile / < 1.8s desktop) + which element is the LCP and how it's prioritized (no lazy hero; framework priority hint / `fetchpriority="high"` — `lcp-audit` skill).
+- INP target (< 200ms p75) for the feature's primary interactions; budget per-interaction main-thread work (consult `ai/patterns/inp-responsiveness.md`). Authoritative INP is field-measured (`web-vitals-field` skill), never lab.
+- TTFB target (< 600ms) for SSR routes — and whether the shell streams (see §1).
 - Bundle impact (KB added).
+- Navigation budget: primary inbound nav links prefetch (framework primitive); route-change → instant paint (see §8). Deep audit: `navigation-speed` skill.
 - Lazy-loaded if non-critical path.
 - Images optimized (framework-native).
 - Virtualize lists > 100 items.
@@ -93,7 +96,7 @@ Declare for this feature:
 ### 8. Error + empty + loading states
 
 Every async action has FOUR states documented:
-- Loading → skeleton (shape-matched, not spinner).
+- Loading → **instant, layout-stable** skeleton (shape-matched + reserves final dimensions, no CLS — not a spinner), shown the moment a navigation/fetch starts. Use the route-level loading convention (Next `loading.tsx`, SvelteKit `navigating`, React Router `useNavigation().state`).
 - Success → the UI.
 - Empty → friendly + next-step CTA.
 - Error → clear message + retry affordance.

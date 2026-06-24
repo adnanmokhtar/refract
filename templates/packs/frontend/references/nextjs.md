@@ -28,6 +28,16 @@ lib/                          # shared utils, db, auth
 - Client Components receive server data via props — don't re-fetch on client.
 - Never pass non-serializable props from Server → Client (functions, class instances).
 
+## Navigation & streaming
+
+- `<Link href>` auto-prefetches on viewport entry in prod; set `prefetch={false}` for low-value links. Default prefetch is **partial** (full for static routes, partial for dynamic). Never hand-roll `<a>` for internal nav.
+- `loading.tsx` wraps a segment in `<Suspense>` and streams a fallback instantly.
+- Wrap slow subtrees in `<Suspense fallback>` to stream them independently.
+- **Partial Prerendering (PPR)**: `export const experimental_ppr = true` + `experimental: { ppr: 'incremental' }` in `next.config` — static shell prerendered, dynamic holes (reading `cookies()` / `headers()` / `searchParams`) streamed. Detector: a `dynamic = 'force-dynamic'` route with a large static header/footer is a PPR candidate.
+- `next/dynamic(() => import(...), { ssr: false })` for heavy client-only widgets.
+- Parallel routes `app/@modal/...` + intercepting routes `app/(.)photo/[id]`.
+- `useRouter().prefetch()` to warm a route ahead of an imperative navigation.
+
 ## Data fetching
 
 - Server Component: `await fetch(..., { cache: 'force-cache' | 'no-store' })` with revalidate tags.
@@ -49,6 +59,15 @@ lib/                          # shared utils, db, auth
 
 - `next/image` always — never raw `<img>` for app-owned images.
 - Explicit `width` + `height` or `fill` + container sizing.
+- `<Image priority>` on the LCP image emits `fetchpriority="high"` + `loading="eager"` (in Next 15 the preload `<link>` emission is reduced/conditional — do NOT assume it always emits one); forbidden on below-the-fold images.
+
+## Core Web Vitals levers
+
+- `next/font` with `display` + `preload` to avoid CLS / FOIT (self-hosts + size-adjusts the font).
+- `useReportWebVitals` hook to ship field metrics (INP / LCP / CLS) to RUM.
+- `generateMetadata` preload `<link>` for the LCP resource.
+- **103 Early Hints** is a HOST/CDN feature (Vercel / Cloudflare emit `Link: rel=preload` / `rel=preconnect` before the `200`) — Next's document-level `<link rel=preload>` tag injection is a SEPARATE, complementary lever, NOT a `103` emitted by `next.config`; don't conflate them.
+- `Cache-Control: stale-while-revalidate` to serve a cached document instantly while revalidating.
 
 ## Anti-patterns
 
@@ -57,3 +76,5 @@ lib/                          # shared utils, db, auth
 - Non-serializable props across boundary
 - Forgetting `revalidatePath` after mutation (stale data)
 - Raw `<img>` for app-owned images
+- Raw `<a>` for internal links (kills prefetch + soft nav)
+- No `priority` on the LCP image

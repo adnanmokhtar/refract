@@ -284,4 +284,4 @@ If the codebase throws raw `Error`:
 
 - Sandi Metz "Practical Object-Oriented Design", chapter on exceptions — when typed errors pay off.
 - "Domain-Driven Design" (Evans) — domain errors as part of the ubiquitous language.
-- RFC 7807 (Problem Details for HTTP APIs) — alternative wire format if you need vendor-neutral interop.
+- RFC 9457 (Problem Details for HTTP APIs, obsoletes RFC 7807) — `application/problem+json` wire format for vendor-neutral interop; use a stable dereferenceable `type` URI per error class.

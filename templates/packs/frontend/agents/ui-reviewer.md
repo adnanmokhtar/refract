@@ -15,7 +15,7 @@ model: opus
 ## Pre-flight
 
 - Read `CLAUDE.md` + rules + `ai/conventions.md`.
-- Read `ai/patterns/rendering-strategy.md`, `forms.md`, `i18n.md`, `ssr-safety.md` (if SSR), `design-systems.md`, `theming.md`, `rtl.md` (if RTL).
+- Read `ai/patterns/rendering-strategy.md`, `forms.md`, `i18n.md`, `ssr-safety.md` (if SSR), `inp-responsiveness.md`, `design-systems.md`, `theming.md`, `rtl.md` (if RTL).
 - Detect framework + consult `.claude/references/<framework>.md`.
 - Read a sibling component/view — know the repo's shape.
 
@@ -89,11 +89,23 @@ model: opus
 - `useMemo` / `useCallback` (React) only when profiler shows waste.
 - No repeated computations in `render` / `<template>` — compute once in setup.
 
-### SSR safety (if SSR)
+### Navigation speed (page-to-page)
+- Primary in-viewport nav links prefetch via the framework primitive (Next `<Link>`, `<NuxtLink>`, SvelteKit `data-sveltekit-preload-data`, React Router `prefetch`) — no raw `<a>` to internal routes, no `prefetch={false}` without a reason. Deep audit: `navigation-speed` skill.
+- Data-dependent routes paint an instant, layout-stable skeleton on navigation (no spinner / blank / CLS) — `loading.tsx` / `navigating` store / `useNavigation().state`.
+- No bfcache evictors: `unload` / `beforeunload` listeners (use `pagehide` / `visibilitychange`); IndexedDB / WebSocket closed on `pagehide`.
+- No `window.location.href =` for internal nav where `router.push` would keep the soft navigation.
+
+### Core Web Vitals (LCP / INP)
+- LCP element is fetched first: hero / above-the-fold image is NOT `loading="lazy"`, sets the framework priority hint (`<Image priority>` / `<NuxtImg preload>` / `NgOptimizedImage [priority]` / `fetchpriority="high"`); only ONE element per view. Deep audit: `lcp-audit` skill.
+- INP budget: high-frequency / expensive handlers (typing, filtering a large list, drag) keep per-interaction work bounded — break long tasks (`scheduler.yield()`), defer non-urgent updates (`startTransition` / `useDeferredValue`). Per `ai/patterns/inp-responsiveness.md`. Authoritative field INP via the `web-vitals-field` skill (lab INP is a synthetic proxy, never the measurement).
+
+### SSR safety + rendering speed (if SSR)
 - No `window` / `document` / `localStorage` at module scope.
 - Non-deterministic values (`Date.now`, `Math.random`) not in render output.
 - `useFetch` / `useAsyncData` with explicit keys.
 - `useSeoMeta` / `generateMetadata` on public pages.
+- Streaming: a route whose above-the-fold doesn't depend on a slow query streams the shell behind a Suspense / await boundary instead of blocking TTFB on the slowest query. Deep audit: `streaming-ssr` skill.
+- RSC client-boundary cost (React/Next App Router): no unjustified `"use client"` (file with no state/effect/event/browser API can stay a server component); no server-only module (db / `fs` / secret) imported under a `"use client"` boundary. Detectors in the `ssr-audit` skill.
 
 ### Security
 - No `dangerouslySetInnerHTML` / `v-html` with untrusted content.
@@ -238,7 +250,8 @@ REQUESTS (N):
 NITS (N):
   - <style/polish>
 
-Patterns consulted: rendering-strategy, forms, i18n, ssr-safety (if applicable), design-systems
+Patterns consulted: rendering-strategy, forms, i18n, ssr-safety (if applicable), inp-responsiveness, design-systems
+Skills available for deep audit: navigation-speed, streaming-ssr, lcp-audit (frontend), web-vitals-field (field INP/LCP/CLS)
 Framework-specific conventions checked: <name>
 ```
 
@@ -264,6 +277,13 @@ Framework-specific conventions checked: <name>
 - `ai/patterns/i18n.md`
 - `ai/patterns/rendering-strategy.md`
 - `ai/patterns/ssr-safety.md`
+- `ai/patterns/inp-responsiveness.md`
+
+### Skills (deep audit)
+- `navigation-speed` — prefetch / Speculation Rules / bfcache / instant-loading / View Transitions.
+- `streaming-ssr` — stream-the-shell boundary scan (cut TTFB).
+- `lcp-audit` — LCP-resource priority hints.
+- `web-vitals-field` — authoritative field INP / LCP / CLS with attribution.
 
 ### Rules
 - `.claude/rules/frontend-principles.md`

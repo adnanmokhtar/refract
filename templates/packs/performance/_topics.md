@@ -36,6 +36,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { api_surface_detected: true }
   fallback: _examples/profile-endpoint.md
 
+- name: web-vitals-field
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: _examples/web-vitals-field.md
+
 - name: caching-architect
   kind: agent
   triggers: { always: true }
@@ -45,6 +50,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: pattern
   triggers: { primary_frontend_framework_detected: true }
   fallback: stub-from-sections
+
+- name: inp-responsiveness
+  kind: pattern
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: _examples/inp-responsiveness.md
 
 - name: bundle-perf
   kind: command

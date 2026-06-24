@@ -16,6 +16,6 @@ Files listed above are the minimal subset copied when `/setup-project --minimal`
 Rationale per category (one line each):
 - agents: performance-optimizer is the universal entry point and the minimal agent; caching-architect ships in standard mode (cache-strategy work only) and is kept out of minimal.
 - commands: perf-audit is the broad ranked-findings sweep — the minimal command; profile-perf (one-path deep-dive) and bundle-perf (web bundle / Core Web Vitals) ship in standard mode and are kept out of minimal.
-- skills: profile-endpoint targets the most common ask ("why is this endpoint slow?"); n-plus-one-scan is a sub-skill kept out of minimal.
-- rules: performance-principles is the single rules file in the pack.
-- ai-patterns: none essential — `lazy-loading.md` ships in standard mode and applies only when a frontend framework is detected; minimal mode skips it.
+- skills: profile-endpoint targets the most common ask ("why is this endpoint slow?"); n-plus-one-scan is a sub-skill kept out of minimal. `web-vitals-field` (field CWV with attribution) ships in standard mode, frontend-framework-gated — the only path to citing real INP, kept out of minimal.
+- rules: performance-principles is the single rules file in the pack (now carries the browser INP-responsiveness MUST + TTFB budget that the standard-mode web-vitals-field + inp-responsiveness artifacts enforce).
+- ai-patterns: none essential — `lazy-loading.md` and `inp-responsiveness.md` ship in standard mode and apply only when a frontend framework is detected; minimal mode skips them.

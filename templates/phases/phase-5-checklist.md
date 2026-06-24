@@ -50,7 +50,7 @@ Phase 5 must NOT report success unless every `must` row passes. `should` rows wa
 
 ## C2c. Technical-domain coverage discipline
 
-The mirror of C2b for technical-signal **domains** (Phase 4.4). Without this gate a run can detect every signal in the profile prose yet install ZERO domain tooling and still pass (the original failure: a media-streaming project got generic backend packs but no `media-processing` / `streaming-delivery` / `background-jobs` / `real-time` specialists).
+The mirror of C2b for technical-signal **domains** (Phase 4.4). Without this gate a run can detect every signal in the profile prose yet install ZERO domain tooling and still pass (the failure mode: a project in a specialized domain — e.g. media streaming — gets generic backend packs but none of its domain specialists, such as `media-processing` / `streaming-delivery` / `background-jobs` / `real-time`).
 
 | Check                                                                  | Severity | Rule |
 |------------------------------------------------------------------------|----------|------|

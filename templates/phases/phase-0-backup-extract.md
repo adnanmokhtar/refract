@@ -146,7 +146,7 @@ EOF
 chmod +x "$BACKUP_DIR/restore.sh"
 ```
 
-Backup contents are **never** auto-cleaned. The user decides when (if ever) to delete `.claude/backups/`. The `.claude/backups/` + `.claude/plans/` gitignore entries are written by the **deterministic gitignore block in `phase-4.0-preflight.md`** (the same block that ignores the learning/scheduler outputs) — NOT by a prose step here. They previously lived only as prose ("Phase 4.1 enforces this") and were silently skipped, leaving backups tracked and bloating every `TBD`/`TODO` search (media-streaming, 2026-06). Phase 4.0 now appends them mechanically.
+Backup contents are **never** auto-cleaned. The user decides when (if ever) to delete `.claude/backups/`. The `.claude/backups/` + `.claude/plans/` gitignore entries are written by the **deterministic gitignore block in `phase-4.0-preflight.md`** (the same block that ignores the learning/scheduler outputs) — NOT by a prose step here. They previously lived only as prose ("Phase 4.1 enforces this") and were silently skipped, leaving backups tracked and bloating every `TBD`/`TODO` search (observed 2026-06). Phase 4.0 now appends them mechanically.
 
 **Plans directory gitignore**: `.claude/plans/*.md` + `!.claude/plans/README.md` + `.claude/plans/_archive/` are in that same Phase 4.0 block. Plans are per-engineer working artifacts (not shared history) by default. Teams that want plans tracked can flip the gitignore to commit them as PR-attached design docs — that's a project decision, not a setup-project default.
 

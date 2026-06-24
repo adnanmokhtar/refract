@@ -1,9 +1,22 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "1.1.0",
-  "released": "2026-06-19",
+  "version": "1.2.0",
+  "released": "2026-06-25",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "perf-audit: Phase-6 post-change re-measurement (HALT if win < projected) + sibling boundary block; profile-perf dispatches profile-endpoint + performance-optimizer; --plan/--plan-only on perf-audit/profile-perf/bundle-perf; _essentials.md corrected (3 commands, 2 agents)."
+  "summary": "Web-vitals / INP additions — NEW skill web-vitals-field (field CWV with attribution: onINP/onLCP/onCLS/onTTFB via web-vitals/attribution, the only path to citing INP — Lighthouse lab can't field-measure it) + NEW ai-pattern inp-responsiveness (per-interaction main-thread budget: scheduler.yield / startTransition / useDeferredValue / LoAF attribution); lazy-loading gains a hydration-scheduling (interactive-islands) tier; bundle-perf adds a streaming-ssr routing branch on TTFB-dominated SSR + a Navigation-timing axis + LoAF-attributed INP; performance-principles adds an INP-responsiveness MUST + TTFB budget + soft-nav SHOULD. Pairs with frontend v1.4.0 (navigation-speed, streaming-ssr, lcp-audit).",
+  "changelog": {
+    "1.2.0": {
+      "released": "2026-06-25",
+      "changes": [
+        "NEW skill web-vitals-field (kind:skill, primary_frontend_framework_detected) — field Core Web Vitals with attribution: wires web-vitals/attribution (onINP/onLCP/onCLS/onTTFB), reads the responsible element + sub-part (INP inputDelay/processingDuration/presentationDelay + longAnimationFrameEntries; LCP timeToFirstByte/resourceLoadDelay/resourceLoadDuration), and cross-checks the CrUX p75. The only way to cite the headline CWV (INP) to a file:line.",
+        "NEW ai-pattern inp-responsiveness (kind:pattern, primary_frontend_framework_detected) — keep per-interaction main-thread work under the INP budget: diagnose the dominant sub-part, break long tasks with scheduler.yield()/isInputPending, defer non-urgent updates with startTransition/useDeferredValue, attribute the blocking script via the Long Animation Frames API.",
+        "lazy-loading: NEW 'Hydration scheduling (interactive islands)' tier — Astro client:load/idle/visible/media/only scheduling + Qwik resumability; image-priority line now cross-refs references/<framework>.md § CWV/Images + lcp-audit.",
+        "bundle-perf: Phase-2 Hydration axis routes TTFB-dominated SSR server-think-time to /streaming-ssr (vs backend latency → /profile-perf); NEW Navigation-timing axis (hard + soft nav, ≤500ms route-change-to-paint budget); failing INP now attributed to the longest LoAF script + routed to inp-responsiveness; generic image-priority mentions anchored to references/<framework>.md.",
+        "performance-principles: added Must — browser input responsiveness (INP budget + scheduler.yield + transition primitive), extended the CWV CI-budget line with TTFB < 600ms, added Should — soft-nav timing (gated 'where available').",
+        "perf-audit: routing table + Related now point web-frontend page-load to the nav-timing-aware bundle-perf, authoritative field INP / real-user CWV to the web-vitals-field skill (Lighthouse lab INP is a synthetic proxy), and page-to-page navigation work to the navigation-speed skill."
+      ]
+    }
+  }
 }

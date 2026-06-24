@@ -125,6 +125,42 @@ Each topic declares:
   mirror_existing: true
   fallback: _examples/api-contract.md
 
+- name: rate-limiting
+  kind: pattern
+  triggers:
+    always: true                                                   # every public/expensive API needs inbound self-protection
+  extracts_from: _extracted-codebase.md § "API surface" (public/expensive endpoints) + _extracted-idioms.md (limiter lib if any) + cache/Redis config
+  sections: [overview, algorithm_choice, key_dimension, distributed_store, response_contract, load_shedding, detectors, examples]
+  mirror_existing: true
+  fallback: _examples/rate-limiting.md
+
+- name: conditional-requests
+  kind: pattern
+  triggers:
+    always: true                                                   # REST resource design — applies wherever mutable resources exist
+  extracts_from: _extracted-codebase.md § "API surface" (mutable resources + version/updated_at/row_version columns)
+  sections: [overview, etag_generation, read_revalidation, write_optimistic_concurrency, status_codes, detectors, examples]
+  mirror_existing: true
+  fallback: _examples/conditional-requests.md
+
+- name: response-streaming
+  kind: pattern
+  triggers:
+    grep_evidence: "StreamingResponse|StreamableFile|StreamingHttpResponse|ActionController::Live|StreamingResponseBody|text/event-stream|application/x-ndjson|http\\.Flusher|@Sse\\(|res\\.write\\(|/export|/download|/report"
+  extracts_from: _extracted-codebase.md § "API surface" (export/report/large-result endpoints) + _extracted-idioms.md (streaming primitive)
+  sections: [overview, transport_choice, mid_stream_errors, backpressure, lifecycle, detectors, examples]
+  mirror_existing: true
+  fallback: _examples/response-streaming.md
+
+- name: async-job-offload
+  kind: pattern
+  triggers:
+    grep_evidence: "BullMQ|Sidekiq|Celery|ActiveJob|Hangfire|@Async|asynq|Dramatiq|\\bRQ\\b|202|Accepted|/jobs/|enqueue|ShouldQueue"
+  extracts_from: _extracted-codebase.md § "API surface" (slow/expensive endpoints) + _extracted-idioms.md (job runner/queue) + § "Background jobs"
+  sections: [overview, http_contract, job_status_state_machine, idempotent_submission, result_ttl, detectors, examples]
+  mirror_existing: true
+  fallback: _examples/async-job-offload.md
+
 - name: parallel-io
   kind: pattern
   triggers:

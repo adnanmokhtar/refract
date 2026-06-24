@@ -186,7 +186,7 @@ This file is the ONLY place domain errors become HTTP responses. Every controlle
 | `UnauthorizedError` | 401 | No valid auth token |
 | `ForbiddenError` | 403 | Authenticated but not allowed |
 | `ConflictError` | 409 | Unique violation, optimistic lock conflict, double-confirm |
-| `RateLimitedError` | 429 | Caller hit a rate limit; include `Retry-After` |
+| `RateLimitedError` | 429 | Caller hit a rate limit; include `Retry-After` (RFC 9110 §10.2.3 — seconds or HTTP-date) AND the standard `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` / `RateLimit-Policy` quota headers (per `draft-ietf-httpapi-ratelimit-headers` — an IETF DRAFT, not an RFC). Emit the unprefixed `RateLimit-*` form; do not invent legacy `X-RateLimit-*`. 429 itself is RFC 6585. The mapper owns only this **status + header mapping** — the limiting MECHANISM (per-tenant buckets, shared store, fail-open/closed, load shedding) is owned by `ai-patterns/rate-limiting.md`. |
 | `DependencyFailureError` | 503 | Upstream we depend on is down/timing out |
 | Unmapped throwable | 500 | Programmer error, log full context |
 
@@ -303,4 +303,4 @@ If the codebase throws raw `Error`:
 
 - Sandi Metz "Practical Object-Oriented Design", chapter on exceptions — when typed errors pay off.
 - "Domain-Driven Design" (Evans) — domain errors as part of the ubiquitous language.
-- RFC 7807 (Problem Details for HTTP APIs) — alternative wire format if you need vendor-neutral interop.
+- RFC 9457 (Problem Details for HTTP APIs, obsoletes RFC 7807) — alternative wire format if you need vendor-neutral interop. When exposing it, set `Content-Type: application/problem+json`, give each error class a stable, dereferenceable `type` URI (NOT the human `title` — the URI identifies the error class and should resolve to docs), and keep this project envelope's `code` mapped 1:1 to that `type` URI so the two representations never diverge.

@@ -27,6 +27,9 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Every input has a `<label>` (visible or `aria-label`). Icon-only buttons have `aria-label`. Focus visible (`:focus-visible` ring).
 - Lazy-load routes (`React.lazy` + `Suspense`, `defineAsyncComponent`, Nuxt's automatic route splitting, SvelteKit's dynamic imports).
 - Virtualize lists > 100 items (`react-window`, `vue-virtual-scroller`, `svelte-virtual-list`, `@tanstack/virtual`).
+- Navigation speed: primary in-viewport navigation links MUST be prefetched via the framework primitive (Next `<Link>` default-on; Nuxt `<NuxtLink>` / `prefetchOn`; SvelteKit `data-sveltekit-preload-data="hover"` — accepts `hover` / `tap` / `off`, do not flag an intentional `=off`; React Router `<Link prefetch="intent">`). Raw-HTML / MPA surfaces ship a `<script type="speculationrules">` document rule with `eagerness:"moderate"`. Disabling a default prefetch requires a documented reason. See `navigation-speed.md`.
+- Streaming: a server-rendered route whose above-the-fold content does NOT depend on a slow query MUST stream — render the shell immediately and stream slow regions behind a Suspense / await boundary (Next `loading.tsx` + `<Suspense>` + `use()`; Nuxt lazy components; SvelteKit streamed promises; Remix / RR `defer` + `<Await>`). Blocking TTFB on a below-the-fold query is forbidden when the shell could paint first. See `references/rendering-strategy.md` and `streaming-ssr.md`.
+- Instant loading state: every data-dependent route MUST paint an instant layout-stable skeleton (matching final dimensions, no CLS) on navigation — not a spinner, not a blank screen. Use the framework route-level loading convention (Next `loading.tsx`; SvelteKit `navigating` store; React Router `useNavigation().state`; Vue Router `<router-view>` + `Suspense` fallback). For plain React-Router / Vue-Router routes with no route-level convention, the detector looks for an in-component `Suspense` fallback / router pending UI. See `navigation-speed.md`.
 
 ## Must not
 
@@ -40,6 +43,7 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Side-effects in render / template / setup top-level: `localStorage.setItem` during render. Move to lifecycle / event handler.
 - `console.log` / `console.debug` left in committed code.
 - Dangerously inserting HTML (`v-html`, `dangerouslySetInnerHTML`) without sanitization (`DOMPurify`) — XSS vector.
+- bfcache safety: no unconditional `unload` / `beforeunload` listener (evicts from bfcache — use `pagehide` / `visibilitychange`). Close IndexedDB / BroadcastChannel / WebSocket on `pagehide`. (`Cache-Control: no-store` on documents is a warn / review, not a hard disqualifier.)
 
 ## Should
 
@@ -61,6 +65,10 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - [ ] Keyboard tab order verified on the new screen.
 - [ ] Lighthouse / axe-core: no new a11y regressions.
 - [ ] Bundle size delta acceptable (size-limit / bundlesize).
+- [ ] In-viewport nav links prefetch via the framework primitive (or a documented `=off`); MPA surfaces ship a `speculationrules` document rule.
+- [ ] Server route with a fast shell streams slow regions behind a Suspense / await boundary (no TTFB blocked on a below-the-fold query).
+- [ ] Data-dependent route paints a layout-stable skeleton on navigation (no spinner / blank, no CLS).
+- [ ] No `unload` / `beforeunload` listener; IndexedDB / BroadcastChannel / WebSocket closed on `pagehide`.
 
 ## Enforcement
 
@@ -70,3 +78,4 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - `i18next-parser` / `vue-i18n-extract` / `nuxt/i18n` checks for missing keys per locale in CI.
 - `size-limit` / `bundlesize` budget gates PRs.
 - Lighthouse CI on key routes; visual regression via Playwright / Chromatic.
+- Navigation / streaming / instant-loading / bfcache checks via `navigation-speed.md` + `streaming-ssr.md`; bfcache verified in DevTools Application → Back/forward cache (no `unload` / `beforeunload` evictors).

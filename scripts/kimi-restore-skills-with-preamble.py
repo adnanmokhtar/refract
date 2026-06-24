@@ -15,10 +15,11 @@ from pathlib import Path
 
 DRY_RUN = "--apply" not in sys.argv
 
-TARGETS = [
-    Path("/Users/mac/Workspace/Projects/sahlcart/tenant-portal-v2"),
-    Path("/Users/mac/Workspace/Projects/sahlcart/claude-v2"),
-]
+# Targets: pass one or more consuming-project dirs as CLI args.
+#   usage: kimi-restore-skills-with-preamble.py [--apply] <project-dir> [<project-dir> ...]
+TARGETS = [Path(a) for a in sys.argv[1:] if not a.startswith("-")]
+if not TARGETS:
+    sys.exit("usage: kimi-restore-skills-with-preamble.py [--apply] <project-dir> [<project-dir> ...]")
 
 
 def make_preamble(name):

@@ -22,6 +22,7 @@ Prevents the two failure modes: optimizing the wrong thing, and shipping a regre
 - Cache stampede protection on hot keys: a single-flight / coalescing primitive (every mainstream language has one — singleflight in Go, dataloader / promise-coalescing in Node, locked `getOrSet` / `cached` decorators in Python, etc.).
 - Indexes on every column appearing in WHERE, ORDER BY, or JOIN of slow queries. Verify with the DB's plan-explainer (`EXPLAIN ANALYZE` and equivalents per DB engine).
 - Async I/O on the event loop / async runtime. Sync filesystem reads or blocking DB drivers in a request handler are a stop-the-world bug.
+- Browser input handlers MUST keep per-interaction main-thread work under the INP budget. Break tasks > 50ms with `scheduler.yield()` (fallback `await new Promise(r => setTimeout(r))`); mark non-urgent state updates with the framework transition primitive (React `useTransition` / `startTransition` + `useDeferredValue`; Vue is non-blocking by default; Svelte runes). See `inp-responsiveness.md`.
 
 ## Must not
 
@@ -42,6 +43,7 @@ Prevents the two failure modes: optimizing the wrong thing, and shipping a regre
 - Frontend: lazy-load routes, virtualize long lists with the framework's virtualisation primitive, use the platform's lazy-image features (e.g., `<img loading="lazy">` + `srcset`), tree-shake bundles.
 - Backend: stream responses for large payloads, gzip/brotli at the edge, HTTP/2 or HTTP/3.
 - Set realistic SLOs (e.g. p95 < 300ms on key endpoint) and alert on regression — performance without an SLO is just vibes.
+- Instrument SPA route transitions (router `beforeEach` / `afterEach` + `performance.mark`, or the Soft Navigations API where available) and budget route-change-to-paint. The Soft Navigations heuristic is emerging / origin-trial — gate any reliance on it behind `where available`, not as a stable cross-browser guarantee.
 
 ## Review checklist
 
@@ -55,7 +57,7 @@ Prevents the two failure modes: optimizing the wrong thing, and shipping a regre
 ## Enforcement
 
 - Frontend bundle-size CI check (e.g., `size-limit`, `bundlesize`, framework-native budget) — fail-on-regression.
-- Web-vitals budget in CI (Lighthouse CI or equivalent) on Core Web Vitals (LCP < 2.5s, INP < 200ms, CLS < 0.1) for browser frontends.
+- Web-vitals budget in CI (Lighthouse CI or equivalent) on Core Web Vitals (LCP < 2.5s, INP < 200ms, CLS < 0.1) plus TTFB < 600ms (server-response-time) for browser frontends.
 - Load tests on critical endpoints in staging using the project's load-tester (k6 / Artillery / Locust / Gatling / vegeta / wrk — pick one and keep results comparable).
 - Slow query log enabled in dev + staging; review weekly.
 - APM with alerts on p95 regression (the project's APM — Datadog / New Relic / Sentry Performance / Grafana Tempo / Honeycomb / OpenTelemetry-backed equivalent).

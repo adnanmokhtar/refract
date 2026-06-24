@@ -27,6 +27,8 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Every mutating endpoint returns the resource or its ID. No silent 204s on POST without a documented reason.
 - Custom error classes per domain concept (`OrderNotFoundError`, `PaymentDeclinedError`). Mapped to HTTP statuses in ONE place — global filter / error middleware.
 - Idempotency keys on every external retry boundary: webhooks, queue consumers, payment attempts. Receiver dedupes via unique constraint.
+- Stored replay required — persist `(key → response_status + response_body)` atomically with the side effect and replay that stored response on retry. Accepting the `Idempotency-Key` header without storing+replaying is non-compliant (a second call with the same key must NOT re-execute the side effect). The persisted-key table schema + replay-state machine live in the distributed-systems pack; this is the one-line backend floor. See `ai/patterns/idempotency.md`. (API-7)
+- Rate-limit every unauthenticated and every expensive endpoint (search / export / report / bulk / upload / LLM-proxy); return `429 Too Many Requests` (RFC 6585) with `Retry-After` (RFC 9110 §10.2.3 — seconds or HTTP-date) + `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` headers (IETF `draft-ietf-httpapi-ratelimit-headers` — a draft, prefer the unprefixed form over legacy `X-RateLimit-*`). Counters live in a shared store, never process memory. See `ai/patterns/rate-limiting.md`. (RES-1)
 - Parameterized queries always. Soft-delete + tenant filters applied at the repository layer for raw queries that bypass the base repo.
 - Structured logs (JSON in prod) with correlation ID propagated through every layer + downstream call.
 - Config validated on boot — fail fast if a required env var is missing or malformed (`zod.parse(process.env)` / pydantic settings).
@@ -44,6 +46,7 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Trust headers like `X-User-Id`, `X-Tenant-Id` from the public internet. Derive identity from authenticated session / JWT only.
 - Log secrets, tokens, full PII. Mask or hash.
 - Accept tenant ID in request bodies — derive from authenticated context (AsyncLocalStorage / request scope).
+- Store request-scoped or per-user state in process memory / module-level mutable singletons / local disk — it does not survive horizontal scale-out or rolling deploys, and silently corrupts behind a load balancer. Sessions, response caches, rate-limit counters, locks, and dedupe sets MUST live in a shared store (Redis / DB). See `ai/patterns/rate-limiting.md` (shared-store buckets) + `ai/patterns/idempotency.md`. (PERF-6)
 
 ## Should
 
@@ -54,6 +57,8 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Graceful shutdown: drain in-flight requests, close DB pool, finish queue ack — bounded by a deadline (default 30s).
 - Set a timeout on every external call (HTTP client, DB, cache, queue). No-timeout calls are forbidden — the default is cascading failure.
 - Retries with exponential backoff + jitter for transient errors only — never on 4xx.
+- Resilience (outbound): the per-call failure-mode matrix — timeout-budget nesting (inner deadline < outer), retry eligibility, circuit breaker, per-dependency bulkhead, dead-letter queue — is OWNED by the distributed-systems pack. Consult its `resilience-reviewer` + `circuit-breaker` / `idempotency` / `outbox` patterns. The `api-reviewer` External-calls checklist (every call has a timeout + bounded retries + a fallback) is the inline floor when that pack isn't installed. (RES-2)
+- Observability DoD: every endpoint also emits a RED metric (rate / errors / duration) + a trace span; generate the correlation / trace id at the edge OR continue an inbound W3C `traceparent` header — never start a fresh trace when one is already in flight. The full RED / USE / SLO / OTel design (cardinality budgets, sampling, audit-log) lives in the observability pack (Related: `observability-principles`); this is the always-on backend hook. (OBS-1)
 
 ## Review checklist
 
@@ -67,6 +72,11 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - [ ] No header-trusted user / tenant identity.
 - [ ] Logs structured + carry correlation ID.
 - [ ] Idempotency key on retryable mutation endpoints.
+- [ ] Idempotent endpoint stores `(key → status + body)` and replays it on retry — not just accepts the header. (API-7)
+- [ ] Unauthenticated / expensive endpoint rate-limited: `429` + `Retry-After` + `RateLimit-*` headers. (RES-1)
+- [ ] No request-scoped / per-user state in process memory, singletons, or local disk — shared store only. (PERF-6)
+- [ ] Outbound calls carry timeout + bounded retries + fallback (api-reviewer floor; distributed-systems pack owns the full matrix). (RES-2)
+- [ ] New endpoint emits a RED metric + trace span; trace id generated at edge or continued from inbound `traceparent`. (OBS-1)
 
 ## Enforcement
 

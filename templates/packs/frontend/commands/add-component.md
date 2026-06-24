@@ -98,6 +98,8 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - Default-true wrapper props left implicit — a wrapper exposing `:show-header="true"` by default must be passed `:show-header="false"` explicitly when the affordance is hidden; same for `:can-close`, `:show-footer`.
 - New file placed outside the folder's existing path convention (e.g., `src/components/cards/OrderCard.vue` when siblings live at `src/components/orders/Card.vue`).
 - New styling system introduced (CSS Modules in a Tailwind repo; styled-components where siblings use scoped CSS).
+- Above-the-fold / hero / heavy-media component whose LCP-relevant image omits the framework priority hint that siblings set (see [`../skills/lcp-audit.md`](../skills/lcp-audit.md)) — missing `fetchpriority`/`priority`/eager-hero parity.
+- High-frequency or expensive interaction handler (typing, filtering a large list, drag) that runs unbounded per-interaction work — must stay under the INP budget per [`../../performance/ai-patterns/inp-responsiveness.md`](../../performance/ai-patterns/inp-responsiveness.md) (yield / `startTransition` / debounce).
 
 **Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
@@ -112,6 +114,8 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - Component file < 200 lines (warn if larger — likely doing too much).
 - Visual diff via `visual-check` skill if present.
 - Hardcoded English (untranslated string) → blocker.
+- **LCP priority hint** (gated): if the component is above-the-fold / a hero / heavy media, its LCP image sets the framework priority hint — dispatch [`../skills/lcp-audit.md`](../skills/lcp-audit.md). Not LCP-relevant → `lcp: n/a`.
+- **INP budget** (gated): if the component owns a high-frequency or expensive handler (typing, filtering a large list, drag), per-interaction work stays under budget (yield / transition / debounce) — dispatch [`../../performance/ai-patterns/inp-responsiveness.md`](../../performance/ai-patterns/inp-responsiveness.md). No such handler → `inp: n/a`.
 - **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking wired the way siblings wire it; analytics events added if siblings of this primitive emit them. If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 
 ## Phase 7 — Improve
@@ -146,6 +150,10 @@ Status: COMPLETE
 - `/add-crud-page` — sibling command in frontend pack
 - `/add-page` — sibling command in frontend pack
 - `/i18n-audit` — sibling command in frontend pack
+
+### Skills
+- `../skills/lcp-audit.md` — LCP-resource priority-hint scanner (above-the-fold / hero / heavy-media images)
+- `../../performance/ai-patterns/inp-responsiveness.md` — per-interaction main-thread INP budget
 
 ### Patterns
 - `ai/patterns/forms.md`

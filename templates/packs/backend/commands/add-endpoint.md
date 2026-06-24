@@ -253,6 +253,14 @@ Dispatch `/add-telemetry` if gaps.
 | Payment | Idempotency key. Provider call uses the key. Typed PaymentError hierarchy. |
 | File upload | Type + size + magic-bytes validated. Safe storage path. |
 | Public endpoint | Rate limit (per IP) + body size limit. |
+| Expensive / unauthenticated | Rate limit (token-bucket or sliding-window) per tenant / user / IP; over-limit returns `429 Too Many Requests` (RFC 6585) + `Retry-After` (RFC 9110 §10.2.3, seconds or HTTP-date); emit `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` (IETF `draft-ietf-httpapi-ratelimit-headers` — unprefixed, not legacy `X-RateLimit-*`). Declare FAIL-OPEN vs FAIL-CLOSED when the limiter store is down. e2e asserts the `(N+1)`-th call in the window is 429 + carries `Retry-After`. Ref `ai-patterns/rate-limiting.md`. (ENF-1) |
+| Async (202) | Response returns `202 Accepted` + `Location: /jobs/:id` AND a `GET /jobs/:id` status endpoint exists (job-status state machine: queued → running → succeeded / failed, result URL + TTL on success). Consumer is idempotent + visibility-timeout + DLQ + bounded retry. e2e: `POST → 202 → poll status → terminal-state`. Ref `ai-patterns/async-job-offload.md`. (ENF-3 / PERF-3) |
+| Streaming (SSE / chunked / NDJSON / LLM token stream) | Dispatch `@websocket-engineer` for backpressure / heartbeat / resume; set BOTH idle and total timeout; cancel the upstream work on client disconnect; mid-stream terminal error uses a sentinel frame (status already 200 — cannot change it). LLM streams cap `max_tokens` + log tokens / cost. Chunked + trailers = RFC 9112. e2e: client-disconnect aborts the upstream. Ref `ai-patterns/response-streaming.md`. (ENF-4) |
+| Bulk / batch | Per-item status array; declare the contract — all-or-nothing (`200` whole batch / `4xx` reject whole batch) vs best-effort (`207 Multi-Status`, per-item outcomes). Size cap on the array. Idempotency-Key is batch-scoped, not per-item. (API-3) |
+| Conditional / contended write | Resource backed by a `version` / `updated_at` column emits a strong `ETag` and requires `If-Match` on the write (`412 Precondition Failed` on stale, `428 Precondition Required` when the header is absent); the GET honors `If-None-Match` → `304 Not Modified`. ETag / If-Match / If-None-Match / 304 / 412 / 428 = RFC 9110 (obsoletes RFC 7232). Ref `ai-patterns/conditional-requests.md`. (API-1) |
+| Write endpoint binding to a persisted entity | Explicit field-allowlist bind — never bind the whole request body onto the entity. Over-post (mass-assignment) e2e asserts a privileged field (e.g. `isAdmin`, `tenantId`, `balance`) sent in the body is ignored. Owned by the **forms / security** domain — pointer, not duplicated policy. (SEC-01) |
+| Endpoint fetches a user-supplied URL | SSRF egress allowlist: block private / link-local / loopback / cloud-metadata ranges, https-only, validate the *resolved* IP (re-resolve, defeat DNS-rebind), no redirects to denied hosts. e2e rejects a metadata-IP (`169.254.169.254`) and a loopback target. Owned by **security-auditor (OWASP A10 SSRF)** — pointer, not duplicated policy. (SEC-02) |
+| Privileged / role-change / data-export / payment-change | Write an immutable audit record (actor / target / before-after / source IP / timestamp) to a separate append-only store, retention per compliance regime. This is NOT RED metrics and NOT app logs. Spec owned by **security-principles** + **observability telemetry-architect** — pointer, not duplicated policy. (OBS-3) |
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
@@ -268,7 +276,7 @@ Dispatch `/add-telemetry` if gaps.
 - `pnpm test` on the new tests.
 - Run `coverage-gap` skill — all new branches covered?
 - `endpoint-test` skill against dev server — 200 + 400 + 401 scenarios run through.
-- `api-snapshot` skill — is this a breaking change? If yes and no ADR → fail.
+- `api-snapshot` skill — is this a breaking change? If yes and no ADR → fail. If the snapshot flags a **removal / breaking change** to an existing surface, the superseded route MUST emit `Deprecation` (RFC 9745) + `Sunset` (RFC 8594, HTTP-date) headers for the announced overlap window before it disappears — failing to announce the retirement is itself a fail. (ENF-2)
 
 ### Review (parallel)
 
@@ -280,6 +288,7 @@ Dispatch:
 - `tenant-isolation-reviewer` — if multi-tenant.
 - `prompt-reviewer` — if AI code touched.
 - `payment-reviewer` — if payment code touched.
+- `@websocket-engineer` — if the endpoint streams (SSE / chunked / NDJSON / LLM token stream): verify backpressure, heartbeat, resume, idle + total timeout, and disconnect-aborts-upstream. (ENF-4)
 
 If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
 

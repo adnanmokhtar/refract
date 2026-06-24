@@ -32,6 +32,24 @@
 - Lazy-load all routes: `component: () => import('./...')`.
 - Route meta declares auth/permissions.
 
+## Async components & streaming
+
+- Lazy heavy components: `defineAsyncComponent(() => import('./Heavy.vue'))`. Configure the fallback explicitly — `{ loadingComponent, errorComponent, delay, timeout }` (without `loadingComponent` there is NO loading UI; without `errorComponent` a load failure renders nothing).
+- `<Suspense>` orchestrates async setup with a fallback slot — `<template #default>` / `<template #fallback>`. NOTE: still **experimental**; API may change.
+  ```vue
+  <Suspense>
+    <template #default><AsyncDashboard /></template>
+    <template #fallback><Spinner /></template>
+  </Suspense>
+  ```
+- Prefetch: vue-router `<router-link>` does NOT auto-prefetch the route's dynamic-import chunk (unlike NuxtLink / Next.js `<Link>`). Warm the import manually on hover/viewport (`@mouseenter="() => import('./views/Heavy.vue')"`) or adopt a quicklink-style strategy. See `frontend/skills/navigation-speed.md`.
+- Image / CWV: plain Vue has no image component. On the LCP `<img>` set `fetchpriority="high"` + explicit `width`/`height` (reserve space, no CLS); use `loading="lazy"` below-fold. See `frontend/skills/lcp-audit.md`.
+
+**Anti-patterns**
+
+- Top-level static `import` of a heavy editor / chart (e.g. `import Editor from 'tiptap'`) — ships it in the initial bundle. Use `defineAsyncComponent`.
+- Assuming `<router-link>` prefetches the route chunk — it does not; the chunk loads only on navigation unless you warm it.
+
 ## API
 
 - NEVER call `fetch` / `axios` from a component.

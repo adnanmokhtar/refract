@@ -47,17 +47,17 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ### Fix: anchor structural citations now skip-listed (no more bare-citation false leaks)
 
-**Why** — `apply-anchors.sh`'s round-one floor emitted its 5 structural citations as **bare** `codebase-profile.md:NN`. The anchoring leak scan (`audit-anchoring.sh`) skip-lists `.claude/*` tokens, but a bare `codebase-profile.md:NN` doesn't match that pattern, so each one is scanned and — finding no literal match in source — flagged as a cross-project leak. With 5 per anchored file across ~150 files that's hundreds of false leaks (observed: 852 on sahlcart-website, 966 on media-streaming), then hand-normalized per-repo (non-durable — the next `apply-anchors --apply` re-introduced the bare form).
+**Why** — `apply-anchors.sh`'s round-one floor emitted its 5 structural citations as **bare** `codebase-profile.md:NN`. The anchoring leak scan (`audit-anchoring.sh`) skip-lists `.claude/*` tokens, but a bare `codebase-profile.md:NN` doesn't match that pattern, so each one is scanned and — finding no literal match in source — flagged as a cross-project leak. With 5 per anchored file across ~150 files that's hundreds of false leaks (observed: 852 on one project, 966 on another), then hand-normalized per-repo (non-durable — the next `apply-anchors --apply` re-introduced the bare form).
 
 - **`apply-anchors.sh` build_block** — the 5 structural citations now emit as `.claude/codebase-profile.md:NN` (path-form, matching the provenance prose right above them). Because the leak scan already skip-lists `.claude/*`, these citations are now never scanned and can never false-leak. Durable: every future generation is correct, no per-repo hand-fix needed.
 - **Scope note** — this fixes the dominant cause (the structural `codebase-profile.md` citations). Project-file citations embedded in extracted prose (e.g. `nuxt.config.ts:55`) are a separate, smaller case: they resolve to real files but aren't `.claude/*` skip-listed. A robust `token_in_target` bare-filename resolution was prototyped but **reverted unvalidated** — synthetic reproduction gave contradictory results, and a shared-auditor change should not ship without a reproduction against the real failing case.
 
 ### Refresh durability: C2s now catches structural shallowness, not just missing gates
 
-**Why** — C2s (kept-command shallowness) only checked for missing safety *gates*. But a kept command can carry every gate and still be a 90-line stub missing the whole *structure* (decompose / validate / improve / failure-modes / output) — which is exactly how `sahlcart/store add-feature` stayed thin (89 lines, all gates, vs the 402-line standard) even after C2s passed it. Gates alone could not guarantee a refresh never silently keeps a thin command.
+**Why** — C2s (kept-command shallowness) only checked for missing safety *gates*. But a kept command can carry every gate and still be a 90-line stub missing the whole *structure* (decompose / validate / improve / failure-modes / output) — which is exactly how a consumer project's `add-feature` stayed thin (89 lines, all gates, vs the 402-line standard) even after C2s passed it. Gates alone could not guarantee a refresh never silently keeps a thin command.
 
 - **`audit-setup.sh` C2s — second axis (structural depth)**: for every `KEEP-OURS` command, C2s now also compares its **section structure** to the pack counterpart and flags it when it's missing ≥3 standard sections (Phase 2 Organize / Phase 5 Update / Phase 6 Validate / Phase 7 Improve / Failure modes / Output / Invariants) **AND** is < 55% of the pack's length. The length gate spares complete-but-flat commands (a dense audit) from a false flag, while catching genuine stubs. The warning names both the missing gates and the missing sections, and recommends deepening to the standard's structure (keeping the command's agents + anchor block).
-- Verified on `sahlcart/store`: the now-deepened build commands (add-feature 275, fix-bug 341, review-changes 335) are NOT flagged; the still-thin stubs (check-health 80, pre-commit 50, expand-task 65) ARE flagged for thin structure with their missing sections; the complete-but-flat `i18n-audit` (86 lines, ~57% of pack) is correctly spared. Warn-only.
+- Verified on a consumer project: the now-deepened build commands (add-feature 275, fix-bug 341, review-changes 335) are NOT flagged; the still-thin stubs (check-health 80, pre-commit 50, expand-task 65) ARE flagged for thin structure with their missing sections; the complete-but-flat `i18n-audit` (86 lines, ~57% of pack) is correctly spared. Warn-only.
 
 ### All-command review — completed the audit action-plan rollout + fixed align-gate count
 
@@ -69,10 +69,10 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ### Refresh: kept-command capability gaps must not stay silent (audit C2s)
 
-**Why** — observed 2026-06-20 in `sahlcart/store` (a bespoke, hand-curated `.claude/`): a conservative refresh correctly chose `KEEP-OURS` for hand-written commands (`add-feature`, `fix-bug`, `review-changes`, …) over the longer generic pack versions — but those curated commands were missing standard safety gates (intent / prior-art / new-dependency / action-plan / coverage-gap / secret-scan), and nothing surfaced it. The user discovered the shallowness by accident. Preserving bespoke is right; hiding the capability gap is not.
+**Why** — observed 2026-06-20 in a consumer project (a bespoke, hand-curated `.claude/`): a conservative refresh correctly chose `KEEP-OURS` for hand-written commands (`add-feature`, `fix-bug`, `review-changes`, …) over the longer generic pack versions — but those curated commands were missing standard safety gates (intent / prior-art / new-dependency / action-plan / coverage-gap / secret-scan), and nothing surfaced it. The user discovered the shallowness by accident. Preserving bespoke is right; hiding the capability gap is not.
 
 - **`audit-setup.sh` C2s** (warn-only) — for every `KEEP-OURS` command row in `_refresh-decisions.md`, compares the kept curated command against its pack counterpart(s) for a sampled high-value gate set (prior-art / new-dependency / intent gate / `## What to do next` / sibling-shape / coverage-gap / secret-scan / change-brief / missing-agent). When the pack has a gate the curated lacks, it names the missing gates and recommends `/setup-project --refine` — without overwriting (conservative stays conservative). Commands with no pack counterpart (bespoke crown-jewels) are never flagged. Same "no silent gap" principle as C2l (rejected commands). Documented in `docs/REFERENCE.md`.
-- Verified against `sahlcart/store`: C2s flags the counterpart-having shallow commands with their specific missing gates, leaves the bespoke commands (`design`, `onboard`, `tenant-safety`, …) untouched, and stays warn-only (audit still PASSES: fail 0). Warn-only checks aren't covered by the exit-code `test-validators.sh` harness; behavior verified by the per-command differential output.
+- Verified against a consumer project: C2s flags the counterpart-having shallow commands with their specific missing gates, leaves the bespoke commands (`design`, `onboard`, `tenant-safety`, …) untouched, and stays warn-only (audit still PASSES: fail 0). Warn-only checks aren't covered by the exit-code `test-validators.sh` harness; behavior verified by the per-command differential output.
 
 ### Review/feedback commands must end with a clear "What to do next" action plan
 
@@ -80,7 +80,7 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 - **New snippet `templates/snippets/review-action-plan.md`** — canonical closing-section contract for read-only review/feedback commands: end every report with `## What to do next`, the findings re-expressed as ONE ordered numbered to-do (MUST FIX → SHOULD FIX → OPTIONAL), each step carrying `<file:line>` + Fix + Verify, then the closing steps (re-run the command, `/learn-from-task`, ship). Clean run collapses to one line. Sibling to `actionable-next-steps.md` (which routes *deferred* findings of fix-commands into follow-up slash commands); this one orders the *findings themselves* into a by-hand fix-list.
 - **Wired into the entire read-only review/feedback family (14 commands)**: `review-changes` (full inline example), `security-audit`, `db-audit`, `perf-audit`, `threat-model`, `design-review`, `a11y-audit`, `i18n-audit`, `migration-review`, `audit-business`, `audit-distributed-tx`, `audit-iam`, `cost-audit`, `audit-knowledge` — each now ends with the `## What to do next` block. Framing is adapted per command (severity for most; **savings** for `cost-audit`; **recommended-actions** for `audit-knowledge`).
-- **Synced** to `sahlcart/capsolah-api` for every one of these installed there (`review-changes`, `security-audit`, `db-audit`, `perf-audit`, `threat-model`, `migration-review`, `audit-business`, `audit-iam`, `cost-audit`, `audit-knowledge`).
+- **Synced** to a consumer project for every one of these installed there (`review-changes`, `security-audit`, `db-audit`, `perf-audit`, `threat-model`, `migration-review`, `audit-business`, `audit-iam`, `cost-audit`, `audit-knowledge`).
 
 ### ui-ux pack v1.3.0 — new `/redesign` command
 
@@ -92,11 +92,11 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ### Refresh: rejected-command surfaces must stay discoverable (M35 rule 4 + audit C2l)
 
-**Why** — observed 2026-06-20 in `sahlcart/tenant-portal`: a lean refresh rejected the whole `ui-ux` pack on capability-overlap ("repo has v1 design-iterate/a11y/visual skills … would collide"), so `/enhance-ui` silently vanished — the deterministic study had classed it ADD, a manual `--reject` overrode that, and a follow-up review reported all-OK. The capability existed under other names; the *command surface* did not, with no breadcrumb.
+**Why** — observed 2026-06-20 in a consumer project: a lean refresh rejected the whole `ui-ux` pack on capability-overlap ("repo has v1 design-iterate/a11y/visual skills … would collide"), so `/enhance-ui` silently vanished — the deterministic study had classed it ADD, a manual `--reject` overrode that, and a follow-up review reported all-OK. The capability existed under other names; the *command surface* did not, with no breadcrumb.
 
 - **`setup-project.md` M35 rule 4** — rejecting a pack **command** on capability-overlap (vs a same-name collision) is incomplete until BOTH: the rationale names the replacement (`→ use /<equivalent>`) AND a native same-named command routes to the curated equivalent (a real specialist, never a copy of the pack version, which assumes pack-only deps like `/align-recheck`). Agents/skills/rules are exempt — only commands are user-typed.
 - **`audit-setup.sh` C2l** — warns (consolidated, one line) when an overlap-rejected command leaves neither a native router nor a `→ use /` breadcrumb. Rationale-filtered to the overlap family ("repo has" / "covered by" / "handled by" / "v1 has curated"); out-of-scope rejections ("not applicable", "out of scope") are exempt. Documented in `docs/REFERENCE.md`.
-- **tenant-portal fix** — authored a native `.claude/commands/enhance-ui.md` routing to curated `design-iterate`(v1) + `/visual-check` + `/a11y-audit` + `ui-reviewer`; updated its ledger line. `/enhance-ui` now resolves and works; C2l confirms it passes (45 other overlap-rejected pack commands surface as a backlog to breadcrumb).
+- **Consumer-project fix** — authored a native `.claude/commands/enhance-ui.md` routing to curated `design-iterate`(v1) + `/visual-check` + `/a11y-audit` + `ui-reviewer`; updated its ledger line. `/enhance-ui` now resolves and works; C2l confirms it passes (45 other overlap-rejected pack commands surface as a backlog to breadcrumb).
 
 ### Major-skills review — frontmatter consistency
 
@@ -150,11 +150,11 @@ Added `"$schema"` to `repo-baseline/.claude/settings.json`; new hooks wired alon
 
 ### migration pack v1.6.0 + align pack v1.7.0 — discipline rules split for the 40k always-on limit
 
-**Why** — Claude Code truncates always-loaded files at 40k chars. `migration-discipline.md` was 79.5k and `align-discipline.md` 94.4k — **roughly half of each rule was silently never loaded** in every session, and project copies + a global symlink multiplied the waste (tenant-portal-v2 carried 176k of truncated rule text; a global `~/.claude/rules/` symlink loaded migration rules into every project including non-migration V1 repos).
+**Why** — Claude Code truncates always-loaded files at 40k chars. `migration-discipline.md` was 79.5k and `align-discipline.md` 94.4k — **roughly half of each rule was silently never loaded** in every session, and project copies + a global symlink multiplied the waste (one consumer project carried 176k of truncated rule text; a global `~/.claude/rules/` symlink loaded migration rules into every project including non-migration V1 repos).
 
 **What ships** — each rule split into an always-on core (<40k) + two on-demand companions under `references/` (content relocated **verbatim**, zero rewording): `<name>-discipline-procedures.md` (tier specs, contract template, full halt elaborations, tool-agnostic procedures, operational protocols, enforcement matrix) + `<name>-discipline-catalogue.md` (worked examples, anti-pattern catalogue, per-tool dispatch tables). Core keeps the philosophy, tier rules, anti-bloat gates, all halts (12-13 compacted with pointers), Must/Must-not, and the structure-vs-behaviour axis table. The "procedures are inlined here" contract is replaced by the **rule-bundle contract**: core + 2 references = ONE discipline; every adapter bundle ships all three (`_migration-pack-coverage.md` / `_align-pack-coverage.md` § Rule-bundle requirement). Manifests declare the pair (`rule_references:` in `_essentials.md`, `reference-pair` topic in `_topics.md`).
 
-**Deployed**: slim cores + references pushed to master-portal-v2 / tenant-portal-v2 / claude-v2; global `~/.claude/rules/migration-discipline.md` symlink removed (double-load + loaded migration rules in V1/non-migration repos); claude-v2's 85.6k CLAUDE.md relocated to 29.5k (4 sections → `.claude/references/`, verbatim).
+**Deployed**: slim cores + references pushed to the downstream consumer projects; global `~/.claude/rules/migration-discipline.md` symlink removed (double-load + loaded migration rules in V1/non-migration repos); one project's 85.6k CLAUDE.md relocated to 29.5k (4 sections → `.claude/references/`, verbatim).
 
 **Files touched**: `templates/packs/migration/{rules/migration-discipline.md, references/* (new), _essentials.md, _topics.md, _version.json}`, `templates/packs/align/{rules/align-discipline.md, references/* (new), _essentials.md, _topics.md, _version.json}`, `templates/tool-adapters/{_migration-pack-coverage.md, _align-pack-coverage.md}`.
 
@@ -219,7 +219,7 @@ Added `"$schema"` to `repo-baseline/.claude/settings.json`; new hooks wired alon
 - `templates/tool-adapters/_orchestration-sync.md` — `validate-audit-artifacts.sh` planned-row updated to validate the 8 sections + `## Actionable next steps` when `--assess` is used.
 - Adapter coverage docs unchanged — `ai/audit/**` glob already covered.
 - Global `~/.claude/commands/audit.md` (symlink) auto-propagates.
-- Downstream: `tenant-portal-v2` + `claude-v2` `.claude/commands/audit.md` resynced.
+- Downstream: the consumer projects' `.claude/commands/audit.md` resynced.
 
 ### `/unify-surfaces` — surface-type unification orchestrator (new top-level, frontend-only)
 
@@ -290,7 +290,7 @@ Added `"$schema"` to `repo-baseline/.claude/settings.json`; new hooks wired alon
 - `templates/tool-adapters/_ui-ux-pack-coverage.md` — capability matrix gains a column; per-tool translation rows updated; `{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,design-review}` brace-list applied across 6 adapter sections; new responsibility item #6 forbids flattening `/ui-crawl` to "`/ui-sweep --auto-fix`".
 - `docs/COMMANDS.md` — UI-UX track table gains 2 rows; new walkthrough section with the paired DETECT → FIX → VERIFY loop.
 - `docs/REFERENCE.md` — TOC entry; new section after `/ui-sweep` covering when-to-use-which, auto-fixable safe-list, human-only triage list, output paths, hard rules.
-- Downstream: `tenant-portal-v2/.claude/commands/{ui-crawl,ui-crawl-fix}.md` already in place (origin); propagated to `.opencode/commands/`, `.cursor/commands/`, `.kimi/skills/{ui-crawl,ui-crawl-fix}/SKILL.md`.
+- Downstream: a consumer project's `.claude/commands/{ui-crawl,ui-crawl-fix}.md` already in place (origin); propagated to `.opencode/commands/`, `.cursor/commands/`, `.kimi/skills/{ui-crawl,ui-crawl-fix}/SKILL.md`.
 
 ### `/audit` — full-stack engineering audit (new top-level orchestrator)
 
@@ -325,7 +325,7 @@ Added `"$schema"` to `repo-baseline/.claude/settings.json`; new hooks wired alon
 - `commands/do.md` — intent → routing table + bottom command list.
 - `README.md` — top-level table (with stack list + flag list) + simple-surface count.
 - Global `~/.claude/commands/audit.md` (symlink) + `~/.kimi/skills/audit/SKILL.md` (auto-generated).
-- Downstream projects: `tenant-portal-v2` and `claude-v2` each got `audit.md` propagated to `.claude/commands/`, `.opencode/commands/`, `.cursor/commands/`, and Kimi skill wrapper at `.kimi/skills/audit/SKILL.md`.
+- Downstream projects: the consumer projects each got `audit.md` propagated to `.claude/commands/`, `.opencode/commands/`, `.cursor/commands/`, and Kimi skill wrapper at `.kimi/skills/audit/SKILL.md`.
 - `CHANGELOG.md` — this entry.
 
 **Distinct from siblings** — `/optimize` (no security, no scale lens), `/security-audit` (security-only), `/db-audit` (DB-only), `/perf-audit` (runtime perf only), `/design-system` (design-time only, not codebase scan). `/audit` is the simple-surface alternative that fans out and cross-ranks.

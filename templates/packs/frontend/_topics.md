@@ -143,6 +143,21 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { ssr_enabled: true }
   fallback: _examples/ssr-audit.md
 
+- name: streaming-ssr
+  kind: skill
+  triggers: { ssr_enabled: true }
+  fallback: _examples/streaming-ssr.md
+
+- name: navigation-speed
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: _examples/navigation-speed.md
+
+- name: lcp-audit
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: _examples/lcp-audit.md
+
 - name: lighthouse-ci
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
