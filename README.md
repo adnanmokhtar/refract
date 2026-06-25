@@ -74,7 +74,7 @@ claude-config/
 ├── templates/
 │   ├── repo-baseline/       # universal — copied into every new repo
 │   ├── workspace-baseline/  # for multi-repo workspaces (dispatcher, cross-repo cmds)
-│   ├── packs/               # 18 ROLE-based tracks — full inventory in templates/knowledge-hub.md
+│   ├── packs/               # 19 ROLE-based tracks — full inventory in templates/knowledge-hub.md
 │   ├── tracks/              # stack-specific scaffolders (web-backend-django, web-frontend-nextjs)
 │   ├── tool-adapters/       # per-tool translations (Cursor, OpenCode, Aider, Cline, …)
 │   ├── phases/              # /setup-project's phase files (0, 1, 2, 3, 4, 4.0, 4.2, 4.6, 4.7, 4.8, 5, 5.0, 5.1, 5.5, 6)
@@ -86,11 +86,11 @@ claude-config/
 └── README.md                # you are here
 ```
 
-The 18 packs: align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Each pack ships agents/, skills/, commands/, rules/, ai-patterns/, _essentials.md, _topics.md, _version.json.
+The 19 packs: algorithms, align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Each pack ships agents/, skills/, commands/, rules/, ai-patterns/, _essentials.md, _topics.md, _version.json.
 
 ### Why role-based packs, not frameworks
 
-Work is organized by **role** — **18 tracks** under `templates/packs/`: align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Framework specifics (NestJS vs Django vs Laravel) live as `references/<framework>.md` inside each track.
+Work is organized by **role** — **19 tracks** under `templates/packs/`: algorithms, align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Framework specifics (NestJS vs Django vs Laravel) live as `references/<framework>.md` inside each track.
 
 So one `api-architect` agent works for every backend. One `schema-architect` works for Postgres, MySQL, Mongo. Add a new framework → drop a reference file → same agents adapt.
 
@@ -385,7 +385,7 @@ Machine state (gitignored): `projects/`, `todos/`, `tasks/`, `sessions/`, `shell
 ```bash
 git init
 git add .
-git commit -m "initial claude config — /setup-project + 18 tracks + workspace template"
+git commit -m "initial claude config — /setup-project + 19 tracks + workspace template"
 git branch -M main
 git remote add origin git@github.com:YOUR_USERNAME/claude-config.git
 git push -u origin main

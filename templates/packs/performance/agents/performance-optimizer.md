@@ -74,6 +74,8 @@ model: sonnet
 - Crypto on the main / request thread → offload to a worker / pool.
 - Sync hash on huge input → stream.
 
+> **Complexity-class CPU defects route out (shared CPU-loop surface).** A hot loop whose fix is an *asymptotic class change* — an `O(n²)` membership scan (`.includes`/`.indexOf`/linear `find` inside a loop) → `O(n)` via a `Set`/`Map`, exponential / unmemoized recursion → memoized `O(n)`, a wrong container for the access pattern — is **not** this agent's finding. Route it to the algorithms pack: `/analyze-complexity` derives + ranks the asymptotic win, `/design-algorithm` redesigns it, and `algorithm-designer` owns the complexity proof. This agent keeps the **constant-factor** tune on a *measured* hot loop (a backtracking regex, one fewer allocation per iteration) — asymptotic-vs-constant-factor is the line, not "loops".
+
 ### Frontend render
 - Identity churn: new array/object literal prop every render → memoize using the framework's memo primitive.
 - Missing stable list keys → stable keys.
@@ -191,11 +193,15 @@ Risk: LOW.
 - Rank by impact/risk — not "coolest first".
 - Each fix has a verification step.
 - Don't optimize what users don't feel (premature).
+- Complexity-class CPU defects (accidental-`O(n²)` scans, exponential/unmemoized recursion, wrong container) route to the algorithms pack (`/analyze-complexity` / `/design-algorithm`) — this agent owns the *measured constant-factor* tune, not the asymptotic class change.
 - DB changes on populated tables use the engine's online-index-build syntax (e.g., `CREATE INDEX CONCURRENTLY` in Postgres) — never lock the table.
 - Bundle changes measured before/after (actual, not claimed).
 - Cache changes paired with invalidation plan.
 
 ## Related
+
+### Agents
+- `algorithm-designer` (algorithms pack) — the reasoning complement: owns asymptotic complexity-class changes + correctness proofs. This agent routes CPU-loop defects whose fix is a *class* change to it (via `/analyze-complexity` / `/design-algorithm`) and receives the constant-factor / N+1 / I/O hand-offs back.
 
 ### Rules
 - `.claude/rules/performance-principles.md`

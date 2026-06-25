@@ -983,7 +983,9 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 
 ### Other tracks
 
-Security (`/security-audit`), observability (`/log-tail`, `/add-tracing`, `/add-metrics`, `/add-telemetry`), database (`/add-migration`, `/optimize-query`, `/db-audit`), performance (`/perf-audit`, `/profile-perf`, `/bundle-perf`), infrastructure (`/k8s-generate`, `/audit-iam`, `/cost-audit`), business (`/audit-business`), distributed-systems (`/audit-distributed-tx`).
+Security (`/security-audit`), observability (`/log-tail`, `/add-tracing`, `/add-metrics`, `/add-telemetry`), database (`/add-migration`, `/optimize-query`, `/db-audit`), performance (`/perf-audit`, `/profile-perf`, `/bundle-perf`), algorithms (`/design-algorithm`, `/analyze-complexity`), infrastructure (`/k8s-generate`, `/audit-iam`, `/cost-audit`), business (`/audit-business`), distributed-systems (`/audit-distributed-tx`).
+
+> **Algorithms track** (stack-agnostic) — the *reasoning* layer above profiling. `/design-algorithm <problem>` models a problem, derives the complexity budget from the input scale, weighs candidate approaches, proves the chosen one correct, and implements it with property + adversarial tests (`--plan` stops at the brief). `/analyze-complexity <scope>` derives cited time/space big-O per hot path and ranks the asymptotic wins (accidental-quadratic, wrong-container, repeated-recompute); `--fix` applies the unambiguous swaps. Both drive the `algorithm-designer` agent — the *reasoning* complement of `performance-optimizer` (which *measures* runtime): wrong-algorithm/data-structure is found here by deriving complexity, slow-query/N+1/I/O is found there by measuring, and each hands off to the other.
 
 ### `--plan` works on every generated command
 

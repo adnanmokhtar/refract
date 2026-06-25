@@ -42,6 +42,8 @@ These map onto the closed refactoring vocabulary (`extract-method`, `extract-cla
 
 **Route to `/optimize`, do NOT apply here:** introducing a value object, replacing a conditional with polymorphism, and reducing fan-out (facade / merge) each introduce a NEW symbol or move responsibilities across boundaries — they trip this agent's own auto-halt above ("adds new symbols") and fall outside the closed vocabulary. Surface them as `/optimize` follow-ups (it owns `split-god-module`, `decouple-cycle`, `introduce-abstraction`); never smuggle them through a refactor.
 
+**Route to `/analyze-complexity` / `/design-algorithm` (algorithms pack), do NOT apply here:** an **algorithmic change** — swapping the algorithm or data structure for a different *complexity class* (e.g. an `O(n²)` membership scan → an `O(n)` hash-set pass, or replacing the approach outright) — is not behavior-**and-complexity**-preserving, so it falls outside a refactor by definition. Surface it as an `/analyze-complexity` finding (analysis) or a `/design-algorithm` redesign; the `algorithm-designer` agent carries the complexity derivation + correctness proof a refactor cannot.
+
 ## Never do inside a refactor
 
 - Fix bugs. If you find one, stop and report — don't smuggle it in. Fix is a separate commit with its own test.

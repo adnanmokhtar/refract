@@ -1,12 +1,18 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "1.2.0",
-  "released": "2026-06-25",
+  "version": "1.2.1",
+  "released": "2026-06-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Web-vitals / INP additions — NEW skill web-vitals-field (field CWV with attribution: onINP/onLCP/onCLS/onTTFB via web-vitals/attribution, the only path to citing INP — Lighthouse lab can't field-measure it) + NEW ai-pattern inp-responsiveness (per-interaction main-thread budget: scheduler.yield / startTransition / useDeferredValue / LoAF attribution); lazy-loading gains a hydration-scheduling (interactive-islands) tier; bundle-perf adds a streaming-ssr routing branch on TTFB-dominated SSR + a Navigation-timing axis + LoAF-attributed INP; performance-principles adds an INP-responsiveness MUST + TTFB budget + soft-nav SHOULD. Pairs with frontend v1.4.0 (navigation-speed, streaming-ssr, lcp-audit).",
+  "summary": "Reciprocal boundary route to the new algorithms pack: a hot CPU loop whose fix is an asymptotic complexity-class change (accidental-`O(n²)` scan, exponential/unmemoized recursion, wrong container) routes OUT to `/analyze-complexity` / `/design-algorithm` (algorithm-designer owns the complexity proof); performance-optimizer keeps the measured constant-factor tune — making the shared CPU-loop boundary rendered on both sides, not asserted on one. (1.2.0: web-vitals / INP additions — web-vitals-field skill + inp-responsiveness ai-pattern + hydration-scheduling, streaming-SSR, nav-timing branches.)",
   "changelog": {
+    "1.2.1": {
+      "released": "2026-06-26",
+      "changes": [
+        "performance-optimizer agent: added a reciprocal boundary route — a CPU-loop hotspot whose fix is a complexity-CLASS change (accidental-`O(n²)` membership scan → `O(n)`, exponential/unmemoized recursion → memoized, wrong container) is out of this agent's lane and routes to the new algorithms pack (`/analyze-complexity` to derive+rank, `/design-algorithm` to redesign; algorithm-designer owns the complexity proof); the agent keeps the measured constant-factor tune. Makes the algorithms pack's 'shared CPU-loop surface, arbitrated by asymptotic-vs-constant-factor' boundary real on the performance side (rendered-not-asserted), matching the refactorer + /optimize routes. Added a carve-out note in the Backend CPU taxonomy, a Hard rule, and an algorithm-designer entry under Related."
+      ]
+    },
     "1.2.0": {
       "released": "2026-06-25",
       "changes": [

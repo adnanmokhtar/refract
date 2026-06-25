@@ -1,12 +1,18 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.5.0",
-  "released": "2026-06-16",
+  "version": "1.5.1",
+  "released": "2026-06-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "review-changes hardening: dependency-manifest review category + universal secret-scan (every file, not just auth) + universal coverage-gap (flags untested new logic) + missing-agent inline fallback (no silently-skipped axis).",
+  "summary": "refactorer agent: reciprocal boundary route — an algorithmic / complexity-class change (swapping the algorithm or data structure for a different complexity class) is not behavior-AND-complexity-preserving, so it routes to the new algorithms pack (`/analyze-complexity`, `/design-algorithm`) alongside the existing `/optimize` route; makes the algorithms pack's claimed hand-off real (rendered-not-asserted). (1.5.0: review-changes hardening — dependency-manifest category + universal secret-scan + universal coverage-gap + missing-agent inline fallback.)",
   "changelog": {
+    "1.5.1": {
+      "released": "2026-06-26",
+      "changes": [
+        "refactorer agent: added a reciprocal boundary route — an algorithmic change (swapping the algorithm/data structure for a different complexity class) is not behavior-AND-complexity-preserving, so it routes to the new algorithms pack (`/analyze-complexity` / `/design-algorithm`), alongside the existing `/optimize` route. Makes the algorithms pack's claimed hand-off real (rendered-not-asserted)."
+      ]
+    },
     "1.5.0": {
       "released": "2026-06-16",
       "changes": [

@@ -299,7 +299,7 @@ To skip a track entirely: run `--dry-run`, see the plan, request changes interac
 ## See also
 
 - `commands/setup-project.md` — full command spec (~4900 lines, 7-phase pipeline + 6 round-two deep-extraction phases)
-- `templates/packs/` — pack catalog (18 tracks including `align`, `migration`, and `learning`, 107 commands, 59 agents) + per-track `_essentials.md` manifests
+- `templates/packs/` — pack catalog (19 tracks including `algorithms`, `align`, `migration`, and `learning`, 110 commands, 61 agents) + per-track `_essentials.md` manifests
 - `templates/packs/learning/skills/` — extraction skills (round-one: `extract-codebase-overview`, `extract-base-class-idiom`; round-two: `extract-domain-entities-deeply`, `extract-architecture-deeply`, `extract-flows-deeply`, `extract-conventions-emerging`, `extract-hotpaths`, `extract-failures-from-history`, `compute-anchor-density`)
 - `templates/packs/learning/ai-patterns/setup-quality-scoring.md` — the four-axis anchor-density rubric used by `--refine` Phase 5.5
 - `templates/business-domains/` — 15 business domains

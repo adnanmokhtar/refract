@@ -4,13 +4,14 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**167 commands** — core 15 · 18 packs (108) · domains 36 · baseline 8. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**169 commands** — core 15 · 19 packs (110) · domains 36 · baseline 8. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
 ## Sections
 
 - [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 15
+- [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
 - [Pack — backend](#pack--backend) — 9
 - [Pack — business](#pack--business) — 3
@@ -51,6 +52,13 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/setup-project-health` | Report the health of /setup-project artifacts in the current repo. | — | `/setup-project-health` |
 | `/task` | Provider-agnostic task executor. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
 | `/unify-surfaces` | One command surface-type unification for frontend codebases, deep multi-agent. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
+
+## Pack — algorithms
+
+| Command | Summary | Flags | Example |
+|---|---|---|---|
+| `/analyze-complexity` | Analyze existing code for algorithmic complexity — derive time + space big-O per hot path (worst /… | `--plan`, `--fix`, `--hot=<spec>`, `--include-cold`, `--space` | `/analyze-complexity src/feed/ranker.ts` |
+| `/design-algorithm` | Design an algorithm for a problem (or redesign an existing function) — model it, derive the… | `--plan`, `--scale=<spec>`, `--budget=<class>`, `--candidates=<n>`, `--no-tests` | `/design-algorithm "dedup 5M event ids preserving first-seen order"` |
 
 ## Pack — align
 
