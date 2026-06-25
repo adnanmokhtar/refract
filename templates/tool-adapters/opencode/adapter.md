@@ -153,7 +153,7 @@ Per-command-class mapping for `agent:`:
 | Command class | `agent:` value | Why |
 |---|---|---|
 | Audit-only (`/audit`, `/security-audit`, `/perf-audit`, `/db-audit`) | `plan` or a custom read-only subagent | Audits should not edit; Plan mode gives reasoning + read tools without write/shell |
-| Plan-only (`/refine-prompt`, `/migration-plan`, `/draft-phase-adrs`) | `plan` (use `build` if executing `/refine-prompt`, which writes to `ai/ideas/`) | Plan mode emits plans, not edits. **`/refine-prompt`'s `medium`/`heavy` deep-refine fans out to parallel specialist sub-agents in Claude Code; OpenCode has no specialized-persona dispatch, so the deep pass degrades to drafting §9-15 sequentially.** |
+| Plan-only (`/refine-prompt`, `/migration-plan`, `/draft-phase-adrs`) | `plan` (use `build` if executing `/refine-prompt`, which writes to `ai/prompts/` — or `ai/ideas/` for the `new-project` class) | Plan mode emits plans, not edits. **`/refine-prompt`'s `medium`/`heavy` deep-refine fans out to parallel specialist sub-agents in Claude Code; OpenCode has no specialized-persona dispatch, so the deep pass degrades to drafting the class-specific sections sequentially.** |
 | Full-action (`/optimize`, `/migrate`, `/polish`, `/align`, `/refactor`, `/unify-surfaces`, `/setup-project`, `/do`) | `build` | Build mode = full tool access (read + write + shell + MCP) |
 | Knowledge/help (`/setup-project-health`, `/learn-from-task`) | `build` (low-risk) | These write to `ai/` but don't shell out aggressively |
 

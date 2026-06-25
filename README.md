@@ -39,7 +39,7 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 | `/setup-project-adapters`      | Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, …).                        |
 | `/setup-project-health`        | Read-only health report (drift, staleness, budgets, parity).                      |
 | `/scaffold-project`            | Generate a working project from scratch (prompt → stack → boot).                  |
-| `/refine-prompt`               | Turn a rough prompt into a structured spec (feeds `/scaffold-project`).           |
+| `/refine-prompt`               | Turn any rough idea into a deep, execution-ready prompt for the right command (output-only; feeds `/scaffold-project`, `/add-feature`, `/audit`, …). |
 | `/migrate [<scope>]`           | One-command V1→V2 port. Deep multi-agent. Brief output.                           |
 | `/align [<scope>]`             | One-command convention drift sweep.                                               |
 | `/optimize [<scope>]`          | One-command architectural diagnosis + tactical sweep.                             |

@@ -304,7 +304,7 @@ tools:
 | Command class | tools whitelist |
 |---|---|
 | Audit-only (`/audit`, `/security-audit`, `/perf-audit`, `/db-audit`) | `read` only (no `write`, no `shell`) — Explore-style |
-| Plan-only (`/refine-prompt`, `/migration-plan`) | `read`, `write` (writes plan to `ai/`) — no shell. **`/refine-prompt` `medium`/`heavy` deep-refine maps to declared `.kimi/subagents/` (one per §9-15 specialist + a reconcile subagent for §16), dispatched by the parent agent; `light` stays single-pass. Orphan subagents don't dispatch — register them in the parent agent YAML (see § "Subagent registration").** |
+| Plan-only (`/refine-prompt`, `/migration-plan`) | `read`, `write` (writes plan to `ai/`) — no shell. **`/refine-prompt` `medium`/`heavy` deep-refine maps to declared `.kimi/subagents/` (one per class-specific prompt-section specialist + a reconcile subagent), dispatched by the parent agent; `light` stays single-pass. Orphan subagents don't dispatch — register them in the parent agent YAML (see § "Subagent registration").** |
 | Full-action (`/optimize`, `/migrate`, `/polish`, `/align`, `/refactor`, `/unify-surfaces`, `/setup-project`, `/do`) | `read`, `write`, `shell` — Coder-style |
 | Knowledge/help (`/setup-project-health`, `/learn-from-task`) | `read`, `write` — no shell |
 

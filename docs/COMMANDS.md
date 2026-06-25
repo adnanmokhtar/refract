@@ -38,7 +38,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/setup-project-adapters`     | Re-sync tool adapters (Cursor / OpenCode / Aider…).                    | No (writes) |
 | `/setup-project-health`       | Drift / staleness / budget report.                                     | **Yes** |
 | `/scaffold-project`           | Generate a working project from scratch (prompt → stack → boot).       | No (writes) |
-| `/refine-prompt`              | Turn a rough prompt into a structured spec.                            | No (writes ai/ only) |
+| `/refine-prompt`              | Turn any rough idea into a deep, execution-ready prompt for the right command (output-only). | No (writes ai/ only) |
 | `/migrate [<scope>]`          | One-command V1→V2 port. Deep multi-agent. Brief output.                | No (writes) |
 | `/align [<scope>]`            | One-command convention drift sweep.                                    | No (writes) |
 | `/optimize [<scope>]`         | One-command architectural diagnosis + tactical sweep.                  | No (writes) |
@@ -207,6 +207,59 @@ Checks:
 9. Oracle approval + provenance (`_extracted-idioms.md` / `_extracted-codebase.md`: `approved_by:` stamp present + body hash unchanged since approval; `[unconfirmed]` claim count). Warn-only by design; prints the paste-ready stamp command when unapproved.
 
 Output: a markdown table with one row per check + a "Recommended actions" section.
+
+---
+
+## `/scaffold-project`
+
+Full contract: [`commands/scaffold-project.md`](../commands/scaffold-project.md).
+
+Take a refined idea (or a raw prompt) and generate a **working project from scratch**: proposes the stack with rationale, runs the official scaffolders, layers clean architecture + a design system + auth + a dashboard, writes an ADR for every choice, installs the Claude orchestration (`.claude/` + `ai/`), and validates the dev server boots. Auto-chains `/setup-project --create` at Phase 4.8.
+
+```
+/scaffold-project ai/ideas/20260625-my-idea.md   # from a /refine-prompt new-project spec (preferred)
+/scaffold-project "a booking tool for barbers"    # from a raw one-liner (does a mini-refine first)
+```
+
+Reads a `new-project`-class spec from `ai/ideas/<YYYYMMDD>-<slug>.md` when present — that spec drives every Phase 2 decision. Pair with `/refine-prompt` first for a deeper input than a sentence.
+
+---
+
+## `/refine-prompt`
+
+Full contract: [`commands/refine-prompt.md`](../commands/refine-prompt.md).
+
+Take any rough idea / one-liner / ticket and produce a **deep, execution-ready prompt** tailored to the detected **task class** — then name the exact command to run it. **Output-only**: it writes the prompt and prints the `Run:` line; it never executes (that is `/do`). Adversarial — forces ≥3 open questions and grounds every referenced idiom in `_extracted-idioms.md` instead of inventing APIs.
+
+```
+/refine-prompt "add a product filter sidebar"     # → frontend-feature → /add-feature
+/refine-prompt "the order list crashes on empty"  # → bugfix → /fix-bug
+/refine-prompt "is this ready for 50k rps?"        # → audit-multi → /audit --target-rps=50000
+/refine-prompt "a booking tool for barbers"        # → new-project → /scaffold-project
+/refine-prompt -                                    # read the idea from stdin
+/refine-prompt "…" --no-prompt                      # skip the final "Ready to run?" gate (logged)
+```
+
+**Phase 1 classifies** the task into one of 15 classes (`frontend-feature`, `backend-endpoint`, `module`, `bugfix`, `audit-multi`, `audit-focused`, `optimize`, `refactor`, `align`, `unify-surfaces`, `polish`, `migrate`, `migrate-spot`, `spec`, `new-project`) plus a `generic` fallback. **Phase 2** maps the class to its target command and prompt contract. Every prompt carries a universal core (Objective / Context / Scope IN+OUT / Constraints / testable Acceptance criteria / Open questions) plus class-specific sections (e.g. a frontend prompt adds all four states + a11y + design tokens; a backend prompt adds the request/response/error/auth/idempotency contract). Medium/heavy tasks fan out to parallel specialist sub-agents (Sonnet) + an adversarial reconcile (Opus); light tasks stay single-pass.
+
+Saves to `ai/prompts/<YYYYMMDD>-<slug>.md` (the `new-project` class saves to `ai/ideas/` so `/scaffold-project` reads it from its expected location). Distinct from `/do` (which routes + executes a raw description) and `/task` (which fetches a tracker ticket and runs it end-to-end).
+
+---
+
+## `/do`
+
+Full contract: [`commands/do.md`](../commands/do.md).
+
+Universal meta-router. Describe what you want in natural language; the agent reads the project's available commands, infers intent + stack, and **dispatches to the right specialized command** (running it, not just naming it). High confidence → runs silently with a one-line preamble; ambiguous → asks one question; no match → halts with the available commands listed.
+
+```
+/do enhance the sidebar with cleaner padding   # → /enhance-ui
+/do add a refund button to the order detail    # → /add-feature
+/do audit security                             # → /security-audit
+/do make the orders module consistent          # → asks one question, then /align or /optimize
+```
+
+Use when you don't remember the exact command. If you want a prompt artifact to read/edit before running instead of immediate execution, use `/refine-prompt`.
 
 ---
 
@@ -623,6 +676,36 @@ These are the recommended user surface. One command per concern. Deep multi-agen
 | `/audit [<scope>]` | Full-stack engineering audit — universal across stacks. One pass across architecture / SOLID + clean code / security / DB perf / runtime perf / scalability + resilience (13 scale-lens detectors routed via `PROJECT_KIND`) / infra / observability. Cross-axis ranked by `impact-at-target-scale × blast-radius × fix-cost`. Three modes: default (scan + rank + execute), `--plan-only`, `--assess` (senior-engineer narrative). Scale-first targets: `--target-rps`, `--target-vitals`, `--target-cold-start`, `--target-startup`, `--target-bundle`. |
 | `/unify-surfaces [<scope>]` | Surface-type unification across the frontend codebase — typed by SURFACE CATEGORY (tables / forms / headers / tabs / filters / buttons / validation) rather than by axis. Inventories every consumer, decides the canonical wrapper, extracts/extends it, migrates every consumer in one cascade-rewrite commit per category. Validation extracts a 3-part pipeline (validator composable + `<ErrorList>` / `<FieldError>` + API-error mapper). Frontend stacks only. |
 
+## `/migrate`
+
+Full contract: [`commands/migrate.md`](../commands/migrate.md).
+
+One-command V1→V2 port. Deep multi-agent: internally runs scan + plan + audit + port + verify in parallel waves with V1 as the production reference — **V1 wins on behaviour, V2 wins on structure** (no lift-and-shift). No phases / ADRs / ledger talk surfaced; brief output (features ported, commits, diff stats, test status). Optional scope arg. The simple-surface alternative to the `/migration-scan → /migration-plan → /migration-fast` cycle (still available for power users).
+
+```
+/migrate                       # whole project V1→V2
+/migrate the orders module     # scoped
+```
+
+Shares the orchestrated common-flag set documented under [`/optimize`](#optimize) (`--status`, `--resume`, `--refresh`, `--re-audit`, `--restart`, `--dry-run`, …). Writes to `ai/migrate/progress.md`.
+
+---
+
+## `/align`
+
+Full contract: [`commands/align.md`](../commands/align.md).
+
+One-command convention-alignment sweep. Deep multi-agent: internally runs scan + fix in parallel waves for convention drift, reinvented wrappers, silent catches + unhandled I/O, design-token drift, a11y, i18n, and layering violations. No phases / terminology surfaced; brief output (findings closed, commits, diff stats, test status). Optional scope arg. The simple-surface alternative to `/align-scan + /align-fast`; for a single narrow area use `/align-recheck`.
+
+```
+/align                         # whole project convention drift
+/align the sidebar             # scoped
+```
+
+Shares the orchestrated common-flag set documented under [`/optimize`](#optimize). Writes to `ai/align/progress.md`.
+
+---
+
 ## `/optimize`
 
 Full contract: [`commands/optimize.md`](../commands/optimize.md).
@@ -667,6 +750,21 @@ Examples:
 ```
 
 `--restart` does NOT revert any commits already made — use `git` for that.
+
+## `/polish`
+
+Full contract: [`commands/polish.md`](../commands/polish.md).
+
+One-command polish sweep, **stack-conditional** via `PROJECT_KIND`. Frontend → visual polish (hierarchy, spacing rhythm, design tokens, missing states, CTA, motion, focus, type scale, iconography — the 19-verb closed vocabulary). Backend → API consistency (envelope, error contract, pagination, idempotency, uniform log/metric/trace, OpenAPI). Data → schema consistency (naming, types, indexes, audit fields, migrations). Mobile → platform conventions (iOS HIG / Material). Brief output. Sibling to `/migrate` / `/optimize` / `/align`; distinct from `/enhance-ui` (single-surface creative iteration) and `/unify-surfaces` (surface-type unification).
+
+```
+/polish                        # whole project (frontend: UI/UX; backend: API; data: schema)
+/polish the dashboard          # scoped
+```
+
+Shares the orchestrated common-flag set documented under [`/optimize`](#optimize). Writes to `ai/polish/progress.md`. Requires `PROJECT_KIND` to be set.
+
+---
 
 ## `/audit`
 
