@@ -93,7 +93,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-business.md (differentiating promise + goals) + ai/users-and-personas.md (personas) + _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice / Breakpoints (existing visual world) + _extracted-codebase.md § Stack (design-token source + i18n/RTL setup)
-  sections: [premise, comparison_table, modes, when_to_use, when_not_to_use, prerequisites, args, agent_job, phases, approval_gate, diagnose_redline, diverge_directions, encodability_table, output, hard_rules, failure_modes, handoff_chain, cross_references, stack_scope]
+  sections: [premise, comparison_table, modes, when_to_use, when_not_to_use, prerequisites, args, agent_job, phases, approval_gate, yes_flag, diagnose_redline, diverge_directions, encodability_table, build_chain, output, hard_rules, failure_modes, cross_references, stack_scope]
   fallback: commands/art-direct.md
   cite_evidence: strict
 

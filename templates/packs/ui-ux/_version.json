@@ -1,12 +1,23 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.5.0",
-  "released": "2026-06-25",
+  "version": "1.6.0",
+  "released": "2026-06-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "creative-director agent + /art-direct command — the pack's new UPSTREAM creative high-ground: the only artifact that DECIDES and INVENTS the visual language (concept, original layouts/shapes/type/colour/motion, signature moments) from the product's goals, rather than enforcing or refining the existing one. Two modes (evolve = push the existing language further / reimagine = greenfield from goals); diagnoses the current design with a cited point-of-view (redline vocabulary), generates THREE mechanically-distinct directions (logo-swap + divergence checks), renders + scores them, gates on approval, then hands off to design-system-architect (codify) → /redesign (build pages within the now-existing language) → /polish (finish). Originality is the ceiling; the usability floor (WCAG-AA computed, 320px, RTL, reduced-motion, perf budget) is delegated to ux-reviewer and never re-audited (no 17th axis). Proposes + directs; writes no production code. v1.4.0 unchanged: sync-chain repair (_topics.md declares enhance-ui + ui-sweep) + audit action-plan rollout. v1.3.0 unchanged: /redesign command — from-scratch page/flow rework rebuilt inside the existing design system, mandatory approval gate, 11-lens rubric, rendered verification. v1.2.0 unchanged: ui-crawl + ui-crawl-fix. v1.1.0 unchanged: ui-design-sweep 19-verb skill.",
+  "summary": "/art-direct now DESIGNS and BUILDS (v1.6) — after the single direction-approval gate (or immediately under the new --yes flag) it AUTO-RUNS its build chain (design-system-architect codify → /redesign rebuild pages → /polish finish) to produce finished, committed screens, bounded by <scope>; --plan stops at the design (no build). It no longer just 'proposes + hands off'; one command takes you from product goals to built UI with one approval checkpoint (after which the build re-prompts only to avoid dropping a feature silently — keep/move/drop, defaulted to keep under --yes). New flags: --yes (skip the gate), --surfaces=<n> (cap the build). Now requires a clean working tree (the build lands one commit per surface; git is the rollback). The creative-director agent is unchanged in role (it decides + directs; the command runs the builders). v1.5.0 introduced the creative-director agent + /art-direct command — the UPSTREAM creative high-ground that DECIDES and INVENTS the visual language (concept, original layouts/shapes/type/colour/motion, signature moments) from product goals; two modes (evolve / reimagine); 9-lens Direction rubric, 15-label redline vocabulary, 14-element invention vocabulary; mechanical gates (logo-swap, divergence check, Encodability Table, computed-AA); usability floor delegated to ux-reviewer (no 17th axis). v1.4.0 unchanged: sync-chain repair. v1.3.0 unchanged: /redesign. v1.2.0 unchanged: ui-crawl + ui-crawl-fix. v1.1.0 unchanged: ui-design-sweep 19-verb skill.",
   "changelog": {
+    "1.6.0": {
+      "released": "2026-06-26",
+      "changes": [
+        "/art-direct now BUILDS, not just proposes: after the single direction-approval gate it AUTO-RUNS design-system-architect (codify tokens, landed in the same oracle /redesign re-extracts) → /redesign (rebuild each key surface in scope with its per-page proposal gate RELAXED — the one direction approval + a reviewable commit per surface stand in for it, rather than a prompt per page) → /polish (finish), producing real commits (one per surface). git is the rollback. The build keeps /redesign's one mandatory non-gate question — a feature with no home is surfaced keep/move/drop, never dropped silently (--yes defaults it to keep).",
+        "New flag --yes: skip the single approval gate (design → build in one shot). Still HALTs on hard pre-flight failures (dirty tree, missing oracles in reimagine, no frontend).",
+        "New flag --surfaces=<n>: cap how many surfaces the build rebuilds per run; the rest are listed as remaining (keeps a broad scope like 'the whole product' from running unbounded).",
+        "--plan is now explicitly the design-only mode (writes the brief to .claude/plans/, builds nothing).",
+        "Now requires a clean working tree (relaxed under --plan). Pre-requisites + output reframed around the build (built surfaces, commits, diff, revert range). Phases 5–7 changed from 'handoff' to 'run'.",
+        "Docs + adapter contract resynced: COMMANDS.md, REFERENCE.md (flow + prereqs + new-project walkthrough), FEATURE-LIFECYCLE.md (Scenario A scaffold→art-direct→build), tool-adapters/_ui-ux-pack-coverage.md (responsibility #8 now DESIGN→GATE→BUILD; the gate is the load-bearing translation concern, --yes skips it). creative-director agent: 'Driven by' note updated (command auto-runs the build chain)."
+      ]
+    },
     "1.5.0": {
       "released": "2026-06-25",
       "changes": [

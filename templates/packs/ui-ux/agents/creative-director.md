@@ -165,7 +165,7 @@ A gated **Art-Direction Brief**, rendered where it makes a visual claim, written
 
 Not validated: <renders / floor items skipped | none>
 Risks:         <residual creative / migration risk | none identified>
-Revert:        <this brief writes no production code — N/A until handoff runs>
+Revert:        <the brief itself writes no code; once /art-direct runs the build, revert is `git`>
 ```
 
 ## Hard rules
@@ -214,7 +214,7 @@ Revert:        <this brief writes no production code — N/A until handoff runs>
 - `@theme-specialist` — keeps the resulting themes in parity.
 
 ### Driven by
-- `/art-direct` — the command that runs you as a deep, gated flow and prints the handoff chain.
+- `/art-direct` — the command that runs you as a deep flow, gates once on the direction (or skips the gate under `--yes`; or stops at the design under `--plan`), then **auto-runs** the build chain. You still decide and direct; the command does the building by invoking the chain below.
 
 ### Hands off to
 - `design-system-architect` (codify) → `/redesign` (build pages within the now-existing language) → `/polish` (finish).

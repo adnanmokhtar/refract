@@ -10,13 +10,42 @@ One page. How a new project or a new feature moves from idea → shipped, mapped
 
 ```
 1. /refine-prompt "<idea>"          idea → structured spec   →  ai/ideas/<YYYYMMDD>-<slug>.md
-2. /scaffold-project <spec-path>     spec → working repo
+2. /scaffold-project <spec-path>     spec → working repo (boots; starter design system + auth + dashboard)
       └─ auto-chains /setup-project --create at Phase 4.8  (→ .claude/ + ai/ + rules + adapters)
-3. then every feature → Scenario B
+3. /art-direct --reimagine           [frontend, optional] invent the REAL visual identity from goals
+      └─ approve once → it BUILDS it: auto-runs design-system-architect → /redesign → /polish
+                        (--yes skips the approval · --plan stops at the design)
+4. then every feature → Scenario B
 ```
 
 - `/scaffold-project` **embeds** `/setup-project` — you do **not** run setup-project as a separate third step for a fresh scaffold. Its declared "next" is `/add-feature`.
 - Run `/setup-project` **standalone** only for an **existing** repo that needs the `.claude/` knowledge layer retrofitted (`--enhance` / `--refresh`).
+- Step 3 is **optional and frontend-only** — `/scaffold-project` already ships a *starter* design system, so you can skip straight to features. Run `/art-direct` when you want a real, ownable visual identity instead of the defaults. See the walkthrough below.
+
+### Designing the visual identity — the scaffold → art-direct → build loop (frontend)
+
+`/scaffold-project` gives you a working app with a *starter* design system — sensible defaults, not an identity. To give the product a real, ownable look, run the creative-direction loop **after the scaffold boots** (it needs surfaces to critique + the goals/personas oracles, which the scaffold produces — pointing `/art-direct` at an empty folder has nothing to read):
+
+```
+1. /scaffold-project "<idea>"     → working app (boots) + starter design system + the oracles
+                                     art-direct reads (ai/project-goals.md, ai/users-and-personas.md)
+
+2. /art-direct --reimagine        → reads the goals + the starter surfaces; invents THREE distinct
+                                     directions (concept · layout/shape language · type/colour/motion
+                                     · signature moments); renders + scores them  →  ONE APPROVAL
+     └─ on approval it BUILDS — auto-runs, in order (the creative-director designs; the
+        command runs the builders):
+          design-system-architect  → codifies the chosen direction into the scaffolded tokens/primitives
+          /redesign  (per surface) → rebuilds each key surface in the new language (one commit each)
+          /polish                  → finishes motion / states / contrast / rhythm
+
+3. then every feature → Scenario B → new pages inherit the now-real design system
+```
+
+- **One approval:** you approve the *direction* once before anything is rewritten; the build then runs to committed screens (`git` is the rollback), re-prompting only to avoid dropping a feature silently (a **keep / move / drop** call when a feature has no home in the new layout).
+- **Skip the stop:** `--yes` builds without the approval (design → build in one shot). **Lighter look:** if the starter system is already close, use `--evolve` (default) instead of `--reimagine`.
+- **Design only:** `/art-direct --reimagine --plan` writes the brief to `.claude/plans/` and stops at the design — review the direction, build nothing.
+- **Boundary:** `/art-direct` *decides the language and runs the build*; `/redesign` *builds each page within it*; `design-system-architect` *codifies it*; `/polish` *finishes*. It halts on a backend/data-only repo (nothing to art-direct).
 
 ## Scenario B — New feature in an existing project
 
@@ -91,7 +120,7 @@ The plan file is a tool-agnostic contract (`Context · Inputs · Outputs · Step
 ## End-to-end at a glance
 
 ```
-NEW PROJECT:   /refine-prompt → /scaffold-project (⤷ /setup-project) → features ↓
+NEW PROJECT:   /refine-prompt → /scaffold-project (⤷ /setup-project) → [frontend] /art-direct ⤷ architect→/redesign→/polish → features ↓
 NEW FEATURE:   /do  ·or·  /analyze-task → specs/<file> → /add-feature specs/<file>   (Spec-ID threads into PR/commits)
                           ·or·  /expand-task → /add-feature
                                               │
