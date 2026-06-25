@@ -83,6 +83,7 @@ All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP
   /<routed-or-`--to`-command> <one-line synthesized description>
   ```
   The "Suggested command" line uses `--to`'s value if given, else the command `/do` would route to. End the run after printing — this is the hand-off mode.
+  **Output integrity** — the printed block must be clean: no corruption artifacts (doubled punctuation, stray/truncated tokens, duplicated lines), every identifier (key, URL, type, perm) spelled consistently, every code snippet one canonical shape, and every "verify/likely/if X" hedge collected — not buried inline. Same bar as `/refine-prompt`'s output-integrity rule; for a *deep* class-tailored prompt (frontend feature, endpoint, audit, …) rather than a ticket transcription, prefer `/refine-prompt`.
 - **`--to=<command>`** (pin the target) → skip `/do` routing; dispatch the synthesized description **directly** to `/<command>` (must exist in this repo). Without `--to`, **dispatch to `/do`** so it routes to the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …). `/task` does NO code work itself.
 - If the task obviously spans multiple specialists (e.g. "add endpoint AND its UI"), run them in dependency order; record each in the worklist.
 

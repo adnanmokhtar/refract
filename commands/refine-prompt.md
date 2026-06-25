@@ -123,13 +123,23 @@ Every refined prompt — regardless of class — opens with the **universal core
 
 ## Constraints
 - <must reuse existing X / follow convention Y / perf budget Z / no new deps>
+- **Read-before-write**: read the named files / `CLAUDE.md` / sibling module first; mirror the existing pattern before innovating.
+
+## Pinned contracts (do NOT change)
+- <external API / schema / public interface that is live and off-limits — exact shape>
+- **If the task cannot be done without changing a pinned contract → STOP and report; do not edit it.**
+  (Omit this section only when nothing external is pinned.)
 
 ## Acceptance criteria (testable)
 - Given <…> when <…> then <…>.
 - ...
 
+## Verification & done
+- <how to confirm it works: `/verify <route>`, the exact tests to run, lint + typecheck clean>
+- <RTL / dark-mode / locale checks when relevant>
+
 ## Open questions (forced — at least 3)
-- <unknown 1>
+- <unknown 1 — harvest every "verify / likely / if X" hedge from the body into here>
 - <unknown 2>
 - <unknown 3>
 ```
@@ -218,6 +228,12 @@ Re-read the whole prompt from a *contrarian* angle. For each section: What's mis
 
 **For `heavy` weight, run this as a dedicated reconcile sub-agent on `opus`** prompted to *refute the prompt's executability*: "find every claim a command could not act on — an acceptance criterion not traceable to a scope item, a state with no data source, an endpoint field with no validation, a constraint that contradicts the objective." Its findings sharpen the Open questions section. For `light`/`medium`, run this inline at the session model. Either way it is silent.
 
+The reconcile pass also **fixes** (not just flags) three defect classes — re-emit the corrected prompt, never ship them:
+
+- **Output integrity.** No corruption artifacts: no doubled punctuation (`::`, `;;`), no stray single-character tokens (`endpoints e —`), no truncated / concatenated words (`:idpoint`), no duplicated bullets or lines. Every identifier introduced once must be spelled **identically everywhere** (a permission key, URL, type name, or i18n key must not appear as both `affiliate_registrations.delete` and `a_registrations.delete`).
+- **Snippet fidelity.** Any embedded code shape (component props, service generics, URL maps, route configs, object literals) must be **one canonical, internally-consistent shape grounded in the actual file read** — never two divergent guesses for the same thing (e.g. a `tabItems` entry shaped `{value: '/path'}` in one line and `{value: 1, path: '/path'}` in the next). When the real shape is unknown, write a single placeholder and a `// confirm against <file>` note, and lift the unknown into Open questions — do not invent a second guess.
+- **Unknowns harvested.** Every inline hedge in the body ("verify which field…", "likely a `can()` helper", "if BaseCrudService demands…") is **moved into the Open questions section**, not left buried mid-instruction where an implementer skims past it.
+
 **Final user gate.** Print the full prompt and the `Run:` line, then ask: **"Ready to run?"** Reply with:
 - "yes" / "ship it" → continue to Phase 5.
 - "fix X / revise Y" → re-enter Phase 4 internal iteration; do NOT re-pause until the next "Ready to run?".
@@ -239,11 +255,19 @@ Universal checks (every class):
 - Objective is one observable sentence (not "make it good").
 - Scope IN and Scope OUT both non-empty (forces an explicit boundary).
 - ≥1 acceptance criterion, each in given/when/then form and traceable to a scope-IN item.
-- Open questions ≥3 (forces honesty about unknowns).
+- Verification & done section names a concrete check (a `/verify` route, the tests, lint + typecheck).
+- Open questions ≥3 (forces honesty about unknowns); no inline hedge ("verify…/likely…/if X") left buried in the body.
 - Constraints reference real idioms when inside a project (no invented APIs / wrappers).
+- A pinned external contract (if any) carries the explicit "STOP and report, do not change it" rule.
 - `Run:` line names a command that **exists** in this project (or a stated fallback).
 - No section left as `<TBD>` / `<placeholder>`.
 - No `<!-- specialist failed: … -->` markers remain.
+
+Output-integrity checks (must be **clean** — the reconcile fixes these; Phase 6 asserts none survived):
+- No doubled punctuation (`::`, `;;`), stray single-char tokens, or truncated / concatenated words.
+- No duplicated bullets or lines.
+- Every identifier (permission key, URL, type, i18n key, route name) spelled identically at every occurrence.
+- Every embedded code snippet is syntactically valid and uses **one** canonical shape — no two divergent guesses for the same structure.
 
 Class checks (the relevant ones):
 - `frontend-feature`: all four states (loading / empty / error / success) present; a11y section non-empty.
@@ -289,6 +313,10 @@ Run: /<cmd> ai/prompts/<date>-<slug>.md
 - **Prompt that the target command can't act on** — an acceptance criterion with no scope item, a state with no data source. The adversarial reconcile exists to catch exactly this.
 - **`Run:` line names a command not installed here** — the prompt is unrunnable. Phase 6 checks `.claude/commands/`; fall back per the Phase 2 table and say so.
 - **Invented idioms** — a frontend prompt referencing a `<DataTable>` wrapper the project doesn't have. Ground every idiom in `_extracted-idioms.md`; mark unknowns as open questions.
+- **Corruption artifacts** — `value::`, `:idpoint`, `endpoints e`, a permission key spelled two ways, a duplicated bullet. The output-integrity pass exists to catch and fix exactly these before ship; a prompt with them reads as careless and misleads the implementer.
+- **Invented / inconsistent code shapes** — two different shapes for the same `tabItems` / props / service-generics, or a guessed component contract. Ground snippets in the real file or mark `// confirm against <file>` + an open question; never ship two divergent guesses.
+- **Unknowns buried inline** — "verify which field…" left mid-instruction instead of in Open questions, where the implementer skims past it and builds on a guess.
+- **Pinned contract editable** — a live external API / schema named but with no "do not change → STOP" rule, inviting the implementer to "fix" it.
 - **One-pass without the final gate** → wrong direction caught too late. The single "Ready to run?" pause is non-negotiable.
 - **Sections fabricated to look complete** → fictional prompt. Validation flags `<TBD>` markers.
 - **Specialists run sequentially** → wasted wall-clock + lost independence. Dispatch all in one message.
@@ -305,8 +333,10 @@ Run: /<cmd> ai/prompts/<date>-<slug>.md
 - **Opus reasons, Sonnet drafts.** Drafting specialists on `sonnet`; the adversarial reconcile on `opus`. Pass `model` explicitly; overrides hold under `opusplan`.
 - **Execution-ready, not implementation-prescriptive.** The prompt states *what* and *acceptance*, grounded in real idioms — it does not write the diff. The target command writes the code.
 - **Adversarial questioning, not stenography.** Surface contradictions; don't smooth them over. Open questions are mandatory (≥3).
-- **Ground in reality.** Every referenced idiom, wrapper, module, or file must exist (per `_extracted-idioms.md` / `.claude/commands/`); unknowns become open questions, never invented facts.
-- **Flag loudly, block never.** Phase 6 reports `<TBD>` / under-target / unrunnable `Run:` lines; the user decides whether to accept or re-enter Phase 4.
+- **Ground in reality.** Every referenced idiom, wrapper, module, file, **and code snippet** must trace to something real (per `_extracted-idioms.md` / `.claude/commands/` / the actual file). Unknowns become open questions; a code shape you can't confirm gets one placeholder + a `// confirm against <file>` note — never an invented or doubly-guessed shape.
+- **Output integrity is non-negotiable.** The reconcile pass fixes corruption artifacts (doubled punctuation, stray/truncated tokens, duplicated lines), enforces one consistent spelling per identifier, and harvests buried inline hedges into Open questions before ship. Phase 6 asserts none survived. A strong prompt is clean prompt — these are bugs, not style.
+- **Pin what's off-limits.** When the task names a live external contract (API / schema / public interface), the prompt must state "do NOT change it → STOP and report" explicitly.
+- **Flag loudly, block never.** Phase 6 reports `<TBD>` / under-target / unrunnable `Run:` lines; the user decides whether to accept or re-enter Phase 4. (Output-integrity defects are the exception — those are *fixed* in reconcile, not shipped-and-flagged.)
 
 ## Related
 
