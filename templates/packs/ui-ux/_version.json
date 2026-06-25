@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.4.0",
-  "released": "2026-06-22",
+  "version": "1.5.0",
+  "released": "2026-06-25",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Sync-chain repair — _topics.md now declares enhance-ui AND ui-sweep as commands (both shipped under commands/ and named in _essentials.md, but were absent from the topic list, so /setup-project AUTHOR-mode generation silently dropped them; no _examples/ stubs exist so their fallbacks point at the live sources); plus the audit action-plan rollout that landed in the review/feedback commands. v1.3.0 unchanged: /redesign command — from-scratch page/flow rework (rethinks layout + IA + UX, NOT a restyle) rebuilt inside the app's existing design system, with a mandatory approval gate before any code; 11-lens Design-principles rubric; composes the pack's design specialists; renders the rebuilt surface (Playwright) to earn its RTL/a11y/responsive checkmarks. v1.2.0 unchanged: ui-crawl + ui-crawl-fix. v1.1.0 unchanged: ui-design-sweep 19-verb skill.",
+  "summary": "creative-director agent + /art-direct command — the pack's new UPSTREAM creative high-ground: the only artifact that DECIDES and INVENTS the visual language (concept, original layouts/shapes/type/colour/motion, signature moments) from the product's goals, rather than enforcing or refining the existing one. Two modes (evolve = push the existing language further / reimagine = greenfield from goals); diagnoses the current design with a cited point-of-view (redline vocabulary), generates THREE mechanically-distinct directions (logo-swap + divergence checks), renders + scores them, gates on approval, then hands off to design-system-architect (codify) → /redesign (build pages within the now-existing language) → /polish (finish). Originality is the ceiling; the usability floor (WCAG-AA computed, 320px, RTL, reduced-motion, perf budget) is delegated to ux-reviewer and never re-audited (no 17th axis). Proposes + directs; writes no production code. v1.4.0 unchanged: sync-chain repair (_topics.md declares enhance-ui + ui-sweep) + audit action-plan rollout. v1.3.0 unchanged: /redesign command — from-scratch page/flow rework rebuilt inside the existing design system, mandatory approval gate, 11-lens rubric, rendered verification. v1.2.0 unchanged: ui-crawl + ui-crawl-fix. v1.1.0 unchanged: ui-design-sweep 19-verb skill.",
   "changelog": {
+    "1.5.0": {
+      "released": "2026-06-25",
+      "changes": [
+        "NEW agent creative-director (model: opus) — sets and INVENTS the visual direction from product goals; owns the Direction rubric (9 creative lenses), a 15-label redline diagnosis vocabulary, and a 14-element invention vocabulary (concept, shape/grid language, type personality, colour concept, motion personality, signature moments, refusals, Encodability Table). The creative high-ground above design-system-architect (codifies a decided direction) and ux-reviewer (audits the usability floor). Premise-first, cite-or-halt via templates/snippets/hand-wave-grep.md, rendered-not-asserted, mechanical ownability + divergence gates. Standard mode only (not in --minimal).",
+        "NEW command /art-direct <scope> (kind: command, pack: ui-ux) — one command to set + invent the visual direction, driven by creative-director. Modes: --evolve (default, push the existing language further) / --reimagine (greenfield from goals). Diagnoses → diverges three distinct directions → renders (design-iterate) + scores → mandatory approval gate → hands off to design-system-architect → /redesign → /polish. Proposes + directs; writes no production code. Flags: --evolve, --reimagine, --direction, --render/--no-render, --plan. Frontend / mobile only. Standard mode only.",
+        "Sync chain: _topics.md (creative-director agent + art-direct command, fallbacks point at live sources — no _examples stubs), _essentials.md rationale (both standard-mode), docs/COMMANDS.md (UI-UX track table) + docs/REFERENCE.md (TOC + /art-direct section), tool-adapters/_ui-ux-pack-coverage.md (now seven commands; per-tool translation + gate-intact responsibility for /art-direct)."
+      ]
+    },
     "1.4.0": {
       "released": "2026-06-22",
       "changes": [

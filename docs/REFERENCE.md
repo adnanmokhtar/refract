@@ -22,6 +22,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [`/ui-sweep` — project-wide UI/UX specialist](#ui-sweep--project-wide-uiux-specialist)
 - [`/ui-crawl` + `/ui-crawl-fix` — paired QA crawler + auto-fixer](#ui-crawl--ui-crawl-fix--paired-qa-crawler--auto-fixer-v12)
 - [`/redesign` — from-scratch page rework with approval gate](#redesign--from-scratch-page-rework-with-approval-gate-v13)
+- [`/art-direct` — invent the visual direction](#art-direct--invent-the-visual-direction-v15)
 - [Memory system](#memory-system)
 - [Validator scripts](#validator-scripts)
 - [Common pitfalls](#common-pitfalls)
@@ -805,6 +806,49 @@ Broken dialog triggers · horizontal overflow at any breakpoint · page didn't l
 
 - `PROJECT_KIND` is `frontend-*` / `mobile-*` (backend/data-only → HALT with a redirect to the frontend repo).
 - Working tree clean; `_extracted-idioms.md` populated; Playwright MCP (or project screenshot harness) wired for Phase 6.
+
+## `/art-direct` — invent the visual direction (v1.5+)
+
+`/art-direct <scope>` is the one command **upstream** of everything else in the pack. Every other UI command works *within* a visual language someone already chose — `/align` enforces it, `/polish` and `/enhance-ui` finish inside it, `/redesign` rebuilds a page inside it (and is explicitly forbidden to invent a new one — `redesign.md:64`), `design-system-architect` codifies a decided one into tokens. `/art-direct` is the one that **decides and invents the language itself** — concept, original layouts/shapes, type/colour/motion personality, signature moments — derived from the product's **goals**, not extracted from the existing system. It is the answer to "what should this *feel* like, and what would make it ownable?" — the question before tokens, pages, and polish.
+
+It is driven by the **`creative-director`** agent (the pack's creative high-ground, above `design-system-architect` which codifies and `ux-reviewer` which audits the floor) and resolves the creative-vs-disciplined tension with **mechanical gates, not vibes**: a concept that must *fail* the logo-swap test to count; three directions forced apart by a divergence check (color-ramp-swap + ≥2 structural axes); an Encodability Table so every signature move is buildable; computed-AA contrast; and an escalate-or-route rule so it never re-audits the 16-axis usability floor (`ui-principles.md:87`). Originality is the ceiling; usability is the floor; it **proposes and directs, and writes no production code.**
+
+### When `/art-direct` vs the within-system commands
+
+| Want | Command |
+|---|---|
+| Decide / invent the visual language itself, from product goals | `/art-direct` |
+| Rebuild ONE page's layout/UX inside the existing language | `/redesign` |
+| Codify an already-decided direction into tokens/primitives | `design-system-architect` (agent) |
+| Add finish (states, rhythm, hierarchy, variants), structure preserved | `/enhance-ui` · `/polish` |
+| Enforce hardcoded value → token, a11y drift → existing rule | `/align` |
+
+### Two modes
+- **`--evolve` (default)** — the existing visual world is the canon to honour and amplify. Infer the product's *implicit* concept, name where it is timid/generic/off its own concept (cited redlines dominate), and raise the ceiling without breaking recognizability. Output centers on a **Direction Delta** (current → proposed per token/primitive) and hands off low-churn.
+- **`--reimagine`** — greenfield. Read GOALS (`ai/project-goals.md`) + PERSONAS (`ai/users-and-personas.md`), derive a NEW concept from first principles; the three directions are independent visual worlds. The existing system is input/reference only, plus a **mandatory migration/rollout cost** under Risks. Jobs-to-be-done are non-negotiable in both modes — `reimagine` may throw away the LOOK, never the JOBS.
+
+### The flow (7 phases, one hard gate)
+
+1. **Frame** — parse `<scope>` + mode; intent-gate (route enforce/tidy/page-rebuild intents to `/align`·`/enhance-ui`·`/polish`·`/redesign`); read goals + personas from the correct oracles (cite-or-halt; `reimagine` HALTs if unreadable).
+2. **Diagnose (redline pass)** — read the current surfaces; tag each failure with a diagnosis label pinned to `<path:line>` or a named reference; run the wired hand-wave grep; **escalate** each to the aesthetic verdict or **route** pure usability findings to `ux-reviewer` / `/redesign`; cluster by severity.
+3. **Diverge** — generate exactly THREE directions, each curing a different redline cluster AND at a non-adjacent point on a per-product tension axis; each a full mini-brief; enforce the mechanical divergence check.
+4. **Generate (render + gate)** — validate against content-truth (longest/translated string, dense, empty, RTL) + the usability floor (eliminate floor failures); render candidates via `design-iterate` or mark `SKIPPED`; score the three on the Direction rubric; recommend ONE with its named sacrifice + live alternative; build the Encodability Table — then **GATE: approve / adjust / pick alternative.** Nothing proceeds without approval. (Under `--plan`, the brief IS the plan artifact — written and exited here.)
+5. **Codify handoff** — on approval, hand the Encodability Table + Direction Delta / original-system proposal to `design-system-architect` to turn the decided aesthetic into governed token/primitive layers.
+6. **Build handoff** — hand each surface's IA archetype + signature spec + state language to `/redesign`, which rebuilds pages *within the now-codified language* (its "no inventing a visual language" constraint is satisfied — the new tokens ARE the existing system now); `ux-reviewer` — which drives the page-level IA/flow rethink in `/redesign` — confirms the usability floor there.
+7. **Finish handoff + report** — hand the closure-verb targets to `/polish`; emit the brief chat output + the `Not validated: / Risks: / Revert:` footer. The full brief lives in `.claude/artifacts/art-direct/<iso>/brief.md`.
+
+### Hard rules
+- **Concept-first** — no visual proposal without a one-sentence concept that *fails* the logo-swap test; a concept you can't state is decoration.
+- **Cite-or-halt** via the wired `hand-wave-grep.md`; every redline carries a `<path:line>` or a named reference, or it is deleted.
+- **Rendered, not asserted** — contrast is COMPUTED; unrendered visual claims are `SKIPPED`, never faked.
+- **Encodable or owned** — every signature move is an Encodability row or a flagged rendered art-directed exception.
+- **The floor is delegated, never re-owned** — no 17th usability axis; floor findings on the existing design route to `ux-reviewer`.
+- **No averaging** — commit to one direction with its honest sacrifice; the other two stay as real alternatives.
+- **Propose + direct, never build** — `/art-direct` gates on approval, then hands off `design-system-architect` → `/redesign` → `/polish`.
+
+### Pre-requisites
+- `PROJECT_KIND` is `frontend-*` / `mobile-*` (backend/data-only → HALT with a redirect to the frontend repo).
+- Goals (`ai/project-goals.md`) + personas (`ai/users-and-personas.md`) readable — mandatory in `--reimagine`. `_extracted-idioms.md` populated. Playwright MCP wired *if* rendered candidates are wanted (else marked `SKIPPED`). No clean-tree requirement (it writes no production code — its handoff commands enforce their own gates).
 
 ## Memory system
 

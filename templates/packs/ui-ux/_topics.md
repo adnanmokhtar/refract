@@ -32,6 +32,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [persona, persona_aware_review, micro_copy_audit, error_state_audit, output_format]
   fallback: _examples/ux-reviewer.md
 
+- name: creative-director
+  kind: agent
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-business.md (differentiating promise + goals) + ai/users-and-personas.md (personas) + _extracted-codebase.md § Stack (UI lib + design-token source) + _extracted-idioms.md § Tokens / Surfaces / Voice + sample surfaces
+  sections: [persona, premise, halt_conditions, invariants, diagnosis_vocabulary, direction_rubric, diverge_method, invention_vocabulary, converge_method, modes, usability_floor, output_brief, hard_rules, forbidden, failure_modes]
+  fallback: agents/creative-director.md
+  cite_evidence: strict
+
 - name: design-systems
   kind: pattern
   triggers: { primary_frontend_framework_detected: true }
@@ -79,6 +87,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-idioms.md § Wrappers (shared component library) + _extracted-codebase.md § Stack (design-token source + i18n/RTL setup) + _extracted-business.md (personas — affects UX direction)
   sections: [premise, comparison_table, when_to_use, when_not_to_use, prerequisites, args, agent_job, design_principles_rubric, phases, diagnose_design_critique, approval_gate, design_quality_scorecard, output, hard_rules, failure_modes, cross_references, stack_scope]
   fallback: commands/redesign.md
+  cite_evidence: strict
+
+- name: art-direct
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-business.md (differentiating promise + goals) + ai/users-and-personas.md (personas) + _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice / Breakpoints (existing visual world) + _extracted-codebase.md § Stack (design-token source + i18n/RTL setup)
+  sections: [premise, comparison_table, modes, when_to_use, when_not_to_use, prerequisites, args, agent_job, phases, approval_gate, diagnose_redline, diverge_directions, encodability_table, output, hard_rules, failure_modes, handoff_chain, cross_references, stack_scope]
+  fallback: commands/art-direct.md
   cite_evidence: strict
 
 - name: ui-crawl
@@ -135,7 +151,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice / Breakpoints + ui-principles.md § Axis catalog
-  sections: [purpose, when_to_use, inputs, outputs, the_18_closure_verbs, procedure, hard_rules, failure_modes]
+  sections: [purpose, when_to_use, inputs, outputs, the_19_closure_verbs, procedure, hard_rules, failure_modes]
   fallback: skills/ui-design-sweep.md
   cite_evidence: strict
 ```
