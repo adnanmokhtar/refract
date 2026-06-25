@@ -2,6 +2,8 @@
 
 User-facing reference for every top-level command in `commands/`. Source of truth: this file. Sync to `~/.claude/` is symlink-managed, so changes here apply live.
 
+> **Quick index:** for a terse one-row-per-command cheat sheet of **every** command (core + packs + domains + baseline) with flags + a usage example, see [`CHEATSHEET.md`](CHEATSHEET.md). It is **generated** from the command files by `scripts/gen-cheatsheet.py` (CI gate `verify-cheatsheet.sh` keeps it in sync) — read it, don't hand-edit it.
+
 ## Table of contents
 
 - [Commands at a glance](#commands-at-a-glance)
