@@ -1,12 +1,12 @@
 ---
-purpose: Adapter-facing sync for simple-surface commands (`/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
+purpose: Adapter-facing sync for simple-surface commands (`/roadmap`, `/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
 ---
 
 # Orchestration & validator sync (for adapters)
 
 Use when translating pack bundles, CI hooks, or discipline blocks. Authoritative command prose: `commands/{migrate,optimize,polish,align,refactor,audit,unify-surfaces}.md`. Validator sources: `scripts/validate-*-artifacts.sh`.
 
-**Honesty clause (2026-06-07, all simple-surface summaries)**: every run summary of `/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/unify-surfaces` closes with three mandatory lines — `Not validated:` (what did NOT run + why, or `none — <what fully ran>`), `Risks:` (residual risk, or `none identified`), `Revert:` (exact git command for the run's commit range). Adapters that approximate these commands via pack commands or the parallel orchestrator scripts MUST carry the same three lines in their end-of-run report. `Tests: green` without the negative space is the Trusted Summary failure mode applied to the run report. **`/audit` is in scope for every execution summary** (it commits P0–P4 fixes); its read-only `--assess` / `--plan-only` short-circuits produce a report, not an execution summary, and are exempt. **`/refactor` is deliberately exempt** from this mandate — it is git-scoped, behaviour-preserving, and lighter by design (no scale/perf/security claims to under-validate), so "all simple-surface summaries" above does not include it; `/refactor` carries only the standard one-commit-per-finding revert note.
+**Honesty clause (2026-06-07, all simple-surface summaries)**: every run summary of `/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/unify-surfaces` closes with three mandatory lines — `Not validated:` (what did NOT run + why, or `none — <what fully ran>`), `Risks:` (residual risk, or `none identified`), `Revert:` (exact git command for the run's commit range). Adapters that approximate these commands via pack commands or the parallel orchestrator scripts MUST carry the same three lines in their end-of-run report. `Tests: green` without the negative space is the Trusted Summary failure mode applied to the run report. **`/audit` is in scope for every execution summary** (it commits P0–P4 fixes); its read-only `--assess` / `--plan-only` short-circuits produce a report, not an execution summary, and are exempt. **`/roadmap` is in scope only under `--build`** (it commits one phase of features); its default plan output is read-only and exempt — same split as `/audit`. **`/refactor` is deliberately exempt** from this mandate — it is git-scoped, behaviour-preserving, and lighter by design (no scale/perf/security claims to under-validate), so "all simple-surface summaries" above does not include it; `/refactor` carries only the standard one-commit-per-finding revert note.
 
 ## Command boundary table (authoritative split)
 
@@ -47,7 +47,7 @@ When a codebase needs the complete pass — diagnose, fix foundations, snap drif
 
 Rationale for the order: `--assess` triages before any edit; `/optimize` fixes foundations first (so `/align` and `/polish` operate on a settled structure); `/align` removes mechanical drift before `/polish` adds new finish (so polish doesn't decorate code that's about to be snapped); `/learn-from-task` runs last to promote what was learned.
 
-**Each sweep's `Next:` block should chain to `/learn-from-task`** — every one of `/audit`, `/optimize`, `/align`, `/polish`, `/migrate`, `/unify-surfaces` ends its run summary by offering `/learn-from-task` as a follow-up so the learnings from the sweep are not lost. (`/audit`'s execution examples already carry this in `commands/audit.md`.)
+**Each sweep's `Next:` block should chain to `/learn-from-task`** — every one of `/audit`, `/optimize`, `/align`, `/polish`, `/migrate`, `/unify-surfaces`, `/roadmap` (under `--build`) ends its run summary by offering `/learn-from-task` as a follow-up so the learnings from the sweep are not lost. (`/audit`'s execution examples already carry this in `commands/audit.md`.)
 
 ## Discipline enforcement (`AGENTS.md` inject)
 

@@ -34,7 +34,7 @@ Folder shape and per-pack metadata are documented in `templates/packs/README.md`
 
 ## Reserved non-track namespaces
 
-Not every `pack:` frontmatter value names a track. The top-level core commands in `commands/` (`/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/refactor`, `/do`, `/scaffold-project`, `/refine-prompt`, `/task`, `/setup-project-adapters`, `/setup-project-health`, `/unify-surfaces`, `/learn-from-task`) carry `pack: orchestration`. This is a **logical grouping label**, not a track:
+Not every `pack:` frontmatter value names a track. The top-level core commands in `commands/` (`/migrate`, `/optimize`, `/align`, `/polish`, `/audit`, `/refactor`, `/roadmap`, `/do`, `/scaffold-project`, `/refine-prompt`, `/task`, `/setup-project-adapters`, `/setup-project-health`, `/unify-surfaces`, `/learn-from-task`) carry `pack: orchestration`. This is a **logical grouping label**, not a track:
 
 - It has **no `templates/packs/orchestration/` folder** — these commands ship repo-symlinked from `commands/`, not installed via `/setup-project` tracks.
 - It is therefore **not a table row above** and is **excluded from the folder↔row drift check** below (a row would falsely report "row without folder").

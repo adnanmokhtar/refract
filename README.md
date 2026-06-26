@@ -40,6 +40,7 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 | `/setup-project-health`        | Read-only health report (drift, staleness, budgets, parity).                      |
 | `/scaffold-project`            | Generate a working project from scratch (prompt → stack → boot).                  |
 | `/refine-prompt`               | Turn any rough idea into a deep, execution-ready prompt for the right command (output-only; feeds `/scaffold-project`, `/add-feature`, `/audit`, …). |
+| `/roadmap [<scope>]`           | Phased completion plan for an unfinished project — maps every missing / stubbed / half-wired feature (six detectors), sized + dependency-phased. Read-only by default; `--build [<N>]` builds ONE phase per run and halts at a gate. Single-codebase analog of `/migration-scan` + `/migration-plan`. |
 | `/migrate [<scope>]`           | One-command V1→V2 port. Deep multi-agent. Brief output.                           |
 | `/align [<scope>]`             | One-command convention drift sweep.                                               |
 | `/optimize [<scope>]`          | One-command architectural diagnosis + tactical sweep.                             |
@@ -51,7 +52,7 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 | `/task <ref>`                  | Pull ONE task from Trello / Jira / Linear / GitHub (URL, key, or `next`) → fetch title + description + attachments → execute via `/do` → write status back. Per-repo provider via `.env`. See [`docs/TASK-PROVIDERS.md`](docs/TASK-PROVIDERS.md). |
 | `/learn-from-task`             | Phase 6 manual entry — promote concrete learnings into `ai/`.                     |
 
-The seven simple-surface commands (`/migrate /align /optimize /refactor /polish /audit /unify-surfaces`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level detailed commands (`/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` for power-user control. See `docs/COMMANDS.md` for every flag.
+The eight simple-surface commands (`/roadmap /migrate /align /optimize /refactor /polish /audit /unify-surfaces`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level detailed commands (`/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` for power-user control. See `docs/COMMANDS.md` for every flag.
 
 ## `/setup-project` — the brain
 

@@ -4,13 +4,13 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**169 commands** — core 15 · 19 packs (110) · domains 36 · baseline 8. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**170 commands** — core 16 · 19 packs (110) · domains 36 · baseline 8. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
 ## Sections
 
-- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 15
+- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 16
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
 - [Pack — backend](#pack--backend) — 9
@@ -46,6 +46,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/polish` | One command UI/UX + API + Schema + Platform polish, stack-conditional, deep multi-agent. | `--plan`, `--direction`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--no-iterate`, `--surface-blockers`, `--stack=<override>` | `/polish the orders module` |
 | `/refactor` | Targeted behaviour-preserving refactor. | `--plan`, `--dry-run`, `--allow-dirty`, `--status`, `--resume`, `--strict`, `--quiet`, `--phase-base=<git-ref>`, `--ledger=<path>` | `/refactor [<scope>]` |
 | `/refine-prompt` | Take any rough idea / one-liner / ticket and produce a deep, execution-ready prompt tailored to the… | — | `/refine-prompt "<rough idea>"` |
+| `/roadmap` | One command, phased completion plan for an unfinished project. | `--goal`, `--build`, `--status`, `--refresh`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--no-table-stakes` | `/roadmap the payments domain` |
 | `/scaffold-project` | Take a refined idea (or raw prompt) and generate a working project from scratch — proposes stack… | `--name=<repo-name>`, `--into=<path>`, `--stack=<key>`, `--no-claude-orchestration`, `--no-prompt`, `--dry-run` | `/scaffold-project "<idea-or-refined-spec-path>"` |
 | `/setup-project` | The brain. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--plan`, `--upgrade`, `--health`, `--validate-schemas`, `--diff` | `/setup-project --plan` |
 | `/setup-project-adapters` | Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, Codex, Continue, Copilot, Gemini, Windsurf… | `--legacy-opencode` | `/setup-project-adapters` |

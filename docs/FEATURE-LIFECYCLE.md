@@ -47,6 +47,23 @@ One page. How a new project or a new feature moves from idea → shipped, mapped
 - **Design only:** `/art-direct --reimagine --plan` writes the brief to `.claude/plans/` and stops at the design — review the direction, build nothing.
 - **Boundary:** `/art-direct` *decides the language and runs the build*; `/redesign` *builds each page within it*; `design-system-architect` *codifies it*; `/polish` *finishes*. It halts on a backend/data-only repo (nothing to art-direct).
 
+## Scenario A2 — Completing an unfinished project
+
+You inherited or paused a half-built project and need to know what's left, then finish it in controlled batches (not one giant unreviewable change).
+
+```
+1. /roadmap [--goal "…"]       map every intended-but-unbuilt feature → ai/roadmap/plan.md (phased, sized, read-only)
+                               (--goal folds in requirements that aren't in the code/docs yet)
+2. read the plan               review the phases before building anything
+3. /roadmap --build            build Phase 1 in parallel waves → halt at the phase gate → review
+4. /roadmap --build            Phase 2 … repeat one phase per run (never all-at-once)
+5. /roadmap                    re-map → converges to 0 missing = done
+```
+
+Six detectors reconstruct "done" for a project with no V1 to copy: stubs, dangling wires, feature asymmetry, spec delta (README/PRD/ADRs), domain table-stakes, dead-end flows. Every row cites `<file:line>` — no phantom features. The single-codebase analog of the migration pack's scan → plan → fast loop. Each finished feature then flows into Scenario B for follow-on work.
+
+---
+
 ## Scenario B — New feature in an existing project
 
 **Step 0 — pick the entry by how raw the ask is:**

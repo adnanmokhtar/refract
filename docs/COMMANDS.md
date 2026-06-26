@@ -14,6 +14,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
   - [`/scaffold-project`](#scaffold-project)
   - [`/refine-prompt`](#refine-prompt)
 - Simple-surface (whole-project, multi-area, deep multi-agent)
+  - [`/roadmap`](#roadmap)
   - [`/migrate`](#migrate)
   - [`/align`](#align)
   - [`/optimize`](#optimize)
@@ -41,6 +42,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/setup-project-health`       | Drift / staleness / budget report.                                     | **Yes** |
 | `/scaffold-project`           | Generate a working project from scratch (prompt → stack → boot).       | No (writes) |
 | `/refine-prompt`              | Turn any rough idea into a deep, execution-ready prompt for the right command (output-only). | No (writes ai/ only) |
+| `/roadmap [<scope>]`          | Phased completion plan for an unfinished project — maps every missing / stubbed / half-wired feature (six detectors), sized + dependency-phased into `ai/roadmap/plan.md`. `--build [<N>]` builds ONE phase per run, halting at a phase gate. | Plan default; `--build` writes |
 | `/migrate [<scope>]`          | One-command V1→V2 port. Deep multi-agent. Brief output.                | No (writes) |
 | `/align [<scope>]`            | One-command convention drift sweep.                                    | No (writes) |
 | `/optimize [<scope>]`         | One-command architectural diagnosis + tactical sweep.                  | No (writes) |
@@ -665,12 +667,13 @@ Properties:
 - **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
 - **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
 
-### The 7 simple commands (start here)
+### The 8 simple commands (start here)
 
-These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted for migrate/align/optimize/polish/audit/unify-surfaces, or natural-language description / explicit path). **`/refactor`** defaults to git-changed paths when scope is omitted — omit whole-repo refactor here; use `/optimize` instead.
+These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted for roadmap/migrate/align/optimize/polish/audit/unify-surfaces, or natural-language description / explicit path). **`/refactor`** defaults to git-changed paths when scope is omitted — omit whole-repo refactor here; use `/optimize` instead.
 
 | Command | Purpose |
 |---|---|
+| `/roadmap [<scope>]` | Phased completion plan for an **unfinished** project — maps every intended-but-unbuilt feature via six detectors (stubs / dangling wires / feature asymmetry / spec delta / domain table-stakes / dead-end flows), sized + dependency-phased into `ai/roadmap/plan.md`. Read-only by default; `--build [<N>]` builds ONE phase per run and halts at the phase gate. Single-codebase analog of `/migration-scan` + `/migration-plan`. |
 | `/migrate [<scope>]` | Deep V1↔V2 scan + compare + port everything. V1 wins on behaviour; V2 wins on structure. Doesn't leave any live V1 feature behind (skips only dead V1 code). |
 | `/optimize [<scope>]` | Make code high-quality at architectural AND tactical level. Phase 0 diagnoses bigger picture (layer violations, god modules, missing abstractions, wrong-level responsibilities, cross-cutting duplication, cyclic dependencies), applies foundations FIRST. Phase 2 closes remaining tactical findings (clean code, refactoring, SOLID, performance, dead code, dedup). Architectural fixes cascade — fixing the right layer dissolves dozens of tactical findings. Stack-agnostic. |
 | `/refactor [<scope>]` | Targeted behaviour-preserving refactor only — closed vocabulary from `refactoring-sweep` (extract-method, rename, flatten-conditional, …). No architectural moves, no perf, no dead-code sweeps. Ledger at `ai/refactor/ledger.md`; validator `scripts/validate-refactor-artifacts.sh`. |
@@ -1003,6 +1006,22 @@ Every generated command supports `--plan`. Example:
 /verify-plan .claude/plans/add-feature-checkout-<ts>.md
 # audits drift between plan and final implementation
 ```
+
+---
+
+## `/roadmap`
+
+Source: [`commands/roadmap.md`](../commands/roadmap.md).
+
+One command, **phased completion plan for an unfinished project** — the single-codebase analog of `/migration-scan` + `/migration-plan`. Where `/audit` ranks *defects in code that already exists* and `/migrate` ports *features that exist in a V1*, `/roadmap` maps **what is intended but not yet built** and orders the build. **Read-only by default**: it writes `ai/roadmap/plan.md` (the phased plan, which doubles as the ledger) and stops.
+
+Six completion detectors reconstruct the "done" reference a single project has no oracle for: **stubs & placeholders** (TODO/FIXME, not-implemented bodies, mock data wired to real surfaces), **dangling wires** (route↔handler↔UI gaps, partial CRUD, ungated flags), **feature asymmetry** (entities missing the slices their siblings have), **spec delta** (README / PRD / ADRs / `CLAUDE.md` / issues promise it; code lacks it), **domain table-stakes** (capabilities the inferred `PROJECT_KIND` implies but the code lacks), **dead-end flows** (journeys that stop half-built). Every row cites `<file:line>` evidence — no phantom features.
+
+Rows are deduped, sized (trivial / standard / heavy), dependency-ordered, and grouped into phases (foundations → domains → polish). `--build [<N>]` executes **one phase per invocation** in dependency-ordered parallel waves, verifies, marks rows `done`, and **halts at the phase gate** — never all-at-once, so each landing is small and revertible. Re-run `/roadmap` to re-map; it converges to zero like `/migration-final`.
+
+Pass `--goal "<intent>"` to fold requirements that aren't in the code or docs yet into the map — your words become authoritative intended-state (detector 4), so it covers what only exists in your head (e.g. *"anti-download protection; pluggable storage, selectable"*) and even re-defines a feature that already works (local-only storage → a gap, given the goal).
+
+Flags: `--goal "<intent>"`, `--build [<N>]` (build one phase), `--status` (read-only progress), `--refresh` (re-map + merge), `--exclude`, `--no-table-stakes`, `--max-parallel`, `--allow-dirty`, `--dry-run`. Under `--build`, the run summary carries the same `Not validated:` / `Risks:` / `Revert:` honesty lines as the other simple-surface sweeps.
 
 ---
 
