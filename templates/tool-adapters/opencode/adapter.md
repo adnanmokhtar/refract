@@ -192,6 +192,13 @@ tools:
 
 OpenCode picks this up the same way Claude Code picks up `.claude/agents/<name>.md`. Manual invocation in chat: `@backend-reviewer review this PR diff` (OpenCode's persona-mention syntax).
 
+**Frontmatter is NOT a 1:1 copy — three transforms are mandatory** (a verbatim copy of the `.claude` agent loads broken or off-contract):
+1. `tools:` — Claude's comma-string (`tools: Read, Grep, Edit`) → YAML record (`tools:\n  read: true`). OpenCode rejects the string form outright (`expected record, received string`).
+2. `mode: subagent` — inject when absent, so OpenCode routes the file as a dispatchable persona rather than a primary agent.
+3. `model:` — Claude tier shorthand (`sonnet`/`opus`/`haiku`) → provider id (`anthropic/claude-sonnet-4-6` …); a bare alias does not resolve in OpenCode's catalogue.
+
+These are applied **deterministically** by `apply-adapter-sync.sh`'s `opencode_normalize_agent_frontmatter` (idempotent), and **enforced** by `audit-adapter-coverage.sh`'s `opencode_agent_frontmatter_ok`, which fails coverage for any agent that does not satisfy all three. Do not hand-author agent files that skip them — that is exactly how a botched sync ships undetected.
+
 `AGENTS.md` still gets a `## Named personas` section as documentation for users who don't know the `@` syntax — but the actual persona behavior is driven by `.opencode/agents/<name>.md`.
 
 ### Skills — `.claude/skills/<name>/` → `.opencode/skills/<name>/` (NATIVE folder copy)
@@ -250,6 +257,7 @@ OpenCode has no lifecycle hooks. Fallbacks:
 - **Orchestration / validator sync:** **`templates/tool-adapters/_orchestration-sync.md`** — discipline paths (`ai/migrate/progress.md`), optimize oracle fallbacks, align 21-verb closure vocabulary, polish validator env (`QUIET=1`; no `--strict` CLI), refactor hook paths.
 - **`/task` integration (MCP-backed):** provider-agnostic task executor — Trello / Jira / Linear / GitHub Issue → fetch → normalize → dispatch → write-back (in-progress → comment → review/done). This tool surfaces it as `.opencode/commands/task.md` (`agent: build`); needs a task-provider MCP from `scripts/detect-mcp.sh` (gated on the repo's own `.env` creds). It routes to OpenCode specialist commands in place of `/do`. Canonical recipe + per-tool matrix: `templates/tool-adapters/_task-integration-coverage.md`; lifecycle: `commands/task.md`; providers: `templates/integrations/task-providers.md`.
 - **Actionable next steps — universal report contract (2026-05):** Every report-producing command (`/optimize`, `/polish`, `/align`, `/migrate`, `/refactor`, `/audit`, `/unify-surfaces`) MUST end its `final-report.md` with a `## Actionable next steps` section per **`templates/snippets/actionable-next-steps.md`** — paste-ready commands. Validator gate: **`check_actionable_next_steps`** halts when missing or prose-not-args. Run from shell/CI on edits under `ai/{optimize,polish,align,migration,refactor}/**`.
+- **Agent frontmatter normalization + enforcement (2026-06):** A 1:1 copy of `.claude/agents/<name>.md` loads broken in OpenCode. `apply-adapter-sync.sh`'s **`opencode_normalize_agent_frontmatter`** (renamed from `opencode_normalize_agent_tools`) now applies **three** deterministic, idempotent transforms — string `tools:` → YAML record, inject `mode: subagent`, map `model:` tier shorthand (`sonnet`/`opus`/`haiku`) → `anthropic/claude-…` provider id. **`audit-adapter-coverage.sh`**'s new **`opencode_agent_frontmatter_ok`** gates coverage: an agent that merely exists but is off-contract no longer scores as a hit (closes the silent-pass gap where a botched `/setup-project-adapters` run shipped string-`tools:` agents undetected). See § Agents above.
 
 - `codex/adapter.md` — AGENTS.md format lives there.
 - `claude-code/adapter.md` — source of rules content.

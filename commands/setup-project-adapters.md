@@ -364,7 +364,7 @@ The Claude Code `.claude/commands/<name>.md` file has frontmatter `description:`
 - **Gemini** (native TOML commands): write `.gemini/commands/<name>.toml` (NATIVE) — TOML with a `prompt = """..."""` field whose body opens with `# EXECUTE NOW` and uses `{{args}}` for scope interpolation. The `GEMINI.md` `## Invokable commands` prose is the **fallback** when TOML commands aren't generated. See `templates/tool-adapters/gemini/adapter.md § Custom commands correction`.
 
 Same pattern for agents:
-- **OpenCode**: `.opencode/agents/<name>.md` (NATIVE — frontmatter `{name, description, mode, model, tools}`).
+- **OpenCode**: `.opencode/agents/<name>.md` (NATIVE — frontmatter `{name, description, mode, model, tools}`). The frontmatter is **NOT a verbatim copy** of `.claude/agents/<name>.md`: `tools:` MUST be a YAML record (not Claude's comma-string), `mode: subagent` MUST be present, and `model:` MUST be a provider id (`anthropic/claude-…`, not the `sonnet`/`opus` shorthand). `apply-adapter-sync.sh`'s `opencode_normalize_agent_frontmatter` applies all three deterministically and idempotently — prefer it over hand-authoring; `audit-adapter-coverage.sh` fails coverage for any agent that skips them. See `templates/tool-adapters/opencode/adapter.md § Agents`.
 - **Copilot**: `.github/agents/<name>.agent.md` (NATIVE — frontmatter `{description, tools, model}`).
 - **Cursor**: `.cursor/commands/agent-<name>.md` (translated as a command — Cursor has no agent dispatch).
 - **Continue**: `.continue/prompts/agent-<name>.md` (translated as a prompt).
