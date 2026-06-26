@@ -49,7 +49,7 @@ Examples:
 
 ## What happens internally
 
-**Discipline:** MUST read [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) before generating or refactoring ported code (clean-code + SOLID pointer). Stack-specific migration rules live in `migration-discipline.md` / pack rules after `/setup-project`.
+**Discipline:** MUST read [`core-discipline.md`](~/.claude/templates/governance/core-discipline.md) before generating or refactoring ported code (clean-code + SOLID pointer). Stack-specific migration rules live in `migration-discipline.md` / pack rules after `/setup-project`.
 
 The agent does ALL of this silently — you don't see it:
 

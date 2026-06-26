@@ -4,13 +4,13 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**170 commands** — core 16 · 19 packs (110) · domains 36 · baseline 8. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**169 commands** — core 14 · 19 packs (111) · domains 36 · baseline 8. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
 ## Sections
 
-- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 16
+- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 14
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
 - [Pack — backend](#pack--backend) — 9
@@ -23,7 +23,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — frontend](#pack--frontend) — 7
 - [Pack — infrastructure](#pack--infrastructure) — 4
 - [Pack — learning](#pack--learning) — 6
-- [Pack — migration](#pack--migration) — 19
+- [Pack — migration](#pack--migration) — 20
 - [Pack — mobile](#pack--mobile) — 4
 - [Pack — observability](#pack--observability) — 4
 - [Pack — performance](#pack--performance) — 3
@@ -40,8 +40,6 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/align` | One command convention alignment. | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/align the orders module` |
 | `/audit` | One command, full-stack engineering audit — any language, framework, or project shape (backend /… | `--target-rps=<N>`, `--target-p95=<ms>`, `--plan-only`, `--assess`, `--target-vitals=<spec>`, `--target-cold-start=<ms>`, `--target-startup=<ms>`, `--target-bundle=<bytes>`, `--focus`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--surface-blockers`, `--skip-p4` | `/audit --target-rps=50000 --target-p95=120` |
 | `/do` | Universal meta-router. | — | `/do enhance the sidebar with cleaner padding` |
-| `/learn-from-task` | Phase 6 manual entry point. | — | `/learn-from-task` |
-| `/migrate` | One command V1→V2 port. | `--plan`, `--from-plan`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--include-dead`, `--surface-blockers`, `--re-detect-fields`, `--status`, `--refresh`, `--resume`, `--reset`, `--ignore-ledger`, `--re-audit`, `--include-superseded`, `--restart` | `/migrate the orders module` |
 | `/optimize` | One command code optimization, stack-agnostic (frontend / backend / data / mobile), deep… | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/optimize the orders module` |
 | `/polish` | One command UI/UX + API + Schema + Platform polish, stack-conditional, deep multi-agent. | `--plan`, `--direction`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--no-iterate`, `--surface-blockers`, `--stack=<override>` | `/polish the orders module` |
 | `/refactor` | Targeted behaviour-preserving refactor. | `--plan`, `--dry-run`, `--allow-dirty`, `--status`, `--resume`, `--strict`, `--quiet`, `--phase-base=<git-ref>`, `--ledger=<path>` | `/refactor [<scope>]` |
@@ -187,6 +185,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/cross-repo-task` | Track and drive cross-repo blockers in V1↔V2 migration. | `--upstream=<repo>`, `--owner=<name>`, `--contract=<spec>`, `--status=<open\|in-flight\|landed\|abandoned>`, `--stale`, `--evidence=<url>`, `--reason=<text>`, `--severity=<low\|medium\|high\|critical>`, `--upstream-pr=<url>` | `/cross-repo-task drain` |
 | `/draft-phase-adrs` | Reads phase-N.md summary + per-feature audits, drafts one ADR per P0 finding + cross-cutting… | `--include-cross-cutting`, `--exclude-features` | `/draft-phase-adrs <N> complete:` |
 | `/find-and-fix` | Default V1→V2 port loop. | `--plan`, `--from-plan` | `/find-and-fix <feature>:` |
+| `/migrate` | One command V1→V2 port. | `--plan`, `--from-plan`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--include-dead`, `--surface-blockers`, `--re-detect-fields`, `--status`, `--refresh`, `--resume`, `--reset`, `--ignore-ledger`, `--re-audit`, `--include-superseded`, `--restart` | `/migrate the orders module` |
 | `/migration-deprecate` | Mark a V1 feature as deprecated — it will NOT be ported to V2. | `--adr=<NNNN>`, `--reason=<text>`, `--tenant-impact=<low\|medium\|high>` | `/migration-deprecate <feature-id>` |
 | `/migration-fast` | One-shot deep-migration phase runner. | `--feature=<id>`, `--max-features=<N>`, `--max-parallel=<N>`, `--serial`, `--no-gate`, `--strict-clean`, `--re-audit` | `/migration-fast <N> complete:` |
 | `/migration-final` | Final sweep — confirms every feature in the ledger is done + parity-passing across ALL phases. | `--re-audit`, `--no-retirement` | `/migration-final` |

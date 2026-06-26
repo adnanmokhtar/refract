@@ -138,6 +138,15 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
 
 # --- Suite A: phased flow (M10) ---
 
+- name: migrate
+  kind: command
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md § "Migration" (V1 root, V2 root, feature inventory) + V1 codebase scan + V2 codebase scan
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false   # simple-surface one-command entry; relocated from core commands/ to the migration pack 2026-06-26
+  fallback: commands/migrate.md
+
 - name: migration-scan
   kind: command
   triggers:

@@ -667,9 +667,9 @@ Properties:
 - **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
 - **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
 
-### The 8 simple commands (start here)
+### The 7 simple commands (start here)
 
-These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted for roadmap/migrate/align/optimize/polish/audit/unify-surfaces, or natural-language description / explicit path). **`/refactor`** defaults to git-changed paths when scope is omitted — omit whole-repo refactor here; use `/optimize` instead.
+These are the recommended user surface. One command per concern. Deep multi-agent execution. NO phases / halts / ADRs / terminology surfaced. Each takes optional `<scope>` (whole project if omitted for roadmap/align/optimize/polish/audit/unify-surfaces, or natural-language description / explicit path). **`/refactor`** defaults to git-changed paths when scope is omitted — omit whole-repo refactor here; use `/optimize` instead.
 
 | Command | Purpose |
 |---|---|
@@ -684,7 +684,9 @@ These are the recommended user surface. One command per concern. Deep multi-agen
 
 ## `/migrate`
 
-Full contract: [`commands/migrate.md`](../commands/migrate.md).
+> **Now a migration-pack command** — /migrate is project-scoped (needs a V1/V2 pair + `ai/migration/ledger.md`); it installs per-project via /setup-project with the migration pack, not on the global surface.
+
+Full contract: [`templates/packs/migration/commands/migrate.md`](../templates/packs/migration/commands/migrate.md).
 
 One-command V1→V2 port. Deep multi-agent: internally runs scan + plan + audit + port + verify in parallel waves with V1 as the production reference — **V1 wins on behaviour, V2 wins on structure** (no lift-and-shift). No phases / ADRs / ledger talk surfaced; brief output (features ported, commits, diff stats, test status). Optional scope arg. The simple-surface alternative to the `/migration-scan → /migration-plan → /migration-fast` cycle (still available for power users).
 

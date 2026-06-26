@@ -76,3 +76,12 @@ jobs:
       # covers every artifact kind the contract promises (no asymmetric doc↔contract drift).
       - name: Adapter fixtures (contract achievable per adapter)
         run: bash scripts/test-adapter-fixtures.sh
+
+      # Global-scope: the GLOBAL command surface stays core-only; pack commands (migration
+      # suite, add-feature, every templates/packs/*/commands/*) are per-project. FAILs if the
+      # sync contract regresses (sync-to-global.sh sourcing from ~/.claude/commands again) or a
+      # pack command is duplicated into commands/. The live-surface checks ([3] ~/.claude, [4]
+      # Kimi/Gemini/OpenCode) auto-skip in CI where those dirs are absent. Prevents the
+      # 19-migration-commands-leaked-into-global regression from recurring.
+      - name: Global scope (global command surface is core-only)
+        run: bash scripts/verify-global-scope.sh

@@ -184,14 +184,14 @@ A pack file in `_pack-coverage-report.md` is marked `Missing` and was not addres
 
 ---
 
-## The 8 simple commands — `/roadmap`, `/migrate`, `/optimize`, `/refactor`, `/align`, `/polish`, `/audit`, `/unify-surfaces`
+## The 7 simple commands — `/roadmap`, `/optimize`, `/refactor`, `/align`, `/polish`, `/audit`, `/unify-surfaces`
 
 Top-level user surface above the detailed phased commands. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path) and runs deep multi-agent execution silently. NO phases / halts / ADRs / terminology surfaced — internal discipline (V1-parity, gap-count parity, idiom citation, no fabrication) is preserved but invisible. (`/refactor` is the odd one out: targeted-only, defaults to git-changed paths, and is NOT progress-orchestrated — see the flag note below.)
 
 | Command | Concern | Stack |
 |---|---|---|
 | `/roadmap` | Phased completion plan for an **unfinished** project — maps every intended-but-unbuilt capability via six detectors (stubs / dangling wires / feature asymmetry / spec delta / domain table-stakes / dead-end flows), sizes + dependency-phases them into `ai/roadmap/plan.md`. Read-only by default; `--build [<N>]` builds ONE phase per run in parallel waves and halts at the phase gate. Single-codebase analog of `/migration-scan` + `/migration-plan`. | any |
-| `/migrate` | V1→V2 ports (V1 wins on behaviour; V2 wins on structure) | any |
+| `/migrate` | V1→V2 ports (V1 wins on behaviour; V2 wins on structure) (migration pack — installs per-project via /setup-project) | any |
 | `/optimize` | architectural diagnosis FIRST (layer violations, god modules, missing abstractions) + tactical sweep (clean code, refactoring, SOLID, performance, render/rebuild waste for frontend-*/mobile-* per `mobile/rules/render-discipline.md` (mobile pack v1.2+), dead code, dedup, over-abstraction). Foundation-first ordering — architectural fixes cascade and dissolve tactical findings. Backed by `architectural-diagnosis` + `refactoring-sweep` skills (code-quality pack v1.1+). New-dependency halt: a perf fix that would add a package the project doesn't already use stops for a dependency review before install (prefer an existing primitive). | any |
 | `/refactor` | Targeted behaviour-preserving refactor only — closed `refactoring-sweep` vocabulary (extract-method, rename, flatten-conditional, …). No architectural moves, no perf, no dead-code sweeps. Defaults to git-changed paths when scope omitted (NOT whole-repo). Ledger `ai/refactor/ledger.md`; validator `scripts/validate-refactor-artifacts.sh`. NOT part of the progress-orchestrated flag set below. | any |
 | `/align` | convention drift, structure enforcement, design-token / a11y / i18n / layering, silent catches + unhandled I/O (happy-path-only call sites — align pack v1.6+ `unhandled-io` class). Backed by `detect-drift` + `find-and-align` skills (align pack). | any |

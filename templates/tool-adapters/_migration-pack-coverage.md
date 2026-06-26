@@ -23,11 +23,11 @@ The migration pack is **non-negotiable** in the sense that its discipline rule (
 
 **Conclusion**: every tool MUST receive a faithful translation of `migration-discipline.md` (the self-sufficient rule). The 9 contract sections, 13 hard halts, frontend audit axes, frontend anti-pattern catalogue, and tool-agnostic procedures are inlined in the rule precisely so rule-only tools have the full surface.
 
-## Simple-surface entry — `/migrate` (top-level command)
+## Simple-surface entry — `/migrate` (migration-pack command)
 
 Above the phased `/migration-scan` → `/migration-plan` → `/migration-fast` ceremony, the top-level `/migrate [<scope>]` command provides a one-shot entry point. Same discipline runs internally; user sees only the brief end-of-run summary.
 
-- **Source**: `commands/migrate.md` (top-level, NOT in pack folder — installed alongside pack commands).
+- **Source**: `templates/packs/migration/commands/migrate.md` (the migration pack's simple-surface entry; installs per-project via /setup-project with the rest of the pack).
 - **Progress tracking**: `ai/migrate/progress.md` (single source of truth across multi-day runs).
 - **Flags**: `--status`, `--resume`, `--reset <area>`, `--refresh`, `--re-audit`, `--re-audit --include-superseded`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--include-dead`, `--surface-blockers`.
 
@@ -92,7 +92,7 @@ Every adapter setup that includes `--include=migration` MUST also propagate thes
 
 **Anchors:** When `ai/migration/_v2-anchors.md` exists, declare a valid **`project_kind`** (including **`mixed`** for monorepos). Schema: `templates/packs/migration/_v2-anchors-schema.md`.
 
-**Recovery flags (`/migrate`):** `--restart` resets progress only; **`--ignore-ledger`** backs up and wipes ledger + related authority — see `commands/migrate.md` (recovery / symptom → flag table).
+**Recovery flags (`/migrate`):** `--restart` resets progress only; **`--ignore-ledger`** backs up and wipes ledger + related authority — see `templates/packs/migration/commands/migrate.md` (recovery / symptom → flag table).
 
 The validator script is location-agnostic — installed once at `~/.claude/scripts/validate-migration-artifacts.sh` (or shell-PATH equivalent) and invoked from any tool's hook system, CI, or pre-commit. **Hooks alone are insufficient** for workspace doctor + reachability lint + parallel coordination; install the bundle above.
 

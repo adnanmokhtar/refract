@@ -41,7 +41,6 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 | `/scaffold-project`            | Generate a working project from scratch (prompt → stack → boot).                  |
 | `/refine-prompt`               | Turn any rough idea into a deep, execution-ready prompt for the right command (output-only; feeds `/scaffold-project`, `/add-feature`, `/audit`, …). |
 | `/roadmap [<scope>]`           | Phased completion plan for an unfinished project — maps every missing / stubbed / half-wired feature (six detectors), sized + dependency-phased. Read-only by default; `--build [<N>]` builds ONE phase per run and halts at a gate. Single-codebase analog of `/migration-scan` + `/migration-plan`. |
-| `/migrate [<scope>]`           | One-command V1→V2 port. Deep multi-agent. Brief output.                           |
 | `/align [<scope>]`             | One-command convention drift sweep.                                               |
 | `/optimize [<scope>]`          | One-command architectural diagnosis + tactical sweep.                             |
 | `/refactor [<scope>]`          | Targeted behaviour-preserving refactor (closed vocabulary); ledger `ai/refactor/`. |
@@ -50,9 +49,8 @@ Day-to-day: just edit files in this repo. Symlinks mean changes apply immediatel
 | `/unify-surfaces [<scope>]`    | One-command surface-type unification (frontend-*). Tables / forms / headers / tabs / filters / buttons / validation. For each: inventories every consumer, decides canonical wrapper, extracts or extends, migrates every consumer in **one cascade-rewrite commit per category**. **Validation extracts a 3-part pipeline** — composable + `<ErrorList>` + API-error mapper. Reuse-Before-Create enforced; idioms updated in same commit. Sibling to `/polish` (axis-typed); this is surface-type-typed. Frontend stacks only. |
 | `/do <description>`            | Universal meta-router → dispatches to the right specialized command.              |
 | `/task <ref>`                  | Pull ONE task from Trello / Jira / Linear / GitHub (URL, key, or `next`) → fetch title + description + attachments → execute via `/do` → write status back. Per-repo provider via `.env`. See [`docs/TASK-PROVIDERS.md`](docs/TASK-PROVIDERS.md). |
-| `/learn-from-task`             | Phase 6 manual entry — promote concrete learnings into `ai/`.                     |
 
-The eight simple-surface commands (`/roadmap /migrate /align /optimize /refactor /polish /audit /unify-surfaces`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level detailed commands (`/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` for power-user control. See `docs/COMMANDS.md` for every flag.
+The seven simple-surface commands (`/roadmap /align /optimize /refactor /polish /audit /unify-surfaces`) are the recommended daily user surface. Each takes optional `<scope>` (whole project if omitted, or natural-language description / explicit path), runs deep multi-agent in parallel, and produces brief output. Pack-level commands (`/migrate`, `/migration-fast`, `/align-fast`, `find-and-fix`, etc.) live in `templates/packs/<pack>/commands/` and install per-project via /setup-project. See `docs/COMMANDS.md` for every flag.
 
 ## `/setup-project` — the brain
 
@@ -71,7 +69,7 @@ Vibe-coding discipline: **plan first, write once, no placeholders, no filler**. 
 
 ```
 claude-config/
-├── commands/                # 15 top-level commands (table above)
+├── commands/                # 14 top-level commands (table above)
 ├── templates/
 │   ├── repo-baseline/       # universal — copied into every new repo
 │   ├── workspace-baseline/  # for multi-repo workspaces (dispatcher, cross-repo cmds)

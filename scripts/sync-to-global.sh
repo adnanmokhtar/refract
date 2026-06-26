@@ -31,10 +31,18 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# Source of truth for the cross-tool command set = the REAL global Claude install
-# (repo-symlinked core commands + pack-installed commands like the migration suite).
-# Use -L when iterating so symlinked entries resolve to files. Override for tests.
-SRC_COMMANDS="${CLAUDE_COMMANDS:-$HOME/.claude/commands}"
+# Source of truth for the cross-tool GLOBAL command set = this repo's commands/
+# directory ONLY — the core, stack-agnostic orchestration toolkit.
+#
+# Pack commands (the migration suite, add-feature, every templates/packs/<pack>/
+# command) are PROJECT-scoped, NOT global: /setup-project installs them into a
+# repo's .claude/commands/ when their pack is selected, and apply-adapter-sync.sh
+# ports them to each tool PER-PROJECT. They must never appear in the global surface.
+#
+# Sourcing from commands/ (not ~/.claude/commands) makes the global set a
+# deterministic contract: a stray `ln -s` of a pack command into ~/.claude/commands
+# can no longer leak into every other tool's global surface. Override for tests.
+SRC_COMMANDS="${CLAUDE_COMMANDS:-$REPO_ROOT/commands}"
 APPLY=0
 FORCE=0
 UNLINK=0
