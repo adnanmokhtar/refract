@@ -61,8 +61,8 @@ Halts:
 ### 2. DECIDE — confirm closure verb is mechanical
 
 Confirm:
-- Closure verb is in vocabulary `{remove, inline, dedupe, rename-comment-out, replace-with-shared}`.
-- Closure verb's edit is behaviour-preserving (the touched files have test coverage; the verb is mechanical; the row's class is in the universal taxonomy or the per-stack pack's UI/UX taxonomy — not "bug", not "feature", not "perf").
+- Closure verb is in the closed **21-verb vocabulary** defined in `align-discipline.md` — **5 structural** `{remove, inline, dedupe, rename-comment-out, replace-with-shared}` OR **16 functional** (`add-gate`, `add-validator`, `parameterize`, `escape`, `move-to-secrets`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename` — the security / performance / SOLID / clean-code / unhandled-io set). A verb in neither set → halt; the fix is a refactor / redesign / feature, route elsewhere.
+- Net-lines rule **by group**: **structural** edits are behaviour-preserving with net-lines ≤ 0 (mechanical; touched files have test coverage). **functional** edits are small + line-budgeted — their added lines MUST cite an existing idiom from `_extracted-idioms.md` (never invent a new gate / validator / cache helper) and ship the required assertion (security gate → gating test; `parallelize` → perf assertion; `add-index` → EXPLAIN ANALYZE capture). The row's class must be in the universal or per-stack taxonomy — not "bug", not "feature" (those route to `/fix-bug` / `/add-feature`).
 - For `replace-with-shared`: the `shared_equivalent` resolves to an existing file in `_extracted-idioms.md`'s named inventory. If not, halt (route to `/setup-project --refine`).
 - For `inline`: confirm the wrapper has exactly one consumer site (re-grep at decide time). If 2+ consumers found, the row was mis-classified; route to `/refactor` instead.
 - For `remove` on a class symbol: re-grep the entire repo for the symbol; if any inbound import found, the row was mis-classified; halt.

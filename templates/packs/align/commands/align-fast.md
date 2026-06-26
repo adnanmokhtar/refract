@@ -65,8 +65,8 @@ For each row needing detection (in dependency order — helper-introduce before 
 
 ### 2. DECIDE (closure verb in vocabulary)
 
-- Confirm closure verb ∈ `{remove, inline, dedupe, rename-comment-out, replace-with-shared}`.
-- Confirm fix is behaviour-preserving (the row's class is not "bug" / "feature" / "perf").
+- Confirm closure verb ∈ the closed **21-verb vocabulary** in `align-discipline.md` — 5 structural `{remove, inline, dedupe, rename-comment-out, replace-with-shared}` OR 16 functional (`add-gate`, `add-validator`, `parameterize`, `parallelize`, `add-index`, `cache-with-explicit-ttl`, … the security / perf / SOLID / clean-code / unhandled-io set). Verb in neither → halt (route elsewhere).
+- Net-lines **by group**: structural = behaviour-preserving, ≤ 0; functional = small + budget, added lines MUST cite an idiom from `_extracted-idioms.md` + ship the required assertion (security gate → test; `parallelize` → perf assertion; `add-index` → EXPLAIN ANALYZE). Class must not be "bug" / "feature" (→ `/fix-bug` / `/add-feature`).
 - For `replace-with-shared`: re-confirm `shared_equivalent` exists.
 - For `inline`: re-grep call sites; if 2+ found, halt (mis-classified).
 - For `remove` on exported symbol: re-grep inbound imports; if any found, halt (mis-classified).

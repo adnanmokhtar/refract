@@ -229,7 +229,7 @@ Constraints:
 ## Hard rules
 
 - **One finding = one commit.** No bundling.
-- **Closure verbs are the closed vocabulary of 16.** No invention.
+- **Closure verbs are the closed vocabulary of 21** (5 structural + 16 functional)**.** No invention.
 - **No new abstractions.** Use idioms; if the idiom is missing, route to `/setup-project --refine`.
 - **Net-lines ≤ 0 for structural; small + cite-idiom for functional.**
 - **Re-detect after fix.** Re-running the detector is mandatory; the gap-count parity rule (`gaps_in == gaps_closed`) enforces this.

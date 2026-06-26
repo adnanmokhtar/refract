@@ -3,7 +3,7 @@ track: align
 purpose: Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.
 essentials:
   agents: []
-  commands: [align-scan, align-plan, align-phase, align-gate, align-fast, align-status, align-final, align-rollback, align-park, align-replan, align-recheck, align-promote-tier]
+  commands: [align-scan, align-plan, align-phase, align-gate, align-fast, align-status, align-final, align-rollback, align-park, align-unpark, align-replan, align-recheck, align-promote-tier]
   skills: [detect-drift, find-and-align]
   rules: [align-discipline]
   rule_references: [align-discipline-procedures, align-discipline-catalogue]   # references/ — ship WITH the rule; on-demand load (NOT auto-loaded); split 2026-06-07 for the 40k always-on limit
