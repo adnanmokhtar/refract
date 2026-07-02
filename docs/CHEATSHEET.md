@@ -172,6 +172,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 |---|---|---|---|
 | `/audit-knowledge` | Curator health audit of the ai/ knowledge layer. | `--fix` | `/audit-knowledge --fix` |
 | `/detect-drift` | Compares current code against documented conventions in ai/conventions.md + .claude/rules/. | — | `/detect-drift` |
+| `/eval` | Grade the knowledge base — replay saved eval cases (scenario + answer key + `guards:`) against current ai/ + .claude/rules/, score, append to ai/evals/_scorecard.md, feed FAIL/REGRESS to learnings.md. The measurement half of `/learn-from-task`. | `--case` `--coverage` `--seed` | `/eval --coverage` |
 | `/learn-from-task` | After a task finishes, capture decisions made / patterns followed / patterns introduced / user… | — | `/learn-from-task` |
 | `/promote-decision` | Graduate an entry from ai/dynamic/decisions-pending.md into a formal, sequentially-numbered ADR… | — | `/promote-decision <id>` |
 | `/promote-pattern` | Graduates an emerging pattern from ai/dynamic/learned-patterns.md to a formal ai/patterns/<name>.md… | — | `/promote-pattern <name>` |

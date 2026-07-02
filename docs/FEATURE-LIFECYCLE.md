@@ -113,7 +113,8 @@ The plan file is a tool-agnostic contract (`Context · Inputs · Outputs · Step
 /optimize    architectural diagnosis → tactical sweep                    → ai/optimize/
 /polish      stack-conditional consistency (UI / API / schema / mobile)  → ai/polish/
 /align       convention-drift enforcement (closure verbs, no new work)   → ai/align/
-/learn-from-task   promote what was learned into the knowledge layer
+/learn-from-task   promote what was learned into the knowledge layer  (capture)
+/eval              grade the knowledge base against saved cases → ai/evals/_scorecard.md  (measure)
 ```
 
 ---
@@ -127,7 +128,7 @@ The plan file is a tool-agnostic contract (`Context · Inputs · Outputs · Step
 
 | Class | Commands | Other tools |
 |---|---|---|
-| Setup family (optional translate) | refine-prompt, scaffold-project, setup-project, learn-from-task | surfaced per-adapter if selected; refine-prompt's deep pass is Claude-only |
+| Setup family (optional translate) | refine-prompt, scaffold-project, setup-project, learn-from-task, eval | surfaced per-adapter if selected; refine-prompt's deep pass is Claude-only |
 | Build / spec (generic translate) | analyze-task, expand-task, add-*, fix-bug | every `.claude/commands/<name>.md` → the tool's native primitive |
 | Simple-surface multi-agent (Claude-only) | do, audit, optimize, polish, align | not translated as slash commands — they depend on parallel sub-agent dispatch; approximate via pack commands or parallel orchestrator scripts |
 | Repo-baseline infra (universal) | execute-plan, verify-plan | ship to every project; execute-plan's fan-out degrades to sequential off-Claude (`--from-plan` / paste fallback) |
@@ -145,5 +146,5 @@ NEW FEATURE:   /do  ·or·  /analyze-task → specs/<file> → /add-feature spec
                                               ↓
                [optional]  --plan → /execute-plan → /verify-plan
                                               ↓
-               /polish · /audit · /optimize · /align   →   /learn-from-task
+               /polish · /audit · /optimize · /align   →   /learn-from-task (capture) → /eval (grade)
 ```

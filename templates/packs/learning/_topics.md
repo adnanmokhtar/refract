@@ -129,6 +129,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { always: true }
   fallback: commands/learn-from-task.md
+
+- name: eval
+  kind: command
+  triggers: { always: true }
+  # Ships static (like learn-from-task) — not project-customized. Its cases ARE the per-project
+  # part, and those live in ai/evals/cases/ (baseline scaffold), authored via /eval --seed.
+  fallback: commands/eval.md
 ```
 
 ## Note on AUTHOR mode for the learning pack

@@ -26,6 +26,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
   - [`/do`](#do)
   - [`/task`](#task)
   - [`/learn-from-task`](#learn-from-task)
+  - [`/eval`](#eval)
 - [Generated commands (in target repo)](#generated-commands-in-target-repo)
 - [Workflows](#workflows) — see also [`docs/REFERENCE.md`](REFERENCE.md) for the canonical end-to-end walkthroughs
 - [Hard rules summary](#hard-rules-summary)
@@ -53,6 +54,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/do <description>`           | Universal meta-router → dispatches to the right specialized command.   | Routes only |
 | `/task <ref>`                 | Provider-agnostic task executor — Trello / Jira / Linear / GitHub Issue (URL, key, or `next`) → fetch title + description + attachments + checklist → execute via `/do` → write status back (in-progress → comment → done). Per-repo provider via `.env` + MCP from `detect-mcp.sh`. | No (writes + updates the card/issue) |
 | `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
+| `/eval`                       | Grade the knowledge base — replay saved eval cases (scenario + answer key + `guards:`) against the current `ai/` + `.claude/rules/`, score each, append a run to `ai/evals/_scorecard.md`, feed FAIL/REGRESS to `ai/dynamic/learnings.md`. The measurement half of the loop `/learn-from-task` opens. `--case` / `--coverage` / `--seed`. | No (writes scorecard + learnings) |
 
 Generated commands ship INTO target repos when a track is selected: `/add-endpoint`, `/add-module`, `/add-feature`, `/fix-bug`, `/review-changes`, `/migration-status`, `/port-feature`, etc. See [Generated commands](#generated-commands-in-target-repo).
 
@@ -314,6 +316,35 @@ Outputs (zero, one, or more):
 **Persistence pyramid:** raw → conventions → ADRs / failures. The command writes to `ai/dynamic/` first; only on the 3rd similar observation does the curator agent promote to formal.
 
 Recurring counterpart: `knowledge-curator` agent (auto-invoked via post-task hook + weekly cron via `/schedule`).
+
+---
+
+## `/eval`
+
+The **measurement half** of the learning loop. `/learn-from-task` captures a lesson and the curator promotes it into a rule / convention / pattern — but nothing checks the rule actually works. `/eval` is that check: it replays saved **eval cases** against the AI *as configured by the current knowledge base*, scores each, and records a dated scorecard. The exam to `/learn-from-task`'s note-taking.
+
+```
+/eval                     # run every case, score, write a scorecard run
+/eval --case <slug>       # run one case (fast iterate)
+/eval --coverage          # read-only: % of promoted knowledge guarded, + stale / toothless cases
+/eval --seed [kind]       # turn unguarded rules/conventions/failures into case stubs to fill in
+```
+
+A **case** (`ai/evals/cases/<slug>.md`) is a scenario + an answer key + a `guards:` link to the promoted knowledge it protects:
+
+| Part | Role |
+|------|------|
+| `## Scenario` | the self-contained prompt handed to the AI under test |
+| `## Answer key` | checkable `MUST include` / `MUST NOT` assertions (a vague key = TOOTHLESS = no coverage) |
+| `guards:` (frontmatter) | which `.claude/rules/*` / `ai/conventions.md` entry / `ai/patterns/*` this case protects — the coverage unit |
+
+**Five detectors:** UNGUARDED (promoted knowledge with no case), REGRESS (case dropped PASS→FAIL vs the previous run), STALE (case guards a unit that no longer exists), TOOTHLESS (unscoreable key), UNCOVERED-FAILURE (a `failures/_index.md` or repeated-correction with no guarding case).
+
+**Recorded outcome:** every run appends one block to `ai/evals/_scorecard.md` (append-only regression history); every FAIL/REGRESS also appends a `RAW` note to `ai/dynamic/learnings.md` — the loop close, picked up by `knowledge-curator` on the normal promotion path. `/eval` is a third *writer* of the `learnings.md` sink (see [`templates/snippets/learning-sink.md`](../templates/snippets/learning-sink.md)); it never promotes anything itself.
+
+**Auto vs manual:** manual by default — **no auto-hook, no cron** in the baseline (same honesty contract as `/learn-from-task`). Wire it into a `Stop` hook (run after a task) or CI (fail on coverage/pass-rate drop) yourself, *after* you trust the scores. See `ai/evals/README.md` for the wiring note.
+
+Ships with the learning pack (always-on). See [`templates/packs/learning/commands/eval.md`](../templates/packs/learning/commands/eval.md).
 
 ---
 
