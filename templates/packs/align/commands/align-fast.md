@@ -6,6 +6,8 @@ pack: align
 
 # /align-fast <N>
 
+**Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — SOLID / clean-code closure vocabulary (single source of truth).
+
 ## The Premise (read this first)
 
 **One command. Align the entire phase in parallel, no human-watch pauses.** This command is the fast path for ANY phase — it collapses the two-step intended flow (`/align-phase <N>` → `/align-gate <N>`) into a single invocation that runs every row, regardless of tier, in parallel waves respecting the dependency graph.

@@ -269,16 +269,17 @@ sync_file() {
   # as drift nor stripped on --apply.
   local oc_cmd=0
   [[ "$dst" == *"/.opencode/commands/"* ]] && oc_cmd=1
-  # OpenCode AGENTS carry `tools:` in record form: opencode_normalize_agent_tools
-  # rewrites the string-form `.claude` tools (`tools: Bash, Read`) into a YAML record
-  # on the dst at --apply (sync_opencode). That transform is ONE-WAY, so comparing a
-  # synced dst against the raw src re-flags every faithfully-synced agent as drift
-  # forever. Compare against a copy of src run through the SAME normalization so a
-  # correctly-synced agent reads as NO-OP. (No-op for agents with no `tools:` line.)
+  # OpenCode AGENTS need contract frontmatter that diverges from `.claude`:
+  # opencode_normalize_agent_frontmatter rewrites string-form `tools:` into a record,
+  # injects `mode: subagent`, and maps `model:` shorthand to provider form on the dst
+  # at --apply (sync_opencode). That transform is ONE-WAY, so comparing a synced dst
+  # against the raw src re-flags every faithfully-synced agent as drift forever. Compare
+  # against a copy of src run through the SAME normalization so a correctly-synced agent
+  # reads as NO-OP.
   local oc_agent=0 cmp_src="$src" cmp_tmp=""
   [[ "$dst" == *"/.opencode/agents/"* ]] && oc_agent=1
   if [[ $oc_agent -eq 1 ]]; then
-    cmp_tmp=$(mktemp); cp "$src" "$cmp_tmp"; opencode_normalize_agent_tools "$cmp_tmp"; cmp_src="$cmp_tmp"
+    cmp_tmp=$(mktemp); cp "$src" "$cmp_tmp"; opencode_normalize_agent_frontmatter "$cmp_tmp"; cmp_src="$cmp_tmp"
   fi
   if [[ ! -f "$dst" ]]; then
     if [[ $APPLY -eq 1 ]]; then
@@ -329,26 +330,35 @@ report_missing_author() {
 
 # ── Per-adapter sync recipes ───────────────────────────────────────────────
 
-# OpenCode agent frontmatter requires `tools:` as a YAML record
-# (`tools:\n  bash: true\n  read: true`), but Claude Code accepts the
-# comma-separated string form (`tools: Bash, Read, Grep, Glob`). When a
-# project's `.claude/agents/<name>.md` was customized with the Claude form,
-# a 1:1 copy into `.opencode/agents/` fails OpenCode's schema with
-# "expected record, received string tools" and refuses to load.
-#
-# This helper rewrites the frontmatter of a destination .opencode agent file
-# in-place, converting only string-form `tools:` lines to record form.
-# Record-form `tools:` lines (followed by indented children) are left intact.
-# Operates on the body BEFORE the second `---` only — never touches markdown.
-opencode_normalize_agent_tools() {
+# OpenCode agent frontmatter must satisfy OpenCode's schema + the adapter contract
+# (templates/tool-adapters/opencode/adapter.md § Agents), which diverges from Claude's
+# `.claude/agents/<name>.md` frontmatter in THREE ways. A faithful 1:1 copy therefore
+# loads broken or off-contract, so this helper rewrites a destination .opencode agent
+# file IN-PLACE to the OpenCode shape:
+#   1. tools:  string form (`tools: Bash, Read, Grep`) -> YAML record (`tools:\n  bash: true`).
+#              Claude accepts the string; OpenCode rejects it ("expected record, received string").
+#   2. mode:   inject `mode: subagent` when the block declares none — OpenCode needs it to
+#              route the file as a dispatchable persona rather than a primary agent.
+#   3. model:  Claude tier shorthand (sonnet|opus|haiku) -> `anthropic/claude-...` provider id;
+#              a bare alias does not resolve in OpenCode's model catalogue.
+# Already-correct fields (record tools / present mode / provider-form model) are left
+# untouched, so the transform is IDEMPOTENT — safe to re-run on an already-synced file.
+# Operates on the frontmatter (before the 2nd `---`) ONLY — never touches the markdown body.
+# The model map tracks the latest Claude tier ids; adjust here if OpenCode's catalogue
+# uses different slugs. Mirrored by audit-adapter-coverage.sh's opencode_agent_frontmatter_ok,
+# which FAILS coverage for any agent that does not satisfy this same contract.
+opencode_normalize_agent_frontmatter() {
   local f="$1"
   [[ -f "$f" ]] || return 0
-  # Detect string-form: `tools: Foo, Bar` on a single line. Skip if not present.
-  awk 'BEGIN{fm=0} /^---[[:space:]]*$/{fm++; next} fm==1 && /^tools:[[:space:]]*[A-Za-z]/{found=1; exit} fm>=2{exit} END{exit !found}' "$f" || return 0
   local tmp; tmp=$(mktemp)
   awk '
-    BEGIN { fm=0 }
-    /^---[[:space:]]*$/ { fm++; print; next }
+    BEGIN { fm=0; has_mode=0 }
+    /^---[[:space:]]*$/ {
+      # Closing frontmatter fence: inject mode if the block never declared one.
+      if (fm==1 && !has_mode) print "mode: subagent"
+      fm++; print; next
+    }
+    fm==1 && /^mode:[[:space:]]/ { has_mode=1; print; next }
     fm==1 && /^tools:[[:space:]]*[A-Za-z]/ {
       val=$0; sub(/^tools:[[:space:]]*/, "", val)
       n=split(val, parts, /[[:space:]]*,[[:space:]]*/)
@@ -362,6 +372,14 @@ opencode_normalize_agent_tools() {
       }
       next
     }
+    fm==1 && /^model:[[:space:]]/ {
+      val=$0; sub(/^model:[[:space:]]*/, "", val); gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+      if      (val=="sonnet") print "model: anthropic/claude-sonnet-4-6"
+      else if (val=="opus")   print "model: anthropic/claude-opus-4-8"
+      else if (val=="haiku")  print "model: anthropic/claude-haiku-4-5"
+      else print $0
+      next
+    }
     { print }
   ' "$f" > "$tmp" && mv "$tmp" "$f"
 }
@@ -373,7 +391,7 @@ sync_opencode() {
     [[ -f "$f" ]] || continue
     local dst="$TARGET/.opencode/agents/$(basename "$f")"
     sync_file "$f" "$dst"
-    [[ $APPLY -eq 1 ]] && opencode_normalize_agent_tools "$dst"
+    [[ $APPLY -eq 1 ]] && opencode_normalize_agent_frontmatter "$dst"
   done
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue

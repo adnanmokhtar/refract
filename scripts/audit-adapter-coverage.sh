@@ -47,8 +47,12 @@ REPORT="$TARGET/.claude/_adapter-coverage-audit.md"
 mkdir -p "$(dirname "$REPORT")"
 
 # Count source artifacts in .claude/
+# Guard the missing-dir case: under `set -euo pipefail`, `find <missing> | …` exits non-zero
+# and aborts the command substitution before the report is ever written. A project may
+# legitimately ship without one kind (e.g. no rules/), so treat a missing dir as 0, not fatal.
 count_source_kind() {
   local kind="$1"
+  [[ -d "$TARGET/.claude/$kind" ]] || { echo 0; return 0; }
   find "$TARGET/.claude/$kind" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null \
     | wc -l | tr -d ' '
 }
@@ -92,6 +96,31 @@ audit_cursor() {
   echo "$hits|$expected"
 }
 
+# An .opencode/agents/<name>.md counts toward coverage ONLY if its frontmatter satisfies
+# OpenCode's schema + the adapter contract (tool-adapters/opencode/adapter.md § Agents):
+#   - `tools:` in record form, NEVER Claude's comma-string (OpenCode rejects that outright);
+#   - `mode:` declared (so OpenCode routes it as a dispatchable persona);
+#   - `model:`, when present, provider-qualified (`anthropic/claude-...`), not a bare tier
+#     alias that won't resolve.
+# A file that merely EXISTS but is off-contract loaded BROKEN in the field, so it must not
+# score as covered — that silent pass is exactly how a botched sync shipped undetected.
+# This mirrors apply-adapter-sync.sh's opencode_normalize_agent_frontmatter (the producer).
+# set -e safe: pure if/then, no `&&`/`||` that could abort under `set -euo pipefail`.
+opencode_agent_frontmatter_ok() {
+  local f="$1" fmt
+  [[ -f "$f" ]] || return 1
+  fmt=$(awk 'BEGIN{fm=0} /^---[[:space:]]*$/{fm++; next} fm>=2{exit} fm==1{print}' "$f")
+  # string-form tools -> reject (hard OpenCode schema error)
+  if printf '%s\n' "$fmt" | grep -qE '^tools:[[:space:]]*[A-Za-z]'; then return 1; fi
+  # mode must be declared
+  if ! printf '%s\n' "$fmt" | grep -qE '^mode:[[:space:]]*[A-Za-z]'; then return 1; fi
+  # model, if present, must be provider-qualified (provider/model), not a bare alias
+  if printf '%s\n' "$fmt" | grep -qE '^model:[[:space:]]'; then
+    if ! printf '%s\n' "$fmt" | grep -qE '^model:[[:space:]]*[^[:space:]]+/[^[:space:]]'; then return 1; fi
+  fi
+  return 0
+}
+
 # ---------- opencode ----------
 audit_opencode() {
   [[ -d "$TARGET/.opencode" || -f "$TARGET/opencode.json" ]] || return 1
@@ -103,7 +132,9 @@ audit_opencode() {
     [[ -f "$TARGET/.opencode/commands/$b.md" ]] && grep -q "^agent:" "$TARGET/.opencode/commands/$b.md" 2>/dev/null && hits=$((hits + 1))
   done < <(list_basenames_kind commands)
   while IFS= read -r b; do
-    [[ -f "$TARGET/.opencode/agents/$b.md" ]] && hits=$((hits + 1))
+    # Presence is necessary but NOT sufficient — the frontmatter must be contract-valid
+    # (object tools + mode + provider-form model), else the agent loads broken in OpenCode.
+    [[ -f "$TARGET/.opencode/agents/$b.md" ]] && opencode_agent_frontmatter_ok "$TARGET/.opencode/agents/$b.md" && hits=$((hits + 1))
   done < <(list_basenames_kind agents)
   while IFS= read -r b; do
     [[ -f "$TARGET/.opencode/skills/$b/SKILL.md" ]] && hits=$((hits + 1))
