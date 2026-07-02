@@ -1,12 +1,21 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "1.2.1",
-  "released": "2026-06-22",
+  "version": "1.3.0",
+  "released": "2026-07-03",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Phase-6 continuous-learning pack — curator + drift/pattern watchers. 1.2.1: DRY — the curator's learning-sink table extracted to a shared snippet (templates/snippets/learning-sink.md) so the canonical curator + repo-baseline copy stop diverging; plus the audit action-plan rollout in learn-from-task. v1.2.0 unchanged: provenance discipline in the extraction engine (every claim in _extracted-* files is [found:]/[inferred:]/[unconfirmed]) + oracle approval stamp (approved_by/approved_hash frontmatter, surfaced by /setup-project-health check 9). v1.1.0 added /promote-decision + /audit-knowledge.",
+  "summary": "Phase-6 continuous-learning pack — curator + drift/pattern watchers + now the measurement half. 1.3.0: NEW /eval command + ai/evals/ baseline scaffold — the grade to /learn-from-task's capture. Replays saved eval cases (scenario + answer key + guards: link) against the current knowledge base, scores each, records an append-only _scorecard.md, and feeds FAIL/REGRESS back into ai/dynamic/learnings.md — closing the loop that used to promote rules with no proof they worked. Five detectors (unguarded / regress / stale / toothless / uncovered-failure) + coverage %. /eval is a third writer of the learnings.md sink (snippet updated). v1.2.1: curator learning-sink table extracted to templates/snippets/learning-sink.md. v1.2.0: provenance discipline + oracle approval stamp. v1.1.0: /promote-decision + /audit-knowledge.",
   "changelog": {
+    "1.3.0": {
+      "released": "2026-07-03",
+      "changes": [
+        "NEW commands/eval.md: the measurement half of the learning loop. RUN/SEED/GUARD/REGRESS/RETIRE vocabulary; modes default | --case | --coverage | --seed; five detectors (unguarded, regress, stale, toothless, uncovered-failure); anti-theater Phase-6 that asserts a real _scorecard.md run block was written and that every FAIL produced a matching learnings.md sink entry.",
+        "NEW baseline scaffold templates/repo-baseline/ai/evals/ — README.md (lifecycle + auto-vs-manual wiring note), cases/_template.md (scenario + answer key + guards: provenance), _scorecard.md (append-only run history), cases/.gitkeep.",
+        "templates/snippets/learning-sink.md: documented /eval as a third writer of the ai/dynamic/learnings.md sink (failure hand-off), and _scorecard.md as its own recorded-outcome artifact (not a sink).",
+        "_essentials.md + _topics.md: /eval added as an always-on core command alongside learn-from-task."
+      ]
+    },
     "1.2.1": {
       "released": "2026-06-22",
       "changes": [

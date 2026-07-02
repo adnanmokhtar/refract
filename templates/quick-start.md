@@ -35,7 +35,7 @@ imported-by: commands/setup-project.md (orchestrator) — visible near the top s
         ↓                                  ↓                                  ↓
   Phase 6: continuous learning loop runs forever
    - hooks (post-commit-learn, post-merge-learn, session-start)
-   - commands (/refresh-knowledge, /detect-drift, /promote-pattern, /learn-from-task)
+   - commands (/refresh-knowledge, /detect-drift, /promote-pattern, /learn-from-task captures, /eval grades)
    - agents (knowledge-curator, convention-drift-detector, pattern-emergence-watcher)
    - persistence pyramid (raw observations graduate to formal knowledge)
 ```

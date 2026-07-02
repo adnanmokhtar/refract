@@ -22,5 +22,14 @@ threshold. The two writers never diverge on WHERE things go because they share t
 | `ai/dynamic/interaction-log.md`   | per-task summary (the spine)             | archive entries >90 days |
 | `ai/dynamic/changelog.md`         | one-line activity log                    | prune at >200 lines |
 
+## Additional writer: `/eval` (measurement half of the loop)
+
+`/eval` is the grade to `/learn-from-task`'s capture. It writes exactly ONE sink above —
+`ai/dynamic/learnings.md` — and only on failure: every FAIL/REGRESS in an eval run appends a
+`RAW` observation naming the GUARD (rule/convention/pattern) the AI broke, so `knowledge-curator`
+picks it up on the normal promotion path. `/eval` never writes any other sink and never promotes;
+its own recorded outcome is `ai/evals/_scorecard.md` (append-only run history), which is NOT part
+of this sink set — it is the regression record, not a promotion source.
+
 If you change a sink here, it changes everywhere this snippet is linked (see `imported-by:`
 above) — there is no second copy to keep in sync.

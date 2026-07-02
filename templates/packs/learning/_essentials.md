@@ -3,7 +3,7 @@ track: learning
 purpose: Meta-track that keeps Claude's project knowledge fresh, detects convention drift, AND (round-two) deepens the setup against the real codebase. ALWAYS included regardless of --minimal.
 essentials:
   agents: [knowledge-curator, convention-drift-detector, pattern-emergence-watcher]
-  commands: [refresh-knowledge, detect-drift, learn-from-task]
+  commands: [refresh-knowledge, detect-drift, learn-from-task, eval]
   skills: [extract-project-context]
   rules: []
   ai-patterns: []
@@ -29,7 +29,7 @@ Files listed above are the full intended set for minimal mode (which here equals
 
 Rationale per category (one line each):
 - agents: all three are core — knowledge-curator (writes), convention-drift-detector (reads), pattern-emergence-watcher (notices). Removing any one breaks the loop.
-- commands: refresh-knowledge, detect-drift, learn-from-task are the three triggers a developer hits regularly; promote-pattern is advanced and excluded.
+- commands: refresh-knowledge, detect-drift, learn-from-task, eval are the triggers a developer hits regularly — `/learn-from-task` captures, `/eval` grades (the two halves of the loop); promote-pattern is advanced and excluded.
 - skills: extract-project-context is the single skill in the pack and is foundational.
 - rules: none — meta track, no rules to copy.
 - ai-patterns: none — meta track, no patterns to copy.
