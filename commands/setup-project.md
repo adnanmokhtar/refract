@@ -202,6 +202,15 @@ When this command generates tool adapters, the goal is NOT "list of files Claude
 
 The full per-adapter contract + re-sync flow lives in **`/setup-project-adapters`** (sibling command). The core orchestrator is no longer responsible for adapter detail — it produces source artifacts; the adapters command translates them to native shapes.
 
+### Critical Execution Rule 4 — translate to the native shape, never a thin stub at a legacy path
+
+The **standalone-tool guarantee**: every selected adapter must work as a standalone tool — a user who opens Cursor / OpenCode / Aider (or runs it in CI) gets the full feature surface **without `.claude/` present**. Two anti-patterns break that guarantee and are forbidden:
+
+- **Thin-stub anti-pattern** — emitting a placeholder that just points back at `.claude/` (e.g. "see `.claude/commands/<name>.md`") instead of a real native artifact carrying the actual instructions. A thin stub is not a drop-in replacement; the tool reads it and gets nothing usable on its own.
+- **Legacy-path anti-pattern** — writing to a superseded location the tool no longer reads natively. The canonical example is `.cursor/rules/command-<name>.mdc` (pre-Apr-2026 Cursor): Cursor 2.3+ reads native commands from `.cursor/commands/`, so a `.cursor/rules/command-` file is a **legacy** shape that silently produces DUAL outputs. When a pre-existing setup has legacy files, document them as a **harmless fallback** and let Phase 4.8 re-translate to the native path on next refresh — never leave both as the live surface.
+
+Each adapter's native target + legacy→native migration is enumerated in `templates/tool-adapters/_registry.md`; `/setup-project-adapters` performs the translation. The orchestrator's job is only to hold the guarantee: native shape, no thin stubs, no live legacy paths.
+
 ---
 
 ## 🏛 The 4 pillars (this is an AI Engineering System, not a tool collection)
