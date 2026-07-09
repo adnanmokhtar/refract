@@ -56,4 +56,14 @@ db/
 - **Streaming** — `include ActionController::Live`, then `response.stream.write(chunk)` and **always** `response.stream.close` in an `ensure` (a leaked stream pins a Puma thread). Drive the cursor with `find_each` / `in_batches` (constant memory, not `.all`); for SSE set `response.headers["Content-Type"] = "text/event-stream"`, for NDJSON write `"#{row.to_json}\n"`. Once the `200` + headers have flushed you cannot change the status — surface a mid-stream failure as an in-band terminal-error sentinel, not an HTTP code. → see `ai-patterns/response-streaming.md` for backpressure + disconnect cancellation (rescue `ActionController::Live::ClientDisconnected`).
 - **Async job offload** — for work past the request budget, enqueue via ActiveJob / Sidekiq and return `202 Accepted` with a `Location:` header pointing at a status action (`GET /jobs/:id` → `queued → running → succeeded/failed`, with the result URL on success and a result TTL). Make submit idempotent: key the job on a client `Idempotency-Key` (or a natural unique key) so a retried POST returns the existing `202`, not a duplicate job. → see `ai-patterns/async-job-offload.md`.
 
+## Pagination
+
+> No built-in paginator — prefer `pagy` (page-number) and hand-wire keyset for cursor feeds. → see `ai-patterns/pagination.md`.
+
+- **Cursor-first (keyset)** — page with `where("(created_at, id) < (?, ?)", cursor_time, cursor_id).order(created_at: :desc, id: :desc).limit(n)`; keyset is O(log n) and stable under writes, `OFFSET` rescans and skips/dupes rows on a growing scope.
+- **Prefer `pagy`** — for offset/page-number needs use `pagy` (lowest-memory, actively maintained) over `kaminari` / `will_paginate`; reserve it for small quiescent tables where jump-to-page matters.
+- **Bounded per-page** — set a default and a hard max (`pagy`'s `limit` / `max_items`, or clamp the `per_page` param yourself); an unbounded `.limit(params[:per_page])` is a memory/DoS risk.
+- **Stable, unique order** — always append the PK tiebreaker (`order(created_at: :desc, id: :desc)`) and index the ordered columns; a bare `order(:created_at)` shuffles rows between pages.
+- **No per-page `COUNT(*)`** — use `pagy_countless` (or fetch `limit + 1` for `has_more`); skip the count on large filtered scopes and render `{ data, meta: { next_cursor, has_more } }` in the serializer envelope.
+
 > **Adjacent-pack hooks (pointer, don't duplicate):** detect `render json: thing` that bypasses the serializer (mass-assignment / schema leak) → **security pack**. Confirm every `429`/`412`/`202`/`5xx` is counted in the RED metrics + carries the trace id → **observability pack**. For *outbound* call resilience (timeouts, circuit breakers, DLQ, stored-idempotency replay on the consumer) → **distributed-systems pack**. Flag `find_each` over a `SELECT *` / over-fetched scope → **database pack**.

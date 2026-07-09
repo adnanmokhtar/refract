@@ -53,6 +53,16 @@ project/
 - **Async job offload** → [async-job-offload.md](../ai-patterns/async-job-offload.md). Long work enqueues to Celery / RQ / Dramatiq and returns `202 Accepted` + `Location:` pointing at a status view; the status view exposes the job-status state machine (`queued → running → succeeded | failed`) and serves the result from a TTL'd store. Make submit idempotent — key the task on a client `Idempotency-Key` so a retried POST returns the same job, not a duplicate.
   - Detector — `django.md:sync-blocking-view`: a request handler doing report/export/bulk work inline (no `.delay()`/`.enqueue()`) → ties up the WSGI worker and risks gateway timeout. **Fix**: enqueue the task, return `202` + `Location` to a `JobStatusView`, persist `task_id` keyed by idempotency key. **Closure**: assert the endpoint returns `202` with a dereferenceable status URL and a duplicate submit yields the same job id.
 
+## Pagination
+
+> DRF ships pagination classes — prefer `CursorPagination`; wire globally via `REST_FRAMEWORK["DEFAULT_PAGINATION_CLASS"]` or per-view `pagination_class`. → see [pagination.md](../ai-patterns/pagination.md).
+
+- **Cursor-first** — use DRF `CursorPagination` (keyset, O(log n), stable under writes) as the default; reserve `PageNumberPagination` / `LimitOffsetPagination` for small quiescent admin tables where jump-to-page matters.
+- **Bounded page size** — set `page_size` and a hard `max_page_size` on the paginator (with `page_size_query_param` so clients can shrink but never exceed the cap); an unbounded queryset is a DoS/memory risk.
+- **Stable, unique ordering** — `CursorPagination.ordering` MUST be a total order — append the PK, e.g. `ordering = ("-created_at", "-id")`; a non-unique `ordering` drops/repeats rows across cursor pages.
+- **Index the ordering** — the `ordering` columns need a matching composite index (`class Meta: indexes = [...]`) or deep pages fall back to a scan.
+- **No per-page `COUNT(*)`** — `CursorPagination` omits the total by design (opaque `next`/`previous` links); don't bolt a count query onto a large filtered queryset.
+
 ## Anti-patterns
 
 - Fat viewsets with business logic

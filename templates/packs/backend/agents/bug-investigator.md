@@ -1,7 +1,7 @@
 ---
 name: bug-investigator
 description: Traces bugs across layers. Finds ROOT CAUSE — not the symptom. Produces call chain, fix plan, and similar-bugs scan. Used by /fix-bug.
-model: sonnet
+model: opus
 ---
 
 # Bug Investigator
@@ -138,66 +138,66 @@ Report: N sibling-bugs found + file list + severity per site.
 <ONE sentence — what actually broke>
 
 ### Call chain
-1. POST /webhooks/whatsapp (whatsapp-webhook.controller.ts:42)
+1. POST /webhooks/inbound (inbound-webhook.controller.ts:42)
 2. → SignatureVerifier.verify (signature-verifier.ts:18)             ✓
-3. → ProcessInboundMessageUseCase.execute (process-inbound.use-case.ts:24)
-   ├─ TenantRepo.findByWhatsappId                                    ✓
-   ├─ ConversationRepo.upsertByPhone                                 ✓
-   ├─ MessageRepo.insertInbound                                      ✓
-   ├─ GenerateReplyUseCase.execute
-   │   ├─ ProductRepo.findForTenant                                  ✓
-   │   ├─ PromptBuilder.build                                        ✓
-   │   └─ ClaudeClient.reply                                  ← BUG HERE
+3. → ProcessInboundUseCase.execute (process-inbound.use-case.ts:24)
+   ├─ TenantRepo.findByExternalId                                   ✓
+   ├─ RecordRepo.upsertByKey                                        ✓
+   ├─ EventRepo.insertInbound                                       ✓
+   ├─ GenerateResponseUseCase.execute
+   │   ├─ CatalogRepo.findForTenant                                 ✓
+   │   ├─ PayloadBuilder.build                                      ✓
+   │   └─ UpstreamClient.call                                 ← BUG HERE
    │       Failure mode: times out after 30s, error swallowed in catch,
-   │       returns null. Caller does `reply.text` on null → TypeError.
-   │       Global filter returns 500. Meta retries → same failure.
+   │       returns null. Caller does `result.text` on null → TypeError.
+   │       Global filter returns 500. Provider retries → same failure.
    │
-   └─ (retry loop until Meta gives up; customer sees no reply)
+   └─ (retry loop until the provider gives up; caller sees no response)
 
 ### Why tests didn't catch it
-- Unit test for ClaudeClient mocks SUCCESS only; no timeout scenario.
-- Integration test mocks ClaudeClient entirely.
-- E2E against staging AI doesn't reproduce prod Anthropic timeouts.
+- Unit test for UpstreamClient mocks SUCCESS only; no timeout scenario.
+- Integration test mocks UpstreamClient entirely.
+- E2E against staging doesn't reproduce prod upstream timeouts.
 
 ### Similar bugs elsewhere
 Ran: `rg "catch \\(" src/modules/*/infrastructure/ -A 2 | grep "return null\\|return undefined"`
 
 Found 3 sites with identical swallow pattern:
-- src/modules/ai/infrastructure/claude.client.ts:78         (THE BUG)
-- src/modules/payments/infrastructure/stripe.client.ts:42   (sibling — high impact)
-- src/modules/sms/infrastructure/twilio.client.ts:31        (sibling — medium)
+- src/modules/messaging/infrastructure/upstream.client.ts:78     (THE BUG)
+- src/modules/payments/infrastructure/payment.client.ts:42       (sibling — high impact)
+- src/modules/notifications/infrastructure/notify.client.ts:31   (sibling — medium)
 
 All three: external client swallows errors, returns null, caller can crash.
 
 ### Fix plan
-1. ClaudeClient.reply: don't swallow — propagate typed `ClaudeTimeoutError`.
-2. Caller (GenerateReplyUseCase) catches it, uses tenant.fallback_reply.
-3. Apply same fix to Stripe + Twilio (same PR OR filed tickets — user decides).
+1. UpstreamClient.call: don't swallow — propagate typed `UpstreamTimeoutError`.
+2. Caller (GenerateResponseUseCase) catches it, uses tenant.fallback_response.
+3. Apply same fix to the payment + notification clients (same PR OR filed tickets — user decides).
 4. Add explicit 4s timeout with abort signal.
-5. Emit metric: `claude_call_failed_total{reason}`.
+5. Emit metric: `upstream_call_failed_total{reason}`.
 
 ### Regression test
-describe('GenerateReplyUseCase', () => {
-  it('returns tenant.fallback_reply when Claude times out', async () => {
-    claudeClient.reply = jest.fn().mockRejectedValue(new ClaudeTimeoutError());
-    const result = await sut.execute(conversation);
-    expect(result.text).toBe(tenant.fallback_reply);
-    expect(result.ai_generated).toBe(false);
+describe('GenerateResponseUseCase', () => {
+  it('returns tenant.fallback_response when upstream times out', async () => {
+    upstreamClient.call = jest.fn().mockRejectedValue(new UpstreamTimeoutError());
+    const result = await sut.execute(context);
+    expect(result.text).toBe(tenant.fallback_response);
+    expect(result.generated).toBe(false);
   });
 });
 
 ### Observability gap
-Claude timeouts were silently swallowed. No alert, no dashboard signal.
-- Add metric: claude_call_failed_total{reason}.
+Upstream timeouts were silently swallowed. No alert, no dashboard signal.
+- Add metric: upstream_call_failed_total{reason}.
 - Add alert: rate > 5/min.
-- Add trace span with timeout attribute on every Claude call.
+- Add trace span with timeout attribute on every upstream call.
 
 ### Severity
 <prod-down | degraded | minor>
 
 ### Action items
-1. Fix ClaudeClient + GenerateReplyUseCase + regression test (this PR).
-2. File tickets for Stripe + Twilio sibling fixes.
+1. Fix UpstreamClient + GenerateResponseUseCase + regression test (this PR).
+2. File tickets for the payment + notification sibling fixes.
 3. Add alert + metric via /add-telemetry.
 4. Postmortem in ai/audits/ if prod-affecting.
 ```
@@ -219,12 +219,17 @@ Claude timeouts were silently swallowed. No alert, no dashboard signal.
 - `@endpoint-tester` — sibling agent in backend pack
 - `@websocket-engineer` — sibling agent in backend pack
 
+### Skills
+- `log-tail` — pulls the correlation-scoped / error log flow that anchors the root cause (see Evidence gathering).
+- `debug-tenant` — inspects tenant-scoped state for the missing-tenant-filter / cross-tenant bug category.
+- `endpoint-test` — reproduces the failing request against the running route to confirm the symptom before and after the fix.
+
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+- `ai/patterns/caching-strategy.md` — cache-inconsistency (stale-after-write) category.
+- `ai/patterns/error-handling.md` — swallowed-error / logged-but-200 category.
+- `ai/patterns/multi-tenancy.md` — missing-tenant-filter category.
+- `ai/patterns/parallel-io.md` — race-condition / concurrent read-modify-write category.
+- `ai/patterns/webhook-flow.md` — non-idempotent-retry (double-processed) category.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

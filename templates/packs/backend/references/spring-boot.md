@@ -76,6 +76,14 @@ src/main/java/com/company/app/
 > - Outbound resilience (retry/circuit-breaker/bulkhead via Resilience4j, DLQ, stored idempotency-replay) → `distributed-systems` pack; this section covers only *inbound* limiting.
 > - RED metrics / OTel spans on the rate-limit filter, stream emitter, and job state transitions (watch tag cardinality on tenant/job-id) + audit-log on admission decisions → `observability` pack.
 
+## Pagination
+
+- **Cursor-first (keyset)**: for growing tables prefer Spring Data keyset scrolling (`ScrollPosition.keyset()` → `KeysetScrollPosition`, repository returns `Window<T>`; Spring Data 3.1+) over `Pageable` offset paging, which rescans and skips/dupes rows on deep pages. → see `../ai-patterns/pagination.md`.
+- **`Slice` over `Page` for feeds**: return `Slice<T>` (or `Window<T>`) so Spring Data issues no `COUNT(*)`; reserve `Page<T>` (which counts) for small admin tables that genuinely need a total + jump-to-page.
+- **Bounded page size**: cap with `@PageableDefault(size = 20)` and a `PageableHandlerMethodArgumentResolver` `maxPageSize` (the default 2000 is too high) so a client can't request an unbounded page.
+- **Stable, unique sort**: the `Sort` MUST be a total order — append the id, e.g. `Sort.by("createdAt").descending().and(Sort.by("id").descending())`; keyset scrolling requires it and a non-unique sort drops/repeats rows across pages.
+- **Index the sort columns**: the keyset predicate + `ORDER BY` must be index-backed or deep scrolls fall back to a scan; never expose the raw offset in the cursor.
+
 ## Anti-patterns
 
 - Field injection (`@Autowired` private field).

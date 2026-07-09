@@ -35,7 +35,7 @@ Cache is a distributed data store with its own consistency model. Get the semant
 2. CDN / Edge cache       (Cloudflare, Fastly, CloudFront)
 3. Reverse proxy          (Varnish, nginx, Fastify cache)
 4. Application cache      (Redis, Memcached, in-process LRU)
-5. Database query cache   (Postgres shared_buffers, MySQL query cache)
+5. Database buffer/page cache   (Postgres `shared_buffers` / InnoDB buffer pool — note: MySQL's query cache was removed in 8.0)
 6. Database (source of truth)
 ```
 
@@ -177,6 +177,40 @@ You've over-indexed on cache if:
 - Downtime of Redis = downtime of app.
 
 Stop. Rearchitect. Cache should be pure acceleration.
+
+## Detectors (cite-or-halt)
+
+Each finding cites `<path:line>` + the matched pattern + the fix. "Caching looks risky" without a cited read/write site is not a finding.
+
+### 1. Cache write with no TTL and no size cap
+
+```
+BAD:   cache.set(key, value);      // no expiry → unbounded growth
+GOOD:  cache.set(key, value, ttl);
+```
+Flag a `.set(` / `.put(` with no TTL/expiry arg (and a `noeviction` policy with no `maxmemory`) → `add-ttl`.
+
+### 2. Cache key missing the tenant prefix
+
+```
+BAD:   cache.get(`products:${id}`)                         // cross-tenant collision
+GOOD:  cache.get(`tenant:${tenantId}:products:${id}:v3`)
+```
+In a multi-tenant codebase, flag any key built without the `<tenant>:` segment (and version suffix) → `namespace-key`.
+
+### 3. No stampede protection on a hot key
+
+```
+BAD:   if (cache.has(k)) return cache.get(k); else cache.set(k, load());   // race → thundering herd
+GOOD:  cache.getOrSet(k, ttl, load);                                        // single-flight
+```
+Flag a check-then-set (`has`/`get` then `set`) on a hot read with no single-flight / stale-while-revalidate / jittered TTL → `add-stampede-protection`.
+
+### 4. Caching correctness-critical state
+
+A cache read/write on auth tokens, session content, payment / stock-at-checkout, or real-time metrics — correctness > latency → `do-not-cache`.
+
+**Closure verbs:** `add-ttl`, `namespace-key`, `add-stampede-protection`, `do-not-cache`.
 
 ## Forbidden
 

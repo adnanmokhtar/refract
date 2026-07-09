@@ -126,6 +126,15 @@ Next steps:
 - Migration `down()` that just runs `DROP TABLE` is acceptable; `down()` that's empty or `// not implementable` blocks the scaffold.
 - Business logic is NOT scaffolded — only CRUD plumbing. Schema design for non-trivial tables: defer to a `schema-architect` agent.
 
+## Related
+
+- Used by `@api-architect` — that agent designs the module shape, then drives module-scaffold to generate the layered files against a named sibling.
+- `.claude/skills/endpoint-test.md` — verify each scaffolded route end-to-end once the module is wired.
+- `.claude/skills/api-snapshot.md` — new endpoints surface as additive diffs; snapshot confirms the generated contract.
+- `ai/patterns/api-contract.md` — the input/output-DTO + envelope shape every generated DTO must follow.
+- `ai/patterns/multi-tenancy.md` — the tenant-filter invariant every generated repository query must include.
+- `.claude/rules/backend-principles.md` — the architecture / layering MUSTs the scaffold mirrors from the chosen sibling.
+
 ## Halt conditions
 
 - Halt if no sibling module path was named — refuse to scaffold "from the architecture doc alone". Mirror a real, existing module.

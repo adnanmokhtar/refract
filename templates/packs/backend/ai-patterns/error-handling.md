@@ -299,6 +299,41 @@ If the codebase throws raw `Error`:
 5. Sweep remaining throws module by module. Each PR converts one module.
 6. Frontends start consuming `code` for field errors. Drop English string-matching.
 
+## Detectors (cite-or-halt)
+
+Each finding cites `<path:line>` + the matched pattern + the fix. "Error handling looks off" without a cited throw site / mapper row is not a finding.
+
+### 1. Raw `throw new Error` on a user path
+
+```
+BAD:   throw new Error('Tenant not found');   // loses type, unmappable, leaks prose
+GOOD:  throw new TenantNotFoundError(id);
+```
+`grep -rn "throw new Error(" services/ domain/` (or the project's equivalent layers) → `throw-typed-error`.
+
+### 2. Stack trace in the response body
+
+A response payload carrying `stack` / `stacktrace` / a raw framework error dump (`data: { stack: ... }`) leaks file paths, versions, sometimes secrets → `strip-stack-to-logs`.
+
+### 3. Error not mapped in the single mapper
+
+A `DomainError` subclass with no row in the global `statusFor` / exception-filter mapping (falls through to a generic 500) → `add-mapper-row`.
+
+### 4. catch + log + throw (double-logging), or swallow
+
+```
+BAD:   catch (e) { logger.error(e); throw e; }   // mapper logs it again
+BAD:   catch (e) { /* nothing */ }                // swallows real bugs
+GOOD:  catch (e) { throw new DependencyFailureError('stripe', { cause: e }); }
+```
+Flag a catch that logs-and-rethrows unchanged, or an empty catch → `translate-or-let-bubble`.
+
+### 5. Generic 500 where 4xx is correct
+
+A user-input failure (bad email, missing field) surfaced as 500 instead of a 400 `ValidationError` → `reclassify-4xx`.
+
+**Closure verbs:** `throw-typed-error`, `strip-stack-to-logs`, `add-mapper-row`, `translate-or-let-bubble`, `reclassify-4xx`.
+
 ## References
 
 - Sandi Metz "Practical Object-Oriented Design", chapter on exceptions — when typed errors pay off.

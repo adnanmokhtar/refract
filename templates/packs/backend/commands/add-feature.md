@@ -184,7 +184,7 @@ SIGNAL-BASED (parallel):
 |---|---|
 | Multi-tenant | `multi-tenancy.md`, `tenant-isolation.md` |
 | AI / LLM | `prompt-builder.md`, `ai-cost-tracking.md` |
-| Webhook | `webhook-flow.md` + `webhook-signature-verification` rule |
+| Webhook | `webhook-flow.md` (inbound signature-verify + replay + enqueue-then-ack; outbound signing + retry/DLQ) |
 | Payment | `payment-idempotency.md`, `idempotency.md` |
 | Real-time | `ssr-safety.md`, websocket patterns |
 | Event-sourced | `event-sourcing.md`, `cqrs.md` |

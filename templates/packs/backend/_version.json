@@ -1,12 +1,49 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.5.0",
-  "released": "2026-06-25",
+  "version": "1.10.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Quality-review pass — 4 new specialist ai-patterns close confirmed backend-owned gaps: rate-limiting (inbound 429 + RateLimit-* + load shedding — the biggest gap), conditional-requests (ETag / If-Match / 304 / 412 / 428 optimistic concurrency), response-streaming (NDJSON/SSE/chunked, mid-stream sentinels, backpressure), async-job-offload (202 + Location + job-status contract). Enforcement threaded into api-reviewer (rate-limit / contract-evolution / streaming / content-negotiation / mass-assignment / SSRF / cardinality / readiness axes), add-endpoint signal table (rate-limit / 202 / streaming / batch / conditional / over-post / SSRF / audit rows), api-consistency-audit (rate-limit-enforcement, etag/optimistic-concurrency, batch, field-selection, security-header detectors), backend-principles (rate-limit / statelessness MUSTs + idempotency-stored-replay + observability-DoD cross-refs), endpoint-tester. Standards corrected: RFC 7807 → RFC 9457 (Problem Details), RateLimit-* cited as the IETF draft (not RFC 9239). Adjacent axes (SSRF, mass-assignment, RED/OTel, outbound resilience, DLQ) REFERENCE the security / observability / distributed-systems packs rather than duplicating them. Framework bindings added to nestjs/fastapi/express/django/spring-boot/rails references.",
+  "summary": "Backlog #5 (cross-link hygiene) + #6 (older-pattern detector retrofit + the remaining gap specialists). NEW transaction-boundary + file-upload patterns and a migration-safety verifier skill (the three flagged gaps). All 5 agents gain a Related>Skills subsection; api-reviewer replaces its prose Areas-reviewed with a coverage table; bug-investigator promoted to opus + its example genericized; endpoint-test/endpoint-tester relabeled primitive+orchestrator; the 6 skills lacking ## Related get one; the 4 older patterns (api-contract/api-versioning/caching-strategy/error-handling) get the standardized ## Detectors (cite-or-halt) block so the pack has one section vocabulary. Follows the v1.9.0 scanner/rule conformance pass.",
   "changelog": {
+    "1.10.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW gap specialists: ai-patterns/transaction-boundary.md (intra-service write-set atomicity — service owns the boundary, no external I/O in tx, optimistic version-guard vs pessimistic FOR UPDATE, deadlock-safe lock ordering; cross-service outbox/saga deferred to distributed-systems; 5 detectors); ai-patterns/file-upload.md (size cap → 413, magic-byte type validation not header, presigned direct-to-storage, stream-not-buffer, uuid keys/path-traversal, malware scan, safe serving headers; 6 detectors); skills/migration-safety.md (online-safe/reversible migration verifier — blocking-index/NOT-NULL-no-backfill/same-deploy-rename/edit-applied/non-reversible-down/in-tx-backfill/FK-without-NOT-VALID; per-tool+engine Adapt table; full scanner spine). Registered the 2 patterns in _topics + _essentials (signal-gated); abridged _examples for all 3.",
+        "#5 cross-link hygiene: every agent Related now has a ### Skills subsection (api-reviewer→api-snapshot/api-consistency-audit; bug-investigator→log-tail/debug-tenant/endpoint-test; api-architect→module-scaffold; endpoint-tester→endpoint-test; websocket-engineer→none honestly). api-reviewer Output prose Areas-reviewed → a 10-row coverage/pass-fail table. bug-investigator model sonnet→opus + its WhatsApp/Meta/Claude/Stripe/Twilio example genericized to neutral placeholders. endpoint-tester relabeled as the orchestrator of the endpoint-test primitive (dedupe). Boilerplate pattern lists curated per agent (api-architect +rate-limiting/async/pagination/conditional; websocket-engineer +response-streaming). The 6 skills lacking ## Related (api-snapshot/debug-tenant/endpoint-test/env-diff/log-tail/module-scaffold) each got one with the orchestrating agent named.",
+        "#6 detector retrofit: the 4 older ai-patterns gained the standardized ## Detectors (cite-or-halt) + closure-verbs block, derived from rules they already state — api-contract (bare envelope / ORM leak / breaking-field-no-version / unvalidated DTO / changed code), error-handling (raw throw on user path / stack-in-body / not-in-single-mapper / catch-log-throw / 500-where-4xx), caching-strategy (no-TTL / missing-tenant-prefix / no-stampede-protection / cache-correctness-critical), api-versioning (break-in-live-version / overlap-no-deprecation / no-sunset-tracking / version-mixing). One section vocabulary across all patterns."
+      ]
+    },
+    "1.9.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "skills/api-consistency-audit.md: brought the flagship scanner to the authoring standard. Renamed ## Purpose → ## Premise + added the cite-or-halt statement (finding = <method path> + <file:line> + canonical-violated + closure verb, never invented). NEW ## Adapt to the codebase per-framework primitive table (NestJS/DRF/FastAPI/Spring/Express/Rails/Laravel — where the envelope/error/limiter/ETag/pagination live). NEW ## False positives / gotchas (single-consistent-shape-is-not-drift, tier-scoped variation OK, opt-in detectors, declared exemptions, ownership-pointers-not-respecify). Renamed ## When to use → ## When to run and ## Failure modes → ## Halt conditions (+ added the missing-citation and not-backend halts). Fixed the ai-patterns/ → ai/patterns/ deploy-path drift (9 refs) that dangled post-install, unlike every sibling.",
+        "rules/backend-principles.md: reconciled with the patterns/agents that enforce concerns the rule was silent on. NEW MUSTs — single response envelope (mixing shapes is drift; RFC 9457 error body); content negotiation (415 on bad Content-Type, 406 on bad Accept, Vary on negotiated/auth-varied responses). NEW SHOULDs — optimistic concurrency (strong ETag + If-Match on contended writes, 412/428, read If-None-Match→304); N+1 prevention deferred explicitly to database+performance (n-plus-one-scan) with the api-reviewer inline floor. NEW ## Related block linking all 11 in-pack patterns + concurrency-discipline/migration-backend + the four cross-pack owners. Softened the two dangling in-pack ai/patterns/idempotency.md references to the distributed-systems idempotency pattern (it does not ship in the backend pack). Two review-checklist rows added."
+      ]
+    },
+    "1.8.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "references: backfilled the \"Resilience, streaming & conditional requests\" block into the six references that shipped none of it. laravel (throttle/RateLimiter::for, SetCacheHeaders ETag, response()->eventStream SSE, ShouldQueue → 202, cursorPaginate); dotnet (AddRateLimiter partitioned, EntityTagHeaderValue + RowVersion→412, IAsyncEnumerable/TypedResults.ServerSentEvents, Channel<T>+BackgroundService→202, EF keyset); flask (flask-limiter, Werkzeug make_conditional, stream_with_context, Celery/RQ→202, SQLAlchemy keyset); go (x/time/rate, manual ETag/304, http.Flusher/io.Pipe, hibiken/asynq→202, keyset); phoenix-elixir (PlugAttack/hammer, Plug.Conn ETag + Ecto optimistic_lock, send_chunked, Oban→202, Ecto keyset; Channels/LiveView vs HTTP-streaming noted); hexagonal-nestjs kept lean (interface-layer note pointing at nestjs.md + a hexagonal pagination port, no duplication).",
+        "references: added a framework-native Pagination section to the six references that already had the resilience block but no pagination — django (DRF CursorPagination), express (hand-wired keyset + opaque cursor), fastapi (fastapi-pagination / SQLAlchemy tuple_ keyset), nestjs (nestjs-paginate / TypeORM+Prisma keyset), rails (pagy keyset), spring-boot (Pageable/Slice + Spring Data 3.1 ScrollPosition.keyset). Closes the only axis that was absent across all 12 references while being a MUST."
+      ]
+    },
+    "1.7.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW ai-patterns/pagination.md (kind:pattern, always:true) — the pagination specialist. Cursor(keyset)-vs-offset decision table, six rules (default+max limit, stable total sort with PK tiebreaker, opaque cursor, keyset-predicate-matches-sort, avoid COUNT(*) per page via limit+1/hasMore, single-envelope meta), six cite-or-halt detectors (unbounded list / no-cap limit / offset-on-hot-table / unstable-sort / count-per-page / envelope-drift) + closure verbs. Registered in _topics + _essentials; fallback _examples/pagination.md.",
+        "add-endpoint.md Phase-4 enforcement table: NEW API-8 row — a GET list/collection endpoint applies default+hard-max page size, stable sort with unique tiebreaker, cursor for growing tables, envelope meta, no COUNT(*) per page; e2e asserts over-cap limit is clamped and pages do not drop/repeat rows. Closes the one MUST that was checked only at review time and absent from every reference."
+      ]
+    },
+    "1.6.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW ai-patterns/webhook-flow.md (kind:pattern, signal-gated on webhook grep evidence) — the backend webhook specialist. Inbound: raw-body-before-parse, timing-safe signature verify, replay/timestamp-window + event-id dedupe, ack-fast-process-async, correct 2xx/4xx/5xx semantics. Outbound: HMAC signing + rotation, at-least-once + stable event.id, exponential backoff + jitter, DLQ + auto-disable dead subscriptions, subscription mgmt + delivery log, no-ordering-guarantee. Seven cite-or-halt detectors (BAD/GOOD) + closure verbs. Registered in _topics + _essentials; fallback _examples/webhook-flow.md. Un-dangles the webhook-flow / webhook-signature-verification references in add-feature.md + trace-flow.md that pointed at a nonexistent artifact.",
+        "NEW ai-patterns/multi-tenancy.md SOURCE — the _topics entry + _examples/multi-tenancy.md existed with no backing source (validate-pack-consistency orphan WARN). Authored the canonical pattern (overview / resolution_chain / context_propagation / automatic_filtering / manual_bypass_rules / testing_isolation / pitfalls), genericized off the example project-name leaks. debug-tenant now has a pattern to cite.",
+        "Technical-error + currency fixes: (a) Deprecation:true is invalid under RFC 9745 (a Date structured field) — corrected to @<unix-date> in api-versioning.md, agents/api-reviewer.md, and _examples/api-versioning.md; api-contract.md was already correct. (b) concurrency-discipline.md Enforcement claimed Pyright reportAwaitInsideLoop (nonexistent) and golangci-lint noctx (unrelated to await-in-loop) — removed the fabricated mappings (enforcement-theater), kept the valid ESLint no-await-in-loop and pointed Python/Go at review convention. (c) websocket-engineer.md nhooyr.io/websocket → github.com/coder/websocket (moved 2024). (d) caching-strategy.md MySQL query cache (removed in 8.0) reworded. (e) parallelize-independent-ops.md Go loop-var shadow annotated as pre-1.22. (f) add-endpoint.md STACK ASSUMPTION frontend leak (Vue3+PrimeVue) → NestJS. RateLimit-* confirmed still an IETF draft as of 2026-07 — no change."
+      ]
+    },
     "1.5.0": {
       "released": "2026-06-25",
       "changes": [
@@ -43,21 +80,21 @@
     "1.3.1": {
       "released": "2026-06-13",
       "changes": [
-        "add-feature: added the mandatory '## Phases applied' declaration block (canonical line 27) \u2014 was the lone add-feature variant missing it.",
+        "add-feature: added the mandatory '## Phases applied' declaration block (canonical line 27) — was the lone add-feature variant missing it.",
         "add-feature + fix-bug: wired the universal --plan handoff flag via templates/snippets/plan-flag.md (honours the docs/COMMANDS.md universal-flag contract).",
-        "add-feature: sibling-shape halt now links the shared verdict vocabulary (templates/snippets/sibling-shape-halt.md); 'no-siblings-found' \u2192 'no-siblings'.",
+        "add-feature: sibling-shape halt now links the shared verdict vocabulary (templates/snippets/sibling-shape-halt.md); 'no-siblings-found' → 'no-siblings'.",
         "fix-bug: added enriched-superset banner naming the repo-baseline as the universal-minimum subset; both link the shared invariants in templates/snippets/fix-bug-core.md (failing-test-first + similar-bugs ledger).",
-        "_examples/add-feature.md + _examples/fix-bug.md regenerated faithfully from their command sources (the stale snapshots contradicted the source \u2014 fix-bug example said 'BEFORE fixing'); added generated-from headers."
+        "_examples/add-feature.md + _examples/fix-bug.md regenerated faithfully from their command sources (the stale snapshots contradicted the source — fix-bug example said 'BEFORE fixing'); added generated-from headers."
       ]
     },
     "1.3.0": {
       "released": "2026-06-10",
       "changes": [
-        "add-feature + _examples/add-feature: rename payment-idempotency-reviewer \u2192 payment-reviewer (the agent that actually ships in domains/payment/agents/); drops the '(if present)' hedge so payment features no longer silently skip specialist review.",
-        "add-feature + _examples/add-feature: missing-agent fallback rule \u2014 any dispatched agent not installed in the project is performed inline against its pack/domain checklist and noted as inline:<agent-name>; never silently skipped. Applied to Phase 2 architects and Phase 6 reviewers.",
-        "add-feature + _examples/add-feature: NEW Release pre-flight (heavy tier) in Phase 6 \u2014 feature-flag decision, expand\u2192migrate\u2192contract migration ordering, one-sentence rollback path ('cannot roll back' requires ADR), staging verification note. Closes the missing release stage in the lifecycle.",
-        "add-feature + _examples/add-feature: hard rules scoped to tier ('never skip phases within your tier's ceremony'; Phase 1/2 pauses are heavy-tier only) \u2014 removes the contradiction with the closure-verbs tiering table.",
-        "add-feature + _examples/add-feature: trivial/standard output template added \u2014 runs without architects/reviewers no longer report against the heavy-tier template.",
+        "add-feature + _examples/add-feature: rename payment-idempotency-reviewer → payment-reviewer (the agent that actually ships in domains/payment/agents/); drops the '(if present)' hedge so payment features no longer silently skip specialist review.",
+        "add-feature + _examples/add-feature: missing-agent fallback rule — any dispatched agent not installed in the project is performed inline against its pack/domain checklist and noted as inline:<agent-name>; never silently skipped. Applied to Phase 2 architects and Phase 6 reviewers.",
+        "add-feature + _examples/add-feature: NEW Release pre-flight (heavy tier) in Phase 6 — feature-flag decision, expand→migrate→contract migration ordering, one-sentence rollback path ('cannot roll back' requires ADR), staging verification note. Closes the missing release stage in the lifecycle.",
+        "add-feature + _examples/add-feature: hard rules scoped to tier ('never skip phases within your tier's ceremony'; Phase 1/2 pauses are heavy-tier only) — removes the contradiction with the closure-verbs tiering table.",
+        "add-feature + _examples/add-feature: trivial/standard output template added — runs without architects/reviewers no longer report against the heavy-tier template.",
         "fix-bug / add-endpoint / add-module: payment-reviewer dispatch row added (payment signal parity with add-feature) + missing-agent inline fallback rule."
       ]
     },

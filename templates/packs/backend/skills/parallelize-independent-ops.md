@@ -144,7 +144,7 @@ for _, id := range ids {
 g, gctx := errgroup.WithContext(ctx)
 g.SetLimit(8)
 for _, id := range ids {
-    id := id
+    // (pre-Go 1.22 needed `id := id` here; loop vars are per-iteration since 1.22)
     g.Go(func() error { return process(gctx, id) })
 }
 if err := g.Wait(); err != nil { return err }

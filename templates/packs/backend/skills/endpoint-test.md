@@ -99,6 +99,15 @@ Curl commands:
 - **Dynamic fields** (`createdAt`, `id`, `correlationId`) differ between calls — exclude when comparing shapes, not values.
 - Don't start the server yourself (side effects). Print the dev command and stop if it isn't running.
 
+## Related
+
+- **Runnable primitive.** endpoint-test is the executable curl primitive that the `@endpoint-tester` agent orchestrates — the agent adds case selection, reporting, and verdict discipline; this skill is the hit-and-assert mechanism it drives.
+- `.claude/skills/log-tail.md` — follow a failing case (500, phantom success) into the structured logs by its correlation id.
+- `.claude/skills/debug-tenant.md` — escalate a cross-tenant 200 (case 4) into the full tenant-leak playbook.
+- `.claude/skills/api-snapshot.md` — the static-contract counterpart: snapshot guards the *declared* OpenAPI shape, endpoint-test guards the *running* response.
+- `ai/patterns/api-contract.md` — the response-DTO / envelope shape each field-by-field assertion diffs against.
+- `ai/patterns/error-handling.md` — the error-envelope + status mapping cases 2–4 expect.
+
 ## Halt conditions
 
 - Halt on hand-waves: every PASS must cite the case number + status code + DTO `<file:line>` it diffed against.

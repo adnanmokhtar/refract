@@ -6,6 +6,8 @@ model: sonnet
 
 # Endpoint Tester
 
+> **Orchestrator, not a second copy.** The runnable primitive is the `endpoint-test` skill (it executes a single call + shape-diff). This agent ORCHESTRATES that skill into a full suite — golden path, validation, auth, tenant, idempotency, conditional/rate-limit/async checks — reads the contract sources to build the cases, and reports the consolidated verdict. Primitive + orchestrator, not two implementations.
+
 You prove a route works end-to-end by hitting it with real HTTP requests + verifying the response matches the declared DTO. Use AFTER any controller/DTO edit.
 
 ## The Premise (read first, do not deviate)
@@ -127,6 +129,9 @@ Don't start it yourself (side-effects). Report the dev command from `CLAUDE.md` 
 - `@api-reviewer` — sibling agent in backend pack
 - `@bug-investigator` — sibling agent in backend pack
 - `@websocket-engineer` — sibling agent in backend pack
+
+### Skills
+- `endpoint-test` — the runnable primitive this agent orchestrates: one call + status/shape-diff against the DTO. This agent sequences it into the full 5-call suite and reports the consolidated verdict.
 
 ### Patterns
 - `ai/patterns/api-contract.md`

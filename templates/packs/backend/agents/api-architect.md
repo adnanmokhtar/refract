@@ -120,12 +120,19 @@ If the framework isn't referenced, follow its OFFICIAL style guide. If no strong
 - `@endpoint-tester` — sibling agent in backend pack
 - `@websocket-engineer` — sibling agent in backend pack
 
+### Skills
+- `module-scaffold` — generates the module skeleton (controller / service / repo / DTO / test files) from the design this agent produces.
+
 ### Patterns
 - `ai/patterns/api-contract.md`
 - `ai/patterns/api-versioning.md`
+- `ai/patterns/async-job-offload.md` — designs the `202 Accepted` offload for inline heavy work.
 - `ai/patterns/caching-strategy.md`
+- `ai/patterns/conditional-requests.md` — designs `ETag` / `If-Match` concurrency on mutable resources.
 - `ai/patterns/error-handling.md`
+- `ai/patterns/pagination.md` — designs default-limited list contracts.
 - `ai/patterns/parallel-io.md`
+- `ai/patterns/rate-limiting.md` — designs per-tenant limits into the endpoint contract.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

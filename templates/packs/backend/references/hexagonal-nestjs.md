@@ -41,6 +41,12 @@ Violation = block at review.
 - Map ORM ↔ domain via a dedicated mapper class.
 - Never leak ORM types to callers.
 
+## Resilience, streaming, conditional requests & pagination
+
+This file is the **layering** companion to `nestjs.md` — it does not restate the full HTTP block. Rate limiting, ETag/conditional requests, streaming, and async-job offload are *interface-layer* concerns: they live on the controller / adapter (`@nestjs/throttler`, `@Sse`/`StreamableFile`, a BullMQ producer returning `202`) and MUST NOT leak into `domain` or `application`. See the full wiring in `nestjs.md` § "Resilience, streaming & conditional requests" + the sibling patterns (`ai-patterns/{rate-limiting,conditional-requests,response-streaming,async-job-offload}.md`).
+
+- **Pagination** — keep the contract hexagonal: the port declares `page(query: PageQuery): Promise<Page<Domain>>` in domain types (cursor + limit in, `{ items, nextCursor, hasMore }` out) — never ORM `FindManyOptions` or a raw `Repository`. The keyset predicate + stable tiebroken sort + `limit + 1` (no `COUNT(*)`) live in the TypeORM adapter; the controller maps `Page<Domain>` to the response envelope and enforces the default + max limit. → `ai-patterns/pagination.md`.
+
 ## Events
 
 - Domain events → dispatched by the event bus after the aggregate is saved.
