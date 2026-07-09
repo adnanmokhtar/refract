@@ -47,7 +47,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/refine-prompt` | Take any rough idea / one-liner / ticket and produce a deep, execution-ready prompt tailored to the… | — | `/refine-prompt "<rough idea>"` |
 | `/roadmap` | One command, phased completion plan for an unfinished project. | `--goal`, `--build`, `--status`, `--refresh`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--no-table-stakes` | `/roadmap the payments domain` |
 | `/scaffold-project` | Take a refined idea (or raw prompt) and generate a working project from scratch — proposes stack… | `--name=<repo-name>`, `--into=<path>`, `--stack=<key>`, `--no-claude-orchestration`, `--no-prompt`, `--dry-run` | `/scaffold-project "<idea-or-refined-spec-path>"` |
-| `/setup-project` | The brain. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--plan`, `--upgrade`, `--health`, `--validate-schemas`, `--diff` | `/setup-project --plan` |
+| `/setup-project` | The brain. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--plan`, `--upgrade`, `--health`, `--validate-schemas`, `--diff`, `--max-subagents=<N>` | `/setup-project --plan` |
 | `/setup-project-adapters` | Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, Codex, Continue, Copilot, Gemini, Windsurf… | `--legacy-opencode` | `/setup-project-adapters` |
 | `/setup-project-health` | Report the health of /setup-project artifacts in the current repo. | — | `/setup-project-health` |
 | `/task` | Provider-agnostic task executor. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |

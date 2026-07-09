@@ -276,6 +276,56 @@ Phase 6 — Continuous learning     (forever, after setup)
 
 Critical execution rules at `@templates/critical-execution-rules.md` override anything below; read first. Quick start at `@templates/quick-start.md`. Decision engine at `@templates/decision-engine.md`. Tool-adapter sibling: `commands/setup-project-adapters.md`.
 
+## Deep REFINE — round two (`--refine`)
+
+REFINE mode runs a **round-two deepening pass** on top of the round-one floor. It rewrites only the auto-generated `## Project-specific` anchor blocks whose density is shallow; user-authored sections and the `<!-- refine-enriched -->` / `<!-- generated -->` partitions are preserved verbatim. All phases below are REFINE-only and imported as `templates/phases/phase-*.md`; `--max-subagents=<N>` (default 8) caps the parallel Explore / re-anchor / adapter-sync subagents they fan out.
+
+### Phase 2.7 — Deep extraction: domain entities
+
+Invoke the `extract-domain-entities-deeply` skill per detected business-domain — entities, fields with types/constraints, relationships, enumerations, lifecycle events, invariants.
+
+### Phase 2.8 — Deep extraction: architecture
+
+Invoke `extract-architecture-deeply` — layer/import graph + representative request lifecycles with `file:line` citations and the deliberate bounded-context boundaries.
+
+### Phase 2.9 — Deep extraction: end-to-end flows
+
+Invoke `extract-flows-deeply` — ≥3 business-critical + ≥2 internal flows, step by step with side effects, error paths, and idempotency mechanism (or its absence).
+
+### Phase 2.10 — Deep extraction: emerging conventions
+
+Invoke `extract-conventions-emerging` — the conventions the code actually follows that round-one's shallow pass did not capture.
+
+### Phase 2.11 — Deep extraction: performance hot paths
+
+Invoke `extract-hotpaths` — high-volume endpoints/queries/jobs, eager-loading patterns, indexes, cache usage, and N+1 risk markers.
+
+### Phase 2.12 — Deep extraction: failure history
+
+Invoke `extract-failures-from-history` — revert/hotfix/incident/rollback commits grouped by recurring theme (`--include-incidents=<path>` adds postmortem docs on top of git log).
+
+### Phase 4.6-DEEP — Re-anchor shallow blocks
+
+Re-anchor every block flagged shallow by `compute-anchor-density`, rewriting the `## Project-specific` block via `apply-pack-adaptation` from the deep extraction above.
+
+### Phase 4.7-DEEP — Enrich the knowledge layer
+
+Deepen `ai/` knowledge from the round-two extraction; optionally write `ai/runbooks/<flow>.md` from the Phase 2.9 flow narrations (`--include-runbooks`).
+
+### Phase 4.8-DEEP — Propagate the deepening to adapters
+
+Incrementally re-translate the deepened `.claude/` + `ai/` to every selected non-claude-code adapter so Cursor / OpenCode / Aider / etc. see the same guidance, not just Claude. Ordering is **4.6-DEEP → 4.7-DEEP → 4.8-DEEP**; every per-adapter decision is logged to `.claude/_phase-4-8-decisions.md`.
+
+### Phase 5.5 — Setup-quality score + plateau verdict
+
+Emit `.claude/_setup-quality.md` (per-artifact 0–100 anchor-density score) and a **three-class plateau verdict** from the `setup-quality-scoring` rubric — a bare "plateau reached" is forbidden:
+
+- **PLATEAU-DEEP** — `plateau_delta ≤ 2` AND `plateau_consumed ≥ 0.85` AND `avg_score ≥ 80`: setup is anchored; stop running `--refine` until significant new code lands (exit 0).
+- **PLATEAU-WEAK** — plateaued but `plateau_consumed < 0.85` OR `avg_score < 80`: NOT yet deep, but extraction is exhausted — the message lists the WEAK phases and the user must grow upstream signal first (exit 2, "user action required upstream").
+- **NOT-PLATEAU** — `plateau_delta > 2` or no prior baseline: another `--refine` would still climb.
+
+Plateau thresholds are tunable via `--plateau-delta` / `--plateau-consumed` / `--plateau-score`.
+
 ---
 
 ## How to invoke
@@ -288,6 +338,8 @@ Critical execution rules at `@templates/critical-execution-rules.md` override an
 /setup-project --validate-schemas # run schema validation harness only
 /setup-project --diff             # preview changes against current state
 /setup-project --no-adapters      # sanctioned M34 skip: do NOT chain /setup-project-adapters
+/setup-project --refine           # round-two deepening (Phases 2.7–2.12 + 4.6/4.7/4.8-DEEP + 5.5)
+/setup-project --refine --max-subagents=<N>   # REFINE-only cost cap on parallel deep-extraction subagents (default 8)
 ```
 
 `--no-adapters` is the **only** sanctioned key for skipping the M34 adapter chain (besides `claude_config.adapters: false` in settings.json, or zero adapters enabled). Pass it through to the audit (`audit-setup.sh … --no-adapters`) so C2m records the skip instead of failing the run.

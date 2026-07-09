@@ -71,6 +71,31 @@ normalized_src() {
   printf '%s' "$out"
 }
 
+# Phase 4.6 (apply-anchors.sh) injects the canonical
+# `<!-- project-specific:start --> ... :end -->` block (+ one trailing blank
+# line) into every deployed artifact. That block does NOT exist in the pack
+# source, so comparing the raw target against the pack counts the anchor as
+# ~15 lines of "difference" — a file that is EXACTLY pack-content + anchor then
+# re-flags as MERGE on every refresh forever (phantom drift; observed 2026-07-09).
+# Strip the anchor block (and the single blank line the injection appends) so the
+# comparison sees only the pack-derived content.
+STRIP_TMP=""
+stripped_target() {
+  local tgt="$1"
+  if ! grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$tgt" 2>/dev/null; then
+    printf '%s' "$tgt"; return
+  fi
+  [[ -z "$STRIP_TMP" ]] && STRIP_TMP=$(mktemp -d "${TMPDIR:-/tmp}/study-strip.XXXXXX")
+  local out="$STRIP_TMP/$(basename "$tgt")"
+  awk '
+    /^<!-- project-specific:start -->[[:space:]]*$/ { skip=1; next }
+    skip { if (/^<!-- project-specific:end -->[[:space:]]*$/) { skip=0; drop_blank=1 } next }
+    drop_blank && /^[[:space:]]*$/ { drop_blank=0; next }
+    { drop_blank=0; print }
+  ' "$tgt" > "$out" 2>/dev/null || { printf '%s' "$tgt"; return; }
+  printf '%s' "$out"
+}
+
 PACKS=("$@")
 if [[ ${#PACKS[@]} -eq 0 ]]; then
   # Auto-detect installed packs from target's codebase-profile.md if present.
@@ -134,8 +159,10 @@ decide() {
 
   if [[ "$pack_size" -eq 0 ]]; then echo "ERROR_DIVZERO"; return; fi
 
-  # Byte-identical = no work needed (Phase 4.6 will still anchor project-specific block separately)
-  if cmp -s "$target_path" "$pack_path"; then
+  # Byte-identical = no work needed (Phase 4.6 will still anchor project-specific block separately).
+  # `diff -q` alone would report the trailing blank the anchor strip may leave; -w -B
+  # makes an adopted-then-anchored file compare equal to its pack source (no phantom MERGE).
+  if cmp -s "$target_path" "$pack_path" || diff -q -w -B "$target_path" "$pack_path" >/dev/null 2>&1; then
     echo "IDENTICAL-NO-OP"
     return
   fi
@@ -221,9 +248,12 @@ decide() {
 
         if [[ -f "$tgt" ]]; then
           cmp_src="$(normalized_src "$src" "$kind")"
+          # Compare against the anchor-stripped target so the Phase 4.6
+          # project-specific block never inflates the diff into phantom MERGE.
+          cmp_tgt="$(stripped_target "$tgt")"
           src_lines=$(wc -l < "$cmp_src" | tr -d ' ')
-          tgt_lines=$(wc -l < "$tgt" | tr -d ' ')
-          decision=$(decide "$tgt" "$cmp_src")
+          tgt_lines=$(wc -l < "$cmp_tgt" | tr -d ' ')
+          decision=$(decide "$cmp_tgt" "$cmp_src")
           kind_rows+=$'\n'"  - \`$base\` — target $tgt_lines / pack $src_lines lines → **$decision**"
 
           case "$decision" in
