@@ -63,6 +63,24 @@ Saga state persisted at each step (a saga-state table in the project's DB) so cr
 - Compensations must be idempotent (run may happen twice).
 - Some actions are not reversible (sent an email, made a physical shipment) — design so those are LAST, or explicitly accept non-compensation.
 
+## Saga isolation (the missing I in ACID)
+
+A saga gives you **A, C, D** but **not I**. Its steps commit locally as they go, so a concurrent saga (or any reader) can see a saga's *intermediate* state — the classic anomalies return:
+
+- **Dirty reads** — a saga reads a value another in-flight saga wrote but hasn't yet committed/compensated.
+- **Lost updates** — two sagas read-modify-write the same row; one clobbers the other.
+- **Fuzzy / non-repeatable reads** — a saga reads the same row twice and gets different values because another saga committed a step in between.
+
+There is no lock spanning the saga, so you engineer isolation with **countermeasures** — pick per how much concurrency and how much anomaly risk the flow carries:
+
+- **Semantic lock** — a `PENDING`/`IN_PROGRESS` status flag on the record the saga is mutating; other sagas (and readers) treat pending rows specially (skip, wait, or fail). The most common default; the compensation/completion clears the flag. Use when a resource must not be double-acted on mid-saga.
+- **Commutative updates** — design step effects so order doesn't matter (`balance += x` / `-= x` instead of `set balance = y`). Lost updates vanish because applies commute. Use for counters, balances, additive state.
+- **Pessimistic view** — reorder steps so the step most likely to cause a dirty-read anomaly runs last (or earliest-safe), shrinking the window where dangerous intermediate state is visible. Use when reordering is cheap and one step dominates the risk.
+- **Reread value / version file** — before acting or compensating, re-read the record and check a version/state (optimistic check); abort or re-plan if it changed since the saga read it. Use to catch lost updates without a lock.
+- **By-value** — route each request through a strategy chosen by business **risk**: low-value requests use fast, less-isolated paths (eventual anomalies tolerated); high-value requests use stricter countermeasures (semantic locks, even 2PC for the one critical step). Use when isolation cost must scale with stakes.
+
+Default posture: **semantic lock + commutative updates** cover most flows; add reread/version checks where lost updates bite; reserve pessimistic-view and by-value for hot, high-stakes paths.
+
 ## Persistence
 
 - Saga state in a DB table with { saga_id, step, status, payload }.

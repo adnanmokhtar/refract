@@ -1,4 +1,5 @@
 ---
+name: slo-audit
 description: Audit SLOs against reality. Are they being met? Are budgets being burned? Are they ambitious enough or too lax? Reports per-SLO with verdict + recommended action.
 ---
 
@@ -15,7 +16,9 @@ Find real issues. Every verdict (GREEN / YELLOW / RED / TOO LAX / TOO TIGHT / ST
 - Halt on hand-waves like "feels under-promised" — cite the trend or drop the recommendation.
 - Don't propose tightening without naming the stakeholder who must sign off.
 
-A periodic audit of SLOs (Service Level Objectives). Use:
+## When to run
+
+A periodic audit of SLOs (Service Level Objectives):
 - Quarterly review of all SLOs.
 - After a significant incident (did the SLO catch it? was it too lax?).
 - Before raising / lowering an SLO target.
@@ -129,7 +132,7 @@ Catch rate: 3/4 = 75%. Improve email-delivery SLO to capture missed class.
 
 - `ai/audits/slo-audit-<date>.md`.
 
-## Failure modes
+## False positives / gotchas
 
 - Audited only the last 7 days → missed slow-burn issues.
 - Treated GREEN SLOs as "no work needed" → missed that they're TOO LAX (silent under-promise).
@@ -139,7 +142,17 @@ Catch rate: 3/4 = 75%. Improve email-delivery SLO to capture missed class.
 
 ## Related
 
-- `alert-design` command — uses SLO definitions.
+### Skills
+- `alert-audit` — sibling audit; this audit's SLO definitions feed its burn-rate coverage check.
+
+### Commands
+- `alert-design` — uses SLO definitions.
 - `add-metrics` — provides SLI data.
-- `@sre-engineer` agent — broader SRE work.
-- `@incident-responder` agent — uses SLO context during incidents.
+
+### Agents
+- `@sre-engineer` — broader SRE work.
+- `@incident-responder` — uses SLO context during incidents.
+
+### Patterns
+- `ai/patterns/slo.md`
+- `ai/patterns/metrics.md`

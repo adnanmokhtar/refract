@@ -1,9 +1,20 @@
 {
   "kind": "pack",
   "name": "distributed-systems",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "First quality pass since baseline — correctness fixes + the consistency/coordination/scale half + the quantitative system-design specialist. CORRECTNESS (keystone integrity): fixed the distributed-lock guidance to require fencing tokens (Redlock caveat), the wrong DELETE-idempotency claim (idempotency is state-effect not status code; 404/410 on repeat is fine) + RFC 7231->9110, and the exactly-once framing (exactly-once delivery is impossible; effectively-once = at-least-once + idempotent processing). NEW patterns: consistency-models (CAP/PACELC + the linearizable->eventual ladder + delivery semantics), distributed-lock (fencing/lease/Redlock/lock-free), sharding-partitioning (partition-key/consistent-hashing/hot-partition/scale-cube), backpressure (bounded queues/load-shedding/adaptive-concurrency/bulkhead — closes the dangling backend bulkhead pointer); saga gains the missing-Isolation countermeasures. NEW capacity-planner agent (back-of-envelope estimation -> bottleneck ledger -> scaling axis -> migration-at-scale cutover) = the quantitative system-design specialist; design-system gains a Phase-3.5 capacity+scaling phase. House-contract: 4 agents get the hand-wave hard-halt + Skills subsections; resilience-reviewer + system-architect promoted to opus (were mis-tiered); add-saga gains a Premise; datastore-selection + C4 diagrams added to system-architect; dangling design-system refs fixed. This EXPANDS the pack to own holistic system design (the boundary call: expand here, not a new pack).",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "CORRECTNESS: idempotency.md — fencing-token requirement on distributed locks (Redlock controversy) + corrected DELETE idempotency (state-effect not status code; 404/410 on repeat is valid) + RFC 7231->9110. distributed-principles.md — exactly-once-delivery-is-impossible / effectively-once = at-least-once + idempotent processing.",
+        "NEW ai-patterns: consistency-models (CAP/PACELC, linearizable->sequential->causal->RYW->eventual ladder with pick-criteria, delivery semantics, per-datastore CP/AP table), distributed-lock (fencing tokens, lease/TTL, Redlock/Kleppmann-vs-Antirez, lock-free CAS alternatives), sharding-partitioning (key selection, consistent hashing + vnodes, hot-partition, resharding, scale-cube Z, when-NOT), backpressure (bounded queues, load-shedding 503+Retry-After, AIMD adaptive concurrency, credit flow control, bulkhead — closes the dangling backend bulkhead pointer). saga.md +Saga-isolation section (semantic lock / commutative / pessimistic view / reread-version / by-value).",
+        "NEW agents/capacity-planner.md (model:opus) — the quantitative system-design specialist: capacity model (Littles Law L=lambda*W, storage/bandwidth/cache/connection budgets) -> bottleneck ledger 1x/10x/100x -> scaling axis (vertical->horizontal->read-replicas->shard) -> data-migration-at-scale cutover (dual-write->backfill->shadow-read->expand-contract->flip); 7 detectors + capacity/bottleneck/scaling/partition-ADR output. commands/design-system.md +Phase-3.5 capacity+scaling dispatch; dangling event-bus.md/replication.md refs fixed. This is the system-design EXPANSION (boundary call: expand, not a new pack).",
+        "House-contract: all 4 pre-existing agents +hand-wave hard-halt clause +### Skills subsection +@capacity-planner sibling; resilience-reviewer + system-architect promoted sonnet->opus (were inverted) +verdict-matches-body; system-architect +datastore-selection table +C4 (container/component/deployment + sequence) diagrams; add-saga +Premise/Mechanical-halt. Registered consistency-models/distributed-lock/sharding-partitioning/backpressure + capacity-planner in _topics/_essentials."
+      ]
+    }
+  }
 }

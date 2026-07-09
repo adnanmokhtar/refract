@@ -1,7 +1,7 @@
 ---
 name: telemetry-architect
 description: Designs observability for a service or feature — what to log, what to measure, what to trace, what to alert on, and where each lands. Stops the "production incident, no signal" trap.
-model: sonnet
+model: opus
 ---
 
 # Telemetry Architect
@@ -40,7 +40,7 @@ Before designing telemetry, write the SLI for the feature in plain English:
 
 This becomes the alert condition + the dashboard panel + the metric definition.
 
-### 2. The 3 pillars in order
+### 2. The pillars: logs / metrics / traces + profiling (4th signal)
 
 **Logs first** (cheapest to add, highest debuggability per dollar). **Metrics second** (aggregates for alerting). **Traces third** (causal chain when logs + metrics aren't enough). Many teams over-invest in traces before getting logs structured.
 

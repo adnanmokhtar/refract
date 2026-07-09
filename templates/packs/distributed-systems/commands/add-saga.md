@@ -6,6 +6,17 @@ description: Implement a saga (orchestration / choreography) for a multi-step di
 
 Add a saga when a business transaction spans 2+ services AND can't be a single atomic DB transaction. Distributed transactions need explicit state, retries, and compensations.
 
+## Premise
+
+Existing sagas are the truth. Mirror the sibling saga's shape exactly: state-machine definition, step naming, compensation-pairing style, idempotency-key convention, retry classification, timeout defaults, saga-state ledger schema, span/metric naming. Read at least two sibling sagas (or the durable-engine's existing workflows) BEFORE writing — copy their conventions. A bespoke saga that re-rolls compensation pairing or idempotency-key format is a replay-orphan and a stuck-saga incident waiting to happen. New shapes need an ADR, not a fresh invention.
+
+## Mechanical halt
+
+- Sibling-shape parity — refuse to generate a saga that diverges from sibling conventions without an ADR cite in the PR. If the project has zero existing sagas, halt and ask which pattern to seed from.
+- Every step MUST carry all five parts (idempotency key, timeout, retry classification, compensation OR documented irreversibility, trace propagation); missing any one on any step halts generation.
+- A compensation without its own idempotency guarantee halts — double-compensation corrupts state.
+- Saga runtime unconfirmed (durable-engine worker / state-machine ARN / event-broker + saga-state ledger absent) — halt (see Phase 1 pre-flight).
+
 ## Phases applied
 
 All 7.
@@ -158,4 +169,5 @@ Tested:
 - `audit-distributed-tx` command — periodic check for stuck sagas.
 - `dlq-replay` skill — replay failed events.
 - `ai/patterns/event-sourcing.md` — sometimes overlapping concern.
-- `@event-sourcing-architect` agent (if pack has it).
+- `@event-sourcing-architect` agent — same-pack sibling; consult for event-sourced sagas.
+- `@workflow-orchestrator` agent — same-pack sibling; owns durable-workflow orchestration design + review.

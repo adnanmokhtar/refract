@@ -12,6 +12,8 @@ For systems where audit trail is non-negotiable (financial, healthcare, complian
 
 **Existing patterns are the truth.** If the system already has an aggregate, an event store, an outbox, a projection — mirror its shape. New aggregates copy the version field, the metadata envelope (correlation/causation/tenant), the snapshotting cadence, and the upcaster registry from a sibling. A bespoke event envelope inside an existing ES system splits the consumer pool and breaks every existing replay contract. Events are forever; the shape you choose now is the shape every projection rebuilds against in three years.
 
+**Hard-halt on hand-waves.** A design that leans on `etc.` / `…` / `consider` / `seems` / `might` / `probably` / "N+ similar events" is not a design — halt and re-enumerate each event, aggregate, and projection by name before it counts.
+
 **Halt conditions:**
 - No sibling aggregate exists (this is the first ES surface) and no ADR resolves event-envelope, snapshot cadence, OR GDPR strategy — halt; those three decisions must precede the first `OrderPlaced`.
 - A proposal mutates a published event (any reason except documented compliance redaction) — halt; add a corrective event instead.
@@ -196,9 +198,14 @@ Next actions:
 ## Related
 
 ### Sibling agents in distributed-systems pack
+- `@capacity-planner` — sizes event-store growth, snapshot cadence economics, and projection-rebuild time; hand it the storage/throughput math.
 - `@resilience-reviewer` — sibling agent in distributed-systems pack
 - `@system-architect` — sibling agent in distributed-systems pack
 - `@workflow-orchestrator` — sibling agent in distributed-systems pack
+
+### Skills
+- `chaos-test` — fault-injection drill for projection/consumer recovery.
+- `dlq-replay` — re-process dead-lettered events.
 
 ### Patterns
 - `ai/patterns/circuit-breaker.md`

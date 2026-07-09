@@ -18,6 +18,13 @@ Find real issues. Every "dead", "noisy", "missing runbook", "missing owner" find
 - Halt on hand-waves like "this alert seems noisy" — produce the fire count or drop the claim.
 - Don't propose deletion without confirming nobody's runbook references it.
 
+## When to run
+
+- Quarterly alert-hygiene review.
+- After an incident where the right alert didn't fire (or the wrong one paged).
+- On a new alert-rule PR — same rigor as code review.
+- When on-call reports alert fatigue.
+
 ## Sources
 
 - **The project's alerting backend** — rule files (whatever format the backend uses) + alert history via its API (Prometheus / Alertmanager, Grafana alerting, Datadog Monitors, vendor monitor APIs).
@@ -121,10 +128,26 @@ Action plan:
   6. Add burn-rate alerts for SLOs lacking coverage.
 ```
 
-## Rules
+## False positives / gotchas
 
-- Every alert has a runbook + owner.
-- Every alert fires on symptoms (user impact), not causes.
-- Dead alerts either fixed or deleted — don't just ignore.
-- Review alerts quarterly at minimum.
-- New alert PRs reviewed — same rigor as code.
+- A "dead" alert with a deliberately high threshold (a last-line safety net that should almost never fire) is correct — confirm intent before deleting.
+- A cause-based signal (`cpu > 80%`) kept as dashboard-only context rather than a page is correct — don't flag it as a bad alert.
+- Staging / non-prod alerts on a separate route are fine; only flag them if they page the prod rotation.
+- A flapping alert may be a real intermittent fault, not a bad rule — check median duration + downstream impact before prescribing `for: 5m`.
+- Don't propose deleting an alert that another alert's runbook references.
+
+Invariants this audit enforces: every alert has a runbook + owner; alerts fire on symptoms not causes; dead alerts get fixed or deleted, never ignored; new alert PRs get code-level review.
+
+## Related
+
+### Skills
+- `slo-audit` — sibling audit; its SLO definitions feed this audit's burn-rate coverage check.
+
+### Agents
+- `@sre-engineer` — owns SLO / error-budget / burn-rate policy.
+- `@incident-responder` — consumes alert quality during a live page.
+- `@observability-reviewer` — reviews new alert rules at the code-change level.
+
+### Patterns
+- `ai/patterns/metrics.md`
+- `ai/patterns/slo.md`

@@ -254,6 +254,13 @@ Incident response time: <average>
 - `ai/patterns/metrics.md`
 - `ai/patterns/structured-logging.md`
 - `ai/patterns/tracing.md`
+- `ai/patterns/slo.md`
+- `ai/patterns/audit-logging.md`
+- `ai/patterns/profiling.md`
+
+### Skills
+- `slo-audit` — periodic SLO verdicts (achieved % vs target, budget burn).
+- `alert-audit` — dead / noisy / runbook-less alert sweep.
 
 ### Rules
 - `.claude/rules/observability-principles.md`

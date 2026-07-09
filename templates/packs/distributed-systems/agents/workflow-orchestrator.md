@@ -12,6 +12,8 @@ For workflows that span hours/days/weeks — order-fulfillment, subscriptions, o
 
 **Existing patterns are the truth.** The platform is already chosen (Temporal, Step Functions, Airflow, Inngest) and existing workflows already define the activity-timeout convention, the retry policy shape, the signal-vs-poll default, the saga-compensation pairing style. New workflows mirror a sibling workflow — same SDK idioms, same versioning posture (`getVersion` cohort), same idempotency-key strategy. A bespoke workflow that re-rolls retry config or invents a new compensation pattern is a replay-orphan waiting to happen the next time a worker restarts.
 
+**Hard-halt on hand-waves.** A design or review that leans on `etc.` / `…` / `consider` / `seems` / `might` / `probably` / "N+ similar activities" is not complete — halt and re-enumerate each activity, signal, and compensation pair by name before it counts.
+
 **Halt conditions:**
 - No sibling workflow exists on this platform (first workflow) and no ADR pins activity-timeout defaults, retry policy, OR signal-naming convention — halt; those must precede the first `defineWorkflow`.
 - A workflow body contains direct I/O, `Date.now()`, `Math.random()`, or a wall-clock sleep — halt; non-determinism breaks replay regardless of the rest of the design.
@@ -164,9 +166,14 @@ Scope: <one-line purpose>
 ## Related
 
 ### Sibling agents in distributed-systems pack
+- `@capacity-planner` — sizes worker fleets, task-queue depth, and activity-concurrency budgets; hand it the throughput math.
 - `@event-sourcing-architect` — sibling agent in distributed-systems pack
 - `@resilience-reviewer` — sibling agent in distributed-systems pack
 - `@system-architect` — sibling agent in distributed-systems pack
+
+### Skills
+- `chaos-test` — fault-injection drill for worker-restart / activity-failure replay.
+- `dlq-replay` — re-process dead-lettered events.
 
 ### Patterns
 - `ai/patterns/circuit-breaker.md`
