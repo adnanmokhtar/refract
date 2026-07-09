@@ -82,6 +82,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   fallback: _examples/secret-scan.md
 
+- name: ssrf-scan
+  kind: skill
+  triggers: { grep_evidence: "fetch\\(|axios|httpx|requests\\.get|http\\.Get|open-uri|url|webhook|preview|import.*url|avatar" }
+  extracts_from: _extracted-codebase.md § "API surface" (outbound fetch sinks + user-URL inputs)
+  fallback: _examples/ssrf-scan.md
+
 - name: deps-audit
   kind: skill
   triggers: { package_manager_detected: true }

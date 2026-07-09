@@ -1,9 +1,17 @@
 {
   "kind": "pack",
   "name": "infrastructure",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "NEW admission-policy skill \u2014 generates the K8s admission policy (Kyverno / Sigstore policy-controller / OPA Gatekeeper / native ValidatingAdmissionPolicy) that ENFORCES image-signature verification (keyless cosign, CI-OIDC-bound), Pod Security Standards (restricted), and digest-not-tag \u2014 the verifier that enforces what devops release-security signs (closes the sign->verify supply-chain loop). Fills the 'admission control mentioned but never generated' gap the security review flagged.",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW skills/admission-policy.md (kind:skill) \u2014 admission-policy generator. Generates: image-signature verification (Kyverno verifyImages keyless / Sigstore ClusterImagePolicy, issuer+subject bound to the CI OIDC identity, optional SBOM/SLSA attestation require), Pod Security Standards restricted enforcement (non-root/no-priv/drop-caps/RO-rootfs/seccomp), supply-chain digest-not-tag gate, egress default-deny reference. Per-engine Adapt table; Audit->Enforce rollout guidance; fail-closed default. Verifier counterpart to devops release-security (closes sign->verify); enforcement layer between k8s-generate (defaults) and k8s-audit (drift). Registered in _topics/_essentials; abridged _examples/admission-policy.md."
+      ]
+    }
+  }
 }

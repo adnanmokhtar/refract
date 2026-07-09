@@ -16,6 +16,6 @@ Files listed above are the minimal subset copied when `/setup-project --minimal`
 Rationale per category (one line each):
 - agents: infra-architect is the broad designer; k8s-reviewer and kubernetes-architect are specialists kept out of minimal.
 - commands: k8s-generate is the only creation command — the day-one entry point.
-- skills: none essential — k8s-audit becomes useful once manifests exist.
+- skills: none essential — k8s-audit / admission-policy (signature-verification + Pod-Security enforcement — the verifier for devops release-security's signed images) becomes useful once manifests exist.
 - rules: infra-principles is the single rules file in the pack.
 - ai-patterns: none essential — zero-downtime-deploys is project-specific and kept out of minimal.
