@@ -199,6 +199,8 @@ Tools used:
 ### Sibling agents in security pack
 - `@auth-reviewer` — sibling agent in security pack
 - `@tenant-isolation-reviewer` — multi-tenant deep dive; dispatched when the audit detects multi-tenant signals
+- `@api-security-reviewer` — the API-layer lens (OWASP API Top 10: BOLA/BOPLA/BFLA/resource-consumption); pairs on access-control depth.
+- `@llm-security-reviewer` — LLM/AI-app security (prompt injection, improper output handling, excessive agency); applicable wherever the app calls a model.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

@@ -14,7 +14,7 @@ essentials:
 Files listed above are the minimal subset copied when `/setup-project --minimal` is used. Standard mode copies the entire pack; minimal mode copies only essentials.
 
 Rationale per category (one line each):
-- agents: security-auditor is the broad reviewer; auth-reviewer is a sub-specialty kept out of minimal.
+- agents: security-auditor is the broad reviewer (OWASP Top 10:2025); auth-reviewer, api-security-reviewer (OWASP API Top 10), tenant-isolation-reviewer, and llm-security-reviewer (OWASP LLM Top 10 — for AI/model-calling apps) are signal-gated sub-specialists kept out of minimal.
 - commands: security-audit is the single must-have entry point; deeper drills come with the full pack.
 - skills: secret-scan catches the most common, highest-impact accident (committed credentials).
 - rules: security-principles is the single rules file in the pack.

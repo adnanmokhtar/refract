@@ -200,6 +200,8 @@ Patterns consulted: auth-flow, zero-trust
 ### Sibling agents in security pack
 - `@security-auditor` — runs the broader OWASP audit; this agent is the auth/authz deep dive.
 - `@tenant-isolation-reviewer` — the multi-tenant deep dive; this agent verifies *who* the principal is, that one verifies *whose data* they may touch.
+- `@api-security-reviewer` — the API-layer lens (OWASP API Top 10: BOLA/BOPLA/BFLA/resource-consumption); pairs on access-control depth.
+- `@llm-security-reviewer` — LLM/AI-app security (prompt injection, improper output handling, excessive agency); applicable wherever the app calls a model.
 
 ### Skills
 - `secret-scan` — confirm no signing keys / OAuth client secrets / API keys are committed.

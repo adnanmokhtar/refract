@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "First quality pass since baseline — currency + coverage uplift (the pack was built on OWASP 2021; the 2025 edition finalized Jan 2026 with a different taxonomy). security-auditor remapped to OWASP Top 10:2025 (SSRF folded into A01; NEW A03 Software Supply Chain Failures + A10 Mishandling of Exceptional Conditions; Injection incl. the previously-missing XSS is A05; +BOLA/BFLA, alg:none, OAuth 2.1/passkeys, EPSS/KEV) with a 2021->2025 migration note. Enforcement-theater closed: the auditor now DISPATCHES image-scan/SBOM/signing to the devops pack and reports MISSING rather than asserting an unbacked pass. deps-audit npm parser fixed (npm 7+ .vulnerabilities, +OSV-Scanner, +EPSS/KEV). auth-reviewer + auth-flow: OAuth 2.1 (PKCE-all/no-implicit/no-ROPC/DPoP/PAR) + a passkey/WebAuthn ceremony detector; bcrypt <10->12 contradiction fixed. security-principles gains XSS/output-encoding + mass-assignment + file-upload MUSTs. NEW tenant-isolation pattern (resolves the flagship reviewer dangling ref). secret-scan modern token prefixes. Cross-link + example-spine + heading-drift fixes.",
+  "summary": "Tier 2 — two new application-security reviewers. NEW api-security-reviewer (OWASP API Security Top 10:2023 — BOLA/API1, Broken Auth/API2, BOPLA mass-assignment+excessive-data/API3, Unrestricted Resource Consumption/API4, BFLA/API5, Sensitive Business Flows/API6, SSRF/API7, Misconfig/API8, Inventory/API9, Unsafe Consumption/API10, + GraphQL depth/complexity/introspection) closing the API-Top-10 blind spot. NEW llm-security-reviewer (OWASP Top 10 for LLM Apps 2025 — prompt injection direct+indirect, sensitive-info disclosure, supply chain, poisoning, improper output handling, excessive agency, system-prompt leakage, vector/embedding weaknesses, misinformation, unbounded consumption) — high-value for AI/model-calling apps. Both opus, full reviewer contract; registered + bidirectionally cross-linked. Follows v1.1.0 OWASP-2025 currency pass.",
   "changelog": {
+    "1.2.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW agents/api-security-reviewer.md (kind:agent, model:opus, api_surface_detected) — OWASP API Security Top 10:2023 reviewer. All 10 categories with concrete rg detectors + a GraphQL subsection (depth/complexity limits, prod introspection, batching, resolver authz). BOLA (API1) + both BOPLA modes (API3) graded BLOCKER. Full contract: Premise cite-or-halt + hand-wave hard-halt + verdict-matches-body, Pre-flight, checklist, graded findings, Verdict + API1..API10 coverage table, Hard rules, Related with negotiated boundaries (@tenant-isolation-reviewer owns the tenant boundary, this owns per-object ownership; complements @security-auditor web-app A01). Abridged _examples/api-security-reviewer.md.",
+        "NEW agents/llm-security-reviewer.md (kind:agent, model:opus, llm_usage_detected) — OWASP Top 10 for LLM Apps (2025) reviewer, high-value for this LLM-heavy repo. Domain Premise clause: model output + retrieved/tool content are UNTRUSTED input. All 10 classes (LLM01..LLM10) with detectors — undelimited RAG chunk in prompt (LLM01), completion → innerHTML/eval/SQL sink (LLM05 BLOCKER), write/delete/payment tool with no confirmation gate (LLM06 BLOCKER), missing max_tokens/cost cap + unbounded agent loop (LLM10). Cross-links security-auditor 2025 (LLM05→A05/A10, LLM06→A01). Abridged mirror.",
+        "Registration + bidirectional cross-links: both agents added to _topics + _essentials; @api-security-reviewer + @llm-security-reviewer back-linked into the ## Related of security-auditor, auth-reviewer, and tenant-isolation-reviewer (bidirectional-links rule)."
+      ]
+    },
     "1.1.0": {
       "released": "2026-07-09",
       "changes": [
