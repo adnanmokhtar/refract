@@ -57,6 +57,16 @@ Find real issues, cite `<path:line>` for every drift finding. Each "MISSING" rep
    echo "$(( ($(date +%s) - updated_epoch) / 86400 )) days"
    ```
 7. Check `ai/modules.md` rows against actual module directories — flag both directions (in-tree-not-in-docs and in-docs-not-in-tree).
+8. **Signature / example accuracy** — existence checks (steps 1-7) prove a symbol *exists*; this step proves the docs describe it *correctly*. For every documented function signature, code example, or config default in `CLAUDE.md` / `ai/` / README:
+   - **Signatures**: locate the real definition and diff the documented parameter names, order, types, defaults, and return type against it. Flag `SIGNATURE-DRIFT` when they differ.
+     ```bash
+     # e.g. docs say createUser(name); grep the definition and compare arity/params
+     rg -n 'function\s+createUser|createUser\s*[=:]\s*\(|def\s+createUser' src apps libs
+     ```
+   - **Code examples**: trace each fenced example against source — does the import path resolve? does the call accept those arguments? does the return shape match what the example asserts? Flag `EXAMPLE-DRIFT` with the exact mismatch.
+   - **Config options / defaults**: for each documented option, grep the source for the key and confirm it is still read and that the documented default matches the code default. Flag `CONFIG-DRIFT`.
+   - **Deprecated references**: grep for `@deprecated` / `Deprecated` near symbols the docs still present as current; flag `DEPRECATED-REF` so docs stop steering readers to a sunset API.
+   Precision rule: only flag when you have both the doc claim (`<doc:line>`) AND the source truth (`<src:line>`) in hand — never "looks wrong" without the paired citation. Skip prose that paraphrases behavior; this step is for *literal* signatures/examples/defaults.
 
 ## Output
 
@@ -70,6 +80,13 @@ BROKEN (blockers):
   ai/stack.md:31
     Mentions VENDOR_API_V17 — actual .env.example has VENDOR_API_V20.
 
+  README.md:41  (SIGNATURE-DRIFT)
+    Documents `createUser(name)` — src/users/service.ts:88 defines
+    `createUser(name, options)` with required `options.email`.
+
+  docs/config.md:12  (CONFIG-DRIFT)
+    Says `retries` defaults to 5 — src/client.ts:33 default is 3.
+
 STALE:
   ai/status.md `Updated:` is 67 days old.
     Since: 23 commits, 5 new modules. Run /doc-refresh.
@@ -77,7 +94,10 @@ STALE:
   ai/modules.md
     Missing row for `<modules-root>/billing/` (exists in code, not in docs).
 
-OK: 84 file refs, 12 scripts, 19 env vars, 7 ADR citations all resolved.
+  CLAUDE.md:57  (DEPRECATED-REF)
+    Presents `legacyAuth()` as current — src/auth.ts:9 marks it `@deprecated`.
+
+OK: 84 file refs, 12 scripts, 19 env vars, 7 ADR citations, 22 signatures/examples all resolved.
 ```
 
 ## False positives / gotchas

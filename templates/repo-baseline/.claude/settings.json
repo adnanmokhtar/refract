@@ -16,6 +16,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/format-on-save.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/auto-test.sh"
           }
         ]
       }
@@ -31,6 +35,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/secret-scan.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/inject-path-rules.sh"
           }
         ]
       },
@@ -64,6 +72,16 @@
           {
             "type": "command",
             "command": ".claude/hooks/verify-gate.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/notify.sh"
           }
         ]
       }

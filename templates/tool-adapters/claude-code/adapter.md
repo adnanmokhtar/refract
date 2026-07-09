@@ -57,11 +57,13 @@ Plain markdown. Rules are project conventions Claude consults when editing code.
 
 ### `.claude/hooks/*.sh`
 POSIX shell. Must be executable. Common hooks:
-- `post-edit-check.sh` — runs after Edit/Write/MultiEdit (lint/typecheck).
-- `pre-edit-guard.sh` — blocks edits to sensitive paths (.env, lock files, migrations).
-- `guard-destructive.sh` — second-layer block on destructive bash.
-- `session-start.sh` — one-time briefing on session open.
-- `update-session-log.sh` — Stop hook, appends session summary.
+- `post-edit-check.sh` / `format-on-save.sh` / `auto-test.sh` — run after Edit/Write/MultiEdit (lint/typecheck, format, run matching test; `auto-test` is opt-in via `.claude/.auto-test`).
+- `pre-edit-guard.sh` — blocks edits to sensitive/generated/binary paths (.env, keys/certs, lock files, `*.gen.*`/`*.min.*`, build output, hook scripts).
+- `secret-scan.sh` — blocks writes that introduce credentials (keys, tokens, connection strings).
+- `inject-path-rules.sh` — context-only; injects a `paths:`-scoped rule from `.claude/rules/` when an edit touches a file it governs (once/session).
+- `guard-destructive.sh` — second-layer block on destructive bash (protected-branch/force push, `rm -rf`, DB drops, `curl|sh`, `dd`/`mkfs`).
+- `session-start.sh` — one-time briefing on session open; `notify.sh` — OS notification on Notification event.
+- `update-session-log.sh` / `verify-gate.sh` — Stop hooks (session summary + verify gate).
 
 ### `.claude/settings.json`
 JSON. Schema:
@@ -135,11 +137,14 @@ You are the backend reviewer for <Project>. The project uses <stack> ...
 
 Claude Code is the source of truth — no translation needed. All 4 artifact types (commands, agents, skills, hooks) are native. Other adapters consume THIS adapter's outputs:
 
-- Rules (`.claude/rules/*.md`) → translated to every tool's native rule format.
-- Commands (`.claude/commands/*.md`) → translated to OpenCode commands, Cursor `command-*.mdc`, Continue `prompts:`, Copilot `.github/prompts/*.prompt.md`, Cline/Windsurf/Codex/Gemini sections, Aider `CONVENTIONS.md` sections.
+- Rules (`.claude/rules/*.md`) → translated to every tool's native rule format. **Path-scoped rules** (those carrying `paths:` frontmatter, e.g. `migration-safety.md`) are authoritative about their own scope — the translator copies their `paths:` globs **verbatim** into the tool's native glob field rather than re-inferring:
+  - Native glob-rules → map `paths:` directly: **Cursor** `globs:`, **Windsurf** `activation_mode: glob` + `globs:`, **Continue** `globs:`, **Copilot** `applyTo:`.
+  - Native hooks but no glob-rules → **Qwen / Kimi**: port `inject-path-rules.sh` into the tool's hook block to gain path-scoping their rules can't express (verify the tool honours PreToolUse `additionalContext`; else fall back to global).
+  - Neither → **Aider / OpenCode / Cline / Codex / Gemini**: a `paths:` rule degrades to always-apply (Aider `CONVENTIONS.md`, OpenCode `instructions` array, etc.) with a one-line gap disclosure that per-file scoping isn't available.
+- Commands (`.claude/commands/*.md`) → translated to OpenCode commands, Cursor `command-*.mdc`, Continue `prompts:`, Copilot `.github/prompts/*.prompt.md`, Cline/Windsurf/Codex/Gemini sections, Aider `CONVENTIONS.md` sections. (Baseline commands `/ship`, `/catchup`, `/fix-bug` are ordinary commands — they translate the same way, no special handling.)
 - Agents (`.claude/agents/*.md`) → translated to named prompts with "Act as" framing everywhere except Claude Code.
 - Skills (`.claude/skills/<name>/SKILL.md`) → free for OpenCode (reads `~/.claude/skills/` globally); translated to named prompts/procedures for others.
-- Hooks (`.claude/hooks/*.sh`) → NOT translatable. Other adapters fall back to git hooks + always-apply rules + gap disclosure. See `ai/references/tool-parity.md`.
+- Hooks (`.claude/hooks/*.sh`) → NOT translatable **except** `inject-path-rules.sh`, whose intent is carried natively per the Rules row above (glob-rules) or by porting the hook (Qwen/Kimi). The safety/format/test hooks (`guard-destructive`, `pre-edit-guard`, `secret-scan`, `format-on-save`, `auto-test`, `notify`) still fall back to git hooks + always-apply rules + gap disclosure. See `ai/references/tool-parity.md`.
 
 **Running order in `/setup-project` Phase 4.8**: claude-code adapter runs FIRST (produces canonical artifacts); all other adapters translate FROM these files. Never write rules/commands/agents/skills in tool-specific adapters without first writing them here.
 

@@ -193,6 +193,16 @@ matcher = ".*"
 command = "~/.claude/scripts/validate-migration-artifacts.sh --hook-mode"
 timeout = 30
 
+# Path-scoped rules: Kimi has no native rule-glob form, but this hook recovers it —
+# it injects a .claude/rules/*.md rule when an edit matches its `paths:` frontmatter.
+# Depends on Kimi honouring a PreToolUse hook that returns `additionalContext`; if it
+# does not, drop this and keep `paths:` rules in AGENTS.md globally (gap disclosure).
+[[hooks]]
+event = "PreToolUse"
+matcher = "Edit|Write|MultiEdit"
+command = ".claude/hooks/inject-path-rules.sh"
+timeout = 10
+
 [[hooks]]
 event = "Stop"
 command = "echo 'Session ended; consider running /learn-from-task'"

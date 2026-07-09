@@ -46,27 +46,32 @@ Cross-check every claim in the `ai/` knowledge base + `CLAUDE.md` against the so
    echo "$(( ($(date +%s) - updated_epoch) / 86400 )) days"
    ```
 7. Check `ai/modules.md` rows against actual module directories — flag both directions (in-tree-not-in-docs and in-docs-not-in-tree).
+8. Signature / example accuracy: diff documented function signatures, code examples, and config defaults against the real source symbol (`SIGNATURE-DRIFT` / `EXAMPLE-DRIFT` / `CONFIG-DRIFT`); flag docs presenting an `@deprecated` symbol as current (`DEPRECATED-REF`). Cite both `<doc:line>` and `<src:line>`.
 
 ## Output
 
 ```
-Doc drift — 4 findings
+Doc drift — 5 findings
 
 BROKEN (blockers):
   ai/patterns/project-structure.md:23
-    References `src/modules/legacy/` which was deleted in commit def456a.
+    References `<modules-root>/legacy/` which was deleted in commit def456a.
 
-  ai/stack.md:31
-    Mentions WHATSAPP_API_V17 — actual .env.example has WHATSAPP_API_V20.
+  README.md:41  (SIGNATURE-DRIFT)
+    Documents `createUser(name)` — src/users/service.ts:88 defines
+    `createUser(name, options)` with required `options.email`.
 
 STALE:
   ai/status.md `Updated:` is 67 days old.
     Since: 23 commits, 5 new modules. Run /doc-refresh.
 
   ai/modules.md
-    Missing row for `src/modules/billing/` (exists in code, not in docs).
+    Missing row for `<modules-root>/billing/` (exists in code, not in docs).
 
-OK: 84 file refs, 12 scripts, 19 env vars, 7 ADR citations all resolved.
+  CLAUDE.md:57  (DEPRECATED-REF)
+    Presents `legacyAuth()` as current — src/auth.ts:9 marks it `@deprecated`.
+
+OK: 84 file refs, 12 scripts, 19 env vars, 7 ADR citations, 22 signatures/examples all resolved.
 ```
 
 ## False positives / gotchas

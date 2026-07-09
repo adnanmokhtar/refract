@@ -59,8 +59,9 @@ Body = prose instructions. Only loaded when editing files matching the glob.
 
 2. **`.github/instructions/<domain>.instructions.md`** — one per major domain:
    - Frontmatter `applyTo:` with appropriate glob.
+   - **Authoritative `paths:` (preferred).** If the source `.claude/rules/<name>.md` carries `paths:` frontmatter (a YAML glob list, e.g. `migration-safety.md`), set `applyTo:` from those globs **verbatim** — the rule declared its own scope; don't re-infer. A rule with no `paths:` goes into `copilot-instructions.md` (repo-wide) instead. Note: `inject-path-rules.sh` is NOT ported — `applyTo:` is its Copilot-native equivalent.
    - Body: inline rule content from `.claude/rules/<domain>.md`.
-   - Suggested splits:
+   - Suggested splits (when a rule lacks its own `paths:`):
      - `database.instructions.md` — `applyTo: "**/entities/**/*.ts"`, `"**/repositories/**/*.ts"`, `"**/migrations/**/*.ts"`
      - `dtos.instructions.md` — `applyTo: "**/dtos/**/*.ts"`
      - `controllers.instructions.md` — `applyTo: "**/controllers/**/*.ts"`

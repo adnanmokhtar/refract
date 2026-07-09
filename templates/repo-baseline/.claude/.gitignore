@@ -1,0 +1,9 @@
+# Personal / ephemeral state — never committed.
+HANDOFF.md          # /catchup handoff note (your note to your next self)
+
+# Hook opt-out / opt-in flag files (per-machine preference, not project policy).
+.no-guard-destructive
+.no-pre-edit-guard
+.no-secret-scan
+.no-format
+.auto-test

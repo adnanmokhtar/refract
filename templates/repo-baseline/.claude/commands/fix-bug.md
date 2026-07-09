@@ -7,6 +7,8 @@ description: Universal bug-fix workflow. Stack-aware (detects backend / frontend
 > **This is the universal-minimum baseline.** It is the subset every project inherits. Pack equivalents (e.g. `templates/packs/backend/commands/fix-bug.md`) are **enriched supersets** that add ceremony (telemetry-gap check, signal-aware reviewer cascade, postmortems) on top of — never instead of — this baseline. Both share the two non-negotiable invariants in [`templates/snippets/fix-bug-core.md`](../../../snippets/fix-bug-core.md): **failing-test-first** and the **similar-bugs ledger**. If this file ever contradicts that snippet, the snippet wins.
 >
 > **`--plan`**: this command honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/fix-bug <desc> --plan` diagnoses + plans, writes the plan file, and exits before any edit.
+>
+> **`--fast`** (emergency hotfix): production is broken and the fix must ship now. Branches from the **production/default** branch, makes the smallest correct change, writes **one** critical-path regression test (not the full class), opens a `[HOTFIX]` PR, and files a follow-up for full coverage + backport. See "§ `--fast` — emergency hotfix mode" below. `--fast` and `--plan` are mutually exclusive (planning is not an emergency posture).
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -61,6 +63,29 @@ After the reported-site fix is applied:
 Trivial-tier collapses Phases 5 (Update) and 7 (Improve) into one-line entries. Heavy-tier ceremony (all 7 phases) is opt-in.
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve), with **Phase 4 = TDD (failing test FIRST, then fix)** — described below for the heavy-tier case.
+
+## § `--fast` — emergency hotfix mode
+
+Use when production is actively broken and time-to-mitigation dominates. `--fast` does not *drop* the discipline — it *reorders* it so the smallest correct fix ships now and the full ceremony follows as a tracked follow-up. It never skips the two non-negotiable invariants in [`fix-bug-core.md`](../../../snippets/fix-bug-core.md); it narrows their scope for this one PR.
+
+**What changes vs a normal run:**
+
+| Step | Normal | `--fast` |
+|---|---|---|
+| Branch | `fix/<slug>` from current | **`hotfix/<slug>` cut from the production/default branch** (so the fix lands on what's live, not on unshipped work) |
+| Test | Failing test first, generalized to the bug class | **One failing critical-path test first** that pins *this* production symptom — still red-before-fix, but not the whole class |
+| Fix size | Minimal | **Minimal + bounded**: target ≤50 changed lines; a bigger fix means this isn't a hotfix — fall back to a normal run |
+| Similar-bugs scan | Inline, all N in this PR | **Deferred to the follow-up** — note the pattern; do not expand the hotfix PR to chase siblings |
+| Reviewers | Full cascade | **Fast cascade**: `@code-reviewer` + (`@security-auditor` iff the bug touches auth/tenant/data) — blocking; others deferred |
+| PR | Standard | **`[HOTFIX]` title + label**, body states blast radius + the mitigation, links the follow-up |
+| Follow-up | — | **Mandatory ticket**: full similar-bugs scan, generalized regression test, failure-catalog entry, and **backport** of the fix into the mainline branch if it diverged |
+
+**Still mandatory even in `--fast`:**
+- **Failing test before the fix.** The critical-path test must be red for the diagnosed reason, then green after. An unverified hotfix is how the second outage starts.
+- **Root cause, not symptom.** A `try/catch` that swallows the error is not a hotfix — it's a new bug with a deadline.
+- **The follow-up is filed before the PR merges.** "We'll do it later" without a ticket ID = it never happens; the mechanical halt is: `--fast` PR refuses merge unless it references a follow-up ticket.
+
+**Hard halt:** if the smallest correct fix exceeds ~50 lines, touches a shared library with wide ripple, or requires a schema migration, `--fast` is the wrong tool — stop and tell the user this needs a standard (or heavy-tier) fix, not a hotfix.
 
 ## When to use / NOT to use
 

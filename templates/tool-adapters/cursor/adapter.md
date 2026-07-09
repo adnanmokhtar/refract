@@ -63,8 +63,10 @@ Prefix rules with a two-digit sort key:
 For each `.claude/rules/<name>.md` + `ai/patterns/<name>.md`:
 
 1. Decide activation mode:
-   - `alwaysApply: true` → rules that apply project-wide (project-structure, jsdoc, naming).
-   - `globs: [...]` → rules scoped to specific file patterns (database → `src/**/entities/**/*.ts`, controllers → `src/**/controllers/**/*.ts`).
+   - **Authoritative `paths:` (preferred).** If the source `.claude/rules/<name>.md` carries `paths:` frontmatter (a YAML glob list, e.g. `migration-safety.md`), copy those globs **verbatim** into `globs:` and set `alwaysApply: false` — the rule declared its own scope; do not re-infer it.
+   - `alwaysApply: true` → rules with **no** `paths:` (the always-loaded foundation: project-structure, jsdoc, naming).
+   - `globs: [...]` (inferred) → only when a rule lacks `paths:` but is clearly domain-scoped (database → `src/**/entities/**/*.ts`, controllers → `src/**/controllers/**/*.ts`).
+   - **Do NOT port `inject-path-rules.sh`.** That hook is the Claude-Code-only mechanism for applying `paths:` rules; Cursor's native `globs:` is its equivalent, so the rule is already path-scoped here without it.
 2. Write a thin MDC file that:
    - Has the frontmatter with correct activation.
    - Body uses `@file` to include the canonical `.claude/rules/<name>.md` rather than copying content.

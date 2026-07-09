@@ -46,12 +46,14 @@ Activation modes:
 
 ## Translation recipe
 
-1. **`.windsurf/rules/00-project.md`** — `activation_mode: always`, project-wide essentials.
-2. **`.windsurf/rules/10-<domain>.md`** — `activation_mode: glob` with paths matching the domain:
+1. **`.windsurf/rules/00-project.md`** — `activation_mode: always`, project-wide essentials (rules with **no** `paths:` frontmatter — the always-loaded foundation).
+2. **Authoritative `paths:` (preferred).** If a source `.claude/rules/<name>.md` carries `paths:` frontmatter (a YAML glob list, e.g. `migration-safety.md`), emit `activation_mode: glob` with `globs:` copied **verbatim** from `paths:` — the rule declared its own scope; do not re-infer it.
+3. **`.windsurf/rules/10-<domain>.md`** (inferred) — only for rules that lack `paths:` but are clearly domain-scoped: `activation_mode: glob` with paths matching the domain:
    - database rules → `["src/**/entities/**/*.ts", "src/**/repositories/**/*.ts"]`
    - multi-tenancy → `["src/**/*.ts"]` (universal) OR `trigger_words: ["tenant", "tenantId"]`
    - AI / Claude integration → `["src/**/claude/**/*.ts", "src/**/prompt-builder/**/*.ts"]`
-3. Copy rule content from `.claude/rules/<domain>.md` verbatim (Windsurf doesn't support file includes).
+4. Copy rule content from `.claude/rules/<domain>.md` verbatim (Windsurf doesn't support file includes).
+5. **Do NOT port `inject-path-rules.sh`** — it is the Claude-Code-only mechanism for applying `paths:` rules; `activation_mode: glob` is its Windsurf-native equivalent.
 
 ## Idempotency
 

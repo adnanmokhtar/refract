@@ -6,6 +6,52 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Adapter parity for path-scoped rules (`paths:` → each tool's native scoping)
+
+**Why** — path-scoped rules (the new `paths:` frontmatter) are authoritative about their own scope, but the adapter rule-translation contract didn't consume `paths:`, so `migration-safety.md` would silently downgrade to always-apply on tools that support native per-file scoping. Closed the fidelity gap so the scoping survives translation.
+
+- **Canonical contract** (`tool-adapters/claude-code/adapter.md`) — the cross-tool Rules row now specifies: copy a rule's `paths:` globs **verbatim** into the tool's native glob field; three tiers — native glob-rules (Cursor `globs:`, Windsurf `activation_mode: glob`, Continue `globs:`, Copilot `applyTo:`), native-hooks-but-no-glob (Qwen/Kimi → port `inject-path-rules.sh`), neither (Aider/OpenCode/Cline/Codex/Gemini → global + disclosure). `inject-path-rules.sh` is the one hook whose intent IS translatable (natively or by porting); the safety hooks still fall back as before.
+- **Per-adapter recipes** updated: `cursor`, `windsurf`, `continue`, `copilot` adapter.md (map `paths:`→native glob, skip porting `inject-path-rules`); `qwen`, `kimi` adapter.md (port the hook to gain path-scoping, with a PreToolUse-`additionalContext` verify caveat).
+- **Pipeline sync** — matched the same notes in `commands/setup-project-adapters.md` (the per-adapter translation matrix rows for cursor / windsurf / continue / copilot / qwen / kimi).
+- **Compatibility:** nothing breaks on any of the 11 adapters — this is a fidelity upgrade (native scoping where supported) over the prior always-apply fallback. All parity gates (`lint-tool-parity`, `test-adapter-fixtures`) green.
+
+### Path-scoped rules + always-loaded budget gate (prototype)
+
+**Why** — dotclaude's rule model keeps per-turn context lean by loading most rules only near matching files; ours always-loads four rich foundational rules (~4,900 tok) by design. Adopted the *mechanism* as an additive tier without giving up the always-on foundation — and wired it for real (PreToolUse `additionalContext` is a confirmed Claude Code capability), not as convention-theater.
+
+- **`inject-path-rules.sh`** (new, PreToolUse `Edit|Write|MultiEdit`, context-only) — reads a rule's `paths:` frontmatter globs, matches the target file, and injects the matching rule as `additionalContext` **once per session** (deduped on `session_id`). Glob support: `**`, `*`, `**/`, `/**`. Opt out: `.claude/.no-path-rules`. Needs `jq`; degrades to a silent no-op without it. Never blocks.
+- **`migration-safety.md`** (new, path-scoped demo rule) — loads only near migration files (`**/migrations/**`, `**/alembic/versions/**`, `**/prisma/migrations/**`, …). Immutable-applied-migrations / reversible / expand-contract discipline. Costs zero tokens until you touch a migration.
+- **`scripts/check-rule-budget.sh`** (new, CI-wired) — measures the *always-loaded* set (CLAUDE.md + `@`-imported rules without `paths:`), fails over a 6000-token budget; path-scoped rules are exempt. Reframes dotclaude's 1200-token diet to fit our deliberate always-on foundation: the gate forces any *new* rule to justify always-loading or become path-scoped. Current baseline: ~4,927 tok.
+- **`.claude/rules/README.md`** (new) — documents the two-tier model.
+- Tests: 5 new `inject-path-rules` fixtures (match / nested-match / no-match, content-asserted) → hook suite now **40 cases**; both new checks wired into `quality-gates.yml`.
+
+Sync: `settings.json` (PreToolUse wiring), `.claude/GUIDE.md` (hooks + rules sections), `code-quality.md` enforcement note, claude-code adapter enumeration.
+
+### New baseline commands `/ship` + `/catchup`, `/fix-bug --fast` hotfix mode, and a doc-drift signature/example detector
+
+**Why** — the `poshan0126/dotclaude` review also surfaced command-level capabilities we lacked. Adopted the ones with no equivalent, authored as full specialists (premise + procedure + hard rules + failure modes), not thin wrappers:
+
+- **`/ship`** (new, `templates/repo-baseline/.claude/commands/ship.md`) — the standalone delivery flow: stage → commit → push → PR with a confirmation gate at every irreversible step, a never-stage guard (secrets / build output / lock-churn / keys — reusing `secret-scan.sh` shapes), fast-forward-only push (halts on a diverged remote, never force-pushes), Conventional-Commit synthesis, and `--cleanup` for `[gone]`-upstream branches. Distinct from `/pre-commit` (a review *gate* that never authors) and from commands' own final PR steps.
+- **`/catchup`** (new, `catchup.md`) — reseat context after `/clear`: read mode reconstructs branch state from `.claude/HANDOFF.md` + git commits/diff + `ai/status.md` and prints goal/done/in-flight/next/gotchas; `handoff` mode writes the note. Read-only by default. Ephemeral per-branch state — the sibling of `/learn-from-task` (durable `ai/` knowledge). Added `templates/repo-baseline/.claude/.gitignore` so `HANDOFF.md` + hook flag-files are never committed.
+- **`/fix-bug --fast`** — emergency-hotfix mode: `hotfix/<slug>` cut from the production branch, ≤50-line bounded fix, one critical-path failing-test-first (not the full class), fast reviewer cascade, `[HOTFIX]` PR, and a **mandatory follow-up ticket** (full similar-bugs scan + generalized test + backport). Keeps the failing-test-first and root-cause invariants; hard-halts if the fix exceeds hotfix scope.
+- **`doc-drift-scan`** (documentation pack → v1.2.0) — new step 8: verifies docs describe symbols *correctly*, not just that they exist. `SIGNATURE-DRIFT` (documented params/types/defaults vs the real definition), `EXAMPLE-DRIFT` (code examples traced against source), `CONFIG-DRIFT` (documented defaults vs code), `DEPRECATED-REF` (docs presenting an `@deprecated` symbol as current). Each finding cites both `<doc:line>` and `<src:line>`.
+
+Sync: registered both commands in `docs/COMMANDS.md` (new "Baseline (every repo)" table) + `.claude/GUIDE.md`; bumped the documentation pack `_version.json` + abridged `_examples` mirror; regenerated `docs/CHEATSHEET.md`. All quality-gate validators green.
+
+### Baseline hooks: harden `guard-destructive`, broaden `pre-edit-guard`/`secret-scan`, add `auto-test` + `notify`, add a fixture suite
+
+**Why** — a review of the `poshan0126/dotclaude` kit found its deterministic safety hooks materially more robust than our baseline's. Adopted the wins (rewritten as our own, keeping our exit-2/stderr convention and jq-optional parsing):
+
+- **`guard-destructive.sh`** — was 6 fragile `case` globs with a real bug (`*"git push --force"*` also matched and blocked the *safe* `git push --force-with-lease`). Rewritten: jq-with-sed-fallback command extraction; configurable protected branches (`CLAUDE_PROTECTED_BRANCHES`); correct force-with-lease allowance; and new guards for push-to-protected-branch (explicit refspec + bare-push-on-branch), `rm -rf` on `~`/`$HOME`/`$VAR`/system dirs, `DROP`/`DELETE`-without-`WHERE`/`TRUNCATE`, `curl|sh`, `dd`/`mkfs`, `/dev/` redirects, `chmod 777`, and accidental package `publish` (allows `--dry-run`).
+- **`pre-edit-guard.sh`** — added certs/keys (`*.pem *.key *.crt *.p12 *.pfx`, `id_rsa`, `id_ed25519`, `credentials.json`, `.npmrc`, `.pypirc`), generated/minified output (`*.gen.ts *.generated.* *.min.js *.min.css`), self-protection of `.claude/hooks/*` + `.git/` + `secrets/`, and binary/archive/media extensions.
+- **`secret-scan.sh`** — added connection-string-with-credentials detection (`postgres://user:pass@…`).
+- **`auto-test.sh`** (new, PostToolUse, **opt-in** via `.claude/.auto-test`) — runs the matching test file after an edit; silent on success.
+- **`notify.sh`** (new, Notification) — native OS notification (macOS/Linux/WSL) when Claude needs attention.
+- Wired `auto-test` (PostToolUse) + `notify` (Notification) into `templates/repo-baseline/.claude/settings.json`.
+- **`tests/hooks/run.sh`** (new) — 35 fixture cases across the three security-critical hooks, wired into `quality-gates.yml` as a blocking gate. Mirrors dotclaude's fixture-test practice, which we previously lacked.
+
+Sync: updated `.claude/GUIDE.md`, the `code-quality.md` rule enforcement note, and the claude-code adapter hook enumeration.
+
 ### `/analyze-task` (business pack v1.1.0): fix `--resume` answer-folding + add `--decisions` one-pass path
 
 **Why** — a real run exposed two gaps. (1) On `--resume`, the command appended a fresh `Gate answers` section instead of folding the confirmed answers into the existing `Resolved decisions` section — so the same decisions scattered across three places (`Open questions` + `Resolved decisions` + `Gate answers`), and the invented section violated the command's own sibling-shape parity rule (no sibling spec has it). The resume instruction said "append 4b only" but was silent on where the answers go, so the agent improvised. (2) Users who already decided everything in a prior Plan Mode discussion still hit the 4a→4b confirmation gate and had to re-answer — deciding twice.
