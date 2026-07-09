@@ -1,12 +1,19 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Quality review + enhance pass. NEW webhook-flow pattern (the highest-value gap — inbound signature-verify/replay/enqueue-then-ack + outbound signing/retry/DLQ, with detectors) closing the discipline the commands already referenced as if it shipped. NEW multi-tenancy pattern SOURCE (was an orphaned _example — resolution chain / context / auto-filter / bypass rules / isolation tests). Technical-error fixes: Deprecation:true → RFC 9745 date form (api-versioning + api-reviewer + example); removed fabricated linters from concurrency-discipline (Pyright reportAwaitInsideLoop / golangci noctx do not do what was claimed); nhooyr.io/websocket → github.com/coder/websocket; MySQL query-cache staleness (removed in 8.0); Go 1.22 loop-var note; add-endpoint frontend-stack-leak (Vue/PrimeVue → NestJS); un-dangled the webhook-flow command references. RateLimit-* verified still an IETF draft in 2026 (pack hedge correct — no change).",
+  "summary": "NEW pagination pattern (cursor-first / default+max limit / stable sort with unique tiebreaker / opaque keyset cursor / avoid COUNT(*) per page) — a backend-principles MUST that previously had no pattern, no reference coverage, and no generation gate. Registered always:true; add-endpoint Phase-4 now gates it (API-8) with an over-cap-clamp + no-drop/repeat e2e. Follows the v1.6.0 webhook + multi-tenancy pass.",
   "changelog": {
+    "1.7.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW ai-patterns/pagination.md (kind:pattern, always:true) — the pagination specialist. Cursor(keyset)-vs-offset decision table, six rules (default+max limit, stable total sort with PK tiebreaker, opaque cursor, keyset-predicate-matches-sort, avoid COUNT(*) per page via limit+1/hasMore, single-envelope meta), six cite-or-halt detectors (unbounded list / no-cap limit / offset-on-hot-table / unstable-sort / count-per-page / envelope-drift) + closure verbs. Registered in _topics + _essentials; fallback _examples/pagination.md.",
+        "add-endpoint.md Phase-4 enforcement table: NEW API-8 row — a GET list/collection endpoint applies default+hard-max page size, stable sort with unique tiebreaker, cursor for growing tables, envelope meta, no COUNT(*) per page; e2e asserts over-cap limit is clamped and pages do not drop/repeat rows. Closes the one MUST that was checked only at review time and absent from every reference."
+      ]
+    },
     "1.6.0": {
       "released": "2026-07-09",
       "changes": [

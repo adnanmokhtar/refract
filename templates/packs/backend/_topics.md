@@ -143,6 +143,15 @@ Each topic declares:
   mirror_existing: true
   fallback: _examples/conditional-requests.md
 
+- name: pagination
+  kind: pattern
+  triggers:
+    always: true                                                   # every list/collection endpoint paginates (backend-principles MUST)
+  extracts_from: _extracted-codebase.md § "API surface" (list endpoints + sort/filter columns + existing pagination primitive)
+  sections: [overview, cursor_vs_offset, rules, detectors, closure_verbs, examples]
+  mirror_existing: true
+  fallback: _examples/pagination.md
+
 - name: response-streaming
   kind: pattern
   triggers:
