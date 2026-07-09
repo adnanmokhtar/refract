@@ -143,7 +143,7 @@ Route-level means you can change ONE route without touching others.
 ## Forbidden
 
 - Mixing strategies without a route-level declaration (ambiguity = bugs).
-- CSR for SEO-critical pages.
+- CSR for SEO-critical pages. *(When a route must rank, server-render/prerender it, then run the `seo-audit` skill / `@technical-seo` agent on the head + body the crawler now receives.)*
 - SSR for content that never personalizes (waste of server cost).
 - ISR without a cache invalidation path (content goes stale forever).
 - Client-side fetching on server-rendered pages (defeats the point).

@@ -46,6 +46,14 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [persona, contract_drift_detection, type_mirroring_strategy, output_format]
   fallback: _examples/api-contract-sentry.md
 
+- name: technical-seo
+  kind: agent
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (metadata primitive in use — generateMetadata / useSeoMeta / svelte:head / Meta service / react-helmet / next-seo / shared <Seo>; router; i18n locales) + _extracted-idioms.md (shared SEO component/composable if any)
+  sections: [persona, preflight_reading, adapt_to_metadata_primitive, checklist, example_findings, output_format]
+  fallback: _examples/technical-seo.md
+  cite_evidence: strict
+
 - name: forms
   kind: pattern
   triggers: { forms_lib_detected_OR_form_components_present: true }
@@ -157,6 +165,12 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
   fallback: _examples/lcp-audit.md
+
+- name: seo-audit
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (framework metadata primitive + router + i18n locales + sitemap/robots setup)
+  fallback: _examples/seo-audit.md
 
 - name: lighthouse-ci
   kind: skill

@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.4.0",
-  "released": "2026-06-25",
+  "version": "1.5.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Fast-render / page-navigation pack — 3 new specialist skills (navigation-speed: prefetch / Speculation Rules / bfcache / instant-loading / View Transitions; streaming-ssr: fast-SSR streaming-boundary scanner; lcp-audit: LCP-resource priority-hint scanner), ssr-audit gains an RSC client-boundary-cost section, lighthouse-ci budgets adopt INP (interaction-to-next-paint) + TTFB (server-response-time) + bf-cache and drop the removed-TTI assertion, all six references/<framework>.md gain Navigation & streaming + Core Web Vitals sections, frontend-principles adds navigation-speed / streaming / instant-loading MUSTs + bfcache-safety MUST-NOT, rendering-strategy adds a ranked TTFB-levers block. Pairs with performance v1.2.0 (web-vitals-field, inp-responsiveness).",
+  "summary": "Technical-SEO specialist added — NEW seo-audit skill (static scanner: missing/duplicate title+description, absent canonical, no Open Graph/Twitter, missing/invalid JSON-LD structured data, accidental noindex, sitemap/robots gaps, i18n hreflang, CSR-only crawlability) + NEW technical-seo agent (persona review over the detectors). Both mirror the project's OWN metadata primitive (Next generateMetadata / Nuxt useSeoMeta / SvelteKit svelte:head / Angular Meta+Title / react-helmet / next-seo) and hand crawlability off to rendering-strategy. Closes the one true frontend-discipline gap; pairs with rendering-strategy (SEO drives SSR/SSG) + lcp-audit/lighthouse-ci (CWV-as-ranking-signal) + i18n (hreflang).",
   "changelog": {
+    "1.5.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW skill seo-audit (kind:skill, primary_frontend_framework_detected) — static technical-SEO scanner. Nine detector families: (1) missing/duplicate/weak title+meta-description, (2) missing/wrong canonical, (3) missing Open Graph + Twitter cards, (4) missing/invalid JSON-LD structured data with a page-type→@type table (Article/Product+Offer/BreadcrumbList/Organization+WebSite/FAQPage), (5) accidental noindex / robots Disallow (and missing noindex on private/faceted routes), (6) sitemap.xml + robots.txt correctness, (7) i18n hreflang reciprocity + x-default, (8) crawlability of CSR-only content (→ rendering-strategy handoff), (9) semantic/link signals. Adapts to the project's own metadata primitive via a per-framework table; never introduces a second mechanism; never invents JSON-LD values.",
+        "NEW agent technical-seo (kind:agent, primary_frontend_framework_detected, model:opus) — persona review layered over seo-audit's detectors, adding judgment automated scans can't make (schema/page-type fit, canonical intent, index/noindex policy). Severity-graded (BLOCKER: accidental site-wide noindex / duplicate titles at scale / CSR-only crawl content; REQUEST: missing canonical/OG/JSON-LD/hreflang). Cites file:line; hard-halts on hand-wave grep; hands crawlability to rendering-strategy.",
+        "Registered both in _topics.md (technical-seo agent with cite_evidence:strict + metadata-primitive extraction; seo-audit skill) and _essentials.md standard-mode skill list. Fallbacks: _examples/seo-audit.md + _examples/technical-seo.md."
+      ]
+    },
     "1.4.0": {
       "released": "2026-06-25",
       "changes": [
