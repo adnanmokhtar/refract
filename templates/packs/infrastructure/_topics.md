@@ -51,6 +51,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { k8s_detected: true }
   fallback: _examples/k8s-audit.md
 
+- name: admission-policy
+  kind: skill
+  triggers: { grep_evidence: "kyverno|gatekeeper|ClusterImagePolicy|ValidatingAdmissionPolicy|cosign|policy-controller|PodSecurity" }
+  extracts_from: _extracted-codebase.md § "Infra" (admission engine + registry + CI OIDC identity)
+  fallback: _examples/admission-policy.md
+
 - name: multi-region
   kind: pattern
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
