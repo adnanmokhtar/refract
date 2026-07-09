@@ -278,3 +278,7 @@ E2E: one happy-path test per form. Validation tests live at the unit/component l
 - React Hook Form docs (react-hook-form.com) — performance + DX is the differentiator vs Formik.
 - VeeValidate docs (vee-validate.logaretm.com) for Vue.
 - WCAG 2.2 understanding 3.3.x — accessibility requirements for forms.
+
+## Related
+
+- `data-fetching.md` — ownership split: forms owns submit + validation + server-`code`→field mapping; data-fetching owns the optimistic cache write, rollback, and invalidation the submit triggers.

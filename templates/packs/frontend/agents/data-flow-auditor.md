@@ -250,6 +250,11 @@ NIT — Invalidation on create:
 - `ai/patterns/i18n.md`
 - `ai/patterns/rendering-strategy.md`
 - `ai/patterns/ssr-safety.md`
+- `ai/patterns/data-fetching.md` — cache contract this agent enforces (staleKey/staleTime/dedup/invalidation/cancellation)
+- `ai/patterns/list-virtualization.md` — windowed lists backed by the query cache; DOM-bound infinite feeds
+- `ai/patterns/error-boundaries.md` — query-error ownership: throw-to-boundary vs inline error state
+- `ai/patterns/code-splitting.md` — lazy chunk boundaries + the fetch-on-reveal data they gate
+- `ai/patterns/realtime-client.md` — live-stream events reconciled into the cache (setQueryData/invalidate)
 
 ### Rules
 - `.claude/rules/frontend-principles.md`

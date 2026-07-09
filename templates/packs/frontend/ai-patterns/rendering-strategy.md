@@ -148,3 +148,9 @@ Route-level means you can change ONE route without touching others.
 - ISR without a cache invalidation path (content goes stale forever).
 - Client-side fetching on server-rendered pages (defeats the point).
 - Hardcoded dates / random values in SSR output.
+
+## Related
+
+- `data-fetching.md` — owns client-side refetch/dedup/staleness after hydration; don't client-fetch what this route already server-rendered.
+- `list-virtualization.md` — when a crawlable/SEO list can't be windowed, server-paginate + server-render it here instead.
+- `code-splitting.md` — a route's rendering strategy and its code-split boundaries must stay consistent (initial-render axis vs JS-chunk axis).

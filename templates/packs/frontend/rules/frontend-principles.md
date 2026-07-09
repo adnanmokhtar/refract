@@ -21,12 +21,14 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Container vs presentational split: containers own data fetching + state; presentational receive props + emit events. Presentational components are pure and easy to test.
 - Props, emits / events, slots typed end-to-end. No `any`, no untyped event handlers.
 - Data fetching lives in a service / composable / hook / store — never `fetch` / `axios` / `$fetch` called directly inside a component template or render function.
+- Server state (remote data) goes through a caching layer with declared staleness, in-flight de-duplication, and invalidation-on-mutation — the project's query lib (TanStack Query / SWR / RTK Query / Apollo / urql) or an equivalent. A component that fetches with no cache/dedup, and a mutation that does not invalidate the affected cache keys, are forbidden. Cancel in-flight requests on unmount / param change. See `data-fetching.md`.
 - Generated types from OpenAPI / GraphQL schema where the API exposes one (`openapi-typescript`, `graphql-codegen`, `orval`). Hand-typed DTOs drift.
 - Every user-facing string has an i18n key. Every key exists in every declared locale. Cross-frontend workspaces: same concept = same key (translators write once).
 - Semantic HTML first: `<button>` not `<div onclick>`. `<a>` for navigation, `<button>` for actions. `<form>` with `<label>` for inputs.
 - Every input has a `<label>` (visible or `aria-label`). Icon-only buttons have `aria-label`. Focus visible (`:focus-visible` ring).
 - Lazy-load routes (`React.lazy` + `Suspense`, `defineAsyncComponent`, Nuxt's automatic route splitting, SvelteKit's dynamic imports).
-- Virtualize lists > 100 items (`react-window`, `vue-virtual-scroller`, `svelte-virtual-list`, `@tanstack/virtual`).
+- Virtualize lists > 100 items (`react-window`, `vue-virtual-scroller`, `svelte-virtual-list`, `@tanstack/virtual`). See `list-virtualization.md`.
+- Resilience: every route root and independently-failing feature subtree (a lazy island, a third-party embed, a heavy widget) is wrapped by an error boundary with a real fallback UI + a retry/reset that re-mounts and refetches, and reports to the project's error sink. A subtree whose throw white-screens the whole app is forbidden. Render boundaries do NOT catch async errors (promise rejections, event handlers) — a global `onunhandledrejection` / `window.onerror` net is required alongside them. See `error-boundaries.md`.
 - Navigation speed: primary in-viewport navigation links MUST be prefetched via the framework primitive (Next `<Link>` default-on; Nuxt `<NuxtLink>` / `prefetchOn`; SvelteKit `data-sveltekit-preload-data="hover"` — accepts `hover` / `tap` / `off`, do not flag an intentional `=off`; React Router `<Link prefetch="intent">`). Raw-HTML / MPA surfaces ship a `<script type="speculationrules">` document rule with `eagerness:"moderate"`. Disabling a default prefetch requires a documented reason. See `navigation-speed.md`.
 - Streaming: a server-rendered route whose above-the-fold content does NOT depend on a slow query MUST stream — render the shell immediately and stream slow regions behind a Suspense / await boundary (Next `loading.tsx` + `<Suspense>` + `use()`; Nuxt lazy components; SvelteKit streamed promises; Remix / RR `defer` + `<Await>`). Blocking TTFB on a below-the-fold query is forbidden when the shell could paint first. See `references/rendering-strategy.md` and `streaming-ssr.md`.
 - Instant loading state: every data-dependent route MUST paint an instant layout-stable skeleton (matching final dimensions, no CLS) on navigation — not a spinner, not a blank screen. Use the framework route-level loading convention (Next `loading.tsx`; SvelteKit `navigating` store; React Router `useNavigation().state`; Vue Router `<router-view>` + `Suspense` fallback). For plain React-Router / Vue-Router routes with no route-level convention, the detector looks for an in-component `Suspense` fallback / router pending UI. See `navigation-speed.md`.
@@ -55,7 +57,8 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Memoize expensive selectors (`useMemo`, `computed`, `derived`, `reselect`).
 - Large hero / card images use an LQIP / blur / dominant-color placeholder where the framework offers one (`next/image placeholder="blur"`, `<NuxtImg placeholder>`). (Core image discipline — format / dimensions / lazy-below-fold / LCP-priority — is a Must above, see `image-optimization.md`.)
 - Audit the bundle (`vite-bundle-visualizer` / `webpack-bundle-analyzer` / `source-map-explorer`) before every release. Lazy-load heavy deps (charts, editors, PDF viewers).
-- Route-level code splitting plus chunk-level splitting for heavy modal flows.
+- Route-level code splitting plus chunk-level splitting for heavy modal flows. Lazy MUST pair with a Suspense/fallback + an error boundary for chunk-load failure; never lazy the LCP-critical path. See `code-splitting.md`.
+- Realtime connections (WebSocket / SSE) have an explicit lifecycle — reconnect with exponential backoff + jitter, heartbeat to detect a half-open socket, re-auth on reconnect, and teardown on unmount — and dedup inbound messages by id/sequence, reconciling them into the query cache rather than a parallel local copy. A bare `new WebSocket(url)` with no reconnection or cleanup is forbidden. See `realtime-client.md`.
 
 ## Review checklist
 
@@ -67,6 +70,10 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - [ ] New / changed web font sets `font-display`, is self-hosted, and has a size-adjusted fallback (no swap-CLS).
 - [ ] Public / indexable route ships unique title + description, canonical, OG/Twitter, page-appropriate JSON-LD; localized routes carry hreflang; SEO route is SSR/SSG/prerendered (not CSR-only).
 - [ ] New large list uses virtualization.
+- [ ] New remote read goes through the query cache (staleness + dedup); its mutation invalidates the affected keys; in-flight requests cancel on unmount / param change.
+- [ ] New route root / failing subtree wrapped by an error boundary with retry + error-sink report; a global `onunhandledrejection` net exists for async errors.
+- [ ] New lazy chunk pairs with a Suspense fallback + a chunk-load error boundary; the LCP path is not lazy.
+- [ ] New realtime connection reconnects with backoff, heartbeats, re-auths on reconnect, tears down on unmount, and dedups inbound messages.
 - [ ] Keyboard tab order verified on the new screen.
 - [ ] Lighthouse / axe-core: no new a11y regressions.
 - [ ] Bundle size delta acceptable (size-limit / bundlesize).

@@ -102,3 +102,8 @@ Run `/ssr-audit` or the skill equivalent — it grep-scans for these anti-patter
 - Non-deterministic values in render output.
 - Different markup between server and client render.
 - Reading tenant from browser state during SSR.
+
+## Related
+
+- `data-fetching.md` — use the framework's SSR-aware fetcher for the initial read; this pattern owns hydration-safety, data-fetching owns client-side refetch/dedup/cancellation after hydration.
+- `error-boundaries.md` — a hydration mismatch is a distinct error class; fix it at the source here, the boundary only contains the client-side throw.

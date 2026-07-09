@@ -104,3 +104,7 @@ Unused (knip):
 - Halt if the report was generated against `pnpm dev` output instead of the production build — dev bundles include HMR + uncompressed source and lie about size.
 - Halt if a duplicate is dismissed as "intentional" without naming the two consumers + their version constraints.
 - Halt if budgets fail but no named chunk / dep is identified as the cause. A budget breach without a named cause is unfinished work.
+
+## Related
+
+- `code-splitting.md` — the fix sibling: this skill measures the heavy chunk + gzipped size and names the anchoring import; that pattern decides where to cut it (route/component split, `manualChunks`, deep imports). Its split proposals cite this output.
