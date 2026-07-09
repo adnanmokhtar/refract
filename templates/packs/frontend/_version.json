@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Pack-wide quality/standards reconciliation after the SEO+image+font wave — frontend-principles.md gains the missing LCP/image/font/SEO MUSTs and FIXES the self-contradicting blanket loading=lazy (now carves out the LCP/hero image, matching lcp-audit); NEW _authoring-standard.md codifies the skill (scanner/runner/utility) + agent (reviewer/generator) house-contracts + the shipped coding-rules index; @technical-seo back-linked into all 6 pre-existing agents (cross-link graph repaired); fixed a ships-broken U+00AD soft-hyphen in navigation-speed's Speculation-Rules GOOD example and dangling/misnamed skill refs (dev-server-stop, a11y-audit→a11y-scan). Prior: v1.6.0 image+font specialists, v1.5.0 SEO specialist.",
+  "summary": "Backlog #1+#2 — reference parity + agent retrofits over the v1.7.0 authoring standard. All six references now carry SEO + Fonts in the framework primitive (react: react-helmet/Remix-meta + Fontsource; vue: @unhead; svelte: svelte:head + prerender; angular: Title+Meta + a NEW SSR/hydration section; nuxt: SEO upgraded to Next parity — canonical/OG/JSON-LD/hreflang/sitemap+robots). Agent house-contract retrofit: data-flow-auditor + api-contract-sentry gain the cite-or-halt Premise (data-flow also a Verdict line + coverage table, promoted to opus); ui-reviewer gains a coverage table; accessibility-auditor re-baselined to WCAG 2.2 AA with labeled criterion levels; technical-seo back-links its two missing siblings; ui-architect budgets image/font/SEO.",
   "changelog": {
+    "1.8.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "references: added SEO + Fonts sections to react.md (react-helmet-async / Remix meta; Fontsource/Fontaine), vue.md (@unhead/vue useHead/useSeoMeta), svelte.md (svelte:head + prerender; Fontsource), angular.md (Title/Meta services + NEW SSR & hydration section: provideClientHydration, v19 incremental hydration, SSR-required-for-crawlers). Upgraded nuxt.md SEO from useSeoMeta-only to Next-level parity (canonical + hreflang via useHead/@nuxtjs/i18n, JSON-LD, @nuxtjs/sitemap + @nuxtjs/robots). Closes the four-of-six references with no SEO section and three with no font section.",
+        "agents: retrofit the two legacy agents to the house contract. data-flow-auditor gains The Premise (cite-or-halt + hand-wave hard-halt + verdict-matches-body), a Verdict line, and a coverage table, and is promoted sonnet to opus (cross-tenant cache-leak + hydration reasoning is judgment-heavy). api-contract-sentry gains The Premise (verdict/coverage stay N/A for an impact report). ui-reviewer gains the missing coverage table and lists the image/font/seo skills.",
+        "accessibility-auditor: re-baselined WCAG 2.1 AA to 2.2 AA (description, checklist header, and Target Size labeled — SC 2.5.8 at 24px AA vs SC 2.5.5 at 44px AAA). Cross-links: technical-seo back-links @data-flow-auditor + @api-contract-sentry (was 4 of 6 siblings); ui-architect budgets image-optimization / font-optimization / seo-audit."
+      ]
+    },
     "1.7.0": {
       "released": "2026-07-09",
       "changes": [
@@ -71,11 +79,11 @@
     "1.1.0": {
       "released": "2026-06-10",
       "changes": [
-        "add-feature Phase 6: NEW observability sign-off \u2014 error tracking covers new routes/components, route-level perf signal + analytics events mirror siblings, no console.* as the only failure signal; projects with no observability layer report 'observability: none configured' explicitly.",
-        "add-feature Phase 6: NEW release note (heavy tier) \u2014 feature flag or flagless-with-rationale, rollback path, staging/preview verification.",
-        "add-feature Phase 4: missing-agent fallback \u2014 uninstalled reviewers are performed inline against their pack/domain checklist, never silently skipped.",
-        "add-feature: 'Phases applied' now tier-scoped (heavy = all 7; trivial/standard run their ceremony's subset) \u2014 matches the closure-verb table instead of contradicting it.",
-        "_topics.md: add-feature topic entry added (was missing \u2014 AUTHOR-mode generation never produced the command despite it shipping in the pack)."
+        "add-feature Phase 6: NEW observability sign-off — error tracking covers new routes/components, route-level perf signal + analytics events mirror siblings, no console.* as the only failure signal; projects with no observability layer report 'observability: none configured' explicitly.",
+        "add-feature Phase 6: NEW release note (heavy tier) — feature flag or flagless-with-rationale, rollback path, staging/preview verification.",
+        "add-feature Phase 4: missing-agent fallback — uninstalled reviewers are performed inline against their pack/domain checklist, never silently skipped.",
+        "add-feature: 'Phases applied' now tier-scoped (heavy = all 7; trivial/standard run their ceremony's subset) — matches the closure-verb table instead of contradicting it.",
+        "_topics.md: add-feature topic entry added (was missing — AUTHOR-mode generation never produced the command despite it shipping in the pack)."
       ]
     },
     "1.0.0": {

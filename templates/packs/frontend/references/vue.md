@@ -67,6 +67,15 @@
 - Every visible string has a key in BOTH locales.
 - Use same key for same concept across sibling frontends when a workspace exists.
 
+## SEO
+
+- SPA Vue renders an empty root to crawlers — indexable content needs SSR (Nuxt) or a prerender step; client-set meta won't reach scrapers.
+- Manage `<head>` with **`@unhead/vue`** (`useHead` / `useSeoMeta`) — unique title + description, canonical `link`, OG/Twitter, and JSON-LD via `useHead({ script: [{ type: 'application/ld+json', children: … }] })`. One mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
+
+## Fonts
+
+- Self-host via **`@fontsource/*`** / Fontaine (no remote Google Fonts `<link>`); `font-display: swap`; preload the critical font (`crossorigin`); size-adjusted fallback (swap-CLS); variable font over ≥3 weights. See `frontend/skills/font-optimization.md`.
+
 ## Tests
 
 - Vitest + @vue/test-utils.

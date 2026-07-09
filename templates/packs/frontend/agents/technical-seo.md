@@ -164,6 +164,8 @@ Patterns consulted: rendering-strategy, i18n
 - `@ui-architect` — sibling agent in frontend pack (decides rendering strategy in §1)
 - `@ui-reviewer` — sibling agent in frontend pack
 - `@i18n-auditor` — sibling agent in frontend pack (hreflang pairs with locale coverage)
+- `@data-flow-auditor` — sibling agent in frontend pack
+- `@api-contract-sentry` — sibling agent in frontend pack
 
 ### Skills
 - `seo-audit` — the grep-level detector suite this agent interprets.

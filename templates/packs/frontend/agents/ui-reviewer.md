@@ -250,8 +250,17 @@ REQUESTS (N):
 NITS (N):
   - <style/polish>
 
+Coverage:
+  - Architecture / component shape:   <pass/fail>
+  - State / data flow:                <pass/fail>
+  - Forms + validation:               <pass/fail/n-a>
+  - i18n:                             <pass/fail/n-a>
+  - Accessibility:                    <pass/fail>
+  - Core Web Vitals (LCP/INP/CLS):    <pass/fail>
+  - Navigation / streaming / SSR:     <pass/fail/n-a>
+
 Patterns consulted: rendering-strategy, forms, i18n, ssr-safety (if applicable), inp-responsiveness, design-systems
-Skills available for deep audit: navigation-speed, streaming-ssr, lcp-audit (frontend), web-vitals-field (field INP/LCP/CLS)
+Skills available for deep audit: navigation-speed, streaming-ssr, lcp-audit, image-optimization, font-optimization, seo-audit (frontend), web-vitals-field (field INP/LCP/CLS, performance pack)
 Framework-specific conventions checked: <name>
 ```
 

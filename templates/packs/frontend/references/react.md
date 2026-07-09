@@ -87,6 +87,16 @@ function onChange(e) {
 - `fetchpriority="high"` on the LCP hero image (and skip lazy-loading it) — see `frontend/skills/lcp-audit.md`.
 - Meta-framework field reporting: `useReportWebVitals` (Next) to ship `web-vitals` metrics (INP / LCP / CLS) to your RUM endpoint.
 
+## SEO
+
+- A plain Vite/CRA SPA renders an empty `<div id="root">` to crawlers — indexable content needs **SSR/SSG or a prerender step** (Next, Remix / React-Router framework mode). `react-helmet-async` tags set client-side run after JS; social/LLM scrapers won't see them.
+- Manage `<head>` with **`react-helmet-async`** (`<HelmetProvider>` + `<Helmet>`) or the framework route `meta` export (Remix / React Router `MetaFunction`). Emit unique title + description, canonical, OG/Twitter, and page-appropriate JSON-LD (`<script type="application/ld+json">`). One mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
+
+## Fonts
+
+- No framework font primitive — self-host via **`@fontsource/*`** (or Fontaine / `unplugin-fontaine` for auto `size-adjust` fallbacks). Never a render-blocking Google Fonts `<link>`.
+- `font-display: swap`; preload the one critical above-the-fold font (`<link rel="preload" as="font" crossorigin>`); size-adjusted fallback to kill swap-CLS; variable font over ≥3 weights. See `frontend/skills/font-optimization.md`.
+
 ## Styling
 
 - Follow the repo's system: Tailwind / CSS Modules / styled-components / Emotion. Don't mix.

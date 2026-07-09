@@ -84,7 +84,7 @@ Fields needed, types, validation rules, async validators (uniqueness check), sub
 ### 7. Performance budget
 
 Declare for this feature:
-- LCP target (< 2.5s mobile / < 1.8s desktop) + which element is the LCP and how it's prioritized (no lazy hero; framework priority hint / `fetchpriority="high"` — `lcp-audit` skill).
+- LCP target (< 2.5s mobile / < 1.8s desktop) + which element is the LCP and how it's prioritized (no lazy hero; framework priority hint / `fetchpriority="high"` — `lcp-audit` skill). Budget image + font delivery for the feature (format / dimensions / `font-display` — `image-optimization` + `font-optimization` skills); for public routes budget the metadata primitive + SSR/prerender so it's crawlable (`seo-audit` + `@technical-seo`).
 - INP target (< 200ms p75) for the feature's primary interactions; budget per-interaction main-thread work (consult `ai/patterns/inp-responsiveness.md`). Authoritative INP is field-measured (`web-vitals-field` skill), never lab.
 - TTFB target (< 600ms) for SSR routes — and whether the shell streams (see §1).
 - Bundle impact (KB added).
