@@ -47,6 +47,23 @@ err() { echo "  ERR  $*"; fail=$((fail + 1)); }
 warn_msg() { echo "  WARN $*"; warn=$((warn + 1)); }
 ok() { echo "  ok   $*"; }
 
+# Select the authoritative pre-refresh backup. run-preflight.sh writes the ONLY
+# backup that carries restore.sh + a full ai/ snapshot + manifest. But Phase 4's
+# apply-study-decisions.sh / apply-anchors.sh each create their own thin,
+# timestamped backup dirs (study-decisions-*, anchors-*, resolve-adopt-*) that a
+# naive "newest dir" pick (sort | tail -1) lands on — lexically those letter-led
+# names sort AFTER the digit-led preflight stamp, so C2a falsely reported a thin
+# backup and C2n compared against the wrong (thin) snapshot (observed 2026-07-09).
+# Prefer the newest backup that actually has restore.sh; fall back to newest-overall.
+newest_preflight_backup() {
+  local d picked=""
+  while IFS= read -r d; do
+    [[ -x "$d/restore.sh" ]] && picked="$d"
+  done < <(find "$CL/backups" -mindepth 1 -maxdepth 1 -type d -mmin -1440 2>/dev/null | sort)
+  [[ -z "$picked" ]] && picked=$( { find "$CL/backups" -mindepth 1 -maxdepth 1 -type d -mmin -1440 2>/dev/null || true; } | sort | tail -1)
+  printf '%s' "$picked"
+}
+
 echo "=== Phase 5 audit — target=$TARGET mode=$MODE ==="
 echo ""
 
@@ -55,7 +72,7 @@ echo ""
 # itself was skipped — the run is structurally invalid, refuse before anything else.
 if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
   echo "C2a: Phase 0 backup (M35)"
-  recent_bk=$( { find "$CL/backups" -mindepth 1 -maxdepth 1 -type d -mmin -1440 2>/dev/null || true; } | sort | tail -1)
+  recent_bk=$(newest_preflight_backup)
   if [[ -n "$recent_bk" ]]; then
     ok "backup present: ${recent_bk#$TARGET/}"
     # Full-manifest verification (#5): a thin backup that omits adapter files +
@@ -94,7 +111,7 @@ fi
 # CREATE is exempt (greenfield — no prior knowledge to preserve).
 if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
   echo "C2n: knowledge preservation (ADRs + patterns survive refresh)"
-  bk=$( { find "$CL/backups" -mindepth 1 -maxdepth 1 -type d -mmin -1440 2>/dev/null || true; } | sort | tail -1)
+  bk=$(newest_preflight_backup)
   if [[ -z "$bk" ]]; then
     warn_msg "no recent backup to compare against — cannot verify knowledge preservation (C2a should have already failed)"
   else
@@ -248,7 +265,19 @@ if [[ -f "$CL/_pack-coverage-report.md" ]]; then
       # in _refresh-decisions.md is addressed-by-decision, not an unaddressed gap
       # (parity with C2k, which honors the study-decision ledger). Lean/curated refreshes
       # legitimately leave whole tracks uninstalled.
-      if [[ -f "$CL/_refresh-decisions.md" ]] && grep -qF "$target_rel" "$CL/_refresh-decisions.md"; then
+      #
+      # The ledger is keyed by the PACK-relative path (`business/commands/x.md`), NOT the
+      # deployed target path (`.claude/commands/x.md`). Deriving the pack key from the
+      # coverage row's "← from `templates/packs/<pack>/<kind>/<base>`" src and matching
+      # THAT is what actually reconciles a REJECTED/KEEP row — grepping only target_rel
+      # never matches, so ledger-rejected tracks re-failed the audit forever (observed
+      # 2026-07-09: the whole business pack, rejected 2026-06-20, re-flagged every refresh).
+      pack_key=""
+      src_path=$(echo "$line" | sed -nE 's/^- `[^`]+` ← from `([^`]+)`.*/\1/p')
+      [[ -n "$src_path" ]] && pack_key="${src_path##*packs/}"
+      if [[ -f "$CL/_refresh-decisions.md" ]] && \
+         { grep -qF "$target_rel" "$CL/_refresh-decisions.md" || \
+           { [[ -n "$pack_key" ]] && grep -qF "$pack_key" "$CL/_refresh-decisions.md"; }; }; then
         continue
       fi
       err "pack-coverage said missing → $target_rel still missing in target"
