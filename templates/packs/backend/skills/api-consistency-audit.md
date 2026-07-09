@@ -7,13 +7,29 @@ pack: backend
 
 # Skill: api-consistency-audit
 
-## Purpose
+## Premise
 
 Detect drift across the project's API surface so /polish can unify it. The skill operates on the deployed contract (OpenAPI spec, route table, controller signatures, response builders) and the project's conventions (`_extracted-idioms.md § API conventions` or `ai/api-conventions.md`).
 
-This skill is the API-half of /polish (the frontend half is the design-token / a11y / motion suite).
+**Every finding cites `<method path>` + `<file:line>` + the canonical convention it diverges from + a closure verb.** A drift claim without the cited endpoint and the canonical it violates is not a finding — it is a vibe. The canonical always comes from the project's declared conventions, never invented (see Halt conditions). This skill is the API-half of /polish (the frontend half is the design-token / a11y / motion suite).
 
-## When to use
+## Adapt to the codebase
+
+Drift is measured against the project's OWN primitive — detect and mirror it before clustering, so a fix routes through the mechanism the codebase already uses (never a second one):
+
+| Framework | Response envelope / error contract | Rate-limit binding | ETag / conditional | Pagination |
+|---|---|---|---|---|
+| **NestJS** | interceptor + `HttpException` filter | `@Throttle` / `ThrottlerGuard` | interceptor / `res.setHeader` | `nestjs-paginate` / repo keyset |
+| **Django/DRF** | renderer + `exception_handler` | DRF throttle classes | conditional views / `ETag` mixin | `CursorPagination` |
+| **FastAPI** | response model + exception handler | `slowapi` / middleware | manual `ETag` / `If-None-Match` | keyset / `fastapi-pagination` |
+| **Spring** | `@ControllerAdvice` + `ProblemDetail` | bucket4j / gateway filter | `ResponseEntity` ETag / `ShallowEtagHeaderFilter` | `Pageable` / `ScrollPosition` |
+| **Express** | response helper + error middleware | `express-rate-limit` | manual ETag | keyset helper |
+| **Rails** | `render` + `rescue_from` | `rack-attack` | `fresh_when` / `stale?` | `pagy` |
+| **Laravel** | Resource + Handler | `throttle` middleware | `setEtag` / `SetCacheHeaders` | `cursorPaginate` |
+
+Where the project ships `_extracted-idioms.md § API conventions`, that file is the oracle for which shape is canonical; the framework table only tells the detector WHERE to look.
+
+## When to run
 
 - Dispatched by `/polish` on `backend-*` stacks.
 - No command wrapper ships for this skill; invoke via `/polish --diagnose-only --stack=backend` (writes the artifact, no fixes) or run the skill directly.
@@ -140,9 +156,9 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection**: per route, look for an inbound limiter binding — middleware in the chain (`rateLimit(...)`, `@Throttle`, `throttle:`, `RateLimiterMiddleware`, gateway/Kong/Envoy `rate-limit` plugin) OR a decorator/guard. Cluster routes that HAVE one; any mutating/expensive route NOT in that cluster (and not explicitly exempted in `api-conventions.md § Rate limiting`) is drift. Emits e.g. `POST /reports/export` at `src/reports/reports.controller.ts:88` — no limiter, while `POST /orders` at `src/orders/orders.controller.ts:41` carries `@Throttle({ default: { limit: 20, ttl: 60000 } })`.
 
-**Detection (always-on hook)**: an unlimited mutating endpoint is also a server-side resilience gap, not just a uniformity gap — flag it even when NO sibling has a limiter (the cluster is empty). The enforcement SHAPE (429 + `Retry-After` + unprefixed `RateLimit-*` headers, per-tenant buckets over a shared store, FAIL-OPEN vs FAIL-CLOSED on store outage, 503 admission control) is OWNED by `ai-patterns/rate-limiting.md` — point there; do NOT re-specify the algorithm here. 429 = RFC 6585; `Retry-After` = RFC 9110 §10.2.3; `RateLimit-*` / `RateLimit-Policy` = IETF draft-ietf-httpapi-ratelimit-headers (a DRAFT, not an RFC).
+**Detection (always-on hook)**: an unlimited mutating endpoint is also a server-side resilience gap, not just a uniformity gap — flag it even when NO sibling has a limiter (the cluster is empty). The enforcement SHAPE (429 + `Retry-After` + unprefixed `RateLimit-*` headers, per-tenant buckets over a shared store, FAIL-OPEN vs FAIL-CLOSED on store outage, 503 admission control) is OWNED by `ai/patterns/rate-limiting.md` — point there; do NOT re-specify the algorithm here. 429 = RFC 6585; `Retry-After` = RFC 9110 §10.2.3; `RateLimit-*` / `RateLimit-Policy` = IETF draft-ietf-httpapi-ratelimit-headers (a DRAFT, not an RFC).
 
-**Closure verb**: `add-rate-limiter` (wire the limiter per `ai-patterns/rate-limiting.md`; do NOT hand-roll a new shape).
+**Closure verb**: `add-rate-limiter` (wire the limiter per `ai/patterns/rate-limiting.md`; do NOT hand-roll a new shape).
 
 ### 8c. etag-conditional-drift
 
@@ -150,7 +166,7 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection**: per `GET` route, check the response builder for an `ETag`/`Last-Modified` header and the handler for `If-None-Match` short-circuit logic. Cluster reads that revalidate; cacheable siblings outside the cluster are drift. Emits e.g. `GET /orders/:id` at `src/orders/orders.controller.ts:120` — no `ETag`, while `GET /customers/:id` at `src/customers/customers.controller.ts:96` sets `res.setHeader('ETag', weakEtag(body))` and returns `304` on match.
 
-**Detection (pointer)**: the revalidation contract (strong vs weak ETag, `If-None-Match` → `304`, RFC 9110 obsoletes RFC 7232) is OWNED by `ai-patterns/conditional-requests.md` — point there for the exact handling.
+**Detection (pointer)**: the revalidation contract (strong vs weak ETag, `If-None-Match` → `304`, RFC 9110 obsoletes RFC 7232) is OWNED by `ai/patterns/conditional-requests.md` — point there for the exact handling.
 
 **Closure verb**: `add-etag-revalidation`.
 
@@ -160,7 +176,7 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection**: cross-reference the route's target model (from the ORM entity / migration) for a version/`updated_at` column against the handler's request parsing for `If-Match`. A write with the column but no precondition check is drift; bonus-flag handlers that don't return `412 Precondition Failed` on mismatch or `428 Precondition Required` when the project mandates the header. Emits e.g. `PATCH /documents/:id` at `src/documents/documents.controller.ts:64` — model `Document` has `version` (`migrations/0007_documents.sql:12`) but no `If-Match` read.
 
-**Detection (pointer)**: the over-HTTP optimistic-concurrency contract (`If-Match` → `412`, `428 Precondition Required`, RFC 9110) is OWNED by `ai-patterns/conditional-requests.md`. The DB-side stored-version replay / compare-and-swap belongs to the distributed-systems pack (`stored-idempotency-replay`) — point there, do not duplicate.
+**Detection (pointer)**: the over-HTTP optimistic-concurrency contract (`If-Match` → `412`, `428 Precondition Required`, RFC 9110) is OWNED by `ai/patterns/conditional-requests.md`. The DB-side stored-version replay / compare-and-swap belongs to the distributed-systems pack (`stored-idempotency-replay`) — point there, do not duplicate.
 
 **Closure verb**: `add-if-match-precondition`.
 
@@ -274,12 +290,22 @@ Common drifts:
 - **Contract tests must stay green** — if the project has them.
 - **No detector invents new conventions** — the canonical shape always comes from `_extracted-idioms.md § API conventions`. If that file says nothing about envelope/naming/etc., the detector skips with WARN.
 
-## Failure modes
+## False positives / gotchas
 
-- **`api-conventions.md` missing** → halt; surface "/setup-project --refine to declare API conventions first".
-- **OpenAPI spec missing** → warn; skip openapi-coverage + example-coverage detectors.
-- **Conflicting conventions** (e.g., `api-conventions.md` says snake_case but `_extracted-idioms.md` says camelCase) → halt; surface conflict for user resolution.
-- **High-risk closure** (would break public contract) → flag, halt that finding, surface ADR template; rest continue.
+- **A single consistent shape is not drift.** A bare-resource envelope (no wrapper) used *everywhere* is valid — flag only the *mix*. Same for pagination style, auth header, naming case: uniformity is the goal, not a specific choice.
+- **Tier-scoped variation is legitimate.** Different timeouts/retries *across* service tiers (public vs internal vs batch) are fine; only *within-tier* divergence with no documented reason is drift.
+- **Opt-in detectors stay silent unless declared.** `field-selection-drift` fires only if `api-conventions.md § Field selection` declares a `?fields=`/`?expand=` convention; don't invent one.
+- **`noindex`-style intentional exemptions** — an endpoint explicitly exempted in `api-conventions.md` (e.g. a health check with no rate limit, an internal admin route with offset pagination) is not drift; honour the declared exemption.
+- **Ownership pointers, not re-specification** — 8b/8c/8d/8f/8g flag *uniformity*; the algorithm/policy is owned by the named pattern or the security/database/observability pack. Do not emit a fix that re-specifies the owned shape.
+
+## Halt conditions
+
+- **`api-conventions.md` / `_extracted-idioms.md § API conventions` missing** → halt; the canonical is undefined. Surface "/setup-project --refine to declare API conventions first". No detector invents a convention.
+- **Conflicting conventions** (`api-conventions.md` says snake_case but `_extracted-idioms.md` says camelCase) → halt; surface the conflict for user resolution rather than picking one.
+- **`PROJECT_KIND` is not `backend-*`** → halt (this skill is backend-only).
+- **A finding lacks its cited `<method path>` + `<file:line>` + the canonical it diverges from** → not emittable; re-derive or drop it.
+- **High-risk closure** (would break a public contract — rename a field, change the envelope) → flag `risk: high`, halt *that* finding, surface the ADR template; the rest continue.
+- **OpenAPI spec missing** → warn (not halt); skip the openapi-coverage + example-coverage detectors only.
 
 ## References
 
@@ -287,7 +313,7 @@ Common drifts:
 - `ai/api-conventions.md` (alternative location).
 - `align-discipline.md` — closed-vocabulary closure-verb discipline.
 - `polish` command — dispatches this skill on backend stacks.
-- `ai-patterns/rate-limiting.md` — server-side inbound limit + load shedding (429 + `Retry-After` + `RateLimit-*` headers; per-tenant buckets; shared store; FAIL-OPEN/CLOSED; 503 admission control). Owner of the `add-rate-limiter` shape (8b).
-- `ai-patterns/conditional-requests.md` — `ETag`/`If-None-Match` → `304` (read revalidation) + `If-Match` → `412` / `428` (optimistic concurrency over HTTP); RFC 9110. Owner of 8c + 8d.
-- `ai-patterns/response-streaming.md` — NDJSON/SSE/chunked for unbounded results; mid-stream terminal error sentinel; backpressure; disconnect cancellation; RFC 9112. Consider when a list/export route would otherwise return an unbounded body.
-- `ai-patterns/async-job-offload.md` — `202 Accepted` + `Location` + status URL; job-status state machine; idempotent submit; result TTL. Consider for the expensive endpoints surfaced by 8b instead of holding a synchronous connection.
+- `ai/patterns/rate-limiting.md` — server-side inbound limit + load shedding (429 + `Retry-After` + `RateLimit-*` headers; per-tenant buckets; shared store; FAIL-OPEN/CLOSED; 503 admission control). Owner of the `add-rate-limiter` shape (8b).
+- `ai/patterns/conditional-requests.md` — `ETag`/`If-None-Match` → `304` (read revalidation) + `If-Match` → `412` / `428` (optimistic concurrency over HTTP); RFC 9110. Owner of 8c + 8d.
+- `ai/patterns/response-streaming.md` — NDJSON/SSE/chunked for unbounded results; mid-stream terminal error sentinel; backpressure; disconnect cancellation; RFC 9112. Consider when a list/export route would otherwise return an unbounded body.
+- `ai/patterns/async-job-offload.md` — `202 Accepted` + `Location` + status URL; job-status state machine; idempotent submit; result TTL. Consider for the expensive endpoints surfaced by 8b instead of holding a synchronous connection.

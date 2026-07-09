@@ -26,8 +26,10 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Every list endpoint paginates with a default limit (e.g. 20 / 50). Cursor preferred over offset for deep lists.
 - Every mutating endpoint returns the resource or its ID. No silent 204s on POST without a documented reason.
 - Custom error classes per domain concept (`OrderNotFoundError`, `PaymentDeclinedError`). Mapped to HTTP statuses in ONE place — global filter / error middleware.
+- Single response envelope: every endpoint returns the project's ONE canonical response shape (bare resource OR `{ data, meta }` — pick one, apply everywhere); mixing shapes across endpoints is drift. The error body is the one error contract (RFC 9457 Problem Details is the interop option). See `ai/patterns/api-contract.md` + `ai/patterns/error-handling.md`.
+- Content negotiation: reject an unsupported request `Content-Type` with `415 Unsupported Media Type`, an unacceptable `Accept` with `406 Not Acceptable`, and set `Vary` on any content-negotiated or auth-varied response so caches don't serve the wrong representation.
 - Idempotency keys on every external retry boundary: webhooks, queue consumers, payment attempts. Receiver dedupes via unique constraint.
-- Stored replay required — persist `(key → response_status + response_body)` atomically with the side effect and replay that stored response on retry. Accepting the `Idempotency-Key` header without storing+replaying is non-compliant (a second call with the same key must NOT re-execute the side effect). The persisted-key table schema + replay-state machine live in the distributed-systems pack; this is the one-line backend floor. See `ai/patterns/idempotency.md`. (API-7)
+- Stored replay required — persist `(key → response_status + response_body)` atomically with the side effect and replay that stored response on retry. Accepting the `Idempotency-Key` header without storing+replaying is non-compliant (a second call with the same key must NOT re-execute the side effect). The persisted-key table schema + replay-state machine live in the **distributed-systems** pack (its `idempotency` pattern — not shipped in the backend pack); this is the one-line backend floor. (API-7)
 - Rate-limit every unauthenticated and every expensive endpoint (search / export / report / bulk / upload / LLM-proxy); return `429 Too Many Requests` (RFC 6585) with `Retry-After` (RFC 9110 §10.2.3 — seconds or HTTP-date) + `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` headers (IETF `draft-ietf-httpapi-ratelimit-headers` — a draft, prefer the unprefixed form over legacy `X-RateLimit-*`). Counters live in a shared store, never process memory. See `ai/patterns/rate-limiting.md`. (RES-1)
 - Parameterized queries always. Soft-delete + tenant filters applied at the repository layer for raw queries that bypass the base repo.
 - Structured logs (JSON in prod) with correlation ID propagated through every layer + downstream call.
@@ -46,7 +48,7 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Trust headers like `X-User-Id`, `X-Tenant-Id` from the public internet. Derive identity from authenticated session / JWT only.
 - Log secrets, tokens, full PII. Mask or hash.
 - Accept tenant ID in request bodies — derive from authenticated context (AsyncLocalStorage / request scope).
-- Store request-scoped or per-user state in process memory / module-level mutable singletons / local disk — it does not survive horizontal scale-out or rolling deploys, and silently corrupts behind a load balancer. Sessions, response caches, rate-limit counters, locks, and dedupe sets MUST live in a shared store (Redis / DB). See `ai/patterns/rate-limiting.md` (shared-store buckets) + `ai/patterns/idempotency.md`. (PERF-6)
+- Store request-scoped or per-user state in process memory / module-level mutable singletons / local disk — it does not survive horizontal scale-out or rolling deploys, and silently corrupts behind a load balancer. Sessions, response caches, rate-limit counters, locks, and dedupe sets MUST live in a shared store (Redis / DB). See `ai/patterns/rate-limiting.md` (shared-store buckets) + the distributed-systems `idempotency` pattern. (PERF-6)
 
 ## Should
 
@@ -57,6 +59,8 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Graceful shutdown: drain in-flight requests, close DB pool, finish queue ack — bounded by a deadline (default 30s).
 - Set a timeout on every external call (HTTP client, DB, cache, queue). No-timeout calls are forbidden — the default is cascading failure.
 - Retries with exponential backoff + jitter for transient errors only — never on 4xx.
+- Optimistic concurrency: a mutable resource contended by more than one writer exposes a strong `ETag` and requires `If-Match` on writes (`412 Precondition Failed` on stale, `428 Precondition Required` when the header is absent); reads honour `If-None-Match` → `304`. Prevents silent lost-updates. See `ai/patterns/conditional-requests.md`.
+- Prevent N+1: eager-load / batch related reads instead of querying per row. The query-shape discipline is owned by the **database + performance** packs (`n-plus-one-scan`); `api-reviewer` flags an N+1 inline at review time.
 - Resilience (outbound): the per-call failure-mode matrix — timeout-budget nesting (inner deadline < outer), retry eligibility, circuit breaker, per-dependency bulkhead, dead-letter queue — is OWNED by the distributed-systems pack. Consult its `resilience-reviewer` + `circuit-breaker` / `idempotency` / `outbox` patterns. The `api-reviewer` External-calls checklist (every call has a timeout + bounded retries + a fallback) is the inline floor when that pack isn't installed. (RES-2)
 - Observability DoD: every endpoint also emits a RED metric (rate / errors / duration) + a trace span; generate the correlation / trace id at the edge OR continue an inbound W3C `traceparent` header — never start a fresh trace when one is already in flight. The full RED / USE / SLO / OTel design (cardinality budgets, sampling, audit-log) lives in the observability pack (Related: `observability-principles`); this is the always-on backend hook. (OBS-1)
 
@@ -68,6 +72,8 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - [ ] No business logic in controller.
 - [ ] No raw SQL in service.
 - [ ] New custom errors mapped to HTTP statuses.
+- [ ] Response uses the project's single envelope; content negotiation returns `415`/`406` + `Vary` where applicable.
+- [ ] Contended mutable resource requires `If-Match` (`412`/`428`); read honours `If-None-Match` → `304`.
 - [ ] No external call inside a transaction.
 - [ ] No header-trusted user / tenant identity.
 - [ ] Logs structured + carry correlation ID.
@@ -84,3 +90,9 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Type-check (`tsc --noEmit`, `mypy --strict`, `pyright`) gates CI.
 - `eslint-plugin-no-secrets` / `gitleaks` blocks committed secrets.
 - Schema-driven contract tests (OpenAPI / Pact / GraphQL schema diff) prevent breaking consumers.
+
+## Related
+
+- **Patterns** (in-pack): `api-contract` (envelope), `error-handling` (error contract), `pagination`, `conditional-requests` (ETag/optimistic-concurrency), `rate-limiting`, `response-streaming`, `async-job-offload`, `caching-strategy`, `parallel-io`, `webhook-flow`, `multi-tenancy`.
+- **Sibling rules**: `concurrency-discipline` (bounded fan-out, no parallel-in-tx), `migration-backend` (online-safe schema change — ships when the migration pack is loaded).
+- **Cross-pack owners** (referenced, not duplicated — resolve when co-installed): idempotency stored-replay + resilience matrix / outbox / circuit-breaker → **distributed-systems**; N+1 / query shape / index discipline → **database** + **performance** (`n-plus-one-scan`); authz / tenant isolation / SSRF / mass-assignment → **security**; RED / OTel / cardinality / audit-log → **observability**.

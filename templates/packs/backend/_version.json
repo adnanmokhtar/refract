@@ -1,12 +1,19 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Reference parity — closed the 50/50 fracture where half the framework references shipped none of the cross-cutting API disciplines. All 12 references now carry rate-limiting/429, conditional-requests/ETag, response-streaming, async-job-offload, and pagination in the framework-native primitive. Backfilled the full resilience block into the 6 thin refs (dotnet, flask, go, laravel, phoenix-elixir, hexagonal-nestjs) and a pagination section into the 6 that lacked it (django, express, fastapi, nestjs, rails, spring-boot). Follows the v1.7.0 pagination pattern + v1.6.0 webhook/multi-tenancy pass.",
+  "summary": "Authoring-standard conformance for the flagship scanner + the coding-rules file. api-consistency-audit gains the scanner spine it lacked (Premise with cite-or-halt, a per-framework Adapt table, False positives/gotchas, Halt conditions, When-to-run heading) and its ai-patterns/ deploy-path drift is fixed to ai/patterns/. backend-principles reconciled: NEW MUSTs (single response envelope; content negotiation 415/406/Vary), NEW SHOULDs (optimistic concurrency ETag/If-Match/412/428; N+1 deferral to database+performance), a ## Related cross-reference block binding all 11 in-pack patterns + 2 sibling rules + the cross-pack owners, and the dangling in-pack idempotency.md refs softened to the distributed-systems pattern. Follows the v1.8.0 reference-parity pass.",
   "changelog": {
+    "1.9.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "skills/api-consistency-audit.md: brought the flagship scanner to the authoring standard. Renamed ## Purpose → ## Premise + added the cite-or-halt statement (finding = <method path> + <file:line> + canonical-violated + closure verb, never invented). NEW ## Adapt to the codebase per-framework primitive table (NestJS/DRF/FastAPI/Spring/Express/Rails/Laravel — where the envelope/error/limiter/ETag/pagination live). NEW ## False positives / gotchas (single-consistent-shape-is-not-drift, tier-scoped variation OK, opt-in detectors, declared exemptions, ownership-pointers-not-respecify). Renamed ## When to use → ## When to run and ## Failure modes → ## Halt conditions (+ added the missing-citation and not-backend halts). Fixed the ai-patterns/ → ai/patterns/ deploy-path drift (9 refs) that dangled post-install, unlike every sibling.",
+        "rules/backend-principles.md: reconciled with the patterns/agents that enforce concerns the rule was silent on. NEW MUSTs — single response envelope (mixing shapes is drift; RFC 9457 error body); content negotiation (415 on bad Content-Type, 406 on bad Accept, Vary on negotiated/auth-varied responses). NEW SHOULDs — optimistic concurrency (strong ETag + If-Match on contended writes, 412/428, read If-None-Match→304); N+1 prevention deferred explicitly to database+performance (n-plus-one-scan) with the api-reviewer inline floor. NEW ## Related block linking all 11 in-pack patterns + concurrency-discipline/migration-backend + the four cross-pack owners. Softened the two dangling in-pack ai/patterns/idempotency.md references to the distributed-systems idempotency pattern (it does not ship in the backend pack). Two review-checklist rows added."
+      ]
+    },
     "1.8.0": {
       "released": "2026-07-09",
       "changes": [
