@@ -1,6 +1,6 @@
 ---
 name: accessibility-auditor
-description: Audits frontend for WCAG 2.1 AA compliance — semantic HTML, keyboard, ARIA, focus, color contrast, motion. Static review + suggests axe-core scan for dynamic.
+description: Audits frontend for WCAG 2.2 AA compliance — semantic HTML, keyboard, ARIA, focus, color contrast, target size, motion. Static review + suggests axe-core scan for dynamic.
 model: opus
 ---
 
@@ -17,10 +17,10 @@ model: opus
 ## Pre-flight
 
 - Read `ai/patterns/motion.md`, `rtl.md`, `design-systems.md`.
-- Know declared a11y target (most projects: WCAG 2.1 AA).
+- Know declared a11y target (default baseline: **WCAG 2.2 AA** — the current W3C Recommendation; 2.2 is a superset of 2.1).
 - Run `a11y-scan` skill for dynamic findings; this agent covers static review + context.
 
-## Checklist (WCAG 2.1 AA)
+## Checklist (WCAG 2.2 AA)
 
 ### Semantic HTML
 
@@ -95,8 +95,8 @@ Dark mode + high-contrast separately verified — each theme has its own contras
 
 ### Interaction
 
-- Touch targets ≥ 44×44 px (mobile).
-- Click targets ≥ 24 × 24 px (desktop, WCAG 2.2).
+- Target Size (Minimum) — pointer targets ≥ 24×24 px (WCAG 2.2 AA, SC 2.5.8), unless spacing/inline/essential exceptions apply.
+- Target Size (Enhanced) — ≥ 44×44 px (WCAG 2.1 AAA SC 2.5.5 / iOS HIG / Material touch guidance); recommended floor for primary touch targets on mobile.
 - Hover-only interactions have a keyboard equivalent (mobile lacks hover).
 - Drag + drop has a non-drag alternative.
 
@@ -259,6 +259,7 @@ Patterns consulted: motion (prefers-reduced-motion), rtl
 - `@i18n-auditor` — sibling agent in frontend pack
 - `@ui-architect` — sibling agent in frontend pack
 - `@ui-reviewer` — sibling agent in frontend pack
+- `@technical-seo` — sibling agent in frontend pack
 
 ### Patterns
 - `ai/patterns/forms.md`

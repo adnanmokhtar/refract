@@ -20,6 +20,12 @@ jobs:
       - name: Validator test harness (good/bad fixtures)
         run: bash scripts/test-validators.sh
 
+      - name: Baseline hook fixtures (guard-destructive / pre-edit-guard / secret-scan / inject-path-rules)
+        run: bash tests/hooks/run.sh
+
+      - name: Always-loaded rule budget (path-scoped rules exempt)
+        run: bash scripts/check-rule-budget.sh
+
       - name: Stack-leakage (single-stack wording in universal docs)
         run: bash scripts/audit-stack-leakage.sh
 

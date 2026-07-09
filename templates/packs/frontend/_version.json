@@ -1,12 +1,52 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.4.0",
-  "released": "2026-06-25",
+  "version": "1.9.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Fast-render / page-navigation pack — 3 new specialist skills (navigation-speed: prefetch / Speculation Rules / bfcache / instant-loading / View Transitions; streaming-ssr: fast-SSR streaming-boundary scanner; lcp-audit: LCP-resource priority-hint scanner), ssr-audit gains an RSC client-boundary-cost section, lighthouse-ci budgets adopt INP (interaction-to-next-paint) + TTFB (server-response-time) + bf-cache and drop the removed-TTI assertion, all six references/<framework>.md gain Navigation & streaming + Core Web Vitals sections, frontend-principles adds navigation-speed / streaming / instant-loading MUSTs + bfcache-safety MUST-NOT, rendering-strategy adds a ranked TTFB-levers block. Pairs with performance v1.2.0 (web-vitals-field, inp-responsiveness).",
+  "summary": "Backlog #3+#4 — creation commands now ENFORCE SEO/image/font at generation time (was review-only), and the four non-conformant skills brought to the v1.7.0 authoring standard. add-page generates the metadata primitive for public routes + gates seo-audit/image-optimization/font-optimization in Phase 6; add-feature Phase-6 HALTs on a missing SEO/asset MUST on a public route; add-component gates image-optimization. ssr-audit gains the Adapt table + a grepped tenant detector; component-playground is now framework-adaptive (Vue/React/Svelte/Angular) with Premise+Halt, no longer Vue+PrimeVue-locked; fixed generic-source leaks (a11y-scan/visual-check matrices) and the next/image AVIF over-claim.",
   "changelog": {
+    "1.9.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "commands: creation-time enforcement of the SEO/image/font MUSTs (parity with the existing lcp-audit/nav gates). add-page.md — Phase 4 generates the metadata primitive (title/description/canonical/OG/JSON-LD/hreflang) for public routes + content-image/font guidance; Phase 6 dispatches seo-audit/@technical-seo + image-optimization + font-optimization. add-feature.md — Phase 6 adds a SEO+asset MUST verification that HALTs on a missing metadata/image/font MUST on any new public route (admin routes report seo:n/a). add-component.md — Phase 4 + Phase 6 gate image-optimization for image-rendering components.",
+        "skills: brought the four non-conformant skills to the authoring standard. ssr-audit gained the ## Adapt to the codebase per-framework boundary table (Next/Nuxt/SvelteKit/Remix/Angular) and a BAD/GOOD + grep for the previously pattern-less tenant-from-browser-state detector. component-playground rewritten framework-adaptive (Vue/React/Svelte/Angular prop+control mapping, project-primitive mirroring, Premise + Halt) — was hard-locked to Vue+PrimeVue+fixed paths. Fixed generic-source leaks: a11y-scan + visual-check route matrices use project-mapped placeholders, not a baked-in shop shape. Fixed image-optimization next/image AVIF over-claim (WebP default, AVIF opt-in)."
+      ]
+    },
+    "1.8.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "references: added SEO + Fonts sections to react.md (react-helmet-async / Remix meta; Fontsource/Fontaine), vue.md (@unhead/vue useHead/useSeoMeta), svelte.md (svelte:head + prerender; Fontsource), angular.md (Title/Meta services + NEW SSR & hydration section: provideClientHydration, v19 incremental hydration, SSR-required-for-crawlers). Upgraded nuxt.md SEO from useSeoMeta-only to Next-level parity (canonical + hreflang via useHead/@nuxtjs/i18n, JSON-LD, @nuxtjs/sitemap + @nuxtjs/robots). Closes the four-of-six references with no SEO section and three with no font section.",
+        "agents: retrofit the two legacy agents to the house contract. data-flow-auditor gains The Premise (cite-or-halt + hand-wave hard-halt + verdict-matches-body), a Verdict line, and a coverage table, and is promoted sonnet to opus (cross-tenant cache-leak + hydration reasoning is judgment-heavy). api-contract-sentry gains The Premise (verdict/coverage stay N/A for an impact report). ui-reviewer gains the missing coverage table and lists the image/font/seo skills.",
+        "accessibility-auditor: re-baselined WCAG 2.1 AA to 2.2 AA (description, checklist header, and Target Size labeled — SC 2.5.8 at 24px AA vs SC 2.5.5 at 44px AAA). Cross-links: technical-seo back-links @data-flow-auditor + @api-contract-sentry (was 4 of 6 siblings); ui-architect budgets image-optimization / font-optimization / seo-audit."
+      ]
+    },
+    "1.7.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "rules/frontend-principles.md: reconciled with the v1.5.0–v1.6.0 specialists. FIXED P0 self-contradiction — the blanket `loading=\"lazy\"` Should (which lcp-audit named as the anti-pattern it exists to catch) is replaced by a MUST that prioritizes the LCP/hero image (fetchpriority/priority, never lazy) and lazy-loads only below the fold. ADDED MUSTs for LCP & images (format/srcset/dimensions/CLS), fonts (font-display/self-host/preload/size-adjust fallback/woff2/variable), and SEO (unique title+description/canonical/OG/JSON-LD/hreflang/SSR-not-CSR/sitemap+robots via the project's own metadata primitive). Updated the Hard-rule banner, Review checklist (+3 rows), and Enforcement (LCP/image/font/SEO skills + Lighthouse SEO/best-practices categories).",
+        "NEW _authoring-standard.md (meta, not shipped to projects) — codifies the quality bar: cross-cutting invariants (cite-or-halt, mirror-the-primitive, negotiated ownership boundaries, bidirectional cross-links, currency=WCAG 2.2 AA / CWV=LCP·INP·CLS, generic-source, cross-pack-refs-must-resolve); the skill contract by class (scanner/runner/utility); the agent reviewer/generator house-contract; the shipped coding-rules index; and a new-artifact conformance checklist. Names the current retrofit targets (data-flow-auditor + api-contract-sentry lack Premise/Verdict; ui-reviewer lacks coverage table; accessibility-auditor WCAG-2.1→2.2 rebaseline; ssr-audit lacks Adapt table).",
+        "Cross-link graph repair: added `@technical-seo` to the ## Related sibling lists of all 6 pre-existing agents (accessibility-auditor, ui-architect, ui-reviewer, data-flow-auditor, api-contract-sentry, i18n-auditor) — the new agent was previously invisible to the pack (one-directional link).",
+        "Bug fixes surfaced by the review: navigation-speed.md:46 shipped a U+00AD soft-hyphen inside the `eagerness` key of its GOOD Speculation-Rules example (copy-paste → invalid key → prerender silently never fires) — stripped to clean ASCII. dev-server-start.md referenced a nonexistent `dev-server-stop` sibling skill (reworded to inline PID-kill) and mislabeled the `a11y-scan` skill as `a11y-audit` (a command); verify-with-playwright.md had the same a11y-audit→a11y-scan slip. All repointed."
+      ]
+    },
+    "1.6.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW skill image-optimization (kind:skill, primary_frontend_framework_detected) — static image-delivery scanner. Seven detectors: legacy format with no AVIF/WebP path, missing responsive srcset/sizes, missing width/height or aspect-ratio (CLS — the biggest lever), missing below-fold loading=lazy (and the inverse: lazy on the hero → lcp-audit), raw <img> where the framework component exists, oversized source into a small slot, missing LQIP/blur placeholder. Per-framework image-primitive table (next/image, NuxtImg, NgOptimizedImage, astro:assets, enhanced-img, <picture>, CDN f_auto). Explicitly cedes LCP priority-hints to lcp-audit.",
+        "NEW skill font-optimization (kind:skill, primary_frontend_framework_detected) — static web-font scanner. Eight detectors: missing font-display (FOIT), critical font not preloaded, render-blocking remote Google Fonts <link> not self-hosted, no size-adjust/ascent-override fallback (swap CLS), full unsubset charset, too many families/weights (→ variable font), legacy format before woff2 / missing format(), framework primitive not adopted. Per-framework font-primitive table (next/font, @nuxt/fonts, Fontsource/Fontaine). Cross-links lcp-audit for text-LCP.",
+        "Registered both in _topics.md (with metadata/primitive extraction) and _essentials.md standard-mode skill list; fallbacks _examples/image-optimization.md + _examples/font-optimization.md. lcp-audit gains a cross-link to both (LCP image → image-optimization for format/dimensions; text LCP → font-optimization)."
+      ]
+    },
+    "1.5.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW skill seo-audit (kind:skill, primary_frontend_framework_detected) — static technical-SEO scanner. Nine detector families: (1) missing/duplicate/weak title+meta-description, (2) missing/wrong canonical, (3) missing Open Graph + Twitter cards, (4) missing/invalid JSON-LD structured data with a page-type→@type table (Article/Product+Offer/BreadcrumbList/Organization+WebSite/FAQPage), (5) accidental noindex / robots Disallow (and missing noindex on private/faceted routes), (6) sitemap.xml + robots.txt correctness, (7) i18n hreflang reciprocity + x-default, (8) crawlability of CSR-only content (→ rendering-strategy handoff), (9) semantic/link signals. Adapts to the project's own metadata primitive via a per-framework table; never introduces a second mechanism; never invents JSON-LD values.",
+        "NEW agent technical-seo (kind:agent, primary_frontend_framework_detected, model:opus) — persona review layered over seo-audit's detectors, adding judgment automated scans can't make (schema/page-type fit, canonical intent, index/noindex policy). Severity-graded (BLOCKER: accidental site-wide noindex / duplicate titles at scale / CSR-only crawl content; REQUEST: missing canonical/OG/JSON-LD/hreflang). Cites file:line; hard-halts on hand-wave grep; hands crawlability to rendering-strategy.",
+        "Registered both in _topics.md (technical-seo agent with cite_evidence:strict + metadata-primitive extraction; seo-audit skill) and _essentials.md standard-mode skill list. Fallbacks: _examples/seo-audit.md + _examples/technical-seo.md."
+      ]
+    },
     "1.4.0": {
       "released": "2026-06-25",
       "changes": [
@@ -46,11 +86,11 @@
     "1.1.0": {
       "released": "2026-06-10",
       "changes": [
-        "add-feature Phase 6: NEW observability sign-off \u2014 error tracking covers new routes/components, route-level perf signal + analytics events mirror siblings, no console.* as the only failure signal; projects with no observability layer report 'observability: none configured' explicitly.",
-        "add-feature Phase 6: NEW release note (heavy tier) \u2014 feature flag or flagless-with-rationale, rollback path, staging/preview verification.",
-        "add-feature Phase 4: missing-agent fallback \u2014 uninstalled reviewers are performed inline against their pack/domain checklist, never silently skipped.",
-        "add-feature: 'Phases applied' now tier-scoped (heavy = all 7; trivial/standard run their ceremony's subset) \u2014 matches the closure-verb table instead of contradicting it.",
-        "_topics.md: add-feature topic entry added (was missing \u2014 AUTHOR-mode generation never produced the command despite it shipping in the pack)."
+        "add-feature Phase 6: NEW observability sign-off — error tracking covers new routes/components, route-level perf signal + analytics events mirror siblings, no console.* as the only failure signal; projects with no observability layer report 'observability: none configured' explicitly.",
+        "add-feature Phase 6: NEW release note (heavy tier) — feature flag or flagless-with-rationale, rollback path, staging/preview verification.",
+        "add-feature Phase 4: missing-agent fallback — uninstalled reviewers are performed inline against their pack/domain checklist, never silently skipped.",
+        "add-feature: 'Phases applied' now tier-scoped (heavy = all 7; trivial/standard run their ceremony's subset) — matches the closure-verb table instead of contradicting it.",
+        "_topics.md: add-feature topic entry added (was missing — AUTHOR-mode generation never produced the command despite it shipping in the pack)."
       ]
     },
     "1.0.0": {

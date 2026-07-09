@@ -28,7 +28,8 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 test.describe('accessibility', () => {
-  for (const route of ['/', '/products', '/cart', '/checkout', '/login']) {
+  // criticalRoutes: fill from THIS project — home, auth, and its highest-traffic + form-heavy routes.
+  for (const route of criticalRoutes) {
     test(`${route} has no critical violations`, async ({ page }) => {
       await page.goto(route);
       const results = await new AxeBuilder({ page })
@@ -46,12 +47,12 @@ test.describe('accessibility', () => {
 
 ## Routes to cover
 
-Must include:
+Must include (map to THIS project's routes):
 - Home / landing
-- Product listing + detail
-- Cart + checkout
+- The primary list + detail flow
+- Any multi-step flow (checkout / onboarding / wizard)
 - Auth (login, signup, password reset)
-- Account dashboard
+- The main authenticated dashboard
 - Any form-heavy page
 
 For authenticated routes: login in a `beforeAll` hook, reuse session.

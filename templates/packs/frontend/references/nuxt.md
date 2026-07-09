@@ -20,8 +20,11 @@
 
 ## SEO
 
-- Every public indexed route has `useSeoMeta({ title, description, ogImage })`.
-- Dynamic routes set meta inside `useAsyncData` callback to fire with data.
+- Every public indexed route sets `useSeoMeta({ title, description, ogTitle, ogDescription, ogImage, twitterCard: 'summary_large_image' })`; dynamic routes set it inside the `useAsyncData` callback so it fires with data.
+- **Canonical + hreflang**: `useHead({ link: [{ rel: 'canonical', href }, …hreflang alternates] })` — `@nuxtjs/i18n` can emit hreflang automatically.
+- **JSON-LD**: `useHead({ script: [{ type: 'application/ld+json', innerHTML: … }] })`, or `nuxt-schema-org` / the Nuxt SEO module for typed Article / Product / Breadcrumb.
+- **Sitemap + robots**: `@nuxtjs/sitemap` (must include dynamic routes) + `@nuxtjs/robots` (point at the sitemap).
+- One metadata mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
 
 ## State
 

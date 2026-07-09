@@ -51,6 +51,15 @@ Anti-patterns:
 - Simple reactive values → `$state` in lib modules.
 - Cross-component global → writable/readable stores from `svelte/store` OR runes in a module scope.
 
+## SEO
+
+- Set metadata in `<svelte:head>` in `+page.svelte`, driven by `+page.ts` / `+page.server.ts` `load` data — unique title + description, canonical, OG/Twitter, and JSON-LD (`<script type="application/ld+json">{@html …}</script>`). Prerender indexable static routes (`export const prerender = true`) so the head reaches crawlers.
+- One mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
+
+## Fonts
+
+- Self-host via **`@fontsource/*`** (or Fontaine for `size-adjust` fallbacks) — no remote Google Fonts `<link>`. `font-display: swap`; preload the critical font in `app.html` (`<link rel="preload" as="font" crossorigin>`); variable font over ≥3 weights. See `frontend/skills/font-optimization.md`.
+
 ## Styling
 
 - Scoped `<style>` by default.

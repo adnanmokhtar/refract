@@ -39,5 +39,6 @@ echo "$payload" | grep -Eq '\bxox[baprs]-[A-Za-z0-9-]{10,}\b'           && block
 echo "$payload" | grep -Eq 'AC[0-9a-fA-F]{32}'                          && block "a Twilio account SID"
 echo "$payload" | grep -Eq -- '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----'  && block "a private key block"
 echo "$payload" | grep -Eq '\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' && block "a JWT (eyJ…)"
+echo "$payload" | grep -Eq '(mongodb|postgres|postgresql|mysql|redis|amqp|smtp)(\+[a-z]+)?://[^:@[:space:]/]+:[^@[:space:]/]+@' && block "a connection string with embedded credentials (user:pass@host)"
 
 exit 0

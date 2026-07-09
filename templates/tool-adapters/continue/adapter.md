@@ -80,8 +80,10 @@ Body = prose rules. Like Cursor's MDC but with `.md` extension and no special `@
    - `docs:` pointing at `ai/README.md`.
 2. **`.continue/rules/<name>.md`** — one per `.claude/rules/<name>.md`:
    - Frontmatter: `name`, `description`, optional `globs`, `alwaysApply`.
+   - **Authoritative `paths:` (preferred).** If the source rule carries `paths:` frontmatter (a YAML glob list, e.g. `migration-safety.md`), copy those globs **verbatim** into `globs:` and set `alwaysApply: false` — don't re-infer. A rule with no `paths:` is always-apply.
    - Body: copy the rule prose verbatim (Continue doesn't support `@file` inlining — must embed).
 3. **`.continue/rules/project.md`** — always-apply rule summarizing CLAUDE.md's top-level conventions.
+4. **Do NOT port `inject-path-rules.sh`** — the Claude-only mechanism for applying `paths:` rules; Continue's `globs:` frontmatter is its native equivalent. (Continue has no hooks anyway.)
 
 ## Idempotency
 

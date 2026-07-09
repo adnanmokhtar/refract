@@ -16,7 +16,11 @@ _None yet. Add under `.claude/agents/<name>.md`._
 
 ## Commands
 
-_None yet. Add under `.claude/commands/<name>.md`._
+- `fix-bug.md` — universal reproduce → failing-test → fix → verify workflow. `--plan` handoff; `--fast` emergency-hotfix mode.
+- `execute-plan.md` — implement a saved `--plan` file; auto-invokes `/verify-plan`.
+- `verify-plan.md` — audit an implementation against its plan; halts on drift.
+- `ship.md` — package the working tree into a reviewed PR (stage → commit → push → PR), confirm-gated, never-stage guard, `--cleanup` for stale branches.
+- `catchup.md` — reseat context after `/clear`: reconstruct branch state (read mode) or write the `.claude/HANDOFF.md` note (`handoff` mode).
 
 ## Skills
 
@@ -24,14 +28,22 @@ _None yet. Add under `.claude/skills/<name>/SKILL.md`._
 
 ## Rules
 
-See `.claude/rules/`. The four foundational rules load every session because the project `CLAUDE.md` `@`-imports them (`@.claude/rules/<name>.md`) — files in `.claude/rules/` are not auto-loaded on their own.
+See `.claude/rules/` (and `.claude/rules/README.md` for the two-tier model). The four foundational rules load every session because the project `CLAUDE.md` `@`-imports them (`@.claude/rules/<name>.md`) — files in `.claude/rules/` are not auto-loaded on their own. **Path-scoped rules** (those with `paths:` frontmatter, e.g. `migration-safety.md`) are the exception: `inject-path-rules.sh` injects them on-match instead, so they cost nothing until you edit a file they govern. The always-loaded budget is CI-guarded by `scripts/check-rule-budget.sh`.
 
 ## Hooks
 
 - `post-edit-check.sh` — PostToolUse on Edit/Write/MultiEdit. Lints the edited file.
-- `pre-edit-guard.sh` — PreToolUse on Edit/Write/MultiEdit. Blocks `.env`, lock files, build output.
-- `guard-destructive.sh` — PreToolUse on Bash. Blocks `rm -rf /`, force-push, hard-reset, etc.
-- `session-start.sh` — SessionStart. Prints branch, uncommitted count, last 5 commits, `ai/status.md` Recent Changes.
+- `format-on-save.sh` — PostToolUse on Edit/Write/MultiEdit. Auto-formats via the project's formatter.
+- `auto-test.sh` — PostToolUse on Edit/Write/MultiEdit. Runs the matching test file; silent on success. **Opt-in:** `touch .claude/.auto-test`.
+- `pre-edit-guard.sh` — PreToolUse on Edit/Write/MultiEdit. Blocks `.env`, secrets/keys/certs, generated + minified output, lock files, build output, binaries, and edits to hook scripts themselves.
+- `secret-scan.sh` — PreToolUse on Edit/Write/MultiEdit. Blocks writes that introduce high-confidence credentials (API keys, tokens, private keys, connection strings).
+- `inject-path-rules.sh` — PreToolUse on Edit/Write/MultiEdit. **Context-only** (never blocks): injects a `paths:`-scoped rule from `.claude/rules/` when you edit a file it governs, once per session. See `.claude/rules/README.md`. Opt out: `.no-path-rules`.
+- `guard-destructive.sh` — PreToolUse on Bash. Blocks push-to-protected-branch, force-push (allows `--force-with-lease`), `rm -rf` on `/`/`~`/`$VAR`, `DROP`/`DELETE`-without-`WHERE`/`TRUNCATE`, `curl|sh`, `dd`/`mkfs`, `chmod 777`, accidental `publish`. Configurable via `CLAUDE_PROTECTED_BRANCHES`.
+- `session-start.sh` — SessionStart. Prints branch, uncommitted count, last 5 commits, `ai/status.md` Recent Changes, learning queue.
+- `notify.sh` — Notification. Native OS notification (macOS/Linux/WSL) when Claude needs attention.
+- `verify-gate.sh` / `update-session-log.sh` — Stop hooks (verify gate + session-log append).
+
+Opt-out flags (create the file in `.claude/`): `.no-guard-destructive`, `.no-pre-edit-guard`, `.no-secret-scan`, `.no-format`. Fixture tests: `bash tests/hooks/run.sh` (in the config repo).
 
 ## Settings
 

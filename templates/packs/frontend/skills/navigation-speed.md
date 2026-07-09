@@ -43,7 +43,7 @@ For multi-page apps (or any surface where the framework link doesn't prerender),
 GOOD (in <head> or injected):
 <script type="speculationrules">
 { "prerender": [{ "where": { "href_matches": "/*" },
-                  "eager­ness": "moderate" }] }
+                  "eagerness": "moderate" }] }
 </script>
 ```
 

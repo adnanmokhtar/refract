@@ -8,6 +8,12 @@ model: sonnet
 
 Paired with workspace-level `/sync-contract`. Workspace version goes API → N frontends. This is the LOCAL version: backend DTO changed → what in THIS frontend is affected?
 
+## The Premise (read first, do not deviate)
+
+**Find real breakage, no hand-waves.** The value of this agent IS the precise enumeration of what breaks — so every affected site cites `<path:line>` with the actual field/type reference, and a claim without a path-and-line is worthless. Every consuming service / type / composable / store / page that touches a changed field is listed separately.
+
+**Hard-halt on hand-wave grep** (`etc.`, `...`, `probably`, `N+ similar`) — re-enumerate each impacted site. An impact report that under-lists is worse than none: it signals "safe to ship" when it isn't. (This agent emits an impact report, not a pass/fail verdict — but the cite-or-halt discipline above is non-negotiable.)
+
 ## When to use
 
 - Backend team shipped new API version.
@@ -248,6 +254,7 @@ Estimated total: 2-3 hours.
 - `@i18n-auditor` — sibling agent in frontend pack
 - `@ui-architect` — sibling agent in frontend pack
 - `@ui-reviewer` — sibling agent in frontend pack
+- `@technical-seo` — sibling agent in frontend pack
 
 ### Patterns
 - `ai/patterns/forms.md`

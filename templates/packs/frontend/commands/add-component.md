@@ -100,6 +100,7 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - New styling system introduced (CSS Modules in a Tailwind repo; styled-components where siblings use scoped CSS).
 - Above-the-fold / hero / heavy-media component whose LCP-relevant image omits the framework priority hint that siblings set (see [`../skills/lcp-audit.md`](../skills/lcp-audit.md)) — missing `fetchpriority`/`priority`/eager-hero parity.
 - High-frequency or expensive interaction handler (typing, filtering a large list, drag) that runs unbounded per-interaction work — must stay under the INP budget per [`../../performance/ai-patterns/inp-responsiveness.md`](../../performance/ai-patterns/inp-responsiveness.md) (yield / `startTransition` / debounce).
+- Component that renders content images: images use the framework image component with modern format, responsive `srcset`/`sizes`, and explicit `width`/`height` (no CLS) — mirror siblings (see [`../skills/image-optimization.md`](../skills/image-optimization.md)).
 
 **Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
@@ -116,6 +117,7 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - Hardcoded English (untranslated string) → blocker.
 - **LCP priority hint** (gated): if the component is above-the-fold / a hero / heavy media, its LCP image sets the framework priority hint — dispatch [`../skills/lcp-audit.md`](../skills/lcp-audit.md). Not LCP-relevant → `lcp: n/a`.
 - **INP budget** (gated): if the component owns a high-frequency or expensive handler (typing, filtering a large list, drag), per-interaction work stays under budget (yield / transition / debounce) — dispatch [`../../performance/ai-patterns/inp-responsiveness.md`](../../performance/ai-patterns/inp-responsiveness.md). No such handler → `inp: n/a`.
+- **Image delivery** (gated): if the component renders content images, they use the framework image component with modern format + responsive sizing + explicit `width`/`height` (no CLS) — dispatch [`../skills/image-optimization.md`](../skills/image-optimization.md). No images → `image: n/a`.
 - **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking wired the way siblings wire it; analytics events added if siblings of this primitive emit them. If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 
 ## Phase 7 — Improve

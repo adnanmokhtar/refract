@@ -352,6 +352,18 @@ Ships with the learning pack (always-on). See [`templates/packs/learning/command
 
 When tracks are selected, these commands ship INTO the target repo's `.claude/commands/`. They follow the canonical 7-phase template (Hard Rule A24).
 
+### Baseline (every repo)
+
+Installed by the repo-baseline regardless of track — the universal per-project surface.
+
+| Command           | Purpose                                                                            |
+|-------------------|------------------------------------------------------------------------------------|
+| `/fix-bug`        | Universal reproduce → failing-test → fix → verify workflow. `--plan` handoff; `--fast` emergency-hotfix mode (branch from prod, ≤50-line change, `[HOTFIX]` PR + mandatory follow-up). |
+| `/ship`           | Package the working tree into a reviewed PR: stage → commit → push → PR, confirm-gated, with a never-stage guard (secrets / build output / lock churn) and `--cleanup` for `[gone]` branches. Distinct from `/pre-commit` (a review gate that never authors). |
+| `/catchup`        | Reseat context after `/clear`: read mode reconstructs branch state (handoff note + git + `ai/status.md`); `handoff` mode writes the gitignored `.claude/HANDOFF.md` note. Read-only by default. |
+| `/execute-plan`   | Implement a saved `--plan` file (Steps + Outputs + Constraints + Verification); auto-invokes `/verify-plan`. |
+| `/verify-plan`    | Audit an implementation against its plan; halts on drift. |
+
 ### Backend track
 
 | Command           | Purpose                                                                            |
@@ -388,6 +400,9 @@ When tracks are selected, these commands ship INTO the target repo's `.claude/co
 - `streaming-ssr` — fast-SSR streaming-boundary scanner (stream the shell, cut TTFB).
 - `navigation-speed` — page-to-page nav audit: prefetch / Speculation Rules / bfcache / instant-loading / View Transitions.
 - `lcp-audit` — LCP-resource priority-hint scanner (fetchpriority / preload / preconnect / lazy-hero).
+- `image-optimization` — image-delivery scanner: AVIF/WebP format, responsive srcset/sizes, width/height (CLS), below-fold lazy, framework image-component adoption, oversized sources. (Owns format/dimensions/loading; LCP priority stays with `lcp-audit`.)
+- `font-optimization` — web-font scanner: font-display (FOIT), critical-font preload, self-host remote Google Fonts, size-adjust fallback (swap-CLS), unicode-range subset, variable-font, woff2-first.
+- `seo-audit` — technical-SEO scanner: title/description, canonical, Open Graph/Twitter, JSON-LD structured data, noindex/robots/sitemap, i18n hreflang, CSR-only crawlability. Paired with the `@technical-seo` agent; mirrors the project's own metadata primitive.
 - `web-vitals-field` — *(performance pack)* field CWV with attribution: the only path to citing real INP / LCP to an element.
 
 ### UI-UX track
