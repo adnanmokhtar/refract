@@ -25,6 +25,7 @@ Prevents the patterns that turn cloud bills + outage minutes into avoidable loss
 - Secrets from a manager (AWS Secrets Manager, Vault, External Secrets Operator, Doppler, GCP Secret Manager). Mounted as files preferred over env vars (env is leaked by every `/proc/<pid>/environ` and ps tool).
 - Persistent data on managed DB or object storage. Never on container-local disk — pods die, disks die.
 - Backups automated AND restore tested at least quarterly. An untested backup is a folder of bytes.
+- Every stateful production store MUST have automated backups + point-in-time recovery (PITR) + a restore drilled on a fixed cadence + a declared RPO/RTO — the coverage the `dr-audit` skill verifies. Backup existence is not recovery capability: a store with backups but no fresh drill is BLOCK, never ready.
 
 ## Must not
 

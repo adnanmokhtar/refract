@@ -39,6 +39,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [persona, isolation_contract, places_to_audit, escape_hatch_audit, output_format]
   fallback: stub-from-sections   # AUTHOR-mode required; no `_examples/tenant-isolation-reviewer.md` ships — sectioned-stub fallback per phase-4.2-apply.md when extraction is empty
 
+- name: data-privacy-reviewer
+  kind: agent
+  triggers: { signal_confirmed_any: [compliance, pii, payment] }
+  extracts_from: _extracted-codebase.md § "Data model" (PII/PHI fields + classification tags) + § "Cross-cutting concerns" § compliance + collection/log/analytics/third-party-SDK sinks + configured jurisdiction(s)
+  sections: [persona, pii_inventory, dataflow_egress_checklist, regulation_mapping, output_format]
+  fallback: _examples/data-privacy-reviewer.md
+  cite_evidence: strict
+
 - name: auth-flow
   kind: pattern
   triggers: { auth_scheme_detected: true }

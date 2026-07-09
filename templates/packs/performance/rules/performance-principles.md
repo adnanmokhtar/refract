@@ -43,6 +43,7 @@ Prevents the two failure modes: optimizing the wrong thing, and shipping a regre
 - Frontend: lazy-load routes, virtualize long lists with the framework's virtualisation primitive, use the platform's lazy-image features (e.g., `<img loading="lazy">` + `srcset`), tree-shake bundles.
 - Backend: stream responses for large payloads, gzip/brotli at the edge, HTTP/2 or HTTP/3.
 - Set realistic SLOs (e.g. p95 < 300ms on key endpoint) and alert on regression — performance without an SLO is just vibes.
+- An SLA/SLO is only validated by a load / stress / soak campaign on a prod-parity env (same instance class, DB tier, data volume) under a realistic request mix — single-VU or laptop numbers are round-trip latency of an idle system, not capacity. See `load-test.md`. Boundary: `profile-endpoint.md` diagnoses ONE slow subject; `@capacity-planner` (distributed-systems) estimates the breakpoint analytically; the campaign empirically confirms or refutes it and quantifies headroom.
 - Instrument SPA route transitions (router `beforeEach` / `afterEach` + `performance.mark`, or the Soft Navigations API where available) and budget route-change-to-paint. The Soft Navigations heuristic is emerging / origin-trial — gate any reliance on it behind `where available`, not as a stable cross-browser guarantee.
 
 ## Review checklist

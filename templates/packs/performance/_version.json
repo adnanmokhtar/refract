@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "1.2.1",
-  "released": "2026-06-26",
+  "version": "1.3.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Reciprocal boundary route to the new algorithms pack: a hot CPU loop whose fix is an asymptotic complexity-class change (accidental-`O(n²)` scan, exponential/unmemoized recursion, wrong container) routes OUT to `/analyze-complexity` / `/design-algorithm` (algorithm-designer owns the complexity proof); performance-optimizer keeps the measured constant-factor tune — making the shared CPU-loop boundary rendered on both sides, not asserted on one. (1.2.0: web-vitals / INP additions — web-vitals-field skill + inp-responsiveness ai-pattern + hydration-scheduling, streaming-SSR, nav-timing branches.)",
+  "summary": "Performance pack +load-test skill (load/stress/soak/spike campaign design against an SLA gate on a prod-parity env).",
   "changelog": {
     "1.2.1": {
       "released": "2026-06-26",
@@ -22,6 +22,12 @@
         "bundle-perf: Phase-2 Hydration axis routes TTFB-dominated SSR server-think-time to /streaming-ssr (vs backend latency → /profile-perf); NEW Navigation-timing axis (hard + soft nav, ≤500ms route-change-to-paint budget); failing INP now attributed to the longest LoAF script + routed to inp-responsiveness; generic image-priority mentions anchored to references/<framework>.md.",
         "performance-principles: added Must — browser input responsiveness (INP budget + scheduler.yield + transition primitive), extended the CWV CI-budget line with TTFB < 600ms, added Should — soft-nav timing (gated 'where available').",
         "perf-audit: routing table + Related now point web-frontend page-load to the nav-timing-aware bundle-perf, authoritative field INP / real-user CWV to the web-vitals-field skill (Lighthouse lab INP is a synthetic proxy), and page-to-page navigation work to the navigation-speed skill."
+      ]
+    },
+    "1.3.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "skills +1: load-test — designs+runs a load/stress/soak/spike/breakpoint campaign against a pre-declared SLA gate on a prod-parity env (open-vs-closed model, coordinated-omission trap). Distinct from profile-endpoint (single subject) and distributed-systems capacity-planner (analytical). Backing SHOULD in performance-principles."
       ]
     }
   }

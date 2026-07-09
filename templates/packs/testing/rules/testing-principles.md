@@ -43,6 +43,7 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 - Use property-based tests (`fast-check` JS, `hypothesis` Python) for pure logic with many input shapes.
 - Use Testcontainers / docker-compose for integration tests that need a real DB / Redis — faster + more honest than mocking SQL.
 - Treat coverage as a signal, not a goal: 80% line coverage with bad asserts is worse than 50% with sharp ones.
+- Measure test *strength*, not just presence, on critical code: mutation-test the changed scope (see `../skills/mutation-probe.md`) — a survived mutant (source corrupted, suite still green) is an assertion gap, not a coverage gap. Coverage proves the branch RAN; a killed mutant proves a test would CATCH it breaking. Scope to the diff / critical modules — mutation runs are expensive.
 
 ## Review checklist
 

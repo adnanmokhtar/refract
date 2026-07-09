@@ -87,4 +87,9 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { api_surface_detected: true, AND: { test_framework_detected: true } }
   fallback: _examples/contract-test.md
+
+- name: mutation-probe
+  kind: skill
+  triggers: { test_framework_detected: true }
+  fallback: _examples/mutation-probe.md
 ```

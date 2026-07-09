@@ -1,9 +1,17 @@
 {
   "kind": "pack",
   "name": "business",
-  "version": "1.1.0",
-  "released": "2026-06-23",
+  "version": "1.2.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "analyze-task: --resume folds confirmed answers into Resolved decisions (no duplicate Gate-answers section) + reconciles Open questions + flips Status; new --decisions one-pass path (skip gate when answers are pre-supplied, e.g. a Plan Mode plan); Phase 6 single-decision-home HALT enforces it. expand-task: documented the cross-repo handoff rule (run in the target repo, anchor the brief to the upstream Spec-ID)."
+  "summary": "Business pack +workflow-integrity agent (lifecycle state-graph audit: reachability, illegal/unguarded transitions, per-transition guards).",
+  "changelog": {
+    "1.2.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "agents +1: workflow-integrity (opus) — audits an entity's lifecycle STATE GRAPH (reachability, terminal states, illegal/unguarded transitions, per-transition auth/audit/idempotency/concurrency), reconstructed from code. The state-graph counterpart to missing-counterparts' cycle-pairs. Backing MUST/SHOULD in business-completeness."
+      ]
+    }
+  }
 }

@@ -157,3 +157,7 @@ Prefer these over hand-rolling sharding. Years of engineering.
 - Manual shard routing in every query (centralize in a data access layer).
 - Partitioning without automating partition creation (writes fail when range ends).
 - Rebalancing improvised under fire.
+
+## Related
+
+- `data-retention-pii.md` — time-partitioning by `created_at` makes `DROP PARTITION` the cheapest PII retention purge: O(1), no row scan, no bloat.

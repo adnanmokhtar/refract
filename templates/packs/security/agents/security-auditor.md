@@ -201,6 +201,7 @@ Tools used:
 - `@tenant-isolation-reviewer` — multi-tenant deep dive; dispatched when the audit detects multi-tenant signals
 - `@api-security-reviewer` — the API-layer lens (OWASP API Top 10: BOLA/BOPLA/BFLA/resource-consumption); pairs on access-control depth.
 - `@llm-security-reviewer` — LLM/AI-app security (prompt injection, improper output handling, excessive agency); applicable wherever the app calls a model.
+- `@data-privacy-reviewer` — the PII/PHI data-flow + regulatory (GDPR/PDPL/CCPA) deep dive; dispatched when the change touches a collection surface, a logger, an analytics/telemetry call, a third-party SDK, or a delete/export path. This auditor's A02/A09 rows flag PII at the app surface; hand the personal-data slice — consent, cross-border transfer, erasure/DSAR reachability — there.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

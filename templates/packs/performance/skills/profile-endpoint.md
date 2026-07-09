@@ -76,3 +76,7 @@ Recommendations (priority):
 - The first request after server start hits cold cache + lazy DB connections — discard.
 - "Concurrent connections" is not the same as "requests per second" — different load tools knob this differently; pick the one your tool exposes.
 - A "fast" endpoint is whatever your SLO says — don't chase numbers from a blog post.
+
+## Related
+
+- `load-test.md` — boundary: this skill diagnoses ONE slow subject; `load-test` runs the whole-system SLA campaign (realistic mix, ramp to breakpoint, headroom). When a campaign exposes a knee, it hands the subject at that knee back here for the flamegraph + slow-query root cause.

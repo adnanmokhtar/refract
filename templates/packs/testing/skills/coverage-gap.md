@@ -81,3 +81,4 @@ LOW PRIORITY:
 - TypeScript `?.` and `??` compile to multiple branches; partial coverage on one transpiled branch is usually acceptable.
 - Snapshot tests inflate line coverage but don't exercise branches — don't be misled.
 - A branch shown as "0 hits" in `lcov` may be reachable only under a specific Node version flag — check before deleting.
+- A line shown as *covered* can still be untested in strength — coverage proves it ran, not that any test asserts on its behaviour. For assertion gaps on changed/critical code, hand off to `mutation-probe.md` (the strength complement: presence here, strength there).

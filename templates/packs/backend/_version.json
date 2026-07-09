@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Backlog #5 (cross-link hygiene) + #6 (older-pattern detector retrofit + the remaining gap specialists). NEW transaction-boundary + file-upload patterns and a migration-safety verifier skill (the three flagged gaps). All 5 agents gain a Related>Skills subsection; api-reviewer replaces its prose Areas-reviewed with a coverage table; bug-investigator promoted to opus + its example genericized; endpoint-test/endpoint-tester relabeled primitive+orchestrator; the 6 skills lacking ## Related get one; the 4 older patterns (api-contract/api-versioning/caching-strategy/error-handling) get the standardized ## Detectors (cite-or-halt) block so the pack has one section vocabulary. Follows the v1.9.0 scanner/rule conformance pass.",
+  "summary": "Backend pack +request-validation ai-pattern (inbound-validation strategy: single boundary, writable-field allow-list vs mass-assignment, bounds/limits, 422 contract).",
   "changelog": {
     "1.10.0": {
       "released": "2026-07-09",
@@ -116,6 +116,12 @@
       "released": "2026-04-26",
       "changes": [
         "Initial backend pack release."
+      ]
+    },
+    "1.11.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "ai-patterns +1: request-validation — inbound-validation strategy (single-boundary validate/normalize, writable-field allow-list vs mass-assignment, bounds + content-type/body-size limits, 422 field-error contract). Fills the gap between error-handling (envelope) and api-contract (evolution). Backing MUST + review-checklist item in backend-principles."
       ]
     }
   }

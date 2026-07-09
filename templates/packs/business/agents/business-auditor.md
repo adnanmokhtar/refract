@@ -157,3 +157,4 @@ Ship-ready: yes | no | conditional
 
 ### Sibling agents in business pack
 - `@business-analyst` — sibling agent in business pack
+- `@workflow-integrity` — state-graph complement to this completeness audit. This agent asks "does the inverse/cycle exist?"; workflow-integrity asks "are the transitions between an entity's states legal and guarded?" Run both on a lifecycle-bearing feature; neither substitutes for the other.

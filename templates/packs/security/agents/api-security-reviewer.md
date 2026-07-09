@@ -253,6 +253,7 @@ Patterns consulted: auth-flow, zero-trust, tenant-isolation
 - `@security-auditor` — runs the broader web-app OWASP Top 10 audit (A01–A10); this agent is the API-specific lens. `@security-auditor` owns web-app A01 Broken Access Control at the app surface; this agent complements it with the API1/API3/API5 object-, property-, and function-level slices that the web-app taxonomy doesn't split out.
 - `@auth-reviewer` — the authentication/authorization deep dive (JWT, sessions, OAuth, MFA). Overlaps on API2; `@auth-reviewer` verifies *who the principal is* and how they authenticate, this agent verifies *what that principal may reach and see* per endpoint. Hand the token/session/OAuth ceremony there.
 - `@tenant-isolation-reviewer` — the multi-tenant deep dive. Object-level authorization (API1) overlaps its tenant-boundary review: when the object boundary IS the tenant, that agent owns it; this agent owns per-object ownership within a tenant. Cross-link the shared line, don't duplicate the finding.
+- `@data-privacy-reviewer` — the PII/PHI data-flow + regulatory (GDPR/PDPL/CCPA) deep dive. Overlaps API3 excessive-data-exposure: this agent asks *is this field authorized to leave the endpoint*, that agent asks *is this field personal data, and does its egress have a lawful basis + a reachable erasure path*. Cross-link a shared leaking response line, don't double-report.
 
 ### Skills
 - `secret-scan` — confirm no API keys / third-party client secrets / signing keys are committed.

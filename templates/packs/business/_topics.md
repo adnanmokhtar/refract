@@ -18,6 +18,17 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [persona, audit_methodology, broken_flow_signals, missing_cycle_signals, gap_findings_format]
   fallback: _examples/business-auditor.md
 
+- name: workflow-integrity
+  kind: agent
+  triggers:
+    grep_evidence: "status\\s*(:|=|==).*'|enum .*(pending|paid|shipped|active|cancelled|closed)|xstate|aasm|state_machine|CHECK\\s*\\(.*status|status_changes|\\b(state|phase)\\b\\s*column"
+    OR_codebase_section: "an entity carries a status / state / phase column, a state-machine library config, or scattered `if status ==` checks (a lifecycle exists whether drawn or not)"
+  extracts_from: _extracted-business.md § "Business cycles" + ai/business-flows.md if exists (declared lifecycle) + _extracted-codebase.md § "API surface" (status-writing routes / service methods / raw UPDATEs)
+  sections: [persona, premise, state_graph_reconstruction, transition_checklist, illegal_edge_findings, state_matrix_output, hard_rules]
+  mirror_existing: true
+  fallback: _examples/workflow-integrity.md   # business 5/5 — the abridged snapshot faithfully mirrors the live agent's premise + checklist + matrix + hard-rules; keep it in sync on edits
+  cite_evidence: strict
+
 - name: analyze-task
   kind: command
   triggers: { always: true }

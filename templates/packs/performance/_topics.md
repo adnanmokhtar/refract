@@ -36,6 +36,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { api_surface_detected: true }
   fallback: _examples/profile-endpoint.md
 
+- name: load-test
+  kind: skill
+  triggers: { api_surface_detected: true }
+  sections: [premise, when_to_run, test_taxonomy, adapt_to_codebase, procedure, output, gotchas, halt_conditions, related]
+  mirror_existing: true
+  fallback: _examples/load-test.md
+
 - name: web-vitals-field
   kind: skill
   triggers: { primary_frontend_framework_detected: true }

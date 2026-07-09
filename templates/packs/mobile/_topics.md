@@ -89,4 +89,10 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { mobile_framework_detected: true }
   sections: [why, three_layers, routing_pattern, defensive_patterns, testing, anti_patterns]
   fallback: ai-patterns/deep-linking.md
+
+- name: push-notifications
+  kind: ai-pattern
+  triggers: { mobile_framework_detected: true }
+  sections: [permission_ux, token_lifecycle, channels_categories, foreground_presentation, receipt_states, detectors]
+  fallback: ai-patterns/push-notifications.md
 ```

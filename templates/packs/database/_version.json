@@ -1,16 +1,22 @@
 {
   "kind": "pack",
   "name": "database",
-  "version": "1.1.1",
-  "released": "2026-06-14",
+  "version": "1.2.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "schema-consistency-audit skill: added the missing `name:` frontmatter field for consistent, mechanical adapter translation.",
+  "summary": "Database pack +2 ai-patterns: transaction-isolation (engine locking/isolation/deadlock/MVCC) and data-retention-pii (PII classification/retention/erasure/at-rest encryption).",
   "changelog": {
     "1.1.1": {
       "released": "2026-06-14",
       "changes": [
         "schema-consistency-audit skill: added `name:` frontmatter field (was missing)."
+      ]
+    },
+    "1.2.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "ai-patterns +2: transaction-isolation (DB-engine locking/isolation/deadlock-avoidance/MVCC — the engine-semantics counterpart to backend's service-scope transaction-boundary) and data-retention-pii (PII classification, retention/purge mechanism, erasure-vs-FK, at-rest encryption — the storage-mechanics counterpart to security's data-privacy-reviewer). Backing MUST/SHOULDs + checklist in database-principles."
       ]
     }
   }
