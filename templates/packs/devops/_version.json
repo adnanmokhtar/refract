@@ -1,12 +1,19 @@
 {
   "kind": "pack",
   "name": "devops",
-  "version": "1.2.0",
-  "released": "2026-06-22",
+  "version": "1.3.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "DevOps pack — CI scaffolding, containerization, staged deploy + rollback. 1.2.0: sync-chain repair — _topics.md now declares deploy-stage AND rollback-deploy as commands (both shipped under commands/ but absent from the topic list, so /setup-project AUTHOR-mode generation silently dropped them; no _examples/ stubs exist so their fallbacks point at the live sources); plus the long-tail audit fixes landed across the pack (add-ci security+coverage job, app-code stub scan). 1.1.0 unchanged: /rollback-deploy added as the recovery pair of /deploy-stage.",
+  "summary": "NEW release-security skill — the build-artifact integrity gate (image CVE scan via trivy/grype + SBOM via syft + digest signing via cosign keyless-OIDC + SLSA provenance + verify-at-admission) that closes the \"referenced everywhere, executed nowhere\" supply-chain gap. It is the producer the security pack OWASP A03 Supply-Chain audit dispatches to. Wired into dockerize (post-build release step) + add-ci (release job). Covers the image OS/baked-lib layer (deps-audit misses) + signature/SBOM (dockerfile-lint misses). Prior 1.2.0 summary retained in changelog.",
   "changelog": {
+    "1.3.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW skills/release-security.md (kind:skill, dockerfile_detected) — image CVE scan (trivy image --severity HIGH,CRITICAL --ignore-unfixed) + SBOM (syft CycloneDX) + digest signing (cosign, keyless via CI OIDC) + SLSA provenance + verify-at-admission; EPSS/KEV triage; full runner spine (Premise/Prerequisites/Procedure/Output/gotchas/When-to-run/Halt). Explicitly disjoint from deps-audit (manifest layer) and dockerfile-lint (Dockerfile). Registered in _topics + _essentials; abridged _examples/release-security.md.",
+        "Wired release-security into commands/dockerize.md (post-build release dispatch) + commands/add-ci.md (docker-build release-security step: trivy scan + syft SBOM + cosign keyless sign + provenance). Closes the enforcement-theater the security-auditor A03 check opened — the audit now dispatches to a real producer."
+      ]
+    },
     "1.2.0": {
       "released": "2026-06-22",
       "changes": [

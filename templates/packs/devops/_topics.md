@@ -78,6 +78,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { dockerfile_detected: true }
   fallback: _examples/dockerfile-lint.md
 
+- name: release-security
+  kind: skill
+  triggers: { dockerfile_detected: true }
+  fallback: _examples/release-security.md
+
 - name: monitor-deploy
   kind: skill
   triggers: { deploy_target_detected: true }

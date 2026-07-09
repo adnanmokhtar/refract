@@ -63,6 +63,8 @@ If repo has DB / Redis dep AND no compose → generate `docker-compose.yml` for 
 
 Dispatch the `dockerfile-lint` skill on the generated Dockerfile first — it ships hadolint + the project-rule checks (non-root, multi-stage, pinned base, HEALTHCHECK, `.dockerignore`, secret-in-history). A BLOCK finding (`:latest`, final `USER root`, baked secret) halts before the smoke test.
 
+After the image builds (release/CI, not local dev), dispatch the **`release-security`** skill on the built image — CVE scan (`trivy image`, gate on HIGH/CRITICAL) + SBOM (`syft`) + digest signing (`cosign`, keyless OIDC) + SLSA provenance. `dockerfile-lint` checks the *Dockerfile*; `release-security` checks the *built image + its signature/SBOM*. This is the producer the security pack's A03 Supply-Chain audit dispatches to.
+
 Then smoke-test against the Phase 1 `$PORT` / `$HEALTH_PATH` (never hardcoded `8080` / `/health`):
 
 ```bash
