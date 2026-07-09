@@ -40,6 +40,7 @@ tests/
 - Projection via `.Select()` into DTOs — don't fetch full entity when you need 2 fields.
 - Migrations committed; `dotnet ef database update` in deploy.
 - NEVER use `.ToList()` inside queries (brings data to memory unnecessarily).
+- **Pagination**: keyset (cursor) by default over `.Skip(n)` offset (which scans + discards `n` rows and skips/dupes under concurrent writes). Decode the cursor, then `.Where(x => x.CreatedAt < c.CreatedAt || (x.CreatedAt == c.CreatedAt && x.Id < c.Id)).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).Take(limit + 1)` — the row-value predicate must match the sort, both index-backed. Clamp `limit` to a default + hard max; fetch `limit + 1` to derive `hasMore` instead of a `.Count()` per page. `.Skip()/.Take()` offset only for small quiescent admin tables. → see `../ai-patterns/pagination.md`.
 
 ### Error handling
 - `Result<T, Error>` pattern (preferred) OR exceptions for exceptional paths.
@@ -59,6 +60,13 @@ tests/
 - `Microsoft.AspNetCore.Authentication.JwtBearer` for JWT.
 - Policies (`AddAuthorization`) over inline role checks.
 - `[Authorize]` on controllers / endpoints; `[AllowAnonymous]` explicit for public.
+
+## Resilience, streaming & conditional requests
+
+- **Rate limiting**: use the built-in middleware — `builder.Services.AddRateLimiter(o => o.AddSlidingWindowLimiter / AddTokenBucketLimiter / AddFixedWindowLimiter / AddConcurrencyLimiter(...))`, `app.UseRateLimiter()`, `[EnableRateLimiting("policy")]`. For per-tenant fairness use a partitioned policy: `RateLimitPartition.GetTokenBucketLimiter(partitionKey: tenant, ...)` — a single global partition starves every tenant. Set `o.OnRejected` to write `429` + `Retry-After` (pull `RetryAfterMetadata` off the lease) and add unprefixed `RateLimit-Limit/Remaining/Reset`; `o.RejectionStatusCode = 429`. The built-in limiter is **in-process**, so a >1-replica deploy needs a distributed store (Redis-backed limiter / gateway / YARP) or each pod enforces its own quota. → see `../ai-patterns/rate-limiting.md`.
+- **Conditional requests**: for reads, `OutputCache` (.NET 8+) revalidates via ETag, or set one explicitly — `Response.Headers.ETag = new EntityTagHeaderValue("\"v7\"").ToString()` (minimal APIs: `Results.Ok(dto)` + header) and answer `If-None-Match` with `Results.StatusCode(304)`. For writes, read `Request.Headers.IfMatch` and map it to the EF Core concurrency token (`[Timestamp] byte[] RowVersion` or `.IsConcurrencyToken()`); a stale token surfaces as `DbUpdateConcurrencyException` → `412 Precondition Failed`, absent on a guarded mutation → `428 Precondition Required`. The concurrency token makes the check atomic (`UPDATE ... WHERE Id=? AND RowVersion=?`), not a read-then-write race. → see `../ai-patterns/conditional-requests.md`.
+- **Streaming** (unbounded reads/exports): return `IAsyncEnumerable<T>` from a minimal API / controller — ASP.NET Core serializes it as a JSON array incrementally without buffering; source it from EF Core `.AsAsyncEnumerable()` so rows stream from the DB. Use `Results.Stream(...)` for raw/binary output and `TypedResults.ServerSentEvents(...)` (.NET 10) for SSE (manual writes to `Response.Body` on .NET 8/9). Honor the endpoint `CancellationToken` to stop the query on client disconnect; never materialize the whole set with `.ToListAsync()` first. → see `../ai-patterns/response-streaming.md`.
+- **Async job offload** (work >~1s): enqueue onto a `System.Threading.Channels.Channel<T>` drained by a `BackgroundService`/`IHostedService` (or Hangfire/Quartz.NET for durable jobs), return `Results.Accepted($"/jobs/{id}", ...)` — `202 Accepted` + `Location`; expose a status endpoint over a `pending→running→{succeeded,failed}` state machine and TTL the stored result. Dedupe submits on an `Idempotency-Key`. Never do the heavy work inline and return `200` after it completes. → see `../ai-patterns/async-job-offload.md`.
 
 ## Observability
 

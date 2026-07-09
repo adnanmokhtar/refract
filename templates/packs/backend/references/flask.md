@@ -81,6 +81,16 @@ def handle_domain_error(error):
 - Flask 2.0+ supports `async def` endpoints but they run in a threadpool (not true async).
 - For true async: use **Quart** (Flask-compatible, ASGI-native) or **FastAPI**.
 
+## Resilience, streaming, conditional requests & pagination
+
+> Flask-idiomatic wiring for the cross-cutting HTTP patterns. Each maps to a sibling ai-pattern that owns the policy; this section is the framework hook only.
+
+- **Rate limiting** — `flask-limiter`: `Limiter(key_func=get_remote_address, app=app)` + `@limiter.limit("100/minute")` per route (or `default_limits`). Its default `memory://` storage is per-process — behind `gunicorn --workers N` each worker keeps its own counter and the real limit is `N × limit`; set `storage_uri="redis://…"` (shared) for any multi-worker deploy. Enable draft headers (`RATELIMIT_HEADERS_ENABLED = True`) so it emits unprefixed `RateLimit-Limit/Remaining/Reset` + `Retry-After` on the `429`. → `ai-patterns/rate-limiting.md`.
+- **Conditional requests** (RFC 9110) — reads: `response.set_etag(tag)` then `response.make_conditional(request)` (Werkzeug) handles `If-None-Match` → `304` and Range for you; `send_file(...)` sets an ETag + `make_conditional` automatically. Writes: gate on `If-Match` manually — missing on an unsafe method → `abort(428)` (Precondition Required), stale tag → `abort(412)` (Precondition Failed); this is optimistic concurrency over HTTP, pair it with a `version` column, not a DB lock. → `ai-patterns/conditional-requests.md`.
+- **Streaming** — `Response(stream_with_context(generator()), mimetype="application/x-ndjson")` for unbounded result sets (yield one JSON object + `\n` per row), or `mimetype="text/event-stream"` for SSE. `stream_with_context` keeps the request/app context alive inside the generator. Note: a sync WSGI worker is pinned for the whole stream — use `gevent`/`eventlet` workers (or Quart) so long streams don't starve the pool. End with a terminal sentinel; you cannot change the already-sent `200` mid-stream. → `ai-patterns/response-streaming.md`.
+- **Async job offload** — for work beyond a request budget enqueue to **Celery** / **RQ** and return `202 Accepted` + `Location: /jobs/<id>`; expose `GET /jobs/<id>` as the status state machine (`queued → running → succeeded|failed`, result URL + TTL when done). Don't run heavy work in the handler (or an unsupervised thread) — no status, no retry, dies with the worker. → `ai-patterns/async-job-offload.md`.
+- **Pagination** — cursor/keyset by default: SQLAlchemy 2.0 `select(Model).where(tuple_(Model.created_at, Model.id) < (c, i)).order_by(Model.created_at.desc(), Model.id.desc()).limit(limit)` — the row-value predicate matches the (unique, tiebroken) sort. Apply a default limit and a hard cap; fetch `limit + 1` for `hasMore` instead of `COUNT(*)`. Flask-SQLAlchemy's `db.paginate()` / `.limit().offset()` is offset-based — fine for small quiescent admin tables, but it re-scans on deep pages and skips rows under concurrent writes, so keep it off hot/growing tables. → `ai-patterns/pagination.md`.
+
 ## WSGI vs ASGI
 
 - Production WSGI server: **gunicorn** + **gevent** or **uvicorn workers**.

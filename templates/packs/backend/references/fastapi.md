@@ -46,6 +46,16 @@ app/
 > **Error contract**: raise structured errors as `application/problem+json` (Problem Details, RFC 9457 — obsoletes 7807) via a custom exception handler returning `JSONResponse(..., media_type="application/problem+json")`; the `type` is a stable dereferenceable URI per error class, not the human `title`.
 > **Adjacent-pack hooks** (detect + point, don't duplicate): unbounded streaming/job repository queries are a `SELECT *` / over-fetch smell → see the database pack; outbound calls inside a job (retry/timeout/DLQ, stored idempotency keys for the submit endpoint) are owned by the distributed-systems pack; per-stream/per-job RED metrics + trace propagation belong to the observability pack.
 
+## Pagination
+
+> No built-in paginator — use `fastapi-pagination` (cursor support) or hand-wire keyset in the repository. → `ai-patterns/pagination.md`.
+
+- **Cursor-first (keyset)** — prefer a `cursor` + `limit` query over `offset`/`skip`; keyset is O(log n) and stable under writes, offset rescans and skips/dupes rows on a hot table.
+- **Bounded limit** — declare `limit: int = Query(20, ge=1, le=100)` so pydantic/FastAPI validates and caps the page size at the schema boundary; never read an unbounded page size.
+- **SQLAlchemy row-value keyset** — translate the cursor to a tuple comparison matching the sort: `.where(tuple_(Model.created_at, Model.id) < (c, i)).order_by(Model.created_at.desc(), Model.id.desc()).limit(limit)`.
+- **Stable, unique sort** — always append the PK tiebreaker; a bare `order_by(created_at)` is non-total and shuffles rows between pages.
+- **Opaque cursor, no count** — encode `{created_at, id}` as a base64 cursor; fetch `limit + 1` for `hasMore` instead of a per-page `func.count()`; return `{ data, meta: { nextCursor, hasMore } }`.
+
 ## Anti-patterns
 
 - Mixing sync and async DB calls within the same endpoint

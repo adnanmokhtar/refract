@@ -1,12 +1,19 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "NEW pagination pattern (cursor-first / default+max limit / stable sort with unique tiebreaker / opaque keyset cursor / avoid COUNT(*) per page) — a backend-principles MUST that previously had no pattern, no reference coverage, and no generation gate. Registered always:true; add-endpoint Phase-4 now gates it (API-8) with an over-cap-clamp + no-drop/repeat e2e. Follows the v1.6.0 webhook + multi-tenancy pass.",
+  "summary": "Reference parity — closed the 50/50 fracture where half the framework references shipped none of the cross-cutting API disciplines. All 12 references now carry rate-limiting/429, conditional-requests/ETag, response-streaming, async-job-offload, and pagination in the framework-native primitive. Backfilled the full resilience block into the 6 thin refs (dotnet, flask, go, laravel, phoenix-elixir, hexagonal-nestjs) and a pagination section into the 6 that lacked it (django, express, fastapi, nestjs, rails, spring-boot). Follows the v1.7.0 pagination pattern + v1.6.0 webhook/multi-tenancy pass.",
   "changelog": {
+    "1.8.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "references: backfilled the \"Resilience, streaming & conditional requests\" block into the six references that shipped none of it. laravel (throttle/RateLimiter::for, SetCacheHeaders ETag, response()->eventStream SSE, ShouldQueue → 202, cursorPaginate); dotnet (AddRateLimiter partitioned, EntityTagHeaderValue + RowVersion→412, IAsyncEnumerable/TypedResults.ServerSentEvents, Channel<T>+BackgroundService→202, EF keyset); flask (flask-limiter, Werkzeug make_conditional, stream_with_context, Celery/RQ→202, SQLAlchemy keyset); go (x/time/rate, manual ETag/304, http.Flusher/io.Pipe, hibiken/asynq→202, keyset); phoenix-elixir (PlugAttack/hammer, Plug.Conn ETag + Ecto optimistic_lock, send_chunked, Oban→202, Ecto keyset; Channels/LiveView vs HTTP-streaming noted); hexagonal-nestjs kept lean (interface-layer note pointing at nestjs.md + a hexagonal pagination port, no duplication).",
+        "references: added a framework-native Pagination section to the six references that already had the resilience block but no pagination — django (DRF CursorPagination), express (hand-wired keyset + opaque cursor), fastapi (fastapi-pagination / SQLAlchemy tuple_ keyset), nestjs (nestjs-paginate / TypeORM+Prisma keyset), rails (pagy keyset), spring-boot (Pageable/Slice + Spring Data 3.1 ScrollPosition.keyset). Closes the only axis that was absent across all 12 references while being a MUST."
+      ]
+    },
     "1.7.0": {
       "released": "2026-07-09",
       "changes": [

@@ -43,6 +43,16 @@ src/
 - **Streaming** — for unbounded results stream instead of buffering. Honor backpressure: `if (!res.write(chunk)) await once(res, 'drain');` before the next chunk. For SSE set `Content-Type: text/event-stream` and `res.flushHeaders()`; end every stream with a terminal sentinel (NDJSON `{"done":true}` / SSE `event: end`) so a truncated 200 is distinguishable from success — a mid-stream throw cannot change the already-sent status. Cancel work on `req.on('close', …)` when the client disconnects. → see `ai-patterns/response-streaming.md`.
 - **Async job offload** — for slow work return fast: a BullMQ / Bee-Queue producer enqueues, the handler responds `202 Accepted` + `Location: /jobs/:id`, and `GET /jobs/:id` serves the job-status state machine (`queued → running → succeeded|failed`). Key the producer by an idempotency key so a retried submit reuses the same job. → see `ai-patterns/async-job-offload.md`.
 
+## Pagination
+
+> No built-in paginator — keyset (cursor) pagination is hand-wired in the repository. → see `ai-patterns/pagination.md`.
+
+- **Cursor-first (keyset)** — page with a row-value comparison that matches the sort: `WHERE (created_at, id) < (?, ?) ORDER BY created_at DESC, id DESC LIMIT ?`. O(log n) per page and stable under concurrent writes, unlike `.offset()` which rescans and skips/dupes rows on a hot table.
+- **Opaque cursor** — encode the last row's `{created_at, id}` as base64 (sign/HMAC if tampering matters), decode server-side into the predicate; never expose a raw offset a client can inflate into a deep scan.
+- **Stable, total sort** — always append the primary key as a tiebreaker (`, id DESC`); a bare `ORDER BY created_at` silently drops/repeats rows across cursor pages.
+- **Default + max limit** — read `limit` from the query, apply a default (e.g. 20) and clamp to a hard cap (e.g. 100) in the zod/joi schema; an unbounded list is a memory/DoS risk.
+- **Skip `COUNT(*)`** — fetch `limit + 1` and drop the extra to compute `hasMore`; return `{ data, meta: { nextCursor, hasMore } }` in the shared envelope, no per-page total.
+
 ## Anti-patterns
 
 - Fat controllers with business logic
