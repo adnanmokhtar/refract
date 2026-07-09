@@ -56,7 +56,7 @@ A "new event" that doesn't cite the sibling it mirrors is a protocol break dress
 
 ### Go
 - `gorilla/websocket` — standard.
-- `nhooyr.io/websocket` — modern replacement.
+- `github.com/coder/websocket` — modern replacement (formerly `nhooyr.io/websocket`; moved 2024).
 
 ### Other
 - Phoenix Channels (Elixir) — battle-tested, supports presence.

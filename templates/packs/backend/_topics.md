@@ -161,6 +161,15 @@ Each topic declares:
   mirror_existing: true
   fallback: _examples/async-job-offload.md
 
+- name: webhook-flow
+  kind: pattern
+  triggers:
+    grep_evidence: "webhook|x-signature|x-hub-signature|stripe-signature|svix|verifyHmac|timingSafeEqual|compare_digest|raw_post|rawBody|event\\.id"
+  extracts_from: _extracted-codebase.md § "API surface" (webhook endpoints + signature verification + outbound delivery/retry) + _extracted-idioms.md (queue for enqueue-then-ack)
+  sections: [overview, inbound, outbound, detectors, closure_verbs, examples]
+  mirror_existing: true
+  fallback: _examples/webhook-flow.md
+
 - name: parallel-io
   kind: pattern
   triggers:

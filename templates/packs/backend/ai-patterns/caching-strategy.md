@@ -35,7 +35,7 @@ Cache is a distributed data store with its own consistency model. Get the semant
 2. CDN / Edge cache       (Cloudflare, Fastly, CloudFront)
 3. Reverse proxy          (Varnish, nginx, Fastify cache)
 4. Application cache      (Redis, Memcached, in-process LRU)
-5. Database query cache   (Postgres shared_buffers, MySQL query cache)
+5. Database buffer/page cache   (Postgres `shared_buffers` / InnoDB buffer pool — note: MySQL's query cache was removed in 8.0)
 6. Database (source of truth)
 ```
 

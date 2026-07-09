@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.5.0",
-  "released": "2026-06-25",
+  "version": "1.6.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Quality-review pass — 4 new specialist ai-patterns close confirmed backend-owned gaps: rate-limiting (inbound 429 + RateLimit-* + load shedding — the biggest gap), conditional-requests (ETag / If-Match / 304 / 412 / 428 optimistic concurrency), response-streaming (NDJSON/SSE/chunked, mid-stream sentinels, backpressure), async-job-offload (202 + Location + job-status contract). Enforcement threaded into api-reviewer (rate-limit / contract-evolution / streaming / content-negotiation / mass-assignment / SSRF / cardinality / readiness axes), add-endpoint signal table (rate-limit / 202 / streaming / batch / conditional / over-post / SSRF / audit rows), api-consistency-audit (rate-limit-enforcement, etag/optimistic-concurrency, batch, field-selection, security-header detectors), backend-principles (rate-limit / statelessness MUSTs + idempotency-stored-replay + observability-DoD cross-refs), endpoint-tester. Standards corrected: RFC 7807 → RFC 9457 (Problem Details), RateLimit-* cited as the IETF draft (not RFC 9239). Adjacent axes (SSRF, mass-assignment, RED/OTel, outbound resilience, DLQ) REFERENCE the security / observability / distributed-systems packs rather than duplicating them. Framework bindings added to nestjs/fastapi/express/django/spring-boot/rails references.",
+  "summary": "Quality review + enhance pass. NEW webhook-flow pattern (the highest-value gap — inbound signature-verify/replay/enqueue-then-ack + outbound signing/retry/DLQ, with detectors) closing the discipline the commands already referenced as if it shipped. NEW multi-tenancy pattern SOURCE (was an orphaned _example — resolution chain / context / auto-filter / bypass rules / isolation tests). Technical-error fixes: Deprecation:true → RFC 9745 date form (api-versioning + api-reviewer + example); removed fabricated linters from concurrency-discipline (Pyright reportAwaitInsideLoop / golangci noctx do not do what was claimed); nhooyr.io/websocket → github.com/coder/websocket; MySQL query-cache staleness (removed in 8.0); Go 1.22 loop-var note; add-endpoint frontend-stack-leak (Vue/PrimeVue → NestJS); un-dangled the webhook-flow command references. RateLimit-* verified still an IETF draft in 2026 (pack hedge correct — no change).",
   "changelog": {
+    "1.6.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW ai-patterns/webhook-flow.md (kind:pattern, signal-gated on webhook grep evidence) — the backend webhook specialist. Inbound: raw-body-before-parse, timing-safe signature verify, replay/timestamp-window + event-id dedupe, ack-fast-process-async, correct 2xx/4xx/5xx semantics. Outbound: HMAC signing + rotation, at-least-once + stable event.id, exponential backoff + jitter, DLQ + auto-disable dead subscriptions, subscription mgmt + delivery log, no-ordering-guarantee. Seven cite-or-halt detectors (BAD/GOOD) + closure verbs. Registered in _topics + _essentials; fallback _examples/webhook-flow.md. Un-dangles the webhook-flow / webhook-signature-verification references in add-feature.md + trace-flow.md that pointed at a nonexistent artifact.",
+        "NEW ai-patterns/multi-tenancy.md SOURCE — the _topics entry + _examples/multi-tenancy.md existed with no backing source (validate-pack-consistency orphan WARN). Authored the canonical pattern (overview / resolution_chain / context_propagation / automatic_filtering / manual_bypass_rules / testing_isolation / pitfalls), genericized off the example project-name leaks. debug-tenant now has a pattern to cite.",
+        "Technical-error + currency fixes: (a) Deprecation:true is invalid under RFC 9745 (a Date structured field) — corrected to @<unix-date> in api-versioning.md, agents/api-reviewer.md, and _examples/api-versioning.md; api-contract.md was already correct. (b) concurrency-discipline.md Enforcement claimed Pyright reportAwaitInsideLoop (nonexistent) and golangci-lint noctx (unrelated to await-in-loop) — removed the fabricated mappings (enforcement-theater), kept the valid ESLint no-await-in-loop and pointed Python/Go at review convention. (c) websocket-engineer.md nhooyr.io/websocket → github.com/coder/websocket (moved 2024). (d) caching-strategy.md MySQL query cache (removed in 8.0) reworded. (e) parallelize-independent-ops.md Go loop-var shadow annotated as pre-1.22. (f) add-endpoint.md STACK ASSUMPTION frontend leak (Vue3+PrimeVue) → NestJS. RateLimit-* confirmed still an IETF draft as of 2026-07 — no change."
+      ]
+    },
     "1.5.0": {
       "released": "2026-06-25",
       "changes": [
@@ -43,21 +51,21 @@
     "1.3.1": {
       "released": "2026-06-13",
       "changes": [
-        "add-feature: added the mandatory '## Phases applied' declaration block (canonical line 27) \u2014 was the lone add-feature variant missing it.",
+        "add-feature: added the mandatory '## Phases applied' declaration block (canonical line 27) — was the lone add-feature variant missing it.",
         "add-feature + fix-bug: wired the universal --plan handoff flag via templates/snippets/plan-flag.md (honours the docs/COMMANDS.md universal-flag contract).",
-        "add-feature: sibling-shape halt now links the shared verdict vocabulary (templates/snippets/sibling-shape-halt.md); 'no-siblings-found' \u2192 'no-siblings'.",
+        "add-feature: sibling-shape halt now links the shared verdict vocabulary (templates/snippets/sibling-shape-halt.md); 'no-siblings-found' → 'no-siblings'.",
         "fix-bug: added enriched-superset banner naming the repo-baseline as the universal-minimum subset; both link the shared invariants in templates/snippets/fix-bug-core.md (failing-test-first + similar-bugs ledger).",
-        "_examples/add-feature.md + _examples/fix-bug.md regenerated faithfully from their command sources (the stale snapshots contradicted the source \u2014 fix-bug example said 'BEFORE fixing'); added generated-from headers."
+        "_examples/add-feature.md + _examples/fix-bug.md regenerated faithfully from their command sources (the stale snapshots contradicted the source — fix-bug example said 'BEFORE fixing'); added generated-from headers."
       ]
     },
     "1.3.0": {
       "released": "2026-06-10",
       "changes": [
-        "add-feature + _examples/add-feature: rename payment-idempotency-reviewer \u2192 payment-reviewer (the agent that actually ships in domains/payment/agents/); drops the '(if present)' hedge so payment features no longer silently skip specialist review.",
-        "add-feature + _examples/add-feature: missing-agent fallback rule \u2014 any dispatched agent not installed in the project is performed inline against its pack/domain checklist and noted as inline:<agent-name>; never silently skipped. Applied to Phase 2 architects and Phase 6 reviewers.",
-        "add-feature + _examples/add-feature: NEW Release pre-flight (heavy tier) in Phase 6 \u2014 feature-flag decision, expand\u2192migrate\u2192contract migration ordering, one-sentence rollback path ('cannot roll back' requires ADR), staging verification note. Closes the missing release stage in the lifecycle.",
-        "add-feature + _examples/add-feature: hard rules scoped to tier ('never skip phases within your tier's ceremony'; Phase 1/2 pauses are heavy-tier only) \u2014 removes the contradiction with the closure-verbs tiering table.",
-        "add-feature + _examples/add-feature: trivial/standard output template added \u2014 runs without architects/reviewers no longer report against the heavy-tier template.",
+        "add-feature + _examples/add-feature: rename payment-idempotency-reviewer → payment-reviewer (the agent that actually ships in domains/payment/agents/); drops the '(if present)' hedge so payment features no longer silently skip specialist review.",
+        "add-feature + _examples/add-feature: missing-agent fallback rule — any dispatched agent not installed in the project is performed inline against its pack/domain checklist and noted as inline:<agent-name>; never silently skipped. Applied to Phase 2 architects and Phase 6 reviewers.",
+        "add-feature + _examples/add-feature: NEW Release pre-flight (heavy tier) in Phase 6 — feature-flag decision, expand→migrate→contract migration ordering, one-sentence rollback path ('cannot roll back' requires ADR), staging verification note. Closes the missing release stage in the lifecycle.",
+        "add-feature + _examples/add-feature: hard rules scoped to tier ('never skip phases within your tier's ceremony'; Phase 1/2 pauses are heavy-tier only) — removes the contradiction with the closure-verbs tiering table.",
+        "add-feature + _examples/add-feature: trivial/standard output template added — runs without architects/reviewers no longer report against the heavy-tier template.",
         "fix-bug / add-endpoint / add-module: payment-reviewer dispatch row added (payment signal parity with add-feature) + missing-agent inline fallback rule."
       ]
     },

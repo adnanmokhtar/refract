@@ -2,7 +2,7 @@
 description: Add a new endpoint to an EXISTING module. Full chain — DTO + use-case + controller + mapper + tests + telemetry + docs. Smaller than /add-module, deeper than "edit controller".
 ---
 
-> **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses Vue 3 + PrimeVue + TypeScript for illustration; substitute your stack's primitives from `_extracted-idioms.md`.
+> **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses NestJS + TypeScript for illustration; substitute your stack's primitives from `_extracted-idioms.md`.
 
 
 # /add-endpoint

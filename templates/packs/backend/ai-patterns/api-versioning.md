@@ -77,8 +77,8 @@ Consumers ignore unknown fields. Don't error on them. Ever.
 ### Deprecation via response headers
 ```
 HTTP/1.1 200 OK
-Sunset: Wed, 11 Jun 2025 23:59:59 GMT
-Deprecation: true
+Sunset: Thu, 31 Dec 2026 23:59:59 GMT
+Deprecation: @1767225600
 Link: </api/v2/users>; rel="successor-version"
 ```
 Monitors hit this header; consumers know to migrate.

@@ -69,7 +69,7 @@ rg -n '@(Get|Post)\([^)]*(/search|/export|/report|/bulk|/upload)' src/ -A6 | rg 
 ### Contract evolution
 
 **(ENF-2) A diff that removes/renames a response field, changes a field's type, or supersedes an endpoint/version is BLOCK** — not REQUEST — unless ALL of:
-- The old surface still emits `Deprecation: true` (RFC 9745) + `Sunset: <HTTP-date>` (RFC 8594) for the transition window.
+- The old surface still emits `Deprecation: @<unix-date>` (RFC 9745 — a Date structured field, e.g. `@1767225600`; **not** the boolean `true`, which was the pre-RFC draft form) + `Sunset: <HTTP-date>` (RFC 8594) for the transition window.
 - An ADR records per-consumer traffic tracking + a removal date (you cannot retire what you cannot prove is unused).
 - GraphQL: the field carries `@deprecated(reason: "...")` FIRST — removal only after the deprecation has shipped and drained.
 
