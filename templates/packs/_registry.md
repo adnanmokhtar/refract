@@ -12,6 +12,7 @@ Folder shape and per-pack metadata are documented in `templates/packs/README.md`
 
 | Key | Always-applied | Detection signals | Summary |
 |---|---|---|---|
+| `ai-engineering` | — | LLM provider SDKs (Anthropic, OpenAI, Gemini, vLLM/Ollama), embeddings/vector stores (pgvector, Pinecone, Weaviate, Qdrant), prompt/agent/RAG/eval code | Building LLM/AI features well — RAG, evals, prompts, agents, LLM gateway (secured by the security pack's llm-security-reviewer) |
 | `backend` | — | server frameworks (NestJS, Express, FastAPI, Rails, Spring, Go HTTP, .NET), API code, controllers/services | Server-side application work |
 | `business` | — | domain models, billing logic, multi-tenant identity (in addition to a business-domain pack) | Business-logic depth (entities, flows, rules) |
 | `code-quality` | always | every project | Linters, formatters, code-review patterns |

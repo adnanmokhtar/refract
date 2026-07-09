@@ -4,13 +4,14 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**172 commands** — core 14 · 19 packs (112) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**173 commands** — core 14 · 20 packs (113) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
 ## Sections
 
 - [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 14
+- [Pack — ai-engineering](#pack--ai-engineering) — 1
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
 - [Pack — backend](#pack--backend) — 9
@@ -51,6 +52,12 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/setup-project-health` | Report the health of /setup-project artifacts in the current repo. | — | `/setup-project-health` |
 | `/task` | Provider-agnostic task executor. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
 | `/unify-surfaces` | One command surface-type unification for frontend codebases, deep multi-agent. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
+
+## Pack — ai-engineering
+
+| Command | Summary | Flags | Example |
+|---|---|---|---|
+| `/add-ai-feature` | Build an LLM feature end-to-end — prompt/gateway wiring + structured output + retrieval (if RAG) +… | — | `/add-ai-feature` |
 
 ## Pack — algorithms
 

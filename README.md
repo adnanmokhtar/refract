@@ -85,11 +85,11 @@ claude-config/
 └── README.md                # you are here
 ```
 
-The 19 packs: algorithms, align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Each pack ships agents/, skills/, commands/, rules/, ai-patterns/, _essentials.md, _topics.md, _version.json.
+The 20 packs: ai-engineering, algorithms, align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Each pack ships agents/, skills/, commands/, rules/, ai-patterns/, _essentials.md, _topics.md, _version.json.
 
 ### Why role-based packs, not frameworks
 
-Work is organized by **role** — **19 tracks** under `templates/packs/`: algorithms, align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Framework specifics (NestJS vs Django vs Laravel) live as `references/<framework>.md` inside each track.
+Work is organized by **role** — **20 tracks** under `templates/packs/`: ai-engineering, algorithms, align, backend, business, code-quality, database, devops, distributed-systems, documentation, frontend, infrastructure, learning, migration, mobile, observability, performance, security, testing, ui-ux. Framework specifics (NestJS vs Django vs Laravel) live as `references/<framework>.md` inside each track.
 
 So one `api-architect` agent works for every backend. One `schema-architect` works for Postgres, MySQL, Mongo. Add a new framework → drop a reference file → same agents adapt.
 
@@ -384,7 +384,7 @@ Machine state (gitignored): `projects/`, `todos/`, `tasks/`, `sessions/`, `shell
 ```bash
 git init
 git add .
-git commit -m "initial claude config — /setup-project + 19 tracks + workspace template"
+git commit -m "initial claude config — /setup-project + 20 tracks + workspace template"
 git branch -M main
 git remote add origin git@github.com:YOUR_USERNAME/claude-config.git
 git push -u origin main
