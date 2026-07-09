@@ -20,7 +20,7 @@ pack: security
 - Service-to-service inside a mesh — mTLS / SPIFFE is the right primitive, not user JWTs.
 
 **Halt conditions / mandatory cites**
-- Cite the password-hashing config as `<path:line>` (bcrypt cost / argon2 params); cost <10 or absent params is a halt.
+- Cite the password-hashing config as `<path:line>` (bcrypt cost / argon2 params); cost <12 or absent params is a halt. Prefer argon2id.
 - Cite the refresh-rotation revocation handler as `<path:line>` proving session-family revocation on replay; without it, the rotation claim is hollow.
 - Cite the session store schema as `<path:line>` (`auth_sessions` table or equivalent) showing token_hash + ip + user_agent + revoked_at.
 - Cite the password-reset token schema + TTL as `<path:line>`; reset tokens without single-use enforcement are a halt.
@@ -80,9 +80,24 @@ Access tokens remain valid until TTL expires — accept this or maintain a revoc
 
 ## MFA (for admin)
 
-- TOTP (RFC 6238) with QR code enrollment.
+- Passkeys / WebAuthn are the phishing-resistant baseline — prefer them over TOTP.
+- TOTP (RFC 6238) with QR code enrollment where passkeys aren't available.
 - Backup codes (10, one-time-use, hashed in DB).
 - Required for admin / owner roles — recommended for all.
+
+## Passkeys / WebAuthn (passwordless / MFA)
+
+```
+Registration: server issues a single-use challenge → authenticator creates a
+  credential → server verifies challenge + origin + RP ID + attestation, then
+  stores (credential_id, public_key, sign_counter) bound to the user.
+Login:        server issues a single-use challenge → authenticator signs it →
+  server verifies challenge + origin + RP ID + user-verification flag, checks the
+  sign counter advanced (a non-increasing counter ⇒ cloned authenticator ⇒ reject),
+  and that the credential_id belongs to the claimed user.
+```
+
+Passkeys replace the password entirely (passwordless) or stand as the second factor. The public key is not a secret; the private key never leaves the device.
 
 ## Session store
 
@@ -94,8 +109,14 @@ Access tokens remain valid until TTL expires — accept this or maintain a revoc
 
 - Storing refresh tokens unhashed.
 - Access tokens in localStorage (use memory + HttpOnly cookie for refresh).
-- Passwords stored with weak hashing (MD5, SHA1, bcrypt cost <10).
+- Passwords stored with weak hashing (MD5, SHA1, bcrypt cost <12). Prefer argon2id.
 - Reusing refresh tokens (replay attack).
 - Generic error messages that leak account existence.
 - MFA bypass with `rememberMe` without proper device binding.
 - Revealing password complexity errors to the client (attackers learn your rules).
+
+## Related
+
+- `@auth-reviewer` — the agent that audits this flow against source (JWT, refresh rotation, passkeys, OAuth 2.1).
+- `.claude/rules/security-principles.md` — the MUSTs this pattern implements (hashing ≥12/argon2id, JWT verification, session flags).
+- `ai/patterns/zero-trust.md` — the surrounding boundary model (short-lived tokens, MFA, session revocation).

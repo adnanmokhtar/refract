@@ -42,7 +42,7 @@ ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`
 
 Security-specific:
 - `.claude/rules/multi-tenancy.md`, `.claude/rules/auth.md`, `.claude/rules/secrets.md` (whichever apply).
-- `ai/patterns/auth-flow.md`, `ai/patterns/tenant-isolation.md`, `ai/patterns/payment-integration.md` (signal-driven).
+- `ai/patterns/auth-flow.md`, `ai/patterns/tenant-isolation.md`, `ai/patterns/zero-trust.md` (signal-driven). Payment-flow integrity is owned by the backend/domain pack, not security — dispatch there when a payment signal fires.
 - Recent `ai/audits/<date>-security.md` — repeated findings = systemic issue.
 - Any threat model doc.
 

@@ -34,75 +34,74 @@ One or more of:
 2. Read `ai/architecture.md` — trust boundaries + auth model.
 3. Read existing threat models in `ai/audits/` or `ai/decisions/`.
 
-## Full checklist (OWASP mapped)
+## Full checklist (OWASP Top 10:2025)
 
-### A01 Broken Access Control
+> **Edition.** This maps to **OWASP Top 10:2025** (finalized Jan 2026). Cite the 2025 class in every finding. 2021→2025 changes to know: **A03 Software Supply Chain Failures** and **A10 Mishandling of Exceptional Conditions** are NEW; **SSRF (was A10:2021) is absorbed into A01**; Security Misconfiguration rose to **A02**; Injection (incl. XSS) is now **A05**; Insecure Design is **A06**. If a project still tracks 2021, note both numbers (e.g. "A05:2025 Injection / A03:2021").
+
+### A01 Broken Access Control (incl. SSRF)
 - Every endpoint has explicit auth. Default = private.
 - Role / permission checks declarative (guards / middleware), not inline.
 - User can't access another user's data (tenant / user filter on every query).
 - `/admin/*` requires admin role (tested, not just decorated).
-- IDOR: sequential IDs not in URLs where unauthorized access matters.
+- **IDOR / BOLA** (object-level): sequential/guessable IDs not used for authorization; ownership checked server-side. **BFLA**: function/route-level role enforced, not just hidden in UI.
+- **SSRF** (folded into A01 in 2025): user-supplied URLs validated before fetch; block internal ranges (`10.*`, `172.16-31.*`, `192.168.*`, `169.254.169.254`, `localhost`); validate the *resolved* IP (DNS-rebinding); no redirects to denied hosts; https-only.
 
-### A02 Cryptographic Failures
-- TLS everywhere (no plaintext HTTP on prod endpoints).
-- Passwords: bcrypt (cost ≥ 12) or argon2id.
-- JWT verifies signature + exp + iss + aud.
-- PII encrypted at rest (at least column-level for sensitive columns).
-- Payment card data: don't store CVV, don't store PAN unless PCI-compliant infra.
-- Non-cryptographic random sources NOT used for security tokens — use the language's CSPRNG (e.g., `crypto.randomBytes`, `secrets.token_urlsafe`, `SecureRandom`, `crypto/rand`).
-
-### A03 Injection
-- SQL: parameterized. Grep for string concat into queries.
-- NoSQL: never accept query operators (e.g., `$where`, server-side JS) with user input.
-- OS commands: never invoke a shell with interpolated user input — use array args + explicit binary paths via the language's safe-spawn API.
-- Template injection (any server-side template engine): user input never renders as template.
-- LDAP / XPath / GraphQL: audit per-engine escape rules.
-
-### A04 Insecure Design
-- Architecture review — threat-modeled before shipping?
-- Rate limits on auth endpoints (login, password reset, signup).
-- Business logic has safety checks (can't ship an order to a different user).
-
-### A05 Security Misconfiguration
+### A02 Security Misconfiguration
 - CORS: explicit allow-list, no wildcard with credentials.
-- CSP header configured.
-- HSTS on HTTPS.
-- `X-Content-Type-Options: nosniff`.
-- No default admin credentials.
-- Debug / stack traces off in prod.
-- S3 buckets not public unless intentional.
-- K8s: no `hostNetwork: true`, no privileged containers unless justified.
+- Security headers: CSP configured (and used as an XSS mitigation, not the only defense), HSTS on HTTPS, `X-Content-Type-Options: nosniff`, `X-Frame-Options`/`frame-ancestors` (clickjacking).
+- No default admin credentials; debug / stack traces off in prod.
+- S3 buckets not public unless intentional; K8s no `hostNetwork: true` / no privileged containers unless justified.
+- Verbose error responses don't leak stack/SQL/paths (see A10).
 
-### A06 Vulnerable Components
-- Package-manager-native audit findings triaged (`npm audit`, `pip-audit`, `bundler-audit`, `cargo audit`, `composer audit`, `mix deps.audit`, `govulncheck`, etc.).
-- Critical / high CVEs on runtime deps = blocker.
-- Base container images scanned + kept current.
+### A03 Software Supply Chain Failures (NEW in 2025)
+- Dependencies pinned + lockfile committed + integrity-verified (`npm ci` / `--frozen-lockfile`).
+- **CVE triage** via package-manager-native audit **and** a cross-ecosystem scanner (OSV-Scanner); prioritize by CVSS **+ EPSS + CISA KEV**, not CVSS alone. Critical/high on a runtime dep = blocker.
+- Typosquat / malicious-package / compromised-maintainer risk considered on new deps.
+- **Build/release integrity**: image OS-CVE scan (trivy/grype), SBOM (syft/CycloneDX), artifact signing (cosign) + SLSA provenance. **These are executed by the devops pack — dispatch to it (`@ci-reviewer`, `dockerize`, `add-ci`); do NOT assert them as passed without the producing artifact.**
 
-### A07 Auth Failures
-- Strong password policy OR passkeys.
+### A04 Cryptographic Failures
+- TLS everywhere (no plaintext HTTP on prod endpoints).
+- Passwords: **argon2id** (preferred) or bcrypt (cost ≥ 12). Never MD5/SHA-1/unsalted.
+- JWT verifies signature + `exp` + `iss` + `aud`; **reject `alg: none` and algorithm-confusion (HS/RS)**.
+- PII encrypted at rest (≥ column-level for sensitive columns).
+- Payment card data: don't store CVV, don't store PAN unless PCI-compliant infra.
+- Security tokens from a CSPRNG only (`crypto.randomBytes` / `secrets.token_urlsafe` / `SecureRandom` / `crypto/rand`) — never `Math.random`.
+
+### A05 Injection (incl. XSS)
+- SQL: parameterized. Grep for string concat into queries.
+- NoSQL: never accept query operators (`$where`, server-side JS) with user input.
+- OS commands: never a shell with interpolated user input — array args + explicit binary path via safe-spawn.
+- **XSS** — reflected / stored / DOM: user input never reaches an HTML sink unencoded. Flag `innerHTML`, `dangerouslySetInnerHTML`, `v-html`, `document.write`, `{{{ }}}` / `| safe` / `mark_safe`, `eval`. Output-encode by context; CSP as defense-in-depth.
+- Template injection (SSTI): user input never renders as a template.
+- LDAP / XPath / GraphQL / XXE: per-engine escape rules; disable external entities in XML parsers.
+
+### A06 Insecure Design
+- Threat-modeled before shipping (dispatch `threat-model`).
+- Rate limits on auth endpoints (login, password reset, signup) + abuse-prone / expensive endpoints.
+- Business-logic abuse guarded (can't ship an order to another user; can't skip a payment step; quantity/price tamper).
+
+### A07 Authentication Failures
+- Strong password policy **OR passkeys/WebAuthn**; passkey registration + assertion verified (challenge, origin, RP ID, user-verification flag, sign-counter clone detection).
 - MFA available (mandatory for admin).
-- Refresh token rotation + replay detection.
-- Session fixation: new session ID on login.
-- Logout revokes refresh tokens server-side.
-- Account lockout / progressive delay on brute force.
-- Password reset tokens: single-use, short-TTL, hashed in DB.
+- OAuth/OIDC: **OAuth 2.1** — PKCE on **all** clients, no implicit grant, no ROPC; sender-constrained tokens (DPoP) where applicable.
+- Refresh-token rotation + replay detection; session fixation → new session ID on login; logout revokes refresh tokens server-side.
+- Account lockout / progressive delay on brute force; reset tokens single-use, short-TTL, hashed in DB.
 
-### A08 Data Integrity
-- Dependencies pinned (lock file committed).
-- CI / release artifacts signed.
-- Webhook payloads signature-verified (HMAC).
-- Deserialization of untrusted data avoided / sanitized.
+### A08 Software or Data Integrity Failures
+- Insecure deserialization of untrusted data avoided / sanitized (Java/Python/Ruby/.NET gadget chains, JS prototype pollution).
+- Webhook payloads signature-verified (HMAC, timing-safe).
+- Unsigned/untrusted auto-update or plugin loading rejected. (Build-artifact signing lives in A03 / devops.)
 
-### A09 Logging Failures
+### A09 Security Logging & Monitoring Failures
 - Security events logged: login success/fail, privilege change, admin actions, data export.
-- Audit log tamper-evident (write-once / append-only store).
-- Logs retained per policy (default 90 days for security events).
-- PII redacted in logs.
+- Audit log tamper-evident (write-once / append-only); PII redacted; retained per policy (default 90 days).
+- Alerting on the events, not just logging (dispatch to the observability pack for the pipeline).
 
-### A10 SSRF
-- User-supplied URLs validated before fetch.
-- No fetch to internal IP ranges (10.*, 172.16-31.*, 192.168.*, 169.254.*, localhost).
-- DNS-rebinding protection.
+### A10 Mishandling of Exceptional Conditions (NEW in 2025)
+- Errors fail **closed**, not open — an auth/permission check that throws must deny, never fall through to allow.
+- No fail-open `catch` that swallows a security error and continues; no default-allow branch on an unexpected state.
+- Error responses don't leak stack traces / SQL / internal paths / secrets to the client (prod).
+- Resource-exhaustion / DoS on unhandled edge cases (unbounded input, recursion, `ReDoS`) considered.
 
 ## Beyond OWASP
 
@@ -113,11 +112,10 @@ One or more of:
 - Event handlers scope to tenant from metadata.
 - Row-level security at the DB as belt-and-suspenders.
 
-### Supply chain
-- Lock file committed.
-- SBOM generated in CI.
+### Supply chain (audit = verify the executor ran; do NOT assert unbacked passes)
+- Lock file committed + integrity-verified (`npm ci` / `--frozen-lockfile`).
 - Signed commits where possible.
-- Internal packages / containers signed (cosign).
+- **Image CVE scan (trivy/grype), SBOM (syft/CycloneDX), artifact signing (cosign), SLSA provenance** are EXECUTED by the **devops** pack, not this auditor. This is a **dispatch-and-verify** check: confirm a producing job/artifact exists (`add-ci` scan job, `dockerize` scan step, a signed digest in the registry) — if none exists, the finding is "supply-chain gate MISSING, dispatch `@ci-reviewer` / `dockerize`", never a silent PASS. (Closes the assert-without-producer gap.)
 
 ### Secrets
 - No secrets in git (scan history).
@@ -201,6 +199,8 @@ Tools used:
 ### Sibling agents in security pack
 - `@auth-reviewer` — sibling agent in security pack
 - `@tenant-isolation-reviewer` — multi-tenant deep dive; dispatched when the audit detects multi-tenant signals
+- `@api-security-reviewer` — the API-layer lens (OWASP API Top 10: BOLA/BOPLA/BFLA/resource-consumption); pairs on access-control depth.
+- `@llm-security-reviewer` — LLM/AI-app security (prompt injection, improper output handling, excessive agency); applicable wherever the app calls a model.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

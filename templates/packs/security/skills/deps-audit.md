@@ -17,7 +17,7 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
 - Halt on severity escalation ("CRITICAL — fix today") without naming the reachable consumer path (`<path:line>` or "transitive via X, unreachable").
 - Halt on `audit fix --force` recommendations that cross majors without a regression-test plan.
 
-## When to use
+## When to run
 
 - Before every release.
 - After a fresh `npm install` / `pip install` / equivalent.
@@ -34,9 +34,11 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
 
 1. Run the right tool for the stack:
    ```bash
-   # Node
-   pnpm audit --json > /tmp/audit.json
-   npm audit --json --omit=dev > /tmp/audit.json   # prod-only
+   # Cross-ecosystem default (preferred — one scanner, all lockfiles, OSV DB):
+   osv-scanner --format json --lockfile=<path> > /tmp/audit.json   # or: osv-scanner -r .
+   # Node — NOTE the schema differs by tool/version:
+   npm audit --json --omit=dev > /tmp/audit.json     # npm 7+ → top-level `.vulnerabilities` (NOT `.advisories`)
+   pnpm audit --json > /tmp/audit.json               # pnpm → legacy `.advisories`
    # Python
    pip-audit --format json --output /tmp/audit.json
    # Rust
@@ -48,10 +50,16 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
    # Ruby
    bundler-audit check --update --format json > /tmp/audit.json
    ```
-2. Parse + triage:
+2. Parse + triage (schema-aware — pick the shape your tool emits):
    ```bash
+   # npm 7+  (top-level .vulnerabilities, keyed by package):
+   jq '.vulnerabilities | to_entries[] | {name:.key, sev:.value.severity, via:.value.via, range:.value.range, fix:.value.fixAvailable}' /tmp/audit.json
+   # pnpm / npm 6  (.advisories):
    jq '.advisories | to_entries[] | {name:.value.module_name, sev:.value.severity, cve:.value.cves, vuln:.value.vulnerable_versions, fix:.value.patched_versions}' /tmp/audit.json
+   # osv-scanner  (.results[].packages[].vulnerabilities[]):
+   jq '.results[].packages[] | {name:.package.name, vulns:[.vulnerabilities[].id]}' /tmp/audit.json
    ```
+   **Prioritize by CVSS + EPSS (exploit probability) + CISA KEV (known-exploited) — not CVSS alone.** A KEV-listed or high-EPSS Medium outranks a theoretical Critical.
 3. For each finding, classify:
    - **Critical/High on runtime dep** → blocker, fix today.
    - **Medium on runtime dep** → fix this sprint.

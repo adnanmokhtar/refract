@@ -141,3 +141,9 @@ You don't implement zero trust overnight. Priority order:
 - Admin roles with everything permissions (build scoped roles).
 - MFA as optional for privileged users.
 - "We'll encrypt it later" for new PII.
+
+## Related
+
+- `ai/patterns/auth-flow.md` — the user-facing auth flow this architecture wraps (tokens, refresh rotation, MFA).
+- `.claude/rules/security-principles.md` — the MUSTs that back these boundaries (tenant isolation at the data layer, TLS everywhere, secrets in a manager).
+- `@security-auditor` — audits code/infra against this model; `@tenant-isolation-reviewer` — the data-layer isolation deep dive.

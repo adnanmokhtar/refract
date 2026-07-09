@@ -61,17 +61,25 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 
 ### MFA
 - Mandatory for admin / owner roles.
-- TOTP (RFC 6238) with QR enrollment.
+- Passkeys / WebAuthn are the phishing-resistant baseline — prefer them over TOTP-only, not just as an "advanced" option (TOTP is phishable via real-time relay).
+- TOTP (RFC 6238) with QR enrollment where passkeys aren't available.
 - Backup codes: 10, one-time-use, hashed.
 - Recovery path documented (can't lock yourself out forever, but not "email a new backup code").
 
-### OAuth 2.0 / OIDC
+### Passkeys / WebAuthn (ceremony verification)
+The server MUST verify the ceremony, not just trust the client attestation/assertion object.
+- **Registration (attestation)** — verify: the `challenge` echoes the server-issued, single-use, unexpired challenge; `origin` matches an allowed origin; the RP ID hash matches the server's Relying Party ID; attestation statement validated (or `none` accepted deliberately); the credential ID + public key are stored bound to the user; sign-counter initialized.
+- **Assertion (login)** — verify: `challenge` echoes the server-issued single-use challenge; `origin` allowed; RP ID hash matches; the **user-verification (UV) flag** is set when UV is required; the **sign counter** is greater than the stored value (a counter ≤ stored ⇒ possible cloned authenticator → reject / flag); the assertion's **credential ID is bound to the claimed user** (not just any registered credential).
+
+### OAuth 2.1 / OIDC
+- OAuth **2.1**: **PKCE is mandatory for ALL clients** (confidential + public, `S256`) — not just mobile/SPA.
+- No **implicit grant** (`response_type=token`); no **Resource Owner Password Credentials (ROPC)** grant — both removed in 2.1.
 - State parameter for CSRF protection.
-- PKCE for public clients (mobile, SPA).
 - Nonce for OIDC (replay protection on id_token).
 - Redirect URIs whitelisted EXACTLY (not wildcards).
 - Validate id_token signature + claims; don't trust `userinfo` endpoint blindly.
 - Scope minimal.
+- SHOULD: **DPoP / sender-constrained tokens** (RFC 9449) or mTLS-bound tokens so a stolen bearer token isn't replayable; **PAR** (Pushed Authorization Requests, RFC 9126) to keep request params off the front channel.
 
 ## AuthZ checklist
 
@@ -174,7 +182,7 @@ MEDIUM (N): overly-broad scope, weak password policy, missing audit log
 
 LOW (N): style / minor
 
-Coverage checked: JWT, sessions, refresh, passwords, MFA, OAuth, IDOR, RBAC, CSRF, rate limit
+Coverage checked: JWT, sessions, refresh, passwords, MFA, passkeys/WebAuthn, OAuth 2.1, IDOR, RBAC, CSRF, rate limit
 
 Patterns consulted: auth-flow, zero-trust
 ```
@@ -190,7 +198,15 @@ Patterns consulted: auth-flow, zero-trust
 ## Related
 
 ### Sibling agents in security pack
-- `@security-auditor` — sibling agent in security pack
+- `@security-auditor` — runs the broader OWASP audit; this agent is the auth/authz deep dive.
+- `@tenant-isolation-reviewer` — the multi-tenant deep dive; this agent verifies *who* the principal is, that one verifies *whose data* they may touch.
+- `@api-security-reviewer` — the API-layer lens (OWASP API Top 10: BOLA/BOPLA/BFLA/resource-consumption); pairs on access-control depth.
+- `@llm-security-reviewer` — LLM/AI-app security (prompt injection, improper output handling, excessive agency); applicable wherever the app calls a model.
+
+### Skills
+- `secret-scan` — confirm no signing keys / OAuth client secrets / API keys are committed.
+- `deps-audit` — catch CVEs in the auth libraries (JWT, OAuth client, password-hash, WebAuthn).
+- `threat-model` — STRIDE the auth surface before the review when the flow is new.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

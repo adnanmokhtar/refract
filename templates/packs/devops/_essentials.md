@@ -16,6 +16,6 @@ Files listed above are the minimal subset copied when `/setup-project --minimal`
 Rationale per category (one line each):
 - agents: devops-architect is the broad designer; ci-reviewer and deployment-engineer are specialists kept out of minimal.
 - commands: add-ci and dockerize cover the two universal day-one DevOps tasks.
-- skills: dockerfile-lint catches the most common image issues — high signal, low cost.
+- skills: dockerfile-lint catches the most common image issues — high signal, low cost. release-security is the build-artifact integrity gate (image CVE scan via trivy + SBOM via syft + digest signing via cosign keyless + SLSA provenance) — the executor the security pack's OWASP A03 Supply-Chain check dispatches to; runs at release, not on every local build.
 - rules: devops-principles is the single rules file in the pack.
 - ai-patterns: deployment is the foundational pattern; cicd-pipeline is more specialized and kept out of minimal.

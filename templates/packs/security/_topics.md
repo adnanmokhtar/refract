@@ -9,6 +9,20 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § "Cross-cutting concerns" + § Auth + § "Anti-patterns" + ai/failures/_index.md if exists
   sections: [persona, owasp_checklist_for_this_stack, auth_review_for_this_app, signal_specific_checks, output_format]
   fallback: _examples/security-auditor.md
+
+- name: api-security-reviewer
+  kind: agent
+  triggers: { api_surface_detected: true }
+  extracts_from: _extracted-codebase.md § "API surface" (endpoints + OpenAPI/GraphQL + object-ownership + role gates)
+  sections: [persona, api_top10_checklist, graphql_checks, output_format]
+  fallback: _examples/api-security-reviewer.md
+
+- name: llm-security-reviewer
+  kind: agent
+  triggers: { llm_usage_detected: true }
+  extracts_from: _extracted-codebase.md § "AI/LLM integration" (prompt assembly + tool/function calling + RAG + output sinks + agent loops)
+  sections: [persona, llm_top10_checklist, output_format]
+  fallback: _examples/llm-security-reviewer.md
   cite_evidence: strict
 
 - name: auth-reviewer
@@ -39,6 +53,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Auth + § "Cross-cutting concerns"
   sections: [overview, principles_for_this_app, deny_by_default_examples, secret_handling, audit_trail]
   fallback: _examples/zero-trust.md
+
+- name: tenant-isolation
+  kind: pattern
+  triggers: { signal_confirmed: multi-tenant }
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" § multi-tenant + tenant resolution + query scoping
+  sections: [invariant, isolation_layers, review_methodology, detectors]
+  mirror_existing: true
+  fallback: _examples/tenant-isolation.md
 
 - name: security-principles
   kind: rule

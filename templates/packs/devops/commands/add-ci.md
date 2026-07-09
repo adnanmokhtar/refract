@@ -60,6 +60,7 @@ Workflow file:
 - Cache step keyed on `<lockfile>-<runs-on>`.
 - Artifact upload on successful build.
 - Optional `docker-build` job gated on tag push. When present, add a **`hadolint` / image-lint step** before the build (mirrors the `dockerfile-lint` skill: non-root, multi-stage, pinned base, HEALTHCHECK) so a bad Dockerfile fails CI rather than shipping. GitHub Actions: `hadolint/hadolint-action`; GitLab/Bitbucket/Circle: run `hadolint Dockerfile` in the job script (the image is published on Docker Hub).
+- **`release-security` step (after the image builds + pushes)** — the build-artifact integrity gate the `release-security` skill executes: image CVE scan (`trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`), SBOM (`syft` → CycloneDX), digest signing (`cosign sign`, **keyless via the job's OIDC** — not a stored key), and SLSA provenance (`actions/attest-build-provenance` / `cosign attest`). This is what the security pack's `@security-auditor` A03 Supply-Chain check dispatches to — without it, "images scanned / SBOM generated / artifacts signed" is asserted but never produced. Fail the release on an unfixed CRITICAL or a missing signature.
 - `concurrency: ci-${{ github.ref }}` with `cancel-in-progress: true`.
 
 ## Phase 5 — Update
