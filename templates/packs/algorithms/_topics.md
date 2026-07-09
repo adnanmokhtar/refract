@@ -33,15 +33,23 @@ This pack is stack-agnostic — algorithms + complexity are language-independent
   kind: skill
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § Stack (the language's container/op complexity guarantees)
-  sections: [purpose, when_to_use, inputs, procedure, outputs, failure_modes]
+  sections: [premise, when_to_run, inputs, procedure, outputs, halt_conditions, related]
   fallback: skills/complexity-derivation.md
   cite_evidence: strict
+
+- name: sublinear-structures
+  kind: pattern
+  triggers: { grep_evidence: "bloom|hyperloglog|hll|count.?min|reservoir|sketch|cardinalit|distinct count|probabilistic|streaming" }
+  extracts_from: _extracted-codebase.md § Stack (streaming / large-scale / cardinality signals) + the library's probabilistic-structure options
+  sections: [when_to_use, structures_table, sizing, detectors, closure_verbs]
+  mirror_existing: true
+  fallback: ai-patterns/sublinear-structures.md
 
 - name: algorithm-principles
   kind: rule
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § Stack (standard containers + their complexities) + § Conventions
-  sections: [must, must_not]
+  sections: [must, must_not, should, review_checklist, enforcement, related]
   fallback: rules/algorithm-principles.md
   mirror_existing: true
 ```

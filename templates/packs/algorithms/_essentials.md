@@ -18,4 +18,4 @@ Rationale per category (one line each):
 - commands: `analyze-complexity` is the daily entry (derive + rank wins on existing code); `design-algorithm` is the design entry (problem → proven, implemented algorithm). Both drive the one agent.
 - skills: `complexity-derivation` is the shared engine both commands run on — without it, the cite-or-halt complexity discipline has no mechanical procedure.
 - rules: `algorithm-principles` is the always-on discipline (budget-from-scale, derive-don't-guess, prove-correctness, proven-primitive, asymptotic-hot-only) — shipped even in minimal installs so the lane stays clean against `performance-optimizer`.
-- ai-patterns: none — this is a reasoning/utility track and the pack ships without ai-patterns.
+- ai-patterns: sublinear-structures (Bloom / HyperLogLog / Count-Min / reservoir — the sub-linear-space techniques that satisfy the rule's 'streaming → sub-linear' budget) is signal-gated (streaming / large-n / cardinality); kept out of minimal. The core of the pack is the reasoning agent + commands + the complexity-derivation engine.
