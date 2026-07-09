@@ -7,13 +7,13 @@ pack: algorithms
 
 # Skill: complexity-derivation
 
-## Purpose
+## Premise
 
 Turn a piece of code (or a designed algorithm's structure) into a **cited** time + space complexity — never an intuited one. This is the shared engine the `algorithm-designer` agent, `/design-algorithm`, and `/analyze-complexity` all run on: every `O(...)` it emits names the exact construct it came from (the nested loop at `<path:line>`, the recurrence, the amortized argument), so the bound can be checked rather than trusted.
 
 It does NOT measure runtime — that is the profiler's job (`performance-optimizer`). It reasons about asymptotic growth from structure.
 
-## When to use
+## When to run
 
 - Inside `/analyze-complexity` (derive each hot path's complexity) and `/design-algorithm` (derive the budget + each candidate's class).
 - Standalone when a `<path:line>` or a snippet needs a defensible big-O for a review or an ADR.
@@ -53,7 +53,7 @@ It does NOT measure runtime — that is the profiler's job (`performance-optimiz
 
 A bound with no `← from:` citation is not a valid output of this skill.
 
-## Failure modes
+## Halt conditions
 
 - **Undefined growth variable** — STOP; an `O(...)` without a defined `n` is meaningless. Ask what scales.
 - **Unknown leaf cost** (a called function whose complexity isn't known) — derive it first (recurse into it) or state it as a parameter (`O(C·n)` where `C` = cost of the call); never assume `O(1)`.
@@ -61,7 +61,7 @@ A bound with no `← from:` citation is not a valid output of this skill.
 - **Recurrence the Master theorem doesn't cover** (non-constant `a`/`b`, subtractive splits) — fall back to a recursion tree or substitution; do not force-fit the Master theorem.
 - **Asked for runtime, not complexity** — redirect: derivation gives the growth class, not milliseconds; constant factors need `performance-optimizer`'s measurement.
 
-## Cross-references
+## Related
 - agent [`algorithm-designer`](../agents/algorithm-designer.md) — the consumer; turns derivations into designs + ranked findings.
 - commands `/design-algorithm`, `/analyze-complexity` — both run this skill.
 - rule [`algorithm-principles`](../rules/algorithm-principles.md) — the budget the derived class is measured against.
