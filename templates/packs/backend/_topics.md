@@ -125,6 +125,15 @@ Each topic declares:
   mirror_existing: true
   fallback: _examples/api-contract.md
 
+- name: request-validation
+  kind: pattern
+  triggers:
+    always: true                                                   # every handler reading attacker-controlled input needs boundary validation + a writable-field allow-list
+  extracts_from: _extracted-codebase.md § "API surface" (handlers + write paths) + § Conventions (validation lib) + sample DTOs + _extracted-idioms.md (boundary/allow-list primitive)
+  sections: [overview, validate_at_boundary, validate_normalize_authorize_order, mass_assignment_allow_list, bounds, content_type_body_size_limits, error_to_field_contract, adapt, detectors, related]
+  mirror_existing: true
+  fallback: _examples/request-validation.md
+
 - name: rate-limiting
   kind: pattern
   triggers:

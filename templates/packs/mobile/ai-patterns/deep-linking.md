@@ -143,3 +143,7 @@ For each, test from cold start, warm start, foreground.
 ## Project-specific anchors
 
 (Phase 4.6 fills with the project's actual link parser function, navigation queue mechanism, push handler entry point, list of registered routes.)
+
+## Related
+
+- `push-notifications.md` (owns the push lifecycle; its tap handlers extract the payload and hand it to THIS pattern's route resolver — never navigate from the notification handler)

@@ -26,7 +26,7 @@ Walk through each component, apply each threat category:
 - **D**enial of service — prevent legitimate use. (Resource exhaustion, slow POST attack.)
 - **E**levation of privilege — gain more access than authorized. (Missing permission checks, IDOR.)
 
-For features that handle PII, run **LINDDUN** alongside STRIDE — it covers the privacy threats STRIDE misses: Linkability, Identifiability, Non-repudiation, Detectability, Disclosure of information, Unawareness, Non-compliance (e.g., over-collection, re-identification, missing consent/retention controls).
+For features that handle PII, run **LINDDUN** alongside STRIDE — it covers the privacy threats STRIDE misses: Linkability, Identifiability, Non-repudiation, Detectability, Disclosure of information, Unawareness, Non-compliance (e.g., over-collection, re-identification, missing consent/retention controls). This skill models those privacy threats at **design** time; once the code exists, hand the built PII data-flow to `@data-privacy-reviewer`, which inventories the real personal fields, traces their egress in source, and maps concrete findings to the configured regulation articles (GDPR/PDPL/CCPA). Model the threat here; audit the shipped code there.
 
 ## Flow
 

@@ -183,3 +183,7 @@ Are we losing customers / revenue from outages?
 ## Project-specific anchors
 
 (Phase 4.6 fills this with the project's actual region topology, replication mechanism, failover playbook, last drill date.)
+
+## Related
+
+- `dr-audit` — audits the backup + restore posture this pattern's DR topology assumes (its detector #7 reconciles the running footprint against the topology declared here).

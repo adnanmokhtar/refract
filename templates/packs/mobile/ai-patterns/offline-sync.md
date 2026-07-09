@@ -114,3 +114,7 @@ When a queued mutation lands on the server but the server's state has moved:
 ## Project-specific anchors
 
 (Phase 4.6 fills this with the project's actual queue table, helper functions, sync orchestrator name, conflict-resolution strategy chosen.)
+
+## Related
+
+- `push-notifications.md` (a silent/background push is a best-effort trigger to wake THIS sync — treat delivery as unreliable and back it with a foreground reconcile)

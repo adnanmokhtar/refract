@@ -28,6 +28,8 @@ Prevents the failures that wake you up: deadlocks, runaway scans, broken migrati
 - Pagination on every list query. `LIMIT` mandatory.
 - Soft-delete projects: every custom query adds the `deleted_at IS NULL` filter (or uses the base repo that adds it).
 - Multi-tenant projects: every custom query adds `tenant_id = :tenantId` (or uses the base repo that adds it).
+- Concurrent read-modify-write on a contended row (balance, inventory, counter, seat, sequence) holds a `SELECT … FOR UPDATE` lock or a `version`/`updated_at` guard checked with `rowcount == 1` — never load-mutate-save unguarded. Any `SERIALIZABLE` / Postgres `REPEATABLE READ` transaction retries on serialization failure (`40001` / `40P01`), and multi-row locks are acquired in one fixed order (deadlock avoidance). See `ai-patterns/transaction-isolation.md`.
+- Every PII column is classified (column comment / data-catalog row / ORM tag) with a declared retention window enforced by a real mechanism (partition-drop / TTL job / scheduled purge) — no personal data stored "forever". The erasure path resolves every dependent FK (CASCADE / anonymize / SET NULL) so a deletion never orphans rows or silently blocks on `ON DELETE RESTRICT`, and soft-deleted rows are still hard-purged past the window. See `ai-patterns/data-retention-pii.md`.
 
 ## Must not
 
@@ -59,6 +61,8 @@ Prevents the failures that wake you up: deadlocks, runaway scans, broken migrati
 - [ ] Migration safe under concurrent writes (no long lock).
 - [ ] No `SELECT *` on tables with BLOB/JSON columns.
 - [ ] Soft-delete + tenant filters applied where required.
+- [ ] Contended read-modify-write is `FOR UPDATE` / version-guarded; Serializable/RR transactions retry on `40001`; multi-row locks ordered consistently.
+- [ ] PII columns classified + retention/purge mechanism wired; erasure path resolves every FK (no orphan, no `RESTRICT` block).
 
 ## Enforcement
 

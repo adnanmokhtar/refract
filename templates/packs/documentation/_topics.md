@@ -66,4 +66,9 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { always: true }
   fallback: _examples/doc-drift-scan.md
+
+- name: quickstart-verify
+  kind: skill
+  triggers: { always: true }
+  fallback: _examples/quickstart-verify.md
 ```

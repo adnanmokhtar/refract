@@ -129,3 +129,4 @@ Quick heuristic: search the codebase for verbs implying forward actions (create 
 - `@business-auditor` — agent that finds these.
 - `check-business-coverage.md` skill — cross-feature audit.
 - `audit-funnel-completion.md` skill — per-flow audit.
+- `@workflow-integrity` — the state-graph counterpart to this pattern. This pattern audits **cycle-pair existence** (does the paired inverse/completion/recovery verb exist); workflow-integrity audits the **state graph between an entity's states** (are the transitions legal, guarded, terminal, reachable). They meet but do not overlap — run both.

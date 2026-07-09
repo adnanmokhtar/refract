@@ -247,3 +247,7 @@ Adopting this discipline mid-project:
 - The Strong Migrations gem (rails) — codifies these rules as static checks; even non-Rails teams steal from its ruleset.
 - gh:laravel-shift/blueprint or similar for your ORM — read source to understand the static checks.
 - Postgres docs on `CREATE INDEX CONCURRENTLY` — read carefully, especially the failure recovery.
+
+## Related
+
+- `transaction-isolation.md` — backfills and online DDL take locks; batch + lock-timeout + consistent lock ordering to avoid blocking writers or deadlocking under concurrent load.

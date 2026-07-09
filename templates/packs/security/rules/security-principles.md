@@ -27,6 +27,7 @@ Prevents the OWASP Top 10 patterns most likely to actually hit you: injection, b
 - Sessions: `HttpOnly`, `Secure`, `SameSite=Lax` (or `Strict` for sensitive flows). Rotate session ID on login / privilege change.
 - Secrets in a manager + rotated on suspected compromise. Environment / dotenv files in `.gitignore` and never committed.
 - Tenant isolation enforced at the data layer (auto-applied filter on every query) — not as an opt-in per query.
+- Where the app collects PII/PHI: the data-flow (collection → store → log → analytics → third-party egress) is audited so every field's sinks are known and consented; right-to-erasure / DSAR is implementable across **every** sink the data reaches (secondary stores, logs, analytics profiles, third-party copies), not just the primary row; cross-border transfer + consent gates are verified against the configured regime (GDPR / PDPL / CCPA), never a default one. Reviewed by `@data-privacy-reviewer`; storage/retention mechanics (column tagging, TTL/purge, FK-cascade, at-rest encryption) belong to the database `data-retention-pii` pattern.
 - TLS everywhere, including service-to-service. HSTS header with `max-age >= 31536000; includeSubDomains`.
 - CSP header set with no `'unsafe-inline'` / `'unsafe-eval'` in production scripts.
 
@@ -59,6 +60,7 @@ Prevents the OWASP Top 10 patterns most likely to actually hit you: injection, b
 - [ ] Writes bind an explicit field allow-list — no whole-body mass-assignment onto a persisted entity (`role`/`isAdmin`/`tenant_id`/`price` unsettable by the client).
 - [ ] File uploads validated by magic bytes, size-capped, stored outside the webroot with a generated name.
 - [ ] No new secret in code. No log line printing a credential, token, or full PII.
+- [ ] PII touched? Its collection → store → log → analytics → third-party flow is consented + minimized, right-to-erasure / DSAR reaches every sink, and cross-border transfer is lawful for the configured regime (`@data-privacy-reviewer`).
 - [ ] Tenant filter applied (multi-tenant projects).
 - [ ] Errors don't leak stack traces, query SQL, or file paths to clients.
 - [ ] Security headers present on new HTTP responses (CSP, HSTS, X-Frame-Options, X-Content-Type-Options).

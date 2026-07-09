@@ -19,6 +19,7 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 
 - Layered architecture: HTTP/webhook/CLI adapter → service / use-case → repository. Each layer crosses one boundary.
 - Adapters validate every input with a schema (`zod`, `class-validator`, `pydantic`, `marshmallow`, `go-playground/validator`). Internal calls trust types; boundaries don't.
+- Validate untrusted input at ONE boundary before use-case logic: `decode → validate → normalize → authorize` (canonicalize AFTER validate, never before). Bind writes through an explicit writable-field allow-list (`whitelist` / `.strict()` / `permit(...)`) — server-set fields (`id`, `role`, `tenant_id`, `ownerId`, `price`) never come from the body. Bound every string / array / number (`@MaxLength` / `@ArrayMaxSize` / `@Min`/`@Max`, nesting depth). Enforce a `Content-Type` allow-list + max body size before parsing (`415` / `413`). On failure emit a structured `422` field-error map with stable machine codes (envelope owned by `error-handling`). See `ai/patterns/request-validation.md`. (SEC-01)
 - Services own business logic AND transaction boundaries. Repositories own queries. Controllers own HTTP shape.
 - Domain / core code imports nothing framework-specific (no `Request`, no `Reply`, no `Session`). Easy unit testing follows for free.
 - Auth on every endpoint by default. Public endpoints are explicitly marked + reviewed.
@@ -37,6 +38,7 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 
 ## Must not
 
+- Bind a whole request body onto a persisted entity (`save(req.body)` / `Object.assign(entity, body)` / `Model.update(params)`) — mass-assignment / over-posting lets a client set `role` / `isAdmin` / `tenant_id` / `ownerId` / `price`. Bind only the DTO's declared writable fields. See `ai/patterns/request-validation.md`. (SEC-01)
 - Business logic in controllers / route handlers. Controllers map HTTP ↔ service input/output, nothing else.
 - Direct repository / DB access from controllers. Always go through a service.
 - Raw SQL in services. Queries belong in repositories.
@@ -68,6 +70,7 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 
 - [ ] Auth check on every new endpoint.
 - [ ] Input validated with a schema.
+- [ ] Untrusted input validated at one boundary; writes bind an explicit field allow-list (no `save(req.body)` / mass-assignment); strings / arrays / numbers bounded; failure returns a `422` field-error map. (SEC-01)
 - [ ] Pagination on new list endpoint.
 - [ ] No business logic in controller.
 - [ ] No raw SQL in service.
@@ -93,6 +96,6 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 
 ## Related
 
-- **Patterns** (in-pack): `api-contract` (envelope), `error-handling` (error contract), `pagination`, `conditional-requests` (ETag/optimistic-concurrency), `rate-limiting`, `response-streaming`, `async-job-offload`, `caching-strategy`, `parallel-io`, `webhook-flow`, `multi-tenancy`.
+- **Patterns** (in-pack): `api-contract` (envelope), `error-handling` (error contract), `request-validation` (boundary validation + writable-field allow-list), `pagination`, `conditional-requests` (ETag/optimistic-concurrency), `rate-limiting`, `response-streaming`, `async-job-offload`, `caching-strategy`, `parallel-io`, `webhook-flow`, `multi-tenancy`.
 - **Sibling rules**: `concurrency-discipline` (bounded fan-out, no parallel-in-tx), `migration-backend` (online-safe schema change — ships when the migration pack is loaded).
 - **Cross-pack owners** (referenced, not duplicated — resolve when co-installed): idempotency stored-replay + resilience matrix / outbox / circuit-breaker → **distributed-systems**; N+1 / query shape / index discipline → **database** + **performance** (`n-plus-one-scan`); authz / tenant isolation / SSRF / mass-assignment → **security**; RED / OTel / cardinality / audit-log → **observability**.

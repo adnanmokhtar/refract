@@ -55,6 +55,22 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [overview, current_state, when_we_will_shard, sharding_key_candidates, partitioning_strategy, migration_path]
   fallback: _examples/sharding-partitioning.md
 
+- name: transaction-isolation
+  kind: pattern
+  triggers: { orm_detected: true }
+  extracts_from: _extracted-codebase.md (db engine + version) + _extracted-idioms.md § (repo base / unit-of-work) + hot read-modify-write paths (balance/inventory/counter/job-queue)
+  sections: [overview, isolation_levels, pessimistic_locking, optimistic_locking, deadlock_avoidance, advisory_locks, mvcc_bloat, retry_on_serialization_failure, write_skew, detectors]
+  mirror_existing: true
+  fallback: _examples/transaction-isolation.md
+
+- name: data-retention-pii
+  kind: pattern
+  triggers: { orm_detected: true }
+  extracts_from: _extracted-codebase.md § "Data model" (PII-bearing tables + FK graph) + migration history (retention/partition schemes) + db engine
+  sections: [overview, pii_classification, retention_enforcement, erasure_vs_anonymization, erasure_fk_cascade, encryption_at_rest, backups_replicas_derived, detectors]
+  mirror_existing: true
+  fallback: _examples/data-retention-pii.md
+
 - name: database
   kind: rule
   triggers: { orm_detected: true }

@@ -45,6 +45,7 @@ Prevents the failure mode that's worse than missing docs: stale docs that active
 - Link to source over copy-pasting it. Source rot is detectable; copy-paste rot is silent.
 - Write ADRs at decision time, never retroactively — the lost context is the whole point.
 - Use present tense, active voice. "The service caches results" beats "Results will be cached by the service."
+- The getting-started / README setup path is *verified by executing it in a clean environment* before release — not just written and eyeballed. A setup section that reads correctly still fails the new contributor if a prereq, env var, or step order is missing. Run `quickstart-verify.md` on a clean env; the passing run (with its time-to-first-green) is the proof, not the prose.
 
 ## Skeletons
 

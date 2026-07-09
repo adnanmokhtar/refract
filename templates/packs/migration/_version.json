@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.8.0",
-  "released": "2026-06-26",
+  "version": "1.9.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Per-feature V1→V2 port workflow with parity guarantees and migration-time perf uplift. Cross-stack (backend / frontend / API). 1.8.0: /migrate (the simple-surface one-command V1→V2 entry) relocated from core commands/ into this pack — it is project-scoped (requires a V1/V2 source pair + ai/migration/ledger.md), so it now installs per-project via /setup-project with the migration pack instead of loading on the global command surface; the global simple-surface set is correspondingly 8→7 (/migrate joins /migration-fast et al. as a pack command). 1.7.1: migration-ledger.md per-feature record shape rewritten to the canonical single fenced-YAML list — two-space-indented `- id: F<NNN>` rows with fields indented beneath (was per-feature markdown `## <feature>` headings); aligns the documented shape with the parsers (discover_features / migrate-parallel.sh / migration-doctor.sh) that anchor on the indented `- id: FNNN` marker. 1.7.0: cross-repo-task hardening — contract capture (expected_contract) + paste-ready upstream-request artifact at register; reopen subcommand for premature closures; drain verifies the registered contract before flipping a feature done; list --stale. migration-final now reads the registry and forces INCOMPLETE while any cross-repo task is open.",
+  "summary": "Migration pack +data-cutover-orchestrate skill (cross-store V1->V2 resumable backfill + reconciliation + gated read-cutover).",
   "changelog": {
     "1.8.0": {
       "released": "2026-06-26",
@@ -131,6 +131,12 @@
       "released": "2026-04-27",
       "changes": [
         "Initial migration pack release."
+      ]
+    },
+    "1.9.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "skills +1: data-cutover-orchestrate — cross-store V1->V2 data port: resumable checkpointed backfill + field-mapping + reconciliation + read-cutover gated on backfill-complete. The unowned seam between parity-test-generate (compares) and database/migrations (single-store expand-contract). Backing MUST/SHOULD in migration-discipline."
       ]
     }
   }

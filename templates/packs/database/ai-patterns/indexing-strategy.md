@@ -181,3 +181,7 @@ MySQL: `CREATE INDEX` blocks on most engines / versions — use `pt-online-schem
 - Unique index on a frequently-updated column (write amplification).
 - Ignoring `EXPLAIN ANALYZE` output because "the index should help" — measure.
 - Dropping indexes based on `idx_scan = 0` during a quiet period (check a full cycle first).
+
+## Related
+
+- `transaction-isolation.md` — locks ride on index access paths; a missing index turns a row lock into a range/table lock (and InnoDB gap locks span the scanned range), widening the deadlock surface.

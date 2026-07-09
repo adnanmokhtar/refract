@@ -134,6 +134,14 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   sections: [purpose, when_to_use, prerequisites, procedure, output_format, failure_modes, related]
   fallback: _examples/perf-uplift-survey.md
 
+- name: data-cutover-orchestrate
+  kind: skill
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md § "Migration" (V1 store + V2 store engines/schemas) + _extracted-idioms.md § "Data access" + ai/migration/mapping/<feature>.md (V1→V2 field mapping) + DB pool / CDC config
+  sections: [purpose, when_to_use, prerequisites, procedure, output_format, failure_modes, related]
+  fallback: _examples/data-cutover-orchestrate.md
+
 # ============ COMMANDS (.claude/commands/<name>.md) ============
 
 # --- Suite A: phased flow (M10) ---

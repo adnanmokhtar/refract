@@ -19,6 +19,7 @@ severity: must
 - **Every error path has a recovery.** "Something went wrong — try again" with a retry button beats a dead-end. "Card declined — try a different card" beats a generic error.
 - **Every business metric is wired.** Funnel events at every step. Drop-off detection requires tracking, not "we'll add it later."
 - **Every cross-actor flow ends.** Admin approves → user receives notification → user takes action → status updates → other actors notified. Don't leave the chain dangling at any link.
+- **Every entity lifecycle is a guarded state graph.** Every state an entity can hold MUST be reachable from the initial state, and at least one terminal state MUST exist (no traps that strand the entity forever). Every state change MUST check its current-state precondition before writing the next state (a conditional `WHERE status = 'expected'` + affected-rows check, or a guard clause) — never a blind overwrite. Illegal edges (`refunded → paid`, `shipped → cancelled`) MUST be impossible, not merely uncommon. This is the **state-graph** half of completeness; `missing-counterparts` covers the **cycle-pair** half (does the inverse verb exist), `@workflow-integrity` covers whether the edges between states are legal and guarded. Run both.
 - **Every empty state is opinionated.** "No orders yet — start by adding products to your catalog [CTA]" beats a blank screen.
 
 ## Must not
@@ -46,6 +47,7 @@ When reviewing a feature for completeness:
 - [ ] Every error has a user-facing recovery path.
 - [ ] Every empty state has an action / explanation.
 - [ ] Every cross-actor flow has a defined endpoint.
+- [ ] Every entity lifecycle state is reachable + has a terminal state; every status transition checks its current-state precondition (no blind overwrite) — `@workflow-integrity`.
 - [ ] Funnel events fire at each step (analytics).
 - [ ] Audit log captures sensitive operations (role change, data export, account delete).
 - [ ] Permissions denied path is documented per role.
@@ -71,6 +73,7 @@ The catalog (in `ai/failures/`) of completeness gaps that shipped:
 
 - `ai/business-flows.md` — declared flows that this rule audits against.
 - `@business-auditor` — agent that runs this rule across a feature.
+- `@workflow-integrity` — agent that enforces the guarded-state-graph MUST (reachability, terminal state, current-state precondition per transition); state-graph complement to `@business-auditor`'s cycle-completeness audit.
 - `code-quality/rules/quality-principles.md` — code-level quality rule; this is the business-level counterpart.
 
 ## Related

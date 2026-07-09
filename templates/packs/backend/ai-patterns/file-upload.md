@@ -64,6 +64,7 @@ Flag an upload that is re-served to other users with no malware scan step in the
 ## Related
 
 - `response-streaming.md` — the outbound counterpart (streaming a file *out*).
+- `request-validation.md` — boundary validation of the non-file fields on a multipart request (bounds, allow-list, `422` field errors); this pattern owns the upload stream itself.
 - `conditional-requests.md` — ETag on served files for revalidation.
 - `security` pack — SSRF (a presigned/fetch-by-URL upload path), content-security, malware policy.
 - `distributed-systems` pack — the async scan/process hand-off (upload → 202 → job).

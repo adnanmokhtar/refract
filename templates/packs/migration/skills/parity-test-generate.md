@@ -328,3 +328,4 @@ These fail `scripts/validate-migration-artifacts.sh` and halt the audit:
 - `parity-auditor.md` (agent) — verifies the suite covers the contract before cutover.
 - `testing/agents/tdd-orchestrator.md` (if pack loaded) — runs the suite as part of broader TDD orchestration.
 - `database/skills/migration-rehearsal.md` — runs the V2 query plan against prod-sized data; output feeds parity tests' performance assertions.
+- `data-cutover-orchestrate.md` (skill) — PORTS + reconciles data across stores; this skill only COMPARES outputs. A green parity suite over an empty V2 store still fails at read-cutover — run both.

@@ -23,6 +23,7 @@ Prevents the failures that get apps rejected from stores or 1-starred: bad netwo
 - Screen reader labels on every interactive element. iOS: `accessibilityLabel`. Android: `contentDescription`. Test with VoiceOver / TalkBack.
 - Touch targets ≥ 44×44 pt (iOS HIG) / 48×48 dp (Android Material).
 - Deep links handled defensively: validate the URL, never `eval` / `exec` / open arbitrary URLs from a deep link payload.
+- Push notifications follow the full lifecycle: permission requested at a justified in-context moment (never cold-start), the device token synced to the server with a user+device binding AND invalidated on 410 / `NotRegistered` / logout, Android O+ channels + iOS categories created up front, foreground presentation handled, and tap → screen routing delegated to `deep-linking`. See `ai-patterns/push-notifications.md`.
 - Privacy manifest (iOS `PrivacyInfo.xcprivacy`) and Play Console data safety form filled out accurately. Lying gets you removed.
 - API base URL via build variants (`dev` / `staging` / `prod`) — never hardcoded.
 

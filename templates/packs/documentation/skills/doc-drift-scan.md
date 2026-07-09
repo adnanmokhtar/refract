@@ -106,3 +106,7 @@ OK: 84 file refs, 12 scripts, 19 env vars, 7 ADR citations, 22 signatures/exampl
 - Scripts referenced only in shell snippets inside fenced code blocks may be intentionally illustrative — read context before flagging.
 - Renames done with `git mv` show as "missing" until docs update — surface the new path from `git log --diff-filter=R`.
 - Drift is ALWAYS a docs issue, never a code issue — never propose reverting code to match outdated docs.
+
+## Related
+
+- `quickstart-verify.md` — sibling skill; this scans docs for references to dead *code*, quickstart-verify executes the *setup procedure* in a clean env to prove onboarding still runs.

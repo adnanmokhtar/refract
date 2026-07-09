@@ -81,4 +81,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { terraform_detected: true }
   fallback: stub-from-sections
+
+- name: dr-audit
+  kind: skill
+  triggers: { stateful_store_detected: true }
+  extracts_from: _extracted-codebase.md § Infrastructure (stateful stores + backup config) + terraform state
+  sections: [premise, ownership_boundary, when_to_run, adapt_to_codebase, scans_for, output_format, false_positives, halt_conditions]
+  mirror_existing: true
+  fallback: _examples/dr-audit.md
 ```
