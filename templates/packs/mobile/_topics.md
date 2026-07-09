@@ -95,4 +95,10 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { mobile_framework_detected: true }
   sections: [permission_ux, token_lifecycle, channels_categories, foreground_presentation, receipt_states, detectors]
   fallback: ai-patterns/push-notifications.md
+
+- name: ota-updates
+  kind: ai-pattern
+  triggers: { mobile_framework_detected: true }
+  sections: [native_vs_js_boundary, staged_rollout, mandatory_vs_optional_gating, rollback_path, apply_ux, anti_patterns]
+  fallback: ai-patterns/ota-updates.md
 ```

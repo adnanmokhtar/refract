@@ -244,6 +244,9 @@ Timeline:
 - `@ci-reviewer` — sibling agent in devops pack
 - `@devops-architect` — sibling agent in devops pack
 
+### Skills
+- `progressive-delivery` — tight boundary: this agent picks canary/blue-green as a deploy **STRATEGY** (which one, overhead, rollback command); progressive-delivery audits the **feature-flag lifecycle** and the **canary's automated-analysis wiring** (the AnalysisTemplate/metric gate that auto-promotes or aborts). This agent selects the strategy; that agent verifies its flag hygiene + metric gate are real.
+
 ### Patterns
 - `ai/patterns/cicd-pipeline.md`
 - `ai/patterns/deployment.md`

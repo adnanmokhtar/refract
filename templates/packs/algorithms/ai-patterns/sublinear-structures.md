@@ -67,5 +67,6 @@ Flag a probabilistic structure at small `n` (the exact `Set`/counter fits easily
 
 - `algorithm-principles.md` — the "streaming → sub-linear" budget this pattern satisfies.
 - `complexity-derivation.md` — deriving the `O(1)`-space / per-op bounds these give.
+- `numerical-methods.md` — the sibling signal-gated pattern: *deterministic* float precision / stability / conditioning. This one trades bounded space for a stated *approximation* error; that one governs the rounding error of exact-arithmetic-intended float math.
 - `@algorithm-designer` — picks the structure during DESIGN when the budget is sub-linear.
 - `performance` / `database` packs — when the real fix is an index or a materialized count, not a sketch.

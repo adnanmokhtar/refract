@@ -1,16 +1,22 @@
 {
   "kind": "pack",
   "name": "business",
-  "version": "1.2.0",
-  "released": "2026-07-09",
+  "version": "1.3.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Business pack +workflow-integrity agent (lifecycle state-graph audit: reachability, illegal/unguarded transitions, per-transition guards).",
+  "summary": "Business pack +domain-model-auditor agent +pricing-tax-audit skill.",
   "changelog": {
     "1.2.0": {
       "released": "2026-07-09",
       "changes": [
         "agents +1: workflow-integrity (opus) — audits an entity's lifecycle STATE GRAPH (reachability, terminal states, illegal/unguarded transitions, per-transition auth/audit/idempotency/concurrency), reconstructed from code. The state-graph counterpart to missing-counterparts' cycle-pairs. Backing MUST/SHOULD in business-completeness."
+      ]
+    },
+    "1.3.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "agents +1: domain-model-auditor (opus) — aggregate/invariant structure + invariant-enforcement register (consumes learning's extract-domain-entities-deeply); skills +1: pricing-tax-audit — money-math correctness (integer/decimal money, rounding, tax jurisdiction, currency, idempotent metering)."
       ]
     }
   }

@@ -124,6 +124,7 @@ This is the mechanism that makes evals real, not decorative.
 - `rag-pipeline` — RAG features need retrieval-specific metrics (faithfulness, context relevance/recall) in the eval set; retrieval quality is evaluated separately from generation.
 - `prompt-engineering` — prompts are versioned code; a prompt change is only safe once run through this gate. Structured-output validation is itself an assertion scorer.
 - `agent-design` — agents are evaluated on task success, tool-call correctness, and cost/step budgets.
+- `fine-tuning` — the eval-gate this pattern owns is what a fine-tune must clear: it ships only if it beats the prompted baseline on the held-out set, scored here.
 - `llm-gateway` — online guardrail metrics (cost, latency, refusal rate) are emitted by the gateway's observability.
 - `rules/ai-engineering-principles.md` — the `evals_gate` principle: no LLM change ships without a passing eval-diff.
 - Security `@llm-security-reviewer` / `llm-security` — adversarial eval cases (prompt injection, jailbreaks, unsafe-output attempts) are authored WITH the security reviewer; the eval set is where injection defenses are regression-tested.

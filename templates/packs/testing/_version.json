@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "1.3.0",
-  "released": "2026-07-09",
+  "version": "1.4.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Testing pack +mutation-probe skill (test strength via surviving mutants; orthogonal to coverage-gap's test presence).",
+  "summary": "Testing pack +2 skills: property-invariants, test-factories.",
   "changelog": {
     "1.2.0": {
       "released": "2026-06-22",
@@ -17,6 +17,12 @@
       "released": "2026-07-09",
       "changes": [
         "skills +1: mutation-probe — measures test STRENGTH via surviving-mutant analysis (branches executed but never asserted), orthogonal to coverage-gap's test PRESENCE. Per-stack mutation-tool table (Stryker/mutmut/PIT/gremlins). Backing SHOULD in testing-principles."
+      ]
+    },
+    "1.4.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "skills +2: property-invariants (for-all property/generator testing vs example-based) and test-factories (factory/builder test data vs duplicated fixtures / shared-mutable)."
       ]
     }
   }

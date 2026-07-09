@@ -66,6 +66,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { signal_confirmed: event-sourced }
   fallback: _examples/event-sourcing.md
 
+- name: reconciliation
+  kind: pattern
+  triggers: { signal_confirmed: event-sourced, OR: { service_count_above_1: true } }
+  fallback: _examples/reconciliation.md
+
 - name: idempotency
   kind: pattern
   triggers: { signal_confirmed_any: [webhook, payment, background-jobs] }

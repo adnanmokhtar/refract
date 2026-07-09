@@ -51,6 +51,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { k8s_detected: true }
   fallback: _examples/k8s-audit.md
 
+- name: network-exposure-audit
+  kind: skill
+  triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  fallback: _examples/network-exposure-audit.md
+
 - name: admission-policy
   kind: skill
   triggers: { grep_evidence: "kyverno|gatekeeper|ClusterImagePolicy|ValidatingAdmissionPolicy|cosign|policy-controller|PodSecurity" }

@@ -161,3 +161,4 @@ Prefer these over hand-rolling sharding. Years of engineering.
 ## Related
 
 - `data-retention-pii.md` — time-partitioning by `created_at` makes `DROP PARTITION` the cheapest PII retention purge: O(1), no row scan, no bloat.
+- `read-replicas.md` — replicas scale reads, sharding splits writes; exhaust replicas + caching before sharding. Write throughput exceeding one primary is the sharding signal.

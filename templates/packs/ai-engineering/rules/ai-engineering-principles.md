@@ -47,6 +47,8 @@ Prevents the recurring LLM-feature failures: model output piped into a sink unes
 - **Compact context across agent steps** — summarize/externalize instead of unbounded growth. See `ai/patterns/agent-design.md`. (AI-3)
 - **Golden-set + adversarial cases in the eval** — include known-hard, injection, and edge inputs, not just happy paths. (AI-2)
 - **Human-in-the-loop on irreversible / high-value actions** (delete, payment, external send, prod write) — approve-then-execute with an audit trail. (AI-1)
+- **Fine-tuning is the last resort** — reach for it only after prompt-engineering and RAG are exhausted, and only for a *measurable* behavior/format/latency-cost gap they can't close; it must **beat the prompted baseline on a held-out eval** before shipping and be versioned with its dataset + eval. Never fine-tune to inject knowledge/freshness — that's RAG's job (a fine-tune bakes a stale, uncitable snapshot). See `ai/patterns/fine-tuning.md`. (AI-2)
+- **The vector index is tuned to a stated recall/latency/scale target** — the ANN algorithm and its parameters (`ef`/`nprobe`/`m`) plus the recall target are declared and measured against a retrieval eval, never library-defaulted; no brute-force / sequential scan at scale, and the distance metric matches the embedding model. See `ai/patterns/vector-store-ops.md`. (AI-6)
 
 ## Review checklist
 
@@ -71,5 +73,5 @@ Prevents the recurring LLM-feature failures: model output piped into a sink unes
 
 ## Related
 
-- **Patterns (in-pack):** `evals` (regression gate — the load-bearing foundation), `rag-pipeline` (tenant-filtered, quality-eval'd retrieval), `prompt-engineering` (structured output, versioned prompts), `agent-design` (autonomy choice, tool gates, loop budgets, human-in-loop), `llm-gateway` (routing, fallback, caching, cost, streaming, observability).
+- **Patterns (in-pack):** `evals` (regression gate — the load-bearing foundation), `rag-pipeline` (tenant-filtered, quality-eval'd retrieval), `prompt-engineering` (structured output, versioned prompts), `agent-design` (autonomy choice, tool gates, loop budgets, human-in-loop), `llm-gateway` (routing, fallback, caching, cost, streaming, observability), `fine-tuning` (last-resort ladder, eval-gated against the prompted baseline), `vector-store-ops` (the ANN index tuned to a stated recall/latency target underneath RAG).
 - **Cross-pack owners (referenced, not duplicated — resolve when co-installed):** prompt injection / improper output handling / excessive agency / vector-store ACL → **security** `@llm-security-reviewer` (LLM01/05/06/08); trace-linked call logging, cost/latency metrics, cardinality/sampling, audit trail, PII-redaction policy → **observability** (`observability-principles`, `tracing`, `audit-logging`); timeout/retry/backoff/circuit-breaker/bulkhead mechanics the gateway applies → **distributed-systems** / **backend** resilience.

@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "1.3.0",
-  "released": "2026-07-09",
+  "version": "1.4.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Performance pack +load-test skill (load/stress/soak/spike campaign design against an SLA gate on a prod-parity env).",
+  "summary": "Performance pack +memory-leak-hunt skill.",
   "changelog": {
     "1.2.1": {
       "released": "2026-06-26",
@@ -28,6 +28,12 @@
       "released": "2026-07-09",
       "changes": [
         "skills +1: load-test — designs+runs a load/stress/soak/spike/breakpoint campaign against a pre-declared SLA gate on a prod-parity env (open-vs-closed model, coordinated-omission trap). Distinct from profile-endpoint (single subject) and distributed-systems capacity-planner (analytical). Backing SHOULD in performance-principles."
+      ]
+    },
+    "1.4.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "skill +1: memory-leak-hunt (heap-diff-over-time leak-hunt discipline; the over-time counterpart to profile-endpoint's snapshot)."
       ]
     }
   }

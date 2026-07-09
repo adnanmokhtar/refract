@@ -185,3 +185,4 @@ MySQL: `CREATE INDEX` blocks on most engines / versions — use `pt-online-schem
 ## Related
 
 - `transaction-isolation.md` — locks ride on index access paths; a missing index turns a row lock into a range/table lock (and InnoDB gap locks span the scanned range), widening the deadlock surface.
+- `full-text-search.md` — the text-search index (`tsvector`+GIN / `FULLTEXT`) and its search query live there; a `LIKE '%x%'` that belongs in FTS is theirs, not a b-tree gap here.

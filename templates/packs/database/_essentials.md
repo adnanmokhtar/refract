@@ -6,7 +6,7 @@ essentials:
   commands: [add-migration, db-audit]
   skills: [schema-diff, schema-consistency-audit]
   rules: [database-principles]
-  ai-patterns: [migrations, transaction-isolation]
+  ai-patterns: [migrations, transaction-isolation, connection-pooling]
 ---
 
 # Database — essentials manifest
@@ -18,4 +18,4 @@ Rationale per category (one line each):
 - commands: add-migration is the most frequent DB task; db-audit is the periodic health gate.
 - skills: schema-diff lets you see what an entity change implies in SQL — essential before generating a migration.
 - rules: database-principles is the single rules file in the pack.
-- ai-patterns: migrations (the most common DB pattern; safety + reversibility live here); transaction-isolation (concurrency correctness — lost updates + deadlocks are core data-integrity failures).
+- ai-patterns: migrations (the most common DB pattern; safety + reversibility live here); transaction-isolation (concurrency correctness — lost updates + deadlocks are core data-integrity failures); connection-pooling (every app talks to the DB through a pool — an unbounded/per-request connection strategy exhausts `max_connections` and is a universal production outage).

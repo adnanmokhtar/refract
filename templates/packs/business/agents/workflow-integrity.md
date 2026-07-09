@@ -139,6 +139,7 @@ Patterns consulted: <business-completeness · transaction-boundary · idempotenc
 ### Sibling agents in business pack
 - `@business-auditor` — feature-completeness audit (missing cycles, broken flows). It asks "does the inverse exist?"; this agent asks "are the state edges legal and guarded?"
 - `@business-analyst` — sibling agent in business pack.
+- `@domain-model-auditor` — structural sibling. This agent audits the **state graph** (are `order.status` transitions legal, guarded, terminal, reachable); domain-model-auditor audits the **aggregate + invariant structure** (is `Order` a consistency boundary that owns its invariants, or an anemic bag whose rules leaked to a service). They meet on lifecycle-bearing entities but do not overlap — this owns edges between states, that owns which invariant layer enforces the entity's rules. Run both.
 
 ### Boundary vs missing-counterparts
 - `ai-patterns/missing-counterparts.md` audits **cycle counterparts** — for each forward action a reachable inverse/completion/recovery pair (create↔delete, subscribe↔cancel, send↔resend). It is about the *existence of the paired verb*.

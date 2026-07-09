@@ -92,4 +92,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { test_framework_detected: true }
   fallback: _examples/mutation-probe.md
+
+- name: property-invariants
+  kind: skill
+  triggers: { test_framework_detected: true }
+  fallback: _examples/property-invariants.md
+
+- name: test-factories
+  kind: skill
+  triggers: { test_framework_detected: true }
+  fallback: _examples/test-factories.md
 ```

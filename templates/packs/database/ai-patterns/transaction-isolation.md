@@ -182,6 +182,7 @@ Flag an invariant checked by reading rows the transaction does *not* write, unde
 
 - `indexing-strategy.md` — locks ride on index access paths; a missing index turns a row lock into a range/table lock (and InnoDB gap locks span the scanned range).
 - `migrations.md` — backfills and DDL take locks; batch + lock-timeout to avoid blocking writers.
+- `connection-pooling.md` — a lock or `FOR UPDATE` held too long pins its pooled connection; long transactions drain the pool. Keep the locked window short.
 - `backend` `transaction-boundary` — the ownership boundary above: service scope (where the transaction opens/closes). State the split when a finding is really about boundary, not isolation.
 - `distributed-systems` `idempotency` — a retried (`40001`) transaction re-runs its body; side effects must be idempotent.
 - `distributed-systems` `distributed-lock` — when mutual exclusion must span services, an in-DB row/advisory lock is not enough.

@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "infrastructure",
-  "version": "1.2.0",
-  "released": "2026-07-09",
+  "version": "1.3.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Infrastructure pack +dr-audit skill (backup/PITR/restore-drill/RPO-RTO audit of an existing footprint).",
+  "summary": "Infrastructure pack +network-exposure-audit skill.",
   "changelog": {
     "1.1.0": {
       "released": "2026-07-09",
@@ -17,6 +17,12 @@
       "released": "2026-07-09",
       "changes": [
         "skills +1: dr-audit — audits an EXISTING footprint for backup coverage + PITR + drilled-restore + RPO/RTO (the audit-of-state counterpart to provision-tier's creation-time enforcement and multi-region's design). Backing MUST in infra-principles."
+      ]
+    },
+    "1.3.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "skill +1: network-exposure-audit (audits running/declared ingress exposure — 0.0.0.0/0 on non-public ports, public DB/cache, missing default-deny NetworkPolicy)."
       ]
     }
   }

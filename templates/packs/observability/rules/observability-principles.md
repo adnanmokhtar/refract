@@ -42,8 +42,8 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 - Sample 100% of errors; sample 1–10% of successes head-based (tail-based is better when affordable).
 - Add exemplars on metrics (where the metrics backend supports them) so a histogram bucket links back to a specific trace.
 - Log + metric + trace MUST use the SAME identifiers (`traceId`, `tenantId`) — easy navigation between pillars in the project's observability backend.
-- Run synthetic monitoring on critical user journeys (login, checkout, primary CRUD). Black-box probes catch what white-box misses.
-- Version-control dashboards (export to JSON / IaC modules / templating language). UI-edited dashboards drift and disappear.
+- Run synthetic (blackbox) monitoring on every critical user journey (login, checkout, primary CRUD, payment): a scripted probe from ≥2 locations, each with its own **probe-SLO** (success rate + a latency-under-T count) and its own page route that fires independently of white-box signals. Black-box probes catch "everything green, nobody can log in" that white-box misses. See `skills/synthetic-monitoring.md`.
+- Dashboards are **tiered** (fleet overview → per-service → instance/debug drill-down), **RED/USE-led** (RED row first on every service board, USE per resource), **versioned as code** (Grafana JSON / IaC / templating language — never hand-clicked), and every alert **links to the panel** that explains it while every panel answers a stated question. UI-edited boards drift and disappear. See `ai/patterns/dashboards.md`.
 - Maintain one canonical service map + one critical-path latency dashboard. On-call MUST NOT have to hunt.
 - Treat client-side RUM as a first-class signal: browser / mobile SDK exports over OTLP into the same collector, stamping field Core Web Vitals (LCP / INP / CLS) and JS error rate with the `traceparent` so a slow page links to its backend trace. Boundary: the *performance* pack owns field CWV measurement + attribution; this pack owns RUM ingestion, retention, and dashboarding.
 

@@ -37,6 +37,7 @@ Prevents the four failure modes: optimizing past the scale that matters, shippin
 - Name the `n` threshold where a cleverer algorithm starts to pay off, so the choice is revisitable as scale grows.
 - Prefer an in-place / single-pass streaming approach when the input is large and a copy would blow the space budget.
 - When a sub-linear or `O(1)`-memory bound is the target (streaming, `n ≥ 1e8`, unbounded cardinality), reach for a probabilistic / sketch structure (Bloom / HyperLogLog / Count-Min / reservoir) and state the accuracy trade-off — see `sublinear-structures.md`.
+- Numerical / floating-point code states its precision + stability regime: compare with a **tolerance**, never float `==`; accumulate cancellation-safely (Kahan / pairwise / Welford), not a naive running sum; guard near-zero divides and acknowledge the problem's **condition number** where it can be large. **Money / tax / currency uses an exact decimal type**, never float — and hands off to the business pricing-tax rules. See `numerical-methods.md` (signal-gated on numeric/scientific code).
 - Property-test a designed algorithm against a brute-force oracle over random inputs, not just fixed cases.
 
 ## Review checklist
@@ -58,4 +59,5 @@ Prevents the four failure modes: optimizing past the scale that matters, shippin
 - `complexity-derivation.md` — the mechanical big-O / recurrence / amortized engine every `O(...)` claim runs through.
 - `@algorithm-designer` — the design + analysis specialist.
 - `sublinear-structures.md` — probabilistic / sketch structures for the sub-linear-space budget this rule sets.
+- `numerical-methods.md` — the precision / stability / conditioning discipline for float + scientific math (signal-gated); money → decimal hands off to the business pack.
 - `performance` pack (`performance-optimizer`) — the measured-runtime / constant-factor complement; N+1 / index / I/O hand off there.

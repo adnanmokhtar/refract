@@ -48,6 +48,7 @@ Prevents the slow death: dead code, copy-paste rot, comment lies, and "TODO" gra
 - Default to no comments. Add one only when the WHY is non-obvious — a hidden constraint, a known workaround, a subtle invariant.
 - Order inside files: imports → types → constants → public API → private helpers. Match the codebase if it differs.
 - Boy Scout Rule: leave code cleaner than you found it. When you touch a file, fix the dead imports / commented-out blocks / vague names / redundant comments in the same change — don't open a "cleanup PR later" ticket that never lands. Bound the scope: clean what's adjacent to your change, not the whole file (avoids ballooning diffs that obscure the real edit).
+- Track technical debt as a persisted, ranked ledger — dated/owned `TODO`s, unjustified suppressions, deprecated-API call sites, major-version-lag deps — each with a blast-radius + fix-cost, diffed run-over-run so accrual (new debt vs paid-down) is visible instead of rediscovered every audit. This is *longitudinal accrual*: distinct from `dead-branch-scan`/dead-code (unreachable → delete), `@dependency-auditor` (dep vulns/licenses), and `check-health` (point-in-time snapshot). See `debt-ledger` (skill).
 
 ## Review checklist
 

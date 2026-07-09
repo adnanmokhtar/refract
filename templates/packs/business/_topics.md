@@ -29,6 +29,16 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   fallback: _examples/workflow-integrity.md   # business 5/5 — the abridged snapshot faithfully mirrors the live agent's premise + checklist + matrix + hard-rules; keep it in sync on edits
   cite_evidence: strict
 
+- name: domain-model-auditor
+  kind: agent
+  triggers:
+    grep_evidence: "class .*(Model|Entity|Aggregate)|schema\\.(prisma|rb)|@Entity|models\\.Model|ActiveRecord::Base|CheckConstraint|BigDecimal|@Embeddable|value.?object"
+    OR_codebase_section: "a domain layer exists — ORM model classes, a schema (schema.prisma / schema.rb), migrations with CHECK / UNIQUE constraints, or entities carrying money / inventory / balance invariants (an aggregate + its invariants exist whether modelled explicitly or not)"
+  extracts_from: _extracted-business.md § Mission + .claude/_refine-extract.md § "Domain entities" (extract-domain-entities-deeply per-invariant enforcement+citation blocks) if exists + _extracted-codebase.md § Modules (ORM models / migrations)
+  sections: [persona, premise, aggregate_reconstruction, invariant_enforcement_register, boundary_checklist, findings_format, hard_rules]
+  fallback: _examples/domain-model-auditor.md
+  cite_evidence: strict
+
 - name: analyze-task
   kind: command
   triggers: { always: true }
@@ -67,6 +77,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   sections: [when_to_use, procedure, inputs, outputs, failure_modes]
   fallback: skills/check-business-coverage.md
+
+- name: pricing-tax-audit
+  kind: skill
+  triggers:
+    grep_evidence: "price|amount|invoice|billing|subscription|tax|vat|gst|proration|checkout|stripe|chargebee|Money|currency"
+    OR_codebase_section: "the project handles money — pricing, checkout, billing, invoicing, subscriptions, metering, tax, or multi-currency amounts (signal-gated: no billing surface → skip)"
+  sections: [premise, when_to_use, money_stack_adapt, detectors, output_format, gotchas, halt]
+  fallback: _examples/pricing-tax-audit.md
 
 - name: missing-counterparts
   kind: ai-pattern

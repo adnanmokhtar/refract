@@ -89,3 +89,7 @@ Run /k8s-audit weekly. File tickets for HIGH findings.
 - Audit production separately from staging.
 - Don't auto-fix. Report, let humans decide.
 - Critical findings = ticket with owner + deadline.
+
+## Related
+
+- `network-exposure-audit` — the NetworkPolicy presence check here is one axis; that skill drills network exposure across cloud + cluster (public SGs, public DBs/buckets, exposed metrics ports) and the drift this cluster-scoped audit doesn't see.

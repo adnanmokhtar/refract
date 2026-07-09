@@ -155,6 +155,7 @@ Once blockers addressed, re-plan + re-review.
 
 ## Related
 
+- `network-exposure-audit` — a widening SG / public-DB / public-bucket change flagged in this plan diff is the same exposure class that skill audits across the whole running/declared footprint.
 - `audit-iam` — IAM widening flagged here also caught there.
 - `cost-audit` — sometimes a "minor" change inflates cost.
 - `provision-tier` — uses this skill in Phase 6 validate.

@@ -115,4 +115,6 @@ You cannot fix what you don't isolate — measure retrieval and generation separ
 - `prompt-engineering` — assembled context is untrusted data: delimit it, put long context before the instruction, and guard the no-context case in the prompt.
 - `llm-gateway` — embedding + generation calls route through the gateway (caching embeddings, cost/latency budget, retries).
 - `agent-design` — retrieval is often exposed to an agent as a `search` tool; the same quality + tenant-filter rules apply.
+- `vector-store-ops` — **boundary:** this pattern owns chunk→embed→retrieve→rerank *usage*; `vector-store-ops` owns the ANN **index tuning underneath** it (algorithm, `ef`/`nprobe`, recall target, refresh, sharding). The embedding-model / distance-metric match and the tenant/hybrid decisions surface in both.
+- `fine-tuning` — the **last-resort ladder**: when the gap is *knowledge/freshness*, stay on RAG; fine-tuning is for *behavior* only and must never take over RAG's job of injecting facts.
 - Security `tenant-isolation` / `@llm-security-reviewer` / `llm-security` — the tenant/permission filter on retrieval is a security boundary (cross-tenant leak); retrieved content is untrusted input (injection). Author these WITH the security reviewer.

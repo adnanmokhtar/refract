@@ -115,6 +115,9 @@ Branch protection — set required checks to:
 ### Sibling commands in devops pack
 - `/dockerize` — sibling command in devops pack
 
+### Skills
+- `gitops-audit` — the CI pipeline this command builds ends at *publish* (build → test → scan → push image). If the cluster is Argo CD / Flux managed, `gitops-audit` audits what happens **after** publish — the git→cluster reconciliation loop (drift, out-of-band `kubectl apply`, plaintext secrets in git, prune safety). Wire the pipeline here; audit the reconciliation there.
+
 ### Patterns
 - `ai/patterns/cicd-pipeline.md`
 - `ai/patterns/deployment.md`

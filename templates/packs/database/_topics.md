@@ -71,6 +71,30 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/data-retention-pii.md
 
+- name: full-text-search
+  kind: pattern
+  triggers: { orm_detected: true }
+  extracts_from: _extracted-codebase.md (db engine + version) + text columns + search endpoints (LIKE '%..%' usages)
+  sections: [overview, fts_primitive_and_index, maintenance_rule, gin_vs_gist, ranking_phrase_prefix, fuzzy_trgm, mysql_fulltext, graduate_to_external, adapt, detectors]
+  mirror_existing: true
+  fallback: _examples/full-text-search.md
+
+- name: connection-pooling
+  kind: pattern
+  triggers: { orm_detected: true }
+  extracts_from: _extracted-codebase.md (db engine + server max_connections) + _extracted-idioms.md (driver/pool config) + deploy topology (instance/replica count)
+  sections: [overview, sizing, pooler_modes, exhaustion_symptoms, serverless, idle_lifetime_validation, held_across_external_call, adapt, detectors]
+  mirror_existing: true
+  fallback: _examples/connection-pooling.md
+
+- name: read-replicas
+  kind: pattern
+  triggers: { orm_detected: true }
+  extracts_from: _extracted-codebase.md (db engine + version + replication mode) + read/write routing config + read-heavy query paths
+  sections: [overview, topology_replication_mode, lag_reality, read_your_writes, routing_strategies, lag_monitoring_failover, stale_read_blast_radius, adapt, detectors]
+  mirror_existing: true
+  fallback: _examples/read-replicas.md
+
 - name: database
   kind: rule
   triggers: { orm_detected: true }

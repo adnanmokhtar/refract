@@ -85,3 +85,7 @@ FEATURE FLAG TTL:
 - Tests intentionally hit "impossible" paths via mocks — exclude the project's test directories + naming patterns (`__tests__/` / `tests/` / `spec/` and `*.spec.<ext>` / `test_*.py` / `*_test.go` / framework-equivalent) from runtime-dead detection.
 - Flags may have non-config consumers (admin override, A/B framework) — audit beyond the static config.
 - Don't auto-delete. Propose, let the author confirm, ship as a separate cleanup PR.
+
+## Related
+
+- `debt-ledger` — the disjoint sibling: this skill finds *unreachable* code (delete candidates); `debt-ledger` tracks *reachable, running* but knowingly-suboptimal code (dated TODOs, suppressions, deprecated-API use, version lag) as a longitudinal ranked ledger.

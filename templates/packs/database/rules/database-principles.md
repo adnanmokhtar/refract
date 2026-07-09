@@ -30,6 +30,9 @@ Prevents the failures that wake you up: deadlocks, runaway scans, broken migrati
 - Multi-tenant projects: every custom query adds `tenant_id = :tenantId` (or uses the base repo that adds it).
 - Concurrent read-modify-write on a contended row (balance, inventory, counter, seat, sequence) holds a `SELECT … FOR UPDATE` lock or a `version`/`updated_at` guard checked with `rowcount == 1` — never load-mutate-save unguarded. Any `SERIALIZABLE` / Postgres `REPEATABLE READ` transaction retries on serialization failure (`40001` / `40P01`), and multi-row locks are acquired in one fixed order (deadlock avoidance). See `ai-patterns/transaction-isolation.md`.
 - Every PII column is classified (column comment / data-catalog row / ORM tag) with a declared retention window enforced by a real mechanism (partition-drop / TTL job / scheduled purge) — no personal data stored "forever". The erasure path resolves every dependent FK (CASCADE / anonymize / SET NULL) so a deletion never orphans rows or silently blocks on `ON DELETE RESTRICT`, and soft-deleted rows are still hard-purged past the window. See `ai-patterns/data-retention-pii.md`.
+- Text search over a large table uses the engine's real full-text primitive (Postgres `tsvector` + GIN, MySQL `FULLTEXT`, SQLite FTS5, or an external engine) kept in sync by a `GENERATED … STORED` column or trigger, and returns results **ranked** (`ts_rank` / `MATCH … AGAINST` score) — never `LIKE '%term%'` / `ILIKE '%term%'` forcing a full scan, and never an unmaintained (stale) FTS column. `pg_trgm` is the indexed answer for genuine substring/fuzzy. See `ai-patterns/full-text-search.md`.
+- Every process reaches the DB through a **bounded** connection pool sized under the server ceiling — `per_instance_pool_max × instance_count + other_clients ≤ server_max_connections − reserve` — never a fresh connection per request and never a guessed size. A transaction-mode pooler (pgbouncer/ProxySQL) requires server-prepared statements + session state disabled; serverless functions route through a proxy (RDS Proxy / Data API) with per-invocation pool size 1. See `ai-patterns/connection-pooling.md`.
+- Any read routed to a replica tolerates replication lag; read-your-writes and correctness-sensitive reads (auth / authorization / balance / inventory / uniqueness pre-check) go to the **primary** or use a consistency token (primary-pin window / LSN / GTID) — never blindly to a possibly-lagging async replica. Replica lag is monitored and a failover/promotion plan (with an acknowledged RPO for async loss-of-tail) exists. See `ai-patterns/read-replicas.md`.
 
 ## Must not
 
@@ -48,8 +51,8 @@ Prevents the failures that wake you up: deadlocks, runaway scans, broken migrati
 - CHECK constraints for invariants the app shouldn't have to re-enforce (`CHECK (price >= 0)`, `CHECK (status IN ('pending','paid','cancelled'))`).
 - Migrations are reversible (ship a `down`) when feasible. If not, document the forward-fix plan in the migration file header.
 - Expand-contract for breaking schema changes: add new column → backfill → switch reads → switch writes → drop old column. Each step ships in its own deploy.
-- Read replicas for read-heavy workloads — but route writes + read-your-writes to primary.
-- Connection pooler (`pgbouncer` for Postgres, `proxysql` for MySQL) sized to `(cores * 2 + spindles)` per replica, not 1000 per app instance.
+- Read replicas for read-heavy workloads — but route writes + read-your-writes to primary. See `ai-patterns/read-replicas.md`.
+- Connection pooler (`pgbouncer` for Postgres, `proxysql` for MySQL) sized to `(cores * 2 + spindles)` per replica, not 1000 per app instance. See `ai-patterns/connection-pooling.md`.
 - `pg_stat_statements` (Postgres) / Performance Schema (MySQL) enabled; review slow queries weekly.
 
 ## Review checklist
@@ -63,6 +66,9 @@ Prevents the failures that wake you up: deadlocks, runaway scans, broken migrati
 - [ ] Soft-delete + tenant filters applied where required.
 - [ ] Contended read-modify-write is `FOR UPDATE` / version-guarded; Serializable/RR transactions retry on `40001`; multi-row locks ordered consistently.
 - [ ] PII columns classified + retention/purge mechanism wired; erasure path resolves every FK (no orphan, no `RESTRICT` block).
+- [ ] Text search on a large table uses the engine's FTS primitive (`tsvector`+GIN / `FULLTEXT`) with ranking + a maintenance mechanism; no `LIKE '%x%'` full scan.
+- [ ] DB access goes through a bounded pool; `per_instance × instances < max_connections − reserve`; no per-request connect; transaction-mode pooler checked against prepared statements/session state.
+- [ ] Replica reads tolerate lag; read-your-writes + auth/balance/uniqueness reads go to primary or a consistency token; replica lag monitored + failover/RPO planned.
 
 ## Enforcement
 

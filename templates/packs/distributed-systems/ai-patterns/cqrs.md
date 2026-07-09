@@ -103,3 +103,7 @@ Event Store ──────────────────────�
 - Projections that write back to the write model.
 - Synchronous projection updates in the command's transaction (defeats the purpose).
 - Reading eventually-consistent projections for strongly-consistent invariants (use write model).
+
+## Related
+
+- `reconciliation` — CQRS owns the single-store projection *rebuild* primitive; reconciliation owns *detecting* that a projection silently diverged from its source and repairing it (the detector that triggers the rebuild and verifies it worked).
