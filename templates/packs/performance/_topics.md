@@ -36,6 +36,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { api_surface_detected: true }
   fallback: _examples/profile-endpoint.md
 
+- name: memory-leak-hunt
+  kind: skill
+  triggers: { api_surface_detected: true }
+  fallback: _examples/memory-leak-hunt.md
+
 - name: load-test
   kind: skill
   triggers: { api_surface_detected: true }

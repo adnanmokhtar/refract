@@ -71,4 +71,19 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { always: true }
   fallback: _examples/quickstart-verify.md
+
+- name: diagram-sync
+  kind: skill
+  triggers: { always: true }
+  fallback: _examples/diagram-sync.md
+
+- name: docstring-coverage
+  kind: skill
+  triggers: { always: true }
+  fallback: _examples/docstring-coverage.md
+
+- name: changelog-generate
+  kind: skill
+  triggers: { always: true }
+  fallback: _examples/changelog-generate.md
 ```

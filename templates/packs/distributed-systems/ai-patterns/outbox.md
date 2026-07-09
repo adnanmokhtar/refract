@@ -67,3 +67,7 @@ Separately, a worker polls (or uses CDC):
 ## Consumer side
 
 Consumers must be IDEMPOTENT — the outbox worker may publish the same event twice if it crashes between bus-publish and DB-update. Consumer dedupes by event id (unique index on `events.id`).
+
+## Related
+
+- `reconciliation` — outbox is the *fix* for dual-write divergence (write once transactionally, relay to the copy); reconciliation is the safety-net audit where a dual-write still exists, periodically diffing the two stores and repairing the loser toward the source of truth.

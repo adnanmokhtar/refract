@@ -59,6 +59,7 @@ Memorize. Every design that assumes otherwise is wrong.
 - Version events / API contracts (`order.created.v2`). Breaking changes ship as a new version; old version retired with notice.
 - CDC (Debezium / Maxwell) over polling for change propagation when DB is the source of truth.
 - Strong consistency within a service transaction; eventual consistency across services — design for it explicitly, never hope for it.
+- Every derived or replicated store (a read-model projection, a cache, a search/analytics index, a dual-write copy, a read replica) has an anti-entropy reconciliation job: drift detection (checksum / count / sample-diff / watermark) + a resumable, idempotent repair path + an emitted divergence metric with an alert. A copy with no "how would we know it diverged, and how would we fix it?" answer is a latent incident. `cqrs` / `event-sourcing` own the single-store projection *rebuild*; this owns cross-store *divergence detect + repair* — see `reconciliation.md`.
 
 ## Communication patterns
 

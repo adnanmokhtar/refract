@@ -194,6 +194,9 @@ Workflow jobs: `lint` ✓ `test` ✓ `typecheck` ✓ `build` (not required — O
 - `@deployment-engineer` — sibling agent in devops pack
 - `@devops-architect` — sibling agent in devops pack
 
+### Skills
+- `gitops-audit` — this agent reviews the **CI pipeline** (triggers, secrets, caching, deploy safety, supply chain) up to artifact publish; `gitops-audit` reviews the **git→cluster reconciliation** that runs after publish (Argo CD / Flux drift, out-of-band `kubectl apply`, plaintext secrets in git, prune/sync-wave safety). Complementary: CI theater vs reconciliation theater.
+
 ### Patterns
 - `ai/patterns/cicd-pipeline.md`
 - `ai/patterns/deployment.md`

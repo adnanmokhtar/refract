@@ -189,4 +189,5 @@ Next: pick recommendations to apply (often start with quick wins #2 + #3 + #6).
 - `@mobile-architect` — sometimes recommends architectural changes (split app, deferred modules) that this command surfaces.
 - `@performance-optimizer` (general) — for non-mobile-specific perf work.
 - `@app-store-reviewer` — pre-release. Bundle size is a release-blocker if it exceeds the platform's recommended size.
+- `ota-updates` — the OTA payload IS this JS bundle; a smaller bundle is a faster, safer over-the-air update. Size wins here directly shrink the OTA blast-radius/download.
 - `ai/runtime/bundle-audits/` — historic audits for trend analysis.

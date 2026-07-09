@@ -2,7 +2,7 @@
 track: business
 purpose: Translate business ideas into actionable specs, audit shipped features for completeness (forward + inverse + recovery), and surface conversion drop-off.
 essentials:
-  agents: [business-analyst, business-auditor, workflow-integrity]
+  agents: [business-analyst, business-auditor, workflow-integrity, domain-model-auditor]
   commands: [analyze-task, expand-task, audit-business]
   skills: [audit-funnel-completion, check-business-coverage]
   rules: [business-completeness]
@@ -14,7 +14,7 @@ essentials:
 Files listed above are the minimal subset copied when `/setup-project --minimal` is used. Standard mode copies the entire pack; minimal mode copies only essentials.
 
 Rationale per category:
-- **agents**: `business-analyst` writes specs from rough ideas; `business-auditor` walks shipped features for completeness gaps; `workflow-integrity` reconstructs an entity's lifecycle state graph and proves every transition is legal + guarded (the state-graph complement to `business-auditor`'s cycle audit).
+- **agents**: `business-analyst` writes specs from rough ideas; `business-auditor` walks shipped features for completeness gaps; `workflow-integrity` reconstructs an entity's lifecycle state graph and proves every transition is legal + guarded (the state-graph complement to `business-auditor`'s cycle audit); `domain-model-auditor` reconstructs the aggregates + their invariant-enforcement register and proves each invariant is enforced by a real layer, not left NOWHERE (the structural complement — three orthogonal auditors: experience, state-graph, aggregate-structure). `pricing-tax-audit` (skill) is signal-gated on billing surfaces and kept out of minimal.
 - **commands**: `/analyze-task`, `/expand-task` (turning ideas into specs); `/audit-business` (run business-auditor agent).
 - **skills**: `audit-funnel-completion` (single-flow drop-off audit), `check-business-coverage` (cross-feature forward/inverse/recovery audit).
 - **rules**: `business-completeness` (the foundational rule: a feature is "done" when forward + inverse + recovery + metrics all wired).

@@ -82,3 +82,9 @@ LOW PRIORITY:
 - Snapshot tests inflate line coverage but don't exercise branches — don't be misled.
 - A branch shown as "0 hits" in `lcov` may be reachable only under a specific Node version flag — check before deleting.
 - A line shown as *covered* can still be untested in strength — coverage proves it ran, not that any test asserts on its behaviour. For assertion gaps on changed/critical code, hand off to `mutation-probe.md` (the strength complement: presence here, strength there).
+
+## Related
+
+- `mutation-probe.md` — the strength complement: coverage-gap proves a branch RAN; mutation-probe proves an assertion would CATCH it breaking. Presence here, strength there.
+- `property-invariants.md` — the input-space-breadth complement: coverage-gap measures which branches ran on the examples you wrote; property-invariants tests whether the behaviour holds *for-all* inputs, catching the branch the examples never generate. A branch can be covered and still wrong on the input you didn't type.
+- `@test-engineer` — turns a flagged gap into the missing test.

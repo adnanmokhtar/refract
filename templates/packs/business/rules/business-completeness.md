@@ -21,6 +21,8 @@ severity: must
 - **Every cross-actor flow ends.** Admin approves → user receives notification → user takes action → status updates → other actors notified. Don't leave the chain dangling at any link.
 - **Every entity lifecycle is a guarded state graph.** Every state an entity can hold MUST be reachable from the initial state, and at least one terminal state MUST exist (no traps that strand the entity forever). Every state change MUST check its current-state precondition before writing the next state (a conditional `WHERE status = 'expected'` + affected-rows check, or a guard clause) — never a blind overwrite. Illegal edges (`refunded → paid`, `shipped → cancelled`) MUST be impossible, not merely uncommon. This is the **state-graph** half of completeness; `missing-counterparts` covers the **cycle-pair** half (does the inverse verb exist), `@workflow-integrity` covers whether the edges between states are legal and guarded. Run both.
 - **Every empty state is opinionated.** "No orders yet — start by adding products to your catalog [CTA]" beats a blank screen.
+- **Every domain aggregate owns its invariants, and every invariant names its enforcement layer.** An aggregate root (`Order`, `Wallet`, `Subscription`) is a consistency boundary: the rule it guarantees (`total == Σ line_items`, `balance >= 0`, `end_date > start_date`) MUST be enforced by a cited layer — a DB `CHECK`/`UNIQUE`, a model guard / value-object constructor, or a domain-service assertion — never left to caller discipline. An invariant recited in docs but enforced by no code (`enforced-where: NOWHERE`) on money / inventory / balance is a BLOCKER, not a nit. Anemic models (data bags whose rules leaked into services) and foreign-aggregate members mutated outside their root are boundary defects. `@domain-model-auditor` reconstructs the aggregates + the invariant-enforcement register and grades each.
+- **Money is an integer minor-unit or a decimal type — never a float.** Every price computation MUST state its rounding (round once, at a documented step, with a deliberate mode), its tax jurisdiction (resolved via nexus → rate, never a hardcoded constant, taxed on the discounted amount), and its currency (an amount with no currency code is not money). Multi-currency values MUST NOT be mixed — convert at a defined rate/time or keep them apart; a `SUM` across currencies is a bug. Charges and metering carry an idempotency key. `pricing-tax-audit` audits the money-MATH correctness (representation, rounding, tax base, currency, idempotency, proration) — distinct from the billing-UX checklist.
 
 ## Must not
 
@@ -48,6 +50,8 @@ When reviewing a feature for completeness:
 - [ ] Every empty state has an action / explanation.
 - [ ] Every cross-actor flow has a defined endpoint.
 - [ ] Every entity lifecycle state is reachable + has a terminal state; every status transition checks its current-state precondition (no blind overwrite) — `@workflow-integrity`.
+- [ ] Every aggregate invariant names its enforcement layer (DB / model / service), none on money / inventory / balance is enforced NOWHERE; no anemic model on a rule-bearing aggregate — `@domain-model-auditor`.
+- [ ] (If the feature touches money) prices are integer-minor-unit / decimal (no float); rounding + tax jurisdiction + currency are explicit; no mixed-currency sum; charges are idempotent — `pricing-tax-audit`.
 - [ ] Funnel events fire at each step (analytics).
 - [ ] Audit log captures sensitive operations (role change, data export, account delete).
 - [ ] Permissions denied path is documented per role.
@@ -74,6 +78,8 @@ The catalog (in `ai/failures/`) of completeness gaps that shipped:
 - `ai/business-flows.md` — declared flows that this rule audits against.
 - `@business-auditor` — agent that runs this rule across a feature.
 - `@workflow-integrity` — agent that enforces the guarded-state-graph MUST (reachability, terminal state, current-state precondition per transition); state-graph complement to `@business-auditor`'s cycle-completeness audit.
+- `@domain-model-auditor` — agent that enforces the aggregate-owns-its-invariants MUST (invariant-enforcement register, anemic-model + boundary-leak detection); structural complement to `@workflow-integrity`'s state-graph audit.
+- `pricing-tax-audit` — skill that enforces the money-representation MUST (integer-minor-unit / decimal, rounding + jurisdiction + currency explicit, no mixed-currency, idempotent charges); signal-gated on billing surfaces.
 - `code-quality/rules/quality-principles.md` — code-level quality rule; this is the business-level counterpart.
 
 ## Related

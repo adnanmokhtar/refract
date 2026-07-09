@@ -142,6 +142,7 @@ Invariants this audit enforces: every alert has a runbook + owner; alerts fire o
 
 ### Skills
 - `slo-audit` — sibling audit; its SLO definitions feed this audit's burn-rate coverage check.
+- `synthetic-monitoring` — sibling audit; the blackbox/synthetic page routes it produces must meet this audit's runbook/owner/symptom bar.
 
 ### Agents
 - `@sre-engineer` — owns SLO / error-budget / burn-rate policy.
@@ -151,3 +152,4 @@ Invariants this audit enforces: every alert has a runbook + owner; alerts fire o
 ### Patterns
 - `ai/patterns/metrics.md`
 - `ai/patterns/slo.md`
+- `ai/patterns/dashboards.md` — the alert→panel link this audit checks is defined there; a well-formed alert drills into a versioned panel.

@@ -80,6 +80,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/profiling.md
 
+- name: dashboards
+  kind: pattern
+  triggers: { metrics_lib_detected: true }
+  extracts_from: _extracted-codebase.md § Observability (dashboards / provisioning tool) + existing boards + alert rules
+  sections: [tier_hierarchy, panel_taxonomy_red_use, dashboards_as_code, alert_panel_linkage, vanity_and_sprawl, detectors]
+  mirror_existing: true
+  fallback: _examples/dashboards.md
+
 - name: observability-principles
   kind: rule
   triggers: { logger_lib_detected: true }
@@ -97,6 +105,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { metrics_lib_detected: true }
   fallback: _examples/alert-audit.md
+
+- name: synthetic-monitoring
+  kind: skill
+  triggers: { always: true }
+  fallback: _examples/synthetic-monitoring.md
 
 - name: add-metrics
   kind: command

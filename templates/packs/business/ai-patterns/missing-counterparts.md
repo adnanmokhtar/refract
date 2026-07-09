@@ -130,3 +130,4 @@ Quick heuristic: search the codebase for verbs implying forward actions (create 
 - `check-business-coverage.md` skill — cross-feature audit.
 - `audit-funnel-completion.md` skill — per-flow audit.
 - `@workflow-integrity` — the state-graph counterpart to this pattern. This pattern audits **cycle-pair existence** (does the paired inverse/completion/recovery verb exist); workflow-integrity audits the **state graph between an entity's states** (are the transitions legal, guarded, terminal, reachable). They meet but do not overlap — run both.
+- `@domain-model-auditor` — the aggregate-structure counterpart. This pattern audits whether the paired verb *exists* (create↔delete); domain-model-auditor audits whether the entity behind it is a real aggregate that *owns its invariants* (or an anemic bag whose rules leaked to a service, with invariants enforced nowhere). Cycle-pair existence is orthogonal to invariant enforcement — run both on a rich-domain feature.

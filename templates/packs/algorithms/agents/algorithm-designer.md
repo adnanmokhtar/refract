@@ -139,6 +139,10 @@ Chat output stays brief: the dominating finding + the routed hand-offs. The full
 ### Rules
 - [`algorithm-principles`](../rules/algorithm-principles.md) — the always-on complexity-budget / proven-primitive / correctness discipline.
 
+### Patterns (signal-gated — reach for during DESIGN when the signal is present)
+- [`numerical-methods`](../ai-patterns/numerical-methods.md) — precision / stability / conditioning for float + scientific math: tolerance not `==`, cancellation-safe accumulation, condition-number awareness, money → decimal. Picked during DESIGN when numeric signals are present.
+- [`sublinear-structures`](../ai-patterns/sublinear-structures.md) — probabilistic / sketch structures (Bloom / HLL / Count-Min / reservoir) when the budget is sub-linear space with a stated error.
+
 ### Agents + commands
 - `performance-optimizer` (performance pack) — the measured-runtime complement; receives the constant-factor / I/O / N+1 hand-offs.
 - `/optimize` — architectural diagnosis; routes algorithmic-complexity findings here.

@@ -108,5 +108,6 @@ Closure verbs: **report-with-fix** (name the assertion to add for each genuine s
 ## Related
 
 - `coverage-gap.md` — boundary sibling: coverage-gap proves a branch was EXECUTED (presence); mutation-probe proves a test would CATCH it breaking (strength). A survived mutant on an unexecuted line belongs to coverage-gap, not here.
+- `property-invariants.md` — the third axis of test quality: coverage-gap = presence, mutation-probe = strength (do the assertions catch a mutation), property-invariants = input-space breadth (does the behaviour hold for-all inputs, not just the examples). A mutant killed only because your one example happened to catch it can still survive across the inputs a generator would explore.
 - `@test-reviewer` — the assertion-quality auditor; feed it the surviving-mutant → assertion-to-add fixes.
 - `test-strategy.md` — where mutation testing sits in the pyramid: a strength gate on critical / changed modules, not a per-file default.

@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "mobile",
-  "version": "1.5.0",
-  "released": "2026-07-09",
+  "version": "1.6.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Mobile pack +push-notifications ai-pattern (permission/token/channel/presentation/payload lifecycle; routing delegated to deep-linking).",
+  "summary": "Mobile pack +ota-updates ai-pattern.",
   "changelog": {
     "1.4.0": {
       "released": "2026-06-16",
@@ -58,6 +58,12 @@
       "released": "2026-07-09",
       "changes": [
         "ai-patterns +1: push-notifications — the send/receive lifecycle (permission-UX timing, token registration+server-sync+410 invalidation, Android channels / iOS categories, foreground presentation, silent/rich payloads, badge). Owns everything except routing, which hands off to deep-linking. Backing MUST in mobile-principles."
+      ]
+    },
+    "1.6.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "ai-patterns +1: ota-updates (JS/asset-only OTA lifecycle, staged rollout, mandatory-update min-version gate, rollback; store-policy conformant)."
       ]
     }
   }

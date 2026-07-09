@@ -87,4 +87,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { deploy_target_detected: true }
   fallback: skills/monitor-deploy.md
+
+- name: progressive-delivery
+  kind: skill
+  triggers: { deploy_target_detected: true }
+  fallback: _examples/progressive-delivery.md
+
+- name: gitops-audit
+  kind: skill
+  triggers: { k8s_or_gitops_detected: true }
+  fallback: _examples/gitops-audit.md
 ```

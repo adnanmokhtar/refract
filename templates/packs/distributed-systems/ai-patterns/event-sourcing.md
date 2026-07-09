@@ -91,3 +91,7 @@ Required columns: `id` (sequential), `aggregate_id` (UUID/identifier), `aggregat
 - Events that reference current-state (break replay).
 - Ad-hoc queries against event store in the hot path (use projections).
 - Event sourcing without projections (you'll rebuild state on every read — slow).
+
+## Related
+
+- `reconciliation` — event-sourcing owns replay-based *rebuild*; reconciliation consumes replay as one repair mode and adds what replay alone can't give: cross-store divergence detection, the divergence metric + alert, and resumable partial repair for stores that were never event-sourced (a cache, a search index, a dual-written copy).

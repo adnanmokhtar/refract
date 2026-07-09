@@ -1,12 +1,23 @@
 {
   "kind": "pack",
   "name": "ai-engineering",
-  "version": "1.0.0",
-  "released": "2026-07-09",
+  "version": "1.1.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline — building LLM/AI features WELL (the complement to the security pack's llm-security-reviewer). Provider-agnostic patterns for RAG pipelines, evals (offline harness + LLM-as-judge + regression gates), prompt engineering + structured output, agent/tool design (loops, human-in-loop, budgets), and the LLM gateway (routing / caching / cost+latency / fallback / streaming). An ai-feature-reviewer agent, an eval-run skill, an add-ai-feature command, and an ai-engineering-principles rule. Treats model output as untrusted (cross-links security llm-security-reviewer) and cost/latency as first-class.",
+  "summary": "AI-engineering pack +2 ai-patterns: fine-tuning, vector-store-ops.",
   "changelog": {
-    "1.0.0": { "released": "2026-07-09", "changes": ["Initial baseline."] }
+    "1.0.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "Initial baseline."
+      ]
+    },
+    "1.1.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "ai-patterns +2: fine-tuning (last-resort decision ladder after prompt+RAG, eval-gated + versioned) and vector-store-ops (ANN index tuning — HNSW/IVF params, recall/latency, filtered-recall, refresh — under rag-pipeline's retrieval)."
+      ]
+    }
   }
 }

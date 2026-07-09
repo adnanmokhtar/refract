@@ -107,4 +107,5 @@ Next: fix the null-deref, re-run /deploy-stage.
 
 - `/deploy-stage` — dispatches this skill as its monitoring step (`--watch=` / `--no-monitor`).
 - `/rollback-deploy` — triggered by this skill on a confirmed breach; also calls back to it to confirm recovery.
+- `progressive-delivery` — tight boundary: this watches **a single deploy's** health window and triggers rollback; progressive-delivery owns the **feature-flag lifecycle** (stale/dead flags, kill-switch, cross-env parity) and the **canary's automated-analysis wiring** (the AnalysisTemplate that auto-promotes/aborts). This watches one rollout; that governs the flag's whole life and the canary's gate.
 - `.claude/rules/devops-principles.md` — "monitor before declaring success" is a hard rule.

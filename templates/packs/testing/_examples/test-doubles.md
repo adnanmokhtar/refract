@@ -181,3 +181,7 @@ expect(await userRepo.findById(result.id)).toMatchObject({
 - Mocking framework internals (don't mock `express.Router`).
 - Sharing mocks across tests (pollutes state).
 - Real external API calls in unit / integration tests — MSW / nock / fakes only.
+
+## Related
+
+- `test-factories` — the data complement. test-doubles owns *behavior* (what a collaborator does when the SUT calls it — mocks, stubs, fakes, spies); test-factories owns *data* (how the input objects and fixtures the test operates on are built, with defaults + per-test overrides). A test typically needs both: a factory to build the `User`, a fake repository to stand in for the DB. Building data through a mock, or scripting behavior through a factory, is using the wrong tool.

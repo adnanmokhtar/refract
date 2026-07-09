@@ -200,6 +200,12 @@ If you have no metrics today:
 5. Build the standard dashboard. Hook the first SLO burn-rate alert.
 6. Repeat per service. Resist the urge to add metrics for things you'll never look at.
 
+## Related
+
+- `dashboards.md` — the *reading surface* for these metrics: RED/USE/business panels are visualized there, tiered and versioned-as-code, with the alert→panel linkage. The "delete a panel/metric nobody reads in 90 days" rule is shared both ways.
+- `slo.md` — burn-rate alerts consume these metrics; the burn panel and the burn-rate rule come from the same spec.
+- `skills/alert-audit.md` — audits the alerts wired on top of these metrics.
+
 ## References
 
 - Prometheus naming conventions — the canonical naming reference (still useful even if your backend isn't Prometheus).

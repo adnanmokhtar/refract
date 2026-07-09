@@ -39,6 +39,22 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/rag-pipeline.md
 
+- name: vector-store-ops
+  kind: pattern
+  triggers: { grep_evidence: "hnsw|ivf|ivfflat|ef_search|nprobe|nlist|faiss|pgvector|pinecone|weaviate|qdrant|milvus|ann.?index" }
+  extracts_from: _extracted-codebase.md § "AI/LLM integration" (vector store + index type + ANN params + refresh path)
+  sections: [exact_vs_ann, index_families, tradeoff_target, metadata_filtering, hybrid_search, build_refresh, detectors]
+  mirror_existing: true
+  fallback: _examples/vector-store-ops.md
+
+- name: fine-tuning
+  kind: pattern
+  triggers: { grep_evidence: "fine.?tun|lora|peft|adapter|training.?data|\\.jsonl|axolotl|unsloth" }
+  extracts_from: _extracted-codebase.md § "AI/LLM integration" (any fine-tune / training pipeline + dataset + eval)
+  sections: [decision_ladder, what_it_buys, dataset_curation, lora_vs_full, eval_gate, versioning_drift, detectors]
+  mirror_existing: true
+  fallback: _examples/fine-tuning.md
+
 - name: prompt-engineering
   kind: pattern
   triggers: { llm_usage_detected: true }

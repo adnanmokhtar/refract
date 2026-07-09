@@ -2,7 +2,7 @@
 
 Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
-This pack is stack-agnostic — algorithms + complexity are language-independent, so every topic triggers `always`. Extraction supplies the *project's* concrete details (its language's standard containers and their costs, its test framework for property/adversarial tests, its hot paths); the reasoning discipline is fixed. No `_examples/` stubs exist, so fallbacks point at the live sources.
+This pack is stack-agnostic — algorithms + complexity are language-independent, so every topic triggers `always`. Extraction supplies the *project's* concrete details (its language's standard containers and their costs, its test framework for property/adversarial tests, its hot paths); the reasoning discipline is fixed. Most topics have no `_examples/` stub, so those fallbacks point at the live sources; the signal-gated patterns ship an abridged `_examples/` snapshot.
 
 ```yaml
 - name: algorithm-designer
@@ -44,6 +44,14 @@ This pack is stack-agnostic — algorithms + complexity are language-independent
   sections: [when_to_use, structures_table, sizing, detectors, closure_verbs]
   mirror_existing: true
   fallback: ai-patterns/sublinear-structures.md
+
+- name: numerical-methods
+  kind: pattern
+  triggers: { grep_evidence: "numpy|scipy|blas|lapack|matrix|linalg|\\bfloat\\b|float64|float32|double|Decimal|BigDecimal|mean|variance|stddev|covariance|dot.?product|norm|eigen|solve|integrate|simulation|Monte.?Carlo" }
+  extracts_from: _extracted-codebase.md § Stack (numeric / scientific libs + float precision) + § Modules (hot numeric paths)
+  sections: [gate, regimes, detectors, closure_verbs]
+  mirror_existing: true
+  fallback: _examples/numerical-methods.md
 
 - name: algorithm-principles
   kind: rule

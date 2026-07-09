@@ -100,6 +100,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { vcs_detected: true }
   fallback: _examples/dead-branch-scan.md
 
+- name: debt-ledger
+  kind: skill
+  triggers: { vcs_detected: true }
+  fallback: _examples/debt-ledger.md
+
 - name: architectural-diagnosis
   kind: skill
   triggers: { always: true }

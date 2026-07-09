@@ -80,3 +80,4 @@ Recommendations (priority):
 ## Related
 
 - `load-test.md` — boundary: this skill diagnoses ONE slow subject; `load-test` runs the whole-system SLA campaign (realistic mix, ramp to breakpoint, headroom). When a campaign exposes a knee, it hands the subject at that knee back here for the flamegraph + slow-query root cause.
+- `memory-leak-hunt.md` — boundary: this skill profiles ONE snapshot's hot path (where time goes now); `memory-leak-hunt` uses the same steady-load generator to hold load flat and hunt heap growth OVER TIME. When a profile run shows RSS climbing rather than a slow frame, hand the subject there.

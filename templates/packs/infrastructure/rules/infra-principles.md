@@ -26,6 +26,7 @@ Prevents the patterns that turn cloud bills + outage minutes into avoidable loss
 - Persistent data on managed DB or object storage. Never on container-local disk — pods die, disks die.
 - Backups automated AND restore tested at least quarterly. An untested backup is a folder of bytes.
 - Every stateful production store MUST have automated backups + point-in-time recovery (PITR) + a restore drilled on a fixed cadence + a declared RPO/RTO — the coverage the `dr-audit` skill verifies. Backup existence is not recovery capability: a store with backups but no fresh drill is BLOCK, never ready.
+- Every ingress path MUST be intentional and least-exposed: no `0.0.0.0/0` (or `::/0`) inbound on non-public ports (SSH, RDP, DB, cache, admin/metrics), databases + caches + internal tiers in PRIVATE subnets (never a public IP or `publicly_accessible = true`), and a default-deny `NetworkPolicy` in every K8s namespace. A wide-open ingress with no documented reason is forbidden — the running/declared exposure the `network-exposure-audit` skill sweeps for.
 
 ## Must not
 
@@ -57,7 +58,7 @@ Prevents the patterns that turn cloud bills + outage minutes into avoidable loss
 - [ ] Healthchecks + probes declared.
 - [ ] Resource requests + limits set.
 - [ ] Container runs as non-root.
-- [ ] Network policy / SG / firewall rule restricts to least access.
+- [ ] Network policy / SG / firewall rule restricts to least access; no `0.0.0.0/0` on a non-public port, no DB/cache in a public subnet, default-deny NetworkPolicy present (run `network-exposure-audit`).
 - [ ] Backup + restore documented for any new stateful service.
 
 ## Enforcement

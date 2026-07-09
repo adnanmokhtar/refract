@@ -41,7 +41,8 @@ Prevents the four classic incidents: bad migration locks the DB, secret leaked t
 - Dependency updates automated via Renovate / Dependabot, grouped by ecosystem, auto-merged for patch versions when tests pass.
 - SBOM (`syft`) + image vuln scan (`trivy` / `grype`) in CI — block on critical CVEs.
 - Rotate long-lived secrets quarterly even without compromise; rotate immediately on any suspected exposure.
-- Feature flags for risky changes (LaunchDarkly / Unleash / Flipt / OpenFeature) — decouple deploy from release.
+- Feature flags for risky changes (LaunchDarkly / Unleash / Flipt / OpenFeature) — decouple deploy from release. A risky change ships behind a flag with a **kill-switch** (flip-to-disable, not redeploy-to-disable) and an **automated canary-analysis gate** (AnalysisTemplate / Flagger metrics that promote or abort on SLO/error-rate, not a human eyeballing a dashboard); and every flag has a **removal lifecycle** — an owner, a removal date, and deletion once fully rolled out (no stale/orphaned/permanent release flags). `progressive-delivery` audits the flag lifecycle + the canary's automated-analysis wiring.
+- Cluster state is **git-reconciled** (Argo CD / Flux): git is the single source of truth, a controller reconciles git→cluster with **drift detection + self-heal**, there is **no out-of-band `kubectl apply` / `helm upgrade`** to managed namespaces, and **no plaintext secrets in git** (sealed-secrets / SOPS / external-secrets only). `gitops-audit` audits the reconciliation discipline — drift, out-of-band mutation, secret handling, prune safety, sync-wave ordering.
 
 ## Review checklist
 

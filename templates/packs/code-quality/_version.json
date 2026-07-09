@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.5.1",
-  "released": "2026-06-26",
+  "version": "1.6.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "refactorer agent: reciprocal boundary route — an algorithmic / complexity-class change (swapping the algorithm or data structure for a different complexity class) is not behavior-AND-complexity-preserving, so it routes to the new algorithms pack (`/analyze-complexity`, `/design-algorithm`) alongside the existing `/optimize` route; makes the algorithms pack's claimed hand-off real (rendered-not-asserted). (1.5.0: review-changes hardening — dependency-manifest category + universal secret-scan + universal coverage-gap + missing-agent inline fallback.)",
+  "summary": "Code-quality pack +debt-ledger skill.",
   "changelog": {
     "1.5.1": {
       "released": "2026-06-26",
@@ -26,24 +26,24 @@
     "1.4.2": {
       "released": "2026-06-14",
       "changes": [
-        "architectural-diagnosis + refactoring-sweep skills: added the `name:` frontmatter field (was missing; the 3 migration skills already had it) \u2014 makes Cursor/Codex SKILL.md translation mechanical instead of LLM-authored.",
-        "architectural-diagnosis: fixed dangling reference to a non-existent 'step 4.7' in the migration-discipline cross-ref \u2014 now points at the detector pass (Procedure step 4)."
+        "architectural-diagnosis + refactoring-sweep skills: added the `name:` frontmatter field (was missing; the 3 migration skills already had it) — makes Cursor/Codex SKILL.md translation mechanical instead of LLM-authored.",
+        "architectural-diagnosis: fixed dangling reference to a non-existent 'step 4.7' in the migration-discipline cross-ref — now points at the detector pass (Procedure step 4)."
       ]
     },
     "1.4.1": {
       "released": "2026-06-13",
       "changes": [
-        "refactorer agent: removed 3 verbs from the 'Safe refactors' table that fell outside refactoring-sweep's closed 10 AND tripped the agent's own new-symbol auto-halt \u2014 value-object introduction, conditional\u2192polymorphism, reduce-fan-out; these now route to /optimize.",
-        "refactoring-sweep skill: now names /refactor as its core apply-engine consumer (the 10 verbs ARE /refactor's closed vocabulary) \u2014 fixes the one-directional wiring where /refactor dispatched the skill but the skill never named it."
+        "refactorer agent: removed 3 verbs from the 'Safe refactors' table that fell outside refactoring-sweep's closed 10 AND tripped the agent's own new-symbol auto-halt — value-object introduction, conditional→polymorphism, reduce-fan-out; these now route to /optimize.",
+        "refactoring-sweep skill: now names /refactor as its core apply-engine consumer (the 10 verbs ARE /refactor's closed vocabulary) — fixes the one-directional wiring where /refactor dispatched the skill but the skill never named it."
       ]
     },
     "1.4.0": {
       "released": "2026-06-06",
       "changes": [
-        "Adds change-brief skill \u2014 the comprehension gate. 'If you can't explain the code, it isn't yours' was advisory in engineering-principles \u00a7 AI-assisted development; now mechanical: every non-trivial change carries a 5-field brief (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit/PR body, generated (mode A) + validated (mode B: presence, hand-wave grep, citation check, echo check, verification check) by the skill.",
-        "Wired into /pre-commit (new 'Comprehension gate' step in Phase 6 \u2014 missing/failing brief is a blocker) and /review-changes (universal dispatch alongside code-reviewer).",
-        "Trigger tiers scale the gate with risk (>20-line diff, new dependency/public symbol/abstraction, I/O-auth-payments touch, error-path/default/permission-gate change); typo fixes, mechanical renames, formatting, lockfile-only changes are exempt \u2014 no manufactured ceremony.",
-        "engineering-principles.md \u00a7 AI-assisted development gains the operationalizing bullet; _essentials.md + _topics.md updated in the same change."
+        "Adds change-brief skill — the comprehension gate. 'If you can't explain the code, it isn't yours' was advisory in engineering-principles § AI-assisted development; now mechanical: every non-trivial change carries a 5-field brief (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit/PR body, generated (mode A) + validated (mode B: presence, hand-wave grep, citation check, echo check, verification check) by the skill.",
+        "Wired into /pre-commit (new 'Comprehension gate' step in Phase 6 — missing/failing brief is a blocker) and /review-changes (universal dispatch alongside code-reviewer).",
+        "Trigger tiers scale the gate with risk (>20-line diff, new dependency/public symbol/abstraction, I/O-auth-payments touch, error-path/default/permission-gate change); typo fixes, mechanical renames, formatting, lockfile-only changes are exempt — no manufactured ceremony.",
+        "engineering-principles.md § AI-assisted development gains the operationalizing bullet; _essentials.md + _topics.md updated in the same change."
       ]
     },
     "1.3.0": {
@@ -68,6 +68,12 @@
       "released": "2026-04-26",
       "changes": [
         "Initial code-quality pack release."
+      ]
+    },
+    "1.6.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "skills +1: debt-ledger (persisted ranked tech-debt ledger — dated TODOs, unjustified suppressions, deprecated-API use, version-lag — diffed run-over-run; the longitudinal tracker check-health cites)."
       ]
     }
   }

@@ -110,3 +110,6 @@ OK: 84 file refs, 12 scripts, 19 env vars, 7 ADR citations, 22 signatures/exampl
 ## Related
 
 - `quickstart-verify.md` — sibling skill; this scans docs for references to dead *code*, quickstart-verify executes the *setup procedure* in a clean env to prove onboarding still runs.
+- `diagram-sync.md` — the diagram complement: doc-drift-scan catches drift in *text* claims (a doc naming a dead symbol); diagram-sync catches drift in the *picture* (a box naming a dead module). Same failure family, visual surface.
+- `docstring-coverage.md` — the docstring complement: this scans prose docs against the tree; docstring-coverage measures the *public API surface* for symbols missing a contract docstring. Text-drift here, symbol-coverage there.
+- `changelog-generate.md` — the release-notes complement: this finds docs that lie about current code; changelog-generate builds the categorized record of *what changed* from commit/PR history so the release notes never drift from git.

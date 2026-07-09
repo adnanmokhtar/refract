@@ -262,6 +262,7 @@ Avoid graph-cluttered dashboards. 6-9 panels per dashboard, organized by questio
 - `ai/patterns/structured-logging.md`
 - `ai/patterns/tracing.md`
 - `ai/patterns/profiling.md`
+- `ai/patterns/dashboards.md` — the detailed owner of *how* the dashboards this agent recommends are structured, tiered, versioned-as-code, and alert-linked.
 
 ### Cross-pack (when co-installed)
 - `web-vitals-field` (performance pack) — owns field CWV measurement + attribution; this agent owns RUM ingestion / retention / dashboarding.
