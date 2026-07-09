@@ -1,9 +1,19 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "First quality pass since baseline — currency + coverage uplift (the pack was built on OWASP 2021; the 2025 edition finalized Jan 2026 with a different taxonomy). security-auditor remapped to OWASP Top 10:2025 (SSRF folded into A01; NEW A03 Software Supply Chain Failures + A10 Mishandling of Exceptional Conditions; Injection incl. the previously-missing XSS is A05; +BOLA/BFLA, alg:none, OAuth 2.1/passkeys, EPSS/KEV) with a 2021->2025 migration note. Enforcement-theater closed: the auditor now DISPATCHES image-scan/SBOM/signing to the devops pack and reports MISSING rather than asserting an unbacked pass. deps-audit npm parser fixed (npm 7+ .vulnerabilities, +OSV-Scanner, +EPSS/KEV). auth-reviewer + auth-flow: OAuth 2.1 (PKCE-all/no-implicit/no-ROPC/DPoP/PAR) + a passkey/WebAuthn ceremony detector; bcrypt <10->12 contradiction fixed. security-principles gains XSS/output-encoding + mass-assignment + file-upload MUSTs. NEW tenant-isolation pattern (resolves the flagship reviewer dangling ref). secret-scan modern token prefixes. Cross-link + example-spine + heading-drift fixes.",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "security-auditor.md: full OWASP Top 10:2025 remap of the checklist (was hardwired to 2021 — every finding cited a wrong class). SSRF absorbed into A01; A02 Security Misconfiguration; NEW A03 Software Supply Chain Failures; A04 Crypto (alg:none/confusion, argon2id); A05 Injection now includes reflected/stored/DOM XSS with the framework sinks (the total gap D2); A06 Insecure Design; A07 Auth (OAuth 2.1, passkeys, DPoP); A08 Integrity; A09 Logging; NEW A10 Mishandling of Exceptional Conditions (fail-closed). Added BOLA/BFLA to A01, EPSS/KEV to A03. Supply-chain tail rewritten from assert-passed to dispatch-and-verify (image scan/SBOM/cosign executed by devops; report MISSING if no producer) — closes the enforcement-theater the review flagged.",
+        "Currency + coverage: deps-audit schema-aware parser (npm7 .vulnerabilities / pnpm .advisories / osv-scanner) + EPSS/KEV triage; auth-reviewer OAuth 2.1 + WebAuthn ceremony detector + Related @tenant-isolation-reviewer + Skills subsection; auth-flow bcrypt<12 + passkey flow + Related; zero-trust Related; security-principles NEW MUSTs (XSS/output-encoding, mass-assignment, file-upload) + checklist rows; secret-scan +github_pat_/xox*/hf_/SG./Twilio/npm_ prefixes; threat-model LINDDUN + heading fixes; dependency-vuln-check EPSS/KEV/OSV. Heading drift (When to use->When to run) cleared pack-wide.",
+        "NEW ai-patterns/tenant-isolation.md (security-lens invariant + 7 isolation layers + assume-breach review methodology + 6 detectors) — resolves the dangling ref from the flagship @tenant-isolation-reviewer + security-audit command; registered in _topics/_essentials; cross-links backend multi-tenancy for the impl shape. payment-integration dangling ref repointed (owned by backend/domain). _examples/{auth-reviewer,security-auditor} regain the condensed Premise+Halt spine so fallback-generated agents keep cite-or-halt."
+      ]
+    }
+  }
 }

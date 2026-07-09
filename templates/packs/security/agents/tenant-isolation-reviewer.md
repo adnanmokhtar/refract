@@ -142,6 +142,9 @@ Patterns consulted: tenant-isolation, zero-trust
 - `@security-auditor` — runs the broader OWASP audit; this agent is the multi-tenant deep dive.
 - `@auth-reviewer` — overlap on access control; auth verifies *who*, this verifies *whose data*.
 
+### Skills
+- `secret-scan` — confirm no per-tenant credentials / connection strings are committed or shared across tenants.
+
 ### Patterns
 - `ai/patterns/tenant-isolation.md`
 - `ai/patterns/zero-trust.md`

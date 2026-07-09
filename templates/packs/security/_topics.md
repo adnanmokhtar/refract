@@ -40,6 +40,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [overview, principles_for_this_app, deny_by_default_examples, secret_handling, audit_trail]
   fallback: _examples/zero-trust.md
 
+- name: tenant-isolation
+  kind: pattern
+  triggers: { signal_confirmed: multi-tenant }
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" § multi-tenant + tenant resolution + query scoping
+  sections: [invariant, isolation_layers, review_methodology, detectors]
+  mirror_existing: true
+  fallback: _examples/tenant-isolation.md
+
 - name: security-principles
   kind: rule
   triggers: { always: true }

@@ -19,6 +19,9 @@ Prevents the OWASP Top 10 patterns most likely to actually hit you: injection, b
 - Authorization (who can do this) is checked AFTER authentication (who is this) — they're different layers. Never collapse them.
 - Parameterized queries / prepared statements / ORM bind parameters only. String interpolation into SQL is a CVE waiting to ship.
 - Validate every input at every trust boundary: HTTP request, webhook, queue consumer, file upload, IPC. Don't trust "the previous service already validated".
+- Encode output by context — never interpolate user input straight into an HTML / JS / attribute / URL sink. Use the framework's auto-escaping; `innerHTML`, `dangerouslySetInnerHTML`, `v-html`, and `| safe` / `{{{ }}}` are forbidden with user-influenced data (sanitize with a vetted allow-list sanitizer if raw HTML is unavoidable). CSP is defense-in-depth, not the primary control.
+- Bind request payloads through an explicit field allow-list (DTO / schema with named fields). Never mass-assign a whole request body onto a persisted entity — over-posting lets a client set `role`, `isAdmin`, `tenant_id`, `price`, or `ownerId`.
+- File uploads: validate type by magic bytes (not the client-sent extension / MIME), enforce a size cap, and store outside the webroot (or in object storage) with a generated name — never execute or serve uploads from a path the server will interpret. See the backend `file-upload` pattern.
 - Passwords hashed with `argon2id` (preferred) or `bcrypt` cost ≥ 12. Never fast hashes (`md5`, `sha1`, `sha256`) — brute-forceable.
 - JWTs verify signature + `exp` + `iss` + `aud` on every request. Reject `alg: none`. Pin the algorithm allowlist.
 - Sessions: `HttpOnly`, `Secure`, `SameSite=Lax` (or `Strict` for sensitive flows). Rotate session ID on login / privilege change.
@@ -52,6 +55,9 @@ Prevents the OWASP Top 10 patterns most likely to actually hit you: injection, b
 - [ ] Authorization check on every new endpoint.
 - [ ] Input validated with the project's schema validator (per the project's stack).
 - [ ] No raw SQL with interpolation. No shell calls with user input.
+- [ ] User data output is context-encoded — no `innerHTML` / `dangerouslySetInnerHTML` / `v-html` / `| safe` with unsanitized input.
+- [ ] Writes bind an explicit field allow-list — no whole-body mass-assignment onto a persisted entity (`role`/`isAdmin`/`tenant_id`/`price` unsettable by the client).
+- [ ] File uploads validated by magic bytes, size-capped, stored outside the webroot with a generated name.
 - [ ] No new secret in code. No log line printing a credential, token, or full PII.
 - [ ] Tenant filter applied (multi-tenant projects).
 - [ ] Errors don't leak stack traces, query SQL, or file paths to clients.

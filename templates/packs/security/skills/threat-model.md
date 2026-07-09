@@ -26,6 +26,8 @@ Walk through each component, apply each threat category:
 - **D**enial of service — prevent legitimate use. (Resource exhaustion, slow POST attack.)
 - **E**levation of privilege — gain more access than authorized. (Missing permission checks, IDOR.)
 
+For features that handle PII, run **LINDDUN** alongside STRIDE — it covers the privacy threats STRIDE misses: Linkability, Identifiability, Non-repudiation, Detectability, Disclosure of information, Unawareness, Non-compliance (e.g., over-collection, re-identification, missing consent/retention controls).
+
 ## Flow
 
 1. **Draw the system** — context diagram with external actors, services, data stores, trust boundaries.
@@ -87,7 +89,7 @@ Open issues (rank-ordered):
   2. Rate limits not yet configured (ticket INFRA-17).
 ```
 
-## When to threat-model
+## When to run
 
 - Any new public endpoint.
 - Any authentication / authorization change.
@@ -95,7 +97,7 @@ Open issues (rank-ordered):
 - Any new external integration.
 - Before every major release.
 
-## Rules
+## False positives / gotchas
 
 - Include the attacker persona — "anonymous internet rando" vs "disgruntled employee" are different threats.
 - Don't dismiss threats with "our WAF handles it" without verifying.

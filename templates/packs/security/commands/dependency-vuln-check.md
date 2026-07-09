@@ -66,7 +66,7 @@ Confirm scope:
 
 Five concerns audited in parallel:
 
-1. **Known CVEs** — `npm audit` / `pip-audit` / `cargo audit` / `bundler-audit` / `govulncheck` / Snyk / OSV.
+1. **Known CVEs** — `npm audit` / `pip-audit` / `cargo audit` / `bundler-audit` / `govulncheck` / Snyk / OSV. Triage by exploitability, not CVSS alone: cross-reference **EPSS** (probability of exploitation in the next 30 days) and the **CISA KEV** catalog (known-exploited-in-the-wild). A CVSS-7 that is on KEV or has high EPSS outranks a CVSS-9 with near-zero EPSS and no known exploit — escalate KEV/high-EPSS findings, de-prioritize the theoretical.
 2. **License compatibility** — every dep's license vs project's chosen license. Surprising introductions of GPL / AGPL.
 3. **Maintainer health** — last commit, open issue ratio, # of maintainers (bus factor).
 4. **Version drift** — major versions behind; consequences of deferred updates.
@@ -75,13 +75,15 @@ Five concerns audited in parallel:
 ## Phase 3 — Retrieve
 
 Tools:
-- `npm audit --json` / `pnpm audit` / `yarn audit`
+- **OSV-Scanner** — the cross-ecosystem default (npm, PyPI, Go, Cargo, Maven, … from one lockfile-aware pass over OSV.dev); reach for it first, then fall back to the ecosystem-native auditor for richer fix paths.
+- `npm audit --json` / `pnpm audit` / `yarn audit` — note: npm **7+** emits findings under `.vulnerabilities` (keyed by package), NOT the legacy `.advisories` map; parse the version-appropriate shape.
 - `pip-audit` / `safety` (Python)
 - `cargo audit` (Rust)
 - `bundler-audit` (Ruby)
 - `govulncheck` (Go)
 - `composer audit` (PHP)
 - `Snyk` / `OSS Index` / `OSV.dev`
+- EPSS API (first.org) + CISA KEV catalog for exploitability-weighted triage.
 - `npm-license-checker` / `pip-licenses` / `cargo-license`
 - `socket.dev` for supply-chain anomaly markers
 - GitHub Advisory Database

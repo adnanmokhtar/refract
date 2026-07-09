@@ -17,7 +17,7 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
 - Halt on rotation/purge instructions that skip the rotate-first step (deleting the commit does not invalidate the credential).
 - Halt on entropy-only findings that don't separate "high entropy near `token`/`secret`/`password` identifier" from "long config string".
 
-## When to use
+## When to run
 
 - Before any first push to a public remote.
 - After a "whoops, committed `.env`" event — even if force-pushed, pull request cloners may still have it.
@@ -62,6 +62,12 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
 - Anthropic / OpenAI / Gemini: `sk-ant-`, `sk-`, `AIza`
 - Stripe: `sk_live_`, `pk_live_`, `whsec_`
 - AWS: `AKIA[0-9A-Z]{16}`, `aws_secret_access_key`
+- GitHub: `ghp_` (classic PAT), `github_pat_` (fine-grained PAT), `gho_` / `ghs_` / `ghu_` (OAuth/app tokens)
+- Slack: `xox[baprs]-` (bot / app / refresh / user / legacy tokens)
+- HuggingFace: `hf_`
+- SendGrid: `SG.`
+- Twilio: `AC[0-9a-f]{32}` (account SID), `SK…` (API key SID)
+- npm: `npm_` (automation / publish token)
 - GCP service-account JSON (`"type":"service_account"`)
 - Private keys: `-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----`
 - DB URLs with passwords: `postgres://user:pass@host`, `mysql://...`, `mongodb+srv://...`
