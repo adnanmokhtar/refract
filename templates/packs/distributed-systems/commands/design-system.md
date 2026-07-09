@@ -22,9 +22,9 @@ All 7. Phase 4 = the design doc + ADRs (no code generation here).
 
 ## Phase 2 — Organize
 
-- Sub-tasks: context diagram, data ownership table, communication matrix, failure-mode matrix, consistency model, SLO contract, ADRs, rollout plan.
-- Sequence: architect first (the design), then resilience-reviewer (the failure modes), then ADR authoring.
-- Pause after architect's draft — user confirms before resilience pass.
+- Sub-tasks: context diagram, data ownership table, communication matrix, failure-mode matrix, consistency model, SLO contract, capacity model + bottleneck ledger + scaling plan, ADRs, rollout plan.
+- Sequence: architect first (the boundaries), then capacity-planner (the numbers — estimation, bottleneck, scaling axis, migration cutover), then resilience-reviewer (the failure modes), then ADR authoring.
+- Pause after architect's draft — user confirms before the capacity + resilience passes.
 - **Scope gate**: If the design has ≤2 services and no cross-region/event-sourcing/saga concerns, run `system-architect` only and skip `resilience-reviewer` + auto-ADR. Promote to full chain only when the architect flags ≥1 distributed-systems risk (network partition, exactly-once requirement, eventual-consistency window).
 
 ## Phase 3 — Retrieve
@@ -36,16 +36,29 @@ ALWAYS:
 - `ai/business-domain.md` — entity ownership.
 - Service inventory (existing services, their owners, their tech).
 
-SIGNAL-BASED:
+SIGNAL-BASED (pack patterns unless marked *project signal* — a project-signal read may or may not exist in the target repo; skip it if absent, never treat it as pack-shipped):
 | Signal | Read |
 |---|---|
-| Event-driven | `ai/patterns/event-bus.md`, `ai/patterns/outbox.md` |
-| Saga / cross-tx | `ai/patterns/saga-*.md` (per-feature saga docs written by `/add-saga`), `ai/patterns/idempotency.md` |
-| Multi-region | `ai/patterns/replication.md` |
+| Event-driven | `ai/patterns/outbox.md`, `ai/patterns/cqrs.md`; the project's event-bus / broker topology doc *(project signal)* |
+| Saga / cross-tx | `ai/patterns/saga.md`, `ai/patterns/saga-*.md` (per-feature docs written by `/add-saga`), `ai/patterns/idempotency.md` |
+| High scale / sharding | `ai/patterns/sharding-partitioning.md`, `ai/patterns/backpressure.md` |
+| Consistency-sensitive | `ai/patterns/consistency-models.md` |
+| Multi-region | `ai/patterns/consistency-models.md`; the project's replication / geo-topology doc *(project signal)* |
+
+## Phase 3.5 — Capacity + scaling (between Retrieve and Generate)
+
+Before any boundary is committed, dispatch `@capacity-planner` with the scale targets from Phase 1 (RPS, GB/day, users, peak:avg, read:write) + the datastore + deployment model. It produces, in order:
+
+1. **Estimation** — the capacity model: QPS → instances (Little's Law), storage growth (GB/day → GB/yr × retention), bandwidth, cache/memory sizing, DB connection budget, with peak:avg + headroom. Every number shows its math + assumption.
+2. **Bottleneck** — the binding constraint at 1x / 10x / 100x (the bottleneck ledger).
+3. **Scaling strategy** — the scale axis (vertical → horizontal-stateless → read replicas → shard/partition), cross-linked to `ai/patterns/sharding-partitioning.md` + `ai/patterns/backpressure.md`.
+4. **Migration cutover** — if the design reshapes data at scale: dual-write → backfill in batches → shadow-read compare → expand-contract → flip.
+
+Halt-forward: if the design "won't fit on one box" but the boundary assumes it will, or a capacity claim has no number behind it, capacity-planner halts the design here — the architect reworks before Generate.
 
 ## Phase 4 — Generate
 
-Dispatch `system-architect` with the assembled brief. Architect produces:
+Dispatch `system-architect` with the assembled brief (now including the capacity model + bottleneck ledger). Architect produces:
 - **Context diagram** (ASCII) — services + external systems + the new boundaries.
 - **Data ownership table** — every entity + which service owns writes + which read replicas.
 - **Communication matrix** — for each cross-service call: sync vs async, transport (HTTP / gRPC / event bus / queue), retry policy, idempotency strategy.
@@ -104,13 +117,21 @@ Rollout phases:
 
 ## Related
 
+### Agents
+- `@system-architect` — qualitative boundaries, ownership, consistency, failure modes.
+- `@capacity-planner` — quantitative estimation, bottleneck ledger, scaling axis, migration-at-scale.
+- `@resilience-reviewer` — failure-path audit.
+
 ### Patterns
+- `ai/patterns/backpressure.md`
 - `ai/patterns/circuit-breaker.md`
+- `ai/patterns/consistency-models.md`
 - `ai/patterns/cqrs.md`
 - `ai/patterns/event-sourcing.md`
 - `ai/patterns/idempotency.md`
 - `ai/patterns/outbox.md`
 - `ai/patterns/saga-*.md` (per-feature, written by `/add-saga`)
+- `ai/patterns/sharding-partitioning.md`
 
 ### Rules
 - `.claude/rules/distributed-principles.md`

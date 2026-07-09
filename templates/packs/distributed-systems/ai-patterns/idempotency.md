@@ -37,10 +37,10 @@ Networks fail. Clients retry. Without idempotency:
 
 ## Idempotent operations by type
 
-### HTTP methods (RFC 7231)
+### HTTP methods (RFC 9110, obsoletes 7231)
 - **GET** — idempotent by definition. No side effects.
 - **PUT** — idempotent. Full replace.
-- **DELETE** — idempotent. Deleting an already-deleted thing is a no-op (200 / 204, not 404).
+- **DELETE** — idempotent. Idempotency constrains the *effect on server state* (the resource ends up gone), **not the status code** — a repeat DELETE returning `404`/`410` is fully idempotent and common (a first `200`/`204` then `404` on the second call is fine). Don't force `200`/`204` on an already-deleted resource to "look idempotent."
 - **HEAD, OPTIONS** — idempotent.
 - **POST** — NOT idempotent by default. Make it idempotent via idempotency keys.
 - **PATCH** — NOT guaranteed. Depends on semantics (increment = not idempotent; set-if-match = idempotent).
@@ -69,7 +69,7 @@ Server stores first response by key. Subsequent requests with same key return st
 Flow:
 ```
 1. Receive request with Idempotency-Key.
-2. Lock on key (advisory lock / row-level "select for update" / the project's distributed lock primitive).
+2. Lock on key (advisory lock / row-level "select for update" — a **single-source-of-truth** DB lock is safest here). **If using a distributed lock (Redis etc.), it MUST carry a fencing token** — a monotonically increasing number the resource checks and rejects if stale — because a lock holder can be paused (GC/network) past its TTL and a second holder acquire concurrently. Redlock is contested (Kleppmann vs Antirez); for correctness prefer a single-writer DB lock or a fencing-token-checked resource, not a lock alone. See `distributed-lock.md`.
 3. Check idempotency_records:
    - Found + same hash → return stored response. Done.
    - Found + different hash → 409 Conflict (client bug: key reused with different body).

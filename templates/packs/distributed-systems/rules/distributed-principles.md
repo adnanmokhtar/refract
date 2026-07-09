@@ -46,7 +46,7 @@ Memorize. Every design that assumes otherwise is wrong.
 - Retries without idempotency. Every retried POST that isn't idempotent doubles your data.
 - External call inside a DB transaction. Holds a connection across unbounded network time = pool exhaustion + lock contention.
 - Catch + swallow on a network error. Either retry with policy + circuit breaker, or fail with a typed error the caller can handle.
-- "Best effort" for business-critical exactly-once semantics (payments, orders). Use outbox + idempotency.
+- **Exactly-once *delivery* is impossible** across a network (the two-generals problem). What you build is **effectively-once = at-least-once delivery + idempotent processing** — the message may arrive 2+ times; idempotency makes the duplicate a no-op. For business-critical flows (payments, orders): outbox (at-least-once publish) + a stored idempotency key on the consumer. Never claim "exactly-once" — claim effectively-once and show the idempotency key.
 - Cross-tenant data leak via incorrect partitioning / cache key / event filter — silent until a customer notices.
 
 ## Should

@@ -18,6 +18,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [persona, failure_modes_for_this_app, retry_idempotency_check, circuit_breaker_check, output_format]
   fallback: _examples/resilience-reviewer.md
 
+- name: capacity-planner
+  kind: agent
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § "Scale targets" + SLO + datastore + § Modules (write-path)
+  sections: [persona, capacity_model, bottleneck_ledger, scaling_strategy, migration_cutover, output_format]
+  fallback: _examples/capacity-planner.md
+  cite_evidence: strict
+
 - name: event-sourcing-architect
   kind: agent
   triggers: { signal_confirmed: event-sourced }
@@ -70,6 +78,26 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: pattern
   triggers: { external_dependency_count_above_2: true }
   fallback: _examples/circuit-breaker.md
+
+- name: consistency-models
+  kind: pattern
+  triggers: { service_count_above_1: true }
+  fallback: _examples/consistency-models.md
+
+- name: distributed-lock
+  kind: pattern
+  triggers: { grep_evidence: "distributed lock|Redlock|SETNX|advisory_lock|SELECT .*FOR UPDATE|fencing|lease" }
+  fallback: _examples/distributed-lock.md
+
+- name: sharding-partitioning
+  kind: pattern
+  triggers: { signal_confirmed: high-scale }
+  fallback: _examples/sharding-partitioning.md
+
+- name: backpressure
+  kind: pattern
+  triggers: { service_count_above_1: true }
+  fallback: _examples/backpressure.md
 
 - name: distributed-principles
   kind: rule
