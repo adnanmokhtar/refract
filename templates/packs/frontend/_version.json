@@ -1,12 +1,21 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Asset-optimization specialists added — NEW image-optimization skill (legacy-format→AVIF/WebP, responsive srcset/sizes, width/height CLS, below-fold lazy, framework image-component adoption, oversized-source, LQIP) + NEW font-optimization skill (font-display/FOIT, critical-font preload, self-host remote Google Fonts, size-adjust fallback swap-CLS, unicode-range subset, variable-font, woff2-first). Both mirror the project's own primitive (next/image·NuxtImg·NgOptimizedImage / next/font·@nuxt/fonts·Fontsource) and split cleanly from lcp-audit (which keeps LCP priority-hints) — image-opt owns format/dimensions/loading, font-opt owns loading+swap-CLS. Builds on the v1.5.0 SEO specialist; completes the frontend asset + discoverability gaps from the frontend review.",
+  "summary": "Pack-wide quality/standards reconciliation after the SEO+image+font wave — frontend-principles.md gains the missing LCP/image/font/SEO MUSTs and FIXES the self-contradicting blanket loading=lazy (now carves out the LCP/hero image, matching lcp-audit); NEW _authoring-standard.md codifies the skill (scanner/runner/utility) + agent (reviewer/generator) house-contracts + the shipped coding-rules index; @technical-seo back-linked into all 6 pre-existing agents (cross-link graph repaired); fixed a ships-broken U+00AD soft-hyphen in navigation-speed's Speculation-Rules GOOD example and dangling/misnamed skill refs (dev-server-stop, a11y-audit→a11y-scan). Prior: v1.6.0 image+font specialists, v1.5.0 SEO specialist.",
   "changelog": {
+    "1.7.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "rules/frontend-principles.md: reconciled with the v1.5.0–v1.6.0 specialists. FIXED P0 self-contradiction — the blanket `loading=\"lazy\"` Should (which lcp-audit named as the anti-pattern it exists to catch) is replaced by a MUST that prioritizes the LCP/hero image (fetchpriority/priority, never lazy) and lazy-loads only below the fold. ADDED MUSTs for LCP & images (format/srcset/dimensions/CLS), fonts (font-display/self-host/preload/size-adjust fallback/woff2/variable), and SEO (unique title+description/canonical/OG/JSON-LD/hreflang/SSR-not-CSR/sitemap+robots via the project's own metadata primitive). Updated the Hard-rule banner, Review checklist (+3 rows), and Enforcement (LCP/image/font/SEO skills + Lighthouse SEO/best-practices categories).",
+        "NEW _authoring-standard.md (meta, not shipped to projects) — codifies the quality bar: cross-cutting invariants (cite-or-halt, mirror-the-primitive, negotiated ownership boundaries, bidirectional cross-links, currency=WCAG 2.2 AA / CWV=LCP·INP·CLS, generic-source, cross-pack-refs-must-resolve); the skill contract by class (scanner/runner/utility); the agent reviewer/generator house-contract; the shipped coding-rules index; and a new-artifact conformance checklist. Names the current retrofit targets (data-flow-auditor + api-contract-sentry lack Premise/Verdict; ui-reviewer lacks coverage table; accessibility-auditor WCAG-2.1→2.2 rebaseline; ssr-audit lacks Adapt table).",
+        "Cross-link graph repair: added `@technical-seo` to the ## Related sibling lists of all 6 pre-existing agents (accessibility-auditor, ui-architect, ui-reviewer, data-flow-auditor, api-contract-sentry, i18n-auditor) — the new agent was previously invisible to the pack (one-directional link).",
+        "Bug fixes surfaced by the review: navigation-speed.md:46 shipped a U+00AD soft-hyphen inside the `eagerness` key of its GOOD Speculation-Rules example (copy-paste → invalid key → prerender silently never fires) — stripped to clean ASCII. dev-server-start.md referenced a nonexistent `dev-server-stop` sibling skill (reworded to inline PID-kill) and mislabeled the `a11y-scan` skill as `a11y-audit` (a command); verify-with-playwright.md had the same a11y-audit→a11y-scan slip. All repointed."
+      ]
+    },
     "1.6.0": {
       "released": "2026-07-09",
       "changes": [

@@ -248,6 +248,7 @@ Estimated total: 2-3 hours.
 - `@i18n-auditor` — sibling agent in frontend pack
 - `@ui-architect` — sibling agent in frontend pack
 - `@ui-reviewer` — sibling agent in frontend pack
+- `@technical-seo` — sibling agent in frontend pack
 
 ### Patterns
 - `ai/patterns/forms.md`

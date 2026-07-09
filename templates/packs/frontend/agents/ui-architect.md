@@ -299,6 +299,7 @@ Consult `.claude/references/<framework>.md`. Key variations:
 - `@data-flow-auditor` — sibling agent in frontend pack
 - `@i18n-auditor` — sibling agent in frontend pack
 - `@ui-reviewer` — sibling agent in frontend pack
+- `@technical-seo` — sibling agent in frontend pack
 
 ### Patterns
 - `ai/patterns/forms.md`

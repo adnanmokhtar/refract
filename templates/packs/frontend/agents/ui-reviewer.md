@@ -271,6 +271,7 @@ Framework-specific conventions checked: <name>
 - `@data-flow-auditor` — sibling agent in frontend pack
 - `@i18n-auditor` — sibling agent in frontend pack
 - `@ui-architect` — sibling agent in frontend pack
+- `@technical-seo` — sibling agent in frontend pack
 
 ### Patterns
 - `ai/patterns/forms.md`

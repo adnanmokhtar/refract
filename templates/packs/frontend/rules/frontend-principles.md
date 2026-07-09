@@ -9,7 +9,7 @@ applies-to: frontend-track, every-code-writing-task-in-frontend
 
 # Frontend Principles
 
-> **Hard rule.** Components MUST have typed props + events (no `any`); data fetching MUST live in a hook / composable / service (never in a component body); every user-facing string MUST go through i18n with a key in every declared locale; semantic HTML + `<label>` + visible focus ring are mandatory. Hardcoded strings, untyped event handlers, and `fetch` / `axios` inside `.vue` / `.tsx` / `.svelte` bodies are forbidden.
+> **Hard rule.** Components MUST have typed props + events (no `any`); data fetching MUST live in a hook / composable / service (never in a component body); every user-facing string MUST go through i18n with a key in every declared locale; semantic HTML + `<label>` + visible focus ring are mandatory. The LCP image MUST be prioritized (never `loading="lazy"`); web fonts MUST set `font-display`; public/indexable routes MUST ship unique metadata + canonical and be server-rendered, not a CSR shell. Hardcoded strings, untyped event handlers, and `fetch` / `axios` inside `.vue` / `.tsx` / `.svelte` bodies are forbidden.
 
 Stack-agnostic. Framework specifics in `references/<framework>.md` (react, vue, nuxt, svelte, angular).
 
@@ -30,6 +30,9 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Navigation speed: primary in-viewport navigation links MUST be prefetched via the framework primitive (Next `<Link>` default-on; Nuxt `<NuxtLink>` / `prefetchOn`; SvelteKit `data-sveltekit-preload-data="hover"` — accepts `hover` / `tap` / `off`, do not flag an intentional `=off`; React Router `<Link prefetch="intent">`). Raw-HTML / MPA surfaces ship a `<script type="speculationrules">` document rule with `eagerness:"moderate"`. Disabling a default prefetch requires a documented reason. See `navigation-speed.md`.
 - Streaming: a server-rendered route whose above-the-fold content does NOT depend on a slow query MUST stream — render the shell immediately and stream slow regions behind a Suspense / await boundary (Next `loading.tsx` + `<Suspense>` + `use()`; Nuxt lazy components; SvelteKit streamed promises; Remix / RR `defer` + `<Await>`). Blocking TTFB on a below-the-fold query is forbidden when the shell could paint first. See `references/rendering-strategy.md` and `streaming-ssr.md`.
 - Instant loading state: every data-dependent route MUST paint an instant layout-stable skeleton (matching final dimensions, no CLS) on navigation — not a spinner, not a blank screen. Use the framework route-level loading convention (Next `loading.tsx`; SvelteKit `navigating` store; React Router `useNavigation().state`; Vue Router `<router-view>` + `Suspense` fallback). For plain React-Router / Vue-Router routes with no route-level convention, the detector looks for an in-component `Suspense` fallback / router pending UI. See `navigation-speed.md`.
+- LCP & images: the Largest Contentful Paint image MUST be eager + prioritized (`fetchpriority="high"` / `<Image priority>` / `NgOptimizedImage priority`) and MUST NOT carry `loading="lazy"` — exactly one high-priority element per view. Every other content image: modern format (AVIF/WebP, or a CDN `format=auto`), responsive `srcset`/`sizes`, explicit `width`/`height` (or CSS `aspect-ratio`) to prevent CLS, and `loading="lazy"` **below the fold only**, via the framework image component where one exists. See `lcp-audit.md` (priority) + `image-optimization.md` (format / dimensions / loading).
+- Fonts: web fonts MUST set `font-display` (`swap`, or a deliberate `optional`); self-host via the framework primitive (`next/font`, `@nuxt/fonts`, Fontsource) — no render-blocking remote Google Fonts `<link>`; preload the one critical above-the-fold font with `crossorigin`; provide a size-adjusted fallback face (`size-adjust` / `ascent-override`) to kill swap-CLS; woff2-first; prefer a variable font over ≥3 static weights. See `font-optimization.md`.
+- SEO (public / indexable routes): each MUST declare a unique `<title>` + meta description, a self-referencing canonical, Open Graph + Twitter tags, and page-appropriate JSON-LD describing **only visible content**; localized routes carry reciprocal `hreflang` + `x-default`; SEO-critical routes are SSR / SSG / prerendered, never CSR-only (a CSR shell is empty to crawlers). Non-public routes get `noindex`; the site ships `sitemap.xml` + `robots.txt`. All via the project's own metadata primitive (`generateMetadata` / `useSeoMeta` / `<svelte:head>` / `Title`+`Meta` / `react-helmet`) — never a second mechanism. See `seo-audit.md` + `@technical-seo`.
 
 ## Must not
 
@@ -50,7 +53,7 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Keep local state local (`useState` / `ref` / `signal`). Promote to a global store only when ≥ 2 unrelated components need it.
 - Use domain-focused stores: `useOrderStore`, `useCartStore`. One mega-store is forbidden.
 - Memoize expensive selectors (`useMemo`, `computed`, `derived`, `reselect`).
-- Optimize images via the framework-native helper (`next/image`, `nuxt/image`, `Image` from `astro:assets`) with `width`, `height`, `loading="lazy"`, `srcset`.
+- Large hero / card images use an LQIP / blur / dominant-color placeholder where the framework offers one (`next/image placeholder="blur"`, `<NuxtImg placeholder>`). (Core image discipline — format / dimensions / lazy-below-fold / LCP-priority — is a Must above, see `image-optimization.md`.)
 - Audit the bundle (`vite-bundle-visualizer` / `webpack-bundle-analyzer` / `source-map-explorer`) before every release. Lazy-load heavy deps (charts, editors, PDF viewers).
 - Route-level code splitting plus chunk-level splitting for heavy modal flows.
 
@@ -60,7 +63,9 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - [ ] No `fetch` / `axios` in component body.
 - [ ] No hardcoded strings; new keys added to all locales.
 - [ ] No `console.log` left in.
-- [ ] New images use the framework's image component.
+- [ ] New images: framework image component, modern format, explicit `width`/`height` (no CLS); the LCP/hero image is prioritized and NOT `loading="lazy"`.
+- [ ] New / changed web font sets `font-display`, is self-hosted, and has a size-adjusted fallback (no swap-CLS).
+- [ ] Public / indexable route ships unique title + description, canonical, OG/Twitter, page-appropriate JSON-LD; localized routes carry hreflang; SEO route is SSR/SSG/prerendered (not CSR-only).
 - [ ] New large list uses virtualization.
 - [ ] Keyboard tab order verified on the new screen.
 - [ ] Lighthouse / axe-core: no new a11y regressions.
@@ -79,3 +84,4 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - `size-limit` / `bundlesize` budget gates PRs.
 - Lighthouse CI on key routes; visual regression via Playwright / Chromatic.
 - Navigation / streaming / instant-loading / bfcache checks via `navigation-speed.md` + `streaming-ssr.md`; bfcache verified in DevTools Application → Back/forward cache (no `unload` / `beforeunload` evictors).
+- LCP / image / font / SEO checks via `lcp-audit.md` + `image-optimization.md` + `font-optimization.md` + `seo-audit.md` (and the `@technical-seo` reviewer); Lighthouse CI **SEO + best-practices** categories on public routes, in addition to the perf category.

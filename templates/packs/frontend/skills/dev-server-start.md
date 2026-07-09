@@ -11,7 +11,7 @@ Existing project conventions are the truth. Read `package.json`, the lockfile, a
 
 Refuse to start a server when `package.json` is absent at the chosen project root.
 
-Boilerplate for "I need the app running locally before I can verify it." Used as a prerequisite by `verify-with-playwright`, `a11y-audit`, `visual-check`, `ssr-audit`, and any task that ends with "open the page and check."
+Boilerplate for "I need the app running locally before I can verify it." Used as a prerequisite by `verify-with-playwright`, `a11y-scan`, `visual-check`, `ssr-audit`, and any task that ends with "open the page and check."
 
 ## When to use
 
@@ -108,8 +108,8 @@ dev-server-start
 ## Related
 
 - `verify-with-playwright` — typical caller; consumes the returned URL.
-- `a11y-audit`, `visual-check`, `ssr-audit` — also depend on a running server.
-- `dev-server-stop` (sibling skill, optional) — kill `.claude/dev-server.pid` if present, clear file.
+- `a11y-scan`, `visual-check`, `ssr-audit` — also depend on a running server.
+- To stop the server: kill the PID recorded in `.claude/dev-server.pid` (if present) and clear the file.
 
 ## Hard rules
 

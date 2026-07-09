@@ -110,7 +110,7 @@ verify-with-playwright — <feature/route>
 
 - `dev-server-start` — prerequisite for localhost targets.
 - `visual-check` — file-based pre-written `.spec.ts`. Persistent regression suite. Slower; runs less often.
-- `a11y-audit` — uses similar Playwright tools but layered on axe-core checks.
+- `a11y-scan` — uses similar Playwright tools but layered on axe-core checks.
 
 ## Hard rules
 
