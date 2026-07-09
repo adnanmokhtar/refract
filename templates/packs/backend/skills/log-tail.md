@@ -81,6 +81,14 @@ Stream structured JSON logs (Pino / Winston / zerolog / structlog) with `jq` fil
 - `tail -f` (lowercase) drops the file on rotation; `tail -F` follows the rename — always use `-F` for long sessions.
 - Dev only — never tail prod logs from this skill; use the central log aggregator.
 
+## Related
+
+- Used by `@bug-investigator` — the agent invokes `log-tail correlation:<id>` (or `log-tail error` + timestamp) as its first evidence-gathering step.
+- `.claude/skills/debug-tenant.md` — supplies log-tail the tenant id / correlation id to walk the tenant-resolution chain; log-tail produces the cited log lines that playbook requires.
+- `.claude/skills/endpoint-test.md` — when a test case returns 500 or a wrong shape, log-tail follows that request's trace into the logs.
+- `ai/patterns/error-handling.md` — the `traceId` correlation id + structured-log discipline these filters key on.
+- `.claude/rules/backend-principles.md` — the structured-logging + no-PII-in-logs MUSTs this skill enforces at read time.
+
 ## Halt conditions
 
 - Halt on hand-waves: every finding must quote the actual log line + timestamp + correlation id.

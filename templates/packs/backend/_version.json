@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Authoring-standard conformance for the flagship scanner + the coding-rules file. api-consistency-audit gains the scanner spine it lacked (Premise with cite-or-halt, a per-framework Adapt table, False positives/gotchas, Halt conditions, When-to-run heading) and its ai-patterns/ deploy-path drift is fixed to ai/patterns/. backend-principles reconciled: NEW MUSTs (single response envelope; content negotiation 415/406/Vary), NEW SHOULDs (optimistic concurrency ETag/If-Match/412/428; N+1 deferral to database+performance), a ## Related cross-reference block binding all 11 in-pack patterns + 2 sibling rules + the cross-pack owners, and the dangling in-pack idempotency.md refs softened to the distributed-systems pattern. Follows the v1.8.0 reference-parity pass.",
+  "summary": "Backlog #5 (cross-link hygiene) + #6 (older-pattern detector retrofit + the remaining gap specialists). NEW transaction-boundary + file-upload patterns and a migration-safety verifier skill (the three flagged gaps). All 5 agents gain a Related>Skills subsection; api-reviewer replaces its prose Areas-reviewed with a coverage table; bug-investigator promoted to opus + its example genericized; endpoint-test/endpoint-tester relabeled primitive+orchestrator; the 6 skills lacking ## Related get one; the 4 older patterns (api-contract/api-versioning/caching-strategy/error-handling) get the standardized ## Detectors (cite-or-halt) block so the pack has one section vocabulary. Follows the v1.9.0 scanner/rule conformance pass.",
   "changelog": {
+    "1.10.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW gap specialists: ai-patterns/transaction-boundary.md (intra-service write-set atomicity — service owns the boundary, no external I/O in tx, optimistic version-guard vs pessimistic FOR UPDATE, deadlock-safe lock ordering; cross-service outbox/saga deferred to distributed-systems; 5 detectors); ai-patterns/file-upload.md (size cap → 413, magic-byte type validation not header, presigned direct-to-storage, stream-not-buffer, uuid keys/path-traversal, malware scan, safe serving headers; 6 detectors); skills/migration-safety.md (online-safe/reversible migration verifier — blocking-index/NOT-NULL-no-backfill/same-deploy-rename/edit-applied/non-reversible-down/in-tx-backfill/FK-without-NOT-VALID; per-tool+engine Adapt table; full scanner spine). Registered the 2 patterns in _topics + _essentials (signal-gated); abridged _examples for all 3.",
+        "#5 cross-link hygiene: every agent Related now has a ### Skills subsection (api-reviewer→api-snapshot/api-consistency-audit; bug-investigator→log-tail/debug-tenant/endpoint-test; api-architect→module-scaffold; endpoint-tester→endpoint-test; websocket-engineer→none honestly). api-reviewer Output prose Areas-reviewed → a 10-row coverage/pass-fail table. bug-investigator model sonnet→opus + its WhatsApp/Meta/Claude/Stripe/Twilio example genericized to neutral placeholders. endpoint-tester relabeled as the orchestrator of the endpoint-test primitive (dedupe). Boilerplate pattern lists curated per agent (api-architect +rate-limiting/async/pagination/conditional; websocket-engineer +response-streaming). The 6 skills lacking ## Related (api-snapshot/debug-tenant/endpoint-test/env-diff/log-tail/module-scaffold) each got one with the orchestrating agent named.",
+        "#6 detector retrofit: the 4 older ai-patterns gained the standardized ## Detectors (cite-or-halt) + closure-verbs block, derived from rules they already state — api-contract (bare envelope / ORM leak / breaking-field-no-version / unvalidated DTO / changed code), error-handling (raw throw on user path / stack-in-body / not-in-single-mapper / catch-log-throw / 500-where-4xx), caching-strategy (no-TTL / missing-tenant-prefix / no-stampede-protection / cache-correctness-critical), api-versioning (break-in-live-version / overlap-no-deprecation / no-sunset-tracking / version-mixing). One section vocabulary across all patterns."
+      ]
+    },
     "1.9.0": {
       "released": "2026-07-09",
       "changes": [

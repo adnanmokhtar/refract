@@ -127,6 +127,15 @@ If the project serves v1 and v2 simultaneously:
 - Non-breaking changes warn, don't block.
 - Baseline updated only in the same PR as the approved breaking change.
 
+## Related
+
+- `.claude/skills/endpoint-test.md` — runtime counterpart: api-snapshot proves the *declared* OpenAPI contract didn't break; endpoint-test proves the *running* route still matches its DTO. Run both on a controller/DTO change.
+- `.claude/skills/api-consistency-audit.md` — sibling scanner for envelope / error-shape uniformity across endpoints; api-snapshot guards the diff, api-consistency-audit guards the shape.
+- Consumed by `@api-reviewer` — a breaking snapshot diff with no governing ADR escalates that agent's verdict to **BLOCK** (not REQUEST).
+- `ai/patterns/api-contract.md` — the evolution table (safe vs breaking) this skill classifies each diff against.
+- `ai/patterns/api-versioning.md` — the version-bump + Sunset policy an approved break must follow.
+- `.claude/rules/backend-principles.md` — the MUST behind "breaking changes require an ADR".
+
 ## Halt conditions
 
 - Halt on hand-waves: every diff entry must cite the endpoint path, method, and field. "Some endpoints changed" is not a verdict.

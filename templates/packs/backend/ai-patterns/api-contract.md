@@ -282,6 +282,40 @@ If you've inherited inconsistent endpoints:
 4. Once frontends move, deprecate `v1` per the versioning section.
 5. Add a contract test in CI that fails if any new endpoint deviates from the envelope.
 
+## Detectors (cite-or-halt)
+
+Each finding cites `<path:line>` + the matched pattern + the fix. "The API looks inconsistent" without a cited handler / DTO is not a finding.
+
+### 1. Response not in the single envelope
+
+```
+BAD:   return this.orders.list();          // returns [...] or { orders: [...] }
+GOOD:  return wrapResponse(data, 'OK');     // { status, code, message, data, meta }
+```
+Flag a controller/handler returning a bare array/object or a bespoke `{ orders: [...] }` key instead of the project's `{ status, code, message, data, meta }` wrapper → `wrap-in-envelope`.
+
+### 2. Output DTO leaks the ORM entity
+
+```
+BAD:   return this.productRepo.findOne(id);  // ships password_hash, tenant_id, deleted_at
+GOOD:  return this.productMapper.toDto(entity);
+```
+`grep` for a handler returning a repository/entity result with no mapper (`return this.*Repo.find`, `return await *.findOne`) → `map-to-output-dto`.
+
+### 3. Breaking field change with no version bump
+
+A removed / renamed / retyped response field, a new required input field, or tightened validation shipped on the same `/vN` path with no ADR (any "NO" row in the evolution table) → `bump-version` (route to `ai-patterns/api-versioning.md`).
+
+### 4. DTO field with no validator
+
+`@Body() body: any`, or an input DTO field carrying no `class-validator` / zod / pydantic decorator — the "validation as documentation" trap → `add-validator`.
+
+### 5. Changed `code` value
+
+An error `code` renamed ("it was ugly") with no versioning event → clients keyed on it break → `restore-or-version-code`.
+
+**Closure verbs:** `wrap-in-envelope`, `map-to-output-dto`, `bump-version`, `add-validator`, `restore-or-version-code`.
+
 ## References
 
 - Stripe API reference (stripe.com/docs/api) — gold standard for stable code, evolved for 12+ years.

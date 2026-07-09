@@ -96,6 +96,15 @@ Similar bugs to check:
 - File an incident write-up in `ai/audits/` after root cause is known.
 - Add a regression test that would have caught this BEFORE shipping the fix.
 
+## Related
+
+- `.claude/skills/log-tail.md` — the tracing primitive for steps 2–5: filter by correlation id / tenant id to observe the resolved id, SQL, and cache key at each hop.
+- `.claude/skills/endpoint-test.md` — reproduces the leak deterministically (case 4, wrong tenant) and confirms the fix; a cross-tenant 200 there is the same finding.
+- Used by `@bug-investigator` — this playbook is the tenant-isolation branch of that agent's root-cause search.
+- `ai/patterns/multi-tenancy.md` — the tenant-resolution + query-scoping contract the chain (host → middleware → context → repo → SQL → cache) walks.
+- `ai/patterns/caching-strategy.md` — the tenant-prefixed, versioned cache-key rule whose violation is the step-4 leak.
+- `.claude/rules/backend-principles.md` — the tenant-isolation MUSTs behind "a leak is a security incident".
+
 ## Halt conditions
 
 - Halt on hand-waves: every root-cause claim must cite `<file:line>` + the actual SQL or cache key produced.

@@ -176,6 +176,32 @@ Protobuf is additive-friendly:
 
 Pair versioning with contract tests (see `testing/skills/contract-test.md`). A pushed version bump AND no consumer contract change = something's wrong.
 
+## Detectors (cite-or-halt)
+
+Each finding cites `<path:line>` + the matched pattern + the fix. "The versioning looks wrong" without a cited route / header is not a finding.
+
+### 1. Breaking change within a live version
+
+A removed / renamed / retyped field, a new required input, or a changed error shape landed on an existing `/vN` route with no new version path (a "Breaking" list item shipped in place) → `ship-new-version`.
+
+### 2. Overlapping versions with no deprecation signal
+
+```
+BAD:   /api/v1/users and /api/v2/users both live; v1 emits no Sunset
+GOOD:  v1 responses carry `Deprecation` + `Sunset` + `Link: rel="successor-version"`
+```
+Flag a superseded version route whose responses omit `Deprecation` / `Sunset` headers → `add-deprecation-headers`.
+
+### 3. Deprecated route with no Sunset date + traffic tracking
+
+A version marked deprecated (docs/ADR) with no published Sunset date OR no per-consumer usage dashboard — you can't know when removal is safe → `add-sunset-and-tracking`.
+
+### 4. Per-endpoint version mixing
+
+Routes at `/v1/users` alongside `/v2/orders` under one API — consumers can't track a single version → `unify-version-scheme`.
+
+**Closure verbs:** `ship-new-version`, `add-deprecation-headers`, `add-sunset-and-tracking`, `unify-version-scheme`.
+
 ## Forbidden
 
 - Breaking changes within a version.

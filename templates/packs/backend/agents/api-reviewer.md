@@ -346,7 +346,20 @@ Nits (N):
 Positives (genuine only):
   - ...
 
-Areas reviewed: controllers, DTOs, services, repos, error handling, external calls, events, tests, observability
+Coverage
+| Area              | Result           | Note                          |
+|-------------------|------------------|-------------------------------|
+| layering          | pass/fail/n-a    | <core→framework leak, etc.>   |
+| validation        | pass/fail/n-a    | <DTO validators, mass-assign> |
+| error-contract    | pass/fail/n-a    | <Problem Details, no leaks>   |
+| idempotency       | pass/fail/n-a    | <Idempotency-Key on mutations>|
+| rate-limit        | pass/fail/n-a    | <expensive/unauth routes>     |
+| conditional/ETag  | pass/fail/n-a    | <If-Match / 412 / 304>        |
+| pagination        | pass/fail/n-a    | <list endpoints bounded>      |
+| N+1               | pass/fail/n-a    | <loops over findById>         |
+| observability     | pass/fail/n-a    | <RED triad, correlation id>   |
+| security          | pass/fail/n-a    | <tenant filter, SSRF, authZ>  |
+
 Patterns consulted: api-contract, error-handling, <signal-based>
 ```
 
@@ -366,6 +379,10 @@ Patterns consulted: api-contract, error-handling, <signal-based>
 - `@bug-investigator` — sibling agent in backend pack
 - `@endpoint-tester` — sibling agent in backend pack
 - `@websocket-engineer` — sibling agent in backend pack
+
+### Skills
+- `api-snapshot` — captures/diffs the API contract snapshot; a breaking diff with no governing ADR escalates the verdict to BLOCK (ENF-2).
+- `api-consistency-audit` — sweeps envelope / error-contract / pagination / naming uniformity across endpoints; feeds the layering + error-contract rows of the coverage table.
 
 ### Patterns
 - `ai/patterns/api-contract.md`

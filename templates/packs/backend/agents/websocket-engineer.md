@@ -216,12 +216,12 @@ Fix:
 - `@bug-investigator` — sibling agent in backend pack
 - `@endpoint-tester` — sibling agent in backend pack
 
+### Skills
+- none — this agent designs real-time transport/lifecycle directly and invokes no pack skill. (The `endpoint-test` primitive targets request/response routes, not long-lived sockets.)
+
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+- `ai/patterns/api-contract.md` — message-envelope conventions the WS/SSE events must mirror.
+- `ai/patterns/response-streaming.md` — SSE / chunked push overlap (server→client streaming shares the timeout / disconnect-cancellation / backpressure floor).
 
 ### Rules
 - `.claude/rules/backend-principles.md`

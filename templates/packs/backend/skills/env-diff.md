@@ -73,6 +73,14 @@ Boot risk: HIGH (4 required keys missing — app won't start).
 - NEVER print VALUES — only keys. Values may be secrets.
 - `.env` MUST stay gitignored. If it shows up in `git status`, stop and check `.gitignore`.
 
+## Related
+
+- `.claude/skills/module-scaffold.md` — a scaffolded module that adds config keys is a common source of the drift env-diff catches; run env-diff after scaffolding.
+- `.claude/skills/endpoint-test.md` — a route that 500s on boot is often a MISSING required key; env-diff isolates config drift before blaming the handler.
+- Used by `@bug-investigator` — the config-drift branch of its "works on my machine" root-cause search.
+- `security` pack — secret storage / rotation; env-diff reports keys only and never values, deferring value handling there.
+- `.claude/rules/backend-principles.md` — the env-schema-validation MUST/SHOULD behind the UNVALIDATED classification.
+
 ## Halt conditions
 
 - Halt on hand-waves: every MISSING / ORPHAN / UNVALIDATED entry must cite the file it's in (or absent from) + the schema's required flag.

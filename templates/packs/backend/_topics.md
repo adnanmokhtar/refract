@@ -179,6 +179,24 @@ Each topic declares:
   mirror_existing: true
   fallback: _examples/webhook-flow.md
 
+- name: transaction-boundary
+  kind: pattern
+  triggers:
+    grep_evidence: "@Transactional|db\\.transaction|beginTransaction|Ecto\\.Multi|unit_of_work|SELECT .*FOR UPDATE|BEGIN;|session\\.begin|with_transaction|row_version|@Version|lock_version"
+  extracts_from: _extracted-codebase.md § "Data access" (transaction primitive + ORM + locking) + _extracted-idioms.md (unit-of-work / repository shape)
+  sections: [overview, rules, detectors, closure_verbs, examples]
+  mirror_existing: true
+  fallback: _examples/transaction-boundary.md
+
+- name: file-upload
+  kind: pattern
+  triggers:
+    grep_evidence: "multipart/form-data|createReadStream|UploadFile|MultipartFile|CarrierWave|ActiveStorage|presigned|putObject|multer|busboy|formidable|StreamedResponse.*upload|magic.?bytes|file-type"
+  extracts_from: _extracted-codebase.md § "API surface" (upload endpoints + storage adapter) + _extracted-idioms.md (object-storage / presigned flow)
+  sections: [overview, rules, detectors, closure_verbs, examples]
+  mirror_existing: true
+  fallback: _examples/file-upload.md
+
 - name: parallel-io
   kind: pattern
   triggers:
