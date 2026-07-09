@@ -1,9 +1,19 @@
 {
   "kind": "pack",
   "name": "observability",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "First quality pass since baseline. NEW slo pattern resolves the dangling ai/patterns/slo.md referenced 4x (SLI menu, error-budget = 1-SLO, canonical two-tier multi-window multi-burn-rate, SLO-as-code). NEW audit-logging pattern closes the thin deferral target (backend OBS-1 + the compliance trail): audit-vs-debug, tamper-evidence/WORM/hash-chain, actor/subject/action schema, retention-by-regime, must-not-be-redacted — security owns WHAT, observability owns the pipeline. NEW profiling pattern adds the 4th signal (continuous production profiling — eBPF/Pyroscope/OTel-profiles, distinct from performance dev-time). metrics gains native/exponential histograms. observability-reviewer retrofitted to the reviewer contract (hand-wave hard-halt + verdict-match + coverage table + rg commands); burn-rate 24h->6h corrected; telemetry-architect -> opus + RUM bridge + 4th-signal reframe; skill + cross-link fixes (RUM<->performance, tracing<->distributed-systems).",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW ai-patterns/slo.md (resolves the slo.md dangling in sre-engineer/incident-responder/metrics — SLI menu, error budget, two-tier multi-window multi-burn-rate 14.4x@1h page / 6x@6h ticket, SLO-as-code, pattern-vs-runtime-registry split, detectors). NEW audit-logging.md (tamper-evident append-only/WORM + hash-chain, actor/subject/action/before-after/IP schema, retention-by-regime SOC2/PCI 1y / HIPAA 6y / SOX 7y, must-not-redact, security-owns-WHAT/observability-owns-pipeline boundary, detectors) — closes the backend OBS-1 audit-log deferral that landed on one line. NEW profiling.md (continuous production profiling as the 4th signal — eBPF/Pyroscope/Parca/OTel-profiles, CPU/heap/alloc/lock, flame-graph self-time, exemplar->profile linkage, perf-owns-adhoc/obs-owns-always-on boundary). Registered all three in _topics + _essentials.",
+        "metrics.md: native (Prometheus GA 2024) + OTel exponential histograms noted as the auto-scaling-bucket alternative to the fixed-bucket trade-off.",
+        "observability-reviewer.md: added the hand-wave token hard-halt + verdict-matches-body clauses + a coverage/pass-fail table + literal rg commands. rules/observability-principles.md: slow-burn 24h -> 6h (canonical Google window; +example mirror). telemetry-architect.md -> model:opus, 3-pillars reframed to logs/metrics/traces+profiling, NEW RUM/client-telemetry method + cross-pack boundary. sre-engineer/incident-responder: +slo/audit-logging/profiling Related + Skills subsections. alert-audit/slo-audit: ## Related + name-frontmatter + house headings. tracing.md: reciprocal distributed-systems trace-boundary link."
+      ]
+    }
+  }
 }

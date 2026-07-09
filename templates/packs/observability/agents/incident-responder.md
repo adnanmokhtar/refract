@@ -235,6 +235,13 @@ Within 48h of sev1/sev2. Blameless. Format per `sre-engineer` agent + `ai/patter
 - `ai/patterns/metrics.md`
 - `ai/patterns/structured-logging.md`
 - `ai/patterns/tracing.md`
+- `ai/patterns/slo.md`
+- `ai/patterns/audit-logging.md`
+- `ai/patterns/profiling.md`
+
+### Skills
+- `slo-audit` — SLO context (targets, budget remaining) during triage.
+- `alert-audit` — verify the firing alert isn't a known-noisy / runbook-less rule.
 
 ### Rules
 - `.claude/rules/observability-principles.md`

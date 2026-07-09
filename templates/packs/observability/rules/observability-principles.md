@@ -24,7 +24,7 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 - Business metrics first-class and dashboarded: orders/min, payments/min, signups/min, revenue/hour. Outage detection by user impact, not CPU.
 - Distributed traces via OpenTelemetry (vendor-neutral). Every incoming request = root span; every external IO = child span with attributes (`http.url`, `db.system`, `cache.hit`).
 - Every alert has: an actionable symptom, an owner, a runbook link, and a severity. No runbook = ticket, not page.
-- SLOs declared per critical service: availability % + latency p95 (or p99). Error budget tracked. Burn-rate alerts (fast burn 1h, slow burn 24h).
+- SLOs declared per critical service: availability % + latency p95 (or p99). Error budget tracked. Burn-rate alerts (fast burn 1h, slow burn 6h).
 
 ## Must not
 
@@ -45,6 +45,7 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 - Run synthetic monitoring on critical user journeys (login, checkout, primary CRUD). Black-box probes catch what white-box misses.
 - Version-control dashboards (export to JSON / IaC modules / templating language). UI-edited dashboards drift and disappear.
 - Maintain one canonical service map + one critical-path latency dashboard. On-call MUST NOT have to hunt.
+- Treat client-side RUM as a first-class signal: browser / mobile SDK exports over OTLP into the same collector, stamping field Core Web Vitals (LCP / INP / CLS) and JS error rate with the `traceparent` so a slow page links to its backend trace. Boundary: the *performance* pack owns field CWV measurement + attribution; this pack owns RUM ingestion, retention, and dashboarding.
 
 ## Review checklist
 

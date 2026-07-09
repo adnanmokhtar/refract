@@ -127,6 +127,8 @@ Default buckets in most clients are not appropriate for every workload. For sub-
 
 The percentile calculation (`histogram_quantile(0.95, ...)`) only sees the buckets you defined — too few buckets gives imprecise percentiles, too many wastes storage.
 
+**Native / exponential histograms remove this trade-off.** The upfront-bucket choice above is no longer unavoidable: Prometheus **native histograms** (GA 2024) and OTel **exponential histograms** auto-scale their buckets to the observed data with a bounded relative error, so you get high-resolution percentiles across many orders of magnitude without hand-picking edges — and at far lower series cost than a wide classic bucket list. If the project's TSDB/backend supports them, prefer native/exponential histograms for new latency + size metrics and treat explicit buckets as the fallback for backends that don't. (You still pick a *reasonable range*; you no longer pre-commit every boundary.)
+
 ## Dashboards
 
 Per service, build one dashboard with these panels:

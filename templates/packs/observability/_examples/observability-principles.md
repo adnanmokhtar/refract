@@ -19,7 +19,7 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 - Business metrics first-class and dashboarded: orders/min, payments/min, signups/min, revenue/hour. Outage detection by user impact, not CPU.
 - Distributed traces via OpenTelemetry (vendor-neutral). Every incoming request = root span; every external IO = child span with attributes (`http.url`, `db.system`, `cache.hit`).
 - Every alert has: an actionable symptom, an owner, a runbook link, and a severity. No runbook = ticket, not page.
-- SLOs declared per critical service: availability % + latency p95 (or p99). Error budget tracked. Burn-rate alerts (fast burn 1h, slow burn 24h).
+- SLOs declared per critical service: availability % + latency p95 (or p99). Error budget tracked. Burn-rate alerts (fast burn 1h, slow burn 6h).
 
 ## Must not
 

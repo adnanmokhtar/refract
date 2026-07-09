@@ -98,3 +98,12 @@ Bad attributes (cardinality explosion):
 - Raw request bodies as attributes (cardinality + PII).
 - Head-sampling that drops all errors (defeats the purpose).
 - Trace backend without retention policy (data grows without bound).
+
+## Related
+
+### Same pack
+- `ai/patterns/metrics.md`, `ai/patterns/structured-logging.md` — the other pillars; correlate by the shared `trace_id`.
+- `@telemetry-architect`, `@observability-reviewer` — design + review the spans this pattern defines.
+
+### Cross-pack (when co-installed)
+- **distributed-systems pack** — reciprocal boundary. This pattern owns the trace **how**: span naming, W3C context propagation, sampling policy. The distributed-systems rule owns **trace coverage as a resilience SLO** ("every endpoint has spans visible in the trace backend") — that pack asserts the coverage target, this pattern implements the spans that satisfy it.

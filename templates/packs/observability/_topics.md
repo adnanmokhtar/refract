@@ -56,6 +56,30 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/tracing.md
 
+- name: slo
+  kind: pattern
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Observability (SLOs + error budgets) + ai/runtime/slos.md if present
+  sections: [sli_menu, error_budget, multi_window_burn_rate, slo_as_code, detectors]
+  mirror_existing: true
+  fallback: _examples/slo.md
+
+- name: audit-logging
+  kind: pattern
+  triggers: { signal_confirmed_any: [compliance, payment, multi-tenant] }
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (audit trail + retention regime)
+  sections: [audit_vs_debug, tamper_evidence, schema, retention_by_regime, boundary, detectors]
+  mirror_existing: true
+  fallback: _examples/audit-logging.md
+
+- name: profiling
+  kind: pattern
+  triggers: { signal_confirmed: performance_critical }
+  extracts_from: _extracted-codebase.md § Observability (profiler) + runtime
+  sections: [fourth_signal, profile_types, low_overhead, exemplar_linkage, boundary, detectors]
+  mirror_existing: true
+  fallback: _examples/profiling.md
+
 - name: observability-principles
   kind: rule
   triggers: { logger_lib_detected: true }
