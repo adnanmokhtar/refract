@@ -99,6 +99,8 @@ Fast-by-default (mirror siblings; framework specifics → `references/<framework
 - Primary inbound nav links to this route prefetch via the framework primitive (mirror siblings; see `navigation-speed.md`).
 - If the route is SSR and its above-the-fold does NOT depend on a slow query, slow regions stream behind a Suspense/await boundary (see `streaming-ssr.md`).
 - If the route has a hero / above-the-fold LCP image, set the framework priority hint (see `lcp-audit.md`).
+- If the route is public / indexable, generate its metadata via the project's own primitive (`generateMetadata` / `useSeoMeta` / `<svelte:head>` / `Title`+`Meta`): unique title + description, self-referencing canonical, OG/Twitter, and page-appropriate JSON-LD; localized routes add reciprocal `hreflang`. Mirror how sibling routes do it (see `seo-audit.md`). A public route that is CSR-only is a rendering-strategy fix first.
+- Content images use the framework image component — modern format, `srcset`/`sizes`, explicit `width`/`height` (no CLS), lazy below the fold (see `image-optimization.md`); a new / critical web font sets `font-display` + is self-hosted (see `font-optimization.md`).
 
 ### Sibling-shape mechanical halt (mandatory, all tiers)
 
@@ -135,6 +137,7 @@ Before declaring success, compare the new page against ≥2 sibling pages in the
 - Verify i18n keys exist in every locale file declared in the repo.
 - **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking captures errors from the new route the way siblings wire it; route-level perf signal (web-vitals / RUM) + analytics events added if siblings of this surface emit them. Authoritative field INP arrives via `web-vitals-field` (Lighthouse lab INP is a synthetic proxy only). If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 - **Fast-by-default dispatch:** run the `navigation-speed` skill on the new route (prefetch / bfcache / instant-loading); add `lcp-audit` if the route has a hero; add `streaming-ssr` if the route is SSR with a slow query.
+- **SEO / asset dispatch (public routes):** run `seo-audit` (+ `@technical-seo`) on any public / indexable route — title/description/canonical/OG/JSON-LD/hreflang + SSR/prerender crawlability. Run `image-optimization` if the route renders content images; `font-optimization` if it introduces a web font. Non-public/admin route → `seo: n/a`.
 
 ## Phase 7 — Improve
 

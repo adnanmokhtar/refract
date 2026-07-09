@@ -11,6 +11,18 @@ Find real hydration risks, not hand-waves. Every finding cites `<file:line>` + t
 
 A scan that produces zero output without proving the patterns matched is a failed scan.
 
+## Adapt to the codebase
+
+Detect the SSR framework and phrase every finding + fix in the server/client boundary primitive the project actually uses — never impose another framework's shape:
+
+| Framework | Server / client boundary | Browser-only escape hatch |
+|---|---|---|
+| **Next.js (App Router)** | Server Components default; `'use client'` marks the client boundary; `cookies()` / `headers()` are server-only | `useEffect` / `typeof window !== 'undefined'` guard in a client component |
+| **Nuxt 3** | `useAsyncData` / `useFetch` (SSR-safe); `.server.ts` / `.client.ts` plugin suffixes | `import.meta.client` guard; `onMounted` |
+| **SvelteKit** | `+page.server.ts` load (server-only); `+page.ts` runs on both | `browser` from `$app/environment`; `onMount` |
+| **Remix / React Router** | `loader` runs server-side | `useEffect`; `typeof document` guard |
+| **Angular (SSR/Universal)** | `isPlatformServer` / `isPlatformBrowser(PLATFORM_ID)`; route resolvers run server-side | `afterNextRender()` / `afterRender()`; `TransferState` to avoid a double-fetch |
+
 ## Scans for
 
 ### Browser-only APIs at module scope
@@ -60,7 +72,15 @@ export default defineNuxtPlugin(() => {
 
 ### Tenant identity written from browser state during SSR
 
-If multi-tenant — tenant must come from the REQUEST (host header), not from browser localStorage or cookies read on client.
+If multi-tenant, the tenant MUST come from the REQUEST (host header / server context), never from `localStorage` or a client-read cookie — on the server those are unavailable, so the wrong tenant (or a cross-tenant leak) renders.
+
+```
+BAD:  const tenant = localStorage.getItem('tenant')          // undefined on the server → wrong render
+GOOD (Next):  const tenant = headers().get('host')           // request-derived, server-safe
+GOOD (Nuxt):  const tenant = useRequestHeaders(['host']).host
+```
+
+Grep: `localStorage`, `sessionStorage`, `document.cookie` read in a file that also runs server-side (page / route / `loader` / `useAsyncData` / server component) to resolve a tenant / org / workspace identity. Flag any such value sourced from browser storage on an SSR path.
 
 ### Client-boundary cost (React Server Components)
 

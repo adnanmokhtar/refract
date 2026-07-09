@@ -55,13 +55,13 @@ For frontend changes. Verifies the UI renders correctly across locales, themes, 
 ```
 Running 18 tests using 4 workers
 
-  PASS  /products  en  light  mobile     no diff
-  PASS  /products  en  light  desktop    no diff
-  PASS  /products  en  dark   desktop    no diff
-  FAIL  /products  ar  light  mobile     12.3% pixel diff
-        Snapshot: test/visual/baseline/products-ar-light-mobile.png
-        Diff:     test/visual/diffs/products-ar-light-mobile.png
-  PASS  /products  ar  light  desktop    no diff
+  PASS  /dashboard  en  light  mobile     no diff
+  PASS  /dashboard  en  light  desktop    no diff
+  PASS  /dashboard  en  dark   desktop    no diff
+  FAIL  /dashboard  ar  light  mobile     12.3% pixel diff   (RTL layout shift)
+        Snapshot: test/visual/baseline/dashboard-ar-light-mobile.png
+        Diff:     test/visual/diffs/dashboard-ar-light-mobile.png
+  PASS  /dashboard  ar  light  desktop    no diff
 
 1 failed (1 of 18). Open report:  npx playwright show-report
 ```

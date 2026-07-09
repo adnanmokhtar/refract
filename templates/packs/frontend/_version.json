@@ -1,12 +1,19 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Backlog #1+#2 — reference parity + agent retrofits over the v1.7.0 authoring standard. All six references now carry SEO + Fonts in the framework primitive (react: react-helmet/Remix-meta + Fontsource; vue: @unhead; svelte: svelte:head + prerender; angular: Title+Meta + a NEW SSR/hydration section; nuxt: SEO upgraded to Next parity — canonical/OG/JSON-LD/hreflang/sitemap+robots). Agent house-contract retrofit: data-flow-auditor + api-contract-sentry gain the cite-or-halt Premise (data-flow also a Verdict line + coverage table, promoted to opus); ui-reviewer gains a coverage table; accessibility-auditor re-baselined to WCAG 2.2 AA with labeled criterion levels; technical-seo back-links its two missing siblings; ui-architect budgets image/font/SEO.",
+  "summary": "Backlog #3+#4 — creation commands now ENFORCE SEO/image/font at generation time (was review-only), and the four non-conformant skills brought to the v1.7.0 authoring standard. add-page generates the metadata primitive for public routes + gates seo-audit/image-optimization/font-optimization in Phase 6; add-feature Phase-6 HALTs on a missing SEO/asset MUST on a public route; add-component gates image-optimization. ssr-audit gains the Adapt table + a grepped tenant detector; component-playground is now framework-adaptive (Vue/React/Svelte/Angular) with Premise+Halt, no longer Vue+PrimeVue-locked; fixed generic-source leaks (a11y-scan/visual-check matrices) and the next/image AVIF over-claim.",
   "changelog": {
+    "1.9.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "commands: creation-time enforcement of the SEO/image/font MUSTs (parity with the existing lcp-audit/nav gates). add-page.md — Phase 4 generates the metadata primitive (title/description/canonical/OG/JSON-LD/hreflang) for public routes + content-image/font guidance; Phase 6 dispatches seo-audit/@technical-seo + image-optimization + font-optimization. add-feature.md — Phase 6 adds a SEO+asset MUST verification that HALTs on a missing metadata/image/font MUST on any new public route (admin routes report seo:n/a). add-component.md — Phase 4 + Phase 6 gate image-optimization for image-rendering components.",
+        "skills: brought the four non-conformant skills to the authoring standard. ssr-audit gained the ## Adapt to the codebase per-framework boundary table (Next/Nuxt/SvelteKit/Remix/Angular) and a BAD/GOOD + grep for the previously pattern-less tenant-from-browser-state detector. component-playground rewritten framework-adaptive (Vue/React/Svelte/Angular prop+control mapping, project-primitive mirroring, Premise + Halt) — was hard-locked to Vue+PrimeVue+fixed paths. Fixed generic-source leaks: a11y-scan + visual-check route matrices use project-mapped placeholders, not a baked-in shop shape. Fixed image-optimization next/image AVIF over-claim (WebP default, AVIF opt-in)."
+      ]
+    },
     "1.8.0": {
       "released": "2026-07-09",
       "changes": [

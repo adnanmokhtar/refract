@@ -17,7 +17,7 @@ Detect and **mirror the project's image primitive** — most frameworks ship one
 
 | Framework / setup | Optimized image primitive | What it auto-handles |
 |---|---|---|
-| **Next.js** | `next/image` `<Image>` | format negotiation (AVIF/WebP), `srcset`, lazy (below-fold), enforced `width`/`height` (no CLS) |
+| **Next.js** | `next/image` `<Image>` | format negotiation (**WebP by default**; AVIF is opt-in via `images.formats: ['image/avif','image/webp']`), `srcset`, lazy (below-fold), enforced `width`/`height` (no CLS) |
 | **Nuxt** | `<NuxtImg>` / `<NuxtPicture>` (`@nuxt/image`) | format, responsive `sizes`, lazy, provider CDN |
 | **Astro** | `<Image>` / `<Picture>` (`astro:assets`) | format, `srcset`, dimensions from source |
 | **Angular** | `NgOptimizedImage` (`ngSrc`) | `srcset`, lazy, requires `width`/`height`, priority for LCP |
