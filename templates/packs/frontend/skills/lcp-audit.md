@@ -99,3 +99,7 @@ Findings: 3
 - Halt if `fetchpriority="high"` is proposed on more than one element per view.
 - Halt if a preload is proposed for an image not confirmed to be the LCP resource (lab heuristic OR field attribution).
 - Halt if the LCP element is text but the fix targets image priority — re-scope to font/CSS.
+
+## Related
+
+- `code-splitting.md` — the LCP-critical component must never be lazy-loaded (a chunk round-trip before paint); that pattern's detector 7 hands off here, and this skill rejects any lazy proposal in the LCP subtree.

@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Backlog #3+#4 — creation commands now ENFORCE SEO/image/font at generation time (was review-only), and the four non-conformant skills brought to the v1.7.0 authoring standard. add-page generates the metadata primitive for public routes + gates seo-audit/image-optimization/font-optimization in Phase 6; add-feature Phase-6 HALTs on a missing SEO/asset MUST on a public route; add-component gates image-optimization. ssr-audit gains the Adapt table + a grepped tenant detector; component-playground is now framework-adaptive (Vue/React/Svelte/Angular) with Premise+Halt, no longer Vue+PrimeVue-locked; fixed generic-source leaks (a11y-scan/visual-check matrices) and the next/image AVIF over-claim.",
+  "summary": "Client-side data & rendering patterns — 5 new ai-patterns close the biggest frontend-pack gap (server-state was captured only as a location rule, not a cache contract): data-fetching (cache/dedup/invalidation), list-virtualization (windowing >100 rows), error-boundaries (subtree resilience + async net), code-splitting (route/heavy-dep lazy strategy), realtime-client (WebSocket/SSE lifecycle + cache reconcile). Each ships cite-or-halt detectors + a per-framework Adapt table; frontend-principles.md gains backing MUST/SHOULD + checklist items; siblings cross-linked bidirectionally.",
   "changelog": {
     "1.9.0": {
       "released": "2026-07-09",
@@ -97,6 +97,14 @@
       "released": "2026-04-26",
       "changes": [
         "Initial baseline."
+      ]
+    },
+    "1.10.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "ai-patterns +5 (4 -> 9): data-fetching, list-virtualization, error-boundaries, code-splitting, realtime-client. Each is a full specialist (Hard-rule Premise + cite-or-halt, per-framework Adapt table, BAD/GOOD+grep detectors, closure verbs, bidirectional Related). Closes the client-side data/rendering gap surfaced comparing a frontend consumer (15 patterns) vs a backend one (63).",
+        "rules/frontend-principles.md: added backing rules — Must (server-state cache/dedup/invalidation-on-mutation + request cancellation; error-boundary resilience + global onunhandledrejection net) and Should (lazy pairs with Suspense+error-boundary and never the LCP path; realtime lifecycle reconnect/heartbeat/re-auth/teardown/dedup). Virtualization + code-splitting Musts already present -> linked to the new patterns. +5 review-checklist items.",
+        "registration: _topics.md + _essentials.md list the new patterns; _examples/ abridged snapshots added; siblings (rendering-strategy, forms, ssr-safety, navigation-speed, bundle-analyze, lcp-audit, @data-flow-auditor) reverse-linked in the same change."
       ]
     }
   }

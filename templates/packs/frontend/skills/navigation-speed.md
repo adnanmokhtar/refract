@@ -172,3 +172,8 @@ Findings: 3
 - Halt if Speculation Rules are proposed without excluding side-effecting GETs (logout/delete) from the `prerender` set.
 - Halt if an instant-loading fix proposes a spinner or an unsized skeleton (CLS) instead of a dimension-matched one.
 - Halt if a default framework prefetch is disabled in a fix without a documented reason.
+
+## Related
+
+- `code-splitting.md` — this skill owns prefetching the likely-next route's chunk on hover/idle so the split click resolves from cache; that pattern owns where the chunk boundary is cut.
+- `list-virtualization.md` — restore a windowed list's scroll by first-visible index, not pixel `scrollTop`, on back/forward + bfcache restore.

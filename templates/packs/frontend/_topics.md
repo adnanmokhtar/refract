@@ -86,6 +86,46 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/ssr-safety.md
 
+- name: data-fetching
+  kind: pattern
+  triggers: { query_lib_detected_OR_client_data_fetching_present: true }
+  extracts_from: _extracted-codebase.md (query lib — TanStack Query / SWR / RTK Query / Apollo — or the hand-rolled fetch layer + cache convention)
+  sections: [overview, server_state_vs_client_state, cache_contract, loading_error_empty_states, request_cancellation, optimistic_updates, avoiding_waterfalls, examples, pitfalls]
+  mirror_existing: true
+  fallback: _examples/data-fetching.md
+
+- name: list-virtualization
+  kind: pattern
+  triggers: { large_list_or_table_rendering_detected: true }
+  extracts_from: _extracted-codebase.md (virtualizer lib if any + list/table components > ~100 rows)
+  sections: [overview, windowing_and_overscan, fixed_vs_variable_height, infinite_scroll, cls_safety, accessibility, seo_findinpage_tradeoff, examples, pitfalls]
+  mirror_existing: true
+  fallback: _examples/list-virtualization.md
+
+- name: error-boundaries
+  kind: pattern
+  triggers: { component_framework_detected: true }
+  extracts_from: _extracted-codebase.md (boundary primitive + error sink — Sentry etc.)
+  sections: [overview, catch_surface_and_async_gap, granularity, fallback_ux_and_reset, error_reporting, suspense_and_hydration_pairing, examples, pitfalls]
+  mirror_existing: true
+  fallback: _examples/error-boundaries.md
+
+- name: code-splitting
+  kind: pattern
+  triggers: { bundler_detected: true }
+  extracts_from: _extracted-codebase.md (bundler + router + heavy deps)
+  sections: [overview, route_vs_component_splitting, eager_vs_lazy_tradeoff, over_splitting_and_manualchunks, barrel_file_trap, suspense_and_error_boundary_pairing, examples, pitfalls]
+  mirror_existing: true
+  fallback: _examples/code-splitting.md
+
+- name: realtime-client
+  kind: pattern
+  triggers: { websocket_or_sse_or_realtime_lib_detected: true }
+  extracts_from: _extracted-codebase.md (realtime transport/lib + auth + cache reconcile points)
+  sections: [overview, transport_choice, reconnection_backoff_heartbeat, auth_and_reauth, backpressure, message_dedup, cache_reconciliation, teardown_and_offline, examples, pitfalls]
+  mirror_existing: true
+  fallback: _examples/realtime-client.md
+
 - name: frontend-principles
   kind: rule
   triggers: { primary_frontend_framework_detected: true }
