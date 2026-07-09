@@ -400,6 +400,8 @@ Installed by the repo-baseline regardless of track — the universal per-project
 - `streaming-ssr` — fast-SSR streaming-boundary scanner (stream the shell, cut TTFB).
 - `navigation-speed` — page-to-page nav audit: prefetch / Speculation Rules / bfcache / instant-loading / View Transitions.
 - `lcp-audit` — LCP-resource priority-hint scanner (fetchpriority / preload / preconnect / lazy-hero).
+- `image-optimization` — image-delivery scanner: AVIF/WebP format, responsive srcset/sizes, width/height (CLS), below-fold lazy, framework image-component adoption, oversized sources. (Owns format/dimensions/loading; LCP priority stays with `lcp-audit`.)
+- `font-optimization` — web-font scanner: font-display (FOIT), critical-font preload, self-host remote Google Fonts, size-adjust fallback (swap-CLS), unicode-range subset, variable-font, woff2-first.
 - `seo-audit` — technical-SEO scanner: title/description, canonical, Open Graph/Twitter, JSON-LD structured data, noindex/robots/sitemap, i18n hreflang, CSR-only crawlability. Paired with the `@technical-seo` agent; mirrors the project's own metadata primitive.
 - `web-vitals-field` — *(performance pack)* field CWV with attribution: the only path to citing real INP / LCP to an element.
 

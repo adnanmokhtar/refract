@@ -1,12 +1,20 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "released": "2026-07-09",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Technical-SEO specialist added — NEW seo-audit skill (static scanner: missing/duplicate title+description, absent canonical, no Open Graph/Twitter, missing/invalid JSON-LD structured data, accidental noindex, sitemap/robots gaps, i18n hreflang, CSR-only crawlability) + NEW technical-seo agent (persona review over the detectors). Both mirror the project's OWN metadata primitive (Next generateMetadata / Nuxt useSeoMeta / SvelteKit svelte:head / Angular Meta+Title / react-helmet / next-seo) and hand crawlability off to rendering-strategy. Closes the one true frontend-discipline gap; pairs with rendering-strategy (SEO drives SSR/SSG) + lcp-audit/lighthouse-ci (CWV-as-ranking-signal) + i18n (hreflang).",
+  "summary": "Asset-optimization specialists added — NEW image-optimization skill (legacy-format→AVIF/WebP, responsive srcset/sizes, width/height CLS, below-fold lazy, framework image-component adoption, oversized-source, LQIP) + NEW font-optimization skill (font-display/FOIT, critical-font preload, self-host remote Google Fonts, size-adjust fallback swap-CLS, unicode-range subset, variable-font, woff2-first). Both mirror the project's own primitive (next/image·NuxtImg·NgOptimizedImage / next/font·@nuxt/fonts·Fontsource) and split cleanly from lcp-audit (which keeps LCP priority-hints) — image-opt owns format/dimensions/loading, font-opt owns loading+swap-CLS. Builds on the v1.5.0 SEO specialist; completes the frontend asset + discoverability gaps from the frontend review.",
   "changelog": {
+    "1.6.0": {
+      "released": "2026-07-09",
+      "changes": [
+        "NEW skill image-optimization (kind:skill, primary_frontend_framework_detected) — static image-delivery scanner. Seven detectors: legacy format with no AVIF/WebP path, missing responsive srcset/sizes, missing width/height or aspect-ratio (CLS — the biggest lever), missing below-fold loading=lazy (and the inverse: lazy on the hero → lcp-audit), raw <img> where the framework component exists, oversized source into a small slot, missing LQIP/blur placeholder. Per-framework image-primitive table (next/image, NuxtImg, NgOptimizedImage, astro:assets, enhanced-img, <picture>, CDN f_auto). Explicitly cedes LCP priority-hints to lcp-audit.",
+        "NEW skill font-optimization (kind:skill, primary_frontend_framework_detected) — static web-font scanner. Eight detectors: missing font-display (FOIT), critical font not preloaded, render-blocking remote Google Fonts <link> not self-hosted, no size-adjust/ascent-override fallback (swap CLS), full unsubset charset, too many families/weights (→ variable font), legacy format before woff2 / missing format(), framework primitive not adopted. Per-framework font-primitive table (next/font, @nuxt/fonts, Fontsource/Fontaine). Cross-links lcp-audit for text-LCP.",
+        "Registered both in _topics.md (with metadata/primitive extraction) and _essentials.md standard-mode skill list; fallbacks _examples/image-optimization.md + _examples/font-optimization.md. lcp-audit gains a cross-link to both (LCP image → image-optimization for format/dimensions; text LCP → font-optimization)."
+      ]
+    },
     "1.5.0": {
       "released": "2026-07-09",
       "changes": [

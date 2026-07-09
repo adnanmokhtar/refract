@@ -172,6 +172,18 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md (framework metadata primitive + router + i18n locales + sitemap/robots setup)
   fallback: _examples/seo-audit.md
 
+- name: image-optimization
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (image primitive in use — next/image / NuxtImg / NgOptimizedImage / astro:assets / <picture> / image CDN)
+  fallback: _examples/image-optimization.md
+
+- name: font-optimization
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (font mechanism — next/font / @nuxt/fonts / Fontsource / @font-face / remote Google Fonts; i18n locales for subset safety)
+  fallback: _examples/font-optimization.md
+
 - name: lighthouse-ci
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
