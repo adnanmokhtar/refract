@@ -210,6 +210,8 @@ All optional. Full reference (with conflict rules) lives in `commands/setup-proj
 
 The flags are complementary, not redundant. Common pipeline: `--create` (round 1) → use the project for a while → `--refine` (round 2: deepen) → later `--refresh` (when packs ship a major upgrade).
 
+`--refine` doesn't stop at Claude: **Phase 4.8-DEEP** incrementally re-translates the deepened `.claude/` + `ai/` to every selected non-claude-code adapter (Cursor / OpenCode / Aider / …), so they all see the same round-two guidance — each per-adapter decision is logged to `.claude/_phase-4-8-decisions.md`.
+
 **Read-only previews** (write nothing):
 
 ```
