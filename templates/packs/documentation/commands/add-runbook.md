@@ -156,6 +156,21 @@ If steps fail mid-way OR the change makes things worse:
 - **Linked ADRs / features resolve to real files.** For every `<NNN>` in the `## Related` ADRs line and every `--related-feature` / ledger-row link, check the path actually exists — `ls ai/decisions/<NNN>-*.md` (or grep `ai/_decision-index.md` for the row) resolves to a file, and the feature id is present in the migration ledger. A link that resolves to nothing is a dangling reference: halt and flag it (remove the link or fix the id) — do not ship a runbook that points at an ADR that isn't there.
 - **Drill status is marked, not assumed.** If the procedure was actually executed (in staging or for real) at creation, set `Last drill: <today>`. If it was NOT drilled, the front-matter MUST read `Last drill: not-yet-run` (and the runbook is flagged for first-execution review) — an undrilled runbook is honestly labelled `not-yet-run`, never silently accepted as done.
 
+### Command-resolution gate — regenerate → diff → cite, runbook flavour
+
+A runbook step is a *claim* that a command exists and does the stated thing; an unresolvable command is the runbook equivalent of a doc naming a dead symbol, and it fails at 2am when nobody can debug it. Before verdict, re-derive every step command from the repo and cite the miss (mirrors how `doc-refresh` runs `doc-drift-scan` and how `@api-documenter` regenerates the spec):
+
+- **Script/target refs** — for each `npm|pnpm|bun run <x>` / `make <t>` / `just <t>` / `<repo-script>.sh` in a step, confirm it resolves (`jq -e '.scripts["<x>"]' package.json`, the `Makefile`/`Justfile` target list, or `test -e` the script). An unresolved one is `BROKEN` — cite `<step:line>` + the negative check and halt; a step nobody can run is not a runbook.
+- **Path/role/dashboard refs** — paths named in steps or Prerequisites that should exist in-repo (`test -e`), and named roles/dashboards resolve to a real identifier, not a placeholder.
+- Bare operational commands against live infra (`kubectl`, cloud CLIs) are **not** resolvable from the repo — mark them `UNVERIFIED (live-infra)`, the runbook flavour of a documented prerequisite, never a fabricated pass.
+
+### Terminal verdict — DRILLED-PRODUCTION-GRADE vs AUTHORED-UNPROVEN
+
+A runbook that reads correctly but was never executed is the *floor*, not the finish — the whole failure mode of runbooks is the step that looked right and didn't run. Emit exactly one, reading off the front-matter `Last drill` field (the artifact of record a reviewer can check) plus the command-resolution counts:
+
+- `Status: PRODUCTION-GRADE` — **only** when `Last drill: <date>` (steps were executed → each "Verify after" observable actually observed), command-resolution `BROKEN` = 0, and all `## Related` links resolve. The drill is this domain's regenerate→run→observe evidence; without it the runbook is unproven.
+- `Status: AUTHORED-UNPROVEN` — the honest default for a `Last drill: not-yet-run` runbook (or any with an open `BROKEN` command / dangling link). It ships (an undrilled runbook still beats none) but is **flagged for first-drill before first real incident use**, and names what is unproven. This is a labelled-incomplete success, never dressed as done.
+
 ## Phase 7 — Improve
 
 - If the project has > 5 runbooks of the same `--type=`, surface "consider a runbook template" — reduces duplication.
@@ -168,6 +183,7 @@ If steps fail mid-way OR the change makes things worse:
 - **Rollback procedure is mandatory.** Every runbook MUST have a rollback section. If rollback is impossible (e.g., schema migration that's already applied), document the forward-fix as the rollback.
 - **Concrete prerequisites only.** "Have access" → "Have role X in IAM" or "have key file at ~/.config/y/key.json".
 - **Drill before declaring done.** Either drill in staging at creation OR mark "never drilled — drill before first incident use."
+- **`PRODUCTION-GRADE` requires a real `Last drill: <date>` + 0 `BROKEN` command refs.** An undrilled or unresolved-command runbook is `AUTHORED-UNPROVEN`, never `COMPLETE`/`PRODUCTION-GRADE` — the verdict is read off the front-matter drill field, not asserted.
 
 ## Failure modes
 

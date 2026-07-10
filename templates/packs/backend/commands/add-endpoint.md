@@ -67,7 +67,7 @@ Ask (one consolidated question):
 - Auth requirement (public / authenticated / admin / custom role).
 - Any side effects (events emitted, external calls, notifications)?
 
-State the success criteria: endpoint live + 3+ e2e tests + telemetry + docs prepended + zero placeholders.
+State the success criteria: endpoint live + 3+ e2e tests + telemetry + docs prepended + zero placeholders. This is the *functional* floor. The *done* condition is the Phase-6 Production-readiness gate — all seven production-floor items MET-with-evidence or n-a-with-reason, else the run reports INCOMPLETE with the unmet items named.
 
 ## Phase 2 — Organize (design with api-architect)
 
@@ -295,6 +295,30 @@ If a named agent is not installed in this project, perform that review inline ag
 
 If any check fails: HALT, report the failure, do not paper over.
 
+### Production-readiness gate (the done-condition — replaces "tests are green")
+
+**"Returns 200" is the floor, not the bar.** A green happy-path test, a clean lint, and a dispatched reviewer prove the endpoint is *functional*. They do NOT prove it is *production-grade*. This gate is the comparative step: the build is not `done` until each item on the production floor below is **MET with cited evidence**, **n-a with a stated reason**, or **UNMET / SKIPPED** — and if any floor item is UNMET or SKIPPED, the run reports **INCOMPLETE with that item named**, never a silent `COMPLETE`.
+
+The evidence source is the `api-reviewer` **Production-readiness verdict** table (dispatched above) — this gate READS that block; it does not re-judge. A floor row the reviewer marked `UNMET` / `SKIPPED (unverified)` is an unmet item here. No reviewer installed → run the reviewer's floor detectors inline; the evidence rule is unchanged (a row with no citable evidence is UNMET, never a faked MET).
+
+Fill this ledger (one row per floor item) before writing the Output block:
+
+| # | Production floor | MET requires (evidence — a claim is not evidence) | Wired to |
+|---|---|---|---|
+| 1 | **Input validated at the edge** | every input DTO field has a validator AND the `400`-on-invalid-body e2e test passes (named) | api-reviewer `edge-validation`; `endpoint-test` skill (400 scenario) |
+| 2 | **Standard error envelope** | error paths return the project envelope / Problem Details (RFC 9457) at a cited `<path:line>`; no stack trace / PII leaked | api-reviewer `error-envelope` + error-contract |
+| 3 | **Correct transaction boundary** | a multi-write use-case is wrapped in ONE transaction at the service layer (cite the tx site); no external call held inside the tx — OR `n-a` (single write), reason stated | api-reviewer `txn-boundary` (TXN). `[self-policed]` — no grep proves two writes are one unit |
+| 4 | **Idempotency on unsafe methods where the convention requires** | `Idempotency-Key` accepted + stored + a replay e2e test proves the second call returns the first result — OR `n-a`, reason stated (naturally idempotent PUT / not retry-sensitive) | api-reviewer `idempotency`; signal table row |
+| 5 | **No N+1 / unbounded query** | `n-plus-one-scan` clean on any new list/query path AND (for a list endpoint) a default + hard-max page size is enforced (over-cap `limit` clamp asserted by e2e) | `n-plus-one-scan` skill; api-reviewer `no-N+1`/pagination (API-8, PERF-5) |
+| 6 | **Authz enforced, not just authn** | a `403` **denial** e2e test for an authenticated-but-unauthorized principal (wrong role / non-owner) passes — a `401` alone does NOT satisfy this — OR `n-a` (truly public endpoint), reason stated | api-reviewer `authz-not-authn` (AUTHZ) |
+| 7 | **Emits log + metric + trace** | the RED-triad metric (rate + errors + duration histogram), a correlation-id log line, and a use-case span are each matched to an **actually-emitted** signal in the diff — not asserted from the telemetry plan | api-reviewer `log+metric+trace` (OBS-2); Phase-4 Telemetry |
+
+**Coverage regeneration (evidence #1, #5, #6 are runtime — not readable from source alone).** Where the evidence is a test that must be *run* (400 invalid-body, 403 denial, page-cap clamp), the gate requires the test **executed green in this run** (from `pnpm test` / `endpoint-test`), not merely authored. If the harness is absent (no dev server, `n-plus-one-scan` not installed), mark that row `SKIPPED — unverified: <exact command a reviewer must run>` and the verdict is INCOMPLETE, not PRODUCTION-READY.
+
+**Verdict:**
+- **PRODUCTION-READY** — every floor row is MET (with evidence) or n-a (with reason). Only then may the Output say the endpoint is shippable.
+- **INCOMPLETE** — one or more floor rows UNMET or SKIPPED. The Output lists each unmet row + why + the exact next action. This is a legitimate, honest terminal state — it is NOT a failure to paper over. Do not stamp COMPLETE to look finished.
+
 ## Phase 7 — Improve (feed the learning loop)
 
 - Run `/learn-from-task` to capture: endpoint shape, sibling mirrored, telemetry added, follow-ups.
@@ -332,21 +356,49 @@ Telemetry added:
 
 Review verdict: APPROVE / REQUEST_CHANGES / BLOCK
 
-Domain checks:
+Production-readiness ledger (from the Phase-6 gate — every floor row MUST resolve):
+  1. edge-validation     MET   — every DTO field validated; 400-invalid-body e2e green
+  2. error-envelope      MET   — Problem Details at <path:line>; no stack/PII leak
+  3. txn-boundary        n-a   — single write (or: MET — wrapped at <path:line>)
+  4. idempotency         MET   — key stored + replay e2e green   (or n-a — not retry-sensitive)
+  5. no-N+1 / bounded    MET   — n-plus-one-scan clean; page-cap clamp e2e green
+  6. authz-not-authn     MET   — 403 denial e2e (wrong role) green   (NOT just 401)
+  7. log+metric+trace    MET   — RED triad + correlation-id log + span emitted in diff
+
+Domain checks (signal-gated):
   - Multi-tenant: cross-tenant leak test ✓
-  - Idempotency: key accepted + replay verified ✓ (if retry-sensitive)
   - Security audit: no blockers
 
 Docs updated: ai/status.md
 
 Breaking change?: NO (additive) / YES → ADR NNNN + openapi snapshot updated.
 
-Status: COMPLETE
+Verdict: PRODUCTION-READY   (all 7 floor rows MET or n-a, evidence cited)
 
 Next:
   - /review-changes
   - Commit + PR
 ```
+
+When any floor row is UNMET or SKIPPED, emit the honest terminal state instead — never the block above:
+
+```
+⚠ Endpoint added but NOT production-ready: <METHOD> <path>
+
+Verdict: INCOMPLETE
+
+Unmet floor items:
+  6. authz-not-authn     UNMET   — only a 401 test exists; no 403 denial test for a
+                                   non-owner. Next: add e2e asserting owner-B gets 403 on
+                                   PATCH of owner-A's resource, then re-run the gate.
+  7. log+metric+trace    SKIPPED — unverified: no metrics scrape in this env.
+                                   Next: run `endpoint-test` against dev + confirm the
+                                   duration histogram series appears.
+
+Met: 1,2,3,4,5.   Shippable only after 6 & 7 close.
+```
+
+Never stamp COMPLETE/PRODUCTION-READY while a floor row is open — INCOMPLETE with the named items is the correct, honest report.
 
 ## Hard rules
 
@@ -358,6 +410,8 @@ Next:
 - Multi-tenant → cross-tenant test mandatory.
 - Breaking API change → ADR + openapi snapshot updated.
 - Telemetry included, not bolted on.
+- **Authz, not just authn** — an owned/role-scoped endpoint ships with a `403` denial test for the wrong principal; a `401` alone does not certify the endpoint.
+- **Done means production-ready, not functional.** The Production-readiness gate (Phase 6) is the closure condition: every floor item MET-with-evidence or n-a, else report INCOMPLETE with the unmet items — never stamp COMPLETE on a green happy path alone.
 
 ## Related
 

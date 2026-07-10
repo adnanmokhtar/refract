@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "distributed-systems",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Distributed-systems pack +reconciliation ai-pattern.",
+  "summary": "saga/event-handler gate deepened from 'runs twice sequentially' to exactly-once EFFECT under concurrent redelivery + crash-in-the-gap.",
   "changelog": {
     "1.1.0": {
       "released": "2026-07-09",
@@ -26,6 +26,13 @@
       "released": "2026-07-10",
       "changes": [
         "add-saga + add-event-handler: Phase-6 now enforces scenarios_green == scenarios_required OR HALT — the per-scenario tests (happy/failure/timeout/crash/idempotency/DLQ/replay) must actually run green or the success block is not emitted; per-scenario PASS/FAIL rendered, not an asserted checklist."
+      ]
+    },
+    "1.3.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "add-event-handler + add-saga Phase 6: HALT precondition requiring the dedupe/reserve be cited at path:line and be ATOMIC (compensations keyed by (sagaId, stepName)); scenarios now cover concurrent duplicate delivery, crash between effect-commit and ack, and redelivered compensation — not a sequential twice-call.",
+        "resilience-reviewer: halt conditions — an idempotency claim resting on check-then-act or an in-memory map is NOT idempotent."
       ]
     }
   }

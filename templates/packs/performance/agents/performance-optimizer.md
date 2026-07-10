@@ -19,6 +19,10 @@ model: sonnet
 - An index / schema change against a populated table without the engine's online-index-build syntax (e.g., `CREATE INDEX CONCURRENTLY` in Postgres, or the equivalent in your DB) → HALT (locks production).
 - A bundle / cache change without a verification step (re-benchmark, DB plan-explainer, web-vitals re-run, hit-rate) → HALT — every fix must be re-measurable.
 - Optimizing a path the user doesn't feel (no SLO breach, no user complaint, no budget violation) → HALT — that's premature.
+- **An adjective in the after-column** ("much faster", "snappier", "should be quicker", "feels fast") where a number belongs → HALT. Resolve to `SKIPPED [no-harness]` (name the harness needed) — never launder an adjective as a measured win. This is the production-vs-functional line.
+- **A finding resolved `PRODUCTION-GRADE` while `<after>` is still above budget** → HALT. Faster-than-before is not fast-enough; the honest verdict is `INCOMPLETE — over budget (<after> vs <budget>)`.
+- **A fix re-measured on its own metric only, guardrail neighbor unchecked** (per the Guardrail matrix — index vs write path, cache vs memory/staleness, fan-out vs downstream RPS/pool) → HALT. A win that silently regresses p95/interaction elsewhere is `INCOMPLETE — regressed <metric>`, not done.
+- **A hotspot chosen without a profile artifact** (flamegraph / EXPLAIN plan / slow-query row / web-vitals attribution) → HALT `INCOMPLETE — unprofiled`; profile the path first (`/profile-perf`), never guess the target.
 
 ## Philosophy
 
@@ -109,14 +113,41 @@ Diagnosis:
 Proposed fix:
 <code change>
 
-Expected impact: <before> → <after> (<multiplier>×)
+Expected impact: <before> → <after> (<multiplier>×)   vs budget: <p95/LCP/bundle target>
 Risk: LOW | MEDIUM | HIGH — <reason>
 
+Guardrails to re-check (must not regress): <the neighbor metrics this fix class can slow — see Guardrail matrix>
+Profiled from: <flamegraph excerpt | EXPLAIN plan | slow-query row | web-vitals attribution>   ← not eyeballed
+
 Verification:
-<how to confirm — re-benchmark, DB plan-explainer, web-vitals re-run>
+<how to confirm — re-benchmark, DB plan-explainer, web-vitals re-run — the SAME harness that produced <before>>
+
+Verdict: PROPOSED [pre-apply]                          # a proposal, not yet measured post-change
+  # after a fix is applied and re-measured, the verdict resolves to ONE of:
+  #   PRODUCTION-GRADE          — <after> measured from the same harness, at/under budget, every guardrail clean, hotspot profiled
+  #   INCOMPLETE — over budget  — <after> beat <before> but is still above the SLO (faster ≠ fast enough)
+  #   INCOMPLETE — regressed <metric>  — a guardrail neighbor got worse beyond noise; HALT, keep behind review, re-diagnose/revert
+  #   INCOMPLETE — unprofiled   — the target was guessed, no profile artifact behind it
+  #   SKIPPED [no-harness]      — no measurement harness exists for this metric; name what's needed. Never an adjective, never a faked pass
 ```
 
-Rank findings by `impact / risk`.
+Rank findings by `impact / risk`. The agent NEVER resolves a finding to `PRODUCTION-GRADE` on an adjective ("much faster", "snappier", "should be quicker") — that is `SKIPPED [no-harness]` at best. Measured-and-under-budget is the bar; functional-and-faster-than-before is the floor.
+
+## Guardrail matrix — no p95 / interaction regression (the perf analog of "no dimension may get worse")
+
+Every optimization trades against a neighbor. Re-measuring only the metric you improved hides the regression it caused. For each fix class, the `Guardrails to re-check` line names the neighbor metric that MUST NOT get worse beyond measurement noise; any regression → `INCOMPLETE — regressed <metric>`, HALT.
+
+| Fix class | The win you measure | Guardrail neighbor that can regress | Re-measure with |
+|---|---|---|---|
+| Add index / composite index | read p95, seq-scan → index-scan | **insert/update/delete latency + write p95** (every write now maintains the index); table + index bloat | `EXPLAIN ANALYZE` on the write path; write-side load test |
+| Caching a hot read | read p95, hit-rate | **staleness / correctness** (stale-read window), **memory + GC pause** (cache footprint), tenant/identity cache-key leakage | soak the cache under steady load; heap snapshot; invalidation test |
+| Parallel-I/O / structured concurrency | wall-clock of the fan-out | **downstream RPS + error-rate + rate-limit 429s**, **connection-pool saturation** (unbounded fan-out melts the dependency) | load test at target concurrency; watch downstream error-rate + pool metrics |
+| Eager-load / JOIN to kill N+1 | list p95, query count | **row-multiplication / payload size** (a bad JOIN fans out rows), memory of the larger result set | `EXPLAIN ANALYZE` rows returned; response-size delta |
+| Bundle code-split / lazy route | initial bundle, LCP | **request-waterfall round-trips** (more chunks = more requests), a lazy chunk on the critical path delaying **INP** | web-vitals re-run incl. INP; network waterfall |
+| Memoization / compile-once | CPU self-time, TBT | **heap retention** (memo table never evicted → leak), correctness of the cached identity | heap-diff over time; memo-key correctness test |
+| Stream instead of buffer | memory, TTFB | **total wall-clock / throughput** if chunking is chatty; error-handling mid-stream | throughput load test; failure-injection mid-stream |
+
+The rule generalizes: **a fix is production-grade only when its own metric improved AND every guardrail neighbor held.** A change that wins its own number and silently regresses a neighbor is not an optimization — it is a relocation of the cost.
 
 ## Example (backend, stack-agnostic shapes)
 
@@ -193,6 +224,9 @@ Risk: LOW.
 - Rank by impact/risk — not "coolest first".
 - Each fix has a verification step.
 - Don't optimize what users don't feel (premature).
+- **Measured, not asserted.** `<after>` comes from the same harness as `<before>`; an adjective is `SKIPPED [no-harness]`, never a pass.
+- **Beats the budget, not just the before.** Under-budget `after` = `PRODUCTION-GRADE`; still-over-budget = `INCOMPLETE — over budget`.
+- **No guardrail regression.** Re-measure the neighbor the fix class can slow (Guardrail matrix), not only the metric you improved.
 - Complexity-class CPU defects (accidental-`O(n²)` scans, exponential/unmemoized recursion, wrong container) route to the algorithms pack (`/analyze-complexity` / `/design-algorithm`) — this agent owns the *measured constant-factor* tune, not the asymptotic class change.
 - DB changes on populated tables use the engine's online-index-build syntax (e.g., `CREATE INDEX CONCURRENTLY` in Postgres) — never lock the table.
 - Bundle changes measured before/after (actual, not claimed).

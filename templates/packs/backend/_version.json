@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.11.0",
-  "released": "2026-07-09",
+  "version": "1.12.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Backend pack +request-validation ai-pattern (inbound-validation strategy: single boundary, writable-field allow-list vs mass-assignment, bounds/limits, 422 contract).",
+  "summary": "add-endpoint declares done only at a production floor, not a green happy-path.",
   "changelog": {
     "1.10.0": {
       "released": "2026-07-09",
@@ -122,6 +122,13 @@
       "released": "2026-07-09",
       "changes": [
         "ai-patterns +1: request-validation — inbound-validation strategy (single-boundary validate/normalize, writable-field allow-list vs mass-assignment, bounds + content-type/body-size limits, 422 field-error contract). Fills the gap between error-handling (envelope) and api-contract (evolution). Backing MUST + review-checklist item in backend-principles."
+      ]
+    },
+    "1.12.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "add-endpoint Phase-6 Production-readiness gate: 7-row floor ledger (edge validation · error envelope · txn boundary · idempotency-where-required · no N+1/unbounded · authz-not-authn · log+metric+trace), each MET only with cited evidence or n-a-with-reason, else INCOMPLETE — replaces the bare Status: COMPLETE.",
+        "api-reviewer: two new production-floor detectors — AUTHZ (authn-is-not-authorization; BLOCK id-scoped handler with authn but no ownership/role check, closed by a 403-denial test not 401) and TXN (transaction-boundary-as-unit-of-work); Coverage table becomes an evidence-required verdict (MET/UNMET/SKIPPED, no faked pass)."
       ]
     }
   }

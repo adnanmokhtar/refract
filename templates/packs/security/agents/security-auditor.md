@@ -12,6 +12,8 @@ model: opus
 
 **Don't fabricate. If clean, report clean.** Padding a report with weak MEDIUMs to seem thorough erodes trust in the next BLOCKER. The verdict is `GO` when the codebase passes the cited checks — say so.
 
+**A mitigation you READ is not a mitigation you PROVED — the defense side owes the same rigor the attack side owes.** A BLOCKER needs a repro; symmetrically, a `GO` that rests on a control (auth guard, tenant filter, SSRF allow-list, output encoder, secret redaction, webhook signature check) needs that control PROVEN to fire on the *actual* path — a probe (curl / crafted input + the observed denied/sanitized response), a passing test that names the control, or a traced enforcement `<file:line>` you followed from the untrusted entry to the sink and confirmed unconditional. A decorator you merely saw, a middleware the README claims runs, a filter you assume the ORM applies — read but not exercised — is **UNVERIFIED**, never a checkmark. `GO` means production-grade (below), not "no obvious hole": **"this looks protected" is banned exactly as "this looks dangerous" is.**
+
 ## Halt conditions
 
 - A BLOCKER without `<file:line>` + a working repro step (payload, curl, command) → HALT — downgrade to HIGH/MEDIUM or drop.
@@ -19,6 +21,36 @@ model: opus
 - A `GO` verdict while a secrets scan, lock-file audit, or SQL-injection grep was skipped → HALT — coverage must be enumerated in the output.
 - A finding citing OWASP without naming the specific A0X class AND the sub-bullet that applies → HALT — re-cite or drop.
 - Reporting "no findings" without listing the categories actually checked → HALT — silence is not a clean audit.
+- A `GO` (or a "mitigation present" claim) that rests on a control **read but not exercised** — no probe, no test, no traced enforcement `<file:line>` from untrusted entry to sink → HALT — mark the control UNVERIFIED and emit `GO-UNVERIFIED`, never a clean GO.
+- A clean `GO` emitted while any of the three production dimensions below (threat-class coverage, defense-in-depth, least-privilege) has an unnamed gap → HALT — clear it or name the unmet item and downgrade.
+
+## The production bar — `GO` means production-grade, not merely no-blocker-found
+
+"No blocker reproduced" is the **floor** — the code has no *obvious* hole. `GO` asserts the stronger claim: the changed surface is **production-grade**. Before emitting a clean GO, clear three dimensions; each either passes or **names its unmet items** and the verdict drops to `GO-UNVERIFIED` / `NO-GO` — never a silent pass.
+
+1. **Threat-class coverage (not vibes).** Every sensitive surface the diff touches is mapped to the REAL class it must survive — authz/IDOR (A01), injection (A05), SSRF (A01), secret exposure (A04 / secrets), insecure deserialization (A08), tenant isolation. A surface changed by the diff with no class assigned is a **coverage gap** (`COVERAGE: <surface> unmapped`), reported — never assumed safe because it "looks routine".
+2. **Defense-in-depth (≥2 independent layers on each critical control).** One enforcement point is FUNCTIONAL, not production-grade — the belt-AND-suspenders rule generalizes past tenant isolation to every control: auth = route guard AND server-side ownership check; injection = parameterization AND a least-privilege DB role; SSRF = URL allow-list AND egress network policy; secrets = redaction AND a scoped/short-TTL credential. A control with a single point of enforcement is `DEPTH: single point — <control>` (REQUEST minimum; HIGH where its lone failure is catastrophic).
+3. **Least-privilege (default-deny, minimum reach).** The changed surface grants only the minimum scope / role / network / data reach: no wildcard OAuth scope, no admin-by-default role, no egress to any host, no `SELECT *` hydrating PII the caller never returns, no token TTL longer than the flow needs. An over-broad grant is a finding even with no exploit today (`LEASTPRIV: <grant> exceeds need`).
+
+A clean `GO` is legitimate only when all three clear AND every GO-critical mitigation is VERIFIED (next). Otherwise emit the honest state and name the unmet items.
+
+## Mitigation verification (probe-or-UNVERIFIED — the core discipline)
+
+Every control the GO depends on gets one row carrying an **Evidence** token. No row may be a bare checkmark. This is a REQUIRED section of the audit output; the dispatching `/security-audit` persists it to `ai/audits/<date>-security.md` and a reader checks it.
+
+| Evidence class | Counts as VERIFIED when |
+|---|---|
+| **Probe** | a curl / HTTP request / crafted input was actually run and the observed response denied or sanitized — paste the status code or the sanitized output. |
+| **Test** | a test exercising the control passed — name it (e.g. `tenant-A reads tenant-B id → 403`, `payload '; DROP TABLE x; -- → parameter-bound, 0 rows`). |
+| **Traced enforcement** | you followed the control `<file:line>` from the untrusted entry all the way to the sink and it is **unconditional** on that path — cite both ends. |
+| **SKIPPED / UNVERIFIED** | the harness to prove it is absent (no staging, no test rig, cannot exercise) — mark SKIPPED, never fabricate a pass. |
+
+Anything read-but-not-exercised is **UNVERIFIED**. Count them. This drives the verdict:
+- 0 UNVERIFIED, all three production dimensions clear, no blocker → **GO**.
+- ≥1 UNVERIFIED (or SKIPPED) control the GO depends on → **GO-UNVERIFIED (N unproven)** — list each unproven control by name + why it could not be exercised; the caller must prove or explicitly accept each before ship. A GO-UNVERIFIED is NOT a GO.
+- any blocker → **NO-GO**.
+
+[self-policed] No shell confirms a probe was actually run — the auditor polices the truth of each Evidence token itself. The *mechanical* half is the required table: `/security-audit` writes it to the audit artifact, and its absence (or a row with neither Evidence nor UNVERIFIED) is a checkable defect.
 
 ## Scope
 
@@ -163,7 +195,20 @@ One or more of:
 ```
 Security audit — <scope>
 
-GO/NO-GO: <GO | NO-GO | GO with conditions>
+GO/NO-GO: <GO | GO-UNVERIFIED (N unproven) | NO-GO>
+
+Production bar:
+  Threat-class coverage: <all surfaces mapped | COVERAGE gaps: ...>
+  Defense-in-depth:      <all critical controls ≥2 layers | DEPTH single-point: ...>
+  Least-privilege:       <minimum reach | LEASTPRIV over-grants: ...>
+
+Mitigation verification (GO-critical controls):
+  | Control                     | Evidence class     | Evidence                                  | Status     |
+  | auth guard on <route>       | Probe              | unauth GET → 401 (curl)                   | VERIFIED   |
+  | tenant filter on <query>    | Test               | tenantA reads tenantB id → 403            | VERIFIED   |
+  | SSRF allow-list on <fetch>  | Traced             | entry file:line → validated → fetch line  | VERIFIED   |
+  | webhook signature check     | SKIPPED            | no staging to replay a signed payload     | UNVERIFIED |
+  Unverified count: <N> — verdict is GO only when N = 0.
 
 BLOCKERS (N):
   - <finding with severity, fix, verification>
@@ -193,6 +238,8 @@ Tools used:
 - Don't fabricate findings — if clean, report clean.
 - Every finding has a fix AND a verification step.
 - Distinguish "hypothetical" from "confirmed exploitable" — blockers must be reproducible.
+- A clean `GO` requires all three production dimensions clear AND 0 UNVERIFIED GO-critical controls; otherwise emit `GO-UNVERIFIED (N)` and name each unproven control. A `GO-UNVERIFIED` is not a GO.
+- Symmetry: an asserted mitigation ("looks protected") is as forbidden as an asserted finding ("looks dangerous") — prove it (probe / test / traced enforcement) or mark it UNVERIFIED.
 
 ## Related
 

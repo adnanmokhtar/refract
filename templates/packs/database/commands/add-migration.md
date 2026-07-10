@@ -72,6 +72,29 @@ Accepts `--plan` (see [`templates/snippets/plan-flag.md`](../../../snippets/plan
 
 No claim without the artifact behind it: do not report a duration, lock window, or rollback time without a real `migration-rehearsal` timed run (per its "no number without a real timed run" discipline); do not list a Phase-3 read (e.g. `zero-downtime-deploys.md`) the agent did not actually open; do not mark a safety-checklist line ✓ without verifying it against the generated SQL. Unrun checks are reported as `not run`, never as ✓.
 
+## Migration-Safety Gate — production-grade-or-INCOMPLETE (the closing verdict)
+
+**"It applies on an empty DB" is the FLOOR, not the bar.** A migration that generates cleanly, has a non-empty `down()`, and mirrors sibling shape is merely FUNCTIONAL. The run declares **`Status: COMPLETE`** ONLY when the migration is PRODUCTION-GRADE against all five dimensions below — each PASS backed by a cited artifact, or ADR-JUSTIFIED-and-stated. Any dimension unmet, or whose evidence could not be produced, forces **`Status: INCOMPLETE — <unmet dims named>`**. A `COMPLETE` sitting on bare ✓ marks with no cited evidence is enforcement theater — forbidden here.
+
+| # | Dimension | PASS requires (evidence, not assertion) | ADR-justified alternative (must state the accepted cost, not "should be fine") |
+|---|---|---|---|
+| **D1 Reversible** | `down()` reverses AND a real rollback was rehearsed | `down()` non-empty + reverse SQL, AND the `migration-rehearsal` report's **Rollback** block shows `Schema: restored ✓ (baseline diff = 0)` — cite that line | ADR at `<path>` declares irreversible-by-physics (data-destroying `down()`), names the accepted one-way cost, and cites the pre-drop backup/archive step |
+| **D2 Online / zero-downtime** | The lock + backfill profile is **REPORTED from a real timed run**, never assumed away | Max lock mode + hold-time on the target table, cited from the rehearsal report's **Forward/Locks** block; hold ≤ deploy SLO (default 30s) OR expand-contract splits every step below SLO. `CONCURRENTLY` (PG) / `pt-osc`/`gh-ost` (MySQL) on populated-table index or ALTER | ADR at `<path>` accepts a maintenance-window lock — states the **measured** hold from rehearsal (e.g. `ACCESS EXCLUSIVE 2m18s`), the booked window, and why online was rejected |
+| **D3 Index coverage** | Every new WHERE / ORDER BY / JOIN column this change introduces is served by an index | Name the `<index_name>` on `<table.(cols)>` for each new access path; leftmost-prefix confirmed via `EXPLAIN` showing Index Scan (not `Seq Scan` + Filter dropping >90%). Index in THIS migration set or a named follow-up migration file on the branch | ADR states the path is intentionally unindexed (write-hot / low-selectivity column) with the write-amplification trade-off |
+| **D4 Rename / type-change carries a backfill + dual-read/write plan** | A bare `RENAME COLUMN` / incompatible `ALTER COLUMN TYPE` on a populated table is NEVER production-grade | The expand-contract sequence exists as N real migration files (add → dual-write → backfill → switch-read → drop) AND the app dual-write phase is named in the deploy plan | **none** — no ADR launders a bare rename on a populated table; it breaks rolling deploys by construction |
+| **D5 No data loss** | Destructive or narrowing steps are recoverable | `DROP COLUMN`/`DROP TABLE`/narrowing type/dedup-before-unique each cite a pre-step backup or archive-table copy, and `down()` restores OR is D1-ADR'd | ADR states the drop is safe because the column/table has been unread ≥ 1 release — cite the grep proving no code path reads it |
+
+### How this gate is actually enforced (honest mechanism — no theater)
+
+- **D1 + D2 are wired to a REQUIRED OUTPUT ARTIFACT** — the `migration-rehearsal` skill's report. That skill's own halt conditions already **refuse a duration without `time` output** and **refuse rollback-clean without a schema-diff = 0**, so the numbers this gate cites cannot be fabricated. The gate quotes the report's Forward/Locks + Rollback lines verbatim. If the rehearsal harness (a restored prod-sized backup) is **absent**, D1+D2 are marked `SKIPPED — UNVERIFIED`; for a populated table (>100k) that CANNOT be `COMPLETE` — the verdict is `INCOMPLETE (rehearsal-unverified)`, never a faked PASS. [wired-to-required-output]
+- **D3 is wired to `EXPLAIN`** when the DB is reachable (Index Scan vs Seq Scan is captured output). When unreachable, D3 falls back to static index-presence only and is marked `UNVERIFIED (no EXPLAIN)`. [wired-to-required-output / partial]
+- **D4 is wired to the Phase-6 follow-up-migration grep** shared with `/migration-review` (`git diff --name-only origin/main...HEAD -- '*migration*'` cross-checked against the expand-contract step slugs) — a promise in prose is not a planned migration. [wired-to-required-output]
+- **D5 classification** (is this SQL step data-destroying / narrowing?) is judged by reading the SQL; no shell catches a subtle `varchar(64)→varchar(32)` truncation. It is **[self-policed]** and labelled so — the agent must not dress it as mechanical.
+
+### Required output artifact
+
+Every run MUST emit the **Migration-Safety Gate** verdict block (see Output § below): one `D1..D5` line each carrying `PASS <evidence-citation>` | `ADR <path>` | `INCOMPLETE <what's missing>` | `SKIPPED — UNVERIFIED <why>`, then the single `Status:` line. A reader greps this block: a `Status: COMPLETE` whose D-lines carry no citation is an **invalid artifact** — reject it and re-run. `COMPLETE` is reserved for production-grade; everything short of it is `INCOMPLETE` with the gap named, so the next actor knows exactly what remains.
+
 ## When to use / NOT to use
 
 - USE: schema change (add/drop/alter column or table).
@@ -216,18 +239,20 @@ Run `migration-rehearsal` skill:
 - Apply `down()` — confirm reversibility.
 - Report: is forward < SLO? Is rollback clean?
 
-### Safety checklist
+### Safety checklist — evidence-bearing, maps 1:1 to the Migration-Safety Gate
 
-- ✓ Reversible (down() restores state)
-- ✓ Concurrent-write safe (no long locks)
-- ✓ Index creation uses CONCURRENTLY (Postgres populated)
-- ✓ Data step batched with SKIP LOCKED
-- ✓ Schema ≠ data in same file
-- ✓ No `synchronize: true` / auto-migrate path
+**Every line below is `PASS <cited-evidence>` | `ADR <path>` | `UNVERIFIED <why>` — never a bare ✓.** A ✓ with no citation is exactly the enforcement theater this gate forbids. The Gate verdict (§ above) is computed from these lines.
 
-### Verify with `schema-diff` skill — entity matches DB after migration.
+- **D1 Reversible** — `down()` reverses (cite the SQL) AND rehearsal Rollback shows `baseline diff = 0` (cite report line). No rehearsal harness → `UNVERIFIED (rehearsal-absent)`.
+- **D2 Online-safe** — lock/backfill profile REPORTED (cite rehearsal Forward/Locks: mode + hold-time); hold ≤ SLO or expand-contract splits it; `CONCURRENTLY` / `pt-osc` on populated index/ALTER. Never "should be fast".
+- **D3 Index coverage** — each new WHERE/ORDER BY/JOIN column names its `<index_name>`; `EXPLAIN` shows Index Scan (cite), or `UNVERIFIED (no EXPLAIN)`.
+- **D4 Backfill/dual-write for rename/type-change** — expand-contract step files present on branch (cite the grep) + app dual-write phase named. Bare rename = INCOMPLETE.
+- **D5 No data loss** — destructive/narrowing steps cite a backup/archive step; `down()` restores or D1-ADR'd. [self-policed — read the SQL]
+- **Hygiene** — data step batched with `SKIP LOCKED`; schema ≠ data in one file; NO `synchronize: true` / auto-migrate path (grep the config — this is always a P0 escalate).
 
-If any check fails: HALT, report the failure, do not paper over.
+### Verify with `schema-diff` skill — entity matches DB after migration (cite the drift-report `diff = 0`).
+
+If any D-line is unmet or `UNVERIFIED` on a populated table: the migration is **INCOMPLETE**, not COMPLETE. HALT, name the unmet dimension in the Gate verdict, do not paper over with a ✓.
 
 ## Phase 7 — Improve (feed the learning loop)
 
@@ -300,12 +325,15 @@ Classification:
   Operation: ADD COLUMN + BACKFILL + SET NOT NULL
   Approach: expand-contract (3 migrations + 2 app deploys)
 
-Safety check:
-  ✓ Reversible (down() restores state)
-  ✓ Concurrent-write safe (no long locks)
-  ✓ Index creation uses CONCURRENTLY
-  ✓ Data step batched with SKIP LOCKED
-  ⚠ Requires multi-step deploy — coordinate with devops
+Migration-Safety Gate (production-grade bar — each line carries evidence, no bare ✓):
+  D1 Reversible      PASS  down() reverses; rehearsal Rollback baseline diff = 0
+  D2 Online-safe     PASS  rehearsal Forward: max ACCESS SHARE, no ACCESS EXCLUSIVE > 30s;
+                           CONCURRENTLY on the 5M-row index (measured ~2-5m, non-blocking)
+  D3 Index coverage  PASS  idx_orders_tenant_status_created_desc serves the new
+                           (tenant_id, status) filter — EXPLAIN: Index Scan
+  D4 Backfill/dual-write  PASS  expand-contract M1-M4 present on branch; app dual-write phase named
+  D5 No data loss    PASS  additive only; down() drops the added column; no destructive step [self-policed]
+  Hygiene            PASS  backfill batched (SKIP LOCKED); schema≠data split; no synchronize:true
 
 Next migrations planned:
   - <name-step-2>
@@ -315,7 +343,10 @@ Next migrations planned:
 Deploy compat: backward-compatible (app works before + after each migration).
 ADR: <path if architectural decision> OR n/a.
 
-Status: COMPLETE — proceed with M1 deploy when devops ready.
+Status: COMPLETE — production-grade (all D1-D5 evidenced). Proceed with M1 deploy when devops ready.
+  ── OR, if any dimension is unmet/unverified ──
+Status: INCOMPLETE (rehearsal-unverified) — D2 lock profile not measured (no restored backup).
+  Unmet: D2. Do not ship to prod until migration-rehearsal runs on a prod-sized copy.
 ```
 
 ## Hard rules

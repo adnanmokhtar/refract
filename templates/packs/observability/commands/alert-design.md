@@ -131,6 +131,22 @@ Agent-verified:
 - **Dispatch the `alert-audit` skill** on the generated alerts for the historical-replay check: it queries the alerting backend + paging history to answer "would this threshold have fired during past incidents?" and flags dead-on-arrival rules (query references an uninstrumented metric), missing runbooks/owners, and cause-vs-symptom misclassification. Findings halt before completion. This is the executor for the "would this have fired" gate — the agent does NOT eyeball it.
 - Verify alert volume budget against the audit's projection: target ≤ 5 pages / week per on-call OR ≤ 1 / 24h.
 
+### Actionability ledger — REQUIRED OUTPUT ARTIFACT (the run is not done until this table exists)
+
+An alert is production-grade only when it is SLO-linked, would have caught a real incident (not fire on noise), and hands the responder a runbook. Assert each — do NOT declare a count and stop. One row per generated alert:
+
+```
+Alert (name)              | Sev    | SLO/SLI it burns   | Window   | Dead-on-arrival? (alert-audit) | Runbook file exists? | Status
+checkout-fast-burn        | page   | checkout.success   | 1h/14×   | no (query hits live series)     | ai/runbooks/… → yes  | ACTIONABLE
+checkout-slow-burn        | ticket | checkout.success   | 6h/6×    | no                              | ai/runbooks/… → yes  | ACTIONABLE
+db-pool-saturation        | ticket | (cause, dashboard) | for 5m   | no                              | ai/runbooks/… → yes  | ACTIONABLE
+```
+
+Per-row `Status`:
+- **ACTIONABLE** — SLO/SLI named (or explicitly a cause-based ticket, not a page), `alert-audit` says not-dead, and `test -f` on the runbook path succeeds. Only ACTIONABLE counts.
+- **UNLINKED** — the alert fires on a static threshold with no SLO/SLI behind it, or a `page` alert is cause-based. Fix (convert to burn-rate) or demote — not shippable as a page.
+- **ORPHAN** — no runbook file on disk, or `alert-audit` flagged it dead-on-arrival / no owner. Halt.
+
 OPERATOR CHECKLIST (live — NOT auto-passed):
 - [ ] Trigger each alert deliberately (toy app, staging) → it fires AND pages the right person.
 - [ ] Wait for it to clear → it auto-resolves.
@@ -144,7 +160,7 @@ OPERATOR CHECKLIST (live — NOT auto-passed):
 ## Output format
 
 ```
-## /alert-design complete
+## /alert-design — <service>
 
 Service: <name>
 SLO definitions: <count>
@@ -153,11 +169,24 @@ Ticket alerts: <count>
 Heartbeat alerts: <count>
 Runbooks: <count>
 
+Actionability ledger: <rows> alerts — ACTIONABLE <a> | UNLINKED <u> | ORPHAN <o>
+  <the ledger table above, verbatim, with per-alert evidence>
+
 Alert catalog: ai/runtime/alerts.md
 Backend config: <path to monitors.yaml / etc.>
-
 Alert volume estimate (based on past 30d data): <P/T/I per week>
+
+Status: <see gate below>
 ```
+
+### Closure gate — COMPLETE only when every alert is actionable, else INCOMPLETE with the unmet alerts named
+
+Compute Status from the ledger + the `alert-audit` result — do NOT hand-write it:
+
+- **`Status: COMPLETE`** — ONLY when every ledger row is `ACTIONABLE`, `alert-audit` returned zero dead/noisy-above-budget/runbook-less/owner-less/cause-as-page findings, and the projected page volume is within budget (≤ 5/week per on-call). Nothing else.
+- **`Status: INCOMPLETE — unmet: <list>`** — the moment any row is `UNLINKED` or `ORPHAN`, `alert-audit` has an open finding, or the volume projection breaches budget. NAME each unmet alert and why (e.g., `search-latency — UNLINKED: static p95>500ms, no SLO; convert to burn-rate`; `import-job-failed — ORPHAN: no runbook file`). A set of alerts that "would fire" but page into a void is INCOMPLETE.
+
+This gate is **[self-policed]** on the Status line, but wired to checkable evidence: the runbook paths (`test -f`), the SLO names (must resolve in `ai/runtime/slos.md`), and the `alert-audit` findings are all inspectable — `@sre-engineer` / `@observability-reviewer` will BLOCK a COMPLETE whose alerts are unlinked or runbook-less.
 
 ## Hard rules
 

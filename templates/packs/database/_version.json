@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "database",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Database pack +3 ai-patterns: full-text-search, connection-pooling, read-replicas.",
+  "summary": "add-migration declares COMPLETE only when the migration is production-safe on a populated table.",
   "changelog": {
     "1.1.1": {
       "released": "2026-06-14",
@@ -23,6 +23,13 @@
       "released": "2026-07-10",
       "changes": [
         "ai-patterns +3: full-text-search (engine text primitive + ranking vs LIKE-scan), connection-pooling (bounded pool sizing/mode, pgbouncer txn-mode, serverless proxy), read-replicas (lag-tolerant read routing / read-your-writes)."
+      ]
+    },
+    "1.4.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "add-migration Migration-Safety Gate (D1 reversible · D2 online-safe with a MEASURED lock/backfill profile ≤ SLO · D3 index coverage by EXPLAIN · D4 rename/type-change backfill+dual-write plan · D5 no data loss); any unmet/unverified dim → INCOMPLETE, grounded in the migration-rehearsal report.",
+        "schema-reviewer: APPROVE is now a positive evidenced claim; halt forbids APPROVE on an unmeasured-lock populated-table migration (downgrade to BLOCK)."
       ]
     }
   }

@@ -72,16 +72,45 @@ Configure the broker / queue / event-stream platform's consumer with: max retrie
 
 ## Phase 6 — Validate
 
-Enumerate the required scenarios; each MUST actually run and be GREEN:
+Happy-path is the floor, not the bar. At-least-once delivery is a given on every mainstream broker, so a handler is production-grade only when it delivers **exactly-once EFFECT under redelivery** — the side effect runs once even when the same message arrives twice, arrives concurrently, or is redelivered after a crash — and when the poison-message path is bounded (a non-retryable message provably EXITS the retry loop). A handler that passes only happy + sequential-replay is FUNCTIONAL, not production-grade; this gate tests the distributed property directly.
 
-- Unit test: happy path, retryable failure, non-retryable failure, idempotency replay.
-- Integration test: produce a real event; verify handler processes; verify ack to broker.
-- DLQ test: produce an event that triggers non-retryable; verify it lands in DLQ.
-- Idempotency test: produce same event twice; verify side effect runs once.
-- Schema-version test: produce event with unknown `eventVersion`; verify graceful skip + alert.
-- Replay test: re-run from earlier offset; verify idempotency holds (no duplicate effects).
+### Precondition — dedupe reserve cited + atomic (HALT if unmet)
 
-**Green-or-HALT gate (mechanical, mirrors `perf-audit`'s after-projection halt).** `scenarios_green == scenarios_required OR HALT`. Every enumerated scenario test above must have actually EXECUTED and PASSED — an intended-but-unrun scenario counts as red. If any scenario is red / failing / unrun: HALT, report the failing scenario, do NOT emit the `## /add-event-handler complete` / success block. The output must render the real per-scenario pass/fail result (from the actual test run), never an asserted checklist.
+Before scenarios run, the dedupe reserve MUST be cited at `<path:line>` and be **atomic**. Grep the handler + its migration:
+
+- BAD — check-then-act (races under concurrent delivery; the effect runs twice between the read and the write):
+
+  ```
+  rg -n "SELECT.*processed_events|EXISTS\(.*event_id|has(Been)?Processed\(" <handler>
+  ```
+  a read that gates a *separate* later INSERT is the classic non-atomic dedupe (`ai/patterns/idempotency.md` § Forbidden: "check if it exists, then create — classic race").
+- GOOD — one atomic reserve: a unique-constraint `INSERT INTO processed_events(event_id)` whose **duplicate-key error IS the dedupe**, OR the `event_id` row inserted in the **same DB transaction** as the effect (both commit or both roll back). Detector:
+
+  ```
+  rg -n "ON CONFLICT|INSERT .*processed_events|UNIQUE" <handler> <migration>
+  ```
+  must resolve to a single atomic statement, and the effect + event-id row must share one transaction.
+
+No atomic reserve cited → HALT. If the reserve is a distributed lock (Redis etc.) rather than a DB constraint, it MUST carry a fencing token (`ai/patterns/idempotency.md`); a lock alone is not exactly-once.
+
+### Required failure-mode scenarios — each runs GREEN, or is marked UNVERIFIED/SKIPPED with the reason (never a faked PASS)
+
+`scenarios_required` (all must be exercised — the last two are the exactly-once core and are the deepening over a sequential-replay test):
+
+1. **happy path** — one delivery, one effect, ack.
+2. **retryable failure → redelivery** — 5xx/network → re-enters the handler → still exactly one effect (the retry path passes through the reserve, not around it).
+3. **non-retryable → DLQ, loop bounded** — assert the message reaches DLQ AND that attempts are bounded (`attempts <= maxRetries`); the message provably EXITS the loop (no infinite poison retry).
+4. **schema-version unknown** — unknown `eventVersion` → skip + alert, effect not run.
+5. **CONCURRENT duplicate delivery** — two deliveries of the SAME `event_id` interleaved so both pass the reserve *before* either commits → exactly one effect. A sequential twice-call CANNOT catch a check-then-act race; this scenario is what distinguishes idempotent-looking from idempotent. If the harness is single-threaded, drive the interleave explicitly (call reserve-A, reserve-B, then commit both) — otherwise mark **UNVERIFIED (no concurrency harness)**, never PASS.
+6. **crash-in-the-gap (partition)** — kill the handler in the window between effect-commit and broker-ack (or between bus-publish and outbox-mark for an outbox producer); on redelivery the effect is still counted once. This proves the effect and the reserve are atomic *with respect to the ack*. If fault injection isn't available, mark **UNVERIFIED (no crash/partition harness)** — do not fake it (`chaos-test` skill is the harness for this).
+
+Each row MUST cite the real `<test-file>::<test-name>` it ran and render that test's ACTUAL result.
+
+**Exactly-once-effect gate — three outcomes, no fourth.** This gate is **[self-policed]**: no shell script parses this output (there is no `validate-event-handler-artifacts.sh`), so the halt is only as honest as the render — its falsifiability comes from the cited `<test-file>::<test-name>` per row, which a reviewer (or `@resilience-reviewer`) can open and re-run.
+
+- **GREEN** — `scenarios_green == scenarios_required`, every row a cited real PASS → emit `## /add-event-handler complete`.
+- **RED** — any row FAIL / unrun / cites no test → HALT, name the row, emit NOTHING but the failing row. (An asserted checklist with no `<test-file>::<test-name>` is RED by definition.)
+- **INCOMPLETE** — scenarios 5/6 are UNVERIFIED because a concurrency/partition harness is absent → do NOT claim production-grade; emit the INCOMPLETE block naming exactly the unverified scenarios and the harness each needs. Functional, not shippable-as-exactly-once.
 
 ## Phase 7 — Improve
 
@@ -100,6 +129,7 @@ Side effect: <what>
 Idempotency: enabled (key: <pattern>)
 Retry policy: <max>, <backoff>
 DLQ: <topic / queue>
+Dedupe reserve: <path:line>  (atomic: unique-constraint INSERT | same-tx event-id)
 
 Files written:
 - handler
@@ -107,14 +137,17 @@ Files written:
 - broker config
 - ai/patterns/event-handlers.md (updated)
 
-Tested (actual run — PASS/FAIL per scenario, all must be PASS):
-- happy / retryable / non-retryable / idempotency (unit)   PASS
-- integration (process + ack)                              PASS
-- DLQ (non-retryable lands in DLQ)                         PASS
-- idempotency (same event twice → effect once)             PASS
-- schema-version (unknown version → skip + alert)          PASS
-- replay (earlier offset → no duplicate effects)           PASS
-scenarios_green: <n>/<required>  (block emitted only when equal)
+Tested (actual run — each row cites the test + renders its real result):
+- happy path                              tests/onOrderCreated.spec::happy        PASS
+- retryable → redelivery → effect once     …::retry_redelivers                     PASS
+- non-retryable → DLQ, attempts bounded    …::poison_exits_loop                    PASS
+- schema-version unknown → skip + alert    …::unknown_version                      PASS
+- concurrent duplicate → exactly one       …::concurrent_dedupe                    PASS | UNVERIFIED (no concurrency harness)
+- crash-in-gap → redelivery, effect once   …::crash_before_ack                     PASS | UNVERIFIED (no partition harness)
+scenarios_green: <n>/<required>
+
+Verdict: COMPLETE (production-grade) — emitted only when scenarios_green == scenarios_required with every row a cited PASS.
+         INCOMPLETE — <unverified scenarios named> + the harness each needs (e.g. `chaos-test` for crash-in-gap). Functional, not exactly-once-verified.
 ```
 
 ## Hard rules
@@ -143,4 +176,8 @@ scenarios_green: <n>/<required>  (block emitted only when equal)
 - `add-saga` command — when 2+ events coordinate.
 - `audit-distributed-tx` command — periodic stuck-saga check.
 - `dlq-replay` skill — re-process DLQ.
+- `chaos-test` skill — the fault-injection harness that turns the crash-in-gap / concurrent-duplicate scenarios from UNVERIFIED to GREEN.
+- `@resilience-reviewer` agent — the challenge core; run it on the handler to audit the exactly-once-effect and check-then-act reserve before merge.
+- `ai/patterns/idempotency.md` — the atomic-reserve / dedupe contract this gate enforces.
+- `ai/patterns/outbox.md` — the exactly-once producer half (crash-in-gap between publish and mark).
 - `ai/patterns/event-sourcing.md` — overlapping for event-sourced systems.

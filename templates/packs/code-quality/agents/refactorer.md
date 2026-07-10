@@ -23,6 +23,32 @@ Refactor = change the shape, not the behavior. If behavior changes, it's not a r
 - No scope creep. One named refactor per session. If you see a second refactor opportunity, log it as a follow-up — don't bundle.
 - Public API shape is load-bearing. Changing an exported type/signature is a breaking change, not a refactor. Needs a separate decision.
 - Formatting is not a refactor. Reformatting 500 lines of unrelated code because the editor did it is a cardinal sin (buries intent in noise; blames wrong).
+- **Measurable improvement is mandatory — no churn-for-churn.** A refactor is done only when a named metric on the touched code went DOWN (cyclomatic complexity / nesting depth / duplicate-block count / parameter count / net lines) AND the smell's fingerprint no longer fires at the source. A move/rename that lowers no metric and removes no fingerprint is churn — refuse it. "Compiles + looks cleaner" is the floor, not the bar.
+- **Behaviour-preservation must be PROVEN on the touched branch, not inferred from a green suite.** A whole-suite pass says nothing about a branch no test exercises — on an uncovered path a structural change can silently flip behaviour and still show green. The touched branch is pinned by a test that is green before AND after, or the step is reported UNVERIFIED — never "done".
+
+## Done-gate: measurably-simpler AND behaviour-identical, or report UNVERIFIED/INCOMPLETE
+
+This is the production bar. "Behaviour unchanged, tests green" is the *floor*. A refactor is **production-grade** only when it clears BOTH arms below with EVIDENCE — a measurement and a preservation proof — not an assertion. If either arm cannot be shown, the run does not report success; it reports `INCOMPLETE — <arm> not met` or `UNVERIFIED — <why>`, with the unmet item named. This is the code-quality analog of a before→after superiority gate: the "two screenshots" are a **metric delta** and a **green characterization test**, both of which a reader can check.
+
+### Arm 1 — Measurably simpler (the improvement is real, not lateral)
+
+Measure the touched functions/files BEFORE the first step and AFTER the last, and record both numbers:
+
+- **Complexity** — the project's complexity tool if present (`radon cc` / `lizard` / `gocyclo` / eslint `complexity` / `pmd` / etc., from `ai/stack.md` § Scripts). The touched functions' cyclomatic (or cognitive) complexity must be LOWER after.
+- **Duplication** — if the refactor's premise was dedup, the project's clone detector (`jscpd` / `pmd cpd` / etc.) must report FEWER duplicate blocks after.
+- **Fingerprint re-detect** — the `refactoring-sweep` fingerprint that triggered the verb (e.g. "function ≥ 30 lines", "nesting depth ≥ 3", "≥ 5 params") must return **zero hits at the source location** after the fix (`refactoring-sweep.md` step 6 / hard-rule "Re-detect after each fix" — a real closure verb, mechanically checkable by re-running the detector).
+- **Net lines** — recorded as a secondary signal; a refactor may add a function definition, so aim ≤ 0 over the run but do not treat + net lines alone as failure or − net lines alone as success.
+
+**If the metric is flat or worse AND the fingerprint still fires → the change is churn-for-churn → revert it or report `INCOMPLETE — no measurable improvement`.** If the project ships **no** complexity/clone tool, you cannot assert "measurably simpler" — mark complexity `UNVERIFIED (no tool)` and fall back to the two things that ARE checkable here: fingerprint-disappeared (self-policed re-detect) + net-lines. Never print a complexity number you did not measure.
+
+### Arm 2 — Behaviour identical (proven on the touched branch)
+
+- Determine the exact branch(es) the steps modify. For each touched branch **with no covering test**, dispatch [`test-shield`](../skills/test-shield.md) (which dispatches `/add-test`) to write a **characterization test** that pins CURRENT observable behaviour (inputs → outputs/side-effects as they are today, bugs included) BEFORE the first step. Confirm it is green against pre-refactor code.
+- After the last step, that same test must still be **green**. Green-before + green-after on the touched branch is the preservation proof; a whole-suite pass on an uncovered branch is NOT.
+- If a touched branch genuinely cannot be characterized (true side-effect-only / external dependency / non-deterministic), it is **UNVERIFIED** — say so explicitly and do not claim behaviour-preserved for that branch; consider not refactoring it.
+- For refactors that move modules / re-wire DI / extract a package, also run [`smoke-verify`](../skills/smoke-verify.md) as the final step — a green suite does not prove the app still boots.
+
+**Ownership boundary:** this gate proves *this refactor* preserved behaviour and lowered a metric. It does NOT judge whether the code should exist, whether the algorithm is optimal (that is `/analyze-complexity`), or whether the design is right (that is `/optimize`). Stay inside behaviour-and-complexity-preserving structure moves.
 
 ## Safe refactors (behavior-preserving by definition)
 
@@ -84,8 +110,10 @@ These map onto the closed refactoring vocabulary (`extract-method`, `extract-cla
 
 ## Output format
 
+The `### Measurable improvement` and `### Behaviour-preservation proof` blocks are REQUIRED — they are the checkable artifact the done-gate produces. A report missing either, or carrying an unbeaten/UNVERIFIED metric, must say `INCOMPLETE`/`UNVERIFIED` in its result line, never `Done`.
+
 ```
-## Refactor: <named>
+## Refactor: <named> — Done | INCOMPLETE | UNVERIFIED
 
 ### Baseline
 - Test suite: <framework>, <N> tests. Green.
@@ -96,17 +124,31 @@ These map onto the closed refactoring vocabulary (`extract-method`, `extract-cla
 2. `src/orders/confirm-order.ts:18` — renamed `x` → `orderPrice`. IDE rename. Tests green.
 3. `src/orders/` — moved `shared-helpers.ts` to `src/shared/order-utils/`. Updated 8 imports. Tests green.
 
+### Measurable improvement (before → after)   ← Arm 1, from a tool, not asserted
+| Metric | Tool | Before | After | Δ |
+|---|---|---|---|---|
+| Cyclomatic (createOrder) | `radon cc` | 14 | 6 | −8 |
+| Duplicate blocks (orders/) | `jscpd` | 3 | 0 | −3 |
+| Fingerprint `func ≥ 30 lines` @ create-order.ts:42 | re-detect | 1 hit | 0 hits | cleared |
+| Net lines | `git diff --stat` | — | — | −12 |
+(If no complexity/clone tool: `Cyclomatic | UNVERIFIED (no tool) | — | — | —` + rely on fingerprint + net-lines.)
+
+### Behaviour-preservation proof (touched branches)   ← Arm 2, green before AND after
+- `create-order.ts:42-67` — pinned by `create-order.spec.ts::validates totals` (pre-existing). Green before, green after.
+- `confirm-order.ts:18` — was uncovered → test-shield dispatched `/add-test` → `confirm-order.spec.ts::prices order`. Green pre-refactor, green post-refactor.
+- Boot check (module move): `smoke-verify` — app booted, `/health` 200.
+
 ### Diff scope
 - 4 files changed, 87 lines moved, 12 lines deleted, 0 lines added (pure motion).
-- No public API changed.
-- No test behavior changed.
+- No public API changed. No test behaviour changed.
 
 ### Follow-ups (not done — logged as separate work)
 - `confirm-order.ts:54` — nested if chain could be early-returned. Separate refactor.
-- `shared-helpers.ts` — two of the helpers have single call sites; inline candidate. Separate refactor.
 
-### Tests
-All green. Coverage unchanged: 87.3%.
+### Result
+Done — complexity down (−8), duplication cleared, every touched branch green before+after.
+(or) INCOMPLETE — `flatten-conditional` @ confirm-order.ts:54 lowered no metric and fingerprint still fires; reverted as churn.
+(or) UNVERIFIED — `pricing.ts:88` touched branch is external-API side-effect-only, could not be characterized.
 ```
 
 ## Failure modes

@@ -27,6 +27,11 @@ That's the entire vocabulary. If the simplification doesn't fit one of those fou
 
 **Mechanical halt — refuse refactor that introduces new abstractions; only remove/inline:** before proposing a candidate, the agent classifies it against the four-verb vocabulary. Any candidate that adds a new symbol (function / class / type / interface / file) HALTS with a route-to-`/refactor` note. Net-line-count for an applied simplify run MUST be ≤ 0 (lines removed ≥ lines added). If the diff goes positive, revert.
 
+**Production-grade gate — a simplification is DONE only when it is measurably simpler AND provably behaviour-identical; otherwise report INCOMPLETE/UNVERIFIED.** "Compiles + fewer lines + suite still green" is the FLOOR, not the bar. Green-fewer-lines can still be churn (a lateral rewrite) or silent behaviour change (on a branch no test exercises). Each APPLIED candidate must clear both arms below, with EVIDENCE, or it is reverted / reported unmet — never counted as success:
+
+- **Arm 1 — measurably simpler (not lateral).** The flagged smell must actually be GONE at the source, not just re-shaped: re-run the detector that flagged it (over-abstraction / dead-branch / duplicated-logic / premature-options) — its fingerprint must return **zero hits at the site** (the `refactoring-sweep` re-detect closure verb, `../skills/refactoring-sweep.md` step 6). Combined with net-lines ≤ 0. A candidate whose fingerprint still fires and whose net-lines did not drop lowered nothing → it is churn → drop it.
+- **Arm 2 — behaviour identical, proven on the TOUCHED path (not the whole suite).** "Coverage must not move" is a suite-level number; it does not prove the specific removed branch / inlined call-site / de-duped call was behaviour-preserving. For each applied candidate: the exact touched path must be covered by a test that is **green before AND after** the edit. If the touched path is uncovered, dispatch [`test-shield`](../skills/test-shield.md) (→ `/add-test`) to pin current behaviour BEFORE applying; if it cannot be characterized (side-effect-only / external), the candidate is **UNVERIFIED** — do not apply it silently, list it. For a `remove` of a supposedly dead branch, the pin is inverted: confirm **no** test exercised it (if one did, it was not dead — halt that candidate).
+
 **Lightweight default.** Staged + unstaged diffs only (or `[path]` arg). No project-wide sweeps, no global pattern proposals, no `ai/patterns/` authoring inside this command. If 3+ duplicates surface, queue a one-line note to `ai/dynamic/learned-patterns.md` for a future `/refactor` to act on; do not act on it here.
 
 ## Phases applied
@@ -74,11 +79,13 @@ Produce candidates with before/after snippets + one-line rationale. Ask user whi
 - Apply selected edits via Edit tool.
 - No knowledge-base updates unless a new "duplicated logic" finding reveals a missing entry in `ai/patterns/` — then queue to `ai/dynamic/learned-patterns.md`.
 
-## Phase 6 — Validate
+## Phase 6 — Validate (the production-grade gate, per applied candidate)
 
-- Lint + typecheck on touched files; revert if anything fails.
-- Re-run scoped tests — coverage must not move.
-- For removed branches: confirm no test exercised them (if it did, the branch wasn't dead).
+- Lint + typecheck on touched files; revert if anything fails. **(floor — necessary, not sufficient.)**
+- **Arm 2 (behaviour):** re-run scoped tests — coverage must not move, AND the specific touched path was covered by a test green **before and after** (test-shield-pinned if it was uncovered). A suite that stays green on an uncovered touched path is UNVERIFIED, not proof.
+- **Arm 1 (simpler):** re-run the flagging detector — its fingerprint must be **cleared at the site** (zero hits), and net-lines for the run must be ≤ 0. If the smell still fingerprints and lines did not drop, the candidate was churn — revert it.
+- For removed branches: confirm no test exercised them (if it did, the branch wasn't dead — halt the candidate).
+- Any candidate that fails an arm is **reverted** and moved to the run's `INCOMPLETE`/`UNVERIFIED` list with the unmet arm named — the run reports what it could NOT prove rather than silently shipping it.
 
 ## Phase 7 — Improve
 
@@ -104,12 +111,30 @@ Produce candidates with before/after snippets + one-line rationale. Ask user whi
 Apply [1,2,3] / [1,3] / none?
 ```
 
+After applying, the run MUST print a Verification footer — the checkable artifact of the production-grade gate. `Simplified` is claimed only for candidates that cleared both arms; the rest are named:
+
+```
+Verification (applied: [1,2])
+  net-lines: −18  (removed 22 / added 4)  ✓ ≤ 0
+  [1] dedupe  → fingerprint `duplicated-logic` @ orders.service.ts:42 cleared (0 hits) ✓
+              → covered by orders.service.spec.ts::lists tenant orders — green before+after ✓   → Simplified
+  [2] inline  → fingerprint `wrapper-one-implementer` @ :88 cleared ✓
+              → call-site was uncovered → test-shield pinned OrderService.create — green before+after ✓   → Simplified
+INCOMPLETE / UNVERIFIED (not applied)
+  [3] premature-options → touched path paginate() has no covering test and is used across 6 call sites;
+        could not pin behaviour before the edit → UNVERIFIED, left in place.
+```
+
+A run with nothing to put under `Simplified` did not simplify — it says so, rather than reporting green-and-fewer-lines as success.
+
 ## Failure modes
 
 - Cross-module simplification breaks a public API consumer — never apply without grep-confirming all call sites.
 - "Simplify" turning into "optimize" (clever reduce-chain replacing clear loop) — opposite of this command's goal.
 - Verbose form is correct (audit logs, retry logic for known-flaky API) — skip when in doubt.
 - Test coverage moves after applied edit — revert; the change was not behavior-preserving.
+- **Green-and-fewer-lines reported as success on an uncovered path** — the run declared done because the suite stayed green and net-lines dropped, but no test exercised the inlined/de-duped path. That is UNVERIFIED, not Simplified — pin it with test-shield first or list it unmet.
+- **Churn-for-churn** — a candidate re-shaped code (lateral rewrite, cosmetic reorder) but its smell fingerprint still fires and net-lines did not drop. It lowered nothing; revert and do not count it.
 - Reviewing teammate's PR — get consent before applying anything.
 
 ## Related

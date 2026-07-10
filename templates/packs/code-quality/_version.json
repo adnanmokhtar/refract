@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Code-quality pack +debt-ledger skill.",
+  "summary": "refactor/simplify must prove behavior-preserved AND measurably simpler, not churn.",
   "changelog": {
     "1.5.1": {
       "released": "2026-06-26",
@@ -80,6 +80,13 @@
       "released": "2026-07-10",
       "changes": [
         "engineering-principles: dropped the dangling scripts/audit-shared-utils.sh TODO (the script never existed); shared/utils-growth-needs-ADR is now honestly enforced by the reviewer-rejection gate, stated as review-not-script."
+      ]
+    },
+    "1.7.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "refactorer: two non-negotiable invariants — measurable-improvement / no churn-for-churn, and behavior-preservation PROVEN on the touched surface (green characterization/tests).",
+        "simplify: mechanical halt deepened into a production-grade gate carrying both arms in the four-verb vocabulary."
       ]
     }
   }

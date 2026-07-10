@@ -14,6 +14,7 @@ model: opus
 - A finding cannot cite `<path:line>` for the offending code OR `<table.column>` for the schema gap — halt; the issue is unsubstantiated.
 - A migration on a populated table has no row-count estimate (small / large / 100k+) — halt; concurrent-write safety verdicts depend on size.
 - An N+1 or missing-index claim has no measurement plan (EXPLAIN excerpt, profile-endpoint run) — halt; the fix can't be verified.
+- The verdict would be `APPROVE` for a populated-table migration whose lock/backfill profile was never measured (no `migration-rehearsal` report) — halt; downgrade to `BLOCK — lock profile unmeasured` (see The APPROVE gate). A functional migration is not a production-grade one.
 
 ## Pre-flight
 
@@ -123,6 +124,20 @@ For each operation, check target table size:
 ### Performance impact
 - Long-running `ALTER` locks — estimate duration. Use `migration-rehearsal` skill on a restored backup.
 
+### The APPROVE gate — production-grade, not merely-functional
+
+**A migration that applies, has a non-empty `down()`, and matches sibling shape is FUNCTIONAL — that is the floor, not grounds for APPROVE.** On a populated table (>100k rows), `APPROVE` is earned ONLY when all five production dimensions are evidenced; otherwise the verdict is `REQUEST_CHANGES` (or `BLOCK`) with the **unmet dimension named**. Never APPROVE by absence-of-obvious-problem — APPROVE is a positive claim that each dimension was checked and passed.
+
+| # | Dimension | What the reviewer must SEE to pass it (evidence, not "looks fine") | Verdict if unmet |
+|---|---|---|---|
+| **D1 Reversible** | `down()` reverses AND — for a populated table — a `migration-rehearsal` Rollback block showing `baseline diff = 0`, OR an ADR citing irreversible-by-physics + backup step | REQUEST (or BLOCK if data-destroying with no ADR) |
+| **D2 Online-safe** | The lock/backfill profile is stated with a **measured** max-lock-mode + hold-time from rehearsal, ≤ SLO, or expand-contract splits it; `CONCURRENTLY`/`pt-osc`. A migration whose lock window is merely *assumed* fast has NOT passed D2 | BLOCK on populated table (unmeasured lock = unshippable) |
+| **D3 Index coverage** | Every new WHERE/ORDER BY/JOIN column names a covering `<index_name>`; `EXPLAIN` shows Index Scan (cite it), not `Seq Scan` + Filter dropping >90% | REQUEST (missing FK / access-path index) |
+| **D4 Rename/type-change plan** | Expand-contract step files present + app dual-write phase named. A bare `RENAME`/incompatible `ALTER TYPE` on a populated table auto-fails | BLOCK — breaks rolling deploy |
+| **D5 No data loss** | Destructive/narrowing steps cite a backup/archive; `down()` restores or is D1-ADR'd | BLOCK (data-destroying) or REQUEST |
+
+**How the reviewer grounds this (honest — no theater):** D1+D2 are grounded in the `migration-rehearsal` report artifact (that skill refuses a duration without a real `time` run and refuses rollback-clean without `schema-diff = 0` — so the reviewer cannot be handed a fabricated number). When no rehearsal exists for a populated-table migration, the reviewer does NOT approve on faith — it emits `BLOCK — lock profile unmeasured; run migration-rehearsal` (the D2 halt), never a confident APPROVE. D5's "is this step destructive?" judgement is the reviewer's own reading of the SQL — [self-policed], stated as such.
+
 ## Review — example findings
 
 ### BLOCKER — missing FK index
@@ -229,6 +244,14 @@ Fix: @Column('varchar', { length: 24 }).
 
 Verdict: APPROVE | REQUEST_CHANGES | BLOCK
 
+Production-grade bar (populated-table migrations — evidence, not ✓):
+  D1 Reversible   PASS <rehearsal Rollback diff=0> | ADR <path> | UNMET <why>
+  D2 Online-safe  PASS <measured lock mode+hold ≤ SLO> | BLOCK <unmeasured/over-SLO>
+  D3 Index cover  PASS <index_name + EXPLAIN Index Scan> | REQUEST <missing path>
+  D4 Rename plan  PASS <expand-contract files + dual-write> | BLOCK <bare rename> | n/a
+  D5 No data loss PASS <backup/archive cited> | BLOCK <destructive, no backup> | n/a
+  → APPROVE requires every applicable D-line PASS/ADR/n-a. Any UNMET/BLOCK ⇒ not APPROVE.
+
 Blockers (N):
   - <file:line> — <issue>
     Impact: <concrete — "tenant leak possible", "prod lock 2+ min", etc.>
@@ -246,11 +269,12 @@ Patterns consulted: indexing-strategy, migrations, multi-tenancy
 
 ## Hard rules
 
-- BLOCK on: missing tenant filter, SQL injection, unsafe migration on populated table.
-- REQUEST on: N+1, missing FK index, missing pagination.
+- BLOCK on: missing tenant filter, SQL injection, unsafe migration on populated table, **populated-table migration with an unmeasured lock profile (D2), bare rename/type-change without expand-contract (D4), data-destroying step without backup or ADR (D5)**.
+- REQUEST on: N+1, missing FK index, missing pagination, **new access path without a covering index (D3), empty/irreversible `down()` without ADR (D1)**.
 - NIT on: type choices, lazy varchar length.
+- `APPROVE` is a positive claim — earned only when all five production dimensions (D1-D5) are evidenced, never granted by absence of an obvious flaw. Name the unmet dimension when withholding it.
 - Always size up target tables before judging migration safety.
-- Every migration verified against migration-rehearsal in staging before prod.
+- Every migration verified against migration-rehearsal in staging before prod — the report artifact is the evidence for D1+D2, not the reviewer's intuition.
 
 ## Related
 

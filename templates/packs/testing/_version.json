@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Testing pack +2 skills: property-invariants, test-factories.",
+  "summary": "add-test gates on mutation effectiveness, not line coverage.",
   "changelog": {
     "1.2.0": {
       "released": "2026-06-22",
@@ -29,6 +29,13 @@
       "released": "2026-07-10",
       "changes": [
         "contract-test: added the numbered Procedure (fetch pact -> replay against real provider -> parse mismatches with consumer <path:line> -> can-i-deploy gate) + an Output block citing verified-interaction/mismatch counts, matching coverage-gap/mutation-probe shape."
+      ]
+    },
+    "1.5.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "add-test Phase 6 production-grade-or-INCOMPLETE effectiveness gate wired to the mutation-probe skill: a new/changed test must kill a seeded mutant (harness-measured) or be reported UNVERIFIED.",
+        "test-reviewer: mutation effectiveness promoted from optional to a gating dimension."
       ]
     }
   }

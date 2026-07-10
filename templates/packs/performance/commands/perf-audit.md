@@ -65,15 +65,32 @@ Perf-specific:
   ```
 
 ## Phase 5 — Update
-- `ai/audits/<YYYYMMDD>-perf.md` — findings + baselines + proposed deltas (timestamped).
+- `ai/audits/<YYYYMMDD>-perf.md` — findings + baselines + proposed deltas (timestamped) AND the **production-grade verdict table** (the required output artifact Phase 6's gate is read from — a `--plan-only` run writes the same table with every row `PROPOSED [pre-apply]`):
+  ```
+  # Metric               Budget   Before      After       Harness           Guardrails re-checked (Δ)          Verdict
+  1 GET /orders p95      ≤200ms   820ms p95   180ms p95   k6 same script    write p95 +2% (noise); err 0        PRODUCTION-GRADE
+  2 orders list index    ≤20ms    410ms seq   9ms idx     EXPLAIN ANALYZE   insert p95 +3% (noise)             PRODUCTION-GRADE
+  3 /products LCP        ≤2.5s    3.2s        2.6s        Lighthouse CI     INP 190ms (was 180 — noise)        INCOMPLETE — over budget (2.6s vs 2.5s)
+  ```
+  A reader opens this file and checks each applied-finding row: a real numeric `Before`+`After` from a named `Harness` (or the whole row `SKIPPED [no-harness]`), an at/under-budget `After`, a filled `Guardrails` cell, and a `Verdict`. An empty cell, or an adjective ("faster", "snappier", "should be quicker") in `Before`/`After`, is a failed run.
 - `ai/dynamic/changelog.md` — one-line: `perf audit on <scope>: N findings, top win = X ms`.
 
-## Phase 6 — Validate
-- Every finding has a measured baseline (no "looks slow"). Speculative findings are tagged `speculative` and dropped from the GO list.
-- DB index proposals routed through `/migration-review` BEFORE any apply attempt.
-- Caching proposals justified — only when the underlying call is genuinely irreducible.
-- **Post-change re-measurement (if any fix was applied).** A baseline that is never re-measured proves nothing. If this run applied fixes (not a `--plan-only` run), re-run the same measurement that produced each baseline — same load test / `EXPLAIN ANALYZE` / web-vitals profile, same conditions — and attach `<before> → <after>` to every applied finding.
-  - **Mechanical HALT:** if the measured `<after>` win is below the projected win (e.g., proposed `~120ms p95` but re-measure shows `180ms p95`), HALT. Do not report the finding as fixed. Surface the shortfall, keep the change behind review, and either re-diagnose (the root cause was elsewhere) or revert. Mirrors `/profile-perf` and `/bundle-perf` Phase 6 — "should be faster" is not "is faster".
+## Phase 6 — Validate (the production-grade gate — measured, not asserted)
+
+A perf change is **production-grade only when it is measured against a budget, the hotspot was profiled, and no guardrail metric regressed.** "Feels faster" is the floor, not the bar. This phase is the mechanical form of that — the perf analog of a before→after superiority gate: the change must BEAT the baseline *against its budget*, verified from two measurements, never asserted with an adjective. It reads its verdict off the Phase-5 verdict table (the required output artifact); it never declares a bare "COMPLETE".
+
+- **Baseline discipline.** Every finding has a measured baseline (no "looks slow"). Speculative findings are tagged `speculative` and dropped from the GO list.
+- DB index proposals routed through `/migration-review` BEFORE any apply attempt. Caching proposals justified — only when the underlying call is genuinely irreducible.
+
+**The four gates (evaluated per applied finding; a `--plan-only` run marks each `PROPOSED [pre-apply]` and stops here):**
+
+1. **Measured, not asserted.** The `<after>` is a number from the SAME harness that produced `<before>` — same load test / `EXPLAIN ANALYZE` / web-vitals profile, same conditions, same dataset shape. An adjective in the after-column ("much faster", "snappier", "should be quicker", "feels fast") FAILS the gate — it is the exact defect this phase exists to catch. `[self-policed]` — no shell parses the prose; the smell test is `grep -inE '(faster|snappier|smoother|should be|feels|much quicker)'` over the `Before`/`After` cells of applied rows in `ai/audits/<date>-perf.md`: any hit is an unmeasured claim → convert to a number or mark SKIPPED.
+   - **No harness for this metric?** Label the row `SKIPPED [no-harness]` and name the harness that would be needed (e.g., "no k6 script for this endpoint; needs a staging load profile"). Never fake a pass; never launder an adjective as a measurement.
+2. **Beats the budget, not just the before.** The `<after>` must land at or under the stated budget (p95/p99/LCP/INP/bundle/memory target from `ai/runtime/perf-budgets.md` or a sibling SLO doc). Faster-than-before but still over budget is `INCOMPLETE — over budget (<after> vs <budget>)`, not done. If no budget exists, the first deliverable is to state one (with the projection's basis) and measure against it — not to ship an un-budgeted "win".
+3. **No guardrail regression** (the perf analog of "the old must not win any dimension"). Re-measure the neighbor metrics the fix could have slowed — per the guardrail matrix in `@performance-optimizer` (index → insert/update latency + write p95; caching → staleness + memory/GC; parallel-I/O / fan-out → downstream RPS + error-rate + pool saturation; bundle-split → request-waterfall round-trips; memoization → heap retention) — not only the metric you improved. ANY guardrail worse than baseline beyond measurement noise → `INCOMPLETE — regressed <metric> (<before> → <after>)`, HALT, keep the change behind review, re-diagnose or revert.
+4. **Profiled, not guessed.** The hotspot the fix targets was chosen from a profile artifact (flamegraph excerpt / `EXPLAIN ANALYZE` plan / slow-query-log row / web-vitals attribution), cited in the finding — not eyeballed. A fix whose target has no profile behind it is `INCOMPLETE — unprofiled`; re-run `/profile-perf` on that path first.
+
+**Terminal verdict.** The run reports `PRODUCTION-GRADE` ONLY when every applied finding is PASS or honestly `SKIPPED [no-harness]` (with zero adjectives in `Before`/`After`). If any finding is `INCOMPLETE — …`, the run reports `INCOMPLETE` and names every unmet item — it never rounds a partial pass up to done. The first-pass mechanical HALT (below-projection re-measure) is replaced by gate 2 — budget is the stronger bar: it checks `<after>` against the *budget*, not the projected win, so an over-budget `after` is `INCOMPLETE — over budget` (a change that hits budget but misses its projection still passes; a change that hits its projection but misses budget does not).
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture each accepted optimization.
@@ -87,12 +104,18 @@ Perf-specific:
 Phase 1 (Understand): scope = <files | endpoint>; SLO breach = <yes|no>
 Phase 3 (Retrieved): caching + indexing patterns; recent migrations
 Phase 4 (Generated): ranked findings table (above)
-Phase 5 (Updated): ai/audits/<date>-perf.md, changelog
-Phase 6 (Validated): all findings have baselines; applied fixes re-measured <before>→<after> (HALT if win < projected); index proposals queued for /migration-review
+Phase 5 (Updated): ai/audits/<date>-perf.md (incl. production-grade verdict table), changelog
+Phase 6 (Validated): every applied finding measured <before>→<after> from the same harness, at/under budget, guardrails re-checked (no p95/interaction regression), profiled — or row marked SKIPPED [no-harness]; index proposals queued for /migration-review
 Phase 7 (Improved): patterns queued
 
-Status: COMPLETE
+Status: PRODUCTION-GRADE          # every applied finding measured, at/under budget, guardrails clean, profiled
+  # OR
+Status: INCOMPLETE — <unmet items named>   # e.g. "Finding 3 over budget 2.6s vs 2.5s; Finding 4 SKIPPED [no-harness]"
+  # OR
+Status: PLAN — proposals only, no fix applied (--plan-only); each finding PROPOSED [pre-apply]
 ```
+
+`PRODUCTION-GRADE` is reserved for a run whose verdict table has zero `INCOMPLETE` rows and zero adjectives in the number columns. A bare "COMPLETE" is never a valid terminal status — the reader must be able to tell measured-and-under-budget from merely-functional at a glance.
 
 ## What to do next — required closing section
 
@@ -100,6 +123,9 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 
 ## Failure modes
 - "Looks slow" without a number → mark `speculative` and stop; don't ship guess-work.
+- **Adjective in the after-column** ("much faster", "snappier", "should be quicker") → the finding is unmeasured; it is `SKIPPED [no-harness]` at best, never `PRODUCTION-GRADE`. The whole point of the gate.
+- **Reported done while still over budget** → `after` beat `before` but not the SLO; that's `INCOMPLETE — over budget`, not a win. Faster ≠ fast enough.
+- **Re-measured the improved metric only** → a fix can win its own number and silently regress a neighbor (index speeds reads, slows writes; parallel fan-out saves wall-clock, melts a downstream). Guardrail matrix, always.
 - Premature optimization in P1 → feature ships, audit later.
 - Index added without `/migration-review` → table-lock risk in prod; always route the proposal.
 - Caching proposed as default → hides root cause; only when the work is genuinely irreducible.

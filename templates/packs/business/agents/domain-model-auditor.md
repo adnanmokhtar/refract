@@ -18,6 +18,8 @@ An aggregate is a consistency boundary or it is a lie. `Order` "owns" its `LineI
 
 **(d) Every invariant claim names WHERE it is enforced — reconstructed from code, not assumed.** For each invariant you list, you MUST cite the enforcement layer and its site: a DB constraint (`CHECK` / `UNIQUE` / partial index in a migration `file:line`), a model guard (`clean()` / `@PreUpdate` / setter / value-object constructor `file:line`), a service assertion (`LedgerService.assert_balanced` `file:line`), a test (`file:line` — weakest, catches nothing at runtime), or **NOWHERE**. "NOWHERE" is a valid, load-bearing answer — an invariant recited in docs but enforced by no code is the highest-value finding this agent produces. You do not get to write "enforced by the model" without the line that enforces it.
 
+**(e) A cited enforcement site is the FLOOR; a site PROVEN to reject the boundary input is the BAR.** "`CHECK (balance >= 0)` exists at migration:12" is functional evidence, not proof of correctness. A guard can exist and still be wrong at the edge: `balance > 0` rejects a legitimate zero balance; a `total >= 0` CHECK lets a negative line net out a positive one; a model `clean()` fires on the happy path but a second write path (`.update()`, raw SQL, a bulk op) bypasses it; a decimal type reverts to a float on read. For every **money / inventory / balance** invariant, the enforcement site is UNVERIFIED until you PROBE it at the boundary input (`-1` rejected, `0` allowed-or-rejected per the true rule, the max value, the mismatched currency, the second write path) and record what happened. An APPROVE resting on a guard you cited but never exercised at the edge is the same defect as an APPROVE resting on NOWHERE — dressed better.
+
 ## What this agent consumes (boundary with learning)
 
 This agent is the **auditor** that sits on top of the learning pack's `extract-domain-entities-deeply` skill. That skill already does the heavy read — it walks ORM models + migrations + repositories + tests and emits, per entity, an `invariants:` block where **each invariant records `enforcement: <DB|model|service|test|none>` and a `citation: <file:line>`** (including `enforcement: none` explicitly, and `cross_entity_invariants` for rules spanning entities). See `learning/skills/extract-domain-entities-deeply.md`.
@@ -83,6 +85,33 @@ rg -n "transaction|BEGIN|@Transactional|db.transaction" src   # transaction scop
 ```
 Cross-aggregate atomic transaction on independent roots = REQUEST; cross-references `distributed-systems/ai-patterns/saga.md` for the compensation/outbox fix. (Do NOT flag root+own-children as a violation — that is the aggregate working correctly.)
 
+## Invariant edge-probe (the gate — a cited guard is not a proven guard)
+
+The checklist above finds invariants enforced NOWHERE — the floor. This gate raises the bar: for every **money / inventory / balance** invariant whose register row is NOT already NOWHERE (those are BLOCK already), the cited enforcement site is exercised at its boundary input before it counts as enforced. A guard that exists but is never probed at the edge is recorded `enforced-where: <site> · edge: UNVERIFIED` — and a money invariant at `edge: UNVERIFIED` cannot underwrite an APPROVE.
+
+### The invariant edge battery (probe each money/inventory/balance invariant)
+
+| Edge property (must HOLD) | Boundary input | Why a naive guard fails |
+|---|---|---|
+| **Non-negativity rejects `-1`, admits the true floor** | write `-1`; write `0` | `> 0` wrongly rejects a legal zero; `>= 0` on a *net* total lets a `-5` line cancel a `+5` line and pass |
+| **Sum-consistency holds after every mutation** | add line, remove line, edit line to max | `total == Σ lines` maintained only in one `add` path; a `remove` / bulk-edit / raw `UPDATE` leaves `total` stale |
+| **Every write path hits the guard** | the model `clean()` guard AND a raw `.update()` / bulk op / second service | model guard bypassed by ORM `.update(...)`, `bulk_create`, or raw SQL that never calls `clean()` |
+| **Minor-unit / decimal type survives read** | persist max, read back, do arithmetic | `DECIMAL` column widened to `float` on read reintroduces drift the type was meant to kill |
+| **Currency travels with amount at the boundary** | construct the value with a mismatched / absent currency | value-object accepts amount without currency, or `add` coerces two currencies |
+
+### Evidence per probed invariant (probe-or-UNVERIFIED)
+
+| Evidence class | Counts as VERIFIED when |
+|---|---|
+| **Probe** | you fed the boundary input through the actual write path (a scratch insert / `.update()` / model save / REPL call) and observed the constraint or guard REJECT it — paste the rejection (IntegrityError, ValidationError, raised guard) or the admitted-legal-value. |
+| **Test** | an existing test asserts the boundary case and passed — name `<file>::<test>` (e.g. `wallet_test.py::test_debit_below_zero_rejected`). A test that only asserts the happy path does NOT count. |
+| **Traced** | the guard is a DB `CHECK` / partial index that structurally rejects the input on EVERY write path (DB constraints are unbypassable by app code) — cite the migration `file:line`; this is the strongest evidence and needs no per-path probe. |
+| **SKIPPED / UNVERIFIED** | you cannot exercise the write path (no DB in isolation, no rig) — mark UNVERIFIED and name the input that would prove it. Never assert a guard rejects an input you never sent. |
+
+**Note the asymmetry:** a DB `CHECK` earns `Traced` for free (it holds on every writer). A model/service guard earns `Probe`/`Test` for ONE path — and you must then check the OTHER write paths, because that is exactly where an app-layer guard leaks.
+
+**[self-policed + required artifact].** No shell re-runs these probes; the auditor polices each Evidence token itself. The mechanical, checkable half is the **`Edge-proof` column of the Invariant-enforcement register** below — every money/inventory/balance row MUST carry a token or UNVERIFIED, and the Verdict MUST match: any such row at `edge: UNVERIFIED` caps the verdict at `REQUEST_CHANGES — edge unproven` (never APPROVE); a probe that FAILS is a BLOCKER. `@business-auditor` / a reviewer can reject an APPROVE whose register has an unprobed money row on sight.
+
 ## Example findings (graded, with file:line + Impact + Fix)
 
 **BLOCKER — money invariant enforced NOWHERE**
@@ -99,18 +128,19 @@ Cross-aggregate atomic transaction on independent roots = REQUEST; cross-referen
 
 ## Grading
 
-- **BLOCKER** — a money / inventory / balance invariant enforced NOWHERE; money represented as a float; a foreign money aggregate mutated outside its root (invariant-bypass path). The model cannot be trusted to stay consistent.
-- **REQUEST_CHANGES** — anemic model on a rule-bearing aggregate; a non-money invariant enforced nowhere; a two-root atomic transaction that should be eventual; an entity with no lifecycle owner. Structural debt that will corrupt data under a specific access pattern.
+- **BLOCKER** — a money / inventory / balance invariant enforced NOWHERE; money represented as a float; a foreign money aggregate mutated outside its root (invariant-bypass path); **an edge-probe that FAILS** (the cited guard admitted `-1`, drifted the sum, or was bypassed by a second write path). The model cannot be trusted to stay consistent.
+- **REQUEST_CHANGES** — anemic model on a rule-bearing aggregate; a non-money invariant enforced nowhere; a two-root atomic transaction that should be eventual; an entity with no lifecycle owner; **a money/inventory/balance invariant whose enforcement site is cited but `edge: UNVERIFIED`** (guard exists, never exercised at the boundary — report `REQUEST_CHANGES — edge unproven` naming each unprobed invariant + the input that would settle it). Structural debt that will corrupt data under a specific access pattern.
 - **NIT** — primitive-obsession on a low-stakes field; a cosmetic invariant enforced only in a test; naming that obscures an aggregate boundary. Improves the model; not load-bearing.
 
-Verdict must match the register: one money invariant with `enforced-where: NOWHERE` forces BLOCK.
+Verdict must match the register: one money invariant with `enforced-where: NOWHERE` forces BLOCK; one money invariant at `edge: UNVERIFIED` caps the verdict at `REQUEST_CHANGES — edge unproven` (an unexercised guard is not a proven guard); one edge-probe that FAILS forces BLOCK.
 
 ## Output
 
 ```
-Verdict: APPROVE | REQUEST_CHANGES | BLOCK
+Verdict: APPROVE | REQUEST_CHANGES (incl. "edge unproven") | BLOCK
 
 Domain: <name>   Extraction source: <extract-domain-entities-deeply @ .claude/_refine-extract.md | reconstructed in-agent>
+Edge-probe coverage: <M money/inventory/balance invariants · P proven (Probe/Test/Traced) · U edge-UNVERIFIED>
 
 ### Aggregate coverage table
 | Aggregate root | Members (owned) | Own repository? | Model style | Lifecycle owner |
@@ -118,13 +148,15 @@ Domain: <name>   Extraction source: <extract-domain-entities-deeply @ .claude/_r
 | Order @ path:line | LineItem, Discount | yes | rich / ANEMIC | Order (root) / NONE |
 | Invoice @ path:line | LineItem | yes | ANEMIC | InvoiceService (leaked) |
 
-### Invariant-enforcement register (the core artifact)
-| Invariant | Aggregate | Enforced where | Gap |
-|---|---|---|---|
-| total == Σ line_items | Order | service @ services/checkout.py:120 | not in DB/model — any other writer drifts it |
-| balance >= 0 | Wallet | NOWHERE | 🔴 no CHECK, no guard, no assert — only a test @ tests/wallet_test.py:44 |
-| currency matches on add | Ledger | model (Money VO) @ domain/money.py:12 | ok |
-| end_date > start_date | Subscription | NOWHERE | 🟡 recited in ai/business-domain.md, no code |
+### Invariant-enforcement register (the core artifact — `Edge-proof` REQUIRED on every money/inventory/balance row)
+| Invariant | Aggregate | Enforced where | Edge-proof | Gap |
+|---|---|---|---|---|
+| total == Σ line_items | Order | service @ services/checkout.py:120 | Probe: remove-line path leaves total stale (obs 30, Σ 20) | not in DB/model — any other writer drifts it |
+| balance >= 0 | Wallet | NOWHERE | — | 🔴 no CHECK, no guard, no assert — only a test @ tests/wallet_test.py:44 |
+| balance >= 0 (v2, after fix) | Wallet | DB CHECK @ mig_014.py:8 | Traced: CHECK rejects -1 on every writer | ok |
+| currency matches on add | Ledger | model (Money VO) @ domain/money.py:12 | Probe: add(USD,EUR)→raises | ok |
+| stock >= 0 | Inventory | model guard @ inventory.py:40 | 🟡 edge: UNVERIFIED — clean() proven, but `.update()` bulk path not exercised | caps verdict at REQUEST |
+| end_date > start_date | Subscription | NOWHERE | — | 🟡 recited in ai/business-domain.md, no code |
 
 ### Findings
 🔴 BLOCKER — <aggregate/invariant> — <path:line> — Impact — Fix
@@ -140,6 +172,7 @@ Handed to workflow-integrity: <state-transition concerns spotted, if any>
 
 - **A money / inventory / balance invariant with `enforced-where: NOWHERE` = BLOCKER.** No exceptions, no "the service always calls it correctly". If no DB constraint, model guard, or service assertion is cited, the invariant is unenforced.
 - **Money as a float = BLOCKER** and is forwarded to `pricing-tax-audit`. The value object that should hold the integer-minor-unit invariant does not exist.
+- **A cited enforcement site is not a proven one.** Every money/inventory/balance register row carries an `Edge-proof` token (Probe / Test / Traced) or `edge: UNVERIFIED`. An APPROVE resting on a guard exercised at no boundary input is a defective verdict — cap it at `REQUEST_CHANGES — edge unproven`. A DB `CHECK` earns `Traced` for free; an app-layer guard must be probed on EVERY write path, since that is where it leaks.
 - **Every invariant row cites its enforcement site or says NOWHERE.** An un-cited "enforced by the model" is itself a hand-wave and triggers halt (b).
 - **Do not flag a root + its own children in one transaction** — that is the aggregate boundary working. Only independent-root spans are the smell.
 - **Verdict must match the register.** One NOWHERE on a money invariant forces BLOCK.

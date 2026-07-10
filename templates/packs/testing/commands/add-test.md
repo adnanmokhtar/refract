@@ -4,7 +4,7 @@ description: Add tests for a target file or feature, mirroring the repo's test f
 
 # /add-test [target]
 
-> **`--review`** (optional): after the new tests are green and the Phase 6 mutation gate passes, dispatch `@test-reviewer` over the generated files for an independent audit (assertion strength, mock-boundary correctness, behavior-vs-implementation naming, missing negative/edge cases). Findings are surfaced in the output; the run does not auto-apply them. Off by default — a normal `/add-test` run authors + self-validates without the extra review pass.
+> **`--review`** (optional): after the new tests are green and the Phase 6 effectiveness gate reports PRODUCTION-GRADE, dispatch `@test-reviewer` over the generated files for an independent audit (assertion strength, mock-boundary correctness, behavior-vs-implementation naming, missing negative/edge cases). Findings are surfaced in the output; the run does not auto-apply them. Off by default — a normal `/add-test` run authors + self-validates without the extra review pass.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -87,15 +87,29 @@ Test-specific:
 - `ai/dynamic/changelog.md` — one-line: `Added <N> test files for <module>, <C> cases, coverage <X>% → <Y>%`.
 - `ai/modules.md` — bump test-coverage column if tracked.
 
-## Phase 6 — Validate
-- All new tests pass; previously-green tests still green.
-- No `setTimeout` waits (use fake timers).
-- No `.skip` / `.only` left in the file (reviewer-blocker).
+## Phase 6 — Validate (production-grade or INCOMPLETE)
+
+**A green suite is FUNCTIONAL, not production-grade — and this command does not declare COMPLETE, it declares a verdict.** Line coverage is the FLOOR, never the bar. A generated test is production-grade only when it (1) **FAILS when the behavior breaks** — mutation-verified, not coverage theatre — (2) covers the **real edges/invariants** of the branch it pins (happy + each typed error + boundary), and (3) is **deterministic** across reruns. This phase measures all three and picks the terminal verdict.
+
+- **Determinism proof:** run the new files 3× back-to-back — identical pass set each run. Any file whose result flips is non-deterministic → name it; do NOT report it green. Previously-green tests still green.
+- No `setTimeout` waits (use fake timers). No `.skip` / `.only` left in the file (reviewer-blocker).
 - No real external HTTP in unit tests (the project's HTTP-faking primitive — `msw` / `nock` / `responses` / `httpx_mock` / `WireMock` / `httptest` / `WebMock` / framework-equivalent).
 - Naming mirrors existing convention exactly.
-- **Mutation gate (satisfies `testing-principles.md` review checklist — "test fails when the production logic is reverted").** A green generated test proves nothing if it cannot fail. For **at least one core assertion per generated file**, mutate the system-under-test: revert or break the branch the assertion covers (flip a comparison, return the wrong value, short-circuit the guard), re-run that test, and **confirm it goes RED**. Then **restore the SUT** and confirm GREEN again.
-  - **Mechanical HALT:** if the test stays GREEN while the SUT is broken, the assertion is theatre — it's coupled to incidental state, not the behavior. Tighten the assertion (or fix the mock boundary) until the mutation turns it red, then restore. Do not report the file done with an un-falsifiable assertion.
-  - Restore the SUT to its original state before moving on — leaving a mutation in place is a worse bug than a weak test.
+
+- **Effectiveness gate — mutation-verified (wired to the `mutation-probe` skill; satisfies `testing-principles.md` review item "test fails when the production logic is reverted").** A green assertion proves nothing until a mutation of the branch it covers makes it go RED. Measure effectiveness — do not assert it:
+  1. **Harness present** — detect the project's mutation tool (`stryker.conf.*` / `[mutmut]` in `setup.cfg` / pitest `pom.xml` plugin / `gremlins.yaml` / `.mutant.yml` / `stryker-config.json` / cargo-mutants; detect, do not impose). Run the `mutation-probe` skill scoped to the changed SUT (its `--since` / `--in-diff` / changed-files mode). Consume its survived-mutant report: every survivor on a branch your new tests own is an assertion gap — add the assertion `mutation-probe` names, re-run, confirm the mutant now dies. Record the **measured mutation score on the changed scope** (equivalent mutants excluded from the denominator, per the skill).
+  2. **No harness** — seed the mutant by hand. For **each core branch per generated file**, mutate the SUT one operator at a time (flip the comparison, return the wrong value / `null`, short-circuit the guard), re-run the covering test, confirm it goes **RED**, then **restore the SUT** and confirm GREEN. This is the manual floor: it proves one branch per file, not the whole scope — label the file `manual-seed`, not `harness-measured`.
+  - **Seeded-mutant execution is [self-policed]** — no shell verifies the SUT was reverted or that RED was really observed; the agent must actually run the mutated SUT, observe RED, and restore it. Leaving a mutation in place is a worse bug than a weak test. What IS checkable is the **REQUIRED OUTPUT**: the per-file effectiveness ledger below (measured score, mutation cited by `<sut-file:line>` + operator, the test that went red). `--review`'s `@test-reviewer` independently re-derives this ledger and blocks any survivor.
+  - **HALT — assertion theatre:** if the test stays GREEN while its branch is mutated, the assertion is coupled to incidental state, not behavior. Tighten it (or fix the mock boundary) until the mutant dies, then restore. Do NOT count a survived mutant as done.
+
+**Effectiveness closure verbs (exactly one per generated file, recorded in the ledger):**
+- `mutation-killed` — a seeded or harness mutant on the file's core branch was demonstrably killed (RED observed, SUT restored). Cite `<sut-file:line>` + the mutation operator + the test that went red.
+- `effectiveness-unverified` — the mutant could not be seeded or the harness could not run for this file (SUT can't be safely reverted in-loop, harness absent AND manual seed infeasible, generated/vendored SUT). The file ships marked UNVERIFIED — never silently as killed.
+
+**Terminal verdict (Phase 6 decides it — there is no blanket COMPLETE):**
+- **PRODUCTION-GRADE** — every generated file is `mutation-killed`, deterministic across the 3× rerun, and its edges/invariants are covered (happy + each typed error + boundary; property-invariants where the branch is a total/pure function — reach for the `property-invariants` skill, since one example that happens to kill a mutant can still miss the input the generator would find).
+- **INCOMPLETE** — one or more production requirements is unmet. NAME each: surviving mutant `<sut-file:line>` + the assertion to add, an uncovered boundary / typed-error branch, or a file that flipped on rerun. The run does NOT claim success — it reports INCOMPLETE with the list.
+- **UNVERIFIED** — effectiveness could not be measured for one or more files (`effectiveness-unverified`); name those files. Never a faked pass.
 
 ## Phase 7 — Improve
 - **If `--review` was passed:** dispatch `@test-reviewer` over the generated files; attach its verdict (assertion strength, mock boundary, naming, missing cases) to the output. Do not auto-apply — surface for the author to act on.
@@ -105,7 +119,7 @@ Test-specific:
 
 ## Output format
 ```
-## /add-test — <N> files, <C> cases, all green
+## /add-test — <N> files, <C> cases — <PRODUCTION-GRADE | INCOMPLETE | UNVERIFIED>
 
 Phase 1 (Understand): target = <file|feature>; layers = <unit|integration|e2e>
 Phase 3 (Retrieved): siblings mirrored; runner = <jest|vitest|pytest|...>
@@ -113,14 +127,21 @@ Phase 4 (Generated):
   <source-root>/orders/<test-dir>/create-order.<test-ext> (unit, 12 cases)
   <source-root>/orders/<test-dir>/order-repo.integration.<test-ext> (integration, 6 cases)
   <e2e-root>/orders.e2e.<test-ext> (e2e, 5 cases)
-Phase 5 (Updated): changelog; coverage 64% → 89%
-Phase 6 (Validated): green; mutation gate passed (≥1 assertion/file went red on broken SUT, restored); no .only/.skip; no real HTTP
+Phase 5 (Updated): changelog; coverage 64% → 89% (floor, not the bar)
+Phase 6 (Validated): deterministic (3× stable); effectiveness = <harness-measured 41/46=89% on changed scope | manual-seed, 3/3 files>; no .only/.skip; no real HTTP
+  Effectiveness ledger (one verb per file):
+    <src-root>/orders/<test-dir>/create-order.<test-ext> — mutation-killed: create-order.<ext>:88 `status='pending'`→`'active'` → "creates order with pending status" went RED, restored ✓
+    <src-root>/orders/<test-dir>/order-repo.integration.<test-ext> — mutation-killed: order-repo.<ext>:31 `where tenantId`→removed → "does not return tenant B rows" went RED, restored ✓
+    <e2e-root>/orders.e2e.<test-ext> — effectiveness-unverified: e2e SUT spans processes; no in-loop mutation harness
+  Unmet (only if INCOMPLETE): surviving mutant pricing.<ext>:42 `>`→`>=` — add boundary assertion `expect(calc(threshold)).toBe(<no-discount>)`
 Phase 7 (Improved): patterns queued
 
-Status: COMPLETE
+Status: PRODUCTION-GRADE            # or: INCOMPLETE — <named unmet items> | UNVERIFIED — <named files>
 ```
 
 ## Failure modes
+- Reporting COMPLETE on a green-but-unmutated suite → coverage theatre; the effectiveness gate must kill a mutant (harness-measured or seeded) or the file ships `effectiveness-unverified` and the run reports UNVERIFIED, never a silent pass.
+- Treating the coverage % delta as the finish line → it is the FLOOR; a 100%-covered file with a survived mutant is INCOMPLETE, not done.
 - Tests assert internal calls instead of behavior → brittle; rewrite to assert outputs.
 - Adding tests that pass against the buggy code → wrong; reproduce bug first, fix second.
 - Real network / filesystem in unit tests → flakiness incoming; mock at HTTP / FS boundary.
@@ -136,7 +157,12 @@ Status: COMPLETE
 - `/tdd` — when the tests should come first (red→green→refactor), use this instead of authoring after the fact.
 
 ### Agents
-- `@test-reviewer` — dispatched by `--review` for an independent audit of the generated tests.
+- `@test-reviewer` — dispatched by `--review` for an independent audit of the generated tests; independently re-derives the Phase 6 effectiveness ledger and blocks any survived mutant.
+
+### Skills
+- `mutation-probe` — the effectiveness gate Phase 6 wires to; measures whether the new tests would CATCH the code breaking (strength), not just that the line ran.
+- `coverage-gap` — a survived mutant on a line no test executes is a coverage gap, not a strength gap; route it there rather than counting it against effectiveness.
+- `property-invariants` — for total/pure branches, pin the input space (round-trip / idempotence / oracle), since one example that killed a mutant can still miss the input a generator would find.
 
 ### Patterns
 - `ai/patterns/test-doubles.md`
