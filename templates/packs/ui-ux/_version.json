@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/redesign (and thus /art-direct) now iterate to a quality bar instead of one-passing. The Design-principles rubric gains POSITIVE targets — motion-actually-implemented (real hover/press/state/list transitions + skeletons, GPU-friendly, reduced-motion-safe), modern/contemporary register (depth/elevation, decisive accent, current-era not default-template), and performance/efficiency (60fps, no thrash, computed/keyed/virtualized, lazy below-fold). Phase 6 becomes a render->critique->improve LOOP (up to 3 rounds) that moves each weak lens Δ->✓ from the PIXELS, not a one-pass verify. design-iterate gains a `refine` mode (the unattended loop) beside `pick`. This is the fix for 'the command produced a flat/static/mediocre result one-shot'.",
+  "summary": "/art-direct + /redesign now redesign CHARTS and TABLES too — the two regions they silently skipped. Charts: a chart-library config (Chart.js/ECharts/Recharts) holds colors/grid/fonts/tooltip in its OWN object (not tokens), so token re-codification left it old — the build must now re-theme the chart config to the new palette/type/grid, verified from the rendered colors. Shared components (tables/cards/chart-wrappers): 'compose not re-implement' meant a shared table reused in its old style left the page half-done — now a shared component in the old language is a coverage failure whose fix is a design-system-level restyle (blast radius stated), never a silent old-style reuse. Phase-6 coverage now verifies charts + tables show the new language from the SCREENSHOT.",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-26",
@@ -59,6 +59,13 @@
       "released": "2026-07-10",
       "changes": [
         "enhance-ui: unattended runs (--yes / no interactive pick) now use design-iterate's refine mode (the render->critique->improve loop + ui-principles lens scorecard) instead of a blind auto-pick — so enhance-ui always has an own quality bar, attended (user pick) or not."
+      ]
+    },
+    "1.9.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "art-direct.md coverage gate + redesign.md build/Phase-6: data-visualization (charts) is a MUST-cover region with the technique — locate the chart library's config and re-theme series colors/grid/axis/font/legend/tooltip/no-data to the new language; coverage verifies the chart's ACTUAL rendered colors changed, not just 'a chart exists'.",
+        "shared components (tables/cards/chart-wrappers): the 'compose, don't re-implement' rule now carries a caveat — a shared component reused in the OLD language is a coverage failure; fix is a design-system-level restyle so the new language propagates (blast radius 'restyle hits N pages' stated), never a silent old-style reuse. This is why the dashboard's charts + tables kept coming back unchanged."
       ]
     }
   }
