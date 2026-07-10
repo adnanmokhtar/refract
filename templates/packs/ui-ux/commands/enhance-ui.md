@@ -104,6 +104,10 @@ Resolves the description to file paths via the same semantic flow as `/align-rec
 
 **If `--dry-detect`:** emit verdict, full duplicate map, and tier rationale; **halt** — do not run Phase 2 onward.
 
+### Framework component-library controls need explicit overrides (the filter/control bar)
+
+A design-token / theme file styles the project's own elements; it does **not** reach the internals of a component library — PrimeVue (`SelectButton`, `Calendar`, `InputText`, `Dropdown`), MUI, Ant, Vuetify, Radix/shadcn render with their DEFAULT theme unless the enhancement writes explicit `:deep()` / `::v-deep` / theme-token overrides for their inner classes (`.p-button`, `.p-inputtext`, `.p-highlight`, …). The **filter / control bar** (date pickers, segmented toggles, selects, action buttons) is usually built from these controls — so when the enhanced surface contains them, cleanup's `design-token-drift` fix must target the control's override layer, and the control counts as `below-bar` until it visibly matches the system in the render. "The tokens exist, the controls inherit them" is false; they stay default until overridden.
+
 ### Charts / data-viz + data tables are first-class surfaces (not skipped)
 
 When the target surface contains a **chart-library chart** (Chart.js / ECharts / Recharts / Nivo / D3) or a **data table** (shared `<DataTable>` or a per-page one), it is a surface to enhance like any other — do not enhance the surrounding cards and leave the chart/table on old styling. Two things make them easy to miss, so name them explicitly:

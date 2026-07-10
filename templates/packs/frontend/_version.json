@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.10.0",
-  "released": "2026-07-09",
+  "version": "1.11.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Client-side data & rendering patterns — 5 new ai-patterns close the biggest frontend-pack gap (server-state was captured only as a location rule, not a cache contract): data-fetching (cache/dedup/invalidation), list-virtualization (windowing >100 rows), error-boundaries (subtree resilience + async net), code-splitting (route/heavy-dep lazy strategy), realtime-client (WebSocket/SSE lifecycle + cache reconcile). Each ships cite-or-halt detectors + a per-framework Adapt table; frontend-principles.md gains backing MUST/SHOULD + checklist items; siblings cross-linked bidirectionally.",
+  "summary": "visual-check now owns authenticated rendering + a blocked-render HARD HALT — the fix for 'art-direct built a good design but left the filter bar unstyled'. Root cause: a headless/isolated Playwright browser has no session, so auth-gated surfaces (requiresAuth dashboards) redirect to /login and every screenshot is the login wall — the per-component visual audit then grades a login page and the build ships blind. New: detect the auth gate, establish a session (reuse storageState or a one-time login step with env creds), assert a surface-unique marker after goto, and treat a login-wall/redirect render as BLOCKED — a HARD HALT (authenticate + re-run), explicitly NOT the same as 'SKIPPED (no harness)' and never a valid baseline.",
   "changelog": {
     "1.9.0": {
       "released": "2026-07-09",
@@ -105,6 +105,13 @@
         "ai-patterns +5 (4 -> 9): data-fetching, list-virtualization, error-boundaries, code-splitting, realtime-client. Each is a full specialist (Hard-rule Premise + cite-or-halt, per-framework Adapt table, BAD/GOOD+grep detectors, closure verbs, bidirectional Related). Closes the client-side data/rendering gap surfaced comparing a frontend consumer (15 patterns) vs a backend one (63).",
         "rules/frontend-principles.md: added backing rules — Must (server-state cache/dedup/invalidation-on-mutation + request cancellation; error-boundary resilience + global onunhandledrejection net) and Should (lazy pairs with Suspense+error-boundary and never the LCP path; realtime lifecycle reconnect/heartbeat/re-auth/teardown/dedup). Virtualization + code-splitting Musts already present -> linked to the new patterns. +5 review-checklist items.",
         "registration: _topics.md + _essentials.md list the new patterns; _examples/ abridged snapshots added; siblings (rendering-strategy, forms, ssr-safety, navigation-speed, bundle-analyze, lcp-audit, @data-flow-auditor) reverse-linked in the same change."
+      ]
+    },
+    "1.11.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "visual-check: new 'Authenticated rendering' section (detect route guard -> reuse storageState or login-once-and-persist -> point the MCP/browser at the session, never --isolated-with-no-session for gated routes -> assert a surface-unique marker before screenshotting).",
+        "visual-check: new 'Blocked render = HARD HALT' section + halt condition — a login-wall/redirect/marker-absent render is a failure to authenticate, HALTs the caller (RENDER BLOCKED), is NOT downgraded to SKIPPED, and the login screenshot is never saved as the surface baseline."
       ]
     }
   }

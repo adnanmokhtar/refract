@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Adds the PER-COMPONENT adversarial visual audit — the mechanism behind 'art-direct still doesn't ensure all components are right even after the visual check'. The prior visual check was holistic and self-graded: the builder rendered the whole page once, said 'looks modern ✓', and exited — so a single component (filter dropdown, table row, badge, raw-library-default control) stayed ugly because nothing ever enumerated it and graded it on its own, and self-grading inflated the score. Now redesign Phase 6 + design-iterate refine mode enumerate EVERY component in the render and grade each from the pixels against concrete modern tells (intentional depth not framework-default, scale type, rhythm spacing, purposeful AA color, real hover/focus/active states, consistent geometry, NOT a raw library default), graded by a SEPARATE adversarial critic that defaults each component to below-bar. The refine loop cannot exit while any component is below-bar. Without a render harness the audit is SKIPPED-not-verified, never a claimed pass. /art-direct's build inherits it via /redesign.",
+  "summary": "Three operational fixes so /art-direct produces a good design on the FIRST run (diagnosed from a real failure: the build invented a good token system + cards but left the PrimeVue filter bar default-themed, because the render loop was blocked at the app's login wall). (1) Authenticated rendering — the build's render path must reach the actual auth-gated surface (storageState / login step), inherited from visual-check. (2) Blocked render = HARD HALT, never a silent SKIP — a login-wall/redirect render stops the build (RENDER BLOCKED) instead of grading a login page and shipping blind; SKIPPED is only for no-harness-at-all. (3) Framework component-library controls (PrimeVue/MUI/Ant/Vuetify SelectButton/Calendar/inputs) are a must-override class — the token layer does NOT reach their internals, so the filter/control bar stays default unless explicitly overridden with :deep(); the per-component audit + coverage grade every library control as first-class.",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-26",
@@ -90,6 +90,15 @@
         "redesign.md Phase 6: new 'Per-component visual audit (adversarial, from the render, EVERY component)' gate — enumerate every distinct component in the screenshot and grade each from the pixels against 7 concrete modern tells; grader is a SEPARATE critic (ux-reviewer/fresh pass, never the builder self-grading); each component defaults to below-bar and earns ✓ only from the render; per-component table printed; loop CANNOT exit while any component is below-bar; a component graded from code (not the screenshot) is invalid; harness-absent = SKIPPED-not-verified. Wired into the refine-loop exit condition.",
         "design-iterate.md refine mode: step 2 gains the per-component pass (enumerate + grade each, defaults to below-bar, not a holistic 'looks modern'); step 3 fixes the worst below-bar component OR weakest lens; step 4 stop-condition now also requires no component below-bar.",
         "art-direct.md: build step 3 states it inherits the per-component audit via /redesign — cannot finish while any component is below-bar; without a harness, component quality is reported NOT verified rather than claimed."
+      ]
+    },
+    "1.13.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "design-iterate refine mode: authenticate before rendering gated surfaces; a BLOCKED render (login wall/redirect/marker absent) HALTs the refine loop (cannot self-critique an unrendered page) — not a fall-through to SKIPPED.",
+        "redesign.md: Phase-1 BEFORE baseline + Phase-6 render require an authenticated session for gated surfaces and HALT on a blocked render (distinct from no-harness SKIPPED); Playwright prerequisite updated. Per-component audit adds the framework-control-override rule (library controls don't inherit tokens; the filter bar is the #1 miss) + a two-valued honest render status (no-harness=SKIPPED, blocked=HALT).",
+        "art-direct.md: authenticated-render + blocked=HALT hard build precondition (a saved login-blocked.png is a stop signal, not a pass); build-step-3 grades framework controls as first-class + two-valued render status; coverage gate adds framework component-library controls (the filter/control bar) as a must-cover region alongside charts + shared components.",
+        "enhance-ui.md + /polish (orchestration): framework-control-override note — component-library controls need explicit :deep()/theme overrides; the token/theme layer does not reach them, so the filter/control bar counts as below-bar until overridden."
       ]
     }
   }
