@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.6.0",
-  "released": "2026-06-26",
+  "version": "1.7.0",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/art-direct now DESIGNS and BUILDS (v1.6) — after the single direction-approval gate (or immediately under the new --yes flag) it AUTO-RUNS its build chain (design-system-architect codify → /redesign rebuild pages → /polish finish) to produce finished, committed screens, bounded by <scope>; --plan stops at the design (no build). It no longer just 'proposes + hands off'; one command takes you from product goals to built UI with one approval checkpoint (after which the build re-prompts only to avoid dropping a feature silently — keep/move/drop, defaulted to keep under --yes). New flags: --yes (skip the gate), --surfaces=<n> (cap the build). Now requires a clean working tree (the build lands one commit per surface; git is the rollback). The creative-director agent is unchanged in role (it decides + directs; the command runs the builders). v1.5.0 introduced the creative-director agent + /art-direct command — the UPSTREAM creative high-ground that DECIDES and INVENTS the visual language (concept, original layouts/shapes/type/colour/motion, signature moments) from product goals; two modes (evolve / reimagine); 9-lens Direction rubric, 15-label redline vocabulary, 14-element invention vocabulary; mechanical gates (logo-swap, divergence check, Encodability Table, computed-AA); usability floor delegated to ux-reviewer (no 17th axis). v1.4.0 unchanged: sync-chain repair. v1.3.0 unchanged: /redesign. v1.2.0 unchanged: ui-crawl + ui-crawl-fix. v1.1.0 unchanged: ui-design-sweep 19-verb skill.",
+  "summary": "/art-direct + creative-director hardened against timid restyles (the 'ran it, got the same layout with new paint' failure): (1) mode is surfaced at the gate — a no-flag run can no longer silently ship the timid evolve default; switch to reimagine at the gate. (2) An anti-timidity build-gate blocks a restyle from reaching code — the recommended direction needs a NAMED loud move + a before->after 1/8-thumbnail delta vs the CURRENT surface, or it routes to /enhance-ui·/polish. (3) A coverage gate forbids half-redesigned pages — every in-scope region (incl. the filter/control bar) must be rebuilt in the new language or the run is reported INCOMPLETE.",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-26",
@@ -31,6 +31,13 @@
       "changes": [
         "Sync-chain repair: _topics.md now declares enhance-ui and ui-sweep as commands (kind:command, primary_frontend_framework_detected trigger). Both shipped under commands/ and are listed in _essentials.md commands, but were absent from the topic list, so /setup-project AUTHOR-mode generation silently dropped them. No _examples/ stubs exist, so the fallbacks point at the live sources (commands/enhance-ui.md, commands/ui-sweep.md).",
         "Version record now reflects the audit action-plan rollout already landed in the pack's review / feedback commands."
+      ]
+    },
+    "1.7.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "commands/art-direct.md: mode surfaced + escalatable at the approval gate (no-flag run states MODE: evolve and offers reimagine — no silent timid default); anti-timidity build-readiness gate (named loud move + before->after glance delta or HALT the build to /enhance-ui·/polish); full-scope coverage gate (every in-scope region incl. filter/control bar rebuilt in the new language, else reported INCOMPLETE, not success) + a coverage: output line.",
+        "agents/creative-director.md: evolve mode gains the before->after glance gate — the recommended surface must be distinguishable from the CURRENT surface at 1/8 thumbnail (not only vs competitors); 'same layout, new paint / sparkline added / cards collapsed' explicitly named as the restyle failure the gate catches; noted as operationally enforced by /art-direct before the build."
       ]
     }
   }
