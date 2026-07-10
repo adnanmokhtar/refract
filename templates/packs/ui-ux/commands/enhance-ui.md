@@ -104,6 +104,15 @@ Resolves the description to file paths via the same semantic flow as `/align-rec
 
 **If `--dry-detect`:** emit verdict, full duplicate map, and tier rationale; **halt** — do not run Phase 2 onward.
 
+### Charts / data-viz + data tables are first-class surfaces (not skipped)
+
+When the target surface contains a **chart-library chart** (Chart.js / ECharts / Recharts / Nivo / D3) or a **data table** (shared `<DataTable>` or a per-page one), it is a surface to enhance like any other — do not enhance the surrounding cards and leave the chart/table on old styling. Two things make them easy to miss, so name them explicitly:
+
+- **A chart's colours / grid / axis / font / tooltip live in its OWN config object, NOT in design tokens.** So `design-token-drift` cleanup and a token-tier iterate silently pass it over. Treat the chart config as part of the editable surface: pull the series/axis/grid colours from the config to the project's token *values*, and let iterate propose the chart's palette/legend/grid legibility alongside the card styling.
+- **A shared chart wrapper or `<DataTable>` is a `wrapper-variant`, not `leaf-local`** — if the same chart/table affordance renders on ≥ 2 routes, Phase 1.5 must resolve it to `wrapper-variant` (or `wrapper-extract` if no wrapper exists yet), so the enhancement lands once and propagates. A one-off page chart with a single call site stays `leaf-local`, but its config is still in-scope for the leaf edit.
+
+Enhancement here means **better within the existing system** (legend contrast ≥ AA, real no-data / loading / error states, consistent enter/update motion, token-aligned palette, table zebra/hover/empty) — NOT re-theming to a new visual language (that is `/redesign` + `/art-direct`).
+
 ## Phase 2 — Organize
 
 ```
@@ -113,6 +122,10 @@ Resolves the description to file paths via the same semantic flow as `/align-rec
                     Always include for frontend-*: duplicated-surface-styles, design-token-drift,
                     a11y-violation, reinvented-wrapper, raw-library-component, missing-ui-state,
                     motion-drift, responsive-drift
+                    If target has a chart/data-viz or data table: its config object + wrapper are
+                    in-scope (see "Charts / data-viz + data tables" note) — chart series/axis/grid
+                    colours count as design-token-drift even though they live in the chart config,
+                    and a no-data/empty chart or table counts as missing-ui-state.
                     Tier-specific:
                     - token          → cleanup targets tokens file; replace-with-shared for drift on tokens
                     - wrapper-variant→ cleanup targets wrapper component path

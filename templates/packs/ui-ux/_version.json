@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/art-direct + /redesign now redesign CHARTS and TABLES too — the two regions they silently skipped. Charts: a chart-library config (Chart.js/ECharts/Recharts) holds colors/grid/fonts/tooltip in its OWN object (not tokens), so token re-codification left it old — the build must now re-theme the chart config to the new palette/type/grid, verified from the rendered colors. Shared components (tables/cards/chart-wrappers): 'compose not re-implement' meant a shared table reused in its old style left the page half-done — now a shared component in the old language is a coverage failure whose fix is a design-system-level restyle (blast radius stated), never a silent old-style reuse. Phase-6 coverage now verifies charts + tables show the new language from the SCREENSHOT.",
+  "summary": "/enhance-ui + /polish now treat CHARTS and DATA TABLES as first-class surfaces, closing the same skip that /art-direct + /redesign had. A chart-library config (Chart.js/ECharts/Recharts) holds its colours/grid/axis/font/tooltip in its OWN object, not design tokens — so token-driven cleanup + iteration silently passed it over, leaving a 'polished' dashboard with an unpolished chart. Now: enhance-ui resolves a shared chart/table to wrapper-variant, counts chart series/axis/grid colours as design-token-drift and a no-data chart/table as missing-ui-state; polish routes its existing 19 verbs (consolidate-tokens / wire-*-state / lift-contrast / normalize-motion / normalize-surface) onto the chart config + table wrapper as finish-within-system (no new verb — set stays at 19). Both are finish/improve WITHIN the system, not a re-theme (that stays /redesign + /art-direct).",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-26",
@@ -66,6 +66,14 @@
       "changes": [
         "art-direct.md coverage gate + redesign.md build/Phase-6: data-visualization (charts) is a MUST-cover region with the technique — locate the chart library's config and re-theme series colors/grid/axis/font/legend/tooltip/no-data to the new language; coverage verifies the chart's ACTUAL rendered colors changed, not just 'a chart exists'.",
         "shared components (tables/cards/chart-wrappers): the 'compose, don't re-implement' rule now carries a caveat — a shared component reused in the OLD language is a coverage failure; fix is a design-system-level restyle so the new language propagates (blast radius 'restyle hits N pages' stated), never a silent old-style reuse. This is why the dashboard's charts + tables kept coming back unchanged."
+      ]
+    },
+    "1.10.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "enhance-ui.md: new Phase-1.5 note 'Charts / data-viz + data tables are first-class surfaces' — a chart-library config's colours/grid/axis/font/tooltip live in its OWN config object (not tokens) so token-tier cleanup/iterate skip it; now the chart config is editable surface (series/axis/grid colours -> token values, legend/grid legibility iterated with the cards). A shared chart wrapper or <DataTable> on >=2 routes resolves to wrapper-variant (or wrapper-extract), not repeated leaf-local. Phase-2 CLEANUP step references it: chart config colours count as design-token-drift, a no-data chart/table counts as missing-ui-state.",
+        "polish.md (top-level orchestration command): item-2 'Audits every relevant surface' now names charts + data tables as surfaces; new frontend-branch note routes the existing 19 closure verbs onto the chart config + table wrapper (consolidate-tokens for series/axis/grid colours set inside the chart config, wire-empty/loading/error-state for no-data/skeleton/load-fail, lift-contrast for legend+axis+table text, normalize-motion, normalize-surface/tighten-rhythm) — finish within the system, NO new verb (closed set stays at 19).",
+        "Both frame the work as finish/improve WITHIN the existing language, explicitly NOT a re-theme (that remains /redesign + /art-direct). Closes the 'cards got finished, the chart/table stayed old' defect on the two commands that operate inside a design system."
       ]
     }
   }
