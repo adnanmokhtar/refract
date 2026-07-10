@@ -72,10 +72,12 @@ Telemetry-specific:
   - Counters: `<feature>_requests_total{status,reason}`.
   - Histograms: `<feature>_duration_seconds` with buckets `0.005, 0.01, 0.05, 0.1, 0.5, 1, 5`.
   - Trace span around use-case entry; sub-spans on external IO (DB, HTTP, queue).
-- Alert config in project's format:
-  - Error-rate > 1% over 5min.
-  - p95 latency > SLO over 10min.
-  - Saturation alerts (queue depth, pool wait) where applicable.
+- Alert config in project's format — **SLO-linked, not static thresholds.** Each generated alert MUST name the SLO/SLI it protects and fire on burn rate, mirroring `alert-design`'s Google multi-window pattern:
+  - Fast burn (1h window, 14× budget, `severity: page`) on the feature's availability SLI (`<feature>_requests_total{status="error"} / total`).
+  - Slow burn (6h window, 6× budget, `severity: ticket`) on the same SLI.
+  - Latency SLO burn where a latency SLO exists — burn against the `<feature>_duration_seconds` histogram's p95 objective, NOT a bare `p95 > Nms` threshold.
+  - Saturation alerts (queue depth, pool wait) where applicable — cause-based, `severity: ticket`, dashboard-first.
+  - **A static `error-rate > X% over Nmin` threshold is a FAILED alert here** (alert fatigue + SLO-disconnected). If no SLO exists for the feature, halt and route to `/alert-design` Phase 1 (define the SLO first) rather than emitting a blog-post threshold.
 - Runbook stub `ai/runbooks/alert-<name>.md`: symptom, immediate mitigation, investigation queries (log filter + trace selector), known false-positives.
 
 ## Phase 5 — Update
@@ -99,7 +101,30 @@ Emit-and-assert (executable gate per primitive — every one of the four primiti
 - **Traces** (mirror `add-tracing` Phase 6): emit a log inside an active span in a unit/integration test, parse the line, and assert `trace_id`/`span_id` fields are present; and run a span-export test asserting the new span is exported with its expected attributes. No `trace_id` in the log line / no exported span = correlation not wired — halt.
 - **Logs**: assert the structured entry emits on entry/success/failure with the required fields (`request_id`, `tenant_id` on multi-tenant, `duration_ms`) via the same log-parse test — a missing field halts.
 
+- **Alerts** (SLO-linkage assertion, mirror `alert-design` Phase 6): for every generated alert, assert (a) it references a metric series THIS run instrumented and asserted above (no dead-on-arrival query — the `alert-audit` dispatch is the executor), (b) it burns against a named SLO/SLI, not a static threshold, and (c) its `runbook:` annotation points at a file that EXISTS on disk (`test -f ai/runbooks/<name>.md`, not merely a string). Any alert failing (a)/(b)/(c) is a FAILED row — halt.
+
 These three plus the `alert-audit` dispatch give all four primitives (logs, metrics, traces, alerts) an agent-executable gate; the OPERATOR CHECKLIST below is only for what genuinely cannot be statically/synthetically verified (real backend arrival, real paging).
+
+### Emit-and-assert ledger — REQUIRED OUTPUT ARTIFACT (the run is not done until this table exists)
+
+The Phase 6 gates above only bind closure if their evidence is RECORDED. Produce one ledger row per signal the run claims to have added. Each row carries the exact assertion evidence (the command run + its observed result), never a claim. A row with no evidence is UNVERIFIED, and UNVERIFIED is not a pass.
+
+```
+Signal (name)                     | Kind    | Assertion evidence (command → observed)                      | Status
+<feature>_requests_total          | metric  | scrape /metrics → series+labels present                      | ASSERTED
+<feature>_duration_seconds        | metric  | scrape /metrics → histogram+buckets present                  | ASSERTED
+log: entry/success/failure fields | log     | log-parse test → request_id,tenant_id,duration_ms present    | ASSERTED
+span: <feature> root + IO subspan  | trace   | span-export test → span exported w/ trace_id in log line     | ASSERTED
+alert: <feature>-fast-burn (page) | alert   | alert-audit → not-dead + SLO-linked + runbook file exists    | ASSERTED
+alert: <feature>-slow-burn        | alert   | alert-audit → not-dead + SLO-linked + runbook file exists    | ASSERTED
+```
+
+Per-row `Status` vocabulary — pick exactly one, no synonyms:
+- **ASSERTED** — the evidence command ran and the observation confirms the signal. Only ASSERTED counts as production-grade.
+- **SKIPPED(reason)** — the harness to assert it is genuinely absent (no `/metrics` endpoint in this stack, no test runner wired). Name the reason. A SKIPPED row is UNVERIFIED, not a pass — it downgrades the run to INCOMPLETE.
+- **FAILED** — the assertion ran and the signal was absent / the alert was dead-on-arrival / not SLO-linked / runbook-less. Halt; do not emit COMPLETE.
+
+Never write ASSERTED without a runnable command + its observed result in the evidence column. A fabricated ASSERTED is the enforcement-theater failure this pack exists to kill.
 
 OPERATOR CHECKLIST (live — confirm against the backends, NOT auto-passed):
 - [ ] Fire a synthetic request through the feature → the new logs / metrics / trace appear in their backends.
@@ -123,11 +148,22 @@ Phase 4 (Generated):
   ai/runbooks/alert-<feature>-latency.md      stub
 Phase 5 (Updated): ai/observability.md, runbooks/, changelog, status.md
 Phase 6 (Validated): every metric paired; tenant_id present; PII redacted
+  Emit-and-assert ledger: <rows> signals — ASSERTED <a> | SKIPPED <s> | FAILED <f>
+  <the ledger table above, verbatim, with evidence per row>
 Phase 7 (Improved): pattern queued
 
 Reminder: PII in logs — masked email + last-4 of card only. Verify before merging.
-Status: COMPLETE
+Status: <see gate below>
 ```
+
+### Closure gate — COMPLETE only when production-grade, else INCOMPLETE with the unmet signals named
+
+The production bar for this command: every signal is EMITTED and ASSERTED present, every alert is SLO-linked + has a runbook file, none dead-on-arrival. Compute Status from the ledger — do NOT hand-write COMPLETE:
+
+- **`Status: COMPLETE`** — ONLY when every ledger row is `ASSERTED`, the `alert-audit` dispatch returned zero dead/orphaned/runbook-less/cause-based findings, and every `page` alert names its SLO + burn window. Nothing else earns COMPLETE.
+- **`Status: INCOMPLETE — unmet: <list>`** — the moment any row is `SKIPPED` or `FAILED`, or `alert-audit` has an open finding. NAME each unmet signal and why (e.g., `checkout_duration_seconds — SKIPPED: no /metrics endpoint in this stack, scrape unverified`; `checkout-fast-burn — FAILED: no SLO defined, threshold would be blog-post`). "Functional but unverified" is INCOMPLETE, never COMPLETE.
+
+This gate is **[self-policed]** — no shell forces the Status line — but it is wired to a checkable artifact: the ledger's evidence column and the referenced runbook files are inspectable by the operator or `@observability-reviewer`, who will BLOCK a COMPLETE whose rows lack real evidence. Do not launder a SKIPPED/FAILED run into COMPLETE.
 
 ## Failure modes
 - Metric without dashboard or alert → unread data; pair every metric or remove.

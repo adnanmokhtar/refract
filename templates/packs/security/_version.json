@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Security pack +data-privacy-reviewer agent (code-level PII data-flow + DSAR/erasure + cross-border, mapped to GDPR/PDPL/CCPA).",
+  "summary": "security-audit proves mitigations, it does not read them.",
   "changelog": {
     "1.3.0": {
       "released": "2026-07-09",
@@ -39,6 +39,13 @@
       "released": "2026-07-10",
       "changes": [
         "security-audit now dispatches ALL SIX specialist reviewers by grep signal (api-security-reviewer on API routes/serializers, data-privacy-reviewer on PII/logger/analytics/DSAR paths, llm-security-reviewer on prompt/tool/RAG/model-output sinks) — was 3 of 6; NO-GO now triggers on a blocker in ANY dispatched reviewer + dispatched-but-missing = incomplete. threat-model: removed the unbacked @security-auditor sign-off; enforcement honestly deferred to a follow-up /security-audit."
+      ]
+    },
+    "1.5.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "security-audit Mitigation-Verification Gate (Phase 4): each mitigation is probe-verified with a three-state verdict (VERIFIED / UNVERIFIED / EXPOSED) — 'this looks protected' is banned; no bare checkmarks.",
+        "security-auditor Premise gains the defense-side symmetry: a mitigation you READ is not a mitigation you PROVED."
       ]
     }
   }

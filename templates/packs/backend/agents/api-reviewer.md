@@ -50,6 +50,16 @@ grep -rn "import.*@nestjs\|import.*typeorm" src/modules/*/core/
 - Controller is THIN — parses request, calls service/use-case, returns response. No business logic.
 - No DB / ORM / SDK calls in controllers.
 - Auth / permission guards applied (default = private).
+- **(AUTHZ) Authentication is not authorization.** A guard that only proves *who you are* (JWT valid, session present) is authn; the production bar is authz — *may THIS principal act on THIS resource?* BLOCK a mutating/reading handler on an owned or role-scoped resource that checks authn but never checks ownership/role/scope (e.g. `@UseGuards(JwtAuthGuard)` alone on `PATCH /orders/:id` with no `order.ownerId === actor.id` / policy / `@Permissions` check). The evidence that closes this is a **denial** test — an authenticated-but-unauthorized principal gets `403`, not a `401` (401 only proves the authn guard). Detector — an id-bearing mutating route whose handler body never references the actor identity for a scope check:
+
+```bash
+# Enumerate id-scoped writes, THEN confirm each handler body references a scope check.
+# List the routes to audit:
+rg -n '@(Patch|Put|Delete|Post)\([^)]*:id' src/
+# For each, the -A12 body MUST reference the actor for a scope decision — a body with
+# NONE of these is authn-only and BLOCKs (grep can't negate per-block; read the body):
+#   ownerId | owner_id | tenantId | policy | can( | authorize | @Permissions | hasRole
+```
 - `@HttpCode` / explicit status codes (201 create, 204 delete, 200 read/update).
 - Pagination on list endpoints (`limit` + `cursor` or `offset` + `total`).
 - Idempotency-Key accepted on mutating endpoints (when applicable).
@@ -106,6 +116,18 @@ rg -n 'Object\.assign\(\s*\w+,\s*req\.body|\{\s*\.\.\.req\.body|Model\(\*\*|new 
 - Errors raised as typed domain exceptions (`NotFoundError`, `ValidationError`, etc.).
 - No `throw new Error(string)`.
 - No HTTP types (`Request`, `Reply`) in service layer.
+- **(TXN) Transaction boundary is a unit of work, not one call.** BLOCK a use-case that performs **two or more writes that must succeed or fail together** (e.g. debit + credit, order row + line items, state change + outbox row) but issues them as separate un-wrapped statements — a mid-sequence crash leaves the row torn. The boundary lives at the service/use-case, never in the controller or the repo. Also flag the inverse waste: a single write needlessly wrapped, or an external HTTP/queue call held INSIDE the DB transaction (the open transaction now depends on a remote timeout → use an outbox, commit first). Detector — a use-case with ≥2 persistence calls and no surrounding transaction primitive:
+
+```bash
+# Count persistence calls per use-case file; a file with ≥2 writes and no tx primitive is the suspect set.
+# Writes:
+rg -c '\.save\(|\.insert\(|\.update\(|\.delete\(|\.create\(' src/**/*use-case* src/**/*service*
+# Transaction primitive present?  (the ≥2-write files must ALSO appear here)
+rg -l '@Transactional|manager\.transaction|\.transaction\(|withTransaction|unit_of_work|ATOMIC_REQUESTS' src/
+# A file in the first list but NOT the second → multiple writes with no wrapper → open the body and confirm.
+```
+
+  There is no grep that *proves* the two writes are semantically one unit — cite the two write sites by `<path:line>` and state the torn-state a crash between them causes. `[self-policed]` where the framework's transaction primitive is implicit (Rails default per-request tx, Django `ATOMIC_REQUESTS`) — confirm the setting is on, don't assume it.
 
 ### Repositories / data access
 
@@ -346,19 +368,28 @@ Nits (N):
 Positives (genuine only):
   - ...
 
-Coverage
-| Area              | Result           | Note                          |
-|-------------------|------------------|-------------------------------|
-| layering          | pass/fail/n-a    | <core→framework leak, etc.>   |
-| validation        | pass/fail/n-a    | <DTO validators, mass-assign> |
-| error-contract    | pass/fail/n-a    | <Problem Details, no leaks>   |
-| idempotency       | pass/fail/n-a    | <Idempotency-Key on mutations>|
-| rate-limit        | pass/fail/n-a    | <expensive/unauth routes>     |
-| conditional/ETag  | pass/fail/n-a    | <If-Match / 412 / 304>        |
-| pagination        | pass/fail/n-a    | <list endpoints bounded>      |
-| N+1               | pass/fail/n-a    | <loops over findById>         |
-| observability     | pass/fail/n-a    | <RED triad, correlation id>   |
-| security          | pass/fail/n-a    | <tenant filter, SSRF, authZ>  |
+Production-readiness verdict
+
+Emit ONE verdict per row. `MET` requires a cited **Evidence** cell — a `<path:line>`, a named passing test, a grep that returned 0, or a skill artifact (`api-snapshot` / `endpoint-test`). The seven rows above the rule are THE PRODUCTION BAR for a new endpoint; the rows below are signal-gated (`n-a` unless the signal is present).
+
+| Bar item (production floor) | Verdict | Evidence (required for MET — no evidence ⇒ not MET) |
+|---|---|---|
+| edge-validation      | MET / UNMET / SKIPPED | <DTO validator per field + `400`-on-invalid-body e2e test name> |
+| error-envelope       | MET / UNMET / SKIPPED | <Problem Details / project envelope at `<path:line>`; no stack/PII leak> |
+| txn-boundary (TXN)   | MET / UNMET / SKIPPED / n-a | <multi-write use-case wrapped — cite the tx site; or n-a: single write> |
+| idempotency          | MET / UNMET / SKIPPED / n-a | <Idempotency-Key stored + replay e2e test; or n-a: not retry-sensitive> |
+| no-N+1 / bounded     | MET / UNMET / SKIPPED | <`n-plus-one-scan` clean + PERF-5 grep 0 + page-size cap on list> |
+| authz-not-authn (AUTHZ) | MET / UNMET / SKIPPED / n-a | <`403` denial e2e for the wrong role/owner — NOT just `401`; or n-a: truly public> |
+| log+metric+trace     | MET / UNMET / SKIPPED | <RED-triad metric names + correlation-id log line + span at `<path:line>`> |
+| --- signal-gated --- | | |
+| layering             | pass / fail / n-a | <core→framework leak, etc.> |
+| rate-limit (ENF-1)   | pass / fail / n-a | <expensive/unauth routes throttled> |
+| conditional/ETag (API-1) | pass / fail / n-a | <If-Match / 412 / 304> |
+| mass-assignment (SEC-01) | pass / fail / n-a | <entity-bind allowlist> |
+| ssrf (SEC-02)        | pass / fail / n-a | <egress allowlist on request-derived fetch> |
+| tenant-isolation     | pass / fail / n-a | <tenant filter on every query + leak test> |
+
+**No-faked-pass rule (halt condition).** A production-floor row with no citable evidence is `UNMET`, never `MET`. When the evidence needs a harness that is absent (no dev server for `endpoint-test`, no `n-plus-one-scan` installed, no staging for a load probe), the row is `SKIPPED` and the verdict body says `unverified: <what a reader must run to confirm>` — never a green `MET` on an unrun check. `SKIPPED` on a floor row means the endpoint is NOT yet certified production-ready; it surfaces as an unmet item to the caller, it does not silently pass.
 
 Patterns consulted: api-contract, error-handling, <signal-based>
 ```
@@ -371,6 +402,7 @@ Patterns consulted: api-contract, error-handling, <signal-based>
 - Don't filler-praise.
 - Don't propose changes outside PR scope.
 - Every finding has a fix AND a verification step.
+- **The Production-readiness verdict block is mandatory** on any review of a new/changed endpoint, and every production-floor row carries citable evidence or is `UNMET` / `SKIPPED (unverified)`. A verdict of `APPROVE` with any floor row `UNMET` is a contradiction → reconcile (fix + re-verify) or downgrade the verdict. This block is the artifact `/add-endpoint`'s production-readiness gate reads; a floor row that is not `MET` blocks that command's `PRODUCTION-READY` stamp.
 
 ## Related
 

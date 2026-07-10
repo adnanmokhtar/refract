@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Performance pack +memory-leak-hunt skill.",
+  "summary": "perf-audit is measured-vs-budget, never an adjective; regressions on neighbor metrics are guarded.",
   "changelog": {
     "1.2.1": {
       "released": "2026-06-26",
@@ -34,6 +34,13 @@
       "released": "2026-07-10",
       "changes": [
         "skill +1: memory-leak-hunt (heap-diff-over-time leak-hunt discipline; the over-time counterpart to profile-endpoint's snapshot)."
+      ]
+    },
+    "1.5.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "perf-audit Phase 6 four-gate production-grade gate (measured-not-asserted with an adjective grep-smell · beats-the-budget · profiled hotspot · no neighbor regression).",
+        "performance-optimizer Guardrail matrix (7 fix classes × the neighbor metric each can regress × how to re-measure); profile-perf coherence pass. (verify NEEDS_FIX → fixed.)"
       ]
     }
   }

@@ -36,6 +36,25 @@ Before bumping `Updated:` and committing the refresh, the agent MUST grep its ow
 
 Any line that fails the grep is **dropped or rewritten from code**, not softened. Drift findings (path references that no longer exist, env vars in `ai/stack.md` not in `.env.example`, scripts in `CLAUDE.md` not in `package.json`) are reported in `ai/dynamic/drift-log.md` with severity. Code-vs-docs conflicts always resolve in code's favor; docs are edited.
 
+## The production bar — regenerate → diff → cite (declare PRODUCTION-GRADE or INCOMPLETE, never "a file got written")
+
+**A doc file existing, free of placeholders, with tables that render is the FLOOR, not the finish.** Those checks (Phase 6 "Verify generated docs") prove the doc is *well-formed* — they say nothing about whether it is *true*. A beautifully-rendered `ai/stack.md` that names an env var deleted three commits ago is a well-formed lie. The production bar for a doc set is higher and it is comparative: a refresh is PRODUCTION-GRADE only when the docs have been **re-derived from the current source and diffed against what's committed, with the diff clean or the deltas applied**, its runnable examples **actually ran**, and its cross-references **resolve** — each proven by a cited probe, not asserted. This is the same "does it BEAT the baseline, verified not asserted" bar `@api-documenter` already enforces on the OpenAPI spec + SDK (regenerate the spec from annotations, `oasdiff` against the committed baseline, halt on drift); this command holds the `ai/` knowledge base to it.
+
+**The three gates that separate FUNCTIONAL from PRODUCTION-GRADE (all wired, all cited):**
+
+1. **Drift gate (regenerate → diff → cite).** Dispatch `doc-drift-scan` ([`skills/doc-drift-scan.md`](../skills/doc-drift-scan.md)). It re-derives every doc claim from the source of truth (filesystem, `package.json`, `.env.example`, migrations, route table) and diffs it against the committed doc — emitting `BROKEN` (a path/script/env/table/signature the code no longer backs) and `STALE` findings with paired `<doc:line>` + `<src:line>` citations. **`BROKEN` count > 0 ⇒ the doc set is STALE, not production-grade.** A `BROKEN` finding the refresh created is fixed from code before verdict; a pre-existing `BROKEN` finding in another doc is reported and **blocks the PRODUCTION-GRADE verdict** — the honest terminal state is `INCOMPLETE`, never `COMPLETE`-with-open-drift. "The docs look current" without the scan's cited output is not a pass; if `doc-drift-scan` is not installed, run the Phase 6 fallback bash and record the axis as `UNVERIFIED (skill absent)` — never a silent green.
+2. **Runnable-example gate.** Any doc the refresh touched that carries an executable path — a getting-started / setup block, a quickstart, a copy-pasteable command sequence — is proven by dispatching `quickstart-verify` ([`skills/quickstart-verify.md`](../skills/quickstart-verify.md)) in a clean env: every step runs, or the doc's example is stale. A doc with no runnable surface records this gate `N/A`; a doc with one that could not be executed (no clean env available) records `SKIPPED (no clean env)` — a labelled skip, never a faked pass.
+3. **Link-resolution gate.** Every `see ADR-NNNN`, `ai/runbooks/<name>.md`, pattern cross-ref, and relative path the refresh wrote or touched resolves to a real file (`doc-drift-scan` step 5 covers ADR cross-refs; `ls`/`test -e` the rest). One dangling reference ⇒ the doc set is not production-grade.
+
+**Terminal verdict (the closure discipline of this command).** After Phase 6 the run emits exactly one:
+- `Status: PRODUCTION-GRADE` — **only** when drift `BROKEN` = 0, every runnable-example gate is `PASS`/`N/A`/`SKIPPED (no clean env)`, and every link resolves. The verdict line MUST carry the cited evidence counts (see the required artifact below) so a reader can re-check it.
+- `Status: INCOMPLETE` — the honest default whenever any gate fails or is `UNVERIFIED`. It **names every unmet item** (`2 BROKEN drift findings: <doc:line> → <src:line>`; `quickstart step 4 FAILED`; `dangling ADR-0031`) and states what would close each. Reporting `INCOMPLETE` with the list is a *success* of this command; reporting `COMPLETE` while a `BROKEN` finding is open is the failure this gate exists to prevent.
+
+**Required output artifact (this is what makes the gate mechanical, not vibes).** The verdict is not trusted on the agent's word — it reads off a produced, checkable artifact: the `ai/dynamic/drift-log.md` entry this run appends, which MUST record the dated line `refresh <scope> — drift BROKEN=<n> STALE=<n> · examples <PASS|N/A|SKIPPED|FAIL> · links <resolved>/<total> · verdict <PRODUCTION-GRADE|INCOMPLETE>` plus the cited findings. `PRODUCTION-GRADE` with `BROKEN` ≠ 0 in its own log line is a self-contradiction any reviewer catches. If that artifact is absent or its verdict disagrees with its counts, the refresh did not close.
+
+BAD (functional, declared done): "✅ Doc refresh complete — updated status.md, modules.md, stack.md. Markdown renders, no placeholders. Status: COMPLETE." (Nothing was regenerated-and-diffed; a renamed path in `architecture.md` still resolves to nothing — the doc set is a well-formed lie certified green.)
+GOOD (production bar, verified): "Status: INCOMPLETE — drift BROKEN=1 (`ai/architecture.md:47` says `<modules-root>/auth/session/`; `git log --diff-filter=R` shows it renamed to `auth/jwt/` in `def456a`), examples N/A, links 6/6. To reach PRODUCTION-GRADE: update that reference from code. Logged to `ai/dynamic/drift-log.md`."
+
 ## Phases applied
 
 1, 3, 5, 6, 7. Phase 2 (Organize) is light (template-driven). Phase 4 (Generate) = N/A as code; Phase 5 IS the work — generate docs.
@@ -186,6 +205,20 @@ age_days=$(( ($(date +%s) - updated_epoch) / 86400 ))
 
 Flag drift separately from the current change. Drift findings reported, not silently fixed (user may need to know).
 
+### Runnable-example + link gates (the other two production-bar axes)
+
+- For every doc the refresh touched that has an executable setup/quickstart/command block, dispatch `quickstart-verify` in a clean env (gate 2 above). Record `PASS` / `FAIL (step N)` / `N/A` / `SKIPPED (no clean env)` — never omit the axis.
+- Resolve every cross-reference the refresh wrote (gate 3). Record `links <resolved>/<total>`.
+
+### Terminal gate — compute the verdict from the cited counts, then write the artifact
+
+Do not free-narrate "complete". Take the three axes' recorded results and apply the rule from *The production bar* above:
+
+- `BROKEN` = 0 **and** every example gate ∈ {`PASS`,`N/A`,`SKIPPED (no clean env)`} **and** links fully resolve ⇒ `Status: PRODUCTION-GRADE`.
+- otherwise ⇒ `Status: INCOMPLETE`, naming each unmet item + what closes it.
+
+Append the machine-checkable line to `ai/dynamic/drift-log.md` (the required artifact): `refresh <scope> — drift BROKEN=<n> STALE=<n> · examples <…> · links <r>/<t> · verdict <…>`. A verdict that contradicts its own counts (`PRODUCTION-GRADE` with `BROKEN`>0) means the refresh did not close — fix the drift from code or downgrade to `INCOMPLETE`.
+
 ## Phase 7 — Improve (feed the learning loop)
 
 - If drift was found: append to `ai/dynamic/drift-log.md` with severity.
@@ -252,7 +285,7 @@ git diff main..HEAD:
 ## Output
 
 ```
-✅ Doc refresh complete
+Doc refresh — PR "add subscription tier management"
 
 Phase 1 (Understand): refresh after PR "add subscription tier management".
 Phase 2 (Organize): classified — new module, new table, new dependency, new env vars.
@@ -262,24 +295,31 @@ Phase 5 (Updated):
   - ai/modules.md (+1 row)
   - ai/stack.md (payment provider added)
   - ai/decisions/0007-*.md (new ADR)
-Phase 6 (Validated): no placeholders, markdown renders, Updated: bumped.
-Phase 7 (Improved): drift log appended (1 finding); /learn-from-task queued.
+Phase 6 (Validated):
+  - Well-formed (floor): no placeholders, markdown renders, Updated: bumped. ✓
+  - Drift gate (doc-drift-scan, regenerate→diff→cite): BROKEN=1, STALE=1.
+  - Runnable-example gate: N/A (no doc touched this PR carries an executable block).
+  - Link gate: 6/6 cross-refs resolve.
+Phase 7 (Improved): drift log appended; /learn-from-task queued.
 
 Files left untouched:
-  - ai/architecture.md (no architectural shift this PR)
+  - ai/architecture.md content (no architectural shift this PR)
   - ai/patterns/* (no new pattern)
 
-Drift detected (flag separately, appended to ai/dynamic/drift-log.md):
-  1. ai/architecture.md references <modules-root>/auth/session/ — renamed to <modules-root>/auth/jwt/.
+Drift findings (cited, appended to ai/dynamic/drift-log.md):
+  BROKEN 1. ai/architecture.md:47 references <modules-root>/auth/session/ —
+           git log --diff-filter=R shows rename to <modules-root>/auth/jwt/ in def456a.
+  STALE  1. ai/status.md Updated: was 42 days old (now bumped).
 
-Recommended follow-ups:
-  - Fix the drift finding (mini-PR).
-  - Consider extracting billing patterns to ai/patterns/billing.md once we have 2+ flows.
+Required artifact (ai/dynamic/drift-log.md):
+  refresh subscription-tiers — drift BROKEN=1 STALE=1 · examples N/A · links 6/6 · verdict INCOMPLETE
 
-Updated: 2026-05-02 (was 2026-03-21 — 42 days old)
-
-Status: COMPLETE
+Status: INCOMPLETE
+  Unmet (blocks PRODUCTION-GRADE): 1 BROKEN drift finding open (ai/architecture.md:47).
+  To close: update that reference to <modules-root>/auth/jwt/ from code, re-run drift gate → 0 BROKEN.
 ```
+
+(The floor-only report — "✅ complete, markdown renders" — would have certified this same doc set green with the `auth/session/` lie still live. The gate is what turns that into an honest `INCOMPLETE` naming the one thing left.)
 
 ## Rules
 
@@ -288,7 +328,9 @@ Status: COMPLETE
 - NEVER delete prior Recent Changes entries.
 - Drift findings reported, not silently fixed (user may need to know).
 - No speculative docs — reality only.
-- Markdown validity checked (tables, code blocks, links).
+- Markdown validity checked (tables, code blocks, links) — but that is the FLOOR, not the verdict.
+- **Never `PRODUCTION-GRADE` with an open `BROKEN` drift finding.** The verdict is computed from the drift/example/link counts, not narrated; a `BROKEN` count > 0 forces `INCOMPLETE` with the finding named.
+- **The `ai/dynamic/drift-log.md` verdict line is the artifact of record.** Its `verdict` must agree with its own `BROKEN`/examples/links counts; a contradiction means the refresh did not close.
 
 ## Related
 

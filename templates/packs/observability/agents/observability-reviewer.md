@@ -71,6 +71,15 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact
 - SLO burn-rate alerts configured (fast 1h, slow 6h).
 - Enumerate alert rules lacking a runbook annotation: `rg -n 'runbook' -L -g '*.{yml,yaml,tf,jsonnet}' <alert-rules-dir>` (list files with NO match).
 
+### Emit-and-assert closure (when reviewing an `/add-telemetry` or `/alert-design` change that declares `Status: COMPLETE`)
+
+A telemetry/alert change is production-grade only when each signal is EMITTED and ASSERTED present, not merely added. When the change under review claims COMPLETE:
+- The run MUST carry the emit-and-assert / actionability ledger (one row per signal or alert). No ledger → the COMPLETE is unverified → **BLOCK**.
+- Every ledger row marked `ASSERTED` / `ACTIONABLE` MUST cite runnable evidence in its row (the scrape line, the log-parse/span-export test result, the `alert-audit` verdict, the `test -f` runbook path). A row asserting a pass with an empty or hand-wave evidence column ("verified", "looks good") is fabricated → **BLOCK** that row by name.
+- Any `SKIPPED` / `UNLINKED` / `ORPHAN` / `FAILED` row present under a `COMPLETE` status is a contradiction → **BLOCK**. The honest verdict was `INCOMPLETE — unmet: <that row>`.
+- Every `page` alert row MUST name the SLO/SLI + burn window it protects; a static-threshold page (`error-rate > X% over Nmin`) is alert-fatigue, not SLO-linked → **BLOCK**, cite the alert name.
+- Re-run one cheap assertion yourself where possible (grep the metric series name in the exporter test; `test -f` the runbook path). If it disagrees with the ledger, the ledger is fabricated → **BLOCK**.
+
 ### Error paths
 - Errors logged at WARN (recovered) or ERROR (unrecovered).
 - Not silently swallowed — enumerate empty / null-returning handlers:
@@ -104,6 +113,11 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact
 - Impact: failures invisible to monitoring. Caller crashes. No alert fires.
 - Fix: increment a failure counter with reason label, then rethrow as a typed error so upstream alerting + retries kick in.
 
+### BLOCKER — COMPLETE with an unverified ledger
+- Site: an `/add-telemetry` change reports `Status: COMPLETE` but the emit-and-assert ledger's `checkout_duration_seconds` row reads `ASSERTED` with an empty evidence column (no scrape output), and the `checkout-fast-burn` alert row fires on `error-rate > 1% over 5min` with no SLO named.
+- Impact: a histogram nobody confirmed is emitting + a static-threshold page that is SLO-disconnected shipped as "production-grade." The signal may be silently absent; the page contributes to fatigue.
+- Fix: re-run the scrape/exporter test and paste the observed series, or mark the row `SKIPPED(reason)` and downgrade to `INCOMPLETE — unmet: checkout_duration_seconds`; convert the alert to a burn-rate against the checkout SLO. Verdict is BLOCK until the ledger's ASSERTED rows carry evidence.
+
 ### REQUEST — alert without runbook
 - Site: an alert rule fires on a queue backlog with no linked runbook.
 - Fix: add a runbook file (under `ai/runbooks/`) with hypotheses, investigation steps, mitigations (scale workers / drain / escalate to vendor), escalation path. Link the runbook URL in the alert annotation.
@@ -134,6 +148,7 @@ Coverage:
 | Sampling (100% errors)        | pass / fail / n-a |
 | SLO / burn-rate alerts        | pass / fail / n-a |
 | Alert quality (symptom+runbook)| pass / fail / n-a |
+| Emit-and-assert closure ledger| pass / fail / n-a |
 | Dashboards (RED + SLO rollup) | pass / fail / n-a |
 
 Blockers (N): <severity + fix + verification>
@@ -150,6 +165,7 @@ Patterns consulted: structured-logging, metrics, tracing
 - NIT: histogram buckets, field naming.
 - Never accept metrics without dashboards OR alerts (dead metric = cost).
 - Never accept alerts without runbooks.
+- BLOCKER: a `Status: COMPLETE` telemetry/alert change whose ledger is missing, carries an ASSERTED/ACTIONABLE row with no runnable evidence, or hides a SKIPPED/UNLINKED/ORPHAN/FAILED row — "functional but unverified" must have been reported INCOMPLETE.
 
 ## Related
 

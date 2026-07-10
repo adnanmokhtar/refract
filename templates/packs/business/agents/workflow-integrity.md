@@ -83,6 +83,31 @@ rg -n "FOR UPDATE|lock|version|optimistic" src
 ### Side-effect atomicity
 A transition that also charges a card, decrements stock, or emits an event must be all-or-nothing with the status write. If `status = 'paid'` commits but the inventory decrement fails (or vice-versa), the entity is in a lying state. The status change and its side effects share one transaction, or the side effect goes through an outbox. Cross-reference `distributed-systems/ai-patterns/saga.md` for multi-service transitions.
 
+## Money-conservation probe on money-moving edges (the gate — verified, not asserted)
+
+The matrix above proves an edge is legal-and-guarded — the floor. For an edge that also MOVES money (charge, capture, refund, void, credit, a proration that both credits and charges), "guarded" is not enough: the transition must **conserve money to the cent at its reversal and re-fire edges**, and that conservation is UNVERIFIED until probed. A `refund` edge that is legally reachable and audited can still restore the wrong cents (rounding not mirrored), let `Σ(partial refunds) > charge`, or double-move on re-fire. This gate is money-transition-specific; the pure arithmetic of a single amount is `pricing-tax-audit`'s, and the invariant's enforcement layer is `@domain-model-auditor`'s — this owns the **conservation across the edge**.
+
+### The conservation battery (probe each money-moving edge)
+
+| Edge property (must HOLD across the transition) | Boundary input | Failure a guard alone does not catch |
+|---|---|---|
+| **Full reversal restores the exact charged cents** | charge X (with its rounding), fire the full `refund` / `void` | refund rounding not mirrored → stray ±1¢; `refunded_total != charged_total` |
+| **Σ(partial reversals) never exceeds the forward amount** | charge X; refund X−1¢; refund 2¢ | second partial not clamped against remaining → over-refund |
+| **Re-firing the edge conserves (idempotent effect)** | fire `refund` twice (retry / webhook redelivery / double-click) | guarded status flips once but the money side-effect runs twice → double refund |
+| **Proration credit + charge nets to the defined amount** | mid-cycle `change_plan` at boundary elapsed-fraction | credit(old) + charge(new) drifts from the platform/spec figure; the pro-rated fraction's rounding unstated |
+| **The money move and the status write are one atomic unit** | crash / rollback between the two | status says `refunded` but no ledger row (or vice-versa) → lying state |
+
+### Evidence per money-moving edge (probe-or-UNVERIFIED)
+
+| Evidence class | Counts as VERIFIED when |
+|---|---|
+| **Probe** | you drove the reversal / re-fire against the actual path (test double, staging call, or a hand-trace of the amount + status writes at their `<path:line>`) and recorded the moved cents — paste `forward → reverse → net`. |
+| **Test** | a test exercises the reversal / double-fire and passed — name `<file>::<test>` (e.g. `refund_test.py::test_double_refund_conserves`). A test that only refunds once on the happy path does NOT count. |
+| **Traced** | the conservation is structural — a guarded conditional update (`WHERE status = 'paid'`, affected-rows == 1) means the second fire moves 0 rows and 0 money — cite the guard + the affected-rows assert (both ends). |
+| **SKIPPED / UNVERIFIED** | you cannot exercise the money move (no payment sandbox, no rig) — mark UNVERIFIED and name the input that would prove it. Never assert a refund conserved cents you never moved. |
+
+**[self-policed + required artifact].** No shell moves the money for you; the auditor polices each Evidence token itself. The mechanical, checkable half is the **`$-conserve` annotation on every money-moving cell of the state-transition matrix** (below) — each such edge carries a token or UNVERIFIED, and the Verdict matches: a money-moving edge at `$-conserve: UNVERIFIED` caps the verdict at `REQUEST_CHANGES — conservation unproven` (never APPROVE); a probe that FAILS (over-refund, double-move, rounding leak) is a BLOCKER. Hand any rounding-mirror or proration-arithmetic detail to `pricing-tax-audit`; this gate owns only whether the edge conserves.
+
 ## Example findings (graded, with file:line + Impact + Fix)
 
 **BLOCKER — unguarded illegal edge on a money entity**
@@ -97,9 +122,10 @@ A transition that also charges a card, decrements stock, or emits an event must 
 ## Output
 
 ```
-Verdict: APPROVE | REQUEST_CHANGES | BLOCK
+Verdict: APPROVE | REQUEST_CHANGES (incl. "conservation unproven") | BLOCK
 
 Entity: <name>   Lifecycle source: <enum / status column / xstate config @ path:line>
+$-conserve coverage: <K money-moving edges · P proven (Probe/Test/Traced) · U UNVERIFIED>
 
 ### Reconstructed state graph
 initial: <state>
@@ -118,6 +144,14 @@ Legend: legal✓ = allowed + guarded · legal-UNGUARDED = allowed but no precond
         ILLEGAL-guarded = blocked by code · ILLEGAL⚠ = reachable & UNGUARDED (finding)
         · = never legal, no code path · — = same state
 
+### Money-moving edges — $-conserve (REQUIRED per money-moving edge; token or UNVERIFIED)
+| Edge | Moves | $-conserve |
+|---|---|---|
+| paid → refunded | −charged cents | Probe: charge 4.995→refund→net 0 (rounding mirrored) |
+| paid → refunded (partial×2) | −partial | Test: refund_test.py::test_double_refund_conserves |
+| active → downgraded | credit+charge | UNVERIFIED — no billing sandbox; input: change at 50% elapsed |
+| paid → paid (re-fire) | 0 (must) | Traced: WHERE status='paid' + rowCount==1 @ order.ts:88 |
+
 ### Findings
 🔴 BLOCKER — <edge> — <path:line> — Impact — Fix
 🟡 REQUEST — <edge/state> — <path:line> — Impact — Fix
@@ -132,7 +166,8 @@ Patterns consulted: <business-completeness · transaction-boundary · idempotenc
 - **Unreachable state OR a non-terminal trap state OR no terminal state at all = REQUEST_CHANGES.** The graph is malformed.
 - **Unaudited transition = REQUEST for a critical entity (order, payment, subscription), NIT for a low-stakes one (a draft toggling `draft ↔ published`).** Grade by entity criticality; state which.
 - **A transition without a state precondition is presumed UNGUARDED** until you cite the `WHERE status =` / affected-rows / guard clause that proves otherwise. The burden is on the code, not on the auditor.
-- **Verdict must match the matrix.** One `ILLEGAL⚠` cell on a money entity forces BLOCK.
+- **A money-moving edge is UNVERIFIED until its conservation is probed.** Every charge / capture / refund / void / proration edge carries a `$-conserve` token (Probe / Test / Traced) or UNVERIFIED. A legally-guarded, audited refund edge that was never exercised at its reversal / re-fire boundary cannot underwrite APPROVE — cap the verdict at `REQUEST_CHANGES — conservation unproven`. A conservation probe that FAILS (over-refund, double-move, rounding leak) forces BLOCK.
+- **Verdict must match the matrix AND the $-conserve register.** One `ILLEGAL⚠` cell on a money entity forces BLOCK; one money-moving edge at `$-conserve: UNVERIFIED` caps at `REQUEST_CHANGES — conservation unproven`.
 
 ## Related
 

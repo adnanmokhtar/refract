@@ -107,11 +107,11 @@ This phase does not skip. The feature is not done until it is measurable.
 
 1. **Build the eval set** — a versioned dataset (checked in), seeded from the Phase-2 eval spec (10–20 real-ish cases minimum), with expected properties per case. Cases are **held out** from the few-shot examples baked into the prompt.
 2. **Wire the scorers** — assertion (exact / JSON-schema / contains) + LLM-as-judge (faithfulness / relevance / correctness) + a retrieval metric (recall@k / context-precision) if RAG. Pin the judge model + `temperature: 0` + seed.
-3. **Set the baseline + threshold**, then **wire the CI eval-gate** — add/confirm the eval-gate step in the pipeline config and verify that step is *present* in the CI file (assert the config, not the pipeline's runtime outcome — this command cannot prove a remote build fails). The real measured gate is `eval-run` in step 4; CI is the standing enforcement of it.
-4. **Dispatch the `eval-run` skill** — run the set through the new code, confirm PASS at/above baseline. A below-baseline result HALTS this command (do not ship an unmeasured or regressed feature).
+3. **Declare the ABSOLUTE pass threshold per gated metric** — the production bar the feature must clear, not merely a self-referential "baseline" (e.g. `exact-match ≥ 0.90`, `faithfulness ≥ 0.85`, `context-recall@k ≥ 0.80` for RAG). A NEW feature has no prior baseline: its first `eval-run` ESTABLISHES the baseline **and must clear this declared absolute bar** — a first run below the bar is a FAIL, not a low baseline to ratchet from. A CHANGE to an existing feature gates on `baseline − ε` as well as the absolute bar. Then **wire the CI eval-gate** — add/confirm the eval-gate step in the pipeline config and verify that step is *present* in the CI file (assert the config, not the pipeline's runtime outcome — this command cannot prove a remote build fails). The real measured gate is `eval-run` in step 4; CI is the standing enforcement of it.
+4. **Dispatch the `eval-run` skill** — run the set through the new code and **record the measured score per gated metric** (`<metric> = <score>` vs `≥ <threshold>`) from `eval-run`'s output table + its `Reports:` path. The verdict is the measured number vs the declared threshold, not "it ran green". A metric below its absolute threshold (new feature) or below `baseline − ε` (change) HALTS this command to **INCOMPLETE** — name the failing metric + score; do not ship an unmeasured or below-bar feature. If NO eval harness exists in the repo, `eval-run` HALTS: build the set + scorers (`ai/patterns/evals.md`) first; until it runs, the eval axis is **UNVERIFIED**, never a faked pass.
 5. **Security handoff — dispatch `@llm-security-reviewer`** for the trust boundary: prompt injection (direct + indirect), improper output handling (any sink the output reaches), and excessive agency (destructive tools). This is a required handoff, not optional — `@ai-feature-reviewer` reviews engineering quality but does NOT clear security.
 
-HALT conditions for this phase: no eval set built; eval doesn't gate in CI; `eval-run` reports below baseline; security handoff skipped.
+HALT conditions for this phase: no eval set built; eval doesn't gate in CI; `eval-run` reports a gated metric below its declared threshold (or below `baseline − ε` on a change); no eval harness so the score is UNVERIFIED; security handoff skipped.
 
 ## Phase 6 — Update (persist to the knowledge base)
 
@@ -140,6 +140,21 @@ If a named agent is not installed, run its checklist inline — never silently s
 - **Grow the eval set from the first production failure** — wire the path from a real bad output back to a new eval case (the loop that makes the gate get stronger over time).
 - If a new domain signal surfaced (first RAG corpus, first agent loop) → queue an ADR.
 
+## Ship gate — production-grade or INCOMPLETE (the closing verdict)
+
+"It responds" is the floor, not the ship bar. An AI feature is **production-grade** only when it is **eval-gated** (a measured score at/above a declared threshold), has **guardrails** (input validation, output validation, injection defense, PII redaction), and holds a **cost/latency budget**. Declare **PRODUCTION-READY** only when all three axes below are satisfied *with evidence* — a measured eval score, not "the eval exists"; a named guardrail, not "the output looked safe". Do not print `COMPLETE` on a functional-but-unmeasured feature.
+
+| Production axis | The bar (verified, not asserted) | How it's enforced |
+|---|---|---|
+| **Eval gate** | The gated metrics were MEASURED by `eval-run` and each cleared its declared threshold — cite the number (`<metric> = <score>` vs `≥ <threshold>`). NEW feature → the ABSOLUTE bar (first run is the baseline yet must clear the bar). CHANGE → `baseline − ε` and the bar. | **mechanical** — read from `eval-run`'s recorded per-metric table + `Reports:` path (a required output artifact a reader/next agent can check), and the CI eval-gate step is grep-confirmed present in the pipeline file (Phase 5.3). No harness ⇒ this axis is **UNVERIFIED**, so the feature is UNVERIFIED, never READY. |
+| **Guardrails** | Input validated (length / shape / allow-list) before it reaches the prompt; output schema-validated before any use; PII/secret **redaction on the prompt + log path** (AI-9); the prompt-injection surface handed to `@llm-security-reviewer` and returned **CLEARED**. | **mechanical for the security seam** — `@llm-security-reviewer` returns `CLEARED` / `BLOCKERS`. **[self-policed]** for input-validation + PII redaction in this command, and independently re-graded by `@ai-feature-reviewer` (Phase 7); no shell here catches a missing redaction call. |
+| **Budget** | `max_tokens` / `max_output_tokens` set; wall-clock timeout set; per-call token + cost traced; a **per-request cost ceiling** declared (the dollar figure a single call may not exceed). | **[self-policed]** in this command; re-graded by `@ai-feature-reviewer`'s cost/latency dimension (Phase 7). |
+
+Pick exactly one terminal state, honestly:
+- **PRODUCTION-READY** — all three axes satisfied with the cited evidence above.
+- **UNVERIFIED** — built + functional, but the eval axis could not be measured (no harness). Name it (`eval UNVERIFIED — no harness; set + scorers built, gate not yet run`). The ship decision is the human's, made eyes-open; this command does NOT upgrade it to READY.
+- **INCOMPLETE** — a named axis is unmet (a below-threshold metric; a missing guardrail; an unset budget; security `BLOCKERS`). List every unmet item; do not paper over it.
+
 ## Output
 
 ```
@@ -149,7 +164,7 @@ Phase 1 (Understand): shape=<generation|extraction|RAG|agentic>, provider=<X>, m
 Phase 2 (Organize): prompt + gateway + (retrieval) + (tools) + eval plan designed.
 Phase 3 (Retrieved): universals + evals/prompt-engineering (+ rag-pipeline/agent-design/llm-gateway) + sibling feature.
 Phase 4 (Generated): prompt module, gateway call (max_tokens + timeout + cost trace), structured output, (retrieval tenant-filtered + no-context guard), (agent loop budgets + human-in-loop).
-Phase 5 (Evaluated): eval set v1 (<N> cases) built + gated in CI; eval-run PASS @ baseline; @llm-security-reviewer handoff cleared.
+Phase 5 (Evaluated): eval set v1 (<N> cases) built + gated in CI; eval-run measured <metric>=<score> vs ≥<threshold> (new: absolute bar / change: baseline−ε); @llm-security-reviewer handoff cleared.
 Phase 6 (Updated): ai/status.md, changelog, eval baseline recorded.
 Phase 7 (Validated): lint, tests, eval-run green, reviewers.
 Phase 8 (Improved): /learn-from-task queued; prod-failure→eval-case path wired.
@@ -162,8 +177,8 @@ Files:
   - evals/<feature>.eval.yaml              (versioned dataset + scorers, gated in CI)
   - __tests__/<feature>.spec.ts
 
-Eval: <N> cases, scorers=<assertion + judge (+ recall@k)>, baseline=<score>, gate=CI.
-Cost/latency: max_tokens=<n>, timeout=<ms>, cost traced per call.
+Eval: <N> cases, scorers=<assertion + judge (+ recall@k)>, measured=<score> vs threshold=≥<bar>, gate=CI.
+Cost/latency: max_tokens=<n>, timeout=<ms>, cost traced per call, per-request ceiling=$<x>.
 
 Review verdict (engineering): APPROVE / REQUEST_CHANGES / BLOCK
 Security handoff (@llm-security-reviewer): CLEARED / BLOCKERS: <list>
@@ -174,7 +189,11 @@ Domain checks:
   - Agent loop budget + human-in-loop on destructive tools ✓ (if agentic)
   - No-context guard ✓ (if RAG)
 
-Status: COMPLETE
+Ship verdict: PRODUCTION-READY | UNVERIFIED | INCOMPLETE
+  Eval axis:      <metric>=<measured> vs ≥<threshold> — PASS | FAIL | UNVERIFIED(no harness)
+  Guardrail axis: input-validated ✓ · output schema-validated ✓ · PII redacted ✓ · @llm-security-reviewer CLEARED
+  Budget axis:    max_tokens=<n> · timeout=<ms> · cost traced ✓ · per-request ceiling=$<x>
+  Unmet (if UNVERIFIED/INCOMPLETE): <named list — the exact items blocking PRODUCTION-READY>
 
 Next:
   - /review-changes
@@ -183,6 +202,9 @@ Next:
 
 ## Hard rules
 
+- **Declare PRODUCTION-READY only on evidence, else UNVERIFIED / INCOMPLETE.** "It responds" is the floor. READY requires a MEASURED eval score at/above the declared threshold (cited from `eval-run`), guardrails (input + output validation + PII redaction + injection handoff CLEARED), and a held budget. No harness ⇒ **UNVERIFIED** (name it), never a faked pass. Any unmet axis ⇒ **INCOMPLETE** with the unmet items named. Never print `COMPLETE` on a functional-but-unmeasured feature.
+- **A NEW feature gates on the ABSOLUTE threshold, not a self-referential baseline.** The first `eval-run` establishes the baseline AND must clear the declared production bar; a first run below the bar is a FAIL. A change additionally gates on `baseline − ε`.
+- **PII/secret redaction is a guardrail, not an afterthought** — the prompt + log path redacts PII/secrets at the gateway seam (AI-9) before READY.
 - **The eval set is mandatory and gates in CI.** No eval → not done. This is the load-bearing phase; a feature you cannot regression-test is unshippable.
 - **Structured output via the provider's schema mode** — never regex-parse a structured response.
 - **Every generation has `max_tokens` + a timeout + a traced cost.** Calls go through the gateway seam, not scattered raw SDK clients.

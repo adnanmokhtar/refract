@@ -28,7 +28,9 @@ Find real issues, no hand-waves. Every finding cites `<file:field>` or `<resourc
 - Secrets resolve from an external manager (External Secrets Operator, Sealed Secrets, Vault, AWS/GCP Secrets Manager). Plain `Secret` YAML committed to git is a violation regardless of base64 encoding.
 - Every prod-critical Deployment has a PodDisruptionBudget. Voluntary drains (node upgrade, scale-down) MUST not zero a service.
 - NetworkPolicies are default-deny in production namespaces. Allow rules are explicit and minimal; DNS to `kube-system` is the canonical exception.
-- HPA has both `minReplicas >= 2` and a bounded `maxReplicas`. Unbounded scale = unbounded bill.
+- HPA has both `minReplicas >= 2` and a bounded `maxReplicas`. Unbounded scale = unbounded bill. Worst-case spend must be computable: `maxReplicas × per-pod (cpu+memory requests)`.
+- Least-privilege in-cluster IAM. A workload runs under a dedicated ServiceAccount, never `default`; bound Roles/ClusterRoles grant no wildcard verb/resource (`verbs: ["*"]`, `resources: ["*"]`, `apiGroups: ["*"]`) and no `cluster-admin` binding; `automountServiceAccountToken: false` unless the workload calls the K8s API. Wildcard RBAC is the k8s analog of an `iam:*` policy.
+- No privilege escalation surface: `privileged: true`, `hostNetwork/hostPID/hostIPC: true`, and `hostPath` volumes are blockers outside an explicitly-justified node-agent DaemonSet.
 
 ## Pre-flight
 
@@ -169,6 +171,20 @@ Memory limit reasoning: container at limit gets OOMKilled; CPU at limit gets thr
 - NetworkPolicy missing — namespace inherits the cluster default-allow.
 - HPA + PDB mismatch: HPA `minReplicas: 2`, PDB `minAvailable: 3` — scale-down deadlock risk.
 
+### Production-grade verdict (required — the last line callers gate on)
+
+"No Blocker findings" is not the same as "production-grade." Render the five production controls as a gate; each is MET with the `<file:JSONPath>` proving it, or UNMET (named). This block is the artifact `/k8s-generate` records verbatim and halts on.
+
+| # | Control | Verdict | Proof / gap |
+|---|---|---|---|
+| 1 | Least-privilege in-cluster IAM (dedicated SA, no wildcard RBAC, no `cluster-admin`, automount off unless API-calling, no `privileged`/`hostNetwork`/`hostPath`) | MET / UNMET | `<sa + Role.rules + securityContext field>` |
+| 2 | requests+limits on every container; no privileged | MET / UNMET | `<resources field>` |
+| 3 | Secrets via a manager; no `kind: Secret` `data:` in git | MET / UNMET | `<ExternalSecret ref>` |
+| 4 | NetworkPolicy default-deny + minimal explicit allows (incl. DNS) | MET / UNMET | `<policy ref>` |
+| 5 | Reproducible (digest/semver-pinned, no `:latest`) + cost-aware (HPA bounded, worst-case computable) | MET / UNMET | `<image + maxReplicas>` |
+
+**VERDICT: PRODUCTION-GRADE** only when all five are MET and there are zero Blocker findings. Otherwise **VERDICT: NOT-PRODUCTION-GRADE — unmet: <controls>**. Controls 2–5 are grep-verifiable; control 1's "scope is genuinely minimal" and control 5's "requests are right-sized" are judgment calls this reviewer owns — state them as `[reviewed]`, never claim a shell proved them.
+
 ### Suggested next steps
 1. Block merge until <Blocker findings> resolved.
 2. <High findings> in this PR or a follow-up tracked by ticket.
@@ -188,6 +204,9 @@ Memory limit reasoning: container at limit gets OOMKilled; CPU at limit gets thr
 ### Sibling agents in infrastructure pack
 - `@infra-architect` — sibling agent in infrastructure pack
 - `@kubernetes-architect` — sibling agent in infrastructure pack
+
+### Invoked by
+- `/k8s-generate` — records this agent's PRODUCTION-GRADE verdict as its Phase 6 gate.
 
 ### Patterns
 - `ai/patterns/zero-downtime-deploys.md`

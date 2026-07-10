@@ -195,12 +195,14 @@ After all 3 fixes: P95 <current> → <new> (-<delta>).
 - Authentication middleware adds <ms> per request; not the dominant bottleneck today.
 ```
 
-## Phase 6 — Validate (after applying fixes)
+## Phase 6 — Validate (after applying fixes — production-grade, not merely faster)
 
-- Re-profile under same conditions.
-- Verify P95 hits target.
+- Re-profile under same conditions, **same harness** that produced `<before>`. An adjective ("feels faster") is not a re-measurement — it is `SKIPPED [no-harness]`, never a pass.
+- **Verify P95 hits the budget, not just beats the before.** Faster-than-before but still over budget is `INCOMPLETE — over budget (<after> vs <budget>)`, not done.
+- **Re-measure the guardrail neighbor, not only the metric you improved** (per the Guardrail matrix in `@performance-optimizer`: index → write p95; fan-out → downstream RPS + pool; cache → memory/staleness; bundle-split → INP + waterfall). ANY guardrail worse than baseline beyond noise → `INCOMPLETE — regressed <metric>`, HALT, keep behind review.
 - Verify no functional regression (test suite + spot-check).
 - Verify the fix in production / staging telemetry, not just synthetic.
+- **Terminal verdict:** `PRODUCTION-GRADE` only when the re-profile is measured, at/under budget, and every guardrail held; otherwise `INCOMPLETE — <unmet items named>`. Never a bare "done".
 
 ## Output format
 

@@ -20,6 +20,8 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 - A verdict cannot cite `<service:line>` for the call site OR the dependency name (e.g., `payments-api`, `sendgrid`, `redis-cache`) — halt; the row in the per-call table is unsubstantiated.
 - The SLO / outer-handler timeout budget is unknown — halt; "inner timeouts < outer budget" cannot be checked without it.
 - A retry recommendation is proposed without an idempotency check on the target endpoint — halt; retrying a non-idempotent write is the bug, not the fix.
+- An "idempotent" / "deduped" claim rests on a check-then-act reserve (a `SELECT`/`EXISTS` read gating a *separate* later write) or an in-memory map — halt and mark it NOT idempotent. That shape races under concurrent redelivery; it is the bug, not the mitigation. The mitigation is an atomic reserve (unique-constraint INSERT whose duplicate-key IS the dedupe, same-tx event-id insert, or a conditional `UPDATE ... WHERE status = 'pending'`) cited at `<service:line>`.
+- A redelivered-write or compensation path (saga step, outbox consumer, retried handler) has no atomic reserve of its OWN cited at `<service:line>` — halt; at-least-once delivery + no reserve = duplicate effect / double-compensation, regardless of a happy-path idempotency key elsewhere.
 
 
 
@@ -28,6 +30,7 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 - Every cross-process call (HTTP, gRPC, DB, queue, cache, third-party API) has an EXPLICIT timeout. "No timeout" defaults are never acceptable on a request-handling path.
 - Inner timeouts < outer timeout budget. If the outer handler is 5s, no single downstream call exceeds ~2s.
 - Retries are gated on idempotency. Non-idempotent writes without an idempotency key MUST NOT retry.
+- Idempotency is exactly-once **EFFECT**, not an idempotency-key column. The effect and its dedupe reserve commit atomically (same tx, unique constraint, or conditional transition); a redelivered or concurrent duplicate produces ONE effect. A key that is written *after* the effect, or read-then-written across two statements, is not a reserve.
 - Backoff is exponential with jitter, bounded in attempts AND total elapsed time. Fixed-interval retry is a thundering-herd bug.
 - Connection / thread / queue pools are sized PER downstream. One slow dependency must not exhaust the pool used by another.
 - External calls do not happen inside DB transactions. Commit the local state, then call out; reconcile on failure.
@@ -76,12 +79,20 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 - Worker pool / semaphore caps concurrent calls per dependency.
 - Queue depth bounded; reject excess with 503 + `Retry-After` rather than buffering forever.
 
-### 5. Idempotency
+### 5. Idempotency → exactly-once EFFECT
 
-- Mutating endpoints accept `Idempotency-Key` header.
-- Receiver dedupes via persistent store (the project's TTL-cache or a DB row with a unique constraint on the key).
+The bar is exactly-once EFFECT under redelivery, not "there is a key column". Assess the RESERVE, not the intent:
+
+- Mutating endpoints accept `Idempotency-Key` header; receiver dedupes via a persistent, ATOMIC reserve.
+- **Atomic vs check-then-act** — the reserve and the effect are indivisible:
+  - GOOD: unique-constraint `INSERT INTO processed_events(event_id)` where the duplicate-key error IS the dedupe; OR the event-id row + effect in ONE transaction; OR a conditional transition `UPDATE ... SET status='done' WHERE id=? AND status='pending'` (affected-rows=0 ⇒ already applied).
+  - BAD: `if (!await seen(id)) { await doEffect(); await markSeen(id); }` — two deliveries both pass `seen()` before either `markSeen`, effect runs twice. Detector: `rg -n "SELECT|EXISTS|has(Been)?Processed|\.get\(" <handler>` returning a read that gates a *separate* write; or `markSeen`/insert AFTER the effect rather than in its transaction.
+- **Two tests decide it, and only these two** — a sequential twice-call proves nothing:
+  1. CONCURRENT duplicate delivery (two deliveries interleaved so both reserve before either commits) → exactly one effect.
+  2. Crash-in-the-gap (kill between effect-commit and ack, or between bus-publish and outbox-mark) → redelivery → one effect.
+  A finding of "idempotent" not backed by one of these (or marked UNVERIFIED for want of a concurrency/partition harness) is unsubstantiated.
 - Returned response is the SAME for duplicate keys (same body, same status).
-- Key TTL longer than the longest expected retry window (typically 24h).
+- Key TTL longer than the longest expected retry window (typically 24h). Distributed-lock reserve (Redis etc.) MUST carry a fencing token — a lock alone is not exactly-once (a paused holder + a second acquirer double-apply).
 
 ### 6. Graceful degradation
 
@@ -113,6 +124,10 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 | External call inside an open DB transaction | Commit first, then call; reconcile via outbox. |
 | Single shared client for cache + queue + rate limit | Separate clients with per-purpose pool sizes. |
 | Global retry middleware retrying every method | Allowlist idempotent methods only. |
+| Check-then-act dedupe (`if (!seen(id)) { effect(); markSeen(id) }`) | Atomic reserve: unique-constraint INSERT, same-tx event-id write, or conditional `UPDATE ... WHERE status='pending'`. |
+| Idempotency key written AFTER the effect commits | Reserve BEFORE / IN the effect's transaction, else the crash-in-gap redelivers a second effect. |
+| Compensation / saga step with no reserve of its own | Own `(sagaId, stepName)` unique reserve — redelivered compensation double-compensates (double refund) otherwise. |
+| Distributed lock (Redis) used as the sole idempotency guard | Fencing token checked at the resource, or a single-writer DB reserve — a paused lock holder + second acquirer double-apply. |
 | 504 returned to caller after upstream timeout | Map to 502 if upstream signaled error, 504 only when YOUR timeout fired. |
 
 ## Pre-flight — what NOT to flag
@@ -129,13 +144,16 @@ You audit the failure paths. Happy paths ship; failure paths decide whether the 
 
 ### Per-call verdict
 
-| Caller | Target | Timeout | Retry | Circuit | Bulkhead | Idempotent | Verdict |
+| Caller | Target | Timeout | Retry | Circuit | Bulkhead | Exactly-once effect | Verdict |
 |---|---|---|---|---|---|---|---|
-| `OrderService.placeOrder` | `payments-api` | none | 3x fixed | none | shared pool | yes (key) | FRAGILE |
+| `OrderService.placeOrder` | `payments-api` | none | 3x fixed | none | shared pool | check-then-act (races) | FRAGILE |
+| `OnOrderPaid.handle` | `processed_events` | n/a | broker | n/a | n/a | atomic reserve (unique INSERT) ✓ | RESILIENT |
 | `Sync.userExport` | object storage | 5s | 5x exp | n/a | dedicated | n/a | RESILIENT |
-| `Notify.sendEmail` | email vendor | 30s | 0 | none | shared | no | CATASTROPHIC |
+| `Notify.sendEmail` | email vendor | 30s | 0 | none | shared | key written AFTER effect | CATASTROPHIC |
 
-Verdicts: RESILIENT (production-ready) / FRAGILE (degrades under load) / CATASTROPHIC (cascades on dependency failure).
+Exactly-once-effect column: `atomic reserve ✓` (unique-constraint / same-tx / conditional-transition, cited `<service:line>`) / `check-then-act (races)` / `key after effect` / `n/a` (read-only). A `yes` with no cited reserve shape is unsubstantiated — mark it `check-then-act` until proven atomic.
+
+Verdicts: RESILIENT (production-ready) / FRAGILE (degrades under load) / CATASTROPHIC (cascades on dependency failure — includes duplicate-effect / double-compensation on redelivery).
 
 ### Top fixes (ranked by blast radius)
 1. `OrderService.placeOrder:142` — add 1s timeout, switch to exponential+jitter, max 3 attempts; circuit breaker on payments-api (50% failure rate, 30s open).
@@ -152,6 +170,7 @@ Verdicts: RESILIENT (production-ready) / FRAGILE (degrades under load) / CATASTR
 - **Demanding circuit breakers everywhere.** A breaker on a low-volume internal call adds latency and bug surface for no benefit. Justify per-dependency.
 - **Asserting retry counts in tests without a failing mock.** "Retried 3 times" with a never-failing mock = the retry path was never exercised.
 - **Treating idempotency as binary.** Some operations are conditionally idempotent (SET-if-not-exists). Assess per call, not by HTTP verb.
+- **Blessing exactly-once from a sequential test.** "Called twice → one effect" with two *sequential* calls passes even on a check-then-act reserve; only concurrent-interleaved delivery and crash-in-the-gap exercise the race. If neither harness exists, the correct verdict is UNVERIFIED, not RESILIENT.
 - **Recommending defaults that fight the framework.** If the project standardizes on a specific resilience library (per the project's stack), suggest config there, not a hand-rolled wrapper.
 - **Ignoring backpressure.** A bounded retry budget without backpressure on the caller still drowns the downstream. Coordinate with rate limits.
 
