@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Three operational fixes so /art-direct produces a good design on the FIRST run (diagnosed from a real failure: the build invented a good token system + cards but left the PrimeVue filter bar default-themed, because the render loop was blocked at the app's login wall). (1) Authenticated rendering — the build's render path must reach the actual auth-gated surface (storageState / login step), inherited from visual-check. (2) Blocked render = HARD HALT, never a silent SKIP — a login-wall/redirect render stops the build (RENDER BLOCKED) instead of grading a login page and shipping blind; SKIPPED is only for no-harness-at-all. (3) Framework component-library controls (PrimeVue/MUI/Ant/Vuetify SelectButton/Calendar/inputs) are a must-override class — the token layer does NOT reach their internals, so the filter/control bar stays default unless explicitly overridden with :deep(); the per-component audit + coverage grade every library control as first-class.",
+  "summary": "Hard feature-parity gate — a redesign NEVER drops a component (the reimagine failure where a from-scratch dashboard redesign deleted the conversion-rate KPI card to 'simplify'). A redesign changes the LOOK, never the feature set. Phase-1 now builds a COUNTED component/feature manifest (every card by name, chart, table, filter, control, action, state); Phase-6 diffs it against the rebuilt RENDER item-by-item and prints a parity table — a single MISSING component is INCOMPLETE (counts must match, 4 cards in -> 4 cards out), never a silent omission. Default is KEEP; the agent never drops on its own initiative (not to simplify, not because it 'didn't fit', not because data is empty) — a drop is legitimate only with explicit user keep/move/drop approval. reimagine's freedom is over FORM (re-rank/re-group/demote/re-shape) not the feature set. Reinforced in creative-director (reimagine keeps JOBS and COMPONENTS) + art-direct coverage.",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-26",
@@ -99,6 +99,15 @@
         "redesign.md: Phase-1 BEFORE baseline + Phase-6 render require an authenticated session for gated surfaces and HALT on a blocked render (distinct from no-harness SKIPPED); Playwright prerequisite updated. Per-component audit adds the framework-control-override rule (library controls don't inherit tokens; the filter bar is the #1 miss) + a two-valued honest render status (no-harness=SKIPPED, blocked=HALT).",
         "art-direct.md: authenticated-render + blocked=HALT hard build precondition (a saved login-blocked.png is a stop signal, not a pass); build-step-3 grades framework controls as first-class + two-valued render status; coverage gate adds framework component-library controls (the filter/control bar) as a must-cover region alongside charts + shared components.",
         "enhance-ui.md + /polish (orchestration): framework-control-override note — component-library controls need explicit :deep()/theme overrides; the token/theme layer does not reach them, so the filter/control bar counts as below-bar until overridden."
+      ]
+    },
+    "1.14.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "redesign.md Phase 1: build a COUNTED component/feature manifest (parity contract) — every KPI card by name, chart, table, filter/control, action, panel, state, with counts.",
+        "redesign.md Phase 6: feature parity is now a HARD GATE verified from the render — diff the manifest item-by-item, print a parity table (present/MISSING/moved-to), a single MISSING component = INCOMPLETE (dropped <component>), counts must match, default KEEP, agent never drops on its own; re-composition may move/demote but must render every item.",
+        "creative-director.md: reimagine may throw away the LOOK, never the JOBS AND never the COMPONENTS — deleting a card/table/filter to 'simplify' is a parity failure, not a design decision; freedom is over form, not the feature set.",
+        "art-direct.md: new feature-parity gate in the build (inherits redesign Phase-6) — no dropped component, counts must match, drop only on explicit user approval; called out for reimagine specifically."
       ]
     }
   }
