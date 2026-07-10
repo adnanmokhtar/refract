@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "visual-check now owns authenticated rendering + a blocked-render HARD HALT — the fix for 'art-direct built a good design but left the filter bar unstyled'. Root cause: a headless/isolated Playwright browser has no session, so auth-gated surfaces (requiresAuth dashboards) redirect to /login and every screenshot is the login wall — the per-component visual audit then grades a login page and the build ships blind. New: detect the auth gate, establish a session (reuse storageState or a one-time login step with env creds), assert a surface-unique marker after goto, and treat a login-wall/redirect render as BLOCKED — a HARD HALT (authenticate + re-run), explicitly NOT the same as 'SKIPPED (no harness)' and never a valid baseline.",
+  "summary": "visual-check now ships the DEPLOYABLE authenticated-render scaffold + the new-project creds flow, so any auth-gated project gets it from /setup-project rather than hand-writing it. The design: creds are a secret the machine can never bake, so the work splits — the machine scaffolds everything (tests/auth.setup.ts login->storageState, gitignore, .env slot, MCP --storage-state wiring, runbook), the human supplies ONE secret once (E2E_EMAIL/E2E_PASSWORD in gitignored .env). Until the session exists, an auth-gated render HALTS with the 3-step turn-on (fix from the prior release) instead of building blind. Includes the parameterized auth.setup.ts (login route + email/password/submit selectors detected per project) and works for both token-in-localStorage and cookie auth.",
   "changelog": {
     "1.9.0": {
       "released": "2026-07-09",
@@ -112,6 +112,12 @@
       "changes": [
         "visual-check: new 'Authenticated rendering' section (detect route guard -> reuse storageState or login-once-and-persist -> point the MCP/browser at the session, never --isolated-with-no-session for gated routes -> assert a surface-unique marker before screenshotting).",
         "visual-check: new 'Blocked render = HARD HALT' section + halt condition — a login-wall/redirect/marker-absent render is a failure to authenticate, HALTs the caller (RENDER BLOCKED), is NOT downgraded to SKIPPED, and the login screenshot is never saved as the surface baseline."
+      ]
+    },
+    "1.12.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "visual-check: new 'Setting this up on a new / auth-gated project' section — the machine/human split (machine scaffolds the mechanism; human supplies creds once in gitignored .env), a deployable parameterized tests/auth.setup.ts (login->storageState, token-in-localStorage or cookie), and the 3-step turn-on (creds in .env -> generate storageState -> point the MCP/harness at it) that setup surfaces and the blocked-render HALT enforces."
       ]
     }
   }

@@ -40,6 +40,43 @@ Most real app surfaces (dashboards, settings, anything behind `meta: { requiresA
 3. **Point the MCP/browser at the session.** For the Playwright MCP, this means it must NOT run `--isolated` with no session for gated routes — load the `storageState`, or drive the login step in-session. `--headless --isolated` with no auth ALWAYS lands on `/login`.
 4. **Prove you landed on the surface, not the wall** (see the blocked-render halt): after `goto`, assert a surface-unique marker is present (a heading/testid that only the target renders) before you screenshot.
 
+### Setting this up on a new / auth-gated project (where the creds come from)
+
+Creds are a **secret** — `/setup-project` can never bake or guess them. So the work splits: **the machine scaffolds the whole mechanism; the human supplies ONE secret, once.**
+
+- **Machine scaffolds** — when the app is detected auth-gated (a router guard, `requiresAuth` meta, a `/login` redirect, `<PrivateRoute>`, an auth interceptor): drop `tests/auth.setup.ts` (below), gitignore `tests/.auth/`, add the `.env` slot, and surface the 3-step turn-on in the setup report.
+- **Human supplies** (once) — dev/test creds in the **gitignored `.env`**: `E2E_EMAIL` / `E2E_PASSWORD` (or the project's field names). Never committed, never in a command, never pasted in chat.
+
+Scaffold — deploy as `tests/auth.setup.ts`, parameterizing the login route + the 3 selectors to the detected form:
+
+```ts
+import { test as setup, expect } from "@playwright/test";
+import fs from "node:fs";
+const authFile = "tests/.auth/user.json";
+setup("authenticate", async ({ page }) => {
+  const email = process.env.E2E_EMAIL, password = process.env.E2E_PASSWORD;
+  if (!email || !password) throw new Error("Set E2E_EMAIL/E2E_PASSWORD in .env first.");
+  await page.goto("/login");                          // ← detected login route
+  await page.fill("#email", email);                   // ← detected email selector
+  await page.fill("input[type=password]", password);  // ← detected password selector
+  await page.click('button[type="submit"]');          // ← detected submit selector
+  await page.waitForURL((u) => !u.pathname.includes("/login"), { timeout: 30_000 });
+  // token-in-localStorage apps: prove a token landed; cookie apps: assert a session cookie
+  const ok = await page.evaluate(() => Object.keys(localStorage).some((k) => /token/i.test(k)));
+  expect(ok, "no auth token after login — check creds/selectors").toBeTruthy();
+  fs.mkdirSync("tests/.auth", { recursive: true });
+  await page.context().storageState({ path: authFile });
+});
+```
+
+The 3-step turn-on (the setup report lists these; the render HALTS until done, never builds blind):
+
+1. Put creds in `.env` (gitignored): `E2E_EMAIL=…` / `E2E_PASSWORD=…`.
+2. `npx playwright test tests/auth.setup.ts` (dev server up) → writes `tests/.auth/user.json`.
+3. Point the render at it — add `--storage-state=tests/.auth/user.json` to the Playwright MCP args (compatible with `--isolated`), or pass `storageState` to the harness. Regenerate on JWT/session expiry.
+
+So a new project's first auth-gated redesign is gated on exactly one human action — dropping creds into `.env` — and everything else is scaffolded and reused.
+
 ## Procedure
 
 1. Confirm the dev server URL (default `http://localhost:3000`) and that it serves all declared locales.
