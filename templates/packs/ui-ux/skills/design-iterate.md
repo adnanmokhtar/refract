@@ -1,6 +1,6 @@
 ---
 name: design-iterate
-description: Generate 2–3 style variants at the correct design-system layer (leaf scoped styles, shared wrapper, or design tokens), screenshot via Playwright MCP, present side-by-side so the user picks. Honors $SCOPE_TIER from /enhance-ui so the same affordance is not duplicated across pages. Invoke when the user says "try a few variants", "iterate on the design", or isn't sure about visual direction.
+description: Two modes. `pick` (attended) — generate 2–3 style variants at the correct design-system layer (leaf scoped styles, shared wrapper, or design tokens), screenshot via Playwright MCP, present side-by-side so the user picks. `refine` (unattended, for /redesign Phase 6 + /art-direct build) — render the approved design, self-critique the PIXELS against the caller's rubric, fix the weakest lens (depth/motion/modern/perf/i18n), re-render, loop up to $MAX_REFINE rounds until it clears the bar. Honors $SCOPE_TIER so the same affordance is not duplicated across pages. Invoke for "try a few variants" / "iterate on the design", or as the quality loop that turns a one-pass build into a good design.
 ---
 
 # Design Iterate
@@ -50,6 +50,18 @@ Use **design tokens** (`$primary`, `$space-md`, CSS vars, Tailwind theme keys) �
    - For **`wrapper-variant`**: if a variant needs a new prop or slot, say so and **ask confirm** before applying template/script edits.
    - "Pick A/B/C or tune" as CTA.
 6. Once they pick, apply that variant. Run **`visual-check` on every route in `$CONSUMER_ROUTES`** again for final verification; if empty, single-route check.
+
+### Refine mode (`$MODE=refine` — unattended: render → critique → improve → re-render)
+
+The steps above are **`pick` mode** (attended): make 3 variants, a human chooses. In an unattended / `--yes` flow (e.g. `/redesign` Phase 6, `/art-direct` build), there is no human to pick — so this skill runs the **refine loop** instead, which is how a one-pass build becomes a genuinely good design:
+
+1. Apply the approved design, screenshot the rendered surface (`$SCOPE_TIER` allowed layer only; `$CONSUMER_ROUTES` if set) at the breakpoints × theme × locale.
+2. **Look at the render and self-critique it against the caller's rubric** — the `/redesign` Design-principles lenses (hierarchy, rhythm, states, motion-actually-implemented, modern register, performance, a11y, RTL). Score each `✓ / Δ / ✗` from the *pixels*, not the code.
+3. **Fix the weakest lens in code, then re-render.** Each round must move a named lens `Δ`→`✓` (e.g. "flat/no depth → add the elevation token + hover lift"; "static → add the list-entrance + hover transitions"; "raw i18n key visible → add the locale strings"). Do not restate the same score twice.
+4. Loop steps 2–3 up to **`$MAX_REFINE`** rounds (default 3). Stop early when every targeted lens + motion/modern/performance is `✓`.
+5. Leave the surface in the improved state; emit the per-round lens deltas so the caller's scorecard shows what each round bought. A residual `Δ` that couldn't clear in the budget is reported honestly, never hidden.
+
+Refine mode never invents a NEW visual language (that is `creative-director` / `/art-direct`) and never changes the approved structure (that is fixed by `/redesign`'s gate) — it drives the approved design to the quality bar by iterating on the rendered result.
 
 ## Rules
 

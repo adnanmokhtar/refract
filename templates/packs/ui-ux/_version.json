@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/art-direct + creative-director hardened against timid restyles (the 'ran it, got the same layout with new paint' failure): (1) mode is surfaced at the gate — a no-flag run can no longer silently ship the timid evolve default; switch to reimagine at the gate. (2) An anti-timidity build-gate blocks a restyle from reaching code — the recommended direction needs a NAMED loud move + a before->after 1/8-thumbnail delta vs the CURRENT surface, or it routes to /enhance-ui·/polish. (3) A coverage gate forbids half-redesigned pages — every in-scope region (incl. the filter/control bar) must be rebuilt in the new language or the run is reported INCOMPLETE.",
+  "summary": "/redesign (and thus /art-direct) now iterate to a quality bar instead of one-passing. The Design-principles rubric gains POSITIVE targets — motion-actually-implemented (real hover/press/state/list transitions + skeletons, GPU-friendly, reduced-motion-safe), modern/contemporary register (depth/elevation, decisive accent, current-era not default-template), and performance/efficiency (60fps, no thrash, computed/keyed/virtualized, lazy below-fold). Phase 6 becomes a render->critique->improve LOOP (up to 3 rounds) that moves each weak lens Δ->✓ from the PIXELS, not a one-pass verify. design-iterate gains a `refine` mode (the unattended loop) beside `pick`. This is the fix for 'the command produced a flat/static/mediocre result one-shot'.",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-26",
@@ -44,6 +44,15 @@
       "released": "2026-07-10",
       "changes": [
         "art-direct + creative-director: i18n-completeness / no-raw-key gate — a redesign that introduces new labels/section-headers/empty-states MUST add real translations to every shipped locale; a surface rendering a raw i18n key (STATUS.GROUP_X, Status.no_products, any user-visible dotted/SCREAMING key) is a build/floor FAILURE, not a nit. Catches the 'nice grouping, forgot the copy' defect."
+      ]
+    },
+    "1.8.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "redesign.md: Design-principles rubric +3 positive lenses — 10 motion-actually-implemented (transitions/entrances/skeletons are BUILD outputs, a zero-transition redesign fails), 11 modern/contemporary register (depth/accent/spacing read current-era, 'bland but inoffensive' fails), 12 performance/efficiency (60fps, computed/keyed/virtualized, lazy, transform/opacity only).",
+        "redesign.md Phase 6: scorecard is now a render->critique->improve LOOP (default 3 rounds, --max-refine) — while any targeted lens or motion/modern/perf is Δ/✗, improve it in code + re-render + re-score until ✓ or the residual is named. One pass -> iterated-to-quality. Build step (Phase 4.6) makes motion/modern/perf explicit build outputs, not optional finish.",
+        "skills/design-iterate.md: +`refine` mode — the unattended render->self-critique-from-pixels->fix-weakest-lens->re-render loop (up to $MAX_REFINE), beside the existing `pick` mode. Description updated.",
+        "commands/art-direct.md: build explicitly inherits /redesign's refine loop — surfaces are iterated to the motion/modern/performance bar; no success on a flat/motionless/default-template result."
       ]
     }
   }
