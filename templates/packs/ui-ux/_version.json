@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.16.0",
+  "version": "1.16.1",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
@@ -123,6 +123,12 @@
       "changes": [
         "redesign.md Phase 1 manifest: every ICON is a manifest item (card icons, action/button icons, section-header icons, nav icons, empty-state illustrations) — icons are affordances, recorded so a redesign cannot silently strip them.",
         "redesign.md Phase 6 per-component audit: 8th modern tell — purposeful iconography (recognition icons kept + restyled, not stripped for a 'clean' look; an icon-barren redesign of an icon-having surface is a usability regression; a component that lost its icon is below-bar)."
+      ]
+    },
+    "1.16.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "art-direct.md: its build's inherited parity gate now names icons explicitly (art-direct builds by running /redesign, so all of redesign's gates — icons, parity, colour-fidelity, per-component audit — apply to art-direct too)."
       ]
     }
   }
