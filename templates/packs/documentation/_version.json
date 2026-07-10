@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "documentation",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
@@ -17,6 +17,12 @@
       "released": "2026-07-10",
       "changes": [
         "skills +3: diagram-sync (C4/mermaid generated from the real dep graph + drift check), docstring-coverage (public-API docstring gap + gate), changelog-generate (categorized changelog from conventional-commit/PR history)."
+      ]
+    },
+    "1.4.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "api-documenter: SDK-generation gains a regenerate->diff->cite gate + the quality checklist gains cite-or-halt (every box cites the spec/code proof) — was 1 of 4 sub-jobs verified. add-runbook: linked-ADR/feature path-existence check (halt on dangling link) + an undrilled runbook is honestly marked 'not-yet-run' instead of silently accepted."
       ]
     }
   }

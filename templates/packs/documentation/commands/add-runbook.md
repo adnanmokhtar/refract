@@ -65,7 +65,7 @@ Ask (consolidated):
 
 > **Trigger**: <event that causes someone to use this>
 > **Owner**: <team / on-call>
-> **Last drill**: <iso-date> (drill = the last time someone executed this for real / in staging)
+> **Last drill**: <iso-date | not-yet-run> (drill = the last time someone executed this for real / in staging; `not-yet-run` if never drilled)
 > **Severity / urgency**: <P0|P1|P2|P3>
 > **Estimated time**: <min-max>
 
@@ -153,8 +153,8 @@ If steps fail mid-way OR the change makes things worse:
 - Every step has a "Verify after:" line — no step is just an action without a check.
 - Rollback procedure exists (mandatory; no runbook ships without one).
 - Prerequisites are concrete (no "appropriate access" — name the actual role / credential).
-- Linked ADRs / features resolve.
-- "Last drill" date is honest (use today's date if drilling on creation; "never drilled" is a valid honest answer that flags the runbook for first execution).
+- **Linked ADRs / features resolve to real files.** For every `<NNN>` in the `## Related` ADRs line and every `--related-feature` / ledger-row link, check the path actually exists — `ls ai/decisions/<NNN>-*.md` (or grep `ai/_decision-index.md` for the row) resolves to a file, and the feature id is present in the migration ledger. A link that resolves to nothing is a dangling reference: halt and flag it (remove the link or fix the id) — do not ship a runbook that points at an ADR that isn't there.
+- **Drill status is marked, not assumed.** If the procedure was actually executed (in staging or for real) at creation, set `Last drill: <today>`. If it was NOT drilled, the front-matter MUST read `Last drill: not-yet-run` (and the runbook is flagged for first-execution review) — an undrilled runbook is honestly labelled `not-yet-run`, never silently accepted as done.
 
 ## Phase 7 — Improve
 

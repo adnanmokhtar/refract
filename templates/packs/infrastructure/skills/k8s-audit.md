@@ -14,6 +14,7 @@ Find real issues. Every finding cites a `<resource>` (Deployment/Service/Pod/Nam
 - Refuse to flag "no HA" without checking both `replicas` and any HPA covering the Deployment.
 - Refuse to call a pod "root" without inspecting `securityContext.runAsUser`.
 - Halt on hand-waves like "looks over-provisioned" — cite the request vs measured-usage numbers.
+- Halt on any finding that cannot cite the concrete tool-output line / parsed spec field it fired on (see the Checks tool-output → citation table) — no cite, no finding.
 - Don't propose auto-fix; report and let humans decide.
 
 ## Tools (install on first run)
@@ -26,6 +27,19 @@ Find real issues. Every finding cites a `<resource>` (Deployment/Service/Pod/Nam
 - `kubectl cost` + `kubecost` / `opencost` — cost
 
 ## Checks
+
+**Tool-output → citation (cite-or-halt).** Like `tf-plan-review` binds every risk to a parsed `tfplan.json` change symbol, and `dr-audit` binds every gap to a resource address + the missing config line, every finding here MUST cite the concrete evidence line from the named tool that surfaced it — not an eyeball impression. Bind each check group to its tool output:
+
+| Check group | Tool | Required citation on every finding |
+|---|---|---|
+| Safety / HA | `kubectl get deploy/hpa/pdb -o yaml`, `kube-score` | the `<Deployment>` name + the `replicas:`/HPA/`PodDisruptionBudget` field value (or its absence in the parsed spec) |
+| Security | `kube-bench`, `kubesec.io`, `kubectl get pod -o yaml` | the failed `kube-bench` control id (e.g. `5.2.5`) OR the `securityContext` field (`runAsUser: 0`, `privileged: true`) from the parsed pod/namespace spec |
+| Resources | `kubectl get pod -o yaml`, `kubectl top`, `kubectl cost` | the `requests`/`limits` values + the `kubectl top`/`kubectl cost` measured-usage line (request-vs-usage numbers, never "looks over-provisioned") |
+| Operations | `kubectl get ingress/servicemonitor -o yaml` | the `<resource>` + the missing TLS / ServiceMonitor / log-sink field from the parsed manifest |
+| Cost | `kubectl cost` / `kubecost` / `opencost`, `kubectl get pvc/svc` | the `kubectl cost` idle-resource line OR the unattached `<PVC>`/`<LoadBalancer Service>` name + size from the parsed output |
+| Deprecations | `kubent` | the `kubent` line naming the deprecated API + the removal version |
+
+**Halt: no finding without its tool-output citation.** A check that cannot name the tool line / parsed field it fired on is dropped, not reported as a vibe — same discipline as `dr-audit`'s "no cite → no finding."
 
 ### Safety / HA
 - Every Deployment has `replicas >= 2` OR is behind an HPA.

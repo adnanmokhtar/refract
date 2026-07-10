@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
@@ -23,6 +23,12 @@
       "released": "2026-07-10",
       "changes": [
         "skills +2: property-invariants (for-all property/generator testing vs example-based) and test-factories (factory/builder test data vs duplicated fixtures / shared-mutable)."
+      ]
+    },
+    "1.4.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "contract-test: added the numbered Procedure (fetch pact -> replay against real provider -> parse mismatches with consumer <path:line> -> can-i-deploy gate) + an Output block citing verified-interaction/mismatch counts, matching coverage-gap/mutation-probe shape."
       ]
     }
   }

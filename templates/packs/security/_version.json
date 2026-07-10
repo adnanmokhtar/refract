@@ -1,8 +1,8 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "1.4.0",
-  "released": "2026-07-09",
+  "version": "1.4.1",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Security pack +data-privacy-reviewer agent (code-level PII data-flow + DSAR/erasure + cross-border, mapped to GDPR/PDPL/CCPA).",
@@ -33,6 +33,12 @@
       "released": "2026-07-09",
       "changes": [
         "agents +1: data-privacy-reviewer (opus) — audits code for PII/PHI data-flow (collection->store->log->third-party egress), DSAR/right-to-erasure implementability, cross-border transfer + consent, mapped to the configured regime (GDPR/PDPL/CCPA) with article-cite discipline. Design-time LINDDUN stays with threat-model; storage mechanics with database/data-retention-pii. Backing MUST + sibling Related reverse-links."
+      ]
+    },
+    "1.4.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "security-audit now dispatches ALL SIX specialist reviewers by grep signal (api-security-reviewer on API routes/serializers, data-privacy-reviewer on PII/logger/analytics/DSAR paths, llm-security-reviewer on prompt/tool/RAG/model-output sinks) — was 3 of 6; NO-GO now triggers on a blocker in ANY dispatched reviewer + dispatched-but-missing = incomplete. threat-model: removed the unbacked @security-auditor sign-off; enforcement honestly deferred to a follow-up /security-audit."
       ]
     }
   }

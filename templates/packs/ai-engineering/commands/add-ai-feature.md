@@ -107,7 +107,7 @@ This phase does not skip. The feature is not done until it is measurable.
 
 1. **Build the eval set** — a versioned dataset (checked in), seeded from the Phase-2 eval spec (10–20 real-ish cases minimum), with expected properties per case. Cases are **held out** from the few-shot examples baked into the prompt.
 2. **Wire the scorers** — assertion (exact / JSON-schema / contains) + LLM-as-judge (faithfulness / relevance / correctness) + a retrieval metric (recall@k / context-precision) if RAG. Pin the judge model + `temperature: 0` + seed.
-3. **Set the baseline + threshold** and **gate in CI** — the build fails below threshold.
+3. **Set the baseline + threshold**, then **wire the CI eval-gate** — add/confirm the eval-gate step in the pipeline config and verify that step is *present* in the CI file (assert the config, not the pipeline's runtime outcome — this command cannot prove a remote build fails). The real measured gate is `eval-run` in step 4; CI is the standing enforcement of it.
 4. **Dispatch the `eval-run` skill** — run the set through the new code, confirm PASS at/above baseline. A below-baseline result HALTS this command (do not ship an unmeasured or regressed feature).
 5. **Security handoff — dispatch `@llm-security-reviewer`** for the trust boundary: prompt injection (direct + indirect), improper output handling (any sink the output reaches), and excessive agency (destructive tools). This is a required handoff, not optional — `@ai-feature-reviewer` reviews engineering quality but does NOT clear security.
 

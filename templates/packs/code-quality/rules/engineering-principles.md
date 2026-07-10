@@ -89,7 +89,7 @@ When you break a rule, leave a one-line comment explaining why. Future-you, or t
 - Layer + module boundaries: `dependency-cruiser` (TS/JS) / `import-linter` (Python) / `ArchUnit` (Java/Kotlin) / `arch-go` (Go) — fail CI on cross-layer or cross-module-internal imports.
 - New-pattern detection: `/setup-project-health` reports drift between `ai/conventions.md` and the working tree; CI runs it weekly.
 - ADR enforcement: PR template has an "ADR for new pattern?" checkbox; reviewers MUST reject PRs that introduce a new shape without an `ai/decisions/<NNNN>-*.md`.
-- TODO: validator at `scripts/audit-shared-utils.sh` — fails the build when a `utils/` / `shared/` / `common/` folder grows past N entries without an ADR.
+- Shared/utils growth: enforced by the same reviewer gate — reviewers MUST reject a PR that creates a new `utils/` / `shared/` / `common/` bucket, or grows an existing one, without an ADR justifying why the code is truly cross-cutting rather than misplaced. There is no automated folder-size check; review is the mechanism.
 
 ## Cross-references
 

@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "observability",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
@@ -19,6 +19,12 @@
       "released": "2026-07-10",
       "changes": [
         "skill +1: synthetic-monitoring (blackbox critical-journey probes + probe-SLO, catches 'server healthy, user path broken'); ai-pattern +1: dashboards (tiered RED/USE dashboards-as-code + alert-to-panel linkage)."
+      ]
+    },
+    "1.2.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "add-telemetry: emit-and-assert gates for metrics (scrape /metrics, assert new series) and traces (log-in-span, assert trace_id/span export) + a logs field-assertion — all four primitives now have an executable verification gate, not just alerts."
       ]
     }
   }

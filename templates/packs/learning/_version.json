@@ -1,8 +1,8 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "1.3.0",
-  "released": "2026-07-03",
+  "version": "1.3.1",
+  "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Phase-6 continuous-learning pack — curator + drift/pattern watchers + now the measurement half. 1.3.0: NEW /eval command + ai/evals/ baseline scaffold — the grade to /learn-from-task's capture. Replays saved eval cases (scenario + answer key + guards: link) against the current knowledge base, scores each, records an append-only _scorecard.md, and feeds FAIL/REGRESS back into ai/dynamic/learnings.md — closing the loop that used to promote rules with no proof they worked. Five detectors (unguarded / regress / stale / toothless / uncovered-failure) + coverage %. /eval is a third writer of the learnings.md sink (snippet updated). v1.2.1: curator learning-sink table extracted to templates/snippets/learning-sink.md. v1.2.0: provenance discipline + oracle approval stamp. v1.1.0: /promote-decision + /audit-knowledge.",
@@ -21,6 +21,12 @@
       "changes": [
         "knowledge-curator.md: the inline 4-column learning-sink table (sink read → what you promote it to) extracted to templates/snippets/learning-sink.md and linked, so the canonical curator and the repo-baseline copy (which must stay body-identical) no longer carry a divergence-prone duplicate.",
         "learn-from-task.md: audit action-plan rollout carried into the version record."
+      ]
+    },
+    "1.3.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "promote-decision: added the Phase-6 Validate its twin promote-pattern already had — HALTs unless the numbered ADR exists with required sections + status:accepted + no placeholders, the pending entry is grep-confirmed removed, the index line is appended once, and the digest is regenerated. Was a mutating command with no verification."
       ]
     }
   }

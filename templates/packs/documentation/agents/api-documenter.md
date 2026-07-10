@@ -61,6 +61,11 @@ Typical SDK targets:
 
 Pipeline: spec → generator → language SDKs → publish to registry (npm, PyPI, Maven, CocoaPods).
 
+**Verify the committed SDK is not stale (regenerate → diff → cite, mirroring drift detection):**
+1. Regenerate the SDK(s) from the current `openapi.json` into a scratch dir (`openapi-generator-cli generate -i openapi.json -g <lang> -o /tmp/sdk-check`).
+2. Diff the regenerated output against the committed SDK (`git diff --no-index <committed-sdk-dir> /tmp/sdk-check`).
+3. If the diff is non-empty, the committed SDK has drifted from the spec — **cite the drifted `<file:line>` (regenerated shape vs committed shape) and halt**; a hand-edited or stale SDK ships wrong types to consumers. An empty diff is the only pass. "The SDK looks fine" without running the regenerate/diff is not a verification.
+
 ## Drift detection
 
 Every PR that touches controllers / routes should:
@@ -83,6 +88,8 @@ Docs site with:
 Tools: Stoplight, Readme.com, Mintlify, Docusaurus + OpenAPI plugins.
 
 ## Quality checklist
+
+**Cite-or-halt discipline (read before ticking any box):** a checked box is a claim, and a claim without evidence is fiction. Every item below is checked ONLY with the citation that proves it — the spec location (`openapi.json` pointer, e.g. `paths./orders.post.operationId`) or the code `<path:line>` it was verified against. An item you cannot cite is left unchecked and surfaced as a gap — never ticked on vibes. If a MUST-level item (operationId stability, realistic examples, every response documented) cannot be cited, **halt** rather than approve.
 
 ### Spec quality
 - [ ] `info`: title, version, description, contact, license.

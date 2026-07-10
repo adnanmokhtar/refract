@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "distributed-systems",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
@@ -20,6 +20,12 @@
       "released": "2026-07-10",
       "changes": [
         "ai-patterns +1: reconciliation (cross-store anti-entropy — divergence detection + resumable repair + divergence metric for projections/caches/indexes/dual-writes; consumes event-sourcing replay as one repair mode)."
+      ]
+    },
+    "1.2.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "add-saga + add-event-handler: Phase-6 now enforces scenarios_green == scenarios_required OR HALT — the per-scenario tests (happy/failure/timeout/crash/idempotency/DLQ/replay) must actually run green or the success block is not emitted; per-scenario PASS/FAIL rendered, not an asserted checklist."
       ]
     }
   }
