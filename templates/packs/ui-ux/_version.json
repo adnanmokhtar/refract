@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Hard feature-parity gate — a redesign NEVER drops a component (the reimagine failure where a from-scratch dashboard redesign deleted the conversion-rate KPI card to 'simplify'). A redesign changes the LOOK, never the feature set. Phase-1 now builds a COUNTED component/feature manifest (every card by name, chart, table, filter, control, action, state); Phase-6 diffs it against the rebuilt RENDER item-by-item and prints a parity table — a single MISSING component is INCOMPLETE (counts must match, 4 cards in -> 4 cards out), never a silent omission. Default is KEEP; the agent never drops on its own initiative (not to simplify, not because it 'didn't fit', not because data is empty) — a drop is legitimate only with explicit user keep/move/drop approval. reimagine's freedom is over FORM (re-rank/re-group/demote/re-shape) not the feature set. Reinforced in creative-director (reimagine keeps JOBS and COMPONENTS) + art-direct coverage.",
+  "summary": "Colour-fidelity gate — a page redesign must keep the app's palette and NOT introduce off-brand colours that clash with the persistent chrome (the bug: a redesign made the filter button BLACK in a teal/navy app). A dashboard is one page inside a shell whose sidebar/header/nav keep rendering in the app's existing colours, so the palette is FIXED by the rest of the app. Phase 3 now extracts the whole-app palette + the persistent-chrome colours (from tokens AND the baseline render); Phase 6 screenshots the surface WITH the shell visible and fails on any off-palette colour that fights the chrome (INCOMPLETE — off-palette <element>); buttons/controls take the brand accent + system neutrals, never an arbitrary hue. A new colour world is legitimate only app-wide (chrome included), never one repainted page floating in the old shell. Reinforced in creative-director's reimagine mode.",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-26",
@@ -108,6 +108,14 @@
         "redesign.md Phase 6: feature parity is now a HARD GATE verified from the render — diff the manifest item-by-item, print a parity table (present/MISSING/moved-to), a single MISSING component = INCOMPLETE (dropped <component>), counts must match, default KEEP, agent never drops on its own; re-composition may move/demote but must render every item.",
         "creative-director.md: reimagine may throw away the LOOK, never the JOBS AND never the COMPONENTS — deleting a card/table/filter to 'simplify' is a parity failure, not a design decision; freedom is over form, not the feature set.",
         "art-direct.md: new feature-parity gate in the build (inherits redesign Phase-6) — no dropped component, counts must match, drop only on explicit user approval; called out for reimagine specifically."
+      ]
+    },
+    "1.15.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "redesign.md Phase 3: extract the whole-app colour palette + the PERSISTENT CHROME (sidebar/header/nav/brand accent, from tokens + the baseline render) as a fixed constraint — for a single-page-in-a-shell scope every colour must come from the app palette or harmonize with the chrome; an off-palette colour (black button in a teal/navy app) is a failure.",
+        "redesign.md Phase 6: colour-harmony gate verified from the render WITH the shell in frame — any off-palette colour clashing with the unchanged sidebar/header = INCOMPLETE (off-palette <element>); buttons/controls use brand accent + system neutrals; a new colour world must be app-wide or the scope was mis-set.",
+        "creative-director.md: reimagine's colour world is app-wide or nothing — a page repainted in a different palette clashes with the persistent chrome; either apply app-wide or keep the app palette and reimagine everything else."
       ]
     }
   }
