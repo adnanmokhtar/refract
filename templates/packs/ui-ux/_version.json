@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Colour-fidelity gate — a page redesign must keep the app's palette and NOT introduce off-brand colours that clash with the persistent chrome (the bug: a redesign made the filter button BLACK in a teal/navy app). A dashboard is one page inside a shell whose sidebar/header/nav keep rendering in the app's existing colours, so the palette is FIXED by the rest of the app. Phase 3 now extracts the whole-app palette + the persistent-chrome colours (from tokens AND the baseline render); Phase 6 screenshots the surface WITH the shell visible and fails on any off-palette colour that fights the chrome (INCOMPLETE — off-palette <element>); buttons/controls take the brand accent + system neutrals, never an arbitrary hue. A new colour world is legitimate only app-wide (chrome included), never one repainted page floating in the old shell. Reinforced in creative-director's reimagine mode.",
+  "summary": "Icons are affordances, not decoration — a redesign keeps them (the bug: the redesign stripped the KPI cards' recognition icons, hurting scannability). Two enforcement points: (1) the Phase-1 component manifest now records every ICON (each card's leading icon, action/button icons, section-header icons, nav icons, empty-state illustrations), so the parity gate catches a silently-dropped icon; (2) the per-component visual audit adds an 8th modern tell — purposeful iconography: existing recognition icons are KEPT and restyled to the new language, an icon-barren redesign of a surface that had icons is a usability regression + parity miss, and a component that lost its icon is below-bar.",
   "changelog": {
     "1.6.0": {
       "released": "2026-06-26",
@@ -116,6 +116,13 @@
         "redesign.md Phase 3: extract the whole-app colour palette + the PERSISTENT CHROME (sidebar/header/nav/brand accent, from tokens + the baseline render) as a fixed constraint — for a single-page-in-a-shell scope every colour must come from the app palette or harmonize with the chrome; an off-palette colour (black button in a teal/navy app) is a failure.",
         "redesign.md Phase 6: colour-harmony gate verified from the render WITH the shell in frame — any off-palette colour clashing with the unchanged sidebar/header = INCOMPLETE (off-palette <element>); buttons/controls use brand accent + system neutrals; a new colour world must be app-wide or the scope was mis-set.",
         "creative-director.md: reimagine's colour world is app-wide or nothing — a page repainted in a different palette clashes with the persistent chrome; either apply app-wide or keep the app palette and reimagine everything else."
+      ]
+    },
+    "1.16.0": {
+      "released": "2026-07-10",
+      "changes": [
+        "redesign.md Phase 1 manifest: every ICON is a manifest item (card icons, action/button icons, section-header icons, nav icons, empty-state illustrations) — icons are affordances, recorded so a redesign cannot silently strip them.",
+        "redesign.md Phase 6 per-component audit: 8th modern tell — purposeful iconography (recognition icons kept + restyled, not stripped for a 'clean' look; an icon-barren redesign of an icon-having surface is a usability regression; a component that lost its icon is below-bar)."
       ]
     }
   }
