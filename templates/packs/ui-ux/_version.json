@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
@@ -38,6 +38,12 @@
       "changes": [
         "commands/art-direct.md: mode surfaced + escalatable at the approval gate (no-flag run states MODE: evolve and offers reimagine — no silent timid default); anti-timidity build-readiness gate (named loud move + before->after glance delta or HALT the build to /enhance-ui·/polish); full-scope coverage gate (every in-scope region incl. filter/control bar rebuilt in the new language, else reported INCOMPLETE, not success) + a coverage: output line.",
         "agents/creative-director.md: evolve mode gains the before->after glance gate — the recommended surface must be distinguishable from the CURRENT surface at 1/8 thumbnail (not only vs competitors); 'same layout, new paint / sparkline added / cards collapsed' explicitly named as the restyle failure the gate catches; noted as operationally enforced by /art-direct before the build."
+      ]
+    },
+    "1.7.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "art-direct + creative-director: i18n-completeness / no-raw-key gate — a redesign that introduces new labels/section-headers/empty-states MUST add real translations to every shipped locale; a surface rendering a raw i18n key (STATUS.GROUP_X, Status.no_products, any user-visible dotted/SCREAMING key) is a build/floor FAILURE, not a nit. Catches the 'nice grouping, forgot the copy' defect."
       ]
     }
   }
