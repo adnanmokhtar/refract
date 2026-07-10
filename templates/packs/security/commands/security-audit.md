@@ -30,10 +30,16 @@ If description suggests a different intent, halt with redirect: "fix the auth bu
 - Confirm intent: full OWASP pass, or scoped to detected sensitive areas.
 
 ## Phase 2 — Organize
+
+The broad `security-auditor` pass is the OWASP-Top-10 net; the specialist reviewers below own deep detectors that pass does not. Route mechanically — name the grep signal on the changed surface → dispatch the reviewer that owns it. Each dispatched reviewer's verdict feeds the Phase 4 GO/NO-GO.
+
 - Dispatch plan:
   - Always: `security-auditor` (OWASP Top 10 + Top 25 CWE).
   - If diff touches `auth/`, `session`, `jwt`, `password`, `oauth`, `2fa` → `auth-reviewer`.
   - If multi-tenant (detect via tenant-id columns / a request-scoped tenant context primitive / a tenant header) → `tenant-isolation-reviewer`.
+  - **API surface** — if the diff adds/changes an API route, serializer/DTO, controller/handler, or GraphQL resolver (signal: files under `routes/`/`controllers/`/`resolvers/`/`serializers/`, or `@Get`/`@Post`/`router.<verb>`/`app.<verb>`/`type Query`/`type Mutation`/`class .*Serializer`) → dispatch `api-security-reviewer` (OWASP API Top 10 — BOLA/IDOR, BOPLA / mass-assignment + excessive data exposure, function-level authz, SSRF).
+  - **PII / privacy surface** — if the diff touches a PII-collection form, a logger call, an analytics/marketing SDK, or a delete/export/DSAR path (signal: `email`/`phone`/`address`/`dob`/`ssn`/`national_id` bound in a form or model, `logger.<level>(` carrying user fields, an analytics SDK import — `segment`/`amplitude`/`mixpanel`/`gtag`/`fbq` — or a `delete`/`export`/`erasure`/`dsar` route/handler) → dispatch `data-privacy-reviewer` (PII data-flow: collection → store → log → analytics → third-party egress; erasure/DSAR reachability; consent gates; cross-border transfer).
+  - **LLM / AI surface** — if the diff touches a prompt template, an LLM/tool-call, a RAG/embedding retrieval, or a model-output sink (signal: a prompt string / system-prompt constant, an SDK call — `anthropic`/`openai`/`chat.completions`/`messages.create`/`generateText`/`invoke_model` — a tool/function-calling definition, a vector-store/`embeddings`/retrieval call, or model output flowing into exec/eval/SQL/HTML/a shell) → dispatch `llm-security-reviewer` (prompt injection direct + indirect, improper output handling, excessive agency, RAG/embedding weaknesses).
   - If diff touches infra (container build files, K8s manifests, IaC modules) → container/runtime hardening cross-check.
 
 ## Phase 3 — Retrieve
@@ -52,7 +58,7 @@ Security-specific:
   - BLOCKERS — auth bypass, secret leak, injection, cross-tenant read, RCE.
   - REQUESTS — fixable in this PR but non-blocker (rate-limit gap, weaker cookie attr).
   - NITS — style / hygiene.
-- Verdict: NO-GO if ANY blocker exists; otherwise GO.
+- Verdict: NO-GO if ANY blocker exists in ANY dispatched reviewer's output (broad `security-auditor` + every specialist routed in Phase 2 — api / privacy / llm / auth / tenant); otherwise GO. A reviewer that was dispatched but whose result is missing = incomplete audit, not a GO.
 - Print (shape, not literal paths):
   ```
   Security audit  base=origin/main  files=24
@@ -120,6 +126,14 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - Whole-repo scan launched without warning user → can run hours; flag before starting.
 
 ## Related
+
+### Reviewers (dispatched by signal in Phase 2)
+- `@security-auditor` — always; broad OWASP Top 10 + Top 25 CWE net.
+- `@auth-reviewer` — auth / session / jwt / oauth / 2fa surface.
+- `@tenant-isolation-reviewer` — multi-tenant boundary surface.
+- `@api-security-reviewer` — API route / serializer / controller / resolver surface (OWASP API Top 10, BOLA/BOPLA).
+- `@data-privacy-reviewer` — PII form / logger / analytics SDK / delete-or-export surface (PII flow, erasure reachability, cross-border).
+- `@llm-security-reviewer` — prompt / tool-call / RAG / model-output-sink surface (prompt injection, output handling, excessive agency).
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

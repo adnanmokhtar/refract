@@ -68,6 +68,52 @@ const verifier = new Verifier({
 await verifier.verify();
 ```
 
+## Procedure
+
+Provider-side verification (the side with real teeth — replay each interaction against the running provider and cite every mismatch):
+
+1. Fetch the contract(s) for this provider from the broker, scoped to the consumer versions in play:
+   ```bash
+   pact-broker list-latest-pact-versions --broker-base-url "$PACT_BROKER_URL" --provider <provider>
+   # or pull the pact JSON directly: GET /pacts/provider/<provider>/consumer/<consumer>/latest
+   ```
+2. Start the real provider (not a mock) and register its `stateHandlers` so each `given` state is set up for real.
+3. Replay every interaction against the live provider and capture the machine-readable result:
+   ```bash
+   # JS: verifier.verify() with --reporters json  → verification.json
+   # JVM: ./gradlew pactVerify        (build/reports/pact/**)
+   # Go:  pact-provider-verifier ... --format=json
+   ```
+4. Parse the report for mismatches — for each failed interaction capture the `uponReceiving` description, the field/status/header that diverged, and the consumer call-site `<path:line>` the interaction traces to. A mismatch = broken contract = failing build; do not soften it to a warning.
+5. Before deploying, run the `can-i-deploy` gate against the prod-deployed consumer versions; a red gate halts the deploy:
+   ```bash
+   pact-broker can-i-deploy --pacticipant <provider> --version <sha> --to-environment production
+   ```
+6. Cite the outcome (verified interaction count + mismatch list) in the Output block — a "contracts pass" claim without the replayed counts is a vibe, not a verification.
+
+## Output
+
+A literal report — verified interactions, mismatches cited, and the deploy gate result:
+
+```
+Contract verification — <provider> @ <sha>  (broker=<url>)
+
+Consumers verified: 2  |  Interactions replayed: 14  |  Passed: 12  |  Mismatched: 2
+
+MISMATCHES (broken contract — build fails):
+  <consumer-a> "GET /users/42 → 200 with user body"
+    expected body.email (consumer treats as email())  ←  provider returned null
+    consumer call site: web/src/api/user.client.ts:31
+  <consumer-b> "POST /orders → 201"
+    expected status 201  ←  provider returned 200
+    consumer call site: mobile/lib/orders/repo.dart:88
+
+can-i-deploy (to production): BLOCKED
+  <provider>@<sha> is not compatible with <consumer-a>@<prod-version> until the 2 mismatches above are fixed.
+
+Closure: 12 interactions verified; 2 mismatches cited with consumer call sites; deploy gate BLOCKED.
+```
+
 ## Tags + versioning
 
 - Consumer tags contracts with their version.

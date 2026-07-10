@@ -168,7 +168,7 @@ Then:
 - Every mitigation cites concrete code path / config (not "we have rate limiting").
 - ADRs cited exist in `ai/decisions/`.
 - Cross-reference to relevant OWASP rules.
-- Security-auditor agent reviews + signs off.
+- **No agent sign-off is claimed here.** `/threat-model` produces the threat list + mitigation plan — it does not itself run the `security-auditor` agent, so it cannot assert that agent's verdict. Enforcement is the follow-up `/security-audit` run against the implemented mitigations; that command dispatches `security-auditor` (+ specialists) and emits the recorded GO/NO-GO. A threat model whose mitigations have not yet been through `/security-audit` is planned, not verified.
 
 ## Phase 7 — Improve
 
@@ -187,7 +187,7 @@ Mitigations adopted: <count>
 Residual risks (high+): <count> with explicit acceptance rationale
 ADRs created: <list>
 
-Sign-off: @security-auditor
+Enforcement: threat list produced — mitigations NOT yet verified. Run `/security-audit` against the implemented mitigations for the recorded GO/NO-GO (this command does not run the security-auditor agent).
 Re-audit triggers: <list>
 ```
 
@@ -213,7 +213,7 @@ Every run MUST end its report with a `## What to do next` block: the threats re-
 
 ## Related
 
-- `@security-auditor` — sign-off authority.
+- `@security-auditor` — the enforcement agent, dispatched by the follow-up `/security-audit` (not by this command); its recorded verdict is what verifies the mitigations this model plans.
 - `@auth-reviewer` — overlap on auth-specific threats.
 - `secret-scan` command — finds the leak class T-08 enables.
 - `dependency-vuln-check` command — finds vulnerable deps that introduce new threats.

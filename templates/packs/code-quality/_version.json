@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
@@ -74,6 +74,12 @@
       "released": "2026-07-10",
       "changes": [
         "skills +1: debt-ledger (persisted ranked tech-debt ledger — dated TODOs, unjustified suppressions, deprecated-API use, version-lag — diffed run-over-run; the longitudinal tracker check-health cites)."
+      ]
+    },
+    "1.6.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "engineering-principles: dropped the dangling scripts/audit-shared-utils.sh TODO (the script never existed); shared/utils-growth-needs-ADR is now honestly enforced by the reviewer-rejection gate, stated as review-not-script."
       ]
     }
   }

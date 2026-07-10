@@ -30,6 +30,19 @@ pack: learning
 5. **Update indexes** — add a line to `ai/_decision-index.md`; cross-link from `ai/status.md § Recent Changes` if it changed the status quo.
 6. **Regenerate** the Tier-1 derived files (`_session-digest.md` reflects the new last-3-decisions).
 
+## Phase 6 — Validate (verify before declaring done)
+
+Do NOT report success on assertion. HALT unless every check below passes (mirrors `/promote-pattern` Phase 6):
+
+- **ADR file exists** at `ai/decisions/<NNNN>-<slug>.md` and renders.
+- **Required sections present**: context, decision, `status: accepted`, consequences, and alternatives considered — plus a `user_decision_quote:` when the ADR closes a V1↔V2 divergence (the migration discipline requires the user's own words on record).
+- **No placeholder / TODO text** (`<TODO>`, `<slug>`, `<NNNN>`, `{{}}`) remains in the authored file.
+- **Pending entry is GONE** — `grep` `decisions-pending.md` for the promoted id/slug: it MUST return zero matches (no orphaned original, no accidental duplicate). If it still resolves, the removal (step 4) didn't land — halt.
+- **Index line appended** — the new `NNNN-<slug>` line is present in `ai/_decision-index.md` (grep confirms it, exactly once).
+- **Digest regenerated** — `ai/dynamic/_session-digest.md` reflects the new last-3-decisions (the ADR appears; a stale digest means step 6 didn't run).
+
+If any check fails, halt and report which — a half-promoted decision (ADR written but pending entry left behind, or index un-updated) is worse than an un-promoted one, because it now exists in two places that will drift.
+
 ## Halts
 
 - The pending decision isn't actually resolved (still "blocked / undecided") → refuse; a pending decision isn't an ADR until a direction is chosen.

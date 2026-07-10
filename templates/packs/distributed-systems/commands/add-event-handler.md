@@ -72,12 +72,16 @@ Configure the broker / queue / event-stream platform's consumer with: max retrie
 
 ## Phase 6 — Validate
 
+Enumerate the required scenarios; each MUST actually run and be GREEN:
+
 - Unit test: happy path, retryable failure, non-retryable failure, idempotency replay.
 - Integration test: produce a real event; verify handler processes; verify ack to broker.
 - DLQ test: produce an event that triggers non-retryable; verify it lands in DLQ.
 - Idempotency test: produce same event twice; verify side effect runs once.
 - Schema-version test: produce event with unknown `eventVersion`; verify graceful skip + alert.
 - Replay test: re-run from earlier offset; verify idempotency holds (no duplicate effects).
+
+**Green-or-HALT gate (mechanical, mirrors `perf-audit`'s after-projection halt).** `scenarios_green == scenarios_required OR HALT`. Every enumerated scenario test above must have actually EXECUTED and PASSED — an intended-but-unrun scenario counts as red. If any scenario is red / failing / unrun: HALT, report the failing scenario, do NOT emit the `## /add-event-handler complete` / success block. The output must render the real per-scenario pass/fail result (from the actual test run), never an asserted checklist.
 
 ## Phase 7 — Improve
 
@@ -102,6 +106,15 @@ Files written:
 - tests
 - broker config
 - ai/patterns/event-handlers.md (updated)
+
+Tested (actual run — PASS/FAIL per scenario, all must be PASS):
+- happy / retryable / non-retryable / idempotency (unit)   PASS
+- integration (process + ack)                              PASS
+- DLQ (non-retryable lands in DLQ)                         PASS
+- idempotency (same event twice → effect once)             PASS
+- schema-version (unknown version → skip + alert)          PASS
+- replay (earlier offset → no duplicate effects)           PASS
+scenarios_green: <n>/<required>  (block emitted only when equal)
 ```
 
 ## Hard rules

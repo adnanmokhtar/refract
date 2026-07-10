@@ -94,6 +94,13 @@ Agent-verified (static — this command generates alerts, so it audits them):
 - PII redacted at the logger level (passwords, tokens, full PANs, full PII), not at call sites.
 - **Dispatch the `alert-audit` skill** on the alerts this command just generated — confirm none are dead-on-arrival (query references a metric that was actually instrumented here), every alert has a runbook + owner, and each fires on a symptom not a cause. A broken-query / orphaned finding halts before completion.
 
+Emit-and-assert (executable gate per primitive — every one of the four primitives has a real verification step, not just alerts):
+- **Metrics** (mirror `add-metrics` Phase 6): scrape the local `/metrics` endpoint (or run the exporter in a test) and assert the new series names + label keys emitted here actually appear. A new counter/histogram that does not show up on scrape is not instrumented — halt. Record the scrape command in `ai/runbooks/metrics.md`.
+- **Traces** (mirror `add-tracing` Phase 6): emit a log inside an active span in a unit/integration test, parse the line, and assert `trace_id`/`span_id` fields are present; and run a span-export test asserting the new span is exported with its expected attributes. No `trace_id` in the log line / no exported span = correlation not wired — halt.
+- **Logs**: assert the structured entry emits on entry/success/failure with the required fields (`request_id`, `tenant_id` on multi-tenant, `duration_ms`) via the same log-parse test — a missing field halts.
+
+These three plus the `alert-audit` dispatch give all four primitives (logs, metrics, traces, alerts) an agent-executable gate; the OPERATOR CHECKLIST below is only for what genuinely cannot be statically/synthetically verified (real backend arrival, real paging).
+
 OPERATOR CHECKLIST (live — confirm against the backends, NOT auto-passed):
 - [ ] Fire a synthetic request through the feature → the new logs / metrics / trace appear in their backends.
 - [ ] Deliberately trip one generated alert → it fires AND pages/tickets the right rotation.

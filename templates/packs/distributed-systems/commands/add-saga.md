@@ -103,6 +103,8 @@ All publishes go through the project's message bus / event-stream platform; cons
 
 ## Phase 6 — Validate
 
+Enumerate the required scenarios; each MUST actually run and be GREEN:
+
 - Happy path: all steps succeed.
 - Failure at each step: verify correct compensation order.
 - Idempotent retry: re-run same input twice → same final state.
@@ -110,6 +112,8 @@ All publishes go through the project's message bus / event-stream platform; cons
 - Crash recovery: kill the worker mid-flow; saga resumes from last persisted state (durable workflow engine: automatic; choreography: harder — requires careful design).
 - Observability: trace shows all steps + status.
 - Manual unstick path: documented.
+
+**Green-or-HALT gate (mechanical, mirrors `perf-audit`'s after-projection halt).** `scenarios_green == scenarios_required OR HALT`. Every enumerated scenario test above must have actually EXECUTED and PASSED — an intended-but-unrun scenario counts as red. If any scenario is red / failing / unrun: HALT, report the failing scenario, do NOT emit the `Tested:` / `## /add-saga complete` block. The `Tested:` output must render the real per-scenario pass/fail result (from the actual test run), never an asserted checklist.
 
 ## Phase 7 — Improve
 
@@ -137,11 +141,14 @@ Files written:
 - ai/decisions/<NNNN>-*.md
 - ai/runbooks/saga-recovery.md
 
-Tested:
-- happy path
-- failure at each step (compensation correctness)
-- timeout
-- crash + resume
+Tested (actual run — PASS/FAIL per scenario, all must be PASS):
+- happy path                                  PASS
+- failure at each step (compensation order)   PASS
+- idempotent retry                            PASS
+- timeout at each step                        PASS
+- crash + resume                              PASS
+- observability (trace shows all steps)       PASS
+scenarios_green: <n>/<required>  (block emitted only when equal)
 ```
 
 ## Hard rules

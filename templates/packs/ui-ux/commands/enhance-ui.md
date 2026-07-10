@@ -120,9 +120,14 @@ Resolves the description to file paths via the same semantic flow as `/align-rec
                                        HALT iterate unless --auto-extract resolved extraction
                     - leaf-local     → cleanup on resolved leaf only
 3. ITERATE        — design-iterate with $TARGET = tier iterate target, $SCOPE_TIER, $DIRECTION,
-                    $CONSUMER_ROUTES (token / wrapper-variant only)
-4. PICK           — user picks A / B / C / "tune one further"
-5. APPLY          — design-iterate applies picked variant at the tier layer
+                    $CONSUMER_ROUTES (token / wrapper-variant only). Mode:
+                    - ATTENDED (default) → $MODE=pick (3 variants, the user pick IS the quality bar)
+                    - UNATTENDED (--yes / no interactive pick) → $MODE=refine — the render→
+                      self-critique-from-pixels→fix-weakest-lens→re-render loop with the ui-principles
+                      lens scorecard, so an unattended run still has an OWN quality bar, not zero.
+4. PICK           — attended: user picks A / B / C / "tune one further". Unattended: the refine
+                    loop's cleared-scorecard result stands (its lens deltas are shown, no blind auto-pick)
+5. APPLY          — design-iterate applies the picked / refined variant at the tier layer
 6. RE-ENFORCE     — /align-recheck <iterate-target> (+ consumers if wrapper/token touched)
 7. SUMMARY        — diff stats + screenshots + DRY proof line
 ```

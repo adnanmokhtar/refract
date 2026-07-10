@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "released": "2026-07-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
@@ -53,6 +53,12 @@
         "redesign.md Phase 6: scorecard is now a render->critique->improve LOOP (default 3 rounds, --max-refine) — while any targeted lens or motion/modern/perf is Δ/✗, improve it in code + re-render + re-score until ✓ or the residual is named. One pass -> iterated-to-quality. Build step (Phase 4.6) makes motion/modern/perf explicit build outputs, not optional finish.",
         "skills/design-iterate.md: +`refine` mode — the unattended render->self-critique-from-pixels->fix-weakest-lens->re-render loop (up to $MAX_REFINE), beside the existing `pick` mode. Description updated.",
         "commands/art-direct.md: build explicitly inherits /redesign's refine loop — surfaces are iterated to the motion/modern/performance bar; no success on a flat/motionless/default-template result."
+      ]
+    },
+    "1.8.1": {
+      "released": "2026-07-10",
+      "changes": [
+        "enhance-ui: unattended runs (--yes / no interactive pick) now use design-iterate's refine mode (the render->critique->improve loop + ui-principles lens scorecard) instead of a blind auto-pick — so enhance-ui always has an own quality bar, attended (user pick) or not."
       ]
     }
   }
