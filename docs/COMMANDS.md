@@ -540,6 +540,7 @@ These ship with their respective packs when the track is selected/detected.
 |---|---|
 | `/analyze-task` | Turn a rough business idea into structured requirements + user stories. Writes a technical spec (with a Spec-ID) to `specs/`; build it with `/add-feature specs/<file>`, which consumes the spec instead of re-deriving (the spec→build seam). |
 | `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context. |
+| `/suggest-metrics` | Recommend the decision-driving KPIs a domain's dashboard should show: detect the domain, inventory the metrics already displayed, diff against the domain's decision-metric set (acquisition/conversion/revenue/retention/ops/product), and recommend the missing high-value ones — each with the decision it drives, the formula, and the data source. Answers "I want to add stats but don't know which." Recommends; does not build the tiles. |
 
 **Infrastructure track**
 

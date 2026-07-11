@@ -3,7 +3,7 @@ track: business
 purpose: Translate business ideas into actionable specs, audit shipped features for completeness (forward + inverse + recovery), and surface conversion drop-off.
 essentials:
   agents: [business-analyst, business-auditor, workflow-integrity, domain-model-auditor]
-  commands: [analyze-task, expand-task, audit-business]
+  commands: [analyze-task, expand-task, audit-business, suggest-metrics]
   skills: [audit-funnel-completion, check-business-coverage]
   rules: [business-completeness]
   ai-patterns: [missing-counterparts]
@@ -15,7 +15,7 @@ Files listed above are the minimal subset copied when `/setup-project --minimal`
 
 Rationale per category:
 - **agents**: `business-analyst` writes specs from rough ideas; `business-auditor` walks shipped features for completeness gaps; `workflow-integrity` reconstructs an entity's lifecycle state graph and proves every transition is legal + guarded (the state-graph complement to `business-auditor`'s cycle audit); `domain-model-auditor` reconstructs the aggregates + their invariant-enforcement register and proves each invariant is enforced by a real layer, not left NOWHERE (the structural complement — three orthogonal auditors: experience, state-graph, aggregate-structure). `pricing-tax-audit` (skill) is signal-gated on billing surfaces and kept out of minimal.
-- **commands**: `/analyze-task`, `/expand-task` (turning ideas into specs); `/audit-business` (run business-auditor agent).
+- **commands**: `/analyze-task`, `/expand-task` (turning ideas into specs); `/audit-business` (run business-auditor agent); `/suggest-metrics` (recommend the decision-driving KPIs a domain's dashboard should show — the metrics arm of `business-completeness`).
 - **skills**: `audit-funnel-completion` (single-flow drop-off audit), `check-business-coverage` (cross-feature forward/inverse/recovery audit).
 - **rules**: `business-completeness` (the foundational rule: a feature is "done" when forward + inverse + recovery + metrics all wired).
 - **ai-patterns**: `missing-counterparts` (the canonical forward/inverse table — every Create needs Delete, every Send needs Resend).

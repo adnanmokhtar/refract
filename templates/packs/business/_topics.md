@@ -60,6 +60,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [understand, generate]
   fallback: _examples/expand-task.md
 
+- name: suggest-metrics
+  kind: command
+  triggers: { always: true }
+  extracts_from: _extracted-business.md + ai/business-domain.md + ai/users-and-personas.md + the analytics surface
+  sections: [understand, retrieve, generate]
+  fallback: stub-from-sections
+
 - name: business-completeness
   kind: rule
   triggers: { always: true }
