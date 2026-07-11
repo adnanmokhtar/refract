@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**174 commands** — core 14 · 20 packs (114) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**175 commands** — core 14 · 20 packs (115) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -15,7 +15,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
 - [Pack — backend](#pack--backend) — 9
-- [Pack — business](#pack--business) — 4
+- [Pack — business](#pack--business) — 5
 - [Pack — code-quality](#pack--code-quality) — 6
 - [Pack — database](#pack--database) — 4
 - [Pack — devops](#pack--devops) — 4
@@ -105,6 +105,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/analyze-task` | Turn a rough business idea into structured requirements, user stories, and an implementation spec. | `--resume`, `--decisions` | `/analyze-task "<idea>"` |
 | `/audit-business` | Audit a feature from the user perspective — missing cycles, broken flows, gap closures. | — | `/audit-business <feature>` |
 | `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context, acceptance criteria, scope… | — | `/expand-task "<brief>"` |
+| `/suggest-features` | Analyze the whole product against what a business in its domain should have, and WRITE a file of… | — | `/suggest-features` |
 | `/suggest-metrics` | Recommend the business metrics/KPIs a project's dashboard SHOULD show for its domain — detect the… | — | `/suggest-metrics [<scope>]` |
 
 ## Pack — code-quality

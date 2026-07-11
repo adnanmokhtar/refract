@@ -541,6 +541,7 @@ These ship with their respective packs when the track is selected/detected.
 | `/analyze-task` | Turn a rough business idea into structured requirements + user stories. Writes a technical spec (with a Spec-ID) to `specs/`; build it with `/add-feature specs/<file>`, which consumes the spec instead of re-deriving (the spec→build seam). |
 | `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context. |
 | `/suggest-metrics` | Recommend the decision-driving KPIs a domain's dashboard should show: detect the domain, inventory the metrics already displayed, diff against the domain's decision-metric set (acquisition/conversion/revenue/retention/ops/product), and recommend the missing high-value ones — each with the decision it drives, the formula, and the data source. Answers "I want to add stats but don't know which." Recommends; does not build the tiles. |
+| `/suggest-features` | Analyze the whole product against its domain's feature checklist and **write a file** (`ai/business/feature-recommendations.md`) of the missing high-value capabilities — each one *analyze-task-ready* (what · why · touches · have · warrant · a copy-paste `/analyze-task` line). Also flags what to *defer* (over-builds). The pipeline: `/suggest-features` → pick one → `/analyze-task` (spec) → `/add-feature specs/<id>` (build). The breadth counterpart to `/audit-business` and the feature arm of `/suggest-metrics`. Recommends what to build; does not build it. |
 
 **Infrastructure track**
 

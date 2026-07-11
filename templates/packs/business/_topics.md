@@ -67,6 +67,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [understand, retrieve, generate]
   fallback: stub-from-sections
 
+- name: suggest-features
+  kind: command
+  triggers: { always: true }
+  extracts_from: _extracted-business.md + ai/business-domain.md + business-domains/<domain>/feature-checklist.md + the codebase capability inventory
+  sections: [understand, retrieve, generate]
+  fallback: stub-from-sections
+
 - name: business-completeness
   kind: rule
   triggers: { always: true }
