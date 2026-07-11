@@ -1,11 +1,11 @@
 {
   "kind": "pack",
   "name": "business",
-  "version": "1.4.0",
-  "released": "2026-07-10",
+  "version": "1.5.0",
+  "released": "2026-07-11",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "domain/money artifacts gate on edge-correctness probes, not a happy-path number.",
+  "summary": "New /suggest-metrics command — recommends the decision-driving KPIs a domain's dashboard should show (answers 'I want to add stats but don't know which'). Detects the domain, inventories the metrics already displayed, diffs against the domain decision-metric set across six coverage categories (acquisition/conversion/revenue/retention/ops/product), and recommends the missing high-value ones — each gated on being decision-linked, computable (from existing data or a named instrumentation gap), and non-duplicate. It is the metrics arm of the business-completeness rule; recommends WHICH + HOW to compute and hands off (does not build tiles/queries). Guards against metric-theater: no vanity metrics, no uncomputable hand-waving, rate>count where the rate is the signal.",
   "changelog": {
     "1.2.0": {
       "released": "2026-07-09",
@@ -24,6 +24,13 @@
       "changes": [
         "pricing-tax-audit Edge-correctness probe: a 9-property money/quantity battery (zero · max · negative · multi-currency · rounding boundaries).",
         "domain-model-auditor: invariant edge-rejection proof; workflow-integrity: money-conservation probe (full reversal restores exact charged cents) on money-moving edges."
+      ]
+    },
+    "1.5.0": {
+      "released": "2026-07-11",
+      "changes": [
+        "NEW command /suggest-metrics (business pack) — domain-aware dashboard-KPI coverage: detect domain -> inventory shown metrics -> diff vs the six-category decision-metric set -> recommend missing high-value metrics prioritized by decision-leverage x computability, with closure verbs recommend-metric / upgrade-count-to-rate / pair-metric / flag-vanity / name-missing-instrumentation. Every recommendation carries a decision, a formula, and a data source (have-data / needs-instrumentation) or it is dropped.",
+        "Sync: _topics.md (command entry, fallback stub-from-sections), _essentials.md (commands list + rationale), docs/COMMANDS.md business track. The metrics arm of business-completeness; hands off to /add-feature + backend + /add-telemetry."
       ]
     }
   }
