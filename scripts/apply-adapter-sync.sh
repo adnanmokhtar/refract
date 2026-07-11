@@ -137,7 +137,11 @@ extract_project_specific_block() {
 #       PRESERVES it across overwrites (extract + re-inject below), so a block in the dst
 #       but not the source is an intentional per-tool addition, NOT drift.
 #   (3) (only when strip_agent=1, i.e. OpenCode command targets) the load-bearing
-#       frontmatter `agent:` line the .claude source never carries.
+#       frontmatter `agent:` line the .claude source never carries, AND — the reverse —
+#       the Claude-only orchestrator fields (`kind:`, `pack:`, `allowed-tools:`) the
+#       .claude source DOES carry but that are meaningless to OpenCode and are stripped
+#       from the translated file on --apply. Both sides of the compare pass strip_agent=1
+#       for OpenCode commands so a clean dst matches a source that still has those fields.
 # Each is also re-injected on --apply, so without discounting them every faithfully-synced
 # artifact false-flags as REFRESH forever (the C2h/C2m churn) even though --apply is
 # idempotent. Anchored project-specific markers only (mirrors extract_project_specific_block)
@@ -157,6 +161,7 @@ strip_for_compare() {
     NR==1 && /^---[[:space:]]*$/                          { fm=1; print; next }
     fm && /^---[[:space:]]*$/                             { fm=0; print; next }
     sa==1 && fm && /^agent:[[:space:]]/                   { next }
+    sa==1 && fm && /^(kind|pack|allowed-tools):[[:space:]]/ { next }
     { print }
   ' "$1"
 }
@@ -179,6 +184,25 @@ reinject_frontmatter_agent_line() {
   grep -q '^agent:' "$f" 2>/dev/null && return 0
   local tmp; tmp=$(mktemp)
   awk -v al="$line" 'NR==1 && /^---[[:space:]]*$/ { print; print al; next } { print }' "$f" > "$tmp"
+  mv "$tmp" "$f"
+}
+
+# Strip Claude-only command frontmatter fields (`kind:`, `pack:`, `allowed-tools:`) from a
+# translated .opencode/commands/ file. OpenCode command frontmatter is `description:` +
+# `agent:` (+ optional model/subtask); the orchestrator's `kind:`/`pack:` metadata and
+# Claude's `allowed-tools:` are meaningless there and read as leaked Claude-isms. Stripping
+# them on --apply keeps native files clean and stops the drift-compare from false-flagging a
+# hand-cleaned file forever. Frontmatter block only — the markdown body is never touched.
+opencode_strip_claude_command_fields() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  local tmp; tmp=$(mktemp)
+  awk '
+    NR==1 && /^---[[:space:]]*$/ { fm=1; print; next }
+    fm && /^---[[:space:]]*$/    { fm=0; print; next }
+    fm && /^(kind|pack|allowed-tools):[[:space:]]/ { next }
+    { print }
+  ' "$f" > "$tmp"
   mv "$tmp" "$f"
 }
 
@@ -285,10 +309,11 @@ sync_file() {
     if [[ $APPLY -eq 1 ]]; then
       mkdir -p "$(dirname "$dst")"
       cp "$src" "$dst"
+      [[ $oc_cmd -eq 1 ]] && opencode_strip_claude_command_fields "$dst"
     fi
     echo "    ADD       $(rel_to_target "$dst")"
     total_added=$((total_added + 1))
-  elif diff -q -B <(strip_for_compare "$dst" "$oc_cmd") <(strip_for_compare "$cmp_src" 0) >/dev/null 2>&1; then
+  elif diff -q -B <(strip_for_compare "$dst" "$oc_cmd") <(strip_for_compare "$cmp_src" "$oc_cmd") >/dev/null 2>&1; then
     # Bodies match once the injected EXECUTE NOW preamble (and, for OpenCode commands,
     # the load-bearing `agent:` field) plus blank-line noise is discounted — the dst
     # differs ONLY by intentional, contract-required additions. Not real drift.
@@ -306,6 +331,8 @@ sync_file() {
       mkdir -p "$backup_dir/$(dirname "${dst#$TARGET/}")"
       cp "$dst" "$backup_dir/${dst#$TARGET/}"
       cp "$src" "$dst"
+      # Strip Claude-only orchestrator fields so the translated OpenCode command stays clean.
+      [[ $oc_cmd -eq 1 ]] && opencode_strip_claude_command_fields "$dst"
       # Re-inject extracted block + preamble + agent field (each a no-op if src already carries one OR empty).
       reinject_project_specific_block "$dst" "$block_tmp"
       reinject_injected_preamble "$dst" "$pre_tmp"
@@ -384,6 +411,48 @@ opencode_normalize_agent_frontmatter() {
   ' "$f" > "$tmp" && mv "$tmp" "$f"
 }
 
+# Deterministically classify an OpenCode command's `agent:` mode (build | plan) from the
+# .claude command SOURCE — replaces the old MISSING-AUTHOR punt so NO LLM authoring step is
+# needed for the common case. Precedence:
+#   1. an explicit `agent:` in the source frontmatter wins (author's declared choice);
+#   2. `allowed-tools:` introspection — a pure-read toolset (no write/edit/shell) → plan,
+#      anything that can write or shell → build;
+#   3. conservative read-only NAME tokens (audit/scan/review/lint/… → plan);
+#   4. default → build.
+# The asymmetry is deliberate: mislabeling an action command `plan` BREAKS it (OpenCode's
+# Plan mode blocks its writes/shell — the "I would do X" symptom), whereas an over-permissioned
+# `build` on a read-only command is harmless. So `plan` is assigned only on a high-confidence
+# read-only signal; everything else defaults to build.
+opencode_classify_command_agent() {
+  local f="$1"
+  # 1. explicit agent: in source frontmatter wins.
+  local explicit
+  explicit=$(awk '
+    NR==1 && /^---[[:space:]]*$/ { fm=1; next }
+    fm && /^---[[:space:]]*$/    { exit }
+    fm && /^agent:[[:space:]]*/  { sub(/^agent:[[:space:]]*/,""); gsub(/[[:space:]]+$/,""); print; exit }
+  ' "$f")
+  if [[ "$explicit" == "build" || "$explicit" == "plan" ]]; then printf '%s' "$explicit"; return; fi
+  # 2. allowed-tools introspection.
+  local at
+  at=$(awk '
+    NR==1 && /^---[[:space:]]*$/        { fm=1; next }
+    fm && /^---[[:space:]]*$/           { exit }
+    fm && /^allowed-tools:[[:space:]]/  { print }
+  ' "$f")
+  if [[ -n "$at" ]]; then
+    if printf '%s' "$at" | grep -qiE 'write|edit|multiedit|notebookedit|bash|execute'; then printf 'build'; else printf 'plan'; fi
+    return
+  fi
+  # 3. conservative read-only name tokens.
+  local base; base=$(basename "$f" .md)
+  if printf '%s' "$base" | grep -qiE '(^|-)(audit|scan|review|lint|inspect|analyze|status|health|diff|trace|map)(-|$)|^check-|-check$'; then
+    printf 'plan'; return
+  fi
+  # 4. default: action command.
+  printf 'build'
+}
+
 sync_opencode() {
   echo "  [opencode]"
   # 1:1 markdown copies — agents, commands, skills (folder-form).
@@ -398,8 +467,11 @@ sync_opencode() {
     local cdst="$TARGET/.opencode/commands/$(basename "$f")"
     sync_file "$f" "$cdst"
     # `agent:` frontmatter is load-bearing — without it OpenCode describes instead of executes.
-    if [[ -f "$cdst" ]] && ! grep -q "^agent:" "$cdst"; then
-      report_missing_author "opencode-agent-field" ".opencode/commands/$(basename "$f")" "add 'agent: build' (or 'agent: plan' for audit/plan commands) frontmatter — run /setup-project-adapters"
+    # Deterministically classify + inject it from the source (build|plan) so no LLM authoring
+    # step is required. A hand-authored agent: already in the dst is preserved by sync_file's
+    # extract+reinject path, so this only fills a genuinely missing field.
+    if [[ $APPLY -eq 1 && -f "$cdst" ]] && ! grep -q "^agent:" "$cdst"; then
+      reinject_frontmatter_agent_line "$cdst" "agent: $(opencode_classify_command_agent "$f")"
     fi
   done
   for skill_dir in "$TARGET"/.claude/skills/*/; do

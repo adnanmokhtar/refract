@@ -128,7 +128,7 @@ The sidecar is the single source of truth for "what setup-project owns" and "wha
 
 ### Commands — `.claude/commands/<name>.md` → `.opencode/commands/<name>.md` (NATIVE)
 
-OpenCode reads `.opencode/commands/<name>.md` natively. The adapter copies each Claude command to its native location 1:1:
+OpenCode reads `.opencode/commands/<name>.md` natively. The adapter copies each Claude command body to its native location verbatim; only the frontmatter is normalized — the load-bearing `agent:` field is added (see below) and the Claude-only orchestrator fields (`kind:`, `pack:`, `allowed-tools:`) are stripped, since OpenCode command frontmatter is `description:` + `agent:` (+ optional `model:`/`subtask:`) and those fields read as leaked Claude-isms:
 
 ```markdown
 ---
@@ -157,7 +157,7 @@ Per-command-class mapping for `agent:`:
 | Full-action (`/optimize`, `/migrate`, `/polish`, `/align`, `/refactor`, `/unify-surfaces`, `/setup-project`, `/do`) | `build` | Build mode = full tool access (read + write + shell + MCP) |
 | Knowledge/help (`/setup-project-health`, `/learn-from-task`) | `build` (low-risk) | These write to `ai/` but don't shell out aggressively |
 
-If a `commands/*.md` source file in this repo doesn't have a `kind:` frontmatter, default to `agent: build` (action-style is the common case for the 12 top-level commands).
+**This mapping is applied DETERMINISTICALLY by `apply-adapter-sync.sh`** (`opencode_classify_command_agent`) — no LLM authoring step and no `MISSING-AUTHOR` punt. Precedence: (1) an explicit `agent:` already in the `.claude` command source wins (author's declared choice — put one there to override); (2) `allowed-tools:` introspection — a pure-read toolset (no `Write`/`Edit`/`Bash`/…) → `plan`, anything that can write or shell → `build`; (3) conservative read-only NAME tokens (`audit`, `-scan`, `review`, `-lint`, `inspect`, `analyze`, `status`, `health`, `diff`, `trace`, `map`, `check-`/`-check`) → `plan`; (4) default → `build`. The asymmetry is deliberate: labeling an action command `plan` BREAKS it (Plan mode blocks its writes — the "I would do X" symptom), while an over-permissioned `build` on a read-only command is harmless, so `plan` is assigned only on a high-confidence read-only signal. A `plan` classification that's wrong for a specific command is fixed by adding an explicit `agent:` to the source (rule 1); a hand-authored `agent:` in the native `.opencode` file is also preserved across re-syncs.
 
 **Token interpolation in command body**:
 - `$ARGUMENTS` — full raw argument string
