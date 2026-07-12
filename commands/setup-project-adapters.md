@@ -449,11 +449,11 @@ Each sub-project also writes its own `opencode.json` with its OWN instructions g
    - **Commands** — translate `.claude/commands/*.md` into the tool's native prompt/command format (or named sections for tools without commands).
    - **Agents** — translate `.claude/agents/*.md` into the tool's named-prompt format with "Act as <name>" framing (no tool except Claude Code has auto-dispatch).
    - **Skills** — translate `.claude/skills/<name>/SKILL.md` into the tool's procedure/prompt format. OpenCode is the one free win (reads `~/.claude/skills/` globally).
-   - **Hooks** — NOT translatable in any tool. Fall back to:
-     a. `.husky/` git hooks for commit-time enforcement.
-     b. `.gitignore` / `.<tool>ignore` for sensitive-file blocking.
-     c. Always-apply rule stating "read `ai/status.md` before starting" as a session-start proxy.
-     d. Dedicated "Driver-dependent safety" section disclosing the gap.
+   - **Hooks** — translate `.claude/hooks/*.sh` to the tool's NATIVE lifecycle-hook config per that adapter's § Hooks, mapping the repo's `PreToolUse` / `PostToolUse` / `UserPromptSubmit` / `SessionStart` / `Stop` hooks by event:
+     - Native (`✓`): Codex `.codex/hooks.json`, Gemini + Qwen `settings.json` `hooks`, Copilot `.github/hooks/*.json`, Cursor `.cursor/hooks.json`, Cline `.clinerules/hooks/<Event>`, Windsurf `.windsurf/hooks.json`, Kimi `~/.kimi/config.toml` (user-level snippet, not per-project).
+     - Partial (`~`): OpenCode via TS plugins (`.opencode/plugins/*.ts`); Aider via `lint-cmd`/`test-cmd` (post-edit only).
+     - The `.sh` scripts need a thin per-tool payload shim (event names / block-decision fields / timeout units differ — Gemini + OpenCode use ms; Cursor uses seconds; OpenCode passes JS objects, not stdin JSON). See each adapter's § Hooks "Caveats".
+     - FALLBACK (Continue only — no agent-loop hooks — or any single hook a tool can't express): `.husky/` git hooks + `.<tool>ignore` sensitive-file blocking + an always-apply "read `ai/status.md`" session-start proxy + a "Driver-dependent safety" disclosure of the residual gap.
 3. Use the spec's "Idempotency" rules — generator markers, preserved user sections.
 4. Pull source content from the ALREADY-written `.claude/` tree (so Claude Code adapter runs FIRST, others derive).
 5. Always write `AGENTS.md` — even if no non-Claude adapter is selected (codex adapter owns this file + the universal anchor).
@@ -475,10 +475,10 @@ Rules translated:    <N> rules × <M> tools = <N*M> target files
 Commands translated: <X> commands × <M tools that support> = <Y> target files
 Agents translated:   <A> agents × <M tools that support>   = <B> target files
 Skills translated:   <S> skills × <M tools that support>   = <C> target files (OpenCode: free; other tools: <D>)
-Hooks:               <H> hooks → git hooks + gap disclosure (not translated)
+Hooks:               <H> hooks → native hook config per tool (✓/~ per _registry); Continue only → git hooks + gap disclosure
 ```
 
-**Gap disclosure** — every non-Claude-Code adapter writes a "Driver-dependent safety" section in its primary config listing which Claude Code hooks become soft (documented but not enforced) when the tool is used as the driver. Reference: `ai/references/tool-parity.md`.
+**Gap disclosure** — an adapter writes a "Driver-dependent safety" section only for the **residual** gap after native translation: the specific Claude Code hooks that tool can't express natively (all of them for Continue; the pre-edit/session events for the `~` partials — OpenCode's non-blocking cases, Aider's lack of pre-edit/session hooks), which then fall back to git hooks + always-apply rules. Tools with full native hook coverage (Codex, Gemini, Qwen, Copilot, Cursor, Cline, Windsurf, Kimi) disclose only genuine per-hook shim caveats, not a blanket gap. Reference: `ai/references/tool-parity.md`.
 
 
 ---

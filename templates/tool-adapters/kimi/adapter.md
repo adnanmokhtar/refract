@@ -182,8 +182,22 @@ Plain Markdown. No frontmatter. Cross-tool canonical (also consumed by Codex, Cu
 
 Kimi-specific addendum: a "Skills available" section pointing at `.kimi/skills/` so the user knows what surfaces are pre-installed.
 
-### `~/.kimi/config.toml` (user-level — NOT per-project)
-TOML. The adapter does NOT write here directly. It generates a snippet for the user to paste:
+### Hooks — `.claude/hooks/*.sh` → `~/.kimi/config.toml` `[[hooks]]`
+
+**Native support:** full ✓ (Beta). Kimi ships a native lifecycle-hooks engine; the docs label it "Hooks (Beta)", so config shape may still change.
+
+**Native mechanism:** TOML `[[hooks]]` tables in `~/.kimi/config.toml` (user-level — NOT per-project). Fields: `event` (required), `command` (required — shell command, receives JSON on stdin), `matcher` (optional regex; empty = matches all), `timeout` (optional, default 30s, fail-open). Stdin JSON carries `session_id`, `cwd`, `hook_event_name` + event-specific fields (`tool_name`, `tool_input`, `tool_output`, `error`, `prompt`, …). Exit-code contract: `0` = allow (non-empty **stdout appended to context**), `2` = block (stderr fed to the LLM as correction), any other = allow (stderr logged only). Multiple hooks per event run in parallel; identical commands are deduplicated. **13 events** (verified 2026-07 against kimi-cli.com): `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SessionStart`, `SessionEnd`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `Notification`.
+
+**Translation of the repo's hooks:**
+
+| Claude hook | Kimi event | Native? |
+|---|---|---|
+| `guard-destructive.sh` + `pre-edit-guard.sh` + secret-scan | `PreToolUse` (exit `2` blocks, stderr → LLM correction) | ✓ native |
+| `post-edit-check.sh` + format-on-save + `auto-test.sh` | `PostToolUse` (matcher `Edit\|Write\|MultiEdit`) | ✓ native |
+| `inject-path-rules.sh` | `PreToolUse` — emit the matched `paths:` rule on **stdout with exit 0** (Kimi appends non-empty stdout to context) | ~ works, but via stdout-append, NOT a structured `additionalContext` field — Kimi has no JSON control-output schema |
+| `notify.sh` | `Notification` (or `Stop`) | ✓ native |
+
+The adapter does NOT write `~/.kimi/config.toml` — it emits a paste-ready snippet the user installs:
 
 ```toml
 # Recommended hooks for projects using claude-config (paste into ~/.kimi/config.toml)
@@ -195,8 +209,8 @@ timeout = 30
 
 # Path-scoped rules: Kimi has no native rule-glob form, but this hook recovers it —
 # it injects a .claude/rules/*.md rule when an edit matches its `paths:` frontmatter.
-# Depends on Kimi honouring a PreToolUse hook that returns `additionalContext`; if it
-# does not, drop this and keep `paths:` rules in AGENTS.md globally (gap disclosure).
+# Kimi has NO structured `additionalContext` output — the hook injects the rule by
+# printing it to STDOUT and exiting 0 (Kimi appends non-empty stdout to context).
 [[hooks]]
 event = "PreToolUse"
 matcher = "Edit|Write|MultiEdit"
@@ -209,7 +223,9 @@ command = "echo 'Session ended; consider running /learn-from-task'"
 timeout = 5
 ```
 
-Kimi supports 13 events: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SessionStart`, `SessionEnd`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `Notification`. Hooks receive JSON via stdin; exit code 0=allow, 2=block (stderr fed to LLM as correction), other=allow with stderr logged.
+**Caveats:** User-level only — touching `~/.kimi/config.toml` is out of the per-project adapter's scope, so hooks ship as a documented snippet, not an auto-write. Beta: fields/semantics may change. Fail-open: timeouts / crashes / regex errors are treated as "allow", so hooks are advisory, not a hard security boundary. No JSON decision schema (unlike Qwen) — control is exit-code + stdout/stderr only; `inject-path-rules.sh` therefore injects via stdout-append rather than an `additionalContext` field.
+
+**Source:** https://www.kimi-cli.com/en/customization/hooks.html (product docs mirror: https://www.kimi.com/code/docs/en/).
 
 ## Translation recipe
 

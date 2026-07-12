@@ -2,7 +2,7 @@
 
 **Tool:** Aider (https://aider.chat) — terminal pair programmer.
 **Docs:** https://aider.chat/docs/config/aider_conf.html
-**Capabilities:** R only — no agents, no commands, no hooks, no skills.
+**Capabilities:** R, **h (partial — post-edit `lint-cmd`/`test-cmd` only; no lifecycle-hook system)**. No agents, no commands, no skills.
 
 Aider is the minimalist of the adapter set (see `_registry.md`). One config file, one conventions file. Everything else is CLI flags or env vars.
 
@@ -220,31 +220,37 @@ Follow this when user asks to create a new module:
 Shell scripts: `.claude/skills/module-scaffold/*.sh` — user runs these manually in a separate terminal.
 ```
 
-### Hooks — `.claude/hooks/*.sh` → Aider's `lint-cmd` + `test-cmd` (partial)
+### Hooks — `.claude/hooks/*.sh` → Aider `lint-cmd`/`test-cmd` + `.husky/pre-commit` fallback
 
-Aider has two hook-like knobs in `.aider.conf.yml`:
+**Native support:** partial `~`. Aider has **no lifecycle-hook / event system** (no pre-tool-use, session-start, or Stop events); it has two post-edit automation knobs (`auto-lint`/`lint-cmd`, `auto-test`/`test-cmd`) plus it honours git hooks on its auto-commit.
+
+**Native mechanism:** `.aider.conf.yml` — `lint-cmd` (runs automatically after **every** edit; `auto-lint` defaults **on**), `test-cmd` (runs after edits only with `--auto-test`, default **off**). Both accept per-language forms (`lint-cmd: "typescript: pnpm typecheck"`). These map to **PostToolUse only**. `--no-verify` defaults **off**, so any `.husky/`/`.git/hooks` fire on Aider's commits.
 
 ```yaml
-lint-cmd: "pnpm lint"           # runs after each edit
-test-cmd: "pnpm test"           # can run after edits with --auto-test
+lint-cmd: "pnpm lint"           # PostToolUse-equiv — auto-runs after each edit
+test-cmd: "pnpm test"           # PostToolUse-equiv — needs --auto-test
 ```
 
-These cover `post-edit-check.sh` use case. For everything else (pre-edit guards, session-start, Stop):
+**Translation of the repo's hooks:**
+- `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` → **native** `lint-cmd` / `test-cmd` (the only truly native mapping) + IDE save-lint.
+- `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` → **no PreToolUse equivalent.** Soft-block edits with `.aiderignore` (stops Aider editing `.env*`, migrations, lockfiles) **and** enforce at commit via `.husky/pre-commit` (git hook — fires because `--no-verify` is off):
+  ```
+  .env*
+  prisma/migrations/
+  database/migrations/
+  *.lock
+  ```
+- `inject-path-rules.sh` → not event-driven; fold path scope into the always-loaded `CONVENTIONS.md`.
+- `session-start.sh` (SessionStart) + `update-session-log.sh` (Stop) + `notify.sh` → **not replicable** — document as manual discipline in `CONVENTIONS.md`:
+  ```markdown
+  ## Session discipline
+  Before starting: read `ai/status.md`.
+  After work: append a bullet to `ai/dynamic/session-log.md` with branch + changed files.
+  ```
 
-1. **Pre-edit guards** → `.aiderignore` blocks Aider from touching `.env*`, migrations, etc.:
-   ```
-   .env*
-   prisma/migrations/
-   database/migrations/
-   *.lock
-   ```
-2. **Session-start / Stop** → not replicable. Note in `CONVENTIONS.md`:
-   ```markdown
-   ## Session discipline
-   Before starting: read `ai/status.md`.
-   After work: append a bullet to `ai/dynamic/session-log.md` with branch + changed files.
-   ```
-3. **Flag non-covered hooks in `CONVENTIONS.md`** under a dedicated section so the user knows the safety gap.
+**Caveats:** `.aiderignore` is a soft guard (prevents Aider *touching* the file, not a hard security gate); the real enforcement is the git hook, which only fires at commit time. No pre-edit block, no context injection, no session events. Flag the safety gap in `CONVENTIONS.md`. `lint-cmd`/`test-cmd` run on every edit — tune per project or they make Aider noisy/slow.
+
+**Source:** https://aider.chat/docs/usage/lint-test.html · https://aider.chat/docs/config/options.html · https://aider.chat/docs/config/aider_conf.html
 
 **Naming keeps CONVENTIONS.md tight**: keep each command/agent/skill description ≤10 lines. Aider loads the full file on every session — bloat kills token budget.
 

@@ -1,11 +1,11 @@
 {
   "kind": "tool-adapter",
   "name": "opencode",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "released": "2026-07-12",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Command translation strips Claude-only frontmatter (kind:/pack:/allowed-tools:) so .opencode/commands/ stay clean (description: + agent:); drift-compare discounts those fields symmetrically to end the hand-cleaned-file churn; the load-bearing agent: mode is now classified + injected DETERMINISTICALLY (explicit-agent → allowed-tools → read-only-name-token → build) so no MISSING-AUTHOR / LLM step is needed.",
+  "summary": "Hooks doc rewritten to the tool’s current native hook mechanism (2026-07 audit; see § Hooks + _registry H-column). Command translation strips Claude-only frontmatter (kind:/pack:/allowed-tools:) so .opencode/commands/ stay clean (description: + agent:); drift-compare discounts those fields symmetrically to end the hand-cleaned-file churn; the load-bearing agent: mode is now classified + injected DETERMINISTICALLY (explicit-agent → allowed-tools → read-only-name-token → build) so no MISSING-AUTHOR / LLM step is needed.",
   "docs_urls": [
     "https://opencode.ai/docs/config/",
     "https://opencode.ai/docs/agents/",

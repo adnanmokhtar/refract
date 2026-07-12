@@ -16,15 +16,15 @@ Single-source registry of what each adapter produces and which capabilities it c
 | Tool | Key | R | A | S | C | H | N | Primary files written |
 |---|---|---|---|---|---|---|---|---|
 | Claude Code | `claude-code` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | `.claude/*`, `CLAUDE.md` |
-| OpenCode | `opencode` | ✓ | ✓ | ✓ | ✓ | — | — | `AGENTS.md`, `opencode.json`, `.opencode/agents/*.md`, `.opencode/commands/*.md`, `.opencode/skills/<name>/SKILL.md` |
+| OpenCode | `opencode` | ✓ | ✓ | ✓ | ✓ | ~ | — | `AGENTS.md`, `opencode.json`, `.opencode/agents/*.md`, `.opencode/commands/*.md`, `.opencode/skills/<name>/SKILL.md`, `.opencode/plugins/*.ts` |
 | Cursor | `cursor` | ✓ | ~ | ✓ | ✓ | ✓ | ✓ | `.cursor/rules/*.mdc`, `.cursor/skills/<name>/SKILL.md`, `.cursor/commands/*.md`, `.cursor/hooks.json`, `AGENTS.md` |
-| Aider | `aider` | ✓ | — | — | — | — | — | `.aider.conf.yml`, `CONVENTIONS.md` |
+| Aider | `aider` | ✓ | — | — | — | ~ | — | `.aider.conf.yml` (`lint-cmd`/`test-cmd` = post-edit only), `CONVENTIONS.md` |
 | Continue.dev | `continue` | ✓ | ~ | ~ | ✓ | — | — | `.continue/config.yaml`, `.continue/rules/*.md`, `.continue/prompts/*.md` |
-| Cline / Roo | `cline` | ✓ | — | ✓ | ✓ | — | — | `.cline/skills/<name>/SKILL.md`, `.clinerules/*.md`, `.clinerules/workflows/*.md` (fallback) |
-| Windsurf | `windsurf` | ✓ | — | — | ✓ | — | — | `.windsurf/rules/*.md`, `.windsurf/workflows/*.md` |
-| GitHub Copilot | `copilot` | ✓ | ✓ | ✓ | ✓ | — | ✓ | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `.github/agents/*.agent.md`, `.github/skills/<name>/SKILL.md`, `.github/prompts/*.prompt.md`, `.github/chatmodes/*.chatmode.md` |
-| Codex (OpenAI) | `codex` | ✓ | ~ | — | — | — | ✓ | `AGENTS.md`, optional `AGENTS.override.md` |
-| Gemini CLI | `gemini` | ✓ | — | — | — | — | — | `GEMINI.md` |
+| Cline / Roo | `cline` | ✓ | — | ✓ | ✓ | ✓ | — | `.cline/skills/<name>/SKILL.md`, `.clinerules/*.md`, `.clinerules/hooks/<EventName>`, `.clinerules/workflows/*.md` (fallback) |
+| Windsurf | `windsurf` | ✓ | — | — | ✓ | ✓ | — | `.windsurf/rules/*.md`, `.windsurf/workflows/*.md`, `.windsurf/hooks.json` |
+| GitHub Copilot | `copilot` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `.github/agents/*.agent.md`, `.github/skills/<name>/SKILL.md`, `.github/prompts/*.prompt.md`, `.github/chatmodes/*.chatmode.md`, `.github/hooks/*.json` |
+| Codex (OpenAI) | `codex` | ✓ | ~ | — | — | ✓ | ✓ | `AGENTS.md`, optional `AGENTS.override.md`, `.codex/hooks.json` (or `[hooks]` in `.codex/config.toml`) |
+| Gemini CLI | `gemini` | ✓ | — | — | — | ✓ | — | `GEMINI.md`, `.gemini/settings.json` (`hooks`) |
 | Kimi Code (Moonshot) | `kimi` | ✓ | ~ | ✓ | — | ✓ | — | `.kimi/skills/<name>/SKILL.md`, `.kimi/subagents/<name>.yaml`, `AGENTS.md` (consumed) |
 | Qwen Code (Alibaba) | `qwen` | ✓ | ✓ | ✓ | ✓ | ✓ | — | `QWEN.md`, `.qwen/settings.json`, `.qwen/commands/*.md`, `.qwen/agents/<name>.md`, `.qwen/skills/<name>/SKILL.md`, `AGENTS.md` (consumed) |
 

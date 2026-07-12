@@ -2,7 +2,7 @@
 
 **Tool:** Google Gemini CLI.
 **Docs:** https://github.com/google-gemini/gemini-cli
-**Capabilities:** R (via `GEMINI.md`), **C (native — TOML custom commands at `.gemini/commands/<name>.toml`)** — no agents, hooks, skills.
+**Capabilities:** R (via `GEMINI.md`), **C (native — TOML custom commands at `.gemini/commands/<name>.toml`)**, **H (native lifecycle hooks — `hooks` in `.gemini/settings.json`; BeforeTool / AfterTool / SessionStart / SessionEnd / Notification etc.; stdin/stdout JSON, `deny`/`block`)** — no agents, skills.
 
 > **Custom commands correction (2026-05)**: prior versions of this adapter claimed Gemini CLI had "no executable primitive." That was wrong. Gemini CLI ships a TOML custom-command primitive (per `docs/cli/custom-commands.md`): `.gemini/commands/<name>.toml` (project) or `~/.gemini/commands/<name>.toml` (global), with subdirectory namespacing (`git/commit.toml` → `/git:commit`). Action commands like `/optimize` translate to TOML custom commands, NOT to imperative-prose-only `GEMINI.md` sections. Format is **TOML with a `prompt = """..."""` field** — not markdown. Reload with `/commands reload`.
 
@@ -78,7 +78,7 @@ Same content as AGENTS.md — see `codex/adapter.md` sample output. Same structu
 
 ## Full artifact translation
 
-Same pattern as Codex adapter — Gemini CLI has no native commands/agents/skills/hooks. Translate each into a section of `GEMINI.md`.
+Gemini CLI has native TOML custom commands (`.gemini/commands/*.toml`) and native lifecycle hooks (`hooks` in `.gemini/settings.json`) — commands and hooks translate to those primitives (see below). Gemini has no native agents/skills primitive, so those translate to `GEMINI.md` prose sections as with Codex's AGENTS.md fallback.
 
 ### Commands → `.gemini/commands/<name>.toml` (NATIVE — TOML custom commands)
 
@@ -161,9 +161,52 @@ Same format as Codex adapter.
 
 Same format as Codex adapter.
 
-### Hooks → `## Driver-dependent safety` in GEMINI.md + git hooks
+### Hooks — `.claude/hooks/*.sh` → `.gemini/settings.json` `hooks` (NATIVE — Gemini CLI lifecycle hooks)
 
-Same disclosure pattern as Codex.
+> **Gemini hooks correction (2026-07)**: prior versions of this adapter routed guardrails to a prose `## Driver-dependent safety` table + git hooks because Gemini CLI "had no hooks." **That is stale.** Gemini CLI now ships a lifecycle-hook system configured in `settings.json` with a Claude-Code-shaped `{matcher, hooks:[{type:"command", command, timeout}]}` schema, stdin/stdout JSON, and `deny`/`block` decisions. The repo's `.claude/hooks/*.sh` map to native Gemini events.
+
+**Native support:** full ✓ — shell-command hooks declared in `settings.json`, stdin JSON in / stdout JSON out, `deny`/`block` (or exit-code `2`) blocks the tool call. Closely parallels Claude Code's model.
+
+**Native mechanism:** `hooks` key in `.gemini/settings.json` (project) merged with `~/.gemini/settings.json` (user). Events: **BeforeTool** (≙ PreToolUse), **AfterTool** (≙ PostToolUse), **BeforeAgent** / **AfterAgent**, **BeforeModel** / **AfterModel** / **BeforeToolSelection**, **SessionStart**, **SessionEnd**, **PreCompress**, **Notification**. `matcher` is a regex on tool name (exact string for lifecycle events); `sequential` toggles parallel vs. serial; hooks read base input `{session_id, transcript_path, cwd, hook_event_name, timestamp}` (+ `tool_name`/`tool_input`/`tool_response`/`mcp_context` for tool hooks) on stdin. Hooks run with `GEMINI_PROJECT_DIR` / `GEMINI_SESSION_ID` / `GEMINI_CWD` env vars.
+
+**Translation of the repo's hooks** (`templates/repo-baseline/.claude/hooks/`):
+
+| Claude Code hook | Gemini native event | Wiring |
+|---|---|---|
+| `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` | **BeforeTool** (`matcher: "run_shell_command|replace|write_file"`) | emit `decision: "deny"` (or `"block"`, or exit `2` with a `stderr` reason) to prevent a destructive shell / protected-path edit / secret leak |
+| `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **AfterTool** (`matcher: "replace|write_file"`) | run lint/format/test after an edit; return output as context or `block` to feed a failure back |
+| `inject-path-rules.sh` | **BeforeAgent** or **SessionStart** → `systemMessage` / injected context | Gemini has no path-scoped rules primitive; inject the relevant `.claude/rules/*` for touched paths |
+| `notify.sh` | **Notification** / **AfterAgent** | fire on turn completion / system alert |
+| `session-start.sh` | **SessionStart** | surface `ai/status.md` / phase at session open |
+| `update-session-log.sh` | **SessionEnd** | append to `ai/dynamic/session-log.md` |
+
+All map **natively** — no `.husky/` fallback needed for Gemini-driven sessions.
+
+```json
+// .gemini/settings.json
+{
+  "hooks": {
+    "BeforeTool": [
+      { "matcher": "run_shell_command|replace|write_file", "sequential": true,
+        "hooks": [{ "type": "command", "command": ".claude/hooks/pre-edit-guard.sh", "timeout": 30000 }] }
+    ],
+    "AfterTool": [
+      { "matcher": "replace|write_file",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/post-edit-check.sh", "timeout": 120000 }] }
+    ],
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/session-start.sh" }] }
+    ]
+  }
+}
+```
+
+**Caveats:**
+- **Payload-schema adaptation required** — the repo's shell scripts are written against Claude Code's stdin/stdout JSON. Gemini's `tool_name` values are Gemini tool names (`run_shell_command`, `replace`, `write_file`, `read_file`, …), block output is `decision: "deny"|"block"` + `reason` (or exit code `2` → `stderr` is the rejection reason), and `timeout` is in **milliseconds** (Codex/Claude use seconds). Each script needs a shim.
+- **Only `type: "command"`** is supported today; hooks run synchronously in the agent loop (`sequential` controls per-matcher ordering) — a slow AfterTool blocks the turn.
+- **Evolving** — the hooks system is comparatively new (tracked in google-gemini/gemini-cli issues #2779 / #9070; extension-scoped hooks in #14449); pin against the reference doc before relying on newer events.
+
+**Source:** https://geminicli.com/docs/hooks/ · https://geminicli.com/docs/hooks/reference/ · https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md
 
 ### If AGENTS.md already covers everything
 

@@ -214,43 +214,69 @@ Cursor surfaces this skill in its Skills picker. When the user activates it, Cur
 
 ### Hooks — `.claude/hooks/*.sh` → `.cursor/hooks.json` (NATIVE)
 
-Cursor 2.3+ has lifecycle hooks via `.cursor/hooks.json`. Translate each Claude hook into the matching Cursor event:
+**Native support:** full ✓ — Cursor ships a lifecycle-hook system (`.cursor/hooks.json`, schema `version: 1`) that sits on the agent loop and maps 1:1 to every Claude Code hook.
 
-| Claude Code hook | Cursor `hooks.json` event |
-|---|---|
-| `PreToolUse` (block / validate before tool runs) | `beforeToolCall` |
-| `PostToolUse` (lint after edit) | `afterToolCall` |
-| `SessionStart` (briefing) | `sessionStart` |
-| `Stop` (session log) | `sessionEnd` |
+**Native mechanism:** `.cursor/hooks.json` (project) or `~/.cursor/hooks.json` (user) — each hook is a `command`/`prompt` entry with an optional regex `matcher`, `timeout` (seconds), `failClosed`, and `loop_limit`. Scripts receive the event payload as JSON on **stdin** and return JSON on **stdout**. Full event set: `beforeSubmitPrompt`, `sessionStart`, `sessionEnd`, `preToolUse`, `postToolUse`, `postToolUseFailure`, `beforeShellExecution`, `afterShellExecution`, `beforeReadFile`, `afterFileEdit`, `beforeMCPExecution`, `afterMCPExecution`, `subagentStart`, `subagentStop`, `preCompact`, `stop`, `afterAgentResponse`, `afterAgentThought`. Mapping to Claude Code:
 
-Sample `.cursor/hooks.json` (copy `.claude/hooks/*.sh` verbatim into `.cursor/hooks/` as the `command` payload — keep them executable; the JSON points at them):
+| Claude Code hook | Cursor event | Can block? |
+|---|---|---|
+| `PreToolUse` (validate/deny before a tool runs) | `preToolUse` (any tool) or `beforeShellExecution` (shell only) / `beforeReadFile` (reads only) | ✓ `permission: allow\|deny\|ask` (+ `updated_input` on `preToolUse`) |
+| `PostToolUse` (lint/test after edit) | `postToolUse`, or `afterFileEdit` for edit-only | `postToolUse` can inject `additional_context`; `afterFileEdit` is informational (cannot block) |
+| `UserPromptSubmit` (gate the prompt) | `beforeSubmitPrompt` | ✓ `continue: true\|false` |
+| `SessionStart` (briefing / env) | `sessionStart` | fire-and-forget; returns `env` + `additional_context` |
+| `Stop` (session log / notify / auto-continue) | `stop` (auto-continue via `followup_message`) or `sessionEnd` (audit log) | `stop` can inject a follow-up; `sessionEnd` is fire-and-forget |
+
+**Translation of the repo's hooks** (copy `.claude/hooks/*.sh` into `.cursor/hooks/` verbatim, keep them executable, point the JSON at them):
+
+- `guard-destructive.sh` → `beforeShellExecution` with `matcher` on destructive commands (e.g. `"rm |dd |git push --force|drop table"`) returning `permission: "deny"`. Set `failClosed: true` so a hook crash blocks rather than allows.
+- `pre-edit-guard.sh` → `preToolUse` with `matcher: "Write"` (protected paths → `permission: "deny"`).
+- `secret-scan` → `beforeReadFile` (redact / deny reads of `.env`, `*.key`, `*.pem`) — returns `permission: "deny"` or redacted content.
+- `post-edit-check.sh` + `format-on-save` → `afterFileEdit` (informational — run the formatter/linter on the edited file; note it cannot block, so a hard lint gate must use `preToolUse`).
+- `auto-test.sh` → `postToolUse` (audit result / inject coverage into `additional_context`) or `stop` (`followup_message: "run the test suite"`).
+- `inject-path-rules.sh` → **NOT a hook.** Cursor's native `globs:` in `.cursor/rules/*.mdc` is the path-scoping equivalent (see § Rules). A `sessionStart` `additional_context` payload is the fallback if a rule must be injected dynamically.
+- `notify.sh` → `stop` or `sessionEnd`.
+
+Sample `.cursor/hooks.json`:
 
 ```json
 {
-  "$schema": "https://cursor.com/schemas/hooks.v1.json",
   "version": 1,
-  "_generator": "claude-setup-project",
   "hooks": {
-    "beforeToolCall": [
-      { "name": "guard-destructive", "command": ".cursor/hooks/guard-destructive.sh", "timeout": 5000 },
-      { "name": "pre-edit-guard",    "command": ".cursor/hooks/pre-edit-guard.sh",    "timeout": 5000 }
+    "beforeShellExecution": [
+      { "command": ".cursor/hooks/guard-destructive.sh", "matcher": "rm |dd |git push --force|drop table", "failClosed": true, "timeout": 5 }
     ],
-    "afterToolCall": [
-      { "name": "post-edit-check",   "command": ".cursor/hooks/post-edit-check.sh",   "timeout": 30000 }
+    "preToolUse": [
+      { "command": ".cursor/hooks/pre-edit-guard.sh", "matcher": "Write", "timeout": 5 }
+    ],
+    "beforeReadFile": [
+      { "command": ".cursor/hooks/secret-scan.sh", "timeout": 5 }
+    ],
+    "afterFileEdit": [
+      { "command": ".cursor/hooks/post-edit-check.sh", "matcher": "Write", "timeout": 30 }
+    ],
+    "postToolUse": [
+      { "command": ".cursor/hooks/auto-test.sh", "timeout": 60 }
     ],
     "sessionStart": [
-      { "name": "briefing",          "command": ".cursor/hooks/session-start.sh",     "timeout": 10000 }
+      { "command": ".cursor/hooks/session-start.sh", "timeout": 10 }
     ],
-    "sessionEnd": [
-      { "name": "session-log",       "command": ".cursor/hooks/session-stop.sh",      "timeout": 5000 }
+    "stop": [
+      { "command": ".cursor/hooks/notify.sh", "loop_limit": 5, "timeout": 5 }
     ]
   }
 }
 ```
 
-Place the actual scripts at `.cursor/hooks/<name>.sh` (copy from `.claude/hooks/<name>.sh` — same content; Cursor invokes them with the same env).
+**Caveats:**
+- `timeout` is in **seconds**, not milliseconds (the pre-2026 sample used `5000` — that would be a 5000-second timeout).
+- Hooks are **fail-open** by default (a non-zero exit other than `2` lets the action proceed); the destructive/secret guards must set `failClosed: true` (or exit code `2`) to actually block.
+- `afterFileEdit`, `postToolUse`, `sessionEnd`, `afterShellExecution` are **informational** — they cannot deny an action. Only `beforeShellExecution` / `beforeReadFile` / `preToolUse` / `beforeSubmitPrompt` block.
+- The repo's shell scripts read Claude's env-var payload; Cursor delivers the event as **JSON on stdin** and expects a JSON `permission`/`additional_context` response on stdout — the ported scripts need a small stdin-parse + JSON-emit shim. `CURSOR_PROJECT_DIR` (aliased as `CLAUDE_PROJECT_DIR`), `CURSOR_TRANSCRIPT_PATH` are exported.
+- No `$schema` key exists in Cursor's format — drop the fabricated `cursor.com/schemas/...` URL.
 
-**Defense in depth**: also install Husky git hooks for commit-time enforcement (lint, .env guard) — `.cursor/hooks.json` covers in-IDE editing, Husky covers commits/CI even when the user is not in Cursor. Both layers should reference the same scripts where possible.
+**Defense in depth**: also install Husky git hooks for commit-time enforcement (lint, `.env` guard) — `.cursor/hooks.json` covers in-IDE editing; Husky covers commits/CI even when the user is not in Cursor. Both layers should reference the same scripts where possible.
+
+**Source:** https://cursor.com/docs/hooks
 
 ### Rules — `.claude/rules/<name>.md` → `.cursor/rules/<NN>-<name>.mdc` (existing flow — unchanged)
 

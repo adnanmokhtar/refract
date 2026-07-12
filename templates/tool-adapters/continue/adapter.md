@@ -217,26 +217,35 @@ If shell steps are required, ask the user to run them in a separate terminal —
 
 Path: `.continue/prompts/skill-<name>.md`.
 
-### Hooks — `.claude/hooks/*.sh` → IDE settings + git hooks + `config.yaml` `rules:` always-apply
+### Hooks — `.claude/hooks/*.sh` → `.continueignore` + git hooks + always-apply rules (FALLBACK)
 
-Continue has no lifecycle hooks. Fallbacks:
+**Native support:** none — as of July 2026 Continue.dev has **no lifecycle-hook mechanism**. `config.yaml`'s top-level keys are `name`, `version`, `schema`, `models`, `context`, `rules`, `prompts`, `docs`, `mcpServers`, `data` — none run a command on a tool/session/prompt event. (Verified against the current config.yaml reference; Continue's extensibility story is rules + MCP servers, not agent-loop hooks.) There is no `preToolUse`/`postToolUse` equivalent, so guards cannot be *enforced* inside Continue — they degrade to advisory rules plus a git backstop.
 
-1. **Post-edit lint** → IDE-level (VS Code/JetBrains format-on-save + ESLint on save).
-2. **Pre-edit guard** → `.continueignore` file (same syntax as `.gitignore`) — **REQUIRED by Phase 4.8.0 contract**, not optional:
-   ```
-   .env*
-   *.key
-   *.pem
-   *.lock
-   prisma/migrations/
-   database/migrations/
-   ```
-3. **Session-start** → add to `config.yaml`:
-   ```yaml
-   systemMessage: |
-     Read ai/status.md before starting any non-trivial task. Follow the rules in AGENTS.md + .continue/rules/.
-   ```
-4. **Git hooks** for destructive-bash blocking + commit-time lint (Husky, same as other adapters).
+**Translation of the repo's hooks** — each Claude hook falls back to the nearest non-hook mechanism:
+
+- `guard-destructive.sh` → **git hooks** (Husky `pre-commit` / `pre-push`) — the only enforceable layer; Continue itself will not block a destructive shell command. Also state the prohibition as an always-apply `.continue/rules/` rule so the model is discouraged in-loop.
+- `pre-edit-guard.sh` + `secret-scan` → **`.continueignore`** (same syntax as `.gitignore`) keeps sensitive paths out of Continue's context/edit surface — **REQUIRED by the Phase 4.8.0 contract**, not optional:
+  ```
+  .env*
+  *.key
+  *.pem
+  *.lock
+  prisma/migrations/
+  database/migrations/
+  ```
+- `post-edit-check.sh` + `format-on-save` + `auto-test.sh` → **IDE-level** (VS Code / JetBrains format-on-save + ESLint-on-save) and Husky `pre-commit` for the test/lint gate.
+- `inject-path-rules.sh` → **NOT ported** — Continue's native `globs:` frontmatter in `.continue/rules/*.md` is the path-scoping equivalent (see § Translation recipe).
+- `notify.sh` → git `post-commit` hook, or omit (no in-agent notification surface).
+
+**Session-start** → there is no `sessionStart` hook; put the briefing in `config.yaml` so it loads every session:
+```yaml
+systemMessage: |
+  Read ai/status.md before starting any non-trivial task. Follow the rules in AGENTS.md + .continue/rules/.
+```
+
+**Caveats:** none of this is enforced *inside* the agent loop — `.continueignore` limits context but the git hooks are the only hard gate. If Continue ships a hook API later, `guard-destructive` / `pre-edit-guard` / `secret-scan` should move to a native `preToolUse`-equivalent and this section should be promoted from fallback to native.
+
+**Source:** https://docs.continue.dev/reference · https://docs.continue.dev/customize/deep-dives/rules
 
 ## Cross-references
 

@@ -355,6 +355,36 @@ report_missing_author() {
   total_missing_author=$((total_missing_author + 1))
 }
 
+# True when the target project ships real hooks worth translating to a native adapter
+# hook config (any `.claude/hooks/*.sh`). No hooks → nothing to translate, so the
+# native-hook reporting below is skipped entirely (a hookless project never false-flags).
+project_has_hooks() {
+  compgen -G "$TARGET/.claude/hooks/*.sh" > /dev/null 2>&1
+}
+
+# Report a full-native-hook tool's hook surface as needing LLM authoring — ONLY when the
+# project ships `.claude/hooks/*.sh` AND that native surface is absent (or, for a shared
+# settings file, carries no `"hooks"` block yet). Translating `.claude/hooks/*.sh` needs
+# per-tool schema knowledge + a payload shim (see each adapter's § Hooks), so the CONTENT
+# stays LLM-authored via /setup-project-adapters — this helper just makes the sync DRIVE
+# hook coverage for EVERY native-hook tool instead of only Cursor.
+#   path ending in `/`            → directory target: present when it holds ≥1 file.
+#   path ending in `settings.json`→ shared config: present when it exists AND has "hooks".
+#   otherwise                     → dedicated file: present when it exists.
+report_hooks_missing() {
+  local kind="$1" path="$2" reason="$3"
+  project_has_hooks || return 0
+  local full="$TARGET/$path"
+  if [[ "$path" == */ ]]; then
+    compgen -G "$full"'*' > /dev/null 2>&1 && return 0
+  elif [[ "$path" == *settings.json ]]; then
+    [[ -f "$full" ]] && grep -q '"hooks"' "$full" 2>/dev/null && return 0
+  else
+    [[ -f "$full" ]] && return 0
+  fi
+  report_missing_author "$kind" "$path" "$reason"
+}
+
 # ── Per-adapter sync recipes ───────────────────────────────────────────────
 
 # OpenCode agent frontmatter must satisfy OpenCode's schema + the adapter contract
@@ -490,6 +520,8 @@ sync_opencode() {
   # opencode.json + AGENTS.md require composition (LLM-authored).
   [[ -f "$TARGET/opencode.json" ]] || report_missing_author "config" "opencode.json" "schema-valid JSON config; run /setup-project-adapters"
   [[ -f "$TARGET/AGENTS.md"      ]] || report_missing_author "agents-md" "AGENTS.md" "cross-tool composite; run /setup-project-adapters"
+  # Hooks → partial: OpenCode has no shell-in-config hooks; guardrails live in a TS plugin (`tool.execute.before/.after` that shells out to .claude/hooks/*.sh). LLM-authored.
+  report_hooks_missing "opencode-hooks" ".opencode/plugins/" "translate .claude/hooks/*.sh → an OpenCode TS plugin (.opencode/plugins/guardrails.ts; tool.execute.before to block) — run /setup-project-adapters"
 }
 
 sync_cursor() {
@@ -536,8 +568,8 @@ sync_cursor() {
       [[ -f "$TARGET/.cursor/rules/20-$rule_name.mdc" ]] || \
       report_missing_author "rule.mdc" "$expected" ".mdc with YAML frontmatter (globs/applyTo) — needs author"
   done
-  # hooks.json (format conversion).
-  [[ -f "$TARGET/.cursor/hooks.json" ]] || report_missing_author "hooks.json" ".cursor/hooks.json" "JSON shape; run /setup-project-adapters"
+  # Hooks → native .cursor/hooks.json (events preToolUse/beforeShellExecution/afterFileEdit/…; timeouts in SECONDS). Format conversion.
+  report_hooks_missing "cursor-hooks" ".cursor/hooks.json" "translate .claude/hooks/*.sh → Cursor hooks.json (real events + per-tool payload shim) — run /setup-project-adapters"
 }
 
 sync_copilot() {
@@ -571,6 +603,8 @@ sync_copilot() {
   [[ -f "$TARGET/.github/copilot-instructions.md" ]] || report_missing_author "instructions" ".github/copilot-instructions.md" "composite from CLAUDE.md + rules; run /setup-project-adapters"
   # Path-scoped instructions.
   [[ -d "$TARGET/.github/instructions" ]] || report_missing_author "instructions-dir" ".github/instructions/" "per-domain instructions w/ applyTo glob; run /setup-project-adapters"
+  # Hooks → native .github/hooks/*.json (events preToolUse/postToolUse/sessionStart/…; read by CLI + Cloud Agent). Format conversion.
+  report_hooks_missing "copilot-hooks" ".github/hooks/" "translate .claude/hooks/*.sh → Copilot .github/hooks/*.json (per-tool payload shim) — run /setup-project-adapters"
 }
 
 sync_cline() {
@@ -610,6 +644,8 @@ sync_cline() {
   [[ -f "$TARGET/.clinerules/00-project.md" ]] || report_missing_author "cline-project" ".clinerules/00-project.md" "always-loaded project rules + driver-gap disclosure — run /setup-project-adapters"
   [[ -f "$TARGET/.clinerules/81-agents.md" ]]  || report_missing_author "cline-agents-index" ".clinerules/81-agents.md" "agent persona index (every agent) — run /setup-project-adapters"
   [[ -f "$TARGET/.clinerules/82-skills.md" ]]  || report_missing_author "cline-skills-index" ".clinerules/82-skills.md" "skill procedure catalog/index (PRIMARY surface is .cline/skills/) — run /setup-project-adapters"
+  # Hooks → native .clinerules/hooks/<EventName> executable scripts (v3.36; PreToolUse/PostToolUse/UserPromptSubmit/TaskStart/…). Format conversion.
+  report_hooks_missing "cline-hooks" ".clinerules/hooks/" "translate .claude/hooks/*.sh → Cline .clinerules/hooks/<EventName> (filename = event, per-tool payload shim) — run /setup-project-adapters"
 }
 
 sync_windsurf() {
@@ -631,6 +667,8 @@ sync_windsurf() {
   [[ -f "$TARGET/.windsurf/rules/00-project.md" ]] || report_missing_author "windsurf-project" ".windsurf/rules/00-project.md" "activation_mode: always project rules — run /setup-project-adapters"
   [[ -f "$TARGET/.windsurf/rules/81-agents.md" ]]  || report_missing_author "windsurf-agents-index" ".windsurf/rules/81-agents.md" "agent index (trigger_words activation) — run /setup-project-adapters"
   [[ -f "$TARGET/.windsurf/rules/82-skills.md" ]]  || report_missing_author "windsurf-skills-index" ".windsurf/rules/82-skills.md" "skill index — run /setup-project-adapters"
+  # Hooks → native .windsurf/hooks.json (events pre_/post_ write_code/run_command/…; pre-hooks block via exit 2). Format conversion.
+  report_hooks_missing "windsurf-hooks" ".windsurf/hooks.json" "translate .claude/hooks/*.sh → Windsurf hooks.json (per-tool payload shim) — run /setup-project-adapters"
 }
 
 sync_continue() {
@@ -707,6 +745,8 @@ sync_codex() {
     [[ -f "$skill_dir/SKILL.md" ]] || continue
     [[ -f "$TARGET/.agents/skills/$name/SKILL.md" ]] || report_missing_author "codex-agent-skill" ".agents/skills/$name/SKILL.md" "skill→native Agent Skill — run /setup-project-adapters"
   done
+  # Hooks → native .codex/hooks.json (or [hooks] in .codex/config.toml; events PreToolUse/PostToolUse/…; /hooks trust model). Format conversion.
+  report_hooks_missing "codex-hooks" ".codex/hooks.json" "translate .claude/hooks/*.sh → Codex .codex/hooks.json (per-tool payload shim; user must trust via /hooks) — run /setup-project-adapters"
 }
 
 sync_gemini() {
@@ -718,6 +758,8 @@ sync_gemini() {
     name=$(basename "$f" .md)
     [[ -f "$TARGET/.gemini/commands/$name.toml" ]] || report_missing_author "gemini-toml-command" ".gemini/commands/$name.toml" "command→native TOML (prompt=\"\"\"# EXECUTE NOW ... {{args}}\"\"\") — run /setup-project-adapters"
   done
+  # Hooks → native .gemini/settings.json "hooks" block (events BeforeTool/AfterTool/…; timeouts in MS). Format conversion.
+  report_hooks_missing "gemini-hooks" ".gemini/settings.json" "translate .claude/hooks/*.sh → Gemini .gemini/settings.json hooks block (ms timeouts, per-tool payload shim) — run /setup-project-adapters"
 }
 
 sync_kimi() {
@@ -795,8 +837,8 @@ sync_qwen() {
   done
   # Rules → QWEN.md (composite — LLM-authored).
   [[ -f "$TARGET/QWEN.md" ]] || report_missing_author "qwen-md" "QWEN.md" "cross-tool composite; run /setup-project-adapters"
-  # Hooks → settings.json (format conversion — LLM-authored).
-  [[ -f "$TARGET/.qwen/settings.json" ]] || report_missing_author "settings.json" ".qwen/settings.json" "JSON shape; run /setup-project-adapters"
+  # Hooks → native .qwen/settings.json "hooks" block (16 events incl. hookSpecificOutput.additionalContext; richest schema). Format conversion.
+  report_hooks_missing "qwen-hooks" ".qwen/settings.json" "translate .claude/hooks/*.sh → Qwen .qwen/settings.json hooks block (16 events, additionalContext supported, per-tool payload shim) — run /setup-project-adapters"
 }
 
 # ── Main loop ──────────────────────────────────────────────────────────────

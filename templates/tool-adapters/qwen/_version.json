@@ -1,11 +1,11 @@
 {
   "kind": "tool-adapter",
   "name": "qwen",
-  "version": "1.0.0",
-  "released": "2026-05-03",
+  "version": "1.1.0",
+  "released": "2026-07-12",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial Qwen Code adapter. Native skills (.qwen/skills/<name>/SKILL.md), native subagents (.qwen/agents/<name>.md with YAML frontmatter), native slash commands (.qwen/commands/*.md), native hooks (.qwen/settings.json hooks block, 12 events), QWEN.md as project memory plus AGENTS.md cross-tool consumer.",
+  "summary": "Hooks doc rewritten to the tool’s current native hook mechanism (2026-07 audit; see § Hooks + _registry H-column). Initial Qwen Code adapter. Native skills (.qwen/skills/<name>/SKILL.md), native subagents (.qwen/agents/<name>.md with YAML frontmatter), native slash commands (.qwen/commands/*.md), native hooks (.qwen/settings.json hooks block, 12 events), QWEN.md as project memory plus AGENTS.md cross-tool consumer.",
   "docs_urls": [
     "https://qwenlm.github.io/qwen-code-docs/en/users/overview/",
     "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/",

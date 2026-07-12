@@ -1,8 +1,8 @@
 # Cline / Roo adapter
 
 **Tool:** Cline (VS Code extension) — Roo is a Cline fork with similar conventions.
-**Docs:** https://docs.cline.bot/features/cline-rules · https://docs.cline.bot/customization/workflows
-**Capabilities:** R, **S (native skills — PRIMARY for action workflows; experimental, must enable in Settings → Features → Enable Skills; also reads `.claude/skills/` directly)**, C (legacy — `.clinerules/workflows/` slash commands, graded fallback). No native agents / hooks.
+**Docs:** https://docs.cline.bot/features/cline-rules · https://docs.cline.bot/customization/workflows · https://docs.cline.bot/features/hooks
+**Capabilities:** R, **S (native skills — PRIMARY for action workflows; experimental, must enable in Settings → Features → Enable Skills; also reads `.claude/skills/` directly)**, C (legacy — `.clinerules/workflows/` slash commands, graded fallback), **H (native hooks — `.clinerules/hooks/<Event>` since v3.36; macOS/Linux only)**. No native agents.
 
 > **Skills-first correction (2026-05-14, verified against docs.cline.bot)**: Cline has **merged workflows into Skills** — the separate workflows docs page now 404s; skills is the unified primitive. Cline auto-discovers skills from `.cline/skills/`, `.clinerules/skills/`, **AND `.claude/skills/`** (so Claude Code skills work in Cline without duplication). Action commands map **primarily to `.cline/skills/<name>/SKILL.md`** (or, for projects that also have Claude Code installed, the existing `.claude/skills/<name>/SKILL.md` works directly — no separate Cline file needed). Three-tier progressive loading (metadata ~100 tok → instructions <5K → resources) keeps context lean. Legacy `.clinerules/workflows/<name>.md` still works as a **graded fallback** — written alongside the skill so older `/<workflow-name>` muscle-memory keeps working; new projects generate skills first. This mirrors the cursor skills-first contract: the **primary** surface is graded, the workflow mirror is a deprecation-path fallback.
 
@@ -182,22 +182,30 @@ Shell steps in `.cline/skills/module-scaffold/*.sh` (copied verbatim) — user r
 <one-line description of .claude/skills/schema-diff/SKILL.md>
 ```
 
-### Hooks — `.claude/hooks/*.sh` → git hooks + `.clinerules/00-project.md` disclosure
+### Hooks — `.claude/hooks/*.sh` → Cline native hooks (`.clinerules/hooks/`)
 
-Cline has no lifecycle hooks:
+**Native support:** full `✓` (since **Cline v3.36**, 2025-11-06). Cline has a real lifecycle-hook system with blocking + context-injection — no longer a git-hook-only fallback.
 
-1. **Git hooks** → `.husky/pre-commit` covers lint + .env guard.
-2. **Session-start** → `.clinerules/00-project.md` top line: "Always read `ai/status.md` before starting work."
-3. **Stop / session-log** → document in project rules: "Append to `ai/dynamic/session-log.md` when changes exceed 5 files."
-4. **Disclose** in `.clinerules/00-project.md`:
-   ```markdown
-   ## Driver gaps (Cline vs Claude Code)
-   This project relies on Claude Code hooks for:
-   - Post-edit linting → replaced by Husky + IDE save-lint.
-   - Pre-edit blocks on `.env*` → replaced by `.gitignore` + git hook (soft).
-   - Session-start briefing → replaced by this always-read rule.
-   - Automatic session log → manual.
-   ```
+**Native mechanism:** executable scripts in **`.clinerules/hooks/`** (project) or **`~/Documents/Cline/Rules/Hooks/`** (global). The **filename is the event name, no extension** (e.g. `.clinerules/hooks/PreToolUse`), and the file must be executable. Six events: **PreToolUse** (can block), **PostToolUse**, **UserPromptSubmit**, **TaskStart**, **TaskResume**, **TaskCancel**. Each hook receives context as JSON on **stdin** and returns JSON on stdout: `{"cancel": true, "errorMessage": "…"}` blocks the operation; `{"cancel": false, "contextModification": "…"}` injects text into the conversation to steer future decisions.
+
+```
+.clinerules/hooks/
+├── PreToolUse          # guard/scan — return {"cancel":true,...} to block
+├── PostToolUse         # lint / format / test after an edit
+└── TaskStart           # session briefing via contextModification
+```
+
+**Translation of the repo's hooks:**
+- `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` → **`PreToolUse`** (native) — inspect `tool name + params` from stdin, emit `{"cancel":true,"errorMessage":"blocked .env write"}` to hard-block. Keep `.husky/pre-commit` as a defence-in-depth git hook.
+- `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` → **`PostToolUse`** (native) — receives tool result + timing; run lint/format/test.
+- `session-start.sh` (SessionStart) → **`TaskStart`** (native) — inject "read `ai/status.md`" via `contextModification`.
+- `inject-path-rules.sh` → best as **path-scoped `.clinerules`** (always-apply rules), or `PreToolUse` `contextModification` keyed on the edited path.
+- `update-session-log.sh` (Stop) → nearest native is **`TaskCancel`** (cleanup on task end); no exact Stop event — otherwise keep the manual "append to `ai/dynamic/session-log.md`" rule.
+- `notify.sh` → **n/a** (no notification event) — drop or route through `PostToolUse`.
+
+**Caveats:** hooks run on **macOS and Linux only — no Windows support**; provide the `.husky/` git-hook fallback for Windows contributors. Repo scripts read Claude Code's hook payload schema; they must be adapted to Cline's stdin JSON (`cancel`/`errorMessage`/`contextModification` contract) — not drop-in. Disclose residual gaps in `.clinerules/00-project.md`.
+
+**Source:** https://docs.cline.bot/features/hooks · https://cline.bot/blog/cline-v3-36-hooks
 
 ## Cross-references
 

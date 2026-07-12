@@ -1,11 +1,11 @@
 {
   "kind": "tool-adapter",
   "name": "gemini",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-07-12",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline.",
+  "summary": "Hooks doc rewritten to the tool’s current native hook mechanism (2026-07 audit; see § Hooks + _registry H-column). Initial baseline.",
   "docs_urls": [
     "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/README.md"
   ],

@@ -2,7 +2,7 @@
 
 **Tool:** OpenAI Codex CLI + the cross-tool `AGENTS.md` standard.
 **Docs:** https://developers.openai.com/codex/guides/agents-md | https://agents.md
-**Capabilities:** R, partial A (conventions), N (nested AGENTS.md), **S (native Agent Skills at `.agents/skills/<name>/SKILL.md`)** — no hooks, no user-extensible slash commands (built-in slash set is closed: `/model`, `/permissions`, `/compact`, etc.).
+**Capabilities:** R, partial A (conventions), N (nested AGENTS.md), **S (native Agent Skills at `.agents/skills/<name>/SKILL.md`)**, **H (native lifecycle hooks — `.codex/hooks.json` / `[hooks]` in `config.toml`; ten events incl. PreToolUse / PostToolUse / UserPromptSubmit / SessionStart / Stop; `/hooks` trust model)** — no user-extensible slash commands (built-in slash set is closed: `/model`, `/permissions`, `/compact`, etc.).
 
 > **Agent Skills correction (2026-05)**: prior versions of this adapter claimed Codex had "no executable primitive." That was wrong. Codex implements the **Open Agent Skills standard** — `.agents/skills/<name>/SKILL.md` (repo) / `~/.agents/skills/` (user) / `/etc/codex/skills/` (system). Skills are invoked via the `/skills` picker, by `$mention`, or auto-selected when description matches. Action commands like `/optimize` translate to **Agent Skills**, not to imperative-prose-only AGENTS.md sections. The AGENTS.md fallback remains for tools that consume `AGENTS.md` but lack the Agent Skills standard.
 
@@ -278,22 +278,53 @@ Invoke by asking: "Act as the <name> agent".
 Shell scripts at `.claude/skills/module-scaffold/` — user runs manually.
 ```
 
-### Hooks → `## Driver-dependent safety` section + git hooks
+### Hooks — `.claude/hooks/*.sh` → `.codex/hooks.json` (NATIVE — Codex lifecycle hooks)
 
-```markdown
-## Driver-dependent safety
+> **Codex hooks correction (2026-07)**: prior versions of this adapter claimed Codex had "no hooks" and routed guardrails to a prose `## Driver-dependent safety` table + git hooks. **That is stale.** Codex CLI now ships a full Claude-Code-parity lifecycle-hook system. The repo's `.claude/hooks/*.sh` map to native Codex hook events — the git-hook fallback is now only for the residue that has no event.
 
-This project uses Claude Code hooks for guardrails. When running via Codex / AGENTS.md-only drivers, these are not auto-enforced:
+**Native support:** full ✓ — Codex fires ten lifecycle events with a Claude-Code-shaped `{matcher, hooks:[{type:"command", command, timeout}]}` schema and a `deny`/`block` decision contract equivalent to Claude's.
 
-| Claude Code hook | Fallback |
-|---|---|
-| post-edit-check.sh | Git pre-commit hook + CI |
-| pre-edit-guard.sh | `.gitignore` + file advisory below |
-| session-start.sh | This section — read `ai/status.md` first |
-| update-session-log.sh | Manual — append to `ai/dynamic/session-log.md` |
+**Native mechanism:** `<repo>/.codex/hooks.json` (project) **or** a `[hooks]` section in `<repo>/.codex/config.toml`; user-level `~/.codex/hooks.json` / `~/.codex/config.toml`; plugin-bundled `hooks/hooks.json`. Events: **SessionStart**, **SubagentStart**, **PreToolUse**, **PermissionRequest**, **PostToolUse**, **PreCompact**, **PostCompact**, **UserPromptSubmit**, **SubagentStop**, **Stop**. Hooks read a JSON event payload on stdin and emit a JSON decision on stdout.
 
-Files not to edit: `.env*`, `*.lock`, `prisma/migrations/`, `database/migrations/`. If the tool tries, refuse.
+**Translation of the repo's hooks** (`templates/repo-baseline/.claude/hooks/`):
+
+| Claude Code hook | Codex native event | Wiring |
+|---|---|---|
+| `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` | **PreToolUse** (`matcher: "Bash|apply_patch"`) | emit `hookSpecificOutput.permissionDecision: "deny"` to block a destructive shell / protected-path edit / secret leak before it runs |
+| `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **PostToolUse** (`matcher: "apply_patch"`) | run lint/format/test after an edit; emit `decision: "block"` with `reason` to feed a failure back into the turn |
+| `inject-path-rules.sh` | **UserPromptSubmit** (or **SessionStart**) → `hookSpecificOutput.additionalContext` | Codex has no path-scoped rules primitive; inject the relevant `.claude/rules/*` for the touched paths as additional context |
+| `notify.sh` | **Stop** / **Notification** | turn-complete notification |
+| `session-start.sh` | **SessionStart** (`matcher: "startup|resume"`) → `additionalContext` | surface `ai/status.md` / current phase at session open |
+| `update-session-log.sh` | **Stop** | append to `ai/dynamic/session-log.md` when a turn completes |
+
+All map **natively** — no `.husky/` fallback needed for Codex-driven sessions. Keep the git pre-commit hook only as defence-in-depth for non-hook-aware drivers.
+
+```json
+// .codex/hooks.json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash|apply_patch",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/pre-edit-guard.sh", "timeout": 30 }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "apply_patch",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/post-edit-check.sh", "timeout": 120 }] }
+    ],
+    "SessionStart": [
+      { "matcher": "startup|resume",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/session-start.sh", "timeout": 15 }] }
+    ]
+  }
+}
 ```
+
+**Caveats:**
+- **Trust model** — non-managed hooks require explicit review: run `/hooks` to inspect and trust definitions. Codex tracks trust against a hook **hash**, so editing a script forces re-review, and project-local hooks load only once the `.codex/` layer is trusted. `--dangerously-bypass-hook-trust` exists for one-off automation; `[features] hooks = false` disables globally; `allow_managed_hooks_only = true` locks to a managed dir.
+- **Payload-schema adaptation required** — the repo's shell scripts are written against Claude Code's stdin/stdout JSON. Codex's schema differs: `tool_name` values are `Bash` / `apply_patch` / `mcp__*` (not `Edit`/`Write`), block output is `permissionDecision: "deny"` (PreToolUse) or `decision: "block"` (PostToolUse), and context injection is `hookSpecificOutput.additionalContext`. Each script needs a thin adapter shim mapping Codex fields ↔ its existing logic before it will gate correctly.
+- **Serial execution** — Codex runs hooks (and everything else) serially; long PostToolUse test runs block the turn.
+
+**Source:** https://developers.openai.com/codex/hooks (redirects to https://learn.chatgpt.com/docs/hooks).
 
 ### AGENTS.md bloat watch
 
