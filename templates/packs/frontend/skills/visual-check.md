@@ -52,6 +52,15 @@ Scaffold — deploy as `tests/auth.setup.ts`, parameterizing the login route + t
 ```ts
 import { test as setup, expect } from "@playwright/test";
 import fs from "node:fs";
+// Load .env into process.env — dependency-free (Playwright runs in Node, which does NOT
+// auto-load .env the way Vite does, so without this the creds are undefined even though
+// they're IN .env). Prefer `import "dotenv/config"` if the project already has dotenv.
+try {
+  for (const line of fs.readFileSync(".env", "utf8").split("\n")) {
+    const m = line.match(/^\s*([\w.]+)\s*=\s*(.*?)\s*$/);
+    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, "$2");
+  }
+} catch { /* no .env file — rely on ambient env */ }
 const authFile = "tests/.auth/user.json";
 setup("authenticate", async ({ page }) => {
   const email = process.env.E2E_EMAIL, password = process.env.E2E_PASSWORD;
@@ -71,9 +80,17 @@ setup("authenticate", async ({ page }) => {
 
 The 3-step turn-on (the setup report lists these; the render HALTS until done, never builds blind):
 
-1. Put creds in `.env` (gitignored): `E2E_EMAIL=…` / `E2E_PASSWORD=…`.
-2. `npx playwright test tests/auth.setup.ts` (dev server up) → writes `tests/.auth/user.json`.
-3. Point the render at it — add `--storage-state=tests/.auth/user.json` to the Playwright MCP args (compatible with `--isolated`), or pass `storageState` to the harness. Regenerate on JWT/session expiry.
+1. Put creds in `.env` (gitignored): `E2E_EMAIL=…` / `E2E_PASSWORD=…`. (The scaffold's inline `.env` loader reads them — no `dotenv` dependency and no manual export needed.)
+2. **Register the setup file in `playwright.config.ts`** — a `*.setup.ts` file does NOT match Playwright's default `testMatch` (`*.spec`/`*.test`), so `npx playwright test tests/auth.setup.ts` returns **"No tests found"** without a `setup` project. Add:
+   ```ts
+   projects: [
+     { name: "setup", testMatch: /.*\.setup\.ts/ },
+     { name: "chromium", use: { ...devices["Desktop Chrome"] },
+       dependencies: ["setup"], storageState: "tests/.auth/user.json" },
+   ]
+   ```
+   Then, dev server up: `npx playwright test --project=setup` → writes `tests/.auth/user.json`.
+3. Point the render at it — add `--storage-state=tests/.auth/user.json` to the Playwright MCP args (compatible with `--isolated`), or pass `storageState` to the harness. Regenerate (step 2) on JWT/session expiry — a stale `user.json` still redirects to `/login` even when correctly wired.
 
 So a new project's first auth-gated redesign is gated on exactly one human action — dropping creds into `.env` — and everything else is scaffolded and reused.
 
@@ -125,6 +142,7 @@ Running 18 tests using 4 workers
 - Image sources with cache-busted query strings produce different pixels per run — pin or stub.
 - RTL (Arabic, Hebrew) layout MUST be in the matrix if the app serves those locales — flipped layouts catch real bugs.
 - Never run against prod. Dev server only.
+- **Write artifacts to a GITIGNORED dir — never the repo root.** When driving via the Playwright MCP (`browser_take_screenshot`), save frames under `.playwright-mcp/` (the MCP's default output dir) or another gitignored path, and keep `test-results/` + `.playwright-mcp/` in `.gitignore`. Dumping `foo.png` into the repo root clutters `git status` and then tempts a `rm -rf` cleanup — which trips the project's destructive-command guard. A gitignored output dir needs **no cleanup at all**: do NOT `rm -rf` screenshots afterward.
 
 ## Blocked render = HARD HALT (never a valid screenshot, never a silent SKIP)
 
