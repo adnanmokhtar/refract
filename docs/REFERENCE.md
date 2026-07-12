@@ -23,6 +23,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [`/ui-crawl` + `/ui-crawl-fix` — paired QA crawler + auto-fixer](#ui-crawl--ui-crawl-fix--paired-qa-crawler--auto-fixer-v12)
 - [`/redesign` — from-scratch page rework with approval gate](#redesign--from-scratch-page-rework-with-approval-gate-v13)
 - [`/art-direct` — invent the visual direction](#art-direct--invent-the-visual-direction-v15)
+- [`/add-theme-variant` — add a new theme to a multi-theme app](#add-theme-variant--add-a-new-theme-to-a-multi-theme-app-v117)
 - [Memory system](#memory-system)
 - [Validator scripts](#validator-scripts)
 - [Common pitfalls](#common-pitfalls)
@@ -865,6 +866,27 @@ It is driven by the **`creative-director`** agent (the pack's creative high-grou
 ```
 
 `/scaffold-project` ships a sensible *default* design system, so this step is optional — reach for it when you want an ownable identity instead of the defaults. Full walkthrough: [`docs/FEATURE-LIFECYCLE.md` § Scenario A → "Designing the visual identity"](FEATURE-LIFECYCLE.md#scenario-a--new-project-greenfield).
+
+## `/add-theme-variant` — add a new theme to a multi-theme app (v1.17+)
+
+`/add-theme-variant <name>` is the pack's command for **multi-theme** apps — a project with a `themes/<name>/` slot system (parallel component/layout/style/config sets, resolved at runtime). It is **not** for single-theme projects (those are redirected to `/art-direct` for a new visual direction, or `/redesign` for a page rework).
+
+**The top invariant is ADDITIVE — never replace.** It creates a NEW theme slot and **never** edits an existing theme (`themes/default/`, etc.) or the shared, cross-theme layer (pages / composables / stores / services / root components that all themes share). Removing or replacing an existing theme is out of scope.
+
+It builds the new theme along **four gated aspects** (executed by the `theme-specialist` agent, which is both builder and parity-auditor):
+
+| Aspect | Gate |
+|---|---|
+| **Additive** | `git diff --name-only` since the pre-run HEAD must show only new paths under the new theme's dir (plus, at most, one append-only registration). Any edit to an existing theme or the shared layer HALTs. |
+| **Architecture** | The new slot parallels the default's structure; theme resolution actually resolves the new theme (the project's mechanism — glob auto-discovery / whitelist / resolver — is detected, not assumed); SSR-safe and RTL-correct per the project's own rules. |
+| **Parity (hard)** | The new theme is diffed item-by-item against a manifest of everything the default theme provides — components + icons + rendered states (loading / empty / error) + layouts. Counts must match; a single missing item is `INCOMPLETE`, not silent (a missing theme component typically falls back to the default theme's — often off-language / off-brand — so gaps are invisible bugs). Intentional default-only items need an explicit keep/move/drop record. |
+| **Performance** | The new theme's components follow the project's own performance conventions (LCP image strategy, above-the-fold handling, code-splitting, bundle budget, hydration discipline); a perf-check gate runs on the new theme's key routes on mobile and HALTs on a budget breach. |
+
+Plus a **visual gate** — rendered across the project's key surfaces × every locale (including RTL) × mobile + desktop, in the new theme.
+
+**Design modes**: default builds a cohesive modern token system for the new theme; `--reimagine` hands the new slot's visual direction to `/art-direct` (scoped to the new slot only); `--skin` is a lighter modern token refresh over the default's structure. `--plan` stops at the plan. All modes design **only** the new theme's own components — never the existing themes.
+
+Executed by `theme-specialist`. Frontend / mobile only, multi-theme architectures only.
 
 ## Memory system
 

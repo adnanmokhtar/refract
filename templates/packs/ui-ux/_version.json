@@ -1,12 +1,19 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.16.1",
-  "released": "2026-07-10",
+  "version": "1.17.0",
+  "released": "2026-07-12",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Icons are affordances, not decoration — a redesign keeps them (the bug: the redesign stripped the KPI cards' recognition icons, hurting scannability). Two enforcement points: (1) the Phase-1 component manifest now records every ICON (each card's leading icon, action/button icons, section-header icons, nav icons, empty-state illustrations), so the parity gate catches a silently-dropped icon; (2) the per-component visual audit adds an 8th modern tell — purposeful iconography: existing recognition icons are KEPT and restyled to the new language, an icon-barren redesign of a surface that had icons is a usability regression + parity miss, and a component that lost its icon is below-bar.",
+  "summary": "1.17.0: NEW /add-theme-variant command + theme-specialist upgraded to builder+auditor — ADDS a new theme slot to a multi-theme app (additive, never edits an existing theme or the shared layer), built modern + technically-correct + fast + feature-complete-vs-default, each aspect a hard gate (additive/architecture/parity/perf/visual). Multi-theme only. Icons are affordances, not decoration — a redesign keeps them (the bug: the redesign stripped the KPI cards' recognition icons, hurting scannability). Two enforcement points: (1) the Phase-1 component manifest now records every ICON (each card's leading icon, action/button icons, section-header icons, nav icons, empty-state illustrations), so the parity gate catches a silently-dropped icon; (2) the per-component visual audit adds an 8th modern tell — purposeful iconography: existing recognition icons are KEPT and restyled to the new language, an icon-barren redesign of a surface that had icons is a usability regression + parity miss, and a component that lost its icon is below-bar.",
   "changelog": {
+    "1.17.0": {
+      "released": "2026-07-12",
+      "changes": [
+        "NEW /add-theme-variant command — ADDS a new theme slot to a multi-theme app (a themes/<name>/ system). Additive is the top invariant: creates a NEW slot only, never edits an existing theme or the shared cross-theme layer (a git-diff Additive gate enforces it). Builds along four gated aspects — Architecture (slot parallels default, resolution wired, SSR-safe, RTL-correct), Parity (item-by-item manifest diff vs the default theme: components/icons/states/layouts, counts must match, a miss falls back to default = invisible bug), Performance (project perf conventions + perf-check gate) — plus a visual gate. Design modes: default modern token system / --reimagine (routes the slot direction to /art-direct) / --skin. Multi-theme architectures only; single-theme projects redirect to /art-direct or /redesign.",
+        "theme-specialist agent upgraded from parity-auditor to builder+auditor: gains the new-theme builder job (owns the four gates) alongside the retained existing-theme parity audit; tools gain Write."
+      ]
+    },
     "1.6.0": {
       "released": "2026-06-26",
       "changes": [

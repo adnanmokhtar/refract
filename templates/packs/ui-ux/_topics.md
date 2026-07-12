@@ -97,6 +97,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   fallback: commands/art-direct.md
   cite_evidence: strict
 
+- name: add-theme-variant
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md § Tokens / Wrappers / Surfaces (the default theme's token system + full component set) + _extracted-codebase.md § Stack (theme-resolution mechanism + SSR discipline + i18n/RTL setup + the perf rule the new theme must satisfy)
+  sections: [premise, comparison_table, when_to_use, when_not_to_use, prerequisites, args, four_pillars, phases, gates, output, hard_rules, failure_modes, cross_references, stack_scope]
+  fallback: commands/add-theme-variant.md
+  cite_evidence: strict
+
 - name: ui-crawl
   kind: command
   triggers: { primary_frontend_framework_detected: true, e2e_browser_runner_supported: true }
