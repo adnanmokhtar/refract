@@ -71,9 +71,11 @@ For each case, load exactly what its `Setup` block allows the graded AI to see (
 
 ## Phase 4 — RUN + score (per case)
 
+> **HARD INVARIANT — the graded sub-agent is READ-ONLY. Scoring must NEVER mutate the repo.** A case is testing what the AI *would* produce, captured as text and graded — not something to apply. The Scenario prompts ("add a service", "show me the `useAsyncData` call") will make a write-capable agent actually create/edit product source (observed 2026-07-12: a scoring run leaked `brandService.ts` + 5 other source changes that had to be reverted by hand). Prevent it structurally, not by hoping the agent behaves.
+
 For each case:
-1. Give the graded sub-agent the `## Scenario` prompt (and any `## Setup` fixtures) — nothing else.
-2. Capture its output.
+1. Dispatch the graded sub-agent **read-only**: give it ONLY read tools (`Read`, `Grep`, `Glob`) — NEVER `Write`/`Edit`/`MultiEdit`/`NotebookEdit`/`Bash` or any codegen/apply tool. Tell it explicitly: *answer the Scenario by PROPOSING your code/answer as fenced text — do NOT create, edit, or apply any file.* (Belt-and-suspenders for adapters/harnesses that can't restrict tools: run it under `isolation: worktree` so any stray write lands in a throwaway tree, never the real repo.) Give it the `## Scenario` prompt (and any `## Setup` fixtures) — nothing else, and NEVER the answer key.
+2. Capture its proposed answer (text only). If the sub-agent nonetheless wrote to the repo, that is a HARNESS FAILURE, not a valid run: revert every product-source change it made, record the run as VOID (not PASS/FAIL — a mutated repo can't be trusted to reflect fresh authoring), and fix the read-only dispatch before re-running.
 3. Score against `## Answer key`:
    - `must_have_hits` = MUST-include assertions satisfied.
    - `must_not_violations` = MUST-NOT assertions violated.
@@ -122,7 +124,7 @@ If you want it automatic, wire `/eval` into a `Stop` hook (run after a task) or 
 Two portability contracts the translation depends on — keep them true if you edit this command:
 
 - **Fan-out is Claude-native; sequential is the floor.** The only Claude-specific step is Phase 2's parallel scoring wave. Because cases are independent, scoring them one-by-one yields the *identical* scorecard — so every adapter runs `/eval` correctly, just slower. Never let a verdict depend on other cases running concurrently. On sequential adapters, use `--case <slug>` to iterate without re-running the whole suite. (Same split as `/execute-plan` and the spec→build reviewer fan-out — see `templates/tool-adapters/_registry.md`.)
-- **Tool scope = read + write, never shell/codegen.** `/eval` reads the knowledge base and writes ONLY `ai/evals/_scorecard.md` + `ai/dynamic/learnings.md`; it never edits product source. Translators derive the Kimi/Aider tool whitelist from this (`read,write`, not full-action `shell`) — so this command must stay a knowledge-writer, not a code-writer. `--coverage` is fully read-only (no sub-agents, no writes) — the cheap way to check the knowledge base before paying for a scoring run.
+- **Tool scope = read + write, never shell/codegen.** `/eval` (the orchestrator) reads the knowledge base and writes ONLY `ai/evals/_scorecard.md` + `ai/dynamic/learnings.md`; it never edits product source. Translators derive the Kimi/Aider tool whitelist from this (`read,write`, not full-action `shell`) — so this command must stay a knowledge-writer, not a code-writer. **The GRADED sub-agents are stricter still: read-only (`read` only, no `write`/`shell`/codegen) — they PROPOSE answers as text and must never touch the repo (see the Phase 4 hard invariant).** `--coverage` is fully read-only (no sub-agents, no writes) — the cheap way to check the knowledge base before paying for a scoring run.
 
 ## Output
 
