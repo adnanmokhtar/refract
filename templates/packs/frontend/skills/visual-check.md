@@ -79,6 +79,7 @@ So a new project's first auth-gated redesign is gated on exactly one human actio
 
 ## Procedure
 
+0. **Browser preflight — do this FIRST.** Playwright needs its browser binary installed *separately* from the npm package. If a run (or the Playwright MCP) errors with `browserType.launch: Executable doesn't exist` / `Please run the following command to download new browsers`, the browser is **missing, not broken** — run `npx playwright install chromium` once (per machine, and again after a Playwright version bump), then retry. This is a one-command fix: NEVER report the surface as "can't verify / no session / can't drive Playwright" for this reason, and never substitute a faked screenshot. Cheap check: `npx playwright install --dry-run chromium` (or just attempt the launch and read the error).
 1. Confirm the dev server URL (default `http://localhost:3000`) and that it serves all declared locales.
 2. Run the visual suite — full or scoped:
    ```bash

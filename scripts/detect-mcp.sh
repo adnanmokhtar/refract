@@ -291,6 +291,7 @@ fi
   printf -- '- **Idempotent recommendation**: re-running this script regenerates `_mcp-recommendations.md` from current signals. If you accept a recommendation, copy it into `.mcp.json` once — that file is yours to maintain.\n'
   printf -- '- **Per-developer secrets**: `${GITHUB_TOKEN}`, `${DATABASE_URL}`, `${FIGMA_TOKEN}`, `${TRELLO_API_KEY}` / `${TRELLO_TOKEN}` / `${TRELLO_BOARD_ID}`, `${ATLASSIAN_SITE_NAME}` / `${ATLASSIAN_USER_EMAIL}` / `${ATLASSIAN_API_TOKEN}`, `${LINEAR_API_KEY}` are env-var placeholders. Set them in your shell profile or `.env`, not in `.mcp.json` (which may be committed). Task-provider servers (`trello` / `jira` / `linear`) back the `/task` command — verify each server'"'"'s exact env-var names against its README.\n'
   printf -- '- **Community servers** are flagged as `(community)` when no official `@modelcontextprotocol/server-*` package exists. Verify on npm before installing.\n'
+  [[ $FRONTEND -eq 1 ]] && printf -- '- **Playwright browser binary (REQUIRED turn-on step)**: the `playwright` MCP + `/visual-check` need a browser installed *separately* from the npm package. After adding the MCP, run `npx playwright install chromium` once. Without it, every browser action fails with `Executable doesn'"'"'t exist` — which reads as a cryptic MCP/session failure, not the one-command fix it is. Re-run after a Playwright version bump.\n'
   printf -- '- **MCP server inventory** (recommended at this point, %d servers):\n' "${#RECS[@]}"
   for r in "${RECS[@]}"; do
     IFS='|' read -r id name pkg why <<<"$r"
