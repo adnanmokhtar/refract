@@ -107,6 +107,16 @@ if has_dep vue || has_dep_prefix '@vue/' || has_dep react || has_dep_prefix '@ty
    || [[ -f "$TARGET/vite.config.ts" || -f "$TARGET/vite.config.js" ]] \
    || [[ -d "$TARGET/src/components" || -d "$TARGET/src/pages" || -d "$TARGET/src/views" ]]; then
   FRONTEND=1
+  # Auth-gated? If the app guards routes (requiresAuth / a route guard / a /login redirect /
+  # <PrivateRoute>), a session-less Playwright MCP lands on /login and every screenshot is
+  # worthless. When a saved session already exists (tests/.auth/user.json, written by the
+  # visual-check auth scaffold), wire it into the MCP so gated routes actually render. Only
+  # added when the file EXISTS — pointing --storage-state at a missing file would crash the MCP;
+  # a refresh after the human runs tests/auth.setup.ts self-heals this.
+  AUTH_GATED=0
+  if grep -rqiE 'requiresAuth|PrivateRoute|authGuard|redirect.*/login|meta:[^}]*requiresAuth' "$TARGET/src" 2>/dev/null; then
+    AUTH_GATED=1
+  fi
   add_rec "playwright" "Playwright MCP" "@playwright/mcp" \
     "Frontend stack detected — drive the running app: navigate, click, type, screenshot, assert. Single best tool for UI feature verification."
   add_rec "puppeteer" "Puppeteer MCP" "@modelcontextprotocol/server-puppeteer" \
@@ -238,7 +248,14 @@ fi
         printf '    "github": {\n      "command": "npx",\n      "args": ["-y", "%s"],\n      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }\n    }' "$pkg"
         ;;
       playwright)
-        printf '    "playwright": {\n      "command": "npx",\n      "args": ["-y", "%s"]\n    }' "$pkg"
+        if [[ "${AUTH_GATED:-0}" -eq 1 && -f "$TARGET/tests/.auth/user.json" ]]; then
+          # Auth-gated app WITH a saved session → seed the browser so /dashboard/* renders
+          # instead of redirecting to /login. Regenerate the session on expiry via
+          # `npx playwright test tests/auth.setup.ts` (creds: E2E_EMAIL/E2E_PASSWORD in .env).
+          printf '    "playwright": {\n      "command": "npx",\n      "args": ["-y", "%s", "--headless", "--isolated", "--storage-state", "tests/.auth/user.json"],\n      "_note": "auth-gated: --storage-state seeds the saved session; regenerate via tests/auth.setup.ts when it expires."\n    }' "$pkg"
+        else
+          printf '    "playwright": {\n      "command": "npx",\n      "args": ["-y", "%s"]\n    }' "$pkg"
+        fi
         ;;
       puppeteer)
         printf '    "puppeteer": {\n      "command": "npx",\n      "args": ["-y", "%s"]\n    }' "$pkg"
