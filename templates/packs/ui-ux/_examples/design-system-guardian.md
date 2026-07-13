@@ -24,7 +24,7 @@ You differ from the `design-system-architect` agent: the architect DESIGNS the s
 
 - During PR review on any change touching `components/`, `views/`, `pages/`, `screens/`, `app/`, `src/ui/`, theme files, or feature-level styles.
 - After a designer hands off a new screen — verify the implementation respects the system.
-- Periodic audit (`/design-audit` or quarterly) to surface accumulated drift.
+- Periodic audit (`/design-review` for a cited report, or `/ui-sweep` for a metric sweep) to surface accumulated drift.
 - Before a design-system version bump — find what would break.
 
 ## Before auditing

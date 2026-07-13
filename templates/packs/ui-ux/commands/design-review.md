@@ -1,5 +1,7 @@
 ---
 description: Review UI changes for UX, design system compliance, and accessibility in parallel.
+kind: command
+pack: ui-ux
 ---
 
 # /design-review [path|screenshot]
@@ -42,9 +44,10 @@ Any finding that fails the grep is **dropped**, not softened. The audit's value 
 ## Phase 1 — Understand
 - Resolve scope: `git diff --name-only` for UI extensions, plus any provided screenshot path.
 - Confirm intent: full-flow review vs single-component compliance check.
+- **Stack preflight (CONDITIONAL — never blocks a screenshot-only review).** If no screenshot path was provided AND the repo has no UI surface (backend/data-only — no `primary_frontend_framework_detected`, empty UI diff), HALT: there is nothing to review here; point the user at the frontend repo. A provided screenshot is always reviewable, so this gate is skipped whenever one is attached (this command is read-only + screenshot-capable).
 
 ## Phase 2 — Organize
-- Decide reviewers: `ux-reviewer`, `design-system-guardian`, `accessibility-auditor` — dispatch in parallel.
+- Decide reviewers: dispatch `ux-reviewer` + `design-system-guardian` in parallel, and run the `a11y-quick-check` skill for the a11y lane — **all three ship in this pack**. `ux-reviewer` already owns a WCAG 2.2 AA dimension; `a11y-quick-check` adds the focused, cited per-screen a11y pass. **Optional deeper a11y:** if the `frontend` pack is *also* installed, its `accessibility-auditor` agent may be dispatched for a full audit — but never depend on it here (it is not in this pack). The a11y lane MUST resolve with `a11y-quick-check` alone.
 - If repo lacks design tokens, flag and proceed without compliance checks (don't fabricate criteria).
 
 ## Phase 3 — Retrieve
@@ -60,7 +63,7 @@ Design-specific:
 - Dispatch in parallel:
   - `ux-reviewer` — task flow, affordance, error/empty/loading states, microcopy.
   - `design-system-guardian` — token usage (colors, spacing, typography), reuse vs duplication, naming.
-  - `accessibility-auditor` — semantics, focus, contrast, labels.
+  - `a11y-quick-check` skill — semantics, focus, contrast (**computed** per token pair, not asserted), labels, reduced-motion. (Deeper full audit via the `frontend` pack's `accessibility-auditor` only when that pack is installed.)
 - Merge findings. Tag opinions as `[opinion]`, factual violations as `[violation]`.
 - Print grouped by severity:
   ```
@@ -83,6 +86,7 @@ Design-specific:
 - Every UX finding tied to a heuristic (Nielsen, WCAG, or repo-declared style guide) — no "feels off" critiques.
 - Each `[violation]` has a token or rule reference (not just a preference).
 - Screenshot-only review explicitly noted as DOM-blind for a11y.
+- **Contrast is computed, not asserted.** Every contrast finding resolves the actual foreground/background token pair from the token source and prints the numeric ratio vs the AA threshold (`#595959 on #fff → 7.0:1 ✓` · `#999 on #fff → 2.85:1 ✗ AA`). This is a **source-level compute — no render needed**. When the pair can't be resolved (dynamic value, unresolved var), print `contrast: SKIPPED (pair unresolved)` — never a bare "low contrast" and never a fabricated ratio.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture recurring violations.
@@ -115,6 +119,14 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - Three reviewers contradict each other → orchestrator picks the strictest; don't average.
 
 ## Related
+
+### Commands (finding-class → the command that fixes it)
+- `/align` — enforce a cited design-system / a11y violation against an existing token or rule (no creative work).
+- `/enhance-ui` — fix a cited UX / design-system finding within the existing language (cleanup → iterate → verify).
+- `/redesign` — when the finding is **structural** (broken IA, missing/broken states, wrong layout), not a drift fix.
+- `/art-direct` — when the review concludes the design has **no point of view** (generic / dated / forgettable), not a per-finding fix.
+
+*(This is a class→command map — complementary to the ordered next-steps `review-action-plan.md` already emits, not a duplicate of it.)*
 
 ### Patterns
 - `ai/patterns/dark-mode.md`

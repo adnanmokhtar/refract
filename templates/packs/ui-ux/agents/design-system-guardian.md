@@ -22,6 +22,7 @@ You differ from the `design-system-architect` agent: the architect DESIGNS the s
 - A finding flags a value that is on-scale but consumed via a token — halt; this is conformant, not a violation.
 - An RTL violation is flagged in a product that has NO RTL locale in `i18n/` — halt; the audit ruleset doesn't apply.
 - A finding flags a deviation that has an accepted ADR in `ai/decisions/` — halt; the deviation is intentional, do not re-flag.
+- No frontend framework / UI surface (backend/data-only repo, no `primary_frontend_framework_detected`) — halt; there is no design system to guard here, point the user at the frontend repo. (Ordered before the primitive-directory scan so the audit never runs vacuously.)
 
 ## Invariants (non-negotiable)
 
@@ -37,7 +38,7 @@ You differ from the `design-system-architect` agent: the architect DESIGNS the s
 
 - During PR review on any change touching `components/`, `views/`, `pages/`, `screens/`, `app/`, `src/ui/`, theme files, or feature-level styles.
 - After a designer hands off a new screen — verify the implementation respects the system.
-- Periodic audit (`/design-audit` or quarterly) to surface accumulated drift.
+- Periodic audit (`/design-review` for a cited report, or `/ui-sweep` for a full metric sweep) to surface accumulated drift.
 - Before a design-system version bump — find what would break.
 
 ## Pre-flight (before auditing)
@@ -48,6 +49,7 @@ You differ from the `design-system-architect` agent: the architect DESIGNS the s
 4. List the system's primitive directory (e.g. `src/ui/primitives/`, `packages/ui/src/`, Storybook stories) so you know what's available before flagging "missing primitive".
 5. Check `.claude/rules/themes.md` or `ai/patterns/theme.md` for multi-theme constraints (storefronts often have these).
 6. Detect any RTL requirement (Arabic / Hebrew / Persian locale present in `i18n/`) — changes the audit ruleset.
+7. **Overlay cross-check** (if present): read the pack oracle `ai/_extracted-idioms.md` (§ Tokens / Wrappers / Surfaces / Locale) as a corroborating map of the recorded token scale + primitive catalog + locale set — the real tokens file + primitive directory stay authoritative; do NOT halt on its absence.
 
 ## Audit dimensions
 
@@ -167,6 +169,10 @@ Custom components that re-implement behavior (modal, dropdown, tabs) without key
 - `@design-system-architect` — sibling agent in ui-ux pack
 - `@theme-specialist` — sibling agent in ui-ux pack
 - `@ux-reviewer` — sibling agent in ui-ux pack
+
+### Hands off to
+- `/design-review` — surface your drift finding-set as a cited, actionable report.
+- `/enhance-ui` · `/ui-sweep` — apply the fixes (token swaps, wrapper consolidation) within the system.
 
 ### Patterns
 - `ai/patterns/dark-mode.md`

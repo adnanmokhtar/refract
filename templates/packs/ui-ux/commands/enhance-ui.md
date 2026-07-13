@@ -72,6 +72,7 @@ Parse the user's description for keywords that indicate a different command is t
 | "add" / "new" / "create" / "build" / "implement" | `/add-feature` | Halt; suggest `/add-feature <description>` |
 | "fix" + ("bug" / "broken" / "wrong" / "crash") | `/fix-bug` | Halt; suggest `/fix-bug <description>` |
 | "audit" / "review" — read-only intent | `/design-review` | Halt; suggest read-only command |
+| "redesign" / "rethink" / "from scratch" / "new layout" / "re-theme" / "new look" / "new visual language" | `/redesign` (rethink ONE page in the existing language) · `/art-direct` (invent a NEW language) | Halt; `/enhance-ui` **preserves structure + the current language** — it cannot rethink IA or introduce a new visual language. Route to `/redesign` (structural rework) or `/art-direct` (new direction). |
 | Pure cleanup, no creative work ("just fix tokens", "just a11y") | `/align-recheck <description> --class=<targeted>` | Halt; suggest narrower class filter |
 | "enhance" / "improve" / "polish" / "cleaner" / "better look" | `/enhance-ui` (this command) | Proceed |
 
@@ -191,11 +192,15 @@ Step 4 — Re-enforce:       0 new findings (clean)
 
 Total impact:
   Diff:                    +18 / -34 = -16 lines
-  a11y score:              92 → 96 (improved)
+  a11y score:              92 → 96 (improved — rendered consumers only; un-rendered = SKIPPED)
   Visual regression:       1 diff accepted (intentional design change)
-  Bundle-size delta:       -0.2% (smaller)
+  Bundle-size delta:       -0.2% (smaller)   [SKIPPED if bundle-analyze absent]
 
 Commits:                   5 cleanup commits + 1 design-iterate commit + 0 re-enforce commits
+
+Not validated:             Orders consumer route not rendered → its a11y / visual claims SKIPPED
+Risks:                     wrapper-variant edit touched 3 routes; 2 rendered this run
+Revert:                    git reset --hard <pre-run HEAD>   (or git revert the range)
 ```
 
 ## Phase 5 — Update (persist changes)
@@ -208,6 +213,7 @@ Commits:                   5 cleanup commits + 1 design-iterate commit + 0 re-en
 - Each step's downstream validation runs as normal (align-recheck's gate, design-iterate's snapshot review).
 - Final state: working tree clean, tests pass, a11y score not below baseline, bundle-size within tolerance.
 - **DRY check**: if tier was `leaf-local` but duplicate surfaces existed → classification bug; surface in summary.
+- **Rendered, not asserted (honesty footer).** The a11y-score, visual-regression, and bundle-size lines are claimed ONLY for consumer routes actually rendered / measured this run; any consumer not rendered prints that line `SKIPPED (not rendered)`, never a fabricated delta. Every run ends with the house footer — `Not validated:` (what was SKIPPED + why) · `Risks:` · `Revert:` — mirroring `/redesign` + `/art-direct`.
 
 ## Phase 7 — Improve
 
@@ -243,12 +249,14 @@ Commits:                   5 cleanup commits + 1 design-iterate commit + 0 re-en
 ### Sibling commands
 - `/align-recheck` — the cleanup primitive this command dispatches (include `--class=duplicated-surface-styles` for frontend).
 - `/design-review` — read-only audit (use BEFORE enhance-ui to see what needs cleaning).
+- `/redesign` — when the surface needs its **layout / IA / flow rethought** (not preserved). `/enhance-ui` preserves structure and rebuilds nothing; `/redesign` throws the layout away and rebuilds it inside the same design system. The intent gate above routes here for that ask.
+- `/art-direct` — when the ask is a **new visual language / direction** (not finishing within the current one). It is upstream of `/enhance-ui` — it decides the language, then `/redesign` + `/polish` (and `/enhance-ui`) work within it.
 - `/add-feature` — for net-new surfaces; use `/add-component` or equivalent when `wrapper-extract` applies.
 
 ### Skills
 - `design-iterate` — generates the 3 visual variants (`$SCOPE_TIER`, `$CONSUMER_ROUTES`).
-- `a11y-scan` — runs as part of cleanup verification.
-- `bundle-analyze` — runs as part of re-enforce verification.
+- `a11y-quick-check` — the **in-pack** a11y pass run as part of cleanup verification (focus order, contrast, labels, reduced-motion).
+- `bundle-analyze` *(frontend pack)* — optional bundle-size delta on re-enforce; only when the `frontend` pack is installed. Absent → the bundle-size line prints `SKIPPED (no bundle-analyze)`, never a fabricated delta.
 
 ### Rules
 - `.claude/rules/align-discipline.md` — the discipline the cleanup steps enforce (`duplicated-surface-styles` subclass).

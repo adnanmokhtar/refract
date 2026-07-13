@@ -632,6 +632,7 @@ Major commands now have a Phase 1 "Intent gate" that detects when the user's des
 | `/add-feature` | "enhance / improve / polish / cleaner" | `/enhance-ui` |
 | `/add-feature` | "fix / broken / wrong" | `/fix-bug` |
 | `/enhance-ui` | "add / new / create / build" | `/add-feature` |
+| `/enhance-ui` | "redesign / rethink / re-theme / new visual language" | `/redesign` (rethink one page in the language) or `/art-direct` (invent a new language) |
 | `/fix-bug` | "enhance / improve / polish" | `/enhance-ui` |
 | `/add-page` | similar | similar |
 | `/add-component` | "test in isolation" | `component-playground` skill |

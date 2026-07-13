@@ -1,5 +1,7 @@
 ---
 description: Audit motion + animations for performance, reduced-motion respect, easing/duration consistency, and the "feels janky" smell. Output concrete fixes per offender.
+kind: skill
+pack: ui-ux
 ---
 
 # Skill: motion-audit
@@ -67,7 +69,7 @@ Per platform:
 - RN: `AccessibilityInfo.isReduceMotionEnabled()`.
 - Flutter: `MediaQuery.disableAnimations`.
 
-If any animation > 500ms doesn't respect reduce-motion → finding.
+Reduced-motion is gated by **trigger, not duration**: any **interaction- or scroll-triggered** motion (parallax, zoom, scale, auto-play, scroll-linked) must respect reduce-motion **regardless of duration** — WCAG 2.3.3 ties to the trigger, not the clock. Apply a duration threshold only to **incidental** transitions: an incidental transition > 250ms that ignores reduce-motion is a finding. (Same 250ms number the output exemplar uses.)
 
 ### 4. Token consistency
 
@@ -115,7 +117,7 @@ Check if animations use tokens or hardcode. Consistency matters: same trigger sh
 - `Modal.tsx:88` — animates `width` on open. Same fix pattern.
 
 **JS-thread animations on RN:**
-- `OnboardingCarousel.tsx` — Animated.View without `useNativeDriver`. Drops to 30fps on mid-tier Android. Fix: migrate to Reanimated worklet.
+- `OnboardingCarousel.tsx:64` — Animated.View without `useNativeDriver`. Measured 30fps on mid-tier Android [Flipper trace: `perf/onboarding-carousel.json`]. Fix: migrate to Reanimated worklet. *(No trace? print `fps: SKIPPED (not profiled)` — never assert a frame-rate you didn't measure, per Halt conditions.)*
 
 ### Reduced-motion findings (HIGH)
 - 12 animations > 250ms that don't check `prefers-reduced-motion`.
@@ -159,6 +161,8 @@ easing:   { entry: 'cubic-bezier(.2,.8,.2,1)', exit: 'cubic-bezier(.4,.0,.2,1)' 
 ## Related
 
 - `design-token-audit.md` — token consistency, broader scope.
-- `a11y-quick-check.md` — overlap on reduced-motion respect.
+- `a11y-quick-check.md` — the in-pack a11y skill; owns the reduced-motion overlap (WCAG 2.3.3).
 - `@design-system-guardian` — governance.
-- `@accessibility-auditor` — WCAG 2.2 AA covers motion (success criterion 2.3.3).
+- `@accessibility-auditor` *(frontend pack)* — full audit; WCAG 2.2 AA covers motion (SC 2.3.3). Escalate only when that pack is installed.
+- `/enhance-ui` — apply motion findings as the `motion-drift` cleanup class within the system.
+- `/redesign` · `/art-direct` — where motion is a first-class **BUILD OUTPUT** (a rendered lens), not just a token-consistency fix.

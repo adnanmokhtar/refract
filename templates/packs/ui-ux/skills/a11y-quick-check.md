@@ -1,10 +1,12 @@
 ---
-description: A focused 60-second a11y check on a single screen / component. Reports the violations that auto-tools catch, plus the ones they miss that humans must verify. Pairs with @accessibility-auditor for full audits.
+description: A focused 60-second a11y check on a single screen / component. Reports the violations that auto-tools catch, plus the ones they miss that humans must verify. The in-pack a11y pass that /design-review and /enhance-ui run; escalates to the frontend pack's @accessibility-auditor for a full audit when that pack is installed.
+kind: skill
+pack: ui-ux
 ---
 
 # Skill: a11y-quick-check
 
-A fast pass focused on the highest-impact a11y issues, tunable per scope. Smaller than `@accessibility-auditor` (full audit) — this is a checklist for one screen / one PR.
+A fast pass focused on the highest-impact a11y issues, tunable per scope. This is the **resolvable in-pack** a11y check — `/design-review` and `/enhance-ui` run it. For a heavier full audit, escalate to the `frontend` pack's `@accessibility-auditor` *when that pack is installed* — never depend on it from here; this skill is self-sufficient for one screen / one PR.
 
 ## Premise
 
@@ -137,7 +139,13 @@ Lighthouse a11y: <score>/100
 5. Increase touch targets to 44×44.
 
 Total fixes: 5 changes; estimated 1 hour of work.
+
+### Coverage (which checks actually ran — honesty footer)
+axe ✓ · keyboard ✓ · screen-reader SKIPPED (no VoiceOver this pass) · contrast ✓ (default state; hover/focus SKIPPED) · reduced-motion ✓
+Not validated: screen-reader walk — the ~60% auto-tools miss is only partly covered this pass.
 ```
+
+Any lane not run prints `SKIPPED (<why>)`, never an empty (implicitly-passing) section — a skipped screen-reader or keyboard walk must never read as clean (the skill's own #1 failure mode). The `Not validated:` line names the highest-value skipped lane so the reader knows the real coverage.
 
 ## Inputs
 
@@ -158,7 +166,7 @@ Total fixes: 5 changes; estimated 1 hour of work.
 
 ## Related
 
-- `@accessibility-auditor` — full audit; this skill is the fast-pass version.
+- `@accessibility-auditor` *(frontend pack)* — full audit; this skill is the resolvable in-pack fast-pass version and the a11y lane `/design-review` runs. Escalate only when the frontend pack is installed.
 - `motion-audit.md` — overlap on reduced-motion.
 - `design-token-audit.md` — overlap on contrast (token swaps must preserve contrast).
 - `@ux-reviewer` — overlap on flow + content quality.

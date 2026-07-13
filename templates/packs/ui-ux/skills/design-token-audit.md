@@ -1,5 +1,7 @@
 ---
 description: Scan UI code for hardcoded color / spacing / typography / radius / shadow values that should come from design tokens. Reports drift; proposes token replacements.
+kind: skill
+pack: ui-ux
 ---
 
 # Skill: design-token-audit
@@ -15,6 +17,7 @@ Existing tokens are the truth. Mirror; never invent. Every "hardcoded value → 
 - Halt on any proposed replacement that names a token not present in the project's token catalog.
 - Halt on `<path:line>` citations that don't resolve or whose cited line doesn't contain the flagged value.
 - Halt on auto-fix suggestions ("18 hardcoded colors → exact token match") without showing the resolved token + the source citation per row.
+- Halt on listing a **color** swap as "auto-fixable" before its contrast at the rendered role is confirmed ≥ AA — a ΔE-nearest swap can silently drop below AA (see the note under Failure modes). Any category-boundary or high-ΔE swap is "manual review required", not auto-fixable; delegate the contrast measure to `a11y-quick-check`'s lift-contrast.
 
 ## When to use
 
@@ -111,8 +114,11 @@ If no token exists for the value, the design system is missing it — propose ad
 - 3 places use the same orange-amber color (#f59e0b) in feature code. Either standardize on existing `warning` token (slight color shift) or add `accent-orange` token to the system.
 
 ### Auto-fixable (with confidence)
-- 18 hardcoded colors → exact token match. Could be auto-replaced via codemod.
-- 7 spacing values → exact scale match. Auto-replaceable.
+Each auto-fixable row carries its `<path:line>` + resolved token — the bare aggregate alone is the exact shape the Halt conditions ban, so itemize, then total:
+- `src/views/Cart.vue:42` — `#ef4444` → `text-danger` (exact) · contrast re-checked ≥ AA ✓
+- `src/components/Toolbar.vue:88` — `#3b82f6` → `text-primary` (exact) · contrast ✓
+- …16 more colors, each cited + contrast-checked → **18 colors, exact token match**, codemod-safe.
+- `src/components/Button.vue:18` — `margin-top: 24px` → `mt-6` (exact) · …6 more → **7 spacing values**, codemod-safe.
 
 ### Manual review required
 - 3 hardcoded colors with no exact match — designer should pick "use closest token" vs "add new token."
@@ -145,4 +151,6 @@ If no token exists for the value, the design system is missing it — propose ad
 
 - `@design-system-guardian` — full audit + governance; this skill is one dimension of it.
 - `motion-audit.md` — motion-token version.
-- `a11y-quick-check.md` — verifies token swaps don't break contrast.
+- `a11y-quick-check.md` — verifies token swaps don't break contrast (the ≥ AA gate above delegates here).
+- `ui-design-sweep.md` — consumes these findings as the `consolidate-tokens` (token exists) / `extract-token` (no token yet) closure verbs.
+- `/ui-sweep` · `/enhance-ui` — apply the token fixes within the system; `/align` — mechanically enforce a token once it exists.

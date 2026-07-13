@@ -17,7 +17,7 @@ Audit command. Three reviewers run in parallel against changed UI files (or a pr
 - Confirm intent: full-flow review vs single-component compliance check.
 
 ## Phase 2 — Organize
-- Decide reviewers: `ux-reviewer`, `design-system-guardian`, `accessibility-auditor` — dispatch in parallel.
+- Decide reviewers: `ux-reviewer` + `design-system-guardian` (parallel) + the `a11y-quick-check` skill for the a11y lane — all in-pack. (Optional deeper a11y: the `frontend` pack's `accessibility-auditor`, only if installed.)
 - If repo lacks design tokens, flag and proceed without compliance checks (don't fabricate criteria).
 
 ## Phase 3 — Retrieve
@@ -40,7 +40,7 @@ Design-specific:
 - Dispatch in parallel:
   - `ux-reviewer` — task flow, affordance, error/empty/loading states, microcopy.
   - `design-system-guardian` — token usage (colors, spacing, typography), reuse vs duplication, naming.
-  - `accessibility-auditor` — semantics, focus, contrast, labels.
+  - `a11y-quick-check` skill — semantics, focus, contrast (computed), labels, reduced-motion.
 - Merge findings. Tag opinions as `[opinion]`, factual violations as `[violation]`.
 - Print grouped by severity:
   ```
