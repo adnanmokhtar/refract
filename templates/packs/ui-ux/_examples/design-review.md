@@ -38,7 +38,7 @@ Design-specific:
 
 ## Phase 4 — Generate (findings)
 - Dispatch in parallel:
-  - `ux-reviewer` — task flow, affordance, error/empty/loading states, microcopy.
+  - `ux-reviewer` — task flow, affordance, error/empty/loading states, microcopy, composite-surface completeness (data-table / dashboard table-stakes vs `ui-design-sweep.md § normalize-surface`).
   - `design-system-guardian` — token usage (colors, spacing, typography), reuse vs duplication, naming.
   - `a11y-quick-check` skill — semantics, focus, contrast (computed), labels, reduced-motion.
 - Merge findings. Tag opinions as `[opinion]`, factual violations as `[violation]`.

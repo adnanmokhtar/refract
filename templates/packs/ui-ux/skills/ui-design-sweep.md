@@ -33,7 +33,7 @@ This skill is the **frontend half of `/polish`** — the structural twin of `api
 | `PROJECT_KIND` (must be `frontend-*` or `mobile-*`) | `_extracted-codebase.md § Gold standards` | YES |
 | Design tokens | `_extracted-idioms.md § Tokens` (color / spacing / type / radius / shadow / motion) | YES (without it, the canonical token set is unknown — halt) |
 | Shared wrappers | `_extracted-idioms.md § Wrappers` | YES (without it, `unify-component` / `extract-pattern` cannot run) |
-| Surface prototypes | `_extracted-idioms.md § Surfaces` | NO (skip `normalize-surface` if missing; warn) |
+| Surface prototypes | `_extracted-idioms.md § Surfaces` | NO (when missing, `normalize-surface` falls back to its **built-in composite-surface table-stakes** catalog for data-table / dashboard — see verb 19 — instead of skipping; warn that the generic floor, not a project prototype, is in use) |
 | Voice guide | `_extracted-idioms.md § Voice` | NO (skip voice-related closures; warn) |
 | Breakpoints | `_extracted-idioms.md § Breakpoints` | NO (default 360 / 768 / 1280) |
 | Playwright MCP | runtime | NO (skill degrades to text-only if missing — but visual verbs lose verify capability) |
@@ -375,6 +375,25 @@ Two element classes do NOT inherit the design-token / theme layer, so several ve
 **Verify**: page now uses the same top-level wrappers as the prototype; component-snapshot tests pass; visual baseline shows alignment with sibling pages of the same type.
 
 **Citation**: project's `_extracted-idioms.md § Surfaces`; `ui-sweep` Detector 4 (Cross-surface consistency).
+
+#### Built-in composite-surface table-stakes (verb-19 fallback prototype — NOT a 20th verb)
+
+`normalize-surface` compares a page against the prototype in `_extracted-idioms.md § Surfaces`. Per the Inputs table, that section is **optional** — so when a project has NOT authored it, the verb historically skipped-with-warn and a composite surface got **no completeness floor at all**. This built-in catalog is the verb's **fallback prototype**: when the project's Surfaces section is absent for a surface type, grade the surface against the generic table-stakes below instead of skipping. **A project's authored `§ Surfaces` prototype ALWAYS overrides this** — the catalog is the floor, never a ceiling, and never re-audits an axis the 16-axis catalog already owns. This is a fallback prototype for the EXISTING verb; the closed set stays **19 verbs / 16 axes** (same status as the framework-control / chart carve-outs above — a deepening of a verb, not a new verb or a 17th axis).
+
+The composite surfaces the primitive-level contracts (`design-system-architect` variant/state enums · `ux-reviewer` §5/§9) and the per-element axes do **not** fully cover are **data-table** and **dashboard**. A few of their affordances are ALREADY floor-owned (a table's search/filter/sort/pagination — `ui-principles.md § Should` · `ux-reviewer` §9): those are cited, not re-claimed. The **genuinely new content** is the rest — row-selection + bulk actions, export, sticky header, per-row affordances, responsive frozen-column, the dashboard composition, and the composite `N/M` completeness GRADE itself. Emit a coverage line `<surface> affordances: N/M present — missing: <list>` and treat each missing item as a **candidate to surface**, scaled by the surface's job (see the discipline below):
+
+| Surface type | Table-stakes affordance set (the completeness floor) |
+|---|---|
+| **data-table** (job: browse / manage a collection) | persistent (sticky) header · a toolbar with search · filter · sort *(already floor-owned — `ui-principles.md § Should` · `ux-reviewer` §9; cited, not new)* · row selection + bulk actions · export · pagination (or virtualized infinite scroll) *(already floor-owned)* · per-row hover + row-level affordances · empty / loading / error states (defer to verbs 9–11) · responsive stack-or-horizontal-scroll-with-frozen-column |
+| **dashboard** (job VARIES: analytics/BI · operational-home · monitoring/status) | **Universal (count toward M always):** labeled metric / stat tiles with trend or context (NOT bare numbers) · charts re-themed to the design language (NOT library defaults — see the chart carve-out) · a widget / section grid with deliberate hierarchy (flag a flat plain-card grid with no ranking) · a period / time-range control where the data is time-bound. **Job-conditional (count toward M only when the dashboard's job includes it, mirroring the data-table scale-gate):** a recent-activity / change feed and quick-actions belong to an operational/home dashboard — an analytics/BI or status dashboard legitimately has neither, and flagging them there is a false positive. |
+| **form / detail** (cross-reference — do NOT duplicate) | already owned by `ux-reviewer` §5/§9 + `design-system-architect`: 2-col→1-col reflow · sectioned field groups · inline-validation-on-blur · error summary linking to fields · autofill attributes · multi-step indicator when multi-step. Cite them; the built-in catalog does not re-specify the form contract. |
+
+**Discipline (prevents both enforcement-theater and over-reach):**
+
+1. **Detect + report, do NOT auto-build.** The verb's output here is a coverage finding (`data-table affordances: 4/8 — missing: sticky header, bulk actions, export, sort`), not a silent feature graft.
+2. **Scale-gated candidacy, not a blanket mandate.** Not every instance needs every affordance — a 5-row reference table needs no pagination / export / bulk-select. Flag ABSENCE as a **candidate for the reviewer/user to judge**, using the surface's scale as the trigger (pagination / search / sort / filter are table-stakes only once a list is expected to exceed ~50 items in production — `ui-principles.md § Should`).
+3. **A genuinely NEW affordance system is out of scope — route it out.** Adding a bulk-actions system, an export pipeline, or a new chart is a FEATURE / RE-COMPOSITION, not a structural normalization — it exceeds verb 19's re-paint/normalize boundary (`§ Hard rules — re-PAINT, not re-COMPOSE`). HALT-and-surface and route to `/redesign` (re-composition within the existing language) or `/add-feature` (new capability). The verb itself only normalizes the surface's STRUCTURE toward the prototype and preserves business logic — unchanged from its existing contract.
+4. **Stays generic.** `export` / `bulk-select` / `sticky-header` / `metric-tile` are generic data-management + status-surface affordances — no domain terms, no product names.
 
 ## Procedure (the skill's overall flow)
 

@@ -116,6 +116,7 @@ You review what the user feels — not what the developer ships. A green test su
 - Dialogs used sparingly — inline editing or progressive disclosure preferred.
 - Confirmations only for destructive or expensive actions; not for routine saves.
 - Wizards only when steps genuinely depend on prior input. Otherwise, a single page with sections.
+- Composite-surface completeness: grade a data-table / dashboard against the built-in table-stakes catalog (`ui-design-sweep.md § normalize-surface`). A bare table (no toolbar/search/filter/bulk/export/sticky-header) or a plain-number dashboard is a completeness finding (`affordances present N/M`), scale-gated; route a new affordance system out (`/add-feature`), never a silent graft.
 
 ### 10. Trust and safety
 
