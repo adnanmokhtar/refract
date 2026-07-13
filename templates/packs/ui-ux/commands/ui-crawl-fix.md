@@ -4,7 +4,7 @@ kind: command
 pack: ui-ux
 ---
 
-# /ui-crawl-fix [<class>] [--dry-run] [--safe-only] [--verify]
+# /ui-crawl-fix [<class>] [--dry-run] [--plan] [--safe-only] [--verify]
 
 ## The Premise
 
@@ -13,7 +13,7 @@ pack: ui-ux
 - 300+ `button-name` violations → usually 1-2 shared wrappers missing `aria-label`
 - 300+ `label` violations → usually 1 wrapper not wiring `for`/`id`
 
-**Fixing at the call site = 1,000 commits. Fixing at the wrapper = 5 commits.** This command picks the wrapper path. Every fix obeys `align-discipline.md`: one finding-class per commit, closure verb from the vocabulary, behaviour preserved, security/perf gets assertions, re-detect on completion.
+**Fixing at the call site = 1,000 commits. Fixing at the wrapper = 5 commits.** This command picks the wrapper path. Every fix obeys `align-discipline.md` (align pack): one finding-class per commit, closure verb from its 21-verb closure vocabulary (structural `replace-with-shared` + functional `add-validator` etc.), behaviour preserved, security/perf gets assertions, re-detect on completion.
 
 Bugs that need human judgment (broken dialog triggers, page won't load, network 5xx) are NOT auto-fixed. They're surfaced for triage.
 
@@ -34,10 +34,10 @@ Bugs that need human judgment (broken dialog triggers, page won't load, network 
 
 | axe rule / pattern | Closure verb | Fix shape | Risk |
 |---|---|---|---|
-| `color-contrast` (token-rooted) | `replace-with-shared` | Swap design token to AA-compliant variant in `_variables.scss` | Low (cascades; visual diff verifies) |
-| `button-name` on icon-only buttons inside shared wrappers (`<CrudActions>`, `<TableActions>`, `<RowActionMenu>`) | `add-validator` | Wrapper injects `aria-label` from i18n key per icon | Low |
+| `color-contrast` (token-rooted) | `replace-with-shared` | Swap design token to AA-compliant variant in `_variables.scss` | Low (cascades; **pixel-changing** — visual regression gated by the Phase 3 before/after diff, never asserted in this cell) |
+| `button-name` on icon-only buttons inside shared wrappers (`<CrudActions>`, `<TableActions>`, `<RowActionMenu>`) | `add-validator` | Wrapper injects `aria-label` from i18n key per icon | Low (the key MUST resolve in every shipped locale — Phase 2 i18n gate; a raw key would render as the accessible name) |
 | `label` missing `for`/`id` linkage in `<FormField>` | `replace-with-shared` | Auto-wire `for={slot.attrs.id}` to inner input | Low |
-| Raw `<Dialog>` / `<Dropdown>` / `<MultiSelect>` in pages | `replace-with-shared` | Swap to `<BaseModal>` / `<BaseDropdown>` / `<BaseMultiSelect>` | Medium (call sites; visual diff verifies) |
+| Raw `<Dialog>` / `<Dropdown>` / `<MultiSelect>` in pages | `replace-with-shared` | Swap to `<BaseModal>` / `<BaseDropdown>` / `<BaseMultiSelect>` | Medium (call sites; **pixel-changing** — visual regression gated by the Phase 3 before/after diff) |
 | `<v-html>` / `dangerouslySetInnerHTML` without sanitize wrapper | `add-validator` (security) | Wrap value with project's sanitize helper from `_extracted-idioms.md` | Low (security row; gets a test assertion) |
 | Hardcoded `{ en: '', ar: '' }` translation refs | `replace-with-shared` | Replace with `useLanguages().buildEmptyTranslations()` (or stack equivalent) | Low |
 | `<a target="_blank">` missing `rel="noopener noreferrer"` | `add-validator` | Inject `rel` (security) | Low |
@@ -53,14 +53,16 @@ Bugs that need human judgment (broken dialog triggers, page won't load, network 
 | Heading hierarchy skip (h1 → h3) | Restructuring content needs human eyes |
 | Network 5xx | API or auth issue; not a UI fix |
 | `aria-required-parent` / `aria-required-children` mismatches | Structural component shape change; review case-by-case |
-| Color values NOT rooted in tokens | Either tokenize first (route to `/align-recheck`) or human edits the raw color |
+| Color values NOT rooted in tokens | Either tokenize first (route to `/align-recheck` — align pack) or human edits the raw color |
 
 ## Phases
 
 ### Phase 0 — Pre-flight
 - Verify `ai/audits/ui-crawl-findings.json` exists and is < 24h old (else suggest `/ui-crawl` first).
+- **Clean tree required.** Refuse to start on a dirty working tree — HALT and ask the user to commit or stash first. Every fix lands as a discrete commit and regression rollback is `git revert`; on a dirty tree each per-class commit would sweep in unrelated staged/unstaged work, and a revert-on-regression would roll that work back too. Relaxed ONLY under `--dry-run` / `--plan` (read-only — nothing is committed).
+- **Snapshot the "old" side before any edit.** Copy the input findings JSON to `ai/audits/ui-crawl-findings.pre-fix.json` — Phase 3 diffs the re-crawl against THIS snapshot, because the re-crawl overwrites the live `ui-crawl-findings.json` (the same path Phase 1 read as input), destroying the old side otherwise. Likewise, the input crawl's screenshots at `tests/crawl/.screenshots/` are the BEFORE baseline for the pixel-changing classes (contrast-token swap, raw→shared-component swap) — copy them to `tests/crawl/.screenshots-pre-fix/` so the Phase 3 visual diff has a reference the re-crawl will not clobber.
 - Verify `_extracted-idioms.md` populated (else halt; route to `/setup-project --refine`).
-- Read `align-discipline.md`'s closure-verb vocabulary.
+- Read `align-discipline.md`'s closure-verb vocabulary. **It ships with the align pack — if the file is absent, degrade: fall back to the inline `## Hard rules` block below (which restates the discipline floor), or HALT with a clear message. Never silently no-op** — a missing discipline rule must not read as "no discipline."
 
 ### Phase 1 — Triage
 - Parse findings JSON.
@@ -76,15 +78,18 @@ For each approved class:
    - Read the file in full.
    - Identify the minimal change that closes the class for ALL its call sites.
    - Apply (typed-only, no `any`).
+   - **i18n gate (any injected i18n key — e.g. the `button-name` `aria-label`).** Before injecting an `aria-label` (or any user-visible string) from an i18n key, assert the key RESOLVES in EVERY shipped locale: read the project's locale tree (from `_extracted-idioms.md § Voice / locales`) and confirm the key is present in each. A key missing from any locale renders its RAW string (`SETTINGS_MENU`, `actions.edit`) as the accessible name — a NEW a11y defect dressed up as a closed finding. Missing in any locale → HALT that row: add the key to all locales first (or route to `/setup-project --refine` if no key exists for it); NEVER inject a key that resolves in only some locales.
 3. Run typecheck + lint on touched files.
 4. Run scoped Vitest suite for the wrapper (if exists).
 5. Commit with conventional message: `fix(<class>): <verb> <wrapper> — closes <N> findings across <M> routes`.
 
 ### Phase 3 — Verify (`--verify` or end-of-fix auto)
-- Re-run `/ui-crawl --filter=<affected-modules>` (only the modules where findings were closed).
-- Diff old vs new findings JSON: every targeted finding must be gone.
+- Re-run `/ui-crawl --filter=<affected-modules>` (only the modules where findings were closed). This overwrites the live `ui-crawl-findings.json` with the NEW side.
+- **Diff `ai/audits/ui-crawl-findings.pre-fix.json` (the Phase-0 snapshot = old side) against the fresh `ui-crawl-findings.json` (new side)** — not the live file against itself. Every targeted finding must be gone.
+- **Visual diff for the pixel-changing classes** (contrast-token swap, raw→shared-component swap). Compare the re-crawl's fresh screenshots against the `tests/crawl/.screenshots-pre-fix/` baseline, per affected route × breakpoint, reusing the same authenticated capture `/ui-crawl` performs — the render harness the ui-ux commands standardize on is `visual-check` (frontend pack), which carries the authenticated + blocked-render contract. Print the honest status line — `rendered: VERIFIED (before/after diff computed, <N> routes)` — or, when the harness is absent or the re-crawl render is BLOCKED (login wall / redirect / surface marker absent), `rendered: SKIPPED (no baseline / blocked render) — visual regression NOT verified; re-crawl is axe-only + human review needed`. NEVER assert this as a checkmark in a Risk cell, and never let a login-wall screenshot count as a clean diff. An unintended-region diff over threshold is a visual regression → treat it as a new finding (halt + revert, below).
+- **Raw-key scan (i18n).** Grep the re-crawl's captured accessible names + rendered DOM for raw-key patterns — `SCREAMING_SNAKE_CASE` and `dotted.key.path`. A raw key visible on screen or in an accessible name is a FAILURE, not a closed finding → halt the row, revert, surface (the injected key did not resolve in the rendered locale).
 - If any finding remains: halt the row, write `ai/align/halts/<finding-id>.md`, surface to user.
-- If new findings appear: a fix regressed something — halt, revert the commit, surface.
+- If new findings appear (including a visual regression or a raw key on screen): a fix regressed something — halt, revert the commit, surface.
 
 ### Phase 4 — Report
 - Append summary to `ai/audits/ui-crawl-fix-log.md`:
@@ -98,6 +103,7 @@ For each approved class:
 
 - `<class>` — Optional. Fix only this class. Examples: `contrast`, `button-name`, `label`, `v-html`, `translations`, `raw-component`.
 - `--dry-run` — Show what WOULD be edited (per file + diff preview). No changes written.
+- `--plan` — Universal handoff flag (see `templates/snippets/plan-flag.md`). Runs the read-only Phase 0–1 only (pre-flight + triage: which wrapper file to patch, the closure verb, and the cascade count per class), writes that wrapper-level fix plan to `.claude/plans/ui-crawl-fix-<slug>-<YYYYMMDD-HHmm>.md`, prints the path + a one-line summary, and exits BEFORE Phase 2 — no edits, no commits. The clean-tree precondition is relaxed under `--plan` (nothing is written). Hand the plan to another tool or execute later with `/execute-plan <file>`. Distinct from `--dry-run`, which previews diffs to the terminal but leaves no portable artifact.
 - `--safe-only` — Skip the user-confirm step for whitelist classes (`contrast`, `button-name`, `label`, `noopener`). Useful for CI.
 - `--verify` — After fixing, automatically re-crawl affected modules to confirm closure.
 - `--no-commit` — Apply edits but skip git commit (user reviews + commits manually).
@@ -110,6 +116,7 @@ For each approved class:
 /ui-crawl-fix contrast               # only fix color-contrast violations
 /ui-crawl-fix button-name --verify   # fix button-name then re-crawl to confirm
 /ui-crawl-fix --dry-run              # show all proposed edits, no writes
+/ui-crawl-fix --plan                 # read-only: write the wrapper-fix plan to .claude/plans/, exit before any edit
 /ui-crawl-fix --safe-only --verify   # CI mode: auto-apply whitelist + verify
 /ui-crawl-fix --module=inventory     # only inventory module findings
 ```
@@ -123,11 +130,15 @@ For each approved class:
 - **No fix without `<path:line>` evidence.** Every commit's body cites the findings closed (with route + violation count).
 - **Re-detect mandatory.** Phase 3 verification re-runs `/ui-crawl` on affected modules; gap-count parity (closed == in-count) is the gate.
 - **Halt on regression.** If verification shows new findings, revert the commit and surface — no auto-progress past a regression.
+- **Clean tree to start.** The run refuses a dirty working tree (Phase 0): discrete per-class commits + `git revert` rollback are only safe from a clean baseline, else a revert sweeps unrelated work. Relaxed only under `--dry-run` / `--plan` (nothing is committed).
+- **i18n keys resolve in every locale.** Any `aria-label` / string injected from an i18n key is asserted present in EVERY shipped locale before commit (Phase 2 gate), and the re-crawl is grepped for raw-key patterns (Phase 3). A raw key on screen is a FAILURE, never a closed finding.
+- **Pixel-changing fixes are verified by render, not by claim.** Contrast-token and raw→shared-component swaps are gated by the Phase 3 before/after visual diff, which prints `rendered: VERIFIED / SKIPPED` — a visual-regression check is never asserted in a Risk cell. When the render is `SKIPPED`/`BLOCKED`, the axe/DOM re-scan alone is blind to visual regressions, so the visual side is reported NOT verified and human review is needed — the fix is not silently claimed safe.
 
 ## Output (terminal summary)
 
 ```
 [fix] reading ai/audits/ui-crawl-findings.json (146 routes, 1463 violations)
+[fix] pre-flight: clean tree ✓ · snapshot → ai/audits/ui-crawl-findings.pre-fix.json + tests/crawl/.screenshots-pre-fix/
 [fix] triage:
   - color-contrast: 778 nodes / 79 routes → patch src/assets/scss/_variables.scss ($gray-500 → AA-compliant)
   - button-name: 347 nodes / 22 routes → patch src/shared/components/table/CrudActions.vue + TableActions.vue
@@ -141,6 +152,8 @@ For each approved class:
 [verify] label: 338 → 0 ✓
 [verify] button-name: 347 → 0 ✓
 [verify] color-contrast: 778 → 12 (12 remaining: hardcoded colors outside tokens; surfaced for human)
+[verify] visual-diff (contrast + raw→shared swaps): rendered: VERIFIED (before/after, 79 routes) — no unintended-region regressions
+[verify] i18n raw-key scan (button-name aria-labels): 0 raw keys in rendered accessible names ✓
 [fix] complete. 3 commits. 1451 of 1463 violations closed (99.2%).
 ```
 
@@ -148,11 +161,11 @@ For each approved class:
 
 - `/ui-crawl` — the detector this command consumes.
 - `.claude/rules/align-discipline.md` — closure-verb vocabulary, tier rules, validator script.
-- `/align-recheck` / `/align-fast` — sibling commands for structural-only fixes; this is the UI-specific variant that consumes a `/ui-crawl` report instead of an `/align-scan` report.
+- `/align-recheck` / `/align-fast` (align pack) — sibling commands for structural-only fixes; this is the UI-specific variant that consumes a `/ui-crawl` report instead of an `/align-scan` report.
 - `_extracted-idioms.md` — the source of truth for which wrappers exist; this command never invents.
 - `/enhance-ui` — visual polish on one surface (different scope).
 - `/ui-sweep` — deeper specialist sweep with HTML report + visual baselines; orthogonal to this fix loop.
-- `/polish` — the simple-surface entry; for `frontend-*` it dispatches the same 19-verb closure vocabulary `ui-crawl-fix` patches at the wrapper level.
+- `/polish` — the simple-surface entry; for `frontend-*` its visual branch dispatches the `ui-design-sweep` skill's SEPARATE 19-verb DESIGN vocabulary (hierarchy / rhythm / tokens / states / motion / …), which shares no verbs with what this command patches. `/ui-crawl-fix` patches at the wrapper level using `align-discipline.md`'s (align pack) 21-verb closure vocabulary (`replace-with-shared` / `add-validator` / …). The two vocabularies are disjoint — do not conflate them: /polish's set corrects DESIGN axes, this command's set closes structural/mechanical findings.
 
 ## Stack scope
 

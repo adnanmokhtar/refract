@@ -35,6 +35,7 @@ The one hard constraint: **the new design must speak the app's existing visual l
 - Hardcoded value → existing token, or a11y drift from an existing rule → `/align`.
 - Adding finish (states, rhythm, hierarchy, a few variants) without changing structure → `/enhance-ui` or `/polish`.
 - A brand-new page that doesn't exist yet → `/add-feature` or your scaffold flow.
+- A **new visual identity / colour world / bold new look** — not rebuilding inside the app's *existing* language → `/art-direct` (it is upstream: it DECIDES and invents the language; `/redesign` builds inside an already-decided one and is forbidden to invent one).
 
 ## Pre-requisites
 
@@ -49,6 +50,8 @@ This command throws away the current layout and rebuilds it — the highest-blas
 
 - `<description-or-path>` — a route, page component, or feature area (e.g. `dashboard/orders/settings-list` or `src/modules/orders/pages/OrderListPage.vue`). Same semantic resolution as `/enhance-ui` (codebase-profile + idioms).
 - `--direction="<text>"` — seed the proposal with a desired direction ("card-based", "single-column flow", "split-pane"). Default: the agent derives 1–2 directions from the page's purpose + personas.
+- `--yes` — **unattended variant selection.** The post-approval build's optional variant step runs `design-iterate` in **refine** mode (auto render → self-critique → improve loop) instead of pausing to show 3 pickable variants. It does **NOT** skip the proposal approval gate — that hard stop always stands (Phase 4). For a design-only run use `--plan`; to auto-approve the proposal, run under `/art-direct --yes` (which relaxes `/redesign`'s per-page gate for its build chain).
+- `--max-refine=<n>` — cap the Phase-6 render → critique → improve loop (default 3 rounds).
 - `--plan` — universal handoff flag (see blockquote above): produce the proposal as a plan artifact and exit before any edit.
 
 ## The agent's job (exactly this)
@@ -87,10 +90,10 @@ A redesign is not a matter of taste; it is judged against established UX/UI best
 
 ## Phases
 
-All 7. The approval gate sits between Phase 4 (propose) and Phase 5 (build).
+All 7. The approval gate sits **inside Phase 4** — between the proposal (step 4) and the build (step 6); no code is written before it. (Phase 5 is "Update"; the build is Phase 4 step 6, not a separate phase.)
 
 ### Phase 1 — Understand
-- **Intent gate:** "enhance / tidy / tighten / consistent" → `/enhance-ui`. "enforce token / fix drift" → `/align`. "new page that doesn't exist" → `/add-feature`. Proceed only when the intent is *rethink an existing page's design*.
+- **Intent gate:** "enhance / tidy / tighten / consistent" → `/enhance-ui`. "enforce token / fix drift" → `/align`. "new page that doesn't exist" → `/add-feature`. "new visual identity / new look / invent a language" → `/art-direct` (upstream — it decides the language `/redesign` builds inside). Proceed only when the intent is *rethink an existing page's design within the existing language*.
 - Parse `<scope>` — a route, page component, or feature area (e.g. `dashboard/orders/settings-list`).
 - Locate the page's component(s), its data sources, and every interactive element + state (loading / empty / error / success).
 - **Build the COMPONENT/FEATURE MANIFEST (the parity contract) — a complete, COUNTED enumeration of every component and feature currently on the surface**: every KPI/stat card (by name — e.g. `conversion-rate`, `total-visits`, `total-orders`, `total-sales`), every chart/series, every table/list, every filter/control (date pickers, period toggles, action buttons), every action/CTA, every panel, every state, **and every ICON** (each card's leading icon, action/button icons, section-header icons, nav icons, empty-state illustrations). **Icons are affordances, not decoration** — record them in the manifest so a redesign cannot silently strip them. Record the count (`N cards, M charts, K tables, …`). This manifest is the non-negotiable reference for the Phase-6 parity gate: **a redesign redraws these, it does not remove them.** Redesign changes the LOOK and MAY re-rank/move/demote/group them (re-composition), but the manifest count and membership must survive the rebuild.
@@ -200,6 +203,7 @@ If the screenshot harness was unavailable, the `rendered:` line reads `rendered:
 - **The rebuild needs a token/component the system lacks** — add it to the design system (not inline), record it in Phase 7; if it implies a broad new pattern, write the ADR before shipping.
 
 ## Cross-references
+- `/art-direct` — **upstream**: decides + invents the visual language (concept, tokens, signature moments) from product goals; `/redesign` rebuilds a page *inside* an already-decided language and is forbidden to invent one. Route here when the ask is a new identity, not a page rework. (`/art-direct`'s build chain runs `/redesign` per surface.)
 - `/enhance-ui`, `/polish` — refinement, not redesign (structure preserved).
 - `/align` — enforce existing tokens/rules (no creative work).
 - `/unify-surfaces` — make this screen's tables/forms consistent with the rest of the app.

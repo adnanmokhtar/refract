@@ -158,7 +158,7 @@ When an adapter ships the UI-UX pack:
 
 1. **MUST translate `/ui-sweep` faithfully as a specialist.** Preserve:
    - The 8 specialist detectors (visual hierarchy, component utilization, token coverage, cross-surface consistency, ui-state coverage, responsive matrix, design-language coherence, visual baseline + drift).
-   - The 12 UI/UX-specific verbs (`consolidate-tokens`, `unify-component`, `normalize-hierarchy`, `wire-empty-state`, `wire-loading-state`, `wire-error-state`, `add-mobile-affordance`, `fix-responsive`, `normalize-surface`, `unify-iconography`, `normalize-typography`, `tighten-rhythm`).
+   - The closed **19 UI/UX design-closure verbs across 16 axes** — the canonical set (`ui-design-sweep.md § The 19 closure verbs`; the counts differ on purpose, some axes carry more than one verb): `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`, `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`, `wire-empty-state`, `wire-loading-state`, `wire-error-state`, `lift-contrast`, `align-focus-ring`, `unify-iconography`, `normalize-motion`, `expand-tap-target`, `unify-cta-placement`, `clarify-affordance`, `normalize-surface`. (Responsive/breakpoint + dark-mode/theme-mode drift are deliberately NOT verbs — deferred to `/enhance-ui`; adapters must not invent `fix-responsive` / `normalize-typography` / `add-mobile-affordance`, which are not in the set.)
    - Quantified coverage metrics with targets.
    - User-flow phasing (NOT class-based).
    - Separate `ai/ui-sweep/ledger.md` (separate from `ai/align/ledger.md`).

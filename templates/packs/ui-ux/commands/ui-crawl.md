@@ -29,8 +29,8 @@ It's **detect-only**. Fixing is a separate step (`/ui-crawl-fix` or manual). The
 ## Prerequisites
 
 1. **Dev server running** at a known URL (default `http://localhost:3000` unless overridden).
-2. **Test account** with broad permissions (so every route resolves; routes hidden behind permissions get skipped silently otherwise).
-3. **Route manifest** at `ai/audits/ui-crawl-inventory.json` (auto-generated on first run if missing — calls the inventory subskill).
+2. **Test account** with broad permissions (so every route resolves). Routes hidden behind permissions are **not** dropped silently — they surface as `permission-blocked` in the SKIPPED/BLOCKED ledger (Phase 4), so a narrow account reads as a coverage gap rather than a clean pass.
+3. **Route manifest** at `ai/audits/ui-crawl-inventory.json` (auto-generated on first run if missing — built by the Phase 1 inventory step, `lib/inventory.ts`; see Implementation notes).
 4. **Playwright + axe installed**: `@playwright/test`, `@axe-core/playwright`. Auto-installed if missing.
 
 ## What it produces
@@ -58,10 +58,13 @@ It's **detect-only**. Fixing is a separate step (`/ui-crawl-fix` or manual). The
 
 ### Phase 2 — Auth setup
 - Log in once via the project's auth flow (uses selectors documented in `_extracted-idioms.md`).
+- **Auth-success gate — assert before saving state.** After login, load a KNOWN-authenticated route and assert the final URL ≠ the login path AND a known post-auth element is present (app shell / user menu). If that assertion fails → **HALT** with `RENDER BLOCKED — establish an authenticated session (storageState / login step) and re-run`. Never save a login-wall `storageState` and crawl every route against it: an expired or failed session would screenshot + axe-scan the login page for all 146 routes and report them clean — a fabricated `critical=0`. A blocked session is a HALT, not a silent proceed.
 - Save `storageState` to `tests/crawl/.auth/state.json`. Reused by all crawler workers.
 
 ### Phase 3 — Parallel crawl
 For each crawlable route (filters out auth pages, dynamic-param routes like `:id/edit`, full-screen editors), in parallel workers (default 3):
+
+**Per-route auth guard (runs first).** After the initial navigation, if the final URL is the login path OR the response was a 403, mark the route `BLOCKED` (reason `redirected-to-login` / `permission-blocked`), record it in the SKIPPED/BLOCKED ledger, and skip every capture step below. A login-wall render must NEVER feed a screenshot, an axe score, an overflow check, or the `critical=0` summary, and such a route is NEVER scored a clean `low`/`pass`. (Harness present but this one route blocked = per-route BLOCKED; no harness at all = SKIPPED — see Hard rules.)
 
 1. Visit route, wait for `networkidle`.
 2. Attach probes: console errors, page errors, network 4xx/5xx, request failures.
@@ -81,12 +84,14 @@ For each crawlable route (filters out auth pages, dynamic-param routes like `:id
 
 ### Phase 4 — Aggregate
 - Read all per-route findings.
-- Compute severity per route:
+- **Partition rendered vs not-captured first.** BLOCKED (auth guard) and SKIPPED (pre-crawl filter) routes are **never scored** — a login-wall or permission-denied render contributes nothing to any severity, axe count, overflow tally, or the `critical=0` summary. Only rendered routes are ranked.
+- Compute severity per **rendered** route:
   - Critical: failed load OR uncaught JS error
   - High: page errors OR 5xx network OR multiple critical axe OR broken dialog trigger
   - Medium: overflow at a viewport, moderate axe density
   - Low: single contrast issue, light findings
-- Rank all routes by severity score.
+- Rank all rendered routes by severity score.
+- **Emit the SKIPPED/BLOCKED ledger.** One reason-coded list of every route that was not scored, one reason per row: `permission-blocked` / `redirected-to-login` / `dynamic-param-no-seed` / `full-screen-editor`. Write it to `ui-crawl-findings.md` (a `## Not captured` section) AND `ui-crawl-findings.json` (a `skipped[]` array), and print a `rendered: N | skipped/blocked: M (breakdown)` line in the terminal summary. A silently-dropped route reads as "covered" when it wasn't.
 - Output ranked markdown report + machine-readable JSON.
 
 ## Flags
@@ -131,12 +136,32 @@ severity = critical if score ≥ 80
          | low      otherwise
 ```
 
+## Next-step routing (findings.md footer)
+
+Because this command is detect-only, the report closes with a routing layer over the ranked JSON — it re-derives nothing, it just points each tier at its handoff:
+
+```
+## What to do next
+
+- **Mechanical findings** (color-contrast, button-name, label, missing `rel`, hardcoded translations)
+  → `/ui-crawl-fix` — wrapper-level auto-fix, one class per commit.
+- **Behavioral findings** (broken dialog trigger, page won't load, network 5xx, overflow needing layout judgment)
+  → human triage — the per-route rows; these need eyes, not a codemod.
+- **Whole-surface below-bar** (a route/area weak across hierarchy, spacing, and states — not one mechanical rule)
+  → `/ui-sweep` (deep specialist sweep) · `/redesign <surface>` (rebuild) · `/art-direct` (visual direction).
+- **BLOCKED / SKIPPED routes** (from the `## Not captured` ledger)
+  → close the coverage gap: authenticate (`redirected-to-login`), widen the test account (`permission-blocked`), or seed data (`dynamic-param-no-seed`), then re-run.
+```
+
+The footer only routes; every tier maps onto severities already in the JSON — it never re-computes a finding.
+
 ## Hard rules
 
 - **No dev-server-affecting changes during crawl.** Don't trigger HMR. The crawl is read-only against the running app.
 - **No fixes.** This command produces findings; `/ui-crawl-fix` (or manual edits) apply fixes.
 - **Credentials in `tests/crawl/.env` only.** Never log password to console. Never commit `.env` (gitignored).
-- **Skip dynamic-param routes** (`:id/edit`, etc.) — no representative ID without seed data. Surfaced as "skipped" in the report.
+- **Skip dynamic-param routes** (`:id/edit`, etc.) — no representative ID without seed data. Surfaced in the SKIPPED/BLOCKED ledger as `dynamic-param-no-seed`, never silently dropped.
+- **Auth-gated routes: BLOCKED ≠ SKIPPED ≠ clean.** If the Phase-2 auth-success gate fails, HALT `RENDER BLOCKED` — do not crawl every route against a login wall. Per route, a runtime redirect to the login path or a 403 is `BLOCKED`, never a clean `low`/`pass`, and never fed to a screenshot, an axe score, or the `critical=0` summary. Distinguish honestly: harness present but blocked = HALT / per-route BLOCKED; no harness at all = SKIPPED.
 - **Per-route timeout** at 90s. A page that doesn't load is logged as `loadOk: false` and the crawl continues.
 - **One inventory rebuild per run max.** Inventory is mechanical; the command does not re-parse routes every run unless `--refresh-inventory` is set.
 
@@ -145,22 +170,26 @@ severity = critical if score ≥ 80
 ```
 [crawl] inventory: 165 routes | crawlable: 146 | workers: 3 | matrix: standard
 [setup] storageState saved (admin@admin.com)
+[setup] auth-success gate: OK (dashboard resolved · url≠/login · app-shell present)
 [crawl] 1/146 — dashboard :: dashboard (4.2s)
 [crawl] 2/146 — inventory :: products (7.1s)
 ...
 [crawl] 146/146 — webhooks :: webhooks (3.4s)
 [crawl] complete in 47m23s
-[aggregate] severity: critical=0 high=1 medium=49 low=96
+[aggregate] rendered: 137 | skipped/blocked: 28 (dynamic-param-no-seed=12, full-screen-editor=4, auth-page=3, permission-blocked=7, redirected-to-login=2)
+[aggregate] severity (rendered only): critical=0 high=1 medium=49 low=87
 [aggregate] top issues: color-contrast (778 nodes / 79 routes), button-name (347/22), label (338/38)
 [aggregate] reports written:
-  - ai/audits/ui-crawl-findings.md
-  - ai/audits/ui-crawl-findings.json
+  - ai/audits/ui-crawl-findings.md    (+ ## Not captured: 28 routes, reason-coded)
+  - ai/audits/ui-crawl-findings.json  (+ skipped[] with reason codes)
 ```
 
 ## Cross-references
 
 - `/ui-crawl-fix` — auto-fix the mechanical findings (contrast tokens, missing aria-label, label-for wiring, etc.).
 - `/ui-sweep` — deeper UI/UX specialist sweep with HTML report and metrics; uses `/ui-crawl` findings as one input.
+- `/redesign <surface>` — rebuild a surface that scores below-bar across the board (not one mechanical rule); the whole-surface handoff from the report's footer.
+- `/art-direct` — set or re-apply visual direction when a surface needs a design point of view, not a codemod fix.
 - `/enhance-ui <surface>` — targeted polish on one surface.
 - `/design-review` — qualitative review without changes.
 - `/align-scan` — structural-quality scan (overlaps on a11y / token classes; this command goes deeper on per-route browser-driven detection).

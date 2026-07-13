@@ -61,9 +61,11 @@ Prevents the three failures users punish: confusing labels, broken keyboard nav,
 - Lighthouse CI budget on a11y score (≥ 95) gating PRs.
 - Visual regression via Playwright / Chromatic on critical pages.
 
-## Axis catalog (cited by `ui-design-sweep` closure verbs)
+## Axis catalog (the usability floor + `ui-design-sweep` closure map)
 
-The skill `ui-design-sweep.md` operates from a closed vocabulary of 19 verbs; each verb closes a finding on ONE of these axes. This catalog is the single source of truth — when a tool reports "design-token drift" or "hierarchy violation", it cites the axis name from this list.
+**16 axes / 19 closure verbs** — the counts differ on purpose: some axes carry more than one verb (the `tokens` axis has both `consolidate-tokens` and `extract-token`; `states` has `wire-empty` / `wire-loading` / `wire-error-state`). 19 ≠ 16 is expected here, not a drift — downstream consumers cite these same two numbers.
+
+This catalog plays a DUAL role and is the single source of truth for both. (1) It is the **closed axis map `ui-design-sweep.md` (this pack) closes against**: that skill operates from a closed vocabulary of 19 verbs, each of which closes a finding on ONE of these axes — when a tool reports "design-token drift" or "hierarchy violation", it cites the axis name from this list. (2) It is the pack-wide **canonical usability FLOOR** that `creative-director` / `art-direct` (this pack) delegate to and self-check their OWN inventions against — never re-auditing the existing design's floor, never inventing a 17th axis — and that `redesign` / `enhance-ui` / `ux-reviewer` (this pack) score existing surfaces against. Re-scoping this section to only one of those roles silently breaks the delegation the other consumers depend on — extend it, never narrow it.
 
 | Axis | Heuristic | Closure verbs that operate on it |
 |---|---|---|
@@ -84,4 +86,4 @@ The skill `ui-design-sweep.md` operates from a closed vocabulary of 19 verbs; ea
 | **affordance** | Action elements LOOK interactive (hover / focus / cursor); icon-only has `aria-label`; disabled buttons explain WHY. | `clarify-affordance` |
 | **surface** | Each page matches the prototypical example for its surface type (list / detail / form / modal); divergent skeletons are drift. | `normalize-surface` |
 
-Any UI/UX finding NOT on this catalog is either (a) an architectural concern (route to `architectural-diagnosis`), (b) a code-structure concern (route to `refactoring-sweep` / `align-recheck`), or (c) outside scope — halt and surface, do not invent a 17th axis.
+Any UI/UX finding NOT on this catalog is either (a) an architectural concern (route to `architectural-diagnosis` — code-quality pack), (b) a code-structure concern (route to `refactoring-sweep` — code-quality pack — or `/align-recheck`, align pack), or (c) outside scope — halt and surface, do not invent a 17th axis.

@@ -6,6 +6,8 @@ pack: ui-ux
 
 # /ui-sweep [<phase>]
 
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/ui-sweep <phase> --plan` runs the **read-only** phases (PRE-FLIGHT → SCAN → METRICS → PLAN — the 8 detectors + coverage metrics + the user-flow plan), writes the fix plan to `.claude/plans/`, and exits **before the FIX phase** — no code edits, no baseline overwrite. Execute it later with `/execute-plan <file>` (or hand it to any tool). The in-pack `ai/ui-sweep/ledger.md` is the deep report-based handoff; `--plan` is the tool-agnostic spelling of the same stop-before-FIX boundary.
+
 ## The Premise (read this first)
 
 **Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — when routing to `/align-scan` for SOLID / structural work, use linked vocabulary (single source of truth).
@@ -208,7 +210,7 @@ This grouping is meaningful because a user flow is reviewed END-TO-END (the user
 End-of-sweep output: `ai/ui-sweep/report-<YYYY-MM-DD>.html`. Includes:
 
 - **Per-page section**: screenshot at 3 breakpoints, hierarchy score, ui-state coverage, drift vs baseline.
-- **Coverage dashboard**: token / component / ui-state coverage % with target lines.
+- **Coverage dashboard**: token / component / ui-state coverage % with target lines, plus the `rendered / skipped / blocked` route count (BLOCKED auth-gated routes are excluded from every coverage %, never scored as `pass`).
 - **Cross-surface matrix**: visual table of pages × surface-type-conformance.
 - **Phase-by-phase progress**: pages × phases with status.
 - **Top 10 worst surfaces**: ranked by combined score.
@@ -220,7 +222,8 @@ Browse-able. Shareable with PMs / designers.
 
 - `PROJECT_KIND` is `frontend-*`.
 - `_extracted-idioms.md` populated with: design tokens (per category), shared wrappers list, surface-type prototypes, voice guide (optional), responsive breakpoints.
-- Playwright MCP wired (verify-with-playwright skill works) — for screenshots + DOM analysis.
+- Playwright MCP wired (the `visual-check` skill (frontend pack) works) — for screenshots + DOM analysis. `visual-check` carries the authenticated + blocked-render contract the ui-ux design commands standardize on.
+- **Authenticated session for auth-gated routes.** Capturing / scoring dashboard · orders · settings (anything behind login) requires a real session (`storageState` / a login step — see `visual-check`); a headless browser with no session renders the login wall, and a page scored against a login-wall screenshot is unverified. A blocked render HALTs — it is NOT "no harness". See the auth Hard rule below.
 - Mechanical CI green at HEAD.
 - Working tree clean.
 
@@ -235,6 +238,7 @@ Browse-able. Shareable with PMs / designers.
 - `--baseline-only` — capture baseline screenshots; no detection. Use to set the first baseline.
 - `--report-only` — re-generate the HTML report from existing ledger; no scan.
 - `--allow-dirty` — proceed with uncommitted changes.
+- `--plan` — run the read-only phases through PLAN, write the tool-agnostic fix plan to `.claude/plans/`, stop before FIX (universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md)).
 
 ## Phase 1 — Understand
 
@@ -308,6 +312,7 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 ## Phase 5 — Update
 
 - `ai/ui-sweep/ledger.md` — UI/UX-specific findings (separate from align's ledger to avoid mixing structural + visual concerns).
+- `ai/ui-sweep/ledger.md § render-coverage` — the reason-coded SKIPPED/BLOCKED rows + the `rendered N / skipped M / blocked K` count line (a login-wall render is recorded BLOCKED here, never as a scored baseline; BLOCKED routes are excluded from every coverage %).
 - `ai/ui-sweep/baseline/<iso>/` — screenshots.
 - `ai/ui-sweep/hierarchy/` — hierarchy heatmaps.
 - `ai/ui-sweep/report-<date>.html` — generated report.
@@ -323,13 +328,14 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 ## Phase 7 — Improve
 
 - Coverage targets become trends over time — surface "Q1 token coverage 73% → Q2 89% → Q3 96% (target met)".
-- Pages chronically below hierarchy score 80 → flag for design review.
+- Pages chronically below hierarchy score 80 → flag for design review, and when the fix is structural (not token-level) hand the surface to re-composition: `/redesign` (rebuild inside the existing visual language) or `/art-direct` (when it needs a new language).
 - Drift above 30% from baseline without explanation → halt, surface "unexpected visual change since last sweep — was this intentional?"
 
 ## Hard rules
 
 - **Frontend only.** Halts on non-frontend.
 - **Playwright required.** No screenshots = no visual detection. Halts if MCP missing.
+- **Authenticated session before capturing / scoring auth-gated routes.** After login, load a KNOWN-authenticated route and assert the URL ≠ the login path AND a known post-auth element is present. If that assertion fails → **HALT** with `RENDER BLOCKED — establish an authenticated session (storageState / login step) and re-run`. Then PER ROUTE, detect a runtime redirect to the login wall or a 403 → mark that route **BLOCKED**, never a clean `low` / `pass` — a login-wall screenshot must never feed a hierarchy score, drift %, coverage number, or the coverage-dashboard summary. Distinguish the two honestly: harness present but blocked = HALT (or per-route BLOCKED); NO harness at all = SKIPPED (the Playwright-missing halt above). Emit a reason-coded SKIPPED/BLOCKED ledger (`permission-blocked` / `redirected-to-login` / `dynamic-param-no-seed` / `full-screen-editor`) into `ai/ui-sweep/ledger.md` + a `rendered N / skipped M / blocked K` count line in both the ledger and the terminal summary — a silently-dropped route reads as "covered" when it wasn't.
 - **UI/UX ledger separate from align ledger.** Different concerns; mixing them blurs phase progress.
 - **Coverage metrics quantified, not subjective.** Every finding includes a measured coverage % and target.
 - **Phasing by user flow, not by class.** A flow ships UI-cohesive together.
@@ -337,7 +343,8 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 
 ## Failure modes
 
-- **Playwright not wired** → halt; route to install MCP + verify-with-playwright skill.
+- **Playwright not wired** (NO harness) → halt; route to install MCP + the `visual-check` skill (frontend pack). This is SKIPPED-class, distinct from the BLOCKED render below.
+- **Auth-gated route renders the login wall** (redirect / 403 / post-auth marker absent) → mark that route **BLOCKED**, never scored `low` / `pass`; if the up-front session assertion fails, the whole run HALTs with `RENDER BLOCKED — establish an authenticated session and re-run`. A login-wall screenshot must never become a page baseline or feed drift %. See the auth Hard rule.
 - **No tokens in idioms** → halt; route to `/setup-project --refine` to populate token inventory.
 - **No surface prototypes in idioms** → cross-surface consistency detector skipped (warned).
 - **Too many findings on first sweep** (> 500) → recommend `--first-run`.
@@ -375,7 +382,7 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 
 ### UI-UX command map (which one to reach for)
 
-Six commands touch UI surfaces — they differ by intent, scope, and whether they write. Pick by the verb you actually want:
+The ui-ux pack has ten commands; the nine general-purpose ones are below (the tenth, `/add-theme-variant`, is the multi-theme-only specialist — adds a new theme slot; see its own docs). They differ by intent, scope, and whether they write. (The global `/polish` also routes `frontend-*` into the same 19-verb vocabulary, but it is the simple-surface front door, not a ui-ux specialist — see the note under the table.) Pick by the verb you actually want:
 
 | Command | Intent | Scope | Writes code? |
 |---|---|---|---|
@@ -384,9 +391,14 @@ Six commands touch UI surfaces — they differ by intent, scope, and whether the
 | `/ui-sweep` (this) | **deep** — specialist sweep with quantified metrics + HTML visual report + baselines | project-wide | YES (FIX phase) |
 | `/enhance-ui` | **iterate** — visual polish + variant exploration on ONE area | single surface | YES |
 | `/design-review` | **audit** — cite-or-halt review of changed UI (UX + design-system + a11y) | changed files / screenshot | NO (audit only) |
-| `/polish` | **simple-surface** — the one-command entry that routes `frontend-*` into the same 19-verb vocabulary | scope arg or whole project | YES |
+| `/redesign` | **re-compose** — rebuild a page/flow's structure INSIDE the already-decided visual language | one surface / flow | YES |
+| `/art-direct` | **direct** — invent + score a NEW visual language from product goals, then build it | scope arg | YES (designs then builds) |
+| `/grab-site` | **grab** — faithfully mirror a live site into real static HTML/CSS (real assets, opens offline) | an external URL | YES (new folder) |
+| `/clone-design` | **clone** — extract a reference's design SYSTEM into brand-neutral HTML/CSS, verified by pixel-diff | an external URL / screenshot | YES (new folder) |
 
-Rule of thumb: detect with `/ui-crawl`, fix routine findings with `/ui-crawl-fix`, go deep + measurable with `/ui-sweep`, polish/explore one area with `/enhance-ui`, gate a change with `/design-review`, or take the simple-surface entry with `/polish`.
+`/polish` (global, not a ui-ux specialist): the simple-surface front door that routes `frontend-*` into the same 19-verb vocabulary — scope arg or whole project, writes code.
+
+Rule of thumb: detect with `/ui-crawl`, fix routine findings with `/ui-crawl-fix`, go deep + measurable with `/ui-sweep`, polish/explore one area with `/enhance-ui`, gate a change with `/design-review`. When a surface scores **below floor** (hierarchy < 80, systemic cross-surface drift) and the fix is structural rather than token-level, hand it off to re-composition — `/redesign` to rebuild it in the existing visual language, `/art-direct` when it needs a new language rather than a rework. For a full external site, `/grab-site` (faithful real-asset mirror) or `/clone-design` (brand-neutral design system). The global `/polish` is the simple-surface entry into the same 19-verb vocabulary.
 
 ### Sibling commands
 - `/enhance-ui <description>` — single-area version.
@@ -396,8 +408,8 @@ Rule of thumb: detect with `/ui-crawl`, fix routine findings with `/ui-crawl-fix
 ### Skills
 - `ui-design-sweep` — closed 19-verb closure vocabulary (the spec this command's 8 detectors dispatch into).
 - `design-iterate` — visual variant generator (dispatched with --with-iterate).
-- `verify-with-playwright` — screenshots + DOM analysis (required infra).
-- `a11y-scan` — a11y subset (this command's a11y goes deeper but uses the skill's primitives).
+- `visual-check` (frontend pack) — screenshots + DOM analysis (the required render harness); carries the authenticated + blocked-render contract this command's auth Hard rule enforces. If it is absent, fall back to the Playwright MCP directly under the same auth contract — never silently skip the render.
+- `a11y-quick-check` (in-pack) — the a11y detector `/redesign` uses (focus order, labels, contrast, tap-targets); this command's a11y axis goes deeper but dispatches its primitives.
 
 ### Rules
 - `.claude/rules/align-discipline.md` — closure-verb discipline (this command extends with UI/UX-specific verbs).
