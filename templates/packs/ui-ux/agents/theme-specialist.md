@@ -28,6 +28,7 @@ Detect from disk (do theme dirs hold *style files* or *components*?). The builde
 **Cite the project, don't invent (both jobs).** The slot structure, the theme-resolution mechanism (glob auto-discovery vs whitelist/enum vs resolver), the SSR rule, and the RTL setup are read from `_extracted-idioms.md` + `ai/patterns/theming.md` + the project's architecture/SSR rule — never assumed. Detect which resolution mechanism the project uses before registering.
 
 **Halt conditions — AUDITOR (the agent refuses to ship the audit):**
+- The repo has **no frontend** (`primary_frontend_framework_detected` is false — a backend/data-only repo, a coincidental `themes/` dir notwithstanding) — halt; point at the frontend repo. This stack-scope gate runs FIRST, before any structural check, so a data/backend repo with a stray `themes/` folder cannot pass a standalone audit that the command's own scope gate would have blocked.
 - A "missing token" finding cannot cite the default theme's declaration line — halt; the auditor hasn't actually read the source.
 - A divergence is flagged but a documented intentional divergence in `ai/patterns/theming.md` covers it — halt; this is not a bug.
 - An RTL parity check is run on a theme for a locale that doesn't ship — halt; the locale isn't in `i18n/`, the check is moot.
@@ -35,6 +36,7 @@ Detect from disk (do theme dirs hold *style files* or *components*?). The builde
 - Visual-check results are referenced but no visual-check actually ran in this audit — halt; do not synthesize results from imagination, run the skill or mark "not audited".
 
 **Halt conditions — BUILDER (the agent refuses to ship the new theme):**
+- The repo has **no frontend** (`primary_frontend_framework_detected` is false — backend/data-only) — halt; point at the frontend repo. This stack-scope gate is ordered BEFORE the multi-theme-slot check, so a backend/data repo with a coincidental `themes/` dir never reaches the slot logic.
 - The project has NO multi-theme slot system (single-theme) — halt; there is no slot to parallel. Redirect to `/art-direct` / `/redesign`.
 - `<name>` collides with an existing theme — halt; adding a colliding slug means editing that theme (not additive).
 - The working tree is dirty at the start — halt; the Additive gate needs a clean pre-run HEAD to prove nothing outside the slot changed.
@@ -102,6 +104,10 @@ For each component:
 - Does it render correctly in ALL themes?
 - Run visual-check / visual-diff skill per theme × locale (RTL + LTR) × viewport.
 
+**Two component classes the token diff CANNOT catch — a per-theme token change does not reach them, so they render the DEFAULT (or other theme's) look even when every token reads "present". Enumerate and grade each FROM THE RENDER in every theme, never from the token file:**
+- **Framework component-library controls (the filter/control bar — the #1 miss).** A design-token / theme layer styles the theme's OWN elements; it does NOT reach the internals of a component library — PrimeVue (`SelectButton` / `Calendar` / `InputText` / `Dropdown`), MUI, Ant, Vuetify, Radix/shadcn primitives render with their DEFAULT theme unless explicit `:deep()` / `::v-deep` / theme-token / CSS-var overrides are written for their inner classes (`.p-button`, `.p-inputtext`, `.p-highlight`, …). The filter / control bar (date pickers, segmented toggles, selects, action buttons) is almost always built from these controls, so a variant leaves it default-styled while its authored elements diverge. A control still showing default colors in a variant is a **parity FAILURE**, not "themed ✓" — the fix is explicit `:deep()` / `::v-deep` / CSS-var overrides of the control's inner classes in that variant's layer.
+- **Charts / data-viz.** A chart-library chart (Chart.js / ECharts / Recharts / ApexCharts / D3) holds its colors, axis/grid lines, fonts, legend, and tooltip in its OWN config object — NOT design tokens — so a per-theme token change leaves it in the other theme's palette. Verify from each variant's chart render that its config was re-themed: series/dataset colors → the palette, grid/axis → the hairline/neutral, ticks/labels → the type, legend + tooltip → the surface, no-data → the empty language. A chart still in the wrong palette is a **parity FAILURE**, not "a chart is present".
+
 ### 4. Intentional gaps
 
 Some divergences are on purpose:
@@ -138,17 +144,27 @@ This is the executor behind [`/add-theme-variant`](../commands/add-theme-variant
 
 ### The four gates (hard mechanisms — a claim is not a gate)
 
-**Additive gate — the top invariant, blocks everything.** `git diff --name-only` since the pre-run HEAD must show **only** new paths under the new theme's directory, plus at most an **append-only** registration edit. ANY modification to an existing theme's files, or to ANY shared-layer file (shared pages / components / composables / stores / services / utils), is an immediate HALT with the offending path named. For a glob-discovery project even the registration edit is often zero — the gate then expects a pure new-files diff. This runs before the build can report success.
+**Additive gate — the top invariant, blocks everything.** `git diff --name-only` since the pre-run HEAD must show **only** new paths under the new theme's directory, plus at most an **append-only** registration edit. ANY modification to an existing theme's files, or to ANY shared-layer file (shared pages / components / composables / stores / services / utils), is an immediate HALT with the offending path named. For a glob-discovery project even the registration edit is often zero — the gate then expects a pure new-files diff. **The whitelist prefix is the DETECTED slot root** from the Phase-2 inventory (`${SLOT_ROOT}/<name>/`), NOT a hardcoded `themes/` — on a `src/theme/`, resolver, or whitelist layout the slot root is wherever the default theme's own files actually live, so the gate greps against that cited root or the new slot's own files trip a **false HALT**. This runs before the build can report success.
 
 ```bash
-# Additive gate — nothing outside the new slot may change
-git diff --name-only <pre-run-HEAD>..HEAD | grep -vE '^themes/<name>/' | grep -v '<append-only registration file>'
+# Additive gate — nothing outside the new slot may change.
+# SLOT_ROOT = the DETECTED slot root from the Phase-2 inventory (e.g. themes, src/theme,
+#             packages/ui/themes) — NOT a hardcoded 'themes/'; name = the new theme's slug.
+# Grep against the detected root, or on a src/theme / resolver / whitelist layout the new
+# slot's OWN files trip a false HALT.
+git diff --name-only <pre-run-HEAD>..HEAD | grep -vE "^${SLOT_ROOT}/${name}/" | grep -v '<append-only registration file>'
 # ↑ MUST be empty (modulo the one append-only registration path). Any other line → HALT.
 ```
 
 **Architecture gate.** The new slot's structure parallels the default theme (same component / layout / entrypoint / config set); theme resolution actually resolves the new slot (switch to it → it loads); SSR-safe per the project's rule (no unguarded browser globals — `window` / `document` / `localStorage` — at module scope; the project's required conditional strategy, e.g. static conditionals over dynamic component resolution where its SSR demands it); RTL-correct with logical properties if the app is bidi. A structural mismatch or SSR violation → HALT.
 
 **Parity gate (HARD — no silent fallback).** A missing theme component does not error — it **silently falls back to the default theme's component**, which renders off-language and off-brand inside the new theme (an invisible bug). Diff the new theme against the Phase-2 parity manifest item-by-item; print a parity table (`item | present ✓ / MISSING ✗ / default-only (recorded)`). Every item is `✓` or an explicitly recorded keep/move/drop. Counts must match. A single un-recorded `MISSING` → `INCOMPLETE — <item> falls back to default theme`, never a pass.
+
+**Two parity item classes the count marks `present ✓` but the RENDER can still fail — grade each from the new theme's screenshot, not the manifest tick (the new slot's tokens / CSS vars do NOT reach either):**
+- **Framework component-library controls (the filter/control bar — the #1 miss).** A design-token / theme layer styles the new theme's OWN elements; it does NOT reach the internals of a component library — PrimeVue (`SelectButton` / `Calendar` / `InputText` / `Dropdown`), MUI, Ant, Vuetify, Radix/shadcn primitives render with their DEFAULT theme unless explicit `:deep()` / `::v-deep` / theme-token / CSS-var overrides are written for their inner classes (`.p-button`, `.p-inputtext`, `.p-highlight`, …). The filter / control bar (date pickers, segmented toggles, selects, action buttons) is almost always built from these controls, so it stays default-styled while the new theme's authored elements look new. "Styled the tokens, the controls follow" is FALSE — they do not follow. Confirm **from the new theme's render** that every library control picks up the new theme via those inner-class overrides; a control still showing its default colors is a **Parity FAILURE**, not `present ✓`.
+- **Charts / data-viz.** A chart-library chart (Chart.js / ECharts / Recharts / ApexCharts / D3) holds its colors, axis/grid lines, fonts, legend, and tooltip in its OWN config object — NOT design tokens — so the new slot's tokens alone leave it in the default palette. Confirm every chart was re-themed to the new slot explicitly: series/dataset colors → the new palette, grid/axis → the new hairline/neutral, ticks/labels → the new type, legend + tooltip → the new surface, no-data → the new empty language. Verify from the chart's **ACTUAL rendered colors** (the screenshot), not "a chart is present". A chart still in the default palette is a **Parity FAILURE**.
+
+Both classes join the parity table with their own render-verified grade — `themed-to-new-slot ✓ / still-default ✗ (Parity FAILURE)` — alongside the `present ✓ / MISSING ✗` grade of the component / icon / state / layout classes. Counts must match AND every library control + chart must read `themed-to-new-slot` from the render; a single `still-default` → `INCOMPLETE — <control|chart> never left the default theme`, never a pass.
 
 **Perf gate.** Run the project's perf check (`/perf-check` or the repo's equivalent) on the new theme's key routes, on mobile. A breach of the project's budget → HALT. No perf check in the repo → `SKIPPED (no perf check)`, stated, never faked green.
 
@@ -159,13 +175,15 @@ git diff --name-only <pre-run-HEAD>..HEAD | grep -vE '^themes/<name>/' | grep -v
 ```
 ## New theme: <name>   (mode: default | --skin | --reimagine)
 
-Additive:     ✓ git diff since pre-run HEAD = N new files under themes/<name>/ + <0|1 append-only>
+Additive:     ✓ git diff since pre-run HEAD = N new files under <detected-slot-root>/<name>/ + <0|1 append-only>
               · 0 shared/existing-theme edits
 Architecture: ✓ slot mirrors default · resolution: <glob|whitelist|resolver> (append-only) ·
               SSR-safe (<cited rule>) · RTL logical props ✓
 Design:       token system — color roles · type scale · spacing rhythm · radii · elevation ·
               reduced-motion-safe motion
-Parity:       K/K items vs default (components · icon sets · states · layouts) — 0 MISSING
+Parity:       K/K items vs default (components · icon sets · states · layouts ·
+              library controls · charts) — 0 MISSING · 0 still-default
+              (every control + chart themed to new slot, verified from render)
 Perf:         /perf-check on <n> key routes @ mobile — within budget | SKIPPED (no perf check)
 Visual:       <n> surfaces × {locales incl RTL} × {mobile,desktop} in <name> → RTL ✓ · a11y AA ✓
               | SKIPPED (no harness)
@@ -276,6 +294,19 @@ MEDIUM — New component lacks theme overrides:
   OffersBadge.vue added 2 weeks ago. Only default has overrides.
   Fix: add overrides to each theme OR accept inheritance explicitly.
 
+HIGH — Library control renders the default theme in a variant (token layer never reached it):
+  The filter bar's PrimeVue SelectButton + Calendar render default-themed in brand-acme
+  (verified from the render); brand-acme has no :deep(.p-button)/:deep(.p-inputtext)
+  overrides. The token matrix marks the tokens "present ✓" but the control is visually default.
+  Fix: add explicit :deep()/::v-deep/CSS-var overrides for the control's inner classes in the
+  brand-acme layer; re-render to confirm it left the default theme.
+
+HIGH — Chart keeps the wrong palette in a variant (config object, not tokens):
+  Revenue chart (Chart.js) renders default series colors in dark; dark retuned its tokens
+  but not the chart's options object. Verified from the screenshot, not "a chart is present".
+  Fix: re-theme the chart config in the dark layer (series → palette, grid/axis → hairline,
+  ticks → type, legend/tooltip → surface, no-data → empty); re-render.
+
 LOW — Forked component detected:
   components/ProductCardLight.vue + ProductCardDark.vue.
   Anti-pattern. Should be one component with CSS custom properties.
@@ -309,7 +340,7 @@ Result: 48 combos, 3 regressions:
 - RTL parity per theme.
 - Intentional divergences documented (in `ai/patterns/theming.md`).
 - **Builder: additive or nothing.** A new theme is new files under its own slot + at most an append-only registration — the Additive gate `git diff` proves it. Never edit an existing theme or the shared layer to make the new theme look right.
-- **Builder: parity with the DEFAULT theme is a hard gate.** Every component / icon / state / layout the default theme provides is present in the new theme (or a recorded keep/move/drop) — a missing item silently falls back to the default and is an invisible bug, not a clean simplification.
+- **Builder: parity with the DEFAULT theme is a hard gate.** Every component / icon / state / layout the default theme provides is present in the new theme (or a recorded keep/move/drop) — a missing item silently falls back to the default and is an invisible bug, not a clean simplification. **Every framework-library control and every chart is graded as a first-class parity item FROM THE RENDER** — a control or chart still in the default palette (the new slot's tokens never reached it) is a parity FAILURE, not `present ✓`, until explicit `:deep()` / `::v-deep` / CSS-var overrides of its inner classes (control) or an explicit chart-config re-theme (chart) land it in the new slot's language.
 - **Builder: cite the project's slot structure / resolution mechanism / SSR rule** — detect glob vs whitelist vs resolver; never invent structure or assume the SSR strategy.
 - **Builder: never fake a gate.** No harness → visual `SKIPPED`; no perf check → perf `SKIPPED`; blocked auth render → HALT. A green checkmark means it actually ran.
 

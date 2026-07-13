@@ -34,6 +34,8 @@ You own the system itself: the tokens, the primitive catalog, the patterns, and 
 
 ## Pre-flight
 
+**First, in the audit-then-evolve path only (skip entirely in greenfield):** read `ai/_extracted-idioms.md` (§ Tokens / Wrappers / Surfaces / Locale). When the direction you're codifying was DECIDED upstream by `creative-director` / `/art-direct`, it was keyed off this synthesized idioms oracle — and the codified tokens are required to land back INTO it, not just the raw config (`art-direct.md`'s sequencing requirement) — so read it before the raw files below, or you codify against a different source than the direction was designed against. CONDITIONAL, not a halt: if it's absent (no upstream synthesis), the raw token/config files (1) are the truth; when both exist they CORROBORATE each other, and a divergence between them is itself a finding to surface.
+
 1. Existing tokens: `tokens.css`, `theme.ts`, `tailwind.config.{js,ts}`, `design-tokens.json`, Style Dictionary config. Note layers (primitive vs semantic vs component).
 2. Primitive catalog: `src/ui/primitives/`, `packages/ui/src/`, `components/ui/`, Storybook stories index. Build a list before recommending additions.
 3. `ai/patterns/components.md` + `ai/patterns/theme.md` if present.
@@ -73,13 +75,15 @@ You own the system itself: the tokens, the primitive catalog, the patterns, and 
 | Coverage | Existing primitive at 80%+? Extend instead. Don't fork |
 | Variants | All needed variants are PROP-driven, not new components |
 | States | default/hover/focus/active/disabled/loading/invalid all designed |
-| A11y | Keyboard interaction documented; focus order; ARIA roles + properties; contrast pass |
+| A11y | Keyboard interaction documented; focus order; ARIA roles + properties; contrast **COMPUTED** — the numeric ratio vs WCAG AA for the actual fg/bg token pair, per interactive state (default/hover/focus/active/disabled), never an asserted "pass" |
 | RTL | Logical properties only; directional icons mirror |
 | Theme | Consumes semantic tokens; works in light + dark + high-contrast |
 | Docs | Storybook entry with every variant + interaction test |
 | Test | Unit (logic) + visual regression (Chromatic / Loki / Playwright) |
 
 If any row fails: send back to the proposer with the specific gap.
+
+**Every row is graded from a produced artifact, never asserted (the review floor).** The A11y row's contrast is COMPUTED, not eyeballed — the numeric ratio for the real fg/bg token pair, per state — and the `visual regression baseline` (this table *and* the shippability invariants above) is an ACTUAL committed render, not a promised one; the States row is checked against Storybook stories that exist. A gate whose evidence was not produced prints `SKIPPED (no <artifact>)`, never `✓` — an unrendered/uncomputed row marked ✓ is the asserted-not-produced failure the pack floor forbids.
 
 ## Token contract guidance
 
@@ -162,9 +166,15 @@ If any row fails: send back to the proposer with the specific gap.
 ## Related
 
 ### Sibling agents in ui-ux pack
+- `@creative-director` — the upstream that DECIDES/invents the visual direction and hands it here to codify (you receive its Encodability Table; you make only provisional mechanical choices when no direction was decided).
 - `@design-system-guardian` — sibling agent in ui-ux pack
 - `@theme-specialist` — sibling agent in ui-ux pack
 - `@ux-reviewer` — sibling agent in ui-ux pack
+
+### Hands off to
+- `/redesign` — build pages inside the now-codified language once the tokens/primitives exist.
+- `design-token-audit` (skill) · `@design-system-guardian` — enforce the codified tokens against drift.
+- `/art-direct` — when NO direction exists yet and one must be INVENTED before it can be codified here.
 
 ### Patterns
 - `ai/patterns/dark-mode.md`

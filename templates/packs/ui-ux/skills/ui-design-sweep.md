@@ -58,6 +58,14 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 
 ## The 19 closure verbs
 
+### Cross-cutting carve-outs (framework-library controls · charts) — applied INSIDE the verbs below, NEVER a 20th verb
+
+Two element classes do NOT inherit the design-token / theme layer, so several verbs below carry a **carve-out**: when the fix TARGET is one of these, the standard token-swap procedure is wrong — it either misses the element entirely or gets reverted by the visual-baseline oracle. **The closed set stays 19 verbs / 16 axes — these are carve-outs on existing verbs, not new verbs. `unify-component` (verb 3) is NOT the answer here — it swaps a raw element for the project's OWN shared wrapper; these carve-outs style a LIBRARY's internals / a CHART's config in place.**
+
+**A. Framework component-library controls — the filter / control bar, the #1 miss.** A design-token / theme layer styles the project's OWN elements; it does NOT reach the internals of a component library — PrimeVue (`SelectButton` / `Calendar` / `InputText` / `Dropdown`), MUI, Ant, Vuetify, Radix / shadcn primitives render with their DEFAULT theme unless explicit `:deep()` / `::v-deep` / theme-token / CSS-var overrides are written for their inner classes (`.p-button`, `.p-inputtext`, `.p-highlight`, …). The filter / control bar (date pickers, segmented toggles, selects, action buttons) is almost always built from these controls, so it stays default-styled while authored elements look new. **"Styled the tokens, the controls follow" is FALSE — they do not follow.** So `consolidate-tokens`, `apply-type-scale`, `lift-contrast`, `align-focus-ring`, and `normalize-motion` carve this out: when the site is a library control, the fix is explicit `:deep()` / `::v-deep` / theme-token / CSS-var overrides on the library's inner classes, and each control — especially the whole filter / control bar — is graded as a **first-class component from the RENDER, `below-bar` until it visibly matches the target language.**
+
+**B. Charts / data-viz.** A chart-library chart (Chart.js / ECharts / Recharts / ApexCharts / D3) holds its colors, axis / grid lines, fonts, legend, and tooltip in its OWN config object — NOT design tokens — so token / theme changes alone leave it in the old palette, and blind-replacing a config literal with a `var(--token)` a canvas chart can't resolve makes the chart render wrong (the visual-baseline oracle then reverts + halts it). So `consolidate-tokens` and `lift-contrast` carve this out: detect a chart config object; do NOT blind-replace its literals with a token reference; re-theme the chart's config explicitly through its theming API — series / dataset colors → the palette, grid / axis → the hairline / neutral, ticks / labels → the type, legend + tooltip → the surface, no-data → the empty language — or resolve the token to a build-time literal the chart can consume. **Verify from the chart's ACTUAL rendered colors (the screenshot), not "a chart is present."**
+
 ### 1. consolidate-tokens
 
 **Fingerprint**:
@@ -70,6 +78,8 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 3. Replace every hardcoded site in one fix (one verb = one PR-able batch, even if 50 sites).
 4. Update test snapshots if any pin colors.
 5. Run visual baseline: per-route screenshots before/after must be pixel-equivalent (within tolerance: ±1 channel for color rounding).
+
+**Carve-out (library controls · charts)** — see "Cross-cutting carve-outs" above: if a hardcoded value lives on a **component-library control's inner class** (`.p-inputtext`, `.p-highlight`, …) or inside a **chart config object**, do NOT blind-replace it with `var(--token)`. A canvas chart can't resolve a CSS var and the library control's inner class never sees your token — the swap either renders the chart wrong (baseline oracle reverts + halts) or silently no-ops on the control. Fix the control via `:deep()` / theme-token override; re-theme the chart through its config API (or resolve the token to a build-time literal) and verify from the rendered chart pixels.
 
 **Verify**: visual diff < 0.5%; a11y re-check (contrast didn't drop); lint green.
 
@@ -151,6 +161,8 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 2. Pick the nearest matching scale step.
 3. Replace the literal with the scale token (`text-base` / `theme.fontSize.lg` / `var(--text-md)`).
 4. Verify the visual change is intentional — sometimes a designer's 17.5px IS load-bearing; halt if uncertain and surface to user.
+
+**Carve-out (library controls)** — see "Cross-cutting carve-outs" above: a component-library control's font-size lives on the library's inner class (`.p-button`, `.p-inputtext`), not on your element, so a scale token written at your level never reaches it. Snap it via a `:deep()` / `::v-deep` / theme-token override on the control's inner class, and grade the control from the render — the token layer does not reach it.
 
 **Verify**: visual baseline < 2% diff (font-size delta is small); no remaining literal `font-size` outside scale; a11y zoom check still passes.
 
@@ -242,6 +254,8 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 3. Replace the literal / token at all instances of the same role.
 4. Re-verify the new ratio at every interactive state (default / hover / focus / disabled).
 
+**Carve-out (library controls · charts)** — see "Cross-cutting carve-outs" above: a failing ratio on a **default-themed library control** (`.p-*` button border / placeholder / disabled text) is fixed by a `:deep()` / `::v-deep` / CSS-var override on its inner class, not a token swap on your element (which never reaches it). A failing ratio inside a **chart** (series vs background, axis / tick label vs grid) is fixed in the chart's config — re-theme it, do NOT blind-replace a hex with `var(--token)` a canvas chart can't resolve — then re-measure the ratio from the rendered chart pixels (the screenshot), not from the source literals.
+
 **Verify**: axe-core / Lighthouse a11y score regains ≥95; visual baseline diff present (intentional); no other contrast regressions introduced.
 
 **Citation**: WCAG 2.2 SC 1.4.3 (Contrast Minimum) + 1.4.11 (Non-text Contrast); `ui-principles.md § Must: Color contrast ≥ 4.5:1 / 3:1`.
@@ -258,6 +272,8 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 2. Add `:focus-visible` style: 2-3px ring, color from design tokens, contrast ≥ 3:1.
 3. Use the project's focus-ring mixin / utility if one exists (`@apply focus-ring` / `theme.focus`).
 4. Verify keyboard tab order — ring must be visible at every step.
+
+**Carve-out (library controls)** — see "Cross-cutting carve-outs" above: a component-library control renders its OWN focus style (`.p-focus` / a default outline the library ships), so adding or replacing the `:focus-visible` ring requires a `:deep()` / `::v-deep` / theme-token override on the control's inner class — a ring style at your element level does not reach it. Grade the ring by keyboard-tabbing the RENDER, `below-bar` until the control's ring matches the target language. (The ring IS a rendered pixel change — this verb's visual baseline is required, not warn-only.)
 
 **Verify**: keyboard tab through the page → ring visible at every interactive element; `axe-core` focus-order check green.
 
@@ -289,6 +305,8 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 2. Replace literal with token.
 3. Wrap animation in `@media (prefers-reduced-motion: no-preference)` OR use the project's motion mixin that handles it.
 4. Re-target layout-thrashing animations to `transform` / `opacity`.
+
+**Carve-out (library controls)** — see "Cross-cutting carve-outs" above: a component-library control's transitions live in the library's own CSS (`.p-*` transition / animation rules), so a motion-token change on your element leaves the control's animation on the library default. Duration-match / retarget it via a `:deep()` / `::v-deep` override on the control's inner class, and confirm the change from the render — the token layer does not reach the control's animation.
 
 **Verify**: animations respect reduced-motion; no jank in DevTools performance panel; visual feel unchanged.
 
@@ -366,7 +384,10 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
    - `_extracted-idioms.md` populated with required sections (Tokens / Wrappers; Surfaces / Voice / Breakpoints if the verb requires).
    - Working tree clean (or `--allow-dirty` set on parent run).
    - Lint + typecheck green at HEAD.
-   - Visual baseline captured (Playwright MCP) — required for verbs 1-8 and 12-19; warn-only for verbs that don't change visuals (e.g., `align-focus-ring` only changes interactive states).
+   - Visual baseline captured (Playwright MCP). The skip-visual-verify decision is **deterministic** — read it off the verb, not off a judgement call:
+     - **Baseline REQUIRED (the baseline diff is the verify oracle): verbs 1-8 and 12-19.** This INCLUDES `align-focus-ring` (verb 13): its `:focus-visible` ring IS a rendered pixel change, verified by keyboard-tabbing the render — it is NOT a "doesn't change visuals" exception.
+     - **Render REQUIRED but baseline-EQUIVALENCE does not apply: the state-wiring verbs 9-11 (`wire-empty/loading/error-state`).** These intentionally add NEW UI, so a before/after equivalence diff would always differ; the verify oracle is instead the component-test render that shows the newly-wired state (see each verb's Verify). A render is still required — never skipped.
+     - **The ONLY warn-only case is Playwright unavailable** — then the whole skill degrades to `--no-visual-verify` and every affected row is marked `pending-review` (never `done`), per the Playwright-not-wired failure mode. There is NO per-verb "this verb doesn't change visuals, skip the baseline" carve-out.
 3. **Apply the verb's procedure** above.
 4. **Verify**:
    - Lint green.
@@ -385,6 +406,7 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 - **Behaviour-preserving.** The page's data flow / API calls / route navigation are unchanged. Only visual / design-system / a11y attributes change.
 - **One verb per commit.** Don't bundle (`consolidate-tokens` + `wire-empty-state` in same commit is forbidden — they have different verify steps).
 - **No new abstractions outside the closed verb set.** If a finding doesn't match one of the 19 verbs, halt and surface — don't invent a 20th verb. Architectural moves go to `architectural-diagnosis`; new wrappers go through `extract-pattern` (which IS in the set). Responsive / breakpoint drift and dark-mode / theme-mode drift are deliberately NOT in the set — defer those to `/enhance-ui`.
+- **This skill re-PAINTS; it does not re-COMPOSE — route composition findings out.** The 19 verbs restyle elements in place; they do not move them. When a finding's real fix reshapes the **information architecture, grouping, section order, action ranking, or spatial rhythm** (relocating elements to build a stronger hierarchy, not restyling them where they sit), that is out of scope — mirroring `redesign.md` lens 15's recompose-not-repaint boundary (a same-skeleton restyle is polish; a redesign moves things). Route it to **`/redesign`** (rebuild the surface within the existing language), or **`/art-direct`** when the visual LANGUAGE itself must be decided first; a **whole-surface rethink** goes to the read-only **`/design-review`** to diagnose before any rebuild. Applying a paint verb to a composition problem leaves the surface half-fixed — halt and route, don't force-fit a verb.
 - **No frontend compensation for backend gaps.** If the API is missing a field, file a backend ticket — don't add a UI workaround. Mark the finding `halted` with explicit dependency.
 - **Visual baseline is the verify oracle.** Skipping baseline = skipping verify. If Playwright is unavailable, the verb runs in `--no-visual-verify` mode and the row is marked `pending-review` (not `done`).
 - **a11y must not regress.** Every verb's verify includes an a11y re-check; a verb that improves visuals but drops a11y score is a halt, not a fix.
@@ -411,7 +433,10 @@ citation: <WCAG / iOS HIG / Material / Refactoring UI / project-idiom reference>
 - `motion-audit.md` (this pack) — feeds `normalize-motion` findings.
 - `a11y-quick-check.md` (this pack) — feeds `lift-contrast` / `align-focus-ring` / `clarify-affordance` / `expand-tap-target`.
 - `design-iterate.md` (this pack) — for the visual variant generator step in `/enhance-ui --with-iterate` (NOT a closure verb — operates above this skill).
-- `verify-with-playwright.md` (frontend pack) — the visual verify primitive.
+- `redesign.md` (this pack) — the **re-COMPOSITION escalation**: a finding whose fix reshapes IA / grouping / order / rhythm is out of this skill's re-paint scope; route it here to rebuild the surface within the existing language (its lens 15 owns the recompose-not-repaint boundary + the canonical framework-control / chart carve-out vocabulary this skill mirrors).
+- `art-direct.md` (this pack) — the re-composition escalation when the **visual language itself** must be decided before rebuilding (upstream of `/redesign`); shares the framework-control / chart coverage-gate vocabulary.
+- `design-review.md` (this pack) — the **read-only whole-surface rethink** escalation: diagnose the surface before any rebuild when the fix is bigger than a verb.
+- `visual-check.md` (frontend pack) — the Playwright render / baseline / authenticated / blocked-render harness this skill's visual verify runs on (the same harness the ui-ux design commands — `/redesign`, `/art-direct`, `/add-theme-variant`, `design-iterate` — standardize on; a blocked auth-wall render HALTs, no harness → `pending-review`).
 - `api-consistency-audit.md` (backend pack) — sibling skill for backend `/polish`.
 - `schema-consistency-audit.md` (database pack) — sibling skill for data `/polish`.
 - `refactoring-sweep.md` (code-quality pack) — sibling closed-verb skill for code-structure.
