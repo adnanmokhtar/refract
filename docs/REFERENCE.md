@@ -24,6 +24,8 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [`/redesign` — from-scratch page rework with approval gate](#redesign--from-scratch-page-rework-with-approval-gate-v13)
 - [`/art-direct` — invent the visual direction](#art-direct--invent-the-visual-direction-v15)
 - [`/add-theme-variant` — add a new theme to a multi-theme app](#add-theme-variant--add-a-new-theme-to-a-multi-theme-app-v117)
+- [`/clone-design` — clone an external design reference into static HTML/CSS](#clone-design--clone-an-external-design-reference-into-static-htmlcss-v118)
+- [`/grab-site` — faithfully mirror a live website](#grab-site--faithfully-mirror-a-live-website-v119)
 - [Memory system](#memory-system)
 - [Validator scripts](#validator-scripts)
 - [Common pitfalls](#common-pitfalls)
@@ -887,6 +889,38 @@ Plus a **visual gate** — rendered across the project's key surfaces × every l
 **Design modes**: default builds a cohesive modern token system for the new theme; `--reimagine` hands the new slot's visual direction to `/art-direct` (scoped to the new slot only); `--skin` is a lighter modern token refresh over the default's structure. `--plan` stops at the plan. All modes design **only** the new theme's own components — never the existing themes.
 
 Executed by `theme-specialist`. Frontend / mobile only, multi-theme architectures only.
+
+## `/clone-design` — clone an external design reference into static HTML/CSS (v1.18+)
+
+`/clone-design <url-or-image> [<out-dir>]` is the pack's command for reproducing an **external** design — a live URL (`https://…/`) or a screenshot — as a folder of self-contained, framework-neutral HTML/CSS you own. It is the one ui-ux command whose source of truth is **outside the repo**: where `/redesign` rebuilds a page in the app's *existing* language and `/art-direct` *invents* one from product goals, `/clone-design` reproduces the language of a reference and measures success as **fidelity to that reference, from pixels**. It is also the only ui-ux command that is **project-optional and stack-agnostic** — Stage 1 writes plain HTML/CSS into a folder and needs no framework, no `_extracted-idioms.md`, not even a repo, so it does **not** HALT on a backend/empty repo.
+
+**Two stages — the command owns only the first.** This split is the design, not an implementation detail: fidelity is measurable and framework-independent, so it is nailed once in plain HTML before any port.
+
+- **Stage 1 — capture → build → verify (always).** Ingest the reference (URL → Playwright: computed styles + DOM + screenshots at 3 breakpoints = **measured** signal; image → vision extraction = **inferred** signal, flagged as lower-confidence), extract a real token system + a named section inventory, build a folder (`tokens.css`, `sections/*.html` each rendered once, one `<page>.html` per template composing sections, a `design-system.html` pane, an `index.html` gallery), then render each built page and **perceptually diff it against the reference**, looping until it clears the fidelity bar.
+- **Stage 2 — adopt (delegated, only under `--adopt`).** Land the verified clone in a target, **reusing existing commands** — `=tokens` → `/add-theme-variant` (extracted tokens as the new slot's direction); `=pages` → `/redesign` per surface with the clone as the reference; `=theme:shopify`/`=theme:wordpress` → emit platform templates from the section library; `=project` → scaffold from the clone. Default (no `--adopt`) stops at the folder.
+
+It builds along **four gates**:
+
+| Gate | Enforcement |
+|---|---|
+| **Capture** | The reference must actually render — real screenshots + a non-empty extraction. A blocked bot-wall / login / consent-gate / blank SSR shell HALTs (`CAPTURE BLOCKED`), never a clone built from an error page; no Playwright harness + a URL ref + no screenshots also HALTs (never guess a URL's design unseen). |
+| **Fidelity (hard)** | Per-page perceptual diff ≥ `--fidelity` (default 90), cross-checked on color ΔE / type / spacing / layout, verified **from the render**. Loops (fix worst region → re-render → re-diff) up to `--max-refine` (default 3); still below bar → `INCOMPLETE` with the worst region named, never a faked ✓. A page graded from the HTML instead of the screenshot is invalid. |
+| **Self-contained (hard)** | Each built page opens **offline** with no layout-blocking external request (fonts self-hosted / matched, images placeholdered at the right box, all CSS local). A clone that only renders against the live origin's CDN fails. |
+| **Brand-safety (hard)** | Reproduce the design **language**, placeholder the brand **identity** — logo → `[LOGO]`, brand/product names → a neutral placeholder, marketing copy → generic, photography → labelled placeholders. A leaked verbatim brand string / hotlinked logo is flagged and replaced. A deceptive 1:1 counterfeit of a real brand's live site is out of scope. |
+
+**Flags**: `--pages=<list>` / `--all-routes` (page-set scope; default is the primary set — home + one representative per detected template family), `--sections-only` (tokens + section library, skip page assembly), `--fidelity=<0-100>`, `--max-refine=<n>`, `--adopt=<tokens|pages|theme:<platform>|project>`, `--plan` (write the capture plan + exit before building). Reuses `visual-check`'s Playwright capture/render harness (inheriting its authenticated / blocked-render contract for the Capture gate) and `design-system-architect` for adopted-into-project token codification. Sibling to `/art-direct` (the command for when there is **no** external reference and the language must be invented from goals).
+
+## `/grab-site` — faithfully mirror a live website (v1.19+)
+
+`/grab-site <url> [<out-dir>]` **faithfully mirrors a live website** into a folder of static HTML/CSS that looks like the **original** — real HTML + real CSS + real images + real fonts, one page per **template family**, every remote reference rewritten to a local path so the folder opens offline. It is the **grab** counterpart to `/clone-design`: where `/clone-design` extracts a brand-neutral design *system* and **placeholders** the identity (logo → `[LOGO]`, photos → grey boxes — which is why pointing it at a real storefront yields a wireframe), `/grab-site` keeps the **real assets** so the result *is* the site's look. Use it when the answer to "what do you want?" is **"the same design as this site."**
+
+**"All pages" = one page per TEMPLATE FAMILY**, not every URL. A storefront's thousands of product/collection URLs share a handful of templates (home / collection / product / cart / search / page / article); the command auto-discovers one representative of each from the homepage's links (or takes an explicit `--pages` list) and grabs those.
+
+**It executes, it does not describe.** The mechanism is a **bundled stdlib-Python mirror script** (no `pip` / `wget` / `httrack` — only `python3`), materialized to `.claude/scripts/grab-site.py` and run: fetch with a real browser User-Agent → auto-discover the template pages → for each, download the HTML, every `<link>` CSS (recursing `@import` + `url()` for fonts and background images), every `<img>` `src`/`data-src`/`srcset` image, and `background-image:url()` → rewrite every remote reference to a local `assets/…` path and copy lazy `data-src` into `src` so images render without JS → write `<template>.html` per page + `_gallery.html`.
+
+**Four gates**: **Capture** (a non-200 / bot wall / blank shell = `CAPTURE FAILED` HALT — never mirror an error page), **Asset-localization** (the primary page's real CSS **and** its `<img src>` images must resolve to local `assets/`, else it is not a mirror), **Offline-open** (pages render standalone; residual remote background/`srcset` variants are reported, not hidden), **Template-coverage** (one page per discovered family, missing families named).
+
+**Honest limits, stated up front** (the nature of a static grab, not failures): JS interactions (sliders, add-to-cart, live search, mega-menu) are **not live** — it is a faithful *visual* copy; and the mirror carries the source site's **real content/images** — legitimate as a starting scaffold or reference, but **swap in your own brand/products before shipping.** `/grab-site` does not exist to pass a site off as its original owner (out of scope). **Flags**: `--pages=/a,/b`, `--max-assets=<N>` (runaway/size guard, default 600), `--plan`. **Stack-agnostic and project-optional** — writes plain HTML/CSS into a folder, needs only `python3`, does not HALT on a backend/empty repo. Sibling to `/clone-design`.
 
 ## Memory system
 

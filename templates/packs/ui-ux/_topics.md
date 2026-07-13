@@ -105,6 +105,22 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   fallback: commands/add-theme-variant.md
   cite_evidence: strict
 
+- name: clone-design
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: none — Stage 1 is project-optional (clones an EXTERNAL reference into a folder; needs no in-repo idioms). Only --adopt reads the project (delegates to /add-theme-variant + /redesign, which carry their own extracts_from).
+  sections: [premise, two_stage_split, comparison_table, when_to_use, when_not_to_use, args, four_pillars, flow, gates, output, hard_rules, failure_modes, cross_references, stack_scope]
+  fallback: commands/clone-design.md
+  cite_evidence: strict
+
+- name: grab-site
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: none — project-optional + stack-agnostic (mirrors an EXTERNAL live site into a folder; needs only python3, no in-repo idioms).
+  sections: [premise, comparison_table, when_to_use, when_not_to_use, args, mechanism_bundled_script, gates, output, hard_rules, failure_modes, cross_references, stack_scope]
+  fallback: commands/grab-site.md
+  cite_evidence: strict
+
 - name: ui-crawl
   kind: command
   triggers: { primary_frontend_framework_detected: true, e2e_browser_runner_supported: true }

@@ -2,12 +2,14 @@
 
 Cross-cuts the tool-adapter registry. Documents how each tool surfaces the UI/UX pack's artifacts when `--include=ui-ux` is selected by `/setup-project` (or auto-included for `frontend-*` projects).
 
-The pack provides seven commands and two critical skills:
+The pack provides ten commands and two critical skills:
 - `/design-review` — read-only audit (cite-or-halt)
 - `/enhance-ui <description>` — single-area enhancement orchestrator (cleanup → 3 variants → pick → verify)
 - **`/art-direct <scope>` (v1.5+)** — the pack's UPSTREAM creative command: it DECIDES and INVENTS the visual language (concept, original layouts/shapes/type/colour/motion, signature moments) from the product's GOALS, instead of enforcing or refining the existing one. Driven by the **`creative-director`** agent. Two modes (`--evolve` default / `--reimagine` greenfield). Diagnoses the current design with a cited point-of-view (15-label redline vocabulary), generates **three mechanically-distinct directions** (logo-swap + color-ramp-swap + ≥2-structural-axes checks), renders candidates (`design-iterate`) + scores them on a 9-lens Direction rubric, then **ONE approval gate**. Originality is the ceiling; the usability floor is delegated to `ux-reviewer` and never re-audited (no 17th axis). **Designs THEN builds** — on approval (or immediately under `--yes`) it **auto-runs** `design-system-architect` (codify tokens) → `/redesign` (rebuild pages within the now-existing language) → `/polish` (finish), bounded by `<scope>`; `--plan` stops at the design (no build); `git` is the rollback. Frontend / mobile only. Sibling/upstream of `/redesign` (which builds WITHIN a language; `/art-direct` decides it, then runs it).
 - **`/redesign <description-or-path>` (v1.3+)** — from-scratch page/flow rework (rethinks layout + IA + UX, NOT a restyle) rebuilt inside the existing design system, with a **mandatory approval gate before any code**. Method-driven: an **11-lens Design-principles rubric** the run DIAGNOSES the current page against, DESIGNS the proposal to satisfy, self-critiques before the gate, and SCORES the rendered result against (must beat the diagnosis). Composes `design-system-architect` (extraction + conformance) + `ux-reviewer` (proposal) + `ui-design-sweep` closure verbs + optional post-approval `design-iterate`; renders the rebuilt surface (Playwright) to earn its RTL / a11y / responsive checkmarks. Sibling to `/enhance-ui` (which preserves structure). Frontend / mobile only.
 - **`/add-theme-variant <name>` (v1.17+)** — ADDS a new theme to a **multi-theme** app (a `themes/<name>/` slot system) — creates a NEW slot ONLY, never editing an existing theme or the shared (cross-theme) layer. Four gated aspects: **Additive** (`git diff` proves only new-slot paths changed), **Architecture** (slot parallels the default, resolution wired — glob/whitelist/resolver detected, SSR-safe, RTL-correct), **Parity** (item-by-item manifest diff vs the default theme — components + icons + states + layouts, counts must match, a miss falls back to the default theme = invisible bug), **Performance** (the project's perf conventions + a perf-check gate on the new theme's key routes). Design modes: default modern token system / `--reimagine` (hands the new slot's direction to `/art-direct`) / `--skin` (light modern refresh). Executed by **`theme-specialist`** (builder+auditor). Multi-theme only — single-theme projects HALT → redirected to `/art-direct`/`/redesign`. Frontend / mobile only.
+- **`/clone-design <url-or-image> [<out-dir>]` (v1.18+)** — clones an **external** design reference (a live URL or a screenshot) into a self-contained folder of framework-neutral HTML/CSS: every page template + a reusable section library, styled to a design-token system **extracted** from the reference, then **verified** by rendering each built page and perceptually diffing it against the reference. The one command whose source of truth is **outside the repo** (fidelity from pixels) and the only pack command that is **project-optional + stack-agnostic** — Stage 1 writes plain HTML/CSS into a folder with no framework / `_extracted-idioms.md` / repo required, so it does **not** HALT on a backend/empty stack. **Two stages**: Stage 1 (capture → build → verify) is the whole command; Stage 2 adoption is a delegated `--adopt` follow-through (`=tokens` → `/add-theme-variant` · `=pages` → `/redesign` · `=theme:<platform>` → emit platform templates · `=project` → scaffold) that grows no new design machinery. Four gates — **Capture** (blocked bot-wall/login/blank-shell HALTs), **Fidelity** (HARD — per-page pixel diff + color ΔE, loops to `--max-refine`, below-bar = INCOMPLETE not faked, graded from the render), **Self-contained** (pages open offline), **Brand-safety** (HARD — reproduce the *language*, placeholder the brand *identity*). Ingest is two-mode: URL → Playwright (measured) / image → vision (inferred). Sibling to `/art-direct` (invents a language with no external reference).
+- **`/grab-site <url> [<out-dir>]` (v1.19+)** — faithfully **MIRROR** a live website into a folder of static HTML/CSS that looks like the **original**: real HTML + real CSS + real images + real fonts, one page per **template family**, every remote reference rewritten to a local path (opens offline). The **grab** counterpart to `/clone-design` (which extracts a brand-neutral design *system* and *placeholders* the brand — the placeholdering is why it yields a wireframe on a real storefront). Executes a **bundled stdlib-Python mirror script** (no pip/wget/httrack — only `python3`), materialized to `.claude/scripts/grab-site.py` and run. Four gates: **Capture** (non-200/bot-wall HALTs), **Asset-localization** (real CSS + `<img src>` resolve local), **Offline-open** (pages render standalone), **Template-coverage** (one per discovered family). Stack-agnostic + project-optional. Honest limits: JS interactions not live (a visual copy); carries the source's real content (swap your own brand in before shipping; not for passing a site off as its owner). Sibling to `/clone-design`.
 - `/ui-sweep [<phase>]` — project-wide UI/UX **specialist** (visual hierarchy, coverage metrics, cross-surface consistency, visual baseline + drift, flow-based phasing, HTML visual report)
 - **`/ui-crawl [<scope>]` (v1.2+)** — Playwright-driven cross-route crawler (login once, visit every route, screenshots × 3 breakpoints + dark + RTL, axe-core a11y per route, walks tabs / dialogs / dropdowns, captures console + network errors, writes ranked findings JSON + MD). Detect-only. Sibling to `/ui-sweep` — faster, broader, machine-readable output; `/ui-sweep` is deeper with HTML report.
 - **`/ui-crawl-fix [<class>] (v1.2+)`** — auto-fixer that consumes the `/ui-crawl` findings JSON and patches at the **wrapper level** (one fix → hundreds of cascading call sites). Closes color-contrast (token swap), button-name (aria-label injection), label (for/id wiring), unsanitized-html (`v-html` / `dangerouslySetInnerHTML`), raw-library-component, hardcoded-translations. Skips bugs needing human judgment. Re-runs `/ui-crawl` in verify mode for gap-count parity. Inherits closure-verb discipline from `align-discipline.md`.
@@ -72,6 +74,9 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 - `/enhance-ui` → `.claude/commands/enhance-ui.md`
 - `/redesign` → `.claude/commands/redesign.md`
 - `/art-direct` → `.claude/commands/art-direct.md` (driver agent `creative-director` → `.claude/agents/creative-director.md`)
+- `/add-theme-variant` → `.claude/commands/add-theme-variant.md` (driver agent `theme-specialist` → `.claude/agents/theme-specialist.md`)
+- `/clone-design` → `.claude/commands/clone-design.md` (reuses the Playwright MCP for capture + the fidelity render; `--adopt` reuses `/add-theme-variant` + `/redesign` surfaces)
+- `/grab-site` → `.claude/commands/grab-site.md` (+ bundled mirror script materialized to `.claude/scripts/grab-site.py`; needs only `python3`, no MCP)
 - `/design-review` → `.claude/commands/design-review.md`
 - `design-iterate` skill → `.claude/skills/design-iterate/SKILL.md`
 - Playwright MCP: `~/.claude/mcp/playwright/` (user installs once globally)
@@ -80,42 +85,42 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 
 ### OpenCode (`AGENTS.md` + `.opencode/`)
 
-- Commands → `.opencode/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,design-review}.md`
+- Commands → `.opencode/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,add-theme-variant,clone-design,grab-site,design-review}.md`
 - Skill → `.opencode/skills/design-iterate/SKILL.md`
 - Rule (UI principles) → `AGENTS.md § UI/UX` section
 - HTML report renders the same way.
 
 ### Cursor (`.cursor/`)
 
-- Commands → `.cursor/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,design-review}.md`
+- Commands → `.cursor/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,add-theme-variant,clone-design,grab-site,design-review}.md`
 - Skill → `.cursor/skills/design-iterate/SKILL.md`
 - Rule → `.cursor/rules/ui-principles.mdc` (with `globs: src/**/*.{vue,tsx,jsx,svelte}`)
 - Hooks: `.cursor/hooks.json` triggers `verify-with-playwright` on edits to `src/**/*.{vue,tsx}` (optional).
 
 ### Copilot (`.github/`)
 
-- Commands → `.github/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,design-review}.prompt.md`
+- Commands → `.github/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,add-theme-variant,clone-design,grab-site,design-review}.prompt.md`
 - Skill → `.github/skills/design-iterate/SKILL.md`
 - Rule → `.github/instructions/ui-principles.instructions.md`
 - Visual baseline / HTML report: requires GitHub Actions with Playwright runner; or local fallback if user's local machine has Playwright MCP.
 
 ### Continue (`.continue/`)
 
-- Commands → `.continue/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,design-review}.md` (Continue treats commands as prompts)
+- Commands → `.continue/prompts/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,add-theme-variant,clone-design,grab-site,design-review}.md` (Continue treats commands as prompts)
 - Skill → `.continue/prompts/design-iterate.md` (prompt-style)
 - Rule → `.continue/rules/ui-principles.md`
 - Visual baseline: documented as manual step (Continue has no native MCP integration).
 
 ### Cline (`.clinerules/`)
 
-- Commands → `.clinerules/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,design-review}.md`
+- Commands → `.clinerules/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,add-theme-variant,clone-design,grab-site,design-review}.md`
 - Skill content → inlined into the rule (Cline doesn't have native skills).
 - Rule → `.clinerules/ui-principles.md`
 - Visual baseline: rule documents manual screenshot procedure.
 
 ### Windsurf (`.windsurf/`)
 
-- Commands → `.windsurf/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,design-review}.md`
+- Commands → `.windsurf/workflows/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,add-theme-variant,clone-design,grab-site,design-review}.md`
 - Same rule-only fallback as Cline for skills + visual baseline.
 
 ### Aider (`CONVENTIONS.md`)
@@ -135,13 +140,13 @@ If the idioms inventory is incomplete → halt; route to `/setup-project --refin
 ### Gemini CLI (`GEMINI.md` + `.gemini/`)
 
 - Rule → `GEMINI.md § UI/UX` section.
-- Commands → `.gemini/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,design-review}.toml` (Gemini custom commands are **TOML-only**; the workflow body goes in `prompt = """..."""`).
+- Commands → `.gemini/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,add-theme-variant,clone-design,grab-site,design-review}.toml` (Gemini custom commands are **TOML-only**; the workflow body goes in `prompt = """..."""`).
 - `/redesign`'s `prompt` MUST keep the **approval gate** as an explicit checkpoint ("present the structured proposal, then STOP and await approval before editing") and carry the 11-lens rubric + diagnose / self-critique / scorecard method — not a flattened "restyle the page" prompt.
 - Visual baseline / HTML report: rule documents the manual procedure (no Playwright MCP).
 
 ### Qwen Code (`QWEN.md` + `.qwen/`)
 
-- Commands → `.qwen/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,design-review}.md` (Markdown + YAML frontmatter).
+- Commands → `.qwen/commands/{ui-sweep,ui-crawl,ui-crawl-fix,enhance-ui,redesign,art-direct,add-theme-variant,clone-design,grab-site,design-review}.md` (Markdown + YAML frontmatter).
 - Skill → `.qwen/skills/design-iterate/SKILL.md`.
 - Rule → `QWEN.md § UI/UX` section + cross-reference in `AGENTS.md`.
 - Hooks: `.qwen/settings.json` `hooks.PostToolUse` may trigger `verify-with-playwright` on edits to UI source globs (optional).
@@ -187,6 +192,17 @@ When an adapter ships the UI-UX pack:
    - The **mechanical creative discipline** — the one-sentence concept (must fail the logo-swap test), the three-direction divergence check (color-ramp-swap + ≥2 structural axes), the Encodability Table (every signature move buildable), and **computed-AA / rendered-not-asserted** (mark `SKIPPED` rather than faking a render when no Playwright/visual harness is wired).
    - The **delegated usability floor** — `/art-direct` does NOT re-audit the 16-axis catalog (`ui-principles.md` § Axis catalog); floor findings route to `ux-reviewer`. The `creative-director` agent (the driver) translates to the tool's agent surface, or is inlined into the rule for tools without agent dispatch.
    Flattening `/art-direct` to "`/redesign` with a brief" or "a moodboard generator" is forbidden.
+9. **MUST translate `/clone-design` with its capture-fidelity discipline and two-stage split intact.** `/clone-design` is the external-reference specialist — it reproduces a URL/screenshot as framework-neutral HTML/CSS and its success metric is **fidelity to the reference, measured from pixels**, NOT taste. Adapters MUST preserve:
+   - The **Capture gate + honest signal typing** — URL mode drives Playwright (computed styles + DOM + screenshots = **measured**); image mode is **vision-inferred** and flagged as lower-confidence. A **blocked capture** (bot wall / login / consent-gate / blank SSR shell) is a **HALT** (`CAPTURE BLOCKED`), never a clone built from an error page; no Playwright harness + a URL ref + no screenshots also HALTs. On a tool without Playwright MCP, URL-mode capture is unavailable — the rule MUST document the fallback (user supplies screenshots → image mode), never silently "guess" the URL's design.
+   - The **Fidelity gate, from the render** — per-page perceptual diff ≥ `--fidelity`, cross-checked on color ΔE / type / spacing / layout, looped up to `--max-refine`; below bar → `INCOMPLETE` with the worst region named, never a faked ✓. A page graded from the HTML instead of the screenshot is invalid. On a harness-less tool this gate is `SKIPPED (no harness) — fidelity NOT verified`, stated, never asserted.
+   - The **Self-contained + Brand-safety gates** — pages open offline (no live-origin dependency), and the output reproduces the design **language** while placeholdering the brand **identity** (logo/name/copy/photography → placeholders). A deceptive 1:1 counterfeit of a real brand's live site is out of scope; an adapter that strips the brand-safety guardrail is a failed translation.
+   - The **two-stage split** — Stage 1 (capture → build → verify) is the whole command and is **project-optional / stack-agnostic** (writes into a folder; unlike every other pack command it does NOT HALT on a backend/empty repo); Stage 2 (`--adopt`) **delegates** into `/add-theme-variant` (tokens) / `/redesign` (pages) / a platform-theme emitter / scaffold — it grows no new design machinery, so `--adopt` reuses those commands' existing per-tool surfaces (and inherits their prerequisites/HALTs). An adapter that fuses capture and adoption into one un-verifiable pass, or that reinvents `/redesign`/`/add-theme-variant` under `--adopt`, is a failed translation.
+   Flattening `/clone-design` to "a screenshot-to-code one-shot" (dropping the fidelity loop) or "just scrape the HTML" (dropping token extraction + the section library + brand-safety) is forbidden.
+10. **MUST ship `/grab-site`'s bundled script verbatim AND keep it executable.** `/grab-site` is a **grab**, not a describe — its specialist mechanism IS the embedded stdlib-Python mirror script. Adapters MUST preserve:
+   - **The bundled script, byte-for-byte, and the "materialize + run" instruction** — every tool writes it to a scripts path (`.claude/scripts/grab-site.py`, `.opencode/…`, etc.) and runs `python3 <path> <url> [out]`. It is stdlib-only (no `pip` / `wget` / `httrack`), so it runs anywhere `python3` exists. An adapter that drops the script and leaves only prose ("scrape the site") is a failed translation — there is nothing to execute.
+   - **The four gates** — Capture (non-200/bot-wall HALT), Asset-localization (real CSS + `<img src>` resolve local), Offline-open (renders standalone), Template-coverage (one per family) — and the **honest limits** (JS not live; carries the source's real content, swap-your-brand-before-shipping; not for passing a site off as its owner).
+   - **The grab-vs-clone-design distinction** — `/grab-site` reproduces the REAL site (real assets); `/clone-design` extracts a brand-neutral design SYSTEM (placeholdered). Collapsing the two, or flattening `/grab-site` to `/clone-design`, erases the exact reason `/grab-site` exists (a `/clone-design` run on a real storefront produced a wireframe, not the site).
+   Because Stage 1 is project-optional and needs only `python3`, `/grab-site` translates to EVERY tool identically (no MCP, no framework) — there is no harness-absent fallback to document.
 
 ## Rule-only tool fallback (Aider / Codex / Gemini)
 
@@ -224,6 +240,9 @@ The rule's "Tool-agnostic procedure" section walks through this for rule-only to
 - `templates/packs/ui-ux/commands/art-direct.md` — the upstream creative-direction command spec (decide + invent the visual language; gate + handoff; evolve / reimagine modes) (v1.5+).
 - `templates/packs/ui-ux/agents/creative-director.md` — the creative high-ground agent that drives `/art-direct` (concept / Direction rubric / diagnosis + invention vocabularies) (v1.5+).
 - `templates/packs/ui-ux/commands/redesign.md` — the from-scratch redesign command spec (gate + 11-lens rubric + diagnose/scorecard method) (v1.3+).
+- `templates/packs/ui-ux/commands/add-theme-variant.md` — the additive new-theme-slot command spec (four gates: additive / architecture / parity / perf) (v1.17+).
+- `templates/packs/ui-ux/commands/clone-design.md` — the external-reference clone command spec (capture → build → verify; Capture / Fidelity / Self-contained / Brand-safety gates; project-optional Stage 1 + delegated `--adopt` Stage 2) (v1.18+).
+- `templates/packs/ui-ux/commands/grab-site.md` — the faithful-mirror command spec (bundled stdlib-Python grabber; Capture / Asset-localization / Offline-open / Template-coverage gates; the real-assets grab counterpart to clone-design's placeholdered system) (v1.19+).
 - `templates/packs/ui-ux/commands/ui-crawl.md` — the cross-route Playwright crawler spec (v1.2+).
 - `templates/packs/ui-ux/commands/ui-crawl-fix.md` — the wrapper-level auto-fixer spec (v1.2+).
 - `templates/packs/align/rules/align-discipline.md` — closure-verb vocabulary `/ui-crawl-fix` operates on.
