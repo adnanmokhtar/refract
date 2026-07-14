@@ -245,7 +245,7 @@ for action in "${actions[@]:-}"; do
       echo "  REVIEW  $pack/$kind/$base  ($decision; manual merge required — not auto-applied)"
       listed=$((listed + 1))
       ;;
-    KEEP-OURS-DEEP|KEEP-OURS-ADD-SIDE-DOC|IDENTICAL-NO-OP)
+    KEEP-OURS-DEEP|KEEP-OURS-ANCHORED|KEEP-OURS-ADD-SIDE-DOC|IDENTICAL-NO-OP)
       # No action needed
       ;;
     REJECTED-BY-LEDGER|KEEP-OURS-BY-LEDGER|RESOLVED-BY-LEDGER|KEEP-BY-LEDGER)

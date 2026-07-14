@@ -152,7 +152,7 @@ target_dir_for_kind() {
 # Appendix C decision based on size ratio (target/pack) + byte-identity check.
 # Codifies "Same name overlap" rules in shell so the agent can't override.
 decide() {
-  local target_path="$1" pack_path="$2"
+  local target_path="$1" pack_path="$2" has_anchor="${3:-0}"
   local target_size pack_size
   target_size=$(wc -l < "$target_path" | tr -d ' ')
   pack_size=$(wc -l < "$pack_path" | tr -d ' ')
@@ -172,7 +172,12 @@ decide() {
   if [[ $ratio -ge 200 ]]; then
     echo "KEEP-OURS-DEEP"
   elif [[ $ratio -ge 130 ]]; then
-    echo "KEEP-OURS-PLUS-INJECT"
+    # "target deeper but MISSING project-specific anchor → inject" is the whole
+    # point of KEEP-OURS-PLUS-INJECT. When the anchor is ALREADY present the
+    # inject is a no-op, so this is a non-actionable keeper — flagging it
+    # actionable is a false positive (deeper+anchored files re-flagged every run
+    # until a ledger row lands; observed 2026-07-14).
+    if [[ "$has_anchor" == "1" ]]; then echo "KEEP-OURS-ANCHORED"; else echo "KEEP-OURS-PLUS-INJECT"; fi
   elif [[ $ratio -ge 70 ]]; then
     echo "MERGE"
   elif [[ $ratio -ge 50 ]]; then
@@ -253,7 +258,11 @@ decide() {
           cmp_tgt="$(stripped_target "$tgt")"
           src_lines=$(wc -l < "$cmp_src" | tr -d ' ')
           tgt_lines=$(wc -l < "$cmp_tgt" | tr -d ' ')
-          decision=$(decide "$cmp_tgt" "$cmp_src")
+          # Anchor presence gates the KEEP-OURS-PLUS-INJECT ("inject the anchor")
+          # verdict — a deeper file that already carries the marker needs no inject.
+          has_anchor=0
+          grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$tgt" 2>/dev/null && has_anchor=1
+          decision=$(decide "$cmp_tgt" "$cmp_src" "$has_anchor")
           kind_rows+=$'\n'"  - \`$base\` — target $tgt_lines / pack $src_lines lines → **$decision**"
 
           case "$decision" in
@@ -313,6 +322,7 @@ decide() {
 * IDENTICAL-NO-OP — target byte-identical to pack. No structural action; Phase 4.6 still anchors project-specific block.
 * REPLACE-OR-ENHANCE — target ≤ 50% of pack size. Stub or shallow; replace with pack OR rewrite to pack depth.
 * KEEP-OURS-PLUS-INJECT — target deeper but missing project-specific anchor. Phase 4.6 must inject anchor section into target.
+* KEEP-OURS-ANCHORED — target deeper AND already carries the project-specific anchor block. Keeper; no action (the inject KEEP-OURS-PLUS-INJECT would ask for is already done).
 * MERGE — sizes comparable; real per-section merge required.
 * KEEP-OURS-ADD-SIDE-DOC — target slightly shallower; keep target, add pack as side-doc with different name.
 * KEEP-OURS-DEEP — target ≥ 2× pack size; pack adds nothing. No action.

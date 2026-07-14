@@ -795,6 +795,26 @@ if [[ -x "$SCRIPTS_DIR/validate-refactor-artifacts.sh" ]]; then
   echo ""
 fi
 
+# C2t — deployed snippet/governance link integrity (TARGET artifacts). Commands/agents
+# adopted from packs reference `](../../../snippets|governance/...)` (valid under
+# templates/packs/.../commands/); on deploy to .claude/{commands,agents,skills,rules}/ they
+# MUST be rewritten to `](../templates/snippets|governance/...)` (apply-study-decisions'
+# rewrite_deployed_command_links). A deployed file still carrying the `../../../` form has a
+# BROKEN relative link (resolves outside the repo). Historically these shipped silently —
+# a re-audit found 30 such files that had persisted for a month because no check caught them.
+# WARN-level: the artifact still works; only its doc pointer is dead — one-line rewrite fixes it.
+echo "C2t: deployed snippet/governance link integrity (.claude/ artifacts)"
+broken_links=$(grep -rlE '\]\(\.\./\.\./\.\./(snippets|governance)/' \
+  "$CL/commands" "$CL/agents" "$CL/skills" "$CL/rules" 2>/dev/null || true)
+if [[ -n "$broken_links" ]]; then
+  bl_n=$(printf '%s\n' "$broken_links" | grep -c .)
+  warn_msg "$bl_n .claude/ artifact(s) carry broken \`../../../{snippets,governance}/\` links (should be \`../templates/...\`). Fix: perl -i -pe 's{\]\(\.\./\.\./\.\./(snippets|governance)/}{](../templates/\$1/}g' <files>"
+  printf '%s\n' "$broken_links" | sed "s#^$TARGET/#      #" | head -8
+else
+  ok "no broken snippet/governance links in deployed artifacts"
+fi
+echo ""
+
 # Summary
 echo "=== summary ==="
 echo "fail: $fail"
