@@ -11,15 +11,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/post-edit-check.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/post-edit-check.sh"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/format-on-save.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/format-on-save.sh"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/auto-test.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/auto-test.sh"
           }
         ]
       }
@@ -30,15 +30,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-edit-guard.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/pre-edit-guard.sh"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/secret-scan.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/secret-scan.sh"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/inject-path-rules.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/inject-path-rules.sh"
           }
         ]
       },
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/guard-destructive.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/guard-destructive.sh"
           }
         ]
       }
@@ -57,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/session-start.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/session-start.sh"
           }
         ]
       }
@@ -67,11 +67,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/update-session-log.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/update-session-log.sh"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/verify-gate.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/verify-gate.sh"
           }
         ]
       }
@@ -81,7 +81,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/notify.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/notify.sh"
           }
         ]
       }
