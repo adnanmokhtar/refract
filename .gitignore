@@ -15,3 +15,6 @@ tmp/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Python tooling caches
+.ruff_cache/
