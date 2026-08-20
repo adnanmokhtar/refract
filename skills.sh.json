@@ -1,0 +1,224 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Code Quality",
+      "description": "Refactoring verbs, architectural diagnosis, debt tracking, and the pre/post gates that keep a behaviour-preserving sweep honest.",
+      "skills": [
+        "architectural-diagnosis",
+        "change-brief",
+        "dead-branch-scan",
+        "debt-ledger",
+        "refactoring-sweep",
+        "smoke-verify",
+        "test-shield"
+      ]
+    },
+    {
+      "title": "Security",
+      "description": "OWASP-aligned scanners — secrets in history, dependency advisories, SSRF egress sinks — plus STRIDE threat modelling.",
+      "skills": [
+        "deps-audit",
+        "secret-scan",
+        "ssrf-scan",
+        "threat-model"
+      ]
+    },
+    {
+      "title": "Testing",
+      "description": "Coverage gaps, mutation strength, property-based invariants, consumer-driven contracts, and test-data factories.",
+      "skills": [
+        "contract-test",
+        "coverage-gap",
+        "mutation-probe",
+        "property-invariants",
+        "test-factories"
+      ]
+    },
+    {
+      "title": "Documentation",
+      "description": "Catch docs that lie — dead-symbol references, stale diagrams, unrunnable quickstarts, undocumented public API.",
+      "skills": [
+        "changelog-generate",
+        "diagram-sync",
+        "doc-drift-scan",
+        "docstring-coverage",
+        "quickstart-verify"
+      ]
+    },
+    {
+      "title": "Codebase Learning",
+      "description": "The deep-extraction loop /setup-project runs to learn a codebase — architecture, domain entities, flows, emergent conventions, failure history.",
+      "skills": [
+        "apply-pack-adaptation",
+        "compute-anchor-density",
+        "extract-architecture-deeply",
+        "extract-base-class-idiom",
+        "extract-business-context",
+        "extract-codebase-overview",
+        "extract-conventions-emerging",
+        "extract-domain-entities-deeply",
+        "extract-failures-from-history",
+        "extract-flows-deeply",
+        "extract-hotpaths",
+        "extract-project-context"
+      ]
+    },
+    {
+      "title": "AI Engineering",
+      "description": "Offline LLM eval harness detection and regression gating for RAG, prompt, and agent changes.",
+      "skills": [
+        "eval-run"
+      ]
+    },
+    {
+      "title": "Algorithms",
+      "description": "Mechanically derive time and space complexity — loop nesting, recurrences, amortized analysis — with a defensible big-O.",
+      "skills": [
+        "complexity-derivation"
+      ]
+    },
+    {
+      "title": "Codebase Alignment",
+      "description": "Stack-conditional drift detection against a gold-standard inventory, and the per-finding DETECT-DECIDE-FIX-VERIFY loop that closes it.",
+      "skills": [
+        "detect-drift",
+        "find-and-align"
+      ]
+    },
+    {
+      "title": "Backend",
+      "description": "API contract snapshots, endpoint verification, tenant-isolation debugging, migration safety, and module scaffolding.",
+      "skills": [
+        "api-consistency-audit",
+        "api-snapshot",
+        "debug-tenant",
+        "endpoint-test",
+        "env-diff",
+        "log-tail",
+        "migration-safety",
+        "module-scaffold",
+        "parallelize-independent-ops"
+      ]
+    },
+    {
+      "title": "Business Logic",
+      "description": "Funnel completion, cross-feature business-cycle coverage, and pricing/billing/tax correctness.",
+      "skills": [
+        "audit-funnel-completion",
+        "check-business-coverage",
+        "pricing-tax-audit"
+      ]
+    },
+    {
+      "title": "Database",
+      "description": "Schema and migration consistency, ORM-vs-reality drift, and migration rehearsal against prod-sized data.",
+      "skills": [
+        "migration-rehearsal",
+        "schema-consistency-audit",
+        "schema-diff"
+      ]
+    },
+    {
+      "title": "DevOps",
+      "description": "Dockerfile linting, GitOps reconciliation, deploy monitoring, progressive delivery, and container supply-chain gating.",
+      "skills": [
+        "dockerfile-lint",
+        "gitops-audit",
+        "monitor-deploy",
+        "progressive-delivery",
+        "release-security"
+      ]
+    },
+    {
+      "title": "Distributed Systems",
+      "description": "Chaos injection against a running service, and safe dead-letter-queue replay.",
+      "skills": [
+        "chaos-test",
+        "dlq-replay"
+      ]
+    },
+    {
+      "title": "Frontend",
+      "description": "Core Web Vitals scanners (LCP, images, fonts, SEO, hydration, navigation), bundle analysis, and Playwright-driven verification.",
+      "skills": [
+        "a11y-scan",
+        "bundle-analyze",
+        "component-playground",
+        "dev-server-start",
+        "font-optimization",
+        "image-optimization",
+        "lcp-audit",
+        "lighthouse-ci",
+        "navigation-speed",
+        "seo-audit",
+        "ssr-audit",
+        "streaming-ssr",
+        "verify-with-playwright",
+        "visual-check"
+      ]
+    },
+    {
+      "title": "Infrastructure",
+      "description": "Terraform/Pulumi plan review, K8s and network-exposure audits, admission policy, and disaster-recovery readiness.",
+      "skills": [
+        "admission-policy",
+        "dr-audit",
+        "k8s-audit",
+        "network-exposure-audit",
+        "tf-plan-review"
+      ]
+    },
+    {
+      "title": "Migration (V1 to V2)",
+      "description": "Per-feature V1 to V2 porting with parity guarantees — contract extraction, parity suites, data cutover, migration-time perf uplift.",
+      "skills": [
+        "data-cutover-orchestrate",
+        "extract-v1-contract",
+        "parity-test-generate",
+        "perf-uplift-survey"
+      ]
+    },
+    {
+      "title": "Mobile",
+      "description": "Bundle and cold-start analysis, JS-to-native bridge auditing, and iOS HIG / Material 3 convention drift.",
+      "skills": [
+        "bundle-analyze",
+        "native-bridge-audit",
+        "platform-conventions-audit"
+      ]
+    },
+    {
+      "title": "Observability",
+      "description": "Alert hygiene, SLO reality-checks, and synthetic/blackbox coverage of critical user journeys.",
+      "skills": [
+        "alert-audit",
+        "slo-audit",
+        "synthetic-monitoring"
+      ]
+    },
+    {
+      "title": "Performance",
+      "description": "Endpoint profiling, load campaigns, N+1 detection, memory-leak hunting, and field Core Web Vitals with attribution.",
+      "skills": [
+        "load-test",
+        "memory-leak-hunt",
+        "n-plus-one-scan",
+        "profile-endpoint",
+        "web-vitals-field"
+      ]
+    },
+    {
+      "title": "UI/UX",
+      "description": "Design-token drift, motion and reduced-motion auditing, a fast a11y pass, and the 19-verb UI design sweep.",
+      "skills": [
+        "a11y-quick-check",
+        "design-iterate",
+        "design-token-audit",
+        "motion-audit",
+        "ui-design-sweep"
+      ]
+    }
+  ]
+}

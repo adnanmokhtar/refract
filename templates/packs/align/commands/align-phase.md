@@ -277,8 +277,8 @@ Each halt writes `ai/align/halts/<row-id>.md` and surfaces in the end-of-phase s
 - `/align-status` — read-only progress reader.
 
 ### Skills
-- `.claude/skills/find-and-align.md` — the per-finding loop dispatched per row.
-- `.claude/skills/detect-drift.md` — re-detect procedure.
+- `.claude/skills/find-and-align/SKILL.md` — the per-finding loop dispatched per row.
+- `.claude/skills/detect-drift/SKILL.md` — re-detect procedure.
 
 ### Cross-pack references
 - `code-quality/commands/simplify.md` — closure-verb vocabulary inherited.
@@ -286,7 +286,7 @@ Each halt writes `ai/align/halts/<row-id>.md` and surfaces in the end-of-phase s
 - `code-quality/agents/refactorer.md` — re-detect dispatch for over-abstraction rows.
 - `frontend/agents/accessibility-auditor.md` — re-detect dispatch for a11y rows.
 - `frontend/agents/i18n-auditor.md` — re-detect dispatch for i18n rows.
-- `ui-ux/skills/design-token-audit.md` — re-detect dispatch for token rows.
+- `ui-ux/skills/design-token-audit/SKILL.md` — re-detect dispatch for token rows.
 
 ### Rules
 - `.claude/rules/align-discipline.md` — the discipline this command enforces.

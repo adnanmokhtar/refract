@@ -1,6 +1,6 @@
 # Frontend pack — authoring standard
 
-The quality bar every artifact in this pack must clear. Derived from the reference exemplars (`skills/lcp-audit.md`, `skills/seo-audit.md`, `agents/accessibility-auditor.md`, `agents/technical-seo.md`) and the shipped coding-rules file (`rules/frontend-principles.md`). Read this before adding or editing a skill, agent, rule, pattern, reference, or command.
+The quality bar every artifact in this pack must clear. Derived from the reference exemplars (`skills/lcp-audit/SKILL.md`, `skills/seo-audit/SKILL.md`, `agents/accessibility-auditor.md`, `agents/technical-seo.md`) and the shipped coding-rules file (`rules/frontend-principles.md`). Read this before adding or editing a skill, agent, rule, pattern, reference, or command.
 
 This file is **meta** (how the pack is authored). It is not shipped into target projects — `frontend-principles.md` is the shipped coding-rules standard; the two must stay reconciled (a skill/agent that enforces X implies a MUST/SHOULD for X in the rule).
 

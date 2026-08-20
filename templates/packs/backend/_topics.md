@@ -395,7 +395,7 @@ Each topic declares:
     api_surface_detected: true
   extracts_from: _extracted-idioms.md § "API conventions" + ai/api-conventions.md + OpenAPI spec
   sections: [purpose, when_to_use, inputs, outputs, the_15_detectors, procedure, hard_rules, failure_modes]
-  fallback: skills/api-consistency-audit.md
+  fallback: skills/api-consistency-audit/SKILL.md
   cite_evidence: strict
 
 - name: log-tail

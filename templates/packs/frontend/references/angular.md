@@ -60,15 +60,15 @@ src/app/
 
 - SSR via `@angular/ssr` (`provideServerRendering()`); enable hydration with **`provideClientHydration()`** — without it Angular re-renders and destroys the server DOM (flicker + CLS).
 - **Incremental hydration (v19)**: `withIncrementalHydration()` + `@defer (hydrate on viewport | interaction | idle)` hydrates blocks lazily, cutting TBT / INP.
-- SSR is **mandatory** for `Title` / `Meta` / JSON-LD to reach crawlers — a client-only Angular app ships an empty shell. Resolve route data server-side. See `frontend/skills/ssr-audit.md`.
+- SSR is **mandatory** for `Title` / `Meta` / JSON-LD to reach crawlers — a client-only Angular app ships an empty shell. Resolve route data server-side. See `frontend/skills/ssr-audit/SKILL.md`.
 
 ## SEO
 
-- Set metadata via the **`Title`** and **`Meta`** services (`title.setTitle()` / `meta.updateTag()`), ideally in a route resolver so it's server-rendered. Emit unique title + description, canonical, OG/Twitter, and JSON-LD (inject a `<script type="application/ld+json">`). One mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
+- Set metadata via the **`Title`** and **`Meta`** services (`title.setTitle()` / `meta.updateTag()`), ideally in a route resolver so it's server-rendered. Emit unique title + description, canonical, OG/Twitter, and JSON-LD (inject a `<script type="application/ld+json">`). One mechanism only. See `frontend/skills/seo-audit/SKILL.md` + `@technical-seo`.
 
 ## Fonts
 
-- No framework font primitive — self-host `@font-face` (or `@fontsource/*`): `font-display: swap`; preload the critical font (`<link rel="preload" as="font" crossorigin>` in `index.html`); size-adjusted fallback (swap-CLS); woff2-first; variable font over ≥3 weights. See `frontend/skills/font-optimization.md`.
+- No framework font primitive — self-host `@font-face` (or `@fontsource/*`): `font-display: swap`; preload the critical font (`<link rel="preload" as="font" crossorigin>` in `index.html`); size-adjusted fallback (swap-CLS); woff2-first; variable font over ≥3 weights. See `frontend/skills/font-optimization/SKILL.md`.
 
 ## Testing
 

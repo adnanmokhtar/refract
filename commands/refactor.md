@@ -1,5 +1,6 @@
 ---
-description: Targeted behaviour-preserving refactor. Applies only the closed refactoring vocabulary from refactoring-sweep — no architectural moves, no perf work, no dead-code sweeps. Optional scope defaults to current git changes (HEAD + dirty tree). Stack-agnostic; routes pack-specific gates via templates/packs/<track>/commands/refactor.md when applicable.
+description: Apply the closed Fowler verb set to ONE named file, module, or symbol. Extract, rename, flatten, move-to-module, behaviour preserved, scope defaulting to the current git changes. Trigger when the user names both the target and the move, or when /align or /optimize hands over a route-to-refactor row. Do NOT trigger on 'refactor' used loosely for a whole-project cleanup, on an architectural or SOLID-level move, on perf work, or on a dead-code or dedup sweep — those four are /optimize.
+compatibility: Requires _extracted-idioms.md or codebase-profile.md populated, since sibling files are the truth, and mechanical CI green before starting so behaviour preservation is checkable. Clean tree preferred; --allow-dirty proceeds. Any stack, with pack-specific gates routed when present. Deliberately exempt from the three-line honesty mandate; --refresh, --re-audit, --restart, and --ignore-ledger are not supported.
 kind: command
 pack: orchestration
 ---
@@ -10,7 +11,7 @@ pack: orchestration
 
 ## What this does
 
-**Single focused command: change structure, not behaviour.** Dispatches [`templates/packs/code-quality/skills/refactoring-sweep.md`](../templates/packs/code-quality/skills/refactoring-sweep.md) (10 closure verbs) plus [`templates/packs/code-quality/agents/refactorer.md`](../templates/packs/code-quality/agents/refactorer.md) for SOLID / naming discipline. Reads Phase 3 MUST-list via [`templates/snippets/phase-3-always-reads.md`](../templates/snippets/phase-3-always-reads.md) and [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md).
+**Single focused command: change structure, not behaviour.** Dispatches [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../templates/packs/code-quality/skills/refactoring-sweep/SKILL.md) (10 closure verbs) plus [`templates/packs/code-quality/agents/refactorer.md`](../templates/packs/code-quality/agents/refactorer.md) for SOLID / naming discipline. Reads Phase 3 MUST-list via [`templates/snippets/phase-3-always-reads.md`](../templates/snippets/phase-3-always-reads.md) and [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md).
 
 **Not** `/optimize` — no Phase 0 architectural diagnosis, no god-module splits, no perf (`parallelize`, `add-index`), no dead-code / dedup project sweeps. If the work needs those → `/optimize [<scope>]`.
 

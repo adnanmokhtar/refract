@@ -2,7 +2,7 @@ name: web-backend-django
 version: 1.0.0
 status: stable
 description: Django + DRF web backend track. First concrete track plugin under the M2 schema.
-maintainer: claude-config
+maintainer: refract
 depends-on: []
 conflicts-with:
   - web-backend-rails

@@ -1,5 +1,6 @@
 ---
-description: Report the health of /setup-project artifacts in the current repo. Drift, staleness, budget breaches, dead files, missing ADRs. Read-only — never writes.
+description: Read-only report on whether this repo's /setup-project artifacts have drifted or gone stale. Dead files, budget breaches, missing ADRs, unconfirmed claims. Trigger on 'is my setup stale', 'check setup health', 'are the conventions still in sync with the code', 'why does /setup-project say there is no work to do'. Do NOT trigger on any ask to FIX drift (/setup-project --refresh) or when the caller expects a write of any kind. It grades setup artifacts, not product code — that is /audit.
+compatibility: Read-only by contract — never writes, not even logs, and makes no network calls, so every check is local. Requires a repo already processed by /setup-project; with no .claude/ present there is nothing to grade. Exit codes are contractual — 0 for ok or warn, 1 for any fail, 2 for usage error.
 kind: command
 pack: orchestration
 version: 1.2.0

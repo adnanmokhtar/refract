@@ -110,6 +110,6 @@ This is the same "declared with the feature, consumed by a reader" contract as `
 
 - `metrics.md` — the source of RED / USE / business panels; a panel visualizes a metric defined there, and the "delete dead panels/metrics" rule is shared.
 - `slo.md` — the SLO/burn-rate board comes from the same spec as the burn-rate alerts; panel and alert must not drift.
-- `skills/alert-audit.md` — audits alert quality; the alert→panel link this pattern requires is part of an alert being well-formed.
+- `skills/alert-audit/SKILL.md` — audits alert quality; the alert→panel link this pattern requires is part of an alert being well-formed.
 - `agents/telemetry-architect.md` — recommends *that* a service gets a dashboard; points here for *how* it's structured, tiered, and versioned.
 - `agents/observability-reviewer.md` — reviews dashboard-as-code PRs against these detectors at the code-change level.

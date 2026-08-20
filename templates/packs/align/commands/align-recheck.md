@@ -329,10 +329,10 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 - `/align-status` — read-only ledger reader.
 
 ### Skills (per-class FIX dispatch — see Phase 4 routing table)
-- `code-quality/skills/refactoring-sweep.md` — refactoring-class findings.
-- `ui-ux/skills/ui-design-sweep.md` — UI/UX-axis findings (frontend/mobile).
-- `backend/skills/api-consistency-audit.md` — api-class findings (backend).
-- `database/skills/schema-consistency-audit.md` — schema-class findings (data).
+- `code-quality/skills/refactoring-sweep/SKILL.md` — refactoring-class findings.
+- `ui-ux/skills/ui-design-sweep/SKILL.md` — UI/UX-axis findings (frontend/mobile).
+- `backend/skills/api-consistency-audit/SKILL.md` — api-class findings (backend).
+- `database/skills/schema-consistency-audit/SKILL.md` — schema-class findings (data).
 
 ### Cross-pack
 - `migration/commands/migration-recheck.md` — sibling pattern in migration; this command mirrors it for align.

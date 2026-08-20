@@ -311,8 +311,8 @@ The discipline IS the speed — same artifacts, same gate, parallel where safe.
 - `/align-status` — read-only progress reader.
 
 ### Skills
-- `.claude/skills/find-and-align.md` — the per-finding loop dispatched per row.
-- `.claude/skills/detect-drift.md` — re-detect procedure.
+- `.claude/skills/find-and-align/SKILL.md` — the per-finding loop dispatched per row.
+- `.claude/skills/detect-drift/SKILL.md` — re-detect procedure.
 
 ### Cross-pack references
 - `migration/commands/migration-fast.md` — sibling pattern; this command mirrors its parallel-dispatch + same-discipline approach.

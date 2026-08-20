@@ -1,5 +1,6 @@
 ---
-description: One command code optimization, stack-agnostic (frontend / backend / data / mobile), deep multi-agent. Architectural diagnosis FIRST (layer violations, god modules, missing abstractions, wrong-level responsibilities, cyclic dependencies, cross-cutting duplication), then tactical sweep (clean code, refactoring, SOLID, performance, dead code, dedup, over-abstraction) in parallel waves. Architectural fixes cascade — fixing the right layer dissolves dozens of tactical findings. Optional scope arg. Brief output.
+description: Diagnose architecture first, then sweep code quality and measured performance. Trigger on 'optimize the whole project', 'speed up the dashboard', 'clean up the auth flow', 'architectural cleanup of finished code' — whole-project or multi-area scope. Do NOT trigger for one extract, rename, or move on a single file or symbol (/refactor), for convention drift with no perf or architecture angle (/align), or when the ask needs the security or scale lens (/audit). Phase-0 diagnosis is mandatory.
+compatibility: Requires _extracted-idioms.md or codebase-profile.md populated, mechanical CI green, and a clean tree (or --allow-dirty). Any stack. Every perf claim ships a baseline and a post-fix number, so a finding with no runnable measurement path is reported as unmeasured rather than claimed. validate-optimize-artifacts.sh is agent-invoked, not automatic.
 kind: command
 pack: orchestration
 ---

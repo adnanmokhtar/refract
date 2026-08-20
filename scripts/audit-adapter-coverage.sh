@@ -46,27 +46,33 @@ done
 REPORT="$TARGET/.claude/_adapter-coverage-audit.md"
 mkdir -p "$(dirname "$REPORT")"
 
-# Count source artifacts in .claude/
+# List artifact NAMES (no extension, no form) per kind. Dual-form: a flat `<name>.md` and
+# an Agent Skills `<name>/SKILL.md` both reduce to `<name>`, which is exactly the token every
+# adapter target path is built from. Missing the dir-form branch is a silent FALSE-GREEN:
+# SRC_SKILLS collapses to 0, skills drop out of `expected`, and every adapter grades ~100%
+# while zero skills were actually translated.
+list_basenames_kind() {
+  local kind="$1"
+  [[ -d "$TARGET/.claude/$kind" ]] || return 0
+  { find "$TARGET/.claude/$kind" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null \
+      | xargs -I {} basename {} .md 2>/dev/null
+    find "$TARGET/.claude/$kind" -mindepth 2 -maxdepth 2 -name 'SKILL.md' \
+      -exec sh -c 'for p; do n=$(basename "$(dirname "$p")"); case $n in _*) ;; *) echo "$n" ;; esac; done' _ {} + 2>/dev/null
+  } | sort -u
+}
+
+# Count source artifacts in .claude/. Defined in terms of list_basenames_kind so `expected`
+# can never drift from the number of items actually graded below (one loop iteration each).
 # Guard the missing-dir case: under `set -euo pipefail`, `find <missing> | …` exits non-zero
 # and aborts the command substitution before the report is ever written. A project may
 # legitimately ship without one kind (e.g. no rules/), so treat a missing dir as 0, not fatal.
 count_source_kind() {
-  local kind="$1"
-  [[ -d "$TARGET/.claude/$kind" ]] || { echo 0; return 0; }
-  find "$TARGET/.claude/$kind" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null \
-    | wc -l | tr -d ' '
+  list_basenames_kind "$1" | wc -l | tr -d ' '
 }
 SRC_COMMANDS=$(count_source_kind commands)
 SRC_AGENTS=$(count_source_kind agents)
 SRC_SKILLS=$(count_source_kind skills)
 SRC_RULES=$(count_source_kind rules)
-
-# List basenames (without .md) per kind
-list_basenames_kind() {
-  local kind="$1"
-  find "$TARGET/.claude/$kind" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null \
-    | xargs -I {} basename {} .md 2>/dev/null | sort
-}
 
 # Per-adapter coverage check
 declare -a SUMMARY_ROWS  # one line per adapter: "verdict|adapter|details"

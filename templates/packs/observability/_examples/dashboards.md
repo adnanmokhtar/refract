@@ -48,5 +48,5 @@ The alert annotation carries a link (dashboard + panel + firing time range) so t
 
 - `metrics.md` — source of RED/USE/business panels; the "delete dead panels/metrics" rule is shared.
 - `slo.md` — the SLO/burn board comes from the same spec as the burn-rate alerts.
-- `skills/alert-audit.md` — the alert→panel link is part of an alert being well-formed.
+- `skills/alert-audit/SKILL.md` — the alert→panel link is part of an alert being well-formed.
 - `agents/telemetry-architect.md` — recommends *that* a service gets a board; points here for *how*.

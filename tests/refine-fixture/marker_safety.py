@@ -2,7 +2,7 @@
 """Simulate REFINE's marker-safety contract on the fixture files.
 
 This script re-implements the safety contract from
-`templates/packs/learning/skills/apply-pack-adaptation.md` § "Marker safety
+`templates/packs/learning/skills/apply-pack-adaptation/SKILL.md` § "Marker safety
 contract" — bytes-outside-markers must be bit-identical pre/post any rewrite.
 
 It exercises five cases:

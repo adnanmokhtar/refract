@@ -2,7 +2,7 @@ name: web-frontend-nextjs
 version: 1.0.0
 status: stable
 description: Next.js (App Router or Pages Router) web frontend track. Second concrete track plugin under the M2 schema.
-maintainer: claude-config
+maintainer: refract
 depends-on: []
 conflicts-with:
   - web-frontend-vue

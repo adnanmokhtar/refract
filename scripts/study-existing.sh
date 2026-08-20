@@ -149,6 +149,34 @@ target_dir_for_kind() {
   esac
 }
 
+# Enumerate one artifact-kind dir, one line per artifact, in BOTH on-disk forms:
+#   flat      <dir>/<name>.md
+#   dir-form  <dir>/<name>/SKILL.md   (Agent Skills convention; pack skills use this)
+# Emits FULL paths so callers can derive the pack-relative suffix (`${p#"$dir"/}`) —
+# that suffix is the artifact identity for both forms, and is what keeps source rows,
+# union keys and target paths 1:1. `_*`-prefixed artifacts are filtered by the caller's
+# existing prefix guard, which sees `_name.md` or `_name/SKILL.md` alike.
+enumerate_kind_dir() {
+  local dir="$1"
+  [[ -d "$dir" ]] || return 0
+  { find "$dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null
+    find "$dir" -mindepth 2 -maxdepth 2 -name 'SKILL.md' -not -path "$dir/_*" 2>/dev/null
+  } | sort
+}
+
+# Canonical, form-independent artifact identity:
+#   foo.md        -> foo.md
+#   foo/SKILL.md  -> foo.md
+# Lets the two on-disk forms of the SAME artifact compare equal. Without it, a target
+# still on flat form would be misreported as a project-only orphan the moment the pack
+# moved to dir-form (and a dir-form target likewise, against an older flat pack).
+artifact_identity() {
+  case "$1" in
+    */SKILL.md) local d="${1%/SKILL.md}"; echo "${d##*/}.md" ;;
+    *)          echo "${1##*/}" ;;
+  esac
+}
+
 # Appendix C decision based on size ratio (target/pack) + byte-identity check.
 # Codifies "Same name overlap" rules in shell so the agent can't override.
 decide() {
@@ -224,9 +252,12 @@ decide() {
 
       kind_rows=""
       while IFS= read -r src; do
-        base="$(basename "$src")"
+        # Agent Skills dir-form (`<name>/SKILL.md`) keeps its pack-relative suffix, so the
+        # report row, the union key and the target path stay 1:1 with the source. Flat
+        # `<name>.md` artifacts are unaffected — the suffix IS the basename for them.
+        base="${src#"$kind_dir"/}"
         [[ "$base" == _* ]] && continue
-        echo "$base" >> "$UNION_TMP/$kind"
+        artifact_identity "$base" >> "$UNION_TMP/$kind"
         tgt="$tgt_dir/$base"
 
         # M35: a ledger entry reconciles this row unless the pack source changed
@@ -279,7 +310,7 @@ decide() {
           pack_actionable=$(( pack_actionable + 1 ))
           total_missing=$(( total_missing + 1 ))
         fi
-      done < <(find "$kind_dir" -maxdepth 1 -name '*.md' -not -name '_*' | sort)
+      done < <(enumerate_kind_dir "$kind_dir")
 
       [[ -n "$kind_rows" ]] && pack_section+=$'\n\n### '"$kind"$''$kind_rows
     done
@@ -298,9 +329,9 @@ decide() {
     [[ -d "$tgt_dir" ]] || continue
     orphan_rows=""
     while IFS= read -r tgtf; do
-      base="$(basename "$tgtf")"
+      base="${tgtf#"$tgt_dir"/}"
       [[ "$base" == _* ]] && continue
-      if [[ ! -f "$UNION_TMP/$kind" ]] || ! grep -qxF "$base" "$UNION_TMP/$kind"; then
+      if [[ ! -f "$UNION_TMP/$kind" ]] || ! grep -qxF "$(artifact_identity "$base")" "$UNION_TMP/$kind"; then
         ledger_entry="$(ledger_lookup "$kind/$base")"
         if [[ -n "$ledger_entry" ]]; then
           IFS='|' read -r lverb ldate lsha lwhy <<<"$ledger_entry"
@@ -311,7 +342,7 @@ decide() {
           total_orphan=$(( total_orphan + 1 ))
         fi
       fi
-    done < <(find "$tgt_dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | sort)
+    done < <(enumerate_kind_dir "$tgt_dir")
     [[ -n "$orphan_rows" ]] && { printf '\n### %s' "$kind"; printf '%b\n' "$orphan_rows"; }
   done
   printf '\n---\n\n'

@@ -17,7 +17,7 @@ An aggregate is a consistency boundary or it is a lie. `Order` "owns" `LineItem`
 
 ## Consumes (boundary with learning)
 
-Sits on top of `learning/skills/extract-domain-entities-deeply.md`, which emits per-entity `invariants:` with `enforcement:` + `citation:`. If `.claude/_refine-extract.md § Domain entities` exists, START there and verify citations; else reconstruct (models → migrations → services → tests) and say `Extraction source: reconstructed in-agent`. Extraction *records* the enforcement layer; this agent *grades* it.
+Sits on top of `learning/skills/extract-domain-entities-deeply/SKILL.md`, which emits per-entity `invariants:` with `enforcement:` + `citation:`. If `.claude/_refine-extract.md § Domain entities` exists, START there and verify citations; else reconstruct (models → migrations → services → tests) and say `Extraction source: reconstructed in-agent`. Extraction *records* the enforcement layer; this agent *grades* it.
 
 ## Checklist (greppable — cite hits, grade each)
 
@@ -52,4 +52,4 @@ Handed to pricing-tax-audit: <money-as-float findings, if any>
 ## Related
 
 - `@business-auditor` audits the EXPERIENCE (missing cycles/flows); `@workflow-integrity` audits the STATE GRAPH; **this owns the aggregate + invariant STRUCTURE**. Run all three; none substitutes.
-- `learning/skills/extract-domain-entities-deeply.md` — the input. `business/skills/pricing-tax-audit.md` — receives money-as-float findings.
+- `learning/skills/extract-domain-entities-deeply/SKILL.md` — the input. `business/skills/pricing-tax-audit/SKILL.md` — receives money-as-float findings.

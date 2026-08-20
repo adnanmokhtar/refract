@@ -46,9 +46,9 @@ This rule governs every per-feature port. It exists because the most common migr
 - **Pick the lowest-risk feature for the first port.** Health checks, read-only endpoints, internal admin tools — they exercise the toolchain without exposing customers to a parity bug. The first port shakes out the parity-test infrastructure, the ledger workflow, the cutover path.
 - **Run V1 + V2 in shadow before canary.** Shadow = V2 receives the same input but its output is compared (not served). Catches behavioural drift the parity test suite missed. Run for ≥1 week per high-traffic feature.
 - **Anchor perf-uplift candidates to a measurement.** Don't add Redis caching in V2 because "caching is fast." Capture V1's call rate + payload size + cache-hit projection + estimated DB load reduction. The decision file must show the math.
-- **Index proactively when V2's query shape differs from V1.** Different `WHERE` clause = different optimal index. Use `EXPLAIN ANALYZE` on V2's query plans against prod-sized data before cutover — see `database/skills/migration-rehearsal.md`.
+- **Index proactively when V2's query shape differs from V1.** Different `WHERE` clause = different optimal index. Use `EXPLAIN ANALYZE` on V2's query plans against prod-sized data before cutover — see `database/skills/migration-rehearsal/SKILL.md`.
 - **Project columns minimally.** V1's `SELECT *` becomes V2's `SELECT id, name, status` if those are all the consumer needs. Less network bandwidth, less ORM hydration, less GC pressure. The contract should list the *consumed* columns, not the *queried* ones.
-- **Replace sequential await loops with bounded parallelism.** During port, sequential `for await` patterns in V1 are the highest-leverage perf upgrade — see `backend/rules/concurrency-discipline.md` + `backend/skills/parallelize-independent-ops.md`. Always preserves parity (assuming independence).
+- **Replace sequential await loops with bounded parallelism.** During port, sequential `for await` patterns in V1 are the highest-leverage perf upgrade — see `backend/rules/concurrency-discipline.md` + `backend/skills/parallelize-independent-ops/SKILL.md`. Always preserves parity (assuming independence).
 - **Cap the contract in writing.** A 500-line contract is fine. A 50-page contract means the feature is too big — split it before porting.
 - **Run parity tests against a frozen V1 commit.** Pinning the parity oracle prevents "V1 evolved while we ported V2" — the ledger row records the V1 commit hash used.
 
@@ -154,9 +154,9 @@ T+38d: Delete V1 (after 14d of zero traffic).
 
 ## References
 
-- `.claude/skills/extract-v1-contract.md` — how to read V1 deeply and produce the contract.
-- `.claude/skills/parity-test-generate.md` — how to build the parity test suite.
-- `.claude/skills/perf-uplift-survey.md` — how to find migration-time perf wins.
+- `.claude/skills/extract-v1-contract/SKILL.md` — how to read V1 deeply and produce the contract.
+- `.claude/skills/parity-test-generate/SKILL.md` — how to build the parity test suite.
+- `.claude/skills/perf-uplift-survey/SKILL.md` — how to find migration-time perf wins.
 - `.claude/agents/migration-architect.md` — strategic per-feature planner.
 - `.claude/agents/parity-auditor.md` — pre-cutover audit.
 - `.claude/commands/port-feature.md` — the orchestrator.
@@ -165,4 +165,4 @@ T+38d: Delete V1 (after 14d of zero traffic).
 - `ai/patterns/migration-ledger.md` — state-machine + record format.
 - `code-quality/agents/legacy-modernizer.md` — strategic-level migration (sets the feature inventory this rule operates inside).
 - `backend/rules/concurrency-discipline.md` — the parallel-I/O bullet under "Should" links here.
-- `database/skills/migration-rehearsal.md` — DB-only migration rehearsal (used during V2 query plan + index changes).
+- `database/skills/migration-rehearsal/SKILL.md` — DB-only migration rehearsal (used during V2 query plan + index changes).

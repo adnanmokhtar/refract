@@ -31,4 +31,4 @@ Rationale per category:
 - **`backend`** — mobile features almost always pair with backend endpoints. The `add-feature` commands across both packs are designed to compose.
 - **`security`** — mobile-specific concerns (keychain, biometric, certificate pinning) covered by `security/agents/security-auditor.md` + `auth-reviewer.md`.
 - **`performance`** — mobile-specific concerns (cold start, frame rate, battery) covered by `optimize-bundle` here + `performance` pack agents.
-- **`ui-ux`** — accessibility + design tokens apply equally to mobile; `ui-ux/skills/a11y-quick-check.md` runs against mobile UI.
+- **`ui-ux`** — accessibility + design tokens apply equally to mobile; `ui-ux/skills/a11y-quick-check/SKILL.md` runs against mobile UI.

@@ -4,13 +4,13 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**175 commands** — core 14 · 20 packs (115) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**179 commands** — core 15 · 20 packs (118) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
 ## Sections
 
-- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 14
+- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 15
 - [Pack — ai-engineering](#pack--ai-engineering) — 1
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
@@ -30,7 +30,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — performance](#pack--performance) — 3
 - [Pack — security](#pack--security) — 4
 - [Pack — testing](#pack--testing) — 4
-- [Pack — ui-ux](#pack--ui-ux) — 7
+- [Pack — ui-ux](#pack--ui-ux) — 10
 - [Domain commands — materialized when the domain is detected](#domain-commands--materialized-when-the-domain-is-detected) — 36
 - [Baseline — universal infra (repo + workspace)](#baseline--universal-infra-repo--workspace) — 10
 
@@ -38,20 +38,21 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/align` | One command convention alignment. | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/align the orders module` |
-| `/audit` | One command, full-stack engineering audit — any language, framework, or project shape (backend /… | `--target-rps=<N>`, `--target-p95=<ms>`, `--plan-only`, `--assess`, `--target-vitals=<spec>`, `--target-cold-start=<ms>`, `--target-startup=<ms>`, `--target-bundle=<bytes>`, `--focus`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--surface-blockers`, `--skip-p4` | `/audit --target-rps=50000 --target-p95=120` |
-| `/do` | Universal meta-router. | — | `/do enhance the sidebar with cleaner padding` |
-| `/optimize` | One command code optimization, stack-agnostic (frontend / backend / data / mobile), deep… | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/optimize the orders module` |
-| `/polish` | One command UI/UX + API + Schema + Platform polish, stack-conditional, deep multi-agent. | `--plan`, `--direction`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--no-iterate`, `--surface-blockers`, `--stack=<override>` | `/polish the orders module` |
-| `/refactor` | Targeted behaviour-preserving refactor. | `--plan`, `--dry-run`, `--allow-dirty`, `--status`, `--resume`, `--strict`, `--quiet`, `--phase-base=<git-ref>`, `--ledger=<path>` | `/refactor [<scope>]` |
-| `/refine-prompt` | Take any rough idea / one-liner / ticket and produce a deep, execution-ready prompt tailored to the… | — | `/refine-prompt "<rough idea>"` |
-| `/roadmap` | One command, phased completion plan for an unfinished project. | `--goal`, `--build`, `--status`, `--refresh`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--no-table-stakes` | `/roadmap the payments domain` |
-| `/scaffold-project` | Take a refined idea (or raw prompt) and generate a working project from scratch — proposes stack… | `--name=<repo-name>`, `--into=<path>`, `--stack=<key>`, `--no-claude-orchestration`, `--no-prompt`, `--dry-run` | `/scaffold-project "<idea-or-refined-spec-path>"` |
-| `/setup-project` | The brain. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--plan`, `--upgrade`, `--health`, `--validate-schemas`, `--diff`, `--max-subagents=<N>` | `/setup-project --plan` |
-| `/setup-project-adapters` | Re-sync tool adapters (Cursor, OpenCode, Aider, Cline, Codex, Continue, Copilot, Gemini, Windsurf… | `--legacy-opencode` | `/setup-project-adapters` |
-| `/setup-project-health` | Report the health of /setup-project artifacts in the current repo. | — | `/setup-project-health` |
-| `/task` | Provider-agnostic task executor. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
-| `/unify-surfaces` | One command surface-type unification for frontend codebases, deep multi-agent. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
+| `/align` | Enforce conventions the project ALREADY has, project-wide or across several areas. | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/align the orders module` |
+| `/audit` | Rank what is WRONG with code that already exists, across eight engineering axes at once. | `--target-rps=<N>`, `--target-p95=<ms>`, `--plan-only`, `--assess`, `--target-vitals=<spec>`, `--target-cold-start=<ms>`, `--target-startup=<ms>`, `--target-bundle=<bytes>`, `--focus`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--surface-blockers`, `--skip-p4` | `/audit --target-rps=50000 --target-p95=120` |
+| `/delegate` | Dispatch ONE bounded coding task to a different AI coding CLI, then review its diff and land it. | `--to=<cli>`, `--read-only`, `--gate=<cmd>`, `--model=<id>`, `--session=<id>`, `--plan`, `--files=<globs>`, `--allow-dirty`, `--timeout=<dur>`, `--dry-run`, `--repo` | `/delegate "extract the retry/backoff duplication in src/clients/ into one helper" --to=codex --gate="npm test"` |
+| `/do` | Route one natural-language request to the right specialized command, then run it. | — | `/do enhance the sidebar with cleaner padding` |
+| `/optimize` | Diagnose architecture first, then sweep code quality and measured performance. | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/optimize the orders module` |
+| `/polish` | Introduce finish the project does not have yet, on the axis its PROJECT_KIND dictates. | `--plan`, `--direction`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--no-iterate`, `--surface-blockers`, `--stack=<override>` | `/polish the orders module` |
+| `/refactor` | Apply the closed Fowler verb set to ONE named file, module, or symbol. | `--plan`, `--dry-run`, `--allow-dirty`, `--status`, `--resume`, `--strict`, `--quiet`, `--phase-base=<git-ref>`, `--ledger=<path>` | `/refactor [<scope>]` |
+| `/refine-prompt` | Turn a rough idea, one-liner, or ticket into an execution-ready prompt file. | — | `/refine-prompt "<rough idea>"` |
+| `/roadmap` | Map what is INTENDED but not yet built, then phase the build order. | `--goal`, `--build`, `--status`, `--refresh`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--no-table-stakes` | `/roadmap the payments domain` |
+| `/scaffold-project` | Generate a working codebase from nothing, up to a booting dev server. | `--name=<repo-name>`, `--into=<path>`, `--stack=<key>`, `--no-claude-orchestration`, `--no-prompt`, `--dry-run` | `/scaffold-project "<idea-or-refined-spec-path>"` |
+| `/setup-project` | Install or refresh the Claude orchestration layer for a repo. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--plan`, `--upgrade`, `--health`, `--validate-schemas`, `--diff`, `--max-subagents=<N>` | `/setup-project --plan` |
+| `/setup-project-adapters` | Re-sync tool adapters so every enabled CLI offers the same surface as Claude Code here. | `--legacy-opencode` | `/setup-project-adapters` |
+| `/setup-project-health` | Read-only report on whether this repo's /setup-project artifacts have drifted or gone stale. | — | `/setup-project-health` |
+| `/task` | Execute ONE tracker item end to end and write its status back to the source. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
+| `/unify-surfaces` | Consolidate every instance of ONE surface type behind a single shared wrapper, app-wide. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
 
 ## Pack — ai-engineering
 
@@ -260,13 +261,16 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
+| `/add-theme-variant` | One command to ADD a new theme variant to a multi-theme app — creates a NEW theme slot only (never… | `--plan`, `--name`, `--reimagine`, `--skin` | `/add-theme-variant dark` |
 | `/art-direct` | One command to DESIGN and BUILD a product / surface / flow's visual direction. | `--plan`, `--evolve`, `--reimagine`, `--yes`, `--direction`, `--surfaces=<n>`, `--render` | `/art-direct the dashboard` |
+| `/clone-design` | One command to CLONE an external design reference (a live URL or a screenshot) into a… | `--plan`, `--pages=<a,b,c>`, `--sections-only`, `--fidelity=<0-100>`, `--max-refine=<n>`, `--adopt=<tokens \| pages \| project>`, `--all-routes` | `/clone-design https://new-ella-demo-07.myshopify.com/` |
 | `/design-review` | Review UI changes for UX, design system compliance, and accessibility in parallel. | — | `/design-review [path\|screenshot]` |
 | `/enhance-ui` | Orchestrator for UI/UX enhancement. | `--plan`, `--direction`, `--scope`, `--dry-detect`, `--auto-extract`, `--skip-cleanup`, `--skip-iterate`, `--re-detect-only` | `/enhance-ui the sidebar — complete` |
-| `/redesign` | One command full UI/UX redesign of a page / screen / flow — rethinks layout + UX from scratch (NOT… | `--plan`, `--direction` | `/redesign <description-or-path> [<more>...]` |
+| `/grab-site` | FAITHFULLY MIRROR a live website into a folder of static HTML/CSS that looks like the ORIGINAL… | `--plan`, `--pages`, `--max-assets=<N>` | `/grab-site https://new-ella-demo-07.myshopify.com/` |
+| `/redesign` | One command full UI/UX redesign of a page / screen / flow — rethinks layout + UX from scratch (NOT… | `--plan`, `--direction`, `--yes`, `--max-refine=<n>` | `/redesign <description-or-path> [<more>...]` |
 | `/ui-crawl` | Automated cross-route UI crawler. | `--smoke`, `--filter=<substr>`, `--full-matrix`, `--skip-interactions`, `--refresh-inventory`, `--workers`, `--no-dark` | `/ui-crawl --smoke` |
-| `/ui-crawl-fix` | Auto-fixes the mechanical UI findings from /ui-crawl by applying the closure-verb vocabulary from… | `--dry-run`, `--safe-only`, `--verify`, `--no-commit`, `--module=<name>` | `/ui-crawl-fix contrast` |
-| `/ui-sweep` | Project-wide UI/UX specialist sweep. | `--first-run`, `--scope=<path>`, `--with-iterate`, `--detector=<list>`, `--breakpoints=<list>`, `--baseline-only`, `--report-only`, `--allow-dirty` | `/ui-sweep --first-run` |
+| `/ui-crawl-fix` | Auto-fixes the mechanical UI findings from /ui-crawl by applying the closure-verb vocabulary from… | `--dry-run`, `--plan`, `--safe-only`, `--verify`, `--no-commit`, `--module=<name>` | `/ui-crawl-fix contrast` |
+| `/ui-sweep` | Project-wide UI/UX specialist sweep. | `--plan`, `--first-run`, `--scope=<path>`, `--with-iterate`, `--detector=<list>`, `--breakpoints=<list>`, `--baseline-only`, `--report-only`, `--allow-dirty` | `/ui-sweep --first-run` |
 
 ## Domain commands — materialized when the domain is detected
 

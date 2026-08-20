@@ -6,31 +6,5 @@
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "add-migration declares COMPLETE only when the migration is production-safe on a populated table.",
-  "changelog": {
-    "1.1.1": {
-      "released": "2026-06-14",
-      "changes": [
-        "schema-consistency-audit skill: added `name:` frontmatter field (was missing)."
-      ]
-    },
-    "1.2.0": {
-      "released": "2026-07-09",
-      "changes": [
-        "ai-patterns +2: transaction-isolation (DB-engine locking/isolation/deadlock-avoidance/MVCC — the engine-semantics counterpart to backend's service-scope transaction-boundary) and data-retention-pii (PII classification, retention/purge mechanism, erasure-vs-FK, at-rest encryption — the storage-mechanics counterpart to security's data-privacy-reviewer). Backing MUST/SHOULDs + checklist in database-principles."
-      ]
-    },
-    "1.3.0": {
-      "released": "2026-07-10",
-      "changes": [
-        "ai-patterns +3: full-text-search (engine text primitive + ranking vs LIKE-scan), connection-pooling (bounded pool sizing/mode, pgbouncer txn-mode, serverless proxy), read-replicas (lag-tolerant read routing / read-your-writes)."
-      ]
-    },
-    "1.4.0": {
-      "released": "2026-07-10",
-      "changes": [
-        "add-migration Migration-Safety Gate (D1 reversible · D2 online-safe with a MEASURED lock/backfill profile ≤ SLO · D3 index coverage by EXPLAIN · D4 rename/type-change backfill+dual-write plan · D5 no data loss); any unmet/unverified dim → INCOMPLETE, grounded in the migration-rehearsal report.",
-        "schema-reviewer: APPROVE is now a positive evidenced claim; halt forbids APPROVE on an unmeasured-lock populated-table migration (downgrade to BLOCK)."
-      ]
-    }
-  }
+  "changelog": "CHANGELOG.md"
 }

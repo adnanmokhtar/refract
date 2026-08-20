@@ -41,14 +41,14 @@ info ""
 info "2. REFINE artifact presence"
 
 REQUIRED_FILES=(
-  "templates/packs/learning/skills/extract-domain-entities-deeply.md"
-  "templates/packs/learning/skills/extract-architecture-deeply.md"
-  "templates/packs/learning/skills/extract-flows-deeply.md"
-  "templates/packs/learning/skills/extract-conventions-emerging.md"
-  "templates/packs/learning/skills/extract-hotpaths.md"
-  "templates/packs/learning/skills/extract-failures-from-history.md"
-  "templates/packs/learning/skills/compute-anchor-density.md"
-  "templates/packs/learning/skills/apply-pack-adaptation.md"
+  "templates/packs/learning/skills/extract-domain-entities-deeply/SKILL.md"
+  "templates/packs/learning/skills/extract-architecture-deeply/SKILL.md"
+  "templates/packs/learning/skills/extract-flows-deeply/SKILL.md"
+  "templates/packs/learning/skills/extract-conventions-emerging/SKILL.md"
+  "templates/packs/learning/skills/extract-hotpaths/SKILL.md"
+  "templates/packs/learning/skills/extract-failures-from-history/SKILL.md"
+  "templates/packs/learning/skills/compute-anchor-density/SKILL.md"
+  "templates/packs/learning/skills/apply-pack-adaptation/SKILL.md"
   "templates/packs/learning/ai-patterns/setup-quality-scoring.md"
 )
 
@@ -78,8 +78,8 @@ for token in \
 
   count=$(grep -rFc "$token" \
     "$ROOT/commands/setup-project.md" \
-    "$ROOT/templates/packs/learning/skills/apply-pack-adaptation.md" \
-    "$ROOT/templates/packs/learning/skills/compute-anchor-density.md" \
+    "$ROOT/templates/packs/learning/skills/apply-pack-adaptation/SKILL.md" \
+    "$ROOT/templates/packs/learning/skills/compute-anchor-density/SKILL.md" \
     "$ROOT/templates/packs/learning/ai-patterns/setup-quality-scoring.md" \
     "$ROOT/README.md" \
     2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
@@ -131,7 +131,7 @@ info "5. Plateau classifier vocabulary (PLATEAU-DEEP / PLATEAU-WEAK / NOT-PLATEA
 for v in PLATEAU-DEEP PLATEAU-WEAK NOT-PLATEAU; do
   for f in \
     "$SPEC" \
-    "$ROOT/templates/packs/learning/skills/compute-anchor-density.md" \
+    "$ROOT/templates/packs/learning/skills/compute-anchor-density/SKILL.md" \
     "$ROOT/templates/packs/learning/ai-patterns/setup-quality-scoring.md" \
     "$ROOT/README.md"; do
     if ! grep -qF "$v" "$f"; then
@@ -149,7 +149,7 @@ pass "all three classifiers present in spec / skill / pattern / README"
 LEAKY=$(grep -nE '^## Plateau reached *$' \
   "$SPEC" \
   "$ROOT/templates/packs/learning/ai-patterns/setup-quality-scoring.md" \
-  "$ROOT/templates/packs/learning/skills/compute-anchor-density.md" \
+  "$ROOT/templates/packs/learning/skills/compute-anchor-density/SKILL.md" \
   2>/dev/null || true)
 if [ -n "$LEAKY" ]; then
   fail "bare '## Plateau reached' heading found (should be PLATEAU-DEEP / PLATEAU-WEAK):"
@@ -177,7 +177,7 @@ done
 info ""
 info "7. apply-pack-adaptation skill documents all REFINE + ADAPTER-SYNC ACTs"
 
-SKILL="$ROOT/templates/packs/learning/skills/apply-pack-adaptation.md"
+SKILL="$ROOT/templates/packs/learning/skills/apply-pack-adaptation/SKILL.md"
 for act in ANCHOR-DEEP LEAVE-DEEP LEAVE-DEEP-IDEMPOTENT NEW-FILE ROLLBACK-MARKER-DRIFT \
            RE-TRANSLATED INDEX-REFRESHED SKIPPED-NO-CHANGES NO-OP-ADAPTER NEEDS-FULL-PHASE-4.8 \
            MARKERS-INJECTED-ADAPTER ADAPTER-SYNC; do
@@ -198,7 +198,7 @@ for f in \
   "commands/setup-project.md" \
   "README.md" \
   "docs/setup-project-cheatsheet.md" \
-  "templates/packs/learning/skills/apply-pack-adaptation.md"; do
+  "templates/packs/learning/skills/apply-pack-adaptation/SKILL.md"; do
   if grep -qF "Phase 4.8-DEEP" "$ROOT/$f"; then
     pass "$f references Phase 4.8-DEEP"
   else
@@ -218,7 +218,7 @@ fi
 # Decision log file referenced.
 for f in \
   "commands/setup-project.md" \
-  "templates/packs/learning/skills/apply-pack-adaptation.md" \
+  "templates/packs/learning/skills/apply-pack-adaptation/SKILL.md" \
   "README.md"; do
   if grep -qF "_phase-4-8-decisions.md" "$ROOT/$f"; then
     pass "$f references _phase-4-8-decisions.md log"
@@ -229,7 +229,7 @@ done
 
 # Three marker tokens must each map to at least one phase that owns it
 # (project-specific → 4.6-DEEP, refine-enriched → 4.7-DEEP, generated → 4.8-DEEP).
-SKILL_TEXT="$(cat "$ROOT/templates/packs/learning/skills/apply-pack-adaptation.md")"
+SKILL_TEXT="$(cat "$ROOT/templates/packs/learning/skills/apply-pack-adaptation/SKILL.md")"
 if echo "$SKILL_TEXT" | grep -qF "Cross-mode marker semantics"; then
   pass "skill documents three-marker partition (project-specific / refine-enriched / generated)"
 else

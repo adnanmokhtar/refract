@@ -1,10 +1,45 @@
 # CHANGELOG
 
-All notable changes to claude-config and its commands. Per-pack changelogs live under `templates/packs/<name>/CHANGELOG.md` (Hard rule A27).
+All notable changes to Refract and its commands. Per-pack changelogs live under `templates/packs/<name>/CHANGELOG.md` (Hard rule A27).
 
 The format is loosely inspired by Keep a Changelog. Versions follow Semantic Versioning at the command level: major = breaking artifact-shape change; minor = new capability; patch = fix or doc.
 
 ## [Unreleased]
+
+### Public release as Refract — distribution, evidence, retrieval, and delegation (2026-08-20)
+
+**Why** — the framework was a private, clone-and-run config. Published as
+[adnanmokhtar/refract](https://github.com/adnanmokhtar/refract) under MIT, it needed the things a
+public repo is judged on and a private one never needs: an install path a stranger will take,
+evidence the output is good, and a way to find anything in 191k lines.
+
+- **Plugin distribution.** `.claude-plugin/marketplace.json` + `plugin.json` — `/plugin marketplace
+  add adnanmokhtar/refract` installs the command surface in one line. Validated with
+  `claude plugin validate . --strict`. `docs/INSTALL.md` documents the three routes and states the
+  plugin route's real limit: it delivers commands but not the `templates/` tree that fourteen of the
+  fifteen commands read by path, so the sync remains the install.
+- **Agent Skills convention.** All 98 pack skills moved from flat `skills/<name>.md` to
+  `skills/<name>/SKILL.md` — the shape `templates/packs/README.md` already documented and that 7 of
+  12 adapters already emit. `skills.sh.json` added for `npx skills add`.
+- **New command `/delegate`** (+ `scripts/delegate-relay.sh`) — dispatch one bounded task to a
+  different AI CLI, review its diff, commit it yourself. The relay never commits.
+- **Trigger discipline.** Command `description:` frontmatter now states anti-triggers, not just
+  capabilities — the router reads only the description when deciding whether to fire.
+- **Retrieval.** `scripts/pack-search.py` — stdlib-only BM25 over ~5,150 row-shaped entries, offline,
+  sub-second. Rows are pointers to prose, never replacements for it; narrative discipline files are
+  deliberately unindexed. See `docs/RETRIEVAL.md`.
+- **Benchmarks.** `benchmarks/` ships fixture projects with seeded, documented defects plus a scorer,
+  so detection rate can be measured rather than asserted. No run is recorded yet, and
+  `benchmarks/RESULTS.md` says so plainly.
+- **Visual assets.** Four hand-authored SVGs, including a verbatim terminal capture that declares its
+  capture conditions and substitutions.
+- **Community files.** `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE` (MIT).
+- **Changelog hygiene.** Per-pack history moved out of `_version.json` `summary` blobs into
+  `templates/packs/<name>/CHANGELOG.md`.
+- **Naming.** Project renamed to Refract in prose. `sync-to-global.sh` writes
+  `GEN_MARK="source: refract/commands/"` but still recognises the pre-rename marker, so an older
+  install stays uninstallable via `--unlink`. The local folder name is unchanged by design.
+
 
 ### Adapter parity for path-scoped rules (`paths:` → each tool's native scoping)
 

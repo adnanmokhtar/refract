@@ -57,7 +57,7 @@ Two anchors: **the budget is set by the scale, not by taste** (an algorithm that
 
 ## What happens internally
 
-**Discipline:** the design pass is governed by the [`algorithm-designer`](../agents/algorithm-designer.md) agent (cite-or-halt complexity, correct-first, proven-primitive); complexity is derived via the [`complexity-derivation`](../skills/complexity-derivation.md) skill; the implementation carries the SOLID/clean-code discipline in [`core-discipline.md`](../../../governance/core-discipline.md). Phases are silent — no phase numbers reach the user.
+**Discipline:** the design pass is governed by the [`algorithm-designer`](../agents/algorithm-designer.md) agent (cite-or-halt complexity, correct-first, proven-primitive); complexity is derived via the [`complexity-derivation`](../skills/complexity-derivation/SKILL.md) skill; the implementation carries the SOLID/clean-code discipline in [`core-discipline.md`](../../../governance/core-discipline.md). Phases are silent — no phase numbers reach the user.
 
 1. **Model** — parse the problem; pin inputs + ranges + constraints + exact output + invariants. Resolve `<scope>`; for a redesign, read the function + its behavior contract (tests/examples). HALT if the output is unspecified.
 2. **Budget** — derive the target time + space class from the scale (or `--budget`/`--scale`). State it; it is the bar.
@@ -109,7 +109,7 @@ Under `--plan`, output ends at `Correct:` + the brief path — nothing is implem
 
 ## Cross-references
 - agent [`algorithm-designer`](../agents/algorithm-designer.md) — owns the design method, the complexity discipline, and the correctness argument.
-- skill [`complexity-derivation`](../skills/complexity-derivation.md) — derives the budget + each candidate's class.
+- skill [`complexity-derivation`](../skills/complexity-derivation/SKILL.md) — derives the budget + each candidate's class.
 - rule [`algorithm-principles`](../rules/algorithm-principles.md) — the always-on budget / proven-primitive / correctness discipline.
 - `/analyze-complexity` — the analysis counterpart: derive the complexity of *existing* code and rank its asymptotic wins.
 - `performance-optimizer` · `/optimize` · `/refactor` — the measured-runtime / architectural / shape-preserving neighbors this command hands off to.

@@ -86,7 +86,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: monitor-deploy
   kind: skill
   triggers: { deploy_target_detected: true }
-  fallback: skills/monitor-deploy.md
+  fallback: skills/monitor-deploy/SKILL.md
 
 - name: progressive-delivery
   kind: skill

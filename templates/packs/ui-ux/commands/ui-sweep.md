@@ -154,7 +154,7 @@ Compares against the prior baseline (if exists). Surfaces:
 
 ## UI/UX-specific verb taxonomy
 
-`/ui-sweep` dispatches the closed 19-verb vocabulary defined in **`templates/packs/ui-ux/skills/ui-design-sweep.md`** — the same skill `/polish` (frontend), `/enhance-ui`, and `/align-recheck` use. Per-verb fingerprint / procedure / verify / WCAG-iOS-HIG-Material citation live in the skill; this command does not redefine them.
+`/ui-sweep` dispatches the closed 19-verb vocabulary defined in **`templates/packs/ui-ux/skills/ui-design-sweep/SKILL.md`** — the same skill `/polish` (frontend), `/enhance-ui`, and `/align-recheck` use. Per-verb fingerprint / procedure / verify / WCAG-iOS-HIG-Material citation live in the skill; this command does not redefine them.
 
 Detector → verb mapping (this command's 8 detectors → ui-design-sweep's verbs):
 

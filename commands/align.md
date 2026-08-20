@@ -1,5 +1,6 @@
 ---
-description: One command convention alignment. Deep multi-agent execution. Takes optional scope (whole project OR specific area). NO phases visible, NO terminology, NO mid-run questions. Internally runs scan + fix in parallel waves for drift, reinvented wrappers, silent catches, design-token drift, a11y, i18n, and other convention violations. Output is brief: findings closed, commits, diff stats, test status. The simple-surface alternative to /align-scan + /align-fast cycles for convention drift.
+description: Enforce conventions the project ALREADY has, project-wide or across several areas. Triggers — 'align the app to the design system', 'convention drift across the auth pages', 'some files do X, some do Y', 'stop reinventing the shared wrapper'. Do NOT trigger to INTRODUCE finish that does not exist yet (a new token, a missing state, creative visual work) — that is /polish. Not perf or architecture (/optimize), not one narrow area (/align-recheck), not table/form/header consolidation (/unify-surfaces).
+compatibility: Requires _extracted-idioms.md or codebase-profile.md populated as the convention oracle — with neither there is nothing to enforce against. Mechanical CI green and a clean tree, or --allow-dirty. Any stack. Net structural lines are held at or below zero, so nothing new is invented. validate-align-artifacts.sh is agent-invoked, not run automatically.
 kind: command
 pack: orchestration
 ---

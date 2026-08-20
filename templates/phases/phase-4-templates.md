@@ -33,7 +33,7 @@ imported-by: templates/phases/phase-4-apply.md, phase-4.2-apply.md
 
 **Execution model — delegated to `apply-pack-adaptation` skill**:
 
-Per-file adaptation (STUDY-DECIDE-ACT loop, anchor templates, tie-breaking, extraction-weak handling, special cases for engineering-principles / workflow files) is delegated to `templates/packs/learning/skills/apply-pack-adaptation.md`. Phase 5.3 audits the skill's output (`.claude/_phase-4-6-decisions.md` + adapted files) for anchor presence, body density, identifier traceability, and absence of placeholder syntax. **Do NOT inline the skill's procedure here — that's the source of truth.** This section only documents the contract: what the skill consumes (extraction artifacts + pack file list + mode), what it produces (adapted files + decision log), and what setup-project depends on downstream.
+Per-file adaptation (STUDY-DECIDE-ACT loop, anchor templates, tie-breaking, extraction-weak handling, special cases for engineering-principles / workflow files) is delegated to `templates/packs/learning/skills/apply-pack-adaptation/SKILL.md`. Phase 5.3 audits the skill's output (`.claude/_phase-4-6-decisions.md` + adapted files) for anchor presence, body density, identifier traceability, and absence of placeholder syntax. **Do NOT inline the skill's procedure here — that's the source of truth.** This section only documents the contract: what the skill consumes (extraction artifacts + pack file list + mode), what it produces (adapted files + decision log), and what setup-project depends on downstream.
 
 **Auto-injected blocks (every agent — these are setup-project responsibilities, NOT skill-internal)**:
 

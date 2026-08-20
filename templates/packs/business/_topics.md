@@ -84,13 +84,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { always: true }
   sections: [when_to_use, procedure, inputs, outputs, failure_modes]
-  fallback: skills/audit-funnel-completion.md
+  fallback: skills/audit-funnel-completion/SKILL.md
 
 - name: check-business-coverage
   kind: skill
   triggers: { always: true }
   sections: [when_to_use, procedure, inputs, outputs, failure_modes]
-  fallback: skills/check-business-coverage.md
+  fallback: skills/check-business-coverage/SKILL.md
 
 - name: pricing-tax-audit
   kind: skill

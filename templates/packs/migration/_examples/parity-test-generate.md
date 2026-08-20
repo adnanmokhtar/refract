@@ -238,4 +238,4 @@ Update the ledger row's `parity_tests` to point at the directory.
 - `migration-discipline.md` — the rule mandating these tests before cutover.
 - `parity-auditor.md` (agent) — verifies the suite covers the contract before cutover.
 - `testing/agents/tdd-orchestrator.md` (if pack loaded) — runs the suite as part of broader TDD orchestration.
-- `database/skills/migration-rehearsal.md` — runs the V2 query plan against prod-sized data; output feeds parity tests' performance assertions.
+- `database/skills/migration-rehearsal/SKILL.md` — runs the V2 query plan against prod-sized data; output feeds parity tests' performance assertions.

@@ -119,9 +119,9 @@ T+38d: Delete V1 (after 14d of zero traffic).
 
 ### For tools with command + agent + skill dispatch (Claude Code, OpenCode, partial: Cursor, Copilot)
 
-- `.claude/skills/extract-v1-contract.md` — V1-contract-extraction procedure (inlined above).
-- `.claude/skills/parity-test-generate.md` — parity-test-generation procedure (inlined above).
-- `.claude/skills/perf-uplift-survey.md` — perf-uplift-survey procedure (inlined above).
+- `.claude/skills/extract-v1-contract/SKILL.md` — V1-contract-extraction procedure (inlined above).
+- `.claude/skills/parity-test-generate/SKILL.md` — parity-test-generation procedure (inlined above).
+- `.claude/skills/perf-uplift-survey/SKILL.md` — perf-uplift-survey procedure (inlined above).
 - `.claude/agents/migration-architect.md` — strategic per-feature planner.
 - `.claude/agents/parity-auditor.md` — pre-cutover audit (Stage A halts inlined as the 10-halt checklist above).
 - `.claude/commands/find-and-fix.md` — DEFAULT per-feature loop (detect → decide → fix → verify → record).
@@ -139,7 +139,7 @@ T+38d: Delete V1 (after 14d of zero traffic).
 
 - `code-quality/agents/legacy-modernizer.md` — strategic-level migration (sets the feature inventory this rule operates inside).
 - `backend/rules/concurrency-discipline.md` — the parallel-I/O bullet (perf-uplift candidate #5) links here.
-- `database/skills/migration-rehearsal.md` — DB-only migration rehearsal (used during V2 query plan + index changes).
+- `database/skills/migration-rehearsal/SKILL.md` — DB-only migration rehearsal (used during V2 query plan + index changes).
 - `frontend/` pack (if loaded) — component / page / a11y testing recipes the parity-test step uses for frontend ports.
 - `testing/` pack (if loaded) — golden-master, property-based, record-replay recipes — the parity-test step uses these.
 

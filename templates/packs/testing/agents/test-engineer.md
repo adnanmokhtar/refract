@@ -66,7 +66,7 @@ For each typed error the code throws: trigger it → assert the right error type
 - AI: golden-file test for prompt builder output stability.
 - Webhook: signature verification test + idempotency test (same message id twice = single insert).
 - Payment: idempotency-key replay test.
-- Cross-service: contract test (see `testing/skills/contract-test.md`).
+- Cross-service: contract test (see `testing/skills/contract-test/SKILL.md`).
 
 ### Regression
 For EVERY bug fixed: a failing test FIRST, committed alongside the fix.

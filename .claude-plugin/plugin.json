@@ -1,0 +1,29 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "refract",
+  "displayName": "Refract",
+  "version": "1.0.0",
+  "description": "A portable engineering brain for AI coding agents. Installs the 15 global orchestration commands (/do, /setup-project, /scaffold-project, /refine-prompt, /roadmap, /audit, /optimize, /align, /refactor, /polish, /unify-surfaces, /task, /delegate, /setup-project-adapters, /setup-project-health) and ships the framework source — 20 role-based packs, 35 technical domains, 15 business domains, 12 tool adapters, 65 scripts — that /setup-project installs per project.",
+  "author": {
+    "name": "Adnan Mokhtar",
+    "email": "iconxweb@gmail.com",
+    "url": "https://github.com/adnanmokhtar"
+  },
+  "homepage": "https://github.com/adnanmokhtar/refract",
+  "repository": "https://github.com/adnanmokhtar/refract",
+  "license": "MIT",
+  "keywords": [
+    "ai",
+    "claude-code",
+    "cursor",
+    "ai-agents",
+    "llm",
+    "developer-tools",
+    "agent-skills",
+    "prompt-engineering",
+    "orchestration",
+    "code-review",
+    "refactoring",
+    "cross-tool"
+  ]
+}

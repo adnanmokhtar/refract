@@ -1,0 +1,14 @@
+[project]
+name = "smallcrm"
+version = "0.3.0"
+description = "A CRM for two-person sales teams."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109",
+    "uvicorn>=0.27",
+    "pydantic>=2.5",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "httpx>=0.26"]

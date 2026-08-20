@@ -522,7 +522,7 @@ fi
 if [[ "$MODE" != "create" ]]; then
   echo "C2f: ai/ knowledge layer freshness vs pack source"
 
-  # Most recent mtime across pack sources we depend on (claude-config repo).
+  # Most recent mtime across pack sources we depend on (the Refract repo).
   # Resolve the templates dir via the symlink at ~/.claude/templates (or use
   # CLAUDE_CONFIG_ROOT if exported).
   PACKS_ROOT="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/packs"
@@ -764,7 +764,7 @@ if [[ -x "$SCRIPTS_DIR/audit-stack-leakage.sh" ]]; then
     ok "stack leakage audit clean ($PACK_TEMPLATE_ROOT)"
   else
     echo "$leakage_out" >&2
-    err "audit-stack-leakage.sh failed — fix universal docs or placeholders in claude-config"
+    err "audit-stack-leakage.sh failed — fix universal docs or placeholders in Refract"
   fi
   echo ""
 fi

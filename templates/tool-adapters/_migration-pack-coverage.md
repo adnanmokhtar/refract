@@ -65,7 +65,7 @@ Every adapter setup that includes `--include=migration` MUST also propagate thes
    ```
    `validate-migration-artifacts.sh § check_audit_provenance` HALTs without it. For rule-only tools (Aider/Codex/Gemini), the sentinel `auditor_agent_id: rule-only-mode/<tool>/<ISO>` is accepted; the trade-off is logged.
 
-3. **`/migration-doctor`** workspace command — for multi-repo workspaces. Backed by `claude-config/scripts/migration-doctor.sh`. Walks every registered repo with a ledger, runs validator, surfaces cross-repo dependency drift + stale audits.
+3. **`/migration-doctor`** workspace command — for multi-repo workspaces. Backed by Refract's `scripts/migration-doctor.sh`. Walks every registered repo with a ledger, runs validator, surfaces cross-repo dependency drift + stale audits.
 
 4. **Baseline validator checks** (script-shipped — no per-adapter code change needed; install the script bundle — see **§ Companion scripts (2026-05)** below):
    `check_audit_provenance`, `check_audit_freshness`, `check_audit_body_consistency`, `check_intentional_break_adr`, `check_porter_vs_auditor`, `check_corpus_distribution`, `check_tolerance_coverage`, `check_parity_run_v1_commit`, `check_v2_structure` (frontend + backend dispatch via `project_kind`), `check_composable_reuse`, `check_service_shape`, `check_lifecycle_keepalive`, `check_permission_gate_divergence`.
@@ -74,7 +74,7 @@ Every adapter setup that includes `--include=migration` MUST also propagate thes
 
 ### Companion scripts (2026-05) — install the **full** bundle
 
-**Every adapter** that ships migration MUST document this: enforcement is **not** only `validate-migration-artifacts.sh`. Users (and CI) should symlink or copy **all** of these from `claude-config/scripts/` into `~/.claude/scripts/` (or add that directory to `PATH`):
+**Every adapter** that ships migration MUST document this: enforcement is **not** only `validate-migration-artifacts.sh`. Users (and CI) should symlink or copy **all** of these from Refract's `scripts/` into `~/.claude/scripts/` (or add that directory to `PATH`):
 
 | Script | Role |
 |--------|------|

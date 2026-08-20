@@ -55,7 +55,7 @@ This agent owns the **algorithmic / asymptotic** plane. It is the reasoning comp
 
 ## Deriving complexity (the analytical core)
 
-Mechanical, never intuited — the full procedure is the [`complexity-derivation`](../skills/complexity-derivation.md) skill; the rules in brief:
+Mechanical, never intuited — the full procedure is the [`complexity-derivation`](../skills/complexity-derivation/SKILL.md) skill; the rules in brief:
 
 - **Sequential** statements → the max of their costs. **Nested** loops over the same growth variable → the **product** of their bounds (two independent `n` loops → `O(n²)`; a loop to `i` inside a loop to `n` → `O(n²)` triangular, still `O(n²)`).
 - **Divide-and-conquer** → write the recurrence `T(n)=a·T(n/b)+f(n)` and solve by the **Master theorem** or a recursion tree (`2T(n/2)+O(n)` → `O(n log n)`; `2T(n/2)+O(1)` → `O(n)`).
@@ -134,7 +134,7 @@ Chat output stays brief: the dominating finding + the routed hand-offs. The full
 ## Related
 
 ### Skills
-- [`complexity-derivation`](../skills/complexity-derivation.md) — the mechanical big-O / recurrence / amortized procedure both modes run on.
+- [`complexity-derivation`](../skills/complexity-derivation/SKILL.md) — the mechanical big-O / recurrence / amortized procedure both modes run on.
 
 ### Rules
 - [`algorithm-principles`](../rules/algorithm-principles.md) — the always-on complexity-budget / proven-primitive / correctness discipline.

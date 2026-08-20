@@ -1,5 +1,6 @@
 ---
-description: The brain. Scaffold new projects OR analyze + enhance existing ones. Detects mode, refines the prompt, mixes track-based packs, generates domain-specific tooling. One command. Any stack. Any shape. New or existing.
+description: Install or refresh the Claude orchestration layer for a repo. Packs, rules, commands, agents, and project-aware tooling; mode is detected from the repo (CREATE, ENHANCE, --refresh, --refine, --upgrade) and mode drift halts. Trigger on 'set up Claude orchestration here', 'analyze this codebase and generate tooling', 'refresh my setup'. Do NOT trigger to create a CODEBASE from an idea (/scaffold-project chains this itself), to re-sync adapters only (/setup-project-adapters), to report health without writing (/setup-project-health), or to re-run --refine after a PLATEAU-DEEP verdict.
+compatibility: Requires bash and the framework scripts synced to ~/.claude/scripts — run-preflight.sh, audit-setup.sh, apply-study-decisions.sh, apply-anchors.sh. Without them the deterministic preflight and the Phase-5 audit cannot run, and success must not be declared. Writes across .claude/ and ai/. Adapter chaining needs the adapter set resolved in .claude/codebase-profile.md. Not verified outside a POSIX shell.
 version: 2.1.0
 # Tier 1 = HOT (load every session). Tier 2 = WARM (load by phase/task type).
 # Tier 3 = COLD (load on demand only). The orchestrator always loads tier 1;
@@ -153,7 +154,7 @@ Pack-level changes propagate automatically through adapter translation — ancho
 
 **Hard contract (M35) — deterministic backup + durable refresh decisions:**
 
-Refresh's purpose: re-audit because claude-config changed OR the project's code/business changed — keep what must be kept, change what must change, add the new, and NEVER lose the current setup. Two failure modes observed 2026-06-10 broke this: (a) a run that studied and stopped, (b) a run that curated by judgment, skipped the backup, and skipped the audit. M35 closes both:
+Refresh's purpose: re-audit because Refract changed OR the project's code/business changed — keep what must be kept, change what must change, add the new, and NEVER lose the current setup. Two failure modes observed 2026-06-10 broke this: (a) a run that studied and stopped, (b) a run that curated by judgment, skipped the backup, and skipped the audit. M35 closes both:
 
 1. **Backup is deterministic.** `run-preflight.sh` itself creates `.claude/backups/<ts>/` (`.claude/` artifacts + `ai/` + CLAUDE.md/AGENTS.md) in REFRESH / REFINE mode before any report is generated. The agent never decides whether to back up. `audit-setup.sh` C2a refuses success if no backup exists.
 

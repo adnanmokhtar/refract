@@ -88,6 +88,19 @@ target_dir_for_kind() {
   esac
 }
 
+# Enumerate one artifact-kind dir, one line per artifact, in BOTH on-disk forms:
+#   flat      <dir>/<name>.md
+#   dir-form  <dir>/<name>/SKILL.md   (Agent Skills convention; pack skills use this)
+# Emits FULL paths so callers can derive the pack-relative suffix (`${p#"$dir"/}`), which
+# is the artifact identity for both forms. `_*` artifacts are dropped by the caller's guard.
+enumerate_kind_dir() {
+  local dir="$1"
+  [[ -d "$dir" ]] || return 0
+  { find "$dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null
+    find "$dir" -mindepth 2 -maxdepth 2 -name 'SKILL.md' -not -path "$dir/_*" 2>/dev/null
+  } | sort
+}
+
 # ---------- Build report ----------
 {
   printf '# Pack coverage scan — %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -113,14 +126,14 @@ target_dir_for_kind() {
       present=()
 
       while IFS= read -r f; do
-        base="$(basename "$f")"
+        base="${f#"$kind_dir"/}"
         [[ "$base" == _* ]] && continue
         if [[ -f "$tgt_dir/$base" ]]; then
           present+=("$base")
         else
           missing+=("$base")
         fi
-      done < <(find "$kind_dir" -maxdepth 1 -name '*.md' -not -name '_*' | sort)
+      done < <(enumerate_kind_dir "$kind_dir")
 
       total=$(( ${#missing[@]} + ${#present[@]} ))
       [[ $total -eq 0 ]] && continue

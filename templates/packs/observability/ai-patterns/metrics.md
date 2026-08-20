@@ -204,7 +204,7 @@ If you have no metrics today:
 
 - `dashboards.md` — the *reading surface* for these metrics: RED/USE/business panels are visualized there, tiered and versioned-as-code, with the alert→panel linkage. The "delete a panel/metric nobody reads in 90 days" rule is shared both ways.
 - `slo.md` — burn-rate alerts consume these metrics; the burn panel and the burn-rate rule come from the same spec.
-- `skills/alert-audit.md` — audits the alerts wired on top of these metrics.
+- `skills/alert-audit/SKILL.md` — audits the alerts wired on top of these metrics.
 
 ## References
 

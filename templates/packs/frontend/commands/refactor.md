@@ -17,7 +17,7 @@ description: Frontend-targeted refactor — preserves render output, props contr
 
 ### Dispatch
 
-Follow [`commands/refactor.md`](../../../../commands/refactor.md); [`templates/packs/code-quality/skills/refactoring-sweep.md`](../../code-quality/skills/refactoring-sweep.md); read this pack's `STACK.md` + idioms.
+Follow [`commands/refactor.md`](../../../../commands/refactor.md); [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../../code-quality/skills/refactoring-sweep/SKILL.md); read this pack's `STACK.md` + idioms.
 
 ### When NOT
 

@@ -17,7 +17,7 @@ description: Backend-targeted refactor — preserves API contracts, error envelo
 
 ### Dispatch
 
-Follow [`commands/refactor.md`](../../../../commands/refactor.md); apply [`templates/packs/code-quality/skills/refactoring-sweep.md`](../../code-quality/skills/refactoring-sweep.md); consult this pack's `STACK.md` and `.claude/_extracted-idioms.md` for oracle shapes.
+Follow [`commands/refactor.md`](../../../../commands/refactor.md); apply [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../../code-quality/skills/refactoring-sweep/SKILL.md); consult this pack's `STACK.md` and `.claude/_extracted-idioms.md` for oracle shapes.
 
 ### When NOT
 

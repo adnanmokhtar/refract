@@ -15,7 +15,7 @@ imported-by: templates/phases/phase-5-verify.md
 
 **Why this exists**: REFINE rewrites only artifacts whose round-one anchor was shallow. To decide which is "shallow," we need a deterministic score, not a vibe check. The score is also what tells the user "round two added X points; running `--refine` again would add ≤ 2 — plateau reached, stop here."
 
-**Mechanism**: invoke the `compute-anchor-density` skill (lives in `~/.claude/templates/packs/learning/skills/compute-anchor-density.md`) for every Phase-4-generated artifact (`.claude/agents/*.md`, `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/commands/*.md`, `ai/*.md`). The skill scores each file on four axes (each 0–25, total 0–100):
+**Mechanism**: invoke the `compute-anchor-density` skill (lives in `~/.claude/templates/packs/learning/skills/compute-anchor-density/SKILL.md`) for every Phase-4-generated artifact (`.claude/agents/*.md`, `.claude/skills/*/SKILL.md`, `.claude/rules/*.md`, `.claude/commands/*.md`, `ai/*.md`). The skill scores each file on four axes (each 0–25, total 0–100):
 
 1. **Name density** (0–25): how many concrete project identifiers (class names, function names, table names, endpoint paths, package names) appear in the `## Project-specific` block. ≥ 6 = full marks; 0 = zero.
 2. **Path density** (0–25): how many concrete `file:line` or `file/path/` citations appear in the block, AND whether each citation is verified to exist in `.claude/_extracted-codebase.md` or `.claude/_refine-extract.md`. ≥ 5 verified = full marks.
@@ -66,7 +66,7 @@ The full report:
 | `.claude/rules/database.md` | 42 | 88 | +46 | DEEP — cites 7 entities + 4 hot paths |
 | `.claude/rules/code-quality.md` | 65 | 65 | 0 | LEAVE-DEEP — no entity / flow signal applies; round-one anchor is optimal |
 | `.claude/agents/backend-architect.md` | 38 | 79 | +41 | ANCHORED — cites 3 lifecycles + 5 boundaries |
-| `.claude/skills/parallelize-independent-ops.md` | 51 | 84 | +33 | DEEP — cites 4 hot paths with N+1 |
+| `.claude/skills/parallelize-independent-ops/SKILL.md` | 51 | 84 | +33 | DEEP — cites 4 hot paths with N+1 |
 | ... | | | | |
 
 ## Refinement opportunities (artifacts < 70)

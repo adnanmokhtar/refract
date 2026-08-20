@@ -40,7 +40,7 @@ $ROOT/templates/rule-7-phase-4-6-file-adaptation.md
 $ROOT/templates/phases/phase-4.6-deep.md
 $ROOT/templates/phases/phase-4.8-deep.md
 $ROOT/templates/phases/phase-5-verify.md
-$ROOT/templates/packs/learning/skills/apply-pack-adaptation.md
+$ROOT/templates/packs/learning/skills/apply-pack-adaptation/SKILL.md
 "
 
 # grep_owners <fixed-string> — succeed (0) if the literal is present in ANY owner file.
@@ -141,9 +141,13 @@ done
 group "6. hooks.json events documented in cursor + claude-code adapters"
 # Cursor uses camelCase events; claude-code uses PascalCase. We accept either set as
 # valid documentation (each adapter is checked against ITS canonical naming).
+# The cursor names below are Cursor's REAL API surface (cursor.com/docs/agent/hooks).
+# They were previously asserted as `beforeToolCall`/`afterToolCall`, which no Cursor
+# release has ever emitted; the adapter doc was corrected to `preToolUse`/`postToolUse`
+# and this list was not, so the linter was pinning invented vocabulary.
 declare_hooks_for() {
   case "$1" in
-    cursor)      echo "beforeToolCall afterToolCall sessionStart sessionEnd" ;;
+    cursor)      echo "preToolUse postToolUse sessionStart sessionEnd" ;;
     claude-code) echo "PreToolUse PostToolUse SessionStart Stop" ;;
   esac
 }
@@ -166,18 +170,33 @@ for adapter in cursor claude-code; do
   fi
 done
 
-# 7. The cursor adapter must mention either the JSON schema URL or its filename — Phase 4.8
-#    outputs hooks.json validated against this.
-group "7. Cursor hooks.json schema reference"
-if grep -qE "(hooks\.v[0-9]+\.json|hooks\.json schema|hooks-schema)" "$ADAPTERS_DIR/cursor/adapter.md"; then
-  pass "cursor: hooks.json schema reference documented"
+# 7. Cursor hooks.json schema pin. Cursor publishes NO `$schema` URL for hooks.json.
+#    This check used to demand the string `hooks.v1.json`, i.e. the invented
+#    `cursor.com/schemas/hooks.v1.json` reference that the adapter doc removed on purpose
+#    ("drop the fabricated URL"). Asserting it forced the repo to re-add fabricated
+#    evidence to go green, so the assertion — not the doc — was wrong. The only real
+#    discriminator the format carries is its top-level `version: 1`; that is what Phase
+#    4.8 output is validated against, so that is what gets pinned. The second arm is a
+#    regression guard so the fabricated URL cannot quietly return.
+group "7. Cursor hooks.json schema pin"
+CURSOR_DOC="$ADAPTERS_DIR/cursor/adapter.md"
+if grep -qE '"version"[[:space:]]*:[[:space:]]*1|schema `version: 1`' "$CURSOR_DOC"; then
+  pass "cursor: hooks.json schema version discriminator documented (\`version: 1\`)"
 else
-  fail "cursor: hooks.json schema reference NOT documented (need 'hooks.v1.json' or 'hooks.json schema')"
+  fail "cursor: hooks.json schema version NOT pinned (need \`version: 1\` — the only schema discriminator Cursor's hooks.json has)"
+fi
+# Match only a LIVE re-introduction: a real `"$schema"` JSON key, or a fetchable
+# cursor.com/schemas URL. The caveat prose that documents the removal names the string
+# in backticks with an ellipsis and no scheme, so it does not (and must not) trip this.
+if grep -qE '"\$schema"|https?://cursor\.com/schemas/' "$CURSOR_DOC"; then
+  fail "cursor: fabricated schema URL re-introduced — Cursor's hooks.json has no \$schema key"
+else
+  pass "cursor: no fabricated \$schema key / cursor.com/schemas URL"
 fi
 
 # 8. apply-pack-adaptation skill mentions decision-log file by name.
 group "8. apply-pack-adaptation skill — decision-log integration"
-APPLY_SKILL="$ROOT/templates/packs/learning/skills/apply-pack-adaptation.md"
+APPLY_SKILL="$ROOT/templates/packs/learning/skills/apply-pack-adaptation/SKILL.md"
 if [ -f "$APPLY_SKILL" ]; then
   for ref in "_phase-4-6-decisions.md" "_phase-4-8-decisions.md"; do
     if grep -qF "$ref" "$APPLY_SKILL"; then

@@ -2,7 +2,7 @@
 
 Cross-cuts the tool-adapter registry. Documents how each tool surfaces **`/optimize`** when the code-quality / orchestration wiring includes optimize (via `commands/optimize.md`, `architectural-diagnosis`, `refactoring-sweep`, and validators).
 
-`/optimize` is a **top-level orchestration command** (not a standalone pack folder like `templates/packs/migration/`). Discipline is split across `commands/optimize.md`, `templates/packs/code-quality/skills/architectural-diagnosis.md`, **`detect-drift`** (align pack — Phase 2 tactical rescan after foundations), `refactoring-sweep`, quality principles, and **`scripts/validate-optimize-artifacts.sh`**.
+`/optimize` is a **top-level orchestration command** (not a standalone pack folder like `templates/packs/migration/`). Discipline is split across `commands/optimize.md`, `templates/packs/code-quality/skills/architectural-diagnosis/SKILL.md`, **`detect-drift`** (align pack — Phase 2 tactical rescan after foundations), `refactoring-sweep`, quality principles, and **`scripts/validate-optimize-artifacts.sh`**.
 
 ## Capability mapping per tool
 

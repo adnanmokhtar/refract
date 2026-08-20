@@ -1,0 +1,257 @@
+# backend pack — changelog
+
+Release history for `templates/packs/backend/`, newest first.
+
+Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELOG.md`.
+`_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
+`deprecated`) plus a one-line `summary` of the current release; this file holds the prose record. It
+was previously the `changelog` object inside `_version.json` — history buried in JSON string
+literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
+condensed.
+
+## 1.12.0 — 2026-07-10
+
+- add-endpoint Phase-6 Production-readiness gate: 7-row floor ledger (edge validation · error
+  envelope · txn boundary · idempotency-where-required · no N+1/unbounded · authz-not-authn ·
+  log+metric+trace), each MET only with cited evidence or n-a-with-reason, else INCOMPLETE —
+  replaces the bare Status: COMPLETE.
+- api-reviewer: two new production-floor detectors — AUTHZ (authn-is-not-authorization; BLOCK
+  id-scoped handler with authn but no ownership/role check, closed by a 403-denial test not 401) and
+  TXN (transaction-boundary-as-unit-of-work); Coverage table becomes an evidence-required verdict
+  (MET/UNMET/SKIPPED, no faked pass).
+
+## 1.11.0 — 2026-07-09
+
+- ai-patterns +1: request-validation — inbound-validation strategy (single-boundary
+  validate/normalize, writable-field allow-list vs mass-assignment, bounds + content-type/body-size
+  limits, 422 field-error contract). Fills the gap between error-handling (envelope) and
+  api-contract (evolution). Backing MUST + review-checklist item in backend-principles.
+
+## 1.10.0 — 2026-07-09
+
+- NEW gap specialists: ai-patterns/transaction-boundary.md (intra-service write-set atomicity —
+  service owns the boundary, no external I/O in tx, optimistic version-guard vs pessimistic FOR
+  UPDATE, deadlock-safe lock ordering; cross-service outbox/saga deferred to distributed-systems; 5
+  detectors); ai-patterns/file-upload.md (size cap → 413, magic-byte type validation not header,
+  presigned direct-to-storage, stream-not-buffer, uuid keys/path-traversal, malware scan, safe
+  serving headers; 6 detectors); skills/migration-safety.md (online-safe/reversible migration
+  verifier —
+  blocking-index/NOT-NULL-no-backfill/same-deploy-rename/edit-applied/non-reversible-down/in-tx-backfill/FK-without-NOT-VALID;
+  per-tool+engine Adapt table; full scanner spine). Registered the 2 patterns in _topics +
+  _essentials (signal-gated); abridged _examples for all 3.
+- #5 cross-link hygiene: every agent Related now has a ### Skills subsection
+  (api-reviewer→api-snapshot/api-consistency-audit;
+  bug-investigator→log-tail/debug-tenant/endpoint-test; api-architect→module-scaffold;
+  endpoint-tester→endpoint-test; websocket-engineer→none honestly). api-reviewer Output prose
+  Areas-reviewed → a 10-row coverage/pass-fail table. bug-investigator model sonnet→opus + its
+  WhatsApp/Meta/Claude/Stripe/Twilio example genericized to neutral placeholders. endpoint-tester
+  relabeled as the orchestrator of the endpoint-test primitive (dedupe). Boilerplate pattern lists
+  curated per agent (api-architect +rate-limiting/async/pagination/conditional; websocket-engineer
+  +response-streaming). The 6 skills lacking ## Related
+  (api-snapshot/debug-tenant/endpoint-test/env-diff/log-tail/module-scaffold) each got one with the
+  orchestrating agent named.
+- #6 detector retrofit: the 4 older ai-patterns gained the standardized ## Detectors (cite-or-halt) +
+  closure-verbs block, derived from rules they already state — api-contract (bare envelope / ORM
+  leak / breaking-field-no-version / unvalidated DTO / changed code), error-handling (raw throw on
+  user path / stack-in-body / not-in-single-mapper / catch-log-throw / 500-where-4xx),
+  caching-strategy (no-TTL / missing-tenant-prefix / no-stampede-protection /
+  cache-correctness-critical), api-versioning (break-in-live-version / overlap-no-deprecation /
+  no-sunset-tracking / version-mixing). One section vocabulary across all patterns.
+
+## 1.9.0 — 2026-07-09
+
+- skills/api-consistency-audit.md: brought the flagship scanner to the authoring standard. Renamed ##
+  Purpose → ## Premise + added the cite-or-halt statement (finding = <method path> + <file:line> +
+  canonical-violated + closure verb, never invented). NEW ## Adapt to the codebase per-framework
+  primitive table (NestJS/DRF/FastAPI/Spring/Express/Rails/Laravel — where the
+  envelope/error/limiter/ETag/pagination live). NEW ## False positives / gotchas
+  (single-consistent-shape-is-not-drift, tier-scoped variation OK, opt-in detectors, declared
+  exemptions, ownership-pointers-not-respecify). Renamed ## When to use → ## When to run and ##
+  Failure modes → ## Halt conditions (+ added the missing-citation and not-backend halts). Fixed the
+  ai-patterns/ → ai/patterns/ deploy-path drift (9 refs) that dangled post-install, unlike every
+  sibling.
+- rules/backend-principles.md: reconciled with the patterns/agents that enforce concerns the rule
+  was silent on. NEW MUSTs — single response envelope (mixing shapes is drift; RFC 9457 error body);
+  content negotiation (415 on bad Content-Type, 406 on bad Accept, Vary on negotiated/auth-varied
+  responses). NEW SHOULDs — optimistic concurrency (strong ETag + If-Match on contended writes,
+  412/428, read If-None-Match→304); N+1 prevention deferred explicitly to database+performance
+  (n-plus-one-scan) with the api-reviewer inline floor. NEW ## Related block linking all 11 in-pack
+  patterns + concurrency-discipline/migration-backend + the four cross-pack owners. Softened the two
+  dangling in-pack ai/patterns/idempotency.md references to the distributed-systems idempotency
+  pattern (it does not ship in the backend pack). Two review-checklist rows added.
+
+## 1.8.0 — 2026-07-09
+
+- references: backfilled the "Resilience, streaming & conditional requests" block into the six
+  references that shipped none of it. laravel (throttle/RateLimiter::for, SetCacheHeaders ETag,
+  response()->eventStream SSE, ShouldQueue → 202, cursorPaginate); dotnet (AddRateLimiter
+  partitioned, EntityTagHeaderValue + RowVersion→412,
+  IAsyncEnumerable/TypedResults.ServerSentEvents, Channel<T>+BackgroundService→202, EF keyset);
+  flask (flask-limiter, Werkzeug make_conditional, stream_with_context, Celery/RQ→202, SQLAlchemy
+  keyset); go (x/time/rate, manual ETag/304, http.Flusher/io.Pipe, hibiken/asynq→202, keyset);
+  phoenix-elixir (PlugAttack/hammer, Plug.Conn ETag + Ecto optimistic_lock, send_chunked, Oban→202,
+  Ecto keyset; Channels/LiveView vs HTTP-streaming noted); hexagonal-nestjs kept lean
+  (interface-layer note pointing at nestjs.md + a hexagonal pagination port, no duplication).
+- references: added a framework-native Pagination section to the six references that already had the
+  resilience block but no pagination — django (DRF CursorPagination), express (hand-wired keyset +
+  opaque cursor), fastapi (fastapi-pagination / SQLAlchemy tuple_ keyset), nestjs (nestjs-paginate /
+  TypeORM+Prisma keyset), rails (pagy keyset), spring-boot (Pageable/Slice + Spring Data 3.1
+  ScrollPosition.keyset). Closes the only axis that was absent across all 12 references while being
+  a MUST.
+
+## 1.7.0 — 2026-07-09
+
+- NEW ai-patterns/pagination.md (kind:pattern, always:true) — the pagination specialist.
+  Cursor(keyset)-vs-offset decision table, six rules (default+max limit, stable total sort with PK
+  tiebreaker, opaque cursor, keyset-predicate-matches-sort, avoid COUNT(*) per page via
+  limit+1/hasMore, single-envelope meta), six cite-or-halt detectors (unbounded list / no-cap limit
+  / offset-on-hot-table / unstable-sort / count-per-page / envelope-drift) + closure verbs.
+  Registered in _topics + _essentials; fallback _examples/pagination.md.
+- add-endpoint.md Phase-4 enforcement table: NEW API-8 row — a GET list/collection endpoint applies
+  default+hard-max page size, stable sort with unique tiebreaker, cursor for growing tables,
+  envelope meta, no COUNT(*) per page; e2e asserts over-cap limit is clamped and pages do not
+  drop/repeat rows. Closes the one MUST that was checked only at review time and absent from every
+  reference.
+
+## 1.6.0 — 2026-07-09
+
+- NEW ai-patterns/webhook-flow.md (kind:pattern, signal-gated on webhook grep evidence) — the
+  backend webhook specialist. Inbound: raw-body-before-parse, timing-safe signature verify,
+  replay/timestamp-window + event-id dedupe, ack-fast-process-async, correct 2xx/4xx/5xx semantics.
+  Outbound: HMAC signing + rotation, at-least-once + stable event.id, exponential backoff + jitter,
+  DLQ + auto-disable dead subscriptions, subscription mgmt + delivery log, no-ordering-guarantee.
+  Seven cite-or-halt detectors (BAD/GOOD) + closure verbs. Registered in _topics + _essentials;
+  fallback _examples/webhook-flow.md. Un-dangles the webhook-flow / webhook-signature-verification
+  references in add-feature.md + trace-flow.md that pointed at a nonexistent artifact.
+- NEW ai-patterns/multi-tenancy.md SOURCE — the _topics entry + _examples/multi-tenancy.md existed
+  with no backing source (validate-pack-consistency orphan WARN). Authored the canonical pattern
+  (overview / resolution_chain / context_propagation / automatic_filtering / manual_bypass_rules /
+  testing_isolation / pitfalls), genericized off the example project-name leaks. debug-tenant now
+  has a pattern to cite.
+- Technical-error + currency fixes: (a) Deprecation:true is invalid under RFC 9745 (a Date
+  structured field) — corrected to @<unix-date> in api-versioning.md, agents/api-reviewer.md, and
+  _examples/api-versioning.md; api-contract.md was already correct. (b) concurrency-discipline.md
+  Enforcement claimed Pyright reportAwaitInsideLoop (nonexistent) and golangci-lint noctx (unrelated
+  to await-in-loop) — removed the fabricated mappings (enforcement-theater), kept the valid ESLint
+  no-await-in-loop and pointed Python/Go at review convention. (c) websocket-engineer.md
+  nhooyr.io/websocket → github.com/coder/websocket (moved 2024). (d) caching-strategy.md MySQL query
+  cache (removed in 8.0) reworded. (e) parallelize-independent-ops.md Go loop-var shadow annotated
+  as pre-1.22. (f) add-endpoint.md STACK ASSUMPTION frontend leak (Vue3+PrimeVue) → NestJS.
+  RateLimit-* confirmed still an IETF draft as of 2026-07 — no change.
+
+## 1.5.0 — 2026-06-25
+
+- NEW ai-pattern rate-limiting.md (RES-1, the single biggest confirmed gap) — server-side inbound
+  self-protection: algorithm decision table (fixed/sliding/token-bucket/GCRA), key dimensions
+  (per-tenant fairness, never a shared global counter), distributed atomic counter store (Redis Lua
+  / CL.THROTTLE, FAIL-OPEN vs FAIL-CLOSED), 429 + Retry-After (RFC 6585 / RFC 9110) + RateLimit-*
+  (IETF draft) response contract, quotas vs rate limits, load shedding / 503 admission control,
+  cite-or-halt detectors + closure verbs, per-framework limiter table.
+- NEW ai-pattern conditional-requests.md (API-1) — HTTP conditional requests + optimistic
+  concurrency (entirely absent before): strong/weak ETag, If-None-Match → 304 read revalidation,
+  If-Match → 412 / 428 write preconditions mapped to a version column inside the write transaction,
+  RFC 9110, detectors + endpoint-tester cases.
+- NEW ai-pattern response-streaming.md (PERF-1) — stream unbounded results (NDJSON/SSE/chunked)
+  instead of buffering: transport decision table, the mid-stream terminal-error-sentinel rule (no
+  5xx after flush), per-stack backpressure, idle/total timeout + disconnect cancellation, keyset
+  cursor, LLM token cap+metering, RFC 9112.
+- NEW ai-pattern async-job-offload.md (PERF-3) — the 202 Accepted + Location + job-status
+  state-machine contract, idempotent submission, result TTL, graceful-shutdown drain; consumer
+  mechanics (visibility timeout / DLQ) REFERENCE distributed-systems, not duplicated.
+- api-reviewer: added rate-limiting axis, a Contract-evolution BLOCK block (Deprecation RFC 9745 +
+  Sunset RFC 8594 + ADR), perf detectors (unbounded buffering / projection / 202-offload), streaming
+  caveat, content-negotiation (415/406/Vary), mass-assignment (→forms) + SSRF (→security-auditor
+  A10) probes, metric-cardinality + RED-triad + readiness/shutdown checks, External-calls floor
+  thickening (→distributed-systems resilience-reviewer).
+- add-endpoint: signal table gained rate-limit / async-202 / streaming / bulk-batch /
+  conditional-write / over-post-bind / user-supplied-URL-SSRF / sensitive-mutation-audit rows +
+  Phase-6 websocket-engineer-on-stream and Deprecation/Sunset-on-breaking-diff dispatch.
+- api-consistency-audit: NEW detectors rate-limit-enforcement-missing, etag-conditional-drift /
+  optimistic-concurrency-missing, batch-endpoint-contract-drift, field-selection-drift,
+  security-header-drift; error-contract canonical shape updated to RFC 9457.
+- backend-principles: added Must — rate-limit unauthenticated/expensive endpoints; Must-not —
+  request/per-user state in process memory (statelessness for horizontal scale); idempotency
+  stored-replay cross-ref; outbound-resilience + observability-DoD Should pointers.
+- api-contract: added Bulk/batch (207 Multi-Status), Field-selection/expansion, Response-compression
+  (Vary + BREACH/CRIME halt), and Response-shaping/body-size (413) sections.
+- error-handling: RFC 7807 → RFC 9457 (+ application/problem+json + stable type URI); 429 row gained
+  RateLimit-* emission (IETF draft, not RFC 9239).
+- endpoint-tester: conditional-request (304/412/428 + lost-update), content-negotiation (415/406),
+  rate-limit (429), and async-202 test cases.
+- Framework reference bindings (rate-limiting / conditional-requests / streaming / async-jobs) added
+  to nestjs, fastapi, express, django, spring-boot, rails; references/dotnet.md ProblemDetails RFC
+  7807 → 9457.
+
+## 1.4.0 — 2026-06-16
+
+- add-feature: NEW prior-art gate (all tiers, before tier selection) — searches by behavior for an
+  already-shipped capability and HALTs to the user on a near-duplicate; sibling-mirror copies a
+  shape but never catches feature duplication.
+- add-feature: NEW new-dependency gate (all tiers, Phase 4) — a package no sibling imports halts for
+  a dependency review (maintenance / license / supply-chain / size); decision recorded in PR
+  (trivial/standard) or ADR (heavy / auth / crypto / payment / data). Added matching invariant.
+- add-feature: standard-tier closure-verb row now requires n-plus-one-scan on any new list/query
+  endpoint (was heavy-tier-only); catches slow queries before they ship.
+- fix-bug: NEW new-dependency gate (enriched-superset guardrail) — a fix that grows the dependency
+  tree halts for a dependency review and re-confirmation that the root cause can't be closed with an
+  existing primitive; added invariant + hard rule + Phase 4 Minimal-fix note. Baseline fix-bug left
+  minimal by design.
+- _examples/add-feature.md + _examples/fix-bug.md regenerated faithfully from their (now-gated)
+  command sources.
+
+## 1.3.2 — 2026-06-14
+
+- api-consistency-audit skill: added `name:` frontmatter field (was missing).
+
+## 1.3.1 — 2026-06-13
+
+- add-feature: added the mandatory '## Phases applied' declaration block (canonical line 27) — was
+  the lone add-feature variant missing it.
+- add-feature + fix-bug: wired the universal --plan handoff flag via templates/snippets/plan-flag.md
+  (honours the docs/COMMANDS.md universal-flag contract).
+- add-feature: sibling-shape halt now links the shared verdict vocabulary
+  (templates/snippets/sibling-shape-halt.md); 'no-siblings-found' → 'no-siblings'.
+- fix-bug: added enriched-superset banner naming the repo-baseline as the universal-minimum subset;
+  both link the shared invariants in templates/snippets/fix-bug-core.md (failing-test-first +
+  similar-bugs ledger).
+- _examples/add-feature.md + _examples/fix-bug.md regenerated faithfully from their command sources
+  (the stale snapshots contradicted the source — fix-bug example said 'BEFORE fixing'); added
+  generated-from headers.
+
+## 1.3.0 — 2026-06-10
+
+- add-feature + _examples/add-feature: rename payment-idempotency-reviewer → payment-reviewer (the
+  agent that actually ships in domains/payment/agents/); drops the '(if present)' hedge so payment
+  features no longer silently skip specialist review.
+- add-feature + _examples/add-feature: missing-agent fallback rule — any dispatched agent not
+  installed in the project is performed inline against its pack/domain checklist and noted as
+  inline:<agent-name>; never silently skipped. Applied to Phase 2 architects and Phase 6 reviewers.
+- add-feature + _examples/add-feature: NEW Release pre-flight (heavy tier) in Phase 6 — feature-flag
+  decision, expand→migrate→contract migration ordering, one-sentence rollback path ('cannot roll
+  back' requires ADR), staging verification note. Closes the missing release stage in the lifecycle.
+- add-feature + _examples/add-feature: hard rules scoped to tier ('never skip phases within your
+  tier's ceremony'; Phase 1/2 pauses are heavy-tier only) — removes the contradiction with the
+  closure-verbs tiering table.
+- add-feature + _examples/add-feature: trivial/standard output template added — runs without
+  architects/reviewers no longer report against the heavy-tier template.
+- fix-bug / add-endpoint / add-module: payment-reviewer dispatch row added (payment signal parity
+  with add-feature) + missing-agent inline fallback rule.
+
+## 1.2.0 — 2026-05-03
+
+- Add rules/migration-backend.md (79 lines): backend audit axes (endpoints / DTOs / auth+permissions
+  / validators / side effects / service-layer / error contract / tenant isolation / transaction
+  boundaries), stack-aware primitive set covering 13+ frameworks (NestJS / Express / Fastify /
+  Laravel / Django / FastAPI / Flask / Rails / Sinatra / Spring / Go / Phoenix / ASP.NET),
+  Transposition Trap fingerprints, Phase 3 (Retrieve) backend specifics.
+- _topics.md gains migration-backend rule entry (gated by migration_layout_detected trigger).
+- Closes drift: 9 cross-references to backend/rules/migration-backend.md across migration + align
+  packs now resolve.
+
+## 1.1.0 — 2026-05-03
+
+- Adds api-consistency-audit skill (backs /polish on backend stacks).
+
+## 1.0.0 — 2026-04-26
+
+- Initial backend pack release.

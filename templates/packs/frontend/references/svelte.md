@@ -35,11 +35,11 @@ src/
 
 ## Navigation & streaming
 
-- **Link preloading**: `data-sveltekit-preload-data="hover|tap|off"` preloads the destination's `load` data; `data-sveltekit-preload-code="eager|viewport|hover|tap"` preloads its code (tunable separately, e.g. eager code + hover data). Set a default on `<body>` in `app.html` and override per-link. See `frontend/skills/navigation-speed.md`.
-- **Streamed promises**: in `load`, `await` only critical data and return un-awaited promises for the rest — `return { post, comments: getComments() }` — so the page renders before the slow query resolves. Consume with `{#await data.comments}` in `+page.svelte`. See `frontend/skills/streaming-ssr.md`.
+- **Link preloading**: `data-sveltekit-preload-data="hover|tap|off"` preloads the destination's `load` data; `data-sveltekit-preload-code="eager|viewport|hover|tap"` preloads its code (tunable separately, e.g. eager code + hover data). Set a default on `<body>` in `app.html` and override per-link. See `frontend/skills/navigation-speed/SKILL.md`.
+- **Streamed promises**: in `load`, `await` only critical data and return un-awaited promises for the rest — `return { post, comments: getComments() }` — so the page renders before the slow query resolves. Consume with `{#await data.comments}` in `+page.svelte`. See `frontend/skills/streaming-ssr/SKILL.md`.
 - **Page options**: `export const prerender = true` (build to static HTML) / `ssr = false` (skip server render) / `csr = false` (ship no JS).
 - **Forms**: `use:enhance` on `<form>` for client-side progressive enhancement of actions without a full reload.
-- **CWV**: use `enhanced:img` for responsive/optimized images; add `<link rel="preconnect">` for cross-origin asset/font hosts in `+layout.svelte`. For LCP priority hints see `frontend/skills/lcp-audit.md`.
+- **CWV**: use `enhanced:img` for responsive/optimized images; add `<link rel="preconnect">` for cross-origin asset/font hosts in `+layout.svelte`. For LCP priority hints see `frontend/skills/lcp-audit/SKILL.md`.
 
 Anti-patterns:
 
@@ -54,11 +54,11 @@ Anti-patterns:
 ## SEO
 
 - Set metadata in `<svelte:head>` in `+page.svelte`, driven by `+page.ts` / `+page.server.ts` `load` data — unique title + description, canonical, OG/Twitter, and JSON-LD (`<script type="application/ld+json">{@html …}</script>`). Prerender indexable static routes (`export const prerender = true`) so the head reaches crawlers.
-- One mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
+- One mechanism only. See `frontend/skills/seo-audit/SKILL.md` + `@technical-seo`.
 
 ## Fonts
 
-- Self-host via **`@fontsource/*`** (or Fontaine for `size-adjust` fallbacks) — no remote Google Fonts `<link>`. `font-display: swap`; preload the critical font in `app.html` (`<link rel="preload" as="font" crossorigin>`); variable font over ≥3 weights. See `frontend/skills/font-optimization.md`.
+- Self-host via **`@fontsource/*`** (or Fontaine for `size-adjust` fallbacks) — no remote Google Fonts `<link>`. `font-display: swap`; preload the critical font in `app.html` (`<link rel="preload" as="font" crossorigin>`); variable font over ≥3 weights. See `frontend/skills/font-optimization/SKILL.md`.
 
 ## Styling
 

@@ -131,7 +131,7 @@ EXISTING CODE:
 
 ### Dispatch
 
-Dispatch [`templates/packs/backend/skills/module-scaffold.md`](../skills/module-scaffold.md) with the resolved inputs (module name, purpose, signals, multi-tenant / soft-delete / i18n flags, the chosen sibling path, and — for heavy tier — the architects' design slices from Phase 2). The skill generates:
+Dispatch [`templates/packs/backend/skills/module-scaffold/SKILL.md`](../skills/module-scaffold/SKILL.md) with the resolved inputs (module name, purpose, signals, multi-tenant / soft-delete / i18n flags, the chosen sibling path, and — for heavy tier — the architects' design slices from Phase 2). The skill generates:
 
 - `core/` (entity, errors, ports), `application/use-cases/` (CRUD), `infrastructure/persistence/` (orm-entity + mapper + repository.impl), `adapters/http/` (controller + DTOs).
 - DI wiring (`tokens.ts` Symbols + `<name>.module.ts`), reversible migration, the test tree (unit + integration + e2e + wiring smoke spec).

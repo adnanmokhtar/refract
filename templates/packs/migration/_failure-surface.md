@@ -2,7 +2,7 @@
 
 > Catalog of every failure mode the V1→V2 migration toolchain can produce.
 > Generated: 2026-04-29
-> Scope: `claude-config/templates/packs/migration/` + `validate-migration-artifacts.sh` + Phase-6/7/9 incident audits.
+> Scope: `templates/packs/migration/` (Refract repo) + `validate-migration-artifacts.sh` + Phase-6/7/9 incident audits.
 > Method: read every command, agent, skill, rule, the validator script, and the per-phase incident audits line by line. Anti-pattern catalog cross-referenced against `migration-discipline.md § Anti-patterns (named)`.
 >
 > ## ⚠️ READ THIS FIRST — file scope + portability
@@ -513,4 +513,4 @@ This is failure mode A10. The next "Phase 6 first pass" recurrence will land her
 
 ## Path
 
-`templates/packs/migration/_failure-surface.md` (relative to the claude-config repo root)
+`templates/packs/migration/_failure-surface.md` (relative to the Refract repo root)

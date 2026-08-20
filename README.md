@@ -11,8 +11,7 @@ native format of every AI coding tool on your machine.
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tools](https://img.shields.io/badge/tools-12-blue.svg)](#supported-tools)
 [![Packs](https://img.shields.io/badge/packs-20-blueviolet.svg)](#whats-inside)
-[![Commands](https://img.shields.io/badge/commands-130%2B-orange.svg)](#the-commands)
-
+[![Commands](https://img.shields.io/badge/commands-133-orange.svg)](#the-commands)
 [![quality-gates](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml)
 
 </div>
@@ -32,21 +31,7 @@ So you copy-paste. Then the copies drift. Then you stop maintaining eleven of th
 One repo is the source of truth. A single sync command refracts it into every tool's native
 command surface, so `/audit` means the same thing whichever editor you happen to have open.
 
-```mermaid
-flowchart LR
-    SRC["<b>Refract repo</b><br/>single source of truth<br/>commands · agents · rules · packs"]
-
-    SRC --> SYNC["sync-to-global.sh"]
-
-    SYNC --> CC["<b>Claude Code</b><br/>~/.claude/ symlinks"]
-    SYNC --> GEM["<b>Gemini CLI</b><br/>.toml commands"]
-    SYNC --> OC["<b>OpenCode</b><br/>.md + agent mode"]
-    SYNC --> KI["<b>Kimi / Qwen</b><br/>SKILL.md / .md"]
-    SYNC --> CX["<b>Codex</b><br/>Open Agent Skills"]
-
-    SRC --> SETUP["/setup-project<br/><i>per repository</i>"]
-    SETUP --> LOCAL["<b>Cursor · Windsurf · Cline</b><br/><b>Continue · Copilot · Aider</b><br/>native local commands"]
-```
+![How Refract compiles one source of truth into twelve tools: six global-surface tools installed once via sync-to-global.sh, and six per-project tools installed into each repository by /setup-project](assets/architecture.svg)
 
 Two surfaces, because the tools genuinely differ:
 
@@ -60,6 +45,9 @@ Nothing is invented per tool. Every adapter is a derived projection of the same 
 ---
 
 ## Quick start
+
+**The install — clone and sync.** This is the real one: it puts the commands *and* the framework
+tree they read where every tool can find them.
 
 ```bash
 # 1. Clone somewhere stable — NOT at ~/.claude/
@@ -76,10 +64,27 @@ cd ~/Workspace/Projects/refract
 ./scripts/verify-sync.sh
 ```
 
-Open any AI tool and type `/` — the commands are there.
+Open any AI tool and type `/` — the commands are there. Installed tools are auto-detected; there are
+no flags to pass. `--force` replaces stale real files, and `--unlink` cleanly removes everything
+Refract owns.
 
-Installed tools are auto-detected; there are no flags to pass. `--force` replaces stale real files,
-and `--unlink` cleanly removes everything Refract owns.
+**Just want a look first?** Claude Code can install it as a plugin in one line:
+
+```
+/plugin marketplace add adnanmokhtar/refract
+/plugin install refract@refract
+```
+
+Be aware of what that route is and isn't. Commands arrive namespaced (`/refract:audit`, not
+`/audit`), it reaches Claude Code only, and it does **not** install the `templates/` tree that
+fourteen of the fifteen commands read by path — so `/refract:refine-prompt` works standalone and the
+phase-driven ones like `/refract:setup-project` will not find their phase files. Treat the plugin as
+a way to browse and try the light commands; treat the sync above as the install.
+
+[docs/INSTALL.md](docs/INSTALL.md) compares all three routes, with the measured limits of each, and
+[assets/terminal-sync.svg](assets/terminal-sync.svg) is a verbatim capture of a real sync run —
+taken against a throwaway `HOME`, with its two rendering substitutions declared and a `Reproduce:`
+line at the bottom.
 
 > **Claude Code is installed as symlinks**, so editing a file in this repo takes effect
 > immediately with no re-sync. The other tools receive generated copies — re-run
@@ -91,8 +96,10 @@ and `--unlink` cleanly removes everything Refract owns.
 
 ## The commands
 
-Fourteen global commands. Each takes an optional scope — omit it for the whole project, or pass a
+Fifteen global commands. Each takes an optional scope — omit it for the whole project, or pass a
 path or a plain-English description of the area you mean.
+
+![The fifteen global commands grouped by intent — /do routes to the rest; create, plan, improve, integrate and maintain groups; plus the universal --plan handoff to /execute-plan and /verify-plan](assets/command-map.svg)
 
 | Command | What it does |
 |---|---|
@@ -108,6 +115,7 @@ path or a plain-English description of the area you mean.
 | `/polish` | Stack-conditional polish. Frontend → visual hierarchy, spacing, states, motion. Backend → API envelope, errors, pagination, idempotency. Data → schema consistency. Mobile → platform conventions. |
 | `/unify-surfaces` | Makes every surface of the same type behave the same — tables, forms, headers, tabs, filters, buttons, validation. Frontend only. |
 | `/task <ref>` | Pull one task from Trello, Jira, Linear or GitHub, execute it via `/do`, and write status back to the source. |
+| `/delegate` | Dispatch one bounded task to a **different** AI CLI (Codex, Cursor, Aider, OpenCode…), then review its diff and commit it yourself. The relay never commits — that stays your call. |
 | `/setup-project-adapters` | Re-sync tool adapters for the current repository. |
 | `/setup-project-health` | Read-only health report — drift, staleness, budget breaches, missing ADRs. |
 
@@ -151,20 +159,22 @@ re-verify rather than silently shipping a broken translation.
 
 ## What's inside
 
+![The twenty role-based packs and what each ships — agents, skills, commands and rules per pack](assets/pack-matrix.svg)
+
 | | |
 |---|---|
 | **20 packs** | Role-based knowledge tracks, not framework tracks |
 | **69 agents** | Specialised reviewers and architects |
-| **98 skills** | Reusable procedures the agents invoke |
-| **132 commands** | 14 global + 118 pack-level |
+| **98 skills** | Reusable procedures, as `<name>/SKILL.md` |
+| **133 commands** | 15 global + 118 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
-| **61 scripts** | Validators, linters, sync and audit tooling |
+| **65 scripts** | Validators, linters, sync, search and audit tooling |
 | **3 overlays** | GDPR · PCI-DSS · SOC 2 |
 
 ```
 refract/
-├── commands/                # the 14 global commands
+├── commands/                # the 15 global commands
 ├── templates/
 │   ├── repo-baseline/       # copied into every new repository
 │   ├── workspace-baseline/  # multi-repo workspaces (dispatcher, cross-repo commands)
@@ -174,8 +184,9 @@ refract/
 │   ├── phases/              # /setup-project's phase files
 │   ├── domains/             # business-domain knowledge
 │   └── regulatory-overlays/ # compliance overlays
+├── benchmarks/              # seeded-defect fixtures + detection-rate harness
 ├── docs/                    # the manual, the reference, the cheatsheets
-├── scripts/                 # validators, sync, verify, audit
+├── scripts/                 # validators, sync, verify, search, audit
 └── tests/                   # fixtures for the validator harness
 ```
 
@@ -190,6 +201,23 @@ file — the agents adapt with no changes.
 
 Meet a framework it has never seen? `/setup-project` writes the reference on the fly and every
 future project reuses it.
+
+### Finding things in 191k lines
+
+The knowledge base is far larger than any context window, so Refract ships a lexical search layer —
+`scripts/pack-search.py`, pure standard-library Python, no network:
+
+```bash
+$ python3 scripts/pack-search.py "multi-tenant data isolation leak"
+
+35.03  agent    multi-tenant  templates/domains/multi-tenant/agents/tenant-isolation-reviewer.md
+33.66  command  multi-tenant  templates/domains/multi-tenant/commands/tenant-leak-audit.md
+30.80  rule     multi-tenant  templates/domains/multi-tenant/rules/multi-tenancy.md:72
+```
+
+It indexes over 5,000 row-shaped entries and answers in well under a second. Rows are **pointers,
+not answers** — they cite the path to read, they do not replace the prose. Narrative discipline
+files are deliberately left unindexed. See [docs/RETRIEVAL.md](docs/RETRIEVAL.md).
 
 ---
 
@@ -241,12 +269,15 @@ Every run ends with a verdict: `PLATEAU-DEEP` (stop, it is as deep as the code s
 
 | Document | Read it when |
 |---|---|
+| [docs/INSTALL.md](docs/INSTALL.md) | Choosing between the plugin, the global sync, and per-project setup |
 | [docs/COMMANDS.md](docs/COMMANDS.md) | You want the manual — every command, every flag, mode behaviours, flag conflicts |
 | [docs/REFERENCE.md](docs/REFERENCE.md) | Something refused or surprised you — failure modes, discipline patterns, pitfalls |
 | [docs/CHEATSHEET.md](docs/CHEATSHEET.md) | You want the one-page version |
+| [docs/RETRIEVAL.md](docs/RETRIEVAL.md) | You want to query the knowledge base directly |
 | [docs/FEATURE-LIFECYCLE.md](docs/FEATURE-LIFECYCLE.md) | You are taking a feature from idea to shipped |
 | [docs/TASK-PROVIDERS.md](docs/TASK-PROVIDERS.md) | You are wiring `/task` to Trello, Jira, Linear or GitHub |
 | [docs/AIDER-LOCAL-MODEL.md](docs/AIDER-LOCAL-MODEL.md) | You want to run this on a free local GGUF model |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | You want to add a pack, agent, rule or framework reference |
 
 ---
 
@@ -267,17 +298,13 @@ bash scripts/check-rule-budget.sh      # always-loaded rule budget
 All of these run on every push and pull request via
 [quality-gates.yml](.github/workflows/quality-gates.yml).
 
-**Extending it:**
+**Benchmarks.** `benchmarks/` ships fixture projects with deliberately seeded, documented defects so
+detection rate can be measured rather than asserted. The harness is real; see
+[benchmarks/RESULTS.md](benchmarks/RESULTS.md) for what has and has not been recorded so far.
 
-- New agent → drop it into the matching pack's `agents/`
-- New pack → `templates/packs/<name>/{agents,commands,rules,references}/`, then update the
-  track-mix logic in `commands/setup-project.md`
-- New framework → `templates/packs/<pack>/references/<framework>.md`; agents pick it up
-  automatically
-- New rule → `templates/packs/<pack>/rules/<rule>.md`
-
-Existing projects never auto-upgrade — that is deliberate, so a pull never changes how a working
-repository behaves. Run `/setup-project --enhance` when you want the new material.
+**Extending it:** see [CONTRIBUTING.md](CONTRIBUTING.md). In short — a new agent drops into the
+matching pack's `agents/`, a new framework is one `references/<framework>.md` file, and existing
+projects never auto-upgrade, so a pull never changes how a working repository behaves.
 
 ---
 
@@ -302,8 +329,9 @@ Refract installed, and touches nothing else.
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run the gates above before opening a PR — they are
-fast, and they catch the drift class of bug that this repository exists to prevent.
+Issues and pull requests are welcome — start with [CONTRIBUTING.md](CONTRIBUTING.md). Please run the
+gates above before opening a PR; they are fast, and they catch the drift class of bug that this
+repository exists to prevent. Security reports go through [SECURITY.md](SECURITY.md).
 
 ## License
 

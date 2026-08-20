@@ -166,7 +166,7 @@ Three contexts:
 
 ## Companion artifacts
 
-- **Skill**: `compute-anchor-density` (executable scorer; lives in `~/.claude/templates/packs/learning/skills/compute-anchor-density.md`).
+- **Skill**: `compute-anchor-density` (executable scorer; lives in `~/.claude/templates/packs/learning/skills/compute-anchor-density/SKILL.md`).
 - **Phase**: setup-project.md § "Phase 5.5 — Setup-quality score (REFINE mode only)".
 - **Output**: `.claude/_setup-quality.md` — generated per run; format documented in setup-project.md Phase 5.5.
 - **Hard Rule**: setup-project.md § "Always" — the REFINE hard rule references this rubric.

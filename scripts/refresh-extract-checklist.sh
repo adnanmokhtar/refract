@@ -53,12 +53,25 @@ if [[ -f "$REPORT" && "$FORCE" -eq 0 ]]; then
   fi
 fi
 
-# Helpers — count files, get sizes
-count() { find "$1" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | wc -l | tr -d ' '; }
-total_lines() { find "$1" -maxdepth 1 -name '*.md' -not -name '_*' -exec cat {} + 2>/dev/null | wc -l | tr -d ' '; }
+# Helpers — count files, get sizes.
+# `enum` is the single dual-form enumerator: flat `<name>.md` (depth 1) plus Agent Skills
+# dir-form `<name>/SKILL.md` (depth 2). Every helper below routes through it so an inventory
+# of a skills/ dir on the Agent Skills convention cannot silently report 0 files.
+enum() {
+  [[ -d "$1" ]] || return 0
+  { find "$1" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null
+    find "$1" -mindepth 2 -maxdepth 2 -name 'SKILL.md' -not -path "$1/_*" 2>/dev/null
+  } | sort
+}
+count() { enum "$1" | wc -l | tr -d ' '; }
+total_lines() {
+  local t=0 f
+  while IFS= read -r f; do t=$(( t + $(wc -l < "$f" | tr -d ' ') )); done < <(enum "$1")
+  echo "$t"
+}
 list_files() {
-  find "$1" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | sort | while IFS= read -r f; do
-    echo "  - $(basename "$f") ($(wc -l < "$f" | tr -d ' ') lines)"
+  enum "$1" | while IFS= read -r f; do
+    echo "  - ${f#"$1"/} ($(wc -l < "$f" | tr -d ' ') lines)"
   done
 }
 

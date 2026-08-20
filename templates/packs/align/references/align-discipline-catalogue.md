@@ -187,8 +187,8 @@ These references are **convenience pointers for AI tools that support them**. Th
 
 ### For tools with command + agent + skill dispatch
 
-- `.claude/skills/detect-drift.md` — drift-detection procedure (inlined above).
-- `.claude/skills/find-and-align.md` — per-finding fix loop (inlined above).
+- `.claude/skills/detect-drift/SKILL.md` — drift-detection procedure (inlined above).
+- `.claude/skills/find-and-align/SKILL.md` — per-finding fix loop (inlined above).
 - `.claude/commands/align-scan.md` — Phase 0 entry point (scan + report).
 - `.claude/commands/align-plan.md` — phase grouper (consumes scan output).
 - `.claude/commands/align-phase.md` — per-phase orchestrator (executes find-and-align per row).
@@ -211,14 +211,14 @@ These references are **convenience pointers for AI tools that support them**. Th
 - `code-quality/rules/engineering-principles.md` — SOLID principles + engineering rules referenced by SOLID + clean-code detectors.
 - `security/agents/security-auditor.md` — dispatched for security class.
 - `security/commands/security-audit.md` — sibling command (security-only deep audit, used by /align-scan when security findings exceed scan threshold).
-- `security/skills/deps-audit.md` — dispatched for vulnerable-dependency security findings.
+- `security/skills/deps-audit/SKILL.md` — dispatched for vulnerable-dependency security findings.
 - `migration/rules/migration-discipline.md` — sibling discipline; align is migration turned inward.
 - `frontend/rules/migration-frontend.md` — frontend-specific anti-pattern catalogue (extends align).
 - `frontend/agents/accessibility-auditor.md` — dispatched for `frontend-*` a11y class.
 - `frontend/agents/i18n-auditor.md` — dispatched for `frontend-*` i18n class.
 - `frontend/agents/data-flow-auditor.md` — dispatched for `frontend-*` UI-state class.
-- `ui-ux/skills/design-token-audit.md` — dispatched for `frontend-*` token class.
-- `ui-ux/skills/motion-audit.md` — dispatched for `frontend-*` motion class.
+- `ui-ux/skills/design-token-audit/SKILL.md` — dispatched for `frontend-*` token class.
+- `ui-ux/skills/motion-audit/SKILL.md` — dispatched for `frontend-*` motion class.
 - `backend/rules/migration-backend.md` — backend-specific anti-pattern catalogue (extends align).
 - `backend/rules/concurrency-discipline.md` — perf class's `parallelize` verb references this for safe parallelism.
 
@@ -247,11 +247,11 @@ For any `PROJECT_KIND in {frontend-*}`, the align scan MUST dispatch UI/UX detec
 | Sub-class | Detector signal | Default closure verb | Detector source |
 |---|---|---|---|
 | **a11y violation** | missing `alt`, `aria-label`, `aria-labelledby`, `for`/`id` pair, color contrast < AA, focus state missing on interactive element, heading hierarchy skip (`h1 → h3`), button-as-div, link-as-div | `replace-with-shared` (use the project's a11y-correct wrapper) OR `remove`-and-relocate (move attribute to correct element) | `frontend/agents/accessibility-auditor.md` + `frontend/commands/a11y-audit.md` |
-| **design-token drift** | hardcoded color hex / rgb / hsl, hardcoded spacing / font-size / radius, raw Tailwind utility where the project's token alias exists, inline `style="color: #..."` | `replace-with-shared` (swap raw value for the design token named in `_extracted-idioms.md`) | `ui-ux/skills/design-token-audit.md` |
+| **design-token drift** | hardcoded color hex / rgb / hsl, hardcoded spacing / font-size / radius, raw Tailwind utility where the project's token alias exists, inline `style="color: #..."` | `replace-with-shared` (swap raw value for the design token named in `_extracted-idioms.md`) | `ui-ux/skills/design-token-audit/SKILL.md` |
 | **i18n key drift** | hardcoded user-visible string in markup (no `t('...')` / `$t('...')` / `useTranslation` call), orphan locale key (defined in JSON but no resolver), missing key (resolver call resolves to literal), namespace casing mismatch | `replace-with-shared` (swap hardcoded string for translation key) OR `remove` (orphan key in locale JSON) | `frontend/agents/i18n-auditor.md` + `frontend/commands/i18n-audit.md` |
 | **raw library component used in app code** | a raw component from the project's UI library (e.g., button / modal / input / table) used directly in a page where the project's wrapper equivalent exists (per `_extracted-idioms.md` — concrete library and wrapper names vary by stack) | `replace-with-shared` (swap raw component for project wrapper) | universal `reinvented-wrapper` detector + frontend's gold-standard inventory |
 | **missing UI state** | data-fetching component with no loading state OR no empty state OR no error state (hooks/composables that fetch data without surfacing the 3 states the project's standard fetch wrapper provides) | `replace-with-shared` (route through the project's standard fetch wrapper named in `_extracted-idioms.md`) | `frontend/agents/data-flow-auditor.md` |
-| **motion / transition drift** | hardcoded `transition: all 0.3s` / inconsistent easing curves / missing `prefers-reduced-motion` guard / animation defined inline where the project has a token system | `replace-with-shared` (swap inline motion for project's motion token) | `ui-ux/skills/motion-audit.md` |
+| **motion / transition drift** | hardcoded `transition: all 0.3s` / inconsistent easing curves / missing `prefers-reduced-motion` guard / animation defined inline where the project has a token system | `replace-with-shared` (swap inline motion for project's motion token) | `ui-ux/skills/motion-audit/SKILL.md` |
 | **responsive breakpoint drift** | hardcoded `min-width: 768px` where the project has named breakpoints (`tablet`, `desktop`); responsive-only-at-page-level where the component should adapt; `display: none` for mobile-hide where the project's responsive utility exists | `replace-with-shared` (swap raw media query for project breakpoint utility) | `ui-ux` pack detector OR custom grep |
 | **duplicated surface styles** | same affordance (button / card / badge / input / list-row) carries similar inline or scoped styling across **≥ 2** leaf pages or routes with no shared wrapper extracting it; detected by shape / component usage + style-rule similarity per `_extracted-idioms.md` | `extract-to-shared` (introduce or reuse the wrapper named in idioms; rewire callers) OR fold styles into the shared token / wrapper variant — see `ui-ux/commands/enhance-ui.md` Phase 1.5 | `/enhance-ui` orchestration + `frontend/agents/ui-architect.md` |
 | **lifecycle / data-fetch hook on wrong element** | (inherited from migration-frontend.md): hook that fires only on full mount used on a route-cached child; hook that fires on every render used on data fetch | `replace-with-shared` (swap to the mount-AND-reactivate hook pair named in `_extracted-idioms.md`) | `frontend/rules/migration-frontend.md` § lifecycle-hooks |
@@ -289,7 +289,7 @@ See `data/rules/` (if defined). Adds: column-projection-greater-than-consumed (`
 
 ### Mobile alignments
 
-For `PROJECT_KIND in {mobile-*}`, dispatch `mobile/skills/native-bridge-audit.md` alongside the universal 7.
+For `PROJECT_KIND in {mobile-*}`, dispatch `mobile/skills/native-bridge-audit/SKILL.md` alongside the universal 7.
 
 ### Fallback
 

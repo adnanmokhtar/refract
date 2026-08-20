@@ -155,7 +155,7 @@ Protobuf is additive-friendly:
 
 ## Contract testing
 
-Pair versioning with contract tests (see `testing/skills/contract-test.md`). A pushed version bump AND no consumer contract change = something's wrong.
+Pair versioning with contract tests (see `testing/skills/contract-test/SKILL.md`). A pushed version bump AND no consumer contract change = something's wrong.
 
 ## Forbidden
 

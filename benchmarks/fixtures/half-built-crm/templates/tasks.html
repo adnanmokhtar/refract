@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Tasks</h1>
+
+<form method="post" action="/api/tasks/bulk">
+  <table>
+    <thead>
+      <tr><th></th><th>Title</th><th>Due</th><th>Linked to</th></tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td><input type="checkbox" name="task_ids" value="{{ task.id }}"></td>
+        <td>{{ task.title }}</td>
+        <td>{{ task.due_on }}</td>
+        <td>{{ task.contact_id or task.deal_id }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <button type="submit" name="action" value="complete">Mark complete</button>
+  <button type="submit" name="action" value="delete">Delete selected</button>
+</form>
+{% endblock %}

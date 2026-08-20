@@ -51,7 +51,7 @@ src/
 - Streaming SSR: `renderToPipeableStream` (Node) / `renderToReadableStream` (web/edge) so `<Suspense>` boundaries flush progressively + selectively hydrate. `renderToString` is the blocking baseline — flag it.
 - `use(promise)` reads a promise and suspends — always pair with a `<Suspense>` ancestor.
 - `startTransition` / `useTransition` mark nav-triggered updates non-urgent so the shell stays interactive while the next view streams in.
-- See `frontend/skills/streaming-ssr.md` (streaming-boundary scanner) and `frontend/skills/navigation-speed.md` (prefetch / bfcache / View Transitions).
+- See `frontend/skills/streaming-ssr/SKILL.md` (streaming-boundary scanner) and `frontend/skills/navigation-speed/SKILL.md` (prefetch / bfcache / View Transitions).
 
 ```tsx
 const Heavy = React.lazy(() => import('./Heavy'));
@@ -72,7 +72,7 @@ const Heavy = React.lazy(() => import('./Heavy'));
 - `useTransition` / `startTransition` — keep input urgent, defer the expensive re-render.
 - `useDeferredValue` — render a lagging copy of an expensive value off the urgent path.
 - Rule: filtering/sorting a big list inside an `onChange` handler MUST be wrapped in a transition (or fed through `useDeferredValue`), or the keystroke blocks the main thread and tanks INP.
-- See `performance/skills/web-vitals-field.md` (field INP/LCP/CLS attribution) and `performance/ai-patterns/inp-responsiveness.md` (INP main-thread-cost pattern).
+- See `performance/skills/web-vitals-field/SKILL.md` (field INP/LCP/CLS attribution) and `performance/ai-patterns/inp-responsiveness.md` (INP main-thread-cost pattern).
 
 ```tsx
 const [isPending, startTransition] = useTransition();
@@ -84,18 +84,18 @@ function onChange(e) {
 
 ## Core Web Vitals levers
 
-- `fetchpriority="high"` on the LCP hero image (and skip lazy-loading it) — see `frontend/skills/lcp-audit.md`.
+- `fetchpriority="high"` on the LCP hero image (and skip lazy-loading it) — see `frontend/skills/lcp-audit/SKILL.md`.
 - Meta-framework field reporting: `useReportWebVitals` (Next) to ship `web-vitals` metrics (INP / LCP / CLS) to your RUM endpoint.
 
 ## SEO
 
 - A plain Vite/CRA SPA renders an empty `<div id="root">` to crawlers — indexable content needs **SSR/SSG or a prerender step** (Next, Remix / React-Router framework mode). `react-helmet-async` tags set client-side run after JS; social/LLM scrapers won't see them.
-- Manage `<head>` with **`react-helmet-async`** (`<HelmetProvider>` + `<Helmet>`) or the framework route `meta` export (Remix / React Router `MetaFunction`). Emit unique title + description, canonical, OG/Twitter, and page-appropriate JSON-LD (`<script type="application/ld+json">`). One mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
+- Manage `<head>` with **`react-helmet-async`** (`<HelmetProvider>` + `<Helmet>`) or the framework route `meta` export (Remix / React Router `MetaFunction`). Emit unique title + description, canonical, OG/Twitter, and page-appropriate JSON-LD (`<script type="application/ld+json">`). One mechanism only. See `frontend/skills/seo-audit/SKILL.md` + `@technical-seo`.
 
 ## Fonts
 
 - No framework font primitive — self-host via **`@fontsource/*`** (or Fontaine / `unplugin-fontaine` for auto `size-adjust` fallbacks). Never a render-blocking Google Fonts `<link>`.
-- `font-display: swap`; preload the one critical above-the-fold font (`<link rel="preload" as="font" crossorigin>`); size-adjusted fallback to kill swap-CLS; variable font over ≥3 weights. See `frontend/skills/font-optimization.md`.
+- `font-display: swap`; preload the one critical above-the-fold font (`<link rel="preload" as="font" crossorigin>`); size-adjusted fallback to kill swap-CLS; variable font over ≥3 weights. See `frontend/skills/font-optimization/SKILL.md`.
 
 ## Styling
 

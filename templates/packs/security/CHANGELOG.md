@@ -1,0 +1,89 @@
+# security pack — changelog
+
+Release history for `templates/packs/security/`, newest first.
+
+Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELOG.md`.
+`_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
+`deprecated`) plus a one-line `summary` of the current release; this file holds the prose record. It
+was previously the `changelog` object inside `_version.json` — history buried in JSON string
+literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
+condensed.
+
+## 1.5.0 — 2026-07-10
+
+- security-audit Mitigation-Verification Gate (Phase 4): each mitigation is probe-verified with a
+  three-state verdict (VERIFIED / UNVERIFIED / EXPOSED) — 'this looks protected' is banned; no bare
+  checkmarks.
+- security-auditor Premise gains the defense-side symmetry: a mitigation you READ is not a
+  mitigation you PROVED.
+
+## 1.4.1 — 2026-07-10
+
+- security-audit now dispatches ALL SIX specialist reviewers by grep signal (api-security-reviewer
+  on API routes/serializers, data-privacy-reviewer on PII/logger/analytics/DSAR paths,
+  llm-security-reviewer on prompt/tool/RAG/model-output sinks) — was 3 of 6; NO-GO now triggers on a
+  blocker in ANY dispatched reviewer + dispatched-but-missing = incomplete. threat-model: removed
+  the unbacked @security-auditor sign-off; enforcement honestly deferred to a follow-up
+  /security-audit.
+
+## 1.4.0 — 2026-07-09
+
+- agents +1: data-privacy-reviewer (opus) — audits code for PII/PHI data-flow
+  (collection->store->log->third-party egress), DSAR/right-to-erasure implementability, cross-border
+  transfer + consent, mapped to the configured regime (GDPR/PDPL/CCPA) with article-cite discipline.
+  Design-time LINDDUN stays with threat-model; storage mechanics with database/data-retention-pii.
+  Backing MUST + sibling Related reverse-links.
+
+## 1.3.0 — 2026-07-09
+
+- NEW skills/ssrf-scan.md (kind:skill) — SSRF-egress scanner. Six detectors (user-URL-to-fetch no
+  allow-list / no internal+metadata range block / hostname-not-resolved-IP DNS-rebinding /
+  redirect-to-denied-host / dangerous schemes / IMDSv1). Per-stack Adapt table
+  (Node/Python/Go/Java/Ruby/PHP sinks). Upload-egress note deferring inbound to backend file-upload
+  while owning the security-specific SVG-XSS/polyglot/image-parser-CVE risks. Full scanner spine.
+  Registered in _topics/_essentials; abridged _examples/ssrf-scan.md. Closes review gap #4.
+
+## 1.2.0 — 2026-07-09
+
+- NEW agents/api-security-reviewer.md (kind:agent, model:opus, api_surface_detected) — OWASP API
+  Security Top 10:2023 reviewer. All 10 categories with concrete rg detectors + a GraphQL subsection
+  (depth/complexity limits, prod introspection, batching, resolver authz). BOLA (API1) + both BOPLA
+  modes (API3) graded BLOCKER. Full contract: Premise cite-or-halt + hand-wave hard-halt +
+  verdict-matches-body, Pre-flight, checklist, graded findings, Verdict + API1..API10 coverage
+  table, Hard rules, Related with negotiated boundaries (@tenant-isolation-reviewer owns the tenant
+  boundary, this owns per-object ownership; complements @security-auditor web-app A01). Abridged
+  _examples/api-security-reviewer.md.
+- NEW agents/llm-security-reviewer.md (kind:agent, model:opus, llm_usage_detected) — OWASP Top 10
+  for LLM Apps (2025) reviewer, high-value for this LLM-heavy repo. Domain Premise clause: model
+  output + retrieved/tool content are UNTRUSTED input. All 10 classes (LLM01..LLM10) with detectors
+  — undelimited RAG chunk in prompt (LLM01), completion → innerHTML/eval/SQL sink (LLM05 BLOCKER),
+  write/delete/payment tool with no confirmation gate (LLM06 BLOCKER), missing max_tokens/cost cap +
+  unbounded agent loop (LLM10). Cross-links security-auditor 2025 (LLM05→A05/A10, LLM06→A01).
+  Abridged mirror.
+- Registration + bidirectional cross-links: both agents added to _topics + _essentials;
+  @api-security-reviewer + @llm-security-reviewer back-linked into the ## Related of
+  security-auditor, auth-reviewer, and tenant-isolation-reviewer (bidirectional-links rule).
+
+## 1.1.0 — 2026-07-09
+
+- security-auditor.md: full OWASP Top 10:2025 remap of the checklist (was hardwired to 2021 — every
+  finding cited a wrong class). SSRF absorbed into A01; A02 Security Misconfiguration; NEW A03
+  Software Supply Chain Failures; A04 Crypto (alg:none/confusion, argon2id); A05 Injection now
+  includes reflected/stored/DOM XSS with the framework sinks (the total gap D2); A06 Insecure
+  Design; A07 Auth (OAuth 2.1, passkeys, DPoP); A08 Integrity; A09 Logging; NEW A10 Mishandling of
+  Exceptional Conditions (fail-closed). Added BOLA/BFLA to A01, EPSS/KEV to A03. Supply-chain tail
+  rewritten from assert-passed to dispatch-and-verify (image scan/SBOM/cosign executed by devops;
+  report MISSING if no producer) — closes the enforcement-theater the review flagged.
+- Currency + coverage: deps-audit schema-aware parser (npm7 .vulnerabilities / pnpm .advisories /
+  osv-scanner) + EPSS/KEV triage; auth-reviewer OAuth 2.1 + WebAuthn ceremony detector + Related
+  @tenant-isolation-reviewer + Skills subsection; auth-flow bcrypt<12 + passkey flow + Related;
+  zero-trust Related; security-principles NEW MUSTs (XSS/output-encoding, mass-assignment,
+  file-upload) + checklist rows; secret-scan +github_pat_/xox*/hf_/SG./Twilio/npm_ prefixes;
+  threat-model LINDDUN + heading fixes; dependency-vuln-check EPSS/KEV/OSV. Heading drift (When to
+  use->When to run) cleared pack-wide.
+- NEW ai-patterns/tenant-isolation.md (security-lens invariant + 7 isolation layers + assume-breach
+  review methodology + 6 detectors) — resolves the dangling ref from the flagship
+  @tenant-isolation-reviewer + security-audit command; registered in _topics/_essentials;
+  cross-links backend multi-tenancy for the impl shape. payment-integration dangling ref repointed
+  (owned by backend/domain). _examples/{auth-reviewer,security-auditor} regain the condensed
+  Premise+Halt spine so fallback-generated agents keep cite-or-halt.

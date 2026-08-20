@@ -30,7 +30,16 @@ OPENCODE_HOME="${OPENCODE_HOME:-$HOME/.config/opencode}"
 
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-to-global.sh"
 CORE_DIR="$REPO_ROOT/commands"
-MARK="source: claude-config/commands/"
+MARK="source: refract/commands/"
+# Pre-rename marker (the project was called claude-config). Artifacts generated before
+# the rename still carry it, so scope checks must recognise both or older installs go
+# silently unaudited.
+MARK_LEGACY="source: claude-config/commands/"
+
+# True when a downstream file carries the current OR the pre-rename sync marker.
+has_mark() {
+  grep -qF "$MARK" "$1" 2>/dev/null || grep -qF "$MARK_LEGACY" "$1" 2>/dev/null
+}
 
 fails=0
 warns=0
@@ -125,7 +134,7 @@ if [ -d "$KIMI_HOME/skills" ]; then
     [ -d "$d" ] || continue
     sf="${d%/}/SKILL.md"
     [ -f "$sf" ] || continue
-    grep -q "$MARK" "$sf" 2>/dev/null || continue
+    has_mark "$sf" || continue
     flag_downstream "Kimi" "~/.kimi/skills/$(basename "$d")" "$(basename "$d")"
   done
 fi
@@ -135,7 +144,7 @@ if [ -d "$GEMINI_HOME/commands" ]; then
   downstream_seen=1
   for f in "$GEMINI_HOME"/commands/*.toml; do
     [ -f "$f" ] || continue
-    grep -q "$MARK" "$f" 2>/dev/null || continue
+    has_mark "$f" || continue
     flag_downstream "Gemini" "~/.gemini/commands/$(basename "$f")" "$(basename "$f" .toml)"
   done
 fi
@@ -145,7 +154,7 @@ if [ -d "$OPENCODE_HOME/commands" ]; then
   downstream_seen=1
   for f in "$OPENCODE_HOME"/commands/*.md; do
     [ -f "$f" ] || continue
-    grep -q "$MARK" "$f" 2>/dev/null || continue
+    has_mark "$f" || continue
     flag_downstream "OpenCode" "~/.config/opencode/commands/$(basename "$f")" "$(basename "$f" .md)"
   done
 fi

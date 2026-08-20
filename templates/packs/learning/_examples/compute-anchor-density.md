@@ -11,7 +11,7 @@ REFINE rewrites only artifacts whose round-one anchor is shallow. To decide whic
 
 ## When to use
 
-- `/setup-project --refine` Phase 5.5 — score every Phase-4-generated artifact (`.claude/agents/*.md`, `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/commands/*.md`, `ai/*.md`).
+- `/setup-project --refine` Phase 5.5 — score every Phase-4-generated artifact (`.claude/agents/*.md`, `.claude/skills/*/SKILL.md`, `.claude/rules/*.md`, `.claude/commands/*.md`, `ai/*.md`).
 - Internally by Phase 4.6-DEEP — to identify which artifacts to re-anchor (skip ≥ 70).
 - On-demand via `/health` when the user wants to know "how anchored is my setup, really?"
 

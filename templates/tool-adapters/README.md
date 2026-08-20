@@ -135,18 +135,20 @@ When enhance-mode detects a project uses a tool whose adapter is missing:
 
 See individual `<tool>/adapter.md` files for each tool's translation spec.
 
-## Template authoring (claude-config maintainers)
+## Template authoring (Refract maintainers)
 
 When you change pack commands, snippets, or governance files under `templates/`, Phase 5 runs **`audit-stack-leakage.sh`** (C2f) and **`audit-command-dry.sh`** (C2g) via `audit-setup.sh`. Canonical SOLID/clean-code and Phase 3 snippet links live in **`templates/governance/core-discipline.md`** and **`templates/snippets/`**. Details: [**`_template-author-scripts.md`**](_template-author-scripts.md).
 
 ## Per-pack adapter coverage
 
-Some packs define their own discipline that every adapter must preserve faithfully. These packs ship a coverage doc that explains the per-tool translation expectations:
+Some packs — and the two cross-cutting integration commands — define their own discipline that every adapter must preserve faithfully. Each ships a coverage doc explaining the per-tool translation expectations:
 
 - [`_orchestration-sync.md`](_orchestration-sync.md) — **cross-cutting:** simple-surface commands (`/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`), validator oracle paths, hook globs, `/refactor` vs inventory commands. Reference from every `<tool>/adapter.md` Cross-references block.
+- [`_task-integration-coverage.md`](_task-integration-coverage.md) — **cross-cutting (integration command):** `/task` — per-tool primitive, the task-provider MCP requirement, and the REST/CLI degraded path for tools with no MCP.
+- [`_delegate-integration-coverage.md`](_delegate-integration-coverage.md) — **cross-cutting (integration command):** `/delegate` — cross-tool dispatch to a *different* AI coding CLI. Two independent roles per tool (dispatcher / implementer), the mandatory flag surface, and the read-only tri-state that must never be collapsed. Note the asymmetry: hosting comes from the adapter tree, but the implementer set comes from `command -v` over the relay's own list — not from this registry.
 - [`_migration-pack-coverage.md`](_migration-pack-coverage.md) — V1→V2 migration (per-feature port discipline, parity-auditor, migration-fast).
 - [`_optimize-pack-coverage.md`](_optimize-pack-coverage.md), [`_polish-pack-coverage.md`](_polish-pack-coverage.md), [`_refactor-pack-coverage.md`](_refactor-pack-coverage.md) — top-level orchestration validators + parallel runners.
 - [`_align-pack-coverage.md`](_align-pack-coverage.md) — codebase quality gate (alignment scan, per-finding fix loop, align-fast). Covers structural drift, SOLID, clean code, performance, security, and stack-specific UI/UX (a11y / design tokens / i18n / motion for `frontend-*`).
 - [`_ui-ux-pack-coverage.md`](_ui-ux-pack-coverage.md) — UI/UX specialist work (`/ui-sweep`, `/enhance-ui`, `/design-review`, `design-iterate` skill). Goes beyond align: visual hierarchy, quantified coverage metrics, cross-surface consistency, visual baseline + drift, flow-based phasing, HTML visual report. Adapters MUST preserve specialist depth (no downgrade to "thin align wrapper").
 
-All three packs are **rule-self-sufficient** — their core rules inline the full procedural surface so rule-only tools (Aider, Codex, Gemini) get the same enforcement floor as full-capability tools (Claude Code, OpenCode, Cursor, Copilot).
+The **migration**, **align**, and **ui-ux** packs are *rule-self-sufficient* — their core rules inline the full procedural surface so rule-only tools (Aider, Codex, Gemini) get the same enforcement floor as full-capability tools (Claude Code, OpenCode, Cursor, Copilot). The two integration commands are not, and cannot be: `/task` needs a reachable provider and `/delegate` needs a second CLI on PATH, so for those the honest floor is a documented degraded path, not an inlined one.

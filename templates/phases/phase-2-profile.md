@@ -142,7 +142,7 @@ A condensed projection of both feeds the legacy `.claude/codebase-profile.md` (k
 
 #### 2.0 Orchestrator invocation (the single entry point)
 
-Invoke the **`extract-codebase-overview`** skill (lives in `~/.claude/templates/packs/learning/skills/extract-codebase-overview.md`). The skill orchestrates the entire deep extraction:
+Invoke the **`extract-codebase-overview`** skill (lives in `~/.claude/templates/packs/learning/skills/extract-codebase-overview/SKILL.md`). The skill orchestrates the entire deep extraction:
 - Step 1-2: stack + repo shape (deterministic).
 - Step 3: architecture + layering (import-graph sample).
 - Step 4: module enumeration.
@@ -426,7 +426,7 @@ The `--max-subagents=<N>` flag (default `8` in REFINE mode) caps the **total con
 
 **Why a separate phase**: round-one detection asks "is this an e-commerce / healthcare / billing app?" by reading folder names + dependency manifests + entity-name keywords. Round-two needs the actual entities — class names, field names, relationships, lifecycle events, invariants — read from the code itself, not inferred from the surface. A first-pass `ai/business-domains/<domain>.md` says "this is a billing app handling invoices and subscriptions." A round-two pass says "this app's billing domain has 7 entities (`Invoice`, `Subscription`, `Plan`, `Coupon`, `LedgerEntry`, `Refund`, `PaymentAttempt`), with these 4 lifecycle events (`invoice.finalized`, `invoice.paid`, `invoice.uncollectible`, `subscription.canceled`), invariant: `LedgerEntry.amount` SUM per `Invoice` MUST equal `Invoice.total`, currently enforced by `Reports/services/billing/ledger.py:assert_balanced` (line 142)." The second is anchorable; the first is generic.
 
-**Mechanism**: invoke the `extract-domain-entities-deeply` skill (lives in `~/.claude/templates/packs/learning/skills/extract-domain-entities-deeply.md`) ONCE per detected business-domain (from Phase 2.x). The skill walks: ORM/model class definitions (Django models / SQLAlchemy / Sequelize / Prisma / Mongoose / Pydantic / Zod schemas) → migrations directory (forward + reverse for full lineage) → repository / DAO classes → integration / e2e tests (the contract + edge cases the team explicitly tests) → docstrings / domain README files. Synthesizes a structured map: entities, fields with types + constraints + defaults, relationships (FK / cascade rules), enumerations, lifecycle events, invariants.
+**Mechanism**: invoke the `extract-domain-entities-deeply` skill (lives in `~/.claude/templates/packs/learning/skills/extract-domain-entities-deeply/SKILL.md`) ONCE per detected business-domain (from Phase 2.x). The skill walks: ORM/model class definitions (Django models / SQLAlchemy / Sequelize / Prisma / Mongoose / Pydantic / Zod schemas) → migrations directory (forward + reverse for full lineage) → repository / DAO classes → integration / e2e tests (the contract + edge cases the team explicitly tests) → docstrings / domain README files. Synthesizes a structured map: entities, fields with types + constraints + defaults, relationships (FK / cascade rules), enumerations, lifecycle events, invariants.
 
 **Parallelism**: one Explore subagent per business-domain (typically 1–3); independent.
 

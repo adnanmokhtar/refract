@@ -188,7 +188,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md (PROJECT_KIND, dead-code tool, complexity tool, security scanner) + _extracted-idioms.md (full)
   sections: [purpose, when_to_use, inputs, outputs, procedure_step_by_step, halts, notes, related]
   mirror_existing: true
-  fallback: skills/detect-drift.md
+  fallback: skills/detect-drift/SKILL.md
 
 - name: find-and-align
   kind: skill
@@ -197,7 +197,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-idioms.md + _extracted-codebase.md § "Tests"
   sections: [purpose, when_to_use, inputs, outputs, the_5_step_loop, halt_conditions, hard_rules, notes, related]
   mirror_existing: true
-  fallback: skills/find-and-align.md
+  fallback: skills/find-and-align/SKILL.md
 ```
 
 ## Triggers per topic — key decisions
@@ -211,8 +211,8 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
 
 - For `PROJECT_KIND in frontend-*`: also load `frontend/agents/{accessibility-auditor, i18n-auditor, data-flow-auditor}` and `ui-ux/skills/{design-token-audit, motion-audit}`. These are referenced by `align-discipline.md § Per-stack extensions` AND dispatched by `detect-drift` for the UI/UX sub-classes.
 - For `PROJECT_KIND in backend-*`: also load `security/agents/security-auditor` (universal, but heavily used in backend) and any `backend/rules/*.md` that defines fingerprints.
-- For `PROJECT_KIND in data-*`: load `database/skills/migration-rehearsal.md` for the `add-index` verb's `EXPLAIN ANALYZE` step.
-- For `PROJECT_KIND in mobile-*`: load `mobile/skills/native-bridge-audit.md`.
+- For `PROJECT_KIND in data-*`: load `database/skills/migration-rehearsal/SKILL.md` for the `add-index` verb's `EXPLAIN ANALYZE` step.
+- For `PROJECT_KIND in mobile-*`: load `mobile/skills/native-bridge-audit/SKILL.md`.
 
 ## Composition with /setup-project
 

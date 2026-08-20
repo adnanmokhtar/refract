@@ -6,31 +6,5 @@
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "add-ai-feature ships only past a MEASURED eval threshold + guardrails + budget.",
-  "changelog": {
-    "1.0.0": {
-      "released": "2026-07-09",
-      "changes": [
-        "Initial baseline."
-      ]
-    },
-    "1.1.0": {
-      "released": "2026-07-10",
-      "changes": [
-        "ai-patterns +2: fine-tuning (last-resort decision ladder after prompt+RAG, eval-gated + versioned) and vector-store-ops (ANN index tuning — HNSW/IVF params, recall/latency, filtered-recall, refresh — under rag-pipeline's retrieval)."
-      ]
-    },
-    "1.1.1": {
-      "released": "2026-07-10",
-      "changes": [
-        "add-ai-feature: completion criterion made honest — asserts what it can verify (eval-run PASS at baseline + the CI eval-gate step is present in the pipeline config), not the unprovable 'the build will fail'. The real eval-run below-baseline HALT is untouched."
-      ]
-    },
-    "1.2.0": {
-      "released": "2026-07-10",
-      "changes": [
-        "add-ai-feature Ship gate — production-grade or INCOMPLETE: 3-axis table (eval / guardrails / budget); a NEW feature gates on the ABSOLUTE declared threshold (first run establishes baseline yet must clear the bar); binary Status: COMPLETE replaced with a Ship-verdict block.",
-        "ai-feature-reviewer: Eval gate now requires a cited eval-run + cleared measured score; Guardrails dimension adds bounded input validation / injection / PII checks."
-      ]
-    }
-  }
+  "changelog": "CHANGELOG.md"
 }

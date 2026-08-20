@@ -1,5 +1,6 @@
 ---
-description: Take a refined idea (or raw prompt) and generate a working project from scratch — proposes stack with rationale, runs official scaffolders, layers clean architecture + design system + auth + dashboard, writes ADRs for every choice, installs Claude orchestration, validates dev server boots.
+description: Generate a working codebase from nothing, up to a booting dev server. Stack proposal with rationale, official scaffolders, clean architecture, design system, an ADR per choice, then chains /setup-project --create. Trigger on 'new project', 'from scratch', 'greenfield', 'build a product from nothing', or an ai/ideas brief from /refine-prompt. Do NOT trigger in a directory that already holds a project — it refuses to overwrite; that is /setup-project --refresh or --enhance. Adding a feature to an existing app is /add-feature.
+compatibility: Requires an empty or non-existent destination directory, since no overwrite flag exists; git on PATH; and at least one JS package manager on PATH (pnpm, npm, bun, or yarn) to run the real scaffolders. Network reachability is a warning, not a halt. Three confirmation gates pause the run, so it is not usable unattended without --no-prompt. A stack we do not know halts rather than being invented.
 kind: command
 pack: orchestration
 ---

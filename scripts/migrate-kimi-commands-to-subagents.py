@@ -2,7 +2,7 @@
 """One-shot conversion: Kimi command-as-skill → command-as-subagent.
 
 For each project, finds `.kimi/skills/<name>/SKILL.md` whose <name> matches
-a command in claude-config's `commands/` or `templates/packs/*/commands/`.
+a command in Refract's `commands/` or `templates/packs/*/commands/`.
 Converts to `.kimi/subagents/<name>.yaml` with an EXECUTE NOW preamble,
 then moves the original skill directory to `.kimi/_legacy-skills-backup/`
 for easy revert.
@@ -19,7 +19,7 @@ from pathlib import Path
 DRY_RUN = "--apply" not in sys.argv
 
 # Source repo = this checkout (scripts/ -> repo root). No hardcoded path.
-CLAUDE_CONFIG = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 # Targets: pass one or more consuming-project dirs as CLI args.
 #   usage: migrate-kimi-commands-to-subagents.py [--apply] <project-dir> [<project-dir> ...]
 TARGETS = [Path(a) for a in sys.argv[1:] if not a.startswith("-")]
@@ -45,14 +45,14 @@ PLAN_ONLY = {
 
 def get_commands():
     cmds = set()
-    for p in (CLAUDE_CONFIG / "commands").glob("*.md"):
+    for p in (REPO_ROOT / "commands").glob("*.md"):
         if not p.name.startswith("_"):
             cmds.add(p.stem)
-    for p in CLAUDE_CONFIG.glob("templates/packs/*/commands/*.md"):
+    for p in REPO_ROOT.glob("templates/packs/*/commands/*.md"):
         if not p.name.startswith("_"):
             cmds.add(p.stem)
     # Workspace-baseline commands (migration-doctor, project-map, sync-contract, etc.)
-    for p in CLAUDE_CONFIG.glob("templates/workspace-baseline/**/commands/*.md"):
+    for p in REPO_ROOT.glob("templates/workspace-baseline/**/commands/*.md"):
         if not p.name.startswith("_"):
             cmds.add(p.stem)
     return cmds

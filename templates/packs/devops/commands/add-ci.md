@@ -55,7 +55,7 @@ EXISTING — read sibling workflow files (other repos in same org) if user refer
 Workflow file:
 - Triggers: `pull_request` + push to `main`.
 - Jobs: lint, typecheck, test, build — parallelized; `needs:` only where genuine dependency exists.
-- **`security` job** (#48 — on by default; opt out with `--no-security`): dependency vulnerability scan + secret scan, wiring the existing pack skills — `security/skills/deps-audit.md` (CVEs / abandoned deps / license issues) + `security/skills/secret-scan.md` (leaked secrets in tree + history). Runs in parallel with lint/test; advisories the project hasn't triaged are configurable (warn vs fail). A lint-typecheck-test-build CI with no deps/secret gate is the common gap this closes — keep it in sync with the cited `cicd-pipeline.md` pattern.
+- **`security` job** (#48 — on by default; opt out with `--no-security`): dependency vulnerability scan + secret scan, wiring the existing pack skills — `security/skills/deps-audit/SKILL.md` (CVEs / abandoned deps / license issues) + `security/skills/secret-scan/SKILL.md` (leaked secrets in tree + history). Runs in parallel with lint/test; advisories the project hasn't triaged are configurable (warn vs fail). A lint-typecheck-test-build CI with no deps/secret gate is the common gap this closes — keep it in sync with the cited `cicd-pipeline.md` pattern.
 - **Coverage threshold** on the `test` job — emit coverage and fail under the project's threshold (`ai/conventions.md § Coverage`, default advisory). Coverage tool from `ai/stack.md § Scripts`.
 - Cache step keyed on `<lockfile>-<runs-on>`.
 - Artifact upload on successful build.

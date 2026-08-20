@@ -1,5 +1,6 @@
 ---
-description: One command, phased completion plan for an unfinished project. Maps every missing / stubbed / half-wired feature into a dependency-ordered, domain-grouped, sized + prioritized plan — read-only by default. Optional `--build` executes ONE phase per run in parallel waves and halts at a phase gate (same discipline as the migration pack). Six completion detectors (stubs, dangling wires, feature asymmetry, spec delta, domain table-stakes, dead-end flows). The single-codebase analog of /migration-scan + /migration-plan. Brief output.
+description: Map what is INTENDED but not yet built, then phase the build order. Trigger on 'what is left to finish this', 'map the missing features so I can start', 'plan completion for the orders module', 'build the next phase' (--build), 'where am I' (--status). Read-only by default. Do NOT trigger for defects in code that already exists — bugs, security, perf, and scale are /audit. Not for porting features that live in ANOTHER codebase (/migrate), and not for one feature you already know you want (/refine-prompt then /do).
+compatibility: Requires _extracted-codebase.md or codebase-profile.md populated for PROJECT_KIND and the entity inventory. A README, PRD, or ADRs feed the spec-delta detector; with none it falls back to five code-signal detectors and reports reduced spec confidence, or pass --goal to state intent inline. --build additionally requires green CI and a clean tree (or --allow-dirty).
 kind: command
 pack: orchestration
 ---

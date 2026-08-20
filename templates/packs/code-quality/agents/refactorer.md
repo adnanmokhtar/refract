@@ -43,10 +43,10 @@ Measure the touched functions/files BEFORE the first step and AFTER the last, an
 
 ### Arm 2 — Behaviour identical (proven on the touched branch)
 
-- Determine the exact branch(es) the steps modify. For each touched branch **with no covering test**, dispatch [`test-shield`](../skills/test-shield.md) (which dispatches `/add-test`) to write a **characterization test** that pins CURRENT observable behaviour (inputs → outputs/side-effects as they are today, bugs included) BEFORE the first step. Confirm it is green against pre-refactor code.
+- Determine the exact branch(es) the steps modify. For each touched branch **with no covering test**, dispatch [`test-shield`](../skills/test-shield/SKILL.md) (which dispatches `/add-test`) to write a **characterization test** that pins CURRENT observable behaviour (inputs → outputs/side-effects as they are today, bugs included) BEFORE the first step. Confirm it is green against pre-refactor code.
 - After the last step, that same test must still be **green**. Green-before + green-after on the touched branch is the preservation proof; a whole-suite pass on an uncovered branch is NOT.
 - If a touched branch genuinely cannot be characterized (true side-effect-only / external dependency / non-deterministic), it is **UNVERIFIED** — say so explicitly and do not claim behaviour-preserved for that branch; consider not refactoring it.
-- For refactors that move modules / re-wire DI / extract a package, also run [`smoke-verify`](../skills/smoke-verify.md) as the final step — a green suite does not prove the app still boots.
+- For refactors that move modules / re-wire DI / extract a package, also run [`smoke-verify`](../skills/smoke-verify/SKILL.md) as the final step — a green suite does not prove the app still boots.
 
 **Ownership boundary:** this gate proves *this refactor* preserved behaviour and lowered a metric. It does NOT judge whether the code should exist, whether the algorithm is optimal (that is `/analyze-complexity`), or whether the design is right (that is `/optimize`). Stay inside behaviour-and-complexity-preserving structure moves.
 
@@ -64,7 +64,7 @@ Measure the touched functions/files BEFORE the first step and AFTER the last, an
 | Replace magic number with named constant | Literal has meaning (`60_000` → `ONE_MINUTE_MS`). |
 | Introduce parameter object | A function has ≥5 args with natural grouping. |
 
-These map onto the closed refactoring vocabulary (`extract-method`, `extract-class`, `extract-param-object`, `flatten-conditional`, `move-to-module`, `replace-magic-with-constant`, `replace-temp-with-query`, `replace-loop-with-pipeline`, `rename`, `encapsulate`) that `refactoring-sweep` applies and `/refactor` enforces — see [`templates/packs/code-quality/skills/refactoring-sweep.md`](../skills/refactoring-sweep.md).
+These map onto the closed refactoring vocabulary (`extract-method`, `extract-class`, `extract-param-object`, `flatten-conditional`, `move-to-module`, `replace-magic-with-constant`, `replace-temp-with-query`, `replace-loop-with-pipeline`, `rename`, `encapsulate`) that `refactoring-sweep` applies and `/refactor` enforces — see [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../skills/refactoring-sweep/SKILL.md).
 
 **Route to `/optimize`, do NOT apply here:** introducing a value object, replacing a conditional with polymorphism, and reducing fan-out (facade / merge) each introduce a NEW symbol or move responsibilities across boundaries — they trip this agent's own auto-halt above ("adds new symbols") and fall outside the closed vocabulary. Surface them as `/optimize` follow-ups (it owns `split-god-module`, `decouple-cycle`, `introduce-abstraction`); never smuggle them through a refactor.
 

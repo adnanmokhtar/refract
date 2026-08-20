@@ -22,7 +22,7 @@ An aggregate is a consistency boundary or it is a lie. `Order` "owns" its `LineI
 
 ## What this agent consumes (boundary with learning)
 
-This agent is the **auditor** that sits on top of the learning pack's `extract-domain-entities-deeply` skill. That skill already does the heavy read — it walks ORM models + migrations + repositories + tests and emits, per entity, an `invariants:` block where **each invariant records `enforcement: <DB|model|service|test|none>` and a `citation: <file:line>`** (including `enforcement: none` explicitly, and `cross_entity_invariants` for rules spanning entities). See `learning/skills/extract-domain-entities-deeply.md`.
+This agent is the **auditor** that sits on top of the learning pack's `extract-domain-entities-deeply` skill. That skill already does the heavy read — it walks ORM models + migrations + repositories + tests and emits, per entity, an `invariants:` block where **each invariant records `enforcement: <DB|model|service|test|none>` and a `citation: <file:line>`** (including `enforcement: none` explicitly, and `cross_entity_invariants` for rules spanning entities). See `learning/skills/extract-domain-entities-deeply/SKILL.md`.
 
 - **If `.claude/_refine-extract.md` (or the passed extraction) exists**, START from its `## Domain entities` section — do not re-derive the entity map from scratch. Verify its citations still resolve at the current commit, then apply this agent's *judgement* layer: is the model anemic, is the boundary a real aggregate, does `enforcement: none` sit on a money invariant (→ BLOCKER)?
 - **The division of labour**: extraction *records* the enforcement layer per invariant; this agent *grades* it. Extraction is allowed to be neutral ("enforcement: none" is just a fact). This agent is not — an unenforced money invariant becomes a BLOCKER here.
@@ -186,7 +186,7 @@ Handed to workflow-integrity: <state-transition concerns spotted, if any>
 - `ai-patterns/missing-counterparts.md` — cycle-pair existence; orthogonal to invariant enforcement.
 
 ### Cross-pack references
-- `learning/skills/extract-domain-entities-deeply.md` — **the input.** Produces the per-entity invariant list with `enforcement:` layer (incl. `none`) and `citation:` that this agent grades. Consume it; do not re-derive.
+- `learning/skills/extract-domain-entities-deeply/SKILL.md` — **the input.** Produces the per-entity invariant list with `enforcement:` layer (incl. `none`) and `citation:` that this agent grades. Consume it; do not re-derive.
 - `database/ai-patterns/transaction-isolation.md` — when two writers race the same aggregate, the enforcement layer needs a lock / version column.
 - `distributed-systems/ai-patterns/saga.md` — the fix for a cross-aggregate transaction that should be eventual, not atomic.
-- `business/skills/pricing-tax-audit.md` — receives the money-as-float / value-object findings for money-math correctness.
+- `business/skills/pricing-tax-audit/SKILL.md` — receives the money-as-float / value-object findings for money-math correctness.

@@ -209,7 +209,9 @@ for action in "${actions[@]:-}"; do
       [[ "$INCLUDE" == *add* ]] || { listed=$((listed + 1)); continue; }
       [[ -f "$pack_src" ]] || { echo "  SKIP $pack/$kind/$base — pack source missing"; skipped=$((skipped + 1)); continue; }
       if [[ "$APPLY" -eq 1 ]]; then
-        mkdir -p "$tgt_dir"
+        # dirname, not $tgt_dir: an Agent Skills row carries a `<name>/SKILL.md` base, so
+        # the per-skill subdir must exist too or the cp fails with ENOENT.
+        mkdir -p "$(dirname "$tgt")"
         cp "$pack_src" "$tgt"
         [[ "$kind" == "commands" || "$kind" == "agents" ]] && rewrite_deployed_command_links "$tgt"
         echo "  ADD     $pack/$kind/$base → $(basename "$tgt_dir")/$base"
@@ -232,6 +234,7 @@ for action in "${actions[@]:-}"; do
         mkdir -p "$(dirname "$bak_path")"
         cp "$tgt" "$bak_path"
 
+        mkdir -p "$(dirname "$tgt")"
         cp "$pack_src" "$tgt"
         [[ "$kind" == "commands" || "$kind" == "agents" ]] && rewrite_deployed_command_links "$tgt"
         echo "  REPLACE $rel  ($rest; backup: $bak_dir/$rel)"

@@ -50,7 +50,7 @@ V1 trigger:                                 V2 transformation (parity-preserving
 
 V2's query shape often differs from V1's because V2 reorganises queries (joins moved, predicates added, sorts added). The pre-existing index on V1 may not cover V2.
 
-- Detect: run `EXPLAIN ANALYZE` on V2's queries against prod-sized data (use `database/skills/migration-rehearsal.md`). Look for `Seq Scan` on tables > 10K rows where a `WHERE` clause exists.
+- Detect: run `EXPLAIN ANALYZE` on V2's queries against prod-sized data (use `database/skills/migration-rehearsal/SKILL.md`). Look for `Seq Scan` on tables > 10K rows where a `WHERE` clause exists.
 - Estimate: V1 with index = O(log N) lookup; V2 sequential scan = O(N). At 10M-row tables this is the difference between 1ms and 1500ms.
 - Apply: write a reversible migration (`CREATE INDEX CONCURRENTLY ...` on Postgres; equivalent on other engines). Composite index ordering matters — leftmost columns are the most-selective predicates.
 - Parity: same rows returned, faster. Always parity-preserving (no observable change).
@@ -88,7 +88,7 @@ Reject if: the cached value depends on user-specific authz (cache key must inclu
 
 ### 5. Sequential awaits over independent I/O
 
-(Cross-references `backend/skills/parallelize-independent-ops.md`.)
+(Cross-references `backend/skills/parallelize-independent-ops/SKILL.md`.)
 
 - Detect: V1's call graph shows `for x in xs: await f(x)` where `f`'s arguments don't depend on prior iterations.
 - Estimate: wall-clock = N × per-call latency. Parallel wall-clock = max-call latency + bounded overhead. For N=10, p95=100ms each, sequential = 1000ms, parallel = ~120ms.
@@ -230,8 +230,8 @@ V2 background:                                                  → emailJob →
 - `feature-port.md` — Phase 5 of the per-feature lifecycle.
 - `extract-v1-contract.md` — produces the V1 baseline data this skill consumes.
 - `parity-test-generate.md` — the parity tests this skill MUST keep green.
-- `backend/skills/parallelize-independent-ops.md` — the parallel-I/O recipe (this skill's row 5).
+- `backend/skills/parallelize-independent-ops/SKILL.md` — the parallel-I/O recipe (this skill's row 5).
 - `backend/rules/concurrency-discipline.md` — the bound + safety rules for parallel I/O.
-- `database/skills/migration-rehearsal.md` — measures V2 query plans on prod-sized data; output feeds rows 2 + 6.
+- `database/skills/migration-rehearsal/SKILL.md` — measures V2 query plans on prod-sized data; output feeds rows 2 + 6.
 - `database/agents/query-optimizer.md` — pair-program with this skill on rows 1, 2, 6, 7.
 - `performance/_examples/perf-audit.md` — for steady-state perf work after migration; complements but doesn't replace this skill.

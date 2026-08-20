@@ -47,7 +47,7 @@ Two anchors: **hot and asymptotic only** (a real `O(n²)` on a path that runs on
 
 ## What happens internally
 
-**Discipline:** governed by the [`algorithm-designer`](../agents/algorithm-designer.md) agent (ANALYSIS mode); complexity derived via the [`complexity-derivation`](../skills/complexity-derivation.md) skill; any `--fix` carries the SOLID/clean-code discipline in [`core-discipline.md`](../../../governance/core-discipline.md) + a covering test. Phases are silent.
+**Discipline:** governed by the [`algorithm-designer`](../agents/algorithm-designer.md) agent (ANALYSIS mode); complexity derived via the [`complexity-derivation`](../skills/complexity-derivation/SKILL.md) skill; any `--fix` carries the SOLID/clean-code discipline in [`core-discipline.md`](../../../governance/core-discipline.md) + a covering test. Phases are silent.
 
 1. **Scope + hotness** — resolve the scope; classify each path hot vs cold (a defect on a cold path is informational, never a ranked fix). When hotness is uncertain, flag it rather than assume.
 2. **Derive** — for each hot path, derive time complexity (and space under `--space`) from the structure: loop nesting → product, recursion → recurrence + Master theorem, amortized where structures grow, expected vs worst for hashing/randomization. Cite the construct each bound comes from. Report the dominating term with the variable defined.
@@ -105,7 +105,7 @@ A pure analysis run (no `--fix`) ends at `Report:` and writes nothing, so it car
 
 ## Cross-references
 - agent [`algorithm-designer`](../agents/algorithm-designer.md) — owns the derivation, the detection vocabulary, and the ranking.
-- skill [`complexity-derivation`](../skills/complexity-derivation.md) — the mechanical big-O / recurrence / amortized engine.
+- skill [`complexity-derivation`](../skills/complexity-derivation/SKILL.md) — the mechanical big-O / recurrence / amortized engine.
 - rule [`algorithm-principles`](../rules/algorithm-principles.md) — the always-on complexity discipline.
 - `/design-algorithm` — the design counterpart: turn a ranked candidate (or a fresh problem) into a proven, implemented algorithm.
 - `performance-optimizer` · `/perf-audit` · `/optimize` · `/refactor` — the measured-runtime / architectural / shape-preserving neighbors this command routes to.

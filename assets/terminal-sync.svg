@@ -1,0 +1,165 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="750" height="988" viewBox="0 0 750 988" role="img" aria-label="Terminal capture: sync-to-global.sh dry run, then --apply, then verify-sync.sh, run against a throwaway HOME">
+<title>Terminal capture: cross-tool sync into a throwaway HOME</title>
+<desc>Output of `bash scripts/sync-to-global.sh`, `bash scripts/sync-to-global.sh --apply` and `bash scripts/verify-sync.sh`, captured on 2026-08-20 with HOME pointed at a throwaway directory so the capture touched no real tool config. Verbatim except for two declared prefix swaps (the sandbox HOME reads ~, this clone reads &lt;repo&gt;) and the marked elision rows, each of which states how many lines it replaces. Final result: 108 entries verified, 0 drift, exit 0.</desc>
+<rect x="0" y="0" width="750" height="988" rx="10" fill="#f7f9fb" stroke="#d5dce5" stroke-width="1"/>
+<text x="22" y="38" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="19" fill="#161b22" font-weight="700">Real output, captured in a throwaway HOME</text>
+<text x="22" y="58" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11.5" fill="#6b7684" font-weight="400">2026-08-20 · macOS 26.5.1 · HOME pointed at a scratch directory, so no real tool config was touched.</text>
+<text x="22" y="71" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11.5" fill="#6b7684" font-weight="400">Verbatim stdout+stderr, with two declared swaps: the sandbox HOME renders as ~, this clone's path as &lt;repo&gt;.</text>
+<rect x="16" y="76" width="718" height="766.8" rx="8" fill="#f6f8fa" stroke="#d5dce5" stroke-width="1"/>
+<path d="M 16 84 A 8 8 0 0 1 24 76 H 726 A 8 8 0 0 1 734 84 V 106 H 16 Z" fill="#e9edf2"/>
+<line x1="16" y1="106" x2="734" y2="106" stroke="#d5dce5" stroke-width="1"/>
+<text x="32" y="96" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="600">bash</text>
+<text x="718" y="96" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="400" text-anchor="end">row numbers are drawn by this figure, not by the shell</text>
+<text x="52" y="126.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">1</text>
+<text x="64" y="126.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#0f6b52" font-weight="700">$</text>
+<text x="76.64" y="126.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#161b22" font-weight="600">bash scripts/sync-to-global.sh</text>
+<rect x="17" y="129.2" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="139.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">2</text>
+<text x="64" y="139.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#98a2b0" font-weight="400">════════════════════════════════════════════════════════════════</text>
+<text x="52" y="152.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">3</text>
+<text x="64" y="152.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#161b22" font-weight="600">  Universal cross-tool sync</text>
+<rect x="17" y="155.6" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="165.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">4</text>
+<text x="64" y="165.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#161b22" font-weight="600">  Mode: dry-run</text>
+<text x="52" y="178.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">5</text>
+<text x="64" y="178.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#98a2b0" font-weight="400">════════════════════════════════════════════════════════════════</text>
+<rect x="17" y="182.0" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="192.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">6</text>
+<text x="52" y="205.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">7</text>
+<text x="64" y="205.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#5b3d99" font-weight="400">=== Claude Code (~/.claude) ===</text>
+<rect x="17" y="208.4" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="218.39999999999998" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">8</text>
+<text x="64" y="218.39999999999998" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="218.39999999999998" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">~/.claude/commands/align.md -&gt; &lt;repo&gt;/commands/align.md</text>
+<text x="52" y="231.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">9</text>
+<text x="64" y="231.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="231.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">~/.claude/commands/audit.md -&gt; &lt;repo&gt;/commands/audit.md</text>
+<rect x="17" y="234.8" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="244.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">10</text>
+<text x="64" y="244.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="244.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">~/.claude/commands/delegate.md -&gt; &lt;repo&gt;/commands/delegate.md</text>
+<text x="52" y="258.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">11</text>
+<text x="64" y="258.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="258.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">~/.claude/commands/do.md -&gt; &lt;repo&gt;/commands/do.md</text>
+<rect x="17" y="261.2" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="271.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">12</text>
+<text x="64" y="271.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="271.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">~/.claude/commands/optimize.md -&gt; &lt;repo&gt;/commands/optimize.md</text>
+<rect x="17" y="274.4" width="716" height="13.2" fill="#f3eee4"/>
+<text x="52" y="284.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">13</text>
+<text x="64" y="284.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10" fill="#8a6100" font-weight="400" font-style="italic">...  103 lines elided by this figure — 10 more commands/, 28 templates/, 65 scripts/</text>
+<rect x="17" y="287.6" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="297.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">14</text>
+<text x="52" y="310.79999999999995" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">15</text>
+<text x="64" y="310.79999999999995" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#5b3d99" font-weight="400">=== Kimi Code (~/.kimi/skills) ===</text>
+<rect x="17" y="314.0" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="324.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">16</text>
+<text x="64" y="324.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="324.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">align -&gt; ~/.kimi/skills/align/SKILL.md</text>
+<rect x="17" y="327.2" width="716" height="13.2" fill="#f3eee4"/>
+<text x="52" y="337.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">17</text>
+<text x="64" y="337.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10" fill="#8a6100" font-weight="400" font-style="italic">...  14 lines elided by this figure — audit … unify-surfaces</text>
+<rect x="17" y="340.4" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="350.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">18</text>
+<text x="64" y="350.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">       (15 skills)</text>
+<text x="52" y="363.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">19</text>
+<rect x="17" y="366.8" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="376.79999999999995" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">20</text>
+<text x="64" y="376.79999999999995" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#5b3d99" font-weight="400">=== Qwen Code (~/.qwen/commands) ===</text>
+<text x="52" y="390.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">21</text>
+<text x="64" y="390.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="390.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">align.md -&gt; ~/.qwen/commands/align.md</text>
+<rect x="17" y="393.2" width="716" height="13.2" fill="#eaeff5"/>
+<rect x="17" y="393.2" width="716" height="13.2" fill="#f3eee4"/>
+<text x="52" y="403.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">22</text>
+<text x="64" y="403.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10" fill="#8a6100" font-weight="400" font-style="italic">...  14 lines elided by this figure — the other 14 commands</text>
+<text x="52" y="416.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">23</text>
+<text x="64" y="416.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">       (15 commands)</text>
+<rect x="17" y="419.6" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="429.59999999999997" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">24</text>
+<text x="52" y="442.79999999999995" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">25</text>
+<text x="64" y="442.79999999999995" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#5b3d99" font-weight="400">=== Gemini CLI (~/.gemini/commands) ===</text>
+<rect x="17" y="446.0" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="456.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">26</text>
+<text x="64" y="456.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="456.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">align -&gt; ~/.gemini/commands/align.toml</text>
+<rect x="17" y="459.2" width="716" height="13.2" fill="#f3eee4"/>
+<text x="52" y="469.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">27</text>
+<text x="64" y="469.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10" fill="#8a6100" font-weight="400" font-style="italic">...  14 lines elided by this figure — the other 14 commands</text>
+<rect x="17" y="472.4" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="482.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">28</text>
+<text x="64" y="482.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">       (15 commands)</text>
+<text x="52" y="495.59999999999997" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">29</text>
+<rect x="17" y="498.8" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="508.79999999999995" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">30</text>
+<text x="64" y="508.79999999999995" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#5b3d99" font-weight="400">=== OpenCode (~/.config/opencode/commands) ===</text>
+<text x="52" y="522.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">31</text>
+<text x="64" y="522.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="522.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">align -&gt; ~/.config/opencode/commands/align.md</text>
+<rect x="17" y="525.2" width="716" height="13.2" fill="#eaeff5"/>
+<rect x="17" y="525.2" width="716" height="13.2" fill="#f3eee4"/>
+<text x="52" y="535.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">32</text>
+<text x="64" y="535.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10" fill="#8a6100" font-weight="400" font-style="italic">...  14 lines elided by this figure — the other 14 commands</text>
+<text x="52" y="548.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">33</text>
+<text x="64" y="548.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">       (15 commands)</text>
+<rect x="17" y="551.6" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="561.5999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">34</text>
+<text x="52" y="574.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">35</text>
+<text x="64" y="574.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#5b3d99" font-weight="400">=== Codex CLI (~/.agents/skills) ===</text>
+<rect x="17" y="578.0" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="588.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">36</text>
+<text x="64" y="588.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">would</text>
+<text x="108.24000000000001" y="588.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">align -&gt; ~/.agents/skills/align/SKILL.md</text>
+<rect x="17" y="591.2" width="716" height="13.2" fill="#f3eee4"/>
+<text x="52" y="601.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">37</text>
+<text x="64" y="601.2" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10" fill="#8a6100" font-weight="400" font-style="italic">...  14 lines elided by this figure — the other 14 skills</text>
+<rect x="17" y="604.4" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="614.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">38</text>
+<text x="64" y="614.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">       (15 skills)</text>
+<text x="52" y="627.5999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">39</text>
+<rect x="17" y="630.8" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="640.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">40</text>
+<text x="64" y="640.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#8a6100" font-weight="600">DRY RUN — re-run with --apply to perform the actions above.</text>
+<text x="52" y="654.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">41</text>
+<rect x="17" y="657.2" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="667.1999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">42</text>
+<text x="64" y="667.1999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#0f6b52" font-weight="700">$</text>
+<text x="76.64" y="667.1999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#161b22" font-weight="600">bash scripts/sync-to-global.sh --apply</text>
+<text x="52" y="680.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">43</text>
+<text x="64" y="680.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#98a2b0" font-weight="400">════════════════════════════════════════════════════════════════</text>
+<rect x="17" y="683.6" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="693.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">44</text>
+<text x="64" y="693.6" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#161b22" font-weight="600">  Universal cross-tool sync</text>
+<text x="52" y="706.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">45</text>
+<text x="64" y="706.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#161b22" font-weight="600">  Mode: APPLY</text>
+<rect x="17" y="710.0" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="720.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">46</text>
+<text x="64" y="720.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#98a2b0" font-weight="400">════════════════════════════════════════════════════════════════</text>
+<text x="52" y="733.1999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">47</text>
+<rect x="17" y="736.4" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="746.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">48</text>
+<text x="64" y="746.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#5b3d99" font-weight="400">=== Claude Code (~/.claude) ===</text>
+<text x="52" y="759.5999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">49</text>
+<text x="64" y="759.5999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#0f6b52" font-weight="600">link</text>
+<text x="108.24000000000001" y="759.5999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#6b7684" font-weight="400">~/.claude/commands/align.md -&gt; &lt;repo&gt;/commands/align.md</text>
+<rect x="17" y="762.8" width="716" height="13.2" fill="#eaeff5"/>
+<rect x="17" y="762.8" width="716" height="13.2" fill="#f3eee4"/>
+<text x="52" y="772.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">50</text>
+<text x="64" y="772.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10" fill="#8a6100" font-weight="400" font-style="italic">...  198 lines elided by this figure — same listing; link / skill / cmd / toml replace would</text>
+<text x="52" y="786.0" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">51</text>
+<rect x="17" y="789.2" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="799.1999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">52</text>
+<text x="64" y="799.1999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#0f6b52" font-weight="700">$</text>
+<text x="76.64" y="799.1999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#161b22" font-weight="600">bash scripts/verify-sync.sh</text>
+<text x="52" y="812.4" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">53</text>
+<rect x="17" y="815.6" width="716" height="13.2" fill="#eaeff5"/>
+<text x="52" y="825.5999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="8.5" fill="#98a2b0" font-weight="400" text-anchor="end">54</text>
+<text x="64" y="825.5999999999999" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="10.5" fill="#0f6b52" font-weight="700">verified: 108 ok, 0 drift</text>
+<rect x="16" y="858.8" width="718" height="130" rx="8" fill="#eef3ee" stroke="#cfe0d6" stroke-width="1"/>
+<text x="32" y="880.8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11.5" fill="#161b22" font-weight="400">Elision rows are figure chrome; each says exactly how many output lines it replaces. Nothing else is altered.</text>
+<text x="32" y="898.8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11.5" fill="#6b7684" font-weight="400">Dry run is the default and writes no links — but it does mkdir -p the destination directories, so it is not a strict no-op.</text>
+<text x="32" y="914.8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11.5" fill="#6b7684" font-weight="400">--apply is shown because verify-sync.sh has nothing to verify until the links exist. Exit codes recorded by the harness: 0 · 0 · 0.</text>
+<text x="32" y="932.8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11.5" fill="#6b7684" font-weight="400">verify-sync.sh checks the Claude Code symlink lane only — its 108 entries are the commands/, templates/ and scripts/ children.</text>
+<text x="32" y="948.8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11.5" fill="#6b7684" font-weight="400">The five copy-based tools get a leakage check from verify-global-scope.sh; nothing re-verifies their content is current.</text>
+<text x="32" y="970.8" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="9.5" fill="#6b7684" font-weight="400">Reproduce: HOME=$(mktemp -d); mkdir -p $HOME/{.claude,.kimi,.qwen,.gemini,.agents} $HOME/.config/opencode</text>
+</svg>

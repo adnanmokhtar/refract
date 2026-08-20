@@ -1,0 +1,20 @@
+{
+  "name": "orders-api",
+  "version": "0.4.2",
+  "private": true,
+  "description": "Order + fulfilment service for the storefront. REST, Postgres, JWT auth.",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

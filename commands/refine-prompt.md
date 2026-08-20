@@ -1,5 +1,6 @@
 ---
-description: Take any rough idea / one-liner / ticket and produce a deep, execution-ready prompt tailored to the detected task class — frontend feature, backend endpoint, bug fix, audit, optimize, refactor, migrate, new project, and more. Names the exact command to run it next. Output-only — writes the prompt, never executes it. Single-cycle draft with one final confirmation gate.
+description: Turn a rough idea, one-liner, or ticket into an execution-ready prompt file. Names the command to run it next, and is output-only by contract — it writes the prompt, never executes it. Trigger on 'refine this prompt', 'turn this one-liner into a proper brief before I run it', or when a richer input is wanted ahead of /scaffold-project or /audit. Do NOT trigger merely because a request is vague; vagueness alone routes to /do. Not when a spec already exists, not for a tracker ref (/task).
+compatibility: Writes one file under ai/, so it is the wrong command for a sensitive idea that must stay off disk — refine those in conversation instead. Runs in any repo including an empty one, since the new-project class hands off to /scaffold-project. Names a target command but never invokes it, and stops at one confirmation gate.
 kind: command
 pack: orchestration
 ---

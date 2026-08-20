@@ -24,7 +24,7 @@
 - **Canonical + hreflang**: `useHead({ link: [{ rel: 'canonical', href }, …hreflang alternates] })` — `@nuxtjs/i18n` can emit hreflang automatically.
 - **JSON-LD**: `useHead({ script: [{ type: 'application/ld+json', innerHTML: … }] })`, or `nuxt-schema-org` / the Nuxt SEO module for typed Article / Product / Breadcrumb.
 - **Sitemap + robots**: `@nuxtjs/sitemap` (must include dynamic routes) + `@nuxtjs/robots` (point at the sitemap).
-- One metadata mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
+- One metadata mechanism only. See `frontend/skills/seo-audit/SKILL.md` + `@technical-seo`.
 
 ## State
 
@@ -43,17 +43,17 @@
 
 ## Navigation & streaming
 
-- `<NuxtLink>` for ALL internal nav — prefetches in-viewport links by default. `:prefetch="false"` disables it; `prefetchOn="interaction"` defers to hover/focus instead of viewport. (Sibling audit: `frontend/skills/navigation-speed.md`.)
+- `<NuxtLink>` for ALL internal nav — prefetches in-viewport links by default. `:prefetch="false"` disables it; `prefetchOn="interaction"` defers to hover/focus instead of viewport. (Sibling audit: `frontend/skills/navigation-speed/SKILL.md`.)
 - `useFetch(url, { lazy: true })` / `useLazyFetch` to NOT block navigation — the route renders immediately and data fills in. Use `{ server: false }` for client-only data that needn't be in the SSR payload.
 - Payload extraction: `experimental: { payloadExtraction: true }` emits a static `_payload.json` per prerendered route, so navigations hydrate from a flat file instead of re-running fetches.
 - Islands / server components: `.server.vue` + `<NuxtIsland>` render server-only HTML with no client JS — zero hydration cost for static-ish regions.
 
 ## Core Web Vitals levers
 
-- Images: `<NuxtImg>` / `<NuxtPicture>` (`@nuxt/image`) with explicit `width`/`height` + `sizes` + `format="avif"` — fixed dimensions prevent CLS, responsive `sizes` cuts bytes. (Sibling audit: `frontend/skills/lcp-audit.md`.)
+- Images: `<NuxtImg>` / `<NuxtPicture>` (`@nuxt/image`) with explicit `width`/`height` + `sizes` + `format="avif"` — fixed dimensions prevent CLS, responsive `sizes` cuts bytes. (Sibling audit: `frontend/skills/lcp-audit/SKILL.md`.)
 - LCP image: set `preload` and `:loading="'eager'"` (default is `lazy`) — NEVER lazy-load the hero / above-the-fold LCP image. Reinforce with `useHead({ link: [{ rel: 'preload', as: 'image', href }] })` when the LCP source isn't statically discoverable.
 - Fonts: `@nuxt/fonts` for self-hosted + `font-display` + preload, avoiding layout shift from late web-font swaps.
-- INP: keep main-thread work off the interaction path — field INP (good = 200ms at p75) is measured in the field, not in lab (sibling: `performance/skills/web-vitals-field.md`, `performance/ai-patterns/inp-responsiveness.md`).
+- INP: keep main-thread work off the interaction path — field INP (good = 200ms at p75) is measured in the field, not in lab (sibling: `performance/skills/web-vitals-field/SKILL.md`, `performance/ai-patterns/inp-responsiveness.md`).
 
 ## Anti-patterns
 

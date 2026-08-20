@@ -25,6 +25,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 - Meta
   - [`/do`](#do)
   - [`/task`](#task)
+  - [`/delegate`](#delegate)
   - [`/learn-from-task`](#learn-from-task)
   - [`/eval`](#eval)
 - [Generated commands (in target repo)](#generated-commands-in-target-repo)
@@ -53,6 +54,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/unify-surfaces [<scope>]`   | One-command surface-type unification (frontend-*). Tables / forms / headers / tabs / filters / buttons / validation. For each: inventory every consumer, decide canonical wrapper, extract or extend, migrate every consumer in one cascade-rewrite commit. Validation extracts a 3-part pipeline (composable + `<ErrorList>` + API-error mapper). Sibling to `/polish` (axis-typed); this is surface-type-typed. | No (writes) |
 | `/do <description>`           | Universal meta-router → dispatches to the right specialized command.   | Routes only |
 | `/task <ref>`                 | Provider-agnostic task executor — Trello / Jira / Linear / GitHub Issue (URL, key, or `next`) → fetch title + description + attachments + checklist → execute via `/do` → write status back (in-progress → comment → done). Per-repo provider via `.env` + MCP from `detect-mcp.sh`. | No (writes + updates the card/issue) |
+| `/delegate <task>`            | Dispatch ONE bounded task to a **different** AI coding CLI (`claude` / `codex` / `cursor-agent` / `opencode` / `aider` / `cline` / `gemini` / `kimi` / `qwen` / `copilot`), then review its diff and commit it yourself. The relay never commits. Read-only is a tri-state tripwire, never a guarantee. Backed by `scripts/delegate-relay.sh`. | No (the other CLI writes; nothing is committed) |
 | `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
 | `/eval`                       | Grade the knowledge base — replay saved eval cases (scenario + answer key + `guards:`) against the current `ai/` + `.claude/rules/`, score each, append a run to `ai/evals/_scorecard.md`, feed FAIL/REGRESS to `ai/dynamic/learnings.md`. The measurement half of the loop `/learn-from-task` opens. `--case` / `--coverage` / `--seed`. | No (writes scorecard + learnings) |
 
@@ -292,6 +294,73 @@ Use when you don't remember the exact command. If you want a prompt artifact to 
 **Flags**: `--prompt-only` (fetch + normalize, then print a paste-ready prompt and stop — no execution, no write-back; hand-off mode), `--to=<command>` (dispatch directly to `/<command>` instead of routing via `/do`), `--no-writeback` (don't touch the source), `--review-only` (stop at Review, never auto-Done).
 
 See [`commands/task.md`](../commands/task.md).
+
+---
+
+## `/delegate`
+
+Full contract: [`commands/delegate.md`](../commands/delegate.md). Relay: [`scripts/delegate-relay.sh`](../scripts/delegate-relay.sh).
+
+`/delegate <task>` hands ONE bounded coding task to a **different** AI coding CLI running as a separate
+process against this working tree, waits, and gives you the diff. **The other CLI types; you review, gate,
+and commit.** Everything else in this repo *configures* other tools — [`templates/tool-adapters/`](../templates/tool-adapters/) translates
+artifacts into 12 tools' native formats. `/delegate` is the only command that **uses** one.
+
+```
+/delegate "port the retry helper to the new client" --to=codex --gate="npm test"
+/delegate "review src/auth/ for token-lifetime bugs" --to=cursor-agent --read-only
+/delegate .claude/plans/optimize-orders-20260820-1431.md --to=aider   # a --plan file is a valid task
+```
+
+**Four invariants** (adopted from `amElnagdy/delegate-skills`, MIT):
+
+1. A separate CLI edits a **real working tree, and the diff is the deliverable** — not an API wrapper,
+   not a sub-agent inside this session.
+2. **The relay never commits.** Committing belongs to the reviewer. The relay's own git calls go through
+   a read-only subcommand allowlist, and the implementer meets a PATH-shimmed `git` that refuses the
+   history-writing subcommands — a *speed bump, not a boundary*, and documented as such.
+3. **The implementer's report is a claim.** Re-run every gate yourself before repeating any of its numbers.
+4. **Whatever a CLI cannot enforce is said plainly** — see the tri-state below.
+
+**Read-only is tri-state, on purpose.** Two independent fields, because "did we ask", "can this CLI
+enforce it" and "did anything change" are three different questions:
+
+- `readOnly.enforcement` ∈ `not-requested` · `enforced` (the CLI documents a native read-only/plan mode
+  **and** its installed `--help` still advertises the flag) · `unverified` (version drift or a wrapper —
+  the run is refused unless you pass `--accept-unenforced`) · `unenforceable` (the CLI documents no
+  read-only mode at all; today `kimi`).
+- `readOnly.violation` ∈ `true` (the tree moved) · `false` (complete fingerprint, empty delta) · `null`
+  (not applicable, or coverage was incomplete — never rounded up to `false`).
+
+`false` covers **git-visible paths inside the repo only**. Ignored files, `$HOME` writes, network calls
+and perfectly-reverted edits are outside the claim. `touchedFiles` and the diff are what you review against.
+
+**Implementers are detected, not assumed** — `delegate-relay.sh --list` runs `command -v` over `claude`,
+`codex`, `cursor-agent`, `opencode`, `aider`, `cline`, `gemini`, `kimi`, `qwen`, `copilot` and prints what
+is actually installed. A configured adapter is not an installed CLI. (`continue` and `windsurf` have
+adapters but no headless CLI, so they cannot be implementers.)
+
+**The relay** (`scripts/delegate-relay.sh`, bash, no dependencies beyond git) preflights a clean-or-declared
+git state and the target binary, composes a bounded brief with a non-removable no-commit clause, watchdogs
+the run, kills the process tree on timeout, captures `delegate.diff`, and emits `result.json`
+(contract `delegate-relay.result.v1`: `status`, `exitCode`, `signal`, `touchedFiles`, `readOnly`, `git.headMoved`,
+`sessionId`, `violations`, plus `"committed": false`). Exit codes: `0` ok · `1` implementer failed/timed
+out/moved HEAD · `2` usage · `3` CLI missing · `4` git preflight · `5` read-only refused. `--dry-run` and
+`--list` are safe anywhere.
+
+**Gates that matter**: HEAD unchanged after the run (if it moved, the run failed regardless of the diff);
+every `--gate=` command re-run *by you*; the whole diff read against the brief, tests-touched-first.
+
+**Flags**: `--to=<cli>`, `--read-only`, `--gate=<cmd>` (repeatable), `--model=<id>` (**required for
+`opencode`**, optional elsewhere), `--session=<id>` (resume with a delta brief where the CLI exposes an
+id), `--files=<globs>`, `--allow-dirty`, `--timeout=<dur>`, `--dry-run`, and the universal `--plan`
+(writes the brief to `.claude/plans/` and exits before any CLI is launched — the brief *is* the plan
+artifact). The relay's own vocabulary differs at two points: `--to=` is `--implementer=` there, and
+`--plan` never reaches it.
+
+**Not** `scripts/parallel-fan-out.sh`: that fans N workers of the *same* tool out over `ai/<pack>/ledger.md`
+rows. `/delegate` is one task, one process, one diff, one reviewer. **Not** `/setup-project-adapters`,
+which wires a tool up rather than dispatching to it.
 
 ---
 

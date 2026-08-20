@@ -1,5 +1,6 @@
 ---
-description: One command UI/UX + API + Schema + Platform polish, stack-conditional, deep multi-agent. Routes by PROJECT_KIND: frontend → visual polish (hierarchy, spacing rhythm, design tokens, missing states, CTA, motion, focus, type scale, icons); backend → API consistency (envelope, error contract, pagination, idempotency, log/metric/trace uniformity, OpenAPI); data → schema consistency (naming, types, indexes, audit fields, migrations); mobile → platform conventions (iOS HIG / Material). Brief output. Sibling to /migrate, /optimize, /align; distinct from /enhance-ui and /ui-sweep.
+description: Introduce finish the project does not have yet, on the axis its PROJECT_KIND dictates. Visual hierarchy and missing states, API envelope and error contract, schema consistency, or platform conventions. Trigger on 'polish the API surface', 'polish the dashboard', 'pre-launch consistency sweep'. Do NOT trigger to snap values to tokens that ALREADY exist — /align enforces, this introduces. Not one surface with variant picking (/enhance-ui), not responsive or dark-mode drift (outside the closed 19-verb set), not read-only audits (/design-review).
+compatibility: Requires PROJECT_KIND set and halts on unknown. Per kind — frontend wants a Playwright MCP for visual baselines and soft-fails to a text-only audit without it; backend wants a discoverable OpenAPI spec; data wants schema introspection via a live DB or migration history; mobile wants per-platform build configs. A missing one narrows the pass rather than blocking it.
 kind: command
 pack: orchestration
 ---
@@ -40,7 +41,7 @@ Detector skills (feed findings into the closure verbs): `design-token-audit` →
 
 Axis catalog (16 axes; see `templates/packs/ui-ux/rules/ui-principles.md § Axis catalog` for heuristics): tokens · wrappers · patterns · hierarchy · type-scale · rhythm · density · states · contrast · focus · iconography · motion · tap-target · cta · affordance · surface.
 
-The 19 closure verbs (cross-reference: `templates/packs/ui-ux/skills/ui-design-sweep.md § The 19 closure verbs`):
+The 19 closure verbs (cross-reference: `templates/packs/ui-ux/skills/ui-design-sweep/SKILL.md § The 19 closure verbs`):
 - **tokens / wrappers / patterns**: `consolidate-tokens`, `extract-token`, `unify-component`, `extract-pattern`
 - **hierarchy / type / rhythm / density**: `normalize-hierarchy`, `apply-type-scale`, `tighten-rhythm`, `simplify-density`
 - **states**: `wire-empty-state`, `wire-loading-state`, `wire-error-state`

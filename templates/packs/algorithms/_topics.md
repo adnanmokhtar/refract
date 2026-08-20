@@ -34,7 +34,7 @@ This pack is stack-agnostic — algorithms + complexity are language-independent
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § Stack (the language's container/op complexity guarantees)
   sections: [premise, when_to_run, inputs, procedure, outputs, halt_conditions, related]
-  fallback: skills/complexity-derivation.md
+  fallback: skills/complexity-derivation/SKILL.md
   cite_evidence: strict
 
 - name: sublinear-structures

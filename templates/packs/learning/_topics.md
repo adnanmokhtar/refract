@@ -30,23 +30,23 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: extract-project-context
   kind: skill
   triggers: { always: true }
-  fallback: skills/extract-project-context.md
+  fallback: skills/extract-project-context/SKILL.md
 
 - name: extract-codebase-overview
   kind: skill
   triggers: { always: true }
   # The orchestrator skill itself — no fallback because if this is missing, AUTHOR mode is broken everywhere.
-  fallback: skills/extract-codebase-overview.md
+  fallback: skills/extract-codebase-overview/SKILL.md
 
 - name: extract-business-context
   kind: skill
   triggers: { always: true }
-  fallback: skills/extract-business-context.md
+  fallback: skills/extract-business-context/SKILL.md
 
 - name: extract-base-class-idiom
   kind: skill
   triggers: { codebase_has_base_classes: true }
-  fallback: skills/extract-base-class-idiom.md
+  fallback: skills/extract-base-class-idiom/SKILL.md
 
 # REFINE-mode skills (round-two deep extraction). All gate on the --refine flag.
 # Each consumes round-one extraction PLUS authors a section of .claude/_refine-extract.md.

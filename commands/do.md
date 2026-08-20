@@ -1,5 +1,6 @@
 ---
-description: Universal meta-router. Take any natural-language description ("enhance the sidebar", "add a refund button", "fix the order list crash", "audit security") and dispatch to the right specialized command. The agent reads the project's available commands, infers user intent, and either runs the matching command directly OR surfaces options for ambiguous cases. Single entry point — you don't need to know which command is right.
+description: Route one natural-language request to the right specialized command, then run it. Trigger when the user describes work without naming a command — 'enhance the sidebar', 'add a refund button', 'fix the order list crash' — or when one sentence spans several commands. Do NOT trigger when the user already named the command; call it directly, since routing is pure overhead. Not when they want a prompt artifact rather than execution (/refine-prompt), and not for a tracker URL, key, or 'next' (/task).
+compatibility: Requires a repo with commands already installed by /setup-project — with none there is nothing to route to. Routing accuracy depends on _extracted-codebase.md being present; without it the stack is inferred from the tree and confidence drops. Does no work itself, and halts rather than guess when nothing matches.
 kind: command
 pack: orchestration
 ---

@@ -1,4 +1,4 @@
-# Template-pack authoring scripts (claude-config repo)
+# Template-pack authoring scripts (Refract repo)
 
 Commands and pack templates under `commands/`, `templates/packs/*/commands/`, `templates/snippets/`, and `templates/governance/` are maintained in **this** repository. `/setup-project` Phase 5 (`scripts/audit-setup.sh`) runs mechanical checks against the **template pack source tree** (not only the target repo’s `.claude/`).
 
@@ -6,10 +6,10 @@ Commands and pack templates under `commands/`, `templates/packs/*/commands/`, `t
 
 | Check | Script | Purpose |
 |-------|--------|---------|
-| **C2f** | `audit-stack-leakage.sh` | Universal docs must stay stack-agnostic (multi-stack diversity or `<TBD:…>` placeholders). `--repo-root` points at claude-config root. |
+| **C2f** | `audit-stack-leakage.sh` | Universal docs must stay stack-agnostic (multi-stack diversity or `<TBD:…>` placeholders). `--repo-root` points at the Refract repo root. |
 | **C2g** | `audit-command-dry.sh` | Commands must link `templates/governance/core-discipline.md` when restating SOLID/clean-code vocabulary; must link `templates/snippets/phase-3-always-reads.md` when pasting the full Phase 3 ALWAYS path list; hand-wave grep sections should link `templates/snippets/hand-wave-grep.md`. |
 
-Run locally from claude-config root:
+Run locally from the repo root:
 
 ```bash
 ./scripts/audit-stack-leakage.sh --repo-root="$(pwd)"

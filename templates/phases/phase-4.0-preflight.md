@@ -345,11 +345,16 @@ ai/references/tool-parity.md
          - If .husky/<hook> does not exist → create it with shebang + `exec "$(git rev-parse --show-toplevel)/.claude/hooks/<hook>-learn.sh"` and `chmod +x`.
          - If .husky/<hook> exists and does NOT already source our learn script → append a marker block:
            ```
-           # >>> claude-config: learning loop (managed) >>>
+           # >>> refract: learning loop (managed) >>>
            "$(git rev-parse --show-toplevel)/.claude/hooks/<hook>-learn.sh" || true
-           # <<< claude-config: learning loop (managed) <<<
+           # <<< refract: learning loop (managed) <<<
            ```
-           Idempotent on re-run: skip if the marker block is already present.
+           Idempotent on re-run: skip if the marker block is already present. **Both marker
+           spellings count as present** — the project was called `claude-config` before it was
+           renamed to Refract, so a repo wired by an older run carries
+           `# >>> claude-config: learning loop (managed) >>>`. Treat that as already wired: do
+           NOT append a second block, and do NOT rewrite the old marker (it invokes the same
+           hook, and rewriting it would dirty a file the user may have edited around).
        - Log: `git-hooks: routed via .husky/ (Husky detected)`.
 
     2. Elif EXISTING_HOOKSPATH is empty OR equals .claude/git-hooks → USE OUR SHIM PATH:

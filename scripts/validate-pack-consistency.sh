@@ -9,6 +9,9 @@
 #   4. every _essentials array entry (agents/commands/skills/rules/ai-patterns)
 #      resolves to a real artifact (skills accept <x>.md OR <x>/SKILL.md)        (FAIL)
 #   5. every command/agent/rule/skill FILE has a _topics `- name:` entry          (WARN)
+#   6. the current `version` is described in the pack changelog — either a
+#      `## <version>` heading in the CHANGELOG.md that `changelog` points at, or a
+#      matching key in a legacy in-JSON `changelog` object                        (WARN)
 #
 # Usage:  validate-pack-consistency.sh [--repo-root=<dir>] [--strict] [--quiet]
 # Exit:   1 on any FAIL (or any WARN under --strict); 0 otherwise.
@@ -75,7 +78,11 @@ for d in templates/packs/*/; do
   while IFS= read -r fb; do
     [[ -z "$fb" ]] && continue
     echo "$fb" | grep -qE '/|\.md$' || continue   # skip sentinels
-    [[ -f "$d$fb" ]] || { err "$p: _topics fallback does not resolve: $fb"; dangling=$((dangling + 1)); }
+    # Dual-accept, symmetric with checks 4 and 6: a `skills/<name>.md` fallback also
+    # resolves against the Agent Skills dir-form `skills/<name>/SKILL.md`, so a pack may
+    # sit on either form without the fallback pointer having to be rewritten in lockstep.
+    { [[ -f "$d$fb" ]] || { [[ "$fb" == skills/* ]] && [[ -f "$d${fb%.md}/SKILL.md" ]]; }; } \
+      || { err "$p: _topics fallback does not resolve: $fb"; dangling=$((dangling + 1)); }
   done < <(grep -oE 'fallback:[[:space:]]*[A-Za-z0-9._/-]+' "$d/_topics.md" 2>/dev/null | sed 's/fallback:[[:space:]]*//')
   [[ $dangling -eq 0 ]] && ok "$p: all _topics fallbacks resolve"
 
@@ -105,23 +112,35 @@ for d in templates/packs/*/; do
     done
   done
 
-  # 6. version-in-changelog (WARN — #SYNC-05). When _version.json carries a
-  #    `changelog` block, the current top-level `version` SHOULD have a matching
-  #    changelog entry. Packs with NO changelog block use a different convention
-  #    (a single `summary:`) — skip them silently. WARN-only for now; a later wave
-  #    backfills existing drift (a hard FAIL here would red the build immediately).
+  # 6. version-in-changelog (WARN — #SYNC-05). The current top-level `version` SHOULD
+  #    be described in the pack's changelog. Two shapes are accepted:
+  #      "changelog": "CHANGELOG.md"  — a path relative to the pack dir (the shape all
+  #        20 packs use since the release prose moved out of JSON). The file must exist
+  #        and carry a `## <version>` heading for the current version.
+  #      "changelog": { "<version>": {...} } — the legacy in-JSON object. Still honoured
+  #        so an older pack copied in from a previous ~/.claude install validates.
+  #    Packs with neither use a different convention (a single `summary:`) — skip them
+  #    silently. WARN-only for now; a later wave backfills existing drift (a hard FAIL
+  #    here would red the build immediately).
   if command -v python3 >/dev/null 2>&1; then
     chg_status=$(python3 -c "
-import json,sys
+import json,os,re,sys
 try: d=json.load(open('$d/_version.json'))
 except Exception: print('skip'); sys.exit(0)
-cl=d.get('changelog')
-if not isinstance(cl,dict): print('skip'); sys.exit(0)
-v=d.get('version')
-print('ok' if v in cl else ('drift:'+str(v)))
+cl=d.get('changelog'); v=d.get('version')
+if isinstance(cl,str):
+    f=os.path.join('$d',cl)
+    if not os.path.isfile(f): print('nofile:'+cl); sys.exit(0)
+    t=open(f,encoding='utf-8',errors='replace').read()
+    print('ok' if re.search(r'(?m)^##[ \t]+'+re.escape(str(v))+r'\b',t) else 'drift:'+str(v))
+elif isinstance(cl,dict):
+    print('ok' if v in cl else 'drift:'+str(v))
+else:
+    print('skip')
 " 2>/dev/null)
     case "$chg_status" in
-      drift:*) warn_msg "$p: _version.json version '${chg_status#drift:}' has no matching changelog entry — add a changelog block for the current version" ;;
+      drift:*) warn_msg "$p: _version.json version '${chg_status#drift:}' has no matching changelog entry — add a '## ${chg_status#drift:}' section to the pack CHANGELOG.md" ;;
+      nofile:*) warn_msg "$p: _version.json changelog points at '${chg_status#nofile:}' but no such file exists in the pack" ;;
       ok)      ok "$p: _version.json version present in changelog" ;;
       *)       : ;;  # skip / no changelog convention
     esac

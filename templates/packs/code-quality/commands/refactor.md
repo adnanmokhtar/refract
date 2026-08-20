@@ -6,7 +6,7 @@ description: Language-agnostic targeted refactor — behaviour-preserving struct
 
 ## Pack overlay — code-quality (always-applied baseline)
 
-**Canonical orchestration** lives in claude-config [`commands/refactor.md`](../../../../commands/refactor.md) (synced to `~/.claude/commands/refactor.md`). This overlay adds **language-agnostic** gates.
+**Canonical orchestration** lives in Refract [`commands/refactor.md`](../../../../commands/refactor.md) (synced to `~/.claude/commands/refactor.md`). This overlay adds **language-agnostic** gates.
 
 ### Premise
 
@@ -16,7 +16,7 @@ description: Language-agnostic targeted refactor — behaviour-preserving struct
 ### Dispatch
 
 1. Phase 3 MUST read [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md) + [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md).
-2. Run [`templates/packs/code-quality/skills/refactoring-sweep.md`](../skills/refactoring-sweep.md) + [`templates/packs/code-quality/agents/refactorer.md`](../agents/refactorer.md).
+2. Run [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../skills/refactoring-sweep/SKILL.md) + [`templates/packs/code-quality/agents/refactorer.md`](../agents/refactorer.md).
 3. Ledger / validator — [`templates/tool-adapters/_refactor-pack-coverage.md`](../../../tool-adapters/_refactor-pack-coverage.md).
 
 ### When this pack leads

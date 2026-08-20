@@ -168,4 +168,4 @@ If the project has none of the above, **add a TODO**: "Add tracing around bounde
 - `ai/patterns/data-access.md` — Repository batch APIs (`findByIds`, `whereIn`) are the *first* thing to reach for over parallel fan-out.
 - `ai/patterns/caching-strategy.md` — Cache fan-out (`mget`) batches naturally; avoid loops of single `get` calls.
 - `.claude/rules/concurrency-discipline.md` — the MUST/MUST-NOT review checklist that enforces this pattern.
-- `.claude/skills/parallelize-independent-ops.md` — the procedure for converting an existing sequential code path.
+- `.claude/skills/parallelize-independent-ops/SKILL.md` — the procedure for converting an existing sequential code path.

@@ -2,7 +2,7 @@
 
 Cross-cuts the tool-adapter registry. Documents how each tool surfaces **`/refactor`** when code-quality / orchestration wiring includes refactor (via `commands/refactor.md`, `refactoring-sweep`, `refactorer`, and validators).
 
-`/refactor` is a **top-level orchestration command** (targeted, behaviour-preserving refactors only). Discipline is split across `commands/refactor.md`, [`templates/packs/code-quality/skills/refactoring-sweep.md`](../templates/packs/code-quality/skills/refactoring-sweep.md), [`templates/packs/code-quality/agents/refactorer.md`](../templates/packs/code-quality/agents/refactorer.md), pack overlays under `templates/packs/{backend,frontend,mobile,code-quality}/commands/refactor.md`, and **`scripts/validate-refactor-artifacts.sh`**.
+`/refactor` is a **top-level orchestration command** (targeted, behaviour-preserving refactors only). Discipline is split across `commands/refactor.md`, [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../packs/code-quality/skills/refactoring-sweep/SKILL.md), [`templates/packs/code-quality/agents/refactorer.md`](../packs/code-quality/agents/refactorer.md), pack overlays under `templates/packs/{backend,frontend,mobile,code-quality}/commands/refactor.md`, and **`scripts/validate-refactor-artifacts.sh`**.
 
 There is **no** `refactor-parallel.sh` — `/refactor` is scoped to explicit targets; whole-project sweeps use `/optimize`.
 

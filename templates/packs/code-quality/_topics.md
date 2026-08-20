@@ -110,7 +110,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § "Repository shape" + _extracted-idioms.md § Layers + § Modules + ai/architecture.md
   sections: [purpose, when_to_use, inputs, outputs, detectors, procedure, hard_rules, failure_modes]
-  fallback: skills/architectural-diagnosis.md
+  fallback: skills/architectural-diagnosis/SKILL.md
   cite_evidence: strict
 
 - name: refactoring-sweep
@@ -118,7 +118,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   extracts_from: _extracted-idioms.md (project's refactoring conventions)
   sections: [purpose, when_to_use, the_10_closure_verbs, procedure, hard_rules, failure_modes]
-  fallback: skills/refactoring-sweep.md
+  fallback: skills/refactoring-sweep/SKILL.md
   cite_evidence: strict
 
 # Universal safety skills (COPY-mode — verbatim, not authored-from-extraction). Wired as the

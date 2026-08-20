@@ -69,10 +69,39 @@ target_dir_for_kind() {
 }
 
 # Pack-derived basenames per kind
+# Dual-form: flat `<kind>/<name>.md` (depth 3) AND Agent Skills dir-form
+# `<kind>/<name>/SKILL.md` (depth 4). Both are reduced to the SAME identity — the
+# artifact name plus `.md` — so membership below is form-independent: a target still on
+# flat form still matches a pack that has moved to dir-form, and vice versa. Without the
+# depth-4 branch every pack skill silently drops out of this set and anchoring skips it.
 pack_basenames_for_kind() {
   local kind="$1"
-  find -L "$PACKS_ROOT" -mindepth 3 -maxdepth 3 -path "*/$kind/*.md" -not -name '_*' \
-       -exec basename {} \; 2>/dev/null | sort -u | tr '\n' ' '
+  { find -L "$PACKS_ROOT" -mindepth 3 -maxdepth 3 -path "*/$kind/*.md" -not -name '_*' \
+         -exec basename {} \; 2>/dev/null
+    find -L "$PACKS_ROOT" -mindepth 4 -maxdepth 4 -path "*/$kind/*/SKILL.md" \
+         -exec sh -c 'for p; do n=$(basename "$(dirname "$p")"); case $n in _*) ;; *) echo "$n.md" ;; esac; done' _ {} + 2>/dev/null
+  } | sort -u | tr '\n' ' '
+}
+
+# Enumerate one artifact-kind dir, one line per artifact, in BOTH on-disk forms:
+#   flat      <dir>/<name>.md
+#   dir-form  <dir>/<name>/SKILL.md
+# Emits FULL paths; callers derive the dir-relative suffix, which is the real path to the
+# artifact. `_*` artifacts are dropped by the caller's existing prefix guard.
+enumerate_kind_dir() {
+  local dir="$1"
+  [[ -d "$dir" ]] || return 0
+  { find "$dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null
+    find "$dir" -mindepth 2 -maxdepth 2 -name 'SKILL.md' -not -path "$dir/_*" 2>/dev/null
+  } | sort
+}
+
+# Canonical, form-independent artifact identity: `foo.md` and `foo/SKILL.md` both -> `foo.md`.
+artifact_identity() {
+  case "$1" in
+    */SKILL.md) local d="${1%/SKILL.md}"; echo "${d##*/}.md" ;;
+    *)          echo "${1##*/}" ;;
+  esac
 }
 
 # ---------- Extract facts from profile/scan into one shared anchor block ----------
@@ -274,12 +303,13 @@ for kind in commands agents skills rules ai-patterns; do
   pack_bases=$(pack_basenames_for_kind "$kind")
 
   while IFS= read -r f; do
-    base="$(basename "$f")"
+    base="${f#"$tgt_dir"/}"
     [[ "$base" == _* ]] && continue
     processed=$((processed + 1))
 
-    # Pack-derived?
-    if [[ " $pack_bases " != *" $base "* ]]; then
+    # Pack-derived? (compared on the form-independent identity, so a dir-form
+    # `<name>/SKILL.md` target matches the pack's `<name>.md` identity key)
+    if [[ " $pack_bases " != *" $(artifact_identity "$base") "* ]]; then
       orphans=$((orphans + 1))
       continue
     fi
@@ -313,7 +343,7 @@ for kind in commands agents skills rules ai-patterns; do
       echo "  would-INJECT $kind/$base  (after line $insert_line)"
     fi
     injected=$((injected + 1))
-  done < <(find "$tgt_dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | sort)
+  done < <(enumerate_kind_dir "$tgt_dir")
 done
 
 echo ""

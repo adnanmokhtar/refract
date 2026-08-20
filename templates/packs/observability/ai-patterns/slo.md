@@ -108,6 +108,6 @@ Keep the *spec* in version control next to the service; let the tool emit the ru
 
 - `metrics.md` — the SLI numerator/denominator come from RED metrics; saturation (the *causes*) stays on USE warnings, not the SLO.
 - `ai/runtime/slos.md` — the project's live SLO registry (data), distinct from this pattern (method).
-- `skills/slo-audit.md` — audits the registry against achieved attainment; consumes the budget math defined here.
+- `skills/slo-audit/SKILL.md` — audits the registry against achieved attainment; consumes the budget math defined here.
 - `commands/alert-design.md` — wires the burn-rate alerts this pattern specifies.
 - `agents/sre-engineer.md`, `agents/incident-responder.md` — blameless retros are scored against budget spend defined here.

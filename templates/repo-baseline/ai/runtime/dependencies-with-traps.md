@@ -49,4 +49,4 @@ Sample: src/main.ts:65
 - `ai/runtime/context.md` — broader project gotchas.
 - `ai/decisions/` — major dependency choices documented as ADRs.
 - `package.json` — current dependency versions.
-- `.claude/skills/deps-audit.md` — periodic audit command.
+- `.claude/skills/deps-audit/SKILL.md` — periodic audit command.

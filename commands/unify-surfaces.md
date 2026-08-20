@@ -1,5 +1,6 @@
 ---
-description: One command surface-type unification for frontend codebases, deep multi-agent. Typed by surface category (tables, forms, headers, tabs, filters, buttons, validation): inventories every instance, picks the canonical shape (from _extracted-idioms.md or the most-used pattern), creates/extends the shared wrapper, migrates every consumer, verifies parity. Form-validation gets a dedicated pipeline — validator composable + <ErrorList>/<FieldError> + API-error-to-field mapper. Frontend stacks only. Distinct from /polish (axis-typed) and /align (drift-typed).
+description: Consolidate every instance of ONE surface type behind a single shared wrapper, app-wide. Tables, forms, headers, tabs, filters, buttons, validation. Trigger only when the ask names the surface type — 'unify all tables', 'every page header should look the same', 'standardise form validation everywhere'. Do NOT trigger on a generic 'make it consistent' with no surface-type noun (/align), on per-axis polish across one surface type (/polish), or on one mechanical a11y class app-wide (/ui-crawl-fix).
+compatibility: Frontend stacks only — requires PROJECT_KIND in frontend-*, mobile-web, or mobile-rn, and halts with a redirect to /polish otherwise, mobile-native included. Requires _extracted-idioms.md Wrappers and _extracted-codebase.md Gold standards populated. A Playwright MCP powers the visual-regression gate; without it verification soft-fails to text-only and the parity evidence is weaker.
 kind: command
 pack: orchestration
 version: 1.0.0

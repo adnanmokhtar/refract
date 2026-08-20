@@ -152,7 +152,7 @@ Practice rollback in staging regularly. If no one has rolled back in 3 months, d
 
 ### Honest mechanism (no theater)
 
-S1 is **wired** to the `/rollback-deploy` dry-run (refuses a not-previously-healthy target) + `monitor-deploy` (refuses GREEN without a live poll). S2's poll half is wired to `monitor-deploy`; the probe-present half and **S3/S4/S5 are `[self-policed]` greps** — no shell in your review catches a missing `limits:` block or an inline secret, so run the detector yourself and cite the hit. Never label a self-policed grep as mechanical. Where the project mixed in the security pack, S4/S5 MAY additionally cite `security/skills/secret-scan.md` / the `release-security` skill — only if they actually ran.
+S1 is **wired** to the `/rollback-deploy` dry-run (refuses a not-previously-healthy target) + `monitor-deploy` (refuses GREEN without a live poll). S2's poll half is wired to `monitor-deploy`; the probe-present half and **S3/S4/S5 are `[self-policed]` greps** — no shell in your review catches a missing `limits:` block or an inline secret, so run the detector yourself and cite the hit. Never label a self-policed grep as mechanical. Where the project mixed in the security pack, S4/S5 MAY additionally cite `security/skills/secret-scan/SKILL.md` / the `release-security` skill — only if they actually ran.
 
 ## Observability during deploys
 

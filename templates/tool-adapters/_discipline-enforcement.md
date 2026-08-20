@@ -20,7 +20,7 @@ The block lives between `<!-- discipline-enforcement:start -->` / `<!-- discipli
 <!-- discipline-enforcement:start -->
 ## Discipline enforcement — read FIRST, applies to EVERY command
 
-This project follows the claude-config pack discipline. Every tool reading this file — Claude Code, OpenCode, Cursor, Aider, Copilot, Cline, Windsurf, Codex, Gemini, Kimi — MUST honor the rules below for **every command**, regardless of how cleverly the tool's default behavior would otherwise route the work.
+This project follows the Refract pack discipline. Every tool reading this file — Claude Code, OpenCode, Cursor, Aider, Copilot, Cline, Windsurf, Codex, Gemini, Kimi — MUST honor the rules below for **every command**, regardless of how cleverly the tool's default behavior would otherwise route the work.
 
 The pack ecosystem ships ~70 commands (`/add-feature`, `/fix-bug`, `/add-endpoint`, `/add-module`, `/add-page`, `/add-component`, `/add-migration`, `/migrate`, `/align`, `/optimize`, `/polish`, `/unify-surfaces`, `/do`, `/security-audit`, `/perf-audit`, `/db-audit`, `/a11y-audit`, `/i18n-audit`, `/find-and-fix`, `/port-feature`, `/review-changes`, `/simplify`, `/run-tests`, `/enhance-ui`, `/ui-sweep`, `/design-review`, `/threat-model`, `/secret-scan`, `/add-tracing`, `/add-metrics`, `/add-telemetry`, `/alert-design`, `/add-saga`, `/audit-distributed-tx`, `/dockerize`, `/add-ci`, `/deploy-stage`, `/add-test`, `/flaky-test-hunt`, `/promote-pattern`, `/detect-drift`, `/learn-from-task`, `/pre-commit`, `/check-health`, `/threat-model`, `/scaffold-project`, `/refine-prompt`, `/setup-project*`, plus pack-specific siblings). The rules below cover every one.
 
@@ -193,12 +193,12 @@ The block lives between `<!-- discipline-enforcement:start -->` / `<!-- discipli
 
 The validator scripts (`validate-migration-artifacts.sh`, `validate-align-artifacts.sh`, `validate-optimize-artifacts.sh`, `validate-polish-artifacts.sh`, `validate-refactor-artifacts.sh`) mechanically gate **specific artifact shapes** per pack (see each script header + `templates/tool-adapters/_*-pack-coverage.md` + **`templates/tool-adapters/_orchestration-sync.md`** for adapter-facing facts). Coverage differs by pack: migration is the deepest gate; optimize gates Phase 0 + ledger rows + findings hand-waves; align ships 7 of 14 checks; polish is stack-conditional evidence headings. **Discipline halts in AGENTS.md below still apply as universal intent** even when a pack's validator does not yet automate every halt (see `commands/*.md` + pack rules). Tools that ignore this discipline block will drift off canonical paths. This block is the **soft-enforcement layer**; the validators are the **hard-enforcement layer** for what they implement.
 
-**Pack source hygiene (claude-config repo only):** Editing commands under `templates/packs/` must stay DRY — link **`templates/governance/core-discipline.md`** and shared snippets instead of pasting SOLID glossaries; Phase 5 **`audit-command-dry.sh`** enforces this. See **`templates/tool-adapters/_template-author-scripts.md`**.
+**Pack source hygiene (Refract repo only):** Editing commands under `templates/packs/` must stay DRY — link **`templates/governance/core-discipline.md`** and shared snippets instead of pasting SOLID glossaries; Phase 5 **`audit-command-dry.sh`** enforces this. See **`templates/tool-adapters/_template-author-scripts.md`**.
 
 ## See also
 
 - `templates/tool-adapters/_orchestration-sync.md` — adapter sync for simple-surface commands, validators, hooks (`ai/migrate/progress.md`, optimize oracles, align 21 verbs, polish env, refactor paths)
-- `templates/tool-adapters/_template-author-scripts.md` — C2f/C2g scripts + canonical snippet pointers (claude-config maintainers)
+- `templates/tool-adapters/_template-author-scripts.md` — C2f/C2g scripts + canonical snippet pointers (Refract maintainers)
 - `templates/tool-adapters/_registry.md` — capability matrix per tool
 - `templates/tool-adapters/_<pack>-pack-coverage.md` — per-pack adapter expectations (`_migration-pack-coverage.md`, `_align-pack-coverage.md`, `_optimize-pack-coverage.md`, `_refactor-pack-coverage.md`, `_ui-ux-pack-coverage.md`, …)
 - `templates/packs/migration/rules/migration-discipline.md` § canonical paths

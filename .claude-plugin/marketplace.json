@@ -1,0 +1,51 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+  "name": "refract",
+  "description": "Refract — a portable engineering brain for AI coding agents. Write your setup once; run it in every tool.",
+  "version": "1.0.0",
+  "owner": {
+    "name": "Adnan Mokhtar",
+    "email": "iconxweb@gmail.com",
+    "url": "https://github.com/adnanmokhtar"
+  },
+  "plugins": [
+    {
+      "name": "refract",
+      "source": "./",
+      "displayName": "Refract",
+      "description": "Fifteen stack-agnostic orchestration commands — /do, /setup-project, /audit, /optimize, /align, /refactor, /polish, /delegate and more — plus the full framework source: 20 role-based packs, 12 tool adapters and the cross-tool sync script.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Adnan Mokhtar",
+        "email": "iconxweb@gmail.com",
+        "url": "https://github.com/adnanmokhtar"
+      },
+      "homepage": "https://github.com/adnanmokhtar/refract",
+      "repository": "https://github.com/adnanmokhtar/refract",
+      "license": "MIT",
+      "category": "developer-tools",
+      "keywords": [
+        "ai",
+        "claude-code",
+        "cursor",
+        "ai-agents",
+        "llm",
+        "developer-tools",
+        "agent-skills",
+        "prompt-engineering",
+        "orchestration",
+        "code-review",
+        "refactoring",
+        "cross-tool"
+      ],
+      "tags": [
+        "orchestration",
+        "multi-tool",
+        "project-setup",
+        "audit",
+        "refactor",
+        "code-quality"
+      ]
+    }
+  ]
+}

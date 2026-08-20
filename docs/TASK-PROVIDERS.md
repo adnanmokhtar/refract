@@ -68,7 +68,7 @@ Confirm `.env` is gitignored (`git check-ignore .env`) so creds never get commit
 ### 3. Wire the MCP
 
 ```bash
-# from the claude-config repo (or with detect-mcp.sh on PATH)
+# from the Refract repo (or with detect-mcp.sh on PATH)
 scripts/detect-mcp.sh /path/to/your/repo --apply
 ```
 This writes `<repo>/.mcp.json` with a `trello`/`jira`/`linear` block whose `env` values are
@@ -134,7 +134,7 @@ names, `/task` matches case-insensitively; rename or tell it which list maps to 
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Unknown command: /task` | command not installed | It's a global symlink (`~/.claude/commands/task.md`). Restart the session; if still missing, re-create the symlink to `claude-config/commands/task.md`. |
+| `Unknown command: /task` | command not installed | It's a global symlink (`~/.claude/commands/task.md`). Restart the session; if still missing, re-create the symlink to `<repo>/commands/task.md`. |
 | **401 / `get_health` 0%** from the MCP | env not loaded into the editor's process → server got empty creds | Relaunch with `set -a; source .env; set +a` first. **`/task` also auto-falls back to the provider REST API** using `.env` creds, so a run still succeeds — it just notes that fallback was used. |
 | `/mcp` shows the server disconnected | wrong env-var names, or creds invalid | Verify names against the server README; test creds directly (e.g. `curl "https://api.trello.com/1/members/me?key=$K&token=$T"` → expect `200`). |
 | MCP server "setup issues" for github/postgres | those servers wired but their secrets (`GITHUB_TOKEN`/`DATABASE_URL`) missing | Add the secret, or remove the unused server from `.mcp.json`. |

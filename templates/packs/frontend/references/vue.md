@@ -42,8 +42,8 @@
     <template #fallback><Spinner /></template>
   </Suspense>
   ```
-- Prefetch: vue-router `<router-link>` does NOT auto-prefetch the route's dynamic-import chunk (unlike NuxtLink / Next.js `<Link>`). Warm the import manually on hover/viewport (`@mouseenter="() => import('./views/Heavy.vue')"`) or adopt a quicklink-style strategy. See `frontend/skills/navigation-speed.md`.
-- Image / CWV: plain Vue has no image component. On the LCP `<img>` set `fetchpriority="high"` + explicit `width`/`height` (reserve space, no CLS); use `loading="lazy"` below-fold. See `frontend/skills/lcp-audit.md`.
+- Prefetch: vue-router `<router-link>` does NOT auto-prefetch the route's dynamic-import chunk (unlike NuxtLink / Next.js `<Link>`). Warm the import manually on hover/viewport (`@mouseenter="() => import('./views/Heavy.vue')"`) or adopt a quicklink-style strategy. See `frontend/skills/navigation-speed/SKILL.md`.
+- Image / CWV: plain Vue has no image component. On the LCP `<img>` set `fetchpriority="high"` + explicit `width`/`height` (reserve space, no CLS); use `loading="lazy"` below-fold. See `frontend/skills/lcp-audit/SKILL.md`.
 
 **Anti-patterns**
 
@@ -70,11 +70,11 @@
 ## SEO
 
 - SPA Vue renders an empty root to crawlers — indexable content needs SSR (Nuxt) or a prerender step; client-set meta won't reach scrapers.
-- Manage `<head>` with **`@unhead/vue`** (`useHead` / `useSeoMeta`) — unique title + description, canonical `link`, OG/Twitter, and JSON-LD via `useHead({ script: [{ type: 'application/ld+json', children: … }] })`. One mechanism only. See `frontend/skills/seo-audit.md` + `@technical-seo`.
+- Manage `<head>` with **`@unhead/vue`** (`useHead` / `useSeoMeta`) — unique title + description, canonical `link`, OG/Twitter, and JSON-LD via `useHead({ script: [{ type: 'application/ld+json', children: … }] })`. One mechanism only. See `frontend/skills/seo-audit/SKILL.md` + `@technical-seo`.
 
 ## Fonts
 
-- Self-host via **`@fontsource/*`** / Fontaine (no remote Google Fonts `<link>`); `font-display: swap`; preload the critical font (`crossorigin`); size-adjusted fallback (swap-CLS); variable font over ≥3 weights. See `frontend/skills/font-optimization.md`.
+- Self-host via **`@fontsource/*`** / Fontaine (no remote Google Fonts `<link>`); `font-display: swap`; preload the critical font (`crossorigin`); size-adjusted fallback (swap-CLS); variable font over ≥3 weights. See `frontend/skills/font-optimization/SKILL.md`.
 
 ## Tests
 

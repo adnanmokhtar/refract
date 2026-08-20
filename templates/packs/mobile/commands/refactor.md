@@ -17,7 +17,7 @@ description: Mobile-targeted refactor — preserves navigation contracts, platfo
 
 ### Dispatch
 
-Follow [`commands/refactor.md`](../../../../commands/refactor.md); [`templates/packs/code-quality/skills/refactoring-sweep.md`](../../code-quality/skills/refactoring-sweep.md); this pack's `STACK.md` + idioms.
+Follow [`commands/refactor.md`](../../../../commands/refactor.md); [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../../code-quality/skills/refactoring-sweep/SKILL.md); this pack's `STACK.md` + idioms.
 
 ### When NOT
 

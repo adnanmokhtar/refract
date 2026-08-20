@@ -1,5 +1,6 @@
 ---
-description: Provider-agnostic task executor. Take ONE task reference (Trello / Jira / Linear / GitHub Issue — URL, key, or "next"), fetch its title + description + attachments + checklist, normalize to a canonical spec, then execute it end-to-end via /do and write status back to the source (in-progress → comment → done). One command, swappable backends. Per-repo provider via .env + the MCP wired by detect-mcp.sh.
+description: Execute ONE tracker item end to end and write its status back to the source. Trigger only when the input IS a task reference — a Trello, Jira, Linear, or GitHub Issue URL, an issue key such as PROJ-123, or 'next' — as in 'do this card' or 'grab the next ticket and start'. Do NOT trigger for a whole board or sprint in one shot; loop /task next instead. Not when the code change is already known and the ticket is noise — call /add-feature or /fix-bug directly.
+compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
 version: 1.0.0

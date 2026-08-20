@@ -187,7 +187,10 @@ ls_dirs() {
   done
   for kind in agents commands skills rules; do
     if [[ -d "$TARGET/.claude/$kind" ]]; then
-      n=$(find "$TARGET/.claude/$kind" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null | wc -l | tr -d ' ')
+      # Dual-form: flat `<name>.md` plus Agent Skills `<name>/SKILL.md`, else skills read 0.
+      n=$({ find "$TARGET/.claude/$kind" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null
+            find "$TARGET/.claude/$kind" -mindepth 2 -maxdepth 2 -name 'SKILL.md' -not -path "$TARGET/.claude/$kind/_*" 2>/dev/null
+          } | wc -l | tr -d ' ')
       printf '%-30s %d files\n' ".claude/$kind/" "$n"
     fi
   done

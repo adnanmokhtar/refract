@@ -1,5 +1,5 @@
 ---
-purpose: Adapter-facing sync for simple-surface commands (`/roadmap`, `/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
+purpose: Adapter-facing sync for simple-surface commands (`/roadmap`, `/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`) plus the two integration commands (`/task`, `/delegate` — contract summarised here, per-tool matrix in their own coverage docs), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
 ---
 
 # Orchestration & validator sync (for adapters)
@@ -32,6 +32,10 @@ When a finding could plausibly be claimed by two commands, the canonical owner i
 | **Clean-code / dedup / dead-code** | `/optimize` (P4 tactical) | `/refactor` applies only the closed Fowler vocabulary on git-changed scope; broad dedup / dead-code sweeps belong to `/optimize`'s tactical phase (or `/audit` P4). |
 | **Perf / scale** | `/optimize` (discover + measure) **/** `/audit` (rank at target scale) **/** `/align` (apply existing perf idiom) | DISCOVERING a new perf win + baseline→after measurement → `/optimize`. Ranking perf against a throughput/latency target alongside security + DB + resilience → `/audit`. Applying an **existing** perf idiom (`cache-with-explicit-ttl` / `add-index` / `parallelize` / `batch` / `project-columns`) to a site that **drifted** from it, shipping the required assertion (perf assertion / `EXPLAIN ANALYZE`) → `/align`. `/align` applies known idioms but never claims a **measured / discovered** perf win; `/polish` and `/refactor` claim no perf. |
 | **Security** | `/audit` (discover + rank + deep pass) **/** `/align` (apply existing security idiom) | DISCOVERING / RANKING security risk, and the deep external pass → `/audit` (and `/security-audit`). Applying an **existing** security idiom (`add-gate` / `parameterize` / `escape` / `add-validator` / `move-to-secrets`) to a site that **drifted** from the project's adopted pattern, shipping the gating test → `/align`. Never claimed by `/polish` / `/refactor`; `/optimize` touches security only incidentally via architecture (no security verb set). |
+
+### Not in this table: the integration commands
+
+`/task` and `/delegate` own **no finding class**, so neither is a row above and neither is a candidate for one. This table splits *quality-sweep* work by domain — what a command may discover and change **in this codebase**. The integration commands cross a boundary instead: `/task` to a task tracker (fetch → normalize → dispatch → write-back), `/delegate` to a **different AI coding CLI** (brief → one bounded run → diff back). Adding either as a row would not sharpen the split; it would dilute what the table means. Their per-tool coverage lives in `_task-integration-coverage.md` and `_delegate-integration-coverage.md`. `/delegate`'s adapter contract is summarised below because it constrains what a *translation* is allowed to claim.
 
 ## Afterburner sequence (full quality sweep)
 
@@ -71,6 +75,24 @@ Source: **`templates/tool-adapters/_discipline-enforcement.md`** (verbatim block
 
 Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/polish/**`, `ai/refactor/**`, `ai/audit/**`, `ai/unify-surfaces/**` (plus pack-specific paths per coverage docs).
 
+## `/delegate` — cross-tool dispatch (adapter contract)
+
+`/delegate` (`commands/delegate.md`) hands ONE bounded task to a **different** AI coding CLI running as a separate process against this working tree, waits, and returns the diff for you to review, gate, and commit. It is the only command here that *uses* another tool rather than configuring one — the adapter tree is the write path, this is the read-back. Per-tool dispatcher primitive, implementer binary, and the two-role matrix live in **`_delegate-integration-coverage.md`**; this section carries only what a translation must not lose.
+
+**Companion script.** Any adapter that surfaces `/delegate` MUST install **`scripts/delegate-relay.sh`** into `~/.claude/scripts/`, the same obligation already carried for the `validate-*-artifacts.sh` validators and the `*-parallel.sh` runners. A translated `/delegate` with no relay on disk is a document, not a command.
+
+**Artifacts.** `.claude/delegate/<ts>-<impl>/` inside the target repo unless `--out=` moves it: `brief.md` (the composed brief), `stdout.log`, `stderr.log`, `delegate.diff`, `result.json` (contract **`delegate-relay.result.v1`**), `shim-denials.log`, plus relay scratch (`brief.input`, `baseline.tsv`, `baseline.keys`, `shim/git`). The relay writes **nothing** outside that directory; the audit line appended to **`ai/_history.md`** is written by the command in Phase 5, not by the relay. The implementer's edits to the working tree are of course outside it — they are the deliverable, not an artifact.
+
+**Not a validator path, not a hook glob.** There is no `validate-delegate-artifacts.sh` and no `ai/delegate/` tree, so `/delegate` is absent from the Validator-facts table and from the hook globs above **by construction, not by omission**. `.claude/delegate/**` is a third-party process's captured output, not this repo's artifact tree — do not add it to a PostToolUse glob. The relay already filters its own output directory out of `touchedFiles` and out of the captured diff, and its run notes suggest gitignoring the directory.
+
+**Flag names change at the relay boundary (adapters MUST rename).** The command surface takes **`--to=<cli>`**; `delegate-relay.sh` takes **`--implementer=<cli>`** and rejects `--to=` with `unknown arg` (exit `2`). **`--plan` is command-only** — it writes the brief to `.claude/plans/` and exits before the relay is invoked, so it must never be forwarded. Everything else passes through unchanged: `--read-only`, `--gate=`, `--model=`, `--session=`, `--files=`, `--allow-dirty`, `--timeout=`, `--dry-run`. **`--model=` is mandatory for `opencode`** and optional elsewhere; a translation that drops it removes `opencode` from the reachable implementer set. A translation that skips the rename dies at argument parsing with nothing dispatched.
+
+**Never-commit invariant (adapters MUST preserve).** The relay runs no `git commit` / `push` / `checkout` / `stash` — enforced in-script by a subcommand allowlist, and pushed at the implementer through a PATH-shimmed `git` that refuses the history-writing subcommands. That shim is a **speed bump, not a boundary**: aliases, absolute paths, and library calls walk straight past it, so the brief's no-commit clause and the human's review are the actual control. A translation that drops either has removed the control, not the ceremony. Gate **G5** is mechanical and worth stating twice: **if HEAD moved, the run failed** — regardless of what the implementer reported.
+
+**Read-only tripwire (adapters MUST NOT collapse it).** Two independent fields, because "did we ask for read-only", "can this CLI enforce it", and "did anything change" are three different questions: `readOnly.enforcement` ∈ `not-requested` / `enforced` / `unverified` / `unenforceable`, and `readOnly.violation` ∈ `true` / `false` / `null`. **`null` is a shippable answer and is never rounded to `false`**, and neither field is ever rounded up to "read-only ✓" — that rounding is the single failure the command exists to prevent. `violation: false` is deliberately the narrowest claim in the contract: it covers **git-visible paths inside the repo only**, so ignored files, writes under `$HOME` or `/tmp`, network calls, and perfectly-reverted edits are outside it. A `--read-only` run against a CLI that documents no such mode (today `kimi`) is refused at relay exit 5 unless explicitly accepted as best-effort.
+
+**Honesty clause — a different one.** `/delegate` carries a mandatory **`Not validated:`** line from its own contract, and a gate the implementer reported but you did not re-run counts as **un-run** (G6) — the implementer's report is a claim, not evidence. The three-line simple-surface block at the top of this file does **not** apply verbatim: `/delegate` commits nothing, so there is no commit range to `Revert:`. Do not bolt a `Revert:` line onto a command that lands nothing.
+
 ## `/refactor` vs the five inventory commands
 
 **`/refactor`** is scoped (default: git-changed paths); it does **not** implement `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` multi-area orchestration. Those flags apply to **`/migrate`**, **`/optimize`**, **`/align`**, **`/polish`**, **`/audit`** — see `docs/COMMANDS.md`, `commands/refactor.md`, and `commands/audit.md`.
@@ -84,4 +106,5 @@ Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/pol
 - `templates/tool-adapters/_refactor-pack-coverage.md`
 - `templates/tool-adapters/_audit-pack-coverage.md`
 - `templates/tool-adapters/_task-integration-coverage.md` — `/task` (MCP-backed task executor: Trello / Jira / Linear / GitHub) per-tool primitive + the `/do`→native-dispatch substitution
+- `templates/tool-adapters/_delegate-integration-coverage.md` — `/delegate` (CLI-backed cross-tool dispatch: hand ONE bounded task to a DIFFERENT AI coding CLI) per-tool dispatcher primitive, implementer availability, and the read-only tri-state
 - `templates/tool-adapters/_registry.md` § Top-level orchestration commands

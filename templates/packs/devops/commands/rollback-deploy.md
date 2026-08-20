@@ -46,6 +46,6 @@ pack: devops
 ## See also
 
 - `/deploy-stage` — the forward deploy this reverses.
-- `devops/skills/monitor-deploy.md` — the health-watch used to confirm the rolled-back revision recovered to GREEN.
-- `code-quality/skills/smoke-verify.md` — the boot-check used to confirm recovery.
+- `devops/skills/monitor-deploy/SKILL.md` — the health-watch used to confirm the rolled-back revision recovered to GREEN.
+- `code-quality/skills/smoke-verify/SKILL.md` — the boot-check used to confirm recovery.
 - `ai/runbooks/` — where the rollback evidence lands.

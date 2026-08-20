@@ -1,0 +1,112 @@
+---
+name: deps-audit
+description: Run the ecosystem's dependency audit (npm / pip / cargo / composer / go) and triage the findings, separating blockers from noise. Run before every release, after a fresh install, when a new advisory lands, and weekly in CI. Scans the manifest and lockfile — `release-security` is what scans the built container image's OS layer.
+---
+
+# deps-audit
+
+Run the package-manager audit and convert raw CVE noise into prioritized actions.
+
+## Premise
+
+Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA), the affected package + version range, the fixed version, and the consumer site (`<path:line>` for runtime deps; "transitive via `<parent>`" for indirect). Severity is the advisory's severity AND the surface analysis ("runtime path reachable from user input" vs "dev-only build script"); "high CVE" alone is not a verdict. Risk-accepted findings name the unreachable code path and what would change that. Triage that says "upgrade everything" without surface analysis is noise.
+
+## Halt conditions
+
+- Halt on findings missing CVE/GHSA id or fixed-version field.
+- Halt on severity escalation ("CRITICAL — fix today") without naming the reachable consumer path (`<path:line>` or "transitive via X, unreachable").
+- Halt on `audit fix --force` recommendations that cross majors without a regression-test plan.
+
+## When to run
+
+- Before every release.
+- After a fresh `npm install` / `pip install` / equivalent.
+- When a new advisory hits a dep you use (GitHub Dependabot, Snyk alert).
+- Weekly in CI to track drift.
+
+## Prerequisites
+
+- Project's package-manager CLI (`pnpm`, `npm`, `yarn`, `pip`, `cargo`, `composer`, `go`, `bundle`).
+- `jq` for JSON parsing.
+- Internet access — audit DBs are remote.
+
+## Procedure
+
+1. Run the right tool for the stack:
+   ```bash
+   # Cross-ecosystem default (preferred — one scanner, all lockfiles, OSV DB):
+   osv-scanner --format json --lockfile=<path> > /tmp/audit.json   # or: osv-scanner -r .
+   # Node — NOTE the schema differs by tool/version:
+   npm audit --json --omit=dev > /tmp/audit.json     # npm 7+ → top-level `.vulnerabilities` (NOT `.advisories`)
+   pnpm audit --json > /tmp/audit.json               # pnpm → legacy `.advisories`
+   # Python
+   pip-audit --format json --output /tmp/audit.json
+   # Rust
+   cargo audit --json > /tmp/audit.json
+   # PHP
+   composer audit --format=json > /tmp/audit.json
+   # Go
+   govulncheck -json ./... > /tmp/audit.json
+   # Ruby
+   bundler-audit check --update --format json > /tmp/audit.json
+   ```
+2. Parse + triage (schema-aware — pick the shape your tool emits):
+   ```bash
+   # npm 7+  (top-level .vulnerabilities, keyed by package):
+   jq '.vulnerabilities | to_entries[] | {name:.key, sev:.value.severity, via:.value.via, range:.value.range, fix:.value.fixAvailable}' /tmp/audit.json
+   # pnpm / npm 6  (.advisories):
+   jq '.advisories | to_entries[] | {name:.value.module_name, sev:.value.severity, cve:.value.cves, vuln:.value.vulnerable_versions, fix:.value.patched_versions}' /tmp/audit.json
+   # osv-scanner  (.results[].packages[].vulnerabilities[]):
+   jq '.results[].packages[] | {name:.package.name, vulns:[.vulnerabilities[].id]}' /tmp/audit.json
+   ```
+   **Prioritize by CVSS + EPSS (exploit probability) + CISA KEV (known-exploited) — not CVSS alone.** A KEV-listed or high-EPSS Medium outranks a theoretical Critical.
+3. For each finding, classify:
+   - **Critical/High on runtime dep** → blocker, fix today.
+   - **Medium on runtime dep** → fix this sprint.
+   - **Any severity on dev-only dep** → backlog, lower priority.
+   - **Transitive dep where the vulnerable code path is unreachable from your code** → note as risk-accepted.
+4. Confirm the upgrade path won't break:
+   ```bash
+   pnpm why <package>          # transitive ancestry
+   npm outdated <package>      # current vs wanted vs latest
+   ```
+5. Apply minimal upgrade (avoid `audit fix --force` blindly — it bumps majors):
+   ```bash
+   pnpm up axios@^1.7.4
+   pnpm test
+   ```
+
+## Output
+
+```
+Dependency audit — 3 findings
+
+CRITICAL:
+  axios@0.21.4   CVE-2024-28849   SSRF
+    Fixed:  1.7.4
+    Used:   <modules-root>/http/client.<ext> (runtime)
+    Surface: outbound HTTP with user-supplied URLs — exploitable.
+    Action: upgrade today, regression-test outbound paths.
+
+MEDIUM:
+  lodash@4.17.20   CVE-2021-23337   prototype pollution
+    Fixed:  4.17.21
+    Used:   transitive via eslint-plugin-import
+    Surface: dev-only.
+    Action: upgrade when convenient (pnpm dedupe + bump).
+
+LOW:
+  semver@5.7.1   CVE-2022-25883   ReDoS
+    Fixed:  5.7.2 / 6.3.1 / 7.5.2
+    Used:   transitive (deep)
+    Surface: build-time only.
+    Action: bundle this with the next routine dep refresh.
+```
+
+## False positives / gotchas
+
+- Vulnerable but unreachable: a CVE in a sub-feature you don't import is real risk only if the import surface changes — flag, don't panic.
+- `npm audit fix --force` upgrades across majors — read the changelog, run tests, never apply blindly.
+- Yarn's audit DB lags npm's by days — prefer `npm audit` against the same lockfile.
+- Some advisories are duplicates from different sources (GHSA + npm + Snyk) — dedupe by CVE ID.
+- Pinned transitive overrides (`pnpm.overrides`, `resolutions`) can fix vulns without waiting on the parent dep — preferred when a parent is slow to release.

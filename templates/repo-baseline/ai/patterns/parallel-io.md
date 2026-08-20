@@ -106,4 +106,4 @@ try {
 
 - `ai/patterns/data-access.md` — Repository batch APIs (`findByIds`, `whereIn`) are the *first* thing to reach for over parallel fan-out.
 - `.claude/rules/concurrency-discipline.md` *(if the backend pack is applied)* — the MUST/MUST-NOT review checklist that enforces this pattern.
-- `.claude/skills/parallelize-independent-ops.md` *(if the backend pack is applied)* — the procedure for converting an existing sequential code path.
+- `.claude/skills/parallelize-independent-ops/SKILL.md` *(if the backend pack is applied)* — the procedure for converting an existing sequential code path.

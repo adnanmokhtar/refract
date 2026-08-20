@@ -561,7 +561,7 @@ Every row in the output must be re-derivable by another reader given the same co
 - `/align-status` — read-only ledger reader.
 
 ### Skills
-- `.claude/skills/detect-drift.md` — the detector procedure dispatched by this command.
+- `.claude/skills/detect-drift/SKILL.md` — the detector procedure dispatched by this command.
 
 ### Cross-pack references
 - `code-quality/commands/check-health.md` — pre-flight mechanical check; run before this command.
@@ -570,8 +570,8 @@ Every row in the output must be re-derivable by another reader given the same co
 - `frontend/agents/accessibility-auditor.md` — dispatched for `frontend-*`.
 - `frontend/agents/i18n-auditor.md` — dispatched for `frontend-*`.
 - `frontend/agents/data-flow-auditor.md` — dispatched for `frontend-*`.
-- `ui-ux/skills/design-token-audit.md` — dispatched for `frontend-*`.
-- `ui-ux/skills/motion-audit.md` — dispatched for `frontend-*`.
+- `ui-ux/skills/design-token-audit/SKILL.md` — dispatched for `frontend-*`.
+- `ui-ux/skills/motion-audit/SKILL.md` — dispatched for `frontend-*`.
 - `frontend/rules/migration-frontend.md` — frontend fingerprint set for stack-anti-pattern detector.
 - `backend/rules/migration-backend.md` — backend fingerprint set for stack-anti-pattern detector.
 
