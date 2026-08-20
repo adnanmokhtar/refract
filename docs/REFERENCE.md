@@ -927,7 +927,13 @@ It builds along **four gates**:
 
 ## Memory system
 
-Three layers, each per-project:
+**Two owners, and the distinction matters.** Layers 1-3 below belong to the **host** (Claude Code
+itself) — they live under `~/.claude/`, they are per-user and per-machine, and Refract neither
+writes nor indexes them. Layer 4 is **Refract's own** project memory: the `ai/` tree, tracked in
+the repo, shared with the team, written by the Phase-6 learning loop, and the only layer `/recall`
+searches.
+
+Layers 1-3, each per-project (host-owned):
 
 ### 1. CLAUDE.md (loaded into every conversation)
 
@@ -955,7 +961,50 @@ Types of memory:
 
 ### 3. Conversation history (per-project)
 
-`~/.claude/sessions/` and `~/.claude/projects/<hash>/`. Used for `/resume` and `/continue`.
+`~/.claude/sessions/` and `~/.claude/projects/<hash>/`. Used for `/resume` and `/continue`. Every
+session is stored verbatim as JSONL. Refract does **not** copy any of it into the repo: a hook
+write is not an Edit, so `secret-scan.sh` never sees what a hook writes, and a transcript can
+carry pasted credentials and customer data. The Stop hook records the `session_id` and
+`transcript_path` as *pointers* at this store and nothing else.
+
+### 4. Project memory — the `ai/` tree (Refract's own)
+
+Tracked in the repo, shared with the team, and portable across drivers. Written by
+`/learn-from-task` into the eight append-only `ai/dynamic/` sinks plus `ai/failures/_index.md`
+(the canonical set is defined once, in `templates/snippets/learning-sink.md`), then promoted by
+`knowledge-curator` at threshold into `ai/decisions/` · `ai/patterns/` · `ai/conventions.md` ·
+`.claude/rules/`. `templates/phases/phase-6-learn.md` is the full contract, including the
+promotion thresholds and the budgets (`ai/` ≤ 50 files, each ≤ 300 lines — *"budgets are NOT
+advisory"*).
+
+Capture was never the missing half; **recall** was. Until learning pack v1.4.0 the only ways back
+into that tree were `session-start.sh`'s `tail -10` and grepping by hand, which is why
+`ai/failures/_index.md` — an append-only don't-retry catalog whose entire value lands at the
+moment someone is about to retry the failed approach — was effectively write-only.
+
+**`/recall <query>`** closes that. It runs the same stdlib BM25 engine that indexes the pack
+corpus (`scripts/pack-search.py --catalog=memory`) over the `ai/` tree and returns ranked
+**pointers** (`path:line`) into the sinks, the failure catalog, ADRs, patterns, runbooks,
+directive bullets in `conventions.md`, and the `ai/audits/**` archives. Flags: `--kind`,
+`--owner`, `--since`, `--limit` (hard cap 25), `--format=text|json|paths`.
+
+- **No new store.** It adds no sink, no file format, and no second place to write. The index is a
+  derived cache at `.claude/_memory-index.json` — gitignored, fingerprinted on size + mtime,
+  never committed.
+- **Project-scoped, always.** A lesson learned in project A stays in project A. There is no
+  cross-project index; per-user memory is layer 2's job, and it belongs to the host.
+- **Automatic recall is opt-in.** `.claude/hooks/recall-inject.sh` (UserPromptSubmit) runs the
+  same search against your prompt and injects the top 3 pointers as context, so the failure
+  catalog surfaces itself *before* the approach is retried. It is inert until
+  `touch .claude/.recall`. Context-only, never blocks, always exits 0, deduped per row per
+  session, silent no-op without `jq` or `python3`.
+- **Honest limits.** BM25 is lexical, so a query phrased in words the memory does not use will
+  miss. A row is an address, not an answer. Recall does not improve *capture* — only
+  `/learn-from-task` writes memory, and that stays human-dispatched. An empty corpus is reported
+  as empty rather than back-filled from anywhere else. And there is **no measured claim** that
+  recall improves outcomes: earning one means seeding `/eval` cases whose `guards:` cite memory
+  rows and comparing `ai/evals/_scorecard.md` runs with the hook on and off — until then,
+  UNKNOWN. Full detail: [`docs/RETRIEVAL.md § Second corpus — project memory`](RETRIEVAL.md).
 
 ---
 

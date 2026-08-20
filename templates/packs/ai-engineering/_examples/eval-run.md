@@ -24,7 +24,7 @@ Detect + mirror the project's harness — never impose a second one:
 | LangSmith | `LANGCHAIN_API_KEY` | SDK `evaluate(...)` |
 | custom pytest | `tests/eval_*.py` | `pytest tests/eval_*.py -q` |
 
-No harness detected → HALT (build one first, see `ai/patterns/evals.md`).
+No harness detected → HALT — run **`/add-eval-set <feature>`** first (design in `ai/patterns/evals.md`), then re-run. That command builds the dataset + scorers + declared threshold + committed baseline + CI gate and dispatches this skill for the first measured run.
 
 ## Procedure
 
@@ -61,11 +61,11 @@ Verdict: FAIL — do not merge. Baseline NOT updated.
 ## When to run
 
 - Every prompt / model / temperature / retrieval / routing change; in CI as a merge gate.
-- Dispatched by `@ai-feature-reviewer` and `/add-ai-feature` Phase 5.
+- Dispatched by `@ai-feature-reviewer`, `/add-ai-feature` Phase 5, `/ai-audit` (eval axis), and `/add-eval-set` Phase 5.
 
 ## Halt conditions
 
-- No harness → HALT (this skill runs a harness, doesn't create one).
+- No harness → HALT (this skill runs a harness, doesn't create one) — surface **`/add-eval-set`** as the next step; the feature's eval axis is UNVERIFIED until that first run, never a faked pass.
 - A finding without its cited case + score → not emittable.
 - Below-baseline PASS → forbidden without an explicit recorded sign-off (ADR/PR note naming the metric + new value + why). Lowering the threshold/baseline to go green is masking.
 - Evaluating on the training/few-shot examples → HALT.
@@ -73,4 +73,5 @@ Verdict: FAIL — do not merge. Baseline NOT updated.
 
 ## References
 
-- `ai/patterns/evals.md` (the eval DESIGN this skill runs), `rag-pipeline.md` (retrieval metrics), `@ai-feature-reviewer`, `/add-ai-feature`, `.claude/rules/ai-engineering-principles.md`.
+- `ai/patterns/evals.md` (the eval DESIGN this skill runs), `rag-pipeline.md` (retrieval metrics — whose **runner** is the `retrieval-eval` skill: it isolates the stage against a labelled question→gold-chunk set and reports filtered *and* unfiltered recall, while this skill scores the end answer; pair them on any RAG feature).
+- `retrieval-eval`, `@ai-feature-reviewer`, `/add-ai-feature`, `/ai-audit`, `/add-eval-set`, `.claude/rules/ai-engineering-principles.md`.

@@ -26,7 +26,7 @@ Detect the project's eval framework and **mirror it** — run the harness the pr
 | **LangSmith** | `rg langsmith`, `LANGCHAIN_API_KEY` | `langsmith eval` / SDK `evaluate(...)` | versioned dataset on the LangSmith server |
 | **custom pytest** | `tests/eval_*.py`, `rg "assert.*score"` | `pytest tests/eval_*.py -q` | project-defined loader |
 
-If NO harness is detected → HALT and surface "no eval harness — build one first (see `ai/patterns/evals.md`), then re-run". This skill runs a harness; it does not invent the dataset or the scorers.
+If NO harness is detected → HALT and surface "no eval harness — run `/add-eval-set <feature>` first, then re-run". This skill runs a harness; it does not invent the dataset or the scorers. `/add-eval-set` is the artifact that picks that halt up: it builds the versioned dataset, the scorers, the judge rubric, the declared threshold, the committed baseline, and the CI gate, then dispatches this skill for the first measured run.
 
 Read the project's harness config for: the dataset path + version, the model/prompt under test, the configured scorers, the baseline location, and the pass threshold. Mirror those — do not substitute your own model, temperature, or threshold.
 
@@ -82,7 +82,7 @@ Reports: .promptfoo/output-1745492045.json
 
 ## Halt conditions
 
-- **No eval harness detected** → HALT — surface "build the eval set first (`ai/patterns/evals.md`)". This skill runs a harness; it does not create one.
+- **No eval harness detected** → HALT — surface **`/add-eval-set <feature>`** as the next step (design in `ai/patterns/evals.md`). This skill runs a harness; it does not create one, and the halt is not a dead end: `/add-eval-set` builds the dataset + scorers + threshold + baseline + CI gate and calls back here for the first measured run. Until that run exists the feature's eval axis is **UNVERIFIED**, never a faked pass.
 - **A finding without its cited case + score** → not emittable; re-run and capture the per-case scores, or drop the claim.
 - **Below-baseline PASS** → forbidden. Never report PASS when a gated metric is below threshold or a case regressed past tolerance without an explicit, recorded human sign-off (an ADR / PR note that names the metric, the new value, and why the drop is accepted). Silently lowering the threshold or the baseline to go green is masking, not passing.
 - **Evaluating on the training / few-shot examples** → HALT — the result is meaningless; point the harness at held-out cases.
@@ -91,7 +91,10 @@ Reports: .promptfoo/output-1745492045.json
 ## References
 
 - `ai/patterns/evals.md` — the eval DESIGN this skill runs: dataset construction, scorer selection, LLM-as-judge rubrics, regression-gate policy. Owner of the *what to measure*; this skill is the *run it and gate*.
-- `ai/patterns/rag-pipeline.md` — retrieval metrics (recall@k / context-precision) when RAG is in scope.
+- `ai/patterns/rag-pipeline.md` — retrieval metrics (recall@k / context-precision) when RAG is in scope. The **runner** for those metrics is the `retrieval-eval` skill, not this one: it isolates the retrieval stage against a labelled question→gold-chunk set and reports filtered *and* unfiltered recall. This skill scores the end answer (faithfulness / answer relevance); pair them on any RAG feature so a failure is attributable to a stage.
+- `retrieval-eval` — the retrieval-stage half. Where the project's harness already computes retrieval metrics, this skill runs them and `retrieval-eval` interprets the per-case output and owns the tuning loop.
 - `@ai-feature-reviewer` — dispatches this skill for the eval-coverage dimension.
 - `/add-ai-feature` — Phase 5 (Evaluate) dispatches this skill as the regression gate.
+- `/ai-audit` — dispatches this skill for the eval axis of the six-axis sweep; when this skill halts for lack of a harness, that audit reports the axis `UNVERIFIED` and emits `/add-eval-set` as the next step.
+- `/add-eval-set` — builds the harness this skill requires; the standing answer to the no-harness HALT.
 - `.claude/rules/ai-engineering-principles.md` — "evals gate every prompt/model/retrieval change".

@@ -5,13 +5,13 @@
 **Write your AI coding setup once. Run it in every tool.**
 
 Refract is a portable engineering brain for AI coding agents. You maintain one source of truth —
-commands, agents, rules, and 20 role-based knowledge packs — and it compiles itself into the
+commands, agents, rules, and 23 role-based knowledge packs — and it compiles itself into the
 native format of every AI coding tool on your machine.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tools](https://img.shields.io/badge/tools-12-blue.svg)](#supported-tools)
-[![Packs](https://img.shields.io/badge/packs-20-blueviolet.svg)](#whats-inside)
-[![Commands](https://img.shields.io/badge/commands-133-orange.svg)](#the-commands)
+[![Packs](https://img.shields.io/badge/packs-23-blueviolet.svg)](#whats-inside)
+[![Commands](https://img.shields.io/badge/commands-148-orange.svg)](#the-commands)
 [![quality-gates](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml)
 
 </div>
@@ -119,7 +119,7 @@ path or a plain-English description of the area you mean.
 | `/setup-project-adapters` | Re-sync tool adapters for the current repository. |
 | `/setup-project-health` | Read-only health report — drift, staleness, budget breaches, missing ADRs. |
 
-Another 118 commands ship inside the packs and install per-project when their pack is selected.
+Another 133 commands ship inside the packs and install per-project when their pack is selected.
 
 **Every command supports `--plan`**, which is where this gets economical: plan on a strong model,
 execute on a cheap one.
@@ -159,18 +159,18 @@ re-verify rather than silently shipping a broken translation.
 
 ## What's inside
 
-![The twenty role-based packs and what each ships — agents, skills, commands and rules per pack](assets/pack-matrix.svg)
+![The twenty-three role-based packs and what each ships — agents, skills, commands and rules per pack](assets/pack-matrix.svg)
 
 | | |
 |---|---|
-| **20 packs** | Role-based knowledge tracks, not framework tracks |
-| **69 agents** | Specialised reviewers and architects |
-| **98 skills** | Reusable procedures, as `<name>/SKILL.md` |
-| **133 commands** | 15 global + 118 pack-level |
+| **23 packs** | Role-based knowledge tracks, not framework tracks |
+| **86 agents** | Specialised reviewers and architects |
+| **114 skills** | Reusable procedures, as `<name>/SKILL.md` |
+| **148 commands** | 15 global + 133 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
-| **65 scripts** | Validators, linters, sync, search and audit tooling |
-| **3 overlays** | GDPR · PCI-DSS · SOC 2 |
+| **71 scripts** | Validators, linters, sync, search and audit tooling |
+| **4 overlays** | GDPR · HIPAA · PCI-DSS · SOC 2 |
 
 ```
 refract/
@@ -178,7 +178,7 @@ refract/
 ├── templates/
 │   ├── repo-baseline/       # copied into every new repository
 │   ├── workspace-baseline/  # multi-repo workspaces (dispatcher, cross-repo commands)
-│   ├── packs/               # 20 role-based tracks
+│   ├── packs/               # 23 role-based tracks
 │   ├── tracks/              # stack-specific scaffolders
 │   ├── tool-adapters/       # per-tool translations
 │   ├── phases/              # /setup-project's phase files
@@ -202,7 +202,7 @@ file — the agents adapt with no changes.
 Meet a framework it has never seen? `/setup-project` writes the reference on the fly and every
 future project reuses it.
 
-### Finding things in 191k lines
+### Finding things in 203k lines
 
 The knowledge base is far larger than any context window, so Refract ships a lexical search layer —
 `scripts/pack-search.py`, pure standard-library Python, no network:

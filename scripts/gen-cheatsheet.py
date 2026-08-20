@@ -270,7 +270,7 @@ def harvest_flags(body, own, signature):
 def _clean_invocation(line):
     # cut a trailing aligned comment/note (real invocations use single spaces between
     # tokens; 2+ spaces precede an aligned `# ...` / `(note)` / `— note`)
-    return re.split(r"\s{2,}", line.strip(), 1)[0].strip()
+    return re.split(r"\s{2,}", line.strip(), maxsplit=1)[0].strip()
 
 
 def find_example(body, name, signature):

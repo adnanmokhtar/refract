@@ -28,6 +28,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
   - [`/delegate`](#delegate)
   - [`/learn-from-task`](#learn-from-task)
   - [`/eval`](#eval)
+  - [`/recall`](#recall)
 - [Generated commands (in target repo)](#generated-commands-in-target-repo)
 - [Workflows](#workflows) — see also [`docs/REFERENCE.md`](REFERENCE.md) for the canonical end-to-end walkthroughs
 - [Hard rules summary](#hard-rules-summary)
@@ -57,6 +58,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/delegate <task>`            | Dispatch ONE bounded task to a **different** AI coding CLI (`claude` / `codex` / `cursor-agent` / `opencode` / `aider` / `cline` / `gemini` / `kimi` / `qwen` / `copilot`), then review its diff and commit it yourself. The relay never commits. Read-only is a tri-state tripwire, never a guarantee. Backed by `scripts/delegate-relay.sh`. | No (the other CLI writes; nothing is committed) |
 | `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
 | `/eval`                       | Grade the knowledge base — replay saved eval cases (scenario + answer key + `guards:`) against the current `ai/` + `.claude/rules/`, score each, append a run to `ai/evals/_scorecard.md`, feed FAIL/REGRESS to `ai/dynamic/learnings.md`. The measurement half of the loop `/learn-from-task` opens. `--case` / `--coverage` / `--seed`. | No (writes scorecard + learnings) |
+| `/recall <query>`             | Retrieval over the memory the learning loop already writes — the same stdlib BM25 that indexes the pack corpus, pointed at `ai/`. Ranked `path:line` pointers, never a paraphrase; `ai/failures/_index.md` finally has a read path. `--kind` / `--owner` / `--since` / `--limit` / `--format` / `--catalog`. | **Yes** (read-only) |
 
 Generated commands ship INTO target repos when a track is selected: `/add-endpoint`, `/add-module`, `/add-feature`, `/fix-bug`, `/review-changes`, `/migration-status`, `/port-feature`, etc. See [Generated commands](#generated-commands-in-target-repo).
 
@@ -344,9 +346,14 @@ adapters but no headless CLI, so they cannot be implementers.)
 git state and the target binary, composes a bounded brief with a non-removable no-commit clause, watchdogs
 the run, kills the process tree on timeout, captures `delegate.diff`, and emits `result.json`
 (contract `delegate-relay.result.v1`: `status`, `exitCode`, `signal`, `touchedFiles`, `readOnly`, `git.headMoved`,
-`sessionId`, `violations`, plus `"committed": false`). Exit codes: `0` ok · `1` implementer failed/timed
-out/moved HEAD · `2` usage · `3` CLI missing · `4` git preflight · `5` read-only refused. `--dry-run` and
-`--list` are safe anywhere.
+`git.diffBase`, `git.commitsAhead`, `git.commits`, `sessionId`, `violations`, plus `"committed": false` — which states
+that *the relay* did not commit, never that nothing did; `git.headMoved` answers that). The diff and `touchedFiles`
+are taken against the PRE-RUN HEAD, not HEAD — an implementer that commits moves HEAD onto its own work, and
+`git diff HEAD` would then return an empty diff that reads exactly like a harmless no-op. Exit codes: `0` ok ·
+`1` implementer failed/timed out/moved HEAD · `2` usage · `3` CLI missing · `4` git preflight · `5` read-only
+refused · `6` self-target refused (the relay's own repo; `--allow-self` overrides). `--list` is safe anywhere;
+so is `--dry-run`, which composes the brief into a temp directory rather than the target repo unless you name
+an `--out=` yourself.
 
 **Gates that matter**: HEAD unchanged after the run (if it moved, the run failed regardless of the diff);
 every `--gate=` command re-run *by you*; the whole diff read against the brief, tests-touched-first.
@@ -414,6 +421,28 @@ A **case** (`ai/evals/cases/<slug>.md`) is a scenario + an answer key + a `guard
 **Auto vs manual:** manual by default — **no auto-hook, no cron** in the baseline (same honesty contract as `/learn-from-task`). Wire it into a `Stop` hook (run after a task) or CI (fail on coverage/pass-rate drop) yourself, *after* you trust the scores. See `ai/evals/README.md` for the wiring note.
 
 Ships with the learning pack (always-on). See [`templates/packs/learning/commands/eval.md`](../templates/packs/learning/commands/eval.md).
+
+---
+
+## `/recall`
+
+The **read half** of the learning loop. `/learn-from-task` writes the `ai/dynamic/` sinks and `knowledge-curator` promotes them into the formal layer — but until now the only ways back in were `session-start.sh`'s `tail -10` and grepping by hand. `ai/failures/_index.md`, whose entire value lands at the moment someone is about to retry a failed approach, was effectively write-only. `/recall` adds **retrieval and nothing else**: no new sink, no new file format, no second place to write.
+
+```
+/recall "cart cache key tenant"                  # top 8 pointers, ranked
+/recall "why is checkout slow" --limit=3         # default 8, hard cap 25
+/recall "payment retry" --kind=memory-failure    # only the don't-retry catalog
+/recall "repository layer" --owner=feedback-learned
+/recall "webhook" --format=paths                 # bare path:line, pipe into a Read
+```
+
+**Every result is an address, not an answer.** Read the cited `path:line` before acting on it — the command returns ranked pointers and never paraphrases what it found.
+
+It runs the *same* engine as the pack corpus search: `scripts/pack-search.py --catalog=memory` swaps in `scripts/gen-memory-catalog.py` as the row producer, and the tokenizer, BM25 (`k1=1.5`, `b=0.75`), field weights, synonym expansion, filters, and hard cap are shared code. There is no second index and no second ranking model to keep in step. The index itself is a derived, gitignored cache at `.claude/_memory-index.json`, fingerprinted on each source file's size + mtime and rebuilt on mismatch — so `ai/` stays the single source of truth and no drift surface is added.
+
+`--since` is applied **agent-side** over the returned rows (the engine has no date filter), so raise `--limit` when you use it or a date filter over 8 rows can legitimately return zero. On a project that has never run `/learn-from-task` the empty index says so plainly — it does not fall back to another corpus and it does not invent a row.
+
+Ships with the learning pack (always-on). See [`templates/packs/learning/commands/recall.md`](../templates/packs/learning/commands/recall.md).
 
 ---
 
@@ -621,6 +650,33 @@ These ship with their respective packs when the track is selected/detected.
 |---|---|
 | `/provision-tier` | Provision a new environment tier (dev / staging / prod / DR) — IaC-driven. |
 
+**Data-engineering track**
+
+| Command | Purpose |
+|---|---|
+| `/add-data-model` | Author a warehouse model (staging / intermediate / fact / dimension) in the project's own layering and naming idiom — declared grain, assertions, and lineage registered *before* the model is exposed to a dashboard. |
+| `/audit-data-model` | Audit the analytical model — declared grain, fact/dimension separation, key and SCD correctness, conformed dimensions, join cardinality, layering violations. Read-only; every uniqueness claim carries a `grain-probe` result rather than an assertion. |
+| `/audit-data-quality` | Measure and close data-trust gaps across four assertion floors — structural, temporal, distributional, reconciliation — plus severity, ownership, and routing per failure. `--write-tests` writes the missing assertions instead of listing them. |
+| `/backfill-plan` | Plan a safe backfill or reprocess — bounded scope, shadow target, cost and runtime estimate, validation against the live table, reversible cutover, rollback window. Produces a plan and a ledger; never performs an in-place overwrite. |
+
+**FinOps track**
+
+| Command | Purpose |
+|---|---|
+| `/cost-model` | Build or refresh the unit-economics driver tree — business unit down to billed dimensions, measured cost per unit, and the declared expectation every guardrail is later measured against. |
+| `/cost-review` | Cost lens on a diff, before it merges — always-on resources, per-row paid calls, retry and fan-out bounds, cross-zone movement, retention and log-volume defaults, scan cost, allocation tags. |
+| `/audit-cost-attribution` | Audit whether spend can be attributed to an owner — tag coverage by resource *and by dollar*, shared-cost allocation rules, showback map, and the unallocated bucket that bounds every per-unit number derived from it. |
+| `/cost-guardrails` | Install the preventive layer — budgets with owners, anomaly detection against a declared baseline, per-environment quotas, pre-merge infrastructure cost estimate, retention and lifecycle defaults. |
+
+**Product track**
+
+| Command | Purpose |
+|---|---|
+| `/frame-problem` | Produce the problem brief before anyone designs a solution — who has it, the labelled evidence, what they do today instead, the do-nothing baseline, the success/counter-metric pair, kill criteria. Writes a brief, never a spec. |
+| `/audit-requirements` | Audit a spec or acceptance criteria for the defects that survive into code — unfalsifiable criteria, two-reading ambiguity, solution smuggled into the problem, missing edge/error/empty/reversal states, absent non-functional bounds. |
+| `/synthesize-research` | Turn raw research material into findings at the strength the material supports — sources, counts with denominators, evidence class, disconfirming material, explicit limits. Never invents a quote, a participant, or a number. |
+| `/define-success` | Define success *and* damage before a change ships — success metric with baseline and target, counter-metric with a rollback threshold, the instrumentation each requires, kill criteria with a named owner and review date. |
+
 **Learning track (Phase 6 maintenance)**
 
 | Command | Purpose |
@@ -629,6 +685,7 @@ These ship with their respective packs when the track is selected/detected.
 | `/promote-pattern` | Graduate an emerging pattern from `ai/dynamic/learned-patterns.md` to a convention. |
 | `/promote-decision` | Graduate a resolved entry from `ai/dynamic/decisions-pending.md` to a numbered ADR. |
 | `/audit-knowledge` | Curator health audit — stale `dynamic/` entries, drifted conventions, dead ADRs, derived-file staleness. |
+| `/recall <query>` | Search the `ai/` memory this loop already wrote — dynamic sinks, the don't-retry failure catalog, ADRs, patterns, runbooks, conventions, archives — and return ranked `path:line` POINTERS. Read-only; adds no sink. `--kind` / `--owner` / `--since` / `--limit` / `--format`. |
 | `/refresh-knowledge` | Re-run Phase 2 profiling; diff against current `ai/` and update. |
 
 **DevOps track**
@@ -1108,7 +1165,7 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 
 ### Other tracks
 
-Security (`/security-audit`), observability (`/log-tail`, `/add-tracing`, `/add-metrics`, `/add-telemetry`), database (`/add-migration`, `/optimize-query`, `/db-audit`), performance (`/perf-audit`, `/profile-perf`, `/bundle-perf`), algorithms (`/design-algorithm`, `/analyze-complexity`), infrastructure (`/k8s-generate`, `/audit-iam`, `/cost-audit`), business (`/audit-business`), distributed-systems (`/audit-distributed-tx`). ai-engineering (`/add-ai-feature` — build an LLM feature end-to-end with a mandatory eval gate + a `@llm-security-reviewer` handoff; secured by the security pack).
+Security (`/security-audit`), observability (`/log-tail`, `/add-tracing`, `/add-metrics`, `/add-telemetry`), database (`/add-migration`, `/optimize-query`, `/db-audit`), performance (`/perf-audit`, `/profile-perf`, `/bundle-perf`), algorithms (`/design-algorithm`, `/analyze-complexity`), infrastructure (`/k8s-generate`, `/audit-iam`, `/cost-audit`), business (`/audit-business`), distributed-systems (`/audit-distributed-tx`). ai-engineering (`/add-ai-feature` — build an LLM feature end-to-end with a mandatory eval gate + a `@llm-security-reviewer` handoff; `/ai-audit` — read-only six-axis sweep of an existing AI surface (eval coverage, prompt, retrieval, ANN index, agent budgets, gateway/cost), dispatching the pack's detector skills and routing the trust boundary to `@llm-security-reviewer`; `/add-eval-set` — retrofit a regression-gating eval harness onto an LLM feature that has none, closing `eval-run`'s no-harness HALT. Secured by the security pack).
 
 > **Algorithms track** (stack-agnostic) — the *reasoning* layer above profiling. `/design-algorithm <problem>` models a problem, derives the complexity budget from the input scale, weighs candidate approaches, proves the chosen one correct, and implements it with property + adversarial tests (`--plan` stops at the brief). `/analyze-complexity <scope>` derives cited time/space big-O per hot path and ranks the asymptotic wins (accidental-quadratic, wrong-container, repeated-recompute); `--fix` applies the unambiguous swaps. Both drive the `algorithm-designer` agent — the *reasoning* complement of `performance-optimizer` (which *measures* runtime): wrong-algorithm/data-structure is found here by deriving complexity, slow-query/N+1/I/O is found there by measuring, and each hands off to the other.
 

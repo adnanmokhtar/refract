@@ -30,6 +30,48 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   fallback: ai-patterns/align-ledger.md
   cite_evidence: strict
 
+# ============ AGENTS (.claude/agents/<name>.md) ============
+
+- name: align-evidence-auditor
+  kind: agent
+  triggers:
+    always: true
+  extracts_from: _extracted-idioms.md (named inventory — resolves shared_equivalent + idiom_cited) + _extracted-codebase.md § "Tests" (detector tooling)
+  sections: [premise, preflight, five_checks, out_of_domain_routing, output_format, hard_rules, failure_modes, related]
+  mirror_existing: true
+  fallback: agents/align-evidence-auditor.md   # align ships no _examples/ dir — fall back to the live source
+  cite_evidence: strict
+
+- name: align-idiom-auditor
+  kind: agent
+  triggers:
+    always: true
+  extracts_from: _extracted-idioms.md (full — the oracle this agent looks up against) + _extracted-codebase.md § "Gold standards"
+  sections: [premise, preflight, four_checks, boundary_table, output_format, hard_rules, failure_modes, related]
+  mirror_existing: true
+  fallback: agents/align-idiom-auditor.md   # align ships no _examples/ dir — fall back to the live source
+  cite_evidence: strict
+
+- name: align-gate-auditor
+  kind: agent
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md § "Tests" (lint / typecheck / test / coverage commands) + _extracted-idioms.md (check 4 + check 11 lookups)
+  sections: [premise, preflight, fourteen_check_matrix, verdict_composition, output_format, hard_rules, failure_modes, related]
+  mirror_existing: true
+  fallback: agents/align-gate-auditor.md   # align ships no _examples/ dir — fall back to the live source
+  cite_evidence: strict
+
+- name: align-ledger-auditor
+  kind: agent
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md (PROJECT_KIND for class breakdown) + ai/patterns/align-ledger.md (row schema + state machine)
+  sections: [premise, preflight, six_reconciliations, output_format, hard_rules, failure_modes, related]
+  mirror_existing: true
+  fallback: agents/align-ledger-auditor.md   # align ships no _examples/ dir — fall back to the live source
+  cite_evidence: strict
+
 # ============ RULES (.claude/rules/<name>.md) ============
 
 - name: align-discipline-references
@@ -73,6 +115,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [premise, when_to_use, anchors, phases_1_to_7, output, halts, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/align-scan.md
+  dispatches: [align-evidence-auditor]
 
 - name: align-plan
   kind: command
@@ -91,6 +134,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [premise, the_loop_5_steps, closure_verb_procedures, project_anchors, preflight, optional_flags, mechanical_halt, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/align-phase.md
+  dispatches: [align-idiom-auditor]
 
 - name: align-gate
   kind: command
@@ -100,6 +144,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [premise, when_to_use, fourteen_check_matrix, preflight, phases_1_to_7, output, mechanical_halt, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/align-gate.md
+  dispatches: [align-gate-auditor, align-idiom-auditor]
 
 - name: align-fast
   kind: command
@@ -109,6 +154,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [premise, modes, when_to_use_vs_not, what_happens_per_row, parallel_dispatch_strategy, project_anchors, optional_flags, preflight, phases_1_to_7, mechanical_halt, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/align-fast.md
+  dispatches: [align-idiom-auditor, align-gate-auditor]
 
 - name: align-status
   kind: command
@@ -118,6 +164,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [premise, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/align-status.md
+  dispatches: [align-ledger-auditor]
 
 - name: align-final
   kind: command
@@ -127,6 +174,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [premise, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/align-final.md
+  dispatches: [align-gate-auditor, align-ledger-auditor]
 
 - name: align-rollback
   kind: command
@@ -162,6 +210,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [premise, when_to_use, prereqs, phases_1_to_7, output, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/align-replan.md
+  dispatches: [align-evidence-auditor, align-ledger-auditor]
 
 - name: align-recheck
   kind: command
@@ -171,6 +220,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [premise, when_to_use, input_forms, resolution_semantic, phases_1_to_7, examples_description_and_path, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/align-recheck.md
+  dispatches: [align-evidence-auditor]
 
 - name: align-promote-tier
   kind: command
@@ -198,6 +248,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections: [purpose, when_to_use, inputs, outputs, the_5_step_loop, halt_conditions, hard_rules, notes, related]
   mirror_existing: true
   fallback: skills/find-and-align/SKILL.md
+  dispatches: [align-idiom-auditor]
 ```
 
 ## Triggers per topic — key decisions
@@ -206,6 +257,20 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
 - **align-fast** is `always: true` because `/migration-fast` set the precedent — fast is the routine path; manual is the exception.
 - **detect-drift** is `always: true` because it's the universal detector; per-stack packs ADD detectors, but the universal 12 always run.
 - **find-and-align** is `always: true` because every fix uses the per-finding loop.
+- **The four auditor agents** are `always: true` for the same reason as the rule: they are the *verdict* surface. The skills detect and fix; the commands orchestrate; nothing else in the pack was authorised to say `REJECT` / `HALT` / `REFUSE` with evidence attached. Their triggers are unconditional because every sweep, on every stack, passes through all four windows.
+
+## Agent dispatch — the four audit windows
+
+Align owned no agents until 1.9.0. The commands dispatched *other packs'* detectors (`dead-code-finder`, `refactorer`, `security-auditor`, `accessibility-auditor`, …) and then performed every audit inline, which is why the discipline's own halts had no owner. The four agents split that inline work by **when in the row's life it happens**, so each has one input, one authority, and one anti-trigger:
+
+| Window | Agent | Input | Authority | Anti-trigger |
+|---|---|---|---|---|
+| Pre-fix (scan output) | `align-evidence-auditor` | `findings.md` + `detected` rows | audit halts #1–#4, #11 | not after fixes land |
+| Per-fix (one diff) | `align-idiom-auditor` | the row's diff + the oracle | audit halts #6, #9, #10 + the boundary table | not scan triage, not the phase verdict |
+| Post-phase (one phase) | `align-gate-auditor` | the phase's commit range | the 14-check matrix; PASS / REFUSE | never mid-phase, never on a dirty tree |
+| Cross-phase (all state) | `align-ledger-auditor` | ledger ↔ git ↔ halts ↔ plan | state reconciliation + SLA | never reads source, never judges a fix |
+
+`align-idiom-auditor` is the one that carries the pack's identity: it is the only artifact in the repo whose whole job is deciding whether a change **enforced an existing convention** (align) or **introduced a new one** (`/polish`), **discovered** one (`/optimize`), or **changed a contract** (`/refactor`). It enforces `templates/tool-adapters/_orchestration-sync.md § Command boundary table` per-diff, which is where that split is actually decidable.
 
 ## Per-stack additions
 

@@ -52,7 +52,14 @@ Boolean ops in topic specs: `AND`, `OR`, `NOT`. Default join across multiple key
 - `signal_confirmed_all: [<name1>, <name2>, ...]` — all must match.
 
 Valid signal names (must match `~/.claude/templates/domains/<name>/`):
-`ai`, `webhook`, `multi-tenant`, `payment`, `real-time`, `event-sourced`, `file-upload`, `search`, `feature-flags`, `notifications`, `background-jobs`, `compliance`, `workflow-orchestration`.
+`ai`, `webhook`, `multi-tenant`, `payment`, `real-time`, `event-sourced`, `file-upload`, `search`, `feature-flags`, `notifications`, `background-jobs`, `compliance`, `workflow-orchestration`, `data-pipeline`, `analytics`, `reporting`.
+
+> This list names the signals a topic spec may currently gate on — it is a subset of
+> `templates/domains/_registry.md`, not a mirror of it. A domain folder exists for every key here,
+> but the reverse does not hold: a domain is only usable as a trigger once Appendix A
+> (`templates/appendices.md` § Appendix A) emits a detection result for it and the Phase 2
+> orchestrator's Step 9 records it. Adding a key here without that detection step produces a
+> trigger no extractor emits — dead code, per the hard rules below.
 
 ## Observability
 

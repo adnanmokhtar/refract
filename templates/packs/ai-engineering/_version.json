@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "ai-engineering",
-  "version": "1.2.0",
-  "released": "2026-07-10",
+  "version": "1.3.0",
+  "released": "2026-08-20",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "add-ai-feature ships only past a MEASURED eval threshold + guardrails + budget.",
+  "summary": "7 ai-patterns operationalised: 2 architects, 4 detector skills, /ai-audit + /add-eval-set.",
   "changelog": "CHANGELOG.md"
 }

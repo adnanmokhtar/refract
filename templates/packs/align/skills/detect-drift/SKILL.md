@@ -218,7 +218,7 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 
 #### Detector 9: performance
 
-**Tool**: dispatch `performance-optimizer` agent (named in `code-quality/agents/`). For each candidate:
+**Tool**: dispatch `performance-optimizer` agent (named in `performance/agents/` — NOT `code-quality/agents/`; it has never lived there). If the performance pack is not loaded, fall back to the project's profiler / query log; the row still requires a baseline in `notes`. For each candidate:
 
 **Procedure**:
 1. **N+1**: detect request handlers that call the same DAO method per loop iteration (`for (id of ids) { await getUser(id) }`).

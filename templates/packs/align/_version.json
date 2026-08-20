@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.8.2",
-  "released": "2026-06-27",
+  "version": "1.9.0",
+  "released": "2026-08-20",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "align-fast.md restored the Discipline pointer link to core-discipline.md that the 1.8.1 DECIDE edit omitted — audit-command-dry.sh is green again.",
+  "summary": "Gave align its four missing agents — align-evidence-auditor (pre-fix), align-idiom-auditor (per-fix boundary guard), align-gate-auditor (14-check phase verdict), align-ledger-auditor (state reconciliation) — and repointed the performance-optimizer dispatch from code-quality/agents/ (where it does not exist) to performance/agents/.",
   "changelog": "CHANGELOG.md"
 }

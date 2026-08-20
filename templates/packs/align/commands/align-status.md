@@ -165,6 +165,8 @@ Optional: writes a single line to `ai/align/status-history.md` recording the tim
 
 If any cross-reference fails → surface as a "ledger drift" warning at the top of the report (the ledger says X but git history says Y).
 
+**Dispatch `@align-ledger-auditor` for this step.** It reconciles in both directions — a row marked `fixed` with no commit, AND a commit carrying a row id the ledger has no row for — checks state-machine legality, and applies the SLA thresholds below. This command is the read-only view over its report; it does not perform the reconciliation itself, so that `/align-final` and `/align-replan` get the identical answer.
+
 ## Phase 7 — Improve (feed the learning loop)
 
 - If a halted row's reason has appeared 3+ times across phases (e.g., "idiom not found"), surface "queue ADR for `/setup-project --refine` to fill the gap".
@@ -189,6 +191,9 @@ The report itself (above). No summary line.
 - **Plan file missing** (ledger has `phase: <N>` but no plan) — surface as plan drift; recommend `/align-plan`.
 
 ## Related
+
+### Agents
+- `.claude/agents/align-ledger-auditor.md` — owns the reconciliation this command reports. Dispatch it to produce the drift, illegal-transition, SLA, and systemic sections; this command formats and filters what it returns.
 
 ### Sibling commands in align pack
 - `/align-scan` — produces the ledger this reads.

@@ -1,7 +1,12 @@
-# RETRIEVAL — row-granularity search over the pack corpus
+# RETRIEVAL — row-granularity search over the pack corpus and over project memory
 
 `scripts/pack-search.py` answers one question: **"where is the thing I need?"** — which file,
 which line, which section. It does not answer the question itself.
+
+It answers that question over **two corpora**. The default (`--catalog=pack`) is this repo's own
+`templates/` — the subject of most of this document. The second (`--catalog=memory`) is a
+consuming project's `ai/` tree, the memory the Phase-6 learning loop already writes; that corpus
+has its own section below, and its user-facing surface is `/recall`.
 
 The repo carries 178,204 lines of markdown under `templates/`, of which 114,622 lines are pack
 corpus. Almost none of that is a catalog; it is *argument* — personas, discipline catalogues,
@@ -133,6 +138,7 @@ python3 scripts/pack-search.py "<query>" [flags]
   --kinds                  list available kinds / scopes / owners with counts
   --check                  catalog integrity + determinism + retrieval smoke test (exit 1 on fail)
   --repo-root=<dir>        matches every other script in scripts/
+  --catalog=pack|memory    which corpus to search (default pack; see "Second corpus" below)
 ```
 
 `--domain` resolves against **both** `templates/domains/_registry.md` (technical signals like
@@ -166,6 +172,86 @@ tool; tightening them to FAIL is a one-line change once the vocabulary is unifie
 
 ---
 
+## Second corpus — project memory (`--catalog=memory`)
+
+The same engine indexes a **second, entirely different corpus**: a consuming project's `ai/`
+tree. `--catalog=memory` swaps the row producer from `gen-pack-catalog.py` to
+`gen-memory-catalog.py`; tokenizer, BM25 constants, field weights, synonyms, filters, hard cap,
+and the pointer disclaimer are literally the same code. There is no second ranking model, and
+adding this changed **one argument** in `pack-search.py`.
+
+**Nothing new is stored.** The corpus is the memory the learning loop already writes:
+`/learn-from-task` produces the `ai/dynamic/` sinks, `knowledge-curator` promotes them into
+`ai/decisions/` · `ai/patterns/` · `ai/conventions.md`, and both are already on disk. What was
+missing was a way to *find* any of it — retrieval was `session-start.sh`'s `tail -10` or a manual
+grep, which is why `ai/failures/_index.md` (an append-only don't-retry catalog whose entire value
+lands at the moment someone is about to retry the failed approach) was effectively write-only.
+The user-facing surfaces are `/recall <query>` and the opt-in `recall-inject.sh` UserPromptSubmit
+hook. `templates/snippets/learning-sink.md` — the canonical sink table — is unchanged.
+
+### Indexed (7 extractors)
+
+| Kind | Source | Row unit |
+|---|---|---|
+| `memory-learning` / `-pattern` / `-correction` / `-decision` / `-drift` / `-interaction` | `ai/dynamic/<sink>.md` | each `### <date> — <label>` block; `owner` is the sink basename |
+| `memory-note` | any other `ai/dynamic/*.md` | a project-specific sink (`knowledge-curator`'s `project_specific_dynamic_files` duty) — indexed under a neutral kind rather than dropped |
+| `memory-failure` | `ai/failures/_index.md` | each `###` block under `## Catalog` |
+| `memory-adr` | `ai/decisions/*.md` | one row per ADR — number, title, status, the Context paragraph |
+| `memory-pattern` / `memory-runbook` | `ai/patterns/*.md`, `ai/runbooks/*.md` | one file-level pointer each |
+| `memory-convention` | `ai/conventions.md` | bullets under a MUST / MUST NOT / Never / Always / Checklist heading — the same directive discriminator the pack catalog uses |
+| `memory-archived` | `ai/audits/**/*.md` | same block rule. **This is the extractor that makes the curator's budgets affordable**: `ai/` ≤ 50 files and archive-past-90-days are not advisory, and with the archives indexed, "archived" stops meaning "gone" |
+| `memory-session` | `ai/dynamic/session-log.md` | one **pointer-only** row per `## <timestamp>` entry — heading and branch, never session content |
+
+### Not indexed — on purpose
+
+- **`ai/dynamic/changelog.md`** — a one-line activity log, pruned past 200 lines. A line read out
+  of order carries nothing.
+- **`ai/dynamic/.review-queue`** — transient hook hints, gitignored, not markdown.
+- **Fenced code blocks, `README.md`, `_template.md`, and any heading still carrying a
+  `<placeholder>`.** Every baseline sink documents its entry shape inside a fence; indexing those
+  would return `### <YYYY-MM-DD> — <short observation>` as a "memory".
+- **Session transcripts.** The host already stores every session verbatim as JSONL under
+  `~/.claude/projects/<encoded>/`. Copying that into a repo would be a secret-leak surface
+  `secret-scan.sh` never sees — a hook write is not an Edit — so the Stop hook records the
+  `session_id` + `transcript_path` as *pointers* and nothing else.
+
+### Cache + scope
+
+`.claude/_memory-index.json`, gitignored by the Phase 4.1 block, fingerprinted on every source
+file's size + mtime, atomic-replaced, and skipped entirely for an empty corpus so a hook running
+outside a set-up project leaves no trace. Scope is always the project: `--repo-root=<dir>` roots
+the search (a monorepo package dir is a valid root). There is **no cross-project index** — a
+lesson learned in project A stays in project A, `verify-global-scope.sh` keeps the global command
+surface core-only, and the per-user memory store at `~/.claude/projects/<encoded>/memory/` belongs
+to the host.
+
+### Measured — 2026-08-20, three real consuming project corpora
+
+| Corpus | Rows | Source files | Cold rebuild | Warm cache | Warm end-to-end |
+|---|---:|---:|---:|---:|---:|
+| A (106 rows) | 106 | 60 | 17-21 ms | 2 ms | — |
+| B (246 rows) | 246 | 139 | 34-40 ms | 4 ms | — |
+| C (294 rows) | 294 | 110 | 40-45 ms | 4 ms | 30-50 ms |
+
+Cold no-cache end-to-end on C was 70 ms including Python startup. These are one machine, one day;
+re-measure before quoting them elsewhere. A project corpus is one to two orders of magnitude
+smaller than the 5,150-row pack corpus, which is why the numbers are what they are.
+
+```bash
+python3 scripts/gen-memory-catalog.py --repo-root=<project> --stats
+python3 scripts/gen-memory-catalog.py --repo-root=<project> --check
+python3 scripts/pack-search.py "<query>" --catalog=memory --repo-root=<project>
+```
+
+`--check` on the memory catalog runs the same six checks as the pack catalog (extraction,
+determinism, pointer integrity, id uniqueness, corpus presence, on-disk freshness), then a
+**self-probe** instead of fixed smoke queries: a project corpus has no vocabulary this repo can
+assume, so a row's own name must retrieve that row. An **empty** corpus is reported as empty and
+is not a failure — a project that has never run `/learn-from-task` has nothing to index, and
+padding that would be worse than saying so.
+
+---
+
 ## How a command invokes it
 
 Follow the existing script-invocation idiom (`~/.claude/scripts/<name>` after
@@ -174,7 +260,7 @@ validators — nothing halts a run automatically.
 
 ```bash
 # Phase 4.0 preflight — instead of reading a whole _topics.md (backend's is 444 lines;
-# all 20 packs total 3,103) to find which topics a feature touches.
+# all 23 packs total 3,618) to find which topics a feature touches.
 python3 ~/.claude/scripts/pack-search.py "$FEATURE_DESCRIPTION" \
   --pack="$SELECTED_PACKS" --kind=topic-agent,topic-command,topic-skill --top=12
 ```
@@ -283,6 +369,19 @@ A row is never a substitute for its file — it is the *address* of its file. Ev
    reproduced by any script — it was measured by hand on 2026-08-20 with `--limit=8`, taking
    "output" as the byte length of the text result and "source bytes" as the total on-disk size of
    the distinct files it cited.
+8. **`--catalog=memory` retrieves; it does not capture.** A hook cannot understand a session.
+   Only `/learn-from-task` — a model call — turns one into a sink entry, and that stays
+   human-dispatched. Memory quality is bounded by capture discipline, which this layer does not
+   fix and does not claim to. **Empty in, empty out**: a project that never captures gets an
+   empty index, and `/recall` says so rather than falling back to the pack corpus.
+9. **No claim that recall improves outcomes.** Any "N% fewer repeated mistakes" figure would be
+   fabrication. `/eval` is the only measurement surface in this repo; earning such a claim means
+   seeding eval cases whose `guards:` cite memory rows and comparing `ai/evals/_scorecard.md`
+   runs with `recall-inject.sh` on and off. Until that runs, the honest status is **UNKNOWN**.
+10. **The `recall-inject.sh` score floor is a heuristic, not a calibration.** The default
+   (`CLAUDE_RECALL_MIN_SCORE=5.0`) was picked from the score distribution on one 294-row corpus,
+   where relevant hits landed between 4 and 12 and an unrelated prompt returned no rows at all.
+   BM25 scores are corpus-dependent; tune it per project.
 
 ### Measured context saving (7 probe queries, `--limit=8`)
 
@@ -334,3 +433,9 @@ that file once the retrieval layer has call sites depending on it; until then it
 When you add an extractor, add a row-count line to the table above, an assertion to
 `test-pack-search.sh`, and bump `INDEX_FORMAT` in `pack-search.py` so existing caches are
 rejected rather than silently reused.
+
+`test-pack-search.sh` covers the **pack** corpus only. The memory producer's regression surface is
+`python3 scripts/gen-memory-catalog.py --repo-root=<project> --check` — it needs a real project
+tree, so it cannot be a CI gate in this repo, which has no `ai/` corpus of its own. That is a real
+coverage gap, stated rather than papered over: the honest fixture would be a synthetic `ai/` tree
+under `tests/`, and it does not exist yet.

@@ -1,0 +1,10 @@
+{
+  "kind": "pack",
+  "name": "finops",
+  "version": "1.0.0",
+  "released": "2026-08-20",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "First release — cost as a reviewed engineering dimension: unit economics, attribution, commitments, guardrails, and a diff-time cost lens.",
+  "changelog": "CHANGELOG.md"
+}

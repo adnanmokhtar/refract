@@ -130,6 +130,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   fallback: commands/learn-from-task.md
 
+- name: recall
+  kind: command
+  triggers: { always: true }
+  # Ships static. The per-project part is the ai/ corpus itself, which /learn-from-task
+  # writes — there is nothing to author per project, and nothing new to store.
+  fallback: commands/recall.md
+
 - name: eval
   kind: command
   triggers: { always: true }

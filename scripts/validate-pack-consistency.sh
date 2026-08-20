@@ -115,7 +115,7 @@ for d in templates/packs/*/; do
   # 6. version-in-changelog (WARN — #SYNC-05). The current top-level `version` SHOULD
   #    be described in the pack's changelog. Two shapes are accepted:
   #      "changelog": "CHANGELOG.md"  — a path relative to the pack dir (the shape all
-  #        20 packs use since the release prose moved out of JSON). The file must exist
+  #        23 packs use since the release prose moved out of JSON). The file must exist
   #        and carry a `## <version>` heading for the current version.
   #      "changelog": { "<version>": {...} } — the legacy in-JSON object. Still honoured
   #        so an older pack copied in from a previous ~/.claude install validates.

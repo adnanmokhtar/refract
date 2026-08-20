@@ -49,6 +49,8 @@ Optional flags:
 
 ## Phase 2 — Organize (decompose the work)
 
+**Dispatch two agents before the checklist.** `@align-ledger-auditor` reconciles the whole sweep's state (ledger ↔ git ↔ halts ↔ impact files ↔ plan ↔ gate-history, in both directions) — it owns checks 1 and 2 below and the Outstanding section's accuracy. `@align-gate-auditor` re-runs the 14-check matrix at HEAD across the cumulative commit range — it owns checks 3 through 7. Under `--re-audit` the gate auditor runs per phase rather than once cumulatively, so a regression is attributed to the phase that caused it and `/align-rollback <N>` has a number to take.
+
 Run these checks in order:
 
 1. **Ledger completeness across all phases** — every row in the plan has `status ∈ {verified, archived-pre-existing, parked}`.
@@ -199,6 +201,10 @@ Next:
 - **Re-scan finds previously-fixed fingerprint** — REGRESSION verdict; route to `/align-rollback <phase-of-regression>`.
 
 ## Related
+
+### Agents
+- `.claude/agents/align-ledger-auditor.md` — cross-phase state reconciliation; owns checks 1–2 and the Outstanding list.
+- `.claude/agents/align-gate-auditor.md` — the 14-check matrix re-run at HEAD; owns checks 3–7. Per-phase under `--re-audit` so regressions get a phase number.
 
 ### Sibling commands in align pack
 - `/align-status` — interim read; this is the end-of-effort version.

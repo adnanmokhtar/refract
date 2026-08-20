@@ -431,18 +431,18 @@ fi
 | GDPR | `regulatory-overlays/gdpr.md` | [SHIPPED] | Universal (any product touching EU users) |
 | PCI-DSS | `regulatory-overlays/pci-dss.md` | [SHIPPED] | Payments (universal) |
 | SOC2 | `regulatory-overlays/soc2.md` | [SHIPPED] | Universal (any B2B SaaS doing security audits) |
+| HIPAA | `regulatory-overlays/hipaa.md` | [SHIPPED] | Healthcare (US) — PHI, Security Rule safeguards, BAAs, de-identification |
 | CCPA / CPRA | `regulatory-overlays/ccpa.md` | [PLANNED] | Universal (any product touching California users) |
-| HIPAA | `regulatory-overlays/hipaa.md` | [PLANNED] | Healthcare (US) |
 | ISO-27001 | `regulatory-overlays/iso-27001.md` | [PLANNED] | Universal (any product with formal infosec) |
 | NPHIES | `regulatory-overlays/nphies.md` | [PLANNED] | Healthcare (Saudi Arabia) — claims/eligibility integration |
 | SCFHS | `regulatory-overlays/scfhs.md` | [PLANNED] | Healthcare (Saudi Arabia) — practitioner registration |
 | MOH-SA | `regulatory-overlays/moh-sa.md` | [PLANNED] | Healthcare (Saudi Arabia) — Ministry of Health rules |
 | CBAHI | `regulatory-overlays/cbahi.md` | [PLANNED] | Healthcare (Saudi Arabia) — accreditation |
 | SAMA | `regulatory-overlays/sama.md` | [PLANNED] | Banking / fintech (Saudi Arabia) |
-| CBUAE / SCA | `regulatory-overlays/uae-finance.md` | Banking / fintech (UAE) |
-| FERPA | `regulatory-overlays/ferpa.md` | Education (US) |
-| LGPD | `regulatory-overlays/lgpd.md` | Universal (any product touching Brazilian users) |
-| PDPA | `regulatory-overlays/pdpa.md` | Universal (Singapore / Thailand / Malaysia variants) |
+| CBUAE / SCA | `regulatory-overlays/uae-finance.md` | [PLANNED] | Banking / fintech (UAE) |
+| FERPA | `regulatory-overlays/ferpa.md` | [PLANNED] | Education (US) |
+| LGPD | `regulatory-overlays/lgpd.md` | [PLANNED] | Universal (any product touching Brazilian users) |
+| PDPA | `regulatory-overlays/pdpa.md` | [PLANNED] | Universal (Singapore / Thailand / Malaysia variants) |
 
 **Research stub** (when no prebuilt overlay exists for a declared regime). The literal token `__REGIME__` (double-underscore-bracketed, not angle-brackets) is used so this stub does NOT trigger the Phase 5.3.5 cross-project leak scan, which flags `<…>` style placeholders as "Phase 4.6 produced template-stamp output". `append_research_stub` substitutes the actual regime name on write, leaving zero placeholders behind on disk:
 

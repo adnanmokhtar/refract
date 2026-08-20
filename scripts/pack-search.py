@@ -12,10 +12,18 @@ substitute for it. Read the cited `path:line` before acting on any result.
   python3 scripts/pack-search.py "webhook replay" --json
   python3 scripts/pack-search.py --check          # catalog integrity + retrieval smoke test
 
-The index is built from source markdown by scripts/gen-pack-catalog.py and cached under
-`tmp/pack-search/` (already gitignored). The cache is keyed on a fingerprint of every
-source file's size+mtime, so an edit invalidates it automatically; `--rebuild` forces.
-Nothing is committed, so the catalog cannot drift from the markdown that produced it.
+TWO CORPORA, ONE ENGINE. `--catalog=pack` (default) searches THIS repo's templates/ via
+scripts/gen-pack-catalog.py. `--catalog=memory` searches a consuming PROJECT's existing
+`ai/` tree via scripts/gen-memory-catalog.py — the same 9 columns, the same BM25, the same
+pointer discipline, a different corpus. Nothing about the default path changes.
+
+  python3 scripts/pack-search.py "cache invalidation" --catalog=memory --repo-root=/path/to/project
+
+The index is built from source markdown by the selected catalog module and cached under
+`tmp/pack-search/` for packs (already gitignored) / `.claude/_memory-index.json` for a
+project's memory. The cache is keyed on a fingerprint of every source file's size+mtime,
+so an edit invalidates it automatically; `--rebuild` forces. Nothing is committed, so the
+catalog cannot drift from the markdown that produced it.
 
 Complements — does NOT replace — `templates/import-tiers.md`:
 tiers decide what is RESIDENT, search decides what is REACHABLE. See docs/RETRIEVAL.md.
@@ -34,6 +42,11 @@ from collections import Counter, defaultdict
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, ".."))
 CACHE_REL = "tmp/pack-search/index.json"
+
+# Row producers this engine can read. Each module exposes COLUMNS / DEFAULT_OUT /
+# source_files(root) / build(root) / run_check(root, out) — that IS the whole interface.
+CATALOG_MODULES = {"pack": "gen-pack-catalog.py", "memory": "gen-memory-catalog.py"}
+CATALOG_CACHES = {"pack": CACHE_REL, "memory": ".claude/_memory-index.json"}
 # Bump when tokenizer / weights / row schema change, so stale caches are rejected.
 INDEX_FORMAT = 3
 
@@ -75,9 +88,13 @@ SYNONYMS = {
 # ---------------------------------------------------------------------------
 # catalog module (filename is hyphenated, so import it by path)
 # ---------------------------------------------------------------------------
-def load_catalog_module():
-    path = os.path.join(HERE, "gen-pack-catalog.py")
-    spec = importlib.util.spec_from_file_location("pack_catalog", path)
+def catalog_path(catalog="pack"):
+    return os.path.join(HERE, CATALOG_MODULES[catalog])
+
+
+def load_catalog_module(catalog="pack"):
+    path = catalog_path(catalog)
+    spec = importlib.util.spec_from_file_location("%s_catalog" % catalog, path)
     if spec is None or spec.loader is None:
         raise SystemExit("pack-search: cannot load %s" % path)
     mod = importlib.util.module_from_spec(spec)
@@ -118,10 +135,11 @@ def expand_query(text):
 # ---------------------------------------------------------------------------
 # index
 # ---------------------------------------------------------------------------
-def fingerprint(catalog, root):
+def fingerprint(catalog, root, module_path=None):
     h = hashlib.sha256()
     h.update(b"pack-search/%d\n" % INDEX_FORMAT)
-    for p in (os.path.join(HERE, "gen-pack-catalog.py"), os.path.abspath(__file__)):
+    # The module basename is hashed, so the two corpora can never share a cache entry.
+    for p in (module_path or catalog_path("pack"), os.path.abspath(__file__)):
         st = os.stat(p)
         h.update(("%s|%d|%d\n" % (os.path.basename(p), st.st_size, st.st_mtime_ns)).encode())
     for f in catalog.source_files(root):
@@ -172,10 +190,11 @@ def load_cache(path, fp):
                   "avgdl": payload["avgdl"]}
 
 
-def get_index(root, rebuild=False, use_cache=True, cache_rel=CACHE_REL, timing=None):
-    catalog = load_catalog_module()
+def get_index(root, rebuild=False, use_cache=True, cache_rel=CACHE_REL, timing=None,
+              catalog_key="pack"):
+    catalog = load_catalog_module(catalog_key)
     t0 = time.perf_counter()
-    fp = fingerprint(catalog, root)
+    fp = fingerprint(catalog, root, catalog_path(catalog_key))
     cache_path = os.path.join(root, cache_rel)
     if use_cache and not rebuild and os.path.isfile(cache_path):
         try:
@@ -189,7 +208,9 @@ def get_index(root, rebuild=False, use_cache=True, cache_rel=CACHE_REL, timing=N
             return hit[0], hit[1], catalog
     rows = catalog.build(root)
     index = build_index(rows)
-    if use_cache:
+    if use_cache and rows:
+        # Never materialise a cache (or its parent dir) for an empty corpus — a hook that
+        # runs outside a set-up project must leave no trace.
         try:
             save_cache(cache_path, rows, index, fp, catalog.COLUMNS)
         except OSError:
@@ -260,16 +281,26 @@ def search(rows, index, query, limit=8, packs=None, domains=None, kinds=None,
 # ---------------------------------------------------------------------------
 FOOTER = ("%d rows indexed from templates/ + commands/ (metadata only). Rows point AT "
           "prose;\nthey do not replace it. Read the cited path before acting on any row.")
+MEMORY_FOOTER = ("%d rows indexed from this project's ai/ tree (pointers only). Rows point AT "
+                 "the\nmemory file; they do not replace it. Read the cited path before acting.")
+DISCLAIMER = ("Rows are pointers into prose, not answers. "
+              "Read the cited path before acting.")
 
 
-def render_text(hits, total_rows, query, timing):
+def render_text(hits, total_rows, query, timing, footer=FOOTER, empty_msg=None,
+                kind_width=16):
+    if empty_msg and total_rows == 0:
+        # Empty in, empty out. Never fall back to another corpus, never invent a row.
+        return empty_msg
     if not hits:
         return ("no rows matched %r\n\nBM25 is lexical: try the vocabulary the repo uses "
                 "(e.g. 'token' not 'colour var'),\nor drop a filter. "
-                % query) + (FOOTER % total_rows)
-    lines = ["%-6s %-16s %-20s %s" % ("score", "kind", "owner", "path")]
+                % query) + (footer % total_rows)
+    hdr = "%%-6s %%-%ds %%-20s %%s" % kind_width
+    lines = [hdr % ("score", "kind", "owner", "path")]
+    fmt = "%%-6.2f %%-%ds %%-20s %%s" % kind_width
     for score, r in hits:
-        lines.append("%-6.2f %-16s %-20s %s" % (score, r["kind"][:16], r["owner"][:20], r["path"]))
+        lines.append(fmt % (score, r["kind"][:kind_width], r["owner"][:20], r["path"]))
         snip = r["text"]
         if len(snip) > SNIPPET_LEN:
             snip = snip[:SNIPPET_LEN - 1].rstrip() + "…"
@@ -277,7 +308,7 @@ def render_text(hits, total_rows, query, timing):
         if r["anchor"]:
             lines.append("       § %s" % r["anchor"][:100])
     lines.append("")
-    lines.append(FOOTER % total_rows)
+    lines.append(footer % total_rows)
     if timing:
         lines.append("index: %s in %.0f ms" % (timing.get("source", "?"), timing.get("ms", 0)))
     return "\n".join(lines)
@@ -292,11 +323,10 @@ def render_paths(hits):
     return "\n".join(out)
 
 
-def render_json(hits, total_rows, query):
+def render_json(hits, total_rows, query, disclaimer=DISCLAIMER):
     return json.dumps({
         "query": query, "indexed_rows": total_rows, "count": len(hits),
-        "disclaimer": ("Rows are pointers into prose, not answers. "
-                       "Read the cited path before acting."),
+        "disclaimer": disclaimer,
         "results": [dict(score=s, **{k: v for k, v in r.items()}) for s, r in hits],
     }, indent=2, sort_keys=False)
 
@@ -311,17 +341,31 @@ SMOKE = [
 ]
 
 
-def run_check(root, cache_rel):
-    catalog = load_catalog_module()
+def run_check(root, cache_rel, catalog_key="pack"):
+    catalog = load_catalog_module(catalog_key)
     rc = catalog.run_check(root, catalog.DEFAULT_OUT)
     print("")
     print("[7] index build + retrieval smoke")
-    rows, index, _ = get_index(root, rebuild=True, use_cache=False, cache_rel=cache_rel)
+    rows, index, _ = get_index(root, rebuild=True, use_cache=False, cache_rel=cache_rel,
+                               catalog_key=catalog_key)
     print("    %d rows, %d terms, %d postings"
           % (len(rows), len(index["postings"]),
              sum(len(p) for p in index["postings"].values())))
+    if not rows:
+        # An unpopulated corpus is a legitimate state (a project that has not run
+        # /learn-from-task yet). Asserting hits against it would be theatre.
+        print("    skip — empty corpus, no retrieval to smoke-test")
+        return 1 if rc else 0
+    probes = getattr(catalog, "SMOKE", SMOKE)
+    if not probes:
+        # No fixed vocabulary exists for an arbitrary project corpus, so the probe is
+        # self-referential: a row's own name must retrieve that row. It proves the index
+        # is wired, and it asserts nothing about content this script has not read.
+        probes = [(rows[i]["name"], None) for i in
+                  (0, len(rows) // 2, len(rows) - 1) if rows[i]["name"]]
+        print("    (self-probe — corpus-derived queries; no fixed smoke vocabulary)")
     bad = 0
-    for q, _f in SMOKE:
+    for q, _f in probes:
         hits = search(rows, index, q, limit=3)
         if not hits:
             print("    FAIL — no hits for %r" % q)
@@ -361,21 +405,29 @@ def main(argv=None):
     ap.add_argument("--json", action="store_true", help="alias for --format=json")
     ap.add_argument("--rebuild", action="store_true", help="ignore the cache and re-extract")
     ap.add_argument("--no-cache", action="store_true", help="never read or write the cache")
-    ap.add_argument("--cache", default=CACHE_REL, metavar="PATH",
-                    help="repo-relative cache path (default %s)" % CACHE_REL)
+    ap.add_argument("--cache", default=None, metavar="PATH",
+                    help="root-relative cache path (default %s; %s under --catalog=memory)"
+                         % (CACHE_REL, CATALOG_CACHES["memory"]))
+    ap.add_argument("--catalog", choices=tuple(sorted(CATALOG_MODULES)), default="pack",
+                    help="corpus to search: pack = this repo's templates/ (default); "
+                         "memory = the ai/ tree under --repo-root")
     ap.add_argument("--kinds", action="store_true", help="list available kinds/scopes/owners")
     ap.add_argument("--check", action="store_true",
                     help="catalog integrity + determinism + retrieval smoke test")
     ap.add_argument("--repo-root", default=REPO_ROOT)
     a = ap.parse_args(argv)
     root = os.path.abspath(a.repo_root)
+    cache_rel = a.cache or CATALOG_CACHES[a.catalog]
 
     if a.check:
-        return run_check(root, a.cache)
+        return run_check(root, cache_rel, catalog_key=a.catalog)
 
     timing = {}
-    rows, index, _ = get_index(root, rebuild=a.rebuild, use_cache=not a.no_cache,
-                               cache_rel=a.cache, timing=timing)
+    rows, index, catalog = get_index(root, rebuild=a.rebuild, use_cache=not a.no_cache,
+                                     cache_rel=cache_rel, timing=timing,
+                                     catalog_key=a.catalog)
+    footer = MEMORY_FOOTER if a.catalog == "memory" else FOOTER
+    empty_msg = getattr(catalog, "EMPTY_MESSAGE", None)
 
     if a.kinds:
         print("%d rows indexed\n" % len(rows))
@@ -400,13 +452,16 @@ def main(argv=None):
 
     fmt = "json" if a.json else a.format
     if fmt == "json":
-        print(render_json(hits, len(rows), a.query))
+        print(render_json(hits, len(rows), a.query,
+                          disclaimer=getattr(catalog, "DISCLAIMER", DISCLAIMER)))
     elif fmt == "paths":
         out = render_paths(hits)
         if out:
             print(out)
     else:
-        print(render_text(hits, len(rows), a.query, timing))
+        print(render_text(hits, len(rows), a.query, timing,
+                          footer=footer, empty_msg=empty_msg,
+                          kind_width=getattr(catalog, "KIND_WIDTH", 16)))
     return 0
 
 

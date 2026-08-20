@@ -108,6 +108,7 @@ DPO can be internal (with no conflict of interest — NOT the CTO or CEO) or ext
 ## Cross-references
 
 - Pair with **`pci-dss.md`** if processing payments (PCI for card data; GDPR for the customer).
+- Pair with **`hipaa.md`** if also processing US health data — the two regimes collide on deletion: GDPR grants an erasure right, HIPAA + state law forbid destroying the designated record set. Resolve per-jurisdiction, document the Art. 17(3)(b) legal-obligation ground.
 - Pair with **`iso-27001.md` (planned — not yet shipped)** if doing formal infosec governance — significant control overlap.
 - Pair with **`ccpa.md` (planned — not yet shipped)** if also serving California users — similar but distinct regime.
 - Authority guidance: EDPB (European Data Protection Board), local DPAs (CNIL France, BfDI Germany, AEPD Spain, ICO UK).

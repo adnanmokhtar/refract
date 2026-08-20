@@ -63,6 +63,8 @@ BOTTOM (raw, high-churn)
 | Commit | `post-commit-learn.sh` hook (NEW) | Diff scan: new patterns? convention violations? new entities? new dependencies? Append to relevant `dynamic/` file |
 | Merge / rebase | `post-merge-learn.sh` hook (NEW) | Same as commit; catches branch work |
 | Session end | `update-session-log.sh` hook (existing, enhanced) | Append session summary; surface any drift detected this session |
+| Prompt submitted | `recall-inject.sh` hook (NEW — **opt-in**, `touch .claude/.recall`) | BM25-search the existing `ai/` tree with the prompt; inject the top 3 matching POINTERS as context. Reads only — no sink is written. This is the RECALL half: `ai/failures/_index.md` surfaces itself before the failed approach is retried |
+| On demand | `/recall <query>` command | The same search, run by hand, with `--kind` / `--owner` / `--since` / `--format` filters. Ranked `path:line` pointers into `ai/dynamic/`, `ai/failures/`, `ai/decisions/`, `ai/patterns/`, `ai/runbooks/`, `ai/conventions.md`, and the `ai/audits/**` archives |
 | On demand | `/refresh-knowledge` command | Re-run Phase 2 profile detection; diff against current; update `ai/conventions.md` + `.claude/codebase-profile.md`; surface changes |
 | Weekly (optional cron / GitHub Action) | Scheduled `/refresh-knowledge` | Same as on-demand; produce a "weekly drift report" comment on a tracking issue |
 
@@ -74,6 +76,7 @@ BOTTOM (raw, high-churn)
 - `/learn-from-task` — at end of a task, capture: what was decided, what convention was followed/violated, what new pattern emerged, what user correction was applied. Appends to relevant `dynamic/` files.
 - `/promote-decision <id>` — graduate an entry from `dynamic/decisions-pending.md` to a formal ADR with sequential number.
 - `/audit-knowledge` — runs `knowledge-curator` to find: stale `dynamic/` entries (>30d, no progress), unfollowed conventions, unreferenced patterns, dead ADRs.
+- `/recall <query>` — **retrieval, not capture.** Searches the `ai/` tree this phase writes and returns ranked `path:line` pointers. It adds no sink and no store; the corpus is the pyramid above. This is what makes the budgets below affordable: with the archives indexed, "archive" stops meaning "gone".
 
 ### Phase 6 agents (added to `.claude/agents/`)
 
@@ -88,7 +91,8 @@ These agents are MAINTENANCE agents — different from feature-building agents. 
 - **`post-commit-learn.sh`** (NEW) — runs after every commit. Diff scan + append to `dynamic/changelog.md`. If diff includes >5 file edits OR introduces a new entity name (caps + sufix patterns) OR adds a new module, queue a `pattern-emergence-watcher` review for next session.
 - **`post-merge-learn.sh`** (NEW) — same as post-commit; catches merges from feature branches.
 - **`session-start.sh`** (existing — enhanced) — at session open, surface in console: pending drift findings, top 3 recent commits, top 3 entries from `dynamic/decisions-pending.md` aging >7 days. One-screen briefing.
-- **`update-session-log.sh`** (existing — enhanced) — on session end, additionally check: did this session introduce drift? Did it use any `learned-pattern`? Did the user correct the AI? Append signals to relevant `dynamic/` files.
+- **`update-session-log.sh`** (existing — enhanced) — on session end, additionally check: did this session introduce drift? Did it use any `learned-pattern`? Did the user correct the AI? Append signals to relevant `dynamic/` files. It also records the harness's `session_id` + `transcript_path` as POINTERS at the verbatim transcript the host already stores under `~/.claude/projects/<encoded>/` — never a copy of it; a hook write is not an Edit, so `secret-scan.sh` never sees what it writes.
+- **`recall-inject.sh`** (NEW — UserPromptSubmit, **opt-in** via `touch .claude/.recall`) — the recall half of the loop. Context-only, never blocks, always exits 0; injects at most 3 pointer rows per prompt, deduped per row per session.
 
 ### How session N+1 benefits from session N
 
@@ -108,6 +112,8 @@ These agents are MAINTENANCE agents — different from feature-building agents. 
 
 ### What this is NOT
 
+- NOT a second memory store. `/recall` and `recall-inject.sh` add RETRIEVAL over the pyramid above and nothing else — no new sink, no new file format, no second place to write. The canonical sink set stays defined once, in `templates/snippets/learning-sink.md`.
+- NOT automatic capture. A hook is a shell script; it cannot understand a session. Only `/learn-from-task` (a model call) turns a session into a sink entry, and it stays human-dispatched. Recall does not fix capture discipline and does not claim to.
 - NOT auto-coding new patterns into existing files (curator suggests; user approves).
 - NOT automatic rule changes based on a single observation (promotion thresholds = N=3 minimum).
 - NOT silent adjustments to ADRs (formal layer is append-only; new evidence = new ADR superseding old).

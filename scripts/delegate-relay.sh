@@ -5,22 +5,41 @@
 # The mechanical half of `/delegate` (see commands/delegate.md for the judgement half).
 #
 # WHAT IT DOES
-#   1. Preflights: real git work tree, clean-or-declared-dirty, target CLI on PATH.
+#   1. Preflights: real git work tree, NOT the relay's own repo, clean-or-declared-dirty,
+#      target CLI on PATH.
 #   2. Composes a bounded brief (caller's text + gate commands + a non-removable
 #      no-commit clause) and launches the CLI headlessly against the working tree.
 #   3. Watchdogs the run, kills the process tree on timeout, and still writes a result.
 #   4. Diffs the tree against a pre-run fingerprint and captures `delegate.diff`.
 #   5. Emits `result.json` (contract `delegate-relay.result.v1`): status, exit code,
-#      files touched, the tri-state read-only tripwire, and a session id when the CLI
-#      exposed one.
+#      files touched, what got committed if anything did, the tri-state read-only
+#      tripwire, and a session id when the CLI exposed one.
 #
 # WHAT IT NEVER DOES
 #   Commit. Push. Stage on your behalf. Move HEAD. Land anything.
-#   Its own git calls go through git_ro(), which hard-refuses any subcommand outside a
-#   read-only allowlist. The implementer is additionally pushed at a PATH-shimmed `git`
-#   that refuses the history-writing subcommands — a SPEED BUMP, NOT A BOUNDARY: aliases,
-#   absolute paths and library calls walk past it. The brief's no-commit clause and the
-#   human's review are the real control.
+#   Its own git calls all go through git_ro(), which hard-refuses any subcommand outside a
+#   read-only allowlist — with one stated exception, the self-locate probe, which has to
+#   run `-C` somewhere other than $REPO and is a bare `rev-parse --show-toplevel`.
+#   The implementer is additionally pushed at a PATH-shimmed `git`
+#   that refuses the history-writing subcommands and both alias routes around them — still
+#   a SPEED BUMP, NOT A BOUNDARY: `/usr/bin/git`, a libgit2 binding, or a subshell that
+#   rebuilds PATH walks straight past it. The brief's no-commit clause and the human's
+#   review are the real control.
+#
+# WHEN THE IMPLEMENTER COMMITS ANYWAY
+#   The deliverable is always taken against the PRE-RUN HEAD, never against HEAD. An
+#   implementer that commits moves HEAD onto its own work, and `git diff HEAD` would then
+#   return nothing — the worst possible answer, because an empty diff reads exactly like a
+#   harmless no-op. Diffing the pre-run HEAD keeps the work visible in `delegate.diff` and
+#   in `touchedFiles`; `git.commits` names what landed; the run is still `failed` with
+#   violations: ["implementer-moved-head"]. Loud, not silent.
+#
+# NEVER AGAINST ITS OWN REPOSITORY
+#   Refused by default (exit 6). An implementer that commits inside the relay's own clone
+#   commits the relay's own evidence: the artifact directory sits in that tree, and one
+#   `git add -A` sweeps brief, logs and shim into the same commit. Exercise the relay
+#   against a throwaway repo (CONTRIBUTING.md §2, "Exercising the relay") — or, if you
+#   really mean it, pass --allow-self and read `selfTarget: true` in the result.
 #
 # READ-ONLY IS TRI-STATE ON PURPOSE
 #   `readOnly.enforcement` ∈ not-requested | enforced | unverified | unenforceable
@@ -55,6 +74,7 @@
 #   --read-only           Request the CLI's native read-only / plan mode.
 #   --accept-unenforced   Allow a --read-only run whose enforcement is unverified/unenforceable.
 #   --allow-dirty         Proceed with a dirty tree (baseline is fingerprinted first).
+#   --allow-self          Target the relay's own repository anyway. Default: refused (6).
 #   --timeout=<dur>       Watchdog: 900 | 45s | 30m | 2h. Default 30m. 0 disables.
 #   --no-commit-shim      Do not put the refusing `git` shim on the implementer's PATH.
 #   --dry-run             Print the resolved plan and exit; launch nothing.
@@ -69,6 +89,7 @@
 #   3  target CLI not installed / not runnable
 #   4  git preflight failed (not a work tree, or dirty without --allow-dirty)
 #   5  --read-only refused: this CLI cannot be shown to enforce it
+#   6  self-target refused: --repo is the relay's own repo and --allow-self was not passed
 #   9  internal guard tripped (a non-read-only git subcommand was attempted)
 #
 # bash 3.2 / BSD-userland safe: no associative arrays, no mapfile, no ${x,,}, no timeout(1).
@@ -77,7 +98,7 @@ set -euo pipefail
 export LC_ALL=C
 
 ORIG_PWD="$PWD"          # --brief / --out resolve against the invocation cwd, not the repo
-RELAY_VERSION="1.0.0"
+RELAY_VERSION="1.1.0"
 CONTRACT="delegate-relay.result.v1"
 KNOWN_IMPLEMENTERS="claude codex cursor-agent opencode aider cline gemini kimi qwen copilot"
 
@@ -94,6 +115,8 @@ SESSION=""
 READ_ONLY=0
 ACCEPT_UNENFORCED=0
 ALLOW_DIRTY=0
+ALLOW_SELF=0
+SELF_TARGET=false
 TIMEOUT_SPEC="30m"
 COMMIT_SHIM=1
 DRY_RUN=0
@@ -101,7 +124,9 @@ DO_LIST=0
 QUIET=0
 GATES=""            # newline-joined; bash 3.2 has no nested arrays
 
-usage() { sed -n '2,86p' "$0"; exit "${1:-2}"; }
+# Prints the header block — every comment line after the shebang, stopping at the first
+# line that is not one. A line range would go stale the next time the header grows.
+usage() { awk 'NR == 1 { next } /^#/ { print; next } { exit }' "$0"; exit "${1:-2}"; }
 die()   { echo "delegate-relay: $1" >&2; exit "${2:-2}"; }   # $1 only — $* would print the exit code
 say()   { [ "$QUIET" -eq 1 ] || echo "$*"; }
 
@@ -120,6 +145,7 @@ for arg in "$@"; do
     --read-only)         READ_ONLY=1 ;;
     --accept-unenforced) ACCEPT_UNENFORCED=1 ;;
     --allow-dirty)       ALLOW_DIRTY=1 ;;
+    --allow-self)        ALLOW_SELF=1 ;;
     --no-commit-shim)    COMMIT_SHIM=0 ;;
     --dry-run)           DRY_RUN=1 ;;
     --list)              DO_LIST=1 ;;
@@ -131,8 +157,15 @@ done
 
 # ---------------------------------------------------------------------------
 # read-only git guard (invariant 2, self-policed)
+#   EVERY git call in this script goes through here — no `command git` call sites remain
+#   outside it, so the allowlist is the whole story rather than most of it.
+#   `config` and `symbolic-ref` were dropped: both are write-capable (`config --global`,
+#   `symbolic-ref HEAD refs/heads/x`) and neither was ever called. `log` was added so a
+#   commit the implementer made can be NAMED rather than merely detected.
+#   Residual, stated rather than hidden: `hash-object -w` would write an object. The relay
+#   never passes -w, and the guard reads subcommands, not their flags.
 # ---------------------------------------------------------------------------
-GIT_RO_ALLOWED="rev-parse status diff ls-files hash-object symbolic-ref cat-file config"
+GIT_RO_ALLOWED="rev-parse status diff log ls-files hash-object cat-file"
 
 git_ro() {
   local sub="$1"
@@ -391,9 +424,9 @@ check_implementer() {
 }
 
 check_git_state() {
-  command git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+  git_ro rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     || die "not a git work tree: $REPO — the diff IS the deliverable, so a repo is required." 4
-  REPO="$(command git -C "$REPO" rev-parse --show-toplevel)"
+  REPO="$(git_ro rev-parse --show-toplevel)"
   HEAD_BEFORE="$(git_ro rev-parse HEAD 2>/dev/null || echo "")"
   [ -n "$HEAD_BEFORE" ] || die "repo has no commits yet: $REPO — cannot compute a reviewable diff." 4
   BRANCH="$(git_ro rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
@@ -405,6 +438,46 @@ check_git_state() {
   fi
 }
 
+# Where this script really lives, with symlinks dereferenced. `dirname "$0"` is not enough:
+# scripts/ is symlinked into ~/.claude, so an invocation through the symlink reports a
+# directory that is not a work tree at all — and a self-target guard that no-ops under a
+# symlink no-ops exactly where it is most needed. No `readlink -f`: BSD readlink has no -f.
+self_dir() {
+  local src="$0" dir
+  while [ -L "$src" ]; do
+    dir="$(cd -P "$(dirname "$src")" >/dev/null 2>&1 && pwd)"
+    src="$(readlink "$src")"
+    case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+  done
+  (cd -P "$(dirname "$src")" >/dev/null 2>&1 && pwd)
+}
+
+# Refuse to delegate against the repository this relay lives in.
+#   A warning would be worthless: the run is headless with a 30-minute watchdog, and nobody
+#   is reading stderr at the moment an implementer decides to commit. A refusal with no
+#   override would be worse than it looks — exercising the relay is a recurring, legitimate
+#   need, and a tool that cannot be exercised safely gets exercised unsafely. So: refuse,
+#   name the safe alternative, and keep one explicit door.
+#   Narrow by construction: this stops the relay eating its own evidence. Every other
+#   failure mode it guards happens identically in your repo, which is why the diff base,
+#   the artifact self-ignore and the commit surfacing are not conditional on it.
+check_self_target() {
+  local self_top
+  # The one git call that cannot go through git_ro(): git_ro pins `-C "$REPO"`, and the
+  # whole question here is what toplevel a DIFFERENT directory belongs to. Read-only.
+  self_top="$(command git -C "$(self_dir)" rev-parse --show-toplevel 2>/dev/null || echo "")"
+  [ -n "$self_top" ] || return 0
+  [ "$self_top" = "$REPO" ] || return 0
+  SELF_TARGET=true
+  [ "$ALLOW_SELF" -eq 0 ] || return 0
+  die "refusing to delegate against the relay's own repository: $REPO
+                An implementer that commits here commits the relay's own evidence — the
+                artifact dir lives in this tree, and one 'git add -A' sweeps it in.
+                Exercise the relay against a throwaway repo instead:
+                  SB=\"\$(mktemp -d)\"; git -C \"\$SB\" init -q   # see CONTRIBUTING.md §2
+                Pass --allow-self if you genuinely meant this repository." 6
+}
+
 [ -n "$MODEL" ] || [ "$P_NEEDS_MODEL" -eq 0 ] \
   || die "--model is required for '$IMPL' (it has no safe default model)." 2
 [ -z "$SESSION" ] || [ -n "$P_RESUME" ] \
@@ -414,6 +487,7 @@ check_git_state() {
 abs_path() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$ORIG_PWD" "$1" ;; esac; }
 
 check_git_state
+check_self_target        # after check_git_state: $REPO must be the resolved toplevel first
 [ -z "$BRIEF_IN" ] || BRIEF_IN="$(abs_path "$BRIEF_IN")"
 [ -z "$OUT" ]      || OUT="$(abs_path "$OUT")"
 # Everything downstream — version probe, --help probe, the dispatch itself — runs with the
@@ -487,7 +561,17 @@ TIMEOUT_SECS="$(parse_duration "$TIMEOUT_SPEC")"
 # artifact dir + brief
 # ---------------------------------------------------------------------------
 STAMP="$(date +%Y%m%d-%H%M%S)"
-[ -n "$OUT" ] || OUT="$REPO/.claude/delegate/$STAMP-$IMPL"
+if [ -z "$OUT" ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    # A dry run is documented as safe anywhere, and writing the composed brief into the
+    # target repo made that false: it dirtied the tree, and the NEXT run then died at
+    # exit 4 with an error telling the caller to commit. That is the exact pressure that
+    # produces a `git add -A`. Dry runs stage themselves outside the repo.
+    OUT="${TMPDIR:-/tmp}/delegate-dryrun-$STAMP-$IMPL"
+  else
+    OUT="$REPO/.claude/delegate/$STAMP-$IMPL"
+  fi
+fi
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
 # When the artifact dir lives inside the target repo (the default), its own files would
@@ -496,6 +580,12 @@ OUT_REL=""
 case "$OUT/" in
   "$REPO"/*) OUT_REL="${OUT#"$REPO"/}/" ;;
 esac
+# ...and make the directory ignore ITSELF. Filtering only protected the relay's own
+# reporting; it did nothing about `git add -A`, which is how a stub committing one scratch
+# file swept 51 files — brief, logs, shim and all — into the implementer's commit. One
+# line closes three things: the sweep, the dirty tree that made the next run refuse, and
+# "the relay handed back a diff of its own stdout.log".
+[ -z "$OUT_REL" ] || printf '*\n' > "$OUT/.gitignore"
 BRIEF_FILE="$OUT/brief.md"
 STDOUT_LOG="$OUT/stdout.log"
 STDERR_LOG="$OUT/stderr.log"
@@ -556,6 +646,9 @@ print_plan() {
   echo "mode:          $MODE"
   echo "read-only:     enforcement=$RO_ENFORCEMENT helpProbe=$HELP_PROBE"
   echo "repo:          $REPO (branch $BRANCH, HEAD $HEAD_BEFORE, dirty=$DIRTY_AT_START)"
+  if [ "$SELF_TARGET" = true ]; then
+    echo "self-target:   YES — this is the relay's own repository, allowed by --allow-self"
+  fi
   echo "brief:         $BRIEF_FILE ($(wc -l < "$BRIEF_FILE" | tr -d ' ') lines)"
   echo "timeout:       ${TIMEOUT_SECS}s"
   echo "commit shim:   $([ "$COMMIT_SHIM" -eq 1 ] && echo enabled || echo disabled)"
@@ -592,7 +685,7 @@ snapshot() {
       case "$p" in "$OUT_REL"*) continue ;; esac   # relay artifacts are not the implementer's work
     fi
     if [ -f "$REPO/$p" ] && [ ! -L "$REPO/$p" ]; then
-      h="$(command git -C "$REPO" hash-object -- "$p" 2>/dev/null || echo "")"
+      h="$(git_ro hash-object -- "$p" 2>/dev/null || echo "")"
       [ -n "$h" ] || { h="unhashable"; FP_INCOMPLETE=1; }
     elif [ -e "$REPO/$p" ] || [ -L "$REPO/$p" ]; then
       h="nonregular"; FP_INCOMPLETE=1
@@ -600,11 +693,30 @@ snapshot() {
       h="absent"
     fi
     printf '%s\t%s\t%s\n' "$xy" "$h" "$p" >> "$out"
-  done < <(command git -C "$REPO" status --porcelain=v1 -uall -z 2>/dev/null || true)
+  done < <(git_ro status --porcelain=v1 -uall -z 2>/dev/null || true)
   LC_ALL=C sort -t"$(printf '\t')" -k3,3 -o "$out" "$out"
 }
 
-[ -z "$OUT_REL" ] || add_note "relay artifacts are written inside the repo at '$OUT_REL'; they are excluded from touchedFiles and the diff. Add '.claude/delegate/' to .gitignore to keep git status clean."
+# Drop any path under the artifact dir. Prefix match, never a regex: $OUT_REL is a real
+# path and a `.` in it must not match a character class.
+strip_out_rel() {
+  [ -n "$OUT_REL" ] || { cat; return 0; }
+  awk -v p="$OUT_REL" 'index($0, p) != 1'
+}
+
+# Everything reviewable is measured from the PRE-RUN HEAD, never from HEAD: an implementer
+# that committed has moved HEAD onto its own work, and `git diff HEAD` then reports an
+# empty tree. `:(exclude)` needs git >= 2.13; where the pathspec magic is rejected git
+# exits non-zero before writing output, so the plain form runs instead — and the artifact
+# dir is self-ignored anyway, so both paths agree.
+diff_since_base() {
+  if [ -n "$OUT_REL" ]; then
+    git_ro diff "$@" "$DIFF_BASE" -- . ":(exclude)${OUT_REL}*" 2>/dev/null && return 0
+  fi
+  git_ro diff "$@" "$DIFF_BASE" -- . 2>/dev/null || true
+}
+
+[ -z "$OUT_REL" ] || add_note "relay artifacts are written inside the repo at '$OUT_REL' and ignore themselves ('${OUT_REL}.gitignore' holds a single '*'), so they stay out of touchedFiles, out of the diff, out of git status, and out of any 'git add -A' the implementer runs. Artifact files from an OLDER run that are already tracked are not covered by that — untrack those yourself."
 snapshot "$OUT/baseline.tsv"
 cut -f2,3 "$OUT/baseline.tsv" | LC_ALL=C sort > "$OUT/baseline.keys"
 
@@ -616,10 +728,42 @@ if [ "$COMMIT_SHIM" -eq 1 ]; then
   mkdir -p "$OUT/shim"
   cat > "$OUT/shim/git" <<SHIM
 #!/bin/sh
-# delegate-relay git shim. Refuses the subcommands that would land or destroy the
-# deliverable. A SPEED BUMP, NOT A BOUNDARY — an absolute path or a library call
-# walks straight past it. The brief's no-commit clause is the real instruction.
-DENY="commit push am rebase merge reset checkout switch restore stash cherry-pick revert tag update-ref filter-branch filter-repo clean gc prune reflog"
+# delegate-relay git shim. Refuses the subcommands that would land the deliverable or
+# destroy it, plus the two alias routes around them: a config-injected alias
+# (git -c alias.x=commit x) and an alias the caller already has in ~/.gitconfig. Both
+# were reachable by accident, not by malice, which is why they are closed.
+# STILL A SPEED BUMP, NOT A BOUNDARY — /usr/bin/git, a libgit2/pygit2/dulwich binding,
+# or any subshell that rebuilds PATH walks straight past it, and \`gh\`/\`hub\` are not
+# shimmed at all. The brief's no-commit clause is the real instruction; this only makes
+# the naive path noisy and logged.
+# Deliberately NOT denied: \`add\` (tools stage in order to diff), \`fetch\`-less reads,
+# \`submodule\` (its status form is ordinary inspection), and a bare \`branch\` listing.
+REAL_GIT="$(command -v git)"
+DENY="commit push am rebase merge pull fetch reset checkout switch restore stash cherry-pick revert tag update-ref filter-branch filter-repo clean gc prune reflog worktree rm mv notes replace commit-tree"
+LOG="$SHIM_LOG"
+
+refuse() {
+  echo "delegate-relay: 'git \$1' is refused for this run — the reviewer commits, not you." >&2
+  echo "\$(date -u +%Y-%m-%dT%H:%M:%SZ) git \$1" >> "\$LOG"
+  exit 1
+}
+denied() {
+  for d in \$DENY; do [ "\$1" = "\$d" ] && return 0; done
+  return 1
+}
+
+# 1. An alias injected on this very command line never reaches config, so it cannot be
+#    looked up — refuse the injection itself.
+prev=""
+for a in "\$@"; do
+  case "\$a" in
+    alias.*)                              [ "\$prev" = "-c" ] && refuse "-c \$a" ;;
+    -calias.*|--config-env=alias.*|--config=alias.*) refuse "\$a" ;;
+  esac
+  prev="\$a"
+done
+
+# 2. First non-flag token is the subcommand; global flags that take a value are skipped.
 sub=""
 skip=0
 for a in "\$@"; do
@@ -630,14 +774,28 @@ for a in "\$@"; do
     *) sub="\$a"; break ;;
   esac
 done
-for d in \$DENY; do
-  if [ "\$sub" = "\$d" ]; then
-    echo "delegate-relay: 'git \$sub' is refused for this run — the reviewer commits, not you." >&2
-    echo "\$(date -u +%Y-%m-%dT%H:%M:%SZ) git \$sub" >> "$SHIM_LOG"
-    exit 1
+[ -n "\$sub" ] && denied "\$sub" && refuse "\$sub"
+
+# 3. A pre-existing alias resolves to a real subcommand — check what it expands to.
+if [ -n "\$sub" ]; then
+  exp="\$("\$REAL_GIT" config --get "alias.\$sub" 2>/dev/null)" || exp=""
+  if [ -n "\$exp" ]; then
+    first="\${exp%% *}"
+    first="\${first#!}"
+    denied "\$first" && refuse "\$sub (alias for: \$exp)"
   fi
-done
-exec $(command -v git) "\$@"
+fi
+
+# 4. \`git branch\` lists; \`git branch -D/-f/-m\` rewrites refs.
+if [ "\$sub" = "branch" ]; then
+  for a in "\$@"; do
+    case "\$a" in
+      -d|-D|-m|-M|-f|--delete|--force|--move) refuse "branch \$a" ;;
+    esac
+  done
+fi
+
+exec "\$REAL_GIT" "\$@"
 SHIM
   chmod +x "$OUT/shim/git"
   RUN_PATH="$OUT/shim:$PATH"
@@ -674,27 +832,49 @@ if [ "$EXIT_CODE" -gt 128 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# post-run: delta, HEAD, diff
+# post-run: HEAD first, then delta, then diff
+#   HEAD is read BEFORE the delta because it decides what the delta has to be measured
+#   against. A committing implementer empties `git status`, so a status-only delta goes
+#   blank at exactly the moment the invariant broke.
 # ---------------------------------------------------------------------------
-snapshot "$OUT/after.tsv"
-cut -f2,3 "$OUT/after.tsv" | LC_ALL=C sort > "$OUT/after.keys"
-
-LC_ALL=C comm -3 "$OUT/baseline.keys" "$OUT/after.keys" \
-  | sed 's/^	//' | cut -f2- | LC_ALL=C sort -u > "$OUT/touched.txt"
-TOUCHED_COUNT="$(wc -l < "$OUT/touched.txt" | tr -d ' ')"
-
 HEAD_AFTER="$(git_ro rev-parse HEAD 2>/dev/null || echo "")"
 HEAD_MOVED=false
 [ "$HEAD_AFTER" = "$HEAD_BEFORE" ] || HEAD_MOVED=true
 STAGED_AT_END=false
 [ -z "$(git_ro diff --cached --name-only 2>/dev/null || true)" ] || STAGED_AT_END=true
+DIFF_BASE="$HEAD_BEFORE"
 
-# tracked changes vs HEAD, then each untracked file as a /dev/null diff
+# What the implementer committed, named rather than merely detected. An empty range with
+# HEAD_MOVED=true is itself a finding: history was rewritten or checked out, not appended.
+COMMITS_FILE="$OUT/commits.txt"
+COMMIT_FILES="$OUT/committed-files.txt"
+: > "$COMMITS_FILE"
+: > "$COMMIT_FILES"
+COMMITS_AHEAD=0
+if [ "$HEAD_MOVED" = true ]; then
+  git_ro log --oneline --no-decorate "$HEAD_BEFORE..$HEAD_AFTER" > "$COMMITS_FILE" 2>/dev/null || : > "$COMMITS_FILE"
+  COMMITS_AHEAD="$(wc -l < "$COMMITS_FILE" | tr -d ' ')"
+  git_ro diff --name-only "$HEAD_BEFORE" "$HEAD_AFTER" 2>/dev/null | strip_out_rel > "$COMMIT_FILES" || : > "$COMMIT_FILES"
+fi
+
+snapshot "$OUT/after.tsv"
+cut -f2,3 "$OUT/after.tsv" | LC_ALL=C sort > "$OUT/after.keys"
+
+# touchedFiles = (working-tree delta since the baseline fingerprint) ∪ (what got committed).
+# The first half alone reads as `[]` the moment the implementer commits everything; the
+# union is what makes "it committed my deliverable" survive as a file list.
+LC_ALL=C comm -3 "$OUT/baseline.keys" "$OUT/after.keys" \
+  | sed 's/^	//' | cut -f2- | LC_ALL=C sort -u > "$OUT/touched.worktree"
+cat "$OUT/touched.worktree" "$COMMIT_FILES" \
+  | awk 'NF' | strip_out_rel | LC_ALL=C sort -u > "$OUT/touched.txt"
+TOUCHED_COUNT="$(wc -l < "$OUT/touched.txt" | tr -d ' ')"
+
+# tracked changes vs the PRE-RUN HEAD, then each untracked file as a /dev/null diff
 {
-  git_ro diff HEAD 2>/dev/null || true
+  diff_since_base
   awk -F'\t' '$1 ~ /^\?\?/ { print $3 }' "$OUT/after.tsv" | while IFS= read -r u; do
     [ -f "$REPO/$u" ] || continue
-    command git -C "$REPO" diff --no-index --no-color -- /dev/null "$u" 2>/dev/null || true
+    git_ro diff --no-index --no-color -- /dev/null "$u" 2>/dev/null || true
   done
 } > "$DIFF_FILE"
 DIFF_LINES="$(wc -l < "$DIFF_FILE" | tr -d ' ')"
@@ -718,8 +898,20 @@ SHIM_DENIALS=0
 
 # ---- violations + status ----
 VIOLATIONS=""
-[ "$HEAD_MOVED" = true ] && VIOLATIONS="${VIOLATIONS}implementer-moved-head
+if [ "$HEAD_MOVED" = true ]; then
+  VIOLATIONS="${VIOLATIONS}implementer-moved-head
 "
+  # Never let a HEAD move go out with only a flag on it. The field everyone reads is
+  # touchedFiles; the field that says a commit happened is git.headMoved; and a reader who
+  # resolves that contradiction the wrong way concludes "nothing happened".
+  add_note "HEAD moved: the implementer committed $COMMITS_AHEAD commit(s) — see $COMMITS_FILE and git.commits. touchedFiles and the diff are taken against the PRE-RUN HEAD ($HEAD_BEFORE), so the work is still shown here; it is also already in history. The relay landed nothing: 'git reset --soft $HEAD_BEFORE' returns it to the working tree if you want to review it as a diff. That is your call, not the relay's."
+  if [ "$COMMITS_AHEAD" -eq 0 ]; then
+    add_note "HEAD moved but no commit is ahead of the pre-run HEAD — history was rewritten, reset, or checked out rather than appended. What the implementer did is NOT reconstructable from '$HEAD_BEFORE..$HEAD_AFTER'; read 'git reflog' before concluding anything."
+  fi
+  if [ "$TOUCHED_COUNT" -eq 0 ]; then
+    add_note "HEAD moved and the delta is still empty: the work is not in the tree and not in the commit range either. Treat this as lost-until-proven-otherwise, not as a no-op."
+  fi
+fi
 [ "$RO_VIOLATION" = "true" ] && VIOLATIONS="${VIOLATIONS}read-only-run-changed-the-tree
 "
 if [ "$EXIT_CODE" -eq 0 ] && [ "$MODE" = "write" ] && [ "$TOUCHED_COUNT" -eq 0 ] && [ "$HEAD_MOVED" = false ]; then
@@ -771,11 +963,20 @@ FINAL_MESSAGE="$(tail -c 4000 "$STDOUT_LOG" 2>/dev/null | json_escape_stream || 
   printf '  "signal": %s,\n' "$SIGNAL"
   printf '  "timedOut": %s,\n' "$([ "$TIMED_OUT" -eq 1 ] && echo true || echo false)"
   printf '  "repo": "%s",\n' "$(json_str "$REPO")"
+  printf '  "selfTarget": %s,\n' "$SELF_TARGET"
   printf '  "git": {\n'
   printf '    "branch": "%s",\n' "$(json_str "$BRANCH")"
   printf '    "headBefore": "%s",\n' "$HEAD_BEFORE"
   printf '    "headAfter": "%s",\n' "$HEAD_AFTER"
   printf '    "headMoved": %s,\n' "$HEAD_MOVED"
+  printf '    "diffBase": "%s",\n' "$DIFF_BASE"
+  printf '    "commitsAhead": %s,\n' "$COMMITS_AHEAD"
+  printf '    "commits": ['
+  json_array_stream < "$COMMITS_FILE"
+  printf '],\n'
+  printf '    "committedFiles": ['
+  json_array_stream < "$COMMIT_FILES"
+  printf '],\n'
   printf '    "dirtyAtStart": %s,\n' "$([ "$DIRTY_AT_START" -eq 1 ] && echo true || echo false)"
   printf '    "stagedAtEnd": %s,\n' "$STAGED_AT_END"
   printf '    "fingerprintComplete": %s\n' "$([ "$FP_INCOMPLETE" -eq 1 ] && echo false || echo true)"
@@ -810,10 +1011,13 @@ FINAL_MESSAGE="$(tail -c 4000 "$STDOUT_LOG" 2>/dev/null | json_escape_stream || 
   printf '    "brief": "%s",\n' "$(json_str "$BRIEF_FILE")"
   printf '    "diff": "%s",\n' "$(json_str "$DIFF_FILE")"
   printf '    "diffLines": %s,\n' "$DIFF_LINES"
+  printf '    "commits": "%s",\n' "$(json_str "$COMMITS_FILE")"
   printf '    "stdout": "%s",\n' "$(json_str "$STDOUT_LOG")"
   printf '    "stderr": "%s"\n' "$(json_str "$STDERR_LOG")"
   printf '  },\n'
   printf '  "finalMessage": "%s",\n' "$FINAL_MESSAGE"
+  # `committed` is the RELAY's own statement about the RELAY. It is not a claim that
+  # nothing was committed — git.headMoved is the field that answers that question.
   printf '  "committed": false,\n'
   printf '  "landedBy": null\n'
   printf '}\n'
@@ -828,6 +1032,13 @@ else
   echo
   echo "status:        $STATUS · exit $EXIT_CODE · ${RUN_SECONDS}s"
   echo "HEAD:          $HEAD_AFTER $([ "$HEAD_MOVED" = true ] && echo '(MOVED — the implementer committed; that decision was not its to make)' || echo '(unchanged)')"
+  if [ "$HEAD_MOVED" = true ]; then
+    echo "commits:       $COMMITS_AHEAD ahead of the pre-run HEAD ($COMMITS_FILE)"
+    [ "$COMMITS_AHEAD" -gt 0 ] && sed 's/^/                 /' "$COMMITS_FILE"
+    echo "               the diff and touched list below are taken against the PRE-RUN HEAD,"
+    echo "               so the work is still shown — and also already in history. To review"
+    echo "               it as a diff instead, YOU run:  git reset --soft $HEAD_BEFORE"
+  fi
   echo "touched:       $TOUCHED_COUNT file(s)"
   [ "$TOUCHED_COUNT" -gt 0 ] && sed 's/^/                 /' "$OUT/touched.txt"
   echo "read-only:     enforcement=$RO_ENFORCEMENT violation=$RO_VIOLATION"
@@ -836,7 +1047,14 @@ else
   echo "diff:          $DIFF_FILE ($DIFF_LINES lines)"
   echo "result:        $RESULT_JSON"
   echo
-  echo "Nothing was committed. Re-run the gates yourself, read the whole diff, then commit."
+  # "Nothing was committed" is only true when nothing was. Saying it over a moved HEAD is
+  # the same lie `committed: false` used to tell next to `headMoved: true`.
+  if [ "$HEAD_MOVED" = true ]; then
+    echo "The relay committed nothing — the implementer did. Re-run the gates yourself, read"
+    echo "the whole diff, and decide what happens to those $COMMITS_AHEAD commit(s). Not the relay's call."
+  else
+    echo "Nothing was committed. Re-run the gates yourself, read the whole diff, then commit."
+  fi
 fi
 
 [ "$STATUS" = "completed" ] && exit 0

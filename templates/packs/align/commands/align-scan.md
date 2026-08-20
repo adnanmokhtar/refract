@@ -459,6 +459,10 @@ One-line summary: scan complete, N findings, K phases recommended.
 
 ## Phase 6 — Validate (verify correctness)
 
+**Dispatch `@align-evidence-auditor` over the draft ledger before it is written as final.** The checks below are its five checks; the agent is the artifact that owns them and returns a per-row `PASS` / `REJECT` verdict. Rows it rejects do NOT enter `/align-plan` — a `REJECT — evidence does not resolve` row is re-scanned, a `REJECT — idiom inventory gap` row routes to `/setup-project --refine`, and a `REJECT — out of domain` row leaves with the sibling command that owns it named (`/polish` for new tokens, `/optimize` for measured or structural work, `/audit` for ranking, `/refactor` for contract changes). Run it inline only when agent dispatch is unavailable; the checks are identical either way.
+
+A rejection rate above ~20% is a signal about the detector or the oracle, not about the codebase. Surface it rather than shipping a thin ledger.
+
 - Every finding has ≥ 1 `evidence` citation.
 - Every `evidence` `<path:line>` resolves to a real file at HEAD; the cited line contains the fingerprint the row claims (re-verified by re-running the detector at scope-of-one).
 - No hand-wave tokens (`etc.`, `...`, `several`, `multiple`) in any field.
@@ -563,6 +567,9 @@ Every row in the output must be re-derivable by another reader given the same co
 ### Skills
 - `.claude/skills/detect-drift/SKILL.md` — the detector procedure dispatched by this command.
 
+### Agents
+- `.claude/agents/align-evidence-auditor.md` — audits this command's output at Phase 6; owns audit halts #1–#4 and #11. Rows it REJECTs never reach `/align-plan`.
+
 ### Cross-pack references
 - `code-quality/commands/check-health.md` — pre-flight mechanical check; run before this command.
 - `code-quality/agents/dead-code-finder.md` — dispatched for the dead-code class.
@@ -570,6 +577,7 @@ Every row in the output must be re-derivable by another reader given the same co
 - `frontend/agents/accessibility-auditor.md` — dispatched for `frontend-*`.
 - `frontend/agents/i18n-auditor.md` — dispatched for `frontend-*`.
 - `frontend/agents/data-flow-auditor.md` — dispatched for `frontend-*`.
+- `performance/agents/performance-optimizer.md` — dispatched for the performance class. Lives in the **performance** pack, not code-quality. Without that pack, the perf detector falls back to the project's profiler / query log; the row still requires a baseline in `notes`.
 - `ui-ux/skills/design-token-audit/SKILL.md` — dispatched for `frontend-*`.
 - `ui-ux/skills/motion-audit/SKILL.md` — dispatched for `frontend-*`.
 - `frontend/rules/migration-frontend.md` — frontend fingerprint set for stack-anti-pattern detector.

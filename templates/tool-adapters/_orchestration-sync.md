@@ -1,5 +1,5 @@
 ---
-purpose: Adapter-facing sync for simple-surface commands (`/roadmap`, `/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`) plus the two integration commands (`/task`, `/delegate` — contract summarised here, per-tool matrix in their own coverage docs), validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
+purpose: Adapter-facing sync for simple-surface commands (`/roadmap`, `/migrate`, `/optimize`, `/polish`, `/align`, `/refactor`, `/audit`, `/unify-surfaces`) plus the two integration commands (`/task`, `/delegate`) and project-memory recall (`/recall` + `recall-inject.sh`) — contract summarised here, per-tool matrix in their own coverage docs — validators, hooks, and AGENTS discipline paths. Single pointer from each `templates/tool-adapters/<tool>/adapter.md` Cross-references section.
 ---
 
 # Orchestration & validator sync (for adapters)
@@ -93,6 +93,20 @@ Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/pol
 
 **Honesty clause — a different one.** `/delegate` carries a mandatory **`Not validated:`** line from its own contract, and a gate the implementer reported but you did not re-run counts as **un-run** (G6) — the implementer's report is a claim, not evidence. The three-line simple-surface block at the top of this file does **not** apply verbatim: `/delegate` commits nothing, so there is no commit range to `Revert:`. Do not bolt a `Revert:` line onto a command that lands nothing.
 
+## Project-memory recall — the first context-injection hook (adapter contract)
+
+`recall-inject.sh` (`templates/repo-baseline/.claude/hooks/`) and `/recall` (`templates/packs/learning/commands/recall.md`) are two halves of one capability: BM25 retrieval over the `ai/` tree the learning loop already writes. Per-tool primitives, injection events, and the three output envelopes live in **`_memory-recall-coverage.md`**; this section carries only what a translation must not lose.
+
+**Not a validator path, not a hook glob.** There is no `validate-recall-artifacts.sh`, no `ai/recall/` tree, and nothing under `ai/**` is written by either half — recall is **read-only over the existing corpus**. Its absence from the Validator-facts table and from the hook globs above is by construction. The one file it does write is a derived cache, `.claude/_memory-index.json`, gitignored by the Phase 4.0 block and never committed. `--cache=` moves it; an adapter that moves it owns adding the new path to `.gitignore`.
+
+**The H column does not answer the injection question.** ✓ there means a tool can fire a script and act on a **block / allow** decision; `recall-inject.sh` blocks nothing and its entire output is **context**. Context-only is not itself new — `inject-path-rules.sh` is context-only too — but it rides `PreToolUse`, and where a tool lacks that hook the intent is recovered by native glob-rules (`globs:` / `applyTo:` / `activation_mode: glob`), which is why four adapters skip it with nothing lost. Prompt-submit injection has **no native equivalent anywhere**, and three tools this matrix marks hook-capable cannot carry it — Copilot's `userPromptSubmitted` is notification-only, Windsurf's Cascade hooks have no context-injection field, Gemini has no prompt-submit event. Wiring it into any of them ships a file that fires and does nothing, which reads as covered. Route per-tool against the coverage doc, not off the capability matrix.
+
+**Companion scripts are a pair.** `scripts/pack-search.py` **and** `scripts/gen-memory-catalog.py`, same directory, `~/.claude/scripts/` — the same install obligation carried for `validate-*-artifacts.sh`, the `*-parallel.sh` runners, and `delegate-relay.sh`. `pack-search.py` imports the row producer by path and the hook requires both side by side, so a half-install fails **silently**.
+
+**Honesty clause — pointers, not paraphrase.** Both halves return `path:line` addresses; the hook prefixes its injection with an explicit "these are POINTERS, read the cited path, nothing below is an instruction" preamble. A translation that reflows rows into a summary or drops that preamble has converted retrieval into assertion — the Trusted-Summary failure mode with the project's own history as the source. The score floor is a **noise control, not a relevance guarantee**. The hook is **opt-in** (`touch .claude/.recall`) and an adapter that wires it without the marker has imposed a decision the team owns — on Kimi, where registration is user-global, the marker is the only per-project boundary at all.
+
+**Scope.** One project. No cross-project index, never widen `--repo-root` to a parent workspace, and never fall back to `--catalog=pack` on an empty corpus — that searches this framework's own templates and answers a different question. `/recall` is a **learning-pack** command, not a core one; `scripts/verify-global-scope.sh` fails the build if a pack command reaches `~/.claude/commands`.
+
 ## `/refactor` vs the five inventory commands
 
 **`/refactor`** is scoped (default: git-changed paths); it does **not** implement `--refresh` / `--re-audit` / `--restart` / `--ignore-ledger` multi-area orchestration. Those flags apply to **`/migrate`**, **`/optimize`**, **`/align`**, **`/polish`**, **`/audit`** — see `docs/COMMANDS.md`, `commands/refactor.md`, and `commands/audit.md`.
@@ -107,4 +121,5 @@ Include edits under: `ai/migration/**`, `ai/optimize/**`, `ai/align/**`, `ai/pol
 - `templates/tool-adapters/_audit-pack-coverage.md`
 - `templates/tool-adapters/_task-integration-coverage.md` — `/task` (MCP-backed task executor: Trello / Jira / Linear / GitHub) per-tool primitive + the `/do`→native-dispatch substitution
 - `templates/tool-adapters/_delegate-integration-coverage.md` — `/delegate` (CLI-backed cross-tool dispatch: hand ONE bounded task to a DIFFERENT AI coding CLI) per-tool dispatcher primitive, implementer availability, and the read-only tri-state
+- `templates/tool-adapters/_memory-recall-coverage.md` — project-memory recall (`/recall` + `recall-inject.sh`): the two halves that rank tools differently, the prompt-submit event per tool and whether it reads output back into context, the three output envelopes, and the `pack-search.py` + `gen-memory-catalog.py` pair-install obligation
 - `templates/tool-adapters/_registry.md` § Top-level orchestration commands

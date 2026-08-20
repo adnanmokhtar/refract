@@ -162,6 +162,7 @@ Most B2B SaaS = **Security + Availability + Confidentiality**. Fintech / healthc
 
 - Pair with **`gdpr.md`** if Privacy TSC in scope and serving EU customers.
 - Pair with **`pci-dss.md`** if processing payments.
+- Pair with **`hipaa.md`** if health-tech — enterprise health buyers ask for a SOC 2 report *and* a signed BAA. Access control, logging, vendor management, and incident response overlap heavily; run one evidence programme, not two.
 - Pair with **`iso-27001.md` (planned — not yet shipped)** for organizations that want both — significant control overlap reduces double-work; ISO 27001 is more popular internationally, SOC2 in North America.
 - AICPA: aicpa.org for current Trust Service Criteria.
 - SOC2 reports are CONFIDENTIAL — never share publicly; share via NDA-gated portal.

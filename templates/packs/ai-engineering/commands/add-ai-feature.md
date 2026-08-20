@@ -19,7 +19,9 @@ All 8: **Understand → Organize → Retrieve → Generate → Evaluate → Upda
 If the description suggests a different intent, halt with a redirect:
 - "fix / broken / wrong output" on an existing LLM feature → `/fix-bug` (then re-run `eval-run`).
 - "slow / expensive / cache the model" → this command's cost/latency wiring applies, but a pure optimization of an existing feature → `/optimize`.
-- "audit / review the AI feature" → `@ai-feature-reviewer` (engineering) or `@llm-security-reviewer` (security).
+- "audit / review the AI feature" → `@ai-feature-reviewer` (engineering, diff-shaped) or `@llm-security-reviewer` (security).
+- **"audit an existing AI surface" / no diff to review** → `/ai-audit` — the read-only six-axis sweep (eval, prompt, retrieval, ANN index, agent loop, gateway/cost). This command builds; that one grades what already exists.
+- **"the feature exists but has no eval set"** → `/add-eval-set <feature>` — the retrofit. This command's Phase 5 builds the set for a feature being built NOW; a shipped feature with no harness goes there.
 - "prompt injection / the model can be tricked / output is rendered unsafely" → `@llm-security-reviewer` — this command builds; that agent secures.
 - **Not an LLM feature at all** (no model call in the plan) → route to the matching `/add-endpoint` / `/add-feature` / frontend command. Proceed here ONLY when the feature calls a model.
 
@@ -40,8 +42,8 @@ State the success criteria: feature live + a **versioned eval set that gates in 
 Design the feature against the patterns before writing code:
 - **Shape** — generation / extraction / classification / RAG / agent (from `ai/patterns/agent-design.md § when_agent_vs_workflow` — prefer a fixed workflow over an agent unless the task genuinely needs open-ended tool use).
 - **Prompt** — system vs user roles, instruction/data separation, the output schema (mirror `prompt-engineering.md`).
-- **Retrieval** (if RAG) — corpus, chunking, embedding model, top-k, reranker, tenant filter, context assembly (mirror `rag-pipeline.md`).
-- **Tools + loop** (if agentic) — tool set, input schemas, loop budget, which tools are destructive (mirror `agent-design.md`).
+- **Retrieval** (if RAG) — **dispatch `@rag-architect`**: corpus, chunking table, metadata schema, embedding model + normalisation, the ANN index and its **stated** recall/latency/scale target, hybrid fusion, reranker, the tenant filter enforced at the store, context assembly + token budget, the no-context guard, and the labelled question→gold-chunk set (mirrors `rag-pipeline.md` + `vector-store-ops.md`). Do not hand-draw a pipeline this agent owns.
+- **Tools + loop** (if agentic) — **dispatch `@agent-loop-architect`**: it picks the lowest autonomy rung that works (and most often returns a workflow DAG instead of a loop), then specifies the tool contracts, the four budgets, the human-in-the-loop tiers, and the context plan (mirrors `agent-design.md`).
 - **Gateway** — routing / fallback / caching / cost trace seam (mirror `llm-gateway.md`).
 - **Eval plan** — the dataset source (seed cases now, grow from prod later), the scorers (assertion + LLM-as-judge + retrieval metric if RAG), the baseline + threshold (mirror `evals.md`). *Design this in Phase 2 so Phase 5 has a spec, not an afterthought.*
 
@@ -53,7 +55,7 @@ ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads
 
 AI-SPECIFIC:
 - `ai/patterns/evals.md` + `prompt-engineering.md` (always).
-- `ai/patterns/rag-pipeline.md` (if RAG), `agent-design.md` (if agentic), `llm-gateway.md` (provider client / routing).
+- `ai/patterns/rag-pipeline.md` + `vector-store-ops.md` (if RAG — usage and the index underneath it), `agent-design.md` (if agentic), `llm-gateway.md` (provider client / routing), `fine-tuning.md` (only if a fine-tune is genuinely on the table — it is the last rung of the ladder, not a step in this command).
 - `.claude/rules/ai-engineering-principles.md`.
 - `_extracted-codebase.md § AI/LLM integration` — the existing gateway seam, prompt sites, eval harness.
 
@@ -108,7 +110,7 @@ This phase does not skip. The feature is not done until it is measurable.
 1. **Build the eval set** — a versioned dataset (checked in), seeded from the Phase-2 eval spec (10–20 real-ish cases minimum), with expected properties per case. Cases are **held out** from the few-shot examples baked into the prompt.
 2. **Wire the scorers** — assertion (exact / JSON-schema / contains) + LLM-as-judge (faithfulness / relevance / correctness) + a retrieval metric (recall@k / context-precision) if RAG. Pin the judge model + `temperature: 0` + seed.
 3. **Declare the ABSOLUTE pass threshold per gated metric** — the production bar the feature must clear, not merely a self-referential "baseline" (e.g. `exact-match ≥ 0.90`, `faithfulness ≥ 0.85`, `context-recall@k ≥ 0.80` for RAG). A NEW feature has no prior baseline: its first `eval-run` ESTABLISHES the baseline **and must clear this declared absolute bar** — a first run below the bar is a FAIL, not a low baseline to ratchet from. A CHANGE to an existing feature gates on `baseline − ε` as well as the absolute bar. Then **wire the CI eval-gate** — add/confirm the eval-gate step in the pipeline config and verify that step is *present* in the CI file (assert the config, not the pipeline's runtime outcome — this command cannot prove a remote build fails). The real measured gate is `eval-run` in step 4; CI is the standing enforcement of it.
-4. **Dispatch the `eval-run` skill** — run the set through the new code and **record the measured score per gated metric** (`<metric> = <score>` vs `≥ <threshold>`) from `eval-run`'s output table + its `Reports:` path. The verdict is the measured number vs the declared threshold, not "it ran green". A metric below its absolute threshold (new feature) or below `baseline − ε` (change) HALTS this command to **INCOMPLETE** — name the failing metric + score; do not ship an unmeasured or below-bar feature. If NO eval harness exists in the repo, `eval-run` HALTS: build the set + scorers (`ai/patterns/evals.md`) first; until it runs, the eval axis is **UNVERIFIED**, never a faked pass.
+4. **Dispatch the `eval-run` skill** — run the set through the new code and **record the measured score per gated metric** (`<metric> = <score>` vs `≥ <threshold>`) from `eval-run`'s output table + its `Reports:` path. The verdict is the measured number vs the declared threshold, not "it ran green". A metric below its absolute threshold (new feature) or below `baseline − ε` (change) HALTS this command to **INCOMPLETE** — name the failing metric + score; do not ship an unmeasured or below-bar feature. If NO eval harness exists in the repo, `eval-run` HALTS — the fix is **`/add-eval-set <feature>`**, which builds the dataset + scorers + declared threshold + committed baseline + CI gate and calls `eval-run` back for the first measured run. Until that run exists the eval axis is **UNVERIFIED**, never a faked pass.
 5. **Security handoff — dispatch `@llm-security-reviewer`** for the trust boundary: prompt injection (direct + indirect), improper output handling (any sink the output reaches), and excessive agency (destructive tools). This is a required handoff, not optional — `@ai-feature-reviewer` reviews engineering quality but does NOT clear security.
 
 HALT conditions for this phase: no eval set built; eval doesn't gate in CI; `eval-run` reports a gated metric below its declared threshold (or below `baseline − ε` on a change); no eval harness so the score is UNVERIFIED; security handoff skipped.
@@ -126,6 +128,14 @@ HALT conditions for this phase: no eval set built; eval doesn't gate in CI; `eva
 - **`eval-run`** green at/above baseline (re-run — this is the gate, not a formality).
 - Multi-tenant → cross-tenant retrieval test passes (tenant A never retrieves tenant B's chunks).
 - Agentic → a test asserts the loop budget terminates a runaway loop and a destructive tool requires confirmation.
+- RAG → **`retrieval-eval`** on the labelled question→gold-chunk set: recall@k **filtered and unfiltered** against the declared target, plus the retrieval-vs-generation split. Answer-only scoring cannot see a retrieval failure.
+- ANN index present → **`vector-index-audit`**: the target is stated, the parameters were chosen against it, the metric + normalisation + dimension match the embedding model, and upsert/delete reach the index.
+
+### Pre-review mechanical sweep
+
+Run the two detector skills before the reviewers so the agents grade a clean surface rather than re-deriving greps:
+- **`prompt-audit`** — the five prompt-engineering detectors over every prompt-assembly and output-parsing site.
+- **`llm-gateway-audit`** — the seam inventory (how many call sites, how many behind the gateway) plus timeout / cap / fallback / cache / cost-logging / redaction.
 
 ### Review (parallel)
 - **`@ai-feature-reviewer`** — engineering quality (eval coverage / prompt / RAG / agent / cost-latency / output handling).
@@ -223,14 +233,24 @@ Next:
 - `/optimize` — for cost/latency optimization of an existing feature.
 
 ### Agents
+- `@rag-architect` — designs the retrieval pipeline + the index target + the labelled retrieval set (dispatched in Phase 2 when the shape is RAG).
+- `@agent-loop-architect` — picks the autonomy rung, the tool contracts, the four budgets, and the HITL tiers — and argues the loop down into a workflow where one suffices (dispatched in Phase 2 when the shape is agentic).
 - `@ai-feature-reviewer` — reviews this feature's engineering quality (dispatched in Phase 7).
 - `@llm-security-reviewer` (security pack) — clears the trust boundary (required handoff in Phase 5 + 7).
 
 ### Skills
 - `eval-run` — the regression gate dispatched in Phase 5 + 7.
+- `prompt-audit` — the pre-review prompt sweep (structured output / roles / schema validation / determinism / versioning), Phase 7.
+- `llm-gateway-audit` — the pre-review seam sweep (bypasses / timeout / cap / fallback / cache / cost / redaction), Phase 7.
+- `retrieval-eval` — recall@k filtered and unfiltered + the retrieval-vs-generation split, Phase 7 when RAG.
+- `vector-index-audit` — the ANN index against its stated target, Phase 7 when an index is present.
+
+### Sibling commands in the ai-engineering pack
+- `/ai-audit` — the read-only six-axis sweep of an EXISTING surface; the door when there is no diff to review.
+- `/add-eval-set` — retrofits the regression-gating harness onto a feature that shipped without one; the standing answer to `eval-run`'s no-harness HALT.
 
 ### Patterns
-- `ai/patterns/evals.md`, `prompt-engineering.md`, `rag-pipeline.md`, `agent-design.md`, `llm-gateway.md`.
+- `ai/patterns/evals.md`, `prompt-engineering.md`, `rag-pipeline.md`, `vector-store-ops.md`, `agent-design.md`, `llm-gateway.md`, `fine-tuning.md`.
 
 ### Rules
 - `.claude/rules/ai-engineering-principles.md`

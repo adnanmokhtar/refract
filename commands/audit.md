@@ -1,5 +1,5 @@
 ---
-description: Rank what is WRONG with code that already exists, across eight engineering axes at once. Triggers — 'are we ready for 10x traffic', 'what blocks us at 100K RPS', 'pre-launch hardening sweep', 'audit the orders module for SOLID + perf + security', 'senior-engineer assessment for stakeholders' (--assess). Do NOT trigger on single-axis asks; security-only is /security-audit, perf-only /perf-audit, DB-only /db-audit, design or a11y /design-review. Not code quality with no security or scale lens (/optimize), not capability that was never built (/roadmap).
+description: Rank what is WRONG with code that already exists, across eight engineering axes at once. Triggers — 'are we ready for 10x traffic', 'what blocks us at 100K RPS', 'pre-launch hardening sweep', 'audit the orders module for SOLID + perf + security', 'senior-engineer assessment for stakeholders' (--assess). Do NOT trigger on single-axis asks; security-only is /security-audit, perf-only /perf-audit, DB-only /db-audit, AI/LLM-only /ai-audit, design or a11y /design-review. Not code quality with no security or scale lens (/optimize), not capability that was never built (/roadmap).
 compatibility: Requires PROJECT_KIND resolvable from anchors (every subtree in a polyglot monorepo) and _extracted-idioms.md or codebase-profile.md populated. No language-specific tooling needed at audit time — deeper stack-specific passes such as SAST or a heap profiler are emitted as paste-ready follow-up commands, not run here. Capacity-headroom numbers stay estimates unless ai/observability.md declares current RPS, vitals, or SLOs.
 kind: command
 pack: orchestration
@@ -735,6 +735,7 @@ User sees the result, not the policing.
 - `/design-system <feature>` — system-design doc (cross-service / data-ownership / consistency).
 - `/audit-distributed-tx` — distributed transaction review (saga, 2PC, outbox).
 - `/cost-audit` — infra cost + capacity tier.
+- `/ai-audit` — LLM/AI surface only (eval coverage, prompt, retrieval, ANN index, agent budgets, gateway cost).
 - `/threat-model` — security threat model.
 - `architectural-diagnosis` skill — layer-violation / god-module detection.
 - `n-plus-one-scan` skill — N+1 hunt.

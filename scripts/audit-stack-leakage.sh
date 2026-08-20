@@ -60,7 +60,7 @@ is_universal_path() {
 
 is_pack_path() {
   local p="$1"
-  [[ "$p" =~ ^templates/packs/(frontend|backend|mobile|database|ui-ux|business|security|performance|observability|infrastructure|distributed-systems|devops|learning|testing|documentation)/ ]] && return 0
+  [[ "$p" =~ ^templates/packs/(frontend|backend|mobile|database|ui-ux|business|security|performance|observability|infrastructure|distributed-systems|devops|learning|testing|documentation|data-engineering|finops|product|ai-engineering|algorithms)/ ]] && return 0
   return 1
 }
 

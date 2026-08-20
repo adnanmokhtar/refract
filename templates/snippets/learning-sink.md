@@ -1,6 +1,6 @@
 ---
 purpose: The ONE canonical learning sink set — the 8 append-only raw sinks `/learn-from-task` writes and `knowledge-curator` promotes from. Every consumer links here instead of restating the table, so the producer and the promoter can never silently diverge on WHERE an observation lands or WHAT it graduates to.
-imported-by: commands/learn-from-task.md (root) + templates/packs/learning/commands/learn-from-task.md (pack mirror) + templates/packs/learning/agents/knowledge-curator.md (canonical curator) + templates/repo-baseline/.claude/agents/knowledge-curator.md (installed curator).
+imported-by: templates/packs/learning/commands/learn-from-task.md (the command; pack-scoped, there is no root commands/learn-from-task.md — verify-global-scope keeps pack commands out of the global surface) + templates/packs/learning/agents/knowledge-curator.md (canonical curator) + templates/repo-baseline/.claude/agents/knowledge-curator.md (installed curator).
 ---
 
 # Canonical learning sink set (shared, single source of truth)
@@ -30,6 +30,15 @@ threshold. The two writers never diverge on WHERE things go because they share t
 picks it up on the normal promotion path. `/eval` never writes any other sink and never promotes;
 its own recorded outcome is `ai/evals/_scorecard.md` (append-only run history), which is NOT part
 of this sink set — it is the regression record, not a promotion source.
+
+## Reading the sinks back
+
+Since learning pack v1.4.0 these files are also **indexed for retrieval**: `/recall <query>` (and
+the opt-in `recall-inject.sh` hook) run BM25 over this same set plus the formal layer and return
+ranked `path:line` pointers. That adds **no sink and no store** — the index is a derived cache at
+`.claude/_memory-index.json`, gitignored and rebuilt from these files, and the table above is
+unchanged. Retrieval is what makes the curator's archival budgets affordable: with `ai/audits/**`
+indexed, "archived" stops meaning "gone".
 
 If you change a sink here, it changes everywhere this snippet is linked (see `imported-by:`
 above) — there is no second copy to keep in sync.

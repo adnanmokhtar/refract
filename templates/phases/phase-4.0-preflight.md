@@ -269,7 +269,7 @@ Warnings:
 
 #### 4.0.6 Minimum-artifacts table (referenced by Phase 4.2.c + Phase 5.1)
 
-**Single source of truth**: see § "Minimum artifacts per LOAD-BEARING track" later in this file (line ~384). Track keys there match the registry at `templates/packs/_registry.md` (one row per pack folder under `templates/packs/`).
+**Single source of truth**: see § "Minimum artifacts per LOAD-BEARING track" later in this file. Track keys there are drawn from the registry at `templates/packs/_registry.md`, which carries one row per pack folder under `templates/packs/`. **Parity is hand-maintained and unenforced** — no script cross-checks the floor table against the registry or the folder list, so a new pack can ship with a registry row and no floor row (Phase 2.6.b then has nothing to check it against). `align` and `algorithms` are opt-in-only tracks: they carry floors below, but are never auto-selected.
 
 **Minimal mode (`--minimal`)**: floors are replaced by the track's `_essentials.md` manifest counts. Anything outside the focused subset is `n/a`.
 
@@ -378,6 +378,8 @@ ai/references/tool-parity.md
   ai/dynamic/.review-queue
   ai/dynamic/changelog.md
   ai/dynamic/session-log.md
+  # Derived retrieval cache — rebuilt from ai/ on a size+mtime fingerprint mismatch.
+  .claude/_memory-index.json
   # Transient setup-project snapshots + per-engineer working artifacts — never commit.
   .claude/backups/
   .claude/plans/*.md
@@ -385,7 +387,7 @@ ai/references/tool-parity.md
   .claude/plans/_archive/
   .claude/_telemetry.jsonl
   ```
-  Rationale: these are local learning/session state + transient snapshots, not shared history. A team that deliberately wants a committed changelog must instead move the post-commit append to a pre-commit/staged step (a post-commit write to a tracked file is always a dirty-tree loop); a team that wants plans tracked flips the `.claude/plans/*.md` line — record either decision in the ledger.
+  Rationale: these are local learning/session state + transient snapshots, not shared history. `.claude/_memory-index.json` is the `/recall` index — a *derived cache* over the `ai/` tree, not a store: committing it would add a drift surface with nothing to gain, since it rebuilds from the source files it points at (same argument `docs/RETRIEVAL.md` already makes for not committing the pack catalog). A team that deliberately wants a committed changelog must instead move the post-commit append to a pre-commit/staged step (a post-commit write to a tracked file is always a dirty-tree loop); a team that wants plans tracked flips the `.claude/plans/*.md` line — record either decision in the ledger.
 - **Pre-fill `.claude/settings.json` permission allowlist** with detected safe project commands so users don't see permission prompts on day one. Detect from `package.json` scripts / `Makefile` / `pyproject.toml` / `Cargo.toml`:
   ```json
   {
@@ -501,6 +503,12 @@ This table is a quality floor for tracks that ARE generated. It is NEVER applied
 | ui-ux | 4 | 1 | 3 | 1 | 5 |
 | learning | 3 | 4 | 1 | 0 | 0 |
 | migration | 2 | 2 | 3 | 1 | 3 |
+| data-engineering | 3 | 2 | 2 | 1 | 3 |
+| finops | 2 | 2 | 1 | 1 | 2 |
+| product | 3 | 2 | 1 | 1 | 2 |
+| ai-engineering | 2 | 2 | 3 | 1 | 5 |
+| algorithms | 1 | 2 | 1 | 1 | 1 |
+| align | 3 | 10 | 2 | 1 | 1 |
 
 **What changed (vs. older versions of this file)**: this table used to be applied to ALL listed tracks unconditionally — that's the "force-fit one shape" failure mode the user reported. It is now scoped to load-bearing + always-on only, which is what makes setup adaptive instead of prescriptive.
 

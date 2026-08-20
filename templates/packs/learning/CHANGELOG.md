@@ -18,6 +18,40 @@ Headings carry the `released` date recorded for that version. A few early versio
 described in the `summary` narrative and never had a dated `changelog` block — those headings have
 no date, which is the honest state of the record rather than an omission.
 
+## 1.4.0 — 2026-08-20
+
+- NEW `commands/recall.md`: retrieval over the memory this pack already writes. `/recall <query>`
+  searches the project's existing `ai/` tree — the `ai/dynamic/` sinks, `ai/failures/_index.md`,
+  ADRs, patterns, runbooks, directive bullets in `conventions.md`, and the `ai/audits/**`
+  archives — and returns ranked POINTERS (`path:line`). Read-only. Flags `--kind` / `--owner` /
+  `--since` / `--limit` (hard cap 25) / `--format=text|json|paths`.
+- **No new store, and no new sink.** `templates/snippets/learning-sink.md` is unchanged, every
+  promotion threshold is unchanged, and `/learn-from-task` and `knowledge-curator` are untouched.
+  The gap this closes was never capture — it was that nothing could FIND what was captured.
+  `ai/failures/_index.md` is an append-only don't-retry catalog whose entire value lands at the
+  moment someone is about to retry the failed approach, and there was no recall path to it.
+- NEW `scripts/gen-memory-catalog.py`: a second row producer for the existing BM25 engine, same
+  9 columns and same module interface as `gen-pack-catalog.py`. Deliberately not indexed:
+  `ai/dynamic/changelog.md` (a one-line activity log), the `.review-queue`, README/_template
+  scaffolds, fenced format blocks, and any heading still carrying a `<placeholder>`.
+- `scripts/pack-search.py`: one new argument, `--catalog=pack|memory`. The default path is
+  unchanged — same tokenizer, same `k1`/`b`, same field weights, same synonyms, same hard cap,
+  same footer — so the pack corpus keeps its row floors. Memory caches to
+  `.claude/_memory-index.json` (gitignored, fingerprinted on size+mtime, never committed).
+- NEW `templates/repo-baseline/.claude/hooks/recall-inject.sh` (UserPromptSubmit) — searches the
+  same corpus with the user's prompt and injects the top 3 pointers as `additionalContext`, so
+  the failure catalog surfaces itself before the failed approach is retried. **Opt-in**:
+  inert until `touch .claude/.recall`. Context-only, always exits 0, never blocks, deduped per
+  row per session, silent no-op without `jq` or `python3`.
+- `update-session-log.sh` (Stop): additionally records the harness's `session_id` +
+  `transcript_path` as POINTERS at the verbatim transcript the host already keeps. The transcript
+  is never copied into the repo — a hook write is not an Edit, so `secret-scan.sh` never sees it.
+  The first prompt (≤120 chars) is CONTENT and is recorded only under the `.recall` opt-in.
+- Measured 2026-08-20 on three real consuming project corpora (106 / 246 / 294 rows): cold
+  rebuild 17-45 ms, warm cache 2-4 ms, warm end-to-end 30-50 ms. No claim that recall improves
+  outcomes — earning that means seeding `/eval` cases whose `guards:` cite memory rows and
+  comparing `_scorecard.md` runs with the hook on and off. Until then: UNKNOWN.
+
 ## 1.3.2 — 2026-07-12
 
 **Release narrative** — migrated verbatim from the `_version.json` `summary` field:

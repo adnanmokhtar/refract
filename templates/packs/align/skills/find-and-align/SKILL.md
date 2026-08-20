@@ -112,6 +112,7 @@ Plus side effects:
 4. For `inline`: re-grep call sites; if 2+ found, the row was mis-classified; halt and route to `/refactor`.
 5. For `remove` on exported symbol: re-grep inbound imports; if any found, the row was mis-classified; halt.
 6. For functional verbs that add lines: confirm `idiom_cited` resolves AND covers the planned added lines.
+7. **Dispatch `@align-idiom-auditor`.** Steps 3, 5 and 6 above are its checks; the agent is the artifact that owns them, so the same judgment is applied whether this loop runs under `/align-phase`, `/align-fast`, or `/align-recheck`. A `HALT — idiom inventory gap` here stops the row before any edit exists — the cheapest place in the loop to catch an invention. Where agent dispatch is unavailable, run 1–6 inline; they are `align-discipline.md` audit halts #6, #9 and #10.
 
 ### Step 3: FIX — apply the closure-verb edit
 
@@ -161,6 +162,8 @@ Constraints:
 2. Scoped tests (`<test-runner> <touched-files>`). Any failure = halt + revert.
 3. Re-detect at evidence lines (re-run the detector that surfaced this row, scoped to row's `scope`). Detector MUST return 0 hits at cited evidence lines. Any remaining hit = the fix didn't close the fingerprint; halt + revert.
 4. Coverage (scoped). Coverage % MUST NOT drop. Security rows: coverage may shift; absolute % must not drop.
+
+5. **Dispatch `@align-idiom-auditor` a second time**, now against the actual diff. DECIDE checked the plan; this checks what landed — no new public symbol unnamed in the oracle, every added functional block genuinely calling the cited idiom (a citation in `notes` with no matching import or call is a paper citation and HALTs), and no oracle file touched in this commit. A HALT here means revert, not amend.
 
 **Class-specific:**
 
@@ -246,6 +249,10 @@ Constraints:
 
 ## Related
 
+### Agents
+- `@align-idiom-auditor` — dispatched at DECIDE (step 2) and VERIFY (step 4); owns the invention boundary this loop is most likely to breach.
+
+### Commands and siblings
 - `/align-phase` — primary dispatcher.
 - `/align-fast` — also dispatches (per row in parallel waves).
 - `detect-drift` skill — the detector half (sibling).

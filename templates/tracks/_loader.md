@@ -92,6 +92,6 @@ Stack-specific MUST / MUST-NOT rules with RATIONALE. Follows the format in `temp
 - `templates/packs/<name>/` — current pack bodies. M2 leaves them in place; tracks read from here for now. M3 may unify the directory layouts.
 - `templates/domains/<signal>/` — technical signals (webhook, payment, real-time, etc.). NOT tracks. Cross-cutting; can be triggered alongside any track.
 - `templates/business-domains/<domain>/` — business domains (saas-b2b, fintech, healthcare, etc.). NOT tracks. Layered on top of any track.
-- `templates/regulatory-overlays/<reg>/` — compliance overlays (GDPR, HIPAA). NOT tracks. Layered on top of business domains.
+- `templates/regulatory-overlays/<reg>.md` — compliance overlays, one flat file per regime (GDPR, HIPAA, PCI-DSS, SOC2). NOT tracks. Layered on top of business domains.
 
 These four axes (track, signal, business-domain, regulatory-overlay) compose. Tracks answer "what stack?", signals answer "what cross-cutting tech?", business-domains answer "what is the product?", overlays answer "what regulation?".

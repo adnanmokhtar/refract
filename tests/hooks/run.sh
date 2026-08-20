@@ -74,6 +74,99 @@ run_inject() {
 }
 run_inject
 
+# recall-inject is context-only (always exit 0) AND opt-in, so an exit-code assertion
+# proves nothing. What is asserted instead: inert without the `.recall` marker; injects a
+# seeded memory row with it; silent on an unrelated prompt, on a too-short prompt, and when
+# the score floor is raised above every hit. The corpus is built in a scratch project, so
+# nothing in this repo is read or written. BM25 idf collapses on a tiny corpus, so the match
+# case pins CLAUDE_RECALL_MIN_SCORE — the fixture tests the pipeline, not the tuning.
+seed_recall_project() {
+  local proj="$1"
+  mkdir -p "$proj/ai/failures" "$proj/ai/dynamic" "$proj/.claude/scripts"
+  cp "$REPO_ROOT/scripts/pack-search.py" "$REPO_ROOT/scripts/gen-memory-catalog.py" \
+     "$proj/.claude/scripts/" 2>/dev/null || return 1
+  cat > "$proj/ai/failures/_index.md" <<'FIXEOF'
+# Failure catalog (don't-retry index)
+
+## Catalog
+
+### 2026-08-20 — Redis-backed cart cache keyed by user id
+What was tried: caching the assembled cart in Redis under a user-id key for checkout.
+Why it failed: the key omitted the tenant prefix and leaked across tenants in staging.
+What to do instead: prefix every cache key with the tenant id from request context.
+Status: ACTIVE (still a trap)
+
+### 2026-07-02 — Bulk insert through the ORM in one transaction
+What was tried: a single transaction for a forty-thousand row import.
+Why it failed: locks were held long enough to flap the deploy health check.
+What to do instead: chunk the import and checkpoint between chunks.
+Status: ACTIVE (still a trap)
+FIXEOF
+  cat > "$proj/ai/dynamic/learnings.md" <<'FIXEOF'
+# Learnings
+
+## Log
+
+### 2026-06-20 — Checkout latency traced to the cart repository
+Observation: the checkout endpoint issues one query per cart line because lines lazy-load.
+Status: RAW
+
+### 2026-05-11 — Search endpoint pagination is offset based
+Observation: deep pages scan the whole result set; keyset pagination was proposed.
+Status: RAW
+
+### 2026-04-02 — Background jobs share the request logger
+Observation: job logs carry a request id that no longer exists.
+Status: RAW
+
+### 2026-03-18 — Feature flags are read once at boot
+Observation: a flag flip needs a restart, which surprised two engineers.
+Status: RAW
+FIXEOF
+  return 0
+}
+
+run_recall() {
+  local hook="$HOOKS/recall-inject.sh" dir="$CASES/recall-inject"
+  [ -d "$dir" ] || return 0
+  if ! command -v jq >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+    echo "SKIP  recall-inject (needs jq + python3; the hook is a silent no-op without them)"
+    return 0
+  fi
+  local proj; proj=$(mktemp -d)
+  seed_recall_project "$proj" || { echo "SKIP  recall-inject (could not seed fixture project)"; return 0; }
+
+  local f base out want_empty score_env
+  for f in "$dir"/*.json; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f")
+    want_empty=1
+    score_env="1.0"
+    case "$base" in
+      *nomarker*)  rm -f "$proj/.claude/.recall" ;;
+      *highfloor*) touch "$proj/.claude/.recall"; score_env="999" ;;
+      *short*|*nomatch*) touch "$proj/.claude/.recall" ;;
+      *match*)     touch "$proj/.claude/.recall"; want_empty=0 ;;
+      *) echo "SKIP  recall-inject/$base (filename declares no expectation)"; continue ;;
+    esac
+    out=$( cd "$proj" && CLAUDE_RECALL_MIN_SCORE="$score_env" bash "$hook" < "$f" 2>/dev/null )
+    if [ "$want_empty" = 1 ]; then
+      if [ -z "$out" ]; then pass=$((pass+1)); else
+        fail=$((fail+1)); echo "FAIL  recall-inject/$base — expected no injection, got output"; fi
+    else
+      if printf '%s' "$out" | grep -q 'ai/failures/_index.md' \
+         && printf '%s' "$out" | grep -q '"hookEventName":"UserPromptSubmit"'; then
+        pass=$((pass+1))
+      else
+        fail=$((fail+1)); echo "FAIL  recall-inject/$base — expected a failure-catalog pointer, got: ${out:0:120}"
+      fi
+    fi
+  done
+  rm -rf "$proj"
+  rm -rf "${TMPDIR:-/tmp}/claude-recall/recall-fixture-"*
+}
+run_recall
+
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

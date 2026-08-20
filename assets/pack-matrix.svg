@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="812" viewBox="0 0 1040 812" role="img" aria-label="Refract pack matrix: twenty role-based packs and the agents, skills, commands and rules each contributes">
-<title>Refract pack matrix: twenty role-based packs and the agents, skills, commands and rules each contributes</title>
-<desc>File counts measured on disk for each pack's agents, skills, commands and rules directories. Totals: 69 agents, 98 skills, 118 pack commands, 25 rules.</desc>
-<rect x="0" y="0" width="1040" height="812" rx="10" fill="#f7f9fb" stroke="#d5dce5" stroke-width="1"/>
-<text x="28" y="46" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="21" fill="#161b22" font-weight="700">Twenty role-based packs</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="890" viewBox="0 0 1040 890" role="img" aria-label="Refract pack matrix: twenty-three role-based packs and the agents, skills, commands and rules each contributes">
+<title>Refract pack matrix: twenty-three role-based packs and the agents, skills, commands and rules each contributes</title>
+<desc>File counts measured on disk for each pack's agents, skills, commands and rules. Totals: 86 agents, 114 skills, 133 pack commands, 28 rules.</desc>
+<rect x="0" y="0" width="1040" height="890" rx="10" fill="#f7f9fb" stroke="#d5dce5" stroke-width="1"/>
+<text x="28" y="46" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="21" fill="#161b22" font-weight="700">Twenty-three role-based packs</text>
 <text x="28" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="12.5" fill="#6b7684" font-weight="400">Work is organised by role, not by framework — one api-architect works for every backend. /setup-project selects packs</text>
 <text x="28" y="88" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="12.5" fill="#6b7684" font-weight="400">from detection signals; four are applied to every project regardless.</text>
 <text x="28" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" letter-spacing="1.1">PACK</text>
@@ -14,19 +14,19 @@
 <text x="568" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" letter-spacing="1.1">WHAT IT COVERS</text>
 <line x1="28" y1="126" x2="1012" y2="126" stroke="#d5dce5" stroke-width="1.2"/>
 <text x="28" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">ai-engineering</text>
-<text x="268" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<text x="268" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="274" y="141" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="141" width="6" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="274" y="141" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
 <rect x="358" y="141" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="141" width="3" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="358" y="141" width="15" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="442" y="141" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="141" width="2.1" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="141" width="6.3" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="141" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="141" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="149" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">LLM and AI features — RAG, evals, prompts, agents, gateway</text>
+<text x="568" y="149" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Building LLM/AI features well — RAG, evals, prompts, agents, LLM gateway…</text>
 <rect x="22" y="158" width="996" height="26" rx="0" fill="#f2f5f8"/>
 <text x="28" y="175" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">algorithms</text>
 <text x="268" y="175" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
@@ -41,10 +41,11 @@
 <text x="520" y="175" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="167" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="167" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="175" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Algorithm design + complexity analysis</text>
+<text x="568" y="175" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Algorithm design + complexity analysis — pick the structure for the input…</text>
 <text x="28" y="201" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">align</text>
-<text x="268" y="201" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#98a2b0" font-weight="600" text-anchor="end">0</text>
+<text x="268" y="201" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="274" y="193" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="274" y="193" width="24" height="5" rx="2.5" fill="#1a5fb4"/>
 <text x="352" y="201" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="358" y="193" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="358" y="193" width="6" height="5" rx="2.5" fill="#0f6b52"/>
@@ -54,7 +55,7 @@
 <text x="520" y="201" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="193" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="193" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="201" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Codebase quality gate — drift, dead code, duplicates, SOLID</text>
+<text x="568" y="201" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Codebase quality gate — 12 universal detectors against the gold-standard…</text>
 <rect x="22" y="210" width="996" height="26" rx="0" fill="#f2f5f8"/>
 <text x="28" y="227" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">backend</text>
 <text x="268" y="227" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
@@ -83,7 +84,7 @@
 <text x="520" y="253" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="245" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="245" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="253" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Business-logic depth — entities, flows, rules</text>
+<text x="568" y="253" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Business-logic depth (entities, flows, rules)</text>
 <rect x="22" y="262" width="996" height="26" rx="0" fill="#f2f5f8"/>
 <text x="28" y="279" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">code-quality</text>
 <circle cx="176" cy="275" r="3.5" fill="#0f6b52"/>
@@ -98,224 +99,267 @@
 <rect x="442" y="271" width="12.6" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="279" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="526" y="271" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="526" y="271" width="14.6667" height="5" rx="2.5" fill="#8a5a00"/>
+<rect x="526" y="271" width="14.66667" height="5" rx="2.5" fill="#8a5a00"/>
 <text x="568" y="279" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Linters, formatters, code-review patterns</text>
-<text x="28" y="305" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">database</text>
+<text x="28" y="305" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">data-engineering</text>
 <text x="268" y="305" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="274" y="297" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="297" width="24" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="305" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<text x="352" y="305" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="358" y="297" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="297" width="9" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="297" width="12" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="305" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="297" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="297" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="305" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="297" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="297" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="305" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Schema, queries, migrations</text>
+<text x="568" y="305" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Warehouse + analytics engineering — declared grain, layered…</text>
 <rect x="22" y="314" width="996" height="26" rx="0" fill="#f2f5f8"/>
-<text x="28" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">devops</text>
-<text x="268" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<text x="28" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">database</text>
+<text x="268" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="274" y="323" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="323" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<rect x="274" y="323" width="24" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="358" y="323" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="323" width="15" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="323" width="9" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="323" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="323" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="323" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="323" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="331" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">CI/CD, deployment, infrastructure-as-code</text>
-<text x="28" y="357" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">distributed-systems</text>
-<text x="268" y="357" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<text x="568" y="331" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Schema, queries, migrations</text>
+<text x="28" y="357" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">devops</text>
+<text x="268" y="357" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="274" y="349" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="349" width="30" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="357" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
+<rect x="274" y="349" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="357" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
 <rect x="358" y="349" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="349" width="6" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="349" width="15" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="357" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="349" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="349" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="357" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="349" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="349" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="357" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Service boundaries, resilience</text>
+<text x="568" y="357" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">CI/CD, deployment, infra-as-code</text>
 <rect x="22" y="366" width="996" height="26" rx="0" fill="#f2f5f8"/>
-<text x="28" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">documentation</text>
-<circle cx="176" cy="379" r="3.5" fill="#0f6b52"/>
-<text x="268" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
+<text x="28" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">distributed-systems</text>
+<text x="268" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
 <rect x="274" y="375" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="375" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<rect x="274" y="375" width="30" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="358" y="375" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="375" width="15" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<rect x="358" y="375" width="6" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="375" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="375" width="6.3" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="375" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="375" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="375" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="383" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Docs structure, ADR conventions, runbooks</text>
-<text x="28" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">frontend</text>
-<text x="268" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">7</text>
+<text x="568" y="383" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Service boundaries, resilience</text>
+<text x="28" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">documentation</text>
+<circle cx="176" cy="405" r="3.5" fill="#0f6b52"/>
+<text x="268" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="274" y="401" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="401" width="42" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">14</text>
+<rect x="274" y="401" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
 <rect x="358" y="401" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="401" width="42" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">7</text>
+<rect x="358" y="401" width="15" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="442" y="401" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="401" width="14.7" height="5" rx="2.5" fill="#5b3d99"/>
-<text x="520" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<rect x="442" y="401" width="6.3" height="5" rx="2.5" fill="#5b3d99"/>
+<text x="520" y="409" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="401" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="526" y="401" width="22" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="409" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Client-side application work</text>
+<rect x="526" y="401" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
+<text x="568" y="409" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Docs structure, ADR conventions, runbooks</text>
 <rect x="22" y="418" width="996" height="26" rx="0" fill="#f2f5f8"/>
-<text x="28" y="435" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">infrastructure</text>
+<text x="28" y="435" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">finops</text>
 <text x="268" y="435" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="274" y="427" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="427" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="435" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<text x="352" y="435" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="358" y="427" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="427" width="15" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="427" width="12" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="435" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="427" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="427" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="435" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="427" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="427" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="435" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Cloud and on-prem infrastructure patterns</text>
-<text x="28" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">learning</text>
-<circle cx="176" cy="457" r="3.5" fill="#0f6b52"/>
-<text x="268" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<text x="568" y="435" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Cost as a reviewed engineering dimension — unit economics, spend…</text>
+<text x="28" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">frontend</text>
+<text x="268" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">7</text>
 <rect x="274" y="453" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="453" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">12</text>
+<rect x="274" y="453" width="42" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">14</text>
 <rect x="358" y="453" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="453" width="36" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="453" width="42" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">7</text>
 <rect x="442" y="453" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="453" width="14.7" height="5" rx="2.5" fill="#5b3d99"/>
-<text x="520" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#98a2b0" font-weight="600" text-anchor="end">0</text>
+<text x="520" y="461" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="526" y="453" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
-<text x="568" y="461" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Continuous-learning loop — corrections, failure catalog</text>
+<rect x="526" y="453" width="22" height="5" rx="2.5" fill="#8a5a00"/>
+<text x="568" y="461" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Client-side application work</text>
 <rect x="22" y="470" width="996" height="26" rx="0" fill="#f2f5f8"/>
-<text x="28" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">migration</text>
-<text x="268" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
+<text x="28" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">infrastructure</text>
+<text x="268" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="274" y="479" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="479" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="274" y="479" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
 <rect x="358" y="479" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="479" width="12" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">20</text>
+<rect x="358" y="479" width="15" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="479" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="479" width="42" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="479" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="487" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="479" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="479" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="487" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Per-feature V1 to V2 port with parity guarantees</text>
-<text x="28" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">mobile</text>
-<text x="268" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
+<text x="568" y="487" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Cloud / on-prem infra patterns</text>
+<text x="28" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">learning</text>
+<circle cx="176" cy="509" r="3.5" fill="#0f6b52"/>
+<text x="268" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="274" y="505" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="505" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<rect x="274" y="505" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">12</text>
 <rect x="358" y="505" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="505" width="9" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="358" y="505" width="36" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">8</text>
 <rect x="442" y="505" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="505" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
-<text x="520" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
+<rect x="442" y="505" width="16.8" height="5" rx="2.5" fill="#5b3d99"/>
+<text x="520" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">0</text>
 <rect x="526" y="505" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="526" y="505" width="14.6667" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="513" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Mobile-specific patterns + release flow</text>
+<text x="568" y="513" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Continuous-learning loop (corrections, decisions-pending, failure catalog)</text>
 <rect x="22" y="522" width="996" height="26" rx="0" fill="#f2f5f8"/>
-<text x="28" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">observability</text>
-<text x="268" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<text x="28" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">migration</text>
+<text x="268" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="274" y="531" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="531" width="24" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<rect x="274" y="531" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="358" y="531" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="531" width="9" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="358" y="531" width="12" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">20</text>
 <rect x="442" y="531" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="531" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="531" width="42" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="539" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="531" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="531" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="539" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Logs, metrics, traces, alerts</text>
-<text x="28" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">performance</text>
+<text x="568" y="539" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Per-feature V1→V2 port with parity guarantees + migration-time perf uplift</text>
+<text x="28" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">mobile</text>
 <text x="268" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="274" y="557" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="557" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<text x="352" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="358" y="557" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="557" width="15" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<rect x="358" y="557" width="9" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="557" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="557" width="6.3" height="5" rx="2.5" fill="#5b3d99"/>
-<text x="520" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="442" y="557" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
+<text x="520" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="526" y="557" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="526" y="557" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="565" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Profiling, optimization patterns</text>
+<rect x="526" y="557" width="14.66667" height="5" rx="2.5" fill="#8a5a00"/>
+<text x="568" y="565" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Mobile-specific patterns + release flow</text>
 <rect x="22" y="574" width="996" height="26" rx="0" fill="#f2f5f8"/>
-<text x="28" y="591" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">security</text>
-<circle cx="176" cy="587" r="3.5" fill="#0f6b52"/>
-<text x="268" y="591" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">6</text>
+<text x="28" y="591" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">observability</text>
+<text x="268" y="591" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="274" y="583" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="583" width="36" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="591" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="274" y="583" width="24" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="591" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="358" y="583" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="583" width="12" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="583" width="9" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="591" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="583" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="583" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="591" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="583" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="583" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="591" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">OWASP-aligned rules, threat-model patterns</text>
-<text x="28" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">testing</text>
-<text x="268" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<text x="568" y="591" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Logs, metrics, traces, alerts</text>
+<text x="28" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">performance</text>
+<text x="268" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="274" y="609" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="609" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
+<rect x="274" y="609" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
 <text x="352" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
 <rect x="358" y="609" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="358" y="609" width="15" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<text x="436" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="442" y="609" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="609" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="609" width="6.3" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="609" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="609" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="617" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Unit / integration / e2e patterns + factories</text>
+<text x="568" y="617" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Profiling, optimization patterns</text>
 <rect x="22" y="626" width="996" height="26" rx="0" fill="#f2f5f8"/>
-<text x="28" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">ui-ux</text>
-<text x="268" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<text x="28" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">product</text>
+<text x="268" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="274" y="635" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="635" width="30" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<rect x="274" y="635" width="24" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="358" y="635" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="635" width="15" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">10</text>
+<rect x="358" y="635" width="12" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="635" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="635" width="21" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="635" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="643" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="635" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="635" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
-<text x="568" y="643" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Visual + interaction conventions</text>
-<line x1="28" y1="658" x2="1012" y2="658" stroke="#d5dce5" stroke-width="1.2"/>
-<text x="28" y="680" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="700">TOTAL</text>
-<text x="268" y="680" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">69</text>
-<text x="352" y="680" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">98</text>
-<text x="436" y="680" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">118</text>
-<text x="520" y="680" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">25</text>
-<text x="568" y="680" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">20 packs · 89 ai-patterns and 31 framework references not counted</text>
-<line x1="28" y1="710" x2="1012" y2="710" stroke="#d5dce5" stroke-width="1"/>
-<circle cx="31.5" cy="750" r="3.5" fill="#0f6b52"/>
-<text x="28" y="732" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">Counted 2026-08-20 with find templates/packs/&lt;pack&gt;/{agents,skills,commands,rules} -maxdepth 1 -name '*.md' -type f. Bars are scaled per column, not across columns.</text>
-<text x="42" y="749" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">Always applied — added to selected_tracks even when no detection signal fires: code-quality, documentation, learning, security.</text>
-<text x="28" y="766" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">The 15 global commands in commands/ belong to no pack: 118 pack commands + 14 global = 132. algorithms and align have no row in templates/packs/_registry.md;</text>
-<text x="28" y="783" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">their summaries here come from each pack's own _essentials.md rather than the registry.</text>
+<text x="568" y="643" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Decide what to build and why — evidence-labelled problem framing…</text>
+<text x="28" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">security</text>
+<circle cx="176" cy="665" r="3.5" fill="#0f6b52"/>
+<text x="268" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">6</text>
+<rect x="274" y="661" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="274" y="661" width="36" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="358" y="661" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="358" y="661" width="12" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="442" y="661" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="442" y="661" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
+<text x="520" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="526" y="661" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="526" y="661" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
+<text x="568" y="669" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">OWASP-aligned rules, threat-model patterns</text>
+<rect x="22" y="678" width="996" height="26" rx="0" fill="#f2f5f8"/>
+<text x="28" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">testing</text>
+<text x="268" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<rect x="274" y="687" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="274" y="687" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<rect x="358" y="687" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="358" y="687" width="15" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="442" y="687" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="442" y="687" width="8.4" height="5" rx="2.5" fill="#5b3d99"/>
+<text x="520" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="526" y="687" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="526" y="687" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
+<text x="568" y="695" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Unit / integration / e2e patterns + factories</text>
+<text x="28" y="721" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">ui-ux</text>
+<text x="268" y="721" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<rect x="274" y="713" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="274" y="713" width="30" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="721" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<rect x="358" y="713" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="358" y="713" width="15" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="721" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">10</text>
+<rect x="442" y="713" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="442" y="713" width="21" height="5" rx="2.5" fill="#5b3d99"/>
+<text x="520" y="721" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="526" y="713" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="526" y="713" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
+<text x="568" y="721" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Visual + interaction conventions</text>
+<line x1="28" y1="736" x2="1012" y2="736" stroke="#d5dce5" stroke-width="1.2"/>
+<text x="28" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="700">TOTAL</text>
+<text x="268" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">86</text>
+<text x="352" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">114</text>
+<text x="436" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">133</text>
+<text x="520" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">28</text>
+<text x="568" y="758" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">23 packs · 102 ai-patterns and 31 framework references not counted</text>
+<line x1="28" y1="788" x2="1012" y2="788" stroke="#d5dce5" stroke-width="1"/>
+<circle cx="31.5" cy="828" r="3.5" fill="#0f6b52"/>
+<text x="28" y="810" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">Generated by scripts/gen-pack-matrix.py — {agents,commands,rules}/*.md per pack; skills are skills/&lt;name&gt;/SKILL.md. Bars scale per column, not across columns.</text>
+<text x="42" y="827" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">Always applied — added to selected_tracks even when no detection signal fires: code-quality, documentation, learning, security.</text>
+<text x="28" y="844" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">The 15 global commands in commands/ belong to no pack: 133 pack + 15 global = 148. Domain and repo-baseline commands are counted in docs/CHEATSHEET.md,</text>
+<text x="28" y="861" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">not here. Always-applied flags and summaries come from templates/packs/_registry.md; a pack with no row falls back to its _essentials.md heading.</text>
 </svg>

@@ -55,6 +55,8 @@ Optional flags:
 
 ## Phase 2 — Organize (decompose the work)
 
+**Dispatch `@align-ledger-auditor` first.** Replanning on top of a drifted ledger re-phases fiction: a row marked `verified` with no commit keeps its phase number and is never revisited. The reconciliation runs before categorisation, and any drift it reports is resolved (or explicitly accepted in `notes`) before the new plan is written. Under `--include-drifted`, dispatch `@align-evidence-auditor` over the rows whose `idiom_cited` references a changed oracle entry — a citation that no longer resolves is a `REJECT`, and the row returns to `detected` rather than being re-phased as if it were still closable.
+
 Replan strategy:
 
 1. **Categorize ledger rows by status:**
@@ -150,6 +152,10 @@ Next: /align-phase 1   OR   /align-fast 1
 - **All re-phasable rows turn out to be archived-pre-existing** — surface "alignment complete; no work left in plan; consider running `/align-final`".
 
 ## Related
+
+### Agents
+- `.claude/agents/align-ledger-auditor.md` — reconciles the ledger before it is re-phased; replanning on drifted state re-phases fiction.
+- `.claude/agents/align-evidence-auditor.md` — dispatched under `--include-drifted` over rows whose `idiom_cited` no longer resolves.
 
 ### Sibling commands in align pack
 - `/align-scan` — produces the ledger (run with `--since=<commit>` to update incrementally).

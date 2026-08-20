@@ -187,6 +187,13 @@ These references are **convenience pointers for AI tools that support them**. Th
 
 ### For tools with command + agent + skill dispatch
 
+**Align's own agents — the four audit windows (1.9.0).** Detection is delegated to the packs that own each discipline (below); these four own the *verdicts*, split by when in a finding's life the audit happens:
+
+- `.claude/agents/align-evidence-auditor.md` — pre-fix. Audits a fresh scan's `detected` rows: evidence resolves at the pinned commit AND carries the claimed fingerprint, enumerations explicit, class matches signal, verb reachable without invention, tier floor met. Halts #1–#4, #11. Dispatched by `/align-scan` (Phase 6), `/align-recheck` (TRIAGE), `/align-replan --include-drifted`.
+- `.claude/agents/align-idiom-auditor.md` — per-fix. Decides whether one diff ENFORCED an existing idiom or INVENTED a new one; halts #6, #9, #10 plus the oracle-unmodified check. Dispatched by `find-and-align` at DECIDE and VERIFY, and therefore by every command that runs the loop.
+- `.claude/agents/align-gate-auditor.md` — post-phase. The 14-check matrix and the PASS/REFUSE verdict. Dispatched by `/align-gate`, `/align-fast`'s auto-gate, and `/align-final`.
+- `.claude/agents/align-ledger-auditor.md` — cross-phase. Ledger ↔ git ↔ halts ↔ impact ↔ plan ↔ gate-history reconciliation in both directions, plus state-machine legality and SLA thresholds. Dispatched by `/align-status`, `/align-final`, `/align-replan`.
+
 - `.claude/skills/detect-drift/SKILL.md` — drift-detection procedure (inlined above).
 - `.claude/skills/find-and-align/SKILL.md` — per-finding fix loop (inlined above).
 - `.claude/commands/align-scan.md` — Phase 0 entry point (scan + report).
@@ -206,7 +213,7 @@ These references are **convenience pointers for AI tools that support them**. Th
 - `code-quality/agents/dead-code-finder.md` — dispatched by `detect-drift` for the dead-code class.
 - `code-quality/agents/refactorer.md` — dispatched in detect-only mode for over-abstraction + SOLID classes.
 - `code-quality/agents/code-reviewer.md` — dispatched for clean-code class.
-- `code-quality/agents/performance-optimizer.md` (or per-pack equivalent) — dispatched for performance class.
+- `performance/agents/performance-optimizer.md` — dispatched for performance class. It lives in the **performance** pack; `code-quality/agents/performance-optimizer.md` was cited here through 1.8.2 and has never existed. Without the performance pack loaded, fall back to the project's profiler / query log — the row still requires a baseline in `notes`.
 - `code-quality/rules/quality-principles.md` — clean-code thresholds referenced by clean-code detector.
 - `code-quality/rules/engineering-principles.md` — SOLID principles + engineering rules referenced by SOLID + clean-code detectors.
 - `security/agents/security-auditor.md` — dispatched for security class.
@@ -228,11 +235,11 @@ These references are **convenience pointers for AI tools that support them**. Th
 
 ### Validator script
 
-- `scripts/validate-align-artifacts.sh` — validates evidence resolution, hand-wave-token absence, net-line non-positivity, test-coverage non-decreasing, scope-boundary, no-new-symbols, oracle-unmodified. Runnable from CI / pre-commit / any tool's hook system. Tool-agnostic.
+- `scripts/validate-align-artifacts.sh` — validates evidence resolution, hand-wave-token absence, closure-verb vocabulary, net-line non-positivity on structural rows, scope-boundary, no-new-symbols, security tier minimum, security assertion, perf baseline, idiom citation, oracle-unmodified. Runnable from CI / pre-commit / any tool's hook system. Tool-agnostic. **Not** in the script: ledger completeness, test-coverage tolerance, and frontend regressions — those three are agent-side, run by `@align-gate-auditor`, and labelled as such in its report.
 
 ### For rule-only tools (Aider, Codex, Gemini, partial: Cline, Windsurf)
 
-This rule **is** the surface. The 11 universal finding categories (6 structural + 5 functional), the 14 phase-exit checks, the 11 per-finding halts, the closure-verb vocabulary (5 structural + 16 functional), and the three procedures (scan / find-and-align / gate) are all inlined above. No skill / agent / command dispatch is required — follow the rule as a checklist.
+This rule **is** the surface. The 11 universal finding categories (6 structural + 5 functional), the 14 phase-exit checks, the 11 per-finding halts, the closure-verb vocabulary (5 structural + 16 functional), and the three procedures (scan / find-and-align / gate) are all inlined above. No skill / agent / command dispatch is required — follow the rule as a checklist. The four align agents added in 1.9.0 change nothing here: they are the checklist given an owner and a dispatch address, not new discipline. A rule-only tool that runs the halts inline reaches the same enforcement floor.
 
 ## Per-stack extensions
 

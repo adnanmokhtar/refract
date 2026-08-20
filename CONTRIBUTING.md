@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **14 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **17 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 14 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 17 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -80,12 +80,15 @@ for g in \
   scripts/lint-validator-parity.sh \
   scripts/verify-doc-sync.sh \
   scripts/verify-cheatsheet.sh \
+  scripts/verify-pack-matrix.sh \
   scripts/validate-pack-consistency.sh \
   scripts/lint-tool-parity.sh \
+  scripts/lint-overlay-catalog.sh \
   scripts/lint-track.sh \
   scripts/lint-decision-logs.sh \
   scripts/test-adapter-fixtures.sh \
-  scripts/verify-global-scope.sh ; do
+  scripts/verify-global-scope.sh \
+  scripts/test-delegate-relay.sh ; do
   bash "$g" >/dev/null 2>&1 && echo "PASS  $g" || echo "FAIL  $g"
 done
 ```
@@ -97,18 +100,21 @@ file and line; none of them require you to guess.
 |---|---|---|
 | `test-validators.sh` | A validator regressed to always-pass. Replays `tests/validators/<script>/{good,bad}/<case>/` mini-repos and asserts the exit code matches the folder's contract. | Fix the validator, or add the case you just legitimised. |
 | `tests/hooks/run.sh` | A security hook regressed to always-allow. 40 fixtures across `guard-destructive` (17), `pre-edit-guard` (11), `secret-scan` (7), `inject-path-rules` (5). Filename encodes the expected exit: `*block*` → 2, `*allow*` → 0. | Fix the hook. If the new behaviour is correct, add a fixture proving it. |
-| `check-rule-budget.sh` | The always-loaded rule set busting its token budget. Currently ~4,932 of 6,000 tokens. | Give your rule `paths:` frontmatter (path-scoped, exempt) or trim a foundational rule. |
+| `check-rule-budget.sh` | The always-loaded rule set busting its token budget. Currently ~4,943 of 6,000 tokens. | Give your rule `paths:` frontmatter (path-scoped, exempt) or trim a foundational rule. |
 | `audit-stack-leakage.sh` | Single-stack wording in universal docs — `commands/*.md`, `templates/phases/`, `templates/governance/`, the migration/align/code-quality packs, adapter `_*.md`. A stack token whose ±1-line window names only one stack is a FAIL there; in the other packs it is a WARN. Naming two frontends, two backends, or one of each passes. | Name several stacks, or move the framework-specific text into `references/` (skipped by design). |
 | `audit-command-dry.sh` | A command re-explaining SOLID / clean-code / the Phase 3 ALWAYS list instead of linking the shared source. | Point at `templates/governance/core-discipline.md` and `templates/snippets/phase-3-always-reads.md`. |
 | `lint-validator-parity.sh` | A doc citing a `check_*` validator in present tense that no script defines — a promise with no enforcement. | Implement it, or mark the citation `(planned)` / `(agent-side …)` / `not script-enforced`. Honest disclosure is exempt; silent fiction is not. |
 | `verify-doc-sync.sh` | An undocumented command, or a pack missing a sync file. See §5 — this is the one people trip over. | Document the command; add `_essentials.md` / `_topics.md` / `_version.json`. |
 | `verify-cheatsheet.sh` | `docs/CHEATSHEET.md` drifted from the command corpus. | `python3 scripts/gen-cheatsheet.py` — never hand-edit the file. |
+| `verify-pack-matrix.sh` | `assets/pack-matrix.svg` drifted from the pack corpus — a pack added, renamed or removed, or its agent/skill/command/rule counts changed. The SVG was hand-authored until it had silently trailed the tree by three packs. | `python3 scripts/gen-pack-matrix.py` — never hand-edit the file. |
 | `validate-pack-consistency.sh` | A pack manifest pointing at files that don't exist: a `_topics` `fallback:` that doesn't resolve, an `_essentials` entry with no artifact behind it, malformed `_version.json`. Artifacts with no `_topics` entry are a WARN. | Fix the manifest, not the gate. |
 | `lint-tool-parity.sh` | The 12-adapter matrix disagreeing across `tool-adapters/_registry.md`, `tool-adapters/README.md` and `repo-baseline/ai/references/tool-parity.md`. | Update all three. They are the same fact stated three times; that is the point. |
+| `lint-overlay-catalog.sh` | The regulatory-overlay catalog promising an overlay nobody wrote, an overlay file with no catalog row, a row that declares neither `[SHIPPED]` nor `[PLANNED]`, or a sibling-overlay citation that neither resolves nor discloses. | Ship the overlay, or mark the row `[PLANNED]`. A catalog is a promise; keep it one you kept. |
 | `lint-track.sh` | A `templates/tracks/<name>/` missing `detect.md` / `pack.md` / `conventions.md` / `meta.yaml`, or carrying an invalid signal kind, weight, or merge mode. | Follow `templates/tracks/_loader.md`. |
 | `lint-decision-logs.sh` | Spec drift in the Phase 4.6/4.7/4.8 decision-log format — an action token, a table column, a helper-function name, or the adapters' `hooks.json` event schema no longer documented where it is owned. Phase 4.8-DEEP's cost bound depends on those files staying parseable. | Update the live owner doc, not a copy. |
 | `test-adapter-fixtures.sh` | An adapter doc that cannot actually produce what the Phase 4.8.0 contract promises for it, or asymmetric drift between the adapter doc and its contract row. | Document the missing output path on both sides. |
 | `verify-global-scope.sh` | A pack command leaking into the global surface, or `sync-to-global.sh` sourcing from `~/.claude/commands` again. Checks [3] and [4] read live tool dirs and auto-skip in CI. | Keep pack commands in their pack. See §4. |
+| `test-delegate-relay.sh` | The relay dispatching into its own repo, or a committing implementer coming back as an empty diff that reads like a harmless no-op. 9 sandboxed cases / 55 assertions under `mktemp -d` with a throwaway `$HOME`. | Fix the relay, not the fixture — and never test it against a repo you care about. |
 
 **Not in CI, worth running anyway:**
 
@@ -117,16 +123,23 @@ bash scripts/test-refine-fixture.sh     # /setup-project --refine marker-safety 
 bash tests/setup-project/run.sh         # setup-project fixtures/snapshots
 bash scripts/dry-run-setup.sh           # what a /setup-project run would emit
 bash scripts/pack-coverage-scan.sh <target-repo>   # pack content vs a real target tree
+bash scripts/verify-readme-stats.sh     # README's "What's inside" figures vs disk
 ```
+
+`verify-readme-stats.sh` is the one gate that is **red on `main` today**, which is why it is not
+wired in: `README.md` still claims the counts it had before `data-engineering`, `finops` and
+`product` landed. Wiring it is a one-line addition to `quality-gates.yml` once the README block
+is corrected — run it with `--print` to get the corrected block. It is regression-pinned by
+`tests/validators/verify-readme-stats.sh/` in the meantime, so it cannot rot while it waits.
 
 ---
 
 ## 3. The architecture, in the order you'll need it
 
 ```
-commands/                   14 global commands. THE global surface — nothing else is.
+commands/                   15 global commands. THE global surface — nothing else is.
 templates/
-  packs/                    20 role-based tracks. Per-PROJECT, installed by /setup-project.
+  packs/                    23 role-based tracks. Per-PROJECT, installed by /setup-project.
   phases/                   /setup-project's execution flow, one file per phase.
   repo-baseline/            what every target repo gets: rules, hooks, settings, baseline commands.
   workspace-baseline/       multi-repo workspaces (dispatcher + cross-repo commands).
@@ -134,7 +147,7 @@ templates/
   tool-adapters/            one folder per supported tool + the registry/parity matrices.
   domains/                  technical signals (auth, payment, real-time, …).
   business-domains/         business knowledge.
-  regulatory-overlays/      GDPR · PCI-DSS · SOC 2.
+  regulatory-overlays/      GDPR · HIPAA · PCI-DSS · SOC 2.
   governance/               hard rules, core discipline. Cited, never duplicated.
   snippets/                 shared prose fragments commands @-import.
 docs/                       COMMANDS.md + REFERENCE.md are hand-written; CHEATSHEET.md is GENERATED.
@@ -175,10 +188,11 @@ premise is that unpinned promises drift.
 3. Optional `_examples/<name>.md` as the AUTHOR-mode structural fallback. If you skip it, the
    fallback chain (topic description → closest literal template) still produces a viable artifact.
    Half-filled `_examples/` is fine.
-4. Bump the pack's `_version.json` (minor for a new artifact) **and add the entry to the
-   `changelog` object inside that same file** — keyed by version, with `released` and a `changes`
-   array. Hard rule A27 says "`_version.json` + `CHANGELOG.md`", but no pack ships a separate
-   `CHANGELOG.md`; the embedded block is the shape in the tree, so follow it.
+4. Bump the pack's `_version.json` (minor for a new artifact) **and add a matching
+   `## <version>` section to the pack's `CHANGELOG.md`**. All 23 packs ship a separate
+   `CHANGELOG.md` and all 23 point at it with the string form `"changelog": "CHANGELOG.md"`;
+   the legacy in-JSON object is still honoured by `validate-pack-consistency.sh` but no pack
+   uses it, so do not introduce one. A version with no matching heading is a WARN (check 6).
 5. Read an existing agent first. The house contract is cite-or-halt: every BLOCKER/HIGH finding
    carries `<file:line>` plus an external authority (OWASP class, RFC section, CVE). Agents that
    hand-wave get merged and then quietly produce noise forever.
@@ -188,13 +202,35 @@ premise is that unpinned promises drift.
 1. `templates/packs/<name>/` with the three required files: `_version.json`, `_essentials.md`,
    `_topics.md`. Phase 4.0 preflight enforces their presence; `verify-doc-sync.sh` gate [1] and
    `validate-pack-consistency.sh` both fail without them.
-2. At least one of `agents/` `commands/` `skills/` `rules/` `ai-patterns/` `runbooks/`.
-3. Add detection signals to `templates/packs/_trigger-vocabulary.md`.
-4. Add a row to `templates/packs/_registry.md` — that table, not a hard-coded list, is what Phase 2
-   / 4.0 / 4.2 and Appendix B consult.
-5. If the pack should ship by default for a profile, update the Phase 4.0 minimums table in
-   `commands/setup-project.md`.
-6. `bash scripts/seed-versions.sh` to confirm the version file is well-formed.
+2. `CHANGELOG.md` with a `## <version>` heading matching `_version.json` (hard rule A27; WARN-only
+   in the script, but all 23 packs honour it).
+3. At least one of `agents/` `commands/` `skills/` `rules/` `ai-patterns/`. **Not `runbooks/`** —
+   `templates/packs/README.md` documents it, but 0 of 23 packs use one; do not start.
+4. Add any NEW trigger name your `_topics.md` uses to `templates/packs/_trigger-vocabulary.md`.
+   Reusing existing names needs no edit there.
+5. Add a row to `templates/packs/_registry.md` — that table, not a hard-coded list, is what Phase 2
+   / 4.0 / 4.2 and Appendix B consult. Folder↔row parity is hand-maintained; see that file's
+   § "Drift detection" for the one-line check.
+6. Add a floor row to the "Minimum artifacts per LOAD-BEARING track" table in
+   `templates/phases/phase-4.0-preflight.md` (**not** `commands/setup-project.md`, which is a thin
+   orchestrator and holds no track logic). Without a row, Phase 2.6.b has no floor to check.
+7. Add a detection block to `scripts/detect-tracks.sh`, or the pack is never auto-selected. Opt-in
+   packs (`align`, `algorithms`) deliberately have none — say so in the registry row rather than
+   leaving it ambiguous.
+8. Add the pack key to `is_pack_path()` in `scripts/audit-stack-leakage.sh`. A pack in neither
+   `is_pack_path()` nor `is_universal_path()` gets **zero** leakage scanning — silently, not as a
+   failure.
+9. If the pack ships commands: add each `/<name>` to `docs/COMMANDS.md`, then regenerate with
+   `python3 scripts/gen-cheatsheet.py`. `verify-doc-sync.sh` and `verify-cheatsheet.sh` are red
+   until you do.
+10. Update the track count in `docs/setup-project-cheatsheet.md` and `README.md`
+    (`lint-tool-parity.sh` polices the `<N> tracks` string in both), plus the untested-but-wrong
+    count strings in `CONTRIBUTING.md`, `.claude-plugin/{plugin,marketplace}.json`, and
+    `docs/RETRIEVAL.md`.
+11. Tool adapters need **nothing** unless the pack ships a discipline that generic per-adapter
+    translation would flatten — see `templates/tool-adapters/_registry.md` § "Maintaining pack
+    templates" for the four triggers.
+12. `bash scripts/seed-versions.sh` to confirm the version file is well-formed.
 
 Never rename a pack in place. Add the new key and mark the old `deprecated: true` with
 `replaced_by:` in its `_version.json`, so Phase 0.2 extract can still read older installs.
@@ -268,6 +304,40 @@ existing hooks all follow, and yours should too:
 4. Wire it into `.github/workflows/quality-gates.yml` **only once it is green** — and say in the
    step comment what drift it prevents. Every existing step does; that comment is how the next
    contributor knows whether the gate is still earning its slot.
+
+### Exercise the delegate relay
+
+`scripts/delegate-relay.sh` launches a *different* AI CLI against a real working tree. Exercising it
+therefore means letting an autonomous process write to a repo — so the repo has to be one you are
+willing to lose.
+
+**Never run it against this repository, and never against a repo whose history you care about.** It
+refuses a self-target by default (exit 6, `--allow-self` overrides), because the artifact directory
+is written *inside the target tree*: an implementer that commits there commits the relay's own
+brief, logs and shim along with your work. That is not hypothetical — it is why the guard exists.
+
+Build a throwaway repo and a stub implementer named after a real one:
+
+```bash
+SB="$(mktemp -d)"; export HOME="$SB/home"; mkdir -p "$SB/home" "$SB/bin" "$SB/repo"
+git -C "$SB/repo" init -q && printf 'seed\n' > "$SB/repo/file.txt"
+git -C "$SB/repo" add file.txt && git -C "$SB/repo" commit -qm seed
+
+printf '#!/bin/sh\ncase "$1" in --version) echo stub; exit 0;; esac\nprintf x > a.txt\n' > "$SB/bin/kimi"
+chmod +x "$SB/bin/kimi"
+
+PATH="$SB/bin:$PATH" bash scripts/delegate-relay.sh --implementer=kimi \
+  --repo="$SB/repo" --brief=<(echo "edit a.txt") --timeout=60
+```
+
+`kimi` is the cheapest stub target: its profile declares no read-only mode and no autonomy flag, so
+the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the run out of your real
+`~/.gitconfig` and CLI credentials.
+
+`scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
+repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 16 blocking gates,
+so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---
 
@@ -371,10 +441,10 @@ completely fine; a silently skipped one is not.
 ```markdown
 - [ ] I edited this repo, not `~/.claude/`. `./scripts/verify-sync.sh` is clean.
 - [ ] I read the neighbouring files in the directory I touched and matched their shape.
-- [ ] All 14 gates pass locally.
+- [ ] All 17 gates pass locally.
 - [ ] New/changed command → documented in `docs/COMMANDS.md` (or `docs/REFERENCE.md`).
 - [ ] Command corpus changed → re-ran `python3 scripts/gen-cheatsheet.py`.
-- [ ] Pack content changed → `_version.json` bumped + its embedded `changelog` object updated.
+- [ ] Pack content changed → `_version.json` bumped + a matching `## <version>` section added to that pack's `CHANGELOG.md`.
 - [ ] New pack artifact → registered in `_topics.md` (valid trigger from `_trigger-vocabulary.md`).
 - [ ] New rule → tier chosen deliberately; if always-loaded, `check-rule-budget.sh` still passes.
 - [ ] New hook or hook change → fixtures added under `tests/hooks/cases/`.

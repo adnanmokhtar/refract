@@ -9,6 +9,7 @@ Key question this answers: when I run the project in Cursor (or OpenCode, or Cli
 - **✅ native** — first-class support; tool runs the artifact the way Claude Code does.
 - **~ translated** — the artifact is re-expressed in the tool's rules/prompts so a user can invoke it (manual trigger; no auto-dispatch).
 - **❌ not possible** — fundamental capability gap; fallback documented below the table.
+- **❓ unrecorded** — the framework has not established this either way for this tool, and says so rather than guessing. Each `❓` cell in the coverage docs names what evidence would settle it. Read it as "do not rely on this yet", not as "❌".
 
 ## Parity matrix
 
@@ -22,7 +23,11 @@ Key question this answers: when I run the project in Cursor (or OpenCode, or Cli
 | **Skills** (scripted procedures) | ✅ | ✅ (`.opencode/skills/<name>/`) | ✅ (`.cursor/skills/<name>/` ≥ 2.3) | ❌ | ~ (as prompts) | ❌ (index file) | ❌ (index file) | ✅ (`.github/skills/<name>/`) | ❌ | ❌ | ✅ (`.kimi/skills/<name>/`) | ✅ (`.qwen/skills/<name>/`) |
 | **Hooks** (lifecycle shell scripts) | ✅ | ❌ | ✅ (`.cursor/hooks.json` ≥ 2.3) | ~ (lint-cmd, test-cmd) | ❌ | ❌ | ❌ | ~ (instructions advise) | ❌ | ❌ | ❌ | ❌ |
 | **Knowledge base** (`ai/` reference) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Memory **query** (`/recall` — you ask) | ✅ | ✅ (`agent: build`) | ✅ (`.cursor/skills/`) | ~ (human runs the command) | ❌ (no shell from a prompt) | ❓ (shell surface unrecorded) | ✅ (`.windsurf/workflows/`) | ✅ (`mode: agent`) | ✅ (`.agents/skills/`) | ✅ (`.gemini/commands/*.toml`) | ~ (`/skill:` loads as guidance) | ✅ (`.qwen/commands/`) |
+| Memory **injection** (arrives unasked) | ✅ `UserPromptSubmit` | ❓ (no prompt event named) | ❓ (`beforeSubmitPrompt` gate-only) | ❌ (post-edit slots only) | ❌ (no hooks at all) | ✅ `contextModification` | ❌ (block-or-log, no inject field) | ❌ (notification-only) | ✅ `additionalContext` | ❌ (no prompt-submit event) | ✅ (bare stdout) | ✅ `additionalContext` |
 | **Model routing** (non-default provider) | ✅ (via `ANTHROPIC_BASE_URL`) | ✅ (`opencode.json`) | ✅ (UI BYOK) | ✅ (LiteLLM) | ✅ (`models:`) | ✅ (UI) | ~ (hosted only) | ~ (hosted only) | ~ (via proxy) | ✅ (flags) | ✅ | ✅ |
+
+**The two memory rows are not derived from the `Hooks` row above — read them on their own.** `Hooks ✅` means the tool can fire a script and act on a **block / allow** decision. `recall-inject.sh` blocks nothing; its entire output is context, so the question is whether the tool reads a hook's output *back into the model's context* at prompt time. Those are different capabilities and they disagree per tool: Copilot's `userPromptSubmitted` fires and its output is discarded, Windsurf's Cascade hooks are block-or-log with no injection field, and Gemini has no prompt-submit event at all — while Cline can inject but its shell surface (needed for the query half) is unrecorded. Per-tool events, output envelopes, and what would settle each `❓`: `templates/tool-adapters/_memory-recall-coverage.md`. **Caveat on the `Hooks` row itself:** it predates the per-tool § Hooks sections now carried in each `templates/tool-adapters/<tool>/adapter.md` (each with its own source URL), which document native hook systems for several tools this row still marks `❌`. Where the two disagree, the adapter's § Hooks is the current record.
 
 **As of Apr 2026**, the matrix above promotes Commands / Skills / Hooks for Cursor (2.3+), OpenCode, Copilot (Agent Skills GA), Cline (workflows), Windsurf (workflows), and Continue (prompts) from `~ translated` to `✅ native`. Older versions of those tools may not have these primitives — `setup-project --refresh --tools=<name>` re-emits in the current native shape; keep legacy artifacts as harmless fallbacks until the user runs `--refresh`.
 
@@ -90,6 +95,7 @@ Translated (no native lifecycle):
 | `PreToolUse` (block edits to .env) | `.gitignore` + explicit rule + (Copilot) `applyTo: [".env*"]` advise rule |
 | `SessionStart` (briefing) | Always-apply rule saying "read `ai/status.md` first" |
 | `Stop` (session log) | Manual: ask user to periodically append to `ai/dynamic/session-log.md` |
+| `UserPromptSubmit` (inject project memory) | **No true fallback — the query half is the coverage.** Run `/recall <query>` (or the engine directly) when you are about to start work in an area this project has touched before. A `sessionStart` briefing is *not* a substitute: it fires before any prompt exists, so it cannot be relevant to a prompt nobody has typed yet — ship it labelled as one-shot, or not at all. |
 
 **Important**: hooks are defense-in-depth automation. Replacing with manual discipline means the guardrail is softer. Projects that treat hook behavior as critical (e.g., never-commit-secrets) should enforce via git hooks + CI, not rely on the driver.
 

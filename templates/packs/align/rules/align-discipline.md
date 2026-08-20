@@ -196,8 +196,10 @@ The named catalogue with fingerprints and fixes: `.claude/references/align-disci
 
 ## References
 
+**Align's own agents (1.9.0)** — `.claude/agents/align-{evidence,idiom,gate,ledger}-auditor.md`. Four audit windows over a finding's life: scan output, one diff, one phase, all state. They own the halts this rule defines; detection stays with the packs that own each discipline (`code-quality`, `security`, `performance`, `frontend`, `ui-ux`, `mobile`).
+
 **Companion reference files (ship with this rule in every adapter bundle):**
 - `.claude/references/align-discipline-procedures.md` — realism guards, per-stack extensions, tool-agnostic procedure, review checklist, enforcement matrix.
 - `.claude/references/align-discipline-catalogue.md` — worked examples, anti-pattern catalogue, per-tool dispatch + cross-pack pointers.
 
-**Key dispatch surfaces**: skills `detect-drift` / `find-and-align`; commands `/align` (simple surface) / `align-scan` / `align-fast` / `align-recheck` / `align-gate`. Validator: `scripts/validate-align-artifacts.sh` (21 closure verbs). Oracle: `_extracted-idioms.md`. Rule-only tools: this rule + the two reference files together are the complete discipline.
+**Key dispatch surfaces**: agents `align-evidence-auditor` (pre-fix: halts #1–#4, #11) / `align-idiom-auditor` (per-fix: halts #6, #9, #10 + the enforce-existing-vs-introduce-new boundary) / `align-gate-auditor` (post-phase: the 14 checks) / `align-ledger-auditor` (cross-phase: ledger↔git reconciliation); skills `detect-drift` / `find-and-align`; commands `/align` (simple surface) / `align-scan` / `align-fast` / `align-recheck` / `align-gate`. Validator: `scripts/validate-align-artifacts.sh` (21 closure verbs; 11 of the 14 gate checks — ledger completeness, coverage tolerance and frontend regressions are agent-side). Oracle: `_extracted-idioms.md`. Rule-only tools: this rule + the two reference files together are the complete discipline; the agents give the halts an owner, not new discipline.

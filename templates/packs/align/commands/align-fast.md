@@ -72,6 +72,7 @@ For each row needing detection (in dependency order — helper-introduce before 
 - For `replace-with-shared`: re-confirm `shared_equivalent` exists.
 - For `inline`: re-grep call sites; if 2+ found, halt (mis-classified).
 - For `remove` on exported symbol: re-grep inbound imports; if any found, halt (mis-classified).
+- **Dispatch `@align-idiom-auditor`** for the row here and again at VERIFY. Parallel dispatch makes this more load-bearing than in the manual flow, not less: with no human watching a row go by, the invention boundary has no second reader. A `HALT — idiom inventory gap` at DECIDE stops the row before an edit lands; the same halt at VERIFY costs a revert inside a wave.
 
 ### 3. FIX (mechanical edit)
 
@@ -309,6 +310,10 @@ The discipline IS the speed — same artifacts, same gate, parallel where safe.
 - `/align-rollback <N>` — undoes a phase if rethink needed.
 - `/align-park <id>` — parks a halted row.
 - `/align-status` — read-only progress reader.
+
+### Agents
+- `.claude/agents/align-idiom-auditor.md` — dispatched per row at DECIDE and VERIFY. The unsupervised path needs it most.
+- `.claude/agents/align-gate-auditor.md` — runs the auto-gate at the end of this command; PASS/REFUSE is its verdict, not this command's.
 
 ### Skills
 - `.claude/skills/find-and-align/SKILL.md` — the per-finding loop dispatched per row.

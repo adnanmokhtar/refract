@@ -6,6 +6,61 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Three new packs, a memory read-path, and two gates that were promises (2026-08-20)
+
+**Why** — the catalog grew from 20 tracks to 23 in one cycle, and a pack count is not a number in a
+badge: it is a row in the registry, a floor in the preflight table, a detection block, a leakage-scan
+alternation, a `/<name>` token in `docs/COMMANDS.md`, and a regenerated cheat sheet. Every one of
+those is a place the count can silently disagree with the disk.
+
+- **New packs — `data-engineering`, `finops`, `product`** (4 commands each). None is `always`: each
+  needs a real signal (a warehouse, provisioned infrastructure, maintained product artifacts), so
+  adding one as always-on would breach the Phase 2.6.a mix contract. Detection blocks in
+  `scripts/detect-tracks.sh` gate them on dbt/SQLMesh/DAG layouts, infrastructure-as-code, and
+  product artifacts respectively — where "product artifacts" means `ai/product/`, `docs/prd/`,
+  `docs/product/` or a root `PRD.md` / `ROADMAP.md`, and explicitly **not** `ai/project-goals.md`,
+  `ai/users-and-personas.md` or `ai/roadmap*`. Those four are written by /setup-project Phase 4.7b
+  and by /roadmap, so keying on them would have fired `product` on every repo that had run either
+  command once — always-on for the installed base wearing a detector's clothes. Content-gating
+  them does not help: 4.7b populates them from extraction, so a non-stub copy is still ordinary
+  framework output.
+- **`templates/packs/_registry.md` went from 18 rows to 23.** `algorithms` and `align` had been pack
+  folders with **no row at all** — undetected because the file's § "Drift detection" claimed
+  `lint-tool-parity.sh` cross-checks rows against folders. It does not; it never opens the file.
+  That claim is now corrected to name the real state (`lint-registry-drift.sh` is planned) and ships
+  the one-line `diff` that actually checks parity.
+- **`/recall`** (learning pack) — the loop could write memory but not read it. `ai/failures/_index.md`,
+  whose entire value lands when someone is about to retry a failed approach, was effectively
+  write-only. `/recall` adds retrieval and nothing else: the same stdlib BM25 that indexes the pack
+  corpus, pointed at `ai/`, returning ranked `path:line` pointers and never a paraphrase.
+- **`/ai-audit` + `/add-eval-set`** (ai-engineering) — a read-only six-axis sweep of an existing AI
+  surface, and the retrofit that closes `eval-run`'s no-harness HALT.
+- **`/delegate` could eat its own evidence.** Pointed at Refract's own clone, the relay dispatched an
+  implementer into the tree holding its artifacts; one `git add -A` swept brief, logs and shim into
+  that commit. Worse, a commit empties `git status` and moves HEAD, so `touchedFiles` and
+  `delegate.diff` both went blank at exactly the moment the invariant broke — an empty diff that
+  reads like nothing happened. The relay now refuses a self-target by default (exit `6`,
+  `--allow-self` overrides), takes the diff and touched list against the **pre-run HEAD**, and names
+  the commits in `git.commitsAhead` / `git.commits`. Relay 1.0.0 → 1.1.0.
+- **CI: 14 blocking gates → 16.** Both additions already existed on disk, green and regression-tested,
+  and were wired to nothing — an unwired gate is the same unenforced-promise class the repo polices
+  everywhere else. `lint-overlay-catalog.sh` holds the regulatory-overlay catalog to its disk
+  contents; `test-delegate-relay.sh` pins the relay fixes above in 9 sandboxed cases / 55 assertions,
+  every repo under `mktemp -d` with a throwaway `$HOME`.
+- **Silent zero-coverage closed.** `is_pack_path()` in `scripts/audit-stack-leakage.sh` hardcoded a
+  pack list that omitted `ai-engineering` and `algorithms`, so 52 files got **no** stack-leakage
+  scanning at all — silently, not as a failure. All 23 packs are now covered (20 via `is_pack_path`,
+  3 via `is_universal_path`); the fix added 0 new warnings, so the hole was real but had not yet
+  been paid for.
+- **Counts reconciled against the disk**, not against each other: 23 tracks, 133 pack commands,
+  86 pack agents, 194 commands total. `docs/setup-project-cheatsheet.md` now carries the commands
+  that re-measure all three, because no generator emits them and only the track count is gated.
+- **`CONTRIBUTING.md` § "Add a pack" was six steps and is now twelve** — it had omitted `CHANGELOG.md`,
+  the doc-sync and cheat-sheet coupling, the detector block, the leakage alternation, and the floor
+  table, and it pointed at `commands/setup-project.md` for a table that lives in
+  `templates/phases/phase-4.0-preflight.md`. It also told contributors that "no pack ships a separate
+  `CHANGELOG.md`" — 23 of 23 do, all using the string form.
+
 ### Public release as Refract — distribution, evidence, retrieval, and delegation (2026-08-20)
 
 **Why** — the framework was a private, clone-and-run config. Published as

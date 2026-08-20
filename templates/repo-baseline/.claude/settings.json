@@ -52,6 +52,16 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/recall-inject.sh"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [

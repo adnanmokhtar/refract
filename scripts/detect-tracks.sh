@@ -256,6 +256,50 @@ if has_dep kafkajs || has_dep amqplib || has_dep nats || has_dep ioredis \
   add distributed-systems
 fi
 
+# ---------- Data engineering ----------
+# Warehouse / analytics-engineering discipline: dimensional modelling, transformation
+# layering, data contracts, quality assertions, backfill safety. Distinct from `database`
+# (OLTP schema/queries) and from the `data-pipeline` technical signal (movement correctness).
+if [[ -f "$TARGET/dbt_project.yml" ]] \
+   || [[ -d "$TARGET/dags" || -d "$TARGET/models/staging" || -d "$TARGET/warehouse" ]] \
+   || [[ -f "$TARGET/sqlmesh.yaml" || -f "$TARGET/meltano.yml" ]] \
+   || has_dep '@dbt-labs/dbt-core' || has_dep '@dagster-io/dagit' \
+   || { [[ -f "$TARGET/requirements.txt" ]] && grep -qiE '(dbt-core|apache-airflow|dagster|prefect|pyspark|apache-beam|sqlmesh|meltano)' "$TARGET/requirements.txt" 2>/dev/null; } \
+   || { [[ -f "$TARGET/pyproject.toml" ]] && grep -qiE '(dbt-core|apache-airflow|dagster|prefect|pyspark|apache-beam|sqlmesh|meltano)' "$TARGET/pyproject.toml" 2>/dev/null; }; then
+  trace "warehouse / transformation / orchestration tooling → data-engineering"
+  add data-engineering
+fi
+
+# ---------- FinOps ----------
+# Cost as a reviewed engineering dimension. Gated on infrastructure-as-code, because
+# without provisioned resources there is no meaningful spend to attribute, and without
+# IaC there is nowhere for tag enforcement or a pre-merge cost estimate to attach.
+if compgen -G "$TARGET/*.tf" >/dev/null 2>&1 \
+   || [[ -d "$TARGET/terraform" || -d "$TARGET/pulumi" || -d "$TARGET/infra" ]] \
+   || [[ -f "$TARGET/cdk.json" || -f "$TARGET/Pulumi.yaml" ]] \
+   || [[ -f "$TARGET/infracost.yml" || -f "$TARGET/.infracost.yml" ]]; then
+  trace "infrastructure-as-code → finops (spend is provisioned here)"
+  add finops
+fi
+
+# ---------- Product ----------
+# Problem framing, requirement quality, research synthesis, launch judgement. Signalled by
+# product artifacts the team maintains OUTSIDE the framework, plus this pack's own output
+# directory — not by stack, which says nothing about whether requirements are written down
+# or written well.
+#
+# Deliberately NOT signals — `ai/project-goals.md`, `ai/users-and-personas.md` and
+# `ai/roadmap.md` are written by /setup-project Phase 4.7b, and `ai/roadmap/plan.md` by
+# /roadmap. Keying on them would fire `product` on every repo that has run either command
+# once, which is always-on for the installed base wearing a detector's clothes. Content-
+# gating does not rescue them either: 4.7b populates those files from extraction, so a
+# non-stub copy is ordinary framework output, not evidence of a product practice.
+if [[ -d "$TARGET/ai/product" || -d "$TARGET/docs/prd" || -d "$TARGET/docs/product" ]] \
+   || [[ -f "$TARGET/PRD.md" || -f "$TARGET/ROADMAP.md" ]]; then
+  trace "product artifacts (briefs / PRDs / research) → product"
+  add product
+fi
+
 # ---------- Migration ----------
 parent_dir=$(dirname "$TARGET")
 target_name=$(basename "$TARGET")

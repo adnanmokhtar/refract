@@ -222,6 +222,9 @@ If a plan-time discovery surfaces a missing finding → halt; the user runs `/al
 
 ## Related
 
+### Agents
+- `.claude/agents/align-evidence-auditor.md` — audits the scan's rows at `/align-scan` Phase 6, before they reach this command. This command therefore phases **audited** rows only: anything it can see has already cleared evidence resolution, explicit enumeration, class-matches-signal, verb reachability, and the tier floor. If a `REJECT — out of domain` row shows up in the ledger anyway, the scan's Phase 6 did not run — halt and re-scan rather than phasing it.
+
 ### Sibling commands in align pack
 - `/align-scan` — runs before this command; produces the inputs.
 - `/align-phase <N>` — next command; executes phase N from this plan.

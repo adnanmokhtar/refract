@@ -2,7 +2,7 @@
 track: align
 purpose: Codebase quality gate — comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.
 essentials:
-  agents: []
+  agents: [align-gate-auditor, align-idiom-auditor, align-evidence-auditor, align-ledger-auditor]
   commands: [align-scan, align-plan, align-phase, align-gate, align-fast, align-status, align-final, align-rollback, align-park, align-unpark, align-replan, align-recheck, align-promote-tier]
   skills: [detect-drift, find-and-align]
   rules: [align-discipline]
@@ -29,6 +29,7 @@ Align is the codebase's quality gate. The 12 universal detector classes (split i
 
 ## Rationale per category (one line each)
 
+- **agents**: The audit surface — four auditors, one per stage of a finding's life. `align-evidence-auditor` (pre-fix: does the scan's evidence resolve and is the row even align's?), `align-idiom-auditor` (per-fix: did this diff enforce an existing idiom or invent a new one?), `align-gate-auditor` (post-phase: the 14-check PASS/REFUSE verdict), `align-ledger-auditor` (cross-phase: ledger ↔ git ↔ halts ↔ plan reconciliation). Under `--minimal` all four ship, because dropping any one of them moves its checks back inline into the command that dispatches it — which is the state the pack was in before 1.9.0, and is exactly the enforcement-theatre failure the discipline names. Deliberately NOT here: any *detector* agent. Detection is `detect-drift` plus the cross-pack agents listed under Composition; align authoring its own dead-code or security detector would duplicate `code-quality` and `security` and drift from them.
 - **commands**: Run in order: `/align-scan` (deep codebase scan; fresh ledger), `/align-plan` (phased plan honoring gold standards). Then per phase EITHER the manual flow `/align-phase <N>` → `/align-gate <N>` (interactive, supervised) OR the fast flow `/align-fast <N>` (one-shot: per-finding loop in parallel + auto-gate, same discipline, no human-watch pauses). After the last phase's gate PASSes, `/align-final` (cross-phase verification + recommendations). **Sidecar commands**: `/align-status` (read-only progress), `/align-rollback <N>` (undo phase), `/align-park <id>` (defer hairy findings). Use `/align-fast <N>` for routine mechanical phases; manual flow when heavy-tier rows benefit from per-row supervision.
 - **skills**: `detect-drift` runs the 12 universal detectors (parallel waves: structural / functional / stack-conditional); `find-and-align` is the per-finding fix loop (DETECT → DECIDE → FIX → VERIFY → RECORD; one commit per finding; net-lines ≤ 0 for structural / cite-idiom for functional).
 - **rules**: `align-discipline` codifies the contract — closure-verb vocabulary (21 verbs across structural + functional groups); tier rules (trivial default for structural; security always ≥ standard; critical security always heavy); per-finding audit halts (11); phase-exit gate checks (14); anti-patterns (Trusted Summary, Hand-waved, Net-Positive Cleanup, Reinvented Idiom, Bare Security Fix, Hopeful Perf Fix, etc.).
@@ -84,7 +85,8 @@ Align:      /align-scan      → /align-plan      → /align-fast 1     → /ali
 
 ## Composition with other packs
 
-- **code-quality** pack — align inherits the closure-verb vocabulary from `simplify` and dispatches `dead-code-finder` / `refactorer` / `code-reviewer` / `performance-optimizer` agents during scan.
+- **code-quality** pack — align inherits the closure-verb vocabulary from `simplify` and dispatches `dead-code-finder` / `refactorer` / `code-reviewer` during scan.
+- **performance** pack — `performance-optimizer` is dispatched for the performance finding class. It lives at `performance/agents/performance-optimizer.md`, NOT in `code-quality/agents/` (which several align files claimed through 1.8.2). When the performance pack is not loaded, the perf detector falls back to the project's own profiler / query log and the row still requires a baseline in `notes`.
 - **security** pack — align dispatches `security-auditor` agent + `deps-audit` skill for the security finding class.
 - **frontend** pack — align dispatches `accessibility-auditor` / `i18n-auditor` / `data-flow-auditor` for `frontend-*` projects, and applies `migration-frontend.md`'s fingerprint set.
 - **ui-ux** pack — align dispatches `design-token-audit` + `motion-audit` skills for `frontend-*`.

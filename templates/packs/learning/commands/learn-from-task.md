@@ -8,8 +8,7 @@ description: After a task finishes, capture decisions made / patterns followed /
 
 The learning loop has ONE sink set. Every observation lands in exactly one of the append-only `ai/dynamic/` files (plus the failure catalog), and `knowledge-curator` later promotes the mature ones into the formal layer. The two writers (this command + the curator) never diverge on WHERE things go because the table is **defined once** in [`templates/snippets/learning-sink.md`](../../../snippets/learning-sink.md) — read it there. The consumers kept in sync via that snippet are:
 
-- `commands/learn-from-task.md` (root)
-- `templates/packs/learning/commands/learn-from-task.md` (this file)
+- `templates/packs/learning/commands/learn-from-task.md` (this file — pack-scoped; there is no root `commands/learn-from-task.md`, and `verify-global-scope.sh` exists to keep it that way)
 - `templates/packs/learning/agents/knowledge-curator.md` (canonical curator)
 - `templates/repo-baseline/.claude/agents/knowledge-curator.md` (installed curator)
 

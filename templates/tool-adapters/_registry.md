@@ -11,6 +11,8 @@ Single-source registry of what each adapter produces and which capabilities it c
 - **H** = Hooks (lifecycle shell scripts: PreToolUse, PostToolUse, Stop, SessionStart)
 - **N** = Nested/path-scoped rules (different rules for different subfolders)
 
+> **The H column measures the guardrail surface, not the injection surface.** ✓ here means the tool can fire a script on a lifecycle event and act on a **block / allow** decision. It does **not** mean the tool reads a hook's *output* back into the model's context, and for a context-only hook that is the whole question. Three tools marked ✓ cannot do it: **Copilot**'s `userPromptSubmitted` is notification-only, **Windsurf**'s Cascade hooks are block-or-log with no context-injection field, and **Gemini**'s event list has no prompt-submit event to hook at all. Two shipped hooks are context-only rather than block/allow — `inject-path-rules.sh` (`PreToolUse`) and `recall-inject.sh` (`UserPromptSubmit`) — and only the second is exposed by the gap, because the first has a native fallback everywhere (`globs:` / `applyTo:` / `activation_mode: glob`) and prompt-submit injection has none. Route it per-tool against `_memory-recall-coverage.md`, never off this column.
+
 ## Registry
 
 | Tool | Key | R | A | S | C | H | N | Primary files written |
@@ -92,6 +94,19 @@ The 15 commands at this repo's `commands/` are split into the groups below (the 
 
 This is a deliberate split, not adapter drift. Any future adapter that gains parallel-agent dispatch becomes a candidate to add the simple-surface group as native slash commands.
 
+### Capabilities that span two primitive classes at once
+
+Every row above is one primitive: a command, translated per adapter. **Project-memory recall is the first capability that is a command *and* a hook**, and the two halves do not rank tools the same way — so neither half can be graded from the other, and neither can be graded from a column in the matrix above.
+
+| Half | Artifact | Per-adapter question |
+|---|---|---|
+| **Query** — the human asks | `templates/packs/learning/commands/recall.md` (`/recall`, learning pack) | Does this tool's command primitive **reach a shell**? The whole body is one `python3 pack-search.py --catalog=memory` invocation, so the *Command translation* verdict above applies, narrowed to shell reach. |
+| **Injection** — memory arrives unasked | `templates/repo-baseline/.claude/hooks/recall-inject.sh` (`UserPromptSubmit`, opt-in via `touch .claude/.recall`) | Does this tool have a prompt-submit event that **hands the script the prompt AND reads its output back into context**? All three, or the hook is decoration. |
+
+The halves diverge in both directions and the divergence is the point: **Cline** has a fully native injection surface (`.clinerules/hooks/UserPromptSubmit` → `contextModification`) and an unproven shell surface, while **Copilot**, **Windsurf**, **Gemini** and **Aider** run the query half fine and have no injection surface at all. **Continue** carries neither, and is the one tool whose honest entry is not "not supported" — its `docs:` key already indexes `ai/` with a different chunker and a different ranking, which is a different mechanism and must never be presented as a translation of `/recall`.
+
+Companion-script obligation is a **pair**: `scripts/pack-search.py` and `scripts/gen-memory-catalog.py` must land in the *same* directory under `~/.claude/scripts/` — `pack-search.py` imports the row producer by path, and the hook's resolver requires both files side by side and `exit 0`s when it cannot find them, so a half-install is silent, not an error. Per-tool primitive, injection event, output envelope (three different ones), payload shim, and cache-path override live in **`_memory-recall-coverage.md`**.
+
 **Adapter sync:** When documenting validators, hooks, or canonical `ai/` paths in any **`templates/tool-adapters/<tool>/adapter.md`**, cross-reference **`templates/tool-adapters/_orchestration-sync.md`** so Codex / Cursor / rule-only tools stay aligned with `commands/*.md` (migrate progress exception, optimize oracle fallbacks, align 21-verb vocabulary, polish `QUIET` env, `/refactor` vs inventory flags).
 
 ### Parallel orchestrator scripts (close the gap externally)
@@ -127,6 +142,25 @@ Each adapter's output MUST let the tool work end-to-end **without `.claude/` pre
 1. User passes `--tools claude-code,cursor,aider` → use that list.
 2. User passes `--tools auto` (or omits) → run auto-detection heuristics (see `README.md`).
 3. No signal at all → default to `claude-code` + universal `AGENTS.md`.
+
+## When a new PACK is added — the default is NO adapter work
+
+A new folder under `templates/packs/<name>/` needs **no per-adapter edit and no coverage doc**, and manufacturing one is drift, not diligence. A pack is a bundle of `commands/` + `agents/` + `skills/` + `rules/` + `ai-patterns/`, and every one of those classes already has a per-adapter contract in `commands/setup-project-adapters.md` § Phase 4.8.0 ("for every command / per agent / per skill / per rule"). `ai-patterns/` lands in the target repo's `ai/patterns/` — the *Universal baseline* below, which every adapter already points at. Adding a pack adds rows to a table the contract already iterates.
+
+**20 of the 23 pack folders have never had a coverage doc** and do not need one. Seven `_*-pack-coverage.md` files exist, and only three of them name a pack folder at all — `align`, `migration`, `ui-ux`; the other four (`_audit`, `_optimize`, `_polish`, `_refactor`) are named after **top-level commands** that have no pack folder, as each of those files says in its own opening line. What the seven share is not pack-ness. Each backs a **simple-surface command** whose Claude-native parallel sub-agent fan-out has no equivalent primitive elsewhere, so every tool needs its own written-down degradation path plus a validator / `*-parallel.sh` bundle to install. Absent that, there is nothing per-tool to say.
+
+Write a new `_<name>-pack-coverage.md` only when the pack introduces at least one of:
+
+| Trigger | Why it forces per-tool work |
+|---|---|
+| A **top-level** command in `commands/` that fans out to parallel sub-agents | No other tool ships the primitive — each needs its own degradation path (serial pack commands, or the `*-parallel.sh` orchestrators). |
+| A **companion script** users must install (`validate-*-artifacts.sh`, a `*-parallel.sh` runner) | The install obligation is per-adapter and rule-only tools run it from shell / CI instead of a hook. |
+| A **hook** or hook glob | Hook support is `✓ / ~ / —` per tool, and for a *context-injection* hook the H column does not answer the question (see the legend note above). |
+| A **cross-tool artifact contract** other tools must read or write (`ai/<pack>/ledger.md` state machines, closure-verb vocabularies) | A translation can silently break the contract; the doc is what pins it. |
+
+`data-engineering`, `finops`, `product` (added this cycle) trigger **none** of the four: pure `R`/`A`/`S`/`C` + `ai-patterns` content, no top-level command, no script, no hook, no cross-tool artifact tree. They are covered the moment `/setup-project` copies them, by the same generic contract that already covers `security`, `database`, `performance`, `testing` and the rest. The same is true of a pack that merely **grows** — the `ai-engineering` build-out (`/ai-audit`, `/add-eval-set`, two agents, four skills) and the four `align` auditor agents add rows to existing classes, not new classes. Align's own coverage doc gained a section for its agents because that doc already existed and previously asserted the pack shipped none; that is an update to a standing claim, not a new obligation.
+
+**Regulatory overlays are not packs and need no adapter work either.** `templates/regulatory-overlays/<regime>.md` is appended into `ai/business-compliance.md` at Phase 4.4b.1 — content inside the `ai/` knowledge base, which is the *Universal baseline*. No adapter has ever referenced an overlay by name and none should start; adding `hipaa.md` changes what a project's compliance file says, not what any tool can do with it.
 
 ## When a driver is added later
 

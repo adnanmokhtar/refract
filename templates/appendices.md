@@ -104,6 +104,17 @@ HAS_FEATURE_FLAGS=$(grep -q 'launchdarkly\|"growthbook"\|"unleash"\|"flipt"\|ldc
 HAS_NOTIFICATIONS=$(grep -q 'sendgrid\|nodemailer\|firebase\|twilio\|vonage\|mailgun' package.json pyproject.toml 2>/dev/null && echo yes)
 HAS_JOBS=$(grep -q 'bullmq\|"bull"\|celery\|sidekiq\|"rq"\|@nestjs/bull' package.json pyproject.toml Gemfile 2>/dev/null && echo yes)
 HAS_COMPLIANCE=$(grep -rnE '(GDPR|HIPAA|SOC2|PCI-DSS|data.retention)' ai/ .claude/ 2>/dev/null | head -1 | grep -q . && echo yes)
+
+# Analytics / warehouse signals — emit the `data-pipeline`, `analytics`, and `reporting`
+# signal names listed in templates/packs/_trigger-vocabulary.md. Without these three lines
+# those names are triggers no extractor produces (dead code, per that file's hard rules).
+HAS_DATA_PIPELINE=$([ -f dbt_project.yml ] || [ -d dags ] || [ -d models/staging ] \
+  || grep -qE 'apache-airflow|"?dagster"?|dbt-core|prefect|"?luigi"?|pyspark|apache-beam|sqlmesh|"?meltano"?' \
+     package.json pyproject.toml requirements.txt 2>/dev/null && echo yes)
+HAS_ANALYTICS=$(grep -qE '@segment/|"?analytics-node"?|amplitude|mixpanel|posthog|@snowplow/|react-ga|gtag' \
+  package.json pyproject.toml requirements.txt 2>/dev/null && echo yes)
+HAS_REPORTING=$(grep -rnE '(exceljs|"xlsx"|papaparse|csv-writer|openpyxl|pandas\.to_csv|StreamingHttpResponse)' \
+  src/ app/ apps/ lib/ libs/ 2>/dev/null | head -1 | grep -q . && echo yes)
 ```
 
 Print results in the plan as:

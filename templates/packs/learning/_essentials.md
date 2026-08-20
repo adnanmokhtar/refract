@@ -3,7 +3,7 @@ track: learning
 purpose: Meta-track that keeps Claude's project knowledge fresh, detects convention drift, AND (round-two) deepens the setup against the real codebase. ALWAYS included regardless of --minimal.
 essentials:
   agents: [knowledge-curator, convention-drift-detector, pattern-emergence-watcher]
-  commands: [refresh-knowledge, detect-drift, learn-from-task, eval]
+  commands: [refresh-knowledge, detect-drift, learn-from-task, eval, recall]
   skills: [extract-project-context]
   rules: []
   ai-patterns: []
@@ -23,13 +23,15 @@ refine_mode_patterns:
 
 CRITICAL: this track is ALWAYS included regardless of `--minimal`. The learning loop is what keeps every other pack from rotting.
 
+Pack v1.4.0: `/recall` searches the memory the loop already writes — the `ai/` tree — with the same stdlib BM25 that indexes the pack corpus. It adds **no sink**: `templates/snippets/learning-sink.md` is unchanged, the thresholds are unchanged, and the index is a gitignored derived cache.
+
 Pack v1.2.0: the extraction engine enforces provenance discipline (`[found:]/[inferred:]/[unconfirmed]` on every `_extracted-*` claim) + the oracle approval stamp (`approved_by:`/`approved_hash:`) — see `templates/phases/phase-2-profile.md § Provenance discipline` / `§ Oracle approval`.
 
 Files listed above are the full intended set for minimal mode (which here equals standard, except `promote-pattern` is a power-user command kept out of minimal).
 
 Rationale per category (one line each):
 - agents: all three are core — knowledge-curator (writes), convention-drift-detector (reads), pattern-emergence-watcher (notices). Removing any one breaks the loop.
-- commands: refresh-knowledge, detect-drift, learn-from-task, eval are the triggers a developer hits regularly — `/learn-from-task` captures, `/eval` grades (the two halves of the loop); promote-pattern is advanced and excluded.
+- commands: refresh-knowledge, detect-drift, learn-from-task, eval, recall are the triggers a developer hits regularly — `/learn-from-task` captures, `/eval` grades, `/recall` reads back (capture without recall just grows files nobody reads, and `ai/failures/_index.md` has value only at the moment of recall); promote-pattern is advanced and excluded.
 - skills: extract-project-context is the single skill in the pack and is foundational.
 - rules: none — meta track, no rules to copy.
 - ai-patterns: none — meta track, no patterns to copy.

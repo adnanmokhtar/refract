@@ -24,6 +24,67 @@ violations, clean-code violations, performance issues, security weaknesses, and 
 (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design
 tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.
 
+## 1.9.0 — 2026-08-20
+
+- **align now ships agents.** Until this release align was the only pack in the repo with commands
+  (13) and zero agents. Every audit the discipline demands — evidence resolution, the invention
+  boundary, the 14-check phase verdict, ledger reconciliation — was performed inline by the command
+  that needed it, which meant no artifact owned any of them, no two commands were guaranteed to run
+  the same check the same way, and the halts had no addressable dispatch target. That is the
+  enforcement-theatre shape the ui-ux pack's 1.16/1.17 entries name: a mechanism that is described
+  but that nothing actually executes. Four agents, split by WHEN in a finding's life the audit
+  happens rather than by finding class:
+
+  - `agents/align-evidence-auditor.md` (sonnet) — **pre-fix.** Audits a fresh scan's `detected`
+    rows before they can enter `/align-plan`: every `<path:line>` resolves at the pinned commit AND
+    contains the fingerprint the row claims; enumerations are explicit; class matches signal;
+    closure verb is in the 21 and is reachable without invention; security rows clear the tier
+    floor. Audit halts #1–#4 and #11. Carries an out-of-domain routing table so a real defect that
+    is not align's leaves with a destination (`/polish`, `/optimize`, `/audit`, `/refactor`,
+    `/fix-bug`, `/migration-*`) rather than being silently dropped.
+  - `agents/align-idiom-auditor.md` (opus) — **per-fix.** The pack's boundary guard, and the only
+    artifact in the repo whose whole job is deciding whether one diff ENFORCED a convention the
+    project already has (align) or INTRODUCED a new one (`/polish`), DISCOVERED one (`/optimize`),
+    or CHANGED a contract (`/refactor`). Four checks: no new public symbol unnamed in the oracle
+    (#9); every added functional block cites an idiom that resolves AND that the block actually
+    calls (#6 — the paper-citation case is a HALT); the closure verb used ITS idiom rather than a
+    substitute (#10), with a per-verb table of the specific invention each verb invites; the oracle
+    is unmodified inside the fix commit. Operationalises
+    `templates/tool-adapters/_orchestration-sync.md § Command boundary table` per-diff, which is
+    the only place that split is actually decidable.
+  - `agents/align-gate-auditor.md` (opus) — **post-phase.** Runs the 14-check matrix and composes
+    the PASS/REFUSE verdict with per-check evidence and per-row remediation. States honestly which
+    checks are script-enforced and which are not: `validate-align-artifacts.sh` defines 11 of the
+    14; checks 1 (ledger completeness), 7 (coverage tolerance) and 8 (frontend regressions) have
+    no script implementation and are labelled `(agent-side)` in its report.
+  - `agents/align-ledger-auditor.md` (sonnet) — **cross-phase.** Reconciles ledger ↔ git ↔ halt
+    files ↔ impact files ↔ plan ↔ gate-history in BOTH directions (a row marked `fixed` with no
+    commit, and a commit carrying a row id the ledger has no row for), plus state-machine legality,
+    phase drift, and the SLA thresholds `/align-status` reports. Its highest-value output is the
+    systemic line: three or more rows halted for the same missing idiom is `The Idiom Inventory
+    Gap`, and the fix is one `/setup-project --refine`, not N more halts.
+
+- **Dangling dispatch repointed.** Four align files dispatched `performance-optimizer` at
+  `code-quality/agents/performance-optimizer.md`. That file does not exist and never has — the
+  agent lives at `performance/agents/performance-optimizer.md`. Repointed in `_essentials.md`,
+  `skills/detect-drift/SKILL.md`, `references/align-discipline-procedures.md`, and
+  `references/align-discipline-catalogue.md`, with the no-performance-pack fallback stated
+  (project profiler / query log; the row still requires a baseline in `notes`). Every other
+  cross-pack agent path in the pack was checked and resolves.
+
+- **Deliberately NOT added: a detector agent.** Align dispatches `dead-code-finder`, `refactorer`,
+  `code-reviewer`, `security-auditor`, `performance-optimizer`, `accessibility-auditor`,
+  `i18n-auditor`, and `data-flow-auditor` from the packs that own those disciplines. Authoring an
+  align-local detector would duplicate them and immediately begin to drift. The gap was never
+  detection; it was that nothing owned the VERDICT.
+
+- Wiring: `_essentials.md` `agents: []` → the four (all four ship under `--minimal`, with the
+  reason stated); `_topics.md` gains an AGENTS section plus a § "Agent dispatch — the four audit
+  windows" table, and `dispatches:` on the eight commands and one skill that hand off to them;
+  `align-scan` / `align-phase` / `align-fast` / `align-gate` / `align-status` / `align-final` /
+  `align-recheck` / `align-replan` / `align-promote-tier` and `skills/find-and-align` name their
+  agent at the step that dispatches it.
+
 ## 1.8.2 — 2026-06-27
 
 - align-fast.md: restored the **Discipline pointer:** link to

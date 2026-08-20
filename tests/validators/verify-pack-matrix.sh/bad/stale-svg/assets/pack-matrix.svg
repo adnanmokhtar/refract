@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="344" viewBox="0 0 1040 344" role="img" aria-label="Refract pack matrix: two role-based packs and the agents, skills, commands and rules each contributes">
+<title>Refract pack matrix: two role-based packs and the agents, skills, commands and rules each contributes</title>
+<desc>File counts measured on disk for each pack's agents, skills, commands and rules. Totals: 3 agents, 4 skills, 6 pack commands, 2 rules.</desc>
+<rect x="0" y="0" width="1040" height="344" rx="10" fill="#f7f9fb" stroke="#d5dce5" stroke-width="1"/>
+<text x="28" y="46" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="21" fill="#161b22" font-weight="700">Two role-based packs</text>
+<text x="28" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="12.5" fill="#6b7684" font-weight="400">Work is organised by role, not by framework — one api-architect works for every backend. /setup-project selects packs</text>
+<text x="28" y="88" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="12.5" fill="#6b7684" font-weight="400">from detection signals; zero are applied to every project regardless.</text>
+<text x="28" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" letter-spacing="1.1">PACK</text>
+<text x="176" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" text-anchor="middle" letter-spacing="1.1">ALWAYS</text>
+<text x="268" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" text-anchor="end" letter-spacing="1.1">AGENTS</text>
+<text x="352" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" text-anchor="end" letter-spacing="1.1">SKILLS</text>
+<text x="436" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" text-anchor="end" letter-spacing="1.1">COMMANDS</text>
+<text x="520" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" text-anchor="end" letter-spacing="1.1">RULES</text>
+<text x="568" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" letter-spacing="1.1">WHAT IT COVERS</text>
+<line x1="28" y1="126" x2="1012" y2="126" stroke="#d5dce5" stroke-width="1.2"/>
+<text x="28" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">alpha</text>
+<text x="268" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
+<rect x="274" y="141" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="274" y="141" width="42" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<rect x="358" y="141" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="358" y="141" width="42" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="442" y="141" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="442" y="141" width="42" height="5" rx="2.5" fill="#5b3d99"/>
+<text x="520" y="149" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="526" y="141" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="526" y="141" width="22" height="5" rx="2.5" fill="#8a5a00"/>
+<text x="568" y="149" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">What the alpha pack covers</text>
+<rect x="22" y="158" width="996" height="26" rx="0" fill="#f2f5f8"/>
+<text x="28" y="175" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">beta</text>
+<text x="268" y="175" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="274" y="167" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="274" y="167" width="21" height="5" rx="2.5" fill="#1a5fb4"/>
+<text x="352" y="175" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="358" y="167" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="358" y="167" width="14" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="175" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
+<rect x="442" y="167" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="442" y="167" width="21" height="5" rx="2.5" fill="#5b3d99"/>
+<text x="520" y="175" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
+<rect x="526" y="167" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
+<rect x="526" y="167" width="22" height="5" rx="2.5" fill="#8a5a00"/>
+<text x="568" y="175" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">What the beta pack covers</text>
+<line x1="28" y1="190" x2="1012" y2="190" stroke="#d5dce5" stroke-width="1.2"/>
+<text x="28" y="212" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="700">TOTAL</text>
+<text x="268" y="212" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">3</text>
+<text x="352" y="212" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">4</text>
+<text x="436" y="212" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">6</text>
+<text x="520" y="212" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">2</text>
+<text x="568" y="212" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">2 packs · 0 ai-patterns and 0 framework references not counted</text>
+<line x1="28" y1="242" x2="1012" y2="242" stroke="#d5dce5" stroke-width="1"/>
+<circle cx="31.5" cy="282" r="3.5" fill="#0f6b52"/>
+<text x="28" y="264" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">Generated by scripts/gen-pack-matrix.py — {agents,commands,rules}/*.md per pack; skills are skills/&lt;name&gt;/SKILL.md. Bars scale per column, not across columns.</text>
+<text x="42" y="281" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">Always applied — added to selected_tracks even when no detection signal fires: .</text>
+<text x="28" y="298" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">The 0 global commands in commands/ belong to no pack: 6 pack + 0 global = 6. Domain and repo-baseline commands are counted in docs/CHEATSHEET.md,</text>
+<text x="28" y="315" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">not here. Always-applied flags and summaries come from templates/packs/_registry.md; a pack with no row falls back to its _essentials.md heading.</text>
+</svg>

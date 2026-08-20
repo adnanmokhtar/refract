@@ -60,6 +60,8 @@ Halts:
 
 ### 2. DECIDE — confirm closure verb is mechanical
 
+**Dispatch `@align-idiom-auditor` before applying the edit, and again at VERIFY once the diff exists.** It is the artifact that owns the invention boundary — the DECIDE call answers "is the idiom this verb needs actually in the oracle?", the VERIFY call answers "did the diff route through it, or write a new one?". A `HALT — idiom inventory gap` at DECIDE stops the row before any edit lands, which is the cheap end of the halt; catching the same thing at VERIFY costs a revert. Where agent dispatch is unavailable, run the four checks inline — they are `align-discipline.md` audit halts #6, #9, #10 plus the oracle-unmodified check.
+
 Confirm:
 - Closure verb is in the closed **21-verb vocabulary** defined in `align-discipline.md` — **5 structural** `{remove, inline, dedupe, rename-comment-out, replace-with-shared}` OR **16 functional** (`add-gate`, `add-validator`, `parameterize`, `escape`, `move-to-secrets`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename` — the security / performance / SOLID / clean-code / unhandled-io set). A verb in neither set → halt; the fix is a refactor / redesign / feature, route elsewhere.
 - Net-lines rule **by group**: **structural** edits are behaviour-preserving with net-lines ≤ 0 (mechanical; touched files have test coverage). **functional** edits are small + line-budgeted — their added lines MUST cite an existing idiom from `_extracted-idioms.md` (never invent a new gate / validator / cache helper) and ship the required assertion (security gate → gating test; `parallelize` → perf assertion; `add-index` → EXPLAIN ANALYZE capture). The row's class must be in the universal or per-stack taxonomy — not "bug", not "feature" (those route to `/fix-bug` / `/add-feature`).
@@ -266,6 +268,10 @@ Each halt writes `ai/align/halts/<row-id>.md` and surfaces in the end-of-phase s
 - **Reviewer not available for heavy row** — halt the heavy row only (continue trivial / standard rows); surface in end-of-phase summary.
 
 ## Related
+
+### Agents
+- `.claude/agents/align-idiom-auditor.md` — dispatched at DECIDE and again at VERIFY per row; owns audit halts #6, #9, #10 and the enforce-existing-vs-introduce-new boundary.
+- `.claude/agents/align-gate-auditor.md` — runs after this command via `/align-gate <N>`; its 14-check matrix is what this command's rows are being prepared for.
 
 ### Sibling commands in align pack
 - `/align-scan` — runs first; produces the inputs.

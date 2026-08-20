@@ -25,7 +25,16 @@ The align pack is **non-negotiable** in the same sense the migration pack is —
 
 > **11 classes vs 12 detectors — reconciliation.** Per `templates/packs/align/_version.json` (1.6.0 "Count consistency"): there are **11 universal named classes** (6 structural + 5 functional) in `align-discipline.md`, but **12 universal detectors** in the scan/validator surface — the extra detector is the `dependencies` (vuln-deps) sub-class plus the stack-specific file-convention detector counted separately. So "11 classes" and "12 detectors" are both correct and refer to different counts; this doc uses "12 detectors" wherever it means the scan-evidence surface and "11 classes" wherever it means the named taxonomy.
 
-The align pack ships **no agents** (unlike migration). All detection is delegated to the `detect-drift` skill (which itself dispatches existing agents from `code-quality/`, `security/`, `frontend/`, `ui-ux/` packs). This simplifies adapter coverage — every tool that supports rules + skills gets the full surface.
+**Agents (added 1.9.0 — this section previously read "the align pack ships no agents").** Align ships **four**, and they are *auditors, not detectors*. Detection stays delegated to the `detect-drift` skill, which dispatches existing agents from `code-quality/`, `security/`, `performance/`, `frontend/`, `ui-ux/`, `mobile/`. What the four own is the **verdict** surface, split by when in a finding's life the audit happens:
+
+| Agent | Window | Owns | Dispatched by |
+|---|---|---|---|
+| `align-evidence-auditor` | pre-fix (scan output) | audit halts #1–#4, #11 + out-of-domain routing | `/align-scan` Phase 6, `/align-recheck` TRIAGE, `/align-replan --include-drifted` |
+| `align-idiom-auditor` | per-fix (one diff) | audit halts #6, #9, #10 + the enforce-existing-vs-introduce-new boundary | `find-and-align` DECIDE + VERIFY (so: `/align-phase`, `/align-fast`, `/align-recheck`) |
+| `align-gate-auditor` | post-phase (one phase) | the 14-check matrix; PASS / REFUSE | `/align-gate`, `/align-fast` auto-gate, `/align-final` |
+| `align-ledger-auditor` | cross-phase (all state) | ledger ↔ git ↔ halts ↔ plan reconciliation + SLA | `/align-status`, `/align-final`, `/align-replan` |
+
+**What this changes for adapters: nothing structural, but do not translate them away.** The four agents are the rule's halts given an owner and a dispatch address — they add no discipline the self-sufficient rule did not already carry, which is why rule-only tools (Aider / Codex / Gemini) still reach the same enforcement floor by following the inlined procedure. A tool WITH agent support that drops them regresses to the pre-1.9.0 shape: each command re-deriving the same audit inline, with no guarantee two commands run it the same way. Tools with agent support MUST surface all four; tools without MUST keep the inlined halts they already carry. Neither may claim the audits ran when they did not.
 
 ## Sibling top-level commands — `/optimize` and `/polish` (NOT in this pack)
 
@@ -262,7 +271,7 @@ Align dispatches detectors from other packs at scan time:
 | `dead-code-finder` agent | `code-quality/agents/` | dead-code |
 | `refactorer` agent | `code-quality/agents/` | over-abstraction, SOLID |
 | `code-reviewer` agent | `code-quality/agents/` | clean-code |
-| `performance-optimizer` agent (or pack equivalent) | `code-quality/agents/` | performance |
+| `performance-optimizer` agent | `performance/agents/` | performance |
 | `security-auditor` agent | `security/agents/` | security |
 | `deps-audit` skill | `security/skills/` | security (vuln-deps subclass) |
 | `accessibility-auditor` agent | `frontend/agents/` | a11y (frontend stacks) |
@@ -270,6 +279,8 @@ Align dispatches detectors from other packs at scan time:
 | `data-flow-auditor` agent | `frontend/agents/` | UI state coverage (frontend stacks) |
 | `design-token-audit` skill | `ui-ux/skills/` | design-token drift (frontend stacks) |
 | `motion-audit` skill | `ui-ux/skills/` | motion drift (frontend stacks) |
+
+`performance-optimizer` lives in the **performance** pack. Through 1.8.2 four align files cited it at `code-quality/agents/performance-optimizer.md`, which has never existed — a dangling dispatch, repointed in 1.9.0. Adapters that resolved that path and found nothing were correct to; the destination changed, not the intent. Where the performance pack is not loaded, the perf detector falls back to the project's profiler / query log and the row still requires a baseline in `notes`.
 
 When `/setup-project --include=align` runs, it auto-includes the source packs above (code-quality + security baseline; frontend + ui-ux for `frontend-*` projects).
 

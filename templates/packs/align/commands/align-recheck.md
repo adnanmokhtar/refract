@@ -145,7 +145,7 @@ Optional flags:
 2. RESOLVE         — for each input arg: classify as path or description; resolve descriptions to source paths via semantic understanding
 3. CONFIRM         — if resolution was ambiguous, surface candidates and confirm
 4. SCAN-FRESH      — for the resolved area: dispatch the 12 universal detectors (+ stack-conditional UI/UX detectors for frontend-*) directly against current source. NO cache lookup, NO ledger-row lookup as input.
-5. TRIAGE          — split detected findings into trivial / standard / heavy
+5. TRIAGE          — split detected findings into trivial / standard / heavy; dispatch `@align-evidence-auditor` over the fresh rows (evidence resolves + explicit enumeration + class matches signal + verb reachable without invention + tier floor). Rows it REJECTs do not reach FIX; out-of-domain rows leave with their destination named.
 6. FIX             — apply closure-verb edits per finding (one commit per finding; net-lines ≤ 0 structural / cite-idiom functional)
 7. VERIFY          — lint + typecheck + scoped tests + re-detect + class-specific assertions (security / perf / a11y / bundle-size)
 8. RECORD-LEDGER   — best-effort: if a ledger exists, update matching rows. If not, leave alone (or create new entries if --register-ledger)
@@ -327,6 +327,10 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 - `/align-fast <N> --re-audit` — phase-scoped re-audit (vs path-scoped here).
 - `/align-scan --scope=<path>` — pick up new findings before rechecking.
 - `/align-status` — read-only ledger reader.
+
+### Agents
+- `.claude/agents/align-evidence-auditor.md` — dispatched at TRIAGE over the SCAN-FRESH rows. Path-scoped rechecks skip `/align-plan` entirely, so this is the only evidence audit a recheck gets.
+- `.claude/agents/align-idiom-auditor.md` — dispatched per row at DECIDE and VERIFY inside the FIX loop, exactly as in `/align-phase`.
 
 ### Skills (per-class FIX dispatch — see Phase 4 routing table)
 - `code-quality/skills/refactoring-sweep/SKILL.md` — refactoring-class findings.

@@ -4,30 +4,33 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**179 commands** — core 15 · 20 packs (118) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**194 commands** — core 15 · 23 packs (133) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
 ## Sections
 
 - [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 15
-- [Pack — ai-engineering](#pack--ai-engineering) — 1
+- [Pack — ai-engineering](#pack--ai-engineering) — 3
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
 - [Pack — backend](#pack--backend) — 9
 - [Pack — business](#pack--business) — 5
 - [Pack — code-quality](#pack--code-quality) — 6
+- [Pack — data-engineering](#pack--data-engineering) — 4
 - [Pack — database](#pack--database) — 4
 - [Pack — devops](#pack--devops) — 4
 - [Pack — distributed-systems](#pack--distributed-systems) — 4
 - [Pack — documentation](#pack--documentation) — 3
+- [Pack — finops](#pack--finops) — 4
 - [Pack — frontend](#pack--frontend) — 7
 - [Pack — infrastructure](#pack--infrastructure) — 4
-- [Pack — learning](#pack--learning) — 7
+- [Pack — learning](#pack--learning) — 8
 - [Pack — migration](#pack--migration) — 20
 - [Pack — mobile](#pack--mobile) — 4
 - [Pack — observability](#pack--observability) — 4
 - [Pack — performance](#pack--performance) — 3
+- [Pack — product](#pack--product) — 4
 - [Pack — security](#pack--security) — 4
 - [Pack — testing](#pack--testing) — 4
 - [Pack — ui-ux](#pack--ui-ux) — 10
@@ -59,6 +62,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-ai-feature` | Build an LLM feature end-to-end — prompt/gateway wiring + structured output + retrieval (if RAG) +… | — | `/add-ai-feature` |
+| `/add-eval-set` | Retrofit a regression-gating eval harness onto an existing LLM feature that has none — pick the… | `--plan` | `/add-eval-set <feature> [--plan]` |
+| `/ai-audit` | Read-only audit of an existing LLM/AI surface across six axes — eval coverage, prompt quality… | `--plan-only` | `/ai-audit [<scope>] [--plan-only]` |
 
 ## Pack — algorithms
 
@@ -120,6 +125,15 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/review-changes` | Comprehensive, signal-aware review of pending changes. | — | `/review-changes` |
 | `/simplify` | Review changed code for reuse, dead branches, and over-abstraction; propose concrete… | — | `/simplify [path]` |
 
+## Pack — data-engineering
+
+| Command | Summary | Flags | Example |
+|---|---|---|---|
+| `/add-data-model` | Author a new warehouse model (staging / intermediate / fact / dimension) in the project's own… | `--layer`, `--grain` | `/add-data-model <model-name> [--layer staging\|intermediate\|mart] [--grain "<one sentence>"]` |
+| `/audit-data-model` | Audit the warehouse's analytical model — declared grain, fact/dimension separation, key and SCD… | `--layer` | `/audit-data-model [<scope>] [--layer mart\|intermediate\|staging]` |
+| `/audit-data-quality` | Audit and close data-trust gaps — per-model assertion coverage across structural, temporal… | `--write-tests` | `/audit-data-quality [<scope>] [--write-tests]` |
+| `/backfill-plan` | Plan a safe backfill or reprocess of a warehouse model — bounded scope, shadow target, cost and… | `--from`, `--to`, `--reason` | `/backfill-plan <model> [--from <date>] [--to <date>] [--reason "<why>"]` |
+
 ## Pack — database
 
 | Command | Summary | Flags | Example |
@@ -155,6 +169,15 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-runbook` | Author an operational runbook (incident response, deploy, rollback, on-call playbook). | `--type=<incident\|deploy\|rollback\|migration\|cutover\|on-call>`, `--related-adr=<NNN>`, `--related-feature=<id>` | `/add-runbook <name> [<description>]` |
 | `/doc-refresh` | Comprehensive post-work documentation refresh. | — | `/doc-refresh` |
 
+## Pack — finops
+
+| Command | Summary | Flags | Example |
+|---|---|---|---|
+| `/audit-cost-attribution` | Audit whether spend can be attributed to an owner — tag and label coverage by resource and by… | `--period` | `/audit-cost-attribution [--period <billing-period>]` |
+| `/cost-guardrails` | Install the preventive cost layer — budgets with owners, anomaly detection with a declared… | `--scope` | `/cost-guardrails [--scope <account\|project\|service>]` |
+| `/cost-model` | Build or refresh the unit-economics model — the driver tree from a business unit down to billed… | `--refresh` | `/cost-model [<unit>] [--refresh]` |
+| `/cost-review` | Review a change for cost regressions before it merges — always-on resources, per-row paid calls… | `--since` | `/cost-review [<scope>] [--since <ref>]` |
+
 ## Pack — frontend
 
 | Command | Summary | Flags | Example |
@@ -186,6 +209,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/learn-from-task` | After a task finishes, capture decisions made / patterns followed / patterns introduced / user… | — | `/learn-from-task` |
 | `/promote-decision` | Graduate an entry from ai/dynamic/decisions-pending.md into a formal, sequentially-numbered ADR… | — | `/promote-decision <id>` |
 | `/promote-pattern` | Graduates an emerging pattern from ai/dynamic/learned-patterns.md to a formal ai/patterns/<name>.md… | — | `/promote-pattern <name>` |
+| `/recall` | Search this project's existing ai/ memory — the dynamic sinks, the don't-retry failure catalog… | `--kind`, `--owner`, `--since`, `--limit`, `--format`, `--catalog` | `/recall "cart cache key tenant"` |
 | `/refresh-knowledge` | Re-runs Phase 2 codebase profiling, diffs against current ai/conventions.md +… | `--dry-run` | `/refresh-knowledge` |
 
 ## Pack — migration
@@ -238,6 +262,15 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/bundle-perf` | Web bundle + page-load performance audit. | `--plan` | `/bundle-perf` |
 | `/perf-audit` | Performance pass — performance-optimizer single dispatch, ranked by impact. | `--plan-only` | `/perf-audit [path\|endpoint]` |
 | `/profile-perf` | Profile a slow endpoint / page / flow. | `--plan` | `/profile-perf` |
+
+## Pack — product
+
+| Command | Summary | Flags | Example |
+|---|---|---|---|
+| `/audit-requirements` | Audit a spec, ticket, or set of acceptance criteria for the defects that survive into code… | — | `/audit-requirements [<spec \| ticket \| path>]` |
+| `/define-success` | Define what success and damage look like before a change ships — the success metric with a baseline… | — | `/define-success [<change or feature>]` |
+| `/frame-problem` | Produce the problem brief before anyone designs a solution — who has it, what evidence says so… | — | `/frame-problem [<problem or feature request>]` |
+| `/synthesize-research` | Turn raw research material — interview notes, support tickets, session recordings, sales notes… | — | `/synthesize-research [<corpus or path>]` |
 
 ## Pack — security
 

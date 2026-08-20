@@ -29,6 +29,8 @@ pack: align
 
 ## The 14-check matrix
 
+**Dispatch `@align-gate-auditor`.** It owns this matrix, composes the PASS/REFUSE verdict, and is the artifact that keeps two invocations of the gate from running the checks two different ways. It in turn dispatches `@align-idiom-auditor` per functional row for checks 4, 9 and 11 rather than re-deriving those judgments at phase scope. Where agent dispatch is unavailable, run the matrix inline — it is identical, and `align-discipline.md` is self-sufficient for rule-only tools.
+
 The gate runs these 14 checks in order. The first failure surfaces; subsequent checks may run for additional context but the gate's verdict is REFUSE.
 
 ### Check 1 — Ledger completeness
@@ -266,8 +268,13 @@ The gate REFUSES on any check failure. It does NOT:
 - `/align-rollback <N>` — undoes a phase if rethink needed.
 - `/align-final` — final cross-phase sweep; this gate is the per-phase equivalent.
 
+### Agents
+- `.claude/agents/align-gate-auditor.md` — owns the 14-check matrix and the PASS/REFUSE verdict; read-only on REFUSE, one history line on PASS.
+- `.claude/agents/align-idiom-auditor.md` — supplies the per-row verdicts behind checks 4 (no new symbols), 9 (oracle unmodified) and 11 (idiom citation).
+- `.claude/agents/align-ledger-auditor.md` — check 1 (ledger completeness) is the phase-scoped slice of its cross-phase reconciliation; dispatch it when check 1 fails and you need to know whether the drift is local to this phase.
+
 ### Validator
-- `scripts/validate-align-artifacts.sh` — **`[PLANNED — v1.1]`**. Will operationalise the 14 checks. Until it ships, this command runs the equivalent checks inline (agent-side enforcement). The procedures are self-sufficient in `align-discipline.md` so any tool that follows the rule produces the same enforcement floor. Treat v1.0 alignment as a supervised flow.
+- `scripts/validate-align-artifacts.sh` — ships and defines **11 of the 14** checks: `check_evidence_resolves`, `check_no_handwaves`, `check_closure_verb_in_vocab`, `check_no_new_symbols`, `check_net_lines_structural`, `check_scope_boundary`, `check_security_tier_minimum`, `check_perf_baseline_present`, `check_security_assertion_present`, `check_added_lines_cite_idioms`, `check_oracle_unmodified`. Checks 1 (ledger completeness), 7 (coverage tolerance) and 8 (frontend regressions) have **no script implementation** — they are agent-side, run by `@align-gate-auditor`, and labelled as such in its report. `align-discipline.md` is self-sufficient so rule-only tools reach the same enforcement floor by following the inlined procedure.
 
 ### Rules
 - `.claude/rules/align-discipline.md` — the discipline this gate enforces.

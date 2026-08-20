@@ -2,7 +2,7 @@
 description: Dispatch ONE bounded coding task to a different AI coding CLI, then review its diff and land it. Trigger ONLY when the human names another tool as the implementer — "have Codex do this", "delegate to Cursor", "run it through Aider", "get a second opinion from another CLI", "burn the cheap CLI's quota on this", "cross-tool diff". Anti-triggers (do NOT fire): a plain "implement X" with no other tool named (that is /do or the specialist command); "the repo has an adapter for it" (adapters CONFIGURE a tool, they do not authorize dispatching to it); fanning an existing ledger out in parallel (that is scripts/*-parallel.sh); wiring a tool up (that is /setup-project-adapters); and any ask not yet reducible to one reviewable diff.
 kind: command
 pack: orchestration
-version: 1.0.0
+version: 1.1.0
 ---
 
 # /delegate <task> [--to=<cli>] [--read-only] [--gate=<cmd>] [--model=<id>] [--session=<id>] [--plan]
@@ -82,6 +82,12 @@ written down or it does not exist.
   touch the host, use a container or a throwaway worktree — no flag documented here gives you that.
 - **The diff would be too large to review honestly.** Delegation whose output you rubber-stamp
   has moved the risk, not reduced it.
+- **Against the repository the relay itself lives in.** Refused by default (relay exit 6). The
+  artifact directory is written *inside the target tree*, so an implementer that commits there
+  commits the relay's own evidence, and a single `git add -A` sweeps brief, logs and shim into the
+  same commit. Exercise the relay against a throwaway repo — see *Exercising the relay itself*
+  below. The relay-only escape hatch exists for when you genuinely mean it, and stamps
+  `selfTarget: true` into the result so the artifact carries the fact.
 
 ## Args
 
@@ -112,7 +118,7 @@ command-only — it is handled in Phase 3.5 and the relay never sees it. Everyth
 passes through under the same name. Translations that shell out to the relay must do that rename, or
 the run dies at argument parsing before anything is dispatched.
 
-The relay also takes flags this surface does not re-expose: `--accept-unenforced`, `--out=`,
+The relay also takes flags this surface does not re-expose: `--accept-unenforced`, `--allow-self`, `--out=`,
 `--repo=`, `--brief=`, `--no-commit-shim`, `--quiet`, `--list`. `delegate-relay.sh --help` is the
 authority on all of them.
 
@@ -251,11 +257,11 @@ It never tells you nothing else did. **`touchedFiles` and the diff are what you 
 
 | # | Gate | Fails how |
 |---|---|---|
-| G1 | Git work tree present; clean, or dirty-and-declared with `--allow-dirty` | relay exit 4, nothing launched |
+| G1 | Git work tree present; **not the relay's own repo**; clean, or dirty-and-declared with `--allow-dirty` | relay exit 4 — or exit 6 for a self-target — nothing launched |
 | G2 | Implementer on PATH and `--version` succeeds | relay exit 3, nothing launched |
 | G3 | Read-only requested → enforcement is `enforced` | relay exit 5, nothing launched |
 | G4 | Brief carries task + scope + constraints + gates + done-condition | agent-side halt before dispatch (not script-enforced) |
-| G5 | HEAD unchanged after the run | `violations: ["implementer-moved-head"]`, status `failed` — regardless of what the implementer reported |
+| G5 | HEAD unchanged after the run | `violations: ["implementer-moved-head"]`, status `failed` — regardless of what the implementer reported. `git.commits` names what landed; the diff and `touchedFiles` are taken against the pre-run HEAD, so the work is still reviewable |
 | G6 | Every `--gate=` command re-run **by you**, on the returned tree | agent-side; a green gate the implementer reported and you did not re-run counts as un-run |
 | G7 | Whole diff read against the brief, tests-touched-first | agent-side; report what you did not read |
 
@@ -276,7 +282,13 @@ decision that belongs to the reviewer, and no amount of good diff redeems that.
   Offer the two honest ways forward: a different implementer, or an explicit best-effort run
   (`delegate-relay.sh --accept-unenforced`), which reports `enforcement: unenforceable` and leans on
   the git tripwire alone. Never present the second as equivalent to the first.
-- **HEAD moved during the run** → halt the review. Surface the commits, do not squash them silently.
+- **HEAD moved during the run** → halt the review. Surface the commits — `git.commits` and
+  `<out>/commits.txt` list them by sha and subject — and do not squash them silently. The diff is
+  taken against `git.diffBase` (the pre-run HEAD), so the work is still in front of you even though
+  it is already in history. `git reset --soft <headBefore>` puts it back in the working tree if you
+  want to review it as a diff; that is the reviewer's call to make, and the relay never makes it.
+- **Self-target refused (relay exit 6)** → do not reach for `--allow-self` to get past it. Say what
+  was refused and why, and offer the throwaway-repo procedure below.
 - **Implementer reports success with an empty diff** → halt. Nothing was delegated; report it as a
   failure, not a no-op success.
 - **Diff exceeds what you can review honestly** → halt before landing. Say so out loud and propose a
@@ -325,8 +337,10 @@ fields:
   "exitCode": 0,
   "signal": null,
   "timedOut": false,
-  "git": { "headBefore": "…", "headAfter": "…", "headMoved": false, "stagedAtEnd": false,
-           "dirtyAtStart": false, "fingerprintComplete": true },
+  "selfTarget": false,
+  "git": { "headBefore": "…", "headAfter": "…", "headMoved": false, "diffBase": "…",
+           "commitsAhead": 0, "commits": [], "committedFiles": [],
+           "stagedAtEnd": false, "dirtyAtStart": false, "fingerprintComplete": true },
   "touchedFiles": ["src/clients/retry.ts"],
   "readOnly": { "requested": false, "enforcement": "not-requested",
                 "helpProbe": "skipped", "violation": null, "coverage": "…" },
@@ -339,7 +353,17 @@ fields:
 
 `committed` is hard-coded `false` and `landedBy` hard-coded `null`. They are not status fields the
 relay might one day fill in — they are the contract stating, in the artifact itself, that landing
-happened somewhere else if it happened at all.
+happened somewhere else if it happened at all. Read them as *the relay did not commit*, never as
+*nothing was committed*: **`git.headMoved` is the field that answers the second question**, and
+`git.commitsAhead` / `git.commits` say what landed. A reader who resolves `"committed": false`
+against `"headMoved": true` the wrong way concludes the run was a no-op, which is precisely how a
+committing implementer used to disappear.
+
+`git.diffBase` is the pre-run HEAD, and `delegate.diff` and `touchedFiles` are both computed
+against it rather than against HEAD. That is not a detail: a commit empties `git status` and moves
+HEAD onto the implementer's own work, so the two fields a reviewer actually reads would otherwise
+go blank at the exact moment the invariant broke — an empty diff that reads like a harmless no-op.
+`git.committedFiles` is the file list from `headBefore..headAfter` specifically.
 
 `sessionId` is scanned generically out of the CLI's own JSON output (`session_id` / `threadId` /
 `chatId` / `conversationId`). When the CLI prints none, the field is `null` and no id is invented.
@@ -356,8 +380,43 @@ plus a `/dev/null` diff per untracked file, so index state cannot hide a change.
 
 Relay artifacts (brief, logs, diff, `result.json`) default to `.claude/delegate/<ts>-<impl>/` inside
 the target repo. They are filtered out of `touchedFiles` and out of the captured diff — the relay
-never reports its own output as the implementer's work — and the run notes suggest gitignoring the
-directory.
+never reports its own output as the implementer's work — and the directory **ignores itself**: it is
+created with a `.gitignore` holding a single `*`, so it stays out of `git status` and cannot be swept
+into a commit by an implementer running `git add -A`. Artifact files from an older run that are
+already *tracked* are outside that protection; untrack those yourself.
+
+## Exercising the relay itself
+
+Testing the relay is a recurring, legitimate need, and the only tree to hand is usually the wrong
+one. A run against the repository the relay lives in puts the artifact directory inside the tree
+under test, so an implementer that commits commits the relay's own evidence — that is a real
+incident, not a hypothetical, and it is why the relay refuses this by default (exit 6).
+
+Build a throwaway repo and a stub implementer instead. Never point it at a repo whose history you
+care about, and never at this one:
+
+```bash
+SB="$(mktemp -d)"; export HOME="$SB/home"; mkdir -p "$SB/home" "$SB/bin" "$SB/repo"
+git -C "$SB/repo" init -q && printf 'seed\n' > "$SB/repo/file.txt"
+git -C "$SB/repo" add file.txt && git -C "$SB/repo" commit -qm seed
+
+printf '#!/bin/sh\ncase "$1" in --version) echo stub; exit 0;; esac\nprintf x > a.txt\n' > "$SB/bin/kimi"
+chmod +x "$SB/bin/kimi"
+
+PATH="$SB/bin:$PATH" bash scripts/delegate-relay.sh --implementer=kimi \
+  --repo="$SB/repo" --brief=<(echo "edit a.txt") --timeout=60
+```
+
+`kimi` is the cheapest stub target: its profile declares no read-only mode and no autonomy flag, so
+the relay probes nothing beyond `kimi --version` before dispatch.
+
+`scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases covering the ordinary
+run, an implementer that commits behind the shim's back, both alias routes around the shim, the
+`git add -A` sweep, two consecutive dry runs, a dirty baseline whose pre-existing dirt must not be
+attributed to the implementer, and the self-target refusal (including through a symlinked
+invocation, because `scripts/` is symlinked into `~/.claude` and a guard that does not dereference
+would no-op exactly there). It builds every repo under `mktemp -d` and refuses to run if a sandbox
+path escapes the temp root.
 
 ## Failure modes
 
@@ -376,6 +435,15 @@ directory.
   CLIs whose resume shape it has not verified, precisely so this stays visible.
 - **Relay refuses a git subcommand** (`git commit` denied via the PATH shim) → the implementer tried to
   land its own work. That is information about the run. Record it in the summary.
+- **The implementer committed anyway** → `git.headMoved: true`, `violations: ["implementer-moved-head"]`,
+  status `failed`, `git.commits` listing each sha and subject. The shim is a speed bump: an absolute
+  path (`/usr/bin/git`), a libgit2 binding, or a subshell that rebuilds PATH all walk past it, so this
+  is a case to expect rather than a surprise. The diff and `touchedFiles` are re-based on the pre-run
+  HEAD, so the work is still reviewable — review it exactly as you would any other diff. Hand the
+  reviewer the commit list; do not squash the commits and do not present the run as a success.
+- **`touchedFiles` empty, `headMoved` true** → the work is in neither the tree nor the commit range.
+  History was rewritten, reset, or checked out. The relay says so in `notes` rather than reporting a
+  clean run; read `git reflog` in the target repo before concluding anything.
 
 ## Hard rules (internal)
 
@@ -394,8 +462,14 @@ directory.
 
 ## Cross-references
 
-- [`scripts/delegate-relay.sh`](../scripts/delegate-relay.sh) — the relay: preflight (`check_git_state`, `check_implementer`),
-  launch, watchdog, diff capture, `delegate-relay.result.v1` JSON. `--dry-run` and `--list` are safe anywhere.
+- [`scripts/delegate-relay.sh`](../scripts/delegate-relay.sh) — the relay: preflight (`check_git_state`, `check_self_target`,
+  `check_implementer`), launch, watchdog, diff capture, `delegate-relay.result.v1` JSON. `--list` is safe
+  anywhere; so is `--dry-run`, which composes the brief into a temp directory instead of the target repo
+  unless you name an `--out=` yourself, and writes nothing into the tree (it used to write into
+  `.claude/delegate/`, which dirtied the tree and made the *next* run refuse with "commit/stash it
+  yourself" — the exact pressure that produces a `git add -A`).
+- [`scripts/test-delegate-relay.sh`](../scripts/test-delegate-relay.sh) — the relay's fixture: sandboxed repos under `mktemp -d`,
+  stub implementers, and the assertions that keep a committing implementer loud instead of silent.
 - [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md) — the universal `--plan` contract; the brief doubles as the plan file.
 - [`templates/tool-adapters/_registry.md`](../templates/tool-adapters/_registry.md) — the 12 adapters this repo *configures*. Overlaps this command's
   implementer set but is not the same list: `continue` and `windsurf` have no headless CLI, and

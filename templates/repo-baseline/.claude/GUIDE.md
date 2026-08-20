@@ -39,11 +39,12 @@ See `.claude/rules/` (and `.claude/rules/README.md` for the two-tier model). The
 - `secret-scan.sh` — PreToolUse on Edit/Write/MultiEdit. Blocks writes that introduce high-confidence credentials (API keys, tokens, private keys, connection strings).
 - `inject-path-rules.sh` — PreToolUse on Edit/Write/MultiEdit. **Context-only** (never blocks): injects a `paths:`-scoped rule from `.claude/rules/` when you edit a file it governs, once per session. See `.claude/rules/README.md`. Opt out: `.no-path-rules`.
 - `guard-destructive.sh` — PreToolUse on Bash. Blocks push-to-protected-branch, force-push (allows `--force-with-lease`), `rm -rf` on `/`/`~`/`$VAR`, `DROP`/`DELETE`-without-`WHERE`/`TRUNCATE`, `curl|sh`, `dd`/`mkfs`, `chmod 777`, accidental `publish`. Configurable via `CLAUDE_PROTECTED_BRANCHES`.
+- `recall-inject.sh` — UserPromptSubmit. **Context-only** (never blocks): BM25-searches this project's existing `ai/` memory with your prompt and injects the top 3 matching POINTERS (`path:line`), once per row per session. Stores nothing and adds no sink — the index is a derived cache at `.claude/_memory-index.json` (gitignored). **Opt-in:** `touch .claude/.recall`. See `/recall` for the manual query.
 - `session-start.sh` — SessionStart. Prints branch, uncommitted count, last 5 commits, `ai/status.md` Recent Changes, learning queue.
 - `notify.sh` — Notification. Native OS notification (macOS/Linux/WSL) when Claude needs attention.
-- `verify-gate.sh` / `update-session-log.sh` — Stop hooks (verify gate + session-log append).
+- `verify-gate.sh` / `update-session-log.sh` — Stop hooks (verify gate + session-log append). The session-log entry also records the harness's own `session_id` + `transcript_path` as POINTERS — the transcript itself is never copied into the repo. The first prompt (≤120 chars) is recorded only under the `.recall` opt-in.
 
-Opt-out flags (create the file in `.claude/`): `.no-guard-destructive`, `.no-pre-edit-guard`, `.no-secret-scan`, `.no-format`. Fixture tests: `bash tests/hooks/run.sh` (in the config repo).
+Opt-in flags (create the file in `.claude/`): `.auto-test`, `.recall`. Opt-out flags: `.no-guard-destructive`, `.no-pre-edit-guard`, `.no-secret-scan`, `.no-format`, `.no-path-rules`. Fixture tests: `bash tests/hooks/run.sh` (in the config repo).
 
 ## Settings
 

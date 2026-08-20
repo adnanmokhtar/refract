@@ -232,7 +232,7 @@ decide() {
 
   # Union of pack basenames per kind — used after the loop to report each
   # project-only orphan ONCE (previously each orphan re-appeared under every
-  # scanned pack: ~80 orphans × ~20 packs = ~1600 noise rows).
+  # scanned pack: ~80 orphans × ~23 packs = ~1600 noise rows).
   UNION_TMP=$(mktemp -d "${TMPDIR:-/tmp}/study-union.XXXXXX")
   trap 'rm -rf "$UNION_TMP" ${NORM_TMP:+"$NORM_TMP"}' EXIT
 

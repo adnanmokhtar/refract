@@ -76,6 +76,11 @@ Refused: A105 cannot be demoted from heavy.
 
 ## Related
 
+### Agents
+- `.claude/agents/align-evidence-auditor.md` — its check 5 is the tier floor this command enforces (security ≥ standard; `sql-injection` / `secret-in-code` / `unsafe-deserialize` / `severity: critical` → heavy). Dispatch it when a demotion is requested and you need the floor derived from the row's own class and severity rather than asserted.
+- `.claude/agents/align-gate-auditor.md` — gate checks 10 and 14 verify that the backfilled artifacts for the new tier actually landed. A promotion whose impact analysis was never written REFUSES at the next gate, not here.
+
+### Rules and siblings
 - `align-discipline.md § Mid-port tier promotion` — procedure this command implements.
 - `/align-phase` / `/align-fast` / `/align-recheck` — resume the fix loop after promotion.
 - `/align-status` — shows current tier + tier_history.
