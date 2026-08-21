@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "released": "2026-08-21",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Pack-wide correctness wave (agents, rules, references, skills, commands, ai-patterns): a11y-scan re-baselined to WCAG 2.2 AA with the axe option-order trap documented; the PPR API Next 16 removed is gone from both streaming-ssr and references/nextjs.md; three data-fetching detector greps that never matched are fixed and re-run; ssr-safety rebuilt to the 1.10.0 pattern shape; all seven agents re-cut with anti-triggers, sibling boundaries and pack-gated cross-pack reads; 24x24 (AA) untangled from 44x44 (AAA) in target-size guidance; and a new auth-session-client pattern covers the client session lifecycle.",
+  "summary": "Additive depth: @accessibility-auditor and forms now state what axe can and cannot decide across WCAG 2.2's six A/AA additions, each criterion carrying a cited does-not-apply clause; and all six framework references route to the project's installed or hosted docs instead of restating an API surface from memory, fixed pack-wide as _authoring-standard.md §0 invariant 8.",
   "changelog": "CHANGELOG.md"
 }

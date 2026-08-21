@@ -9,6 +9,172 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.14.0 — 2026-08-21
+
+Additive pass. Scope, by count so it can be checked against the diff: `ai-patterns/` 3 of 16 (one of them
+new), `skills/` 1 of 9, `_examples/` 2 of 37 (one of them new), plus `_topics.md`, `_essentials.md`,
+`_version.json` and this file. **`agents/` (0 of 5), `rules/` (0 of 3), `references/` (0 of 12),
+`commands/` (0 of 9) and `STACK.md` are untouched** — checked against `git diff --stat`, not asserted from
+memory, because the 1.13.0 entry got exactly this claim wrong and no gate catches it. Nothing was added to
+`rules/` on purpose: the repo's `rules/` files are always loaded and share one 6000-token budget with about
+1000 tokens of headroom left, so depth belongs in `ai-patterns/`, which loads on demand.
+
+**New**
+
+- **`ai-patterns/agent-callable-api.md`** (+ `_examples/agent-callable-api.md` fallback) — the pack's 16th
+  pattern, and the first that treats the *caller* as the variable. Three properties of an autonomous caller
+  break assumptions a human-written client silently satisfies: it never re-reads your docs (the description
+  text in context this turn is its entire knowledge of the API), it sees no dashboard/changelog/UI, and every
+  byte you return is tokenised into a finite billed context that competes with its actual task — so response
+  size is a **correctness** budget, not a cost one. The hard rule is five clauses — a description stating the
+  anti-trigger and the negative space ("what this tool does *not* return"); an input schema where invalid
+  states are unrepresentable rather than merely rejected; errors carrying the correction so the model can
+  self-correct; a declared, enforced response budget; and server-side enforcement of every destructive gate —
+  plus a section on audience-validated, non-passthrough tokens for a caller that is not a person. Eight
+  detectors, ten closure verbs, and a § When NOT to expose an API to agents at all. Sourced against
+  Anthropic's tool-use docs (Define tools § Best practices; Writing tools for
+  agents; Strict tool use) and the MCP `2025-11-25` specification (execution-vs-protocol errors, the
+  `ToolAnnotations` "hints … untrusted" clause, and the authorization `MUST`s), with the prefix-vs-suffix
+  namespacing question recorded as **UNKNOWN** because the cited source says the effect is non-trivial but
+  never says which direction wins.
+  - The pack-internal argument that makes it worth its 246 lines: **this repo already proves the thesis.**
+    `templates/canonical-command-template.md:35,42–44` demands a keyword-front-loaded description plus an
+    explicit `USE:` / `NOT:` pair for every command, because agent routing accuracy collapses without it. A
+    tool description is the same artifact under a different name, routed by the same mechanism, failing the
+    same way.
+  - Registered signal-gated, never `always: true` — most backends have no agent-callable surface, and
+    authoring this into one is the ceremony `_essentials.md` exists to refuse.
+
+**Depth**
+
+- **`api-contract.md` § Resource naming and URL structure**, four additions and one new section. Nesting
+  depth gets the rule teams actually ignore (Zalando #147, "⇐ 3 sub-resource (nesting) levels") plus the test
+  that decides it — not "is this conceptually inside that", which is true of almost everything, but "can I
+  resolve this id *without* the parent's id"; if yes, promote it to a top-level collection and demote the
+  parent to a filter. AIP-122's collection-identifier uniqueness rule (`people/xyz/people/abc` is invalid)
+  lands as the cheap always-real bug. Zalando #143 and #136 (path-segment identification; no empty or
+  trailing segments) are named because both break silently in a route table.
+- **The plural rule's real exception is now stated instead of implied.** AIP-122: where there is no plural
+  word ("info") or singular and plural coincide ("moose"), the singular is correct and coining an "s" is
+  forbidden. `/media`, `/series`, `/analytics`, `/staff` are therefore not drift — which is also why the
+  audit refuses to automate the plural check at all (see below).
+- **The two doctrines this file cites disagree, and the file now says so.** Zalando #129 mandates kebab-case
+  path segments (`^[a-z][a-z\-0-9]*$`) and #130 snake_case query params; Google AIP-122 mandates camelCase
+  segments. Both are published MUSTs from serious API programmes and there is no neutral arbitrator, so the
+  section records the disagreement in a table, states the property that actually matters (**predictability**;
+  the case style is the arbitrary half), sets this pack's default to Zalando's kebab paths with the reason (a
+  path segment is a token humans type, log, paste into runbooks and compare case-insensitively), and flags
+  the one exception that survives either choice — AIP-136 requires the custom-method verb after the colon to
+  be camelCase, so `POST /shipping-addresses/42:markPrimary` is a *correct* camelCase island and a case
+  detector that flags it has a bug.
+- **`api-contract.md` § Retrofitting — after the fact, consistency beats correctness.** The inversion most
+  naming guides never state: on day 900 a half-finished rename is worse than doing nothing. A surface that is
+  0% textbook and 100% predictable costs a consumer one lookup ever; one that is 60% correct costs them a
+  lookup *per call*, because guessing stops working — which is the exact cost the naming rules exist to
+  remove. Four ordered steps (declare the existing convention as canonical including the parts you dislike;
+  new endpoints match the canonical, not the textbook; change the convention only as a versioning event; or
+  close it in an ADR), and two narrow exceptions that get fixed out of band because they are defects rather
+  than taste: a verb path whose method contradicts it (`GET /orders/42/delete` — GET is safe per RFC 9110
+  §9.2.1, so crawlers and prefetchers may fire it), and a segment leaking PII or an enumerable id.
+- **`api-versioning.md` § Date-pinned (rolling) versions.** The 1.13.0 pass added the strategy *row*; this
+  adds the model behind it, because "header versioning with nicer strings" is the wrong reading and two of
+  the three parts out of three is worse than `/v1`. Pin at first call, per-request header override with a
+  written resolution order, and a chained registry of version-change modules — the property that makes the
+  fifteenth version cost the same as the second is that **your handlers only ever know the current shape**;
+  an old version is today's response walked backwards through N small functions. The section then states the
+  property the whole thing rests on (every transformation is a pure, order-dependent function of the payload
+  — no I/O, no DB, no clock) and what Stripe does when that breaks (`has_side_effects` annotations, no-ops in
+  the layer, real behaviour scattered elsewhere), reading that as the honest cost line rather than a fix.
+  Plus: a per-approach failure-mode table (what each prevents *and* what each creates), the run costs
+  (registry never shrinks; per-version conformance suites; caching gets worse — a pinned version is derived
+  from the credential, so the only honest cache key is the credential and the shared cache shares nothing;
+  webhooks need their own explicit pin), and when it is the wrong choice — chiefly **semantic** breaks, which
+  a payload transform cannot express (`firstName`+`lastName` → `name` is recoverable; "`amount` now excludes
+  tax" is not).
+- **`Date-named is not date-pinned`,** separated because the two get conflated whenever someone points at a
+  dated version string. Anthropic requires an `anthropic-version` header on every request with no
+  account-level pin and two versions total; GitHub is date-named with a *frozen* `2022-11-28` default; only
+  Stripe runs the full pin + override + chain. The cheap half is adoptable without the expensive half, and
+  that is the option most teams should take. Also `Option D: version-change chain` under § Implementation
+  strategies, stated as a rewrite rather than a refactor from A/B.
+
+**Enforceability**
+
+- **`api-consistency-audit` fingerprint 3b (`resource-naming-drift`) becomes runnable.** Six shell checks
+  over a normalised `paths.txt` — verb-in-segment, Zalando #129's published segment regex, a dominance count
+  that says which style the surface *actually* uses (run first: a uniformly snake surface has a canonical
+  that is not kebab, and the regex check's output is then the wrong list to act on), nesting depth, repeated
+  collection segments, and empty/trailing segments. Each carries the reason its naive form is wrong: the
+  `/:param` normalisation is deliberately not a bare `:` rule because that eats the `{id}:verb` custom-method
+  form and manufactures a phantom finding for every legitimate custom method, and the verb list requires a
+  whole segment or a separator/capital because a prefix match flags `/addresses` as "add" and `/settings` as
+  "set".
+- **A `What grep cannot decide` block ships beside it**, which is the half that keeps the detector honest:
+  singular-vs-plural has no check *deliberately* (the moose case — trailing-`s` clustering false-positives on
+  every mass noun in the domain, and a domain is mostly mass nouns); whether a segment is a verb or a noun
+  (`/documents/7/review`); whether nesting is wrong or merely deep; and what the canonical even is, which
+  comes from `api-conventions.md` — and this skill halts without it rather than guessing.
+- **The retrofit rule is now binding on the detector, not just advice in the pattern.** When the declared
+  canonical disagrees with the textbook the canonical wins and the textbook-correct endpoint is the outlier;
+  a detector that pushes a consistently singular surface toward plural is manufacturing drift and spending a
+  breaking path rename to do it.
+- `api-contract.md` Detector 6 extends to nesting depth and repeated collection segments, and now defers to
+  `api-conventions.md` over its own table in an existing codebase.
+- `api-versioning.md` **Detector 7 (`pin-default-version`)** — a version-resolution site whose fallback for a
+  missing header is "latest" converts every future release into a silent breaking change for every header-less
+  caller, which is the failure the scheme was bought to prevent. Fixed default (GitHub) or hard reject
+  (Anthropic) are both defensible; "latest" is not. **Detector 8 (`move-version-branch-to-adapter`)** — a
+  version conditional below the HTTP adapter, which is the specific way a transformation chain rots, and a
+  branch that *cannot* move because it needs state the payload does not carry is a semantic break wearing a
+  structural costume. Two matching `## Forbidden` entries: latest-as-default, and date-pinning with no
+  per-version conformance suite and no published support window ("not a versioning scheme, an open-ended
+  promise to run every shape you have ever shipped, inherited by someone who did not make it").
+- **These new verbs are pattern-detector verbs, not `/polish` ledger verbs, and that distinction is load-bearing
+  after 1.13.0.** `validate-polish-artifacts.sh`'s closed 15-verb `API_CONSISTENCY_VERBS` set is checked only
+  against `closure_verb:` rows in a consuming project's `ai/polish/ledger.md` and `ai/polish/_api-decisions.md`
+  — never against pack pattern files, which have always carried their own verbs (`wrap-in-envelope`,
+  `fix-brownout-status`, `ship-new-version`). The 1.13.0 fix reads as if every backend verb must live in that
+  set; it does not, which is why all 18 gates stay green. `scripts/polish-parallel.sh`'s prompt template lists
+  11 of the 15 and is illustrative, not a second vocabulary — it needs no edit either.
+
+**Registration**
+
+- `_topics.md` +`agent-callable-api`, placed with the signal-gated cluster and gated on MCP / tool-calling
+  wire shapes rather than a stack. The entry states its own blind spot instead of implying coverage: an
+  ordinary HTTP API whose callers have *shifted* from human-written clients to agents leaves no
+  distinguishing code shape, so that case is added by hand.
+- `_topics.md` `api-versioning` gains a `version_pinning_model` section and header/pin grep shapes. The old
+  `grep_evidence` was route-prefix-only (`/v1/`, `/v2/`, `@Version(`, `api_version`, `version_prefix`), and a
+  cleanly date-pinned API **has no `/vN` route at all** — so the topic was silent on precisely the scheme its
+  new section documents, and would have been skipped on the project that needs it most.
+- `_topics.md` `api-contract` gains a `resource_naming` section. Without it, extraction drops the project's
+  declared URL shape, and `api-consistency-audit` halts rather than guess a canonical — so the omission
+  disabled an enforcement path, not just a section.
+- `_essentials.md` names `agent-callable-api` in the standard-mode signal-gated enumeration and states why it
+  stays out of minimal.
+- **`_examples/api-versioning.md` brownout line corrected to `503` + `Retry-After`** (it still said "410 Gone
+  on a percentage of requests"). Not a new claim — the source was fixed in 1.13.0 for a documented reason (a
+  probabilistic `410` is cacheable by default, so it can be stored and replayed permanently) and the mirror
+  was missed. It is the declared `fallback:` for the topic, so the known-harmful instruction was still
+  shipping wherever extraction falls back. The same file also gained the `Date-pinned / rolling` strategy row.
+
+**Known gaps (verified open after this pass)**
+
+- **The six checks in 3b are not executed by any gate.** They are read and run by a skill at use time; nothing
+  in this repo proves the `awk`/`sed` hold against a real route table, and a normalisation bug would produce
+  confident wrong candidates. A fixture route table plus expected output is the fix, and it does not exist.
+- **`_examples/api-contract.md` has no § Resource naming at all** and did not gain one in 1.13.0 either. This
+  is not a gate failure — `validate-pack-consistency.sh` treats `_examples/` as deliberately abridged and
+  checks source presence only, never content (see its `project_examples_are_abridged` note) — but the mirror
+  is now further behind its source than it was.
+- **34 of 37 `_examples/` fallbacks remain un-rebased** from 1.13.0's correctness pass. `_examples/error-handling.md`
+  still declares the positional `(message, context, cause)` constructor; `_examples/rate-limiting.md` still teaches
+  the draft-05 triple; `_examples/api-contract.md` still mandates one fixed envelope where the source records an
+  exclusive choice. Two were fixed this pass (`api-versioning`, and `agent-callable-api` ships new); the rest stand.
+- **Still no gate compares a CHANGELOG entry's declared scope against the directories the diff touched.** The
+  count line at the top of this entry was checked by hand against `git diff --stat`. It would pass unchecked
+  if it were wrong.
+
 ## 1.13.0 — 2026-08-21
 
 Scope, by count so it can be checked against the diff: every directory in the pack was touched —

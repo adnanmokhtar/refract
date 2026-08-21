@@ -10,7 +10,62 @@
 > The rest of this file has NOT been re-audited against 16. So: read the `next` major from `package.json` before
 > you emit any config-level or route-segment API from here, and if it is 16+, verify the call against the
 > installed version's docs rather than trusting this page. A reference that emits a deleted API is worse than no
-> reference.
+> reference. The mechanism for doing that is the next section — on 16.2+ the matching docs are already on disk.
+
+## Read the installed docs before you read this file
+
+Next ships its own documentation **inside the package**. Where it is present it **outranks this file**, because it
+is version-matched to the exact `next` in `package.json` while this file is a hand-maintained snapshot that
+drifts — as the scope note above concedes, this pack has already proved that on itself. Restating an API from
+memory is how a reference emits a deleted call; routing to the installed copy is how it stops.
+
+**Precedence ladder — stop at the first rung that resolves:**
+
+1. **`node_modules/next/dist/docs/`** — bundled Markdown, no network, always matching the installed version.
+   Verified in `next@16.3.1`: 444 `.md` files (~3.0 MB) under `01-app/`, `02-pages/`, `03-architecture/`,
+   `04-community/`, plus `index.md`. The tree mirrors the docs site, so the page at `/docs/app/guides/<topic>`
+   is `01-app/02-guides/<topic>.md`. Resolve it **from the file that sent you, not the repo root** — in a
+   monorepo the `next` package may not be visible from the root.
+2. **Hosted Markdown** — append `.md` to any page URL under `nextjs.org/docs` (returns `text/markdown`; an
+   `Accept: text/markdown` request header does the same), indexed by `/docs/llms.txt`. Use this rung when the
+   docs are not bundled, and for the per-error pages under `/docs/messages`, which are **not** bundled. It
+   tracks *latest*, not your installed version — reconcile against `package.json` before trusting an API.
+3. **This file** — the fallback. See "What this file is still for" below.
+
+`/docs/llms-full.txt` also exists, but it is a single ~3.9 MB file: treat it as a download for grepping, not
+something to read into context. Prefer the index plus the one page you need.
+
+**Which rung you land on is decided by the installed major.** Read it from `package.json` first:
+
+| Installed | Bundled docs | `AGENTS.md` |
+|---|---|---|
+| **16.3+** | yes | `next dev` auto-generates `AGENTS.md` + `CLAUDE.md` when it detects a coding agent in the environment; `create-next-app` also generates both (`--no-agents-md` opts out) |
+| **16.2** | yes | not generated — write it yourself, pointing at `node_modules/next/dist/docs/` |
+| **16.1 and earlier, incl. 14 / 15** | **no** | `npx @next/codemod@canary agents-md` downloads a version-matched copy to `.next-docs/` and indexes it; otherwise fall through to rung 2 |
+
+**The generated block is managed, not yours.** It is fenced by `<!-- BEGIN:nextjs-agent-rules -->` /
+`<!-- END:nextjs-agent-rules -->`; content outside the markers survives the upsert, and the generated
+`CLAUDE.md` is a single `@AGENTS.md` line. Deleting the block from a diff only re-creates it as an uncommitted
+change — commit it and put project-specific instructions outside the markers. Opt out with `agentRules: false`
+in `next.config.ts`. (Verified against the shipped implementation, not just the guide: `next@16.3.1` contains
+`dist/server/lib/generate-agent-files.js`, which defines exactly those two markers, strips the legacy
+`<!-- NEXT-AGENTS-MD-START -->` pair on upsert, and writes that `CLAUDE.md` body.)
+
+**Why the routing is worth these lines.** Vercel's own evaluation, on Next 16 APIs absent from model training
+data, measured 53% baseline, 79% with Skills carrying explicit instructions, and **100%** with an ~8 KB
+`AGENTS.md` docs index (compressed from a ~40 KB first attempt). Their stated reason is that a docs index is
+passive context with "no decision point" — present every turn, where a skill must first be chosen and loaded.
+(Source: nextjs.org/docs/app/guides/ai-agents, and vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals.)
+
+**When this does NOT apply.** No `node_modules` (fresh clone, docs-only task, offline), a pinned pre-16.2 major,
+or a monorepo where `next` does not resolve from where you are. Then rung 1 is simply unavailable — fall to
+rung 2, and to this file. The ladder degrades; it does not halt.
+
+**What this file is still for.** The bundled docs are the *API surface*; they will not tell you which lever this
+pack wants pulled. The judgement stays here — the anti-patterns list, "never a raw `<img>` for app-owned
+images", the LCP-priority boundary this file shares with the `lcp-audit` skill. So: **API shape from the
+installed docs, judgement from here.** Where the two disagree about an API, the docs win and this file is stale
+— say so in the diff rather than quietly emitting the older call.
 
 ## Structure
 

@@ -193,7 +193,9 @@ Checklist:
 - Every input has a `<label for="...">` (NOT just placeholder text).
 - `aria-invalid="true"` on invalid fields.
 - Native `required` on semantic controls — `aria-required` is for controls built from non-semantic elements (a `<div role="checkbox">`); both on one element is redundant (MDN).
-- `autocomplete` on every purpose-carrying field (WCAG 2.2 SC 1.3.5) — and never block paste in a password field (SC 3.3.8).
+- `autocomplete` on every purpose-carrying field (WCAG 2.2 SC 1.3.5) — and never block paste in a credential field, or set `autocomplete="off"` on one (SC 3.3.8, AA: both lock out the password manager).
+- Split `maxlength="1"` OTP boxes fail SC 3.3.8 unless pasting the code into the first box distributes it across the rest; one `<input autocomplete="one-time-code">` passes for free.
+- Do not re-ask within one sitting for what an earlier step captured (SC 3.3.7) — prefill it, or offer a "same as billing" selection.
 - Error messages linked via `aria-describedby`.
 - `role="alert"` on error messages so screen readers announce on appearance.
 - On submit failure, `focus()` the first invalid field. Otherwise screen-reader users don't know anything happened.

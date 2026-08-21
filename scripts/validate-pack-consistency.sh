@@ -8,7 +8,8 @@
 #   3. every _topics `fallback: <path>` resolves to a real file in the pack      (FAIL)
 #   4. every _essentials array entry (agents/commands/skills/rules/ai-patterns)
 #      resolves to a real artifact (skills accept <x>.md OR <x>/SKILL.md)        (FAIL)
-#   5. every command/agent/rule/skill FILE has a _topics `- name:` entry          (WARN)
+#   5. every command/agent/rule/skill/ai-pattern FILE has a _topics `- name:` entry (WARN)
+#      (`references/` excluded by design — see the note at the check itself)
 #   6. the current `version` is described in the pack changelog — either a
 #      `## <version>` heading in the CHANGELOG.md that `changelog` points at, or a
 #      matching key in a legacy in-JSON `changelog` object                        (WARN)
@@ -101,7 +102,30 @@ for d in templates/packs/*/; do
   [[ $ess_bad -eq 0 ]] && ok "$p: all _essentials entries resolve"
 
   # 5. every artifact FILE has a _topics entry (WARN)
-  for sub in commands agents rules; do
+  #    Why this matters beyond bookkeeping: _topics.md is the pack's nucleus. Phase 4.2-AUTHOR
+  #    authors an artifact for THIS project only from a topic spec; an artifact the nucleus never
+  #    names can still be copied literally by the deterministic Phase 4.2 `cp -R` over
+  #    `{agents,commands,skills,rules,ai-patterns}/` (templates/critical-execution-rules.md
+  #    § "Rule 3: Phase 4.2 (pack copy) is DETERMINISTIC shell"), so it ships — it just never gets
+  #    rewritten in the project's own voice. That silent downgrade from AUTHOR to COPY is the
+  #    failure this warn exists to catch, and it is invisible in every other gate.
+  #
+  #    Classes checked mirror check 8's artifact-class list minus `references/`. Two corrections
+  #    to the original `commands agents rules` loop, both measured against the tree before landing:
+  #      - `skill` was named in this script's own header contract from the start but never
+  #        iterated. Skills live at `skills/<name>/SKILL.md`, so the `*.md` glob below matched
+  #        nothing even when `skills` was in the list — hence the separate directory walk. 21 of
+  #        23 packs already carry a `kind: skill` topic for every skill dir; the 8 that do not
+  #        were unreported drift, not a competing convention.
+  #      - `ai-patterns` is added: 103 of 104 shipped ai-patterns already carry a topic entry, and
+  #        `kind: pattern` is the first kind the topic schema defines.
+  #    `references/` is deliberately NOT checked: 0 of 31 shipped reference files carry a topic
+  #    entry, because references are framework docs copied verbatim into `ai/references/`, never
+  #    authored from extraction. Adding them would emit 31 warns that no author should act on.
+  #
+  #    Severity stays WARN for the same reason check 6 gives: pre-existing drift exists, and a
+  #    hard FAIL here would red the build before the backfill wave lands.
+  for sub in commands agents rules ai-patterns; do
     [[ -d "$d$sub" ]] || continue
     for f in "$d$sub"/*.md; do
       [[ -f "$f" ]] || continue
@@ -111,6 +135,15 @@ for d in templates/packs/*/; do
         || warn_msg "$p: $sub/$n.md has no '- name: $n' entry in _topics.md"
     done
   done
+  if [[ -d "${d}skills" ]]; then
+    for sk in "${d}skills"/*/SKILL.md; do
+      [[ -f "$sk" ]] || continue
+      n=$(basename "$(dirname "$sk")")
+      case "$n" in _*) continue ;; esac
+      grep -qE "^[[:space:]]*-[[:space:]]*name:[[:space:]]*${n}([[:space:]]|$)" "$d/_topics.md" 2>/dev/null \
+        || warn_msg "$p: skills/$n/SKILL.md has no '- name: $n' entry in _topics.md"
+    done
+  fi
 
   # 6. version-in-changelog (WARN — #SYNC-05). The current top-level `version` SHOULD
   #    be described in the pack's changelog. Two shapes are accepted:

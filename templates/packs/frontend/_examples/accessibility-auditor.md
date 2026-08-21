@@ -96,12 +96,14 @@ Dark mode + high-contrast separately verified — each theme has its own contras
 
 ### WCAG 2.2 additions
 
-2.2 adds nine SC; four are A/AA and belong in this checklist. 2.5.8 and 2.5.7 are above; 2.4.11 under Keyboard. The rest:
+2.2 adds nine SC and drops 4.1.1 Parsing; **six are A/AA** and all six belong in this checklist. 2.5.8 and 2.5.7 are above; 2.4.11 under Keyboard. 2.4.12, 2.4.13 and 3.3.9 are AAA — out of scope unless the project declared AAA. The rest:
 
-- **2.4.11 Focus Not Obscured (Minimum), AA** — a focused component must not be *entirely* hidden by author content. Sticky headers, consent banners, and toast stacks are the offenders; tab the route with every persistent overlay on screen.
-- **3.2.6 Consistent Help, A** — a repeated help affordance (contact details, contact form, chat, FAQ, chatbot) occurs in the same order relative to other content across the set of pages. Grade the shared shell, not each page.
-- **3.3.7 Redundant Entry, A** — data already entered in the same process is auto-populated or selectable. Multi-step wizards and checkouts fail this; a failed submit that clears every field fails it too. Exceptions: essential re-entry, security re-entry, data no longer valid.
-- **3.3.8 Accessible Authentication (Minimum), AA** — no cognitive function test in any auth step without an alternative or an assisting mechanism. Concretely: paste MUST work in password / OTP fields, password managers must not be blocked (`autocomplete="off"` on a credential field fails), and split single-character OTP boxes are a transcription test unless the whole code can be pasted.
+- **2.4.11 Focus Not Obscured (Minimum), AA** — a focused component must not be *entirely* hidden by author content. Sticky headers, consent banners, and toast stacks are the offenders; tab the route with every persistent overlay on screen. Not a finding when the user opened the obscuring content and can reveal the component without advancing focus, or when they moved it there themselves. The criterion is about the component, not its focus ring.
+- **3.2.6 Consistent Help, A** — a repeated help affordance (contact details, contact form, chat, FAQ, chatbot) occurs in the same order relative to other content across the set of pages. Grade the shared shell, not each page. It never requires help to *exist* — "no contact link anywhere" is not a 3.2.6 finding.
+- **3.3.7 Redundant Entry, A** — data already entered in the same process is auto-populated or selectable. Multi-step wizards and checkouts fail this; a failed submit that clears every field fails it too. Exceptions: essential re-entry, security re-entry, data no longer valid. Scope ends with the sitting — re-asking a user who returns after closing the session is not a violation.
+- **3.3.8 Accessible Authentication (Minimum), AA** — no cognitive function test in any auth step without an alternative or an assisting mechanism. Concretely: paste MUST work in password / OTP fields, password managers must not be blocked (`autocomplete="off"` on a credential field fails), and split single-character OTP boxes are a transcription test unless the whole code can be pasted. Object-recognition CAPTCHAs are *excepted* at AA — not a BLOCKER.
+
+**axe decides one of the six.** axe-core ships a single WCAG 2.2 rule, `target-size` (2.5.8); Deque's position is it "is likely the only rule for WCAG 2.2 that will be added to axe-core" ([source](https://www.deque.com/blog/axe-core-4-5-first-wcag-2-2-support-and-more/)). A clean `a11y-scan` is not evidence on the other five — grade them by hand or mark them `n-a` with a reason, never `pass`.
 
 ### Tables & data
 

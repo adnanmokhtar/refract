@@ -119,9 +119,12 @@ Each topic declares:
 - name: api-versioning
   kind: pattern
   triggers:
-    grep_evidence: "/v1/|/v2/|@Version\\(|api_version|version_prefix"
-  extracts_from: _extracted-codebase.md § "API surface" (route prefix analysis)
-  sections: [overview, version_prefix_strategy, deprecation_path, breaking_change_rules, examples]
+    # Header and pin shapes are not decoration: a cleanly date-pinned API has NO `/vN` route at all,
+    # so the route-prefix half of this regex is silent on exactly the scheme `version_pinning_model`
+    # documents, and the topic would be skipped on the project that needs it most.
+    grep_evidence: "/v1/|/v2/|@Version\\(|api_version|version_prefix|-[Aa]pi-[Vv]ersion|[Ss]tripe-[Vv]ersion|anthropic-version|pinned_version|version_pin"
+  extracts_from: _extracted-codebase.md § "API surface" (route prefix analysis + the version-resolution site: header parse → fallback)
+  sections: [overview, version_prefix_strategy, version_pinning_model, deprecation_path, breaking_change_rules, examples]
   mirror_existing: true
   fallback: _examples/api-versioning.md
 
@@ -130,7 +133,10 @@ Each topic declares:
   triggers:
     always: true
   extracts_from: _extracted-codebase.md § "API surface" + sample controller + DTOs
-  sections: [overview, dto_in_out_split, response_envelope, status_code_conventions, idempotency, pagination, examples]
+  # `resource_naming` records THIS project's declared URL shape (plural/singular, case style, nesting
+  # depth, custom-method form). Without it extraction drops the convention, and `skills/api-consistency-audit`
+  # halts rather than guessing a canonical — so the omission disables an enforcement path, not just a section.
+  sections: [overview, dto_in_out_split, response_envelope, resource_naming, status_code_conventions, idempotency, pagination, examples]
   mirror_existing: true
   fallback: _examples/api-contract.md
 
@@ -214,6 +220,22 @@ Each topic declares:
   sections: [overview, rules, detectors, closure_verbs, examples]
   mirror_existing: true
   fallback: _examples/file-upload.md
+
+- name: agent-callable-api
+  kind: pattern
+  triggers:
+    # Signal-gated like the five above, and deliberately NOT `always: true` — most backends have no
+    # agent-callable surface, and authoring this pattern into one is the ceremony `_essentials.md`
+    # argues against. Shapes are protocol-level (MCP + the two dominant tool-calling wire formats),
+    # not stack-level, so they survive a stack swap.
+    grep_evidence: "modelcontextprotocol|FastMCP|McpServer|mcp\\.server|@mcp\\.tool|list_tools|call_tool|ToolAnnotations|inputSchema|input_schema|tool_choice|tool_use|function_call|\\.mcp\\.json|well-known/oauth-protected-resource"
+    # Known limit, stated rather than papered over: an ordinary HTTP API whose callers have SHIFTED
+    # from human-written clients to agents leaves no distinguishing code shape at all. That case is a
+    # human call (or a traffic observation), and the topic is added by hand — grep cannot see it.
+  extracts_from: _extracted-codebase.md § "API surface" (tool/endpoint definitions, auth scheme, response DTOs) + _extracted-idioms.md (schema/validation lib, error envelope)
+  sections: [overview, caller_differences, descriptions, input_schemas, actionable_errors, response_budget, destructive_ops, auth_scoping, when_not_to_expose, boundaries, detectors, closure_verbs, examples]
+  mirror_existing: true
+  fallback: _examples/agent-callable-api.md
 
 - name: parallel-io
   kind: pattern

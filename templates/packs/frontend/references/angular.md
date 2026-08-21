@@ -5,6 +5,32 @@
 > **Version-specific gotchas**: Angular 17 made standalone components default + new control flow (`@if` / `@for` / `@switch`); 17.1 added typed forms inferred from values; 18 stabilized signals + zoneless change detection (preview); 19 promoted standalone components to required default; deferred views (`@defer`) for code-splitting; `inject()` function preferred over constructor DI in new code.
 > **Substitution markers**: Replace `<name>` / `<feature>` with the project's actual feature names.
 
+## Machine-readable docs (check these before trusting this file)
+
+Angular ships **no documentation inside the installed package** — verified against `@angular/core@22.1.3`, whose
+published tarball carries 105 files and no docs directory. The hosted docs track *latest*, not what is in your
+`package.json`; reconcile the two before you trust an API.
+
+- **Index**: `https://angular.dev/llms.txt` (~7 KB) — the cheap first read.
+- **Full text**: `https://angular.dev/assets/context/llms-full.txt` (~775 KB), which the Angular AI guide
+  describes as the robust compiled set. Grep it; do not read it into context wholesale.
+- **LLM-targeted guidance**: `https://angular.dev/assets/context/best-practices.md` (~2.8 KB) and
+  `https://angular.dev/assets/context/guidelines.md` (~4.8 KB) are written to steer a model toward idiomatic
+  modern Angular. The guidelines file is what Angular tells you to drop into `.github/copilot-instructions.md`
+  or an equivalent rules slot. Note these are *generic* Angular opinion and do not override this pack's rules
+  where the two differ — this file and `rules/frontend-principles.md` win on house conventions.
+- **No per-page Markdown, and the failure is silent.** Appending `.md` to a page URL returns **HTTP 200 with
+  `text/html`** — the Angular site's SPA shell, not documentation. A status-code check will report success while
+  handing you an empty app shell, so do not build a fetch loop on that pattern; use the files above.
+
+Angular also ships an **experimental** Angular CLI MCP server (`angular.dev/ai/mcp`). Experimental is the
+official word for it, so treat anything it returns as advisory, not as a settled API contract.
+
+Same rule as everywhere in this directory: hosted docs are the **API surface**, this file is the **house
+opinion** (standalone by default, `OnPush` everywhere, new control flow, `provideClientHydration()`). Where the
+two disagree about an API, the docs win and this file is stale — say so rather than emitting the older call.
+Where the network is unavailable, this file is what you have; it does not halt.
+
 ## Structure
 
 ```

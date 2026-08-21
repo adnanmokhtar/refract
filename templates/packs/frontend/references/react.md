@@ -5,6 +5,25 @@
 > **Version-specific gotchas**: React 19 introduced `use()` for promises in components, `useActionState`, `useFormStatus`, `useOptimistic`; `forwardRef` no longer needed (refs as props); document metadata + stylesheets hoisting; `<Context>` (not `<Context.Provider>`) shorthand; the `act()` API is asynchronous in tests.
 > **Substitution markers**: Replace `<name>` with the project's actual feature names.
 
+## Machine-readable docs (check these before trusting this file)
+
+React ships **no documentation inside the installed package** — verified against `react@19.2.8`, whose published
+tarball carries 27 files and no docs directory. There is therefore no version-matched local copy to read, and the
+hosted docs below track *latest*, not what is in your `package.json`. Reconcile the two before you trust an API.
+
+- **Index**: `https://react.dev/llms.txt` (~14 KB) — a link list of every docs page, already pointing at the
+  `.md` URLs below. This is the cheap first read.
+- **Per-page Markdown**: append `.md` to a page URL (`https://react.dev/learn.md`). Caveat worth knowing before
+  you parse it: the response is served as `text/plain` and the body is the raw **MDX source**, so it still
+  contains authoring components such as `<Intro>` and `<Note>`. Readable, but not clean prose.
+- **No `llms-full.txt`.** `https://react.dev/llms-full.txt` returns 404 — unlike Vue, Nuxt, Svelte and Angular,
+  React publishes no single-file bundle. Use the index plus the pages you need.
+
+Same rule as everywhere in this directory: hosted docs are the **API surface**, this file is the **house
+opinion** (the anti-patterns list, the INP transition rule, the fetch-in-a-hook boundary). Where the two
+disagree about an API, the docs win and this file is stale — say so rather than emitting the older call. Where
+the network is unavailable, this file is what you have; it does not halt.
+
 ## Structure
 
 ```

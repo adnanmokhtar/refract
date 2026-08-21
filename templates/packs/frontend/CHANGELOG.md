@@ -14,6 +14,97 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.14.0 — 2026-08-21
+
+Additive, and small enough to state by count so it can be checked against the diff: `agents/` 1/7,
+`ai-patterns/` 1/10, `references/` **6/6**, `_examples/` 2/38, plus `_authoring-standard.md`. Nothing under
+`skills/`, `commands/` or `rules/` was touched. **`_topics.md` and `_essentials.md` are unchanged, deliberately**
+— no artifact was created this release, so there was nothing to register; the one place a new registration was
+argued for is under "Deliberately NOT done" with the reason. Two topics, each starting from something the pack
+could not previously say.
+
+**What the automated scan cannot decide, said out loud.** `@accessibility-auditor` carried a WCAG 2.2 AA banner
+beside an `a11y-scan` skill, and neither file told the reader how little of 2.2 a scan can reach. axe-core ships
+exactly one WCAG 2.2 rule — `target-size` (2.5.8) — and Deque's own position is that it "is likely the only rule
+for WCAG 2.2 that will be added to axe-core", "because of how few new success criteria in WCAG 2.2 can be
+automated without false positives"
+([Deque](https://www.deque.com/blog/axe-core-4-5-first-wcag-2-2-support-and-more/)). There is no `wcag2411` /
+`wcag257` / `wcag326` / `wcag337` / `wcag338` tag for a run to match on, so **a green `a11y-scan` is not evidence
+on five of the six A/AA additions**. The agent now states that, requires each of those lanes to be graded by hand
+or marked `n-a` with the reason it is out of scope, and its coverage table gained a target-size / dragging lane
+and marks 2.4.11 as manual. Writing `pass` on a lane because the scan was green is the fabrication its own
+Premise forbids — the coverage table records what was checked, not what axe skipped.
+
+**Each 2.2 criterion gained its "does not apply" clause**, cited to the matching W3C Understanding page, because
+the four false positives they prevent are the ones a WCAG-2.2 checklist reliably produces. 3.2.6 never requires
+help to *exist* ("It is not the intent of this success criterion to require authors to provide help or access to
+help") — a product with no contact link anywhere is not a finding. 3.3.7 is scoped to one sitting: it "is not
+applicable when a user returns after closing a session or navigating away", so a resume-tomorrow wizard is a UX
+call while step 4 re-asking what step 1 captured is a conformance failure — and "available for the user to
+select" conforms as fully as auto-population, so a "same as billing" checkbox is a complete fix. 3.3.8 *excepts*
+object recognition and personal content at AA, so a "select all the buses" CAPTCHA passes it and must not be
+filed as a BLOCKER (it fails 3.3.9, which is AAA). 2.4.11 excepts occlusion the user themselves caused, and its
+object is the **component**, not the focus ring — a weak-but-present indicator is 2.4.13 Focus Appearance (AAA),
+not this. `ai-patterns/forms.md` gained the matching authoring-side entries: the split `maxlength="1"` OTP
+control named as an SC 3.3.8 failure unless pasting into the first box distributes across the rest (one
+`<input autocomplete="one-time-code">` passes for free), and the 3.3.7 sitting boundary. Both `_examples/`
+mirrors (`accessibility-auditor`, `forms`) were updated in the same change so the fallback does not ship the
+older advice.
+
+**A miscount in the 1.13.0 entry, corrected in place.** That entry read "the four A/AA additions" and then
+enumerated five of them. WCAG 2.2 adds nine success criteria and drops 4.1.1 Parsing as obsolete; **six are A or
+AA** — 2.4.11, 2.5.7, 2.5.8 (AA), 3.2.6, 3.3.7 (A), 3.3.8 (AA) — and 2.4.12, 2.4.13, 3.3.9 are AAA
+([W3C, What's New in WCAG 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/)). The grading was
+never wrong: the 1.13.0 agent already checked all six and its coverage table already had a 3.3.8 row. Only the
+sentence was, so it now says "six" with 3.3.8 added to the list. Recorded rather than silently patched, because
+a changelog edited without a note is the same class of drift as the sentence it fixes.
+
+**References route to the project's own docs instead of restating them.** All six framework references gained a
+docs-routing section, and `_authoring-standard.md` §0 gained invariant **8** as the pack-wide statement of the
+rule: a `references/<framework>.md` is the *house opinion* (anti-patterns, ownership boundaries, which lever to
+pull), not a hand-maintained mirror of an API surface that moves without it. 1.13.0 is the proof — that release
+caught this pack's own `nextjs.md` emitting an API Next had removed. Next.js is the one framework that ships its
+docs **inside the installed package**, so `references/nextjs.md` now carries a precedence ladder that stops at
+the first rung to resolve: `node_modules/next/dist/docs/` (version-matched, no network) → hosted per-page
+Markdown → this file. The version boundary was checked against the published packages rather than assumed —
+`next@16.2.0` serves `dist/docs/index.md` as `text/markdown`, `next@16.1.0` 404s — and the file states what to do
+on either side of it, including the codemod that fetches a matching copy for older majors and the marker-fenced
+`AGENTS.md` block Next 16.3 generates. The other five ship no docs in the package, so each routes to that
+framework's hosted machine-readable docs — and each states its **own** shape, because the shapes do not converge:
+Vue appends `.md` per page, Nuxt uses a `/raw/` **prefix** with major-segmented paths (appending `.md` returns a
+404 JSON body), Svelte publishes tiered whole-doc files and no per-page Markdown at all, React's `.md` is raw MDX
+served as `text/plain` and it has no `llms-full.txt`, and Angular's appended `.md` returns **HTTP 200 with
+`text/html`** — an SPA shell, which is the dangerous one, because a status-code check reports success while
+handing back an empty page. The ladder degrades and never halts: no `node_modules` → hosted, no network → the
+reference file, which is exactly why the house opinion still has to be written down locally.
+
+**`_authoring-standard.md` §2's retrofit-target list was stale on all four of its claims** and is now re-checked
+against the files instead of against itself. `data-flow-auditor` and `ui-reviewer` both carry a Premise, a
+`Verdict:` line and a coverage table after the 1.13.0 re-cut; `accessibility-auditor`'s banner reads WCAG 2.2 AA.
+`api-contract-sentry` is reclassified as a **class exception rather than a gap** — it emits an impact report and
+says so in its own `description` and Premise ("never a pass/fail verdict"), so the verdict-line item does not
+apply to it, the way generator agents already swap items 5–6. §1.1.3 already required closing a gap note in the
+same change that closes the gap; this is that rule applied to the list one section down.
+
+**Deliberately NOT done, and why.**
+
+- **No `_topics.md` entry for docs routing**, though one was proposed. Frontend `references/` are not in
+  `_topics.md` at all — `templates/phases/phase-4.2-apply.md:318` copies `references/<name>.md` verbatim for
+  detected frameworks and never runs them through AUTHOR, so an entry would need a `kind:` and a `fallback:` that
+  no mechanism consumes. The convention ships *inside* each reference, which is the file that actually travels to
+  the project. `_essentials.md` is unchanged for the same reason: it declares no `references:` key, `--minimal`
+  copies none, and a reference-local convention has nothing for minimal mode to carry.
+- **The five reference version banners still have not been audited**, and this run produced evidence that at
+  least two have drifted. While verifying which packages bundle docs, the npm registry's `latest` resolved to
+  Angular 22.1.3 against a banner reading "Angular 17+ / 18 / 19", and `nuxt` to 4.5.2 against a gotcha line
+  still calling Nuxt 4 a preview. React 19.2.8, Vue 3.5.41 and Svelte 5.56.10 sit inside their `N+`-shaped
+  banners, so those remain literally true but equally un-audited. Each reference now records the exact version
+  its docs claims were checked against; re-baselining the banners is a currency audit, which is what the routing
+  invariant exists to make less load-bearing, and is not this run's remit.
+- **`nextjs.md` is still titled "(App Router, 14 / 15)"** while its new section necessarily spans 14 → 16.3. The
+  two are consistent — the scope note under the title already concedes the 14/15 framing — but the title is a
+  re-baselining decision, not an additive one.
+
 ## 1.13.0 — 2026-08-21
 
 Correctness wave, scoped by count so it can be checked against the diff: every directory in the pack was
@@ -150,8 +241,9 @@ locale-omitting cache key is `@data-flow-auditor`'s, not a translation gap; a mi
 at `@accessibility-auditor` and an image-indexing nit at `@technical-seo`, filed once.
 
 Per agent, the corrections that mattered. `@accessibility-auditor` claimed WCAG 2.2 AA while grading 2.1 — the
-banner is only honest if the four A/AA additions are actually graded, so 2.4.11 Focus Not Obscured, 2.5.7
-Dragging, 2.5.8 Target Size, 3.2.6 Consistent Help and 3.3.7 Redundant Entry are now checks — Redundant Entry
+banner is only honest if the six A/AA additions are actually graded, so 2.4.11 Focus Not Obscured, 2.5.7
+Dragging, 2.5.8 Target Size, 3.2.6 Consistent Help, 3.3.7 Redundant Entry and 3.3.8 Accessible Authentication
+are now checks — Redundant Entry
 carrying "there is no reliable grep for this" and a manual walk, rather than a grep that would lie; the
 folklore that put an `aria-required` beside a native `required` is gone for the same reason it left `forms.md`;
 and the grep for `autocomplete` ships with its own limitation written down (line-scoped, so it misses an

@@ -5,6 +5,27 @@
 > **Version-specific gotchas**: Nuxt 3.10+ ships server components (`.server.vue` files); auto-imports include `useNuxtData`, `useRequestEvent`; Nuxt 4 (preview) restructures `app/` directory (opt-in via `compatibilityVersion: 4`); `useFetch` SSR hydration changed in 3.7 — pass `key` for dynamic URLs.
 > **Substitution markers**: Replace project-specific composable / API endpoint names per `_extracted-idioms.md`.
 
+## Machine-readable docs (check these before trusting this file)
+
+Nuxt ships **no documentation inside the installed package** — verified against `nuxt@4.5.2`, whose published
+tarball carries 302 files and no docs directory. But Nuxt gets closer to version-matching than the other hosted
+docs here, because its doc URLs are **segmented by major**: `.../docs/4.x/...`. Read the major from
+`package.json` and request that segment rather than the unversioned path.
+
+- **Index**: `https://nuxt.com/llms.txt` (~57 KB) — large for an index, because it lists every page as a
+  ready-to-fetch Markdown URL.
+- **Per-page Markdown**: a `/raw/` **prefix**, not an appended suffix — the page at `nuxt.com/docs/4.x/<path>`
+  is fetched as `nuxt.com/raw/docs/4.x/<path>.md`, served as `text/markdown`. Appending `.md` to the ordinary
+  page URL instead returns a **404 JSON body**. Getting this shape wrong looks like the docs are missing when
+  they are not.
+- **Full text**: `https://nuxt.com/llms-full.txt` exists but is ~4.4 MB — far past any sane context budget.
+  Grep it if you must; otherwise use the index plus the one page you need.
+
+Same rule as everywhere in this directory: hosted docs are the **API surface**, this file is the **house
+opinion** (never `$fetch` in setup, explicit `key` on dynamic `useAsyncData`, one metadata mechanism). Where the
+two disagree about an API, the docs win and this file is stale — say so rather than emitting the older call.
+Where the network is unavailable, this file is what you have; it does not halt.
+
 ## Data fetching
 
 - Use `useFetch` / `useAsyncData` for data. They're cache-aware, SSR-friendly, and dedupe.

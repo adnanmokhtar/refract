@@ -45,6 +45,7 @@ model: opus
   ```bash
   rg -n "position:\s*(sticky|fixed)" src/    # every hit is a candidate obscurer; check it against the tab path
   ```
+  Does **not** apply when the user caused the occlusion: only the *initial* position of repositionable content is assessed, and content the user opened is excepted where they can reveal the focused component "without advancing the keyboard focus" ([Understanding 2.4.11](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html)). Note the object of the criterion is the **component**, not its focus ring — a present-but-weak focus indicator is 2.4.13 Focus Appearance (AAA), not this. No axe rule decides it (see § Dynamic scan).
 - **A soft navigation is announced.** A client-side route change that neither moves focus (to the new `<h1>` / `<main>`) nor announces the new title in a live region leaves a screen-reader user reading the old page with no signal that anything happened. Router-level, not component-level — grep the router/layout, not the page. (Ownership: the `navigation-speed` skill owns the soft-navigation surface; this agent owns its accessibility consequence.)
 - Modals: focus trap inside modal + return focus to trigger on close.
 - Custom widgets implement ARIA keyboard patterns (combobox, dialog, tablist, menu).
@@ -114,16 +115,20 @@ Dark mode + high-contrast separately verified — each theme has its own contras
 
 ### WCAG 2.2 additions
 
-2.2 is a superset of 2.1 and adds nine success criteria. Four are AA or A and land in this checklist; the banner at the top of this file is only honest if all four are graded. Target Size (2.5.8) and Dragging (2.5.7) are covered under **Interaction** above; Focus Not Obscured (2.4.11) under **Keyboard accessibility**. The remaining three are graded here. SC numbers, titles and levels below are from the W3C's *What's New in WCAG 2.2* and the matching Understanding documents.
+2.2 is a superset of 2.1, adds nine success criteria, and drops 4.1.1 Parsing as obsolete. **Six of the nine are A or AA** — the banner at the top of this file is only honest if all six are graded: Target Size (2.5.8) and Dragging (2.5.7) under **Interaction** above, Focus Not Obscured (2.4.11) under **Keyboard accessibility**, and the three below. The other three (2.4.12 Focus Not Obscured (Enhanced), 2.4.13 Focus Appearance, 3.3.9 Accessible Authentication (Enhanced)) are AAA — out of scope at this baseline, and citing one as a failure is over-reach unless the project declared AAA. Numbers, titles and levels are from the W3C's [What's New in WCAG 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/) and the linked Understanding documents.
+
+**axe decides one of the six. Do not let a green scan fill in the other five.** axe-core ships exactly one WCAG 2.2 rule, `target-size` (2.5.8), and Deque's own position is that it "is likely the only rule for WCAG 2.2 that will be added to axe-core", "because of how few new success criteria in WCAG 2.2 can be automated without false positives" ([source](https://www.deque.com/blog/axe-core-4-5-first-wcag-2-2-support-and-more/)). There is no `wcag2411`, `wcag257`, `wcag326`, `wcag337` or `wcag338` tag for a scan to match on. So `a11y-scan` coming back clean is **not evidence** on any of those five lanes: grade each by hand, or mark it `n-a` with the reason it is out of scope. Writing `pass` on a lane because the scan was green is exactly the fabrication § The Premise forbids — the coverage table records what you checked, not what axe skipped.
 
 **3.2.6 Consistent Help (A)** — where a help affordance repeats across a set of pages (human contact details, a contact mechanism such as chat or a form, a self-help link such as an FAQ, or a chatbot), it must occur in the **same order relative to other page content** on each of them. Relative order in the serialized DOM, not identical pixels — a breakpoint may move it visually. Grade the shared shell, not each page:
 ```bash
 rg -n -i "(help|support|contact|faq|chat)" src/layouts/ src/components/layout/ src/App.* 2>/dev/null
 ```
 Finding shape: `src/layouts/Default.vue:22 — support link is the last header item on marketing routes and the first footer item on /account/*; same set of pages, different relative order.`
+Does **not** apply when the help is absent or unrepeated. W3C is explicit: "It is not the intent of this success criterion to require authors to provide help or access to help. The Criterion only requires that *when* one of the listed forms of help is available across multiple pages that it be in a consistent location" ([Understanding 3.2.6](https://www.w3.org/WAI/WCAG22/Understanding/consistent-help.html)). A product with no contact link anywhere is not a 3.2.6 finding, and filing one is the standard false positive here. Also excepted: a reordering "initiated by the user" — they collapsed the help panel themselves. And a help affordance on exactly one page is out of scope by definition; the trigger is repetition across a set of pages.
 
 **3.3.7 Redundant Entry (A)** — information the user already entered **in the same process** is auto-populated or offered for selection. This dies in multi-step wizards and checkouts: step 4 re-asks what step 1 captured, or a failed submit clears every field instead of preserving it. The exceptions are narrow and named: essential re-entry (the re-entry *is* the task, e.g. a memory test), security re-entry (confirming a new password), and previously-entered data that is no longer valid.
 There is no reliable grep for this. Walk the longest multi-step flow in the diff and name, per step, which field is asked twice. One repeat with neither auto-fill nor a "same as above" affordance is the finding; the fix belongs in the form pattern, not in a one-off page.
+Does **not** apply once the process ends: W3C scopes it to a single activity and says it "is not applicable when a user returns after closing a session or navigating away" ([Understanding 3.3.7](https://www.w3.org/WAI/WCAG22/Understanding/redundant-entry.html)). A resume-tomorrow wizard that re-asks is a UX call, not a conformance failure; step 4 re-asking what step 1 captured inside one sitting is a conformance failure. And "available for the user to select" conforms as fully as auto-population — a "same as billing" checkbox, a dropdown of saved values, or copyable on-page text all satisfy it, so "we could not prefill it" is not a defence.
 
 **3.3.8 Accessible Authentication (Minimum) (AA)** — no step of an authentication process may require a **cognitive function test** (recalling a password, transcribing a code, solving a puzzle, spelling, arithmetic) unless that step also offers an alternative method, a mechanism that assists the user, object recognition, or recognition of personal content the user themselves provided. Three concrete things fail it, and all three are greppable:
 ```bash
@@ -134,6 +139,7 @@ rg -n 'type="password"|inputmode="numeric"' src/ -A3 | rg -i 'maxlength="1"'    
 - **Paste MUST work** in password and one-time-code fields. Blocking it forces exactly the transcription the criterion names.
 - **Password managers must not be blocked** — `autocomplete="off"` on a credential field, a stripped `new-password`/`current-password` token, or an input a manager cannot reach.
 - **Split single-character OTP inputs** are a transcription test unless pasting the whole code into the first box distributes it across the rest.
+- Does **not** apply to object recognition or personal content — both are *excepted at AA*: "While recognizing objects, or a picture the user has previously provided, are cognitive function tests, these are excepted in this criterion at AA level" ([Understanding 3.3.8](https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html)). A "select all the buses" image CAPTCHA therefore **passes** 3.3.8 — file it as UX friction, never a conformance BLOCKER. (It fails 3.3.9 Enhanced, which is AAA and not this baseline.) A CAPTCHA demanding transcription of distorted text, spelling, or arithmetic has no such exception and does fail.
 - Boundary: this agent states the criterion and cites the offender. *How* the session is then stored, refreshed, and torn down is client-session engineering, not accessibility — flag it and hand it to `@ui-reviewer` § Security rather than designing it here.
 
 ### Tables & data
@@ -280,7 +286,8 @@ NITS (N):
 Coverage:
   - Semantic HTML:                       <pass/fail>
   - Keyboard + focus order:              <pass/fail>
-  - Focus not obscured (2.4.11):         <pass/fail>
+  - Focus not obscured (2.4.11):         <pass/fail — manual; axe has no rule>
+  - Target size + dragging (2.5.8/2.5.7): <pass/fail/n-a — 2.5.8 only from axe>
   - ARIA:                                <pass/fail>
   - Forms: labels + autocomplete (1.3.5): <pass/fail/n-a>
   - Redundant entry (3.3.7):             <pass/fail/n-a — no multi-step flow in scope>

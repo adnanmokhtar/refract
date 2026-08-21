@@ -93,7 +93,7 @@ You cannot have both on the same error response: Problem Details puts its member
 
 ## Resource naming and URL structure
 
-The path is the first half of the contract and the half consumers read most. It is also the half this pack had no rules for — an agent emitting a `| Method | Path | ... |` table had nothing telling it what a good path looks like, so it copied whatever the nearest sibling did.
+The path is the first half of the contract and the half consumers read most. It is also the half that gets designed by accident: an agent emitting a `| Method | Path | ... |` table with no rule for what a good path looks like copies whatever the nearest sibling did, and the surface converges on the first endpoint anyone happened to write.
 
 | Rule | Shape | Counter-shape |
 |---|---|---|
@@ -104,6 +104,37 @@ The path is the first half of the contract and the half consumers read most. It 
 | **Query string for filtering, not identity** | `/orders?status=paid` | `/orders/paid` |
 
 Doctrine: Zalando RESTful API Guidelines #134 (MUST pluralize resource names), #129 (MUST use kebab-case for path segments, `^[a-z][a-z\-0-9]*$`), #141 (MUST keep URLs verb-free — "the only place where actions should appear is in the HTTP methods").
+
+Two further MUSTs from the same document break silently in a route table and are worth checking by machine: #143 (MUST identify resources and sub-resources via path segments — the prescribed form is `/resources/{resource-id}/sub-resources/{sub-resource-id}`) and #136 (MUST use normalized paths without empty path segments and trailing slashes — `/customers//addresses` and `/customers/` are both defects, and both are almost always a string-concatenation bug in a route builder rather than anyone's design choice).
+
+### Nesting stops at three
+
+Zalando #147 is only a SHOULD, and it is the one teams ignore: "You should use ⇐ 3 sub-resource (nesting) levels — more levels increase API complexity and url path length."
+
+`/tenants/1/projects/2/boards/3/cards/4/comments/5` is not richer than `/cards/4/comments`; it is a path the client can only build if it is holding five ids, and it usually isn't — it has the one id it navigated to. Depth is a claim about *containment*: a segment earns its nesting only if the child cannot be addressed without the parent. Once a sub-resource has a globally unique id and a life of its own, promote it to a top-level collection and demote the parent to a filter (`GET /comments?cardId=4`). The test is not "is this conceptually inside that" — almost everything is — it is "can I resolve this id without the parent's id".
+
+AIP-122 adds an orthogonal structural rule that is cheap to check and always a real bug: "Within any given single resource name, collection identifiers **must** be unique. (e.g. `people/xyz/people/abc` is invalid)". A collection segment repeating inside one path means two different concepts are wearing the same name — rename one before you argue about depth.
+
+### The plural rule has a real exception, and no lint can find it
+
+AIP-122: "In situations where there is no plural word ("info"), or where the singular and plural terms are the same ("moose"), the non-pluralized (singular) form is correct. Collection segments **must not** "coin" words by adding "s" in such cases (e.g, avoid "infos")."
+
+So `/media`, `/series`, `/info`, `/analytics`, `/staff` are correctly not-`s`-suffixed, and a detector that clusters segments by a trailing `s` will call every mass noun in the domain drift. This is a genuine limit, not a tuning problem: pluralization is a fact about the domain vocabulary, and the audit is expected to emit these as candidates for a human to confirm rather than close them automatically (`skills/api-consistency-audit` § 3b, "What grep cannot decide").
+
+### Pick a doctrine — the two big ones disagree on casing
+
+This file cites Zalando for path shape and Google's AIPs for custom methods. They do not agree, and pretending otherwise would be the kind of borrowed-authority hand-wave this pack exists to stop:
+
+| | Zalando RESTful API Guidelines | Google AIP |
+|---|---|---|
+| Collection / path segment | kebab-case, `^[a-z][a-z\-0-9]*$` (#129) | camelCase, `/[a-z][a-zA-Z0-9]*/` (AIP-122) |
+| Query parameter | snake_case, never camelCase (#130) | — |
+
+Both are published MUSTs from serious, long-running API programmes; a third widely-copied heuristic (the "Predictable Naming" table in Addy Osmani's `api-and-interface-design` skill) prescribes camelCase query params and camelCase response fields, contradicting #130 outright. There is no neutral answer to arbitrate between them, and the disagreement is the point: **the property that matters is predictability, and the specific case style is the arbitrary half.** Decide once, record it in `api-conventions.md`, and let the audit enforce the recorded choice rather than a textbook.
+
+Absent a reason to do otherwise, this pack's default is Zalando's kebab-case paths — a path segment is a token humans type, log, paste into runbooks, and compare case-insensitively, and hyphens survive that handling where camelCase does not. Field names inside the body are a separate decision with a separate answer; do not let one imply the other.
+
+One deliberate exception survives either choice: **the custom-method verb after the colon is camelCase under both doctrines**, because AIP-136 requires it. A kebab-case project therefore has exactly one camelCase island — `POST /shipping-addresses/42:markPrimary` — and it is correct, not drift. A case detector that flags it has a bug.
 
 ### The escape hatch for genuinely non-CRUD actions
 
@@ -118,7 +149,27 @@ GET  /v1/reports/7:preview       ← pure retrieval → GET
 
 Google's API Improvement Proposals define this precisely ([AIP-136](https://google.aip.dev/136)): the URI "**must** use a `:` character followed by the custom verb"; the HTTP method "**must** be `GET` or `POST`", with `GET` for methods retrieving data or resource state and `POST` "if the method has side effects or mutates resources or data"; the name "**should** be a verb followed by a noun", must not contain prepositions, and "if word separation is required, `camelCase` **must** be used".
 
-**This is a last resort, not a second style.** Three custom methods on a surface is a design choice; thirty is a sign the resource model is wrong and you have built RPC with extra punctuation. Before reaching for one, check whether the action is really a sub-resource creation (`POST /orders/42/cancellations` — which gives you a record of *who* cancelled and *when*, for free).
+**This is a last resort, not a second style** — AIP-136 says so itself: custom methods "**should** only be used for functionality that can not be easily expressed via standard methods; prefer standard methods if possible, due to their consistent semantics." Three custom methods on a surface is a design choice; thirty is a sign the resource model is wrong and you have built RPC with extra punctuation. Before reaching for one, check whether the action is really a sub-resource creation (`POST /orders/42/cancellations` — which gives you a record of *who* cancelled and *when*, for free).
+
+### Retrofitting: after the fact, consistency beats correctness
+
+Everything above is how you name a surface on day one. On day 900 the rule inverts, and the inversion is the part most naming guides never say.
+
+If the surface already committed to `/order/{id}` singular, or `/shipping_addresses` snake, or a `/getOrders` verb path, **do not fix it endpoint-by-endpoint as you happen to touch each one.** A path rename is a breaking change with no field moved: every stored link, bookmark, integration runbook, cached redirect, and partner's hard-coded string breaks — and you collect none of the benefit until the last endpoint moves. In the meantime you have built the worst possible surface. One that is 0% textbook-correct and 100% predictable costs a consumer one lookup, ever; one that is 60% correct costs them a lookup *per call*, because guessing no longer works. That per-call lookup is the exact cost the naming rules exist to remove, so a half-finished correction has negative value against doing nothing.
+
+The order of operations:
+
+1. **Write the existing convention down as the canonical** in `api-conventions.md` — including the parts you dislike, stated without apology. An undeclared convention is not a convention, it is a habit; and the audit has nothing to measure against, which is why `skills/api-consistency-audit` halts outright when that file is missing rather than inventing a canonical.
+2. **New endpoints match the declared canonical, not the textbook.** In a consistently singular codebase a new `/customer/{id}` is right and a new `/customers` is the drift. This feels wrong to write and is still correct.
+3. **Change the convention only as a versioning event** — a whole-surface rename behind a new `/vN` prefix, running the deprecation flow in § Versioning when you must break (and, for the mixed-prefix window it creates, § Migration path, which requires a declared end date). Never opportunistically, never per-PR.
+4. **If you will never do step 3, write that down and close it.** "We know, we chose to live with it, here is why" is a decision an ADR can hold. Leaving it undeclared so every reviewer relitigates it in every PR is not a decision, it is a recurring tax.
+
+The narrow exception is a path that is *actively wrong* rather than merely unfashionable — fix those out of band, because they are defects, not taste:
+
+- **A verb path whose method contradicts it.** `GET /orders/42/delete`. GET is defined as safe — "A request method is considered 'safe' if it is defined as having no intended effect on the origin server beyond retrieval" (RFC 9110 §9.2.1) — so anything entitled to treat GET as free will issue it: a crawler, a link prefetcher, a proxy warming a URL, a browser's speculative load. The path is not ugly, it is a loaded gun.
+- **A segment that leaks or pins something it shouldn't.** `/users/{email}` puts PII in access logs, referrer headers, and CDN cache keys; `/orders/{sequentialIntegerId}` hands out an enumerable identifier.
+
+Casing, pluralization, and nesting depth are none of those. They are taste with a citation, and taste is not worth a broken integration.
 
 ## Input DTOs (validation at the edge)
 
@@ -356,13 +407,15 @@ An error `code` renamed ("it was ugly") with no versioning event → clients key
 
 ### 6. Resource path violates the naming contract
 
-A route whose path is singular where its siblings are plural, mixes case styles between segments, or encodes an action as a path segment (`/orders/42/delete`, `/getOrders`) instead of a method or a sanctioned `:verb` custom method → `fix-resource-path`.
+A route whose path is singular where its siblings are plural, mixes case styles between segments, exceeds three sub-resource levels, repeats a collection segment within one path, or encodes an action as a path segment (`/orders/42/delete`, `/getOrders`) instead of a method or a sanctioned `:verb` custom method → `fix-resource-path`.
 
 ```
 BAD:   POST /order/42/cancelOrder
 GOOD:  POST /orders/42:cancel          (custom method — AIP-136 form)
 GOOD:  POST /orders/42/cancellations   (sub-resource — better, if you want an audit record)
 ```
+
+**In an existing codebase the canonical is whatever `api-conventions.md` declares, not the table above** — see § Retrofitting. A textbook-correct outlier in a consistently non-textbook surface is the drift, and "correcting" it creates the inconsistency rather than finding it.
 
 Ships through the deprecation flow like any other path change: the new path lands first, the old one redirects or dual-routes, removal follows the sunset. A path rename is a breaking change even though no field moved.
 

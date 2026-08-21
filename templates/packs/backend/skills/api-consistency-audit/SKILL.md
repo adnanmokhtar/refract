@@ -129,6 +129,52 @@ Drift: some endpoints return `{ error: "msg" }`, others `{ message: "msg" }`, ot
 
 **Detection (pointer)**: the naming contract itself (plural nouns, kebab-case segments, verb-free paths, the sanctioned `POST /v1/{resource}:verb` escape hatch) is OWNED by `ai/patterns/api-contract.md` § Resource naming and URL structure — point there, do not restate the rules. This detector asserts only that the surface disagrees with itself and with the declared canonical.
 
+**Detection (runnable)**: five of the checks are mechanical; run them, don't eyeball the route table. `routes.txt` is one `METHOD /path  file:line` per line, produced by step 2 of the Procedure (or by the framework's own route-list command, wired in `references/<framework>.md`).
+
+```bash
+# 0. paths only; route params normalised to {id}; /api and /vN prefixes stripped so depth is honest.
+#    Normalise ONLY `/:param` (colon-style route params) — a bare `:` rule eats the `{id}:verb`
+#    custom-method form and turns every legitimate custom method into a phantom finding.
+awk '{print $2}' routes.txt \
+  | sed -E 's/\{[^}]*\}/{id}/g; s#/:[A-Za-z_][A-Za-z0-9_]*#/{id}#g; s#^/(api/)?(v[0-9]+/)?#/#' \
+  | sort -u > paths.txt
+
+# 1. verb encoded in a path segment. The verb must be the whole segment (`/delete`) or be followed
+#    by a separator or capital (`/cancel-order`, `/cancelOrder`) — a bare prefix match flags
+#    `/addresses` as the verb "add", `/settings` as "set", `/updates` as "update". The `:verb`
+#    custom-method form is exempt by construction: its verb follows a colon, never a slash.
+grep -nE '/(get|list|create|new|add|update|edit|set|delete|remove|destroy|cancel|send|fetch|do|run|process|handle|perform)((-|_|[A-Z])[A-Za-z0-9_-]*)?(/|$)' paths.txt
+
+# 2a. segments that fail Zalando #129's published regex  ^[a-z][a-z\-0-9]*$
+grep -oE '(^|/)[A-Za-z][A-Za-z0-9_-]*' paths.txt | tr -d '/' | sort -u | grep -vE '^[a-z][a-z0-9-]*$'
+
+# 2b. which style actually dominates. Run this FIRST — a surface that is uniformly snake or camel
+#     has a canonical that is not kebab, and 2a's output is then the wrong list to act on.
+grep -oE '(^|/)[A-Za-z][A-Za-z0-9_-]*' paths.txt | tr -d '/' | sort -u \
+  | awk '/_/{s++;next} /[A-Z]/{c++;next} /-/{k++;next} {p++} END{print "kebab:",k+0,"single-word:",p+0,"snake:",s+0,"camel/Pascal:",c+0}'
+
+# 3. nesting deeper than 3 sub-resource levels (Zalando #147). The first named segment is the
+#    top-level collection, so 4 named segments == 3 levels of nesting; flag 5 or more.
+awk -F/ '{n=0; for(i=1;i<=NF;i++) if($i!="" && $i!="{id}") n++; if(n>4) print n" levels: "$0}' paths.txt
+
+# 4. a collection segment repeating inside one path (AIP-122 uniqueness) — always a real bug
+awk -F/ '{delete seen; for(i=1;i<=NF;i++) if($i!="" && $i!="{id}"){ if($i in seen){print "repeat: "$0; break} seen[$i]=1 }}' paths.txt
+
+# 5. empty or trailing path segments (Zalando #136) — usually a route-builder concatenation bug
+grep -nE '//|.+/$' paths.txt
+```
+
+Each hit is still a *candidate*, not a finding: re-attach `METHOD` + `file:line` from `routes.txt` and name the sibling endpoint it contradicts before it is emittable.
+
+**What grep cannot decide** — state these limits in the finding rather than pretending the script settled them:
+
+- **Singular vs plural.** There is no check above for it, deliberately. No regex knows that `/media`, `/series`, `/info`, `/analytics`, `/staff` are correctly not-`s`-suffixed while `/order` beside `/customers` is drift — that is AIP-122's "moose" case (`ai/patterns/api-contract.md` § The plural rule has a real exception). Trailing-`s` clustering false-positives on every mass noun in the domain, and a domain is mostly mass nouns. Emit plural drift as a candidate paired with the contradicting sibling; a human confirms.
+- **Whether a segment is a verb or a noun.** `/orders/42/transfer`, `/documents/7/review` — a transfer and a review are also things. Check 1's word list catches only the unambiguous ones; a domain noun that is also a verb needs a reader.
+- **Whether nesting is wrong or merely deep.** Check 3 counts segments. It cannot tell a genuinely contained sub-resource from a lazily-nested independent one; the deciding question ("can this id be resolved without the parent's id?") is answered by the schema, not the path.
+- **What the canonical is.** 2a measures the surface against Zalando's regex; 2b measures it against itself. Neither knows what the project chose. That comes from `api-conventions.md` — and this skill halts without it rather than guessing.
+
+**Retrofit rule — do not skip it.** When the declared canonical disagrees with the textbook, **the canonical wins and the textbook-correct endpoint is the outlier.** A detector that pushes a consistently singular surface toward plural is not finding drift, it is manufacturing it, and it spends a breaking path rename to do so. `ai/patterns/api-contract.md` § Retrofitting owns the argument (new endpoints match the declared canonical; convention changes happen only as a versioning event, whole-surface, or get closed in an ADR); this detector obeys it. The two exceptions that get fixed regardless of the canonical are a verb path whose method contradicts it (`GET /orders/42/delete` — GET is safe, so prefetchers and crawlers may fire it) and a segment leaking PII or an enumerable id (`/users/{email}`). Those are defects and route out as such; casing is not.
+
 **Closure verb**: `unify-naming` — the same verb as #3, deliberately. The *act* is identical (pick the project's canonical, rename the outliers, ship through the deprecation flow); only the surface differs. A path rename is a breaking change even though no field moved, so `risk: high` applies whenever the route is public.
 
 ### 4. pagination-drift
@@ -320,6 +366,7 @@ Common drifts:
 - **`noindex`-style intentional exemptions** — an endpoint explicitly exempted in `api-conventions.md` (e.g. a health check with no rate limit, an internal admin route with offset pagination) is not drift; honour the declared exemption.
 - **Ownership pointers, not re-specification** — the six routed observations (8b–8g) flag *uniformity* and nothing more; the algorithm, contract, or policy is owned by the named pattern or the security/database/observability pack. Do not emit a fix that re-specifies the owned shape, and do not attach a closure verb to one — a finding this skill cannot close is a finding it must hand over.
 - **A path rename is a breaking change** — `resource-naming-drift` (3b) reuses `unify-naming`, but a public route rename is `risk: high` and takes the same dual-route-then-sunset flow as a field rename. Renaming a path "because it's just a string" breaks every stored link, bookmark, and integration runbook.
+- **The custom-method verb is camelCase on purpose.** `POST /shipping-addresses/42:markPrimary` in an otherwise kebab-case surface is not case drift — AIP-136 requires camelCase after the colon, so the island is correct under either casing doctrine. Check 2a above cannot see it (the verb follows a `:`, not a `/`); a hand-written case detector that flags it has a bug.
 
 ## Halt conditions
 

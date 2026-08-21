@@ -16,6 +16,7 @@ You'll have multiple consumers (web, mobile, integrations). They won't upgrade t
 | **Header** | `Accept: application/vnd.api+json;version=2` | Clean URLs | Harder to test via browser/curl |
 | **Query param** | `/api/users?version=2` | Easy to test | Cacheability issues |
 | **Media type** | `Accept: application/vnd.company.user-v2+json` | RESTful-pure | Complex for consumers |
+| **Date-pinned / rolling** | Consumer pinned to the version active at signup; `X-Api-Version: 2026-05-01` overrides per request | Consumers upgrade on their own timeline; upgrades are opt-in and reversible | Every version you ever shipped is code you still run — needs a chained transformation layer and per-version conformance tests |
 | **No versioning** | `/api/users` | Simple | Only works if you're additive-only forever |
 
 **Recommended**: URL path (`/api/v1`) for most teams. Simpler mental model, easier debugging, works with every HTTP tool.
@@ -131,11 +132,13 @@ One schema migration, two live API versions, zero break.
 Month 0:  v2 released. v1 still primary.
 Month 1-3: Announce v1 deprecation. Sunset header appears.
 Month 3-9: Dashboard tracks v1 usage. Outreach to remaining consumers.
-Month 9-12: v1 returns 410 Gone on a percentage of requests (brownouts).
+Month 9-12: v1 brownouts — a percentage of requests get 503 + Retry-After.
 Month 12:  v1 removed.
 ```
 
 Adjust timeline to your ecosystem. Public API: 12+ months. Internal API: 3-6 months. Partner API: negotiated.
+
+**Never `410 Gone` for a brownout** — it is cacheable by default, so a probabilistic one can be stored and replayed permanently, turning a fire drill into an outage. `410` is correct for the actual removal, where it is no longer probabilistic. Full argument in `ai/patterns/api-versioning.md` § Brownouts.
 
 ## GraphQL versioning
 

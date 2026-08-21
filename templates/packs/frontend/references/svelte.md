@@ -5,6 +5,26 @@
 > **Version-specific gotchas**: Svelte 5 introduced runes (`$state`, `$derived`, `$effect`, `$props`) — replaces `let` reactive declarations + `$:` syntax; component instantiation API changed (no more `new Component()`); slot syntax replaced by snippets (`{#snippet}`); `<svelte:component this={X}>` deprecated in favor of dynamic component as variable.
 > **Substitution markers**: Replace `<name>` / route paths with the project's actual entries.
 
+## Machine-readable docs (check these before trusting this file)
+
+Svelte ships **no documentation inside the installed package** — verified against `svelte@5.56.10`, whose
+published tarball carries 390 files and no docs directory. The hosted docs track *latest*, not what is in your
+`package.json`; reconcile the two before you trust an API. Svelte's distinctive move is that it publishes the
+**same docs at several compression levels**, so you pick by context budget rather than truncating blindly:
+
+- **Index**: `https://svelte.dev/llms.txt` (~1.7 KB) — just a listing of the files below. Always the first read.
+- **By budget**: `llms-small.txt` (~53 KB, abridged) → `llms-medium.txt` (~830 KB) → `llms-full.txt` (~1.2 MB,
+  Svelte + SvelteKit + CLI). Only the small tier is realistically pasteable.
+- **By package**: `https://svelte.dev/docs/svelte/llms.txt` and `https://svelte.dev/docs/kit/llms.txt` (plus
+  `/docs/cli/llms.txt`, and `-small` variants). Despite the `llms.txt` name these are full documentation
+  **bodies** (~476 KB and ~589 KB), not indexes — fetch the one runtime you actually need.
+- **No per-page Markdown.** Appending `.md` to a docs URL 404s; the tiered files above are the whole mechanism.
+
+Same rule as everywhere in this directory: hosted docs are the **API surface**, this file is the **house
+opinion** (runes over `$:`, stream non-critical `load` data, no secrets in `+page.ts`). Where the two disagree
+about an API, the docs win and this file is stale — say so rather than emitting the older call. Where the
+network is unavailable, this file is what you have; it does not halt.
+
 ## Structure (SvelteKit)
 
 ```

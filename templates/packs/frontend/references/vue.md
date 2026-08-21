@@ -5,6 +5,23 @@
 > **Version-specific gotchas**: Vue 3.4 brought `defineModel()` macro (replaces manual prop+emit for v-model); 3.3+ supports generic components (`<script setup lang="ts" generic="T">`); 3.5 added `useTemplateRef()`; Pinia 2.1 stable, do NOT mix Options API stores in a setup-API codebase.
 > **Substitution markers**: Replace component / composable / store names with the project's actual entries from `_extracted-idioms.md`.
 
+## Machine-readable docs (check these before trusting this file)
+
+Vue ships **no documentation inside the installed package** — verified against `vue@3.5.41`, whose published
+tarball carries 37 files and no docs directory. There is therefore no version-matched local copy to read, and the
+hosted docs below track *latest*, not what is in your `package.json`. Reconcile the two before you trust an API.
+
+- **Index**: `https://vuejs.org/llms.txt` (~7 KB) — the cheap first read.
+- **Per-page Markdown**: append `.md` to a page URL (`https://vuejs.org/guide/introduction.md`), served as
+  `text/markdown`. This is the clean path — prefer it over scraping the rendered page.
+- **Full text**: `https://vuejs.org/llms-full.txt` exists (~950 KB). Treat it as a file to grep, not to read into
+  context; the index plus one page is almost always the right call.
+
+Same rule as everywhere in this directory: hosted docs are the **API surface**, this file is the **house
+opinion** (`<script setup>` mandatory, no Options API, no `fetch` in a component, one styling system). Where the
+two disagree about an API, the docs win and this file is stale — say so rather than emitting the older call.
+Where the network is unavailable, this file is what you have; it does not halt.
+
 ## Components
 
 - `<script setup lang="ts">` mandatory. No Options API.
