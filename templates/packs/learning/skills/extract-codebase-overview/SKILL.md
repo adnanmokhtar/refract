@@ -18,12 +18,14 @@ The output (`.claude/_extracted-codebase.md`) is the **single source of truth** 
 - Every confidence assertion (e.g. "multi-tenant: confirmed") is backed by ≥2 corroborating cites per Step 15.
 - **Every claim declares its provenance class** (per `phase-2-profile.md § Provenance discipline`): a resolving `<path:line>` citation = found; no citation → the claim MUST carry `[inferred: <basis>]` or `[unconfirmed]`. Inference stated as fact is the Trusted Summary anti-pattern applied to the oracle itself.
 - Empty extraction is honest — the explicit "no ORM-like data layer detected" / "no modules detected" / `[EXTRACTION-WEAK: <reason>]` flag is a valid section outcome.
+- **Partial extraction is honest too — but only when it says so.** Several steps below cap or sample *by design* (Steps 3, 4, 5, 6, 8, 12). A section built from a sample carries `[SAMPLED: <seen>/<present> <unit>]` on its heading, and every run reports `## Coverage` unconditionally — including at 100%, which is the strongest claim this skill can make about its own output. A citation proves the file it points at; it never proves the population that file was drawn from.
 - Fabrication — inventing a base class from a folder name, a convention from one occurrence, a signal from a dep that isn't actually used — corrupts every Phase 4 generator that reads this file.
 
 ## Mechanical halt
 
 - Hand-wave content in any section — `etc.`, `...`, `roughly layered MVC`, `appears multi-tenant`, a row without `<path>` citation, a signal claim without ≥2 corroborating files — REFUSE to write.
 - An uncited claim with no `[inferred: <basis>]` / `[unconfirmed]` marker is the same violation — regenerate with a citation or downgrade the claim to its honest provenance class (per `phase-2-profile.md § Provenance discipline`).
+- A **generalizing** claim ("all entities carry a tenant column", "file naming is always kebab-case", "errors always route through the shared handler") drawn from a `[SAMPLED]` section may NOT be written as `[found:]`. The citation resolves; the generalization does not. Downgrade to `[inferred: <basis>; sampled <seen>/<present> <unit>]` per `phase-2-profile.md § Provenance discipline`. This is the one provenance error a resolving citation actively hides — Step 15's path check passes it, which is exactly why check 7 exists.
 - Regenerate the section with concrete cites OR downgrade it to `[EXTRACTION-WEAK: <section>]` per Step 15.
 - When a section genuinely has nothing (empty repo, no ORM, no controllers, no tests), record `<NOT-DETECTED: <section>: <reason>>` instead of synthesizing a placeholder row.
 - Quality flags propagate to Phase 4.2-AUTHOR which falls through to COPY mode for affected topics — silent fabrication breaks that fallback.
@@ -38,7 +40,7 @@ The output (`.claude/_extracted-codebase.md`) is the **single source of truth** 
 
 - `project_root` — absolute cwd (the project being analyzed).
 - `output_path` — defaults to `<project_root>/.claude/_extracted-codebase.md`.
-- `parallelism` — default 6 concurrent extractor subagents (cap to avoid runaway tokens on huge repos).
+- `parallelism` — default 6 concurrent extractor subagents (cap to avoid runaway tokens on huge repos). Recorded in `## Coverage` as part of `walk_scope`: it bounds what the run *could* visit, so it belongs with the census, not in a comment.
 
 ## Procedure
 
@@ -65,6 +67,48 @@ For each app/lib found, record: name + path + manifest type + brief purpose (par
 
 **Persist as `## Repository shape` section.**
 
+### Step 2.5 — Source census (deterministic — runs before any prose is written)
+
+Six of the steps below cap or sample. Until the population they sampled *from* is written down, "sample 10 files per category" is not a disclosure — it is a number with no denominator. This step computes the denominator, in shell, before the model writes a word of prose. That ordering is the whole point: Step 15 check 7 is then arithmetic against numbers the model did not author.
+
+**Denominator (`present`) — tracked files, not `find`:**
+
+```bash
+git ls-files -z | tr '\0' '\n'        # census_method: git-ls-files
+git rev-parse --short HEAD             # the commit the census is pinned to
+```
+
+`git ls-files` for three reasons: it inherits `.gitignore` for free, so vendored / installed / built trees never enter the denominator; it is deterministic at a commit, which is the same premise every citation in this file rests on (§ Premise); and it is uniform across every stack. **Repo without git** (already a declared failure mode) → fall back to `find` with an explicit exclude list and record `census_method: find`, so the number is only ever compared against another `find` number.
+
+From that list, keep files whose extension is in the source-extension set derived from `## Stack` (Step 1), then subtract — and **name every subtraction in the output**:
+
+- test-glob matches (Step 10 owns those; they are counted separately, not silently dropped),
+- lockfiles and manifests,
+- generated / vendored paths not already excluded by `.gitignore`,
+- non-source extensions (docs, fixtures, assets, data).
+
+An exclusion that is not named in the output makes the denominator unfalsifiable — the same violation § Premise forbids of every other claim in this file. If "is a `.sql` migration a source file?" is a judgement call, the answer does not matter as long as the call is printed.
+
+Bucket the survivors **one row per `## Repository shape` entry** (Step 2), plus a `(root/other)` row. Without the per-package split, one well-covered app hides nine untouched ones behind a healthy aggregate.
+
+**Numerator (`seen`) is NOT computed here.** It is counted in Step 15 as `files_cited` — the distinct paths appearing in `[found:]` citations actually written. Never label it `files_read`. It undercounts (a file can be read and cite nothing) and that is the correct trade: `files_cited` is the only number a third party can audit from the artifact alone, and Step 15 already walks every citation to confirm the path resolves. An unauditable coverage number would be a worse failure than today's silence.
+
+Also record, for the header block: `census_method`, `walk_scope` (which directories the walk was allowed to enter, the depth cap in force, and `parallelism`), and the per-package `present`.
+
+**Per-section denominators.** Each capped step declares what its population is, so its `[SAMPLED: <seen>/<present> <unit>]` marker is an auditable ratio rather than an adjective:
+
+| Section | Population (`present`) | `seen` | Cap forcing the sample |
+|---|---|---|---|
+| `## Architecture` (Step 3) | source files under the layer dirs walked | files cited | 5-10 sampled per layer |
+| `## Modules` (Step 4) | dirs matching the module test | rows emitted | cap 80 |
+| `## Base classes` (Step 5) | bases with ≥3 extenders | bases with an idiom extraction | `parallelism` |
+| `## Data model` (Step 6) | entity files matched by the Step-6 globs | rows emitted | cap 60 |
+| `## API surface` (Step 7) | controller / router files found | rows emitted | **none declared → must be 100%** |
+| `## Conventions` (Step 8) | files per category | files sampled per category (10) | sample 10 per category |
+| `## Recent activity` (Step 12) | commits in the window | 50 | `head -50` |
+
+**Persist as `## Coverage` section** — written last (it needs Step 15's numerator) but placed **FIRST** in the body, before `## Stack`. First, not last: a reader who reaches `## Conventions` should already know what it rests on.
+
 ### Step 3 — Architecture + layering
 
 For the largest app (or each app in a workspace), walk top-level source dirs and infer the architectural style:
@@ -76,7 +120,7 @@ For the largest app (or each app in a workspace), walk top-level source dirs and
 
 Detect dependency direction via import graph (sample 5-10 files per layer; check what they import). Flag if direction violates declared style.
 
-**Persist as `## Architecture` section.**
+**Persist as `## Architecture` section** — heading carries the Step 2.5 `[SAMPLED: <seen>/<present> files]` marker whenever the per-layer sample did not exhaust the layer dirs walked.
 
 ### Step 4 — Module enumeration
 
@@ -87,7 +131,7 @@ For each module, record one row:
 
 Cap at 80 modules in the output (sample more if larger; emit `(+N more)` line).
 
-**Persist as `## Modules` section table.**
+**Persist as `## Modules` section table** — when the 80-cap fires, the `(+N more)` line stays AND the heading carries `[SAMPLED: <rows>/<dirs matching the module test> modules]`. The `(+N more)` line discloses the truncation; the marker is what downstream consumers parse.
 
 ### Step 5 — Base class detection (then delegate)
 
@@ -106,7 +150,7 @@ For each base class meeting the threshold: **invoke `extract-base-class-idiom` s
 
 If a base class has <3 extenders: skip extraction; record name + path + extender count only ("not yet load-bearing — re-evaluate on next refresh").
 
-**Persist as `## Base classes` section + cross-link to `_extracted-idioms.md`.**
+**Persist as `## Base classes` section + cross-link to `_extracted-idioms.md`** — heading carries `[SAMPLED: <bases with an idiom extraction>/<bases with ≥3 extenders> bases]` when `parallelism` or a run-length cap left qualifying bases unextracted.
 
 ### Step 6 — Data model
 
@@ -128,7 +172,7 @@ Detect cross-cutting concerns visible at the data layer:
 - Translation tables (`*_translations`) exist → i18n at data layer.
 - Audit columns (`created_by_id`, `updated_by_id`) → audit subscriber pattern.
 
-**Persist as `## Data model` section.**
+**Persist as `## Data model` section** — when the 60-cap fires, keep `(+N more)` AND add `[SAMPLED: <rows>/<entity files matched> entities]` to the heading. The cross-cutting inferences directly above ("ALL entities have a tenant column") are exactly the generalizing claims § Mechanical halt forbids writing as `[found:]` off a sample.
 
 ### Step 7 — API surface
 
@@ -143,7 +187,7 @@ For each controller, record: name, path, route prefix, # endpoints, auth scheme 
 
 Also detect: how does the project structure response shapes? (e.g., `createApiResponse(dto, message)` wrapper detected → standard response envelope is in use). What's the error mapper? (HTTP exception filter, problem-details middleware, etc.).
 
-**Persist as `## API surface` section.**
+**Persist as `## API surface` section** — no cap is declared for this step, so Step 15 check 7 asserts `seen == present` here. If a run cannot reach every controller / router file found, that is a real coverage loss and the heading must say so rather than the cap being invented after the fact.
 
 ### Step 8 — Convention auto-detection
 
@@ -157,7 +201,9 @@ Sample 10 files per category and extract patterns:
 - **Imports**: relative-only / alias-based (`@app/`, `@/`, `~/`). Read tsconfig/pyproject for aliases.
 - **DI tokens**: string constants / Symbols / class refs.
 
-**Persist as `## Conventions` section** with a complete suffix matrix table.
+**Persist as `## Conventions` section** with a complete suffix matrix table — heading carries `[SAMPLED: 10/<files in category> files]` per category sampled.
+
+This is the highest-blast-radius section in the file: it drives `ai/conventions.md`, the `## Project-specific` block at the top of *every* adapted rule, and the suffix matrix. Generalized from 10 files, every row still earns a resolving citation, so the provenance sweep passes it — a convention observed in 10 of 400 files becomes law with proof attached. That is precisely the failure § Mechanical halt's generalizing-claim rule and Step 15 check 7 exist to catch: each row that generalizes beyond the sample is written `[inferred: <basis>; sampled 10/<N> files]`, not `[found:]`.
 
 ### Step 9 — Cross-cutting concerns + signals
 
@@ -205,7 +251,7 @@ git log --since="30 days ago" --diff-filter=A --name-only | sort -u | head -50  
 
 Summarize: which areas saw the most activity? Any large refactors? Any new modules added? This gives the brain a "what's in flight" hint.
 
-**Persist as `## Recent activity` section.**
+**Persist as `## Recent activity` section** — the `head -50` truncation is a cap like any other: heading carries `[SAMPLED: 50/<commits in the 30-day window> commits]` when the window held more than 50.
 
 ### Step 13 — Delegate to extract-business-context
 
@@ -215,7 +261,7 @@ Cross-link in the codebase overview: `## Business context: see _extracted-busine
 
 ### Step 14 — Write the output
 
-Write `.claude/_extracted-codebase.md` with all 12 sections above (skipping Step 13 which writes its own file). Top of file:
+Write `.claude/_extracted-codebase.md` with all **13** sections above (skipping Step 13, which writes its own file): the 12 Step sections plus `## Coverage` from Step 2.5. `## Coverage` is written LAST — it needs Step 15's numerator — but placed FIRST in the body, before `## Stack`. Top of file:
 
 ```markdown
 # Codebase Extracted Overview
@@ -225,11 +271,14 @@ Consumed by: Phase 4.2-AUTHOR generators (every output that mentions paths / bas
 approved_by:          <!-- empty at generation — human reviewer stamps <name>@<iso> after reading; see phase-2-profile.md § Oracle approval -->
 approved_hash:        <!-- body hash at approval — /setup-project-health check 9 prints the paste-ready stamp command -->
 Provenance: every claim is [found: <path:line>] (citation = marker), [inferred: <basis>], or [unconfirmed] — per phase-2-profile.md § Provenance discipline
+Coverage: <S>/<P> source files cited (<PP>%) — census <git-ls-files|find>@<short-sha>; per-package + per-section seen/present in ## Coverage
 
 > ⚠ THIS FILE IS REGENERATED — never hand-edit. Hand-edits in companion files:
 > - `ai/conventions.md` (the human-readable summary of `## Conventions` here)
 > - `ai/business-domain.md` (the human-readable summary of `_extracted-business.md`)
 ```
+
+`Coverage:` sits beside `Provenance:` deliberately — they are the same kind of fact, and both sit next to the `approved_by:` stamp, because coverage is part of what a reviewer is being asked to approve. It is a plain `Coverage:` key, **not** an `approved_`-prefixed one: the approval recipe is `grep -v '^approved_' … | shasum`, so `## Coverage` and this line are *inside* the hashed body. Coverage changing therefore invalidates the approval stamp and forces a re-read. That is correct and costs nothing.
 
 ### Step 15 — Quality verification
 
@@ -240,8 +289,21 @@ Before returning success:
 - `## Data model` section has ≥1 entity OR an explicit "no ORM-like data layer detected" note.
 - Every confidence claim (e.g., "multi-tenant: confirmed") cites ≥2 corroborating files.
 - **Provenance sweep**: no factual claim is both uncited AND unmarked — each is `[found:]` (via citation), `[inferred: <basis>]`, or `[unconfirmed]`. Count per class; the counts go to stdout and feed `/setup-project-health` check 9.
+- **Coverage sweep (check 7)**: count `files_cited` = the distinct paths appearing in `[found:]` citations (the walk of every citation is already happening for check 1 — this is a `sort -u | wc -l` over it, not a second pass). Then, for every row of the Step 2.5 per-section table:
+  - `seen` and `present` are both integers present in `## Coverage` — a missing or non-numeric denominator fails, it does not default to "assume complete";
+  - `seen < present` and the heading carries **no** `[SAMPLED: <seen>/<present> <unit>]` → **FAIL** (undisclosed sample);
+  - `seen == present` and the heading **does** carry `[SAMPLED]` → **FAIL** (a false `SAMPLED` makes every downstream consumer degrade for nothing, which is how a coverage signal gets switched off);
+  - every generalizing claim inside a `[SAMPLED]` section is marked `[inferred: <basis>; sampled <seen>/<present> <unit>]`, not `[found:]` (§ Mechanical halt).
+
+  Check 7 is different in kind from checks 1-6 and that difference is the reason it is worth adding. Its numerator and denominator were produced by shell in Step 2.5, *before* prose existed; the check is arithmetic against numbers the model did not author. Checks 2-5 can be satisfied by writing more confident prose. This one cannot.
 
 If any check fails: regenerate the offending section (one retry). If still failing: write the section with `[EXTRACTION-WEAK: <reason>]` flag — Phase 4.2-AUTHOR will fall back to COPY mode for affected topics.
+
+**Check 7's failure path is NOT the `[EXTRACTION-WEAK]` path.** Checks 1-6 fail because a section has no trustworthy content, so degrading it to `[EXTRACTION-WEAK]` (→ COPY mode) is the right remedy. Check 7 fails because a section has content whose *coverage is undeclared* — the remedy is to declare it. On failure: recompute the ratio, write the missing `[SAMPLED: <seen>/<present> <unit>]` marker (or remove a false one), and re-run the sweep once. Only if the census itself is unobtainable — no `git ls-files`, no usable `find` — does `## Coverage` become `[EXTRACTION-WEAK: coverage census unavailable]`, and even then the other twelve sections keep their content.
+
+Routing a merely-sampled section to COPY mode would collapse `SAMPLED` and `EXTRACTION-WEAK` into one behaviour, at which point one of the two markers is redundant and should be deleted rather than kept. They stay distinct: **no signal → different generator; partial signal → same generator, qualified claims.**
+
+**A coverage failure NEVER halts the run.** Same degrade-never-stop discipline as the rest of this file: a large repo that produces no oracle at all would push every track to COPY mode, which is strictly worse than an oracle that honestly reports it read 8% of the source. Check 7 flags; it does not stop.
 
 ## Output format
 
@@ -260,14 +322,20 @@ Extracted codebase overview → .claude/_extracted-codebase.md
   Anti-patterns flagged: <count by type>
   Business context: → .claude/_extracted-business.md
   Provenance: <N> found / <N> inferred / <N> unconfirmed
+  Coverage:   <S>/<P> source files cited (<PP>%)  [census: <git-ls-files|find>@<short-sha>; <X> excluded: <named reasons>]
+    <pkg-a>   <s>/<p> (<pp>%)
+    <pkg-b>   <s>/<p> (<pp>%)  [SAMPLED: walk depth 4]
+  Sampled sections: <none | Conventions 10/412 files, Architecture 8/1204 files>
   Quality flags: <none | list of [EXTRACTION-WEAK]>
 ```
+
+`Quality flags:` stays weakness-only. `Coverage:` is a fact, not a flag, and is printed on every run including at 100% — an oracle that reports only its weaknesses and never its strengths under-sells correct work, and `Coverage: 412/412 (100%)` is the strongest thing this skill can say. Note that stdout is ephemeral: the same numbers are persisted in the header block and `## Coverage`, because the reader who most needs them is the one opening `_extracted-codebase.md` cold, months later, deciding whether to stamp it.
 
 ## Failure modes
 
 - **Empty project (no source files)** → write skeleton overview with `## Stack` only + note "extraction deferred until code exists." Phase 4 falls through to CREATE-mode behavior.
-- **Massive monorepo (>10k source files)** → cap walk depth to 4; sample by file count, not exhaustive walk. Note `[SAMPLED]` in any sections that didn't visit every file.
-- **Repo without git** → skip Step 12 (recent activity). All other steps work.
+- **Massive monorepo (>10k source files)** → cap walk depth to 4; sample by file count, not exhaustive walk. This threshold is a **walk-strategy** trigger, not a disclosure trigger — the two used to be one sentence and conflating them was most of the bug. Disclosure is unconditional (Step 2.5 + check 7) at every repo size, because damage is proportional to `present − seen`, not to `present`: a 900-file repo whose `## Conventions` rests on 10 files per category is nowhere near 10k and is exactly where the caps bite hardest. Making the marker conditional would also make its *absence* ambiguous ("we read everything" vs "we sampled but you were under the threshold") — a signal whose absence carries no information is not a signal, and check 7 could not be mechanically enforced against one. Under this branch, record the depth cap in `walk_scope` so the sampled rows say *why*.
+- **Repo without git** → skip Step 12 (recent activity). All other steps work. Step 2.5's census falls back to `find` + an explicit exclude list and records `census_method: find`; a `find` denominator is only ever comparable to another `find` denominator, never to a `git-ls-files` one.
 - **Unrecognized stack** → still emit `## Stack` with raw findings ("manifests detected: X, Y") + ask user one consolidated question to confirm framework.
 - **Extraction conflicts with prior `_extracted-codebase.md` (REFRESH)** → write the new one; emit `## Diff vs prior` section listing what changed (added/removed/changed). Phase 6 learning loop reads this diff.
 

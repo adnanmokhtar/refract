@@ -9,7 +9,7 @@ description: Make a chosen SSR render FAST — find routes that block TTFB on th
 
 Slow SSR blocks TTFB on the slowest thing the page awaits. If a route `await`s a 600ms query before returning any HTML, the user stares at a white screen for 600ms even though the header, nav, and layout were ready instantly. The fix is almost never "make the query faster" first — it's **stream the shell now, stream the slow subtree later** behind a boundary, so above-the-fold paints immediately and the slow region fills in.
 
-`ssr-audit` checks SSR *correctness* (hydration mismatches). This skill checks SSR *speed* — it turns `bundle-perf`'s open question "is hydration streaming?" into a real detector + fix. Every finding cites the blocking call at `<file:line>` + its observed/measured latency + the proposed boundary + the expected TTFB delta. A streaming recommendation without the cited blocking call is a halt.
+`ssr-audit` checks SSR *correctness* (hydration mismatches). This skill checks SSR *speed*: it turns the open question "is hydration streaming?" into a real detector + fix. `bundle-perf` *(performance pack, when co-installed)* is where that question is normally raised; when that pack is absent nothing else in the project asks it, which is precisely why this skill has its own TTFB trigger below rather than waiting to be handed a finding. Every finding cites the blocking call at `<file:line>` + its observed/measured latency + the proposed boundary + the expected TTFB delta. A streaming recommendation without the cited blocking call is a halt.
 
 ## Adapt to the codebase
 
@@ -125,12 +125,12 @@ Findings: 2
 - **Auth + redirect decisions must resolve before the shell flushes.** You cannot stream a 200 shell and then decide the user should have been redirected — resolve auth synchronously first.
 - Streaming adds boundary overhead; a route whose slowest call is <100ms or whose data is all above-the-fold gains little → `dismiss`.
 - A streamed boundary needs a layout-stable fallback (reserve dimensions) or you trade TTFB for CLS — coordinate with `lcp-audit` / `navigation-speed`.
-- TTFB dominated by *backend endpoint latency* (the API itself is slow) is a `profile-perf` problem, not a streaming one — streaming hides server think-time of the page's own render, it doesn't speed up a slow upstream.
+- TTFB dominated by *backend endpoint latency* (the API itself is slow) is not a streaming problem — streaming hides server think-time of the page's own render, it doesn't speed up a slow upstream. Route it to `profile-perf` *(performance pack, when co-installed)*; absent that pack, hand the endpoint to the backend owner with the measured latency attached and record `upstream latency: routed out of scope` — do not propose a boundary that cannot help.
 
 ## When to run
 
 - Any SSR route with TTFB > 200ms, or where one query measurably dominates the render.
-- After `bundle-perf` / `web-vitals-field` attributes LCP to a high `timeToFirstByte` on an SSR route.
+- After `bundle-perf` / `web-vitals-field` *(performance pack, when co-installed)* attributes LCP to a high `timeToFirstByte` on an SSR route. Absent that pack, the trigger is the route's own measured TTFB above.
 - When adding a slow data dependency (reviews, recommendations, related items) to an existing fast route.
 
 ## Halt conditions
@@ -149,4 +149,4 @@ Findings: 2
 - `rendering-strategy.md` (ai-pattern) — decides whether the route is server-rendered at all; this skill only places the boundary inside a route that already is.
 - `code-splitting.md` (ai-pattern) — the JS axis of the same page; a streamed region whose chunk is eagerly bundled still blocks the main thread.
 - `.claude/rules/frontend-principles.md` — the "server-rendered routes MUST stream the shell" MUST this skill enforces.
-- Cross-pack (`performance`, when co-installed): `web-vitals-field` measures whether the TTFB win actually reached users.
+- Cross-pack (`performance`, when co-installed): `web-vitals-field` measures whether the TTFB win actually reached users. Absent that pack, report the before/after server TTFB only and label it `lab only — field impact unmeasured`; never claim a user-visible win this skill could not observe.

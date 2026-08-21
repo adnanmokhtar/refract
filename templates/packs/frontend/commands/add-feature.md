@@ -22,7 +22,7 @@ The frontend orchestration command. Delivers a UI feature end-to-end at best-pra
 2. Mirror its structure: shared wrappers (`<BaseModal>`, `<BaseForm>`, `<FormField>`, `<CrudActions>`, `<CrudPaginator>`), composables (`useCrud`, `useForm`), service layer (`BaseCrudService`), permission gates, lifecycle hooks (`onActivated` for KeepAlive caching), locale-key paths.
 3. Add only the delta the new feature actually needs. Everything else: copy the sibling's shape silently.
 
-**Why.** Every page in a typical Vue/React project is ~80% identical scaffolding. New pages that don't mirror existing siblings produce drift that compounds: 50 pages, 50 micro-divergences, 0 shared affordances. The cost surfaces months later as a refactor budget that nobody can fund.
+**Why.** Most of any page in this project is scaffolding its siblings already settled — routing entry, layout import, fetch call site, loading/error/empty states, permission gate, locale-key path. A page that re-decides them produces one micro-divergence, and micro-divergences compound: nothing is shared, so nothing can be fixed once. The cost surfaces months later as a refactor budget nobody can fund. Measure the claim on THIS repo rather than quoting a ratio — diff two sibling pages and count what differs; that count is the real delta this command is allowed to add.
 
 **The agent ONLY asks the user when:**
 - **No sibling page exists** (truly new shape — first list page, first wizard, first chart panel).

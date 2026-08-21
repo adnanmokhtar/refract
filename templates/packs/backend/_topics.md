@@ -311,7 +311,8 @@ Each topic declares:
   triggers:
     signal_confirmed: real-time
   extracts_from: _extracted-codebase.md § "Cross-cutting concerns" § real-time + WS handler files
-  sections: [persona, gateway_pattern, auth_at_handshake, room_strategy, message_contracts, scaling_concerns]
+  sections: [persona, gateway_pattern, auth_at_handshake, room_strategy, message_contracts, scaling_concerns, output_format]
+  mirror_existing: true            # the envelope this agent designs must copy the project's EXISTING event shape, not the template's
   fallback: _examples/websocket-engineer.md
 
 # ============ RULES (.claude/rules/<name>.md) ============
@@ -330,7 +331,7 @@ Each topic declares:
   triggers:
     migration_layout_detected: true   # only ships when migration pack is loaded
   extracts_from: _extracted-codebase.md § Stack + § Layering + _extracted-idioms.md (full)
-  sections: [stack_assumption, backend_audit_axes, stack_aware_primitive_set, transposition_trap_fingerprints, phase_3_retrieve_specifics, cross_references]
+  sections: [stack_assumption, transposition_trap_fingerprints, di_markers, backend_audit_axes, stack_aware_primitive_set, phase_3_retrieve_specifics, cross_references]
   mirror_existing: true
   fallback: rules/migration-backend.md   # canonical authored shape; AUTHOR mode anchors stack-aware substitutions to project
 

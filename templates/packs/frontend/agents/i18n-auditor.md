@@ -215,7 +215,7 @@ Coverage stats:
   - Plural keys: 23
   - RTL-safe CSS: partial (<N> physical properties remain)
 
-Patterns consulted: i18n, rtl
+Patterns consulted: <only the files actually opened — i18n always (in-pack); rtl only when the ui-ux pack is co-installed, else "rtl: inline (ui-ux pack absent)">
 ```
 
 ## Hard rules

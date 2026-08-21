@@ -107,4 +107,8 @@ Unused (knip):
 
 ## Related
 
-- `code-splitting.md` — the fix sibling: this skill measures the heavy chunk + gzipped size and names the anchoring import; that pattern decides where to cut it (route/component split, `manualChunks`, deep imports). Its split proposals cite this output.
+- `code-splitting.md` (ai-pattern) — the fix sibling: this skill measures the heavy chunk + gzipped size and names the anchoring import; that pattern decides where to cut it (route/component split, `manualChunks`, deep imports). Its split proposals cite this output.
+- `lighthouse-ci` — the reciprocal of its own `## Related` entry: that runner knows only the JS *total* against a budget, this skill names the chunk and the import that made it. A failed JS budget there is unfinished until it has a chunk name from here.
+- `lcp-audit` / `streaming-ssr` — the two skills a heavy chunk usually shows up as. Bytes are this skill's finding; a lazy hero or a blocked first byte are theirs. Do not propose a split as a fix for either.
+- Consumed cross-pack by `/enhance-ui` *(ui-ux pack, when co-installed)* for its optional bundle-size delta. That command already declares the absent branch (`SKIPPED (no bundle-analyze)`); this skill never has to synthesize a delta for a caller.
+- Cross-pack (`performance`, when co-installed): `bundle-perf` owns the whole-app budget conversation and the page-load verdict; this skill answers the narrower question "which chunk, and which import anchored it?". Absent that pack, this skill is the only bundle instrument in the project — say so in the report rather than implying a budget authority it does not hold.

@@ -3,7 +3,13 @@
 Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
 
 ```yaml
-- name: <framework>-architect            # nuxt-architect / nextjs-architect / vue-architect / etc.
+# The two central agents keep their CANONICAL names. AUTHOR mode makes them framework-aware through
+# `extracts_from` / `sections` — never by renaming the file. Nine dispatch sites (`/add-page`,
+# `/add-crud-page`, `/add-feature`, `/refactor`), `_essentials.md`, and both `_examples/` fallbacks
+# all say `ui-architect` / `ui-reviewer`; a `<framework>-*` topic name orphaned every one of them.
+# `agents/ui-reviewer.md` § Related states the reason outright: the framework lens lives INSIDE the
+# agent, so there is no separate per-framework reviewer to name.
+- name: ui-architect
   kind: agent
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-codebase.md (framework + component layout + state lib + routing) + _extracted-idioms.md (composables/hooks if any)
@@ -11,7 +17,7 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   fallback: _examples/ui-architect.md
   cite_evidence: strict
 
-- name: <framework>-reviewer
+- name: ui-reviewer
   kind: agent
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-codebase.md + _extracted-idioms.md
@@ -142,6 +148,23 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/frontend-principles.md
 
+# `i18n-rules` is deliberately NOT named `i18n`: that topic name is taken by the ai-pattern above
+# (kind: pattern), and validate-pack-consistency check 5 greps by NAME ONLY
+# (scripts/validate-pack-consistency.sh:134). A `- name: i18n` rule entry would collide with the
+# pattern's and the gate would stay blind to whichever of the two went missing. Frontend is the only
+# pack in the repo with a rule and an ai-pattern sharing a stem. Keep these as whole-line comments:
+# a trailing comment on the `kind:` line is read as part of the kind value by scripts/pack-search.py.
+- name: i18n-rules
+  kind: rule
+  triggers: { i18n_lib_detected: true }
+  extracts_from: _extracted-codebase.md § i18n (lib + locale set + translation field type + available-languages source + default/fallback locale) + _extracted-idioms.md (t()/$t() call convention, empty-translations factory, per-module locale layout)
+  sections: [project_specific_anchored, dynamic_key_types, locale_parity, active_language_refs, rtl_logical_properties, named_anti_patterns]
+  mirror_existing: true
+  fallback: rules/i18n.md      # canonical authored shape (same strategy as migration-frontend below);
+                               # there is no _examples/ file for it — `_examples/i18n.md` is the
+                               # ai-pattern's abridgement and declares `# Pattern: i18n`, so pointing
+                               # here would ship a pattern where a rule is required.
+
 - name: migration-frontend
   kind: rule
   triggers:
@@ -194,7 +217,13 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-codebase.md (component/state conventions) + STACK.md
   sections: [pack_overlay_gates, dispatch, when_not]
-  fallback: _examples/refactor.md
+  fallback: commands/refactor.md   # self-fallback — the same strategy as add-feature above and
+                                   # i18n / migration-frontend. The overlay's three declared
+                                   # sections ARE commands/refactor.md; the former
+                                   # `_examples/refactor.md` was a six-line usage anecdote carrying
+                                   # none of them, so a no-signal install received an anecdote in
+                                   # place of the gates — including the code-quality absent-branch
+                                   # at commands/refactor.md § Dispatch.
 
 - name: visual-check
   kind: skill

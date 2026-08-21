@@ -120,6 +120,7 @@ This injection is non-negotiable: every agent (pack, generated, framework-specif
 - A **`## Project-specific (<project-name>)`** block at the TOP of every adapted rule, citing this codebase's actual file/class/property/DB-column/DI/test naming + base classes + helpers (data access, DTOs, controllers, error hierarchy) — all sourced from extraction.
 - The **STUDY → DECIDE → ACT loop** per file (CHANGE-anchor / CHANGE-anchor-with-warn / LEAVE-with-redirect / LEAVE-delete) — see skill § "Decision matrix."
 - The **`[EXTRACTION-WEAK]`** flag on anchors produced when extraction has no signal for the topic — Phase 5 audit reports these.
+- The **`[inferred: …; sampled <seen>/<present> <unit>]`** downgrade on any anchor line that generalizes beyond a `[SAMPLED]` extraction section (`extract-codebase-overview § Step 2.5`) — Phase 5 audit reports the count as `SAMPLED-sourced anchors`. Distinct from the flag above: `[EXTRACTION-WEAK]` is *no signal* (→ COPY mode), sampling is *partial signal* (→ full anchor, qualified claims, mode unchanged).
 
 The skill's anchor templates are the canonical shapes. Phase 5.3 audits anchor quality (presence + body density ≥3 lines + identifier traceability for path-citing categories + no placeholder syntax + leak scan against extraction). Anti-patterns the audit catches: missing anchor (skill skipped), thin anchor ("`'this project uses TypeScript'`"-class lazy output), placeholder anchor (`<RepositoryBase>`, `<TODO>`), leaked anchor (cites identifier not in extraction).
 

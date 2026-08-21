@@ -9,6 +9,124 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.15.0 — 2026-08-21
+
+Quality pass, not a volume pass — the target was artifacts that were neither wrong nor missing, but thin:
+generic, duplicated, or dispatching at things nobody implements. Scope by count, read off `git diff --stat`
+rather than asserted from memory: `agents/` 1 of 5, `commands/` 1 of 9, `rules/` 1 of 3, `ai-patterns/`
+1 of 16, `_examples/` 1 of 37, plus `_topics.md`, `_version.json` and this file. **`skills/` (0 of 9),
+`references/` (0 of 12), `_essentials.md` and `STACK.md` are untouched.** No file added, none deleted.
+`rules/migration-backend.md` is a pack rule and not a repo-baseline rule, so `check-rule-budget.sh` does not
+move (~4943 / 6000 either side of this release).
+
+**Changed**
+
+- **`agents/websocket-engineer.md` gains `## Output`** — it was the only agent in the pack with no output
+  contract, and four callers depend on what it returns: `agents/api-reviewer.md:76` (ENF-4) hands
+  streaming/real-time depth to it by name, and `api-architect.md`, `bug-investigator.md` and
+  `endpoint-tester.md` each escalate into it. Four callers, no defined return shape. The new block defines
+  the agent against its siblings on the *return*, not only on scope: `api-architect` returns a file list and
+  a DTO surface, `api-reviewer` a production-readiness verdict table, `endpoint-tester` PASS / FAIL /
+  INCOMPLETE off calls it actually made, `bug-investigator` one root-cause sentence. This one returns a
+  protocol design or a protocol review — the only output in the pack that *already-connected clients are
+  coupled to*, since a shipped envelope cannot be redeployed out from under a mobile build in the field.
+  - Two rows carry the weight. **Mirror source** forces the `<path:line>` of the sibling event the envelope
+    copies; without it the file's own first halt condition (§ The Premise) could be skipped silently, because
+    nothing downstream could tell. **Capacity** is `MEASURED <n> conns @ <hardware> @ <msg/s>` or the literal
+    token `NOT MEASURED`, which is what turns § Scaling's "derive it, never quote it" from advice into
+    something a reader can check.
+  - Severity vocabulary is closed at **BLOCKER** / **REQUEST** — the two already in use in § Example
+    findings — and named as closed, so no third level accretes.
+
+- **`_examples/websocket-engineer.md` — a live fabrication removed from a shipping path.** The AUTHOR-mode
+  fallback still read "Practical ceiling: 10-50k connections per Node process", a number with no source
+  behind it, in the file `templates/phases/phase-4.2-apply.md` copies verbatim into `.claude/agents/` when
+  extraction finds no real-time signal — i.e. exactly the case where a made-up capacity figure does the most
+  damage, because there is no local evidence to contradict it. Replaced with the same three measurable limits
+  the shipped agent derives (file descriptors · per-connection memory measured against the *container* limit ·
+  event-loop headroom under a realistic message rate), ending in `NOT MEASURED` as the honest default. The
+  fallback also gains the Premise + halt conditions and the same `## Output` block; it was the only *agent*
+  example of the five with no output section at all.
+  - Same file: `nhooyr.io/websocket` corrected to `github.com/coder/websocket`. Sourced, not recalled —
+    `https://pkg.go.dev/nhooyr.io/websocket` carries "Deprecated: coder now maintains this library at
+    https://github.com/coder/websocket", and the GitHub releases API gives v1.8.12 `published_at`
+    `2024-08-09` with the body "This release marks the repo's transfer from nhooyr to Coder."
+
+- **`commands/endpoint-test.md` — the tier table stops dispatching into space.** Phase 2 is the one block
+  this command genuinely owns, and it was the only broken one. `Standard` promised "mandatory cases + the
+  idempotency-replay variant on writes", but idempotency replay is already one of the mandatory five
+  (`skills/endpoint-test/SKILL.md` § Procedure step 6; `agents/endpoint-tester.md` § Case selection), so
+  Standard added nothing over Trivial while reading as if it did. `Heavy` named `signature-tampered` and
+  `replay-with-stale-key`, two cases that appeared nowhere else in `templates/` — neither the skill's
+  conditional-case list nor the agent's selection table implements them, so the command was handing the agent
+  a scope no artifact could execute.
+  - Rewritten so each tier names only cases that exist and points at the file that owns them: Trivial = the
+    mandatory five and nothing else; Standard = the five plus every conditional whose signal the contract
+    actually declares, selected from the agent's signal → case table (the command does not enumerate them,
+    per its own `:17` rule); Heavy = Standard plus the two agent-owned cases with no skill counterpart
+    (content negotiation, tenant side-effects) run *unconditionally* rather than signal-gated, on the
+    reasoning that on a publicly reachable surface a missing declaration is not evidence of correct behaviour.
+  - Signature tampering and stale-key replay are routed out rather than deleted silently: they belong to
+    `/simulate-webhook --tamper` in the webhook domain (`templates/domains/webhook/rules/webhook-signature-verification.md`
+    § Enforcement), and if that domain is not installed the report must carry
+    `signature cases NOT RUN (webhook domain absent)` — the same never-claim-an-axis-that-did-not-run guard
+    the pack already uses for missing agents.
+
+- **`rules/migration-backend.md` — a shadow copy of a regex set removed; the file given the axis it owns.**
+  The § Stack-aware primitive set table carried a prose paraphrase of the alternations inside
+  `scripts/validate-migration-artifacts.sh § extract_inventory_primitives` (`:1211`, called at `:1799-1800`) —
+  2749 of 7877 characters, a second source of truth with no gate comparing the two, and nothing an agent
+  would ever follow. The **Primitive → Axis** mapping stays, because that IS agent-followable; the regex
+  column is gone, replaced by a pointer to the function that owns it and the actual drift threshold read out
+  of the script (fires when V1 > 0 and V2 / V1 < 0.7).
+  - The fingerprint catalogue (fat controller, raw-SQL concat, `SELECT *` over-fetch, N+1, sync HTTP in the
+    hot path, missing tenant filter, controller→DB direct, hand-built `Authorization` header, catch-and-swallow)
+    now **leads** the file, and the header states the point of view it lacked: this rule owns the V1→V2 PORT
+    axis and nothing else. `backend-principles.md` is what you must do in code you write fresh;
+    `concurrency-discipline.md` is the async axis in any code at all; this one is the failure class that exists
+    only while transposing an implementation that already shipped — code that was correct in V1's architecture
+    and is wrong in V2's, carried across *because it worked*.
+  - **Frontmatter now matches the gate.** It declared `applies-to: backend-track, every-code-writing-task-in-backend`
+    and `severity: must`, byte-identical to the always-on `backend-principles.md`, while `_topics.md:332`
+    ships it only under `migration_layout_detected: true`. Nothing reads those keys (`applies-to` is catalog
+    metadata in `scripts/gen-pack-catalog.py:299`; `extends:` is read by nothing), so they were pure
+    documentation documenting the opposite of the truth. Now `applies-to: backend-track, v1-to-v2-ports` and
+    `severity: must (when a migration layout is detected)`.
+  - **New `## DI markers` section closes a dangling cross-pack citation.** `templates/packs/migration/_failure-surface.md:175`
+    routes readers to `backend/rules/migration-backend.md § DI markers` for the concrete marker syntax; that
+    section did not exist. It does now, and it deliberately refuses to name the syntax — the marker is a
+    per-project fact, so the section routes to `_extracted-idioms.md § DI / module wiring` and
+    `_extracted-codebase.md § Layering`, and states that missing extraction *is* the finding rather than a
+    licence to substitute the framework you saw most recently.
+  - `_topics.md` `sections:` updated in lockstep, because this rule is its own AUTHOR-mode fallback
+    (`fallback: rules/migration-backend.md`) and a stale section list regenerates the gap.
+
+- **`ai-patterns/parallel-io.md`** — one line. Three `<extracted…>` tokens in § Concurrency caps sit outside
+  the degraded-behaviour blockquote, so the `[UNANCHORED]` rule did not reach them and the section said only
+  "no guessing". It now extends that rule to the cap cells explicitly: not found ⇒ write `NOT FOUND` and treat
+  the workload as `[UNANCHORED]`. An unresolved token in a Cap column is read as a number, which is the same
+  leak in a quieter place.
+
+- **`_topics.md`** — the `websocket-engineer` entry gains `output_format` in `sections:` (all four sibling
+  agent entries already carried it) and `mirror_existing: true`, which it was alone in lacking; without both,
+  AUTHOR mode regenerates precisely the gap this release closed. The `migration-backend` entry's `sections:`
+  list is reordered and extended to match the rewritten rule.
+
+**Known, not fixed in this release**
+
+- `validate-pack-consistency.sh` warns that seven shipped backend artifacts have no `- name:` entry in
+  `_topics.md`: `ai-patterns/caching-strategy.md` and the `api-snapshot`, `debug-tenant`, `env-diff`,
+  `migration-safety`, `module-scaffold`, `parallelize-independent-ops` skills. Left alone on purpose. A topic
+  entry carries `triggers:`, and a trigger *gates* generation — registering these with invented triggers
+  would risk removing skills from projects that currently receive them unconditionally. Fixing it means
+  deciding a real trigger per skill, which is its own pass.
+- `_examples/refactor.md` is a six-line usage anecdote with no frontmatter and no dispatch section, yet
+  `_topics.md:462` names it the AUTHOR-mode fallback for the `/refactor` overlay — so a project with no DI
+  signal receives that anecdote as its `commands/refactor.md`. The same fallback-lagging-the-shipped-artifact
+  shape as the websocket example above. The one-line fix is `fallback: commands/refactor.md` (self-fallback,
+  the pattern `api-consistency-audit` and `migration-backend` already use), but it was outside this pass's
+  brief and is recorded here rather than done quietly.
+
 ## 1.14.0 — 2026-08-21
 
 Additive pass. Scope, by count so it can be checked against the diff: `ai-patterns/` 3 of 16 (one of them

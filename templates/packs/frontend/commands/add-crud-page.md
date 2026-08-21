@@ -158,22 +158,21 @@ Status: COMPLETE
 
 ## Related
 
-### Sibling commands in frontend pack
-- `/a11y-audit` — sibling command in frontend pack
-- `/add-component` — sibling command in frontend pack
-- `/add-page` — sibling command in frontend pack
-- `/i18n-audit` — sibling command in frontend pack
+### Sibling commands — where the boundary falls
+- `/add-page` — one route. This command **supersedes** it for a list + form + delete bundle on one entity; running both produces two competing shapes for the same entity.
+- `/add-component` — authors the shared wrappers this command mirrors rather than invents. A missing `<BaseModal>` / `<CrudPaginator>` / `<BaseForm>` is that command's job first; bypassing the wrapper is a halt here.
+- `/add-feature` — the escalation target named twice in § When to use / NOT to use: missing `POST/PATCH/DELETE`, or a bespoke flow (wizard / kanban / drag-drop). A hand-off, not an alternative.
+- `/a11y-audit` · `/i18n-audit` — read-only. The table-semantics halt (`<caption>`, `scope`, `aria-sort`) and the alt-locale halt here are the creation-time subsets of those sweeps.
 
-### Skills
-- `navigation-speed` — list→detail prefetch / Speculation Rules / bfcache / instant-loading / View Transitions audit (the fast page-to-page nav specialist for the hot list→detail path).
-- `streaming-ssr` — fast-SSR streaming-boundary scanner; stream the shell when the SSR list has a slow query, cut TTFB.
-- `lcp-audit` — LCP-resource priority-hint scanner (fetchpriority / preload / preconnect / lazy-hero) for the list/detail above-the-fold.
+### Skills this command dispatches (and when)
+- `navigation-speed` — Phase 6 sign-off on the hot list→detail path: row prefetch on intent, bfcache safety, instant layout-stable skeleton.
+- `streaming-ssr` — Phase 6, only when the list is SSR with a slow query: stream the shell, cut TTFB.
+- `lcp-audit` — LCP priority hints for the list / detail above-the-fold.
 
-### Patterns
-- `ai/patterns/forms.md`
-- `ai/patterns/i18n.md`
-- `ai/patterns/rendering-strategy.md`
-- `ai/patterns/ssr-safety.md`
+### Patterns actually read
+- `forms.md` — the create/edit half: one library per repo, schema-driven validation, server-error mapping, and the § Accessibility contract behind the form halts.
+- `i18n.md` — the key structure and ICU plural categories behind the "`en.ts` ✓, `ar.ts` ✗" halt.
+- `list-virtualization.md` — its detectors and scroll-restoration rule are what Phase 4's "virtualize a list likely > ~100 visible rows" and the matching halt are graded against.
 
 ### Rules
 - `.claude/rules/frontend-principles.md`

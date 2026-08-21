@@ -291,6 +291,13 @@ If extraction has no signal for the topic (`[EXTRACTION-WEAK: <base>]` flag from
 - Mark `[EXTRACTION-WEAK]` in the anchor for Phase 5 visibility.
 - A 5-line anchor citing 2 known facts is BETTER than a placeholder anchor with `<TODO>`.
 
+If extraction has only PARTIAL signal — the source section in `_extracted-codebase.md` carries `[SAMPLED: <seen>/<present> <unit>]` (`extract-codebase-overview § Step 2.5`):
+
+- **The anchor is written at full length, not thinned.** `SAMPLED` is a confidence signal, not an absence signal; there is real content to cite. This is the difference from `EXTRACTION-WEAK` and it must not blur — `EXTRACTION-WEAK` means no signal and routes the track to COPY mode; `SAMPLED` means partial signal and never changes generator mode.
+- **Every line that generalizes beyond the sample inherits the qualification.** A claim like "all repositories extend `BaseRepository`" sourced from a `[SAMPLED: 10/412 files]` section is written `[inferred: 10 sampled repositories; sampled 10/412 files]` — never `[found:]`, even though the citation resolves. Per `phase-2-profile.md § Provenance discipline`, Phase 4 generators may not anchor to `[inferred:]` without re-verifying against source first, so the anchor either gets re-verified and promoted, or ships carrying the marker. An anchor that reads as confident while resting on a sample is the specific dishonesty this rule exists to remove.
+- Claims scoped to the cited file itself ("`BaseRepository` is defined at `<path:line>` and has 15 extenders") are unaffected — they assert nothing about a population and stay `[found:]`.
+- Count each anchor that carried at least one sampled-source line; the total is the `SAMPLED-sourced anchors` figure in the round-one decision-log summary below.
+
 #### LEAVE-with-redirect — note shape
 
 ```markdown
@@ -445,6 +452,7 @@ The skill writes:
    - LEAVE-delete:            <W> files
    - Total pack-added:        <N> files
    - EXTRACTION-WEAK flags:   <K> (anchors thin due to no extraction signal)
+   - SAMPLED-sourced anchors: <M> (anchors carrying ≥1 line generalized from a `[SAMPLED]` extraction section, marked `[inferred: …; sampled <seen>/<present> <unit>]`)
 
    ## REFINE — round two (<YYYY-MM-DD HH:MM>)
 
@@ -517,6 +525,7 @@ The skill writes:
 ## Error handling
 
 - **Extraction-weak (topic load-bearing but no extraction signal)**: produce thin anchor with whatever facts ARE known. Mark `[EXTRACTION-WEAK]`. Don't HALT — a 5-line factual anchor beats a placeholder.
+- **Extraction sampled (signal present but drawn from part of the population)**: write the full anchor and downgrade only the lines that generalize, to `[inferred: <basis>; sampled <seen>/<present> <unit>]`. Don't HALT and don't thin — a qualified claim beats both a missing one and a falsely confident one. Never route a `[SAMPLED]` topic to COPY mode: that is `EXTRACTION-WEAK`'s job, and two markers with one behaviour means one of them is redundant.
 - **Conflict between pack body and project**: anchor MUST be CHANGE-anchor-with-warn shape with `**Conflicts with generic body**:` sub-block. Don't silently override; surface the conflict.
 - **Identifier in anchor not in extraction**: this is a LEAK (the LLM hallucinated or carried over from another project's run). Rerun STUDY for that file with explicit instruction "only cite identifiers found in `.claude/_extracted-codebase.md` or `.claude/_extracted-idioms.md` (round one) or `.claude/_refine-extract.md` (round two)." If retry still leaks → halt with the leak list.
 - **Decision log incomplete (some pack-added file missing an entry)**: Phase 5.3 audit catches this and triggers retry. The skill MUST emit one row per pack-added file even when LEAVE-delete / LEAVE-DEEP / LEAVE-DEEP-IDEMPOTENT (the row records the no-op + reason).

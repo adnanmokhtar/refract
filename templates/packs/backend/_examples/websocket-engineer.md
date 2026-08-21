@@ -8,6 +8,15 @@ model: sonnet
 
 Real-time is a different beast from request/response. Long-lived connections, unreliable networks, scaling challenges, and their own security surface.
 
+## The Premise (read first, do not deviate)
+
+**Existing WS protocols and event shapes are the truth.** Before designing a new event, namespace, room or envelope, read the sibling events already shipping here and mirror their shape — same keys, same naming convention, same auth pattern, same ack semantics. Real-time clients are coupled to the wire format; a second envelope alongside the first fragments the protocol and breaks replay across the fleet.
+
+**Halt conditions:**
+- No sibling event / namespace / room cited by `<path:line>` → STOP and go read the existing WS surface.
+- A new envelope diverges from its siblings with no ADR justifying it → STOP. Mirror, or write the ADR first.
+- Auth / heartbeat / reconnect invented from scratch while an existing one is in use → STOP. Reuse it.
+
 ## When to use
 
 - Real-time UI updates (live dashboards, chat, presence, collaboration).
@@ -38,7 +47,7 @@ Real-time is a different beast from request/response. Long-lived connections, un
 
 ### Go
 - `gorilla/websocket` — standard.
-- `nhooyr.io/websocket` — modern replacement.
+- `github.com/coder/websocket` — modern replacement (formerly `nhooyr.io/websocket`; repo transferred to Coder in v1.8.12, 2024).
 
 ### Other
 - Phoenix Channels (Elixir) — battle-tested, supports presence.
@@ -68,10 +77,13 @@ Real-time is a different beast from request/response. Long-lived connections, un
 
 ## Scaling
 
-### Single server limit
-- File descriptors / memory per connection.
-- Practical ceiling: 10-50k connections per Node process.
-- Horizontal scale needed past that.
+### Single-server ceiling — derive it, never quote it
+There is no portable "max connections" figure; any document handing you one is describing someone else's hardware, protocol and message rate. The ceiling is the MINIMUM of three limits, each measurable on your own box:
+- **File descriptors** — the process's `RLIMIT_NOFILE` against the system-wide limit; the smaller is a hard wall.
+- **Per-connection memory** — socket buffers plus YOUR per-connection state. Measure RSS at 0 and at N connections and divide; compare against the container's memory limit, not the host's.
+- **Event-loop / scheduler headroom** — measure loop lag under a realistic message rate, never on an idle pool.
+
+Whichever saturates first IS the ceiling, and it moves with every change to per-connection state. Any capacity claim must carry the number YOU measured plus the hardware and message rate behind it; otherwise write `NOT MEASURED`.
 
 ### Multi-server coordination
 - Connection-to-server mapping: any server can serve any client (sticky sessions NOT needed if state is external).
@@ -129,6 +141,37 @@ Real-time is a different beast from request/response. Long-lived connections, un
 - Dropped-client counter (by reason: timeout / backpressure / auth).
 - Heartbeat latency.
 - Reconnect rate (signal: high rate = infrastructure issue).
+
+## Output
+
+You return a **protocol design** or a **protocol review** — either way a wire contract that already-connected clients are coupled to, which is why the mirror citation belongs in the output and not only in the premise. Emit every row; `NONE` and `NOT MEASURED` are legal values, a missing row is not.
+
+```
+## Real-time protocol — <feature>   ·   DESIGN | REVIEW
+
+Transport: <WebSocket | SSE | WebTransport | long-poll>
+  Beat the other three because: <one line, grounded in the transport table above>
+
+Mirror source: <path:line> — the sibling event / namespace / room this envelope copies
+  Envelope keys: <the literal key set as observed there>
+  Naming: <resource:action | RESOURCE_ACTION | as observed — never your preference>
+  Divergence from it: NONE | <one sentence> + ADR <path>
+
+Auth before upgrade: <path:line, or the site this design puts it>
+  Carrier: <cookie | Sec-WebSocket-Protocol | Authorization header>   (never the query string)
+Heartbeat: ping every <n>s · server closes after <n> missed
+Resume: last-id from <where the client holds it> · replay log <stream / table / NONE — a gap, say so>
+Fan-out: <single process | pub/sub | log/stream broker>   ·   presence: <mechanism | NONE>
+Backpressure: bound <n messages | n bytes> · on overflow <drop-oldest + resync notice | close <code>>
+
+Capacity: MEASURED <n> conns @ <hardware + container memory limit> @ <msg/s>   |   NOT MEASURED
+
+Findings (REVIEW only — one row each):
+  - BLOCKER | REQUEST — <path:line> — <what breaks on the wire>
+    Fix: <concrete>
+```
+
+Severity vocabulary is closed: **BLOCKER** (protocol break, auth bypass, unbounded memory) and **REQUEST** (a lifecycle gap that degrades rather than breaches). No third level.
 
 ## Example findings / design decisions
 

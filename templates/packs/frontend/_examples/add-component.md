@@ -62,6 +62,7 @@ Component-specific:
 - Component file < 200 lines (warn if larger — likely doing too much).
 - Visual diff via `visual-check` skill if present.
 - Hardcoded English (untranslated string) → blocker.
+- **INP budget** (gated): if the component owns a high-frequency or expensive handler, per-interaction work stays under budget (yield / transition / debounce) — dispatch the `inp-responsiveness` pattern *(performance pack, when co-installed)*; absent that pack, grade the handler inline and report `inp: graded inline (performance pack absent)`. No such handler → `inp: n/a`.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture pattern if a new prop convention or composition shape emerged.
@@ -86,4 +87,5 @@ Status: COMPLETE
 - New styling system introduced (styled-components in a Tailwind repo) → reject; use repo convention.
 - Generic name (`Box`, `Wrapper`) → reject; rename by purpose.
 - Missing accessible defaults (`<button>` not `<div onClick>`, `<label htmlFor>`) → blocker.
+- High-frequency or expensive interaction handler (typing, filtering a large list, drag) running unbounded per-interaction work — must stay under the INP budget per the `inp-responsiveness` pattern *(performance pack, when co-installed)*. Absent that pack, grade it inline (yield / transition / debounce the handler) and record `inp: graded inline (performance pack absent)`; never leave the lane silent.
 - Test file references a fake i18n stub when project has a real provider → use real provider in tests.

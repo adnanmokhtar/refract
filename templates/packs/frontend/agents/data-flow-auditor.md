@@ -177,6 +177,7 @@ Store: productsStore (Pinia)
 Coverage:
   - Cache freshness / invalidation:  <pass/fail>
   - Tenant scope in cache keys:       <pass/fail>
+  - Server-side cache / TTL policy:   <read from caching-strategy.md (backend pack) | UNVERIFIED (backend pack absent) — findings scoped to the client>
   - Redundant / N+1 fetches:          <pass/fail>
   - Over-fetching:                    <pass/fail>
   - Hydration (SSR):                  <pass/fail/n-a>

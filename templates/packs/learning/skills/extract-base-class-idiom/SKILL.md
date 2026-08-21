@@ -73,6 +73,8 @@ Pick extenders that span the range:
 
 Read each in full. Note configuration values, override bodies, comments explaining WHY.
 
+**Record the denominator, not just the sample.** Note the total extender count found by the caller's grep (`extract-codebase-overview § Step 5` already has it) and carry it through to the output as `<N> of <M> extenders`. "3 extenders sampled" and "3 of 4" and "3 of 273" are three different claims and the first is indistinguishable from the other two. Any statement in the authored pattern that generalizes across extenders ("every subclass sets `X`", "no extender overrides `Y`") rests on the sample, not the population, and is written `[inferred: <basis>; sampled <N>/<M> extenders]` per `phase-2-profile.md § Provenance discipline` — the same rule that governs sampled sections of `_extracted-codebase.md`.
+
 ### Step 3.5 — Recursive extraction of cited collaborators (NEW)
 
 The base class almost always references other classes that are themselves part of its protocol — interfaces it consumes, helper classes it composes, criteria/factory/strategy classes its callers must implement. These collaborators are part of the pattern; documenting the base in isolation leaves a gap.
@@ -134,7 +136,7 @@ Use this 9-section structure (or match `topic_spec` if provided, or match existi
 
 ## Overview
 
-<One paragraph: what this base does + where it lives + how many extenders. Cite the file:line.>
+<One paragraph: what this base does + where it lives + how many extenders, and how many of those were read (`<N> of <M> sampled`). Cite the file:line.>
 
 ## Type parameters
 | Param | Represents |
@@ -207,7 +209,7 @@ If any check fails, regenerate the offending section. If still failing after 1 r
 Write the pattern file to `output_path`. Print a one-line summary:
 
 ```
-Authored <output_path>: <N> extenders sampled, <M> automatic behaviors, <P> pitfalls cited, <Q> escape hatches.
+Authored <output_path>: <N> of <M> extenders sampled, <A> automatic behaviors, <P> pitfalls cited, <Q> escape hatches.
 ```
 
 ## Failure modes

@@ -82,14 +82,14 @@ Findings: 3
 ## False positives / gotchas
 
 - Only the **single** LCP element gets `fetchpriority="high"`. If a scan would mark two heroes high-priority, flag it — competing high-priority fetches cancel the benefit.
-- The LCP element differs by viewport (mobile hero ≠ desktop hero) and by route — confirm the real element with `web-vitals-field` attribution (`attribution.element`) before "fixing" the wrong image.
+- The LCP element differs by viewport (mobile hero ≠ desktop hero) and by route — confirm the real element with `web-vitals-field` attribution (`attribution.element`) *(performance pack, when co-installed)* before "fixing" the wrong image. Absent that pack there is no field attribution: pick the element from the lab trace, and label it `LCP element: lab-inferred (no field source)` so nobody reads a guess as a measurement.
 - A heading/text LCP element has no image to preload — its LCP cost is font + render-blocking CSS/JS, not image priority (→ `font-optimization` for font-display / preload / swap-CLS, and critical CSS).
 - This skill owns only the LCP element's **priority** (fetchpriority / preload / eager). The LCP image's **format, dimensions, and responsive sizing** belong to `image-optimization` — run both on a hero image.
 - Preloading an image the page doesn't actually use wastes bandwidth and can *hurt* LCP — preload only the confirmed LCP resource.
 
 ## When to run
 
-- When `lighthouse-ci` / `bundle-perf` reports LCP > 2.5s, or `web-vitals-field` attributes field LCP to an image with high `resourceLoadDelay`/`resourceLoadDuration`.
+- When `lighthouse-ci` (this pack) reports LCP > 2.5s. Also on `bundle-perf` / `web-vitals-field` *(performance pack, when co-installed)* attributing field LCP to an image with high `resourceLoadDelay`/`resourceLoadDuration`; absent that pack, `lighthouse-ci` is the only trigger and the run says so.
 - After adding or restyling a hero / above-the-fold media region.
 - Before launch on any public, SEO-relevant, image-led page.
 
@@ -97,9 +97,12 @@ Findings: 3
 
 - Halt on any LCP finding without the cited element at `<file:line>` + the matched pattern.
 - Halt if `fetchpriority="high"` is proposed on more than one element per view.
-- Halt if a preload is proposed for an image not confirmed to be the LCP resource (lab heuristic OR field attribution).
+- Halt if a preload is proposed for an image not confirmed to be the LCP resource (lab heuristic OR field attribution). On a frontend-only install only the lab arm exists — the halt still stands, and the finding records `confirmed by: lab trace` rather than implying field evidence it never had.
 - Halt if the LCP element is text but the fix targets image priority — re-scope to font/CSS.
 
 ## Related
 
-- `code-splitting.md` — the LCP-critical component must never be lazy-loaded (a chunk round-trip before paint); that pattern's detector 7 hands off here, and this skill rejects any lazy proposal in the LCP subtree.
+- `code-splitting.md` (ai-pattern) — the LCP-critical component must never be lazy-loaded (a chunk round-trip before paint); that pattern's detector 7 hands off here, and this skill rejects any lazy proposal in the LCP subtree.
+- `image-optimization` / `font-optimization` — the two halves this skill deliberately does not own: format/dimensions/responsiveness for an image LCP, `font-display`/preload/swap-CLS for a text LCP. This skill only sets priority.
+- `lighthouse-ci` — the lab measurement that triggers this scan; it reports the number, this skill names the element.
+- Cross-pack (`performance`, when co-installed): `web-vitals-field` supplies `attribution.element` — the only source that proves which element users actually saw as LCP. Absent that pack, every finding here is lab-inferred and must be labelled as such; never print a field figure this skill did not read.

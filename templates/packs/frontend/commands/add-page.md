@@ -175,22 +175,24 @@ Created:
 
 ## Related
 
-### Sibling commands in frontend pack
-- `/a11y-audit` — sibling command in frontend pack
-- `/add-component` — sibling command in frontend pack
-- `/add-crud-page` — sibling command in frontend pack
-- `/i18n-audit` — sibling command in frontend pack
+### Sibling commands — where the boundary falls
+- `/add-component` — a modal, drawer or layout fragment is a component, not a route. § When to use / NOT to use already draws this line; running this command for one produces a route nothing navigates to.
+- `/add-crud-page` — **supersedes** this command when the route is a list + form + delete bundle for one entity. Running both produces two competing shapes for the same entity.
+- `/add-feature` — the caller, not an alternative. It invokes this command for the route step, and the prior-art + new-dependency gates above are inherited from it.
+- `/a11y-audit` · `/i18n-audit` — read-only passes over what this command produced. They grade; they never scaffold.
 
-### Skills
-- `navigation-speed` — prefetch / Speculation Rules / bfcache / instant-loading / View Transitions audit.
-- `streaming-ssr` — streaming-boundary scanner (stream the shell, cut TTFB).
-- `lcp-audit` — LCP-resource priority-hint scanner (fetchpriority / preload / preconnect / lazy-hero).
+### Skills this command dispatches (and when)
+- `navigation-speed` — Phase 4 prefetch convention + the Phase 6 fast-by-default sign-off on the new route.
+- `streaming-ssr` — Phase 4 / Phase 6, SSR routes with a slow query only: stream the shell, cut TTFB.
+- `lcp-audit` — Phase 4 / Phase 6, routes with a hero or above-the-fold LCP image only.
+- `seo-audit` (+ `@technical-seo`) — Phase 6, public / indexable routes only. Non-public → `seo: n/a`.
+- `image-optimization` / `font-optimization` — Phase 6, gated on content images / a newly introduced web font.
+- `visual-check` — Phase 6, renders the loading / empty / error states this command generated.
 
-### Patterns
-- `ai/patterns/forms.md`
-- `ai/patterns/i18n.md`
-- `ai/patterns/rendering-strategy.md`
-- `ai/patterns/ssr-safety.md`
+### Patterns actually read
+- `rendering-strategy.md` — Phase 3, to pick this route's strategy before Phase 4 writes it.
+- `data-fetching.md` — Phase 3, the call-site shape siblings already use.
+- `i18n.md` — Phase 3, and the Phase 4 halt on keys present in the pivot locale but missing from a declared alt locale.
 
 ### Rules
-- `.claude/rules/frontend-principles.md`
+- `.claude/rules/frontend-principles.md` — the route-prefetch, instant layout-stable skeleton, stream-the-shell and bfcache MUSTs that the Phase 4 halt list enforces one by one.

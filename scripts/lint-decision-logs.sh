@@ -17,13 +17,28 @@
 #     3. The helper-function names (lookup_phase_4_6_decision, etc.) — these are the
 #        contract that Phase 5.3 audit depends on.
 #     4. The cursor + claude-code adapters' hooks.json structural schema (event names).
+#     5. The extraction-coverage contract: the field names + marker shape that
+#        `_extracted-codebase.md` publishes and that Phase 4 / 4.6 / 5.5 parse. Same failure
+#        class as (2) — a contributor renames `census_method` in the emitter, every consumer
+#        keeps looking for the old key, and coverage silently reads as absent (which is NOT
+#        the same as 100%). Presence-of-vocabulary over the SPEC, not a runtime assertion:
+#        there is no project codebase here to measure, and a gate that pretended otherwise
+#        would be unrunnable.
 #
-# Usage:  scripts/lint-decision-logs.sh
+# Usage:  scripts/lint-decision-logs.sh [--repo-root=<dir>]
 # Exit:   0 = clean, 1 = drift detected
 
 set -o pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo-root=*) ROOT="${1#*=}" ;;
+    --quiet)       : ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 ADAPTERS_DIR="$ROOT/templates/tool-adapters"
 ERRORS=0
 fail()  { printf '\033[31m✗ %s\033[0m\n' "$*"; ERRORS=$((ERRORS+1)); }
@@ -65,6 +80,7 @@ PHASE_4_6_TOKENS=(
   "LEAVE-with-redirect"
   "LEAVE-delete"
   "EXTRACTION-WEAK"
+  "SAMPLED"
 )
 for tok in "${PHASE_4_6_TOKENS[@]}"; do
   if grep_owners "$tok"; then
@@ -207,6 +223,41 @@ if [ -f "$APPLY_SKILL" ]; then
   done
 else
   fail "apply-pack-adaptation skill not found at $APPLY_SKILL"
+fi
+
+# 9. Extraction-coverage contract. `[EXTRACTION-WEAK]` says "no signal"; `[SAMPLED]` says
+#    "partial signal". The second is only useful if emitter and consumers agree on the exact
+#    field names and marker shape — a drifted key reads downstream as "no coverage reported",
+#    which is indistinguishable from "coverage is complete" unless the vocabulary is pinned.
+group "9. Extraction-coverage contract (emitter fields + consumer downgrade rule)"
+EXTRACT_SKILL="$ROOT/templates/packs/learning/skills/extract-codebase-overview/SKILL.md"
+if [ -f "$EXTRACT_SKILL" ]; then
+  # Emitter side — the literal names every consumer parses out of _extracted-codebase.md.
+  COVERAGE_FIELDS=(
+    "## Coverage"
+    "census_method"
+    "walk_scope"
+    "files_cited"
+    "[SAMPLED: <seen>/<present> <unit>]"
+  )
+  for fld in "${COVERAGE_FIELDS[@]}"; do
+    if grep -qF "$fld" "$EXTRACT_SKILL"; then
+      pass "coverage contract documented by emitter: \`$fld\`"
+    else
+      fail "coverage contract field MISSING from extract-codebase-overview: \`$fld\`"
+    fi
+  done
+else
+  fail "extract-codebase-overview skill not found at $EXTRACT_SKILL"
+fi
+# Consumer side — a marker nothing consumes is decoration. Pin the downgrade rule itself,
+# not just the token: the behaviour IS that generalizing claims from a sampled section stop
+# being [found:] and therefore stop being anchorable.
+DOWNGRADE_RULE="sampled <seen>/<present> <unit>"
+if grep_owners "$DOWNGRADE_RULE"; then
+  pass "coverage downgrade rule documented by a decision-log owner: \`[inferred: <basis>; $DOWNGRADE_RULE]\`"
+else
+  fail "coverage downgrade rule MISSING — no decision-log owner documents \`$DOWNGRADE_RULE\`; [SAMPLED] would change no behaviour"
 fi
 
 echo

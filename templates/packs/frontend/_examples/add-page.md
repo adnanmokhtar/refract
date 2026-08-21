@@ -28,10 +28,17 @@ All 7. Standard build/add command.
 
 ## Phase 3 — Retrieve
 
-ALWAYS:
-- `CLAUDE.md` — framework + repo conventions.
-- `ai/conventions.md` — naming, file structure.
-- `ai/patterns/` — page pattern, data-fetching pattern, i18n pattern.
+ALWAYS (universal pre-flight):
+- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
+- `.claude/codebase-profile.md` — every detected fact about this project.
+- `ai/conventions.md` — auto-detected naming + style.
+- `ai/business-domain.md` — kind of product + canonical entities.
+- `ai/project-goals.md` — mission + KPIs + anti-goals.
+- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
+- `ai/status.md` — current phase + in-flight work + recent changes.
+
+Page-specific:
+- `ai/patterns/` — the page pattern, `data-fetching.md`, `i18n.md`, and `rendering-strategy.md` for this route's strategy.
 
 Detect framework:
 - `app/` directory with `page.tsx` → Next.js App Router.

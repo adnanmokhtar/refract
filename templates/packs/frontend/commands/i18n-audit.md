@@ -135,17 +135,16 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 
 ## Related
 
-### Sibling commands in frontend pack
-- `/a11y-audit` — sibling command in frontend pack
-- `/add-component` — sibling command in frontend pack
-- `/add-crud-page` — sibling command in frontend pack
-- `/add-page` — sibling command in frontend pack
+### Lanes this command orchestrates — it routes, it does not re-grade
+- `@i18n-auditor` (agent, this pack) — runs all three passes (hardcoded, parity, dead-key). This command resolves the locale dir, pivot locale and source globs; the agent does the grading and this command groups the output.
+
+### Sibling commands — where the boundary falls
+- `/a11y-audit` — the other read-only audit in this pack. It grades semantics, contrast and keyboard reach; this one grades locale parity and hardcoded copy. RTL *layout* breakage is the one overlap — report it once, from whichever run found it.
+- `/add-page` · `/add-component` · `/add-crud-page` — write the keys this command grades. Each halts at creation time on "`en.ts` ✓, `ar.ts` ✗"; this command is the sweep over what already shipped.
 
 ### Patterns
-- `ai/patterns/forms.md`
-- `ai/patterns/i18n.md`
-- `ai/patterns/rendering-strategy.md`
-- `ai/patterns/ssr-safety.md`
+- `i18n.md` — the key structure, ICU plural categories and RTL coordination the three passes are graded against; its § Locale parity in CI is the same diff Phase 4's parity pass runs by hand. The other pack patterns are not read on this axis and are deliberately not listed.
 
 ### Rules
+- `.claude/rules/i18n.md` — the dynamic-key translation-field-type hard rule, the active-language-ref ban (`locale.value`, never an `=== 'en' ? … : …` ternary), and the named anti-patterns this audit's findings map onto.
 - `.claude/rules/frontend-principles.md`

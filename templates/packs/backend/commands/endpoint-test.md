@@ -36,9 +36,11 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in — the agent d
 
 | Tier | Triggers | Scope handed to the agent |
 |---|---|---|
-| **Trivial** (default) | Single endpoint, known DTO, internal route. | Mandatory cases only. No follow-up dispatch unless a leak or replay break surfaces. |
-| **Standard** | Controller sweep, or a write path / auth-protected / multi-tenant resource. | Mandatory cases per route + the idempotency-replay variant on writes. |
-| **Heavy** | Public API surface, webhook, or payment endpoint. | Mandatory + conditional cases + signature-tampered + replay-with-stale-key + content-type variants. |
+| **Trivial** (default) | Single endpoint, known DTO, internal route. | The five mandatory cases (`endpoint-test/SKILL.md` § Procedure, step 6) and nothing else. No conditionals, no follow-up dispatch unless a leak or replay break surfaces. |
+| **Standard** | Controller sweep, or a write path / auth-protected / multi-tenant resource. | Mandatory five per route, plus every conditional case whose signal the contract actually declares. The agent picks them from its signal → case table (`@endpoint-tester` § Case selection) and cites the declaration that put each in scope; this command does not enumerate them. |
+| **Heavy** | Public API surface, webhook, or payment endpoint. | Standard's scope, plus the two agent-owned cases run *unconditionally* instead of signal-gated: content negotiation (`@endpoint-tester` § Content negotiation) and tenant side-effects (§ Tenant side-effects). On a surface the public can reach, a missing declaration is not evidence of correct behaviour. |
+
+Signature tampering and stale-key replay are **not this triad's cases** and must not be handed to `@endpoint-tester` as if they were — nothing in the skill or the agent implements them. They belong to `/simulate-webhook --tamper` in the webhook domain (`domains/webhook/rules/webhook-signature-verification.md` § Enforcement). On a Heavy-tier webhook route, dispatch that command if the domain is installed; if it is not, the report carries `signature cases NOT RUN (webhook domain absent)` — never a claim of coverage.
 
 ## Phase 3 — Retrieve
 

@@ -243,7 +243,7 @@ Coverage:
   - ARIA: <pass/fail>
   - Color contrast (light): <pass/fail>
   - Color contrast (dark): <pass/fail>
-  - Reduced motion: <supported/not>
+  - Reduced motion: <supported/not | inline check — ui-ux pack absent>
 
 Recommendations:
   - Run the `a11y-scan` skill against the affected routes.

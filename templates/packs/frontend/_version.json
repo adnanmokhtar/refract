@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "released": "2026-08-21",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Additive depth: @accessibility-auditor and forms now state what axe can and cannot decide across WCAG 2.2's six A/AA additions, each criterion carrying a cited does-not-apply clause; and all six framework references route to the project's installed or hosted docs instead of restating an API surface from memory, fixed pack-wide as _authoring-standard.md §0 invariant 8.",
+  "summary": "Quality pass on artifacts that were neither wrong nor missing but thin: the cross-pack guard now reaches agent OUTPUT sections and six skills' degraded lanes, five commands' Related blocks state where the boundary falls instead of restating their own filename, two unsourced ratios (~30% a11y coverage, ~80% page scaffolding) are gone, _topics.md stops naming two agents that do not exist and finally names rules/i18n.md, and the /refactor fallback anecdote is deleted in favour of the overlay itself.",
   "changelog": "CHANGELOG.md"
 }

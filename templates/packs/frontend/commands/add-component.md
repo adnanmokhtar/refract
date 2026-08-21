@@ -102,9 +102,9 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - Default-true wrapper props left implicit — a wrapper exposing `:show-header="true"` by default must be passed `:show-header="false"` explicitly when the affordance is hidden; same for `:can-close`, `:show-footer`.
 - New file placed outside the folder's existing path convention (e.g., `src/components/cards/OrderCard.vue` when siblings live at `src/components/orders/Card.vue`).
 - New styling system introduced (CSS Modules in a Tailwind repo; styled-components where siblings use scoped CSS).
-- Above-the-fold / hero / heavy-media component whose LCP-relevant image omits the framework priority hint that siblings set (see [`../skills/lcp-audit/SKILL.md`](../skills/lcp-audit/SKILL.md)) — missing `fetchpriority`/`priority`/eager-hero parity.
+- Above-the-fold / hero / heavy-media component whose LCP-relevant image omits the framework priority hint that siblings set (the `lcp-audit` skill owns the detectors) — missing `fetchpriority`/`priority`/eager-hero parity.
 - High-frequency or expensive interaction handler (typing, filtering a large list, drag) that runs unbounded per-interaction work — must stay under the INP budget per the `inp-responsiveness` pattern *(performance pack, when co-installed)*; absent that pack, grade it inline (yield / transition / debounce the handler) and record `inp: graded inline (performance pack absent)`.
-- Component that renders content images: images use the framework image component with modern format, responsive `srcset`/`sizes`, and explicit `width`/`height` (no CLS) — mirror siblings (see [`../skills/image-optimization/SKILL.md`](../skills/image-optimization/SKILL.md)).
+- Component that renders content images: images use the framework image component with modern format, responsive `srcset`/`sizes`, and explicit `width`/`height` (no CLS) — mirror siblings (the `image-optimization` skill owns the detectors).
 
 **Creation-time only.** This gate compares the NEW component against its siblings. Consolidating raw-primitive drift that already shipped across many files is not this command's job — that is `ui-design-sweep`'s `unify-component` verb *(ui-ux pack)* or the core `/unify-surfaces`.
 
@@ -121,9 +121,9 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - Component file < 200 lines (warn if larger — likely doing too much).
 - Visual diff via `visual-check` skill if present.
 - Hardcoded English (untranslated string) → blocker.
-- **LCP priority hint** (gated): if the component is above-the-fold / a hero / heavy media, its LCP image sets the framework priority hint — dispatch [`../skills/lcp-audit/SKILL.md`](../skills/lcp-audit/SKILL.md). Not LCP-relevant → `lcp: n/a`.
+- **LCP priority hint** (gated): if the component is above-the-fold / a hero / heavy media, its LCP image sets the framework priority hint — dispatch the `lcp-audit` skill. Not LCP-relevant → `lcp: n/a`.
 - **INP budget** (gated): if the component owns a high-frequency or expensive handler (typing, filtering a large list, drag), per-interaction work stays under budget (yield / transition / debounce) — dispatch the `inp-responsiveness` pattern *(performance pack, when co-installed)*; if that pack is absent, grade the handler inline and report `inp: graded inline (performance pack absent)`. No such handler → `inp: n/a`.
-- **Image delivery** (gated): if the component renders content images, they use the framework image component with modern format + responsive sizing + explicit `width`/`height` (no CLS) — dispatch [`../skills/image-optimization/SKILL.md`](../skills/image-optimization/SKILL.md). No images → `image: n/a`.
+- **Image delivery** (gated): if the component renders content images, they use the framework image component with modern format + responsive sizing + explicit `width`/`height` (no CLS) — dispatch the `image-optimization` skill. No images → `image: n/a`.
 - **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking wired the way siblings wire it; analytics events added if siblings of this primitive emit them. If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 
 ## Phase 7 — Improve
@@ -153,21 +153,25 @@ Status: COMPLETE
 
 ## Related
 
-### Sibling commands in frontend pack
-- `/a11y-audit` — sibling command in frontend pack
-- `/add-crud-page` — sibling command in frontend pack
-- `/add-page` — sibling command in frontend pack
-- `/i18n-audit` — sibling command in frontend pack
+### Sibling commands — where the boundary falls
+- `/add-page` — a route, not a shared primitive. § When to use / NOT to use draws the line at data-fetching: a container that fetches is page-level.
+- `/add-crud-page` — **consumes** the primitives this command produces (`<BaseModal>`, `<BaseForm>`, `<CrudPaginator>`); it never authors them. A missing wrapper is this command's job first.
+- `/add-feature` — the caller. It invokes this command for the component step; the prior-art and new-dependency gates above are inherited from it.
+- `/unify-surfaces` (core) — the sweep for raw-primitive drift that **already shipped**. This command's halt is creation-time only and says so at § Creation-time only; do not use one for the other's job.
+- `/a11y-audit` · `/i18n-audit` — read-only passes over what shipped. The accessible-defaults blocker and the alt-locale halt here are the creation-time subsets of those two sweeps.
 
-### Skills
-- `../skills/lcp-audit/SKILL.md` — LCP-resource priority-hint scanner (above-the-fold / hero / heavy-media images)
-- `inp-responsiveness` *(performance pack, when co-installed)* — per-interaction main-thread INP budget
+### Skills this command dispatches (and when)
+- `lcp-audit` — Phase 4 halt + Phase 6, above-the-fold / hero / heavy-media components only. Not LCP-relevant → `lcp: n/a`.
+- `image-optimization` — Phase 4 halt + Phase 6, components that render content images. No images → `image: n/a`.
+- `component-playground` — the intent-gate destination for "test this component in isolation". It halts itself when the repo already has Storybook / Histoire / Ladle.
+- `visual-check` — Phase 6 visual diff, when the project has it.
+- `inp-responsiveness` *(performance pack, when co-installed)* — per-interaction main-thread INP budget. Absent that pack → grade the handler inline (yield / transition / debounce) and report `inp: graded inline (performance pack absent)`.
 
-### Patterns
-- `ai/patterns/forms.md`
-- `ai/patterns/i18n.md`
-- `ai/patterns/rendering-strategy.md`
-- `ai/patterns/ssr-safety.md`
+### Patterns actually read
+- `i18n.md` — Phase 3 i18n setup, and the Phase 4 halt on keys present in the pivot locale but missing from a declared alt locale.
+- `forms.md` — read only when the component wraps an input: its § Accessibility carries the label / `aria-describedby` / error-announcement contract behind § Failure modes' "missing accessible defaults" blocker.
+
+`rendering-strategy.md` and `ssr-safety.md` are deliberately NOT here — a presentational primitive chooses no route strategy and owns no hydration boundary. Those belong to `/add-page` and `/refactor`.
 
 ### Rules
 - `.claude/rules/frontend-principles.md`

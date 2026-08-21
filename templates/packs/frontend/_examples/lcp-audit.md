@@ -57,7 +57,7 @@ LCP audit — <route set>
 ## False positives / gotchas
 
 - Only the SINGLE LCP element gets `fetchpriority="high"` — flag if >1.
-- The LCP element differs by viewport/route — confirm via `web-vitals-field` (`attribution.element`).
+- The LCP element differs by viewport/route — confirm via `web-vitals-field` (`attribution.element`) *(performance pack, when co-installed)*. Absent that pack there is no field attribution: pick the element from the lab trace and label it `LCP element: lab-inferred (no field source)`.
 - A text LCP element has no image to preload — its cost is font + render-blocking CSS/JS.
 - Preloading an unused image hurts LCP — preload only the confirmed resource.
 

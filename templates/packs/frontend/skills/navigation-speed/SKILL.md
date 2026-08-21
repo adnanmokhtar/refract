@@ -175,8 +175,8 @@ Findings: 3
 
 - After adding routes or a new navigation surface (nav bar, command palette, deep links).
 - Before shipping a logged-in, multi-page app — internal navigation is the dominant interaction.
-- On any "the app feels slow when I click around" report (distinct from "the first load is slow" → `lighthouse-ci` / `bundle-perf`).
-- Pair with `web-vitals-field` to confirm field INP on the *navigated-to* route, and with `streaming-ssr` when a slow route blocks the navigation on a server query.
+- On any "the app feels slow when I click around" report (distinct from "the first load is slow" → `lighthouse-ci` in this pack, or `bundle-perf` *(performance pack, when co-installed)*).
+- Pair with `streaming-ssr` (this pack) when a slow route blocks the navigation on a server query. Field INP on the *navigated-to* route comes from `web-vitals-field` *(performance pack, when co-installed)*; absent that pack this scan is static only — report `INP: no field source` rather than inferring one from the greps.
 
 ## Halt conditions
 
@@ -189,5 +189,7 @@ Findings: 3
 
 ## Related
 
-- `code-splitting.md` — this skill owns prefetching the likely-next route's chunk on hover/idle so the split click resolves from cache; that pattern owns where the chunk boundary is cut.
-- `list-virtualization.md` — restore a windowed list's scroll by first-visible index, not pixel `scrollTop`, on back/forward + bfcache restore.
+- `code-splitting.md` (ai-pattern) — this skill owns prefetching the likely-next route's chunk on hover/idle so the split click resolves from cache; that pattern owns where the chunk boundary is cut.
+- `list-virtualization.md` (ai-pattern) — restore a windowed list's scroll by first-visible index, not pixel `scrollTop`, on back/forward + bfcache restore.
+- `lighthouse-ci` — owns the cold first load and reports `bf-cache` ineligible; this skill owns every navigation after it and names the listener that caused the ineligibility.
+- Cross-pack (`performance`, when co-installed): `web-vitals-field` confirms whether a prefetch/bfcache win actually reached users. Absent that pack this skill's output is a static claim, not a measurement, and the report must say which.

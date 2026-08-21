@@ -163,6 +163,7 @@ Fix: always scope by tenant.
 Framework: Nuxt 4
 Data-fetch: useFetch + Pinia
 Store: productsStore (Pinia)
+Server-side cache / TTL policy: <read from caching-strategy.md (backend pack) | UNVERIFIED (backend pack absent) — findings scoped to the client>
 
 ### Flow trace: /products list page
 1. useProducts composable (src/composables/useProducts.ts:12)

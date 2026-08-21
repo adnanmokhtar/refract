@@ -22,7 +22,7 @@ Build command. Full CRUD bundle: list with pagination/filter, create/edit form, 
 - Verify API exists. If `POST/PATCH/DELETE` missing → STOP with "API needed first" message; route to `/add-feature`.
 - Decide layout: dialog vs page for create/edit (mirror existing CRUD).
 - Decide pagination: server-side default; client-side only for bounded reference data (< 1000 rows).
-- Dispatch plan: `ui-architect` for file list + state shape; `api-architect` only to confirm contract sufficient.
+- Dispatch plan: `ui-architect` for file list + state shape; `api-architect` *(backend pack)* only to confirm the contract is sufficient — **and only when that pack is co-installed**. Absent → read the endpoint's controller signature + DTO directly and record `contract check: inline (backend pack absent)`. Never resolve this step to nothing.
 
 ## Phase 3 — Retrieve
 

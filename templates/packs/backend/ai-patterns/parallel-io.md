@@ -158,7 +158,7 @@ Need n results from n calls to the same source?
 | Queue producers | `<extracted>` | Provider throughput + backpressure |
 | File I/O | `<extracted>` | OS file-descriptor limits |
 
-> Phase 4.6 fills these from observed config (pool config, env vars, `axios.create` defaults, retry libs) — no guessing.
+> Phase 4.6 fills these from observed config (pool config, env vars, HTTP-client defaults, retry libs) — no guessing. The degraded-behaviour rule above governs these cells too: if the config is not found, write `NOT FOUND` in the Cap column and treat the workload as `[UNANCHORED]`. A surviving `<extracted…>` token here is read as a number, which is the same leak in a quieter place.
 
 ## Tracing / observability
 

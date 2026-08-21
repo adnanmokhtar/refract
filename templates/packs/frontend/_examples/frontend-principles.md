@@ -22,6 +22,7 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Every input has a `<label>` (visible or `aria-label`). Icon-only buttons have `aria-label`. Focus visible (`:focus-visible` ring).
 - Lazy-load routes (`React.lazy` + `Suspense`, `defineAsyncComponent`, Nuxt's automatic route splitting, SvelteKit's dynamic imports).
 - Virtualize lists > 100 items (`react-window`, `vue-virtual-scroller`, `svelte-virtual-list`, `@tanstack/virtual`).
+- INP (interaction responsiveness): high-frequency or expensive handlers (typing, filtering a large list, drag) keep per-interaction main-thread work bounded — break long tasks at a yield point, defer non-urgent updates through the framework's transition / deferred-value primitive. Any INP figure quoted is field-measured or reported `UNKNOWN`, never a lab proxy relabelled.
 
 ## Must not
 
@@ -53,6 +54,7 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - [ ] No `console.log` left in.
 - [ ] New images use the framework's image component.
 - [ ] New large list uses virtualization.
+- [ ] New high-frequency / expensive handler bounds its per-interaction main-thread work.
 - [ ] Keyboard tab order verified on the new screen.
 - [ ] Lighthouse / axe-core: no new a11y regressions.
 - [ ] Bundle size delta acceptable (size-limit / bundlesize).

@@ -14,6 +14,232 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.15.0 — 2026-08-21
+
+Scope, stated against `git status --porcelain` rather than asserted: `agents/` 4/7, `rules/` 3/3,
+`commands/` **7/7**, `skills/` 6/14, `_examples/` **12 of 37 modified and one deleted**, plus
+`_topics.md`, `_essentials.md` and `_version.json`. Untouched: `ai-patterns/` 0/10, `references/` 0/6,
+`STACK.md`.
+
+**There is no sibling entry, and an earlier draft of this one said there was.** That draft read "this
+release number is shared — a sibling pass over `commands/`, `skills/` and the command-side `_examples/`
+mirrors lands under the same version and is described in its own entry". No such entry was ever
+written. Eighteen files as that sentence was drafted — 7 commands, 6 skills and 5 command/skill
+mirrors — shipped under a changelog that positively asserted they were documented somewhere else,
+which is worse than an omission: an omission invites a reader to check the diff, and that sentence
+tells them not to bother. The work is described below instead, and the counts above are the whole
+release. Recorded rather than quietly deleted, because this is the third run in which a pack scope
+claim failed against `git diff`.
+
+One item here is new capability — an INP MUST, added because a guard landing in this same release
+cites a rule section that did not exist. Two are plain corrections: a pair of unsourced ratios
+deleted from command surfaces. One is a deletion: `_examples/refactor.md`, whose job the overlay
+already did. Everything else is an artifact that was neither wrong nor missing but **thin,
+half-finished, or dispatching into space** — and in three cases a guard that was written down
+correctly in one half of a file and contradicted by the other half.
+
+**The cross-pack guard reaches the OUTPUT, not just the Pre-flight.** The two earlier passes put the
+canonical guard (bare name · `*(<pack> pack, when co-installed)*` · an explicit `Absent → X, never Y`
+branch) on every cross-pack read in the pack's Pre-flight sections. Four places still let the
+degraded state die there, which is the failure the guard exists to prevent: an agent that quietly
+produces a clean-looking report from a check it never ran.
+
+- `@i18n-auditor`'s report template ended `Patterns consulted: i18n, rtl` — a fixed string. `rtl.md`
+  ships in the **ui-ux** pack, and the same file's Pre-flight had just been taught to skip it and
+  mark the lane `inline (ui-ux pack absent)`. Every single-pack run printed a pattern name the agent
+  had not opened, in the one line whose whole job is to say what it opened. Now a placeholder that
+  distinguishes the two states. Fixed in `agents/i18n-auditor.md` and the `_examples/` mirror.
+- `@ui-reviewer` § Core Web Vitals cited `ai/patterns/inp-responsiveness.md` and the
+  `web-vitals-field` skill bare, mid-checklist, while the same file's Pre-flight (line 19) and
+  § Related (lines 313, 324) qualified both. Drift inside one file: a reviewer reads the checklist,
+  not the Pre-flight. Both now carry the tag and an absent branch — INP reports `UNKNOWN` rather
+  than a lab number relabelled as field.
+- `@api-contract-sentry` and `@data-flow-auditor` each state the degraded lane in Pre-flight
+  (`derived from spec (backend pack absent)` / `UNVERIFIED (backend pack absent)`) and then had
+  **nowhere in the report to put it** — a spec-only run and a backend-informed run rendered
+  identically. Added a `Contract source:` line and a `Server-side cache / TTL policy:` coverage row
+  respectively, and the same to both `_examples/` fallbacks. The fallbacks matter more than the
+  sources here: Phase 4.2 copies an `_examples/` file when extraction has no signal for the topic,
+  which is disproportionately the single-pack install the guard was written for.
+- `_examples/accessibility-auditor.md` coverage row still read `Reduced motion: <supported/not>`
+  where its source had grown `| inline check — ui-ux pack absent`.
+
+**`_topics.md` named two agents that do not exist, and never named a rule that does.**
+
+- `- name: <framework>-architect` / `- name: <framework>-reviewer` were templated names. Eleven
+  dispatch mentions across three commands (`add-page`, `add-crud-page`, `add-feature`),
+  `_essentials.md`, and both `_examples/` fallbacks all say `ui-architect` / `ui-reviewer`, and
+  `validate-pack-consistency.sh` check 5 was reporting both as unregistered.
+  Renamed to the canonical names; `extracts_from` / `sections` already do the framework-specific
+  authoring, and `agents/ui-reviewer.md` § Related says outright that the framework lens lives
+  inside the agent, so there is no per-framework agent to name. Clears both WARNs with no gate edit.
+- `rules/i18n.md` — the file holding the Two-Locale Trap, the Ternary Reducer, the Lazy Locale Fork
+  and the Stale Empty-Translations Constant — had **no topic entry**, so AUTHOR mode never rewrote it
+  in the project's voice; Phase 4.2's deterministic `cp -R` shipped it as a literal copy. Check 5 did
+  not catch it because it greps by name only and `- name: i18n` (the *ai-pattern*) satisfied the
+  grep. Frontend is the only pack in the repo with a rule and an ai-pattern sharing a stem, so this
+  collision hid exactly one artifact. Registered as **`i18n-rules`** — deliberately a different name,
+  or the collision persists and the gate stays blind. The rule is load-bearing for the cross-pack
+  guard above: `@i18n-auditor`'s ui-ux-absent branch degrades *to* it.
+- That registration's reasoning was written as a trailing comment on its own `kind:` line, which
+  `scripts/pack-search.py --check` then reads as part of the kind value (`unknown topic kind 'rule
+  # above (kind: pattern)…'`). It failed the retrieval-index build while all 18 release gates stayed
+  green, because `scripts/test-pack-search.sh` is not one of them. The comment is now whole-line and
+  above the entry, and says why, so the next person documenting a topic does not re-break the index
+  the same way.
+
+**The rule was silent on one of the three Core Web Vitals, so a guard had nothing to degrade to.**
+`@ui-reviewer` and `@ui-architect` both budget INP, and both now say "absent → grade it against
+`rules/frontend-principles.md`". `frontend-principles.md` covered LCP and CLS and said nothing about
+INP — the very case `_authoring-standard.md` §3 calls a stale rule ("if it enforces a concern the
+rule is silent on, the rule is stale — fix it in the same change"). Added one MUST (bounded
+per-interaction main-thread work; field-measured or `UNKNOWN`, never a lab proxy relabelled) and one
+review-checklist line, in the source rule **and in `_examples/frontend-principles.md`** — the
+fallback is what a low-signal install receives, so an anchor that exists only in the source is a
+degrade path that dangles exactly where the guard was written to hold.
+
+**Four smaller repairs, each a citation that pointed at nothing.**
+
+- `rules/frontend-principles.md` cited six **skills** as bare `.md` filenames — `navigation-speed.md`,
+  `streaming-ssr.md`, `lcp-audit.md`, `image-optimization.md`, `font-optimization.md`,
+  `seo-audit.md`. Those paths do not exist; skills live at `skills/<name>/SKILL.md`. Line 33 was
+  half-fixed already (`rendering-strategy.md` carried its `(ai-pattern)` tag while `streaming-ssr.md`
+  beside it did not). Skills are now named as skills, ai-patterns tagged as ai-patterns throughout.
+- `rules/i18n.md` § References pointed at `code-quality/refactor.md`, which resolves nowhere — the
+  file is `code-quality/commands/refactor.md`, and it is cross-pack besides. `/refactor` is a
+  global command with per-pack overlays, one of which this pack already ships, so the reference now
+  names the command. The same file called `i18n-audit` a *skill* twice when it is a **command**
+  here. Both corrected.
+- `rules/migration-frontend.md` declared `applies-to: frontend-track, every-code-writing-task-in-frontend`
+  while `_topics.md` gates it on `migration_layout_detected` — it claimed every frontend task and
+  reached only projects with a V1→V2 layout. Now `severity: must (when a migration layout is
+  detected)` + `applies-to: frontend-track, v1-to-v2-ports` — the same shape
+  `backend/rules/migration-backend.md` took in the same window, so the two extension rules keep
+  matching frontmatter rather than diverging on a field that is otherwise uniform across all 31
+  rules in the repo. (The re-grade prescribed a `migration-track` lead; the sibling shape was
+  adopted instead, because convergence between the twins beats either wording in isolation and
+  every other rule in the repo leads with its own `<pack>-track`.) Frontmatter only; the
+  anti-pattern catalogue is unchanged.
+- `_essentials.md` asserted "frontend-principles is the single rules file in the pack". `ls rules/`
+  returns three. Replaced with the real reason only one is minimal: it is the only unconditional one.
+
+**Every command and skill `## Related` block stopped restating the reader's own filename.**
+Five commands shipped a `### Sibling commands in frontend pack` heading under which every line read
+`- /<name> — sibling command in frontend pack` — the entry restated the heading, the filename and
+nothing else. Below it, `### Skills` and `### Patterns` were bare filename lists, and the *same four*
+patterns (`forms`, `i18n`, `rendering-strategy`, `ssr-safety`) hung under every command whether or not
+that command reads them. A block that lists a file it never opens is the paper form of the guard
+failure above.
+
+Each sibling line now states where the boundary falls rather than that a boundary exists:
+`/add-crud-page` **supersedes** `/add-page` for a one-entity list + form + delete bundle (running both
+produces two competing shapes for the same entity); it **consumes** the primitives `/add-component`
+produces and never authors them; `/add-feature` is the *caller* of both, not an alternative;
+`/a11y-audit` and `/i18n-audit` are read-only sweeps whose creation-time subsets are the halts already
+in the build commands. Skills are listed with the phase they fire in and what `n/a` looks like. The
+pattern lists are cut to what is actually read, and the cuts are named: `rendering-strategy.md` and
+`ssr-safety.md` are gone from `/add-component` because a presentational primitive chooses no route
+strategy and owns no hydration boundary. Five skills got the same pass on their own `## Related`
+(`bundle-analyze`, `image-optimization`, `lcp-audit`, `navigation-speed`, `streaming-ssr`), including
+the reciprocals their siblings had already claimed one-way: `skills/lighthouse-ci/SKILL.md` § Related
+already said "when a JS budget fails here, that skill names the chunk … this one only knows the
+total", and `bundle-analyze` said nothing back. It does now. The sixth skill touched, `a11y-scan`,
+gained a cross-pack tag in § When to run rather than a `## Related` rewrite.
+
+**Six skills stopped naming other packs' instruments bare.** They cited `bundle-perf`,
+`profile-perf`, `web-vitals-field` and `lazy-loading` mid-sentence with no tag; all four ship in the
+**performance** pack. Bare, they read as available, and on a frontend-only install the skill simply
+has no second half and does not say so. Five now carry the tag *and* an explicit degraded lane — `lcp-audit` labels its element `LCP element: lab-inferred (no
+field source)`, `navigation-speed` reports `INP: no field source`, `streaming-ssr` records
+`upstream latency: routed out of scope` and `lab only — field impact unmeasured`,
+`image-optimization` reports `field confirmation: unavailable`. One rule underneath all of them: a
+frontend-only install loses the *confirmation*, never the finding — and the report says which it lost.
+The sixth, `a11y-scan`, needed only the tag: its escalation trigger listed `a11y-quick-check`
+(ui-ux) beside the in-pack `@accessibility-auditor`, and the in-pack path already covers the lane, so
+there is nothing to degrade to.
+`streaming-ssr` is the one that changed shape rather than wording: its premise was written as if
+`bundle-perf` always raises the "is hydration streaming?" question, so the file now says outright that
+when that pack is absent nothing else in the project asks it, which is why the skill carries its own
+TTFB trigger instead of waiting to be handed a finding.
+
+**Two unsourced ratios deleted from command surfaces.**
+
+- `/a11y-audit` carried `axe covers ~30%` in its hand-wave list and `Automated coverage ~30%.` inside
+  the report footer it *mandates*. The 1.13.0 entry recorded that figure as "gone rather than
+  replaced" — true of the `a11y-scan` skill, which is what that bullet was about, and false of the
+  command, where the number outlived it in the one line every user of this command reads. Both places
+  now state the floor and cite no percentage, and route to `@accessibility-auditor` for the sourced
+  treatment: Deque's study reports share of *issues found*, the figure usually quoted beside it means
+  share of *success criteria a machine can decide*, and the two are not interchangeable
+  (`agents/accessibility-auditor.md:174`). The `_examples/` mirror was corrected in the same change.
+- `/add-feature` opened the `**Why.**` paragraph of its Premise with "Every page in a typical
+  Vue/React project is ~80% identical scaffolding". No source, and the number was carrying the
+  argument for the whole mirror-a-sibling discipline underneath it. Replaced with the
+  list of things siblings have actually already settled — routing entry, layout import, fetch call
+  site, loading/error/empty states, permission gate, locale-key path — and an instruction to measure
+  the delta on *this* repo by diffing two sibling pages, which is a number the command can obtain.
+
+**A guard that reached the command and stopped short of the install it was written for.**
+`templates/phases/phase-4.2-apply.md` copies a topic's registered `_examples/` file verbatim when
+extraction has no signal for that topic — disproportionately the small, single-pack install a
+cross-pack guard exists to protect. So a guard that lands only in `commands/` reaches the source and
+never the case it was written for. Three registered fallbacks lagged their sources; nothing in the
+gate set catches this, because check 8 of `scripts/validate-pack-consistency.sh` deliberately does not
+diff content ("`_examples/<name>.md` is an abridged snapshot … so we do NOT diff content") and only
+flags an orphan. It is found by reading.
+
+- **`_examples/refactor.md` deleted.** It was a six-line usage anecdote with no frontmatter, while
+  `_topics.md` declared the topic's sections as `[pack_overlay_gates, dispatch, when_not]` and named
+  that anecdote the fallback for them. A no-signal install received two bullets — composable
+  placement and snapshot churn — in place of the overlay's four gates, including the code-quality
+  absent-branch this
+  release added at `commands/refactor.md` § Dispatch (`verb source: canonical command (code-quality
+  pack absent)`). The fallback is now `commands/refactor.md` itself: the self-fallback strategy this
+  same `_topics.md` already uses for `add-feature`, `i18n-rules` and `migration-frontend`. A file that must
+  be hand-kept in step with a 24-line overlay is drift surface, not a fallback, and deleting it makes
+  this lag structurally impossible rather than merely fixed once. Its two non-duplicative lines were
+  merged into the overlay first — the snapshot-churn rule into § Frontend-specific gates → Render
+  parity (a snapshot diff is acceptable only when the extraction is provably behaviour-neutral;
+  re-recording snapshots to go green is how render regressions ship), and composable *placement* into
+  → State.
+- **`_examples/add-component.md`** never carried the INP gate at all, so a no-signal install got a
+  component command with no per-interaction budget and no `inp: graded inline (performance pack
+  absent)` lane to report. This lag is older than this release — the branch landed in the command in
+  the correctness pass, not here — but it is the same defect and is closed now, in Phase 6 and
+  § Failure modes.
+- **`_examples/i18n-audit.md`** never named `.claude/rules/i18n.md`, the file this same release
+  finally registered as a topic and the file `@i18n-auditor`'s ui-ux-absent branch degrades *to*.
+  Without it the fallback's three passes find drift and grade it against nothing. Added to Phase 3
+  Retrieve and to Phase 6 Validate (dynamic-key translation field type; no two-branch locale ternary).
+
+What did **not** cross: the `## Related` rewrites above. The command-side `_examples/` files are
+abridged by design and carry no `## Related` section at all, so copying one in would be a structural
+change to the fallback shape rather than a repair. Only content with an absent-branch or a rule
+pointer was propagated — the two things whose loss is silent.
+
+**Deliberately NOT done, with the reason.**
+
+- **`_authoring-standard.md` §0.6 (no baked-in shop shape) is unenforced, and the pack's own agents
+  are the evidence.** Measured here with
+  `grep -ciE '/products|/orders|/checkout|checkout|productsService|useProducts|ProductCard'`:
+  `api-contract-sentry` 30, `data-flow-auditor` 20, `ui-architect` 6 (a `views/products/` file tree),
+  `ui-reviewer` 2 (a `/api/products` code example), `technical-seo` 2, `accessibility-auditor` 2
+  (`checkout` used as a generic critical-path noun, which §0.6 arguably permits), `i18n-auditor` 0.
+  So six of seven carry some shop shape and two carry a whole narrative. Fixing the one file the
+  re-grade named would move the count from six-of-seven to six-of-seven, which is why nothing was
+  fixed here: it is one pack-wide decision — enforce §0.6 across all seven with a shared placeholder
+  vocabulary, or narrow §0.6 to say what it means (grep patterns may carry concrete paths; route
+  matrices and output examples must not). Routed as such rather than started.
+- `references/nuxt.md:77` and `references/react.md:94` still carry pack-root-relative cross-pack
+  paths (`performance/skills/web-vitals-field/SKILL.md`). Lower severity than the `../../` form §0.7
+  names — they at least disclose the pack — but they dangle on a frontend-only install. Left for the
+  pass that owns `references/`; the correct form is already shown at `ai-patterns/code-splitting.md`.
+- **Command frontmatter `description:` lines: 0 of 7 changed.** The description is a routing surface,
+  not documentation — `scripts/apply-adapter-sync.sh` carries it into the adapters' native
+  command/skill frontmatter, so re-cutting the seven is an adapter-wide change belonging to a pass
+  that re-runs `scripts/test-adapter-fixtures.sh`. Out of scope for a `## Related` repair, and not
+  started.
+
 ## 1.14.0 — 2026-08-21
 
 Additive, and small enough to state by count so it can be checked against the diff: `agents/` 1/7,

@@ -101,7 +101,7 @@ model: opus
 
 ### Core Web Vitals (LCP / INP)
 - LCP element is fetched first: hero / above-the-fold image is NOT `loading="lazy"`, sets the framework priority hint (`<Image priority>` / `<NuxtImg preload>` / `NgOptimizedImage [priority]` / `fetchpriority="high"`); only ONE element per view. Deep audit: `lcp-audit` skill.
-- INP budget: high-frequency / expensive handlers (typing, filtering a large list, drag) keep per-interaction work bounded — break long tasks (`scheduler.yield()`), defer non-urgent updates (`startTransition` / `useDeferredValue`). Per `ai/patterns/inp-responsiveness.md`. Authoritative field INP via the `web-vitals-field` skill (lab INP is a synthetic proxy, never the measurement).
+- INP budget: high-frequency / expensive handlers (typing, filtering a large list, drag) keep per-interaction work bounded — break long tasks (`scheduler.yield()`), defer non-urgent updates (`startTransition` / `useDeferredValue`). Per `ai/patterns/inp-responsiveness.md` *(performance pack, when co-installed)*; absent → grade the handler against `rules/frontend-principles.md` § Must (INP) and mark the lane `inline (performance pack absent)`. Authoritative field INP via the `web-vitals-field` skill *(performance pack, when co-installed)*; absent → report INP as `UNKNOWN`, never a lab number relabelled as field (lab INP is a synthetic proxy, never the measurement).
 
 ### SSR safety + rendering speed (if SSR)
 - No `window` / `document` / `localStorage` at module scope.

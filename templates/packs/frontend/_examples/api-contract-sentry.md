@@ -140,6 +140,8 @@ for each change:
 ```
 ## API Contract Sentry — impact of v2.4.0 change
 
+Contract source: <api-contract.md + api-versioning.md (backend pack) | OpenAPI spec only — derived from spec (backend pack absent)>
+
 Backend OpenAPI diff summary:
   BREAKING:
     - GET /products: `price` → `unit_price` (renamed)

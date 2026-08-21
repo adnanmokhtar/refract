@@ -36,6 +36,7 @@ i18n-specific:
 - The i18n library (`vue-i18n`, `next-intl`, `react-i18next`, `@angular/localize`, `nuxt-i18n`) — abort if none found.
 - Pivot locale file + every locale file.
 - UI source globs (`.tsx`, `.vue`, `.svelte`, `.html`).
+- `.claude/rules/i18n.md` — the hard rules this audit's findings map onto: dynamic-key translation field type, and active-language refs that read `locale.value` directly rather than through an `=== 'en' ? … : …` ternary. Without it the three passes find drift but grade it against nothing.
 
 ## Phase 4 — Generate (the report)
 - Dispatch `i18n-auditor` with locale dir + UI source globs.
@@ -64,6 +65,7 @@ i18n-specific:
 - Interpolation tokens (`{count}`, `%{name}`, `{{user}}`) match across locales — mismatch = runtime crash, blocker.
 - Pluralization categories match per locale (en: `one/other`; ar: `zero/one/two/few/many/other`) — don't collapse.
 - Dynamic keys (`t('status.' + value)`) flagged for manual confirmation, not auto-deleted.
+- Translation field type is dynamic-key (`Record<string, string>` or the framework equivalent), and no active-language ref reduces the locale set through a two-branch ternary — both are `.claude/rules/i18n.md` § Must, and a parity report that passes while the type is fixed-key is measuring the wrong thing.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture missing-key patterns by feature.

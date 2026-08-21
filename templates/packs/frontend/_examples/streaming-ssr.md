@@ -60,7 +60,7 @@ streaming-ssr audit — <route set>
 
 - Above-the-fold critical / LCP data stays in the shell — don't stream it (defers LCP).
 - Auth + redirect decisions must resolve before the shell flushes.
-- TTFB dominated by *backend endpoint latency* is a `profile-perf` problem, not a streaming one.
+- TTFB dominated by *backend endpoint latency* is not a streaming problem. Route it to `profile-perf` *(performance pack, when co-installed)*; absent that pack, hand the endpoint to the backend owner with the measured latency and record `upstream latency: routed out of scope`.
 
 ## Halt conditions
 

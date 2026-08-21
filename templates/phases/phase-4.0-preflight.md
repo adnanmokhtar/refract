@@ -531,16 +531,22 @@ For each selected track, decide one of two modes BEFORE doing any file ops:
 
 Mode is per-track. A typical run mixes: `backend` + `database` in AUTHOR (rich extraction); `code-quality` + `documentation` in COPY (stable generic content).
 
-Report the per-track mode in the plan:
+**`[SAMPLED]` does NOT affect this gate.** Only `[EXTRACTION-WEAK]` (no signal) routes a track to COPY. `[SAMPLED]` (partial signal — `extract-codebase-overview § Step 2.5`) is **reported here and consumed as confidence downstream**, never as a mode switch. Forcing COPY on a large repo because its conventions came from a sample would make coverage-reporting a punishment for having a big codebase, and a metric that punishes you is a metric someone switches off. Report, don't punish. The behaviour that *does* change is one layer down: claims from a sampled section arrive carrying `[inferred: …; sampled s/p]` (`phase-2-profile.md § Provenance discipline`), and Phase 4 generators may not anchor to `[inferred:]` without re-verifying against source. The mode stays AUTHOR; the anchor gets honest.
+
+Report the per-track mode in the plan, with coverage on the same line — the reader deciding whether to trust a generated rule needs both facts at once:
 
 ```
 Track modes:
   backend         AUTHOR  (3 base classes extracted: BaseService [238 ext], DataAccess [273 ext], BaseController [89 ext])
+                          coverage 214/1,204 source files cited (18%) — conventions sampled 10/412, carried as [inferred:]
   database        AUTHOR  (1 base class: BaseEntitySubscriber [12 ext])
+                          coverage 88/88 entity files (100%) — no [SAMPLED] sections
   code-quality    COPY    (no project-specific base classes; pack content is sufficient)
   documentation   COPY    (same)
   testing         COPY    (no _topics.md in pack yet — falls back to literal copy)
   security        COPY    (same)
   learning        COPY    (always — meta-pack)
 ```
+
+Read the coverage line off `_extracted-codebase.md`'s `## Coverage` section and header `Coverage:` key. When extraction was skipped entirely, print `coverage n/a (extraction skipped)` — absent is not the same as 100%, and the two must never render identically.
 

@@ -158,7 +158,7 @@ Automated coverage only — screen-reader, keyboard-quality and context checks a
 - On every PR that touches UI, as a merge gate on the critical-route matrix.
 - After a theme, token, or locale change — contrast and RTL failures are theme-specific and do not reproduce in the default combo.
 - Before a release, across the full route matrix rather than the PR-scoped subset.
-- When `@accessibility-auditor` or `a11y-quick-check` escalates a suspected machine-checkable defect and wants it proven on the real DOM.
+- When `@accessibility-auditor` (this pack) — or `a11y-quick-check` *(ui-ux pack, when co-installed)* — escalates a suspected machine-checkable defect and wants it proven on the real DOM.
 
 ## Halt conditions
 

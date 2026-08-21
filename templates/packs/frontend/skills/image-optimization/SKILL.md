@@ -146,4 +146,4 @@ Findings: 4
 - `code-splitting.md` (ai-pattern) — the JS axis; images are the byte axis. A page can pass one and fail the other.
 - `seo-audit` — image `alt` text and OG image dimensions are graded there, not here.
 - `.claude/rules/frontend-principles.md` — the "content images: modern format, `srcset`/`sizes`, explicit dimensions, lazy below the fold" MUST this skill enforces.
-- Cross-pack (`performance`, when co-installed): `lazy-loading` owns the broader non-JS deferral tiers; `web-vitals-field` confirms the LCP/CLS win in the field.
+- Cross-pack (`performance`, when co-installed): `lazy-loading` owns the broader non-JS deferral tiers; `web-vitals-field` confirms the LCP/CLS win in the field. Absent that pack, this skill still ships every format / `srcset` / dimension finding — it just reports `field confirmation: unavailable` instead of a CLS or LCP delta it never measured.

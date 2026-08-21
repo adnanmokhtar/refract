@@ -85,7 +85,7 @@ Before declaring the report complete, scan every finding for hand-wave language.
 - A finding without a named rule (axe rule id OR WCAG SC number OR named heuristic).
 - A blocker without a concrete fix proposal (not just "fix this" — the actual replacement code or attribute).
 - Auto-suggested fake `alt` text on a non-decorative image (hallucination risk — ask the user, never invent).
-- "All clear" claim based on axe alone (axe covers ~30%; manual keyboard + screen-reader walk is non-negotiable).
+- "All clear" claim based on axe alone — **or any "automation covers N%" figure quoted to justify it**. This command's own § When to use / NOT to use forbids the figure; `@accessibility-auditor` carries the sourced treatment and explains why the two figures in circulation are not interchangeable — Deque's study reports share of *issues found*, while the figure people quote alongside it means share of *success criteria a machine can decide*. State the floor, cite no percentage, and run the manual keyboard + screen-reader walk regardless.
 
 **Hard rule:** any hand-wave finding → HALT. Either rewrite the finding with `<path:line>` + named rule + concrete fix, or drop it from the report. Repeat findings (same rule, same path, prior audit) get flagged as `regressed` and surfaced separately.
 
@@ -95,7 +95,7 @@ Before declaring the report complete, scan every finding for hand-wave language.
 
 ## Phase 6 — Validate
 - Each blocker has a concrete fix proposal (not just a finding).
-- Footer reminder is present: `Automated coverage ~30%. Run keyboard-only walkthrough + screen reader (VoiceOver / NVDA) before shipping.`
+- Footer reminder is present, and carries **no** coverage percentage: `Automated coverage is a floor, not a percentage — no scanner judges announcement order, keyboard interaction quality, or context. Run a keyboard-only walkthrough + screen reader (VoiceOver / NVDA) before shipping.`
 - No fabricated `alt` text — decorative images stay `alt=""`; ask user for real alt otherwise.
 
 ## Phase 7 — Improve
@@ -130,17 +130,17 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 
 ## Related
 
-### Sibling commands in frontend pack
-- `/add-component` — sibling command in frontend pack
-- `/add-crud-page` — sibling command in frontend pack
-- `/add-page` — sibling command in frontend pack
-- `/i18n-audit` — sibling command in frontend pack
+### Lanes this command orchestrates — it routes, it does not re-grade
+- `a11y-scan` (skill, this pack) — owns the axe run end to end: the WCAG 2.2 tag set, the `target-size` enable, and the `results.incomplete` review items. Phase 2 forbids hand-rolling a second invocation here.
+- `@accessibility-auditor` (agent, this pack) — owns the SC-by-SC grade, including the criteria no scanner reaches. This command resolves scope and merges the two outputs; it does not re-derive either.
+- `a11y-quick-check` *(ui-ux pack, when co-installed)* — the 60-second in-review lane on a diff. Absent that pack this command is the only lane, and Phase 2 says so in the report rather than implying a fast pass ran.
+
+### Sibling commands — where the boundary falls
+- `/i18n-audit` — the other read-only audit in this pack. It grades locale parity and hardcoded copy; this one grades semantics, contrast and keyboard reach. RTL *layout* breakage is the one overlap — report it once, from whichever run found it.
+- `/add-page` · `/add-component` · `/add-crud-page` — produce the surfaces this command grades. Each carries a creation-time a11y halt (accessible defaults, table semantics); this command is the sweep over what already shipped.
 
 ### Patterns
-- `ai/patterns/forms.md`
-- `ai/patterns/i18n.md`
-- `ai/patterns/rendering-strategy.md`
-- `ai/patterns/ssr-safety.md`
+- `forms.md` — its § Accessibility carries the label / `aria-describedby` / error-announcement contract that most `label` and `aria-*` findings here trace back to. The other pack patterns are not read on this axis and are deliberately not listed.
 
 ### Rules
 - `.claude/rules/frontend-principles.md`

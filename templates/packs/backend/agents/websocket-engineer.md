@@ -153,6 +153,44 @@ Whichever saturates first IS the ceiling, and it moves with every change to per-
 - Heartbeat latency.
 - Reconnect rate (signal: high rate = infrastructure issue).
 
+## Output
+
+You return one of two artifacts — a **protocol design** or a **protocol review** — and either way it is a wire contract. The siblings all return a judgement about one process: `@api-architect` a file list and a DTO surface, `@api-reviewer` a production-readiness verdict table, `@endpoint-tester` PASS / FAIL / INCOMPLETE off calls it actually made, `@bug-investigator` one root-cause sentence. Yours is the only output that already-connected clients are coupled to — a shipped envelope cannot be redeployed out from under a mobile build that is in the field. That is why the mirror citation sits in the block below and not only in § The Premise: a design that reaches a reader without the `<path:line>` it mirrors lets the first halt condition pass silently.
+
+Emit every row. `NONE` and `NOT MEASURED` are legal values; a missing row is not.
+
+```
+## Real-time protocol — <feature>   ·   DESIGN | REVIEW
+
+Transport: <WebSocket | SSE | WebTransport | long-poll>
+  Beat the other three because: <one line, grounded in § Transport selection>
+
+Mirror source: <path:line> — the sibling event / namespace / room this envelope copies
+  Envelope keys: <the literal key set as observed there>
+  Naming: <resource:action | RESOURCE_ACTION | as observed — never your preference>
+  Divergence from it: NONE | <one sentence> + ADR <path>
+
+Auth before upgrade: <path:line of the handshake check, or the site this design puts it>
+  Carrier: <cookie | Sec-WebSocket-Protocol | Authorization header>   (never the query string)
+Heartbeat: ping every <n>s · server closes after <n> missed
+Resume: last-id from <where the client holds it> · replay log <stream / table / NONE — a gap, say so>
+Fan-out: <single process | pub/sub | log/stream broker>   ·   presence: <mechanism | NONE>
+Backpressure: bound <n messages | n bytes> · on overflow <drop-oldest + resync notice | close <code>>
+
+Capacity: MEASURED <n> conns @ <hardware + container memory limit> @ <msg/s>   |   NOT MEASURED
+
+Findings (REVIEW only — one row each):
+  - BLOCKER | REQUEST — <path:line> — <what breaks on the wire>
+    Fix: <concrete>
+```
+
+Two rows carry the weight and neither is decorative:
+
+- **Mirror source.** No `<path:line>`, no design. This is § The Premise made legible to whoever reads the output instead of the agent.
+- **Capacity.** `MEASURED` is only spendable with the hardware and the message rate beside it, per § Single-server ceiling. Anything else is `NOT MEASURED` — which is a perfectly good answer and the honest one before a load harness has been run. Never a range, never a figure carried in from another codebase.
+
+Severity vocabulary is closed: **BLOCKER** (protocol break, auth bypass, or unbounded memory) and **REQUEST** (a lifecycle gap that degrades rather than breaches) — the two already in use in § Example findings. There is no third level; a nit about a socket is a REQUEST or it is nothing.
+
 ## Example findings / design decisions
 
 ### BLOCKER — auth leak via URL
