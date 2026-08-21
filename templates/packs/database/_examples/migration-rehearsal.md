@@ -2,10 +2,26 @@
 name: migration-rehearsal
 description: Run a pending migration against a restored prod-sized backup. Measure duration + locks held + rollback behavior. Do this BEFORE prod.
 ---
+<!-- generated-from: templates/packs/database/skills/migration-rehearsal/SKILL.md
+     Literal-copy fallback: this file carries its source verbatim because the source has no
+     droppable section left once the safety block is kept. Declaring it makes check 8b compare
+     the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source changes —
+     do not hand-edit; edit the source and re-copy. -->
 
 # migration-rehearsal
 
 A migration that takes 80ms on a dev DB can lock prod for 20 minutes. Rehearse on real data first.
+
+## Premise
+
+Deterministic procedure. Every duration, lock window, and rollback claim must come from a real timed run against a real restored backup. Inputs (dump file, target DB URL, migration ref) and outputs (timing, lock log, schema diff) are cited verbatim. The recommendation block is grounded in the captured numbers, not in folklore about how `ALTER TABLE` "usually" behaves. If the rehearsal DB is empty or undersized, abort and restore a full backup first — synthesized timings are worse than none.
+
+## Halt conditions
+
+- Refuse to report a "duration" without `time` output captured from the actual run.
+- Refuse to claim "no locks held" without the `pg_locks` observer log.
+- Refuse to certify rollback without a post-rollback schema diff = 0.
+- Halt and ask if the backup is a sample / partial — don't extrapolate from a 10k-row table to a 50M-row prod table.
 
 ## When to use
 

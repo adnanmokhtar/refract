@@ -6,6 +6,15 @@ pack: devops
 
 # Pattern: CI/CD Pipeline
 
+> **Hard rule** — Stages gate sequentially: lint → typecheck → test → build → scan → deploy. Each runs from an immutable artifact (image SHA / binary / lambda zip), prod requires approval, secrets come via OIDC or secret manager. Long-lived cloud keys in workflow files are forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite the workflow file (`.github/workflows/<name>.yml:<line>`) defining the gate before claiming a stage exists; "we have CI" without a file path is a halt.
+- Cite the OIDC trust policy (`<path:line>` of cloud trust config) before any deploy job; static `AWS_ACCESS_KEY_ID` secrets are forbidden.
+- Cite the security-scan rule as `<path:line>` (Trivy / Snyk action) with non-zero exit on CRITICAL; scan-as-warning is a halt.
+- Cite the prod environment protection rule (`<path>` of repo settings export or doc) showing required reviewers; unguarded prod is a halt.
+- Hand-wave grep ban — never claim "no `:latest` tags in prod" without citing the manifest scan or admission-policy file.
+
 ## Stages (in order)
 
 ```

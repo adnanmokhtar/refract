@@ -1,5 +1,6 @@
 ---
-description: Audits pricing / billing / tax / currency correctness. Money is an integer minor-unit or a decimal, never a float; every price computation states its rounding + tax jurisdiction + currency; multi-currency values are never mixed. A float price, an unhandled proration, or a missing tax jurisdiction is a money bug.
+name: pricing-tax-audit
+description: Audits pricing / billing / tax / currency correctness. Money is an integer minor-unit or a decimal type, never a float; every price computation states its rounding + tax jurisdiction + currency; multi-currency values are never mixed. A float price, an unhandled proration, or a missing tax jurisdiction is a money bug.
 ---
 
 # Skill: pricing-tax-audit
@@ -18,7 +19,11 @@ Money math is the one place where "looks right in the demo" and "correct" diverg
 - Auditing billing / checkout / subscription / invoicing / metering code, or before a pricing / new-plan / new-currency launch.
 - After a "charged the wrong amount" incident.
 - Handed a money-as-float finding by `@domain-model-auditor`.
-- NOT for pure display formatting or non-financial numeric code.
+
+## When NOT to use
+
+- Pure display formatting with no arithmetic (a `$` in a template) — cosmetic, out of scope.
+- Non-financial numeric code (analytics counts, progress percentages) — no money invariant.
 
 ## Adapt to the money + tax stack (don't impose one)
 

@@ -6,6 +6,18 @@ description: Review UI changes for UX, design system compliance, and accessibili
 
 Audit command. Three reviewers run in parallel against changed UI files (or a provided screenshot). Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the review.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves.** A design review's value is the **ratio of findings to citations**. A finding without a `<file:line>` or `<token>` reference is noise — the implementer cannot act on it, the reviewer cannot defend it, the audit log cannot verify it next pass. "This feels off" is not a finding; it is a smell that the reviewer failed to convert into a fact.
+
+**The agent's job is exactly this:** walk the changed UI files (or the screenshot DOM if available) line by line; for each candidate finding, **cite-or-halt** — a `<file:line>` for source-based findings, a `<token-name>` for design-system findings, or a WCAG criterion ID + element selector for a11y findings; if a finding cannot be cited, drop it (never promote it to `[opinion]` to keep it on the list — opinions also need a heuristic anchor). When reviewers contradict, take the strictest cited finding; never average to make peace.
+
+**The agent does NOT:** write "consider better contrast" without a contrast ratio + element + token; flag a token violation without naming the token and the raw value; flag an a11y issue from a screenshot alone (DOM semantics need source — a screenshot review is explicitly "DOM-blind for a11y"); fabricate criteria when the repo has no design system; or pad blocker counts with opinions. `[opinion]` and `[violation]` are tagged, never blurred.
+
+**Mechanical halt — hand-wave grep + cite-or-halt (mandatory before the audit is written):**
+
+Grep your own findings and reject any line that contains `feels` / `seems` / `might be` / `could be cleaner` / `better UX` / `nicer` / `polish` / `improve` without a cited token, `<file:line>`, or heuristic; that lacks a `<file:line>` for a source-grounded finding; that lacks a `<token>` for a design-system violation; or that lacks a WCAG SC ID / Nielsen heuristic number for a UX or a11y finding. A finding that fails the grep is **dropped**, not softened. Report the dropped count (`Dropped (uncited): <N>`) so the user sees what was filtered.
+
 ## When to use / NOT to use
 - USE: before shipping a new page / component / flow.
 - USE: after visual changes that span ≥ 2 components.
@@ -82,6 +94,10 @@ Phase 7 (Improved): N recurring patterns queued
 
 Status: COMPLETE | BLOCKED on <N> violations
 ```
+
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (a11y / broken-state / design-system violations) → **SHOULD FIX** (UX + consistency opinions) → **OPTIONAL** (polish nits) — each step carrying `<file:line>` + **Fix** (concrete; cite the token / component / WCAG rule) + **Verify**, then the closing steps (re-run `/design-review` to confirm it comes back clean, then ship). A clean run collapses to a single line ("No violations — clear to proceed"). The reader must never assemble the next steps themselves.
 
 ## Failure modes
 - "Feels off" without grounding → noise; tie every UX finding to Nielsen / WCAG / declared style guide.

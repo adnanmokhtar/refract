@@ -12,6 +12,12 @@ Diagnostic / read-only verification that a controller actually works end-to-end.
 - NOT: when no dev server is running — start it first; this command refuses auto-start (side effects).
 - NOT: against staging or prod hosts. Localhost / explicit dev tunnel only.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves.** This command pokes a live dev server and reports what the wire actually does. The whole value is empirical: status codes, response shapes, headers — observed, not assumed. A response shape claimed without the actual JSON is a hypothesis dressed as a finding. A "200 OK" claimed without the actual status line is a fabrication.
+
+**This command does NOT:** run curl inline (it always delegates), report "the endpoint returns the expected shape" without quoting the body, or accept a run in which a mandatory case was skipped to save time.
+
 ## Phase 1 — Understand
 - Resolve target arg:
   - `<controller-name>` → list all routes from that controller, ask which one.
@@ -48,10 +54,21 @@ Endpoint-specific:
 ## Phase 5 — Update — N/A
 Read-only. No state changes, no knowledge persistence.
 
-## Phase 6 — Validate (interpret results)
-- Tenant-isolation case (call 4) returning 200 → CRITICAL leak; surface as blocker, route to `/security-audit`.
-- Idempotency replay returning a fresh resource → idempotency broken; route to `/fix-bug`.
-- Stale dev server (edits not picked up) → restart and re-run; phantom passes are not passes.
+## Phase 6 — Validate (the hand-wave halt, then routing)
+
+**Mechanical gate, all tiers.** Before printing anything, grep the returned report for hand-wave tokens: `etc.`, `...` used as "and similar", `usual fields`, `expected shape` (without the literal shape quoted), `looks correct` (without the literal body quoted), `among others`, `several headers`, `various status codes`.
+
+Any hit outside a quoted curl output **halts the report**. The finding is replaced with the literal observed value — quoted JSON body, listed header keys, exact status line — or dropped. Paraphrase is forbidden; the wire is the truth.
+
+Then route by what came back:
+
+| Observation | Route |
+|---|---|
+| Cross-tenant case returned `2xx` | **CRITICAL leak.** Halt, surface as a blocker, route to `/security-audit`. Never downgraded to "dev mode". |
+| Idempotency replay created a fresh resource | Idempotency broken → `/fix-bug`. |
+| `500` with no body | `/log-tail correlation:<id>` to capture context, then `/fix-bug`. |
+| Status green but the body diverges from the DTO | Phantom success → `/fix-bug`. A `200` is not a pass. |
+| Edits not reflected in responses | Stale dev server → restart and re-run. A phantom pass is not a pass. |
 
 ## Phase 7 — Improve — N/A
 Diagnostic. No learning queued — discoveries get filed by the follow-up `/fix-bug` or `/security-audit` if invoked.

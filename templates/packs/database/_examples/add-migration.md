@@ -6,6 +6,34 @@ description: Generate a safe, reversible, deploy-compatible DB migration. Expand
 
 Migrations are the highest-risk code in a repo. One bad migration = hours of prod pain. This command enforces the discipline.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing migrations are the truth. Mirror their shape: naming, reversibility pattern, transactional wrapping, batch-size for backfills.**
+
+The repo already has N migrations that shipped to prod and worked. Their shape — file naming (`<NNNN>-<slug>.ts` vs `<timestamp>_<slug>.sql`), `up()`/`down()` symmetry, transactional vs `CONCURRENTLY` boundary, batch size constants (1000 vs 5000), `SKIP LOCKED` usage, locale of comments — IS the convention. A new migration that deviates from that shape is wrong by default, regardless of whether the SQL is correct.
+
+**The agent's job is exactly this:**
+1. Read the 3-5 most recent migrations on the same table family.
+2. Mirror their shape: same file-name template, same `up`/`down` symmetry, same wrapping idiom, same batch constant, same comment style.
+3. Write the new SQL inside that shape. Never invent a new shape.
+
+**The agent does NOT:** ask about file naming, batch size, `down()` shape, or transactional wrapping when ≥1 sibling migration exists. The sibling IS the answer. No ADR-as-closure for shape divergence.
+
+**The agent ONLY asks the user when:** no sibling migrations exist, sibling shapes contradict each other, or the change is irreversible by physics (DROP COLUMN with data loss) and `down()` cannot mirror sibling pattern. Three escalation triggers; everything else is silent shape-mirroring.
+
+## Mechanical halt — sibling-shape gate
+
+**Before generating, the agent MUST run the sibling-shape scan:**
+
+1. List the 3-5 most recent migration files in the project's migration folder.
+2. Extract the shape signature: file-name template, `up()`/`down()` presence, transactional boundary, batch constant (if backfill), comment header style.
+3. The new migration's shape signature MUST match. If it diverges on any axis without justification recorded in the migration's comment header, HALT.
+4. The validator-equivalent check: `gaps_in: <shape-axes-checked>` and `gaps_matched: <shape-axes-matched>` must be equal.
+
+If `gaps_matched != gaps_in` → HALT. Surface the divergence (e.g., "siblings use `down()` with reverse SQL; this draft has empty `down()` — refix or escalate").
+
+If no siblings exist → halt and ask user to confirm canonical shape before generating.
+
 ## Phases applied
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).

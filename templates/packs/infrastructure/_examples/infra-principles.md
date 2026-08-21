@@ -6,6 +6,8 @@ pack: infrastructure
 
 # Infrastructure Principles
 
+> **Hard rule.** Production container images MUST be pinned to an immutable digest or git-SHA tag (`:latest` is forbidden); MUST run as non-root; MUST declare healthchecks + resource `requests` + `limits`. Secrets MUST come from a manager (not git, not env files in images), and every stateful workload MUST have a tested backup + restore runbook.
+
 Prevents the patterns that turn cloud bills + outage minutes into avoidable losses: untagged images, secrets in git, unbounded autoscale, missing probes, unrestored backups.
 
 ## Must

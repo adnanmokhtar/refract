@@ -6,6 +6,16 @@ description: Audit a feature from the user perspective — missing cycles, broke
 
 Audit command. Reviews a shipped feature for completeness, not correctness. Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the audit; Phase 7 surfaces systemic gaps.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing specs + prior audits are the truth.** The feature was built against a spec; the spec encodes the intent. A gap is the delta between **what the spec promised** and **what the user can actually do** — not the delta between what the agent imagines a great product would be and what the feature is. Inventing gaps the spec never claimed is scope creep dressed as audit.
+
+Read the feature's spec(s) from `specs/` before walking the code — the spec is the oracle. Read prior `ai/audits/<date>-<feature>*.md` for the same feature; repeated findings are SYSTEMIC, not new. Walk the user journey end-to-end and flag concrete gaps with `<file:line>` or `<route+role>` reproduction steps. Tag every finding `[blocker]` / `[gap]` / `[opinion]`; opinions never inflate blocker count.
+
+**The agent does NOT** audit code style (stay in user POV) · propose net-new features (in-scope gaps route to `/analyze-task`) · write "feels off" findings · skip the prior-audit cross-reference · pad blocker counts with `[opinion]` enhancements.
+
+**Mechanical halt — hand-wave grep + cite-or-halt (mandatory before the Phase 5 write):** before appending to `ai/audits/<date>-business-<feature>.md`, grep the findings and reject any line that contains `feels` / `seems` / `should probably` / `might want` / `could be better` / `polish` / `nicer flow` without a reproducible step list · lacks a `<route or screen + role + action>` reproduction for a `[blocker]` / `[gap]` · lacks a citation of either the spec line or an entity-lifecycle gap · tags `[opinion]` with no heuristic anchor. Findings that fail the grep are **dropped**, not softened; report `Dropped (uncited): <N>`. The same finding in 3+ historical audits without escalation forces the SYSTEMIC tag and queues an ADR.
+
 ## When to use / NOT to use
 - USE: feature is "done" but feels incomplete in walkthrough.
 - USE: support tickets cluster around one feature.

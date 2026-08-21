@@ -5,7 +5,7 @@
 # Validates the artifact set required by `migration-discipline.md` for every
 # feature in a phase (or for one feature with --feature=).
 #
-# Checks (per migration-discipline.md § "Required artifacts per feature" + § "Per-feature audit — 10 hard halts"):
+# Checks (per migration-discipline.md § "Required artifacts per feature" + § "Per-feature audit — 13 hard halts"):
 #   1.  Contract file exists at ai/migration/contracts/<feature>.md
 #   2.  Contract has all 9 required sections (Inputs / Outputs / Side effects /
 #       Business rules / Invariants / Performance characteristics / Caller

@@ -6,6 +6,15 @@ pack: backend
 
 # Pattern: Caching Strategy
 
+> **Hard rule:** Every cached resource has ONE documented invalidation strategy (TTL, explicit, version, tag, or write-through+TTL) and a tenant-scoped, versioned key. Cache is acceleration only — never source of truth, never the only writer of any field, never used for auth tokens or correctness-critical state.
+
+**Halt conditions / mandatory cites**
+- Any "add a cache here" proposal MUST cite the read site at `<path:line>` AND the write site(s) that must invalidate.
+- TTL choices MUST cite the data class row in the table or justify a deviation with measured staleness tolerance.
+- A cache key without tenant prefix in a multi-tenant codebase is a bug — reject the diff.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is safe to cache".
+- If hit-rate / eviction metrics aren't already wired, halt and add observability before shipping the cache.
+
 Cache is a distributed data store with its own consistency model. Get the semantics wrong → serve stale data → users lose trust.
 
 ## Layers (outside → inside)
@@ -143,7 +152,7 @@ tenant:42:products:list:filters:eyJjYXQiOiJqYWNrZXQifQ==:v3
 
 ## Observability
 
-- Cache hit rate per namespace (target > 90% for hot data).
+- **Cache hit rate per namespace.** There is no universal target — the right hit rate depends on key cardinality and the read/write ratio, and a high-cardinality cache can be doing its job at 40%. Derive the threshold instead of adopting one: the hit rate is high enough when `misses/sec × miss cost` fits inside the origin's spare capacity with headroom for a cold start. If a number goes on a dashboard, write the derivation next to it.
 - Evictions per minute (high = size too small OR TTL too short).
 - Redis memory usage + fragmentation.
 - Slow-path latency (cache miss + DB fetch + set).

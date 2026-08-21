@@ -6,6 +6,8 @@ pack: observability
 
 # Observability Principles
 
+> **Hard rule.** Every PR adding an endpoint MUST also add: a structured-log line with correlation ID, at least one RED metric (rate / error / duration), a trace span, and an alert (or a documented reason there isn't one). PII / secrets / full tokens in logs and high-cardinality labels (`userId`, `requestId`, `email`) on metrics are forbidden.
+
 Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no metric on the right thing, no runbook.
 
 ## Must

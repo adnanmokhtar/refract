@@ -6,6 +6,15 @@ pack: documentation
 
 # Pattern: SLO (Service Level Objective)
 
+> **Hard rule** — Every SLO is `<SLI> <comparator> <target> over <rolling window>`, derived from a real telemetry query, with a named owner team and burn-rate alerts wired. Aspirational SLOs without alerting or owners are forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite the SLI query file as `<path:line>` (e.g. the project's alerting/SLO rule file in whatever format the backend uses) before publishing the SLO; "we'll write the query later" is a halt.
+- Cite two weeks of measured baseline as `<path>` (dashboard URL or recorded run) before setting the target; never set SLO = current best quarter.
+- Cite the burn-rate alert rule as `<path:line>` for at least the fast (1h, 14.4×) tier before claiming the SLO is active.
+- Cite the runbook on breach (`ai/runbooks/<slo>-breach.md`) by path; SLO without runbook is a halt.
+- Hand-wave grep ban — never claim "we already have an SLO" without citing the runbook path AND the rule file.
+
 A target reliability number, measured over a window, that defines what "good enough" means for a specific service. SLOs anchor on-call alerting, prioritization between feature work vs reliability work, and the conversation with stakeholders when something breaks. Without one, every outage feels equally bad and every reliability investment feels arbitrary.
 
 ## Context

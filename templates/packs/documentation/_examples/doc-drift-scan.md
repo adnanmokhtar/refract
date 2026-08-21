@@ -1,11 +1,22 @@
 ---
 name: doc-drift-scan
-description: Find docs that describe code that no longer exists. Catches the silent lie — outdated docs are worse than missing docs.
+description: Find docs that describe code that no longer exists — the silent lie, worse than missing docs. Run before merging a PR that touched documented code, after a large refactor or module rename, and weekly in CI to catch slow drift. Scans prose claims against symbols — `quickstart-verify` executes the setup procedure, `diagram-sync` catches the same drift in diagrams.
 ---
 
 # doc-drift-scan
 
 Cross-check every claim in the `ai/` knowledge base + `CLAUDE.md` against the source tree, package manifest, env example, and migrations.
+
+## Premise
+
+Find real issues, cite `<path:line>` for every drift finding. Each "MISSING" reports the doc location + the referenced artifact + the verification command that returned negative. File refs come from `rg` output; missing scripts from `jq` against `package.json`; missing env vars from grep against `.env.example`. Stale `Updated:` lines cite the days computed. No "this looks outdated" without the cross-check producing a concrete miss.
+
+## Halt conditions
+
+- Refuse to flag "missing file" without checking renames via `git log --diff-filter=R`.
+- Refuse to flag "stale" without computing days from the `Updated:` line.
+- Halt if globs (`src/**`) reach the existence checker — strip them first, they're not file paths.
+- Don't propose reverting code to match docs — drift is always a docs problem.
 
 ## When to use
 

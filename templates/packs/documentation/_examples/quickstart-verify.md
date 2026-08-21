@@ -1,6 +1,6 @@
 ---
 name: quickstart-verify
-description: Execute a README / getting-started / CONTRIBUTING setup section end-to-end in a CLEAN environment to prove onboarding actually works — install → build → run → smoke. Reports per-step pass/fail and time-to-first-green.
+description: Execute a README / getting-started / CONTRIBUTING setup section end-to-end in a CLEAN environment to prove onboarding actually works — install → build → run → smoke. Reports per-step pass/fail and time-to-first-green. Distinct from doc-writer, which authors the prose; this one runs it.
 ---
 
 # quickstart-verify
@@ -8,6 +8,16 @@ description: Execute a README / getting-started / CONTRIBUTING setup section end
 A getting-started section that *looks* right but doesn't *run* is the #1 cause of onboarding abandonment. doc-drift-scan catches docs that reference dead *code*; this catches docs that reference a *procedure* that no longer produces a working checkout. Cite-or-halt: every failing step cites the doc line + the exact command + the actual error output.
 
 Boundary: **doc-writer WRITES the prose; quickstart-verify EXECUTES and PROVES it.** It runs the documented steps and emits the minimal *setup* patch where one fails — never restructures the README.
+
+## Premise
+
+The failure mode: a getting-started section that *looks* right and doesn't *run*. A missing prereq the maintainer forgot they'd installed years ago, a command renamed two releases back, an env var nobody documented, steps in the wrong order. This is the #1 cause of onboarding abandonment — the new contributor hits step 4, it errors, and they leave. Doc-drift-scan catches docs that reference dead *code*; this catches docs that reference a *procedure* that no longer produces a working checkout.
+
+`smoke-verify` made the same leap for code: a green test suite does not prove the app boots, so it stops trusting the tests and actually starts the process. quickstart-verify makes that leap for onboarding docs: a setup section that reads correctly does not prove a human can follow it, so it stops trusting the prose and actually executes every step in a clean environment.
+
+Cite-or-halt. Every failing step cites **the doc line + the exact command run + the actual error output**. "The setup seems off" is a vibe, not a finding. A failure without the captured command and stderr is not reportable.
+
+Boundary: **doc-writer WRITES the prose; quickstart-verify EXECUTES and PROVES it.** This skill does not author onboarding narrative, restructure the README, or improve wording. It runs the documented steps, and where a step fails it emits the minimal *setup* patch (add the missing prereq, fix the stale command, correct the order). Anything past the setup steps is doc-writer's job.
 
 ## When to run
 
@@ -46,6 +56,14 @@ Closure verb: **report-with-fix** when the setup patch restores the path; **halt
 - Retry a network flake once; only flag deterministic failures.
 - A step that passes only on the maintainer's warm machine is a *missing documented step*, not a pass.
 - Never edit application source to make a step pass — setup docs are the only surface this touches.
+
+## Halt conditions
+
+- Refuse any "the doc is wrong" claim without the **executed command + captured error**. No citation, no finding.
+- Do **not** rewrite prose beyond the setup steps — no restructuring, no wording polish, no new sections. That is doc-writer's territory; overreach here corrupts the boundary.
+- If a step needs a secret / credential the runner can't have, mark it a **documented prerequisite** — never fail it silently and never fabricate a value to push past it.
+- Refuse to report on a warm / current-dev environment. If a clean env cannot be provisioned, halt and say so — a warm-run "pass" is worse than no run, because it certifies broken docs.
+- Never edit application source to make a step pass. The setup docs (or a genuinely missing repo file like a `.env.example` entry the docs point to) are the only surface this skill touches.
 
 ## Related
 

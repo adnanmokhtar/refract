@@ -6,6 +6,34 @@ description: Generate production-ready k8s manifests (Deployment, Service, Ingre
 
 Default-secure manifests for one service: probes, resources, non-root, default-deny network, autoscaling.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing manifests are the truth. Mirror sibling deployment shape: labels, resource limits, security context, probes.** If `k8s/<other-service>/deployment.yaml` already exists in this repo, it IS the convention — labels schema, label values, probe shape, resource-request style, security-context block, topology-spread keys, annotation set. Do NOT invent a fresh shape from k8s docs; do NOT copy a generic template; do NOT mix idioms across siblings.
+
+**The closure verb is `mirror-sibling-shape`.** Before generating, the agent MUST:
+1. List `k8s/*/deployment.yaml` (or `charts/*/templates/deployment.yaml`) and pick the closest sibling by service kind (HTTP API → another HTTP API; worker → another worker; cron → another cron).
+2. Read that sibling end-to-end and record its: label keys, label-value conventions (e.g. `app.kubernetes.io/name`, `app.kubernetes.io/part-of`), probe paths + thresholds, resource request/limit ratios, security-context fields, topology-spread keys, image-pull-policy, annotation set, NetworkPolicy egress allow-list shape.
+3. Generate the new service's manifests with the SAME shape; deviations are allowed ONLY when justified by service kind (e.g. worker has no Service / Ingress) and recorded inline as `# diverges from <sibling>: <reason>`.
+
+**Mechanical halt — sibling-resource-shape parity (mandatory before write):**
+1. Untagged-resources halt: every generated resource MUST carry the sibling's full label set. Missing any key from sibling → halt.
+2. Missing-labels halt: any object without `metadata.labels` populated → halt.
+3. Missing-probes halt: any container in Deployment / StatefulSet without BOTH `livenessProbe` AND `readinessProbe` (and `startupProbe` if sibling has one) → halt.
+4. Missing-limits halt: any container without BOTH `resources.requests` AND `resources.limits` for cpu+memory → halt.
+5. Missing-securityContext halt: any container without `runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, `capabilities.drop` matching sibling → halt.
+6. PDB-replica-coherence halt: `pdb.minAvailable >= deployment.replicas` → halt. Also halt on a degenerate single-replica PDB: a PDB emitted for `replicas == 1`, or any `pdb.minAvailable == 0` → halt (skip the PDB or raise replicas to ≥ 2).
+7. Image-tag halt: `:latest` or unpinned digest → halt.
+8. NetworkPolicy halt: default-deny without explicit DNS egress allow → halt.
+9. Least-privilege (in-cluster IAM) halt — the k8s equivalent of "no wildcard IAM": any workload binding the namespace `default` ServiceAccount; any bound Role/ClusterRole granting a wildcard verb or resource (`verbs: ["*"]`, `resources: ["*"]`, `apiGroups: ["*"]`) or a `cluster-admin` binding; `automountServiceAccountToken` unset/`true` on a workload that never calls the K8s API; or any container with `privileged: true`, `hostNetwork: true`, `hostPID/hostIPC: true`, or a `hostPath` volume → halt. Least-privilege in k8s is a dedicated, minimally-scoped ServiceAccount + a namespaced Role, never `default` + never wildcard verbs.
+10. Cost-bound halt: worst-case spend must be computable before write — an HPA without a bounded `maxReplicas`, or a Deployment where `maxReplicas × per-pod (cpu+memory requests)` cannot be stated, is unbounded cost → halt. Record the computed ceiling inline (`# worst-case: 10 pods × (500m cpu, 512Mi mem)`).
+
+If no sibling exists in the repo, halt and ask the user to point at a gold-standard manifest set OR confirm this service is the new gold standard (then the manifest is reviewed by `infra-architect` before write).
+
+**The agent does NOT:**
+- Generate from a generic Kubernetes-docs template when a sibling exists.
+- Mix label conventions (`app: foo` in one file, `app.kubernetes.io/name: foo` in another).
+- Skip a probe / limit / security-context field because "the app doesn't need it" — siblings set the floor.
+
 ## Phases applied
 
 All 7. Phase 6 includes manifest linting.

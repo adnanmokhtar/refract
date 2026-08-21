@@ -2,10 +2,27 @@
 name: dockerfile-lint
 description: Lint Dockerfile for safety, size, and correctness. Uses hadolint + project rules (non-root, multi-stage, pinned base, healthcheck).
 ---
+<!-- generated-from: templates/packs/devops/skills/dockerfile-lint/SKILL.md
+     Literal-copy fallback: this file carries its source verbatim because the source has no
+     droppable section left once the safety block is kept. Declaring it makes check 8b compare
+     the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source changes —
+     do not hand-edit; edit the source and re-copy. -->
 
 # dockerfile-lint
 
 Catch unsafe + bloated Dockerfiles before they hit a registry.
+
+## Premise
+
+Find real issues, cite the Dockerfile line and the rule that fires. Hadolint findings are reported with their rule code (DL3008, DL3007, etc.). Project-rule failures (HEALTHCHECK missing, USER root, no `.dockerignore`) cite the actual line absent or the value detected. Image size, layer count, and "secret in history" come from `docker inspect` / `docker history` output captured during a real build — not from reading the source alone.
+
+## Halt conditions
+
+- Refuse to report "no HEALTHCHECK" without grepping the file.
+- Refuse to flag "secret in image" without showing the `docker history` line that contains it.
+- Halt if `docker build` failed — fix the build first, then lint.
+- Don't dismiss a hadolint warning without naming why it's acceptable.
+- `:latest` tag = block. `USER root` as final = block. Secrets baked in = critical (rotate the leaked credential).
 
 ## When to use
 

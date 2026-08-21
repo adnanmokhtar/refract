@@ -8,6 +8,10 @@ pack: documentation
 
 Authors an operational runbook with the structure proven across many projects: trigger, prerequisites, steps with verify-after-each, rollback, on-call owner, related ADRs. A good runbook lets the next on-call person resolve an issue without paging the original author.
 
+## The Premise (read this first)
+
+**Runbooks are the difference between "manageable incident" and "all-hands fire drill at 2am".** A good runbook lets the next on-call person resolve an issue without paging the original author. This command authors a runbook with the structure proven across many projects.
+
 ## When to use
 
 - New deploy / release process needs documenting.
@@ -116,7 +120,26 @@ If verify fails: <link to failure subsection OR "abort and rollback">
 - Rollback procedure exists (mandatory; no runbook ships without one).
 - Prerequisites are concrete (name the actual role / credential).
 - Linked ADRs / features resolve.
-- "Last drill" date is honest ("never drilled" is a valid honest answer that flags first execution).
+- "Last drill" date is honest — if the procedure was actually executed, set `Last drill: <today>`; if not, the front-matter MUST read `Last drill: not-yet-run` and the runbook is flagged for first-execution review.
+
+### Command-resolution gate — regenerate → diff → cite
+
+A runbook step is a *claim* that a command exists and does the stated thing. Before verdict, re-derive every step command from the repo and cite the miss:
+
+- **Script/target refs** — each `npm|pnpm|bun run <x>` / `make <t>` / `just <t>` / `<repo-script>.sh` must resolve. An unresolved one is `BROKEN` — cite `<step:line>` + the negative check and halt.
+- **Path/role/dashboard refs** — paths named in steps or Prerequisites exist in-repo; named roles/dashboards resolve to a real identifier, not a placeholder.
+- Bare operational commands against live infra (`kubectl`, cloud CLIs) are **not** resolvable from the repo — mark them `UNVERIFIED (live-infra)`, never a fabricated pass.
+
+### Terminal verdict — DRILLED-PRODUCTION-GRADE vs AUTHORED-UNPROVEN
+
+- `Status: PRODUCTION-GRADE` — **only** when `Last drill: <date>`, command-resolution `BROKEN` = 0, and all `## Related` links resolve.
+- `Status: AUTHORED-UNPROVEN` — the honest default for a `Last drill: not-yet-run` runbook (or any with an open `BROKEN` command / dangling link). It ships, flagged for first-drill before first real incident use, naming what is unproven.
+
+## Phase 7 — Improve
+
+- If the project has > 5 runbooks of the same `--type=`, surface "consider a runbook template" — reduces duplication.
+- Schedule a quarterly drill for incident-type runbooks; queue ADR if drilled-rate < 1/year.
+- If a runbook is invoked > 3× per quarter, flag for automation — recurring manual work is a tooling gap.
 
 ## Hard rules
 

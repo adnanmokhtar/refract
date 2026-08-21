@@ -12,7 +12,7 @@ pack: migration
 
 > Copy this template verbatim when authoring an audit. Every section is required. Hand-wave tokens (`&...`, `etc.`, `, ...`) are blocked by the validator script.
 >
-> The 10 hard halts in `migration-discipline.md` § "Per-feature audit — 10 hard halts" are the gate; this file's structure mirrors them. A blank section = halt; a hand-waved enumeration = halt.
+> The 13 hard halts in `migration-discipline.md` § "Per-feature audit — 13 hard halts" are the gate; this file's structure mirrors them. A blank section = halt; a hand-waved enumeration = halt.
 
 ```markdown
 ---
@@ -67,7 +67,7 @@ One paragraph rationale. State what V2 actually does and how it relates to V1's 
 
 ## Hard-halt findings
 
-Enumerate which of the 10 hard halts (per `migration-discipline.md` § "Per-feature audit — 10 hard halts") fired (or "none"). Each halt: which check, evidence, specific remediation.
+Enumerate which of the 13 hard halts (per `migration-discipline.md` § "Per-feature audit — 13 hard halts") fired (or "none"). Each halt: which check, evidence, specific remediation.
 
 | # | Halt | Status | Evidence | Remediation |
 |---|---|---|---|---|
@@ -81,6 +81,11 @@ Enumerate which of the 10 hard halts (per `migration-discipline.md` § "Per-feat
 | 8 | Rollback runbook | PASS / FAIL | <path to runbook> | <if FAIL: author runbook> |
 | 9 | Scope = one feature row | PASS / FAIL | <PR title + diff scope> | <if FAIL: split PR> |
 | 10 | Cutover tested in staging | PASS / FAIL / N/A | <staging deploy log> | <if FAIL: rehearse rollback> |
+| 11 | No dead V1 code in port queue | PASS / FAIL | <6-axis reachability result per axis: app-source / tests / cron / routes / infra / telemetry> | <if FAIL: mark ledger row `status: deprecated`, `deprecation_reason: dead-v1-no-callers`; do NOT port> |
+| 12 | UI rows enumerate v1_states / v2_states | PASS / FAIL / N/A | <per UI row: `v1_states: [...]` / `v2_states: [...]` / `gap:`> | <if FAIL: enumerate every interaction state; one-line rows halt> |
+| 13 | Navigation inventory present (Section 0) | PASS / FAIL / N/A | <Layer A route tree + Layer B per-leaf template grep> | <if FAIL: build the two-layer inventory before per-axis work; Layer-A-only is incomplete> |
+
+> **Tier gating** (per `parity-auditor.md` § tier-gated halts): halts 1, 2, 4, 5, 8 are artifact-existence checks gated by the row's `tier:`. Halts 3, 6, 7, 9, 10, 11, 12, 13 apply across **all** tiers — they are structural facts, not artifact ceremony. Trivial = 3, 6, 7, 9, 10, 11, 12, 13. Standard = that set + 1 + 2 + 4. Heavy = all 13.
 
 ## Tenant-isolation gate (if multi-tenant project)
 
@@ -175,6 +180,6 @@ If any check fails, the script lists the failure with file:line and exits non-ze
 ## Cross-references
 
 - `parity-auditor.md` — the agent that produces this audit (Stage A).
-- `migration-discipline.md` § "Per-feature audit — 10 hard halts" — the checklist this template structures.
+- `migration-discipline.md` § "Per-feature audit — 13 hard halts" — the checklist this template structures.
 - `migration-discipline.md` § "Frontend audit axes" — when the Frontend axes section is mandatory.
 - `audit-failure-modes.md` — the named anti-patterns this template's structure prevents.

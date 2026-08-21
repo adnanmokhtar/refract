@@ -7,6 +7,14 @@ description: Compare .env against .env.example — flag missing keys (will break
 
 Config bugs are a top-5 cause of "it works on my machine". Surface missing / orphan / unvalidated env keys before boot.
 
+## Premise
+
+Find real config drift, not vibes. Every flagged key cites which file it's in (or absent from) + whether the schema marks it required. "Some env vars look off" is not a finding. NEVER print VALUES — keys only; values are secrets. A clean diff against an empty `.env.example` is suspicious — verify the example actually lists the project's real keys.
+
+A run that returns zero findings without proving the schema was loaded is a failed run.
+
+Config bugs are a top-5 cause of "it works on my machine". Surface missing / orphan / unvalidated env keys before boot.
+
 ## When to use
 
 - After pulling a branch that may have added env vars.
@@ -66,3 +74,10 @@ Boot risk: HIGH (4 required keys missing — app won't start).
 - Multi-line values (e.g., `PRIVATE_KEY="-----BEGIN..."`) require careful parsing — `dotenv-cli`'s parser is more accurate than naive grep.
 - NEVER print VALUES — only keys. Values may be secrets.
 - `.env` MUST stay gitignored. If it shows up in `git status`, stop and check `.gitignore`.
+
+## Halt conditions
+
+- Halt on hand-waves: every MISSING / ORPHAN / UNVALIDATED entry must cite the file it's in (or absent from) + the schema's required flag.
+- Halt if any value (not key) appears anywhere in the output — values are secrets and never printed.
+- Halt if `.env` shows up in `git status` — that's a security incident, not a diff finding.
+- Halt if the schema validator file (joi/zod/pydantic) couldn't be located — without the schema the "UNVALIDATED" classification is a guess.

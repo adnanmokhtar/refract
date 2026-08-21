@@ -6,6 +6,8 @@ pack: distributed-systems
 
 # Pattern: Consistency Models
 
+> **Hard rule:** Every cross-node read/write path names the consistency level it actually provides and the datastore that enforces it. "Strong consistency" across independent services with no shared coordinator, "exactly-once" delivery claims, and a read that expects its own just-written value off an async replica are forbidden — each is a physics violation, not a config knob.
+
 Name the consistency level each cross-node read/write actually provides. "Strong consistency" across services with no coordinator, "exactly-once" delivery, and reading your own write off an async replica are physics violations, not config knobs.
 
 ## CAP vs PACELC
@@ -42,3 +44,11 @@ Nuanced:       Redis — async replication + failover can lose acked writes
 - "Exactly-once" anywhere in a queue path.
 - A write to primary immediately read back from an async replica (read-your-writes violation).
 - Asserting a datastore's level without checking its actual quorum/replica config.
+
+## Detectors (cite-or-halt)
+
+- A design claiming **"strong consistency" across ≥2 services** with independent DBs and **no shared coordinator / saga / 2PC** cited at `<path:line>` — impossible; halt and name the real level or the coordinator.
+- Any **"exactly-once"** claim in a queue/consumer path — reject the wording; require at-least-once + a cited idempotency key, or downgrade to at-most-once explicitly.
+- A **read-your-writes violation**: a write to primary immediately followed by a read routed to an **async replica / eventually-consistent path** cited at `<path:line>` — halt; route the read to primary or add read-your-writes stickiness.
+- A datastore's consistency level **asserted but not verified** against its actual config (quorum settings, replica read flags) — hand-wave (`etc.`, `appears to`, `roughly`) on a consistency claim is forbidden; cite the config.
+- A per-query **`ONE`/eventual read** on a correctness-critical value (balance, inventory, auth) — halt; escalate the level or justify the anomaly tolerance.

@@ -2,6 +2,11 @@
 name: extract-conventions-emerging
 description: Round-two extraction of EMERGENT conventions — patterns that recur 5+ times across the codebase but aren't documented anywhere (error shape, pagination shape, validation pattern, transaction boundaries, async-work naming, time/money/ID handling). Used by /setup-project Phase 2.10 in REFINE mode to upgrade round-one explicit-conventions detection (file naming, suffix matrix, base classes) with the implicit "this is how we always do X" rules that the team follows by habit.
 ---
+<!-- generated-from: templates/packs/learning/skills/extract-conventions-emerging/SKILL.md
+     Literal-copy fallback: this file carries its source verbatim because the source has no
+     droppable section left once the safety block is kept. Declaring it makes check 8b compare
+     the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source changes —
+     do not hand-edit; edit the source and re-copy. -->
 
 # Skill: extract-conventions-emerging
 
@@ -17,6 +22,21 @@ Round-two finds *emergent* conventions: patterns that aren't enforced by any too
 - "Background tasks live in `app/tasks/<feature>_tasks.py` (never `app/jobs/` or `app/workers/`)."
 
 These are the conventions a senior engineer learns by code review, not by reading a CONTRIBUTING.md. REFINE makes them explicit.
+
+## Premise
+
+- Real source is the truth. Sample the actual files for each category — controllers for error-shape, list endpoints for pagination, route handlers for validation, log call sites for logging shape, transaction-opening points for boundaries.
+- Every recorded pattern cites ≥3 representative `<file:line>` occurrences from the count claimed.
+- The `min_occurrences` threshold is enforced from real reads, not estimates; auto-generated code (migrations, OpenAPI clients, `__generated__/`) is excluded.
+- Empty extraction is honest — the negative finding per Category I is itself useful (tells round-two NOT to invent uniformity).
+- Fabrication — naming a pattern from one beautiful example, or asserting uniformity across a genuinely heterogeneous codebase — locks the wrong rule into every downstream artifact.
+
+## Mechanical halt
+
+- Hand-wave in convention output — `etc.`, `...`, `most controllers`, `appears to use cursor pagination`, `roughly always`, a pattern entry without `citations:` populated to ≥3 `<file:line>`, a count without supporting samples — REFUSE to advance.
+- Re-grep, re-count, regenerate the entry with explicit citations OR move it to `negative_findings`.
+- If a category has fewer than `min_occurrences` real hits, record `<NOT-DETECTED: <category>: <N> occurrences below threshold>` — never round up an under-threshold pattern into `emergent_conventions`.
+- Contested conventions (60/40 splits across the codebase) go in `contested_conventions` with both options + counts — not silently averaged into one rule.
 
 ## When to use
 

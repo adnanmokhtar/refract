@@ -6,6 +6,34 @@ description: Profile and optimize one query (SQL string or endpoint that owns it
 
 Profiles a target query, proposes index / rewrite / denormalization, and emits a migration if applicable.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**The slow query is real. The pattern almost always repeats — index miss / N+1 / missing limit / ungated SELECT \*.**
+
+99% of slow queries fall into 4 buckets: (1) missing index on a hot WHERE / ORDER BY / FK, (2) N+1 in the calling code (the SQL is fine, the loop isn't), (3) missing LIMIT on a paginated endpoint, (4) ungated `SELECT *` pulling TOAST columns or wide rows. The 1% novel cases are denormalization candidates that need an ADR. Default to scanning the 4 buckets first — do not invent exotic fixes.
+
+**The agent's job is exactly this:**
+1. Capture baseline `EXPLAIN ANALYZE` against prod-shaped data.
+2. Identify dominant cost (seq scan / sort / hash join / function-on-indexed-column).
+3. Map to one of the 4 patterns. Apply the canonical fix for that pattern.
+4. Re-run EXPLAIN. Confirm the index is used, the N+1 collapsed, the LIMIT lands, the column list shrunk.
+
+**The agent does NOT:** jump to denormalization/matview before scanning the 4 buckets; add an index that left-prefix-matches an existing one; propose caching as a primary fix; tune `SELECT *` plans (replace with column list first); skip prod-shaped EXPLAIN validation.
+
+**The agent ONLY asks the user when:** the fix is denormalization/matview (write-cost ADR), an existing index left-prefix-covers the proposal, or the query is rarely-called below SLO threshold.
+
+## Mechanical halt — similar-query-scan
+
+**Before generating the fix, the agent MUST run the similar-query-scan:**
+
+1. Pull the top-20 slow queries from `pg_stat_statements` (or MySQL slow-query log).
+2. Match the target query's shape (table set + WHERE column set + ORDER BY column) against those 20.
+3. If ≥ 2 siblings share the shape, the fix MUST apply to all of them — emit a single composite index or a single rewrite that covers the family. Single-query fixes when 3 callers share the pattern is index proliferation.
+4. If the proposed index left-prefix-matches an existing index on the same table → HALT. Re-derive: extend the existing index or pick a different shape.
+5. The validator-equivalent check: `siblings_found = siblings_covered_by_fix`. If unequal → HALT, surface the uncovered siblings.
+
+If similar-query-scan finds zero siblings → the query is novel; proceed with single-fix but note the absence in the report (so the next slow query in this family triggers re-derivation).
+
 ## Phases applied
 
 All 7. Phase 6 = before/after `EXPLAIN ANALYZE` on prod-shaped data.

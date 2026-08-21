@@ -6,6 +6,15 @@ pack: observability
 
 # Pattern: Continuous Production Profiling (the 4th signal)
 
+> **Hard rule:** Services with real production load run a **low-overhead, always-on profiler** (eBPF-based or in-process sampling) exporting CPU / heap / alloc / lock profiles continuously, joined to traces via **exemplar → profile linkage** (a slow span links to the flame graph of what the CPU was doing at that instant). Metrics/logs/traces tell you *that* it's slow and *where* the time is attributed; profiling tells you *which lines of code* burned it. Always-on profiling must stay under a few-percent overhead budget — a high-overhead profiler left on in prod is a bug.
+
+**Halt conditions / mandatory cites**
+- Any "it's slow / it's CPU-bound" claim MUST cite a **flame graph** with `<function>` self-time attribution — not a guess. "I think it's the DB" without a profile is forbidden (mirrors the performance pack's premise).
+- The profiler config MUST cite its **overhead budget** and the sampling rate that keeps it there — an always-on profiler with no overhead bound is a bug, reject.
+- A profile-derived fix MUST cite the `<file:line>` hot frame it targets AND the trace exemplar / time range it was captured over.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is the bottleneck".
+- If the continuous-profiler agent/backend + its symbolization source aren't extracted, halt.
+
 The fourth telemetry signal, alongside metrics/logs/traces. Metrics/traces tell you *that* it's slow and *which span*; profiling tells you *which lines of code*, sampled from real production, burned the CPU / allocated the heap / held the lock. Spec-mature as of 2024–25 (OpenTelemetry profiling signal + pprof wire format; eBPF whole-system agents).
 
 **Boundary:** the performance pack owns AD-HOC / dev-time profiling (`pprof`, `py-spy`, `async-profiler`, `/profile-perf`). This pattern owns the ALWAYS-ON production profiler that's *already running* when the incident happens.

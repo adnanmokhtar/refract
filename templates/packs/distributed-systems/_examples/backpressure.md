@@ -6,6 +6,8 @@ pack: distributed-systems
 
 # Pattern: Backpressure
 
+> **Hard rule:** Every queue, buffer, and resource pool is **bounded**, and every saturated boundary **rejects or sheds** (never blocks unboundedly, never grows in memory). Unbounded in-memory queues, a saturated pool with no shed/reject path, one shared pool for all dependencies (no bulkhead), and retries with no concurrency cap are forbidden.
+
 Bound every queue and pool; reject or shed at a saturated boundary — never block unboundedly, never grow in memory. An unbounded buffer just defers the crash (OOM) and makes it worse.
 
 ## Bounded queue + load shedding
@@ -37,3 +39,11 @@ Watertight compartments: each dependency gets its own bounded pool (threads/conn
 - Saturated pool with no shed/reject path.
 - Single shared pool for all dependencies (no bulkhead).
 - Retries with no concurrency cap / budget (retry storm).
+
+## Detectors (cite-or-halt)
+
+- An **unbounded in-memory queue / buffer / channel** fed by a producer that can outpace the consumer — cite the buffer at `<path:line>`; halt and require a bound + overflow policy.
+- A saturated pool / worker with **no shed-or-reject path** (accepts work it cannot serve) — halt; require `503`/`429` + `Retry-After` or a documented drop policy.
+- A **single shared connection/thread pool serving all dependencies** (no bulkhead) — one slow dependency exhausts it; halt and require per-dependency isolation.
+- **Retries with no concurrency cap / no budget** (and ideally no jitter) — retry-storm amplifier; halt (cross-check `circuit-breaker.md`).
+- Hand-wave (`etc.`, `appears to`, `roughly`) on "the queue won't grow unbounded" — forbidden without the bound cited.

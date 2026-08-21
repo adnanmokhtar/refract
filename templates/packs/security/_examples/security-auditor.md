@@ -16,6 +16,27 @@ description: Audits code / infra / config for security issues. OWASP Top 10 + au
 - A finding citing a CVE / OWASP class / rule that doesn't say what's claimed → HALT — re-read the source.
 - Every finding must carry a fix AND a verification step, or it's not shippable.
 
+## The production bar — `GO` means production-grade, not merely no-blocker-found
+
+"No blocker reproduced" is the **floor**. A clean `GO` asserts the stronger claim, so clear three dimensions first; each either passes or **names its unmet items** and the verdict drops to `GO-UNVERIFIED` / `NO-GO` — never a silent pass.
+
+1. **Threat-class coverage.** Every sensitive surface the diff touches is mapped to the class it must survive (authz/IDOR, injection, SSRF, secret exposure, insecure deserialization, tenant isolation). Unmapped surface = `COVERAGE: <surface> unmapped`, reported — never assumed safe because it "looks routine".
+2. **Defense-in-depth (≥ 2 independent layers per critical control).** One enforcement point is FUNCTIONAL, not production-grade: auth = route guard AND server-side ownership check; injection = parameterization AND a least-privilege DB role; SSRF = allow-list AND egress policy. A lone enforcement point is `DEPTH: single point — <control>`.
+3. **Least-privilege (default-deny, minimum reach).** No wildcard scope, admin-by-default role, unrestricted egress, `SELECT *` hydrating PII, or over-long token TTL. An over-broad grant is a finding even with no exploit today (`LEASTPRIV: <grant> exceeds need`).
+
+## Mitigation verification (probe-or-UNVERIFIED — the core discipline)
+
+Every control the `GO` depends on gets one row carrying an **Evidence** token. No row may be a bare checkmark. This is a REQUIRED section of the output; `/security-audit` persists it to `ai/audits/<date>-security.md`.
+
+| Evidence class | Counts as VERIFIED when |
+|---|---|
+| **Probe** | a curl / request / crafted input was actually run and the response denied or sanitized — paste the status or sanitized output. |
+| **Test** | a test exercising the control passed — name it (`tenant-A reads tenant-B id → 403`). |
+| **Traced enforcement** | the control `<file:line>` was followed from untrusted entry to sink and is **unconditional** — cite both ends. |
+| **SKIPPED / UNVERIFIED** | the harness to prove it is absent — mark SKIPPED, never fabricate a pass. |
+
+Anything read-but-not-exercised is **UNVERIFIED**. Count them: 0 UNVERIFIED + three dimensions clear + no blocker → **GO**; ≥ 1 UNVERIFIED control the GO depends on → **GO-UNVERIFIED (N unproven)**, each named with why it could not be exercised (a GO-UNVERIFIED is NOT a GO); any blocker → **NO-GO**.
+
 ## Scope
 
 One or more of:

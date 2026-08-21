@@ -56,4 +56,14 @@ A description stating only what the tool does; an open schema on a model-driven 
 
 `api-contract.md` (envelope, paths, breaking-change table) · `error-handling.md` (error shape + status mapping — this pattern adds only the remediation payload) · `request-validation.md` (boundary validation, allow-list, bounds, `422` rows) · `rate-limiting.md` (`429`, `Retry-After`, caller-class keys, load shedding; MCP also requires servers to "rate limit tool invocations") · `pagination.md` / `conditional-requests.md` / `response-streaming.md` / `api-contract.md` § PERF-4 (size, `304`, streaming) · **distributed-systems** (idempotency replay semantics) · **ai-engineering** `agent-design.md` (the loop and its harness-side gates — the inversion: you own the surface, not the loop, so its gates are your untrusted assumptions) + `evals` · **security** `@llm-security-reviewer` (prompt injection via tool output, LLM06 excessive agency).
 
+## References
+
+- [Writing tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents) — Anthropic engineering. Namespacing, consolidation, the 25,000-token response cap, `response_format` concise/detailed, prompt-engineering error responses.
+- [Define tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools) — description best practices ("by far the most important factor"; 3–4 sentences), name regex, `input_examples` and its token cost.
+- [Strict tool use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use) — grammar-constrained sampling, `strict: true` placement, schema requirements.
+- [MCP § Tools (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25/server/tools) — Tool object, `inputSchema` / `outputSchema` / `structuredContent`, the two error channels, annotations-are-untrusted.
+- [MCP § Authorization (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) — audience validation, no-passthrough, RFC 9728 / RFC 8707, `401` / `403 insufficient_scope`.
+- [MCP § Security Best Practices (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices) — token passthrough rationale, confused deputy, session hijacking, scope minimization.
+- In-repo: `templates/canonical-command-template.md:35,42–44` — this framework's own description + `USE:`/`NOT:` convention.
+
 > MCP citations pinned to the `2025-11-25` revision; re-verify annotation defaults and authorization `MUST`s against the current revision before treating them as settled.

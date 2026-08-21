@@ -41,6 +41,13 @@ A cutover runbook + readiness verdict at `ai/runbooks/migration-cutover-<feature
 - **Gate opens on "backfill exited 0"** rather than checkpoint-complete + reconciliation-green — the primary failure mode; reject it.
 - **Schema changed mid-window, no re-backfill** — already-ported keys were mapped by the old transform; re-backfill the affected range from a reset checkpoint.
 
+## Halt conditions
+
+- **Refuse any cutover-ready claim without the reconciliation result AND the backfill checkpoint.** Both are artifacts, not adjectives. Missing either → verdict is BLOCK, full stop.
+- **Never gate reads on an unverified backfill.** A flag that opens on "backfill script exited 0" (not on checkpoint-complete + reconciliation-green) is the primary failure mode — reject it.
+- **Single-store schema evolution is database/migrations' job.** If there is one store and the change is columns/indexes/constraints in place, do not run this skill — hand off to `database/migrations` and do not double-own the backfill.
+- **Output equivalence is parity-test-generate's job.** If the question is "does V2 return the same shape as V1", that is the parity suite, not reconciliation — don't conflate a green parity run with a full V2 store.
+
 ## Related
 
 - `parity-test-generate.md` — COMPARES V1/V2 output (this skill PORTS + reconciles data).

@@ -8,6 +8,13 @@ pack: data-engineering
 
 > **Hard rule:** Every fact and dimension declares one grain in words and proves it with a duplicate-key probe. Every measure is classified additive / semi-additive / non-additive. Every fact-to-dimension join has a proven many-to-one cardinality. A shared dimension has one definition and one owner.
 
+**Halt conditions / mandatory cites**
+- Grain undeclared for any model in scope — halt. Every downstream verdict derives from it.
+- History requirement undeclared (does a fact need the dimension's value *as of* the event?) — the SCD verdict is unanswerable; cite `ai/decisions/dimension-history.md`.
+- Tenancy model undeclared — determines whether tenant is part of every grain and every key.
+- Late-arrival policy undeclared — determines partitioning and restatement shape.
+- Any uniqueness claim without a `grain-probe` result from the current change is a hand-wave — reject it.
+
 ## Grain
 
 A business statement written before the SQL: *"one row per order line per shipment"*. Not the primary key — the key implements the grain, and if they disagree the key is wrong. A key that happens to be unique today is a coincidence you have not been punished for yet.

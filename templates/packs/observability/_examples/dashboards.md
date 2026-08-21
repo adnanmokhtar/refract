@@ -8,6 +8,14 @@ pack: observability
 
 > **Hard rule:** Dashboards follow a tiered taxonomy (fleet overview → per-service → instance/debug drill-down), lead with RED/USE rows, are version-controlled as code (not hand-clicked), and every alert links to the panel that explains it while every panel answers a stated question. A hand-clicked board with no alert linkage and no drill path is forbidden.
 
+**Halt conditions / mandatory cites**
+- Each dashboard MUST be defined as code at `<path>` (Grafana JSON / Terraform / Grafonnet / vendor-as-code) — a board that exists only in the UI, with no file, is a bug — reject.
+- Each alert MUST cite the panel (dashboard + panel id / link) it drills into; an alert with no linked panel is a bug — reject.
+- Each service dashboard MUST have a RED row (request-driven) and, where it owns resources, a USE row; a service board missing its RED row is a bug — reject.
+- Each panel MUST answer a stated question (title or annotation); a panel that answers no question is a vanity panel — flag for removal.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is dashboarded".
+- If the dashboard backend (the project's Grafana / vendor / provisioning tool — whatever is in use) isn't extracted, halt.
+
 **When to apply** — a service/fleet has enough surface that on-call needs "is anything broken, and where?" in under a minute; a new service ships (its RED/USE board is part of done); an alert can't get a responder to the explaining graph in one click.
 
 **When NOT to apply** — a one-off script (exit code + log + absent-alert is the whole story); a throwaway prototype with no on-call.

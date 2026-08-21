@@ -7,6 +7,16 @@ description: Scan the repo (including git history) for leaked secrets — API ke
 
 Detect committed secrets in working tree, staged changes, and recent git history.
 
+## Premise
+
+Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line>`, the matched rule (gitleaks rule id / trufflehog detector name), and a redacted excerpt of the match. The provider is identified by prefix when possible (`sk_live_`, `AKIA`, `ghp_`, `-----BEGIN ... PRIVATE KEY-----`). High-entropy hits are flagged separately from prefix-matched hits — entropy alone is suspicion, prefix is confirmation. Allow-listed test fixtures are documented in `.gitleaksignore`, not silently dropped. "Looks like a secret" without rule + redacted match is not a finding.
+
+## Halt conditions
+
+- Halt on any finding without `<commit>:<path:line>` + rule id + redacted excerpt.
+- Halt on rotation/purge instructions that skip the rotate-first step (deleting the commit does not invalidate the credential).
+- Halt on entropy-only findings that don't separate "high entropy near `token`/`secret`/`password` identifier" from "long config string".
+
 ## When to use
 
 - Before any first push to a public remote.

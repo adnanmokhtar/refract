@@ -6,6 +6,18 @@ description: Pre-commit gate — mechanical + agent review on staged changes. Bl
 
 Run right before committing. Scoped to staged diff only — faster than `/check-health`.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing checks are the truth. Mirror the project's lint/typecheck/test commands; don't inject new ones.** The repo already declares its quality gates — manifest scripts, `Makefile` targets, `pyproject.toml`, the pre-commit/hook config, the project's `CLAUDE.md` quality section. This command runs THOSE commands on the staged scope. It does NOT introduce a parallel toolchain, add stricter flags, or reformat with a different style.
+
+**The closure verb is `gate`.** This command never authors files. It returns exactly one of `APPROVED` (mechanical green + agent green), `APPROVED_WITH_REQUESTS` (green with non-blocking notes), or `REQUEST_CHANGES` (at least one blocker; commit refused).
+
+**Forbidden:** asking the user style-flag questions ("tabs or spaces?", "max line length?") — the project's lint config is the answer, fix to match; inventing a typecheck/lint/test command the project does not declare; continuing past a red mechanical step to "see what the agents say"; padding nits to look thorough.
+
+**Mechanical halt — refuse to advance on red:** if lint / typecheck / test returns non-zero on the staged scope, the gate HALTS at the mechanical phase, does NOT dispatch agents, and emits nothing beyond `REQUEST_CHANGES (mechanical-red)`. Fix the toolchain failure, re-stage, re-run.
+
+**Lightweight default.** Staged scope only. No full-repo passes, no historical commits, no rebuild from clean.
+
 ## Phases applied
 
 VALIDATE type — Phase 6 dominates. Phase 4 = the agent verdict; Phase 5/7 minimal (this command doesn't change files; it gates the commit).
@@ -52,6 +64,11 @@ PATH-BASED reviewer selection:
 - If a recurring blocker class emerges (e.g. third commit this week with same pattern), queue to `ai/dynamic/feedback-learned.md`.
 
 ## Phase 6 — Validate (the bulk of this command)
+
+### Comprehension gate (change-brief)
+- Dispatch the `change-brief` skill (mode B — validate; mode A — generate first if the commit body has none) when the staged change matches a trigger tier (> 20 lines, new dependency / public symbol / abstraction, touches I/O / auth / payments, changes an error path / default / permission gate).
+- The brief's 5 fields (What / Why this shape / Edge cases / Blast radius / Verified by) must PASS the skill's hand-wave + citation + echo + verification checks. Missing or failing brief = **blocker** — "the code runs" is not "the code is owned".
+- Exempt: typo/comment fixes, mechanical renames, formatting, lockfile-only, generated files. Don't manufacture ceremony on trivial diffs.
 
 ### Mechanical (parallel, scoped to staged files)
 - **Lint** — only on staged files (most linters support paths).

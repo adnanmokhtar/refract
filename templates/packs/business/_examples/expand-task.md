@@ -6,6 +6,16 @@ description: Turn a one-line task into a full implementer-ready prompt with cont
 
 Most "fix login bug" / "make orders faster" tickets are one line. This produces a structured prompt an implementer (or `/add-feature` / `/fix-bug`) can execute.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing specs are the truth.** This command produces a sibling artifact in the team's `specs/` shape — same sections, same terminology, same Given/When/Then phrasing, same in/out scope discipline, same Suggested-flow tail. The expansion is **structurally identical** to a hand-written spec; only the inputs change (one-liner vs full brief). Inventing a new shape because "this is just an expansion" defeats downstream tools (`/add-feature`, `/fix-bug`) that expect the canonical shape.
+
+Read 1-2 sibling specs in `specs/` to lock the section list + terminology, mirror them, cite the brief on every line, and leave stakeholder-decision items flagged rather than invented.
+
+**The agent does NOT** skip the sibling-spec read · run more than one clarification round · fabricate `Affected modules` (each path is grounded in `ai/modules.md` or actual file existence) · suggest more than one next command · tag every criterion MVP.
+
+**Mechanical halt — sibling-shape parity (mandatory before Phase 4 generate):** before producing the expanded spec, name the 1-2 sibling specs read (`specs/*.md` paths), confirm the same section list + ordering, confirm Given/When/Then phrasing matches sibling AC style, and confirm `Affected modules` paths exist (grep `ai/modules.md` or the filesystem) — fabricated paths halt the run. **If no sibling specs exist — HALT.** Confirm the template with the user; do not invent shape from training data. A spec produced without sibling-shape parity is rejected; regenerate or halt.
+
 ## Phases applied
 
 1, 2, 3, 4, 5, 7. Phase 6 (Validate) is light — this command produces a spec, not code; validation = "user confirms spec is right".
@@ -161,3 +171,14 @@ Next: /add-feature specs/20260424-orders-performance.md
 - Acceptance criteria as Given/When/Then forces concrete tests later. Vague criteria = vague tests = missed bugs.
 - Out-of-scope is as important as in-scope. Anti-scope-creep prevents the implementer from building "nice to haves" not asked for.
 - Suggested next command is always ONE. Multiple suggestions = ambiguity at handoff.
+
+## Hard rules
+
+- **One clarification round, then commit or stop.** Multiple rounds = the brief was too vague to start. Send it back.
+- **Every acceptance criterion is testable.** Vague AC ("works well") rejected; restate as Given/When/Then.
+- **Out-of-scope explicit, not implicit.** Without explicit anti-scope, implementers build what wasn't asked for.
+- **Cite the brief.** Every claim in the spec ties back to a sentence in the original brief OR a clarification answer. No invented requirements.
+- **Stakeholder-decision items flagged, not invented.** "Should this support X?" → ask, don't guess.
+- **Roadmap-aware.** Brief that contradicts `ai/status.md` declared phase = halt + surface scope-creep concern.
+- **Suggested next command = ONE.** Multiple = ambiguity at handoff = wrong thing built.
+- **No PII in the spec.** If the brief mentions specific user data, redact in the published spec.

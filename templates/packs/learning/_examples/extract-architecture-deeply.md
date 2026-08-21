@@ -2,6 +2,11 @@
 name: extract-architecture-deeply
 description: Round-two deep architecture extraction — analyzes top-level package/module import graph, traces representative request lifecycles end-to-end, identifies bounded-context boundaries, locates cross-cutting concerns. Output is a structured architecture map with file:line citations. Used by /setup-project Phase 2.8 in REFINE mode to upgrade round-one architecture detection from "this is layered MVC" to a concrete layer diagram + 3-5 traced lifecycles.
 ---
+<!-- generated-from: templates/packs/learning/skills/extract-architecture-deeply/SKILL.md
+     Literal-copy fallback: this file carries its source verbatim because the source has no
+     droppable section left once the safety block is kept. Declaring it makes check 8b compare
+     the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source changes —
+     do not hand-edit; edit the source and re-copy. -->
 
 # Skill: extract-architecture-deeply
 
@@ -10,6 +15,21 @@ description: Round-two deep architecture extraction — analyzes top-level packa
 Round-one Phase 2 detects the architectural shape from folder structure + framework conventions ("controllers/", "services/", "repositories/" → "this is layered MVC"). That gets you the floor (knowing which packs to apply).
 
 Round-two needs the actual graph. A first-pass `ai/architecture.md` says "controllers depend on services depend on repositories." Round-two says "the request lifecycle for `POST /api/invoices` is: `app/controllers/invoices.py:Invoice.create:42` → `app/services/billing.py:BillingService.create_invoice:128` → `app/repositories/invoice.py:InvoiceRepository.persist:67` → `INSERT into invoices...` (transaction wraps lines 130-145, fans out to `LedgerService.append_entries:215` after persist). The `auth` middleware injects user at `app/middleware/auth.py:34` ahead of the controller; tracing is via `tracing.py:23` decorator." That second version is anchorable.
+
+## Premise
+
+- Real source is the truth. Read every handler in the traced lifecycle — entry, every middleware in the chain, every called function down to the I/O boundary — before writing the YAML.
+- Every step, layer name, boundary, and cross-cutting concern cites `<path:line>` resolvable at the current commit.
+- The import graph is computed from real `import`/`require` statements, not from folder naming conventions.
+- Empty extraction is honest — a `not detected` row for a missing concern + the WEAK gate are valid outputs.
+- Fabrication — inventing a layer from a folder name, a middleware that's defined-but-never-registered, or a lifecycle from framework defaults — is the failure mode the WEAK gate flags.
+
+## Mechanical halt
+
+- Hand-wave grep on architecture output — `etc.`, `...`, `the usual layers`, `roughly layered`, `appears MVC-ish`, a step listed without `<file:line>` — REFUSE to advance.
+- Rewrite the offending block with concrete citations OR downgrade the section to `[REFINE-WEAK: architecture]`.
+- If a cross-cutting concern is genuinely absent (no rate-limiter, no tracing), record `<NOT-DETECTED: <reason>>` (e.g. `<NOT-DETECTED: no middleware registered for rate-limiting>`).
+- Never synthesize a "framework default" the codebase doesn't actually wire up — the rate-limit-or-tracing gap is the finding.
 
 ## When to use
 

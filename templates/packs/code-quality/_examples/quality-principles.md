@@ -8,6 +8,8 @@ pack: code-quality
 
 Prevents the slow death: dead code, copy-paste rot, comment lies, and "TODO" graveyards.
 
+> **Hard rule.** Functions MUST be ≤ 30 lines, MUST have one reason to change, and MUST use named domain exception types. Dead code, commented-out code, `console.log` / `print` debug statements, untyped `any` casts at boundaries, and undated/unowned `TODO`s are forbidden — they fail review and the linter.
+
 ## Must
 
 - One reason for a function / class / file to change. If you say "and" describing it ("validates AND saves AND notifies"), split it.

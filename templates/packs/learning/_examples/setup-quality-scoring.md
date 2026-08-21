@@ -5,6 +5,15 @@ description: The four-axis anchor-density model used to score generated artifact
 
 # Pattern: setup-quality-scoring
 
+> **Hard rule** — Every score axis is computed from verified citations against `_extracted-codebase.md` / `_refine-extract.md`; ghost identifiers and ghost paths deduct 5 each. A bare "plateau reached" string without a class tag (DEEP / WEAK / NOT-PLATEAU) is forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite each scored identifier against extraction (`<path:line>` in `_extracted-codebase.md` or `_refine-extract.md`); uncited identifier = ghost = -5.
+- Cite each scored path's existence; out-of-bounds line numbers in `file:line` cites are halts.
+- Cite the WEAK extraction phases by name when emitting PLATEAU-WEAK; bare PLATEAU is forbidden.
+- Cite the prior `_setup-quality.md` run by `<path>` when computing `plateau_delta`; without baseline, verdict is `NOT-PLATEAU`, never `PLATEAU-DEEP`.
+- Hand-wave grep ban — never claim "all artifacts anchored" without citing each artifact's score row in `_setup-quality.md`.
+
 ## Why this exists
 
 REFINE rewrites only artifacts whose round-one anchor is shallow. To decide which is "shallow," we need a deterministic score, not a vibe check. Without a score:

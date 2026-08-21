@@ -8,6 +8,8 @@ pack: mobile
 
 Prevents the failures that get apps rejected from stores or 1-starred: bad networks crash the app, tokens leak, permissions feel hostile, store policies miss.
 
+> **Hard rule.** Auth tokens, payment data, and health data MUST live in Keychain (iOS) / Keystore (Android) — never in plain `AsyncStorage` / `SharedPreferences` / `UserDefaults`. Permissions MUST be requested in-context with a pre-prompt; every network call MUST have a timeout + UI error path; crash reporting MUST be wired before first beta with `dSYM` / `mappings.txt` uploaded.
+
 ## Must
 
 - Tokens, passwords, encryption keys go to Keychain (iOS) / Keystore (Android, with `EncryptedSharedPreferences`) — never `UserDefaults`, plain `AsyncStorage`, plain `SharedPreferences`. React Native: `react-native-keychain`. Flutter: `flutter_secure_storage`.

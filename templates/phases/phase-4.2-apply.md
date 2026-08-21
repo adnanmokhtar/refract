@@ -29,6 +29,8 @@ For each track in AUTHOR mode:
 
 Output: same destination paths as COPY mode (`.claude/agents/`, `.claude/rules/`, `ai/patterns/`, etc.), same Phase 5 verification (file presence + minimums + retry). Difference is purely in how the content was produced.
 
+> **The fallback IS the artifact, and it is only PARTLY gated as one.** Because step 2 copies `_examples/<topic>.md` verbatim to the real destination, whatever that file says is what the project runs on — for greenfield, for `--lightweight`, and for every `[EXTRACTION-WEAK]` track Phase 4.0 routes here. Pack authors: `validate-pack-consistency.sh` check 8b compares each `_examples/` file against the source it abridges on the axes a text comparison can decide — a framed magnitude, dispatch target, or frontmatter value the source disowns; a dropped load-bearing section or safety signal; a body that is secretly a literal copy — with the known backlog enumerated in `templates/packs/_fallback-baseline.md`. **It does not read either file.** A source edit that retracts a non-numeric rule, or flips a `MUST` to a `MUST NOT`, leaves the stale fallback GREEN — verified, not assumed. So re-cutting a fallback after editing its source is the author's obligation, and a green gate is not evidence you have met it. See CONTRIBUTING §5b for the exact list of what is and is not caught.
+
 **Pack structure for AUTHOR mode** (the pack-author's contract — how packs SHIP topics for this to work):
 
 ```

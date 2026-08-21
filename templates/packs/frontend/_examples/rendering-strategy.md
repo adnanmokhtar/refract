@@ -6,6 +6,15 @@ pack: frontend
 
 # Pattern: Rendering Strategy
 
+> **Hard rule:** Every route **declares its rendering contract** — which regions are static, which are dynamic, where the streaming boundary sits — and documents why. An *undeclared* mix is forbidden; a *declared* one is now the mainstream shape (a static shell with dynamic holes behind Suspense is what partial prerendering ships). Changing a route's contract without measuring the TTFB / LCP impact is forbidden either way.
+
+**Halt conditions / mandatory cites**
+- The chosen strategy MUST cite the route file at `<path:line>` AND the metric (LCP, TTFB, freshness window) it optimizes.
+- Any "ISR with revalidate=N" choice MUST cite the staleness tolerance from product, not a guess.
+- A doc proposing strategy change without before/after Core Web Vitals numbers is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when classifying a route.
+- If the framework's actual rendering primitive (App Router vs Pages, Nuxt 3 mode, etc.) isn't extracted, halt.
+
 Declare the rendering contract per route — which regions are static, which are dynamic, where the streaming boundary sits. An *undeclared* mix is what breaks; a declared static-shell-plus-dynamic-holes route is the shape frameworks now ship.
 
 ## The options

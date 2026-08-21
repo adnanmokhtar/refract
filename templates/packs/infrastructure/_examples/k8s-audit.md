@@ -5,6 +5,18 @@ description: Audit a running K8s cluster (or its manifests) for safety, HA, secu
 
 # k8s-audit
 
+## Premise
+
+Find real issues. Every finding cites a `<resource>` (Deployment/Service/Pod/Namespace + name), the cluster it lives in, and the manifest path or `kubectl get` query that surfaced it. "No NetworkPolicy in namespace X" is grounded in `kubectl get networkpolicy -n X` returning empty. "Running as root" cites the pod spec field that's missing or `runAsUser: 0`. Cost findings cite the actual idle / unattached resource by name + size.
+
+## Halt conditions
+
+- Refuse to flag "no HA" without checking both `replicas` and any HPA covering the Deployment.
+- Refuse to call a pod "root" without inspecting `securityContext.runAsUser`.
+- Halt on hand-waves like "looks over-provisioned" — cite the request vs measured-usage numbers.
+- Halt on any finding that cannot cite the concrete tool-output line / parsed spec field it fired on (see the Checks tool-output → citation table) — no cite, no finding.
+- Don't propose auto-fix; report and let humans decide.
+
 ## Tools (install on first run)
 
 - `kube-score` — static manifest analysis

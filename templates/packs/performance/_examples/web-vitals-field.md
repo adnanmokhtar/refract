@@ -7,6 +7,14 @@ description: Measure Core Web Vitals in the FIELD with attribution — wire the 
 
 Field Core Web Vitals **with attribution**, or it is not a finding. Lighthouse runs one synthetic load with zero real interactions — it cannot field-measure INP (the headline CWV since March 2024). A reported INP/LCP without an attributed target + sub-part is a halt.
 
+## Premise
+
+Field Core Web Vitals **with attribution**, or it is not a finding. Lighthouse runs one synthetic load with zero real interactions — it cannot field-measure INP (Interaction to Next Paint), the headline Core Web Vital since March 2024. The truth comes from real users: the `web-vitals` library's attribution build reports each metric AND the element + timing sub-part responsible, so a regression is citeable ("INP 340ms → `button.add-to-cart`, 280ms in processing") instead of a bare number.
+
+A reported INP/LCP without an attributed target + sub-part breakdown is a halt, not a finding.
+
+This skill stands up the measurement; `bundle-perf` / `lighthouse-ci` consume the budgets, `inp-responsiveness` fixes the INP causes it attributes, and `navigation-speed` consumes the per-route (soft-navigation) INP it surfaces.
+
 ## Procedure
 
 ```ts

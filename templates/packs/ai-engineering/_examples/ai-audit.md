@@ -15,10 +15,18 @@ Audit command. Phases 1-3 + 6 dominate; Phase 4 = ranked findings; Phase 5 logs 
 
 **Every finding cites `<path:line>` + a real excerpt + its closure verb** (for an absence, the concrete site that should carry it). **No number this run did not read** — no projected saving, no estimated recall, no hypothetical hit-rate; otherwise `UNMEASURED` + what would settle it. **The eval axis governs the verdict: never a green verdict on an `UNVERIFIED` eval axis.** **Security is routed, never graded** — output→sink, injection, excessive agency, cross-tenant retrieval go to `@llm-security-reviewer`, by site.
 
+## Mechanical halt — hand-wave grep
+
+See [`templates/snippets/hand-wave-grep.md`](../../../snippets/hand-wave-grep.md). Use the audit report draft as the grep target; anchors are `<path:line>` / `<index name>` / `<eval case-id>` per the premise above. **Also** grep for AI-audit tokens: `should be fine`, `probably`, `roughly`, `approximately`, `~%`, `several call sites`, `and N others`, `looks correct`, `seems tuned`. A bypass count without every site enumerated is a hand-wave; so is a recall or cost figure with no run behind it.
+
 ## When to use / NOT to use
 
 - USE: an inherited LLM feature nobody measured; pre-launch hardening; "why is our LLM bill like this"; a whole-repo sweep with no diff.
 - NOT: building a feature (`/add-ai-feature`) · a security-only ask (`/security-audit`) · running an existing set (`eval-run`) · building one (`/add-eval-set`) · the learning pack's `/eval` (the knowledge base — a different subject).
+
+## Phases applied
+
+AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = ranked findings; Phase 5 writes the audit artifact; Phase 7 surfaces systemic patterns.
 
 ## Phase 1 — Understand
 
@@ -51,9 +59,17 @@ BLOCKER: no eval set on a shipped feature · an eval that does not gate · an un
 
 Verbs come only from the owning pattern's list (`evals`, `prompt-engineering`, `rag-pipeline`, `vector-store-ops`, `agent-design`, `llm-gateway`, `fine-tuning`) — never invented.
 
-## Phases 5–7
+## Phase 5 — Update
 
-**Update**: `ai/audits/<YYYY-MM-DD>-ai.md` (coverage table, findings + verbs, handoffs, each `UNVERIFIED` axis + its unblocking step) · changelog · `ai/status.md` on any BLOCKER or `UNVERIFIED` eval axis. Nothing else is written. **Validate**: every axis graded (`PASS`/`REQUEST`/`BLOCK`/`N-A`/`UNVERIFIED`), every finding has site + impact + fix + verb, no unread number, verdict matches the body. **Improve**: a finding class seen in two audits is SYSTEMIC → ADR + a mechanical guard (import-boundary lint for the seam, a CI grep for uncapped generations, a required eval step).
+`ai/audits/<YYYY-MM-DD>-ai.md` — the full report: the six-axis coverage table, every finding with its site + verb, the security handoff list, and each `UNVERIFIED` axis with its unblocking step. This artifact is what the next run diffs against. `ai/dynamic/changelog.md` — one line. `ai/status.md § Recent Changes` — a bullet on any BLOCKER or any `UNVERIFIED` eval axis. **Nothing else is written**: this command does not edit code, does not tune a parameter, and does not create an eval set.
+
+## Phase 6 — Validate
+
+Every finding has a site, an impact, a fix, and a closure verb. Every axis has a grade — `PASS` / `REQUEST` / `BLOCK` / `N-A` (signal absent) / `UNVERIFIED` (could not be measured); no axis is blank. No number appears that this run did not read. The verdict matches the body: `BLOCK` iff ≥1 BLOCKER; `REQUEST_CHANGES` iff ≥1 REQUEST and no BLOCKER; a clean verdict only when neither — **and never while the eval axis is `UNVERIFIED`**. Every security-shaped finding appears in the handoff list, by site, and nowhere in the graded axes as though it had been cleared. Findings de-duped across axes — one defect, one row.
+
+## Phase 7 — Improve
+
+`/learn-from-task` — capture each finding class. A finding class that appears in **two** audits (check prior `ai/audits/<date>-ai.md`) is SYSTEMIC: queue an ADR proposal and a mechanical guard — an import-boundary lint for the gateway seam (AI-8), a CI grep for an uncapped generation (AI-3), a required eval step on LLM paths (AI-2). Repeated retrieval misses of the same shape → the labelled set is missing a case class; wire the incident→case path. If the same axis comes back `UNVERIFIED` twice, that is itself the top finding of the second audit — an unmeasurable surface is not improving, it is accumulating.
 
 ## Output
 

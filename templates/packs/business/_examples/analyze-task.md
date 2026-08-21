@@ -6,6 +6,16 @@ description: Turn a rough business idea into structured requirements, user stori
 
 Build command for the spec layer (not code yet). Two-pass: business spec → confirmation → technical spec. All 7 phases apply with a hard pause between Phase 4a and 4b.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing specs are the truth.** The repo's `specs/` folder is the canon of how this team writes a spec — section names, terminology, stakeholder fields, acceptance-criteria phrasing, scope-tag format (MVP/v2), risk + rollout shape. A new spec is a **sibling**, not a new style. Inventing sections / renaming `Acceptance criteria` to `Behavior` / dropping `Out of scope` because the brief is small — these are drift, not improvement.
+
+Read 2-3 recent specs in `specs/` before drafting; mirror their section list, ordering, terminology and MVP/v2 tagging; diverge only where the new task's domain genuinely demands it, and document the divergence in 1 line at the top. Use the team's own vocabulary — if specs say "tenant" never write "workspace".
+
+**The agent does NOT** invent sections no sibling spec has · drop required sections because the brief is short · skip the confirmation gate between 4a and 4b (exception: `--decisions` supplied up front, where the round is already complete) · tag every criterion `MVP` · substitute its own assumptions for stakeholder answers · add a second home for confirmed answers (`Gate answers`, `Confirmed decisions`, …) — answers live in `Resolved decisions` only.
+
+**Mechanical halt — sibling-shape parity (mandatory before the Phase 4a draft):** before dispatching `business-analyst`, list the 2-3 sibling specs read (`specs/*.md` paths), name the section list they share, and confirm the new spec uses that exact list in that order. **If no sibling specs exist — HALT.** Ask the user to confirm the spec template; do not invent one from training data. Section renaming or invention without a sibling precedent is rejected and the spec is regenerated mirroring siblings.
+
 ## When to use / NOT to use
 - USE: owner / stakeholder gave a one-liner that needs unpacking before code.
 - USE: sibling of `/expand-task` — reach for `/analyze-task` when an idea needs a full business + technical spec; reach for `/expand-task` when a one-liner just needs an implementer-ready prompt. Neither consumes the other.
@@ -124,3 +134,18 @@ Status: AWAITING CONFIRMATION (gate between 4a + 4b) | INSUFFICIENT BRIEF | EPIC
 - Mutation/external-call story with only happy-path ACs → error-path floor unmet.
 - Resume/`--decisions` adds a new `Gate answers` section instead of folding into `Resolved decisions` → sibling-shape drift; decisions get one home, not three.
 - Oversized multi-context spec → flag `EPIC`, propose sibling specs.
+
+## Hard rules
+
+- **Two-pass with mandatory PAUSE between 4a and 4b.** Confirmation gate is non-negotiable. Skipping it produces wrong code.
+- **Every user story has Given/When/Then acceptance criteria.** Vague AC = vague tests = missed bugs.
+- **Out-of-scope section non-empty.** Without explicit anti-scope, scope creep guaranteed.
+- **MVP / v2 tagging on every criterion.** Don't ship "everything is MVP" specs.
+- **No invented requirements.** Every spec line traces back to brief or stakeholder answer.
+- **ADR-aware.** Spec that conflicts with an active ADR halts; surface the conflict, don't redesign around it.
+- **One spec at a time.** Don't expand a brief that already has a spec — point at the existing spec.
+- **Traceability is mandatory.** Every AC maps to exactly one test-plan item + ≥1 module; every module traces to ≥1 AC. No orphan ACs, no fabricated modules.
+- **Insufficient brief halts.** If the brief can't answer who / what / why / success-metric, or open questions outnumber stories, ship `INSUFFICIENT BRIEF` — never guess to fill the spec.
+- **Observable ACs only.** Every `Then` asserts a measurable outcome; mutation / external-call stories carry ≥1 negative-path AC.
+- **Stable Spec-ID.** Each spec gets a `Spec-ID` at creation; it never changes (including across `--resume`) and is cited by `/add-feature`, PRs, and commits.
+- **Epic discipline.** Specs over ~5-7 stories or >1 bounded context split into sibling specs with a dependency note — never one oversized spec.

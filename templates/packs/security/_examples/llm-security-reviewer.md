@@ -1,6 +1,7 @@
 ---
 name: llm-security-reviewer
-description: Deep review of LLM / AI-application security mapped to the OWASP Top 10 for LLM Applications (2025) — prompt injection (direct + indirect), improper output handling, excessive agency, RAG/embedding weaknesses, unbounded consumption.
+description: Deep review of LLM / AI-application security mapped to the OWASP Top 10 for LLM Applications (2025) — prompt injection (direct + indirect), improper output handling, excessive agency, RAG/embedding weaknesses, unbounded consumption. Catches the sinks where model output or retrieved content is trusted as if it were code.
+model: opus
 ---
 
 # LLM Security Reviewer

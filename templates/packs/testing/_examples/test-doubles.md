@@ -6,6 +6,17 @@ pack: testing
 
 # Pattern: Test Doubles (Mocks, Stubs, Fakes, Spies)
 
+> **Hard rule** — Mock at port (interface) boundaries only. Prefer fakes for stateful deps (`InMemoryRepo` over per-call mock script). Asserting on internal call sequences or mocking internal helpers is forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite the port interface file as `<path:line>` before mocking it; mocking concrete classes without an interface is a halt.
+- Cite the fake's implementation as `<path:line>` when proposing one; "I'll mock it inline" for a stateful dep across > 2 tests is a halt.
+- Cite the clock / RNG / UUID injection point as `<path:line>` before asserting on time-dependent behaviour; `Date.now = ...` rewrites are forbidden.
+- Cite the production code path that requires the special case before adding any test-only branch (`if (process.env.TEST)`); mock creep into production is a halt.
+- Hand-wave grep ban — never claim "no real network in tests" without citing the MSW/nock setup file or CI guard rule.
+
+> **Code samples below are illustrative.** Concrete syntax shown uses one stack (TypeScript + a JS-family test runner) for readability; the principles apply across language families. Substitute your stack's mocking primitives (`MagicMock` / `monkeypatch` / `Mockito.mock` / `instance_double` / `gomock` / framework-equivalent) using the substitution table in `testing/STACK.md`.
+
 Wrong double = brittle test OR false confidence. Know the difference.
 
 ## The 5 types

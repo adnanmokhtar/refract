@@ -26,6 +26,11 @@ Detect + mirror the project's harness — never impose a second one:
 
 No harness detected → HALT — run **`/add-eval-set <feature>`** first (design in `ai/patterns/evals.md`), then re-run. That command builds the dataset + scorers + declared threshold + committed baseline + CI gate and dispatches this skill for the first measured run.
 
+## When to run
+
+- Every prompt / model / temperature / retrieval / routing change; in CI as a merge gate.
+- Dispatched by `@ai-feature-reviewer`, `/add-ai-feature` Phase 5, `/ai-audit` (eval axis), and `/add-eval-set` Phase 5.
+
 ## Procedure
 
 1. Detect + load the **versioned** dataset + configured scorers (record version/commit).
@@ -50,18 +55,13 @@ Regressions:
 Verdict: FAIL — do not merge. Baseline NOT updated.
 ```
 
-## gotchas
+## False positives / gotchas
 
 - LLM-as-judge is non-deterministic — pin judge model/temp/seed; a small delta may be noise.
 - Small eval sets (<~30 cases) are noisy — one flipped case swings the aggregate.
 - Don't overfit prompts to the eval set; grow it from real production failures.
 - Don't eval on the few-shot examples (measures memorization).
 - A provider timeout/429 is infra flake, not a regression — retry the case.
-
-## When to run
-
-- Every prompt / model / temperature / retrieval / routing change; in CI as a merge gate.
-- Dispatched by `@ai-feature-reviewer`, `/add-ai-feature` Phase 5, `/ai-audit` (eval axis), and `/add-eval-set` Phase 5.
 
 ## Halt conditions
 

@@ -193,7 +193,7 @@ Phase 5 audit, `/migration-status` SLA flags, `parity-auditor` PR hard-fails, Ph
 
 ## Anti-patterns (named)
 
-The full named catalogue — **Zombie Port · Transposition Trap · Bundled Cutover · Stale Oracle · Silent Break · Test-by-Test Port · Eternal Shadow · Buried Perf "Improvement" · V1 Deletion Sprint · Trusted Summary · Hand-waved Query Param · Optimistic Form Field Match · Permission-gate Drop · Guessed Type · Reinvented Wrapper · Silent Catch · Wrong Lifecycle Hook on Nested Child · Misplaced i18n Key · Consumer Compensation** — with fingerprints, real-world costs, and fixes is in `.claude/references/migration-discipline-catalogue.md § Anti-patterns`. The names above are load-bearing vocabulary; audits cite them; the catalogue holds the definitions.
+The full named catalogue — **Zombie Port · Transposition Trap · Bundled Cutover · Stale Oracle · Silent Break · Test-by-Test Port · Eternal Shadow · Buried Perf "Improvement" · V1 Deletion Sprint · Trusted Summary · Hand-waved Query Param · Optimistic Form Field Match · Permission-gate Drop · Guessed Type · Reinvented Wrapper · Silent Catch · Wrong Lifecycle Hook on Nested Child · Misplaced i18n Key · Consumer Compensation · Auto-import Trip** — with fingerprints, real-world costs, and fixes is in `.claude/references/migration-discipline-catalogue.md § Anti-patterns`. The names above are load-bearing vocabulary; audits cite them; the catalogue holds the definitions.
 
 ## References
 

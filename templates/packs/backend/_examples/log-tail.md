@@ -6,6 +6,48 @@ description: Tail structured dev logs filtered by level, correlation id, or modu
 
 Diagnostic / read-only command. Streams JSON logs from the dev server with `jq` filtering. Phases 1, 3 dominate; 4 produces a live stream; 5-7 N/A.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Pattern almost always repeats.** The reason a developer runs `/log-tail` is that something looks broken once — but in production-style systems, "once" is almost never the truth. A 500 on an endpoint is rarely the only 500; a tenant whose request leaked is rarely the only tenant; a slow query is rarely a singleton. Stopping at the first matching line is the failure mode that ships a "fix" for the surface symptom while N more instances continue silently. The tail's value is in the cluster, not the spike.
+
+**The agent's job is exactly this:**
+1. Run the filter and stream until the user SIGINTs (or the one-shot window completes).
+2. **Read the entire captured window**, not just the first match. Group lines by signature (error class + module + verb).
+3. Surface every cluster — `5 instances of TenantContextMissingError in OrdersController over 12 minutes` — not just the most recent one.
+
+**The agent does NOT:**
+- Report the first matching line and stop. **Read the full window.**
+- Collapse N occurrences into one line without surfacing the count. **Counts matter.**
+- Drop a cluster because it "looks like the same bug." **Same bug at 47 occurrences vs 1 changes the priority by two tiers.**
+- Treat a clean tail as proof of fix without running long enough to catch the cluster cadence. **Five minutes is not a window.**
+
+**The agent ONLY escalates to the user when:**
+- The user names a prod aggregator (Loki / CloudWatch / Datadog) — refuse, dev only.
+- Logs are plaintext with no structure — propose `/add-telemetry` and stop.
+- Correlation field name cannot be auto-detected after probing common keys — ask the user.
+
+## Cluster halt (mechanical gate, all tiers)
+
+**Before declaring the tail complete, scan the captured window for repeat signatures.** A signature = `(error class | log level + module | verb)` extracted from each line.
+
+Halt rule: if any signature has count > 1 in the captured window, the agent MUST surface every instance of that signature, not just the first. Output format:
+
+```
+Cluster: TenantContextMissingError @ OrdersController.list
+  Count: 5
+  First: 2026-04-30T10:14:02Z
+  Last:  2026-04-30T10:26:48Z
+  Correlation ids: cor_abc, cor_def, cor_ghi, cor_jkl, cor_mno
+  Sample line: { "level": "error", "msg": "...", ... }
+```
+
+Forbidden:
+- Reporting only the first or last match when count > 1.
+- Saying "and similar errors followed" — enumerate every correlation id.
+- Collapsing a 47-instance cluster into "saw it a few times."
+
+If the captured window has zero clusters (every line is unique), say so explicitly — silence on cluster status is itself a hand-wave.
+
 ## When to use / NOT to use
 - USE: endpoint returned 500 and you need context.
 - USE: tracing a single request across modules via correlation id.

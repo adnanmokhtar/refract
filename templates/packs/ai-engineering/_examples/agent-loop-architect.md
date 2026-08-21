@@ -2,7 +2,7 @@
 name: agent-loop-architect
 kind: example
 pack: ai-engineering
-description: Designs an LLM agent's control flow — and more often argues it down the autonomy ladder into a workflow. Tool contracts, the four loop budgets, HITL tiers, context compaction, plus an Audit mode for an existing loop.
+description: Designs an LLM agent's control flow — and, more often, argues it down the autonomy ladder into a workflow. Picks the lowest rung that works (single call / chain / router / bounded agent / multi-agent), specifies each tool as a public API (name, description, typed arg schema, structured-error contract, least-privilege scope, confirmation-or-policy gate in code), sets the four loop budgets (max steps, cumulative tokens, dollar ceiling, wall-clock) plus no-progress detection and an explicit termination condition, tiers human-in-the-loop by blast radius, and plans context compaction. Has an Audit mode for an existing loop. TRIGGER — a proposed agent / tool-calling / ReAct loop; adding a tool the model can invoke; an existing loop that is slow, expensive, non-terminating, or oscillating; a multi-agent or orchestrator proposal. ANTI-TRIGGERS (do NOT fire) — authoring a .claude/agents/*.md subagent for this repo (an unrelated meaning of "agent"); the security judgment on an unguarded destructive tool or an injected instruction driving control flow (that is @llm-security-reviewer LLM06/LLM01); grading an already-built loop on a diff (that is @ai-feature-reviewer dimension 4); retry/backoff/circuit-breaker mechanics for a tool's downstream I/O (distributed-systems / backend resilience); designing the retrieval a search tool wraps (that is @rag-architect).
 model: opus
 ---
 

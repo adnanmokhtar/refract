@@ -6,6 +6,44 @@ description: Scaffold a new backend module end-to-end following the project's de
 
 Create a complete module. Called directly OR from inside `/add-feature`.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing modules are the truth.** The project already has modules — same layer split (core / application / infrastructure / adapters), same DI primitive, same error envelope, same naming convention, same test layout, same migration shape. That existing module IS the project's intentional truth. The new module does not get to invent a different layout. Future maintainers can't predict where things live, fixes can't be applied uniformly, and the codebase fragments by one more weight every time someone improvises.
+
+**The agent's job is exactly this:**
+1. Find ≥1 sibling module in the same pack (closest neighbor by domain shape: same multi-tenancy posture, same HTTP / queue / job mix).
+2. Read its end-to-end shape — file paths, layer boundaries, DI tokens style, error envelope, validation library, ORM mapper pattern, controller thinness, test scaffolding.
+3. Mirror that shape for the new module. Innovating without precedent is the failure mode.
+
+**The agent does NOT:**
+- Ask the user about layout / file naming / DI style. **Mirror the sibling silently.**
+- Reach for a layout from training data when a sibling exists. **Sibling wins.**
+- Draft an ADR to legitimize a deviation. **Mirror the sibling, no ADR.**
+
+**The agent ONLY asks the user when:**
+- **No sibling module exists** — this is the project's first module. Ask once, get the shape blessed, then mirror it forever after.
+- **The new module needs a primitive the project has never used** (first async queue, first webhook, first event-sourced aggregate).
+- **Cross-module coupling** — a new dependency between modules that didn't talk before; that's an ADR.
+
+That's it. Three escalation triggers. Everything else is silent sibling-mirror with the closure verbs below.
+
+## Sibling-shape halt (mechanical gate, all tiers)
+
+**Before declaring success, the auditor compares the new module's files against the chosen sibling module's files, axis by axis.** This is the same `regressed` mechanism from `parity-auditor.md` — borrowed for greenfield modules.
+
+Halt if the new module:
+- **Has files at paths that don't match the sibling layout** (e.g., `src/<module>/handlers/` when siblings live at `src/<module>/adapters/http/`).
+- **Imports utilities the sibling doesn't import** (sign of pattern drift — fetched from training data instead of mirrored).
+- **Uses an error type / DI primitive / validation library / ORM mapper style siblings don't use** (raw `try/catch` when siblings use a `Result` envelope; magic-string DI tokens when siblings use `Symbol.for(...)`; `zod` when siblings use `class-validator`).
+- **Names exports / classes / files differently** (PascalCase vs camelCase drift; `*Service` vs `*Manager` suffix drift; singular vs plural folder drift).
+- **Skips a layer the sibling has** (no mapper, no port interface, controller talks to repo directly).
+
+Halt verdict per file: `aligned` (matches sibling) | `drifted` (one or more axes diverge) | `no-sibling-found` (escalate to user).
+
+Any `drifted` → HALT before merge. Either re-shape to match the sibling (default closure) or — if the deviation is intentional and load-bearing — write an ADR justifying it and promote to heavy tier. Drift without ADR is forbidden.
+
+For trivial-tier modules, this halt is the only gate beyond lint+tests+migration. No reviewers, no telemetry sign-off — just sibling parity.
+
 ## Phases applied
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).

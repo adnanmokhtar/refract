@@ -1,5 +1,6 @@
 ---
 name: ssrf-scan
+description: Static taint-trace for SSRF egress sinks — user-controlled URL reaching an outbound fetch with no allow-list, unblocked internal/metadata ranges, hostname validated but not the resolved IP (DNS rebinding), followed redirects, dangerous URL schemes, and reachable IMDSv1. Run on any endpoint that fetches a user-supplied URL, unfurls a link, imports from a URL, or registers a webhook. Not a dependency or secret scan — `@security-auditor` A01 dispatches here for depth.
 kind: example
 pack: security
 ---
@@ -7,6 +8,10 @@ pack: security
 # Skill: ssrf-scan
 
 SSRF (OWASP A01:2025) = server makes an outbound request to a user-controlled URL/host with no allow-list → attacker reaches cloud metadata (169.254.169.254), internal services, localhost. Static taint-trace of egress sinks. Every finding cites the sink <file:line> + the user-controlled source + fix. Detect the HTTP-client + validation primitive per stack (fetch/axios/requests/httpx/http.Get/Guzzle).
+
+## Premise
+
+**Every finding cites the sink at `<file:line>` + the user-controlled source + the fix.** "Might be SSRF-able" without the cited fetch call and the tainted input is not a finding. Static taint-trace: a user-controlled value reaching an outbound-request API.
 
 ## Scans for
 
@@ -20,6 +25,22 @@ SSRF (OWASP A01:2025) = server makes an outbound request to a user-controlled UR
 ## Upload note
 
 Inbound upload (magic-byte/size/path/uuid) owned by backend file-upload + the rule MUST. Security-specific: SVG-as-image (stored XSS), polyglots, native image-parser CVE (ImageMagick/libvips).
+
+## Output
+
+```
+ssrf-scan — <route set>
+
+Findings: 2
+
+1. src/services/preview.service.ts:31                  [report-with-fix]
+   fetch(req.body.url) — user URL, no allow-list. Reachable: 169.254.169.254 (AWS metadata).
+   Fix: URL allow-list + resolve-and-pin the IP + reject private/metadata ranges + https-only.
+
+2. src/avatar/import.ts:12                             [report-flagged]
+   axios.get(url, { maxRedirects: 5 }) validates hostname but follows redirects.
+   Fix: maxRedirects: 0 (or re-validate each hop against the resolved IP).
+```
 
 ## Gotchas
 

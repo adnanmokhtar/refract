@@ -6,6 +6,22 @@ description: Scaffold a reusable component with typed props, tests, and (optiona
 
 Build command. Generates a presentational component matching the repo's framework, naming, and authoring style. All 7 phases apply.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing siblings are the truth.** Every shared primitive in `components/` is the intentional shape — its prop typing, its slot/children API, its style mechanism, its test layout. New components copy that shape silently.
+
+**The agent's job is exactly this:** find ≥2 sibling components in the same folder; mirror their authoring style (script style, prop-types convention, slot/children naming, test-file layout, story shape); add only the delta the new component actually needs.
+
+**The agent ONLY asks the user when:** no sibling exists in the target folder (truly new primitive); the name is generic (`Box`, `Wrapper`, `Container`) — reject and require a purpose-driven name; a new styling system would be needed. Everything else is silent sibling-mirror.
+
+**Prior-art gate (all tiers):** before scaffolding, search by **behaviour, not name** — does a sibling primitive already cover this capability (an existing `<StatusChip>` when asked for a `<Badge>`)? Near-duplicate found → **HALT**: surface it and ask extend / replace / deliberate parallel.
+
+**New-dependency gate (all tiers):** a package **no sibling already imports** needs justification + a **bundle-size delta** (gzipped, tree-shakeable?) before it lands — a platform API or design-system primitive is preferred by default. **HALT** on an unreviewed new dependency; no silent install.
+
+**Dispatch fallback (all tiers).** If a named agent, command, or skill is not installed in this project, perform that review inline against the corresponding pack checklist and label it as such — never silently skip the axis, and never claim a reviewer that did not run.
+
+**Lightweight default.** A new primitive that mirrors an existing sibling is code only (component + test + story if siblings have one, locale keys in BOTH locales). ADR drafts are heavy-tier opt-in only.
+
 ## When to use / NOT to use
 - USE: new shared UI primitive used in ≥ 2 places.
 - USE: replacing duplicated inline JSX/template across files (extracting a pattern).
@@ -13,6 +29,14 @@ Build command. Generates a presentational component matching the repo's framewor
 - NOT: a container with data-fetching logic — those are page-level, not components. Use `/add-crud-page` or `/add-feature`.
 
 ## Phase 1 — Understand
+
+### Intent gate
+
+If the description suggests a different intent, halt with a redirect: "enhance / improve" → `/enhance-ui` *(ui-ux pack)*; if that pack is not installed, say so and offer `/polish` (core, always present) as the visual-finish route rather than halting into nothing. "fix" → `/fix-bug`. "test in isolation" → the `component-playground` skill. Proceed only for adding a new shared component.
+
+**A redirect must land somewhere.** A halt that points at an uninstalled command is a dead end, not a redirect — name the pack, check it, and offer the installed alternative.
+### Standard inputs
+
 - Name in PascalCase (confirm with user if generic — `Box`, `Wrapper`, `Container` are blockers).
 - Purpose: ONE sentence, what it presents, no business logic mention.
 - Props with types, events emitted, slots/children.
@@ -50,6 +74,21 @@ Component-specific:
 - Test file mirroring siblings: render + props variants + interaction + a11y assertion.
 - Storybook / Histoire / Ladle entry IF those are present.
 - Run lint + the component's tests; iterate to green.
+
+### Sibling-shape mechanical halt (mandatory, all tiers)
+
+Before declaring success, compare the new component against ≥2 sibling files in the same folder. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (a new break on an unrelated axis).
+
+**Halt if any of:**
+
+- Uses raw framework primitives where the project's shared wrappers exist (raw button/input/dialog instead of the shared equivalents).
+- Lifecycle divergent from siblings — a different mount/activate hook, or a different component authoring style.
+- Locale keys present in the pivot locale but missing from any other declared locale — a silent break in the alt locale.
+- Default-true wrapper props left implicit — a wrapper whose affordance defaults to shown must be passed the explicit `false` when it should be hidden.
+- New file placed outside the folder's existing path convention.
+- A new styling system introduced where siblings use the project's existing one.
+- An above-the-fold / hero / heavy-media component whose LCP-relevant image omits the framework priority hint that siblings set.
+- A high-frequency or expensive interaction handler that runs unbounded per-interaction work — keep it inside the INP budget (yield / transition / debounce) and record how it was graded.
 
 ## Phase 5 — Update
 - `ai/dynamic/changelog.md` — one-line: `Added <Component> at <path>`.

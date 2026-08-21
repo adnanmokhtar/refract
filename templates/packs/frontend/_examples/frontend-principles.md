@@ -10,6 +10,8 @@ Stack-agnostic. Framework specifics in `references/<framework>.md` (react, vue, 
 
 Prevents the failures that ship: untyped props, business logic in templates, fetch in components, hardcoded strings, accessibility regressions, runaway bundles.
 
+> **Hard rule.** Components MUST have typed props + events (no `any`); data fetching MUST live in a hook / composable / service (never in a component body); every user-facing string MUST go through i18n with a key in every declared locale; semantic HTML + `<label>` + visible focus ring are mandatory. The LCP image MUST be prioritized (never `loading="lazy"`); web fonts MUST set `font-display`; public/indexable routes MUST ship unique metadata + canonical and be server-rendered, not a CSR shell. Hardcoded strings, untyped event handlers, and `fetch` / `axios` inside `.vue` / `.tsx` / `.svelte` bodies are forbidden.
+
 ## Must
 
 - Components small and focused. The test is **more than one reason to change**; ~150 LOC is a smell threshold that says *look*, not a rule that says *split*.

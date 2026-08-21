@@ -8,6 +8,32 @@ pack: documentation
 
 Run after EVERY significant change. Keeps `ai/` honest with reality. This command IS Phase 5 (Update) elevated to a standalone routine — it's the heavyweight version other commands invoke implicitly.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing docs are the truth, but code is the supreme truth.** Refresh = **re-derive from code; never invent**. If `ai/architecture.md` says the auth module lives at one path and the code says another, **docs lose**. The repair is to update docs to match code, not to lament the rename or to ADR-justify the doc state.
+
+**The agent's job is exactly this:** walk `git log <base>..HEAD --stat` to find what changed; for each `ai/` file, **re-derive its content from current code/state** — modules from the filesystem, env vars from `.env.example`, scripts from the manifest, schema from migrations, endpoints from controllers; where docs and code disagree, **edit docs** (code wins, always); report drift findings rather than silently fixing anything the user may need to know about.
+
+**The agent does NOT:** invent a section, pattern, ADR, or runbook with no code basis; edit `ai/architecture.md` to justify a doc/code mismatch with a "the system is being migrated" narrative; delete prior `Recent Changes` entries (always prepend); leave placeholders (`<TODO>`, `<name>`, `{{}}`) in any updated doc; or skip the cross-repo sweep — path references in `ai/` that no longer exist are silent rot.
+
+**Mechanical halt — hand-wave grep + cite-or-halt (mandatory before the refresh is written):** grep your own doc edits and reject any new line that asserts a module / file / table / endpoint / env var that does not exist; that contains `<TODO>`, `<name>`, `{{}}`, `XXX`, `TBD`; that adds a pattern to `ai/patterns/` without 2+ code instances proving it is real and reusable; that adds a straw-man ADR alternative; or that re-states a doc claim the code-derivation step contradicts. Any line that fails the grep is **dropped or rewritten from code**, not softened. Drift findings are reported in `ai/dynamic/drift-log.md` with severity.
+
+## The production bar — regenerate → diff → cite (declare PRODUCTION-GRADE or INCOMPLETE, never "a file got written")
+
+**A doc file existing, free of placeholders, with tables that render is the FLOOR, not the finish.** Those checks prove the doc is *well-formed*; they say nothing about whether it is *true*. A beautifully-rendered `ai/stack.md` naming an env var deleted three commits ago is a well-formed lie. A refresh is PRODUCTION-GRADE only when the docs were **re-derived from current source and diffed against what's committed**, their runnable examples **actually ran**, and their cross-references **resolve** — each proven by a cited probe, not asserted.
+
+**The three gates that separate FUNCTIONAL from PRODUCTION-GRADE (all wired, all cited):**
+
+1. **Drift gate (regenerate → diff → cite).** Dispatch `doc-drift-scan`. It re-derives every doc claim from the source of truth (filesystem, manifest, `.env.example`, migrations, route table) and diffs it against the committed doc, emitting `BROKEN` / `STALE` findings with paired `<doc:line>` + `<src:line>` citations. **`BROKEN` > 0 ⇒ the doc set is STALE, not production-grade.** A pre-existing `BROKEN` finding elsewhere is reported and still blocks the verdict. If the skill is not installed, run the Phase 6 fallback and record the axis `UNVERIFIED (skill absent)` — never a silent green.
+2. **Runnable-example gate.** Any touched doc carrying an executable path (setup / quickstart / copy-pasteable command sequence) is proven by dispatching `quickstart-verify` in a clean env. No runnable surface → `N/A`; couldn't execute → `SKIPPED (no clean env)`. A labelled skip, never a faked pass.
+3. **Link-resolution gate.** Every `see ADR-NNNN`, runbook path, pattern cross-ref and relative path the refresh wrote resolves to a real file. One dangling reference ⇒ not production-grade.
+
+**Terminal verdict.** After Phase 6 the run emits exactly one:
+- `Status: PRODUCTION-GRADE` — **only** when drift `BROKEN` = 0, every runnable-example gate is `PASS`/`N/A`/`SKIPPED (no clean env)`, and every link resolves. The verdict line carries the cited counts so a reader can re-check it.
+- `Status: INCOMPLETE` — the honest default whenever any gate fails or is `UNVERIFIED`. It **names every unmet item** and what would close it. Reporting `INCOMPLETE` with the list is a *success* of this command; reporting `COMPLETE` with an open `BROKEN` finding is the failure this gate exists to prevent.
+
+**Required output artifact.** The verdict reads off the `ai/dynamic/drift-log.md` entry this run appends, which MUST record `refresh <scope> — drift BROKEN=<n> STALE=<n> · examples <PASS|N/A|SKIPPED|FAIL> · links <resolved>/<total> · verdict <PRODUCTION-GRADE|INCOMPLETE>` plus the cited findings. A verdict contradicting its own counts means the refresh did not close.
+
 ## Phases applied
 
 1, 3, 5, 6, 7. Phase 2 (Organize) is light (template-driven). Phase 4 (Generate) = N/A as code; Phase 5 IS the work — generate docs.
@@ -165,6 +191,15 @@ age_days=$(( ($(date +%s) - updated_epoch) / 86400 ))
 
 Flag drift separately from the current change. Drift findings reported, not silently fixed (user may need to know).
 
+### Runnable-example + link gates (the other two production-bar axes)
+
+- For every touched doc with an executable setup/quickstart/command block, dispatch `quickstart-verify` in a clean env. Record `PASS` / `FAIL (step N)` / `N/A` / `SKIPPED (no clean env)` — never omit the axis.
+- Resolve every cross-reference the refresh wrote. Record `links <resolved>/<total>`.
+
+### Terminal gate — compute the verdict from the cited counts, then write the artifact
+
+Do not free-narrate "complete". Apply the rule from *The production bar*: `BROKEN` = 0 **and** every example gate ∈ {`PASS`,`N/A`,`SKIPPED (no clean env)`} **and** links fully resolve ⇒ `Status: PRODUCTION-GRADE`; otherwise `Status: INCOMPLETE`, naming each unmet item + what closes it. Append the machine-checkable line to `ai/dynamic/drift-log.md`.
+
 ## Phase 7 — Improve (feed the learning loop)
 
 - If drift was found: append to `ai/dynamic/drift-log.md` with severity.
@@ -231,7 +266,7 @@ git diff main..HEAD:
 ## Output
 
 ```
-✅ Doc refresh complete
+Doc refresh — <scope>
 
 Phase 1 (Understand): refresh after PR "add subscription tier management".
 Phase 2 (Organize): classified — new module, new table, new dependency, new env vars.
@@ -257,7 +292,9 @@ Recommended follow-ups:
 
 Updated: 2026-05-02 (was 2026-03-21 — 42 days old)
 
-Status: COMPLETE
+Production bar: drift BROKEN=1 STALE=0 · examples N/A · links 6/6
+Status: INCOMPLETE — 1 BROKEN drift finding (ai/architecture.md:47 → renamed path).
+        To reach PRODUCTION-GRADE: update that reference from code. Logged to ai/dynamic/drift-log.md.
 ```
 
 ## Rules

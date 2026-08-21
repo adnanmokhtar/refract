@@ -8,6 +8,12 @@ pack: finops
 
 > **Hard rule:** Cost is a driver tree from a business unit down to billed dimensions, never a single total. Every branch is labelled `measured`, `ALLOCATED (basis: <proxy>)`, or `NOT DERIVABLE — <instrumentation>`. The tree reconciles to the bill. Unallocated spend is the error bar.
 
+**Halt conditions / mandatory cites**
+- Target scale or the unit's denominator undeclared — every figure is scale × price.
+- Shared-cost allocation basis undeclared — it changes every per-unit number materially and is a business decision.
+- Cost/usage export unavailable at row level — console summaries cannot be filtered to a branch.
+- Any figure presented without one of the three labels is a hand-wave — reject it.
+
 ## The tree
 
 ```

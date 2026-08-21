@@ -6,6 +6,15 @@ pack: database
 
 # Pattern: Data Retention + PII
 
+> **Hard rule:** Every table is classified for PII, every PII column has a declared retention window enforced by a real mechanism (partition-drop / TTL job / scheduled purge), and erasure is implementable without orphaning rows or breaking referential integrity. PII stored with no retention policy, or an erasure path that a foreign key silently blocks, is forbidden. Cite the classification, the purge mechanism, and the erasure-vs-FK resolution at `<path:line>` — or halt.
+
+**Halt conditions / mandatory cites**
+- Each PII column MUST cite its classification tag AND its retention window at `<path:line>` (comment, catalog row, or naming convention).
+- Each PII table MUST cite the purge mechanism (partition drop / TTL / scheduled job) at `<path:line>`.
+- An erasure path MUST cite how each dependent FK is resolved (cascade / anonymize / SET NULL) — an unresolved `ON DELETE RESTRICT` blocking erasure is a bug, reject.
+- Hand-wave grep on `etc.`, `...`, `probably fine`, `handled elsewhere` is forbidden when claiming "PII is covered".
+- If the DB engine + version aren't extracted, halt — purge and encryption primitives are engine-specific.
+
 Every table classified for PII, every PII column with a retention window enforced by a real mechanism, and erasure implementable without orphaning rows. Owns the **schema/storage mechanics**; regulatory data-flow + compliance mapping belong to the security pack's `data-privacy-reviewer`. Extract the engine first — purge + encryption primitives are engine-specific.
 
 ## PII classification

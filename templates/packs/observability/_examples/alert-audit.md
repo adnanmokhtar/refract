@@ -7,6 +7,17 @@ description: Audit the alerting system — find dead alerts (never fire), noisy 
 
 Alert fatigue kills teams. Half of "oncall hell" is garbage alerts drowning out real ones.
 
+## Premise
+
+Find real issues. Every "dead", "noisy", "missing runbook", "missing owner" finding cites a specific alert name, the rule file path, and the query / pager-history that supports the verdict. Fire counts come from the actual alert history (the project's alerting backend API + paging service incidents) — not estimates. A "broken query" finding cites the metric name that was renamed and the commit that did it. SLO burn-rate gaps cite the SLO from `slos.md` that lacks coverage.
+
+## Halt conditions
+
+- Refuse to call an alert "dead" without the 90d fire history backing it.
+- Refuse to flag "no runbook" without grepping the rule file (cite path).
+- Halt on hand-waves like "this alert seems noisy" — produce the fire count or drop the claim.
+- Don't propose deletion without confirming nobody's runbook references it.
+
 ## Sources
 
 - **Prometheus / Alertmanager** — `rules/` YAML + alert history from Prometheus API.

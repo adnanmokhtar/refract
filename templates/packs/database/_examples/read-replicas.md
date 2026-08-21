@@ -6,6 +6,8 @@ pack: database
 
 # Pattern: Read Replicas
 
+> **Hard rule:** Any read routed to a replica MUST tolerate replication lag. A read that depends on a write the same actor just made (read-your-writes), or any correctness-sensitive read (auth, balance, authorization, uniqueness check), goes to the **primary** or uses a consistency token (session/LSN) — never blindly to a possibly-lagging replica. Routing a just-written record's read to an async replica and trusting the result is forbidden. Cite the engine + version, the replication mode (sync/async), the observed/max lag, and the read's routing decision at `<path:line>` — or halt.
+
 Any read routed to a replica MUST tolerate replication lag. A read that depends on a write the same actor just made (read-your-writes), or any correctness-sensitive read (auth, balance, authorization, uniqueness check), goes to the **primary** or uses a consistency token (session/LSN) — never blindly to a possibly-lagging replica. A replica is an **asynchronously lagging copy** by default; the engineering is classifying each read's staleness tolerance and routing accordingly, with lag measured and a failover plan ready. `sharding-partitioning` splits writes; replicas scale reads only. Extract the engine + replication mode (sync/async) first — lag semantics differ.
 
 ## Adapt to the codebase

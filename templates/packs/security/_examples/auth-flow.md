@@ -6,6 +6,15 @@ pack: security
 
 # Pattern: Auth Flow
 
+> **Hard rule** — Refresh tokens rotate on every use, are stored hashed in DB with replay-detection that revokes the entire session family on reuse. Access tokens live in memory, refresh in HttpOnly Secure SameSite=Strict cookies. Storing refresh tokens unhashed or skipping rotation is forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite the password-hashing config as `<path:line>` (bcrypt cost / argon2 params); cost <12 or absent params is a halt. Prefer argon2id.
+- Cite the refresh-rotation revocation handler as `<path:line>` proving session-family revocation on replay; without it, the rotation claim is hollow.
+- Cite the session store schema as `<path:line>` (`auth_sessions` table or equivalent) showing token_hash + ip + user_agent + revoked_at.
+- Cite the password-reset token schema + TTL as `<path:line>`; reset tokens without single-use enforcement are a halt.
+- Hand-wave grep ban — never claim "no plaintext secrets in DB" without citing the migration file `<path:line>` or schema dump.
+
 JWT-based auth with refresh rotation. Document the flow once — every endpoint follows it.
 
 ## Login
@@ -74,7 +83,7 @@ Access tokens remain valid until TTL expires — accept this or maintain a revoc
 
 - Storing refresh tokens unhashed.
 - Access tokens in localStorage (use memory + HttpOnly cookie for refresh).
-- Passwords stored with weak hashing (MD5, SHA1, bcrypt cost <10).
+- Passwords stored with weak hashing (MD5, SHA1, bcrypt cost <12). Prefer argon2id.
 - Reusing refresh tokens (replay attack).
 - Generic error messages that leak account existence.
 - MFA bypass with `rememberMe` without proper device binding.

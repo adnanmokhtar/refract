@@ -6,6 +6,32 @@ description: Full DB audit — indexes, bloat, slow queries, soft-delete and ten
 
 Health pass on a non-prod DB. Reports findings per check with fixes (and migration SQL where applicable).
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every claim cites `<file:line>` or `<table.column>`.**
+
+An audit report without locations is a hallucination. "There may be missing indexes" is worthless; `orders.tenant_id — FK without index (see migrations/0042-create-orders.sql:18)` is a finding. Every line of the report MUST be a concrete artifact the user can grep, click, or apply a migration to.
+
+**The agent's job is exactly this:**
+1. Run each check against the live DB or schema files.
+2. For every finding, anchor it: `<file:line>` for code-side leakage, `<table.column>` or `<index_name>` for schema findings, `<query_id>` from `pg_stat_statements` for slow queries.
+3. Severity assigned by mechanical rule, not vibes (see closure-verb tiers).
+
+**The agent does NOT:**
+- Emit "consider reviewing X" — either it's a finding (with location) or it's not.
+- Hand-wave with "potentially slow", "might be unindexed", "could leak". Verify or drop.
+- Repeat the same finding under multiple checks (an unindexed FK shows up under "missing indexes", not also under "slow queries" unless it has its own `pg_stat_statements` entry).
+- Surface a finding without a fix — every FAIL must include the migration SQL or the code edit.
+
+**The agent ONLY asks the user when:**
+- The target DB is ambiguous (`staging` could be prod-alias — confirm before connecting).
+- A finding's fix would auto-DROP an index/column (always propose, never apply).
+- Stats are too short-window to trust (< 30 days → flag and ask whether to defer or proceed with caveat).
+
+## Mechanical halt — hand-wave grep
+
+See [`templates/snippets/hand-wave-grep.md`](../../../snippets/hand-wave-grep.md). Use the audit report draft as the grep target; anchors are `<file:line>` / `<table.column>` / `<query_id>` per the premise above. **Also** grep for DB-audit tokens: `potentially`, `might`, `may`, `consider`, `could be`, `seems`, `appears to`, `possibly`, `unclear`, `unsure`, `TBD`.
+
 ## Phases applied
 
 AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the report; Phase 5/7 minimal.

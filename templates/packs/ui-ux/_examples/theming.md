@@ -6,6 +6,15 @@ pack: ui-ux
 
 # Pattern: Theming
 
+> **Hard rule** — Components reference semantic CSS custom properties only; theme variants live as `[data-theme]` / `[data-tenant]` blocks on `<html>`. Per-component theme props (`<Button isDark />`) and per-theme bundles are forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite the token layer file as `<path:line>` (e.g. `src/styles/theme.css:1`) before adding a new variant; missing layer is a halt.
+- Cite the SSR inline-script location as `<path:line>` proving FOWT is prevented; without it, theming claims are incomplete.
+- Cite the persistence wiring (localStorage + server) as `<path:line>`; localStorage-only is a halt for logged-in users.
+- Cite the visual-regression matrix (themes × locales × pages) as `<path:line>`; hand-waving "we test in both themes" is forbidden.
+- Hand-wave grep ban — never claim "no hex literals in components" without the grep artifact path or stylelint rule cited.
+
 One codebase, N visual variants — light/dark, brand-per-tenant, accessibility contrast modes — without forking components or rebuilding bundles. The technique is a layer of indirection: components reference semantic tokens (CSS custom properties), and a single attribute on `<html>` swaps the values.
 
 ## Context

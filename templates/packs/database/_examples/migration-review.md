@@ -6,6 +6,35 @@ description: Review a migration for safety, lock impact, reversibility, and depl
 
 Migrations are the highest-risk code in the repo. Review every one against prod table sizes, not dev's empty tables.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves. Every claim cites `<file:line>` or `<table.column>`.**
+
+A migration review without locations is theatre. "Consider expand-contract" is not a finding; `BLOCKER  migrations/042-add-status.ts:14 — ALTER TABLE orders ADD COLUMN status NOT NULL DEFAULT 'pending' on 5M rows rewrites the table` is a finding. Every BLOCKER / REQUEST / NIT must point at the SQL line and the prod-row-count assumption that made it dangerous.
+
+**The agent's job is exactly this:**
+1. Read the migration file line-by-line.
+2. For each risky pattern detected, anchor it: `<migration-file:line>` + the `<table>` it touches + the prod row count assumption.
+3. Severity by mechanical rule (see closure-verb tiers), not vibes.
+4. Verdict (APPROVE / REQUEST_CHANGES / BLOCK) is a function of finding count and severity, not a judgment call.
+
+**The agent does NOT:**
+- Emit "this might be slow" — either cite the lock pattern at `<file:line>` against a row-count assumption, or drop the finding.
+- Surface a BLOCKER without a fix — every BLOCKER must include the expand-contract sequence or the corrected SQL.
+- Approve without confirming prod row count — review against dev's empty table is meaningless.
+- Draft an ADR to legitimize a `synchronize: true` config — that is always a BLOCKER.
+
+**The agent ONLY asks the user when:**
+- Prod row count is unknown AND no sibling migration on the same table exists for inference (default-pessimistic if unsure, but flag it).
+- A finding contradicts a prior accepted ADR (e.g., team accepted single-migration risk for a one-off batch table).
+- The migration is irreversible by design and the rationale is not in the file's comment header.
+
+## Mechanical halt — hand-wave grep
+
+See [`templates/snippets/hand-wave-grep.md`](../../../snippets/hand-wave-grep.md). **Migration-review supplements:** also grep the draft for migration-specific vague tokens: `looks risky`, `might lock`, `may rewrite`, `consider expand-contract`, `could be slow`, `seems unsafe`, `appears to`, `possibly`, `unclear`. Anchors require `<migration-file:line>` + `<table>` + row-count assumption.
+
+If row count is missing on any BLOCKER/REQUEST → HALT and ask user before issuing verdict. A verdict without row-count grounding is unreliable per Phase 6 self-audit.
+
 ## Phases applied
 
 All 7. Phase 6 = the verdict; Phase 4 = the per-pattern findings.

@@ -6,6 +6,8 @@ pack: ai-engineering
 
 # AI / LLM Engineering Principles
 
+> **Hard rule.** Model output and retrieved content are UNTRUSTED input — validate/encode them before you use, render, execute, or persist them. Every LLM feature ships with a regression-gating **eval set** (no eval, no ship). Every LLM call has a **token cap + timeout + traced cost**. Structured output comes from a **schema / tool-calling** mechanism, never regex over free text. No provider SDK is called outside the **gateway** seam; no agent loop runs without a budget.
+
 Provider-agnostic (see `STACK.md`). This pack **builds** LLM features; **security** `@llm-security-reviewer` **secures** them (injection / output handling / excessive agency).
 
 Prevents the recurring LLM failures: model output piped to a sink unescaped, features shipped with no eval so quality regresses silently, uncapped calls that blow cost/latency, regex-parsed completions, cross-tenant RAG leaks, unversioned prompts.

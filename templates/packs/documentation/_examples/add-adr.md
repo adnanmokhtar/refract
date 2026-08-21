@@ -8,6 +8,16 @@ pack: documentation
 
 Build command for the knowledge layer. Captures a non-obvious architectural decision so future-you doesn't re-litigate it. All 7 phases apply but Phase 6 (Validate) is structural, not lint/test.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing ADRs are the truth.** The repo's `ai/decisions/` folder is the canon of how this team writes a decision record — section names (`Status / Context / Decision / Consequences / Alternatives considered`), numbering convention (`NNNN-kebab-title.md`), supersession linking, status lifecycle (Proposed → Accepted → Superseded). A new ADR is a **sibling**, not a new template.
+
+**The agent's job is exactly this:** read 2-3 recent ADRs before drafting; mirror their structure exactly (same section list, ordering, heading levels, status field format); confirm the decision is real — there must be ≥ 2 viable options with substantive pros/cons, and single-option ADRs route to `ai/conventions.md` or the changelog instead; and include **at least one negative bullet** in Consequences, because all-positive consequences mean the analysis is incomplete.
+
+**The agent does NOT:** invent sections (`Strategic Vision`, `Executive Summary`, `Risk Matrix`) that no sibling ADR has; skip `Alternatives considered` because the choice felt obvious (the rejected option is the whole point); list a straw-man alternative to satisfy the section; write an ADR retroactively to justify already-merged code with no real choice; edit an Accepted ADR in place (a reversal is a NEW ADR with `Supersedes NNNN`, and the prior gets `Status: Superseded by MMMM`); or number-collide on parallel branches.
+
+**Mechanical halt — sibling-shape parity (mandatory before generating the file):** name the 2-3 sibling ADRs read; confirm the same section list + ordering; confirm ≥ 2 substantive alternatives with real pros/cons; confirm Consequences has ≥ 1 negative bullet; confirm the next number does not collide. **If no sibling ADRs exist — HALT.** Ask the user to confirm the ADR template; do not invent shape from training data.
+
 ## When to use / NOT to use
 - USE: choosing one library / pattern / boundary over a viable alternative.
 - USE: reversing a prior decision (writes a superseding ADR).

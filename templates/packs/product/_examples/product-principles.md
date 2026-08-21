@@ -57,3 +57,9 @@ pack: product
 - [ ] Rollback threshold set before the result was known.
 - [ ] Kill criteria carry a date and a named owner.
 - [ ] Anything created or shared has its reversal in scope, or a stated gap.
+
+## Enforcement
+
+- `@requirements-reviewer` reviews prose with the severity a code reviewer applies to a diff, and BLOCKs on unfalsifiable primary criteria, missing reversal on destructive actions, and missing counter-metrics.
+- `acceptance-criteria-check` applies the falsifiability test mechanically, one row per criterion, no sampling.
+- These gates are **agent-enforced** — no external validator checks requirement prose, and none is planned. The discipline holds because the ledgers are enumerative and their inputs are inspectable.

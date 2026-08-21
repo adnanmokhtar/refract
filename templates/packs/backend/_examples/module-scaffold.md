@@ -7,6 +7,14 @@ description: Generate a complete module following the project's declared archite
 
 End-to-end module generator. Mirrors a sibling module exactly so layout, imports, DI tokens, and test conventions stay consistent.
 
+## Premise
+
+Existing siblings are the truth. Mirror their shape — file names, folder layout, import order, DI token style, barrel exports, test naming — exactly. Do not invent a new layout, do not "improve" the conventions, do not skip steps because the sibling looks "old-fashioned". Refuse to scaffold without naming a specific sibling module (path) you mirrored. A scaffolded module that doesn't match its siblings IS the bug.
+
+Refuse to generate `// TODO` stubs in place of real working code; the smoke spec must compile and pass.
+
+End-to-end module generator. Mirrors a sibling module exactly so layout, imports, DI tokens, and test conventions stay consistent.
+
 ## When to use
 
 - Creating a new feature module from scratch.
@@ -119,3 +127,11 @@ Next steps:
 - Generated mappers must handle null/undefined relations — don't assume eager loading.
 - Migration `down()` that just runs `DROP TABLE` is acceptable; `down()` that's empty or `// not implementable` blocks the scaffold.
 - Business logic is NOT scaffolded — only CRUD plumbing. Schema design for non-trivial tables: defer to a `schema-architect` agent.
+
+## Halt conditions
+
+- Halt if no sibling module path was named — refuse to scaffold "from the architecture doc alone". Mirror a real, existing module.
+- Halt if the generated layout deviates from the named sibling (different folder names, different file names, different DI token style). Inconsistency is the bug.
+- Halt if any spec file contains `// TODO: assertion` or no real assertion — empty tests are worse than no tests.
+- Halt if the migration `down()` is empty or `// not implementable` — non-reversible migrations are rejected.
+- Halt if lint / type-check fails on the generated files — do not declare done with red signals.

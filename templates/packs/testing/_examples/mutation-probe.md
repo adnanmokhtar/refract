@@ -25,6 +25,14 @@ Boundary with `coverage-gap` (state it, don't cross it): **coverage-gap finds br
 
 Drive the project's own tool, detected from config/deps: Stryker (JS/TS), mutmut / cosmic-ray (Python), PIT (Java), gremlins (Go), mutant (Ruby), Stryker.NET, cargo-mutants (Rust). Prefer each tool's incremental / `--since` / `--in-diff` mode. Parse the report for `Survived` / `alive` / `LIVED` / `MISSED`.
 
+## Procedure
+
+1. Compute the diff scope — `git merge-base HEAD origin/main`, then `git diff --name-only "$BASE"..HEAD`.
+2. Run the project's mutation tool scoped to those files. Prefer the tool's own incremental / `--since` / `--in-diff` mode over mutating the whole tree.
+3. Parse the report for surviving mutants (`Survived` / `alive` / `LIVED` / `MISSED`). For each, capture `<file:line>`, the mutation operator applied, and the original → mutated source.
+4. Classify each survivor by **why the test missed it** — no assertion on the mutated value (a real gap; name the assertion to add) · asserts a coincidental side value (tighten the existing assertion) · the branch never ran (a coverage gap — hand to `coverage-gap`, do not report it here) · equivalent mutant (dismiss with the reason).
+5. Rank real gaps by blast radius: hot module > cold; business-rule / money / auth branch > cosmetic; boundary/off-by-one mutants first — they are the ones that ship real bugs.
+
 ## Output (abridged)
 
 ```

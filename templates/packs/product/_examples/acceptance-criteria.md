@@ -8,6 +8,12 @@ pack: product
 
 > **Hard rule:** Every criterion names the observation that would prove it FAILED. Every numeric criterion carries a unit, a percentile where it is a distribution, a measurement point, and a load condition. Every requirement is checked against the eight-cell coverage grid.
 
+**Halt conditions / mandatory cites**
+- The actor is unstated across the criteria set — "the system shall" hides who, and the answer changes what is tested.
+- Existing behaviour undocumented for a change to an existing surface.
+- A criterion references an external standard that is unreachable — record `DEFERRED`, never `passing`.
+- Any criterion whose verification requires asking its author is a hand-wave — reject it.
+
 ## The falsifiability test
 
 Name the observation that would prove this criterion FAILED. If none exists, it cannot be verified and the argument about "done" has been scheduled for after delivery. The test is mechanical, which is why it works where "is this clear enough?" does not.

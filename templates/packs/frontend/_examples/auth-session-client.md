@@ -6,6 +6,16 @@ pack: frontend
 
 # Pattern: Auth Session (client)
 
+> **Hard rule:** The session has exactly ONE owner in the client — a single module that knows where the credential lives, how it refreshes, and how it is destroyed. Every read goes through that module; a component reading `localStorage.getItem('token')` directly is forbidden. Refresh is **single-flight** (N concurrent 401s trigger ONE refresh, the rest queue behind it), logout invalidates **every** cache and in-flight request rather than just the token, and no route renders protected content before the guard has resolved. Cite the token-storage site, the refresh interceptor, and the logout path at `<file:line>` + the missing stage + the fix — a session claim without those three citations is a vibe, not a finding.
+
+**Halt conditions / mandatory cites**
+- Any storage recommendation MUST state the trade it accepts (XSS blast radius vs CSRF surface vs SSR readability), not just the verdict. "Use httpOnly cookies" with no threat model is advice, not a decision.
+- Any refresh claim MUST cite the single-flight mechanism at `<file:line>`. "It refreshes" without the queue is the stampede bug, not the fix.
+- Any logout claim MUST enumerate what is invalidated: token, query cache, in-flight requests, socket, cross-tab broadcast. A logout that clears one of five is a data-leak between users on a shared device.
+- A route-guard claim MUST cite the guard AND what renders while it resolves. "It redirects" says nothing about the frame before the redirect.
+- If the project already has a session module / auth SDK / interceptor, mirror it. Introducing a second place that knows about tokens is the failure this pattern exists to prevent.
+- Hand-wave grep on `etc.`, `...`, `handles auth`, `probably refreshes` is forbidden — re-enumerate each call site.
+
 One module owns the session: where the credential lives, how it refreshes, how it is destroyed. A component reading `localStorage.getItem('token')` directly is a second owner, and that is the bug.
 
 **Boundary.** This is the CLIENT half. Token issuance, rotation policy and revocation belong to the backend pack. The *test harness's* session (`tests/.auth/user.json`, the Playwright `setup` project) is `visual-check`'s and is a different thing wearing the same word.

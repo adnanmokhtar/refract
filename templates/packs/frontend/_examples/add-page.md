@@ -10,11 +10,33 @@ Scaffolds a new top-level route or sub-route, mirroring an existing page in the 
 
 All 7. Standard build/add command.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing siblings are the truth.** Every page in the same area is the intentional shape — its routing entry, its layout import, its data-fetch call site, its loading/error/empty states, its permission gate, its lifecycle hook, its locale-key path. New pages copy that shape silently.
+
+**The agent's job is exactly this:** find ≥2 sibling pages in the same area; mirror their structure (composables, shared Base*-wrappers, the caching lifecycle hook the siblings use, shared service layer, permission-gate import, locale-key naming, lazy-load convention); add only the delta the new page actually needs.
+
+**The agent ONLY asks the user when:** no sibling page exists in the area (truly new shape); state location is genuinely ambiguous and no sibling answers it; a new permission gate is required that no sibling uses. Everything else — loading/empty/error state shape, lazy-load wrapper, i18n key naming, lifecycle hook — is silent sibling-mirror.
+
+**Prior-art gate (all tiers):** before scaffolding, search by **behaviour, not name** — does an existing route/page already cover this user-facing capability under another name? Near-duplicate found → **HALT**: surface it (route + what it does) and ask extend / replace / deliberate parallel.
+
+**New-dependency gate (all tiers):** a package **no sibling already imports** needs justification + a **bundle-size delta** (gzipped, tree-shakeable?) before it lands. **HALT** on an unreviewed new dependency; no silent install.
+
+**Lightweight default.** A page that mirrors an existing sibling is code only — page + service + types + locale keys (BOTH locales) + tests, no plan and no ADR.
+
 ## When to use / NOT to use
 - USE: new top-level route; new tab/sub-route inside an existing section.
 - NOT: modal/drawer (use `/add-component`); shared layout fragment (`/add-component` or compose in existing page).
 
 ## Phase 1 — Understand
+
+### Intent gate
+
+If the description suggests a different intent, halt with a redirect: "enhance / improve / polish / cleaner" → `/enhance-ui` *(ui-ux pack)*. "fix / broken / wrong" → `/fix-bug` (core). "audit / review" → `/design-review` *(ui-ux pack)*, or this pack's `/a11y-audit` / `/i18n-audit` when the ask names that axis. Proceed only for adding a new page.
+
+**A redirect must land somewhere.** Both ui-ux destinations exist only when that pack is co-installed — check first, and if it is absent offer `/polish` (core) for visual finish and `/audit` (core) for read-only review instead of halting into a command the project does not have.
+
+### Standard inputs
 
 - Parse `<route>` arg.
 - Consolidated question if missing: page purpose, data dependencies, required permissions.
@@ -61,6 +83,22 @@ Generate:
 - Service method(s) typed against shared DTO location.
 - i18n keys in EVERY locale file the repo declares.
 - Tests: render + data fetch (mocked) + interaction.
+
+### Sibling-shape mechanical halt (mandatory, all tiers)
+
+Before declaring success, compare the new page against ≥2 sibling pages in the same area. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (a new break on an unrelated axis).
+
+**Halt if any of:**
+
+- Uses raw framework components where the project's shared wrappers exist (modal / paginator / form).
+- Uses a plain mount hook where siblings use the cache-aware activate hook — a silent re-mount on every navigation.
+- Doesn't use the project's gold-standard composable for the page kind when siblings do.
+- i18n keys present in the pivot locale but missing in declared alt locales — a silent break.
+- Default-true wrapper props left implicit when affordances should be hidden — pass the explicit `false`.
+- New file placed outside the area's path convention.
+- Lazy-load convention diverges from siblings (statically imported where siblings dynamic-import, or vice versa).
+- Inbound nav links to the new route don't prefetch where siblings' equivalents do, with no documented prefetch=off.
+- Loading state missing or not layout-stable (spinner / blank / CLS) where siblings paint a skeleton.
 
 ## Phase 5 — Update
 

@@ -1,6 +1,6 @@
 ---
 name: seo-audit
-description: Static technical-SEO scanner for the rendered document — missing/weak title + meta description, absent canonical, no Open Graph / Twitter cards, missing or invalid JSON-LD, accidental noindex, missing sitemap/robots, i18n hreflang gaps, and CSR-only content on crawl-critical routes. Turns "improve SEO" prose into cited detectors + the framework's real metadata primitive.
+description: Static technical-SEO scanner for the rendered document — missing/weak title + meta description, absent canonical, no Open Graph / Twitter cards, missing or invalid JSON-LD structured data, accidental noindex, missing sitemap/robots, i18n hreflang gaps, and CSR-only content on crawl-critical routes. Turns "improve SEO" prose into cited grep detectors + the framework's real metadata primitive.
 ---
 
 # seo-audit

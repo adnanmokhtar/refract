@@ -6,6 +6,8 @@ pack: backend
 
 # Backend Principles
 
+> **Hard rule.** Every HTTP / webhook / queue handler MUST: (a) validate input at the boundary with a schema, (b) enforce auth + authorization before business logic runs, and (c) keep business logic in services — controllers and repositories MUST NOT contain it. No external I/O is held inside a DB transaction.
+
 Stack-agnostic. Framework specifics in `references/<framework>.md` (nestjs, express, fastify, fastapi, django, rails, laravel, spring, go-chi, gin).
 
 Prevents the recurring backend failures: business logic in controllers, raw SQL in services, missing tenant filters, unvalidated webhooks, transactions over network calls.

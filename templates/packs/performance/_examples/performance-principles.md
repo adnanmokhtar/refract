@@ -6,6 +6,8 @@ pack: performance
 
 # Performance Principles
 
+> **Hard rule.** Every "perf" PR MUST attach a baseline AND post-change measurement (p50 / p95 / p99 + RPS). Optimization without a profile, N+1 queries, unbounded caches, sync I/O on the event loop, and external calls held inside DB transactions are forbidden.
+
 Prevents the two failure modes: optimizing the wrong thing, and shipping a regression because no one measured.
 
 ## Must

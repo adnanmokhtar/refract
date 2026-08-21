@@ -6,6 +6,16 @@ pack: frontend
 
 # Pattern: SSR Safety
 
+> **Hard rule:** The server-rendered **DOM tree** must match the first client render — same elements, same order, same text. Reading `window` / `document` / `localStorage` / `Date.now()` / `Math.random()` **during render** without a client-only guard is forbidden; those reads belong in an effect / `onMounted` / a client-only component. A non-deterministic value must be generated on ONE side and passed across, or annotated with the framework's mismatch-suppression primitive — never left to differ silently.
+
+**Halt conditions / mandatory cites**
+- Any browser-API access in a component body MUST cite the file at `<path:line>` **and** the client-only guard that will hold it (effect, lifecycle hook, dynamic client-only import, `<ClientOnly>`).
+- Any per-request value (cookies, headers, locale) used in render MUST cite the SSR-safe accessor, not a global.
+- **`typeof window !== 'undefined'` branching the returned markup is the bug, not the fix** — it produces two different trees by construction. The same expression *outside* render (in an effect, an event handler, a module function called from one) is correct and must not be flagged. Grade by position, and say which position you found.
+- Mismatch suppression cited without naming the value that legitimately differs (a timestamp, a locale-formatted number, a user-agent-derived class) is a cover-up — reject it.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming a component is SSR-safe.
+- If the framework + version + rendering mode are not extracted, halt before debugging hydration.
+
 SSR renders on the server, hydrates on the client. The server-rendered **DOM tree** must match the first client render (tree, not bytes — attribute order and whitespace differ routinely). Anything else that differs is a hydration mismatch.
 
 ## Scope

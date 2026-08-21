@@ -5,6 +5,24 @@ description: Finds bottlenecks (N+1, missing indexes, blocking I/O, memory leaks
 
 # Performance Optimizer
 
+## The Premise (read first, do not deviate)
+
+**The measured baseline is the truth.** "Looks slow", "feels heavy", "this loop seems expensive" are not findings. Every issue cites `<file:line>` for the bottleneck AND a measurement: p50/p95/p99 from APM, EXPLAIN output for queries, Lighthouse / RUM numbers for frontend, flamegraph excerpt for CPU. No measurement → no finding, no proposed fix.
+
+**Find real issues, no hand-waves.** A proposal without a cited baseline + a cited expected target (`<before>` → `<after>`) is speculation, not optimization. Premature micro-ops (e.g., "switch `forEach` to `for` loop") with no profile evidence get rejected — the philosophy ranks by `impact / risk`, and unmeasured impact is zero. If the SLO (`ai/runtime/perf-budgets.md` or sibling) doesn't exist, the first deliverable is "establish baseline + target", not a fix list.
+
+## Halt conditions
+
+- An issue without `<file:line>` evidence AND a numeric baseline → HALT.
+- A proposed fix without an expected `<before> → <after>` projection grounded in the diagnosis → HALT.
+- An index / schema change against a populated table without the engine's online-index-build syntax (e.g., `CREATE INDEX CONCURRENTLY` in Postgres, or the equivalent in your DB) → HALT (locks production).
+- A bundle / cache change without a verification step (re-benchmark, DB plan-explainer, web-vitals re-run, hit-rate) → HALT — every fix must be re-measurable.
+- Optimizing a path the user doesn't feel (no SLO breach, no user complaint, no budget violation) → HALT — that's premature.
+- **An adjective in the after-column** ("much faster", "snappier", "should be quicker", "feels fast") where a number belongs → HALT. Resolve to `SKIPPED [no-harness]` (name the harness needed) — never launder an adjective as a measured win. This is the production-vs-functional line.
+- **A finding resolved `PRODUCTION-GRADE` while `<after>` is still above budget** → HALT. Faster-than-before is not fast-enough; the honest verdict is `INCOMPLETE — over budget (<after> vs <budget>)`.
+- **A fix re-measured on its own metric only, guardrail neighbor unchecked** (per the Guardrail matrix — index vs write path, cache vs memory/staleness, fan-out vs downstream RPS/pool) → HALT. A win that silently regresses p95/interaction elsewhere is `INCOMPLETE — regressed <metric>`, not done.
+- **A hotspot chosen without a profile artifact** (flamegraph / EXPLAIN plan / slow-query row / web-vitals attribution) → HALT `INCOMPLETE — unprofiled`; profile the path first (`/profile-perf`), never guess the target.
+
 ## Philosophy
 
 - **Measure first.** Never optimize based on guesses.
@@ -154,24 +172,24 @@ Lighthouse mobile baseline:
   FCP: 1.8s (pass)
 
 ### Issue 1: Large hero image not optimized (HIGH / LOW)
-Where: src/views/ProductListPage.vue:24
-Diagnosis: `<img src="/hero.jpg">` — 1.2 MB JPEG, not responsive.
-Fix: `<NuxtImg src="/hero.jpg" width="1200" sizes="sm:100vw md:800px" format="avif" />`.
+Where: <product-list page file:line>
+Diagnosis: a raw `<img>` referencing a 1.2 MB JPEG, not responsive.
+Fix: replace with the framework's image primitive (responsive `srcset`, modern format like AVIF, explicit width).
 Expected: LCP 3.2s → 2.1s.
 Risk: LOW.
 
-### Issue 2: moment.js blowing bundle (MEDIUM / MEDIUM)
-Where: bundle — 24kb gzipped from moment.
-Diagnosis: used in 2 files for `format('MMM D, YYYY')`.
-Fix: replace with `Intl.DateTimeFormat` (0kb) or `date-fns/format` (~6kb tree-shaken).
+### Issue 2: heavy date library blowing bundle (MEDIUM / MEDIUM)
+Where: bundle — 24kb gzipped from a moment-class library.
+Diagnosis: used in 2 files for one date-format call.
+Fix: replace with the platform's built-in `Intl.DateTimeFormat` (0kb) or a lightweight tree-shaken alternative (~6kb).
 Expected: initial bundle -18kb gzipped.
 Risk: MEDIUM — need to verify date formatting in both locales.
 Verify: visual diff of pages using dates.
 
 ### Issue 3: Non-lazy route (HIGH / LOW)
-Where: src/router/index.ts:42
-Diagnosis: `AdminDashboardPage` imported directly — ships in initial bundle even though only admins visit.
-Fix: `() => import('./views/AdminDashboardPage.vue')`.
+Where: <router config file:line>
+Diagnosis: an admin-only page imported directly — ships in initial bundle even though only admins visit.
+Fix: lazy-load the route via the framework's dynamic-import primitive.
 Expected: initial bundle -45kb gzipped, LCP -0.3s.
 Risk: LOW.
 ```

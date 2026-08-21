@@ -6,6 +6,16 @@ description: Run accessibility-auditor against current UI changes; ground with a
 
 Audit command. Static + (optional) automated a11y pass on changed UI files. Phases 1-3 + 6 dominate; Phase 4 produces findings (no code edits); Phase 5 logs the audit; Phase 7 captures patterns.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues. No hand-waves.** An audit's job is to surface concrete, fixable a11y violations — each one cited at `<path:line>` with the failing rule named and a concrete fix proposed. Vague gestures ("review focus management overall", "consider improving ARIA usage") are forbidden — they do nothing for the user and burn audit budget.
+
+**The agent's job is exactly this:** resolve the file scope (changed UI files OR an explicit path arg); run the agent + axe (if present) and produce a findings table where every row has `<path:line>`, severity, rule name, concrete fix; group by severity, blockers first; append-only audit log to `ai/audits/<date>-a11y.md`.
+
+**The agent ONLY asks the user when:** an image is decorative-vs-informative ambiguous (never auto-suggest fake alt text); dynamic-content semantics are unclear (`role="status"` vs `role="alert"`); the theme palette is missing token definitions (contrast cannot be verified without them). Everything else — focus order, label association, ARIA name presence, keyboard reachability — is mechanical. Run it, report.
+
+**Lightweight default.** The incremental audit on changed UI files is the default tier: static pass + axe → findings table → audit log entry, no ADR and no rule promotion. Promote to an ADR only on a repeat systemic issue (a rule recurring ≥3× across audits).
+
 ## When to use / NOT to use
 - USE: after any visible UI change (component, page, modal, form).
 - USE: before merging a PR that adds new interactive elements.
@@ -51,6 +61,21 @@ A11y-specific:
   Form.tsx:55   moderate   label-association   <label htmlFor> must match input id
   ```
 
+### Hand-wave mechanical halt (mandatory, all tiers)
+
+Before declaring the report complete, scan every finding for hand-wave language. For each finding, return one of: `closed` (cites `<path:line>` with a concrete fix), `still-open` (vague), `regressed` (claim made without evidence).
+
+**Halt if any finding contains:**
+
+- `etc.`, `...`, `and similar`, `and others`, `various` — open-ended gestures with no enumerated targets.
+- `N+` style ranges (`3+ violations`, `multiple issues`) without listing each `<path:line>`. Either enumerate or don't claim.
+- `consider`, `might want to`, `could be improved`, `review overall`, `look into` — non-actionable verbs.
+- `generally`, `mostly`, `seems to` — hedges. Either the rule fails at `<path:line>` or it doesn't.
+- A finding without a `<path:line>` anchor, or without a named rule (axe rule id OR WCAG SC number OR named heuristic).
+- A blocker without a concrete fix proposal — the actual replacement code or attribute, not "fix this".
+- Auto-suggested fake `alt` text on a non-decorative image — hallucination risk; ask the user, never invent.
+- An "all clear" claim based on axe alone, or **any "automation covers N%" figure quoted to justify it**. State the floor, cite no percentage, and run the manual keyboard + screen-reader walk regardless.
+
 ## Phase 5 — Update
 - `ai/audits/<YYYYMMDD>-a11y.md` — write the findings report (timestamped, append-only history).
 - `ai/dynamic/changelog.md` — one-line: `a11y audit on <scope>: N blockers, M serious`.
@@ -78,6 +103,10 @@ Phase 7 (Improved): N recurring patterns queued
 
 Status: COMPLETE | BLOCKED on <B> blockers
 ```
+
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (WCAG A/AA failures, keyboard traps, missing labels) → **SHOULD FIX** (AA edge cases / best practice) → **OPTIONAL** (AAA / nice-to-have) — each step carrying `<file:line>` + **Fix** (concrete; cite the WCAG criterion) + **Verify** (the axe rule and/or the keyboard/SR check that proves it), then the closing steps (re-run `/a11y-audit` to confirm it comes back clean, then ship). A clean run collapses to a single line ("No violations — clear to proceed"). The reader must never assemble the next steps themselves.
 
 ## Failure modes
 - Axe in headless Chrome misses focus order — manual keyboard walk is non-negotiable; never claim "all clear" on axe alone.

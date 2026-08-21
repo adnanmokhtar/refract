@@ -7,6 +7,18 @@ description: Audit cloud + K8s network exposure across the running/declared foot
 
 Sweep the whole footprint for unintended network exposure. Premise: every ingress path is intentional and least-exposed. A wide-open ingress with no documented reason is forbidden.
 
+## Premise
+
+Find real exposure. Every finding cites the concrete resource (`aws_security_group.web`, `NetworkPolicy` absence in namespace X, `google_compute_firewall.default-allow`, bucket ARN) AND the attribute that opened it (`cidr_blocks = ["0.0.0.0/0"]`, `map_public_ip_on_launch = true`, `publicly_accessible = true`, a missing default-deny). "Public database" requires the resource type + the public-subnet/public-IP/`0.0.0.0/0`-source fact that proves reachability from the internet. Verdict (BLOCK / PASS) is grounded in the specific ingress paths, not a global feel. A path is only acceptable if it's a genuinely public port (80/443 on a public LB/ingress) OR carries a documented reason.
+
+## Halt conditions
+
+- Refuse to flag `0.0.0.0/0` as a finding without naming the port(s) it opens — `0.0.0.0/0` on 443 behind a public ALB is expected; on 22/3306/5432/6379 it is not.
+- Refuse to call a database "public" without citing BOTH the subnet placement (route to IGW) and either a public IP or a `0.0.0.0/0` source — one alone is not reachability.
+- Refuse to claim "default-deny present" without `kubectl get networkpolicy -n X` showing a policy that selects all pods with empty `ingress` (and `egress` for egress control).
+- Halt on hand-waves like "looks locked down" — cite the SG/NACL/firewall/NetworkPolicy rule that proves it.
+- Don't propose auto-fix on production ingress; report the least-exposed alternative and let humans decide.
+
 ## When to use
 
 - Weekly, against the running footprint (drift from console clicks, break-glass rules never reverted).

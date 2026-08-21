@@ -1,6 +1,6 @@
 ---
 name: changelog-generate
-description: Generate a categorized changelog / release notes from commit + PR history (conventional-commits · semver). Groups feat/fix/breaking, surfaces breaking changes with migration notes, and derives the semver bump — never hand-written from memory or a raw git-log dump.
+description: Generate a categorized changelog / release notes from commit + PR history (conventional-commits · semver). Groups feat/fix/breaking for humans, surfaces breaking changes with migration notes, and derives the semver bump from the change types — never hand-written from memory or a raw git-log dump.
 ---
 
 # changelog-generate

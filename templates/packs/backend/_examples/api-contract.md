@@ -6,6 +6,15 @@ pack: backend
 
 # Pattern: API Contract Evolution
 
+> **Hard rule:** Every response (success or error) ships in the same envelope; output DTOs are explicit and decoupled from ORM entities; any change in the "NO" column of the evolution table requires a new version, never a silent edit. Stack traces, ORM entities, and English-prose error keys never reach the wire.
+
+**Halt conditions / mandatory cites**
+- Any proposal to add/change/remove a field MUST cite the response shape it touches at `<path:line>` (DTO, mapper, snapshot test).
+- Any "this is non-breaking" claim MUST cite the evolution table row that justifies it.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden — name the file + line for every consumer impact.
+- A doc that proposes a contract change without showing the corresponding mapper + snapshot test diff is a bug.
+- If the project's actual envelope or DTO shape isn't extracted, halt and run extraction before drafting the change.
+
 A response shape is a long-term commitment to every consumer that has ever shipped against it — frontends, mobile apps, partner integrations, scripts written by the data team. Once the contract is in someone else's release, you can no longer break it cheaply. This pattern fixes the wire format, names what's safe to change vs not, and prescribes how to evolve when you must break.
 
 ## Context

@@ -6,6 +6,8 @@ pack: distributed-systems
 
 # Pattern: Sharding & Partitioning
 
+> **Hard rule:** Sharding requires a stated partition key with **high cardinality, even distribution, and alignment to the dominant query pattern**, plus a documented rebalancing plan. Sharding a small table, a low-cardinality or monotonic partition key, and designs that routinely need cross-shard transactions/joins are forbidden. Exhaust vertical scale and read replicas first.
+
 Sharding scales **writes** (scale-cube Z-axis). It needs a partition key with high cardinality, even distribution, and query alignment — plus a rebalancing plan. Exhaust vertical scale + read replicas first.
 
 ## Choosing the partition key
@@ -41,3 +43,12 @@ Adding shards = moving live data (dual-write + backfill + cutover). Keep entitie
 - Monotonic key with no hashing (all writes to one shard).
 - Cross-shard transactions/joins on the hot path.
 - Hash `mod N` with no consistent-hashing/rebalancing plan.
+
+## Detectors (cite-or-halt)
+
+- Sharding proposed for a **small / low-volume table** with no measured single-node limit cited at `<path:line>` — premature; halt and require the numbers, replicas, and vertical-scale ceiling first.
+- A **low-cardinality or skewed partition key** (status, boolean, dominant-tenant id) — guaranteed hot partition; halt.
+- A **monotonic partition key** (timestamp, auto-increment id) with no hashing/salting — all writes land on one shard; halt.
+- The design requires **cross-shard transactions or joins** on the hot path — cite them; either co-locate the entities or justify the distributed cost.
+- **Hash `mod N`** used where shards will be added later, with no consistent-hashing/rebalancing plan — every resize is a full remap; halt.
+- Hand-wave (`etc.`, `appears to`, `roughly`) on "the key spreads evenly" — forbidden without a cardinality/distribution argument.

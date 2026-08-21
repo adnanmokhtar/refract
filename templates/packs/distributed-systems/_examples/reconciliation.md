@@ -6,6 +6,15 @@ pack: distributed-systems
 
 # Pattern: Reconciliation (anti-entropy repair of derived stores)
 
+> **Hard rule:** Every derived or replicated store — a projection, a cache, a search index, a dual-written copy — MUST have a job that detects and repairs divergence from the source of truth. A derived store with no rebuild/repair path silently drifts, and drift is invisible until a user sees stale or wrong data. If you can't answer "how would we know this copy diverged, and how would we fix it?", the copy is a latent incident.
+
+**Halt conditions / mandatory cites**
+- Every derived store MUST cite its source of truth at `<path:line>` AND its repair path (read-repair, sweep, or full rebuild).
+- The divergence metric MUST be cited (the checksum/count/sample-diff query) AND the alert threshold — a repair job with no divergence metric is unfalsifiable; you can't tell if it's working.
+- The repair job MUST be shown to be idempotent AND resumable (a checkpoint/cursor) — a repair that isn't safe to re-run or resume after a crash is a bug; reject.
+- A doc claiming "the projection stays in sync" without extracting the detection query is a bug — reject. Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "they can't diverge".
+- If a dual-write exists with no drift audit between the two stores, halt — dual-writes diverge by construction (one write can succeed while the other fails).
+
 Every derived or replicated store — a read-model projection, a cache, a search index, a dual-written copy, a read replica — MUST have a job that detects and repairs divergence from the source of truth. If you can't answer "how would we know this copy diverged, and how would we fix it?", the copy is a latent incident.
 
 ## When to apply
@@ -17,6 +26,10 @@ Every derived or replicated store — a read-model projection, a cache, a search
 
 - No derived store (a single source of truth read directly has nothing to reconcile).
 - The copy is a pure function recomputed inline on every read — no persisted divergence to detect.
+
+## Boundary
+
+`cqrs` / `event-sourcing` own the single-store projection *rebuild* (replay). This owns *cross-store divergence detect + repair* — for caches, indexes, dual-writes, and replicas that were never event-sourced. `outbox` is the *fix* for dual-writes; reconciliation is the audit where one still exists.
 
 ## Two repair modes (use both)
 
@@ -45,7 +58,3 @@ Upsert-by-key (not blind insert); set-to-source-value (not increment). Checkpoin
 - A sweep that emits no divergence metric; a repair that isn't idempotent or resumable.
 - "Read-repair is enough" — it never touches cold data; a background sweep is mandatory.
 - Reconciling toward the wrong direction — the source of truth wins, always.
-
-## Boundary
-
-`cqrs` / `event-sourcing` own the single-store projection *rebuild* (replay). This owns *cross-store divergence detect + repair* — for caches, indexes, dual-writes, and replicas that were never event-sourced. `outbox` is the *fix* for dual-writes; reconciliation is the audit where one still exists.

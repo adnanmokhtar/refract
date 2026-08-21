@@ -6,6 +6,15 @@ pack: documentation
 
 # Pattern: System Design Document
 
+> **Hard rule** — System designs ship BEFORE coding starts, include numbered testable goals, a failure-modes table, and an alternatives-considered section. Skipping any of those three sections is forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite the load-projection source as `<path:line>` (current dashboard, capacity model file); "handles N req/s" without a citation is a halt.
+- Cite the failing baseline or incident that forced the design as `<path>` of postmortem or ticket; designs without a triggering signal drift into speculation.
+- Cite at least 2 rejected alternatives with concrete reject reasons; single-option designs are halted.
+- Cite the ADR(s) that record the strategic choices made inside the design (`ai/decisions/NNNN-*.md`); design + ADR are paired artifacts.
+- Hand-wave grep ban — never claim "current architecture supports this" without citing the relevant module/service files by path.
+
 For features / systems beyond a single service. Written BEFORE coding.
 
 ## Structure

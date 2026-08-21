@@ -6,6 +6,48 @@ description: Deep module analysis — architecture, performance, security, DB, t
 
 Pre-flight before refactoring or extending a module. Multiple agents run in parallel and consolidate findings by severity.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Find real issues, no hand-waves.** An audit's job is to surface concrete, file:line-cited findings the maintainer can act on. A finding without a path is a hypothesis. A finding that says "and similar issues elsewhere" is a hand-wave that hides ignorance behind plausible language. Maintainers cannot fix a hand-wave — they spend an hour grepping for the missing context and lose trust in the audit. The audit either names the file and line, or the finding does not exist.
+
+**The agent's job is exactly this:**
+1. Run the dispatched reviewers; collect raw findings.
+2. For each finding: confirm a real `file:line` exists in the actual codebase, name it explicitly, quote the offending line.
+3. Drop any finding that cannot be backed by a citation. No exceptions.
+
+**The agent does NOT:**
+- Emit findings of the form "N+ similar issues" without enumerating each. **Either list every instance with file:line, or drop the finding.**
+- Use words like `etc.`, `...`, `among others`, `and many more`, `several places`. **These are hand-waves; surface every instance or none.**
+- Repeat one root cause as N findings (perf-reviewer's N+1 + schema-reviewer's missing-eager-load = ONE finding, not two).
+- Treat coverage % as quality. 95% getter coverage is 0% protection.
+
+**The agent ONLY escalates to the user when:**
+- A reviewer fails to return (incomplete dispatch — the audit is not done).
+- Stack mismatch (backend reviewers dispatched on a frontend module — switch reviewer set first).
+- A BLOCKER cites a file:line that is dynamically loaded (DI auto-discovery, Next.js auto-routing) and may be a false positive — confirm before reporting.
+
+## Hand-wave halt (mechanical gate, all tiers)
+
+**Before declaring the audit complete, grep the consolidated report for hand-wave tokens.** Any hit halts the audit until findings are made concrete.
+
+Forbidden tokens (case-insensitive grep):
+- `etc.`
+- `...` (ellipsis used as "and similar")
+- `among others`
+- `and many more`
+- `several places`
+- `multiple locations`
+- `various files`
+- `N+ items` / `N+ instances` (where N is a placeholder digit)
+- `similar issues elsewhere`
+- `likely also affects`
+
+Halt rule: if any token appears in the report body (not in quoted code), HALT. The agent must either:
+1. Replace the hand-wave with an explicit enumerated list (`OrdersController.ts:42, BillingService.ts:88, ...` becomes the literal list of every file:line).
+2. Drop the finding entirely.
+
+No silent advance. The output's reviewer-clean count is meaningless if half the findings are vapor.
+
 ## Phases applied
 
 AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the consolidated report; no code changes here. Phase 5 records the audit; Phase 7 feeds repeat-finding patterns.
@@ -110,6 +152,17 @@ Dead code:
 Verdict: 3 blockers. Fix or ADR before extending.
 Suggested next: /fix-bug for blockers, then re-run /analyze-module.
 ```
+
+## Hard rules
+
+- **Run BEFORE extending, not after.** Post-change analysis biases toward the diff.
+- **Every BLOCKER cites file:line evidence.** "Architecture violation" without a path is a hypothesis.
+- **A verdict states its coverage.** "Ready to extend" is a claim about six axes; it may only be made when all six were actually examined. Uncovered axes are named in the output, never averaged away.
+- **A BLOCKER is fixed OR written into an ADR before extending.** "Acknowledged" alone doesn't count.
+- **Cross-check findings to avoid duplicate reporting.** N+1 from perf-reviewer and missing-eager-load from schema-reviewer = one issue, not two.
+- **Don't mark dead code dead without confirming it's not framework-magic loaded** (DI containers, auto-discovered modules, auto-routed pages).
+- **Coverage % is not quality.** A test-reviewer that says 95% but never asserts anything is failing the audit.
+- **Stack-aware reviewer dispatch.** Backend reviewers on frontend modules produce noise; pick the right set.
 
 ## Failure modes
 

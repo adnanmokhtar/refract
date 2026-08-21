@@ -7,6 +7,17 @@ description: Static + runtime scan for N+1 ORM patterns. Catches the #1 silent p
 
 Find loops that issue one query per iteration when one batched query would do.
 
+## Premise
+
+Find real N+1 issues, cite `<path:line>` for every confirmed pattern and back it with a query count from the runtime pass. "CONFIRMED" requires both a static hit AND a counted query log. "LIKELY" requires a static hit with a clearly lazy relation. No accusation without coordinates — every finding points at a specific call site and a specific log excerpt. Fixes are concrete (eager-load with named relation, DataLoader at named scope), not "consider batching".
+
+## Halt conditions
+
+- Refuse to mark "CONFIRMED" without a query-count from the DB engine's query log or equivalent.
+- Halt on hand-waves like "this pattern looks N+1" — cite the line or drop the finding.
+- Don't flag batched / `IN (...)` calls (e.g., `findByIds([...])`) — those are single batched queries; read closely.
+- Don't propose a fix without naming the relation / loader / index involved.
+
 ## When to use
 
 - Before merging any new list / collection endpoint.

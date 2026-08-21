@@ -1,5 +1,6 @@
 ---
 name: component-playground
+description: Mount one shared component on an isolated, dev-gated route with knob-style controls generated from its real prop declarations, so edge cases can be probed without touching a real page (Storybook-lite). Framework-adaptive — Vue / React / Svelte / Angular. Invoke on "test this component in isolation", "play with props", "see what X looks like with Y". Do NOT invoke when the repo already has Storybook / Histoire / Ladle or any *.stories.* file — write a story there instead; a second explorer is the anti-pattern. Not for a component already mounted in a real page (that is verify-with-playwright) and not for regression baselines (visual-check).
 kind: example
 pack: frontend
 ---
@@ -7,6 +8,10 @@ pack: frontend
 # component-playground
 
 Mounts ONE shared component on an isolated, dev-gated route with knob-style controls built from its **real** prop declarations. Storybook-lite — no dependency, disposable.
+
+## Premise
+
+**Probe the component in isolation, in the project's own stack — never impose a framework or UI kit the repo doesn't use.** The playground must be built from the component's real prop/emit declarations (read them, don't guess) and wired with the project's own shared input components and router. A playground that hard-codes a different framework's controls is worse than none. Cite the component's actual props at `<file:line>` when generating controls.
 
 ## Prior art wins (step 0, mandatory)
 
@@ -35,6 +40,14 @@ Controls:    variant (select) · label (text) · dense (switch) · count (number
 Route:       /_playground/status-chip   (dev-gated)
 Render:      visual-check PASS — 1 interaction, accessible name asserted
 ```
+
+## Failure modes
+
+- Props invented because the declaration was hard to parse → controls that do not correspond to the component. Read the source or halt.
+- A parallel playground scaffolded next to an existing Storybook → two explorers, one maintained. This is the failure the step-0 halt exists to prevent.
+- Playground route registered outside the dev gate → ships to production.
+- Playground registered in the router but never rendered → the skill reports success on code that was never executed; step 4 is not optional.
+- A `string`-typed prop that is really an enum renders as a free-text box — union/enum inference is only as good as the type. Read the component's usage before trusting the control mapping.
 
 ## Halt conditions
 

@@ -6,6 +6,17 @@ pack: testing
 
 # Pattern: Test Strategy
 
+> **Hard rule** — Every layer (unit / integration / E2E) has a documented speed budget and scope; tests live at the lowest layer that meaningfully covers the behaviour. Flaky tests are bugs — quarantine within 24h, fix or delete; never retry-loop them.
+
+**Halt conditions / mandatory cites**
+- Cite the layer's speed budget config as `<path:line>` (the project's test runner config — jest / vitest / pytest / RSpec / phpunit / go test / cargo test / xUnit / framework-equivalent) before adding tests in that layer; budget-less layers are a halt.
+- Cite the tenant-isolation test for any new repo / service touching tenant data as `<path:line>`; multi-tenant code without an isolation test is a halt.
+- Cite the regression test alongside any bug fix PR — `<path:line>` for the failing-then-fixed test; fix-without-test is a halt.
+- Cite the flake quarantine list (`ai/runbooks/flaky-tests.md` or equivalent) when re-enabling a quarantined test; silent re-enable is forbidden.
+- Hand-wave grep ban — never claim "covered by E2E" without citing the specific spec file `<path:line>`.
+
+> **Code samples below are illustrative.** Concrete syntax shown uses one stack (TypeScript + a JS-family test runner) for readability; the principles apply across language families. Substitute your stack's equivalents (pytest / RSpec / phpunit / go test / cargo test / xUnit / JUnit / ExUnit / framework-equivalent) using the substitution table in `testing/STACK.md`.
+
 Tests have a cost (write time, run time, maintenance). They have a value (regression prevention, design pressure, documentation). The strategy is matching the right kind of test to the right concern, in the right ratio, so the value/cost ratio stays positive as the codebase grows.
 
 ## Context

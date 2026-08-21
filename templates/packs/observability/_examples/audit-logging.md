@@ -6,6 +6,16 @@ pack: observability
 
 # Pattern: Audit Logging (tamper-evident, retained, un-redacted)
 
+> **Hard rule:** Security-relevant actions (authn, authz changes, role/permission changes, payment + billing changes, data exports, admin overrides, PII access) are written to a **separate, append-only / WORM audit sink** — never the mutable debug-log store. Every audit event carries `actor`, `subject`, `action`, `before`/`after`, `source_ip`, and a trusted `timestamp`. Audit logs are **NOT redacted** the way debug logs are: they *are* the legal record. Retention is set by the governing regime, not by disk pressure.
+
+**Halt conditions / mandatory cites**
+- Each audit event MUST cite its emit site at `<path:line>` AND the **immutable sink** it lands in (append-only table with revoked UPDATE/DELETE, object-lock/WORM bucket, or managed audit service) — a write to the normal log store is a bug, reject.
+- Each event MUST cite a non-empty `actor` AND `subject` — an audit row that can't answer "who acted on whom" is worthless; reject.
+- A doc that redacts audit events with the debug-log redaction config is a bug — reject; audit records keep the real values (with access-controlled reads), they are not debug logs.
+- Each retention setting MUST cite the regime that requires it (SOC 2 / PCI / HIPAA / contractual) — "keep for a while" is not a policy.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this action is audited".
+- If the audit sink + its immutability guarantee + its retention policy aren't extracted, halt.
+
 Audit logs answer "who did this privileged thing, and can we prove the record is intact?" — the opposite question from debug logs ("why is the system behaving this way?"). They go to a separate, append-only sink; carry actor/subject/action/before-after/IP/timestamp; are NOT redacted (they *are* the evidence); and are retained by regime.
 
 **Boundary:** the security pack owns WHICH events must be audited + the write-shape (`security-principles.md`). This pattern owns the PIPELINE — immutable sink, hash-chain, retention, and why audit records aren't redacted like debug logs.

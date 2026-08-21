@@ -349,7 +349,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 ### D9. Auto-import test config mismatch
 - **What**: `unplugin-auto-import` works in prod, not in test config; first mount fails with "useI18n is not defined".
 - **Stack**: Frontend.
-- **Where it bit us**: Projected. `parity-test-generate.md § Auto-import test-config requirement` — "named anti-pattern in audit-failure-modes.md".
+- **Where it bit us**: Projected. `parity-test-generate.md § Auto-import test-config requirement` — cites "The Auto-import Trip" in `migration-discipline-catalogue.md § Anti-patterns` (named + defined there as of 2026-08-21).
 - **Current coverage**: ❌ UNCOVERED.
 - **Severity**: P2.
 

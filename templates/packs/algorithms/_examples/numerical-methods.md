@@ -6,7 +6,7 @@ pack: algorithms
 
 # Pattern: Numerical methods (precision, stability, conditioning)
 
-Numerical code MUST state the precision/stability regime it assumes. Float comparisons use a **tolerance**, never `==`. Accumulation over many terms uses a **cancellation-safe** formula. Division near zero is **guarded**, and the **condition number** is acknowledged when it can be large. A float `==`, a naive sum of many terms, or an unguarded near-zero divide is a **numerical bug** — it produces wrong answers that look plausible.
+> **Hard rule.** Numerical code MUST state the precision/stability regime it assumes. Floating-point comparisons use a **tolerance**, never `==`. Accumulation over many terms uses a **cancellation-safe** formula (Kahan / pairwise / Welford), not a naive running sum. Division near zero is **guarded**, and the problem's **condition number** is acknowledged when it can be large. A float `==`, a naive sum of many terms, or an unguarded divide by a near-zero value is a **numerical bug**, not a style nit — it produces wrong answers that look plausible.
 
 ## Gate — only when numeric/scientific signals are present
 

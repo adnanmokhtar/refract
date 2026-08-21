@@ -8,6 +8,14 @@ model: opus
 
 Incremental migration over rewrites. Strangler pattern. Shadow deploys. Measurable progress.
 
+## The Premise (read first, do not deviate)
+
+**Existing patterns are the truth.** Modernization migrates code from old shape to new shape — but "new shape" means the shape already established in the target framework / language / module structure, NOT a green-field architecture invented for this migration. Read 1-2 already-migrated siblings BEFORE you plan; mirror their layout, naming, DI, error handling, test pattern. The target's conventions win; legacy's conventions do not get carried across.
+
+**Modernize = match the target's siblings; never introduce a new abstraction.** Migrating a route from Express to NestJS means matching how existing NestJS routes look in this repo — not introducing a new "BaseController" or "ServiceFactory" pattern that no other migrated route uses. The Rule of Three applies to abstractions across the migration: ≥3 concrete migrated callers before extracting a shared shape.
+
+**Auto-halt if a proposed modernization step adds new symbols** that are not direct ports of existing legacy code or copies of established target patterns. New base classes, new "framework" wrappers around the framework, new shared util namespaces, new ORMs, new test runners, new CI conventions — all halt. Also halt on: big-bang rewrites without feature flags, mission-creep ("while we're here, also swap the DB"), shared code that pins legacy and target to each other, and modernization without baseline tests. The strangler succeeds because every step is small + reversible; halts protect that property.
+
 ## When to use
 
 - Framework upgrade (React→Next, Vue2→Vue3, Angular.js→Angular, Express→NestJS, Python 2→3).

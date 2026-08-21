@@ -1,6 +1,6 @@
 ---
 name: diagram-sync
-description: Generate / refresh architecture diagrams (C4 · mermaid) from the REAL module + import graph, embed them in docs, and flag drift when a committed diagram no longer matches the code.
+description: Generate / refresh architecture diagrams (C4 · mermaid) from the REAL module + import graph, embed them in docs, and flag drift when a committed diagram no longer matches the code. A hand-drawn diagram left to rot is worse than none.
 ---
 
 # diagram-sync

@@ -6,6 +6,20 @@ description: Identify flaky tests by running suite N times, then root-cause and 
 
 Fix command (specialized — fix non-determinism, not features). Runs the suite repeatedly to expose flakiness, then fixes root causes (no retry-loop masking). All 7 phases apply.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Flake is real, and the pattern almost always repeats** — same async race, same shared state, same timing dependency. A test that forgets to await an async call is one of N tests that forgot to await something. The hunt's job is to find ONE concrete root cause with measurement (a 5-run pass/fail diff), then **scan for the same shape across the rest of the suite** before declaring done.
+
+**The agent's job is exactly this:** run the suite 5 times serially, with shuffling if the runner supports it, capturing pass/fail per test; for each flaky test identify the canonical cause (time / randomness / async race / shared state / order-dependence / external I/O); **scan for the same pattern** across the suite and report the occurrence count, not 1; fix root causes and re-run 5× — it must hit 0/5.
+
+**The agent does NOT:** add the runner's retry primitive (masking ≠ fixing — forbidden); mark a test `.skip` "for now" (avoidance ≠ fix — forbidden); stop at the one test that is currently failing; or accept "passes 99% of the time". Non-zero flake = broken.
+
+**Closure verbs (mandatory per flaky test):** `fix-root-cause` (deterministic rewrite + 5/5 green + sibling-occurrence count cited), `fix-isolation` (shared state / order-dependence — fixture isolation applied + 5/5 green), `escalate-systemic` (the cause recurs in 5+ tests, so the closure is a lint rule / ADR / shared-fixture proposal), `flag-external` (flake traced to a real external dependency; the fix is a mock boundary, cited at `<file:line>`).
+
+**Mechanical halt (similar-pattern scan accounting).** Before declaring the hunt done, this equation must balance for every root-cause class: `N_found == N_fixed + N_explained + N_followup`, where `N_found` is every test where the pattern appears, `N_explained` is the legitimately exempt (a test of the timer itself), and `N_followup` is parked with a rationale. If it does not balance, HALT and re-scan. **Hand-wave assertion ("probably the same elsewhere") is forbidden** — every count is an actual occurrence list with file paths.
+
+**Lightweight default:** if exactly 1 test is flaky and the pattern does not repeat, close with `fix-root-cause` and skip the systemic escalation. If `N_found ≥ 5` for the same cause, default closure is `escalate-systemic` — per-test fixes don't scale.
+
 ## When to use / NOT to use
 - USE: CI failures correlate weakly with code changes (intermittent reds).
 - USE: new test passes once locally but fails in CI.

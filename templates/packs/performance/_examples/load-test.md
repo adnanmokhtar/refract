@@ -54,6 +54,14 @@ Verdict: PASS — meets SLA with +53% headroom; pool binds first past the knee.
 - The client can be the bottleneck — check generator-side saturation every run.
 - Averages lie — gate on p95/p99, never the mean.
 
+## Halt conditions
+
+- **Refuse a capacity claim with no run config + parity note.** "Handles the load" without tool, model, stages, rate, env, and the measured percentile is not a result — halt and demand the run.
+- **Single-VU / quick-load numbers are not capacity.** A number from one virtual user, a hammer loop, or a non-parity box may not be presented as system capacity — halt and re-run the campaign under a realistic mix on a parity env.
+- **No SLA gate defined before the run** — halt; define `p99 < X at Y rps with < Z% errors` first, or the run has no verdict to reach.
+- **Closed model quoted as an SLA pass** — halt; re-run open / arrival-rate before certifying, or the pass may be coordinated-omission theatre.
+- **Hand the ROOT CAUSE off, don't fix it here.** This skill owns the campaign and the verdict — it finds the knee and names the saturated resource. It does NOT fix the bottleneck: route the fix to `@performance-optimizer` / `@caching-architect` / the relevant pack, and route single-subject diagnosis to `skill:profile-endpoint`. A load-test PR that also rewrites the query has exceeded its mandate.
+
 ## Related
 
 - `profile-endpoint.md` — boundary: it diagnoses ONE slow subject; hand it the subject at the knee.

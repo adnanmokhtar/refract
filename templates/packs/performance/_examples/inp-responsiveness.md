@@ -9,6 +9,12 @@ pack: performance
 
 > **Hard rule** — Browser input handlers MUST keep per-interaction main-thread work under the INP budget (good ≤ 200ms at p75). Attribute the dominant sub-part with field data before fixing; a synchronous >50ms handler on a hot interaction is forbidden.
 
+**Halt conditions / mandatory cites**
+- Cite the handler at `<file:line>` + the attributed INP sub-part (`inputDelay` / `processingDuration` / `presentationDelay`) before proposing a fix; "this handler is probably slow" is a halt.
+- Cite the blocking script from the Long Animation Frames API (LoAF) — `longAnimationFrameEntries[].scripts[].invoker` / `.sourceURL` — when claiming a specific script blocks the interaction.
+- Hand-wave grep ban — never claim "no long tasks" without the LoAF / performance-trace artifact.
+- A fix that wraps an *async data fetch* in `startTransition` (transitions are for state updates, not data latency) is a bug — reject.
+
 **When to apply** — `web-vitals-field` attributes a poor INP to a handler/element, or a high-frequency handler (typing/scroll/drag/filter) or expensive click drives an interaction.
 
 **When NOT to apply** — INP already good (≤200ms p75); cost already off-main-thread (Worker); rare admin action.

@@ -5,6 +5,16 @@ description: Systematic threat modeling via STRIDE — identify threats per comp
 
 # threat-model
 
+## Premise
+
+Find real threats, no hand-waves. Every threat cites the component + trust-boundary crossing (`<path:line>` for the entry handler, the auth check, the data store), the attacker persona ("anonymous internet rando" vs "authenticated tenant user" vs "disgruntled employee"), and a concrete mitigation ticket or `<path:line>` where the mitigation lives or must live. "Could be vulnerable to SQLi" is not a threat; "T1: `/orders` POST passes `req.body.price` into `OrderService.create` (`<path:line>`); attacker tampers price; mitigation: server recomputes from product_id (`<path:line>`)" is. Mitigations like "our WAF handles it" are halted unless cited with a configured rule.
+
+## Halt conditions
+
+- Halt on any threat row without component path + trust-boundary citation.
+- Halt on impact/likelihood ratings without a one-line justification grounded in the attacker persona.
+- Halt on mitigations recorded as prose ("we'll add rate limits") without a ticket id or `<path:line>` for where the control exists / must live.
+
 ## STRIDE
 
 Walk through each component, apply each threat category:

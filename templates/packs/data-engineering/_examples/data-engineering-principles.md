@@ -53,3 +53,9 @@ pack: data-engineering
 - [ ] Freshness and volume monitors exist for anything scheduled.
 - [ ] Money- or count-bearing: a reconciliation check exists.
 - [ ] Backfill: shadow target, bounded range, before-snapshot, rollback window.
+
+## Enforcement
+
+- The transformation framework's own test runner executes the model assertions on every build; a failing severity-`error` assertion stops downstream models rather than warning.
+- The dependency graph is built in CI; a hardcoded table reference is detectable as a model with fewer upstream edges than it has source mentions.
+- Backfill safety (shadow target, before-snapshot, rollback window) is enforced by the `/backfill-plan` closure gate, which is agent-side — there is no external validator for it.

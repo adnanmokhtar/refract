@@ -8,6 +8,8 @@ pack: security
 
 Prevents the OWASP Top 10 patterns most likely to actually hit you: injection, broken auth, broken access control, secret leak, vulnerable dependency.
 
+> **Hard rule.** Auth MUST be on every endpoint by default (public routes are explicitly opted-in). Authorization MUST be checked AFTER authentication, not collapsed with it. Parameterized queries only — string-interpolated SQL, `eval` / `exec` on user input, plaintext secrets in code or logs, and `alg: none` JWTs are forbidden.
+
 ## Must
 
 - Auth on every endpoint by default. Public endpoints are explicitly opted-in (`@Public()` decorator, `permit_all` middleware) and reviewed.

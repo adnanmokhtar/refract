@@ -7,6 +7,12 @@ description: Make a chosen SSR render FAST — find routes that block TTFB on th
 
 Slow SSR blocks TTFB on the slowest thing the page awaits. Stream the shell now, stream the slow subtree later. Every finding cites the blocking call at `<file:line>` + its latency + the proposed boundary + the expected TTFB delta.
 
+## Premise
+
+Slow SSR blocks TTFB on the slowest thing the page awaits. If a route `await`s a 600ms query before returning any HTML, the user stares at a white screen for 600ms even though the header, nav, and layout were ready instantly. The fix is almost never "make the query faster" first — it's **stream the shell now, stream the slow subtree later** behind a boundary, so above-the-fold paints immediately and the slow region fills in.
+
+`ssr-audit` checks SSR *correctness* (hydration mismatches). This skill checks SSR *speed*: it turns the open question "is hydration streaming?" into a real detector + fix. `bundle-perf` *(performance pack, when co-installed)* is where that question is normally raised; when that pack is absent nothing else in the project asks it, which is precisely why this skill has its own TTFB trigger below rather than waiting to be handed a finding. Every finding cites the blocking call at `<file:line>` + its observed/measured latency + the proposed boundary + the expected TTFB delta. A streaming recommendation without the cited blocking call is a halt.
+
 ## Scans for
 
 ### 1. Whole-page await before first byte

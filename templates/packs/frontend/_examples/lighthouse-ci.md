@@ -1,6 +1,6 @@
 ---
 name: lighthouse-ci
-description: Runs Lighthouse against the dev server with budget enforcement. Blocks regressions in LCP / CLS / TBT / bundle size.
+description: Run Lighthouse against the dev server with budget enforcement, blocking regressions in LCP / CLS / TBT / bundle size. Run before merging a PR that touches frontend files, after upgrading a heavy dependency, and weekly in CI to track the Core Web Vitals trend. Lab measurement — it cannot measure INP or any field metric; that is `web-vitals-field`.
 ---
 
 # lighthouse-ci
@@ -13,6 +13,12 @@ Run Lighthouse against the production build, enforce budgets, and detect regress
 - After upgrading a heavy dep (Vue / Vite / a UI library).
 - Weekly in CI to track Core Web Vitals trend.
 - Before a marketing campaign that will spike traffic.
+
+## Premise
+
+Find real perf regressions, not noise. Every failure cites the metric + measured value + budget + the suspected cause (commit / file / chunk). "Score dropped" without numbers is not a finding. A single run is not a measurement — median of ≥3 runs against the production build, or the result is invalid. Dev-mode runs are forbidden; HMR inflates TBT and LCP misleadingly.
+
+A failed budget without a named cause is unfinished investigation.
 
 ## Prerequisites
 
@@ -97,3 +103,11 @@ Reports:  .lighthouseci/lhr-1745492045123.html
 - Mobile throttling defaults to "Slow 4G + 4x CPU" — unchanged for years; matches real low-end devices, don't relax it.
 - CLS often regresses from font swaps or hero images without `width/height` — verify in the diagnostic, not just the score.
 - Skip server-rendered admin pages (no public traffic, no Core Web Vitals to chase). Keep the budget on customer-facing routes.
+
+## Halt conditions
+
+- Halt on hand-waves: every regression must cite metric + measured value + budget + likely cause (commit hash / file / chunk).
+- Halt if the run targeted `pnpm dev` instead of the built artifact — invalid measurement, re-run.
+- Halt if `numberOfRuns < 3` — a single run is noise, not a signal.
+- Halt if INP is reported only from lab with no field/RUM source cited — lab INP is not a measurement. Pair it with CrUX or RUM `onINP` (the `web-vitals-field` skill *(performance pack, when co-installed)*) before claiming an INP value. If that pack is absent the run reports `INP: SKIPPED (no field source)` — never a fabricated number.
+- Halt if a budget is relaxed in `lighthouserc.json` to make the build pass — that's masking, not fixing. Relaxation requires an ADR.

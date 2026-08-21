@@ -6,6 +6,38 @@ description: Wire structured logs, metrics, and traces into a feature; create al
 
 Build command. Adds the four observability primitives — logs, metrics, traces, alerts — using the project's existing libraries. Generates runbook stubs. All 7 phases apply.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing log fields, metric names, and span attributes are the truth.** If any sibling feature in this repo is already instrumented, that convention IS the convention for this feature. New telemetry MUST mirror sibling instrumentation: same log field names (`request_id` vs `requestId` vs `req_id` — pick the one already in use), same span attribute names (`order.tenant_id` vs `tenant.id`), same metric naming convention, same severity tiers. Don't invent new conventions.
+
+**The agent's job is exactly this:**
+1. Find one existing instrumented sibling module (Phase 3 already requires this — enforce it).
+2. Mirror its log field names, metric prefix, span attribute keys, alert severity labels exactly.
+3. Only deviate when an accepted ADR documents the divergence — otherwise, sibling parity wins.
+
+**The agent does NOT:**
+- Add a log field (`tenantId`) when sibling logs use `tenant_id`.
+- Use a span attribute (`http.url`) when sibling spans use `request.url`.
+- Pick a metric prefix (`feature_xxx_total`) when sibling metrics use `feature.xxx.count`.
+- Draft an ADR mid-run to legitimize a new convention. **Sibling wins. Mirror it.**
+
+**Closure verb (default): mirror-sibling.** Auto-apply parity edits silently; batch into the end-of-run summary. Only halt on the three escalation triggers below.
+
+**Escalation triggers (halt and ask):**
+- No sibling instrumented module exists anywhere in the repo (greenfield — user picks the convention).
+- Sibling conventions are internally inconsistent across modules (two patterns coexist — user picks).
+- The new instrumentation genuinely cannot fit sibling shape (different telemetry layer, different SDK) — surface and ask.
+
+That's it. Everything else is silent sibling-parity emission.
+
+## Mechanical halt — instrumentation-naming parity
+
+See [`templates/snippets/instrumentation-parity.md`](../../../snippets/instrumentation-parity.md). Weight all four dimensions (span, metric, log, alert) per the premise above.
+
+Add the check results to the output block under `Naming-parity: ✓ | halts=<N>`.
+
+Build command. Adds the four observability primitives — logs, metrics, traces, alerts — using the project's existing libraries. Generates runbook stubs. All 7 phases apply.
+
 ## When to use / NOT to use
 - USE: new feature shipping to staging+ — instrument before exposure.
 - USE: existing feature with mystery failures (gaps in current telemetry).
@@ -49,10 +81,12 @@ Telemetry-specific:
   - Counters: `<feature>_requests_total{status,reason}`.
   - Histograms: `<feature>_duration_seconds` with buckets `0.005, 0.01, 0.05, 0.1, 0.5, 1, 5`.
   - Trace span around use-case entry; sub-spans on external IO (DB, HTTP, queue).
-- Alert config in project's format:
-  - Error-rate > 1% over 5min.
-  - p95 latency > SLO over 10min.
-  - Saturation alerts (queue depth, pool wait) where applicable.
+- Alert config in project's format — **SLO-linked, not static thresholds.** Each alert MUST name the SLO/SLI it protects and fire on burn rate:
+  - Fast burn (1h window, 14× budget, `severity: page`) on the feature's availability SLI (`<feature>_requests_total{status="error"} / total`).
+  - Slow burn (6h window, 6× budget, `severity: ticket`) on the same SLI.
+  - Latency SLO burn where a latency SLO exists — burn against the `<feature>_duration_seconds` histogram's p95 objective, NOT a bare `p95 > Nms` threshold.
+  - Saturation alerts (queue depth, pool wait) where applicable — cause-based, `severity: ticket`, dashboard-first.
+  - **A static `error-rate > X% over Nmin` threshold is a FAILED alert here** (alert fatigue + SLO-disconnected). If no SLO exists for the feature, halt and route to `/alert-design` Phase 1 (define the SLO first) rather than emitting a blog-post threshold.
 - Runbook stub `ai/runbooks/alert-<name>.md`: symptom, immediate mitigation, investigation queries (log filter + trace selector), known false-positives.
 
 ## Phase 5 — Update

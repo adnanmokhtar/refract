@@ -6,6 +6,15 @@ pack: security
 
 # Pattern: Zero-Trust Architecture
 
+> **Hard rule** — Every service boundary authenticates the caller; no boundary trusts the network. Long-lived API keys, "internal = trusted" assumptions, and shared credentials across environments are forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite the workload-identity issuer (SPIFFE / IAM / K8s ServiceAccount config) as `<path:line>` before claiming service-to-service zero-trust; shared API keys are a halt.
+- Cite the secrets-manager binding as `<path:line>` (Vault policy file, IAM role, K8s SA); env-var secrets in code are forbidden.
+- Cite the row-level isolation rule as `<path:line>` (RLS policy SQL or repository base class); app-only filtering without DB defense-in-depth is a halt for tenant data.
+- Cite the audit-log emitter for privileged actions as `<path:line>`; privileged action without an audit row is a halt.
+- Hand-wave grep ban — never claim "no long-lived keys" without citing the rotation policy file or secret-scan CI rule.
+
 "Never trust, always verify." Perimeter security dies when apps go multi-service, cloud, remote. Zero trust assumes the network is hostile everywhere.
 
 ## Core principles

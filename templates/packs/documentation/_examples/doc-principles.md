@@ -8,6 +8,8 @@ pack: documentation
 
 Prevents the failure mode that's worse than missing docs: stale docs that actively mislead.
 
+> **Hard rule.** Docs MUST describe what IS in the codebase right now. When code changes, docs change in the SAME PR — no follow-up tickets. Architectural decisions live in `ai/decisions/<NNNN>-*.md` ADRs, status timestamps stay current, and aspirational claims (features that don't exist yet) are forbidden in any non-ADR doc.
+
 ## Must
 
 - Docs describe what IS in the codebase right now. If reality changes, docs change in the SAME PR. Reviewer rejects mismatched diffs.

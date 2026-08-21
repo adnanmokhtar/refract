@@ -15,6 +15,21 @@ Round-one detection knows the project has a backend track + an ORM. Round-two kn
 
 Round-two surfaces these so the `query-optimizer.md` rule's `## Project-specific` block isn't generic — it points to the actual hot paths with the actual files.
 
+## Premise
+
+- Real source is the truth. Read each scored handler's body + every called function down to the DB boundary before assigning an N+1 risk.
+- Walk migrations before declaring an index missing; the auto-index on FK alone doesn't cover composite-column queries.
+- Grep for cache-decorator + cache-aside + materialized-view use before scoring `cache_layer: no`.
+- Empty extraction is honest — a path scored "looks healthy" is a valid finding the user benefits from knowing.
+- Fabrication — flagging an N+1 you didn't read, recommending an index that already exists, asserting a cache layer is absent without checking, recommending caching for a mutating endpoint without flagging correctness — produces uplifts that waste engineering time or break the system.
+
+## Mechanical halt
+
+- Hand-wave hot-path output — `etc.`, `...`, `appears to N+1`, `roughly slow`, `several queries`, an `n_plus_1_sites:` entry without `<file:line — reason>`, a `missing_indexes:` entry without checking migration history per Step 3, an uplift without naming the file to edit — REFUSE to advance.
+- Re-read the handler + migrations and regenerate the row OR downgrade fields to `<NOT-DETECTED: not checked>`.
+- If <5 paths can be ranked at all, record `<NOT-DETECTED: hotpaths: <N> ranked below threshold>` per the WEAK gate.
+- Never recommend caching for a mutating endpoint without flagging the correctness trade-off — invalidation is the hard part.
+
 ## When to use
 
 - `/setup-project --refine` Phase 2.11 — once per project.

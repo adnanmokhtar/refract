@@ -1,9 +1,17 @@
 ---
 name: a11y-scan
-description: Automated axe-core scan on a declared route matrix — WCAG 2.2 AA tags, critical/serious gating, and axe review items surfaced rather than swallowed. Automation is a floor, not a pass.
+description: Run axe-core against the running app on a declared route matrix and gate the merge on it — WCAG 2.2 AA tag set, critical/serious severity split, and axe's `incomplete` review items surfaced instead of swallowed. Needs a running server; start one with `dev-server-start` first. NOT the manual audit — it cannot judge screen-reader experience, keyboard interaction quality, or context, so a clean run is a floor and never a conformance claim; those axes belong to `@accessibility-auditor` (this pack) or the ui-ux pack's `a11y-quick-check` fast lane.
 ---
 
 # a11y-scan
+
+## Premise
+
+Find real a11y issues, not hand-waves. Every finding cites the rule id + the offending node selector + `<file:line>` of the source that produced it. "Looks accessible" is not a finding. "Probably fine" is not a finding. If axe reports zero violations on a page that obviously has them (no headings, no landmarks, no labels) — the scan was misconfigured, re-run it.
+
+A run that produces zero output for zero reason is a failed run, not a clean one.
+
+**Automation is a floor, not a pass.** This skill proves the machine-checkable subset of WCAG conformance on real rendered DOM. It cannot see screen-reader experience, keyboard interaction quality, cognitive load, or whether the accessible name it found is the *right* name. A green scan means "no automated violation," never "accessible" — the verdict wording must say which one it is.
 
 ## Tools
 

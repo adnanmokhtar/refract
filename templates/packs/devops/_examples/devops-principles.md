@@ -6,6 +6,8 @@ pack: devops
 
 # DevOps Principles
 
+> **Hard rule.** Deploys MUST be zero-downtime, rollback MUST be one command (redeploy a previous immutable image — no rebuild), and migrations MUST be backward-compatible. Secrets in git, `:latest` tags in prod, hand-edits to production servers, and alerts without runbooks are forbidden.
+
 Prevents the four classic incidents: bad migration locks the DB, secret leaked to git, deploy rollback impossible, alert fires with no runbook.
 
 ## Must

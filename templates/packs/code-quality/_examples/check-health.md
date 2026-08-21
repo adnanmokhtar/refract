@@ -122,6 +122,10 @@ Top 3:
   3. Run /doc-refresh and re-run /check-health  (docs, ~15min)
 ```
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the health findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (RED items holding the verdict at RED) → **SHOULD FIX** (AMBER items) → **OPTIONAL** (GREEN-with-nits) — each step carrying `<file:line>` + **Fix** (the named fix / command / pattern, never "consider X") + **Verify** (required on every MUST-FIX step: the mechanical check that flips it green), then the closing steps (re-run `/check-health` to confirm the verdict comes back GREEN, then proceed). A clean run collapses to a single line ("All GREEN — no blockers"). This supersedes the bare `Top 3` list as the actionable closer.
+
 ## Failure modes
 
 - Mechanical greens hide design rot — never skip the agent pass.

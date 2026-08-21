@@ -6,6 +6,14 @@ pack: database
 
 # Pattern: Transaction Isolation + Locking
 
+> **Hard rule:** Concurrent access to the same rows uses the RIGHT isolation level and locking discipline for the workload — pessimistic `SELECT … FOR UPDATE` with a consistent lock order, or an optimistic `version`/`updated_at` column with an affected-rows check — never a read-then-write race. Any code that relies on `SERIALIZABLE` or `REPEATABLE READ` MUST retry on a serialization failure (`40001`). A read-modify-write on a contended row with no lock and no version guard is forbidden. Cite the engine + version and the offending `<path:line>` verbatim, or halt.
+
+**Halt conditions / mandatory cites**
+- The DB engine + version MUST be extracted — isolation semantics differ (Postgres RR ≠ MySQL RR ≠ SQL Server RR). Without it, halt; advice is engine-specific.
+- Every finding MUST cite the read at `<path:line>` AND the write at `<path:line>` that race, or the lock/version guard that is missing.
+- A claim of "this uses Serializable" MUST cite where the level is set AND where the retry loop is — a Serializable transaction with no retry is a bug, not a fix.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `should be safe` is forbidden when claiming a section is race-free.
+
 Concurrency correctness is a level you choose and a lock discipline you enforce — never a read-then-write race. Pick the isolation level deliberately, order locks consistently, and retry the failures the engine hands you. Extract the **engine + version** first — semantics differ (Postgres RR ≠ MySQL RR ≠ SQL Server RR).
 
 ## Isolation levels

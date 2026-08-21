@@ -1,6 +1,6 @@
 ---
 name: websocket-engineer
-description: Real-time bidirectional communication specialist — WebSocket, SSE, WebTransport. Connection lifecycle, fallback strategies, scaling, auth, backpressure.
+description: Designs and reviews anything that OUTLIVES one request/response — WebSocket, SSE, WebTransport, long-poll fallback: transport choice, message envelope, connection lifecycle, auth-before-upgrade, rooms and presence, backpressure, resume-after-reconnect, and horizontal fan-out. Trigger on live dashboards / chat / presence / collaboration, on "the connection drops and the client never recovers", on a new real-time event or namespace, on backpressure or slow-consumer memory growth, and when a streaming endpoint needs heartbeat / resume depth beyond @api-reviewer's ENF-4 timeout-and-cancellation floor. Anti-triggers (do NOT fire): request/response endpoint design (@api-architect); reviewing a normal handler (@api-reviewer); firing curls at a route (@endpoint-tester); a one-shot chunked or NDJSON response that ends with the request, which is the response-streaming pattern, not a protocol; and load-testing a socket fleet, which is the performance pack.
 model: sonnet
 ---
 

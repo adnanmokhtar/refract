@@ -32,7 +32,7 @@ A synthetic failure **pages on its own**, even when every white-box signal is gr
 
 Boundary: synthetic = *scripted, active*; RUM = *real users, passive* (owned by `web-vitals-field`, performance pack). Both present, not confused.
 
-## Detectors
+## Scans for (detectors)
 
 - **Critical journey with no blackbox probe** — the headline defect.
 - **Alerting only on white-box signals** — no route fires on synthetic failure.
@@ -40,6 +40,46 @@ Boundary: synthetic = *scripted, active*; RUM = *real users, passive* (owned by 
 - **Single-location probe** — regional fault indistinguishable from an outage.
 - **A probe that only pings `/health`** — liveness ≠ journey coverage.
 - **Synthetic alert routed to a dead channel** — coverage on paper, not in practice.
+
+## Output (illustrative shape)
+
+```
+Synthetic coverage — <synthetic backend> + <paging service>
+
+Critical journeys: 6
+Covered by a real journey probe: 3
+Uncovered / health-only: 3
+
+Uncovered journeys (add a probe):
+  - checkout             NO probe — highest-revenue path, blackbox blind. Add API + browser probe, 2 locations.
+  - password_reset       probe pings /health only — doesn't exercise the reset flow. Rewrite to drive the journey.
+
+Probe-SLO gaps:
+  - login_probe          runs, but no success-rate SLO + no burn-rate alert — add both to slos.md.
+  - search_probe         success-rate SLO only — add a latency-under-T SLI (journey works but slow == broken).
+
+Location gaps:
+  - login_probe          single location (us-east) — add ≥1 more; can't distinguish regional net fault from outage.
+
+Alert-route gaps:
+  - checkout (once added) ensure synthetic failure PAGES on its own route, NOT gated behind white-box error rate.
+  - signup_probe         failures route to #synthetics (unwatched) — route to the on-call pager.
+
+Action plan:
+  1. Add real journey probes for the uncovered critical paths (API + browser on the top flows).
+  2. Give every probe a success-rate + latency probe-SLO with multi-window burn-rate alerts.
+  3. Add a second probe location to single-location probes.
+  4. Split synthetic failures onto their own page route — never gate on white-box signals.
+  5. Rewrite /health-only probes to drive the actual journey.
+```
+
+## Halt conditions
+
+- Refuse to call a journey "covered" without a probe script that drives the journey end to end — a `/health` or domain ping does not count.
+- Refuse to call a journey "uncovered" without confirming no probe exercises it (grep the synthetic config; cite the absence).
+- Halt on "we have synthetics" without naming which journeys have probes and which don't.
+- Don't prescribe a probe-SLO number here — the target + window go in `ai/runtime/slos.md`; this skill flags the *absence*, the registry holds the value.
+- Don't propose gating a synthetic page behind a white-box condition — that defeats blackbox monitoring; halt and keep the routes separate.
 
 ## Related
 

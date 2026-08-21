@@ -2,10 +2,26 @@
 name: schema-diff
 description: Diff the ORM entities against the actual DB schema — catch drift between code and reality.
 ---
+<!-- generated-from: templates/packs/database/skills/schema-diff/SKILL.md
+     Literal-copy fallback: this file carries its source verbatim because the source has no
+     droppable section left once the safety block is kept. Declaring it makes check 8b compare
+     the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source changes —
+     do not hand-edit; edit the source and re-copy. -->
 
 # schema-diff
 
 When migrations are skipped, hand-edited on prod, or entities change without a generated migration, the ORM and DB drift. This skill catches it.
+
+## Premise
+
+Find real drift, cite `<table>.<column>` and the file/line in the entity definition. Every finding maps to a concrete artifact: a column visible in `pg_dump` output, an entity field in `prisma/schema.prisma:NN`, an index declared in `*.entity.ts:NN`. No "looks like drift" — either the diff tool emits it or it's not reported. Verdicts (blocker / warning / info) come from the captured diff, not from intuition about the ORM.
+
+## Halt conditions
+
+- Refuse to report drift without both sides captured (`/tmp/db.sql` AND the ORM expected schema).
+- Refuse to flag a "ghost column" without confirming via `\d <table>` that it actually exists.
+- Halt if the target DB is prod — re-run against a restored snapshot.
+- Don't propose `db push` / destructive sync as the fix; propose a generated migration with the exact name.
 
 ## When to use
 

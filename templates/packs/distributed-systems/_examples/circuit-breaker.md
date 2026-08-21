@@ -6,6 +6,15 @@ pack: distributed-systems
 
 # Pattern: Circuit Breaker
 
+> **Hard rule:** Every cross-service call ships through a named breaker with explicit failure threshold, open-state timeout, and half-open probe count. Hand-rolled `try/catch + retry` with no breaker, breakers without metrics, or shared global breakers across unrelated dependencies are forbidden.
+
+**Halt conditions / mandatory cites**
+- Each breaker MUST cite the dependency it guards at `<path:line>` AND the threshold/timeout values with their rationale.
+- Open-state fallback (cached value, queued retry, error) MUST cite the fallback site or the contract that allows it.
+- A doc proposing a breaker without metrics (open/close events, current state) is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when justifying threshold values.
+- If the project's chosen breaker library / version isn't extracted, halt before adding new breakers.
+
 Fails fast when a downstream is degraded, preventing cascading failure + giving it time to recover.
 
 ## States

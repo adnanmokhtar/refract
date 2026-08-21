@@ -6,6 +6,15 @@ pack: ui-ux
 
 # Pattern: Motion + Animation
 
+> **Hard rule** — Animate only `transform` and `opacity`, keep UI micro-interactions ≤ 250ms, and respect `prefers-reduced-motion` globally. Decorative motion without a stated purpose is forbidden.
+
+**Halt conditions / mandatory cites**
+- Cite the duration + easing token file as `<path:line>` before introducing a new animation; raw `200ms ease-out` strings inline are a halt.
+- Cite the global `@media (prefers-reduced-motion: reduce)` rule as `<path:line>`; if absent, halt and add it BEFORE shipping any new motion.
+- Cite a low-end-device test or perf budget doc as `<path:line>` for any animation > 250ms or affecting > 25% viewport.
+- Refuse to animate non-composited properties without a measured perf justification recorded as `<path:line>` in the perf log.
+- Hand-wave grep ban — never claim "no `transition: all`" without a cited stylelint rule or grep artifact path.
+
 Motion guides attention, communicates state, adds polish. Bad motion distracts, annoys, excludes users with vestibular disorders.
 
 ## Principles

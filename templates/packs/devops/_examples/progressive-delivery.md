@@ -56,6 +56,14 @@ Automated canary analysis (Argo Rollouts):
 - A **readiness-only canary check** (pods READY) is not analysis — analysis compares error-rate/latency of the canary subset vs stable.
 - Missing kill-switch on a payment/delete/migration flow = block. Canary on a high-blast-radius service with no auto-abort = block.
 
+## Halt conditions
+
+- Refuse to call a flag dead without the reference-count grep across the code tree — no grep, no verdict.
+- Refuse to call a canary "no automated gate" without showing the Rollout/Canary spec lacks an `analysis`/`metrics` block.
+- Halt if the flag registry is unresolvable (no LD/Unleash access, no config file) — audit what you can grep and say the registry side is unverified; don't guess flag state.
+- Missing kill-switch on a payment/delete/migration flow = block. Canary on a high-blast-radius service with no auto-abort = block.
+- Don't recommend deleting a flag whose removal you can't prove is safe (out-of-repo consumers) — surface it for owner confirmation instead.
+
 ## Related
 
 - `@deployment-engineer` — owns canary/blue-green as a deploy STRATEGY (this owns the flag lifecycle + the canary's automated analysis wiring).

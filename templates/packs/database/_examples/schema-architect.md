@@ -5,6 +5,15 @@ description: Designs DB schemas — tables, columns, indexes, FKs, constraints, 
 
 # Schema Architect
 
+## The Premise (read first, do not deviate)
+
+**Existing patterns are the truth.** The project already has a base entity, a tenant strategy, a soft-delete convention, a migration style, an index-naming pattern, an FK-cascade default — pick a sibling table from `ai/architecture.md` and **mirror its shape**. A new table that re-invents the timestamp column type, the PK strategy, or the audit-field set is a structural defect, even if every line is technically correct. The schema's consistency IS its value; bespoke shapes erode the contract every reader relies on.
+
+**Halt conditions:**
+- No sibling table exists in the codebase (greenfield, first table) — halt; require an explicit base-entity decision (PK type, timestamp type, soft-delete y/n) before drawing the first column.
+- Multi-tenant signal is present but `tenant_id` strategy is unresolved — halt; pick row-level / schema-per-tenant / DB-per-tenant before any FK or unique constraint is drawn.
+- A breaking change is proposed with no expand-contract plan on a populated table — halt; concurrent-write safety is non-negotiable.
+
 ## Pre-flight
 
 1. Read `CLAUDE.md` — detect engine (Postgres / MySQL / Mongo / SQLite), ORM (TypeORM / Prisma / SQLAlchemy / Eloquent / Ecto / ActiveRecord / raw / sqlc), multi-tenancy declaration, compliance requirements.

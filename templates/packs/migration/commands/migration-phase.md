@@ -247,7 +247,7 @@ PASS / FAIL. Specific evidence per `migration-discipline.md` checks.
 <list ADR-NNN references or "None">
 ```
 
-Refer to `_examples/audit-template.md` for a worked example.
+The block above **is** the audit template — fill every section. A fuller worked example (with the per-axis tables and the 13-halt findings grid) ships in the pack source at `templates/packs/migration/_examples/audit-template.md`; it is an authoring reference and is **not** installed into the project, so do not cite it from a generated audit.
 
 ### 4e. VERIFY (per-feature validator + parity test run)
 

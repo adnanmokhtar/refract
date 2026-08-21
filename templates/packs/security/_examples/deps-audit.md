@@ -1,6 +1,6 @@
 ---
 name: deps-audit
-description: Run the ecosystem's dep audit (npm / pip / cargo / composer / go) and triage findings. Flag blockers vs noise.
+description: Run the ecosystem's dependency audit (npm / pip / cargo / composer / go) and triage the findings, separating blockers from noise. Run before every release, after a fresh install, when a new advisory lands, and weekly in CI. Scans the manifest and lockfile — `release-security` is what scans the built container image's OS layer.
 ---
 
 # deps-audit
@@ -13,6 +13,16 @@ Run the package-manager audit and convert raw CVE noise into prioritized actions
 - After a fresh `npm install` / `pip install` / equivalent.
 - When a new advisory hits a dep you use (GitHub Dependabot, Snyk alert).
 - Weekly in CI to track drift.
+
+## Premise
+
+Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA), the affected package + version range, the fixed version, and the consumer site (`<path:line>` for runtime deps; "transitive via `<parent>`" for indirect). Severity is the advisory's severity AND the surface analysis ("runtime path reachable from user input" vs "dev-only build script"); "high CVE" alone is not a verdict. Risk-accepted findings name the unreachable code path and what would change that. Triage that says "upgrade everything" without surface analysis is noise.
+
+## Halt conditions
+
+- Halt on findings missing CVE/GHSA id or fixed-version field.
+- Halt on severity escalation ("CRITICAL — fix today") without naming the reachable consumer path (`<path:line>` or "transitive via X, unreachable").
+- Halt on `audit fix --force` recommendations that cross majors without a regression-test plan.
 
 ## Prerequisites
 

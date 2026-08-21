@@ -6,6 +6,15 @@ pack: distributed-systems
 
 # Pattern: Saga
 
+> **Hard rule:** A saga is a sequence of local transactions where each step has an explicit, idempotent compensating action; saga state is persisted at every step transition. Distributed 2PC, "we'll just retry the whole thing", or compensations that aren't idempotent are forbidden.
+
+**Halt conditions / mandatory cites**
+- Every step MUST cite its forward action AND its compensating action at `<path:line>`.
+- Saga state persistence (table, columns, status enum) MUST be cited.
+- A doc with a step lacking a compensation is a bug — reject; either add one or redesign.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "compensation is idempotent".
+- If the orchestration mechanism (orchestrator vs choreography) isn't extracted, halt.
+
 Long-running distributed transaction via a sequence of local transactions + compensating actions. Used when you need "all-or-nothing" across services but can't use a distributed ACID transaction.
 
 ## When to use

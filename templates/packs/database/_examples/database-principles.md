@@ -6,6 +6,8 @@ pack: database
 
 # Database Principles
 
+> **Hard rule.** Schema changes ship via reviewed migrations only — `synchronize: true` / auto-migrate / `db.create_all()` in production are forbidden. Every list query MUST paginate with `LIMIT`; every FK MUST be indexed; every transaction MUST stay local (no external HTTP / queue / API call held inside).
+
 Engine-agnostic. Engine-specific syntax in `references/<engine>.md` (postgres, mysql, sqlite, mongodb).
 
 Prevents the failures that wake you up: deadlocks, runaway scans, broken migrations, lost data.

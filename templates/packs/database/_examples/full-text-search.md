@@ -6,6 +6,8 @@ pack: database
 
 # Pattern: Full-Text Search
 
+> **Hard rule:** Text search over a large table uses the engine's real full-text primitive — Postgres `tsvector` + GIN, MySQL `FULLTEXT`, or an external engine (Elasticsearch/OpenSearch/Meilisearch) — kept in sync by a trigger or generated column, and returns results **ranked** (`ts_rank`/`MATCH … AGAINST` score). A `LIKE '%term%'` / `ILIKE '%term%'` search that forces a full scan, an FTS column with no maintenance (stale index), and an FTS query with no ranking are all forbidden. Cite the engine + version, the table row-count, and the offending `<path:line>` verbatim — or halt.
+
 Text search over a large table uses the engine's real full-text primitive — Postgres `tsvector` + GIN, MySQL `FULLTEXT`, or an external engine — kept in sync by a trigger or generated column, and returns results **ranked**. `LIKE '%term%'` / `ILIKE '%term%'` that forces a full scan, an FTS column with no maintenance (stale index), and an FTS query with no ranking are all forbidden. `indexing-strategy` owns the general index toolbox; THIS pattern owns the text-search index and the search query together. Extract the **engine + version** first — FTS primitives differ.
 
 ## Adapt to the codebase

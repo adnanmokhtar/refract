@@ -6,6 +6,15 @@ pack: observability
 
 # Pattern: Structured Logging
 
+> **Hard rule:** Every log is JSON with `timestamp`, `level`, `message`, `traceId`, and structured context fields; no string interpolation of variables into the message. PII (emails, names, tokens, full card numbers) and stack traces in user-visible responses are forbidden — they go to logs only, redacted per policy.
+
+**Halt conditions / mandatory cites**
+- Each log call MUST cite the structured fields it emits at `<path:line>` — no whole-object dumps of arbitrary structures.
+- Any field that may contain PII MUST cite the redaction helper or schema policy.
+- A doc proposing string-interpolated log messages (e.g., a logger call concatenating `user ${u.email} did X` into the message) is a bug — reject; use structured fields.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is enough context".
+- If the logger library + correlation-ID propagation aren't extracted, halt.
+
 Logs as queryable data, not grep targets.
 
 ## Baseline

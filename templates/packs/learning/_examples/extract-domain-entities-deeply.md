@@ -2,6 +2,11 @@
 name: extract-domain-entities-deeply
 description: Round-two deep extraction of domain entities — reads ORM/model/schema definitions + migrations + repositories + tests + docs to produce a structured map (entities, fields with types/constraints, relationships, lifecycle events, invariants). Used by /setup-project Phase 2.7 in REFINE mode to upgrade round-one business-domain detection from "this is a billing app" to "billing has 7 entities with 9 invariants — here they are with file:line citations." Output is the substrate for Phase 4.6-DEEP rewrites of domain-related artifacts.
 ---
+<!-- generated-from: templates/packs/learning/skills/extract-domain-entities-deeply/SKILL.md
+     Literal-copy fallback: this file carries its source verbatim because the source has no
+     droppable section left once the safety block is kept. Declaring it makes check 8b compare
+     the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source changes —
+     do not hand-edit; edit the source and re-copy. -->
 
 # Skill: extract-domain-entities-deeply
 
@@ -10,6 +15,21 @@ description: Round-two deep extraction of domain entities — reads ORM/model/sc
 Round-one Phase 2.x detects the *kind* of business domain ("billing", "healthcare", "e-commerce") from folder names + dependency manifests + entity-name keywords. That is enough for the floor (matching pack overlays). It is NOT enough for round-two depth.
 
 This skill produces the project's actual domain map — the kind of document a senior engineer joining the team would write after a week of code reading. Output is anchorable: every claim ties to `file:line`. Generic prose is forbidden.
+
+## Premise
+
+- Real source is the truth. Read every domain entity file in full — class declaration, field decorators, relationships, hooks, computed properties, custom methods — before composing a row.
+- Walk the migration history for index + constraint lineage; the model file alone misses dropped/renamed columns.
+- Every entity, field, relationship, lifecycle event, invariant, and repository method cites `<path:line>` resolving at the current commit.
+- Empty extraction is honest — an entity with `invariants: []` is correct when no DB / model / service / test enforcement exists; record `enforcement: none` explicitly.
+- Fabrication — inventing an entity the codebase doesn't have, an invariant no code enforces, a relationship not declared in the model — corrupts every domain-related artifact that reads this section.
+
+## Mechanical halt
+
+- Hand-wave entries — `etc.`, `...`, `usual fields`, `appears to be aggregate root`, an invariant without a `citation:` line, a relationship without on-delete behavior, an entity without ≥1 field — REFUSE to write the row.
+- Re-read the source file and regenerate the row, OR downgrade the entity (or the whole domain) to `[REFINE-WEAK: domain=<name>]`.
+- If the business-domain has fewer than 3 entities AND the quality gate fails, record `<NOT-DETECTED: domain=<name>: <N> entities, threshold 3>` per Step 8's validate rule.
+- Never inflate by promoting infrastructure tables (audit logs, queue jobs, schedule rows) into the domain — cross-domain references go in `cross_entity_invariants`, not in the entity list.
 
 ## When to use
 

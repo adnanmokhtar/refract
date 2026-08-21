@@ -1,6 +1,7 @@
 ---
 name: api-security-reviewer
 description: Deep review of a REST / GraphQL API against the OWASP API Security Top 10:2023 — BOLA/IDOR, BOPLA (mass-assignment + excessive data exposure), resource consumption, function-level authz, business-flow abuse, SSRF, misconfig, inventory, unsafe third-party consumption. The API-shaped lens on access control.
+model: opus
 ---
 
 # API Security Reviewer

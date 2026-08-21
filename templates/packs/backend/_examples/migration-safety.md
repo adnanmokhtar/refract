@@ -1,5 +1,6 @@
 ---
 name: migration-safety
+description: Static scan of migration files for online-safety violations — blocking `CREATE INDEX` without `CONCURRENTLY`, `NOT NULL` added with no safe backfill, destructive drops of columns the running code still reads, and table-rewriting DDL. Run on any diff that adds or edits a migration, and before a deploy that ships a schema change. Not the timed rehearsal against prod-sized data — that is `migration-rehearsal` in the database pack.
 kind: example
 pack: backend
 ---
@@ -7,6 +8,12 @@ pack: backend
 # Skill: migration-safety
 
 Migrations run against a live DB under traffic — a lock-taking DDL, a table rewrite, or dropping a column the running code reads = a deploy outage. Verifies the online-safe/reversible promise of migration-backend + add-endpoint/add-module. Every finding cites the migration `<file:line>` + the unsafe statement + the safe rewrite. Detect the tool + engine first (lock behaviour is engine/version dependent — PG ≥11 constant-default ADD COLUMN is safe; MySQL rewrites).
+
+## Premise
+
+A schema migration runs against a live database under concurrent traffic. The failure is invisible in review and catastrophic in prod: a migration that takes an `ACCESS EXCLUSIVE` lock, rewrites a big table, or drops a column the running code still reads → an outage during deploy. The `migration-backend` rule and `add-endpoint`/`add-module` *promise* "online-safe, reversible" migrations; this skill is the verifier that enforces the promise.
+
+**Every finding cites the migration file at `<file:line>` + the unsafe statement + the safe rewrite.** "This migration looks risky" without the cited statement is not a finding. This is a static scan of the migration files in the diff (or a target dir).
 
 ## Scans for
 
@@ -17,6 +24,22 @@ Migrations run against a live DB under traffic — a lock-taking DDL, a table re
 5. Non-reversible `down` with no comment (accidental irreversibility).
 6. Large backfill/UPDATE inside the DDL transaction → batched, non-transactional.
 7. FK/CHECK added without `NOT VALID` → `VALIDATE` two-step on a large table.
+
+## Output
+
+```
+migration-safety — <migration set>   (tool: <detected>, engine: <postgres 16 | mysql 8 | …>)
+
+Findings: 2
+
+1. db/migrate/20260709_add_index.rb:4                  [report-with-fix]
+   add_index :orders, :user_id  — blocking on a large table.
+   Fix: disable_ddl_transaction! + add_index :orders, :user_id, algorithm: :concurrently
+
+2. migrations/0042_add_status.sql:1                     [halt-handoff]
+   ALTER TABLE users ADD COLUMN status text NOT NULL — locks/fails on a populated table.
+   Fix: split into add-nullable → batched backfill → SET NOT NULL (three migrations).
+```
 
 ## Gotchas
 

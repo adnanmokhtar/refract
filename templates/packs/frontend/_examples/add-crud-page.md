@@ -6,6 +6,20 @@ description: Scaffold list + create + edit + delete pages for one entity end-to-
 
 Build command. Full CRUD bundle: list with pagination/filter, create/edit form, delete confirmation, store, service, i18n, tests. All 7 phases apply.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing CRUD siblings are the truth.** Every CRUD page already in the admin area is the intentional shape — its list/form composables, its service extension, its table / form / modal wrappers, its dialog-vs-page choice for create/edit, its permission gate on routes AND action buttons, its optimistic-update presence-or-absence. New CRUD pages copy that shape silently.
+
+**The agent's job is exactly this:** find ≥2 sibling CRUD pages in the same admin area; mirror EXACTLY their form library, table library, composables, service extension, dialog-vs-page choice, server-side-vs-client-side pagination, optimistic-update pattern (or its absence), caching lifecycle hook, and permission gates; add only the delta the new entity actually needs (its DTO fields, column set, filter list).
+
+**The agent ONLY asks the user when:** no sibling CRUD exists in this admin area; the API endpoints are missing (`POST/PATCH/DELETE` not implemented) — STOP and route to `/add-feature`; a bespoke flow is required (wizard, kanban, drag-drop) — reject and route to `/add-feature`. Everything else — column order, filter shape, pagination size, validation message text, empty-state copy — is silent sibling-mirror.
+
+**Prior-art gate (all tiers):** search by **behaviour, not name** — does an existing route/page already manage this entity under another name? Near-duplicate found → **HALT**: surface it and ask extend / replace / deliberate parallel.
+
+**New-dependency gate (all tiers):** a table/form/date package **no sibling already imports** needs justification + a **bundle-size delta** before it lands — reuse the repo's declared libraries by default. **HALT** on an unreviewed new dependency.
+
+**Lightweight default.** A new entity with an existing API and a sibling CRUD page in the same area is code only — list + form + delete + store + service + locale keys (BOTH locales) + tests, no plan and no ADR.
+
 ## When to use / NOT to use
 - USE: new admin entity needing standard CRUD.
 - USE: replacing a half-built CRUD that diverged from repo conventions.
@@ -51,6 +65,21 @@ CRUD-specific:
 - **i18n** — keys for every label, button, validation message, empty state, in EVERY locale.
 - **Tests** — list (renders, paginates, filters), form (valid + invalid submit), delete (confirms + executes).
 - Run lint + tests scoped to new files; iterate to green.
+
+### Sibling-shape mechanical halt (mandatory, all tiers)
+
+Before declaring success, compare the new CRUD bundle against ≥2 sibling CRUD pages in the same admin area. For each gap, return one of: `closed` (matches sibling shape), `still-open` (divergent), `regressed` (a new break on an unrelated axis).
+
+**Halt if any of:**
+
+- Uses raw framework components where the project's shared wrappers exist (modal / paginator / form / dropdown).
+- Hand-rolls list + form state where siblings use the project's CRUD/form composables.
+- Calls the HTTP client directly where siblings extend the shared CRUD service.
+- Uses a plain mount hook instead of the cache-aware activate hook on the list page — siblings cache across navigation; the new page silently re-mounts and re-fetches.
+- i18n keys present in the pivot locale but missing in declared alt locales — a silent break.
+- Default-true wrapper props left implicit — removing a handler does NOT hide the underlying button; pass the explicit `false`.
+- Optimistic-update mismatch — siblings don't use optimistic updates and the new page does, or vice versa. Partial adoption is worse than none.
+- Form or table library mismatch with the repo's declared one — reject.
 
 ## Phase 5 — Update
 - `ai/modules.md` — add row for the new entity's UI module.

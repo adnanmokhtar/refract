@@ -6,6 +6,20 @@ description: Review changed code for reuse, dead branches, and over-abstraction;
 
 Looks at staged + unstaged diffs and proposes specific simplifications with before/after diffs. Optionally applies them.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing patterns are the truth. Simplification means matching siblings, not innovating.** The repo already has a shape — helpers, base classes, repository pairs, error envelopes, validation primitives. Simplifying means fewer lines, fewer abstractions, more reuse of what is already there. It does NOT mean introducing a new helper, generic, strategy interface, base class, or "cleaner" pattern the agent finds nicer.
+
+**The closure verb is `remove-or-inline`.** Every candidate is one of four: `remove` (dead branch / unused export / unreachable return / no-op wrapper), `inline` (fold a single-caller wrapper / factory / strategy into its only call site), `dedupe` (replace a local re-implementation with the existing helper, citing `<path>:<line>`), or `rename-comment-out` (delete a comment that restates the function name). That is the entire vocabulary — anything else is a refactor or a redesign, and `/simplify` refuses it.
+
+**Forbidden:** introducing a NEW abstraction (helper, base class, mixin, generic, strategy, factory, decorator, hook) even if "it would be cleaner"; replacing a clear loop with a clever pipeline; introducing a library the project does not already use elsewhere; cross-module API rewrites (those go to `/refactor`); applying any candidate without grep-confirming all call sites of an inlined symbol.
+
+**Mechanical halt — only remove/inline, never a new abstraction:** classify each candidate against the four-verb vocabulary first. Any candidate that adds a new symbol (function / class / type / interface / file) HALTS with a route-to-`/refactor` note. Net line count for an applied run MUST be ≤ 0; if the diff goes positive, revert.
+
+**Production-grade gate — measurably simpler AND provably behaviour-identical, or report INCOMPLETE/UNVERIFIED.** "Compiles + fewer lines + suite still green" is the FLOOR. Arm 1: re-run the detector that flagged the smell — its fingerprint must return **zero hits at the site**, combined with net-lines ≤ 0; a candidate that lowers neither is churn, so drop it. Arm 2: the exact touched path must be covered by a test that is **green before AND after**; if it is uncovered, pin current behaviour BEFORE applying, and if it cannot be characterized, mark it **UNVERIFIED** and do not apply it silently. For a `remove` of a supposedly dead branch the pin inverts: confirm **no** test exercised it — if one did, it was not dead.
+
+**Lightweight default.** Staged + unstaged diffs only (or a `[path]` arg). No project-wide sweeps, no global pattern proposals. If 3+ duplicates surface, queue a one-line note for a future `/refactor`; do not act on it here.
+
 ## Phases applied
 
 All 7. Phase 4 = propose diffs (no auto-apply without confirmation).

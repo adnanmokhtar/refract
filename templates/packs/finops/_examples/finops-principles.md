@@ -55,3 +55,9 @@ pack: finops
 - [ ] Log-level and metric-cardinality changes state their ingestion delta.
 - [ ] Projected cost per unit within the declared threshold.
 - [ ] Every figure labelled.
+
+## Enforcement
+
+- A pre-merge infrastructure cost estimate runs in CI and posts the delta on the pull request, so the author sees the number before the resource exists.
+- Required allocation tags are enforced by the shared infrastructure module's variable contract — an untagged resource cannot be created, rather than being reported later.
+- Every guardrail is proved to fire — live or by replay against a historical spike — before it counts as coverage. This proof is enforced by the `/cost-guardrails` closure gate, which is agent-side; no external validator checks it.

@@ -6,6 +6,16 @@ pack: observability
 
 # Pattern: SLOs + Error Budgets + Burn-Rate Alerting
 
+> **Hard rule:** Every user-facing service has ≥1 SLO with an explicit SLI (symptom-based, not cause-based), a derived error budget (`budget = 1 − SLO`), and a **multi-window multi-burn-rate** alert (a fast-burn page AND a slow-burn ticket, each gated by a short confirmation window). A threshold on a single window is not an SLO alert. Raw CPU / queue-depth thresholds are not SLIs.
+
+**Halt conditions / mandatory cites**
+- Each SLO MUST cite the SLI's emit site at `<path:line>` (the good-events + valid-events queries) AND the burn-rate alert rule that consumes it.
+- Each error budget MUST cite the SLO target it derives from and the window it's measured over (28d / 30d / calendar-month — pick one, state it).
+- A burn-rate alert with only ONE window (no short confirmation window) is a bug — reject; it fires stale after recovery and misses fast burns.
+- An SLI measured on a cause (CPU%, pool saturation, queue depth) rather than a symptom (user-facing latency / errors / freshness) is a bug — reject; move the cause to a saturation *warning*, keep the SLO on the symptom.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this meets its SLO".
+- If the SLO backend (the project's TSDB recording rules / SLO service / OpenSLO spec — whatever is in use) isn't extracted, halt.
+
 An SLO is a target reliability for something users feel, measured by an SLI (`good events / valid events`), with an error budget (`1 − SLO`) and a multi-window multi-burn-rate alert. It turns "is it reliable enough?" from an argument into arithmetic.
 
 This file (`ai/patterns/slo.md`) is the *method*. The project's live per-service targets live in `ai/runtime/slos.md` (the *registry*) — don't conflate them.

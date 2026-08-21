@@ -13,6 +13,64 @@ pack: migration
 
 This rule governs every per-feature port. It exists because the most common migration failure is **subtle behavioural drift** — V2 *almost* matches V1, ships, and a long-tail of customer issues surface over months. The second most common is **scope creep** — the port becomes a redesign, a perf project, and a refactor in one PR, none of which can be safely reviewed.
 
+## CORE PHILOSOPHY — read this first, internalize, do not deviate
+
+**V1 is the production reference. V1 is sacred truth.** We are in MIGRATION mode, not refactor mode. V1's behaviour, API, permissions, response shapes and error contracts are the PRODUCTION CONTRACT. V2's job is to mirror that contract while using V2's structure.
+
+1. **Do NOT halt to verify V1.** The auditor reads V1 source DIRECTLY and treats what it reads as the contract. There is no "confirm with the user that V1 actually does this" step — V1 source IS the verification.
+2. **API verification is not a halt condition.** Halts fire for V2-deviation-from-V1 or artifact-completeness, never for "V1 might be wrong". A V1 bug is either a documented behaviour we preserve (`known_v1_bug` in the contract) or a user-decided break (ADR + caller migration).
+3. **API samples are HELPFUL, not REQUIRED** when V1 source is unambiguous — missing api-samples WARN, they do not halt.
+4. **We are NOT refactoring.** If V1 has odd query params, V2 has the same odd query params. Mid-migration "while I'm here" improvements are FORBIDDEN; refactor happens after migration, on V2-only, with its own ADR.
+5. **Halts that DO fire**: V2 deviates from V1 · cross-repo blocker · a contract break the user wants · dead V1 code being ported · an artifact missing for the row's tier.
+
+**Project-level anchor for V1 stability** (in `ai/migration/_v2-anchors.md`): `v1_status: production-stable | actively-developed | frozen` · `v1_api_frozen:` · `v1_reference_commit:`. Under `production-stable`, V1-side verification halts are SKIPPED and api-samples WARN; under `actively-developed`, the pinned commit is the oracle and api-samples remain a hard halt.
+
+**TL;DR: in migration mode, V1 is gospel. Don't ask, port.**
+
+## Required artifacts per feature — tiered floor
+
+Every feature port produces an artifact set scaled to its actual risk. Tier is set on the ledger row **by the audit** and propagates through the port; the default is trivial.
+
+| Tier | Triggers (any one promotes) | Required artifacts |
+|---|---|---|
+| **trivial** (DEFAULT) | No promoter triggers | Audit + code edit + ledger note |
+| **standard** | 1–3 P1 gaps OR single API contract divergence OR <300 LOC change | Audit + code edit + 3-section contract (Inputs/Outputs/Known V1 bugs) + short plan + 10-fixture parity test + ledger row |
+| **heavy** | Any P0 OR cross-repo blocker OR contract break OR storefront blast radius OR write-path mutation OR security-sensitive | Full 8-artifact set |
+
+The audit MUST state the tier in 1-2 sentences citing trigger absence/presence. A user may upgrade a tier at any time but cannot downgrade without an ADR. `/migration-gate <N>` validates the artifact set **for the row's tier**, not the heavy floor universally.
+
+## Anti-bloat rules
+
+Merge gates (not suggestions), from the Phase 7 incident (~95% docs / ~5% code): **code edits are the deliverable** · ADRs justify USER-decided breaks only (agent-default closure = edit V2 to match V1) · per-axis enumeration required wherever a gap exists, at every tier (hand-wave grep HALTs on `etc.` / `...` / `N+ items`) · single agent dispatch + shared 5K context blob by default · default-true wrapper props set explicitly when removing UI affordances (F040) · audit verdict = V1-parity, NOT plan-execution · trivial tier produces no contracts/plans/perf-docs/runbooks. Full gate definitions + tier artifact specs: `.claude/references/migration-discipline-procedures.md § Anti-bloat rules`.
+
+## Contract — 9 required sections
+
+The contract at `ai/migration/contracts/<feature>.md` MUST contain all 9 sections — 1. Inputs · 2. Outputs (per code path) · 3. Side effects · 4. Business rules · 5. Invariants · 6. Performance baseline · 7. Caller assumptions · 8. Edge cases · 9. Known V1 bugs — every claim cited `<path:line>`; a contract missing any section is incomplete and the audit halts. Full section-by-section template: `.claude/references/migration-discipline-procedures.md § Contract template`.
+
+## Per-feature audit — 13 hard halts
+
+The audit runs against an implementation + its artifacts and HALTS (refuses to advance the feature) on any of these 13 conditions:
+
+1. **Contract missing or incomplete** — the file doesn't exist, a section is empty, or a `<path:line>` citation doesn't resolve.
+2. **Parity tests missing or thin** — no parity dir, `tolerance.yaml` doesn't cover every documented output field, corpus under 30 entries with no record-replay alternative, or no entry per happy path / error path / business rule / edge case.
+3. **Parity tests not green** against the V1 commit pinned in the ledger — or tolerance loosened in the same PR (loosening = separate PR + ADR).
+4. **Plan missing** or not matching the actual implementation (V2 module shape, cutover plan, rollback path).
+5. **Perf-decisions missing or incomplete** — a candidate unclassified, an `applied` candidate with no measurement, or an `applied` candidate that is `parity_preserving: no`.
+6. **V1 modified in the port PR** (only exception: additive cutover-mechanism wiring that doesn't change V1 behaviour).
+7. **Ledger drift** — row not updated, required fields for the new state unpopulated, or pinned V1 commit ≠ the commit parity tests ran against.
+8. **Rollback runbook missing** or not naming the cutover mechanism + per-stage rollback steps + on-call assignment.
+9. **Scope creep** — PR ≠ exactly one ledger feature row, diff touches files outside V2's `<feature>/`, or contains unrelated "while I'm here" refactors.
+10. **Cutover mechanism not tested in staging** — no evidence the rollback path was executed in staging within the last 7 days (Shadow → Canary advance only).
+11. **Dead V1 code in port queue** — zero callers across all 6 reachability axes. Halt the port; mark the row `status: deprecated`, `deprecation_reason: dead-v1-no-callers`. Override: `--include-dead` + a 1-line `caller_evidence: <path:line>`.
+12. **UI surface audit row missing v1_states / v2_states enumeration** — any UI row must enumerate every interaction state V1 exposes (idle / loading / opened / single-result / empty / error / hover / disabled / each conditional-render branch). One-line rows HALT.
+13. **Module/page audit missing navigation inventory** — a Navigation Inventory (Section 0, BEFORE per-axis work) mapping every clickable label/route in V1 to V2 1:1. A V1 nav leaf with no V2 navigation surface is DRIFT, not STRUCTURE_OK. The scan is TWO-LAYER (route tree + per-leaf template grep); a Layer-A-only scan is incomplete and HALTS.
+
+**Output of any halt**: a structured remediation list — specific finding + specific action — written to the audit file. NO advance until each halt is cleared. Tier gating: halts 1, 2, 4, 5, 8 are artifact-existence checks gated by the row's `tier:`; halts 3, 6, 7, 9, 10, 11, 12, 13 apply across **all** tiers.
+
+## What counts as dead V1 code (the 6-axis check)
+
+A V1 feature is dead — and must NOT be ported — only when **all six** reachability axes return zero callers: 1. app-source callers · 2. test references (downstream, not the feature's own) · 3. cron/scheduler config · 4. route/API registration · 5. infra/deploy config · 6. production telemetry (N/A if unwired). One live axis → port it. Override: `--include-dead` + `caller_evidence: <path:line>`, logged in `_history.md`. Full axis definitions + edge cases (public APIs, library exports, in-development, flag-gated): `.claude/references/migration-discipline-procedures.md § Dead V1 code — 6-axis check`.
+
 ## Must
 
 - **Read V1 before writing V2.** Use `extract-v1-contract` to produce `ai/migration/contracts/<feature>.md` covering: every input shape, every output shape, every side effect (DB writes, external calls, queue publishes, cache invalidations), every error path with its observable shape, every business rule discovered (including the ones encoded only in conditionals), every implicit invariant (ordering, idempotency, retry behaviour), every undocumented edge case (search git log + tests + comments). The contract is the spec V2 must satisfy.
@@ -137,7 +195,7 @@ T+38d: Delete V1 (after 14d of zero traffic).
 ## Enforcement
 
 - **Phase 5 audit** halts on: ledger drift (PR ports a feature without updating ledger), missing contract file, parity-test red, perf-decision file missing.
-- **`/migration-status` command** reports per-feature state and flags rows older than the SLA (e.g., a feature in `In-progress` for >30d is flagged stalled).
+- **`/migration-status` command** reports per-feature state and flags rows older than the SLA (e.g., a feature in `In-progress` for >30d is flagged stalled). The SLA defaults are declared in `/migration-status` itself and in `.claude/references/migration-discipline-procedures.md § Enforcement matrix` — this rule does not set them, it cites them.
 - **`parity-auditor` agent** is invoked in PR review; its checklist hard-fails on missing parity tests, missing contract, scope-creep evidence (V1 modifications in a port PR).
 - **Phase 4.6 STUDY-DECIDE-ACT** anchors this rule to the project's actual V1/V2 paths, ledger location, and cutover mechanism. A rule that talks about generic feature flags while the project uses Django settings + URL routing is a leak — the project-specific block is mandatory.
 
@@ -151,6 +209,10 @@ T+38d: Delete V1 (after 14d of zero traffic).
 - **The Eternal Shadow** — V2 lives in shadow indefinitely "until we're sure". The longer V2 stays in shadow, the more divergent it becomes from V1 (which keeps shipping). Set a cutover deadline; if missed, re-baseline parity.
 - **The Buried Perf "Improvement"** — an N+1 fix that quietly changes ordering / nullability / ID stability. The "improvement" is a contract break; ships under the port PR; surfaces as a bug 6 weeks later.
 - **The V1 Deletion Sprint** — deleting V1 modules en masse "to clean up." A single `import` left in a stale cron job means a silent prod failure when the cron next fires. Delete only when last reference is gone + telemetry confirms zero traffic.
+- **The Zombie Port** — porting a V1 feature with zero callers across all 6 reachability axes. Dead code migrated into V2 inflates its surface and accretes maintenance for code no consumer exercises. Halt #11 excludes it at scan time.
+- **The Trusted Summary** — delegating V1↔V2 comparison to a search/exploration agent that reports "looks identical", then echoing that into the audit without verifying against source. Every "identical" claim carries a `<path:line>` citation that resolves, or the audit halts.
+
+The full named catalogue — **Zombie Port · Transposition Trap · Bundled Cutover · Stale Oracle · Silent Break · Test-by-Test Port · Eternal Shadow · Buried Perf "Improvement" · V1 Deletion Sprint · Trusted Summary · Hand-waved Query Param · Optimistic Form Field Match · Permission-gate Drop · Guessed Type · Reinvented Wrapper · Silent Catch · Wrong Lifecycle Hook on Nested Child · Misplaced i18n Key · Consumer Compensation · Auto-import Trip** — with fingerprints, real-world costs, and fixes is in `.claude/references/migration-discipline-catalogue.md § Anti-patterns`. The names above are load-bearing vocabulary; audits cite them; the catalogue holds the definitions.
 
 ## References
 

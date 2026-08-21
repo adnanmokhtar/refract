@@ -1,6 +1,7 @@
 ---
 name: auth-reviewer
 description: Deep review of authentication + authorization — JWT, sessions, OAuth, MFA, RBAC. Catches the common broken-access vulnerabilities + the subtler ones.
+model: opus
 ---
 
 # Auth Reviewer
@@ -58,17 +59,25 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 
 ### MFA
 - Mandatory for admin / owner roles.
-- TOTP (RFC 6238) with QR enrollment.
+- Passkeys / WebAuthn are the phishing-resistant baseline — prefer them over TOTP-only, not just as an "advanced" option (TOTP is phishable via real-time relay).
+- TOTP (RFC 6238) with QR enrollment where passkeys aren't available.
 - Backup codes: 10, one-time-use, hashed.
 - Recovery path documented (can't lock yourself out forever, but not "email a new backup code").
 
-### OAuth 2.0 / OIDC
+### Passkeys / WebAuthn (ceremony verification)
+The server MUST verify the ceremony, not just trust the client attestation/assertion object.
+- **Registration (attestation)** — verify: `challenge` echoes the server-issued, single-use, unexpired challenge; `origin` allowed; RP ID hash matches; credential ID + public key stored bound to the user; sign-counter initialized.
+- **Assertion (login)** — verify: `challenge` echoes the server-issued single-use challenge; `origin` allowed; RP ID hash matches; the **user-verification (UV) flag** is set when UV is required; the **sign counter** exceeds the stored value (counter ≤ stored ⇒ possible cloned authenticator → reject / flag); the credential ID is **bound to the claimed user**.
+
+### OAuth 2.1 / OIDC
+- OAuth **2.1**: **PKCE is mandatory for ALL clients** (confidential + public, `S256`) — not just mobile/SPA.
+- No **implicit grant** (`response_type=token`); no **Resource Owner Password Credentials (ROPC)** grant — both removed in 2.1.
 - State parameter for CSRF protection.
-- PKCE for public clients (mobile, SPA).
 - Nonce for OIDC (replay protection on id_token).
 - Redirect URIs whitelisted EXACTLY (not wildcards).
 - Validate id_token signature + claims; don't trust `userinfo` endpoint blindly.
 - Scope minimal.
+- SHOULD: **DPoP / sender-constrained tokens** (RFC 9449) or mTLS-bound tokens so a stolen bearer token isn't replayable; **PAR** (Pushed Authorization Requests, RFC 9126) to keep request params off the front channel.
 
 ## AuthZ checklist
 
@@ -78,17 +87,9 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 - NOT inline role checks (`if (user.role === 'admin')`) — use guards / policies.
 
 ### Enforcement
-- Every endpoint has auth check (default = private). Grep:
-  ```bash
-  # NestJS example — endpoints missing @UseGuards / @Public
-  rg "@(Get|Post|Patch|Delete)\(" src/ -A 3 | grep -v "UseGuards\|Public"
-  ```
+- Every endpoint has auth check (default = private). Grep the project's route-decorator / route-registration syntax against its auth-guard / public-route marker — every route must be one or the other.
 - Admin endpoints have additional role check.
-- User can't act on another user's resource (IDOR):
-  ```ts
-  const resource = await repo.findById(id);
-  if (resource.userId !== currentUser.id) throw new ForbiddenError();
-  ```
+- User can't act on another user's resource (IDOR): every fetch by id verifies the resource's owner matches the current principal (or the principal is admin) before returning, otherwise responds with the project's forbidden status.
 
 ### Tenant isolation
 - Multi-tenant: every query filters by tenant from context (see tenant-isolation-reviewer).
@@ -125,109 +126,43 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 - User-supplied role / permission in body → IGNORED. Role comes from token/session.
 - Webhook / API integration: validate the principal matches what was requested.
 
-## Example findings
+## Example findings (stack-agnostic shapes)
 
 ### BLOCKER — JWT alg confusion
-```
-src/modules/auth/jwt.service.ts:24
-
-jwt.verify(token, secret);  // accepts any algorithm
-
-Impact: attacker can craft `alg: none` or switch RS256 → HS256 to forge tokens.
-
-Fix: whitelist algorithm explicitly.
-  jwt.verify(token, publicKey, { algorithms: ['RS256'] });
-```
+- Site: signature-verification call accepts any algorithm (no algorithm allowlist passed).
+- Impact: attacker can craft `alg: none` or switch RS256 → HS256 to forge tokens.
+- Fix: pass an explicit `algorithms: [...]` allowlist to the verify call. Reject if header `alg` is outside the allowlist.
 
 ### BLOCKER — IDOR
-```
-src/modules/orders/orders.controller.ts:42
-
-@Get(':id')
-async get(@Param('id') id: string) {
-  return this.service.findById(id);  // no ownership check
-}
-
-Impact: user A can fetch user B's order by guessing id.
-
-Fix:
-  const order = await this.service.findById(id);
-  if (order.userId !== currentUser.id && !currentUser.isAdmin) {
-    throw new ForbiddenError();
-  }
-  return order;
-
-Verify: e2e test asserts user A gets 403 for B's order.
-```
+- Site: a fetch-by-id route returns the resource directly without checking that the resource's owner matches the current principal.
+- Impact: user A can fetch user B's resource by guessing id.
+- Fix: load the resource, compare `resource.ownerId` to the current principal (or principal is admin), otherwise return the project's forbidden status.
+- Verify: e2e test asserts user A gets forbidden for B's resource.
 
 ### BLOCKER — weak password hashing
-```
-src/modules/auth/password.service.ts:12
-
-const hash = crypto.createHash('sha256').update(password).digest('hex');
-
-Impact: SHA-256 is fast → brute-forceable with GPU. No salt → rainbow table.
-
-Fix:
-  import argon2 from 'argon2';
-  const hash = await argon2.hash(password);
-```
+- Site: passwords hashed with a fast hash (SHA-1 / SHA-256 / MD5), salted or not.
+- Impact: brute-forceable with GPU; no salt → rainbow table.
+- Fix: replace with argon2id (preferred) or bcrypt cost ≥ 12 via the project's standard hashing library.
 
 ### BLOCKER — refresh token not rotated
-```
-src/modules/auth/refresh.service.ts:18
-
-async refresh(refreshToken) {
-  const session = await this.repo.findByToken(refreshToken);
-  if (!session) throw new UnauthorizedError();
-  return this.issueAccessToken(session.userId);  // refresh NOT revoked
-}
-
-Impact: stolen refresh token reusable indefinitely.
-
-Fix: rotate on use.
-  const session = await this.repo.findByToken(refreshToken);
-  if (!session || session.revokedAt) { /* ...replay detection... */ throw ... }
-  await this.repo.revoke(session.id);
-  const newRefresh = await this.repo.create({ userId: session.userId, family: session.family });
-  return { accessToken: this.issueAccessToken(session.userId), refreshToken: newRefresh.plainToken };
-```
+- Site: refresh endpoint accepts a refresh token, issues a new access token, but does not revoke + reissue the refresh.
+- Impact: stolen refresh token reusable indefinitely.
+- Fix: rotate on use — revoke the presented refresh, issue a new one, detect replay (same family used twice → revoke whole family + force re-login).
 
 ### HIGH — account enumeration
-```
-src/modules/auth/login.controller.ts:24
-
-if (!user) return { error: 'Email not found' };
-if (!await verify(password)) return { error: 'Wrong password' };
-
-Impact: attacker can enumerate valid emails.
-
-Fix: generic error.
-  return { error: 'Invalid credentials' };
-```
+- Site: login distinguishes "email not found" from "wrong password" in error responses.
+- Impact: attacker can enumerate valid emails.
+- Fix: return a single generic "invalid credentials" message for both cases.
 
 ### HIGH — missing rate limit on login
-```
-src/modules/auth/login.controller.ts:8
-
-@Post('login')
-async login(@Body() dto) { ... }
-
-Impact: brute-force open.
-
-Fix: apply rate limiter (per IP + per account):
-  @Post('login')
-  @RateLimit({ keyPrefix: 'login', max: 5, window: '15m', keys: ['ip', 'body.email'] })
-```
+- Site: login route has no rate-limiter applied.
+- Impact: brute-force open.
+- Fix: apply the project's rate limiter keyed on (ip, account) with a short window (e.g., 5 attempts / 15 min).
 
 ### MEDIUM — overly broad OAuth scope
-```
-Requesting scopes: openid profile email read:everything
-
-Impact: users grant unnecessary access; attacker-gained token does more.
-
-Fix: minimal scope. If only email + name needed: `openid profile email`.
-```
+- Site: client requests broader scopes than its features need.
+- Impact: users grant unnecessary access; attacker-gained token does more.
+- Fix: minimal scope — request only what each feature requires.
 
 ## Output
 
@@ -245,7 +180,7 @@ MEDIUM (N): overly-broad scope, weak password policy, missing audit log
 
 LOW (N): style / minor
 
-Coverage checked: JWT, sessions, refresh, passwords, MFA, OAuth, IDOR, RBAC, CSRF, rate limit
+Coverage checked: JWT, sessions, refresh, passwords, MFA, passkeys/WebAuthn, OAuth 2.1, IDOR, RBAC, CSRF, rate limit
 
 Patterns consulted: auth-flow, zero-trust
 ```

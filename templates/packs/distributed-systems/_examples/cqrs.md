@@ -6,6 +6,15 @@ pack: distributed-systems
 
 # Pattern: CQRS (Command Query Responsibility Segregation)
 
+> **Hard rule:** Commands mutate via the write model only and return no projection data; queries read from the read model only and never mutate. Crossing the boundary (queries that write, commands that return query DTOs) collapses CQRS into a more expensive CRUD.
+
+**Halt conditions / mandatory cites**
+- Each command handler MUST cite its write-model entry at `<path:line>` AND show no read-model coupling.
+- Each projection MUST cite its event source AND its lag SLO (cite the dashboard or alert).
+- A doc proposing CQRS for a CRUD-shaped resource without traffic data is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "reads dominate".
+- If the projection-update mechanism (events, CDC, dual-write) isn't extracted, halt.
+
 Separate write model (commands) from read model (queries). Each optimized independently.
 
 ## Shape

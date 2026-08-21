@@ -107,7 +107,7 @@ file and line; none of them require you to guess.
 | `verify-doc-sync.sh` | An undocumented command, or a pack missing a sync file. See §5 — this is the one people trip over. | Document the command; add `_essentials.md` / `_topics.md` / `_version.json`. |
 | `verify-cheatsheet.sh` | `docs/CHEATSHEET.md` drifted from the command corpus. | `python3 scripts/gen-cheatsheet.py` — never hand-edit the file. |
 | `verify-pack-matrix.sh` | `assets/pack-matrix.svg` drifted from the pack corpus — a pack added, renamed or removed, or its agent/skill/command/rule counts changed. The SVG was hand-authored until it had silently trailed the tree by three packs. | `python3 scripts/gen-pack-matrix.py` — never hand-edit the file. |
-| `validate-pack-consistency.sh` | A pack manifest pointing at files that don't exist: a `_topics` `fallback:` that doesn't resolve, an `_essentials` entry with no artifact behind it, malformed `_version.json`. Artifacts with no `_topics` entry are a WARN. | Fix the manifest, not the gate. |
+| `validate-pack-consistency.sh` | A pack manifest pointing at files that don't exist: a `_topics` `fallback:` that doesn't resolve, an `_essentials` entry with no artifact behind it, malformed `_version.json`. Artifacts with no `_topics` entry are a WARN. **Check 8b** additionally holds every `_examples/` fallback to the source it abridges — see §5b. | Fix the manifest, not the gate. |
 | `lint-tool-parity.sh` | The 12-adapter matrix disagreeing across `tool-adapters/_registry.md`, `tool-adapters/README.md` and `repo-baseline/ai/references/tool-parity.md`. | Update all three. They are the same fact stated three times; that is the point. |
 | `lint-overlay-catalog.sh` | The regulatory-overlay catalog promising an overlay nobody wrote, an overlay file with no catalog row, a row that declares neither `[SHIPPED]` nor `[PLANNED]`, or a sibling-overlay citation that neither resolves nor discloses. | Ship the overlay, or mark the row `[PLANNED]`. A catalog is a promise; keep it one you kept. |
 | `lint-track.sh` | A `templates/tracks/<name>/` missing `detect.md` / `pack.md` / `conventions.md` / `meta.yaml`, or carrying an invalid signal kind, weight, or merge mode. | Follow `templates/tracks/_loader.md`. |
@@ -124,6 +124,7 @@ bash tests/setup-project/run.sh         # setup-project fixtures/snapshots
 bash scripts/dry-run-setup.sh           # what a /setup-project run would emit
 bash scripts/pack-coverage-scan.sh <target-repo>   # pack content vs a real target tree
 bash scripts/verify-readme-stats.sh     # README's "What's inside" figures vs disk
+bash scripts/validate-pack-consistency.sh --fallback-report   # the `_examples/` repair worklist (§5b)
 ```
 
 `verify-readme-stats.sh` is the one gate that is **red on `main` today**, which is why it is not
@@ -205,7 +206,9 @@ premise is that unpinned promises drift.
 2. `CHANGELOG.md` with a `## <version>` heading matching `_version.json` (hard rule A27; WARN-only
    in the script, but all 23 packs honour it).
 3. At least one of `agents/` `commands/` `skills/` `rules/` `ai-patterns/`. **Not `runbooks/`** —
-   `templates/packs/README.md` documents it, but 0 of 23 packs use one; do not start.
+   `templates/packs/README.md` documents it, but 0 of 23 packs use one; do not start. Any
+   `_examples/<name>.md` you add is a shipped AUTHOR-mode fallback, not a sample, and is held to
+   its source by check 8b — read §5b before writing one.
 4. Add any NEW trigger name your `_topics.md` uses to `templates/packs/_trigger-vocabulary.md`.
    Reusing existing names needs no edit there.
 5. Add a row to `templates/packs/_registry.md` — that table, not a hard-coded list, is what Phase 2
@@ -367,6 +370,72 @@ python3 scripts/gen-cheatsheet.py     # docs/CHEATSHEET.md — GENERATED, never 
 
 `verify-cheatsheet.sh` re-derives it and fails red if the committed copy is stale, so a renamed
 command or an edited `description:` needs this too.
+
+---
+
+## 5b. The `_examples/` fallback contract
+
+`templates/packs/<pack>/_examples/<name>.md` is **not documentation**. It is the AUTHOR-mode
+fallback: `templates/phases/phase-4.2-apply.md:26` copies it **verbatim** into a project whenever
+extraction has no signal for that topic, at the same destination path as the real artifact. That is
+the default for greenfield, for `--lightweight`, and for every `[EXTRACTION-WEAK]` track. 287 of the
+297 files are named as a live `fallback:` in a `_topics.md`. **Edit a source artifact and you have
+probably invalidated its fallback — and re-cutting it is YOUR job, not the gate's.**
+
+Check 8b of `validate-pack-consistency.sh` catches *some* of the ways that goes wrong. Read the next
+two paragraphs together; the second is the one that matters. Fallbacks are deliberately abridged —
+29 of 293 are under 40% of their source's length — so the check never diffs prose and never looks at
+length (except for byte-equality, which is a fact, not a threshold). It flags (a) something the
+fallback asserts that its source does not, (b) something the source carries that the corpus itself
+keeps ≥85% of the time or that is a safety signal at any retention, and (c) a fallback that is
+secretly a literal copy:
+
+| Rule | Fires when |
+|---|---|
+| `COPY-DRIFT` | The file declares `generated-from:` and its body no longer matches that file. |
+| `UNSOURCED-MAGNITUDE` | A number-with-unit framed as a target/limit that its source does not contain. This is the fingerprint of commit `f2f0ccd`, where a fabricated "10-50k connections per Node process" was deleted from the agent and survived in the fallback. |
+| `DANGLING-DISPATCH` | A routing-table row or load instruction naming an artifact absent from the source that no pack can supply. |
+| `FRONTMATTER-LOSS` | A skill/command/agent fallback lost the `description:` it is dispatched on, an agent's `model:` contradicts the source, or `name:` is missing/wrong. |
+| `NOT-AN-ARTIFACT` | A declared fallback with no frontmatter, no `## ` section, or below 40% of its class's Phase 4.0 depth floor — i.e. not a copyable artifact at all. |
+| `SECTION-LOSS` | A load-bearing source section is gone. "Load-bearing" is the complete ≥85%-retention / n≥8 band measured over the pre-repair corpus — `Output`, `Hard rules`, `Forbidden`, `Failure modes`, `When to use`, `Procedure`, `Enforcement`, `Checklist`, `Context`, `Phases applied`, the `Phase N` skeleton, and 20 more; the derivation lists every one. Sections the corpus drops freely — `Related`, `Detectors`, `Pre-flight`, `Example findings`, `When to run` — are **not** checked. `Premise` and `Halt conditions` are below the band but are covered by `SIGNAL-LOSS` instead. |
+| `SECTION-ORDER` | The sections that were kept appear in a different order than in the source. |
+| `SIGNAL-LOSS` | The source carries a `> **Hard rule:` line, a halt block, a `## Premise`, or an agent `TRIGGER` clause and the fallback drops it. Matched on the block, not the heading spelling, so renaming `## Halt conditions` to `## Halt` is fine. |
+| `UNDECLARED-COPY` | The fallback's body is byte-identical to its source and nothing declares it. Fix by adding a `generated-from:` header (then `COPY-DRIFT` holds it to the source line-for-line) or by re-cutting it as a real abridgement. |
+
+**What check 8b does NOT catch — do not read a green run as a re-cut.** Every rule compares text
+against text; none of them understands either file. The failure mode the check is named for is
+half-covered:
+
+- A source that **deletes a Hard-rules bullet** while the fallback keeps asserting the retracted
+  rule → **0 findings**.
+- A source that **flips a `MUST` to a `MUST NOT`** while the fallback keeps the old polarity →
+  **0 findings**.
+- A fabricated magnitude is caught only when its line frames it as a target/limit/ceiling *or* its
+  unit is inherently a claim (`rps`, `connections per`). `200000 concurrent sockets per process`,
+  `Redis Cluster handles 1000 shards comfortably`, `You MUST store session state in memory`,
+  `use the ws.setMaxConnections() API`, and `follow RFC 9999` are all **missed**.
+
+Commit `f2f0ccd` was caught by this check only because the fabrication happened to carry a unit noun
+on the regex list. A source edit whose retraction is non-numeric is invisible here. The gate is a
+floor on fallback integrity, not a certificate of fidelity — when you edit a source, open its
+fallback.
+
+Every violation known when the check landed is enumerated in
+**`templates/packs/_fallback-baseline.md`** and suppressed to one counted WARN; anything not listed
+is a hard FAIL. So:
+
+- **Repairing a fallback** → fix it, then delete its line from the baseline. A line that no longer
+  reproduces WARNs, so stale entries cannot pile up.
+- **A new FAIL you believe is correct as-is** → add `<pack>/<name>  <RULE>` to the baseline *with a
+  reason*. Silencing a finding you did not read is the exact failure this gate exists to prevent.
+- The reason is **mandatory and mechanically enforced**: a baseline line with no trailing
+  `# reason` suppresses nothing — the finding stays red and the gate WARNs that the line is inert.
+- `bash scripts/validate-pack-consistency.sh --fallback-report` prints the full picture. The
+  backlog it lists is **2 findings across 2 files**; if a comment anywhere claims a larger one, the
+  comment is stale and `templates/packs/_fallback-baseline.md` is the authority. Safety-signal loss
+  used to be the large ungated class here (227 of 292, 78%) on the grounds that it could not be
+  told apart from abridgement; the repair pass closed all 227, which proved the opposite, so it is
+  now gated as `SIGNAL-LOSS` at 0 of 293.
 
 ---
 

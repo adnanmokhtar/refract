@@ -6,6 +6,18 @@ description: Locate a module, feature, or concept across the codebase quickly.
 
 Parallel search across directory names, filenames, identifiers, and string usage. Reports primary location plus related files and registration status.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**The existing module map is the truth. Don't invent paths; cite real ones.** The repo already has a shape — directories, registration files (`ai/modules.md`, framework module manifests, package roots). Every answer this command emits is a citation of something that exists on disk OR an honest "not found" with a conventions-based suggestion clearly labelled as a suggestion.
+
+**The closure verb is `cite-or-halt`.** Each result row is one of: `cite` — `<path>` exists on disk, confirmed by a real `ls` / `find` / `rg`; `not-found-suggest` — no match, so emit a conventions-based location labelled `(suggested, not yet present)`; `halt` — the query is a common noun without a qualifier, or the module map disagrees with disk reality, so refuse to answer and surface the ambiguity.
+
+**Forbidden:** inventing a plausible-looking path the agent did not verify; reporting a `cite` row for a path no tool call actually listed; silently merging "suggested" and "found" into the same bucket; answering a common-noun query (`user`, `order`, `item`) without a qualifier.
+
+**Mechanical halt — cite or halt:** every emitted path MUST trace to a tool-call result in this run. If the agent cannot produce a `cite` and cannot honestly suggest from siblings, it halts and asks for synonyms or a qualifier. No fabricated paths, ever.
+
+**Lightweight default.** This is a DIAGNOSTIC, read-only command — no edits, no agent dispatch, no ceremony.
+
 ## Phases applied
 
 DIAGNOSTIC type — 1, 2, 3 dominate. No Generate/Update/Validate/Improve unless the search reveals stale `ai/modules.md` (then a one-line update).

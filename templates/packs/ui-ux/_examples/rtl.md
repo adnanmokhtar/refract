@@ -6,6 +6,15 @@ pack: ui-ux
 
 # Pattern: RTL (Right-to-Left) Support
 
+> **Hard rule** — All new layout CSS uses logical properties (`*-inline-start/end`, `text-align: start`). Physical `margin-left` / `padding-right` / `text-align: left` in new code is forbidden. `dir` is driven by the active locale, never hardcoded.
+
+**Halt conditions / mandatory cites**
+- Cite the locale → `dir` resolver as `<path:line>` (e.g. `src/i18n/dir.ts:8`) before claiming RTL is wired; hardcoded `dir="ltr"` is a halt.
+- Cite at least one component using `margin-inline-start` / `padding-inline-end` as `<path:line>` proving the convention is in place; if all hits are physical, halt and retrofit.
+- Cite the icon-flip rule (CSS or component) as `<path:line>` for directional icons; arrows that don't flip in RTL are a halt.
+- Cite the visual-regression matrix config as `<path:line>` proving RTL renders in CI on every PR.
+- Hand-wave grep ban — never declare "no physical CSS" without citing the stylelint rule or grep output path.
+
 For Arabic, Hebrew, Persian, Urdu. First-class, not an afterthought.
 
 ## Logical properties (the key technique)

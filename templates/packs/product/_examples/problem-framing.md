@@ -8,6 +8,13 @@ pack: product
 
 > **Hard rule:** The problem statement names no mechanism. Every claim is cited or labelled an assumption. The do-nothing baseline is a scored option. The success metric has a counter-metric. Kill criteria carry a date and a named owner, written before commitment.
 
+**Halt conditions / mandatory cites**
+- The statement, after questioning twice, is still a solution.
+- The target segment is "everyone".
+- Success cannot be measured by anything the system emits or could emit — name the instrumentation gap.
+- No evidence source is reachable at all — produce an assumption ledger instead of a brief, and say so.
+- Any claim about users presented without a citation or an assumption label is a hand-wave — reject it.
+
 ## The mechanism test
 
 Does any noun in the statement name a feature?

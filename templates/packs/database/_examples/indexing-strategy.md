@@ -6,6 +6,15 @@ pack: database
 
 # Pattern: Indexing Strategy
 
+> **Hard rule:** Every index ships with cited query evidence (`EXPLAIN ANALYZE` output, slow-log entry, or specific WHERE/ORDER BY clause it serves) and a measurable expected gain. "Just in case" indexes, duplicate prefixes of existing indexes, and indexes on low-cardinality columns without a partial predicate are forbidden.
+
+**Halt conditions / mandatory cites**
+- Each proposed index MUST cite the query at `<path:line>` AND the EXPLAIN plan that motivates it.
+- Composite-index column order MUST cite the WHERE/ORDER BY pattern it serves.
+- A doc proposing an index without measured before/after rows-scanned or latency is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this query is slow".
+- If the DB engine + version + table size aren't extracted, halt — index advice is engine-specific.
+
 Indexes make reads fast AND writes slow. Every index has a cost. Add deliberately, measure, remove what doesn't earn its keep.
 
 ## When to add an index

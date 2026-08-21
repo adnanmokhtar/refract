@@ -7,6 +7,17 @@ description: Audit page-to-page navigation speed — link/router prefetch, Specu
 
 A real session is dominated by page-to-page navigation, not the first cold load — that's where "the app feels slow" lives. Every finding cites `<file:line>` + the matched pattern + a concrete fix + a closure verb (`report-with-fix` / `report-flagged` / `dismiss`).
 
+## Premise
+
+A real session is dominated by page-to-page navigation, not the first cold load. The first paint is measured to death (Lighthouse, CWV); the 2nd → 50th navigation usually isn't measured at all, and that's where "the app feels slow" actually lives. This skill audits the levers that make the NEXT page appear instantly: prefetch the route before the click, serve from bfcache on back/forward, paint a layout-stable skeleton the instant a navigation starts, and never hard-reload when a soft navigation would do.
+
+Every finding cites `<file:line>` + the matched pattern + a concrete fix + a closure verb. "Navigation feels sluggish" without a cited link / handler / missing boundary is not a finding. A scan that returns zero findings on a multi-route app without listing the patterns it grepped is a failed scan.
+
+**Closure verbs (one per finding):**
+- `report-with-fix` — pattern matched at `<file:line>` + the concrete prefetch / boundary / `router.push` / `pagehide` patch.
+- `report-flagged` — measured-relevant but the fix is an architectural call (adopt Speculation Rules host-wide, restructure a layout) → surface for ADR.
+- `dismiss` — pattern matched but the carve-out applies (auth-mutating link, logout prerender, pagination tail) → documented so the next scan doesn't re-flag it.
+
 ## Scans for
 
 ### 1. Internal links that don't prefetch

@@ -6,6 +6,15 @@ pack: backend
 
 # Pattern: Parallel I/O
 
+> **Hard rule:** Independent I/O overlaps via the project's existing concurrency primitive with a bounded cap; sequential `await`-in-a-loop on independent ops is a bug. Parallel inside a transaction, unbounded fan-out from user input, and concurrency caps above pool size are forbidden.
+
+**Halt conditions / mandatory cites**
+- The proposal MUST cite the project's concurrency primitive at `<path:line>` (helper or library) — no new dependency without justification.
+- The concurrency cap MUST cite the pool size / rate limit / FD limit it respects.
+- A diff that introduces unbounded `Promise.all(userInput.map(...))` is a bug — reject.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "these calls are independent".
+- If the project's primitive + cancellation token aren't extracted, halt before introducing parallelism.
+
 > **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`. If extraction is empty leave the placeholder + open a TODO; Phase 5 will surface it under "Open questions".
 >
 > - **Concurrency primitive in use**: `<extracted: native Promise.all | Promise.allSettled | Bluebird.map | p-limit | asyncio.gather | asyncio.Semaphore | errgroup | CompletableFuture | Parallel.ForEachAsync | …>`

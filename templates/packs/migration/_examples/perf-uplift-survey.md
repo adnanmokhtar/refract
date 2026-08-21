@@ -9,6 +9,19 @@ The port is the cheapest moment to apply performance improvements: V2's code is 
 
 This skill is the procedural arm of `migration-discipline.md` § "Should — Migration-time perf uplift" + `feature-port.md` Phase 5.
 
+## Premise
+
+Find real wins, no hand-waves. Every candidate cites V1's offending site (`<v1-path:line>`) and V2's transformation site (`<v2-path:line>`), with a measurement: query count, p95 latency, bytes-on-wire, plan output from `migration-rehearsal`. "This will be faster" without before/after measurement is a hypothesis, not a candidate. Parity preservation is argued per row against the contract's Caller assumptions and Outputs sections — not asserted. New infrastructure (cache layer, parallelism primitive, client wrapper) goes through the V2 anchors check before being added; do not invent a parallel primitive when V2 declares one.
+
+## Halt conditions
+
+- Halt on candidates without V1 + V2 path citations and a measured (or rehearsed) before/after.
+- Halt on "applied" rows whose parity tests didn't run pre- and post-change.
+- Halt on perf changes that introduce a primitive (per-feature HTTP client instance, per-feature connection pool, hand-rolled cache) when `_v2-anchors.md` declares one for the same concern.
+- Halt on contract-breaking perf changes (ordering, nullability, sync→async side effect) without an ADR + caller migration plan.
+
+This skill is the procedural arm of `migration-discipline.md` § "Should — Migration-time perf uplift" + `feature-port.md` Phase 5.
+
 ## When to use
 
 - Phase 5 of a per-feature port (after V2 is written + parity tests green; before cutover).

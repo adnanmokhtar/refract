@@ -57,6 +57,14 @@ Secrets:
 - **Don't enable `selfHeal`/`prune` on an app currently OutOfSync** — reconcile first, or it enforces the wrong state.
 - Plaintext secret in git = block (rotate — it's in history). Auto-prune on prod with no safeguard = block.
 
+## Halt conditions
+
+- Refuse to report drift without the controller's own sync-status output (`argocd app diff` / `flux diff`) — "probably drifted" is not a finding.
+- Refuse to call a committed secret a leak without showing the manifest has a raw/base64 `data:` block and is not an `ExternalSecret`/`SealedSecret`/SOPS-encrypted file.
+- Halt if the controller is unreachable (no `argocd`/`flux` access) — audit the repo contents statically and mark reconciliation-status findings as unverified; don't fabricate sync state.
+- Plaintext secret in git = block (rotate the credential, it's in history). Auto-prune on prod with no safeguard = block.
+- Don't recommend enabling `selfHeal`/`prune` on an app that is *currently* OutOfSync — reconcile the drift first, or self-heal will enforce the wrong state.
+
 ## Related
 
 - `@ci-reviewer` — owns the CI pipeline (build/test/scan/publish); this owns the git→cluster reconciliation after publish.

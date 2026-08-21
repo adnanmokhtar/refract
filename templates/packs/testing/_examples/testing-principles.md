@@ -8,6 +8,8 @@ pack: testing
 
 Prevents flaky suites, false-confidence coverage, and tests that pass when the code is broken.
 
+> **Hard rule.** Every fixed bug MUST ship with a regression test that fails on the buggy code and passes after the fix. Tests MUST be deterministic — no `sleep`-based waits, no real network in unit/integration tests, no `Date.now()` assertions without fake timers. `.only` in main and `.skip` without owner + delete-by date are forbidden and fail CI.
+
 ## Must
 
 - Test pyramid by count: many unit (~70%), fewer integration (~20%), very few e2e (~10%). Inverted pyramid = slow CI, brittle tests.

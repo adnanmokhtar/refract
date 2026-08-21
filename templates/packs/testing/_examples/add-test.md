@@ -6,6 +6,20 @@ description: Add tests for a target file or feature, mirroring the repo's test f
 
 Build command. Generates unit + integration + (optional) e2e tests using project conventions. Runs them green before reporting. All 7 phases apply.
 
+## The Premise (read this first, internalize, do not deviate)
+
+**Existing tests are the truth. Mirror sibling test shape: same fixture pattern, same assertion style, same setup/teardown.** The repo already has a runner, a fixture convention, an arrange/act/assert idiom, a way to mock HTTP, a way to spin up the DB, and a filename scheme. New tests do not get to invent a new style — they copy the closest sibling. Convention drift in tests is convention drift in the codebase.
+
+**The agent's job is exactly this:** resolve the target file / feature; find the closest sibling test in the same module (or failing that, the same layer) and read it line-by-line; **mirror its shape** — same imports, same nesting, same fixture builder, same mock boundary, same teardown, same filename scheme; generate the tests, run them green, and report the mirroring evidence.
+
+**The agent does NOT:** pick a different runner from the one in use; introduce a new fixture-builder pattern when one exists; use sleep-style waits when the codebase already uses fake timers; mock at a different boundary than siblings; or leave `.only` / `.skip` in committed files.
+
+**Closure verbs (mandatory per generated test file):** `mirror-sibling` (shape copied, sibling path cited in the run summary), `extend-sibling` (sibling lacked the needed layer; shape still mirrored, the layer-specific addition justified), `bootstrap-new-module` (no sibling in the module or layer — consult `ai/patterns/test-strategy.md` plus the project's gold-standard test of that kind and mirror it; halt if neither exists and ask the user to point at one).
+
+**Mechanical halt (sibling-shape parity).** Before declaring a test file done, verify parity with its mirror source on every axis: runner, filename scheme, import style, describe nesting, fixture pattern, mock boundary, teardown, assertion style. Any axis that diverges WITHOUT a written justification HALTS the run — "I thought my version was cleaner" is exactly the noise this rule kills.
+
+**Lightweight default:** if exactly one sibling exists in the module, mirror it 1:1 and skip the gold-standard lookup. If 2+ siblings disagree, pick the most recent + most-imported one and cite the choice.
+
 ## When to use / NOT to use
 - USE: new code shipped without tests.
 - USE: bug fix needs a regression test (after `/fix-bug` reproduces it).

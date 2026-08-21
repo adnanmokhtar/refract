@@ -6,6 +6,8 @@ pack: distributed-systems
 
 # Distributed Systems Principles
 
+> **Hard rule.** Exactly ONE service owns writes to an entity; cross-service writes go through that owner. Every external call MUST have a timeout + retry + circuit breaker; every retried mutation MUST be idempotent (server-stored idempotency key); every cross-service workflow MUST use saga + outbox — 2PC / XA and shared mutable databases are forbidden.
+
 Prevents the failures that turn a microservice migration into a distributed monolith with extra latency: shared DBs, sync chains, missing idempotency, retries without timeouts, distributed transactions.
 
 ## The 8 fallacies (Deutsch / Gosling)

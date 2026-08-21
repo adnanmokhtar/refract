@@ -6,6 +6,8 @@ pack: database
 
 # Pattern: Connection Pooling
 
+> **Hard rule:** Every process talks to the database through a **bounded** connection pool whose size is derived from the DB's real connection ceiling — never a fresh connection per request and never a pool sized by guesswork. `pool_size_per_instance × instance_count` MUST stay below the server's `max_connections` (minus superuser + replication reserve). An unbounded connection strategy, a per-request `connect()`, or a transaction-mode pooler used with prepared statements / session state is forbidden. Cite the engine + version, the server `max_connections`, the pool config at `<path:line>`, and the deployed instance count — or halt.
+
 Every process talks to the database through a **bounded** connection pool whose size is derived from the DB's real connection ceiling — never a fresh connection per request and never a pool sized by guesswork. `pool_size_per_instance × instance_count` MUST stay below the server's `max_connections` (minus superuser + replication reserve). An unbounded strategy, a per-request `connect()`, or a transaction-mode pooler used with prepared statements / session state is forbidden. Sizing/mode is here; per-workload tuning is `database-optimizer`; don't-hold-across-IO is backend `transaction-boundary`. Extract the server `max_connections` first — sizing without it is guesswork.
 
 ## Adapt to the codebase

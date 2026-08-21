@@ -152,25 +152,28 @@ Review doesn't persist findings to `ai/`. The implementer who acts on findings d
 - `change-brief` skill (mode B — validate): the PR/commit body must carry a passing 5-field change brief (What / Why this shape / Edge cases / Blast radius / Verified by) for any change matching the skill's trigger tiers. Missing/failing brief is a blocker finding — the comprehension gate ("if you can't explain the code, it isn't yours") applied at review time.
 
 #### Category-based (based on diff categories)
-| Category | Reviewers |
-|---|---|
-| backend-code | `api-reviewer` |
-| db-entity / db-repo | `schema-reviewer`, `query-optimizer` |
-| db-migration | `schema-reviewer` + invoke `/migration-review` |
-| ui | `ui-reviewer`, `design-system-guardian`, `accessibility-auditor` (+ skill `a11y-scan` on changed routes if significant) |
-| i18n | `i18n-auditor` |
-| auth | `security-auditor`, `auth-reviewer` |
-| docker | invoke `dockerfile-lint` skill |
-| k8s | `k8s-reviewer` |
-| ci | `ci-reviewer` |
-| api-contract | invoke `api-snapshot` skill for breaking-change detection |
-| tests | `test-reviewer` |
-| ai-code | `prompt-reviewer` |
-| webhook | `resilience-reviewer` (idempotency + signature check) |
-| events | `resilience-reviewer` |
-| telemetry | `observability-reviewer` |
-| Hot-path / performance-sensitive changes | `performance-optimizer` + `n-plus-one-scan` skill |
-| dependency-manifest | `security-auditor` (dep review) + `deps-audit` skill — for each **added** package (ignore pure version bumps): maintenance health, license compatibility, transitive/install-size cost, known-CVE check, and whether an already-present primitive or the stdlib covers it. A new dep on a security / data-handling surface with no rationale is a blocker. |
+
+Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **skills** (procedures the dispatcher invokes inline). Route each to its own primitive; do not dispatch a skill as an agent or vice-versa.
+
+| Category | Agents (dispatch) | Skills (invoke) |
+|---|---|---|
+| backend-code | `api-reviewer` | — |
+| db-entity / db-repo | `schema-reviewer`, `query-optimizer` | — |
+| db-migration | `schema-reviewer` + invoke `/migration-review` | — |
+| ui | `ui-reviewer`, `design-system-guardian`, `accessibility-auditor` | `a11y-scan` (on changed routes if significant) |
+| i18n | `i18n-auditor` | — |
+| auth | `security-auditor`, `auth-reviewer` | — |
+| docker | — | `dockerfile-lint` |
+| k8s | `k8s-reviewer` | — |
+| ci | `ci-reviewer` | — |
+| api-contract | — | `api-snapshot` (breaking-change detection) |
+| tests | `test-reviewer` | — |
+| ai-code | `prompt-reviewer` | — |
+| webhook | `resilience-reviewer` (idempotency + signature check) | — |
+| events | `resilience-reviewer` | — |
+| telemetry | `observability-reviewer` | — |
+| Hot-path / performance-sensitive changes | `performance-optimizer` | `n-plus-one-scan` |
+| dependency-manifest | `security-auditor` (dep review) | `deps-audit` — for each **added** package (ignore pure version bumps): maintenance health, license compatibility, transitive/install-size cost, known-CVE check, and whether an already-present primitive or the stdlib covers it. A new dep on a security / data-handling surface with no rationale is a blocker. |
 
 #### Signal-based (based on project, always when signal present)
 | Signal | Reviewer |
@@ -294,7 +297,23 @@ api-contract, error-handling, multi-tenancy, tenant-isolation, idempotency, stru
 Phase 7 (Improved): 0 recurring blocker classes; 1 false-positive captured to feedback-learned.md.
 
 Status: REQUEST_CHANGES
+
+## What to do next  (do these in order)
+
+MUST FIX — merge is blocked until these are done:
+1. <modules-root>/admin/export.controller.<ext>:18 — add the auth + admin-role gate.
+   Fix: wrap the route with the project's auth guard primitive.
+   Verify: e2e test asserts 401 when unauthenticated.
+
+SHOULD FIX — fix now unless you have a reason not to:
+2. <modules-root>/orders/<list-handler>.<ext>:24 — resolve the N+1 on customer lookup.
+   Fix: eager-load customer in the list query.
+   Verify: query count drops in the list-endpoint test.
+
+Then: re-run `/review-changes` to confirm it comes back clean, and open the PR.
 ```
+
+(When the verdict is **APPROVE**, this section collapses to one line — e.g. `What to do next: No blockers — clear to open the PR. Optional: fix nit #1.`)
 
 ## Rules
 

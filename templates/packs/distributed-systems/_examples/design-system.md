@@ -35,12 +35,25 @@ ALWAYS:
 - `ai/business-domain.md` — entity ownership.
 - Service inventory (existing services, their owners, their tech).
 
-SIGNAL-BASED:
+SIGNAL-BASED (pack patterns unless marked *project signal* — a project-signal read may or may not exist in the target repo; skip it if absent, never treat it as pack-shipped):
 | Signal | Read |
 |---|---|
-| Event-driven | `ai/patterns/event-bus.md`, `ai/patterns/outbox.md` |
+| Event-driven | `ai/patterns/outbox.md`, `ai/patterns/cqrs.md`; the project's event-bus / broker topology doc *(project signal)* |
 | Saga / cross-tx | `ai/patterns/saga.md`, `ai/patterns/idempotency.md` |
-| Multi-region | `ai/patterns/replication.md` |
+| High scale / sharding | `ai/patterns/sharding-partitioning.md`, `ai/patterns/backpressure.md` |
+| Consistency-sensitive | `ai/patterns/consistency-models.md` |
+| Multi-region | `ai/patterns/consistency-models.md`; the project's replication / geo-topology doc *(project signal)* |
+
+## Phase 3.5 — Capacity + scaling (between Retrieve and Generate)
+
+Before any boundary is committed, dispatch `@capacity-planner` with the scale targets from Phase 1 (RPS, GB/day, users, peak:avg, read:write) + the datastore + deployment model. It produces, in order:
+
+1. **Estimation** — the capacity model: QPS → instances (Little's Law), storage growth, bandwidth, cache/memory sizing, DB connection budget, with peak:avg + headroom. Every number shows its math + assumption.
+2. **Bottleneck** — the binding constraint at 1x / 10x / 100x (the bottleneck ledger).
+3. **Scaling strategy** — the scale axis (vertical → horizontal-stateless → read replicas → shard/partition), cross-linked to `ai/patterns/sharding-partitioning.md` + `ai/patterns/backpressure.md`.
+4. **Migration cutover** — if the design reshapes data at scale: dual-write → backfill in batches → shadow-read compare → expand-contract → flip.
+
+Halt-forward: if the design "won't fit on one box" but the boundary assumes it will, or a capacity claim has no number behind it, capacity-planner halts the design here — the architect reworks before Generate.
 
 ## Phase 4 — Generate
 
