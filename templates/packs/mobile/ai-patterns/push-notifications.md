@@ -74,7 +74,7 @@ Handle all three. A tap-only handler misses the foreground case; a foreground-on
 ## Payload types
 
 - **Alert.** User-visible, wakes the tray. Default for transactional/marketing.
-- **Silent / background** (`content-available: 1` iOS / `data`-only FCM). Wakes the app briefly to fetch — the trigger for `offline-sync`. Budget-limited and throttled by the OS (iOS gives ~2–3/hr and drops them under Low Power Mode); never rely on delivery, and back it with a foreground reconcile.
+- **Silent / background** (`content-available: 1` iOS / `data`-only FCM). Wakes the app briefly to fetch — the trigger for `offline-sync`. Budget-limited and throttled by the OS. **Neither platform publishes a delivery rate**, so do not code against one — what determines whether a silent push wakes you is the same set of signals that governs any background execution: recent user engagement with the app, power state and low-power mode, network availability, and device idleness (see `app-lifecycle` for the sourced Android side of that list). Treat delivery as best-effort, do no heavy work per push, and back it with a foreground reconcile.
 - **Rich media.** Image/video via a Notification Service Extension (iOS) / `NotificationCompat` big-picture style (Android).
 - **Actionable.** Buttons wired to the iOS category / Android action.
 
@@ -146,6 +146,8 @@ Parsing the tapped payload into a `{ screen, params }` intent and navigating —
 
 - `deep-linking.md` (owns tap → screen routing; this pattern hands the payload off — state the boundary)
 - `offline-sync.md` (silent/background push as a best-effort sync trigger)
+- `app-lifecycle.md` (what determines whether a background wake-up is granted at all; the foreground reconcile that repairs what never ran)
+- `permissions.md` (every OS permission that is NOT the notification one — this pattern keeps notification priming)
 - `native-storage.md` (token + notification-preference storage)
 - `@mobile-architect` (design-level lifecycle — §6)
 - `@app-store-reviewer` (permission-policy + notification-disclosure compliance)

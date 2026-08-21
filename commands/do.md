@@ -51,18 +51,21 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "audit" / "review" + security / vuln (security-only) | `/security-audit` |
 | "audit" / "review" + perf / slow (perf-only) | `/perf-audit` |
 | "audit" / "review" + i18n | `/i18n-audit` |
-| "audit" / "review" + **multi-axis** (architecture + SOLID + security + DB + perf + scale) / "engineering principles" / "system design" / "ready for traffic" / "scale to N RPS" / "production hardening" / "pre-launch sweep" | `/audit [<scope>] [--target-rps=<N>]` |
+| "what's left" / "what's missing" / "what do I still need to build" / "map the missing features" / "plan completion" / "what's left before this is shippable" / "build the next phase" / "where am I" + **capability that was never built** (not a defect in code that already exists) | `/roadmap [<scope>]` |
+| "audit" / "review" + **multi-axis** (architecture + SOLID + security + DB + perf + scale) / "engineering principles" / "system design" / "ready for traffic" / "scale to N RPS" / "production hardening" / "pre-launch **hardening** sweep" (an unqualified "pre-launch sweep" is ambiguous — see the sweep row below) | `/audit [<scope>] [--target-rps=<N>]` |
 | "align" / "convention drift" / "cleanup conventions" / "match design system" + whole-project / multi-area scope | `/align [<scope>]` |
-| "unify" / "harmonize" / "make consistent" / "consistent codebase" / "uniform" / "standardize" / "single way" / **"some-X-some-Y"** ("some in one way and some in another", "half the files do X and half do Y") + codebase / project / module scope | `/align [<scope>]` |
+| "unify" / "harmonize" / "make consistent" / "consistent codebase" / "uniform" / "standardize" / "single way" / **"some-X-some-Y"** ("some in one way and some in another", "half the files do X and half do Y") + codebase / project / module scope, **and no surface-type or API-surface noun** | `/align [<scope>]` |
 | "unify all tables" / "unify all forms" / "unify all headers" / "unify all tabs" / "unify all filters" / "unify all buttons" / "unify validation" / "every page has the same header" / "all list pages should share the same filter panel" / "every table chrome the same" / "standardize form validation" / "consistent error display across all forms" / "fully unified UI/UX system" / "make every X look the same" + **surface-type vocabulary** (tables / forms / headers / tabs / filters / buttons / validation) | `/unify-surfaces [--surfaces=<list>] [<scope>]` |
-| "match the original structure" / "match the gold standard" / "follow the existing pattern" / "use the shared wrapper instead of custom" / "stop reinventing" / "one canonical way" + codebase / project scope | `/align [<scope>]` |
-| "drift" / "inconsistencies" / "fork(s) of the same thing" / "duplicate implementations of X" / "all over the place" / "inconsistent naming" / "inconsistent error shape" / "mixed patterns" + multi-area scope | `/align [<scope>]` |
+| "match the original structure" / "match the gold standard" / "follow the existing pattern" / "use the shared wrapper instead of custom" / "stop reinventing" / "one canonical way" + codebase / project scope, **and the reinvented thing is not a named surface type** (a header / table / form / tab / filter / button / validation wrapper is `/unify-surfaces` — see the row above) | `/align [<scope>]` |
+| "camelCase on some endpoints and snake_case on others" / "the response shape differs per endpoint" / "our error shape is different everywhere" / "pagination is inconsistent" / log-field / metric-name / envelope drift + **API-surface vocabulary** — API / endpoint / schema, and equally the contract nouns *envelope*, *response shape*, *error shape* / *error contract*, *pagination*, *log field*, *metric name*, each of which names the API surface on its own | `/polish [<scope>]` — envelope, error-contract and API-naming uniformity are `/polish`'s owned classes; `/align`'s closed verb set has no envelope verb, and its `rename` only applies a convention the project already documents rather than choosing one for an API surface, so it would accept the job and have nothing to close it with |
+| "drift" / "inconsistencies" / "fork(s) of the same thing" / "duplicate implementations of X" / "all over the place" / "inconsistent naming" / "mixed patterns" + multi-area scope, **and neither an API-surface nor a surface-type noun** (see the two rows above) | `/align [<scope>]` |
 | "align" / "drift" / "unify" / "harmonize" / "make consistent" + **single area**, narrow scope (one page, one module, one file) | `/align-recheck <description>` (align pack) |
 | "port" / "migrate" / "match V1" / "compare V1" + whole-project / multi-feature scope | `/migrate [<scope>]` |
 | "port" + single feature, narrow scope | `/migration-recheck <description>` (migration pack) |
 | "refactor" / "extract" / "rename" / "move" / "flatten" + **specific file / module / symbol** (narrow target) | `/refactor <target>` |
 | "optimize" / "clean up" / "improve quality" + whole-project / multi-area scope | `/optimize [<scope>]` |
-| "clean up" + **ambiguous** (could mean tidy diff vs whole codebase) | Ask one question: narrow target → `/refactor`; broad sweep → `/optimize` |
+| "clean up" + **ambiguous** (could mean one named target vs one module vs the whole codebase) | Ask one question — `/optimize` owns the phrase "clean up" and is the default reading: one named file / symbol → `/refactor`; whole-project or multi-area sweep → `/optimize`; convention drift in one narrow area → `/align-recheck`; visual polish on one surface → `/enhance-ui` |
+| "pre-launch sweep" / "ship-readiness sweep" / "we ship <day> — sweep it" + **no axis noun** (neither hardening / security / scale nor finish / look-and-feel) | Ask one question: security / scale / correctness hardening → `/audit`; look-and-feel or API-surface finish → `/polish`; capability still missing → `/roadmap` |
 | "unify" / "consistent" / "harmonize" + **ambiguous** (could mean drift vs perf vs arch vs surface-type) | Ask one question: surface-type unification (tables / forms / headers / tabs / filters / buttons / validation across the project) → `/unify-surfaces`; convention drift / inconsistent patterns → `/align`; architecture / SOLID / clean code → `/optimize`; production-readiness / scale → `/audit` |
 | "iterate" / "try variants" / "few options" + visual | invoke `design-iterate` skill |
 | "playground" / "test in isolation" + component | invoke `component-playground` skill |
@@ -71,9 +74,15 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "test" / "run tests" / "coverage" | `/run-tests` |
 | "scan" / "inventory" + V1↔V2 | `/migration-scan` |
 | "scan" / "inventory" + alignment / drift | `/align-scan` |
+| the user **names another AI coding CLI as the implementer** ("have Codex take a crack at it", "delegate this to Cursor", "run it through Aider", "get a second opinion from another CLI", "burn the cheap CLI's quota on this", "cross-tool diff") | `/delegate "<task>" --to=<cli>` |
+| "set up Claude orchestration here" / "analyze this codebase and generate tooling" / "refresh my setup" / "install the packs" | `/setup-project` |
+| "add Cursor / Windsurf / Cline support to this repo" / "re-sync the adapters" / "push my rule changes out to the other tools" / "make this repo work without .claude/" | `/setup-project-adapters` |
+| "is my setup stale" / "check setup health" / "are my conventions still in sync with the code" / "why does setup say there is no work to do" + **read-only report, no fixes** | `/setup-project-health` |
 | a task-tracker **URL / key / `next`** (`trello.com/c/…`, `*.atlassian.net/browse/PROJ-123`, `linear.app/…/issue/ABC-123`, `github.com/…/issues/N`, bare `PROJ-123` / `#42`, `trello:`/`jira:`/`linear:`/`gh:` prefix, or "the next ticket / next card") | `/task <ref>` |
 
 For ambiguous descriptions, the agent asks one clarifying question.
+
+> **Precedence when two rows both match.** Resolve the collision by the **noun in the ask**, never by how many trigger phrases fire. (1) A named **surface type** — tables / forms / headers / tabs / filters / buttons / validation — beats every generic drift row → `/unify-surfaces`. (2) A named **API / endpoint / schema surface** beats them too → `/polish`. (3) Only a drift ask carrying *neither* noun is `/align`. Worked case: *"some pages use the shared PageHeader and some roll their own"* fires the `some-X-some-Y` row, the "stop reinventing" row **and** the surface-type row — headers is a surface type, so the answer is `/unify-surfaces`, not `/align`. The same precedence is the authoritative split in [`templates/tool-adapters/_orchestration-sync.md § Command boundary table`](../templates/tool-adapters/_orchestration-sync.md).
 
 > The spec-layer rows (`/analyze-task`, `/expand-task`) apply only when the **business pack** is installed — same "scoped to commands that exist in this project" rule as everything else. If the business pack is absent, fall back to the closest available command (e.g. `/refine-prompt` for spec shaping, or `/add-feature` / `/scaffold-project` for the downstream build).
 
@@ -102,6 +111,8 @@ For ambiguous descriptions, the agent asks one clarifying question.
    - **High confidence** (intent + target + stack all align) → dispatch silently with a 1-line preamble.
    - **Medium confidence** (intent clear but target ambiguous, OR stack unclear) → ask one clarifying question.
    - **Low confidence** (description doesn't match any command's scope) → halt with the description echoed and a list of available commands.
+   - **Multi-ask** (the sentence carries two independent asks — the halves route to different commands) → **always confirm**, even when each half is individually high confidence. See § Multi-command asks.
+   - **Two rows both match one ask** → this is not ambiguity, it is precedence: resolve by the noun per the precedence note under the routing table, and dispatch. Only ask when the ask carries no disambiguating noun at all.
 
 ## Phase 2 — Organize (decompose the work)
 
@@ -110,7 +121,8 @@ For ambiguous descriptions, the agent asks one clarifying question.
 2. READ-CTX    — codebase profile + idioms + available commands
 3. ROUTE       — match intent to command
 4. CONFIRM     — silent (high confidence) | ask (medium) | halt (low)
-5. DISPATCH    — invoke the picked command with the description forwarded
+5. DISPATCH    — invoke the picked command(s), the matching clause forwarded verbatim
+               (two commands only via § Multi-command asks — always confirmed, never silent)
 6. RECORD      — log the dispatch in ai/_history.md (audit trail)
 ```
 
@@ -141,11 +153,13 @@ For medium-confidence (ambiguous target):
 /do clean up the orders module
 
 Could mean:
-  [1] /align-recheck the orders module     (codebase quality drift)
-  [2] /enhance-ui the orders pages         (UI/UX polish)
-  [3] /migration-recheck the orders module (V1↔V2 parity drift)
+  [1] /optimize the orders module          (code quality + architecture — the default reading;
+                                            /optimize's own description claims "clean up")
+  [2] /align-recheck the orders module     (convention drift only, no arch or perf angle)
+  [3] /enhance-ui the orders pages         (UI/UX polish)
+  [4] /migration-recheck the orders module (V1↔V2 parity drift)
 
-Which? [1 / 2 / 3 / cancel]
+Which? [1 / 2 / 3 / 4 / cancel]
 ```
 
 For low-confidence:
@@ -163,6 +177,33 @@ Suggested: /add-feature automate the deployment notification webhook
 
 Proceed with /add-feature? [y / n / different command]
 ```
+
+### Multi-command asks (one sentence, two commands)
+
+The premise above promises routing "when one sentence spans several commands", so this is the mechanism that keeps that promise. A sentence spans several commands when it carries **two independent asks that no single command's scope covers** — *"the orders page has no empty state and the buttons are all different sizes"* is a missing-finish ask (`/polish` owns `wire-empty-state`) **plus** a surface-type consolidation ask (`/unify-surfaces` owns the buttons category). Routing the whole sentence to either one silently drops half the ask.
+
+Rules:
+
+1. **Split at most three ways.** Four or more sub-asks is a wish-list, not a request — halt and ask which one to run first.
+2. **Never split silently.** Multi-dispatch is always confirmed, even when both halves are individually HIGH confidence: the user asked once and is about to get two runs and two sets of commits.
+3. **Order by dependency, not by mention order.** Structure before finish (consolidate the wrapper, then polish it — polishing five shapes that are about to become one is wasted work), foundations before cosmetics. Same rationale as the afterburner sequence in [`templates/tool-adapters/_orchestration-sync.md § Afterburner sequence`](../templates/tool-adapters/_orchestration-sync.md).
+4. **Run sequentially with a gate between.** The second command starts only after the first returns. If the first halts, surface that and do NOT start the second.
+5. **Forward only the matching clause.** Each command receives the part of the sentence that routed to it, verbatim — not the whole sentence. A `/polish` run told about button variance will try to fix it and cross the boundary.
+6. **Log one `ai/_history.md` line per dispatch**, both carrying the same original description so the pair is reconstructable.
+
+```
+/do the orders page has no empty state and the buttons are all different sizes
+
+Two asks in one sentence:
+  [1] /unify-surfaces --surfaces=buttons   (button variance app-wide — surface-type consolidation)
+  [2] /polish the orders page              (missing empty state — finish that does not exist yet)
+
+Order: [1] then [2] — unify the button primitive first so polish finishes one shape, not five.
+
+Run both? [y / only 1 / only 2 / cancel]
+```
+
+If one half matches no command, run the half that does and report the other as unrouted — never invent a command for it (see Hard rules).
 
 ## Phase 5 — Update (persist changes)
 
@@ -183,9 +224,9 @@ Proceed with /add-feature? [y / n / different command]
 
 ## Hard rules
 
-- **No silent dispatch on medium/low confidence.** Always confirm or list options.
+- **No silent dispatch on medium/low confidence, or on any multi-ask.** Always confirm or list options.
 - **Never invent commands.** Only routes to commands that exist in `.claude/commands/`.
-- **Forward the description verbatim.** The routed command receives the user's full original description, not a re-paraphrased version.
+- **Forward verbatim — never paraphrase.** The routed command receives the user's own words, not a re-worded version. On a single-command route that is the full original description. On a multi-ask (§ Multi-command asks) each command receives its **own clause, still verbatim** — splitting the sentence at the boundary between two asks is not paraphrasing; rewriting either half is.
 - **Log every dispatch.** The audit trail in `ai/_history.md` lets the user see what got routed where.
 
 ## Failure modes
@@ -221,15 +262,32 @@ Proceed with /add-feature? [y / n / different command]
 
 /do standardize form validation and error display everywhere
 → /unify-surfaces --surfaces=validation
+
+/do what's left before this is shippable?
+→ /roadmap
+  (missing capability, not a defect — /audit would rank what is WRONG, which is not the ask)
+
+/do have Codex take a crack at the test backfill
+→ /delegate "backfill the missing unit tests" --to=codex
+  (the human named the implementer — that is the only trigger /delegate has)
+
+/do push my rule changes out to Cursor and Windsurf
+→ /setup-project-adapters
+  (wiring a tool up is NOT dispatching to one — /delegate declines this by its own anti-trigger)
+
+/do the setup feels stale — are my conventions still in sync with the code?
+→ /setup-project-health
+  (read-only; the fix door is /setup-project --refresh)
 ```
 
 ### Medium-confidence (asks)
 
 ```
 /do clean up the auth module
-  [1] /align-recheck the auth module (drift cleanup)
-  [2] /enhance-ui the auth pages (visual polish)
-  [3] /migration-recheck the auth module (V1↔V2 parity)
+  [1] /optimize the auth module (code quality + architecture — default reading of "clean up")
+  [2] /align-recheck the auth module (drift cleanup)
+  [3] /enhance-ui the auth pages (visual polish)
+  [4] /migration-recheck the auth module (V1↔V2 parity)
 ```
 
 ### Low-confidence (halts with suggestions)
@@ -247,6 +305,7 @@ Proceed with /add-feature? [y / n / different command]
 
 ### Sibling commands (this command routes to)
 - `/migrate`, `/align`, `/optimize`, `/polish`, `/audit`, `/unify-surfaces` — top-level simple-surface (whole-project / multi-area)
+- `/roadmap` — map what is INTENDED but not yet built, then phase the build order (the complement of `/audit`: what is *missing*, not what is *wrong*)
 - `/add-feature`, `/add-page`, `/add-component`, `/add-endpoint`, `/add-module`, `/add-migration`
 - `/enhance-ui`, `/fix-bug`, `/align-recheck`, `/migration-recheck`
 - `/analyze-task`, `/expand-task`, `/refine-prompt` — spec layer (business pack: idea → requirements / user stories → implementer-ready brief)
@@ -254,6 +313,8 @@ Proceed with /add-feature? [y / n / different command]
 - `/run-tests`, `/deploy-stage`, `/rollback-deploy`
 - `/migration-scan`, `/align-scan`
 - `/task` — provider-agnostic task executor (Trello / Jira / Linear / GitHub Issue → execute → write status back)
+- `/delegate` — hand ONE bounded task to a DIFFERENT AI coding CLI, then review its diff (routes here only when the human names the other tool)
+- `/setup-project`, `/setup-project-adapters`, `/setup-project-health` — install / re-sync / grade this repo's orchestration layer (the setup layer `/do` itself depends on)
 
 ### Skills (this command can dispatch via)
 - `design-iterate`, `component-playground`

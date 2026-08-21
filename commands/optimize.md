@@ -120,6 +120,17 @@ Examples:
 
 11. **Boot-check (final)** — dispatch the `smoke-verify` skill (code-quality pack) after the last commit. A green suite doesn't prove the app starts; smoke-verify boots it per `PROJECT_KIND` (dev server / server + health probe / CLI / library import) and HALTS if it doesn't come up — catching DI / route-registration / import-cycle breaks no unit test covers. Skippable with `--no-boot-check` for pure libraries. **The result MUST be recorded in the run summary as a `boot-check: pass` or `boot-check: skipped(<reason>)` line** — a skip is never silent. When skipped, the reason ALSO goes under `Not validated:` (the validator enforces both: presence of the line, and that a skip is surfaced as negative space). See `validate-optimize-artifacts.sh § check_boot_check_record`.
 
+## Phase 3.5 — Handoff (`--plan` only)
+
+`--plan` is **not** a louder `--dry-run`. It runs Phase 0 (architectural diagnosis) and the Phase 2 tactical scan above, makes **no edit**, and writes a plan file that `/execute-plan` — or any other tool, or a human — can implement later.
+
+1. **Read-only phases only.** No foundation fix and no tactical fix is applied, nothing is committed, and `ai/optimize/ledger.md` is not advanced. The Phase-0 diagnosis still runs in full — it is what makes the plan worth handing off — and its findings are written into the plan, not into `ai/optimize/_architecture-decisions.md` as a run artifact.
+2. **Expand the internal plan into the canonical handoff format.** All **eight** headers are mandatory — `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Steps` / `## Constraints` / `## Verification` / `## Status` — plus the `Plan ID`. `/execute-plan` halts on a file missing any one of them ([`templates/repo-baseline/.claude/commands/execute-plan.md`](../templates/repo-baseline/.claude/commands/execute-plan.md) § Mechanical halt), so an eight-header file is the contract, not a nicety. `## Approach` and `## Known unknowns` are accepted optional extras.
+3. **Map this command's own vocabulary onto those headers.** Foundation fixes lead `## Steps` in dependency order, tactical clusters follow; touched modules become `## Outputs`; "behaviour-preserving for structural fixes", "every perf claim ships a baseline + post-fix number", and "coverage must not drop" become `## Constraints`; the measured `## Verification` commands are the project's lint / typecheck / test plus the specific perf measurement each perf step must reproduce.
+4. **Write** to `.claude/plans/optimize-<short-slug>-<YYYYMMDD-HHmm>.md`, **print** path + Plan ID + a one-line summary, and **exit before Phase 4 (Generate)** — nothing edited, nothing committed, no changelog entry.
+
+Full flag contract: [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). Field-by-field format: [`templates/canonical-command-template.md`](../templates/canonical-command-template.md) § "Phase 3.5 — Handoff".
+
 ## Progress tracking (multi-day workflow)
 
 Single source of truth: **`ai/optimize/progress.md`**.
@@ -321,6 +332,7 @@ All internal. Just results.
 
 ## Optional flags
 
+- `--plan` — **handoff mode**: run the read-only phases, write the eight-header plan file to `.claude/plans/`, print the Plan ID, exit before any edit (see § Phase 3.5 — Handoff). Distinct from `--dry-run`, which previews to the terminal and writes no file at all.
 - `--dry-run` — show what would be optimized, no edits.
 - `--strict` — forwarded to **`validate-optimize-artifacts.sh`**: Phase 0 must reference `_extracted-idioms.md`; **`ai/optimize/ledger.md`** required unconditionally (even for a no-fix audit). **Note: the ledger is already MANDATORY without `--strict` for any run that fixed findings** — it is the only re-detect proof surface, so the validator fails when `findings/*.md` exist but no ledger does. `--strict` only extends that requirement to runs that fixed nothing.
 - `--quiet` — forwarded to **`validate-optimize-artifacts.sh`** (`-q`) when invoking the validator from hooks / CI.

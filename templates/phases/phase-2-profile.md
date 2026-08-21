@@ -181,6 +181,21 @@ Outputs:
 
 Profile content (written to `.claude/codebase-profile.md`):
 
+> **Heading contract (deterministic consumer — do not paraphrase).** `scripts/apply-anchors.sh`
+> parses this file for exactly five headings and builds the round-one `## Project-specific` block of
+> **every** pack-derived artifact out of them: `Architecture`, `Naming`, `Testing`, `Data access`,
+> `Error handling`. Write them as H2 headings, either `## Naming` or `## 3. Naming` — the parser
+> accepts both, and the canonical shape in `templates/appendices.md § Appendix D` is the unnumbered
+> one. A heading the parser cannot find renders as `<not declared in codebase-profile.md>` in every
+> artifact in the repo, and if none of the five resolve the script exits 3 rather than shipping an
+> anchor block whose every line is a placeholder. The numbering below is prose structure for the
+> reader; the five heading SPELLINGS are a machine contract, in the same way §11's
+> `technical_signals:` array is.
+
+**Before filling any field below, read § 17 (repo shape + members) — it decides how many answers each field has.** When `repo_shape` is `monorepo` or `workspace`, fields **1–10 and 15 are answered ONCE PER MEMBER**, and each answer is tagged with the member it came from. Fields 11–14 and 16 stay repo-wide (union across members for 11; whole-tree for 13–14; 16 spans members by construction).
+
+> **Never average two members into one value.** This is the single most damaging failure this phase can produce. A repo with a server package and a client package has two file-naming conventions, two test layouts, two error hierarchies — sampling across both and reporting the winner yields a value that is wrong for *both* packages, carried downstream with the confidence of a measured one. It then lands in the `## Project-specific` block of every adapted rule, and every agent that reads it "fixes" correct code to match a convention that exists nowhere in the repo. If two members disagree on a field, that IS the finding: record both, tagged. Record a single value only when you checked every member and they genuinely agree — and say that you checked.
+
 1. **Architecture** — actual layer names, dependency direction (not doc-claimed).
 2. **Base classes / inheritance patterns** — every base class with ≥3 extenders found by Phase 2.5 extraction. Class names + paths + extender counts come straight from this codebase; if the project is functional / module-style without inheritance bases, this section is empty (and that's a valid project shape — don't manufacture base classes).
 3. **Naming** — kebab / PascalCase / snake + suffix conventions.
@@ -219,6 +234,35 @@ Profile content (written to `.claude/codebase-profile.md`):
 14. **Phase + status** — declared phase + code-vs-doc consistency.
 15. **Concurrency primitives** — what the project actually uses for parallel I/O and CPU offloading. Detected by grepping for: `Promise.all` / `Promise.allSettled` / `Bluebird.map` / `p-limit` / `pMap` / `asyncio.gather` / `asyncio.Semaphore` / `errgroup.WithContext` / `CompletableFuture.allOf` / `StructuredTaskScope` / `Parallel.ForEachAsync` / `Task.async_stream` / `pmap`. Record: (a) which primitive(s) appear (with sample file:line citations), (b) whether the project ships a bounded-concurrency helper (`runWithLimit` / `parallel` / `concurrentMap` / equivalent — fingerprint: a function taking `items, fn, { concurrency }`), (c) observed concurrency caps (search `concurrency:`, `Semaphore(N)`, `g.SetLimit(N)`, `MaxDegreeOfParallelism`, `pLimit(N)`), (d) DB pool size from config (`pool.max`, `DATABASE_POOL_SIZE`, etc.), (e) cancellation primitive (`AbortController` / `context.Context` / `CancellationToken`), (f) whether sequential-await-in-loop appears in any hot path (count occurrences from `rg 'for \(const \w+ of \w+\)\s*\{[^}]*await' --multiline`). Phase 4.6 anchors `.claude/rules/concurrency-discipline.md` + `ai/patterns/parallel-io.md` to whichever primitive is dominant; if multiple primitives coexist, report as `[CONCURRENCY-DRIFT: <primitive-A> at <count> sites, <primitive-B> at <count> sites]` so the user can decide which is canonical. Skipped for synchronous-only stacks (Ruby without Async, sync-only Python, single-threaded scripts).
 16. **Migration layout** — does the codebase show V1+V2 cohabitation? Detected by: (a) parallel directory pairs at the same depth where one shows version suffix or "legacy"/"new" semantics (`v1/`+`v2/`, `legacy/`+`new/`, `<name>/`+`<name>_v2/`, `<name>/`+`<name>-next/`), (b) version-suffixed sibling files (`*_v1.<ext>` paired with `*_v2.<ext>`, `*Old.<ext>` + `*New.<ext>`), (c) workspace packages with `-v2` / `-next` / `-new` suffix, (d) URL/route version prefixes hosting different code paths (`/v1/...` and `/v2/...` mapped to disjoint controller trees), (e) README sections explicitly mentioning "V1 → V2" / "legacy migration" / "rewrite", (f) presence of `ai/migration/ledger.md` or `ai/migration/contracts/`. Record: V1 root path, V2 root path, naming convention used (suffix vs subfolder vs separate workspace), migration ledger path if present, feature inventory (per-route or per-module list of V1 functions/classes/endpoints — this becomes the bootstrap input for the ledger), README evidence quotes if any, cutover mechanism if visible (feature flag library, env var, router rule). If any signal fires → set trigger `migration_layout_detected: true`; the `migration` pack auto-loads in Phase 4. If `ai/migration/ledger.md` exists → set `migration_ledger_present: true` so `port-feature` + `migration-status` know to read rather than bootstrap. If detection is ambiguous (a single `_v2`-suffixed file with no pair, or a single mention of "v2" in README) → flag as `[MIGRATION-WEAK]` and ask the user once: "Detected possible migration layout — confirm? (yes / no / explicit V1 + V2 paths)". Skipped when the codebase shows no version-suffixed paths AND no migration ledger AND no README mention.
+
+17. **Repo shape + members + per-track roots** — carried forward from Phase 1 and completed here. Phase 1 decided `repo_shape` and listed the member directories; Phase 2 is where each member gets a detected stack, a source root, and its own load-bearing track set. **This field is the contract three later phases read**: Phase 3 prints it as `SHAPE:`, Phase 4.0 gates sub-project recursion on `repo_shape: workspace`, and Phase 4.2 reads `is_multi_track` + `track_roots` to path-scope each track's rules. Absent or unset, all three fall back to the single-package path. Emit it machine-readable, on its own lines:
+
+    ```
+    repo_shape: monorepo            # single | monorepo | workspace — from Phase 1, never re-decided here
+    shape_signal: "2 sub-manifest dirs in one git repo, no member-declaring manifest"
+    members:
+      - name: <member-a>
+        root: <path/to/member-a>    # dir whose manifest was found; `.` for repo_shape: single
+        manifest: <path/to/member-a/<manifest-file>>
+        stack: <language + framework, as detected in THIS dir>
+        tracks: [<load-bearing track ids for THIS member>]
+        src_glob: <path/to/member-a>/**
+      - name: <member-b>
+        root: <path/to/member-b>
+        manifest: <path/to/member-b/<manifest-file>>
+        stack: <language + framework, as detected in THIS dir>
+        tracks: [<load-bearing track ids for THIS member>]
+        src_glob: <path/to/member-b>/**
+    is_multi_track: true            # see derivation below
+    track_roots:                    # union over members: track id -> comma-separated globs
+      <track-id>: "<glob>[,<glob>…]"
+    ```
+
+    **Deriving `is_multi_track`** — it is `true` when the count of DISTINCT load-bearing *stack* tracks across all members is ≥ 2. Stack tracks are the ones 2.6.a marks LOAD-BEARING from a stack signal; the four ALWAYS-ON tracks (`security`, `code-quality`, `documentation`, `learning`) never count toward it, because every project has them and scoping them would scope everything. Note this is **independent of `repo_shape`**: a `single`-shape repo with a server directory and a client directory under one manifest is multi-track and needs the same rule scoping. `repo_shape: single` therefore still emits `members` with exactly one entry (`root: .`) — the field is never empty.
+
+    **Deriving `track_roots`** — for each load-bearing stack track, the glob(s) covering the source that track's rules should apply to. For `monorepo` / `workspace`, that is the `src_glob` of every member whose `tracks` include it, joined by commas. For `single`, detect the track's source root inside the one member (the directory holding that track's framework entry point, config, or the bulk of its source files) rather than defaulting to the repo root — scoping a track to `**` scopes it to nothing.
+
+    **When detection is thin**: a member whose stack cannot be determined (no recognizable framework, manifest with no dependencies) is recorded with `stack: <TBD: undetermined>` and `tracks: []` rather than dropped — a member missing from this list is a member that gets no rules, no adapters, and no conventions row, which is a worse failure than an undetermined one. If NO member's stack resolves, flag `[SHAPE-UNRESOLVED]`; do not silently collapse to `repo_shape: single`.
 
 #### 2.x Business-domain detection (separate from technical signals)
 
@@ -303,32 +347,23 @@ A project may match MULTIPLE patterns. The extractor runs ALL matched patterns; 
 
 #### Extraction strategy per pattern
 
-**class-inheritance** (existing behavior, unchanged):
-- Invoke `extract-base-class-idiom` skill per base class with ≥3 extenders.
-- Walk: base class → extenders → collaborators → automatic behaviors → pitfalls.
-- Output: one section per base class.
+**ONE skill covers all five patterns**: `extract-base-class-idiom`, invoked per load-bearing unit with `unit_kind` set. The walk is identical for every kind — read the unit in full, count its dependents, sample 3-5 across the range, name the automatic behaviors and the escape hatches, cite the pitfalls from git history — because that shape is a property of "≥3 things depend on this", not of inheritance. The skill's § Inputs table gives the per-kind terminology (what a "dependent" is, how to find it, what "configuration surface" and "override hooks" mean).
 
-**composables** (NEW):
-- Invoke `extract-composable-idiom` skill per composable with ≥3 callers (e.g., `useCrud`, `useForm`, `useAuth`).
-- Walk: composable file (full read) → all callers (count + sample 3-5) → cited collaborators → side-effects (refs, watch, lifecycle hooks registered) → pitfalls (must-be-called-in-setup, await-before-mount race, etc.).
-- Output: one section per load-bearing composable. Format mirrors base-class section but uses "composable / hook" terminology.
+This used to name three further skills — `extract-composable-idiom`, `extract-wrapper-idiom`, `extract-service-idiom` — and **none of them ever shipped**. `templates/packs/learning/skills/` contained exactly one extractor. The always-write fallback below fires only when NO pattern matched, so a Vue 3 or React-hooks app *matched* `composables` and then dispatched to a skill that did not exist: undefined behaviour, not a defined degrade, leaving `_extracted-idioms.md § Composables` / `§ Wrappers` empty while `templates/packs/ui-ux/_topics.md` and align's `reinvented-wrapper` detector read them as populated. Three thin new skills would have been the worse fix; the shape was always one skill's.
 
-**shared-wrappers** (NEW):
-- Invoke `extract-wrapper-idiom` skill per wrapper component with ≥3 usage sites (e.g., `AppButton`, `BaseDataTable`, `BaseModal`).
-- Walk: wrapper file → all usages (count + sample 3-5) → props API → slots / children API → underlying primitive (which raw library is wrapped) → default-true props → pitfalls (raw primitive used outside the wrapper).
-- Output: one section per shared wrapper. Names + paths are the inputs to align's `reinvented-wrapper` detector.
+| Pattern | Dispatch | Threshold | Output section |
+|---|---|---|---|
+| **class-inheritance** | `extract-base-class-idiom` with `unit_kind: base-class` | ≥3 extenders | `## Base classes` |
+| **composables** | `extract-base-class-idiom` with `unit_kind: composable` | ≥3 callers (e.g. `useCrud`, `useForm`, `useAuth`) | `## Composables / Hooks` |
+| **shared-wrappers** | `extract-base-class-idiom` with `unit_kind: wrapper` | ≥3 usage sites (e.g. `AppButton`, `BaseDataTable`) | `## Wrappers` |
+| **shared-services** | `extract-base-class-idiom` with `unit_kind: service` | ≥3 import sites | `## Shared services` |
+| **type-system** | `extract-base-class-idiom` with `unit_kind: type-primitive` | ≥3 instantiation sites | `## Type primitives` |
 
-**shared-services** (NEW):
-- Invoke `extract-service-idiom` skill per shared service with ≥3 import sites.
-- Walk: service file → all importers → exposed API → side-effects → cache strategy → pitfalls.
-
-**type-system** (NEW):
-- Extract generic types / DTOs / shared interfaces with ≥3 instantiation sites.
-- Lighter walk: signature + usage examples + invariants.
+Pass `unit_path` + `unit_kind` + `output_path = .claude/_extracted-idioms.md` per unit. A project matching several patterns runs the skill once per unit per pattern, up to the concurrency cap below. For `wrapper` units the skill is required to name the raw primitive being wrapped — that is precisely the field align's `reinvented-wrapper` detector reads, and a wrapper row without it is unusable downstream.
 
 #### Always-write fallback
 
-If NO patterns matched (greenfield project, single-file scripts, very small codebase) → still write `_extracted-idioms.md` with a minimal structure:
+If NO patterns matched (greenfield project, single-file scripts, very small codebase) → still write `_extracted-idioms.md` with a minimal structure. Note the precondition: this fires only on **no match**, so it never covered the "matched a pattern, had no extractor" hole above — that hole is closed by the dispatch table, not by this fallback.
 
 ```yaml
 # _extracted-idioms.md (minimal — no load-bearing patterns yet)

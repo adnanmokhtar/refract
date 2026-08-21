@@ -1,5 +1,5 @@
 ---
-description: Enforce conventions the project ALREADY has, project-wide or across several areas. Triggers — 'align the app to the design system', 'convention drift across the auth pages', 'some files do X, some do Y', 'stop reinventing the shared wrapper'. Do NOT trigger to INTRODUCE finish that does not exist yet (a new token, a missing state, creative visual work) — that is /polish. Not perf or architecture (/optimize), not one narrow area (/align-recheck), not table/form/header consolidation (/unify-surfaces).
+description: Enforce conventions the project ALREADY has, project-wide or across several areas. Triggers — 'align the app to the design system', 'convention drift across the auth pages', 'some files do X, some do Y', 'stop reinventing the shared wrapper' — each only when the ask names NO surface type and NO API surface. Do NOT trigger when a surface type is named (tables / forms / headers / tabs / filters / buttons / validation), including in some-files-do-X form such as 'some pages use the shared PageHeader and some roll their own' — that is /unify-surfaces. Do NOT trigger on API envelope, error-contract, endpoint-naming or pagination uniformity — the closed 21-verb set has no envelope verb, and its rename verb only APPLIES a naming convention the project already documents rather than choosing one for an API surface, so /polish owns those. Do NOT trigger to INTRODUCE finish that does not exist yet (a new token, a missing state, creative visual work) — that is /polish. Not perf or architecture (/optimize), not one narrow area (/align-recheck).
 compatibility: Requires _extracted-idioms.md or codebase-profile.md populated as the convention oracle — with neither there is nothing to enforce against. Mechanical CI green and a clean tree, or --allow-dirty. Any stack. Net structural lines are held at or below zero, so nothing new is invented. validate-align-artifacts.sh is agent-invoked, not run automatically.
 kind: command
 pack: orchestration
@@ -7,9 +7,9 @@ pack: orchestration
 
 # /align [<scope>]
 
-> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/align <scope> --plan` runs the convention scan + writes the ranked fix-plan, and exits before any edit — executable later via `/execute-plan <file>`.
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/align <scope> --plan` runs the convention scan, writes the eight-header handoff plan, and exits before any edit — executable later via `/execute-plan <file>`. The write-and-stop behaviour is specified in § Phase 3.5 — Handoff.
 >
-> **Note — two distinct "plan" artifacts.** `--plan` writes a one-off **handoff doc** to `.claude/plans/align-<scope>-<iso>.md` (the universal plan-flag location, for review / `/execute-plan`). This is NOT the pack's executable `ai/align/plan.md` (the phased plan produced by `/align-plan` that `/align-fast <N>` consumes). The handoff doc is a snapshot for a human; `ai/align/plan.md` is the live, ledger-coupled plan.
+> **Note — two distinct "plan" artifacts.** `--plan` writes a one-off **handoff doc** to `.claude/plans/align-<short-slug>-<YYYYMMDD-HHmm>.md` (the universal plan-flag location and naming, for review / `/execute-plan`). This is NOT the pack's executable `ai/align/plan.md` (the phased plan produced by `/align-plan` that `/align-fast <N>` consumes). The handoff doc carries the eight canonical headers and is a snapshot for an executor; `ai/align/plan.md` is the live, ledger-coupled plan and `/execute-plan` cannot read it.
 
 ## What this does
 
@@ -48,7 +48,7 @@ This is **structure enforcement** — no creative work, no new abstractions, jus
 
 - For visual / look enhancement → `/enhance-ui` or `/ui-sweep` (creative work).
 - For V1→V2 port → `/migrate`.
-- For performance / clean-code optimization → `/optimize`.
+- For performance / clean-code / SOLID work → `/optimize`, which *discovers* the smell and may design a new shape for it. **Carve-out (the same enforce-existing rule that governs tokens, a11y, layer, perf and security):** `/align` may close a clean-code or SOLID finding **only** where the target idiom is already named in `_extracted-idioms.md` — move the long function into the shared helper that exists (`extract-to-shared`), snap the magic number to the constant module that exists (`inline-magic-to-named-const`), apply the documented naming convention (`rename`), split a class along responsibilities the idioms already name (`split-extract`). Inventing the helper, the module, the convention or the abstraction is out of lane; hand back to `/optimize`. See the shared finding-class rows in [`templates/tool-adapters/_orchestration-sync.md`](../templates/tool-adapters/_orchestration-sync.md).
 - For new features → `/add-feature`.
 - **For introducing NEW finish → `/polish`.** This is the canonical split: **`/align` enforces EXISTING tokens / a11y / conventions** (mechanical drift → shared primitive, via `replace-with-shared`); **`/polish` introduces NEW finish** (new tokens, new states, new visual polish). If a fix would *add* a design token that doesn't exist yet, *introduce* a missing-state pattern, or do creative visual work, it is a `/polish` job, not an `/align` job. See the boundary table in [`templates/tool-adapters/_orchestration-sync.md`](../templates/tool-adapters/_orchestration-sync.md).
 
@@ -82,6 +82,17 @@ Examples:
    - Idiom missing for a fix (project has no shared button when fix needs one — surfaces "/setup-project --refine to add primitive first").
    - Visual regression baseline drift > threshold (frontend; surfaces "review snapshots").
    - Behavior change risk (re-classify as refactor; user decides).
+
+## Phase 3.5 — Handoff (`--plan` only)
+
+`--plan` is **not** a louder `--dry-run`. It runs steps 1–3 (scan → resolve scope → plan internally) above, makes **no edit**, and writes a plan file that `/execute-plan` — or any other tool, or a human — can implement later.
+
+1. **Read-only phases only.** No fix agent is dispatched, no commit is made, `ai/align/ledger.md` is not advanced and `ai/align/progress.md` is not re-projected.
+2. **Expand the internal plan into the canonical handoff format.** All **eight** headers are mandatory — `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Steps` / `## Constraints` / `## Verification` / `## Status` — plus the `Plan ID`. `/execute-plan` halts on a file missing any one of them ([`templates/repo-baseline/.claude/commands/execute-plan.md`](../templates/repo-baseline/.claude/commands/execute-plan.md) § Mechanical halt), so an eight-header file is the contract, not a nicety. `## Approach` and `## Known unknowns` are accepted optional extras.
+3. **Map this command's own vocabulary onto those headers.** Each detected finding becomes one `## Steps` entry with its closure verb; the files it touches become `## Outputs`; "closure verbs only from the closed 21-verb set" and "net structural lines ≤ 0" become `## Constraints`; the project's lint / typecheck / scoped-test commands (plus the a11y check on `frontend-*`) become `## Verification`; the oracle files that defined the conventions become `## Inputs`.
+4. **Write** to `.claude/plans/align-<short-slug>-<YYYYMMDD-HHmm>.md`, **print** path + Plan ID + a one-line summary, and **exit before Phase 4 (Generate)** — nothing edited, nothing committed, no changelog entry.
+
+Full flag contract: [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). Field-by-field format: [`templates/canonical-command-template.md`](../templates/canonical-command-template.md) § "Phase 3.5 — Handoff".
 
 ## Progress tracking (multi-day workflow)
 
@@ -218,6 +229,7 @@ All internal. Just results.
 
 ## Optional flags
 
+- `--plan` — **handoff mode**: run the read-only phases, write the eight-header plan file to `.claude/plans/`, print the Plan ID, exit before any edit (see § Phase 3.5 — Handoff). Distinct from `--dry-run`, which previews to the terminal and writes no file at all.
 - `--dry-run` — show what would be aligned, no edits.
 - `--strict` — forwarded to **`validate-align-artifacts.sh`**: treat warnings as failures where applicable.
 - `--quiet` — forwarded to **`validate-align-artifacts.sh`** (`--quiet`) when invoking the validator from hooks / CI.

@@ -4,7 +4,20 @@ description: Mobile bundle-size + cold-start optimization. Audits app size, iden
 
 # /optimize-bundle
 
-Reduces app size + cold-start time. Mobile users abandon downloads above ~150MB; cold-start over 2s erodes engagement. Use when:
+Reduces app size + cold-start time.
+
+**The size numbers that are real, and the ones that are yours.** Both stores publish hard limits and one publishes a warning threshold; everything else in this command is a budget the project sets and measures, not a platform fact.
+
+| Published limit | Value | Source |
+|---|---|---|
+| Play — non-blocking mobile-data dialog | "If your app is above 200MB in size, users on a mobile data connection will see a non-blocking dialog when installing the app from Google Play informing them of the app's large size" | [Play app size limits](https://support.google.com/googleplay/android-developer/answer/9859372) |
+| Play — base module cap | 500MB | same |
+| Play — legacy APK cap | "a maximum APK size of 100MB" for apps still publishing APKs rather than app bundles | same |
+| Apple — total uncompressed app | 4 GB (iOS 9.0 and later) | [Apple maximum build file sizes](https://developer.apple.com/help/app-store-connect/reference/maximum-build-file-sizes) |
+| Apple — all `__TEXT` sections | 80 MB | same |
+| Android vitals — "excessive" startup | "Cold startup takes 5 seconds or longer. Warm startup takes 2 seconds or longer. Hot startup takes 1.5 seconds or longer." | [Android vitals launch time](https://developer.android.com/topic/performance/vitals/launch-time) |
+
+The vitals row is a *floor of badness*, not a target — a project's own cold-start budget should be well under it, and it is the project's to set and to measure. This command states no other size or timing threshold as fact.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -33,8 +46,10 @@ Before emitting any recommendation in Phase 4, for each heaviest-N finding the a
 
 A recommendation that addresses 1 of N pattern instances is rejected as partial.
 
-- App size has crossed 100MB and trending up.
-- First Contentful Paint on mid-tier device > 1.5s.
+## Use when
+
+- App size is trending toward a published limit or the project's own budget (see the table above).
+- Startup on a named mid-tier device has regressed against the project's measured baseline, or is approaching the Android vitals "excessive" line.
 - Bundle CI budget exceeded.
 - Pre-release optimization pass.
 
@@ -54,7 +69,7 @@ A recommendation that addresses 1 of N pattern instances is rejected as partial.
 Confirm:
 - Platform: iOS / Android / both.
 - Current bundle size (from last release or `xcodebuild -showBuildSettings` / Android `analyze APK`).
-- Cold-start budget (e.g., < 1.5s on Pixel 4a / iPhone 12).
+- Cold-start budget — **the project's own**, stated as `<budget> on <named device>`. If the project has none, the first job of this run is to measure a baseline and propose one, not to assume a number.
 - Any features explicitly excluded from optimization (e.g., legal SDK).
 
 ## Phase 2 — Organize
@@ -81,6 +96,8 @@ Tools:
 
 ## Phase 4 — Generate (the audit report + recommendations)
 
+**Every cell in the template below is a placeholder to be filled from a measurement.** This command deliberately ships no worked example with numbers in it: a report template containing plausible sizes is the single easiest thing for an agent to reproduce as if it were a finding. If a cell cannot be filled from the build artifact, write `not measured` — never a representative value.
+
 Output structure:
 
 ```
@@ -97,35 +114,23 @@ Output structure:
 ### Heaviest modules (JS/Dart)
 | Module | Size | % of bundle | Notes |
 |---|---|---|---|
-| moment-timezone | 1.2 MB | 18% | Replace with date-fns or Intl |
-| lodash (full) | 600 KB | 9% | Switch to lodash-es + selective imports |
-| react-native-svg-icons (full set) | 400 KB | 6% | Tree-shake; only ~30 icons used |
+| `<module>` | `<measured>` | `<measured>` | `<replacement, and why the call sites are compatible>` |
 
 ### Heaviest native deps
 | Pod / Gradle | Size | Notes |
 |---|---|---|
-| Firebase (core + analytics + crashlytics + perf + …) | 22 MB | Drop unused modules |
-| Some-large-SDK | 8 MB | Vendor confirms 80% is unused features → request slim build |
+| `<dep>` | `<measured>` | `<which sub-modules are actually used>` |
 
 ### Heaviest assets
 | Asset | Size | Notes |
 |---|---|---|
-| onboarding-1.png (3x) | 1.8 MB | Re-encode as WebP @ 80% quality → ~280 KB |
-| splash-video.mp4 | 4.2 MB | Replace with Lottie animation (~200 KB) |
-| Roboto.ttf (full) | 800 KB | Use only weights 400 + 600 |
+| `<asset>` | `<measured>` | `<re-encode / replace / drop, with the measured post-size>` |
 
 ### Recommendations (ordered by impact / effort)
 
-| # | Recommendation | Estimated saving | Effort |
+| # | Recommendation | Measured saving | Effort |
 |---|---|---|---|
-| 1 | Replace moment-timezone with Intl.DateTimeFormat | -1.2 MB JS | 4h |
-| 2 | Audit & remove unused Firebase modules | -8 MB native | 1h |
-| 3 | Convert onboarding PNGs to WebP | -1.5 MB assets | 30m |
-| 4 | Replace splash video with Lottie | -4 MB assets | 2h |
-| 5 | Tree-shake icon library | -350 KB JS | 1h |
-| 6 | Hermes (RN) — confirm enabled in release | -200 KB JS, -150ms cold start | 15m |
-| 7 | Code splitting — defer settings + admin screens | -800 KB initial JS | 6h |
-| 8 | Drop subset of unused languages | -1.2 MB native | 30m |
+| 1 | `<recommendation>` | `<before → after, from a real build>` | `<estimate>` |
 
 ### Cold-start recommendations
 - App init currently doing N async tasks on launch; defer all but auth.
@@ -174,7 +179,7 @@ Next: pick recommendations to apply (often start with quick wins #2 + #3 + #6).
 - **Don't ship un-measured optimizations.** "I think this will help" is not a justification — re-measure.
 - **One change per PR for >100KB optimizations.** Easier to revert if regression.
 - **Don't drop user-visible features** (languages, screens) without explicit user direction.
-- **Confirm Hermes / R8 / Flutter --release flags** before optimizing — common 30%+ improvement is just turning on the right flag.
+- **Confirm the release-mode toolchain flags** (JS engine, code shrinker, release build mode) before optimizing anything else — a disabled shrinker is the cheapest finding in this command, and it must be reported as a *measured* before/after like every other one, not as a rule of thumb.
 
 ## Failure modes
 
@@ -189,5 +194,13 @@ Next: pick recommendations to apply (often start with quick wins #2 + #3 + #6).
 - `@mobile-architect` — sometimes recommends architectural changes (split app, deferred modules) that this command surfaces.
 - `@performance-optimizer` (general) — for non-mobile-specific perf work.
 - `@app-store-reviewer` — pre-release. Bundle size is a release-blocker if it exceeds the platform's recommended size.
+- `release-pipeline` — binary size is checked against the store limits above before submission; symbol upload happens in the same build job.
+- `device-harness` (skill) — installs the release build on a named device so a startup measurement means something.
 - `ota-updates` — the OTA payload IS this JS bundle; a smaller bundle is a faster, safer over-the-air update. Size wins here directly shrink the OTA blast-radius/download.
 - `ai/runtime/bundle-audits/` — historic audits for trend analysis.
+
+## Sources
+
+- Google Play, [app size limits](https://support.google.com/googleplay/android-developer/answer/9859372) — 200MB mobile-data dialog, 500MB base module, 100MB legacy APK.
+- Apple, [maximum build file sizes](https://developer.apple.com/help/app-store-connect/reference/maximum-build-file-sizes) — 4 GB uncompressed, 80 MB `__TEXT`.
+- Android, [vitals launch time](https://developer.android.com/topic/performance/vitals/launch-time) — the "excessive" cold / warm / hot thresholds.

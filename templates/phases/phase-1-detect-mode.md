@@ -16,6 +16,8 @@ Inspect cwd in parallel:
 - Manifests: `package.json`, `pyproject.toml`, `composer.json`, `go.mod`, `Gemfile`, `Cargo.toml`, `mix.exs`, `build.gradle`, `pom.xml`
 - `CLAUDE.md` / `.claude/` / `ai/` presence + contents
 - Source file count
+- **Workspace manifests** (member-declaring): `pnpm-workspace.yaml`, `package.json` → `workspaces`, `lerna.json` → `packages`, `nx.json`, `go.work`, `Cargo.toml` → `[workspace] members`, `turbo.json`, and `PROJECTS.md`
+- **Sub-manifest inventory** — for every immediate subdirectory, and every subdirectory of `apps/`, `packages/`, `services/`, `libs/`, `modules/`, `src/`: does it carry its OWN manifest from the list above? Skip `node_modules`, `dist`, `build`, `out`, `target`, `vendor`, `.git`, `.venv`, `__pycache__`, `.next`, `coverage`. Record each hit as `<dir> → <manifest>`, plus whether `<dir>/.git` exists.
 
 Decide mode:
 
@@ -31,7 +33,27 @@ Decide mode:
 | `.claude/` + `ai/` + `CLAUDE.md` all present | **ENHANCE-extend** |
 | Ambiguous | Ask ONE consolidated question |
 
-Announce mode in one line. Respect `--create` / `--enhance` / `--refresh` / `--refine` / `--upgrade` flag overrides per the precedence table in Quick Start. (`--upgrade` runs `migrate-setup.sh` then proceeds as REFRESH — it is NOT a silent fall-through to ENHANCE.)
+Decide shape — **mandatory, not optional; it is the second declared output of this phase.**
+
+`repo-shape` is what Phase 2 § 17 splits the profile on, what Phase 4.0 gates sub-project recursion on, and what Phase 4.2 derives `is-multi-track` from. Leaving it unset does not make the run neutral — it silently routes a multi-deployable repo down the single-package path, which averages two packages' conventions into one blended value that is wrong for both. **Decide it from the signals above; never skip to Phase 2 without it.**
+
+| Signal (first match wins) | Shape |
+|---|---|
+| A workspace manifest declares members (`pnpm-workspace.yaml`, `package.json` `workspaces`, `lerna.json` `packages`, `nx.json`, `go.work`, `Cargo.toml` `[workspace] members`; `turbo.json` only alongside one of those) | **workspace** — members = the declared list, expanded per Phase 4.0 § Sub-project enumeration |
+| `PROJECTS.md` at the root with a registered-repos table | **workspace** — members = the table rows |
+| ≥2 sub-manifest dirs AND (cwd is not a git repo, OR each member dir has its own `<dir>/.git`) | **workspace** — the *sibling-directory* shape: independent repos parked under one parent with no workspace tool. Members = the dirs holding those manifests |
+| ≥2 sub-manifest dirs, all inside ONE git repo, with no member-declaring manifest | **monorepo** — one repo, several deployables. Members = the dirs holding those manifests |
+| Root manifest + exactly one sub-manifest dir | **single** — a lone nested package (a tooling helper, a docs site, an example app) is not a second deployable |
+| Everything else | **single** — members = `[.]` |
+
+Two things that table is deliberate about:
+
+- **The last three rows are the ones that were missing.** Detection by workspace manifest alone covers only rows 1–2. A repo with a server directory and a client directory and no workspace tool — and a parent folder holding two checked-out repos — are both extremely common and both matched *nothing* before. They now land on `monorepo` and `workspace` respectively.
+- **`monorepo` ≠ `workspace`, and the difference is the git boundary.** One git repo means one `.claude/`, one `ai/`, one commit — so a `monorepo` is NOT recursed like a workspace. What it gets instead is a per-member *profile*: Phase 2 § 17 records one entry per member and every code-shaped profile field is answered once per member, Phase 4.2 path-scopes each track's rules to its member's root, and `ai/conventions.md` carries one row per member. A `workspace` gets the full recursion (Phase 4.0 § Workspace mode) because each member is separately committable and separately shippable.
+
+Record in the Phase 1 output: the shape, the deciding signal (which row fired), and the member list with each member's path. If the signals conflict — a workspace manifest declaring one member while three sub-manifest dirs exist, or member dirs listed in `PROJECTS.md` that aren't on disk — flag `[SHAPE-WEAK: <what conflicts>]` and ask ONE question naming the candidate members. Do not average past the ambiguity.
+
+Announce mode **and shape** in one line. Respect `--create` / `--enhance` / `--refresh` / `--refine` / `--upgrade` flag overrides per the precedence table in Quick Start. (`--upgrade` runs `migrate-setup.sh` then proceeds as REFRESH — it is NOT a silent fall-through to ENHANCE.)
 
 **REFINE-specific**: announce includes the per-artifact anchor-density baseline + the deep-extraction items count:
 ```

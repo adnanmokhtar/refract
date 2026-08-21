@@ -35,6 +35,8 @@ REFINE rewrites only artifacts whose round-one anchor is shallow. To decide whic
 - `artifact_path` — absolute path to the file to score.
 - `extracted_codebase_path` — `.claude/_extracted-codebase.md` (round-one extraction substrate).
 - `refine_extract_path` (optional) — `.claude/_refine-extract.md` (round-two extraction substrate; required for high signal-density scores).
+- `sampled_sections` — the list of `## <Section>` headings in `_extracted-codebase.md` that carry a `[SAMPLED: <seen>/<present> <unit>]` marker, as written by `extract-codebase-overview § Step 2.5`. Empty list = round-one read everything it declared. Read directly from the substrate rather than being passed in when the caller omits it — it is a `grep` over a file this skill already opens. **This is a verdict input, not a scoring input**: it never touches any of the four axes (see Step 7's coverage precondition, and § Anti-patterns on why coverage may only demote).
+- `plateau_consumed_prior` / prior `.claude/_setup-quality.md` — the baseline the plateau delta is computed against, plus any `coverage-accepted:` line a human recorded there (Step 7).
 
 ## Procedure
 
@@ -61,7 +63,7 @@ For `ai/*.md` files, the markers are `<!-- refine-enriched:start -->` ... `<!-- 
 
 Count concrete project identifiers in the block. An identifier is:
 
-- A class / function / module name from `_extracted-codebase.md` § "Identifiers" or `_refine-extract.md` (any section).
+- A class / function / module name appearing anywhere in `_extracted-codebase.md` (most often `## Modules`, `## Base classes`, `## Data model`, `## API surface`) or in `_refine-extract.md` (any section). There is no `## Identifiers` section — `extract-codebase-overview § Step 14` enumerates the 13 sections that file has and that is not one of them. Scoring against a section that never existed silently scored every round-one identifier as uncountable.
 - A table column / model field / migration name.
 - An endpoint path (e.g. `POST /api/invoices`).
 - A package/module name from this project (NOT external libs).
@@ -110,9 +112,12 @@ Signal density measures how many of the deep-extraction inputs the block actuall
 | missing-index | `## Hot paths` → per-path `missing_indexes:` |
 | layer-or-boundary | `## Architecture` — layer or boundary names |
 | emergent-convention | `## Conventions (emergent)` — pattern names |
+| contested-convention | `## Conventions (emergent)` → `contested_conventions:` (round two), or a `[CONTESTED: <A> n/N, <B> m/N]` row in `_extracted-codebase.md § Conventions` (round one) |
 | failure-theme | `## Failure history` → `recurring_themes:` |
 
 Count distinct signal categories the block consumes. A block can cite a `domain-entity` AND a `flow` AND an `emergent-convention` — that's 3 distinct signals.
+
+**`contested-convention` scores like any other signal, deliberately.** A block that says "this codebase is split 6/4 between two error-handling shapes, both live, here are the counts and a citation for each" is MORE useful to an agent than one asserting a winner that is true of 60% of the files — it stops the agent from "fixing" the other 40%. Contested entries carry no `pattern:` key, so a scorer that only looks for pattern names credits them zero and the honest extraction scores below the averaged one. That inversion is what this row removes: recording a contest is rewarded, not penalised.
 
 Rules:
 - Only count if the upstream extraction is STRONG for that signal (see each extraction skill's quality gate). A WEAK extraction can't be consumed productively.
@@ -159,21 +164,39 @@ Classification:
 After scoring all artifacts, compare to the prior `.claude/_setup-quality.md` (if present):
 
 ```
-plateau_delta    = avg(this_run_scores) - avg(prior_run_scores)
-plateau_consumed = signals_consumed_this_run / signals_available_in_refine_extract
-weak_phase_count = count(phases in 2.7..2.12 with [REFINE-WEAK: ...] flag)
-avg_score        = avg(this_run_scores)
+plateau_delta     = avg(this_run_scores) - avg(prior_run_scores)
+plateau_consumed  = signals_consumed_this_run / signals_available_in_refine_extract
+weak_phase_count  = count(phases in 2.7..2.12 with [REFINE-WEAK: ...] flag)
+avg_score         = avg(this_run_scores)
+coverage_blocked  = (sampled_sections is non-empty) AND (no `coverage-accepted:` line in the prior
+                     `.claude/_setup-quality.md` naming the CURRENT seen/present figures)
 ```
 
 The plateau verdict is THREE-WAY — never a single binary. The two plateau classes carry very different user actions:
 
 | Verdict | Conditions | Per-artifact tag | Run-level message |
 |---|---|---|---|
-| **PLATEAU-DEEP** | `plateau_delta ≤ 2` AND `plateau_consumed ≥ 0.85` AND `avg_score ≥ 80` | `LEAVE-DEEP-IDEMPOTENT` | "Plateau reached (DEEP) — setup is anchored; further `--refine` adds nothing meaningful." |
-| **PLATEAU-WEAK** | `plateau_delta ≤ 2` AND (`plateau_consumed < 0.85` OR `avg_score < 80`) — i.e. we converged but to a low ceiling because upstream extraction was thin | `LEAVE-DEEP-IDEMPOTENT` (with `weak_phases:<list>` in the row) | "Plateau reached (WEAK) — setup is NOT yet anchored deeply, but no further refinement is possible from current extraction. <N> phases produced WEAK output. Grow upstream signal before re-running." |
+| **PLATEAU-DEEP** | `plateau_delta ≤ 2` AND `plateau_consumed ≥ 0.85` AND `avg_score ≥ 80` AND **NOT `coverage_blocked`** | `LEAVE-DEEP-IDEMPOTENT` | "Plateau reached (DEEP) — setup is anchored; further `--refine` adds nothing meaningful." |
+| **PLATEAU-WEAK** | `plateau_delta ≤ 2` AND (`plateau_consumed < 0.85` OR `avg_score < 80` OR `coverage_blocked`) — i.e. we converged, but not to a DEEP state | `LEAVE-DEEP-IDEMPOTENT` (with `weak_phases:<list>` in the row) | "Plateau reached (WEAK) — setup is NOT yet anchored deeply. <reason-specific message; see below>." |
 | **NOT-PLATEAU** | `plateau_delta > 2` OR no prior baseline | (none) | (no plateau message — REFINE may climb on next run) |
 
 **Critical**: NEVER emit "Plateau reached" without one of `(DEEP)` or `(WEAK)`. A bare "plateau reached" + score 58 is the misleading-message bug this classifier exists to prevent.
+
+#### Every `PLATEAU-WEAK` carries a `reason` — and the three call for opposite actions
+
+`PLATEAU-WEAK` is not one state. `phase-5.5-quality.md § Plateau classifier` wires each reason to a different remediation, and the run-level JSON below carries the field it reads. First match wins, in this order:
+
+| `reason` | Fires when | What the user must do |
+|---|---|---|
+| `coverage` | `coverage_blocked` — `_extracted-codebase.md` still carries `[SAMPLED]` markers and no human has accepted them | **Raise coverage first**: re-run extraction without `--lightweight`, or raise the per-category sample in `extract-codebase-overview § Step 8`. NOT "go write more code". |
+| `signal` | `plateau_consumed < 0.85` — the upstream extraction phases hit their `[REFINE-WEAK]` gates | Grow the codebase / git history, then re-run `--refine`. Enumerate the weak phases (below). |
+| `score` | `avg_score < 80` while `plateau_consumed ≥ 0.85` — the substrate WAS consumed and the artifacts still did not anchor | The generators are the problem, not the extraction. Report it as such; do not tell the user to write more code. |
+
+**Why `coverage` is checked first and why it may only demote.** `plateau_consumed = 0.92` measures the fraction of the *extracted signals* that were consumed — never the fraction of the *codebase* they were extracted from. If `## Conventions` rested on 10 of 412 files, 92% of an 8% sample is not exhaustion of the substrate; it is exhaustion of the part that was read, and `PLATEAU-DEEP`'s claim ("the substrate is exhausted, stop refining") is then simply false. So coverage can BLOCK `PLATEAU-DEEP`; it can never raise a score, promote a verdict, or touch an axis. A metric that can only cost you is not worth gaming — once a coverage percentage could promote, the cheapest way to move it is to cite files gratuitously, and the citation-path check catches ghost citations, not padding.
+
+**The demotion is driven by the `[SAMPLED]` markers, not by the raw percentage.** `files_cited` under-counts by construction (a file can be read and cite nothing), so a healthy run can legitimately show 15%; gating on that number produces noisy exit-2 runs and the feature gets switched off. Markers drive behaviour; the percentage informs the human.
+
+**Escape hatch.** Step-8-class sampling fires on almost every non-trivial repo, so an un-escapable rule makes `PLATEAU-DEEP` unreachable and trains users to ignore exit 2. A maintainer who has read `## Coverage` and judged the sample sufficient records `coverage-accepted: <name>@<iso> — <seen>/<present> <unit> reviewed` in `.claude/_setup-quality.md`; `coverage_blocked` then evaluates false and the report prints the acceptance beside the verdict. It is a human statement on the record, never a flag this skill may set for itself, and it is **scoped to the figures it names** — new `seen`/`present` numbers need a new acceptance.
 
 **The full set of plateau-WEAK reasons** the run-level message must enumerate (so the user knows what to grow):
 
@@ -217,11 +240,16 @@ Run-level JSON (one per `--refine` invocation):
   "avg_score_prior": 47,
   "plateau_delta": 34,
   "plateau_consumed": 0.92,
+  "sampled_sections": [],
+  "coverage_accepted": null,
   "weak_phases": [],
   "verdict": "NOT-PLATEAU",
+  "reason": null,
   "verdict_message": "REFINE climbed +34 points; no plateau yet."
 }
 ```
+
+**`reason` is mandatory whenever `verdict` is `PLATEAU-WEAK`, and `null` otherwise.** Its three values are exactly the three in Step 7's table — `coverage` / `signal` / `score` — and `phase-5.5-quality.md § Exit codes` reads it to choose which remediation to print behind the same exit `2`. Without the field, that phase's three-way branch has nothing to branch on and every WEAK run gets the `signal` message ("grow the codebase"), which is actively wrong advice for the other two: `score` means the generators failed on a substrate that was fine, and `coverage` means read more of the code you already have. A `PLATEAU-WEAK` with `reason: null` is the same defect class as a bare `## Plateau reached` — refuse to emit it (§ Mechanical halt).
 
 Or, on a converged DEEP run:
 
@@ -233,12 +261,32 @@ Or, on a converged DEEP run:
 }
 ```
 
-Or, on a converged WEAK run:
+Or, on a converged DEEP-scoring run that coverage blocks — note the average is 81, the same as the DEEP example above, and the verdict is still WEAK:
 
 ```json
 {
   "verdict": "PLATEAU-WEAK",
-  "verdict_message": "Plateau reached (WEAK) — setup is NOT yet anchored deeply (avg 58/100), but no further refinement is possible. 4 of 6 deep-extraction phases produced WEAK output. Grow upstream signal before re-running --refine.",
+  "reason": "coverage",
+  "avg_score": 81,
+  "plateau_consumed": 0.92,
+  "sampled_sections": ["## Conventions [SAMPLED: 10/412 files]", "## Architecture [SAMPLED: 8/1204 files]"],
+  "coverage_accepted": null,
+  "weak_phases": [],
+  "verdict_message": "Plateau reached (WEAK, reason: coverage) — scores plateaued at avg 81/100 with signals_consumed = 92%, but round-one extraction cited 214 of 1,204 source files (18%) and 2 sections are still marked [SAMPLED]. signals_consumed measures the extracted signals, not the source they came from, so this is NOT a DEEP plateau. Raise coverage first: re-run extraction without --lightweight, or raise the per-category sample in extract-codebase-overview Step 8. If 10/412 is genuinely enough here, record `coverage-accepted:` in .claude/_setup-quality.md and PLATEAU-DEEP becomes available again."
+}
+```
+
+`weak_phases` is empty here and that is correct — no deep-extraction phase was weak. This is the case that proves `reason` cannot be derived from `weak_phases`: a consumer inferring the reason from that list would read "no weak phases" and print the DEEP message under a WEAK verdict.
+
+Or, on a converged WEAK run whose upstream extraction was thin:
+
+```json
+{
+  "verdict": "PLATEAU-WEAK",
+  "reason": "signal",
+  "verdict_message": "Plateau reached (WEAK, reason: signal) — setup is NOT yet anchored deeply (avg 58/100), but no further refinement is possible. 4 of 6 deep-extraction phases produced WEAK output. Grow upstream signal before re-running --refine.",
+  "sampled_sections": [],
+  "coverage_accepted": null,
   "weak_phases": ["entities", "flows", "hotpaths", "failures"],
   "weak_phase_actions": {
     "entities": "add more domain models / migrations / schemas",
@@ -258,4 +306,7 @@ Aggregate goes into `.claude/_setup-quality.md` per the format defined in setup-
 - **Crediting a citation that's a ghost** — if the file doesn't exist, the citation is worse than missing. Deduct.
 - **Adding bonus points for length** — verbose blocks are not deeper. Keep the scoring axes pure.
 - **Self-fulfilling plateau** — if extraction is WEAK across the board, scores will be capped (signal density 0); reporting "plateau reached" without classifying as PLATEAU-WEAK is misleading. The verdict MUST be one of `PLATEAU-DEEP` / `PLATEAU-WEAK` / `NOT-PLATEAU` — never a bare "plateau reached" string.
-- **Single-line plateau verdict in the JSON** — the run-level JSON's `verdict_message` MUST enumerate weak phases when verdict is `PLATEAU-WEAK`. Silence on a WEAK axis defeats the diagnostic purpose of the verdict.
+- **Single-line plateau verdict in the JSON** — the run-level JSON's `verdict_message` MUST enumerate weak phases when verdict is `PLATEAU-WEAK` for reason `signal`. Silence on a WEAK axis defeats the diagnostic purpose of the verdict.
+- **`PLATEAU-WEAK` with no `reason`** — the consumer then has to guess, and every guess defaults to "grow the codebase," which is the wrong instruction for two of the three reasons. Emit the field or do not emit the verdict.
+- **Letting coverage raise a score or promote a verdict** — it may only ever demote (Step 7). The moment a coverage figure can help, padding citations becomes the cheapest way to move it, and the path check catches ghosts, not padding.
+- **Setting `coverage_accepted` from inside this skill** — the acceptance is a human's statement that they read `## Coverage` and judged the sample sufficient. A tool that can grant itself the exemption has not implemented the rule; it has implemented a warning.

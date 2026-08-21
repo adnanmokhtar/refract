@@ -342,9 +342,8 @@ Plateau thresholds are tunable via `--plateau-delta` / `--plateau-consumed` / `-
 
 ```
 /setup-project                    # auto-detect mode
-/setup-project --plan             # produce a plan-only artifact, do not write
 /setup-project --upgrade          # migrate from older version
-/setup-project --health           # report current setup health
+/setup-project --health           # ALIAS ONLY -> runs /setup-project-health, writes nothing
 /setup-project --validate-schemas # run schema validation harness only
 /setup-project --diff             # preview changes against current state
 /setup-project --no-adapters      # sanctioned M34 skip: do NOT chain /setup-project-adapters
@@ -354,7 +353,11 @@ Plateau thresholds are tunable via `--plateau-delta` / `--plateau-consumed` / `-
 
 `--no-adapters` is the **only** sanctioned key for skipping the M34 adapter chain (besides `claude_config.adapters: false` in settings.json, or zero adapters enabled). Pass it through to the audit (`audit-setup.sh … --no-adapters`) so C2m records the skip instead of failing the run.
 
+**`--health` is an alias, not a mode.** `/setup-project-health` is the canonical, read-only health command and the only one that can honestly carry "never writes — not even logs" plus contractual exit codes 0 / 1 / 2 — a mode of a write command cannot promise that. `--health` here forwards to it verbatim and this command writes nothing on that path; prefer typing `/setup-project-health` directly.
+
 For tool adapters (Cursor, OpenCode, Aider, …): `/setup-project-adapters`.
+
+For a read-only staleness / drift report with no writes: `/setup-project-health`.
 
 For continuous learning loop ops: `/learn-from-task` or scheduled curator runs (Phase 6).
 

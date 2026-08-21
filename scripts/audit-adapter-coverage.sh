@@ -27,6 +27,12 @@
 set -euo pipefail
 export LC_ALL=C
 
+SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# frontmatter_parse_error / frontmatter_check_engine — the same validator the producer
+# (apply-adapter-sync.sh) runs, so grader and producer cannot disagree about what parses.
+# shellcheck source=scripts/_adapter-emit.sh
+. "$SCRIPT_ROOT/scripts/_adapter-emit.sh"
+
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <target-repo> [--strict]" >&2
   exit 2
@@ -218,18 +224,42 @@ audit_continue() {
 }
 
 # ---------- single-doc adapter: aider (genuinely rule-only) ----------
-audit_singledoc() {
-  local file="$1" name="$2"
-  [[ -f "$TARGET/$file" ]] || return 1
-  local lines hits=0 expected=4  # presence of major sections
-  lines=$(wc -l < "$TARGET/$file" | tr -d ' ')
-  if [[ $lines -ge 100 ]]; then hits=$((hits + 1)); fi
-  if grep -qE '^##.*[Cc]ommand|^##.*[Pp]rocedure' "$TARGET/$file"; then hits=$((hits + 1)); fi
-  if grep -qE '^##.*[Aa]gent|##.*[Pp]ersona' "$TARGET/$file"; then hits=$((hits + 1)); fi
-  if grep -qE '^##.*[Ss]kill|##.*[Pp]rocedure' "$TARGET/$file"; then hits=$((hits + 1)); fi
+# The old grader scored 4 points for four `grep` patterns, and TWO of them were the
+# same alternation: `^##.*[Cc]ommand|^##.*[Pp]rocedure` and `^##.*[Ss]kill|##.*[Pp]rocedure`
+# BOTH match a single `## Named procedures` heading. So `## Named procedures` +
+# `## Named personas` + 100 lines scored 4/4 = "ok 100%" with zero of the project's
+# commands actually written down and zero skills documented — a false green by
+# construction, on the weakest tool in the set. Worse, sync_aider REQUIRES an EXECUTE NOW
+# preamble on the command sections and the grader never looked for one.
+#
+# Aider is a single-doc tool, so "translated" means "named in CONVENTIONS.md". That is
+# per-artifact checkable exactly like every other adapter: one point per command, agent
+# and skill actually mentioned, plus the structural anchors the 4.8.0 contract names.
+# Each anchor below is a DISTINCT pattern — no heading can score two points.
+audit_aider() {
+  local file="$TARGET/CONVENTIONS.md"
+  [[ -f "$file" ]] || return 1
+  local hits=0 expected=$((SRC_COMMANDS + SRC_AGENTS + SRC_SKILLS + 4))
+  # Per-artifact: is each source artifact actually named in the single doc?
+  while IFS= read -r b; do
+    [[ -n "$b" ]] && grep -qF -- "$b" "$file" && hits=$((hits + 1))
+  done < <(list_basenames_kind commands)
+  while IFS= read -r b; do
+    [[ -n "$b" ]] && grep -qF -- "$b" "$file" && hits=$((hits + 1))
+  done < <(list_basenames_kind agents)
+  while IFS= read -r b; do
+    [[ -n "$b" ]] && grep -qF -- "$b" "$file" && hits=$((hits + 1))
+  done < <(list_basenames_kind skills)
+  # Structural anchors from the Phase 4.8.0 aider row + sync_aider's own requirements.
+  # Disjoint patterns: procedures, personas, the safety disclosure, the preamble.
+  grep -qE '^##.*([Pp]rocedure|[Cc]ommand)' "$file" && hits=$((hits + 1))
+  grep -qE '^##.*([Pp]ersona|[Aa]gent)'     "$file" && hits=$((hits + 1))
+  grep -qE '^##.*[Dd]river-dependent'       "$file" && hits=$((hits + 1))
+  # sync_aider (apply-adapter-sync.sh) reports MISSING-AUTHOR without this; grading it
+  # closes the gap where the producer required something the grader never checked.
+  grep -qF 'EXECUTE NOW' "$file" && hits=$((hits + 1))
   echo "$hits|$expected"
 }
-audit_aider()  { audit_singledoc "CONVENTIONS.md" "aider"; }
 
 # ---------- codex: native Agent Skills (primary) + AGENTS.md (fallback) ----------
 audit_codex() {
@@ -350,12 +380,32 @@ audit_kimi() {
   echo "$hits|$expected"
 }
 
+# A .qwen/commands/<name>.md counts toward coverage ONLY if it satisfies the contract in
+# tool-adapters/qwen/adapter.md § `.qwen/commands/<name>.md`: frontmatter is `description:`
+# (the Claude-only orchestrator fields `kind:`/`pack:`/`allowed-tools:` read as leaked
+# Claude-isms exactly as they do in OpenCode, and apply-adapter-sync.sh strips them), and
+# the frontmatter must actually PARSE — a description with an unquoted colon-space makes
+# Qwen read the rest of the value as a nested mapping and the whole block fails.
+#
+# Presence-only was the gap: a verbatim copy carrying `compatibility:`, `kind:` and `pack:`
+# with no args token scored 100%. Only OpenCode had a content check; the pattern existed
+# and was applied to exactly one of eleven adapters.
+qwen_command_ok() {
+  local f="$1"
+  [[ -f "$f" ]] || return 1
+  local fmt
+  fmt=$(awk 'BEGIN{fm=0} /^---[[:space:]]*$/{fm++; next} fm>=2{exit} fm==1{print}' "$f")
+  printf '%s\n' "$fmt" | grep -qE '^(kind|pack|allowed-tools):[[:space:]]' && return 1
+  [[ -n "$(frontmatter_parse_error "$f")" ]] && return 1
+  return 0
+}
+
 # ---------- qwen: native 1:1 commands + agents + skills ----------
 audit_qwen() {
   [[ -d "$TARGET/.qwen" ]] || return 1
   local hits=0 expected=$((SRC_COMMANDS + SRC_AGENTS + SRC_SKILLS))
   while IFS= read -r b; do
-    [[ -f "$TARGET/.qwen/commands/$b.md" ]] && hits=$((hits + 1))
+    qwen_command_ok "$TARGET/.qwen/commands/$b.md" && hits=$((hits + 1))
   done < <(list_basenames_kind commands)
   while IFS= read -r b; do
     [[ -f "$TARGET/.qwen/agents/$b.md" ]] && hits=$((hits + 1))

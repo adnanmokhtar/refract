@@ -104,8 +104,10 @@ Also record, for the header block: `census_method`, `walk_scope` (which director
 | `## Base classes` (Step 5) | bases with ≥3 extenders | bases with an idiom extraction | `parallelism` |
 | `## Data model` (Step 6) | entity files matched by the Step-6 globs | rows emitted | cap 60 |
 | `## API surface` (Step 7) | controller / router files found | rows emitted | **none declared → must be 100%** |
-| `## Conventions` (Step 8) | files per category | files sampled per category (10) | sample 10 per category |
+| `## Conventions` (Step 8) | files per category | files sampled per category (10) | sample 10 per category — **plus** `[CONTESTED: <A> n/N, <B> m/N]` per non-unanimous category (Step 8) |
 | `## Recent activity` (Step 12) | commits in the window | 50 | `head -50` |
+
+A `[CONTESTED]` row is auditable off this table for the same reason a `[SAMPLED]` heading is: both denominators are printed. `n + m ≤ sampled` and `sampled ≤ present` are checkable arithmetic, so a contest cannot be asserted without a population to assert it over.
 
 **Persist as `## Coverage` section** — written last (it needs Step 15's numerator) but placed **FIRST** in the body, before `## Stack`. First, not last: a reader who reaches `## Conventions` should already know what it rests on.
 
@@ -201,7 +203,19 @@ Sample 10 files per category and extract patterns:
 - **Imports**: relative-only / alias-based (`@app/`, `@/`, `~/`). Read tsconfig/pyproject for aliases.
 - **DI tokens**: string constants / Symbols / class refs.
 
-**Persist as `## Conventions` section** with a complete suffix matrix table — heading carries `[SAMPLED: 10/<files in category> files]` per category sampled.
+**Per category, the sample is not always unanimous — record the split, never the winner.** `[SAMPLED: 10/412 files]` is emitted identically whether 10 of 10 sampled files agreed or 6 of 10 did. Disagreement *inside* the sample is a different fact from disagreement between the sample and the population, and until this step records it, nothing downstream can: the honest output of a legacy codebase with three competing conventions was an average true of none of them, stated as this project's convention, carried into `ai/conventions.md` and into the anchor at the top of every adapted rule, where the next agent uses it to "fix" the code that follows the other two.
+
+When a category's sample is **not unanimous**, the row carries:
+
+```
+[CONTESTED: <option-A> <n>/<sampled>, <option-B> <m>/<sampled>]
+```
+
+and the claim is written `[inferred: <basis>; contested <n>/<m>; sampled <sampled>/<N> files]` — never `[found:]`, and never as "the project's convention". Both options get a `<path:line>`. Report the split with its counts; do NOT pick a winner, do NOT round a 6/4 to "mostly A", and do NOT drop the minority as noise. If one option is clearly the newer one (concentrated in recently-touched files per Step 12) say so as an observation with its evidence, and still record both.
+
+This is the same shape two later profile fields already use — `[CONCURRENCY-DRIFT: <primitive-A> at <n> sites, <primitive-B> at <m> sites]` and `[MIGRATION-WEAK]` (`phase-2-profile.md § Profile content` fields 15-16). Those two were written as one-off exceptions for two topics that happened to be noticed; `[CONTESTED]` is that shape generalized to the section where it does the most damage. A category that IS unanimous across its sample carries no `[CONTESTED]` marker — the marker's absence has to mean "checked and agreed", which is why it is emitted per category rather than per file, and why a category whose disagreement was never checked may not go unmarked.
+
+**Persist as `## Conventions` section** with a complete suffix matrix table — heading carries `[SAMPLED: 10/<files in category> files]` per category sampled, and each contested row carries its own `[CONTESTED: …]` marker inline. A section can be both: `[SAMPLED]` reports how much was read, `[CONTESTED]` reports what was found in it. They answer different questions and neither substitutes for the other.
 
 This is the highest-blast-radius section in the file: it drives `ai/conventions.md`, the `## Project-specific` block at the top of *every* adapted rule, and the suffix matrix. Generalized from 10 files, every row still earns a resolving citation, so the provenance sweep passes it — a convention observed in 10 of 400 files becomes law with proof attached. That is precisely the failure § Mechanical halt's generalizing-claim rule and Step 15 check 7 exist to catch: each row that generalizes beyond the sample is written `[inferred: <basis>; sampled 10/<N> files]`, not `[found:]`.
 
@@ -255,7 +269,13 @@ Summarize: which areas saw the most activity? Any large refactors? Any new modul
 
 ### Step 13 — Delegate to extract-business-context
 
-Invoke the `extract-business-context` skill with `output_path = .claude/_extracted-business.md`. That skill captures mission / personas / KPIs / business model / anti-goals from README + git log + project name + manifest description, asking the user only for genuinely missing facets.
+Invoke the `extract-business-context` skill with:
+- `output_path = .claude/_extracted-business.md`
+- `extracted_codebase_path = .claude/_extracted-codebase.md` — **mandatory**, and the reason this step sits at 13 rather than at 1.
+
+Steps 6-9 above have already extracted the evidence that answers half the business facets: entity clusters and `tenant_id` columns (Step 6), per-controller auth schemes and role/permission tables (Steps 6-7), corroborated payment / AI / search / background-jobs signals with their entry-point files (Step 9), plus contributor and cadence data (Step 12). Handing over only `output_path` meant that evidence was read and then thrown away before the question was composed — the business skill would fall back to README + manifests + git metadata and put five of eight facets to the user, several of which the walk just completed had already answered. Pass the path; the sub-skill's Step 0.5 mines it before it reads a single document.
+
+Write the section ordering constraint down where it can be violated: `_extracted-codebase.md` need not be flushed to disk before this call, but Steps 1-12's content MUST be complete, because the sub-skill reads it. If a run reorders Step 13 earlier, it silently reverts to document-only business extraction and nothing in the pipeline notices.
 
 Cross-link in the codebase overview: `## Business context: see _extracted-business.md`.
 
@@ -293,7 +313,8 @@ Before returning success:
   - `seen` and `present` are both integers present in `## Coverage` — a missing or non-numeric denominator fails, it does not default to "assume complete";
   - `seen < present` and the heading carries **no** `[SAMPLED: <seen>/<present> <unit>]` → **FAIL** (undisclosed sample);
   - `seen == present` and the heading **does** carry `[SAMPLED]` → **FAIL** (a false `SAMPLED` makes every downstream consumer degrade for nothing, which is how a coverage signal gets switched off);
-  - every generalizing claim inside a `[SAMPLED]` section is marked `[inferred: <basis>; sampled <seen>/<present> <unit>]`, not `[found:]` (§ Mechanical halt).
+  - every generalizing claim inside a `[SAMPLED]` section is marked `[inferred: <basis>; sampled <seen>/<present> <unit>]`, not `[found:]` (§ Mechanical halt);
+  - every `[CONTESTED: <A> n/N, <B> m/N]` row has `n + m ≤ N`, `N ≤ sampled`, and a `<path:line>` for BOTH options — a contest with one citation is a preference with a footnote.
 
   Check 7 is different in kind from checks 1-6 and that difference is the reason it is worth adding. Its numerator and denominator were produced by shell in Step 2.5, *before* prose existed; the check is arithmetic against numbers the model did not author. Checks 2-5 can be satisfied by writing more confident prose. This one cannot.
 

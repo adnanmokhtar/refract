@@ -31,6 +31,8 @@ related-commands:
 
 A read-only reporter that tells you whether the setup is **alive** or **rotting**.
 
+**This command is the canonical door for setup health.** `/setup-project --health` is an alias that forwards here and writes nothing; only a standalone read-only command can honestly carry "never writes — not even logs" and the contractual 0 / 1 / 2 exit codes, so prefer this spelling and treat the alias as a convenience.
+
 Phase 6 (continuous learning) only matters if you can measure it. This command answers: is the knowledge layer staying in sync with reality?
 
 ## When to run
@@ -154,7 +156,7 @@ Per-adapter `--plan` translation check (only for adapters actually selected, rea
 - `codex` → `.agents/skills/*/SKILL.md` body branches on `--plan`; `AGENTS.md` notes "supports `--plan`".
 - `gemini` → `.gemini/commands/*.toml` `prompt` branches on `{{args}}` containing `--plan`.
 
-`claude-code` is native (Phase 3.5 runs as written) → always `ok`. A selected non-Claude adapter whose commands don't honor `--plan` = `fail` (the flag is dead in that tool). No adapters selected → the per-adapter sub-check is `n/a`; the verify-plan/execute-plan presence sub-checks still run.
+`claude-code` is native **only where the command file itself carries the Phase 3.5 body** — the flag is honoured by the command's prose, not by the harness, so a top-of-file banner advertising `--plan` with no write-the-plan-and-exit section is precisely the dead flag this check exists to catch. Grade it like any other adapter: `ok` when the command file has a handoff section that names `.claude/plans/` and exits before implementing; `fail` when it advertises the flag and has neither. (`templates/snippets/plan-flag.md § Where it is real today` tracks which global commands currently qualify.) A selected non-Claude adapter whose commands don't honor `--plan` = `fail` (the flag is dead in that tool). No adapters selected → the per-adapter sub-check is `n/a`; the verify-plan/execute-plan presence sub-checks still run.
 
 ## Output format
 

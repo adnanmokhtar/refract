@@ -1,5 +1,5 @@
 ---
-description: Consolidate every instance of ONE surface type behind a single shared wrapper, app-wide. Tables, forms, headers, tabs, filters, buttons, validation. Trigger only when the ask names the surface type — 'unify all tables', 'every page header should look the same', 'standardise form validation everywhere'. Do NOT trigger on a generic 'make it consistent' with no surface-type noun (/align), on per-axis polish across one surface type (/polish), or on one mechanical a11y class app-wide (/ui-crawl-fix).
+description: Consolidate every instance of ONE surface type behind a single shared wrapper, app-wide. Tables, forms, headers, tabs, filters, buttons, validation. Trigger only when the ask names the surface type — 'unify all tables', 'every page header should look the same', 'standardise form validation everywhere' — including when the drift is phrased as some-do-X-some-do-Y ('some pages use the shared PageHeader and some roll their own'): a named surface type beats the generic drift reading (/align), which owns the same phrasing only when NO surface type is named. Do NOT trigger on a generic 'make it consistent' with no surface-type noun (/align), on per-axis polish across one surface type (/polish), or on one mechanical a11y class app-wide (/ui-crawl-fix).
 compatibility: Frontend stacks only — requires PROJECT_KIND in frontend-*, mobile-web, or mobile-rn, and halts with a redirect to /polish otherwise, mobile-native included. Requires _extracted-idioms.md Wrappers and _extracted-codebase.md Gold standards populated. A Playwright MCP powers the visual-regression gate; without it verification soft-fails to text-only and the parity evidence is weaker.
 kind: command
 pack: orchestration
@@ -14,7 +14,7 @@ version: 1.0.0
 
 The user's archetypal ask: *"unify all tables and forms; if a page has a title use one unified header; if a page has tabs they all follow one tab design; every list page's filters move into one unified filter panel; buttons / colors / spacing / styles / interactions all standardised; forms aligned with consistent spacing + layouts + input structures; validation handling unified — frontend validators, error states, required-field handling, API-validation-error display, all consistent across the app."*
 
-That request is **surface-type-typed**, not axis-typed. `/polish` operates per-surface across 18 axes (tokens / rhythm / motion / etc.); this command operates per-surface-TYPE across the whole project. Both ship; they compose.
+That request is **surface-type-typed**, not axis-typed. `/polish` operates per-surface across its 16 axes (tokens / rhythm / motion / etc., closed at 19 verbs — see `commands/polish.md` § Frontend and `templates/packs/ui-ux/rules/ui-principles.md § Axis catalog`); this command operates per-surface-TYPE across the whole project. Both ship; they compose.
 
 The 7 default surface categories:
 

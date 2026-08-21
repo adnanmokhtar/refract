@@ -176,10 +176,15 @@ Use `mobile-architect` to produce design:
 | e2e (Detox / Maestro / XCUITest / Espresso) | <path> |
 
 ### Performance budget
-- Cold start delta: ≤ +50ms
-- Time-to-interactive on the main feature screen: ≤ 800ms on mid-tier device
-- Bundle delta: ≤ +200KB JS
-- RAM delta: ≤ +25MB
+
+**These are placeholders the project fills, not constants this command supplies.** A budget is only meaningful against a measured baseline on a named device; a number invented here would be enforced in Phase 6 against nothing. Read the budget from the spec's NFR section, from `ai/runtime/` baselines, or from the project's own conventions — and if none exists, say so and propose one from a measurement rather than adopting a default.
+
+- Cold start delta: `<project budget>` measured on `<named device>`
+- Time-to-interactive on the main feature screen: `<project budget>` on `<named device>`
+- Bundle delta: `<project budget>`
+- RAM delta: `<project budget>`
+
+Where the project has no budget at all, `/optimize-bundle` establishes the baseline and the published store limits it must stay inside; `device-harness` supplies the named device the measurement is taken on.
 
 ### Open questions
 <flag for user>

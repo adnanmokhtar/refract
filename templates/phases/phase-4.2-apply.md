@@ -115,14 +115,23 @@ cp -R ~/.claude/templates/packs/<track>/rules/*.md .claude/rules/ 2>/dev/null ||
 
 # Path-scope TRACK rules in MULTI-TRACK projects (full-stack / monorepo) so a track's
 # rules load only when Claude touches that track's source — prevents cross-track context
-# pollution (backend rules loading during frontend work). SINGLE-track projects skip this:
-# they never install a sibling track's rules, so there is nothing to pollute.
-# <track-src-root> comes from the Phase 2 profile (detected source root for this track).
+# pollution (one track's rules loading during another track's work). SINGLE-track projects
+# skip this: they never install a sibling track's rules, so there is nothing to pollute.
+#
+# BOTH substitutions below are read verbatim from `.claude/codebase-profile.md § 17`, which
+# Phase 1 (shape) and Phase 2 (members + roots) produce. They are NOT free-text placeholders:
+#   <is-multi-track>  = the `is_multi_track:` value  (true when ≥2 distinct load-bearing
+#                       STACK tracks exist across members; ALWAYS-ON tracks never count).
+#   <track-src-root>  = `track_roots[<track>]` — the comma-separated glob list for THIS track.
+#                       Already a glob list, so pass it through unchanged; scope-rules.sh
+#                       accepts comma-separated globs.
+# If § 17 is missing or `is_multi_track` is unset, do NOT default to false — that silently
+# ships every track's rules unscoped into every file's context. Halt and complete § 17.
 # Core baseline rules in .claude/rules/ (read-before-write, code-quality, think-simplify-surgical,
 # read-codebase-deeply) are UNIVERSAL — never scope them.
 if [ "<is-multi-track>" = "true" ]; then
   for r in ~/.claude/templates/packs/<track>/rules/*.md; do
-    ~/.claude/scripts/scope-rules.sh ".claude/rules/$(basename "$r")" "<track-src-root>/**" 2>/dev/null || true
+    ~/.claude/scripts/scope-rules.sh ".claude/rules/$(basename "$r")" "<track-src-root>" 2>/dev/null || true
   done
 fi
 

@@ -16,6 +16,13 @@ Last updated: <YYYY-MM-DD>
 
 ## Framework(s)
 
+**One Primary per package.** Read `.claude/codebase-profile.md § 17` first. When `repo_shape` is `monorepo` or `workspace`, fill the table — a repo with a server package and a client package has two primaries, and forcing it to name one demotes the other to "auxiliary", which is how a whole stack becomes invisible to every agent that reads this file. When `repo_shape: single`, delete the table and fill the two bullets.
+
+| Package | Root | Language + runtime | Primary framework | Auxiliary |
+|---|---|---|---|---|
+| `<member-a>` | `<path>` | <lang + version> | <framework + version> | <libs> |
+| `<member-b>` | `<path>` | <lang + version> | <framework + version> | <libs> |
+
 - **Primary**: <NestJS 11 / Django 5 / Rails 7 / Spring Boot 3 / FastAPI / Nuxt 3 / Next 14 / …>
 - **Auxiliary**: <BullMQ for queues / OpenTelemetry for tracing / etc.>
 
@@ -88,7 +95,9 @@ This section is auto-written by Phase 2 detection. The agent uses it to decide w
 - **Payment signal**: <yes — `stripe` / `square` / `adyen` in deps | no>
 - **AI signal**: <yes — `openai` / `anthropic` / `langchain` in deps | no>
 - **Multi-region signal**: <yes — region-aware DB / CDN / queues | no>
-- **Workspace shape**: <single | monorepo | workspace>
+- **Workspace shape**: <single | monorepo | workspace> — decided in Phase 1, recorded with its members in `.claude/codebase-profile.md § 17`. Not a menu: if this row still reads as three choices, shape detection never ran and every per-package section above is holding one averaged value.
+- **Members**: <N> — <member-a> (<stack>), <member-b> (<stack>)
+- **Multi-track**: <yes — ≥2 distinct load-bearing stack tracks; track rules are path-scoped per member | no>
 
 ## Update cadence
 

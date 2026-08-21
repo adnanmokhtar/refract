@@ -421,6 +421,16 @@ Ships through the deprecation flow like any other path change: the new path land
 
 **Closure verbs:** `wrap-in-envelope`, `map-to-output-dto`, `bump-version`, `add-validator`, `restore-or-version-code`, `fix-resource-path`.
 
+## Related — finding the blast radius on the consumer side
+
+This file classifies a change; it does not find who breaks. § Context names the consumers in the abstract ("a mobile app users haven't updated", "a partner with a six-month integration cycle") but an engineer standing here with a DTO diff needs the *tool*. The consumer half ships in other packs — named by bare name, because each is present only when its pack is:
+
+- **`@api-contract-sentry`** — *frontend pack, only when it is co-installed.* Answers the one question this file cannot: this DTO changed, what in THIS client breaks? Enumerates every affected service, generated type, store and page with `<path:line>`. **Absent** → the blast radius is *unfound*, not zero. Grep the consumer source for the endpoint path AND the type name yourself, and list the hits, before calling any NO-column change safe.
+- **`/sync-contract`** — *workspace-level command, only when this repo sits under a workspace root.* The same question fanned across N sibling consumers at once. **Absent** → § Evolution rules is still the classification; the fan-out is manual, one consumer at a time.
+- **`api-versioning.md`** (in-pack) — owns what happens *after* a change lands in the NO column. § Evolution rules stays the single classification; that file does not restate it.
+
+**The verification the classification does not give you.** A change classified `additive` here is additive on paper. It is additive *in fact* only once the consumer has been checked against the **shipped** shape — generated or type-checked types, a real call, or a contract test. A green consumer build proves nothing on its own: a hand-written client type compiles happily against a field this service stopped sending, and fails in front of a user. Where the project has no such mechanism, say so in the change description rather than implying one ran.
+
 ## References
 
 - Stripe API reference (stripe.com/docs/api) — gold standard for stable code, evolved for 12+ years.

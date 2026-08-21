@@ -7,13 +7,15 @@ pack: orchestration
 
 # /refactor [<scope>]
 
-> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/refactor <scope> --plan` lists the planned verb edits and exits before writing.
+> **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/refactor <scope> --plan` resolves the scope, picks the verb per finding, **writes an eight-header plan file** to `.claude/plans/`, and exits before touching code — executable later via `/execute-plan <file>`. It is not a synonym for `--dry-run`: the dry run prints a preview to the terminal and leaves no artifact; the plan run leaves the artifact and nothing else. See § Phase 3.5 — Handoff.
 
 ## What this does
 
 **Single focused command: change structure, not behaviour.** Dispatches [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../templates/packs/code-quality/skills/refactoring-sweep/SKILL.md) (10 closure verbs) plus [`templates/packs/code-quality/agents/refactorer.md`](../templates/packs/code-quality/agents/refactorer.md) for SOLID / naming discipline. Reads Phase 3 MUST-list via [`templates/snippets/phase-3-always-reads.md`](../templates/snippets/phase-3-always-reads.md) and [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md).
 
-**Not** `/optimize` — no Phase 0 architectural diagnosis, no god-module splits, no perf (`parallelize`, `add-index`), no dead-code / dedup project sweeps. If the work needs those → `/optimize [<scope>]`.
+**The positive premise: this is the git-diff-scoped, behaviour-preserving pass.** It is the cheapest operation in the set — one named target, one closed verb list, no diagnosis phase, no scale or perf or security claim to under-validate (which is exactly why it is the one command exempt from the three-line honesty mandate in [`templates/tool-adapters/_orchestration-sync.md`](../templates/tool-adapters/_orchestration-sync.md)). Reach for it when you know the target and the move.
+
+The boundary, stated once: **not** `/optimize` — no Phase 0 architectural diagnosis, no god-module splits, no perf (`parallelize`, `add-index`), no dead-code / dedup project sweeps. If the work needs those → `/optimize [<scope>]`.
 
 ## The premise
 
@@ -56,6 +58,17 @@ Any other verb (e.g. `parallelize`, `split-god-module`, `centralize-cross-cuttin
 7. Optional per-row notes in **`ai/refactor/findings/<id>.md`**.
 8. Mechanical gate: **`scripts/validate-refactor-artifacts.sh`** (install to `~/.claude/scripts/`). See [`templates/tool-adapters/_refactor-pack-coverage.md`](../templates/tool-adapters/_refactor-pack-coverage.md).
 
+## Phase 3.5 — Handoff (`--plan` only)
+
+`--plan` is **not** a louder `--dry-run`. It runs steps 1–3 (resolve scope → read the pack overlay → select the verb per finding) above, makes **no edit**, and writes a plan file that `/execute-plan` — or any other tool, or a human — can implement later.
+
+1. **Read-only phases only.** `refactoring-sweep` is not dispatched, the `refactorer` gate is not run, no commit is made, and no row is written to `ai/refactor/ledger.md`.
+2. **Expand the internal plan into the canonical handoff format.** All **eight** headers are mandatory — `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Steps` / `## Constraints` / `## Verification` / `## Status` — plus the `Plan ID`. `/execute-plan` halts on a file missing any one of them ([`templates/repo-baseline/.claude/commands/execute-plan.md`](../templates/repo-baseline/.claude/commands/execute-plan.md) § Mechanical halt), so an eight-header file is the contract, not a nicety. `## Approach` and `## Known unknowns` are accepted optional extras.
+3. **Map this command's own vocabulary onto those headers.** One `## Steps` entry per planned edit, each naming its verb from the closed 10 and the sibling files that set the pattern; the resolved paths become `## Outputs`; "behaviour-preserving", "only the 10 `refactoring-sweep` verbs", "no architectural or perf move — route those to `/optimize`", and "coverage must not drop" become `## Constraints`; lint + typecheck + the scoped test command become `## Verification`.
+4. **Write** to `.claude/plans/refactor-<short-slug>-<YYYYMMDD-HHmm>.md`, **print** path + Plan ID + a one-line summary, and **exit before Phase 4 (Generate)** — nothing edited, nothing committed, no changelog entry.
+
+Full flag contract: [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). Field-by-field format: [`templates/canonical-command-template.md`](../templates/canonical-command-template.md) § "Phase 3.5 — Handoff".
+
 ## Progress tracking
 
 | File | Role |
@@ -89,6 +102,7 @@ Any other verb (e.g. `parallelize`, `split-god-module`, `centralize-cross-cuttin
 
 **User-facing**
 
+- `--plan` — **handoff mode**: run the read-only phases, write the eight-header plan file to `.claude/plans/`, print the Plan ID, exit before any edit (see § Phase 3.5 — Handoff). Distinct from `--dry-run`, which previews to the terminal and writes no file at all.
 - `--dry-run` — show planned edits; no writes.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--status` — read-only session / ledger summary when supported by the runner.

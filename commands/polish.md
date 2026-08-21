@@ -1,5 +1,5 @@
 ---
-description: Introduce finish the project does not have yet, on the axis its PROJECT_KIND dictates. Visual hierarchy and missing states, API envelope and error contract, schema consistency, or platform conventions. Trigger on 'polish the API surface', 'polish the dashboard', 'pre-launch consistency sweep'. Do NOT trigger to snap values to tokens that ALREADY exist — /align enforces, this introduces. Not one surface with variant picking (/enhance-ui), not responsive or dark-mode drift (outside the closed 19-verb set), not read-only audits (/design-review).
+description: Introduce finish the project does not have yet, on the axis its PROJECT_KIND dictates. Visual hierarchy and missing states, API envelope and error contract, schema consistency, or platform conventions. Trigger on 'polish the API surface', 'polish the dashboard', 'our API returns camelCase on some endpoints and snake_case on others', 'our error shape is different everywhere', 'pagination is inconsistent', 'the dashboard works but still feels unfinished'. Do NOT trigger to snap values to tokens that ALREADY exist — /align enforces, this introduces. Do NOT claim a bare 'pre-launch sweep' that names no finish noun — /audit owns the hardening reading of that phrase; ask which axis is meant before running. Not one surface with variant picking (/enhance-ui), not responsive or dark-mode drift (outside the closed 19-verb set), not read-only audits (/design-review).
 compatibility: Requires PROJECT_KIND set and halts on unknown. Per kind — frontend wants a Playwright MCP for visual baselines and soft-fails to a text-only audit without it; backend wants a discoverable OpenAPI spec; data wants schema introspection via a live DB or migration history; mobile wants per-platform build configs. A missing one narrows the pass rather than blocking it.
 kind: command
 pack: orchestration
@@ -27,7 +27,7 @@ What "polish" means depends on the stack:
 The agent:
 1. **Reads the project's design / API / schema / platform conventions** — `_extracted-idioms.md`, `ai/conventions.md`, `ai/architecture.md`, `_extracted-codebase.md § Gold standards`. These are the oracle for what "polished" means in this codebase.
 2. **Audits every relevant surface** — pages/modals/dashboards (frontend); endpoints/handlers/responses (backend); tables/migrations/queries (data); screens + platform manifests (mobile). **On frontend, a chart / data-viz and a data table ARE surfaces** — not decoration to skip. A polished dashboard whose cards are finished but whose chart still has muddy series colours, an illegible legend, no no-data state, and a table with no zebra / hover / empty state is *not* polished. The 19 verbs apply to them (see the frontend branch note).
-3. **Closes drift mechanically** — hardcoded values → tokens / shared types / canonical names. Same closure-verb grammar across stacks; only the targets change.
+3. **Closes the drift it owns, mechanically** — a repeated raw value with **no token yet** promoted to a NEW token (`extract-token`), response envelopes / error contracts / endpoint naming unified to one shape, schema names unified to one convention. Same closure-verb grammar across stacks; only the targets change. **Not** the enforce-existing snap: a hardcoded value that maps to a token the project ALREADY has is `/align`'s `replace-with-shared`, per the boundary note below and [`_orchestration-sync.md`](../templates/tool-adapters/_orchestration-sync.md).
 4. **Adds creative polish in parallel** — empty/loading/error states (frontend); idempotency keys + standard error envelopes (backend); audit columns + soft-delete (data); platform-conforming surfaces (mobile).
 5. **Iterates variants** for frontend surfaces flagged "visually weak" (3 style variants generated; user picks; skill applies — only when audit explicitly opts in). Backend / data / mobile do NOT iterate; they unify-or-not.
 
@@ -126,7 +126,7 @@ Closure verbs: ALL frontend closure verbs PLUS:
 - "Polish the dashboard." → `/polish the dashboard` (frontend)
 - "Tighten the orders endpoints." → `/polish the orders module` (backend)
 - After a feature merge that landed without polish.
-- Pre-launch consistency sweep.
+- Pre-launch **finish** sweep — the surface still looks or reads unfinished. (A pre-launch **hardening** sweep — security / scale / correctness — is `/audit`. A bare "pre-launch sweep" naming neither axis is ambiguous: ask which one before running.)
 
 ## When NOT to use
 
@@ -136,6 +136,7 @@ Closure verbs: ALL frontend closure verbs PLUS:
 - **Enforcing EXISTING tokens / a11y rules / ui-state contracts (mechanical drift → shared primitive, no creative work) → `/align`.** Canonical split: **`/align` enforces what already exists; `/polish` introduces NEW finish.** A "hardcoded value that should map to an EXISTING token" or "a11y drift from an existing rule" is `/align` territory; `/polish` keeps the creative/finish verbs (extract NEW tokens, wire empty/loading/error states, rhythm/hierarchy/motion/cta). See the boundary table in [`_orchestration-sync.md`](../templates/tool-adapters/_orchestration-sync.md).
 - Responsive / breakpoint drift + dark-mode / theme-mode drift → `/enhance-ui` (NOT in the `/polish` closed verb set — see "Responsive + theme-mode" note in the frontend branch).
 - Pure convention drift across all classes (not just polish) → `/align`.
+- A bare "pre-launch sweep" / "ship-readiness sweep" that names **no axis** → ask first. `/audit` owns the hardening reading (security / scale / 8-axis ranking); `/polish` owns the finish reading. Running the wrong one costs a full sweep.
 - Code quality / perf / refactoring → `/optimize`.
 - New features → `/add-feature`.
 - V1→V2 port → `/migrate`.
@@ -174,6 +175,17 @@ Examples:
     - OpenAPI breaking change (backend; halts; user must approve via ADR).
     - Schema migration that's irreversible (data; halts; user must approve via ADR).
     - User-decision required for variant selection (frontend; only when audit explicitly opted into iteration).
+
+## Phase 3.5 — Handoff (`--plan` only)
+
+`--plan` is **not** a louder `--dry-run`. It runs steps 1–5 (detect stack → dispatch detectors → audit → resolve scope → plan internally) above, makes **no edit**, and writes a plan file that `/execute-plan` — or any other tool, or a human — can implement later.
+
+1. **Read-only phases only.** No closure verb is applied, no variant is generated, nothing is committed, and the per-surface progress roll-up is not advanced. Baselines captured during the audit stay in the plan as evidence, not as a run artifact.
+2. **Expand the internal plan into the canonical handoff format.** All **eight** headers are mandatory — `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Steps` / `## Constraints` / `## Verification` / `## Status` — plus the `Plan ID`. `/execute-plan` halts on a file missing any one of them ([`templates/repo-baseline/.claude/commands/execute-plan.md`](../templates/repo-baseline/.claude/commands/execute-plan.md) § Mechanical halt), so an eight-header file is the contract, not a nicety. `## Approach` and `## Known unknowns` are accepted optional extras.
+3. **Map this command's own vocabulary onto those headers.** Each finding becomes one `## Steps` entry carrying its closure verb from the stack's closed vocabulary; the surfaces / endpoints / tables it touches become `## Outputs`; "verbs only from the stack's closed set", "behaviour preserved", and the stack's non-regression gates become `## Constraints`; `## Verification` is the stack's own gate set (lint + typecheck + scoped tests, plus a11y and visual-regression on frontend, contract tests and OpenAPI-diff on backend, schema-validate on data, per-platform smoke on mobile).
+4. **Write** to `.claude/plans/polish-<short-slug>-<YYYYMMDD-HHmm>.md`, **print** path + Plan ID + a one-line summary, and **exit before Phase 4 (Generate)** — nothing edited, nothing committed, no changelog entry.
+
+Full flag contract: [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). Field-by-field format: [`templates/canonical-command-template.md`](../templates/canonical-command-template.md) § "Phase 3.5 — Handoff".
 
 ## Progress tracking (multi-day workflow)
 
@@ -327,7 +339,7 @@ Tokens added:        2
 Patterns extracted:  1
 Variants generated:  3 → user picked "polished"
 
-Commits: 31  Diff: +203 / -489  Tests: 124/124  a11y: 81→94  Visual-regression: target-only  Bundle: -0.4%
+Commits: 31  Diff: +203 / -489  Tests: 124/124  a11y: 81→94  Visual-regression: target-only  Bundle: -0.4% (regression guardrail, not a perf claim)
 
 Not validated:  cross-browser pass (Playwright ran chromium-only)
 Risks:          none identified — visual-only changes, logic untouched
@@ -388,6 +400,7 @@ All internal. Just results.
 
 ## Optional flags
 
+- `--plan` — **handoff mode**: run the read-only phases, write the eight-header plan file to `.claude/plans/`, print the Plan ID, exit before any edit (see § Phase 3.5 — Handoff). Distinct from `--dry-run`, which previews to the terminal and writes no file at all.
 - `--dry-run` — show what would be polished, no edits.
 - **`validate-polish-artifacts.sh` (hooks / CI)** — run after the stack-conditional audit; exits non-zero on failure. Set env `QUIET=1` for quieter output (script-supported). **Deliberate design: the validator is env-var-only — `QUIET`, `POLISH_DIR`, `PROJECT_KIND` — and has NO CLI flags.** There is no `--strict` because every failure is already blocking (no soft/advisory tier to gate); quieting is the only knob, exposed as `QUIET=1` so the same invocation works identically in a hook, in CI, and from a shell.
 - `--allow-dirty` — proceed with uncommitted changes.

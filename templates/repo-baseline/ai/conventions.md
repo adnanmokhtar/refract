@@ -17,6 +17,30 @@ Last updated: <YYYY-MM-DD>
 | Convention not in the cheatsheet OR cheatsheet ambiguous | this file |
 | Reasoning about why a rule exists | the cited ADR in `ai/decisions/` |
 
+## Scope — how many answers does each section have?
+
+Read `.claude/codebase-profile.md § 17` (`repo_shape` + `members`) before filling anything below.
+
+| `repo_shape` | How the sections below are filled |
+|---|---|
+| `single` (one member) | One value per row. Delete the per-package matrix section that follows. |
+| `monorepo` / `workspace` (N members) | **One row per member** in the matrix below. Every section that describes *code* — file naming, identifiers, folders, imports, errors, logging, validation, tests, concurrency — is answered once per member. |
+
+> **Never average two packages into one convention.** A repo whose server package names files one way and whose client package names them another has TWO conventions, not one blended winner. A blended value is wrong for *both* packages while carrying the confidence of a measured one — and because this file feeds `ai/_convention-cheatsheet.md` and the `## Project-specific` block of every adapted rule, the wrong value propagates into every artifact and every agent then "corrects" conforming code toward a convention that exists nowhere in the repo. If the members disagree, that disagreement IS the content. Record one value only after checking every member and finding they genuinely agree.
+
+## Per-package conventions
+
+Fill when `repo_shape` is `monorepo` or `workspace`; **delete this whole section when `repo_shape: single`.** One row per member from `.claude/codebase-profile.md § 17 members`. Where a column is genuinely identical across every member, collapse it to one `all packages` row — but only after checking each member, never by assumption.
+
+| Package | Root | Stack | Source file naming | Test file naming | Classes | Functions | Constants | Alias root | Error base | Test framework |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `<member-a>` | `<path>` | <lang + framework> | <naming> | <naming> | <case> | <case> | <case> | `<alias>` | `<Base>` | <framework> |
+| `<member-b>` | `<path>` | <lang + framework> | <naming> | <naming> | <case> | <case> | <case> | `<alias>` | `<Base>` | <framework> |
+
+**This matrix outranks the sections below.** Where a section states one value and a member's row disagrees, the row wins and the section reads `see per-package matrix` rather than a blended value. Sections that genuinely hold repo-wide — one formatter config governing the whole tree, one multi-tenancy boundary, the ADR links — stay single-valued and say so.
+
+**Which member am I in?** Every rule below applies to the package containing the file being edited, resolved by longest-path match against the `Root` column. A file outside every member root (repo-level config, CI, scripts) follows the repo-wide sections only.
+
 ## File naming
 
 - **Source files**: <e.g., kebab-case.ts / snake_case.py / PascalCase.cs — derived from extraction>
@@ -107,6 +131,22 @@ Boundaries: which folders MUST NOT import from which? (Cross-link to `ai/modules
 - **Response envelope**: <`{ data, error }` / raw / `Result<T, E>` — from extraction>
 - **Pagination**: <cursor / offset / page+size — from extraction>
 - **Auth**: <JWT / session / OAuth / API key — see `ai/decisions/<NNNN>-auth.md`>
+
+### Cross-stack contract verification
+
+Fill when this repo contains BOTH a producer and a consumer of the same API — a server package and a client package in one tree, or an API this repo publishes and also calls. **A fullstack repo has the same producer/consumer seam a multi-repo workspace has, minus the repo boundary that makes it visible** — which makes it easier to break, not safer.
+
+- **Producer → consumer pairs**: `<producer-member>` serves `<consumer-member>` at `<base path>`. List every pair; a consumer nobody remembered is how a contract change ships broken.
+- **Verification mechanism**: <generated types from the spec / consumer-driven contract test / shared type package imported by both / NONE — hand-written client types>
+- **Where it runs**: <CI job name / pre-commit hook / manual — from the pipeline config>
+
+Three rules, whatever the mechanism:
+
+1. **Classify every contract change `additive` or `breaking` before editing either side**, and grep the whole tree for consumers first — including packages you are not editing. Removing or renaming a response field, changing its type, adding a required input field, or changing an error code are all breaking, regardless of how small the diff looks.
+2. **Verify the consumer against the producer's SHIPPED shape, not the spec on paper** — generated or type-checked types, a real call, or a contract test. *A green consumer build alone does not prove the shapes match*: a hand-written client type compiles perfectly against a field the server stopped sending, and fails at runtime in front of a user.
+3. **Producer ships first and backward-compatible.** A change that requires both sides to land at once is forbidden even inside one repo — deploys are not atomic, and a rollback of one side leaves the other broken.
+
+If the mechanism is `NONE`, that is a **known gap, not a passing state**: every contract change is verified by hand and by memory. Record it in `ai/status.md` as a risk rather than leaving this row blank, so the next person reads "unverified" instead of "fine".
 
 ## i18n / localization
 

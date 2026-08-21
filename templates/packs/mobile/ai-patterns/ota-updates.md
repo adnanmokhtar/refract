@@ -19,7 +19,7 @@ pack: mobile
 - A change that touches native code, native dependencies, or app permissions — that CANNOT go OTA; it needs a store build.
 
 **Halt conditions / mandatory cites**
-- An OTA update MUST cite that the diff is JS/assets ONLY — if it touches native modules, native deps, or `Info.plist`/`AndroidManifest` permissions, reject it as a store-policy violation (Apple 3.3.2 / dynamic-code rules).
+- An OTA update MUST cite that the diff is JS/assets ONLY — if it touches native modules, native deps, or `Info.plist`/`AndroidManifest` permissions, reject it as a store-policy violation (Apple's downloaded-code rule, guideline **2.5.2** — see § store-policy conformance below).
 - A mandatory/force update MUST cite BOTH the min-supported-version gate AND a rollback path — a force-update with no rollback is a bug; reject.
 - A rollout MUST cite its staging (percentage or channel), not "publish to 100%".
 - The update-apply UX MUST cite where it applies (on-launch / on-resume) and the safe-restart mechanism — an update swapped mid-session with no controlled restart is a bug.
@@ -51,12 +51,14 @@ An OTA update replaces the JS bundle and bundled assets. It CANNOT change native
 | SDK/runtime upgrade that bumps the native shell | ❌ store release |
 | App icon / splash / entitlements | ❌ store release |
 
-Store-policy conformance: Apple guideline **3.3.2** permits interpreted/downloaded code only if it does not materially change the app's features or functionality from what was reviewed. An OTA that ships a native change or materially new functionality risks rejection AND — because the native shell doesn't match — a crash on launch. Keep OTA to bug fixes and reviewed-scope changes. Pin every JS bundle to a **runtime version** so it only lands on a native build that can actually run it (a bundle expecting a native module the installed shell lacks = crash).
+Store-policy conformance: the App Review Guideline that governs downloaded code is **2.5.2**, which says apps "may not read or write data outside the designated container area, nor may they download, install, or execute code which introduces or changes features or functionality of the app, including other apps" ([App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)). An OTA that ships a native change or materially new functionality therefore risks rejection AND — because the native shell doesn't match — a crash on launch. Keep OTA to bug fixes and reviewed-scope changes. Pin every JS bundle to a **runtime version** so it only lands on a native build that can actually run it (a bundle expecting a native module the installed shell lacks = crash).
+
+> **Cite the right section.** Guideline **3.3.2** is a section of the Apple Developer Program License Agreement, not of the App Review Guidelines — the Guidelines have no §3.3 at all. A finding that cites "3.3.2" against the Review Guidelines is citing a document the reviewer is not reading; use 2.5.2.
 
 ## Staged / percentage rollout
 
 - Never publish to 100% at once — a bad bundle then hits every user with no containment.
-- Roll out by percentage or channel: e.g. 5% → 25% → 100%, watching crash-free rate + error telemetry between stages.
+- Roll out by percentage or channel, watching crash-free rate + error telemetry between stages. **The percentages are the project's convention, not a platform rule** — Google Play documents that "when you roll out a release, you select the percentage of users who will receive your rollout" and prescribes no ladder ([staged rollouts](https://support.google.com/googleplay/android-developer/answer/6346149)); OTA providers likewise let you pick. Record this project's ladder in the project-specific block above and treat it as a house convention.
 - Halt/rollback the moment crash-free rate or a key metric regresses; a JS crash-loop from a bad bundle can lock users out of the very screen that would fetch the fix.
 
 ## Mandatory vs optional update gating
@@ -113,6 +115,11 @@ This pattern owns the OTA lifecycle — the native-vs-JS boundary, staging, vers
 
 ## Related
 
-- `@app-store-reviewer` — owns submission policy; confirms an OTA stays within reviewed scope (Apple 3.3.2). Anything that would need re-review is a store release, not OTA.
+- `@app-store-reviewer` — owns submission policy; confirms an OTA stays within reviewed scope (Apple guideline 2.5.2). Anything that would need re-review is a store release, not OTA.
 - `@mobile-architect` — invoked to design the runtime-version pinning + channel strategy.
 - `optimize-bundle` — a smaller JS bundle is a faster, safer OTA payload; oversized updates are its concern, not this pattern's.
+
+## Sources
+
+- Apple, [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) — 2.5.2 downloaded code. There is no guideline 3.3.2; 3.3.2 is a Developer Program License Agreement section.
+- Google Play, [staged rollouts](https://support.google.com/googleplay/android-developer/answer/6346149) — the developer selects the percentage; no ladder is prescribed.

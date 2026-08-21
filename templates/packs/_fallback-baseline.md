@@ -1,11 +1,13 @@
 # `_examples/` fallback-integrity baseline
 
 `templates/packs/<pack>/_examples/<name>.md` is not documentation. It is the **AUTHOR-mode
-fallback**: `templates/phases/phase-4.2-apply.md:26` copies it **verbatim** into a project's
-`.claude/` whenever extraction has no signal for that topic — the default for greenfield, for
-`--lightweight`, and for every `[EXTRACTION-WEAK]` track that `phase-4.0-preflight.md:534` routes
-to COPY. `phase-4.2-apply.md:306` ("pack files are copied verbatim") means whatever is in the
-fallback IS the artifact the project receives.
+fallback**: `templates/phases/phase-4.2-apply.md § 4.2-AUTHOR step 2` ("If extraction has NO
+signal … copy it as fallback") copies it **verbatim** into a project's `.claude/` whenever
+extraction has no signal for that topic — the default for greenfield, for `--lightweight`, and
+for every `[EXTRACTION-WEAK]` track that `phase-4.0-preflight.md § Minimum artifacts per
+LOAD-BEARING track` routes to COPY. The **No-thinning rule** in `phase-4.2-apply.md § Rules`
+("pack files are copied verbatim") means whatever is in the fallback IS the artifact the project
+receives.
 
 Check 8b of `scripts/validate-pack-consistency.sh` compares every fallback against the source it
 abridges. Fallbacks are **deliberately abridged** — 29 of 293 are under 40% of their source's

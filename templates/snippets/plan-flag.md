@@ -18,13 +18,23 @@ The plan file is the cross-tool handoff artifact: hand it to Cursor / OpenCode /
 
 ## Spelling / aliases
 
-- `--plan` is the universal spelling. Commands MUST accept it.
-- Audit-class commands (`/audit`, `*-audit`) historically expose `--plan-only`; treat `--plan` as an accepted **alias** of `--plan-only` for those commands, and `--plan-only` as an accepted alias of `--plan` everywhere else. Same behaviour either way: produce the plan, change nothing.
+- `--plan` is the universal spelling. Every operational command MUST accept it — and *accept* means a **Phase 3.5 body that writes the file and exits**, not a banner line at the top of the file. A command that does not carry that body must not advertise the flag (see § Where it is real today).
+- Audit-class commands (`/audit`, `*-audit`) historically expose `--plan-only`; treat `--plan` as an accepted **alias** of `--plan-only` for those commands, and `--plan-only` as an accepted alias of `--plan` everywhere else. Same *behaviour* either way — produce the plan, change nothing — but **not the same artifact**: an audit-class command's own ranked plan (`ai/audit/plan.md`) is a closure-verb checklist in that command's format and `/execute-plan` rejects it as malformed. Under the universal spelling those commands MUST also write the eight-header file to `.claude/plans/`. An alias that produces an artifact the executor cannot read is a handoff loop that cannot complete.
 
 ### Executing a plan
 
 - **`/execute-plan <file>`** is the Claude-native executor (repo-baseline command): it implements a saved plan's Steps + Outputs, honours its Constraints, runs its Verification, and auto-invokes `/verify-plan`. Its executor sub-agents default to **Sonnet** — pair it with an Opus planning pass.
 - **`<command> --from-plan <file>`** is the equivalent per-command / adapter spelling of the same "implement from a saved plan" entry (e.g. how the OpenCode adapter exposes it). Both consume the same tool-agnostic plan file and run only the implementation phases (4-6). `/execute-plan` is the preferred Claude form.
+
+## Where it is real today (this repo's global set)
+
+`--plan` is only as real as the command file's own Phase 3.5 body — no harness implements it for you. Current state of `commands/`:
+
+- **Implemented** (a named handoff section that writes the file and exits before Generate): `/align`, `/optimize`, `/polish`, `/refactor`, `/audit` (universal spelling writes the eight-header file *in addition to* its ranked `ai/audit/plan.md`), `/delegate` (the composed brief *is* the plan).
+- **Pending** — do not advertise the flag for these until the body exists: `/roadmap`, `/unify-surfaces`, `/task`, `/scaffold-project`, `/setup-project-adapters`, `/setup-project`. **None of the six advertises `--plan` today**, so none is currently the dead flag this list exists to prevent. `/setup-project` did carry `--plan` in its invocation examples with no handoff body; that line was deleted rather than left to grade `fail` under `commands/setup-project-health.md` § per-adapter `--plan` check — its write-nothing preview is `--diff`. `/setup-project-adapters` mentions `--plan` only to TRANSLATE other commands' flag into each adapter (its § "`--plan` flag translation"), which is not self-advertisement.
+- **Exempt by contract**: `/do` (a router — the routed command owns the flag), `/refine-prompt` (output-only; its entire product is already a written artifact), `/setup-project-health` (read-only; there is nothing to plan).
+
+This list exists because of the failure mode `templates/canonical-command-template.md` § "Phase 3.5 — Handoff" already names: a banner advertising `--plan` on a command whose body has no Phase 3.5, so the flag parses, nothing branches, and the command implements anyway. Keep the list current when a command gains or loses the body.
 
 ## What `--plan` is NOT
 

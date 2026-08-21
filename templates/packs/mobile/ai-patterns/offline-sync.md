@@ -118,3 +118,5 @@ When a queued mutation lands on the server but the server's state has moved:
 ## Related
 
 - `push-notifications.md` (a silent/background push is a best-effort trigger to wake THIS sync — treat delivery as unreliable and back it with a foreground reconcile)
+- `app-lifecycle.md` (owns WHEN the OS lets the queue drain — background windows, process death, foreground reconcile; this pattern owns WHAT is replayed and how conflicts resolve. State the seam; do not restate the other half.)
+- `mobile-api-contract.md` (a mutation queued by an old client lands on a newer server — the additive-only rule is what makes replay survivable)

@@ -51,7 +51,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/refine-prompt` | Turn a rough idea, one-liner, or ticket into an execution-ready prompt file. | — | `/refine-prompt "<rough idea>"` |
 | `/roadmap` | Map what is INTENDED but not yet built, then phase the build order. | `--goal`, `--build`, `--status`, `--refresh`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--no-table-stakes` | `/roadmap the payments domain` |
 | `/scaffold-project` | Generate a working codebase from nothing, up to a booting dev server. | `--name=<repo-name>`, `--into=<path>`, `--stack=<key>`, `--no-claude-orchestration`, `--no-prompt`, `--dry-run` | `/scaffold-project "<idea-or-refined-spec-path>"` |
-| `/setup-project` | Install or refresh the Claude orchestration layer for a repo. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--plan`, `--upgrade`, `--health`, `--validate-schemas`, `--diff`, `--max-subagents=<N>` | `/setup-project --plan` |
+| `/setup-project` | Install or refresh the Claude orchestration layer for a repo. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--upgrade`, `--health`, `--validate-schemas`, `--diff`, `--max-subagents=<N>` | `/setup-project --upgrade` |
 | `/setup-project-adapters` | Re-sync tool adapters so every enabled CLI offers the same surface as Claude Code here. | `--legacy-opencode` | `/setup-project-adapters` |
 | `/setup-project-health` | Read-only report on whether this repo's /setup-project artifacts have drifted or gone stale. | — | `/setup-project-health` |
 | `/task` | Execute ONE tracker item end to end and write its status back to the source. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |

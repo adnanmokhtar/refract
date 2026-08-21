@@ -20,6 +20,9 @@
 #   0 — clean (dry-run by default, or --apply succeeded)
 #   1 — target missing OR required extracts missing
 #   2 — usage error
+#   3 — blocks were injected but ZERO of the five profile facts resolved (the anchor is
+#       structurally present and semantically empty). Reported, not fatal: the files are
+#       written and the run continues; Phase 5 surfaces it. See the summary block.
 
 set -euo pipefail
 export LC_ALL=C
@@ -106,16 +109,34 @@ artifact_identity() {
 
 # ---------- Extract facts from profile/scan into one shared anchor block ----------
 
-# Pull first non-empty content line under a numbered "## N. Heading" section in
+# Pull first non-empty content line under a "## <Heading>" section in
 # codebase-profile.md, normalize to a single line. Best-effort; tolerates missing
 # sections by emitting "<not declared>".
+#
+# BOTH heading forms are accepted — `## Architecture` AND `## 1. Architecture`.
+# This used to require the numeric prefix (`/^## [0-9]+\. /`), which is NOT the form
+# Phase 2 is told to write: the canonical profile shape (`templates/appendices.md`
+# § Appendix D) is UNNUMBERED, and `phase-2-profile.md § Profile content` numbers the
+# fields in prose only. Against a canonically-written profile the numbered-only parser
+# returned nothing for all five facets, every anchor rendered five `<not declared…>`
+# lines with five identical `codebase-profile.md:1` citations, and audit-anchoring.sh
+# still passed it (7 substantive lines, a resolving `path:line`, and `codebase-profile.md*`
+# whitelisted from its leak scan) — i.e. the deterministic auditor certified an empty
+# anchor as anchored. Matching on the heading TEXT with the numeric prefix optional is
+# what makes the round-one floor actually rest on extracted facts.
 profile_section_first_line() {
   local heading_pattern="$1"  # e.g. "Architecture", "Naming", "Testing"
   awk -v pat="$heading_pattern" '
-    BEGIN { in_section = 0 }
-    /^## [0-9]+\. / {
+    function stem(h,   s) {
+      s = h
+      sub(/^##[[:space:]]+/, "", s)
+      sub(/^[0-9]+\.[[:space:]]*/, "", s)
+      return tolower(s)
+    }
+    BEGIN { in_section = 0; want = tolower(pat) }
+    /^## / {
       if (in_section) exit
-      if (index($0, pat)) in_section = 1
+      if (index(stem($0), want) == 1) in_section = 1
       next
     }
     in_section && NF {
@@ -126,6 +147,17 @@ profile_section_first_line() {
       exit
     }
   ' "$PROFILE" 2>/dev/null
+}
+
+# Line number of a profile section, either heading form. Same optional-prefix rule as
+# profile_section_first_line — the two MUST agree or a resolved fact would carry a `:1`
+# citation (or vice versa).
+profile_section_line() {
+  # `|| true` is load-bearing under `set -o pipefail`: a profile that legitimately lacks
+  # the section makes grep exit 1, which fails the whole assignment and kills the run under
+  # `set -e`. A missing section must DEGRADE (fall through to `:1`), never abort — that is
+  # the same degrade-never-stop discipline the extraction spec is written to.
+  { grep -nE "^## ([0-9]+\.[[:space:]]*)?$1" "$PROFILE" 2>/dev/null || true; } | head -1 | cut -d: -f1
 }
 
 ARCH_LINE=$(profile_section_first_line "Architecture")
@@ -151,11 +183,27 @@ done
 
 # Per-section line numbers in the profile — gives every injected block at least
 # one verifiable `path:line` citation, which is what audit-anchoring.sh looks for.
-arch_ln=$(grep -nE '^## [0-9]+\. Architecture' "$PROFILE" | head -1 | cut -d: -f1)
-naming_ln=$(grep -nE '^## [0-9]+\. Naming' "$PROFILE" | head -1 | cut -d: -f1)
-testing_ln=$(grep -nE '^## [0-9]+\. Testing' "$PROFILE" | head -1 | cut -d: -f1)
-data_ln=$(grep -nE '^## [0-9]+\. Data access' "$PROFILE" | head -1 | cut -d: -f1)
-err_ln=$(grep -nE '^## [0-9]+\. Error handling' "$PROFILE" | head -1 | cut -d: -f1)
+arch_ln=$(profile_section_line "Architecture")
+naming_ln=$(profile_section_line "Naming")
+testing_ln=$(profile_section_line "Testing")
+data_ln=$(profile_section_line "Data access")
+err_ln=$(profile_section_line "Error handling")
+
+# How many of the five facets actually resolved. An anchor built from zero resolved
+# facts is five `<not declared…>` lines wearing a citation costume — it satisfies every
+# downstream presence check while telling the reader nothing about this project. Count
+# it here so the shortfall is REPORTED rather than silently shipped (see the summary
+# block and exit code 3 below).
+facts_resolved=0
+facts_missing=""
+for pair in "Architecture:$ARCH_LINE" "Naming:$NAMING_LINE" "Testing:$TESTING_LINE" \
+            "Data access:$DATA_LINE" "Error handling:$ERR_LINE"; do
+  if [[ -n "${pair#*:}" ]]; then
+    facts_resolved=$((facts_resolved + 1))
+  else
+    facts_missing+="${facts_missing:+, }${pair%%:*}"
+  fi
+done
 
 # Architecture fingerprint — when Phase 2.5 ran and produced _extracted-idioms.md,
 # pull the base-class H1 list (top 5) so every anchor block names this project's
@@ -163,12 +211,33 @@ err_ln=$(grep -nE '^## [0-9]+\. Error handling' "$PROFILE" | head -1 | cut -d: -
 # This is what makes the anchor architecture-aware vs template-shaped.
 BASE_CLASSES=""
 if [[ -f "$IDIOMS" ]]; then
-  # Each base class is authored as `# <BaseName><Generics> Pattern` per
-  # extract-base-class-idiom.md § Step 6. Strip the trailing " Pattern" hint.
-  BASE_CLASSES=$(grep -E '^# ' "$IDIOMS" 2>/dev/null \
-                 | sed -E 's/^# +//; s/ +Pattern$//' \
-                 | head -5 \
-                 | awk 'NF { printf "%s`%s`", (NR>1 ? ", " : ""), $0 } END { print "" }')
+  # TWO on-disk shapes, both real, so read both:
+  #   (a) the `_extracted-idioms.md` schema in `phase-2-profile.md § Output schema` —
+  #       ONE H1 (`# Project idioms — <project>`) plus H2 sections per idiom kind,
+  #       each holding `- <Name> (<path>) — <role> — <n> <dependents>` rows;
+  #   (b) the per-base pattern shape `# <BaseName><Generics> Pattern` that
+  #       `extract-base-class-idiom § Step 6` authors when it appends per base.
+  # Reading only (b)'s `^# ` — which is what this did — turns shape (a)'s single title
+  # line into a fake "base class" named `Project idioms — <project>`, and misses every
+  # composable / wrapper / shared service / type primitive the file actually names.
+  # Shape (a) rows are the ones a non-class project has at all.
+  BASE_CLASSES=$({
+    awk '
+      /^## (Wrappers|Composables|Shared services|Base classes|Type primitives)/ { in_sec = 1; next }
+      /^## / { in_sec = 0 }
+      in_sec && /^-[[:space:]]/ {
+        line = $0
+        sub(/^-[[:space:]]*/, "", line)
+        sub(/[[:space:]]*[(—-].*$/, "", line)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+        if (line != "" && line !~ /^</) print line
+      }
+    ' "$IDIOMS" 2>/dev/null
+    { grep -E '^# .* Pattern$' "$IDIOMS" 2>/dev/null || true; } \
+      | sed -E 's/^# +//; s/ +Pattern$//'
+  } | awk 'NF && !seen[$0]++' \
+    | head -5 \
+    | awk 'NF { printf "%s`%s`", (NR>1 ? ", " : ""), $0 } END { print "" }')
 fi
 
 # Compose anchor block — uniform across artifacts except optional TBD token count.
@@ -181,7 +250,7 @@ build_block() {
   local tbd_count="${1:-0}"
   local idiom_line=""
   if [[ -n "$BASE_CLASSES" ]]; then
-    idiom_line="> - **Detected base classes** (\`_extracted-idioms.md\`): ${BASE_CLASSES}"$'\n'">"
+    idiom_line="> - **Detected load-bearing idioms** (\`_extracted-idioms.md\`): ${BASE_CLASSES}"$'\n'">"
   fi
   local tbd_line=""
   if [[ "${tbd_count}" -gt 0 ]]; then
@@ -291,7 +360,7 @@ echo "Mode:    $([[ $APPLY -eq 1 ]] && echo APPLY || echo dry-run)"
 echo "Profile: $PROFILE"
 echo "Scan:    $SCAN"
 if [[ -f "$IDIOMS" ]]; then
-  echo "Idioms:  $IDIOMS  (architecture fingerprint — anchors will name detected base classes)"
+  echo "Idioms:  $IDIOMS  (architecture fingerprint — anchors will name detected load-bearing idioms)"
 else
   echo "Idioms:  (absent — anchors will be 5-facet only; Phase 2.5 was skipped or had no signal)"
 fi
@@ -352,8 +421,30 @@ echo "Processed:                     $processed"
 echo "Injected (or would-inject):    $injected"
 echo "Already anchored (skipped):    $already"
 echo "Orphans (project-only):        $orphans"
+echo "Profile facts resolved:        $facts_resolved/5"
+if [[ -n "$facts_missing" ]]; then
+  echo ""
+  echo "WARN: $((5 - facts_resolved)) of 5 anchor facts did not resolve: $facts_missing"
+  echo "      Every injected block renders those as \`<not declared in codebase-profile.md>\`."
+  echo "      Expected headings in $PROFILE (either \`## Naming\` or \`## 3. Naming\` form):"
+  echo "        ## Architecture / ## Naming / ## Testing / ## Data access / ## Error handling"
+  echo "      Shape reference: templates/appendices.md § Appendix D."
+fi
 if [[ "$APPLY" -eq 1 && "$injected" -gt 0 ]]; then
   echo "Backups:                       $backup_dir/"
 fi
 [[ "$APPLY" -eq 0 ]] && echo "Dry run — pass --apply to execute."
+
+# Exit 3 — the anchor was written, and it is empty. NOT exit 1: the injection itself
+# succeeded and the run should continue; this is a REPORTED shortfall, which is the whole
+# difference between "anchored" meaning something and meaning nothing. Reserved for the
+# unambiguous case — ZERO of five facets resolved, i.e. a block whose every content line is
+# `<not declared in codebase-profile.md>` and whose five citations all point at line 1.
+# A partial shortfall (1-4 resolved) warns above and still exits 0.
+if [[ "$facts_resolved" -eq 0 && "$injected" -gt 0 ]]; then
+  echo ""
+  echo "ERR: anchor blocks were built from ZERO resolved profile facts — the round-one floor"
+  echo "     is five \`<not declared…>\` lines. Fix $PROFILE (Phase 2) and re-run."
+  exit 3
+fi
 exit 0

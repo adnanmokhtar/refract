@@ -1,5 +1,5 @@
 ---
-description: Rank what is WRONG with code that already exists, across eight engineering axes at once. Triggers — 'are we ready for 10x traffic', 'what blocks us at 100K RPS', 'pre-launch hardening sweep', 'audit the orders module for SOLID + perf + security', 'senior-engineer assessment for stakeholders' (--assess). Do NOT trigger on single-axis asks; security-only is /security-audit, perf-only /perf-audit, DB-only /db-audit, AI/LLM-only /ai-audit, design or a11y /design-review. Not code quality with no security or scale lens (/optimize), not capability that was never built (/roadmap).
+description: Rank what is WRONG with code that already exists, across eight engineering axes at once. Triggers — 'are we ready for 10x traffic', 'what blocks us at 100K RPS', 'pre-launch hardening sweep', 'audit the orders module for SOLID + perf + security', 'senior-engineer assessment for stakeholders' (--assess). Do NOT trigger on single-axis asks; security-only is /security-audit, perf-only /perf-audit, DB-only /db-audit, AI/LLM-only /ai-audit, design or a11y /design-review. Do NOT silently claim a bare 'pre-launch sweep' with no hardening, security or scale noun — that reading is shared with /polish's finish sweep; ask which axis is meant. Not code quality with no security or scale lens (/optimize), not capability that was never built (/roadmap).
 compatibility: Requires PROJECT_KIND resolvable from anchors (every subtree in a polyglot monorepo) and _extracted-idioms.md or codebase-profile.md populated. No language-specific tooling needed at audit time — deeper stack-specific passes such as SAST or a heap profiler are emitted as paste-ready follow-up commands, not run here. Capacity-headroom numbers stay estimates unless ai/observability.md declares current RPS, vitals, or SLOs.
 kind: command
 pack: orchestration
@@ -200,6 +200,15 @@ Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<
 
 ### Phase 3 — Plan-only short-circuit
 If `--plan-only`: stop here. User reads `ai/audit/plan.md`. Re-run without flag to execute.
+
+**Two plan artifacts, two executors — do not conflate them.** `ai/audit/plan.md` is this command's *own* artifact: a ranked P0–P4 closure-verb checklist in the audit format, validated by `validate-audit-artifacts.sh`, and executed by re-running this command without the flag. It is **not** the universal handoff format, and `/execute-plan` rejects it as malformed because it carries none of the eight canonical headers ([`templates/repo-baseline/.claude/commands/execute-plan.md`](../templates/repo-baseline/.claude/commands/execute-plan.md) § Mechanical halt).
+
+So when `--plan` (the universal alias, per [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md)) is passed instead of `--plan-only`, this phase writes **both** artifacts before stopping:
+
+1. `ai/audit/plan.md` — unchanged; exactly what `--plan-only` has always produced.
+2. `.claude/plans/audit-<short-slug>-<YYYYMMDD-HHmm>.md` — the eight-header handoff: `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Steps` / `## Constraints` / `## Verification` / `## Status`, plus the Plan ID. The tier order P0→P4 becomes `## Steps`; every finding's cited `<file:line>` site becomes `## Outputs`; the tier rules ("P0 lands sequentially", "every ranked impact is measured or explicitly estimated", "no fix outside the ranked set") become `## Constraints`; the project's lint / typecheck / test commands plus each P0/P1 finding's named failure-mode check become `## Verification`; the 8 axis subfiles plus the idioms oracle become `## Inputs`.
+
+Either spelling still stops here — no fix, no commit, no tier advance. What differs is only which executor can pick the run up: a re-run of this command for the ranked plan, `/execute-plan <file>` for the handoff file. Writing only the ranked plan under a universal-flag spelling is the defect this split exists to close — it advertised a handoff loop that could not complete.
 
 ### Phase 3a — Assessment short-circuit (`--assess`)
 
@@ -662,7 +671,7 @@ All internal. Just results.
 
 - `--target-rps=<N>` — target throughput (anchors P0 + P2 ranking).
 - `--target-p95=<ms>` — target latency.
-- `--plan-only` — scan + rank + write `ai/audit/plan.md` (ranked fix-plan); no fixes. For executor handoff. `--plan` is accepted as the universal-flag alias (see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md)).
+- `--plan-only` — scan + rank + write `ai/audit/plan.md` (ranked fix-plan); no fixes. Its executor is a re-run of this command. The universal `--plan` spelling is accepted as an alias and additionally writes the eight-header handoff file under `.claude/plans/` so `/execute-plan` can consume it — the ranked pack plan alone is not a valid handoff artifact. See § Phase 3 — Plan-only short-circuit and [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md).
 - `--assess` — scan + write `ai/audit/assessment.md` (8-section senior-engineer narrative); no plan, no fixes. For reader handoff. Mutually exclusive with `--plan-only`.
 - `--dry-run` — show what would be fixed, no edits.
 - `--strict` — forwarded to **`validate-audit-artifacts.sh`**: every P0/P1/P2 finding must cite `<file:line>` + a measured or explicitly-estimated impact; no hand-waves.

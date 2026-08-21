@@ -15,7 +15,21 @@
 #   [3] CLAUDE SURFACE   (live; skipped if ~/.claude absent): no ~/.claude/commands entry
 #                     resolves into templates/packs/ (a pack command leaked into global).
 #   [4] DOWNSTREAM       (live; skipped per absent tool): every repo-managed artifact in the
-#                     Kimi / Gemini / OpenCode GLOBAL dirs maps to a core command name.
+#                     Kimi / Qwen / Gemini / OpenCode / Codex GLOBAL dirs maps to a core
+#                     command name. All FIVE generated surfaces are scanned. Qwen and Codex
+#                     were unaudited here: Qwen because its artifacts carried no generation
+#                     marker at all (verbatim `cp`, so nothing to recognise) and Codex because
+#                     ~/.agents/skills was simply never added to the loop. Two of the six
+#                     surfaces could take a pack-command leak with nothing noticing.
+#   [5] SHIP INTEGRITY  (static, CI-safe): every helper a script in scripts/ sources is
+#                     present on disk (FAIL) and tracked in git (WARN). `git commit -a`
+#                     stages tracked modifications but never adds an untracked file, so a
+#                     newly extracted shared helper can be left behind while its consumers
+#                     ship — the three adapter scripts then die at the `.` line, exit 1,
+#                     before doing any work. Every other gate reads the working tree, where
+#                     the helper is present, so the suite stays green over a lane that is
+#                     broken on a fresh clone. This is the only check that looks at what
+#                     actually ships rather than at what is merely on disk.
 #
 # Exit codes: 0 ok / 1 scope violation.
 # Notes: bash 3.2 (macOS) compatible — no associative arrays, mapfile, or ${var,,}.
@@ -25,8 +39,16 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 KIMI_HOME="${KIMI_HOME:-$HOME/.kimi}"
+QWEN_HOME="${QWEN_HOME:-$HOME/.qwen}"
 GEMINI_HOME="${GEMINI_HOME:-$HOME/.gemini}"
 OPENCODE_HOME="${OPENCODE_HOME:-$HOME/.config/opencode}"
+# Codex's user-level Agent Skills live under ~/.agents, NOT ~/.codex.
+# Source: https://developers.openai.com/codex/skills (308 -> learn.chatgpt.com/docs/build-skills),
+# which lists discovery precedence $CWD/.agents/skills -> $REPO_ROOT/.agents/skills ->
+# $HOME/.agents/skills (user) -> /etc/codex/skills (admin), each skill being "a directory with a
+# SKILL.md file". Fetched 2026-08-21; URL recorded in codex/_version.json docs_urls. Cite the
+# vendor doc, not codex/adapter.md — an internal doc is not a source for a vendor path.
+CODEX_SKILLS_HOME="${CODEX_SKILLS_HOME:-$HOME/.agents}"
 
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-to-global.sh"
 CORE_DIR="$REPO_ROOT/commands"
@@ -115,7 +137,7 @@ else
 fi
 
 # ── [4] downstream global surfaces ──────────────────────────────────────────
-echo "[4] downstream global surfaces — repo-managed artifacts map to a core command"
+echo "[4] downstream global surfaces (Kimi / Qwen / Gemini / OpenCode / Codex) — repo-managed artifacts map to a core command"
 downstream_seen=0
 downstream_ok=1
 
@@ -149,6 +171,16 @@ if [ -d "$GEMINI_HOME/commands" ]; then
   done
 fi
 
+# Qwen: ~/.qwen/commands/<name>.md
+if [ -d "$QWEN_HOME/commands" ]; then
+  downstream_seen=1
+  for f in "$QWEN_HOME"/commands/*.md; do
+    [ -f "$f" ] || continue
+    has_mark "$f" || continue
+    flag_downstream "Qwen" "~/.qwen/commands/$(basename "$f")" "$(basename "$f" .md)"
+  done
+fi
+
 # OpenCode: ~/.config/opencode/commands/<name>.md
 if [ -d "$OPENCODE_HOME/commands" ]; then
   downstream_seen=1
@@ -159,6 +191,18 @@ if [ -d "$OPENCODE_HOME/commands" ]; then
   done
 fi
 
+# Codex: ~/.agents/skills/<name>/SKILL.md
+if [ -d "$CODEX_SKILLS_HOME/skills" ]; then
+  downstream_seen=1
+  for d in "$CODEX_SKILLS_HOME"/skills/*/; do
+    [ -d "$d" ] || continue
+    sf="${d%/}/SKILL.md"
+    [ -f "$sf" ] || continue
+    has_mark "$sf" || continue
+    flag_downstream "Codex" "~/.agents/skills/$(basename "$d")" "$(basename "$d")"
+  done
+fi
+
 if [ "$downstream_seen" -eq 0 ]; then
   echo "  skip — no downstream global tool dirs present"
   warns=$((warns + 1))
@@ -166,6 +210,65 @@ elif [ "$downstream_ok" -eq 1 ]; then
   echo "  ok — downstream global surfaces carry only core commands"
 fi
 
+# ── [5] ship integrity ──────────────────────────────────────────────────────
+# The sync lane is only as installable as the files that actually ship. When the shared
+# emitters were extracted out of sync-to-global.sh / apply-adapter-sync.sh /
+# audit-adapter-coverage.sh into one sourced helper, the three consumers were tracked
+# modifications but the helper was a NEW file — and `git commit -a` stages modifications
+# to tracked files while never adding an untracked one. The three scripts could therefore
+# land without their dependency and die at the `.` line, exit 1, before doing any work.
+# Nothing caught it: every other gate reads the working tree, where the untracked helper
+# is present, so the whole suite stayed green over a lane that was broken on a fresh clone.
+#
+# Two levels, because the two failure modes differ in certainty:
+#   FAIL — a sourced helper is absent from disk. Always wrong, and the invariant that
+#          keeps a rename or delete from silently decapitating its consumers.
+#   WARN — the helper is on disk but untracked (and not ignored). Correct in this working
+#          tree, broken for everyone who clones. Not a FAIL because the remedy is a git
+#          write, which the gate must never perform and CI cannot assume has happened yet.
+echo "[5] ship integrity — every helper the scripts source exists and is committed"
+ship_ok=1
+# `. "$VAR/path"` / `source "$VAR/path"`, where VAR is always a repo-root or script-dir
+# anchor resolved from BASH_SOURCE. Strip the keyword and the variable, keep the literal
+# tail, then resolve it against the repo root and against scripts/.
+src_refs="$(grep -hoE '^[[:space:]]*(\.|source)[[:space:]]+"\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/[^"]+"' \
+              "$REPO_ROOT"/scripts/*.sh 2>/dev/null \
+            | sed -E 's/^[[:space:]]*(\.|source)[[:space:]]+"//; s/^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?\///; s/"$//' \
+            | sort -u || true)"
+# Tracked-file lookups need a real git checkout; a tarball export or a vendored copy has
+# none, so the WARN half is skipped there rather than firing on every file.
+have_git=0
+if command -v git >/dev/null 2>&1 && git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  have_git=1
+fi
+for rel in $src_refs; do
+  [ -n "$rel" ] || continue
+  helper=""
+  for cand in "$REPO_ROOT/$rel" "$REPO_ROOT/scripts/$rel"; do
+    [ -f "$cand" ] && { helper="$cand"; break; }
+  done
+  if [ -z "$helper" ]; then
+    echo "  FAIL — sourced helper '$rel' is not on disk"
+    echo "         (every script that sources it dies at the '.' line, exit 1, before doing any work)"
+    ship_ok=0
+    fails=$((fails + 1))
+    continue
+  fi
+  [ "$have_git" -eq 1 ] || continue
+  path_rel="${helper#$REPO_ROOT/}"
+  git -C "$REPO_ROOT" ls-files --error-unmatch -- "$path_rel" >/dev/null 2>&1 && continue
+  # Ignored files are deliberately absent from the shipped set — not a ship defect.
+  git -C "$REPO_ROOT" check-ignore -q -- "$path_rel" 2>/dev/null && continue
+  echo "  WARN — $path_rel is sourced by a tracked script but is NOT tracked itself"
+  base_re="$(basename "$helper" | sed 's/[.[\*^$]/\\&/g')"
+  for consumer in $(grep -lE '^[[:space:]]*(\.|source)[[:space:]]+".*/'"$base_re"'"$' "$REPO_ROOT"/scripts/*.sh 2>/dev/null); do
+    echo "         consumer: scripts/$(basename "$consumer") — exit 1 on a fresh clone"
+  done
+  echo "         fix: git add $path_rel   (must be in the SAME commit as its consumers)"
+  ship_ok=0
+  warns=$((warns + 1))
+done
+[ "$ship_ok" -eq 1 ] && echo "  ok — every sourced helper is present and tracked"
 # ── summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo "global-scope: FAIL=$fails WARN=$warns"

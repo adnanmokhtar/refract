@@ -8,7 +8,8 @@
   "summary": "Hooks doc rewritten to the tool’s current native hook mechanism (2026-07 audit; see § Hooks + _registry H-column). Initial baseline.",
   "docs_urls": [
     "https://developers.openai.com/codex/guides/agents-md",
-    "https://agents.md"
+    "https://agents.md",
+    "https://developers.openai.com/codex/skills"
   ],
   "last_verified": "2026-04-28",
   "last_verified_hashes": {

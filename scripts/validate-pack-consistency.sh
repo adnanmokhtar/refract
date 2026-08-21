@@ -252,13 +252,16 @@ done
 #     per-pack loop because source resolution needs `_topics.md` and dangling-dispatch resolution
 #     needs every pack at once.
 #
-#     WHY THIS IS A GATE AND NOT A NOTE. `templates/phases/phase-4.2-apply.md:26` copies
-#     `_examples/<topic>.md` VERBATIM into a project when extraction has no signal for that topic;
-#     `:306` ("pack files are copied verbatim") and `:30` (same destination paths as COPY mode)
-#     mean the fallback IS the artifact the project receives — for greenfield, for --lightweight,
-#     and for every `[EXTRACTION-WEAK]` track that `phase-4.0-preflight.md:534` routes to COPY.
+#     WHY THIS IS A GATE AND NOT A NOTE. `templates/phases/phase-4.2-apply.md § 4.2-AUTHOR
+#     step 2` copies `_examples/<topic>.md` VERBATIM into a project when extraction has no signal
+#     for that topic; the "No-thinning rule" in that file's `§ Rules` ("pack files are copied
+#     verbatim") and its `§ 4.2-AUTHOR` Output line (same destination paths as COPY mode) mean the
+#     fallback IS the artifact the project receives — for greenfield, for --lightweight, and for
+#     every `[EXTRACTION-WEAK]` track that `phase-4.0-preflight.md § Minimum artifacts per
+#     LOAD-BEARING track` routes to COPY.
 #     287 of 297 examples are named as a live `fallback:` in a `_topics.md`. The pack-depth floor
-#     at `phase-4.0-preflight.md:206-225` does not reach them (its `find` predicates are keyed on
+#     (`phase-4.0-preflight.md` preflight check 6, per-kind no-thin-stub floor) does not reach
+#     them (its `find` predicates are keyed on
 #     `*/agents/*`, `*/commands/*`, `*/rules/*`, `*/skills/*/SKILL.md` — `_examples/` matches none,
 #     correctly, since 135 of 297 are under 100 lines). Nothing else measures them.
 #

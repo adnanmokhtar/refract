@@ -261,9 +261,29 @@ For each pack-added file (added by Phase 4.2 / 4.4 / 4.4b — i.e. files that ex
          grep -q "^## Project-specific" "$f" || { SHORTFALL="$SHORTFALL\n  $f: missing anchor block"; continue; }
 
          # Check 2 — anchor QUALITY (≥3 lines of project-specific content beyond the heading)
+         #
+         # THE FILTER IS `scripts/audit-anchoring.sh`'s, VERBATIM, AND MUST STAY THAT WAY.
+         # It used to be `grep -vE '^(##|>|\s*$|---)'` — which strips BLOCKQUOTES. Every
+         # content line of the block `scripts/apply-anchors.sh` injects is a `>` blockquote,
+         # so this counter scored the canonical round-one block **1** (→ "too thin" → 2
+         # auto-retries → HARD HALT) while `audit-anchoring.sh:186-195`, counting the same
+         # bytes without stripping `>`, scored it **7** → PASS. Two auditors, opposite
+         # verdicts on identical input: every deterministically-anchored file was
+         # simultaneously shippable and halt-worthy, and which verdict a run got depended
+         # only on which auditor it happened to reach. "Anchored" cannot mean anything until
+         # the two counters agree, so this one now defers to the script's.
          anchor_body_lines=$(extract_anchor_body "$f" \
-           | grep -vE '^(##|>|\s*$|---)' | wc -l)
+           | grep -vE '^[[:space:]]*$' \
+           | grep -vE '^[[:space:]]*<!--' \
+           | grep -vE '^[[:space:]]*>?[[:space:]]*[-*][[:space:]]*$' \
+           | grep -cE '[A-Za-z0-9]')
          [ "$anchor_body_lines" -lt 3 ] && SHORTFALL="$SHORTFALL\n  $f: anchor too thin ($anchor_body_lines lines; need ≥3 lines of project-specific content)"
+
+         # Check 2b — anchor SUBSTANCE. Passing check 2 on five `<not declared…>` lines is
+         # exactly the state `apply-anchors.sh` exit 3 reports (see Phase 4.6). Thinness and
+         # emptiness are different defects: a block can be seven lines long and say nothing.
+         grep -c '<not declared in codebase-profile.md>' "$f" 2>/dev/null | grep -qE '^[3-9]|^[0-9]{2}' \
+           && SHORTFALL="$SHORTFALL\n  $f: anchor is structurally present but semantically empty (≥3 facets '<not declared in codebase-profile.md>') — fix .claude/codebase-profile.md § Architecture/Naming/Testing/Data access/Error handling and re-run apply-anchors.sh"
 
          # Check 3 — identifier traceability (path-citing categories ONLY)
          if [ "$category" = "path-citing" ]; then
@@ -275,7 +295,12 @@ For each pack-added file (added by Phase 4.2 / 4.4 / 4.4b — i.e. files that ex
            # Each cited identifier must trace to extraction (cross-check with leak scan §5.3.5).
            for ident in $(extract_anchor_identifiers "$f"); do
              # Trace against whichever deep-extraction files exist (Fix C resolution — names drifted).
-             grep -qF "$ident" .claude/_extracted-codebase.md .claude/_codebase-scan.md .claude/codebase-profile.md .claude/_extracted-idioms.md 2>/dev/null \
+             # `_refine-extract.md` IS extraction. ANCHOR-DEEP exists to cite entities /
+             # flows / hot paths that live ONLY there (`apply-pack-adaptation § ANCHOR-DEEP`),
+             # so omitting it made every correct REFINE citation report as a cross-project
+             # leak — the audit accusing the run of the one thing it was doing right.
+             # `compute-anchor-density` already reads both; these two greps were the outliers.
+             grep -qF "$ident" .claude/_extracted-codebase.md .claude/_codebase-scan.md .claude/codebase-profile.md .claude/_extracted-idioms.md .claude/_refine-extract.md 2>/dev/null \
                || SHORTFALL="$SHORTFALL\n  $f: anchor cites '$ident' which is NOT in extraction (leak — re-run with extraction loaded)"
            done
          fi
@@ -353,7 +378,9 @@ LEAKS=""
 for f in $(find .claude/agents .claude/rules .claude/skills .claude/commands ai/patterns ai/conventions.md CLAUDE.md AGENTS.md -type f -name "*.md" 2>/dev/null); do
   # Check 1: concrete identifiers must trace to extraction
   for ident in $(extract_concrete_class_names_and_paths "$f"); do
-    if ! grep -qF "$ident" .claude/_extracted-codebase.md .claude/_extracted-idioms.md 2>/dev/null; then
+    # Same three-file set as §5.3.5 above, plus `_refine-extract.md` for the same reason:
+    # a REFINE-only identifier is extraction, not a leak.
+    if ! grep -qF "$ident" .claude/_extracted-codebase.md .claude/_extracted-idioms.md .claude/_refine-extract.md 2>/dev/null; then
       LEAKS="$LEAKS\n  $f: cites '$ident' which is not in this codebase's extraction"
     fi
   done

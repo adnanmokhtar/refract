@@ -42,16 +42,23 @@ screen: <screen-name>
 file: <component-path:line>
 canonical: <what the platform's spec says>
 divergence: <what this screen/element does differently>
-closure_verb: <one of the verbs below>
+closure_verb: <one of the closed vocabulary below — OMIT THIS KEY ENTIRELY on a routed observation>
+routed_to: <present INSTEAD of closure_verb on a routed observation: the rule, pack, or skill that owns the fix>
 risk: low | medium | high
 ```
+
+### The closure-verb vocabulary is closed
+
+`/polish` registers exactly five mobile-extra verbs on top of the frontend set: **`apply-platform-spec` · `unify-platform-icon` · `apply-platform-typography` · `add-haptic-feedback` · `respect-safe-area`** (`commands/polish.md` § mobile). A detector that wants a sixth does not get one. It either reuses an existing verb — because the *act* is the same — or it emits `routed_to:` and **no verb at all**. Inventing a verb does not produce a richer finding; it produces a finding whose verb nothing downstream can execute.
+
+Three detectors below are routed rather than closed here, and the reason is the scope line rather than bookkeeping. This skill owns **platform divergence** — the cases where iOS and Android genuinely disagree, which is a question the web has no analogue for. It does **not** own the usability and accessibility floor: that is the `ui-ux` pack's 16-axis catalog, co-run on every `mobile-*` `/polish` pass, and re-auditing it here under a near-identical name is the "seventeenth axis" failure, not extra coverage.
 
 ## The 10 detectors
 
 ### 1. ios-hig-drift
 
 **Fingerprint** (any one):
-- Touch targets < 44 × 44 pt.
+- Touch targets below the project's declared iOS minimum (see detector 3 — this is evidence for a routed ui-ux finding, not an axis this skill closes).
 - Navigation back chevron not on the leading edge.
 - System fonts (San Francisco) replaced by custom font without justification.
 - Tab bar items > 5 (HIG max).
@@ -65,7 +72,7 @@ risk: low | medium | high
 ### 2. material-spec-drift
 
 **Fingerprint** (any one):
-- Touch targets < 48 × 48 dp.
+- Touch targets below Android's recommended 48dp×48dp (see detector 3 — routed, not closed here).
 - Material 3 components replaced by custom equivalents without design system justification.
 - FAB (Floating Action Button) misplaced (Material 3 puts it bottom-right or bottom-center).
 - Bottom navigation has > 5 destinations (Material 3 max).
@@ -74,25 +81,39 @@ risk: low | medium | high
 
 **Closure verb**: `apply-platform-spec` (with `--platform=android`).
 
-### 3. touch-target-drift
+### 3. touch-target-drift — ROUTED, no verb
 
-**Fingerprint**: any tappable element below the minimum (iOS: 44×44 pt; Android: 48×48 dp). Often missed on icon-only buttons, table row chevrons, segmented controls.
+**This axis belongs to `ui-ux`, not to this skill.** `ui-ux/rules/ui-principles.md` owns the `tap-target` axis with the verb `expand-tap-target`, and `/polish` co-runs the ui-ux floor on every `mobile-*` pass. This detector exists only to carry the *platform-specific minimum* as evidence into that finding — it never emits its own verb, and a run that emits `expand-touch-target` is emitting a verb nothing downstream recognises.
 
-**Closure verb**: `expand-touch-target`.
+**Fingerprint**: any tappable element below the platform minimum. Commonly missed on icon-only buttons, row chevrons, and segmented controls.
+
+Cited minimums, so the routed finding carries evidence rather than an assertion:
+
+| Target | Minimum | Status |
+|---|---|---|
+| Android | "we recommend that each interactive UI element have a focusable area, or *touch target size*, of at least 48dp×48dp" | Primary-sourced: [Android accessibility](https://developer.android.com/guide/topics/ui/accessibility/apps) |
+| Any pointer target | "The size of the target for pointer inputs is at least 24 by 24 CSS pixels", Level AA, with five exceptions | Primary-sourced: [WCAG 2.2 SC 2.5.8](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) |
+| iOS | "Create controls that measure at least 44 points x 44 points so they can be accurately tapped with a finger" — published under a **Hit Targets** heading with a "44pt x 44pt minimum" graphic | Primary-sourced: [Apple design tips](https://developer.apple.com/design/tips/) (read 2026-08-21). Same figure `ui-ux/rules/ui-principles.md` encodes for the `tap-target` axis, and the same URL `agents/app-store-reviewer.md` § Sources and `rules/mobile-principles.md` [S3] cite. |
+
+**Emits**: `routed_to: ui-ux/rules/ui-principles.md § tap-target (verb: expand-tap-target)`. **No `closure_verb:` key.**
 
 ### 4. platform-icon-drift
 
-**Fingerprint**: project uses a single icon set (e.g., FontAwesome, Material Icons) across BOTH iOS and Android instead of per-platform sets (Cupertino on iOS, Material on Android).
+**Fingerprint**: the project's declared conventions call for per-platform icon sets (Cupertino on iOS, Material on Android) and a screen uses one set across both.
 
-**Detection**: scan icon imports; check whether per-platform branching exists.
+**This detector requires a declared convention.** A single cross-platform icon set is a legitimate, common, and often deliberate brand decision — not a spec violation. Neither platform's guidelines forbid it. So: if `_extracted-idioms.md § Mobile platforms` declares per-platform icons, drift from that declaration is a finding. If it declares a single set, a single set is **correct** and this detector emits nothing. If it declares nothing, emit a routed observation asking for the decision, not a verb.
 
-**Closure verb**: `unify-platform-icon` — adds per-platform icon resolution layer.
+**Detection**: scan icon imports; check whether per-platform branching exists; read the declared convention first.
+
+**Closure verb**: `unify-platform-icon` — adds a per-platform icon resolution layer. **Only when a per-platform convention is declared**; otherwise `routed_to: /setup-project --refine (declare the icon convention)`.
 
 ### 5. platform-typography-drift
 
-**Fingerprint**: typography uses a single font across platforms instead of system defaults (San Francisco on iOS, Roboto on Android).
+**Fingerprint**: the project's declared conventions call for platform system fonts and a screen ships a single custom font across both.
 
-**Closure verb**: `apply-platform-typography`.
+**Same qualification as detector 4.** Shipping one brand typeface on both platforms is a design decision, not a spec violation, and it is what most products with a design system actually do. The finding is *drift from the declared convention*, in either direction — a project that declared system fonts and ships a custom one, or a project that declared a brand typeface and has one screen falling back to the system default. Type **scale**, rhythm, and hierarchy are `ui-ux`'s axes and are not re-audited here.
+
+**Closure verb**: `apply-platform-typography` — **only when a system-font convention is declared**; otherwise `routed_to: /setup-project --refine (declare the typography convention)`.
 
 ### 6. per-platform-surface-drift
 
@@ -103,7 +124,7 @@ Examples:
 - Action sheet: iOS uses bottom sheet with cancel; Android uses bottom sheet without cancel.
 - Pull-to-refresh: iOS shows custom indicator above content; Android shows Material spinner.
 
-**Closure verb**: `add-per-platform-surface`.
+**Closure verb**: `apply-platform-spec` (with `--platform=<target>`, scope=surface). *Not* `add-per-platform-surface` — that verb is not in `/polish`'s registered vocabulary, and a finding carrying it cannot be executed.
 
 ### 7. haptic-feedback-coverage
 

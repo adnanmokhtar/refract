@@ -45,7 +45,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: extract-base-class-idiom
   kind: skill
-  triggers: { codebase_has_base_classes: true }
+  # Covers ALL FIVE Phase-2.5 idiom patterns via its `unit_kind` input (base-class /
+  # composable / wrapper / service / type-primitive), so the trigger is "has any
+  # load-bearing unit", not "has base classes". A composition-style frontend has no base
+  # classes and still needs this skill — that gap is what left `_extracted-idioms.md`
+  # § Composables / § Wrappers empty for every functional project.
+  triggers: { codebase_has_load_bearing_units: true }
   fallback: skills/extract-base-class-idiom/SKILL.md
 
 # REFINE-mode skills (round-two deep extraction). All gate on the --refine flag.
@@ -149,4 +154,4 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 Most topics here have lenient extraction needs — the agents/skills are project-aware via the `extracted-*` files but don't deeply customize per project. The `convention-drift-detector` and `pattern-emergence-watcher` ARE project-aware (they read project conventions to know what counts as drift / what counts as a recurring shape).
 
-The extractors themselves (`extract-codebase-overview`, `extract-business-context`, `extract-base-class-idiom`) are stable — they ship as-is. They're the engine, not engine output. Since pack v1.2.0 the engine enforces provenance discipline: every claim written to `_extracted-*` files carries `[found: <path:line>]` / `[inferred: <basis>]` / `[unconfirmed]` (business facets use the equivalent `[CONFIDENT]/[INFERRED]/[UNKNOWN]`), and the oracle files carry an `approved_by:`/`approved_hash:` human sign-off stamp checked by `/setup-project-health` check 9. Spec: `templates/phases/phase-2-profile.md § Provenance discipline` + `§ Oracle approval`.
+The extractors themselves (`extract-codebase-overview`, `extract-business-context`, `extract-base-class-idiom`) are stable — they ship as-is. They're the engine, not engine output. `extract-base-class-idiom` is parameterised by `unit_kind` and covers all five Phase-2.5 idiom patterns; there are no separate composable / wrapper / service extractors, and a spec that names one is naming a skill this pack does not contain. Since pack v1.2.0 the engine enforces provenance discipline: every claim written to `_extracted-*` files carries `[found: <path:line>]` / `[inferred: <basis>]` / `[unconfirmed]` (business facets use the equivalent `[CONFIDENT]/[INFERRED]/[UNKNOWN]`), and the oracle files carry an `approved_by:`/`approved_hash:` human sign-off stamp checked by `/setup-project-health` check 9. Spec: `templates/phases/phase-2-profile.md § Provenance discipline` + `§ Oracle approval`.

@@ -95,7 +95,19 @@ These four scripts are the deterministic-propagation contract. Each closes a spe
 | `apply-study-decisions.sh` | `templates/packs/<track>/` → `.claude/{agents,skills,commands,rules}/` + `ai/patterns/` | 4.2 | Agent skips pack copy |
 | `apply-baseline-sync.sh` | `templates/repo-baseline/{ai,/.claude}/` → `target/{ai,.claude}/` | 4.1 | Agent skips knowledge-layer + foundational-rules copy |
 | `apply-anchors.sh` | extraction → `## Project-specific` blocks IN pack-derived artifacts | 4.6 | Agent skips anchor injection (templates ship generic) |
+
 | `apply-adapter-sync.sh` | `.claude/{agents,skills,commands,rules}/` → `.opencode/`, `.cursor/`, `.github/`, `.clinerules/`, `.windsurf/`, `.continue/`, … | 4.8 | Agent translates 1-2 adapters and skips rest |
+
+**`apply-anchors.sh` exit 3 — injected, but empty.** The script builds every anchor block from five
+headings in `.claude/codebase-profile.md` (`phase-2-profile.md § Profile content` § Heading contract).
+If ZERO of the five resolve, the blocks it wrote are five `<not declared in codebase-profile.md>` lines
+with five identical `codebase-profile.md:1` citations — structurally present, semantically empty, and
+passing every presence check downstream. That is now exit **3**, distinct from exit 1 (nothing was
+written) precisely because the files WERE written: do not roll back, do not halt the run. Fix
+`codebase-profile.md` in Phase 2 and re-run `apply-anchors.sh --apply`; the marker check makes it
+idempotent. A partial shortfall (1-4 of 5 resolved) prints a counted WARN and exits 0. Phase 5's
+anchor audit re-checks the same condition (`phase-5-verify.md § 5.3` check 2b) so a swallowed exit 3
+is still caught at the gate.
 
 **Why all four are mandatory** — the standalone-tool guarantee (`commands/setup-project.md § Drop-in replacement principle`):
 
@@ -157,7 +169,7 @@ If preflight finds ANY ADD-CANDIDATE → the run is NOT idempotent → proceed t
 #### 4.0.2 Inputs (shared by 4.0.3 onwards)
 
 - Selected packs (Phase 2 detection + `--include`/`--exclude`).
-- Selected business-domains (Phase 2.4 + wizard answers).
+- Selected business-domains (Phase 2.x business-domain detection + wizard answers).
 - Selected technical signals → domain overlays (Phase 2 + Appendix B Relevance Filter).
 - Selected tool adapters (Phase 3.2 detection + `--tools`).
 - Mode (CREATE / ENHANCE / REFRESH).
@@ -424,10 +436,17 @@ ai/references/tool-parity.md
   - Root of workspace gets `workspace-baseline/` (orchestration-only: dispatcher agent, PROJECTS.md, cross-repo commands, workspace rules, workspace AGENTS.md as a thin index).
   - Workspace root does NOT get per-stack track agents / per-domain tooling / per-stack rules — those belong in each sub-project.
   - For EACH registered sub-project (see enumeration below), **recursively apply Phases 2 → 4** with cwd = sub-project path. Each sub-project gets its own stack detection, profile, track selection, domain tooling, tool adapters, and `ai/` knowledge base.
+- **Monorepo mode** (`repo_shape: monorepo` — several deployables inside ONE git repo, no member-declaring workspace manifest):
+  - **Do NOT recurse.** One git repo means one `.claude/`, one `ai/`, one `CLAUDE.md`, one commit. Scaffolding a `.claude/` per member here fragments a single team's config and produces N conflicting sources of truth for one repo.
+  - **Do NOT collapse to single either.** The members are real and their conventions differ. Everything member-shaped is split *inside* the shared artifacts: `.claude/codebase-profile.md § 17` carries one entry per member (Phase 2 fills fields 1–10 + 15 once per member), `ai/conventions.md` carries one row per member in its per-package matrix, `ai/stack.md` carries one Primary per member, and Phase 4.2 path-scopes each track's rules to that track's `track_roots` glob so one member's rules do not load while editing another's.
+  - Track selection is the **union** across members (a repo with a server member and a client member installs both track sets), but each track's rules are scoped to its own member root — that is what keeps the union from becoming pollution.
+  - The member list comes from the SAME enumeration table below. It is not workspace-only.
 
-**Sub-project enumeration** (happens at start of Phase 4.1 when shape=workspace):
+**Sub-project / member enumeration** — the member list for BOTH multi-member shapes:
+- `repo_shape: workspace` → members are sub-projects; each is recursed through Phases 2 → 4 (steps 1–6 below).
+- `repo_shape: monorepo` → members are packages inside one repo; only steps 1–3 below run (detect + select), and their output lands in the shared `codebase-profile.md § 17` instead of a per-member `.claude/`.
 
-Detect sub-projects from manifest(s) in this order:
+Phase 1 has already decided the shape and produced a candidate member list from its sub-manifest inventory; this table is how that list is expanded and confirmed. Detect members from manifest(s) in this order:
 | Source | Extract |
 |---|---|
 | `pnpm-workspace.yaml` | `packages:` glob list (e.g. `packages/*`, `apps/*`, `api`, `dashboard`). |
@@ -437,18 +456,25 @@ Detect sub-projects from manifest(s) in this order:
 | `nx.json` + `workspace.json` / `project.json` | Nx workspace — enumerate via `nx show projects`. |
 | `go.work` (Go) | `use` directives. |
 | `Cargo.toml` `[workspace]` `members` | Rust. |
-| Fallback: any dir with its own manifest (`package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `composer.json`) | Use these. |
-| Fallback: `PROJECTS.md` in workspace root lists siblings | Use table rows. |
+| **No member-declaring manifest at all** — any dir with its OWN manifest (`package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `composer.json`, `Gemfile`, `build.gradle`, `pom.xml`, `mix.exs`) | Use these. **This is the row that catches the most common real shape** — a server directory and a client directory side by side, or two checked-out repos under one parent folder, with no workspace tool anywhere. Search immediate subdirs plus one level under `apps/`, `packages/`, `services/`, `libs/`, `modules/`, `src/`. |
+| `PROJECTS.md` in workspace root lists siblings | Use table rows. |
 
-For each sub-project P in the enumeration:
-1. Filter out non-project dirs: `node_modules`, `dist`, `build`, `.git`, `.pnpm-store`, `target`.
+**These last two rows are not a long shot — they are the default for repos that never adopted a workspace tool.** They fire on the Phase 1 sub-manifest inventory, which runs on every setup, not only when a workspace manifest was found. A member list that is empty because no `pnpm-workspace.yaml` existed is a detection failure, not a `single`-shape repo.
+
+For each member P in the enumeration:
+1. Filter out non-project dirs: `node_modules`, `dist`, `build`, `out`, `.git`, `.pnpm-store`, `target`, `vendor`, `.venv`, `coverage`.
 2. Detect P's stack (same as Phase 2 detection, but scoped to P's directory).
-3. Select tracks + domain tooling for P's stack (NestJS backend vs Angular frontend get DIFFERENT track sets).
+3. Select tracks + domain tooling for P's stack — a server-framework member and a client-framework member get DIFFERENT track sets, and that difference is the whole point of enumerating.
+
+Steps 4–6 are **`repo_shape: workspace` only** (a `monorepo` stops after step 3 and records the result in the shared `codebase-profile.md § 17`):
+
 4. Scaffold P's own `.claude/` + `ai/` (repo-baseline copy).
 5. Apply tracks + domains + tool adapters in P's directory.
 6. P gets its own `CLAUDE.md` + `AGENTS.md` + `opencode.json` + `.cursor/rules/` etc. — not shared with siblings.
 
-**Never scaffold per-project content only at workspace root** when sub-projects exist. That's the bug this rule exists to prevent.
+**Never scaffold per-project content only at workspace root** when sub-projects exist. That's the bug this rule exists to prevent. Its `monorepo` twin: **never answer a member-shaped question with one repo-wide value** when several members exist — one blended convention set is wrong for every member and reads as measured.
+
+**Write the registry.** For `repo_shape: workspace`, if the root has no `PROJECTS.md`, emit one from `~/.claude/templates/workspace-baseline/PROJECTS.md.tpl` using the confirmed member list — one table row per member with its path, detected stack, and role. That file is the durable record of the enumeration: without it the member list exists only for the length of this run, and the next session re-derives it (or fails to). If a `PROJECTS.md` already exists, reconcile rather than overwrite — add missing members, and flag rows pointing at directories that are no longer on disk rather than deleting them silently.
 
 For the workspace-root `AGENTS.md` + `opencode.json` thin-anchor shapes, see Phase 4.8 § "Workspace root anchor shapes".
 

@@ -47,6 +47,18 @@
 set -euo pipefail
 export LC_ALL=C
 
+SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Shared emitters — the SAME file scripts/sync-to-global.sh sources. Supplies
+# emit_exec_body / yaml_scalar / cmd_description / opencode_classify_command_agent /
+# frontmatter_parse_error / emit_<tool>_*. Two lanes, one definition per artifact
+# shape: the global lane and this one used to generate the same shapes separately and
+# drift (opposite OpenCode `agent:` modes for /refine-prompt; working Codex and Gemini
+# generators here that this lane punted to an LLM instead of calling).
+# shellcheck source=scripts/_adapter-emit.sh
+. "$SCRIPT_ROOT/scripts/_adapter-emit.sh"
+# Artifacts written by THIS lane trace to the project's own .claude/, not to Refract.
+ADAPTER_EMIT_MARK_PREFIX="source: .claude/commands/"
+
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <target-repo> [--apply] [--strict] [--adapters=<list>]" >&2
   exit 2
@@ -188,12 +200,13 @@ reinject_frontmatter_agent_line() {
 }
 
 # Strip Claude-only command frontmatter fields (`kind:`, `pack:`, `allowed-tools:`) from a
-# translated .opencode/commands/ file. OpenCode command frontmatter is `description:` +
+# translated command file (.opencode/commands/ and .qwen/commands/ — both document
+# `description:`-shaped frontmatter and both read these as leaked Claude-isms). OpenCode command frontmatter is `description:` +
 # `agent:` (+ optional model/subtask); the orchestrator's `kind:`/`pack:` metadata and
 # Claude's `allowed-tools:` are meaningless there and read as leaked Claude-isms. Stripping
 # them on --apply keeps native files clean and stops the drift-compare from false-flagging a
 # hand-cleaned file forever. Frontmatter block only — the markdown body is never touched.
-opencode_strip_claude_command_fields() {
+strip_claude_command_fields() {
   local f="$1"
   [[ -f "$f" ]] || return 0
   local tmp; tmp=$(mktemp)
@@ -293,6 +306,11 @@ sync_file() {
   # as drift nor stripped on --apply.
   local oc_cmd=0
   [[ "$dst" == *"/.opencode/commands/"* ]] && oc_cmd=1
+  # Qwen command frontmatter is `description:` only (qwen/adapter.md § .qwen/commands/<name>.md),
+  # so the Claude-only orchestrator fields get the SAME strip OpenCode's do — and the same
+  # discount in the drift compare, or every cleaned file false-flags REFRESH forever.
+  local strip_claude=$oc_cmd
+  [[ "$dst" == *"/.qwen/commands/"* ]] && strip_claude=1
   # OpenCode AGENTS need contract frontmatter that diverges from `.claude`:
   # opencode_normalize_agent_frontmatter rewrites string-form `tools:` into a record,
   # injects `mode: subagent`, and maps `model:` shorthand to provider form on the dst
@@ -309,11 +327,11 @@ sync_file() {
     if [[ $APPLY -eq 1 ]]; then
       mkdir -p "$(dirname "$dst")"
       cp "$src" "$dst"
-      [[ $oc_cmd -eq 1 ]] && opencode_strip_claude_command_fields "$dst"
+      [[ $strip_claude -eq 1 ]] && strip_claude_command_fields "$dst"
     fi
     echo "    ADD       $(rel_to_target "$dst")"
     total_added=$((total_added + 1))
-  elif diff -q -B <(strip_for_compare "$dst" "$oc_cmd") <(strip_for_compare "$cmp_src" "$oc_cmd") >/dev/null 2>&1; then
+  elif diff -q -B <(strip_for_compare "$dst" "$strip_claude") <(strip_for_compare "$cmp_src" "$strip_claude") >/dev/null 2>&1; then
     # Bodies match once the injected EXECUTE NOW preamble (and, for OpenCode commands,
     # the load-bearing `agent:` field) plus blank-line noise is discounted — the dst
     # differs ONLY by intentional, contract-required additions. Not real drift.
@@ -332,7 +350,7 @@ sync_file() {
       cp "$dst" "$backup_dir/${dst#$TARGET/}"
       cp "$src" "$dst"
       # Strip Claude-only orchestrator fields so the translated OpenCode command stays clean.
-      [[ $oc_cmd -eq 1 ]] && opencode_strip_claude_command_fields "$dst"
+      [[ $strip_claude -eq 1 ]] && strip_claude_command_fields "$dst"
       # Re-inject extracted block + preamble + agent field (each a no-op if src already carries one OR empty).
       reinject_project_specific_block "$dst" "$block_tmp"
       reinject_injected_preamble "$dst" "$pre_tmp"
@@ -441,46 +459,31 @@ opencode_normalize_agent_frontmatter() {
   ' "$f" > "$tmp" && mv "$tmp" "$f"
 }
 
-# Deterministically classify an OpenCode command's `agent:` mode (build | plan) from the
-# .claude command SOURCE — replaces the old MISSING-AUTHOR punt so NO LLM authoring step is
-# needed for the common case. Precedence:
-#   1. an explicit `agent:` in the source frontmatter wins (author's declared choice);
-#   2. `allowed-tools:` introspection — a pure-read toolset (no write/edit/shell) → plan,
-#      anything that can write or shell → build;
-#   3. conservative read-only NAME tokens (audit/scan/review/lint/… → plan);
-#   4. default → build.
-# The asymmetry is deliberate: mislabeling an action command `plan` BREAKS it (OpenCode's
-# Plan mode blocks its writes/shell — the "I would do X" symptom), whereas an over-permissioned
-# `build` on a read-only command is harmless. So `plan` is assigned only on a high-confidence
-# read-only signal; everything else defaults to build.
-opencode_classify_command_agent() {
-  local f="$1"
-  # 1. explicit agent: in source frontmatter wins.
-  local explicit
-  explicit=$(awk '
-    NR==1 && /^---[[:space:]]*$/ { fm=1; next }
-    fm && /^---[[:space:]]*$/    { exit }
-    fm && /^agent:[[:space:]]*/  { sub(/^agent:[[:space:]]*/,""); gsub(/[[:space:]]+$/,""); print; exit }
-  ' "$f")
-  if [[ "$explicit" == "build" || "$explicit" == "plan" ]]; then printf '%s' "$explicit"; return; fi
-  # 2. allowed-tools introspection.
-  local at
-  at=$(awk '
-    NR==1 && /^---[[:space:]]*$/        { fm=1; next }
-    fm && /^---[[:space:]]*$/           { exit }
-    fm && /^allowed-tools:[[:space:]]/  { print }
-  ' "$f")
-  if [[ -n "$at" ]]; then
-    if printf '%s' "$at" | grep -qiE 'write|edit|multiedit|notebookedit|bash|execute'; then printf 'build'; else printf 'plan'; fi
-    return
-  fi
-  # 3. conservative read-only name tokens.
-  local base; base=$(basename "$f" .md)
-  if printf '%s' "$base" | grep -qiE '(^|-)(audit|scan|review|lint|inspect|analyze|status|health|diff|trace|map)(-|$)|^check-|-check$'; then
-    printf 'plan'; return
-  fi
-  # 4. default: action command.
-  printf 'build'
+# opencode_classify_command_agent lives in scripts/_adapter-emit.sh — sourced above and
+# shared with the GLOBAL lane. It used to be defined here AND, differently, in
+# sync-to-global.sh: this lane classified /refine-prompt `build` (it writes
+# ai/prompts/<YYYYMMDD>-<slug>.md) while the global lane's hard-coded list pinned it
+# `plan`, the one mode that blocks its write. One definition, so the same command cannot
+# be classified two ways again.
+
+# Write a generated artifact through sync_file, so a derived file still gets the backup,
+# drift-compare and project-specific-block preservation a 1:1 copy gets. $1 = generator
+# command line (evaluated), $2 = destination.
+sync_generated() {  # $1 = emitter function, $2 = destination, $3.. = emitter args
+  local gen="$1" dst="$2"; shift 2
+  local tmp; tmp=$(mktemp)
+  "$gen" "$@" > "$tmp"
+  sync_file "$tmp" "$dst"
+  rm -f "$tmp"
+}
+
+# True when a command name also names a skill in .claude/skills/. Both would write the
+# SAME <adapter>/skills/<name>/SKILL.md, so the on-disk file can match only ONE source
+# and the other false-flags drift forever. The skill owns the path (it is the reference
+# procedure); the command keeps whatever secondary surface that adapter has.
+command_name_collides_with_skill() {
+  local name="$1"
+  [[ -f "$TARGET/.claude/skills/$name.md" || -f "$TARGET/.claude/skills/$name/SKILL.md" ]]
 }
 
 sync_opencode() {
@@ -529,11 +532,16 @@ sync_cursor() {
   # Commands are skills-first: PRIMARY = .cursor/skills/<name>/SKILL.md (LLM-authored — needs a
   # `name:` field the source command lacks); fallback = .cursor/commands/<name>.md (1:1 mirror,
   # still works, on Cursor's slash-command→Skills deprecation path).
+  # The PRIMARY surface is generated, not punted. This lane used to write the DEPRECATED
+  # .cursor/commands/ mirror deterministically and MISSING-AUTHOR the .cursor/skills/
+  # surface that cursor/adapter.md marks PRIMARY — backwards. The `name:` field the source
+  # command lacks is exactly what emit_command_skill supplies.
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
     name=$(basename "$f" .md)
     sync_file "$f" "$TARGET/.cursor/commands/$name.md"
-    [[ -f "$TARGET/.cursor/skills/$name/SKILL.md" ]] || report_missing_author "cursor-command-skill" ".cursor/skills/$name/SKILL.md" "command→native Skill (PRIMARY) with name/description frontmatter — run /setup-project-adapters"
+    if command_name_collides_with_skill "$name"; then continue; fi
+    sync_generated emit_command_skill "$TARGET/.cursor/skills/$name/SKILL.md" "$f" "$name" ""
   done
   # Agents → cursor commands (Cursor has no agent dispatch; agent-<name>.md prefix).
   for f in "$TARGET"/.claude/agents/*.md; do
@@ -612,11 +620,14 @@ sync_cline() {
   # Commands are skills-first: PRIMARY = .cline/skills/<name>/SKILL.md (LLM-authored — needs a
   # `name:` field the source command lacks); fallback = .clinerules/workflows/<name>.md (1:1 mirror,
   # still works, on Cline's workflows→Skills deprecation path — the workflows docs page now 404s).
+  # PRIMARY surface generated (see the cursor note above — same inversion, same fix).
+  # .clinerules/workflows/ stays as the graded fallback mirror; its docs page now 404s.
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
     name=$(basename "$f" .md)
     sync_file "$f" "$TARGET/.clinerules/workflows/$name.md"
-    [[ -f "$TARGET/.cline/skills/$name/SKILL.md" ]] || report_missing_author "cline-command-skill" ".cline/skills/$name/SKILL.md" "command→native Skill (PRIMARY) with name/description frontmatter — run /setup-project-adapters"
+    if command_name_collides_with_skill "$name"; then continue; fi
+    sync_generated emit_command_skill "$TARGET/.cline/skills/$name/SKILL.md" "$f" "$name" ""
   done
   # Reference skills → .cline/skills/<name>/SKILL.md (NATIVE folder copy).
   for skill_dir in "$TARGET"/.claude/skills/*/; do
@@ -733,17 +744,33 @@ sync_codex() {
   # Codex consumes AGENTS.md + AGENTS.override.md; both are composites.
   [[ -f "$TARGET/AGENTS.md" ]]          || report_missing_author "agents-md" "AGENTS.md" "cross-tool composite; run /setup-project-adapters"
   [[ -f "$TARGET/AGENTS.override.md" ]] || echo "    (info: AGENTS.override.md is optional; only present if codex-specific rules diverge from AGENTS.md)"
-  # Commands + skills translate to NATIVE Agent Skills (primary surface); AGENTS.md prose is fallback.
+  # Commands + skills translate to NATIVE Agent Skills (primary surface); AGENTS.md prose
+  # is fallback. These were MISSING-AUTHOR rows — an LLM round-trip on every /setup-project
+  # for a shape scripts/sync-to-global.sh already generated correctly one directory over.
+  # Same generator now, so the global surface and every project get identical bytes.
+  # (codex/adapter.md § Agent Skills: `name` required [a-z0-9-]{1,64}, `description`
+  # required 1-1024 chars, body is the workflow prose.)
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
     name=$(basename "$f" .md)
-    [[ -f "$TARGET/.agents/skills/$name/SKILL.md" ]] || report_missing_author "codex-agent-skill" ".agents/skills/$name/SKILL.md" "command→native Agent Skill with EXECUTE NOW body — run /setup-project-adapters"
+    if command_name_collides_with_skill "$name"; then continue; fi
+    sync_generated emit_codex_skill "$TARGET/.agents/skills/$name/SKILL.md" "$f" "$name" ""
   done
+  # Reference skills are NOT command-derived: they are supposed to load as documentation,
+  # so they get a 1:1 copy with NO preamble. Copy deterministically, then flag only the
+  # real gap — a source SKILL.md with no `name:` is not a valid Agent Skill.
   for skill_dir in "$TARGET"/.claude/skills/*/; do
     [[ -d "$skill_dir" ]] || continue
     name=$(basename "$skill_dir")
     [[ -f "$skill_dir/SKILL.md" ]] || continue
-    [[ -f "$TARGET/.agents/skills/$name/SKILL.md" ]] || report_missing_author "codex-agent-skill" ".agents/skills/$name/SKILL.md" "skill→native Agent Skill — run /setup-project-adapters"
+    sync_file "$skill_dir/SKILL.md" "$TARGET/.agents/skills/$name/SKILL.md"
+    grep -q '^name:' "$skill_dir/SKILL.md" || report_missing_author "codex-skill-name" ".agents/skills/$name/SKILL.md" "source SKILL.md has no 'name:' — required by the Agent Skills schema; add it to .claude/skills/$name/SKILL.md"
+  done
+  for f in "$TARGET"/.claude/skills/*.md; do
+    [[ -f "$f" ]] || continue
+    name=$(basename "$f" .md)
+    sync_file "$f" "$TARGET/.agents/skills/$name/SKILL.md"
+    grep -q '^name:' "$f" || report_missing_author "codex-skill-name" ".agents/skills/$name/SKILL.md" "source skill has no 'name:' — required by the Agent Skills schema; add it to .claude/skills/$name.md"
   done
   # Hooks → native .codex/hooks.json (or [hooks] in .codex/config.toml; events PreToolUse/PostToolUse/…; /hooks trust model). Format conversion.
   report_hooks_missing "codex-hooks" ".codex/hooks.json" "translate .claude/hooks/*.sh → Codex .codex/hooks.json (per-tool payload shim; user must trust via /hooks) — run /setup-project-adapters"
@@ -752,11 +779,14 @@ sync_codex() {
 sync_gemini() {
   echo "  [gemini]"
   [[ -f "$TARGET/GEMINI.md" ]] || report_missing_author "gemini-md" "GEMINI.md" "single-file composite; run /setup-project-adapters"
-  # Commands translate to NATIVE TOML custom commands (primary surface); GEMINI.md prose is fallback.
+  # Commands translate to NATIVE TOML custom commands (primary surface); GEMINI.md prose
+  # is fallback. Deterministic — the global lane's TOML generator, shared, not re-punted
+  # to an LLM. `description` + `prompt` are the two documented keys (gemini/adapter.md
+  # § Commands); the body carries the EXECUTE NOW preamble and {{args}}.
   for f in "$TARGET"/.claude/commands/*.md; do
     [[ -f "$f" ]] || continue
     name=$(basename "$f" .md)
-    [[ -f "$TARGET/.gemini/commands/$name.toml" ]] || report_missing_author "gemini-toml-command" ".gemini/commands/$name.toml" "command→native TOML (prompt=\"\"\"# EXECUTE NOW ... {{args}}\"\"\") — run /setup-project-adapters"
+    sync_generated emit_gemini_toml "$TARGET/.gemini/commands/$name.toml" "$f" "$name" ""
   done
   # Hooks → native .gemini/settings.json "hooks" block (events BeforeTool/AfterTool/…; timeouts in MS). Format conversion.
   report_hooks_missing "gemini-hooks" ".gemini/settings.json" "translate .claude/hooks/*.sh → Gemini .gemini/settings.json hooks block (ms timeouts, per-tool payload shim) — run /setup-project-adapters"
@@ -870,25 +900,45 @@ if [[ -d "$TARGET/.claude/skills" ]]; then
 fi
 
 # ── Malformed-frontmatter guard ─────────────────────────────────────────────
-# A command/skill whose frontmatter opens with `---` but is never closed by a
-# second `---` is malformed: Claude Code can't parse its name/description, AND
-# reinject_injected_preamble loops in the frontmatter state and SILENTLY DROPS
-# the EXECUTE NOW preamble on --apply (root cause of an observed kimi command-skill
-# corruption — a historical pipeline left 24 such commands in a real target). Warn
-# loudly so the SOURCE frontmatter is repaired (add the closing ---). Non-fatal.
+# Frontmatter that does not PARSE is malformed, and "parses" is not the same as
+# "has two fences". The old guard counted `---` fences only. It could not see the
+# defect that actually shipped: a description containing an unquoted colon-space
+# (`Anti-triggers (do NOT fire): a plain "implement X"`) makes YAML read the rest of
+# the value as a nested mapping, so the whole block fails in every target tool while
+# both fences sit there looking correct. This now runs a real parser where one exists
+# and a narrower structural check where none does, and it says which ran.
+#
+# Two failure modes, both non-fatal (warn so the SOURCE is repaired):
+#   - unterminated fence — reinject_injected_preamble loops in the frontmatter state
+#     and SILENTLY DROPS the EXECUTE NOW preamble on --apply (root cause of an observed
+#     kimi command-skill corruption; a historical pipeline left 24 such commands in a
+#     real target);
+#   - unparseable YAML — name/description are unreadable in every translated copy.
 total_bad_fm=0
+fm_engine="$(frontmatter_check_engine)"
+FM_SHOW_MAX=10
 while IFS= read -r f; do
   [[ -f "$f" ]] || continue
-  # Opening fence on line 1 but NO closing fence within the frontmatter region (first
-  # 25 lines) = unterminated. Counting fences (not field shapes) tolerates valid YAML
-  # list/nested values like `tools:\n  - Bash`. A body `---` rule sits well past line 25.
-  head -1 "$f" 2>/dev/null | grep -qx -- '---' || continue
-  if [[ "$(head -25 "$f" 2>/dev/null | grep -cx -- '---')" -lt 2 ]]; then
-    echo "  WARN  malformed frontmatter (opening --- never closed): ${f#$TARGET/} — breaks name/description parsing AND drops the EXECUTE NOW preamble on --apply; add the closing ---"
+  fm_err="$(frontmatter_parse_error "$f")"
+  if [[ -n "$fm_err" ]]; then
     total_bad_fm=$((total_bad_fm + 1))
+    if [[ $total_bad_fm -le $FM_SHOW_MAX ]]; then
+      echo "  WARN  frontmatter does not parse: ${f#$TARGET/}"
+      echo "        $fm_err"
+    fi
   fi
-done < <( { ls "$TARGET"/.claude/commands/*.md 2>/dev/null; find "$TARGET"/.claude/skills -name '*.md' 2>/dev/null; } )
-if [[ $total_bad_fm -gt 0 ]]; then echo ""; fi
+done < <( { ls "$TARGET"/.claude/commands/*.md 2>/dev/null; find "$TARGET"/.claude/skills -name '*.md' 2>/dev/null; find "$TARGET"/.claude/agents -name '*.md' 2>/dev/null; find "$TARGET"/.claude/rules -name '*.md' 2>/dev/null; } )
+if [[ $total_bad_fm -gt 0 ]]; then
+  [[ $total_bad_fm -gt $FM_SHOW_MAX ]] && echo "  WARN  ... and $((total_bad_fm - FM_SHOW_MAX)) more (list capped at $FM_SHOW_MAX)"
+  echo "        Every one of these is copied 1:1 into tools that parse YAML strictly (qwen commands,"
+  echo "        cursor commands, copilot prompts, windsurf/cline workflows) — name/description are"
+  echo "        unreadable there, and an unterminated fence also drops the EXECUTE NOW preamble on"
+  echo "        --apply. Repair the SOURCE: single-quote the value. Generated artifacts are already"
+  echo "        safe (the emitters quote), so this is about the 1:1 copy paths only."
+  echo "        (checked with: $fm_engine)"
+  [[ "$fm_engine" == "structural-fallback" ]] && echo "        NOTE: no YAML parser on this box — the structural check is NARROWER than a parse and can miss classes it does not model."
+  echo ""
+fi
 
 for adapter in $SELECTED_ADAPTERS; do
   case "$adapter" in

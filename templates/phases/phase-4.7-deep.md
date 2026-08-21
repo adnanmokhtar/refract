@@ -19,12 +19,30 @@ imported-by: templates/phases/phase-4-apply.md
 |---|---|---|
 | `ai/architecture.md` | Phase 2 import-edge summary, layer pattern detection | + Phase 2.8 layer diagram, bounded-context boundaries, 3-5 representative request lifecycles with `file:line` |
 | `ai/business-domain.md` | Phase 2.x business-domain detection | + Phase 2.7 entity list with invariants, lifecycle events, relationships |
-| `ai/conventions.md` | Phase 2 detected conventions (file-naming, suffix matrix, base classes) | + Phase 2.10 emergent conventions (error shape, pagination shape, transaction-boundary, async-work naming) |
+| `ai/conventions.md` | Phase 2 detected conventions (file-naming, suffix matrix, base classes) **+ any `[CONTESTED: <A> n/N, <B> m/N]` rows from `_extracted-codebase.md § Conventions`** | + Phase 2.10 emergent conventions (error shape, pagination shape, transaction-boundary, async-work naming) **+ `contested_conventions` from `_refine-extract.md § Conventions (emergent)`, written into a named `## Unsettled conventions` section — see below** |
 | `ai/business-flows.md` *(default destination for `_refine-extract.md` § Flows)* | Phase 4.4b `business-domains/<detected>/core-flows.md` (round-one P0/P1/P2 catalog) | + Phase 2.9 deep traces: enrich each matching flow's `Happy path` / `Invariants` / `Failure modes` with `file:function:line` steps, per-step side effects, error paths (`raised_at` / `caught_at`), idempotency mechanism, and transaction boundary from `_refine-extract.md` § Flows. A traced flow with no round-one match is appended as a new catalog entry. |
 | `ai/runbooks/<flow>.md` *(secondary, opt-in via `--refine --include-runbooks`)* | n/a | + Phase 2.9 full flow narrations (the operational long-form; `ai/business-flows.md` stays the always-on default target) |
-| `ai/patterns/parallel-io.md` *(baseline stub — `repo-baseline/ai/patterns/parallel-io.md`; enriched in place when present, NEW-FILE if a run somehow lacks it)* | Phase 2 Step 15 concurrency primitives | + Phase 2.11 hot paths that should use parallel I/O — with current sequential-await citations |
+| `ai/patterns/parallel-io.md` *(baseline stub — `repo-baseline/ai/patterns/parallel-io.md`; enriched in place when present, NEW-FILE if a run somehow lacks it)* | `codebase-profile.md` § concurrency primitives (`phase-2-profile.md § Profile content` field 15 — the detection greps live there; there is no "Step 15" of `extract-codebase-overview`, whose Step 15 is quality verification) | + Phase 2.11 hot paths that should use parallel I/O — with current sequential-await citations |
 | `ai/failures/<theme>.md` *(new files)* | n/a (didn't exist round-one unless user authored) | + Phase 2.12 recurring failure themes — one file per theme, with affected files + commit refs + root-cause family + prevention guidance |
 | `ai/runbooks/<flow>.md` *(only when explicitly opted-in via `--refine --include-runbooks`)* | n/a | + Phase 2.9 flow narrations |
+
+**`## Unsettled conventions` — the section that stops an agent "fixing" correct code.** `extract-conventions-emerging` has emitted `contested_conventions` (category + both options + occurrence counts + a sample citation each) since it shipped, and round one now emits the same shape as `[CONTESTED: …]` rows. Until this row consumed them, grep proved that emitter had **zero** consumers: a 60/40 split was extracted, counted, cited — and then dropped, while `ai/conventions.md` stated the 60% option as the project's convention. That is worse than not extracting it, because the artifact now carries a rule true of 60% of the codebase with the authority of a measured one, and the next agent applies it to the other 40%.
+
+Write each contested category as its own row under `## Unsettled conventions`, inside the enrichment markers:
+
+```markdown
+## Unsettled conventions
+> These are NOT rules. Each is a live split in this codebase, with counts. Follow the
+> convention already used by the file you are editing; do not migrate one to the other as a
+> side effect of unrelated work. Resolving a split is a deliberate decision — record it as
+> an ADR in `ai/decisions/`, then this section loses a row.
+
+| Category | Option A (count, sample) | Option B (count, sample) | Observation |
+|---|---|---|---|
+| <category> | `<A>` — <n>, `<path:line>` | `<B>` — <m>, `<path:line>` | <e.g. "A concentrated in modules last touched >12mo ago; B in the last quarter" — evidence only, no recommendation invented> |
+```
+
+A category may NOT appear both here and as a settled rule in the same file — that is the averaging bug wearing two hats. If it is contested, the contested row is the only entry it gets.
 
 **Boundaries**:
 - Each `ai/` file gets a `<!-- refine-enriched:start -->` ... `<!-- refine-enriched:end -->` block injected near the relevant section. Outside these markers stays untouched.

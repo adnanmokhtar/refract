@@ -55,7 +55,7 @@ Each axis scores 0–25. Total = 0–100.
 | 5 | 22 |
 | ≥ 6 | 25 |
 
-**Verification**: cross-check every cited identifier against `_extracted-codebase.md` § Identifiers OR `_refine-extract.md` (any section). If the artifact cites an identifier that's not in extraction, the artifact is hallucinating — DEDUCT 5 per ghost identifier.
+**Verification**: cross-check every cited identifier against `_extracted-codebase.md` (any section — `## Modules` / `## Base classes` / `## Data model` / `## API surface` are where identifiers live; there is no `## Identifiers` section, see `extract-codebase-overview § Step 14`) OR `_refine-extract.md` (any section). If the artifact cites an identifier that's not in extraction, the artifact is hallucinating — DEDUCT 5 per ghost identifier.
 
 ### Axis 2: Path density
 
@@ -141,8 +141,8 @@ The verdict is **always one of three classes — never a single binary** "platea
 
 | Verdict | Conditions | Per-artifact tag | Run-level message | User action |
 |---|---|---|---|---|
-| **PLATEAU-DEEP** | `plateau_delta ≤ 2` AND `plateau_consumed ≥ 0.85` AND `avg_score ≥ 80` | `LEAVE-DEEP-IDEMPOTENT` | "Plateau reached (DEEP) — setup is anchored." | Stop running `--refine` until significant new code lands. |
-| **PLATEAU-WEAK** | `plateau_delta ≤ 2` AND (`plateau_consumed < 0.85` OR `avg_score < 80`) | `LEAVE-DEEP-IDEMPOTENT` (with `weak_phases:` list in row) | "Plateau reached (WEAK) — setup is NOT yet anchored deeply. <N> phases produced WEAK output: <list>." | Grow upstream signal first, then re-run `--refine`. |
+| **PLATEAU-DEEP** | `plateau_delta ≤ 2` AND `plateau_consumed ≥ 0.85` AND `avg_score ≥ 80` AND no `[SAMPLED]` section survives in `_extracted-codebase.md` (unless a human recorded `coverage-accepted:`) | `LEAVE-DEEP-IDEMPOTENT` | "Plateau reached (DEEP) — setup is anchored." | Stop running `--refine` until significant new code lands. |
+| **PLATEAU-WEAK** | `plateau_delta ≤ 2` AND (`plateau_consumed < 0.85` OR `avg_score < 80` OR a `[SAMPLED]` section survives) — carries `reason: signal \| score \| coverage` | `LEAVE-DEEP-IDEMPOTENT` (with `weak_phases:` list in row) | "Plateau reached (WEAK) — setup is NOT yet anchored deeply. <N> phases produced WEAK output: <list>." | Grow upstream signal first, then re-run `--refine`. |
 | **NOT-PLATEAU** | `plateau_delta > 2` OR no prior baseline | (none) | (no plateau message) | Re-running `--refine` would still climb. Run again if score < 70 average. |
 
 ### The PLATEAU-WEAK action map
@@ -157,6 +157,8 @@ When the verdict is `PLATEAU-WEAK`, the run-level message MUST list each WEAK ex
 | Phase 2.10 (conventions) | Let conventions emerge across more files (need 5+ recurrences). |
 | Phase 2.11 (hot paths) | Add monitoring config / Datadog dashboard / git churn signal. |
 | Phase 2.12 (failures) | Accumulate more git history (need ≥30 commits) OR opt into `--include-incidents=<path>`. |
+
+**Two of the three WEAK reasons are not in that table, and giving them its advice is wrong.** The table above is the `reason: signal` remediation. `reason: score` means the substrate WAS consumed (`plateau_consumed ≥ 0.85`) and the artifacts still failed to anchor — the generators are at fault, not the codebase, and telling the user to write more models is a wild-goose chase. `reason: coverage` means round-one only READ part of the source (`[SAMPLED]` markers survive): the instruction is **raise coverage** — re-run without `--lightweight`, or raise the per-category sample in `extract-codebase-overview § Step 8` — which is the opposite of "grow the codebase", since the code is already there and simply was not read. `compute-anchor-density § Step 7` emits the `reason` field; this map is what a consumer prints for exactly one of its three values.
 
 ### Why this matters
 

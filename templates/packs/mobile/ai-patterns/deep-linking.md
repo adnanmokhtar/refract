@@ -127,7 +127,7 @@ Deep link from a new email mentions a feature that didn't exist in v1.0. App is 
 | Android scheme | `adb shell am start -W -a android.intent.action.VIEW -d "myapp://orders/123" com.example.app` |
 | Android App Link | `adb shell am start -W -a android.intent.action.VIEW -d "https://example.com/orders/123"` |
 | Push (Expo) | `expo push --to <token> --data '{"screen":"OrderDetails","params":{"id":"123"}}'` |
-| Push (FCM) | `curl -X POST https://fcm.googleapis.com/fcm/send -H "Authorization: key=$KEY" -d '{"to":"<token>","data":{...}}'` |
+| Push (FCM) | `curl -X POST "https://fcm.googleapis.com/v1/projects/<project-id>/messages:send" -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" -d '{"message":{"token":"<token>","data":{...}}}'` — HTTP v1 with an OAuth access token ([send a message](https://firebase.google.com/docs/cloud-messaging/send/v1-api)). The legacy `/fcm/send` endpoint with `Authorization: key=<server-key>` is retired; a test script still using it is a finding, not a working test. |
 
 For each, test from cold start, warm start, foreground.
 
@@ -147,3 +147,5 @@ For each, test from cold start, warm start, foreground.
 ## Related
 
 - `push-notifications.md` (owns the push lifecycle; its tap handlers extract the payload and hand it to THIS pattern's route resolver — never navigate from the notification handler)
+- `app-lifecycle.md` — a cold-start deep link races the navigator's readiness; that pattern owns what is ready when.
+- `device-harness` (skill) — opens every row of the route table above on a real device instead of reading it off the config.

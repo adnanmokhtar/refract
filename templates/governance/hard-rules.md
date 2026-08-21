@@ -204,7 +204,7 @@ The first three answer *what to read* + *what "clean" means*; the fourth (Karpat
 
 ### A23 — V1→V2 migration first-class
 **Why:** the two most common migration failures are silent behavioural drift and scope creep. The `migration` pack prevents both.
-**How to apply:** Phase 2 Step 16 detects `migration_layout_detected`; Phase 4.0 ships ledger + parity tooling; Phase 4.6 anchors to the project's V1/V2 roots and cutover mechanism. Greenfield without V1 evidence skips unless `--include=migration`.
+**How to apply:** Phase 2 detects `migration_layout_detected` (`phase-2-profile.md § Profile content` field 16 — a profile field, not a step of `extract-codebase-overview`, which has 15 steps and no Step 16); Phase 4.0 ships ledger + parity tooling; Phase 4.6 anchors to the project's V1/V2 roots and cutover mechanism. Greenfield without V1 evidence skips unless `--include=migration`.
 
 ### A24 — Canonical 7-phase command structure
 See `templates/canonical-command-template.md`. Deviations require explicit documentation.

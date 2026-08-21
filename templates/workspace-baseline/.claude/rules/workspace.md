@@ -15,7 +15,7 @@ Apply when Claude is rooted at the workspace parent directory.
 The workspace baseline ships these workspace-level commands (in `.claude/commands/`). They are documented here — this rule is the workspace baseline's command index (the main `docs/COMMANDS.md` covers the project-level `/setup-project` surface, not these):
 
 - `/project-map` — dump the workspace registry or locate a concept across sibling repos.
-- `/sync-contract` — after an API contract change, find frontend consumers and propose synced edits.
+- `/sync-contract` — after an API contract change, derive the diff from the producer repo, classify each field additive-or-breaking, enumerate consumers across every registered sibling, and propose synced edits. Reports, never applies.
 - `/cross-repo-task` — orchestrate a feature spanning multiple sibling repos: contract-first, dependency-ordered, end-to-end verified (producer ships first + backward-compatible; consumers follow).
 - `/migration-doctor` — find real ledger / artifact issues across the workspace's per-repo migration ledgers; every finding cites `<repo>/<ledger-row>` or `<repo>/<artifact-path>` (no hand-waves).
 - `/migration-workspace-status` — aggregate per-repo migration ledgers into a workspace-level status report; read-only.
@@ -34,7 +34,15 @@ The workspace baseline ships these workspace-level commands (in `.claude/command
 
 - **Write the contract before any consumer code.** The exact shape of each changed boundary — path + method + request + response + error envelope, or the shared type / schema — is defined and approved first. Every repo codes against that artifact, never a paraphrase or a remembered shape.
 - **Classify every contract change `additive` or `breaking`.** A breaking change to a contract consumed by a repo not in scope halts — version it (new endpoint / `/v2`) or widen scope. Never silently change a shape a third repo depends on; grep the workspace for all consumers first.
-- **Verify the consumer against the producer's shipped shape**, not the spec on paper — generated/checked types, a real call, or a contract test. A green consumer build alone doesn't prove the shapes match.
+- **Verify the consumer against the producer's shipped shape**, not the spec on paper — generated/checked types, a real call, or a contract test. A green consumer build alone doesn't prove the shapes match: a hand-written client type compiles happily against a field the producer stopped sending. When no such mechanism exists, the change is `unverified` — report that state rather than implying a check that never ran.
+
+**Tooling for the two halves of this seam** — each present only when its pack is installed in the repo you are standing in:
+
+- `/sync-contract` (here, workspace level) — the fan-out: one producer change → every registered consumer.
+- `@api-contract-sentry` (*frontend pack*, inside a consumer repo) — the deep local walk for ONE consumer: every affected client, generated type, store, and page with `<path:line>`.
+- `api-contract.md § Evolution rules` (*backend pack*, inside the producer repo) — the additive-vs-breaking classification both of the above defer to.
+
+None is a hard dependency. Absent, the rules above still stand and the work is manual — grep every consumer for the endpoint path, the type name, and the field name, and list what you found. **The same three rules apply inside a single repo** that holds both a producer and a consumer package: `ai/conventions.md § Cross-stack contract verification` carries them there, because a fullstack repo has this seam without the repo boundary that makes it visible.
 
 ## Sequencing
 
