@@ -18,13 +18,61 @@ native format of every AI coding tool on your machine.
 
 ---
 
-## The problem
+## What goes wrong when you code with an agent
 
-You use Claude Code. Then you try Cursor. Then Gemini CLI ships something interesting, a teammate
-swears by OpenCode, and your CI box only has Aider. Every one of them wants your conventions,
-your commands, and your project context — in its own bespoke format.
+Five failure modes, and the command that exists for each. If none of these are familiar, you
+probably don't need this.
+
+### "It reinvented something we already have."
+
+You have a `Button`. The agent writes a new one. You have a design token for that grey. It hardcodes
+`#6b7280`. You have an error boundary. It writes a `catch {}` that swallows the error silently.
+
+Nothing is *broken*, so nothing fails CI — the codebase just gets a little less coherent every week.
+
+**→ `/align`** finds where the code drifted from conventions the project already has, and snaps it
+back. It is deliberately not allowed to invent new conventions; that is a different job.
+
+### "Something's wrong with this codebase, but I don't know what."
+
+Is it the architecture? The queries? A missing index? An auth hole? Bundle size? You would have to
+run five different audits and then decide which findings actually matter.
+
+**→ `/audit`** scans eight axes in one pass — architecture, SOLID, security, database and runtime
+performance, scalability, infrastructure, observability — then ranks everything by
+*impact at your target scale × blast radius × fix cost*, so you fix the five that matter instead of
+the ninety that don't.
+
+### "This project is 70% finished and I've lost the map."
+
+Half-wired features. Functions that `return null // TODO`. A settings page that saves to nothing. A
+create flow with no delete. You know there is work left; you cannot see its shape.
+
+**→ `/roadmap`** runs six detectors — stubs, dangling wires, feature asymmetry, spec delta, domain
+table-stakes and dead-end flows —, then orders what is left into dependency-aware phases. It is
+read-only until you ask it to build.
+
+### "The agent has no taste, and no memory of ours."
+
+Every session starts from zero. It does not know your layering rules, why you chose that queue, or
+which module is load-bearing.
+
+**→ `/setup-project`** reads the codebase and writes that knowledge down — conventions, entities,
+architecture, hot paths, past failures — as files the agent loads every session. **23 role-based
+packs** supply the expertise (backend, security, database, frontend, ui-ux, and 18 more) rather than
+one generic prompt.
+
+### "I set all this up. Then I opened Cursor."
+
+Then Gemini CLI ships something interesting, a teammate swears by OpenCode, and your CI box only has
+Aider. Every one of them wants your conventions in its own bespoke format.
 
 So you copy-paste. Then the copies drift. Then you stop maintaining eleven of them.
+
+**→ This is the part no other setup solves.** Refract keeps one source of truth and compiles it into
+each tool's native format.
+
+> Don't know which command you want? **`/do "the sidebar feels cramped"`** picks one for you.
 
 ## The idea
 
