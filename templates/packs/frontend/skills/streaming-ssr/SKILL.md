@@ -11,6 +11,22 @@ Slow SSR blocks TTFB on the slowest thing the page awaits. If a route `await`s a
 
 `ssr-audit` checks SSR *correctness* (hydration mismatches). This skill checks SSR *speed* — it turns `bundle-perf`'s open question "is hydration streaming?" into a real detector + fix. Every finding cites the blocking call at `<file:line>` + its observed/measured latency + the proposed boundary + the expected TTFB delta. A streaming recommendation without the cited blocking call is a halt.
 
+## Adapt to the codebase
+
+Mirror the streaming primitive the project already has; never introduce a second one. Detect the framework + its render entry before proposing a boundary.
+
+| Stack | Streaming boundary primitive | Segment-level shell | Un-awaited / deferred data |
+|---|---|---|---|
+| **Next (App Router)** | `<Suspense fallback>` around the slow subtree | `loading.tsx` beside the segment (auto-wraps in Suspense) | pass the un-awaited promise down; `use()` in the child |
+| **Nuxt** | `<Suspense>` / `<NuxtIsland>` / `.server.vue` | `<NuxtLoadingIndicator>` + page-level fallback | `useLazyFetch` / `useFetch(url, { lazy: true })` |
+| **SvelteKit** | `{#await}` in `+page.svelte` | `+layout.svelte` shell renders first | return an **un-awaited** promise from `load` |
+| **Remix / React Router** | `<Await>` + `<Suspense>` | route-level `HydrateFallback` | un-awaited promise in the loader return |
+| **Angular (SSR)** | `@defer` blocks / `@placeholder` | route-level shell component | `resource()` / deferred `HttpClient` call |
+| **Astro** | `server:defer` island + slot fallback | static shell is the default | island resolves after the shell flushes |
+| **Plain React SSR** | `<Suspense>` + `renderToPipeableStream` (`onShellReady`) | shell = everything outside the boundary | promise passed to a `use()` child |
+
+If the render entry (`renderToString` vs `renderToPipeableStream` vs the framework's own server) is not extracted, halt: the fix differs per entry and a boundary added to a buffering renderer changes nothing.
+
 ## Scans for
 
 ### 1. Whole-page await before first byte
@@ -66,16 +82,23 @@ GOOD (edge/web): renderToReadableStream(<App/>, { … });        // returns a st
 
 `renderToString` is the blocking baseline — flag it in any hand-rolled SSR entry; propose the streaming variant (`onShellReady` flushes the shell, `onAllReady` for crawlers/SSG).
 
-### 5. Partial Prerendering candidate (Next 15)
+### 5. Cache Components / partial-prerender candidate (Next 16+)
 
-A route marked fully dynamic (`export const dynamic = 'force-dynamic'`) that has a large static header/footer is a PPR candidate: the static shell prerenders + serves instantly, and only the dynamic holes (anything reading `cookies()` / `headers()` / `searchParams`) stream.
+A route marked fully dynamic (`export const dynamic = 'force-dynamic'`) that has a large static header/footer is a partial-prerender candidate: the static shell prerenders + serves instantly, and only the dynamic holes (anything reading `cookies()` / `headers()` / `searchParams`) stream.
+
+**Read the installed major before emitting anything — this skill runs against repos on both, and the enable line is not the same line:**
 
 ```
-Enable: export const experimental_ppr = true;   // + experimental: { ppr: 'incremental' } in next.config
-Wrap each dynamic hole in <Suspense>.
+Next 16+ : cacheComponents: true in next.config.ts, then mark the cacheable shell with the
+           "use cache" directive; wrap each dynamic hole in <Suspense>.
+Next 15  : export const experimental_ppr = true (+ experimental: { ppr: 'incremental' }).
+           BOTH were REMOVED in Next 16 — the config flag and the route-level export.
+           Emitting either against a 16+ project produces a build failure, not a warning.
 ```
 
-Flag `dynamic = 'force-dynamic'` routes with a large static region as `report-flagged` (PPR is a config + boundary decision).
+Source: the Next.js 16 release notes list `experimental.ppr` and `export const experimental_ppr` in the Removals table, replaced by the Cache Components model (nextjs.org/blog/next-16, published 2025-10-21).
+
+Flag `dynamic = 'force-dynamic'` routes with a large static region as `report-flagged` — the enable is a config + boundary decision, not a mechanical edit.
 
 ## Output
 
@@ -115,4 +138,15 @@ Findings: 2
 - Halt on any streaming recommendation that doesn't cite the blocking call at `<file:line>` + its observed/measured latency.
 - Halt if the proposed boundary would stream above-the-fold / LCP content (defers LCP) — re-scope to secondary regions.
 - Halt if a redirect/auth gate sits behind the proposed streamed shell — resolve it before the flush.
-- Halt if "enable PPR" is proposed without naming which subtrees become the dynamic (Suspense-wrapped) holes.
+- Halt if "enable partial prerendering / Cache Components" is proposed without naming which subtrees become the dynamic (Suspense-wrapped) holes.
+- Halt if the enable line is emitted without reading the framework major from `package.json` — `experimental_ppr` against Next 16+ is a removed API, and a reference that emits a deleted API is worse than no reference.
+
+## Related
+
+- `ssr-audit` — the correctness sibling: it owns hydration mismatches, this skill owns TTFB. A route that streams a mismatched shell is that skill's finding, not this one's.
+- `lcp-audit` — a streamed boundary must never contain the LCP element, and its fallback must reserve the box; hand LCP-priority findings there.
+- `navigation-speed` — owns prefetch / bfcache / instant-loading on the *client* navigation path; this skill owns the server's first byte.
+- `rendering-strategy.md` (ai-pattern) — decides whether the route is server-rendered at all; this skill only places the boundary inside a route that already is.
+- `code-splitting.md` (ai-pattern) — the JS axis of the same page; a streamed region whose chunk is eagerly bundled still blocks the main thread.
+- `.claude/rules/frontend-principles.md` — the "server-rendered routes MUST stream the shell" MUST this skill enforces.
+- Cross-pack (`performance`, when co-installed): `web-vitals-field` measures whether the TTFB win actually reached users.

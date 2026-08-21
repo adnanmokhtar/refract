@@ -145,3 +145,4 @@ Detect the project's boundary primitive and error sink first; route every fix th
 - `bundle-analyze.md` / `navigation-speed.md` — lazy chunk-load failures that a boundary must catch.
 - `@data-flow-auditor` — referees query-error ownership (throw-to-boundary vs inline error state).
 - cross-pack `observability` / error-tracking — the single error sink every boundary reports to; mirror it, never add a second.
+- `auth-session-client.md` — a failed token refresh is an expected error with a defined destination (teardown + the login route), not a boundary crash; route it there rather than letting it surface as an unhandled throw.

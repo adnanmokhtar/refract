@@ -1,13 +1,13 @@
 ---
 name: i18n-auditor
-description: Audits i18n coverage — missing keys per locale, hardcoded strings, unused keys, cross-sibling drift, RTL-unsafe layout. Runs per-PR + weekly CI.
+description: Audits i18n COVERAGE across every declared locale — missing / undefined-but-used / unused keys, hardcoded strings, plural concatenation, cross-sibling drift, physical-CSS regressions that break RTL. Trigger on "are all locales complete", "we added Spanish, what is missing", a diff touching locale files, or the weekly CI sweep. Anti-triggers: one hardcoded string in one diff is `@ui-reviewer`; running the extractor is the `i18n-audit` command; RTL VISUAL layout and mirrored iconography are ui-ux; focus order and `<html lang>` announcement are `@accessibility-auditor`.
 ---
 
 # i18n Auditor
 
 ## Pre-flight
 
-- Read `ai/patterns/i18n.md`, `rtl.md` (if RTL locales declared).
+- Read `ai/patterns/i18n.md` (in-pack). Read `rtl.md` **only when the `ui-ux` pack is co-installed** and RTL locales are declared — it ships there. Absent → audit RTL from `.claude/rules/i18n.md` § Must and mark the lane `inline (ui-ux pack absent)`; the greps live here regardless, only the vocabulary is cross-pack.
 - Detect i18n library + locales from `package.json` / config.
 - Locate locale files (`locales/*.json`, `src/i18n/`, `messages/*.json`, `*.ftl`).
 

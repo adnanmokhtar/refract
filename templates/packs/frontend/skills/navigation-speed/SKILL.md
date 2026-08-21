@@ -110,6 +110,19 @@ Shared element: view-transition-name: hero-<id>;
 
 Always gate motion behind `@media (prefers-reduced-motion: reduce)`. Flag a shared-element transition with no `view-transition-name`, or a `startViewTransition` that wraps an async data fetch (it should wrap the DOM update only, after data is ready).
 
+### 8. Soft navigation that never announces itself (focus + live region)
+
+A client-side navigation swaps the DOM without a document load, so **the screen reader says nothing and focus stays on a link that no longer exists**. The user hears silence, then lands mid-document with no idea the page changed. Every lever above makes navigation faster; this one makes it perceivable. It is the a11y consequence of the mechanism this skill owns, which is why the detector lives here — `@accessibility-auditor` grades conformance, this scan finds the missing wiring.
+
+```
+BAD:  router.push('/orders')            // that is the whole handler; nothing else happens
+GOOD: after the route resolves, move focus to the new view's <h1> (tabindex="-1" + .focus()),
+      OR announce the new document title through ONE app-shell live region:
+      <p aria-live="polite" class="sr-only">{routeAnnouncement}</p>
+```
+
+Grep: `rg -n 'aria-live|role="status"|\.focus\(\)' <app-source-root>` (pass only directories that exist — ripgrep exits 2 on a missing path, which reads like "no findings" if you only check the output) — zero hits in a project that ships a client router is the finding. Then check the opposite failure: **one** live region in the app shell, not one per view (N regions announce N times, or fight each other). Carve-out: a router that already ships route announcement (some do) — cite the router's mechanism and `dismiss`.
+
 ## Prefetch primitive per framework
 
 | Framework | Prefetch primitive | Default | Disable / tune |
@@ -167,6 +180,7 @@ Findings: 3
 
 ## Halt conditions
 
+- Halt if detector 8 is reported as PASS without naming either the focus target or the live region at `<file:line>` — "the router handles it" is a claim, and the claim is checkable.
 - Halt on hand-waves: every prefetch / bfcache / reload / loading-UI finding cites `<file:line>` + the matched pattern + a concrete fix. "Could prefetch more" without a link is not a finding.
 - Halt if a bfcache-ineligible claim isn't backed by either the grepped `unload`/`beforeunload` line OR a Lighthouse `bf-cache` audit reason.
 - Halt if Speculation Rules are proposed without excluding side-effecting GETs (logout/delete) from the `prerender` set.

@@ -51,7 +51,9 @@ Everything else — loading/empty/error state shape, lazy-load wrapper, i18n key
 
 ### Intent gate
 
-If description suggests a different intent, halt with redirect: "enhance / improve / polish / cleaner" → `/enhance-ui`. "fix / broken / wrong" → `/fix-bug`. "audit / review" → `/design-review`. Proceed only for adding a new page.
+If description suggests a different intent, halt with redirect: "enhance / improve / polish / cleaner" → `/enhance-ui` *(ui-ux pack)*. "fix / broken / wrong" → `/fix-bug` (core). "audit / review" → `/design-review` *(ui-ux pack)*, or this pack's `/a11y-audit` / `/i18n-audit` when the ask names that axis. Proceed only for adding a new page.
+
+**A redirect must land somewhere.** Both ui-ux destinations exist only when that pack is co-installed — check first, and if it is absent offer `/polish` (core) for visual finish and `/audit` (core) for read-only review instead of halting into a command the project does not have.
 
 ### Standard inputs
 
@@ -67,10 +69,13 @@ If description suggests a different intent, halt with redirect: "enhance / impro
 
 ## Phase 3 — Retrieve
 
-ALWAYS:
-- `CLAUDE.md` — framework + repo conventions.
-- `ai/conventions.md` — naming, file structure.
-- `ai/patterns/` — page pattern, data-fetching pattern, i18n pattern.
+ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
+
+**MUST read** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) before generating code.
+
+Page-specific (signal-based, on top of the universal block):
+- `ai/patterns/` — the page pattern, `data-fetching.md`, `i18n.md`, and `rendering-strategy.md` for this route's strategy.
+- `references/<framework>.md` — routing + metadata primitives for the detected framework.
 
 Detect framework:
 - `app/` directory with `page.tsx` → Next.js App Router.
@@ -96,11 +101,11 @@ Generate:
 
 Fast-by-default (mirror siblings; framework specifics → `references/<framework>.md`):
 - An instant, layout-stable loading state (no CLS) — skeleton mirroring the loaded shape, NOT a spinner or blank.
-- Primary inbound nav links to this route prefetch via the framework primitive (mirror siblings; see `navigation-speed.md`).
-- If the route is SSR and its above-the-fold does NOT depend on a slow query, slow regions stream behind a Suspense/await boundary (see `streaming-ssr.md`).
-- If the route has a hero / above-the-fold LCP image, set the framework priority hint (see `lcp-audit.md`).
-- If the route is public / indexable, generate its metadata via the project's own primitive (`generateMetadata` / `useSeoMeta` / `<svelte:head>` / `Title`+`Meta`): unique title + description, self-referencing canonical, OG/Twitter, and page-appropriate JSON-LD; localized routes add reciprocal `hreflang`. Mirror how sibling routes do it (see `seo-audit.md`). A public route that is CSR-only is a rendering-strategy fix first.
-- Content images use the framework image component — modern format, `srcset`/`sizes`, explicit `width`/`height` (no CLS), lazy below the fold (see `image-optimization.md`); a new / critical web font sets `font-display` + is self-hosted (see `font-optimization.md`).
+- Primary inbound nav links to this route prefetch via the framework primitive (mirror siblings; the `navigation-speed` skill owns the audit).
+- If the route is SSR and its above-the-fold does NOT depend on a slow query, slow regions stream behind a Suspense/await boundary (the `streaming-ssr` skill owns the boundary placement).
+- If the route has a hero / above-the-fold LCP image, set the framework priority hint (the `lcp-audit` skill owns the detectors).
+- If the route is public / indexable, generate its metadata via the project's own primitive (`generateMetadata` / `useSeoMeta` / `<svelte:head>` / `Title`+`Meta`): unique title + description, self-referencing canonical, OG/Twitter, and page-appropriate JSON-LD; localized routes add reciprocal `hreflang`. Mirror how sibling routes do it (the `seo-audit` skill owns the sweep; `@technical-seo` owns the judgment calls). A public route that is CSR-only is a rendering-strategy fix first.
+- Content images use the framework image component — modern format, `srcset`/`sizes`, explicit `width`/`height` (no CLS), lazy below the fold (the `image-optimization` skill); a new / critical web font sets `font-display` + is self-hosted (the `font-optimization` skill).
 
 ### Sibling-shape mechanical halt (mandatory, all tiers)
 

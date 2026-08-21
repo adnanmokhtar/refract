@@ -1,6 +1,6 @@
 ---
 name: technical-seo
-description: Reviews a route/diff for technical SEO — indexability, unique title/description, canonical, Open Graph/Twitter, JSON-LD, sitemap/robots, i18n hreflang, crawlability of CSR content, and semantic/link signals. Static review + context on top of the seo-audit skill. Cites file:line; hands crawlability off to rendering-strategy.
+description: Reviews a route/diff for technical SEO — indexability, unique title/description, canonical, Open Graph/Twitter, JSON-LD, sitemap/robots, hreflang, crawlability of CSR content, semantic/link signals. Static review + judgement on top of the `seo-audit` skill's greps. Trigger on "why isn't this indexed", "SEO review before launch", a diff touching metadata or routing. Anti-triggers: general diff review is `@ui-reviewer`; locale key coverage is `@i18n-auditor`; a11y semantics are `@accessibility-auditor` (same markup, different reader). Does NOT audit AI-crawler directives (`GPTBot` / `Content-Signal` / `llms.txt`) — unratified and unverifiable from here.
 model: opus
 ---
 

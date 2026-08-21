@@ -1,6 +1,6 @@
 ---
 name: bug-investigator
-description: Traces bugs across layers. Finds ROOT CAUSE — not the symptom. Produces call chain, fix plan, and similar-bugs scan. Used by /fix-bug.
+description: Traces an OBSERVED backend failure to its ROOT CAUSE across layers, then greps for the siblings of that same root cause. Produces one-sentence root cause, an annotated call chain, why the tests missed it, a similar-bugs scan, a minimal fix plan with a regression test, and the observability gap that let it stay silent. Trigger on a stack trace, a failing test, a `500`, a wrong value in the database, "works on my machine", an intermittent or load-only failure, or /fix-bug's investigate phase. Anti-triggers (do NOT fire): designing something that does not exist yet (@api-architect); reviewing a diff for latent defects with nothing yet failing (@api-reviewer); executing the calls that reproduce a symptom (@endpoint-tester or the endpoint-test skill); slowness with no incorrect behaviour, which is the performance pack; and "make it work" with no symptom, trace, log line, or reproduction to anchor on — that is a feature request, and this agent refuses it rather than guessing.
 model: opus
 ---
 
@@ -56,6 +56,14 @@ The investigation that says "it's likely a race condition" without a stack trace
 - Retry double-processed?
 - Queue consumer at-least-once'd?
 
+### Config drift ("works on my machine" / works in one environment only)
+Whenever the symptom is environment-shaped — passes locally and fails in CI or staging, appeared right after a branch pull or a deploy, or the failure is a `undefined`/`nil` where a configured value should be — run `env-diff` BEFORE reading further code. It compares the live env file against the example and the env schema and reports three classes, keys only, never values:
+- **missing** — declared in the example/schema, absent from the live env → the boot-time or first-use failure.
+- **orphan** — present in the live env, absent from the example → dead config, or a key someone renamed on one side only.
+- **unvalidated** — present but absent from the env schema → it never fails fast; it fails deep, as a `undefined` three layers in, which is exactly the shape that produces this bug category.
+
+A clean `env-diff` rules the branch out in under a minute; a dirty one usually IS the root cause. Never print values — they are secrets, and the finding is the key name plus which file it is missing from.
+
 ## Common bug categories
 
 ### Missing error handling
@@ -86,7 +94,7 @@ Simple query scanning millions.
 Stale data after a write that didn't invalidate.
 
 ### Config drift
-Env var missing / wrong across environments.
+Env var missing, orphaned, or unvalidated across environments — run the `env-diff` skill first (see Evidence gathering § Config drift).
 
 ### Deploy ordering
 New code expects migration that ran AFTER deploy.
@@ -213,15 +221,16 @@ Upstream timeouts were silently swallowed. No alert, no dashboard signal.
 
 ## Related
 
-### Sibling agents in backend pack
-- `@api-architect` — sibling agent in backend pack
-- `@api-reviewer` — sibling agent in backend pack
-- `@endpoint-tester` — sibling agent in backend pack
-- `@websocket-engineer` — sibling agent in backend pack
+### Sibling agents in backend pack — the boundary
+- `@api-reviewer` — hunts LATENT defects in a diff where nothing has failed yet. You start from something that already failed. Its findings are predictions; yours are explanations, and yours must cite the trace, log line, or failing test that proves the failure happened.
+- `@endpoint-tester` — reproduces the symptom on the wire. You consume its result as evidence; you do not fire the calls yourself. If the symptom cannot be reproduced, say so and investigate from logs and state rather than inventing a repro.
+- `@api-architect` — owns the redesign when the root cause is "the shape is wrong". Your fix plan stays MINIMAL; a root cause that can only be fixed by re-drawing a boundary is an escalation to that agent, with the fix plan naming the interim containment.
+- `@websocket-engineer` — owns failures of long-lived connections (reconnect storms, missed replays, slow-consumer memory growth). Hand over once the failing unit is a connection rather than a request.
 
 ### Skills
 - `log-tail` — pulls the correlation-scoped / error log flow that anchors the root cause (see Evidence gathering).
 - `debug-tenant` — inspects tenant-scoped state for the missing-tenant-filter / cross-tenant bug category.
+- `env-diff` — the config-drift branch of the "works on my machine" search: missing / orphan / unvalidated env keys, keys only, never values.
 - `endpoint-test` — reproduces the failing request against the running route to confirm the symptom before and after the fix.
 
 ### Patterns

@@ -19,7 +19,7 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 
 - Layered architecture: HTTP/webhook/CLI adapter → service / use-case → repository. Each layer crosses one boundary.
 - Adapters validate every input with a schema (`zod`, `class-validator`, `pydantic`, `marshmallow`, `go-playground/validator`). Internal calls trust types; boundaries don't.
-- Validate untrusted input at ONE boundary before use-case logic: `decode → validate → normalize → authorize` (canonicalize AFTER validate, never before). Bind writes through an explicit writable-field allow-list (`whitelist` / `.strict()` / `permit(...)`) — server-set fields (`id`, `role`, `tenant_id`, `ownerId`, `price`) never come from the body. Bound every string / array / number (`@MaxLength` / `@ArrayMaxSize` / `@Min`/`@Max`, nesting depth). Enforce a `Content-Type` allow-list + max body size before parsing (`415` / `413`). On failure emit a structured `422` field-error map with stable machine codes (envelope owned by `error-handling`). See `ai/patterns/request-validation.md`. (SEC-01)
+- Validate untrusted input at ONE boundary before use-case logic: `decode → validate → normalize → authorize` (canonicalize AFTER validate, never before). Bind writes through an explicit writable-field allow-list (`whitelist` / `.strict()` / `permit(...)`) — server-set fields (`id`, `role`, `tenant_id`, `ownerId`, `price`) never come from the body. Bound every string / array / number (`@MaxLength` / `@ArrayMaxSize` / `@Min`/`@Max`, nesting depth). Enforce a `Content-Type` allow-list + max body size before parsing (`415` / `413 Content Too Large` — RFC 9110 §15.5.14 renamed it from "Payload Too Large"). On failure emit a structured `422` field-error map with stable machine codes (envelope owned by `error-handling`). See `ai/patterns/request-validation.md`. (SEC-01)
 - Services own business logic AND transaction boundaries. Repositories own queries. Controllers own HTTP shape.
 - Domain / core code imports nothing framework-specific (no `Request`, no `Reply`, no `Session`). Easy unit testing follows for free.
 - Auth on every endpoint by default. Public endpoints are explicitly marked + reviewed.
@@ -31,7 +31,7 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Content negotiation: reject an unsupported request `Content-Type` with `415 Unsupported Media Type`, an unacceptable `Accept` with `406 Not Acceptable`, and set `Vary` on any content-negotiated or auth-varied response so caches don't serve the wrong representation.
 - Idempotency keys on every external retry boundary: webhooks, queue consumers, payment attempts. Receiver dedupes via unique constraint.
 - Stored replay required — persist `(key → response_status + response_body)` atomically with the side effect and replay that stored response on retry. Accepting the `Idempotency-Key` header without storing+replaying is non-compliant (a second call with the same key must NOT re-execute the side effect). The persisted-key table schema + replay-state machine live in the **distributed-systems** pack (its `idempotency` pattern — not shipped in the backend pack); this is the one-line backend floor. (API-7)
-- Rate-limit every unauthenticated and every expensive endpoint (search / export / report / bulk / upload / LLM-proxy); return `429 Too Many Requests` (RFC 6585) with `Retry-After` (RFC 9110 §10.2.3 — seconds or HTTP-date) + `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` headers (IETF `draft-ietf-httpapi-ratelimit-headers` — a draft, prefer the unprefixed form over legacy `X-RateLimit-*`). Counters live in a shared store, never process memory. See `ai/patterns/rate-limiting.md`. (RES-1)
+- Rate-limit every unauthenticated and every expensive endpoint (search / export / report / bulk / upload / LLM-proxy); return `429 Too Many Requests` (RFC 6585) with `Retry-After` (RFC 9110 §10.2.3 — seconds or HTTP-date) + the two quota fields `RateLimit-Policy: "default";q=100;w=60` and `RateLimit: "default";r=0;t=30` (IETF `draft-ietf-httpapi-ratelimit-headers` — still an Internet-Draft, NOT an RFC). The `RateLimit-Limit` / `-Remaining` / `-Reset` triple is draft-05 legacy and vendor `X-RateLimit-*` is still shipped reality — emit the two-field form AND whichever legacy set your clients read, until they migrate. Counters live in a shared store, never process memory. See `ai/patterns/rate-limiting.md`. (RES-1)
 - Parameterized queries always. Soft-delete + tenant filters applied at the repository layer for raw queries that bypass the base repo.
 - Structured logs (JSON in prod) with correlation ID propagated through every layer + downstream call.
 - Config validated on boot — fail fast if a required env var is missing or malformed (`zod.parse(process.env)` / pydantic settings).
@@ -50,12 +50,12 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - Trust headers like `X-User-Id`, `X-Tenant-Id` from the public internet. Derive identity from authenticated session / JWT only.
 - Log secrets, tokens, full PII. Mask or hash.
 - Accept tenant ID in request bodies — derive from authenticated context (AsyncLocalStorage / request scope).
-- Store request-scoped or per-user state in process memory / module-level mutable singletons / local disk — it does not survive horizontal scale-out or rolling deploys, and silently corrupts behind a load balancer. Sessions, response caches, rate-limit counters, locks, and dedupe sets MUST live in a shared store (Redis / DB). See `ai/patterns/rate-limiting.md` (shared-store buckets) + the distributed-systems `idempotency` pattern. (PERF-6)
+- Store request-scoped or per-user state in process memory / module-level mutable singletons / local disk — it does not survive horizontal scale-out or rolling deploys, and silently corrupts behind a load balancer. Sessions, response caches, rate-limit counters, locks, and dedupe sets MUST live in a shared store (Redis / DB). This is the shared store as **source of truth** for that datum; it is NOT a licence to cache a copy of DB truth — `caching-strategy`'s do-not-cache list (auth tokens, session *content*) governs the cache case and does not contradict this MUST. See `ai/patterns/rate-limiting.md` (shared-store buckets) + the distributed-systems `idempotency` pattern. (PERF-6)
 
 ## Should
 
 - Use dependency injection (constructor injection or framework DI container) — service classes MUST receive collaborators as constructor args, not `import`-and-call singletons.
-- Outbox pattern for "DB write + event publish" atomicity. 2PC / XA is forbidden across services.
+- Outbox pattern for "DB write + event publish" atomicity. 2PC / XA is forbidden **across services** — a blocking coordinator turns N independent availabilities into their product, and a coordinator crash leaves every participant's rows locked with no owner to resolve them. (Inside ONE deployment unit spanning two resource managers, a single transaction manager is defensible; that is not this case.)
 - Feature flags for risky changes — decouple deploy from release.
 - Health endpoints: `/healthz` (liveness — process up) and `/readyz` (readiness — deps up). Different semantics; different consumers.
 - Graceful shutdown: drain in-flight requests, close DB pool, finish queue ack — bounded by a deadline (default 30s).
@@ -82,7 +82,7 @@ Prevents the recurring backend failures: business logic in controllers, raw SQL 
 - [ ] Logs structured + carry correlation ID.
 - [ ] Idempotency key on retryable mutation endpoints.
 - [ ] Idempotent endpoint stores `(key → status + body)` and replays it on retry — not just accepts the header. (API-7)
-- [ ] Unauthenticated / expensive endpoint rate-limited: `429` + `Retry-After` + `RateLimit-*` headers. (RES-1)
+- [ ] Unauthenticated / expensive endpoint rate-limited: `429` + `Retry-After` + `RateLimit` / `RateLimit-Policy` (plus the legacy triple only while clients migrate). (RES-1)
 - [ ] No request-scoped / per-user state in process memory, singletons, or local disk — shared store only. (PERF-6)
 - [ ] Outbound calls carry timeout + bounded retries + fallback (api-reviewer floor; distributed-systems pack owns the full matrix). (RES-2)
 - [ ] New endpoint emits a RED metric + trace span; trace id generated at edge or continued from inbound `traceparent`. (OBS-1)

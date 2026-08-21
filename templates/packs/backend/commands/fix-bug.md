@@ -133,6 +133,10 @@ CONTEXT-GATHERING SKILLS:
 - `profile-endpoint` on the affected endpoint.
 - `n-plus-one-scan` on the affected module.
 
+**If "works on my machine" / works in one environment but not another** (the bug reproduces in staging or prod but not locally, or vice versa; a route 500s on boot; a feature is silently disabled):
+- `env-diff` between the two environments' key sets FIRST, before reading the handler. Config drift — a required key MISSING in one environment, an ORPHAN left behind by a rename, or a key present but UNVALIDATED by the schema — presents as a code bug and is not one. The skill reports **keys only, never values**.
+- Only after env-diff comes back clean is the handler the suspect. Debugging a handler that never received its config is how an afternoon disappears.
+
 PATTERN CONSULTATION (per bug area):
 
 | Bug area | Patterns to read |

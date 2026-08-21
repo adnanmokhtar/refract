@@ -51,7 +51,7 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - **New npm dependency is gated** — a package no sibling already imports halts for a dependency review (maintenance / license / bundle-size / supply-chain) before it lands. No silent `npm install`, any tier. See Phase 4 § New-dependency gate.
 - **All relevant patterns consulted** — not just principles, specific pattern docs (`ai/patterns/forms.md`, `rendering-strategy.md`, `i18n.md`, etc.).
 - **All applicable agents dispatched** — `ui-architect` designs; `ui-reviewer` reviews (carrying the framework-specific lens — Vue/React/Svelte/etc.); `accessibility-auditor` audits; `i18n-auditor` if i18n in scope.
-- **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → design-system-guardian audits.
+- **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → `@design-system-guardian` *(ui-ux pack)* audits, or — when that pack is absent — the theme lane is graded inline against `rules/frontend-principles.md` § tokens and reported as `theme: graded inline (ui-ux pack absent)`.
 - **Zero unverified UI ships.** Real Playwright/Cypress test or, at minimum, manual checklist with screenshots.
 - **Accessibility from the start, not retrofitted.** WCAG 2.2 AA is the floor.
 - **i18n from the start, not retrofitted.** No hardcoded user-facing strings.
@@ -99,11 +99,11 @@ Before anything else, parse the user's description for **enhancement / fix / bug
 
 | User description contains | Right command | Action |
 |---|---|---|
-| "enhance" / "improve" / "polish" / "cleaner" / "better look" / "refine the design" / "redesign" / "match colors" / "fix padding" | `/enhance-ui` (frontend visual work) | Halt; suggest `/enhance-ui <description>` |
-| "align" / "convention" / "drift" / "cleanup" / "remove duplication" | `/align-recheck` (codebase quality) | Halt; suggest `/align-recheck <description>` |
+| "enhance" / "improve" / "polish" / "cleaner" / "better look" / "refine the design" / "redesign" / "match colors" / "fix padding" | `/enhance-ui` *(ui-ux pack)* | Halt; suggest `/enhance-ui <description>` — or `/polish` (core) if ui-ux is not installed |
+| "align" / "convention" / "drift" / "cleanup" / "remove duplication" | `/align-recheck` *(align pack)* | Halt; suggest `/align-recheck <description>` — or `/align` (core) if that pack is not installed |
 | "fix" + ("bug" / "broken" / "wrong" / "crash" / "error") — when the issue is incorrect behavior, NOT visual polish | `/fix-bug` | Halt; suggest `/fix-bug <description>` |
-| "audit" / "review" / "inspect" — without intent to change code | `/design-review`, `/a11y-audit`, `/i18n-audit` | Halt; suggest the right read-only audit |
-| "iterate" / "try variants" / "few options" — visual exploration | `design-iterate` skill | Halt; suggest "use design-iterate skill on <path>" |
+| "audit" / "review" / "inspect" — without intent to change code | `/a11y-audit` + `/i18n-audit` (this pack); `/design-review` *(ui-ux pack)* | Halt; suggest the right read-only audit |
+| "iterate" / "try variants" / "few options" — visual exploration | `design-iterate` skill *(ui-ux pack)* | Halt; suggest "use design-iterate skill on <path>" — absent that pack, `/polish` (core) |
 | "add" / "new" / "create" / "build" / "implement" — actually adding new feature work | `/add-feature` (this command) | Proceed |
 
 If the description is ambiguous, ASK the user one clarifying question: "are you adding new functionality, or improving existing UI/UX?" Then route based on the answer.
@@ -133,7 +133,7 @@ Ask (one consolidated question if any of these unknown):
 
 If user provides a design (Figma link, screenshot) or written spec, treat it as authoritative.
 
-Otherwise default to the project's prior conventions (read `ai/business-domain.md`, `ai/users-and-personas.md`, `ai/patterns/components.md`).
+Otherwise default to the project's prior conventions (read `ai/business-domain.md`, `ai/users-and-personas.md`, and the sibling components themselves — the component-shape contract lives in the sibling-shape halt below and in `@ui-architect` § Component API, not in a pattern file).
 
 ## Phase 2 — Organize (decompose the work)
 
@@ -202,8 +202,8 @@ Read, in this order:
 2. `ai/business-domain.md` + `ai/business-flows.md` — what the feature is doing in business terms.
 3. `ai/users-and-personas.md` — who uses it.
 4. `ai/conventions.md` — naming, structure, imports.
-5. `ai/patterns/components.md`, `ai/patterns/forms.md`, `ai/patterns/i18n.md`, `ai/patterns/rendering-strategy.md` — applicable patterns.
-6. `.claude/rules/frontend-principles.md`, `a11y.md`, `i18n.md`, `styling.md` — applicable rules.
+5. `ai/patterns/forms.md`, `ai/patterns/i18n.md`, `ai/patterns/rendering-strategy.md`, `ai/patterns/ssr-safety.md` — applicable patterns.
+6. `.claude/rules/frontend-principles.md` (a11y + styling MUSTs live inside it) and `.claude/rules/i18n.md`; plus `ui-principles.md` *(ui-ux pack, when co-installed)*.
 7. Sibling component folder (`components/<similar-feature>/`) — mirror its shape.
 8. Framework reference: `references/<framework>.md` (next/nuxt/vue/svelte/angular).
 9. Existing endpoints used: read controller signatures + DTOs to align types.
@@ -232,7 +232,7 @@ After generation, dispatch (gated by tier):
 - **Standard-tier:** add `@i18n-auditor` (if i18n in scope) and `@accessibility-auditor`.
 - **Heavy-tier:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@security-auditor` (if auth/payment in scope). Run in parallel. `@ui-reviewer` carries the framework-specific lens (Vue/React/Svelte/etc.) — there is no separate per-framework reviewer agent.
 
-If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
+If a named **agent, command, or skill** is not installed in this project, perform that review inline against the corresponding pack/domain checklist and label the lane accordingly (`<axis>: graded inline (<pack> absent)`) — never silently skip the axis, never claim a reviewer that did not run, and never halt into a redirect target the project does not have.
 
 ### New-dependency gate (all tiers)
 
@@ -281,7 +281,7 @@ The same `Spec: <Spec-ID>` line belongs in the PR description on every tier, so 
 
 - Lint + type-check pass on all touched files.
 - Unit tests pass; e2e test passes against running dev server.
-- Bundle-size delta acceptable (`@bundle-analyzer` skill if present).
+- Bundle-size delta acceptable — measured with the `bundle-analyze` skill (in-pack; it is a skill, not an agent). No analyzer available → report the delta as `bundle: unmeasured`, never as `acceptable`.
 - **Navigation-speed / streaming / instant-loading MUSTs verified** on every new route (frontend-principles, not optional) — via the `navigation-speed` (prefetch / Speculation Rules / bfcache / View Transitions), `streaming-ssr` (stream-the-shell boundary scan), and `lcp-audit` (LCP-resource priority hints) skills; field INP via `web-vitals-field` (authoritative; lab INP is a proxy) with per-interaction budget from the `inp-responsiveness` pattern. Framework specifics come from `references/<framework>.md` + these skills — keep this stack-agnostic. A missing MUST HALTs (see Spec-conformance gate).
 - **SEO + asset MUSTs verified** on every new PUBLIC route (frontend-principles, not optional) — unique metadata + self-referencing canonical + OG/Twitter + page-appropriate JSON-LD via the project's own primitive, reciprocal `hreflang` for localized routes, and SSR/SSG/prerender (never CSR-only) — via `seo-audit` + `@technical-seo`; content images via `image-optimization` (format / responsive / dimensions-CLS / lazy-below-fold); web fonts via `font-optimization` (font-display / self-host / size-adjust fallback). A missing MUST on a public route HALTs. Admin/authenticated-only routes report `seo: n/a` explicitly.
 - A11y automated check passes (axe, Lighthouse a11y category ≥95).
@@ -310,7 +310,7 @@ When the feature was built from a spec (Phase 1 spec branch), every spec section
 - **Observability → matched signal.** Each required signal (error capture, analytics event, RUM/route timing) is wired the way siblings wire it and verified emitted. Unmatched signal → HALT.
 - **Each Success metric → instrumented OR deferred.** The metric's event is wired and firing, OR it is explicitly deferred with a recorded reason. Silently-absent metric → HALT.
 
-If a named agent (`@accessibility-auditor`, `@i18n-auditor`, `@security-auditor`) is not installed, run the corresponding check inline — never skip the section.
+If a named agent, command, or skill (`@accessibility-auditor`, `@i18n-auditor`, `@security-auditor`, `/enhance-ui`, `web-vitals-field`, ...) is not installed, run the corresponding check inline against that pack's checklist and label it `graded inline (<pack> absent)` — never skip the section, never fabricate the output the missing artifact would have produced.
 
 ### Build-time traceability rebuild (spec-path only — HALT on any untested AC-ID)
 
@@ -376,7 +376,7 @@ The trivial-tier output is the same block minus the Traceability / Knowledge / d
 
 - **Untyped server response leaking into UI.** Always type the boundary; align with backend DTO.
 - **Hardcoded strings in templates.** Caught by `@i18n-auditor`. Pre-empt by writing keys first.
-- **Hand-rolled component when system primitive exists.** Caught by `@design-system-guardian`.
+- **Hand-rolled component when system primitive exists.** Caught by `@design-system-guardian` *(ui-ux pack)*; absent that pack, caught by the sibling-shape halt's raw-primitive row in this command.
 - **State scattered.** State should have ONE home per concern; if it's drifting between component / store / URL, that's an architecture flag.
 - **A11y added at the end.** Should be in Phase 1 invariants; if it's a Phase 6 patch, the design wasn't a11y-aware.
 - **Server vs client boundary leak.** `"use client"` files importing server-only deps. Audit imports across the boundary.
@@ -387,7 +387,7 @@ The trivial-tier output is the same block minus the Traceability / Knowledge / d
 - **Trivial-tier is the default tier.** ADR / heavy reviewer cascade is opt-in via heavy-tier triggers. Drafting an ADR to legitimize a new CRUD page is forbidden.
 - **Default-true wrapper props are explicit.** Removing handlers without setting `:show-*="false"` / `:can-*="false"` is a default-true bug.
 - **i18n keys land in BOTH locales** (typically `en.ts` + `ar.ts`) at the same path. Missing-locale = silent break.
-- **Match shared wrappers, not raw components.** No raw `<Dialog>` / `<Paginator>` / `<Dropdown>` / `<form>` where `<BaseModal>` / `<CrudPaginator>` / `<BaseDropdown>` / `<BaseForm>` exist.
+- **Match shared wrappers, not raw components.** No raw `<Dialog>` / `<Paginator>` / `<Dropdown>` / `<form>` where `<BaseModal>` / `<CrudPaginator>` / `<BaseDropdown>` / `<BaseForm>` exist. This gate is **creation-time only** — sweeping drift that already shipped is `ui-design-sweep`'s `unify-component` verb *(ui-ux pack)* or the core `/unify-surfaces`, not this command.
 - **One styling system.** Pick at Phase 1; never mix.
 - **Every user-facing string is a locale key.** No exceptions, even for "internal" tools.
 - **Every form has schema validation at the boundary** (server action OR API endpoint), not just client-side.

@@ -13,7 +13,7 @@ Refuse to declare PASS without at least 1 navigate + 1 wait_for_selector + 1 scr
 
 Real-browser verification that the change you just made actually works in the running app. Uses the Playwright MCP server's tools (`navigate`, `click`, `type`, `wait_for_selector`, `screenshot`, `eval_js`, `console_messages`) — not pre-written `.spec.ts` files. Tighter feedback loop than e2e tests; complementary, not replacement.
 
-## When to use
+## When to run
 
 - After `/add-feature` / `/add-page` / `/add-component` — confirm the new UI renders + interacts as designed.
 - After `/fix-bug` for a UI bug — reproduce the user's flow, confirm it now works.
@@ -21,7 +21,7 @@ Real-browser verification that the change you just made actually works in the ru
 - During an `/a11y-audit` — drive the page through keyboard navigation; capture focus order.
 - After an i18n string update that may shift layout (Arabic / German / Japanese) — screenshot at each locale.
 
-## When NOT to use
+## When NOT to run
 
 - Pure logic / utility / store changes with no rendered surface.
 - Pre-written e2e test work — use `npx playwright test` (file-based) for that; this skill is for live ad-hoc verification.
@@ -30,6 +30,7 @@ Real-browser verification that the change you just made actually works in the ru
 ## Prerequisites
 
 - **Playwright MCP server configured** in `.mcp.json` (`detect-mcp.sh --apply` writes this with the project's configured Playwright MCP server entry).
+- **The `visual-check` harness contract** — session state at `tests/.auth/user.json`, artifacts under the gitignored `.playwright-mcp/`, and `RENDER BLOCKED` as a HALT rather than a SKIP. That skill owns those three values; this one cites them. **Do not introduce a second convention** — two session paths in one repo means one of them is always stale, and a stale `user.json` still redirects to `/login`.
 - **Dev server running** — invoke `dev-server-start` first; consume its `url` output.
 - **Authenticated state** if the route requires auth — either the test user credentials are in `.env.local`, or the verification flow includes login as Step 1.
 
@@ -91,9 +92,9 @@ verify-with-playwright — <feature/route>
   steps:     22 navigate/click/wait/assert
   failures:  0
   screenshots:
-    - .claude/playwright/<ts>/brands-list-loaded.png
-    - .claude/playwright/<ts>/brands-edit-saved.png
-    - .claude/playwright/<ts>/brands-delete-confirmed.png
+    - .playwright-mcp/<ts>/brands-list-loaded.png
+    - .playwright-mcp/<ts>/brands-edit-saved.png
+    - .playwright-mcp/<ts>/brands-delete-confirmed.png
   console:   0 errors, 1 warning ("Vue I18n missing key: Brands.exports.title")
   outcome:   PASS
 ```
@@ -109,13 +110,13 @@ verify-with-playwright — <feature/route>
 ## Related
 
 - `dev-server-start` — prerequisite for localhost targets.
-- `visual-check` — file-based pre-written `.spec.ts`. Persistent regression suite. Slower; runs less often.
+- `visual-check` — file-based pre-written `.spec.ts`. Persistent regression suite with baselines and a locale x theme x viewport matrix. Slower; runs less often. **It owns the shared harness contract** (session file, gitignored artifact dir, blocked-render HALT) that this skill cites. Distinct premise, not a merge candidate: this skill drives a flow live with no baseline; that one proves nothing changed.
 - `a11y-scan` — uses similar Playwright tools but layered on axe-core checks.
 
 ## Hard rules
 
 - **Cite the URL + path in the output.** Anyone reading the report should be able to navigate to the same page in their own browser.
-- **Screenshots are ephemeral by default** — write to `.claude/playwright/<timestamp>/` (gitignored). Promote to `test/visual/baseline/` only when the agent + user explicitly accept a new baseline.
+- **Screenshots are ephemeral by default** — write to the gitignored `.playwright-mcp/<timestamp>/` per the `visual-check` contract. Promote a frame to `test/visual/baseline/` only when the agent + user explicitly accept a new baseline; that is a `visual-check` decision, not this skill's.
 - **Never commit** `.claude/dev-server.{pid,log}` or screenshot dumps. They're per-developer.
 - **Pinned selectors prefer roles + names** over CSS classes. Surfacing the rule explicitly because it's the single thing that determines whether the verification survives a styling refactor.
 - **Don't fake success.** A 0-step run is a fail, not a pass. Minimum 1 navigate + 1 wait_for_selector + 1 screenshot.
@@ -125,4 +126,4 @@ verify-with-playwright — <feature/route>
 - Halt if no screenshot file path is produced — verification without an artifact is unverified.
 - Halt if console errors appeared on load and the report claims PASS. UI rendering is not enough; runtime errors fail the run.
 - Halt if selectors target CSS classes instead of roles + accessible names — the verification won't survive the next styling refactor.
-- Halt if the Playwright MCP server is not configured in `.mcp.json` — do not silently fall back to a different tool.
+- Halt if the Playwright MCP server is not configured in `.mcp.json` — do not silently fall back to a different tool. If another instrumented browser MCP **is** configured, name it in the halt message as the alternative the user may wire up, then stop: choosing the harness is the user's call, not the run's. A menu of four tools resolved at runtime is a soft rule wearing a hard rule's clothes.

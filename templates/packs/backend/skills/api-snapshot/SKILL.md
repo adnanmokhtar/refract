@@ -119,8 +119,23 @@ If the project serves v1 and v2 simultaneously:
 - Diff only within a version.
 - v2 can diverge from v1 freely — no diff between them.
 
+## What the snapshot does NOT cover — say it out loud
+
+A diff gate's danger is not the changes it flags; it is the changes it cannot see, because a green gate reads as "nothing broke". Two blind spots are structural here, and both are verifiable in this pack rather than hypothetical.
+
+**1. Streaming endpoints are exempt by construction.** `api-reviewer` ENF-4 states that a `text/event-stream` / chunked / NDJSON handler "is not held to the response-envelope or `response_model` checks" — correctly, since a stream has no single buffered body to model. The consequence nobody wrote down: with no declared response model, there is nothing for `oasdiff` to compare, so the record shape a streaming route emits can change freely and this gate stays green. A consumer parsing NDJSON rows breaks in production against a passing CI.
+
+What to do about it, in order of honesty:
+- **Snapshot the row/event schema separately** — a committed fixture of one representative record (or SSE `event:` payload) diffed alongside the spec. Crude, but it is a real gate rather than an assumed one.
+- **Check whether your OpenAPI version can describe the sequential media type** before concluding it cannot. Later revisions of the specification have added keywords aimed exactly at sequential media types; whether the one you emit supports it depends on your generator's output version, which is why the next point exists. Read your generator's emitted `openapi:` field and the corresponding specification revision before writing this off — do not take this file's word for it.
+- **At minimum, list your streaming routes in the snapshot's README** as known-undiffed, with the consumer contract stated in prose. An undiffed route that is *documented* as undiffed is a gap; one that silently passes is a false guarantee.
+
+**2. The baseline has no declared spec version.** Nothing in this pack pins one. `oasdiff` classifies changes against the structure it is handed, and a generator upgrade that changes the emitted `openapi:` revision can shift how constructs are expressed — which surfaces as diff noise, or worse, as a real break that classifies as cosmetic. **Record the spec version in the snapshot directory and treat a change to it as its own reviewed event**, not as part of an ordinary API diff. A baseline regenerated under a new spec revision in the same PR as a code change makes both unreviewable.
+
 ## Rules
 
+- **The snapshot directory records the emitted spec version** (`openapi:` field) alongside the baselines; a change to it is reviewed on its own, never bundled with an API change.
+- **Streaming routes are listed as known-undiffed**, with their record/event contract stated in prose, so a green gate is not read as coverage they never had.
 - Snapshot files committed to repo.
 - Diff runs on every PR.
 - Breaking changes require ADR.

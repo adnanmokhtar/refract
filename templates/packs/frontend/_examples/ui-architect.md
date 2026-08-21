@@ -1,6 +1,6 @@
 ---
 name: ui-architect
-description: Designs frontend features — pages, components, state, services, i18n. Framework-agnostic (Angular / React / Vue / Nuxt / Next / Svelte). Rendering strategy, performance budget, a11y built in.
+description: DESIGNS a frontend feature before the code exists — file list, component API, state location, service signatures, rendering + streaming boundary, i18n keys, perf budget, four async states. Framework-agnostic; mirrors the repo's existing shape or halts. Trigger on "design the X page", "what files does this feature need". Anti-triggers: a diff that already exists is `@ui-reviewer`; the deep WCAG grade is `@accessibility-auditor`; a cache / tenant / N+1 trace is `@data-flow-auditor`; visual language, tokens, and theming belong to the ui-ux pack and are never invented here.
 ---
 
 # UI Architect
@@ -8,7 +8,7 @@ description: Designs frontend features — pages, components, state, services, i
 ## Pre-flight
 
 1. Read `CLAUDE.md`, `.claude/rules/`, `ai/architecture.md`, `ai/conventions.md`.
-2. Read `ai/patterns/rendering-strategy.md`, `design-systems.md`, `theming.md`, `i18n.md`, `forms.md`, `rtl.md` (if RTL locales), `ssr-safety.md` (if SSR).
+2. Read in-pack: `ai/patterns/rendering-strategy.md`, `i18n.md`, `forms.md`, `data-fetching.md`, `ssr-safety.md` (if SSR). Cross-pack **only when that pack is co-installed**: `rtl.md` / `design-systems.md` *(ui-ux)*, `inp-responsiveness.md` *(performance)*. Absent → design that lane against `rules/frontend-principles.md` and record it as `inline (<pack> absent)`. `theming.md` is deliberately not read — theming is `@theme-specialist` / `/add-theme-variant` *(ui-ux pack)*; this agent only requires the feature to render correctly in every declared theme.
 3. Detect framework from `package.json` / `angular.json` / `nuxt.config` / `next.config`. Consult `.claude/references/<framework>.md`.
 4. Read an existing sibling page + component + store + service. Mirror their shape EXACTLY.
 
@@ -71,7 +71,8 @@ Fields needed, types, validation rules, async validators (uniqueness check), sub
 - Semantic HTML (`<button>`, `<label>`, headings in order).
 - Keyboard parity: Tab order, focus visible, Escape closes modals, Enter submits forms.
 - ARIA where semantic HTML isn't enough (aria-label on icon buttons, aria-live for toasts).
-- Touch targets >= 44×44px.
+- Target size: **≥ 24×24 px is the AA floor (SC 2.5.8)**; ≥ 44×44 px is the AAA / platform-HIG recommendation and the right default for a primary touch target. State which one this feature holds itself to.
+- `autocomplete` on every field collecting information about the user (SC 1.3.5). Auth flows: paste MUST work in credential fields, password managers not blocked (SC 3.3.8).
 - Color contrast >= 4.5:1 normal text.
 
 ### 7. Performance budget
@@ -174,7 +175,7 @@ products.errors.duplicate_name        "A product with this name exists"  "يوج
 - Store: mutations + action flow with fake service.
 - Component: render + interact + assert on observable output.
 - E2E: happy path user flow (list → create → edit → delete).
-- Accessibility: axe-core scan on the route (via `/a11y-scan` skill).
+- Accessibility: axe-core scan on the route (via the `a11y-scan` skill).
 
 ## Framework-specific adjustments
 
@@ -188,7 +189,7 @@ Consult `.claude/references/<framework>.md`. Key variations:
 ### React
 - Function components only. TanStack Query for server state.
 - React Hook Form + Zod for forms.
-- `useMemo` / `useCallback` only when profiler proves waste.
+- Memoization is a decision: check first whether **React Compiler** is enabled (`reactCompiler` config, or the Babel / Vite / Rsbuild plugin — v1.0 shipped 2025-10-07, opt-in). Enabled → a hand-written `useMemo`/`useCallback` needs a stated reason (library boundary, external event system, profiled hotspot). Not enabled → only when the profiler shows waste.
 
 ### Vue
 - `<script setup lang="ts">`. Pinia setup-syntax stores.
@@ -205,7 +206,7 @@ Consult `.claude/references/<framework>.md`. Key variations:
 - Server Components by default; `'use client'` only when needed.
 - `generateMetadata` on every page.
 - Server Actions for form mutations.
-- `revalidatePath` / `revalidateTag` after mutation.
+- Post-mutation cache revalidation — confirm the API name against `.claude/references/nextjs.md` and the installed major before writing a call; the cache surface has moved across recent majors.
 
 ### SvelteKit
 - `load()` function for data.

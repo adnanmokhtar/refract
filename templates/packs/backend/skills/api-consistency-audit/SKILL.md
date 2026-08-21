@@ -1,6 +1,6 @@
 ---
 name: api-consistency-audit
-description: API surface consistency audit — 16 drift fingerprints across endpoints, covering response envelope shape, error contract, pagination, naming case, idempotency keys, auth/rate-limit/security headers, conditional requests (ETag/If-Match), batch contract, log and metric naming, timeout-retry policy, and OpenAPI coverage. Used by /polish on backend-* stacks; emits one finding per fingerprint with <path:line> evidence + a closure verb. Behaviour-preserving — envelope unification and naming changes ship through the deprecation flow, never a blind rewrite.
+description: API surface consistency audit — 22 drift fingerprints across endpoints, covering response envelope shape, error contract, pagination, resource-path and field naming, idempotency keys, auth/rate-limit/security headers, conditional requests (ETag/If-Match), batch contract, log and metric naming, timeout-retry policy, and OpenAPI coverage. Used by /polish on backend-* stacks; 16 fingerprints emit a closure verb from a closed 15-verb vocabulary, 6 emit a routed observation with no verb. Every finding carries <path:line> evidence. Behaviour-preserving — envelope unification and naming changes ship through the deprecation flow, never a blind rewrite. NOT for adding endpoints (/add-endpoint), fixing functional bugs (/fix-bug), or non-backend stacks (halts).
 kind: skill
 pack: backend
 ---
@@ -58,6 +58,7 @@ subclass: <one of: response-envelope-drift | error-contract-drift |
                    rate-limit-header-drift | rate-limit-enforcement-missing |
                    etag-conditional-drift | optimistic-concurrency-missing |
                    batch-endpoint-contract-drift | field-selection-drift |
+                   resource-naming-drift |
                    security-header-drift | log-field-drift |
                    metric-name-drift | trace-span-drift |
                    timeout-policy-drift | retry-policy-drift |
@@ -66,11 +67,21 @@ endpoint: <method + path, e.g., "POST /orders">
 file: <controller-or-handler-path:line>
 canonical: <what the project's convention says — the envelope shape / naming / etc.>
 divergence: <what this endpoint does differently>
-closure_verb: <one of the verbs below>
+closure_verb: <one of the 15 verbs below — OMIT THIS KEY ENTIRELY on a routed observation>
+routed_to: <present INSTEAD of closure_verb on the 6 routed observations: the command,
+            pattern, or pack that owns the fix>
 risk: low | medium | high
 ```
 
-## The 21 detectors
+**The closure-verb vocabulary is closed at 15, and `/polish`'s validator enforces it.** `scripts/validate-polish-artifacts.sh` reads every `closure_verb:` line in `ai/polish/ledger.md` and `ai/polish/_api-decisions.md` and rejects the whole artifact if any value falls outside `API_CONSISTENCY_VERBS`. A detector that wants a sixteenth verb does not get one; it either reuses an existing verb (because the *act* is the same) or it emits `routed_to:` and no verb at all. Inventing a verb does not produce a richer finding — it produces a rejected run.
+
+| Vocabulary (15) |
+|---|
+| `unify-envelope` · `unify-error-contract` · `unify-naming` · `unify-pagination` · `unify-versioning` · `unify-auth-header` · `add-idempotency-key` · `unify-rate-limit-headers` · `unify-log-fields` · `unify-metric-names` · `unify-trace-spans` · `unify-timeout-policy` · `unify-retry-policy` · `add-openapi-doc` · `add-endpoint-example` |
+
+## The 22 fingerprints — 16 closure-verb detectors + 6 routed observations
+
+The split is not bookkeeping, it is the scope line. This skill audits **consistency**: it finds a surface where sibling endpoints disagree and it names the canonical they should converge on. Six of the fingerprints below are not that. Wiring a limiter, adding ETag revalidation, introducing an `If-Match` precondition, and returning per-item batch statuses are *additive capability* — the endpoint is missing a thing, not diverging from a thing. Field-selection and security-header uniformity are owned end-to-end by another pattern or pack, so their correctness criterion lives somewhere this skill cannot read. Those six still earn their place, because a consistency sweep is exactly when you notice them; but they route to the owner instead of closing here, and they emit **no** `closure_verb:` line. (They previously emitted six invented verbs that `validate-polish-artifacts.sh` rejects outright — a whole `/polish` run discarded because a detector wanted vocabulary it does not own.)
 
 ### 1. response-envelope-drift
 
@@ -110,6 +121,16 @@ Drift: some endpoints return `{ error: "msg" }`, others `{ message: "msg" }`, ot
 
 **Closure verb**: `unify-naming` — picks the project's canonical case (from `_extracted-idioms.md`) and renames others. Ships with serializer mapping for breaking-change protection.
 
+### 3b. resource-naming-drift
+
+**Fingerprint**: the *path* — not the field names of #3 — is inconsistent across the surface. A collection that is singular where its siblings are plural (`/order` beside `/customers`), a segment in a different case style (`/shippingAddresses` beside `/shipping-addresses`), or an action encoded as a path segment (`POST /orders/42/cancelOrder`) where siblings use the method or a `:verb` custom method.
+
+**Detection**: extract every path from the route registry. Split on `/`; classify each non-parameter segment by (a) number (singular/plural) and (b) case style. Cluster; anything outside the dominant cluster is drift. Separately, grep segments against a verb list (`get`, `create`, `update`, `delete`, `cancel`, `send`, `fetch`, `do`) — a verb in a path segment that is not preceded by `:` is drift regardless of the cluster. Emits e.g. `POST /order/{id}/cancelOrder` at `src/orders/orders.controller.ts:88` — singular collection **and** verb-in-path, while `POST /customers/{id}:deactivate` at `src/customers/customers.controller.ts:52` is plural + custom-method form.
+
+**Detection (pointer)**: the naming contract itself (plural nouns, kebab-case segments, verb-free paths, the sanctioned `POST /v1/{resource}:verb` escape hatch) is OWNED by `ai/patterns/api-contract.md` § Resource naming and URL structure — point there, do not restate the rules. This detector asserts only that the surface disagrees with itself and with the declared canonical.
+
+**Closure verb**: `unify-naming` — the same verb as #3, deliberately. The *act* is identical (pick the project's canonical, rename the outliers, ship through the deprecation flow); only the surface differs. A path rename is a breaking change even though no field moved, so `risk: high` applies whenever the route is public.
+
 ### 4. pagination-drift
 
 **Fingerprint**: list endpoints use different pagination styles:
@@ -146,7 +167,7 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 ### 8. rate-limit-header-drift
 
-**Fingerprint**: some endpoints expose `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`, others don't. Or naming drift in the headers themselves (`X-Rate-Limit-*` vs `RateLimit-*` standard).
+**Fingerprint**: rate-limited endpoints advertise their quota inconsistently — some emit quota fields, others emit none; or the field family itself differs across the surface (`X-Rate-Limit-*` vs `X-RateLimit-*` vs the draft's `RateLimit` / `RateLimit-Policy`). The canonical form and the legacy-triple transition rule are owned by `ai/patterns/rate-limiting.md`; this detector asserts only that the surface must pick ONE family and use it everywhere, and that `Retry-After` — the one field here with an RFC behind it — is present on every `429`.
 
 **Closure verb**: `unify-rate-limit-headers`.
 
@@ -156,9 +177,9 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection**: per route, look for an inbound limiter binding — middleware in the chain (`rateLimit(...)`, `@Throttle`, `throttle:`, `RateLimiterMiddleware`, gateway/Kong/Envoy `rate-limit` plugin) OR a decorator/guard. Cluster routes that HAVE one; any mutating/expensive route NOT in that cluster (and not explicitly exempted in `api-conventions.md § Rate limiting`) is drift. Emits e.g. `POST /reports/export` at `src/reports/reports.controller.ts:88` — no limiter, while `POST /orders` at `src/orders/orders.controller.ts:41` carries `@Throttle({ default: { limit: 20, ttl: 60000 } })`.
 
-**Detection (always-on hook)**: an unlimited mutating endpoint is also a server-side resilience gap, not just a uniformity gap — flag it even when NO sibling has a limiter (the cluster is empty). The enforcement SHAPE (429 + `Retry-After` + unprefixed `RateLimit-*` headers, per-tenant buckets over a shared store, FAIL-OPEN vs FAIL-CLOSED on store outage, 503 admission control) is OWNED by `ai/patterns/rate-limiting.md` — point there; do NOT re-specify the algorithm here. 429 = RFC 6585; `Retry-After` = RFC 9110 §10.2.3; `RateLimit-*` / `RateLimit-Policy` = IETF draft-ietf-httpapi-ratelimit-headers (a DRAFT, not an RFC).
+**Detection (always-on hook)**: an unlimited mutating endpoint is also a server-side resilience gap, not just a uniformity gap — flag it even when NO sibling has a limiter (the cluster is empty). The enforcement SHAPE (429 + `Retry-After` + unprefixed `RateLimit-*` headers, per-tenant buckets over a shared store, FAIL-OPEN vs FAIL-CLOSED on store outage, 503 admission control) is OWNED by `ai/patterns/rate-limiting.md` — point there; do NOT re-specify the algorithm here. 429 = RFC 6585; `Retry-After` = RFC 9110 §10.2.3; the `RateLimit` / `RateLimit-Policy` quota fields = IETF `draft-ietf-httpapi-ratelimit-headers` — still an Internet-Draft, whose HTTPDIR early review of `-10` came back "Not ready", so cite it as a direction of travel and never as a settled contract.
 
-**Closure verb**: `add-rate-limiter` (wire the limiter per `ai/patterns/rate-limiting.md`; do NOT hand-roll a new shape).
+**Routed observation — no closure verb.** Wiring a limiter that was never there is additive capability, not drift unification. `routed_to: /add-endpoint § production floor (ENF-1) + ai/patterns/rate-limiting.md` — that pattern owns the enforcement shape, and `/add-endpoint`'s floor is where a missing limiter becomes a blocking row. Report the endpoint, the empty cluster, and stop.
 
 ### 8c. etag-conditional-drift
 
@@ -168,7 +189,7 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection (pointer)**: the revalidation contract (strong vs weak ETag, `If-None-Match` → `304`, RFC 9110 obsoletes RFC 7232) is OWNED by `ai/patterns/conditional-requests.md` — point there for the exact handling.
 
-**Closure verb**: `add-etag-revalidation`.
+**Routed observation — no closure verb.** `routed_to: ai/patterns/conditional-requests.md` (strong vs weak ETag, `If-None-Match` → `304`, RFC 9110). Adding revalidation to a read that never had it is a capability change with cache-correctness consequences; it belongs behind that pattern's rules, not a sweep verb.
 
 ### 8d. optimistic-concurrency-missing
 
@@ -178,7 +199,7 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection (pointer)**: the over-HTTP optimistic-concurrency contract (`If-Match` → `412`, `428 Precondition Required`, RFC 9110) is OWNED by `ai/patterns/conditional-requests.md`. The DB-side stored-version replay / compare-and-swap belongs to the distributed-systems pack (`stored-idempotency-replay`) — point there, do not duplicate.
 
-**Closure verb**: `add-if-match-precondition`.
+**Routed observation — no closure verb.** `routed_to: ai/patterns/conditional-requests.md` (`If-Match` → `412`, `428 Precondition Required`). Introducing a precondition changes the endpoint's contract for every existing client — it needs the deprecation flow that pattern prescribes, not a unification commit.
 
 ### 8e. batch-endpoint-contract-drift
 
@@ -186,7 +207,7 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection**: per route, detect array-shaped request bodies (OpenAPI `type: array`, or handler iterating the parsed body). Check the response schema for a sibling per-item status array (e.g. `{ results: [{ id, status, error? }, ...] }`) and/or a `207 Multi-Status`-style envelope. A batch route returning a bare scalar is drift. Emits e.g. `POST /orders/bulk` at `src/orders/orders.controller.ts:152` — accepts `Order[]`, returns `201` with no `results[]`, while `POST /invoices/bulk` at `src/invoices/invoices.controller.ts:71` returns `{ results: [{ index, id, status }] }`.
 
-**Closure verb**: `add-batch-item-status` — return a per-item status array (stable order or explicit `index`) so partial failure is addressable. Ships additively (add `results[]` alongside the existing status; deprecate the bare shape).
+**Routed observation — no closure verb.** `routed_to: ai/patterns/api-contract.md § Bulk / batch endpoints (API-3)` — that section owns the all-or-nothing vs best-effort decision, the `207 Multi-Status` shape, and the per-item `results[]` row format. Which semantic the endpoint should have is a contract decision, not something a consistency sweep gets to pick.
 
 ### 8f. field-selection-drift
 
@@ -196,7 +217,7 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection (pointer)**: the underlying `SELECT *` / over-fetch at the data layer is OWNED by the database pack — point there; this detector only flags the HTTP-surface UNIFORMITY of the param contract.
 
-**Closure verb**: `unify-field-selection`.
+**Routed observation — no closure verb.** `routed_to: ai/patterns/api-contract.md § Field selection / expansion (API-5)`. That section already declares field selection an **opt-in capability with one project-wide convention** — so an endpoint ignoring `?fields=` is either a gap against a declared convention (fix it there, under that section's allow-list and N+1 rules) or evidence the convention was never declared (in which case the detector should not have fired). Neither outcome is a rename.
 
 ### 8g. security-header-drift
 
@@ -204,7 +225,7 @@ Drift: mixing. The project's `api-conventions.md` should declare ONE canonical s
 
 **Detection**: sample response headers across route groups (global middleware vs per-route overrides that strip/skip the security middleware). Flag groups whose responses lack a header that the majority of paths set. This detector asserts ONLY uniformity of presence — it does NOT define which headers are required, their values, or threat coverage. The security-header POLICY (which headers, correct values, HSTS max-age/preload, CSP shape) is OWNED by the security pack (`security-headers`) — point there.
 
-**Closure verb**: `unify-security-headers` — apply the missing baseline header at the shared response layer so every path is uniform; defer value/policy decisions to the security pack.
+**Routed observation — no closure verb.** `routed_to: security pack § security-headers`. This detector deliberately asserts *nothing* about which headers are required or what their values should be — it cannot close a finding whose correctness criterion lives in another pack. Report the non-uniform route group and hand over.
 
 ### 9. log-field-drift
 
@@ -276,9 +297,9 @@ Common drifts:
    - `_extracted-idioms.md § API conventions` OR `ai/api-conventions.md` exists. Halt if missing — without canonical conventions, drift is undefined.
    - OpenAPI spec discoverable (warn-only if missing; openapi-coverage detector skips).
 2. **Build endpoint registry** — walk controllers / route table; emit one row per `{method, path, file, line}`.
-3. **For each detector** (1–15 + siblings 8b–8g above):
+3. **For each fingerprint** (1–15 + 3b, plus routed siblings 8b–8g above):
    - Apply the detector's fingerprint procedure across the registry.
-   - Emit findings.
+   - Emit findings. A closure-verb detector emits `closure_verb:` with a value from the 15-verb table; a routed observation emits `routed_to:` and **no `closure_verb:` key at all**. Writing a verb outside the vocabulary does not degrade gracefully — `validate-polish-artifacts.sh` fails the entire artifact, so the run that took an hour produces nothing.
 4. **Cross-cutting check** — if a finding's closure verb would break a public contract (rename a response field; change envelope shape), flag `risk: high` and require ADR.
 5. **Write artifact** — `ai/polish/_api-decisions.md` with all findings grouped by subclass.
 
@@ -289,6 +310,7 @@ Common drifts:
 - **OpenAPI must stay in sync** — every code change updates the spec in the same commit.
 - **Contract tests must stay green** — if the project has them.
 - **No detector invents new conventions** — the canonical shape always comes from `_extracted-idioms.md § API conventions`. If that file says nothing about envelope/naming/etc., the detector skips with WARN.
+- **No detector invents a closure verb.** The vocabulary is the 15 in the table above and it is enforced by a script, not by convention. Reuse the verb whose *act* matches, or emit `routed_to:` instead. Extending the vocabulary is a coordinated change to `scripts/validate-polish-artifacts.sh` **and** `commands/polish.md` — not something a detector does unilaterally.
 
 ## False positives / gotchas
 
@@ -296,7 +318,8 @@ Common drifts:
 - **Tier-scoped variation is legitimate.** Different timeouts/retries *across* service tiers (public vs internal vs batch) are fine; only *within-tier* divergence with no documented reason is drift.
 - **Opt-in detectors stay silent unless declared.** `field-selection-drift` fires only if `api-conventions.md § Field selection` declares a `?fields=`/`?expand=` convention; don't invent one.
 - **`noindex`-style intentional exemptions** — an endpoint explicitly exempted in `api-conventions.md` (e.g. a health check with no rate limit, an internal admin route with offset pagination) is not drift; honour the declared exemption.
-- **Ownership pointers, not re-specification** — 8b/8c/8d/8f/8g flag *uniformity*; the algorithm/policy is owned by the named pattern or the security/database/observability pack. Do not emit a fix that re-specifies the owned shape.
+- **Ownership pointers, not re-specification** — the six routed observations (8b–8g) flag *uniformity* and nothing more; the algorithm, contract, or policy is owned by the named pattern or the security/database/observability pack. Do not emit a fix that re-specifies the owned shape, and do not attach a closure verb to one — a finding this skill cannot close is a finding it must hand over.
+- **A path rename is a breaking change** — `resource-naming-drift` (3b) reuses `unify-naming`, but a public route rename is `risk: high` and takes the same dual-route-then-sunset flow as a field rename. Renaming a path "because it's just a string" breaks every stored link, bookmark, and integration runbook.
 
 ## Halt conditions
 
@@ -313,7 +336,7 @@ Common drifts:
 - `ai/api-conventions.md` (alternative location).
 - `align-discipline.md` — closed-vocabulary closure-verb discipline.
 - `polish` command — dispatches this skill on backend stacks.
-- `ai/patterns/rate-limiting.md` — server-side inbound limit + load shedding (429 + `Retry-After` + `RateLimit-*` headers; per-tenant buckets; shared store; FAIL-OPEN/CLOSED; 503 admission control). Owner of the `add-rate-limiter` shape (8b).
-- `ai/patterns/conditional-requests.md` — `ETag`/`If-None-Match` → `304` (read revalidation) + `If-Match` → `412` / `428` (optimistic concurrency over HTTP); RFC 9110. Owner of 8c + 8d.
+- `ai/patterns/rate-limiting.md` — server-side inbound limit + load shedding (429 + `Retry-After` + `RateLimit-*` headers; per-tenant buckets; shared store; FAIL-OPEN/CLOSED; 503 admission control). Owner of the enforcement shape that routed observation 8b hands off to.
+- `ai/patterns/conditional-requests.md` — `ETag`/`If-None-Match` → `304` (read revalidation) + `If-Match` → `412` / `428` (optimistic concurrency over HTTP); RFC 9110. Owner of routed observations 8c + 8d.
 - `ai/patterns/response-streaming.md` — NDJSON/SSE/chunked for unbounded results; mid-stream terminal error sentinel; backpressure; disconnect cancellation; RFC 9112. Consider when a list/export route would otherwise return an unbounded body.
 - `ai/patterns/async-job-offload.md` — `202 Accepted` + `Location` + status URL; job-status state machine; idempotent submit; result TTL. Consider for the expensive endpoints surfaced by 8b instead of holding a synchronous connection.

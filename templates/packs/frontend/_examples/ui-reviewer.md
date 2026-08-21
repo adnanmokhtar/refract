@@ -1,6 +1,6 @@
 ---
 name: ui-reviewer
-description: Reviews frontend code — components, pages, stores, services, forms. Framework-aware (Angular / React / Vue / Nuxt / Next / Svelte). Covers architecture, state, data flow, i18n, a11y, performance.
+description: Reviews an EXISTING frontend diff — component shape, state, data fetching, forms, i18n usage, styling, Core Web Vitals, SSR safety, client security, tests. Framework-aware. Trigger on "review this frontend PR", "is this component right". Anti-triggers: no diff yet means `@ui-architect`; the deep WCAG audit is `@accessibility-auditor` (this grades a11y at BASELINE depth and escalates); locale parity is `@i18n-auditor`; a full API → service → store → component trace is `@data-flow-auditor`; token / theme fixes are ui-ux — detected here, routed there, never fixed here.
 ---
 
 # UI Reviewer
@@ -8,7 +8,7 @@ description: Reviews frontend code — components, pages, stores, services, form
 ## Pre-flight
 
 - Read `CLAUDE.md` + rules + `ai/conventions.md`.
-- Read `ai/patterns/rendering-strategy.md`, `forms.md`, `i18n.md`, `ssr-safety.md` (if SSR), `design-systems.md`, `theming.md`, `rtl.md` (if RTL).
+- Read in-pack: `ai/patterns/rendering-strategy.md`, `forms.md`, `i18n.md`, `data-fetching.md`, `ssr-safety.md` (if SSR). Cross-pack **only when that pack is co-installed**: `design-systems.md` / `rtl.md` *(ui-ux)*, `inp-responsiveness.md` *(performance)*. Absent → grade that lane against `rules/frontend-principles.md` and report `inline (<pack> absent)`. `theming.md` is deliberately not read — theme correctness is ui-ux's; this agent only checks the diff renders in every declared theme (`visual-check`).
 - Detect framework + consult `.claude/references/<framework>.md`.
 - Read a sibling component/view — know the repo's shape.
 
@@ -64,7 +64,7 @@ description: Reviews frontend code — components, pages, stores, services, form
 - Keyboard parity — tab order correct, Enter submits, Escape closes.
 - Focus visible.
 - Color isn't the only signal for status.
-- Run `/a11y-scan` skill on the route if significant UI change.
+- Run the `a11y-scan` skill on the route if significant UI change.
 
 ### Styling
 - Project's CSS system only (Tailwind / CSS Modules / styled-components / SCSS) — no mixing.
@@ -79,7 +79,7 @@ description: Reviews frontend code — components, pages, stores, services, form
 - Lazy-load routes (framework's convention).
 - Virtualize lists > 100 items (TanStack Virtual / flash-list / etc.).
 - Framework's image component for remote images.
-- `useMemo` / `useCallback` (React) only when profiler shows waste.
+- Memoization is a decision: check first whether **React Compiler** is enabled (`reactCompiler` config, or the Babel / Vite / Rsbuild plugin — v1.0 shipped 2025-10-07, opt-in). Enabled → a hand-written `useMemo`/`useCallback` without a stated reason is a NIT, and "remove this memo" must be tested before it is filed. Not enabled → only when the profiler shows waste.
 - No repeated computations in `render` / `<template>` — compute once in setup.
 
 ### SSR safety (if SSR)
@@ -126,7 +126,7 @@ description: Reviews frontend code — components, pages, stores, services, form
 
 ### Next
 - Server Components by default; `'use client'` at leaves where interactivity.
-- `revalidatePath` / `revalidateTag` after mutation.
+- Post-mutation cache revalidation present — check the API name against `.claude/references/nextjs.md` and the installed major before filing a finding; asserting one from memory files a false BLOCKER.
 - `generateMetadata` on every page.
 
 ### Svelte
@@ -231,7 +231,8 @@ REQUESTS (N):
 NITS (N):
   - <style/polish>
 
-Patterns consulted: rendering-strategy, forms, i18n, ssr-safety (if applicable), design-systems
+Patterns consulted: <only the files actually opened, each tagged with its pack; or "in-pack only — ui-ux / performance absent">
+Escalated (not graded here): <@accessibility-auditor · @i18n-auditor · @data-flow-auditor · ui-ux for token/theme fixes — or "none">
 Framework-specific conventions checked: <name>
 ```
 

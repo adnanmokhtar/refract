@@ -77,7 +77,10 @@ Boot risk: HIGH (4 required keys missing — app won't start).
 
 - `.claude/skills/module-scaffold/SKILL.md` — a scaffolded module that adds config keys is a common source of the drift env-diff catches; run env-diff after scaffolding.
 - `.claude/skills/endpoint-test/SKILL.md` — a route that 500s on boot is often a MISSING required key; env-diff isolates config drift before blaming the handler.
-- Used by `@bug-investigator` — the config-drift branch of its "works on my machine" root-cause search.
+- **Dispatched by `/fix-bug` and `@bug-investigator`** — both route the "works on my machine / works in one
+  environment but not another" signal here *before* the handler is read, because config drift presents as a code
+  bug and is not one (`/fix-bug` Phase 3; the agent's Evidence gathering § Config drift). Those two are the only
+  callers this skill has; rename it and you must edit both.
 - `security` pack — secret storage / rotation; env-diff reports keys only and never values, deferring value handling there.
 - `.claude/rules/backend-principles.md` — the env-schema-validation MUST/SHOULD behind the UNVALIDATED classification.
 

@@ -37,9 +37,11 @@ Nuxt: static-but-slow subtree → `.server.vue` / `<NuxtIsland>`; non-critical d
 
 `renderToString` buffers the whole tree → switch to `renderToPipeableStream` (Node, `onShellReady`) / `renderToReadableStream` (edge/web).
 
-### 5. Partial Prerendering candidate (Next 15)
+### 5. Cache Components / partial-prerender candidate (version-gated)
 
-`export const dynamic = 'force-dynamic'` route with a large static header/footer → PPR: `export const experimental_ppr = true` (+ `experimental: { ppr: 'incremental' }`); wrap dynamic holes (`cookies()`/`headers()`/`searchParams`) in `<Suspense>`. `report-flagged`.
+`export const dynamic = 'force-dynamic'` route with a large static header/footer → partial prerender; wrap dynamic holes (`cookies()`/`headers()`/`searchParams`) in `<Suspense>`. `report-flagged`.
+
+Read the installed major first: **Next 16+** → `cacheComponents: true` + the `"use cache"` directive. **Next 15** → `export const experimental_ppr = true` (+ `experimental: { ppr: 'incremental' }`) — both REMOVED in 16, emitting them against a 16+ project fails the build (nextjs.org/blog/next-16 removals table).
 
 ## Output
 

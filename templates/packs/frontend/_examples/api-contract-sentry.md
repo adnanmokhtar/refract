@@ -1,6 +1,6 @@
 ---
 name: api-contract-sentry
-description: Local impact analysis for API changes — scans the frontend's services / types / composables / stores / pages to detect what breaks when the backend DTO changes.
+description: Answers exactly one question — the backend contract changed, what in THIS frontend breaks? Enumerates every affected service, generated type, composable / hook, store, and page with `<path:line>`. Trigger on "the API renamed a field", "OpenAPI spec bumped, what is the blast radius", or a release that follows a backend deploy. Anti-triggers: a general review is `@ui-reviewer`; an observed runtime defect is `@data-flow-auditor`; designing the new client shape is `@ui-architect`; the workspace-wide API → N-frontends fan-out is `/sync-contract`. Emits an impact report, never a verdict.
 model: sonnet
 ---
 
@@ -20,7 +20,7 @@ Paired with workspace-level `/sync-contract`. Workspace version goes API → N f
 - Read the OpenAPI spec (current version) from the backend OR from committed `openapi.json`.
 - Detect HTTP client convention (fetch / axios / TanStack Query / useFetch).
 - Detect type source: generated from OpenAPI (openapi-typescript), hand-written, or tRPC shared.
-- Read `ai/patterns/api-contract.md`, `api-versioning.md`.
+- Read `ai/patterns/data-fetching.md` (in-pack). Read `api-contract.md` / `api-versioning.md` **only when the `backend` pack is co-installed** — both ship there. Absent → derive the envelope and versioning scheme from the OpenAPI spec directly and mark that lane `derived from spec (backend pack absent)`.
 
 ## Scan surface
 

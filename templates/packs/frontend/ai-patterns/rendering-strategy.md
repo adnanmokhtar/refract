@@ -7,7 +7,7 @@ pack: frontend
 
 # Pattern: Rendering Strategy
 
-> **Hard rule:** Pick ONE rendering strategy per route (SSG, SSR, ISR, CSR, streaming) and document why. Mixing strategies in a single route or silently changing one without measuring TTFB / LCP impact is forbidden.
+> **Hard rule:** Every route **declares its rendering contract** — which regions are static, which are dynamic, where the streaming boundary sits — and documents why. An *undeclared* mix is forbidden; a *declared* one is now the mainstream shape (a static shell with dynamic holes behind Suspense is what partial prerendering ships). Changing a route's contract without measuring the TTFB / LCP impact is forbidden either way.
 
 **When to apply**
 - A new route is being added and the choice (SSG vs SSR vs CSR vs streaming) materially changes performance, SEO, or freshness guarantees.
@@ -25,7 +25,7 @@ pack: frontend
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when classifying a route.
 - If the framework's actual rendering primitive (App Router vs Pages, Nuxt 3 mode, etc.) isn't extracted, halt.
 
-Pick ONE per route. Mixing without understanding = slow, broken, or unshippable.
+Declare the contract per route. Mixing *without declaring it* is what breaks — an undeclared mix means nobody knows which regions are cacheable, so the cache invalidation, the SEO claim, and the freshness guarantee are all unowned.
 
 ## The options
 
@@ -38,6 +38,8 @@ Pick ONE per route. Mixing without understanding = slow, broken, or unshippable.
 | **Streaming SSR** | Server streams HTML as it's ready | Large pages where above-the-fold is fast, rest can stream |
 | **Islands / Partial Hydration** | Static HTML + hydrate only interactive bits | Marketing + some interactive widgets (Astro, Fresh, Qwik) |
 | **Edge SSR** | SSR at the CDN edge, near the user | Global audience, personalized content, low-latency needs |
+| **Partial prerender** (static shell + dynamic holes) | Static shell served instantly; the holes render per request behind Suspense | A mostly-static page with a few per-user regions (cart badge, greeting, price for this user) — the case the SSG/SSR dichotomy used to force a bad answer for |
+| **Server components + client islands** | Server renders the tree; only interactive leaves ship JS and hydrate | Content-heavy app where most of the tree never needs client JS; the portable form of the row above |
 
 ## Decision tree
 
@@ -85,7 +87,7 @@ This pattern owns the **initial-render** axis (first paint of a route). The **pa
 
 - Initial blank screen (loading state). Show skeleton, not spinner.
 - SEO impossible (crawlers vary in JS execution).
-- Bundle size = time-to-interactive.
+- Bundle size drives main-thread parse/exec — measure it as **TBT** in the lab and **INP** in the field. Not as TTI: that metric was removed from the Lighthouse 10 scored set (its 10% weight moved to CLS, which now carries 25%) precisely because it was oversensitive to outlier requests and long tasks.
 - Auth flash — user sees "not logged in" briefly before check completes. Use middleware / cookie check before render.
 
 ## ISR pitfalls
@@ -142,11 +144,11 @@ Route-level means you can change ONE route without touching others.
 
 ## Forbidden
 
-- Mixing strategies without a route-level declaration (ambiguity = bugs).
+- Mixing strategies without a route-level declaration (ambiguity = bugs). A declared static-shell-plus-dynamic-holes contract is not this — it is the shape the framework ships (see the Next.js 16 notes on Cache Components completing the partial-prerendering story).
 - CSR for SEO-critical pages. *(When a route must rank, server-render/prerender it, then run the `seo-audit` skill / `@technical-seo` agent on the head + body the crawler now receives.)*
 - SSR for content that never personalizes (waste of server cost).
 - ISR without a cache invalidation path (content goes stale forever).
-- Client-side fetching on server-rendered pages (defeats the point).
+- **Re-fetching on mount data the server already rendered** (defeats the point — the user pays for the same bytes twice and sees a flash). Revalidation on focus / interval / mutation is *required*, not forbidden: hydrate from the server payload, then let the query cache own staleness after hydration per `data-fetching.md`. The distinction is initial-read vs revalidation, and only the first belongs to the server.
 - Hardcoded dates / random values in SSR output.
 
 ## Related

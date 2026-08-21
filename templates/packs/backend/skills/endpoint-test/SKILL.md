@@ -1,6 +1,6 @@
 ---
 name: endpoint-test
-description: Hit a running dev endpoint via curl and verify status + response shape + required headers (auth, tenant). Used AFTER any controller or DTO edit to prove the route works end-to-end.
+description: Hit a running dev endpoint via curl and verify status + response shape + required headers (auth, tenant) field-by-field against the DTO. Use AFTER any controller, DTO, guard, pipe or interceptor edit to prove the route works end-to-end, or when a frontend reports an unexpected shape and you need ground truth. NOT when no dev server is running (it refuses to auto-start), NOT against staging/prod hosts, and NOT for static contract diffing — that is api-snapshot.
 ---
 
 # endpoint-test
@@ -12,6 +12,8 @@ Find real bugs, not hand-waves. Every assertion cites the controller/DTO `<file:
 A run that skips any of the 5 mandatory cases (golden, invalid body, no auth, wrong tenant, idempotency) is incomplete.
 
 Make an HTTP request to a local endpoint, then verify the status, headers, and response body match what the controller + DTO declared.
+
+**Ownership inside the endpoint-test triad.** This skill owns the *mechanism*: the curl invocations, the assertions, and the field-by-field diff. The `endpoint-tester` agent owns *case selection and the verdict*. The `/endpoint-test` command owns *argument resolution and escalation routing*. Each of the three states its cases once; when you need to know what a call actually asserts, it is here.
 
 ## When to use
 
@@ -52,7 +54,7 @@ Make an HTTP request to a local endpoint, then verify the status, headers, and r
    ```
    Assert: status matches documented success (201/200/204), body field-by-field matches response DTO, correlation-id header (if declared), `time_total` within SLO.
 
-   **2. Invalid body** — drop a required field; expect 400 with `errors[]` listing the offending field.
+   **2. Invalid body** — drop a required field; expect the project's declared validation-failure status (`422 Unprocessable Content` for a well-formed body that fails semantic validation; `400` only for a body that could not be parsed at all — see `ai/patterns/error-handling.md` § Status mapping) carrying the project's field-error rows, each naming the offending field with a stable machine code.
    **3. No auth** — omit `Authorization`; expect 401 (or 403 for public-but-rate-limited).
    **4. Wrong tenant** — header that doesn't own the resource; expect 404 (preferred) or 403. A 200 here is a cross-tenant leak (file as security finding).
    **5. Idempotency** (mutating endpoints with `Idempotency-Key`) — two POSTs with the same key; second returns same body, no duplicate side effects.
@@ -63,12 +65,44 @@ Make an HTTP request to a local endpoint, then verify the status, headers, and r
    ```
    Compare the key set against the DTO file.
 
-## Optional checks
+## Conditional cases (run when the endpoint's contract declares the capability)
 
-- Rate limit: loop 60 fast requests; expect 429 + `Retry-After`.
-- Pagination: `?limit=10&cursor=...` returns 10 items + a next cursor.
-- Filters / sorts: each param actually changes the result.
-- Soft-delete: deleted record returns 404, but `deleted_at` set in the DB.
+These are not optional in the sense of "nice to have" — each one runs **iff** the endpoint claims the corresponding capability, and skipping a case for a capability the endpoint does claim is the same incompleteness as skipping one of the mandatory five. Cite the declaration (`<file:line>` of the decorator, the OpenAPI row, the middleware) that put the case in scope.
+
+**Rate limit** — if a limiter is bound to the route.
+```bash
+for i in $(seq 1 "$((LIMIT + 1))"); do
+  curl -sS -o /dev/null -D - -X GET "$BASE/api/v1/orders" \
+    -H "Authorization: Bearer $DEV_JWT" \
+    -w "status=%{http_code}\n" | grep -iE '^(status|retry-after|ratelimit)'
+done
+```
+Assert on the `(LIMIT+1)`-th call: status `429`, **`Retry-After` present** (this is the one field with an RFC behind it — RFC 9110 §10.2.3), and a quota field present. The quota field family is the project's choice per `ai/patterns/rate-limiting.md` — the draft's `RateLimit` / `RateLimit-Policy`, the draft-05 `RateLimit-Limit`/`-Remaining`/`-Reset` triple, or both during migration. Assert the family the project declared; do **not** assert a family the project never adopted, and do not treat the absence of the legacy triple as a failure on a project that emits the two-field form.
+
+**Conditional requests** — if the read emits `ETag` or `Last-Modified`.
+```bash
+ETAG=$(curl -sS -D - -o /dev/null "$BASE/api/v1/orders/$ID" -H "Authorization: Bearer $DEV_JWT" \
+       | awk 'tolower($1)=="etag:"{print $2}' | tr -d '\r')
+curl -sS -o /dev/null -w "revalidate=%{http_code}\n" "$BASE/api/v1/orders/$ID" \
+     -H "Authorization: Bearer $DEV_JWT" -H "If-None-Match: $ETAG"
+```
+Assert `304` with an empty body. An endpoint that sets `ETag` and still returns `200` on a matching `If-None-Match` has a header that costs bytes and buys nothing. If the resource carries a version column and the write path declares `If-Match`, repeat with a stale validator and assert `412`.
+
+**Async / `202` hand-off** — if the write offloads to a job.
+```bash
+LOC=$(curl -sS -D - -o /dev/null -X POST "$BASE/api/v1/exports" -H "Authorization: Bearer $DEV_JWT" \
+      -d '{}' | awk 'tolower($1)=="location:"{print $2}' | tr -d '\r')
+curl -sS "$BASE$LOC" -H "Authorization: Bearer $DEV_JWT"
+```
+Assert `202`, a `Location` header, and that following it returns a job-status document whose state is one of the declared values. A `202` with no `Location` is a promise with no way to collect on it.
+
+**Streaming** — if the response is NDJSON / SSE / chunked. Assert the `Content-Type` matches the declared transport and that the stream carries a terminal marker (success sentinel or error record) rather than just ending. See `ai/patterns/response-streaming.md`; note that a streaming route is exempt from the envelope diff, so the terminal-marker assertion is the only completeness check it gets.
+
+**Pagination** — `?limit=10&cursor=...` returns at most 10 items plus a next cursor; the next cursor actually advances (page 2 ≠ page 1).
+
+**Filters / sorts** — each declared param demonstrably changes the result set. A param that is accepted and ignored is worse than a `400`.
+
+**Soft-delete** — a deleted record returns `404` on read while the row still carries `deleted_at`.
 
 ## Output
 
@@ -78,7 +112,7 @@ Make an HTTP request to a local endpoint, then verify the status, headers, and r
 | # | Case                | Status | Assertion                       | Result |
 |---|---------------------|--------|---------------------------------|--------|
 | 1 | Golden path         | 201    | DTO shape match                 | PASS   |
-| 2 | Missing `items`     | 400    | errors[].field == 'items'       | PASS   |
+| 2 | Missing `items`     | 422    | fieldErrors[].field == 'items'  | PASS   |
 | 3 | No auth             | 401    | WWW-Authenticate header         | PASS   |
 | 4 | Wrong tenant        | 404    | no resource in body             | PASS   |
 | 5 | Idempotency replay  | 201    | same body both calls            | FAIL — different createdAt timestamps
@@ -97,6 +131,7 @@ Curl commands:
 - **Too-permissive dev auth** — local server may skip tenant guards that prod enforces. Cross-tenant 200 is a real bug, not "dev mode".
 - **Stale server** — code edited but server not restarted. Look for the new line of code in the log; absent = restart needed.
 - **Dynamic fields** (`createdAt`, `id`, `correlationId`) differ between calls — exclude when comparing shapes, not values.
+- **A capability asserted that the project never adopted.** The mirror of phantom success: failing an endpoint for not emitting a header family, a cursor style, or a validator the project's conventions never declared. Assert the declared contract, not the one you would have designed.
 - Don't start the server yourself (side effects). Print the dev command and stop if it isn't running.
 
 ## Related
@@ -112,5 +147,6 @@ Curl commands:
 
 - Halt on hand-waves: every PASS must cite the case number + status code + DTO `<file:line>` it diffed against.
 - Halt if any of the 5 mandatory cases (golden / invalid body / no auth / wrong tenant / idempotency) was silently skipped.
+- Halt if a conditional case was skipped for a capability the endpoint **does** declare — cite the declaration that put it in scope, or state why it is out of scope. "Probably fine" is not a scope decision.
 - Halt if a 200 response was accepted without field-by-field diff against the response DTO — phantom success is the classic miss.
 - Halt if the target host is not localhost / 127.0.0.1 / a session-named tunnel — refuse to fire requests at unverified hosts.

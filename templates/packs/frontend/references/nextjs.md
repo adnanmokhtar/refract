@@ -4,6 +4,13 @@
 > **Official docs**: https://nextjs.org/docs
 > **Version-specific gotchas**: Next 14 default `fetch` cache was `force-cache`; **Next 15 default is `no-store`** — ALWAYS set `cache:` + `next.revalidate` explicitly (see "Data fetching"). Next 15 also makes `cookies()` / `headers()` / `params` / `searchParams` async (must `await`); Turbopack stable for `dev`; Server Actions cookie-set restrictions tightened.
 > **Substitution markers**: Replace `(marketing)` / `<name>` with the project's actual route groups + module names.
+> **Scope, stated honestly**: this file is written against **14 / 15**. Next **16** exists and removed APIs named
+> below. Only ONE 16 delta has been verified against a primary source in this pack — the PPR → Cache Components
+> move recorded under "Navigation & streaming" (source cited there, and enforced by the `streaming-ssr` skill).
+> The rest of this file has NOT been re-audited against 16. So: read the `next` major from `package.json` before
+> you emit any config-level or route-segment API from here, and if it is 16+, verify the call against the
+> installed version's docs rather than trusting this page. A reference that emits a deleted API is worse than no
+> reference.
 
 ## Structure
 
@@ -33,8 +40,21 @@ lib/                          # shared utils, db, auth
 - `<Link href>` auto-prefetches on viewport entry in prod; set `prefetch={false}` for low-value links. Default prefetch is **partial** (full for static routes, partial for dynamic). Never hand-roll `<a>` for internal nav.
 - `loading.tsx` wraps a segment in `<Suspense>` and streams a fallback instantly.
 - Wrap slow subtrees in `<Suspense fallback>` to stream them independently.
-- **Partial Prerendering (PPR)**: `export const experimental_ppr = true` + `experimental: { ppr: 'incremental' }` in `next.config` — static shell prerendered, dynamic holes (reading `cookies()` / `headers()` / `searchParams`) streamed. Detector: a `dynamic = 'force-dynamic'` route with a large static header/footer is a PPR candidate.
-- `next/dynamic(() => import(...), { ssr: false })` for heavy client-only widgets.
+- **Static shell + dynamic holes** — the shape is stable across majors, the enable line is NOT. Read the `next`
+  major from `package.json` first:
+  - **15**: `export const experimental_ppr = true` on the segment + `experimental: { ppr: 'incremental' }` in `next.config`.
+  - **16+**: both of those were **removed**; use Cache Components — `cacheComponents: true` in `next.config`, then
+    mark the cacheable shell with the `"use cache"` directive and wrap each dynamic hole in `<Suspense>`.
+    Emitting the 15 form against a 16+ project is a build failure, not a warning.
+    (Source: the Next.js 16 release notes list `experimental.ppr` and `export const experimental_ppr` in the
+    Removals table, superseded by Cache Components — nextjs.org/blog/next-16, published 2025-10-21.)
+  Either way the payoff is the same: the static shell prerenders and serves instantly, and only the dynamic holes
+  (anything reading `cookies()` / `headers()` / `searchParams`) stream. Detector: a `dynamic = 'force-dynamic'`
+  route with a large static header/footer is a candidate. The enable is a config + boundary decision — the
+  `streaming-ssr` skill §5 owns the version gate and halts if it is emitted without reading the major.
+- `next/dynamic(() => import(...), { ssr: false })` for heavy client-only widgets — **only from inside a Client
+  Component**. The Next docs state the `ssr: false` option "is not supported in Server Components. You will see an
+  error if you try to use it in Server Components." Same caveat in `ai/patterns/code-splitting.md`.
 - Parallel routes `app/@modal/...` + intercepting routes `app/(.)photo/[id]`.
 - `useRouter().prefetch()` to warm a route ahead of an imperative navigation.
 

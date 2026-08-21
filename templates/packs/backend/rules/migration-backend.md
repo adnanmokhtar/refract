@@ -52,7 +52,7 @@ The `extract_inventory_primitives` function is framework-comprehensive within `b
 
 Concrete backend fingerprints the validator's `check_v2_structure` flags when `PROJECT_KIND in backend-*`:
 
-- **Fat controller** when V2 architecture mandates service-layer + repository: route handlers with > N lines of business logic that V2 expects to live in a service.
+- **Fat controller** when V2 architecture mandates service-layer + repository: a route handler that holds business logic V2 places in a service — branching on domain state, computing money/totals/eligibility, or orchestrating more than one repository call. Judge by what the logic *is*, not by a line count: there is no project-independent threshold, and a literal `N` in a `severity: must` rule is unenforceable.
 - **Raw SQL string concat** when V2 mandates parameterized queries / ORM only.
 - **`SELECT *` queries** consumed by < 5 fields downstream (column-projection over-fetch).
 - **N+1 query patterns** — 1 query + per-result follow-ups in a loop where a JOIN or batch query is the V2 idiom.

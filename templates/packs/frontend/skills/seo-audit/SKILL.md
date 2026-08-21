@@ -179,3 +179,12 @@ Findings: 5
 - Halt if a JSON-LD proposal asserts data (price, rating, author, date) not present on the page.
 - Halt if the real problem is crawlability (CSR-only) — hand off to `rendering-strategy` instead of proposing tags the crawler will never see.
 - Halt if a `noindex`/`Disallow` "fix" would de-index a route the project intends to rank.
+
+## Related
+
+- `@technical-seo` — the agent that owns the judgment calls (indexation strategy, canonical policy, structured-data choice) and dispatches this skill for the mechanical sweep. This is the reverse link that agent's `## Related` already assumes: findings flow scan -> agent, decisions flow agent -> scan.
+- `rendering-strategy.md` (ai-pattern) — a route that must rank cannot be CSR-only. When this scan finds an empty server HTML body, the fix is a rendering-strategy change first, a metadata change second.
+- `streaming-ssr` — streamed HTML still contains the head; a boundary that defers `<title>`/canonical into a streamed chunk is this skill's finding, that skill's fix.
+- `i18n.md` (ai-pattern) + `@i18n-auditor` — `hreflang` reciprocity is only checkable against the declared locale set; the locale list comes from there.
+- `image-optimization` — OG/Twitter image dimensions and `alt` text overlap; this skill grades the social card, that skill grades delivery.
+- `.claude/rules/frontend-principles.md` — the unique-title/description, canonical, OG/Twitter, JSON-LD, `noindex`, sitemap+robots and SSR-for-indexable-routes MUSTs.

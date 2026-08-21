@@ -102,11 +102,19 @@ Dispatch in parallel:
 - **`test-reviewer`** — coverage %, test quality, presence of tenant-isolation tests, flake history.
 - **`dead-code-finder`** — unused exports, files with no imports, dead branches.
 
+If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. **This matters more here than anywhere else in the pack:** only `api-reviewer` ships in the backend pack itself. The other five come from the database, performance, security, testing and code-quality packs, so on a backend-only install five of the six axes have no agent behind them. An axis with no agent and no inline pass is an axis that produced no findings — which is not the same as an axis that found nothing.
+
 Wait for all; consolidate by severity (BLOCKER / REQUEST / NIT) and area.
 
-Compute verdict:
-- 0 blockers → ready to extend.
-- 1+ blocker → must fix or write ADR before extending.
+Compute verdict — **coverage first, then blockers**:
+
+| Condition | Verdict |
+|---|---|
+| Any axis neither dispatched nor covered inline | **INCOMPLETE** — name the uncovered axes explicitly. Do not report a blocker count as if it were the whole picture. |
+| Every axis dispatched or covered inline, 0 blockers | Ready to extend. |
+| Every axis dispatched or covered inline, 1+ blocker | Must fix or write an ADR before extending. |
+
+A "0 blockers" read off a partial run is a manufactured pass — the same failure `/add-endpoint`'s production-readiness gate exists to prevent, and worse than a missing agent, because it looks like a green light.
 
 ## Phase 5 — Update
 
@@ -118,6 +126,7 @@ Compute verdict:
 ## Phase 6 — Validate
 
 - Self-audit: did every dispatched agent return? Missing agent = incomplete analysis.
+- **Coverage ledger before the verdict.** One row per axis: `dispatched` / `covered inline` / `NOT COVERED`. Any `NOT COVERED` row forces verdict INCOMPLETE regardless of blocker count.
 - Cross-check N+1 finding (perf agent) against query shapes (schema agent) — same root cause should not appear twice as different findings.
 - For BLOCKER findings: confirm file:line evidence is real (not a false positive on dynamically loaded code).
 
@@ -182,6 +191,7 @@ Detect from `CLAUDE.md` declared stack. If the module path matches a frontend fe
 
 - **Run BEFORE extending, not after.** Post-change analysis biases toward the diff.
 - **Every BLOCKER cites file:line evidence.** "Architecture violation" without a path is a hypothesis.
+- **A verdict states its coverage.** "Ready to extend" is a claim about six axes; it may only be made when all six were actually examined. Uncovered axes are named in the output, never averaged away.
 - **A BLOCKER is fixed OR written into an ADR before extending.** "Acknowledged" alone doesn't count.
 - **Cross-check findings to avoid duplicate reporting.** N+1 from perf-reviewer and missing-eager-load from schema-reviewer = one issue, not two.
 - **Don't mark dead code dead without confirming it's not framework-magic loaded** (NestJS auto-discovered modules, Next.js auto-routed pages, Django apps registered in INSTALLED_APPS).

@@ -7,7 +7,7 @@ pack: backend
 
 # Pattern: Rate Limiting & Load Shedding
 
-> **Hard rule:** Every public or expensive endpoint enforces a limit keyed on a stable identity (tenant / user / API-key / IP), returns `429` + `Retry-After` + `RateLimit-*` headers when exceeded, and sits behind a bounded in-flight admission limit that sheds `503` BEFORE the connection pool / queue saturates. A multi-instance deploy with an in-memory counter is unprotected — the limit resets per pod. This pattern is INBOUND self-protection; outbound resilience (circuit breaker, bulkhead) is owned by the distributed-systems pack.
+> **Hard rule:** Every public or expensive endpoint enforces a limit keyed on a stable identity (tenant / user / API-key / IP), returns `429` + `Retry-After` + the `RateLimit` / `RateLimit-Policy` quota fields when exceeded, and sits behind a bounded in-flight admission limit that sheds `503` BEFORE the connection pool / queue saturates. A multi-instance deploy with an in-memory counter is unprotected — the limit resets per pod. This pattern is INBOUND self-protection; outbound resilience (circuit breaker, bulkhead) is owned by the distributed-systems pack.
 
 **When to apply**
 - Any unauthenticated endpoint (login, signup, password-reset, public search) — abuse + credential-stuffing surface.
@@ -22,7 +22,7 @@ pack: backend
 
 **Halt conditions / mandatory cites**
 - A mutating or expensive route with no limiter middleware/decorator MUST be flagged at `<path:line>` — "looks rate-limited" is not a finding.
-- A `429` returned without `Retry-After` AND `RateLimit-Limit/Remaining/Reset` is incomplete — cite the response builder.
+- A `429` returned without `Retry-After` AND a quota field (`RateLimit`, or the legacy triple while clients migrate) is incomplete — cite the response builder.
 - A single shared global counter on a per-tenant API is a fairness bug — cite it; per-tenant bucket required.
 - An in-memory limiter (`Map`, local LRU) on a deploy with >1 instance MUST cite the deploy topology that breaks it.
 - The store-unreachable behavior (FAIL-OPEN vs FAIL-CLOSED) MUST be an explicit, documented decision — an undocumented `try/catch → allow` is a silent bypass.
@@ -48,6 +48,9 @@ Default to **sliding-window-counter** or **token-bucket**; reach for log/GCRA on
 | Per-API-key | `ratelimit:key:<keyId>` | Public/partner APIs with issued keys |
 | Per-tenant | `ratelimit:tenant:<id>:<route>` | **Multi-tenant fairness — never a shared global counter** |
 | Per-route | suffix `:<method>:<route>` | Different cost ceilings per endpoint |
+| Per-caller-class | `ratelimit:class:<human\|automation>:<id>` | The API is called by autonomous agents as well as humans — see below |
+
+**Caller class is a dimension, not a key detail.** If an API is consumed by autonomous agents (an LLM tool-caller, a CI job, a sync worker) as well as by a UI, the two traffic shapes differ: a UI produces a slow trickle of user-initiated calls, an agent completing one task produces a tight burst of sequential calls and then goes silent. A fixed window sized for the trickle rejects the burst; a fixed window sized for the burst is no limit at all for the trickle. Token bucket handles both (burst capacity + steady refill) — which is the concrete reason to reach for it here rather than a stylistic preference. **Do not import a number for this.** Measure your own calls-per-task distribution before choosing bucket size; the shape is workload-specific and any figure quoted without your telemetry behind it is a guess.
 
 **Multi-tenant rule:** each tenant gets its OWN bucket. A global counter lets one noisy tenant exhaust the limit for everyone — that's a fairness/availability bug, not a limit.
 
@@ -62,39 +65,65 @@ Default to **sliding-window-counter** or **token-bucket**; reach for log/GCRA on
 ## Response contract
 
 ```
-HTTP/1.1 429 Too Many Requests          (RFC 6585)
-Retry-After: 30                          (seconds OR HTTP-date — RFC 9110 §10.2.3)
-RateLimit-Limit: 100
-RateLimit-Remaining: 0
-RateLimit-Reset: 30                      (seconds until the window resets)
-RateLimit-Policy: 100;w=60               (IETF draft-ietf-httpapi-ratelimit-headers — a DRAFT, not an RFC)
+HTTP/1.1 429 Too Many Requests            (RFC 6585)
+Retry-After: 30                           (seconds OR HTTP-date — RFC 9110 §10.2.3)
+RateLimit-Policy: "default";q=100;w=60    (q = quota units, REQUIRED; w = window seconds;
+                                           qu = requests|content-bytes|concurrent-requests; pk = partition key)
+RateLimit: "default";r=0;t=30             (r = remaining quota units, REQUIRED; t = seconds to reset;
+                                           pk = partition key)
 Content-Type: application/problem+json
 
-{ "type": "https://errors.example/rate-limit", "title": "Too Many Requests",
-  "status": 429, "code": "RATE_LIMITED", "detail": "Limit 100/min exceeded", "retryAfter": 30 }
+{ "type": "https://iana.org/assignments/http-problem-types#quota-exceeded",
+  "title": "Too Many Requests", "status": 429, "detail": "Limit 100/min exceeded" }
 ```
 
-- Prefer the unprefixed `RateLimit-*` (standardizing draft) over legacy `X-RateLimit-*`; if you must keep `X-RateLimit-*` for existing clients, emit BOTH during migration.
-- The `429` body uses the project's error envelope (`error-handling.md`) or `application/problem+json` (`RFC 9457`).
-- **Always set `Retry-After` on `429` AND `503`** — clients back off deterministically instead of hammering.
+### The transition rule (read before you copy the block above)
+
+`draft-ietf-httpapi-ratelimit-headers-11` (23 May 2026) defines **exactly two** fields — `RateLimit-Policy` and `RateLimit` — both RFC 9651 Structured Fields, both carrying a **quoted policy name** and named parameters. The `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` triple this pack shipped previously is **draft-05 legacy**: the current revision does not define it.
+
+Three facts have to travel together, or the guidance is dishonest in one direction or the other:
+
+1. **The draft is not settled.** It is an Internet-Draft (`IESG State: I-D Exists`), and the HTTPDIR early review of `-10` (Lucas Pardue, 16 Jan 2026) came back **"Not ready"**. Pin no contract to it as though it were an RFC.
+2. **The legacy triple is still deployed reality.** Clients written against draft-05 read `RateLimit-Remaining`. So do a lot of SDKs.
+3. **Vendor `X-RateLimit-*` is still what large public APIs ship.** Unprefixed is the direction of travel, not the installed base.
+
+**Therefore: emit the two-field form AND the triple during transition.** Both are cheap (a few bytes); a client that understands neither reads `Retry-After`, which is the only field here that is unambiguously standardised. Drop the triple when your own client telemetry says nothing reads it — not on a draft's publication date.
+
+- The `429` body uses the project's error envelope (`error-handling.md`) or `application/problem+json` (RFC 9457).
+- **Always set `Retry-After` on `429` AND `503`** — clients back off deterministically instead of hammering. This is the field to get right first; it is the one with an RFC behind it.
+
+## Problem types for the body (RFC 9457)
+
+The draft registers three problem types, each carrying a `violated-policies` extension member naming the policies that were exceeded. Use them as the `type` URI when the body is `application/problem+json`; keep the project's own `code` mapped 1:1 to the URI so the two representations never diverge (`error-handling.md` § References).
+
+| `type` URI | Status | Emit when |
+|---|---|---|
+| `https://iana.org/assignments/http-problem-types#quota-exceeded` | 429 | The caller's own limit or quota was exceeded — the ordinary case. |
+| `https://iana.org/assignments/http-problem-types#temporary-reduced-capacity` | 503 | **The load-shedding path below.** Aggregate load exceeded capacity and this request was shed; the caller did nothing wrong. This is the type for §Load shedding's `503`, and the reason to prefer it over a bare `503`: it tells the client "back off, but you are not the problem", which is different advice from `#quota-exceeded`. |
+| `https://iana.org/assignments/http-problem-types#abnormal-usage-detected` | 429 | Traffic matched an abuse heuristic rather than a published quota. Emit only if you can name the heuristic — otherwise use `#quota-exceeded`. |
+
+These `type` URIs are registration targets in a draft, not resolvable documentation. If your project needs a dereferenceable URI today, use your own (`https://errors.example.com/quota-exceeded`) and record the mapping to the IANA form in the ADR.
 
 ## Quotas vs rate limits
 
 - **Rate limit** = requests per short window (per-second/minute) — protects infrastructure. Exceed → `429` + `Retry-After`.
-- **Quota** = plan allowance per long period (per-day/month) — a billing/entitlement concept. Exceed → `429` (or `402 Payment Required` if it's a paid-plan upgrade path). Track separately; surface remaining quota in `RateLimit-*` or a plan-specific header.
+- **Quota** = plan allowance per long period (per-day/month) — a billing/entitlement concept. Exceed → `429` (or `402 Payment Required` if it's a paid-plan upgrade path). Track separately. A quota and a rate limit can be advertised as two named policies on the same response — `RateLimit-Policy: "burst";q=100;w=60,"daily";q=1000;w=86400` — which is exactly what the named-policy syntax is for; the legacy triple could not express it.
 
 ## Load shedding / admission control
 
 Rate limits cap a single caller; **load shedding** protects the whole process when aggregate load exceeds capacity (a thundering herd of *new* tenants each under their own limit can still saturate you).
 
-- Put a **bounded-concurrency semaphore** + **bounded queue depth** in front of expensive work. When in-flight ≥ ceiling and the queue is full, reject overflow with `503 Service Unavailable` + `Retry-After` rather than accepting work that will time out anyway.
+- Put a **bounded-concurrency semaphore** + **bounded queue depth** in front of expensive work. When in-flight ≥ ceiling and the queue is full, reject overflow with `503 Service Unavailable` + `Retry-After` rather than accepting work that will time out anyway. Type the body `#temporary-reduced-capacity` (see §Problem types) so the caller can tell shedding apart from its own quota.
 - **Priority-aware shedding:** exempt health/readiness probes; shed low-priority/background traffic before user-facing requests.
 - Size the ceiling from a real number (pool size, downstream capacity), cited — not a guess.
 
 ## Detectors (cite-or-halt)
 
 - `grep` route decorators/handlers for expensive paths (`/search`, `/export`, `/report`, `/bulk`, `/upload`, LLM endpoints) with NO limiter middleware/decorator → `add-rate-limit`.
-- `429` constructed without `Retry-After`/`RateLimit-*` → `emit-ratelimit-headers`.
+- `429` constructed without `Retry-After` or without any quota field → `emit-ratelimit-headers`.
+- A response builder emitting **only** `RateLimit-Limit`/`-Remaining`/`-Reset` (draft-05 legacy) with no `RateLimit` / `RateLimit-Policy` alongside → `emit-ratelimit-headers` (add the two-field form; keep the triple until telemetry says no client reads it).
+- `RateLimit-Policy` written in the old unnamed-policy syntax (`100;w=60` — no quoted name, no `q=`) → `emit-ratelimit-headers`.
+- A `503` shed by admission control with no `Retry-After` → `add-load-shedding` (the shed path is the one clients most often hot-loop against).
 - A single global counter key (no tenant/user/IP segment) on a multi-tenant API → `add-per-tenant-quota`.
 - In-memory limiter (`new Map`, `lru-cache`) where the deploy runs >1 replica → cite the topology; move to the shared store.
 - Expensive synchronous fan-out with no concurrency cap / queue bound → `add-load-shedding`.

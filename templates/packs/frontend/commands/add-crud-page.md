@@ -55,7 +55,7 @@ Everything else — column order, filter shape, pagination size, validation mess
 - Verify API exists. If `POST/PATCH/DELETE` missing → STOP with "API needed first" message; route to `/add-feature`.
 - Decide layout: dialog vs page for create/edit (mirror existing CRUD).
 - Decide pagination: server-side default; client-side only for bounded reference data (< 1000 rows).
-- Dispatch plan: `ui-architect` for file list + state shape; `api-architect` only to confirm contract sufficient.
+- Dispatch plan: `ui-architect` for file list + state shape; `api-architect` *(backend pack)* only to confirm the contract is sufficient — **and only when that pack is co-installed**. Absent → read the endpoint's controller signature + DTO directly and record `contract check: inline (backend pack absent)`. Never resolve this step to nothing.
 
 ## Phase 3 — Retrieve
 
@@ -78,7 +78,7 @@ CRUD-specific:
 - **Routes** — list + create + edit, with auth/permission guards copied from sibling.
 - **i18n** — keys for every label, button, validation message, empty state, in EVERY locale.
 - **Tests** — list (renders, paginates, filters), form (valid + invalid submit), delete (confirms + executes).
-- **List→detail prefetch** — list rows prefetch the detail/edit route on hover/intent (the hot nav path: list→detail is THE fast page-to-page case) via the framework's nav primitive. Mirror how siblings prefetch; framework specifics in `references/<framework>.md` + skill `navigation-speed.md`.
+- **List→detail prefetch** — list rows prefetch the detail/edit route on hover/intent (the hot nav path: list→detail is THE fast page-to-page case) via the framework's nav primitive. Mirror how siblings prefetch; framework specifics in `references/<framework>.md`, audit via the `navigation-speed` skill.
 - **Instant loading skeletons** — the list AND the create/edit page paint an instant, layout-stable loading skeleton (no CLS), not a spinner. Mirror the sibling skeleton shape; per `frontend-principles.md` (instant layout-stable skeleton on navigation).
 - **Virtualize large lists** — a list likely rendering > ~100 visible rows VIRTUALIZES (windowed render) in addition to server-side pagination, mirroring sibling virtualized lists; per `frontend-principles.md`.
 - Run lint + tests scoped to new files; iterate to green.
@@ -101,6 +101,8 @@ Before declaring success, compare the new CRUD bundle against ≥2 sibling CRUD 
 - List→detail navigation doesn't prefetch the detail/edit route on hover/intent where sibling CRUD lists do — the hot nav path stays cold.
 - Loading skeleton missing or unsized (CLS on first paint) on the list or the form where siblings paint an instant layout-stable skeleton.
 - A list likely > ~100 visible rows isn't virtualized where siblings virtualize windowed rows.
+- **Table semantics missing on the list surface** — a data table with no `<caption>` (or `aria-label`), no `scope="col"`/`scope="row"` on its header cells, and no `aria-sort` on the column the user just sorted by. Sighted users read the sort arrow; screen-reader users get nothing. If siblings ship a `<BaseTable>` that already handles this, the halt is "you bypassed the wrapper"; if nothing in the repo does it, this is the first table to fix it and it says so in the report.
+- **Creation-time only.** This gate compares the NEW bundle against its siblings. Consolidating drift that already shipped across many files is not this command's job — that is `ui-design-sweep`'s `unify-component` verb *(ui-ux pack)* or the core `/unify-surfaces`.
 
 **Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
@@ -117,7 +119,7 @@ Before declaring success, compare the new CRUD bundle against ≥2 sibling CRUD 
 - Server-side pagination/sort/filter on lists likely > 1000 rows.
 - Delete is reversible (soft-delete + undo) or confirmed (modal); never silent permanent delete.
 - Hardcoded strings → all routed through i18n.
-- **Nav-speed sign-off** — dispatch `navigation-speed.md` on the list→detail surface (verify detail/edit prefetch on intent, bfcache safety — no unload/beforeunload, instant layout-stable skeleton on navigation). If the list is SSR with a slow query, also dispatch `streaming-ssr.md` to stream the shell and cut TTFB. Enforces `frontend-principles.md` route-prefetch + stream-the-shell + instant-skeleton + bfcache MUSTs.
+- **Nav-speed sign-off** — dispatch the `navigation-speed` skill on the list→detail surface (verify detail/edit prefetch on intent, bfcache safety — no unload/beforeunload, instant layout-stable skeleton on navigation). If the list is SSR with a slow query, also dispatch the `streaming-ssr` skill to stream the shell and cut TTFB. Enforces `frontend-principles.md` route-prefetch + stream-the-shell + instant-skeleton + bfcache MUSTs.
 - **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking captures errors from the list + form + delete routes the way siblings wire it; route-level perf signal (web-vitals / RUM) + CRUD analytics events added if siblings of this surface emit them. If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 
 ## Phase 7 — Improve
@@ -163,9 +165,9 @@ Status: COMPLETE
 - `/i18n-audit` — sibling command in frontend pack
 
 ### Skills
-- `navigation-speed.md` — list→detail prefetch / Speculation Rules / bfcache / instant-loading / View Transitions audit (the fast page-to-page nav specialist for the hot list→detail path).
-- `streaming-ssr.md` — fast-SSR streaming-boundary scanner; stream the shell when the SSR list has a slow query, cut TTFB.
-- `lcp-audit.md` — LCP-resource priority-hint scanner (fetchpriority / preload / preconnect / lazy-hero) for the list/detail above-the-fold.
+- `navigation-speed` — list→detail prefetch / Speculation Rules / bfcache / instant-loading / View Transitions audit (the fast page-to-page nav specialist for the hot list→detail path).
+- `streaming-ssr` — fast-SSR streaming-boundary scanner; stream the shell when the SSR list has a slow query, cut TTFB.
+- `lcp-audit` — LCP-resource priority-hint scanner (fetchpriority / preload / preconnect / lazy-hero) for the list/detail above-the-fold.
 
 ### Patterns
 - `ai/patterns/forms.md`

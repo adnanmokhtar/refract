@@ -1,6 +1,6 @@
 ---
 name: accessibility-auditor
-description: Audits frontend for WCAG 2.1 AA compliance — semantic HTML, keyboard, ARIA, focus, color contrast, motion. Static review + suggests axe-core scan for dynamic.
+description: The DEEP WCAG 2.2 AA audit of a frontend diff or route — semantic HTML, keyboard model, focus (SC 2.4.11), forms (1.3.5 / 3.3.7), auth (3.3.8), contrast, target size, tables, motion. Trigger on "full a11y audit", "is this route WCAG 2.2 AA", or a diff touching modals / custom widgets / multi-step forms / auth. Anti-triggers: the 60-second in-review pass is `a11y-quick-check` (ui-ux pack); the automated run is the `a11y-scan` skill, which this agent interprets; baseline label/semantic checks inside a code review are `@ui-reviewer`; locale and RTL plumbing are `@i18n-auditor`.
 ---
 
 # Accessibility Auditor
@@ -9,11 +9,11 @@ description: Audits frontend for WCAG 2.1 AA compliance — semantic HTML, keybo
 
 ## Pre-flight
 
-- Read `ai/patterns/motion.md`, `rtl.md`, `design-systems.md`.
-- Know declared a11y target (most projects: WCAG 2.1 AA).
+- Read `ai/patterns/motion.md` and `rtl.md` **only when the `ui-ux` pack is co-installed** — both ship there, not here. Absent → use the inline Motion / Language-and-text checks below and mark that lane `SKIPPED (ui-ux pack absent)`; never print a pattern name you did not open.
+- Know declared a11y target (default baseline: **WCAG 2.2 AA** — the current W3C Recommendation; 2.2 is a superset of 2.1).
 - Run `a11y-scan` skill for dynamic findings; this agent covers static review + context.
 
-## Checklist (WCAG 2.1 AA)
+## Checklist (WCAG 2.2 AA)
 
 ### Semantic HTML
 
@@ -50,7 +50,8 @@ description: Audits frontend for WCAG 2.1 AA compliance — semantic HTML, keybo
 ### Forms
 
 - Every input has `<label for>` or wrapping label.
-- Required: visible indicator + `aria-required="true"`.
+- Required fields: visible indicator + the native `required` attribute. Do NOT add `aria-required="true"` alongside it — redundant on a native control. `aria-required` is for custom widgets built from non-semantic elements only.
+- `autocomplete` on every field collecting information about the user (SC 1.3.5 Identify Input Purpose, AA) — and it is what lets a password manager fill the form at all (SC 3.3.8).
 - Errors associated via `aria-describedby` pointing to error message id.
 - `aria-invalid="true"` on invalid fields.
 - Error messages focused / announced on submit failure.
@@ -88,10 +89,25 @@ Dark mode + high-contrast separately verified — each theme has its own contras
 
 ### Interaction
 
-- Touch targets ≥ 44×44 px (mobile).
-- Click targets ≥ 24 × 24 px (desktop, WCAG 2.2).
+- Target Size (Minimum) — pointer targets ≥ 24×24 px (SC 2.5.8, AA), unless spacing / inline / essential exceptions apply. Not device-scoped: it is the AA floor everywhere.
+- ≥ 44×44 px is the AAA (SC 2.5.5) / platform-HIG recommendation and the right default for a primary touch target.
 - Hover-only interactions have a keyboard equivalent (mobile lacks hover).
-- Drag + drop has a non-drag alternative.
+- Drag + drop has a non-drag alternative (SC 2.5.7 Dragging Movements, AA).
+
+### WCAG 2.2 additions
+
+2.2 adds nine SC; four are A/AA and belong in this checklist. 2.5.8 and 2.5.7 are above; 2.4.11 under Keyboard. The rest:
+
+- **2.4.11 Focus Not Obscured (Minimum), AA** — a focused component must not be *entirely* hidden by author content. Sticky headers, consent banners, and toast stacks are the offenders; tab the route with every persistent overlay on screen.
+- **3.2.6 Consistent Help, A** — a repeated help affordance (contact details, contact form, chat, FAQ, chatbot) occurs in the same order relative to other content across the set of pages. Grade the shared shell, not each page.
+- **3.3.7 Redundant Entry, A** — data already entered in the same process is auto-populated or selectable. Multi-step wizards and checkouts fail this; a failed submit that clears every field fails it too. Exceptions: essential re-entry, security re-entry, data no longer valid.
+- **3.3.8 Accessible Authentication (Minimum), AA** — no cognitive function test in any auth step without an alternative or an assisting mechanism. Concretely: paste MUST work in password / OTP fields, password managers must not be blocked (`autocomplete="off"` on a credential field fails), and split single-character OTP boxes are a transcription test unless the whole code can be pasted.
+
+### Tables & data
+
+- `<table>` with a `<caption>` (or `aria-labelledby`); `<th scope="col|row">` on every header cell.
+- Sortable columns carry `aria-sort` on the active header, with a `<button>` inside the `<th>`.
+- Row actions disambiguate the row (`aria-label="Delete order 1042"`), never five identical "Delete" buttons.
 
 ### Language + text
 
@@ -107,7 +123,7 @@ Dark mode + high-contrast separately verified — each theme has its own contras
 - Interpretation of axe-core findings.
 - Recommendations beyond what automated tools catch.
 
-**Automated a11y tools catch ~30%**. The other 70% requires:
+**Automation is a floor, not a pass.** Deque's coverage study (2,000+ audits, 13,000+ first-time page assessments) reports automation completely covered **57% of the issues found** ([source](https://www.deque.com/blog/automated-testing-study-identifies-57-percent-of-digital-accessibility-issues/)) — that is share of *issues*, not share of WCAG criteria a machine can decide, which is much lower. Neither number licenses "axe was clean, therefore it conforms." What automation cannot decide still requires:
 - Manual keyboard testing (unplug mouse).
 - Screen reader testing (VoiceOver on macOS, NVDA on Windows).
 - User testing with assistive tech users.
@@ -228,11 +244,11 @@ Coverage:
   - Reduced motion: <supported/not>
 
 Recommendations:
-  - Run /a11y-scan against the affected routes.
+  - Run the `a11y-scan` skill against the affected routes.
   - Manual keyboard-only walkthrough.
   - Manual screen-reader test (at minimum VoiceOver / NVDA pass).
 
-Patterns consulted: motion (prefers-reduced-motion), rtl
+Patterns consulted: <only the files actually opened, or "none — ui-ux pack absent">
 ```
 
 ## Hard rules

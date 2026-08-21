@@ -6,7 +6,7 @@ pack: frontend
 
 # Pattern: Rendering Strategy
 
-Pick ONE per route. Mixing without understanding = slow, broken, or unshippable.
+Declare the rendering contract per route — which regions are static, which are dynamic, where the streaming boundary sits. An *undeclared* mix is what breaks; a declared static-shell-plus-dynamic-holes route is the shape frameworks now ship.
 
 ## The options
 
@@ -64,7 +64,7 @@ Modern frameworks (Next App Router, Nuxt, SvelteKit, Remix) let you pick strateg
 
 - Initial blank screen (loading state). Show skeleton, not spinner.
 - SEO impossible (crawlers vary in JS execution).
-- Bundle size = time-to-interactive.
+- Bundle size drives main-thread parse/exec — measure it as TBT in the lab, INP in the field (TTI was dropped from the Lighthouse 10 scored set).
 - Auth flash — user sees "not logged in" briefly before check completes. Use middleware / cookie check before render.
 
 ## ISR pitfalls
@@ -110,9 +110,9 @@ Route-level means you can change ONE route without touching others.
 
 ## Forbidden
 
-- Mixing strategies without a route-level declaration (ambiguity = bugs).
+- Mixing strategies without a route-level declaration (ambiguity = bugs) — a declared static shell + dynamic holes is not this.
 - CSR for SEO-critical pages.
 - SSR for content that never personalizes (waste of server cost).
 - ISR without a cache invalidation path (content goes stale forever).
-- Client-side fetching on server-rendered pages (defeats the point).
+- Re-fetching on mount what the server already rendered (defeats the point). Revalidation on focus/interval/mutation is required, not forbidden.
 - Hardcoded dates / random values in SSR output.

@@ -144,3 +144,11 @@ Findings: 4
 - Halt if a preload set exceeds the 1–2 above-the-fold fonts actually used, or omits `crossorigin`.
 - Halt if `unicode-range` subsetting is proposed for a multilingual project without confirming the locale set.
 - Halt if the project already self-hosts via a framework primitive and the fix reintroduces a remote `<link>`.
+
+## Related
+
+- `lcp-audit` — a text LCP element waits on the font; the preload this skill adds and the priority that skill sets are the same critical path seen from two ends.
+- `image-optimization` — the other asset lane. Font swap-CLS and image dimension-CLS both land in the same CLS score; report them separately so the fix is attributable.
+- `lighthouse-ci` — measures the CLS / render-blocking result of these fixes; it does not tell you which `@font-face` caused it.
+- `.claude/rules/frontend-principles.md` — the `font-display` / self-host / preload-critical-font / size-adjusted-fallback MUSTs this skill enforces.
+- `i18n.md` (ai-pattern) — subsetting is locale-dependent: a Latin-only subset silently breaks a declared non-Latin locale. Check the declared locale set before proposing `unicode-range`.

@@ -128,16 +128,21 @@ if err := g.Wait(); err != nil { return err }
 ### Java / Kotlin
 
 ```java
-// CompletableFuture for fixed N
+// CompletableFuture for fixed N — portable, no preview flag
 CompletableFuture<User> fU = userSvc.getAsync(id);
 CompletableFuture<Org>  fO = orgSvc.getAsync(orgId);
 CompletableFuture.allOf(fU, fO).join();
 
-// Bounded parallel via virtual threads (Java 21+) or thread pool
-try (var scope = StructuredTaskScope.<Result>open()) {
-    var subtasks = ids.stream().map(id -> scope.fork(() -> fetch(id))).toList();
-    scope.join().throwIfFailed();
-    return subtasks.stream().map(StructuredTaskScope.Subtask::get).toList();
+// StructuredTaskScope — still a PREVIEW API (JEP 505, "Structured Concurrency (Fifth
+// Preview)", JDK 25) and its shape has changed between previews: `open()` is now a static
+// factory taking a Joiner, and `join()` returns the Joiner's result or throws
+// StructuredTaskScope.FailedException — the older `scope.join().throwIfFailed()` form no
+// longer compiles. Needs --enable-preview; check YOUR JDK's javadoc for the Joiner result
+// type before copying. CompletableFuture above is the portable choice.
+try (var scope = StructuredTaskScope.open(Joiner.<Result>allSuccessfulOrThrow())) {
+    ids.forEach(id -> scope.fork(() -> fetch(id)));
+    var completed = scope.join();   // throws FailedException if any subtask failed
+    return completed;
 }
 ```
 

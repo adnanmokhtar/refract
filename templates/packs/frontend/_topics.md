@@ -126,6 +126,14 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   mirror_existing: true
   fallback: _examples/realtime-client.md
 
+- name: auth-session-client
+  kind: pattern
+  triggers: { auth_or_login_detected: true }
+  extracts_from: _extracted-codebase.md (auth lib/SDK + token storage + HTTP client interceptor + router guards) + _extracted-idioms.md (session composable/service if any)
+  sections: [overview, ownership_boundary, token_storage_trade, single_flight_refresh, logout_fanout, cross_tab_sync, route_vs_render_guard, accessible_authentication, detectors, pitfalls]
+  mirror_existing: true
+  fallback: _examples/auth-session-client.md
+
 - name: frontend-principles
   kind: rule
   triggers: { primary_frontend_framework_detected: true }
@@ -180,6 +188,13 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { i18n_lib_detected: true }
   fallback: _examples/i18n-audit.md
+
+- name: refactor
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (component/state conventions) + STACK.md
+  sections: [pack_overlay_gates, dispatch, when_not]
+  fallback: _examples/refactor.md
 
 - name: visual-check
   kind: skill
@@ -238,4 +253,22 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
   fallback: _examples/a11y-scan.md
+
+- name: dev-server-start
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (package manager + dev script + configured port)
+  fallback: _examples/dev-server-start.md
+
+- name: verify-with-playwright
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (routes to drive + auth gate) + .mcp.json (playwright MCP entry)
+  fallback: _examples/verify-with-playwright.md
+
+- name: component-playground
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (component dir + shared input primitives + dev-route convention + existing component explorer, if any)
+  fallback: _examples/component-playground.md
 ```

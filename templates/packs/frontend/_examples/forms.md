@@ -156,7 +156,9 @@ const checkSkuUnique = useDebouncedCallback(async (sku: string) => {
   if (exists) setError('sku', { type: 'unique', message: t('products.errors.duplicate_sku') });
 }, 400);
 
-<input {...register('sku')} onChange={(e) => checkSkuUnique(e.target.value)} />
+<input {...register('sku', { onChange: (e) => checkSkuUnique(e.target.value) })} />
+<!-- the handler goes INSIDE register: spreading register() then re-declaring onChange
+     overwrites the library's own onChange, so the field never registers a change -->
 ```
 
 Debounce > 300ms minimum. Cancel in-flight requests when the user types again. Show a subtle spinner near the field — don't disable the field while checking.
@@ -179,7 +181,7 @@ Match the choice to the resume requirement: if "user closes browser at step 3, c
   id="email"
   type="email"
   required
-  aria-required="true"
+  autocomplete="email"
   aria-invalid={hasError}
   aria-describedby={hasError ? 'email-error email-help' : 'email-help'}
 />
@@ -190,7 +192,8 @@ Match the choice to the resume requirement: if "user closes browser at step 3, c
 Checklist:
 - Every input has a `<label for="...">` (NOT just placeholder text).
 - `aria-invalid="true"` on invalid fields.
-- `aria-required="true"` on required fields (some screen readers don't announce HTML5 `required`).
+- Native `required` on semantic controls — `aria-required` is for controls built from non-semantic elements (a `<div role="checkbox">`); both on one element is redundant (MDN).
+- `autocomplete` on every purpose-carrying field (WCAG 2.2 SC 1.3.5) — and never block paste in a password field (SC 3.3.8).
 - Error messages linked via `aria-describedby`.
 - `role="alert"` on error messages so screen readers announce on appearance.
 - On submit failure, `focus()` the first invalid field. Otherwise screen-reader users don't know anything happened.
@@ -210,7 +213,7 @@ For genuinely simple forms (search input, single-field subscribe), this pattern 
 - **Clearing form on error.** User types 12 fields; one is wrong; form clears; user quits. The submit button is the contract: it tries to submit; if it fails, fix the broken field, don't reset.
 - **Generic error toast, no field detail.** "Something went wrong" hides the actual problem. Map server `code` → field error.
 - **Placeholder as label.** Disappears when user types. Not announced by screen readers as a label. Always real `<label>`.
-- **Trusting `required` HTML attribute as full validation.** Some browsers ignore it; assistive tech varies. Use it AND validate in JS AND validate on the server.
+- **Trusting the `required` attribute as validation.** It is an a11y + UX signal, not a security control, and it is inert under `noValidate` (which this example sets). Validate in JS AND on the server.
 
 ## Testing
 

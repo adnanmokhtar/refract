@@ -14,6 +14,189 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.13.0 — 2026-08-21
+
+Correctness wave, scoped by count so it can be checked against the diff: every directory in the pack was
+touched — `agents/` 7/7, `skills/` 14/14, `commands/` 6/7, `ai-patterns/` 9/10, `rules/` 2/3, `references/` 1/6
+— plus `_topics.md`, `_authoring-standard.md`, `_essentials.md` and 18 of the 38 `_examples/` fallbacks.
+`rules/migration-frontend.md` and five of the six framework references were **not** re-audited; they are listed
+under "Deliberately NOT done" rather than left implied. Every currency claim below was verified against a
+primary source in this run; where a source could not be opened, the text says so instead of asserting.
+
+**Things the pack was stating falsely.**
+
+- `a11y-scan` claimed WCAG 2.2 AA while configured for 2.1: `withTags` is an allowlist and `wcag22aa`
+  was absent, so SC 2.5.8 Target Size — the criterion `@accessibility-auditor` grades — could not be
+  surfaced. Tags re-baselined, and the rule is explicitly enabled because Deque's rule reference states
+  the WCAG 2.2 rules ship *"disabled by default, until WCAG 2.2 is more widely adopted and required"*.
+  **Newly documented trap, read from the axe-core-npm source:** `AxeBuilder.options()` assigns
+  `this.option = options` — it REPLACES the object — so `.options()` must precede `.withTags()` or the
+  tag list is silently discarded and the default rule set runs. The skill now ships them in that order
+  with the reason inline, plus a verification instruction (the axe API docs do not document how
+  `runOnly` interacts with a disabled-by-default rule, so the enable is defensive, not asserted).
+  `results.incomplete` is now read and reported as its own "Review items" block: an unresolved review
+  item is not a pass. The unsourced "~30% of issues" figure is gone rather than replaced — published
+  coverage numbers measure different things and the skill now says what is actually true.
+- `streaming-ssr` §5 told the agent to emit `export const experimental_ppr = true` +
+  `experimental: { ppr: 'incremental' }`. The Next.js 16 release notes list **both** in the Removals
+  table, superseded by Cache Components (`cacheComponents: true` + `"use cache"`). The section is now
+  version-gated for 16+ vs 15, because the skill runs against repos on both majors, and halts if the
+  enable line is emitted without reading the installed major.
+- `references/nextjs.md` shipped the same removed API the bullet above bans, in the file the pack's own
+  convention makes **authoritative** for framework specifics — and `@ui-architect` was pointed straight at it
+  ("confirm against `.claude/references/nextjs.md` and the version in `package.json`"). A reference that emits a
+  deleted API is worse than no reference, so the PPR entry is now version-gated exactly as `streaming-ssr` §5 is
+  (15: `experimental_ppr`; 16+: Cache Components — `cacheComponents: true` + `"use cache"`), same source, same
+  build-failure warning. The file's header now states its scope honestly: it is written against 14 / 15, only the
+  one 16 delta above has been re-verified, and anything config-level or route-segment must be checked against the
+  installed major before it is emitted.
+- `code-splitting`'s Adapt table offered `next/dynamic(..., { ssr: false })` with no caveat; the Next
+  docs state it "is not supported in Server Components. You will see an error if you try to use it."
+  `references/nextjs.md` carried the same uncaveated line and now carries the same caveat — the reference and the
+  pattern have to agree or the agent picks whichever it read last.
+- **Three `data-fetching` detector greps did not work, verified by running them against the doc's own
+  examples.** Detector 1's `useEffect\([^)]*...` cannot cross the `)` in `useEffect(() =>` (exit 1, zero
+  output). Detector 4's literal `\n` makes ripgrep abort (`the literal "\n" is not allowed in a regex`,
+  exit 2). Detector 3's `rg -A2 | rg -v "signal"` filters *lines*, so it drops the `signal:` context line
+  and reports the correctly-aborted fetch as a hit. All three replaced with multiline / PCRE forms that
+  were run against BAD and GOOD fixtures before shipping, each carrying the reason it is written that way.
+- `forms.md`'s async-validation example spread `register('sku')` and then re-declared `onChange`,
+  overwriting the library's own handler (its `UseFormRegisterReturn` type declares `onChange`), so the
+  field never registered a change and submitted empty. Fixed to pass the callback through the register
+  options, with the failure explained — it is silent, which is what makes it expensive.
+- `lcp-audit`'s Premise justified itself by saying `fetchpriority` "appears nowhere in the current packs"
+  and that `frontend-principles` has no hero carve-out. Both had become false. Replaced with the standing
+  justification: the rule states the MUST, only a scan can tell you whether a route has zero or three
+  high-priority elements.
+- `visual-check` named two different session paths in one file (`test/visual/.auth/state.json` in prose,
+  `tests/.auth/user.json` in the scaffold, the config and the MCP arg). Canonicalised on the one the
+  scaffold actually writes, and the Playwright-MCP contract (session path, gitignored artifact dir,
+  blocked-render HALT) is now declared **shared**, with its ui-ux consumers listed — changing it is a
+  cross-pack change. `verify-with-playwright` cites that contract instead of inventing a second one.
+
+**Aged advice corrected, with sources.** `rendering-strategy` said "bundle size = time-to-interactive";
+TTI was removed from the Lighthouse 10 scored set (its 10% weight moved to CLS, now 25%) — measure TBT in
+the lab, INP in the field. Its "pick ONE strategy per route" hard rule contradicted the pack's own
+stream-the-shell MUST and predates partial prerendering: the rule is now "declare the route's rendering
+contract" with static-shell-plus-dynamic-holes and server-components-plus-islands as first-class rows.
+Its blanket "no client-side fetching on server-rendered pages" is narrowed to re-fetching on mount what
+the server already rendered — revalidation is required, not forbidden. `forms.md` dropped
+`aria-required` beside a native `required` (MDN: `aria-required` is for controls built from non-semantic
+elements) and stopped claiming "some browsers ignore `required`" — the real reasons are that it is a UX
+signal, not a security control, and that it is inert under the `noValidate` the file's own example sets.
+
+**`ssr-safety` rebuilt** from the pack's only C-grade pattern to the 1.10.0 shape: per-framework Adapt
+table, seven numbered BAD/GOOD detectors with greps that were run before shipping, and closure verbs.
+Three of its own contradictions are resolved: the hard rule now grades the **DOM tree**, not
+"byte-for-byte" (unfalsifiable at review time, and it made the sanctioned suppression primitive look like
+a violation); `typeof window` is graded **by position** — the bug is branching the returned markup, not
+the expression itself, which the file previously recommended in one section and forbade in two others;
+and "NEVER plain `fetch()` in a component setup block" is scoped to *client* components, because
+`await fetch()` in an async Server Component is the documented Next.js primitive and Server Components do
+not re-run on the client. New detectors for mismatch-suppression-as-cover-up and for an external store
+read during SSR without a server snapshot (React documents that omitting `getServerSnapshot` makes server
+rendering throw).
+
+**Cross-pack honesty.** Eight unguarded dispatches into other packs (`api-architect`,
+`@design-system-guardian`, `/enhance-ui`, `/design-review`, `design-iterate`, `/align-recheck`,
+`/bundle-perf`) now name the owning pack and say what happens when it is absent — the axis is graded
+inline and labelled, never silently skipped, and a HALT never redirects into a command the project does
+not have. `add-feature`'s existing fallback sentence covered agents only; it now covers agents, commands
+and skills. Seven hardcoded `../../<pack>/…` paths that 404 on a frontend-only install are replaced by
+bare names + pack tags, which `_authoring-standard §0.7` already required. Nine dead references fixed:
+`ai/patterns/components.md` (exists nowhere), the non-existent `a11y.md`/`styling.md` rules,
+`@bundle-analyzer` (it is a skill, not an agent), `/ssr-audit` and `/i18n-extract` (neither is a command),
+and six skills cited as bare `.md` filenames.
+
+**`add-page` was the only build command that re-inlined the universal pre-flight**, and it dropped five of
+the seven reads — including `ai/dynamic/feedback-learned.md`, which is how prior corrections reach a run.
+It now links the snippet like its two siblings and keeps only the page-specific reads.
+
+**New: `ai-patterns/auth-session-client.md`** — the largest genuine hole in the pack. The client half of a
+login session: the storage trade stated as a trade (XSS blast radius vs CSRF surface vs SSR readability,
+not a verdict), single-flight refresh and the 401 stampede that reads as "random logouts" under rotating
+refresh tokens, logout as a seven-step fan-out rather than a token delete, cross-tab sync, route-guard vs
+render-guard with the three-state `unknown` model, and WCAG 2.2 SC 3.3.8 (paste must work, password
+managers must not be blocked). Ownership is stated in the second paragraph: token issuance, rotation and
+revocation are the backend pack's, and the *test harness's* session is `visual-check`'s — a different
+thing wearing the same word. Ships with its `_topics.md` entry, `_examples/` fallback and an explicit
+decision to stay out of `--minimal`.
+
+**Registration + contract cleanup.** `refactor`, `component-playground`, `dev-server-start` and
+`verify-with-playwright` had no `_topics.md` entry — `component-playground` is shipped by `--minimal`, so
+the pack was shipping an unregistered skill AUTHOR mode could neither generate nor fall back to. All four
+registered with `_examples/` fallbacks. `component-playground` gained the prior-art halt it was missing
+(if `.storybook/` / `.ladle/` / any `*.stories.*` exists, write a story — do not scaffold a second
+explorer), an Output block, failure modes and `## Related`. Banned headings removed (`## Limitations`,
+`## Rules`, `## When to use`), and `## Related` added to the six scanners that lacked it — including
+`seo-audit`, the reverse link `@technical-seo` had been waiting for. `streaming-ssr` gained the
+`## Adapt to the codebase` table §1.1.3 requires of a skill that emits fixes.
+
+**Three cheap a11y gaps closed where the failure is authored**, not in a new artifact: `autocomplete` /
+SC 1.3.5 and SC 3.3.7 Redundant Entry as detectors in `forms.md`; SPA route-change announcement (focus +
+one live region) as `navigation-speed`'s 8th detector, since it is a navigation mechanism with an a11y
+consequence; and table semantics (`caption`, `scope`, `aria-sort`) added to `add-crud-page`'s
+sibling-shape halt, which generates tables and never asked.
+
+**All seven agents re-cut, plus two of the three rules.** Every agent `description:` was a capability blurb, so
+the seven overlapped at the edges and the dispatcher had to guess; each now carries an explicit trigger set plus a named
+anti-trigger set pointing at the sibling that owns the case, and every "sibling agents" section became a
+*boundary* section that says where one stops. The cross-pack reads are the substantive change: a read of a
+`ui-ux` or `performance` pattern is now gated on that pack being co-installed, with a named inline fallback and
+a labelled lane in the output (`SKIPPED (ui-ux pack absent)`, `inline (performance pack absent)`,
+`UNVERIFIED (backend pack absent)`) — never a silent skip, and never a pattern name printed for a file that was
+not opened. Where two agents could file the same finding, one hard link now says which one owns it: a
+locale-omitting cache key is `@data-flow-auditor`'s, not a translation gap; a missing `alt` is an a11y BLOCKER
+at `@accessibility-auditor` and an image-indexing nit at `@technical-seo`, filed once.
+
+Per agent, the corrections that mattered. `@accessibility-auditor` claimed WCAG 2.2 AA while grading 2.1 — the
+banner is only honest if the four A/AA additions are actually graded, so 2.4.11 Focus Not Obscured, 2.5.7
+Dragging, 2.5.8 Target Size, 3.2.6 Consistent Help and 3.3.7 Redundant Entry are now checks — Redundant Entry
+carrying "there is no reliable grep for this" and a manual walk, rather than a grep that would lie; the
+folklore that put an `aria-required` beside a native `required` is gone for the same reason it left `forms.md`;
+and the grep for `autocomplete` ships with its own limitation written down (line-scoped, so it misses an
+`<input>` whose attributes wrap).
+`@ui-architect`'s a11y contract said flatly "Touch targets >= 44×44px", **confusing SC 2.5.8 Target Size
+(Minimum) — the AA conformance floor, 24×24 — with SC 2.5.5 (Enhanced), which is AAA and is where 44×44 comes
+from** (`@accessibility-auditor` already had the two apart; this was the design side out of step with the audit
+side). A design that treats the AAA number as the conformance line over-specifies in one place and
+under-specifies in another, so the section now names both and requires the design to say which it holds itself
+to. `@ui-architect` and `@ui-reviewer` also both stop asserting a Next cache/revalidate API name from memory:
+check `references/nextjs.md` and the installed major in `package.json` first, because that surface has moved
+across recent majors and a review that gets it wrong files a false BLOCKER.
+`@ui-reviewer` gains the client-session lifecycle its new sibling pattern documents (scattered token access, a
+logout that clears the token but not the query cache, N concurrent 401s each firing their own refresh) and now
+routes token/theme *fixes* to the ui-ux pack instead of applying them. `@technical-seo` states plainly that LLM
+crawlers are out of scope — they read the same server HTML, so the SSR check is the whole of what it can
+truthfully claim, and robots-level AI-crawler policy is not this agent's.
+
+`rules/frontend-principles.md`: the ~150-LOC split trigger is restated as a smell threshold that says *look*, not
+a rule that says *split* — the real test is more than one reason to change; container-vs-presentational is
+restated as the server/client boundary where the framework has one (keep the client boundary low in the tree);
+and the blanket `any`/`unknown` ban is narrowed, because `strict: true` types every `catch` binding as `unknown`
+and the old wording made correct code a violation — `unknown` is now allowed at a parse boundary and must be
+narrowed before it reaches a prop or a render. `rules/i18n.md`: the Must-not banning per-element `dir` was
+banning the *layout hack* and reading as a ban on per-element direction as such, which made the correct handling
+of runtime text look like a violation; it is now scoped to the hack, and a Must plus a checklist row require
+`dir="auto"` / `<bdi>` / `dirname` on user- or API-supplied text, because the root `dir` sets the page's base
+direction and cannot rescue an Arabic comment inside an English thread ([W3C i18n](https://www.w3.org/International/questions/qa-html-dir)).
+`_authoring-standard.md` §1.1.3 named `ssr-audit` as the outstanding "no Adapt table" gap; both it and
+`streaming-ssr` have one now, so the parenthetical says so instead of pointing at closed work.
+
+**Deliberately NOT done, and why.**
+
+- `code-splitting`'s barrel-import detector still lists `date-fns` and `rxjs`: the suspicion that modern ESM
+  builds tree-shake from the root barrel was not verified in this run, and rewriting a working detector on an
+  unverified guess is how detectors rot. Settling it needs a measured bundle diff, not an opinion.
+- **`references/angular.md`, `nuxt.md`, `react.md`, `svelte.md` and `vue.md` were not re-audited for currency.**
+  `nextjs.md` was, only because a sibling artifact in this same pass proved it was shipping a removed API. The
+  other five may carry the same class of staleness and nobody has looked; treat them as unverified until someone
+  does, and read the installed major from `package.json` before emitting any version-sensitive API from them.
+- **`rules/migration-frontend.md` was not touched.** It is the V1→V2 parity rule wired directly into the
+  migration validator (`extract_inventory_primitives`, `check_per_axis_enumeration`), so re-cutting it means
+  reading that validator alongside it — a different piece of work from this pass, and one that is wrong to do
+  halfway.
+
 ## 1.12.2 — 2026-07-12
 
 **Release narrative** — migrated verbatim from the `_version.json` `summary` field:

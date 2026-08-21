@@ -125,6 +125,7 @@ Each detector: BAD/GOOD + a grep. Cite `<file:line>` + the fix or it is not a fi
 ## Related
 
 - `data-fetching` — cache reconciliation target; a live event patches/invalidates the queries this pattern owns.
+- `auth-session-client` — owns the session transition that this pattern's handshake re-auth reacts to: after a silent refresh the socket re-authenticates, on logout it closes. That pattern owns the session, this one owns the connection.
 - `rendering-strategy` — a route's initial-render choice; realtime layers on top of the hydrated view.
 - backend `webhook-flow` — the server→server complement (inbound verification, outbound signed delivery); the boundary this pattern states.
 - `idempotency` — at-least-once dedup contract this mirrors on the client (by message id/sequence).

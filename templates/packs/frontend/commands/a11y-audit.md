@@ -36,15 +36,16 @@ Everything else — focus order check, label association check, ARIA name presen
 - USE: after any visible UI change (component, page, modal, form).
 - USE: before merging a PR that adds new interactive elements.
 - NOT: backend-only / tooling-only changes — no UI surface to audit.
-- NOT: as a substitute for manual keyboard + screen-reader walkthrough — automated tools cover ~30%.
+- NOT: as a substitute for a manual keyboard + screen-reader walkthrough. Automation is a **floor**, not a coverage percentage — do not quote a "tools catch N%" figure you have not opened the source for. What is true: no scanner evaluates announcement order, keyboard interaction quality, cognitive load, or context.
 
 ## Phase 1 — Understand
 - Resolve scope: `git diff --name-only` filtered to UI extensions (`.tsx`, `.vue`, `.svelte`, `.html`, framework-specific). If a path arg is given, use that.
 - Confirm intent: full audit vs incremental on this change-set.
 
 ## Phase 2 — Organize
-- Decide automated tooling: `@axe-core/playwright` if in deps AND a Playwright config exists.
-- Decide reviewer: `accessibility-auditor` agent for semantics/flow; axe for ground-truth contrast/ARIA.
+- Decide automated tooling: the in-pack **`a11y-scan` skill** owns the axe run (`@axe-core/playwright` if in deps AND a Playwright config exists) — its WCAG 2.2 tag set, its `target-size` enable, its review-items handling. Do not hand-roll a second axe invocation here.
+- Decide reviewer: `accessibility-auditor` agent for semantics/flow; axe (via `a11y-scan`) for ground-truth contrast/ARIA.
+- **Lane split when the ui-ux pack is co-installed:** `a11y-quick-check` *(ui-ux pack)* is the 60-second in-review fast pass on a diff; this command is the full audit. Do not duplicate that lane — grade what it escalates, and say which lanes ran. If ui-ux is absent, this command is the only lane and reports it as such.
 
 ## Phase 3 — Retrieve
 
@@ -56,10 +57,11 @@ A11y-specific:
 
 ## Phase 4 — Generate (findings, not code)
 - Dispatch `accessibility-auditor` with the resolved file list.
-- If axe is present, run automated pass on affected routes:
+- If axe is present, run the automated pass on affected routes through the `a11y-scan` skill:
   ```bash
   npx playwright test --grep "@a11y" || npx playwright test tests/a11y/
   ```
+  Carry its **review items** (`results.incomplete`) into the report as their own block — axe could not decide those, and an unresolved review item is not a pass.
 - Merge agent findings + axe violations. Dedupe (axe is ground truth on contrast / ARIA names; agent catches semantics + flow).
 - Print findings table grouped by severity:
   ```

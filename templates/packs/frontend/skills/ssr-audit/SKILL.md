@@ -127,11 +127,13 @@ Findings: 3
    Fix: wrap in defineNuxtPlugin + import.meta.client guard.
 ```
 
-## Rules
+## False positives / gotchas
 
-- Static only — doesn't run the app. Fast, complete in seconds.
-- Some false positives possible (e.g., `document.createElement` inside `onMounted`). Review findings, don't blindly fix.
-- Pair with runtime Playwright hydration check for ground truth.
+- **Static only — this scan never runs the app.** It is fast and complete in seconds, and it can only see what the source says, not what the runtime does. A clean scan is not a hydration guarantee; pair it with a real render (`visual-check` / a Playwright hydration check) for ground truth.
+- **Browser API inside a client-only lifecycle is correct, not a finding** — `document.createElement` inside a Vue / Nuxt `onMounted`, a React `useEffect`, or an Angular `afterNextRender` runs only on the client by construction. Flagging it re-teaches the author a rule they already followed; the verdict must say why it was dismissed.
+- **A guard outside render is the fix, a guard inside render is the bug.** `typeof window !== 'undefined'` in an effect or an event handler is fine. The same expression branching the returned markup produces two different trees and is exactly the mismatch this scan hunts.
+- **Deliberate mismatch suppression exists.** A timestamp or locale-formatted value annotated with the framework's suppression primitive is a decision, not a defect — but only where the value is genuinely unknowable on one side. Suppression used to silence a real divergence is a finding, not a carve-out.
+- **Static export changes the rules** — when the "server" is the build, per-request values (cookies, headers, geo) are not available at all, and the correct fix is a different one. Extract the rendering mode before grading.
 
 ## When to run
 
@@ -145,3 +147,12 @@ Findings: 3
 - Halt if a finding is dismissed without verification — `document.createElement` inside `onMounted` is fine, but the verdict must say so explicitly.
 - Halt if the audit returns zero findings on a multi-page SSR app without listing the grep patterns actually executed.
 - Halt if a fix relies on `import.meta.client` guards being added but the guard isn't shown in the suggested patch.
+
+## Related
+
+- `streaming-ssr` — the speed sibling. This skill asks "does the server render match the client?"; that one asks "why is the first byte late?". A route can pass one and fail the other.
+- `ssr-safety.md` (ai-pattern) — the depth behind these greps: the per-framework client-guard primitive, the detector list, and the closure verbs. Fix wording comes from there; this skill is the sweep.
+- `visual-check` — the runtime counterpart: a hydration failure that this static scan cannot see usually shows up as a blank or duplicated region in a real render.
+- `navigation-speed` — owns the bfcache / `unload` half of the note above; hand those findings there rather than restating them.
+- `error-boundaries.md` (ai-pattern) — a hydration throw surfaces through a boundary; the boundary contains it, it never fixes the cause.
+- `.claude/rules/frontend-principles.md` — the SSR-safety MUSTs this scan enforces.

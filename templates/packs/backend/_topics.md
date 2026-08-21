@@ -20,6 +20,15 @@ Each topic declares:
 - `fallback` — path to `_examples/<name>.md` for COPY-mode fallback when extraction is empty.
 - `cite_evidence` — `strict` (default; every claim cites file:line) or `lenient` (allow generic prose for sections genuinely not extractable).
 
+> **Topic count ≠ shipped-file count, and that is deliberate.** Some topics here have no counterpart in the
+> pack's `ai-patterns/` or `rules/` directories because they exist ONLY to be authored from extraction
+> (`data-access`, `base-service`, `controller`, `mapper`, `dto-validation`; the `controllers` / `database` /
+> `dtos-mappers` / `events` rules) — they carry `fallback: stub-from-sections` and produce a project-specific
+> artifact or nothing at all. Do not "reconcile" those away against a directory listing. What IS drift, and
+> must be fixed on sight: a topic whose `name:` differs from the filename other artifacts dispatch by, and a
+> shipped `commands/` / `agents/` / `rules/` file with no entry here at all (`validate-pack-consistency.sh`
+> warns on the second; nothing catches the first, which is why the two agent entries below carry a comment).
+
 ---
 
 ## Topics
@@ -233,21 +242,28 @@ Each topic declares:
 
 # ============ AGENTS (.claude/agents/<name>.md) ============
 
-- name: <stack>-architect           # name templated from detected stack: nestjs-architect, django-architect, etc.
+# CANONICAL filename — the stack goes in the CONTENT, never in the name. Every command in this
+# pack dispatches the literal `api-architect` (add-endpoint, add-feature, add-module,
+# analyze-module); a generated `<stack>-architect` would be richer AND unreachable.
+- name: api-architect
   kind: agent
   triggers:
     primary_framework_detected: true
   extracts_from: _extracted-codebase.md (stack + conventions + base classes) + _extracted-idioms.md (all)
   sections: [persona, when_to_invoke, preflight_reading, methodology, output_format, verification, pitfalls]
-  mirror_existing: false   # generated agent name embeds the stack — overwriting an existing one is correct
-  fallback: _examples/api-architect.md   # generic api-architect as last resort
+  mirror_existing: true            # mirror the shipped agent's section order + voice; author the stack specifics inside it
+  fallback: _examples/api-architect.md
 
-- name: <stack>-reviewer            # nestjs-reviewer, django-reviewer, etc.
+# CANONICAL filename — see api-architect above. `/add-endpoint`'s production-readiness gate READS
+# this agent's verdict table by that exact name; a stack-named file leaves the gate on its weaker
+# inline review path, so the project with the RICHER agent gets the WEAKER gate.
+- name: api-reviewer
   kind: agent
   triggers:
     primary_framework_detected: true
   extracts_from: _extracted-codebase.md + _extracted-idioms.md (all)
   sections: [persona, when_to_invoke, review_checklist_per_layer, signal_specific_checks, output_format]
+  mirror_existing: true
   fallback: _examples/api-reviewer.md
 
 - name: bug-investigator
@@ -406,6 +422,22 @@ Each topic declares:
   sections: [understand, retrieve]
   fallback: _examples/log-tail.md
 
+- name: trace-flow
+  kind: command
+  triggers:
+    api_surface_detected: true
+  extracts_from: _extracted-codebase.md § Modules + § "API surface" (layer chain: adapter → service → repository)
+  sections: [understand, retrieve, generate]
+  fallback: _examples/trace-flow.md
+
+- name: refactor
+  kind: command
+  triggers:
+    always: true       # backend overlay on the universal /refactor — the DI-mirror gate the universal one cannot know
+  extracts_from: _extracted-idioms.md § DI / module wiring
+  sections: [understand, organize, generate]
+  fallback: _examples/refactor.md
+
 - name: analyze-module
   kind: command
   triggers:
@@ -421,7 +453,7 @@ Each topic declares:
 
 For each topic where `triggers` evaluate true against `.claude/_extracted-codebase.md`:
 
-1. Substitute templated names (e.g., `<stack>-architect` → `nestjs-architect` if stack=NestJS).
+1. Resolve ROLE references in `triggers` / `extracts_from` (`<role:repository-base>` → the actual class name for this project). **Do not template artifact NAMES** — `name:` is the filename other artifacts dispatch by, so it is canonical; the detected stack goes into the file's CONTENT, never into its name.
 2. If `mirror_existing: true` AND target file exists → read it; capture section order + voice; author inside that skeleton.
 3. Read the `extracts_from` source (idiom block or codebase section).
 4. For each section in `sections`, author content using extracted facts. Cite `<path>:<line>` for every claim if `cite_evidence: strict`.

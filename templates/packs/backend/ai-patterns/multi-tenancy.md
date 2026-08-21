@@ -18,7 +18,7 @@ Resolve tenant identity at the edge, first match wins (order is project-specific
 
 1. **Host / domain** — `Host` header → tenant record by domain.
 2. **Path prefix** — `/{tenantSlug}/…` or a landing-product segment.
-3. **Explicit header** — an admin/portal header (e.g. `X-Tenant-Id`) for internal callers.
+3. **Impersonation claim** — a support/admin caller acting on a tenant's behalf. The tenant id is read from the **authenticated principal's** `act`/impersonation claim, never from a bare request header. A plain `X-Tenant-Id` from the network is attacker-controlled and MUST NOT be a resolution input on any internet-reachable route (`backend-principles` lists trusting it under **Must not**). If a header carries it at all, the request must have arrived over mTLS from a named internal peer, the authenticated principal must hold a `tenant:impersonate` claim, and every use is audit-logged with both identities.
 4. **API key** — server-to-server callers resolve tenant from the key.
 5. **Signed webhook payload** — the provider event's account/resource id maps to a tenant (see `webhook-flow.md`).
 
@@ -31,8 +31,10 @@ Resolution lives in ONE place — a `TenantResolutionMiddleware` (REST) or a ded
 const { tenantId } = TenantContext.get();
 ```
 
-- **NEVER** accept `tenantId` as a function argument passed down from a controller — it invites a caller passing the wrong one.
-- **NEVER** read it from request body / params / query — those are attacker-controlled.
+- **Ambient reads are confined to the data layer.** The repository base class (and only it) reads `TenantContext.get()`; that is one file, reviewable, and the place the filter is applied by construction.
+- **A service MAY take an explicit tenant scope at its own boundary** when that makes it testable — `placeOrder(scope: TenantScope, dto)` where `scope` was produced by the resolver, not by the caller inventing one. What is forbidden is a **controller reading a client-supplied value and passing it down**: that re-opens the attacker-controlled path the resolution chain exists to close.
+  This is the honest reconciliation with `backend-principles`' DI rule ("service classes receive collaborators as constructor args, not import-and-call singletons"). `TenantContext.get()` scattered through domain services *is* the named anti-pattern — it makes every service untestable without an ambient wrapper. Push the ambient read down to the repository base; let services above it take the scope explicitly or receive a context-bound repository. Either shape satisfies both rules; a domain service calling a global getter satisfies neither.
+- **NEVER** read it from request body / params / query / a bare request header — all four are attacker-controlled. The resolved context is the only source.
 - Background jobs / queue consumers re-enter the context: `TenantContext.run(job.tenantId, () => handle(job))`.
 
 ## Automatic filtering (data layer)
@@ -82,6 +84,38 @@ it('does not return tenant B rows to tenant A', async () => {
 - Cross-tenant foreign keys / a join that crosses the tenant boundary.
 - Background job or webhook handler that runs outside `TenantContext.run(...)` → context-less query → leak or crash.
 - A `skipTenantScope` with no justifying comment.
+
+## Detectors (cite-or-halt)
+
+Each finding cites `<path:line>` + the rule above it violates. "Tenant isolation looks weak" without a cited query / key / handler is not a finding. Every detector below is derived from a rule already stated in this file — none invents new doctrine.
+
+### 1. Tenant id sourced from the request
+
+A handler reading `tenantId` from body / query / route param, or from a bare header on an internet-reachable route, and using it as the *resolution* input rather than the resolved context → cite the read site → `resolve-from-context`.
+
+### 2. Tenant-scoped query with no tenant predicate
+
+A data-layer query against a table carrying `tenant_id` that neither goes through the scoped base class nor states the predicate explicitly, and carries no documented bypass → cite the query → `scope-the-query`.
+
+### 3. Undocumented bypass
+
+A `skipTenantScope` / `skipTenantPrefix` / raw-SQL escape hatch with no justifying comment naming the global data it reads (§Manual bypass rules) → cite the bypass site → `justify-or-remove-bypass`. **A bypass in review is a BLOCKER until justified** — this detector never downgrades to a nit.
+
+### 4. Async handler that never re-establishes context
+
+A queue consumer / job handler / webhook handler whose entry point does not wrap the work in `TenantContext.run(...)` from the job or event **metadata** (§Events) → cite the handler → `rebind-tenant-context`. This is the one that fails silently in dev (single-tenant seed data) and leaks in prod.
+
+### 5. Cache key with no tenant segment
+
+A cache `get`/`set` on tenant-scoped data whose key is built without the tenant prefix — typically string concatenation that bypasses `buildKey()` → cite the key construction → `prefix-cache-key`.
+
+### 6. Cross-tenant join or FK  `[self-policed]`
+
+A join or foreign key that crosses the tenant boundary. grep cannot decide this from a query alone — it needs the schema's tenant ownership map. Mark `[self-policed]`: the reviewer asserts it was checked, or the finding is not emittable. (Same precedent as `api-reviewer`'s TXN row — a detector that cannot be mechanised says so rather than pretending.)
+
+**Closure verbs:** `resolve-from-context`, `scope-the-query`, `justify-or-remove-bypass`, `rebind-tenant-context`, `prefix-cache-key`.
+
+Without this block `/polish` and `api-consistency-audit` cannot consume this pattern at all — which is why the pack's highest-stakes axis was, until now, its least enforceable one.
 
 ## Related
 

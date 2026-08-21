@@ -13,7 +13,7 @@ Refuse to declare PASS unless every combo in the matrix produced a row with eith
 
 For frontend changes. Verifies the UI renders correctly across locales, themes, and viewport sizes before shipping.
 
-## When to use
+## When to run
 
 - After any change that touches a `.vue` / `.tsx` / `.svelte` template, CSS, or design tokens.
 - After an i18n string update that may shift layout (Arabic / German / Japanese often do).
@@ -32,10 +32,22 @@ For frontend changes. Verifies the UI renders correctly across locales, themes, 
 
 Most real app surfaces (dashboards, settings, anything behind `meta: { requiresAuth }` / a route guard / a `<PrivateRoute>`) are **unreachable without a session**. Rendering them requires establishing auth FIRST — otherwise the guard bounces the render to `/login` and every screenshot is worthless.
 
+### The Playwright-MCP contract (one convention, many consumers)
+
+Three values are fixed here and **cited, never restated**, by everything that drives a browser in this repo:
+
+| Value | The one setting | Why it is fixed |
+|---|---|---|
+| Session state | `tests/.auth/user.json` | it is what `auth.setup.ts` writes, what the `playwright.config` `setup` project's `storageState` names, and what the MCP `--storage-state=` arg points at — three places that must agree or the render silently lands on `/login` |
+| Artifact dir | `.playwright-mcp/` (gitignored, alongside `test-results/`) | a gitignored output dir needs no cleanup, so nobody reaches for `rm -rf` and trips the destructive-command guard |
+| Blocked render | `RENDER BLOCKED` = HALT, never `SKIPPED` | `SKIPPED (no harness)` and "authenticated but bounced to the login wall" are different failures with different fixes; collapsing them produces a false pass |
+
+**Declared consumers.** These are depended on verbatim by `verify-with-playwright` and `a11y-scan` (this pack), and — when the ui-ux pack is co-installed — by `ui-sweep`, `ui-crawl-fix`, `redesign`, `art-direct`, `add-theme-variant`, `clone-design`, `design-iterate` and `ui-design-sweep`, each of which encodes this skill's blocked-render vocabulary in its own halt branch. **Changing the HALT semantics or the session path is therefore a cross-pack change** — grep those consumers in the same edit rather than leaving them on the old convention.
+
 1. **Detect the gate.** Before rendering `$TARGET`'s route, check whether it is auth-gated (router `meta.requiresAuth`, a guard import, a redirect-to-login). If it is, you MUST authenticate before `page.goto` to the surface.
 2. **Establish a session** by the cheapest available means, in order:
-   - Reuse a saved **`storageState`** (`test/visual/.auth/state.json`) if present and still valid.
-   - Otherwise perform a **login step once** and persist it: `page.goto('/login')` → fill the dev/test credentials (from an env var / `.env.test`, never hardcoded) → submit → `page.context().storageState({ path: 'test/visual/.auth/state.json' })`. Reuse it for every subsequent shot.
+   - Reuse a saved **`storageState`** (`tests/.auth/user.json` — the one path this pack uses; see the contract note below) if present and still valid.
+   - Otherwise perform a **login step once** and persist it: `page.goto('/login')` → fill the dev/test credentials (from an env var / `.env`, never hardcoded) → submit → `page.context().storageState({ path: 'tests/.auth/user.json' })`. Reuse it for every subsequent shot.
    - If the project already has a Playwright auth fixture / `globalSetup`, use that.
 3. **Point the MCP/browser at the session.** For the Playwright MCP, this means it must NOT run `--isolated` with no session for gated routes — load the `storageState`, or drive the login step in-session. `--headless --isolated` with no auth ALWAYS lands on `/login`.
 4. **Prove you landed on the surface, not the wall** (see the blocked-render halt): after `goto`, assert a surface-unique marker is present (a heading/testid that only the target renders) before you screenshot.
@@ -159,3 +171,12 @@ A screenshot is only valid if it is **of the target surface**. The most common f
 - Halt if `--update-snapshots` was used to "fix" a failing run without explicit user approval — that's masking a regression.
 - Halt if no baseline exists yet AND the run claims PASS — the first run only generates baselines, it cannot verify them.
 - Halt if RTL locales are declared in `i18n.config.ts` but absent from the matrix — flipped layouts must be tested.
+
+## Related
+
+- `verify-with-playwright` — the ad-hoc live-drive sibling: no baselines, no matrix, one flow verified now. It cites this skill's session + artifact contract rather than defining its own. Use it to answer "does this work?"; use this skill to answer "did anything change?".
+- `dev-server-start` — prerequisite for any localhost target; reuse an already-running server rather than booting a second one.
+- `a11y-scan` — the same route x theme x locale matrix, graded by axe instead of by pixels. Both are blocked by the same login wall and share the halt above.
+- `component-playground` — renders a single component in isolation; this skill renders the real routes.
+- `i18n.md` (ai-pattern) — the declared locale set that makes the RTL row of the matrix mandatory.
+- Cross-pack (`ui-ux`, when co-installed): `ui-sweep`, `ui-crawl-fix`, `design-iterate`, `ui-design-sweep`, `redesign`, `art-direct`, `add-theme-variant`, `clone-design` all drive this harness — see the declared-consumers note above before changing its semantics.

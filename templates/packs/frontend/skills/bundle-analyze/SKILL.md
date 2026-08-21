@@ -13,7 +13,7 @@ A budget breach without a named cause is a failed analysis, not a passing one.
 
 Build the prod bundle, visualize chunk composition, and check sizes against budgets.
 
-## When to use
+## When to run
 
 - After adding a new dependency.
 - After a `package.json` upgrade (especially major version bumps).

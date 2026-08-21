@@ -83,7 +83,7 @@ Mirror the router + bundler already in the repo; never introduce a second splitt
 | Stack | Lazy primitive | Route auto-split? | Manual chunking knob |
 |---|---|---|---|
 | **React (SPA)** | `lazy(() => import('./X'))` + `<Suspense fallback>` | No — split routes explicitly | via bundler (Vite/webpack) |
-| **Next.js** | `next/dynamic` (opt `ssr:false`, `loading`) | Yes — per-page/segment automatic | `experimental.optimizePackageImports`; webpack `splitChunks` |
+| **Next.js** | `next/dynamic` (opt `loading`; `ssr:false` **only inside a Client Component** — it is not allowed in a Server Component and errors the build) | Yes — per-page/segment automatic | `experimental.optimizePackageImports`; webpack `splitChunks` |
 | **Vue (SPA)** | `defineAsyncComponent(() => import('./X'))` | No — async route components in the router | via Vite/Rollup |
 | **Nuxt** | auto async components; `defineAsyncComponent` | Yes — automatic per-page | `nitro`/Vite `build.rollupOptions.output.manualChunks` |
 | **SvelteKit** | route auto-split + `import()` for components | Yes — automatic per route | Vite `manualChunks` |

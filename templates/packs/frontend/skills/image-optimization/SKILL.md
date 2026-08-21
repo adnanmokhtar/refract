@@ -123,6 +123,7 @@ Findings: 4
 - **SVGs and tiny icons** don't need srcset/format negotiation — exempt vector + fixed small raster.
 - **`width`/`height` are the intrinsic ratio, not the display size** — CSS can still scale; the attributes just reserve the aspect box. Don't "fix" a correctly-ratioed image.
 - **AVIF encode cost**: AVIF is smaller but slower to encode — for build-time it's fine; for on-the-fly CDN, `format=auto` picks per-browser. Don't force AVIF where the CDN already negotiates.
+- **Framework image defaults move between majors — read the installed one before reporting.** Next.js 16 changed several `images.*` defaults: `qualities` is now `[75]` (a `quality={90}` prop is coerced to the nearest allowed value unless `images.qualities` is widened), `minimumCacheTTL` went 60s to 4h, `16` was dropped from the default `imageSizes`, and a local `src` carrying a query string now requires `images.localPatterns`. A quality/cache finding must cite the major it was read against (source: the Next.js 16 behaviour-changes table, nextjs.org/blog/next-16).
 - **One `srcset` doesn't fit all layouts** — `sizes` must reflect the *actual* rendered width at each breakpoint, or the browser picks wrong. A wrong `sizes` is worse than none; verify against the layout.
 
 ## When to run
@@ -137,3 +138,12 @@ Findings: 4
 - Halt if a fix would add `loading="lazy"` to the LCP/hero image — hand to `lcp-audit`.
 - Halt if a `sizes` value is proposed without checking the element's real rendered width per breakpoint.
 - Halt if the project has an image component/CDN and the fix hand-rolls `<picture>` instead of using it.
+
+## Related
+
+- `lcp-audit` — owns the LCP element's *priority* (eager + `fetchpriority` + preload). This skill owns format / dimensions / responsive `sizes` / lazy-below-fold. Never lazy what that skill prioritized; hand hero findings there.
+- `font-optimization` — the other half of the asset budget (`font-display`, self-host, size-adjusted fallback). Both feed the same CLS number from different sources.
+- `code-splitting.md` (ai-pattern) — the JS axis; images are the byte axis. A page can pass one and fail the other.
+- `seo-audit` — image `alt` text and OG image dimensions are graded there, not here.
+- `.claude/rules/frontend-principles.md` — the "content images: modern format, `srcset`/`sizes`, explicit dimensions, lazy below the fold" MUST this skill enforces.
+- Cross-pack (`performance`, when co-installed): `lazy-loading` owns the broader non-JS deferral tiers; `web-vitals-field` confirms the LCP/CLS win in the field.

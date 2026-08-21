@@ -7,7 +7,7 @@ pack: frontend
 
 # Pattern: Forms
 
-> **Hard rule:** Pick ONE form library per repo with schema-driven validation; map server `code` → field error programmatically (never string-match English); every input has a label, every error has `aria-describedby`, and the submit button reflects pending/disabled state. Uncontrolled state, manual `useState` per field, or English-string error parsing in production forms is forbidden.
+> **Hard rule:** Pick ONE form library per repo with schema-driven validation; map server `code` → field error programmatically (never string-match English); every input has a label, every error has `aria-describedby`, and the submit button reflects pending/disabled state. **Ad-hoc per-field state with hand-rolled validation**, or English-string error parsing, is forbidden in production forms. *Uncontrolled inputs managed by the form library are not the target of that rule and never were* — uncontrolled, ref-based registration is the performance thesis of the React library recommended below; forbidding it would forbid the recommendation.
 
 **When to apply**
 - Forms have non-trivial validation (cross-field, async uniqueness, multi-step).
@@ -194,8 +194,10 @@ const checkSkuUnique = useDebouncedCallback(async (sku: string) => {
   if (exists) setError('sku', { type: 'unique', message: t('products.errors.duplicate_sku') });
 }, 400);
 
-<input {...register('sku')} onChange={(e) => checkSkuUnique(e.target.value)} />
+<input {...register('sku', { onChange: (e) => checkSkuUnique(e.target.value) })} />
 ```
+
+**Why the handler goes INSIDE `register`, not beside it.** `register()` returns `{ name, ref, onChange, onBlur }` — its `onChange` is how the library learns the field changed. Spreading it and then declaring `onChange` again on the same element silently overwrites that handler (later JSX prop wins), so the library is never notified: the field reads empty on submit and its validation never fires. The form still *looks* right, which is what makes it expensive. Pass the callback through the register options (verified against the library's `UseFormRegisterReturn` / `RegisterOptions` types), or capture the field object and call its `onChange(e)` first.
 
 Debounce > 300ms minimum. Cancel in-flight requests when the user types again. Show a subtle spinner near the field — don't disable the field while checking.
 
@@ -209,6 +211,8 @@ For forms with > 8 fields or sequential dependencies, split into steps. State ma
 
 Match the choice to the resume requirement: if "user closes browser at step 3, comes back tomorrow, resumes" must work, you need server-side draft state.
 
+**Do not re-ask for what the user already entered** (WCAG 2.2 SC 3.3.7 Redundant Entry, Level A). Information supplied at an earlier step must be auto-populated or selectable at a later one — the classic failure is asking for the billing address a second time as the shipping address, or re-asking for an email at the confirmation step. Carve-outs: re-entry that is *essential* (confirming a new password), a security-motivated re-auth, or a step where the previous answer is no longer valid. Detector: grep the step schemas for a field name that appears in more than one step (`rg -n "'(email|phone|address|postcode|name)'" steps/`) and confirm the later step prefills from the earlier answer rather than rendering an empty control.
+
 ## Accessibility (non-negotiable)
 
 ```html
@@ -217,7 +221,7 @@ Match the choice to the resume requirement: if "user closes browser at step 3, c
   id="email"
   type="email"
   required
-  aria-required="true"
+  autocomplete="email"
   aria-invalid={hasError}
   aria-describedby={hasError ? 'email-error email-help' : 'email-help'}
 />
@@ -228,7 +232,9 @@ Match the choice to the resume requirement: if "user closes browser at step 3, c
 Checklist:
 - Every input has a `<label for="...">` (NOT just placeholder text).
 - `aria-invalid="true"` on invalid fields.
-- `aria-required="true"` on required fields (some screen readers don't announce HTML5 `required`).
+- **Native `required` on semantic controls — not `aria-required` beside it.** MDN: when a semantic `<input>` / `<select>` / `<textarea>` must have a value, "it should have the `required` attribute applied to it"; `aria-required="true"` is for controls "created using non-semantic elements, such as a `<div>` with a role of `checkbox`". Both on the same element is redundant, the HTML validator flags it, and it contradicts the first rule of ARIA this pattern otherwise follows.
+- **`autocomplete` on every field that holds a known-purpose value** (`email`, `name`, `tel`, `street-address`, `cc-number`, `current-password`, `new-password`, `one-time-code`). This is WCAG 2.2 SC 1.3.5 Identify Input Purpose (AA) *and* the single highest-leverage form-UX attribute — it costs one attribute and turns a 12-field checkout into two taps. Missing `autocomplete` on a purpose-carrying field is a finding.
+- **Never block paste, and never break password managers** on a password field (WCAG 2.2 SC 3.3.8 Accessible Authentication). `onPaste={e => e.preventDefault()}` on a password input is a conformance failure, not a security control.
 - Error messages linked via `aria-describedby`.
 - `role="alert"` on error messages so screen readers announce on appearance.
 - On submit failure, `focus()` the first invalid field. Otherwise screen-reader users don't know anything happened.
@@ -248,7 +254,7 @@ For genuinely simple forms (search input, single-field subscribe), this pattern 
 - **Clearing form on error.** User types 12 fields; one is wrong; form clears; user quits. The submit button is the contract: it tries to submit; if it fails, fix the broken field, don't reset.
 - **Generic error toast, no field detail.** "Something went wrong" hides the actual problem. Map server `code` → field error.
 - **Placeholder as label.** Disappears when user types. Not announced by screen readers as a label. Always real `<label>`.
-- **Trusting `required` HTML attribute as full validation.** Some browsers ignore it; assistive tech varies. Use it AND validate in JS AND validate on the server.
+- **Trusting the `required` attribute as validation.** Constraint validation is universally implemented, so "some browsers ignore it" is not the reason — the reasons are that it is an accessibility + UX signal rather than a security control, and that it is **inert under `noValidate`**, which the worked example above sets deliberately (as most library-driven forms do). Validate in JS **and** on the server regardless.
 - **The Sticky Error.** Server validation error displayed; user fixes the field; error stays until next submit. Root cause: clear-on-edit hook listens only to native DOM `input`/`change` events while the actual input is a custom widget (Combobox / Dropdown / DatePicker / MultiSelect built from `<div>`s) that updates via reactive prop binding instead. Fix: the shared field-wrapper watches the bound value, not the DOM event — see `Auto-clear on edit` above.
 
 ## Testing
@@ -282,3 +288,4 @@ E2E: one happy-path test per form. Validation tests live at the unit/component l
 ## Related
 
 - `data-fetching.md` — ownership split: forms owns submit + validation + server-`code`→field mapping; data-fetching owns the optimistic cache write, rollback, and invalidation the submit triggers.
+- `auth-session-client.md` — the login form is a form *and* a conformance surface: it owns SC 3.3.8 (paste must work, password managers not blocked) and the session that the successful submit establishes. This pattern owns the form mechanics either way.

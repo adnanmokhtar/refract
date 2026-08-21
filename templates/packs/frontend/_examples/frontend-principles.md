@@ -12,8 +12,8 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 
 ## Must
 
-- Components small and focused. Split when a component file passes ~150 LOC or has more than one reason to change.
-- Container vs presentational split: containers own data fetching + state; presentational receive props + emit events. Presentational components are pure and easy to test.
+- Components small and focused. The test is **more than one reason to change**; ~150 LOC is a smell threshold that says *look*, not a rule that says *split*.
+- Separate the component that OWNS data from those that RENDER it — the owner holds fetch + state, the rest take props and emit events (pure, testable). Where the framework has a server/client boundary, that is the split that matters: keep the client boundary as low in the tree as possible.
 - Props, emits / events, slots typed end-to-end. No `any`, no untyped event handlers.
 - Data fetching lives in a service / composable / hook / store — never `fetch` / `axios` / `$fetch` called directly inside a component template or render function.
 - Generated types from OpenAPI / GraphQL schema where the API exposes one (`openapi-typescript`, `graphql-codegen`, `orval`). Hand-typed DTOs drift.
@@ -28,7 +28,7 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - `fetch` / `axios` / `$fetch` inside `.vue` / `.tsx` / `.svelte` component bodies. Wrap in a hook / composable / service.
 - Business logic in templates: `{{ items.filter(...).reduce(...) }}` is a `computed` / `useMemo` waiting to happen.
 - Hardcoded user-facing strings: `<button>Save</button>` (use `t('common.save')`).
-- `any` / `unknown` in props, state, store, or service return types. Type or stop.
+- `any` in props, state, store, or service types. `unknown` is allowed **only** at a parse boundary (`await res.json()` → schema-parse) and must be narrowed before use; an `unknown` that reaches a prop or a render is a finding. (`strict: true` types every `catch` binding as `unknown` — that is correct, not a violation.)
 - Mutating store state from outside an action / mutation / setter. Stores are encapsulated.
 - Mixing styling systems (Tailwind + CSS Modules + scoped SCSS) without a documented reason. Pick one per repo.
 - Magic spacing/colors (`margin: 13px`, `color: #abcdef`). Use design tokens from a declared source (Tailwind config, design system tokens, CSS custom properties).

@@ -115,12 +115,22 @@ Libraries: `singleflight` (Go), `lru-cache` with pending promises (Node), `redis
 ### Stale-while-revalidate
 Return stale value immediately; refresh asynchronously.
 ```
-if cache.age(key) > ttl and cache.age(key) < ttl + grace:
-  return cache.value(key)        # stale but fine
-  async_refresh(key)
-else if cache.age(key) > ttl + grace:
-  return db.get(key)              # must refresh
+age = cache.age(key)
+
+if age <= ttl:                    # fresh — the common case, and it needs a branch
+  return cache.value(key)
+
+if age < ttl + grace:             # stale but inside the grace window
+  async_refresh(key)              # KICK THE REFRESH FIRST…
+  return cache.value(key)         # …then serve stale. Order is the whole pattern.
+
+return db.get(key)                # past grace — nothing to serve but truth
 ```
+
+Two things in that ordering carry the entire value of the pattern, and both are easy to get backwards:
+
+- **The refresh is dispatched before the return, not after.** Statements after `return` never execute. Written the other way round this is stale-while-*never*-revalidate: it serves stale for the whole grace window and only refreshes once `age > ttl + grace` — which is the synchronous DB hit the pattern exists to avoid, now arriving later and colder.
+- **The `age <= ttl` branch has to exist.** Without it the fresh path falls through with no return value, and the caller gets `undefined` on a cache *hit*.
 
 ### Probabilistic early expiration
 Chance of refreshing grows as TTL approaches. Smooths load.
@@ -143,27 +153,33 @@ tenant:42:products:list:filters:eyJjYXQiOiJqYWNrZXQifQ==:v3
 
 ## What NOT to cache
 
-- Authentication tokens / session content (security).
+- Authentication tokens / session content **as a cache** — see the distinction below.
 - Payment state (correctness).
 - Stock counts at checkout (over-sell).
 - Real-time metrics.
 - Anything > 1 MB per entry (Redis is not a document store).
 
+**Redis-as-store vs Redis-as-cache — the distinction that stops this section contradicting `backend-principles` PERF-6.** PERF-6 requires sessions, rate-limit counters, locks and dedupe sets to live in a *shared store* (Redis / DB) rather than process memory. That is Redis as the **source of truth** for that data: there is no DB row behind it, losing it means the session is gone, and that is the accepted design. This section forbids the other thing: Redis holding a **copy** of data whose truth lives in the DB — a cached auth decision, a cached permission set, a cached token-validity flag. The copy is what goes stale after a revocation, which is why Detector 4 fires on it. Same technology, opposite roles. State which role a given key plays and the two rules stop fighting.
+
 ## TTL defaults by data class
 
-| Data | TTL |
-|---|---|
-| User profile (non-sensitive) | 5 min |
-| Product catalog (reads >> writes) | 1 h |
-| Settings / config | 10 min |
-| Search results | 60 s |
-| Aggregations / analytics | 5 min |
-| i18n translations | 1 h (until deploy) |
-| Static reference data (countries, timezones) | 24 h |
+**These are starting points, not a spec.** Every row is an *order-of-magnitude* guess at a staleness tolerance that is actually a product decision. The "why" column is the load-bearing one: it tells you when the number does not apply, which a bare number never can. Replace any row the moment you can measure the real tolerance.
+
+| Data | Starting TTL | Why that order of magnitude — and what breaks if it is too long |
+|---|---|---|
+| User profile (non-sensitive) | 5 min | The user edits their own profile and expects to see it change. Longer, and they see the old avatar after saving and hit save again. |
+| Product catalog (reads >> writes) | 1 h | Catalogue edits are deliberate, batched, and rare. Longer is usually fine; **shorten it hard for anything price-bearing** — a stale price is a chargeback, not a nit. |
+| Settings / config | 10 min | The window between "operator flips a flag" and "the flag takes effect". Too long turns an incident mitigation into a deploy. |
+| Search results | 60 s | A user re-running the same query within a minute expects the same result set. Longer, and a record they just created looks lost. |
+| Aggregations / analytics | 5 min | Aggregates are already approximations and expensive to compute. Too long and a dashboard contradicts the detail view a user can open beside it. |
+| i18n translations | 1 h (until deploy) | Changes ship with a release; the TTL is a safety net for the cache, not the invalidation mechanism. Bust on deploy. |
+| Static reference data (countries, timezones) | 24 h | Genuinely near-immutable. Failure mode is a legislated timezone change arriving a day late. |
+
+**When you cannot justify a row, that is the finding.** "Cite the table" is compliance theatre if the table is nine unexplained numbers; cite the *reason*, and if none of the reasons match your data class, measure the tolerance instead of borrowing a number.
 
 ## Observability
 
-- Cache hit rate per namespace (target > 90% for hot data).
+- **Cache hit rate per namespace.** There is no universal target — the right hit rate depends entirely on key cardinality and the read/write ratio, and a high-cardinality cache can be doing its job at 40%. Compute the threshold instead of adopting one: the hit rate is high enough when `misses/sec × miss cost` fits inside the origin's spare capacity with headroom for a cold start. If a number must go on a dashboard, derive it from that inequality and write the derivation next to it.
 - Evictions per minute (high = size too small OR TTL too short).
 - Redis memory usage + fragmentation.
 - Slow-path latency (cache miss + DB fetch + set).
@@ -208,7 +224,7 @@ Flag a check-then-set (`has`/`get` then `set`) on a hot read with no single-flig
 
 ### 4. Caching correctness-critical state
 
-A cache read/write on auth tokens, session content, payment / stock-at-checkout, or real-time metrics — correctness > latency → `do-not-cache`.
+A cache read/write holding a **copy** of correctness-critical state whose truth lives elsewhere — a cached auth/permission decision, a cached token-validity flag, payment or stock-at-checkout state, real-time metrics → `do-not-cache`. **Does not fire** on a shared store that is the source of truth for that data (session store, rate-limit counter, distributed lock) — that is `backend-principles` PERF-6 being satisfied, not violated. Cite which of the two roles the key plays; a finding that cannot say is not emittable.
 
 **Closure verbs:** `add-ttl`, `namespace-key`, `add-stampede-protection`, `do-not-cache`.
 

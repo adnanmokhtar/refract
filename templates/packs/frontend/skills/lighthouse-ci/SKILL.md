@@ -13,7 +13,7 @@ A failed budget without a named cause is unfinished investigation.
 
 Run Lighthouse against the production build, enforce budgets, and detect regressions vs a stored baseline.
 
-## When to use
+## When to run
 
 - Before merging a PR that touches frontend files.
 - After upgrading a heavy dep (Vue / Vite / a UI library).
@@ -82,7 +82,7 @@ Notes on the three additions:
 - `server-response-time` is the TTFB audit (good ≤ 600ms). Reframe any "TTFB as a share of LCP" guidance as diagnostic prose, NOT an assertion — `lhci` can only assert the single `largest-contentful-paint` numeric audit, not its sub-phases. Do NOT add an LCP-decomposition (resourceLoadDelay / resourceLoadDuration / TTFB-share) assertion or a `bf-cache`-less `interactive` (TTI) assertion — TTI was removed from Lighthouse 10's scored set.
 - `bf-cache` asserts back/forward-cache eligibility; the audit reports `notRestoredReasons` (the actual disqualifiers) — see the bf-cache Procedure note.
 
-> **Lab INP is not field INP.** Lighthouse runs ONE page load with no real user interactions, so `interaction-to-next-paint` here is a SYNTHETIC PROXY only — it cannot field-measure real INP. Authoritative INP MUST come from field data (CrUX, or RUM `onINP` via the [web-vitals-field](../../../performance/skills/web-vitals-field/SKILL.md) skill). Treat the lab number as a smoke test, never as the reported INP.
+> **Lab INP is not field INP.** Lighthouse runs ONE page load with no real user interactions, so `interaction-to-next-paint` here is a SYNTHETIC PROXY only — it cannot field-measure real INP. Authoritative INP MUST come from field data (CrUX, or RUM `onINP` via the `web-vitals-field` skill *(performance pack, when co-installed)*; absent that pack, say `INP: field source unavailable` — never promote the lab proxy to a reported value). Treat the lab number as a smoke test, never as the reported INP.
 
 ## Output
 
@@ -109,7 +109,6 @@ Likely cause:
 Reports:  .lighthouseci/lhr-1745492045123.html
 ```
 
-Related: [navigation-speed](../navigation-speed/SKILL.md) (bf-cache disqualifiers + soft-nav prefetch) · [web-vitals-field](../../../performance/skills/web-vitals-field/SKILL.md) (authoritative field INP via CrUX / RUM `onINP`).
 
 ## False positives / gotchas
 
@@ -119,12 +118,21 @@ Related: [navigation-speed](../navigation-speed/SKILL.md) (bf-cache disqualifier
 - Mobile throttling defaults to "Slow 4G + 4x CPU" — unchanged for years; matches real low-end devices, don't relax it.
 - CLS often regresses from font swaps or hero images without `width/height` — verify in the diagnostic, not just the score.
 - Skip server-rendered admin pages (no public traffic, no Core Web Vitals to chase). Keep the budget on customer-facing routes.
-- Lighthouse audits ONE page load — it cannot see INP on in-app SPA route changes or post-hydration interactions. The lab `interaction-to-next-paint` proxy says nothing about those; rely on field RUM per route ([web-vitals-field](../../../performance/skills/web-vitals-field/SKILL.md)) for the real INP.
+- Lighthouse audits ONE page load — it cannot see INP on in-app SPA route changes or post-hydration interactions. The lab `interaction-to-next-paint` proxy says nothing about those; rely on field RUM per route (the `web-vitals-field` skill *(performance pack, when co-installed)*) for the real INP.
 
 ## Halt conditions
 
 - Halt on hand-waves: every regression must cite metric + measured value + budget + likely cause (commit hash / file / chunk).
 - Halt if the run targeted `pnpm dev` instead of the built artifact — invalid measurement, re-run.
 - Halt if `numberOfRuns < 3` — a single run is noise, not a signal.
-- Halt if INP is reported only from lab with no field/RUM source cited — lab INP is not a measurement. Pair it with CrUX or RUM `onINP` ([web-vitals-field](../../../performance/skills/web-vitals-field/SKILL.md)) before claiming an INP value.
+- Halt if INP is reported only from lab with no field/RUM source cited — lab INP is not a measurement. Pair it with CrUX or RUM `onINP` (the `web-vitals-field` skill *(performance pack, when co-installed)*) before claiming an INP value. If that pack is absent the run reports `INP: SKIPPED (no field source)` — never a fabricated number.
 - Halt if a budget is relaxed in `lighthouserc.json` to make the build pass — that's masking, not fixing. Relaxation requires an ADR.
+
+## Related
+
+- `navigation-speed` — bf-cache disqualifiers + soft-nav prefetch; this runner reports `bf-cache` ineligible, that skill tells you which listener caused it.
+- `bundle-analyze` — when a JS budget fails here, that skill names the chunk and the anchoring import; this one only knows the total.
+- `code-splitting.md` (ai-pattern) — where to cut what `bundle-analyze` measured.
+- `lcp-audit` / `image-optimization` / `font-optimization` — the three asset scanners that fix what an LCP or CLS regression here is usually made of.
+- `visual-check` — run against the same built artifact; a CWV regression and a visual regression often share one cause.
+- Cross-pack (`performance`, when co-installed): `web-vitals-field` — authoritative field INP via CrUX / RUM `onINP`. Lab INP here is a synthetic proxy; absent that pack, report `INP: field source unavailable` rather than promoting the proxy.

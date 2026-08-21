@@ -13,13 +13,13 @@ Refuse to start a server when `package.json` is absent at the chosen project roo
 
 Boilerplate for "I need the app running locally before I can verify it." Used as a prerequisite by `verify-with-playwright`, `a11y-scan`, `visual-check`, `ssr-audit`, and any task that ends with "open the page and check."
 
-## When to use
+## When to run
 
 - Before invoking the Playwright MCP server's `navigate` tool against `http://localhost:<port>`.
 - Before running an e2e test that hits `localhost`.
 - Before a manual visual check — agent or human.
 
-## When NOT to use
+## When NOT to run
 
 - The user already has the dev server running in another terminal — `lsof -iTCP:<port> -sTCP:LISTEN` should detect it; this skill is a no-op then.
 - Static-only checks (lint, type-check, bundle analysis) — no server needed.
@@ -42,6 +42,16 @@ Read `package.json` `scripts.dev` (or `scripts.start` for Next/Nuxt). Detect pac
 
 If no `dev` script and no recognizable framework config (`vite.config`, `next.config`, `nuxt.config`, `angular.json`, `svelte.config`), halt with `dev-server-not-applicable`.
 
+### Step 1b — Read the framework's own dev lock/manifest FIRST
+
+Some frameworks now record their running dev server themselves — Next.js 16 added a lockfile mechanism
+that prevents a second `next dev` on the same project, and prints where the running one is. **A file the
+framework wrote is authoritative for URL and PID; the port-probing heuristic below is the fallback for
+frameworks that write nothing.** Check for it before probing, and if it exists, trust it over `lsof`.
+
+Confirm the exact path against the installed version's own docs before relying on it — this skill does
+not hardcode a path it has not verified for that version, and a stale guess is worse than the probe.
+
 ### Step 2 — Detect the port
 
 Order of precedence:
@@ -56,7 +66,7 @@ Order of precedence:
 lsof -nP -iTCP:<port> -sTCP:LISTEN 2>/dev/null
 ```
 
-If a process is already listening on that port AND it's a node/bun process (`lsof` output contains `node` or `bun`), assume it's the dev server. Probe `http://localhost:<port>` with a 2-second timeout — 200 / 304 / any 4xx other than 404 means it's serving. Return `already-running` with the URL.
+If a process is already listening on that port AND it's a node/bun process (`lsof` output contains `node` or `bun`), assume it's the dev server — but confirm it is **this** project's server, not another repo's dev server squatting on the same default port (probe the body for this app's mount point / title before adopting it). Probe `http://localhost:<port>` with a 2-second timeout — 200 / 304 / any 4xx other than 404 means it's serving. Return `already-running` with the URL.
 
 If something else is listening (Postgres on 5432, etc.), choose `port_override = port + 1`, retry.
 

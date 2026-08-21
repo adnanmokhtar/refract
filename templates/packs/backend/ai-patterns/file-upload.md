@@ -10,7 +10,7 @@ Accepting a file from a client is a security + resource surface, not a form fiel
 
 ## Rules
 
-1. **Cap the size before you read it.** Enforce a max at the proxy/gateway AND the app (`413 Payload Too Large` over the limit). Never read an unbounded body into memory.
+1. **Cap the size before you read it.** Enforce a max at the proxy/gateway AND the app (`413 Content Too Large` over the limit — RFC 9110 §15.5.14 renamed it from "Payload Too Large"). Never read an unbounded body into memory.
 2. **Validate the real type by magic bytes, not the header.** The client's `Content-Type` and filename extension are attacker-controlled — sniff the leading bytes (`file-type`, `python-magic`, `Tika`) and check against an allow-list of expected types. Reject a mismatch (`415`).
 3. **Prefer direct-to-storage via presigned URLs.** For anything non-trivial, hand the client a short-lived presigned PUT (S3/GCS/Azure) so the bytes never transit the app; the client then confirms and the app validates the stored object. Removes the app as a bandwidth/memory bottleneck.
 4. **When the app does receive bytes, stream them** to object storage / disk in chunks (`stream.pipeline`, `UploadFile`, `StreamedResponse`) — never `await request.body()` into a buffer for a large file.

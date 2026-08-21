@@ -63,7 +63,8 @@ queued ──► running ──► succeeded   (carries result or a result URL)
 
 ## Idempotent submission
 
-- The client sends an `Idempotency-Key`; a retry with the same key returns the **same** `jobId` (and `200` with the existing job, not a new `202`) — never a duplicate job.
+- The client sends an `Idempotency-Key`; a retry with the same key returns the **same** `jobId` — never a duplicate job.
+- **Replay the stored response verbatim, status included.** If the original submit answered `202` + `Location`, the replay answers `202` + the same `Location`. `backend-principles` API-7 requires persisting `(key → response_status + response_body)` atomically with the side effect and replaying *that*; inventing a different status on replay defeats the point, because a client branching on `202` vs `200` now behaves differently depending on whether its first attempt was the one that landed — which is precisely the non-determinism idempotency keys exist to remove. The stored-replay mechanism itself is owned by the distributed-systems pack (`ai/patterns/idempotency.md`); this pattern only requires that submit endpoints participate and that the replayed status is the recorded one.
 - The stored-replay record (key → response) is owned by `ai/patterns/idempotency.md` (distributed-systems) — this pattern just requires that submit endpoints participate.
 
 ## Graceful shutdown interaction

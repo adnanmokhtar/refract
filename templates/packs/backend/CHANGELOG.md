@@ -9,6 +9,193 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.13.0 — 2026-08-21
+
+Scope, by count so it can be checked against the diff: every directory in the pack was touched —
+`agents/` 5/5, `rules/` 3/3, `references/` 11/12, `ai-patterns/` 12/15, `commands/` 6/9, `skills/` 5/9 — plus
+`_topics.md` and 1 of the 36 `_examples/` fallbacks. `references/hexagonal-nestjs.md` is the one reference left
+alone deliberately: it delegates the whole HTTP block to `nestjs.md`, so it had nothing to re-base.
+`_essentials.md`, `STACK.md` and the other 35 `_examples/` fallbacks are untouched — see Known gaps.
+
+**Correctness**
+
+- **Rate-limit headers re-based on `draft-ietf-httpapi-ratelimit-headers-11` (23 May 2026).** The
+  `RateLimit-Limit` / `-Remaining` / `-Reset` triple the pack asserted is draft-05 legacy; the current
+  revision defines exactly two fields, `RateLimit-Policy` and `RateLimit`, as RFC 9651 Structured Fields
+  with quoted policy names and named parameters (`q`, `w`, `qu`, `pk`, `r`, `t`). `rate-limiting.md` now
+  carries the canonical form plus an explicit transition rule: emit the two-field form AND the triple
+  while clients migrate, and pin nothing to the draft as settled — it is an I-D (`IESG State: I-D Exists`)
+  whose HTTPDIR early review of `-10` came back "Not ready". Added the three RFC 9457 problem types the
+  draft registers, including `#temporary-reduced-capacity` (503) for the load-shedding path the pattern
+  already prescribed and had no `type` for. **The re-base is pack-wide, not pattern-local** — a header set is
+  worthless if one file in the pack still teaches the old one. `rules/backend-principles.md` RES-1 and its
+  checklist row, and the `**Rate limiting**` bullet in all 11 stack references that carry one (`hexagonal-nestjs`
+  delegates to `nestjs`), now name the two-field form, mark it a DRAFT and not an RFC, and keep the legacy triple
+  only as an explicit transition. Each reference keeps its own per-stack footgun — the shared-store-or-`N × limit`
+  trap, and which header set that stack's library actually emits — because those are the parts a header rename
+  cannot fix.
+- **`error-handling.md`: `DomainError` took `(message, context, cause)` positionally**, so every "RIGHT"
+  example calling `new X(msg, { cause: e })` landed the raw upstream error in `context` — which the
+  reference mapper spreads into the log line. Fixed to a single options object over the ES2022 native
+  `cause`. Same file: `traceId` was read verbatim from a client `x-request-id` header (log-forging, and a
+  direct contradiction of `backend-principles`); an unmapped `DomainError` defaulted to `400`, so genuine
+  faults never entered the 5xx budget (now `500` + `error_unmapped_total`); `ValidationError` mapped to
+  `400` against the rule's `422` (now `422`, with `400` reserved for an unparseable body); and the gold
+  mapper committed the file's own named mistake of using error codes as i18n keys.
+- **`caching-strategy.md`: the stale-while-revalidate example never revalidated** — `async_refresh(key)`
+  sat after `return`, and there was no fresh-hit branch at all. Rewritten with the refresh dispatched
+  before the return.
+- **`api-versioning.md`: brownouts prescribed `410 Gone` on a percentage of requests.** 410 is cacheable
+  by default (MDN), so a probabilistic one can be cached and replayed permanently — an outage where a fire
+  drill was intended. Now `503` + `Retry-After`, with `410` reserved for the actual removal.
+- **`webhook-flow.md` asserted `4xx` = stop retrying as universal HTTP semantics.** It is per-provider:
+  Stripe retries any non-2xx for up to three days; others never auto-retry. Replaced with the two
+  invariants that ARE universal, and a requirement to cite the provider's actual policy.
+- **`multi-tenancy.md` listed a bare `X-Tenant-Id` header in the resolution chain** — the exact vector
+  `backend-principles` lists under Must-not. Replaced with an impersonation-claim entry gated on mTLS +
+  a `tenant:impersonate` claim + audit logging. Also reconciled the "never pass tenantId as an argument"
+  NEVER against the DI rule it contradicted: ambient reads confined to the repository base, explicit
+  scope permitted at a service boundary.
+- **`async-job-offload.md` returned `200` on an idempotent re-submit** where `backend-principles` API-7
+  requires replaying the stored response — i.e. the original `202`. A client branching on the status got
+  different behaviour depending on which attempt landed.
+- **`response-streaming.md` listed `Transfer-Encoding: chunked` as a general transport.** RFC 9113 §8.2.2
+  prohibits connection-specific fields on HTTP/2 (`MUST` treat as `PROTOCOL_ERROR`), so an explicit set is
+  a protocol error on H2/H3. Scoped to HTTP/1.1 framing.
+- `413 Payload Too Large` → `413 Content Too Large` across `api-contract`, `request-validation`,
+  `file-upload` (RFC 9110 §15.5.14 renamed it).
+- `commands/add-feature.md` pointed at `payment-idempotency.md` as a pattern; it ships as a **rule** under
+  `templates/domains/payment/`. Row now names the real kind and path.
+- **`agents/websocket-engineer.md` quoted a single-server connection ceiling.** There is no portable number —
+  the ceiling is the minimum of file descriptors, per-connection memory, and event-loop headroom, and it moves
+  with every change to per-connection state. The quoted figure was a fabricated measurement of exactly the kind
+  this pack blocks everywhere else. Replaced with the three-limit derivation, each measurable on the reader's own
+  box, plus the standing rule: any capacity claim in a design must cite the number YOU measured and the hardware
+  and message rate you measured it at, and a design under review that carries an uncited one is rejected.
+- **`rules/concurrency-discipline.md` shipped a Java example that no longer compiles.** `StructuredTaskScope` is
+  still a preview API (JEP 505, "Structured Concurrency (Fifth Preview)", JDK 25) and its shape has changed
+  between previews: `open()` is now a static factory taking a `Joiner`, and `join()` returns the Joiner's result
+  or throws `StructuredTaskScope.FailedException` — the `scope.join().throwIfFailed()` form the rule taught is
+  gone. Corrected, marked as needing `--enable-preview`, and `CompletableFuture` named as the portable choice
+  rather than the fallback.
+- **`rules/migration-backend.md` put a literal `N` in a `severity: must` fingerprint** — "route handlers with
+  > N lines of business logic". An unresolved threshold in a MUST is unenforceable, and there is no
+  project-independent line count that means "fat controller". Re-stated as what the logic *is*: branching on
+  domain state, computing money / totals / eligibility, or orchestrating more than one repository call.
+- `commands/add-endpoint.md` asserted `400` as the invalid-body status in its gate, its e2e test name and its
+  Phase-6 ledger — the same `400`-vs-`422` disagreement fixed in `error-handling.md`. Now asserts *the project's
+  declared validation-failure status*, so the gate reads the decision instead of restating one side of it.
+
+**Enforceability**
+
+- **`api-consistency-audit` emitted six closure verbs its own consumer rejects.** `validate-polish-artifacts.sh`
+  defines a closed 15-verb `API_CONSISTENCY_VERBS` set; detectors 8b–8g emitted verbs outside it, so any
+  `/polish` run firing them had its whole artifact rejected. Those six are now **routed observations** that
+  emit `routed_to:` and no `closure_verb:` — which is also the honest scope line, since four of them are
+  additive capability rather than drift unification. The three disagreeing counts (frontmatter 16, body 21,
+  validator 15) are reconciled: 22 fingerprints = 16 closure-verb detectors drawing on the closed 15-verb
+  vocabulary + 6 routed observations.
+- **`multi-tenancy.md` and `parallel-io.md` were the only two of 15 patterns with no detector block** — so
+  the pack's highest-stakes axis was its least enforceable one, and `/polish` could not consume either.
+  Both now ship `## Detectors (cite-or-halt)` + closure verbs, derived only from rules those files already
+  state. Undecidable detectors are marked `[self-policed]` rather than faked.
+- **`commands/analyze-module.md` could stamp a false green.** Phase 4 dispatched six agents, five of which
+  ship in other packs, with no not-installed fallback — the only creation/audit command in the pack without
+  one. On a backend-only install five axes silently no-op'd and the command still computed "0 blockers →
+  ready to extend". Added the pack's standard inline-fallback sentence and a coverage-first verdict:
+  any axis neither dispatched nor covered inline forces INCOMPLETE with the axes named.
+- **`skills/env-diff` claimed a wire that did not exist** (`Used by @bug-investigator`, zero references in
+  that agent). Made true in **both** directions rather than deleted: `/fix-bug` Phase 3 and
+  `@bug-investigator`'s new Evidence-gathering § Config drift both route the "works in one environment but not
+  another" signal to `env-diff` before the handler is read, and the skill's `## Related` now names those two as
+  its only callers, so a rename has a checkable blast radius.
+- **`_topics.md` generated two agents nobody could dispatch.** It templated the pack's two central agents as
+  `<stack>-architect` / `<stack>-reviewer` ("substitute the detected stack") while all nine commands dispatch the
+  literal `api-architect` / `api-reviewer` — so a project that ran AUTHOR mode got a *richer*, stack-specific
+  agent that was **unreachable**, and `/add-endpoint`'s production-readiness gate silently fell back to its
+  weaker inline review path. Both entries are now canonical names carrying the reason inline; the apply-step no
+  longer says "substitute templated names" but "resolve ROLE references, never artifact NAMES — the stack goes in
+  the CONTENT". `trace-flow` and `refactor` ship in `commands/` and had no entry at all; both are now registered
+  with `_examples/` fallbacks. A preamble states why topic count deliberately differs from file count
+  (extraction-only topics carry `fallback: stub-from-sections` and have no shipped counterpart), so the next
+  reader does not "reconcile" them away against a directory listing. `validate-pack-consistency.sh` catches the
+  unregistered-file case; **nothing catches a topic whose `name:` diverges from the filename other artifacts
+  dispatch by**, which is why those two entries now carry a comment.
+- **`agents/api-reviewer.md` + (SEC-03) bearer-token validation floor.** Where the service validates a token
+  itself rather than receiving an already-verified principal from a gateway, review now requires a pinned key set
+  (JWKS re-fetched on unknown `kid` so rotation works), explicitly pinned algorithms (`alg: none` and
+  algorithm-confusion rejected), and **both** `aud` and `iss` plus `exp` — with a grep per check and its own
+  verdict-table row. A decode-without-verify on a user-reachable path is a BLOCKER, not a REQUEST. Pointer-only
+  to the security pack for token lifetime / rotation / revocation depth, because "the security pack wasn't
+  installed" is not a reason to ship an unvalidated `aud`.
+
+**Depth**
+
+- `api-contract.md` +§ Resource naming and URL structure — plural collections, kebab-case segments,
+  verb-free paths, and the sanctioned `POST /v1/{resource}:verb` custom-method escape hatch
+  (Zalando #134/#129/#141; Google AIP-136), plus a `resource-naming-drift` detector in
+  `api-consistency-audit` that reuses the in-vocabulary `unify-naming` verb rather than inventing a 16th.
+  The pack previously had **one** hit for path-naming doctrine across every agent, rule, pattern, command
+  and skill — and it was about directory names.
+- `api-contract.md` + the envelope-vs-RFC-9457 decision table. The pack had four incompatible envelope
+  descriptions across four files; they are now one recorded, exclusive choice.
+- `api-versioning.md` + a date-pinned/rolling strategy row, and the fork condition on the URL-path
+  recommendation (Zalando forbids it at MUST level — #115; that has to be a recorded decision, not a
+  default). Safe-vs-breaking classification de-duplicated: `api-contract.md` owns the table, this file
+  owns what happens after.
+- `caching-strategy.md` TTL table gains a why/what-breaks column — a halt condition that says "cite the
+  table" is theatre when the table is nine unexplained numbers. Hit-rate "target > 90%" replaced with the
+  inequality to compute. Redis-as-store vs Redis-as-cache stated, so the file's own Detector 4 stops firing
+  on `backend-principles` PERF-6.
+- `parallel-io.md` ships in **minimal** mode and shipped as a half-filled template, with a bare
+  `<projectPrimitive>` token inside a fenced code block. Degraded behaviour on empty extraction is now
+  specified in a table, the placeholder is valid syntax that fails loudly, and the empty
+  "Examples from THIS codebase" heading is gone.
+- `skills/endpoint-test` absorbs the conditional cases (rate limit, ETag/`If-None-Match` → 304,
+  `202` + `Location` hand-off, streaming terminal marker) and states the triad's ownership split;
+  `commands/endpoint-test.md` shrinks to argument resolution + hand-wave halt + escalation routing.
+- `commands/refactor.md` cut from four gates to two. Layering, error envelope, DTO stability and "use DI"
+  are already MUSTs in the always-loaded rule. What survives is what the universal command cannot know:
+  on a backend the **wire is the observable**, so a DTO/route/error-code rename is a contract change
+  wearing a refactor's clothes; and the injection style must mirror the sibling, not introduce a second one.
+- `skills/api-snapshot` + § What the snapshot does NOT cover. `api-reviewer` ENF-4 exempts streaming
+  handlers from `response_model` checks, so a streaming route has nothing for `oasdiff` to compare and
+  passes by construction — a false guarantee nobody had written down. Also requires the emitted spec
+  version to be recorded and reviewed on its own.
+- `rate-limiting.md` + a per-caller-class key dimension for APIs called by autonomous agents as well as
+  humans, with an explicit refusal to quote a number for it.
+- **All five agents re-cut against each other.** Every `description:` was a capability blurb — it said what the
+  agent could do and nothing about when NOT to fire, so the five overlapped at the edges and the dispatcher had
+  to guess. Each now carries an explicit trigger set plus a named anti-trigger set that points at the sibling
+  that actually owns the case, and each agent's opening paragraph defines it against the other four:
+  `api-architect` works before anything exists, `api-reviewer` judges what does, `bug-investigator` explains what
+  misbehaves, `endpoint-tester` proves the wire, `websocket-engineer` owns what outlives a request.
+  `api-architect` gains a five-lens design rubric (boundary correctness · contract stability · failure shape ·
+  cost to change · operability) and a refusal to ship a single-option design where a real fork exists — mirroring
+  the closest sibling is now stated as the floor, not the standard. Every agent's sibling section is a *boundary*
+  section, and cross-pack pointers are marked pointer-only so depth stays where it is owned.
+- **`endpoint-tester` was a second copy of the `endpoint-test` skill** — its own curl commands, its own five-call
+  flow, its own results table, all duplicated from the runnable primitive and free to drift from it. Cut to
+  selector-plus-verdict: it decides which cases this route needs beyond the mandatory five, drives the skill, and
+  returns one consolidated verdict. The instruction is blunt, because this is the failure mode that recurs — "if
+  you find yourself writing a curl command or a results table into this agent's output, stop."
+
+**Known gaps (verified open after this pass)**
+
+- **35 of the 36 `_examples/` fallbacks were not re-based**, and three of them now teach something this pass
+  fixed at the source. `_examples/error-handling.md` still declares `constructor(message, context, cause)`
+  positionally and its own "RIGHT" call sites still pass `{ cause: e }` into the `context` slot — the exact
+  provider-error leak corrected above. `_examples/rate-limiting.md` still teaches the legacy triple, plus a
+  `RateLimit-Policy: 100;w=60` line that is neither the old form nor the new one (unquoted policy name, no
+  `qu`). `_examples/api-contract.md` still mandates one fixed envelope where the source now records an exclusive
+  choice between an envelope and RFC 9457. These are COPY-mode last-resort fallbacks — they reach a project only
+  when extraction produced nothing — so the blast radius is narrow, but a fallback that teaches a fixed bug is
+  worse than no fallback.
+- **No gate compares a CHANGELOG entry's declared scope against the directories the diff actually touched.**
+  The 1.13.0 entry above was wrong in exactly that way before this correction — it named three directories and
+  shipped six — and all 18 gates stayed green through it. `validate-pack-consistency.sh` only checks that a
+  heading matching `_version.json`'s version exists.
+
 ## 1.12.0 — 2026-07-10
 
 - add-endpoint Phase-6 Production-readiness gate: 7-row floor ledger (edge validation · error

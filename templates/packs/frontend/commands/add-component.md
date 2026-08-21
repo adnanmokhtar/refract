@@ -35,7 +35,9 @@ Everything else — prop default-true vs default-false, slot vs prop for header,
 |---|---|---|---|
 | **Trivial** | New primitive that mirrors an existing sibling (card, badge, chip, button variant) | Code only — component + test + (Storybook entry if siblings have one). Locale keys land in BOTH locales. **No plan, no ADR.** | YES |
 | **Standard** | New shape with 1 new prop convention or new slot pattern | Trivial + 1-paragraph sibling-shape note inline | NO |
-| **Heavy** | New shared-primitive family (first dialog, first datepicker, first dropdown wrapper) | Standard + ADR + `@design-system-guardian` + `@accessibility-auditor` dispatch | NO |
+| **Heavy** | New shared-primitive family (first dialog, first datepicker, first dropdown wrapper) | Standard + ADR + `@design-system-guardian` *(ui-ux pack)* + `@accessibility-auditor` dispatch | NO |
+
+**Dispatch fallback (all tiers).** If a named agent, command, or skill is not installed in this project, perform that review inline against the corresponding pack/domain checklist and label it as such in the report — never silently skip the axis, and never claim a reviewer that did not run.
 
 **Lightweight default.** Trivial-tier is the default. ADR drafts are heavy-tier opt-in only — drafting an ADR to legitimize a new card variant is the same anti-pattern as the migration pack's "ADR-as-closure" trap.
 
@@ -49,7 +51,9 @@ Everything else — prop default-true vs default-false, slot vs prop for header,
 
 ### Intent gate
 
-If description suggests a different intent, halt with redirect: "enhance / improve" → `/enhance-ui`. "fix" → `/fix-bug`. "test in isolation" → `component-playground` skill. Proceed only for adding a new shared component.
+If description suggests a different intent, halt with redirect: "enhance / improve" → `/enhance-ui` *(ui-ux pack)*; if that pack is not installed, say so and offer `/polish` (core, always present) as the visual-finish route rather than halting into nothing. "fix" → `/fix-bug`. "test in isolation" → `component-playground` skill (which itself halts if the repo already has Storybook / Histoire / Ladle). Proceed only for adding a new shared component.
+
+**A redirect must land somewhere.** A halt that points at an uninstalled command is a dead end, not a redirect — name the pack, check it, and offer the installed alternative.
 
 ### Standard inputs
 
@@ -99,8 +103,10 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - New file placed outside the folder's existing path convention (e.g., `src/components/cards/OrderCard.vue` when siblings live at `src/components/orders/Card.vue`).
 - New styling system introduced (CSS Modules in a Tailwind repo; styled-components where siblings use scoped CSS).
 - Above-the-fold / hero / heavy-media component whose LCP-relevant image omits the framework priority hint that siblings set (see [`../skills/lcp-audit/SKILL.md`](../skills/lcp-audit/SKILL.md)) — missing `fetchpriority`/`priority`/eager-hero parity.
-- High-frequency or expensive interaction handler (typing, filtering a large list, drag) that runs unbounded per-interaction work — must stay under the INP budget per [`../../performance/ai-patterns/inp-responsiveness.md`](../../performance/ai-patterns/inp-responsiveness.md) (yield / `startTransition` / debounce).
+- High-frequency or expensive interaction handler (typing, filtering a large list, drag) that runs unbounded per-interaction work — must stay under the INP budget per the `inp-responsiveness` pattern *(performance pack, when co-installed)*; absent that pack, grade it inline (yield / transition / debounce the handler) and record `inp: graded inline (performance pack absent)`.
 - Component that renders content images: images use the framework image component with modern format, responsive `srcset`/`sizes`, and explicit `width`/`height` (no CLS) — mirror siblings (see [`../skills/image-optimization/SKILL.md`](../skills/image-optimization/SKILL.md)).
+
+**Creation-time only.** This gate compares the NEW component against its siblings. Consolidating raw-primitive drift that already shipped across many files is not this command's job — that is `ui-design-sweep`'s `unify-component` verb *(ui-ux pack)* or the core `/unify-surfaces`.
 
 **Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
@@ -116,7 +122,7 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - Visual diff via `visual-check` skill if present.
 - Hardcoded English (untranslated string) → blocker.
 - **LCP priority hint** (gated): if the component is above-the-fold / a hero / heavy media, its LCP image sets the framework priority hint — dispatch [`../skills/lcp-audit/SKILL.md`](../skills/lcp-audit/SKILL.md). Not LCP-relevant → `lcp: n/a`.
-- **INP budget** (gated): if the component owns a high-frequency or expensive handler (typing, filtering a large list, drag), per-interaction work stays under budget (yield / transition / debounce) — dispatch [`../../performance/ai-patterns/inp-responsiveness.md`](../../performance/ai-patterns/inp-responsiveness.md). No such handler → `inp: n/a`.
+- **INP budget** (gated): if the component owns a high-frequency or expensive handler (typing, filtering a large list, drag), per-interaction work stays under budget (yield / transition / debounce) — dispatch the `inp-responsiveness` pattern *(performance pack, when co-installed)*; if that pack is absent, grade the handler inline and report `inp: graded inline (performance pack absent)`. No such handler → `inp: n/a`.
 - **Image delivery** (gated): if the component renders content images, they use the framework image component with modern format + responsive sizing + explicit `width`/`height` (no CLS) — dispatch [`../skills/image-optimization/SKILL.md`](../skills/image-optimization/SKILL.md). No images → `image: n/a`.
 - **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`): error boundary / error-tracking wired the way siblings wire it; analytics events added if siblings of this primitive emit them. If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
 
@@ -155,7 +161,7 @@ Status: COMPLETE
 
 ### Skills
 - `../skills/lcp-audit/SKILL.md` — LCP-resource priority-hint scanner (above-the-fold / hero / heavy-media images)
-- `../../performance/ai-patterns/inp-responsiveness.md` — per-interaction main-thread INP budget
+- `inp-responsiveness` *(performance pack, when co-installed)* — per-interaction main-thread INP budget
 
 ### Patterns
 - `ai/patterns/forms.md`

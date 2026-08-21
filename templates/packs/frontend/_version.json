@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.12.2",
-  "released": "2026-07-12",
+  "version": "1.13.0",
+  "released": "2026-08-21",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "visual-check auth scaffold hardened: dependency-free .env load in auth.setup.ts, the playwright.config `setup` project documented, and a browser-binary preflight before any render.",
+  "summary": "Pack-wide correctness wave (agents, rules, references, skills, commands, ai-patterns): a11y-scan re-baselined to WCAG 2.2 AA with the axe option-order trap documented; the PPR API Next 16 removed is gone from both streaming-ssr and references/nextjs.md; three data-fetching detector greps that never matched are fixed and re-run; ssr-safety rebuilt to the 1.10.0 pattern shape; all seven agents re-cut with anti-triggers, sibling boundaries and pack-gated cross-pack reads; 24x24 (AA) untangled from 44x44 (AAA) in target-size guidance; and a new auth-session-client pattern covers the client session lifecycle.",
   "changelog": "CHANGELOG.md"
 }

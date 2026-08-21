@@ -32,7 +32,7 @@ Not every skill is a static scanner. Hold each to the parts of the contract that
 
 1. **Frontmatter** — `name` + a **specific** `description` that names the detectors, not vague ("turns 'optimize X' prose into cited detectors"), plus which sibling it sits beside.
 2. **`## Premise`** — names the failure mode + states cite-or-halt + "X without the cited element is not a finding."
-3. **`## Adapt to the codebase`** — a per-framework primitive table (Next / Nuxt / SvelteKit / Astro / Angular / plain / CDN). **Required for any skill that emits fixes.** (`ssr-audit` is the current gap — no table.)
+3. **`## Adapt to the codebase`** — a per-framework primitive table (Next / Nuxt / SvelteKit / Astro / Angular / plain / CDN). **Required for any skill that emits fixes.** (No current gap: `ssr-audit` and `streaming-ssr` both carry one as of 1.13.0. When a retrofit lands, delete the gap note in the same change — a stale target list is drift, and this file is the only place that catches it.)
 4. **`## Scans for`** — numbered detectors, each a **BAD/GOOD code example AND a grep/heuristic**. No rule stated without a way to match it.
 5. **`## Output`** — a literal report with `file:line` + a closure verb (`report-with-fix` / `halt-handoff`).
 6. **`## False positives / gotchas`** — encodes the carve-outs so the next scan doesn't re-flag them (lazy-below-fold is correct; self-canonical is correct; `font-display: optional` is deliberate).

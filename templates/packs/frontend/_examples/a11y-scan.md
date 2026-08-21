@@ -1,6 +1,6 @@
 ---
 name: a11y-scan
-description: Automated accessibility scan using axe-core against a running app. Catches ~30% of real issues — blockers for merge on critical pages.
+description: Automated axe-core scan on a declared route matrix — WCAG 2.2 AA tags, critical/serious gating, and axe review items surfaced rather than swallowed. Automation is a floor, not a pass.
 ---
 
 # a11y-scan
@@ -26,12 +26,20 @@ test.describe('accessibility', () => {
     test(`${route} has no critical violations`, async ({ page }) => {
       await page.goto(route);
       const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])  // WCAG 2.1 AA
+        // .options() REPLACES the option object, so it MUST precede .withTags()
+        // or the tag list is silently dropped. axe ships WCAG 2.2 rules disabled
+        // by default, hence the explicit enable.
+        .options({ rules: { 'target-size': { enabled: true } } })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])  // WCAG 2.2 AA
         .analyze();
       expect(results.violations.filter(v => v.impact === 'critical')).toEqual([]);
       // Log all violations for visibility
       results.violations.forEach(v => {
         console.log(`${v.impact}: ${v.help} (${v.nodes.length} nodes)`);
+      });
+      // Review items: axe could not decide. Never drop these silently.
+      results.incomplete.forEach(v => {
+        console.log(`REVIEW ${v.id}: ${v.help} (${v.nodes.length} nodes)`);
       });
     });
   }
@@ -95,6 +103,10 @@ Serious (2):
     Affected: 1 node — input#saveAddress
     Fix: add <label for="saveAddress">Save address for next time</label>
 
+Review items (1) — axe could not determine pass/fail; a human resolves each.
+An unresolved review item is NOT a pass:
+  - color-contrast-enhanced: text over hero background image (.hero h1)
+
 Moderate (1):
   - heading-order: h1 followed by h3, skipping h2
     Affected: 1 node
@@ -106,23 +118,33 @@ Minor (0):
 Verdict: REQUEST_CHANGES (serious issues must be fixed).
 ```
 
-## Limitations
+## False positives / gotchas
 
-Automated a11y tools catch **~30%** of real issues. They miss:
-- Screen reader experience (announcements, order, context).
-- Keyboard interaction quality.
-- Cognitive load / clarity.
-- Context-dependent meanings.
+Automation is a floor, not a coverage percentage — do not quote a "tools catch N%" figure you have
+not opened the source for. axe cannot evaluate screen-reader announcement/order/context, keyboard
+interaction quality, cognitive load, or context-dependent meaning. Contrast over an image lands in
+`incomplete`, not `violations`. A component that only exists after interaction is invisible to a
+scan that never opens it. An auth-gated route that redirected to `/login` scans the login page and
+reports it clean.
 
-Pair automated scans with:
-- Keyboard-only testing (unplug the mouse).
-- Screen reader testing (VoiceOver on macOS, NVDA on Windows).
-- User testing with people using assistive tech.
+Pair automated scans with keyboard-only testing, screen-reader testing (VoiceOver / NVDA), and
+testing with people who use assistive tech.
 
-## Rules
+## When to run
 
-- Critical violations = BLOCK.
-- Serious = FIX before release.
-- Never disable axe checks without a documented justification in a comment.
-- Add new routes to the scan as they ship.
-- Run across theme + locale variants, not just default.
+Every PR that touches UI (critical routes), after a theme/token/locale change, before release
+(full matrix), and whenever the manual audit wants a machine-checkable claim proven on real DOM.
+
+## Halt conditions
+
+- Critical violations BLOCK; serious must be fixed before release.
+- Halt if `results.incomplete` was not read — a report showing only `violations` claims certainty axe never had.
+- Halt if the report claims WCAG 2.2 AA without the 2.2 tag + `target-size` enable.
+- Never disable an axe check without a documented inline justification.
+- Every route in the matrix produces a row: PASS, FAIL, or SKIPPED-with-reason.
+
+## Related
+
+`@accessibility-auditor` (deep audit, this pack) · `/a11y-audit` (orchestrator) · `dev-server-start`
+(prerequisite) · `visual-check` (render-harness contract) · `a11y-quick-check` *(ui-ux pack, when
+co-installed — the 60-second in-review lane)*.

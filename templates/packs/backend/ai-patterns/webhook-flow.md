@@ -18,7 +18,12 @@ The endpoint is an unauthenticated, internet-exposed side-effect trigger. Treat 
 2. **Verify the signature with a timing-safe compare**, keyed by the provider's shared secret, BEFORE touching the payload. Reject `401` on mismatch — do not process, do not log the body.
 3. **Reject stale/replayed requests.** Enforce the provider's timestamp tolerance (typically ±5 min) and treat the provider's event id as an idempotency key so a redelivery is a no-op (defer the stored-replay mechanism to `idempotency.md`).
 4. **Acknowledge fast, process async.** Return `2xx` within the provider's timeout (often 5–10s) the moment the event is durably enqueued; do the real work in a job (see `async-job-offload.md`). Blocking the ack on business logic causes provider-side retries → duplicate events.
-5. **Return the status codes the provider expects.** `2xx` = accepted (stop retrying); `4xx` = permanent reject (bad signature/unknown event — stop retrying); `5xx`/timeout = transient (retry). Never return `200` on an internal failure you actually dropped, and never `5xx` on a bad signature (invites infinite retries).
+5. **Return the status codes the provider expects — and read the provider's doc, because retry semantics are NOT universal.** There is no HTTP-wide rule that `4xx` stops a webhook retry; each provider decides.
+   - **Stripe retries on any non-2xx, `4xx` included** — ["Stripe attempts to deliver events to your destination for up to three days with an exponential back off in live mode"](https://docs.stripe.com/webhooks), and its own troubleshooting table lists `4xx` responses as delivery failures alongside `5xx`. So the "return 400 to stop the retries" folk rule is simply false there: a bad-signature `400` will be retried for three days.
+   - **Some providers never auto-retry at all**, which means a `5xx` you returned because your queue was briefly full has silently dropped the event.
+   - **What IS universal**, whatever the provider does: never return `2xx` for an event you actually dropped (that is the one response that definitively stops delivery), and never return `5xx` for a signature failure (on a retrying provider that invites an unbounded retry storm against an endpoint that will never accept it).
+
+   Write the provider's actual policy into `references/<provider>` or the subscription record, and make the handler's status choice cite it. A handler whose comment says "400 so it stops retrying" against a provider that retries `4xx` is a bug with a confident comment on it.
 6. **Tenant/account resolution** from the signed payload's account id feeds the tenant context (see `multi-tenancy.md`), only AFTER the signature verifies.
 
 ## Outbound — you SEND webhooks (you are the provider)

@@ -185,7 +185,7 @@ SIGNAL-BASED (parallel):
 | Multi-tenant | `multi-tenancy.md`, `tenant-isolation.md` |
 | AI / LLM | `prompt-builder.md`, `ai-cost-tracking.md` |
 | Webhook | `webhook-flow.md` (inbound signature-verify + replay + enqueue-then-ack; outbound signing + retry/DLQ) |
-| Payment | `payment-idempotency.md`, `idempotency.md` |
+| Payment | `idempotency.md` (distributed-systems pattern) — plus the **rule** `templates/domains/payment/rules/payment-idempotency.md`, which is a rule, not a pattern, and loads from the payment domain overlay rather than `ai/patterns/` |
 | Real-time | `ssr-safety.md`, websocket patterns |
 | Event-sourced | `event-sourcing.md`, `cqrs.md` |
 | Cross-service call | `saga.md`, `outbox.md`, `circuit-breaker.md`, `idempotency.md`, `api-versioning.md` |

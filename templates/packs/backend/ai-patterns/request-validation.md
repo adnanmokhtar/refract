@@ -82,21 +82,24 @@ Every input carries a ceiling, enforced server-side regardless of what the clien
 Before the body is parsed, two gates:
 
 - **`Content-Type` allow-list** — reject anything the endpoint doesn't accept with `415 Unsupported Media Type`. A JSON endpoint must not hand an arbitrary body to a permissive parser.
-- **Max body size** — a per-endpoint byte cap; reject oversize with `413 Payload Too Large` *before* buffering. A JSON write needs kilobytes; the deliberate exception is an upload route (validation of the stream itself is owned by `file-upload.md`). The framework body-parser limit that enforces this is wired in `references/<framework>.md` — declare the contract here, route the config there.
+- **Max body size** — a per-endpoint byte cap; reject oversize with `413 Content Too Large` (RFC 9110 §15.5.14) *before* buffering. A JSON write needs kilobytes; the deliberate exception is an upload route (validation of the stream itself is owned by `file-upload.md`). The framework body-parser limit that enforces this is wired in `references/<framework>.md` — declare the contract here, route the config there.
 
 ## The 422 error-to-field contract (hand-off)
 
 When validation fails, the response is a **structured field-error** map with **stable machine codes** — not a prose blob:
 
 ```json
-{ "status": "error", "code": "VALIDATION_FAILED",
-  "errors": [
+{ "status": "error", "code": "VALIDATION_FAILED", "message": "Validation failed",
+  "data": { "fieldErrors": [
     { "field": "email", "code": "INVALID_FORMAT", "message": "Enter a valid email" },
     { "field": "items", "code": "TOO_MANY", "message": "At most 100 items" }
-  ] }
+  ] },
+  "meta": { "traceId": "trace_xyz" } }
 ```
 
-`422 Unprocessable Content` for a well-formed body that fails semantic validation; `400` for a body that couldn't be parsed at all. The **envelope shape** (`status` / `code` / `errors[]` field names, the status-mapping) is owned by `error-handling.md` — this pattern's job is to *produce* per-field errors with stable codes; the wire format is that pattern's contract. Divergent `422` shapes across endpoints are an `api-consistency-audit` finding.
+The **placement** above (`data.fieldErrors[]`, inside the project's five-key envelope) is `error-handling.md`'s call, not this pattern's — reproduced here only so the example is copy-able. On the RFC 9457 branch the same rows live in an `errors` extension member of the `problem+json` body instead. What this pattern owns is the *row shape*: `field` (a path, `items[0].quantity`), a stable machine `code`, and a dev-facing `message`.
+
+`422 Unprocessable Content` for a well-formed body that fails semantic validation; `400` for a body that couldn't be parsed at all. The **envelope shape** (where the field-error rows sit — `data.fieldErrors[]` on the project-envelope branch, an `errors` extension member on the RFC 9457 branch — and the status mapping) is owned by `error-handling.md` — this pattern's job is to *produce* per-field errors with stable codes; the wire format is that pattern's contract. Divergent `422` shapes across endpoints are an `api-consistency-audit` finding.
 
 ## Idempotency-key / header validation
 

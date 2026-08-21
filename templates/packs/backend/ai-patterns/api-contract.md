@@ -68,7 +68,7 @@ Lists add pagination to `meta`:
 }
 ```
 
-Errors keep the same envelope so clients have one parser:
+Errors keep the same envelope so clients have one parser — **if** the project chose the project-envelope branch:
 
 ```json
 {
@@ -81,6 +81,44 @@ Errors keep the same envelope so clients have one parser:
 ```
 
 The `code` is stable and machine-readable. The `message` is human-readable and translatable — clients display `message` directly OR map `code` to their own copy. Never make clients string-match on `message`.
+
+**One envelope decision, made once, recorded in `api-conventions.md`.** There are two defensible answers and they are mutually exclusive for error bodies:
+
+| Branch | Success body | Error body | Pick it when |
+|---|---|---|---|
+| **Project envelope** (shown above) | `{ status, code, message, data, meta }` | Same five keys, `data: null` (or `data.fieldErrors[]` on a `422`) | One organisation owns the clients; a single parser across success and failure is worth more than interop. |
+| **RFC 9457 Problem Details** | Bare resource or `{ data, meta }` | `application/problem+json` with `type` / `title` / `status` / `detail` **unwrapped at the top level** | Third-party or generic consumers, gateways, or anything that already speaks `problem+json`. |
+
+You cannot have both on the same error response: Problem Details puts its members at the root, so wrapping it in `{ status, code, message, data, meta }` is no longer Problem Details. `error-handling.md` owns the error body's shape and status mapping either way; this file owns the *success* envelope and the decision record. Field errors live at `data.fieldErrors[]` in the first branch and in an `errors` extension member in the second — one place, not two.
+
+## Resource naming and URL structure
+
+The path is the first half of the contract and the half consumers read most. It is also the half this pack had no rules for — an agent emitting a `| Method | Path | ... |` table had nothing telling it what a good path looks like, so it copied whatever the nearest sibling did.
+
+| Rule | Shape | Counter-shape |
+|---|---|---|
+| **Plural nouns for collections** | `/orders`, `/orders/{orderId}` | `/order`, `/getOrder` |
+| **kebab-case path segments** | `/shipping-addresses` | `/shippingAddresses`, `/shipping_addresses` |
+| **No verbs in paths** — the method is the verb | `DELETE /orders/42` | `POST /orders/42/delete` |
+| **Sub-resource for containment** | `/orders/42/items/7` | `/order-items?orderId=42` when the item has no life outside the order |
+| **Query string for filtering, not identity** | `/orders?status=paid` | `/orders/paid` |
+
+Doctrine: Zalando RESTful API Guidelines #134 (MUST pluralize resource names), #129 (MUST use kebab-case for path segments, `^[a-z][a-z\-0-9]*$`), #141 (MUST keep URLs verb-free — "the only place where actions should appear is in the HTTP methods").
+
+### The escape hatch for genuinely non-CRUD actions
+
+Some operations are not a resource. `cancel`, `publish`, `retry`, `archive` — forcing them into a status `PATCH` produces a worse contract, not a purer one, because the transition has preconditions and side effects that "set a field" does not describe.
+
+The sanctioned form is a **custom method**: `POST /v1/{resource}:verb` — a colon, then a camelCase verb.
+
+```
+POST /v1/orders/42:cancel        ← has side effects → POST
+GET  /v1/reports/7:preview       ← pure retrieval → GET
+```
+
+Google's API Improvement Proposals define this precisely ([AIP-136](https://google.aip.dev/136)): the URI "**must** use a `:` character followed by the custom verb"; the HTTP method "**must** be `GET` or `POST`", with `GET` for methods retrieving data or resource state and `POST` "if the method has side effects or mutates resources or data"; the name "**should** be a verb followed by a noun", must not contain prepositions, and "if word separation is required, `camelCase` **must** be used".
+
+**This is a last resort, not a second style.** Three custom methods on a surface is a design choice; thirty is a sign the resource model is wrong and you have built RPC with extra punctuation. Before reaching for one, check whether the action is really a sub-resource creation (`POST /orders/42/cancellations` — which gives you a record of *who* cancelled and *when*, for free).
 
 ## Input DTOs (validation at the edge)
 
@@ -108,7 +146,7 @@ Rules:
 - Every field has a validator. `any` or unannotated fields ship in week one and get exploited in week three.
 - Optional ≠ nullable. `note?: string` accepts undefined; `note: string | null` accepts the JSON literal `null`. Pick one and document it. Mixing both ("does empty mean undefined? null? empty string?") is a bug magnet.
 - Bound list lengths and string lengths server-side regardless of frontend. `@ArrayMaxSize` prevents a 1M-item POST from killing the parser.
-- Normalize on the way in (`@Transform` to trim, lowercase emails, strip control chars). Validate AFTER normalize — `[email protected]` becomes `email@x.com` then validates.
+- **Validate on the raw value, THEN normalize.** Not the other way round. `request-validation.md` § "The order" owns this rule and argues it properly, and its Detector 7 flags the reverse as a canonicalization-order bug: normalising first lets an over-long input, a bidi override, or a padded lookalike be *rewritten into something that passes* a check the raw bytes would have failed. Trim and lowercase for identity and storage — after the shape has been judged. The DTO above places `@Transform` on `note` deliberately as the exception the rule allows: a bounded free-text field where the trim cannot manufacture validity out of an invalid value. Do not copy that placement onto an identity field (`email`, `username`, `slug`).
 
 ## Output DTOs (separate from ORM)
 
@@ -152,6 +190,8 @@ Output DTOs are plain typed shapes — no decorators. They exist so:
 | Change an existing error `code` | NO | Clients keying on it break |
 
 Everything in the NO column requires versioning OR an expand-contract migration with a deprecation window.
+
+**This table is the pack's single classification of safe vs breaking.** `api-versioning.md` § When to bump defers to it rather than restating it — one table, one place to update, no drift. `api-versioning` owns what happens *after* a change lands in the NO column.
 
 ## Versioning when you must break
 
@@ -206,7 +246,7 @@ A batch endpoint (`POST /orders/batch`, `PATCH /products` with an array body) MU
 ```
 
 Rules:
-- **Bound the batch size server-side.** A batch DTO without `@ArrayMaxSize` (or the framework equivalent) is the same parser-killing hole as an unbounded list input — reject an oversize batch up front with `413` (payload too large) or `422` (semantic limit exceeded), never start processing then OOM mid-stream.
+- **Bound the batch size server-side.** A batch DTO without `@ArrayMaxSize` (or the framework equivalent) is the same parser-killing hole as an unbounded list input — reject an oversize batch up front with `413 Content Too Large` (RFC 9110 §15.5.14 — the section is titled "413 Content Too Large"; "Payload Too Large" is the pre-9110 name) or `422` (semantic limit exceeded), never start processing then OOM mid-stream.
 - **One batch-scoped `Idempotency-Key` covers the whole batch.** A retried submit with the same key MUST replay the identical per-item `results[]` set — not re-process, not re-process-the-failures. Storing and replaying the recorded result by key is owned by the distributed-systems pack (`ai-patterns/idempotency` / stored-idempotency-replay); this endpoint's job is to scope the key to the batch and return the stored response verbatim on replay.
 - A batch endpoint whose code path silently does best-effort while its OpenAPI says `200` (or vice-versa) is a contract bug — the declared semantic and the wire status MUST agree. Cite the handler `<path:line>` and the schema row.
 
@@ -238,7 +278,7 @@ Compression is negotiated, never assumed:
 The response body and the accepted request body are both contract surfaces with size consequences:
 
 - **Prefer narrow list-projection DTOs over full-entity rows.** A list endpoint returning the same fat per-item DTO as the single-resource read ships fields no list view renders (long descriptions, embedded blobs, audit metadata) × N rows. Define a dedicated list-projection DTO (`OrderListItemDto`) carrying only what the collection view needs; the full `OrderDto` stays on `GET /orders/:id`. (Column-level over-fetch / `SELECT *` at the query layer is owned by the `database` pack — shape the DTO here, fix the query there.)
-- **Document a max request body-size limit per endpoint; default-deny large bodies.** An endpoint with no body-size cap accepts a multi-megabyte POST that exhausts memory before validation ever runs. Set a per-endpoint limit (a JSON write needs kilobytes; an upload route is the deliberate exception) and reject oversize with `413 Payload Too Large`. The framework body-parser limit that enforces this is wired in `references/<framework>.md` — route the concrete config there, declare the contract here.
+- **Document a max request body-size limit per endpoint; default-deny large bodies.** An endpoint with no body-size cap accepts a multi-megabyte POST that exhausts memory before validation ever runs. Set a per-endpoint limit (a JSON write needs kilobytes; an upload route is the deliberate exception) and reject oversize with `413 Content Too Large` (RFC 9110 §15.5.14). The framework body-parser limit that enforces this is wired in `references/<framework>.md` — route the concrete config there, declare the contract here.
 
 **Cross-references for unbounded / cacheable reads:**
 - A single-resource read that clients poll should emit an `ETag` and honor `If-None-Match` so an unchanged resource costs a `304` instead of a re-serialized body — see `ai-patterns/conditional-requests`.
@@ -278,7 +318,7 @@ A breaking change shows up as a failing snapshot. Reviewer asks "is this in the 
 If you've inherited inconsistent endpoints:
 1. Inventory every endpoint, capture current shape into snapshots. Now you have a baseline.
 2. Pick the new envelope. Write a `wrapResponse(data, code, message)` helper.
-3. Migrate one endpoint per PR. Add the new shape under `/api/v2/...`, leave `/api/v1/...` untouched.
+3. Migrate one endpoint per PR. Add the new shape under `/api/v2/...`, leave `/api/v1/...` untouched. **Write the migration down with an end date before the first PR.** This step deliberately produces the mixed `/v1/x` + `/v2/y` state that `api-versioning.md` Detector 4 flags; what makes it legitimate rather than drift is a documented, time-boxed window, and Detector 4 is written to stand down when it finds one. A migration with no declared end is indistinguishable from a project that simply gave up halfway.
 4. Once frontends move, deprecate `v1` per the versioning section.
 5. Add a contract test in CI that fails if any new endpoint deviates from the envelope.
 
@@ -314,7 +354,19 @@ A removed / renamed / retyped response field, a new required input field, or tig
 
 An error `code` renamed ("it was ugly") with no versioning event → clients keyed on it break → `restore-or-version-code`.
 
-**Closure verbs:** `wrap-in-envelope`, `map-to-output-dto`, `bump-version`, `add-validator`, `restore-or-version-code`.
+### 6. Resource path violates the naming contract
+
+A route whose path is singular where its siblings are plural, mixes case styles between segments, or encodes an action as a path segment (`/orders/42/delete`, `/getOrders`) instead of a method or a sanctioned `:verb` custom method → `fix-resource-path`.
+
+```
+BAD:   POST /order/42/cancelOrder
+GOOD:  POST /orders/42:cancel          (custom method — AIP-136 form)
+GOOD:  POST /orders/42/cancellations   (sub-resource — better, if you want an audit record)
+```
+
+Ships through the deprecation flow like any other path change: the new path lands first, the old one redirects or dual-routes, removal follows the sunset. A path rename is a breaking change even though no field moved.
+
+**Closure verbs:** `wrap-in-envelope`, `map-to-output-dto`, `bump-version`, `add-validator`, `restore-or-version-code`, `fix-resource-path`.
 
 ## References
 

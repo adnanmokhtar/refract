@@ -101,7 +101,8 @@ useEffect(() => { fetch(`/items/${id}`).then(r => r.json()).then(setItem); }, [i
 // GOOD - cache + key + dedup via the project's primitive
 const { data: item } = useQuery({ queryKey: ['items', id], queryFn: () => api.item(id), staleTime: 30_000 });
 ```
-grep: `rg -n "useEffect\([^)]*(fetch|axios|\.get\()" ` and `onMounted`/`ngOnInit` fetching into a local ref.
+grep (multiline — the single-line form `rg -n "useEffect\([^)]*(fetch|axios)"` cannot cross the `)` in `useEffect(() =>` and matches nothing, verified):
+`rg -nU 'useEffect\(\s*\(\s*\)\s*=>\s*\{[\s\S]{0,200}?(fetch\(|axios\.|\.get\()'` — plus the same sweep for Vue / Nuxt `onMounted` and Angular `ngOnInit` fetching into a local ref.
 
 **2. Mutation with no cache invalidation / refetch.**
 ```tsx
@@ -122,7 +123,7 @@ useEffect(() => { const c = new AbortController();
   fetch(`/items?q=${q}`, { signal: c.signal }).then(r => r.json()).then(setRows).catch(ignoreAbort);
   return () => c.abort(); }, [q]);
 ```
-grep: `rg -n "fetch\(" -A2 | rg -v "signal"` — any raw `fetch` in an effect with no `AbortController` and no cleanup return.
+grep: `rg -nUP 'useEffect\(\s*\([^)]*\)\s*=>\s*\{(?:(?!AbortController|signal)[\s\S]){0,400}?fetch\('` — a `fetch` inside an effect whose body never mentions `AbortController`/`signal`. Needs PCRE2 (`-P`); without it, run two passes (effect bodies containing `fetch(`, then drop those whose body also matches `signal`). **Do not** pipe `rg -A2` into `rg -v "signal"`: the inverse filter drops the context LINE, not the match, so a correctly-aborted fetch is still reported as a hit — verified false-positive. Same detector, other stacks: a bare `fetch` in a Vue / Nuxt `onMounted` or an Angular `ngOnInit` with no teardown.
 
 **4. Fetch waterfall (dependent awaits that could parallelize).**
 ```ts
@@ -132,7 +133,7 @@ const items = await api.items(id);
 // GOOD - fire in parallel
 const [user, items] = await Promise.all([api.user(id), api.items(id)]);
 ```
-grep: `rg -n "await .*\n\s*(const|let).* = await"` (consecutive awaits) — inspect for a real data dependency; parallelize if none.
+grep: `rg -nU "await .*\n\s*(const|let).* = await"` (consecutive awaits) — **the `-U` is mandatory**: without it ripgrep aborts with `the literal "\n" is not allowed in a regex` and the detector never runs. Inspect each hit for a real data dependency; parallelize if none.
 
 **5. Missing loading / error / empty / refetching states.**
 ```tsx
@@ -175,6 +176,7 @@ grep: `rg -n "\.(item|entity|get)\(" ` where the render reads ≤3 fields of a l
 - `rendering-strategy.md` — SSR/SSG data owns the initial render; this pattern owns client-side refetch, dedup, and staleness after hydration. Don't client-fetch what the server already rendered.
 - `ssr-safety.md` — hydration-safe reads (no fetch-in-render mismatch) sit beside this pattern's cancellation rule.
 - `realtime-client.md` — a live event patches/invalidates the cache this pattern owns; the reconcile target for a WebSocket/SSE stream.
+- `auth-session-client.md` — the 401 to refresh to retry loop runs through this pattern's client and must respect its cancellation rule; logout **clears** (not invalidates) the cache this pattern owns.
 - `error-boundaries.md` — a thrown query error surfaces to a boundary vs an inline `{error}` branch; ownership decided per subtree.
 - `list-virtualization.md` — infinite/paginated list data comes from this query cache; each page is a cache entry the virtualizer windows.
 - `@data-flow-auditor` — the reviewer agent that enforces these detectors on a diff.

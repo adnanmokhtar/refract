@@ -220,7 +220,7 @@ describe('<Resource>RepositoryImpl', () => {
 ```ts
 describe('<METHOD> <path>', () => {
   it('201 on valid request (auth)', async () => { /* ... */ });
-  it('400 on invalid body', async () => { /* ... */ });
+  it('422 on invalid body (project's declared validation status)', async () => { /* ... */ });
   it('401 unauthenticated', async () => { /* ... */ });
   it('403 insufficient permission', async () => { /* ... */ });  // if permission-gated
   it('409 on conflict', async () => { /* ... */ });               // if uniqueness rules
@@ -253,7 +253,7 @@ Dispatch `/add-telemetry` if gaps.
 | Payment | Idempotency key. Provider call uses the key. Typed PaymentError hierarchy. |
 | File upload | Type + size + magic-bytes validated. Safe storage path. |
 | Public endpoint | Rate limit (per IP) + body size limit. |
-| Expensive / unauthenticated | Rate limit (token-bucket or sliding-window) per tenant / user / IP; over-limit returns `429 Too Many Requests` (RFC 6585) + `Retry-After` (RFC 9110 §10.2.3, seconds or HTTP-date); emit `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` (IETF `draft-ietf-httpapi-ratelimit-headers` — unprefixed, not legacy `X-RateLimit-*`). Declare FAIL-OPEN vs FAIL-CLOSED when the limiter store is down. e2e asserts the `(N+1)`-th call in the window is 429 + carries `Retry-After`. Ref `ai-patterns/rate-limiting.md`. (ENF-1) |
+| Expensive / unauthenticated | Rate limit (token-bucket or sliding-window) per tenant / user / IP; over-limit returns `429 Too Many Requests` (RFC 6585) + `Retry-After` (RFC 9110 §10.2.3, seconds or HTTP-date); emit the quota fields `RateLimit-Policy` + `RateLimit` (IETF `draft-ietf-httpapi-ratelimit-headers` — still a draft; the `RateLimit-Limit`/`-Remaining`/`-Reset` triple is draft-05 legacy, so emit both while clients migrate, and never invent `X-RateLimit-*` on a new endpoint). Declare FAIL-OPEN vs FAIL-CLOSED when the limiter store is down. e2e asserts the `(N+1)`-th call in the window is 429 + carries `Retry-After`. Ref `ai-patterns/rate-limiting.md`. (ENF-1) |
 | Async (202) | Response returns `202 Accepted` + `Location: /jobs/:id` AND a `GET /jobs/:id` status endpoint exists (job-status state machine: queued → running → succeeded / failed, result URL + TTL on success). Consumer is idempotent + visibility-timeout + DLQ + bounded retry. e2e: `POST → 202 → poll status → terminal-state`. Ref `ai-patterns/async-job-offload.md`. (ENF-3 / PERF-3) |
 | Streaming (SSE / chunked / NDJSON / LLM token stream) | Dispatch `@websocket-engineer` for backpressure / heartbeat / resume; set BOTH idle and total timeout; cancel the upstream work on client disconnect; mid-stream terminal error uses a sentinel frame (status already 200 — cannot change it). LLM streams cap `max_tokens` + log tokens / cost. Chunked + trailers = RFC 9112. e2e: client-disconnect aborts the upstream. Ref `ai-patterns/response-streaming.md`. (ENF-4) |
 | GET list / collection endpoint | Applies a default + hard-max page size (an unbounded list is rejected/clamped); stable total sort with a unique tiebreaker; cursor/keyset for growing tables (offset only for small quiescent ones); pagination meta in the project envelope; avoid `COUNT(*)` per page (limit+1 / `hasMore`). e2e asserts an over-cap `limit` is clamped and that pages don't drop/repeat rows under an insert. Ref `ai-patterns/pagination.md`. (API-8) |
@@ -276,7 +276,7 @@ Dispatch `/add-telemetry` if gaps.
 - `pnpm lint` on the new files.
 - `pnpm test` on the new tests.
 - Run `coverage-gap` skill — all new branches covered?
-- `endpoint-test` skill against dev server — 200 + 400 + 401 scenarios run through.
+- `endpoint-test` skill against dev server — success, invalid-body (at the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one) and 401 scenarios run through.
 - `api-snapshot` skill — is this a breaking change? If yes and no ADR → fail. If the snapshot flags a **removal / breaking change** to an existing surface, the superseded route MUST emit `Deprecation` (RFC 9745) + `Sunset` (RFC 8594, HTTP-date) headers for the announced overlap window before it disappears — failing to announce the retirement is itself a fail. (ENF-2)
 
 ### Review (parallel)
@@ -305,7 +305,7 @@ Fill this ledger (one row per floor item) before writing the Output block:
 
 | # | Production floor | MET requires (evidence — a claim is not evidence) | Wired to |
 |---|---|---|---|
-| 1 | **Input validated at the edge** | every input DTO field has a validator AND the `400`-on-invalid-body e2e test passes (named) | api-reviewer `edge-validation`; `endpoint-test` skill (400 scenario) |
+| 1 | **Input validated at the edge** | every input DTO field has a validator AND the invalid-body e2e test passes (named), asserting the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one (`ai-patterns/error-handling.md` § Status mapping) | api-reviewer `edge-validation`; `endpoint-test` skill (invalid-body case) |
 | 2 | **Standard error envelope** | error paths return the project envelope / Problem Details (RFC 9457) at a cited `<path:line>`; no stack trace / PII leaked | api-reviewer `error-envelope` + error-contract |
 | 3 | **Correct transaction boundary** | a multi-write use-case is wrapped in ONE transaction at the service layer (cite the tx site); no external call held inside the tx — OR `n-a` (single write), reason stated | api-reviewer `txn-boundary` (TXN). `[self-policed]` — no grep proves two writes are one unit |
 | 4 | **Idempotency on unsafe methods where the convention requires** | `Idempotency-Key` accepted + stored + a replay e2e test proves the second call returns the first result — OR `n-a`, reason stated (naturally idempotent PUT / not retry-sensitive) | api-reviewer `idempotency`; signal table row |
@@ -313,7 +313,7 @@ Fill this ledger (one row per floor item) before writing the Output block:
 | 6 | **Authz enforced, not just authn** | a `403` **denial** e2e test for an authenticated-but-unauthorized principal (wrong role / non-owner) passes — a `401` alone does NOT satisfy this — OR `n-a` (truly public endpoint), reason stated | api-reviewer `authz-not-authn` (AUTHZ) |
 | 7 | **Emits log + metric + trace** | the RED-triad metric (rate + errors + duration histogram), a correlation-id log line, and a use-case span are each matched to an **actually-emitted** signal in the diff — not asserted from the telemetry plan | api-reviewer `log+metric+trace` (OBS-2); Phase-4 Telemetry |
 
-**Coverage regeneration (evidence #1, #5, #6 are runtime — not readable from source alone).** Where the evidence is a test that must be *run* (400 invalid-body, 403 denial, page-cap clamp), the gate requires the test **executed green in this run** (from `pnpm test` / `endpoint-test`), not merely authored. If the harness is absent (no dev server, `n-plus-one-scan` not installed), mark that row `SKIPPED — unverified: <exact command a reviewer must run>` and the verdict is INCOMPLETE, not PRODUCTION-READY.
+**Coverage regeneration (evidence #1, #5, #6 are runtime — not readable from source alone).** Where the evidence is a test that must be *run* (invalid-body, 403 denial, page-cap clamp), the gate requires the test **executed green in this run** (from `pnpm test` / `endpoint-test`), not merely authored. If the harness is absent (no dev server, `n-plus-one-scan` not installed), mark that row `SKIPPED — unverified: <exact command a reviewer must run>` and the verdict is INCOMPLETE, not PRODUCTION-READY.
 
 **Verdict:**
 - **PRODUCTION-READY** — every floor row is MET (with evidence) or n-a (with reason). Only then may the Output say the endpoint is shippable.
@@ -336,7 +336,7 @@ Phase 2 (Organize): api-architect designed; <N> tests planned.
 Phase 3 (Retrieved): 7 universals + module files + 1 sibling controller + signal patterns.
 Phase 4 (Generated): DTO, use-case, controller method, tests (<N>), telemetry.
 Phase 5 (Updated): ai/status.md, ai/dynamic/changelog.md (+ openapi.json if public).
-Phase 6 (Validated): lint, tests, endpoint-test (200/400/401), api-snapshot, reviewers.
+Phase 6 (Validated): lint, tests, endpoint-test (200/422/401), api-snapshot, reviewers.
 Phase 7 (Improved): /learn-from-task queued.
 
 Files:
@@ -357,7 +357,7 @@ Telemetry added:
 Review verdict: APPROVE / REQUEST_CHANGES / BLOCK
 
 Production-readiness ledger (from the Phase-6 gate — every floor row MUST resolve):
-  1. edge-validation     MET   — every DTO field validated; 400-invalid-body e2e green
+  1. edge-validation     MET   — every DTO field validated; invalid-body e2e green at the declared status
   2. error-envelope      MET   — Problem Details at <path:line>; no stack/PII leak
   3. txn-boundary        n-a   — single write (or: MET — wrapped at <path:line>)
   4. idempotency         MET   — key stored + replay e2e green   (or n-a — not retry-sensitive)

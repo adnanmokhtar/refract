@@ -41,7 +41,7 @@ grep -rn "import.*@nestjs\|import.*typeorm" src/modules/*/core/
 - `@HttpCode` / explicit status codes (201 create, 204 delete, 200 read/update).
 - Pagination on list endpoints (`limit` + `cursor` or `offset` + `total`).
 - Idempotency-Key accepted on mutating endpoints (when applicable).
-- Response wrapped per project shape (`{ status, code, message, data, meta? }`).
+- Response uses the project's ONE canonical envelope (whichever `backend-principles.md` § Single response envelope resolved to). Flag drift between endpoints, not the shape itself.
 - Swagger / OpenAPI annotations complete (operationId, description, responses).
 
 ### DTOs
@@ -213,7 +213,7 @@ Loop: `await customerRepo.findById(o.customerId)` per order.
 100 orders → 101 queries.
 
 Fix: eager-load customer in list query (JOIN) OR DataLoader batching.
-Measure: p95 before/after via /profile-endpoint.
+Measure: p95 before/after via the `profile-endpoint` skill (`.claude/skills/profile-endpoint/SKILL.md`, performance pack).
 ```
 
 ### REQUEST — missing auth

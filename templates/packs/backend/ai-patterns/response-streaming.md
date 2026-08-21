@@ -32,9 +32,11 @@ pack: backend
 | **Paginate** (not streaming) | `application/json` | Bounded, cacheable, random-access | Standard fetch + `next` cursor |
 | **NDJSON** | `application/x-ndjson` | Large homogeneous record sets (export, bulk read) | Read line-by-line |
 | **SSE** | `text/event-stream` | Server→client incremental events / LLM tokens over HTTP | `EventSource` / fetch reader |
-| **Chunked** | any + `Transfer-Encoding: chunked` | Bytes whose total length isn't known upfront (file/report build) | Streamed body |
+| **Chunked** | any + `Transfer-Encoding: chunked` **(HTTP/1.1 only — see below)** | Bytes whose total length isn't known upfront (file/report build) | Streamed body |
 
 Stream when the result is unbounded; paginate when it's bounded. NDJSON for records, SSE for events/tokens, chunked for opaque bytes.
+
+**`Transfer-Encoding: chunked` is HTTP/1.1 framing, not a portable instruction.** RFC 9113 §8.2.2 (Connection-Specific Header Fields) prohibits connection-specific fields in HTTP/2: "an endpoint that receives any of these fields MUST treat the receipt as a connection error of type PROTOCOL_ERROR", and `Transfer-Encoding` is among them (the sole carve-out is a `TE` field whose single value is `trailers`). So a handler that *explicitly sets* `Transfer-Encoding: chunked` is a protocol error the moment it is served over H2 or H3 — which, behind almost any modern load balancer, it will be. On H2/H3 the framework streams natively over DATA frames and you set nothing. Write to the framework's stream primitive and let it choose the framing; reach for the header only when you know the hop is H1. The trailer advice below inherits the same caveat: trailers are native on H2, but on H1 they must be announced with a `Trailer:` header and only work when the peer advertised `TE: trailers`.
 
 ## Mid-stream errors — the part everyone gets wrong
 

@@ -1,6 +1,6 @@
 ---
 name: log-tail
-description: Tail structured logs from the dev server, filtered by correlation id / level / module. Used when an endpoint misbehaves or a trace needs following.
+description: Tail structured logs from the dev server, filtered by correlation id, level, or module. Use when a request failed and you need what the server actually recorded — a 500 with no body, a trace to follow end-to-end, an error whose stack never reached the client. Reads what was already logged; it cannot recover a field the code never emitted, does not tail production, and is not a metrics or APM query.
 ---
 
 # log-tail

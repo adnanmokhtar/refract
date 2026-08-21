@@ -35,27 +35,29 @@ You'll have multiple consumers (web, mobile, integrations). They won't upgrade t
 | **Header** | `Accept: application/vnd.api+json;version=2` | Clean URLs | Harder to test via browser/curl |
 | **Query param** | `/api/users?version=2` | Easy to test | Cacheability issues |
 | **Media type** | `Accept: application/vnd.company.user-v2+json` | RESTful-pure | Complex for consumers |
+| **Date-pinned / rolling** | Consumer pinned to the version active at signup; `X-Api-Version: 2026-05-01` overrides per request | Highest consumer freedom — nobody is forced to migrate on your schedule; upgrades are opt-in and reversible | Highest server-side burden: **every pinned version is code you still run**. Needs a request-time transform layer and per-version conformance tests, or it rots into N forks of the handler |
 | **No versioning** | `/api/users` | Simple | Only works if you're additive-only forever |
 
 **Recommended**: URL path (`/api/v1`) for most teams. Simpler mental model, easier debugging, works with every HTTP tool.
 
+**And the limit on that recommendation, which you must record rather than assume.** URL-path versioning is dominant and defensible, but it is not uncontested: Zalando's RESTful API Guidelines forbid it at **MUST** level (#115 "MUST not use URL versioning") and require media-type versioning instead (#114 "MUST use media type versioning"). Their reasoning is that the URI should identify the resource, not a representation of it — a `/v1/orders/42` and a `/v2/orders/42` are the same order, and giving them different URIs breaks the identity that caching, linking and `Location` headers depend on. That is a real argument, and it is why the choice has to be a recorded decision, not a default.
+
+| Your situation | Choose | Because |
+|---|---|---|
+| Internal API, consumers deploy in lockstep with you | **URL path** | The identity objection costs you nothing when no third party is holding a link; the debuggability is worth real money. |
+| Public API with long-lived third-party consumers | **Date-pinned** or **media type** | Consumers upgrade on their own timeline. With URL paths, every break is a migration project you impose on people who don't work for you. |
+| Hypermedia / heavy client-side caching / URIs stored by consumers | **Media type** | This is the case Zalando's MUST is actually about — stored URIs must not go stale because you shipped a field rename. |
+
+Record the choice and the reason in an ADR. "We used `/v1` because everyone does" is the answer this table exists to stop.
+
 ## When to bump version
 
-**Breaking** (requires new version):
-- Remove a field.
-- Rename a field.
-- Change a field's type.
-- Change a field's semantics (same name, different meaning).
-- Change validation rules (required field, stricter format).
-- Change error response shape.
-- Remove an endpoint.
-- Change endpoint URL or method.
+**The safe/breaking classification lives in ONE place: `api-contract.md` § Evolution rules.** That table has a "Why" column, it is what `api-contract`'s own halt condition makes you cite, and duplicating it here is how the two copies drift apart. Read it there; this pattern owns what you do *after* the answer comes back "breaking".
 
-**Non-breaking** (no version bump):
-- Add a new optional field.
-- Add a new endpoint.
-- Add a new enum value (IF consumers fall back on unknown values — document this).
-- Relax validation (accept more inputs).
+Two additions that are versioning-specific and are not in that table:
+
+- **Changing an endpoint's URL or method** is breaking, and it is the one break a response-shape table cannot see.
+- **A new enum value** is safe only if consumers demonstrably fall back on unknown values. That is a claim about someone else's code — verify it against a real client or treat the change as breaking.
 
 ## Evolution within a version
 
@@ -150,11 +152,20 @@ One schema migration, two live API versions, zero break.
 Month 0:  v2 released. v1 still primary.
 Month 1-3: Announce v1 deprecation. Sunset header appears.
 Month 3-9: Dashboard tracks v1 usage. Outreach to remaining consumers.
-Month 9-12: v1 returns 410 Gone on a percentage of requests (brownouts).
+Month 9-12: v1 brownouts — a percentage of requests get 503 + Retry-After (see below).
 Month 12:  v1 removed.
 ```
 
 Adjust timeline to your ecosystem. Public API: 12+ months. Internal API: 3-6 months. Partner API: negotiated.
+
+### Brownouts — use 503, never 410
+
+A brownout is a deliberate, scheduled, *partial* failure: you fail a rising percentage of v1 traffic so remaining consumers discover their dependency before the removal date, while their next retry still succeeds. The status code matters more than it looks.
+
+- **`503 Service Unavailable` + `Retry-After`.** Semantically "temporarily unavailable", which is exactly true during a brownout, and not cacheable by default.
+- **Never `410 Gone` for a brownout.** [MDN, HTTP 410](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/410): "A 410 response is cacheable by default." A probabilistic 410 can be stored by an intermediary or the client's own HTTP cache and then replayed for *every* subsequent request — permanently breaking a consumer that the brownout was only meant to nudge. You wanted a fire drill and you shipped an outage.
+- **`410` is correct for the actual removal**, at which point it is no longer probabilistic and its cacheability is a feature. Set an explicit `Cache-Control` anyway so you control how long.
+- **Announce the schedule.** A brownout nobody was told about is indistinguishable from an incident, and your consumers will page *their* on-call, not yours.
 
 ## GraphQL versioning
 
@@ -196,17 +207,27 @@ Flag a superseded version route whose responses omit `Deprecation` / `Sunset` he
 
 A version marked deprecated (docs/ADR) with no published Sunset date OR no per-consumer usage dashboard — you can't know when removal is safe → `add-sunset-and-tracking`.
 
-### 4. Per-endpoint version mixing
+### 4. Per-endpoint version mixing outside a declared migration window
 
-Routes at `/v1/users` alongside `/v2/orders` under one API — consumers can't track a single version → `unify-version-scheme`.
+Routes at `/v1/users` alongside `/v2/orders` under one API, with **no** documented, time-boxed migration in `ai/adr/` or `api-conventions.md` → `unify-version-scheme`.
 
-**Closure verbs:** `ship-new-version`, `add-deprecation-headers`, `add-sunset-and-tracking`, `unify-version-scheme`.
+**Does not fire during a declared migration.** `api-contract.md` § Migration path deliberately ships v2 one endpoint per PR, which produces exactly this mixed state on purpose. That is the correct way to migrate a large surface; what makes it acceptable is that it is written down with an end date. A mixed state with no end date is the finding.
+
+### 5. Brownout implemented with a cacheable status
+
+A deprecation brownout returning `410` (or any cacheable status) on a percentage of requests → `fix-brownout-status`. Cite the branch that picks the status. `410` is cacheable by default, so a probabilistic one becomes permanent for whichever consumers cached it — the brownout stops being reversible, which was its entire point.
+
+### 6. Deprecation timeline with a brownout step and no brownout mechanism  `[self-policed]`
+
+A deprecation plan whose timeline names a brownout phase with nothing in the code or gateway config that implements it. grep cannot always see gateway-level traffic policy — mark `[self-policed]`: the reviewer asserts they located the mechanism (or its absence) rather than inferring it from the doc. A technique named once in a timeline and implemented nowhere is theatre, and this detector exists so the pack does not ship its own.
+
+**Closure verbs:** `ship-new-version`, `add-deprecation-headers`, `add-sunset-and-tracking`, `unify-version-scheme`, `fix-brownout-status`.
 
 ## Forbidden
 
 - Breaking changes within a version.
 - Silent semantic changes (field name same, meaning different).
 - Removing a version without a deprecation period.
-- Per-endpoint versions (mixing `/v1/users` + `/v2/orders`) — consumers can't track.
+- Per-endpoint versions (mixing `/v1/users` + `/v2/orders`) **as a steady state** — a consumer must then track a version per resource instead of one per API, and your OpenAPI document has no single version to name. (Kubernetes ships per-resource-group versions and it works, so this is a cost, not a law: it works there because the group→version map is published, machine-readable, and discoverable. If you cannot say the same, don't.) Acceptable only inside a documented, time-boxed migration window.
 - Versioning before you have consumers (YAGNI — start simple).
 - Forever-v1 with "we'll never break" promise (you will).

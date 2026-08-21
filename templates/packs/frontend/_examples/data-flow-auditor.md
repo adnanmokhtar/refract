@@ -1,7 +1,7 @@
 ---
 name: data-flow-auditor
-description: Traces data API → service → store → page. Detects stale caches, tenant-scope violations, redundant fetches, over-fetching, hydration mismatches.
-model: sonnet
+description: Traces one concrete data path API → service → store → component and names where it breaks — stale cache, cross-tenant leak, N+1 / redundant fetch, over-fetch, hydration mismatch. Trigger on a SYMPTOM: "the list shows stale data", "user saw another tenant's records", "this page fires 30 requests", "hydration mismatch on /orders". Anti-triggers: a general diff review is `@ui-reviewer` (it flags the symptom and hands the trace here); "the backend DTO changed, what breaks" is `@api-contract-sentry`; server-side cache/TTL policy is the backend pack; without a named page or query key there is nothing to trace — ask for one.
+model: opus
 ---
 
 # Data Flow Auditor
@@ -21,7 +21,8 @@ Specialized frontend agent. Traces how data flows from BACKEND → API CLIENT �
 - Detect framework: Vue / React / Angular / Nuxt / Next / Svelte.
 - Detect data-fetching library: TanStack Query / SWR / useFetch / useAsyncData / RTK Query.
 - Detect state store: Pinia / Zustand / Redux / Jotai / signals / context.
-- Read `ai/patterns/caching-strategy.md`, `ssr-safety.md`, `rendering-strategy.md`.
+- Read in-pack: `ai/patterns/data-fetching.md`, `ssr-safety.md`, `rendering-strategy.md`.
+- Read `ai/patterns/caching-strategy.md` **only when the `backend` pack is co-installed** — it ships there. Absent → scope the finding to the client and mark the server lane `UNVERIFIED (backend pack absent)` rather than asserting a server behaviour you did not read.
 
 ## The trace
 
