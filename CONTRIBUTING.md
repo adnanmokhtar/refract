@@ -123,7 +123,7 @@ bash scripts/test-refine-fixture.sh     # /setup-project --refine marker-safety 
 bash tests/setup-project/run.sh         # setup-project fixtures/snapshots
 bash scripts/dry-run-setup.sh           # what a /setup-project run would emit
 bash scripts/pack-coverage-scan.sh <target-repo>   # pack content vs a real target tree
-bash scripts/verify-readme-stats.sh     # README's "What's inside" figures vs disk
+bash scripts/verify-readme-stats.sh     # README's "What's inside" + the cheatsheet's pack-catalog figures vs disk
 bash scripts/validate-pack-consistency.sh --fallback-report   # the `_examples/` repair worklist (§5b)
 ```
 

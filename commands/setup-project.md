@@ -92,7 +92,7 @@ These halts override every other instruction below. The audit scripts + this sec
 This produces 4 reports under `$TARGET_REPO/.claude/`:
 
 - `_pack-coverage-report.md` — every pack file vs target (Missing / Present)
-- `_refresh-extract.md` — auto-inventory + 9 prose sections agent must fill
+- `_refresh-extract.md` — scaffolded by `refresh-extract-checklist.sh`: § 1 auto-inventory (script-filled) + §§ 2-9 prose sections the agent must fill in place (§ 9 only when migration is in scope) + §§ 10-12 recorded, not shell-gated. Phase 0.2 FILLS this file; it never creates a second one
 - `_study-existing-report.md` — per-file Appendix C decisions (ADD / MERGE / KEEP / REVIEW)
 - `_codebase-scan.md` — codebase inventory + 8 semantic sections agent must fill (incl. **section 15: ≥3 structural recommendations**)
 

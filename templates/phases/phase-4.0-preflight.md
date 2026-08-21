@@ -12,16 +12,16 @@ imported-by: templates/phases/phase-4-apply.md
 
 ### Phase 4 — Apply
 
-**REFRESH-mode preamble (only when mode = REFRESH)**: load `.claude/_refresh-knowledge-extract.md` (Phase 0.2 output) into working memory before any sub-step. The extract is consumed by:
+**REFRESH-mode preamble (only when mode = REFRESH)**: load `.claude/_refresh-extract.md` (scaffolded by `refresh-extract-checklist.sh`, filled by Phase 0.2) into working memory before any sub-step. **Section numbers below are that file's own numbering** — the numbering `audit-setup.sh` C2b1 reads. (They previously pointed at a 13-section schema belonging to a `_refresh-knowledge-extract.md` that nothing wrote, so "section 7 = validated corrections" resolved against the real file to *Architecture decisions*, and "section 9 = uncategorized files" resolved to the *migration mapping*.) The extract is consumed by:
 
-- **4.1 baseline**: extract section 5 (custom rules) → wired into post-baseline overrides; extract section 7 (validated corrections) → injected into `.claude/settings.json` deny-list comments; extract section 11 (custom hook deltas) → re-applied on top of baseline hook shims.
-- **4.2 packs**: extract section 6 (custom agents/skills/commands) → preserved alongside pack copies (deduped by name; user-edited pack files keep user edits over verbatim pack source per Appendix C).
-- **4.4 + 4.4b**: extract sections 1-3 + 10 (ADRs, domain knowledge, project intent, architecture/runtime/audits/failures) → fed into business-domain content generation so regen produces project-specific output, not generic templates.
-- **4.5 generate-missing**: extract section 4 (custom conventions) → drives generated content's "Project-specific" blocks at the TOP of every rule/pattern.
-- **4.7 knowledge base**: extract sections 1, 2, 3, 4, 7, 8, 9, 10 → BECOME the regenerated `ai/decisions/`, `ai/business-domain.md`, `ai/project-goals.md`, `ai/conventions.md`, `ai/dynamic/corrections.md`, `ai/patterns/`, `ai/architecture.md`, `ai/runtime/*.md`, `ai/audits/*.md`, `ai/failures/*.md`. ADRs + audits + failures are append-only — copy verbatim, never rewrite. Section 9 (uncategorized user-touched files) is restored byte-for-byte unless the file's destination has been deleted by an explicit deprecation in this spec.
-- **4.8 tool adapters**: extract section 6 (custom skills/commands) → translated to each adapter same as pack content.
+- **4.1 baseline**: § 5 (custom rules + conventions) → wired into post-baseline overrides; § 3 (validated user corrections) → injected into `.claude/settings.json` deny-list comments; § 10 (custom hook deltas) → re-applied on top of baseline hook shims.
+- **4.2 packs**: § 6 (custom agents/skills/commands) → preserved alongside pack copies (deduped by name; user-edited pack files keep user edits over verbatim pack source per Appendix C).
+- **4.4 + 4.4b**: § 2 (ADRs + audits + failures) + § 4 (project intent + domain glossary) + § 7 (architecture / runtime / patterns / runbooks) → fed into business-domain content generation so regen produces project-specific output, not generic templates.
+- **4.5 generate-missing**: § 5 (custom rules + conventions) → drives generated content's "Project-specific" blocks at the TOP of every rule/pattern.
+- **4.7 knowledge base**: §§ 2, 3, 4, 5, 7 → BECOME the regenerated `ai/decisions/`, `ai/business-domain.md`, `ai/project-goals.md`, `ai/conventions.md`, `ai/dynamic/corrections.md`, `ai/patterns/`, `ai/architecture.md`, `ai/runtime/*.md`, `ai/audits/*.md`, `ai/failures/*.md`. ADRs + audits + failures are append-only — copy verbatim, never rewrite. § 11 (uncategorized user-touched files) is restored byte-for-byte unless the file's destination has been deleted by an explicit deprecation in this spec.
+- **4.8 tool adapters**: § 6 (custom skills/commands) → translated to each adapter same as pack content.
 
-The brain MUST consume the extract; if a regen sub-step does NOT reference the extract for its category, that's a bug — Phase 5 audit catches it via the "knowledge preservation check" (see Phase 5). Section 9 (catch-all) MUST be exhaustively re-applied: every file in it must end up either restored at its original path or listed in the Phase 5 report under "Intentional drops".
+The brain MUST consume the extract; if a regen sub-step does NOT reference the extract for its category, that's a bug — Phase 5 audit catches it via the "knowledge preservation check" (see Phase 5). § 11 (catch-all) MUST be exhaustively re-applied: every file in it must end up either restored at its original path or recorded in § 12 and listed in the Phase 5 report under "Intentional drops".
 
 ### 4.0 Pack-load preflight (mandatory — runs BEFORE 4.1 / 4.2 / 4.8)
 

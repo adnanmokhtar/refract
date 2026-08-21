@@ -3,10 +3,24 @@
 Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 **Fallback convention in this pack: the source IS the fallback, except where an abridgement is
-genuinely different.** Two entries point at `_examples/` — `mobile-architect` and
-`mobile-principles` — because those two are the artifacts a project rewrites in its own voice, so a
-shorter, project-shaped starting point is the right thing to receive. Every other entry points at
-its own source file, and that is a decision, not drift. The reason is `phase-4.2-apply.md` step 2:
+genuinely different.** Four entries point at `_examples/` — `mobile-architect`,
+`mobile-principles`, `offline-sync-auditor` and `device-performance-auditor` — because those are
+the artifacts a project rewrites in its own voice, against its own entities, screens and device
+list, so a shorter, project-shaped starting point is the right thing to receive. Every other entry
+points at its own source file, and that is a decision, not drift.
+
+The two auditor abridgements are cut against the rule stated in the next paragraph rather than
+around it, and the claim is countable file against file: each keeps **every** halt condition
+(11 for `offline-sync-auditor`, 14 for `device-performance-auditor`), **every** invariant (9 each),
+both named failure poles, **every row** of the delegated-floor table (9 and 10 rows), and every
+platform figure with the URL that publishes it — including `device-performance-auditor`'s § Sources
+and its "Deliberately absent" list, which is the safety signal in that file. What is shortened is
+the worked prose around the diagnosis tables, the explanatory tail of each § Failure modes bullet,
+and the § Related pointer list — the part a project replaces with its own screens and device
+classes on first contact. Exactly one § Failure modes bullet per file is dropped outright, and only
+because its substance is stated elsewhere in the same abridgement: `reachability-as-truth` survives
+as a § Failure catalogue row, and "a metric with no budget is a finding, not a blank" survives as an
+output-section heading. Nothing dropped is a number, a citation, a halt, or a boundary. The reason is `phase-4.2-apply.md` step 2:
 the fallback is copied VERBATIM and becomes the artifact the project runs on, and for mobile the
 greenfield case is the COMMON case. These files carry dated store gates, cited platform limits and
 cite-or-halt detectors; an abridgement of one is a shorter document that has quietly dropped a
@@ -48,6 +62,27 @@ change.
   fallback: agents/app-store-reviewer.md
   # fallback is the source ON PURPOSE: every figure in it is cited to a fetched URL, so a
   # greenfield project is better served by the whole reviewer than by an abridgement of it.
+
+- name: offline-sync-auditor
+  kind: agent
+  triggers: { mobile_framework_detected: true }
+  extracts_from: _extracted-idioms.md § State management + § Storage + _extracted-codebase.md § Modules
+  sections: [persona, premise_two_poles, halt_conditions, invariants, delegated_floor, pre_flight, write_path_trace, failure_catalogue, output_format, hard_rules, failure_modes, sources]
+  fallback: _examples/offline-sync-auditor.md
+  cite_evidence: strict
+
+- name: device-performance-auditor
+  kind: agent
+  triggers: { mobile_framework_detected: true }
+  extracts_from: _extracted-codebase.md § Stack (mobile framework) + ai/runtime/perf-budgets.md (or the project's sibling)
+  sections: [persona, premise_two_poles_three_kinds_of_number, four_costs, halt_conditions, invariants, delegated_floor, pre_flight, method, diagnosis_table, output_format, hard_rules, failure_modes, sources]
+  fallback: _examples/device-performance-auditor.md
+  cite_evidence: strict
+  # `sources` is REQUIRED, for the same reason the 1.7.0 patterns declare it: this agent is the one
+  # artifact in the pack that quotes Android vitals figures for startup, frames, memory and wake
+  # locks. An AUTHOR-mode rewrite that drops § Sources leaves six numbers standing with nothing
+  # behind them, and drops the "Deliberately absent" list that is what stops the next pass from
+  # inventing an Apple launch target to balance the table.
 
 - name: add-screen
   kind: command

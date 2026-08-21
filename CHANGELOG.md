@@ -6,6 +6,70 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Five repairs to claims that outran their code (2026-08-22)
+
+**Why** — each of these was a sentence that described a behaviour the executing file did not have.
+A handoff no receiver reads, a routing row twelve adapters obey that contradicts the five files it
+summarises, a trigger test that excludes one of its own command's seven categories, a fallback that
+claims to keep every halt while dropping one, and a citation pointing at a paragraph about a
+different failure. All five survive review for the same reason: they read as measured, and the thing
+that would falsify them is one file away.
+
+- **The Phase 1 → Phase 2 shape handoff now has a receiver.** `phase-2-profile.md § 2.0.a` passed
+  `repo_shape` / `shape_signal` / `members` to `extract-codebase-overview`, whose `## Inputs`
+  declared three inputs and did not include any of them, and whose Step 2 still re-derived the shape
+  from workspace manifests — answering `single` for exactly the two shapes that publish no manifest
+  (sub-manifest dirs in one git repo; a plain `server/`-beside-`client/` pair). The skill now
+  declares all three as **required**, its Step 2 consumes `members` as the entry set (same order,
+  one entry each, no additions or drops), a manifest scan is barred from re-answering the shape
+  question there, and an absent `members` halts with `[SHAPE-INPUT-MISSING]` instead of defaulting.
+  Step 2.5 buckets on those entries and halts when it has fewer buckets than members; Steps 3, 4 and
+  the capped steps run per member over that member's own bucket rather than over the union. The
+  remedy `phase-2-profile.md § 2.0.a` and `phase-5-verify.md § 5.1` prescribe — "re-run Steps 2 +
+  2.5 with the handed-in member list" — now converges instead of re-running the same detection.
+
+- **`templates/tool-adapters/_orchestration-sync.md` no longer teaches the noun-only routing test.**
+  Its *Surface-type consolidation vs generic drift* row routed *"our buttons ignore the spacing
+  tokens on the auth pages"* to `/unify-surfaces` on the strength of the noun "buttons", while
+  `commands/{align,unify-surfaces,polish,do}.md` and `docs/COMMANDS.md` all route it to `/align` on
+  the remedy. The file its own header calls the authoritative split, and which all twelve adapters
+  cite, was the one place still wrong — so every non-Claude tool mis-routed. The row now states the
+  remedy test, carries both worked cases verbatim, and says explicitly that no precedence rule
+  against the *Design-token drift* and *Accessibility* rows is needed because it is the same test
+  from the other side.
+
+- **"ONE canonical wrapper" became "ONE canonical shared implementation."** The remedy test as
+  written excluded one of `/unify-surfaces`' own seven categories: `validation` extracts a 3-part
+  pipeline, not a wrapper (`commands/unify-surfaces.md § Validation pipeline`), so *"standardise
+  form validation everywhere"* — a sentence the same description lists as a trigger — routed
+  nowhere under a literal reading, with `/align` and `/polish` both barred. Corrected in all five
+  places the phrasing had been propagated to: `commands/unify-surfaces.md`, `commands/align.md`,
+  `commands/polish.md`, `commands/do.md` (row + precedence note), `docs/COMMANDS.md`.
+
+- **The `_refresh-extract.md` rename is now fully applied.** `docs/REFERENCE.md § <TBD> lifecycle`
+  still said "Phase 0.2 internal → writes `_refresh-extract.md`", the premise the fix removed —
+  the file is scaffolded in Phase 0.0 by `scripts/refresh-extract-checklist.sh:44` and *filled* by
+  Phase 0.2 — and `commands/setup-project.md` still advertised 9 prose sections rather than
+  § 1 auto + §§ 2-9 gated + §§ 10-12 recorded. Both corrected. `phase-0-backup-extract.md § 0.2`
+  also cited `docs/REFERENCE.md:1089` as a recorded field failure for the dual-name bug; that
+  paragraph documents mid-run interruption with a different fix, so the citation is replaced by the
+  three lines that do support the claim (`refresh-extract-checklist.sh:44`, `audit-setup.sh:152`
+  and `:183`) and the claim is downgraded from incident to mechanism. Its § 1 row said "read-only —
+  never edit" twelve lines above an instruction to append the extraction tally to § 1; the row now
+  states the one permitted append.
+
+- **`templates/packs/mobile`** — `_examples/offline-sync-auditor.md` had dropped the
+  `sync-engine-cosplay` halt (the one that operationalises a pole `_topics.md` claims is preserved)
+  plus two delegated-floor rows, and `_examples/device-performance-auditor.md` one floor row, while
+  `_topics.md` and the 1.8.0 changelog entry both claimed every halt and the whole table were kept.
+  Under the fallback contract these files ship VERBATIM into a greenfield app, which for this pack
+  is the common path, so the shipped artifact was the lossy one. Restored; both claims rewritten in
+  countable form (11 and 14 halts, 9 invariants each, 9 and 10 floor rows) with the one deliberate
+  drop per file named. The 1.8.0 entry's line figure (5,826) and its "no file outside the pack was
+  touched" claim were both false — the count is re-measured with the command that produces it, and
+  `assets/pack-matrix.svg` plus the README agent-count cell are named as the two coupled files.
+
+
 ### Three new packs, a memory read-path, and two gates that were promises (2026-08-20)
 
 **Why** — the catalog grew from 20 tracks to 23 in one cycle, and a pack count is not a number in a

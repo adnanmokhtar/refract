@@ -212,7 +212,7 @@ re-verify rather than silently shipping a broken translation.
 | | |
 |---|---|
 | **23 packs** | Role-based knowledge tracks, not framework tracks |
-| **86 agents** | Specialised reviewers and architects |
+| **88 agents** | Specialised reviewers and architects |
 | **115 skills** | Reusable procedures, as `<name>/SKILL.md` |
 | **148 commands** | 15 global + 133 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |

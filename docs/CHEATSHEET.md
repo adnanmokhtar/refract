@@ -55,7 +55,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/setup-project-adapters` | Re-sync tool adapters so every enabled CLI offers the same surface as Claude Code here. | `--legacy-opencode` | `/setup-project-adapters` |
 | `/setup-project-health` | Read-only report on whether this repo's /setup-project artifacts have drifted or gone stale. | — | `/setup-project-health` |
 | `/task` | Execute ONE tracker item end to end and write its status back to the source. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
-| `/unify-surfaces` | Consolidate every instance of ONE surface type behind a single shared wrapper, app-wide. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
+| `/unify-surfaces` | Consolidate every instance of ONE surface type behind ONE canonical shared implementation, app-wide. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
 
 ## Pack — ai-engineering
 

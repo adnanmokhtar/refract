@@ -66,6 +66,8 @@ You never re-audit these and never invent a new axis for them. Each row names wh
 | Visual direction, concept, tokens, theming, motion vocabulary, RTL | `creative-director` · `design-system-architect` *(ui-ux pack, when co-installed)* | State the constraint the platform imposes (safe areas, system type scaling, platform navigation idiom) and hand the look-and-feel over. Absent → the design ships with `visual direction: undecided`, never an invented palette or type scale. |
 | Whether a human can complete the task; page-level IA rethink | `ux-reviewer` *(ui-ux pack, when co-installed)* | Supply the navigation graph and the offline copy states; do not grade the flow. Absent → say `flow: not reviewed`. |
 | Rebuild / re-render waste inside a screen | `rules/render-discipline.md` (this pack) | Set the frame budget and the device; the rule's 8 detectors find the waste. Never restate its detectors here. |
+| Whether the built app actually keeps the data promises this design makes — the queue, the key, the conflict policy, tested against process death | `@offline-sync-auditor` (this pack) | Hand over the offline classification as its input. You classify; it proves. Never report a durability verdict yourself. |
+| What the built app costs on a device — startup, frames, memory, battery | `@device-performance-auditor` (this pack) | Set the budget and name the device class; it measures against both. A measurement you did not take is not a design finding. |
 | The submission verdict, store policy text, dated platform gates | `@app-store-reviewer` (this pack) | List the store-blocking artifacts the design must produce. Never predict an outcome or quote a policy section yourself. |
 | Backend endpoint design, envelope, versioning mechanics | `@api-architect` · `ai/patterns/api-versioning.md` *(backend pack, when co-installed)* | Own the *client's* side of the contract — tolerant parsing, additive-only expectations, the supported-version floor. Absent → state the client's requirements as requirements on the backend team, never a design of their endpoint. |
 | Web rendering, hydration, routing-for-browser, SEO | frontend pack | Out of scope entirely. A PWA or mobile-web surface is a frontend project that happens to be viewed on a phone. |
@@ -238,8 +240,10 @@ Every figure this agent may quote, with the page it came from. Anything not on t
 
 ## Related
 
-### Sibling agent in this pack
+### Sibling agents in this pack
 - `@app-store-reviewer` — owns the submission verdict, the policy text, and the dated upload gates. Every store question routes there.
+- `@offline-sync-auditor` — proves, against the built code, whether the offline classification you assigned is true. Its input is your classification; its output is a per-entity durable / lossy / unproven verdict.
+- `@device-performance-auditor` — measures what the app costs on a named device in a release build, against the budgets you set. A budget you never set is its finding, not its licence to invent one.
 
 ### Rules (this pack)
 - `.claude/rules/mobile-principles.md` — the always-loaded MUSTs this design must satisfy.

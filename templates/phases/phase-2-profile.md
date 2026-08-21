@@ -146,7 +146,7 @@ A condensed projection of both feeds the legacy `.claude/codebase-profile.md` (k
 #### 2.0 Orchestrator invocation (the single entry point)
 
 Invoke the **`extract-codebase-overview`** skill (lives in `~/.claude/templates/packs/learning/skills/extract-codebase-overview/SKILL.md`). The skill orchestrates the entire deep extraction:
-- Step 1-2: stack + repo shape (deterministic).
+- Step 1-2: stack + repo shape (deterministic) — the shape and the member list are **handed in** by Phase 1, never re-derived from workspace manifests here. See § 2.0.a.
 - Step 3: architecture + layering (import-graph sample).
 - Step 4: module enumeration.
 - Step 5: idiom extraction — detects project's primary idiom pattern (class-inheritance / composables / shared-wrappers / shared-services / type-system) and dispatches the matching extractor skill. Always writes `_extracted-idioms.md` even for projects with no load-bearing idioms (minimal-strategy fallback). Up to 6 concurrent extractor subagents. See § Phase 2.5 below for full strategy logic.
@@ -167,13 +167,38 @@ Outputs:
 
 **`.claude/codebase-profile.md`** is a derived view (kept for backward-compat consumers): condensed, human-readable, contains the same 14 fields the old profile had — but each field cites its source section in `_extracted-codebase.md`.
 
+#### 2.0.a Shape + member handoff (the input the per-member split hangs on)
+
+**The orchestrator is handed the shape; it never re-derives it.** Phase 1 already decided `repo_shape` and listed the members (`phase-1-detect-mode.md § Decide shape`), and its table fires on signals a manifest scan does not reproduce — in particular the two rows where no member-declaring manifest exists anywhere: sub-manifest dirs inside one git repo (**monorepo**), and sub-manifest dirs that are separate checkouts, or a plain server-directory-beside-client-directory pair, under one parent (**workspace**). A second, manifest-only shape detection inside the extraction re-answers a settled question — and answers it `single` for exactly the shape that has no manifest to find, which is the most common multi-member shape on disk. That silent `single` is what makes every per-member contract below unreachable: not refused, not flagged, just never entered.
+
+Pass, verbatim from the Phase 1 output, alongside `project_root`:
+
+```
+repo_shape:   <single | monorepo | workspace>
+shape_signal: "<the Phase 1 row that fired>"
+members:                        # never empty — `single` carries exactly one entry, root `.`
+  - name: <member-a>
+    root: <path/to/member-a>    # `.` for repo_shape: single
+    manifest: <path/to/member-a/<manifest-file>>
+```
+
+**The receiver, named.** All three are declared inputs of the orchestrator skill — `extract-codebase-overview/SKILL.md § Inputs` marks `repo_shape`, `shape_signal` and `members` **required** — and its Step 2 consumes them: the `## Repository shape` entry set IS `members` (same order, one entry each, no additions and no drops), a manifest scan is explicitly barred from re-answering the shape question there, and an absent or empty `members` halts with `[SHAPE-INPUT-MISSING]` instead of falling back to a `single` default. Step 2.5 buckets the census on those entries and halts when it has fewer buckets than members. A handed-in value nothing branches on is decoration; this one is checkable in the skill file, and Steps 3, 4, 6, 7, 8 and 12 each run per member over that member's bucket.
+
+Three obligations follow, each checkable against the written artifact:
+
+1. **`## Repository shape` carries one entry per handed-in member** — nested package dirs and plain sibling directories alike, whether or not a workspace manifest names them. Fewer entries than `members` is a dropped member, not a tidier list: a member with no entry gets no census bucket, so it gets no walk, no conventions row, and no rules.
+2. **The Step 2.5 per-package census buckets on those entries, and the buckets are the split key — not a line in the header.** Each member's `present` is the population its own capped steps sample from, and the denominator its `[SAMPLED: <seen>/<present> <unit>]` is quoted against. One aggregate census over a two-member tree cannot show that one member was walked and the other was not — which is the hiding place the per-package split exists to close.
+3. **Every capped or sampled step runs once per member, over that member's population** — architecture layers, modules, idioms, data model, API surface, conventions. A step that walks the union and reports one winner produces the blended value § 17 forbids, and produces it with a citation that resolves, which is what lets it survive review.
+
+**Halt condition**: `members` holds ≥ 2 entries while `_extracted-codebase.md` shows one `## Repository shape` entry or one census bucket. That is a member-blind extraction, and every downstream per-member field would then be filled from a repo-wide sample. Re-run Steps 2 + 2.5 with the handed-in member list before writing the substrate — the skill's Step 2 takes that list as an input rather than re-detecting it, so the re-run converges instead of reproducing the same `single`. Nothing downstream can recover a split the substrate never made.
+
 **Mode behavior**:
 
 **In CREATE mode**: orchestrator runs Step 1-2 only (stack from prompt + manifest if any) + asks the consolidated business-context question. Steps 3-12 produce skeleton sections marked `_TBD — populate as code is written_`. Phase 6 `/refresh-knowledge` re-runs the full extraction once code exists.
 
 **In ENHANCE mode (retrofit + extend)**: orchestrator runs ALL 15 steps. Heavy walks (Step 4 modules, Step 5 base classes, Step 7 API surface) delegate to Explore subagents in parallel.
 
-**In REFRESH mode**: orchestrator runs ALL 15 steps, AND merges with `.claude/_refresh-knowledge-extract.md` (Phase 0.2 output). Merge rules:
+**In REFRESH mode**: orchestrator runs ALL 15 steps, AND merges with `.claude/_refresh-extract.md` (scaffolded by `refresh-extract-checklist.sh`, filled by Phase 0.2). Merge rules:
 - **Codebase wins** on: stack, base classes, paths, naming, aliases, testing setup, data access, error handling, observability, auth, i18n, anti-patterns. (These are observable from code; if extract disagrees, extract is stale.)
 - **Extract wins** on: business domain, project intent, custom glossary terms, validated corrections, ADR-recorded decisions, custom rules with project-idiom WHY blocks. (These are decisions/answers the user gave; codebase doesn't encode them.)
 - **Both contribute** to: technical-signals detection (extract may say "we treat this as multi-tenant" even if not 100% obvious from code), conventions (codebase scan + extract's prior conventions both feed `ai/conventions.md`).
@@ -195,6 +220,11 @@ Profile content (written to `.claude/codebase-profile.md`):
 **Before filling any field below, read § 17 (repo shape + members) — it decides how many answers each field has.** When `repo_shape` is `monorepo` or `workspace`, fields **1–10 and 15 are answered ONCE PER MEMBER**, and each answer is tagged with the member it came from. Fields 11–14 and 16 stay repo-wide (union across members for 11; whole-tree for 13–14; 16 spans members by construction).
 
 > **Never average two members into one value.** This is the single most damaging failure this phase can produce. A repo with a server package and a client package has two file-naming conventions, two test layouts, two error hierarchies — sampling across both and reporting the winner yields a value that is wrong for *both* packages, carried downstream with the confidence of a measured one. It then lands in the `## Project-specific` block of every adapted rule, and every agent that reads it "fixes" correct code to match a convention that exists nowhere in the repo. If two members disagree on a field, that IS the finding: record both, tagged. Record a single value only when you checked every member and they genuinely agree — and say that you checked.
+
+**How the split is performed — one field, one member, one census bucket.** The member list comes from § 17; the *evidence* for each member's answer comes from that member's own bucket in the Step 2.5 per-package census (§ 2.0.a). Tag every per-member answer with the bucket it was drawn from: `<value> [member: <name>; <files_cited>/<present> files]`. Two consequences, and they are the reason the census is bucketed at all rather than totalled:
+
+- **A member whose bucket shows `present > 0` and `files_cited = 0` was never walked.** Record `<TBD: unwalked — <present> source files, 0 cited>` for its fields 1–10 + 15. Do NOT let it inherit a sibling's answer: an unwalked member that quietly reads as agreeing with the one beside it is indistinguishable from a checked one, and that is precisely how a blended convention ships with the confidence of a measured one.
+- **"All members agree" is a claim about every bucket.** It may be written only when every member has `files_cited > 0`. Otherwise the honest shape is per-member values with the unwalked members marked — which also tells the next run where to look first.
 
 1. **Architecture** — actual layer names, dependency direction (not doc-claimed).
 2. **Base classes / inheritance patterns** — every base class with ≥3 extenders found by Phase 2.5 extraction. Class names + paths + extender counts come straight from this codebase; if the project is functional / module-style without inheritance bases, this section is empty (and that's a valid project shape — don't manufacture base classes).

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1040" height="890" viewBox="0 0 1040 890" role="img" aria-label="Refract pack matrix: twenty-three role-based packs and the agents, skills, commands and rules each contributes">
 <title>Refract pack matrix: twenty-three role-based packs and the agents, skills, commands and rules each contributes</title>
-<desc>File counts measured on disk for each pack's agents, skills, commands and rules. Totals: 86 agents, 115 skills, 133 pack commands, 28 rules.</desc>
+<desc>File counts measured on disk for each pack's agents, skills, commands and rules. Totals: 88 agents, 115 skills, 133 pack commands, 28 rules.</desc>
 <rect x="0" y="0" width="1040" height="890" rx="10" fill="#f7f9fb" stroke="#d5dce5" stroke-width="1"/>
 <text x="28" y="46" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="21" fill="#161b22" font-weight="700">Twenty-three role-based packs</text>
 <text x="28" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="12.5" fill="#6b7684" font-weight="400">Work is organised by role, not by framework — one api-architect works for every backend. /setup-project selects packs</text>
@@ -248,9 +248,9 @@
 <rect x="526" y="531" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
 <text x="568" y="539" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Per-feature V1→V2 port with parity guarantees + migration-time perf uplift</text>
 <text x="28" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="600">mobile</text>
-<text x="268" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
+<text x="268" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="274" y="557" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="274" y="557" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
+<rect x="274" y="557" width="24" height="5" rx="2.5" fill="#1a5fb4"/>
 <text x="352" y="565" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="358" y="557" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="358" y="557" width="12" height="5" rx="2.5" fill="#0f6b52"/>
@@ -351,7 +351,7 @@
 <text x="568" y="721" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">Visual + interaction conventions</text>
 <line x1="28" y1="736" x2="1012" y2="736" stroke="#d5dce5" stroke-width="1.2"/>
 <text x="28" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="700">TOTAL</text>
-<text x="268" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">86</text>
+<text x="268" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">88</text>
 <text x="352" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">115</text>
 <text x="436" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">133</text>
 <text x="520" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">28</text>

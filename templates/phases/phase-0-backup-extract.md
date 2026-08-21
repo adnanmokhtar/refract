@@ -3,8 +3,8 @@ phase: 0
 name: backup-extract
 applies-to-modes: [REFRESH, REFINE]
 inputs: [target-repo, prior-setup-version-marker]
-outputs: [backup-tarball, ai/_extracted/]
-exit-criteria: backup tarball written; prior knowledge serialized to ai/_extracted/ for downstream phases
+outputs: [backup-tarball, .claude/_refresh-extract.md]
+exit-criteria: backup tarball written; prior knowledge serialized into .claude/_refresh-extract.md sections 2-12 for downstream phases
 ---
 
 ### Phase 0 — Backup + extract prior knowledge (REFRESH mode only)
@@ -44,7 +44,7 @@ finding #3). The individual invocations are what the wrapper calls, kept here fo
 **These four reports are the contract:**
 
 - `_pack-coverage-report.md` — answers "what files in the pack are missing in the target?"
-- `_refresh-extract.md` — answers "what existing knowledge must be preserved?" (the agent fills sections 2-9)
+- `_refresh-extract.md` — answers "what existing knowledge must be preserved?" (the agent fills sections 2-9 gated + 10-12 recorded, in § 0.2)
 - `_study-existing-report.md` — answers "for files in BOTH pack and target, which need ENHANCE / MERGE / KEEP / REVIEW?"
 - `_codebase-scan.md` — answers "what does the actual codebase look like, what patterns/conventions/decisions are visible, and what STRUCTURAL improvements are warranted?" (the agent fills sections 8-15 including section 15: minimum 3 structural recommendations on non-trivial codebases)
 
@@ -152,86 +152,59 @@ Backup contents are **never** auto-cleaned. The user decides when (if ever) to d
 
 #### 0.2 Extract prior knowledge (the memory)
 
-Read every existing setup file and pull out durable insights. The output is a temp working file `.claude/_refresh-knowledge-extract.md` consumed by Phase 2 + Phase 4 + Phase 5, then deleted at end of Phase 5.
+Read every existing setup file and pull out durable insights. The output is **`.claude/_refresh-extract.md`** — the same file § 0.0's `refresh-extract-checklist.sh` already scaffolded. Phase 0.2 FILLS its sections; it does not create a second file.
+
+> **One artifact, one name.** This step used to name its output `.claude/_refresh-knowledge-extract.md` with a 13-section schema of its own (inherited from the M1 monolith, `.archive/setup-project.M1.monolith.md:1614`). No script ever wrote that name and no gate ever read it: the only writer is `scripts/refresh-extract-checklist.sh:44`, which scaffolds `_refresh-extract.md`, and the only reader is `scripts/audit-setup.sh` — `:152` for presence and `:183` for the seven gated headings, matched **by heading name**. An agent that followed the old prose therefore wrote a file nothing consumes while the file the gate does read stayed at its scaffolded `<TBD>`s, and `audit-setup.sh` C2b1 fails the run on exactly that state. That is a mechanism, not a recorded incident — no field report of it exists, and `docs/REFERENCE.md § Mid-run interruption leaves <TBD>` documents a *different* cause (an interrupted run) with a different fix (re-run `--refresh`), so it is not evidence for this one. The section numbers below are the ones `refresh-extract-checklist.sh` actually emits and `audit-setup.sh` C2b1 actually reads.
+>
+> **Not a temp file.** Do NOT delete it at end of Phase 5. `audit-setup.sh:155` errors when it is absent, and `/setup-project-health` re-audits it long after the run.
 
 **Files to read (in this order — most authoritative first):**
 
-| Priority | Path glob | What to extract |
-|---|---|---|
-| 1 | `ai/decisions/*.md` (NOT `_decision-index.md`) | Every ADR — decision title, context, decision, consequences. ALL preserved verbatim into the extract; ADRs are append-only history. |
-| 2 | `ai/business-domain.md` | Domain glossary (custom terms with project-specific meanings), core flows, compliance notes. |
-| 3 | `ai/project-goals.md` / `ai/users-and-personas.md` | Mission, target users, business model, success KPIs, constraints, anti-goals — the project-intent block. |
-| 4 | `ai/conventions.md` + `ai/_convention-cheatsheet.md` | Project-specific naming, suffix matrix, base classes, MUST/MUST-NOT bullets that are NOT generic. |
-| 5 | `ai/patterns/*.md` | Patterns referenced by ADRs OR cited in CLAUDE.md OR with non-obvious WHY blocks. Generic copy-paste patterns are NOT extracted (will regen). |
-| 6 | `.claude/rules/*.md` | Custom rules — anything that is NOT a verbatim pack rule. Diff against `~/.claude/templates/packs/*/rules/*.md`; keep only the delta. |
-| 7 | `.claude/agents/*.md` | Custom agents — same diff logic against pack agents. Hand-tuned prompt prose is the durable asset; pack-equivalent agents are NOT extracted. |
-| 8 | `.claude/skills/**/*.md` + `.claude/commands/*.md` | Custom skills/commands not in any pack; user corrections to pack versions. |
-| 9 | `.claude/codebase-profile.md` | Detected base classes, paths, conventions — already-paid-for analysis. Re-validate in Phase 2; if codebase still matches, don't re-detect. |
-| 10 | `CLAUDE.md` + `AGENTS.md` | Top-of-file project-specific blocks (above the line "Detected stack"). Generic prose below that line is regen-replaceable. |
-| 11 | `ai/dynamic/learnings.md` + `ai/dynamic/corrections.md` (if Phase 6 has been running) | Validated corrections — these are the "user told us no, do it this way" memory. ALWAYS extracted. |
-| 12 | `ai/runbooks/*.md` | Project-specific operational steps (incident response, deploy, debug). Anything beyond pack templates. |
-| 13 | `ai/architecture.md` | Project-specific architecture overview (modules, deps, boundaries). Diff against any pack-template archetype; keep delta verbatim. |
-| 14 | `ai/runtime/*.md` | Runtime topology, deployment surfaces, env-var contracts. Always extracted verbatim — these are facts the codebase doesn't fully encode. |
-| 15 | `ai/audits/*.md` | Past audit reports + their findings. Append-only history; preserve verbatim alongside ADRs. |
-| 16 | `ai/failures/*.md` (incl. `_index.md`) | Failure catalog (B10) — past architectural failures + their lessons. Append-only; preserve verbatim. |
-| 17 | `.claude/hooks/*.sh` (only the user-edited ones) | Project-customised hooks. Diff against `~/.claude/templates/repo-baseline/.claude/hooks/*.sh`; keep delta. Pack-verbatim hooks regen from baseline. |
-| 18 | `.claude/git-hooks/post-*` | Only if the user added project-specific logic above the `exec` line. Otherwise the baseline shim regenerates verbatim. |
-| 19 | `**/* — catch-all sweep` | After the table is fully consumed, run a final sweep over every other file in `ai/` and `.claude/` not yet covered. Anything user-touched (mtime newer than the baseline copy or content not byte-identical to its pack source) gets extracted into a new `## 9. Uncategorized user-touched files` section verbatim. This is the safety net against future spec drift — new file categories never silently lose data on REFRESH. |
+| Priority | Path glob | What to extract | → `_refresh-extract.md` § |
+|---|---|---|---|
+| 1 | `ai/decisions/*.md` (NOT `_decision-index.md`) | Every ADR — decision title, context, decision, consequences. ALL preserved verbatim into the extract; ADRs are append-only history. | §2 |
+| 2 | `ai/business-domain.md` | Domain glossary (custom terms with project-specific meanings), core flows, compliance notes. | §4 |
+| 3 | `ai/project-goals.md` / `ai/users-and-personas.md` | Mission, target users, business model, success KPIs, constraints, anti-goals — the project-intent block. | §4 |
+| 4 | `ai/conventions.md` + `ai/_convention-cheatsheet.md` | Project-specific naming, suffix matrix, base classes, MUST/MUST-NOT bullets that are NOT generic. | §5 |
+| 5 | `ai/patterns/*.md` | Patterns referenced by ADRs OR cited in CLAUDE.md OR with non-obvious WHY blocks. Generic copy-paste patterns are NOT extracted (will regen). | §7 |
+| 6 | `.claude/rules/*.md` | Custom rules — anything that is NOT a verbatim pack rule. Diff against `~/.claude/templates/packs/*/rules/*.md`; keep only the delta. | §5 |
+| 7 | `.claude/agents/*.md` | Custom agents — same diff logic against pack agents. Hand-tuned prompt prose is the durable asset; pack-equivalent agents are NOT extracted. | §6 |
+| 8 | `.claude/skills/**/*.md` + `.claude/commands/*.md` | Custom skills/commands not in any pack; user corrections to pack versions. | §6 |
+| 9 | `.claude/codebase-profile.md` | Detected base classes, paths, conventions — already-paid-for analysis. Re-validate in Phase 2; if codebase still matches, don't re-detect. | §8 |
+| 10 | `CLAUDE.md` + `AGENTS.md` | Top-of-file project-specific blocks (above the line "Detected stack"). Generic prose below that line is regen-replaceable. | §4 |
+| 11 | `ai/dynamic/learnings.md` + `ai/dynamic/corrections.md` (if Phase 6 has been running) | Validated corrections — these are the "user told us no, do it this way" memory. ALWAYS extracted. | §3 |
+| 12 | `ai/runbooks/*.md` | Project-specific operational steps (incident response, deploy, debug). Anything beyond pack templates. | §7 |
+| 13 | `ai/architecture.md` | Project-specific architecture overview (modules, deps, boundaries). Diff against any pack-template archetype; keep delta verbatim. | §7 |
+| 14 | `ai/runtime/*.md` | Runtime topology, deployment surfaces, env-var contracts. Always extracted verbatim — these are facts the codebase doesn't fully encode. | §7 |
+| 15 | `ai/audits/*.md` | Past audit reports + their findings. Append-only history; preserve verbatim alongside ADRs. | §2 |
+| 16 | `ai/failures/*.md` (incl. `_index.md`) | Failure catalog (B10) — past architectural failures + their lessons. Append-only; preserve verbatim. | §2 |
+| 17 | `.claude/hooks/*.sh` (only the user-edited ones) | Project-customised hooks. Diff against `~/.claude/templates/repo-baseline/.claude/hooks/*.sh`; keep delta. Pack-verbatim hooks regen from baseline. | §10 |
+| 18 | `.claude/git-hooks/post-*` | Only if the user added project-specific logic above the `exec` line. Otherwise the baseline shim regenerates verbatim. | §10 |
+| 19 | `**/* — catch-all sweep` | After the table is fully consumed, run a final sweep over every other file in `ai/` and `.claude/` not yet covered. Anything user-touched (mtime newer than the baseline copy or content not byte-identical to its pack source) gets recorded verbatim in `## 11. Uncategorized user-touched files — catch-all sweep`. This is the safety net against future spec drift — new file categories never silently lose data on REFRESH. | §11 |
 
-**Extraction format** (`.claude/_refresh-knowledge-extract.md` shape):
+**Extraction format** — fill the sections `refresh-extract-checklist.sh` already wrote into `.claude/_refresh-extract.md`. Replace each `<TBD>` in place; do not renumber, do not add a section the script did not emit, and do not start a second file.
 
-```markdown
-# Refresh Knowledge Extract — <YYYY-MM-DD HH:MM>
+| § | Heading (as emitted) | What goes in it | Gated by `audit-setup.sh` C2b1? |
+|---|---|---|---|
+| 1 | Existing artifact inventory | Script-owned. Never rewrite, reorder or prune the inventory rows the script emitted. **The one permitted addition** is the single-line extraction tally appended at the end of this section when § 0.2 closes (see below) — that is an append, not an edit, and no new heading is created for it. | n/a (auto) |
+| 2 | ADRs preserved | Every ADR by ID + title + one-line summary, plus every `ai/audits/*.md` and `ai/failures/*.md` entry. All append-only — preserved verbatim, never regenerated. | **yes** |
+| 3 | Validated user corrections | Verbatim from `ai/dynamic/corrections.md` + `learnings.md` — the "user told us no, do it this way" memory. | **yes** |
+| 4 | Project intent | Mission, target users, business model, KPIs, constraints, anti-goals, domain glossary terms + core flows, plus the project-specific blocks of `CLAUDE.md` / `AGENTS.md`. | **yes** |
+| 5 | Custom rules | `.claude/rules/*.md` deltas against pack rules, plus the non-generic bullets of `ai/conventions.md` / `ai/_convention-cheatsheet.md`. | **yes** |
+| 6 | Custom agents/skills/commands | Non-pack agents/skills/commands, and pack-derived ones the project specialized. Name + role + which generic it replaces. | **yes** |
+| 7 | Architecture decisions implicit in code | Undocumented layering / data-access / error-handling patterns, plus project-idiom `ai/architecture.md`, `ai/patterns/*.md`, `ai/runbooks/*.md`, `ai/runtime/*.md` content. | **yes** |
+| 8 | Detected stack + version | Languages, frameworks, ORMs, test runners, build tools with versions — including the already-paid-for detection in `.claude/codebase-profile.md`, to be re-validated in Phase 2. | **yes** |
+| 9 | Migration / V1↔V2 mapping | Only when `--include=migration` or a V1+V2 layout was detected. | yes, **conditionally** |
+| 10 | Custom hooks — delta from baseline | `.claude/hooks/*.sh` + `.claude/git-hooks/post-*` diffs against the repo-baseline shims. Phase 4.1 re-applies them. | no — recorded |
+| 11 | Uncategorized user-touched files — catch-all sweep | Priority-19 sweep output, verbatim. The safety net against spec drift. Phase 4 restores every entry or lists it in § 12. | no — recorded |
+| 12 | Drop list — intentionally NOT preserved | Pack-equivalent files being regenerated rather than extracted, plus any § 11 entry deliberately not restored. Path + one-line rationale. | no — recorded |
 
-> Auto-generated by `/setup-project --refresh` Phase 0.2.
-> Consumed by Phase 2 (merge), Phase 4 (regen input), Phase 5 (audit).
-> Deleted at end of Phase 5 once verified durable items survived into final output.
+**Why 10-12 are not shell-gated**: `audit-setup.sh` reads sections 2-8 (and 9 conditionally) by heading name. Sections 10-12 exist so Phase 4.1's hook re-apply, Phase 4's catch-all restore, and Phase 5's "Intentional drops" report each address a numbered section of a file that deterministically exists, instead of one only prose ever created. They are enforced by Phase 5 § "knowledge preservation check", which is prose — treat them as MUST, and know that only your own discipline is checking.
 
-## 1. ADR-grade decisions (verbatim, append-only)
-<dump every ai/decisions/*.md file head + body, preserve original IDs>
+Close § 0.2 by appending a one-line tally at the end of § 1 — the one write this phase makes to that script-owned section, and the reason the table above calls it an append rather than an edit. Do not create a new heading:
 
-## 2. Domain knowledge (custom glossary terms + core flows)
-<extract from ai/business-domain.md + project-goals.md>
-- term: "tenant subscriber" — meaning: <project-specific>; differs from generic "user" because <reason>
-- flow: <name> — <steps with project-specific behavior>
-
-## 3. Project intent (mission, users, model, KPIs, constraints)
-<extract from ai/project-goals.md + ai/users-and-personas.md>
-
-## 4. Custom conventions (delta from pack defaults)
-<extract from ai/conventions.md + _convention-cheatsheet.md, removing generic copy-paste content>
-
-## 5. Custom rules (delta from pack rules)
-<diff per .claude/rules/*.md against ~/.claude/templates/packs/*/rules/*.md, keep additions/edits only>
-
-## 6. Custom agents/skills/commands (delta from pack defaults)
-<list each non-pack artifact with full body; for pack-derived but edited artifacts, list the diff>
-
-## 7. Validated corrections (from Phase 6 learnings, if any)
-<verbatim from ai/dynamic/corrections.md + learnings.md>
-
-## 8. Custom patterns + runbooks
-<extract from ai/patterns/*.md + ai/runbooks/*.md; only project-idiom content>
-
-## 9. Uncategorized user-touched files (catch-all sweep)
-<every file under ai/ and .claude/ not covered by sections 1-8 that is mtime-newer-than-baseline OR not byte-identical to its pack source. List path + full content verbatim. This is the safety net against silent knowledge loss when the spec adds new file categories faster than this table.>
-
-## 10. Architecture, runtime, audits, failures (verbatim preservation)
-<verbatim copy of every ai/architecture.md, ai/runtime/*.md, ai/audits/*.md, ai/failures/*.md not already in section 1>
-
-## 11. Custom hooks (delta from baseline)
-<diff per .claude/hooks/*.sh + .claude/git-hooks/post-* against ~/.claude/templates/repo-baseline/.claude/{hooks,git-hooks}/; keep additions/edits only>
-
-## 12. Detected facts to re-validate (from .claude/codebase-profile.md)
-<copy current detected stack/base-classes/paths into extract; Phase 2 re-validates against codebase>
-
-## 13. Drop list (what we INTENTIONALLY discarded)
-<for transparency: which existing files are pack-equivalent and will be regenerated, not extracted>
-
----
-Total durable items extracted: <N>
-Total files read: <M>
-Total files marked for regen-without-preservation: <P>
+```
+Extraction tally: <N> durable items from <M> files read; <P> marked regen-without-preservation (see § 12).
 ```
 
 **Critical rule for extraction**: when in doubt, EXTRACT. The cost of extracting a generic item is one extra entry in the extract file (Phase 4 deduplicates against pack output). The cost of dropping a project-specific item is permanent knowledge loss. Bias toward inclusion.

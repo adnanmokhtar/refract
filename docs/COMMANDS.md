@@ -887,6 +887,8 @@ One-command convention-alignment sweep. Deep multi-agent: internally runs scan +
 /align the sidebar             # scoped
 ```
 
+**Boundary vs `/unify-surfaces` and `/polish` — decided by the remedy, not by the nouns.** `/align` applies something the project **already documents** — a token, an a11y rule, a naming rule, a layer boundary, a shared helper already named in `_extracted-idioms.md` — in place, with the wrapper left alone. That stays true when a surface noun is in the sentence, so *"our buttons ignore the spacing tokens on the auth pages"* is `/align`, not `/unify-surfaces`. It stops being true when every instance of ONE surface type has to converge on ONE canonical shared implementation that gets extracted, extended, or migrated onto (*"some pages use the shared PageHeader and some roll their own"*) — one shared wrapper for six of the seven categories, and for validation the one 3-part pipeline, so *"standardise form validation everywhere"* lands there too. `/align`'s closed 21-verb set is barred from that work by halts 5 and 10, so it is [`/unify-surfaces`](#unify-surfaces). And when the thing asked for does not exist yet — no token defined, no error contract, no case convention for the API — it is [`/polish`](#polish). The routing table in [`commands/do.md`](../commands/do.md) applies exactly this test.
+
 Shares the orchestrated common-flag set documented under [`/optimize`](#optimize). Writes to `ai/align/progress.md`.
 
 ---
@@ -1037,6 +1039,8 @@ Distinct from `--plan-only`:
 Source: [`commands/unify-surfaces.md`](../commands/unify-surfaces.md). Adapter coverage: each `templates/tool-adapters/<tool>/adapter.md` (Unify-surfaces pack bullet).
 
 **One command, surface-type unification across the entire frontend codebase.** Sibling to `/polish`, but typed by SURFACE CATEGORY instead of by axis. Where `/polish` operates per-axis (tokens / rhythm / motion / type-scale / states), `/unify-surfaces` operates per-surface-type (tables / forms / headers / tabs / filters / buttons / validation). They compose: `/unify-surfaces` first to consolidate the wrappers, then `/polish` to polish each canonical wrapper to spec.
+
+**When a surface noun is not enough.** A named surface type is evidence, never the verdict. `/unify-surfaces` is the answer when the remedy is that every instance of that type end up going through ONE canonical shared implementation — including when the ask is phrased *"some pages use the shared PageHeader and some roll their own"*, where the bespoke headers must be reconciled INTO the canonical shape. "Shared implementation" rather than "wrapper" is load-bearing: six categories converge on one wrapper, **validation converges on the one 3-part pipeline** (§ the category table below), so *"standardise form validation everywhere"* is `/unify-surfaces` even though nothing here extracts a single wrapper. When the wrapper is not what changes and a token or a11y rule the project already documents is simply applied where it drifted, that is [`/align`](#align) even though a surface type was named. When the axis does not exist yet, that is [`/polish`](#polish).
 
 ### The 7 default categories
 

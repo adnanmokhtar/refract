@@ -11,7 +11,19 @@
 # Checked (FAIL): packs · agents · skills · commands (total + the global/pack split) ·
 #   domains · adapters · scripts · regulatory overlays (count AND the names listed) ·
 #   the "Another <N> commands ship inside the packs" sentence · the "<N> global commands"
-#   tree comment · the pack-matrix alt text's spelled-out pack count.
+#   tree comment · the pack-matrix alt text's spelled-out pack count · and, in
+#   docs/setup-project-cheatsheet.md, the pack-catalog bullet's "<N> commands, <N> agents".
+#
+# That last file is here because the opening premise above was only ever half true. README is
+# not the ONLY prose asserting corpus-wide counts: the "See also" bullet in
+# docs/setup-project-cheatsheet.md asserts the pack-command and agent totals as well, is
+# hand-maintained (verify-cheatsheet.sh generates docs/CHEATSHEET.md, a different file), and
+# outlived README's own drift — it still read "86 agents" after the mobile pack reached 88.
+# The one gate that opens it, lint-tool-parity.sh:175-183, greps `<N> tracks` and nothing
+# else, so the two figures sitting beside the track count on that same line were unchecked by
+# all 18 gates. They are asserted here rather than there because the disk derivation already
+# exists in this file; the track count stays with lint-tool-parity.sh rather than being
+# asserted twice.
 # Reported (WARN): the "Finding things in <N>k lines" figure — deliberately rounded prose,
 #   so it warns outside a 2k band rather than failing on every commit that adds a file.
 #
@@ -133,6 +145,7 @@ if [ "$PRINT_ONLY" -eq 1 ]; then
   echo "pack-commands   : Another $PACKCMD commands ship inside the packs and install per-project when their pack is selected."
   echo "tree comment    : commands/                # the $GLOBCMD global commands"
   echo "knowledge base  : ${KB_K}k lines (templates/ + commands/ + docs/ = $KB_LINES)"
+  echo "cheatsheet      : docs/setup-project-cheatsheet.md pack catalog — $PACKCMD commands, $AGENTS agents"
   exit 0
 fi
 
@@ -215,9 +228,31 @@ else
   pass "knowledge base: ${CLAIM}k ≈ ${KB_K}k ($KB_LINES lines)"
 fi
 
+# ---- 7. the pack-catalog figures in docs/setup-project-cheatsheet.md --------------------
+# Rationale in the header. Absent file is a WARN, not a silent skip: the fixture mini-repos
+# under tests/validators/ do not ship this doc, and a gate that goes quiet when its subject
+# disappears is the always-pass failure this whole harness exists to prevent.
+CHEAT="$ROOT/docs/setup-project-cheatsheet.md"
+if [ ! -f "$CHEAT" ]; then
+  warn "docs/setup-project-cheatsheet.md not found — pack-catalog figures unchecked"
+else
+  CHEAT_ROW=$(grep -oE '[0-9]+ commands, [0-9]+ agents' "$CHEAT" | head -1)
+  if [ -z "$CHEAT_ROW" ]; then
+    fail "docs/setup-project-cheatsheet.md: no '<N> commands, <N> agents' figure — pack-catalog sentence shape changed"
+  else
+    GOT_CMD="${CHEAT_ROW%% commands,*}"
+    GOT_AGT="$(printf '%s' "$CHEAT_ROW" | sed 's/.*, //; s/ agents//')"
+    if [ "$GOT_CMD" != "$PACKCMD" ] || [ "$GOT_AGT" != "$AGENTS" ]; then
+      fail "docs/setup-project-cheatsheet.md: pack catalog says '$CHEAT_ROW' — actual is $PACKCMD commands, $AGENTS agents"
+    else
+      pass "cheatsheet pack catalog: $PACKCMD commands, $AGENTS agents"
+    fi
+  fi
+fi
+
 echo
 if [ "$ERRORS" -eq 0 ]; then
-  green "readme-stats: FAIL=0 WARN=$WARNS — README figures match disk"
+  green "readme-stats: FAIL=0 WARN=$WARNS — README + cheatsheet figures match disk"
   exit 0
 fi
 red "readme-stats: FAIL=$ERRORS WARN=$WARNS"

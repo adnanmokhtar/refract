@@ -72,7 +72,7 @@ Mode: REFINE (--refine)
 ```
 Mode: REFRESH (--refresh)
   Backup: .claude/backups/20260425-1430/ (47 files, 312KB)
-  Extracted: 23 durable items across 8 categories (see .claude/_refresh-knowledge-extract.md)
+  Extracted: 23 durable items across 11 sections (see .claude/_refresh-extract.md)
   Proceeding to Phase 2 (deep profile + extract merge), then Phase 2.5 (idioms),
   then Phase 2.6 (profile-informed coverage gap check), then Phase 3 (delta + plan).
 ```

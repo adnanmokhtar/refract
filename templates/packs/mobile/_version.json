@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "mobile",
-  "version": "1.7.0",
-  "released": "2026-08-21",
+  "version": "1.8.0",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Native depth + fabrication repair: +4 ai-patterns (app-lifecycle, permissions, mobile-api-contract, release-pipeline), +1 skill (device-harness), +3 references (swiftui, jetpack-compose, expo); five uncited platform figures removed and the Apple 3.3.2 miscitation corrected to 2.5.2.",
+  "summary": "Agents 2 -> 4: offline-sync-auditor (per-entity durable/lossy/unproven verdict on every write the UI acknowledged before the server accepted it, tested against process death, duplicate delivery, reordering and account switch) and device-performance-auditor (startup, responsiveness, memory, battery; no figure without a named device, a release build and n>1). Six Android/Apple figures fetched and quoted verbatim; the Apple launch-time target, per-app memory ceiling and frame bad-behaviour threshold declared absent because no source publishes them.",
   "changelog": "CHANGELOG.md"
 }

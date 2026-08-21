@@ -46,6 +46,7 @@ hard-rule: HALT + RETRY, not "report and continue"
 - Confirm each `ai/status.md` has `Updated:` + `## Recent Changes`.
 - Confirm no `<TODO>` / `<placeholder>` / `_UNKNOWN_` leaked into shipped content (placeholders OK in `ai/project-goals.md` for genuinely-undecided facets — but flagged in report).
 - Confirm `PROJECTS.md` lists every sibling (workspace mode).
+- **Confirm the extraction actually split on members.** When `.claude/codebase-profile.md § 17` lists ≥ 2 members, `.claude/_extracted-codebase.md` must carry one `## Repository shape` entry AND one census bucket per member, and every per-member field (1–10, 15) must name the member it came from. One entry or one bucket where § 17 has two means Phase 2 ran member-blind (`phase-2-profile.md § 2.0.a`) — the per-member values were sampled repo-wide, so they are a blend, not a measurement. ERR, not a warning: this is the failure mode that costs nothing to detect here and cannot be detected at all once the artifacts are written from it.
 - Confirm `AGENTS.md` written at root (universal anchor — always present).
 - Confirm `ai/references/models.md` + `ai/references/tool-parity.md` written.
 - Confirm `ai/business-domain.md` + `ai/core/glossary.md` + `ai/project-goals.md` + `ai/users-and-personas.md` written when intent + domain detected.
@@ -67,19 +68,19 @@ hard-rule: HALT + RETRY, not "report and continue"
 - **Contradiction check**: pair every rule from `.claude/rules/*.md` with relevant patterns in `ai/patterns/*.md` and business-domain `anti-patterns.md`. Flag any rule that says "always X" while a pattern shows "do Y" (where X ≠ Y).
 - **Idempotency check**: re-run the apply pipeline mentally against the just-written state. Any file that would change is a non-idempotent generator — flag the bug.
 - **No-ghost-file check**: every file we WROTE is tracked in the report. Every file in the report exists. No silent extras.
-- **Knowledge preservation check (REFRESH only)** — for each item in `.claude/_refresh-knowledge-extract.md`, verify it survived into the regenerated output OR appears in the "Stale extract items" log with explanation:
-  - Section 1 (ADRs) → every ADR file MUST exist in `ai/decisions/` with the same ID + title. Append-only: zero ADRs may be missing.
-  - Section 2 (domain glossary) → every term MUST appear in `ai/business-domain.md` or `ai/core/glossary.md`.
-  - Section 3 (project intent) → every facet MUST appear in `ai/project-goals.md` / `ai/users-and-personas.md`.
-  - Section 4 (custom conventions) → every project-specific rule MUST appear in `ai/conventions.md` OR a relevant `.claude/rules/*.md`.
-  - Section 5 (custom rules) → every custom rule body MUST appear somewhere in `.claude/rules/`.
-  - Section 6 (custom agents/skills/commands) → every custom artifact MUST exist by name in the relevant `.claude/` subdir.
-  - Section 7 (validated corrections) → every correction MUST appear in `ai/dynamic/corrections.md` (or be wired into a relevant rule).
-  - Section 8 (custom patterns/runbooks) → every project-idiom file MUST exist by path.
+- **Knowledge preservation check (REFRESH only)** — for each item in `.claude/_refresh-extract.md`, verify it survived into the regenerated output OR appears in the "Stale extract items" log with explanation. Section numbers are that file's own (the ones `refresh-extract-checklist.sh` emits):
+  - § 2 (ADRs + audits + failures) → every ADR file MUST exist in `ai/decisions/` with the same ID + title; every `ai/audits/*.md` + `ai/failures/*.md` entry MUST still exist by path. Append-only: zero may be missing.
+  - § 3 (validated user corrections) → every correction MUST appear in `ai/dynamic/corrections.md` (or be wired into a relevant rule).
+  - § 4 (project intent) → every facet MUST appear in `ai/project-goals.md` / `ai/users-and-personas.md`; every glossary term MUST appear in `ai/business-domain.md` or `ai/core/glossary.md`.
+  - § 5 (custom rules + conventions) → every custom rule body MUST appear somewhere in `.claude/rules/`; every project-specific convention MUST appear in `ai/conventions.md`.
+  - § 6 (custom agents/skills/commands) → every custom artifact MUST exist by name in the relevant `.claude/` subdir.
+  - § 7 (architecture decisions implicit in code) → every project-idiom `ai/architecture.md` / `ai/patterns/*.md` / `ai/runbooks/*.md` / `ai/runtime/*.md` file MUST exist by path.
+  - § 10 (custom hooks delta) → every recorded hook edit MUST be present in the regenerated `.claude/hooks/*.sh` / `.claude/git-hooks/post-*`.
+  - § 11 (uncategorized user-touched files) → every entry MUST be restored at its original path OR be recorded in § 12 with a rationale. This section is not shell-gated — this check is the only thing enforcing it.
 
   Each missing item triggers HALT + retry of the relevant Phase 4 sub-step. If still missing after retry, halt with error: "Knowledge preservation check failed: <list of dropped items>. Backup is at <path>; restore with `<path>/restore.sh`."
 - **Stale extract reconciliation (REFRESH only)** — every item in `.claude/codebase-profile.md` § "Stale extract items" must have either: (a) been dropped from the extract by Phase 2 (logged); or (b) been re-confirmed by user via Phase 2 question. Unresolved stale items = halt.
-- **Backup integrity check (REFRESH only)** — re-verify backup directory still exists at the path announced in Phase 0 plan, with the same file count. If anyone (including a hook) deleted it during apply, halt and surface error before tearing down `_refresh-knowledge-extract.md`.
+- **Backup integrity check (REFRESH only)** — re-verify backup directory still exists at the path announced in Phase 0 plan, with the same file count. If anyone (including a hook) deleted it during apply, halt and surface error before reporting success.
 
 **5.3 Phase 4.6 adaptation audit (per Critical Execution Rule 7 — MANDATORY in every mode)**:
 
@@ -469,13 +470,13 @@ Schema validation: skipped (not implemented)
 
 **5.7 REFRESH-mode cleanup (only when mode = REFRESH AND audit passed)**:
 
-- Delete `.claude/_refresh-knowledge-extract.md` (the temp working file). It served its purpose — Phase 2 merged it, Phase 4 consumed it, Phase 5 audited against it. Keeping it is noise.
+- **Do NOT delete `.claude/_refresh-extract.md`.** It is not a temp file: `audit-setup.sh:155` errors when it is absent in REFRESH/REFINE mode, and `/setup-project-health` re-audits it long after this run ends. Deleting it makes the run un-reauditable and the next `--refresh` starts blind. (The instruction here used to be "delete the temp working file `_refresh-knowledge-extract.md`" — a file nothing wrote; followed against the real artifact it removed the audit's own input.)
 - Append `## Recent Changes` entry to `ai/status.md`:
   ```
   ## Recent Changes (<YYYY-MM-DD>)
   ### Setup refresh (`/setup-project --refresh`)
   - Backup: <BACKUP_DIR> (<N> files preserved; restore via <BACKUP_DIR>/restore.sh)
-  - Extracted <K> durable items across 8 categories
+  - Extracted <K> durable items across 11 sections of `.claude/_refresh-extract.md` (preserved, not deleted)
   - Regenerated: <list of regen-targeted dirs>
   - Preserved verbatim: <list of preserved categories e.g. "ADRs (12), corrections (8), custom glossary (6)">
   - Stale extract items resolved: <count> (see .claude/codebase-profile.md § "Stale extract items")

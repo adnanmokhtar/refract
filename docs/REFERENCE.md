@@ -92,17 +92,25 @@ The 7-phase ceremony (Understand → Organize → Retrieve → Generate → Upda
 `<TBD>` markers in scaffold files are **deliberate placeholders**, not bugs. They appear in 2 specific files:
 
 - `.claude/_codebase-scan.md` — sections 8-15 (module map, architecture pattern, conventions, drift findings, structural recommendations)
-- `.claude/_refresh-extract.md` — sections 2-9 (ADRs preserved, project intent, custom rules, custom agents, etc.)
+- `.claude/_refresh-extract.md` — sections 2-9 (ADRs preserved, validated corrections, project intent, custom rules, custom agents/skills/commands, implicit architecture, detected stack, and § 9 migration mapping when migration is in scope). `audit-setup.sh` C2b1 fails the run on any of §§ 2-8 left `<TBD>` (§ 9 only when migration is in scope); §§ 10-12 are recorded for Phase 4 to consume and are not shell-gated.
 
 ### The flow
 
 ```
-Phase 0.0 / 0.2  (script)
-  scripts/deep-codebase-scan.sh  →  writes _codebase-scan.md
-                                    mechanical sections filled
-                                    prose sections = <TBD>
-  Phase 0.2 internal              →  writes _refresh-extract.md
-                                    8 prose sections = <TBD>
+Phase 0.0  (scripts — both files are SCAFFOLDED here, by script, not by the LLM)
+  scripts/deep-codebase-scan.sh         →  writes _codebase-scan.md
+                                           mechanical sections filled
+                                           prose sections = <TBD>
+  scripts/refresh-extract-checklist.sh  →  writes _refresh-extract.md
+                                           § 1 auto-inventory filled
+                                           §§ 2-9  = <TBD>  (8 gated prose sections)
+                                           §§ 10-12 recorded, not shell-gated
+
+Phase 0.2  (LLM)
+  FILLS _refresh-extract.md §§ 2-9 in place.
+  It does NOT create a second file — one artifact, one name
+  (`templates/phases/phase-0-backup-extract.md § 0.2`,
+   `templates/critical-execution-rules.md § Rule 6`).
 
 Phase 4.6-DEEP / 4.7-DEEP / 4.8-DEEP  (LLM)
   Dispatches extraction skills:

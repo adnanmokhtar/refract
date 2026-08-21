@@ -213,8 +213,10 @@ Every figure and dated requirement above, with the page that publishes it. Re-fe
 
 ## Related
 
-### Sibling agent in this pack
+### Sibling agents in this pack
 - `@mobile-architect` — designs the feature and puts these gates on the calendar; hands you the artefact list, never the verdict.
+- `@device-performance-auditor` — produces the measurements behind § 7: startup, frame times, hangs, memory kills and wake locks, each on a named device in a release build. It never quotes a store consequence; you never produce a measurement. When a vital is out of band, it supplies the number and you supply the published threshold and what the store does about it.
+- `@offline-sync-auditor` — proves whether acknowledged writes survive. Nothing it finds is a store finding: lost data is a product emergency, not a guideline violation, and it appears in your report only if it also breaches a cited guideline.
 
 ### This pack
 - `/optimize-bundle` + `bundle-analyze` — size evidence; this agent consumes the number, never produces it.

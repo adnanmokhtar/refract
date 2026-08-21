@@ -41,6 +41,16 @@ The output (`.claude/_extracted-codebase.md`) is the **single source of truth** 
 - `project_root` — absolute cwd (the project being analyzed).
 - `output_path` — defaults to `<project_root>/.claude/_extracted-codebase.md`.
 - `parallelism` — default 6 concurrent extractor subagents (cap to avoid runaway tokens on huge repos). Recorded in `## Coverage` as part of `walk_scope`: it bounds what the run *could* visit, so it belongs with the census, not in a comment.
+- `repo_shape` — **required**, one of `single` / `monorepo` / `workspace`. Decided by Phase 1 (`phase-1-detect-mode.md § Decide shape`) and handed in verbatim per `phase-2-profile.md § 2.0.a`. Step 2 consumes it; it is never re-derived here.
+- `shape_signal` — **required**, the Phase 1 table row that fired, as a string. Recorded verbatim in `## Repository shape` so a reader can audit the shape decision without re-running it.
+- `members` — **required**, never empty; `single` carries exactly one entry, root `.`. One entry per member:
+  ```
+  members:
+    - name: <member-a>
+      root: <path/to/member-a>    # `.` for repo_shape: single
+      manifest: <path/to/member-a/<manifest-file>>   # or `(none)`
+  ```
+  This list is the split key for Step 2, Step 2.5 and every capped step. **Absent or empty `members` is a halt, not a default** — see Step 2.
 
 ## Procedure
 
@@ -56,14 +66,27 @@ Run Appendix A of setup-project.md detection commands. Capture:
 
 **Persist as `## Stack` section.**
 
-### Step 2 — Repository shape
+### Step 2 — Repository shape (handed in, not re-derived)
 
-Detect:
-- **Single-repo** vs **monorepo** (presence of `pnpm-workspace.yaml`, `lerna.json`, `nx.json`, `turbo.json`, Cargo `[workspace]`, `go.work`, etc.).
-- **Workspace** vs **mono-app** (workspaces with multiple deployable apps vs library-style packages).
-- **Apps + libs split**: enumerate top-level `apps/`, `packages/`, `libs/`, `services/` dirs.
+`repo_shape`, `shape_signal` and `members` arrive as inputs. This step **consumes** that decision; it does not re-answer it.
 
-For each app/lib found, record: name + path + manifest type + brief purpose (parse from package.json description or top of root README).
+**Do not scan for a workspace manifest to decide the shape here.** `pnpm-workspace.yaml`, `lerna.json`, `nx.json`, `turbo.json`, Cargo `[workspace]`, `go.work` cover only the two shapes that declare their own members. The two that declare nothing — sub-manifest dirs inside ONE git repo (**monorepo**), and separate checkouts or a plain `server/`-beside-`client/` pair under one parent (**workspace**) — are precisely the shapes a manifest scan answers `single` for, and a plain `server/` + `client/` pair matches none of `apps/` / `packages/` / `libs/` / `services/` either. That silent `single` is not a loud failure: it writes zero member entries, Step 2.5 collapses to one `(root/other)` bucket, and every per-member contract below becomes unreachable without anything refusing. Phase 1 already fired on signals a manifest scan does not reproduce; re-deriving here discards that answer.
+
+**Missing input is a halt, not a default.** `members` absent or empty → do NOT proceed to Step 2.5, and do NOT enumerate members yourself. Write `[SHAPE-INPUT-MISSING: members not handed in by Phase 1]` and stop; re-invoke with the Phase 1 output (`phase-2-profile.md § 2.0.a`). Inventing the list here reintroduces the exact bug the input exists to remove.
+
+**The entry set IS `members`** — same order, one `## Repository shape` entry each, no additions and no drops. Per entry record:
+
+| Field | Source | Rule |
+|---|---|---|
+| `name`, `root` | the input, verbatim | Never rewritten, never normalized away. |
+| `manifest` | the input, verbatim | `(none)` is a legal value. A member directory with no manifest is still a member — that is the sibling-directory shape, not a non-member. |
+| manifest type, one-line purpose | the member's OWN manifest description, or the top of the member's README | **Enrichment only.** `[unconfirmed]` when neither exists. Enrichment never adds, removes, renames or merges a member. |
+
+Record `repo_shape` and `shape_signal` verbatim at the top of the section, so the shape decision is auditable from the artifact without re-running detection.
+
+`repo_shape: single` carries exactly one member, root `.` — the same code path, not a special case.
+
+**Halt**: `members` holds ≥ 2 entries while the section you are about to write holds 1. That is a dropped member; a member with no entry gets no census bucket, so it gets no walk, no conventions row, and no rules. Fix the entry set before continuing — `phase-5-verify.md § 5.1` errors on exactly this state, and nothing downstream can recover a split the substrate never made.
 
 **Persist as `## Repository shape` section.**
 
@@ -89,7 +112,7 @@ From that list, keep files whose extension is in the source-extension set derive
 
 An exclusion that is not named in the output makes the denominator unfalsifiable — the same violation § Premise forbids of every other claim in this file. If "is a `.sql` migration a source file?" is a judgement call, the answer does not matter as long as the call is printed.
 
-Bucket the survivors **one row per `## Repository shape` entry** (Step 2), plus a `(root/other)` row. Without the per-package split, one well-covered app hides nine untouched ones behind a healthy aggregate.
+Bucket the survivors **one row per `## Repository shape` entry** (Step 2) — which is one row per handed-in `member`, since Step 2's entry set IS `members` — plus a `(root/other)` row for tracked files under no member root. Without the per-package split, one well-covered app hides nine untouched ones behind a healthy aggregate. **Halt**: fewer buckets than `members` means a member was dropped upstream; return to Step 2 rather than writing an aggregate census that cannot show the gap.
 
 **Numerator (`seen`) is NOT computed here.** It is counted in Step 15 as `files_cited` — the distinct paths appearing in `[found:]` citations actually written. Never label it `files_read`. It undercounts (a file can be read and cite nothing) and that is the correct trade: `files_cited` is the only number a third party can audit from the artifact alone, and Step 15 already walks every citation to confirm the path resolves. An unauditable coverage number would be a worse failure than today's silence.
 
@@ -109,11 +132,13 @@ Also record, for the header block: `census_method`, `walk_scope` (which director
 
 A `[CONTESTED]` row is auditable off this table for the same reason a `[SAMPLED]` heading is: both denominators are printed. `n + m ≤ sampled` and `sampled ≤ present` are checkable arithmetic, so a contest cannot be asserted without a population to assert it over.
 
+**Every population in that table is per member.** When `members` holds ≥ 2 entries, each capped or sampled step below runs once per member, over that member's own bucket, and every row it emits names the member it came from. A step that walks the union and reports one winner produces a blended value that is wrong for every member and carries a citation that resolves — which is what lets it survive review (`phase-2-profile.md § 2.0.a` obligation 3, `§ 17`). Cross-member aggregates may be reported *in addition*, never *instead*.
+
 **Persist as `## Coverage` section** — written last (it needs Step 15's numerator) but placed **FIRST** in the body, before `## Stack`. First, not last: a reader who reaches `## Conventions` should already know what it rests on.
 
 ### Step 3 — Architecture + layering
 
-For the largest app (or each app in a workspace), walk top-level source dirs and infer the architectural style:
+For **each member** in `## Repository shape` (Step 2), walk that member's top-level source dirs under its `root` and infer the architectural style — one verdict per member, never one blended verdict over the union:
 - **Layered MVC**: `controllers/` + `services/` + `models/`.
 - **Hexagonal / Clean**: `core/` + `application/` + `infrastructure/` + `adapters/`.
 - **Module-per-feature**: each subdir under `src/<feature>/` has its own controller + service + repo.
@@ -126,10 +151,10 @@ Detect dependency direction via import graph (sample 5-10 files per layer; check
 
 ### Step 4 — Module enumeration
 
-Walk `src/`, `apps/*/src/`, `libs/*/src/`. Each subdir at depth 1-2 that contains a controller + service + repo (or analogue) = one module.
+Walk **each member's own source dir** — `<member.root>/src/`, `<member.root>/app/`, or whatever that member actually uses. Do NOT walk a fixed `apps/*/src/` / `libs/*/src/` glob as the member source: it misses every sibling-directory member (a plain `server/` + `client/` pair matches neither), which is the same manifest-shaped blindness Step 2 removes. Each subdir at depth 1-2 that contains a controller + service + repo (or analogue) = one module.
 
 For each module, record one row:
-- name, path, layer (core/feature/infra/lib), purpose (one-line from README or top comment), primary entity, file count.
+- **member**, name, path, layer (core/feature/infra/lib), purpose (one-line from README or top comment), primary entity, file count.
 
 Cap at 80 modules in the output (sample more if larger; emit `(+N more)` line).
 
