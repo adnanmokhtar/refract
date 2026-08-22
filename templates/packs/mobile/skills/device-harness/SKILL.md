@@ -142,8 +142,13 @@ adb shell am start -W -n "<application.id>/<.MainActivity>"   # reports TotalTim
 ### 7. Optional lifecycle checks
 
 ```bash
-# Process death, then relaunch from the launcher — the app-lifecycle restoration test
-adb shell am kill "<application.id>"      # system-style kill; NOT a task-switcher swipe
+# Process death, then relaunch from the launcher — the app-lifecycle restoration test.
+# STEP 1 IS NOT OPTIONAL: `am kill` "kills only processes that are safe to kill and that will
+# not impact the user experience" — a FOREGROUNDED app is not safe to kill, so on a foregrounded
+# app this line is a no-op and the relaunch below resumes the live process.
+adb shell input keyevent KEYCODE_HOME      # background it first, or the kill does nothing
+adb shell am kill "<application.id>"       # system-style kill; NOT a task-switcher swipe
+adb shell ps -A | grep "<application.id>"  # MUST print nothing — this is the proof the kill landed
 adb shell monkey -p "<application.id>" -c android.intent.category.LAUNCHER 1
 
 # Permission states — reset to exercise the not-determined path
@@ -152,6 +157,8 @@ xcrun simctl privacy booted reset all "<bundle.identifier>"
 ```
 
 `adb shell am kill` exercises the saved-state path that a task-switcher swipe does not. This is the mechanism behind `app-lifecycle`'s cold-start-after-process-death test; run it, capture the restored screen, and compare against the screen you left.
+
+**Report the process check, not just the restore.** The `ps` line above is the only evidence that a kill happened at all, and without it this step is the easiest false PASS in the pack: a no-op kill followed by a resume looks exactly like a perfect restoration. If `ps` still shows the process, the step is `SKIPPED (kill did not land)` — never a restore claim. `@offline-sync-auditor` caps every `durable` verdict at `unproven` without a real kill, so a false PASS here launders an unproven write into a proven one. (`am force-stop` stops everything associated with the package, but it also clears state the saved-state path is supposed to exercise — it is the wrong instrument for *this* test and the right one for the cold-start measurement in step 6.)
 
 ### 8. Tear down and write the report
 

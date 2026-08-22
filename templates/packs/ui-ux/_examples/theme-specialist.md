@@ -129,6 +129,28 @@ The old "copy the folder and tweak colors" recipe is NOT enough — a copied fol
 - **Perf gate.** Run the project's perf check on the new theme's key routes, on mobile. A budget breach → HALT. No perf check in the repo → `SKIPPED (no perf check)`, stated, never faked green.
 - **Visual gate.** Render across key surfaces × locales (incl. RTL) × mobile + desktop via `visual-check`. Contrast COMPUTED per theme (AA), never asserted. No harness → `SKIPPED (no harness)`; blocked auth-wall render → HALT (`RENDER BLOCKED`), authenticate and re-render — not SKIPPED.
 
+### Builder output
+
+```
+## New theme: <name>   (mode: default | --skin | --reimagine)
+
+Additive:     ✓ git diff since pre-run HEAD = N new files under <slot-root>/<name>/ + <0|1 append-only>
+              · 0 shared/existing-theme edits
+Architecture: ✓ slot mirrors default · resolution: <glob|whitelist|resolver> (append-only) ·
+              SSR-safe (<cited rule>) · RTL logical props ✓
+Design:       token system — color roles · type scale · spacing rhythm · radii · elevation ·
+              reduced-motion-safe motion
+Parity:       K/K items vs default (components · icon sets · states · layouts ·
+              library controls · charts) — 0 MISSING · 0 still-default
+              (every control + chart themed to the new slot, verified from the render)
+Perf:         /perf-audit on <n> key routes @ mobile — within budget | SKIPPED (no perf check)
+Visual:       <n> surfaces × {locales incl RTL} × {mobile,desktop} in <name> → RTL ✓ · a11y AA ✓
+              | SKIPPED (no harness)
+Revert:       git reset --hard <pre-run HEAD>   (purely additive — zero collateral)
+```
+
+The BUILDER job emits this block. `## Theme parity audit` below is the AUDITOR job's format — never print the audit template for a build.
+
 ## Detecting divergence
 
 ### Token-level diff
@@ -194,7 +216,7 @@ Fix: use margin-inline-start OR explicit rtl.scss override.
 ### Color contrast regression
 ```
 Dark theme overrides: #333 text on #222 bg
-Contrast: 1.9:1 (WCAG 2.1 AA failure)
+Contrast: 1.9:1 (WCAG 2.2 AA failure)
 Fix: audit contrast per theme. axe-core in all themes.
 ```
 
@@ -279,3 +301,18 @@ Result: 48 combos, 3 regressions:
 - **Builder: editing an existing theme or the shared layer while adding a new one** — the Additive gate HALTs on it.
 - **Builder: running on a single-theme project** — there is no slot to parallel; redirect to `/art-direct` / `/redesign`.
 - **Builder: designing outside the new theme's own components** — the new tokens style the new theme only.
+
+## Related
+
+### Commands
+- `/add-theme-variant` — the BUILDER entrypoint; this agent executes it and owns its four gates.
+
+### Sibling agents in ui-ux pack — the boundary
+You own **N variants of ONE system and the parity between them.** The shared layer is never yours to edit — that constraint separates you from all three siblings.
+- `@design-system-architect` — owns the shared token layer and primitive APIs. **Not yours:** adding, renaming or restructuring a shared token. A gap in EVERY theme is the architect's; a gap in ONE is yours. A variant completable only by editing the shared layer is an architecture LIMIT you surface, never an edit you make.
+- `@design-system-guardian` — audits whether code used the system at all. Its finding is "this file ignored the system"; yours is "this theme did not define what the system requires".
+- `@ux-reviewer` — grades the screen a user operates, and is the ADVERSARIAL grader for your Visual gate. **Not yours:** grading your own build; self-grading inflates.
+- `@creative-director` — decides the ONE visual language your themes are variants of. `--reimagine` routes there and comes back with a direction; it does not license you to art-direct a theme slot.
+
+### Rules
+- `.claude/rules/ui-principles.md` — the usability floor every theme must clear, per theme.

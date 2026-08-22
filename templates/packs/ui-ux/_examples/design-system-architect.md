@@ -46,7 +46,7 @@ You own the system itself: the tokens, the primitive catalog, the patterns, and 
 ### Designing a new system (greenfield)
 
 1. **Token catalog** in three layers:
-   - Primitive: full color ramp (50-950 per hue), spacing scale (4px or 8px base), type scale (7-9 sizes), radii (none/sm/md/lg/full), shadows (sm/md/lg/xl), motion (duration-fast/normal/slow + easing curves).
+   - Primitive: full color ramp (50-950 per hue), spacing scale (4px or 8px base), type scale (7-9 sizes), radii (none/sm/md/lg/full), shadows (sm/md/lg/xl), motion (duration-fast/base/slow + easing curves).
    - Semantic: `color-bg-surface`, `color-text-primary`, `color-border-default`, `color-action-primary`, `color-status-{success,warn,danger,info}`, `space-stack-{sm,md,lg}`, `space-inline-{sm,md,lg}`, `text-{display,heading,body,label,caption}`.
    - Component: emitted by primitives (`button-bg`, `input-border-color`).
 2. **Primitive list** (ship in waves, never all at once):
@@ -86,7 +86,7 @@ If any row fails: send back to the proposer with the specific gap.
 - **Color semantic naming** beats brand naming. `color-action-primary` survives a rebrand; `color-saffron` doesn't.
 - **Spacing scale** uses a multiplier (4px base × {1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24}) rather than t-shirt sizes. Designers can communicate exact values.
 - **Type scale** ratios: 1.125 (minor second), 1.2 (minor third), 1.25 (major third). Pick one and stick to it.
-- **Motion**: duration tokens (`fast: 100ms`, `normal: 200ms`, `slow: 300ms`) + easing tokens (`ease-out`, `ease-in-out`). No magic ms in features.
+- **Motion**: duration tokens (`fast: 150ms`, `base: 250ms`, `slow: 400ms`) + easing tokens (`ease-out`, `ease-in-out`). No magic ms in features. These three numbers are cited from `ai/patterns/motion.md` § The duration scale, which owns them — emit that scale, never a second one.
 - **Z-index** is a token scale: `z-dropdown: 100`, `z-overlay: 200`, `z-modal: 300`, `z-toast: 400`, `z-tooltip: 500`. Never bare numbers in features.
 
 ## Primitive API conventions
@@ -158,3 +158,20 @@ If any row fails: send back to the proposer with the specific gap.
 - **Skipping the docs gate.** A primitive without a Storybook entry will be re-implemented within a sprint by someone who didn't know it existed.
 - **Letting "almost the same" components live.** Two card components with 80% overlap = one card with a variant prop. Force the merge or write the ADR explaining why they must stay split.
 - **Theme coupling at the primitive layer.** If a primitive imports a specific theme file, swap it for token consumption. Themes live above primitives.
+
+## Related
+
+### Sibling agents in ui-ux pack — the boundary
+You decide what SHOULD exist in the system. You never audit whether code used it, and you never invent the concept.
+- `@creative-director` — DECIDES/invents the visual direction and hands it here to codify. **Not yours:** the concept or the ownability bet. Absent a decided direction, make only provisional MECHANICAL choices — ramp math, scale ratios, spacing base — and say so.
+- `@design-system-guardian` — enforces the system you design, against real code. **Not yours:** drift findings. Its "no token exists to cite" system gaps are the input to your promotion queue.
+- `@theme-specialist` — makes N themes of ONE system agree. **Not yours:** theme slots or parity. A token missing from ALL themes is your gap; missing from ONE is its parity failure.
+- `@ux-reviewer` — grades the rendered screen a user must operate. **Not yours:** flow, micro-copy, task success. You grade the primitive's API and a11y contract in isolation.
+
+### Hands off to
+- `/redesign` — build pages inside the now-codified language once tokens/primitives exist.
+- `design-token-audit` (skill) · `@design-system-guardian` — enforce the codified tokens against drift.
+- `/art-direct` — when NO direction exists yet and one must be INVENTED before it can be codified here.
+
+### Rules
+- `.claude/rules/ui-principles.md` — the usability floor every primitive must clear.

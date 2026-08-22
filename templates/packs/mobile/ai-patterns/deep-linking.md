@@ -45,7 +45,7 @@ Every entry point that ISN'T the app icon needs deep-link handling:
 - Web → app handoff (universal link).
 - QR code scan.
 - NFC tap (iOS NDEF / Android NFC).
-- Voice assistant (iOS App Intents, Android Slices).
+- Voice assistant / system surfaces. On Apple that is **App Intents**. On Android, **do not reach for Slices** — Google's own integration guide is published under the title "Integrate App Actions with Android Slices **(deprecated)**" (https://developer.android.com/guide/app-actions/legacy/slices). What determines the current Android surface is which assistant / system integration the project actually targets and what that product documents today; read it before wiring one, and if none is targeted, this row is simply not an entry point for this app.
 
 If any of these don't land the user on the right screen with the right state, the feature fails for that channel.
 
@@ -149,3 +149,9 @@ For each, test from cold start, warm start, foreground.
 - `push-notifications.md` (owns the push lifecycle; its tap handlers extract the payload and hand it to THIS pattern's route resolver — never navigate from the notification handler)
 - `app-lifecycle.md` — a cold-start deep link races the navigator's readiness; that pattern owns what is ready when.
 - `device-harness` (skill) — opens every row of the route table above on a real device instead of reading it off the config.
+
+## Sources
+
+- Android, [Integrate App Actions with Android Slices (deprecated)](https://developer.android.com/guide/app-actions/legacy/slices) — the page title carries the deprecation.
+- Apple, [Supporting universal links](https://developer.apple.com/documentation/xcode/supporting-associated-domains) · Android, [Verify Android App Links](https://developer.android.com/training/app-links/verify-android-applinks) — the association-file mechanics behind the "verifies on install, degrades on update" anti-pattern.
+- **Deliberately absent** — each was looked for and is not published: a maximum deep-link URL length; a guaranteed time-to-verification for an association file after install; a delivery guarantee for a link opened from another app. Where a project needs one, measure it with `device-harness` and record it as a project figure.

@@ -10,6 +10,7 @@
 This is the platform where a model most reliably writes code that *compiles* and is two or three API generations stale. Apple publishes machine-readable deprecation data, so the check is cheap and there is no excuse for guessing:
 
 - Any symbol page has a JSON twin at `https://developer.apple.com/tutorials/data/documentation/<framework>/<symbol>.json`, carrying `deprecated`, the per-platform version, and the replacement text. Example, fetched 2026-08-21: `.../swiftui/view/onchange(of:perform:).json` returns "Use `onChange(of:initial:_:)` ... instead", deprecated iOS 17.0. Use the JSON twin, not the human page: the documentation site is client-rendered, so a fetcher gets an empty body from the canonical URL. Every Apple deprecation quoted in this file was verified through the JSON twin of the URL cited beside it.
+- **The twin covers framework symbols, not design guidance.** `/tutorials/data/documentation/<framework>/<symbol>.json` resolves; the same transform on a Human Interface Guidelines page does not — `.../documentation/design/human-interface-guidelines/tab-bars.json` returned **404** on 2026-08-22 while `.../documentation/localauthentication/lacontext.json` returned 200. So HIG figures cannot be verified this way, and a failed fetch is not licence to write the number from memory: say no citable figure was retrieved, per `rules/mobile-principles.md`.
 - The compiler is the second check: build with warnings visible and treat a deprecation warning as a finding, not noise.
 - **Do not infer deprecation from a house style guide.** Two examples that a popular agent-facing Swift ruleset gets wrong, both checked against Apple's own metadata on 2026-08-21: `@StateObject` is **not deprecated** (introduced iOS 14.0, `"deprecated": false` on every platform — https://developer.apple.com/documentation/swiftui/stateobject), and `ObservableObject` is **not deprecated** (Combine, iOS 13.0+ — https://developer.apple.com/documentation/combine/observableobject). Prefer Observation in new code for the reasons below; do not tell a project its working code is deprecated when Apple has not said so.
 
@@ -106,10 +107,46 @@ An unsymbolicated crash is an unfixable crash. Set **Debug Information Format** 
 - Shipping without `PrivacyInfo.xcprivacy`, or with purpose strings that describe the API rather than the user-facing reason.
 - Force-unwrapping (`!`) and `try!` outside tests and genuinely impossible states.
 
+## Render-discipline fingerprints
+
+`rules/render-discipline.md` names 8 shape-based detectors and their closure verbs; this is the SwiftUI signal for each. Cite the detector number + name in the finding, and quote the line you matched here.
+
+| # | Detector | SwiftUI fingerprint |
+|---|---|---|
+| 1 | oversized-state-scope | `@State` / `@StateObject` on a container view feeding a single leaf |
+| 2 | side-effect-in-build | a network call or mutation inside `body` |
+| 3 | missing-stable-subtree | a non-`Equatable` model forcing `body` re-evaluation |
+| 4 | unstable-list-item-props | a per-row closure capturing the whole parent |
+| 5 | unvirtualized-list | `VStack` + `ForEach` over unbounded data inside `ScrollView` → `List` / `LazyVStack` |
+| 6 | animation-rebuilds-subtree | timer-driven `@State` per frame instead of `withAnimation` / `TimelineView` |
+| 7 | store-overinvalidation | observing a whole `ObservableObject` where one published field is read |
+| 8 | logic-in-view | parsing / error-mapping / business rules in the view instead of the model / store |
+
+**Enforcement.** `Self._printChanges()` on hot views during review; the Instruments "SwiftUI" template for frame-time evidence. Evidence format: body re-eval counts, before and after.
+
+## Biometrics — LocalAuthentication and the keychain flag
+
+`agents/mobile-architect.md` § Biometric gates decides *what* biometry protects; this is how each answer is written on Apple platforms. The two are different APIs, and reaching for the first when you needed the second is the standard error.
+
+- **Gating the UI** is `LAContext.evaluatePolicy`. `LAPolicy.deviceOwnerAuthenticationWithBiometrics` is biometry only — evaluation "fails if Touch ID or Face ID is unavailable or not enrolled"; `LAPolicy.deviceOwnerAuthentication` is "User authentication with biometry, Apple Watch, or the device passcode" and falls back on its own. Read `LAContext.biometryType` before writing any prompt copy — it "is set only after you call the `canEvaluatePolicy` method", so a string naming Touch ID on a Face ID device is a sequencing bug, not a copy bug.
+- **Gating the secret** is a `SecAccessControl` flag on the keychain item, evaluated by the Secure Enclave rather than by your code. This is the only one of the two that protects a token, a payment method, or health data.
+
+The flag choice is the enrollment-change decision, and the two options are documented in one sentence each (verified 2026-08-22 through the JSON twins of https://developer.apple.com/documentation/security/secaccesscontrolcreateflags):
+
+| Flag | Documented behaviour | What it means for the user |
+|---|---|---|
+| `.biometryCurrentSet` | "The item is invalidated if fingers are added or removed for Touch ID, or if the user re-enrolls for Face ID." | Enrolling a new finger or face logs them out. The secure default for auth tokens. |
+| `.biometryAny` | "The item is still accessible by Touch ID if fingers are added or removed, or by Face ID if the user is re-enrolled." | Convenient — and a newly enrolled biometric opens the app. |
+
+Design the lockout path, because the system takes biometry away without asking: both Touch ID and Face ID are "disabled system-wide after too many consecutive unsuccessful attempts, even when the attempts span multiple evaluation calls", after which "the system requires the user to enter the device passcode to reenable biometry". Your app sees `LAError.biometryLockout` — "Biometry is locked because there were too many failed attempts. A passcode is now required to unlock biometry." Apple publishes no attempt count; do not write one.
+
+**The uninstall asymmetry is a real design input.** Apple documents no uninstall hook, and keychain items survive reinstall under the same bundle ID (https://docs.expo.dev/versions/latest/sdk/securestore/ states the behaviour most plainly, contrasting it with Android where the data "will not be preserved upon app uninstallation"). Consequence: a reinstalled app with biometric unlock can open the previous user's session. The remedy is app code — a first-launch flag in `UserDefaults`, which *is* cleared on uninstall, and clearing the keychain when it is absent.
+
 ## Cross-references
 
 - `rules/render-discipline.md` — the SwiftUI fingerprint column (`Self._printChanges()`, Instruments "SwiftUI" template) is the enforcement arm of the Views section here.
 - `rules/mobile-principles.md` — Keychain, permissions, crash reporting, store compliance.
 - `ai-patterns/native-storage.md` — Keychain vs `UserDefaults` vs a database, per data class.
+- `agents/mobile-architect.md` § Biometric gates — whether biometry gates the UI or the key, and the enrollment-change decision this file implements.
 - `ai-patterns/offline-sync.md` — why the sync queue must be resumable under background termination.
 - `agents/app-store-reviewer.md` — the submission audit that consumes the privacy-manifest and review-guideline items above.

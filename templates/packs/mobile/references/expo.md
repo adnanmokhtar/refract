@@ -2,7 +2,7 @@
 
 > **Framework**: Expo SDK + React Native + TypeScript. Checked 2026-08-21, the latest SDK is **57.0.0**, paired with **React Native 0.86** and a **minimum Node 22.13.x** (dependency table at https://docs.expo.dev/versions/latest/). That pairing is not stable across releases — read it from the docs, not from here.
 > **Official docs**: https://docs.expo.dev/ • EAS: https://docs.expo.dev/eas/ • config: https://docs.expo.dev/versions/latest/config/app/
-> **Read `references/react-native.md` first.** Everything there still holds — New Architecture, FlashList, Reanimated, TanStack Query, render discipline. This file covers only what Expo *changes*: native code is generated rather than edited, configuration lives in app config, and build / submit / update go through EAS.
+> **`references/react-native.md` is this file's base layer — read it first, and if it is not installed beside this file, install it too.** An Expo app *is* a React Native app (SDK 57 pairs with RN 0.86, above), so everything there holds unchanged: New Architecture, FlashList, Reanimated, TanStack Query, render discipline. This file covers only what Expo *changes* — native code is generated rather than edited, configuration lives in app config, and build / submit / update go through EAS. A detection that copied only this file has left you a delta with no base under it.
 > **Version-specific gotchas**: Expo Go only supports the **latest** SDK — "This applies to Expo Go as it only supports the latest SDK version and previous versions are no longer supported" (https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/) — so any project not on current must use a development build. The **`runtimeVersion` policy list has changed shape over releases**: as of 2026-08-21 the documented policies are `appVersion`, `nativeVersion` and `fingerprint` (https://docs.expo.dev/versions/latest/sdk/updates/). A policy name emitted from memory is how an update ships to the wrong binaries — read the list from the installed version's docs before you write one.
 > **Substitution markers**: replace `<name>` with the project's actual route / feature names.
 
@@ -95,10 +95,25 @@ Expo publishes first-party skills for coding agents: "Expo Skills are structured
 - A large object in `expo-secure-store` — the platform can reject the write, and the failure surfaces as a missing token later.
 - Rolling an update straight to 100% because "it's only JS". An OTA bug reaches every user in minutes; that is the argument for staging, not against it.
 
+## Biometrics
+
+`expo-local-authentication` (57.0.2, 2026-07-22) is the UI gate; `expo-secure-store` holds the secret. They are separate decisions, and CNG changes where the second is configured — the keychain accessibility option and any Face ID usage description are app-config surface, not a native-file edit. Which mechanism the design needs is `agents/mobile-architect.md` § Biometric gates; the platform semantics behind both are `references/swiftui.md` and `references/jetpack-compose.md`.
+
+One Expo-documented behaviour is a design input rather than a detail: secure-store data "will persist across app uninstallations if the app is reinstalled with the same bundle ID" on iOS, while on Android it "will not be preserved upon app uninstallation" (https://docs.expo.dev/versions/latest/sdk/securestore/). A biometric unlock over a surviving token can open the previous user's session after a reinstall; clear it behind a first-launch flag stored outside the secure store.
+
+## Render-discipline fingerprints
+
+`rules/render-discipline.md` names 8 shape-based detectors and their closure verbs. **Expo runs the React Native renderer, so the signal for all 8 is the React Native column in `references/react-native.md` § Render-discipline fingerprints — that table is canonical here and this file does not restate it.** Its enforcement carries over intact: `eslint-plugin-react-hooks` (`exhaustive-deps`), `eslint-plugin-react-perf`, and React DevTools Profiler commit counts as the before/after evidence.
+
+Two Expo-specific reading notes:
+
+- **Detectors 1 (oversized-state-scope) and 8 (logic-in-view) land in `app/`.** A file in the router tree *is* a screen component, so route files are where screen-scoped state and view-embedded logic collect. State held in a `_layout.tsx` re-renders every route that layout wraps — detector 1 at the widest scope the app has. Audit `app/` before `src/features/`.
+- **Closing detectors 5 and 6 means adding a package — `npx expo install`, never `npm install`.** The primitives the React Native column prescribes (`@shopify/flash-list`, `react-native-reanimated`) must resolve to the version the installed SDK was built against; a bare `npm install` is the documented cause of "works in the bundler, crashes in the build" (see § Read the project before you read this file).
+
 ## Cross-references
 
-- `references/react-native.md` — the base layer; read it first.
+- `references/react-native.md` — the base layer this file is a delta on; it ships alongside, not optionally.
 - `ai-patterns/ota-updates.md` — the native-vs-JS boundary and rollback contract this file implements.
 - `ai-patterns/native-storage.md` — which data class goes in which store; `expo-secure-store` is the secure tier here.
 - `rules/mobile-principles.md` — secret handling, permissions, build variants.
-- `rules/render-discipline.md` — the React Native fingerprint column applies unchanged.
+- `rules/render-discipline.md` — the 8 detectors; § Render-discipline fingerprints above routes them to the React Native column.

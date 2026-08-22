@@ -36,9 +36,18 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: agent
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-business.md (differentiating promise + goals) + ai/users-and-personas.md (personas) + _extracted-codebase.md § Stack (UI lib + design-token source) + _extracted-idioms.md § Tokens / Surfaces / Voice + sample surfaces
-  sections: [persona, premise, halt_conditions, invariants, diagnosis_vocabulary, direction_rubric, diverge_method, invention_vocabulary, converge_method, modes, usability_floor, output_brief, hard_rules, forbidden, failure_modes]
+  sections: [persona, premise, halt_conditions, invariants, diagnosis_vocabulary, direction_rubric, diverge_method, invention_vocabulary, converge_method, modes, usability_floor, output_brief, hard_rules, failure_modes]
   fallback: agents/creative-director.md
   cite_evidence: strict
+
+- name: axis-catalog
+  kind: pattern
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: ai-patterns/axis-catalog.md   # source IS the fallback: the closed 16-axis / 19-verb
+                                          # vocabulary is cited verbatim by ui-design-sweep,
+                                          # creative-director, /art-direct and four mobile
+                                          # artifacts — an abridgement that dropped a row would
+                                          # silently break the counts they cite.
 
 - name: design-systems
   kind: pattern
@@ -74,7 +83,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Conventions (frontend) + _extracted-business.md (personas — affects micro-copy tone)
   sections: [project_specific_first, design_token_use, component_composition, accessibility_required, micro_copy_voice]
   mirror_existing: true
-  fallback: _examples/ui-principles.md
+  fallback: rules/ui-principles.md
+  # self-fallback, matching mobile/rules/{mobile-principles,render-discipline}. The `_examples/`
+  # abridgement was deleted at 1.25.1: at 97% of the source (62 vs 65 lines) it was never the
+  # "rewritten in its own voice" artifact this directory is for, and its 3% delta was subtractive —
+  # it dropped `severity: must` + `applies-to:`, so a greenfield install (the ONLY path that reads a
+  # fallback) got the pack's one rule with nothing marking it as one, plus five imperatives demoted
+  # to noun phrases ("Use 3 baseline breakpoints" -> "3 baseline breakpoints"). Check 8b sees
+  # neither: it exempts `severity:` on rule fallbacks as a whole-class convention.
 
 - name: design-review
   kind: command
@@ -171,10 +187,16 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [when_to_use, procedure, inputs, outputs, failure_modes]
   fallback: skills/a11y-quick-check/SKILL.md
 
+- name: design-iterate
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  sections: [when_to_use, modes, procedure, inputs, outputs, failure_modes]
+  fallback: skills/design-iterate/SKILL.md
+
 - name: ui-design-sweep
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
-  extracts_from: _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice / Breakpoints + ui-principles.md § Axis catalog
+  extracts_from: _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice / Breakpoints + ai-patterns/axis-catalog.md (the per-axis heuristics; ui-principles.md § Axis catalog holds the closed names)
   sections: [purpose, when_to_use, inputs, outputs, the_19_closure_verbs, procedure, hard_rules, failure_modes]
   fallback: skills/ui-design-sweep/SKILL.md
   cite_evidence: strict

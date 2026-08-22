@@ -6,6 +6,8 @@ pack: ui-ux
 
 # /ui-crawl [<scope>] [--smoke] [--filter=<substr>] [--full-matrix]
 
+> **Not this command? (ANTI-triggers)** — fix the findings it produced → **`/ui-crawl-fix`** (mechanical classes) or human triage (behavioural ones). Measured design QUALITY rather than per-route breakage — hierarchy scores, coverage %, an HTML report → **`/ui-sweep`**. Review only what changed, from source, with no browser → **`/design-review`**. One surface to improve → **`/enhance-ui`** · **`/redesign`**. **This command is detect-only and writes no product code.** Full map: [`ui-sweep.md § The ui-ux command map`](ui-sweep.md).
+
 ## The Premise
 
 **You can't QA 100+ pages by hand on every change.** This command spins up Playwright, logs in once, visits every route, and produces a ranked report of what's broken — JS errors, failed API calls, layout overflow, a11y violations, broken dialog triggers, untestable dropdowns.
@@ -53,7 +55,8 @@ It's **detect-only**. Fixing is a separate step (`/ui-crawl-fix` or manual). The
 ### Phase 1 — Inventory (skipped if `ui-crawl-inventory.json` exists and `--refresh-inventory` not set)
 - Parse `src/<modules>/routes.ts` (or framework-equivalent) for every route + name + permission + lazy component.
 - Parse sidebar config for menu hierarchy.
-- For each page file: grep for `<BaseModal>`/`<Dialog>` (dialogs), `<BaseDropdown>`/`<Dropdown>`/`<MultiSelect>` (DDLs), `<TabView>`/`<v-tabs>`/`role="tab"` (tabs).
+- For each page file, find its dialogs / dropdowns / tabs. **The patterns come from `_extracted-idioms.md § Wrappers`, not from this file.** The project's own wrapper names are the primary signal; its component library's control names are the secondary one; `role="tab"` / `role="dialog"` / `aria-haspopup="listbox"` are the stack-neutral fallback that works when neither is declared. The examples printed in this file (a `<BaseModal>`-style wrapper, a `<TabView>`-style library tab set) are **illustrative of the SHAPE, never a pattern list to match literally** — a project on React/MUI, Svelte, or Angular has different names for the same three roles, and grepping this file's names against it produces an empty inventory that reads as "no dialogs on any route".
+- If idioms declares no wrapper for a role, fall back to the ARIA roles above and **record the degraded mode in the inventory** (`dialog-detection: aria-role fallback`) so a thin dialog count is visibly a detection limit rather than a clean result.
 - Output JSON inventory.
 
 ### Phase 2 — Auth setup

@@ -49,6 +49,8 @@ risk: low | medium | high
 
 ### The closure-verb vocabulary is closed
 
+> **Known gap, stated so a run does not silently fail its own gate.** `scripts/validate-polish-artifacts.sh` currently routes `mobile-*` projects through `check_frontend_verb_vocabulary`, whose allowed set is the 19 `ui-design-sweep` verbs — which does not contain any of the five mobile verbs below. Until that validator learns them, every finding this skill emits except the routed `expand-tap-target` is rejected by the validator that runs on mobile. Emit the correct verb anyway (the registration in `commands/polish.md` is the contract); if the validator fails on vocabulary, that is this gap and not a finding defect. Tracked as an integrator request against `validate-polish-artifacts.sh`.
+
 `/polish` registers exactly five mobile-extra verbs on top of the frontend set: **`apply-platform-spec` · `unify-platform-icon` · `apply-platform-typography` · `add-haptic-feedback` · `respect-safe-area`** (`commands/polish.md` § mobile). A detector that wants a sixth does not get one. It either reuses an existing verb — because the *act* is the same — or it emits `routed_to:` and **no verb at all**. Inventing a verb does not produce a richer finding; it produces a finding whose verb nothing downstream can execute.
 
 Three detectors below are routed rather than closed here, and the reason is the scope line rather than bookkeeping. This skill owns **platform divergence** — the cases where iOS and Android genuinely disagree, which is a question the web has no analogue for. It does **not** own the usability and accessibility floor: that is the `ui-ux` pack's 16-axis catalog, co-run on every `mobile-*` `/polish` pass, and re-auditing it here under a near-identical name is the "seventeenth axis" failure, not extra coverage.
@@ -61,11 +63,11 @@ Three detectors below are routed rather than closed here, and the reason is the 
 - Touch targets below the project's declared iOS minimum (see detector 3 — this is evidence for a routed ui-ux finding, not an axis this skill closes).
 - Navigation back chevron not on the leading edge.
 - System fonts (San Francisco) replaced by custom font without justification.
-- Tab bar items > 5 (HIG max).
-- Modal presentation style violates HIG (e.g., full-screen modal where sheet would be canonical).
-- iOS-specific affordances missing (swipe actions on rows, peek-and-pop, context menus).
+- Tab bar overflow. UIKit collapses a tab bar beyond its capacity into a **More** tab, which is a real, checkable behaviour change; **this skill states no maximum count**, because none was retrievable from a citable source (the HIG pages are client-rendered and have no JSON twin — `references/swiftui.md`'s twin technique covers framework symbols, not HIG pages). Report the observed collapse, or read the current HIG Tab bars page and cite it. Do not write a number from memory.
+- Modal presentation style violates HIG (e.g., full-screen modal where a sheet would be canonical).
+- iOS-specific affordances missing (swipe actions on rows, **long-press context menus**). Not *peek-and-pop* — that was the 3D Touch interaction, replaced by context menus and absent from shipping hardware for several generations; flagging it is flagging a removed API.
 
-**Detection**: per-component scan; cross-check against iOS HIG fingerprints declared in `_extracted-idioms.md § iOS conventions`.
+**Detection**: per-component scan; cross-check against the iOS conventions declared in `_extracted-idioms.md § Mobile platforms` — the one input section this skill reads, named identically in § Inputs and § Procedure.
 
 **Closure verb**: `apply-platform-spec` (with `--platform=ios`).
 
@@ -75,8 +77,8 @@ Three detectors below are routed rather than closed here, and the reason is the 
 - Touch targets below Android's recommended 48dp×48dp (see detector 3 — routed, not closed here).
 - Material 3 components replaced by custom equivalents without design system justification.
 - FAB (Floating Action Button) misplaced (Material 3 puts it bottom-right or bottom-center).
-- Bottom navigation has > 5 destinations (Material 3 max).
-- Elevation tokens not from Material 3 scale (`elevation: 1 / 3 / 6 / 8 / 12` levels).
+- Bottom navigation destination count outside what the project's Material components actually support. **State no maximum from memory** — read the current Material 3 navigation-bar guidance and cite it, or report the observed layout consequence instead.
+- Elevation values not drawn from the project's Material elevation tokens. **The level values are not restated here**: read them from the Material version the project ships (`m3.material.io`) or from its own token file, and cite what you read. A hard-coded `dp` literal where a token exists is a finding regardless of which value it is — that is the checkable part.
 - Ripple state missing on tappable surfaces.
 
 **Closure verb**: `apply-platform-spec` (with `--platform=android`).
@@ -95,7 +97,7 @@ Cited minimums, so the routed finding carries evidence rather than an assertion:
 | Any pointer target | "The size of the target for pointer inputs is at least 24 by 24 CSS pixels", Level AA, with five exceptions | Primary-sourced: [WCAG 2.2 SC 2.5.8](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) |
 | iOS | "Create controls that measure at least 44 points x 44 points so they can be accurately tapped with a finger" — published under a **Hit Targets** heading with a "44pt x 44pt minimum" graphic | Primary-sourced: [Apple design tips](https://developer.apple.com/design/tips/) (read 2026-08-21). Same figure `ui-ux/rules/ui-principles.md` encodes for the `tap-target` axis, and the same URL `agents/app-store-reviewer.md` § Sources and `rules/mobile-principles.md` [S3] cite. |
 
-**Emits**: `routed_to: ui-ux/rules/ui-principles.md § tap-target (verb: expand-tap-target)`. **No `closure_verb:` key.**
+**Emits**: `routed_to: ui-ux/rules/ui-principles.md § Axis catalog (axis: tap-target, verb: expand-tap-target)`. **No `closure_verb:` key.**
 
 ### 4. platform-icon-drift
 
@@ -142,7 +144,7 @@ Common gaps:
 
 **Fingerprint**: content extends into the safe-area regions (notch / Dynamic Island on iOS; navigation gestures area on Android).
 
-**Detection**: scan layout components; check for `SafeAreaView` (iOS / RN) or `WindowInsets` handling (Android).
+**Detection**: scan layout components for the project's safe-area primitive. On React Native that is **`react-native-safe-area-context`** — `SafeAreaView` imported from `react-native` core is itself a finding, not a GOOD signal: the versioned docs carry "Deprecated. Use react-native-safe-area-context instead." (https://reactnative.dev/docs/0.81/safeareaview). On Android, `WindowInsets` handling. On SwiftUI, the safe-area modifiers. Read the framework's current page before treating any component name as the good signal.
 
 **Closure verb**: `respect-safe-area`.
 
@@ -150,7 +152,7 @@ Common gaps:
 
 **Fingerprint**: elevation/shadow values not from the platform's scale.
 - iOS: blurred shadows with platform-specific opacity.
-- Android: Material 3 elevation levels (0, 1, 3, 6, 8, 12 dp).
+- Android: a raw `dp` shadow/elevation literal where the project's Material elevation token exists. Cite the token file; do not restate a level scale from memory.
 
 **Closure verb**: `apply-platform-spec` (with `--platform=<target>`, scope=elevation).
 
@@ -196,5 +198,7 @@ Common gaps:
 - `align-discipline.md` — closed-vocabulary discipline.
 - `polish` command — dispatches this skill on mobile stacks (alongside reused frontend skills).
 - `ui-principles.md` (ui-ux pack) — frontend a11y / contrast / focus rules co-applied.
-- iOS HIG: https://developer.apple.com/design/human-interface-guidelines/ (canonical reference for iOS detectors).
+- iOS HIG: https://developer.apple.com/design/human-interface-guidelines/ (canonical reference for iOS detectors). **Not fetchable by a text fetcher** — the pages are client-rendered and, unlike framework symbol pages, have no `/tutorials/data/…json` twin. A figure from these pages must be read by a human and cited with a read date, never recalled.
+- React Native versioned docs: `https://reactnative.dev/docs/<version>/<component>` — renders the page as of that release, deprecation banner included. This is how the `SafeAreaView` status above was verified.
+- **Deliberately absent** — each was looked for and is not published, or was not retrievable this pass: a HIG tab-bar maximum, a Material 3 bottom-navigation maximum, and a haptics coverage standard. Where a detector needs one, cite the page you read or report the observed behaviour instead.
 - Android Material 3: https://m3.material.io/ (canonical reference for Android detectors).

@@ -296,10 +296,10 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 |---|---|---|---|
 | `/add-theme-variant` | One command to ADD a new theme variant to a multi-theme app — creates a NEW theme slot only (never… | `--plan`, `--name`, `--reimagine`, `--skin` | `/add-theme-variant dark` |
 | `/art-direct` | One command to DESIGN and BUILD a product / surface / flow's visual direction. | `--plan`, `--evolve`, `--reimagine`, `--yes`, `--direction`, `--surfaces=<n>`, `--render` | `/art-direct the dashboard` |
-| `/clone-design` | One command to CLONE an external design reference (a live URL or a screenshot) into a… | `--plan`, `--pages=<a,b,c>`, `--sections-only`, `--fidelity=<0-100>`, `--max-refine=<n>`, `--adopt=<tokens \| pages \| project>`, `--all-routes` | `/clone-design https://new-ella-demo-07.myshopify.com/` |
+| `/clone-design` | One command to CLONE an external design reference (a live URL or a screenshot) into a… | `--plan`, `--pages=<a,b,c>`, `--sections-only`, `--fidelity=<0-100>`, `--max-refine=<n>`, `--adopt=<tokens \| pages \| project>`, `--all-routes` | `/clone-design https://shop.example.com/` |
 | `/design-review` | Review UI changes for UX, design system compliance, and accessibility in parallel. | — | `/design-review [path\|screenshot]` |
 | `/enhance-ui` | Orchestrator for UI/UX enhancement. | `--plan`, `--direction`, `--scope`, `--dry-detect`, `--auto-extract`, `--skip-cleanup`, `--skip-iterate`, `--re-detect-only` | `/enhance-ui the sidebar — complete` |
-| `/grab-site` | FAITHFULLY MIRROR a live website into a folder of static HTML/CSS that looks like the ORIGINAL… | `--plan`, `--pages`, `--max-assets=<N>` | `/grab-site https://new-ella-demo-07.myshopify.com/` |
+| `/grab-site` | FAITHFULLY MIRROR a live website into a folder of static HTML/CSS that looks like the ORIGINAL… | `--plan`, `--pages`, `--max-assets=<N>` | `/grab-site https://shop.example.com/` |
 | `/redesign` | One command full UI/UX redesign of a page / screen / flow — rethinks layout + UX from scratch (NOT… | `--plan`, `--direction`, `--yes`, `--max-refine=<n>` | `/redesign <description-or-path> [<more>...]` |
 | `/ui-crawl` | Automated cross-route UI crawler. | `--smoke`, `--filter=<substr>`, `--full-matrix`, `--skip-interactions`, `--refresh-inventory`, `--workers`, `--no-dark` | `/ui-crawl --smoke` |
 | `/ui-crawl-fix` | Auto-fixes the mechanical UI findings from /ui-crawl by applying the closure-verb vocabulary from… | `--dry-run`, `--plan`, `--safe-only`, `--verify`, `--no-commit`, `--module=<name>` | `/ui-crawl-fix contrast` |

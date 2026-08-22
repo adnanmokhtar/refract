@@ -26,26 +26,21 @@ A focused analysis tool. Smaller scope than `/optimize-bundle` (which is a full 
 
 ## Procedure
 
-### 1. Detect bundler + runtime
+### 1. Detect bundler + runtime, then measure
 
-- React Native — Metro bundler. Check `metro.config.js`.
-- Expo — same, plus EAS build stats if available.
-- Flutter — `flutter build apk/ios --analyze-size`.
-- Native iOS — Xcode build folder + `xcrun altool`.
-- Native Android — `./gradlew bundleRelease` + `analyze APK`.
+**One toolchain table, shared with `/optimize-bundle` § Phase 3.** That command runs this skill; two divergent lists is how one of them goes stale. Edit both together, or edit neither.
 
-### 2. Generate analysis artifact
+| Stack | Size artifact | Command |
+|---|---|---|
+| React Native (Metro) | JS bundle map | `npx react-native-bundle-visualizer` · `npx metro-source-map-explorer ./bundle.js ./bundle.js.map` |
+| React Native (webpack-based) | bundle stats | the analyzer your bundler ships — for **Re.Pack** that is the webpack/Rspack analyzer it wraps. (`bundle-buddy` is a different, older tool; confirm what the project actually uses before naming one in a report.) |
+| Expo | build + dependency health | `npx expo-doctor` for version mismatches; EAS build output for the shipped artifact |
+| Flutter | per-arch size breakdown | `flutter build apk --analyze-size --target-platform=android-arm64` (and the iOS equivalent) |
+| Android | APK / AAB contents | `./gradlew :app:bundleRelease`, then Android Studio → Build → Analyze APK |
+| iOS | **App Thinning Size Report** | Archive → Distribute → App Thinning Size Report. This is the per-device download and install size. `xcrun altool` uploads and validates a build; it produces **no** size analysis — do not cite it as a measurement. |
+| Assets | per-file re-encode | `ImageOptim` / `pngquant` / `cwebp` for images; `ffprobe` for video |
 
-| Tool | Command |
-|---|---|
-| `react-native-bundle-visualizer` | `npx react-native-bundle-visualizer` |
-| `metro-source-map-explorer` | `npx metro-source-map-explorer ./bundle.js ./bundle.js.map` |
-| `bundle-buddy` | for Webpack/RSPack-based RN |
-| Flutter | `flutter build apk --analyze-size --target-platform=android-arm64` |
-| Android | `./gradlew :app:bundleRelease` then Android Studio → Build → Analyze APK |
-| iOS | Archive → Distribute → App Thinning Size Report |
-
-### 3. Categorize
+### 2. Categorize
 
 - **Application code** — src/.
 - **Direct dependencies** — top 10 by size.
@@ -55,21 +50,21 @@ A focused analysis tool. Smaller scope than `/optimize-bundle` (which is a full 
 - **Native modules** — iOS: Pod sizes. Android: AAR sizes.
 - **Locales** — Android language resources, iOS .lproj folders.
 
-### 4. Identify quick wins
+### 3. Identify quick wins
 
 | Pattern | Quick win |
 |---|---|
 | moment.js / moment-timezone | Replace with date-fns or Intl.DateTimeFormat |
 | lodash (full) | `lodash-es` + selective imports |
 | Icon library (full set) | Tree-shake or `@expo/vector-icons` selective |
-| PNG assets | Convert to WebP @ ~80% quality (50-70% size cut) |
+| PNG assets | Re-encode (WebP / AVIF) at the lowest quality that survives review. **State no expected percentage** — the saving depends entirely on the source image, and the only number that belongs in the report is the measured before → after for these files. |
 | Splash video | Replace with Lottie animation |
 | Multiple state libs | Consolidate (don't ship Redux + Zustand + MobX) |
 | Hermes off (RN) | Enable in release config |
 | ProGuard / R8 off (Android) | Enable in release config |
 | Dead screens | Remove; verify with grep/ts-prune |
 
-### 5. Report
+### 4. Report
 
 ```
 ## Bundle analysis — <platform> — <date>
@@ -88,7 +83,7 @@ Quick wins:
 
 Compared to <previous-version-or-baseline>:
 - size delta: <+/-KB>
-- cold-start delta: <+/-ms>
+- cold-start delta: <+/-ms, measured by `@device-performance-auditor` on a named device — omit the row rather than estimating it from the size delta>
 ```
 
 ## Inputs
@@ -112,4 +107,6 @@ Compared to <previous-version-or-baseline>:
 ## Related
 
 - `/optimize-bundle` — runs this skill plus full audit + recommendations.
-- `@app-store-reviewer` — uses bundle size as a release-blocker signal.
+- `@app-store-reviewer` — **does not treat size as an engineering problem**; its own anti-trigger routes that here. What it owns is the published *store* limit and its consequence (Play's non-blocking mobile-data dialog above 200MB, the hard base-module and Apple caps). Ask it "will this upload be accepted"; ask this skill "why is it this big".
+- `@device-performance-auditor` — owns **cold start** as a measured cost. Hand it the build and the named device; do not derive a startup verdict from a size number here.
+- `/optimize-bundle` § the published-limits table — the only place in this pack that states a store size figure.

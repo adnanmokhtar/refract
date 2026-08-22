@@ -1,23 +1,34 @@
 ---
 name: a11y-quick-check
-description: A focused 60-second a11y check on a single screen / component. Reports the violations that auto-tools catch, plus the ones they miss that humans must verify. The in-pack a11y pass that /design-review and /enhance-ui run; escalates to the frontend pack's @accessibility-auditor for a full audit when that pack is installed.
+description: A focused a11y check on a single screen / component, split into the lane an agent can actually execute (axe rule ids, computed contrast, DOM semantics from source) and the lane only a human can (screen reader, keyboard, OS reduced-motion). Reports each lane's real coverage instead of one blended percentage. The in-pack a11y pass that /design-review and /enhance-ui run; escalates to the frontend pack's @accessibility-auditor for a full audit when that pack is installed.
 kind: skill
 pack: ui-ux
 ---
 
 # Skill: a11y-quick-check
 
-A fast pass focused on the highest-impact a11y issues, tunable per scope. This is the **resolvable in-pack** a11y check — `/design-review` and `/enhance-ui` run it. For a heavier full audit, escalate to the `frontend` pack's `@accessibility-auditor` *when that pack is installed* — never depend on it from here; this skill is self-sufficient for one screen / one PR.
+The **resolvable in-pack** a11y check — `/design-review` and `/enhance-ui` run it. For a heavier full audit, escalate to the `frontend` pack's `@accessibility-auditor` *when that pack is installed* — never depend on it from here; this skill is self-sufficient for one screen / one PR.
 
 ## Premise
 
-Find real a11y issues, no hand-waves. Every finding cites `<path:line>` (or screen-reader transcript line / DOM selector) for the offender, and names the WCAG criterion it violates. "Looks inaccessible" is not a finding; "icon-only `<button>` at `Cart.vue:42` has no accessible name (WCAG 4.1.2)" is. Auto-tools cover ~40% — the audit's value is the manual 60% (focus order, SR announcements, motion, keyboard model). Citations let a reviewer reproduce the issue without re-running the tools.
+**Two lanes, reported separately — because one of them an agent can run and the other one it cannot.**
+
+An unattended run executes **Lane A** and *nothing else*. Printing a single blended "coverage" number over both lanes is how this skill used to claim credit for work no run performed. So:
+
+- **Lane A — machine-resolvable.** Anything decidable from the source tree, the token file, or a headless browser: axe rule ids, contrast ratios **computed** from the resolved token pair, DOM semantics, label wiring, heading order, `prefers-reduced-motion` branches, target geometry. An agent closes this lane completely, or names what blocked it.
+- **Lane B — human-only.** Screen-reader announcement quality, keyboard *feel*, focus-order sanity on a real device, OS-level reduced-motion. An agent **cannot** run these. It emits the runbook and marks the lane `NOT RUN (human lane)` — never `✓`, never silently absent.
+
+Every finding cites `<path:line>` (or an axe rule id + DOM selector) for the offender and names the WCAG criterion **with its conformance level**. "Looks inaccessible" is not a finding; "icon-only `<button>` at `Cart.vue:42` has no accessible name — axe `button-name`, WCAG 4.1.2 (Level A)" is.
+
+**How much do the auto-tools cover? Do not print a number.** The most-cited measurement — Deque's, over 2,000+ audits / 13,000+ pages / ~300,000 issues — is **57%**, but that is share of issue *volume*, not of success criteria, and Deque notes it is inflated by colour-contrast node counts ([deque.com](https://www.deque.com/blog/automated-testing-study-identifies-57-percent-of-digital-accessibility-issues/)). What determines the split on *your* screen is **which SC families the surface trips**: a table of text and links is mostly machine-checkable; a custom combobox, a drag-reorder or a live region is mostly not. Report the two lanes' real coverage instead.
 
 ## Halt conditions
 
-- Halt on any finding without `<path:line>` or a reproducible artifact (screen-reader transcript, screenshot, axe rule id).
-- Halt on "auto-tool said clean" used as a stand-in for manual review.
-- Halt on severity claims ("BLOCKER") without a named WCAG criterion.
+- Halt on any finding without `<path:line>`, an axe rule id, or a reproducible artifact (screen-reader transcript, screenshot).
+- Halt on "auto-tool said clean" used as a stand-in for the Lane-B checks it cannot see.
+- Halt on a severity claim ("BLOCKER") without a named WCAG criterion **and its level** — a Level-AAA criterion asserted as the AA floor is the specific error this halt exists to catch (see the tap-target row).
+- Halt on a contrast ratio that was estimated rather than computed from the two resolved colour values.
+- Halt on a Lane-B lane printed as `✓` by an unattended run.
 
 ## When to use
 
@@ -26,132 +37,93 @@ Find real a11y issues, no hand-waves. Every finding cites `<path:line>` (or scre
 - Adding a new component to the design system.
 - Sanity check before declaring a screen "done."
 
+**NOT for** a native mobile tree (SwiftUI / Compose / React Native / Flutter). These checks are web-DOM-shaped — CSS pixels, `:focus-visible`, `<label for>`. The platform floor and its cited platform minimums are `platform-conventions-audit` *(mobile pack)*; escalate there instead of running web tooling against a native surface.
+
 ## Procedure
 
-### 1. Run the automated tools
+### Lane A1 — Automated scan (needs a browser)
 
-Web:
-- `axe-core` (browser extension or `@axe-core/playwright` for CI).
-- `Lighthouse` accessibility audit (Chrome DevTools).
-- `pa11y` (CLI).
+`axe-core` (extension, or `@axe-core/playwright` in CI) — report **rule ids**, not prose: `color-contrast`, `button-name`, `label`, `link-name`, `image-alt`, `heading-order`, `region`, `aria-required-attr`, `frame-title`, `target-size` ([axe rule descriptions](https://github.com/dequelabs/axe-core/blob/develop/doc/rule-descriptions.md)). `Lighthouse` — the failing audits, never the score alone. `pa11y` — for pipelines with no Playwright. No browser → `SKIPPED (no harness)`; Lane A2 still runs.
 
-React Native:
-- `axe-react-native` (where supported).
-- `accessibility-scanner` (Android tool).
-- VoiceOver / TalkBack manual walkthrough.
+### Lane A2 — Source-resolvable, no browser required
 
-Flutter:
-- `flutter analyze` accessibility (static).
-- `accessibility_test` package.
-- TalkBack / VoiceOver manual walkthrough.
+These close without a render, so an agent has no excuse to skip them:
 
-These catch ~40% of WCAG issues. The other 60% need human review.
-
-### 2. Manual checks the auto-tools miss
-
-| Check | What to verify |
+| Check | How it resolves from source |
 |---|---|
-| Keyboard reachability | Tab through every interactive element. Visible focus indicator. Logical order. |
-| Skip-link | First Tab on a page goes to "Skip to content" or main element. |
-| Focus management on modal/drawer | Focus moves into modal on open; back to trigger on close. |
-| Form errors | Each error tied to its input via `aria-describedby` + `aria-invalid`; announced to screen reader. |
-| Loading states | Communicated via live region OR `aria-busy`. |
-| Toast messages | `role="status"` (polite) or `role="alert"` (assertive). Don't steal focus. |
-| Headings | Logical hierarchy (h1 → h2 → h3); no jumps. One h1 per page. |
-| Image alt | Decorative: `alt=""`. Informative: meaningful. Functional (icon button): `aria-label`. |
-| Color contrast at hover/focus state | Auto-tools test default state; hover/focus often forgot. |
-| Motion | `prefers-reduced-motion` respected for entry / scroll / parallax. |
-| Touch targets (mobile) | ≥ 44×44 CSS pixels (Apple HIG / WCAG 2.5.5). |
-| Form labels | `<label for>` or `aria-labelledby`. Placeholder is NOT a label. |
-| Custom controls | If you re-implement a select / tab / accordion, verify keyboard model matches WAI-ARIA Authoring Practices. |
-| Dynamic content | Newly inserted content reachable + announced. |
+| Contrast (default state) | Resolve the foreground/background **token pair** from the token file and **compute** the ratio. Print `#595959 on #fff → 7.0:1 ✓ AA` / `#999 on #fff → 2.85:1 ✗ AA`. Unresolvable pair (dynamic value, unresolved var) → `contrast: SKIPPED (pair unresolved)`, never a guess. Same source-level compute `/design-review` Phase 6 requires. |
+| Accessible name | Icon-only `<button>` / `<a>` with no text child, no `aria-label`, no `aria-labelledby` → finding. Visible text already present → **not** a finding. |
+| Label wiring | `<input>` / `<select>` / `<textarea>` with no `<label for>` and no `aria-labelledby`. A `placeholder` is not a label. |
+| Heading order | Parse the template's heading levels in document order; flag skips (h1 → h3) and multiple `<h1>` per page. |
+| `outline: none` | Any interactive selector clearing the outline with no `:focus-visible` replacement in the same file. |
+| Reduced motion | Every `animation` / `transition` declaration reachable without a `prefers-reduced-motion` branch (project-wide reset counts — cite it by `<path:line>`). |
+| Colour-only state | `color:` is the only differentiator on an error/success/selected state — no icon, no text, no shape. |
+| Target geometry | Compute the border-box of small interactive elements at the mobile breakpoint (two thresholds — see Lane A3). |
+| Focus management | Focus moves into a modal/drawer on open and returns to the trigger on close — readable from the open/close handlers. |
+| Form errors | Each error tied to its input via `aria-describedby` + `aria-invalid`. |
+| Loading + toasts | Loading announced via a live region or `aria-busy`, not a bare spinner; toasts `role="status"` / `role="alert"`, never stealing focus. |
+| Contrast at hover / focus / disabled | Auto-tools test the default state only — compute the other three token pairs. |
+| Custom controls | A re-implemented select / tab / accordion matches the keyboard model in [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/) — cite the pattern by name. |
+| Dynamic content | Newly inserted content is reachable in the tab order and announced. |
 
-### 3. Run with screen reader
+### Lane A3 — Target size: two different numbers, do not conflate them
 
-5-minute manual walk:
-- macOS: VoiceOver (Cmd+F5).
-- Windows: NVDA (free).
-- iOS: VoiceOver (Settings → Accessibility).
-- Android: TalkBack.
+| Threshold | Criterion | Level | Use it as |
+|---|---|---|---|
+| **24 × 24 CSS px** | [WCAG 2.2 SC 2.5.8 Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) | **AA** | The **conformance floor.** This is the one a "WCAG 2.2 AA" claim is measured against. Five named exceptions: **Spacing** (a 24px-diameter circle centred on each undersized target's bounding box does not intersect another target's), **Equivalent** (same function reachable from a conforming control on the page), **Inline** (target sits in a sentence / is constrained by the line-height of non-target text), **User agent control**, **Essential**. |
+| **44 × 44 CSS px** | [WCAG 2.2 SC 2.5.5 Target Size (Enhanced)](https://www.w3.org/TR/WCAG22/) | **AAA** | A **design target**, not the AA floor. It matches Apple HIG's 44pt and sits under Material's 48dp, so it is a sound house rule — state it as a house rule, never as "what AA requires". |
 
-Listen for:
-- Buttons announced as "button" (not "graphic" or "div").
-- Form fields announce their label + state ("Email, edit text, required").
-- Errors announced when they appear.
-- Headings spoken with level ("Heading 1, Settings").
+**Verification must name which threshold it used.** `axe-core`'s `target-size` rule implements **2.5.8 at 24×24** including the spacing alternative ([Deque rule docs](https://dequeuniversity.com/rules/axe/4.10/target-size)) — so "axe clean" proves 24, not 44. A 44 claim needs a measured border-box, not axe. Print both: `target-size: axe clean (2.5.8 AA, 24×24) · house 44 target: 3 elements below (measured)`.
 
-### 4. Run with keyboard only
+### Lane B — the human runbook (emit it; do not claim it)
 
-Unplug mouse / disable touch. Walk the flow:
-- Every action reachable.
-- Focus indicator visible at every step.
-- No focus traps (modal that locks you in).
-- Escape closes modals.
-- Enter activates buttons; Space activates checkboxes.
+Hand these to a person. An unattended run prints the runbook and marks the lane `NOT RUN (human lane)`.
 
-### 5. Color + contrast
-
-- Use `contrast-ratio.com` or DevTools color picker.
-- Body text: ≥ 4.5:1 vs background.
-- Large text (18pt+ or 14pt bold): ≥ 3:1.
-- UI controls + state indicators: ≥ 3:1.
-- Don't convey state by color ALONE (red = error → also use icon + text).
+1. **Screen reader, 5 minutes** — VoiceOver (macOS `Cmd+F5` / iOS) · NVDA (Windows, free) · TalkBack (Android). Listen for: buttons announced as "button" (not "graphic"/"div"); fields announcing label + state ("Email, edit text, required"); errors announced when they appear; headings spoken with level.
+2. **Keyboard only** — mouse away, touch off. Every action reachable; focus visible at every step; no focus trap; `Esc` closes modals; `Enter` activates buttons, `Space` toggles checkboxes.
+3. **OS reduced-motion** — toggle the system setting and re-walk the flow. A CSS branch that exists in source is not proof the rendered motion actually stops.
+4. **Zoom / reflow** — 200% zoom and a 320px-wide viewport: no content lost, no horizontal scroll (WCAG 1.4.10 Reflow, Level AA).
 
 ## Output format
 
 ```
 ## A11y quick-check — <screen / component> — <date>
 
-### Automated tool results
-axe-core: <X> violations / <Y> serious / <Z> moderate
-Lighthouse a11y: <score>/100
+### Lane A — machine-resolvable
+axe-core: <X> violations (<rule-id> ×N, …) | SKIPPED (no harness)
+Lighthouse a11y: <score>/100 + failing audits | SKIPPED
+contrast (computed from tokens): 6 pairs checked · 2 fail
+  - `Button.vue:31` disabled: #b3b3b3 on #fff → 2.14:1 ✗ AA (needs 4.5:1) — WCAG 1.4.3 (AA)
+target-size: axe clean (2.5.8 AA, 24×24) · house 44 target: 3 below (measured)
 
-### Manual findings
+**BLOCKERS:** `Modal.vue:8` no focus trap, Tab cycles the page behind it — WCAG 2.4.3 (A) · `CrudActions.vue:19` icon-only submit has no accessible name — axe `button-name`, WCAG 4.1.2 (A)
+**HIGH:** `OrderForm.vue:55` errors not tied to inputs (`aria-describedby` absent) — WCAG 3.3.1 (A) · `Page.vue:12` heading skip h1 → h3 — axe `heading-order`, WCAG 1.3.1 (A)
+**MEDIUM:** `Toolbar.vue:44` close-button border-box 32×32 — passes 2.5.8 (AA), below the house 44 target
+**LOW:** `Card.vue:7` decorative icon lacks `aria-hidden="true"`
 
-**BLOCKERS:**
-- Modal lacks focus trap; Tab cycles through page behind modal.
-- Submit button has no accessible name (icon-only with no aria-label).
-- Color contrast on disabled state is 2.1:1 — fails AA.
-
-**HIGH:**
-- Form errors not announced to screen reader.
-- Heading skip from h1 → h3.
-
-**MEDIUM:**
-- Touch target on close button is 32×32 (mobile).
-- Loading spinner has no aria-busy or live-region announcement.
-
-**LOW:**
-- Decorative icon next to text doesn't have `aria-hidden="true"` (not harmful, but cleaner).
-
-### Screen-reader walkthrough notes
-- "Button graphic, button" — the button name is missing; users hear "graphic" only.
-- Form announces "edit text" on every field with no label.
-
-### Keyboard walkthrough notes
-- Tab order goes: nav → content → footer → BACK to nav skipping the form. Wrong order.
-- Esc doesn't close the modal.
+### Lane B — human runbook (NOT RUN — requires a person)
+screen-reader · keyboard-only · OS reduced-motion · 200% zoom / 320px reflow
+Emitted above; nothing in this lane is claimed by this run.
 
 ### Recommendations (ordered)
-1. Add `aria-label` to icon-only buttons (fixes 3 issues).
-2. Add focus trap + Esc handler to modal (fixes 2 issues).
-3. Bump disabled state contrast to ≥ 3:1.
-4. Add live-region for form errors.
-5. Increase touch targets to 44×44.
+1. Add `aria-label` to the icon-only buttons (closes 3 Lane-A findings).
+2. Add focus trap + Esc handler to the modal (closes 2).
+3. Raise disabled-state token to ≥ 4.5:1.
 
-Total fixes: 5 changes; estimated 1 hour of work.
-
-### Coverage (which checks actually ran — honesty footer)
-axe ✓ · keyboard ✓ · screen-reader SKIPPED (no VoiceOver this pass) · contrast ✓ (default state; hover/focus SKIPPED) · reduced-motion ✓
-Not validated: screen-reader walk — the ~60% auto-tools miss is only partly covered this pass.
+### Coverage (which lane actually ran — honesty footer)
+Lane A: axe ✓ · contrast ✓ (default + hover + disabled; focus SKIPPED — token unresolved)
+        · semantics ✓ · reduced-motion ✓ · target-size ✓
+Lane B: NOT RUN (human lane) — screen-reader, keyboard, OS reduced-motion, zoom/reflow
+Not validated: everything in Lane B. Do not read this run as "the screen is accessible".
 ```
 
-Any lane not run prints `SKIPPED (<why>)`, never an empty (implicitly-passing) section — a skipped screen-reader or keyboard walk must never read as clean (the skill's own #1 failure mode). The `Not validated:` line names the highest-value skipped lane so the reader knows the real coverage.
+Any check that did not run prints `SKIPPED (<why>)` or `NOT RUN (human lane)` — never an empty (implicitly-passing) section. The `Not validated:` line names the whole unclosed lane so nobody reads a Lane-A pass as a clean screen.
 
 ## Inputs
 
 - Screen / component path (or "the changed files in this PR").
-- Optional: WCAG level target (default AA).
+- The token source (required for computed contrast — without it, contrast is `SKIPPED (no token source)`).
+- Optional: WCAG level target (default **AA** — which means 2.5.8/24×24 for targets, not 2.5.5/44).
 
 ## Outputs
 
@@ -159,15 +131,19 @@ Any lane not run prints `SKIPPED (<why>)`, never an empty (implicitly-passing) s
 
 ## Failure modes
 
-- Auto-tool said clean → declared good. Auto-tools miss focus order, heading hierarchy, screen-reader announcement, motion. Manual review is mandatory.
-- Tested on macOS VoiceOver only — iOS VoiceOver behaves differently.
-- Tested with keyboard but skipped screen reader → found 60% of issues, missed the worst.
-- "Touch target ≥ 44×44" check passed in CSS but the actual hit area is smaller due to padding miscount.
-- Reported `aria-label` missing but the element has visible text — visible text works, no aria-label needed.
+- **Auto-tool said clean → declared good.** axe cannot see focus order quality, announcement wording, or whether motion actually stopped. That is Lane B, and Lane B did not run.
+- **A AAA criterion quoted as the AA floor.** Claiming AA against 2.5.5 both over-reports the requirement and hides that 2.5.8 — with its Spacing exception — was never evaluated.
+- **"Verified 44×44 with axe."** axe's `target-size` implements 2.5.8 at 24×24 and passes everything between the two. The named tool cannot verify the claimed threshold.
+- **Contrast asserted, not computed.** A ratio nobody computed is a guess with a colon in it.
+- **Tested on macOS VoiceOver only** — iOS VoiceOver behaves differently.
+- **`aria-label` reported missing on an element with visible text** — visible text works, and a label that differs from it breaks WCAG 2.5.3 (Label in Name).
+- **Tap target measured in CSS, not as a rendered border-box** — padding miscounts, and the hit area is what the criterion is about.
 
 ## Related
 
-- `@accessibility-auditor` *(frontend pack)* — full audit; this skill is the resolvable in-pack fast-pass version and the a11y lane `/design-review` runs. Escalate only when the frontend pack is installed.
-- `motion-audit.md` — overlap on reduced-motion.
-- `design-token-audit.md` — overlap on contrast (token swaps must preserve contrast).
+- `@accessibility-auditor` *(frontend pack)* — full audit; this skill is the resolvable in-pack fast-pass and the a11y lane `/design-review` runs. Escalate only when the frontend pack is installed.
+- `platform-conventions-audit` *(mobile pack)* — owns the NATIVE a11y floor and the platform tap-target minimums; this skill is web-DOM-shaped and routes native surfaces there.
+- `motion-audit.md` — the reduced-motion inventory; this skill checks the branch exists, `motion-audit` checks every animation against it.
+- `design-token-audit.md` — a token swap must not drop contrast below AA; that skill's colour-swap halt delegates the measure here.
+- `ui-design-sweep.md` — consumes these findings as `lift-contrast` / `align-focus-ring` / `clarify-affordance` / `expand-tap-target`.
 - `@ux-reviewer` — overlap on flow + content quality.

@@ -8,6 +8,36 @@ pack: ui-ux
 
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/ui-sweep <phase> --plan` runs the **read-only** phases (PRE-FLIGHT → SCAN → METRICS → PLAN — the 8 detectors + coverage metrics + the user-flow plan), writes the fix plan to `.claude/plans/`, and exits **before the FIX phase** — no code edits, no baseline overwrite. Execute it later with `/execute-plan <file>` (or hand it to any tool). The in-pack `ai/ui-sweep/ledger.md` is the deep report-based handoff; `--plan` is the tool-agnostic spelling of the same stop-before-FIX boundary.
 
+> **Not this command? (ANTI-triggers)** — one surface, not the project → **`/enhance-ui`**. Fast per-route browser QA rather than measured design quality → **`/ui-crawl`** (then **`/ui-crawl-fix`** for its mechanical findings). Read-only review of what just changed → **`/design-review`**. Code structure rather than UI → **`/align-scan`**. A surface whose LAYOUT is wrong → **`/redesign`**; a whole LOOK that is wrong → **`/art-direct`** (which of those two is decided by [`redesign.md § Phase 1 — THE LANGUAGE-OR-COMPOSITION TEST`](redesign.md), never by asking the user). Full map: § The ui-ux command map, immediately below.
+
+## The ui-ux command map
+
+*(Canonical. Every other ui-ux command's `Not this command?` block links here rather than restating it.)*
+
+All **ten** commands are below — including `/add-theme-variant`, which earlier versions of this table excluded and thereby made unfindable. They differ by **the question you can actually answer before you start**; that is the column to read first, because "which command" is usually a question about your own intent, not about the commands.
+
+| If you can say… | Command | Writes? | Scope |
+|---|---|---|---|
+| "Tell me what's wrong with what I just changed. Change nothing." | **`/design-review`** | NO | changed files / a screenshot |
+| "Tell me what's broken across every route, from a real browser. Change nothing." | **`/ui-crawl`** | NO | project-wide, per-route |
+| "I have a crawl report and it's the same five mechanical issues 1,000 times." | **`/ui-crawl-fix`** | YES | the crawled findings, patched at the wrapper level |
+| "I want measured UI/UX quality for the whole project, with numbers and a report." | **`/ui-sweep`** (this) | YES | project-wide, 8 detectors + baselines |
+| "This ONE surface should look more finished. Same layout, same look, better executed." | **`/enhance-ui`** | YES | one surface (+ its consumers, via scope tier) |
+| "This ONE surface's LAYOUT / IA / ranking is wrong. Rebuild it — in the look we already have." | **`/redesign`** | YES | one surface / flow |
+| "Our LOOK itself is the problem. Decide what this product should feel like, then build it." | **`/art-direct`** | YES | scope arg — designs, then runs `/redesign` per surface |
+| "Add an N+1 theme slot to a multi-theme app, touching nothing that already exists." | **`/add-theme-variant`** | YES | a new `themes/<name>/` slot only (multi-theme apps only) |
+| "Give me *that* site — its real HTML, CSS, images, fonts — as a folder that opens offline." | **`/grab-site`** | YES | a new folder from an external URL |
+| "Give me *that* site's design SYSTEM, brand-neutral, so I can restyle and own it." | **`/clone-design`** | YES | a new folder from an external URL / screenshot |
+
+`/polish` (global, not a ui-ux specialist): the simple-surface front door that routes `frontend-*` into the same 19-verb vocabulary — scope arg or whole project, writes code. `/align` · `/align-recheck` (align pack): enforce tokens and rules that already exist, no creative work.
+
+**The two splits that trip people up, and how each is resolved:**
+
+1. **`/redesign` vs `/art-direct`** — both are claimed by *"it looks generic / dated / forgettable"*, and **the user cannot answer it**: whether the fault is this page's composition or the app's visual language is the *output* of a diagnosis. It is decided mechanically by [`redesign.md § Phase 1 — THE LANGUAGE-OR-COMPOSITION TEST`](redesign.md), which either command runs, from the baseline render plus the token source. Never ask the user to choose; run the test and print the verdict.
+2. **`/grab-site` vs `/clone-design`** — same input (a URL), opposite output. Want the site to LOOK like the original (real logo, real photos, real fonts)? `/grab-site`. Want a reusable, brand-neutral design *system* you will restyle? `/clone-design` — its output is deliberately a placeholdered wireframe, which is the #1 misuse when someone wanted a copy.
+
+Rule of thumb: detect with `/ui-crawl`, fix routine findings with `/ui-crawl-fix`, go deep + measurable with `/ui-sweep`, finish one area with `/enhance-ui`, gate a change with `/design-review`. When a surface scores **below floor** (hierarchy < 80, systemic cross-surface drift) and the fix is structural rather than token-level, hand it to re-composition — and let the language-or-composition test, not a guess, pick `/redesign` or `/art-direct`.
+
 ## The Premise (read this first)
 
 **Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — when routing to `/align-scan` for SOLID / structural work, use linked vocabulary (single source of truth).
@@ -117,7 +147,7 @@ Target: 100%. Below → `wire-empty-state` / `wire-loading-state` / `wire-error-
 For each route, runs Playwright at 3 breakpoints: 360px (mobile), 768px (tablet), 1280px (desktop). Captures:
 
 - Screenshot at each breakpoint.
-- Tap-target audit at 360px (every interactive element ≥ 44×44px).
+- Tap-target audit at 360px, reported against **both** thresholds and never blurred into one number: **WCAG 2.2 SC 2.5.8 (Minimum) — Level AA, 24×24 CSS px** is the conformance floor (with its Spacing / Inline / Equivalent / User-agent / Essential exceptions), and **44×44** is the house design target (SC 2.5.5, Level **AAA**; iOS HIG 44pt, under Material's 48dp). `axe-core`'s `target-size` rule implements the 24 rule, so an axe pass does not prove 44 — the house target needs a measured border-box. Full contract: `ui-design-sweep.md § 16. expand-tap-target`.
 - Layout collapse audit (no horizontal scroll, no clipped content).
 - Critical-path visibility (primary action above fold at every breakpoint).
 
@@ -380,27 +410,8 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 
 ## Related
 
-### UI-UX command map (which one to reach for)
-
-The ui-ux pack has ten commands; the nine general-purpose ones are below (the tenth, `/add-theme-variant`, is the multi-theme-only specialist — adds a new theme slot; see its own docs). They differ by intent, scope, and whether they write. (The global `/polish` also routes `frontend-*` into the same 19-verb vocabulary, but it is the simple-surface front door, not a ui-ux specialist — see the note under the table.) Pick by the verb you actually want:
-
-| Command | Intent | Scope | Writes code? |
-|---|---|---|---|
-| `/ui-crawl` | **detect** — Playwright crawl, axe a11y, console/network probes, ranked findings | project-wide (read-only) | NO (report only) |
-| `/ui-crawl-fix` | **fix** — consume a `/ui-crawl` report, patch findings at the wrapper level | the crawled findings | YES |
-| `/ui-sweep` (this) | **deep** — specialist sweep with quantified metrics + HTML visual report + baselines | project-wide | YES (FIX phase) |
-| `/enhance-ui` | **iterate** — visual polish + variant exploration on ONE area | single surface | YES |
-| `/design-review` | **audit** — cite-or-halt review of changed UI (UX + design-system + a11y) | changed files / screenshot | NO (audit only) |
-| `/redesign` | **re-compose** — rebuild a page/flow's structure INSIDE the already-decided visual language | one surface / flow | YES |
-| `/art-direct` | **direct** — invent + score a NEW visual language from product goals, then build it | scope arg | YES (designs then builds) |
-| `/grab-site` | **grab** — faithfully mirror a live site into real static HTML/CSS (real assets, opens offline) | an external URL | YES (new folder) |
-| `/clone-design` | **clone** — extract a reference's design SYSTEM into brand-neutral HTML/CSS, verified by pixel-diff | an external URL / screenshot | YES (new folder) |
-
-`/polish` (global, not a ui-ux specialist): the simple-surface front door that routes `frontend-*` into the same 19-verb vocabulary — scope arg or whole project, writes code.
-
-Rule of thumb: detect with `/ui-crawl`, fix routine findings with `/ui-crawl-fix`, go deep + measurable with `/ui-sweep`, polish/explore one area with `/enhance-ui`, gate a change with `/design-review`. When a surface scores **below floor** (hierarchy < 80, systemic cross-surface drift) and the fix is structural rather than token-level, hand it off to re-composition — `/redesign` to rebuild it in the existing visual language, `/art-direct` when it needs a new language rather than a rework. For a full external site, `/grab-site` (faithful real-asset mirror) or `/clone-design` (brand-neutral design system). The global `/polish` is the simple-surface entry into the same 19-verb vocabulary.
-
 ### Sibling commands
+*(The full ten-command routing table is `§ The ui-ux command map` at the top of this file — it lives there so a reader finds it before choosing, not after scrolling past the end.)*
 - `/enhance-ui <description>` — single-area version.
 - `/design-review` — read-only audit (different focus: cite-or-halt findings).
 - `/align-scan` — structural quality (orthogonal to this command).

@@ -40,6 +40,7 @@ You live between two failures and must reject **both** by name:
 - Background work proposed as a foreground timer, or scheduled work with an assumed window **duration** → HALT. A duration figure for a background window is a fabrication; there is no published one to quote.
 - A new server field or endpoint shape the currently-installed app version cannot ignore → HALT; make it additive or state the min-version gate.
 - A store-blocking artifact deferred ("we will do the privacy manifest before submission") → HALT.
+- Biometric unlock proposed without naming which of the two designs in § 3b it is, or with no stated behaviour on enrollment change and no fallback for the not-enrolled / lockout cases → HALT. "Add Face ID" is not a design.
 - A performance, size, or stability **budget** presented as a platform limit, or a platform limit quoted with no source → HALT. Budgets are the project's and are measured; limits are the platform's and are cited (§ Sources).
 - A finding on the usability/a11y floor — contrast, missing empty/loading/error state, tap-target, focus, hierarchy, type-scale, rhythm — recorded as an architecture finding → HALT; route it, do not re-own it (§ What you do not own).
 - The run starts writing screens, components, or native config → HALT. You produce the design; `/add-screen` and `/add-feature` build it.
@@ -92,7 +93,7 @@ You never re-audit these and never invent a new axis for them. Each row names wh
 
 ### 1. Platform + runtime — decide by constraint, not by catalog
 
-Name the constraints first, in this order, and let them eliminate options: **required OS capabilities** (what the app must reach that a cross-platform runtime does not surface) → **team** (the language the team can maintain at 3am) → **update cadence** (whether a fix must reach users without a store round-trip — power 4) → **distribution** (store presence required at all?) → **UI fidelity** (platform-native idiom vs one designed language on both). A choice that no constraint forces is a preference; record it as one. The concrete option list and its trade-offs live in `STACK.md` and `references/`, which are versioned and updatable — do not restate a framework comparison here, where it will go stale and be cited as current.
+Name the constraints first, in this order, and let them eliminate options: **required OS capabilities** (what the app must reach that a cross-platform runtime does not surface) → **team** (the language the team can maintain at 3am) → **update cadence** (whether a fix must reach users without a store round-trip — power 4) → **distribution** (store presence required at all?) → **UI fidelity** (platform-native idiom vs one designed language on both). A choice that no constraint forces is a preference; record it as one. The concrete option list and its trade-offs live in `STACK.md` and in `references/flutter.md` · `react-native.md` · `expo.md` · `jetpack-compose.md` · `swiftui.md`, which are versioned and updatable — do not restate a framework comparison here, where it will go stale and be cited as current. If `package.json` declares `expo`, `expo.md` is the operative file and `react-native.md` is its base layer; reading only the second gets the native-directory rule backwards.
 
 Record the outcome as: chosen runtime · the constraint that forced it · the constraint it sacrifices · what would make this decision wrong later.
 
@@ -110,6 +111,19 @@ Then, for every screen, answer separately: **what does a cold launch after proce
 
 Treat permission as four states — not-determined, granted, denied, restricted-or-permanently-denied — with the system dialog available only from the first. Design the pre-prompt (value shown *before* the dialog, never after a denial), the degraded path per permission class, the re-check on every use because grants are revocable in Settings, and the Settings escape hatch for the permanently-denied state. Any permission requested but not reachable in code is a removal target, not a leftover.
 
+### 3b. Biometric gates — decide what is actually protected
+
+Biometry is not a permission and does not belong in the state machine above. It is a ceremony, and the only design question that matters is **what the ceremony is attached to**:
+
+- **Biometry gating the UI** — an evaluate call returns true and the screen renders. Whoever can read the storage still reads it; this is a convenience, and calling it a security control in a design doc is the failure mode here.
+- **Biometry gating the key** — the secret is *unreadable* until the OS reports a successful authentication, because the Keystore / Keychain enforces it, not the app. On Android that is `setUserAuthenticationRequired(true)` on the `KeyGenParameterSpec` [S8]; on Apple it is an access-control flag on the keychain item [S9]. Anything protecting a token, a payment method, or health data must be this one.
+
+Three consequences that a design stopping at "we'll add Face ID" discovers in production:
+
+- **Enrollment change is a product decision, and both platforms make you take it.** Apple's `.biometryCurrentSet` means "the item is invalidated if fingers are added or removed for Touch ID, or if the user re-enrolls for Face ID", while `.biometryAny` means "the item is still accessible ... if fingers are added or removed" [S9]; Android's `setInvalidatedByBiometricEnrollment` invalidates "if the user has registered a new biometric credential, such as a new fingerprint", is available only on API 24+, and is **true by default** [S8]. Invalidate = a user who adds a fingerprint is logged out; survive = a newly enrolled finger opens the app. State which one this product wants and why; do not inherit the default silently.
+- **The failure set is four-way, not two-way**, so the fallback is designed, not caught. Android's `canAuthenticate()` separates `BIOMETRIC_ERROR_NO_HARDWARE`, `BIOMETRIC_ERROR_HW_UNAVAILABLE` and `BIOMETRIC_ERROR_NONE_ENROLLED`, the last of which has an enrolment intent rather than an error screen [S8]; Apple fails `deviceOwnerAuthenticationWithBiometrics` when biometry is "unavailable or not enrolled" and, after too many failed attempts, disables biometry system-wide until "the user enter[s] the device passcode to reenable biometry" — surfaced as `LAError.biometryLockout` [S10]. Decide per screen whether the fallback is device credential, app credential, or a hard block.
+- **Deleting the app does not delete the secret on iOS.** Keychain items survive reinstall with the same bundle ID [S11], so "biometric unlock" on a reinstalled app can open the previous user's session. The remedy is a first-launch flag in non-keychain storage that clears the keychain when absent; it is app code, and no OS uninstall hook exists to do it for you. `ai-patterns/native-storage.md` holds the placement matrix; the per-platform API surface is `references/swiftui.md` and `references/jetpack-compose.md`.
+
 ### 4. Power 3 — background work under an unknown budget
 
 Route every "and then it syncs in the background" through the platform's documented scheduler, with the type declared where the platform requires it — on Android 14+ (API 34) a foreground service must declare a service type in the manifest, request the matching `FOREGROUND_SERVICE_*` permission, and be declared in Play Console under Policy → App content (§ Sources). Then design as if the work will be killed halfway, because it will be: idempotent units, checkpointed progress, resumable on next grant.
@@ -118,7 +132,7 @@ Route every "and then it syncs in the background" through the platform's documen
 
 ### 5. Power 4 — the store gates, designed in
 
-The design's obligation here is to *produce the artifacts*, not to predict the verdict: the data inventory behind the privacy declarations, a purpose string per permission that describes the actual use, in-app account deletion if the app creates accounts, test credentials or a demo mode if content sits behind login, and localized release notes. Two gates are worth designing around from day one because they are schedule dependencies, not tasks: the **upload-time machine gates** (toolchain, SDK, and target-API requirements — dated, and checked before any human sees the build) and, for a personal Google Play developer account, the **closed-testing prerequisite** before production access. Both are `@app-store-reviewer`'s to quote and verify; the architect's job is to put them on the calendar rather than discover them the week of launch.
+The design's obligation here is to *produce the artifacts*, not to predict the verdict: the data inventory behind the privacy declarations, a purpose string per permission that describes the actual use, in-app account deletion if the app creates accounts, test credentials or a demo mode if content sits behind login, and localized release notes. Two gates are worth designing around from day one because they are schedule dependencies, not tasks: the **upload-time machine gates** (toolchain, SDK, and target-API requirements — dated, and checked before any human sees the build) and, for a personal Google Play developer account, the **closed-testing prerequisite** before production access. A third is a consequence of § 1 rather than of the feature: any runtime that ships native libraries carries Play's **16 KB page size** requirement with it, which reaches cross-platform apps through their runtime rather than through code the team wrote. All three are `@app-store-reviewer`'s to quote and verify; the architect's job is to put them on the calendar rather than discover them the week of launch.
 
 ### 6. Power 5 — the client you cannot reach
 
@@ -223,6 +237,7 @@ Each row is a shape you will actually see in a proposal — including one the ag
 - **Re-auditing the usability floor** because a screen looked wrong. That is a 17th axis; route it.
 - **Mirroring a sibling that was itself wrong.** Cite the sibling *and* say whether it is the standard or the drift.
 - **Treating a greenfield app as if it had siblings.** With no prior art, say so and mark every decision NEW rather than dressing an invention as a convention.
+- **Calling a biometric UI gate a security control.** If the secret is readable without the ceremony, the ceremony is decoration. Say which of the two designs in § 3b is being proposed.
 - **Letting the platform decision reopen mid-app.** Once shipped, the runtime is a constraint like any other; re-picking it is a migration project, not a feature design.
 
 ## Sources
@@ -236,7 +251,16 @@ Every figure this agent may quote, with the page it came from. Anything not on t
 - [S5] Apple App Review turnaround — "On average, 90% of submissions are reviewed in less than 24 hours": https://developer.apple.com/distribute/app-review/
 - [S6] Android saved state — what survives process death (`SavedStateHandle` / `rememberSaveable` and persistent storage do; a `ViewModel` does not): https://developer.android.com/topic/libraries/architecture/saving-states
 - [S7] Apple UIKit state restoration — "When the user launches the app again, the sample's `scene(_:willConnectTo:options:)` method checks for the presence of an activity object": https://developer.apple.com/documentation/uikit/restoring-your-app-s-state (verified 2026-08-21 through the JSON twin at `https://developer.apple.com/tutorials/data/documentation/uikit/restoring-your-app-s-state.json`; the canonical page is client-rendered and returns an empty body to a fetcher — see `references/swiftui.md`)
-- **Deliberately absent** — background execution window *duration*: **no published figure on either platform.** State determinants, never a number.
+- [S8] Android biometric authentication — `BiometricPrompt`, the `canAuthenticate()` status codes, `setUserAuthenticationRequired`, and `setInvalidatedByBiometricEnrollment` ("true by default", API 24+): https://developer.android.com/identity/sign-in/biometric-auth
+- [S9] Apple keychain access-control flags — `biometryCurrentSet` ("The item is invalidated if fingers are added or removed for Touch ID, or if the user re-enrolls for Face ID") vs `biometryAny` ("The item is still accessible by Touch ID if fingers are added or removed"): https://developer.apple.com/documentation/security/secaccesscontrolcreateflags (verified 2026-08-22 through the JSON twins at `.../tutorials/data/documentation/security/secaccesscontrolcreateflags/biometrycurrentset.json` and `.../biometryany.json`; the canonical pages are client-rendered — see `references/swiftui.md`)
+- [S10] Apple `LAPolicy` — `deviceOwnerAuthenticationWithBiometrics` fails when biometry is "unavailable or not enrolled" and biometry is "disabled system-wide after too many consecutive unsuccessful attempts" until the passcode re-enables it; `deviceOwnerAuthentication` accepts biometry or the device passcode: https://developer.apple.com/documentation/localauthentication/lapolicy (verified 2026-08-22 through the JSON twins)
+- [S11] iOS keychain persistence across uninstall — Apple documents no uninstall hook, and the clearest published statement of the resulting behaviour is Expo's: secure-store data "will persist across app uninstallations if the app is reinstalled with the same bundle ID", against Android where it "will not be preserved upon app uninstallation": https://docs.expo.dev/versions/latest/sdk/securestore/ — the asymmetry is the design input; treat the iOS side as behaviour to defend against, never as a guarantee to rely on.
+
+**Deliberately absent** — each was looked for and is not published, so it must never be written:
+
+- A **background execution window duration**: no published figure on either platform. State determinants, never a number.
+- A **biometric false-accept / false-reject rate**, or a count of allowed attempts before lockout. Apple documents that lockout happens "after too many" attempts and publishes no count [S10]; Android's Class 3 / Class 2 definitions live in the CDD, not in a figure an app design may quote.
+- A **retention period for a keychain item after uninstall**. Persistence is documented behaviour; a duration is not.
 
 ## Related
 

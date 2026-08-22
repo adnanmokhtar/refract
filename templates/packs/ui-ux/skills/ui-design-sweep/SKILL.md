@@ -302,31 +302,41 @@ Two element classes do NOT inherit the design-token / theme layer, so several ve
 - ONE OR MORE of: `prefers-reduced-motion` not respected; animation on `transform` / `opacity` only is fine, but on `width` / `height` / `top` / `left` is forbidden (layout-thrash).
 
 **Procedure**:
-1. Pick the right motion token per intent (micro-interaction → 150ms; UI transition → 250ms; page transition → 400ms).
+1. Pick the right motion token per intent — `fast` 150ms (micro-interaction) / `base` 250ms (UI transition) / `slow` 400ms (page transition). **These numbers are cited from `motion.md § The duration scale`, which owns them; do not restate a different value here.**
 2. Replace literal with token.
-3. Wrap animation in `@media (prefers-reduced-motion: no-preference)` OR use the project's motion mixin that handles it.
-4. Re-target layout-thrashing animations to `transform` / `opacity`.
+3. Wrap animation in `@media (prefers-reduced-motion: no-preference)` OR use the project's motion mixin that handles it. Gate on the **trigger**: interaction- and scroll-triggered motion needs the branch regardless of duration.
+4. Re-target layout-thrashing animations to `transform` / `opacity`. `filter` is NOT in the cheap set — it shades per frame and `blur()` scales with area.
 
 **Carve-out (library controls)** — see "Cross-cutting carve-outs" above: a component-library control's transitions live in the library's own CSS (`.p-*` transition / animation rules), so a motion-token change on your element leaves the control's animation on the library default. Duration-match / retarget it via a `:deep()` / `::v-deep` override on the control's inner class, and confirm the change from the render — the token layer does not reach the control's animation.
 
 **Verify**: animations respect reduced-motion; no jank in DevTools performance panel; visual feel unchanged.
 
-**Citation**: WCAG 2.2 SC 2.3.3 (Animation from Interactions); Material Motion spec; `ui-principles.md § Should: prefers-reduced-motion`.
+**Citation**: WCAG 2.2 SC **2.3.3** (Animation from Interactions) — **Level AAA**, so a missing reduced-motion branch is a house-rule violation, NOT an AA failure; the criterion that binds below AAA is SC **2.2.2** (Pause, Stop, Hide) — **Level A** — for motion that auto-starts, runs past five seconds, and sits beside other content. `motion.md § The duration scale` (durations + easing classes); `ui-principles.md § Should` (prefers-reduced-motion).
 
 ### 16. expand-tap-target
 
-**Fingerprint**: interactive element hit-area < 44×44 CSS px on mobile breakpoint (360px viewport). Symptoms: small icon-only buttons, dense link clusters, undersized close-X.
+**Fingerprint**: interactive element hit-area below the applicable threshold at the mobile breakpoint (360px viewport). Symptoms: small icon-only buttons, dense link clusters, undersized close-X.
+
+**Two thresholds, and they are not interchangeable — conflating them is this verb's historical defect:**
+
+| Threshold | Criterion | Level | Role |
+|---|---|---|---|
+| **24 × 24 CSS px** | [SC 2.5.8 Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) | **AA** | The **conformance floor.** A finding below 24 is a WCAG 2.2 AA failure. Five exceptions: **Spacing** (a 24px-diameter circle centred on each undersized target's bounding box does not intersect another target's), **Equivalent**, **Inline**, **User agent control**, **Essential**. |
+| **44 × 44 CSS px** | [SC 2.5.5 Target Size (Enhanced)](https://www.w3.org/TR/WCAG22/) | **AAA** | The **house design target**, matching Apple HIG's 44pt and sitting under Material's 48dp. A finding between 24 and 44 is a house-rule improvement, not an AA failure — grade and report it as such. |
 
 **Procedure**:
-1. Measure the hit-area (border-box width × height including padding).
-2. Add padding (preferred) OR `min-width` / `min-height` to reach 44×44.
-3. For icon-only buttons: pad inside a fixed-size button wrapper.
-4. For tight link clusters: increase line-height OR convert to button group.
-5. Preserve visual size if needed via transparent padding + smaller visual content.
+1. Measure the hit-area (border-box width × height including padding) at 360px.
+2. Below 24: check the five 2.5.8 exceptions FIRST — an inline link in a sentence, or an undersized control with a conforming equivalent elsewhere on the page, is not a violation. If no exception applies, this is a conformance fix and it is not optional.
+3. Between 24 and 44: a house-target improvement. Apply it unless the spacing exception is doing real work and enlarging would crowd neighbouring targets.
+4. Add padding (preferred) OR `min-width` / `min-height`. For icon-only buttons, pad inside a fixed-size wrapper. For tight link clusters, increase line-height OR convert to a button group.
+5. Preserve visual size where needed via transparent padding + smaller visual content — the criterion is about the hit area, not the ink.
 
-**Verify**: every interactive element ≥ 44×44 at 360px viewport (axe-core or manual measure); visual baseline shows no unintended layout change.
+**Verify — name which threshold each check proves:**
+- `axe-core`'s `target-size` rule implements **2.5.8 at 24×24** including the spacing alternative ([Deque rule docs](https://dequeuniversity.com/rules/axe/4.10/target-size)). "axe clean" therefore proves **24, never 44** — it passes every element between the two.
+- The 44 house target needs a **measured border-box** at 360px. Print both: `target-size: axe clean (2.5.8 AA, 24×24) · house 44: 3 below (measured)`.
+- Visual baseline shows no unintended layout change.
 
-**Citation**: WCAG 2.2 SC 2.5.5 (Target Size); iOS HIG (44pt); Material Touch Targets (48dp); `ui-principles.md § Must: Touch targets ≥ 44×44`.
+**Citation**: WCAG 2.2 SC **2.5.8** Target Size (Minimum) — **Level AA**, the floor; SC **2.5.5** Target Size (Enhanced) — **Level AAA**, 44×44, the house target; iOS HIG (44pt); Material touch targets (48dp); `ui-principles.md § Must` (pointer targets).
 
 ### 17. unify-cta-placement
 
@@ -415,8 +425,8 @@ The composite surfaces the primitive-level contracts (`design-system-architect` 
    - Component-snapshot tests green (or updated with reviewed diff).
    - Visual baseline diff within the verb's tolerance.
    - a11y re-check (axe-core / Lighthouse) — score didn't drop.
-   - For `lift-contrast`: contrast ratio measured at every interactive state.
-   - For `expand-tap-target`: hit-area measured at 360px viewport.
+   - For `lift-contrast`: contrast ratio **computed** at every interactive state, in every theme the project ships — never estimated.
+   - For `expand-tap-target`: hit-area measured at 360px viewport, reported against **both** thresholds — `2.5.8` (AA, 24×24, what axe proves) and the 44 house target (what only a measurement proves). A verify line that says "44×44 verified with axe" is invalid; axe implements the 24 rule.
    - For `wire-empty/loading/error-state`: state visible in component test for the matching condition.
 5. **Commit** with message `polish(<surface>): <verb> — <one-line description>`.
 6. **Re-detect** the finding's fingerprint — should now return zero hits at the original location.
@@ -448,8 +458,10 @@ The composite surfaces the primitive-level contracts (`design-system-architect` 
 
 ## References
 
-- `ui-principles.md` (this pack) — the axis catalog this skill cites per verb.
-- `design-token-audit.md` (this pack) — feeds `consolidate-tokens` / `extract-token` findings.
+- `ui-principles.md` (this pack) — the closed axis names + the routing rule this skill's `axis:` field is drawn from (the always-loaded half).
+- `axis-catalog.md` (this pack, pattern) — the per-axis detection heuristic and the verb that closes each axis (the dispatch-loaded depth behind those names). Read it when naming or closing a finding; do not restate it into a rule.
+- `design-token-audit.md` (this pack) — the DETECTOR that feeds `consolidate-tokens` / `extract-token`: it resolves which token is correct and whether the swap holds contrast; this skill owns the edit and the visual verify. Neither restates the other.
+- `motion.md` (this pack) — **owns the duration scale + easing classes** `normalize-motion` applies. A duration in this file that disagrees with it is drift.
 - `motion-audit.md` (this pack) — feeds `normalize-motion` findings.
 - `a11y-quick-check.md` (this pack) — feeds `lift-contrast` / `align-focus-ring` / `clarify-affordance` / `expand-tap-target`.
 - `design-iterate.md` (this pack) — for the visual variant generator step in `/enhance-ui --with-iterate` (NOT a closure verb — operates above this skill).

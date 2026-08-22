@@ -27,7 +27,7 @@ pack: mobile
 
 > **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Mobile`.
 >
-> - **OTA provider**: `<Expo EAS Update / CodePush / RN built-in / Capacitor live updates>`
+> - **OTA provider**: `<Expo EAS Update / self-hosted CodePush / hand-rolled bundle host / Capacitor live updates>`
 > - **Update channel(s)**: `<production / staging / preview>`
 > - **Min-supported-version source**: `<remote config key / API version header / file>`
 > - **Runtime version policy**: `<how JS bundle is pinned to a native build>`
@@ -81,11 +81,13 @@ Store-policy conformance: the App Review Guideline that governs downloaded code 
 
 ## Adapt to the provider
 
+**Read the provider from the project before using this table** — the OTA tooling market has already retired one entry, and a command from the retired one fails against a dead service rather than loudly.
+
 | Provider | Mechanism |
 |---|---|
-| Expo Updates (EAS Update) | `runtimeVersion` pins bundle↔native; channels + branches; `expo publish`/`eas update`; rollout via channel repoint; rollback = republish prior update |
-| CodePush / App Center | Deployment keys (Staging/Production); mandatory flag per release; `appcenter codepush rollout`; `appcenter codepush rollback` |
-| React Native (built-in `Updates`) | Manual bundle host + version manifest; you own staging + rollback + version gate |
+| Expo Updates (EAS Update) | `runtimeVersion` pins bundle↔native; channels + branches; `eas update`; rollout via channel repoint; rollback = republish the prior update. Policy names change per SDK — read them from the installed version (`references/expo.md`). |
+| CodePush, **self-hosted** | Deployment keys (Staging / Production); a mandatory flag per release. **Hosted CodePush is gone**: Visual Studio App Center "is scheduled for retirement on March 31, 2025. After that date, it will not be possible to sign in with your user account nor make API calls", and Microsoft's own migration row for CodePush is "a special version of CodePush that can be integrated into your app and run independently from App Center … in this GitHub repository" — `microsoft/code-push-server` (https://learn.microsoft.com/en-us/appcenter/retirement, read 2026-08-20). Any `appcenter codepush …` command in a project or a doc is calling a dead service. Self-hosting means **you** own the rollout percentage, the telemetry gate and the rollback command; none of them arrive with the server. |
+| Bare React Native, rolled by hand | **React Native core ships no update module** — there is no built-in `Updates` API. This row is a bundle host, a version manifest and code you wrote: you own staging, rollback, the runtime-version pin and the version gate. Choose it deliberately, knowing that every guarantee in this pattern is now yours to implement. |
 | Capacitor / Ionic Live Updates (Appflow) | Channels + native binary compatibility; percentage rollout; revert to prior build |
 
 ## Detectors
@@ -123,3 +125,4 @@ This pattern owns the OTA lifecycle — the native-vs-JS boundary, staging, vers
 
 - Apple, [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) — 2.5.2 downloaded code. There is no guideline 3.3.2; 3.3.2 is a Developer Program License Agreement section.
 - Google Play, [staged rollouts](https://support.google.com/googleplay/android-developer/answer/6346149) — the developer selects the percentage; no ladder is prescribed.
+- Microsoft, [App Center retirement](https://learn.microsoft.com/en-us/appcenter/retirement) — retired 2025-03-31; CodePush survives only as the self-hostable `microsoft/code-push-server`.

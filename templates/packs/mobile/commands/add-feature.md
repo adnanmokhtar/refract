@@ -73,7 +73,7 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - USE: feature requiring local persistence (Realm, SQLite, AsyncStorage, MMKV, secure keychain).
 - USE: feature with offline-first or sync semantics.
 - USE: feature using a native capability (camera, location, biometric, push, NFC).
-- NOT: a single new screen → `/add-screen`.
+- NOT: a single new screen → `/add-screen`, which is a scope-narrowing overlay on this command and runs everything below at screen scope.
 - NOT: a UI tweak → just edit + `/review-changes`.
 
 ## Phase 1 — Understand
@@ -162,10 +162,15 @@ Use `mobile-architect` to produce design:
 <table>
 
 ### A11y notes
-- Touch targets ≥ 44x44.
-- Screen-reader rotor entries logical.
-- Color contrast ≥ 4.5:1 (text), 3:1 (UI).
-- Reduce motion respected (`UIAccessibility.isReduceMotionEnabled` / `Settings.System.ANIMATOR_DURATION_SCALE`).
+- Screen-reader labels on every interactive element; rotor / TalkBack traversal order logical.
+- Reduce motion respected (`UIAccessibility.isReduceMotionEnabled` / `Settings.Global.ANIMATOR_DURATION_SCALE`
+  — `Settings.System` is the deprecated name for this key).
+- Dynamic Type / font scaling exercised at the platform's largest accessibility size.
+- **Touch-target and contrast figures are not this command's to state.** The minimums are 44×44 pt on
+  Apple and 48×48 dp on Android (`rules/mobile-principles.md` [S3] / [S4]); contrast is the
+  `contrast` axis and tap size is the `tap-target` axis, both owned by `ui-principles.md`
+  § Axis catalog *(ui-ux pack, when co-installed)*. Absent that pack, apply the two platform figures
+  and mark the lane `floor: not audited (ui-ux pack absent)`.
 
 ### Tests
 | Layer | File |
@@ -196,7 +201,7 @@ Read in order:
 1. `CLAUDE.md` — stack (RN / Flutter / native iOS / native Android).
 2. `ai/architecture.md` — module boundaries.
 3. `ai/business-domain.md` — what feature does in business terms.
-4. `ai/patterns/navigation.md`, `data-fetching.md`, `offline-sync.md`, `native-storage.md`, `deep-linking.md`.
+4. `ai/patterns/offline-sync.md`, `native-storage.md`, `deep-linking.md`, `permissions.md`, `app-lifecycle.md`, `push-notifications.md` — this pack's patterns; read the ones the feature actually touches.
 5. `.claude/rules/mobile-principles.md`.
 6. Sibling feature module — mirror its shape.
 7. Native config files: `Info.plist` / `AndroidManifest.xml` / `Podfile` / `build.gradle` — for permissions + entitlements + dependencies.
@@ -211,7 +216,7 @@ Read in order:
 4. **Loading + error + empty + content states** on every data-driven screen.
 5. **Offline plumbing**:
    - GET requests cached + replayed from cache when offline (TanStack Query persister or RTK Query).
-   - Mutations queued (Background Tasks / WorkManager / `react-native-background-task`) and replayed.
+   - Mutations queued through **the platform's own scheduler** (iOS `BGTaskScheduler` / Android `WorkManager`, or the queueing layer the sibling already uses) and replayed. Do not reach for a community background-task shim without checking it is still maintained — read the queue the sibling ships before adding a dependency, and see `offline-sync.md` for what a replay must guarantee.
    - User feedback: "saved locally — will sync when online."
 6. **Permission prompts in context** (right before the action that needs them, not at app launch).
 7. **Native bridge code** (if any): typed at JS↔native boundary; error path when native returns failure.
@@ -228,6 +233,8 @@ After generation, dispatch reviewers **serially** (not parallel — each re-read
 | `@i18n-auditor` | `i18n_lib` detected in `.claude/codebase-profile.md` | no |
 | `@app-store-reviewer` | Shipping a store update this change | no |
 | `@security-auditor` | Diff touches biometric / keychain / secrets / auth | no |
+| `@offline-sync-auditor` | The diff adds or changes a **queue, cache, or optimistic-update path** — i.e. any tier whose trigger was `write-path mutation` | no |
+| `@device-performance-auditor` | The tier required a **bundle / cold-start delta check** (Standard and above), or the feature adds a launch-path import, a long-running listener, or a background job | no |
 | `@ux-reviewer` | Always | yes |
 
 If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
@@ -372,7 +379,7 @@ Open follow-ups:
 
 ## Related
 
-- `/add-screen` — single-screen variant.
+- `/add-screen` — the single-screen overlay on this command (same gates, same cascade, narrower ask).
 - `/optimize-bundle` — when bundle delta exceeds budget.
 - `@mobile-architect` — design.
 - `@app-store-reviewer` — pre-release review.

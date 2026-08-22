@@ -4,13 +4,22 @@ description: Review UI changes for UX, design system compliance, and accessibili
 
 # /design-review [path|screenshot]
 
+> **Not this command? (ANTI-triggers)** — you want the findings FIXED, not listed → `/enhance-ui` (one surface) · `/align-recheck` (mechanical drift) · `/redesign` (the layout) · `/art-direct` (the language). Every route, from a real browser, with axe and console probes → `/ui-crawl`. Measured project-wide quality with an HTML report and baselines → `/ui-sweep`. **This command writes no code and grades no surface it cannot cite.**
+
 Audit command. Three reviewers run in parallel against changed UI files (or a provided screenshot). Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the review.
 
 ## The Premise (read this first, internalize, do not deviate)
 
 **Find real issues, no hand-waves.** A design review's value is the **ratio of findings to citations**. A finding without a `<file:line>` or `<token>` reference is noise — the implementer cannot act on it, the reviewer cannot defend it, the audit log cannot verify it next pass. "This feels off" is not a finding; it is a smell that the reviewer failed to convert into a fact.
 
-**The agent's job is exactly this:** walk the changed UI files (or the screenshot DOM if available) line by line; for each candidate finding, **cite-or-halt** — a `<file:line>` for source-based findings, a `<token-name>` for design-system findings, or a WCAG criterion ID + element selector for a11y findings; if a finding cannot be cited, drop it (never promote it to `[opinion]` to keep it on the list — opinions also need a heuristic anchor). When reviewers contradict, take the strictest cited finding; never average to make peace.
+**The agent's job is exactly this:** walk the changed UI files (or the screenshot DOM if available) line by line; for each candidate finding, **cite-or-halt** — a `<file:line>` for source-based findings, a `<token-name>` for design-system findings, or a WCAG criterion ID + element selector for a11y findings; if a finding cannot be cited, drop it (never promote it to `[opinion]` to keep it on the list — opinions also need a heuristic anchor). When reviewers contradict, resolve it by the protocol below — never average to make peace.
+
+**The contradiction protocol (the one thing the orchestrator does that no single reviewer can).** Three reviewers grade overlapping surface, so they WILL disagree. "Pick the strictest" is a slogan, not a mechanism. Resolve in this fixed order and print which rule fired:
+
+1. **A COMPUTED value beats an asserted one** — a measured contrast ratio, a measured border-box, an axe rule id with a node count outranks a reading of the same element.
+2. **A conformance failure beats a house-rule improvement** — a Level-A/AA criterion (level NAMED) outranks a AAA or house target on the same element. They are not the same claim.
+3. **The axis OWNER beats a visitor** — tokens/naming → `design-system-guardian`; flow, states, micro-copy, composite-surface completeness → `ux-reviewer`; semantics, focus, contrast, target size → `a11y-quick-check`.
+4. **Still tied → BOTH are printed, tagged `[contested]`, with each citation, and the stricter one is what the action plan carries.** An unresolved disagreement is information about the design system, not noise to smooth away.
 
 **The agent does NOT:** write "consider better contrast" without a contrast ratio + element + token; flag a token violation without naming the token and the raw value; flag an a11y issue from a screenshot alone (DOM semantics need source — a screenshot review is explicitly "DOM-blind for a11y"); fabricate criteria when the repo has no design system; or pad blocker counts with opinions. `[opinion]` and `[violation]` are tagged, never blurred.
 
@@ -105,3 +114,27 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - Screenshot-only review claiming a11y compliance → impossible; DOM semantics need source files.
 - Reviewing against guidelines that don't exist → propose adopting a design system and stop.
 - Three reviewers contradict each other → orchestrator picks the strictest; don't average.
+
+## Related
+
+### Commands (finding-class → the command that fixes it)
+- token / wrapper / hierarchy / state drift → `/ui-sweep` (project-wide, measured) or `/enhance-ui` (one surface).
+- a mechanical a11y class across every route → `/ui-crawl` to detect, `/ui-crawl-fix` to close.
+- the page needs rebuilding inside the existing language → `/redesign`.
+- the language itself is the problem (generic / dated / un-ownable) → `/art-direct`.
+
+### What this command does NOT own
+It is **read-only** and it does not decide taste. It orchestrates `ux-reviewer` + `design-system-guardian` + the `a11y-quick-check` skill, then reconciles them: when two reviewers contradict each other, the **strictest CITED** finding wins and the uncited one is dropped into the `Dropped (uncited): <N>` count — never averaged.
+
+### Rules
+- `.claude/rules/ui-principles.md` — the closed 16-axis catalog every finding is named against.
+
+## Related
+
+Finding-class → the command that fixes it:
+- `/align` — enforce a cited design-system / a11y violation against an existing token or rule (no creative work).
+- `/enhance-ui` — fix a cited UX / design-system finding within the existing language.
+- `/redesign` — when the finding is **structural** (broken IA, missing/broken states, wrong layout).
+- `/art-direct` — when the review concludes the design has **no point of view** (generic / dated / forgettable). Which of the last two applies is decided by `redesign.md § Phase 1 — THE LANGUAGE-OR-COMPOSITION TEST`, never by asking the user.
+
+Patterns: `ai/patterns/dark-mode.md` · `design-systems.md` · `motion.md` · `rtl.md` · `theming.md`. Rule: `.claude/rules/ui-principles.md`.

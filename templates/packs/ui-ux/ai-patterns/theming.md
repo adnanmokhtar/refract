@@ -9,6 +9,10 @@ pack: ui-ux
 
 > **Hard rule** — Components reference semantic CSS custom properties only; theme variants live as `[data-theme]` / `[data-tenant]` blocks on `<html>`. Per-component theme props (`<Button isDark />`) and per-theme bundles are forbidden.
 
+**The failure this prevents:** the second theme. The first one always works — it is just "the CSS". The second one exposes every place a value was written down instead of named: a hex in a component, a shadow that only reads on white, a chart whose palette lives in its own config, a logo with a baked-in background. This pattern is the indirection layer that makes theme N+1 cost the same as theme 2.
+
+**This file owns the MECHANISM** — the token layer, the attribute on `<html>`, persistence, the SSR anti-flash script, per-tenant composition, and the retrofit path. **`dark-mode.md` owns what is different about dark specifically** (elevation inverting, brand-hue lift, near-black/near-white, asset variants). Read this for *how themes switch*; read that for *what the dark values should be*. Neither restates the other.
+
 **When to apply**
 - Product needs light + dark switchable at runtime without reload.
 - Multi-tenant SaaS where tenants self-serve brand color, logo, optional fonts.
@@ -177,6 +181,7 @@ Both keep the component code untouched.
 }
 
 /* Optional: explicit high-contrast mode */
+
 [data-contrast="high"] {
   --color-text-primary: #000;
   --color-bg-base:      #fff;
@@ -189,11 +194,15 @@ Both keep the component code untouched.
 }
 ```
 
+Zeroing the duration tokens under `reduce` is the cheapest correct hook a token layer gives you — but it is a **blunt instrument at the token level**, and it inherits the same two limits the global CSS reset has: it also nulls motion that is *essential* to the information conveyed (a progress indicator, the transition that shows where a panel went), and it cannot reach scroll-linked or JS-driven motion at all. Pair it with `matchMedia('(prefers-reduced-motion: reduce)')` in the animation layer, and see `motion.md § Accessibility` for the trigger-vs-duration rule and the per-component opt-in shape that is preferred for new code.
+
 Contrast variants are NOT a substitute for proper light/dark contrast — they're additional, for users who need WCAG AAA-level contrast.
 
 ## Trade-offs
 
-Pro: instant runtime switching, one bundle, components stay framework-agnostic. Pro: tenant brand customization without redeploys. Pro: A/B testing colors becomes a flag flip. Con: every new color decision must add tokens for every theme variant — forgetting one ships a broken component. Con: tooling that reads CSS values (e.g., chart libraries that need a hex string) needs a JS reflection of the tokens. Con: CSS specificity wars when nesting `[data-theme]` deeply — keep selectors flat.
+Pro: instant runtime switching, one bundle, components stay framework-agnostic. Pro: tenant brand customization without redeploys. Pro: A/B testing colors becomes a flag flip. Con: every new color decision must add tokens for every theme variant — forgetting one ships a broken component. Con: CSS specificity wars when nesting `[data-theme]` deeply — keep selectors flat.
+
+**Con, and the one that ambushes teams: two element classes do not read the token layer at all.** A **chart library** holds its palette, axis/grid, fonts, legend and tooltip in its own config object, and a canvas chart cannot resolve a CSS custom property — so it needs a JS reflection of the tokens, re-read on theme change, not a `var()`. A **component library's internals** (`.p-inputtext`, MUI/Ant/Vuetify/Radix inner classes) render with the library's own theme unless each theme block writes explicit `:deep()` / CSS-var overrides for them. Budget both when you cost a theme: they are the reason a "fully themed" app still shows one default-looking filter bar and one chart in last year's colours. The full carve-outs are in `ui-design-sweep.md § Cross-cutting carve-outs`.
 
 Skip runtime theming if you have ONE theme and no realistic plan for variants. Static CSS is faster.
 
@@ -226,6 +235,7 @@ Retrofitting theming on an app with hardcoded colors:
 
 ## References
 
-- web.dev: "A complete guide to CSS custom properties" — the cascade + fallback semantics.
-- Adam Argyle's "Building a custom dark theme switch" — the SSR flash-of-wrong-theme fix.
-- Tailwind CSS dark mode docs (tailwindcss.com/docs/dark-mode) — class strategy compatible with this pattern via `darkMode: ['class', '[data-theme="dark"]']`.
+- [MDN — Using CSS custom properties](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascading_variables/Using_CSS_custom_properties) — the cascade + fallback semantics this whole pattern rests on.
+- [Adam Argyle, "Building a theme switch component" (web.dev)](https://web.dev/articles/building/a-theme-switch-component) — the accessible switch, and getting the preference to the browser early enough to avoid a colour flash.
+- [Tailwind CSS dark mode](https://tailwindcss.com/docs/dark-mode) — the class strategy is compatible with this pattern; point Tailwind's dark selector at the same attribute (`[data-theme="dark"]`) rather than running a second source of truth.
+- `dark-mode.md` (this pack) — what the dark VALUES should be (elevation inversion, brand-hue lift, asset variants); this file is the mechanism they ride on.

@@ -3,11 +3,12 @@
 Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 **Fallback convention in this pack: the source IS the fallback, except where an abridgement is
-genuinely different.** Four entries point at `_examples/` — `mobile-architect`,
-`mobile-principles`, `offline-sync-auditor` and `device-performance-auditor` — because those are
-the artifacts a project rewrites in its own voice, against its own entities, screens and device
-list, so a shorter, project-shaped starting point is the right thing to receive. Every other entry
-points at its own source file, and that is a decision, not drift.
+genuinely different.** Three entries point at `_examples/` — `mobile-architect`,
+`offline-sync-auditor` and `device-performance-auditor` — because those are the artifacts a project
+rewrites in its own voice, against its own entities, screens and device list, so a shorter,
+project-shaped starting point is the right thing to receive. Every other entry points at its own
+source file, and that is a decision, not drift. The test is whether the abridgement would differ:
+where it would not, a second copy is only a second place for a correction to fail to land.
 
 The two auditor abridgements are cut against the copied-verbatim rule stated further down this
 paragraph rather than around it, and the claim is countable file against file: each keeps **every** halt condition
@@ -43,15 +44,22 @@ change.
   kind: rule
   triggers: { mobile_framework_detected: true }
   extracts_from: _extracted-codebase.md § Conventions
-  sections: [project_specific_first, platform_parity, accessibility_required, performance_budgets, secret_handling_in_mobile, store_compliance]
+  sections: [project_specific_first, platform_parity, accessibility_required, performance_budgets, secret_handling_in_mobile, store_compliance, where_the_depth_lives]
   mirror_existing: true
-  fallback: _examples/mobile-principles.md
+  fallback: rules/mobile-principles.md
+  # fallback is the source ON PURPOSE. The `_examples/` abridgement was deleted at 1.9.0: it stood
+  # at 96% of the source (71 vs 74 lines, 4 trivial elisions) and the `_examples/` premise below —
+  # "the artifacts a project rewrites in its own voice, against its own entities" — was fiction for
+  # a near-verbatim copy. What it actually created was a second lockstep-update site for 8 source
+  # URLs and a per-platform permission-denial model, and the copy was still asserting the iOS
+  # one-shot model for Android after the source was corrected. `render-discipline` has always
+  # self-fallbacked for the same reason.
 
 - name: render-discipline
   kind: rule
   triggers: { mobile_framework_detected: true }
   extracts_from: _extracted-codebase.md § Stack (mobile framework) + _extracted-idioms.md § State management
-  sections: [hard_rule, the_8_detectors, per_framework_fingerprints, must, must_not, review_checklist, enforcement]
+  sections: [hard_rule, the_8_detectors, where_the_fingerprint_lives, must, must_not, enforcement]
   mirror_existing: true
   fallback: rules/render-discipline.md
   cite_evidence: strict
@@ -88,8 +96,15 @@ change.
 - name: add-screen
   kind: command
   triggers: { mobile_framework_detected: true }
-  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  sections: [pack_overlay, scope, screen_scoped_mirror_axes, tier, sensitive_entity_gate, phase_2_screen_design, phase_3_reads, deep_link_registration, phase_6_validation, output_format]
   fallback: commands/add-screen.md
+  # `/add-screen` became a scope-narrowing OVERLAY on this pack's `/add-feature` at 1.9.0 — the
+  # same shape `commands/refactor.md` already uses. It previously restated ~60% of `/add-feature`
+  # verbatim while missing every safety mechanism that command has: the reviewer precondition
+  # table, `@security-auditor`, `@app-store-reviewer`, the BLOCKER halt rule and the
+  # agent-not-installed fallback. A Heavy tier defined by "biometric / Keychain / secrets touch"
+  # dispatched no security review at all. The sections above are what a SCREEN adds on top; the
+  # seven phases are `/add-feature`'s and are not re-emitted here.
 
 - name: add-feature
   kind: command
@@ -107,22 +122,14 @@ change.
   kind: command
   triggers: { mobile_framework_detected: true }
   sections: [pack_overlay_gates, dispatch, when_not]
-  fallback: commands/refactor.md   # self-fallback, NOT `_examples/refactor.md`. That file is a
-                                   # six-line usage anecdote — a second genre that shares the
-                                   # `_examples/` directory (validate-pack-consistency.sh check 8b
-                                   # names it as such and skips it) — and it carries none of the
-                                   # three sections declared above. A no-signal install pointed at
-                                   # it would receive two bullets about a Dart rename in place of
-                                   # the navigation / lifecycle / bundle-size / platform-API gates
-                                   # that are the entire reason this overlay exists. Frontend hit
-                                   # the identical shape and deleted its anecdote outright
-                                   # (frontend/CHANGELOG.md); mobile's is kept as documentation and
-                                   # disowned as a fallback here instead. That disownment is
-                                   # load-bearing only because phase-4.2-apply.md § 4.2-AUTHOR
-                                   # step 2 resolves the fallback from THIS field; a glob over
-                                   # `_examples/<topic>.md` would install the anecdote whatever
-                                   # this line said. If it ever drifts again, delete it rather
-                                   # than re-point this line.
+  fallback: commands/refactor.md   # self-fallback. `_examples/refactor.md` was deleted at 1.9.0:
+                                   # it was a six-line usage anecdote about a Dart rename carrying
+                                   # none of the three sections declared above, so a no-signal
+                                   # install pointed at it would have received that in place of the
+                                   # navigation / lifecycle / bundle-size / platform-API gates that
+                                   # are the whole reason this overlay exists. Its own disownment
+                                   # comment cost more than the file. Frontend deleted its
+                                   # equivalent outright; mobile now matches.
 
 - name: bundle-analyze
   kind: skill

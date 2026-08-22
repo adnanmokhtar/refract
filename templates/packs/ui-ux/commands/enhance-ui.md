@@ -8,6 +8,8 @@ pack: ui-ux
 
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/enhance-ui <scope> --plan` runs scope-tier detection + the cleanup/design diagnosis, writes the enhancement plan to `.claude/plans/`, and exits before any edit. Execute it later with `/execute-plan <file>` (or hand it to any tool).
 
+> **Not this command? (ANTI-triggers)** — "the LAYOUT / IA / flow is wrong, rethink the page" → **`/redesign`** (this command preserves structure and rebuilds nothing). "our whole look is the problem, invent a language" → **`/art-direct`**. "just enforce the tokens / a11y rules, no creative work" → **`/align-recheck`**. "tell me what's wrong, change nothing" → **`/design-review`**. "every surface, with numbers and a report" → **`/ui-sweep`**. "a new screen that doesn't exist" → **`/add-feature`**. **"it looks generic / dated" is NOT this command's ask at all** — it is the `/redesign` ÷ `/art-direct` split, decided by [`redesign.md § Phase 1 — THE LANGUAGE-OR-COMPOSITION TEST`](redesign.md); `/enhance-ui` can only finish inside a language, so it cannot fix a language that is the problem. Full map: [`ui-sweep.md § The ui-ux command map`](ui-sweep.md).
+
 ## The Premise (read this first)
 
 **You describe what you want enhanced; this command runs the cleanup → iterate → verify loop.** Cleanup ensures the surface uses the design system correctly BEFORE you iterate on visuals (no point polishing on top of hardcoded colors). **Before iterate, it decides a scope tier** so you do not paste the same scoped styles on two leaf pages for one shared button — that fragments the design system and violates DRY. Iterate generates 3 style variants at the **correct layer** (token, shared wrapper, or single leaf). Verify catches anything the iteration drifted.
@@ -48,7 +50,9 @@ Examples:
 - `_extracted-idioms.md` populated (oracle for cleanup step + shared-component / token paths).
 - Mechanical CI green at HEAD.
 - Working tree clean.
-- Playwright MCP wired (for design-iterate's screenshot step).
+- **Playwright MCP — recommended, NOT required. THE RENDER CONTRACT (stated once here; everything below cites it).** Two of the three steps (`/align-recheck` → iterate → `/align-recheck`) need no screenshots, so a missing harness must not block the run. Two values, never merged — the same contract `design-iterate` and `/redesign` use:
+  - **No harness at all → `SKIPPED (no harness)`.** Cleanup and re-enforce still run; the variant step is skipped; every visual claim prints `SKIPPED`, never a checkmark.
+  - **Harness present, render BLOCKED** (login wall / redirect / surface marker absent) → **HALT `RENDER BLOCKED`**. Authenticate (`storageState` / login step per `visual-check`) and re-run. Never grade a login screenshot; never downgrade a block to a skip.
 
 ## Args
 
@@ -73,6 +77,7 @@ Parse the user's description for keywords that indicate a different command is t
 | "fix" + ("bug" / "broken" / "wrong" / "crash") | `/fix-bug` | Halt; suggest `/fix-bug <description>` |
 | "audit" / "review" — read-only intent | `/design-review` | Halt; suggest read-only command |
 | "redesign" / "rethink" / "from scratch" / "new layout" / "re-theme" / "new look" / "new visual language" | `/redesign` (rethink ONE page in the existing language) · `/art-direct` (invent a NEW language) | Halt; `/enhance-ui` **preserves structure + the current language** — it cannot rethink IA or introduce a new visual language. Route to `/redesign` (structural rework) or `/art-direct` (new direction). |
+| "generic" / "dated" / "forgettable" / "looks like a template" | **not this command** — it is the `/redesign` ÷ `/art-direct` split | Halt. Do NOT accept it as a polish job: finishing inside a language cannot fix the language. Do NOT ask the user which one either — hand it to [`redesign.md § Phase 1 — THE LANGUAGE-OR-COMPOSITION TEST`](redesign.md), which decides it from the render + the token source. |
 | Pure cleanup, no creative work ("just fix tokens", "just a11y") | `/align-recheck <description> --class=<targeted>` | Halt; suggest narrower class filter |
 | "enhance" / "improve" / "polish" / "cleaner" / "better look" | `/enhance-ui` (this command) | Proceed |
 
@@ -88,7 +93,7 @@ Resolves the description to file paths via the same semantic flow as `/align-rec
 
 **Runs after resolve, before cleanup.** If `--scope=<tier>` is set, adopt that tier but **still print** the duplicate-surface map for transparency.
 
-1. **Identify the target surface** inside the resolved file(s): a named component (`<AppButton>`, `<v-btn>`, JSX `<Button>`), project wrapper, or a stable affordance (`role="button"`, `data-testid`, repeated heading text per idioms).
+1. **Identify the target surface** inside the resolved file(s): a named component — the project's own wrapper (`<AppButton>`) or a library control (Vuetify `<v-btn>`, a React/MUI or shadcn `<Button>`, an Ant or PrimeVue equivalent) — or a stable affordance (`role="button"`, `data-testid`, repeated heading text per idioms). The names here are illustrative; the real ones come from `_extracted-idioms.md`.
 2. **Find duplicate call sites** — grep / semantic search for other uses of the same component or same affordance pattern across the repo; stack-aware patterns from `_extracted-idioms.md`. Record each hit as `<path:line>`.
 3. **Choose exactly one scope tier** (override with `--scope`):
 
@@ -138,7 +143,9 @@ Enhancement here means **better within the existing system** (legend contrast �
                                        HALT iterate unless --auto-extract resolved extraction
                     - leaf-local     → cleanup on resolved leaf only
 3. ITERATE        — design-iterate with $TARGET = tier iterate target, $SCOPE_TIER, $DIRECTION,
-                    $CONSUMER_ROUTES (token / wrapper-variant only). Mode:
+                    $CONSUMER_ROUTES (token / wrapper-variant only).
+                    Render contract per Pre-requisites: no harness -> SKIPPED (steps 2/4/5
+                    skipped, 1/3/6/7 run); render BLOCKED -> HALT. Mode:
                     - ATTENDED (default) → $MODE=pick (3 variants, the user pick IS the quality bar)
                     - UNATTENDED (--yes / no interactive pick) → $MODE=refine — the render→
                       self-critique-from-pixels→fix-weakest-lens→re-render loop with the ui-principles
@@ -177,7 +184,8 @@ Step 1 — Cleanup:          5 findings fixed
   duplicated-surface-styles:   1 (sidebar padding duplicated on Dashboard + Settings — folded into wrapper)
   design-token-drift:        3 (hardcoded #3b82f6 → $primary; padding 12px → $space-md ×2)
   a11y-violation:            1 (focus state missing on collapse button)
-  raw-library-component:     1 (PrimeVue Button → AppButton)
+  raw-library-component:     1 (a raw library button — PrimeVue / MUI / Vuetify, whichever
+                                 this project ships — replaced with the shared AppButton)
 
 Step 2 — Iterate:          3 variants generated (screenshots: Dashboard, Settings, Orders — consumer routes)
   Variant A (polished):      .claude/artifacts/design-iterate/2026-05-02T18-30/variant-a-dashboard.png …
@@ -230,14 +238,17 @@ Revert:                    git reset --hard <pre-run HEAD>   (or git revert the 
 - **`leaf-local` template/script lock.** When `$SCOPE_TIER == leaf-local`, `design-iterate` must not change template or script — style-only. For `wrapper-variant`, template/prop changes require explicit user confirmation (see `design-iterate` skill).
 - **`wrapper-extract` default is halt** — user runs `/add-component` or passes `--auto-extract`.
 - **User picks the variant.** This command does NOT auto-pick. The skill pauses for user input.
-- **Re-enforce always runs.** Even if iterate produced no diff (user picked variant A which was current). The cheap safety check.
+- **Re-enforce always runs.** Even if iterate produced no diff, and even when iterate was `SKIPPED (no harness)`.
+- **The harness is optional; honesty about it is not.** Missing → skip and say so; blocked → halt. The summary must say which.
 
 ## Failure modes
 
 - **Resolution returns 0 matches** — halt; route to `/align-status` for known surfaces or paths.
 - **Resolved file is not a UI component** (it's a service / composable) — halt; ask user for the right file (unless tier `token` and target is a tokens module).
 - **Cleanup step halts** (idiom missing, etc.) — halt the whole flow; route to `/setup-project --refine`.
-- **design-iterate fails** (Playwright unavailable) — halt; document the missing infra.
+- **No render harness** — **do NOT halt** (see the render contract in Pre-requisites). Cleanup + re-enforce run, iterate is `SKIPPED (no harness)`, visual claims print `SKIPPED`, and the missing infra is named under `Not validated:`. Halting the pack's most-dispatched command over an optional dependency is a worse failure than skipping one step honestly.
+- **Render BLOCKED** (auth wall / redirect) — **HALT** per the same contract; the variants would otherwise be graded against a login page.
+- **design-iterate fails otherwise** (crash, timeout) — halt the iterate step only, keep the cleanup commits, report the failure with its output.
 - **User skips the pick** — leaves the file in cleanup-only state (no creative change); legitimate flow.
 - **Re-enforce surfaces drift** that iterate introduced — auto-fixes via the standard align loop; surfaces in the summary.
 - **Duplicate surface, no wrapper (`wrapper-extract`)** — halt with duplicate map + recommend `/add-component <SharedX>` for extraction. With `--auto-extract`, run extraction sub-flow then continue at `wrapper-variant`.

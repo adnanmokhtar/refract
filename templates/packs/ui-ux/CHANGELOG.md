@@ -14,6 +14,196 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.25.2 — 2026-08-22
+
+**The reconciliation that skipped the artifact which does the writing.** 1.25.0 claimed "four
+contradictory motion durations reconciled into one table owned by `motion.md`". Four were.
+`motion-audit`, `ui-design-sweep`, `theming.md` and `motion.md` itself all landed on `fast 150 /
+base 250 / slow 400` and now defer explicitly. But `design-system-architect` — the agent whose job
+is to author the token layer into a project — was never opened, and still emitted:
+
+```
+- **Motion**: duration tokens (`fast: 100ms`, `normal: 200ms`, `slow: 300ms`)
+```
+
+Wrong on all three values, and wrong on the token *name*: `normal` where the other seven files say
+`base`, including `theming.md`, which emits `--duration-fast: 150ms` against this file's `100ms`.
+The failure mode was circular — the architect writes the tokens, then the pack's own `motion-audit`
+and `ui-design-sweep` flag those tokens as drift against `motion.md`. A reconciliation that skips
+the token-authoring artifact leaves the contradiction exactly where it does damage.
+
+`design-system-guardian` carried the same class of error one level down: it mapped
+`transition: 200ms ease` to `duration-fast`, but `motion.md § The duration scale` puts 200ms in the
+**base** band (200–300 ms, token 250 ms) — `fast` is 100–150 ms. Corrected to `duration-base`.
+
+Both agents now cite `ai/patterns/motion.md § The duration scale` as owner rather than restating a
+private copy, matching the deferral `motion-audit` and `ui-design-sweep` already use. Both
+`_examples/` fallbacks moved with their sources (check 8b). Swept afterwards: the pack holds zero
+duration values and zero duration-token names that disagree with `motion.md`.
+
+**The axis-catalog pointer was a dead link after install.** `ui-principles.md § Axis catalog` — the
+sole route to the 7,828 characters of per-axis depth that 1.25.0 moved *out* of the always-loaded
+rule — pointed at it as `[`ai/patterns/axis-catalog.md`](../ai-patterns/axis-catalog.md)`. That href
+resolves only inside this template repo. `phase-4.2-apply.md` copies rules to `.claude/rules/` and
+ai-patterns to `ai/patterns/`, two different trees, so from the installed rule the relative path
+lands on `.claude/ai-patterns/axis-catalog.md`, which never exists. No gate caught it because the
+link is valid in the source layout. The headline rule-shrink therefore handed its reader a 404 at
+the one moment it told them to go deeper.
+
+Replaced with the bare `` `ai/patterns/axis-catalog.md` `` form the pack's six other pointers
+already use (`creative-director` :250, `design-system-guardian` :199, `ux-reviewer` :231,
+`design-system-architect` :181, `ui-design-sweep`, `_topics.md`). Human-readable and correct
+post-install, where a markdown href was neither. Net −34 characters on the always-loaded rule.
+
+Both fixes are consistency repairs to the 1.25.0/1.25.1 pass; no artifact was added or removed.
+
+## 1.25.1 — 2026-08-22
+
+**The pack's one rule shipped to greenfield with nothing marking it as a rule.**
+`_examples/ui-principles.md` is deleted; `_topics.md` now self-fallbacks `ui-principles` at
+`rules/ui-principles.md`, matching `mobile/rules/{mobile-principles,render-discipline}`.
+
+The file stood at 97% of its source (4,908 vs 5,046 chars; 62 vs 65 lines), so the `_examples/`
+premise — the artifacts a project rewrites in its own voice, against its own entities — was fiction
+for it, and it was a second lockstep-update site for a rule that had just been rewritten (-43.8%
+this batch). But the deciding fault is that its 3% delta was **subtractive on the only path that
+reads it**. `_examples/` is copied VERBATIM when extraction has no signal, which for greenfield is
+the ONLY path, and the copy dropped `severity: must` and
+`applies-to: ui-ux-track, every-code-writing-task-in-ui-ux` from its frontmatter and demoted five
+`## Should` imperatives to noun phrases (`Use 3 baseline breakpoints` -> `3 baseline breakpoints`).
+A greenfield ui-ux install therefore received the pack's single always-loaded rule with no severity
+binding, no applies-to scope, and its advisory half stripped of its verbs.
+
+Check 8b (fallback integrity) is green on this pair and stays green: `validate-pack-consistency.sh`
+scopes FRONTMATTER-LOSS `description:` to agents/commands/skills and exempts `severity:` on rule
+fallbacks because it is absent in 20 of 20 — correctly, since gating a whole-class convention flags
+the convention rather than a defect. The gate is not at fault; the artifact was.
+
+Consistency note: `mobile` deleted the identical defect class at 1.9.0 (`_examples/mobile-principles.md`,
+96%) with this same reasoning recorded in `mobile/_topics.md`. ui-ux had kept it. It no longer does.
+No other artifact changed; the historical reference at CHANGELOG 1.24.0 is left intact as record.
+
+## 1.25.0 — 2026-08-22
+
+Batch-2 grading pass over `commands/`, `skills/` and `ai-patterns/`. Two themes: **the ten
+commands are now self-disambiguating**, and **every WCAG / duration / tool claim in the pack is
+current and cited**. (The sibling `agents/` + `rules/` half of the same pass — the axis-catalog
+extraction out of the always-loaded rule — is recorded under its own entry.)
+
+**1. Command disambiguation — the pack's biggest defect, fixed at the point of use.**
+- The ten-command routing table was reachable only from `ui-sweep.md`'s `## Related`, 385 lines
+  into a 422-line file — i.e. only by a user who had already chosen `/ui-sweep` and then scrolled
+  past the end. It is now a **top-level `## The ui-ux command map`** at the top of that file,
+  rebuilt around *the question you can answer before you start* rather than around intent verbs,
+  and it now lists **all ten** commands: `/add-theme-variant` was previously excluded from the
+  table, which is what made it unfindable.
+- Every one of the ten commands now carries a **`Not this command? (ANTI-triggers)`** blockquote
+  directly under its title, naming its actual confusable siblings and the discriminator, and
+  linking to the map. A user who lands on one command page can now leave it correctly.
+- **`/redesign` ÷ `/art-direct` is resolved.** Both claimed *"generic / dated / forgettable"*, and
+  the user cannot answer which applies — whether the fault is the composition or the visual
+  language is the OUTPUT of a diagnosis, not an input. `redesign.md § Phase 1` now owns a
+  **LANGUAGE-OR-COMPOSITION TEST**: three mechanical questions (does the complaint reproduce on
+  unrelated surfaces · does the token source score ≥3/5 on named generic tells · would a perfect
+  rebuild in the current language honestly fix it), decided from the baseline render plus the token
+  file, with the verdict printed into the proposal. `/art-direct` runs the **same test in reverse**
+  and routes BACK to `/redesign` on a `composition` verdict rather than inventing an identity the
+  product does not need. `/enhance-ui`, `/design-review` and `/ui-sweep` cite it; none restates it.
+- **`/enhance-ui` no longer hard-halts without Playwright.** The pack's most-dispatched command
+  (19 inbound files) previously halted outright when the render harness was missing, although two
+  of its three steps need no screenshots. It now adopts the pack's standard two-valued contract —
+  **no harness → `SKIPPED (no harness)`** (cleanup + re-enforce still run, visual claims print
+  SKIPPED), **blocked render → HALT (`RENDER BLOCKED`)** — matching `/redesign` and `design-iterate`.
+
+**2. Corrections (each traced to a fetched source).**
+- **WCAG target size was cited at the wrong conformance level pack-wide.** 44×44 is **SC 2.5.5
+  Target Size (Enhanced), Level AAA**; the AA criterion is **SC 2.5.8 Target Size (Minimum),
+  24×24 CSS px** with five named exceptions, and it appeared nowhere in the pack. Corrected in
+  `skills/a11y-quick-check`, `skills/ui-design-sweep` verb 16, `commands/ui-sweep` Detector 6 and
+  `commands/redesign` Phase 6: 24×24 is the conformance floor, 44 is the house design target
+  (iOS HIG 44pt, under Material's 48dp), and the two are never merged. Operationally load-bearing:
+  `axe-core`'s `target-size` rule implements **2.5.8 at 24×24**, so "verified 44×44 with axe" was
+  a claim the named tool cannot make — the verify step is now split by threshold.
+- **WCAG 2.3.3 (Animation from Interactions) is Level AAA**, not AA as `motion-audit` asserted. The
+  criterion that binds below AAA is **SC 2.2.2 Pause, Stop, Hide (Level A)** for motion that
+  auto-starts, runs past five seconds and sits beside other content. Both are now named with their
+  levels, and reduced-motion findings are reported as house-rule violations, not AA failures.
+- **`axe-react-native` does not exist** (npm 404) — removed. **`accessibility_test` (pub.dev) is
+  discontinued** — removed. The whole mobile tool list is gone from this web-DOM-shaped skill;
+  native surfaces route to `platform-conventions-audit` *(mobile pack)*, which is where platform
+  specifics belong.
+- **`eslint-plugin-design-tokens` was unpublished from npm the day it was published** (2024-03-14)
+  and was named as the tool that clears a halt gate — a halt no generally-available tool could
+  clear. Replaced in `design-token-audit` and `design-systems` with enforcement that exists
+  (stylelint `declaration-property-value-allowed-list`, ESLint `no-restricted-syntax`, the utility
+  framework's own theme config, a CI grep), plus an explicit rule: never cite a plugin the repo
+  does not install.
+- **Flipper** was cited three times in `motion-audit` as the required profiling artifact; it is no
+  longer part of React Native's tooling. Replaced with the currently-documented profilers, and the
+  halt now requires *a named artifact path*, not a named product.
+- **Framer Motion → Motion for React** (`motion`, imported from `motion/react`).
+- **`/perf-check` does not exist in this repo** — it was named five times, including as an
+  accomplished fact inside `add-theme-variant`'s output exemplar alongside invented LCP and bundle
+  figures. Now `/perf-audit` *(performance pack, when installed)* or the repo's own budget script,
+  with the exemplar marked as a shape rather than a default.
+- **The uncited "~40%" that sized `a11y-quick-check`'s entire value proposition** is gone. The
+  measured figure is Deque's 57% (2,000+ audits / 13,000+ pages / ~300,000 issues) — but that is
+  share of issue VOLUME, not of success criteria, and Deque itself notes the colour-contrast skew.
+  The skill now states what *determines* the split on a given surface instead of printing a number.
+- **Four contradictory motion durations** across `motion.md`, `motion-audit`, `ui-design-sweep` and
+  the `/redesign` lens are reconciled into **one table owned by `motion.md § The duration scale`**
+  (fast 150 / base 250 / slow 400; >400 ms on a frequent action is a finding; >500 ms forbidden).
+  Every other artifact cites it.
+
+**3. Advice that would have produced worse work.**
+- `contain: layout paint` was recommended unconditionally for animating containers. `paint` clips
+  descendants to the overflow clip edge, so it silently breaks tooltips, dropdowns, popovers and
+  focus rings. Now `contain: layout` with the clipping caveat spelled out.
+- The global `prefers-reduced-motion` reset was presented as the recommendation. It also kills
+  `scroll-behavior`, nulls motion the criterion exempts as essential, and cannot reach scroll-linked
+  or JS-driven motion at all. It is now the blunt retrofit fallback; per-component opt-in is the
+  shape for new code.
+- `filter` was listed alongside `transform`/`opacity` as "GPU-cheap (60fps stable)". It shades per
+  frame and `blur()` scales with area. Corrected in `motion-audit` and `ui-design-sweep`.
+
+**4. Rewrites — same or fewer lines, materially more useful.**
+- **`a11y-quick-check` (was the pack's weakest file)** is now split into **Lane A** (machine-
+  resolvable: axe rule ids, contrast computed from the resolved token pair, DOM semantics, target
+  geometry) and **Lane B** (human-only: screen reader, keyboard, OS reduced-motion, 200%/320px
+  reflow). An unattended run closes Lane A and prints Lane B `NOT RUN (human lane)` — it can no
+  longer report "a11y ✓" on the strength of the half a machine can do. `/design-review` and
+  `/redesign` carry that state through.
+- **`rtl.md`** dropped the MDN-grade half and gained the part that actually breaks in production:
+  the **four families logical properties do NOT flip** (box-shadow offsets, transform, background-
+  position, gradient direction), **bidi isolation with `<bdi>`** for user-generated mixed content,
+  and the **RTL `scrollLeft` sign** (0 at the start, increasingly negative, with a documented
+  Safari overscroll divergence).
+- **`design-systems.md`** is now the CONSUMER-side contract (the fork it prevents, the ≥2-unrelated-
+  consumers test, the three token sub-layers, real enforcement) instead of a governance
+  category list the `design-system-architect` agent already covers better.
+- **`dark-mode.md` ÷ `theming.md` de-duplicated.** `theming.md` owns the MECHANISM (token layer,
+  attribute, persistence, SSR anti-flash, per-tenant, migration); `dark-mode.md` owns only what is
+  different about dark (elevation inverting, brand-hue lift, near-black/near-white, asset
+  variants). ~90 duplicated lines removed; both keep their identity and every inbound reference
+  still resolves. References gained real URLs.
+- **`design-review`** gained the one thing only an orchestrator can do: a **contradiction protocol**
+  (computed beats asserted → conformance beats house rule → axis owner beats visitor → otherwise
+  both print as `[contested]`), replacing "pick the strictest", which is a slogan, not a mechanism.
+- **`design-token-audit`** now states its boundary (it RESOLVES; `ui-design-sweep` verbs 1–2 APPLY)
+  and spells out the ΔE trap with computed numbers: `#767676` on white is 4.54:1 (passes AA body
+  text) and `#7a7a7a` is 4.29:1 (fails), a CIE L\* difference of ≈1.6 — inside any nearest-match
+  tolerance, so a "safe" colour swap can cross a threshold silently.
+
+**5. Stack leakage.** ui-ux has no `references/` directory, so platform specifics are findings.
+`motion-audit § 6 Mobile-specific` (native drivers, per-platform reduced-motion APIs, Flipper) was
+**deleted** and routed to the `mobile` pack's `references/<framework>.md`, which is where it
+belongs. `ui-crawl-fix`'s wrapper table — including a downstream-project-shaped API name presented
+as a fix target — is now roles resolved from `_extracted-idioms.md`, with an explicit halt when a
+role has no named owner. `ui-crawl`'s inventory greps are marked illustrative with an ARIA-role
+fallback and a degraded-mode record. A named third-party commercial demo store used as the
+canonical example in `/grab-site` and `/clone-design` is now a placeholder host. Pack leakage
+warnings: 7 → 1 (the remaining one is a historical CHANGELOG line, left alone).
+
 ## 1.24.1 — 2026-08-22
 
 **The closure-verb citation pointed at no section.** `_topics.md`'s `ui-crawl-fix` topic declared

@@ -166,7 +166,7 @@ git diff --name-only <pre-run-HEAD>..HEAD | grep -vE "^${SLOT_ROOT}/${name}/" | 
 
 Both classes join the parity table with their own render-verified grade — `themed-to-new-slot ✓ / still-default ✗ (Parity FAILURE)` — alongside the `present ✓ / MISSING ✗` grade of the component / icon / state / layout classes. Counts must match AND every library control + chart must read `themed-to-new-slot` from the render; a single `still-default` → `INCOMPLETE — <control|chart> never left the default theme`, never a pass.
 
-**Perf gate.** Run the project's perf check (`/perf-check` or the repo's equivalent) on the new theme's key routes, on mobile. A breach of the project's budget → HALT. No perf check in the repo → `SKIPPED (no perf check)`, stated, never faked green.
+**Perf gate.** Run the project's perf check (`/perf-audit`, from the performance pack, or the repo's equivalent) on the new theme's key routes, on mobile. A breach of the project's budget → HALT. No perf check in the repo → `SKIPPED (no perf check)`, stated, never faked green.
 
 **Visual gate (verify).** Render the new theme across the project's key surfaces × every locale (incl. RTL) × mobile + desktop via `visual-check`. Contrast COMPUTED per theme (AA), never asserted. No harness → `SKIPPED (no harness)`; blocked auth-wall render → HALT (`RENDER BLOCKED`), authenticate and re-render — not SKIPPED.
 
@@ -184,7 +184,7 @@ Design:       token system — color roles · type scale · spacing rhythm · ra
 Parity:       K/K items vs default (components · icon sets · states · layouts ·
               library controls · charts) — 0 MISSING · 0 still-default
               (every control + chart themed to new slot, verified from render)
-Perf:         /perf-check on <n> key routes @ mobile — within budget | SKIPPED (no perf check)
+Perf:         /perf-audit on <n> key routes @ mobile — within budget | SKIPPED (no perf check)
 Visual:       <n> surfaces × {locales incl RTL} × {mobile,desktop} in <name> → RTL ✓ · a11y AA ✓
               | SKIPPED (no harness)
 Revert:       git reset --hard <pre-run HEAD>   (purely additive — zero collateral)
@@ -255,7 +255,7 @@ Fix: use margin-inline-start OR explicit rtl.scss override.
 ### Color contrast regression
 ```
 Dark theme overrides: #333 text on #222 bg
-Contrast: 1.9:1 (WCAG 2.1 AA failure)
+Contrast: 1.9:1 (WCAG 2.2 AA failure)
 Fix: audit contrast per theme. axe-core in all themes.
 ```
 
@@ -295,9 +295,10 @@ MEDIUM — New component lacks theme overrides:
   Fix: add overrides to each theme OR accept inheritance explicitly.
 
 HIGH — Library control renders the default theme in a variant (token layer never reached it):
-  The filter bar's PrimeVue SelectButton + Calendar render default-themed in brand-acme
-  (verified from the render); brand-acme has no :deep(.p-button)/:deep(.p-inputtext)
-  overrides. The token matrix marks the tokens "present ✓" but the control is visually default.
+  The filter bar's library controls (segmented toggle + date picker — PrimeVue here; MUI /
+  Ant / Vuetify / Radix behave the same) render default-themed in brand-acme (verified from
+  the render); brand-acme wrote no :deep()/CSS-var overrides for the library's inner control
+  classes. The token matrix marks the tokens "present ✓" but the control is visually default.
   Fix: add explicit :deep()/::v-deep/CSS-var overrides for the control's inner classes in the
   brand-acme layer; re-render to confirm it left the default theme.
 
@@ -360,10 +361,12 @@ Result: 48 combos, 3 regressions:
 ### Commands
 - [`/add-theme-variant`](../commands/add-theme-variant.md) — the BUILDER entrypoint; this agent executes it and owns its four gates.
 
-### Sibling agents in ui-ux pack
-- `@design-system-architect` — sibling agent in ui-ux pack (codifies tokens when `--reimagine` routes through `/art-direct`)
-- `@design-system-guardian` — sibling agent in ui-ux pack
-- `@ux-reviewer` — sibling agent in ui-ux pack
+### Sibling agents in ui-ux pack — the boundary
+You own **N variants of ONE system and the parity between them**. The shared layer is never yours to edit — that constraint is what separates you from all three siblings.
+- `@design-system-architect` — owns the shared token layer and the primitive APIs (and codifies tokens when `--reimagine` routes through `/art-direct`). **Not yours:** adding, renaming or restructuring a shared token. A gap that exists in EVERY theme is the architect's; a gap in ONE theme is yours. When a variant can only be completed by editing the shared layer, that is an architecture LIMIT you surface — never an edit you make.
+- `@design-system-guardian` — audits whether code used the system at all. **Not yours:** hex literals, wrapper bypass, per-file drift. Its finding is "this file ignored the system"; yours is "this theme did not define what the system requires".
+- `@ux-reviewer` — grades the screen a user operates, and is the ADVERSARIAL grader for your Visual gate. **Not yours:** grading your own build. The builder never grades the builder — self-grading inflates, which is why the Visual gate dispatches a separate critic.
+- `@creative-director` — decides the ONE visual language your themes are variants of. **Not yours:** inventing a new language for a variant. `--reimagine` routes there and comes back with a direction; it does not license you to art-direct a theme slot.
 
 ### Skills
 - `visual-check` — renders the new theme across surfaces × locales × viewports (the Visual gate)

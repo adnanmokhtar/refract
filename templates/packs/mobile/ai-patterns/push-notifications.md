@@ -39,6 +39,16 @@ pack: mobile
 
 ## Permission UX
 
+**Android 13 (API 33) made notifications a runtime permission, and this pattern owns it** — `permissions.md` delegates the whole notification topic here, so if it is not stated here it is stated nowhere. Three facts, all from the same page [N1]:
+
+1. **Declare it.** `<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>` in the manifest. Without the declaration there is nothing to request.
+2. **Request it at a justified moment**, the same in-context rule as every other permission. `permissions.md`'s four-state model and `shouldShowRequestPermissionRationale()` branch apply unchanged.
+3. **Denial is total, not partial.** If the user selects "Don't allow", the app "can't send notifications unless it qualifies for an exemption. All notification channels are blocked" — a correct channel taxonomy does not survive a denied permission.
+
+**The `targetSdk` trap.** An app still targeting 12L (API 32) or lower does not choose the moment at all: "the system shows the permission dialog the first time your app starts an activity after you create a notification channel … This is usually on app startup" — and worse, "if the user taps **Don't allow**, even just once, they aren't prompted again until they uninstall and reinstall your app, or you update your app to target Android 13 or higher" [N1]. So on a low-`targetSdk` build the priming screen below never runs, the dialog fires at launch, and one tap is permanent. Targeting 33+ is what buys back the in-context request. (Play's own `targetSdk` floor is a separate, dated gate — `@app-store-reviewer` owns it.)
+
+**iOS has no equivalent declaration** — authorization is requested through the notification centre at runtime, with the provisional path below as the low-friction alternative. Do not mirror the manifest step onto iOS, and do not assume the Android runtime request exists on a build targeting 32.
+
 - **Prime before the OS dialog.** The system permission prompt is one-shot; a denial can't be re-requested in-app. Show a pre-permission priming screen that states the value ("Get notified when your order ships") AFTER the user has seen the feature's value — never at launch.
 - **Timing.** Request at the moment the notification becomes meaningful (first order placed, first message thread), not on the splash screen.
 - **iOS provisional authorization** (`provisional: true`) delivers quietly to Notification Center with no dialog — a low-friction path to earn trust, then upgrade to full alerts.
@@ -152,3 +162,10 @@ Parsing the tapped payload into a `{ screen, params }` intent and navigating —
 - `@mobile-architect` (design-level lifecycle — §6)
 - `@app-store-reviewer` (permission-policy + notification-disclosure compliance)
 - cross-pack `backend` `webhook-flow` (the server SEND side: APNs/FCM dispatch + 410 consumption)
+
+## Sources
+
+- N1 — Android, [Notification runtime permission](https://developer.android.com/develop/ui/views/notifications/notification-permission) (read 2026-08-20). Quoted above: API 33 introduction, the manifest declaration, "All notification channels are blocked" on denial, the API-32-and-lower dialog timing, and the single-denial lockout on low `targetSdk`.
+- Android, [Create and manage notification channels](https://developer.android.com/develop/ui/views/notifications/channels) — the API 26 channel requirement behind detector 3.
+- Apple, [UNUserNotificationCenter](https://developer.apple.com/documentation/usernotifications/unusernotificationcenter) — authorization options including the provisional path, and `willPresent` foreground presentation.
+- **Deliberately absent** — each was looked for and is not published: an APNs or FCM delivery-rate guarantee, a silent-push delivery budget, a token rotation interval, and a maximum notification payload retention. The pattern states behaviour that does not depend on any of them; treat delivery as best-effort and back it with a foreground reconcile.

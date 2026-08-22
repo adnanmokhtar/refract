@@ -18,7 +18,7 @@ Prevents the three failures users punish: confusing labels, broken keyboard nav,
 - Labels are verbs in the user's tense: "Save changes", "Delete account", "Send invite". Not "OK", "Submit", "Yes".
 - Error messages name the field, the rule, and the fix: "Phone must be 10 digits — you entered 9." Not "Invalid input."
 - Empty states explain what goes here AND offer one primary action ("No orders yet — Create your first").
-- Touch targets ≥ 44×44 CSS px (iOS HIG) / 48×48 dp (Android Material). Test with a finger, not a mouse.
+- Pointer targets clear **WCAG 2.2 SC 2.5.8 (Minimum) — Level AA, 24×24 CSS px** (or a Spacing / Inline / Equivalent exception), and are DESIGNED to the platform target: 44×44 CSS px (iOS HIG 44pt) / 48dp (Material). 44×44 is SC **2.5.5**, Level **AAA** — house target, never the AA floor.
 - Color contrast ≥ 4.5:1 for body text, ≥ 3:1 for large text and UI components (WCAG 2.2 AA). Audit with axe-core or Lighthouse.
 - Every interactive element is reachable + operable via keyboard. Tab order matches visual order.
 - `:focus-visible` style on every interactive element. Never `outline: none` without a replacement ring.
@@ -45,47 +45,21 @@ Prevents the three failures users punish: confusing labels, broken keyboard nav,
 - Prefer inline editing over modals when only one field changes — fewer context switches.
 - Render exactly one primary action per screen, visually distinct. Multiple primaries = no primary.
 
-## Review checklist
-
-- [ ] Tab through the page — every interactive element reachable, focus ring visible, order matches layout.
-- [ ] Run axe DevTools or Lighthouse a11y audit — zero serious violations.
-- [ ] Resize from 320px up — no horizontal scroll, no overlapping elements.
-- [ ] Disable network in DevTools → verify offline / error state, not infinite spinner.
-- [ ] Toggle "Reduce motion" in OS settings → animations are disabled or instant.
-- [ ] Screen reader smoke test (VoiceOver / NVDA) on the primary flow.
-
 ## Enforcement
 
-- `eslint-plugin-jsx-a11y` (React) / `vue-a11y` / `nuxt-a11y` plugin in lint config.
+- An a11y lint plugin in the lint config: `eslint-plugin-jsx-a11y` (React) or `eslint-plugin-vuejs-accessibility` (Vue — NOT `eslint-plugin-vue-a11y`, last published 2019). Angular: `@angular-eslint/template/accessibility`.
 - Storybook + `@storybook/addon-a11y` for component-level audits.
-- Lighthouse CI budget on a11y score (≥ 95) gating PRs.
-- Visual regression via Playwright / Chromatic on critical pages.
+- Lighthouse CI budget on a11y score gating PRs; visual regression via Playwright / Chromatic on critical pages.
+- Lint + axe do not cover the whole floor. The manual lane — tab-order walk, screen-reader smoke, OS reduce-motion toggle, offline state, 320px reflow — is `a11y-quick-check`'s runbook, not a checklist to restate here.
 
 ## Axis catalog (the usability floor + `ui-design-sweep` closure map)
 
-**16 axes / 19 closure verbs** — the counts differ on purpose: some axes carry more than one verb (the `tokens` axis has both `consolidate-tokens` and `extract-token`; `states` has `wire-empty` / `wire-loading` / `wire-error-state`). 19 ≠ 16 is expected here, not a drift — downstream consumers cite these same two numbers.
+**16 axes / 19 closure verbs — a CLOSED vocabulary.** The 16 axes are:
 
-This catalog plays a DUAL role and is the single source of truth for both. (1) It is the **closed axis map `ui-design-sweep.md` (this pack) closes against**: that skill operates from a closed vocabulary of 19 verbs, each of which closes a finding on ONE of these axes — when a tool reports "design-token drift" or "hierarchy violation", it cites the axis name from this list. (2) It is the pack-wide **canonical usability FLOOR** that `creative-director` / `art-direct` (this pack) delegate to and self-check their OWN inventions against — never re-auditing the existing design's floor, never inventing a 17th axis — and that `redesign` / `enhance-ui` / `ux-reviewer` (this pack) score existing surfaces against. Re-scoping this section to only one of those roles silently breaks the delegation the other consumers depend on — extend it, never narrow it.
+`tokens` · `wrappers` · `patterns` · `hierarchy` · `type-scale` · `rhythm` · `density` · `states` · `contrast` · `focus` · `iconography` · `motion` · `tap-target` · `cta` · `affordance` · `surface`
 
-| Axis | Heuristic | Closure verbs that operate on it |
-|---|---|---|
-| **tokens** | Every conceptual value (color / spacing / radius / shadow / type / motion) lives in `_extracted-idioms.md § Tokens`; literals in components are drift. | `consolidate-tokens`, `extract-token` |
-| **wrappers** | A shared wrapper exists for every recurring component shape; raw HTML / library components used where a wrapper exists is drift. | `unify-component` |
-| **patterns** | ≥5 instances of the same affordance pattern means the wrapper is missing and should be extracted. | `extract-pattern` |
-| **hierarchy** | Exactly one primary action per screen (visually dominant); heading levels descend without skips; primary-action prominence ≥ 80 score. | `normalize-hierarchy` |
-| **type-scale** | Every `font-size` matches a declared scale step (no `17.5px` when scale is `12 / 14 / 16 / 18 / 20 / 24 / 32 / 48`). | `apply-type-scale` |
-| **rhythm** | Every margin / padding / gap is a multiple of the spacing-token base (typically 4 or 8 px). | `tighten-rhythm` |
-| **density** | A single surface uses one density (compact / cozy / comfortable); density chosen for context (admin → compact, marketing → comfortable). | `simplify-density` |
-| **states** | Every async surface renders a specific empty / loading / error state; data + spinner never simultaneous (no CLS). | `wire-empty-state`, `wire-loading-state`, `wire-error-state` |
-| **contrast** | Body text ≥ 4.5:1, large text + UI components ≥ 3:1 (WCAG 2.2 AA), at every interactive state (default / hover / focus / disabled). | `lift-contrast` |
-| **focus** | Every interactive element has visible `:focus-visible` ring with ≥ 3:1 contrast; never `outline: none` without replacement. | `align-focus-ring` |
-| **iconography** | One canonical icon set per project (no Heroicons + Material + FontAwesome mixed). | `unify-iconography` |
-| **motion** | Animation duration + easing comes from motion tokens; respects `prefers-reduced-motion`; targets `transform` / `opacity` (no layout-thrash). | `normalize-motion` |
-| **tap-target** | Every interactive element ≥ 44×44 CSS px at mobile breakpoint (WCAG 2.5.5 / iOS HIG / Material 48dp). | `expand-tap-target` |
-| **cta** | Primary CTA position is canonical per surface type (list / detail / form / modal). | `unify-cta-placement` |
-| **affordance** | Action elements LOOK interactive (hover / focus / cursor); icon-only has `aria-label`; disabled buttons explain WHY. | `clarify-affordance` |
-| **surface** | Each page matches the prototypical example for its surface type (list / detail / form / modal); divergent skeletons are drift. | `normalize-surface` |
+19 ≠ 16 on purpose — some axes carry several verbs (`tokens`, `states`). Both numbers are cited verbatim downstream: extend a row, never renumber the set.
 
-Any UI/UX finding NOT on this catalog is either (a) an architectural concern (route to `architectural-diagnosis` — code-quality pack), (b) a code-structure concern (route to `refactoring-sweep` — code-quality pack — or `/align-recheck`, align pack), or (c) outside scope — halt and surface, do not invent a 17th axis.
+Any UI/UX finding NOT on these 16 axes routes OUT — (a) architectural → `architectural-diagnosis`, (b) code-structure → `refactoring-sweep` or `/align-recheck`, (c) out of scope → halt and surface. **Never invent a 17th axis.**
 
-> **Companion floor (a different dimension — do NOT fold it into the 16 axes).** The catalog above is the per-ELEMENT usability floor. Whether a whole COMPOSITE surface carries its table-stakes affordances — a data-table's toolbar / search / filter / sort / bulk-select + bulk-actions / export / sticky header, a dashboard's labeled metric tiles + re-themed charts + widget hierarchy (+ a period control / activity feed / quick-actions when its job is time-bound / operational) — is a per-SURFACE **completeness** floor, owned by `ui-design-sweep.md § normalize-surface — Built-in composite-surface table-stakes` (verb 19's fallback prototype, used when a project has not authored `_extracted-idioms.md § Surfaces`). It is NOT a 17th axis and does not change the `16 axes / 19 verbs` counts — keep it there, cite it from here.
+**Depth lives at `ai/patterns/axis-catalog.md`** — per-axis detection heuristic, closure verbs, the catalog's dual role (closure map for `ui-design-sweep`; usability floor for `creative-director` / `ux-reviewer` / `/redesign`), and the composite-surface *completeness* companion floor. Load it at dispatch; the closed names above are what must be in session.

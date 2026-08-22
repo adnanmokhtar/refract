@@ -46,7 +46,7 @@ For each method/property crossing the bridge:
 | Android Java | NullPointerException possible on `getString` etc. |
 | Flutter Dart | `MethodChannel` returns `dynamic` — no compile-time guard. Use Pigeon for typed channels. |
 
-Action: TypeScript types (RN) or generated classes (Pigeon) eliminate ~80% of bridge bugs.
+Action: generate the boundary rather than hand-writing it — a TurboModule spec (RN) or Pigeon (Flutter) makes the two sides fail at build time instead of at runtime. **No figure is stated for how much this helps**: none is published, and the claim you can actually make in a finding is structural — an ungenerated boundary has no compile-time check, so every mismatch in it is found by a user.
 
 ### 3. Error propagation
 
@@ -66,7 +66,7 @@ Common bug: native catches error, logs it, never invokes resolve OR reject — J
 
 RN: `NativeModules` callbacks fire on JS thread. UI-thread work needs explicit dispatch (`dispatch_async(dispatch_get_main_queue(), ...)` / `runOnUiThread { ... }`).
 
-Flutter: `MethodChannel` calls happen on the platform thread by default. Use isolates for heavy work.
+Flutter: platform-channel handlers run on the **platform main thread** — "This method is invoked on the main thread". **Isolates do not fix this**: they move work off the *Dart* thread, so an ANR caused by a heavy handler survives one. The documented remedy is channel-side: construct the channel with a background task queue from `makeBackgroundTaskQueue()` — "In order for a channel's platform side handler to execute on a background thread on an Android app, you must use the Task Queue API" (https://docs.flutter.dev/platform-integration/platform-channels, read 2026-08-20). Reach for an isolate for heavy **Dart** work; reach for the task queue for heavy **platform** work.
 
 ### 5. Lifecycle correctness
 
@@ -79,7 +79,7 @@ Flutter: `MethodChannel` calls happen on the platform thread by default. Use iso
 
 - Native retains JS callback → JS object retained by native → cycle. Always weak-reference callbacks where the lib supports it.
 - Background tasks holding references to dismissed UI.
-- Notification listeners not removed on `componentWillUnmount` (RN) / `dispose` (Flutter).
+- Listeners attached and never removed — RN: the cleanup return of the `useEffect` that attached it (`componentWillUnmount` only applies to legacy class components). Flutter: `dispose()`. A subscription with no matching teardown is the finding; name both call sites.
 
 ### 7. Permissions
 
@@ -110,29 +110,25 @@ If the bridge calls APIs needing permission (camera, location, photos, microphon
 |---|---|---|---|
 
 ### Findings
-**Critical (BLOCK release):**
-- [Type mismatch] JS expects `{ id: number, name: string }`; iOS returns `id` as string in some path.
-- [Lifecycle] Promise on `getLocation()` never resolves if app backgrounded during the GPS lock — verified by killing JS thread mid-call.
+**Every row below is a placeholder filled from a read file.** This skill ships no worked example,
+for the reason `/optimize-bundle` states about its own template: a report pre-populated with
+plausible findings is the single easiest thing to reproduce as if it were real. A finding with no
+`<path:line>` on **both** sides of the bridge is not a finding — write `none found` instead.
 
-**High (fix soon):**
-- [Threading] Camera capture handler runs on background thread; result delivered to main but consumer assumes already on main → race on `setState`.
-- [Memory] FCM listener attached in module init; never removed → retain cycle.
+| Severity | Class | JS/Dart `<path:line>` | Native `<path:line>` | Evidence |
+|---|---|---|---|---|
+| Critical / High / Medium / Nit | one of: Type mismatch · Error propagation · Threading · Lifecycle · Memory · Permissions · Versioning | `<path:line>` | `<path:line>` | the quoted signature pair, the non-resolving branch, or the attach-without-detach pair |
 
-**Medium:**
-- [Types] No TypeScript declaration for `BridgeModule.recordCustomEvent(eventName, payload)`. Caller passing structured payload crashes.
-
-**Nits:**
-- [Logging] Native side logs `error.localizedDescription` only; `userInfo` dict contains the actual cause.
+Severity is decided by consequence, not by class: **Critical** = crashes, hangs the JS thread, or
+loses user data; **High** = wrong behaviour on one platform; **Medium** = untyped or unguarded but
+currently working; **Nit** = diagnosability only.
 
 ### Test gaps
-- No mock for permission-denied path on iOS.
-- No test for app-backgrounded-mid-call.
+`<the audited paths with no test, named>` — or `none`.
 
 ### Recommendations
-1. Generate types via Pigeon (Flutter) / TurboModule spec (RN).
-2. Add cancel hook for long-running operations.
-3. Wrap promises with timeout.
-4. Add JS-side reconnection logic for "module reloaded" cases.
+Ordered by severity, each naming the exact call site it changes. Generic advice ("add types",
+"wrap in a timeout") with no call site is not a recommendation.
 ```
 
 ## Inputs
@@ -156,3 +152,18 @@ If the bridge calls APIs needing permission (camera, location, photos, microphon
 - Audited the JS side; missed that the native side has a different API surface in a transitive SDK update.
 - Missed iOS/Android divergence (works on iOS, broken on Android same module).
 - Tested in dev build with hot reload — production behavior differs.
+
+## Related
+
+- `rules/mobile-principles.md` — the UI-thread and cite-the-number rules this skill enforces at the bridge.
+- `references/flutter.md` § Platform channels — the task-queue mechanics and the Pigeon recommendation.
+- `references/react-native.md` — New Architecture / TurboModule context for the JS side.
+- `ai-patterns/permissions.md` — a bridge that calls a permission-gated API inherits that pattern's four-state model; do not re-derive it here.
+- `ai-patterns/app-lifecycle.md` — what "app backgrounded mid-call" actually means, and which callbacks are still allowed to run.
+- `@device-performance-auditor` — a blocking bridge call is a responsiveness cost; hand it the call site rather than asserting a frame number here.
+- `@mobile-architect` — whether the bridge should exist at all is a design question, not an audit finding.
+
+## Sources
+
+- Flutter, [platform channels](https://docs.flutter.dev/platform-integration/platform-channels) (read 2026-08-20) — handlers run on the main thread; `makeBackgroundTaskQueue()` is the documented way off it.
+- **Deliberately absent** — each was looked for and is not published: a bridge-call latency budget, a maximum serialisable payload size, a share of bugs attributable to the bridge, and a timeout value for a cross-bridge promise. The last one is a **project** budget: pick it from the slowest legitimate call you measured, and record it beside the call site.

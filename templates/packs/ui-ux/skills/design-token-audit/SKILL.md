@@ -11,6 +11,8 @@ A grep-driven audit. Hardcoded design values are how design systems silently die
 
 ## Premise
 
+**This skill DETECTS; it does not apply.** It produces the finding set `ui-design-sweep`'s verbs 1–2 close — `consolidate-tokens` (a token exists) / `extract-token` (none does). The boundary: this skill owns *resolution* (which token is right, and is the swap safe?); the skill it feeds owns the edit and its visual verify. A run that starts editing components is out of contract.
+
 Existing tokens are the truth. Mirror; never invent. Every "hardcoded value → token" proposal must name an existing token from the project's resolved theme (Tailwind config, `tokens.css`, `theme.ts`, Style Dictionary output) — not a token you wished existed. If no token matches, the finding is "designer decision required: use closest existing token OR add new token via the design-system process". Inventing `text-accent-orange` because it would have been nice is the failure mode this skill exists to prevent.
 
 ## Halt conditions
@@ -63,10 +65,7 @@ Exclude:
 - Generated files (`dist/`, `.next/`, etc.).
 - Token definition files themselves.
 
-Tools:
-- `rg` (ripgrep) — fast, multi-pattern.
-- `eslint-plugin-design-tokens` (if configured).
-- `stylelint` rules `declaration-property-value-allowed-list`.
+Tools — **only name one this repo actually installs**; a halt cleared by citing a plugin absent from `package.json` is a fabricated pass. `rg` (always available, and sufficient for the whole table above) · `stylelint` `declaration-property-value-allowed-list` (the highest-value standing rule — cite the config path) · the utility framework's own theme config where one owns the scale · `eslint` `no-restricted-syntax` for literals inside `style={{…}}` / `:style` bindings, which stylelint cannot see.
 
 ### 3. Categorize findings
 
@@ -78,15 +77,23 @@ Tools:
 | LOW | Comment-block hex codes (legacy; not actually rendered) |
 | OK | Token name used in a literal — `var(--color-primary)` |
 
-### 4. Propose replacements
+### 4. Propose replacements — and the one trap that makes a "safe" swap unsafe
 
 For each hardcoded value, identify the closest token:
-- Color: nearest token by ΔE distance (perceptual color difference).
+- Color: nearest token by ΔE distance (perceptual colour difference).
 - Spacing: nearest scale value (4px / 8px scale).
 - Font size: nearest type scale.
-- Radius: nearest from radii table.
+- Radius: nearest from the radii table.
 
-If no token exists for the value, the design system is missing it — propose adding to the token catalog (architect approval needed).
+**Nearest-by-ΔE is a proximity measure, not a safety proof.** Two colours a human calls "the same grey" can sit on opposite sides of a contrast threshold. Computed from the WCAG relative-luminance formula: **`#767676` on `#ffffff` is 4.54:1** (passes AA body text, 4.5:1) and **`#7a7a7a` on `#ffffff` is 4.29:1** (fails) — four steps apart per channel, a CIE L\* difference of ≈1.6, well inside any tolerance a "nearest match" heuristic uses. It will swap one for the other without comment. So for every **colour** swap:
+
+1. Resolve the token's actual value and the **role** it plays at that site — body text / large text / non-text UI boundary / decoration — because the threshold differs (4.5:1 / 3:1 / 3:1 / none; WCAG 2.2 SC 1.4.3 + 1.4.11).
+2. **Compute** the ratio against the resolved background at that site, in every theme the project ships.
+3. Only a swap that stays ≥ its role's threshold in every theme is `auto-fixable`; anything else is `manual review required`, with the computed before/after ratios printed.
+
+Mirror discipline for geometry: a spacing or radius swap is visually safe but can change a hit area, so a swap on an interactive element re-checks target size before it is called mechanical.
+
+If no token exists for the value, the design system is missing it — propose adding it to the catalog (architect approval needed), and route the addition through `extract-token`, not through this skill.
 
 ## Output format
 
@@ -146,12 +153,15 @@ Each auto-fixable row carries its `<path:line>` + resolved token — the bare ag
 - Reported `style="color: red"` as a violation when it's intentional in a `:hover` for a button reset (rare but possible).
 - Missed token-resolved-via-CSS-var when the var name isn't exactly `--color-X`.
 - Reported a violation in a 3rd-party copy-pasted snippet that hasn't been ported (still a violation, but flag separately).
-- Suggested a token swap that visually looks right but actually violates contrast minimums (always re-verify a11y after token changes).
+- **Suggested a token swap that visually looks right but crosses a contrast threshold** — the ΔE trap in § 4. The swap is "nearest colour"; the requirement is "ratio at this role in this theme". Compute, don't eyeball.
+- **Cited a lint plugin the repo does not install** to clear the enforcement halt. A halt cleared by a fictional tool is worse than an open halt: it closes the finding and changes nothing.
+- **Applied the fix.** This skill resolves and proposes; `ui-design-sweep` verbs 1–2 own the edit and its visual verify.
 
 ## Related
 
 - `@design-system-guardian` — full audit + governance; this skill is one dimension of it.
 - `motion-audit.md` — motion-token version.
 - `a11y-quick-check.md` — verifies token swaps don't break contrast (the ≥ AA gate above delegates here).
-- `ui-design-sweep.md` — consumes these findings as the `consolidate-tokens` (token exists) / `extract-token` (no token yet) closure verbs.
+- `ui-design-sweep.md` — **the applier.** It consumes this skill's findings as `consolidate-tokens` (token exists) / `extract-token` (no token yet) and owns the edit, the visual baseline, and the a11y re-check. Detection + resolution here; transformation + verification there. Neither restates the other.
+- `design-systems.md` (pattern) — the consumer-side rule this skill measures against (semantic tokens only, no primitive tokens in feature code) and its § Enforcement list of rules that are real.
 - `/ui-sweep` · `/enhance-ui` — apply the token fixes within the system; `/align` — mechanically enforce a token once it exists.

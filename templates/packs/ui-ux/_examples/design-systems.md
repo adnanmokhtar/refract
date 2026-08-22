@@ -6,92 +6,70 @@ pack: ui-ux
 
 # Pattern: Design System
 
-> **Hard rule** — Components reference semantic tokens (`var(--color-...)` or typed token objects), never raw hex / px / font literals. New primitives, new tokens, and one-off deviations require named owner approval recorded in the system's docs.
+> **Hard rule** — Feature code consumes **semantic** tokens and shared primitives only: never a raw hex / px / font literal, and never a *primitive* token (`--blue-500`) where a semantic one (`--color-brand`) exists. A new primitive, a new token, or a documented deviation is a system-level change with a named owner — not a line in a feature PR.
+
+**The failure this prevents:** not "ugly UI". It is the **fork**. One sprint someone needs a button the shared one doesn't do, copies it into their feature folder, and tweaks it. Nothing breaks. Six months later there are four Buttons, the a11y fix lands in one of them, the dark-theme values land in two, and the "design system" is a folder nobody trusts enough to import.
+
+**This pattern is the CONSUMER side** — what feature code must obey and what a reviewer checks. The *producer* side (token-layer design, when a primitive earns promotion, the alias/migration plan) is owned by the `design-system-architect` agent; the closure verbs that fix a violation are `ui-design-sweep`.
 
 **Halt conditions / mandatory cites**
 - Cite the token source-of-truth file as `<path:line>` (e.g. `packages/design-system/tokens.ts:12`) before adding a new component; if missing, halt and create it.
-- Cite at least one existing primitive's storybook entry as `<path:line>` proving the variant + a11y contract is established; do not propose a new primitive without that precedent.
-- Cite the lint config that bans hex literals as `<path:line>`; "we'll add lint later" is a halt.
+- Cite at least one existing primitive's catalog entry as `<path:line>` proving the variant + a11y contract is established; do not propose a new primitive without that precedent.
+- Cite the **enforcement rule actually configured in this repo** as `<path:line>` (see § Enforcement). "We'll add lint later" is a halt — and so is citing a plugin the repo does not install.
 - Cite the ADR governing the system's scope (`ai/decisions/<n>-design-system.md`) before declaring a token deprecated; never sweep tokens without an ADR link.
 - Hand-wave grep ban — never claim "components don't use raw hex" without a cited grep result file or CI rule path.
 
-A shared vocabulary of tokens + components so every screen feels like the same product. Without one, UI drifts with every PR.
+## The one question a feature PR must answer
 
-## Layers (atomic design + variants)
+**"Does this belong in the system, or in my feature?"** The test is mechanical, not aesthetic:
+
+| Signal | Verdict |
+|---|---|
+| **≥ 2 unrelated consumers** would use it (different features, not two screens of one flow) | System. Promote it — `design-system-architect` owns the promotion. |
+| One consumer, and you can name the *product* reason it differs | Local. Compose system primitives; leave a comment saying why. |
+| One consumer, and the reason is "the shared one looked slightly off here" | **This is the fork.** Fix the shared one (or add a variant); never copy it. |
+| It needs a value that has no token | A **request for a token**, routed to the architect — not a licence to inline a literal. |
+
+## Layers — and the rule about skipping them
 
 ```
-Tokens        — raw values (color #3366FF, spacing 8px, font 16px)
-    ↓
-Primitives    — styled building blocks (Button, Input, Badge)
-    ↓
-Patterns      — composed UI (Card, Modal, Form, Table, DataGrid)
-    ↓
-Templates     — page layouts (Dashboard, Auth, List, Detail)
-    ↓
-Screens       — actual pages (ProductList, OrderDetail)
+Tokens → Primitives → Patterns → Templates → Screens
 ```
 
-Rule: DON'T skip a layer. A "Card" built from raw HTML + magic spacing bypasses the system.
+**Don't skip a layer.** A "Card" built from raw `<div>`s and magic spacing bypasses the system: it inherits neither the next theme, nor the next density change, nor the next a11y fix. The tell is a screen file that contains colour or spacing literals at all.
 
-## Tokens
+**Within Tokens there are three sub-layers, and feature code may only touch one.** `--blue-500` (primitive ramp) → `--color-brand` (semantic role) → `--button-bg` (component). Feature code references **semantic**. Referencing a primitive directly hardcodes the value under a nicer name and blocks re-theming.
 
-Live as CSS custom properties OR a typed TS/JSON source of truth:
+## Component contract (what "in the system" obliges)
 
-```ts
-export const tokens = {
-  color: {
-    brand: { 500: '#3366FF', 600: '#2952CC', 700: '#1F3E99' },
-    neutral: { 50: '#F8F9FA', 100: '#E9ECEF', ..., 900: '#212529' },
-    success: { 500: '#10B981' },
-    warning: { 500: '#F59E0B' },
-    danger:  { 500: '#EF4444' },
-  },
-  spacing: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 6: '24px', 8: '32px' },
-  radius:  { sm: '4px', md: '8px', lg: '12px', full: '9999px' },
-  font:    { sans: 'Inter, system-ui', mono: 'JetBrains Mono, monospace' },
-  fontSize:{ xs: '12px', sm: '14px', md: '16px', lg: '18px', xl: '24px', '2xl': '32px' },
-  shadow:  { sm: '0 1px 2px rgba(0,0,0,.05)', md: '...', lg: '...' },
-  duration:{ fast: '150ms', base: '250ms', slow: '400ms' },
-  ease:    { in: 'cubic-bezier(0.4, 0, 1, 1)', out: '...', inOut: '...' },
-};
-```
-
-CSS consumes via vars: `color: var(--color-brand-500);` or Tailwind preset.
-
-## Component contract
-
-Every system component has:
-- **Props** — typed.
-- **Variants** — size (sm/md/lg), intent (primary/secondary/danger), state (default/hover/disabled/loading).
-- **Slots** — where custom content plugs in (prefix icon, suffix action).
-- **A11y** — keyboard, focus, ARIA built in.
-- **Docs** — Storybook entry with all variants + interaction examples.
+- **Typed props**, with an API that does not leak implementation (no utility-class strings as props).
+- **Variants** — size, intent, and the full state set. The states routinely missing are **disabled, loading, focus-visible**; a primitive without them pushes every consumer to reinvent them locally.
+- **Slots** — the sanctioned extension point. If consumers reach past the API, the slot set is wrong.
+- **A11y built in** — keyboard model, focus ring, roles/labels. Accessibility applied per call site is wrong at half the call sites.
+- **A catalog entry** covering every variant *and* the loading / error / empty / RTL renders.
 
 ## Single source of truth
 
-One package (or one folder) owns the system. ALL apps import from it.
+One package or folder owns the system and every app imports from it. The shape matters less than the invariant: **there is exactly one place a component can be defined, and feature folders are not it.**
 
-- Monorepo: `packages/design-system/` consumed by `apps/*`.
-- Workspace: `design-system` sibling repo (published to internal npm / monorepo).
-- Small team: folder `src/ui/` with strict rules — never rebuild a token/component per feature.
+## Enforcement
 
-## Governance
+Governance that lives only in a doc decays. Wire at least one of these and cite it by path:
 
-- New primitive → discussion before adoption.
-- New token → ADR ("why do we need an orange?").
-- One-off deviations → documented with reason.
+- **stylelint** `declaration-property-value-allowed-list` restricting colour properties to `var(--*)` and spacing/radius to the token set — the highest-value single rule.
+- **ESLint** `no-restricted-syntax` rejecting literal colour/spacing in `style={{…}}` / `:style` bindings, where stylelint cannot see.
+- **Utility-framework theme config** — restricting the theme IS the enforcement; an arbitrary value then fails review as an off-theme escape.
+- **A CI grep with a committed allowlist** — crude fallback, but a failing build beats a convention.
 
-## Documentation
-
-- Storybook / Ladle / Histoire for interactive docs.
-- Every component has a story covering: all variants, loading, error, empty, RTL.
-- Token reference page shows every color / spacing / radius with live previews.
+Do not cite a plugin the repo does not install; a halt that can only be cleared by an absent package stops work instead of improving it.
 
 ## Forbidden
 
 - Magic pixel values in components (`margin-top: 13px`).
-- Hex colors inline (`color: #3366ff`).
+- Hex / rgb literals inline (`color: #3366ff`) — including inside a chart config that could read a resolved token.
+- Primitive tokens (`--blue-500`) in feature code where a semantic role exists.
 - Inline font families.
 - Rebuilding a system component per feature ("quick one-off Button").
 - Custom spacing that doesn't fit the scale.
-- Component APIs that leak implementation (e.g., Tailwind classes as props).
+- Component APIs that leak implementation (utility-class strings as props).
+- Declaring the system "adopted" with no enforcement rule in CI.

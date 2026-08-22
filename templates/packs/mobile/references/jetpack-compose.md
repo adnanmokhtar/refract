@@ -46,6 +46,26 @@ app/build.gradle.kts
 - **Edge-to-edge.** "Edge-to-edge is enforced on Android 15 (API level 35) and higher once your app targets SDK 35", and "If your app is not already edge-to-edge, portions of your app may be obscured and you must handle insets" (https://developer.android.com/develop/ui/views/layout/edge-to-edge). There is no opt-out documented for targeting SDK 35+. In Compose this means calling `enableEdgeToEdge()` in the activity and consuming `WindowInsets` (`Scaffold` handles the common cases; content inside a custom container does not get it for free). Symptom of getting it wrong: a button under the gesture bar, or a top app bar behind the status bar.
 - **Foreground service types.** "Beginning with Android 14 (API level 34), you must declare an appropriate service type for each foreground service. That means you must declare the service type in your app manifest, and also request the appropriate foreground service permission for that type (in addition to requesting the `FOREGROUND_SERVICE` permission)." Fourteen types are defined — camera, connected device, data sync, health, location, media playback, media processing, media projection, microphone, phone call, remote messaging, short service, special use, system exempted — each with its own `FOREGROUND_SERVICE_*` permission. And it reaches the store listing: "If your app targets Android 14 or higher, you'll need to declare your app's foreground service types in the Play Console's app content page (**Policy > App content**)" (https://developer.android.com/develop/background-work/services/fgs/service-types). A sync feature that "just runs in the background" is a manifest change, a permission, *and* a Play Console declaration — plan it as three, not one. `ai-patterns/offline-sync.md`'s queue lands here on Android.
 
+- **Predictive back replaces the back callback.** "For apps targeting Android 16 (API level 36) or higher and running on an Android 16 or higher device, the predictive back system animations (back-to-home, cross-task, and cross-activity) are enabled by default. Additionally, `onBackPressed` is not called and `KeyEvent.KEYCODE_BACK` is not dispatched anymore" (https://developer.android.com/about/versions/16/behavior-changes-16). Any custom back handling written against `onBackPressed` silently stops running the day `targetSdk` reaches 36. Compose's documented surface for it is the predictive-back guide, which covers enabling the default system animations, Navigation Compose integration, and "Access progress manually with `PredictiveBackHandler`" (https://developer.android.com/develop/ui/compose/system/predictive-back) — read it before rewriting a back callback, because the migration is per-call-site.
+- **The edge-to-edge opt-out is gone.** "For apps targeting Android 16 (API level 36), `R.attr#windowOptOutEdgeToEdgeEnforcement` is deprecated and disabled, and your app can't opt-out of going edge-to-edge" (same page). A project that met the API-35 gate by setting that attribute has not met the API-36 one.
+- **Large-screen orientation and resize restrictions stop applying.** "For apps targeting Android 16 (API level 36), orientation, resizability, and aspect ratio restrictions no longer apply on displays with smallest width >= 600dp. Apps fill the entire display window, regardless of aspect ratio or a user's preferred orientation, and pillarboxing isn't used" (same page). `screenOrientation`, `resizableActivity` and the aspect-ratio attributes are ignored there. The `PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY` opt-out is explicitly temporary: "The opt-out is temporary and won't apply when targeting API level 37 in a future Android release."
+- **16 KB memory page sizes — a distribution gate, not a behaviour change, and it reaches cross-platform apps.** "all apps targeting Android 15 (API level 35) and higher must support 16 KB memory page sizes on 64-bit devices on Google Play", and "Starting February 1, 2027, if your app updates don't support 16 KB memory page sizes, you won't be able to release these updates" (https://developer.android.com/guide/practices/page-sizes). The trigger is native code, not the language you wrote: "If your app uses any NDK libraries, either directly or indirectly through an SDK, then you will need to rebuild your app for it to work on these 16 KB devices", while "If your app only uses code written in the Java programming language or in Kotlin, including all libraries or SDKs, then your app already supports 16 KB devices." A pure Compose + Kotlin app is usually already compliant; one transitive NDK-bearing SDK changes that, so check rather than assume. `@app-store-reviewer` carries this as a dated gate.
+
+## Biometrics and Keystore-bound secrets
+
+Two different things share the word "biometric", and only the second protects anything (`agents/mobile-architect.md` § Biometric gates decides which one the design wants; this is how it is written on Android):
+
+- **Prompt only** — `BiometricPrompt` returns success and the app shows the screen. Use `BiometricManager.from(context).canAuthenticate(...)`, and branch on all of the documented statuses rather than a boolean: `BIOMETRIC_SUCCESS`, `BIOMETRIC_ERROR_NO_HARDWARE`, `BIOMETRIC_ERROR_HW_UNAVAILABLE`, and `BIOMETRIC_ERROR_NONE_ENROLLED` — for which the documented response is the `Settings.ACTION_BIOMETRIC_ENROLL` intent, not an error screen (https://developer.android.com/identity/sign-in/biometric-auth).
+- **Key-bound** — generate the key with `setUserAuthenticationRequired(true)` and pass a `BiometricPrompt.CryptoObject` to `authenticate(...)`; the Keystore, not the app, then refuses to use the key without a fresh authentication. "If your app uses a secret key that requires biometric credentials to unlock, the user must authenticate their biometric credentials *each time* before your app accesses the key" (same page).
+
+Three details that decide behaviour and are easy to get wrong:
+
+- `setInvalidatedByBiometricEnrollment(true)` invalidates the key when "the user has registered a new biometric credential, such as a new fingerprint"; it is callable "only on Android 7.0 (API level 24) or higher" and **is true by default**. So the secure behaviour is what you already have — the decision being made silently is whether to turn it *off*, and doing so means a newly enrolled fingerprint opens the app.
+- Authenticator classes are not interchangeable, and the class is a device property, not a preference: `BIOMETRIC_STRONG` is "Authentication using a Class 3 biometric, as defined on the Android compatibility definition page", `BIOMETRIC_WEAK` is the Class 2 equivalent, and `DEVICE_CREDENTIAL` is "Authentication using a screen lock credential – the user's PIN, pattern, or password". Which classes a given `CryptoObject` flow accepts is decided by the `KeyGenParameterSpec` you generated the key with and by the device's own sensor class — read the `setUserAuthenticationParameters` / `KeyProperties.AUTH_*` surface on the page above rather than assuming a class works, and let `canAuthenticate(...)` answer it at runtime.
+- Two builder calls are mutually exclusive: "You can't call `setNegativeButtonText()` and `setAllowedAuthenticators(... or DEVICE_CREDENTIAL)` at the same time", and `DEVICE_CREDENTIAL` combinations "aren't supported on Android 10 (API level 29) and lower". Check `minSdk` before writing either.
+
+Unlike iOS, Android secure storage does **not** survive uninstall, so the reinstall cleanup `mobile-architect` § 3b requires is an iOS-side problem, not a symmetric one.
+
 ## Recomposition performance
 
 - **Measure first.** Compose compiler metrics (`reportsDestination`) give the restartable/skippable ratio per composable; Layout Inspector shows live recomposition counts. `rules/render-discipline.md` requires a before/after number on every fix in this class — "feels smoother" is not evidence.
@@ -102,9 +122,29 @@ Google ships an official CLI aimed at agents. "Android CLI is a command-line int
 - Blanket `remember` / `@Stable` annotations added without a metrics report — over-memoization, and mostly obsolete under strong skipping.
 - Reading a frequently-changing state value at composition time when the read could be deferred to layout or draw.
 - Raising `targetSdk` without handling insets, or adding a foreground service without a type, permission, and Play Console declaration.
+- Raising `targetSdk` to 36 as a manifest edit: predictive back, the removed edge-to-edge opt-out and the large-screen orientation change are engineering work, not a version bump.
+- Treating `BiometricPrompt` success as protection for a secret that is readable without it — the key must be `setUserAuthenticationRequired`, or biometry is decoration.
+- Assuming a Kotlin-only app is exempt from the 16 KB requirement without checking for transitive NDK libraries.
 - Business logic in a composable instead of the ViewModel (`rules/render-discipline.md`, detector 8).
 - Shipping a release build without uploading the R8 mapping file.
 - Quoting the 1.09% / 0.47% vitals numbers as *rejection* thresholds. They affect discoverability; Play does not reject on them.
+
+## Render-discipline fingerprints
+
+`rules/render-discipline.md` names 8 shape-based detectors and their closure verbs; this is the Compose signal for each. Cite the detector number + name in the finding, and quote the line you matched here.
+
+| # | Detector | Compose fingerprint |
+|---|---|---|
+| 1 | oversized-state-scope | `mutableStateOf` hoisted above the lowest reader |
+| 2 | side-effect-in-build | suspend call or mutation outside `LaunchedEffect` / `remember` |
+| 3 | missing-stable-subtree | unstable parameter types defeating skipping (read the compiler metrics before claiming this — see strong skipping above) |
+| 4 | unstable-list-item-props | a non-`remember`ed lambda allocated per item in `LazyColumn` |
+| 5 | unvirtualized-list | `Column` + `forEach` over unbounded data → `LazyColumn` |
+| 6 | animation-rebuilds-subtree | animating via recomposition instead of `graphicsLayer` / `animate*AsState` |
+| 7 | store-overinvalidation | collecting a whole `StateFlow` object where a `map` + `distinctUntilChanged` slice exists |
+| 8 | logic-in-view | parsing / error-mapping / business rules in the Composable instead of the ViewModel |
+
+**Enforcement.** Compose compiler metrics (`reportsDestination`) in CI — the restartable / skippable ratio must not regress on touched files. Evidence format: recomposition counts from Layout Inspector or the metrics report, before and after.
 
 ## Cross-references
 
@@ -112,4 +152,5 @@ Google ships an official CLI aimed at agents. "Android CLI is a command-line int
 - `rules/mobile-principles.md` — permissions, crash reporting, secret handling (see the Keystore correction above).
 - `ai-patterns/native-storage.md` — DataStore vs Room vs Keystore, per data class.
 - `ai-patterns/offline-sync.md` — the sync queue that becomes a typed foreground service or WorkManager job here.
-- `agents/app-store-reviewer.md` — the Play-side submission audit that consumes the targetSdk, vitals and foreground-service items above.
+- `agents/app-store-reviewer.md` — the Play-side submission audit that consumes the targetSdk, 16 KB, vitals and foreground-service items above.
+- `agents/mobile-architect.md` § Biometric gates — decides *whether* biometry gates the UI or the key, and what happens on enrollment change; this file is how that decision is written on Android.

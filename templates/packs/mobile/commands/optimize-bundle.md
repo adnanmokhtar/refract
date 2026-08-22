@@ -15,6 +15,7 @@ Reduces app size + cold-start time.
 | Play — legacy APK cap | "a maximum APK size of 100MB" for apps still publishing APKs rather than app bundles | same |
 | Apple — total uncompressed app | 4 GB (iOS 9.0 and later) | [Apple maximum build file sizes](https://developer.apple.com/help/app-store-connect/reference/maximum-build-file-sizes) |
 | Apple — all `__TEXT` sections | 80 MB | same |
+| Play — 16 KB page size (a **rebuild** gate, not a size one) | "all apps targeting Android 15 (API level 35) and higher must support 16 KB memory page sizes on 64-bit devices on Google Play", and from **February 1, 2027** non-conforming updates cannot be released. It binds any app with NDK libraries "either directly or indirectly through an SDK" — i.e. every RN, Flutter, Expo and Capacitor build. | [16 KB page sizes](https://developer.android.com/guide/practices/page-sizes) |
 | Android vitals — "excessive" startup | "Cold startup takes 5 seconds or longer. Warm startup takes 2 seconds or longer. Hot startup takes 1.5 seconds or longer." | [Android vitals launch time](https://developer.android.com/topic/performance/vitals/launch-time) |
 
 The vitals row is a *floor of badness*, not a target — a project's own cold-start budget should be well under it, and it is the project's to set and to measure. This command states no other size or timing threshold as fact.
@@ -86,13 +87,7 @@ Three audits in parallel:
 - `assets/` directory — image + font + video inventory.
 - Recent CI bundle-size reports (if any).
 
-Tools:
-- React Native: `npx react-native-bundle-visualizer`, `metro-source-map-explorer`.
-- Expo: `npx expo-doctor`, `npx eas build --output-bundle-stats`.
-- Flutter: `flutter build apk --analyze-size`, `flutter build ios --analyze-size`.
-- Native iOS: Xcode → Show Build Folder → inspect `.app` size; `App Thinning Size Report`.
-- Native Android: `./gradlew app:bundleRelease` then Android Studio → Build → Analyze APK.
-- Asset audit: `ImageOptim` / `pngquant` / `cwebp` / `ffprobe` for video.
+Tools: **`bundle-analyze` § 1 holds the one toolchain table**, per stack, and this command runs that skill to produce the measurement. Do not maintain a second list here — the two diverged once and the stale one named an upload utility as a size tool.
 
 ## Phase 4 — Generate (the audit report + recommendations)
 
@@ -171,7 +166,7 @@ Recommendations: <count>
 Quick wins (≤1h, large impact): <count>
 Total estimated saving: <MB>
 
-Next: pick recommendations to apply (often start with quick wins #2 + #3 + #6).
+Next: pick recommendations to apply — highest measured saving per unit of effort first, by row number from the table above. (No default set of rows is named here: which ones are the quick wins is a property of the measurement, not of this template.)
 ```
 
 ## Hard rules
@@ -193,7 +188,8 @@ Next: pick recommendations to apply (often start with quick wins #2 + #3 + #6).
 
 - `@mobile-architect` — sometimes recommends architectural changes (split app, deferred modules) that this command surfaces.
 - `@performance-optimizer` (general) — for non-mobile-specific perf work.
-- `@app-store-reviewer` — pre-release. Bundle size is a release-blocker if it exceeds the platform's recommended size.
+- `@app-store-reviewer` — pre-release submission verdict. It explicitly does **not** own size as an engineering problem (that is this command plus `bundle-analyze`), and it carries no size figure of its own. The published limits are in the table at the top of this file: the 200MB Play figure is a **non-blocking dialog**, not a blocker; the hard caps are Play's 500MB base module and Apple's 4 GB / 80 MB `__TEXT`.
+- `@device-performance-auditor` — owns **cold start**: it measures on a named device, in a release build, more than once, and separates a published Play threshold from a project budget. Route every startup number here to it rather than asserting one from a bundle delta; a size win is not a startup win until it is measured as one.
 - `release-pipeline` — binary size is checked against the store limits above before submission; symbol upload happens in the same build job.
 - `device-harness` (skill) — installs the release build on a named device so a startup measurement means something.
 - `ota-updates` — the OTA payload IS this JS bundle; a smaller bundle is a faster, safer over-the-air update. Size wins here directly shrink the OTA blast-radius/download.
@@ -204,3 +200,4 @@ Next: pick recommendations to apply (often start with quick wins #2 + #3 + #6).
 - Google Play, [app size limits](https://support.google.com/googleplay/android-developer/answer/9859372) — 200MB mobile-data dialog, 500MB base module, 100MB legacy APK.
 - Apple, [maximum build file sizes](https://developer.apple.com/help/app-store-connect/reference/maximum-build-file-sizes) — 4 GB uncompressed, 80 MB `__TEXT`.
 - Android, [vitals launch time](https://developer.android.com/topic/performance/vitals/launch-time) — the "excessive" cold / warm / hot thresholds.
+- Android, [16 KB page sizes](https://developer.android.com/guide/practices/page-sizes) — the API-35 requirement and the 2027-02-01 update cutoff (read 2026-08-20).

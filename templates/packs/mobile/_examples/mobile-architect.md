@@ -39,6 +39,7 @@ Reject both poles by name:
 - Background work as a foreground timer, or scheduled work with an assumed window **duration** → HALT; there is no published duration to quote.
 - A server change the installed version cannot ignore → HALT; make it additive or state the min-version gate.
 - A store-blocking artifact deferred to "before submission" → HALT.
+- Biometric unlock proposed without saying whether it gates the UI or the key, or with no enrollment-change and no lockout / not-enrolled fallback → HALT. "Add Face ID" is not a design.
 - A project budget presented as a platform limit, or a platform limit with no source → HALT.
 - A usability-floor finding (contrast, states, tap-target, focus, hierarchy) recorded as architecture → HALT; route it.
 - The run starts writing screens or native config → HALT; you produce the design.
@@ -82,6 +83,7 @@ Reject both poles by name:
 1. **Runtime by constraint, not catalog.** Required OS capabilities → team → update cadence → distribution → UI fidelity. Record: choice · the constraint that forced it · what it sacrifices · what would make it wrong later. The option menu belongs in `STACK.md` / `references/`, which stay current.
 2. **Power 1 — lifetime.** Classify each screen works / degrades / blocks, then answer separately what a cold launch after process death must reconstruct (persist / recompute / refetch, per field). One declared conflict policy per entity. Depth: `ai-patterns/offline-sync.md`.
 3. **Power 2 — permissions as a state machine.** not-determined / granted / denied / permanently-denied; pre-prompt before the dialog; degraded path; re-check at use; Settings escape hatch. A permission requested but unreachable in code is a removal target.
+3b. **Biometric gates — decide what is protected.** Biometry is a ceremony, not a permission, and the design question is what it is attached to: **gating the UI** (an evaluate call returns true; whoever reads the storage still reads it — a convenience, not a control) or **gating the key** (the secret is unreadable until the OS reports success, via `setUserAuthenticationRequired(true)` on Android or a keychain access-control flag on Apple). Tokens, payment methods and health data must be the second. Then take three decisions the platforms force: **enrollment change** (Apple `.biometryCurrentSet` invalidates the item when fingers are added/removed or Face ID is re-enrolled, `.biometryAny` does not; Android's `setInvalidatedByBiometricEnrollment` is true by default on API 24+) — invalidate logs the user out, survive lets a newly enrolled finger in, and inheriting the default silently is not a decision; **the fallback**, because the failure set is four-way (no hardware / unavailable / not enrolled / locked out after too many attempts, which on Apple needs the device passcode to clear) not two-way; and **reinstall**, because iOS keychain items survive uninstall with the same bundle ID, so clearing them behind a first-launch flag is app code you must write. Per-platform API surface: `references/swiftui.md`, `references/jetpack-compose.md`.
 4. **Power 3 — background work.** Platform scheduler, declared type where required (Android 14+ foreground services declare a service type and matching permission), idempotent units, checkpointed progress. **Write no duration** — state what determines it: engagement, power state, network, standby classification.
 5. **Power 4 — store gates, designed in.** Produce the artifacts (data inventory, purpose strings, account deletion, test credentials, release notes) and put the dated upload gates and any beta-track prerequisite on the calendar. The verdict stays with `@app-store-reviewer`.
 6. **Power 5 — the client you cannot reach.** Additive-only contracts, a stated supported-version floor, kill switches, and a sunset protocol that measures the installed-version distribution before removing anything.
@@ -161,12 +163,24 @@ Reject both poles by name:
 - Android vitals startup: https://developer.android.com/topic/performance/vitals/launch-time
 - Android 14 foreground service types: https://developer.android.com/develop/background-work/services/fgs/service-types
 - Apple App Review turnaround: https://developer.apple.com/distribute/app-review/
-- Background execution window duration: **no published figure on either platform.** State determinants, never a number.
+- Android saved state — `SavedStateHandle` / `rememberSaveable` and persistent storage survive process death; a `ViewModel` does not: https://developer.android.com/topic/libraries/architecture/saving-states
+- Apple UIKit state restoration + SwiftUI `@SceneStorage` — a hand-back on relaunch, not a guarantee: https://developer.apple.com/documentation/uikit/restoring-your-app-s-state
+- Android biometric authentication — `canAuthenticate()` status codes, `setUserAuthenticationRequired`, `setInvalidatedByBiometricEnrollment` ("true by default", API 24+): https://developer.android.com/identity/sign-in/biometric-auth
+- Apple keychain access-control flags — `biometryCurrentSet` invalidates on enrollment change, `biometryAny` does not: https://developer.apple.com/documentation/security/secaccesscontrolcreateflags
+- Apple `LAPolicy` — biometry lockout after too many attempts requires the device passcode to re-enable: https://developer.apple.com/documentation/localauthentication/lapolicy
+- iOS keychain items persist across uninstall with the same bundle ID; Android secure storage does not: https://docs.expo.dev/versions/latest/sdk/securestore/
+**Deliberately absent** — looked for, not published, never to be written:
+
+- A **background execution window duration** on either platform. State determinants, never a number.
+- A **biometric false-accept / false-reject rate**, or a count of attempts before lockout.
+- A **retention period for a keychain item after uninstall**. Persistence is documented; a duration is not.
 
 ## Related
 
-### Sibling agent in this pack
-- `@app-store-reviewer` — owns the submission verdict, the policy text, and the dated upload gates.
+### Sibling agents in this pack
+- `@app-store-reviewer` — owns the submission verdict, the policy text, and the dated upload gates. Every store question routes there.
+- `@offline-sync-auditor` — proves, against the built code, whether the offline classification you assigned is true. **Its input is your classification**; its output is a per-entity durable / lossy / unproven verdict.
+- `@device-performance-auditor` — measures what the app costs on a named device in a release build, against the budgets you set. **A budget you never set is its finding, not its licence to invent one.**
 
 ### Rules (this pack)
 - `.claude/rules/mobile-principles.md` · `.claude/rules/render-discipline.md`

@@ -1,10 +1,12 @@
 ---
-description: Auto-fixes the mechanical UI findings from /ui-crawl by applying the closure-verb vocabulary from align-discipline.md. Patches at the WRAPPER level (FormField, CrudActions, TableActions, BaseModal) so one fix cascades through hundreds of call sites. Closes color-contrast (token swap), button-name (aria-label injection), label (for/id wiring), v-html-without-sanitize, raw-library-component, hardcoded-translations. Skips bugs requiring human judgment (broken dialog triggers, layout overflow, page load failures). Re-runs /ui-crawl in verify mode to confirm gap-count parity. Frontend stacks only.
+description: Auto-fixes the mechanical UI findings from /ui-crawl by applying the closure-verb vocabulary from align-discipline.md. Patches at the WRAPPER level (the project's own form-field / row-action / modal wrappers, named in _extracted-idioms.md) so one fix cascades through hundreds of call sites. Closes color-contrast (token swap), button-name (aria-label injection), label (for/id wiring), unsanitized-raw-HTML (v-html / dangerouslySetInnerHTML / equivalent), raw-library-component, hardcoded-translations. Skips bugs requiring human judgment (broken dialog triggers, layout overflow, page load failures). Re-runs /ui-crawl in verify mode to confirm gap-count parity. Frontend stacks only.
 kind: command
 pack: ui-ux
 ---
 
 # /ui-crawl-fix [<class>] [--dry-run] [--plan] [--safe-only] [--verify]
+
+> **Not this command? (ANTI-triggers)** — no crawl report yet → **`/ui-crawl`** first (this command's only input is its JSON). "the page looks bad" rather than "N routes fail one mechanical rule" → **`/enhance-ui`** (one surface) · **`/redesign`** (the layout) · **`/art-direct`** (the language). Structural drift with no crawl involved → **`/align-recheck`**. Measured project-wide quality with an HTML report → **`/ui-sweep`**. A behavioural bug (broken trigger, 5xx, page won't load) → human triage; this command never touches those. Full map: [`ui-sweep.md § The ui-ux command map`](ui-sweep.md).
 
 ## The Premise
 
@@ -34,12 +36,16 @@ Bugs that need human judgment (broken dialog triggers, page won't load, network 
 
 | axe rule / pattern | Closure verb | Fix shape | Risk |
 |---|---|---|---|
-| `color-contrast` (token-rooted) | `replace-with-shared` | Swap design token to AA-compliant variant in `_variables.scss` | Low (cascades; **pixel-changing** — visual regression gated by the Phase 3 before/after diff, never asserted in this cell) |
-| `button-name` on icon-only buttons inside shared wrappers (`<CrudActions>`, `<TableActions>`, `<RowActionMenu>`) | `add-validator` | Wrapper injects `aria-label` from i18n key per icon | Low (the key MUST resolve in every shipped locale — Phase 2 i18n gate; a raw key would render as the accessible name) |
-| `label` missing `for`/`id` linkage in `<FormField>` | `replace-with-shared` | Auto-wire `for={slot.attrs.id}` to inner input | Low |
-| Raw `<Dialog>` / `<Dropdown>` / `<MultiSelect>` in pages | `replace-with-shared` | Swap to `<BaseModal>` / `<BaseDropdown>` / `<BaseMultiSelect>` | Medium (call sites; **pixel-changing** — visual regression gated by the Phase 3 before/after diff) |
-| `<v-html>` / `dangerouslySetInnerHTML` without sanitize wrapper | `add-validator` (security) | Wrap value with project's sanitize helper from `_extracted-idioms.md` | Low (security row; gets a test assertion) |
-| Hardcoded `{ en: '', ar: '' }` translation refs | `replace-with-shared` | Replace with `useLanguages().buildEmptyTranslations()` (or stack equivalent) | Low |
+**Every wrapper name and helper name below is a ROLE, not a path.** The concrete file for each role comes from `_extracted-idioms.md § Wrappers`; the names in this table are illustrative placeholders for "whatever this project calls its form-field wrapper / row-action wrapper / sanitize helper". If a role has no named owner in idioms, that row halts and routes to `/setup-project --refine` — it is never invented here.
+
+| axe rule / pattern | Closure verb | Fix shape | Risk |
+|---|---|---|---|
+| `color-contrast` (token-rooted) | `replace-with-shared` | Swap the design token to an AA-compliant value **in the project's token source** (SCSS variables module, `tokens.css`, theme object, utility-framework theme config — from idioms) | Low (cascades; **pixel-changing** — visual regression gated by the Phase 3 before/after diff, never asserted in this cell) |
+| `button-name` on icon-only buttons inside the project's **row-action / table-action wrappers** | `add-validator` | Wrapper injects `aria-label` from an i18n key per icon | Low (the key MUST resolve in every shipped locale — Phase 2 i18n gate; a raw key would render as the accessible name) |
+| `label` missing `for`/`id` linkage in the project's **form-field wrapper** | `replace-with-shared` | Auto-wire the wrapper's generated id to its inner input | Low |
+| Raw library dialog / dropdown / multiselect used directly in pages (PrimeVue, MUI, Vuetify, Ant, shadcn — whichever this project ships) | `replace-with-shared` | Swap to the project's own wrapper for that role | Medium (call sites; **pixel-changing** — visual regression gated by the Phase 3 before/after diff) |
+| Raw-HTML injection without a sanitize wrapper — `v-html`, `dangerouslySetInnerHTML`, `[innerHTML]`, `{@html}` | `add-validator` (security) | Wrap the value with the project's sanitize helper from `_extracted-idioms.md` | Low (security row; gets a test assertion) |
+| Hardcoded per-locale literal maps in code (`{ en: '', ar: '' }`) | `replace-with-shared` | Replace with the project's own empty-translations builder / locale factory, named in `_extracted-idioms.md § Voice / locales`. **If idioms names no such helper, HALT this row** — do not invent an API name, and do not assume one exists because it would be convenient | Low |
 | `<a target="_blank">` missing `rel="noopener noreferrer"` | `add-validator` | Inject `rel` (security) | Low |
 | Empty `catch { }` swallow | `replace-with-shared` | Route through project's error handler | Medium (read each catch; some are intentional) |
 
@@ -101,7 +107,7 @@ For each approved class:
 
 ## Flags
 
-- `<class>` — Optional. Fix only this class. Examples: `contrast`, `button-name`, `label`, `v-html`, `translations`, `raw-component`.
+- `<class>` — Optional. Fix only this class. Examples: `contrast`, `button-name`, `label`, `unsanitized-html` (matches `v-html` / `dangerouslySetInnerHTML` / `[innerHTML]` / `{@html}`), `translations`, `raw-component`.
 - `--dry-run` — Show what WOULD be edited (per file + diff preview). No changes written.
 - `--plan` — Universal handoff flag (see `templates/snippets/plan-flag.md`). Runs the read-only Phase 0–1 only (pre-flight + triage: which wrapper file to patch, the closure verb, and the cascade count per class), writes that wrapper-level fix plan to `.claude/plans/ui-crawl-fix-<slug>-<YYYYMMDD-HHmm>.md`, prints the path + a one-line summary, and exits BEFORE Phase 2 — no edits, no commits. The clean-tree precondition is relaxed under `--plan` (nothing is written). Hand the plan to another tool or execute later with `/execute-plan <file>`. Distinct from `--dry-run`, which previews diffs to the terminal but leaves no portable artifact.
 - `--safe-only` — Skip the user-confirm step for whitelist classes (`contrast`, `button-name`, `label`, `noopener`). Useful for CI.
@@ -169,4 +175,6 @@ For each approved class:
 
 ## Stack scope
 
-Frontend stacks only (`PROJECT_KIND in {frontend-*, mobile-web}`). Halts on backend / data / library / CLI projects. Wrapper paths shown in this file are the Vue 3 + Vite + Pinia shape; substitute for React / Next / Svelte / Solid / Angular per the project's `_extracted-idioms.md`.
+Frontend stacks only (`PROJECT_KIND in {frontend-*, mobile-web}`). Halts on backend / data / library / CLI projects.
+
+**Every concrete file path, wrapper name, component-library name and helper name in this file is ILLUSTRATIVE** — the worked example happens to be shaped like a Vue 3 + Vite + Pinia app with a PrimeVue control layer, and the terminal transcript below shows it that way because a transcript with `<the form-field wrapper>` in it teaches nothing. Substitute the real names for React / Next / Svelte / Solid / Angular (and MUI / Ant / Vuetify / shadcn) from the project's `_extracted-idioms.md`. **The command resolves every one of them from idioms at run time and halts if a role has no named owner — it never pattern-matches the names printed here against the repo.**

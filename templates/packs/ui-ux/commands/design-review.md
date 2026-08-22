@@ -6,6 +6,8 @@ pack: ui-ux
 
 # /design-review [path|screenshot]
 
+> **Not this command? (ANTI-triggers)** — you want the findings FIXED, not listed → **`/enhance-ui`** (one surface) · **`/align-recheck`** (mechanical drift) · **`/redesign`** (the layout) · **`/art-direct`** (the language). Every route, from a real browser, with axe and console probes → **`/ui-crawl`**. Measured project-wide quality with an HTML report and baselines → **`/ui-sweep`**. Nothing has changed yet and you want a design invented → **`/art-direct`**. **This command writes no code and grades no surface it cannot cite.** Full map: [`ui-sweep.md § The ui-ux command map`](ui-sweep.md).
+
 Audit command. Three reviewers run in parallel against changed UI files (or a provided screenshot). Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the review.
 
 ## The Premise (read this first, internalize, do not deviate)
@@ -16,7 +18,18 @@ Audit command. Three reviewers run in parallel against changed UI files (or a pr
 1. Walk the changed UI files (or screenshot DOM if available) line by line.
 2. For each candidate finding, **cite-or-halt**: produce a `<file:line>` for source-based findings, a `<token-name>` for design-system findings, or a WCAG criterion ID + element selector for a11y findings.
 3. If a finding cannot be cited — drop it. Do not promote it to `[opinion]` to keep it on the list. Opinions also need a heuristic anchor (Nielsen N, WCAG SC, declared style guide section).
-4. Reviewers contradict — orchestrator picks the strictest cited finding. Never average to make peace.
+4. Reviewers contradict — the orchestrator resolves it by the rule below, and never averages to make peace.
+
+**The contradiction protocol (this is the one thing the orchestrator does that no single reviewer can).** Three reviewers grade overlapping surface, so they WILL disagree — `ux-reviewer` wants a bigger tap target, `design-system-guardian` wants the token's spacing, `a11y-quick-check` computed a ratio the other two eyeballed. "Pick the strictest" is not a mechanism; it is a slogan that loses information. Resolve in this fixed order, and print which rule fired:
+
+| # | Rule | Why it wins |
+|---|---|---|
+| 1 | **A COMPUTED value beats an asserted one.** A measured contrast ratio, a measured border-box, an axe rule id with a node count outranks any reviewer's reading of the same element. | One side has evidence; the other has an opinion about the same fact. |
+| 2 | **A conformance failure beats a house-rule improvement.** A Level-A/AA criterion (with its level NAMED) outranks a AAA or house target on the same element. | They are not the same claim. Collapsing them is how a AAA nice-to-have gets shipped as a blocker and a real AA failure gets averaged away. |
+| 3 | **The axis OWNER beats a visitor.** Each finding names its axis; the reviewer that owns that axis wins a tie on it — tokens/naming → `design-system-guardian`; flow, states, micro-copy, composite-surface completeness → `ux-reviewer`; semantics, focus, contrast, target size → `a11y-quick-check`. | Every reviewer sees the whole screen; only one is accountable per axis. |
+| 4 | **Still tied → BOTH are printed, tagged `[contested]`, with each reviewer's citation, and the stricter one is what the action plan carries.** | An unresolved disagreement is information about the design system, not noise to be smoothed. Silently dropping one side is how the same argument recurs every audit. |
+
+Rule 4 is the load-bearing one: the orchestrator is allowed to say "these two cited findings genuinely conflict", and that output is more useful than a confident merge.
 
 **The agent does NOT:**
 - Write findings like "consider better contrast" without contrast ratio + element + token.
@@ -63,7 +76,7 @@ Design-specific:
 - Dispatch in parallel:
   - `ux-reviewer` — task flow, affordance, error/empty/loading states, microcopy, **composite-surface completeness** (a data-table / dashboard graded against the built-in table-stakes catalog — `ui-design-sweep.md § normalize-surface`; a bare table with no toolbar/bulk/export/sticky-header or a plain-number dashboard is a `[violation]`, scale-gated).
   - `design-system-guardian` — token usage (colors, spacing, typography), reuse vs duplication, naming.
-  - `a11y-quick-check` skill — semantics, focus, contrast (**computed** per token pair, not asserted), labels, reduced-motion. (Deeper full audit via the `frontend` pack's `accessibility-auditor` only when that pack is installed.)
+  - `a11y-quick-check` skill — semantics, focus, contrast (**computed** per token pair, not asserted), labels, reduced-motion, target size. **That skill has two lanes and this command closes only one:** Lane A is machine-resolvable and must come back complete or with a named blocker; **Lane B is human-only** (screen reader, keyboard walk, OS reduced-motion, zoom/reflow) and an unattended run prints it `NOT RUN (human lane)`. Carry that state through verbatim — reporting "a11y ✓" on Lane A alone is exactly the false clearance the cite-or-halt premise exists to prevent. (Deeper full audit via the `frontend` pack's `accessibility-auditor` only when that pack is installed.)
 - Merge findings. Tag opinions as `[opinion]`, factual violations as `[violation]`.
 - Print grouped by severity:
   ```
@@ -103,6 +116,8 @@ Phase 4 (Generated): UX + DS + A11y findings (grouped above)
 Phase 5 (Updated): ai/audits/<date>-design.md, changelog
 Phase 6 (Validated): every finding tied to heuristic/token; opinions labeled
 Phase 7 (Improved): N recurring patterns queued
+
+a11y lanes: Lane A ✓ (axe + computed contrast + semantics) · Lane B NOT RUN (human lane)
 
 Status: COMPLETE | BLOCKED on <N> violations
 ```

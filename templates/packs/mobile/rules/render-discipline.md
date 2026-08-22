@@ -15,7 +15,7 @@ Prevents the failure that benchmark suites don't catch and code review skims pas
 
 ## The 8 detectors
 
-Each detector is shape-based; the concrete fingerprint per framework is in the table that follows. `/optimize` (Performance class) and `/audit` (runtime-perf axis) route here when `PROJECT_KIND in mobile-*`; web frontends get the equivalent fingerprints from the frontend pack.
+Each detector is shape-based; the concrete fingerprint per framework lives in that framework's reference (see below). `/optimize` (Performance class) and `/audit` (runtime-perf axis) route here when `PROJECT_KIND in mobile-*`; web frontends get the equivalent fingerprints from the frontend pack.
 
 | # | Detector | Signal | Closure verb |
 |---|---|---|---|
@@ -28,18 +28,18 @@ Each detector is shape-based; the concrete fingerprint per framework is in the t
 | 7 | **store-overinvalidation** | widget/component subscribes to a whole store/provider object but reads one field — every unrelated store write re-renders it | `select-store-slice` (use the store's selector/select primitive from `_extracted-idioms.md`) |
 | 8 | **logic-in-view** | business rules / data transformation / error mapping written in the widget/screen body instead of the project's state/service layer | route to `/align` (layer violation) — this is an architecture finding wearing a perf costume |
 
-## Per-framework fingerprints
+## Where the fingerprint lives
 
-| Detector | Flutter | React Native | Jetpack Compose | SwiftUI |
-|---|---|---|---|---|
-| oversized-state-scope | `setState` in a `StatefulWidget` ≥ ~200 LOC or screen root; state displayed only by a leaf | `useState` in screen component passed N levels down; context value rebuilt per render | `mutableStateOf` hoisted above the lowest reader | `@State` / `@StateObject` on a container view feeding one leaf |
-| side-effect-in-build | `fetch` / `Provider.of(listen:)` mutation / `Navigator.push` inside `build()` | fetch or `setState` call in render body (outside `useEffect`) | suspend call / mutation outside `LaunchedEffect` / `remember` | network call / mutation inside `body` |
-| missing-stable-subtree | missing `const` constructors (`prefer_const_constructors`) | missing `React.memo` / `useMemo` on a pure hot child | unstable parameter types defeating skipping (Compose compiler metrics) | non-`Equatable` model forcing body re-eval |
-| unstable-list-item-props | closure built per item in `itemBuilder` capturing parent state | inline `renderItem={() => …}` + inline style literals in `FlatList` | non-`remember`ed lambda per item in `LazyColumn` | per-row closure capturing the whole parent |
-| unvirtualized-list | `ListView(children: […])` / `Column` + `map` for unbounded data → `ListView.builder` | `ScrollView` + `.map()` → `FlatList`/`SectionList` (+ `getItemLayout`, stable `keyExtractor`) | `Column` + `forEach` → `LazyColumn` | `VStack` + `ForEach` over unbounded data inside `ScrollView` → `List` / `LazyVStack` |
-| animation-rebuilds-subtree | `AnimationController` + `setState` per tick → `AnimatedBuilder`/`AnimatedWidget` with scoped `child:` | JS-driven animation per frame → `useNativeDriver: true` / Reanimated worklet | animating via recomposition instead of `graphicsLayer` / `animate*AsState` | timer-driven `@State` per frame instead of `withAnimation` / `TimelineView` |
-| store-overinvalidation | `ref.watch(provider)` for one field → `ref.watch(provider.select(…))`; `context.watch<T>()` for one getter | `useSelector(s => s)` / whole-context consumer → narrow selector | collecting a whole `StateFlow` object where `map`/`distinctUntilChanged` slice exists | observing a whole `ObservableObject` where one `@Published` field is read |
-| logic-in-view | parsing/error-mapping/business rules in `build()` instead of the project's controller/notifier/bloc | same, instead of the hook/service layer | same, instead of the ViewModel | same, instead of the ViewModel/Store |
+The detectors above are shape-based on purpose: the *concrete* fingerprint is per-framework, and a
+project is exactly one framework. Each framework's fingerprint table and its lint / profiler
+enforcement live in that framework's reference, which `phase-4.2-apply.md` copies only for the
+framework it detected:
+
+`references/flutter.md` · `references/react-native.md` · `references/jetpack-compose.md` ·
+`references/swiftui.md` — each § Render-discipline fingerprints, one row per detector above.
+
+Cite the detector **number and name** from this rule; take the signal you match against from the
+reference. A finding that names a framework API but no detector is not in this vocabulary.
 
 ## Must
 
@@ -57,28 +57,14 @@ Each detector is shape-based; the concrete fingerprint per framework is in the t
 - **Fix rebuild waste by caching incorrect state.** If the subtree rebuilds because the state model is wrong (detector #1/#7), restructure the state — don't paper over it with memo.
 - **Ship a render fix that changes behaviour.** Scoping state down / memoizing must be observably identical (same UI states, same error/empty/loading paths). If the fix reveals a missing error state, that's a separate finding (`missing UI state` — align pack), fixed in its own commit.
 
-## Review checklist
-
-- [ ] No fetch / mutation / navigation / subscription in any build/render body.
-- [ ] New state declared at the lowest displaying widget/component, not the screen root.
-- [ ] Static subtrees marked const / memo / stable per the framework column above.
-- [ ] Lists over unbounded data use the lazy/recycling primitive; stable keys; no per-item inline closures or style literals.
-- [ ] Animations drive a scoped child, not the whole tree.
-- [ ] Store subscriptions use the narrowest selector available.
-- [ ] Rebuild/recomposition count measured before + after for every fix in this class.
-- [ ] Business logic stayed in (or moved to) the state layer — none added to the view.
-
 ## Enforcement
 
-- **Flutter**: `flutter_lints` with `prefer_const_constructors`, `prefer_const_literals_to_create_immutables`, `avoid_unnecessary_containers`; DevTools rebuild stats in PR evidence for hot screens.
-- **React Native**: `eslint-plugin-react-hooks` (exhaustive-deps), `eslint-plugin-react-perf` (`jsx-no-new-object-as-prop`, `jsx-no-new-function-as-prop`); React DevTools Profiler flamegraph for hot lists.
-- **Compose**: Compose compiler metrics (`reportsDestination`) in CI — restartable/skippable ratio must not regress on touched files.
-- **SwiftUI**: `Self._printChanges()` audit on hot views during review; Instruments "SwiftUI" template for frame-time evidence.
+- The lint rules, compiler metrics and profiler template that enforce these detectors are per-framework and live in that framework's reference § Render-discipline fingerprints, beside the fingerprint they enforce.
 - `/optimize` + `/audit` dispatch these detectors under the Performance class when `PROJECT_KIND in mobile-*`; findings carry `<path:line>` evidence + measured baseline like every perf row.
 
 ## Cross-references
 
 - `mobile-principles.md` — UI-thread blocking, low-end-device budgets (the runtime siblings of this rule).
-- `references/flutter.md` / `references/react-native.md` — framework guidance these fingerprints were promoted from.
+- `references/<framework>.md` § Render-discipline fingerprints — the concrete signal per detector, plus its lint / profiler enforcement.
 - `frontend/rules/frontend-principles.md` — web equivalent (render thrash / memoization fingerprints for `frontend-*`).
 - `performance/rules/performance-principles.md` — the measure-before-optimize contract this rule inherits.

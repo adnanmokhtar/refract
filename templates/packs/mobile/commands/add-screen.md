@@ -4,247 +4,137 @@ description: Add a new screen — full chain — route + screen component + navi
 
 # /add-screen
 
-Use to add a single screen to an existing module. Smaller than `/add-feature` (no new entity / business logic), deeper than editing one file (full chain incl. navigation + tests + i18n).
+## Pack overlay — one screen
 
-## The Premise (read this first, internalize, do not deviate)
+**Canonical orchestration: [`/add-feature`](add-feature.md) in this pack.** One screen is the same
+seven phases with a narrower ask, not a different procedure — and the machinery a screen most needs
+is the machinery this command used to be missing. `/add-feature` owns, and this command runs
+unchanged: the **prior-art gate**, the **sibling-shape mechanical halt**, the **new-dependency
+gate**, the **Phase 4 reviewer table with its per-agent precondition**, the **BLOCKER halt rule**,
+the **not-installed inline-review fallback**, Phases 5–7, and the spec-consumption branch.
 
-**Existing screens are the truth.** The app already ships screens that work — auth-gating, navigation registration, native config (iOS Info.plist + Android manifest), locale keys, error/loading/empty shape, deep-link wiring. Each is a working oracle. A new screen is **not a green field** — it is a sibling, and its shape is **derived**, not invented.
+Nothing below repeats those. What is below is what a *screen* adds on top.
 
-**The agent's job is exactly this:**
-1. Find the closest sibling screen in the same stack / flow / navigator.
-2. Mirror its shape — folder path, file naming, component decomposition, hook order, auth wrapper, error boundary, locale-key namespace, navigation registration call site, native-permission checks, deep-link entry.
-3. Diverge **only** where the new screen's data / action set genuinely requires it. Cosmetic novelty (different state-lib, different error pattern, different folder) is not allowed — it is drift.
+### Scope
 
-**The agent does NOT:**
-- Pick a state lib / data-fetch lib / error pattern that differs from siblings. Siblings win.
-- Place the screen at a new folder path because "it feels cleaner." Sibling path wins.
-- Skip native-config (iOS Info.plist usage strings, Android manifest permissions) because the simulator works without it. Production install will not.
-- Skip deep-link registration because "no one uses it yet." Push notifications + universal links break silently when unregistered.
-- Invent locale-key namespaces. Mirror the sibling's `<module>.<screen>.<key>` shape exactly.
+- USE: a new screen on an existing flow; a new tab in an existing tab navigator; a new modal screen.
+- NOT: a brand-new module or a flow spanning ≥2 screens → `/add-feature` directly.
+- NOT: editing an existing screen → edit, then `/review-changes`.
 
-**Mechanical halt — sibling-shape parity (mandatory before Phase 4 generate):**
+The premise is `/add-feature`'s: **the closest sibling screen is the truth.** Derive the shape, do
+not invent it. If no sibling exists in the same stack — HALT and ask for the gold-standard screen.
 
-Before writing any new file, the agent MUST name (in the Phase 2 design output) the **sibling screen file path** it is mirroring, and confirm:
-- Same folder depth + naming convention.
-- Same auth wrapper + navigation-options pattern.
-- Same data-fetching primitive (TanStack Query / RTK Query / Zustand selector / Riverpod / SwiftUI `@StateObject` — whichever the sibling uses).
-- Same error / loading / empty / content state shape.
-- Same locale-key namespace shape (`<module>.<screen>.<key>`).
-- Same native-config touchpoints declared (Info.plist key list, Android manifest entries, linking config registration line).
+### Screen-scoped mirror axes (added to `/add-feature`'s sibling-shape halt)
 
-If no sibling exists in the same stack — HALT. Ask the user to point at the gold-standard screen. Do not invent shape from training data.
+Name the sibling screen's **file path** in the Phase 2 design output, then confirm each axis matches
+it. These are mechanical, and any divergence is `drifted` in the shared vocabulary
+([`sibling-shape-halt.md`](../../../snippets/sibling-shape-halt.md)):
 
-## Prior-art gate (mandatory, all tiers, runs before tier selection)
+- Folder depth + file-naming convention.
+- Auth wrapper + navigation-options pattern.
+- Data-fetching primitive (whichever the sibling uses — siblings win over preference).
+- Error / loading / empty / content state shape — all four present on any data-driven screen.
+- Locale-key namespace shape (`<module>.<screen>.<key>`), no new namespace invented.
+- Native-config touchpoints declared: `Info.plist` keys, `AndroidManifest` entries, the linking-config
+  registration line, the push-handler route.
 
-Sibling search finds a screen to *copy*; this gate asks first: **does the capability already exist** under another name? On mobile a duplicate is doubly expensive — a second permission prompt, a second native-config block all drift independently.
+### Tier — the same table, read at screen scope
 
-1. Search by **behavior, not name** — existing screens, navigation entries, services that already cover the capability.
-2. **Near-duplicate found → HALT.** Surface the existing screen / flow (path + what it does) and ask: extend it, replace it, or ship a deliberate parallel (rare — record the rationale).
-3. Nothing matches → proceed to tier selection.
+`/add-feature` § Closure verb applies verbatim. Two clarifications for a single screen:
 
-## Closure verb — complexity → ceremony
+- **Trivial** is the default and is the common case: a screen that mirrors a sibling, adds no
+  permission, no native config, and no write path.
+- Any Heavy trigger — **new native permission class, biometric / Keychain / secrets touch,
+  write-path mutation, store-blocking change** — promotes the run to `/add-feature`'s **full serial
+  cascade**, including `@security-auditor` and `@app-store-reviewer`, which are gated on exactly
+  those triggers. A Heavy screen is not a lighter cascade than a Heavy feature; it is the same one
+  over fewer files.
 
-| Tier | Trigger | Deliverable | Reviewers |
-|---|---|---|---|
-| **Trivial** (default) | New screen mirrors a sibling; no new permission; no native bridge; no new offline pattern. | Code + tests (widget/unit test mirroring the sibling's, green on iOS + Android). | None — sibling-mirror is its own audit. |
-| **Standard** | New permission OR new native config entry (Info.plist key / AndroidManifest entry / Podfile dep). | Code + 1-paragraph plan + bundle / cold-start delta check. | `@accessibility-auditor` always; `@i18n-auditor` if any locale string lands. **No ADR.** |
-| **Heavy** | New native bridge OR new native permission class, biometric / Keychain / secrets touch, app-store-blocking change, write-path mutation. | Code + ADR + full cascade. | Full cascade per Phase 4, halt-on-blocker. |
+### Sensitive-entity gate (runs before any form is scaffolded)
 
-Trivial is the default. Heavy is rare-by-design.
+A screen that renders or collects a **payment instrument, credential, government or health
+identifier, or third-party access token** is refused the generic screen scaffold on those fields.
+The rule, the surface-by-surface branch table, and the mandatory report line are
+[`frontend/commands/add-crud-page.md` § Data-sensitivity gate](../../frontend/commands/add-crud-page.md)
+— **read it there; this pack does not carry a second version of it.** It is stack-neutral: a card
+number belongs in the payment provider's hosted/tokenised primitive (its native SDK's card element,
+or a web view it owns), never in a `TextInput` this command scaffolds, because a value your form
+never receives cannot be logged, crash-reported, session-replayed, or held in form state.
 
-## New-dependency gate (all tiers)
+Mobile adds two consequences the web branch does not have, and both are this pack's:
 
-A JS package, CocoaPod, or Gradle dependency no sibling already uses never lands silently — confirm it's actually new (check `package.json` + lockfile, `Podfile.lock`, `build.gradle`), run a dependency review (maintenance / license / bundle + binary-size delta / new native permissions the dep forces; dispatch `security-auditor` or inline the checklist), and record the decision (one PR line; ADR for native bridge or auth / biometric / keychain deps). HALT on an unreviewed new dependency, and on any dep that silently adds a permission not in the declared native surface.
+- **Where the token lands** is `native-storage.md` § Secrets — Keychain / Android Keystore, never
+  `AsyncStorage` / `SharedPreferences` / `UserDefaults`.
+- **The biometric unlock in front of it** is `native-storage.md` § Biometric-gated secrets — the
+  hardware-backed requirement, enrollment-change invalidation, and the passcode-fallback decision.
+  `/add-feature` § Hard rules states the floor: *no biometric without secure-enclave / hardware-backed
+  keystore.*
 
-## Phases applied
+If the project ships no provider primitive for that data class, that is a **HALT**, not a licence to
+build the input.
 
-Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve). Trivial / standard tiers run the subset their ceremony requires (see closure-verb table) — skipping phases outside your tier's ceremony is sanctioned; skipping phases inside it is not.
-
-## When to use / NOT to use
-
-- USE: a new screen on an existing flow (e.g., add an "Order details" screen to the orders flow).
-- USE: a new tab in an existing tab navigator.
-- USE: a new modal screen reachable from existing screens.
-- NOT: a brand-new module / feature → use `/add-feature`.
-- NOT: edit an existing screen → just edit, then `/review-changes`.
-
-## Phase 1 — Understand (the ask)
-
-Ask (one consolidated question if any unknown):
-- Which module / flow does this screen belong to?
-- What route name + path? (`OrderDetails` reachable via `orders/:id` or via `OrdersStack > OrderDetailsScreen`)
-- Reachable from which other screen(s)? (Update navigation in those parents.)
-- What data does it display?
-- What user actions (mutations) does it support?
-- Modal or push? Tab? Full-screen?
-- Auth-gated?
-- iOS + Android both? Tablet variant?
-
-If the user provides a Figma link or screenshot, treat as authoritative.
-
-## Phase 2 — Organize (decompose)
-
-Use `mobile-architect` agent to produce the design:
+### Phase 2 — the screen design (produced by `@mobile-architect`)
 
 ```
 ## Screen: <name>
 
 ### Route
-- Stack: <stack-name>
-- Name: <RouteName>
-- Path: <route-pattern> (deep-link)
-- Params: { id: string, source?: 'list' | 'notification' }
-- Modal/push: <push>
+Stack · route name · deep-link path · params (typed) · modal|push
 
-### Components (new)
-| Name | Path | Type |
-|---|---|---|
-| OrderDetailsScreen | screens/orders/OrderDetailsScreen.tsx | screen container |
-| OrderHeader | components/orders/OrderHeader.tsx | display |
-| OrderItemsList | components/orders/OrderItemsList.tsx | display |
-
-### Data flow
-| Concern | Source | Cache |
-|---|---|---|
-| Order detail | GET /api/orders/:id | TanStack Query / RTK Query |
-| Order items | included in detail | n/a |
-
-### State
-- Component-local: scroll position, expanded sections.
-- Store: nothing new (the order list store already has the entity).
-
-### Mutations
-- Cancel order → DELETE /api/orders/:id (confirm dialog).
-
-### Navigation wiring
-- OrdersListScreen — onPress(item) → navigation.navigate('OrderDetails', { id: item.id })
-- Push notification handler — opens deep-link `app://orders/<id>`
-
-### i18n keys (new)
-| Key | en |
-|---|---|
-| orders.detail.title | Order #{id} |
-| orders.detail.cancel | Cancel order |
-| orders.detail.cancel_confirm | Are you sure? This action cannot be undone. |
-| orders.detail.error.not_found | Order not found |
-
-### A11y notes
-- Header back button: accessible label "Back to orders".
-- Action buttons: minimum 44x44 touch target.
-- Loading state: announce via accessibilityLiveRegion.
-- Color-only state indicators: pair with icon or text.
-
-### Tests
-| Layer | File |
-|---|---|
-| unit | OrderDetailsScreen.test.tsx |
-| component | OrderHeader.test.tsx |
-| e2e | orderDetail.e2e.ts (Detox / Maestro) |
-
-### Open questions
-<flag for user>
+### Components (new)      | name | path | type (screen container / display) |
+### Data flow             | concern | source | cache primitive |
+### State                 component-local vs store — and what must survive process death
+### Mutations             endpoint + confirm UX + offline classification (works / degrades / blocks)
+### Navigation wiring     parent screen call sites · push-notification entry · deep-link entry
+### i18n keys (new)       | key | en |   — sibling's namespace shape
+### A11y notes            per-element labels; live-region announcement for the loading state;
+                          state never signalled by colour alone
+### Tests                 | layer | file |   — mirroring the sibling's test shape
+### Open questions        <flag for user>
 ```
 
-## Phase 3 — Retrieve (read context)
+**Accessibility figures are not this command's to state.** Touch-target minimums are **44×44 pt on
+Apple** and **48×48 dp on Android** (`rules/mobile-principles.md` [S3] / [S4]); the axis is
+`tap-target`, owned by `ui-principles.md` § Axis catalog *(ui-ux pack, when co-installed)* and closed
+with `expand-tap-target`. Absent that pack, apply the two figures and mark the lane
+`floor: not audited (ui-ux pack absent)`. Do not restate one platform's figure as universal, and do
+not coin a mobile-only synonym for the axis.
 
-Read in order:
-1. `CLAUDE.md` — declared stack (RN / Flutter / iOS native / Android native), state lib.
-2. `ai/conventions.md` — file naming, folder structure.
-3. `ai/patterns/components.md`, `ai/patterns/navigation.md`, `ai/patterns/data-fetching.md` — applicable patterns.
-4. `.claude/rules/mobile-principles.md` — project rules.
-5. Sibling screen file in the same stack — mirror its shape (auth pattern, error handling, loading state).
-6. Navigator file (`AppNavigator.tsx` / `RootStack.tsx`) — understand current routes + how params flow.
+### Phase 3 — what a screen reads, on top of `/add-feature` § Phase 3
 
-## Phase 4 — Generate
+`/add-feature` § Phase 3 items 1–9 apply unchanged. A screen additionally reads:
 
-For each new file:
-1. **Pre-flight comment** at top: read sibling screen + navigator + relevant patterns.
-2. **Use the project's actual primitives** — UI library (NativeBase / Tamagui / RN Paper / SwiftUI / Compose), navigation library (React Navigation / Expo Router / Flutter Navigator 2 / SwiftUI NavigationStack / Jetpack Compose Navigation).
-3. **Loading + error + empty + content states** — every data-driven screen has all 4. Skeleton / spinner / error retry / empty illustration + CTA.
-4. **A11y from the start** — accessibility props on every interactive element.
-5. **Locale strings** — never hardcode user-facing text.
-6. **Deep-link routing** — register the route in the linking config.
-7. **Navigation params typed** — RN: TypeScript-typed `RootStackParamList`. Flutter: typed routes. SwiftUI: typed values.
+- The **sibling screen file** in the same stack — the shape being mirrored.
+- The **navigator file** — current routes and how params flow.
+- `ai/patterns/native-storage.md` when the screen holds anything at rest, `offline-sync.md` when it
+  writes, `permissions.md` when it prompts, `deep-linking.md` when it is reachable by URL or push.
 
-After generation, dispatch:
-- `@mobile-architect` — design review.
-- `@accessibility-auditor` — a11y check.
-- `@i18n-auditor` — locale completeness.
-- `@ux-reviewer` — flow + content tone.
-- `@design-system-guardian` (if design system in scope).
+### Deep-link registration
 
-## Phase 5 — Update
+Register the route in the linking config **and** the native project, even if nothing links to it
+today — push taps and universal links break silently when unregistered. An **auth-gated** screen
+registers behind the auth-gated-link contract in `deep-linking.md` § Defensive patterns: resolve the
+intent, hold it, authenticate, then replay it. A registration that drops the pending intent at the
+login boundary is the finding.
 
-- `ai/modules.md` — append entry if a new submodule.
-- `ai/patterns/<new>.md` — only if a new pattern emerged.
-- `ai/decisions/<NNNN>-*.md` — if architectural choice made (e.g., screen state goes to URL vs store).
-- `ai/status.md` § Recent Changes — one-line entry.
+### Phase 6 — screen-scoped validation additions
 
-## Phase 6 — Validate
+`/add-feature` § Phase 6 applies. A screen also smoke-tests: open from the parent list → content →
+back → state preserved; deep-link open from cold and warm
+(`xcrun simctl openurl booted "<scheme>://<path>"` / `adb shell am start -W -a android.intent.action.VIEW -d "<url>"`);
+and, when the screen holds unsaved state, a process-death restore via `device-harness` § 7.
 
-- Lint + type-check pass.
-- Unit + e2e tests pass on iOS + Android (if applicable).
-- Bundle-size delta acceptable.
-- A11y check passes (axe-react-native / accessibility scanner).
-- Locale completeness — no missing keys.
-- Manual smoke — open from list → see content → navigate back → state preserved.
-- Deep-link test — `xcrun simctl openurl booted "app://orders/123"` lands on the screen.
-- **Observability sign-off** (gated on what the project ships — check `.claude/codebase-profile.md` / `CLAUDE.md`):
-  - Crash reporting (Crashlytics / Sentry / equivalent) covers the new screen — error boundaries / handlers wired the same way siblings wire them.
-  - Screen-view / analytics signal recorded if siblings record one (screen TTI, screen-view events) — same naming convention.
-  - If the project ships NO observability layer: note `observability: none configured` in the report — explicit, never silent.
+### Output format
 
-## Phase 7 — Improve
+`/add-feature` § Output format, minus the multi-screen rows. Always emit: files written, tests
+(unit + e2e, both platforms), i18n key count per locale, native surface touched (permissions, deep
+links, push handlers), observability sign-off (`observability: none configured` when the project
+ships none — explicit, never silent), and the tier with the trigger that set it.
 
-- If a recurring pattern emerged → `/learn-from-task` to promote.
-- If sibling screens have inconsistencies (this one differs from the rest) → flag for `ai/dynamic/drift-log.md`.
+### Related
 
-## Output format
-
-```
-## /add-screen — <screen-name>
-
-Status: SHIPPED | NEEDS REVIEW | BLOCKED
-
-Files written:
-  - <path>
-  - <path>
-
-Tests:
-  - unit + e2e: passing
-  - a11y: <score>
-
-i18n:
-  - new keys: <count> per locale
-
-Knowledge updates:
-  - ai/modules.md      ✓
-  - new pattern        (if extracted)
-
-Open follow-ups:
-  - <thing flagged>
-```
-
-## Hard rules
-
-- **Loading + error + empty states.** All four required for any data-driven screen.
-- **A11y from the start.** Touch targets 44+, semantic roles, accessibility labels.
-- **i18n keyed strings only.** No hardcoded UI text.
-- **Deep-link registered.** Even if not used today, ensures notifications + universal links work.
-- **Typed navigation params.** No `any` on navigator state.
-
-## Failure modes
-
-- Missing back-button handler on Android → user is stuck.
-- Hardcoded portrait orientation when the rest of the app supports rotation.
-- Modal that doesn't dismiss on background tap (when other modals do).
-- Loading state covers entire screen instead of just the data area, blocking back navigation.
-- Deep-link works in dev but not after install (linking config not registered in native project).
-
-## Related
-
-- `/add-feature` — multi-screen mobile feature.
-- `@mobile-architect` — produces the screen design.
-- `@accessibility-auditor` — runs in Phase 4.
-- `@i18n-auditor` — runs in Phase 4.
-- `ai/patterns/navigation.md`, `data-fetching.md`, `offline-sync.md`.
+- `/add-feature` — the canonical orchestration this overlays; use it directly for ≥2 screens.
+- `@mobile-architect` — produces the Phase 2 design.
+- `@offline-sync-auditor` — dispatched by the Heavy cascade when the screen adds a write path.
+- `@app-store-reviewer` · `@security-auditor` — Heavy-tier gates, per `/add-feature` § Phase 4.
+- `ai/patterns/native-storage.md`, `offline-sync.md`, `permissions.md`, `deep-linking.md`.

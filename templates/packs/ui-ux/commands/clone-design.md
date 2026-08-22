@@ -6,6 +6,8 @@ pack: ui-ux
 
 # /clone-design <url-or-image> [<out-dir>] [<flags>...]
 
+> **Not this command? (ANTI-triggers)** — **you want the site to LOOK like the original** (its real logo, photos, fonts) → **`/grab-site`**; this command placeholders the brand on purpose, so its output reads as a clean wireframe and pointing it at a live storefront expecting a copy is its #1 misuse. Invent a language from your product's goals, no reference → **`/art-direct`**. Rethink an in-repo page → **`/redesign`**. Add finish to one → **`/enhance-ui`** · `/polish`. Add a theme slot to a multi-theme app → **`/add-theme-variant`**. Make a deceptive 1:1 counterfeit of a real brand's live site → not this command, by invariant. Full map: [`ui-sweep.md § The ui-ux command map`](ui-sweep.md).
+
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/clone-design <ref> --plan` runs ingest → distill (tokens + section inventory + page set) and writes the **capture plan** to `.claude/plans/`, exiting before any file is built. Execute it later with `/execute-plan <file>` (or hand it to any tool).
 
 ## The Premise (read this first, internalize, do not deviate)
@@ -51,7 +53,7 @@ The one hard ethics invariant: **reproduce the design LANGUAGE, not the brand.**
 - **Make a deceptive 1:1 counterfeit of a real brand's live site to pass as that brand** → not this command (brand-safety invariant).
 
 ## Args
-- `<url-or-image>` — the reference. A URL (`https://…`) triggers **live capture** (Playwright: computed styles + DOM + screenshots — measured signal); an image path (or several, space-separated) triggers **vision extraction** (inferred signal, lower confidence, flagged as such). Mixed (a URL plus supporting screenshots) is allowed — measured signal wins where they disagree.
+- `<url-or-image>` — the reference. **`shop.example.com` throughout this file is a placeholder host** standing in for a real reference site; substitute the real URL. A URL (`https://…`) triggers **live capture** (Playwright: computed styles + DOM + screenshots — measured signal); an image path (or several, space-separated) triggers **vision extraction** (inferred signal, lower confidence, flagged as such). Mixed (a URL plus supporting screenshots) is allowed — measured signal wins where they disagree.
 - `<out-dir>` — where to write the clone. Default `.clone/<slug>/` under cwd (`<slug>` derived from the reference host/name). The reference captures + raw extraction go to `.claude/artifacts/clone-design/<iso>/` regardless.
 - `--pages=<a,b,c>` — which routes to clone (URL mode). Default: **auto-discover the primary set** — the home page plus one representative page per detected template family (e.g. collection, product, cart, article, contact). `--all-routes` clones every discoverable route (bounded, with a cap that is `log()`-reported if hit).
 - `--sections-only` — extract the token system + the reusable section library + the design-system pane, and skip full-page assembly. For when you want the components, not the pages.
@@ -61,7 +63,7 @@ The one hard ethics invariant: **reproduce the design LANGUAGE, not the brand.**
 - `--plan` — universal handoff flag (see blockquote): write the capture plan (tokens + section inventory + page set) and exit before building.
 
 ```bash
-/clone-design https://new-ella-demo-07.myshopify.com/            # capture → build → verify into .clone/new-ella-demo-07/
+/clone-design https://shop.example.com/            # capture → build → verify into .clone/shop-example-com/
 /clone-design ./ref/home.png ./ref/product.png site/            # clone from screenshots into ./site/
 /clone-design https://example.com --sections-only               # extract tokens + section library only
 /clone-design https://example.com --all-routes --fidelity=95    # every route, tight match bar
@@ -111,9 +113,9 @@ All four must be green (Capture may be an honest `image-mode (inferred)` note) b
 ## What you see
 
 ```
-/clone-design https://new-ella-demo-07.myshopify.com/
+/clone-design https://shop.example.com/
 
-Reference:  https://new-ella-demo-07.myshopify.com/  (URL — measured signal)
+Reference:  https://shop.example.com/  (URL — measured signal)
 Captured:   3 breakpoints × {home, collection, product, cart}  → .claude/artifacts/clone-design/2026-07-13T.../
 
 Design system extracted:
@@ -122,7 +124,7 @@ Design system extracted:
   spacing base 8px · radii {0, 4, 999} · elevation 2 shadows + hairline · breakpoints 375/768/1440
   sections: 9 (nav · hero · promo-grid · product-grid · feature-row · newsletter · testimonial · footer · cart-drawer)
 
-Built (.clone/new-ella-demo-07/):
+Built (.clone/shop-example-com/):
   index.html · design-system.html · tokens.css · sections/*.html (9) · home/collection/product/cart .html
   self-contained: ✓ (all pages open standalone) · brand-safe: ✓ (logo/name/copy/photos placeholdered)
 
@@ -165,7 +167,7 @@ Note:       design LANGUAGE cloned; brand identity placeholdered (structural wir
 - [`/art-direct`](art-direct.md) — the sibling for when there is **no** external reference and the language must be invented from goals.
 - skill `visual-check` — owns the Playwright capture + render harness (and the authenticated / blocked-render contract this command inherits for the Capture gate).
 - agent `design-system-architect` — codifies the extracted tokens into a real primitive→semantic system when the clone is adopted into a project.
-- pattern `design-systems`, `design-tokens`, `responsive`, `rtl` — the system context an adopted clone lands in.
+- pattern `design-systems`, `theming`, `motion`, `rtl` — the system context an adopted clone lands in. (Earlier versions listed `design-tokens` and `responsive`; neither is a pattern in this pack — the token contract lives in `design-systems`, and responsive/breakpoint drift is deliberately outside the 19-verb set and owned by `/enhance-ui`.)
 
 ## Stack scope
 Stage 1 is **stack-agnostic and project-optional** — plain HTML/CSS into a folder, no framework or `_extracted-idioms.md` required; it does not HALT on a backend/empty repo (the one ui-ux command that doesn't). `--adopt` requires a valid target project and inherits that target command's prerequisites and gates.

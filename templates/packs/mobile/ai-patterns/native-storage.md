@@ -51,7 +51,26 @@ pack: mobile
 - Access control: `WhenUnlockedThisDeviceOnly` (iOS) / hardware-backed when available (Android).
 - Don't log secrets — even in dev. Don't include in crash reports.
 - On logout: clear keychain entries (don't leave them).
-- App reinstall: keychain MAY persist (iOS — depends on access control). Delete on app uninstall via Keychain Sharing entitlement if needed.
+- **App uninstall does not clear the iOS keychain, and no entitlement makes it.** Keychain items written by an app have survived its removal on every shipping iOS release; Apple has never made that part of the API contract (a change in the iOS 10.3 beta to delete them was reverted before GM), and iOS exposes no uninstall hook at all. Expo documents the consequence for the wrapper most RN apps use: `expo-secure-store` data "will persist across app uninstallations" on iOS, while on Android it "will not be preserved upon app uninstallation" (https://docs.expo.dev/versions/latest/sdk/securestore/, read 2026-08-20). Keychain Sharing is an app-group *sharing* entitlement and has no bearing on deletion.
+  **The remedy is a first-launch sweep.** Set a flag in a store that *is* removed at uninstall (`UserDefaults` / `SharedPreferences`) on first run; if the flag is absent, clear the app's keychain items before reading any of them. Without it, a reinstall — or a device resold and re-provisioned — resumes the previous user's session.
+
+### Biometric-gated secrets
+
+Biometrics do not *store* anything. The secret still lives in the Keychain / Keystore; what biometry adds is an **access-control constraint on the item or the key**, enforced by the secure hardware. A boolean the app checks after a `LAContext` / `BiometricPrompt` callback is not that — it is a UI gesture in front of an unprotected item, and it is the shape this pattern exists to reject. `add-feature` § Hard rules states the floor: **no biometric without secure-enclave / hardware-backed keystore.**
+
+| Decision | iOS | Android |
+|---|---|---|
+| Bind the secret to biometry | `SecAccessControl` flag on the keychain item | Generate the key in the Keystore authorized only for an authenticated user, and set the mode with `setUserAuthenticationParameters()` |
+| Invalidate when the enrolled set changes | `kSecAccessControlBiometryCurrentSet` — "The item is invalidated if fingers are added or removed for Touch ID, or if the user re-enrolls for Face ID" [B1] | Default behaviour: "If a key only supports biometric credentials, the key is invalidated by default whenever new biometric enrollments are added"; `setInvalidatedByBiometricEnrollment(false)` opts out [B2] |
+| Allow passcode / device-credential fallback | `.biometryAny`/`.biometryCurrentSet` **or** `.devicePasscode` — picking one is a threat-model decision, not a default | Include the device-credential authenticator in the allowed set, or do not |
+
+**Three decisions this forces, and none of them has a right answer this pack can supply:**
+
+1. **Enrollment change = invalidation, or not?** Invalidating is the stronger posture and the platform default on Android; it also means *the user who adds a fingerprint is logged out and must re-authenticate from scratch.* Whichever you choose, the app needs a **re-provision path**: catch the invalidated-key / item-not-found error, clear the stale material, and send the user back through the full login. An uncaught invalidation reads to the user as "the app is broken".
+2. **Passcode fallback, or biometry only?** Allowing device credential means anyone who knows the passcode reaches the secret; refusing it means a user with a wet thumb or a failed sensor has no route in. State the choice; do not inherit it from whichever sample you copied.
+3. **What is actually behind the prompt?** Gating a *screen* while the token sits unprotected in the same keychain is theatre — the item is readable without the prompt. Gate the **item**, and let failure to unlock mean failure to read.
+
+Also handle: no hardware enrolled, hardware present but locked out after repeated failures, and the user cancelling. Each is a distinct branch with distinct copy, and each must degrade to a working non-biometric route rather than a dead end.
 
 ### User preferences (small KV)
 
@@ -111,3 +130,11 @@ pack: mobile
 - `app-lifecycle.md` — restoration keys live in one of these primitives; process death is what makes persisting them necessary.
 - `permissions.md` — what may be collected before this pattern decides where it is allowed to live.
 - cross-pack `security` — the threat model for data at rest; this pattern picks the primitive, that pack judges whether it is enough.
+
+## Sources
+
+- B1 — Apple, `biometryCurrentSet`: "Touch ID must be available and enrolled with at least one finger, or Face ID available and enrolled. The item is invalidated if fingers are added or removed for Touch ID, or if the user re-enrolls for Face ID." https://developer.apple.com/documentation/security/secaccesscontrolcreateflags/biometrycurrentset (read 2026-08-20 via the JSON twin documented in `references/swiftui.md`).
+- B2 — Android, Keystore system: "If a key only supports biometric credentials, the key is invalidated by default whenever new biometric enrollments are added. You can configure the key to remain valid when new biometric enrollments are added. To do so, pass `false` into `setInvalidatedByBiometricEnrollment()`." https://developer.android.com/privacy-and-security/keystore (read 2026-08-20).
+- iOS keychain persistence across uninstall + the Android contrast: https://docs.expo.dev/versions/latest/sdk/securestore/ (read 2026-08-20).
+- `androidx.security:security-crypto` deprecation, quoted above: https://developer.android.com/jetpack/androidx/releases/security.
+- **Deliberately absent** — each was looked for and is not published: a maximum keychain item size; a Keystore key-count limit; a documented iOS uninstall hook; a threshold at which biometric lockout releases. Where a project needs one of these, measure it and record it as a project budget.

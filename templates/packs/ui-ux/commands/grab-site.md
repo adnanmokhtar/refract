@@ -6,6 +6,8 @@ pack: ui-ux
 
 # /grab-site <url> [<out-dir>] [<flags>...]
 
+> **Not this command? (ANTI-triggers)** — you want a reusable, **brand-neutral design SYSTEM** (tokens + a section library, logo and photos placeholdered) rather than the real site → **`/clone-design`**. You want a design invented from your product's goals with **no external reference** → **`/art-direct`** (hand it a URL and it will ignore the site). You want to rethink a page in **your** app's language → **`/redesign`**. You want a working store with real cart/checkout/JS → a static grab cannot give you that, at all. **Same input as `/clone-design` (a URL), opposite output: this one keeps the real assets so it LOOKS like the original.** Full map: [`ui-sweep.md § The ui-ux command map`](ui-sweep.md).
+
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/grab-site <url> --plan` discovers the template-family page set + the asset inventory and writes the grab plan to `.claude/plans/`, exiting before any file is downloaded.
 
 ## The Premise (read this first, internalize, do not deviate)
@@ -40,14 +42,14 @@ pack: ui-ux
 - You intend to deceptively pass the copied site off as its original brand → out of scope.
 
 ## Args
-- `<url>` — the site to grab (e.g. `https://new-ella-demo-07.myshopify.com/`). The scheme+host become the mirror's base; the path (if any) is the `index` page.
+- `<url>` — the site to grab. **`shop.example.com` throughout this file is a placeholder host** standing in for a real storefront (`example.com` is the reserved documentation domain and will not itself yield six template pages) — substitute the real URL. Naming a specific third-party commercial site as the canonical example is deliberately avoided: this command downloads someone's real assets, and the docs should not read as an endorsement of a particular target. The scheme+host become the mirror's base; the path (if any) is the `index` page.
 - `<out-dir>` — output folder (default: the site's host name). The folder holds one `<template>.html` per family, an `assets/` dir (real CSS/images/fonts), and `_gallery.html`.
 - `--pages=/a,/b,/c` — explicit page paths to grab instead of auto-discovery (first entry = `index`).
 - `--max-assets=<N>` — cap total downloaded assets (default 800) — a runaway/size guard. CSS/fonts are fetched before images, so a tight cap drops images (not the layout) and the run WARNs.
 - `--plan` — write the page-set + asset plan and exit before downloading.
 
 ```bash
-/grab-site https://new-ella-demo-07.myshopify.com/                 # mirror into ./new-ella-demo-07.myshopify.com/
+/grab-site https://shop.example.com/                 # mirror into ./shop.example.com/
 /grab-site https://example.com site/                               # mirror into ./site/
 /grab-site https://example.com --pages=/,/about,/pricing,/contact  # grab exactly these pages
 /grab-site https://example.com --plan                              # page-set + asset plan only
@@ -265,7 +267,7 @@ The script enforces the Capture gate itself and **prints** the signals for the o
 
 ## What you see
 ```
-/grab-site https://new-ella-demo-07.myshopify.com/
+/grab-site https://shop.example.com/
 
 PAGE  index       /
 PAGE  collection  /collections/classic-all
@@ -274,7 +276,7 @@ PAGE  page        /pages/wish-list
 PAGE  cart        /cart
 PAGE  search      /search?q=a
 
-DONE  https://new-ella-demo-07.myshopify.com  pages=6  assets=300  -> new-ella-demo-07.myshopify.com/  (open _gallery.html)
+DONE  https://shop.example.com  pages=6  assets=300  -> shop.example.com/  (open _gallery.html)
   localized: css=54 img-refs=54 img-assets=262 · residual-remote-refs=63
   WARN: --max-assets=800 cap hit — coverage is partial; raise it        (only printed if the cap was hit)
   limits: JS interactions not live (visual copy) · carries source content — swap your brand before shipping

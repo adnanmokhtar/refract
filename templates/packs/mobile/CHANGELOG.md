@@ -9,6 +9,223 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.9.1 — 2026-08-22
+
+**`references/expo.md` was a delta on a base file the installer does not guarantee.** The file
+opened with "Read `references/react-native.md` first" and closed by telling the reader that "the
+React Native fingerprint column applies unchanged". Both are true statements about a file that may
+not be there. `phase-4.2-apply.md` installs references with
+`for fw in <detected-frameworks>; do cp .../references/${fw}.md`, `<detected-frameworks>` is defined
+nowhere in `templates/phases/` or `scripts/`, and nothing in the repo pairs `expo` with
+`react-native`. An Expo-only detection therefore installs `expo.md` alone, whose first instruction
+points at an absent file.
+
+1.9.0 made that gap more expensive. Moving the per-framework fingerprints out of
+`rules/render-discipline.md` and into `references/<framework>.md § Render-discipline fingerprints`
+was the right call for the always-loaded budget, but `expo.md` was the one reference of five that
+never got the section (`flutter`, `jetpack-compose`, `react-native`, `swiftui` all have it). So an
+Expo project lost the base layer *and* the entire fingerprint layer that `render-discipline.md`
+sends it to read — while `_essentials.md` stated the fingerprints had "moved into
+`references/<framework>.md`", which for Expo was not true of any installed file.
+
+`expo.md` now carries `## Render-discipline fingerprints`. It **routes** rather than duplicates:
+Expo runs the React Native renderer, so all 8 detector signals are the React Native column, named as
+canonical and deliberately not restated — copying the 8 rows would create exactly the multi-copy
+drift the ui-ux pack spent 1.25.2 removing from its duration scale. What the section adds is the two
+deltas that are genuinely Expo's, and neither is in the React Native column:
+
+- Detectors 1 (`oversized-state-scope`) and 8 (`logic-in-view`) land in `app/`, because a file in the
+  router tree *is* a screen component — and state held in a `_layout.tsx` re-renders every route that
+  layout wraps, which is detector 1 at the widest scope the app has. Audit `app/` before
+  `src/features/`.
+- Closing detectors 5 and 6 means adding a package, and in Expo that is `npx expo install`, never
+  `npm install` — `@shopify/flash-list` and `react-native-reanimated` must resolve to the version the
+  installed SDK was built against.
+
+The header now states the dependency as an instruction ("if it is not installed beside this file,
+install it too") rather than an assumption, and says why it holds — an Expo app *is* a React Native
+app, SDK 57 pairing with RN 0.86 per the version table already cited at the top of the file.
+
+This is a containment fix, not a repair of the root cause. The installer still has no rule pairing
+`expo` with `react-native`, and `<detected-frameworks>` is still undefined; both live in
+`templates/phases/phase-4.2-apply.md` and are raised as integrator requests.
+
+## 1.9.0 — 2026-08-22
+
+**The pre-1.7.0 layer, graded for the first time.** 1.7.0 and 1.8.0 added four patterns, three
+references and two auditors under a sourcing discipline — cite the URL or say what determines the
+answer. Everything authored before that had never been held to it. This release holds it: all four
+commands, all four skills, five patterns and the two oldest references.
+
+**`/add-screen` is now a scope-narrowing overlay on `/add-feature`** (250 → ~140 lines, and the
+duplicated 60% is gone). It was the weaker of two near-identical commands and was missing every
+safety mechanism the stronger one has: the reviewer precondition table, `@security-auditor`,
+`@app-store-reviewer`, the BLOCKER halt rule, and the not-installed inline-review fallback. The
+consequence was concrete — a Heavy tier *defined by* "biometric / Keychain / secrets touch"
+dispatched no security review at all, and a saved-payment-methods screen shipped with no store
+review, no durability audit, and three unreadable file paths in Phase 3 (`components.md`,
+`navigation.md`, `data-fetching.md` are frontend pattern names and were never installed here). The
+overlay keeps what a *screen* actually adds — screen-level mirror axes, the Phase 2 design, the
+deep-link registration — and inherits the rest.
+
+**The dispatch graph is closed.** `@offline-sync-auditor` and `@device-performance-auditor` shipped
+at 1.8.0 with nothing that called them, while `/add-feature` already defined its Heavy tier by
+"write-path mutation" (the first agent's exact domain) and its Standard tier by "bundle / cold-start
+delta check" (the second's). Both now have precondition rows in the Phase 4 cascade.
+
+**A sensitive-entity gate, by reference and not by re-derivation.** A screen collecting a payment
+instrument, credential, government or health identifier is refused the generic scaffold on those
+fields. The rule and its surface-by-surface branch table live in `frontend/commands/add-crud-page.md`
+§ Data-sensitivity gate and are cited there rather than copied — two versions of that rule would
+drift. What mobile adds is the two consequences the web branch does not have: where the token lands
+(Keychain / Keystore) and the biometric unlock in front of it.
+
+**Biometric guidance, which the pack did not have.** A grep for `LAContext`, `BiometricPrompt`,
+`LocalAuthentication` or `kSecAccessControlBiometryCurrentSet` across the whole pack returned
+nothing; the deepest content was one matrix cell. `native-storage.md` § Biometric-gated secrets now
+carries the mechanism (biometry constrains the *item*, it does not store anything — a boolean
+checked after a callback is a UI gesture in front of an unprotected item), the enrollment-change
+invalidation contract on both platforms with the sentence each publishes, the passcode-fallback
+decision, and the re-provision path an invalidated key requires.
+
+Above that mechanism sits the decision the pack was also missing, and it is an architecture
+decision rather than a storage one: `mobile-architect.md` § **Biometric gates** now forces the
+choice between **biometry gating the UI** (an evaluate call returns true; whoever can read the
+storage still reads it) and **biometry gating the key** (the Keystore / Keychain refuses to use the
+key without a fresh authentication), with a halt condition on any proposal that names neither. It
+carries the three consequences a design stopping at "we'll add Face ID" discovers in production —
+the enrollment-change decision (Apple's `.biometryCurrentSet` vs `.biometryAny`, Android's
+`setInvalidatedByBiometricEnrollment`, which is **true by default** on API 24+), the four-way
+failure set that makes the fallback a design rather than a `catch`, and the iOS keychain surviving
+uninstall. The per-platform API surface went where hard rule 7 puts platform specifics —
+`references/swiftui.md` (`LAPolicy`, `LAError.biometryLockout`, the `SecAccessControl` flag table)
+and `references/jetpack-compose.md` (`BiometricPrompt`, the `canAuthenticate()` status codes,
+`setUserAuthenticationRequired` + `CryptoObject`) — with short, version-checked pointers in
+`react-native.md`, `flutter.md` and `expo.md` naming which mechanism each ecosystem's package
+actually exposes, because the common wrappers expose only the UI gate.
+
+**`app-store-reviewer` gained the three things a 12/12-verified agent was still missing.** The
+16 KB page-size row now sits in § 1 as a dated machine gate with both quoted sentences and the NDK
+trigger. § 7 gained the one battery finding that is a store finding: excessive partial wake locks
+carry a Play visibility consequence at a *different rate* from the 2-hour measurement figure —
+"more than 5% of app sessions across all devices in a 28-day period" — and `device-performance-auditor`
+[P6] now says explicitly that the two numbers must never be merged into one claim. The
+closed-testing row was universal and is conditional: the requirement applies to "personal Google
+Play Console accounts created after November 13, 2023", and dropping that qualifier turned a
+two-week schedule dependency into one every publisher appeared to owe. Finally, the target-API row
+now states what satisfying it costs: raising `targetSdk` to 36 opts the app into behaviour changes,
+and `references/jetpack-compose.md` gained the three that break apps — predictive back replacing
+`onBackPressed` ("`onBackPressed` is not called and `KeyEvent.KEYCODE_BACK` is not dispatched
+anymore"), the removal of the edge-to-edge opt-out, and orientation / resizability / aspect-ratio
+restrictions ceasing to apply at `sw600dp`, whose opt-out is documented as temporary and gone at
+API 37. The pack held that deadline in three files and none of the breakages.
+
+**`references/swiftui.md` now states the limit of its own best technique.** The JSON-twin
+mechanism resolves for `/documentation/<framework>/<symbol>` and **404s** for Human Interface
+Guidelines pages — verified both ways on 2026-08-22. Recording the boundary matters because a
+failed HIG fetch otherwise reads either as "the technique is broken" or as licence to write the
+figure from memory, which is the exact defect the same file exists to prevent.
+
+**`_examples/mobile-architect.md` was the one mobile fallback that dropped a boundary.** Its
+heading read `### Sibling agent in this pack` — singular — and named only `@app-store-reviewer`,
+while all four agents share `triggers: { mobile_framework_detected: true }` and ship together on
+greenfield. The two it dropped are the two whose entire premise is that this agent's output is
+their input ("**Its input is your classification**"; "**A budget you never set is its finding, not
+its licence to invent one**"). Restored, along with the two state-restoration sources behind the
+pack's most-corrected error, the biometric decision, and a real § Deliberately absent list.
+
+**Six fabrications removed.** Each is replaced by what determines the answer, per
+`mobile-principles.md` § Must not:
+
+- `native-bridge-audit`: "TypeScript types … eliminate **~80% of bridge bugs**" — no source exists.
+- `references/react-native.md`: "`react-native-mmkv` — fast key-value (**10x AsyncStorage**)", the
+  exact figure `native-storage.md` forbids by name one file away; and "**Lists > 100 items** =
+  FlashList", a threshold nothing publishes.
+- `bundle-analyze`: WebP conversion "**50-70% size cut**".
+- `platform-conventions-audit`: a HIG tab-bar maximum, a Material 3 bottom-nav maximum and a
+  Material elevation level scale, all three uncited in a file whose detector 3 is a model of
+  citation discipline. The HIG pages are client-rendered and have **no JSON twin** (the technique
+  `references/swiftui.md` documents works for framework symbols, not HIG pages) — so the skill now
+  says that, and asks for a read-and-cite or an observed behaviour instead.
+- `ota-updates.md`: "**React Native (built-in `Updates`)**" — React Native core ships no update
+  module and never has. That row is now honestly labelled as a bundle host and code you wrote.
+- `native-bridge-audit` § Output format shipped **five fully-worked invented findings**, the exact
+  hazard `/optimize-bundle` names about its own template. Replaced with a placeholder table.
+
+**Dead tooling retired, each with the page that retired it.** Hosted CodePush — Visual Studio App
+Center "is scheduled for retirement on March 31, 2025", and Microsoft's own migration row points at
+the self-hostable `microsoft/code-push-server`, so every `appcenter codepush …` command in the
+provider table was calling a dead service. Flipper (decoupled from RN core and removed from the app
+template). `react-native-background-task` (last published 8 years ago; it was the only concrete
+package name in `/add-feature`'s offline-queue line). `react-native-fast-image` (nothing published
+since 8.6.3 on 2022-10-31). `peek-and-pop` (3D Touch, replaced by long-press context menus).
+`SafeAreaView` from RN core (deprecated in favour of `react-native-safe-area-context`) — it was the
+*GOOD* signal in a detector. `Settings.System.ANIMATOR_DURATION_SCALE` (the `Settings.Global` name
+has been correct since API 17). Android Slices, listed as a live voice-assistant entry point while
+Google's own guide is titled "(deprecated)".
+
+**`device-harness` produced a false PASS on the pack's load-bearing test.** The process-death step
+ran `adb shell am kill` with no instruction to background the app first — and `am kill` "kills only
+processes that are safe to kill and that will not impact the user experience", so on a foregrounded
+app it is a no-op and the relaunch resumes the live process. The harness then reported a restoration
+for a test that never ran. Since `@offline-sync-auditor` caps every `durable` verdict at `unproven`
+without a real kill, that no-op laundered an unproven write into a proven one. Fixed with a
+`KEYCODE_HOME` first, and a `ps` check that is now the evidence the kill landed.
+
+**`offline-sync.md` published the three numbers its own auditor HALTs on** ("exponential backoff
+(1m, 5m, 30m)") while the auditor states "This agent recommends no numbers, because no platform
+publishes any for this." The write path is rewritten to state what is *structural* — backoff exists
+and grows, there is a terminal state, every terminal state reaches a human — and to carry the
+auditor's failure-catalogue labels (`schema-lock`, `identity-bleed`, `poison-head`,
+`revalidate-clobbers-pending`, `temp-id-orphan`, `clock-as-authority`, `skip-on-failure-reorder`,
+`blanket-policy`, `reachability-as-truth`, `full-resync-on-reconnect`) so the design and the audit
+speak one vocabulary. Timestamp-ordered conflict resolution is corrected to a server-issued version.
+
+**`native-storage.md` invented a Keychain deletion mechanism.** "Delete on app uninstall via Keychain
+Sharing entitlement if needed" — Keychain Sharing is an app-group *sharing* entitlement, iOS exposes
+no uninstall hook, and keychain items survive uninstall. Replaced with the behaviour Expo documents
+for the wrapper most RN apps use (iOS persists, Android does not) and the actual remedy: a
+first-launch sweep keyed off a flag in a store that *is* removed at uninstall.
+
+**Two subjects the pack owned and never stated.** `push-notifications.md` owns notification
+permission by delegation from `permissions.md`, and `POST_NOTIFICATIONS` appeared exactly once in
+the file — as a grep string. It now carries the Android 13 (API 33) runtime permission in prose: the
+manifest declaration, the in-context request, "All notification channels are blocked" on denial, and
+the `targetSdk`-32 trap where the dialog fires at launch and one tap is permanent. Separately,
+Play's **16 KB page size** requirement appeared nowhere in the pack: it binds every app targeting
+API 35+, blocks updates from **2027-02-01**, and reaches every React Native, Flutter, Expo and
+Capacitor build because they all carry NDK libraries transitively. Added to `release-pipeline.md`
+and `/optimize-bundle`.
+
+**Always-loaded rule cost: 18,232 → ~14,120 characters (4,558 → ~3,530 tokens, −23%).** The
+`render-discipline` per-framework fingerprint table was 4 columns × 8 rows of which 3 columns are
+dead weight in every session forever, since a project is exactly one framework. Both it and the
+per-framework lint/profiler enforcement moved into `references/flutter.md`, `react-native.md`,
+`jetpack-compose.md` and `swiftui.md` § Render-discipline fingerprints — which
+`phase-4.2-apply.md` copies **only for the detected framework**, so the depth arrives without the
+cost, and each reference now carries the full fingerprint rather than a table cell. This also
+removes four platforms' API specifics from a universal always-loaded rule. Both § Review checklists
+merged into § Must (pure restatement). `mobile-principles.md` gained a per-platform correction it
+had backwards: it asserted the permission dialog is one-shot on both platforms, which is iOS-precise
+and wrong on Android, where the first denial is recoverable — the on-demand pattern had this sourced
+and right while the always-loaded rule did not.
+
+**Two deletions.** `_examples/mobile-principles.md` — a 96% copy of its source (71 vs 74 lines,
+4 trivial elisions), which made the `_examples/` premise ("the artifacts a project rewrites in its
+own voice") fiction and created a second lockstep site for eight source URLs; it was still asserting
+the retracted iOS one-shot model for Android after the source was corrected, which check 8b cannot
+see. `_examples/refactor.md` — a six-line anecdote already disowned as a fallback behind a 16-line
+comment that cost more than the file. Both `_topics.md` entries re-pointed at their sources.
+
+**Two references were 13 and ~28 releases stale.** `react-native.md` was headed "0.74+" against a
+current 0.87.0 and recommended Flipper; `flutter.md` was headed "3.19+ / 3.22 / 3.24" against a
+current 3.47.1, called Impeller "opt-in Android" when it is default on API 29+, and stated that
+`debugPrint` is "stripped in release" — a mechanism the foundation library does not have. Its
+documented property is *throttling*; what removes a log from a release build is the compile-time
+constant `kDebugMode`. A developer following that line shipped logs to production believing they
+were gone. Both files are now version-scoped like their `swiftui.md` / `jetpack-compose.md`
+siblings, with the check-before-you-emit mechanism each platform actually offers.
+
 ## 1.8.0 — 2026-08-22
 
 The two audits nobody owned. The pack could **plan** a mobile app (`mobile-architect`) and **judge

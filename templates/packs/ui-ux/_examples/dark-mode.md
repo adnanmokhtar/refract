@@ -6,132 +6,87 @@ pack: ui-ux
 
 # Pattern: Dark Mode
 
-> **Hard rule** — Dark mode is a parallel theme keyed off a `<html data-theme>` attribute, not a CSS filter or per-component prop. Components reference semantic tokens; light + dark each define values for every token, no exceptions.
+> **Hard rule** — Dark is a parallel THEME, not a filter and not a per-component prop. It rides on the theming mechanism (`theming.md` owns that: the `[data-theme]` attribute, the token layer, persistence, the SSR anti-flash script). This file owns only what is *different about dark* — the values, and the four places a straight luminance flip produces a worse product.
+
+**The failure this prevents:** a team wires the theme switch correctly, inverts every token's lightness, and ships a dark mode that reads as a cheap negative of the light one — flat, because the shadows disappeared; glaring, because the brand colour was never re-tuned; and broken in three places (logos, illustrations, code blocks) where an asset carries a baked-in white background. All of that passes a contrast audit.
+
+**Scope split:** `theming.md` owns the *mechanism* (token layer, `[data-theme]` on `<html>`, persistence + first-visit default, the `<head>` anti-flash script, per-tenant composition, migration path). Do not restate it here.
 
 **Halt conditions / mandatory cites**
-- Cite the design-token file as `<path:line>` (e.g. `src/styles/tokens.css:14`) before proposing dark values; "I'll grep for tokens" is a halt.
-- Cite the component file using `var(--token)` as `<path:line>` proving the indirection layer exists; if components use raw hex, halt and retrofit first.
-- Cite the SSR entry point (`<path:line>` for the `<head>` template) before claiming FOWT is fixed; show the inline script lands BEFORE the stylesheet link.
-- Cite the visual-regression config as `<path:line>` proving both themes render in CI; if absent, halt and require the matrix added in the same PR.
-- Refuse to swap tokens without a contrast audit — cite the axe/pa11y config or runbook by path.
+- Cite the design-token file as `<path:line>` before proposing dark values; "I'll grep for tokens" is a halt.
+- Cite a component using `var(--token)` as `<path:line>` proving the indirection layer exists; if components use raw hex, halt and retrofit first.
+- Cite the SSR entry point as `<path:line>` (the anti-flash script per `theming.md`) before claiming FOWT is fixed.
+- Cite the visual-regression config as `<path:line>` proving **both** themes render in CI; if absent, halt and require the matrix added in the same PR.
+- Refuse to ship dark values without a contrast audit **per theme** — a ratio that passes in light says nothing about dark.
 
-Dark mode is a parallel design system, not a CSS filter. Eyes perceive contrast, color, and elevation differently against a dark substrate — copying light-mode tokens with their luminance flipped produces glare, muddy hierarchy, and unreadable brand colors. Treat dark as a first-class theme that rides on the same component contracts.
+## What actually changes in dark
 
-## Context
+### 1. Elevation inverts — and shadows stop working
 
-You need explicit dark mode (not just `prefers-color-scheme` on a few pages) when:
-- The product runs at night or in low-light contexts (chat, IDE, video, reading).
-- You ship per-tenant theming and dark is one of the brand variants.
-- Accessibility audits flag light-mode glare or low contrast in dim viewing.
-
-Don't bother with dark mode on a marketing site that's read for 30 seconds — the cost (palette tuning, image variants, QA matrix doubling) outweighs the benefit.
-
-## The token translation table
-
-The mistake is "swap light hex for dark hex on a per-component basis". The discipline is "every semantic token has a light value AND a dark value, no component knows which is active".
+In light, depth comes from something darker cast onto a lighter surface. **In dark there is nothing darker to cast**, so a reused `--shadow-md` is invisible and the theme reads flat. Depth in dark comes from the surface getting *lighter* as it rises, plus a light hairline:
 
 ```css
-:root {
-  /* Light — surfaces ascend by darkness  */
-  --color-bg-base:        #ffffff;
-  --color-bg-surface:     #f8f9fa;
-  --color-bg-elevated:    #ffffff;
-  --color-border:         #e5e7eb;
-  --color-text-primary:   #111827;
-  --color-text-secondary: #4b5563;
-  --color-text-disabled:  #9ca3af;
-  --color-brand:          #3366ff;
-  --color-success:        #10b981;
-  --color-danger:         #dc2626;
-  --shadow-md:            0 1px 3px rgb(0 0 0 / 0.1);
+:root {                        /* light: surfaces ascend by DARKNESS */
+  --color-bg-base:     #ffffff;
+  --color-bg-elevated: #ffffff;
+  --shadow-md:         0 1px 3px rgb(0 0 0 / 0.1);
 }
-
-[data-theme="dark"] {
-  /* Dark — surfaces ascend by lightness  */
-  --color-bg-base:        #0b0f17;   /* not pure #000 — OLED smearing */
-  --color-bg-surface:     #111827;
-  --color-bg-elevated:    #1f2937;   /* modals, popovers */
-  --color-border:         #2d3748;
-  --color-text-primary:   #f5f7fa;   /* not pure #fff — too sharp */
-  --color-text-secondary: #9ca3af;
-  --color-text-disabled:  #4b5563;
-  --color-brand:          #5c85ff;   /* lifted + slightly desaturated */
-  --color-success:        #34d399;
-  --color-danger:         #f87171;
-  --shadow-md:            0 0 0 1px rgb(255 255 255 / 0.06);  /* "shadow" via subtle stroke */
+[data-theme="dark"] {          /* dark: surfaces ascend by LIGHTNESS */
+  --color-bg-base:     #0b0f17;
+  --color-bg-elevated: #1f2937;                      /* modals, popovers — LIGHTER than base */
+  --shadow-md:         0 0 0 1px rgb(255 255 255 / 0.06);  /* depth via a lit edge */
 }
 ```
 
-Note that `--shadow-md` swaps from drop-shadow (depth via darkness) to inset stroke (depth via light) — naive shadow tokens are invisible on dark backgrounds.
+Components reference the semantic role (`--color-bg-elevated`), never a ramp step (`gray-200`) or a literal — otherwise the inversion cannot happen at all.
 
-## The three rules people break
+### 2. Brand colours need a second value
 
-1. **Dark elevation goes UP in lightness, not down.** A modal on `--color-bg-base: #0b0f17` should sit on `--color-bg-elevated: #1f2937` (lighter). In light mode the relationship inverts. Components must reference the semantic token (`--color-bg-elevated`), never `gray-200` or `#fff`.
+A saturated brand hue that reads confident on white glares on a dark surface. Lift luminance, drop saturation slightly, and check it **against the actual dark background** — judging on a light canvas is unreliable because the surround changes perception. Every brand-adjacent token (`brand`, `brand-hover`, `success`, `danger`, `focus-ring`) gets its own dark value.
 
-2. **Brand colors usually need a second value.** A vibrant brand orange `#ff6b00` glares painfully on dark. Lift luminance and drop saturation 5-10% for the dark token. Test against the actual dark background — eyeballing in Figma is unreliable because the surrounding canvas affects perception.
+### 3. Pure black and pure white are the amateur tell — but verify on a device
 
-3. **Pure black + pure white is the amateur tell.** `#000` causes "OLED smearing" during scroll on phones (pixels gate fully off and lag re-lighting). `#fff` text on dark causes halation (perceived bloom around glyphs). The hex pairs `#0b0f17 / #f5f7fa` work for almost everything; tune from there.
+`#000` with `#fff` text is the maximum possible luminance ratio, and that is the problem: readers report glow/halation around white glyphs, and OLED panels are reported to smear during scroll at full black. **Both effects are panel- and person-dependent** — the determinant is a look on a real device in a dark room, not a hex value from a blog. Near-black / near-white (`#0b0f17` / `#f5f7fa`) cost nothing and remove the risk.
 
-## Asset variants
+### 4. Assets do not theme themselves
 
-```html
-<!-- Logo with light + dark variants -->
-<picture>
-  <source srcset="/logo-dark.svg" media="(prefers-color-scheme: dark)">
-  <img src="/logo-light.svg" alt="Brand">
-</picture>
-```
-
-For SVG illustrations: prefer `currentColor` on strokes/fills so they inherit the theme's text color. PNGs with baked-in white backgrounds need a dark variant or transparent re-export — there is no CSS workaround that doesn't look broken.
-
-Code blocks need a dark syntax theme (e.g., `github-dark`, `one-dark`). Light themes inverted via `filter: invert()` produce wrong colors for keyword/string/comment classes.
-
-## Flash of wrong theme (FOWT) on SSR
-
-The page renders light, JS runs, theme switches to dark — user sees a 200ms white flash. Solution: write the theme attribute into `<html>` BEFORE any CSS resolves, via a blocking inline script.
-
-```html
-<head>
-  <script>
-    // Runs before any CSS — sets data-theme synchronously
-    (function () {
-      var stored = localStorage.getItem('theme');
-      var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      document.documentElement.dataset.theme = theme;
-    })();
-  </script>
-  <link rel="stylesheet" href="/app.css">
-</head>
-```
-
-The inline script is the only place a small amount of synchronous JS in `<head>` is justified. Bundlers will warn — suppress for this one snippet.
+- **Logos** — ship a dark variant:
+  ```html
+  <picture>
+    <source srcset="/logo-dark.svg" media="(prefers-color-scheme: dark)">
+    <img src="/logo-light.svg" alt="Brand">
+  </picture>
+  ```
+  If the theme can be overridden independently of the OS preference (it should be), drive the swap from the same `[data-theme]` attribute instead of the media query alone.
+- **SVG illustrations** — `currentColor` on strokes/fills so they inherit the theme's text colour. Highest-leverage asset decision.
+- **Raster art with a baked-in white background** needs a dark variant or a transparent re-export; no CSS workaround looks right.
+- **Code blocks** need a real dark syntax theme. `filter: invert()` on a light one produces wrong hues for keyword / string / comment classes.
 
 ## Trade-offs
 
-Pro: parallel themes are cheaper than a runtime CSS filter and respect designer intent for every color. Pro: tokens become a first-class API designers + engineers share. Con: every new color decision now happens twice (light value, dark value) — and forgetting one ships a broken component. Con: assets (logos, illustrations, screenshots) double — there is no way around variant assets for raster art.
+Parallel themes beat a runtime filter on every axis except day-one effort. The price is recurring: **every new colour decision happens twice**, raster assets double, the QA matrix doubles.
 
-Don't ship dark mode if you can't commit to:
-- Adding a dark value for every new token.
-- Running visual regression in both themes on every PR.
-- Maintaining brand-color dark variants when marketing rebrands.
+Don't ship dark mode without committing to: a dark value for every new token, visual regression in both themes on every PR, and maintaining brand-colour dark variants through the next rebrand.
 
 ## Common mistakes
 
-- **`filter: invert(1) hue-rotate(180deg)` on `<html>`** — destroys photos, brand colors, and any SVG that relies on stroke. The "30-line dark mode" trick that loses by week three.
-- **Hex literals inside components.** `color: #111827` works in light, breaks in dark. The grep query `rg "#[0-9a-f]{3,6}" src/components` should be near zero hits.
-- **Same shadow tokens in both themes.** `0 1px 3px rgb(0 0 0 / 0.1)` is invisible on dark. Either swap to a brighter inset stroke or drop shadows entirely on dark surfaces.
-- **Dark mode added in week 12 of a 12-week project.** Every decision before then assumed white background. Audit tokens, retrofit semantic names, accept it'll take longer than building it from day one.
-- **Toggles that use the OS preference but never persist user override.** A user who prefers dark in their app but light in their OS (or vice versa) needs a per-app preference, persisted, with OS as the first-load default only.
+- **`filter: invert(1) hue-rotate(180deg)` on `<html>`** — destroys photos, brand colours, and stroke-dependent SVG. Loses by week three.
+- **Reusing the light theme's shadow tokens** — invisible on dark; the UI flattens.
+- **Elevation the wrong way** — a modal darker than the page behind it reads as a hole, not a layer.
+- **One brand value for both themes.**
+- **Dark mode added in week 12 of a 12-week project** — every prior decision assumed a white background. Budget the token retrofit, not just the palette.
+- **Assuming the OS preference is the whole feature** — a persisted per-app override is required, with the OS value as first-load default only.
 
 ## Testing
 
-- Visual regression (Chromatic, Percy, Playwright screenshots) configured to capture every story in both themes. Diffs in either theme block the merge.
-- Contrast audit per theme via axe-core or pa11y. Dark mode often regresses on disabled-text contrast (the gray gets too dim against the now-darker surface).
-- Toggle rapidly during a manual smoke test — nothing should flicker, jump, or briefly show wrong colors. Look for transition stutter on the body background especially.
-- Test a tenant-branded dark variant if you ship per-tenant themes: `data-theme="dark" data-tenant="acme"` and verify Acme's brand orange still has AA contrast on the dark surfaces.
+- Visual regression capturing every story/route in **both** themes; a diff in either blocks the merge.
+- Contrast audit **per theme**. Dark most often regresses on *disabled* text.
+- One look on a real OLED device, in a dark room, scrolling.
+- Per-tenant themes: verify the tenant brand colour against the dark surfaces too.
 
 ## References
 
-- Material Design 3 dark theme guidelines (m3.material.io) — surface elevation reasoning.
-- Apple HIG "Dark Mode" — system color semantics.
-- Adam Argyle's "Building a custom dark theme switch" (web.dev) — FOWT prevention technique.
+- [Material Design 3 — colour roles](https://m3.material.io/styles/color/roles) — surface/elevation role vocabulary.
+- [Apple Human Interface Guidelines — Dark Mode](https://developer.apple.com/design/human-interface-guidelines/dark-mode) — platform semantic-colour behaviour (client-rendered page).
+- [Adam Argyle, "Building a theme switch component" (web.dev)](https://web.dev/articles/building/a-theme-switch-component) — the accessible switch + avoiding the colour flash.
+- `theming.md` (this pack) — the mechanism this pattern rides on.
