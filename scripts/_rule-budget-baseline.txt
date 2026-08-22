@@ -5,9 +5,9 @@ algorithms 1671
 align 8184
 backend 6122
 business 2156
-code-quality 4441
+code-quality 3628
 data-engineering 1964
-database 2000
+database 1639
 devops 1242
 distributed-systems 1903
 documentation 2131
@@ -17,8 +17,8 @@ infrastructure 1413
 migration 9463
 mobile 3526
 observability 1487
-performance 1666
+performance 1459
 product 1700
-security 1870
-testing 1481
+security 1661
+testing 1094
 ui-ux 1253

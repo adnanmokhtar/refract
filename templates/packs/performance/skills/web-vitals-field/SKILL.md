@@ -69,7 +69,10 @@ Field CWV (p75, last 28 days, mobile)        source: RUM /rum + CrUX cross-check
         → fix path: TTFB dominates → streaming-ssr; loadDelay → preload + fetchpriority (lcp-audit)
 
   CLS   0.04   GOOD
-  TTFB  700ms  POOR   (good ≤800 lab budget 600) → server-response-time
+  TTFB  700ms  NEEDS-WORK (lab budget)  → server-response-time
+        # field-good is ≤800ms (https://web.dev/articles/ttfb); 700ms passes THAT and misses only the
+        # stricter 600ms Lighthouse server-response-time audit. Label which bar a value failed —
+        # calling a field-good value POOR is how a real regression stops being legible.
 ```
 
 ## SPA / soft navigations

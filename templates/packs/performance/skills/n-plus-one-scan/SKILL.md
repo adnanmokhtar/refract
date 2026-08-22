@@ -42,7 +42,7 @@ Find real N+1 issues, cite `<path:line>` for every confirmed pattern and back it
 
 1. Enable query log on the dev DB (each engine has its own knob — Postgres `log_min_duration_statement`, MySQL slow-query log, etc.).
 2. Hit the suspect endpoint once and count queries (tail the DB log; count `duration:` lines or equivalent).
-3. Rule of thumb: a list endpoint should issue 1-3 queries — not `1 + N`. Ten parent rows returning 11+ queries = confirmed N+1.
+3. **The invariant is constancy, not a count.** A list endpoint's query count must be **constant with respect to the number of rows returned** — vary the page size and re-count: a count that moves with N is a confirmed N+1, a count that stays flat is not, whatever its absolute value. A flat 6 queries is fine; a 2-that-becomes-40-at-page-size-40 is the bug. This is why the count must come from two runs at different sizes, not one.
 
 ## Output (illustrative)
 

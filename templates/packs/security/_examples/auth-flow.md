@@ -106,6 +106,21 @@ The public key is not a secret; the private key never leaves the device.
 - Prune expired > 30 days.
 - Audit trail — who logged in when, from where.
 
+## CSRF
+
+Applies to **cookie-authenticated state-changing requests** — a cookie the browser attaches automatically on every non-idempotent method. Bearer-header auth is not in scope.
+
+Pick one control, never "we set `SameSite`, we're covered":
+
+- **Synchronizer token** — the framework's built-in; server-stored, compared on submit. OWASP: "one of the most popular and recommended methods to mitigate CSRF".
+- **Signed double-submit** — HMAC over the session id with a server-side secret, sent as cookie + header. The session binding is the control: "signing tokens without session binding provides minimal protection".
+
+**The naive double-submit is bypassable** "by an attacker who can write cookies on the target domain (e.g., via a vulnerable sibling subdomain, DNS takeover, or plaintext-HTTP cookie injection on a non-`__Host-` cookie)" — and on subdomain-per-tenant SaaS a sibling subdomain is the ordinary deployment.
+
+**`SameSite` / `Origin` are defence-in-depth.** OWASP: `SameSite` "does not replace a proper CSRF defense in most deployments" — the `Lax` default only blocks unsafe methods and its scope is the registrable domain, so it does not separate sibling subdomains. Never fail open when `Origin` is absent.
+
+Source: OWASP *Cross-Site Request Forgery Prevention Cheat Sheet* — <https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html>.
+
 ## Forbidden
 
 - Storing refresh tokens unhashed.

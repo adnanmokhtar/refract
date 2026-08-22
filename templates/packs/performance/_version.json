@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "1.5.0",
-  "released": "2026-07-10",
+  "version": "1.6.0",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "perf-audit is measured-vs-budget, never an adjective; regressions on neighbor metrics are guarded.",
+  "summary": "No latency figure ships unmeasured: the caching table hands you the command that produces your own number, and a regression is diffed before any taxonomy is opened.",
   "changelog": "CHANGELOG.md"
 }

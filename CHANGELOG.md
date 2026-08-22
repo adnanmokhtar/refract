@@ -6,6 +6,57 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### The three packs that claim to measure, and the two that shipped a pointer to nowhere (2026-08-22)
+
+**Why** — testing, performance and code-quality all assert a measurement: correctness, speed,
+health. So they share one failure mode, and it is the one this repo already named "rendered, not
+asserted": a number stated rather than produced. Two of the three had largely learned it — `/run-tests`
+treats the runner's exit code as the source of truth and `NOT-RUN` as a terminal state,
+`performance-principles` calls an adjective where a number belongs a failed measurement. The places
+where an unmeasured claim survived were both in **code-quality**, and both in the same command:
+`find-module.md` retracted its invented `100 / 80 / 70 / 30` weights in prose and left `= 30.`
+sitting four lines below the retraction, while `_examples/find-module.md` — the file a greenfield
+project actually installs — still carried the complete table. The command whose closure verb is
+`cite-or-halt` was shipping an uncited number, and shipping all four of them to the one install path
+that has no alternative.
+
+- **Five pack fallbacks re-cut, one deleted.** Four code-quality commands (check-health, pre-commit,
+  review-changes, simplify) had their source `description:` rewritten for `/do` routing and their
+  fallback frontmatter left at the old text — so the routing fix reached no greenfield project,
+  which installs the fallback verbatim and routes on *its* description. `_examples/refactor.md` is
+  deleted: a 20-line usage anecdote its own topic already disowned, while that topic's comment
+  asserted the file did not exist. frontend and mobile deleted theirs for the same reason.
+- **`/simplify` shipped two incompatible closed vocabularies** — `remove-dead` / `collapse-abstraction`
+  in the frontmatter (which appear nowhere else in the repo) against `remove` / `inline` / `dedupe` /
+  `rename-comment-out` in the body, closing with "That's the entire vocabulary." The router matched
+  one and the executing agent obeyed the other. The body's set wins; it is also the canonical
+  structural set in `align-discipline.md`.
+- **Rule→pattern pointers now resolve in the installed layout.** `phase-4.2-apply.md` copies
+  `ai-patterns/` into `ai/patterns/` while rules land in `.claude/rules/`, so a pack-relative
+  `ai-patterns/<x>.md` or `../ai-patterns/` resolves to a directory no install has. Eighteen such
+  pointers were fixed across code-quality (4), database (12, including two `references/<engine>.md`
+  forms), performance (1) and testing (1). This is load-bearing: the pointer *is* the shrink
+  strategy — ~770 tokens came out of `engineering-principles.md` on the promise that a reader can
+  follow the reference to the depth, and `_topics.md` claimed ~1,300 for the same lift.
+- **Four numbers nobody measured, removed.** A 30-line function cap imposed over whatever the
+  project's linter already enforces, in a file that three sections later says to set the duplication
+  gate "from your own baseline, not a published number"; `~90% of the need → refactor, ~50% → fork`,
+  where the fraction of a need that existing code covers is not a computable quantity; an SLO
+  example of `p95 < 300ms`; and a `< 60%` coverage trigger in the pack whose thesis is that coverage
+  is a floor. Each replaced by what determines the answer. One contradiction went with them:
+  `quality-principles` told you to wait for the *second* concrete use nine lines above telling you to
+  extract on the *third*, "not the second (premature)".
+- **~1,980 tokens off the always-loaded floor**, on top of the previous release's 2,025, across six
+  rule files in five packs — including the two carried as debt (`security-principles`, which had
+  *grown* by 77 characters under the release asked to shrink it, and `database-principles`).
+  `scripts/_rule-budget-baseline.txt` needs `bash scripts/check-rule-budget.sh --record`.
+- **Five `_version.json` bumps + CHANGELOG sections** (code-quality 1.8.0 extended; testing 1.6.0,
+  performance 1.6.0, security 1.8.0, database 1.6.0). Four of the five had been missed:
+  `CONTRIBUTING.md § 6` calls pack version bumps "the upgrade signal", so 42 changed testing and
+  performance files would not have been offered to any existing project running
+  `/setup-project --upgrade`. No script reads that checklist — `validate-pack-consistency` only
+  checks that a declared version has a matching heading, which stays true when nothing moves.
+
 ### An edge gate, and the figures its own changeset invalidated (2026-08-22)
 
 **Why** — eight review passes named one recurring defect class: **a reference that resolves as TEXT

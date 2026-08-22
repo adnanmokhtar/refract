@@ -100,21 +100,29 @@ done
 
 ### Coverage metric
 
-- Line coverage acceptable (per project — usually 70-80% for business logic).
+- Line coverage read as a **ratchet**, not a target: compare against what this project recorded last, and flag a drop. No published figure is the right bar for every codebase, and a fixed target is satisfiable with assertion-free tests.
 - Branch coverage tracked (more meaningful than line).
 - Uncovered business branches flagged.
 - Uncovered trivial (getters, plain DTOs) fine.
 
-### Mutation testing (if project uses it)
+### Effectiveness — mutation-verified (the bar, not an optional extra)
 
-- Mutants killed rate > 70%.
-- Surviving mutants = tests aren't actually verifying the behavior (common: asserting on side effects but missing the main output).
+This is a **gating dimension**, not a nice-to-have. Coverage says a line RAN; effectiveness says a test would CATCH it breaking. Obtain the evidence one of two ways, in order:
+
+1. **Consume the author's ledger** — a PR that came through `/add-test` carries a Phase 6 effectiveness ledger (one `mutation-killed` / `effectiveness-unverified` verb per file). Re-derive, don't trust: spot-check that the cited mutation → RED claim holds for the highest-risk file (money / auth / tenant branch).
+2. **Run it yourself** — dispatch the `mutation-probe` skill scoped to the changed files (its `--since` / `--in-diff` mode). For each survivor it reports, decide: assertion gap on a branch the PR owns → BLOCK with the assertion to add; line never executed → that is a *coverage* gap, route to `coverage-gap`, not an effectiveness BLOCK; equivalent mutant → dismiss with the reason.
+
+Gating rule:
+- **Survivor on a new/changed behavioural branch** → BLOCK. Name it.
+- **Effectiveness could not be measured** (no harness AND no author ledger AND the SUT can't be safely seeded in-loop) → you may not return a clean APPROVE. Cap at **APPROVE (EFFECTIVENESS UNVERIFIED)** and name the files whose strength you could not confirm. Never launder "couldn't measure" into "passed".
+- **Mutation score on the changed scope** (harness runs): report it, equivalent mutants excluded from the denominator. The bar is a **ratchet, not a constant** — compare against the score this project's harness records on a module the team already agrees is well-tested. Below that recorded baseline → REQUEST_CHANGES with the surviving-mutant list. No baseline recorded yet → establishing one is the finding.
+- Surviving mutants mean the tests aren't actually verifying the behaviour (common: asserting on side effects but missing the main output).
 
 ## Flag patterns (examples)
 
 ### BLOCKER — test doesn't catch the bug it claims to
 ```
-src/modules/orders/__tests__/list-orders.spec.ts:18
+<modules-root>/orders/<test-dir>/list-orders.<test-ext>:18
 
 it('filters by tenant', async () => {
   await service.listOrders('tenantA');
@@ -237,3 +245,20 @@ Patterns consulted: test-strategy, test-doubles
 - NIT on: naming, structure, minor cleanup.
 - Multi-tenant changes without cross-tenant test = BLOCKER.
 - Webhook changes without idempotency test = BLOCKER.
+
+## Related
+
+### Sibling agents in testing pack
+- `@test-engineer` — **authorship vs audit, never the same run.** It writes the tests and self-checks them; this agent independently re-derives the effectiveness ledger and can BLOCK. Do not accept the author's ledger as the verdict — spot-check it.
+- `@tdd-orchestrator` — **order vs quality.** It proves the test came first and was observed failing; this agent judges whether the resulting test is any good. A perfectly disciplined cycle can still produce a weak assertion, which is exactly the gap this agent closes.
+
+### Skills
+- `mutation-probe` — the effectiveness evidence this review gates on: run it (or re-derive the author's ledger) on the changed scope, and feed its survived-mutant → assertion-to-add fixes into the Blockers.
+- `coverage-gap` — a survived mutant on a line no test executes is a *presence* gap, not a strength gap; route it there rather than blocking on effectiveness.
+
+### Patterns
+- `ai/patterns/test-doubles.md`
+- `ai/patterns/test-strategy.md`
+
+### Rules
+- `.claude/rules/testing-principles.md`

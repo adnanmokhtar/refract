@@ -9,6 +9,26 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.6.0 — 2026-08-22
+
+- **Every pointer out of the rule resolves in the installed layout.** `database-principles.md`
+  carried ten `ai-patterns/<x>.md` references and two `references/<engine>.md` ones, written
+  pack-relative. The installer copies `ai-patterns/` into `ai/patterns/` and `references/` into
+  `.claude/references/`, while rules land in `.claude/rules/` — so from the installed rule those
+  paths resolved to `.claude/rules/ai-patterns/` and `.claude/rules/references/`, neither of which
+  any install has. Both forms corrected. This is load-bearing rather than cosmetic: the pointer *is*
+  the shrink strategy for this file, so a dangling one costs the whole lift.
+- **The rule says which file carries the citation.** Its three MySQL source links were dropped as
+  part of the shrink, leaving engine-specific claims — InnoDB auto-creating the FK index, the
+  `LOCK=NONE` cascade restriction, INSTANT `ALTER` queueing behind an open transaction — sitting
+  uncited in an always-loaded file. The links live in `ai/patterns/migrations.md` and
+  `ai/patterns/indexing-strategy.md`, which the bullets already point at, so the fix is to say so:
+  the header now states that the linked pattern carries the vendor citation for every engine claim
+  below, and that none of them may be asserted without following the pointer to the doc that
+  sources it.
+- **`database-principles`: 8,000 → ~6,560 characters (~2,000 → ~1,639 always-loaded tokens)**,
+  clearing the shrink debt carried over from the release that was asked for it and did not deliver.
+
 ## 1.5.0 — 2026-08-22
 
 Pack-wide quality pass. The engine claims are engine-named and sourced throughout; the agents state

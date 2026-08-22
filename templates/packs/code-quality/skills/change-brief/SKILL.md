@@ -31,6 +31,18 @@ A brief is REQUIRED when the change matches any of:
 
 EXEMPT (no brief; don't manufacture ceremony): typo/comment fixes, pure renames with mechanical consumer updates, formatting, lockfile-only bumps, generated-file regeneration. Same anti-bloat contract as the tiered migration/align floors — the gate scales with risk.
 
+### Size tiers (what the fields cost as the diff grows)
+
+The tiers above decide **whether** a brief is owed. They do not decide **how much work each field is** — and `Blast radius` says "grep every public symbol the diff touches". On a 25-line change that is two greps. On a 15-file feature branch it is thirty, most of them uninteresting, and the field gets skipped or invented. A contract that cannot be honoured at scale trains the reader to stop believing it, so scope the field by size rather than letting it silently degrade:
+
+| Diff size | `Blast radius` obligation | `Edge cases` obligation |
+|---|---|---|
+| **≤ ~50 lines** | Every touched public symbol, each consumer at `<path:line>`. | Every I/O call and conditional in the diff. |
+| **~50–300 lines / ≤ ~5 files** | Every touched **exported** symbol (skip file-local ones — they have no external consumers by construction), each consumer at `<path:line>`. | Every I/O call and every conditional **on a non-happy path**; pure-logic branches roll up per function. |
+| **> ~300 lines or > ~5 files** | **Module-level.** Name the modules this change is now depended-upon-by and the modules it newly depends on — one line each, cited by the import that establishes it. Then `<path:line>` consumers for the **exported surface that actually changed shape** (new / removed / signature-changed symbols) — not for every symbol the diff happens to touch. A diff this size that changed no exported signature says so, and that is a complete answer. | Group by the diff's carrier files; each carrier gets its non-happy paths at `<path:line>`, consequence files roll up to one line. |
+
+The other three fields do not scale — `What`, `Why this shape` and `Verified by` are the same size on a 30-line diff and a 30-file one. If `What` is getting longer as the diff grows, the change is doing more than one thing and wants splitting; that is a finding, not a formatting problem.
+
 ## The brief contract (5 required fields)
 
 Lives in the commit body (multi-commit work: the PR description). Field names are literal — the validator greps for them.
@@ -56,7 +68,7 @@ Verified by:    <the command(s) run + observed result — "pnpm test orders → 
 1. Read the full diff (`git diff --staged` or the branch diff). Not the summary — the diff.
 2. For **Why this shape**: name the convention the change follows (grep `ai/conventions.md` / `_extracted-idioms.md` / `ai/decisions/`). If the shape follows no existing convention, STOP — that's either a missing idiom (`/setup-project --refine`) or a new pattern needing an ADR (`engineering-principles.md § Consistency`) — the brief just surfaced it before merge.
 3. For **Edge cases**: walk every I/O call and conditional in the diff; list the non-happy paths each one handles. A fetch with no error path discovered here = fix it now (route to the unhandled-io detector's closure), don't document it as absent.
-4. For **Blast radius**: grep every public symbol the diff touches; list consumers with `<path:line>`.
+4. For **Blast radius**: apply the size tier above. Under ~50 lines, grep every public symbol the diff touches and list consumers with `<path:line>`. Above ~300 lines or 5 files, go module-level first and then cite consumers only for the exported symbols whose **shape** changed. `git diff --stat` picks the tier before you start; deciding it afterwards is how the field gets padded to look thorough.
 5. For **Verified by**: run the verification; paste the real command + real result.
 6. Write the brief into the commit body / PR description.
 
@@ -67,6 +79,7 @@ Verified by:    <the command(s) run + observed result — "pnpm test orders → 
 3. **Hand-wave grep** — FAIL on: `should work`, `looks good`, `standard approach`, `as requested`, `straightforward`, `simple change`, `minor tweak`, `various`, `etc.`, `and so on`, `n/a` (except the two sanctioned literals above).
 4. **Citation check** — `Why this shape`, `Edge cases`, and `Blast radius` each contain ≥ 1 `<path:line>` / ADR reference OR one of the sanctioned literals. A brief with zero resolving citations is a paraphrase, not an explanation.
 5. **Echo check** — `What` must not merely restate the diff stat ("updated OrderService", "changed 3 files"). It names the observable behaviour delta.
+5b. **Tier check** — on a diff over ~300 lines or ~5 files, `Blast radius` must be module-level (see Size tiers), not a symbol list. A per-symbol list on a large diff is either incomplete or padded; both read the same and neither is checkable. Conversely, a module-level answer on a 30-line diff is under-specified — FAIL it and ask for the consumers.
 6. **Verification check** — `Verified by` names a command/action + an observed result. Future tense ("will test") or modal ("should pass") → FAIL.
 7. Emit verdict: PASS, or FAIL with the specific field + specific fix. The change does not advance until PASS.
 

@@ -9,6 +9,8 @@ pack: performance
 
 > **Hard rule** — Browser input handlers MUST keep per-interaction main-thread work under the INP budget (good ≤ 200ms at p75). Before fixing, attribute the dominant sub-part with field data — never guess. A long task that blocks the main thread during an interaction MUST be broken up or deferred; shipping a synchronous >50ms handler on a hot interaction is forbidden.
 
+**Where those two numbers come from** — INP "good" is **≤ 200 ms at the 75th percentile** (https://web.dev/articles/inp); a **long task** is "any uninterrupted period where the main UI thread is busy for 50 ms or longer" (https://developer.mozilla.org/en-US/docs/Web/API/PerformanceLongTaskTiming). Neither is this project's SLA — where `ai/runtime/perf-budgets.md` sets a tighter budget, that one wins and is the number to cite.
+
 **When to apply**
 - `web-vitals-field` attributes a poor INP to a specific handler / element, OR `bundle-perf`'s vitals table flags INP.
 - A high-frequency handler (typing, scrolling, dragging, filtering a large list) drives an interaction.
@@ -43,20 +45,23 @@ Read `metric.attribution` from `web-vitals-field` (`onINP`) to see which dominat
 
 ## Break long tasks (processing-bound)
 
-Yield to the main thread so the browser can paint between chunks:
+Yield to the main thread so the browser can paint between chunks. Define the yield once, with a real fallback — `scheduler.yield()` is not universally available, and a fallback that lives in a comment does not run:
+
+```js
+const yieldToMain = () =>
+  globalThis.scheduler?.yield?.() ?? new Promise(r => setTimeout(r, 0));
+```
 
 ```ts
 async function handleClick() {
   for (const chunk of chunks) {
     process(chunk);
-    if (navigator.scheduling?.isInputPending?.()) await scheduler.yield();
-    // fallback where scheduler.yield is unsupported:
-    // await new Promise(r => setTimeout(r));
+    if (navigator.scheduling?.isInputPending?.()) await yieldToMain();
   }
 }
 ```
 
-- `scheduler.yield()` — yields then continues at the *front* of the queue (better than `setTimeout(0)`, which goes to the back).
+- `scheduler.yield()` — yields then continues at the *front* of the queue (better than `setTimeout(0)`, which goes to the back). That ordering difference is the whole reason to prefer it: a `setTimeout` yield can put your continuation behind every other queued task.
 - `navigator.scheduling.isInputPending()` — only yield when input is actually waiting.
 - `requestIdleCallback` — run genuinely non-urgent work in idle time.
 

@@ -118,12 +118,12 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/check-health` | Project health dashboard — mechanical checks + multi-agent audit. | — | `/check-health` |
+| `/check-health` | Periodic whole-repo health pulse (no diff) — mechanical checks that must go green, then a standing… | — | `/check-health` |
 | `/find-module` | Locate a module, feature, or concept across the codebase quickly. | — | `/find-module <name\|concept>` |
-| `/pre-commit` | Pre-commit gate — mechanical + agent review on staged changes. | — | `/pre-commit` |
+| `/pre-commit` | Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on… | — | `/pre-commit` |
 | `/refactor` | Language-agnostic targeted refactor — behaviour-preserving structure changes using… | — | `/refactor [<scope>]` |
-| `/review-changes` | Comprehensive, signal-aware review of pending changes. | — | `/review-changes` |
-| `/simplify` | Review changed code for reuse, dead branches, and over-abstraction; propose concrete… | — | `/simplify [path]` |
+| `/review-changes` | Comprehensive, signal-aware review of a PENDING DIFF, ending in a merge verdict (APPROVE /… | — | `/review-changes` |
+| `/simplify` | Reduce entropy in CHANGED code using four closed verbs (remove / inline / dedupe /… | — | `/simplify [path]` |
 
 ## Pack — data-engineering
 
@@ -286,7 +286,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-test` | Add tests for a target file or feature, mirroring the repo's test framework and style. | `--review` | `/add-test [target]` |
-| `/flaky-test-hunt` | Identify flaky tests by running suite N times, then root-cause and fix non-determinism. | — | `/flaky-test-hunt [pattern]` |
+| `/flaky-test-hunt` | Expose flaky tests by re-running the suite N times (N chosen for the flake rate you need to detect… | — | `/flaky-test-hunt [pattern]` |
 | `/run-tests` | Run the project's test suite (or a scoped subset) and surface results. | `--feature`, `--since`, `--all`, `--coverage`, `--watch`, `--bail`, `--update-snapshots`, `--shard=<i>` | `/run-tests <modules-root>/orders/` |
 | `/tdd` | Drive a feature test-first via the tdd-orchestrator — strict RED→GREEN→REFACTOR, one behavior per… | — | `/tdd [feature]` |
 

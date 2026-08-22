@@ -64,7 +64,7 @@ A process whose heap/retained-set grows monotonically under steady load has a le
 - **Event listener / subscription / closure capture not released** — `addListener` / `subscribe` / `on(...)` with no matching `remove` / `unsubscribe` / `off`; the closure pins everything it captured.
 - **Module-level / global collection appended-to forever** — a package-level slice/list/dict that only ever grows (metrics buffer, "recent items", dedupe set).
 - **Connection / timer / interval not cleaned up** — sockets, DB connections, `setInterval`/timers, goroutines/threads that never exit; each pins its own retained graph.
-- **Detached-DOM style retention in the runtime's analog** — SSR/JSDOM contexts holding node trees; N/A for a plain backend service, but the shape (a detached subtree kept alive by one stray reference) recurs as detached object graphs.
+- **Detached object graph** — a subtree logically discarded but kept alive by one stray reference from a live root (a cache entry, a closure, an event registry). In a browser this is the classic detached-DOM leak; server-side it is the same shape without the nodes.
 
 ## Detectors
 

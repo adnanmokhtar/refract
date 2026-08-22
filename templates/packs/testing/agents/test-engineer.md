@@ -28,13 +28,15 @@ model: sonnet
 
 ## Test pyramid (by layer)
 
-| Layer | Speed | Scope | Tools |
+| Layer | Budget (breach = mis-classified, not slow) | Scope | Substitution |
 |---|---|---|---|
-| Unit | <100ms | one class / function / use-case | Jest/Vitest, pytest, go test |
-| Integration | <1s | repo + DB, service + fake deps | Testcontainers, in-memory DB, real Redis |
-| E2E | <30s | full stack via HTTP | Playwright, supertest, Cypress |
+| Unit | sub-second, no I/O | one class / function / use-case | `STACK.md` runner row |
+| Integration | seconds | repo + DB, service + fake deps | Testcontainers / in-memory DB row |
+| E2E | tens of seconds | full stack via HTTP | E2E-runner row |
 
-Ratio target: 80% unit / 15% integration / 5% e2e.
+**No ratio target — see `testing-principles § Must`.** Do not aim at a percentage split. Put each behaviour at the **lowest layer that can prove it**, and add a layer only for what the layer below cannot reach (real wiring, real transaction, real browser). A domain-heavy service lands unit-heavy; a glue service that mostly moves data between two APIs lands integration-heavy; both are correct, and a ratio target would push one of them into writing tests that prove nothing. The shape to actually refuse is an **e2e-heavy** suite: it is slow and brittle regardless of what the code looks like.
+
+If you want a number to steer by, derive it — measure the current split, and ask of each layer "what would this test catch that the layer below could not?" A layer whose answer is "nothing" is the one to trim.
 
 ## What to test (be exhaustive for the change)
 
@@ -158,8 +160,10 @@ ABSOLUTELY NOT:
 await expect(promise).resolves.toEqual(expected);
 await expect(promise).rejects.toThrow(SpecificError);
 
-// BAD — loses the assertion if promise doesn't resolve
-expect(await promise).toEqual(expected);   // (nuanced — OK but the rejects matcher is safer)
+// ACCEPTABLE for the resolve case — but prefer the matcher above; on the REJECT case
+// this shape throws before `expect` is reached, so the failure reads as an unhandled
+// error rather than as an assertion, and a `.rejects` assertion is the only honest form.
+expect(await promise).toEqual(expected);
 
 // ANTI — never
 promise.then(r => expect(r).toBe(...));    // uncaught if rejected
@@ -195,10 +199,12 @@ await waitFor(async () => {
 
 ## Coverage
 
-- Unit + integration coverage tracked; target 70%+ for business logic.
-- Don't chase 100%. Chase meaningful branches.
-- Uncovered branches in hot modules = flag.
-- Trivial lines (plain DTOs, getters) uncovered = fine.
+Coverage is the **floor you check**, never the bar you aim at — `testing-principles § Should` states it, and this agent must not restate it as a percentage target. A number to chase produces tests written to move the number.
+
+- **No global target.** Where a project needs a CI gate, set it as a **ratchet**: record today's number and refuse a drop. That is enforceable and cannot be gamed upward with assertion-free tests, which a fixed target can.
+- Read coverage as a *map of what was never executed*, and read it per-branch, not per-file: an uncovered error path in a payment module and an uncovered getter are the same percentage and not the same finding.
+- Uncovered branches in hot / money / auth / tenant modules = flag. Trivial lines (plain DTOs, getters, generated code) uncovered = fine, and should be excluded from the report rather than argued about.
+- **A covered line is not a tested line.** Coverage proves the branch ran. Whether any assertion would catch it breaking is `mutation-probe`'s question — run it on the changed scope before claiming the work is done.
 
 ## Speed
 
@@ -228,13 +234,14 @@ Test doubles used:
   - Fake: InMemoryOrderRepo, FakeClock
   - Mock: PaymentProviderClient (at port boundary)
 
-Coverage delta:
-  - Lines: 72% → 84%
-  - Branches: 65% → 81%
-  - Uncovered: error-path in retry logic (intentional — hand-tested)
+Coverage delta (ONLY from a coverage run made in this session — never remembered, never estimated):
+  - Source: `<the exact coverage command run>` | not measured (no coverage tooling configured)
+  - Lines / Branches: <before> → <after>, or `not measured`
+  - Uncovered and left so, with the reason: <path:line> — <why this branch is deliberately untested>
 
 Skills run:
-  - coverage-gap — confirms all changed lines tested
+  - coverage-gap — presence: which changed lines no test executed
+  - mutation-probe — strength: whether any of the new assertions would actually catch a regression
 ```
 
 ## Hard rules
@@ -253,8 +260,8 @@ Skills run:
 ## Related
 
 ### Sibling agents in testing pack
-- `@tdd-orchestrator` — sibling agent in testing pack
-- `@test-reviewer` — sibling agent in testing pack
+- `@tdd-orchestrator` — **order, not authorship.** It owns the RED→GREEN→REFACTOR sequence and its cheat detectors; it dispatches *this* agent to write the RED test in each cycle. If the code does not exist yet, the orchestrator leads and this agent is a step inside it. If the code already exists, this agent leads and the orchestrator has nothing to enforce.
+- `@test-reviewer` — **authorship vs audit, and never the same run.** This agent writes tests and self-checks them; that agent independently re-derives the effectiveness ledger and can BLOCK. A suite that graded its own strength has not been reviewed — do not fold the reviewer's verdict into this agent's output.
 
 ### Patterns
 - `ai/patterns/test-doubles.md`

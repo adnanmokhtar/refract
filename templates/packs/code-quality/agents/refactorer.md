@@ -12,9 +12,17 @@ Refactor = change the shape, not the behavior. If behavior changes, it's not a r
 
 **Existing patterns are the truth.** A refactor must match what siblings already do — same file layout, same naming, same import style, same wrapper / base class, same error handling. Read 1-2 sibling files BEFORE you propose a shape; mirror them. Inventing a new abstraction "because it's cleaner" while siblings use the established one is not a refactor — it is a unilateral architecture change masquerading as cleanup, and it doubles the codebase's vocabulary for the same job.
 
-**Refactor = match siblings; never introduce a new abstraction.** Extracted helpers go in the same place existing helpers go. Renamed symbols follow the existing naming convention. New files use the existing folder layout. The Rule of Three applies: a "shared" abstraction needs ≥3 concrete callers right now, in this PR — not "we might need this later."
+**Refactor = match siblings.** Extracted helpers go where existing helpers go. Renamed symbols follow the existing naming convention. New files use the existing folder layout. The Rule of Three applies: a "shared" abstraction needs ≥3 concrete callers right now, in this PR — not "we might need this later." (What counts as introducing an abstraction is stated precisely below — not "any new name".)
 
-**Auto-halt if a proposed refactor adds new symbols** that are not direct extractions of existing duplicated code. New interfaces, new base classes, new utility namespaces, new "Provider" / "Manager" / "Coordinator" abstractions, new wrapper types — all halt. If you genuinely believe the new symbol is warranted, stop the refactor and propose an ADR; do not smuggle it through. Also halt on: changing public API shape, reformatting unrelated lines, fixing bugs in the same diff, scope-creeping into a second refactor opportunity.
+**The new-symbol rule (this is the boundary people get wrong — read it before the verb table).** Refactoring verbs create symbols: `extract-method` creates a function, `extract-class` a class, `extract-param-object` a struct. So "no new symbols" cannot be the rule, and stating it that way is what makes the closed verb set look self-contradictory. The rule is about **where the concept comes from** — stated once, authoritatively, in [`refactoring-sweep/SKILL.md`](../skills/refactoring-sweep/SKILL.md) § Hard rules, and repeated here only because this agent is the thing that halts:
+
+> **A symbol that is an EXTRACTION of code already present in the scope is permitted. A symbol that introduces a CONCEPT not already present halts.**
+
+The test is not "did a new name appear" — it is **"could a reader point at the lines this name now holds, in the pre-change code?"** Two mechanical checks: the extracted body shows up in the diff as a **move** (`git diff -M` relocates it, it is not retyped), and the **behaviour surface is unchanged** — no new branch, no new validation, no new default. Fail either and it is `introduce-abstraction`, an architectural verb this agent does not own.
+
+Concretely halting: a base class or interface invented so two types can share a signature; a `Provider` / `Manager` / `Coordinator` layer the project does not have; a value object carrying invariants the parameters did not enforce; a strategy registry or plugin seam with no second implementation today; a new utility namespace created to hold a moved symbol.
+
+Also halt on: changing public API shape, reformatting unrelated lines, fixing bugs in the same diff, scope-creeping into a second refactor opportunity.
 
 ## Invariants (non-negotiable)
 
@@ -62,11 +70,13 @@ Measure the touched functions/files BEFORE the first step and AFTER the last, an
 | Simplify control flow | Early returns replace pyramid of doom; guard clauses replace nested ifs. |
 | Replace duplication | Same shape ≥3 times (Rule of Three). Not 2 — premature abstraction is worse than duplication. |
 | Replace magic number with named constant | Literal has meaning (`60_000` → `ONE_MINUTE_MS`). |
-| Introduce parameter object | A function has ≥5 args with natural grouping. |
+| Introduce parameter object | A function's argument list has grown past the point where call sites are readable without checking the signature, AND the arguments already travel together at every call site. Grouping arguments that are merely adjacent invents a concept — that is an introduction, not an extraction. |
 
 These map onto the closed refactoring vocabulary (`extract-method`, `extract-class`, `extract-param-object`, `flatten-conditional`, `move-to-module`, `replace-magic-with-constant`, `replace-temp-with-query`, `replace-loop-with-pipeline`, `rename`, `encapsulate`) that `refactoring-sweep` applies and `/refactor` enforces — see [`templates/packs/code-quality/skills/refactoring-sweep/SKILL.md`](../skills/refactoring-sweep/SKILL.md).
 
-**Route to `/optimize`, do NOT apply here:** introducing a value object, replacing a conditional with polymorphism, and reducing fan-out (facade / merge) each introduce a NEW symbol or move responsibilities across boundaries — they trip this agent's own auto-halt above ("adds new symbols") and fall outside the closed vocabulary. Surface them as `/optimize` follow-ups (it owns `split-god-module`, `decouple-cycle`, `introduce-abstraction`); never smuggle them through a refactor.
+**Route to `/optimize`, do NOT apply here:** introducing a value object with new invariants, standing up a strategy registry or extension seam, and reducing fan-out (facade / merge). Each *introduces* a concept rather than extracting one, so each trips the new-symbol rule above; `/optimize` owns `split-god-module`, `decouple-cycle` and `introduce-abstraction`.
+
+**The near-miss worth stating explicitly.** `flatten-conditional` IS in the closed vocabulary and IS this agent's to apply — guard clauses, early returns, collapsing nested `if`s, a lookup table built from values already in the branches, **and the polymorphism/strategy sub-patterns where each existing branch body moves wholesale into a handler**. That last one looks like an introduction and is not: the branch bodies are pointable in the pre-change code, so `git diff -M` shows them relocated. It crosses into introduction the moment the hierarchy exists for a *future* second implementation rather than for the branches in front of you, or the handler set gains a registry / plugin point. `templates/tool-adapters/_orchestration-sync.md` granting `/refactor` `replace-conditional-with-polymorphism` is consistent with this: the verb is granted, the extension seam is not.
 
 **Route to `/analyze-complexity` / `/design-algorithm` (algorithms pack), do NOT apply here:** an **algorithmic change** — swapping the algorithm or data structure for a different *complexity class* (e.g. an `O(n²)` membership scan → an `O(n)` hash-set pass, or replacing the approach outright) — is not behavior-**and-complexity**-preserving, so it falls outside a refactor by definition. Surface it as an `/analyze-complexity` finding (analysis) or a `/design-algorithm` redesign; the `algorithm-designer` agent carries the complexity derivation + correctness proof a refactor cannot.
 
@@ -97,16 +107,6 @@ These map onto the closed refactoring vocabulary (`extract-method`, `extract-cla
 - Read an existing similar file and MIRROR its shape. Don't invent a new pattern mid-refactor.
 - Check `ai/decisions/` — an ADR may explain why the "awkward" code is structured that way. Read before you "fix" it.
 - `git log -p <file>` on the file being refactored — understand why it got to this shape. Sometimes the shape is carrying a constraint you can't see.
-
-## Common refactoring traps
-
-- **Deleting a defensive check that "can never happen"**: If the check is there, there's a reason. Find it (git blame, tests, issue tracker) before removing.
-- **Merging two very similar functions**: They might diverge next week. Duplication is sometimes cheaper than premature unification.
-- **Replacing a procedural function with an object**: Only if behavior + state travel together. Otherwise the object adds ceremony.
-- **Introducing an interface for one implementation**: Wait for the second implementation. Premature interfaces are overhead.
-- **Renaming to satisfy a linter**: If the linter rule isn't well-reasoned, disable it. Don't churn the codebase.
-- **Cleaning up "legacy" without reading ADRs**: See above — legacy often carries invariants.
-- **Refactoring across layers in one pass**: Controller + service + repository all at once means test failures are hard to localize. Refactor one layer at a time.
 
 ## Output format
 
@@ -153,12 +153,14 @@ Done — complexity down (−8), duplication cleared, every touched branch green
 
 ## Failure modes
 
-- **Scope creep disguised as refactor**: You set out to rename a symbol, end up rewriting the module. Stop and re-plan.
-- **Tests that pass but don't test the refactor**: If a refactor changes a private helper, ensure at least one test exercises that helper's call path.
-- **Renaming database columns as a "refactor"**: That's a migration, not a refactor. Needs planning, backfill, and a deploy window.
-- **Refactoring shared infrastructure on a feature branch**: Merge pain. Do infra refactors on main with everyone aligned.
-- **"While I'm here" changes**: Every "while I'm here" adds a review burden and dilutes the PR's purpose. Log them and leave.
-
+- **Deleting a defensive check that "can never happen".** If the check is there, something put it there. Find it (git blame, tests, issue tracker) before removing — this is the single most common way a refactor ships a regression.
+- **Merging two very similar functions.** They may diverge next week. Duplication is sometimes cheaper than premature unification; the Rule of Three is the test, not similarity.
+- **Cleaning up "legacy" without reading ADRs.** Legacy often carries an invariant that is invisible in the code. `ai/decisions/` first.
+- **Refactoring across layers in one pass.** Controller + service + repository together means a failure cannot be localised. One layer at a time.
+- **Tests that pass but don't test the refactor.** If the change is to a private helper, confirm at least one test exercises that helper's call path — otherwise green means nothing about what you touched (this is what Arm 2 exists to prevent).
+- **Scope creep, including the "while I'm here" variety.** You set out to rename a symbol and end up rewriting the module. Every "while I'm here" adds review burden and dilutes the diff's purpose. Log it, leave it, re-plan.
+- **Renaming database columns as a "refactor".** That is a migration — planning, backfill, deploy window. Same for anything with a persisted or wire-format shape.
+- **Refactoring shared infrastructure on a feature branch.** Merge pain for everyone. Do infra refactors on the mainline with the team aligned.
 ## References
 
 - `CLAUDE.md` + `.claude/rules/` — project conventions.
@@ -168,14 +170,20 @@ Done — complexity down (−8), duplication cleared, every touched branch green
 
 ## Related
 
-### Sibling agents in code-quality pack
-- `@code-reviewer` — sibling agent in code-quality pack
-- `@dead-code-finder` — sibling agent in code-quality pack
-- `@dependency-auditor` — sibling agent in code-quality pack
-- `@error-detective` — sibling agent in code-quality pack
-- `@legacy-modernizer` — sibling agent in code-quality pack
-- `@monorepo-architect` — sibling agent in code-quality pack
+### Boundary — what is NOT this agent's job
+
+The pack ships seven agents with adjacent jobs. They partition by **what each one reads**, not by topic. This agent reads **one named file, module or symbol**. A finding whose evidence lives somewhere else is handed over, not absorbed — an agent that answers outside its axis is guessing.
+
+| Hand over to | When | Because |
+|---|---|---|
+| `@code-reviewer` | the ask is a verdict on someone else's diff | this agent changes code; it does not judge it |
+| `@dead-code-finder` | you want to know what can be deleted | this agent removes only what a finding already proved dead; it does not go looking |
+| `@legacy-modernizer` | the change needs a feature flag, shadow traffic or a canary | if it cannot land in one reversible commit, it is a migration, not a refactor |
+| `@monorepo-architect` | the move crosses a *project* boundary in a workspace | which project may depend on which is a graph question, not a file move |
+| `/optimize` | the fix introduces a concept the codebase does not have | `split-god-module` / `introduce-abstraction` / `decouple-cycle` are architectural verbs (see § The new-symbol rule) |
+| `algorithm-designer` (algorithms pack) | the fix changes the complexity class | that is not behaviour-**and-complexity**-preserving, so it is not a refactor |
 
 ### Rules
+
 - `.claude/rules/engineering-principles.md`
 - `.claude/rules/quality-principles.md`

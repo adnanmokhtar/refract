@@ -1,5 +1,5 @@
 ---
-description: Pre-commit gate — mechanical + agent review on staged changes. Blocks commit on blockers.
+description: Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on red), then agent review, secret-scan and coverage-gap on every staged file, then a comprehension brief. Refuses the commit on any blocker. Anti-triggers: the whole-branch PR review is `/review-changes` (which also owns the shared reviewer routing table); the no-diff weekly repo pulse is `/check-health`; ranking and fixing at target scale is `/audit`.
 ---
 
 # /pre-commit
@@ -81,6 +81,15 @@ If any mechanical step fails → STOP, do not run agents.
 - `code-reviewer` on the staged diff.
 - Path-selected reviewers (table in Phase 3).
 - Each returns: blockers, requests, nits.
+
+### Universal skill checks (every run, regardless of which paths were touched)
+
+A commit is the last moment a secret can be stopped cheaply. After it lands, removal means a history rewrite and a credential rotation. So the two category-independent checks run **here**, earlier than `/review-changes`, not later:
+
+- **`secret-scan` on every staged file.** Not just `auth/` — a key in a test fixture, a seed script, or a config default is the same leak. A real secret is a **blocker**: the commit is refused. No skill installed → inline check over the *added* lines: high-entropy strings plus known prefixes (`AKIA`, `sk-`, `ghp_`, `xoxb-`, `-----BEGIN * PRIVATE KEY-----`, `postgres://…:…@`). Also refuse an accidentally-staged credential FILE (`.env`, `*.pem`, `*.p12`, `id_rsa`, service-account JSON) regardless of content.
+- **`coverage-gap` on staged lines.** New behaviour with no covering test is a finding **even when no test file was staged** — otherwise `test-reviewer` never dispatches (its trigger is a staged test path) and the gap is structurally invisible. Request by default; **blocker** on a security / data-integrity / write-path change.
+
+**Never silently skip either axis** — a skipped axis reads as "clean" when it was never checked. Note the substitution (`inline:<skill-name>`).
 
 ### Self-audit
 - Did every selected reviewer return? Missing reviewer = incomplete gate.

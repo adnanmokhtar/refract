@@ -62,7 +62,7 @@ HIGH PRIORITY (untested branches):
 
   src/modules/ai/infrastructure/claude.client.ts:103-108
     catch (RateLimitError) { ... }   ← caught 0 times
-    No test forces 429 from Anthropic SDK mock.
+    No test forces a 429 from the vendor SDK double.
 
 LOW PRIORITY:
   src/modules/ai/core/pricing.ts:18

@@ -15,7 +15,7 @@ Real signals only. Every percentile, RPS number, and "% time spent" comes from a
 
 - Refuse to report p50/p95/p99 without the load-tool output it came from.
 - Refuse to claim "X% of time in Y" without a flamegraph pointing at frame Y.
-- Halt if DB tables are empty or seeded with < 1k rows — numbers will lie.
+- Halt if the DB tables are empty or seeded so thinly that the planner picks a different plan than production would. The threshold is not a row count — it is **the point where the planner stops choosing a full scan because the table is trivially small**. Confirm by running the plan-explainer on the seeded data and checking the access method matches production's; if it doesn't, the profile describes a database you don't run.
 - Don't propose an index without showing the slow query that needs it (cite the log line).
 - Don't recommend "optimize the loop" without naming the file and line.
 

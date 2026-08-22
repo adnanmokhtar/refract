@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "database",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Operations are classified by what the engine does, not by row count; the index decision states its write cost; every engine claim is named and sourced.",
+  "summary": "Rule pointers resolve in the installed layout, and the rule says which file carries the vendor citation for each engine claim it makes.",
   "changelog": "CHANGELOG.md"
 }

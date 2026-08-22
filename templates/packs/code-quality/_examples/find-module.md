@@ -40,22 +40,26 @@ DIAGNOSTIC type — 1, 2, 3 dominate. No Generate/Update/Validate/Improve unless
 ## Phase 3 — Retrieve (the searches)
 
 Parallel:
-- **Directory match** — `find . -type d -iname "*<name>*"` excluding `node_modules`, `dist`, `.git`, `build`.
+- **Directory match** — `find . -type d -iname "*<name>*"` excluding dependency caches (`node_modules`, `vendor`, `.venv`, `target`, etc.), build outputs (`dist`, `build`, `out`, etc.) and `.git`.
 - **Filename match** — `find . -type f -iname "*<name>*"` with same exclusions.
 - **Identifier match** — `rg -n "(class|interface|type|function|const|enum)\s+<Name>"`.
 - **String reference** — `rg -nF "<name>"` (literal) for i18n keys / config / comments.
 
 Read `ai/modules.md` (if present) for registration status + canonical owner.
 
-Score:
-- Exact name match in path = 100.
-- Substring in path + same casing = 80.
-- Identifier defined = 70.
-- String reference only = 30.
+Rank the hits as an ORDER, never a score — a numeric weight here would be invented, and a
+fabricated number is exactly what this command's own `cite-or-halt` verb exists to forbid:
+
+1. **Exact directory or file name match** — the module is named for the concept. Strongest signal by a wide margin.
+2. **Identifier defined** — a `class` / `type` / `function` / `enum` declaration of the name. This is where the concept *lives*, even when the path does not say so.
+3. **Substring in path with matching casing** — same concept, different naming convention.
+4. **String / literal reference** — i18n keys, config, comments. Tells you who *talks about* the concept, not where it is implemented.
+
+Where two candidates tie, break by `ai/modules.md` registration (a registered owner outranks an unregistered file), then by import count. If nothing separates them, say so and list both — a confident single answer picked at random is worse than an honest pair.
 
 Cluster results: primary module / related modules / DB layer / tests.
 
-If primary not found, read 1-2 sibling modules to infer convention, suggest where it WOULD live (`src/modules/<noun>/` or `apps/<app>/src/<noun>/`).
+If primary not found, read 1-2 sibling modules to infer convention, suggest where it WOULD live (the project's actual module-shape, per `_extracted-codebase.md § Top-level layout`).
 
 ## Phase 4 — Generate (the report)
 
@@ -80,24 +84,24 @@ Pure read; no learning hook. (If repeated "not found" on same query reveals a mi
 Query: subscription
 
 Primary:
-  src/modules/subscriptions/         14 files
+  <modules-root>/subscriptions/         14 files
   Registered in ai/modules.md: yes
 
 Related:
-  src/shared/guards/subscription-active.guard.ts
-  src/modules/billing/                references subscription tier in 4 files
+  <shared-root>/guards/subscription-active.<ext>
+  <modules-root>/billing/                references subscription tier in 4 files
 
 Database:
-  prisma/migrations/20250310-subscriptions/migration.sql
-  src/modules/subscriptions/infrastructure/persistence/subscription.orm-entity.ts
+  <migrations-root>/20250310-subscriptions/migration.sql
+  <modules-root>/subscriptions/infrastructure/persistence/subscription.orm-entity.<ext>
 
 Tests:
-  src/modules/subscriptions/**/*.spec.ts   18 files
-  e2e/subscriptions.e2e-spec.ts            1 file
+  <modules-root>/subscriptions/**/*.<test-ext>   18 files
+  e2e/subscriptions.e2e-spec.<test-ext>       1 file
 
 Sibling modules (similar shape, useful for new code):
-  src/modules/orders/        — same module structure
-  src/modules/invoices/      — same module structure
+  <modules-root>/orders/        — same module structure
+  <modules-root>/invoices/      — same module structure
 ```
 
 ## Output (not found)
@@ -108,14 +112,14 @@ Query: refunds
 No matching module.
 
 Suggested location based on conventions:
-  src/modules/refunds/
+  <modules-root>/refunds/
     core/
     application/
     infrastructure/
-    refunds.module.ts
+    refunds.module.<ext>
 
 Related concepts already in repo:
-  src/modules/orders/  (refund logic might attach here — confirm domain ownership before deciding)
+  <modules-root>/orders/  (refund logic might attach here — confirm domain ownership before deciding)
 ```
 
 ## Failure modes
@@ -126,3 +130,23 @@ Related concepts already in repo:
 - Concept aliases ("subscription" → "membership") — ask for synonyms before declaring not-found.
 - Tests in monorepos can live far from source (`tests/` at repo root) — don't conclude "no tests" without checking.
 - Speed budget < 10s — fall back to `grep -r` if `rg` absent, but flag the slowness.
+
+## Related
+
+### The boundary this command owns
+
+**Read-only location lookup, and nothing else.** Four parallel searches plus one `ai/modules.md` read, answering "where does this concept live". It dispatches no agent, writes no file, and forms no opinion about the code it finds.
+
+**Anti-triggers:**
+- *"…and tell me what's wrong with it"* → `/review-changes` (a diff), `/check-health` (the repo), or `/audit` (global, ranked at scale).
+- *"…and clean it up"* → `/simplify` or `/optimize` (global).
+- A common noun with no qualifier (`user`, `order`, `item`) → halt and ask; the match set is noise.
+- Cross-repo or multi-monorepo lookup → out of scope; say so rather than partially answering.
+
+### Sibling commands in code-quality pack
+- `/review-changes`, `/check-health`, `/pre-commit` — all of them assume you already know which module you are looking at. This is the step before.
+- `/simplify` — its "is there already a helper for this?" question is this command's search, run for a different reason.
+
+### Rules
+- `.claude/rules/engineering-principles.md`
+- `.claude/rules/quality-principles.md`

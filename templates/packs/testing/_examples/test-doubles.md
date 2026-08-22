@@ -21,6 +21,8 @@ Wrong double = brittle test OR false confidence. Know the difference.
 
 ## The 5 types
 
+The naming below is Gerard Meszaros's, from *xUnit Test Patterns: Refactoring Test Code* (Addison-Wesley, 2007), which is where "dummy / stub / mock / spy / fake" comes from — worth knowing because teams routinely say "mock" for all five and then argue past each other about whether mocks are bad. They mean different things and fail differently.
+
 ### Dummy
 Passed to satisfy a signature, never used.
 ```ts
@@ -189,7 +191,7 @@ expect(await userRepo.findById(result.id)).toMatchObject({
 - Mock that returns whatever makes the test pass (proves nothing).
 - Changing production code to make it mockable (special test paths).
 - Partial mocks (half real, half canned) — confusion.
-- Mocking framework internals (don't mock `express.Router`).
+- Mocking your web framework's own internals (its router, its request parser). You would be testing the framework's code, and the test breaks on its next minor release.
 - Sharing mocks across tests (pollutes state).
 - Real external API calls in unit / integration tests — MSW / nock / fakes only.
 

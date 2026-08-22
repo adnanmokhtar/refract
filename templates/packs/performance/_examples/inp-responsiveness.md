@@ -9,6 +9,8 @@ pack: performance
 
 > **Hard rule** — Browser input handlers MUST keep per-interaction main-thread work under the INP budget (good ≤ 200ms at p75). Attribute the dominant sub-part with field data before fixing; a synchronous >50ms handler on a hot interaction is forbidden.
 
+**Where those two numbers come from** — INP "good" is **≤ 200 ms at the 75th percentile** (https://web.dev/articles/inp); a **long task** is "any uninterrupted period where the main UI thread is busy for 50 ms or longer" (https://developer.mozilla.org/en-US/docs/Web/API/PerformanceLongTaskTiming). Neither is this project's SLA — where `ai/runtime/perf-budgets.md` sets a tighter budget, that one wins and is the number to cite.
+
 **Halt conditions / mandatory cites**
 - Cite the handler at `<file:line>` + the attributed INP sub-part (`inputDelay` / `processingDuration` / `presentationDelay`) before proposing a fix; "this handler is probably slow" is a halt.
 - Cite the blocking script from the Long Animation Frames API (LoAF) — `longAnimationFrameEntries[].scripts[].invoker` / `.sourceURL` — when claiming a specific script blocks the interaction.

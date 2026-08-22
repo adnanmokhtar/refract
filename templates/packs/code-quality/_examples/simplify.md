@@ -1,5 +1,5 @@
 ---
-description: Review changed code for reuse, dead branches, and over-abstraction; propose concrete simplifications.
+description: Reduce entropy in CHANGED code using four closed verbs (remove / inline / dedupe / rename-comment-out) with a mechanical net-lines ≤ 0 gate — it may only reuse what already exists and refuses to add a symbol. Anti-triggers: creating a new helper or performing a structure move is `/refactor`; whole-project architecture or measured perf work is `/optimize` (global); convention drift with no entropy angle is `/align` (global); ranking defects at target scale is `/audit` (global).
 ---
 
 # /simplify [path]

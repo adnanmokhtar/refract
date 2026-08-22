@@ -50,6 +50,14 @@ description: Finds bottlenecks (N+1, missing indexes, blocking I/O, memory leaks
 - Bundle analyzer (`vite-bundle-visualizer` / `webpack-bundle-analyzer`).
 - RUM (Sentry / Datadog RUM).
 
+## Before the taxonomy — is this a regression?
+
+**A taxonomy lists what is *sometimes* slow. On a regression you already know the answer is *whatever changed*.** Classify first:
+
+- **`always-slow`** — never been fast, or newly built. The taxonomy below is the right tool: the cost is structural.
+- **`regression`** — "it got slow", "since the deploy". A known-good state existed. **Recover it and diff before reading a taxonomy entry**, cheapest first: deploy range → migration/schema → data volume + distribution → query-plan flip → cache hit-rate → downstream latency. Stop at the first that explains the magnitude.
+- If no last-known-good measurement exists, say so — that is the first finding, and establishing a baseline is the first deliverable.
+
 ## Bottleneck taxonomy
 
 ### Backend database
@@ -119,18 +127,32 @@ Verification:
 
 Rank findings by `impact / risk`.
 
+## Guardrail matrix — no p95 / interaction regression
+
+Every optimization trades against a neighbour. Re-measuring only the metric you improved hides the regression it caused. For each fix class, the guardrail column names the neighbour metric that MUST NOT get worse beyond measurement noise; any regression → `INCOMPLETE — regressed <metric>`, HALT.
+
+| Fix class | The win you measure | Guardrail neighbour that can regress | Re-measure with |
+|---|---|---|---|
+| Add index / composite index | read p95, scan → index-scan | **insert/update/delete latency + write p95** (every write now maintains the index); table + index bloat | plan-explainer on the write path; write-side load test |
+| Caching a hot read | read p95, hit-rate | **staleness / correctness**, **memory + GC pause**, tenant/identity cache-key leakage | soak the cache under steady load; heap snapshot; invalidation test |
+| Parallel-I/O / structured concurrency | wall-clock of the fan-out | **downstream RPS + error-rate + rate-limit rejections**, **connection-pool saturation** | load test at target concurrency; watch downstream error-rate + pool metrics |
+| Eager-load / JOIN to kill N+1 | list p95, query count | **row-multiplication / payload size**, memory of the larger result set | plan-explainer rows returned; response-size delta |
+| Bundle code-split / lazy route | initial bundle, LCP | **request-waterfall round-trips**; a lazy chunk on the critical path delaying **INP** | web-vitals re-run incl. INP; network waterfall |
+| Memoization / compile-once | CPU self-time, TBT | **heap retention** (memo table never evicted → leak), correctness of the cached identity | heap-diff over time; memo-key correctness test |
+| Stream instead of buffer | memory, TTFB | **total wall-clock / throughput** if chunking is chatty; error-handling mid-stream | throughput load test; failure-injection mid-stream |
+
 ## Example (backend)
 
 ```
 ## Performance review — POST /orders
 
 Baseline (500 req/s, 60s):
-  p50: 98ms  p95: 340ms  p99: 720ms  errors: 12 (Claude timeouts)
+  p50: 98ms  p95: 340ms  p99: 720ms  errors: 12 (vendor API timeouts)
 
 ### Issue 1: N+1 (HIGH impact / LOW risk)
 Where: src/modules/orders/application/list-orders.use-case.ts:24
 Diagnosis: `orders.map(o => customerRepo.findById(o.customerId))` — 51 queries per list.
-Fix: leftJoinAndSelect('order.customer', 'customer') in list query.
+Fix: eager-load the customer relation in the list query (the mapper's join/include directive), so parent and children arrive in one statement.
 Expected: p95 340ms → 180ms (1.9×).
 Risk: LOW — matches sibling modules.
 Verify: EXPLAIN shows single join; re-run load test.
@@ -145,9 +167,9 @@ Fix:
 Expected: additional p95 drop 60-80ms.
 Verify: EXPLAIN shows Index Scan.
 
-### Issue 3: Claude call without timeout (MEDIUM / LOW)
+### Issue 3: Vendor API call without timeout (MEDIUM / LOW)
 Where: src/modules/ai/infrastructure/claude.client.ts:32
-Diagnosis: request hangs up to 30s during Anthropic incidents.
+Diagnosis: request hangs for the full socket timeout during a vendor-side incident.
 Fix:
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 3000);
@@ -204,3 +226,14 @@ Risk: LOW.
 - DB changes on populated Postgres tables = `CREATE INDEX CONCURRENTLY`.
 - Bundle changes measured before/after (actual, not claimed).
 - Cache changes paired with invalidation plan.
+
+## Related
+
+### Sibling agents in performance pack
+- `caching-architect` — owns cache *strategy*: layer choice, key design, invalidation, stampede protection, staleness budgets. This agent identifies that a call is hot and irreducible; `caching-architect` decides whether and how to cache it. Hand over rather than designing a cache inline, and take back the guardrail re-measurement (memory / GC / staleness) a new cache layer owes.
+
+### Agents
+- `algorithm-designer` (algorithms pack) — the reasoning complement: owns asymptotic complexity-class changes. Route CPU-loop defects whose fix is a *class* change to it; take back the constant-factor / N+1 / I/O hand-offs.
+
+### Rules
+- `.claude/rules/performance-principles.md`

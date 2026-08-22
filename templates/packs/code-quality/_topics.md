@@ -41,7 +41,10 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: legacy-modernizer
   kind: agent
-  triggers: { codebase_age_above_2y: true }
+  # Age is not a trigger: in 2026 `codebase_age_above_2y` fires on nearly every repo, which is how
+  # an agent ends up installed everywhere and dispatched nowhere. The trigger is migration INTENT
+  # or a shape the codebase cannot leave in one commit.
+  triggers: { framework_major_version_lag: true, OR: { migration_intent_detected: true, monorepo_extraction_planned: true } }
   extracts_from: _extracted-codebase.md § Conventions + § "Anti-patterns"
   sections: [persona, modernization_priority_order, safe_migration_recipes, output_format]
   fallback: _examples/legacy-modernizer.md
@@ -70,6 +73,26 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   fallback: rules/engineering-principles.md
   note: "Ships as a peer governance rule alongside quality-principles (both always-on). Phase 4.6 apply-pack-adaptation has a dedicated special case for it."
 
+# On-demand depth. These exist because engineering-principles.md was carrying ~770 tokens of
+# placement/AI-change reasoning in EVERY session's context — material a reader needs when they are
+# placing code or landing a model-authored change, not on every prompt. The rule keeps the
+# invariants; these carry the judgement. The source IS the fallback: both files are
+# stack-agnostic prose with nothing to abridge and no extraction signal to wait for.
+- name: module-boundaries
+  kind: pattern
+  triggers: { module_per_feature_layout: true, OR: { layered_backend_detected: true } }
+  extracts_from: _extracted-codebase.md § Modules + _extracted-idioms.md § Layers + ai/architecture.md
+  sections: [context, where_a_feature_lives, the_shared_test, layer_direction, enforcement, common_mistakes]
+  mirror_existing: true
+  fallback: ai-patterns/module-boundaries.md
+
+- name: ai-assisted-change
+  kind: pattern
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Conventions + ai/conventions.md (what the agent keeps drifting from)
+  sections: [context, control_system_framing, comprehension_gate, conventions_problem, verifying_agent_reports, capturing_corrections]
+  fallback: ai-patterns/ai-assisted-change.md
+
 - name: review-changes
   kind: command
   triggers: { vcs_detected: true }
@@ -89,6 +112,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { always: true }
   fallback: _examples/simplify.md
+
+- name: refactor
+  kind: command
+  triggers: { always: true }
+  extracts_from: _extracted-idioms.md (shared helpers + exported surface) + _extracted-codebase.md § Modules
+  sections: [premise, dispatch, when_this_pack_leads, boundary]
+  fallback: commands/refactor.md   # a pack OVERLAY on the canonical commands/refactor.md — the source IS the fallback. `_examples/refactor.md` was deleted at 1.8.0: a 20-line usage anecdote with no frontmatter, disowned by this entry yet still on disk, so any glob-based resolution installed it over the overlay. Now nothing ships that can drift from this.
+  overlay_of: commands/refactor.md
 
 - name: find-module
   kind: command
@@ -126,11 +157,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: test-shield
   kind: skill
   triggers: { always: true }
+  fallback: skills/test-shield/SKILL.md   # no _examples/ stub ships — the source IS the fallback
   sections: [purpose, when_to_use, procedure, verify, anti_patterns]
 
 - name: smoke-verify
   kind: skill
   triggers: { always: true }
+  fallback: skills/smoke-verify/SKILL.md   # no _examples/ stub ships — the source IS the fallback
   sections: [purpose, when_to_use, procedure, verify, anti_patterns]
 
 # Comprehension gate (COPY-mode — verbatim). Dispatched by /pre-commit (generate + validate)
@@ -139,5 +172,6 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: change-brief
   kind: skill
   triggers: { always: true }
+  fallback: skills/change-brief/SKILL.md   # no _examples/ stub ships — the source IS the fallback
   sections: [purpose, when_to_use, the_brief_contract, procedure, verify, anti_patterns]
 ```

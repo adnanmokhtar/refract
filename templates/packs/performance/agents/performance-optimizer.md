@@ -51,6 +51,21 @@ model: sonnet
 - Bundle analyzer (the project's bundler-native analyzer — e.g., Vite's bundle visualizer, webpack-bundle-analyzer, esbuild's metafile, Rollup's plugin).
 - RUM (Real-User Monitoring — the project's choice: Sentry / Datadog RUM / New Relic Browser / Cloudflare Browser Insights / SpeedCurve / etc.).
 
+## Before the taxonomy — is this a regression?
+
+**A taxonomy lists what is *sometimes* slow. On a regression you already know the answer is *whatever changed*, and opening the taxonomy first means guessing at a question the diff would have answered.** So classify first:
+
+- **`always-slow`** — never been fast, or a newly-built path. The taxonomy below is the right tool: the cost is structural.
+- **`regression`** — "it got slow", "since the deploy", "it used to be fast". A known-good state existed. **Recover it and diff before reading a single taxonomy entry**, cheapest first, stopping at the first that explains the magnitude:
+  1. **Deploy range** — what shipped between the last known-good measurement and the first bad one. Usually the whole answer, and it costs one `git log`.
+  2. **Migration / schema** — an index dropped or added, a column widened, a constraint added.
+  3. **Data volume + distribution** — the query didn't change; the table grew, or one tenant's row count did. A plan that was fine at small scale is not fine at large.
+  4. **Query-plan flip** — same statement, different plan, after statistics moved. Invisible in a code diff; only the plan-explainer shows it.
+  5. **Cache hit-rate** — an unchanged path in front of a cache that stopped hitting looks exactly like the code got slower.
+  6. **Downstream latency** — the dependency regressed, not you. Check its p95 over the same window before touching your own code.
+
+  If no last-known-good measurement exists, say so — that is the first finding, and establishing a baseline is the first deliverable. A regression hunt with nothing to diff against is an `always-slow` sweep wearing a regression's clothes; call it one.
+
 ## Bottleneck taxonomy
 
 ### Backend database
@@ -233,6 +248,9 @@ Risk: LOW.
 - Cache changes paired with invalidation plan.
 
 ## Related
+
+### Sibling agents in performance pack
+- `@caching-architect` — owns cache *strategy*: layer choice, key design, invalidation, stampede protection, staleness budgets. This agent identifies that a call is hot and irreducible; `@caching-architect` decides whether and how to cache it. Hand over rather than designing a cache inline, and take back the guardrail re-measurement (memory / GC / staleness) that a new cache layer owes.
 
 ### Agents
 - `algorithm-designer` (algorithms pack) — the reasoning complement: owns asymptotic complexity-class changes + correctness proofs. This agent routes CPU-loop defects whose fix is a *class* change to it (via `/analyze-complexity` / `/design-algorithm`) and receives the constant-factor / N+1 / I/O hand-offs back.

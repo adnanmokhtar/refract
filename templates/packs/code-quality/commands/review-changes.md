@@ -1,5 +1,5 @@
 ---
-description: Comprehensive, signal-aware review of pending changes. Classifies the diff, dispatches every relevant specialist agent in parallel, consults all applicable patterns, produces a single consolidated verdict with GO/NO-GO.
+description: Comprehensive, signal-aware review of a PENDING DIFF, ending in a merge verdict (APPROVE / REQUEST_CHANGES / BLOCK) backed by a real test run. Classifies the diff, triages it by blast radius, dispatches every relevant specialist agent in parallel, consults all applicable patterns. Read-only — it never edits. Anti-triggers: ranking what is wrong with existing code at target scale is `/audit`; changing code to make it better (architecture, measured perf, cleanup) is `/optimize`; the staged-file commit gate is `/pre-commit`; the periodic no-diff repo pulse is `/check-health`.
 ---
 
 # /review-changes
@@ -27,7 +27,7 @@ If any of those are missing, the agent drops the finding rather than emitting a 
 
 **Mechanical halt — hand-wave grep on comments:** before emitting, the agent self-greps every finding for hand-wave shapes (`consider`, `might want`, `could be`, `in general`, `often`, `sometimes`, `it would be nice`). Any match without a `<file:line>` + concrete fix HALTS that finding — drop it or rewrite it with the citation. The final output passes the grep.
 
-**Lightweight default.** Read-only review; no code generated, no `ai/` files written. The implementer who acts on findings runs `/learn-from-task` after fixes land. The verdict is one of `APPROVE` / `REQUEST_CHANGES` / `BLOCK` — single-line at the top, then findings grouped by severity.
+**Lightweight default.** Read-only review; no code generated, no `ai/` files written. The implementer who acts on findings runs `/learn-from-task` after fixes land. The verdict is one of `APPROVE` / `APPROVE (SUITE UNVERIFIED)` / `REQUEST_CHANGES` / `BLOCK` — single-line at the top, then findings grouped by severity.
 
 **Always end with an ordered action plan.** The review is not finished until the **last** section is a `## What to do next` checklist: the findings re-expressed as numbered, prioritized steps (must-fix → should-fix → optional), each step carrying the `<file:line>`, the fix, and the verify, then the closing steps (re-run `/review-changes`, `/learn-from-task`, open the PR). Severity groups are the *detail*; the action plan is the *to-do*. A reader must never have to assemble the next steps themselves — the command does it for them. If the verdict is `APPROVE`, the action plan says so in one line (no blockers — clear to open the PR; optional nits listed). Canonical contract shared with every review/feedback command: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
 
@@ -234,11 +234,36 @@ Read `ai/status.md` current phase. Is this change in-scope?
 
 Scope creep = blocker or a discussion. "This is Phase 3 work but we're in Phase 1" → push back OR amend the roadmap in an ADR.
 
+### Suite state — run it, never infer it
+
+`APPROVE` below is conditional on the suite being green. **A diff that contains test files is not evidence that tests pass.** Reading `*.spec.ts` in the diff and writing "tests green" is the Trusted-Summary failure this command exists to prevent, committed by the command itself. So the suite state is a *measured* input, produced here:
+
+```bash
+# Read the project's own commands from `ai/stack.md § Scripts` (or CLAUDE.md / package.json /
+# Makefile / pyproject.toml). Run THEM — never a substituted toolchain, never invented flags.
+<project test command>        # e.g. pnpm test --run · pytest -q · go test ./... · cargo test
+<project typecheck command>   # if the project declares one
+```
+
+Scope: the suites covering the diff (`vitest related <files>` / `jest --findRelatedTests <files>` / `pytest --picked` / `go test ./<changed-pkgs>/...`) — full suite if the runner has no related-tests mode. Record the exit code and the pass/fail counts; they are what the verdict reads.
+
+Exactly three outcomes, and the third is a first-class result:
+
+| Outcome | Recorded as | Effect on verdict |
+|---|---|---|
+| Runner exits 0 | `Suite: GREEN (<N>/<N>, <command>)` | APPROVE is available |
+| Runner exits non-zero | `Suite: RED (<failing test names>)` | **BLOCK** — a red suite outranks every finding below it; report the failures and stop |
+| Runner not declared / not installed / cannot run here (no DB, no browser, CI-only) | `Suite: UNVERIFIED — <reason>` | APPROVE is **capped at `APPROVE (SUITE UNVERIFIED)`** and names the reason |
+
+Never launder UNVERIFIED into green. "The tests looked fine in the diff" is UNVERIFIED, not GREEN.
+
 ### Consolidate findings
 
 Merge all reviewer outputs into one report, grouped by severity. GO / NO-GO verdict:
+- **Suite RED** → **BLOCK**, regardless of what the reviewers found. Fix the build first.
 - Any **Blocker** → **REQUEST_CHANGES** (or **BLOCK** if critical security / data integrity).
-- Only requests/nits + all tests green → **APPROVE**.
+- Only requests/nits + **Suite GREEN as recorded above** → **APPROVE**.
+- Only requests/nits + **Suite UNVERIFIED** → **APPROVE (SUITE UNVERIFIED)** — name what could not run and why.
 - No reviewer ran cleanly → investigate before approving.
 
 ### Build the action plan (mandatory closing section)
@@ -262,10 +287,10 @@ After consolidating, re-express the findings as an **ordered, numbered to-do lis
 ```
 ## /review-changes — <branch>
 
-Phase 1 (Understand): scope detected — <N> files in categories: <list>.
+Phase 1 (Understand): "<one-sentence change>" — <N> files: carrier <paths>, consequence <N>, incidental <N>.
 Phase 2 (Organize): planned <N> reviewers across universal/category/signal axes.
 Phase 3 (Retrieved): <N> patterns + all rules + universals.
-Phase 6 (Validated): <N> reviewers ran in parallel; <N> skills run.
+Phase 6 (Validated): Suite GREEN (245/245, `pnpm test --run`); <N> reviewers ran in parallel; <N> skills run.
 
 **Verdict: APPROVE | REQUEST_CHANGES | BLOCK**
 
@@ -346,6 +371,7 @@ Then:
 - Don't skip signal-based reviewers — tenant leaks slip through when tenant-isolation-reviewer is skipped because "it's a small change".
 - Never silently skip an axis — an uninstalled reviewer is performed inline (`inline:<reviewer-name>`), not dropped.
 - Run `secret-scan` on every changed file regardless of category — a committed credential is a BLOCK.
+- **Never assert suite state from the diff.** `Suite: GREEN` requires a runner exit code recorded in this run; anything else is `UNVERIFIED` and caps the verdict. A red suite is a BLOCK that outranks every finding.
 - A diff that adds a dependency (not a version bump) gets a dependency review — flag it, don't wave it through.
 - Block on: security, data integrity, tenant isolation, correctness, committed secrets. Request on: perf, DX, maintainability, unreviewed new dependency. Nit on: style, i18n, minor docs.
 - Every blocker has a fix AND a verification step.
@@ -353,11 +379,28 @@ Then:
 
 ## Related
 
+### The boundary this command owns
+
+**`/review-changes` reviews the whole branch DIFF and returns a merge verdict.** Its input is `git diff` for the change as a whole; its output is APPROVE / REQUEST_CHANGES / BLOCK on *this change*, backed by a real test run.
+
+It is **not** the only verdict-producer in the repo, and pretending otherwise routes people wrong. Two others emit the same three tokens on narrower inputs: `/pre-commit` (the same sweep against `git diff --cached`, at the commit moment — see Siblings below) and `/migration-review` (`database` pack — one artifact class, judged on lock impact and deploy safety only). What this command owns is the **union**: the full branch diff, the full specialist panel, and the merge decision. So pick by *input*, not by output — staged index → `/pre-commit`; a migration file → `/migration-review`; "may I merge this branch" → here.
+
+Every other neighbour below either takes a different input (the whole codebase) or produces a different output (edits, not a verdict).
+
+**Anti-triggers — route away, do not run this command:**
+- *"Is the codebase ready for 10× traffic / pre-launch hardening / rank what's wrong across security + perf + DB"* → **`/audit`** (global). `/audit` ranks defects in code that **already exists**, across 8 axes at target scale, and then fixes them P0–P4. It has no diff and no merge verdict. If you have not opened a PR, you want `/audit`.
+- *"Clean up the auth flow / speed up the dashboard / architectural cleanup"* → **`/optimize`** (global). `/optimize` **changes** code (Phase-0 architectural diagnosis, then a measured perf + quality sweep). `/review-changes` never edits a file. If the ask is "make it better", not "may I merge this", it is `/optimize`.
+- *"Review the code I just wrote and fix it"* → `/optimize` or the harness `code-review` skill; this command reports, it does not apply.
+- Trivial diffs (formatting, a lockfile bump) → skip; the overhead exceeds the value.
+
+Overlap that is deliberate: `/audit` and `/optimize` can both surface findings this command would surface. The split is **moment and mandate** — this one runs at the merge gate and answers a yes/no; those two run on a settled tree and answer "what should change".
+
 ### Sibling commands in code-quality pack
-- `/check-health` — sibling command in code-quality pack
-- `/find-module` — sibling command in code-quality pack
-- `/pre-commit` — sibling command in code-quality pack
-- `/simplify` — sibling command in code-quality pack
+- `/pre-commit` — the same sweep, one moment earlier and one scope narrower: **staged** files, and it *blocks the commit*. This command reviews the whole branch diff for the *PR*. The two share the category→reviewer routing; when they disagree, this file is the wider one and the source of record.
+- `/check-health` — no diff at all: the periodic whole-repo pulse (mechanical + agent RAG grid). Run it weekly; run this per PR.
+- `/simplify` — applies four entropy-reducing verbs to code. Findings, then edits. This command produces findings only.
+- `/refactor` (pack overlay) — behaviour-preserving structure moves. Route a `refactor:`-shaped finding there rather than describing the move here.
+- `/find-module` — locate the code before reviewing it.
 
 ### Rules
 - `.claude/rules/engineering-principles.md`

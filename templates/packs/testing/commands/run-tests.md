@@ -1,5 +1,5 @@
 ---
-description: Run the project's test suite (or a scoped subset) and surface results. Detects test runner from `_extracted-codebase.md`. Supports scoped runs (changed files / specific module / specific feature) and full-suite runs. Reports pass/fail counts, coverage delta, time, and flakes. Wires into per-finding VERIFY steps when invoked from /align-phase / /migration-fast / /find-and-fix.
+description: Run the project's test suite (or a scoped subset) and surface results. Detects test runner from `_extracted-codebase.md`. Supports scoped runs (changed files / specific module / specific feature) and full-suite runs. Transcribes the runner's own summary — counts, time, and (where a prior run log exists) coverage delta and flake count; rows it cannot compute print as not-computed rather than being estimated. Wires into per-finding VERIFY steps when invoked from /align-phase / /migration-fast / /find-and-fix.
 kind: command
 pack: testing
 ---
@@ -82,57 +82,61 @@ If multiple runners (e.g., vitest for unit + playwright for e2e), run them in se
 
 ## Phase 4 — Generate (output template)
 
+**Every number in this block is transcribed from the runner's own output or it is not printed.** The command runs a process; the process prints a summary; this phase normalises that summary. It never composes one. Where a row cannot be filled from what the runner actually emitted, it prints the row's `not computed` form and says what would produce it — the same discipline `/add-test` Phase 6 and `/perf-audit` Phase 6 apply to their own claims.
+
 ```
 /run-tests <modules-root>/orders/
 
 Test runner:           <project's runner + helpers from its manifest>
-Scope:                 <modules-root>/orders/ (28 test files)
+Command:               <the exact argv executed>
+Scope:                 <modules-root>/orders/ (<N> test files)
+Exit code:             <the runner's actual exit status>
 
-Running...
-  ✓ <modules-root>/orders/<test-dir>/<feature-list-test>.<test-ext> (12 tests, 245ms)
-  ✓ <modules-root>/orders/<test-dir>/<feature-form-test>.<test-ext> (8 tests, 142ms)
-  ✗ <modules-root>/orders/<test-dir>/<feature-refund-test>.<test-ext> (5 of 6, 89ms)
-       FAIL: "applies refund tax correctly" — expected 12.50, got 12.55
-       file: <modules-root>/orders/<test-dir>/<feature-refund-test>.<test-ext>:42
-  ⊝ <modules-root>/orders/<test-dir>/<feature-archive-test>.<test-ext> (3 skipped)
-  ...
+<the runner's own summary block, transcribed — not re-formatted from memory>
 
-Result: PARTIAL (147/148 passing)
+Result: <PASS | FAIL | PARTIAL | NOT-RUN>
 
-Summary:
-  Tests:               148 total
-  Passed:              147
-  Failed:              1
-  Skipped:             3
-  Time:                4.2s
-  Coverage delta:      no change (87.4%)
-  Flakes:              0
+Summary (each row from the runner's output, or its `not computed` form):
+  Tests / Passed / Failed / Skipped:  <as the runner reported them>
+  Time:                <wall clock, runner start to exit>
+  Coverage:            <n>% — delta vs <prior source> | no prior coverage record: this run is the first
+  Flakes:              <n> across <N> prior runs in ai/test-runs/ | not computed (single run — flakes need ≥2 runs of the same scope)
 
-Failures:
-  <modules-root>/orders/<test-dir>/<feature-refund-test>.<test-ext>:42
-    "applies refund tax correctly" — expected 12.50, got 12.55
+Failures (verbatim from the runner — file:line + the assertion message it printed):
+  <path>:<line>
+    "<test name>" — <the runner's own assertion text>
 
 Next:
-  /fix-bug "refund tax mis-calculated" --evidence=<test-file:line>
-  OR run /run-tests --update-snapshots if this was an intentional change
+  /fix-bug "<failing behaviour>" --evidence=<test-file:line>
+  OR /run-tests --update-snapshots if this was an intentional change
 ```
+
+**Result vocabulary — this command reports a run, it does not certify a suite.**
+- `PASS` — runner exited 0 over the requested scope. This means *the suite that ran was green*, never *the code is correct*: a green run over a scope with no assertions for the behaviour in question proves nothing. Test **strength** is `/add-test`'s and `@test-reviewer`'s question, not this command's.
+- `FAIL` — non-zero exit. Failures listed verbatim.
+- `PARTIAL` — the scope was reduced (shard, bail, a runner that could not collect some files); name what did not run.
+- `NOT-RUN` — the runner could not be executed (binary missing, config unresolved, timeout). **Never reported as PASS.** Name the blocker and the command that was attempted.
 
 ## Phase 5 — Update
 
-- Per-run log to `ai/test-runs/<YYYY-MM-DD-HHMMSS>.log` (optional; configurable).
-- For caller commands (`/align-phase` etc.): return structured pass/fail to the orchestrator.
+- **Append the run to `ai/test-runs/<YYYY-MM-DD-HHMMSS>.log`: the argv, the exit code, the scope, the wall time, and the per-test pass/fail set.** This file is not decoration — it is the *only* state that makes Phase 7's cross-run claims computable. The only other writer is `/flaky-test-hunt` Phase 5, which appends its N sweep runs here in this same format; a project that runs neither gets `Flakes: not computed` forever (the honest output), and no later phase may claim a cross-run number.
+- Coverage: the runner's reporter writes wherever the project configures it; record that path and value in the log line so the next run has a prior value to diff against.
+- For caller commands (`/align-phase` etc.): return the Result verdict + exit code, not a prose summary.
 
 ## Phase 6 — Validate
 
-- The runner exit code is the source of truth for pass/fail.
-- Coverage delta calculated against the prior baseline (from `_session-digest.md` or `coverage/baseline.json`).
-- Time measured wall-clock from runner start to exit.
+- **The runner's exit code is the source of truth for pass/fail** — never the agent's reading of scrolled output. A run whose exit code was not observed is `NOT-RUN`.
+- A coverage *delta* requires a prior recorded coverage value. Absent one, print the absolute number and `no prior coverage record` — never a delta against a remembered figure.
+- Time is wall-clock, runner start to exit.
+- **Nothing in this command certifies test quality.** If the caller needs "are these tests any good", route to `/add-test --review` or `@test-reviewer`. A green exit code is not that answer and must not be surfaced as one.
 
 ## Phase 7 — Improve
 
-- If the same test fails 3+ times across runs → flag for `/flaky-test-hunt`.
-- If coverage drops below the project's threshold → halt; report the drop.
-- If time grows > 50% from baseline → flag for perf review.
+Every trigger here reads `ai/test-runs/` (Phase 5). With fewer than two comparable runs of the same scope, each reports `insufficient history` and fires nothing — it never estimates.
+
+- Same test in the failed set on ≥3 recorded runs where the surrounding suite was green → flag for `/flaky-test-hunt`, citing the run ids.
+- Coverage below the project's configured threshold → report the drop against the recorded prior value.
+- Wall time for the same scope trending up across recorded runs → flag for perf review, citing the run ids and times. There is no fixed percentage here: the trigger is a trend across logged runs, not a number this command invented.
 
 ## Hard rules
 
@@ -140,6 +144,7 @@ Next:
 - **Honor project-config.** Use the project's exact command (don't substitute `vitest run` for the project's `pnpm test`).
 - **No silent skip on tool missing.** If runner binary not on PATH, halt with install instructions.
 - **Don't mutate code.** This command runs tests; it doesn't fix them.
+- **Transcribe, never compose.** Every count, percentage, duration, and failure message in the report comes from the runner's stdout/stderr or the recorded run log. If the runner did not print it and no log holds it, the row prints its `not computed` form. A plausible-looking summary for a run that did not happen is the worst output this command can produce — it is indistinguishable from a real one.
 
 ## Failure modes
 

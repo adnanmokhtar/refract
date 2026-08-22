@@ -187,8 +187,8 @@ Impact: -190 ms P95.
 Effort: 30 min.
 Risk: low.
 
-### Estimated total impact
-After all 3 fixes: P95 <current> → <new> (-<delta>).
+### Projected total impact — PROJECTION, not a measurement
+After all 3 fixes: P95 <current> → ~<projected> (-<delta>) `PROJECTED`. Phase 6 replaces this with the re-profiled number; a `PROJECTED` value that reaches the final report unlabelled has been laundered into a result.
 
 ### Out of scope (flagged for future)
 - Cold-cache scenario shows additional <ms> hit; consider warm-up or pre-fetching.
@@ -207,15 +207,24 @@ After all 3 fixes: P95 <current> → <new> (-<delta>).
 ## Output format
 
 ```
-## /profile-perf complete
+## /profile-perf — <subject> — <PRODUCTION-GRADE | INCOMPLETE | PROFILE-ONLY>
 
 Subject: <name>
-Current P95: <ms> (target: <ms>)
-Bottleneck (#1): <cause>
-Recommended fixes: <count>; estimated end-state P95 <ms>
+Harness: <profiler / load-tester that produced both numbers>
+P95: <before> → <after> (budget <ms>)   # or "<before> — no fix applied" on a PROFILE-ONLY run
+Bottleneck (#1): <cause, from <profile artifact:line>>
+Guardrails re-checked: <metric> <delta> (noise band ±<n>%)
+
+Status: PRODUCTION-GRADE      # re-profiled on the same harness, at/under budget, guardrails held
+  # OR
+Status: INCOMPLETE — <unmet items named>     # over budget, regressed guardrail, or SKIPPED [no-harness]
+  # OR
+Status: PROFILE-ONLY — diagnosis delivered, no fix applied; end-state values are PROJECTED
 
 Report: ai/runtime/profile-<subject>-<date>.md
 ```
+
+This block prints the verdict Phase 6 just decided. A bare `complete` is not one of the options — Phase 6's own closing line ("Never a bare 'done'") is the rule, and this output used to break it twelve lines later.
 
 ## Hard rules
 

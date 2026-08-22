@@ -118,6 +118,21 @@ Passkeys replace the password entirely (passwordless) or stand as the second fac
 - Prune expired > 30 days.
 - Audit trail — who logged in when, from where.
 
+## CSRF
+
+Applies to **cookie-authenticated state-changing requests**. A request authenticated by an `Authorization` header the browser does not attach automatically is not in scope; a request authenticated by a cookie is, on every non-idempotent method.
+
+Pick one of two controls — never "we set `SameSite`, we're covered":
+
+- **Synchronizer token** — the framework's built-in. Server issues a per-session (or per-request) token, stores it server-side, and compares on submit. OWASP calls it "one of the most popular and recommended methods to mitigate CSRF".
+- **Signed double-submit** — an HMAC over the session identifier with a server-side secret, sent as both a cookie and a header/field. The session binding is the whole control: OWASP warns that "signing tokens without session binding provides minimal protection".
+
+**Why the naive double-submit fails.** Comparing a cookie to a header with no signature and no session binding is bypassable "by an attacker who can write cookies on the target domain (e.g., via a vulnerable sibling subdomain, DNS takeover, or plaintext-HTTP cookie injection on a non-`__Host-` cookie)". On subdomain-per-tenant SaaS a sibling subdomain is the ordinary deployment, not an exotic precondition — so treat this pattern as unavailable there unless the cookie is `__Host-` prefixed AND signed AND session-bound.
+
+**`SameSite` and `Origin` are defence-in-depth, never the control.** OWASP: `SameSite` "is useful as a defense-in-depth control but it does not replace a proper CSRF defense in most deployments" — the `Lax` default only blocks unsafe methods, its scope is the registrable domain (so it does not separate sibling subdomains), and it does nothing against client-side CSRF. `Origin`/`Referer` verification is a second signal, not a first one: page JS cannot forge `Origin`, but the header can be absent or stripped, and a check that fails open when it is missing reopens the hole.
+
+Source: OWASP *Cross-Site Request Forgery Prevention Cheat Sheet* — <https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html>. Re-read it when you implement; the recommended patterns have changed more than once.
+
 ## Forbidden
 
 - Storing refresh tokens unhashed.

@@ -54,11 +54,15 @@ Parallel:
 
 Read `ai/modules.md` (if present) for registration status + canonical owner.
 
-Score:
-- Exact name match in path = 100.
-- Substring in path + same casing = 80.
-- Identifier defined = 70.
-- String reference only = 30.
+Rank (an ORDER, not a score — the numbers this used to print were invented, and a fabricated
+weight is exactly what this command's own `cite-or-halt` verb exists to forbid):
+
+1. **Exact directory or file name match** — the module is named for the concept. Strongest signal by a wide margin.
+2. **Identifier defined** — a `class` / `type` / `function` / `enum` declaration of the name. This is where the concept *lives*, even when the path does not say so.
+3. **Substring in path with matching casing** — same concept, different naming convention.
+4. **String / literal reference** — i18n keys, config, comments. Tells you who *talks about* the concept, not where it is implemented.
+
+Where two candidates tie, break by **`ai/modules.md` registration** (a registered owner outranks an unregistered file) and then by import count (the most-imported definition is the canonical one). If nothing separates them, say so and list both — a confident single answer picked at random is worse than an honest pair.
 
 Cluster results: primary module / related modules / DB layer / tests.
 
@@ -136,11 +140,19 @@ Related concepts already in repo:
 
 ## Related
 
+### The boundary this command owns
+
+**Read-only location lookup, and nothing else.** Four parallel searches plus one `ai/modules.md` read, answering "where does this concept live". It dispatches no agent, writes no file, and forms no opinion about the code it finds.
+
+**Anti-triggers:**
+- *"…and tell me what's wrong with it"* → `/review-changes` (a diff), `/check-health` (the repo), or `/audit` (global, ranked at scale).
+- *"…and clean it up"* → `/simplify` or `/optimize` (global).
+- A common noun with no qualifier (`user`, `order`, `item`) → halt and ask; the match set is noise.
+- Cross-repo or multi-monorepo lookup → out of scope; say so rather than partially answering.
+
 ### Sibling commands in code-quality pack
-- `/check-health` — sibling command in code-quality pack
-- `/pre-commit` — sibling command in code-quality pack
-- `/review-changes` — sibling command in code-quality pack
-- `/simplify` — sibling command in code-quality pack
+- `/review-changes`, `/check-health`, `/pre-commit` — all of them assume you already know which module you are looking at. This is the step before.
+- `/simplify` — its "is there already a helper for this?" question is this command's search, run for a different reason.
 
 ### Rules
 - `.claude/rules/engineering-principles.md`

@@ -9,6 +9,55 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.6.0 — 2026-08-22
+
+- **Audit corrections (same release).** `caching-architect` was the only measurement-claiming
+  artifact in the pack with no unmeasured branch anywhere in it: its "hit rate … never estimated"
+  rule had no failure form, and its layer table had been re-headed with a disclaimer while keeping
+  the uncited `<1ms` / `5-50ms` / `1-5ms` cells — disclaiming a number is neither sourcing it nor
+  removing it. Those cells are gone, replaced by what determines each figure and the command that
+  measures it; the table now also separates user-vantage from server-vantage rows, which is the
+  reason those numbers were never comparable in the first place. Added `HIT RATE UNAVAILABLE` and
+  `NO READ PATTERN — pre-traffic; cache deferred` branches, and resolved the halt that demanded a
+  "hit-rate target" against § Metrics' "No universal target". `inp-responsiveness` (and its fallback)
+  now cite web.dev for INP ≤ 200 ms at p75 and MDN for the 50 ms long-task definition.
+
+**A performance pack that prints a number it did not measure is the defect it exists to catch.**
+This release removes the remembered figures and replaces each with the command that produces the
+reader's own.
+
+- **`@caching-architect`: the layer table ships no latency figures, deliberately.** Across
+  deployments they vary by more than an order of magnitude — PoP distribution, VPC topology,
+  payload size, serializer — so a number printed there is decoration a reader mistakes for a budget.
+  Each row now carries a "how to get *your* number" column instead (DevTools `Size`/`Time`, RUM
+  TTFB split by PoP, an APM span around the read, the client's own latency probe run from an app
+  host). A new vantage column names the trap the cost column sets: browser and CDN costs are paid
+  from the user's position and server costs from the server's, so they were never comparable.
+- **Hit rate has no universal target, and an absent hit-rate line is not a pass.** The bar is
+  whether the saved backend work exceeds the cache's cost, which the read:write ratio and the miss
+  cost decide — 40% on a 900 ms query beats 95% on a 2 ms one. Where the stats are unreachable the
+  design prints `HIT RATE UNAVAILABLE — <what is missing>` and ships provisional; substituting an
+  estimate or a vendor benchmark is refused, and exposing the stat becomes task 0 of the rollout.
+- **A tenant-blind cache key is broken access control, not a caching bug.** It survives a correct
+  authorization layer: the guard runs, passes, and the cache returns whatever it stored for whoever
+  missed first. Now a HALT, cited to OWASP A01:2025, with the test that proves it (warm as tenant A,
+  read as tenant B) — a single-tenant test cannot fail on this.
+- **`/profile-perf`: classify before opening the taxonomy.** A taxonomy lists what is *sometimes*
+  slow; on a regression the answer is whatever changed, so the diff comes first — deploy range,
+  migration, data volume and distribution, query-plan flip — cheapest first, stopping at the first
+  that explains the magnitude.
+- **`performance-principles`: 6,665 → ~5,840 characters (~1,666 → ~1,459 always-loaded tokens).**
+  "Optimize without a profile" (Must not) restated "Profile before optimizing" (Must); they are one
+  bullet now. The Frontend / Backend laundry-list bullets are deleted — a list of well-known
+  techniques with no decision in it, in a file whose whole cost is that it loads every session.
+  Two numbers changed status: `SLO e.g. p95 < 300ms` was a borrowed figure in the file that
+  forbids borrowed figures and is now "set it from your own measured p95 and ratchet"; and CPU work
+  `> 50ms` is now stated as what it is — fixed in the browser, where a task "whose duration exceeds
+  50ms" is a long task by definition (https://w3c.github.io/longtasks/), and *not* a constant on a
+  server, where the bound is the endpoint's own latency budget. The depth pointer said
+  `../ai-patterns/`, which from the installed `.claude/rules/` resolves to
+  `.claude/rules/ai-patterns/`; patterns install to `ai/patterns/`.
+
 ## 1.5.0 — 2026-07-10
 
 - perf-audit Phase 6 four-gate production-grade gate (measured-not-asserted with an adjective

@@ -20,7 +20,7 @@ Wherever this pack's files show concrete test syntax, examples use one stack (a 
 | `vi.useFakeTimers({ now: ... })` | `freezegun.freeze_time(...)` | `Clock.fixed(...)` | `clockwork` / DI clock | `Timecop.freeze` | fake clock |
 | `vi.fn()` / `jest.fn()` | `MagicMock()` / `monkeypatch` | `Mockito.mock(...)` | gomock / testify mock | `instance_double` | mock primitive |
 | `msw` / `nock` | `responses` / `httpx_mock` | WireMock | `httptest.NewServer` | `WebMock` | HTTP-call faking |
-| `fast-check` `fc.property` | `hypothesis @given` | jqwik | `gopter` | `rantly` | property-based tests |
+| `fast-check` `fc.property` | `hypothesis @given` | jqwik | `pgregory.net/rapid` | `rantly` | property-based tests |
 | Testcontainers (Node) | testcontainers-python | Testcontainers (JVM) | `dockertest` | testcontainers-ruby | real-DB integration |
 | Stryker | mutmut | Pitest | go-mutesting | mutant | mutation testing |
 
@@ -28,6 +28,6 @@ Wherever this pack's files show concrete test syntax, examples use one stack (a 
 
 - The project's `_extracted-idioms.md` — actual test runner, mocking library, coverage thresholds, fake-timer helper, property-based runner.
 - The project's `_extracted-codebase.md § Testing` — test directory layout, naming pattern (`*.test.ts` / `*_test.go` / `test_*.py`), CI gates.
-- The validator script's stack-conditional checks read `PROJECT_KIND` to apply runner-specific lint hooks (e.g., `forbidOnly: true` for Vitest, `--strict` for pytest).
+- The validator script's stack-conditional checks read `PROJECT_KIND` to apply runner-specific lint hooks. **Check the runner's own key before adding one** — the guard is often already on: Vitest's is `allowOnly`, which defaults to `!process.env.CI`, so `.only` fails CI out of the box (https://vitest.dev/config/allowonly). Jest ships no equivalent config key — use `eslint-plugin-jest`'s `no-focused-tests`. pytest has no `.only`; its analogue is `-m`/`-k` selection plus `--strict-markers`.
 
 If your project uses a stack with no current substitution row above (e.g., Deno test, Bun test, Elixir ExUnit), add the row to your project's `_extracted-idioms.md` and the universal principles still apply.

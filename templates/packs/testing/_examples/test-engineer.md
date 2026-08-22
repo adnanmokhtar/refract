@@ -28,13 +28,13 @@ model: sonnet
 
 ## Test pyramid (by layer)
 
-| Layer | Speed | Scope | Tools |
+| Layer | Budget (breach = mis-classified, not slow) | Scope | Substitution |
 |---|---|---|---|
-| Unit | <100ms | one class / function / use-case | Jest/Vitest, pytest, go test |
-| Integration | <1s | repo + DB, service + fake deps | Testcontainers, in-memory DB, real Redis |
-| E2E | <30s | full stack via HTTP | Playwright, supertest, Cypress |
+| Unit | sub-second, no I/O | one class / function / use-case | `STACK.md` runner row |
+| Integration | seconds | repo + DB, service + fake deps | Testcontainers / in-memory DB row |
+| E2E | tens of seconds | full stack via HTTP | E2E-runner row |
 
-Ratio target: 80% unit / 15% integration / 5% e2e.
+**No ratio target — see `testing-principles § Must`.** Put each behaviour at the **lowest layer that can prove it**, and add a layer only for what the layer below cannot reach (real wiring, real transaction, real browser). A domain-heavy service lands unit-heavy; a glue service lands integration-heavy; both are correct. The shape to refuse is an **e2e-heavy** suite: slow and brittle regardless of the code.
 
 ## What to test (be exhaustive for the change)
 
@@ -195,10 +195,12 @@ await waitFor(async () => {
 
 ## Coverage
 
-- Unit + integration coverage tracked; target 70%+ for business logic.
-- Don't chase 100%. Chase meaningful branches.
-- Uncovered branches in hot modules = flag.
-- Trivial lines (plain DTOs, getters) uncovered = fine.
+Coverage is the **floor you check**, never the bar you aim at. A number to chase produces tests written to move the number.
+
+- **No global target.** Where a project needs a CI gate, set it as a **ratchet**: record today's number and refuse a drop.
+- Read coverage per-branch, not per-file: an uncovered error path in a payment module and an uncovered getter are the same percentage and not the same finding.
+- Uncovered branches in hot / money / auth / tenant modules = flag. Trivial lines (plain DTOs, getters, generated code) uncovered = fine, and excluded from the report rather than argued about.
+- **A covered line is not a tested line.** Whether any assertion would catch it breaking is `mutation-probe`'s question.
 
 ## Speed
 
@@ -228,13 +230,14 @@ Test doubles used:
   - Fake: InMemoryOrderRepo, FakeClock
   - Mock: StripeClient (at port boundary)
 
-Coverage delta:
-  - Lines: 72% → 84%
-  - Branches: 65% → 81%
-  - Uncovered: error-path in retry logic (intentional — hand-tested)
+Coverage delta (ONLY from a coverage run made in this session — never remembered, never estimated):
+  - Source: `<the exact coverage command run>` | not measured (no coverage tooling configured)
+  - Lines / Branches: <before> → <after>, or `not measured`
+  - Uncovered and left so, with the reason: <path:line> — <why this branch is deliberately untested>
 
 Skills run:
-  - coverage-gap — confirms all changed lines tested
+  - coverage-gap — presence: which changed lines no test executed
+  - mutation-probe — strength: whether any new assertion would actually catch a regression
 ```
 
 ## Hard rules
@@ -249,3 +252,22 @@ Skills run:
 - Multi-tenant: cross-tenant leak test mandatory.
 - Webhook: idempotency + signature tests mandatory.
 - Commit test + code together — never test-only or code-only PR for a feature/fix.
+
+## Related
+
+### Sibling agents in testing pack
+- `@tdd-orchestrator` — **order, not authorship.** It owns the RED→GREEN→REFACTOR sequence and its cheat detectors, and it dispatches *this* agent to write each cycle's RED test. Code does not exist yet → the orchestrator leads and this agent is a step inside it. Code already exists → this agent leads and there is no sequence to enforce.
+- `@test-reviewer` — **authorship vs audit, never the same run.** This agent writes tests and self-checks them; that agent independently re-derives the effectiveness ledger and can BLOCK. A suite that graded its own strength has not been reviewed.
+
+### Skills
+- `coverage-gap` — presence: which changed lines no test executed.
+- `mutation-probe` — strength: whether the assertions written here would actually catch a regression.
+- `property-invariants` — breadth: for pure/total functions, whether the behaviour holds across the input space and not just the examples typed.
+- `test-factories` — how the input objects these tests act on get built.
+
+### Patterns
+- `ai/patterns/test-doubles.md` — behaviour of collaborators (mock / stub / fake / spy).
+- `ai/patterns/test-strategy.md` — which layer a behaviour belongs at.
+
+### Rules
+- `.claude/rules/testing-principles.md`

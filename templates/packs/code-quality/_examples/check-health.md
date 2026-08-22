@@ -1,5 +1,5 @@
 ---
-description: Project health dashboard — mechanical checks + multi-agent audit. Catches drift early.
+description: Periodic whole-repo health pulse (no diff) — mechanical checks that must go green, then a standing agent panel, then a per-area RAG grid and an ordered plan. Weekly cadence or milestone gate. Anti-triggers: a PR diff is `/review-changes`; staged files are `/pre-commit`; ranking defects at a target scale and fixing them P0–P4 is `/audit`; grading `.claude/` scaffolding rather than product code is `/setup-project-health`.
 ---
 
 # /check-health
@@ -59,20 +59,22 @@ pnpm install --frozen-lockfile
 pnpm lint            # or: bun lint, npm run lint
 pnpm typecheck       # tsc --noEmit when no script
 pnpm build
-pnpm test --run
+pnpm test --run --coverage        # the flag is not optional — see below
 
 # Python
 uv sync --frozen     # or poetry install --no-root
 ruff check .
 mypy .
-pytest -q
+pytest -q --cov
 
 # Go
 go vet ./...
 golangci-lint run
 go build ./...
-go test ./...
+go test -cover ./...
 ```
+
+**Coverage is measured here or it is not reported.** The report below has a `coverage` cell; a runner invoked without its coverage flag produces no such number, and filling that cell from memory, from a CI badge, or from the last run is the exact vanity-metric failure this command's own Failure-modes list warns about. Two honest outcomes: the flag ran → print what the tool emitted (and hand the *quality* question to `test-reviewer`); no coverage tooling is configured → print `coverage n/a (no coverage tool configured)` and make **that** the finding. Never a remembered percentage.
 
 If any step fails: STOP, do not run agents. Fix mechanical first.
 
@@ -105,7 +107,7 @@ Mechanical:
   PASS  Lint        0 errors, 3 warnings
   PASS  Typecheck   0 errors
   PASS  Build       4.2s
-  PASS  Tests       245/245, coverage 87%
+  PASS  Tests       245/245, coverage 84% line / 71% branch  (from `pnpm test --run --coverage`)
 
 Agent audit:
   RED    Code         2 blockers, 4 requests, 12 nits
@@ -116,10 +118,25 @@ Agent audit:
 
 Overall: RED  (security blocker requires immediate fix)
 
-Top 3:
-  1. Add auth guard to GET /admin/export        (security, ~10min)
-  2. Fix N+1 in listOrders                      (perf, ~1h via /optimize-query)
-  3. Run /doc-refresh and re-run /check-health  (docs, ~15min)
+## What to do next  (do these in order)
+
+MUST FIX — the overall verdict stays RED until these are done:
+  1. <modules-root>/admin/export.controller.<ext>:18 — GET /admin/export has no auth guard.
+     Fix: apply the project's auth + admin-role gate primitive (`_extracted-idioms.md § Auth`).
+     Verify: e2e test asserts 401 unauthenticated; re-run /check-health → Security GREEN.
+  2. ai/status.md is 71 days stale (Updated: 2026-02-14).
+     Fix: /doc-refresh.   Verify: `Updated:` within 30 days; Docs flips GREEN.
+
+SHOULD FIX:
+  3. <modules-root>/orders/<list-handler>.<ext>:24 — N+1 on customer lookup.
+     Fix: eager-load customer in the list query (route via /optimize-query).
+
+OPTIONAL:
+  4. 3 unused exports flagged by dead-code-finder — confirm with the confidence bucket before deleting.
+
+Then:
+  5. Re-run /check-health — confirm the verdict comes back GREEN.
+  6. Run /learn-from-task to capture what was learned.
 ```
 
 ## What to do next — required closing section

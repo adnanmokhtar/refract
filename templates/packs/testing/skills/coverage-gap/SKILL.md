@@ -78,7 +78,7 @@ LOW PRIORITY:
 ## False positives / gotchas
 
 - Generated code (the project's ORM client output, OpenAPI / GraphQL / protobuf types, framework-equivalent codegen output) shows as uncovered — exclude via the project's coverage-ignore mechanism (`coveragePathIgnorePatterns` / `.coveragerc` `omit` / framework-equivalent).
-- TypeScript `?.` and `??` compile to multiple branches; partial coverage on one transpiled branch is usually acceptable.
+- **Lowered syntax inflates the branch count.** Any construct the compiler desugars — optional chaining, null-coalescing, default parameters, destructuring defaults, `async`/`await` state machines, generated null-checks — reports more branches than the source has. Partial coverage on a branch that exists only after transpilation is usually acceptable; judge coverage against the *source* construct, and check what your instrumenter measures (pre- or post-transform) before treating such a gap as real.
 - Snapshot tests inflate line coverage but don't exercise branches — don't be misled.
 - A branch shown as "0 hits" in `lcov` may be reachable only under a specific Node version flag — check before deleting.
 - A line shown as *covered* can still be untested in strength — coverage proves it ran, not that any test asserts on its behaviour. For assertion gaps on changed/critical code, hand off to `mutation-probe.md` (the strength complement: presence here, strength there).

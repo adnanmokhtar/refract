@@ -32,11 +32,9 @@ Without this entry point the `tdd-orchestrator` agent is orphaned (no command su
 
 ## Phase 2 — Dispatch
 
-- Dispatch `@tdd-orchestrator` with the resolved feature + criteria. It runs the loop:
-  - **RED** — write one behavior-named failing test; observe it fail for an assertion reason (not a compile/import error).
-  - **GREEN** — minimum code to pass; full suite stays green.
-  - **REFACTOR** — structure only, under green; revert any refactor that turns a test red.
-- The orchestrator HALTS on every cheat (GREEN without observed RED, REFACTOR that changes behavior, stacked red, mocking the SUT). This command does not override those halts — it surfaces them.
+- Dispatch `@tdd-orchestrator` with the resolved feature + criteria. It runs the loop (RED → GREEN → REFACTOR, one behaviour per cycle) and owns every invariant, halt and cheat-detector. This command does not restate them — read the agent.
+- **Surface the un-failable branch to the user, because it is a choice they must see.** Some criteria — "the PAN never reaches the logs", "a concurrent double-submit stores one card", "a PSP timeout leaves no partial charge" — cannot be made to fail on demand: they pass on the first run because the thing they forbid does not exist yet, or needs an interleaving a single-threaded cycle cannot produce. The orchestrator's RED step 6 routes these to `RED-UNOBSERVABLE` **with a substitute proof** (seed the violation and watch the test go red; a race harness; an injected fault) rather than dropping them. When a criterion takes that branch, say so in the relayed report and name the proof — a silently-dropped criterion is invisible, and the criteria that land here are disproportionately the security and concurrency ones.
+- This command does not override the orchestrator's halts — it surfaces them, unsoftened.
 
 ## Phase 3 — Surface
 
@@ -48,29 +46,39 @@ Without this entry point the `tdd-orchestrator` agent is orphaned (no command su
 ## /tdd — <feature> — <N> cycles, <verdict>
 
 Cycle 1: <criterion>
-  RED:      <test_file>:<line> — observed failing ✓
+  RED:      <test_file>:<line> — observed failing: <the runner's verbatim assertion line> ✓
+            # or: RED-UNOBSERVABLE (<class>) — proof: <seeded violation | race harness | injected fault> went RED, reverted ✓
+            # or: RED-UNOBSERVABLE — unproven: <what would prove it>
   GREEN:    <impl_file>:<line> — minimal, suite green ✓
   REFACTOR: <one-line> — suite green ✓
 Cycle 2: ...
 
 Discipline: DISCIPLINE MAINTAINED | MINOR DEVIATIONS | MAJOR VIOLATIONS
+Unproven criteria: <none> | <criterion — what would prove it>
 Follow-ups: <trim speculative code / add behavior tests / ...>
 
-Status: COMPLETE
+Status: DISCIPLINE MAINTAINED — <N> cycles, every RED evidenced
+  # OR
+Status: MINOR DEVIATIONS — <named>
+  # OR
+Status: MAJOR VIOLATIONS — <named>   # a cycle with no observed RED and no substitute proof lands here
 ```
+
+A bare `COMPLETE` is not a valid terminal status: the reader must be able to tell *every RED was evidenced* from *the loop ran and nobody checked*, which is the entire question this command exists to answer.
 
 ## Hard rules
 
-- **No production code before an observed RED.** If code arrives green, the orchestrator reconstructs the cycle (revert, run, capture failure, reapply).
-- **One behavior per cycle.** Multi-behavior cycles get decomposed.
-- **Never refactor under red.** Refactoring under a red suite corrupts working code.
-- **Thin command, deep agent.** All discipline lives in `@tdd-orchestrator`; this command must not duplicate or weaken it.
+These are the *command's* rules. The loop's rules live in `@tdd-orchestrator` and are deliberately not copied here — a duplicated invariant is one that can drift out of step with the engine that enforces it, and this file previously restated three of them under a bullet forbidding exactly that.
+
+- **Thin command, deep agent.** All loop discipline lives in `@tdd-orchestrator`. This command resolves scope, dispatches, and relays. It must never restate, summarise, or weaken an invariant.
+- **Relay halts unsoftened.** A `MAJOR VIOLATIONS` verdict is reported as such. Never round a partial pass up, and never report `COMPLETE`.
+- **Name every unproven criterion.** A criterion that reached `RED-UNOBSERVABLE — unproven` appears in the output. Dropping it from the report is the one failure this command can cause on its own.
 
 ## Failure modes
 
 - Treating `/tdd` as "generate tests for this" → that's `/add-test`; `/tdd` writes tests *first* and drives code from them.
-- Demanding `/tdd` on a prototype → forces premature design; skip the loop until the design settles.
-- Counting tests instead of behaviors → 100 tests on one path is one test in disguise.
+- Relaying the orchestrator's cycle table but omitting its unproven criteria → the report reads clean while a named guarantee rests on nothing.
+- Reaching for `@tdd-orchestrator` § "When NOT to use TDD" because a criterion won't go red → that list does not cover it; RED step 6's `RED-UNOBSERVABLE` branch does.
 
 ## Related
 

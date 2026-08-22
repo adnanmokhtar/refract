@@ -39,7 +39,9 @@ Consumer defines what it needs. Provider verifies it delivers that. Each tested 
 3. For "given state X" — provider has state setup hooks.
 4. Mismatch = broken contract = failing build.
 
-## Example (Pact JS)
+## Example (one stack, illustrative)
+
+> The code below is **Pact's JS binding, shown as one concrete stack** — it is not a recommendation of Pact or of JS. Every contract-testing tool in every language expresses the same three moves (declare the interaction, publish the pact, verify it against the real provider), and the procedure above is written against those moves, not this API. Translate the shape; do not copy the imports.
 
 Consumer:
 ```ts
@@ -144,3 +146,19 @@ Closure: 12 interactions verified; 2 mismatches cited with consumer call sites; 
 - Writing contracts from the server side (defeats the "consumer-driven" purpose).
 - Not versioning contracts.
 - Deploying without running `can-i-deploy`.
+
+## Boundary
+
+`contract-test` owns exactly one question: **do two independently-deployed services still agree on the wire?** Everything about a single service's own behaviour belongs elsewhere, and mixing them produces a contract suite that breaks on refactors it should not care about.
+
+- **A single service's internal behaviour** → its own unit / integration suite (`@test-engineer`). If a mismatch is caught by the provider's own tests, it never needed a contract.
+- **Presence / strength / breadth of the provider's own tests** → `coverage-gap` (did the branch run), `mutation-probe` (would an assertion catch it breaking), `property-invariants` (does it hold across the input space). A contract can pass against a provider whose logic is entirely untested — it checks the shape of the response, never the correctness of the computation behind it.
+- **An API you do not own** (third-party SaaS, a vendor) → those are test doubles, not contracts. You cannot make the vendor run a verification, so there is no second half to the handshake; pin their responses as fixtures and monitor for drift instead.
+- **Whether the provider is fast enough under a realistic mix** → `load-test` (performance pack). Contract verification replays interactions one at a time; it says nothing about capacity.
+
+## Related
+
+- `@test-engineer` — writes the provider-side and consumer-side tests the interactions sit inside.
+- `@test-reviewer` — audits the resulting assertions; a contract with `like(anything())` on every field passes verification and pins nothing.
+- `coverage-gap` / `mutation-probe` — the provider-side quality axes a green contract does not speak to.
+- `test-doubles.md` — the pattern for the third-party case above, where a contract is not available.

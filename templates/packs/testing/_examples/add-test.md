@@ -65,33 +65,53 @@ Test-specific:
 - `ai/dynamic/changelog.md` — one-line: `Added <N> test files for <module>, <C> cases, coverage <X>% → <Y>%`.
 - `ai/modules.md` — bump test-coverage column if tracked.
 
-## Phase 6 — Validate
-- All new tests pass; previously-green tests still green.
-- No `setTimeout` waits (use fake timers).
-- No `.skip` / `.only` left in the file (reviewer-blocker).
-- No real external HTTP in unit tests (`msw` / `nock` / framework HTTP test client).
-- Naming mirrors existing convention exactly.
+## Phase 6 — Validate (production-grade or INCOMPLETE)
+
+**A green suite is FUNCTIONAL, not production-grade.** Line coverage is the FLOOR, never the bar. A generated test is production-grade only when it (1) **FAILS when the behaviour breaks** — mutation-verified, not coverage theatre — (2) covers the branch's real edges/invariants, and (3) is **deterministic** across reruns. This phase measures all three and picks the terminal verdict.
+
+- **Determinism proof:** run the new files 3× back-to-back — identical pass set each run. Any file whose result flips is non-deterministic → name it; do NOT report it green. Previously-green tests still green.
+- No `setTimeout` waits (use fake timers). No `.skip` / `.only` left in the file. No real external HTTP in unit tests — use the project's HTTP-faking primitive. Naming mirrors existing convention exactly.
+
+**Effectiveness gate — mutation-verified. Measure effectiveness; do not assert it.** A green assertion proves nothing until a mutation of the branch it covers makes it go RED.
+  1. **Harness present** — run the project's mutation tool scoped to the changed SUT (its `--since` / changed-files mode). Every survivor on a branch your new tests own is an assertion gap: add the assertion, re-run, confirm the mutant now dies. Record the **measured mutation score on the changed scope**, equivalent mutants excluded from the denominator.
+  2. **No harness** — seed the mutant by hand. For **each core branch per generated file**, mutate the SUT one operator at a time (flip the comparison, return the wrong value / `null`, short-circuit the guard), re-run the covering test, confirm it goes **RED**, then **restore the SUT** and confirm GREEN. This proves one branch per file, not the whole scope — label the file `manual-seed`, not `harness-measured`.
+  - **Self-policed:** no shell verifies the SUT was reverted or that RED was really observed. Leaving a mutation in place is a worse bug than a weak test. What IS checkable is the per-file ledger below.
+  - **HALT — assertion theatre:** if the test stays GREEN while its branch is mutated, the assertion is coupled to incidental state, not behaviour. Tighten it until the mutant dies, then restore. Do NOT count a survived mutant as done.
+
+**Effectiveness closure verbs (exactly one per generated file):**
+- `mutation-killed` — a seeded or harness mutant on the file's core branch was demonstrably killed (RED observed, SUT restored). Cite `<sut-file:line>` + the mutation operator + the test that went red.
+- `effectiveness-unverified` — the mutant could not be seeded or the harness could not run for this file. The file ships marked UNVERIFIED — never silently as killed.
+
+**Terminal verdict (there is no blanket COMPLETE):**
+- **PRODUCTION-GRADE** — every generated file is `mutation-killed`, deterministic across the 3× rerun, and its edges/invariants are covered.
+- **INCOMPLETE** — a production requirement is unmet. NAME each: surviving mutant `<sut-file:line>` + the assertion to add, an uncovered boundary, or a file that flipped on rerun.
+- **UNVERIFIED** — effectiveness could not be measured for one or more files; name those files. Never a faked pass.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture test-shape patterns introduced.
 - If same test setup boilerplate repeats 3+ times → queue to `ai/dynamic/learned-patterns.md` as a candidate fixture/helper.
-- If coverage gap was systemic (multiple modules at < 60%) → queue ADR: enforce coverage threshold in CI.
+- If the gap was systemic — several modules missing tests on the *same* axis (every error path, or one whole layer) → queue ADR: gate CI on a coverage **ratchet** (fail on a drop below the number the repo already measures), never on a borrowed absolute. A threshold nobody measured either fires on everything and gets muted, or fires on nothing.
 
 ## Output format
 ```
-## /add-test — <N> files, <C> cases, all green
+## /add-test — <N> files, <C> cases — <PRODUCTION-GRADE | INCOMPLETE | UNVERIFIED>
 
 Phase 1 (Understand): target = <file|feature>; layers = <unit|integration|e2e>
 Phase 3 (Retrieved): siblings mirrored; runner = <jest|vitest|pytest|...>
 Phase 4 (Generated):
-  src/orders/__tests__/create-order.spec.ts (unit, 12 cases)
-  src/orders/__tests__/order-repo.integration.spec.ts (integration, 6 cases)
-  e2e/orders.e2e.spec.ts (e2e, 5 cases)
-Phase 5 (Updated): changelog; coverage 64% → 89%
-Phase 6 (Validated): green; no .only/.skip; no real HTTP
+  <source-root>/orders/<test-dir>/create-order.<test-ext> (unit, 12 cases)
+  <source-root>/orders/<test-dir>/order-repo.integration.<test-ext> (integration, 6 cases)
+  <e2e-root>/orders.e2e.<test-ext> (e2e, 5 cases)
+Phase 5 (Updated): changelog; coverage 64% → 89% (floor, not the bar)
+Phase 6 (Validated): effectiveness ledger per file —
+  create-order.<test-ext>      mutation-killed  (<sut-file:line>, `>=` → `>`, "rejects zero-qty order" went RED)
+  order-repo.integration.<ext> effectiveness-unverified (no harness; SUT not safely revertible in-loop)
+  determinism: 3× rerun identical
 Phase 7 (Improved): patterns queued
 
-Status: COMPLETE
+Status: UNVERIFIED — order-repo.integration.<ext> effectiveness not measured
+  # OR: PRODUCTION-GRADE — every file mutation-killed, deterministic, edges covered
+  # OR: INCOMPLETE — <surviving mutant / uncovered boundary / flipped file, each named>
 ```
 
 ## Failure modes

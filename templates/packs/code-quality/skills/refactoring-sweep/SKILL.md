@@ -222,7 +222,21 @@ function processOrder(o: Order) {
 - **Behaviour-preserving** — observable output of the affected functions is identical (same inputs → same outputs / side effects).
 - **Net-lines** — slight + or - is allowed (refactoring is allowed to add a function definition); aim ≤ 0 over the run.
 - **One verb per commit** — don't bundle (`extract-method` + `rename` in same commit is forbidden).
-- **No new abstractions** — `introduce-abstraction` is an architectural verb (lives in `architectural-diagnosis` skill), not a refactoring verb.
+- **No new abstractions — and here is the line, because three verbs above create symbols.** `extract-class` creates a class, `extract-param-object` creates a struct/interface/dataclass, and `flatten-conditional`'s polymorphism/strategy sub-patterns create a handler set. Read literally, "no new symbols" would forbid the verbs this skill exists to apply, and the `refactorer` agent's auto-halt on "adds new symbols" would fire on every one of them. The rule the pack actually means:
+
+  > **A symbol that is an EXTRACTION of code already present in the scope is permitted. A symbol that introduces a CONCEPT not already present halts.**
+
+  The test is not "did a new name appear" — it is **"could a reader point at the lines this name now holds, in the pre-change code?"**
+
+  | Permitted (extraction — the code was already there) | Halts (introduction — the concept is new) |
+  |---|---|
+  | `extract-method` — a block becomes a named function | A base class or interface invented so two types can share a signature |
+  | `extract-class` — fields + the methods that touch them move out together | A `Repository`/`Service`/`Manager` layer the project does not have |
+  | `extract-param-object` — a parameter list that already travels together gets a name | A value object with new invariants or validation the parameters did not enforce |
+  | `flatten-conditional` → polymorphism — each existing branch body becomes a handler | A strategy registry, plugin point, or extension seam with no second implementation today |
+  | `move-to-module` — a symbol relocates | A new utility namespace created to hold it |
+
+  Two mechanical checks, both cheap: (1) the extracted body appears in the diff as a **move**, not as new logic — `git diff -M` should show it as relocated lines; (2) **net behaviour surface is unchanged** — no new branch, no new validation, no new default. If either fails, it is `introduce-abstraction`, which is an architectural verb owned by the `architectural-diagnosis` skill, not a refactoring verb. Halt and route it there.
 - **No public API changes** — if a refactor would change a public symbol's signature/name, halt and surface as user-decision.
 - **Re-detect after each fix** — fingerprint must disappear at the source location.
 
@@ -230,6 +244,7 @@ function processOrder(o: Order) {
 
 - **Tests fail after refactor** → revert; mark the finding `halted` with reason; surface for user.
 - **Public API would change** → halt; surface as user-decision (it's not behaviour-preserving in the contract sense).
+- **An "extraction" that grew a branch** → the new symbol validates, defaults, or short-circuits something the original did not. That is not an extraction; it is a behaviour change wearing a refactoring verb's name. Revert, then decide whether the behaviour change is wanted on its own merits.
 - **Refactor would introduce a cycle** → halt; the verb was wrong choice; suggest `decouple-cycle` (architectural) instead.
 - **Performance regression detected** (hot-path refactor) → revert; mark `halted` with measurement evidence.
 

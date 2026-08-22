@@ -23,7 +23,7 @@ Prove the application **still boots** after a behaviour-preserving change. Unit/
 
 - Dispatched as the final step by `/optimize`, `/audit`, `/align`, `/migrate` (after the last fix commit).
 - On demand: `verify the app still boots after these changes`.
-- **Skip** with `--no-boot-check` for pure libraries/SDKs with no runnable entry point (the import-smoke variant below still applies where it makes sense).
+- **Skip** with `--no-boot-check` for pure libraries/SDKs with no runnable entry point. Note that this is rarely the right call: the `library-*` row below (import the package entry) is cheap and catches import cycles, which is the single most common thing an extract-module refactor breaks. `--no-boot-check` is for the case where there is genuinely nothing importable, not for the case where booting is inconvenient.
 
 ## Procedure (stack-conditional via PROJECT_KIND)
 
@@ -36,7 +36,7 @@ Prove the application **still boots** after a behaviour-preserving change. Unit/
    | `cli-*` | invoke the entry with `--help` / `--version` | exit 0, no stack trace |
    | `mobile-*` | `expo start`/Metro bundler starts OR the build step compiles | bundler ready / build exits 0 |
    | `library-*` | import the package entry in a throwaway script (`node -e "require('<pkg>')"` / `python -c "import <pkg>"`) | import returns 0 |
-   | `data-*` (pipeline) | dry-run / `--check` the pipeline entry if one exists | exit 0 |
+   | `data-*` (pipeline) | in order of preference: (a) the pipeline tool's own validate/dry-run (`dbt parse` / `airflow dags test` / `dagster job execute --dry-run` / `--check`), else (b) import the DAG/pipeline definition module in a throwaway script — this alone catches the DI, import-cycle and config-load failures the skill exists for, else (c) run the entry against a fixture with a one-row input and an ephemeral output sink | (a)/(c) exit 0 · (b) import returns 0 |
 
 2. **Boot with a timeout** (default 60 s). Capture stdout+stderr. Kill on success criterion met or timeout.
 3. **Decide**:
@@ -49,6 +49,7 @@ Prove the application **still boots** after a behaviour-preserving change. Unit/
 - The boot command actually ran (a skipped boot due to a missing script is a WARN, not a silent PASS — say so).
 - For servers: the health probe response was observed, not assumed.
 - For CLI/library: the real exit code was captured, not inferred.
+- **Every row resolves to one of exactly three outcomes** — `PASS` (criterion observed), `FAIL` (halt the sweep), or `WARN [no-boot-path]` naming what is missing. There is no fourth outcome, and in particular an "if one exists" that found nothing is a **WARN, not an omission**: it must appear in the report so the reader knows the sweep shipped without a boot check.
 
 ## Anti-patterns this prevents
 

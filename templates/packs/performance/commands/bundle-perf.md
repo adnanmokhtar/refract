@@ -107,6 +107,8 @@ Read project's:
 - Pages audited: <list>
 - Target: 4G mid-tier mobile (Lighthouse mobile profile)
 
+> **Everything in this report block is an illustrative SHAPE, not a result.** The numbers below show what a populated report looks like; they are not defaults, expected values, or a starting point to adjust. Every cell in a real run is transcribed from the analyzer, the profiler, or the field data — and any cell that has no such source prints `SKIPPED [no-harness]` naming the tool that would fill it. A confidently-populated table for a run that never executed the analyzer is the single most damaging output this command can produce, because it is indistinguishable from a real one.
+
 ### Web Vitals (current → target)
 | Metric | Current | Target | Status |
 |---|---|---|---|
@@ -174,45 +176,64 @@ Coverage tool reports 62% of CSS unused on first paint. Likely candidates:
 | 9 | Defer tag manager until scroll-depth = 30% | -300ms TBT | 30m |
 | 10 | Mark hero image as priority via framework's image primitive (exact knob per `references/<framework>.md § Core Web Vitals / Images`; verify the emitted hint with [`lcp-audit`](../../frontend/skills/lcp-audit/SKILL.md)) | -300ms LCP | 5m |
 
-### Estimated end state (after applying)
-- LCP: 3.8s → ≤ 2.0s ✓
-- TBT: 480ms → ≤ 150ms ✓
-- Initial JS: 420 KB → ≤ 180 KB ✓
-- Web-vitals score: ~60 → ~95+
+### Projected end state — PROJECTION, not a measurement
+Every line here is arithmetic over the fixes table, carrying `~` and the `PROJECTED` label until Phase 6 replaces it with a re-measured number. A projection that survives into the final report unlabelled has been laundered into a result.
+- LCP: <before> → ~<projected> `PROJECTED`
+- TBT: <before> → ~<projected> `PROJECTED`
+- Initial JS: <before> → ~<projected> `PROJECTED`
 
 ### Out of scope
 - SSR vs SSG tradeoff for the marketing pages (architectural decision; ADR needed).
 - Adopting a partial-hydration framework (not a single-fix recommendation).
 ```
 
-## Phase 6 — Validate (after applying)
+## Phase 6 — Validate (the production-grade gate — measured, not asserted)
 
-- Re-run the project's web-vitals profiler on the same network profile.
-- Verify Web Vitals hit target on field data (RUM if available).
-- Verify no functional regression.
-- Re-run bundle analyzer; confirm size delta.
-- A/B test if feasible — measure real-user conversion lift.
+A bundle change is **production-grade only when the after-number came out of the same tool that produced the before-number, lands at or under its budget, and cost nothing on the neighbour metrics.** This is `/perf-audit` Phase 6's gate applied to the browser; the two commands answer the same question and must not hold different standards for it.
+
+**The four gates, per applied fix:**
+
+1. **Measured, not asserted.** The `<after>` is a number from the SAME harness as the `<before>` — same analyzer, same network + device profile, same route set. An adjective ("lighter", "snappier", "much faster") in a number column FAILS the gate. `[self-policed]`: the smell test is `grep -inE '(faster|snappier|lighter|smoother|should be|feels)'` over the `Before`/`After` cells of the report; any hit is an unmeasured claim → convert to a number or mark it SKIPPED.
+   - **No harness for this metric?** Mark the row `SKIPPED [no-harness]` and name what would fill it ("no bundle analyzer configured for this build"; "no RUM, so field LCP cannot be confirmed"). Never fake a pass; never let a `PROJECTED` value stand in the `After` column.
+2. **Beats the budget, not just the before.** Each metric lands at or under its stated budget (the targets column, or `ai/runtime/perf-budgets.md`). Smaller-than-before but still over budget is `INCOMPLETE — over budget (<after> vs <budget>)`. Where no budget exists, stating one is the first deliverable.
+3. **No guardrail regression.** Re-measure what the fix could have cost, not only what it improved: a bundle split trades bytes for round-trips; lazy-loading a widget can move work into the interaction and raise INP; font subsetting can reintroduce FOIT; image re-encoding can raise decode time on low-end devices. Any guardrail worse beyond the measured noise band → `INCOMPLETE — regressed <metric>`, HALT.
+4. **Field-confirmed where the metric is field-only.** **INP is not lab-measurable** — Lighthouse scripts one synthetic interaction, so a lab INP delta is not evidence. An INP claim is confirmed from the field (`web-vitals-field`, CrUX/RUM p75) or it is `SKIPPED [field-data-unavailable]`. LCP and CLS may be gated in the lab but their field p75 is the truth; where the two disagree, the field wins and the lab number is reported as lab.
+
+**Terminal verdict.** `PRODUCTION-GRADE` only when every applied fix is PASS or honestly `SKIPPED`, with zero adjectives and zero `PROJECTED` values left in a number column. Otherwise `INCOMPLETE`, naming every unmet item. Also verify no functional regression — a smaller bundle that broke a runtime-loaded icon is not a win.
 
 ## Output format
 
 ```
-## /bundle-perf complete
+## /bundle-perf — <N> fixes — <PRODUCTION-GRADE | INCOMPLETE | PLAN>
 
 Pages audited: <list>
-Web Vitals (LCP / INP / CLS / TBT): <current> → <target>
-Bundle (initial JS): <KB now> → <KB target>
-Recommendations: <count>; quick wins (<1h, large impact): <count>
+Harness: <analyzer> / <profiler> / <field source, or "no RUM">
+Noise band: ±<n>% (<N> baseline re-runs) — deltas inside it are NO-CHANGE
+
+Web Vitals (measured before → measured after, or SKIPPED [no-harness]):
+  LCP  <before> → <after>  (budget <n>)  <PASS | INCOMPLETE — over budget | SKIPPED [...]>
+  INP  <before> → <after>  (budget <n>)  <field p75 | SKIPPED [field-data-unavailable]>
+  CLS  <before> → <after>  (budget <n>)  <...>
+Bundle (initial JS): <before KB> → <after KB> (budget <n> KB)  <...>
+
+Status: PRODUCTION-GRADE     # every applied fix measured, at/under budget, guardrails clean
+  # OR
+Status: INCOMPLETE — <unmet items named>
+  # OR
+Status: PLAN — proposals only, nothing applied; every value PROJECTED [pre-apply]
 
 Report: ai/runtime/bundle-perf-<date>.md
 ```
+
+A bare `complete` is never a valid terminal status here — the reader must be able to tell *measured and under budget* from *the analyzer never ran*, and those two produce identically-shaped reports.
 
 ## Hard rules
 
 - **Measure on a representative network + device.** Localhost on a developer M3 Pro is not the user's experience.
 - **One change per PR for >100ms or >50KB optimizations.** Easier to revert.
-- **Don't ship un-measured "optimizations."** "I think this helps" is not enough.
+- **Don't ship un-measured "optimizations."** "I think this helps" is not enough — and neither is a projection. A `PROJECTED` value that reaches the final report without being re-measured has become a fabricated result.
 - **Web Vitals from field data trumps lab data.** Real users in real conditions are the truth.
-- **Image formats: WebP (broad), AVIF (smaller, narrower support).** Serve via picture/srcset.
+- **Image formats: AVIF first, WebP as the fallback rung.** AVIF is no longer the narrow-support option — ~95% global, Chrome 85+, Firefox 93+, Safari 16.4+, Edge 121+ (https://caniuse.com/avif). Serve via `<picture>`/`srcset` so the long tail still gets WebP/JPEG; check the *project's* stated browser-support floor before dropping a rung.
 
 ## What to do next — required closing section
 

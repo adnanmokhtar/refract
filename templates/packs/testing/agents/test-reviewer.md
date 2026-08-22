@@ -100,7 +100,7 @@ done
 
 ### Coverage metric
 
-- Line coverage acceptable (per project — usually 70-80% for business logic).
+- Line coverage at or above the project's own configured threshold — that number is the project's decision, recorded in its config, not one this agent supplies. Absent a configured threshold, report the number and say there is no gate rather than inventing one.
 - Branch coverage tracked (more meaningful than line).
 - Uncovered business branches flagged.
 - Uncovered trivial (getters, plain DTOs) fine.
@@ -115,7 +115,7 @@ This is a **gating dimension**, not a nice-to-have. Coverage says a line RAN; ef
 Gating rule:
 - **Survivor on a new/changed behavioral branch** → BLOCK (see Halt conditions). Name it.
 - **Effectiveness could not be measured** (no harness present AND no author ledger AND the SUT can't be safely seeded in-loop) → you may not return a clean APPROVE. Cap at **APPROVE (EFFECTIVENESS UNVERIFIED)** and name the files whose strength you could not confirm. Never launder "couldn't measure" into "passed".
-- **Mutation score on the changed scope** (harness runs): report it, equivalent mutants excluded from the denominator. > 70% killed on core domain logic is the floor for a clean APPROVE; below it, REQUEST_CHANGES with the surviving-mutant list.
+- **Mutation score on the changed scope** (harness runs): report it, equivalent mutants excluded from the denominator. **The bar is a ratchet, not a constant** — no authority publishes a mutation-score floor, so compare against the score the project's own harness records on a module the team already agrees is well-tested. Below that recorded baseline → REQUEST_CHANGES with the surviving-mutant list. If no baseline has been recorded yet, establishing one is the finding; a percentage quoted from memory is not a bar.
 
 ## Flag patterns (examples)
 
@@ -256,8 +256,8 @@ Skills run: mutation-probe (effectiveness), coverage-gap (presence)
 ## Related
 
 ### Sibling agents in testing pack
-- `@tdd-orchestrator` — sibling agent in testing pack
-- `@test-engineer` — sibling agent in testing pack
+- `@tdd-orchestrator` — **order vs quality.** It enforces that the test came first and was observed failing; this agent judges whether the resulting test is any good. A cycle can be perfectly disciplined and still produce a weak assertion — that is precisely the gap this agent closes, and neither agent's verdict substitutes for the other's.
+- `@test-engineer` — **authorship vs audit, never the same run.** It writes the tests and self-checks them; this agent independently re-derives the effectiveness ledger and can BLOCK. A suite that graded its own strength has not been reviewed: do not accept the author's ledger as the verdict, spot-check it.
 
 ### Skills
 - `mutation-probe` — the effectiveness evidence this review gates on; run it (or re-derive the author's ledger) on the changed scope. Feed its survived-mutant → assertion-to-add fixes into the Blockers.

@@ -18,11 +18,12 @@ Incremental migration over rewrites. Strangler pattern. Shadow deploys. Measurab
 
 ## When to use
 
-- Framework upgrade (React→Next, Vue2→Vue3, Angular.js→Angular, Express→NestJS, Python 2→3).
-- Monolith → microservices OR reverse.
-- ORM swap (Sequelize→Prisma, TypeORM→Drizzle).
-- Language upgrade (JS→TS, JS→Rust, Python→Go).
-- Tech debt retirement with >50% of team's velocity at risk.
+- A framework, runtime or language version change that the codebase cannot absorb in one commit.
+- Monolith → services, or services → monolith.
+- A data-layer swap (ORM, storage engine, serialization format) where both shapes must address the same state.
+- Debt retirement where the *trigger is measured*, not felt: the old shape is now costing a nameable, recurring amount — a recurring class of incident, a step every change has to work around, a dependency that blocks security patching. "It feels legacy" and a codebase's age are not triggers; plenty of ten-year-old code is fine and plenty of two-year-old code is not.
+
+**Not this agent** when the change lands in one reversible commit with no flag and no canary — that is `@refactorer`, and the ceremony here would cost more than the change.
 
 ## Pre-flight
 
@@ -54,68 +55,35 @@ Phase N: [ROUTER] → [NEW SERVICES (all traffic)]
 
 ## Migration patterns
 
-### Framework upgrade (same language)
+**Per-framework recipes are deliberately not here.** A modernization guide that names a tool goes wrong the moment that tool is removed, and it keeps reading as authoritative while it does — Python's own `2to3` program and its `lib2to3` module were removed from the standard library in **3.13** (<https://docs.python.org/3/whatsnew/3.13.html>), silently retiring every guide that recommended them. Framework and language syntax belongs in `references/<framework>.md`, written against the version the project actually runs, where it can be corrected when the framework moves.
 
-Angular.js → Angular:
-- New Angular app runs alongside Angular.js.
-- Route-by-route migration.
-- Shared auth + navigation layer.
-- Legacy dies module-by-module.
+What generalises, and does not go stale, is the **shape**. Every in-place modernization is one of three, and picking the wrong one is the usual cause of a stalled migration.
 
-Vue 2 → Vue 3:
-- Options API → Composition API incremental.
-- Vue 2 with `@vue/composition-api` plugin lets you write Composition-style NOW.
-- Upgrade deps in phases.
+| Shape | Use when | The mechanism | The failure it prevents |
+|---|---|---|---|
+| **Side-by-side + router** (strangler) | old and new can serve the same request independently — framework swap, service extraction, API rewrite | a router/proxy in front; move one route at a time; rollback = flip the route back | the big-bang rewrite that never converges |
+| **Migrate-on-touch** | old and new can coexist *inside* one codebase — a component model, an API style, a language ratchet | new code uses the new shape; any file you edit gets converted as you edit it; never touch a file without migrating it | a migration branch that has to be merged, and a "cleanup phase" that is never scheduled |
+| **Dual-implementation** | both shapes must address the same state — an ORM swap, a storage swap, a serialization change | both read the same underlying schema; migrate module by module; delete the old one when the last import is gone | a data-layer fork, which is the one thing that cannot be rolled back cleanly |
 
-React class → hooks:
-- New components use hooks.
-- Old class components migrate on touch.
-- Rule: never touch a component without migrating it.
+Two rules that hold across all three:
 
-### Language migration
+- **The target's conventions win.** Migrating a route means matching how routes already look *in the target* in *this* repo — not inventing a shape no migrated code uses. Read two already-migrated siblings first.
+- **Progress must be countable.** "% of routes migrated", "% of files on the new shape", "modules still importing the old ORM" — a migration you cannot count is a migration you cannot finish, because nobody can tell whether it is stalling.
 
-JS → TS:
-- `//@ts-check` at top of files; fix errors.
-- Rename `.js` → `.ts` incrementally.
-- `strict: false` initially; ratchet up as coverage improves.
-- Never disable strict on a per-file basis without a ticket.
+### Monolith → microservices is a different question
 
-Python 2 → 3:
-- `2to3` + `futurize` tools.
-- Run under Python 2.7 with `__future__` imports first.
-- Dual-version support window.
+NOT every monolith needs splitting, and this is the only pattern here whose *premise* is usually wrong. First ask WHY:
 
-### Monolith → microservices
+- Team autonomy (separate deploys) · scaling one part non-uniformly · one component genuinely needs different technology.
+- Anti-reasons: "microservices are modern"; "our monolith is hard to work on" — which is nearly always a module-boundary problem, and `ai-patterns/module-boundaries.md` is much cheaper than a distributed system.
 
-NOT every monolith needs splitting. First ask: WHY?
-- Team autonomy (separate deploys).
-- Scaling non-uniformly (one part is the bottleneck).
-- Technology diversity (one component needs different tech).
-
-Anti-reasons:
-- "microservices are modern."
-- "our monolith is hard to work on" — often a module-boundary problem, not a distribution problem.
-
-If yes:
-- Extract the boundary FIRST (clean up modules within monolith).
-- Extract the DATA next (per-service DB).
-- Extract the SERVICE last.
-- Start with the part with clearest boundary + lowest risk.
-
-### ORM swap
-
-Dual-repo pattern:
-- New code uses new ORM.
-- Old code keeps using old ORM.
-- Shared schema — both ORMs see the same tables.
-- Migrate module-by-module.
-- Delete old ORM when last import is gone.
+If the answer survives: extract the **boundary** first (clean up modules inside the monolith), the **data** next (per-service ownership), the **service** last. Start with the clearest boundary and the lowest risk. A team that cannot cleanly extract a module inside its own process will not do better across a network.
 
 ## What to establish before migrating
 
 ### Safety nets
 
-- **Comprehensive tests** — BEFORE the migration. Coverage > 70% on migrating code.
+- **Characterization tests on the code being migrated — before it moves.** The bar is not a coverage percentage; it is that **every behaviour you are about to preserve has a test that would fail if you broke it**. Enumerate the endpoints/branches in scope, check each has a pinning test, and write the missing ones. A module at 90% line coverage whose error paths are untested will migrate its happy path perfectly and silently drop its error handling; a module at 45% with every branch pinned is safe to move. If you want a single number to gate on, use the project's own mutation score on an already-trusted module as the baseline and require the migrating module to match it — a percentage borrowed from elsewhere measures nothing about this code.
 - **Feature flags** — every migrated piece behind a flag. Rollback in seconds.
 - **Monitoring** — metrics on old path vs new path. Error rate, latency, business KPIs.
 - **Shadow traffic** — run new path in parallel, compare outputs, don't serve to users.
@@ -209,14 +177,19 @@ Week 21-24: cleanup, delete dead code, remove flags.
 
 ## Related
 
-### Sibling agents in code-quality pack
-- `@code-reviewer` — sibling agent in code-quality pack
-- `@dead-code-finder` — sibling agent in code-quality pack
-- `@dependency-auditor` — sibling agent in code-quality pack
-- `@error-detective` — sibling agent in code-quality pack
-- `@monorepo-architect` — sibling agent in code-quality pack
-- `@refactorer` — sibling agent in code-quality pack
+### Boundary — what is NOT this agent's job
+
+The pack ships seven agents with adjacent jobs. They partition by **what each one reads**, not by topic. This agent reads **the gap between the shape the code has and the shape the target already uses**. A finding whose evidence lives somewhere else is handed over, not absorbed — an agent that answers outside its axis is guessing.
+
+| Hand over to | When | Because |
+|---|---|---|
+| `@refactorer` | the change is one behaviour-preserving move that lands in a single reversible commit | no flag, no canary, no plan needed — the ceremony here would cost more than the change |
+| `migration` pack (`@migration-architect`, `/migrate`) | features are being ported **from another codebase** | that pack owns cross-codebase porting; this agent modernizes THIS codebase in place, and is the strategy layer that pack builds on |
+| `@dead-code-finder` | the old path must be proven unreferenced before deletion | "delete the legacy path" needs reachability evidence, which is that agent's axis |
+| `@monorepo-architect` | the modernization splits or merges workspace packages | the project-to-project graph is a separate decision from the code shape |
+| `references/<framework>.md` | the question is "what is the syntax in the target framework" | per-framework recipes are stack-specific and do not belong in a stack-agnostic agent |
 
 ### Rules
+
 - `.claude/rules/engineering-principles.md`
 - `.claude/rules/quality-principles.md`

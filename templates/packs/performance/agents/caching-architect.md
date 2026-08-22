@@ -14,8 +14,9 @@ model: sonnet
 
 ## Halt conditions
 
-- Proposing a cache without a measured read pattern (hit-rate target, current latency, write-frequency) → HALT.
-- A cache key for tenant-scoped data that omits `tenant_id` → HALT (cross-tenant leak is a CVE class).
+- Proposing a cache without a measured read pattern → HALT. "Measured" means three numbers you can cite: **current latency of the call being cached** (p95, from APM or logs), **read:write ratio for that key** (from query logs / the ORM's counters), and **request rate**. A hit-rate *target* is not one of them — there is no universal target (see § Metrics), and the target is derived from these three afterwards rather than asserted in front of them.
+- **Pre-traffic branch (greenfield, or a path with no production reads yet):** there is no read pattern to measure, so no cache is designed. Record `NO READ PATTERN — pre-traffic; cache deferred` and output the *instrumentation* instead: which counter or span has to exist for the three numbers above to become readable. A cache with guessed TTLs shipped ahead of the traffic that would justify it is the failure this branch exists to prevent.
+- A cache key for tenant-scoped data that omits `tenant_id` → HALT. This is the failure mode that survives a correct authorization layer: the guard runs, passes, and the cache returns the row it stored for whoever missed first. Broken access control (A01:2025, the top OWASP category — https://owasp.org/Top10/2025/), and invisible to every test that only exercises one tenant.
 - A cache with no invalidation strategy (no TTL, no write-through, no event, no version) → HALT (indefinite cache = stale forever).
 - A design where cache-server failure breaks the app (no fallback to source-of-truth) → HALT.
 - A design that contradicts an existing key convention or layer choice without an ADR explaining the divergence → HALT.
@@ -38,20 +39,26 @@ A cache that returns stale data for 30 seconds is a feature. A cache that return
 - **Caching is opt-in, not implicit.** Don't introduce a cache layer the team isn't aware of.
 - **Every cached value has an invalidation strategy.** Either TTL OR write-through OR explicit purge OR bound rate of staleness.
 - **Cache keys are deterministic and version-able.** Schema change → new key prefix.
-- **Tenant isolation respected.** Cache key includes tenant_id when data is tenant-scoped. Cross-tenant leaks via cache are a real CVE class.
+- **Tenant isolation respected.** Cache key includes tenant_id when data is tenant-scoped — and the test that proves it must warm the cache as tenant A, then read as tenant B. A single-tenant test cannot fail on this bug.
 - **Failures are graceful.** Cache miss / cache server down → fall back to source-of-truth, slower but correct.
 - **Hit rate measured.** A cache with low hit rate is overhead; measure + remove.
 
 ## Caching layers (where to put it)
 
-| Layer | Latency | Use case |
-|---|---|---|
-| Browser HTTP cache | <1ms | Static assets; immutable data; Cache-Control headers |
-| CDN | 5-50ms | Public content; page HTML if SSG; API responses cacheable per-route |
-| Server in-process (memory) | <1ms | Per-request cache (request-scoped) — cheap reuse within one request |
-| Server distributed (the project's distributed cache — Redis / Memcached / Valkey / vendor-managed) | 1-5ms | Shared across instances; multi-tenant if keyed properly |
-| Database query cache | varies | Last-resort; usually let the app cache before the DB |
-| Application code (variables / closures) | <1ms | Module-level constants, idempotent computations |
+**Read the vantage column first — it is the trap.** Browser and CDN costs are paid from the *user's* position; in-process, distributed and DB-cache costs from the *server's*. That makes them non-comparable: a CDN hit means the request never reached your server at all, so it *removes* every server-side row below it rather than competing with one. Pick the highest layer the data's freshness requirement allows, and only then compare cost within a single vantage point.
+
+| Layer | Vantage | What actually sets the cost | How to get *your* number |
+|---|---|---|---|
+| Browser HTTP cache | user | No network at all — a client memory/disk read | DevTools Network panel: `Size` reads `(memory cache)` / `(disk cache)`; `Time` is the cost |
+| CDN | user | One round trip to the nearest PoP — dominated by user↔PoP geography, not by the cache | RUM TTFB split by PoP/country, or `curl -o /dev/null -s -w '%{time_starttransfer}\n' <url>` from each region you serve |
+| Server in-process (memory) | server | A map read in the same process — no syscall, no network, no serialization | Wrap the read in the project's existing timer / APM span |
+| Server distributed (the project's — Redis / Memcached / Valkey / vendor-managed) | server | One round trip inside your network, plus serialize/deserialize of the payload | The client's latency probe run *from an app host* (e.g. `redis-cli --latency-history -h <node>`) or the vendor's latency metric — plus the payload size |
+| Database query cache | server | Engine-specific, but usually the same round trip you were trying to avoid | The engine's own cache-hit statistic |
+| Application code (constants / closures) | server | Nothing — this is not a cache, it is a value | n/a |
+
+**No latency figures ship in this table, deliberately.** Across deployments they vary by more than an order of magnitude — PoP distribution, VPC topology, payload size, serializer — so a number printed here would be decoration a reader could mistake for a budget. Measure yours with the right-hand column and cite the measurement in the design; a layer choice defended by a remembered millisecond is not defended.
+
+**Use cases, unchanged by the above:** browser cache → static assets, immutable data. CDN → public content, SSG page HTML, per-route-cacheable API responses. In-process → request-scoped reuse within one request. Distributed → shared across instances, multi-tenant when keyed properly. DB query cache → last resort; let the app cache first.
 
 Pick by profile:
 - **Read-heavy, infrequent updates** → CDN / browser cache (hours-days TTL).
@@ -138,7 +145,7 @@ Rules:
 ## Anti-patterns
 
 - **Caching write-heavy data** — invalidation churn > cache benefit.
-- **Caching small fast queries** — DB ~1ms, Redis ~1ms, no win.
+- **Caching a query the cache cannot beat** — when the source read and the cache read cost the same order of magnitude, the cache adds a network hop, a serializer, and an invalidation bug for no latency win. The test is not a remembered number: measure the source query and the cache round trip from the same host (§ "Caching layers" right-hand column) and cache only when the source is materially slower *and* the read:write ratio makes the hit rate worth having.
 - **No tenant in key** for tenant-scoped data — cross-tenant leak.
 - **Indefinite cache** — no TTL, no invalidation. Stale forever.
 - **Cache as source-of-truth** — cache is derived; DB is truth.
@@ -186,11 +193,12 @@ When designing for a feature:
 - Cache stampede on product list: 30-second sliding window lock per key on miss.
 - Stale-on-replication: write writes to primary + invalidates cache; read replica may briefly serve stale; acceptable per tenant.config 5-min.
 
-### Metrics
-- Cache hit rate per key prefix (target: >80% for read-heavy).
-- Cache eviction rate.
-- Cache get/set latency P95.
-- Memory usage trend.
+### Metrics — and what each number means, since a metric no one can act on is decoration
+- **Hit rate per key prefix** — `hits / (hits + misses)`, from the cache server's own stats (`INFO stats` and equivalents), never estimated. No universal target: the bar is *whether the hit rate is high enough that the saved backend work exceeds the cache's cost*, which depends on the read:write ratio and how expensive the miss is. A 40% hit rate on a 900ms query is worth more than 95% on a 2ms one. Read it as: **falling** → invalidation is too aggressive or the key is too specific; **near zero** → the data is not actually re-read, remove the cache.
+- **When the stats are not reachable** — metrics disabled on a managed tier, no APM, no access from where the agent is running — print `HIT RATE UNAVAILABLE — <what is missing>` and say what it blocks: you cannot claim the cache earns its keep, so the design ships **provisional** and the rollout's "monitor 1 week" step has nothing to read. Substituting an estimate, a vendor benchmark, or a number from another environment is never allowed here; exposing the stat becomes task 0 of the rollout, ahead of Phase 1.
+- **Eviction rate** — non-zero under steady load means the working set exceeds `maxmemory`; entries are being dropped before their TTL, so the hit rate above is capacity-bound, not TTL-bound. Fix the size before tuning the TTL.
+- **Get/set latency p95** — if this approaches the latency of the call being cached, the cache is not buying anything.
+- **Memory trend** — flat is the requirement. Monotonic growth means some key path has no TTL and no bound; find it before it becomes the 3am page.
 
 ### Rollout
 - Phase 1: products only (highest read; lowest risk).
@@ -203,7 +211,7 @@ When designing for a feature:
 
 - **Tenant in key for tenant-scoped data.** Always.
 - **Every cache has TTL OR explicit invalidation.** No indefinite caching.
-- **Hit rate metric measured before and 1 week after introduction.** No silent inefficiency.
+- **Hit rate metric measured before and 1 week after introduction** — or the report prints `HIT RATE UNAVAILABLE` and names what is missing. An absent hit-rate line reads as "measured and fine", which is the one thing it never means.
 - **Failure path graceful.** Cache server down ≠ app down.
 - **No cache as authority.** Cache is derived; DB / source-of-truth is authoritative.
 
@@ -228,4 +236,4 @@ When designing for a feature:
 
 ### Rules
 - `.claude/rules/performance-principles.md`
-- `.claude/rules/security-principles.md` (cross-tenant isolation per A04 / A07)
+- `.claude/rules/security-principles.md` — a cache key that omits the tenant is **broken access control** (OWASP A01:2025, https://owasp.org/Top10/2025/), not a crypto or auth failure. The request authenticates and authorises correctly and still returns another tenant's rows, because the cache answered before the tenant filter ran.

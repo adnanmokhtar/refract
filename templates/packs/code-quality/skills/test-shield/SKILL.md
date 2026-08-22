@@ -29,6 +29,16 @@ This is the pre-sweep counterpart to `smoke-verify` (which runs after). Dead-cod
    - If the branch genuinely cannot be characterized (true side-effect-only, external dependency, non-deterministic) → **HALT** that finding with `status: blocked` + reason; do NOT apply the structural fix to an un-pinnable branch.
 4. **Gate**: only after every touched branch is covered (pre-existing or freshly pinned) may the sweep apply its fix. Coverage measured here is the floor `/optimize` step 7's "coverage must not drop" compares against.
 
+### If the testing pack is not installed
+
+Steps 2 and 3 name `coverage-gap` and `/add-test`, which ship in the **testing** pack. A project without it must not silently skip this gate — a skipped shield reads as "covered" when nothing was checked, which is the failure this skill exists to prevent. Degrade in this order:
+
+1. **Coverage still measurable without the skill.** The skill is a reading procedure, not the measurement: run the project's own coverage flag (`vitest --coverage` / `pytest --cov` / `go test -cover` / `cargo tarpaulin`) and intersect its `0`-hit lines with the touched set by hand. This loses none of the gate's strength.
+2. **No coverage tooling at all.** Fall back to the weaker but real check: for each touched function, grep the test tree for its symbol. No reference at all is an uncovered branch with certainty; a reference is only *evidence* of coverage, not proof. Record the finding as `shielded [grep-only]` so the reader knows which rows rest on the weaker check.
+3. **Writing the characterization test without `/add-test`.** The test is an ordinary test — capture today's observable output for a representative input (bugs included) and assert on it. What `/add-test` adds is sibling-shape mirroring and the mutation gate, not the ability to write the file.
+4. **Neither available.** The finding is `blocked [unshieldable]` with the reason. Never `applied`.
+
+**Never silently skip the axis.** Record the substitution (`inline:coverage-gap`, `manual-characterization`) in the sweep's report.
 ## Verify (the check on the check)
 
 - The added characterization tests are GREEN against current code (a red pin = the pin is wrong; fix it before proceeding).
@@ -39,6 +49,7 @@ This is the pre-sweep counterpart to `smoke-verify` (which runs after). Dead-cod
 
 - **The Coverage Mirage** — "behaviour preserved, tests green" on a branch no test exercises.
 - **The Silent Coverage Drop** — a fix removes the only path exercising a downstream branch; coverage drops unnoticed in a large suite (test-shield's pre-measure is the baseline that catches it).
+- **The Absent-Shield Mirage** — the testing pack is not installed, the skill no-ops, and the sweep reports "behaviour preserved" having verified nothing. A missing dependency must degrade (above), never disappear.
 
 ## See also
 

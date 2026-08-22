@@ -115,7 +115,7 @@ Test-specific:
 - **If `--review` was passed:** dispatch `@test-reviewer` over the generated files; attach its verdict (assertion strength, mock boundary, naming, missing cases) to the output. Do not auto-apply — surface for the author to act on.
 - `/learn-from-task` — capture test-shape patterns introduced.
 - If same test setup boilerplate repeats 3+ times → queue to `ai/dynamic/learned-patterns.md` as a candidate fixture/helper.
-- If coverage gap was systemic (multiple modules at < 60%) → queue ADR: enforce coverage threshold in CI.
+- If the gap was systemic — several modules missing tests on the *same* axis (every error path, or one whole layer) → queue ADR: gate CI on a coverage **ratchet** (fail on a drop below the number the repo already measures), never on a borrowed absolute. A threshold nobody measured either fires on everything and gets muted, or fires on nothing.
 
 ## Output format
 ```
@@ -153,7 +153,7 @@ Status: PRODUCTION-GRADE            # or: INCOMPLETE — <named unmet items> | U
 
 ### Sibling commands in testing pack
 - `/run-tests` — run the new (or full) suite after authoring; the universal runner this command's Phase 4 leans on.
-- `/flaky-test-hunt` — sibling command in testing pack
+- `/flaky-test-hunt` — the repair half. If a test this command authored fails intermittently, that is a defect in the test, not a coverage question: hand it there rather than loosening the assertion until it stops failing.
 - `/tdd` — when the tests should come first (red→green→refactor), use this instead of authoring after the fact.
 
 ### Agents

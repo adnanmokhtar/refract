@@ -1,5 +1,5 @@
 ---
-description: Pre-commit gate — mechanical + agent review on staged changes. Blocks commit on blockers.
+description: Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on red), then agent review, secret-scan and coverage-gap on every staged file, then a comprehension brief. Refuses the commit on any blocker. Anti-triggers: the whole-branch PR review is `/review-changes` (which also owns the shared reviewer routing table); the no-diff weekly repo pulse is `/check-health`; ranking and fixing at target scale is `/audit`.
 ---
 
 # /pre-commit
@@ -50,14 +50,19 @@ ALWAYS:
 - `CLAUDE.md` + `ai/conventions.md` — what reviewers enforce.
 - `.claude/rules/*.md` — scoped to changed-path tracks.
 
-PATH-BASED reviewer selection:
+PATH-BASED reviewer selection.
+
+**This is a scoped subset of one routing table, not a second table.** The full category→reviewer mapping is `review-changes.md § Phase 6 — Category-based`, and that file is the source of record; two hand-maintained copies drift, and the drift is invisible until something ships through the gap. The rows below are the categories worth paying for on a *staged* diff. For any staged path that matches a category not listed here — `k8s`, `ci`, `iac`, `api-contract`, `events`, `telemetry`, `docker`, `ai-code` — read that row from `review-changes.md` and apply it; do not treat its absence here as "no reviewer needed".
+
 | Touched | Agent + rules to read |
 |---|---|
 | `apps/**/controllers/`, `services/`, `repositories/` | `api-reviewer` (+ `tenant-isolation-reviewer` if multi-tenant) |
 | `app/`, `pages/`, `components/`, `*.vue`, `*.tsx`, `*.jsx`, `*.svelte`, `*.razor`, `*.component.ts` | `ui-reviewer` + `i18n-auditor` |
+| DB entities / repositories / raw SQL | `schema-reviewer`, `query-optimizer` |
 | DB migrations | `schema-reviewer` (internally invoke `/migration-review`) |
 | `__tests__/`, `*.spec.*` | `test-reviewer` |
-| `auth/`, `crypto/`, `secrets/`, `payment` | `security-auditor` |
+| `auth/`, `crypto/`, `secrets/`, `payment` | `security-auditor` (+ `auth-reviewer` on auth flows) |
+| Manifest / lockfile with a **newly added** package (not a version bump) | `security-auditor` + `deps-audit` skill — maintenance health, license, transitive cost, known CVEs, and whether an existing primitive already covers it. An unexplained new dep on a security or data-handling path is a blocker. |
 
 ## Phase 4 — Generate (verdict)
 
@@ -84,6 +89,15 @@ If any mechanical step fails → STOP, do not run agents.
 - Path-selected reviewers (table in Phase 3).
 - Each returns: blockers, requests, nits.
 
+### Universal skill checks (every run, regardless of which paths were touched)
+
+A commit is the last moment a secret can be stopped cheaply. After it lands, removal means a rewrite and a rotation. So the two checks that do not depend on file category run here — **earlier** than `/review-changes`, not later:
+
+- **`secret-scan` on every staged file.** Not just `auth/` — a key in a test fixture, a seed script, a `.env.example` that stopped being an example, or a config default is the same leak. A real secret in the staged diff is a **blocker**: the commit is refused. If the skill is not installed, run the inline check over the *added* lines: high-entropy strings plus known key prefixes (`AKIA`, `sk-`, `ghp_`, `xoxb-`, `-----BEGIN * PRIVATE KEY-----`, `postgres://…:…@`). Also refuse an accidentally-staged credential FILE (`.env`, `*.pem`, `*.p12`, `id_rsa`, service-account JSON) regardless of content.
+- **`coverage-gap` on staged lines.** New behaviour with no covering test is a finding **even when no test file was staged** — otherwise `test-reviewer` never dispatches (its trigger is a staged test path) and the gap is structurally invisible. Severity: request by default; **blocker** on a security / data-integrity / write-path change. Inline fallback when the skill is absent: for each added function / branch / write-path, grep the test tree for the symbol or route; no covering assertion is the finding.
+
+**Missing-skill fallback:** never skip either axis. A skipped axis reads as "clean" when it was never checked — note the substitution (`inline:<skill-name>`) in the report.
+
 ### Comprehension gate (change-brief)
 - Dispatch the `change-brief` skill (mode B — validate; mode A — generate first if the commit body has none) when the staged change matches a trigger tier (> 20 lines, new dependency / public symbol / abstraction, touches I/O / auth / payments, changes an error path / default / permission gate).
 - The brief's 5 fields (What / Why this shape / Edge cases / Blast radius / Verified by) must PASS the skill's hand-wave + citation + echo + verification checks. Missing or failing brief = **blocker** — "the code runs" is not "the code is owned".
@@ -108,6 +122,10 @@ Mechanical:
   PASS  Typecheck  (0 errors)
   PASS  Tests      (12/12 in affected suites)
 
+Universal skills:
+  PASS  secret-scan   (4 staged files, 0 hits)
+  FAIL  coverage-gap  (1 uncovered write-path — see Blockers)
+
 Review verdict: REQUEST_CHANGES
 
 Blockers (1):
@@ -129,6 +147,7 @@ Commit BLOCKED until blocker resolved.
 ## Failure modes
 
 - Blockers deferred to "next commit" — next commit still ships the blocker.
+- **Secret found after the commit landed** — the cheap fix expired at `git commit`; now it is a history rewrite plus a credential rotation. That is why `secret-scan` runs here and not only at PR time.
 - Nits padded to look thorough — keep blockers as blockers.
 - Selective test runs miss transitive regressions on critical paths — run full suite once before pushing.
 - Husky/lefthook hooks treated as replacement — that layer catches mechanical issues; this layer catches design + security.
@@ -137,11 +156,24 @@ Commit BLOCKED until blocker resolved.
 
 ## Related
 
+### The boundary this command owns
+
+**`/pre-commit` is the only artifact here that gates the STAGED index.** Its scope is `git diff --cached`, its moment is before `git commit`, and its output refuses or permits that commit. Nothing else owns that moment.
+
+**Anti-triggers — route away:**
+- *"Review my PR"* → **`/review-changes`**. Same reviewer panel, wider scope (the whole branch diff), later moment, and it ends in a merge verdict rather than a commit gate. Run this one per commit and that one per PR; running this on an already-pushed branch reviews only what happens to be staged, which is usually nothing.
+- *"Is the codebase healthy"* → `/check-health` (no diff, weekly cadence).
+- *"Rank and fix everything at scale"* → **`/audit`** (global).
+- *"Fix what you find"* → this command never authors a file. It gates.
+- Nothing staged → exit; do not fall back to reviewing the working tree.
+
+**Deliberate overlap with husky / lefthook / `.pre-commit-config.yaml`:** those run *in addition*, not instead. That layer catches mechanical issues (format, lint, secrets-regex). This layer catches design, security, and comprehension. Neither replaces the other — and this command must run the project's declared hooks' commands rather than a parallel toolchain.
+
 ### Sibling commands in code-quality pack
-- `/check-health` — sibling command in code-quality pack
-- `/find-module` — sibling command in code-quality pack
-- `/review-changes` — sibling command in code-quality pack
-- `/simplify` — sibling command in code-quality pack
+- `/review-changes` — the wider twin and the **source of record for the category→reviewer routing table**. When the two disagree, that file wins.
+- `/check-health` — the no-diff periodic pulse.
+- `/simplify` — if the gate's findings are "this is more complicated than it needs to be", that command applies the fix.
+- `/find-module` — locate a symbol a blocker cites.
 
 ### Rules
 - `.claude/rules/engineering-principles.md`

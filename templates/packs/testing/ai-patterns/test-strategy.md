@@ -52,11 +52,11 @@ For a 200-LOC script you're going to throw away next week, full pyramid is overk
  /--------------\
 ```
 
-Rough ratio targets: 80% unit / 15% integration / 5% E2E.
+There is no ratio target. Percentages get quoted for this shape — 70/20/10, 80/15/5 — but they trace to conference slides and comment threads rather than to any measurement, and picking one commits you to a codebase you may not have. What the pyramid actually encodes is an *ordering* rule: prove each behaviour at the lowest level that can prove it, and buy a level up only for what the level below cannot reach.
 
 Critics ("test trophy" — Kent C. Dodds) argue integration tests are underused. They're right for stateless UI components and thin REST APIs that have no domain logic. They're wrong for systems with rich domain models — unit tests on the domain layer are the cheapest defect-prevention.
 
-Pick the model honestly. If the codebase is 80% glue between services and 20% logic, you'll have more integration than unit. If it's 60% domain logic, the classic pyramid wins.
+**Pick the model from the codebase, and let the resulting distribution be whatever it is.** Mostly glue between services → more integration than unit, correctly. Rich domain layer → unit-heavy, correctly. Neither shape is a deviation to be corrected back toward a quoted percentage; a suite tuned to hit a ratio is optimising the wrong variable.
 
 ## What goes where
 
@@ -207,7 +207,7 @@ These are the most boring tests in the codebase and the most important.
 
 ## Testing tests
 
-The mutation-testing trick: corrupt the source (`==` → `!=`), re-run tests. If they still pass, the test wasn't actually testing the corrupted line. Tools: Stryker (JS/TS), PIT (Java), mutmut (Python). Don't run on every PR (slow); run weekly to find weak tests.
+The mutation-testing trick: corrupt the source (`==` → `!=`), re-run tests. If they still pass, the test wasn't actually testing the corrupted line. **The per-stack tool table lives in `../skills/mutation-probe/SKILL.md` and only there** — restated copies of it in this pack drifted and shipped a wrong tool. Scope runs to the diff or to critical modules; a whole-repo run on every PR is unaffordable and gets muted.
 
 ## Migration path
 

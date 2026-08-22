@@ -11,4 +11,6 @@ Where inline examples appear, they use abstract pseudocode or `<ext>` placeholde
 
 ## Stack-conditional behaviour
 
-The `code-reviewer` agent and `pre-commit` skill read the project's `_v2-anchors.md` and apply stack-appropriate checks. Stack-specific lint rule names, test framework imports, and coverage thresholds belong in the per-project anchor file — not in this pack.
+The `code-reviewer` agent and the `/pre-commit` command read the project's own anchored stack facts — `ai/stack.md § Scripts` for the commands to run, `.claude/codebase-profile.md` and `_extracted-idioms.md` for the primitives to check against — and apply stack-appropriate checks from those. Stack-specific lint rule names, test-framework imports and coverage thresholds belong in that per-project layer, not in this pack.
+
+If the anchored layer is absent, the stack-conditional checks are reported as **not run**, not silently skipped: a review that could not determine the project's test command has not established that tests pass.

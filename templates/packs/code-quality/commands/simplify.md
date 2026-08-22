@@ -1,5 +1,5 @@
 ---
-description: Review changed code for reuse, dead branches, and over-abstraction; propose concrete simplifications.
+description: Reduce entropy in CHANGED code using four closed verbs (remove / inline / dedupe / rename-comment-out) with a mechanical net-lines ≤ 0 gate — it may only reuse what already exists and refuses to add a symbol. Anti-triggers: creating a new helper or performing a structure move is `/refactor`; whole-project architecture or measured perf work is `/optimize` (global); convention drift with no entropy angle is `/align` (global); ranking defects at target scale is `/audit` (global).
 ---
 
 # /simplify [path]
@@ -139,12 +139,34 @@ A run with nothing to put under `Simplified` did not simplify — it says so, ra
 
 ## Related
 
+### The boundary this command owns
+
+**`/simplify` is the subtraction-only editor: `net lines ≤ 0` on a closed four-verb vocabulary, hard-refusing "introduce a symbol", with no exemption and no prerequisite.** A run that added a helper was not a `/simplify` run.
+
+That gate pair is **not unique to this command** — `/align-gate` (global, `align` pack) runs both, as checks 3 and 4 of its 14-check matrix ([`align-gate.md`](../../align/commands/align-gate.md) § "Check 3 — Net-lines on structural rows ≤ 0" / § "Check 4 — No new symbols"). What differs is *what the gate is attached to*, and that is what picks between them:
+
+| | `/simplify` | `/align-gate` |
+|---|---|---|
+| Gates | its own edits, per run | a phase of an existing `ai/align/ledger.md`, after the fact |
+| Writes code | yes — it *is* the editor | no — read-only; its only verdict is refusal |
+| Net-lines scope | every applied candidate | the *structural subset* of the phase diff; functional rows are exempt |
+| New symbol | absolute refusal | permitted when the symbol is named in `_extracted-idioms.md` |
+| Prerequisite | none — point it at a diff | a populated align ledger + plan |
+
+No ledger and you just want the diff smaller → here. Closing out a ledger phase → `/align-gate`.
+
+**Anti-triggers — route away, do not run this command:**
+- The fix needs a **new** helper, class, or module, or a structure move → **`/refactor`**. The split is directional and mechanical: `/simplify` may only *reuse* what already exists; `/refactor` is where creating a symbol is allowed (Rule of Three — ≥3 concrete callers, per [`refactorer.md`](../agents/refactorer.md) § "Safe refactors" → *Replace duplication*). A candidate `/simplify` halts on because it would add an abstraction belongs there, and vice-versa: a `/refactor` finding that turns out to be "delete this, the shared helper already does it" belongs here.
+- Whole-project cleanup, architecture, or a **measured** perf win → **`/optimize`** (global). It runs Phase-0 architectural diagnosis first; this command has none and never looks past the diff.
+- "Some files do X, some do Y" with no entropy angle → **`/align`** (global): enforcing an idiom the project already documents.
+- Ranking what is wrong at a target scale → **`/audit`** (global).
+- **Name collision worth knowing:** the Claude Code harness ships a built-in `simplify` skill with a near-identical brief ("review the changed code for reuse, simplification, efficiency… quality only"). They do not overwrite each other — a pack command installs as `<name>.<track>.md` — but a user typing "simplify" may reach either. What *this* one adds is the closed verb set, the net-lines gate, the two evidence arms, and the refusal to introduce a symbol. If those constraints are not what you want, the built-in is the looser tool and the right one.
+
 ### Sibling commands in code-quality pack
-- `/check-health` — sibling command in code-quality pack
-- `/find-module` — sibling command in code-quality pack
-- `/pre-commit` — sibling command in code-quality pack
-- `/review-changes` — sibling command in code-quality pack
-- `/refactor` — the boundary: `/simplify` only **reuses an existing** helper (dedupe/inline against what's already there) and refuses to add a new symbol; the moment a fix needs a **new** helper / abstraction extracted, it routes to `/refactor`.
+- `/refactor` (pack overlay) — the create-a-symbol half of the same job; see above.
+- `/review-changes` — reports on a diff and never edits; this command edits. Route a `simplify:`-shaped finding from a review here.
+- `/pre-commit` / `/check-health` — gates and pulses; neither reduces entropy.
+- `/find-module` — locate the existing helper before deciding a duplicate is really a duplicate.
 
 ### Rules
 - `.claude/rules/engineering-principles.md`

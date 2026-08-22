@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "1.5.0",
-  "released": "2026-07-10",
+  "version": "1.6.0",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "add-test gates on mutation effectiveness, not line coverage.",
+  "summary": "Every number a testing artifact prints is transcribed from a runner; NOT-RUN and RED-UNOBSERVABLE are named states, not silent passes.",
   "changelog": "CHANGELOG.md"
 }

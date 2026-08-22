@@ -45,7 +45,7 @@ pack: performance
 | **Modal/drawer contents** | Account settings dialog, share sheet | Render placeholder; populate on open. |
 | **Large lists** | Threads with 1000+ items, message history | Virtualization (the framework's virtualisation library). |
 | **Server data not needed yet** | Tab content not currently selected | Fetch on tab activate. |
-| **Hydration scheduling (interactive islands)** | Counter widget, accordion, carousel, comment box | Hydrate only what is interactive, and schedule WHEN: `client:visible` for below-fold islands (default), `client:load` only for above-fold interactivity, `client:idle` / `client:media` / `client:only` for the rest. (Qwik: resumability = zero hydration.) |
+| **Hydration scheduling (interactive islands)** | Counter widget, accordion, carousel, comment box | Hydrate only what is interactive, and schedule WHEN: the *visible* class for below-fold islands (the default), *eager* only for above-fold interactivity, *idle* / *media-conditional* / *client-only* for the rest. Directive spelling per `references/<framework>.md`; a resumability framework has no hydration step to schedule. |
 
 ## When NOT to lazy-load
 
@@ -81,19 +81,23 @@ ALWAYS set `width` + `height` (or `aspect-ratio` CSS) — without them, lazy ima
 
 ### Hydration scheduling (interactive islands)
 
-Don't hydrate the whole page — hydrate only the islands that are actually interactive, and schedule WHEN each one hydrates. In Astro this is the `client:*` directive on the island:
+Don't hydrate the whole page — hydrate only the islands that are actually interactive, and schedule WHEN each one hydrates. Island frameworks expose a per-island hydration directive; the *names* differ by framework, the schedule classes do not:
 
-- `client:load` — hydrate eagerly on page load. Reserve for **above-the-fold** interactivity.
-- `client:idle` — hydrate during `requestIdleCallback`. Good for non-urgent interactivity.
-- `client:visible` — hydrate when the island enters the viewport (IntersectionObserver). **Default for below-the-fold islands.**
-- `client:media={...}` — hydrate only when a media query matches (e.g. mobile-only controls).
-- `client:only={...}` — skip SSR entirely; client-render only.
+| Schedule class | When it hydrates | Use for |
+|---|---|---|
+| **Eager** | at page load | above-the-fold interactivity only |
+| **Idle** | in the runtime's idle callback | non-urgent interactivity |
+| **Visible** | when the island enters the viewport | **the default for anything below the fold** |
+| **Media-conditional** | only when a media query matches | viewport-specific controls (mobile-only menus) |
+| **Client-only** | skips SSR entirely | islands that cannot server-render |
 
-**Rule** — default below-the-fold islands to `client:visible`; reserve `client:load` for above-the-fold interactivity.
+Take the concrete directive spelling from `references/<framework>.md` — never from memory, since the same class has different names across island frameworks.
 
-**Detector** — an Astro island using `client:load` for a below-the-fold widget → flag, cite `<file:line>` + the `client:load` directive, propose `client:visible` (or `client:idle` if it must pre-warm).
+**Rule** — default below-the-fold islands to the *visible* class; reserve *eager* for above-the-fold interactivity.
 
-When the stack is **Qwik**, resumability is the zero-hydration option: listeners are serialized in HTML and resume on interaction — no hydration step runs at all, so there is no per-island `client:*` schedule to tune.
+**Detector** — an island hydrating eagerly for a below-the-fold widget → flag, cite `<file:line>` + the directive, propose the visible class (or idle if it must pre-warm).
+
+Where the framework offers **resumability** instead of hydration, listeners are serialized in HTML and resume on interaction — no hydration step runs at all, so there is no per-island schedule to tune.
 
 Cross-link the **Measure first** section before reclassifying any island: only flag the schedule once you've confirmed the island is below the fold and its current eager hydration costs measured main-thread time.
 

@@ -6,53 +6,47 @@ pack: performance
 
 # Performance Principles
 
-> **Hard rule.** Every "perf" PR MUST attach a baseline AND post-change measurement (p50 / p95 / p99 + RPS). Optimization without a profile, N+1 queries, unbounded caches, sync I/O on the event loop, and external calls held inside DB transactions are forbidden.
+> **Hard rule.** Every "perf" PR MUST attach a baseline AND a post-change measurement from the SAME harness (p50 / p95 / p99 + RPS). An adjective where a number belongs — "faster", "snappier" — is a failed measurement, not a result. Optimization without a profile, N+1 queries, unbounded caches, sync I/O on the event loop, and external calls held inside DB transactions are forbidden.
 
 Prevents the two failure modes: optimizing the wrong thing, and shipping a regression because no one measured.
 
 ## Must
 
-- Establish a baseline BEFORE changing code: p50 / p95 / p99 latency, RPS, memory, error rate. No baseline = no proof of improvement.
-- Profile before optimizing. `clinic.js` / `0x` / `node --prof` (Node), `py-spy` / `cProfile` (Python), `pprof` (Go), Chrome DevTools Performance (frontend). The bottleneck is rarely where you guessed.
-- Every list endpoint paginates. Cursor pagination (`WHERE id > :lastId LIMIT N`) for deep lists; offset is fine for shallow.
+- The baseline the Hard rule demands also carries **memory and error rate**, not latency alone — a latency win paid for in RSS or in 5xx is not a win, and you cannot discover that after the fact.
+- **Define the noise band before reading any delta.** Re-run the unchanged baseline ≥3× and take the spread; a before→after delta inside that spread is `NO-CHANGE`, not a win and not a regression. "(noise)" asserted without that spread is the same defect as "faster".
+- **"It got slow" is a different question from "it is slow."** A regression means a known-good state existed: recover it and diff — deploy range, migration, data volume, query plan, cache hit-rate, downstream latency — *before* opening any bottleneck taxonomy. A taxonomy tells you what is sometimes slow; only the diff tells you what changed.
+- Profile before optimizing, with your runtime's sampling profiler. The hot path is routinely somewhere nobody predicted — that is what the profiler is for, and guessing costs a release.
+- Every list endpoint paginates. Cursor pagination for deep lists; offset is fine for shallow.
 - Every cache entry has a TTL or an explicit invalidation path. Unbounded caches = memory leak you'll find at 3am.
-- Cache stampede protection on hot keys: singleflight (Go), `dataloader` (Node), `getOrSet` with locking, or `cachetools` `cached` lock.
-- Indexes on every column appearing in WHERE, ORDER BY, or JOIN of slow queries. Verify with `EXPLAIN ANALYZE`.
-- Async I/O on the event loop. Sync `fs.readFileSync` / blocking DB drivers in a request handler is a stop-the-world bug.
+- Cache stampede protection on hot keys — a single-flight / coalescing primitive, which every mainstream runtime ships.
+- Indexes on every column appearing in WHERE, ORDER BY, or JOIN of slow queries. Verify with the DB's plan-explainer, not by assumption.
+- Async I/O on the event loop / async runtime. Sync filesystem reads or blocking DB drivers in a request handler are a stop-the-world bug.
+- Browser input handlers keep per-interaction main-thread work under the INP budget (≤200ms at p75). Break long tasks and defer non-urgent state updates with the framework's transition primitive.
 
 ## Must not
 
-- Optimize without a profile. Intuition is wrong ~80% of the time on hot paths.
-- N+1 queries — fetching parent then looping `findById(child)`. Use `IN (...)`, JOINs, or DataLoader batching.
-- `SELECT *` on large rows when you need 3 columns. Network + parse cost adds up at scale.
+- N+1 queries — fetching parent then looping single-row child fetches. Use `IN (...)`, JOINs, or batch-loader primitives.
+- `SELECT *` on large rows when you need 3 columns.
 - Hold a DB transaction across an external API call. Connection pool exhaustion at peak.
 - Regex compilation inside a hot loop — compile once, reuse.
-- `console.log` / `print` in hot paths (request handlers, render loops). Logging is I/O.
-- Block the event loop with CPU work > 50ms — offload to a worker thread / queue / separate process.
+- Direct stdout / unstructured print calls in hot paths. Logging is I/O.
+- Block the async runtime / event loop with CPU work — offload to a worker thread / pool / queue. The bound is fixed only in the browser, where a task "whose duration exceeds 50ms" is a **long task** by definition (https://w3c.github.io/longtasks/). On a server there is no such constant: measure event-loop lag against that endpoint's own latency budget rather than borrowing 50.
 - Cache responses that depend on user/tenant identity without including that identity in the cache key.
 
 ## Should
 
-- Architecture wins beat micro-wins: add a queue, CDN, or read replica before optimizing a mapper function.
-- `Promise.all` / `asyncio.gather` / errgroup for independent I/O. Sequential `await` of independent calls is wasted wall-clock.
+- Prefer architecture wins over micro-wins: add a queue, CDN, or read replica before optimizing a mapper function.
+- Run independent I/O through the language's structured-concurrency primitive — sequential `await` of independent calls is forbidden in hot paths.
 - Bound worker pools and concurrency limits — unbounded fan-out kills downstreams.
-- Frontend: lazy-load routes, virtualize lists > 100 items (`react-window`, `vue-virtual-scroller`), use `<img loading="lazy">` + `srcset`, tree-shake bundles.
-- Backend: streaming responses for large payloads, gzip/brotli at the edge, HTTP/2 or HTTP/3.
-- Set realistic SLOs (e.g. p95 < 300ms on key endpoint) and alert on regression — performance without an SLO is just vibes.
-
-## Review checklist
-
-- [ ] Before/after numbers in the PR description for any "perf" PR (p50/p95/p99 + RPS).
-- [ ] New endpoint has pagination if it returns a list.
-- [ ] New cache has a documented TTL and invalidation strategy.
-- [ ] New query has been `EXPLAIN`-ed; no full table scan on tables > 10k rows.
-- [ ] No new sync I/O in async handlers.
-- [ ] Frontend bundle delta checked (`size-limit` / `bundlesize` CI report).
+- Set each SLO from **your own measured** p95 on that endpoint, not a borrowed number — gate just under what you already achieve and ratchet. A threshold nobody measured either fires on everything and gets muted, or fires on nothing.
+- An SLA/SLO is only validated by a load / stress / soak campaign on a prod-parity env — single-VU or laptop numbers describe the laptop.
+- Instrument SPA route transitions and budget route-change-to-paint; the Soft Navigations heuristic is still emerging, so gate any reliance on it behind `where available`.
+- A monotonically-growing heap under steady load is a leak — hunt it with a heap diff over time, never a memory-limit bump or a periodic restart.
 
 ## Enforcement
 
-- `size-limit` or `bundlesize` CI check on frontend bundles.
-- Lighthouse CI budget on Core Web Vitals (LCP < 2.5s, INP < 200ms, CLS < 0.1).
-- k6 / Artillery / Locust load tests on critical endpoints in staging.
+- Frontend bundle-size CI check (framework-native budget or equivalent) — fail-on-regression.
+- Lab CI gates what the lab can actually measure: LCP and CLS load-shift via Lighthouse CI, plus a `server-response-time` budget for TTFB. **INP is not lab-measurable** — a lab tool scripts one synthetic interaction, and real users are the only source of the real number, so INP is gated on field p75 (CrUX / RUM), never on a lab run. Core Web Vitals "good" thresholds, judged at p75 of real users: LCP ≤ 2.5s, INP ≤ 200ms, CLS ≤ 0.1 (https://web.dev/articles/vitals).
+- Load tests on critical endpoints in staging using the project's load-tester — pick one and keep results comparable.
 - Slow query log enabled in dev + staging; review weekly.
-- APM (Datadog / New Relic / Sentry Performance / Grafana Tempo) with alerts on p95 regression.
+- APM with alerts on p95 regression, on a threshold outside the measured noise band.

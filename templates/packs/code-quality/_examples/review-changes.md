@@ -1,5 +1,5 @@
 ---
-description: Comprehensive, signal-aware review of pending changes. Classifies the diff, dispatches every relevant specialist agent in parallel, consults all applicable patterns, produces a single consolidated verdict with GO/NO-GO.
+description: Comprehensive, signal-aware review of a PENDING DIFF, ending in a merge verdict (APPROVE / REQUEST_CHANGES / BLOCK) backed by a real test run. Classifies the diff, triages it by blast radius, dispatches every relevant specialist agent in parallel, consults all applicable patterns. Read-only — it never edits. Anti-triggers: ranking what is wrong with existing code at target scale is `/audit`; changing code to make it better (architecture, measured perf, cleanup) is `/optimize`; the staged-file commit gate is `/pre-commit`; the periodic no-diff repo pulse is `/check-health`.
 ---
 
 # /review-changes
@@ -232,11 +232,34 @@ Read `ai/status.md` current phase. Is this change in-scope?
 
 Scope creep = blocker or a discussion. "This is Phase 3 work but we're in Phase 1" → push back OR amend the roadmap in an ADR.
 
+### Suite state — run it, never infer it
+
+`APPROVE` is conditional on the suite being green, and **a diff that contains test files is not evidence that tests pass.** Reading `*.spec.ts` in the diff and writing "tests green" is the Trusted-Summary failure this command exists to prevent, committed by the command itself. Measure it here:
+
+```bash
+# Read the project's own commands from `ai/stack.md § Scripts` (or CLAUDE.md / package.json /
+# Makefile / pyproject.toml). Run THEM — never a substituted toolchain, never invented flags.
+<project test command>        # e.g. pnpm test --run · pytest -q · go test ./... · cargo test
+<project typecheck command>   # if the project declares one
+```
+
+Scope to the suites covering the diff (`vitest related` / `jest --findRelatedTests` / `pytest --picked` / `go test ./<changed-pkgs>/...`), full suite if there is no related-tests mode. Three outcomes, and the third is first-class:
+
+| Outcome | Recorded as | Effect |
+|---|---|---|
+| Exit 0 | `Suite: GREEN (<N>/<N>, <command>)` | APPROVE available |
+| Non-zero | `Suite: RED (<failing tests>)` | **BLOCK** — outranks every finding below |
+| Cannot run here (not declared / not installed / needs DB or browser / CI-only) | `Suite: UNVERIFIED — <reason>` | caps the verdict at `APPROVE (SUITE UNVERIFIED)` |
+
+Never launder UNVERIFIED into green.
+
 ### Consolidate findings
 
 Merge all reviewer outputs into one report, grouped by severity. GO / NO-GO verdict:
+- **Suite RED** → **BLOCK**, regardless of what the reviewers found.
 - Any **Blocker** → **REQUEST_CHANGES** (or **BLOCK** if critical security / data integrity).
-- Only requests/nits + all tests green → **APPROVE**.
+- Only requests/nits + **Suite GREEN as recorded above** → **APPROVE**.
+- Only requests/nits + **Suite UNVERIFIED** → **APPROVE (SUITE UNVERIFIED)**, naming what could not run.
 - No reviewer ran cleanly → investigate before approving.
 
 ## Phase 7 — Improve (feed the learning loop)
@@ -322,6 +345,7 @@ Then: re-run `/review-changes` to confirm it comes back clean, and open the PR.
 - Don't skip signal-based reviewers — tenant leaks slip through when tenant-isolation-reviewer is skipped because "it's a small change".
 - Never silently skip an axis — an uninstalled reviewer is performed inline (`inline:<reviewer-name>`), not dropped.
 - Run `secret-scan` on every changed file regardless of category — a committed credential is a BLOCK.
+- **Never assert suite state from the diff.** `Suite: GREEN` requires a runner exit code recorded in this run; anything else is `UNVERIFIED` and caps the verdict.
 - A diff that adds a dependency (not a version bump) gets a dependency review — flag it, don't wave it through.
 - Block on: security, data integrity, tenant isolation, correctness, committed secrets. Request on: perf, DX, maintainability, unreviewed new dependency. Nit on: style, i18n, minor docs.
 - Every blocker has a fix AND a verification step.
@@ -329,11 +353,21 @@ Then: re-run `/review-changes` to confirm it comes back clean, and open the PR.
 
 ## Related
 
+### The boundary this command owns
+
+**`/review-changes` reviews a DIFF and returns a merge verdict.** Input `git diff`, output APPROVE / REQUEST_CHANGES / BLOCK on *this change*. Every neighbour either takes a different input or produces a different output.
+
+**Anti-triggers — route away:**
+- *"Rank what's wrong at 10× traffic / pre-launch hardening"* → **`/audit`** (global): existing code, 8 axes, ranked at target scale, then fixed P0–P4. No diff, no merge verdict.
+- *"Clean up the auth flow / speed up the dashboard"* → **`/optimize`** (global): it **changes** code after a Phase-0 architectural diagnosis. This command never edits a file.
+- Trivial diffs (formatting, lockfile bump) → skip; overhead exceeds value.
+
 ### Sibling commands in code-quality pack
-- `/check-health` — sibling command in code-quality pack
-- `/find-module` — sibling command in code-quality pack
-- `/pre-commit` — sibling command in code-quality pack
-- `/simplify` — sibling command in code-quality pack
+- `/pre-commit` — same sweep one moment earlier and one scope narrower (staged files), and it blocks the commit. Shares this file's category→reviewer routing; this file is the source of record.
+- `/check-health` — no diff at all: the weekly whole-repo pulse.
+- `/simplify` — applies four entropy-reducing verbs; this command produces findings only.
+- `/refactor` (pack overlay) — behaviour-preserving structure moves; route `refactor:`-shaped findings there.
+- `/find-module` — locate the code before reviewing it.
 
 ### Rules
 - `.claude/rules/engineering-principles.md`

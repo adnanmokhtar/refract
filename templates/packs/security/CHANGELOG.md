@@ -9,6 +9,27 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.8.0 — 2026-08-22
+
+- **CSRF: the pattern names the control that actually holds, and why the popular one does not.**
+  `ai/patterns/auth-flow.md` gains a `## CSRF` section scoped to cookie-authenticated
+  state-changing requests. Two controls qualify — a synchronizer token or a *signed*, session-bound
+  double-submit — and the naive double-submit is called out as bypassable "by an attacker who can
+  write cookies on the target domain (e.g., via a vulnerable sibling subdomain, DNS takeover, or
+  plaintext-HTTP cookie injection on a non-`__Host-` cookie)", which on subdomain-per-tenant SaaS
+  is the ordinary deployment rather than an exotic precondition. `SameSite` and `Origin` are stated
+  as defence-in-depth, quoting OWASP that `SameSite` "does not replace a proper CSRF defense in most
+  deployments", with the reason: the `Lax` default only blocks unsafe methods and its scope is the
+  registrable domain, so it does not separate sibling subdomains. Sourced to the OWASP *Cross-Site
+  Request Forgery Prevention Cheat Sheet*.
+- **`security-principles`: 7,480 → ~6,650 characters (~1,870 → ~1,661 always-loaded tokens),
+  clearing the debt left when this file *grew* by 77 characters under a release that was asked to
+  shrink it.** The CSRF bullet no longer restates the `Origin`/`Referer` defence-in-depth point the
+  Must-not section already makes; the transport and header bullets are one; and the HSTS number
+  stopped being folklore — `max-age >= 31536000` is the HSTS preload list's stated minimum
+  (https://hstspreload.org), and the bullet now also names `preload` itself, without which the
+  header does nothing on the first visit, which is the visit an attacker wants.
+
 ## 1.7.0 — 2026-08-22
 
 Quality pass over the four commands, four skills and three ai-patterns (1.6.0 covered the agents +

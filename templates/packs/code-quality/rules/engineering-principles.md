@@ -9,91 +9,71 @@ applies-to: code-quality-track, every-code-writing-task-in-code-quality
 
 # Engineering Principles (project governance layer)
 
-> **Hard rule.** New code MUST live in a defined module with an explicit public surface, MUST follow the project's existing layering / DI / naming conventions, and MUST extend an existing implementation when one already covers ≥ 50% of the need. New "shared/" / "utils/" / "common/" buckets, parallel re-implementations, and silent convention deviations are forbidden — each requires an ADR or it doesn't merge.
+> **Hard rule.** New code MUST live in a defined module with an explicit public surface, MUST follow the project's existing layering / DI / naming conventions, and MUST extend an existing implementation of a concept rather than parallel-build a second one. New "shared/" / "utils/" / "common/" buckets, parallel re-implementations, and silent convention deviations are forbidden — each requires an ADR or it doesn't merge.
 
-These are CROSS-CUTTING engineering rules — broader than the micro-level hygiene in `quality-principles.md`, narrower than full architectural decisions (which live in ADRs at `ai/decisions/`). Think of this as the team contract: how features get structured, how AI is used, how change happens safely, how we stay consistent over time.
+These are CROSS-CUTTING engineering rules — broader than the micro-level hygiene in `quality-principles.md`, narrower than full architectural decisions (which live in ADRs at `ai/decisions/`). This is the team contract: how features get structured, how AI is used, how change happens safely, how we stay consistent.
 
-Each section has an **Applies when** clause. If your project doesn't match the clause, the section is annotated "Not applicable" by Phase 4.6 (`apply-pack-adaptation` skill) — don't force-fit a layered-architecture rule onto a functional-core codebase.
+**Defaults, not laws.** Break one when the rule genuinely doesn't fit the situation, when a more important rule conflicts (consistency vs correctness — pick correctness), or when `ai/conventions.md` or an ADR documents the exception. Leave a one-line comment naming which of the three applies; an undocumented break is indistinguishable from an accident.
 
-Anchor block populated by `/setup-project` Phase 4.6 — citing this project's actual modules, base classes, and conventions — appears at the top above this body in the project's installed copy.
+Each section has an **Applies when** clause; a section your project doesn't match is annotated "Not applicable" by Phase 4.6 (`apply-pack-adaptation`), which also anchors the rest to this project's actual modules, base classes and conventions above this body. Don't force-fit a layered-architecture rule onto a functional-core codebase.
 
 ## Structure and module boundaries
 
-**Applies when**: project uses module-based / package-based / domain-bounded organization (NestJS modules, Django apps, Go internal packages, Rust crates with public APIs, Java JPMS modules, Laravel packages, Rails engines, etc.). Skip for single-folder scripts, monolithic flat layouts, or pure-functional codebases without modules.
+**Applies when**: project uses module-based / package-based / domain-bounded organization (NestJS modules, Django apps, Go internal packages, Rust crates with public APIs, Java JPMS modules, Rails engines, etc.). Skip for single-folder scripts, flat monolithic layouts, or pure-functional codebases without modules.
 
-- **Every feature belongs to a defined module.** Loose files at repo root, in `utils/` / `shared/` / `common/` / `misc/`, are the failure mode this rule prevents — they accumulate as architectural debt no later refactor pays back. Locate the home before writing. New domain → plan a new module first (record an ADR if architectural). Module assignment is tracked in `ai/modules.md`.
-- **Module boundaries are explicit, not implied.** Each module has a documented public surface (the `index.ts` / `__init__.py` / package exports / `mod.rs`). Things inside the module are private until exported.
-- **Cross-module access goes through the public surface only.** No reaching into another module's `internal/` / `_private/` / `__init__`-bypassing imports. The public surface is the team's promise; internals are the team's freedom to refactor. Bypass = future breakage when internals change.
-- **A new "shared/" or "utils/" folder is a smell.** If you're creating one, ask: "is this *truly* cross-cutting, or am I avoiding the work of placing the code in the right module?" 90% of the time it's the latter. Truly-cross-cutting → its own named module (e.g., `id-generation`, `time`, `result-types`), not a junk drawer.
+- **Every feature belongs to a defined module**, decided before you write, and recorded in `ai/modules.md`. Loose files at repo root or in `utils/` / `shared/` / `common/` are the failure mode this prevents — and the test for whether a bucket is legitimate is whether you can NAME the concept (`id-generation`, `money`, `result-types` → its own named module) or only call it "helpers" (→ you're avoiding the placement decision, and the ADR the Hard rule demands won't write itself).
+- **Cross-module access goes through the documented public surface only** — no reaching into another module's `internal/` / `_private/`. The surface is the team's promise; internals are the team's freedom to refactor.
+
+→ Placement judgement, the layered-boundary detail, and the CI wiring that enforces both: `ai/patterns/module-boundaries.md`.
 
 ## Layered architecture
 
-**Applies when**: project uses a layered backend — Controller→Service→Repository, MVC, Clean Architecture, hexagonal/ports-and-adapters, or any equivalent. Skip for actor-model, CQRS+event-sourcing, functional-core/imperative-shell, or framework-less scripts.
+**Applies when**: project uses a layered backend — Controller→Service→Repository, MVC, Clean Architecture, hexagonal/ports-and-adapters, or an equivalent. Skip for actor-model, CQRS+event-sourcing, functional-core/imperative-shell, or framework-less scripts.
 
-- **Business logic lives in the service layer** (or its named equivalent: use case, interactor, application service, command handler). Not in controllers/handlers (transport concern). Not in repositories (data access concern). Not in views/templates (presentation). The service is where decisions happen.
-- **Controllers / handlers are thin.** Parse input → call service → format output. No conditionals beyond input validation, no DB calls, no business decisions.
-- **Repositories / DAOs are thin.** Query construction + mapping to domain types. No business logic, no orchestration of multiple aggregates.
-- **No direct data access from controllers / UI.** Controllers depend on services; services depend on repositories; repositories depend on the DB. One direction. This lets you swap any layer (REST → gRPC, ORM → another ORM, real DB → mock for tests) without rewriting the others.
-- **Layer enforcement is mechanical, not aspirational.** Use `dependency-cruiser` (TS/JS), `ArchUnit` (Java/Kotlin), `import-linter` (Python), `arch-go` (Go), or equivalent to fail CI on cross-layer violations. A rule no tool checks gets quietly broken.
+- **Business logic lives in the service layer** (or its named equivalent: use case, interactor, application service, command handler) — not in controllers/handlers (transport), repositories (data access), or views (presentation).
+- **Dependencies point one direction**: controllers → services → repositories → DB. No data access from controllers or UI. This is what makes any single layer swappable (REST→gRPC, ORM→ORM, real DB→fake) without rewriting the others.
+- **The rule is mechanical or it is aspirational.** A boundary linter fails CI on cross-layer imports; a rule no tool checks gets quietly broken, because each individual violating import looks reasonable in review.
+
+→ Per-layer ownership table, the "just this once for performance" bypass, and per-ecosystem linter wiring: `ai/patterns/module-boundaries.md`.
 
 ## Feature development
 
 **Applies universally.**
 
-- **Each feature has a single entry point.** One module, one route group, one façade — not "we touched 7 files and changed 4 conventions." Single entry point = single place to read to understand the feature, single place to change to remove it.
-- **Always check for existing logic before adding new.** Grep for the concept across the codebase. If a similar shape exists, EXTEND it; don't fork into a parallel implementation. Two implementations of the same concept = drift waiting to happen.
-- **Extend over duplicate.** If existing implementation is 90% of what you need, refactor to support both cases. If 50%, that's a real fork — but document why in an ADR. Never silently duplicate.
-- **New code follows current architecture, not bypasses it.** The layered structure / module boundaries / DI conventions already in place ARE the architecture. Bypassing them ("just this once for performance") is how the architecture dies — there's never a single bypass; the second one always follows.
+- **Extend over duplicate — and the fork test is not a percentage.** Grep for the concept before you add; if a similar shape exists, extend it. Fork only when the two cases need **different invariants** — a rule that must change for one and must NOT change for the other. If you can't name that invariant, you're duplicating, and two implementations of one concept is drift with a start date. A real fork gets an ADR naming the invariant that split.
+- **New code follows the current architecture, not around it.** The layering / module boundaries / DI conventions already in place ARE the architecture. Bypassing them is how it dies — there is never a single bypass, and the second one cites the first as precedent.
 
 ## AI-assisted development
 
 **Applies universally.**
 
-- **AI-generated code is reviewed before use.** Read what the model produced, run it mentally, run it actually. Don't accept code you don't understand — silent regressions are how trust dies. The agent's "looks plausible" is not a verification.
-- **If you can't explain the code, it isn't yours — and it doesn't merge.** This is mechanical, not advisory: every non-trivial change carries a 5-field **change brief** (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit/PR body, generated and validated by the `change-brief` skill (dispatched by `/pre-commit` + `/review-changes`). Writing the brief takes 2 minutes when you understand the change and is impossible when you don't — that asymmetry is the gate. A brief that paraphrases the diff, cites nothing, or says "should work" fails.
-- **The AI follows the project's structure, not its training-data defaults.** When an agent suggests a generic pattern that doesn't match the project's conventions, REJECT — don't merge it just because it compiles. The setup-project's pre-flight + `ai/conventions.md` + `.claude/codebase-profile.md` exist exactly so the AI has the project's actual conventions; if it's still drifting, the conventions file isn't loaded or the prompt is wrong.
-- **Prefer refactoring prompts over generation prompts in existing code.** "Refactor this function to handle X" produces code that respects the existing shape; "Write a function that does X" produces a generic function that may not fit. Generation is for greenfield; refactor is for everything else.
-- **Trust but verify agent reports.** When an agent says "done," check: did it actually run the tests it claims to have run? did the diff actually contain the change? Agents have a known failure mode of producing plausible-looking summaries that don't match reality.
-- **Save validated corrections.** When you correct an agent's output, the correction is durable knowledge — append to `ai/dynamic/corrections.md` (or `feedback-learned.md`) so the next agent in the same session learns from it. The Phase 6 learning loop graduates corrections into permanent rules.
+- **If you can't explain the code, it isn't yours — and it doesn't merge.** Mechanical, not advisory: every non-trivial change carries a 5-field **change brief** (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit/PR body, generated and validated by the `change-brief` skill (dispatched by `/pre-commit` + `/review-changes`). Writing it takes 2 minutes when you understand the change and is impossible when you don't — that asymmetry is the gate. A brief that paraphrases the diff, cites nothing, or says "should work" fails.
+- **Trust but verify agent reports.** When an agent says "done": did the tests it claims to have run actually run, and does the diff actually contain the change? Agents have a known failure mode of producing plausible summaries that don't match reality. A claim with no artifact behind it is marked UNVERIFIED, never upgraded to a pass.
+- **The AI follows the project's structure, not its training-data defaults.** Reject a generic pattern that doesn't match this project's conventions; that it compiles is not the argument.
+
+→ Why the safety net has to exist *before* change volume rises (DORA 2025, cited), the conventions-drift diagnosis, and where corrections get captured: `ai/patterns/ai-assisted-change.md`.
 
 ## Change control
 
 **Applies universally.**
 
-- **Don't modify code you don't understand.** Read the function. Read its callers. Read its dependencies. If you can't trace inputs / outputs / side effects in ~2 minutes, you don't know enough yet — read more, ask, or stop. (See also `quality-principles.md` § Must — same rule, applied at the change-discipline level here.)
-- **Identify the blast radius before changing.** "What does this affect downstream?" If "the whole system," your change is high-risk and needs MORE review, not less. High-blast-radius changes get an ADR.
-- **Side-effects are surfaced, not hidden.** Adding a new write (DB, log, event, network call) inside a function that previously had none is a behavior change — document it; if the function is named like a query (`getX`, `findX`), RENAME it to reflect the new behavior.
-- **Reversibility is a feature.** Prefer changes that revert with a single commit. Two-phase migrations (add new → deprecate old → remove old) over big-bang rewrites. Big-bang rewrites need an ADR explaining why a phased path was rejected.
-- **Don't fix unrelated things in the same change.** Unrelated fixes mixed into a feature PR make review impossible and revert dangerous. Keep separate concerns in separate commits or PRs. (Boy Scout Rule from `quality-principles.md` is bounded to *adjacent* cleanup — same change, same diff context — not arbitrary other-file improvements.)
+- **Identify the blast radius before changing.** "What does this affect downstream?" If the answer is "the whole system", the change needs MORE review, not less — and an ADR.
+- **Side-effects are surfaced, not hidden.** Adding a write (DB, log, event, network) inside a function that previously had none is a behaviour change. Document it; if the function is named like a query (`getX`, `findX`), rename it.
+- **Reversibility is a feature.** Prefer changes that revert in one commit. Two-phase migrations (add new → deprecate old → remove old) over big-bang rewrites; a big-bang rewrite needs an ADR explaining why the phased path was rejected.
+- **Don't fix unrelated things in the same change.** Mixed concerns make review impossible and revert dangerous. (The Boy Scout Rule in `quality-principles.md` is bounded to *adjacent* cleanup — same diff context — for exactly this reason.)
 
 ## Consistency
 
-**Applies universally.**
+**Applies universally.** *(Resident on purpose: this is the rule that has to be loaded BEFORE the model writes, not fetched after it has already chosen a shape.)*
 
-- **Match what's already there.** Same naming style, same file layout, same error handling, same logging style. The codebase IS the style guide; deviation is a bug. (Phase 4.6 anchor block above lists this project's specifics.)
-- **New patterns require a reason and an ADR.** If you find yourself introducing a shape that doesn't already exist, pause: is the existing shape genuinely insufficient? Yes → write an ADR. No → use the existing shape.
-- **Conventions converge, not diverge.** When you see two ways to do the same thing in the codebase, that's drift. Pick one (usually the newer or more-extended one), add it to `ai/conventions.md`, and gradually migrate the other.
-
-## When to break a rule
-
-These rules are defaults, not laws. Break one when:
-
-- The rule and the situation genuinely don't fit (e.g., a layered-architecture rule applied to a functional-core codebase).
-- A more important rule conflicts (e.g., consistency vs correctness — pick correctness).
-- A documented exception exists in `ai/conventions.md` or an ADR.
-
-When you break a rule, leave a one-line comment explaining why. Future-you, or the next agent, will thank present-you.
+- **Match what's already there.** Same naming style, file layout, error handling, logging style. The codebase IS the style guide; deviation is a bug.
+- **New patterns require a reason and an ADR.** Introducing a shape that doesn't already exist? Pause: is the existing shape genuinely insufficient? Yes → ADR. No → use the existing shape.
+- **Conventions converge, not diverge.** Two ways to do the same thing is drift. Pick one (usually the newer or more-extended), record it in `ai/conventions.md`, migrate the other.
 
 ## Enforcement
 
-- Layer + module boundaries: `dependency-cruiser` (TS/JS) / `import-linter` (Python) / `ArchUnit` (Java/Kotlin) / `arch-go` (Go) — fail CI on cross-layer or cross-module-internal imports.
-- New-pattern detection: `/setup-project-health` reports drift between `ai/conventions.md` and the working tree; CI runs it weekly.
-- ADR enforcement: PR template has an "ADR for new pattern?" checkbox; reviewers MUST reject PRs that introduce a new shape without an `ai/decisions/<NNNN>-*.md`.
-- Shared/utils growth: enforced by the same reviewer gate — reviewers MUST reject a PR that creates a new `utils/` / `shared/` / `common/` bucket, or grows an existing one, without an ADR justifying why the code is truly cross-cutting rather than misplaced. There is no automated folder-size check; review is the mechanism.
+- **Boundaries**: a boundary linter fails CI on cross-layer / cross-module-internal imports. Per-ecosystem linters, the PR-template checkbox and the CI cadence are wired in `ai/patterns/module-boundaries.md § Enforcement`.
+- **New shapes**: reviewers MUST reject a pattern the codebase doesn't have, or a new `utils/` / `shared/` bucket, without an `ai/decisions/<NNNN>-*.md`. No automated check exists for either — review IS the mechanism, and a gate nobody enforces is not a gate.
+- **Drift**: `/setup-project-health` diffs `ai/conventions.md` against the working tree.
 
-## Cross-references
-
-- `quality-principles.md` — micro-level code hygiene (function size, naming, exceptions, etc.). This file complements it, doesn't replace it.
-- `ai/conventions.md` — the project's actual detected/declared conventions (auto-populated from extraction).
-- `ai/decisions/` — append-only ADRs for documented exceptions and architectural choices.
-- `ai/failures/_index.md` — validated anti-patterns specific to this project ("we tried X; it broke; don't").
+Companions: `quality-principles.md` (micro-level hygiene — complements, doesn't replace), `ai/conventions.md` (this project's detected conventions), `ai/decisions/` (ADRs), `ai/failures/_index.md` (validated project anti-patterns).

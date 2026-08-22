@@ -56,12 +56,17 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: caching-architect
   kind: agent
   triggers: { always: true }
-  fallback: stub-from-sections
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (cache layer + key convention) + § "Data model" (read/write frequency per entity)
+  sections: [persona, existing_cache_layers, data_classes, key_design, invalidation, failure_modes, output_format]
+  fallback: agents/caching-architect.md   # no _examples/ stub ships — fall back to the live source (as testing/run-tests does), never to an empty stub
 
 - name: lazy-loading
   kind: pattern
   triggers: { primary_frontend_framework_detected: true }
-  fallback: stub-from-sections
+  extracts_from: _extracted-codebase.md § Modules (route map) + _extracted-idioms.md (router + image primitive)
+  sections: [overview, what_to_defer, route_splitting, component_splitting, media, pitfalls]
+  mirror_existing: true
+  fallback: ai-patterns/lazy-loading.md   # no _examples/ stub ships — fall back to the live source
 
 - name: inp-responsiveness
   kind: pattern
@@ -71,10 +76,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: bundle-perf
   kind: command
   triggers: { primary_frontend_framework_detected: true }
-  fallback: stub-from-sections
+  extracts_from: _extracted-codebase.md § Frontend (build tool, route map, bundle budget) + _extracted-idioms.md (image + font primitives)
+  sections: [understand, organize, retrieve, generate, validate]
+  fallback: commands/bundle-perf.md   # no _examples/ stub ships — fall back to the live source
 
 - name: profile-perf
   kind: command
   triggers: { always: true }
-  fallback: stub-from-sections
+  extracts_from: _extracted-codebase.md § Performance (profiler, slow-query log, APM) + § Modules
+  sections: [understand, organize, retrieve, generate, validate]
+  fallback: commands/profile-perf.md   # no _examples/ stub ships — fall back to the live source
 ```
