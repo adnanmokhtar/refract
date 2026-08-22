@@ -1,164 +1,90 @@
 ---
 name: sharding-partitioning
-description: Pattern: Sharding + Partitioning
+description: "Pattern: Partitioning (and the sharding threshold) — when splitting one table into partitions pays, the unique-key constraint that decides whether you can, and the measured signal that would ever justify sharding."
 kind: ai-pattern
 pack: database
 ---
 
-# Pattern: Sharding + Partitioning
+# Pattern: Partitioning + the sharding threshold
 
-> **Hard rule:** Sharding is last-resort scaling — vertical scaling, read replicas, and caching MUST be exhausted first with measurements. The shard key is chosen for query locality (most queries land on one shard), is immutable per row, and is documented as the system's hardest design constraint forever.
+> **Hard rule:** Partitioning is adopted for a *named* benefit — partition pruning on a query that is measurably scan-bound, or `DROP PARTITION` as a retention purge — never "for scale". Sharding is last-resort: vertical scaling, read replicas, and caching MUST be exhausted with measurements first, and the shard key is the system's hardest design constraint forever. Cite the benefit, the measurement, and the unique-key check at `<path:line>` — or halt.
+
+**Ownership boundary:** read scaling is `read-replicas.md`; connection ceilings are `connection-pooling.md`; the retention *policy* a partition drop enforces is `data-retention-pii.md`. This pattern owns one decision — split the table or not — and the constraint that decides whether you can.
 
 **When to apply**
-- A single primary cannot keep up with write throughput even at the largest available instance size.
-- Hot-table size exceeds what fits in RAM and read replicas no longer relieve the primary.
-- Regulatory data residency forces per-region partitions.
+- A large table is queried almost exclusively through a range of one column (usually time), and the plan reads far more of it than the query needs.
+- Retention requires deleting old rows in bulk, and `DELETE` is producing lock storms, replication lag, or bloat.
+- Regulatory data residency forces per-region storage.
 
 **When NOT to apply**
-- Read scaling is the bottleneck — replicas + caching are cheaper and reversible.
-- Workload has no natural shard key (queries span all rows uniformly) — sharding makes things worse.
+- Queries span the whole key range uniformly — pruning never fires and you have added partitions to maintain for nothing.
+- The pain is read throughput (replicas + caching are cheaper and reversible) or connection count (that is pooling).
+- The table's uniqueness rules cannot accommodate the partition key (below) — that is a schema redesign, not a partition.
 
 **Halt conditions / mandatory cites**
-- The proposal MUST cite the saturation evidence (CPU, IOPS, replication lag) at the dashboard URL.
-- The shard key MUST cite the top-N query patterns at `<path:line>` and show how each lands on one shard.
-- A doc proposing sharding without prior replica/caching measurements is a bug — reject.
+- MUST cite the plan showing the scan the partition would prune, or the retention `DELETE` it would replace.
+- MUST cite the unique-key check below, resolved, before proposing a partition key.
+- A sharding proposal MUST cite saturation evidence (write IOPS, CPU, replication lag) after tuning, and show how the top-N query patterns land on one shard.
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "we've outgrown one DB".
-- If cross-shard query handling + resharding plan aren't extracted, halt.
 
-Last-resort scaling. Try vertical scaling + read replicas + caching first. Sharding is operationally expensive forever.
+## Partitioning vs sharding — one sentence each
 
-## Partitioning vs Sharding
+**Partitioning** splits one table across parts inside one database; the engine routes, queries stay unchanged. **Sharding** splits data across separate database instances; the application routes, and cross-shard queries stop being possible. They are not two sizes of the same move. Partitioning is reversible and local. Sharding is neither.
 
-- **Partitioning** — one DB, table split into parts. Engine handles routing. Queries still simple.
-- **Sharding** — multiple DB instances. Application routes. Queries constrained.
+## The check that decides whether you can partition at all
 
-Partitioning first. Sharding only when a single DB can't keep up.
+Run this before anything else, because it is the constraint that ends most partitioning proposals — and it is invisible until the `CREATE TABLE` fails:
 
-## Partitioning (single DB)
+**Every unique key on the table — the primary key included — must contain all the partition-key columns.**
 
-### Range partitioning
-Split by value range — typical for time-series.
-```sql
-CREATE TABLE events (
-  id bigserial,
-  tenant_id uuid,
-  created_at timestamptz NOT NULL,
-  payload jsonb
-) PARTITION BY RANGE (created_at);
+- MySQL: "All columns used in the partitioning expression for a partitioned table must be part of every unique key that the table may have. In other words, every unique key on the table must use every column in the table's partitioning expression." ([MySQL § Partitioning Keys, Primary Keys, and Unique Keys](https://dev.mysql.com/doc/refman/8.4/en/partitioning-limitations-partitioning-keys-unique-keys.html))
+- Postgres: "To create a unique or primary key constraint on a partitioned table, the partition keys must not include any expressions or function calls and the constraint's columns must include all of the partition key columns… the individual indexes making up the constraint can only directly enforce uniqueness within their own partitions." ([PostgreSQL § Partitioning Limitations](https://www.postgresql.org/docs/17/ddl-partitioning.html))
 
-CREATE TABLE events_2026_01 PARTITION OF events
-  FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
-CREATE TABLE events_2026_02 PARTITION OF events
-  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
-```
+So a table with `PRIMARY KEY (id)` cannot be partitioned by `created_at` without changing the key to `(id, created_at)` — which changes every foreign key that references it, every ORM relation, and the meaning of "unique" (`id` is now only unique *within* a partition unless something else enforces it). **Resolve this first.** If the answer is "we would have to change the primary key of a table other tables reference", the honest verdict is: partitioning this table is a schema migration, not a configuration change — price it as such.
 
-Benefits:
-- Old partitions pruned at query time (scans only relevant months).
-- DROP old partitions instead of DELETE (much faster).
-- Indexes per-partition (smaller, faster).
+## What partitioning actually buys
 
-### List partitioning
-Split by discrete values — e.g., tenant_id for a small number of tenants.
+Two benefits, both concrete. If neither applies, do not partition.
 
-### Hash partitioning
-Even distribution when no natural range exists.
-```sql
-CREATE TABLE orders (...) PARTITION BY HASH (tenant_id);
-CREATE TABLE orders_p0 PARTITION OF orders FOR VALUES WITH (MODULUS 8, REMAINDER 0);
--- repeat 0..7
-```
+1. **Pruning** — the planner skips partitions the predicate excludes, so a query bounded by the partition key reads a fraction of the table. This only fires when the query carries the partition key. A query that filters on something else reads *every* partition, and now pays per-partition planning overhead on top. Check the plan before and after; pruning that does not appear in the plan is not happening.
+2. **`DROP PARTITION` as the purge** — dropping a partition is a metadata operation: no row scan, no lock storm, no dead-row cleanup afterwards. This is the reason time-partitioning is the right default for append-heavy retention-bound data (events, logs, sessions), and `data-retention-pii.md` depends on it.
 
-Benefits: parallel scans, balanced write load.
+Range partitioning by a time column serves both. List partitioning suits a small, stable set of discrete values. Hash partitioning gives even distribution and parallel scans but **cannot prune a range query and cannot drop old data** — it buys neither of the two benefits above, so adopt it only for a measured write-contention or parallel-scan reason.
 
-### Operational automation
+## Operational cost, stated up front
 
-- Pre-create partitions ahead of time (cron job or pg_partman).
-- Monitor for missing partitions (writes fail if the range isn't created).
-- Drop old partitions per retention policy.
+- **Partitions must be created before the data arrives.** A write with no matching partition fails (or lands in a catch-all that grows forever). Automate creation and alert on the horizon — "we ran out of partitions at 00:00 on the 1st" is the standard incident. `pg_cron`/`pg_partman` on Postgres, the event scheduler on MySQL, or a job in the app's own scheduler.
+- **Every index is per-partition.** Smaller and faster individually; more objects to maintain, and a global uniqueness guarantee the engine will not give you.
+- **Cross-partition queries get slower**, not faster, because planning now touches every partition.
 
-## Sharding (multiple DBs)
+## When sharding would ever be the answer
 
-### When
-- Single DB write capacity exceeded after tuning.
-- Single DB storage exceeded (can scale up with managed services, eventually not).
-- Regulatory data residency requires per-region storage.
+Sharding is justified by **write throughput a single primary cannot absorb after tuning**, or by data residency law. Not by storage size — a large table on one instance is a partitioning, archival, or storage-tier question, and storage is the cheapest axis to scale. Not by CPU — that is replicas, query fixes, or a bigger instance.
 
-### Shard key choice
-The #1 decision. Wrong choice = cross-shard queries forever.
-
-**Good shard keys:**
-- `tenant_id` in multi-tenant SaaS — each tenant's data stays on one shard.
-- `user_id` in user-centric apps — user's data co-located.
-- `account_id` in B2B.
-
-**Bad shard keys:**
-- Timestamps (hot spot on newest shard).
-- Auto-increment IDs (hot spot).
-- Low-cardinality values (gender, status).
-
-### Shard routing
-
-Strategies:
-- **Hash-based** — `shard = hash(tenant_id) % N`. Simple, even distribution. Hard to reshard.
-- **Range-based** — map tenant ranges to shards. Easier to move data. Hot-spot risk.
-- **Directory service** — lookup table: `tenant_id → shard`. Flexible, adds a hop.
-
-Directory service is the most flexible for SaaS — lets you migrate tenants between shards.
-
-### Cross-shard operations
-
-- **Single-shard query** — always preferred. Route by key, done.
-- **Scatter-gather** — query every shard, merge. Slow, complex, error-prone.
-- **Aggregation** — use a separate analytics DB (read replicas → data warehouse).
-
-Design schema so 99% of queries are single-shard.
-
-### Rebalancing
-
-Inevitably: some shards grow faster than others.
-- Split a hot shard → smaller shards.
-- Move tenants between shards via backfill + switchover.
-- Dual-write during migration, cut over, backfill stragglers.
-
-Plan rebalancing tools BEFORE you shard. Don't improvise it at 2am.
-
-## Read replicas (before sharding)
-
-- Route reads to replicas, writes to primary.
-- Replication lag: measure it, surface to app ("must read own write" = use primary).
-- Horizontally scales READS only. Writes are still bottlenecked by primary.
-
-## When to shard vs scale up
-
-| Signal | Action |
+| Measured signal (after tuning) | The move it justifies |
 |---|---|
-| CPU on primary > 70% | Add read replicas for queries OR scale up |
-| Write latency growing | Batch writes, add partitioning, tune indexes |
-| Storage > 1 TB | Partition by range/time |
-| Storage > 10 TB | Partition or shard |
-| Write IOPS saturated after tuning | Shard |
+| Read CPU saturated on the primary | replicas, caching, or fix the queries — see `read-replicas.md` |
+| One query dominates total exec time | index or rewrite — see `indexing-strategy.md` |
+| Storage growing, old rows never read | retention + time partitioning + archival tier |
+| Working set no longer fits in RAM, cache hit rate falling | more RAM, or partition so the hot range fits |
+| **Write IOPS saturated at the largest instance size, after tuning** | shard |
+| Data must physically reside per region | shard by region |
 
-## Tools / managed services
+Before proposing a shard key, produce three things or stop: the saturation measurement, the top-N query patterns with the shard each would land on, and the resharding plan. A shard key chosen without the query list is the mistake that cannot be undone — `tenant_id`/`user_id`/`account_id` are the usual right answers because they co-locate a customer's data; timestamps and auto-increment IDs are the usual wrong ones because all new writes land on one shard. If the workload has no key that keeps most queries on one shard, sharding makes the system slower, not faster.
 
-- **Citus (Postgres)** — distributed Postgres, transparent sharding.
-- **Vitess (MySQL)** — used by YouTube, Slack. Proxy-based sharding.
-- **CockroachDB, YugabyteDB** — distributed by design, no manual sharding.
-- **Planetscale** — hosted Vitess.
-- **Spanner, Aurora** — cloud-managed horizontal scale.
-
-Prefer these over hand-rolling sharding. Years of engineering.
+**Do not hand-roll shard routing.** If the measurements say shard, the choice is between a distributed engine and a routing layer, and that choice is an ADR with an owner — not a paragraph in a pattern file.
 
 ## Forbidden
 
-- Sharding as the first scaling move (try vertical + replicas + caching first).
-- Picking a shard key without modeling your queries.
-- Cross-shard transactions (use sagas or redesign).
-- Auto-increment IDs across shards (use UUIDs or snowflake IDs).
-- Manual shard routing in every query (centralize in a data access layer).
-- Partitioning without automating partition creation (writes fail when range ends).
-- Rebalancing improvised under fire.
+- Partitioning without naming which of the two benefits it buys, and showing it in a plan.
+- Proposing a partition key before resolving the unique-key constraint.
+- Hash partitioning adopted for "scale" — it prunes nothing and drops nothing.
+- Partitioning with no automated partition creation and no horizon alert.
+- Sharding as the first scaling move, or with a shard key chosen without the query list.
+- Cross-shard transactions; auto-increment IDs across shards; shard routing written into individual queries.
 
 ## Related
 
-- `data-retention-pii.md` — time-partitioning by `created_at` makes `DROP PARTITION` the cheapest PII retention purge: O(1), no row scan, no bloat.
-- `read-replicas.md` — replicas scale reads, sharding splits writes; exhaust replicas + caching before sharding. Write throughput exceeding one primary is the sharding signal.
+- `data-retention-pii.md` — time-partitioning by `created_at` makes `DROP PARTITION` the cheapest retention purge: O(1), no row scan, no bloat.
+- `read-replicas.md` — replicas scale reads; this pattern's sharding half is about writes. Exhaust replicas and caching first; write throughput exceeding one primary is the only performance signal that justifies sharding.
+- `indexing-strategy.md` — a scan that an index would fix is not a partitioning problem. Rule that out first.

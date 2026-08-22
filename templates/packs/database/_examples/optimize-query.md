@@ -1,6 +1,14 @@
 ---
 description: Profile and optimize one query (SQL string or endpoint that owns it).
 ---
+<!-- generated-from: templates/packs/database/commands/optimize-query.md
+     Faithful seed copy of the database /optimize-query command (literal-copy fallback for
+     /setup-project Phase 4.2-AUTHOR when extraction has no signal). Abridging this file used to
+     drop the per-engine check paths and the sibling-boundary section, so a greenfield project
+     received a command that could only run against one engine. It now carries the source
+     verbatim and check 8b holds the two in lockstep (COPY-DRIFT). REGENERATE whenever the
+     command changes — do not hand-edit; edit the command and re-copy. -->
+
 
 # /optimize-query <endpoint|sql>
 
@@ -22,11 +30,24 @@ Profiles a target query, proposes index / rewrite / denormalization, and emits a
 
 **The agent ONLY asks the user when:** the fix is denormalization/matview (write-cost ADR), an existing index left-prefix-covers the proposal, or the query is rarely-called below SLO threshold.
 
+## Closure-verb tiers (mandatory dispatch table)
+
+| Severity | Closure | User prompt? |
+|---|---|---|
+| **P0** — denormalization required (write-cost increase) OR materialized view (refresh-policy decision) | `escalate` (with ADR draft) | YES — halt, surface tradeoff |
+| **P1** — index miss (single or composite, no left-prefix conflict) **and the worth-it verdict clears** | `code-edit` (generate migration, do NOT apply) | NO — auto-generate |
+| **P1** — index would fix the plan but the worth-it verdict says NOT WORTH IT or UNJUSTIFIED | `report-only` (state the verdict and the losing side; propose nothing) | NO — the finding is the verdict |
+| **P1** — N+1 detected (calling code loops over SQL) | `code-edit` (rewrite call site to batch / join / `IN (...)`) | NO — auto-edit |
+| **P2** — missing LIMIT, ungated `SELECT *`, function-on-indexed-column | `code-edit` (canonical rewrite) | NO — auto-edit |
+| Existing index left-prefix-covers proposal OR query rarely-called | `escalate` | YES — surface tradeoff |
+
+**Forbidden:** proposing a denormalization or matview without an ADR draft. Proposing a 2-col index when an existing 3-col covers it. Proposing caching as the primary fix. Skipping the EXPLAIN-on-prod-shape gate. **Proposing any index without the worth-it verdict below** — a faster query bought with a permanently slower write path is not automatically a win, and this command is where that trade is priced.
+
 ## Mechanical halt — similar-query-scan
 
 **Before generating the fix, the agent MUST run the similar-query-scan:**
 
-1. Pull the top-20 slow queries from `pg_stat_statements` (or MySQL slow-query log).
+1. Pull the top-20 slow queries **with each one's share of total execution time** — Postgres `pg_stat_statements`, MySQL `performance_schema.events_statements_summary_by_digest` (the slow-query log only when `performance_schema` is off, and it carries no share).
 2. Match the target query's shape (table set + WHERE column set + ORDER BY column) against those 20.
 3. If ≥ 2 siblings share the shape, the fix MUST apply to all of them — emit a single composite index or a single rewrite that covers the family. Single-query fixes when 3 callers share the pattern is index proliferation.
 4. If the proposed index left-prefix-matches an existing index on the same table → HALT. Re-derive: extend the existing index or pick a different shape.
@@ -34,15 +55,58 @@ Profiles a target query, proposes index / rewrite / denormalization, and emits a
 
 If similar-query-scan finds zero siblings → the query is novel; proceed with single-fix but note the absence in the report (so the next slow query in this family triggers re-derivation).
 
+## Mechanical halt — the worth-it verdict (index fixes only)
+
+An index proposal leaves this command only with a completed verdict from `ai/patterns/indexing-strategy.md` § "Is this index worth adding?". Its three inputs are all queryable here, and two of them the command has already collected:
+
+1. **Read share** — this query's `total_exec_time` / `SUM_TIMER_WAIT` as a percentage of the database's total. Already in hand from the similar-query-scan's top-20 pull; report the number, not the rank.
+2. **Recoverable fraction** — rows read vs rows returned in the step the index replaces, from the baseline `EXPLAIN`. Already captured in Phase 4.
+3. **Write cost** — the write rate on the target table, whether the indexed column is touched by the update path (on Postgres this decides whether **every** index on the table now takes an entry per update — the HOT loss), and whether the index will fit in the buffer pool alongside the existing ones. This is the input the command must go and get; it is not in the EXPLAIN.
+
+Emit the verdict block verbatim in the report. **`WORTH IT` → generate the migration. `NOT WORTH IT` → report the verdict and stop; the finding is that the index is the wrong fix. `UNJUSTIFIED` (an input could not be measured) → propose it explicitly as unjustified and name the missing input — never round it up to a win.** A migration generated with a blank in that block is an invalid artifact.
+
+When the fix is a rewrite rather than an index, this gate does not apply — a rewrite has no ongoing write cost.
+
+## Lightweight default
+
+**Default closure is bucket-mapped fix generation, no chatter.** The agent does NOT pause to ask "should I add an index or rewrite?" — the dominant-cost classification + bucket mapping decides. Migration is generated but never auto-applied (routes through `/migration-review`).
+
+```
+Auto-applied (no prompt): bucket-mapped fix
+  - bucket: index-miss (composite tenant_id, created_at DESC)
+  - similar-query-scan: 3 siblings covered by same index
+  - left-prefix check: no conflict with existing indexes
+  - worth-it verdict: WORTH IT (read share <pct>%, recoverable <R>→<N> rows, write cost <writes>/<window>)
+  - migration generated: migrations/<NNNN>-<slug>.sql (NOT applied)
+  - EXPLAIN before/after: <p95-before> → <p95-after> on <where-measured>
+Escalated to user: <K>
+  - denormalization candidate (write-cost ADR needed)
+  - existing index left-prefix-covers proposal (refix or extend)
+```
+
 ## Phases applied
 
 All 7. Phase 6 = before/after `EXPLAIN ANALYZE` on prod-shaped data.
+
+## `--plan`
+
+Accepts `--plan` (see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md)). With the flag set: run Phases 1-3 read-only (trace the SQL, capture the baseline `EXPLAIN`, run the similar-query-scan, classify the dominant cost), then emit the index / rewrite / migration it WOULD generate — the exact DDL or rewritten SQL, the bucket it maps to, the siblings it covers — as a plan artifact under `.claude/plans/`. **Write no migration file, touch `ai/` not at all.** A normal run (no flag) generates the migration (still never auto-applied) as documented.
+
+## Honesty clause
+
+No number without the run behind it: do not report a before/after timing or "index used" claim without a real `EXPLAIN ANALYZE` against prod-shaped data (per `migration-rehearsal`'s "no number without a real timed run" discipline). A fix validated only on dev's empty table is reported as `unvalidated`, never with fabricated millisecond figures. Do not list a Phase-3 read the agent did not open.
 
 ## When to use / NOT to use
 - USE: slow endpoint surfaced by `/perf-audit` or APM; N+1 detected in code review; pre-launch query review for high-traffic endpoints.
 - NOT: rarely-called paths (admin one-offs, batch jobs without SLO).
 
 ## Phase 1 — Understand
+
+### Intent gate
+
+If description suggests a different intent, halt with redirect: "add / new" → `/add-endpoint` (if new endpoint) or `/add-migration` (if new schema). "fix / broken" → `/fix-bug` (if behaviour bug). "audit / review" → `/db-audit` or `/perf-audit`. Proceed only for optimizing an existing query.
+
+### Standard inputs
 
 - Parse `<endpoint|sql>` arg.
 - For endpoint: trace controller → service → repo → final SQL via TypeORM/Prisma logging or `LOG=query` env.
@@ -57,12 +121,14 @@ All 7. Phase 6 = before/after `EXPLAIN ANALYZE` on prod-shaped data.
 ## Phase 3 — Retrieve
 
 ALWAYS:
-- `CLAUDE.md` + `ai/conventions.md` — migration tool + folder.
-- `ai/patterns/indexing-strategy.md` — when to add composite vs covering.
+- `CLAUDE.md` + `.claude/codebase-profile.md` — engine + ORM + migration tool + folder (the canonical engine/ORM source for every Retrieve phase in this pack).
+- `ai/patterns/indexing-strategy.md` — the worth-it verdict (mandatory for any index proposal) and composite-vs-covering shape.
 - `ai/patterns/migrations.md` — concurrent index, expand-contract.
 
 CONTEXT:
 - Target table's row count + relevant existing indexes (`\d+ <table>` Postgres or `SHOW INDEX FROM <table>` MySQL).
+- **The table's write rate** — Postgres `pg_stat_user_tables` (`n_tup_ins + n_tup_upd + n_tup_del`), MySQL `performance_schema.table_io_waits_summary_by_table` (`COUNT_INSERT + COUNT_UPDATE + COUNT_DELETE`) — input 3 of the worth-it verdict. Without it the verdict cannot close.
+- The statements that UPDATE this table, to see whether they touch the column being indexed.
 - Recent migrations for that table (someone may have just added what you're proposing).
 
 ## Phase 4 — Generate
@@ -106,25 +172,50 @@ Generate migration file in project's migration folder (do NOT apply).
 
 ```
 Query: SELECT * FROM orders WHERE tenant_id = $1 AND created_at > $2 ORDER BY created_at DESC LIMIT 50
-Table: orders (~5M rows)
+Table: orders (~<rows> rows)   Engine: <engine> <version>
 
-Before:
-  Seq Scan on orders  (cost=0.00..142000)  actual time=820ms
+Before (captured, not recalled):
+  <dominant plan node>  actual time=<measured>
   Filter: tenant_id = $1 AND created_at > $2
-  Rows removed by filter: 4_950_000
+  Rows read <R> → rows returned <N>
+
+Worth-it verdict (indexing-strategy.md):
+  Read share:   <pct>% of total exec time over <calls> calls
+  Recoverable:  <R> → <N> rows in <plan-node>
+  Write cost:   <writes>/<window> on orders; indexed column touched by update path: <yes/no>
+                HOT impact (PG): <disqualifies / no change>; index size vs pool: <bytes> / <pool>
+  Verdict:      WORTH IT | NOT WORTH IT — <losing side> | UNJUSTIFIED — <missing input>
 
 Proposed: composite index (tenant_id, created_at DESC)
-  Migration file: prisma/migrations/20260424-add-orders-tenant-created-idx/migration.sql
+  Migration file: <migration-path>  (generated, NOT applied)
+  Build: <CONCURRENTLY | ALGORITHM=INPLACE, LOCK=NONE> with a lock timeout — see /add-migration
 
-After (on staging shadow):
-  Index Scan using orders_tenant_created_idx  actual time=8ms
+After (on <where-measured>):
+  <plan node using the index>  actual time=<measured>
+
+If the verdict is NOT WORTH IT, this block ends at the verdict: no migration, no "After".
 ```
 
 ## Failure modes
 
 - `EXPLAIN ANALYZE` on prod runs the query for real (Postgres always; MySQL with `ANALYZE`) — use snapshot or staging.
-- New index on hot OLTP table locks it under MySQL InnoDB; Postgres needs `CREATE INDEX CONCURRENTLY` outside a transaction.
-- Index proliferation hurts writes; don't add a 2-col index when an existing 3-col covers it (left-prefix match).
+- Building the index is a separate risk from choosing it — Postgres needs `CREATE INDEX CONCURRENTLY` outside a transaction; MySQL/InnoDB builds a secondary index in place with concurrent DML permitted, but the clause should still be explicit and the lock wait bounded. `/add-migration` owns this; do not re-derive it, and do not repeat the folklore that InnoDB index builds lock the table.
+- Index proliferation hurts writes; don't add a 2-col index when an existing 3-col covers it (left-prefix match). And on Postgres, indexing a column the update path writes costs more than one index's maintenance — it disqualifies HOT updates, so every index on the table pays.
 - `SELECT *` plans differ from explicit column lists — pick column lists before tuning.
 - Functions on indexed column (`WHERE LOWER(email) = ...`) defeat the index — fix query OR add functional index.
 - Caching as a "fix" hides root cause — only after the query itself is reasonable.
+
+## Related
+
+### Sibling commands in database pack
+- `/add-migration` — sibling command in database pack
+- `/db-audit` — sibling command in database pack
+- `/migration-review` — sibling command in database pack
+
+### Patterns
+- `ai/patterns/indexing-strategy.md`
+- `ai/patterns/migrations.md`
+- `ai/patterns/sharding-partitioning.md`
+
+### Rules
+- `.claude/rules/database-principles.md`

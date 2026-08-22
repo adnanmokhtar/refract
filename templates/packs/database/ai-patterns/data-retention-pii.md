@@ -9,7 +9,7 @@ pack: database
 
 > **Hard rule:** Every table is classified for PII, every PII column has a declared retention window enforced by a real mechanism (partition-drop / TTL job / scheduled purge), and erasure is implementable without orphaning rows or breaking referential integrity. PII stored with no retention policy, or an erasure path that a foreign key silently blocks, is forbidden. Cite the classification, the purge mechanism, and the erasure-vs-FK resolution at `<path:line>` — or halt.
 
-**Ownership boundary (read first).** This pattern owns the **schema/storage mechanics**: which columns are PII, the retention TTL / partition-purge, erasure-vs-FK-cascade resolution, and column-level encryption. It does **not** own regulatory compliance mapping. The security pack's **`data-privacy-reviewer` agent** (being authored separately) owns the **code-level data-flow + compliance side**: collection → sink → third-party egress, DSAR fulfilment, cross-border transfer, and GDPR/PDPL/CCPA article mapping. When a finding is about *where PII flows in code* or *which regulation applies*, stop and point there — do not re-derive it here.
+**Ownership boundary (read first).** This pattern owns the **schema/storage mechanics**: which columns are PII, the retention TTL / partition-purge, erasure-vs-FK-cascade resolution, and column-level encryption. It does **not** own regulatory compliance mapping. The security pack's **`data-privacy-reviewer` agent** owns the **code-level data-flow + compliance side**: collection → sink → third-party egress, DSAR fulfilment, cross-border transfer, and regulatory article mapping. When a finding is about *where PII flows in code* or *which regulation applies*, stop and point there — do not re-derive it here.
 
 **When to apply**
 - A schema stores anything that identifies a person: name, email, phone, government ID, precise location, financial, or health data.
@@ -41,7 +41,14 @@ Categories to inventory: `name`, `email`, `phone`, `gov_id`, `location`, `financ
 
 A retention window is theatre unless a mechanism enforces it. Cheapest to most manual:
 
-- **Time-partitioned table + `DROP PARTITION`** — partition by `created_at`; purge = drop the expired partition. O(1), no row scan, no bloat. The right default for append-heavy PII (events, logs, sessions). See `sharding-partitioning.md`.
+- **Time-partitioned table + `DROP PARTITION`** — partition by `created_at`; purge = drop the expired partition. Metadata-only: no row scan, no lock storm, no dead-row cleanup. The right default for append-heavy PII (events, logs, sessions).
+  ```sql
+  -- Postgres
+  ALTER TABLE events DETACH PARTITION events_2025_01;  DROP TABLE events_2025_01;
+  -- MySQL
+  ALTER TABLE events DROP PARTITION p2025_01;
+  ```
+  Before proposing this, resolve the constraint in `sharding-partitioning.md`: **every unique key, the primary key included, must contain the partition-key column.** A PII table keyed `PRIMARY KEY (id)` cannot be partitioned by `created_at` without changing that key — which is a schema migration, not a retention setting. Resolve it before promising O(1) purges.
 - **TTL column + scheduled delete** — `expires_at` / `retain_until` column + a cron job (`DELETE ... WHERE retain_until < now() LIMIT <batch>`), batched to avoid long locks. Postgres `pg_cron`, MySQL event scheduler.
 - **MongoDB TTL index** — `db.sessions.createIndex({ createdAt: 1 }, { expireAfterSeconds: N })`. The engine purges. Note: TTL granularity is ~minutes, best-effort, not exact.
 
@@ -110,6 +117,6 @@ Classify every column, declare a retention window, wire a purge mechanism, resol
 - `sharding-partitioning.md` — partition-drop as the cheapest retention purge.
 - `indexing-strategy.md` — partial index for the soft-delete filter that purge relies on.
 - `migrations.md` — adding retention/classification columns and encryption safely under concurrent writes.
-- cross-pack `security` `data-privacy-reviewer` — **owns the code-level data-flow (collection→sink→egress, DSAR, cross-border) and regulatory compliance mapping**; this pattern owns schema/storage mechanics. State the boundary in any joint finding. (Being added to the security pack.)
+- cross-pack `security` `data-privacy-reviewer` — **owns the code-level data-flow (collection→sink→egress, DSAR, cross-border) and regulatory compliance mapping**; this pattern owns schema/storage mechanics. State the boundary in any joint finding.
 - cross-pack `security` `security-principles` — encryption + secrets baseline this pattern's at-rest rules build on.
 - `@schema-reviewer` — enforces classification + retention + FK-erasure resolution at review time.

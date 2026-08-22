@@ -8,6 +8,7 @@ description: Diff the ORM entities against the actual DB schema — catch drift 
      the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source changes —
      do not hand-edit; edit the source and re-copy. -->
 
+
 # schema-diff
 
 When migrations are skipped, hand-edited on prod, or entities change without a generated migration, the ORM and DB drift. This skill catches it.
@@ -65,7 +66,7 @@ Find real drift, cite `<table>.<column>` and the file/line in the entity definit
 ## Output
 
 ```
-Schema drift — orders table  (DEV vs prisma/schema.prisma)
+Schema drift — orders table  (<target-db> vs <schema-source>)
 
   + order_ref_id  TEXT NOT NULL     entity has it, DB missing — migration needed
   - legacy_notes  TEXT               DB has it, entity doesn't — ghost, either use or drop
@@ -73,8 +74,22 @@ Schema drift — orders table  (DEV vs prisma/schema.prisma)
   ! index (tenant_id, created_at)    declared in entity, missing in DB
 
 Verdict: 1 blocker (missing column), 1 ghost, 1 missing index.
-Run: npx prisma migrate dev --name add_order_ref_id
+Run: <the project's own generate command, from the detected tool — see below>
 ```
+
+**Emit the fix command in the project's tool, never a default one.** The prerequisites name several; pick the one this repo actually uses (from `.claude/codebase-profile.md` / the migration folder) and print its command:
+
+| Tool | Generate |
+|---|---|
+| Prisma | `npx prisma migrate dev --name <slug>` |
+| TypeORM | `pnpm migration:generate -- src/migrations/<Name>` |
+| Alembic | `alembic revision --autogenerate -m "<slug>"` |
+| Django | `python manage.py makemigrations` |
+| Rails | `rails generate migration <Name>` |
+| Laravel | `php artisan make:migration <slug>` |
+| Raw (Flyway / goose / sqlx) | write the `up`/`down` pair by hand |
+
+If the tool cannot be determined, print the DDL the drift implies and say the tool was not detected — do not guess a command the reader will paste.
 
 ## False positives / gotchas
 
@@ -82,4 +97,5 @@ Run: npx prisma migrate dev --name add_order_ref_id
 - TypeORM emits `varchar(255)` even when the entity didn't specify length — may match `text` columns semantically.
 - Generated columns and partial indexes are often missed by autogenerate — verify by hand.
 - Ghost columns may be intentional (kept for backfill or audit) — confirm with the team before proposing DROP.
-- NEVER run `prisma db push` to "fix" drift on prod — it's destructive and skips migration history.
+- NEVER "fix" drift on prod with a schema-push command (`prisma db push`, `synchronize: true`, `db.create_all()`) — they are destructive and skip migration history. Drift is closed by a reviewed migration, always.
+- A generated migration is a **draft**: autogenerate reads a shape difference, not an intent. A rename looks identical to a drop plus an add, and it will emit the destructive pair. Read the SQL and route it through `/migration-review`.

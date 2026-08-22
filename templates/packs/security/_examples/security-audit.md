@@ -29,11 +29,24 @@ If the description suggests a different intent, halt with a redirect: "fix the a
 - Confirm intent: full OWASP pass, or scoped to detected sensitive areas.
 
 ## Phase 2 — Organize
-- Dispatch plan:
+
+Route mechanically — name the grep signal on the changed surface, dispatch the owner. Each dispatched reviewer's verdict feeds the Phase 4 GO/NO-GO.
+
+- Reviewers:
   - Always: `security-auditor` (OWASP Top 10 + Top 25 CWE).
-  - If diff touches `auth/`, `session`, `jwt`, `password`, `oauth`, `2fa` → `auth-reviewer`.
-  - If multi-tenant (detect via `tenantId` columns / `Context` service / `X-Tenant` header) → tenant-isolation pass.
-  - If diff touches infra (`Dockerfile`, `k8s/`, `terraform/`) → container/runtime hardening cross-check.
+  - `auth/`, `session`, `jwt`, `password`, `oauth`, `2fa` → `auth-reviewer`.
+  - Multi-tenant (tenant-id columns / a request-scoped tenant context / a tenant header) → `tenant-isolation-reviewer`.
+  - API route, serializer/DTO, controller/handler, GraphQL resolver → `api-security-reviewer` (OWASP API Top 10 — BOLA/IDOR, BOPLA/mass-assignment, function-level authz).
+  - PII form, logger call carrying user fields, analytics SDK, delete/export/DSAR path → `data-privacy-reviewer` (PII flow, erasure reachability, consent, cross-border).
+  - Prompt template, LLM/tool call, RAG/embedding retrieval, model-output sink → `llm-security-reviewer`.
+  - Infra (container build files, K8s manifests, IaC modules) → container/runtime hardening cross-check.
+
+- **Skills — detectors, not reviewers; they produce cited findings that feed Phase 4.** Phase 4's buckets promise secret, dependency and SSRF coverage; without these, nothing executes that promise and the promise is itself a `COVERAGE:` gap.
+  - `secret-scan` — config / env / IaC / CI / client-bundle diffs, and always on a whole-repo run. Findings are BLOCKERS by default.
+  - `deps-audit` — manifest or lockfile diffs; supplies advisory ids + reachability.
+  - `ssrf-scan` — new outbound fetch / webhook / URL-import sink, or a redirect target read from input.
+  - A skill triggered and not run forces at least `GO-UNVERIFIED`, exactly like a reviewer dispatched and not run.
+  - **Run each skill once.** `security-auditor` also names these as the executors behind its own A0x rows; this dispatch guarantees they run on the diff's signal even when no auditor row fires. Consume an existing result rather than re-scanning.
 
 ## Phase 3 — Retrieve
 
@@ -48,7 +61,7 @@ ALWAYS (universal pre-flight):
 
 Security-specific:
 - `.claude/rules/multi-tenancy.md`, `.claude/rules/auth.md`, `.claude/rules/secrets.md` (whichever apply).
-- `ai/patterns/auth-flow.md`, `ai/patterns/tenant-isolation.md`, `ai/patterns/payment-integration.md` (signal-driven).
+- `ai/patterns/auth-flow.md`, `ai/patterns/tenant-isolation.md`, `ai/patterns/zero-trust.md` (signal-driven). Payment-flow integrity is owned by the backend/domain pack, not security.
 - Recent `ai/audits/<date>-security.md` — repeated findings = systemic issue.
 - Any threat model doc.
 
@@ -63,7 +76,7 @@ Security-specific:
 
 A clean `GO` is the claim "this surface is production-grade", not "I found no obvious hole". Before emitting GO, this gate runs — enforced by a **required output artifact**, not a claim:
 
-- **Production bar (name the unmet items, never assume).** (1) **threat-class coverage** — every sensitive surface the diff touches is mapped to a real class (authz/IDOR, injection, SSRF, secret exposure, deserialization, tenant isolation); an unmapped surface is a `COVERAGE:` gap. (2) **defense-in-depth** — each critical control has ≥2 independent layers; a single point is a `DEPTH:` finding (REQUEST min). (3) **least-privilege** — no wildcard scope / admin-by-default / any-host egress / `SELECT *` over PII / over-long TTL; an over-grant is a `LEASTPRIV:` finding.
+- **Production bar (name the unmet items, never assume).** (1) **threat-class coverage** — every sensitive surface the diff touches is mapped to a real class (authz/IDOR, injection, SSRF, secret exposure, deserialization, tenant isolation); an unmapped surface is a `COVERAGE:` gap. (2) **defense-in-depth** — each critical control has ≥2 independent layers; a single point is a `DEPTH:` finding (REQUEST min). **Engine/platform-conditional:** a second layer the platform cannot provide is not a `DEPTH:` gap — record the capability (`below-app layer: unavailable (<engine>)`, per `tenant-isolation.md § The below-app layer`) and re-aim the finding at what the remaining layer must guarantee. A gap no fix can close is a permanent NO-GO, which is how a verdict stops being read. (3) **least-privilege** — no wildcard scope / admin-by-default / any-host egress / `SELECT *` over PII / over-long TTL; an over-grant is a `LEASTPRIV:` finding.
 - **Mitigation verification (probe-or-UNVERIFIED).** Every control the GO depends on carries an Evidence token — a **Probe** (crafted input + observed denied/sanitized response), a named **Test** result, or a **Traced enforcement** `<file:line>` from untrusted entry to sink. A control read-but-not-exercised, or one whose probe harness is absent, is **UNVERIFIED / SKIPPED** — never a checkmark. Count the UNVERIFIED controls.
 - **Verdict (three states, not two):**
   - **NO-GO** — any blocker in any dispatched reviewer's output.
@@ -114,12 +127,14 @@ A clean `GO` is the claim "this surface is production-grade", not "I found no ob
 - Each blocker has a concrete remediation (not just a finding).
 - No fabricated findings — say "no blockers" plainly when clean.
 - **Verdict integrity:** a clean `GO` is emitted ONLY when (a) no blocker, (b) all three production dimensions clear with no `COVERAGE:`/`DEPTH:`/`LEASTPRIV:` gap open, and (c) 0 GO-critical controls UNVERIFIED. Any open item forces `GO-UNVERIFIED (N)` with the items named. An asserted mitigation ("auth guard is there") with no probe / test / traced enforcement is UNVERIFIED, not a pass.
-- Cross-tenant reads via raw SQL specifically scanned (`getRepository().createQueryBuilder()`, `datasource.query`) even on clean-looking files.
-- `eslint-disable security/*` comments surfaced as blockers.
+- Cross-tenant reads via raw SQL specifically scanned — the project's own raw-query / query-builder escape hatches — even on clean-looking files.
+- **Interpolation that parameter binding cannot cover** specifically scanned: sort direction/column, table/column identifiers and `LIMIT`/`OFFSET` are not bindable in most drivers, so an otherwise fully parameterized codebase still concatenates them. The control is an allow-list of permitted identifiers, not an escape function.
+- **File-serving paths specifically scanned** for traversal: the store side is the backend `file-upload` contract; the *read* side (`?file=` / `?name=` / a path segment resolved against a directory) is a separate sink. Resolve, then assert the resolved path is inside the intended root.
+- Lint / static-analysis suppression pragmas applied to a security rule (any language) surfaced as blockers.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture each blocker class.
-- If same auth bypass class found 2+ audits → queue ADR: enforce guard via decorator on every controller.
+- If the same auth-bypass class is found in 2+ audits → queue an ADR: enforce the project's auth guard primitive on every route uniformly.
 - If tenant leak in raw SQL recurs → queue lint rule + base-class refactor.
 - If secret-in-log recurs → queue logger-level redaction enforcement.
 - **Pattern-escalation enforcement:** if a finding's pattern has appeared ≥2 times across audits, promote it to an ADR proposal AND open a lint / static-analysis rule task. Patterns that repeat without escalation are themselves a finding (`META: pattern X recurred N times, no ADR/lint rule filed`).
@@ -146,6 +161,13 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - Auth + payment + secret findings deferred to "follow-up PR" → forbidden; always blockers.
 - Fabricated findings to look thorough → say "no blockers" plainly when clean.
 - Linters/SAST missing business-logic flaws (privilege escalation, IDOR) → agent review catches those; don't substitute one for the other.
-- `eslint-disable security/*` comments hidden → blockers; agent must surface.
-- Raw SQL paths skipped because they "look fine" → #1 false-clean; explicitly scan `createQueryBuilder` + `datasource.query`.
+- Lint / static-analysis suppression pragmas on security rules hidden → blockers; the agent must surface them.
+- Raw SQL paths skipped because they "look fine" → #1 false-clean; explicitly scan the project's raw-query / query-builder escape hatches.
 - Whole-repo scan launched without warning user → can run hours; flag before starting.
+
+## Related
+
+**Reviewers** (Phase 2, by signal): `@security-auditor` (always) · `@auth-reviewer` · `@tenant-isolation-reviewer` · `@api-security-reviewer` · `@data-privacy-reviewer` · `@llm-security-reviewer`.
+**Skills** (Phase 2, the executors behind Phase 4's buckets): `secret-scan` · `deps-audit` · `ssrf-scan`.
+**Patterns**: `ai/patterns/auth-flow.md` · `ai/patterns/tenant-isolation.md` · `ai/patterns/zero-trust.md`.
+**Rules**: `.claude/rules/security-principles.md`.

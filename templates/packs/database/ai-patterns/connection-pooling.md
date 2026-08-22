@@ -38,6 +38,19 @@ Bigger is not better — past the DB's parallelism, more connections mean more c
 - **Per-instance size** — a small pool saturates the DB's real concurrency. A common heuristic (PostgreSQL wiki): `connections ≈ (core_count × 2) + effective_spindle_count`. On SSD/cloud storage `effective_spindle_count` is small; the practical answer for many services is a pool of ~5–20, not 100. Measure the knee, don't inflate.
 - **Fleet ceiling** — the invariant that actually causes outages: `per_instance_pool_max × instance_count + other_clients ≤ server_max_connections − superuser_reserve − replication_slots`. Twenty app pods each with a 30-connection pool = 600 connections; a default Postgres `max_connections` of 100 is exhausted six times over. Autoscaling multiplies this silently.
 
+  **Closing the arithmetic — read every term, do not assume one.** The halt above is unusable while any term is a guess, and each has a query:
+  ```sql
+  -- Postgres
+  SHOW max_connections; SHOW superuser_reserved_connections; SHOW max_wal_senders;
+  SELECT count(*) AS other_clients FROM pg_stat_activity WHERE application_name <> '<this app>';
+  ```
+  ```sql
+  -- MySQL
+  SHOW VARIABLES LIKE 'max_connections';
+  SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE USER <> '<this app user>';
+  ```
+  `other_clients` is the term people forget: migration runners, the BI tool, cron jobs, a replica's own connections, and every engineer's psql session. Budget it explicitly rather than discovering it during an incident.
+
 When the fleet ceiling and the per-instance need conflict, the answer is a **server-side pooler** (below), not a raised `max_connections` — Postgres backends are expensive processes, and thousands of them thrash.
 
 ## Pooler modes (pgbouncer / ProxySQL / RDS Proxy)

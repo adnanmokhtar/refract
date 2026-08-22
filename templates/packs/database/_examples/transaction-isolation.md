@@ -66,3 +66,9 @@ Snapshot/RR does NOT prevent write-skew: two transactions read disjoint rows, ea
 - Locking ≥2 rows in different orders across code paths.
 - A polled job-queue `SELECT … FOR UPDATE` with no `SKIP LOCKED`.
 - A lock held across an external HTTP/queue call (see `transaction-boundary`).
+
+## Related
+
+- `migrations.md` — backfills and online DDL take locks; batch them, set a lock timeout, and keep lock ordering consistent so a migration does not deadlock against live writers.
+- `indexing-strategy.md` — locks ride on index access paths; a missing index turns a row lock into a range lock (InnoDB gap locks span the scanned range) and widens the deadlock surface.
+- cross-pack `backend` `transaction-boundary` — **owns where a transaction begins and ends** (no network call inside one, no transaction spanning a request). A finding about a transaction wrapping an HTTP call is theirs; isolation level and locking discipline are here.

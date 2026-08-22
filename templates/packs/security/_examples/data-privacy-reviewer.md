@@ -29,13 +29,32 @@ Unconsented PII egress and an un-implementable erasure path are the two defects 
 
 ## Checklist (each ships greppable detectors — tune to the stack)
 
-- **PII/PHI inventory** — enumerate every personal field before tracing. `name`, `email`, `phone`, `gov_id`, `location`, `financial`, `health`/PHI, `biometric`; the last three are special-category (GDPR Art.9 / PDPL sensitive).
+- **PII/PHI inventory** — enumerate every personal field before tracing. `name`, `email`, `phone`, `gov_id`, `location`, `financial`, `health`/PHI, `biometric`; the last three are special-category (GDPR Art.9 / PDPL sensitive). A field that identifies a person but carries no classification tag is an inventory gap.
+  ```bash
+  rg -ni "\b(email|phone|mobile|first_?name|last_?name|dob|birth|address|ssn|national_?id|tax_?id|passport|iban|card|cvv|latitude|longitude|ip_?addr|diagnosis|health|biometric)\b" src/ models/
+  ```
 - **Collection points** — every form/endpoint/import collecting PII has a lawful basis (consent or documented Art.6 basis) + a stated purpose. No reachable consent check → Art.6/7 defect.
-- **Data-flow to sinks (the core sweep)** — trace each field to where it *leaves* the store: `logger`/`console`/`Sentry`, analytics/telemetry (`track`/`identify`/`segment`), third-party SDKs (`stripe`/`intercom`/`braze`). A named PII field in a payload is a traced egress finding.
+- **Data-flow to sinks (the core sweep)** — trace each field to where it *leaves* the store: logs/error trackers, analytics/telemetry, third-party SDKs. A named PII field in a payload is a traced egress finding.
+  ```bash
+  rg -n "(logger|log|console|Sentry|captureException|Bugsnag|Rollbar)\.\w+\(" src/ | rg -ni "user|email|phone|body|profile|req\b"
+  rg -n "(analytics|track|mixpanel|amplitude|segment|posthog|gtag|dataLayer|identify)\(" src/ | rg -ni "email|name|phone|user"
+  rg -ni "(stripe|twilio|sendgrid|braze|intercom|hubspot|facebook|tiktok|firebase|onesignal)" src/
+  ```
 - **Third-party transfer + cross-border** — is the sub-processor authorized (DPA), and does the destination cross a restricted border without a transfer mechanism (adequacy/SCCs/consent)? → Art.44.
 - **Right-to-erasure implementability** — is there a delete path, and does it reach every store/log/derived copy the inventory found? An un-erasable identifying field is an Art.17 defect by construction.
+  ```bash
+  rg -n "(deleteUser|eraseUser|forgetUser|gdprDelete|purge|anonymize|right[_-]?to[_-]?erasure)" src/
+  rg -ni "cascade|ON DELETE|deleteMany|bulkDelete" src/ migrations/
+  ```
 - **DSAR / export implementability** — an access/export path that reads every store the register lists. Missing one → Art.15/20 (or CCPA §1798.100) gap.
 - **Data minimization** — `SELECT *` / whole-object forwarding / a form capturing fields no feature reads → Art.5(1)(c).
+- **PII in URLs / query-strings / error messages** — a PII query param lands in access logs, referrers and browser history; PII in an error message lands in the error tracker and on the user's screen.
+- **Encryption in transit** — every PII-bearing endpoint enforces TLS; no plaintext `http://` target, no disabled cert verification on a PII-bearing client. At-rest/column encryption is out of scope here — it belongs to the database `data-retention-pii` pattern.
+  ```bash
+  rg -n "\?[^\"']*\b(email|phone|token|ssn|dob)=" src/ routes/
+  rg -n "http://[^\"' ]+" src/ config/ | rg -ni "api|login|user|profile"
+  rg -n "rejectUnauthorized:\s*false|verify=False" src/
+  ```
 
 ## Example findings (graded)
 

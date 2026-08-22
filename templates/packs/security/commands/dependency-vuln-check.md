@@ -6,7 +6,7 @@ description: Audit dependencies for known CVEs + abandoned maintainers + license
 
 ## The Premise (read this first, internalize, do not deviate)
 
-**Find real issues, no hand-waves. Every finding cites `<file:line>` and CVE ID.** A vuln without a manifest line + CVE identifier + fix-version is gossip. "lodash might be vulnerable" is not an audit; "`package.json:34` lodash@4.17.20 → CVE-2021-23337 (HIGH, prototype pollution) → upgrade ≥ 4.17.21" is an audit. License findings cite the SPDX expression and the file in `node_modules/<pkg>/LICENSE` (or equivalent). Maintainer findings cite the last-commit SHA / date from the upstream repo. Provenance is non-negotiable.
+**Find real issues, no hand-waves. Every finding cites `<file:line>` and CVE ID.** A vuln without a manifest line + CVE identifier + fix-version is gossip. "lodash might be vulnerable" is not an audit; "`package.json:34` lodash@4.17.20 → CVE-2021-23337 (command injection via the `template` function) → upgrade ≥ 4.17.21" is an audit. **The class is copied from the advisory record, never from recall** — that is what the mechanical halt below re-checks. License findings cite the SPDX expression and the file in `node_modules/<pkg>/LICENSE` (or equivalent). Maintainer findings cite the last-commit SHA / date from the upstream repo. Provenance is non-negotiable.
 
 **The agent's job is exactly this:**
 1. Run the ecosystem auditor (`npm audit --json`, `pip-audit`, `cargo audit`, `govulncheck`, etc.) and parse output structurally.
@@ -74,6 +74,8 @@ Five concerns audited in parallel:
 
 ## Phase 3 — Retrieve
 
+**Run the `deps-audit` skill for the CVE dimension** — it owns the per-ecosystem invocations, the schema-aware `jq` for each tool's output shape, and the § Reading the output rules (reachability, "fix available" that is a major bump, EPSS/KEV weighting). This command does not restate them; it consumes the skill's findings and adds the four dimensions the skill does not cover (license, maintainer health, drift, supply-chain markers).
+
 Tools:
 - **OSV-Scanner** — the cross-ecosystem default (npm, PyPI, Go, Cargo, Maven, … from one lockfile-aware pass over OSV.dev); reach for it first, then fall back to the ecosystem-native auditor for richer fix paths.
 - `npm audit --json` / `pnpm audit` / `yarn audit` — note: npm **7+** emits findings under `.vulnerabilities` (keyed by package), NOT the legacy `.advisories` map; parse the version-appropriate shape.
@@ -105,22 +107,20 @@ Total:          <N+M>
 
 ### CVE findings
 
-**CRITICAL — fix immediately:**
-| Package | Version | CVE | Severity | Fix | Used by |
+Class and fixed version are copied from the advisory record. Reachability is a separate column because the scanner does not know it (`deps-audit § Reading the output`).
+
+**BLOCK-MERGE:**
+| Package | Version | Advisory | Class (from the record) | Fix | Reachable path |
 |---|---|---|---|---|---|
-| lodash | 4.17.20 | CVE-2021-23337 | High (RCE) | upgrade ≥ 4.17.21 | direct + 12 transitive |
-| node-forge | 1.0.0 | CVE-2022-24771 | High (signature bypass) | upgrade ≥ 1.3.0 | indirect via @nestjs/jwt |
+| follow-redirects | 1.15.5 | CVE-2024-28849 | `proxy-authorization` header retained across a cross-domain redirect → credential leak | ≥ 1.15.6 | transitive via `<http client dep>`; proxy configured on `<outbound client:line>` |
+| node-forge | 1.0.0 | CVE-2022-24771 | RSA PKCS#1 v1.5 signature verification is lenient about the digest structure → forged signature at low public exponent | ≥ 1.3.0 | `<token verification:line>` |
 
-**HIGH:**
-| Package | Version | CVE | Fix |
-|---|---|---|---|
-| ... | | | |
+**FIX-NOW / FIX-SCHEDULED:**
+| Package | Version | Advisory | Class | Fix | Reachable path |
+|---|---|---|---|---|---|
+| lodash | 4.17.20 | CVE-2021-23337 | command injection via the `template` function | ≥ 4.17.21 | dev-only — `template` not called on a runtime path |
 
-**MEDIUM (queue for next maintenance):**
-| ... |
-
-**INFO (no fix available):**
-- 2 deps with disputed CVEs (likely false positives — verify with security@vendor).
+**Below threshold (batched, one line):** N findings with no reachable path — ids listed, each with the import that would change that.
 
 ### License findings
 
@@ -143,11 +143,7 @@ Total:          <N+M>
 
 ### Version drift
 
-**MAJORS BEHIND:**
-| Package | Current | Latest | Majors behind | Risk |
-|---|---|---|---|---|
-| react | 17.0.2 | 19.x | 2 | Migration cost rising; security patches eventually stop |
-| express | 4.18.2 | 5.x | 1 | Express 5 has breaking changes; deferred is fine until Q3 |
+Report drift **only where it changes security posture**: a major behind whose line no longer receives patches, or one whose fixed version for an open finding is unreachable without the bump. "N majors behind" with neither property is a maintenance metric, not an audit finding — it belongs in the dependency dashboard, not here.
 
 ### Supply-chain markers
 
@@ -156,23 +152,6 @@ Total:          <N+M>
   Action: investigate why it was upgraded; review changes; consider downgrading until trusted.
 
 - `legit-looking-name@1.0.1` — Typo-squat candidate; the legit package is `legit-looking-named` (note `-d`). Verify intent.
-
-### Aggregate metrics
-- Total deps:                <N>
-- With known CVEs:          <count> (<%>)
-- Behind by ≥ 1 major:      <count> (<%>)
-- Maintainer-abandoned:     <count>
-- License-incompatible:     <count>
-
-### Action plan
-
-| Priority | Action | Effort |
-|---|---|---|
-| P0 | Upgrade lodash + node-forge (CRITICAL CVEs) | 30 min |
-| P0 | Replace AGPL package | 4-8 hours |
-| P1 | Replace abandoned `dead-package` | 1-2 days |
-| P2 | Schedule React 17 → 19 migration sprint | sprint-sized |
-| P2 | Investigate suspicious `random-utility` upgrade | 1 hour |
 
 ### Blockers documented (no fix today)
 
@@ -209,6 +188,10 @@ Action plan: <P0 count / P1 count / P2 count>
 - **Lock file always committed.** No floating versions.
 - **Whitelisting requires justification.** Every entry in `.snyk` / `npm audit --audit-level` exclusions has a comment with reason + revisit-by date.
 
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (`block-merge`) → **SHOULD FIX** (`fix-now` / `fix-scheduled`) → **OPTIONAL** (accepted-with-justification, revisit-by date) — each step carrying the manifest `<file:line>` + the advisory id + **Fix** (the exact version or override to pin) + **Verify** (re-run the audit AND the test that exercises the consumer path). A clean run collapses to a single line ("No findings above threshold — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
 ## Failure modes
 
 - Upgraded transitive but didn't update lock file → next install reverts to vulnerable version.
@@ -219,7 +202,8 @@ Action plan: <P0 count / P1 count / P2 count>
 
 ## Related
 
-- `@security-auditor` — runs broader audit; this is one dimension.
-- `@dependency-auditor` (code-quality pack) — overlap on freshness; this is security-focused.
-- `secret-scan` — different concern; pair them in security workflows.
+- `deps-audit` **skill** — the CVE-scanning primitive this command runs in Phase 3. The skill owns tool invocation, output parsing and reachability triage; this command owns the four non-CVE dimensions, the closure verbs and the report of record. Run the skill for a scan; run this for an audit.
+- `@security-auditor` — runs the broader audit; this is one dimension of it.
+- `@dependency-auditor` (code-quality pack) — overlap on freshness; this one is security-focused.
+- `/secret-scan` — different concern (leaked credentials, not vulnerable code); pair them in release workflows.
 - `.claude/rules/security-principles.md` — the vulnerable-components + dependency-audit rules this command enforces.

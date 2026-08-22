@@ -68,7 +68,7 @@ One or more of:
 
 ## Full checklist (OWASP Top 10:2025)
 
-> **Edition.** This maps to **OWASP Top 10:2025** (finalized Jan 2026). Cite the 2025 class in every finding. 2021→2025 changes to know: **A03 Software Supply Chain Failures** and **A10 Mishandling of Exceptional Conditions** are NEW; **SSRF (was A10:2021) is absorbed into A01**; Security Misconfiguration rose to **A02**; Injection (incl. XSS) is now **A05**; Insecure Design is **A06**. If a project still tracks 2021, note both numbers (e.g. "A05:2025 Injection / A03:2021").
+> **Edition.** This maps to **OWASP Top 10:2025** — https://owasp.org/Top10/2025/, which is the authority for every class name and number cited below. 2021→2025 changes to know: **A03 Software Supply Chain Failures** and **A10 Mishandling of Exceptional Conditions** are NEW; **SSRF (was A10:2021) is absorbed into A01** (CWE-918), along with **path traversal** (CWE-22) and **open redirect** (CWE-601); Security Misconfiguration rose to **A02**; Injection (incl. XSS) is now **A05**; Insecure Design is **A06**; A09 was renamed Logging & **Alerting** Failures. **Every finding cites the 2025 number** — a 2021 number in a 2025-framed report is the self-contradiction this agent's own halt condition forbids. If a project still tracks 2021, note both (e.g. "A05:2025 Injection / A03:2021").
 
 ### A01 Broken Access Control (incl. SSRF)
 - Every endpoint has explicit auth. Default = private.
@@ -76,7 +76,9 @@ One or more of:
 - User can't access another user's data (tenant / user filter on every query).
 - `/admin/*` requires admin role (tested, not just decorated).
 - **IDOR / BOLA** (object-level): sequential/guessable IDs not used for authorization; ownership checked server-side. **BFLA**: function/route-level role enforced, not just hidden in UI.
-- **SSRF** (folded into A01 in 2025): user-supplied URLs validated before fetch; block internal ranges (`10.*`, `172.16-31.*`, `192.168.*`, `169.254.169.254`, `localhost`); validate the *resolved* IP (DNS-rebinding); no redirects to denied hosts; https-only.
+- **SSRF** (CWE-918, folded into A01 in 2025): user-supplied URLs validated before fetch; block internal ranges (`10.*`, `172.16-31.*`, `192.168.*`, `169.254.169.254`, `localhost`); validate the *resolved* IP (DNS-rebinding); no redirects to denied hosts; https-only. Depth: dispatch the `ssrf-scan` skill.
+- **Path traversal** (CWE-22, also A01 in 2025): any path built from user input is canonicalized and re-checked against the allowed base directory **before the file is opened** — on the read/serve/download side (`?file=`, `?name=`, `?path=`), not only on upload. A string-level `../` strip is not the check.
+- **Open redirect** (CWE-601, also A01 in 2025): `?next=` / `?returnUrl=` / `?redirect=` must not forward the browser to an arbitrary URL — it launders phishing through the domain and, on an OAuth client, exfiltrates authorization codes (OAuth 2.1 § 2.3.1).
 
 ### A02 Security Misconfiguration
 - CORS: explicit allow-list, no wildcard with credentials.
@@ -101,6 +103,7 @@ One or more of:
 
 ### A05 Injection (incl. XSS)
 - SQL: parameterized. Grep for string concat into queries.
+- **The parameterization carve-out** — bind parameters cannot carry a table/column identifier, a sort column, `ASC`/`DESC`, or (in most drivers) `LIMIT`/`OFFSET`. Every `?sort=` / `?orderBy=` endpoint must map through a server-side allow-list; an interpolated identifier is injection even when every *value* is bound. (OWASP SQL Injection Prevention Cheat Sheet § "Defense Option 3: Allow-list Input Validation".)
 - NoSQL: never accept query operators (`$where`, server-side JS) with user input.
 - OS commands: never a shell with interpolated user input — array args + explicit binary path via safe-spawn.
 - **XSS** — reflected / stored / DOM: user input never reaches an HTML sink unencoded. Flag `innerHTML`, `dangerouslySetInnerHTML`, `v-html`, `document.write`, `{{{ }}}` / `| safe` / `mark_safe`, `eval`. Output-encode by context; CSP as defense-in-depth.
@@ -108,7 +111,7 @@ One or more of:
 - LDAP / XPath / GraphQL / XXE: per-engine escape rules; disable external entities in XML parsers.
 
 ### A06 Insecure Design
-- Threat-modeled before shipping (dispatch `threat-model`).
+- Threat-modeled before shipping — dispatch the `threat-model` **skill** for the STRIDE pass on one component; `/threat-model` the **command** owns the persisted artifact and the re-audit trigger.
 - Rate limits on auth endpoints (login, password reset, signup) + abuse-prone / expensive endpoints.
 - Business-logic abuse guarded (can't ship an order to another user; can't skip a payment step; quantity/price tamper).
 
@@ -124,10 +127,10 @@ One or more of:
 - Webhook payloads signature-verified (HMAC, timing-safe).
 - Unsigned/untrusted auto-update or plugin loading rejected. (Build-artifact signing lives in A03 / devops.)
 
-### A09 Security Logging & Monitoring Failures
+### A09 Security Logging and Alerting Failures
 - Security events logged: login success/fail, privilege change, admin actions, data export.
 - Audit log tamper-evident (write-once / append-only); PII redacted; retained per policy (default 90 days).
-- Alerting on the events, not just logging (dispatch to the observability pack for the pipeline).
+- **Alerting** on the events, not just logging — the 2025 rename is the point: a log nobody is paged on is not a control. (Dispatch to the observability pack for the pipeline.)
 
 ### A10 Mishandling of Exceptional Conditions (NEW in 2025)
 - Errors fail **closed**, not open — an auth/permission check that throws must deny, never fall through to allow.
@@ -142,7 +145,7 @@ One or more of:
 - Every query filters by tenant_id.
 - Cache keys tenant-prefixed.
 - Event handlers scope to tenant from metadata.
-- Row-level security at the DB as belt-and-suspenders.
+- A second enforcement layer below the application, **graded against what this engine can actually enforce** — native row-level policies where they exist, otherwise a definer's-rights / security-barrier view with base-table grants revoked, a per-tenant DB role, or schema-per-tenant. `@tenant-isolation-reviewer` § Grading the below-app layer owns the grade; do not demand a named engine feature here.
 
 ### Supply chain (audit = verify the executor ran; do NOT assert unbacked passes)
 - Lock file committed + integrity-verified (`npm ci` / `--frozen-lockfile`).
@@ -159,14 +162,14 @@ One or more of:
 
 ### Blocker — SQL injection
 - Site: a query builder concatenates user input directly into a SQL string (no parameterised binding).
-- OWASP: A03 Injection · Severity: CRITICAL.
+- OWASP: A05:2025 Injection · Severity: CRITICAL.
 - Impact: full DB read/write access via SQL injection.
 - Fix: switch to parameter binding (positional / named) supported by the project's DB driver.
 - Verify: add a test that injects a payload like `'; DROP TABLE x; --` and confirm the query returns empty / parameter-bound result.
 
 ### Blocker — missing auth
 - Site: a privileged route (admin export, mutation, data dump) is registered with no auth guard / public-route marker.
-- OWASP: A01 Broken Access Control · Severity: CRITICAL.
+- OWASP: A01:2025 Broken Access Control · Severity: CRITICAL.
 - Impact: unauthenticated access to a privileged endpoint.
 - Fix: apply the project's auth guard + role check decorator/middleware.
 - Verify: e2e test — unauthenticated request returns the project's unauthorized status.
@@ -244,11 +247,17 @@ Tools used:
 ## Related
 
 ### Sibling agents in security pack
-- `@auth-reviewer` — sibling agent in security pack
+- `@auth-reviewer` — the authentication/authorization deep dive (JWT alg pinning, session fixation, refresh rotation + replay, passkey ceremony, OAuth 2.1). This auditor's A07 rows are the surface pass; hand the full token/session/OAuth ceremony there and do not re-derive it. **Not this auditor's job** once dispatched.
 - `@tenant-isolation-reviewer` — multi-tenant deep dive; dispatched when the audit detects multi-tenant signals
 - `@api-security-reviewer` — the API-layer lens (OWASP API Top 10: BOLA/BOPLA/BFLA/resource-consumption); pairs on access-control depth.
 - `@llm-security-reviewer` — LLM/AI-app security (prompt injection, improper output handling, excessive agency); applicable wherever the app calls a model.
 - `@data-privacy-reviewer` — the PII/PHI data-flow + regulatory (GDPR/PDPL/CCPA) deep dive; dispatched when the change touches a collection surface, a logger, an analytics/telemetry call, a third-party SDK, or a delete/export path. This auditor's A02/A09 rows flag PII at the app surface; hand the personal-data slice — consent, cross-border transfer, erasure/DSAR reachability — there.
+
+### Skills
+- `ssrf-scan` — the A01 SSRF depth pass (user-URL → outbound fetch, resolved-IP + redirect re-validation, metadata-IP and encoding bypasses). This auditor's A01 SSRF row is the detector; that skill is the executor.
+- `deps-audit` — the A03 executor: lockfile-resolved CVEs triaged by EPSS + CISA KEV, not CVSS alone. An A03 finding without a resolved `<CVE-id>` from it is not shippable.
+- `secret-scan` — the secrets sweep, including git history. A `GO` emitted without it is a halt condition above.
+- `threat-model` — STRIDE a new component at design time, before this audit has code to read.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

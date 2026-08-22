@@ -42,6 +42,13 @@ The broad `security-auditor` pass is the OWASP-Top-10 net; the specialist review
   - **LLM / AI surface** — if the diff touches a prompt template, an LLM/tool-call, a RAG/embedding retrieval, or a model-output sink (signal: a prompt string / system-prompt constant, an SDK call — `anthropic`/`openai`/`chat.completions`/`messages.create`/`generateText`/`invoke_model` — a tool/function-calling definition, a vector-store/`embeddings`/retrieval call, or model output flowing into exec/eval/SQL/HTML/a shell) → dispatch `llm-security-reviewer` (prompt injection direct + indirect, improper output handling, excessive agency, RAG/embedding weaknesses).
   - If diff touches infra (container build files, K8s manifests, IaC modules) → container/runtime hardening cross-check.
 
+- **Skills — run these in the same pass. They are detectors, not reviewers: no persona, no verdict, just a cited finding set that feeds Phase 4.** Phase 4's buckets promise secret, dependency and SSRF coverage; without these three nothing in this run executes that promise, and the promise itself becomes a `COVERAGE:` gap.
+  - **`secret-scan`** — on any diff touching config, env files, IaC, CI definitions, or client bundles; and always on a whole-repo run. Its findings are BLOCKERS by default (a committed credential is not a "request").
+  - **`deps-audit`** — on any diff touching a dependency manifest or lockfile. Feeds the vulnerable-components dimension with advisory ids and reachability, which no reviewer above derives.
+  - **`ssrf-scan`** — on any diff adding an outbound fetch/webhook/URL-import sink, or a redirect target read from input (signal: the skill's pre-flight greps 1, 2 and 5). This is the depth behind `security-auditor`'s single A01 bullet.
+  - A skill that was triggered and not run is the same defect as a reviewer that was dispatched and not run: it forces at least `GO-UNVERIFIED`.
+  - **Run each skill once.** `security-auditor` also names these three as the executors behind its own A0x rows; this Phase-2 dispatch is what guarantees they run on the diff's signal even when no auditor row fires. If the auditor already ran one, consume that result — do not re-scan.
+
 ## Phase 3 — Retrieve
 
 ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
@@ -63,7 +70,7 @@ Security-specific:
 
 A clean `GO` is the claim "this surface is production-grade", not "I found no obvious hole". Before emitting GO, this gate runs — it DEEPENS the reviewers' probe discipline into the verdict and is enforced by a **required output artifact**, not a claim:
 
-- **Production bar (name the unmet items, never assume).** Consolidate each dispatched reviewer's production-bar block: (1) **threat-class coverage** — every sensitive surface the diff touches is mapped to a real class (authz/IDOR, injection, SSRF, secret exposure, deserialization, tenant isolation); an unmapped surface is a `COVERAGE:` gap. (2) **defense-in-depth** — each critical control has ≥2 independent layers; a single point is a `DEPTH:` finding (REQUEST min). (3) **least-privilege** — no wildcard scope / admin-by-default / any-host egress / `SELECT *` over PII / over-long TTL; an over-grant is a `LEASTPRIV:` finding.
+- **Production bar (name the unmet items, never assume).** Consolidate each dispatched reviewer's production-bar block: (1) **threat-class coverage** — every sensitive surface the diff touches is mapped to a real class (authz/IDOR, injection, SSRF, secret exposure, deserialization, tenant isolation); an unmapped surface is a `COVERAGE:` gap. (2) **defense-in-depth** — each critical control has ≥2 independent layers; a single point is a `DEPTH:` finding (REQUEST min). **Engine/platform-conditional:** a second layer the platform cannot provide is not a `DEPTH:` gap — record the capability (`below-app layer: unavailable (<engine>)`, per `tenant-isolation.md § The below-app layer`) and re-aim the finding at what the single remaining layer must now guarantee. A gap that no fix can close is a permanent NO-GO, which is how a verdict stops being read. (3) **least-privilege** — no wildcard scope / admin-by-default / any-host egress / `SELECT *` over PII / over-long TTL; an over-grant is a `LEASTPRIV:` finding.
 - **Mitigation verification (probe-or-UNVERIFIED).** Every control the GO depends on carries an Evidence token — a **Probe** (curl/crafted input + observed denied/sanitized response), a named **Test** result, or a **Traced enforcement** `<file:line>` from untrusted entry to sink. A control read-but-not-exercised, or one whose probe harness is absent, is **UNVERIFIED / SKIPPED** — never a checkmark. Count the UNVERIFIED controls.
 - **Verdict (three states, not two):**
   - **NO-GO** — any blocker in any dispatched reviewer's output.
@@ -116,6 +123,8 @@ A clean `GO` is the claim "this surface is production-grade", not "I found no ob
 - No fabricated findings — say "no blockers" plainly when clean.
 - **Verdict integrity:** a clean `GO` is emitted ONLY when (a) no blocker, (b) all three production dimensions clear with no `COVERAGE:`/`DEPTH:`/`LEASTPRIV:` gap left open, and (c) 0 GO-critical controls UNVERIFIED. Any open item forces `GO-UNVERIFIED (N)` with the items named. An asserted mitigation ("auth guard is there") with no probe / test / traced enforcement is UNVERIFIED, not a pass — the defense side owes the same evidence a blocker owes.
 - Cross-tenant reads via raw SQL specifically scanned (the project's raw-query / query-builder escape hatches) even on clean-looking files.
+- **Interpolation that parameter binding cannot cover** specifically scanned: sort direction/column, table or column identifiers, and `LIMIT`/`OFFSET` are not bindable in most drivers, so a codebase that is otherwise fully parameterized still concatenates them. The control is an allow-list of permitted identifiers, not an escape function — its absence on any endpoint taking a `sort`/`order`/`column` parameter is a finding.
+- **File-serving paths specifically scanned** for traversal: the upload/store side is covered by the backend `file-upload` contract, the *read* side (`GET …?file=` / `?name=` / a path segment resolved against a directory) is a separate sink. Resolve, then assert the resolved path is inside the intended root — a `..`-stripping filter is not that assertion.
 - Linter / SAST suppression comments that disable security rules (any language's `disable`/`ignore` pragma applied to a security check) surfaced as blockers.
 
 ## Phase 7 — Improve
@@ -163,8 +172,14 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - `@data-privacy-reviewer` — PII form / logger / analytics SDK / delete-or-export surface (PII flow, erasure reachability, cross-border).
 - `@llm-security-reviewer` — prompt / tool-call / RAG / model-output-sink surface (prompt injection, output handling, excessive agency).
 
+### Skills (run by signal in Phase 2 — the executors behind Phase 4's buckets)
+- `secret-scan` — committed credentials in tree + history; findings are BLOCKERS.
+- `deps-audit` — advisory ids, fixed versions, reachability for the vulnerable-components dimension.
+- `ssrf-scan` — outbound-fetch and redirect sinks fed from user input; the depth behind the A01 bullet.
+
 ### Patterns
 - `ai/patterns/auth-flow.md`
+- `ai/patterns/tenant-isolation.md`
 - `ai/patterns/zero-trust.md`
 
 ### Rules

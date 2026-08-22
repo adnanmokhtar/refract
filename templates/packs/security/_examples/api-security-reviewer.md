@@ -78,4 +78,6 @@ Patterns consulted: auth-flow, zero-trust, tenant-isolation
 - `@security-auditor` — broader web-app OWASP A01–A10; this agent is the API lens complementing its A01 with the API1/API3/API5 object/property/function slices.
 - `@auth-reviewer` — authN/authZ deep dive; overlaps API2. Auth verifies *who*, this verifies *what they may reach/see* per endpoint.
 - `@tenant-isolation-reviewer` — object-level authz (API1) overlaps the tenant boundary; when the object boundary IS the tenant, that agent owns it. Cross-link, don't duplicate.
-- Skills: `secret-scan`, `deps-audit`, `threat-model`. Patterns: `auth-flow`, `zero-trust`, `tenant-isolation`. Rule: `security-principles`.
+- `@data-privacy-reviewer` — overlaps API3 excessive-data-exposure. This agent asks *is this field authorized to leave the endpoint*; that one asks *is this field personal data, and does its egress have a lawful basis + a reachable erasure path*. Cross-link a shared leaking response line, don't double-report.
+- **Not this agent's job:** injection, secrets, dependency CVEs and the auth ceremony — cite the sibling that owns each.
+- Skills: `ssrf-scan` (the API7 executor — cite its output, don't restate its checks), `secret-scan`, `deps-audit`, `threat-model`. Patterns: `auth-flow`, `zero-trust`, `tenant-isolation`. Rule: `security-principles`.

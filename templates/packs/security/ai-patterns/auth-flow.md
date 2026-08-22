@@ -20,7 +20,7 @@ pack: security
 - Service-to-service inside a mesh — mTLS / SPIFFE is the right primitive, not user JWTs.
 
 **Halt conditions / mandatory cites**
-- Cite the password-hashing config as `<path:line>` (bcrypt cost / argon2 params); cost <12 or absent params is a halt. Prefer argon2id.
+- Cite the password-hashing **parameters** as `<path:line>` — not the algorithm name. "We use bcrypt" is not a control; a work factor is. Absent or unpinned parameters is a halt. See § Password hashing for what to pin and where the numbers come from.
 - Cite the refresh-rotation revocation handler as `<path:line>` proving session-family revocation on replay; without it, the rotation claim is hollow.
 - Cite the session store schema as `<path:line>` (`auth_sessions` table or equivalent) showing token_hash + ip + user_agent + revoked_at.
 - Cite the password-reset token schema + TTL as `<path:line>`; reset tokens without single-use enforcement are a halt.
@@ -32,7 +32,7 @@ JWT-based auth with refresh rotation. Document the flow once — every endpoint 
 
 ```
 1. POST /auth/login { email, password }
-2. Server: verify password (bcrypt/argon2) with constant-time compare.
+2. Server: verify the password against the stored hash (§ Password hashing) — the library's own verify function, which is constant-time; never a hand-rolled string compare.
 3. Server: issue access token (JWT, short TTL — 15m) + refresh token (opaque, longer TTL — 30d).
 4. Server: store refresh token hash + metadata (user, issued_at, ip, user_agent) in DB.
 5. Response: { accessToken, expiresIn } + refresh as HttpOnly Secure SameSite=Strict cookie.
@@ -78,6 +78,19 @@ Access tokens remain valid until TTL expires — accept this or maintain a revoc
 4. POST /auth/reset-password { token, newPassword } → verify token, invalidate, set password, revoke all refresh tokens.
 ```
 
+## Password hashing
+
+**The algorithm name is not the control — the parameters are.** Pin them in configuration, cite that `<path:line>` in review, and record which revision of the source you took them from, because the recommended values move upward with hardware.
+
+The source is the **OWASP Password Storage Cheat Sheet** — <https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html>. As of this writing it gives, for the two algorithms most projects choose:
+
+- **Argon2id** (preferred) — a minimum configuration of `m=19456` (19 MiB), `t=2`, `p=1`, with several equivalent memory/time trade-offs listed alongside it. All three parameters are the control; a call with library defaults and no explicit m/t/p is the finding.
+- **bcrypt** — *"The work factor should be as large as verification server performance will allow, with a minimum of 10."* Treat the cheat sheet's minimum as the floor and the number your verification budget allows as the target; a project standard above the floor is fine, below it is not.
+
+**bcrypt's 72-byte input limit is a correctness trap, not a footnote.** Most implementations accept a maximum input length of 72 bytes, so the cheat sheet's instruction is to *"enforce a maximum password length of 72 bytes"* — otherwise the tail of a long passphrase is silently ignored, and two different passwords can verify against the same hash. If you pre-hash to work around it, know that you are leaving the documented path and read the cheat sheet's treatment of it first.
+
+Re-read the source when you implement, not from memory: this is a page whose recommended numbers change, and a hard-coded value copied out of a pattern file ages badly. What does not change is the shape — parameters pinned in config, cited in review, and above the current published floor.
+
 ## MFA (for admin)
 
 - Passkeys / WebAuthn are the phishing-resistant baseline — prefer them over TOTP.
@@ -109,7 +122,7 @@ Passkeys replace the password entirely (passwordless) or stand as the second fac
 
 - Storing refresh tokens unhashed.
 - Access tokens in localStorage (use memory + HttpOnly cookie for refresh).
-- Passwords stored with weak hashing (MD5, SHA1, bcrypt cost <12). Prefer argon2id.
+- Passwords stored with a fast/general-purpose hash (MD5, SHA-1, plain SHA-256) or with a password hash left at library defaults — see § Password hashing. Prefer argon2id.
 - Reusing refresh tokens (replay attack).
 - Generic error messages that leak account existence.
 - MFA bypass with `rememberMe` without proper device binding.
@@ -118,5 +131,5 @@ Passkeys replace the password entirely (passwordless) or stand as the second fac
 ## Related
 
 - `@auth-reviewer` — the agent that audits this flow against source (JWT, refresh rotation, passkeys, OAuth 2.1).
-- `.claude/rules/security-principles.md` — the MUSTs this pattern implements (hashing ≥12/argon2id, JWT verification, session flags).
+- `.claude/rules/security-principles.md` — the MUSTs this pattern implements (password hashing, JWT verification, session flags).
 - `ai/patterns/zero-trust.md` — the surrounding boundary model (short-lived tokens, MFA, session revocation).

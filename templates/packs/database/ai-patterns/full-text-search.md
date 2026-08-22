@@ -100,10 +100,12 @@ WHERE MATCH(title, body) AGAINST(:term IN NATURAL LANGUAGE MODE)
 ORDER BY score DESC;
 ```
 
-- **Natural-language mode** — relevance-ranked, ignores words in > 50% of rows, honors a minimum token length (`innodb_ft_min_token_size`, default 3 — short terms silently return nothing).
+- **Natural-language mode** — relevance-ranked, and honors a minimum token length: `innodb_ft_min_token_size`, **default 3** for InnoDB (`ft_min_word_len`, default 4, for MyISAM). Short terms silently return nothing — this is the real InnoDB gotcha, and the one that produces "search is broken for our two-letter product codes".
 - **Boolean mode** — `+required -excluded "phrase" prefix*`, but **no relevance ranking** by default.
 
-Limits to know: per-word stopword + min-token behavior, no built-in stemming (English is basic, no config for many languages), and weaker relevance tuning than Postgres/external engines. It's the right tool for simple in-DB search on MySQL; it is *not* a search platform.
+**The 50%-of-rows rule is a MyISAM behaviour, not an InnoDB one.** Guidance that repeats it for InnoDB sends people looking for vanished common terms that never vanished. MySQL's own text: "Users who need to bypass the 50% limitation can build search indexes on `InnoDB` tables, or use the boolean search mode" ([§ Natural Language Full-Text Searches](https://dev.mysql.com/doc/refman/8.4/en/fulltext-natural-language.html)). On InnoDB, what filters common terms is the stopword list (`innodb_ft_server_stopword_table` / `innodb_ft_user_stopword_table`), which is explicit and inspectable — check it before concluding a term is being dropped.
+
+Limits to know: stopword + min-token behaviour, no built-in stemming (English is basic, no config for many languages), and weaker relevance tuning than Postgres/external engines. It's the right tool for simple in-DB search on MySQL; it is *not* a search platform.
 
 ## When to graduate to an external engine
 

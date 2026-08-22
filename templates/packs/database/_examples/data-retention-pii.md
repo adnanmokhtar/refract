@@ -58,3 +58,11 @@ A hard-delete does NOT remove PII from yesterday's snapshot — retention must c
 - Erasure path blocked by a non-cascading FK.
 - Soft-delete with no hard-purge job.
 - High-sensitivity field stored plaintext.
+
+## Related
+
+- `sharding-partitioning.md` — time-partitioning makes `DROP PARTITION` the cheapest retention purge; it also carries the unique-key constraint that decides whether the table can be partitioned at all.
+- `indexing-strategy.md` — the partial index for the soft-delete filter that purge relies on.
+- `migrations.md` — adding retention/classification columns and encryption safely under concurrent writes.
+- cross-pack `security` `data-privacy-reviewer` — **owns the code-level data flow (collection → sink → egress, DSAR, cross-border) and regulatory mapping**; this pattern owns schema/storage mechanics. State the boundary in any joint finding.
+- `@schema-reviewer` — enforces classification, retention, and FK-erasure resolution at review time.

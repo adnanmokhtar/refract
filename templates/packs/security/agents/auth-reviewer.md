@@ -26,6 +26,19 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 - Read `ai/patterns/auth-flow.md`, `zero-trust.md`.
 - Read `.claude/rules/security-principles.md`.
 - Know the auth model from `CLAUDE.md` / ADRs (JWT? session? OAuth? combined?).
+- **Locate the four surfaces before reviewing any of them.** Substitute the project's framework tokens; the *shape* is what matters.
+  ```bash
+  # verify / sign calls — is an algorithm allow-list passed?
+  rg -n "\b(jwt|jose|jsonwebtoken)?\.?(verify|decode|sign)\(" src/ | rg -v "algorithms?\s*[:=]"
+  # every route registration, so each can be classed guarded / explicitly-public
+  rg -n "@(Get|Post|Put|Patch|Delete)\(|router\.(get|post|put|patch|delete)\(|app\.(get|post)\(" src/ routes/
+  # the public-route marker and the guard — every route must be exactly one of these
+  rg -n "@Public|AllowAnonymous|permit_all|skipAuth|@UseGuards|requireAuth|isAuthenticated" src/
+  # password hashing call sites — and whether parameters are passed at all
+  rg -n "argon2|bcrypt|scrypt|pbkdf2|hashSync|createHash\(" src/
+  # refresh / session lifecycle
+  rg -n "refresh[_-]?token|rotate|revoke|session\.(regenerate|destroy)|sid" src/
+  ```
 
 ## AuthN checklist
 
@@ -53,7 +66,7 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 - Revoke on logout.
 
 ### Passwords
-- Hashing: Argon2id preferred; bcrypt cost ≥ 12 OK.
+- Hashing: Argon2id preferred; bcrypt (cost ≥ 12) acceptable. **The algorithm name is not the finding — the parameters are.** Argon2id's strength is entirely in its memory cost `m`, iterations `t` and parallelism `p`; bcrypt's is its work factor. A call site that names argon2id and passes no parameters is relying on a library default that may be below current guidance. Read the current minimums from the OWASP *Password Storage Cheat Sheet* (https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) and cite it in the finding — never assert a parameter set from memory.
 - Minimum 12 chars + complexity OR passkey.
 - Stored ONLY as hash.
 - Reset flow: single-use token, short TTL (< 1h), hashed in DB, bound to user + created_at.
@@ -76,7 +89,12 @@ The server MUST verify the ceremony, not just trust the client attestation/asser
 - No **implicit grant** (`response_type=token`); no **Resource Owner Password Credentials (ROPC)** grant — both removed in 2.1.
 - State parameter for CSRF protection.
 - Nonce for OIDC (replay protection on id_token).
-- Redirect URIs whitelisted EXACTLY (not wildcards).
+- Redirect URIs whitelisted EXACTLY (not wildcards) — OAuth 2.1 § 2.3.1: the authorization server *"MUST reject authorization requests that specify a redirect URI that doesn't exactly match one that was registered"*.
+- **The client-side half of that rule, which most reviews miss.** Same section: *"Clients MUST NOT expose URLs that forward the user's browser to arbitrary URIs obtained from a query parameter ('open redirector')."* An open redirector anywhere on the client's origin can be chained to exfiltrate an authorization code even when the registered redirect URI is exact. Audit `?next=` / `?returnUrl=` / `?redirect_to=` / `?continue=` handlers, including login-return flows and post-logout redirects (CWE-601, under A01:2025).
+  ```bash
+  rg -n "(next|return_?to|return_?url|redirect_?(to|uri|url)|continue|dest|callback)\s*[=:]" src/ routes/
+  rg -n "(res\.redirect|redirect\(|Location:|window\.location)" src/ | rg -i "req\.|query|params|body"
+  ```
 - Validate id_token signature + claims; don't trust `userinfo` endpoint blindly.
 - Scope minimal.
 - SHOULD: **DPoP / sender-constrained tokens** (RFC 9449) or mTLS-bound tokens so a stolen bearer token isn't replayable; **PAR** (Pushed Authorization Requests, RFC 9126) to keep request params off the front channel.
@@ -103,30 +121,21 @@ The server MUST verify the ceremony, not just trust the client attestation/asser
 
 ## Attack surface
 
-### Brute force
-- Rate limit login / signup / password-reset (per IP + per account).
-- Account lockout OR progressive delay after N failures.
-- No account enumeration — "invalid credentials" for both "email not found" and "wrong password".
+Only what the checklists above do not already cover. (Brute-force limits, session regeneration, `alg` pinning and IDOR are checklist items, not a second list — do not report them twice.)
 
-### Session fixation
-- Regenerate session ID on login.
-- Regenerate on privilege escalation (admin impersonate, step-up).
+### Account enumeration
+- "Invalid credentials" for both "email not found" and "wrong password" — and the same on password reset, signup, and OTP. Check **response time and status code**, not just the message body: a 200-vs-404 or a fast-vs-slow path enumerates just as well as text.
 
 ### CSRF
-- SameSite cookies + double-submit token OR framework's built-in CSRF on state-changing forms.
-- Not needed for Bearer-token APIs (no cookies sent).
-
-### Broken object-level access (IDOR)
-- Every resource access verifies ownership/permission — never trust the ID alone.
-
-### JWT confusion
-- Explicit `alg` whitelist.
-- Symmetric vs asymmetric mismatch rejected.
-- Expired tokens always rejected.
+- Synchronizer token (framework built-in) or **signed** double-submit, HMAC-bound to the session, on every state-changing request. A naive double-submit — unsigned cookie value echoed in a field — is not a control: anyone who can write a cookie on the domain, including from a sibling subdomain, forges it. `SameSite` + `Origin` are defence-in-depth on top, not a substitute (OWASP CSRF Prevention Cheat Sheet).
+- Not needed for Bearer-token APIs (no cookies sent) — flagging it there is noise.
 
 ### Permission elevation via input
-- User-supplied role / permission in body → IGNORED. Role comes from token/session.
-- Webhook / API integration: validate the principal matches what was requested.
+- User-supplied role / permission / scope in the body → IGNORED. The role comes from the token/session, never the payload.
+- Webhook / API integration: validate the principal matches what was requested; a signed webhook still does not authorize an arbitrary target user.
+
+### Step-up bypass
+- Where re-auth or MFA step-up gates a destructive action, verify the gate is enforced **server-side on the action itself**, not by hiding the button — and that the step-up result is bound to that one action, not a long-lived "recently authenticated" flag any later request can ride.
 
 ## Example findings (stack-agnostic shapes)
 
@@ -198,10 +207,11 @@ Patterns consulted: auth-flow, zero-trust
 ## Related
 
 ### Sibling agents in security pack
-- `@security-auditor` — runs the broader OWASP audit; this agent is the auth/authz deep dive.
-- `@tenant-isolation-reviewer` — the multi-tenant deep dive; this agent verifies *who* the principal is, that one verifies *whose data* they may touch.
-- `@api-security-reviewer` — the API-layer lens (OWASP API Top 10: BOLA/BOPLA/BFLA/resource-consumption); pairs on access-control depth.
-- `@llm-security-reviewer` — LLM/AI-app security (prompt injection, improper output handling, excessive agency); applicable wherever the app calls a model.
+- `@security-auditor` — runs the broader OWASP audit and dispatches here. Its A07 rows are the surface pass; this agent is the depth. **Not this agent's job:** injection, headers, dependency CVEs, misconfiguration — cite the auditor rather than re-reporting them.
+- `@tenant-isolation-reviewer` — this agent verifies *who* the principal is; that one verifies *whose data* they may touch. A forged or replayable token is this agent's finding; a valid token reading another tenant's row is that agent's, even though both look like "broken access control".
+- `@api-security-reviewer` — the API-layer lens (BOLA / BOPLA / BFLA / resource consumption). It owns per-endpoint reach and what a response may expose; this agent owns the token/session/OAuth ceremony that establishes the principal in the first place. API2 is the seam — hand the ceremony here, keep the per-route enforcement there.
+- `@data-privacy-reviewer` — owns *what personal data* flows once access is granted and which regulation governs it. This agent stops at the access decision.
+- `@llm-security-reviewer` — LLM/AI-app security wherever the app calls a model; a tool acting beyond the principal's authority is its call, the principal's identity is this agent's.
 
 ### Skills
 - `secret-scan` — confirm no signing keys / OAuth client secrets / API keys are committed.

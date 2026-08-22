@@ -100,7 +100,7 @@ A privileged *function / operation* is reachable by a lower-privileged role — 
 ```bash
 # admin/privileged routes lacking a role check
 rg -n "@(Get|Post|Put|Patch|Delete)\(['\"][^'\"]*(admin|internal|manage|config)" src/ -A3 \
-  | rg -v "Roles?\(|hasР|requireRole|@Admin|authorize\("
+  | rg -v "Roles?\(|hasPermission|hasRole|can\(|requireRole|@Admin|authorize\("
 rg -n "/(admin|internal)/" routes/ | rg -v "role|permission|guard"
 ```
 
@@ -123,6 +123,7 @@ rg -n "(fetch|axios|got|request|http\.get|requests\.get|urllib|HttpClient)\(" sr
   | rg -n "req\.(body|query|params)|url|href|webhook|callback"
 rg -n "169\.254\.169\.254|metadata|allowlist|isPrivateIp|ssrf" src/   # any guard at all?
 ```
+Depth: dispatch the `ssrf-scan` skill. This checklist row is the detector — resolved-IP validation, per-redirect re-validation, and the encoding/IPv4-mapped-IPv6 bypasses are that skill's job, not a second copy here.
 
 ### API8 — Security Misconfiguration
 - CORS not `*` with credentials; `Access-Control-Allow-Origin` reflects an allowlist, not the raw `Origin` header.
@@ -256,6 +257,7 @@ Patterns consulted: auth-flow, zero-trust, tenant-isolation
 - `@data-privacy-reviewer` — the PII/PHI data-flow + regulatory (GDPR/PDPL/CCPA) deep dive. Overlaps API3 excessive-data-exposure: this agent asks *is this field authorized to leave the endpoint*, that agent asks *is this field personal data, and does its egress have a lawful basis + a reachable erasure path*. Cross-link a shared leaking response line, don't double-report.
 
 ### Skills
+- `ssrf-scan` — the API7 executor: user-URL → outbound fetch, resolved-IP + per-redirect re-validation, metadata-IP and deny-list-bypass encodings. Cite its output rather than restating its checks.
 - `secret-scan` — confirm no API keys / third-party client secrets / signing keys are committed.
 - `deps-audit` — catch CVEs in the API framework, GraphQL server, HTTP client, and serialization libraries.
 - `threat-model` — STRIDE the API surface and enumerate the sensitive business flows (API6) before the review when the surface is new.

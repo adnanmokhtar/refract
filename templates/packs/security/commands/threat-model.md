@@ -32,18 +32,14 @@ Gather:
 
 ## Phase 2 — Organize (STRIDE per data-flow leg)
 
-For each data-flow segment, walk STRIDE:
+**The STRIDE letters and their halt conditions live in the `threat-model` skill — apply it, do not restate it.** This command's job starts where the letters end: the skill classifies one boundary; this command decides *which boundaries there are* and makes the result durable.
 
-| Letter | Threat | Question |
-|---|---|---|
-| **S** | Spoofing | Can someone pretend to be another user / system? |
-| **T** | Tampering | Can someone modify data in transit / at rest? |
-| **R** | Repudiation | Can a user claim "I didn't do that" with no evidence? |
-| **I** | Information disclosure | Can someone read data they shouldn't? |
-| **D** | Denial of service | Can someone exhaust the resource? |
-| **E** | Elevation of privilege | Can someone gain admin / cross-tenant / API access they don't have? |
+Per data-flow leg, in this order:
 
-For each YES answer: that's a threat. Document.
+1. **Enumerate the legs first, then classify.** A leg is any hop where data crosses a trust level — edge→service, service→DB, service→third party, queue→consumer, admin console→service. Missing legs is how a threat model reads complete and is not; a leg omitted here can never surface a threat later.
+2. **Run the skill's six letters against each leg.** Every letter gets a row, including `none — <why>`. A silently skipped letter is indistinguishable from an unexamined one.
+3. **Carry the persona down the leg.** The same letter on the same component is a different threat for an anonymous caller than for an authenticated tenant user — likelihood is a property of the persona, not of the code.
+4. **Mark each mitigation EXISTS / PARTIAL / MISSING**, never just "mitigated". EXISTS requires a `<path:line>`; MISSING requires a ticket id. This is what makes Phase 6's cite-or-halt decidable and what `/security-audit` later verifies.
 
 ## Phase 3 — Retrieve
 
@@ -51,7 +47,7 @@ For each YES answer: that's a threat. Document.
 - `ai/decisions/` — past ADRs about security choices.
 - `ai/failures/` — past security incidents.
 - `.claude/rules/security-principles.md` — applicable rules.
-- OWASP ASVS for the relevant level (1/2/3).
+- **OWASP ASVS 5.0.0** (released 2025-05-30 — <https://owasp.org/www-project-application-security-verification-standard/>) at the level this feature is held to. Cite the chapter/requirement id you used; "per ASVS" with no id is a hand-wave. Do not cite pre-5.0 chapter numbers from memory — 5.0.0 restructured them.
 - The feature's API surface + data schema.
 
 ## Phase 4 — Generate (the threat-model document)
@@ -84,29 +80,31 @@ Output to `ai/audits/threat-model-<feature>-<date>.md`:
 
 ### Boundary: HTTP edge → API service
 
-| ID | Class | Threat | Likelihood | Impact | Mitigation | Residual |
-|---|---|---|---|---|---|---|
-| T-01 | S | Attacker forges request impersonating user | High | High | JWT signed + verified; refresh-token rotation; CSRF token | Low |
-| T-02 | T | Attacker modifies request body in transit | Low | Medium | TLS 1.2+ enforced; HSTS | Low |
-| T-03 | I | Attacker enumerates user IDs via sequential ints | High | Medium | UUIDs, not sequential ints; per-user data scoped | Low |
-| T-04 | D | Attacker floods login endpoint | High | High | Rate limit per IP + per user; CAPTCHA on threshold; account lockout | Medium |
-| T-05 | E | User passes admin role in request body | High | Critical | Role from session, never request body; role check on every action | Low |
+Persona is part of the rating, and Mitigation is EXISTS `<path:line>` / PARTIAL / MISSING `<ticket>` — never bare prose. Phase 6 halts on any row that breaks either.
+
+| ID | Class | Threat (persona) | L × I | Mitigation | Residual |
+|---|---|---|---|---|---|
+| T-01 | S | Forged request impersonating a user (anon; needs a stolen token) | M × H | EXISTS — signature+exp+iss+aud verified `<auth guard:line>`; refresh rotation `<refresh handler:line>` | Low |
+| T-02 | T | Body modified in transit (network-position attacker) | L × M | EXISTS — TLS + HSTS `<ingress config:line>` | Low |
+| T-03 | I | User ids enumerated via sequential ints (anon; trivial) | H × M | EXISTS — non-sequential ids `<migration:line>`; per-user scope `<repo:line>` | Low |
+| T-04 | D | Login endpoint flooded (anon; trivial) | H × H | PARTIAL — per-IP limit `<rate limit config:line>`; per-account limit MISSING, ticket SEC-31 | Medium |
+| T-05 | E | Admin role passed in the request body (authenticated tenant user) | H × C | EXISTS — role read from session `<auth guard:line>`; per-action check `<policy:line>` | Low |
 
 ### Boundary: API service → DB
 
-| ID | Class | Threat | Likelihood | Impact | Mitigation | Residual |
-|---|---|---|---|---|---|---|
-| T-06 | T | SQL injection via untyped query | Medium | Critical | Parameterized queries enforced by ORM; no string interpolation | Low |
-| T-07 | I | Cross-tenant data read | High | Critical | Auto-applied tenant filter via RLS or middleware | Low |
-| T-08 | I | Backup files exposed | Low | Critical | Backups encrypted at rest; access via IAM with audit log | Low |
+| ID | Class | Threat (persona) | L × I | Mitigation | Residual |
+|---|---|---|---|---|---|
+| T-06 | T | Injection via a query the ORM does not parameterize — sort column, table/column identifier, `LIMIT` (anon) | M × C | PARTIAL — binds cover values `<repo:line>`; sort/identifier allow-list MISSING, ticket SEC-33 | Medium |
+| T-07 | I | Cross-tenant read (authenticated tenant user; one forgotten predicate) | H × C | EXISTS — scope by construction `<base repository:line>` + leak test `<test:line>`. Second DB-enforced layer only where the engine has one — see `tenant-isolation.md § The below-app layer` | Low |
+| T-08 | I | Backups readable (insider / misconfigured bucket) | L × C | EXISTS — encrypted at rest + IAM-gated `<IaC module:line>` | Low |
 
 ### Boundary: API service → external payment provider
 
-| ID | Class | Threat | Likelihood | Impact | Mitigation | Residual |
-|---|---|---|---|---|---|---|
-| T-09 | S | Webhook from spoofed payment provider | High | Critical | Webhook signature verification (provider's signed-header convention); reject unsigned | Low |
-| T-10 | T | Replay attack on webhook | Medium | High | Idempotency keys + timestamp window check | Low |
-| T-11 | R | "I didn't authorize this charge" with no evidence | Medium | High | Audit log: who initiated, when, IP, user-agent, signed; immutable store | Low |
+| ID | Class | Threat (persona) | L × I | Mitigation | Residual |
+|---|---|---|---|---|---|
+| T-09 | S | Spoofed provider webhook (anon; endpoint is public) | H × C | EXISTS — signature verified before parsing `<webhook handler:line>`; unsigned rejected | Low |
+| T-10 | T | Webhook replay (anon) | M × H | EXISTS — idempotency key + timestamp window `<webhook handler:line>` | Low |
+| T-11 | R | "I didn't authorize this charge", no evidence (customer dispute) | M × H | EXISTS — append-only audit row (actor, time, IP, UA, request id) `<audit emitter:line>` | Low |
 
 ## High-level mitigations adopted
 
@@ -157,11 +155,11 @@ This threat model invalidates if:
 
 ## Phase 6 — Validate
 
-Cite-or-halt per threat row (imported from the threat-model skill's Halt conditions):
+**Cite-or-halt per threat row: apply the `threat-model` skill's `## Halt conditions` as written there.** They are not restated here on purpose — a second copy drifts, and the three checks (component-path citation, persona-grounded rating, mitigation as `<path:line>`-or-ticket) are the skill's contract, not this command's. Open the skill and run them against every row of the table Phase 4 produced.
 
-- HALT on any threat row without a component path + trust-boundary citation (`<path:line>` for the entry handler / auth check / data store it crosses).
-- HALT on impact / likelihood ratings without a one-line justification grounded in the attacker persona ("anonymous internet rando" vs "authenticated tenant user" vs "disgruntled employee").
-- HALT on mitigations recorded as prose ("we'll add rate limits", "our WAF handles it") without a ticket id OR a `<path:line>` for where the control exists / must live.
+This command adds one halt the skill cannot make, because it is a property of the whole document rather than of a row:
+
+- **HALT on a data-flow leg with no rows at all.** Phase 2 enumerated the legs; a leg that produced zero rows was not analysed, and a threat model that silently omits a leg is worse than none — it will be cited as coverage.
 
 Then:
 - Every documented threat has a mitigation OR an explicit "accepted" with risk justification.
@@ -213,8 +211,9 @@ Every run MUST end its report with a `## What to do next` block: the threats re-
 
 ## Related
 
+- `threat-model` **skill** — the primitive this command applies: the six STRIDE letters, the LINDDUN privacy pass, and the three cite-or-halt conditions Phase 6 enforces. Agents dispatch the skill directly; this command is the session that makes its output durable (actor table, ADRs, residual risk, re-audit triggers).
 - `@security-auditor` — the enforcement agent, dispatched by the follow-up `/security-audit` (not by this command); its recorded verdict is what verifies the mitigations this model plans.
 - `@auth-reviewer` — overlap on auth-specific threats.
-- `secret-scan` command — finds the leak class T-08 enables.
-- `dependency-vuln-check` command — finds vulnerable deps that introduce new threats.
-- OWASP ASVS — formal checklist this informally covers.
+- `/secret-scan` — finds the leaked-credential class this model assumes away.
+- `/dependency-vuln-check` — finds vulnerable deps that introduce new threats.
+- **OWASP ASVS 5.0.0** — the formal requirement catalogue this session cites by requirement id: <https://owasp.org/www-project-application-security-verification-standard/>.

@@ -36,8 +36,8 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: agent
   triggers: { signal_confirmed: multi-tenant }
   extracts_from: _extracted-codebase.md § "Cross-cutting concerns" § multi-tenant + _extracted-idioms.md (repo base — auto-tenant-filter)
-  sections: [persona, isolation_contract, places_to_audit, escape_hatch_audit, output_format]
-  fallback: stub-from-sections   # AUTHOR-mode required; no `_examples/tenant-isolation-reviewer.md` ships — sectioned-stub fallback per phase-4.2-apply.md when extraction is empty
+  sections: [persona, premise, halt_conditions, isolation_contract, probe_kit, places_to_audit, escape_hatch_audit, layer2_grading, output_format, hard_rules, sibling_boundaries]
+  fallback: _examples/tenant-isolation-reviewer.md   # was `stub-from-sections`: on greenfield the highest-value reviewer in this pack materialised with no premise, no halt conditions, no probes and no sibling boundaries
 
 - name: data-privacy-reviewer
   kind: agent
@@ -92,7 +92,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: ssrf-scan
   kind: skill
-  triggers: { grep_evidence: "fetch\\(|axios|httpx|requests\\.get|http\\.Get|open-uri|url|webhook|preview|import.*url|avatar" }
+  triggers: { grep_evidence: "fetch\\(|axios|httpx|requests\\.get|http\\.Get|open-uri|url|webhook|preview|import.*url|avatar|res\\.redirect|sendRedirect|returnUrl|redirect_uri" }
   extracts_from: _extracted-codebase.md § "API surface" (outbound fetch sinks + user-URL inputs)
   fallback: _examples/ssrf-scan.md
 
@@ -109,5 +109,6 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: dependency-vuln-check
   kind: command
   triggers: { always: true }
-  fallback: stub-from-sections
+  sections: [premise, closure_verbs, mechanical_halt, phases, report_format, hard_rules]
+  fallback: commands/dependency-vuln-check.md   # the source IS the fallback (per phase-4.2-apply.md step 2): the prior `stub-from-sections` had no `sections:` list, so a no-signal project received an empty skeleton instead of a command
 ```

@@ -119,9 +119,9 @@ Snapshot / `REPEATABLE READ` prevents dirty and non-repeatable reads but NOT wri
 
 ## Adapt to the codebase
 
-Extract the engine + ORM, then map to how each sets isolation and takes a row lock.
+Extract the engine + ORM, then map to how each sets isolation and takes a row lock. **The levels in the syntax column are examples of the syntax, not recommendations** — the level comes from the invariant the transaction defends (§ Isolation levels), never from this table. The one place a default is worth stating: on InnoDB, teams often move OLTP work from the `REPEATABLE READ` default to `READ COMMITTED` specifically to shed gap/next-key locking and its contention (§ Engine differences) — that is a reason, and it does not transfer to Postgres, whose RR takes no gap locks.
 
-| Layer | Set isolation | Row lock |
+| Layer | Set isolation (syntax example) | Row lock |
 |---|---|---|
 | Raw SQL | `SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;` | `SELECT … FOR UPDATE [SKIP LOCKED\|NOWAIT]` / `FOR SHARE` |
 | Postgres | `BEGIN ISOLATION LEVEL REPEATABLE READ;` | `FOR UPDATE`; advisory: `pg_advisory_xact_lock` |

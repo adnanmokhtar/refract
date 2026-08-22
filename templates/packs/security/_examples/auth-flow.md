@@ -9,7 +9,7 @@ pack: security
 > **Hard rule** — Refresh tokens rotate on every use, are stored hashed in DB with replay-detection that revokes the entire session family on reuse. Access tokens live in memory, refresh in HttpOnly Secure SameSite=Strict cookies. Storing refresh tokens unhashed or skipping rotation is forbidden.
 
 **Halt conditions / mandatory cites**
-- Cite the password-hashing config as `<path:line>` (bcrypt cost / argon2 params); cost <12 or absent params is a halt. Prefer argon2id.
+- Cite the password-hashing **parameters** as `<path:line>` — not the algorithm name. "We use bcrypt" is not a control; a work factor is. Absent or unpinned parameters is a halt. See § Password hashing.
 - Cite the refresh-rotation revocation handler as `<path:line>` proving session-family revocation on replay; without it, the rotation claim is hollow.
 - Cite the session store schema as `<path:line>` (`auth_sessions` table or equivalent) showing token_hash + ip + user_agent + revoked_at.
 - Cite the password-reset token schema + TTL as `<path:line>`; reset tokens without single-use enforcement are a halt.
@@ -21,7 +21,7 @@ JWT-based auth with refresh rotation. Document the flow once — every endpoint 
 
 ```
 1. POST /auth/login { email, password }
-2. Server: verify password (bcrypt/argon2) with constant-time compare.
+2. Server: verify against the stored hash (§ Password hashing) using the library's verify function — never a hand-rolled compare.
 3. Server: issue access token (JWT, short TTL — 15m) + refresh token (opaque, longer TTL — 30d).
 4. Server: store refresh token hash + metadata (user, issued_at, ip, user_agent) in DB.
 5. Response: { accessToken, expiresIn } + refresh as HttpOnly Secure SameSite=Strict cookie.
@@ -67,11 +67,38 @@ Access tokens remain valid until TTL expires — accept this or maintain a revoc
 4. POST /auth/reset-password { token, newPassword } → verify token, invalidate, set password, revoke all refresh tokens.
 ```
 
+## Password hashing
+
+**The algorithm name is not the control — the parameters are.** Pin them in configuration, cite that `<path:line>`, and record which revision of the source you took them from; the recommended values move upward with hardware.
+
+Source: the **OWASP Password Storage Cheat Sheet** — <https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html>. As of this writing:
+
+- **Argon2id** (preferred) — minimum configuration `m=19456` (19 MiB), `t=2`, `p=1`, with equivalent memory/time trade-offs listed alongside. Library defaults with no explicit m/t/p is the finding.
+- **bcrypt** — *"The work factor should be as large as verification server performance will allow, with a minimum of 10."* The cheat sheet's minimum is the floor; your verification budget sets the target.
+- **bcrypt's 72-byte input limit is a correctness trap.** Most implementations accept at most 72 bytes, so *"enforce a maximum password length of 72 bytes"* — otherwise the tail of a long passphrase is silently ignored and two different passwords verify against one hash.
+
+Re-read the source when you implement; a number copied out of a pattern file ages badly. The shape does not age: parameters pinned in config, cited in review, at or above the current published floor.
+
 ## MFA (for admin)
 
-- TOTP (RFC 6238) with QR code enrollment.
+- **Passkeys / WebAuthn are the phishing-resistant baseline** — prefer them over TOTP.
+- TOTP (RFC 6238) with QR code enrollment where passkeys aren't available.
 - Backup codes (10, one-time-use, hashed in DB).
 - Required for admin / owner roles — recommended for all.
+
+## Passkeys / WebAuthn
+
+```
+Registration: server issues a single-use challenge → authenticator creates a credential →
+  server verifies challenge + origin + RP ID + attestation, then stores
+  (credential_id, public_key, sign_counter) bound to the user.
+Login:        server issues a single-use challenge → authenticator signs it → server verifies
+  challenge + origin + RP ID + user-verification flag, checks the sign counter advanced
+  (a non-increasing counter ⇒ cloned authenticator ⇒ reject), and that the credential_id
+  belongs to the claimed user.
+```
+
+The public key is not a secret; the private key never leaves the device.
 
 ## Session store
 
@@ -83,8 +110,12 @@ Access tokens remain valid until TTL expires — accept this or maintain a revoc
 
 - Storing refresh tokens unhashed.
 - Access tokens in localStorage (use memory + HttpOnly cookie for refresh).
-- Passwords stored with weak hashing (MD5, SHA1, bcrypt cost <12). Prefer argon2id.
+- Passwords stored with a fast/general-purpose hash (MD5, SHA-1, plain SHA-256), or a password hash left at library defaults — see § Password hashing. Prefer argon2id.
 - Reusing refresh tokens (replay attack).
 - Generic error messages that leak account existence.
 - MFA bypass with `rememberMe` without proper device binding.
 - Revealing password complexity errors to the client (attackers learn your rules).
+
+## Related
+
+`@auth-reviewer` (audits this flow against source: JWT, refresh rotation, passkeys, OAuth 2.1) · `security-principles.md` (the MUSTs this implements) · `zero-trust.md` (the surrounding boundary model).

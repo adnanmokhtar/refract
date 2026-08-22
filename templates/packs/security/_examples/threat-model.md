@@ -1,6 +1,6 @@
 ---
 name: threat-model
-description: Systematic threat modeling via STRIDE — identify threats per component before attackers do. Run at design time, not after incident.
+description: Systematic threat modeling via STRIDE — identify threats per component before attackers do. Run at design time, not after incident. This skill is the dispatchable primitive; `/threat-model` is the session that makes its output durable.
 ---
 
 # threat-model
@@ -15,9 +15,9 @@ Find real threats, no hand-waves. Every threat cites the component + trust-bound
 - Halt on impact/likelihood ratings without a one-line justification grounded in the attacker persona.
 - Halt on mitigations recorded as prose ("we'll add rate limits") without a ticket id or `<path:line>` for where the control exists / must live.
 
-## STRIDE
+These three are the canonical set — `/threat-model` Phase 6 enforces them by reference. Do not keep a second copy.
 
-Walk through each component, apply each threat category:
+## STRIDE
 
 - **S**poofing — impersonating someone else. (Auth bypass, forged JWT, session hijack.)
 - **T**ampering — unauthorized modification. (SQL injection, CSRF, tampered payload.)
@@ -26,78 +26,66 @@ Walk through each component, apply each threat category:
 - **D**enial of service — prevent legitimate use. (Resource exhaustion, slow POST attack.)
 - **E**levation of privilege — gain more access than authorized. (Missing permission checks, IDOR.)
 
+For PII features run **LINDDUN** alongside (Linkability, Identifiability, Non-repudiation, Detectability, Disclosure, Unawareness, Non-compliance). Model privacy threats here at design time; hand the built PII data-flow to `@data-privacy-reviewer` once the code exists.
+
 ## Flow
 
-1. **Draw the system** — context diagram with external actors, services, data stores, trust boundaries.
-2. **Identify trust boundaries** — where does untrusted input enter trusted territory?
-3. **Per component, per threat category** — is this applicable? What's the impact? What's the mitigation?
+1. **Draw the system** — actors, services, data stores, trust boundaries.
+2. **Identify trust boundaries** — where untrusted input enters trusted territory.
+3. **Per component, per letter** — applicable? impact? mitigation?
 4. **Rank** by impact × likelihood.
-5. **Document** as a threat model file in `ai/decisions/` or `ai/audits/`.
+5. **Document** as `ai/audits/threat-model-<feature>-<date>.md`.
 6. **Fix** high-rank threats before shipping.
 
 ## Output (per feature / system)
 
+Each row must survive the Halt conditions: persona, `<path:line>`, and a mitigation that is code-that-exists or a ticket.
+
 ```
 ## Threat Model — Order Placement
 
-Components:
- - Client (web browser)
- - /orders POST endpoint
- - OrderService
- - PostgreSQL orders table
- - Stripe (external)
+Boundary 1: Client (anonymous / authenticated tenant user) → POST /orders
+  entry: <orders controller:line>   authz: <auth guard:line>   store: <orders repo:line>
 
-Trust boundaries:
- 1. Client → /orders endpoint (untrusted input)
- 2. OrderService → Stripe (we trust Stripe, but verify webhooks)
+T-01  S  Caller replays a stolen session to order as another user.
+         Persona: authenticated tenant user with a leaked token. Impact HIGH × Likelihood MED.
+         Mitigation: EXISTS — token verified per request at <auth guard:line>; subject from
+         the token, never the body, at <orders controller:line>.
 
-Threats:
+T-02  T  Caller sends `price` in the body and the server trusts it.
+         Persona: anonymous internet rando; trivial. Impact HIGH × Likelihood HIGH.
+         Mitigation: MISSING — recompute from product_id. Ticket ORD-42.
 
-S1 (Spoofing): Client impersonates another user to place orders on their behalf.
-  Impact: HIGH — financial fraud.
-  Likelihood: MEDIUM — requires stolen session.
-  Mitigation: JWT verified on every request; user_id from token, never from body.
+T-03  I  Tenant A reads tenant B's order by id.
+         Persona: authenticated tenant user. Impact CRITICAL × Likelihood MED.
+         Mitigation: EXISTS — scope by construction at <base repository:line>; cross-tenant
+         leak test at <test file:line>. Deep audit: @tenant-isolation-reviewer.
 
-T1 (Tampering): Client tampers with price in request body.
-  Impact: HIGH — revenue loss.
-  Likelihood: HIGH — trivial to try.
-  Mitigation: Server calculates price from product_id + quantity; ignore client-sent price.
+T-04  E  Regular user reaches admin refund management.
+         Persona: authenticated tenant user probing routes. Impact HIGH × Likelihood MED.
+         Mitigation: PARTIAL — role checked at <admin router:line>, no test asserts denial.
+         Ticket SEC-17.
 
-I1 (Info disclosure): Customer A sees customer B's orders.
-  Impact: CRITICAL — privacy breach, compliance violation.
-  Likelihood: MEDIUM — any missing tenant/user filter.
-  Mitigation: Every query filters by user_id + tenant_id. Cross-tenant test required.
+Boundary 2: API → payment provider — a real run covers every letter per boundary and
+  writes `none — <why>` where a letter does not apply.
 
-D1 (DoS): Attacker POSTs thousands of large orders.
-  Impact: MEDIUM — service degradation.
-  Likelihood: HIGH — easy.
-  Mitigation: Rate limit at ingress + per-user. Request size cap.
-
-E1 (Elevation): Regular user accesses admin order management.
-  Impact: HIGH — unauthorized refunds.
-  Likelihood: MEDIUM — missing role check.
-  Mitigation: Admin endpoints require role=admin; policy tested.
-
-R1 (Repudiation): Customer claims they didn't place an order.
-  Impact: MEDIUM — support burden, fraud disputes.
-  Mitigation: Audit log with timestamp, IP, user agent, request id on every order.
-
-Open issues (rank-ordered):
-  1. T1 mitigation not yet verified (ticket ORD-42).
-  2. Rate limits not yet configured (ticket INFRA-17).
+Open issues (rank-ordered): 1. T-02 (ORD-42, unmitigated).  2. T-04 (SEC-17, untested).
 ```
 
-## When to threat-model
+## When to run
 
-- Any new public endpoint.
-- Any authentication / authorization change.
-- Any new data store for sensitive data.
-- Any new external integration.
+- Any new public endpoint; any auth / authz change.
+- Any new data store for sensitive data; any new external integration.
 - Before every major release.
 
-## Rules
+## False positives / gotchas
 
-- Include the attacker persona — "anonymous internet rando" vs "disgruntled employee" are different threats.
-- Don't dismiss threats with "our WAF handles it" without verifying.
-- File mitigations as tickets, not as "we'll do it later".
+- **A letter with no threat still needs a row** — `none — <why>`. A skipped letter reads the same as an unexamined one.
+- Include the attacker persona; likelihood is a property of the persona, not the code.
+- Don't dismiss with "our WAF handles it" without citing the configured rule.
+- **EXISTS is a claim about code** — it carries a `<path:line>` or it is MISSING. This models mitigations; only `/security-audit` verifies them.
 - Revisit when the system changes.
+
+## Related
+
+`/threat-model` (durable session: actors, ADRs, residual risk, re-audit triggers) · `@data-privacy-reviewer` (LINDDUN half, once code exists) · `/security-audit` (turns planned into verified).

@@ -1,6 +1,6 @@
 ---
 name: schema-consistency-audit
-description: Schema + migration consistency audit. Detects drift in column naming, type choice, index naming, foreign-key naming, migration patterns, timestamp column conventions, soft-delete coverage, audit field coverage, timezone handling, charset/collation, nullability. Emits findings with closure verbs that ship as reversible migrations. Used by /polish on data-* stacks. Behaviour-preserving (renames via dual-read window; type changes via expand-then-contract pattern).
+description: Schema + migration consistency audit. Detects drift in nullability, type choice, timezone handling, charset/collation, timestamp and audit-field coverage, soft-delete coverage, migration patterns, and object naming. Findings are ranked by data-integrity risk, not by detector order. Emits closure verbs that ship as reversible migrations. Used by /polish on data-* stacks and /db-audit.
 kind: skill
 pack: database
 ---
@@ -32,22 +32,22 @@ Detect drift across the project's database schema + migration history so /polish
 
 ```yaml
 class: schema-consistency
-subclass: <one of: column-naming-drift | type-drift | index-naming-drift |
-                   fk-naming-drift | migration-pattern-drift |
-                   timestamp-column-drift | soft-delete-drift |
-                   audit-field-drift | timezone-drift | charset-drift |
-                   collation-drift | nullable-drift>
+subclass: <one of: nullable-drift | type-drift | timezone-drift | charset-drift |
+                   collation-drift | soft-delete-drift | audit-field-drift |
+                   timestamp-column-drift | column-naming-drift |
+                   migration-pattern-drift | object-naming-drift>
 table: <table-name>
 column: <column-name OR null for table-level findings>
 file: <migration-path:line OR schema-file:line>
 canonical: <what the project's convention says>
 divergence: <what this column/table does differently>
 closure_verb: <one of the verbs below>
-migration_strategy: simple | expand-contract | rename-with-dual-read
+migration_strategy: rename-in-place | expand-contract | rename-with-dual-read | meta
 risk: low | medium | high
+integrity_class: <one of: corrupts-data | loses-precision | breaks-queries | cosmetic>
 ```
 
-## The 12 detectors
+## The 11 detectors
 
 ### 1. column-naming-drift
 
@@ -73,27 +73,17 @@ Common drifts:
 
 **Migration strategy**: `expand-contract` (add new column with right type; backfill; switch reads; switch writes; drop old column).
 
-### 3. index-naming-drift
+### 3. object-naming-drift (indexes and foreign-key constraints)
 
-**Fingerprint**: index names follow different patterns:
-- `idx_orders_status`
-- `ix_orders_status`
-- `orders_status_idx`
-- `orders_idx_status`
+**Fingerprint**: index or FK-constraint names follow different patterns across the schema — `idx_orders_status` / `ix_orders_status` / `orders_status_idx` / `orders_idx_status`, and the equivalent spread on constraint names.
 
-**Closure verb**: `unify-index-naming`.
+**Closure verb**: `unify-object-naming`.
 
-**Migration strategy**: `simple` — drop + recreate (most DBs support `ALTER INDEX RENAME` natively, no downtime).
+**Migration strategy**: `rename-in-place` — **use the engine's rename, never drop + recreate.** Postgres: `ALTER INDEX <old> RENAME TO <new>` / `ALTER TABLE <t> RENAME CONSTRAINT <old> TO <new>`. MySQL 5.7+: `ALTER TABLE <t> RENAME INDEX <old> TO <new>, ALGORITHM=INPLACE` — the operation is In Place, permits concurrent DML, and only modifies metadata ([MySQL Table 17.16](https://dev.mysql.com/doc/refman/8.4/en/innodb-online-ddl-operations.html)). Dropping and recreating an index on a populated table is a full index build for a **cosmetic** gain — exactly the trade the rest of this pack forbids. If the engine cannot rename the object, the finding's risk becomes `medium` and it is deferred, not forced through.
 
-### 4. fk-naming-drift
+**Risk**: `low` — and its rank reflects that. A naming inconsistency costs a reader five seconds; it never corrupts data. It is ordered after every integrity finding, and a run that reports only naming drift is a clean run with a note, not a finding list.
 
-**Fingerprint**: foreign-key constraint names follow different patterns.
-
-**Closure verb**: `unify-fk-naming`.
-
-**Migration strategy**: `simple`.
-
-### 5. migration-pattern-drift
+### 4. migration-pattern-drift
 
 **Fingerprint**: migration files don't follow the project's pattern. Common drifts:
 - Some have `down()` / rollback, others don't.
@@ -107,7 +97,7 @@ Common drifts:
 
 **Migration strategy**: meta — fixes the structure of future migrations, not data.
 
-### 6. timestamp-column-drift
+### 5. timestamp-column-drift
 
 **Fingerprint**: timestamp columns named inconsistently.
 
@@ -119,7 +109,7 @@ Common drifts:
 
 **Migration strategy**: `rename-with-dual-read`.
 
-### 7. soft-delete-drift
+### 6. soft-delete-drift
 
 **Fingerprint**: some tables have `deleted_at` (soft delete), others don't, where the project's convention requires soft delete.
 
@@ -129,7 +119,7 @@ Common drifts:
 
 **Migration strategy**: `expand-contract` (column add → query updates → enforcement).
 
-### 8. audit-field-drift
+### 7. audit-field-drift
 
 **Fingerprint**: some tables have `created_by` / `updated_by` / `created_at` / `updated_at`, others don't, where the project's convention requires them.
 
@@ -137,7 +127,7 @@ Common drifts:
 
 **Migration strategy**: `expand-contract`.
 
-### 9. timezone-drift
+### 8. timezone-drift
 
 **Fingerprint**: timestamp columns mix `TIMESTAMP` (timezone-naive) and `TIMESTAMPTZ` (timezone-aware) within the same conceptual schema.
 
@@ -145,7 +135,7 @@ Common drifts:
 
 **Migration strategy**: `expand-contract` for prod tables (the conversion can change reads if the timezone differs).
 
-### 10. charset-drift
+### 9. charset-drift
 
 **Fingerprint**: tables use different charsets (e.g., MySQL `utf8` vs `utf8mb4` for the same concept).
 
@@ -153,7 +143,7 @@ Common drifts:
 
 **Migration strategy**: depends on the DB — some support online conversion, others require expand-contract.
 
-### 11. collation-drift
+### 10. collation-drift
 
 **Fingerprint**: tables use different collations affecting ordering / comparison.
 
@@ -161,7 +151,7 @@ Common drifts:
 
 **Migration strategy**: same as charset.
 
-### 12. nullable-drift
+### 11. nullable-drift
 
 **Fingerprint**: same conceptual field is nullable in some tables, NOT NULL in others, without documented reason.
 
@@ -177,20 +167,27 @@ Common drifts:
    - DB introspection access OR migration-history readable. Halt if neither.
 2. **Introspect schema** — get tables, columns, types, indexes, FKs, constraints. Emit `_schema-snapshot.md`.
 3. **Walk migration history** — emit `_migration-summary.md` listing files + patterns + reversibility.
-4. **Run 12 detectors** in order; emit findings.
+4. **Run the 11 detectors**; emit findings. Detector order is not report order — see step 6.
 5. **For each finding**:
    - Cite `<file:line>` evidence.
    - Pick `migration_strategy` per the verb's table above.
-   - Estimate risk:
-     - `low`: index renames, audit-field additions, simple metadata.
-     - `medium`: column renames (require dual-read), nullable changes (require backfill).
-     - `high`: type drift conversion (data loss risk), charset/collation changes on prod tables.
-6. **Write `ai/polish/_schema-decisions.md`** — findings grouped by table; ordered foundation-first (audit fields before nullability tightening; column rename before type change on the same column).
+   - Estimate `risk` — the cost of *making the change*:
+     - `low`: in-place object renames, audit-field additions, metadata-only changes.
+     - `medium`: column renames (require a dual-read window), nullable tightening (requires a backfill).
+     - `high`: type conversion (data-loss potential), charset/collation change on a populated table.
+   - Assign `integrity_class` — the cost of *leaving it alone*, which is a different axis and the one that ranks the report:
+     - `corrupts-data`: the drift can silently produce wrong stored values — mixed timezone-naive/aware timestamps, a money column stored as float in one table and decimal in another, `utf8` vs `utf8mb4` truncating on 4-byte characters.
+     - `loses-precision`: values survive but detail does not — a narrower type, a lower-precision timestamp.
+     - `breaks-queries`: comparisons or ordering behave differently across tables — collation drift, nullability that makes a `NOT IN` silently return nothing.
+     - `cosmetic`: a reader is inconvenienced. Naming drift is always this.
+6. **Write `ai/polish/_schema-decisions.md`** — findings **ranked by `integrity_class` first** (`corrupts-data` → `loses-precision` → `breaks-queries` → `cosmetic`), then grouped by table, then ordered foundation-first within a table (audit fields before nullability tightening; column rename before type change on the same column). Detector index carries no weight: a charset drift that truncates emoji outranks every naming finding in the report, and a report that lists them at the same level has mis-sorted the reader's afternoon.
 
 ## Hard rules
 
 - **Reversible migrations only** — every closure verb produces a migration with a documented `down()` / rollback. Irreversible changes require ADR.
-- **No blind renames in production** — column / table renames go through dual-read window: add new, dual-write, dual-read, drop old. Multi-PR.
+- **No blind renames in production** — column / table renames go through a dual-read window: add new, dual-write, dual-read, drop old. Multi-PR.
+- **Never drop-and-recreate an object that the engine can rename.** Indexes and constraints have in-place rename syntax on both major engines; a rebuild for a naming fix is unjustifiable cost.
+- **Cosmetic findings never outrank integrity findings**, whatever order the detectors ran in.
 - **Type changes via expand-contract** — add new column, backfill, switch reads, switch writes, drop old. NEVER `ALTER COLUMN TYPE` directly on prod tables with significant data.
 - **One conceptual change per migration** — bundling rename + type change + nullable change in one migration makes rollback ambiguous.
 - **Migration tested in staging** — every closure verb's migration runs in staging before prod; staging dataset must reflect prod scale (≥ 10% sample).
@@ -201,11 +198,12 @@ Common drifts:
 - **Conventions missing** → halt; surface "/setup-project --refine to declare schema conventions first".
 - **Cannot introspect** → halt; user provides DB access OR migration-history dump.
 - **High-risk closure** (type conversion with data-loss potential) → flag, halt that finding, surface ADR template; rest continue.
+- **Engine cannot rename the object in place** → the naming finding is deferred, not converted into a drop + recreate.
 - **Migration framework not detected** → halt; tool-specific (Prisma / Knex / Flyway / Alembic / Django / etc.) format must be discoverable.
 
 ## References
 
 - `_extracted-idioms.md § Schema conventions`.
-- `migration-rehearsal.md` (this pack) — every closure verb's migration goes through rehearsal.
+- `migration-rehearsal.md` (this pack) — every `expand-contract` or high-risk closure verb's migration goes through rehearsal. In-place renames do not need one.
 - `align-discipline.md` — closed-vocabulary discipline.
 - `polish` command — dispatches this skill on data stacks.
