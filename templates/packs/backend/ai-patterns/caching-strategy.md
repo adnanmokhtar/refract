@@ -26,50 +26,18 @@ pack: backend
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is safe to cache".
 - If hit-rate / eviction metrics aren't already wired, halt and add observability before shipping the cache.
 
-Cache is a distributed data store with its own consistency model. Get the semantics wrong → serve stale data → users lose trust.
-
-## Layers (outside → inside)
-
-```
-1. Browser cache          (HTTP headers, Service Worker)
-2. CDN / Edge cache       (Cloudflare, Fastly, CloudFront)
-3. Reverse proxy          (Varnish, nginx, Fastify cache)
-4. Application cache      (Redis, Memcached, in-process LRU)
-5. Database buffer/page cache   (Postgres `shared_buffers` / InnoDB buffer pool — note: MySQL's query cache was removed in 8.0)
-6. Database (source of truth)
-```
-
-Hit a cache layer before hitting the one below. Miss cascades downward + fills upward.
-
 ## Cache read patterns
 
-### Read-through
-```
-get(key):
-  value = cache.get(key)
-  if value is None:
-    value = db.get(key)
-    cache.set(key, value, ttl)
-  return value
-```
-Simple, safe. Used for most reads.
+One table. The load-bearing column is the third — the pattern's own failure mode is what tells you when it is the wrong one, and it is the column every textbook version of this list omits.
 
-### Cache-aside (look-aside)
-Same as read-through, but the APP does the logic. Library handles write.
+| Pattern | What it costs | When it is the wrong choice |
+|---|---|---|
+| **Read-through / cache-aside** (app or library fills on miss) | One extra round-trip on miss. | Almost never wrong — this is the default. It is wrong only when the miss is so expensive that a herd of them is itself the outage, at which point you have not outgrown the pattern, you need § Stampede protection on top of it. |
+| **Write-through** (write DB, then write cache) | Every write pays the cache write, including writes to keys nobody will ever read. | On write-heavy data with a low read/write ratio you are paying to warm entries that expire unread. Prefer invalidate-on-write and let the next read fill. |
+| **Write-behind** (write cache, flush to DB async) | Acknowledged writes can be lost on crash. | **Effectively always, in a backend.** It makes the cache the only writer of a field, which the Hard rule forbids outright. It earns its place in OS page caches and storage engines, where the durability contract is different. Named here so it can be recognised and rejected, not adopted. |
+| **Refresh-ahead** (refresh before TTL expires) | Backend load for entries that may never be read again. | On a large key space — you are refreshing the long tail forever. Correct only for a small, known-hot key set where you can name the keys. |
 
-### Write-through
-```
-set(key, value):
-  db.set(key, value)
-  cache.set(key, value, ttl)
-```
-Cache is always consistent with DB write. But double write cost.
-
-### Write-behind (write-back)
-Write to cache → async flush to DB. Fast but risk of data loss on crash. Rare in backends, common in OS page caches.
-
-### Refresh-ahead
-Cache refreshes before TTL expires. Fewer cache misses, more backend load. Good for hot keys.
+Cache is a distributed data store with its own consistency model. Serving stale data is not a performance bug, it is a correctness one, which is why the invalidation section below carries the weight in this file.
 
 ## Cache invalidation
 

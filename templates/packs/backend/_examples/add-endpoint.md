@@ -23,14 +23,23 @@ All 7 (Understand → Organize → Retrieve → Generate → Update → Validate
 
 **Nested invocation (called from /add-feature):** if invoked by `/add-feature` with a passed payload (Spec-ID/spec path + the parent's Phase-1 requirements + the relevant Phase-2 architect design slice + resolved signals) → SKIP the Phase-1 Ask block, SKIP the Phase-2 architect re-dispatch, and SKIP the prior-art gate (the parent already cleared the capability); consume the payload and proceed to Generate. Still run the sibling-shape halt on the files this command produces (its own grain). When called DIRECTLY (no payload) → run the full flow as written.
 
-Ask (one consolidated question):
-- Which module?
-- HTTP method + path (or event name for queue consumer).
-- Purpose (one line — what the endpoint does, what it returns).
-- Request shape (fields + types + validation).
-- Response shape.
-- Auth requirement (public / authenticated / admin / custom role).
-- Any side effects (events emitted, external calls, notifications)?
+**Derive from siblings; ask only for what they cannot answer.** Phase 3 below mandates mirroring an existing endpoint in this module EXACTLY. Asking the user for request shape, response shape and auth in Phase 1 and then overwriting all three from siblings two phases later spends their attention on answers the run discards.
+
+Locate ≥1 sibling handler on the target module and read off — then **print what you derived, with the `<path:line>` you read it from**, so the user corrects an inference instead of answering a questionnaire:
+
+| Input | Derived from |
+|---|---|
+| Request shape (fields, types, validators) | the sibling's input DTO / schema |
+| Response shape | the sibling's response DTO / serializer + the envelope it returns through |
+| Auth requirement | the guard / decorator / middleware stack on the sibling route + the module-level guard |
+| Side effects | the events / outbox writes / external clients the sibling use-case already emits |
+
+**The agent ONLY asks the user when:**
+- **No sibling exists** on the module (first endpoint on a fresh module — nothing to mirror).
+- **New auth surface** — a role, scope or guard no sibling on this module uses. A new authorization boundary is never inferred.
+- **A side effect no sibling emits** — a first outbound call, published event, payment or notification. New blast radius is a decision, not a shape.
+
+Everything else — validator idiom, DTO naming, status code on create, envelope shape, pagination convention, error-code prefix — is silent sibling-mirror. Only `<module>`, `<METHOD> <path>` and a one-line purpose are the caller's to supply.
 
 State the success criteria: endpoint live + 3+ e2e tests + telemetry + docs prepended + zero placeholders.
 

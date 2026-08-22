@@ -9,6 +9,8 @@ description: Static scan for image delivery mistakes — legacy formats where AV
 
 **Images are usually the heaviest bytes on a page and the top source of layout shift.** The browser needs three things to deliver an image well: the right *format* (AVIF/WebP over JPEG/PNG), the right *size for the viewport* (`srcset`/`sizes`, not one 2000px file for a phone), and *reserved space* (`width`/`height` or `aspect-ratio`, or the page jumps as it loads → CLS). Every finding cites the element at `<file:line>` + the matched pattern + the fix in **this project's own image primitive**. "Optimize images" without the cited element is not a finding.
 
+**Closure verbs** — exactly one per finding. This skill emits `report-with-fix`, `dismiss` (SVG / fixed-size icons, a correctly-ratioed `width`/`height`, a CDN that already negotiates format), and `halt-handoff` (anything touching the hero's priority → `lcp-audit`).
+
 Division of labor: **this skill owns format, responsiveness, dimensions/CLS, and lazy-loading.** The *LCP image's priority hints* (`fetchpriority`, `preload`, no-lazy-on-hero) belong to `lcp-audit` — cross-link it, don't duplicate. Pair with `lighthouse-ci` (its "Properly size images" / "Serve images in next-gen formats" / CLS audits) to confirm bytes actually dropped.
 
 ## Adapt to the codebase first

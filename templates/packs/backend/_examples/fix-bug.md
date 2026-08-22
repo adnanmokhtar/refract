@@ -261,16 +261,34 @@ Run skills:
 - `schema-diff` if DB involved.
 - `n-plus-one-scan` if perf bug.
 
-### Observability gap check
+### Observability gap check — which signal closes which gap
 
-Ask: **why didn't prod / oncall know sooner?**
+The question is not "should we add telemetry" (the answer is always yes and therefore useless). It is
+**how did this defect stay invisible**, because each way of staying invisible is closed by a different
+instrument, and the wrong instrument costs money without closing anything.
 
-- Silently swallowed in catch? → Add log + metric.
-- No alert on the affected endpoint's error rate? → Add alert.
-- No trace span on the external call that failed? → Add span.
-- No counter on the failing branch? → Add metric.
+Answer one question — *what would have had to be true for someone to notice?* — and read the row:
 
-Any gap: dispatch `/add-telemetry` for detection improvement.
+| How it stayed invisible | Instrument that closes it | What it costs | Do NOT reach for |
+|---|---|---|---|
+| The failure was **caught and discarded** — a `catch` that logs nothing, or logs at `debug` | A structured error log at `error` **plus** a counter on that branch. The log makes it diagnosable; the counter makes it alertable. | ~1 log line per occurrence. Free until the branch is hot. | An alert. You cannot alert on a signal that does not exist yet. |
+| The failure was **visible per-request but nobody aggregates** — it returned a `500`, and the `500` was one of thousands | An alert on the **rate** (error ratio or budget burn), not the event | Alert-config maintenance + a real paging decision. | Another counter. The counter already exists; nothing reads it. |
+| The failure was **inside a call the process cannot see** — a third-party or cross-service hop | A trace span on that call, with the status and the peer recorded | Trace volume, which is why it is sampled. Sample tail-based or the failing request is the one you dropped. | A log line at the call site. It records that you called, not what happened downstream. |
+| The failure was **slow, not wrong** — correct output, past the deadline | A latency histogram on that operation, and a deadline it can be compared against | One histogram; cardinality dies on unbounded labels — never label by user, tenant, or id. | An average. A p50 is the number that hides this exact defect. |
+| The failure was **only true for one tenant / plan / flag** | One low-cardinality dimension on the metric that already exists, chosen from a **bounded** set | Multiplies series count by the dimension's cardinality — bound it before adding it. | A dimension per id. That is how a metrics bill becomes an incident of its own. |
+
+**Two gaps are not the same gap.** A defect that was both swallowed and unaggregated needs the log,
+the counter *and* the alert, and shipping only the alert closes nothing. Name every row that applies.
+
+**No gap is a legitimate answer.** If the failure *was* logged, counted and alerted, and a human saw
+it and mis-triaged it, the gap is not instrumentation — it is the runbook or the alert's routing, and
+adding a fourth signal makes the next triage harder, not easier. Say so and stop.
+
+Any gap: dispatch `/add-telemetry` *(observability pack, when co-installed)* for the detection
+improvement. **A redirect must land somewhere:** that command ships in the observability pack, not
+this one. When it is absent, apply the row above inline against the project's existing logger,
+metric and tracing primitives (`references/<framework>.md`) and record the instrument added in the PR
+— never report a detection gap as closed by a command the project does not have.
 
 ### Review (parallel, signal-aware)
 
@@ -361,21 +379,17 @@ Next:
 
 ## Related
 
-### Sibling commands in backend pack
-- `/add-endpoint` — sibling command in backend pack
-- `/add-feature` — sibling command in backend pack
-- `/add-module` — sibling command in backend pack
-- `/analyze-module` — sibling command in backend pack
-- `/endpoint-test` — sibling command in backend pack
-- `/log-tail` — sibling command in backend pack
-- `/trace-flow` — sibling command in backend pack
+### Sibling commands — where the boundary falls
+- `/analyze-module` — finds defects across a module without fixing any. This command fixes one defect and its siblings. Running this on an unaudited module fixes the reported site and leaves the class.
+- `/log-tail` · `/trace-flow` — the two evidence sources Phase 3 draws on: runtime signal and the static call chain. Neither concludes a root cause; this command does.
+- `/endpoint-test` — the confirmation step when the fix touched a route. A green unit test and a green wire test are different claims.
+- `/add-endpoint` — the behaviour was never built. A missing capability reported as a bug is misrouted here and produces a "fix" that is really a feature.
 
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+**The pattern-consultation table in Phase 3 is the list.** It maps bug *area* to the patterns that area's oracle lives in, and it is the one this command actually follows. A flat five-item list beside it would contradict it: `api-versioning` is not read on a null-check fix, and `ssr-safety` is not in the flat list but is in the table.
+
+The only entries that apply on every run regardless of area:
+- `ai/patterns/error-handling.md` — because a fix that changes what a failure looks like on the wire is a contract change.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

@@ -170,7 +170,7 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers:
     migration_layout_detected: true   # only ships when migration pack is loaded (mirrors backend/migration-backend)
   extracts_from: _extracted-codebase.md § Stack + § Layering + _extracted-idioms.md (full)
-  sections: [stack_aware_primitive_set, frontend_audit_axes, anti_pattern_catalogue, transposition_trap_fingerprints, phase_3_retrieve_specifics, locale_parity, cross_references]
+  sections: [stack_aware_primitive_set, frontend_audit_axes, density_gates, anti_pattern_catalogue, transposition_trap_fingerprints, phase_3_retrieve_specifics, cross_references]
   mirror_existing: true
   fallback: rules/migration-frontend.md   # canonical authored shape; AUTHOR mode anchors stack-aware substitutions to project
 

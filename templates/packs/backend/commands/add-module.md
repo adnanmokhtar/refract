@@ -310,24 +310,19 @@ Next:
 
 ## Related
 
-### Sibling commands in backend pack
-- `/add-endpoint` — sibling command in backend pack
-- `/add-feature` — sibling command in backend pack
-- `/analyze-module` — sibling command in backend pack
-- `/endpoint-test` — sibling command in backend pack
-- `/fix-bug` — sibling command in backend pack
-- `/log-tail` — sibling command in backend pack
-- `/trace-flow` — sibling command in backend pack
+### Sibling commands — where the boundary falls
+- `/add-endpoint` — **the module already exists.** Adding a route, handler or consumer to a live module never comes through here; a second module for the same domain is the costliest waste mode in the pack.
+- `/add-feature` — owns the cross-module spec; this command is one of its leaves and consumes the payload it passes down rather than re-deriving it.
+- `/analyze-module` — the read-only counterpart. This one creates a module; that one grades one that already exists.
 
 ### Skills
 - `module-scaffold` — the apply-engine this command dispatches in Phase 4 (owns the file tree + generated-file invariants; single source of the scaffold contract).
 
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+- `ai/patterns/api-contract.md` — the envelope the new module's routes must already match on day one.
+- `ai/patterns/error-handling.md` — the error contract the module's exceptions map into.
+- `ai/patterns/request-validation.md` — where the module's boundary sits and what its DTOs may bind.
+- Signal-gated: `multi-tenancy.md` when the module owns tenant-scoped tables, `transaction-boundary.md` when a use-case mutates two aggregates.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

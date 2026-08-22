@@ -108,6 +108,8 @@ Mirror whatever the project already uses; the column that matters is who owns re
 
 Each detector: BAD/GOOD + a grep. Cite `<file:line>` + the fix or it is not a finding.
 
+**Detectors 1, 3 and 4 do not fire when the SDK owns that stage.** The Adapt table's whole point is the reconnect/replay ownership column, and on a hosted SDK (Pusher / Ably / Supabase Realtime) or Socket.IO the backoff, the heartbeat and the handshake re-auth are *in the SDK* — greps for `new WebSocket`, `ping`, and a token in an `onclose` path all come back empty **because the code is correct**. Emitting three findings there tells the developer to re-wrap a client the Adapt table explicitly says not to re-wrap, and it is the fastest way to make this pattern's output ignorable. Before running 1/3/4: identify the primitive, and for each of the three, `dismiss` with the SDK's own mechanism cited (`Ably SDK owns reconnect + rewind — connection.on('disconnected') is the SDK's, not a gap`). Detectors 2, 5, 6 and 7 fire on every primitive: teardown, dedup, backpressure and cache reconciliation are the application's job no matter who owns the socket.
+
 1. **Bare connection, no reconnection.** BAD: `const ws = new WebSocket(url)` with only `ws.onmessage`. GOOD: a wrapper/hook with backoff+jitter+cap on `onclose`. Grep: `rg -n "new (WebSocket|EventSource)\(" ` then check each for a reconnect path.
 2. **No teardown on unmount (leak).** BAD: a socket opened in a component with no `.close()` / cleanup. GOOD: matching close in the cleanup path. Grep: `rg -n "new WebSocket"` and confirm a nearby `.close()` / `removeEventListener` / `abort()` in the same scope.
 3. **No heartbeat → undetected half-open.** BAD: a long-lived WebSocket with no ping/pong. GOOD: interval ping + pong-timeout → reconnect. Grep: `rg -n "new WebSocket" -A20 | rg -i "ping|heartbeat|pong"` (absence is the smell).
@@ -120,6 +122,7 @@ Each detector: BAD/GOOD + a grep. Cite `<file:line>` + the fix or it is not a fi
 
 - `report-with-fix` — cited defect + the fix routed through the project's existing realtime primitive.
 - `halt-handoff` — server-side delivery/verification defect → hand to backend `webhook-flow`; render-cost defect → `inp-responsiveness`; producer/consumer rate mismatch → `backpressure`.
+- `dismiss` — a lifecycle stage the detected primitive already owns (SDK reconnect / heartbeat / handshake re-auth per the Adapt table), or a deliberate bare-socket in a throwaway/dev-only surface. Cite the owning mechanism so the next scan does not re-flag it. Without this verb the three SDK-owned detectors fire on every correct hosted-SDK app.
 - `halt-missing-cite` — refuse any lifecycle/dedup/reconcile claim that lacks `<file:line>`.
 
 ## Related

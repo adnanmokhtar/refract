@@ -44,6 +44,59 @@ Most real app surfaces (dashboards, settings, anything behind a route guard) are
 3. **Point the browser at the session** — `--headless --isolated` with no auth ALWAYS lands on `/login`.
 4. **Prove you landed on the surface, not the wall** — assert a surface-unique marker before screenshotting.
 
+### Turning it on for the first time (this skill owns the scaffold)
+
+Creds are a **secret** no generator can bake or guess, so the work splits: **this skill scaffolds the whole mechanism; the human supplies ONE secret, once.** When the app is detected auth-gated (a router guard, `requiresAuth` meta, a `/login` redirect, `<PrivateRoute>`, an auth interceptor): drop the file below as `tests/auth.setup.ts`, gitignore `tests/.auth/`, add the `.env` slot. The human then puts `E2E_EMAIL` / `E2E_PASSWORD` in the gitignored `.env` — never committed, never in a command, never pasted in chat.
+
+**Do not delegate this.** No other artifact produces `tests/auth.setup.ts`. If this section does not deploy it, no one does.
+
+```ts
+import { test as setup, expect } from "@playwright/test";
+import fs from "node:fs";
+// Load .env into process.env — dependency-free. Playwright runs in Node, which does NOT
+// auto-load .env the way Vite does, so without this the creds are undefined even though
+// they are IN .env. Prefer `import "dotenv/config"` if the project already has dotenv.
+try {
+  for (const line of fs.readFileSync(".env", "utf8").split("\n")) {
+    const m = line.match(/^\s*([\w.]+)\s*=\s*(.*?)\s*$/);
+    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, "$2");
+  }
+} catch { /* no .env file — rely on ambient env */ }
+const authFile = "tests/.auth/user.json";
+setup("authenticate", async ({ page }) => {
+  const email = process.env.E2E_EMAIL, password = process.env.E2E_PASSWORD;
+  if (!email || !password) throw new Error("Set E2E_EMAIL/E2E_PASSWORD in .env first.");
+  await page.goto("/login");                          // ← detected login route
+  await page.fill("#email", email);                   // ← detected email selector
+  await page.fill("input[type=password]", password);  // ← detected password selector
+  await page.click('button[type="submit"]');          // ← detected submit selector
+  await page.waitForURL((u) => !u.pathname.includes("/login"), { timeout: 30_000 });
+  // token-in-localStorage apps: prove a token landed; cookie apps: assert a session cookie
+  const ok = await page.evaluate(() => Object.keys(localStorage).some((k) => /token/i.test(k)));
+  expect(ok, "no auth token after login — check creds/selectors").toBeTruthy();
+  fs.mkdirSync("tests/.auth", { recursive: true });
+  await page.context().storageState({ path: authFile });
+});
+```
+
+Both asserts are the point, not decoration: the missing-creds throw (an empty `E2E_EMAIL` otherwise submits a blank form and fails as "bad credentials"), and the token-landed assert (a login form that silently re-renders itself writes a `user.json` full of nothing, and every later render fails at the wall with a session file sitting on disk).
+
+Then the ways this is wired correctly and still does not work — none guessable, each reads as "Playwright is broken":
+
+1. **A `*.setup.ts` file does not match Playwright's default `testMatch`** (`*.spec` / `*.test`), so `npx playwright test tests/auth.setup.ts` returns **"No tests found"** — success-shaped output for a run that never happened. Register a `setup` project and depend on it:
+   ```ts
+   projects: [
+     { name: "setup", testMatch: /.*\.setup\.ts/ },
+     { name: "chromium", use: { ...devices["Desktop Chrome"] },
+       dependencies: ["setup"], storageState: "tests/.auth/user.json" },
+   ]
+   ```
+   Then, dev server up: `npx playwright test --project=setup` writes `tests/.auth/user.json`.
+2. **`--storage-state=tests/.auth/user.json` is compatible with `--isolated`** on the Playwright MCP. The two are routinely assumed mutually exclusive, which is why gated renders get run isolated-with-no-session and land on `/login`.
+3. **A stale `user.json` still redirects to `/login`** on session expiry with everything correctly wired. The symptom is identical to never having set it up; the fix is re-running the setup project, not re-scaffolding.
+
+So a new project's first auth-gated render is gated on exactly one human action — dropping creds into `.env`.
+
 ## Procedure
 
 1. Confirm the dev server URL (default `http://localhost:3000`) and that it serves all declared locales.

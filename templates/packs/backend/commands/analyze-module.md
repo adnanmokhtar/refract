@@ -23,7 +23,7 @@ Pre-flight before refactoring or extending a module. Multiple agents run in para
 
 **The agent ONLY escalates to the user when:**
 - A reviewer fails to return (incomplete dispatch — the audit is not done).
-- Stack mismatch (backend reviewers dispatched on a frontend module — switch reviewer set first).
+- **Stack mismatch — halt, do not re-aim.** If the target path is a frontend feature directory or a mobile screen module, this command's reviewer set is the wrong one and it does not own the right one. Halt and redirect to that pack's audit (`/design-review` or `/a11y-audit` in the frontend pack; the mobile pack's own module audit) *when it is installed*, and say so plainly when it is not — a backend audit re-labelled is worse than no audit, because it reports six green axes it never examined.
 - A BLOCKER cites a file:line that is dynamically loaded (DI auto-discovery, Next.js auto-routing) and may be a false positive — confirm before reporting.
 
 ## Closure verbs (complexity → ceremony)
@@ -83,10 +83,13 @@ AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the consolidated report; no code c
 
 ## Phase 3 — Retrieve
 
-ALWAYS:
-- `CLAUDE.md` + `ai/conventions.md` + `ai/business-domain.md`.
-- `ai/modules.md` — module's row + declared dependencies.
-- `ai/patterns/` — patterns the module SHOULD follow.
+ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
+
+`ai/dynamic/feedback-learned.md` is load-bearing *here specifically*: it holds the findings a maintainer already looked at and rejected. An audit that never reads it re-raises them, and a second identical finding is how a maintainer learns to stop reading the report.
+
+AUDIT-SPECIFIC:
+- `ai/modules.md` — the module's row + its declared dependencies (an undeclared import is itself a finding).
+- `ai/patterns/` — the patterns this module is supposed to follow. These are the **oracle each axis grades against**; an axis with no oracle produces opinions, not findings.
 
 MODULE-SCOPED:
 - Module's own `<module>.module.ts` + entry service + entry controller.
@@ -174,19 +177,6 @@ Verdict: 3 blockers. Fix or ADR before extending.
 Suggested next: /fix-bug for blockers, then re-run /analyze-module.
 ```
 
-## Stack-awareness
-
-This command is in the backend pack but its **shape applies to any module-like construct**. Cross-stack adaptation:
-
-| Stack | "Module" = | Reviewers to dispatch |
-|---|---|---|
-| Backend (NestJS / Django / Rails / Spring) | controller + service + repo + tests + DTOs | api-reviewer + schema-reviewer + perf + security + test-reviewer + dead-code |
-| Frontend (Next / Nuxt / Vue / React feature dir) | components + page + store + tests + i18n keys | ui-reviewer + accessibility-auditor + i18n-auditor + design-system-guardian + test-reviewer + dead-code |
-| Mobile (RN screen module / Flutter feature dir) | screens + components + state + native bridge + tests | mobile-architect + accessibility-auditor + i18n-auditor + native-bridge-audit (if bridge) + test-reviewer + dead-code |
-| CLI / library | exported API + internal modules + tests | api-reviewer + test-reviewer + dead-code-finder + (security if input handling) |
-
-Detect from `CLAUDE.md` declared stack. If the module path matches a frontend feature folder OR mobile screen folder, dispatch the corresponding reviewers instead of (or alongside) the backend defaults.
-
 ## Hard rules
 
 - **Run BEFORE extending, not after.** Post-change analysis biases toward the diff.
@@ -196,7 +186,7 @@ Detect from `CLAUDE.md` declared stack. If the module path matches a frontend fe
 - **Cross-check findings to avoid duplicate reporting.** N+1 from perf-reviewer and missing-eager-load from schema-reviewer = one issue, not two.
 - **Don't mark dead code dead without confirming it's not framework-magic loaded** (NestJS auto-discovered modules, Next.js auto-routed pages, Django apps registered in INSTALLED_APPS).
 - **Coverage % is not quality.** A test-reviewer that says 95% but never asserts anything is failing the audit.
-- **Stack-aware reviewer dispatch.** Backend reviewers on frontend modules produce noise; pick the right set.
+- **This command audits backend modules only.** It does not carry a frontend or mobile reviewer set and must not improvise one; a non-backend target halts and redirects (§ Premise). Naming twelve agents from four other packs would be the same manufactured coverage the verdict table exists to prevent.
 
 ## What to do next — required closing section
 
@@ -209,26 +199,22 @@ Every run MUST end its report with a `## What to do next` block: the analysis fi
 - Coverage % treated as quality — `test-reviewer` looks at assertions; 95% coverage of getter tests means nothing.
 - Dead-code finding on dynamically loaded files (DI containers, framework auto-discovery) — false positive; verify before deletion.
 - Re-running not scheduled — module clean today won't stay that way; re-audit on each significant change.
-- Dispatched backend reviewers on a frontend module — most findings irrelevant; switch reviewer set per stack.
 - Treated module size (LOC) as quality signal — large is not bad, complex is. Audit complexity per agent (cyclomatic / coupling), not LOC.
 
 ## Related
 
-### Sibling commands in backend pack
-- `/add-endpoint` — sibling command in backend pack
-- `/add-feature` — sibling command in backend pack
-- `/add-module` — sibling command in backend pack
-- `/endpoint-test` — sibling command in backend pack
-- `/fix-bug` — sibling command in backend pack
-- `/log-tail` — sibling command in backend pack
-- `/trace-flow` — sibling command in backend pack
+### Sibling commands — where the boundary falls
+- `/fix-bug` — **closes what this command opens.** This run produces blockers and stops; it never edits code. Every BLOCKER either becomes a `/fix-bug` run or an ADR.
+- `/add-endpoint` · `/add-module` — the work this audit gates. Run this BEFORE extending, not after; post-change analysis grades the diff instead of the module.
+- `/trace-flow` · `/log-tail` — evidence sources when a static finding needs a runtime confirmation (an unmeasurable hot path, a suspected N+1 nobody can reproduce).
 
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+Patterns are read as the **oracle each axis grades against**, not as background:
+- `ai/patterns/api-contract.md` + `error-handling.md` — the oracle for `api-reviewer`'s envelope and error-shape findings.
+- `ai/patterns/multi-tenancy.md` — the oracle for the tenant-isolation axis on any module owning tenant-scoped tables.
+- `ai/patterns/parallel-io.md` + `caching-strategy.md` — the oracle for `performance-optimizer`'s sequential-await and invalidation findings.
+
+A pattern with no axis behind it produced no findings; listing it here would manufacture coverage the run did not have.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

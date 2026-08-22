@@ -28,7 +28,7 @@ pack: backend
 
 > **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`.
 >
-> **If extraction found nothing, the placeholders below are NOT the answer — they are the question.** An unresolved `<extracted: …>` token left in a code line is worse than an empty file: an agent copies it verbatim, or silently substitutes `Promise.all`, which is the exact generic leak `rules/concurrency-discipline.md` § Enforcement exists to stop. Degraded behaviour is specified, not improvised:
+> **If extraction found nothing, the placeholders below are NOT the answer — they are the question.** An unresolved `<extracted: …>` token left in a code line is worse than an empty file: an agent copies it verbatim, or silently substitutes `Promise.all`, which is the exact generic leak `rules/concurrency-discipline.md` § Must not exists to stop. Degraded behaviour is specified, not improvised:
 >
 > | What extraction found | What this pattern is allowed to do |
 > |---|---|
@@ -53,6 +53,11 @@ This pattern documents **how to overlap independent I/O** in *this* codebase, us
 
 ## When to use
 
+**This table dispatches; the header block above decides.** *Whether* to overlap is settled by
+**When to apply** / **When NOT to apply**; what is left is *which primitive*, and picking the wrong
+one is its own failure — an unbounded `Promise.all` where a bounded fan-out belonged is the most
+common of them.
+
 | Signal | Reach for |
 |---|---|
 | Heterogeneous fixed-N reads (`getUser` + `getOrg` + `getPrefs`) | `Promise.all` / `asyncio.gather` (no cap needed; N is small + known) |
@@ -62,22 +67,6 @@ This pattern documents **how to overlap independent I/O** in *this* codebase, us
 | n queries to the same table by primary key | **Batch API** (`findByIds`) — parallelism is the wrong tool |
 | Inside a DB transaction | **Sequential** — most ORMs serialise on the single tx connection anyway |
 | Two writes share a key | **CAS / atomic SQL** (`UPDATE … SET x = x + ?`) — parallel writes race |
-
-## Project-shipped helper
-
-> If the project has its own bounded-parallel helper (extraction Step 2.5 detects `runWithLimit` / `parallel` / `concurrentMap` / `each_concurrently` / etc.), use **only** that — don't introduce a new dependency.
->
-> Phase 4.6 inserts the helper signature here verbatim, e.g.:
-> ```ts
-> // libs/concurrency/run-with-limit.ts:12
-> export async function runWithLimit<T, R>(
->   items: readonly T[],
->   fn: (item: T, index: number) => Promise<R>,
->   opts: { concurrency: number; signal?: AbortSignal },
-> ): Promise<R[]>
-> ```
-
-If the project has no helper and the language ecosystem has a canonical one (e.g., `p-limit` for Node, `errgroup` for Go), prefer that over hand-rolling.
 
 ## Recipes (project-flavoured)
 
@@ -138,16 +127,6 @@ const transformed = await runWithLimit(inputs, x => workerPool.run(x), { concurr
 await runWithLimit(transformed, r => writeResult(r), { concurrency: 5 });
 ```
 
-### Decision: parallel vs batch vs sequential
-
-```
-Need n results from n calls to the same source?
-├── Source has a batch API (findByIds, multiGet, IN clause) → BATCH ✓
-├── Source has no batch API + calls are independent → BOUNDED PARALLEL ✓
-├── Each call depends on the previous result → SEQUENTIAL (correct)
-└── n is fixed and small (≤ 3) and calls to *different* sources → Promise.all / gather (no cap)
-```
-
 ## Concurrency caps (project-observed)
 
 | Workload | Cap | Reason |
@@ -159,16 +138,6 @@ Need n results from n calls to the same source?
 | File I/O | `<extracted>` | OS file-descriptor limits |
 
 > Phase 4.6 fills these from observed config (pool config, env vars, HTTP-client defaults, retry libs) — no guessing. The degraded-behaviour rule above governs these cells too: if the config is not found, write `NOT FOUND` in the Cap column and treat the workload as `[UNANCHORED]`. A surviving `<extracted…>` token here is read as a number, which is the same leak in a quieter place.
-
-## Tracing / observability
-
-> Phase 4.6 anchors this section to the project's tracing primitive. Examples that are typical post-extraction:
->
-> - "Each task in a parallel fan-out runs inside a child span (`tracer.startActiveSpan('process-item', …)`); parent span closes when `Promise.all` resolves."
-> - "OpenTelemetry SDK auto-instruments `pg` / `axios` / `redis` — no manual wrapping needed."
-> - "Correlation ID propagated via AsyncLocalStorage — no per-task plumbing."
-
-If the project has none of the above, **add a TODO**: "Add tracing around bounded fan-out so slow tasks are visible in p99."
 
 ## Pitfalls
 
@@ -185,13 +154,6 @@ If the project has none of the above, **add a TODO**: "Add tracing around bounde
 6. **Unbounded fan-out from user input** — endpoint takes `ids: string[]`; client sends 10K IDs; `Promise.all(ids.map(fetch))` melts the downstream. Cap input length at the validator AND cap concurrency.
 7. **`Promise.race` for "fast path"** — only correct when losers are idempotent + harmless (e.g., redundant cache reads). For writes, `race` is a bug.
 8. **Single connection saturation** — if the pool is 1 (e.g., dev SQLite) parallel queries serialise; the speedup you measure on prod doesn't appear. Always test at prod-like pool size.
-
-## When NOT to use
-
-- `n ≤ 3` known-at-author-time independent reads on hot paths — `Promise.all` is fine but the win is sub-millisecond; don't add a `runWithLimit` ceremony for it.
-- Throughput-bound jobs already CPU-pinned — adding I/O concurrency on top of saturated CPU just queues; profile first.
-- Strict ordering required (idempotency keys generated by sequence; sequential migrations; FIFO queue handlers).
-- Inside a transaction (already noted; restated because this is the most-common-mistake).
 
 ## Detectors (cite-or-halt)
 

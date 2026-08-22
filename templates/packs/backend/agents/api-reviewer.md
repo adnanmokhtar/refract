@@ -26,30 +26,22 @@ A review without `<path:line>` is not a review, it's a vibe. The verdict (APPROV
 
 ## Full checklist (by layer)
 
+**What is a check here.** A detector (grep, named test, or an explicit `[self-policed]` where grep cannot decide), a severity, and a deep owner where one exists. A bullet that only restates a MUST from `backend-principles.md` — loaded before this review started — is the same rule billed twice and dilutes the findings that carry evidence. Framework specifics (`ValidationPipe` options, `response_model=`, `@ControllerAdvice`, `AsNoTracking()`) are `references/<framework>.md`'s, read at Pre-flight step 2.
+
 ### Architecture compliance
 
-**Clean / Hexagonal layering** (if declared):
-- `core/` / `domain/` imports NOTHING from framework (NestJS, TypeORM, Django, SQLAlchemy, etc.).
-- `application/` / use-cases depend on `core/` + ports, NOT infrastructure.
-- `infrastructure/` implements ports. May import framework + ORM.
-- `adapters/` (controllers, webhooks) is the only layer touching HTTP types.
-- Cross-layer imports checked with grep:
+**Clean / Hexagonal layering** — only when the project *declares* it (`ai/architecture.md`). A layering finding against a project that never adopted layering is a redesign wearing a review's clothes; that goes to `@api-architect`. Direction is one-way (`adapters` → `application` → `core`), and `core` imports no framework. One grep settles the axis — substitute this project's framework/ORM package names:
 
 ```bash
-# NestJS example — should return nothing
-grep -rn "import.*@nestjs\|import.*typeorm" src/modules/*/core/
+# Should return nothing — a framework or ORM import inside the domain layer
+grep -rn "import.*<framework-pkg>\|import.*<orm-pkg>" src/modules/*/core/
 ```
 
-**Dependency injection**:
-- Tokens are `Symbol('NAME')` in `tokens.ts`, not magic strings.
-- Providers wire via config, not hardcoded.
-- Circular deps flagged.
+  What the grep misses, and you must read for: a port in `core/` whose signature leaks an infrastructure type (`Repository<T>`, `Request`, a driver row type). The import is clean and the coupling is total. `[self-policed]` — cite the interface and name the leaked type.
 
 ### Controller / route layer
 
-- Controller is THIN — parses request, calls service/use-case, returns response. No business logic.
-- No DB / ORM / SDK calls in controllers.
-- Auth / permission guards applied (default = private).
+- Controller touches no DB / ORM / SDK directly. Detector: `rg -n 'repository|prisma|knex|\.query\(|Model\.' src/**/*controller*` — cite the call, not the rule.
 - **(AUTHZ) Authentication is not authorization.** A guard that only proves *who you are* (JWT valid, session present) is authn; the production bar is authz — *may THIS principal act on THIS resource?* BLOCK a mutating/reading handler on an owned or role-scoped resource that checks authn but never checks ownership/role/scope (e.g. `@UseGuards(JwtAuthGuard)` alone on `PATCH /orders/:id` with no `order.ownerId === actor.id` / policy / `@Permissions` check). The evidence that closes this is a **denial** test — an authenticated-but-unauthorized principal gets `403`, not a `401` (401 only proves the authn guard). Detector — an id-bearing mutating route whose handler body never references the actor identity for a scope check:
 
 ```bash
@@ -60,12 +52,9 @@ rg -n '@(Patch|Put|Delete|Post)\([^)]*:id' src/
 # NONE of these is authn-only and BLOCKs (grep can't negate per-block; read the body):
 #   ownerId | owner_id | tenantId | policy | can( | authorize | @Permissions | hasRole
 ```
-- `@HttpCode` / explicit status codes (201 create, 204 delete, 200 read/update).
-- Pagination on list endpoints (`limit` + `cursor` or `offset` + `total`).
-- Idempotency-Key accepted on mutating endpoints (when applicable).
+- Status codes (201/204/200) and list pagination are `backend-principles.md` MUSTs — file only the `<path:line>` that breaks one, never a reminder.
 - Response uses the project's ONE canonical envelope — whichever `backend-principles.md` § Single response envelope resolved to (bare resource OR `{ data, meta }`), applied everywhere. Flag drift between endpoints, not the shape itself; do not impose a five-key envelope the project never chose. Error bodies follow the one error contract (Problem Details is the interop option) and are NOT wrapped in the success envelope.
-- Swagger / OpenAPI annotations complete (operationId, description, responses).
-- **(ENF-1) Rate limit declared on unauthenticated OR expensive endpoints** (search / export / bulk / LLM / report) — REQUEST if absent. The `429 Too Many Requests` (RFC 6585) reply MUST carry `Retry-After` (RFC 9110 §10.2.3 — seconds or HTTP-date) + the two quota fields the current draft defines: `RateLimit-Policy: "default";q=100;w=60` and `RateLimit: "default";r=0;t=30` (IETF `draft-ietf-httpapi-ratelimit-headers` — an Internet-Draft, not an RFC, so pin nothing to it as settled). The `RateLimit-Limit`/`-Remaining`/`-Reset` triple is draft-05 legacy and vendor `X-RateLimit-*` is still what large APIs ship — REQUEST the two-field form, but do not flag the legacy set as a defect while clients are still reading it. Detector — flag a handler whose route matches `/search|/export|/report|/bulk|/upload` with no throttle declaration:
+- **(ENF-1) Rate limit declared on unauthenticated OR expensive endpoints** (search / export / bulk / LLM / report) — REQUEST if absent. Two separate findings, and only the first is settled: a missing limiter, and a `429` that omits `Retry-After` (RFC 9110 §10.2.3 — the one field here with an RFC behind it). Which quota-header family to require is a moving draft question that `ai/patterns/rate-limiting.md` owns and answers with its publication date — read it there and cite it; never require a header family from memory, and never file the legacy set as a defect while clients still read it. Detector — flag a handler whose route matches `/search|/export|/report|/bulk|/upload` with no throttle declaration:
 
 ```bash
 # Should return 0 — expensive routes with no limiter
@@ -92,12 +81,7 @@ git diff --staged -- '*.dto.ts' '*serializer*' '*.graphql' | rg '^-\s' | rg -i '
 
 ### DTOs
 
-- Every input field has a validator (class-validator / zod / pydantic / FluentValidation / etc.).
-- Type + format + length constraints declared.
-- Optional ≠ nullable — explicit.
-- Nested objects use `@ValidateNested()` + `@Type()` (or equivalent).
-- No `any` types.
-- Output DTOs separate from ORM entities — mapper converts.
+- Missing/unbounded validators, `any` fields, and an ORM entity as the response DTO are `backend-principles.md` MUSTs — cite the field, not the rule. The one NOT covered there: **optional ≠ nullable**. `note?: string` accepts an absent key; `note: string | null` accepts the JSON literal. Declare one, assume the other, and the bug appears only in production data.
 
 **(SEC-01) Mass-assignment / over-posting** — BLOCKER when the request body is bound wholesale into a persisted entity that carries privilege/ownership fields (`role` / `isAdmin` / `tenantId` / `ownerId` / `balance` / `status`). Stack-agnostic grep probes:
 
@@ -110,12 +94,7 @@ rg -n 'Object\.assign\(\s*\w+,\s*req\.body|\{\s*\.\.\.req\.body|Model\(\*\*|new 
 
 ### Services / use-cases
 
-- Single intent per use-case. Not `ProcessOrder` doing 5 things.
-- Constructor-inject dependencies via interfaces.
-- Returns domain objects or explicit output types — NEVER ORM entities.
-- Errors raised as typed domain exceptions (`NotFoundError`, `ValidationError`, etc.).
-- No `throw new Error(string)`.
-- No HTTP types (`Request`, `Reply`) in service layer.
+- Single intent per use-case — the one judgement call here that no grep settles. `ProcessOrder` doing five things is a finding only if you name the five and say which belongs elsewhere; otherwise drop it. (Typed exceptions, no HTTP types in services, no ORM entities returned — `backend-principles.md` MUSTs.)
 - **(TXN) Transaction boundary is a unit of work, not one call.** BLOCK a use-case that performs **two or more writes that must succeed or fail together** (e.g. debit + credit, order row + line items, state change + outbox row) but issues them as separate un-wrapped statements — a mid-sequence crash leaves the row torn. The boundary lives at the service/use-case, never in the controller or the repo. Also flag the inverse waste: a single write needlessly wrapped, or an external HTTP/queue call held INSIDE the DB transaction (the open transaction now depends on a remote timeout → use an outbox, commit first). Detector — a use-case with ≥2 persistence calls and no surrounding transaction primitive:
 
 ```bash
@@ -145,10 +124,8 @@ rg 'query\(`.*\$\{' src/
 rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 ```
 
-- Soft-delete filter (if project uses soft delete) present on every custom query.
-- `SELECT *` avoided when specific columns suffice.
-- FK columns indexed (check entity / migration).
-- N+1 check: any `findOne` / `findById` inside a `.map()` / loop?
+- Soft-delete filter on every custom query bypassing the base repo — silently returning deleted rows is a correctness bug, not a style one.
+- N+1: `findOne` / `findById` inside a `.map()` / loop. `SELECT *`, projection and index coverage are `@schema-reviewer`'s (database pack) — flag the call site, hand over the query shape.
 - **(PERF-5) Result-size & shape** (REQUEST):
   - **Unbounded full-result buffering** — `.toArray()` / `fetchall()` / `JSON.stringify(allRows)` over a **user-controlled** (or absent) limit materializes the whole result set in memory → stream it (`ai/patterns/response-streaming.md` — NDJSON/SSE/chunked, mid-stream terminal-error sentinel, backpressure).
   - **Large JSON route with no compression** — a payload-heavy response with no gzip/br negotiation.
@@ -160,13 +137,7 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 rg -n '\.toArray\(\)|\.fetchall\(\)|JSON\.stringify\(\s*(all|rows|results)' src/
 ```
 
-### Error handling
-
-- Custom error classes (not `new Error(string)`).
-- Global filter maps domain errors → HTTP status.
-- Response body consistent error shape.
-- NO stack traces leaked to client.
-- NO secrets / full PII in error messages.
+  This defect is spelled differently per stack (`list(qs)`, `relation.to_a`, `findAll()` returning `List<T>`, `.ToListAsync()`) and the spelling is what the grep must match — read this project's form in `references/<framework>.md` rather than guessing. The fix is always iterate-or-stream; `ai/patterns/response-streaming.md` owns the wire contract.
 
 ### External calls (HTTP clients, SDK, queues)
 
@@ -208,21 +179,11 @@ rg -n 'verify\(|jwtVerify\(|validateToken|TokenValidationParameters' src/ -A6 | 
 
 ### Events / async
 
-- `@EventPattern` handlers + guards applied.
-- Handler body wrapped in try/catch (logged) — don't crash the consumer.
-- Payloads carry IDs, not full entities.
-- Tenant in metadata, not payload.
-- Handler idempotent (dedup by event id or business key).
-- Pattern names are CONSTANTS, not magic strings.
+- A non-idempotent handler is the endpoint defect one layer down, and the queue *will* redeliver: cite the handler and the dedup key it lacks (event id or business key). An unhandled throw that kills the consumer is the second finding.
+- Payloads carry IDs, not entities; tenant rides in metadata, not the body. Both become cross-tenant exposure once a payload sits in a dead-letter queue somebody can read.
 
 ### Observability
 
-- Every endpoint logs entry + outcome at INFO.
-- Errors logged at ERROR.
-- Every log line has correlation id.
-- Latency metric per endpoint (histogram).
-- External calls: success/failure metric + latency.
-- PII redacted in logs (phone → last 4, email → first char + domain).
 - **(OBS-2) Metric-label cardinality** — flag `user_id` / `request_id` / `email` / a raw path containing an id (`/orders/8431`) used as a metric LABEL — a cardinality bomb (unbounded series). Route templates (`/orders/:id`) and tenant-id (bounded) are fine; identifiers go in logs/traces, not label sets. AND assert the RED triad — a new endpoint emits **rate + errors + duration** (histogram), not just a bare hit counter.
 
 ```bash
@@ -240,66 +201,10 @@ rg -n '/readyz|/ready|readiness' src/ -A8 | rg -v 'ping|isHealthy|check\(|SELECT
 
 ### Tests
 
-- Every new use-case has a unit test (happy + error path).
-- Every new repo method has an integration test.
-- New endpoints have e2e tests — at minimum 200 + 400 + 401.
-- Multi-tenant: cross-tenant leak test for new repos.
-- Mock external APIs. Never hit real ones in tests.
-- No `sleep(N)` for async waits. No `.skip` without a tracked reason.
+Coverage counts belong to CI. Two test findings are yours, because both make a *green* suite lie:
 
-## Stack-specific addenda
-
-### NestJS
-- `@Controller()` with DI via `@Inject(TOKEN)`.
-- `@ApiTags`, `@ApiOperation`, `@ApiResponse` complete.
-- `@UseGuards()` on protected endpoints; `@Public()` explicit where public.
-- `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true` globally.
-- `@Transactional()` OR explicit `manager.transaction(cb)` for multi-step writes.
-
-### FastAPI
-- `response_model=` on every endpoint.
-- `Depends()` for auth, DB session, current user.
-- `HTTPException` mapped via `@app.exception_handler`.
-- Async endpoints only when hitting async I/O.
-
-### Django / DRF
-- `GenericViewSet` / `ModelViewSet` thin; logic in `services.py`.
-- `select_related` / `prefetch_related` on read queries to prevent N+1.
-- Permission classes, not inline checks.
-- `serializer.is_valid(raise_exception=True)`.
-- **(PERF-5)** Evaluating a `QuerySet` whole (`list(qs)` / `[o for o in qs]` / DRF serializing an unbounded queryset) buffers every row → use `StreamingHttpResponse` + `.iterator()` for export-shaped reads (`ai/patterns/response-streaming.md`).
-
-### Laravel
-- FormRequest for validation (never in controller).
-- `JsonResource` for responses (never raw Eloquent model).
-- Policies for authZ.
-- `with()` for eager load.
-
-### Rails
-- Strong params.
-- Pundit / CanCanCan for authZ.
-- `includes` for eager load.
-- Service objects past ~200 LOC model.
-- **(PERF-5)** `relation.to_a` / `.all.map` materializes the whole relation → use `find_each` / `find_in_batches` and stream the response for export-shaped reads (`ai/patterns/response-streaming.md`).
-
-### Go (chi/gin/fiber)
-- Context propagated through handlers → services → repos.
-- Errors wrapped: `fmt.Errorf("describe: %w", err)`.
-- Small interfaces at consumer side.
-- No naked returns in long functions.
-
-### Spring Boot
-- Constructor injection (no `@Autowired` on fields).
-- `@ControllerAdvice` for exception → response mapping.
-- `@Transactional` at service, not repo.
-- JPA entities NEVER returned from controllers.
-- **(PERF-5)** `repository.findAll()` (or a `List<T>` return over an unbounded query) loads every row into the heap → return a `Stream<T>` / `Slice` / `StreamingResponseBody` for export-shaped reads (`ai/patterns/response-streaming.md`).
-
-### .NET (ASP.NET Core)
-- `CancellationToken` on every endpoint.
-- `ProblemDetails` for errors.
-- No `.Result` / `.Wait()`.
-- `AsNoTracking()` on read queries.
+- **A test that cannot fail** — `sleep(N)` for an async wait, `.skip` with no tracked reason, an assertion on a mock's own return value. A passing suite containing these is worse than none, because it is believed.
+- **The absent denial test** — for anything touching authz or tenancy: a `403` for the wrong principal, and a cross-tenant leak test for a multi-tenant repo. A `200`-only suite is the specific gap that lets AUTHZ and tenant-isolation ship `MET` on no evidence.
 
 ## Example findings
 
@@ -316,17 +221,6 @@ Fix: use this.scope(qb) OR add explicit tenant filter.
 Verify: cross-tenant test (seed A+B, assert B can't see A).
 ```
 
-### BLOCKER — injection risk
-```
-src/modules/search/search.service.ts:42
-
-  `SELECT * FROM products WHERE name LIKE '%${query}%'`
-
-Impact: SQL injection.
-Fix: parameterize — `WHERE name LIKE $1`, params: [`%${query}%`].
-Verify: test with `'; DROP TABLE --` input; query returns empty.
-```
-
 ### REQUEST — N+1
 ```
 src/modules/orders/application/list-orders.use-case.ts:24
@@ -336,18 +230,6 @@ Loop: `await customerRepo.findById(o.customerId)` per order.
 
 Fix: eager-load customer in list query (JOIN) OR DataLoader batching.
 Measure: p95 before/after via the `profile-endpoint` skill (`.claude/skills/profile-endpoint/SKILL.md`, performance pack).
-```
-
-### REQUEST — missing auth
-```
-src/modules/admin/export.controller.ts:18
-
-  @Get('/export')
-  async export() { ... }
-
-Impact: if this is admin-only, missing guard.
-Fix: @UseGuards(JwtAuthGuard, AdminRoleGuard).
-Verify: e2e test — unauth request returns 401.
 ```
 
 ### NIT — response shape inconsistent

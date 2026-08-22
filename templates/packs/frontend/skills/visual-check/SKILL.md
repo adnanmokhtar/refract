@@ -52,21 +52,23 @@ Three values are fixed here and **cited, never restated**, by everything that dr
 3. **Point the MCP/browser at the session.** For the Playwright MCP, this means it must NOT run `--isolated` with no session for gated routes — load the `storageState`, or drive the login step in-session. `--headless --isolated` with no auth ALWAYS lands on `/login`.
 4. **Prove you landed on the surface, not the wall** (see the blocked-render halt): after `goto`, assert a surface-unique marker is present (a heading/testid that only the target renders) before you screenshot.
 
-### Setting this up on a new / auth-gated project (where the creds come from)
+### Turning it on for the first time (this skill owns the scaffold)
 
-Creds are a **secret** — `/setup-project` can never bake or guess them. So the work splits: **the machine scaffolds the whole mechanism; the human supplies ONE secret, once.**
+Creds are a **secret** no generator can bake or guess, so the work splits: **this skill scaffolds the whole mechanism; the human supplies ONE secret, once.**
 
-- **Machine scaffolds** — when the app is detected auth-gated (a router guard, `requiresAuth` meta, a `/login` redirect, `<PrivateRoute>`, an auth interceptor): drop `tests/auth.setup.ts` (below), gitignore `tests/.auth/`, add the `.env` slot, and surface the 3-step turn-on in the setup report.
+- **Machine scaffolds** — when the app is detected auth-gated (a router guard, `requiresAuth` meta, a `/login` redirect, `<PrivateRoute>`, an auth interceptor): drop the file below as `tests/auth.setup.ts`, gitignore `tests/.auth/`, add the `.env` slot, and surface the turn-on in the run's report.
 - **Human supplies** (once) — dev/test creds in the **gitignored `.env`**: `E2E_EMAIL` / `E2E_PASSWORD` (or the project's field names). Never committed, never in a command, never pasted in chat.
+
+**Do not delegate this.** Nothing else in this repo produces `tests/auth.setup.ts`: `/setup-project` has no auth-scaffold deliverable, and the ui-ux pack's `/ui-crawl` writes a *different* file at `tests/crawl/auth.setup.ts` for its own crawler project. If this section does not deploy it, no one does — and `scripts/detect-mcp.sh` still tells the user to regenerate the session with `npx playwright test tests/auth.setup.ts`.
 
 Scaffold — deploy as `tests/auth.setup.ts`, parameterizing the login route + the 3 selectors to the detected form:
 
 ```ts
 import { test as setup, expect } from "@playwright/test";
 import fs from "node:fs";
-// Load .env into process.env — dependency-free (Playwright runs in Node, which does NOT
+// Load .env into process.env — dependency-free. Playwright runs in Node, which does NOT
 // auto-load .env the way Vite does, so without this the creds are undefined even though
-// they're IN .env). Prefer `import "dotenv/config"` if the project already has dotenv.
+// they are IN .env. Prefer `import "dotenv/config"` if the project already has dotenv.
 try {
   for (const line of fs.readFileSync(".env", "utf8").split("\n")) {
     const m = line.match(/^\s*([\w.]+)\s*=\s*(.*?)\s*$/);
@@ -90,10 +92,11 @@ setup("authenticate", async ({ page }) => {
 });
 ```
 
-The 3-step turn-on (the setup report lists these; the render HALTS until done, never builds blind):
+Two asserts in there are the point, not decoration: the **missing-creds throw** (an empty `E2E_EMAIL` otherwise submits a blank login form and fails as "bad credentials"), and the **token-landed assert** (a login form that silently re-renders itself writes a `user.json` full of nothing, and every later render fails at the wall with a session file sitting on disk).
 
-1. Put creds in `.env` (gitignored): `E2E_EMAIL=…` / `E2E_PASSWORD=…`. (The scaffold's inline `.env` loader reads them — no `dotenv` dependency and no manual export needed.)
-2. **Register the setup file in `playwright.config.ts`** — a `*.setup.ts` file does NOT match Playwright's default `testMatch` (`*.spec`/`*.test`), so `npx playwright test tests/auth.setup.ts` returns **"No tests found"** without a `setup` project. Add:
+Then the four ways this is wired correctly and still does not work. None are guessable, and each reads as "Playwright is broken":
+
+1. **A `*.setup.ts` file does not match Playwright's default `testMatch`** (`*.spec` / `*.test`). `npx playwright test tests/auth.setup.ts` returns **"No tests found"** — success-shaped output for a run that never happened. It needs a `setup` project, and the browser project must depend on it:
    ```ts
    projects: [
      { name: "setup", testMatch: /.*\.setup\.ts/ },
@@ -101,10 +104,12 @@ The 3-step turn-on (the setup report lists these; the render HALTS until done, n
        dependencies: ["setup"], storageState: "tests/.auth/user.json" },
    ]
    ```
-   Then, dev server up: `npx playwright test --project=setup` → writes `tests/.auth/user.json`.
-3. Point the render at it — add `--storage-state=tests/.auth/user.json` to the Playwright MCP args (compatible with `--isolated`), or pass `storageState` to the harness. Regenerate (step 2) on JWT/session expiry — a stale `user.json` still redirects to `/login` even when correctly wired.
+   Then, dev server up: `npx playwright test --project=setup` writes `tests/.auth/user.json`.
+2. **A project that already has its own setup file usually has not loaded `.env`.** Same Node-vs-Vite trap as above — creds that are demonstrably in `.env` arrive as `undefined`. Add the loader (or `import "dotenv/config"`) to *their* file rather than shipping a second one.
+3. **`--storage-state=tests/.auth/user.json` is compatible with `--isolated`** on the Playwright MCP. The two are routinely assumed to be mutually exclusive, which is why gated renders get run isolated-with-no-session and land on `/login`.
+4. **A stale `user.json` still redirects to `/login`** on JWT/session expiry, with everything correctly wired. The symptom is identical to never having set it up; the fix is re-running step 1, not re-scaffolding.
 
-So a new project's first auth-gated redesign is gated on exactly one human action — dropping creds into `.env` — and everything else is scaffolded and reused.
+So a new project's first auth-gated render is gated on exactly one human action — dropping creds into `.env` — and everything else is scaffolded and reused.
 
 ## Procedure
 

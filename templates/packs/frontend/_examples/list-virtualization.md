@@ -10,6 +10,10 @@ pack: frontend
 
 Every finding cites the render site at `<file:line>` + the matched pattern + the fix routed through the codebase's own virtualizer.
 
+## What "~100" is actually a proxy for
+
+The threshold is a row count because that is what a reviewer can check at a glance. The cost it stands in for is **DOM nodes and the layout/style work they force per frame** — `nodes-per-row × rows`, not array length. A 40-node row hits the ceiling at 40 rows (1,600 nodes); a genuine 3-node row with no per-row listener can pass well above 100 and should be `dismiss`ed with the count recorded. Count the nodes in one rendered row before applying or skipping the rule; a threshold applied by reflex is not a cited finding.
+
 ## The windowing concept
 
 A virtualizer renders only the rows intersecting the viewport plus an **overscan**; the full collection stays in memory as data, only the visible slice becomes DOM nodes. A sized spacer reserves total scroll height so the scrollbar reflects the whole list.

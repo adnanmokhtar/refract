@@ -27,12 +27,15 @@ All 7. Standard build/add command.
 ## When to use / NOT to use
 - USE: new top-level route; new tab/sub-route inside an existing section.
 - NOT: modal/drawer (use `/add-component`); shared layout fragment (`/add-component` or compose in existing page).
+- NOT: a list + form + delete bundle for one entity — that is `/add-crud-page`, which **supersedes** this command. The entity-scope test in the intent gate below decides it, before Phase 2.
 
 ## Phase 1 — Understand
 
 ### Intent gate
 
 If the description suggests a different intent, halt with a redirect: "enhance / improve / polish / cleaner" → `/enhance-ui` *(ui-ux pack)*. "fix / broken / wrong" → `/fix-bug` (core). "audit / review" → `/design-review` *(ui-ux pack)*, or this pack's `/a11y-audit` / `/i18n-audit` when the ask names that axis. Proceed only for adding a new page.
+
+**Entity-scope test — ask it before Phase 2, not after the files exist.** A route named for an entity (`/subscribers`, `/orders`) is the ambiguous case: a list page and a CRUD bundle are the same first screen. Ask **does this entity also need create / edit / delete, now or in this milestone?** Yes or "eventually" → **HALT and route to `/add-crud-page`** (running both produces two competing shapes for one entity, and the second run cannot delete the first one's files). No, or the route is not entity-shaped (dashboard, report, wizard step) → proceed here. **Unknown counts as yes** — `/add-crud-page` degrades to a list-only scaffold cleanly; this command does not upgrade into a bundle. Record `entity scope: read-only (asked)` / `entity scope: n/a (not entity-shaped)` in the run summary.
 
 **A redirect must land somewhere.** Both ui-ux destinations exist only when that pack is co-installed — check first, and if it is absent offer `/polish` (core) for visual finish and `/audit` (core) for read-only review instead of halting into a command the project does not have.
 

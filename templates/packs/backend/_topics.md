@@ -331,7 +331,7 @@ Each topic declares:
   triggers:
     migration_layout_detected: true   # only ships when migration pack is loaded
   extracts_from: _extracted-codebase.md § Stack + § Layering + _extracted-idioms.md (full)
-  sections: [stack_assumption, transposition_trap_fingerprints, di_markers, backend_audit_axes, stack_aware_primitive_set, phase_3_retrieve_specifics, cross_references]
+  sections: [stack_assumption, transposition_trap_fingerprints, di_markers, backend_audit_axes, phase_3_retrieve_specifics, cross_references]   # audit axes ARE the primitive table's axis column — one list, not two
   mirror_existing: true
   fallback: rules/migration-backend.md   # canonical authored shape; AUTHOR mode anchors stack-aware substitutions to project
 
@@ -379,7 +379,7 @@ Each topic declares:
     runtime_supports_async: true
     OR_grep_evidence: "async (function|def)|async \\w+ \\(|func .* \\(ctx context\\.Context"
   extracts_from: _extracted-idioms.md § Concurrency + _extracted-codebase.md § "Performance hot paths" + DB pool config + 3rd-party client config
-  sections: [project_specific_first, must, must_not, should, examples_per_stack, review_checklist, anti_patterns_named]
+  sections: [project_specific_first, must, must_not, should, where_depth_lives]   # recipes/checklist/anti-patterns live in ai-patterns/parallel-io.md; this rule is always-loaded and carries only the decision
   mirror_existing: true
   fallback: _examples/concurrency-discipline.md
   cite_evidence: strict

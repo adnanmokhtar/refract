@@ -114,12 +114,8 @@ Recommend ONE shape. State in one line what it sacrifices versus the runner-up, 
 - Metrics: counters + histograms (name them)
 - Traces: span around use-case + sub-spans on external IO
 
-### Security checklist
-- Authorization decorators in place (who can call).
-- Input size caps (body, list lengths).
-- Output filtered (no PII leak, no cross-tenant data).
-- Rate limit per tenant / user / IP.
-- Audit log on mutations.
+### Security floor
+The MUSTs are `backend-principles.md`'s and the review-time checks are `@api-reviewer`'s (SEC-01 / AUTHZ / ENF-1) — do not restate either. State only the DESIGN-TIME decisions those checks cannot make later: which principal may act on this resource and by what rule (ownership, role, or policy — a role check is not an ownership check), what the rate-limit key is (tenant / user / IP), and which mutations are audited.
 
 ### Open questions
 <anything you had to assume — flag for the user>
@@ -131,14 +127,6 @@ Consult the pack's `references/<framework>.md`:
 - NestJS · Hexagonal NestJS · Express · FastAPI · Django · Laravel · Rails · Go (chi/gin/fiber/echo) · Spring Boot.
 
 If the framework isn't referenced, follow its OFFICIAL style guide. If no strong convention exists, propose a layout and write an ADR before the implementer starts.
-
-## Common rewrites to push back on
-
-- `find<Noun>AndDoX` on the repository → that's a use-case, not a query.
-- DTOs used as domain models.
-- Transactions spanning cross-service calls that shouldn't be atomic.
-- Async side-effects on the hot path that belong in a queue.
-- Hand-rolled tenant filters sprinkled across queries — should be automatic via base/middleware.
 
 ## Hard rules
 
@@ -167,3 +155,15 @@ If the framework isn't referenced, follow its OFFICIAL style guide. If no strong
 - Designing for a framework version that's not installed — check the lock file.
 - Over-abstraction in P1 — a use-case doesn't need factory-builder-strategy. One class, clear inputs, clear output.
 - Silent tenant coupling on a cross-tenant table (countries, currencies) — document WHY it's cross-tenant + why that's safe.
+
+## Related
+
+### Sibling agents in backend pack — the boundary
+- `@api-reviewer` — judges code that EXISTS against the production floor. You precede it: it reads the shape you chose and reports whether the built thing honours it. If you find yourself grading a diff, that is its job.
+- `@bug-investigator` — explains why shipped code misbehaves. You are forward-looking; it is backward-looking. A design question that starts "why does the current one…" is its question first.
+- `@endpoint-tester` — proves a route works on the wire after it is built. It verifies the contract you specified; it does not choose it.
+- `@websocket-engineer` — owns protocols that outlive a request (socket envelopes, rooms, heartbeat, resume). You own request/response shape and hand off the moment the design needs a long-lived connection.
+
+### Skills
+- `module-scaffold` — generates the module skeleton from the design this agent produces. Design first, scaffold second.
+- `api-snapshot` — captures the contract you specified so a later diff can prove whether it broke.

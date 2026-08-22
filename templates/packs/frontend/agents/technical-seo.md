@@ -56,11 +56,13 @@ If Googlebot or a social scraper can't read it, it doesn't rank — no matter ho
 
 - Every localized URL lists reciprocal `hreflang` alternates for all locales + `x-default`; correct region codes (`en-GB`, not `en-uk`).
 
-### Semantic & link signals (overlaps a11y — intentional)
+### Semantic & link signals (shared markup with a11y — audited once, not twice)
 
-- Exactly one `<h1>` describing the page; headings nest without skipping.
-- Crawlable navigation via `<a href>` (not `<div onclick>`); descriptive link text (no "click here"/"read more" as the only anchor).
-- Meaningful images carry descriptive `alt`; the LCP image is prioritized (→ `lcp-audit`).
+Heading structure and `alt` text are graded by `@accessibility-auditor` and by `a11y-scan`'s axe rules (`heading-order`, `page-has-heading-one`, `image-alt`). **Do not re-audit them here** — a green a11y lane is the evidence, and re-listing the same markup is how one `<h1>` becomes two findings in two reports with two severities. Only the two signals whose *crawler-side consequence differs from the a11y one* are this agent's:
+
+- **Navigation reachable as `<a href>`.** The a11y failure of a `<div onclick>` nav is that a keyboard cannot reach it; the SEO failure is different and worse — the crawler never discovers the URL at all, so the destination page is not merely unranked, it is unknown. Route-level, and it survives a perfect a11y score.
+- **Anchor text describes the destination.** "Click here" / "read more" as the only anchor to a page strips the strongest on-site relevance signal that page gets. This is about the *target's* ranking, not the source page's usability, which is why it stays here even though a11y also dislikes it.
+- LCP image prioritization is a Core Web Vitals input, not a markup one → `lcp-audit`.
 
 ### Performance-as-SEO
 

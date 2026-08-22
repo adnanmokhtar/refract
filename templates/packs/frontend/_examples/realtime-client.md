@@ -36,11 +36,15 @@ Mirror whatever the project uses; the column that matters is who owns reconnect 
 
 ## Detectors (cite-or-halt)
 
+**Detectors 1, 3 and 4 do not fire when the SDK owns that stage.** On a hosted SDK (Pusher / Ably / Supabase Realtime) or Socket.IO, backoff, heartbeat and handshake re-auth live in the SDK — the greps come back empty *because the code is correct*. Identify the primitive first and `dismiss` each of the three with the SDK's own mechanism cited. Detectors 2 and 5 (teardown, dedup) fire on every primitive.
+
 1. **Bare connection, no reconnection** — `new WebSocket(url)` with only `onmessage`.
 2. **No teardown on unmount (leak)** — no `.close()`/cleanup in scope.
 3. **No heartbeat → undetected half-open** — long-lived socket with no ping/pong.
 4. **No re-auth on reconnect** — replays a token captured once at mount → silent expired-token failure.
 5. **Inbound handler with no dedup** — appends/increments/toasts with no id check → double side effects.
+
+Closure verbs (exactly one per finding): `report-with-fix`, `dismiss` (a stage the detected primitive already owns), `halt-handoff`, `halt-missing-cite`.
 
 ## Related
 

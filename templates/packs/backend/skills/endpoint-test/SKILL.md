@@ -24,7 +24,7 @@ Make an HTTP request to a local endpoint, then verify the status, headers, and r
 
 ## Prerequisites
 
-- Dev server running on a known port (multi-app convention: master `:4000`, tenant `:4001`; `localhost:3000` is the generic single-app default). Confirm with `lsof -i :4000` or check the `start:dev` script log.
+- Dev server running on a known port. **Resolve the port from the project, never from a convention** — read the dev script in `package.json` / `Procfile` / compose file, or `CLAUDE.md`, and confirm with `lsof -i :<port>` or the `start:dev` log. A repo with several deployable apps has one port per app; enumerate them from the same source rather than assuming a pairing. Testing the right route against the wrong app's port produces a `404` that reads like a missing endpoint and a `200` that reads like a pass.
 - Auth credentials in `.env.local` / `.env.dev` — NEVER use `*PROD*` credentials or `*.prod.env`.
 - `curl` and `jq` available.
 

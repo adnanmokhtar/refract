@@ -12,6 +12,17 @@ Every request carries a tenant identity through every layer — resolution → c
 
 The tenant is resolved **once** at the edge, stored in a request-scoped context, and read (never re-passed) everywhere downstream. Data access, cache keys, and events are tenant-scoped by construction so a developer cannot forget to filter.
 
+**When NOT to apply — this pattern assumes ONE topology, and it is not the only one.** Everything below is written for **shared-schema, row-scoped** multi-tenancy: every tenant's rows sit in the same tables, and a `tenant_id` predicate is what separates them. That assumption is load-bearing, and cargo-culting it into a codebase built the other way produces a filter that is at best redundant and at worst a second, weaker isolation mechanism sitting where the real one already is.
+
+| Topology | Where isolation actually lives | What this pattern still owns |
+|---|---|---|
+| **Shared schema, `tenant_id` column** | The row predicate. This pattern, end to end. | All of it. |
+| **Schema-per-tenant** (one PG schema / MySQL database per tenant) | The `search_path` / database selected at connection checkout. A row predicate adds nothing — every row in reach already belongs to the tenant. | Resolution chain, context propagation, cache-key prefixing, event metadata, `TenantContext.run` in consumers. **Not** § Automatic filtering: the detector for a missing predicate is a false positive here, and the real detector is *"a connection checked out without the tenant's schema bound"*. |
+| **Database-per-tenant** | Connection routing — which DSN the pool hands you. | Same as above, plus one failure this pattern does not otherwise name: a **connection leaked across tenants** by a pooler that reuses a connection without re-binding. Row filters cannot see it and will report clean. |
+| **Platform-global tables** (countries, currencies, plans, feature flags, the tenant registry itself) | Nothing. They are not tenant data. | Nothing — this is what § Manual bypass rules exists for. A `tenant_id` on a currency table is a modelling error, not a security control. |
+
+**State the topology before applying any detector below.** A finding that does not know which row of this table the codebase is in cannot know whether the thing it flagged is a bug. On a schema-per-tenant codebase, detectors 2 and 5 must be re-aimed at connection binding and cache-key prefixing respectively, or they produce noise on every query in the repo — which is how a security scan gets muted.
+
 ## Resolution chain
 
 Resolve tenant identity at the edge, first match wins (order is project-specific — mirror the existing resolver):
@@ -114,8 +125,6 @@ A cache `get`/`set` on tenant-scoped data whose key is built without the tenant 
 A join or foreign key that crosses the tenant boundary. grep cannot decide this from a query alone — it needs the schema's tenant ownership map. Mark `[self-policed]`: the reviewer asserts it was checked, or the finding is not emittable. (Same precedent as `api-reviewer`'s TXN row — a detector that cannot be mechanised says so rather than pretending.)
 
 **Closure verbs:** `resolve-from-context`, `scope-the-query`, `justify-or-remove-bypass`, `rebind-tenant-context`, `prefix-cache-key`.
-
-Without this block `/polish` and `api-consistency-audit` cannot consume this pattern at all — which is why the pack's highest-stakes axis was, until now, its least enforceable one.
 
 ## Related
 

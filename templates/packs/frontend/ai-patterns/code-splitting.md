@@ -30,9 +30,9 @@ pack: frontend
 - If the project's router + bundler (Vite/Rollup/webpack) aren't extracted, halt: mirror the existing route-split and `manualChunks`/`splitChunks` config, never impose a second mechanism.
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when classifying a chunk boundary.
 
-## Route-based splitting (the default win)
+## Route-based splitting — verify, do not re-implement
 
-One split per route is the highest-leverage cut: a visitor on `/` never downloads the JS for `/settings`. Meta-frameworks (Next, Nuxt, SvelteKit, Remix, Angular route lazy) do this automatically from the file-system / route table — verify it's actually happening, don't re-implement it. A client-only SPA (React Router, Vue Router) must do it explicitly: the route's component is a dynamic import, not a static one.
+Six of the eight stacks in the Adapt table split routes automatically from the file system or the route table. On those, **the route axis is already done**, and the only work is confirming it — `bundle-analyze` showing per-route chunks rather than one entry. Re-implementing it by hand there produces a second mechanism that fights the framework's own. Only a client-only SPA (React Router, Vue Router without a meta-framework) has to do it explicitly, and there the fix is one line per route: the component is a dynamic import, not a static one. The real work of this pattern is the component axis below.
 
 ## Component-based splitting
 
@@ -44,15 +44,14 @@ A lazy chunk is a network round-trip deferred to the moment of need — good whe
 
 ## Over-splitting is its own anti-pattern
 
-Too many tiny chunks turn into a request waterfall: each `import()` is a round-trip, and HTTP overhead per request swamps a 3 KB payload. Group vendor code and co-used modules into deliberate chunks via the bundler's knob — Rollup/Vite `manualChunks` (function or object form), webpack `optimizationSplitChunks`. A common baseline: one `vendor` chunk for stable third-party code (long-cache), plus per-route chunks. Cite the measured chunk count + sizes before merging or splitting further.
+Too many tiny chunks turn into a request waterfall: each `import()` is a round-trip, and HTTP overhead per request swamps a 3 KB payload. Group co-used modules into deliberate chunks via the bundler's knob — Rollup/Vite `manualChunks` (function or object form), webpack `optimization.splitChunks`. Cite the measured chunk count + sizes from `bundle-analyze` before merging or splitting further.
 
-```js
-// vite.config -> build.rollupOptions.output
-manualChunks(id) {
-  if (id.includes('node_modules')) return 'vendor';  // one long-cache vendor chunk
-  // per-route/component chunks stay automatic from their import() calls
-}
-```
+**The one-`vendor`-chunk recipe is the most copied config in the ecosystem and it is a trade, not a default.** `if (id.includes('node_modules')) return 'vendor'` groups every dependency into one long-cached file. What that buys: one request, one cache entry, no duplication across routes. What it costs, and what nobody states when they paste it:
+
+- **One dependency bump invalidates the whole chunk for every user.** A patch release of a logging library re-downloads the router, the UI kit and the date library with it. The long-cache win it was chosen for is exactly what a weekly dependency PR cadence destroys.
+- **Every route pays for every dependency.** A settings page that needs 40 KB of code downloads the chart library, the editor and the map SDK because they are all in `vendor`. On a route-split app this can be a net loss against no manual chunking at all.
+
+Reach for it when dependencies are stable and most routes use most of them (a small app, an infrequent release cadence). Reject it when a few heavy deps are route-specific — those belong in their route's own chunk, which the bundler already does if you leave them alone. Either way, cite the before/after chunk sizes; this is a knob to turn on evidence, not a config to inherit.
 
 ## The barrel-file trap
 

@@ -84,7 +84,7 @@ Grep: `localStorage`, `sessionStorage`, `document.cookie` read in a file that al
 
 ### Client-boundary cost (React Server Components)
 
-React / Next App Router specific (the sections above are Nuxt-leaning). Every `"use client"` directive marks a hydration boundary — everything from that file down ships JS and hydrates. An unjustified directive is wasted client-JS.
+React / Next App Router specific — the detectors above this point are Nuxt-leaning, which is a real coverage gap and is enumerated in § Detector coverage per framework below rather than left implicit. Every `"use client"` directive marks a hydration boundary — everything from that file down ships JS and hydrates. An unjustified directive is wasted client-JS.
 
 ```
 BAD:
@@ -106,6 +106,21 @@ Detectors:
 Output per finding: `file:line` of the directive + why it's unjustified + the demotion/push-down fix + estimated client-JS / hydration saved.
 
 > bfcache note: `grep` for `addEventListener('unload'|'beforeunload')` → cite `<file:line>` + `bfcache-blocking; switch to pagehide`. See `navigation-speed.md` for the full prefetch / Speculation Rules / bfcache audit.
+
+## Detector coverage per framework (read before reporting a clean run)
+
+The detectors above are **not uniformly deep across the Adapt table**, and a clean run means different things per stack. The generic browser-API grep (`window.` / `document.` / `localStorage.` / `navigator.`) is framework-independent and applies everywhere; everything else needs the stack's own shape. This table is the coverage claim the run must print — a scan that reports zero findings without it is asserting a pass it cannot back.
+
+| Stack | Boundary-specific detector | The pattern that actually finds it | Coverage |
+|---|---|---|---|
+| **Nuxt 3** | Unkeyed `useAsyncData`; plugin module-scope side effects | `rg -n 'useAsyncData\(\s*(\(|async\|function)'` (first arg is the fetcher, not a key); `rg -n 'addEventListener' plugins/` outside `defineNuxtPlugin` + `import.meta.client` | **full** |
+| **Next (App Router)** | `"use client"` boundary cost, push-down, server-only leak | the three `grep -L` detectors above | **full** |
+| **SvelteKit** | Universal-vs-server load. `+page.ts` runs on **both** sides; `+page.server.ts` does not. A browser API or a per-request secret in `+page.ts` is the mismatch, and the generic grep cannot tell the two files apart. | `rg -n 'window\.\|document\.\|localStorage' 'src/routes/**/+page.ts' 'src/routes/**/+layout.ts'` — hits here are findings; the same hits in `+page.server.ts` are not, and in `onMount` are `dismiss` | **partial — this row only** |
+| **Remix / React Router** | Route-module body vs `loader`. The `loader` is server-only; the module body and the default export run on both. | `rg -n 'window\.\|document\.' app/routes/` then classify by position: inside `loader`/`action` = server-only (different bug, a browser API there throws); inside the component body = the mismatch; inside `useEffect` = `dismiss` | **partial — this row only** |
+| **Angular (SSR)** | Double-fetch with no `TransferState`; DOM access outside `afterNextRender`. | `rg -n 'document\.\|window\.' src/app/` filtered to files without `isPlatformBrowser\|afterNextRender`; and `rg -L 'TransferState' ` over resolvers/services that fetch on init | **partial — this row only** |
+| **Astro, Solid Start, Qwik, anything else** | none written | generic grep only | **generic only** |
+
+**Print the row you ran.** A SvelteKit scan that finds nothing reports `coverage: generic grep + SvelteKit universal-load row; no RSC/plugin detectors apply` — not "clean". The § Halt conditions already require listing the patterns executed; this table is what makes that list interpretable rather than a wall of regexes.
 
 ## Output
 
@@ -145,7 +160,7 @@ Findings: 3
 
 - Halt on hand-waves: every finding must cite `<file:line>` + the pattern matched + a concrete fix. "Might cause hydration issues" without a line is not a finding.
 - Halt if a finding is dismissed without verification — `document.createElement` inside `onMounted` is fine, but the verdict must say so explicitly.
-- Halt if the audit returns zero findings on a multi-page SSR app without listing the grep patterns actually executed.
+- Halt if the audit returns zero findings on a multi-page SSR app without listing the grep patterns actually executed **and the § Detector coverage row for the detected stack**. A clean generic-only run on a stack with no boundary-specific detector is not a pass — it is an unaudited axis, and it must say so in those words.
 - Halt if a fix relies on `import.meta.client` guards being added but the guard isn't shown in the suggested patch.
 
 ## Related

@@ -41,6 +41,7 @@ PATCH /orders/42  (If-Match: "v7")
 ```
 
 - Make `If-Match` **mandatory** on contended writes — `428` when absent prevents blind overwrites.
+- **On a route that already has callers, turning `428` on is a breaking change, not a config flip.** Requiring a header that was optional yesterday is an *added required input*, which `api-contract.md` § Evolution rules classes as breaking — so `api-versioning.md` applies. Roll it out: **(1) advertise** — emit `ETag`, honour `If-Match` when sent, do not require it; **(2) observe** — instrument the share of writes arriving with a valid `If-Match` **per consumer**, because one large client at 100% hides four small ones at 0%; **(3) enforce** — `428` on absence, and if any named consumer is still not sending it, that is a version bump rather than a flag. A green-field or single-consumer route skips to (3); say which case you are in.
 - Map the header to the version column and check inside the write transaction (`UPDATE ... WHERE id=? AND version=?`; 0 rows → `412`). This closes the read-modify-write race a separate `SELECT`+`UPDATE` leaves open.
 
 ## Status codes

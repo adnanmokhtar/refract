@@ -38,7 +38,7 @@ Control mapping by prop type (same across frameworks): `boolean` → toggle/swit
 1. Resolve `$COMPONENT` (path or name) and **read it** to extract the real prop + emit/event declarations (see the Adapt table for where they live).
 2. Generate a playground page that: imports the component; binds a reactive/stateful `bindings` object built from the props; renders one control per prop (mapped by type, using the project's shared inputs); and logs each emit/event to a list beside the component.
 3. Register the route (dev-gated) in the project's router.
-4. Run `visual-check` on the playground route to confirm it renders, and drive one interaction plus one a11y assertion (keyboard reach + accessible name on the primary control) — a playground that has never been interacted with proves only that the import resolved.
+4. Run `visual-check` on the playground route to confirm it renders, and drive one interaction plus one a11y assertion (keyboard reach + accessible name on the primary control) — a playground that has never been interacted with proves only that the import resolved. **Carry `visual-check`'s artifact path into the Output block.** That skill halts unless every row cites a frame path, so a `PASS` reported here with no path is a claim it never made; a `_playground/` route also has no baseline, so the run generates one rather than verifying against one, and the frame is the whole of the evidence.
 5. Emit the Output block below and share the URL.
 
 ## Output
@@ -53,6 +53,7 @@ Controls:    variant (select: neutral|success|danger) · label (text) · dense (
 Events:      logged to the panel beside the component — click, update:modelValue
 Route:       /_playground/status-chip   (dev-gated via import.meta.env.DEV)
 Render:      visual-check PASS — 1 interaction driven, accessible name asserted
+             .playwright-mcp/playground-status-chip.png   (artifact path — required)
 Cleanup:     disposable; delete once the prop API stabilizes
 ```
 
@@ -92,3 +93,4 @@ Cleanup:     disposable; delete once the prop API stabilizes
 - Halt if no dev-only gating is applied to the route (would leak the playground to production).
 - Halt if the repo already ships a component explorer (`.storybook/`, `histoire.config.*`, `.ladle/`, any `*.stories.*`) — route to a story instead of scaffolding a second explorer. Name the file you found.
 - Halt if the playground route was generated but never rendered — an unrendered playground is unverified code, not a delivered probe.
+- Halt if the render is reported as PASS with no artifact path from `visual-check`. Its contract is that every row cites a frame or a "no diff"; a bare PASS relayed through this skill launders a claim across a boundary.

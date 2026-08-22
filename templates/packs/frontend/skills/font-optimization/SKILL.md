@@ -9,6 +9,8 @@ description: Static scan for web-font delivery mistakes — missing font-display
 
 **A web font is on the critical path for text: it either blocks the text from rendering (FOIT — invisible text) or, when it swaps in, shifts the layout (FOUT → CLS).** Every custom family/weight/style is also a byte payload and often an extra cross-origin round-trip. The fix set is small and mechanical: declare `font-display`, preload the one critical font, self-host, subset, and give the fallback matching metrics so the swap doesn't move anything. Every finding cites the declaration at `<file:line>` + the matched pattern + the fix. "Fonts are slow" without the cited `@font-face`/link is not a finding.
 
+**Closure verbs** — exactly one per finding. This skill emits `report-with-fix`, `dismiss` (a deliberate `font-display: optional`, a system-font stack, a framework primitive that already self-hosts and metric-adjusts), and `halt-handoff` (a text LCP element's priority → `lcp-audit`; a locale set that forbids the proposed subset → `/i18n-audit`).
+
 Division of labor: this skill owns **font loading strategy + swap-induced CLS**. When the LCP element is a *heading/text block*, its LCP timing depends on font+CSS — `lcp-audit` flags that the LCP element is text; this skill supplies the font fix. Pair with `lighthouse-ci` ("Ensure text remains visible during webfont load", CLS).
 
 ## Adapt to the codebase first

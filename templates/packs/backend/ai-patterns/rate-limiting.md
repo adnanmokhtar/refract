@@ -37,7 +37,12 @@ pack: backend
 | **Token bucket** | Allows controlled burst up to bucket size, steady refill | 2 fields/key | Good | APIs that should tolerate short bursts |
 | **GCRA / leaky bucket** | Smooth, no burst | 1 timestamp/key | Exact | Strict steady-rate (e.g. `redis-cell` `CL.THROTTLE`) |
 
-Default to **sliding-window-counter** or **token-bucket**; reach for log/GCRA only when precision or strict smoothing justifies the cost.
+Default to **sliding-window-counter** or **token-bucket** — and the choice between those two is decided by the traffic shape, not by taste, because the table's own columns (burst / memory / accuracy) do not separate them:
+
+- **Token bucket** when the caller legitimately arrives in bursts and goes quiet — automation, CI, a sync worker, an agent completing one task. Bucket size *is* the permitted burst, and the refill rate is the sustained allowance; you can grant both independently, which is the whole reason to reach for it.
+- **Sliding-window counter** when traffic is a steady human trickle and what you actually care about is that no window ever admits materially more than the quota. Its job is to remove the fixed window's 2× edge artefact; it has no burst allowance to tune, which is a feature when you did not want to grant one.
+
+**When both fit, pick sliding-window counter** — one fewer parameter to size wrong, and a mis-sized bucket is a silent limit that never fires. When you cannot characterise the traffic yet, that is the finding: measure the calls-per-caller-per-minute distribution first (§ Caller class), because the two algorithms fail in opposite directions on the shape you guessed wrong.
 
 ## Key dimension — what to limit by
 

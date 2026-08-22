@@ -15,7 +15,7 @@ Every finding cites `<file:line>` + the matched pattern + a concrete fix + a clo
 
 **Closure verbs (one per finding):**
 - `report-with-fix` — pattern matched at `<file:line>` + the concrete prefetch / boundary / `router.push` / `pagehide` patch.
-- `report-flagged` — measured-relevant but the fix is an architectural call (adopt Speculation Rules host-wide, restructure a layout) → surface for ADR.
+- `report-flagged` — measured-relevant but the fix is an architectural call (adopt Speculation Rules host-wide, restructure a layout) → surface for ADR, naming who decides.
 - `dismiss` — pattern matched but the carve-out applies (auth-mutating link, logout prerender, pagination tail) → documented so the next scan doesn't re-flag it.
 
 ## Scans for
@@ -40,6 +40,13 @@ Grep: raw `<a href="/` to internal routes; `prefetch=\{?false`, `:prefetch="fals
 ```
 
 `eagerness`: immediate / eager / moderate / conservative. Prefer `prefetch` when prerender is too aggressive. NEVER prerender side-effecting GETs (logout/delete).
+
+**This detector only fires on a surface the framework link primitive cannot already serve** — otherwise it proposes a second prefetch mechanism beside a working one. Two conditions, both required, both checkable:
+
+1. **The navigation is a document navigation.** Either the project ships no client router (nothing in the § Prefetch primitive table matches its stack), or these specific links leave the router's control — `target="_blank"`, a cross-app link inside a monorepo, a link into a separately-deployed marketing or docs surface, a server-rendered pagination link.
+2. **The next document is prerenderable** — a GET with no side effect, no per-click personalisation a prerender would resolve early and stale.
+
+Fail either → `dismiss` with the reason (`SPA: <Link> already prefetches` / `side-effecting GET`). Pass both with no `speculationrules` block → `report-flagged`: adopting it is a host-wide `<head>` change with a `where` allow-list somebody has to own, not a mechanical edit.
 
 ### 3. bfcache breakers
 
@@ -95,3 +102,4 @@ Navigation-speed audit — <route set>
 - bfcache-ineligible claims need the grepped `unload` line OR a Lighthouse `bf-cache` reason.
 - Speculation Rules proposals must exclude side-effecting GETs.
 - Instant-loading fixes use a dimension-matched skeleton, not a spinner / unsized box.
+- Detector 2 records an outcome on **every** route — fired, `dismiss`ed with its reason, or block already present. A speculation-rules column that reads `n/a` everywhere is what a detector that never ran looks like, and it is indistinguishable from a clean result.

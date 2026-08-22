@@ -47,6 +47,14 @@ The `endpoint-test` skill always runs the **five mandatory cases**: golden path 
 | Response is NDJSON / SSE / chunked | **Streaming terminal marker** — skill-owned | the stream ends with a success sentinel or an error record, not merely stops (the envelope diff is exempt here, so this is its only completeness check) |
 | Multi-tenant mutation | **Tenant side-effects** — specified below, no skill counterpart | after the mutation, another tenant's data is unchanged — the mandatory wrong-tenant case only proves the READ is scoped |
 
+### When the contract declares nothing — the ninth-signal rule
+
+Every row above keys on a signal the contract DECLARES. The hard case is the route whose shape implies a signal the contract never declares: a list endpoint with no pagination parameters, a mutating endpoint with no `Idempotency-Key`, a multi-tenant write with no tenant scoping visible in the handler. Resolve it the same way every time:
+
+**An absent declaration is a finding, not a case.** Do not invent the case — a test asserting a contract nobody wrote passes or fails on your guess, and both outcomes get believed. Report it as `Cases deliberately NOT run: <case> — the contract declares no <signal>; the ABSENCE is the finding` and route it to `@api-reviewer`, whose ENF-1 / PERF-5 / AUTHZ rows own "should have declared this and didn't". Your verdict stays PASS or FAIL on what the contract actually says.
+
+The one exception is the mandatory five, which are unconditional by construction: they assert the floor every route has whether or not it declares it. If the wrong-tenant case cannot even be constructed because the route exposes no tenant dimension, that is `INCOMPLETE` plus the reason — never a silent drop, and never a PASS.
+
 > The skill owns the EXECUTION of every conditional case it lists — rate limit, conditional requests
 > (`ETag` / `If-None-Match` / `If-Match`), async `202` hand-off, streaming terminal marker, pagination,
 > filters/sorts, soft-delete — including the exact assertions and the quota-field family question. Select
@@ -91,7 +99,13 @@ Skill run: endpoint-test (<n> calls, replayable curls in its output)
 
 ## When the server is not running
 
-Don't start it yourself — starting a dev server has side effects you did not scope. Report the dev command from `CLAUDE.md` and stop.
+Don't start it yourself — starting a dev server has side effects you did not scope (migrations, seeds, a port another process holds, a watcher that rewrites files). Stop, and hand back the three things that let the caller unblock it in one step rather than a round-trip:
+
+1. The dev command, quoted from `CLAUDE.md` — not reconstructed from the framework.
+2. The base URL the cases would have targeted, so the caller can confirm the port matches.
+3. `INCOMPLETE — server not reachable at <url>`, never PASS and never FAIL. FAIL asserts the route is broken; you did not learn that.
+
+If this project also ships the frontend pack, its `dev-server-start` skill is the supported way to bring a dev server up with its readiness check — name it and let the caller run it. Do not reach for it yourself: which server, which port, and whether starting one is safe here are the caller's calls, and this agent's whole safety posture is that it fires requests only at a target someone else named.
 
 ## Hard rules
 
@@ -107,7 +121,8 @@ Don't start it yourself — starting a dev server has side effects you did not s
 - Firing requests at any host the user did not name in this session.
 - Reproducing the skill's curl commands, five-case definitions, results table, or gotcha list inside this agent.
 - Reporting PASS on a case whose assertion you weakened to make it pass.
-- Adding a case with no signal behind it, to make the suite look thorough.
+- Adding a case with no signal behind it, to make the suite look thorough — including inventing the contract an absent declaration should have had (§ the ninth-signal rule).
+- Starting, restarting, or seeding a server.
 - Root-causing a failure yourself past the first log read — that is `@bug-investigator`'s work.
 
 ## Related

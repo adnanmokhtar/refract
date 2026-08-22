@@ -46,12 +46,21 @@ Everything else — loading/empty/error state shape, lazy-load wrapper, i18n key
 ## When to use / NOT to use
 - USE: new top-level route; new tab/sub-route inside an existing section.
 - NOT: modal/drawer (use `/add-component`); shared layout fragment (`/add-component` or compose in existing page).
+- NOT: a list + form + delete bundle for one entity — that is `/add-crud-page`, which **supersedes** this command. See the entity-scope test in the intent gate below; it runs before Phase 2, not after the files exist.
 
 ## Phase 1 — Understand
 
 ### Intent gate
 
 If description suggests a different intent, halt with redirect: "enhance / improve / polish / cleaner" → `/enhance-ui` *(ui-ux pack)*. "fix / broken / wrong" → `/fix-bug` (core). "audit / review" → `/design-review` *(ui-ux pack)*, or this pack's `/a11y-audit` / `/i18n-audit` when the ask names that axis. Proceed only for adding a new page.
+
+**Entity-scope test — ask it before Phase 2, not after the files exist.** A route named for an entity (`/subscribers`, `/orders`, `/invoices`) is the ambiguous case, and the ambiguity is not in the wording — a list page and a CRUD bundle are the same first screen. Ask the user one question: **does this entity also need create / edit / delete, now or in this milestone?**
+
+- **Yes, or the answer is "eventually"** → **HALT and route to `/add-crud-page`.** It supersedes this command for that entity and scaffolds the list as part of the bundle. Running this command first and that one later produces two competing shapes for one entity — two service call sites, two locale namespaces, two loading conventions — and the second run cannot delete the first one's files.
+- **No — read-only, or a route that is not entity-shaped at all** (dashboard, report, wizard step, settings tab) → proceed here.
+- **Unknown** is a **yes** for routing purposes. `/add-crud-page` degrades to a list-only scaffold cleanly; this command does not upgrade into a bundle.
+
+Record the answer in the run summary as `entity scope: read-only (asked)` or `entity scope: n/a (not entity-shaped)` — a silent proceed is how the collision above ships.
 
 **A redirect must land somewhere.** Both ui-ux destinations exist only when that pack is co-installed — check first, and if it is absent offer `/polish` (core) for visual finish and `/audit` (core) for read-only review instead of halting into a command the project does not have.
 
@@ -177,7 +186,7 @@ Created:
 
 ### Sibling commands — where the boundary falls
 - `/add-component` — a modal, drawer or layout fragment is a component, not a route. § When to use / NOT to use already draws this line; running this command for one produces a route nothing navigates to.
-- `/add-crud-page` — **supersedes** this command when the route is a list + form + delete bundle for one entity. Running both produces two competing shapes for the same entity.
+- `/add-crud-page` — **supersedes** this command when the route is a list + form + delete bundle for one entity. The decision is made by the entity-scope test in Phase 1's intent gate, which is the only place it can still be acted on; this row is the reminder, not the gate.
 - `/add-feature` — the caller, not an alternative. It invokes this command for the route step, and the prior-art + new-dependency gates above are inherited from it.
 - `/a11y-audit` · `/i18n-audit` — read-only passes over what this command produced. They grade; they never scaffold.
 

@@ -41,36 +41,28 @@ Concrete backend fingerprints the validator's `check_v2_structure` flags when `P
 
 The fingerprint fires when the first appears inside the second. If extraction produced neither, **that is the finding** — report the missing anchor and stop, rather than substituting the marker from whichever framework you saw most recently.
 
-## Backend audit axes (when feature is an HTTP endpoint / RPC handler / event consumer)
+## Backend audit axes (when the feature's entry is a route handler / RPC / event consumer)
 
-The 6 generic comparison axes from the universal rule (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) apply. Backend ports add these specific axes for any feature whose entry is a route handler / controller method / RPC / event subscriber:
+The 6 generic comparison axes from the universal rule (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) apply. The backend axes that extend them are stated **once**, as the axis column of the table below — seven of the nine are exactly what the parity validator already counts, and a second prose list of the same seven would drift against it.
 
-- **Endpoints / route handlers** — every HTTP route the feature exposes: method (GET/POST/PUT/DELETE/PATCH), path, named middlewares, controller method, response status codes.
-- **Request/Response DTO shape** — every field in the request and response: name, type, validators, defaults, required vs optional, nested structures.
-- **Auth + permissions** — every guard / middleware applied to the route: auth check, role check, tenant check, rate-limit.
-- **Inputs / validation** — every validator decorator or schema field: type assertions, length bounds, enum constraints, custom validators.
-- **Side effects** — DB queries, external HTTP calls, queue publishes, cache reads/writes, log emissions, metric emissions, file I/O.
-- **Service-layer methods invoked** — which service / repository methods the handler calls; the handler-to-service contract.
-- **Error contract** — every exception type the handler throws, the HTTP status it maps to, error response shape.
-- **Tenant isolation** (multi-tenant projects) — every query has a tenant filter; every cache key has a tenant prefix; every event payload carries tenant context.
-- **Transaction boundaries** — start/commit/rollback per request; nested transactions; saga compensation.
+`scripts/validate-migration-artifacts.sh § extract_inventory_primitives` (defined at `:1211`, called on both sides of the port at `:1799-1800`) counts eight primitive classes in a V1 file and its V2 counterpart. Drift fires when V1 > 0 and V2 / V1 < 0.7 — V2 missing more than 30% of a class. On a PARITY verdict that is a hard fail (*verdict contradicted by primitive inventory*); otherwise it falls through to DRIFT enumeration. No tier changes by itself — a trivial-tier PARITY row drifting by 5 or fewer only warns, and raising the tier is a human call.
 
-## Stack-aware primitive set (backend)
+The regex alternations that recognise each class across 13+ frameworks (Node / Python / PHP / Ruby / Java / Go / Elixir / .NET) live in that function and only there. A prose copy here would be a second source of truth with nothing comparing the two, and no agent follows a regex alternation anyway — the validator does. What an agent follows is the mapping: count these classes on both sides of the port, and enumerate every gap on the axis named beside it.
 
-`scripts/validate-migration-artifacts.sh § extract_inventory_primitives` (defined at `:1211`, called on both sides of the port at `:1799-1800`) counts eight primitive classes in a V1 file and its V2 counterpart. Drift fires when V1 > 0 and V2 / V1 < 0.7 — i.e. V2 is missing more than 30% of a class — which auto-promotes the port to standard-tier audit requirements.
+| Primitive class | Audit axis | What the enumeration must list, per site |
+|---|---|---|
+| `route_handler` | Endpoints / route handlers | method, path, named middlewares, controller method, response status codes |
+| `dto_class` | Request/Response DTO shape | field name, type, defaults, required vs optional, nested structure |
+| `auth_guard` | Auth + permissions | auth check, role check, tenant check, rate limit |
+| `validator` | Inputs / validation | type assertion, length bound, enum constraint, custom validator |
+| `service_method` | Service-layer methods invoked | the handler-to-service contract: which service / repository methods are called |
+| `exception_throw` | Error contract | exception type, the status it maps to, error response shape |
+| `db_query` | Side effects (DB) | query, and whether it reads or writes |
+| `event_emit` | Side effects (events / queue) | queue publish, cache write, log/metric emission, file I/O |
+| — none — | **Tenant isolation** `[self-policed]` | every query's tenant filter, every cache key's tenant prefix, every event payload's tenant context |
+| — none — | **Transaction boundaries** `[self-policed]` | begin/commit/rollback per request, nested transactions, saga compensation |
 
-The regex alternations that recognise each class across 13+ frameworks (Node / Python / PHP / Ruby / Java / Go / Elixir / .NET) live in that function and only there. A prose copy of them here would be a second source of truth with nothing comparing the two, and no agent follows a regex alternation anyway — the validator does. What an agent follows is the mapping: count these eight classes on both sides of a port, and enumerate every gap on the axis named beside it.
-
-| Primitive class | Axis (where the audit must enumerate the gap) |
-|---|---|
-| `route_handler` | Endpoints / route handlers |
-| `dto_class` | Request/Response DTO shape |
-| `auth_guard` | Auth + permissions |
-| `validator` | Inputs / validation |
-| `service_method` | Service-layer methods invoked |
-| `exception_throw` | Error contract |
-| `db_query` | Side effects (DB) |
-| `event_emit` | Side effects (events / queue) |
+The last two rows are the point of the table. No primitive class counts them, so **the drift ratio is structurally blind to a port that dropped every tenant filter or every transaction boundary** — a green validator run says nothing about either. Those two axes are enumerated by hand or they are not enumerated; a port audit that reports only the counted eight has audited eight tenths of the surface and should say so rather than reading as complete.
 
 Widening framework coverage is a change to that function's pattern alternation, never an edit here.
 

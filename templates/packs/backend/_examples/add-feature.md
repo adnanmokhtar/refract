@@ -389,7 +389,7 @@ Verify:
 - Trace spans on hot paths.
 - Sensitive data redacted in logs.
 
-If gaps: dispatch `/add-telemetry` before ship.
+If gaps: dispatch `/add-telemetry` before ship *(observability pack, when co-installed)*. **A redirect must land somewhere** — when that pack is absent, emit the missing signals inline against the project's existing telemetry primitives (`references/<framework>.md`) before ship and record it in the report; never route a gap into a command the project does not have.
 
 ### Domain-specific verifications (signal-driven)
 
@@ -507,21 +507,17 @@ Next:
 
 ## Related
 
-### Sibling commands in backend pack
-- `/add-endpoint` — sibling command in backend pack
-- `/add-module` — sibling command in backend pack
-- `/analyze-module` — sibling command in backend pack
-- `/endpoint-test` — sibling command in backend pack
-- `/fix-bug` — sibling command in backend pack
-- `/log-tail` — sibling command in backend pack
-- `/trace-flow` — sibling command in backend pack
+### Sibling commands — where the boundary falls
+- `/add-module` · `/add-endpoint` — the leaves this command dispatches. It owns the spec, the cross-module sequencing and the capability decision; they own the file grain. Anything they re-derive, this command already resolved (§ Dispatch contract).
+- `/analyze-module` — run it first on any module this feature will extend that nobody has touched in a month; it is the read-only pre-flight that says whether extending is safe.
+- `/fix-bug` — a feature that "doesn't work" is a defect in shipped code, not an increment. Feature work that starts as a bug report is misrouted.
 
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+- `ai/patterns/api-contract.md` — the contract every endpoint in the feature converges on.
+- `ai/patterns/error-handling.md` — one error shape across the whole feature, not one per module.
+- Signal-gated per module touched: `multi-tenancy.md`, `transaction-boundary.md` (a write spanning two aggregates), `webhook-flow.md`, `async-job-offload.md`.
+
+Patterns are read per touched module, not up-front as a set. A pattern read on a module this feature never opens produced no finding.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

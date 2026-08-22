@@ -15,7 +15,17 @@ pack: backend
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "these calls are independent".
 - If the project's primitive + cancellation token aren't extracted, halt before introducing parallelism.
 
-> **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`. If extraction is empty leave the placeholder + open a TODO; Phase 5 will surface it under "Open questions".
+> **Project-specific block** — Phase 4.6 fills this in from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`.
+>
+> **If extraction found nothing, the placeholders below are NOT the answer — they are the question.** An unresolved `<extracted: …>` token left in a code line is worse than an empty file: an agent copies it verbatim, or silently substitutes `Promise.all`, which is the exact generic leak `rules/concurrency-discipline.md` § Must not exists to stop. Degraded behaviour is specified, not improvised:
+>
+> | What extraction found | What this pattern is allowed to do |
+> |---|---|
+> | A project helper (`runWithLimit`, `concurrentMap`, …) | Use it, cite its `<path:line>`, use no other. |
+> | No helper, but a library already in `package.json` / `requirements.txt` / `go.mod` (`p-limit`, `errgroup`, `anyio`) | Use it, cite the dependency manifest line. |
+> | Neither | **Name the language default explicitly and mark the recipe `[UNANCHORED]`** — e.g. "no bounded-parallel primitive found; the language default is `Promise.all` (unbounded)". An `[UNANCHORED]` recipe may not be applied to a user-controlled list at all: bound the input at the validator first, or halt and ask. Adding a new dependency is a decision, not a default — it needs a stated reason. |
+>
+> Never leave a bare `<projectPrimitive>` / `<extracted: …>` token inside a fenced code block that an agent will read as code.
 >
 > - **Concurrency primitive in use**: `<extracted: native Promise.all | Promise.allSettled | Bluebird.map | p-limit | asyncio.gather | asyncio.Semaphore | errgroup | CompletableFuture | Parallel.ForEachAsync | …>`
 > - **Project-shipped helper(s)** (if any): `<path:line>` (e.g., `libs/concurrency/run-with-limit.ts:12 — runWithLimit(items, fn, { concurrency, signal })`)
@@ -42,22 +52,6 @@ This pattern documents **how to overlap independent I/O** in *this* codebase, us
 | Inside a DB transaction | **Sequential** — most ORMs serialise on the single tx connection anyway |
 | Two writes share a key | **CAS / atomic SQL** (`UPDATE … SET x = x + ?`) — parallel writes race |
 
-## Project-shipped helper
-
-> If the project has its own bounded-parallel helper (extraction Step 2.5 detects `runWithLimit` / `parallel` / `concurrentMap` / `each_concurrently` / etc.), use **only** that — don't introduce a new dependency.
->
-> Phase 4.6 inserts the helper signature here verbatim, e.g.:
-> ```ts
-> // libs/concurrency/run-with-limit.ts:12
-> export async function runWithLimit<T, R>(
->   items: readonly T[],
->   fn: (item: T, index: number) => Promise<R>,
->   opts: { concurrency: number; signal?: AbortSignal },
-> ): Promise<R[]>
-> ```
-
-If the project has no helper and the language ecosystem has a canonical one (e.g., `p-limit` for Node, `errgroup` for Go), prefer that over hand-rolling.
-
 ## Recipes (project-flavoured)
 
 ### Heterogeneous fixed-N reads
@@ -74,8 +68,11 @@ const [user, org, prefs] = await Promise.all([
 ### Bounded fan-out (fail-fast)
 
 ```ts
-// Use the project's primitive — replace `<projectPrimitive>` with what extraction found
-const results = await <projectPrimitive>(items, item => this.process(item), { concurrency: 8 });
+// `runWithLimit` here stands for THE PROJECT'S primitive, resolved by the table above —
+// the project helper, else the already-installed library, else an [UNANCHORED] recipe.
+// It is a placeholder NAME in valid syntax, deliberately: a reader who has not resolved it
+// gets an undefined-function error at once, not a silently-unbounded Promise.all.
+const results = await runWithLimit(items, item => this.process(item), { concurrency: 8 });
 ```
 
 ### Bounded fan-out (partial-failure tolerant)
@@ -113,16 +110,6 @@ const transformed = await runWithLimit(inputs, x => workerPool.run(x), { concurr
 await runWithLimit(transformed, r => writeResult(r), { concurrency: 5 });
 ```
 
-### Decision: parallel vs batch vs sequential
-
-```
-Need n results from n calls to the same source?
-├── Source has a batch API (findByIds, multiGet, IN clause) → BATCH ✓
-├── Source has no batch API + calls are independent → BOUNDED PARALLEL ✓
-├── Each call depends on the previous result → SEQUENTIAL (correct)
-└── n is fixed and small (≤ 3) and calls to *different* sources → Promise.all / gather (no cap)
-```
-
 ## Concurrency caps (project-observed)
 
 | Workload | Cap | Reason |
@@ -133,17 +120,7 @@ Need n results from n calls to the same source?
 | Queue producers | `<extracted>` | Provider throughput + backpressure |
 | File I/O | `<extracted>` | OS file-descriptor limits |
 
-> Phase 4.6 fills these from observed config (pool config, env vars, `axios.create` defaults, retry libs) — no guessing.
-
-## Tracing / observability
-
-> Phase 4.6 anchors this section to the project's tracing primitive. Examples that are typical post-extraction:
->
-> - "Each task in a parallel fan-out runs inside a child span (`tracer.startActiveSpan('process-item', …)`); parent span closes when `Promise.all` resolves."
-> - "OpenTelemetry SDK auto-instruments `pg` / `axios` / `redis` — no manual wrapping needed."
-> - "Correlation ID propagated via AsyncLocalStorage — no per-task plumbing."
-
-If the project has none of the above, **add a TODO**: "Add tracing around bounded fan-out so slow tasks are visible in p99."
+> Phase 4.6 fills these from observed config (pool config, env vars, HTTP-client defaults, retry libs) — no guessing. The degraded-behaviour rule above governs these cells too: if the config is not found, write `NOT FOUND` in the Cap column and treat the workload as `[UNANCHORED]`. A surviving `<extracted…>` token here is read as a number, which is the same leak in a quieter place.
 
 ## Pitfalls
 

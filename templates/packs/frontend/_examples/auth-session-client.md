@@ -30,6 +30,10 @@ One module owns the session: where the credential lives, how it refreshes, how i
 
 Write the choice into an ADR with the threat model. Non-negotiable either way: exactly one module touches it.
 
+## Mid-migration (SPA+bearer → BFF, cookie → token)
+
+The row the other six cannot answer, and the state an app lives in for weeks. **The session module stays singular; only its source becomes a branch** — one `session.get()`, one refresh path, one logout fan-out, with one internal branch per transport. **Refresh belongs to whichever side holds the refresh credential, and only one side may** — both sides refreshing against a rotating token is the 401 stampede with two participants who cannot see each other, and it produces "random logouts" with no concurrency in the app to explain it. **Logout fans out over both transports** until the old one is deleted, in the same change that deletes it.
+
 ## The 401 stampede
 
 Six components mount, the access token has just expired, six 401s return. Without a single-flight gate that is six refresh calls — and against a backend that rotates refresh tokens, five of them present an already-rotated token and log the user out mid-session. It reads as "random logouts" and only reproduces under concurrency.

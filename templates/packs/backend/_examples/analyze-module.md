@@ -23,7 +23,7 @@ Pre-flight before refactoring or extending a module. Multiple agents run in para
 
 **The agent ONLY escalates to the user when:**
 - A reviewer fails to return (incomplete dispatch — the audit is not done).
-- Stack mismatch (backend reviewers dispatched on a frontend module — switch reviewer set first).
+- **Stack mismatch — halt, do not re-aim.** A frontend feature directory or mobile screen module is not this command's reviewer set, and this command does not own the right one. Halt and redirect to that pack's audit when it is installed; say so plainly when it is not. A backend audit re-labelled reports six green axes it never examined.
 - A BLOCKER cites a file:line that is dynamically loaded (DI auto-discovery, Next.js auto-routing) and may be a false positive — confirm before reporting.
 
 ## Hand-wave halt (mechanical gate, all tiers)
@@ -71,10 +71,13 @@ AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the consolidated report; no code c
 
 ## Phase 3 — Retrieve
 
-ALWAYS:
-- `CLAUDE.md` + `ai/conventions.md` + `ai/business-domain.md`.
-- `ai/modules.md` — module's row + declared dependencies.
-- `ai/patterns/` — patterns the module SHOULD follow.
+ALWAYS (universal pre-flight): see `templates/snippets/phase-3-always-reads.md`.
+
+`ai/dynamic/feedback-learned.md` is load-bearing *here specifically*: it holds the findings a maintainer already looked at and rejected. An audit that never reads it re-raises them, and a second identical finding is how a maintainer learns to stop reading the report.
+
+AUDIT-SPECIFIC:
+- `ai/modules.md` — the module's row + its declared dependencies (an undeclared import is itself a finding).
+- `ai/patterns/` — the patterns this module is supposed to follow. These are the **oracle each axis grades against**; an axis with no oracle produces opinions, not findings.
 
 MODULE-SCOPED:
 - Module's own `<module>.module.ts` + entry service + entry controller.

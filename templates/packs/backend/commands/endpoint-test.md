@@ -93,14 +93,11 @@ Open follow-ups:
 
 ## Related
 
-### Sibling commands in backend pack
-- `/add-endpoint` — sibling command in backend pack
-- `/add-feature` — sibling command in backend pack
-- `/add-module` — sibling command in backend pack
-- `/analyze-module` — sibling command in backend pack
-- `/fix-bug` — sibling command in backend pack
-- `/log-tail` — sibling command in backend pack
-- `/trace-flow` — sibling command in backend pack
+### Sibling commands — where the boundary falls
+- `/add-endpoint` — produces the routes this command verifies. Its production-readiness gate is a static claim; this run is the wire evidence for it.
+- `/trace-flow` — the static counterpart. That one reads the call chain without running it; this one runs it without reading it. A disagreement between the two is itself the finding.
+- `/log-tail` — where a `500` with no body goes next: this command observes the status line, that one recovers the context behind it.
+- `/fix-bug` — every FAIL row this run produces routes there; a LEAK row routes to `/security-audit` first and is never downgraded.
 
 ### Patterns
 - `ai/patterns/api-contract.md`

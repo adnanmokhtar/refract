@@ -11,9 +11,9 @@ A real session is dominated by page-to-page navigation, not the first cold load.
 
 Every finding cites `<file:line>` + the matched pattern + a concrete fix + a closure verb. "Navigation feels sluggish" without a cited link / handler / missing boundary is not a finding. A scan that returns zero findings on a multi-route app without listing the patterns it grepped is a failed scan.
 
-**Closure verbs (one per finding):**
+**Closure verbs (one per finding)** — what each means here:
 - `report-with-fix` — pattern matched at `<file:line>` + the concrete prefetch / boundary / `router.push` / `pagehide` patch.
-- `report-flagged` — measured-relevant but the fix is an architectural call (adopt Speculation Rules host-wide, restructure a layout) → surface for ADR.
+- `report-flagged` — measured-relevant but the fix is an architectural call (adopt Speculation Rules host-wide, restructure a layout) → surface for ADR, naming who decides.
 - `dismiss` — pattern matched but the carve-out applies (auth-mutating link, logout prerender, pagination tail) → documented so the next scan doesn't re-flag it.
 
 ## Scans for
@@ -47,7 +47,14 @@ GOOD (in <head> or injected):
 </script>
 ```
 
-`eagerness`: `immediate` / `eager` / `moderate` (hover ~200ms) / `conservative` (pointerdown). Prefer `prefetch` (cheaper, no JS execution) when prerender is too aggressive. Grep for `type="speculationrules"`; absent on a content-heavy MPA → `report-flagged`.
+`eagerness`: `immediate` / `eager` / `moderate` (hover ~200ms) / `conservative` (pointerdown). Prefer `prefetch` (cheaper, no JS execution) when prerender is too aggressive. Grep for `type="speculationrules"`.
+
+**This detector only fires on a surface the framework link primitive cannot already serve** — otherwise it proposes a second prefetch mechanism beside a working one. Two conditions, both required, both checkable:
+
+1. **The navigation is a document navigation.** Either the project ships no client router (no entry in the § Prefetch-primitive table matches its stack), or the specific links in question leave the router's control — `target="_blank"`, a cross-app link inside a monorepo, a link into a separately-deployed marketing or docs surface, a server-rendered pagination link.
+2. **The next document is prerenderable** — a GET with no side effect, no per-click personalisation that a prerender would resolve early and stale.
+
+Fail either → `dismiss` with the reason (`SPA: <Link> already prefetches` / `side-effecting GET`). Pass both and no `speculationrules` block exists → `report-flagged`: adopting it is a host-wide `<head>` change with a `where` allow-list somebody has to own, not a mechanical edit.
 
 ### 3. bfcache (back/forward cache) breakers
 
@@ -141,10 +148,13 @@ Grep: `rg -n 'aria-live|role="status"|\.focus\(\)' <app-source-root>` (pass only
 Navigation-speed audit — <route set or full scan>
 
 Per-route table:
-  route          prefetch  loading-UI  bfcache  spec-rules  finding
-  /products      ✓ (Link)  ✗           ✓        n/a         missing loading.tsx
-  /orders/[id]   ✗ (<a>)   ✓           ⚠         n/a         raw anchor → <Link>
-  /reports       ✓         ✓           ✗ unload  n/a         bfcache-blocked
+  route          prefetch  loading-UI  bfcache   spec-rules      finding
+  /products      ✓ (Link)  ✗           ✓         dismissed (SPA) missing loading.tsx
+  /orders/[id]   ✗ (<a>)   ✓           ⚠         dismissed (SPA) raw anchor → <Link>
+  /docs/*        ✗ (MPA)   n/a         ✓         ABSENT          no speculationrules on a document-nav surface
+  /reports       ✓         ✓           ✗ unload  dismissed (SPA) bfcache-blocked
+
+The `spec-rules` column never prints `n/a`: detector 2 either fired, was `dismiss`ed with its reason, or found the block present. `n/a` on every row is what a column looks like when the detector never ran, and it is indistinguishable from a clean result.
 
 Findings: 3
 

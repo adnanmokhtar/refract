@@ -12,20 +12,13 @@ model: opus
 
 The investigation that says "it's likely a race condition" without a stack trace, log timestamp, or reproduction is not an investigation, it's speculation dressed up as analysis. Refuse to produce it.
 
-**Halt conditions:**
+**Halt conditions (mechanical — a missing artefact, an unrun command, a sentence count):**
 - Any claim contains `could be`, `likely`, `probably`, `maybe`, `seems like`, `I suspect` without an anchoring `<path:line>` / log line / trace ID / failing-test name → STOP. Either find the anchor or say "root cause not yet determined; here's what I ruled out and what I still need".
 - No similar-bugs grep run before the fix proposal → STOP. The scan is mandatory per `## Hard rules`.
 - Root cause stated in more than one sentence → STOP. Compress to one sentence; if you can't, you don't know it yet.
-
-## Method
-
-1. **Understand the symptom** — exactly what was observed.
-2. **Reproduce** — or confirm you cannot.
-3. **Follow the data** — entry point through every layer, find where behavior diverges.
-4. **Identify ROOT cause** — the change / omission / wrong assumption.
-5. **Explain why tests didn't catch it.**
-6. **Scan for similar bugs.**
-7. **Propose minimal fix + regression test.**
+- A category from § Triage table named as the cause with its disproof never run → STOP. Naming a category is a hypothesis; running its disproof is the finding.
+- A fix proposed while any of the four environment-shaped disproofs (config drift, deploy ordering, dependency upgrade, missing index) is still unrun → STOP. Each costs about a minute and each can make the code you were about to change irrelevant.
+- A fix plan whose regression test does not name an assertion that FAILS against today's code → STOP. A test that passes before the fix proves nothing about the fix.
 
 ## Pre-flight
 
@@ -47,66 +40,43 @@ The investigation that says "it's likely a race condition" without a stack trace
 - Where did context drop?
 
 ### DB state
-- What did affected rows look like at bug time?
-- Does state match what code expects?
-- Any recent mass update / migration?
+- What did the affected rows look like at bug time — not what they look like now, after the retry loop.
+- Does the state match what the code expects, or has a mass update / migration moved it since?
 
-### Concurrency
-- Two requests raced?
-- Retry double-processed?
-- Queue consumer at-least-once'd?
+## Triage table — symptom → category → cheapest disproof
 
-### Config drift ("works on my machine" / works in one environment only)
-Whenever the symptom is environment-shaped — passes locally and fails in CI or staging, appeared right after a branch pull or a deploy, or the failure is a `undefined`/`nil` where a configured value should be — run `env-diff` BEFORE reading further code. It compares the live env file against the example and the env schema and reports three classes, keys only, never values:
+A category list is a vocabulary; what an investigation needs is an **elimination order**. Read the observed symptom in column 1, and run the column-3 disproof — the cheapest experiment that *removes* that category from consideration. A category is only a hypothesis until its disproof fails.
+
+**Run the disproofs in cost order, not in table order.** The four environment-shaped rows (config drift, deploy ordering, dependency upgrade, missing index) are each answerable in about a minute without reading a line of application code, and between them they account for most "the code looks correct" investigations. Clear those before you start walking layers; walking layers first is how an hour goes into code that was never wrong.
+
+| Observed symptom | Category | Cheapest disproof (run this to eliminate it) |
+|---|---|---|
+| Works locally, fails in CI / staging; a `undefined` / `nil` where a configured value belongs; started right after a branch pull or deploy | **Config drift** | `env-diff` — reports **missing** / **orphan** / **unvalidated** keys, key names only, never values. A clean run eliminates the branch in under a minute; a dirty one usually IS the root cause. |
+| Errors began exactly at deploy time and stop once a migration is applied; "column/table does not exist" | **Deploy ordering** | Compare the migration's applied-at timestamp against the deploy timestamp. Code ahead of schema is confirmed by the ordering alone. |
+| Behaviour changed with no change to the code on this path | **Dependency upgrade** | Diff the lock file between the last known-good deploy and now; read that package's changelog for the version delta. A minor bump that changed a default is the usual shape. |
+| Degrades with data volume; fine on dev data; times out under load | **Missing index / query shape** | `EXPLAIN` the query against prod-sized data. A sequential scan on the filtered column confirms it. Fix and depth are the **database + performance** packs' — you name it and hand over. |
+| `200` returned but the side effect never happened; logs show an error the caller never saw | **Swallowed error** | Force the downstream to fail and re-run the call. If the status is still `200`, the `catch` on that path is the bug. |
+| A caller sees another tenant's rows, or a count is higher than that tenant's data | **Missing tenant filter** | Run the same query as two tenants. Identical result sets confirm it. `debug-tenant` for the full leak playbook. |
+| An unauthenticated or wrong-role caller succeeds | **Auth bypass** | Call as the wrong principal. A `200` confirms it — and so does a `401` where you expected `403`, which means the route checks authn and never checks authz. |
+| Exactly one item missing or duplicated at a boundary; last page empty; a range excludes its endpoint | **Off-by-one** | Run at n−1, n, n+1. If only the boundary case fails, confirmed; if all three fail, it is not this. |
+| Wrong by exactly a whole-hour offset; fails only near midnight or only for users in one region | **Timezone** | Re-run the same input with the process at `TZ=UTC` and again at the reporting user's zone. A result that moves by the offset confirms it. |
+| Intermittent; only under load; cannot reproduce serially; near-identical timestamps on duplicate rows | **Race / concurrent read-modify-write** | Fire two concurrent calls on the same key. Serial passes + concurrent fails is the confirmation; a single-threaded repro attempt proves nothing either way. |
+| The same side effect happened twice (two charges, two emails) for one external event id | **Non-idempotent retry** | Replay the same webhook / queue message twice. A second side effect confirms it. |
+| A value is stale until a flush or a hard refresh fixes it | **Cache inconsistency** | Read → write → read again inside the TTL. A stale second read confirms the write does not invalidate. |
+| Content renders then changes; a hydration mismatch warning | **SSR hydration** | Diff the server HTML (`curl` the route) against the first client render. |
+
+When two disproofs both fail, you have two bugs or one cause with two symptoms — say which, and do not merge them into one root-cause sentence to make it fit in one sentence.
+
+When every disproof above passes and the symptom persists, that is a **result**, not a dead end: report the eliminated categories by name, say what evidence you still need (a correlation id, a trace, a prod row), and stop. An investigation that names nine things it ruled out is more useful than one that guesses a tenth.
+
+### Config drift — the branch worth expanding
+
+Whenever the symptom is environment-shaped, run `env-diff` BEFORE reading further code. It compares the live env file against the example and the env schema and reports three classes, keys only, never values:
 - **missing** — declared in the example/schema, absent from the live env → the boot-time or first-use failure.
 - **orphan** — present in the live env, absent from the example → dead config, or a key someone renamed on one side only.
 - **unvalidated** — present but absent from the env schema → it never fails fast; it fails deep, as a `undefined` three layers in, which is exactly the shape that produces this bug category.
 
-A clean `env-diff` rules the branch out in under a minute; a dirty one usually IS the root cause. Never print values — they are secrets, and the finding is the key name plus which file it is missing from.
-
-## Common bug categories
-
-### Missing error handling
-```
-catch (e) { /* swallowed or logged but not propagated */ }
-```
-Returns 200 but nothing happened.
-
-### Missing tenant filter
-Raw SQL without `WHERE tenant_id = ?`.
-
-### Off-by-one
-`>=` vs `>`, boundary dates, pagination limits.
-
-### Timezone
-`new Date()` vs `Date.UTC()` across TZs.
-
-### Race condition
-Read → modify → write without locking.
-
-### Non-idempotent retry
-Webhook retried → handler processes twice.
-
-### Missing index → query times out
-Simple query scanning millions.
-
-### Cache inconsistency
-Stale data after a write that didn't invalidate.
-
-### Config drift
-Env var missing, orphaned, or unvalidated across environments — run the `env-diff` skill first (see Evidence gathering § Config drift).
-
-### Deploy ordering
-New code expects migration that ran AFTER deploy.
-
-### SSR hydration
-Server output ≠ client; hydration error.
-
-### Auth bypass
-Public route that should be private; guard that doesn't check.
-
-### Dependency upgrade
-Minor version bump changed default behavior.
+Never print values — they are secrets, and the finding is the key name plus which file it is missing from.
 
 ## Similar-bugs scan (MANDATORY before fix)
 

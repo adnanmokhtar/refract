@@ -8,6 +8,17 @@ pack: backend
 
 Each request carries tenant identity through every layer. A single leak = security incident.
 
+**When NOT to apply — this pattern assumes ONE topology.** Everything here is written for **shared-schema, row-scoped** multi-tenancy, where a `tenant_id` predicate is what separates tenants. Cargo-culting it into a codebase built the other way produces a filter that is at best redundant and at worst a second, weaker isolation mechanism sitting where the real one already is.
+
+| Topology | Where isolation actually lives | What this pattern still owns |
+|---|---|---|
+| Shared schema, `tenant_id` column | the row predicate | all of it |
+| Schema-per-tenant | the `search_path` / database bound at connection checkout | resolution, context propagation, cache keys, event metadata, `TenantContext.run` in consumers. **Not** the row-predicate detector — it is a false positive here; the real detector is *a connection checked out without the tenant's schema bound* |
+| Database-per-tenant | connection routing (which DSN the pool hands you) | as above, plus a failure nothing else names: a **connection leaked across tenants** by a pooler that reuses one without re-binding. Row filters cannot see it and report clean |
+| Platform-global tables (countries, plans, the tenant registry) | nothing — they are not tenant data | nothing; this is what the bypass rules exist for. A `tenant_id` on a currency table is a modelling error, not a control |
+
+**State the topology before applying any detector below.** A finding that does not know which row it is in cannot know whether the thing it flagged is a bug — and on a schema-per-tenant codebase the query detector fires on every query in the repo, which is how a security scan gets muted.
+
 ## Tenant resolution chain
 
 Order of resolution (first match wins):
@@ -111,5 +122,3 @@ A cache `get`/`set` on tenant-scoped data whose key is built without the tenant 
 A join or foreign key that crosses the tenant boundary. grep cannot decide this from a query alone — it needs the schema's tenant ownership map. Mark `[self-policed]`: the reviewer asserts it was checked, or the finding is not emittable. (Same precedent as `api-reviewer`'s TXN row — a detector that cannot be mechanised says so rather than pretending.)
 
 **Closure verbs:** `resolve-from-context`, `scope-the-query`, `justify-or-remove-bypass`, `rebind-tenant-context`, `prefix-cache-key`.
-
-Without this block `/polish` and `api-consistency-audit` cannot consume this pattern at all — which is why the pack's highest-stakes axis was, until now, its least enforceable one.

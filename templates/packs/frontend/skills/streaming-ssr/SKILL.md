@@ -11,6 +11,8 @@ Slow SSR blocks TTFB on the slowest thing the page awaits. If a route `await`s a
 
 `ssr-audit` checks SSR *correctness* (hydration mismatches). This skill checks SSR *speed*: it turns the open question "is hydration streaming?" into a real detector + fix. `bundle-perf` *(performance pack, when co-installed)* is where that question is normally raised; when that pack is absent nothing else in the project asks it, which is precisely why this skill has its own TTFB trigger below rather than waiting to be handed a finding. Every finding cites the blocking call at `<file:line>` + its observed/measured latency + the proposed boundary + the expected TTFB delta. A streaming recommendation without the cited blocking call is a halt.
 
+**Closure verbs** — exactly one per finding. This skill emits `report-with-fix` (a boundary that is a mechanical edit — wrap the subtree, un-await the loader field, add `loading.tsx`), `report-flagged` (detector 5: enabling Cache Components / partial prerendering is a config change plus a boundary map, so it names the decision and the subtrees rather than editing), `dismiss` (slowest call under ~100ms, or all data above the fold — the § gotchas carve-out), and `halt-handoff` (upstream endpoint latency → the backend owner; hydration mismatch → `ssr-audit`; LCP priority → `lcp-audit`).
+
 ## Adapt to the codebase
 
 Mirror the streaming primitive the project already has; never introduce a second one. Detect the framework + its render entry before proposing a boundary.

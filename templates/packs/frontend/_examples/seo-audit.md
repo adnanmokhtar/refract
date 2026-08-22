@@ -9,9 +9,25 @@ description: Static technical-SEO scanner for the rendered document — missing/
 
 SEO is machine-read: the crawler sees the HTML the server sends, not your runtime state. Every finding cites the tag/route at `<file:line>` + the matched pattern + the fix **in this project's own metadata primitive**. Static scan — pair with `rendering-strategy` (is the route even server-rendered?) and `lighthouse-ci`.
 
+**Closure verbs** — exactly one per finding. This skill emits `report-with-fix`, `report-flagged` (an indexation-policy call — which of four duplicate URLs is canonical, whether a faceted namespace should be indexed at all — which `@technical-seo` decides, not this scan), `dismiss` (the § Gotchas carve-outs: a self-referencing canonical, a correct `noindex`, a 62-char title), and `halt-handoff` (a CSR-only crawl-critical route → `rendering-strategy`, before any tag fix).
+
 ## Adapt first
 
 Read + mirror the existing metadata primitive; never add a second mechanism: Next `generateMetadata` / `app/sitemap.ts` / `robots.ts`; Nuxt `useSeoMeta`/`@nuxtjs/sitemap`; SvelteKit `<svelte:head>`; Astro layout head; Angular `Meta`+`Title` (SSR required); `react-helmet-async` (SSR/prerender only); or a shared `<Seo>` if one exists.
+
+## Route class decides which families run (do not run nine on everything)
+
+Nine detector families on every route is how an admin panel gets a `BreadcrumbList` finding and a hreflang audit. Classify each route first — the class is a fact about the route, not a preference — then run only its column, and print the class beside every route in the report.
+
+| Route class | How you know | Families that run | Dismissed, with the reason |
+|---|---|---|---|
+| **Indexable content** — marketing, blog, docs, PDP, category | public, no auth gate, in the sitemap or reachable from one | all nine | — |
+| **Public but not meant to rank** — thank-you, print view, share links, faceted permutations | public, no organic-search intent | 5 (`noindex` **present** is the pass), 2 (canonical to the rankable parent) | 1/3/4/7/9 — a title-length band on a page that must not rank is noise |
+| **Auth-gated app surface** — dashboards, settings, `/admin` | behind a route guard or a server session check | 5 only, inverted: the finding is a **missing** `noindex`, and only where the route is crawlable at all | 1/2/3/4/6/7/9 — `seo: n/a (auth-gated)` |
+| **API / non-document** — `sitemap.xml`, `robots.txt`, resource routes, webhooks | not an HTML document | 6 only, as the subject of the audit | everything else |
+
+- **A route's class can be wrong in the codebase.** An `/admin` route with no `noindex` and no auth gate is not an auth-gated surface that forgot a tag — it is a public route, and family 5 fires as a blocker.
+- **Detector 8 (CSR-only) runs on every class that renders a document**, including ones where the other families are dismissed. It is the one finding that invalidates the rest: on an empty server body, families 1–4 and 7 are grading tags the crawler will never read.
 
 ## Scans for
 
@@ -45,3 +61,4 @@ seo-audit — <routes>  (framework: <x>, primitive: <e.g. Next generateMetadata>
 
 - No finding without `<file:line>` + pattern + fix in the project's own primitive.
 - Don't introduce a second metadata mechanism; don't propose JSON-LD for absent data; hand CSR-only crawlability to `rendering-strategy`; don't `noindex` a route meant to rank.
+- No report whose rows carry no route class (§ Route class). Nine families run on an indexable route; on an admin route most are `dismiss`, and a report that cannot tell the two apart is grading a dashboard on its Open Graph tags.

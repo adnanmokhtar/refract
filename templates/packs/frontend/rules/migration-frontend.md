@@ -1,6 +1,6 @@
 ---
 name: migration-frontend
-description: Frontend-specific extensions to migration-discipline — audit axes, anti-patterns, fingerprints. Stack examples are illustrative; substitute equivalents from your project's `_extracted-idioms.md`.
+description: Frontend-specific extensions to migration-discipline — the navigation-inventory axis, the per-axis density gates, and the V1→V2 anti-patterns that only exist while porting a UI. Stack examples are illustrative; substitute equivalents from your project's `_extracted-idioms.md`.
 kind: rule
 pack: frontend
 severity: must (when a migration layout is detected)
@@ -10,128 +10,103 @@ extends: migration/rules/migration-discipline.md
 
 > **STACK-AGNOSTIC**: Inline syntax in this doc is illustrative. Stack-specific primitives are filled by `/setup-project` Phase 4.6 from the project's `_extracted-codebase.md` / `_extracted-idioms.md`. `<TBD: ...>` placeholders survive until then. See also this pack's `STACK.md`.
 
-
 # Frontend extensions to migration discipline
 
-The universal `migration-discipline.md` rule (in the migration pack) defines the V1→V2 port discipline in stack-agnostic terms — state machine, contract, audit halts, gate. This file adds the frontend-specific surface that the universal rule references but does not enumerate.
+**This file owns ONE axis, and it is the half of a UI port that no source-level diff can see:**
 
-If your project's frontend is in this pack's covered stack family (any modern component framework — Vue, React, Svelte, Angular, Nuxt, Next, etc.), follow the rules below in addition to the universal discipline. Stack-specific examples in this file are **illustrative** — substitute the actual primitives from your project's `_extracted-idioms.md`.
+> **The path a user takes to reach a feature is part of what V1 shipped.** A component that still exists in V2 is not a feature a user can still reach. Every automated parity signal — file diffs, primitive counts, component inventories — reads *existence*, so every one of them reports PARITY on a feature that has been made unreachable. That is why § Frontend audit axes opens with Section 0 rather than with fields.
+
+Its neighbours own the rest and it never restates them: `frontend-principles.md` is what you must do in any frontend code, ported or not; `i18n.md` is the locale axis; the universal `migration-discipline.md` (migration pack) owns the state machine, contract, halts and gate. Like `migration-backend.md`, this rule is not always on — it ships only when a migration layout is detected (`_topics.md § migration-frontend`), so a project that is not porting anything pays nothing for it.
 
 ## Stack-aware primitive set (frontend)
 
-The validator's `extract_inventory_primitives` extracts these primitive classes from frontend leaf-component files. Auto-promote thresholds (count differential > 30%) trigger standard-tier audit requirements.
+`scripts/validate-migration-artifacts.sh § extract_inventory_primitives` counts primitives on both sides of a port and compares nine classes (the three form constituents fold into `form_total` and are skipped, so a form gap fires once, not three times). V2 under 70% of V1 on any compared class **fails** a PARITY verdict outright — *verdict contradicted by primitive inventory* — and otherwise falls through to DRIFT enumeration. Nothing self-promotes: a trivial-tier PARITY row drifting by 5 or fewer only warns, and raising the tier is a human call. The regex alternations that recognise each class across component frameworks and UI libraries live in that function and only there — a prose copy would be a second source of truth with nothing comparing the two, and no agent follows a regex anyway. What an agent follows is the mapping. **For this project's own primitives — its field wrapper, its button, its permission directive — read `_extracted-idioms.md`; do not recall them from whichever framework you saw most recently.**
 
-| Primitive | What it counts (across Vue / React / Svelte / Angular / Solid) | Axis (where the audit must enumerate the gap) |
+| Primitive class | Shape (one example; the project's own is in `_extracted-idioms.md`) | Axis where the audit enumerates the gap |
 |---|---|---|
-| `v_model` | Form-field bindings: Vue `v-model=`, React `value=` + `onChange=` paired (proxy: `useState` form-state hooks), Svelte `bind:value=` / `bind:checked=`, Angular `[(ngModel)]=` | Form fields |
-| `dropdown` | `<Dropdown>`, `<Select>`, `<MultiSelect>`, native `<select>`, framework-specific equivalents (`<v-select>`, `<mat-select>`, `<MenuItem>`, `<Combobox>`) | UI affordances / Form fields |
-| `button` | `<Button>`, `<button>`, `<v-btn>`, `<AppButton>`, `<IconButton>`, `<mat-button>` | UI affordances |
-| `click_handler` | Vue `@click=` / `@submit=`, React `onClick=` / `onSubmit=` / `onChange=`, Svelte `on:click=` / `on:submit=`, Angular `(click)=` / `(submit)=` / `(ngSubmit)=` | Event handlers |
-| `permission_gate` | `hasPermission(`, `meta.permission`, `<RequirePerm>`, `useAuth(`, `<ProtectedRoute>`, `*ngIf="canAccess"`, `v-can=` | Per-button permission gates |
-| `tabs` | `<v-tabs>`, `<TabView>`, `<Tabs>`, `<NavLink>` in nav role, `<mat-tab-group>`, in-page tab arrays | Section 0 — Navigation Inventory |
-| `route_def` | Inside `*routes*` / `*router*` files: `path:` + `name:` (Vue/Angular Router), `<Route>` (React Router), `+page.svelte` filenames (SvelteKit), `pages/` files (Next/Nuxt) | Section 0 — Navigation Inventory |
-| `input_html` | Raw + framework form inputs: `<input>`, `<textarea>`, `<TextField>`, `<TextareaAutosize>`, `<Input>`, `<TextInput>`, `<v-text-field>`, `<v-textarea>` | Form fields |
-| `conditional_render` | Vue `v-if=` / `v-show=` / `v-else-if=`, React `&&` JSX / ternary in JSX, Svelte `{#if}` / `{#else if}`, Angular `*ngIf=` | Event handlers / Reactive lifecycle |
-
-The `extract_inventory_primitives` function is framework-comprehensive within `frontend-*` — it patterns Vue, React, Svelte, Angular, Solid, plus the major UI-library primitives (Vuetify, PrimeVue, MUI, Ant Design, Mantine, Chakra, shadcn). Adding a new framework requires only a new pattern alternation in the function (no new check needed).
+| `route_def` | a router entry, or a file-system route | Section 0 — Navigation Inventory |
+| `tabs` | a tab-group component, or an in-template tab array | Section 0 — Navigation Inventory |
+| `input_html` | `<input>` / `<textarea>` / the project's text-field wrapper | Form fields |
+| `form_total` | two-way bindings + form-state fields + child-component fields, folded into one count | Form fields |
+| `dropdown` | `<select>` / the project's select or combobox wrapper | UI affordances / Form fields |
+| `button` | `<button>` / the project's button wrapper | UI affordances |
+| `click_handler` | a click / submit / change binding | Event handlers |
+| `conditional_render` | the framework's conditional-render construct | Event handlers / Reactive lifecycle |
+| `permission_gate` | the project's permission check, directive, or guard | Per-button permission gates |
 
 ## Frontend audit axes (when feature is a UI page / component / route)
 
-The 6 generic comparison axes from the universal rule (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) are necessary but NOT sufficient for frontend ports. Add these axes for any feature whose V1/V2 entry is a page / component / route / screen:
+The universal rule's 6 generic axes (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) are necessary but not sufficient for a UI port. Add these.
 
-- **Navigation inventory (MANDATORY when feature scope spans more than one page or any tabbed surface; TWO-LAYER scan)** — enumerate every user-clickable navigation target reachable from the module entry: top-level tabs, in-page sub-tabs, sidebar items, accordion groups that gate distinct content, modal-shell tabs, inner-routes (`<router-view>` siblings), tab-bar entries, and any other tab-shaped affordance. The scan MUST run in two layers; Layer-A-only is incomplete and HALTS:
-  - **Layer A — Route tree**: read every router file in V1 + V2; build the route hierarchy. Catches top-level tabs + route children + redirects.
-  - **Layer B — Per-leaf template grep (MANDATORY, not optional)**: for EACH leaf component identified in Layer A, open its source and grep for in-template tab patterns. If ANY match, those are ADDITIONAL nav leaves to enumerate under that parent. Patterns to scan: framework-specific tab components (`<v-tabs>`, `<TabView>`, `<TabMenu>`, `<Tabs>`, `<Tab>`, `<v-tab>`, `role="tab"`, `<nav>` with role=tablist), sidebar config arrays / sidebar `links` lists / menu data files, in-page tab arrays (`v-for tab in tabs|items|sections`, `tabs.map(t => …)`, `[{label, path|value}]` literals at template scope), `<router-view>` siblings inside a component (nested sub-routing), accordion title arrays.
-  - Same two-layer scan applied to V2. Then 1:1 mapping table: every V1 navigation leaf must have a V2 equivalent navigation surface. **Burying V1 sub-tabs as scrollable sections inside another V2 tab is DRIFT.** Splitting one V1 tab into multiple V2 routes is DRIFT unless an accepted ADR documents the restructure. The path-to-reach a feature is observable behaviour; "user reaches X via this tab in V1, via that tab in V2" is parity; "user reaches X via this tab in V1, via scroll-to-section in V2" is not.
-  - **Why both layers**: routes-only extraction misses in-component tab UIs (e.g., a marketing page that uses ONE route but renders 14 platform tabs via a radio-button + `v-if` pattern in its template). Without Layer B, the marketing route is marked "PARITY" while the 14 internal tabs were never compared.
-  - **Section 0 completion checklist (HARD GATE — audit HALTS until every box is ticked):**
+- **Navigation inventory (Section 0 — MANDATORY when the feature spans more than one page or any tabbed surface; TWO-LAYER scan)** — enumerate every user-clickable navigation target reachable from the module entry: top-level tabs, in-page sub-tabs, sidebar items, accordion groups gating distinct content, modal-shell tabs, inner-routes, and any other tab-shaped affordance. Layer-A-only is incomplete and HALTS.
+  - **Layer A — Route tree**: read every router file in V1 and V2; build the hierarchy. Catches top-level tabs, route children, redirects.
+  - **Layer B — Per-leaf template grep (MANDATORY)**: open EACH leaf Layer A found and grep its own template for tab components, `role="tab"` / `role="tablist"`, sidebar/menu config arrays, tab arrays iterated at template scope, nested router outlets, accordion title arrays. Every match is an additional nav leaf under that parent.
+  - **Why both**: routes-only extraction misses in-component tab UIs — one marketing route rendering 14 platform tabs from a radio + conditional-render pattern in its own template. Without Layer B that route is marked PARITY and its 14 tabs were never compared.
+  - Map V1 leaves to V2 leaves 1:1. "Reaches X via this tab in V1, that tab in V2" is parity; "via this tab in V1, scroll-to-section in V2" is not.
+  - **Section 0 completion checklist (HARD GATE — the audit HALTS until every box is ticked and cannot advance to Section 1):**
     - [ ] V1 routes extracted from every router file
     - [ ] V2 routes extracted from every router file
-    - [ ] **For EACH V1 route leaf: component source opened + grep'd for tab patterns; matches enumerated**
+    - [ ] **For EACH V1 route leaf: source opened + grep'd for tab patterns; matches enumerated**
     - [ ] **Same for V2**
     - [ ] V1 leaf set ↔ V2 leaf set diffed
-    - [ ] **Every V1 leaf has a V2 equivalent OR is flagged DRIFT with closure verb**
-    - [ ] **Every V2-extra leaf flagged for V1-parity decision**
-    - [ ] **Unmapped V1 components check: grep the V1 module's view folder for `.vue` / `.tsx` / `.svelte` / `.jsx` files that are NOT imported by any reachable route / tab / sidebar entry; flag as dead-code candidates**
-  - **This axis appears as Section 0 in every module-scoped audit, before per-axis enumeration begins. Audit cannot advance to Section 1 until Section 0 checklist is complete.**
-- **Form fields** — enumerate every input on the page: name, type, validation rules (declared + inline), default value, placeholder, required vs optional, disabled-when, hidden-when. Every form field is a contract surface; missing one = silent break.
-  - **Density requirement**: forms-bearing UI-leaf components (≥5 form-input elements in V1 source) MUST produce a per-field enumeration table in the audit's "Form fields" axis section, with one row per V1 input citing both `<v1-path:line>` and `<v2-path:line>`. PARITY verdicts MUST be backed by table rows where every V1 field has a corresponding V2 path; DRIFT verdicts list missing/changed fields with closure verbs. The validator's `check_per_axis_enumeration` halts on density failure.
-- **UI affordances** — enumerate every button, link, dropdown, modal trigger, file-upload control, toggle switch, copy-to-clipboard button, "view detail" link. Each affordance has a permission gate, an event handler, and an observable effect.
-  - **Density requirement**: UI-leaf components with ≥3 affordances in V1 (buttons + dropdowns + modal triggers + toggles, summed) MUST produce a per-affordance enumeration table citing both `<v1-path:line>` and `<v2-path:line>` plus per-row permission-gate column and observable-effect column. PARITY verdicts require every V1 affordance mapped to a V2 affordance; DRIFT verdicts list extras/missing with closure verbs. The validator's `check_per_axis_enumeration` halts on density failure.
-- **Templated query params** — enumerate every URL query param the page reads (router.query, useSearchParams, useRouter, etc., per the project's framework). V1's list endpoint may filter by 6 params; V2 may send 4. The list endpoint's contract is "the union of every param V1 sends" — verify by reading the V1 list call construction line by line.
-- **Event handlers** — every click / submit / change / input handler — what it calls, with what args, what the side effect is.
-  - **Density requirement**: UI-leaf components with ≥3 distinct event handlers in V1 MUST produce a per-handler table citing both `<v1-path:line>` and `<v2-path:line>` plus the called function/method on each side. The validator's `check_per_axis_enumeration` halts on density failure.
-- **Per-button permission gates** — V1 may hide an action via a permission check (`v-if="hasPermission(...)"` / `{user.can(...) && ...}` / framework equivalent) — V2 must render the same gate. Enumerate; per-button audit. Missing a gate is a security regression.
-  - **Density requirement**: any UI-leaf with ≥1 permission gate on V1 OR V2 MUST produce a per-button gate table citing both `<v1-path:line>` and `<v2-path:line>` and listing the gate expression verbatim on each side. PARITY requires identical gate expressions; gate-divergence is a P0/P1 finding. The validator's `check_per_axis_enumeration` halts on density failure.
-- **Accessibility** — keyboard navigation order, ARIA labels on icon-only buttons, focus management on modal open/close, screen-reader-only text. axe-core baseline + diff is the parity test.
-- **DOM-equivalent** (use the `dom-equivalent` tolerance class from `parity-testing.md`) — semantically equal markup; pixel-perfect not required but structural parity is.
-- **Reactive lifecycle** — V1's mount-only data fetch vs V2's mount-AND-reactivate (when the framework supports keep-alive / cached routes); refetch-on-locale-change; refetch-on-tenant-switch. Stale-on-tab-return is a tenant leak vector for multi-tenant apps.
+    - [ ] **Every V1 leaf has a V2 equivalent OR is flagged DRIFT with a closure verb**
+    - [ ] **Every V2-extra leaf flagged for a V1-parity decision**
+    - [ ] **Unmapped V1 components: grep the V1 view folder for component files imported by no reachable route / tab / sidebar entry; flag as dead-code candidates**
+- **Form fields** — name, type, validation (declared + inline), default, placeholder, required, disabled-when, hidden-when. Every field is a contract surface; a missing one is a silent break.
+- **UI affordances** — every button, link, dropdown, modal trigger, upload control, toggle, copy button, detail link. Each has a permission gate, a handler, an observable effect.
+- **Templated query params** — every param the page reads. V1's list call may send 6 and V2 send 4; the contract is *the union of what V1 sends*, verified by reading V1's call construction line by line.
+- **Event handlers** — what each calls, with what args, and the side effect.
+- **Per-button permission gates** — V1 may hide an action behind a permission check; V2 must render the same gate. A dropped gate is a security regression, not a UI nit.
+- **Accessibility** — keyboard order, names on icon-only buttons, focus management on modal open/close. The parity test is an axe baseline plus a diff, not a re-audit; the depth grade is `@accessibility-auditor`.
+- **DOM-equivalent** — semantically equal markup (`parity-testing.md`'s `dom-equivalent` tolerance class). Structural parity, not pixel parity.
+- **Reactive lifecycle** — V1's mount-only fetch vs V2's mount-AND-reactivate where the framework caches routes; refetch on locale change and on tenant switch. Stale-on-tab-return is a tenant-leak vector, and it is also where a V1 timer or listener with no teardown becomes N running copies after the first cached resume.
+
+**Density gates — where a prose verdict stops counting as a verdict.** Below the trigger, one sentence per axis is a valid finding. At or above it, `check_per_axis_enumeration` HALTS on a verdict with no table.
+
+| Axis | Trigger (counted in the V1 file) | Table the audit must produce |
+|---|---|---|
+| Form fields | ≥ 5 form inputs | one row per V1 field, citing `<v1-path:line>` **and** `<v2-path:line>` |
+| UI affordances | ≥ 3 (buttons + dropdowns + modal triggers + toggles) | one row per affordance, plus permission-gate and observable-effect columns |
+| Event handlers | ≥ 3 distinct handlers | one row per handler, naming the function called on each side |
+| Per-button permission gates | ≥ 1 gate on either side | one row per gate, with the gate expression verbatim on both sides |
+
+PARITY requires every V1 row mapped. DRIFT lists the gap with a closure verb. A gate expression that differs between sides is P0/P1, never a NIT.
 
 ## Frontend anti-pattern catalogue (V1 → V2 hot list)
 
-These recur in every frontend V1→V2 port across most component frameworks. Add to the project-specific anchor's framework column when relevant. Examples below use Vue 3 syntax for illustration; substitute your framework's equivalent (React: `useEffect`, `useMemo`, `useCallback`; Svelte: `$:` reactive, `onMount`; Angular: `ngOnInit`, `ChangeDetectionStrategy`).
+Five navigation drifts and one data-shape trap. **They live here rather than in `frontend-principles.md` because each is invisible to every check that reads for existence** — the component is present, the route resolves, the primitive counts match, and the feature is gone. Generic frontend failures a port also carries (fetch in a component, unsanitised HTML, missing lazy-load, logic in a template, an undebounced search input) are already MUSTs in `frontend-principles.md`; a port does not get a second copy of them.
 
-| V1 anti-pattern | Why it's bad | V2 fix (illustrative — substitute per stack) |
+| V1 → V2 anti-pattern | Why every automated signal misses it | Closure |
 |---|---|---|
-| `array.find()` / `array.includes()` inside a render-loop | O(N²) on every render | Build `Map` / `Set` once via memoised computed; O(1) lookup |
-| Sequential `await` in mount-hook for independent fetches | Blocks first paint by sum of latencies | `Promise.all` for independent calls; lazy-load non-critical |
-| Auth/session value read directly from `localStorage` outside the canonical token-storage helper | Tenant leak: stale value survives logout | Read from live store (Pinia / Redux / Zustand / NgRx / etc.); `logout()` clears the store |
-| Mount-only data fetch on a cached / keep-alive'd page | Stale on tab return / tenant switch | Use the framework's reactivate hook in addition (`onActivated` for Vue 3 KeepAlive; Next/Nuxt route-revisit handler; `useFocusEffect` for React Native; etc.) |
-| Raw HTML insertion (`v-html` / `dangerouslySetInnerHTML` / `innerHTML`) without sanitize | XSS surface | Route through DOMPurify wrapper; document the sanitize boundary |
-| Search input wired directly to API without debounce | API spam; 1 request per keypress | `useDebounceFn(fetch, 300)` / `_.debounce` / RxJS `debounceTime` per stack |
-| DDL / lookup endpoints refetched on every dialog open | N×call per session | Module-level cache with TTL; invalidate on logout |
-| Missing route lazy-load (eager import of route component) | Huge initial bundle | Per-route dynamic import |
-| Per-page inline business logic | Untestable; duplicated across pages | Extract to composable / hook / service per stack convention |
-| Manual `Authorization: Bearer ${token}` headers in service calls | Bypasses interceptor + refresh queue; double-source-of-truth on token | Interceptor on the HTTP client only; never per-call |
-| Unthrottled timer / interval / event listener in mount without cleanup | Memory leak; multiple instances on KeepAlive resume | Cleanup hook return / `onUnmounted` / `useEffect` cleanup; clean up the timer |
-| Per-component `httpClient.create(...)` outside the canonical client | Double interceptors, unrelated refresh logic | Single canonical client per app; no per-feature creation |
-| Routes redirect via path strings | Refactor-fragile | Named routes per framework |
-| Translation fields sent as `{ en: ..., ar: ... }` flat objects | Backend may want envelope; assumes 2 languages | Match V1's submitted shape exactly; for dynamic-language tenants, build the object from the project's available-languages source |
-| **The Buried Tab** — V2 collapses V1 sub-tabs into scrollable sections in another V2 tab | User-clickable navigation path is part of V1's contract; collapsing it into a section changes the way users reach the feature. Source-only audits report STRUCTURE_OK because the underlying components exist. | Restore V1's tab as a discrete navigation surface in V2 (new sidebar entry + route OR new in-page sub-tab). Do NOT leave it buried as a section unless an accepted ADR documents the navigation restructure. |
-| **The Fragmented Tab** — V2 splits one V1 tab into multiple separate V2 routes/pages | Same observable-navigation drift as Buried Tab: the user's click path no longer matches V1. | Either (a) consolidate the fragmented routes back into the V1 tab shape, or (b) document the restructure with an accepted ADR that includes user-decision quote. Default closure is (a). |
-| **The Consolidated Page** — V2 moves a V1 **separate page/route** into a tab inside another V2 page (e.g., V1's standalone page at `/module/subpage` → V2's "Subpage" tab inside `/module`). The reverse is also drift: a V1 tab becoming a V2 standalone page. | The user's click path changes: a separate navigation target (with its own URL, back-button behaviour, direct-linkability) becomes a tab click, or vice versa. This is observable behaviour, not structure. Source-only audits that see the component exists somewhere in V2 falsely report parity. | Restore the V1 navigation structure: if it was a separate page in V1, keep it a separate page in V2; if it was a tab in V1, keep it a tab in V2. Default closure is revert-to-V1-shape. An accepted ADR with `user_decision_quote` is required to keep the consolidation. |
-| **The Layer-A-Only Scan** (audit-process anti-pattern, not a code drift) — auditor extracts route hierarchy from `<TBD: router-file>` entries (e.g. Vue `routes.ts`, Next `pages/`/`app/`, SvelteKit `+page`/`+layout`, Angular routing modules) but skips per-leaf template grep. Misses in-component tab UIs (`nav_tabs` radio arrays, `<TBD: tab-primitive>` blocks, accordion arrays, in-page `<TBD: iteration-construct>` over `tabs|items|sections`) that live inside route components — see **Stack-aware primitive set** above for Vue / React / Svelte / Angular analogues. Symptom: a route is marked "PARITY" but its 14 internal tabs were never compared between V1 and V2. | The route file shows the route exists; the auditor stops there. But routes !== tabs; many components render their own internal tabs that don't appear in route definitions. A Layer-A-only scan produces high-confidence false PARITY verdicts on the components that contain hidden tab UIs. | Mandate Layer B (per-leaf template grep) explicitly. Section 0 cannot complete until every leaf component identified by Layer A has been opened and grep'd for tab patterns. The Section 0 completion checklist enforces this. |
-| **The Zombie Tab Component** — V1 has component files in the module's views folder that are imported by NO route and rendered by NO reachable tab array. Example: a parent component defines conditional renders for values 2 and 3, but the tab array that drives selection only contains values 0 and 1 — tabs 2+3 are **unreachable dead UI code**. The migration ports them as live V2 routes/pages anyway. | Components exist in source but are not part of any observable navigation path. Porting them creates V2 pages users can reach (via direct URL or sidebar) that V1 users could never reach. This violates "V1 wins on observable behaviour." | Before porting ANY component from V1's views folder, verify it is reachable: (1) imported by a route in the router config, OR (2) rendered by a tab array that is itself reachable, OR (3) conditionally rendered by a state value that a reachable interaction can produce. If none — mark as dead code, do NOT port. The "Unmapped V1 components check" in Section 0 catches this. |
+| **The Buried Tab** — V2 collapses V1 sub-tabs into scrollable sections inside another tab. | Every underlying component exists, so a source-only audit reports STRUCTURE_OK. What changed lives in no file. | Restore it as a discrete navigation surface (sidebar entry + route, or an in-page sub-tab). Leaving it buried needs an accepted ADR. |
+| **The Fragmented Tab** — V2 splits one V1 tab into several separate routes. | Same class: every destination exists; the click path does not match. | Default closure is consolidating back to the V1 tab shape; an ADR carrying a `user_decision_quote` is the only alternative. |
+| **The Consolidated Page** — a V1 standalone route becomes a tab inside another page, or the reverse. | A separate target has its own URL, back-button behaviour and direct-linkability; a tab click has none of the three. The component exists somewhere in V2, so parity is reported. | Revert to the V1 shape — page stays a page, tab stays a tab. Keeping the consolidation needs an ADR with `user_decision_quote`. |
+| **The Layer-A-Only Scan** — an audit-process failure: the auditor extracts the route hierarchy and stops, skipping the per-leaf grep. | Routes are not tabs. The scan produces *high-confidence* false PARITY precisely on the components hiding the most surface. | Layer B is mandatory; Section 0 cannot complete until every Layer-A leaf has been opened and grep'd. |
+| **The Zombie Tab Component** — V1 ships components no route imports and no reachable tab array renders, and the port makes them live V2 routes. | They exist in V1 source, so an inventory audit ports them as parity work. They were never reachable, so the port ADDS surface V1 users never had — the inverse failure, equally a violation of "V1 wins on observable behaviour". | Prove reachability before porting anything out of V1's view folder: imported by a router entry, OR rendered by a reachable tab array, OR conditionally rendered by a state a reachable interaction can produce. None of the three → dead code, do not port. |
+| **The Two-Locale Submit Shape** — V1 submits translated fields as a flat fixed-key object and the port copies the shape. | It succeeds in every environment the developer tests, because those are the locales enabled there. | Match V1's wire shape exactly for parity, but build the object from the project's available-languages source. `i18n.md § Anti-patterns (named)` owns the general ban; what is migration-specific is that the wire shape is V1 contract and cannot be "improved" mid-port. |
 
 ## Frontend Transposition Trap fingerprints
 
-The universal `migration-discipline.md § Anti-patterns` defines The Transposition Trap as a generic concept (line-by-line copy of V1 into V2 instead of re-derivation against V2's gold standard). Concrete frontend fingerprints — the validator's `check_v2_structure` HALTs on these in V2 files (stack-conditional via `PROJECT_KIND`):
+`migration-discipline.md § Anti-patterns` defines the trap generically: a line-by-line copy of V1 instead of re-derivation against V2's gold standard. These are the frontend fingerprints `check_v2_structure` HALTs on (stack-conditional via `PROJECT_KIND`). Each is legal code that was *correct inside V1's architecture*, which is why it survives review.
 
-- **Raw framework / UI-library components in pages where wrappers exist.** Each project ships shared wrappers (modal / paginator / dropdown / date / phone / form-field / image-upload). Using the underlying library component directly bypasses the project's defaults (RTL, theme tokens, focus management, ARIA wiring, validation styling).
-- **Double-translation on label props.** A shared field-wrapper component that calls `t()` internally must receive a bare i18n key, not a pre-translated value. Passing `:label="t('Module.key')"` produces missing-key warnings + bare keys rendered to users.
-- **Wrapper col around a field-wrapper that has a `col-class` prop.** Nested grid cols inside the project's grid system break the layout silently — labels misalign, child components collapse to weird widths.
-- **Hand-rolled phone field / language toggle / currency-prefix input** when the project ships dedicated wrappers.
-- **Auth/session in plain `localStorage`** outside the canonical secure-storage / token-provider helper.
-- **`httpClient.create(...)` outside the canonical HTTP client file** — exactly ONE authenticated client per app.
-- **`console.log` / `console.debug`** in production code (ESLint rule, but check anyway).
-- **Manual `Authorization: Bearer ${token}` headers** — bypasses interceptor + refresh queue.
-- **Raw `<form @submit>` in dialogs/pages** when the project ships a `<BaseForm>` / form-wrapper that provides `<fieldset disabled>` + grid wrapper.
-- **Inline `style="..."`** — use scoped styles + design tokens.
-- **V1's grid system carried over verbatim** — V1 may use Bootstrap col wrappers; V2 may use component-level `col-class` props. Re-derive layout from V2's gold-standard equivalent feature, not from V1's template.
-- **Mount-only data fetch on a page the project's KeepAlive equivalent caches** — use the framework's reactivate hook so data refreshes on tab return + tenant switch.
-- **Hardcoded translation language keys** — `{ en: '', ar: '' }` literal initialisers, `locale.value === 'en' ? 'en' : 'ar'` ternaries, flat `name_ar`/`name_en` reactive fields. Tenants with other languages enabled get broken UI; tenants with a language disabled get stale dead keys. The correct pattern is: build empty translations from the project's available-languages source (Vue-style `useLanguages().buildEmptyTranslations()` · React locale hooks/stores · Angular `LocaleService` / i18n pipes · Svelte locale stores — names from `_extracted-idioms.md`); use the active locale string directly without ternary reduction.
+- **Wrapper bypass** — a raw framework / UI-library primitive used where the project ships a wrapper: modal, paginator, dropdown, date, phone, currency-prefix, language toggle, form element, form-field, upload. The wrapper is where RTL, theme tokens, focus management, ARIA wiring and validation styling live, so bypassing it drops all five silently and passes review looking identical.
+- **Double translation on a label prop** — a wrapper that translates internally must receive a bare key. Symptom: a missing-key warning plus a raw key rendered to a user.
+- **A grid column wrapped around a field wrapper that already takes a column prop** — nested columns misalign labels and collapse children to arbitrary widths, with no error anywhere.
+- **A second authenticated HTTP client, or a manually constructed `Authorization` header** — either one creates a second interceptor chain and a second source of truth for the token, so the refresh queue silently stops covering part of the app.
+- **Auth or session read from plain browser storage** outside the canonical token helper — detector and treatment in `ai-patterns/auth-session-client.md`.
+- **V1's grid system carried over verbatim** — re-derive layout from V2's gold standard, never from V1's template.
+- **A mount-only fetch on a page V2's router caches** — pair it with the framework's reactivate hook.
+- **Hardcoded locale keys** — fixed-key translation initialisers, active-locale ternaries, per-language flat field names. `i18n.md` owns this; a port is where it arrives.
 
 ## Phase 3 (Retrieve) — frontend specifics
 
-The universal rule's Phase 3 mandates "read V2's gold standards before writing." For frontend:
+The universal Phase 3 mandates reading V2's gold standards before writing. For frontend the gold standard is *by page category*, and `_extracted-codebase.md § Gold standards` names the file for each: CRUD list page, detail / show page, dialog or form, composable / hook, service / data-access. Read the one matching what you are porting and mirror its shape — composition, prop naming for label / column / required / disabled, and which wrappers it substitutes for raw primitives.
 
-- **CRUD list page** → read the project's gold-standard list page (`_extracted-codebase.md § Gold standards` names it).
-- **Detail / show page** → read the gold-standard detail page.
-- **Dialog / form** → read at least 2 V2 dialogs that use the same shared wrappers.
-- **Composable / hook** → read the V2 equivalent.
-- **Service / data-access** → read 1 service in the same module + the canonical `BaseCrudService` (or stack equivalent).
-
-Mirror these files' shape: same component-composition pattern, same prop naming conventions for label / col-class / required / disabled, same shared-wrapper substitutions. The `mapping/<feature>.md` artifact (required at every tier per universal rule) names every wrapper / util / hook the port will use.
-
-## Locale parity
-
-- Each user-facing string lands in EVERY declared locale (typically `en` + `ar` for Arabic-first projects; varies per project).
-- Per-module locale files are auto-merged at build; cross-module shared keys live in the shared locales directory.
-- The validator's `check_i18n_locale_parity` enforces "if a key exists in one locale, it exists in all."
+Two non-obvious parts. **A dialog port reads at least two** gold standards, never one: a single dialog does not separate the repo's conventions from that dialog's accidents. And **a service port reads the module's own service plus the canonical base service**, because the module service usually shows only its overrides. Writing the `mapping/<feature>.md` artifact (required at every tier) is what proves the read happened.
 
 ## Cross-references
 
-- Universal discipline: `migration/rules/migration-discipline.md`
-- Frontend principles: `frontend/rules/frontend-principles.md`
-- Frontend i18n: `frontend/rules/i18n.md`
-- Validator script: `scripts/validate-migration-artifacts.sh § check_v2_structure` (stack-conditional via `PROJECT_KIND`)
+- Universal discipline: `migration/rules/migration-discipline.md` — state machine, contract, halts, gate. This file extends it and ships only alongside it.
+- Frontend principles: `frontend/rules/frontend-principles.md` — what a port must satisfy *as frontend code*.
+- Frontend i18n: `frontend/rules/i18n.md` — the locale axis, including the parity requirement `check_i18n_locale_parity` enforces (a key in one locale exists in all).
+- Validator: `scripts/validate-migration-artifacts.sh § check_v2_structure` and `§ extract_inventory_primitives`.

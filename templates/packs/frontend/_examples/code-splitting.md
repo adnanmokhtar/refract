@@ -14,7 +14,8 @@ pack: frontend
 
 - **Route-based** — the highest-leverage cut: a visitor on `/` never downloads `/settings`. Meta-frameworks (Next/Nuxt/SvelteKit/Angular routes) auto-split — verify it happens; a client SPA must do it explicitly.
 - **Component-based** — modal/drawer bodies, inactive tabs, below-fold sections, admin widgets; the heavy dep travels in the component's chunk.
-- **Over-splitting** is its own anti-pattern — dozens of <5 KB chunks become a request waterfall; group vendor + co-used code via `manualChunks`/`splitChunks`.
+- **Over-splitting** is its own anti-pattern — dozens of <5 KB chunks become a request waterfall; group co-used code via `manualChunks`/`splitChunks`, citing measured chunk sizes.
+- **The one-`vendor`-chunk recipe is a trade, not a default.** `if (id.includes('node_modules')) return 'vendor'` buys one long-cached request — and costs a full re-download for every user on any dependency bump, plus every route paying for every dependency. Reach for it when deps are stable and shared across most routes; reject it when a few heavy deps are route-specific.
 - **Barrel-file trap** — `import { x } from 'huge-lib'` can pull the whole lib; prefer deep/subpath imports or the framework's package-import optimizer.
 - **Never lazy the LCP subtree** — a chunk round-trip before paint; hand off to `lcp-audit`.
 

@@ -67,7 +67,18 @@ Pair the source with a **server-side cursor / keyset iteration** (not `OFFSET` d
 
 1. Set an **idle timeout** AND a **total timeout** — a stuck client must not pin a cursor forever.
 2. **Cancel on disconnect** — propagate the request's cancellation (`AbortSignal` / `context.Context` / `CancellationToken`) to the DB cursor and any upstream so a closed connection stops the work.
-3. **LLM streams:** cap `max_tokens`, log tokens + cost per stream, and abort the upstream when the client disconnects.
+3. **LLM streams** — the majority case, and the one where the generic lifecycle rules above are not enough. Cap `max_tokens`, log tokens + cost per stream, and then answer the two questions the checklist version leaves open:
+
+   **Who owns the abort when your client is not the browser?** Cancellation propagates only as far as something is watching for it. A browser closing a `fetch` aborts your handler's signal; a *proxy* in between (a gateway, a BFF, another service of yours) may hold the upstream connection open long after its own client left, and you will keep generating — and paying — into a socket nobody reads. Decide explicitly: either every hop forwards the cancellation (the signal is a contract each layer must honour, and you should test it by killing a client and watching the provider's token counter stop), or the outermost hop is the *only* one that can cancel and every inner hop needs its own deadline as a backstop. **Assuming the first while shipping the second is the default state, and it is invisible until the bill arrives.**
+
+   **What happens to a half-generated completion you are still billed for?** You are charged for tokens generated before the abort, so a cancelled stream is not a free stream. Three positions, and picking none is picking the worst one:
+   - **Discard.** Simplest, and correct when the partial output is worthless (a chat turn nobody saw). Still log the token count — the cost is real and it belongs in the per-stream record whether or not anyone reads the words.
+   - **Persist the partial and mark it partial.** Correct when the client may reconnect and resume, or when a human will review it. Requires a `partial` flag the reader cannot ignore — a truncated summary stored as if complete is worse than no summary.
+   - **Persist and reuse as a cache entry.** Only when the request is deterministic enough that the same prompt would be answered the same way, and never for anything user-specific. This is the one that quietly becomes a correctness bug.
+
+   Whichever you pick, the **token/cost record is written on the abort path too**, not only on the success path — otherwise the cancelled streams are exactly the spend your dashboard cannot see.
+
+   Deeper cost attribution, model routing and prompt-level budgeting are owned by the **ai-engineering** pack; this pattern owns only what crosses the HTTP boundary.
 
 ## Detectors (cite-or-halt)
 
@@ -75,6 +86,7 @@ Pair the source with a **server-side cursor / keyset iteration** (not `OFFSET` d
 - A streaming handler with no idle/total timeout or no disconnect cancellation → `add-stream-lifecycle-guards`.
 - A stream with no terminal success/error sentinel → `add-terminal-sentinel`.
 - An LLM endpoint streaming with no `max_tokens` / no token+cost log → `cap-and-meter-llm-stream`.
+- An LLM stream whose token/cost record is written only on the success path, so cancelled and errored streams are billed but unmetered → `cap-and-meter-llm-stream`. Cite the metering call and the abort path that bypasses it.
 
 **Closure verbs:** `stream-or-paginate`, `add-stream-lifecycle-guards`, `add-terminal-sentinel`, `cap-and-meter-llm-stream`.
 

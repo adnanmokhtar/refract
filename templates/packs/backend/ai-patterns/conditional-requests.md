@@ -16,7 +16,7 @@ pack: backend
 
 **When NOT to apply**
 - Append-only / create-only resources (`POST` to a collection) — there's no prior state to clobber.
-- Single-writer resources (only a background job mutates them) — document the assumption.
+- Single-writer resources (only a background job mutates them) — **document the assumption *and* name what would falsify it**, because this is the carve-out that expires silently. The assumption dies the first time an admin screen, a support tool, a bulk importer or a second consumer of the same queue writes that row, and none of those arrive with an announcement. Write it as a checkable claim ("only `reconcile.job.ts` writes `invoice.status`"), so `rg` can re-check it in one line when the next writer appears, rather than as a belief nobody can re-derive.
 - Internal RPC where the caller already holds the version in a shared transaction.
 
 **Halt conditions / mandatory cites**
@@ -60,6 +60,18 @@ If no If-Match header    → 428 Precondition Required  (force the client to sen
 ```
 
 - Make `If-Match` **mandatory** on contended writes — returning `428` when it's absent prevents blind overwrites.
+
+### Turning `428` on is a breaking change — roll it out, don't ship it
+
+**This is the collision between this pattern and `api-versioning.md`, and it is not stated anywhere else.** A live `PATCH` that accepted requests without `If-Match` yesterday and returns `428` today has *added a required input*, which `api-contract.md` § Evolution rules classifies as breaking and `api-versioning.md` therefore routes to a new version. Flipping it on in place will 428 every existing client at once — and clients that do not understand `428` will surface it as a generic failure, so you get an outage that reads like a bug in their code.
+
+Three phases, and the middle one is the one people skip:
+
+1. **Advertise.** Emit `ETag` on the reads and on write responses. Accept `If-Match` when sent, honour it (`412` on stale), and **do not** require it. Nothing breaks; clients that want the guarantee can opt in today.
+2. **Observe.** Instrument the proportion of writes to this route arriving *with* a valid `If-Match`, **per consumer** — not in aggregate, because one large client at 100% will hide four small ones at 0%. Enforcement is safe when every consumer you can name is sending it and the remainder is traffic you are willing to break. This is the same per-consumer traffic dashboard `api-versioning.md` requires before removing a version; it is the same question, asked before adding a requirement rather than before removing a capability.
+3. **Enforce.** Now `428` on absence. If step 2 says a consumer is still not sending it, enforcing is a version bump, not a config flip — and the honest options are to ship it on `/v2` or to keep advertising until that consumer moves.
+
+**A green-field or single-consumer route skips straight to step 3** — there is nobody to break, and the ceremony is the cost. Say which case you are in; the phases are for a surface that already has callers.
 - Map the header value to the version column and check it inside the same transaction that writes (`UPDATE ... WHERE id=? AND version=?`; 0 rows affected → `412`). This closes the read-modify-write race that a separate `SELECT` then `UPDATE` leaves open.
 - On `412`, the client refetches the current representation, reapplies its change, and retries — document this loop for consumers.
 
@@ -75,6 +87,7 @@ Reference: **RFC 9110** (HTTP Semantics — conditional requests; obsoletes RFC 
 
 ## Detectors (cite-or-halt)
 
+- A route that emits `ETag` and requires `If-Match` where the change landed in place on a live version, with no advertise→observe→enforce record and no version bump → `report-flagged`, and route to `api-versioning.md`. Adding a required precondition is an added required input; the rollout above is the fix, not the removal of the precondition.
 - Write endpoint (`PUT`/`PATCH`/`DELETE`) on an entity with a `version`/`updated_at`/`row_version` column and NO `If-Match` read → `add-optimistic-concurrency` (audit subclass `optimistic-concurrency-missing`).
 - `GET` of a cacheable single resource with no `ETag` in the response → `add-etag` (audit subclass `etag-coverage-gap`).
 - `If-Match` validated by a `SELECT` then a separate `UPDATE` (race window) → `move-precondition-into-write-transaction`.

@@ -139,56 +139,11 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 - Mock external APIs. Never hit real ones in tests.
 - No `sleep(N)` for async waits. No `.skip` without a tracked reason.
 
-## Stack-specific addenda
+## Framework specifics live in `references/`
 
-### NestJS
-- `@Controller()` with DI via `@Inject(TOKEN)`.
-- `@ApiTags`, `@ApiOperation`, `@ApiResponse` complete.
-- `@UseGuards()` on protected endpoints; `@Public()` explicit where public.
-- `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true` globally.
-- `@Transactional()` OR explicit `manager.transaction(cb)` for multi-step writes.
+`ValidationPipe` options, `response_model=`, `@ControllerAdvice`, `AsNoTracking()`, `select_related`, strong params — every one of these is a per-framework fact, and this pack ships twelve `references/<framework>.md` files that own them. Read the one for this stack at Pre-flight step 2. A partial copy of eight of them inside this agent would be a second source of truth that nothing compares, going stale in whichever copy nobody edits.
 
-### FastAPI
-- `response_model=` on every endpoint.
-- `Depends()` for auth, DB session, current user.
-- `HTTPException` mapped via `@app.exception_handler`.
-- Async endpoints only when hitting async I/O.
-
-### Django / DRF
-- `GenericViewSet` / `ModelViewSet` thin; logic in `services.py`.
-- `select_related` / `prefetch_related` on read queries to prevent N+1.
-- Permission classes, not inline checks.
-- `serializer.is_valid(raise_exception=True)`.
-
-### Laravel
-- FormRequest for validation (never in controller).
-- `JsonResource` for responses (never raw Eloquent model).
-- Policies for authZ.
-- `with()` for eager load.
-
-### Rails
-- Strong params.
-- Pundit / CanCanCan for authZ.
-- `includes` for eager load.
-- Service objects past ~200 LOC model.
-
-### Go (chi/gin/fiber)
-- Context propagated through handlers → services → repos.
-- Errors wrapped: `fmt.Errorf("describe: %w", err)`.
-- Small interfaces at consumer side.
-- No naked returns in long functions.
-
-### Spring Boot
-- Constructor injection (no `@Autowired` on fields).
-- `@ControllerAdvice` for exception → response mapping.
-- `@Transactional` at service, not repo.
-- JPA entities NEVER returned from controllers.
-
-### .NET (ASP.NET Core)
-- `CancellationToken` on every endpoint.
-- `ProblemDetails` for errors.
-- No `.Result` / `.Wait()`.
-- `AsNoTracking()` on read queries.
+The one thing worth carrying here is that **PERF-5 wears a different spelling per stack, and the spelling is what the grep must match** — `list(qs)` / DRF serializing an unbounded queryset, `relation.to_a` / `.all.map`, `repository.findAll()` returning `List<T>`, `.ToListAsync()` before streaming. Read this project's form in `references/<framework>.md` rather than guessing it; the fix is always the same shape (iterate / stream) and `ai/patterns/response-streaming.md` owns the wire contract.
 
 ## Example findings
 
@@ -281,3 +236,17 @@ Patterns consulted: api-contract, error-handling, <signal-based>
 - Don't filler-praise.
 - Don't propose changes outside PR scope.
 - Every finding has a fix AND a verification step.
+
+## Related
+
+### Sibling agents in backend pack — the boundary
+- `@api-architect` — chose the shape BEFORE this code existed. You judge whether the built thing honours it; you do not redesign it mid-review. A finding that amounts to "the whole shape is wrong" is an escalation to that agent, not a NIT.
+- `@bug-investigator` — owns root cause of a defect that is already failing in the wild. You find latent defects in a diff; it explains an observed one. Hand over the moment the question becomes "why did this break in prod".
+- `@endpoint-tester` — the only sibling that actually fires HTTP at a running server. Your evidence column CONSUMES its results; you never run the calls yourself.
+- `@websocket-engineer` — owns everything that outlives one request/response (envelopes, rooms, heartbeat, resume, fan-out). ENF-4 is your boundary marker: you check streaming timeout + disconnect-cancellation, then hand the protocol depth over.
+
+### Cross-pack owners (pointer only — never duplicate their depth here)
+- `@schema-reviewer` (database pack) — `SELECT *` / over-fetch / index + query shape.
+- `@security-auditor` (security pack) — egress policy (SEC-02) and the auth depth behind SEC-03.
+- `@resilience-reviewer` (distributed-systems pack) — outbound resilience matrix, DLQ, stored idempotency replay.
+- `@observability-reviewer` (observability pack) — span attributes, OTel wiring, sampling, cardinality budgets.

@@ -47,11 +47,9 @@ A11y-specific:
 
 ## Phase 4 — Generate (findings, not code)
 - Dispatch `accessibility-auditor` with the resolved file list.
-- If axe is present, run the automated pass on affected routes through the `a11y-scan` skill:
-  ```bash
-  npx playwright test --grep "@a11y" || npx playwright test tests/a11y/
-  ```
-  Carry its **review items** (`results.incomplete`) into the report as their own block — axe could not decide those, and an unresolved review item is not a pass.
+- If axe is present, dispatch the `a11y-scan` skill on the affected routes and consume its report. **Do not write an axe invocation here** — Phase 2 already assigned that run to the skill, which owns the WCAG 2.2 tag set, the `target-size` enable and the route x theme x locale matrix. A second invocation in this file is a second tag set: the two runs disagree, and the disagreement reads as a flaky scanner rather than as two different configurations.
+  Carry the skill's **review items** (`results.incomplete`) into the report as their own block — axe could not decide those, and an unresolved review item is not a pass.
+  If `a11y-scan` reports `RENDER BLOCKED` (its login-wall halt), this command halts with it. A merged report built on an unauthenticated render grades the login page and calls it the app.
 - Merge agent findings + axe violations. Dedupe (axe is ground truth on contrast / ARIA names; agent catches semantics + flow).
 - Print findings table grouped by severity:
   ```

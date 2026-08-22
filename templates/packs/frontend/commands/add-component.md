@@ -59,8 +59,8 @@ If description suggests a different intent, halt with redirect: "enhance / impro
 
 - Name in PascalCase (confirm with user if generic — `Box`, `Wrapper`, `Container` are blockers).
 - Purpose: ONE sentence, what it presents, no business logic mention.
-- Props with types, events emitted, slots/children.
-- Confirm caller surface — name 2 expected call sites.
+
+**Props, events, slots and call sites are NOT inputs — they are outputs of the Premise.** Prop typing convention, slot-vs-prop choice and default-true wrapper props are read from the ≥2 siblings in step 1; the call sites are what the prior-art gate already grepped for. Asking the user for them re-derives what this file just said is silent sibling-mirror, and the answer the user invents overrides the answer the codebase already gave. Print what was derived and from `<path:line>` (`props convention: derived from src/components/orders/Card.vue:8`), and ask ONLY on the three triggers in the Premise — no sibling, generic name, new styling system.
 
 ## Phase 2 — Organize
 - Detect framework + component style:

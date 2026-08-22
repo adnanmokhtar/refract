@@ -56,10 +56,10 @@ Score every candidate shape on these five. A `Δ` is fine if the cost is stated;
 
 | Lens | The bar (strong) | The tell (weak) |
 |---|---|---|
-| **Boundary correctness** | Each invariant is owned by exactly one aggregate, which can enforce it locally in one transaction. Cross-aggregate rules are explicitly a saga / outbox. | An invariant that needs two aggregates read-then-written to hold; a "transaction" that spans a network call. |
+| **Boundary correctness** | Each invariant is owned by exactly one aggregate, which can enforce it locally in one transaction. Cross-aggregate rules are explicitly a saga / outbox. | An invariant that needs two aggregates read-then-written to hold; a "transaction" that spans a network call; a repository method named `find<Noun>AndDoX` — that is a use-case that leaked into the data layer, and it takes the invariant with it. |
 | **Contract stability (Hyrum's Law)** | Every wire field is deliberate; optional fields are optional in the schema; error shapes are one contract; what is NOT promised is stated. | Entity leaked as the response DTO; field order or an incidental `null` load-bearing; new field added to an existing response with no version story. |
 | **Failure shape** | For each multi-step path, the design states what a crash between steps leaves behind, and who cleans it up (idempotency key, outbox, compensating action, reconcile job). | "It'll roll back" asserted about a sequence that includes an external call; no answer for a retry that arrives after a partial write. |
-| **Cost to change** | The likely next change (a new field, a second consumer, a second tenant shape) touches one layer. Ports at every module edge. | The next change edits controller + service + repo + DTO + migration; a sibling module imports a concrete class from this one. |
+| **Cost to change** | The likely next change (a new field, a second consumer, a second tenant shape) touches one layer. Ports at every module edge. Tenant scoping is structural — a base repository or middleware, applied once. | The next change edits controller + service + repo + DTO + migration; a sibling module imports a concrete class from this one; a tenant filter hand-written per query, so the next query that forgets it is a leak nobody reviews for. |
 | **Operability** | The design names its RED metric, its span, its correlation field, its readiness dependency, and how it is rolled out and rolled back. | Observability listed as "add logs"; a schema change with no online-safe / reversible story. |
 
 Two rules on top of the table: **mirroring the sibling is the floor** — a design that scores well only because the sibling did is not yet a design. And **the aggregate is the unit of consistency, not the unit of code** — do not split a module because a file got long.
@@ -133,12 +133,8 @@ The ONE difference this feature has: <one sentence>
 - Metrics: the RED triad, named
 - Traces: span around the use-case + sub-spans on external IO
 
-### Security floor (design-time — @api-reviewer enforces at review time)
-- Authorization decorators in place (who can call — a role check is not an ownership check).
-- Input size caps (body, list lengths).
-- Output filtered (no PII leak, no cross-tenant data).
-- Rate limit per tenant / user / IP.
-- Audit log on mutations.
+### Security floor
+The MUSTs are `backend-principles.md`'s and the review-time checks are `@api-reviewer`'s (SEC-01 / AUTHZ / ENF-1) — do not restate either. State only the DESIGN-TIME decisions those checks cannot make later: which principal may act on this resource and by what rule (ownership, role, or policy — a role check is not an ownership check), what the rate-limit key is (tenant / user / IP), and which mutations are audited.
 
 ### Open questions
 <anything you had to assume — flag for the user; an assumption you did not flag is a decision you made silently>
@@ -149,15 +145,6 @@ The ONE difference this feature has: <one sentence>
 Consult this pack's `references/<framework>.md`. Twelve ship: django, dotnet, express, fastapi, flask, go (chi/gin/fiber/echo), hexagonal-nestjs, laravel, nestjs, phoenix-elixir, rails, spring-boot.
 
 If the detected framework is not among them, follow its OFFICIAL style guide and say in the design that you did so. If no strong convention exists, propose a layout and write an ADR before the implementer starts. **Never claim a framework convention you cannot cite** — either a reference file, the framework's own guide, or a sibling module in this codebase.
-
-## Common rewrites to push back on
-
-- `find<Noun>AndDoX` on the repository → that's a use-case, not a query.
-- DTOs used as domain models (and entities used as response DTOs — the Hyrum's-Law leak).
-- Transactions spanning cross-service calls that shouldn't be atomic.
-- Async side-effects on the hot path that belong in a queue.
-- Hand-rolled tenant filters sprinkled across queries — should be automatic via base/middleware.
-- A module split because a file got long rather than because an invariant moved.
 
 ## Hard rules
 

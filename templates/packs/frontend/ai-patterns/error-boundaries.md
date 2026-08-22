@@ -127,15 +127,16 @@ Detect the project's boundary primitive and error sink first; route every fix th
    - GOOD: a global net forwards `error` + `unhandledrejection` to the same sink.
    - grep: `rg -n "unhandledrejection|window.onerror|addEventListener\(['\"]error" src`.
 
-7. **Boundary placed too high (whole page fallback for one widget).**
+7. **Boundary placed too high (whole page fallback for one widget).** `[self-policed]`
    - BAD: a single app-root boundary is the only boundary; any widget throw blanks the whole page.
    - GOOD: per-widget/per-route boundaries contain the failure to its subtree; the root boundary is last resort only.
-   - grep: count boundaries vs independent-failure seams — `rg -c "ErrorBoundary|onErrorCaptured|svelte:boundary" src`; a single hit across a multi-widget app is the smell.
+   - **Why this one is self-policed rather than grepped:** the count is mechanical (`rg -c "ErrorBoundary|onErrorCaptured|svelte:boundary" src`), but the thing it must be compared against — the number of *independent-failure seams* — is not something grep establishes. A seam is "a subtree that can fail while the rest stays useful", which is a judgement about the product, not a string in the source. A one-boundary count is a **prompt to enumerate the seams by hand**, not a finding on its own; report the count, list the seams you identified and where each one's boundary would go, and let a human confirm the list. A finding emitted straight from the count would flag a genuinely single-seam app (one full-page view, one query) as under-bounded, which is the false positive that teaches readers to ignore detector 7.
 
 ## Closure verbs
 
 - `report-with-fix` — cite the unbounded subtree at `<path:line>` and the boundary + fallback + report call to add, in the project's own primitive and sink.
 - `halt-handoff` — when the project's boundary primitive or error sink isn't identified, or when the fix is an async/hydration root cause owned elsewhere, halt and hand off by name.
+- `dismiss` — a leaf with no independent failure surface (pure presentational markup, no data, no third-party code) deliberately left unwrapped, or a single-seam app where the root boundary IS the right granularity. Record the reason so detector 7 does not re-open it next scan.
 
 ## Related
 

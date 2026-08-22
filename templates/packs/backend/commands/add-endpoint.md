@@ -11,7 +11,7 @@ Use when extending a module. Smaller than `/add-module` (no new entity), deeper 
 
 ## Nested-invocation mode
 
-**Nested invocation (called from /add-feature):** if invoked by `/add-feature` with a passed payload (Spec-ID/spec path + the parent's Phase-1 requirements + the relevant Phase-2 architect design slice + resolved signals) → SKIP the Phase-1 Ask block, SKIP the Phase-2 architect re-dispatch, and SKIP the prior-art gate (the parent already cleared the capability); consume the payload and proceed to Generate. Still run the sibling-shape halt on the files this command produces (its own grain). When called DIRECTLY (no payload) → run the full flow as written.
+**Nested invocation (called from /add-feature):** if invoked by `/add-feature` with a passed payload (Spec-ID/spec path + the parent's Phase-1 requirements + the relevant Phase-2 architect design slice + resolved signals) → SKIP Phase 1's derive-and-ask block entirely (the parent already resolved it; re-deriving is the contract breach its § Dispatch contract names), SKIP the Phase-2 architect re-dispatch, and SKIP the prior-art gate (the parent already cleared the capability); consume the payload and proceed to Generate. Still run the sibling-shape halt on the files this command produces (its own grain). When called DIRECTLY (no payload) → run the full flow as written.
 
 ## Prior-art gate (all tiers, runs before tier selection)
 
@@ -56,16 +56,41 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 
 If description suggests a different intent, halt with redirect: "fix / broken / wrong" → `/fix-bug`. "optimize / slow / N+1" → `/optimize-query`. "audit / review" → `/security-audit` (if security-flavored) or `/perf-audit`. "enhance" → not applicable to backend endpoints (proceed; new endpoint IS the enhancement). Proceed only for adding a new endpoint / route / event handler.
 
-### Standard inputs
+### Standard inputs — derive from siblings, ask only for what they cannot answer
 
-Ask (one consolidated question):
-- Which module?
-- HTTP method + path (or event name for queue consumer).
-- Purpose (one line — what the endpoint does, what it returns).
-- Request shape (fields + types + validation).
-- Response shape.
-- Auth requirement (public / authenticated / admin / custom role).
-- Any side effects (events emitted, external calls, notifications)?
+**Siblings are the truth, and this command reads them before it opens its mouth.** Phase 3 already
+mandates *"Mirror an existing endpoint in this module EXACTLY"* and *"1-2 sibling controllers in the
+same module — confirm shape."* Asking the user for request shape, response shape or auth in Phase 1
+and then overwriting all three from siblings two phases later is a questionnaire pretending to be a
+tool: it spends the user's attention on answers the run will discard.
+
+**Resolve from the module first.** Locate ≥1 sibling handler on the target module and read off:
+
+| Input | Derived from | Print as |
+|---|---|---|
+| Request shape (fields, types, validators) | the sibling's input DTO / schema — same validator library, same optional-vs-nullable convention, same nesting style | `request: mirrors <path:line>` |
+| Response shape | the sibling's response DTO / serializer and the envelope it returns through | `response: mirrors <path:line>` |
+| Auth requirement | the guard / decorator / middleware stack on the sibling route, plus the module-level guard | `auth: mirrors <path:line>` |
+| Side effects | the events / outbox writes / external clients the sibling use-case already emits | `side effects: none beyond <path:line>` |
+
+**Print the derived block before Phase 2 and let the user correct it.** A four-line inference the
+user can override in one sentence costs less of their attention than a four-part question, and it is
+the difference between a tool and a form.
+
+**The agent ONLY asks the user when:**
+- **No sibling exists** on the module (first endpoint on a fresh module — nothing to mirror).
+- **New auth surface** — the route needs a role, scope or guard no sibling on this module uses. A
+  new authorization boundary is never inferred; guessing it wrong is a security defect, not a nit.
+- **A side effect no sibling emits** — a first outbound call, a first published event, a first
+  payment or notification. New blast radius is a decision, not a shape.
+
+Everything else — validator idiom, DTO file naming, status code on create, envelope shape, pagination
+convention, error-code prefix — is silent sibling-mirror. Only `<module>`, `<METHOD> <path>` and a
+one-line purpose are genuinely the caller's to supply, and the first two are usually in the argument.
+
+**Nested invocation already obeys this** (`/add-feature` § Dispatch contract: *"leaves don't
+re-derive"*). This block is the same contract for the direct-invocation path, which previously had
+none.
 
 State the success criteria: endpoint live + 3+ e2e tests + telemetry + docs prepended + zero placeholders. This is the *functional* floor. The *done* condition is the Phase-6 Production-readiness gate — all seven production-floor items MET-with-evidence or n-a-with-reason, else the run reports INCOMPLETE with the unmet items named.
 
@@ -240,7 +265,7 @@ Dispatch `telemetry-architect` for this endpoint. At minimum:
 - Business metric if applicable (order placed, payment succeeded).
 - Alert if SLO-bearing (error rate, latency p95).
 
-Dispatch `/add-telemetry` if gaps.
+Dispatch `/add-telemetry` if gaps *(observability pack, when co-installed)*. **A redirect must land somewhere** — when that pack is absent, emit the missing span / counter / log inline against the project's existing telemetry primitives (`references/<framework>.md`) and record it in the report; never route a gap into a command the project does not have.
 
 ### Domain-specific requirements (signal-based)
 
@@ -415,21 +440,19 @@ Never stamp COMPLETE/PRODUCTION-READY while a floor row is open — INCOMPLETE w
 
 ## Related
 
-### Sibling commands in backend pack
-- `/add-feature` — sibling command in backend pack
-- `/add-module` — sibling command in backend pack
-- `/analyze-module` — sibling command in backend pack
-- `/endpoint-test` — sibling command in backend pack
-- `/fix-bug` — sibling command in backend pack
-- `/log-tail` — sibling command in backend pack
-- `/trace-flow` — sibling command in backend pack
+### Sibling commands — where the boundary falls
+- `/add-module` — **owns the entity.** New aggregate, new tables, new layer set → there. This command assumes the module, its repository and its guard stack already exist.
+- `/add-feature` — **owns anything crossing two modules.** When it calls this command it passes its resolved Phase-1/Phase-2 payload down; a leaf that re-derives is a contract breach (§ Nested-invocation mode).
+- `/endpoint-test` — verifies on the wire what this command claimed. The production-readiness gate below is a static check; that command is the empirical one.
+- `/fix-bug` — the route already exists and behaves wrongly. Adding a second route beside a broken one is the waste mode the prior-art gate exists to catch.
 
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+- `ai/patterns/api-contract.md` — the envelope and the evolution rules the new route must land inside.
+- `ai/patterns/error-handling.md` — the error shape and status mapping the handler emits.
+- `ai/patterns/request-validation.md` — the boundary schema + writable-field allow-list for the input DTO.
+- Signal-gated: `multi-tenancy.md` (tenant-scoped resource), `pagination.md` (list route), `conditional-requests.md` (contended write), `async-job-offload.md` (work over the hot-path budget), `rate-limiting.md` (public or expensive route).
+
+The rest of the pack's patterns are not read on this axis and are deliberately not listed.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

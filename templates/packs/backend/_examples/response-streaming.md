@@ -55,7 +55,7 @@ Pair the source with a **server-side cursor / keyset iteration** (not deep `OFFS
 
 1. **Idle timeout** AND **total timeout** — a stuck client must not pin a cursor forever.
 2. **Cancel on disconnect** — propagate cancellation (`AbortSignal`/`context.Context`/`CancellationToken`) to the cursor + upstream.
-3. **LLM streams:** cap `max_tokens`, log tokens + cost, abort upstream on disconnect.
+3. **LLM streams:** cap `max_tokens`, log tokens + cost, abort upstream on disconnect — then answer the two questions a checklist leaves open. **Who owns the abort when your client is not a browser?** A proxy, gateway or BFF in between may hold the upstream open long after *its* client left, and you keep generating and paying into a socket nobody reads; either every hop forwards the cancellation (test it by killing a client and watching the provider's token counter stop) or the outermost hop is the only one that can cancel and every inner hop needs its own deadline as a backstop. **What happens to a half-generated completion you were still billed for?** Discard (log the tokens anyway), persist-and-mark-partial (the flag must be un-ignorable — a truncated summary stored as complete is worse than none), or persist-and-reuse (only for deterministic, non-user-specific requests). Whichever you pick, **write the token/cost record on the abort path too** — otherwise cancelled streams are exactly the spend your dashboard cannot see.
 
 ## Detectors (cite-or-halt)
 
@@ -63,6 +63,7 @@ Pair the source with a **server-side cursor / keyset iteration** (not deep `OFFS
 - Streaming handler with no idle/total timeout or no disconnect cancellation → `add-stream-lifecycle-guards`.
 - Stream with no terminal success/error sentinel → `add-terminal-sentinel`.
 - LLM endpoint streaming with no `max_tokens` / no token+cost log → `cap-and-meter-llm-stream`.
+- LLM stream whose token/cost record is written only on the success path, so cancelled and errored streams are billed but unmetered → `cap-and-meter-llm-stream`.
 
 **Closure verbs:** `stream-or-paginate`, `add-stream-lifecycle-guards`, `add-terminal-sentinel`, `cap-and-meter-llm-stream`.
 

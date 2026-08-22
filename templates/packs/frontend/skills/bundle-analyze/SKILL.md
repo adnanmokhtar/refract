@@ -31,39 +31,30 @@ Build the prod bundle, visualize chunk composition, and check sizes against budg
 
 ## Procedure
 
-1. Build for production with source-maps preserved (analyzer needs them):
-   ```bash
-   # Vite
-   npx vite build --mode production --sourcemap
-   # Nuxt
-   pnpm nuxi analyze
-   # Next
-   ANALYZE=true pnpm build
-   # Webpack
-   pnpm build --json > stats.json
-   ```
-2. Run analyzer:
-   ```bash
-   # Vite
-   npx vite-bundle-visualizer -t treemap -o dist/bundle-report.html
-   # Webpack
-   npx webpack-bundle-analyzer stats.json dist
-   ```
-3. Inspect generated `dist/bundle-report.html` (treemap) — capture: top 5 chunks by gzipped size, top 5 third-party deps, any duplicates.
-4. Compare against budgets (from `ai/stack.md` or `.claude/rules/frontend-principles.md`):
-   - Initial JS critical path: ≤ 150 KB gzipped
-   - Per-route total JS: ≤ 300 KB gzipped
-   - Each third-party > 10 KB gzipped: justify its weight
-5. Detect duplicates:
-   ```bash
-   pnpm dedupe --check          # pnpm
-   npx yarn-deduplicate --check # yarn
-   npm dedupe --dry-run          # npm
-   ```
-6. Detect unused exports:
-   ```bash
-   npx knip --reporter compact   # finds unused files + exports + deps
-   ```
+1. **Build + analyze**, per bundler. Source-maps must survive the build or the treemap attributes bytes to nothing.
+
+   | Bundler | Build | Analyze |
+   |---|---|---|
+   | Vite | `npx vite build --mode production --sourcemap` | `npx vite-bundle-visualizer -t treemap -o dist/bundle-report.html` |
+   | Webpack | `pnpm build --json > stats.json` | `npx webpack-bundle-analyzer stats.json dist` |
+   | Nuxt | `pnpm nuxi analyze --gzip` | built in (see the `--gzip` gotcha below) |
+   | Next | `ANALYZE=true pnpm build` | `@next/bundle-analyzer` opens the treemap |
+
+2. **Read the treemap in gzipped bytes, and capture three lists**: top 5 chunks, top 5 third-party deps, every duplicate. Raw/parsed size is the number the tool shows by default and it is not the number users pay — it is roughly 3-4x the transferred size, so a report that mixes the two produces findings that evaporate on re-check.
+3. **Resolve the budget before comparing anything** (§ Where the budget comes from).
+4. **Duplicates**: `pnpm dedupe --check` / `npx yarn-deduplicate --check` / `npm dedupe --dry-run`.
+5. **Unused**: `npx knip --reporter compact` — unused files, exports and deps.
+
+## Where the budget comes from (this skill does not have authority it did not earn)
+
+A verdict of OVER BUDGET is only meaningful against a budget somebody chose. Resolve in this order and **print which arm was used**:
+
+1. **A project budget** — `ai/stack.md`, a `size-limit` / `bundlesize` config, a `resource-summary:script:size` assertion in the project's own `lighthouserc.json`, a CI budget file. `frontend-principles` § Should requires a budget gate but deliberately sets no number, because the right number is per-product. If the project has one, it wins outright and this skill never overrides it. **One axis caveat when the budget arrives from Lighthouse:** that assertion sums every script the audited *page* loads, while this skill measures one route's initial bundle. It is a ceiling above your number, not the same measurement — so print which of the two you measured, and treat a per-route figure sitting under a page-level ceiling as unproven rather than passing.
+2. **This skill's own default**, when none exists: **150 KB gzipped on the initial critical path**. It is *this skill's* number — a working default for an interactive app on a mid-tier mobile connection, not an industry constant, and it is not written down in any rule in this pack. Say so in the report.
+
+**Budget absent → the verdict is `report-flagged`, never OVER BUDGET.** Emit the measured sizes, the named heavy chunks and the anchoring imports — the useful half of this skill works fine without a threshold — and flag "no budget declared; measured against this skill's default of 150 KB initial" as its own finding, whose fix is *declare a budget*, not *delete a dependency*. Failing a build on a number the project never agreed to is how a bundle gate gets disabled permanently.
+
+Each third-party over 10 KB gzipped is worth a line justifying its weight regardless of which arm supplied the budget; that one is a review prompt, not a threshold.
 
 ## Output
 
@@ -71,7 +62,7 @@ Build the prod bundle, visualize chunk composition, and check sizes against budg
 Bundle analysis  (vite build, gzipped)
 
 Initial bundle:
-  158 KB / 150 KB    OVER BUDGET by 8 KB
+  158 KB / 150 KB    OVER BUDGET by 8 KB   (budget: this skill's default — no project budget declared)
 
 Top chunks:
   vendor-abc.js     82 KB    Vue + Pinia + router + primevue core
@@ -104,6 +95,7 @@ Unused (knip):
 - Halt if the report was generated against `pnpm dev` output instead of the production build — dev bundles include HMR + uncompressed source and lie about size.
 - Halt if a duplicate is dismissed as "intentional" without naming the two consumers + their version constraints.
 - Halt if budgets fail but no named chunk / dep is identified as the cause. A budget breach without a named cause is unfinished work.
+- Halt on an `OVER BUDGET` verdict that does not name which of the three budget arms supplied the threshold. A number with no authority behind it is this skill asserting a standard it does not hold.
 
 ## Related
 

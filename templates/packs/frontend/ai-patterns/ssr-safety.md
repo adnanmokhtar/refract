@@ -97,19 +97,11 @@ Use the framework's SSR-aware fetcher so the read happens once and its result cr
 
 **The rule with its boundary stated:** a bare `fetch()` in a **client** component body (a `setup()` block, a function-component body that hydrates) is forbidden — SSR runs it, the client re-runs it, and the two results race. In a Server Component it is the recommended pattern. Grade by component kind, not by the presence of the word `fetch`.
 
-## Multi-tenant SSR
+## Multi-tenant SSR — the one hydration-shaped fact
 
-Tenant must be resolved from the REQUEST on the server, not from browser state:
+Tenant resolution is a **backend** concern (host-header resolution, request-scoped storage, the one-writer rule) and `backend/multi-tenancy.md` § Resolution chain owns it; do not restate the sequence here.
 
-```
-1. Server receives request (Host header = tenant domain)
-2. Resolve tenant synchronously before rendering
-3. Inject tenant into AsyncLocalStorage for the request lifetime
-4. Render with tenant-scoped data
-5. Hydrate on client with the SAME tenant (passed via server to client state)
-```
-
-One-writer rule: the server writes tenant identity ONCE at request start. No downstream code may overwrite it.
+What belongs on this page is the hydration half: **the tenant crosses the boundary as payload and is never re-derived on the client.** A client that re-reads the tenant — from `localStorage`, a subdomain parse, a cookie — can disagree with the server that rendered the page, and the two renders are then for two different tenants. That is Detector 4's failure mode with a security shape rather than a cosmetic one, which is why the detector's own wording says "across tenants, that is a data leak, not a glitch." Pass it down through the framework's payload channel and read it from there on both sides.
 
 ## Detectors (cite-or-halt)
 

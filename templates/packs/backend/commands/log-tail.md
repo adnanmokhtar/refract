@@ -23,7 +23,7 @@ Diagnostic / read-only command. Streams JSON logs from the dev server with `jq` 
 
 **The agent ONLY escalates to the user when:**
 - The user names a prod aggregator (Loki / CloudWatch / Datadog) — refuse, dev only.
-- Logs are plaintext with no structure — propose `/add-telemetry` and stop.
+- Logs are plaintext with no structure — propose `/add-telemetry` *(observability pack, when co-installed; otherwise propose adopting the project's logger's structured mode directly)* and stop. A redirect must land somewhere.
 - Correlation field name cannot be auto-detected after probing common keys — ask the user.
 - `.level` is numeric and the logger's scale direction cannot be established — ask, do not guess (see Phase 2).
 
@@ -172,21 +172,15 @@ Open follow-ups:
 
 ## Related
 
-### Sibling commands in backend pack
-- `/add-endpoint` — sibling command in backend pack
-- `/add-feature` — sibling command in backend pack
-- `/add-module` — sibling command in backend pack
-- `/analyze-module` — sibling command in backend pack
-- `/endpoint-test` — sibling command in backend pack
-- `/fix-bug` — sibling command in backend pack
-- `/trace-flow` — sibling command in backend pack
+### Sibling commands — where the boundary falls
+- `/trace-flow` — the static counterpart: it reads the path a request *would* take; this one reads what the running process actually emitted. Use both when they disagree.
+- `/endpoint-test` — pairs with this command on a `500` with no body: that one reproduces the call, this one recovers the context behind it.
+- `/fix-bug` — where every confirmed signal goes. This command produces evidence and correlation ids, never a fix.
 
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+- `ai/patterns/error-handling.md` — the log/error-code correlation this command reads back out of the stream.
+
+The other pack patterns are not read on this axis and are deliberately not listed.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

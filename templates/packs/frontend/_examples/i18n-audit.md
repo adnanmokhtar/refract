@@ -89,7 +89,7 @@ Before declaring the report complete, scan every finding for hand-wave language.
 ## Phase 6 — Validate
 - Interpolation tokens (`{count}`, `%{name}`, `{{user}}`) match across locales — mismatch = runtime crash, blocker.
 - Pluralization categories match per locale (en: `one/other`; ar: `zero/one/two/few/many/other`) — don't collapse.
-- Dynamic keys (`t('status.' + value)`) flagged for manual confirmation, not auto-deleted.
+- Dynamic keys (`t('status.' + value)`) resolved by the prefix-x-union sweep below, not left as "flag for manual confirmation" — that phrasing hands the hardest case back to the reader.
 - Translation field type is dynamic-key (`Record<string, string>` or the framework equivalent), and no active-language ref reduces the locale set through a two-branch ternary — both are `.claude/rules/i18n.md` § Must, and a parity report that passes while the type is fixed-key is measuring the wrong thing.
 
 ## Phase 7 — Improve

@@ -105,22 +105,11 @@ Harder when versions diverge significantly.
 **Option C: API gateway transforms**
 Gateway rewrites v1 requests to v2 format (and v2 responses back to v1). Original code only supports latest.
 
-## Request / response DTOs
+## Where the version branch is allowed to live
 
-```
-adapters/http/
-├── v1/
-│   ├── dtos/create-user.v1.dto.ts
-│   └── dtos/user.v1.response.ts
-├── v2/
-│   ├── dtos/create-user.v2.dto.ts
-│   └── dtos/user.v2.response.ts
-└── mappers/
-    ├── user-v1.mapper.ts    (domain → v1 DTO)
-    └── user-v2.mapper.ts    (domain → v2 DTO)
-```
+**The service layer knows nothing about versions. Only the adapter layer does.** Version-specific DTOs and mappers live beside the controller that serves them; everything below the adapter receives and returns the domain shape with no version in it.
 
-Service layer knows NOTHING about versions. Only controller layer.
+This is the rule Detector 8 enforces, and it is what makes every scheme above survivable. A version conditional that has sunk into a service, a repository or a job cannot be removed when that version is retired — nobody can prove which branch is dead — so the versioning scheme stops being reversible, which was the whole reason to buy one.
 
 ## Database migration vs API migration
 
@@ -149,25 +138,13 @@ Adjust timeline to your ecosystem. Public API: 12+ months. Internal API: 3-6 mon
 
 **Never `410 Gone` for a brownout** — it is cacheable by default, so a probabilistic one can be stored and replayed permanently, turning a fire drill into an outage. `410` is correct for the actual removal, where it is no longer probabilistic. Full argument in `ai/patterns/api-versioning.md` § Brownouts.
 
-## GraphQL versioning
+## Non-HTTP surfaces — deliberately not covered here
 
-GraphQL's answer: never bump versions. Evolve the schema:
-- Add new fields freely.
-- Deprecate old fields via `@deprecated(reason: "...")`.
-- Remove fields after usage drops to 0 (instrument field-level usage).
-- Field-level tracking is mandatory — otherwise you can't know when it's safe to remove.
+GraphQL and gRPC both have well-documented, tool-enforced evolution rules of their own (`@deprecated` plus field-level usage tracking; additive tag numbers plus `reserved`), and every schema-registry or linter in either ecosystem already checks them better than prose here could. Restating them would produce a fourth copy that drifts.
 
-## gRPC versioning
+What **does** carry over from this file, and is the part teams get wrong on those surfaces too: you still cannot remove a field until usage is measurably zero, and "nobody should be using it" is not a measurement. The instrument is different (field-level usage tracking rather than a per-version traffic dashboard); the discipline in § Deprecation timeline is the same one.
 
-Protobuf is additive-friendly:
-- Adding fields is safe (new tag numbers).
-- Removing fields: mark `reserved` to prevent reuse.
-- Changing types: not safe. New field, deprecate old.
-- Services: `UserServiceV2` alongside `UserServiceV1`.
-
-## Contract testing
-
-Pair versioning with contract tests (see `testing/skills/contract-test/SKILL.md`). A pushed version bump AND no consumer contract change = something's wrong.
+Contract tests are the mechanical form of that discipline on any transport — a version bump with no consumer contract change is a signal, not a success. They are owned by the testing pack.
 
 ## Forbidden
 

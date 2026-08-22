@@ -19,7 +19,7 @@ Diagnostic / read-only command. Produces a call chain + gap report, does not mod
 - Stop at "missing circuit breaker on Meta Send" without checking the other 4 external clients in the repo. **Check siblings; surface the cluster.**
 - Use words like `the service`, `the repo`, `somewhere downstream`. **Every step has a file:line — never a noun without a path.**
 - Map the whole app — ONE flow per invocation. **Cluster discovery is grep, not re-trace.**
-- Promise gaps "will be addressed elsewhere" without naming the follow-up command. **`/fix-bug`, `/add-telemetry`, ADR — pick one per gap.**
+- Promise gaps "will be addressed elsewhere" without naming the follow-up command. **`/fix-bug`, `/add-telemetry`, ADR — pick one per gap.** `/add-telemetry` ships in the **observability pack**; when that pack is not installed the gap routes to an inline instrumentation note against the project's own telemetry primitives, not to a command that does not exist. A redirect must land somewhere.
 - **Emit a latency, p95, throughput, cost or index-effectiveness figure the walk did not obtain.** This command reads source; source does not contain measurements. An invented `p95: ~8ms` in an output this persuasive is believed. **Every number carries its source or is emitted as `unmeasured` — see § Provenance rule.**
 
 **The agent ONLY escalates to the user when:**
@@ -346,21 +346,17 @@ Status: COMPLETE — read-only trace, no files modified.
 
 ## Related
 
-### Sibling commands in backend pack
-- `/add-endpoint` — sibling command in backend pack
-- `/add-feature` — sibling command in backend pack
-- `/add-module` — sibling command in backend pack
-- `/analyze-module` — sibling command in backend pack
-- `/endpoint-test` — sibling command in backend pack
-- `/fix-bug` — sibling command in backend pack
-- `/log-tail` — sibling command in backend pack
+### Sibling commands — where the boundary falls
+- `/log-tail` — the runtime counterpart. This command reads the path statically and marks steps `unmeasured`; that one supplies the signal that would close them.
+- `/analyze-module` — grades a module's axes; this one follows a single request across whatever modules it touches. Module-shaped question → there; request-shaped question → here.
+- `/fix-bug` — a gap this run names becomes a fix there. Naming the follow-up command per gap is a hard rule of this file.
 
 ### Patterns
-- `ai/patterns/api-contract.md`
-- `ai/patterns/api-versioning.md`
-- `ai/patterns/caching-strategy.md`
-- `ai/patterns/error-handling.md`
-- `ai/patterns/parallel-io.md`
+- `ai/patterns/api-contract.md` — the declared shape each hop in the traced path is supposed to honour.
+- `ai/patterns/parallel-io.md` — the oracle for a sequential-await step found on a hot path.
+- `ai/patterns/caching-strategy.md` — the oracle for a hop that should have been a cache hit and was not.
+
+The other pack patterns are not read on this axis and are deliberately not listed.
 
 ### Rules
 - `.claude/rules/backend-principles.md`

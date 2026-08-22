@@ -310,17 +310,62 @@ Common drifts:
 
 ### 12. timeout-policy-drift
 
-**Fingerprint**: per-endpoint or per-client timeout values differ wildly without documented reason. Some endpoints 30s, others 5s, others infinite.
+**Fingerprint**: per-endpoint or per-client timeout values differ across call sites in the same tier without a documented reason. Some 30s, some 5s, some absent.
 
-**Detection**: scan client / server config + middleware; cluster by service tier (per-tier different timeouts is OK; within-tier drift is not).
+**Detection (runnable)**: harvest every timeout literal with its call site, then cluster. The clustering is the detector; a list of timeouts is not a finding.
 
-**Closure verb**: `unify-timeout-policy`.
+```bash
+# 1. Harvest. Cover the three shapes: client-construction options, per-call options, and
+#    server/middleware config. Extend the pattern list from `references/<framework>.md` — this
+#    grep is stack-shaped, and a stack whose primitive is absent here scans clean for the
+#    wrong reason.
+rg -n --no-heading \
+  -e '\btimeout\s*[:=]\s*[0-9_]+' \
+  -e '\b(timeoutMs|requestTimeout|connectTimeout|readTimeout|socketTimeout|deadline)\s*[:=]' \
+  -e 'AbortSignal\.timeout\(\s*[0-9_]+' \
+  -e 'WithTimeout\(\s*[a-z]+,\s*[0-9]+' \
+  src/ config/ | sort -t: -k1,1 > timeouts.txt
+
+# 2. Cluster by value. A surface with one or two values has a canonical; a surface with nine
+#    has drift. The count is what makes this emittable, not any single row.
+grep -oE '[0-9_]+' timeouts.txt | tr -d '_' | sort -n | uniq -c | sort -rn
+```
+
+**Unit ambiguity is the footgun, and it is not cosmetic.** `timeout: 30` means 30 **seconds** in some clients and 30 **milliseconds** in others; the same integer in two files can be a 1000× difference. Resolve the unit from each library's own docs before comparing two numbers, and if a value's unit cannot be resolved, it does not enter the cluster — it is reported as `unit unresolved` at its `<file:line>`. Two "different" timeouts that are the same duration are a phantom finding; two identical integers that differ by three orders of magnitude are the real one, and a naive cluster reports exactly backwards on both.
+
+**Per-tier drift is correct, not drift.** A 30s export and a 2s lookup are supposed to differ. Cluster **within** a tier (same downstream, same interactivity class) and emit only when siblings in one tier disagree. The finding must name the tier and the sibling it contradicts.
+
+**A missing timeout outranks an inconsistent one.** A call site with *no* timeout is unbounded — it is not the low end of the distribution, it is a different defect (a hung upstream pins a worker until the process is restarted). Report it first, separately, and never fold it into the "inconsistent values" count.
+
+**Closure verb**: `unify-timeout-policy`. A call site with no timeout at all routes to `distributed-systems` (bulkhead / deadline propagation) rather than closing here — this skill unifies values that exist, it does not introduce resilience the surface never had.
 
 ### 13. retry-policy-drift
 
-**Fingerprint**: retry counts / backoff strategies differ across similar call sites without documented reason.
+**Fingerprint**: retry counts, backoff shape, or jitter differ across call sites hitting comparable dependencies, with no documented reason.
 
-**Closure verb**: `unify-retry-policy`.
+**Detection (runnable)**:
+
+```bash
+# Retry configuration, wherever the stack puts it.
+rg -n --no-heading \
+  -e '\b(retries|maxRetries|max_attempts|maxAttempts|retryCount|attempts)\s*[:=]\s*[0-9]+' \
+  -e '\b(backoff|retryDelay|retry_backoff|initialInterval)\s*[:=]' \
+  -e '\b(retry|Retry|with_retry|@Retryable|retryWhen|p-retry|tenacity|backoff\.on_exception)\b' \
+  src/ config/ > retries.txt
+
+# Which call sites have a retry policy at all, against which make outbound calls.
+rg -ln 'http|fetch|axios|requests\.|HttpClient|grpc' src/ | sort > callers.txt
+awk -F: '{print $1}' retries.txt | sort -u > has-retry.txt
+comm -23 callers.txt has-retry.txt          # outbound callers with NO retry policy
+```
+
+**The dangerous finding here is not inconsistency — it is a retry on a non-idempotent write.** A `POST` retried after a timeout may have succeeded upstream; the retry duplicates the side effect, and the caller cannot tell. Before reporting any retry row as merely inconsistent, check the method and the idempotency key: a retry on a `POST` with no `Idempotency-Key` is a correctness defect that outranks every drift row in this file, and it routes to `add-idempotency-key` (verb 7) rather than to `unify-retry-policy`.
+
+**Retry without jitter is a synchronised herd.** Identical backoff across N callers reconverges them onto the same recovery instant, which is how a recovering dependency gets knocked over a second time. Flag a backoff config with no jitter parameter even when every call site agrees — this is the one row where *consistency itself* is the defect, and a cluster-based detector reports it as clean.
+
+**Retry budgets compose multiplicatively.** Three layers each retrying 3× is 27 requests for one logical call, and each layer looks reasonable on its own. When the harvest shows retry configured at more than one layer of the same path, report the product, not the individual counts.
+
+**Closure verb**: `unify-retry-policy`. The retry *mechanism* (circuit breaker, budget, deadline propagation) is owned by the distributed-systems pack; this detector unifies what the surface already declares and hands the rest over.
 
 ### 14. openapi-coverage-gap
 

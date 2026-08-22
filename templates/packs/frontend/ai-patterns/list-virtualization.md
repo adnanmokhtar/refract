@@ -29,6 +29,18 @@ Every finding cites the offending render site at `<file:line>` + the matched pat
 - Any variable-height fix MUST cite the measurement strategy (measured/estimated row size) — a windowed list with wrong row heights scrolls to the wrong offset.
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` when claiming a list is "already virtualized" is forbidden — cite the virtualizer call site.
 
+## What "~100" is actually a proxy for
+
+The hard rule's threshold is a **row count**, because a row count is the only thing a reviewer can check at a glance. The cost it stands in for is **DOM nodes, and the layout and style work they force on every frame** — and rows are not interchangeable. A 3-node row (checkbox, label, badge) and a 40-node row (avatar, nested actions menu, inline chart, expandable panel) differ by more than an order of magnitude at the same count.
+
+The number to reason about is therefore **`nodes-per-row × rows`**, against a frame budget: the browser recalculates style and layout across the whole container on scroll and on every mutation, and that work scales with the node count, not with the array length. Practical consequences of reading the rule this way:
+
+- **A heavy row hits the ceiling far below 100.** A 40-node row at 40 rows is already 1,600 nodes — window it, and do not argue that 40 < 100.
+- **A trivial row can pass well above 100** if it is genuinely 2-3 nodes, has no per-row event listener, and the container is not re-rendered on unrelated state. Say so explicitly and `dismiss`; do not add a virtualizer, a scroll-math dependency and an a11y surface to a flat list of chips.
+- **Count the nodes, do not estimate them.** Open one rendered row in the element inspector and count its subtree. This is a 30-second check and it is the difference between a cited finding and a threshold applied by reflex.
+
+`~100` remains the default and the review trigger: below it, argue from the node count to skip; above it, argue from the node count to skip. What is not acceptable is treating the number as either a law or a suggestion without ever looking at a row.
+
 ## The windowing concept
 
 A virtualizer renders only the rows whose position intersects the scroll viewport, plus an **overscan** (a few rows above and below) so fast scrolls don't flash blank. The full collection stays in memory as data; only the visible slice becomes DOM nodes. A tall spacer (or absolutely-positioned rows inside a sized container) reserves the total scroll height so the scrollbar reflects the whole list, not just the mounted slice.
@@ -148,6 +160,7 @@ Grep: long static, find-in-page-relevant lists (docs, comments, changelog) rende
 
 - `report-with-fix` — cited render site + the fix routed through the project's existing virtualizer (or `content-visibility` for crawlable content).
 - `halt-handoff` — SEO/find-in-page-critical content, or an ambiguous primitive: hand off to `rendering-strategy.md` (pagination + SSR) or `@ui-architect` before windowing.
+- `dismiss` — a list above ~100 rows whose measured nodes-per-row keeps it under the frame budget (§ What "~100" is actually a proxy for), or a bounded list whose maximum length the data shape guarantees. Record the node count so the next scan does not re-open it.
 
 ## Related
 

@@ -9,6 +9,8 @@ description: Static technical-SEO scanner for the rendered document — missing/
 
 **SEO is machine-read. The crawler sees the HTML the server sends — not your runtime state.** The dominant failure is a route that looks fine in the browser but ships an empty/duplicate/misconfigured `<head>` (or an empty `<body>` on a CSR-only page) to Googlebot, social scrapers, and LLM crawlers. Every finding cites the element at `<file:line>` + the matched pattern + the fix in **this project's own metadata primitive**. "SEO is weak" without the cited tag is not a finding.
 
+**Closure verbs** — exactly one per finding. This skill emits `report-with-fix`, `report-flagged` (an indexation-policy call — which of four duplicate URLs is canonical, whether a faceted namespace should be indexed at all — which `@technical-seo` decides, not this scan), `dismiss` (the § False positives carve-outs: a self-referencing canonical, a correct `noindex`, a 62-char title), and `halt-handoff` (a CSR-only crawl-critical route → `rendering-strategy`, before any tag fix).
+
 This is a *static* scan of source + the rendered document. Pair it with `rendering-strategy` (is the route even server-rendered/prerendered so the crawler sees content?) and `lcp-audit`/`lighthouse-ci` (page-speed is a ranking signal). Structured-data findings should be re-checked against Google's Rich Results Test / Schema.org validator before shipping.
 
 ## Adapt to the codebase first (do NOT impose a generic template)
@@ -30,6 +32,22 @@ Before flagging anything, read how this project already sets metadata and **mirr
    | **Angular (Universal/SSR)** | `Title` + `Meta` services; `provideClientHydration`; SSR is mandatory for these to reach crawlers | `sitemap` route / build |
 
 3. If the project has a **shared SEO component/composable** (`<Seo>`, `useSeo`, a `defaultSeo` config), route every fix through it. Only propose a shared primitive if none exists and the same tags are copy-pasted across ≥3 routes.
+
+## Route class decides which families run (do not run nine on everything)
+
+Nine detector families on every route is how an admin panel gets a `BreadcrumbList` finding and a hreflang audit. Classify each route first — the class is a fact about the route, not a preference — then run only its column. Print the class beside every route in the report.
+
+| Route class | How you know | Families that run | Families that are `dismiss`ed, with the reason |
+|---|---|---|---|
+| **Indexable content** — marketing, blog, docs, PDP, category | public, no auth gate, listed in the sitemap or reachable from one | **all nine** | — |
+| **Public but not meant to rank** — thank-you, print view, share/preview links, faceted-filter permutations | public, but no organic-search intent | 5 (`noindex` **present** is the pass), 2 (canonical to the rankable parent) | 1/3/4/7/9 — a `<title>` band on a page that must not rank is noise |
+| **Auth-gated app surface** — dashboards, settings, `/admin` | behind a route guard or a server session check | 5 only, inverted: the finding is a **missing** `noindex`, and only where the route is server-rendered enough to be crawlable at all | 1/2/3/4/6/7/9 — the crawler never sees these; `seo: n/a (auth-gated)` |
+| **API / non-document routes** — `sitemap.xml`, `robots.txt`, resource routes, webhooks | not an HTML document | 6 only, as the subject of the audit rather than its target | everything else |
+
+Two edges worth stating because they are where this goes wrong:
+
+- **A route's class can be wrong in the codebase.** An `/admin` route with no `noindex` and no auth gate is not an auth-gated surface that forgot a tag — it is a public route, and family 5 fires as a blocker.
+- **Detector 8 (CSR-only) runs on every class that renders a document**, including the ones above where the other families are dismissed. Crawlability is not a tag concern, and it is the one finding that invalidates the rest: on an empty server body, families 1-4 and 7 are all grading tags the crawler will never read.
 
 ## Scans for
 
@@ -179,6 +197,7 @@ Findings: 5
 - Halt if a JSON-LD proposal asserts data (price, rating, author, date) not present on the page.
 - Halt if the real problem is crawlability (CSR-only) — hand off to `rendering-strategy` instead of proposing tags the crawler will never see.
 - Halt if a `noindex`/`Disallow` "fix" would de-index a route the project intends to rank.
+- Halt on a report whose rows carry no route class (§ Route class). Nine families run on an indexable route; on an admin route most of them are `dismiss`, and a report that cannot tell the two apart is grading a dashboard on its Open Graph tags.
 
 ## Related
 

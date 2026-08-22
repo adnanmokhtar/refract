@@ -39,9 +39,11 @@ create(@Body() dto: CreateOrderDto) {   // ValidationPipe already ran: dto is tr
 }
 ```
 
-Validation *deep inside a service* is the anti-pattern: the same rule gets re-implemented at three call sites, drifts, and one path forgets it. The service's job is business rules (does this customer have credit?), not "is this a string?". If a service is string-checking a field, the boundary leaked.
+Validation *deep inside a service* is the anti-pattern: the same rule gets re-implemented at three call sites, drifts, and one path forgets it. If a service is string-checking a field, the boundary leaked — Detector 3 is the mechanical form of that check.
 
 ## The order: decode → validate → normalize → authorize
+
+**This section is the one thing in this file that is regularly got wrong by people who already agree with everything else in it.** "Validate at the boundary" is a belief every competent engineer already holds; *validate before you canonicalize* is a rule most codebases violate in at least one place, because trimming and lowercasing feel like cleanup rather than like a decision, and they usually happen in whatever layer touched the value first.
 
 The four steps are ordered, and the order is load-bearing:
 
@@ -70,12 +72,12 @@ The allow-list is the set of fields the DTO/schema *declares* — everything els
 
 ## Bounds — nothing unbounded
 
-Every input carries a ceiling, enforced server-side regardless of what the client claims:
+Every string, array, number and nesting depth carries a server-side ceiling regardless of what the client claims; the Adapt table's third column gives the decorator per stack. That much is floor, and any validator's own docs will teach it.
 
-- **String length** — a `@MaxLength` on every string; an unbounded free-text field is a memory and storage hole.
-- **Array size** — `@ArrayMaxSize`; a 1M-element array kills the parser and any per-item fan-out.
-- **Numeric range** — `@Min`/`@Max`; a quantity of `-1` or `2^53` is a business-logic and integer-overflow bug.
-- **Nesting depth** — cap object/array nesting; deeply nested JSON is a parser-DoS (billion-laughs shape).
+**The part that is not floor:** a bound is only a bound where it is *enforced*, and the two places it usually is not are the ones nobody writes a test for.
+
+- **An array bound and a fan-out cap are different numbers, and the array bound is the one that must exist.** `@ArrayMaxSize(100)` on the DTO is what stops a client sending 10K ids; a concurrency cap downstream only decides how fast you melt. `parallel-io.md` Detector 2 explicitly cites *this* validator as the thing that should have capped the length — the two patterns meet here, and a bounded fan-out over an unbounded input is still an unbounded input.
+- **Nesting depth is usually enforced by the parser, not the schema, and most schema libraries cannot express it.** Find where the limit actually lives (body-parser option, JSON parser config, a gateway rule) and cite it; a `@ValidateNested()` chain that recurses is a stack-depth problem the DTO cannot see.
 
 ## Content-Type + body-size limits (DoS)
 
@@ -161,6 +163,8 @@ Flag validation failures returning a bare string / bespoke `{ error: "..." }` in
 Flag `.trim()` / `.toLowerCase()` / `normalize()` applied to a value *before* it is validated (rewriting input into something that passes a check the raw value would fail) → `report-with-fix` (`fix-validate-order`).
 
 ## Closure verbs
+
+Exactly one verb per finding. What each means for *this* pattern:
 
 - `report-with-fix` — matched at `<file:line>` + the concrete allow-list / boundary-schema / bound / body-limit / order patch.
 - `report-flagged` — the fix is a shared-contract decision (adopt one `422` field-error envelope; carve the internal trust boundary) → surface for ADR / hand-off.

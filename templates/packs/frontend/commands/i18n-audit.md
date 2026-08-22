@@ -16,7 +16,7 @@ Audit command. Static scan for i18n drift. Phases 1-3 + 6 dominate; Phase 4 prod
 3. Group by category (Missing | Hardcoded | Drifted | Dead). Append-only audit log to `ai/audits/<date>-i18n.md`.
 
 **The agent ONLY asks the user when:**
-- **Dynamic key** (`t('status.' + value)`) — flagged for manual confirmation; never auto-deleted.
+- **Dynamic key whose variable is not statically bounded** — the Phase 6 prefix-x-union sweep resolves every dynamic key whose bound it can cite; ask the user ONLY when no enumerable bound exists at any `<path:line>`. Never auto-delete either way.
 - **Missing translation value** — never auto-translate; copy pivot value verbatim with `// TODO: translate` so translators see it.
 - **Pluralization category collapse** — pivot has `one/other`; target locale needs `zero/one/two/few/many/other` — ask the translator, don't fabricate.
 
@@ -101,7 +101,20 @@ Before declaring the report complete, scan every finding for hand-wave language.
 ## Phase 6 — Validate
 - Interpolation tokens (`{count}`, `%{name}`, `{{user}}`) match across locales — mismatch = runtime crash, blocker.
 - Pluralization categories match per locale (en: `one/other`; ar: `zero/one/two/few/many/other`) — don't collapse.
-- Dynamic keys (`t('status.' + value)`) flagged for manual confirmation, not auto-deleted.
+- Dynamic keys (`t('status.' + value)`) resolved by the prefix-x-union sweep below, not left as "flag for manual confirmation" — that phrasing hands the hardest case back to the reader.
+
+### The dynamic-key sweep (prefix x union)
+
+A dynamic key is unreachable to the dead-key grep, and the pack's other two passes miss it in **both** directions. Resolve it mechanically instead:
+
+1. **The prefix is a literal and IS greppable.** `t('status.' + value)` puts `status.` in the source. Collect every key under that prefix from the pivot locale — that is the *supplied* set.
+2. **Find what bounds the variable, at its declaration.** A TS union or enum, a `const` array the values come from, a discriminated field on the DTO, or the API type. That is the *demanded* set. Cite it at `<path:line>`.
+3. **Cross the two sets, and report both directions:**
+   - supplied − demanded → **Dead (dynamic)**. Now safe to propose for deletion, because the bound is cited. Without step 2 this is exactly the deletion the § Halt list forbids.
+   - demanded − supplied → **Missing (dynamic)** — and this is the finding the whole audit otherwise cannot produce. The key exists in *no* locale, so the parity diff is silent about it: it is not drift between locales, it is a hole in all of them. It renders as the raw key string in production, for one status value nobody clicked in QA.
+4. **Unbounded variable** (a raw API string, free text, a tenant-supplied value) → the namespace can never be swept. Report `unresolvable: <prefix> (bound at <path:line> is not enumerable)` and require a fallback at the call site — the library's `defaultValue` / fallback-locale option — so an unknown value renders something rather than `status.pending_review`. An unresolvable prefix with no fallback is a **blocker**, not a note.
+
+Report dynamic findings in their own block. Never fold them into Dead or Missing: those two are grep-complete and these are inference from a cited bound, and collapsing them makes a cited claim and an uncited one indistinguishable to the next audit.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture missing-key patterns by feature.

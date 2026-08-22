@@ -42,7 +42,15 @@ Detect where the credential already lives before proposing anything; the right a
 | **SPA + BFF** | cookie to the BFF; the BFF holds the real token | router guard + BFF 401 handling | the BFF; the SPA only retries |
 | **SPA + bearer token** | in-memory access token + httpOnly refresh cookie | router guard | the HTTP client's response interceptor |
 
+| **Mid-migration** (SPA+bearer → BFF, or cookie → token) | **both, concurrently** — the old transport still serves some routes | the router guard, reading ONE resolved session, never two | see below |
+
 Whatever the row, **one module owns it**. Components ask that module; they never ask the browser.
+
+**The migration row is the one this pattern is most often opened during, and it is the row the other six cannot answer.** Halfway between two transports there are two places that know about credentials, which is precisely the failure the hard rule bans — and the answer is not "finish the migration first", because the half-migrated state is where the app lives for weeks. Three rules make it survivable:
+
+1. **The session module stays singular; only its *source* becomes a branch.** One `session.get()`, one refresh path, one logout fan-out. Inside it, one branch decides whether this request's credential comes from the cookie or the bearer store. Two session modules — one per transport — is two logouts, and one of them will be forgotten.
+2. **Refresh belongs to whichever side holds the *refresh* credential, and only one side may.** If the BFF holds it, the SPA never refreshes: it retries once on 401 and lets the BFF do the work. Both sides refreshing against a rotating refresh token is the § 401 stampede with two participants who cannot see each other, and it produces the same "random logouts" symptom with no concurrency in the app to explain it.
+3. **Logout fans out over both transports for the whole migration window.** Clearing the bearer store while the cookie survives leaves a session that the next request silently re-authenticates. Keep both teardowns until the old transport is deleted, and delete them in the same change that deletes it — a logout that clears a transport nobody uses is harmless; the reverse is a shared-device leak.
 
 ## Where the token lives (the trade, not a verdict)
 
