@@ -734,8 +734,17 @@ fi
 # zero adapter native files = "user hasn't run /setup-project-adapters yet."
 if [[ -x "$SCRIPTS_DIR/audit-adapter-coverage.sh" ]]; then
   echo "C2e: adapter translation coverage (M34b warn-only)"
-  "$SCRIPTS_DIR/audit-adapter-coverage.sh" "$TARGET" >/dev/null 2>&1 || true
-  if [[ -f "$CL/_adapter-coverage-audit.md" ]]; then
+  # Do NOT swallow the exit code. A dead chain that leaves a STALE report on disk
+  # previously reported "all adapters in sync" while audit-adapter-coverage.sh was
+  # exiting 1 on every run (measured: a missing ~/.claude/scripts/_adapter-emit.sh
+  # symlink took the whole M34 chain down and C2e still printed a pass).
+  if "$SCRIPTS_DIR/audit-adapter-coverage.sh" "$TARGET" >/dev/null 2>&1; then
+    _adapter_audit_ran=1
+  else
+    _adapter_audit_ran=0
+    warn "C2e: audit-adapter-coverage.sh exited non-zero — coverage numbers below are STALE or absent, not verified"
+  fi
+  if [[ "$_adapter_audit_ran" -eq 1 && -f "$CL/_adapter-coverage-audit.md" ]]; then
     # Extract pass/warn/fail counts from the table
     # Use awk — always exits 0 and prints a number, no grep -c "1 on no match" trap.
     err_n=$(awk '/^\| ❌/  {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || true)

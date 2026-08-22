@@ -169,7 +169,10 @@ ERR_LINE=$(profile_section_first_line "Error handling")
 # Top-level src dirs (cite-able paths) from _codebase-scan.md § "Top-level directories"
 SRC_DIRS=$(awk '/^## 2\. Top-level/{flag=1; next} /^## [0-9]+\./{flag=0} flag && /^src\// && !/\/\//' "$SCAN" 2>/dev/null \
            | head -3 | tr '\n' ' ' | sed 's/[[:space:]]*$//')
-[[ -z "$SRC_DIRS" ]] && SRC_DIRS="src/"
+# No src/ line in the scan is a real answer — this repo may not have one. Emitting a
+# hard-coded "src/" ships a path that does not exist into every anchored artifact
+# (measured: 288 artifacts in one run against a repo with no top-level src/).
+[[ -z "$SRC_DIRS" ]] && SRC_DIRS="<none — scan found no top-level source dir>"
 
 # Manifests we know exist (cite-able)
 MANIFESTS=""

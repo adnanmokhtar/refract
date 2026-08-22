@@ -1,7 +1,7 @@
 ---
 description: Install or refresh the Claude orchestration layer for a repo. Packs, rules, commands, agents, and project-aware tooling; mode is detected from the repo (CREATE, ENHANCE, --refresh, --refine, --upgrade) and mode drift halts. Trigger on 'set up Claude orchestration here', 'analyze this codebase and generate tooling', 'refresh my setup'. Do NOT trigger to create a CODEBASE from an idea (/scaffold-project chains this itself), to re-sync adapters only (/setup-project-adapters), to report health without writing (/setup-project-health), or to re-run --refine after a PLATEAU-DEEP verdict.
 compatibility: Requires bash and the framework scripts synced to ~/.claude/scripts — run-preflight.sh, audit-setup.sh, apply-study-decisions.sh, apply-anchors.sh. Without them the deterministic preflight and the Phase-5 audit cannot run, and success must not be declared. Writes across .claude/ and ai/. Adapter chaining needs the adapter set resolved in .claude/codebase-profile.md. Not verified outside a POSIX shell.
-version: 2.1.0
+version: 3.0.0
 # Tier 1 = HOT (load every session). Tier 2 = WARM (load by phase/task type).
 # Tier 3 = COLD (load on demand only). The orchestrator always loads tier 1;
 # tier 2/3 are pulled by the active phase. See @templates/import-tiers.md.
