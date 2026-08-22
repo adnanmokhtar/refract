@@ -1,26 +1,40 @@
 ---
 phase: 0
 name: backup-extract
-applies-to-modes: [REFRESH, REFINE]
+applies-to-modes: [REFRESH, REFINE, UPGRADE]   # applies to SS 0.1-0.2 ONLY. SS 0.0 (the deterministic preflight) is [all] — see the note under the heading.
 inputs: [target-repo, prior-setup-version-marker]
 outputs: [backup-tarball, .claude/_refresh-extract.md]
 exit-criteria: backup tarball written; prior knowledge serialized into .claude/_refresh-extract.md sections 2-12 for downstream phases
 ---
 
-### Phase 0 — Backup + extract prior knowledge (REFRESH mode only)
+### Phase 0 — Backup + extract prior knowledge
 
-**Triggers when**: `--refresh` flag is set OR Phase 1 detects REFRESH conditions (rare — REFRESH is almost always user-initiated).
+> **This file has two halves with different mode gates. Do not read one gate onto the other.**
+>
+> | Substep | Runs in | Authority |
+> |---|---|---|
+> | **§ 0.0 — deterministic preflight** (`run-preflight.sh`) | **EVERY mode — CREATE, ENHANCE-retrofit, ENHANCE-extend, REFRESH, REFINE, UPGRADE. Never skipped.** | **`commands/setup-project.md` § STEP ZERO** — that section is authoritative; this file must not contradict it. |
+> | **§§ 0.1–0.2 — backup + prior-knowledge extract** | REFRESH / REFINE / UPGRADE only | this file |
+>
+> The `applies-to-modes:` value in the frontmatter above describes §§ 0.1–0.2. It has never described § 0.0.
+>
+> **Why the distinction is load-bearing:** § 0.0's four reports are Phase 4's entire work plan. An observed ENHANCE-extend run against an 8,151-file repo had to choose between this file's blanket "skipped entirely in ENHANCE" and `setup-project.md` § STEP ZERO's "no exceptions"; had it obeyed this file, none of the four reports would exist and Phase 4 would have opened an empty plan on a repo with real gaps. Ordering also matters and is stated once, in § STEP ZERO: **Phase 1 runs before § 0.0**, because § 0.0 is invoked with the mode Phase 1 detected.
 
-#### 0.0 Mandatory deterministic checks (M15 — pre-flight)
+**§§ 0.1–0.2 trigger when**: `--refresh` / `--upgrade` is set, or `--refine` with `--refresh`, OR Phase 1 detects REFRESH conditions (rare — REFRESH is almost always user-initiated). **§ 0.0 needs no trigger — it always runs.**
 
-**Three shell scripts MUST run before any other Phase 0 substep.** They write structured reports the agent MUST read. The agent CANNOT skip them by claiming "I already know what's there." Bash output is the authority; LLM judgment is not.
+#### 0.0 Mandatory deterministic checks (M15 — pre-flight) — ALL MODES, never skipped
+
+**Four shell scripts MUST run before any other Phase 0 substep** (the wrapper below runs six — those four plus `detect-tracks.sh` and `detect-mcp.sh`). They write structured reports the agent MUST read. The agent CANNOT skip them by claiming "I already know what's there." Bash output is the authority; LLM judgment is not.
 
 **Canonical wrapper (preferred):** run all of these as ONE command — `run-preflight.sh` also runs
 `detect-tracks.sh` (M28) + `detect-mcp.sh` (M29), which the four individual calls below omit (audit
 finding #3). The individual invocations are what the wrapper calls, kept here for reference:
 
 ```bash
-~/.claude/scripts/run-preflight.sh "$TARGET_REPO" --mode=$MODE $SELECTED_PACKS
+~/.claude/scripts/run-preflight.sh "$TARGET_REPO" --mode=$MODE
+# $MODE is Phase 1's output; $SELECTED_PACKS is Phase 3's and is therefore EMPTY here.
+# Left empty, run-preflight.sh:162-192 runs detect-tracks.sh and scopes itself.
+# Passing a guessed list suppresses detection and silently narrows every report.
 ```
 
 ```bash
@@ -48,17 +62,26 @@ finding #3). The individual invocations are what the wrapper calls, kept here fo
 - `_study-existing-report.md` — answers "for files in BOTH pack and target, which need ENHANCE / MERGE / KEEP / REVIEW?"
 - `_codebase-scan.md` — answers "what does the actual codebase look like, what patterns/conventions/decisions are visible, and what STRUCTURAL improvements are warranted?" (the agent fills sections 8-15 including section 15: minimum 3 structural recommendations on non-trivial codebases)
 
-**Hard rule:** if any of these three reports shows ANY actionable item, declaring "no work to do" is FORBIDDEN. Phase 5 audit checks the reports vs the actions taken in Phase 4 and refuses success on any silent skip.
+**Also written by the wrapper** (`detect-mcp.sh`, M29): `_mcp-recommendations.md` — answers "which MCP servers does this repo's *evidence* justify?". Read its **Unwired** section before telling the user a server is configured: an ecosystem listed there has a real signal but no package this framework can name, so **nothing was written for it** — a `<TODO: …>` entry inside `args` is a startup failure disguised as config and is never emitted. Its **`.mcp.json` — what this run did** section is the authority on whether `--apply` wrote anything; `.mcp.json` is user-owned and the merge is additive only (present keys are never edited or removed).
+
+**Hard rule:** if any of these four reports shows ANY actionable item, declaring "no work to do" is FORBIDDEN. Phase 5 audit checks the reports vs the actions taken in Phase 4 and refuses success on any silent skip.
 
 The historic bug (M11 / M15): the agent read prose rules saying "scan the directory" and skipped the scan. Shell-side scripts can't be skipped — the file either exists with content or it doesn't, and Phase 5 verifies.
 
 **Purpose**: existing setup files are accumulated knowledge assets. Treating them as files-to-overwrite throws away months of refinement. Phase 0 captures both the safety net (backup) and the durable knowledge (extract) BEFORE any regen-write touches them.
 
-**Skipped entirely** in CREATE / ENHANCE-retrofit / ENHANCE-extend modes — those modes either have nothing to back up (CREATE) or never overwrite existing user content (ENHANCE; see Hard Rules § Never).
+**§§ 0.1–0.2 are skipped entirely** in CREATE / ENHANCE-retrofit / ENHANCE-extend modes — CREATE has nothing to back up, and ENHANCE is *additive by intent* (see Hard Rules § Never). That skip is about **this section's tarball**, not about having no safety net: the deterministic Phase-0 backup inside § 0.0's preflight runs in ENHANCE as well (see M36 below). **§ 0.0 above is NOT skipped in those modes** — it runs in all six, per `commands/setup-project.md` § STEP ZERO, which is authoritative on that point. Read this sentence as scoped to the backup and the extract, never to the preflight.
+
+> **M36 — "additive by intent" is not "additive by construction", and this file used to claim it was.** The earlier wording here — *ENHANCE "never overwrites existing user content"* — was the stated reason ENHANCE takes no Phase-0 backup. An observed ENHANCE-extend run against an 8,151-file repo on 2026-08-22 overwrote three hand-authored files anyway: `scripts/apply-study-decisions.sh --include=replace` acts on every `REPLACE-OR-ENHANCE` row, and the classifier issued that verdict on a size ratio alone. Do not restore the old claim. What actually makes ENHANCE safe is three things, and each must hold:
+>
+> 1. **`study-existing.sh` never issues `REPLACE-OR-ENHANCE` for a file carrying project knowledge** — a real project file path, or ≥3 code identifiers, absent from the pack. Such a row comes back as `MERGE (project-knowledge protected)` and is merged INTO the file, never over it. Note what is **not** on that list: the `<!-- project-specific:start -->` anchor. `apply-anchors.sh` writes that marker into every deployed artifact and the block says of itself "auto-generated, regenerate with `/setup-project --refine`", so it proves nothing about the target; when it briefly counted as a sole trigger, a truncated copy of a pack file was "protected" and `REPLACE-OR-ENHANCE` became unreachable. It is carried as corroboration on a reason the measured signals already earned.
+> 2. **`run-preflight.sh` takes the deterministic Phase-0 backup in ENHANCE too** (STEP −1, `run-preflight.sh:101`) — `.claude/` artifacts, `ai/`, `CLAUDE.md`/`AGENTS.md` and every adapter dir/file, with a manifest and a `restore.sh`. This is the correction to the original M36 note, which kept the exclusion and lowered the promise instead: it named `apply-study-decisions.sh`'s per-run `.claude/backups/study-decisions-<ts>/` copy as "the only snapshot an ENHANCE run has". That copy exists **only when a replace actually happens**, so a run that loses content any other way has nothing to restore from, and C2n's per-file comparison has nothing to compare against and reports ok. The backup is skipped only when the target genuinely has no prior setup on disk, and the preflight announces that rather than assuming it.
+> 3. **`apply-study-decisions.sh` still takes its own per-run backup** into `.claude/backups/study-decisions-<ts>/` before each replace. It is now a second line, not the only one — it is what the restore in the observed run used.
+> 4. **`audit-setup.sh` C2n now runs in ENHANCE**, comparing each backed-up file's project paths and identifiers against the live file. ENHANCE is the mode that *promises* to be additive, so a loss there is the most surprising — it must be the best defended, not the least.
 
 #### 0.1 Backup (the rollback safety net)
 
-> **M35**: `run-preflight.sh` already creates a deterministic backup (`.claude/` artifacts + `ai/` + CLAUDE.md/AGENTS.md) at Step −1 in REFRESH / REFINE mode — `audit-setup.sh` C2a verifies it exists and refuses success otherwise. The block below remains the FULL backup (tarball, honors `--backup-dir` / `--no-backup`); run it for anything the preflight copy doesn't cover. Even if this step is interrupted, the preflight safety net already exists.
+> **M35**: `run-preflight.sh` already creates a deterministic backup (`.claude/` artifacts + `ai/` + CLAUDE.md/AGENTS.md + adapter files) at Step −1 in REFRESH / REFINE / UPGRADE / ENHANCE mode — `audit-setup.sh` C2a verifies it exists and refuses success otherwise in REFRESH / REFINE / UPGRADE (in ENHANCE it is C2n that consumes it, because a bare retrofit legitimately has nothing to copy). The block below remains the FULL backup (tarball, honors `--backup-dir` / `--no-backup`); run it for anything the preflight copy doesn't cover. Even if this step is interrupted, the preflight safety net already exists.
 
 ```bash
 # Default backup target

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.15.1",
+  "version": "1.16.0",
   "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "`commands/add-feature.md`'s Signal-aware invariant pointed a `§ tokens` anchor at `rules/frontend-principles.md` for the inline theme-lane grading; that file has no `tokens` section — its five sections are Must / Must not / Should / Review checklist / Enforcement, and the design-token rule is a bullet under Must not. Citation repointed.",
+  "summary": "Outcome pass on the five workflows a fullstack developer runs daily: `/add-crud-page` gains a data-sensitivity gate ranked above the shape gate (the walk that produced a repo-owned card-number input now halts), a sibling census that makes the `gap_count` hard rule evaluable at n=0 and n=1, and a cross-row store verb class; `dev-server-start` resolves the workspace member before probing a port; `a11y-scan` opens every menu/dialog/tab and reports an interactive-surface row; `lighthouse-ci` gains the attribution step its halt already demanded plus the pack's performance triage router; `verify-with-playwright` derives its flow from the diff and detects the locale mechanism instead of hard-reloading `?lang=`.",
   "changelog": "CHANGELOG.md"
 }

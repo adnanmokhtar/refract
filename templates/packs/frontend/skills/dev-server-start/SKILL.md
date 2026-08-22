@@ -1,6 +1,6 @@
 ---
 name: dev-server-start
-description: Start the project's local dev server in the background and wait until it is ready, detecting pnpm/npm/yarn/bun and the port from project config. Idempotent — reuses an already-running server. Run before any skill that needs a live localhost (`verify-with-playwright`, `a11y-scan`, `visual-check`, `ssr-audit`); it starts a server and nothing else.
+description: Start the project's local dev server in the background and wait until it is ready, resolving the workspace member to run (pnpm/npm/yarn/bun workspaces, turbo, nx) before detecting the package manager and the port from project config. Idempotent — reuses an already-running server. Run before any skill that needs a live localhost (`verify-with-playwright`, `a11y-scan`, `visual-check`, `ssr-audit`); it starts a server and nothing else.
 ---
 
 # dev-server-start
@@ -9,7 +9,7 @@ description: Start the project's local dev server in the background and wait unt
 
 Existing project conventions are the truth. Read `package.json`, the lockfile, and the framework config before guessing — never invent a start command. Mirror the script the project already ships with (`dev`, `start`, `serve`); if none exists, halt rather than fabricate one. Idempotency is non-negotiable: a re-run in the same session must detect an already-running server, not spawn a duplicate.
 
-Refuse to start a server when `package.json` is absent at the chosen project root.
+Refuse to start a server when `package.json` is absent at the chosen project root — and **choose that root deliberately**, because in a workspace the nearest `package.json` above `$PWD` belongs to the workspace, whose `dev` script starts N servers rather than one.
 
 Boilerplate for "I need the app running locally before I can verify it." Used as a prerequisite by `verify-with-playwright`, `a11y-scan`, `visual-check`, `ssr-audit`, and any task that ends with "open the page and check."
 
@@ -28,13 +28,32 @@ Boilerplate for "I need the app running locally before I can verify it." Used as
 ## Inputs
 
 - Working directory of the project (defaults to `$PWD`).
+- Optional `app_target` — the workspace member to start (`apps/web`, or its package name). Required, or the run halts, when the workspace holds more than one app member. Ignored in a single-package repo.
 - Optional `port_override` (numeric) — when the project's default port is taken or a separate instance is needed (e.g., E2E parallel runs).
 
 ## Procedure
 
+### Step 0 — Resolve PROJECT_ROOT (runs before everything)
+
+The hard rule below requires a verified `package.json` at `PROJECT_ROOT`. Nothing *chooses* that root unless this step does, and in a workspace the obvious choice is the wrong one.
+
+1. **Is this a workspace?** Walk up from `$PWD` to the outermost directory holding a `package.json`. It is a workspace root when any of these sits beside it: `pnpm-workspace.yaml`, a `workspaces` key in that `package.json` (npm / yarn / bun), `turbo.json`, `nx.json`, `lerna.json`, `rush.json`.
+   **Not a workspace** → `PROJECT_ROOT` is that directory; go to Step 1.
+
+2. **Does the root `dev` script fan out?** Read `scripts.dev` there. `turbo run dev`, `nx run-many`, `pnpm -r dev`, `npm run dev --workspaces`, `lerna run dev`, `concurrently ...` each start **several** servers. That is the whole failure this step exists for: Step 2's single-port precedence picks one default, Step 5 declares ready on whichever app bound it first, and `verify-with-playwright`, `a11y-scan`, `visual-check` and `ssr-audit` then all run against the wrong app with no error raised anywhere. A silently wrong URL is worse than a halt, because the four downstream skills report clean results about a page nobody asked for.
+
+3. **Enumerate the app members.** Resolve the workspace globs — `pnpm-workspace.yaml` `packages:`, the `workspaces` array, or `apps/*` / `packages/*` — then keep only the members that are *apps*: a member with its own `scripts.dev` **and** a framework config beside it (`vite.config`, `next.config`, `nuxt.config`, `angular.json`, `svelte.config`, `astro.config`). A member with a `dev` script but no framework config (a watch-mode library build, an API server in a fullstack repo) is not an app for this skill's purpose — name it in the candidate list, do not silently drop it, and let the caller pick if that is what they meant.
+
+4. **Choose, and never guess:**
+   - `app_target` given → that member.
+   - Exactly one app member → take it and say so: `root: apps/web (sole app member)`.
+   - More than one app member and no `app_target` → **HALT `workspace-target-ambiguous`**, printing one line per candidate: `<dir> — <dev script> — <framework> — <configured port>`. Do not run the fan-out script; do not take the alphabetically-first member.
+
+5. **What resolves where.** `PROJECT_ROOT` is the chosen **member** directory — the framework config, the port, and the ready-probe all come from there. Two exceptions: the **package manager** is read from the lockfile at the *workspace* root (members do not carry one), and `.claude/dev-server.{pid,log}` stay at the workspace root, suffixed with the member so two members can run at once (`dev-server.web.pid`). Launch through the workspace runner so the member's dependencies resolve — `pnpm --filter <member> dev`, `npm run dev -w <member>`, `yarn workspace <member> dev`, `bun run --filter <member> dev`, or `npx turbo run dev --filter=<member>` — never a bare `cd <member> && npm run dev`, which bypasses hoisting in some layouts.
+
 ### Step 1 — Detect the runtime + start command
 
-Read `package.json` `scripts.dev` (or `scripts.start` for Next/Nuxt). Detect package manager from lockfile:
+Read `scripts.dev` in the **chosen member's** `package.json` (or `scripts.start` for Next/Nuxt). Detect package manager from the lockfile at the workspace root (single-package repo: the same directory):
 - `pnpm-lock.yaml` → `pnpm dev`
 - `yarn.lock` → `yarn dev`
 - `bun.lockb` → `bun dev`
@@ -56,8 +75,8 @@ not hardcode a path it has not verified for that version, and a stale guess is w
 
 Order of precedence:
 1. `port_override` input.
-2. Explicit port in `vite.config.ts` `server.port` / `next.config.js` / `nuxt.config.ts`.
-3. Framework default: Vite → 5173, Next → 3000, Nuxt → 3000, Angular → 4200, SvelteKit → 5173, Remix → 3000.
+2. Explicit port in the chosen member's `vite.config.ts` `server.port` / `next.config.js` / `nuxt.config.ts`, or a `--port` flag inside its own `dev` script.
+3. Framework default: Vite → 5173, Next → 3000, Nuxt → 3000, Angular → 4200, SvelteKit → 5173, Remix → 3000. **In a workspace, two members can share one default** — `apps/web` and `apps/admin` both on 3000. Whichever booted first owns the port; the second is not this app, so treat that as the collision path in Step 3, not as `already-running`.
 4. Fall back to 3000.
 
 ### Step 3 — Idempotency check
@@ -66,7 +85,7 @@ Order of precedence:
 lsof -nP -iTCP:<port> -sTCP:LISTEN 2>/dev/null
 ```
 
-If a process is already listening on that port AND it's a node/bun process (`lsof` output contains `node` or `bun`), assume it's the dev server — but confirm it is **this** project's server, not another repo's dev server squatting on the same default port (probe the body for this app's mount point / title before adopting it). Probe `http://localhost:<port>` with a 2-second timeout — 200 / 304 / any 4xx other than 404 means it's serving. Return `already-running` with the URL.
+If a process is already listening on that port AND it's a node/bun process (`lsof` output contains `node` or `bun`), assume it's the dev server — but confirm it is **this member's** server, not a sibling workspace member or another repo squatting on the same default port (probe the body for this app's mount point / title / a route only this member serves before adopting it). In a workspace this check is not optional: the sibling app is a node process serving 200s on the expected port, so an unprobed adoption always succeeds and is always wrong. Probe `http://localhost:<port>` with a 2-second timeout — 200 / 304 / any 4xx other than 404 means it's serving. Return `already-running` with the URL.
 
 If something else is listening (Postgres on 5432, etc.), choose `port_override = port + 1`, retry.
 
@@ -98,6 +117,7 @@ Return:
 
 ```
 dev-server-start
+  root: apps/web        (workspace: pnpm + turbo; 2 app members, app_target given)
   pkg-mgr: pnpm
   cmd: pnpm dev
   port: 5173
@@ -114,6 +134,8 @@ dev-server-start
 - **Bundler error** — dev server exits in <2s with non-zero code. Skill detects via pid recheck + log inspection. Surfaces last 30 log lines + halts.
 - **Watcher exhausted** (Linux ENOSPC) — fs.inotify limit hit. Surface the precise error + suggest `sudo sysctl fs.inotify.max_user_watches=524288`.
 - **Wrong project root** — `package.json` not found at `$PROJECT_ROOT`. Halt; do not start a server in the wrong dir.
+- **Workspace fan-out mistaken for one server** — the root `dev` delegates to `turbo` / `nx` / `pnpm -r`, N servers boot, and the ready probe adopts whichever app won the default port. Prevented by Step 0; if the fan-out already started, kill it and re-run against a single member rather than probing your way out.
+- **Sibling member adopted as `already-running`** — two members share a framework default port and the idempotency probe skipped the body check. The run then verifies the wrong app and reports PASS.
 
 ## Related
 
@@ -126,7 +148,8 @@ dev-server-start
 - **Idempotent.** Re-running this skill in a session must never spawn a duplicate server. The port-detection step is non-skippable.
 - **Background only.** Never block the agent's main loop on the server's stdout. Tail the log on demand.
 - **Never start a server in production / CI mode** — refuse if `NODE_ENV=production` or `CI=true` is set.
-- **Project-root verified.** `package.json` must exist at the chosen `PROJECT_ROOT`. No fallback to `cwd`.
+- **Project-root verified, and chosen rather than assumed.** Step 0 selects `PROJECT_ROOT`; `package.json` must exist there. No fallback to `cwd`, and no fallback to the workspace root when the target is a member.
+- **One member per run.** This skill starts a single dev server. Starting a workspace's whole app set is out of scope — the caller runs it once per member with an explicit `app_target`.
 
 ## Halt conditions
 
@@ -134,3 +157,5 @@ dev-server-start
 - Halt if the lockfile + package manager don't match (e.g., `pnpm-lock.yaml` present but `npm` requested). Mirror what the project actually ships with.
 - Halt if the port collides with a non-dev process after 3 bumps — stop guessing, surface the conflict.
 - Halt if the server exits within 2s of launch — capture the last 30 log lines and refuse to declare success.
+- Halt `workspace-target-ambiguous` if the repo is a workspace with more than one app member and no `app_target` was given. List the candidates with their dev script, framework and configured port; picking one is the caller's decision, not the run's.
+- Halt if the resolved start command is a fan-out runner (`turbo run dev`, `nx run-many`, `pnpm -r dev`, `npm run dev --workspaces`, `concurrently`) — that starts N servers and this skill returns one `url`. Re-resolve to a member first.

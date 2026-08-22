@@ -32,8 +32,13 @@ invoke() {  # $1=script-name $2=case-dir → prints exit code
     # makes a skeleton/leak finding exit non-zero (the bad-case contract). Pins the
     # extract_anchor_block fence-skip: good/ proves a FENCED example anchor is ignored,
     # bad/ proves a real (unfenced) skeleton anchor is still caught.
+    # --stdout is not incidental here: it keeps the harness from writing a report into
+    # every fixture on every run (that is what tests/validators/audit-anchoring.sh/
+    # .gitignore used to exist for), and it exercises the read-only mode against all of
+    # them, so a regression that reinstates the in-target write shows up as a red gate
+    # rather than as a quietly dirtied fixture tree.
     audit-anchoring.sh)
-      bash "$REPO_ROOT/scripts/audit-anchoring.sh" "$case" --strict --quiet >/dev/null 2>&1; echo $? ;;
+      bash "$REPO_ROOT/scripts/audit-anchoring.sh" "$case" --strict --quiet --stdout >/dev/null 2>&1; echo $? ;;
     # All other fixtured scripts honour --repo-root. New non-repo-root scripts get an arm here.
     *) bash "$REPO_ROOT/scripts/$script" --repo-root="$case" >/dev/null 2>&1; echo $? ;;
   esac

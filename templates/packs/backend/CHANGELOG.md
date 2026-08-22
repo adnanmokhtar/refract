@@ -9,6 +9,78 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.16.0 — 2026-08-22
+
+Outcome pass, not a correctness pass. The prior release asked whether the artifacts were *right*; this one
+asks whether running them produces good work. Five artifacts were handing the decision back to the developer
+— an elaborate ceremony wrapped around a domain paragraph the developer already knew — and each now makes the
+call instead. Scope of this release: `commands/` 4 of 9 (`add-feature`, `add-module`, `log-tail`, `trace-flow`),
+`skills/` 3 of 9 (`log-tail`, `debug-tenant`, `module-scaffold`), `_examples/` 6 of 37. No file added, none
+deleted. `references/`, `agents/`, `ai-patterns/`, `rules/`, `_essentials.md`, `_topics.md` and `STACK.md` are
+untouched by this pass, so `check-rule-budget.sh` does not move.
+
+**Changed**
+
+- **`commands/add-feature.md` — the signal table moved from Phase 3 into Phase 2, ahead of the architects.**
+  The design used to be frozen in Phase 2 and the constraints that should have shaped it read in Phase 3, so
+  `schema-architect` learned "no PAN column" *after* proposing one. Phase 2 is now Step 1 (resolve signals to
+  reads) → Step 2 (convert the five design-shaping signals into **binding constraints**) → Step 3 (dispatch the
+  architects **with those constraints attached**, under the same payload contract Phase 4 already applies to its
+  leaves) → one confirmation gate. The payment row is no longer one line about idempotency: it branches on
+  card-on-file vs money-moving, and for card-on-file states the PCI-scope decision (no PAN / CVV / track data —
+  `templates/domains/payment/agents/payment-reviewer.md:14`, priced at `:117`), the exact token envelope to
+  persist, the off-session mandate reference, per-tenant-user provider-customer scoping, the inbound detach
+  handler, and the partial-unique-index answer to the default-card race. Heavy tier now pauses **once**
+  (requirements + constraints + design together) instead of twice.
+- **`commands/log-tail.md` + `skills/log-tail/SKILL.md` — the level filter was broken and the two files
+  disagreed.** The command shipped `select(.level | IN("error","fatal","warn"))`, which returns zero rows on a
+  Pino project — the logger its own sibling skill documents — and the cluster halt then reported a confident
+  `Cluster size: 0`. The predicate is now **probed, not assumed** (`jq -r '.level | type'`, with a branch table
+  covering numeric, label, unknown-scale, mixed-type and missing-key cases), and the two artifacts no longer
+  restate each other: the skill owns the mechanism (source detection, probes, `jq` recipes, gotchas), the command
+  owns the interpretation (cluster halt, reporting halts, and a new **no-match ladder** that separates "wrong
+  source" / "wrong predicate" / "request never reached the handler" / "chain swallowed mid-flow" — the four
+  findings that used to share the face of "nothing in the logs").
+- **`commands/add-module.md` + `skills/module-scaffold/SKILL.md` — an aggregate-shape decision before
+  generation, and the floor stops getting weaker as the change gets bigger.** A new **Aggregate-shape decision**
+  gate names the aggregate root, its invariants, and which of the five CRUD operations the domain actually
+  admits, with a stated reason per omission — the one error the sibling-shape halt structurally cannot catch,
+  because a module shaped wrong can mirror its siblings perfectly. Phase 6 now runs `/add-endpoint`'s seven-row
+  Production-readiness ledger **per generated route** (five generated endpoints previously got `200/400/401`
+  while one hand-added endpoint got the full gate), plus two module-grain rows: transaction boundary across the
+  use-cases, and a named enforcement site for every invariant. The hard rule `DI tokens are Symbols, not
+  strings` — which contradicted the same file's mirror-the-sibling premise and made the command flag its own
+  output `drifted` on a string-token project — became `DI token style matches the named sibling; cite it at
+  <path:line>`, and the matching invariant in `module-scaffold` changed with it (as did its
+  enumerated-shortlist validation-library invariant and its three ask-the-user questions the codebase answers).
+- **`commands/trace-flow.md` — a provenance rule, and a `tx:` hop in the walk.** The flagship exemplar carried
+  `p95: ~8ms`, `p95: ~12ms`, `Latency: p95 ~2.4s` and `Cost per call: ~$0.00007` in a command declared read-only
+  whose walk reads source; nothing in phases 1–6 obtained any of them, and the exemplar is what the agent
+  copies. Every quantitative claim now carries an inline source or is emitted `unmeasured` (a first-class output
+  and itself a finding), enforced the way the hand-wave halt is, and the exemplar was scrubbed to model it. The
+  per-step annotation set gains **`tx:`** (`tx:<name>` / `tx:none` / `tx:AMBIGUOUS`), Phase 6 gains split-
+  transaction and external-call-inside-a-transaction gaps, and the exemplar — three DB writes and an external
+  send, previously silent on atomicity — now surfaces the split transaction as its top finding.
+- **`skills/debug-tenant/SKILL.md` — the playbook walked one architecture's chain and called it the chain.**
+  Step 3's verdict ("if the SQL lacks the filter — that's the bug") is a false-positive generator on any Postgres
+  RLS project, where the SQL is *supposed* to carry no filter. A new **Step 0** identifies the isolation
+  mechanism (application-level filtering / RLS / schema-per-tenant / database-per-tenant) and routes to that
+  mechanism's chain. Step 3B is the RLS chain — GUC value read inside the transaction, `SET LOCAL` vs bare `SET`,
+  `current_user` + `rolbypassrls` (**table owners normally bypass RLS unless the table carries FORCE ROW LEVEL
+  SECURITY** — the classic silent no-op), `relrowsecurity` + the policy rows, and the write policy's `WITH
+  CHECK`; behaviours per the PostgreSQL docs (`ddl-rowsecurity`, `functions-admin`). Step 3C is the hop the old
+  chain omitted entirely: which pooled connection served the query and whether its session state was reset since
+  the previous tenant used it — the leak that survives code review. Step 3D covers the namespace mechanisms.
+
+**Fallbacks re-cut in lockstep** (`phase-4.2-apply.md § 4.2-AUTHOR` copies these verbatim when extraction has no
+signal, so a stale one ships as the artifact): `_examples/add-feature.md` (regenerated verbatim — it declares
+`generated-from`), `add-module.md`, `log-tail.md`, `trace-flow.md`, `debug-tenant.md`, `module-scaffold.md`.
+
+**Not done here** — `skills/log-tail/` was **not** deleted despite being a merge candidate. Removing a skill
+directory changes the corpus counts asserted in `README.md` and `assets/pack-matrix.svg`, both outside this
+pack's boundary; `verify-readme-stats.sh` and `verify-pack-matrix.sh` would go red. The duplication was resolved
+by splitting ownership (mechanism vs interpretation) instead. See the integrator note if the directory is to go.
+
 ## 1.15.0 — 2026-08-21
 
 Quality pass, not a volume pass — the target was artifacts that were neither wrong nor missing, but thin:

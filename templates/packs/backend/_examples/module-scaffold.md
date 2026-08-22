@@ -30,11 +30,12 @@ End-to-end module generator. Mirrors a sibling module exactly so layout, imports
 
 ## Procedure
 
-1. Gather inputs from the user:
+1. Gather inputs. **Read what the codebase answers; ask only what it cannot.**
    - Module name (kebab-case).
    - One-line purpose.
    - HTTP routes? Webhook receiver? Queue consumer? Scheduled job?
-   - Multi-tenant? Soft-delete? Translatable?
+   - Multi-tenant posture, soft-delete convention, translatable/i18n convention: read these from the sibling and from extraction, **not** from the user — all three are visible in the sibling module, and asking is the "ask the user about layout" failure `/add-module`'s premise forbids. Ask only when no sibling exists.
+   - The route set: whatever `/add-module`'s aggregate-shape ledger admitted, never a default five.
 2. Read `ai/patterns/project-structure.md` to confirm the declared layout.
 3. Read a sibling module — note exactly: file names, folder layout, import order, DI token style (Symbol vs string), barrel exports vs direct imports, test file naming.
 4. Consult any framework reference (`.claude/references/<framework>.md`) for idiomatic shape.
@@ -77,7 +78,7 @@ modules/<name>/
 │           ├── create-<name>.dto.ts
 │           ├── update-<name>.dto.ts
 │           └── <name>.response.dto.ts
-├── tokens.ts                               Symbol DI tokens
+├── tokens.ts                               DI tokens (Symbol / string / framework-native — match the sibling)
 ├── <name>.module.ts                        @Module wiring
 ├── <name>.module.spec.ts                   wiring smoke test
 └── __tests__/
@@ -93,10 +94,10 @@ Plus:
 
 ## Generated-file invariants
 
-- Every DTO uses class-validator (or zod / pydantic) — every input field has a decorator.
+- Every DTO is validated **in the sibling's validation library** — every input field carries a validator. The library is read from the sibling, not chosen from a shortlist: introducing `zod` into a `class-validator` project is the drift `/add-module`'s sibling-shape halt rejects.
 - Every query in the repo includes the tenant filter if the project is multi-tenant.
 - Every entity extends the project's soft-delete base class (whatever name it uses — detected from extraction) if soft-delete is in use.
-- DI tokens defined as Symbols in `tokens.ts`, never inline strings.
+- DI tokens defined in `tokens.<ext>` **in the sibling's token style** (Symbol / string / framework-native) — never inline at the injection site, and never a style the sibling does not use. "Symbols, never strings" would issue the opposite order to the mirror-the-sibling premise on any project whose siblings use string tokens, and `/add-module`'s sibling-shape halt would then flag this skill's own output as `drifted`.
 - Migration is reversible — both `up()` and `down()` populated, no `// TODO`.
 - Test files import from the public surface (the module's barrel or controller), not internal paths.
 

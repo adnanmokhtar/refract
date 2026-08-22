@@ -25,10 +25,34 @@ Project emits OpenAPI: NestJS (`@nestjs/swagger`), FastAPI (auto), Spring (`spri
 api-snapshots/
 ├── openapi.v1.json              # committed current baseline
 ├── openapi.v1.snapshot.json     # working baseline (CI re-generates)
+├── README.md                    # the lanes the spec cannot carry (see step 0)
 └── changes.md                   # optional change log
 ```
 
+`api-snapshots/openapi.v1.json` is not just this skill's input file — it is the **published** contract, and the only path a consumer can be handed by name. Cite it as a path in every handoff. A consumer told to "read the OpenAPI spec", with no path, reads a controller instead.
+
 ## Flow
+
+### 0. First delivery — no baseline exists yet
+
+`oasdiff` needs two documents. On the first delivery of an API — a greenfield service, or the first resource added after this skill is installed — there is exactly one, so the diff is trivially clean and **this gate says nothing about the most consequential delivery the API will ever have**. Establish the baseline instead of diffing it:
+
+```bash
+mkdir -p api-snapshots
+curl -sf http://localhost:3000/api-json > api-snapshots/openapi.v1.json   # framework-specific — see step 1
+```
+
+Then write `api-snapshots/README.md`. The spec carries paths, methods, and schemas; it does not carry the decisions a consumer has to make on day one, and each is already recorded elsewhere in this pack:
+
+| Lane | Value to record | Already decided in |
+|---|---|---|
+| **Envelope branch** | `project-envelope` or `problem-details` | `ai/patterns/api-contract.md` § Response envelope |
+| **Error `code` vocabulary** | the enumerated `code` values these routes emit | `ai/patterns/error-handling.md` § Status mapping |
+| **Field-error row** | `{ field, code, message, meta? }` — and that `field` is a **path** (`items[0].quantity`), never a key | `ai/patterns/error-handling.md` § Field-level validation errors |
+| **Pagination** | `cursor` or `offset`; the exact `meta` keys; the exact query-param spelling | `ai/patterns/pagination.md` § Rules |
+| **Undiffed routes** | streaming / SSE / NDJSON routes + their record shape in prose | nowhere yet — a stream has no buffered body for `oasdiff` to compare, so these routes pass this gate without being checked |
+
+Recording a lane copies a decision already made; it does not make a new one. A lane with no decision behind it is the finding — halt and route it to the pattern that owns it, rather than letting the snapshot canonise a guess. Report `baseline: established (first delivery — no diff performed)`; never report a clean diff for a run that had nothing to diff.
 
 ### 1. Generate current spec
 Framework-specific:
@@ -121,6 +145,8 @@ If the project serves v1 and v2 simultaneously:
 
 ## Rules
 
+- **A first delivery establishes the baseline; it never reports a clean diff.** No prior document means no diff was performed — say `baseline: established (first delivery — no diff performed)` and write `api-snapshots/README.md` in the same PR.
+- **Streaming routes are listed as known-undiffed** in `api-snapshots/README.md`, with their record/event contract stated in prose, so a green gate is not read as coverage they never had.
 - Snapshot files committed to repo.
 - Diff runs on every PR.
 - Breaking changes require ADR.
@@ -132,4 +158,5 @@ If the project serves v1 and v2 simultaneously:
 - Halt on hand-waves: every diff entry must cite the endpoint path, method, and field. "Some endpoints changed" is not a verdict.
 - Halt if the current spec was not generated from a live built artifact — diffing a stale JSON file lies.
 - Halt if a breaking change ships without an ADR in `ai/decisions/` referencing it. No exceptions for "tiny renames".
+- Halt if a first delivery establishes `openapi.v1.json` with no `api-snapshots/README.md` beside it, or with a lane no pattern in this pack decided. A published baseline whose envelope branch, error-`code` vocabulary, or pagination spelling was guessed here is worse than an unpublished one: consumers treat it as authoritative.
 - Halt if the baseline is updated in a PR that does NOT also contain the approved breaking change — silent baseline bumps mask regressions.

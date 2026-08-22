@@ -50,7 +50,7 @@ Dependencies the gates actually use:
 | Tool | Needed by | If missing |
 |---|---|---|
 | `bash` | everything | Scripts target **bash 3.2** (macOS default) unless a header says otherwise. `lint-tool-parity.sh` documents a bash 4 requirement; it currently passes on 3.2, but do not rely on that when adding to it. |
-| `python3` | `verify-cheatsheet.sh`, `validate-pack-consistency.sh`, `test-refine-fixture.sh`, `test-adapter-fixtures.sh`, `dry-run-setup.sh` | those gates hard-fail |
+| `python3` | `verify-cheatsheet.sh`, `validate-pack-consistency.sh`, `test-refine-fixture.sh`, `test-adapter-fixtures.sh`, `dry-run-setup.sh`, `detect-mcp.sh --apply` | those gates hard-fail; `detect-mcp.sh` degrades to report-only (says so in the report, still exits 0) |
 | `jq` | `detect-mcp.sh`, `detect-tracks.sh`, and the shipped hooks | hooks degrade to a documented fallback (`guard-destructive`, `secret-scan`) or a silent no-op (`inject-path-rules`) |
 
 CI runs on `ubuntu-latest` with no extra install step. If your change needs a new binary, it does not
@@ -114,7 +114,7 @@ file and line; none of them require you to guess.
 | `lint-track.sh` | A `templates/tracks/<name>/` missing `detect.md` / `pack.md` / `conventions.md` / `meta.yaml`, or carrying an invalid signal kind, weight, or merge mode. | Follow `templates/tracks/_loader.md`. |
 | `lint-decision-logs.sh` | Spec drift in the Phase 4.6/4.7/4.8 decision-log format — an action token, a table column, a helper-function name, or the adapters' `hooks.json` event schema no longer documented where it is owned. Phase 4.8-DEEP's cost bound depends on those files staying parseable. | Update the live owner doc, not a copy. |
 | `test-adapter-fixtures.sh` | An adapter doc that cannot actually produce what the Phase 4.8.0 contract promises for it, or asymmetric drift between the adapter doc and its contract row. | Document the missing output path on both sides. |
-| `verify-global-scope.sh` | A pack command leaking into the global surface, or `sync-to-global.sh` sourcing from `~/.claude/commands` again. Checks [3] and [4] read live tool dirs and auto-skip in CI. | Keep pack commands in their pack. See §4. |
+| `verify-global-scope.sh` | A pack command leaking into the global surface, or `sync-to-global.sh` sourcing from `~/.claude/commands` again. Checks [3] and [4] read live tool dirs and auto-skip in CI. Check [6] fails an analysis script that sinks its report under `$TARGET` with no `--stdout` / `--no-write` arm. | Keep pack commands in their pack. See §4. Add the read-only mode; see §2b. |
 | `test-delegate-relay.sh` | The relay dispatching into its own repo, or a committing implementer coming back as an empty diff that reads like a harmless no-op. 9 sandboxed cases / 55 assertions under `mktemp -d` with a throwaway `$HOME`. | Fix the relay, not the fixture — and never test it against a repo you care about. |
 | `lint-handoffs.sh` | A reference that resolves as *text* but not as *contract* — a `§` anchor naming a section its target does not have, a key handed to a skill its `## Inputs` never declared, an artifact name no script writes, an ordinal gloss the scaffolder spells differently. The other gates verify the catalog; this one opens the cited file. | Fix the citation. If it is correct as-is, add a line **with a reason** to `scripts/_handoff-baseline.md` — a reasonless line suppresses nothing by design. |
 
@@ -124,7 +124,7 @@ file and line; none of them require you to guess.
 bash scripts/test-refine-fixture.sh     # /setup-project --refine marker-safety + structural contract
 bash tests/setup-project/run.sh         # setup-project fixtures/snapshots
 bash scripts/dry-run-setup.sh           # what a /setup-project run would emit
-bash scripts/pack-coverage-scan.sh <target-repo>   # pack content vs a real target tree
+bash scripts/pack-coverage-scan.sh <target-repo> --stdout   # pack content vs a real target tree
 bash scripts/verify-readme-stats.sh     # README's "What's inside" + the cheatsheet's pack-catalog figures vs disk
 bash scripts/validate-pack-consistency.sh --fallback-report   # the `_examples/` repair worklist (§5b)
 ```
@@ -138,6 +138,35 @@ inside" block reads `**72 scripts**` while `scripts/` holds 73, the 73rd being `
 returns it to `FAIL=0 WARN=0`, after which wiring it in is a two-line addition above. It is
 regression-pinned by `tests/validators/verify-readme-stats.sh/` in the meantime, so it cannot rot
 while it waits.
+
+### 2b. Running an analysis script against a repo you must not modify
+
+Every script here that ANALYSES a target repo used to sink its report inside that repo, so
+running one to *check* a project modified it — and `.claude/` got created in targets that
+had none. On 2026-08-22 that turned "verify the fix against the real project, read-only"
+into three regenerated reports inside the protected project: the verification **was** the
+write. Each of them now takes a read-only mode, and `verify-global-scope.sh` check [6]
+fails any new one that does not:
+
+| Script | Read-only invocation |
+|---|---|
+| `audit-anchoring.sh` | `--stdout` |
+| `audit-adapter-coverage.sh` | `--stdout` |
+| `study-existing.sh` | `--stdout` |
+| `pack-coverage-scan.sh` | `--stdout` |
+| `deep-codebase-scan.sh` | `--stdout` (also suppresses the preserve-path header re-stamp) |
+| `refresh-extract-checklist.sh` | `--stdout` (same) |
+| `detect-mcp.sh` | `--stdout` (refused with `--apply`, which exists to write) |
+| `migration-detect-existing.sh` | `--no-write` — **not** `--stdout`: stdout carries the verdict token callers read with `$(...)` |
+| `audit-setup.sh` | `--read-only` — routes all three sub-audits off-target |
+
+`--no-write` is accepted as an alias for `--stdout` everywhere it appears above. All of them
+also take `--report=<path>` to redirect the report; the space form `--report <path>` is
+**refused**, because in the scripts that take positional pack names a bare path would parse
+as a pack and the report would silently land in the target after all.
+
+The apply-family (`apply-*.sh`) is exempt: writing the target is their contract, and they
+are dry-run by default with `--apply` to commit.
 
 ---
 

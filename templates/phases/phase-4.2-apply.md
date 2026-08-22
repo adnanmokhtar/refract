@@ -88,6 +88,34 @@ Pre-flight inventory:
 
 User reviews the inventory before approval. This makes the failure mode visible BEFORE Phase 4.2 runs.
 
+### 4.2.b-shape — Skill shape: ONE identity, two legal shapes (M40)
+
+**The framework's position, stated once so nothing has to guess it:**
+
+| shape | path | status |
+|---|---|---|
+| **CANONICAL** | `.claude/skills/<name>/SKILL.md` | What every pack ships (`templates/packs/*/skills/<name>/SKILL.md`), what every CREATE install writes, and what `templates/appendices.md` and `templates/tool-adapters/claude-code/adapter.md` both name. Agent Skills folder form. |
+| **LEGACY** | `.claude/skills/<name>.md` | Flat form, written by pre-Apr-2026 setups. Still on disk in real projects. **Supported for reading and replacing in place. Never re-created.** |
+
+**A skill's identity is its `<name>`, never its path.** The two shapes are the same artifact. Three consequences, all mechanical:
+
+1. **Presence is resolved by identity — in every report, not just one.** `scripts/pack-coverage-scan.sh` tests both shapes before it writes a `Missing` row, and reports the flat ones under "Skill shape — N skill(s) on the LEGACY flat form" instead. `scripts/study-existing.sh` resolves the same way (`resolve_target_artifact`), so a legacy-flat skill is compared against its pack source and lands on a real merge-matrix verdict — `IDENTICAL-NO-OP` when the bodies agree — instead of an `**ADD**`. A legacy-form skill is **PRESENT**; it is not a Phase-4.2 copy target and it does not fail coverage.
+
+   This is load-bearing, and it was true of the coverage scan alone for one release. `study-existing.sh` still resolved the target by PATH, and **that** report is the one `audit-setup.sh` C2k regenerates and gates Phase 5 on. Its `**ADD**` row was unclosable: `apply-study-decisions.sh --apply` correctly refuses it with `SHAPE-SKIP` (copying would create a same-`name:` twin), the regeneration prints the same row, and C2k's remediation is exactly that no-op apply. Three such rows on the observed real target; up to 59 on a project that never migrated. If you ever add a third report over these artifacts, resolve by identity there too.
+2. **No write may put both shapes of one name on disk.** `check_skill_shape_twin()` in `scripts/apply-study-decisions.sh` refuses the write and the run exits 4; `check_skill_name_uniqueness()` in the same script re-checks the whole `.claude/skills/` tree by frontmatter `name:` afterwards, which also catches a duplicate whose two files are not filename twins. Every raw `cp` in this phase carries the same guard inline — see 4.2.b below.
+3. **Migration is explicit and one-way, never a side effect.** A project on the legacy shape moves with:
+
+```bash
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --migrate-skill-shape          # dry run — lists every move
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --migrate-skill-shape --apply  # moves; backs up to .claude/backups/skill-shape-<ts>/
+```
+
+It **moves** each file (`.claude/skills/<name>.md` → `.claude/skills/<name>/SKILL.md`); it never copies, because a copy is precisely the duplicate being prevented. Any name already carrying both shapes is reported as a CONFLICT and left untouched for a human to resolve. Re-run `pack-coverage-scan.sh` and the adapter sync afterwards — adapters project skills by name, so the projection is unchanged, but the sources they read moved.
+
+**Staying on the legacy shape is a legitimate choice.** REPLACE-OR-ENHANCE rewrites the flat file in place and the project keeps working. What is NOT a choice is carrying both: two files with one `name:` is a duplicate registration whose winner is undefined.
+
+> **Why this is written down.** Run of 2026-08-22 against an 8,151-file target: 56 of 59 flat-form skills were reported `Missing`, arrived at `apply-study-decisions.sh --apply` as `ADD` rows, and were copied in under their folder-form names. The project ended with 56 skills registered twice — 112 files, 56 identical `name:` values — and the coverage report, which calls itself the source of truth, still instructed the next agent to do it again.
+
 ### 4.2.b Deterministic copy (executed via Bash, not model-written)
 
 **Two modes**: STANDARD (default) and MINIMAL (when `--minimal` flag set).
@@ -101,13 +129,53 @@ For each selected track, run these EXACT commands (substitute `<track>` for the 
 mkdir -p .claude/agents
 cp -R ~/.claude/templates/packs/<track>/agents/*.md .claude/agents/ 2>/dev/null || true
 
-# Copy commands
+# Copy commands — COLLISION-AWARE (M41). NOT a bare `cp -R commands/*.md`: several command
+# names are deliberately shipped by more than one pack as PACK-SPECIALIZED VARIANTS —
+# docs/CHEATSHEET.md says so in as many words. Measured: `add-feature.md` ships in backend,
+# frontend and mobile; `refactor.md` in backend, frontend, code-quality and mobile. They are
+# DIFFERENT commands (backend add-feature is 523 lines, frontend's is 418), so a blind copy
+# into a shared `.claude/commands/` means the last track applied SILENTLY DESTROYS the
+# variants applied before it. A fullstack project loses one of each; a fullstack + mobile
+# project loses two. Nothing warned, and the loss is invisible after the fact.
+#
+# A variant is never overwritten and never dropped. The first track to claim a name owns the
+# bare `<name>.md`; every later variant lands beside it as `<name>.<track>.md`, and the
+# collision is recorded so the choice is auditable rather than accidental.
 mkdir -p .claude/commands
-cp -R ~/.claude/templates/packs/<track>/commands/*.md .claude/commands/ 2>/dev/null || true
+for c in ~/.claude/templates/packs/<track>/commands/*.md; do
+  [ -f "$c" ] || continue                      # no commands dir / no match → nothing to do
+  n=$(basename "$c")
+  if [ ! -e ".claude/commands/$n" ]; then
+    cp "$c" .claude/commands/"$n"; continue
+  fi
+  # Same bytes already there (re-run, or two packs shipping an identical file) → nothing to do.
+  if cmp -s "$c" ".claude/commands/$n"; then
+    echo "  cmd-skip: '$n' already installed, identical"; continue
+  fi
+  variant=".claude/commands/${n%.md}.<track>.md"
+  cp "$c" "$variant"
+  echo "  cmd-variant: '$n' already claimed by an earlier track — <track>'s variant installed as $(basename "$variant"), NOT overwritten"
+  printf '%s\n' "- \`$n\` — <track> variant installed as \`$(basename "$variant")\`; the bare name belongs to the track applied first." \
+    >> .claude/_command-variants.md
+done
 
-# Copy skills (recursive — skills can be folders with SKILL.md + sibling files)
+# Copy skills — SHAPE-AWARE (M40; see 4.2.b-shape above). NOT a bare `cp -R skills/*`:
+# a skill has one identity (<name>) and two legal shapes, so a blind recursive copy into a
+# project carrying the legacy flat shape installs a SECOND copy of every skill it already
+# has. Skip any name already present in EITHER shape — that is also the documented default
+# merge behaviour for this phase ("SKIP, don't overwrite"), which the old `cp -R` violated.
 mkdir -p .claude/skills
-cp -R ~/.claude/templates/packs/<track>/skills/* .claude/skills/ 2>/dev/null || true
+for s in ~/.claude/templates/packs/<track>/skills/*/; do
+  [ -d "$s" ] || continue                      # no skills dir / no match → nothing to do
+  n=$(basename "$s")
+  if [ -f ".claude/skills/$n/SKILL.md" ]; then
+    echo "  shape-skip: '$n' already installed (canonical)"; continue
+  fi
+  if [ -f ".claude/skills/$n.md" ]; then
+    echo "  shape-skip: '$n' already installed as .claude/skills/$n.md (legacy flat shape — same skill)"; continue
+  fi
+  cp -R "$s" .claude/skills/
+done
 
 # Copy rules
 mkdir -p .claude/rules
@@ -248,9 +316,18 @@ else
   mkdir -p .claude/skills
   for name in $ESSENTIAL_SKILLS; do
     [ -z "$name" ] && continue
-    cp -R ~/.claude/templates/packs/<track>/skills/$name .claude/skills/ 2>/dev/null \
-      || cp ~/.claude/templates/packs/<track>/skills/$name.md .claude/skills/ 2>/dev/null \
-      || true
+    # M40 shape guard — identical rule to standard mode: one identity, two legal shapes.
+    if [ -f ".claude/skills/$name/SKILL.md" ] || [ -f ".claude/skills/$name.md" ]; then
+      echo "  shape-skip: '$name' already installed"; continue
+    fi
+    # Land in the CANONICAL shape even when the pack ships the flat fallback that
+    # validate-pack-consistency.sh check 4 still accepts — new installs never get flat.
+    if [ -d ~/.claude/templates/packs/<track>/skills/$name ]; then
+      cp -R ~/.claude/templates/packs/<track>/skills/$name .claude/skills/
+    elif [ -f ~/.claude/templates/packs/<track>/skills/$name.md ]; then
+      mkdir -p .claude/skills/$name
+      cp ~/.claude/templates/packs/<track>/skills/$name.md .claude/skills/$name/SKILL.md
+    fi
   done
 
   mkdir -p .claude/rules
@@ -309,6 +386,7 @@ If a destination file already exists (`.claude/agents/code-reviewer.md` already 
 - `--force-replace-all`: overwrite.
 - `--force-keep-all`: same as default (skip).
 - Pre-flight inventory must distinguish: "X new files + Y skipped (already exist)".
+- **"Already exists" is decided by IDENTITY, not by path** (M40). For skills that means: `<name>` counts as existing if EITHER `.claude/skills/<name>/SKILL.md` OR `.claude/skills/<name>.md` is on disk. `--force-replace-all` overwrites **the shape that is installed** — it never adds the other one. Nothing in this phase, at any flag setting, may leave both shapes of one name on disk; `check_skill_shape_twin()` refuses and the run exits 4.
 
 ### Rules (preserved from prior version)
 

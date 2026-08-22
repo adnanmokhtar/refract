@@ -26,7 +26,16 @@
 #
 # Usage:  validate-pack-consistency.sh [--repo-root=<dir>] [--strict] [--quiet]
 #                                      [--fallback-report]
+#         validate-pack-consistency.sh --recopy         # list COPY-DRIFT repairs
+#         validate-pack-consistency.sh --recopy-apply   # perform them
 # Exit:   1 on any FAIL (or any WARN under --strict); 0 otherwise.
+#
+# `--recopy` / `--recopy-apply` close a COPY-DRIFT finding deterministically: they
+# re-copy each `_examples/<name>.md` that declares `generated-from:` from the
+# source it declares, preserving the example's own head. That is the step the
+# file's header has always demanded ("edit the command and re-copy") and that
+# nothing could perform — which is why both sides were hand-edited and this gate
+# went RED. These two modes run alone and exit; they never combine with a scan.
 #
 # `--fallback-report` prints the full 8b picture — every baselined defect plus the
 # safety-signal backlog that is counted but not gated. It is the repair worklist; it
@@ -36,18 +45,117 @@ set -uo pipefail
 export LC_ALL=C
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STRICT=0; QUIET=0; FB_REPORT=""
+STRICT=0; QUIET=0; FB_REPORT=""; RECOPY=0; RECOPY_APPLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo-root=*) REPO_ROOT="${1#*=}"; shift ;;
     --strict) STRICT=1; shift ;;
     --quiet) QUIET=1; shift ;;
     --fallback-report) FB_REPORT="--report"; shift ;;
+    --recopy) RECOPY=1; shift ;;
+    --recopy-apply) RECOPY=1; RECOPY_APPLY=1; shift ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
 cd "$REPO_ROOT" || exit 1
 REPO_ROOT="$PWD"   # absolute from here on: check 8b resolves paths against it AFTER this cd
+
+# ---------------------------------------------------------------------------
+# --recopy / --recopy-apply — the EXECUTABLE half of COPY-DRIFT's remediation.
+#
+# A `_examples/<name>.md` carrying `<!-- generated-from: <path> -->` is a literal
+# copy, and its own header says "REGENERATE whenever the command changes … Do not
+# hand-edit; edit the command and re-copy." Until this mode existed there was
+# nothing to run: the only re-copy was a human retyping it, so both sides got
+# hand-edited independently and this gate went RED with
+#   FAIL backend: _examples/add-feature.md [COPY-DRIFT] … differs by 34 line(s)
+# The gate could name the drift; nothing could close it deterministically.
+#
+# Reconstruction, matching exactly what `body()` below compares:
+#   1. the EXAMPLE's head, byte for byte — frontmatter, its blank-line
+#      convention, and the `generated-from:` block. COPY-DRIFT is a BODY check
+#      (`body()` strips frontmatter and HTML comments first) and an example's
+#      frontmatter is legitimately abridged: database/_examples/schema-diff.md
+#      carries a one-line `description:` where its source skill carries four.
+#   2. the SOURCE's body, verbatim — the only part COPY-DRIFT grades and the only
+#      part this rewrites.
+# Verified lossless: on a clean tree all 10 declared copies reconstruct
+# byte-identically, and a file whose body already matches is skipped before any
+# reconstruction happens, so a clean run rewrites nothing.
+#
+# Exit: 0 when nothing drifted, or when --recopy-apply repaired everything;
+#       1 when a dry run found drift; 2 when a declared source is missing.
+if [[ $RECOPY -eq 1 ]]; then
+  python3 - "$REPO_ROOT" "$RECOPY_APPLY" <<'RECOPY_PY'
+import os, re, sys
+root, apply_ = sys.argv[1], sys.argv[2] == "1"
+
+def read(p):
+    with open(p, encoding="utf-8") as fh:
+        return fh.read()
+
+def split_fm(t):
+    if not t.startswith("---"):
+        return "", t
+    i = t.find("\n---", 3)
+    if i < 0:
+        return "", t
+    end = t.find("\n", i + 1)
+    if end < 0:
+        return t, ""
+    return t[:end + 1], t[end + 1:]
+
+# Identical normalization to body() in the gate below.
+def cmp_body(t):
+    _, rest = split_fm(t)
+    rest = re.sub(r'<!--.*?-->', '', rest, flags=re.S)
+    return [l.rstrip() for l in rest.splitlines() if l.strip()]
+
+drift, fixed, checked, errs = [], [], 0, []
+packs = os.path.join(root, "templates", "packs")
+for pack in sorted(os.listdir(packs)):
+    exdir = os.path.join(packs, pack, "_examples")
+    if not os.path.isdir(exdir):
+        continue
+    for name in sorted(os.listdir(exdir)):
+        if not name.endswith(".md"):
+            continue
+        ex_path = os.path.join(exdir, name)
+        ex = read(ex_path)
+        m = re.search(r'<!--\s*generated-from:\s*([A-Za-z0-9._/-]+).*?-->', ex, flags=re.S)
+        if not m:
+            continue
+        src_path = os.path.join(root, m.group(1))
+        rel = os.path.relpath(ex_path, root)
+        if not os.path.isfile(src_path):
+            errs.append("%s: generated-from source missing: %s" % (rel, m.group(1)))
+            continue
+        checked += 1
+        a, b = cmp_body(ex), cmp_body(read(src_path))
+        if a == b:
+            continue
+        head = ex[:m.end()]
+        gap = re.match(r'\n*', ex[m.end():]).group(0) or "\n\n"
+        _, src_body = split_fm(read(src_path))
+        drift.append((rel, m.group(1),
+                      sum(1 for x in a if x not in b) + sum(1 for x in b if x not in a)))
+        if apply_:
+            with open(ex_path, "w", encoding="utf-8") as fh:
+                fh.write(head + gap + src_body.lstrip("\n"))
+            fixed.append(rel)
+
+for e in errs:
+    print("  ERR   " + e)
+for rel, src, d in drift:
+    print("  %s %s  <- %s  (body differs by %d line(s))"
+          % ("RECOPIED" if apply_ else "DRIFT   ", rel, src, d))
+print("recopy: declared copies checked=%d drifted=%d %s"
+      % (checked, len(drift), ("recopied=%d" % len(fixed)) if apply_
+         else "(dry run - pass --recopy-apply)"))
+sys.exit(2 if errs else (0 if (apply_ or not drift) else 1))
+RECOPY_PY
+  exit $?
+fi
 
 fail=0; warn=0
 err()  { echo "  FAIL  $*" >&2; fail=$((fail + 1)); }
@@ -601,7 +709,8 @@ for p in sorted(os.listdir(PACKS)):
             if a != b:
                 d = sum(1 for x in a if x not in b) + sum(1 for x in b if x not in a)
                 findings.append((key, "COPY-DRIFT", "declares generated-from: %s but its body "
-                                 "differs by %d line(s) - re-copy, do not hand-edit" % (m.group(1), d)))
+                                 "differs by %d line(s) - re-copy, do not hand-edit: "
+                                 "validate-pack-consistency.sh --recopy-apply" % (m.group(1), d)))
         # ---- UNDECLARED-COPY: the body IS the source's, and nothing says so. This is the one
         #      state the rest of the check cannot see BY CONSTRUCTION - it never diffs prose - and
         #      it is strictly worse than either honest option: an abridgement is held to the rules

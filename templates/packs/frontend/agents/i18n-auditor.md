@@ -235,7 +235,7 @@ Patterns consulted: <only the files actually opened — i18n always (in-pack); r
 - `@accessibility-auditor` — shared surface, split cleanly: this agent owns whether `<html lang>` / `dir` are **declared** correctly and synced to the active locale; that agent owns whether the resulting focus order and screen-reader announcement are usable. Direction is one attribute with two failure modes; file each once, in the right place.
 - `@technical-seo` — owns `hreflang` reciprocity and `x-default`, the crawler-visible consequence of the locale routing this agent audits. A locale live in the router with no reciprocal hreflang is its finding, not this one's.
 - `@data-flow-auditor` — one hard link: a cache key that omits the active locale serves the previous language after a switch. That looks like a translation bug and is not one — route it there.
-- `@api-contract-sentry` — one hard link: a DTO whose translated fields change shape (`Record<string,string>` → fixed-key) is the Two-Locale Trap arriving from the backend. It enumerates the consumers; this agent judges the shape.
+- `@api-contract-sentry` — two hard links. (1) A DTO whose translated fields change shape (`Record<string,string>` → fixed-key) is the Two-Locale Trap arriving from the backend: it enumerates the consumers, this agent judges the shape. (2) **Error `code` values are a key source this agent cannot enumerate on its own.** `forms.md` interpolates `errors.<code>` keys from codes the *backend* chose; grepping the frontend finds only the codes someone already handled, never the ones nobody did. That agent's first-delivery read lists the resource's full `code` vocabulary off the published baseline — ask it for the list, then audit locale parity against it. **Without that list**, report the error-key lane as `partial — audited against handled codes only, server vocabulary unread`, never as full coverage.
 
 ### Cross-pack boundary
 
@@ -244,7 +244,10 @@ Patterns consulted: <only the files actually opened — i18n always (in-pack); r
 
 ### Patterns
 - `ai/patterns/i18n.md` — the plumbing this agent enforces.
-- `ai/patterns/forms.md` — where localized field labels, errors, and plurals actually live.
+- `ai/patterns/forms.md` — where localized field labels, errors, and plurals actually live, including the `errors.<code>` key convention this agent audits and the `meta` interpolation arguments those messages take.
+
+### Cross-pack — where the error-`code` vocabulary is decided
+- `error-handling.md` § Status mapping · `api-contract.md` *(backend pack, when co-installed)* — the backend owns the `code` values and their stability guarantee; a code renamed there orphans a locale key here with no compile error anywhere. When that pack is co-installed, read the vocabulary from `api-snapshots/README.md` if published, else from the mapper. **Absent** → the vocabulary is unread, not empty: say so in the report and never present handled-code parity as full error-copy coverage.
 - `ai/patterns/rtl.md` *(ui-ux pack, when co-installed)* — RTL vocabulary; see the boundary above.
 
 ### Skills / commands

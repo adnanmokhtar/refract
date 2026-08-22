@@ -107,6 +107,34 @@ artifact_identity() {
   esac
 }
 
+# A LIVE anchor is a `<!-- project-specific:start -->` line at column 0 that is NOT
+# inside a ``` fenced code block. A marker inside a fence is DOCUMENTATION of the
+# convention (a skill showing the reader what an anchor block looks like), not an
+# anchor this project actually carries.
+#
+# This MUST agree byte-for-byte in meaning with audit-anchoring.sh's
+# extract_anchor_block(), which has always skipped fenced regions. While this script
+# tested only `grep -qE '^<!-- project-specific:start -->$'`, the two disagreed, and the
+# disagreement was an unresolvable deadlock: a file whose ONLY marker is a fenced example
+# read as "already anchored → skip" here and as an empty block ("anchor-too-thin(0-lines)")
+# there — and the audit's printed remediation, "re-run apply-anchors.sh --apply", was a
+# guaranteed no-op precisely because THIS branch is what skipped the file.
+#
+# Measured against the real 8,151-file target repo, the two files that DOCUMENT the marker
+# convention deadlocked exactly this way:
+#   .claude/skills/compute-anchor-density.md  (fenced example marker at SKILL.md:48)
+#   .claude/skills/apply-pack-adaptation.md   (fenced example markers at SKILL.md:195,233)
+# apply-anchors: "Injected 0 / Already anchored 234"; audit --strict: "2 unanchored
+# (anchor-too-thin(0-lines))", REFUSED, forever.
+has_live_anchor() {
+  awk '
+    /^[[:space:]]*```/ { fence = !fence; next }
+    fence { next }
+    /^<!-- project-specific:start -->[[:space:]]*$/ { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$1" 2>/dev/null
+}
+
 # ---------- Extract facts from profile/scan into one shared anchor block ----------
 
 # Pull first non-empty content line under a "## <Heading>" section in
@@ -387,11 +415,14 @@ for kind in commands agents skills rules ai-patterns; do
     fi
 
     # Already anchored?
-    # Match the marker only when it appears as its own line (a real injected block),
-    # NOT when it appears as text inside prose / backticks (pointer documentation).
-    # Without `^...$` anchors, descriptive prose like "the `<!-- project-specific:start -->` block"
-    # would be treated as already-anchored and skipped, leaving the file un-injected.
-    if grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$f" 2>/dev/null; then
+    # Two ways a marker can appear without being a live anchor, both of which must NOT
+    # count as anchored:
+    #   1. inline in prose / backticks — "the `<!-- project-specific:start -->` block"
+    #      (excluded by the `^...$` anchors inside has_live_anchor)
+    #   2. at column 0 but inside a ``` fence — a worked example in a file that TEACHES
+    #      the marker convention (excluded by has_live_anchor's fence tracking)
+    # See has_live_anchor above for the deadlock this second case used to cause.
+    if has_live_anchor "$f"; then
       already=$((already + 1))
       continue
     fi

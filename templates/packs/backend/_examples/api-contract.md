@@ -211,6 +211,29 @@ If you've inherited inconsistent endpoints:
 4. Once frontends move, deprecate `v1` per the versioning section.
 5. Add a contract test in CI that fails if any new endpoint deviates from the envelope.
 
+## Publishing the contract — the first delivery
+
+Everything above classifies a *change*. Every instrument that acts on a change needs a prior baseline: `oasdiff` in the `api-snapshot` skill diffs against one, `@api-contract-sentry` *(frontend pack, when co-installed)* fans out from one. On the **first** delivery of a resource all of them are structurally silent — the diff is trivially clean and the blast radius is zero because nothing has consumed it yet. A first delivery has no gate unless it *publishes*:
+
+```
+api-snapshots/
+├── openapi.v1.json     # the spec — the `api-snapshot` skill owns the file and the CI diff
+└── README.md           # the four lanes below: everything the spec cannot carry
+```
+
+Name it as a path in every handoff. A consumer told to "read the OpenAPI spec" with no path reads a controller instead and calls that the contract.
+
+| Lane | Value to publish | Decided in | What a wrong guess costs |
+|---|---|---|---|
+| **Envelope branch** | `project-envelope` or `problem-details` | § Response envelope (this file) | The consumer unwraps `data.fieldErrors[]` from a body that puts field errors in an `errors` extension member, or the reverse. Validation errors render as "something went wrong". |
+| **Error `code` vocabulary** | the enumerated `code` values this resource emits | `error-handling.md` § Status mapping | Copy written for codes the server never sends, none for the codes it does. |
+| **Pagination mode + spelling** | `cursor` or `offset`; the exact `meta` keys; the exact query-param spelling | `pagination.md` § Rules | `?per_page=` sent where the endpoint reads `limit`; `meta.total` read off a cursor response that carries only `nextCursor` / `hasMore`. |
+| **Undiffed routes** | streaming / SSE / NDJSON routes, with their record or event shape in prose | the `api-snapshot` skill | A green CI gate read as coverage those routes never had. |
+
+**`field` is a path, not a key.** `error-handling.md` § Field-level validation errors fixes the row as `{ field, code, message, meta? }`, and its worked value is `'items[0].quantity'`. A consumer that types `field` as a key of its input object (`keyof T`) silently drops every nested and array-indexed error — the value is a path expression, never a member name, and the mis-type compiles. `meta` carries the interpolation arguments and is the only member a *translated* message can be built from; `message` is dev-facing, and this file's Hard rule keeps English-prose error keys off the wire. Publish the row shape with `meta` in it.
+
+**Absent an `api-snapshots/` directory** the contract is still real — it is unpublished, and every consumer's read of it is a guess. Record `contract: unpublished — consumers derive from source` in the change description. Do not promise a generator: nothing in this pack runs `openapi-typescript` or any other codegen, and a hand-written client that says so is worth more than a generated one no step produces.
+
 ## References
 
 - Stripe API reference (stripe.com/docs/api) — gold standard for stable code, evolved for 12+ years.

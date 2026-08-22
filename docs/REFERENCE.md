@@ -1154,15 +1154,15 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 
 | Script | What it checks |
 |---|---|
-| `audit-setup.sh` | Phase 5 audit for `/setup-project` runs. TBDs filled, pack coverage, anchoring, adapter coverage. |
+| `audit-setup.sh` | Phase 5 audit for `/setup-project` runs. TBDs filled, pack coverage, anchoring, adapter coverage. `--read-only` runs the whole audit without writing into the target. |
 | `validate-migration-artifacts.sh` | Per-feature migration artifacts: contract sections, parity tests, audit provenance, V2-structure conformance, gap-count parity, hand-wave detection. |
 | `validate-align-artifacts.sh` | **`/align` gate** — mechanical per-finding checks: evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum, perf-baseline, security-assertion, functional-adds-cite-idiom, oracle-unmodified, scope-code-smells; plus run-level scan-report-evidence, progress↔ledger reconciliation, and actionable-next-steps. Genuinely-agent-side checks (test-coverage, frontend-regression, re-detect-to-zero, fingerprint-still-present, ledger-completeness, mechanical-green-at-HEAD, per-tier-artifact-set) need runtime tooling and stay outside the script. |
 | `validate-optimize-artifacts.sh` | **`/optimize` gate** — Phase 0 (`ai/optimize/_architecture-decisions.md`): four non-empty evidence blocks, detector `Modules scanned ≥ 1`, each `### F-A-*` cites `<path:line>`, hand-wave grep, `.claude/_extracted-idioms.md` present (`--strict`: oracle referenced). **Ledger** (`ai/optimize/ledger.md`): fenced YAML `id:` rows; terminal rows `gaps_in == gaps_closed`; structural-class net-lines vs `--phase-base..HEAD` (warn if git/base missing); functional-style net-positive rows should cite idioms in `ai/optimize/findings/<id>.md`. Optional scan of `ai/optimize/findings/*.md` for hand-waves. |
 | `validate-refactor-artifacts.sh` | **`/refactor` gate** — **Ledger** (`ai/refactor/ledger.md`): fenced YAML `id:` rows; `closure_verb` must be one of the 10 `refactoring-sweep` verbs; terminal rows `gaps_in == gaps_closed`; class `refactoring` net-lines vs `--phase-base..HEAD` (warn if git/base missing). Optional scan of `ai/refactor/findings/*.md` for hand-waves. `--self-test` smoke test (writes under `tmp/`). See [`templates/tool-adapters/_refactor-pack-coverage.md`](../templates/tool-adapters/_refactor-pack-coverage.md). |
 | `validate-polish-artifacts.sh` | Per-surface artifacts for `/polish`: stack-conditional checks (frontend visual hierarchy / backend API consistency / data schema consistency / mobile platform conventions), no hand-waves, evidence-resolves. **Frontend-only**: `check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the closed 19-verb `ui-design-sweep` set (mirrors how `validate-refactor-artifacts.sh` enforces refactoring-sweep's 10 verbs). |
-| `migration-detect-existing.sh` | Phase 1 of `/port-feature`: detects whether V2 already implements a feature (none / partial / full). |
+| `migration-detect-existing.sh` | Phase 1 of `/port-feature`: detects whether V2 already implements a feature (none / partial / full). `--no-write` runs it without writing into V2. |
 | `migration-validate-paths.sh` | Phase 4 of `/port-feature`: validates planned file paths against V2 module shape. |
-| `audit-adapter-coverage.sh` | Per-pack adapter coverage: every pack rule has equivalent translations in Cursor / OpenCode / Aider / etc. |
+| `audit-adapter-coverage.sh` | Per-pack adapter coverage: every pack rule has equivalent translations in Cursor / OpenCode / Aider / etc. `--stdout` audits without writing into the target. |
 | `audit-file-health.sh` | Heuristic risk scan: line count, hand-waves, MUSTs, phase-ladder count, inbound refs. Used to triage which files deserve attention. |
 | `audit-stack-leakage.sh` | **Template pack hygiene** — scans `commands/` + universal/pack `templates/**` for single-stack-only wording; **FAIL** when diversity / `<TBD:...>` contract is violated; **WARN** on isolated tokens in pack-level files. Run from the repo root; wired into `audit-setup.sh` as C2f. |
 | `audit-command-dry.sh` | **Command DRY** — scans `commands/*.md` + `templates/packs/*/commands/*.md`. **FAIL** if `\bSOLID\b` / SOLID expansions / `solid-violation` / `clean code` appear without a `core-discipline.md` link; **FAIL** if all 7 canonical Phase 3 path markers appear without `phase-3-always-reads.md`; **WARN** if a `## Mechanical halt — hand-wave grep` section lacks `hand-wave-grep.md`. Wired into `audit-setup.sh` as **C2g** (after C2f). |
@@ -1172,6 +1172,38 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 | `delegate-relay.sh` | Not a validator — the `/delegate` mechanical half. Listed here because its refusals are the failure modes people meet: preflight, launch, watchdog, diff capture, structured JSON. `--list` prints the implementers actually on `PATH`. |
 | `sync-to-global.sh` | Symlinks this repo's `commands/`, `templates/packs/migration/`, etc. into `~/.claude/`. Dry-run is the default; `--apply` writes, `--unlink` removes everything Refract owns. |
 | `verify-sync.sh` | Detects drift between this repo and `~/.claude/` symlinks. |
+
+### Auditing a target without writing to it
+
+Every script above that takes a `<target-repo>` and produces a report used to sink that
+report **inside the target**, so running one to *check* a project modified it — including
+creating `.claude/` in a project that had none. That made "inspect this repo without
+touching it" an operation that did not exist: on 2026-08-22 an agent verifying a fix
+"against the real target, read-only" regenerated three reports inside the protected
+project, because the verification *was* the write.
+
+Each now takes a read-only mode, and `verify-global-scope.sh` **check [6]** fails any new
+analysis script that sinks under `$TARGET` without one:
+
+- `--stdout` (alias `--no-write`) — report to stdout, nothing created or modified under
+  the target. Supported by `audit-anchoring.sh`, `audit-adapter-coverage.sh`,
+  `study-existing.sh`, `pack-coverage-scan.sh`, `deep-codebase-scan.sh`,
+  `refresh-extract-checklist.sh`, `detect-mcp.sh`.
+- `--no-write` only, on `migration-detect-existing.sh` — its stdout carries the
+  `none`/`partial`/`full` verdict token that callers read with `$(...)`, so the report may
+  never be put there.
+- `--read-only` on `audit-setup.sh` — routes its three sub-audits (C2k study, C2d
+  anchoring, C2e adapter coverage) to a scratch dir. Same verdicts, no target writes.
+- `--report=<path>` everywhere — redirect the report. The space form `--report <path>` is
+  **refused**: in the scripts that take positional pack names it would parse as a pack and
+  the report would land in the target anyway.
+
+`deep-codebase-scan.sh` and `refresh-extract-checklist.sh` have a *second* write path — the
+preserve branch re-stamps the `Target:` header of an already-filled report in place. Under
+the read-only flags that re-stamp is reported (`header WOULD be re-stamped`) and skipped.
+
+`apply-*.sh` is exempt by contract: writing the target is the job, and they are dry-run by
+default with `--apply` to commit.
 
 ### Fallback integrity — `validate-pack-consistency.sh` check 8b
 

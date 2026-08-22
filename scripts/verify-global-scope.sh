@@ -30,6 +30,14 @@
 #                     the helper is present, so the suite stays green over a lane that is
 #                     broken on a fresh clone. This is the only check that looks at what
 #                     actually ships rather than at what is merely on disk.
+#   [6] TARGET WRITE SAFETY (static, CI-safe): every analysis script whose report sink is
+#                     a path under `$TARGET` offers a read-only mode (`--stdout` /
+#                     `--no-write`). Without one, RUNNING the analysis IS a write to the
+#                     analysed repo, so "check this project without touching it" is not an
+#                     operation that exists. Observed 2026-08-22: three audit scripts
+#                     regenerated their reports inside a project declared read-only,
+#                     purely because someone ran them to verify a fix. `apply-*` scripts
+#                     are exempt — writing is their job, and they are dry-run by default.
 #
 # Exit codes: 0 ok / 1 scope violation.
 # Notes: bash 3.2 (macOS) compatible — no associative arrays, mapfile, or ${var,,}.
@@ -269,6 +277,42 @@ for rel in $src_refs; do
   warns=$((warns + 1))
 done
 [ "$ship_ok" -eq 1 ] && echo "  ok — every sourced helper is present and tracked"
+
+# ── [6] target write safety ─────────────────────────────────────────────────
+# An analysis script that sinks its report INSIDE the repo it is analysing makes every
+# invocation a modification of that repo. There is then no way to answer "is this project
+# healthy?" without changing it — and the person most likely to run it is exactly the
+# person who was told not to touch the target. That is not hypothetical: on 2026-08-22 an
+# agent verifying a fix "against the real target, read-only" ran three of these scripts
+# and regenerated three reports inside the protected project, because the verification
+# WAS the write. The remedy is a flag, and this check is what keeps it from rotting away:
+# a new analysis script with a $TARGET-side report sink and no read-only mode fails here.
+#
+# Detection is deliberately narrow and named as such: it matches the `REPORT*="$TARGET/…"`
+# sink assignment, which is the shape every one of these scripts uses. It does not claim to
+# find every possible write into a target — a script that writes by some other route is
+# outside what this check can see, and the comment says so rather than implying coverage
+# the code does not have.
+echo "[6] target write safety — analysis scripts can run without writing to the target"
+tws_ok=1
+for f in "$REPO_ROOT"/scripts/*.sh; do
+  [ -f "$f" ] || continue
+  base="$(basename "$f")"
+  # apply-*: writing the target is the contract. They are dry-run by default and take
+  # --apply to write, which is the read-only affordance in their idiom.
+  case "$base" in apply-*) continue ;; esac
+  grep -qE '^[A-Z_]*REPORT[A-Z_]*="\$TARGET/' "$f" || continue
+  # The flag must exist as a real case arm, not merely be mentioned in a comment.
+  if grep -qE '^[[:space:]]*--(stdout|no-write)[)|]' "$f"; then
+    continue
+  fi
+  echo "  FAIL — scripts/$base sinks its report under \$TARGET but has no --stdout / --no-write arm"
+  echo "         (running it to CHECK the target modifies the target; add the read-only mode)"
+  tws_ok=0
+  fails=$((fails + 1))
+done
+[ "$tws_ok" -eq 1 ] && echo "  ok — every \$TARGET-sinking analysis script offers a read-only mode"
+
 # ── summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo "global-scope: FAIL=$fails WARN=$warns"

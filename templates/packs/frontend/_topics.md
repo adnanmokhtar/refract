@@ -281,18 +281,19 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: a11y-scan
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md (the project's own modal / dropdown / drawer wrapper names, for the interactive-surface trigger enumeration)
   fallback: _examples/a11y-scan.md
 
 - name: dev-server-start
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
-  extracts_from: _extracted-codebase.md (package manager + dev script + configured port)
+  extracts_from: _extracted-codebase.md (workspace layout + app members + package manager + dev script + configured port)
   fallback: _examples/dev-server-start.md
 
 - name: verify-with-playwright
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
-  extracts_from: _extracted-codebase.md (routes to drive + auth gate) + .mcp.json (playwright MCP entry)
+  extracts_from: _extracted-codebase.md (routes to drive + auth gate + role set for the unauthorised lane + i18n locale mechanism) + .mcp.json (playwright MCP entry)
   fallback: _examples/verify-with-playwright.md
 
 - name: component-playground

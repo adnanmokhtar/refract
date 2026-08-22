@@ -44,6 +44,8 @@ Phase 5 must NOT report success unless every `must` row passes. `should` rows wa
 | Every "Missing" file in coverage report → addressed in Phase 4.2 OR explicitly skipped with rationale | must | M15 |
 | `.claude/_study-existing-report.md` exists                             | must     | M15               |
 | Every "REPLACE-OR-ENHANCE" / "MERGE" / "KEEP-OURS-PLUS-INJECT" row → addressed in Phase 4 | must | M15 |
+| A "MERGE (project-knowledge protected)" row → closed by merging INTO the file or by a ledger entry, **never** by copying the pack over it | must | M36 |
+| No file lost project paths / code identifiers it had in `.claude/backups/*` — C2n, and it runs in ENHANCE too | must | M36 |
 | `.claude/_refresh-extract.md` exists (REFRESH/REFINE modes)            | must     | M15               |
 | Sections 2-8 of `_refresh-extract.md` are non-empty (no `<TBD>`)       | must     | M15               |
 | Section 9 non-empty when `--include=migration` set                     | must     | M15               |

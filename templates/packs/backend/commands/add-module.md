@@ -41,6 +41,33 @@ Sibling search finds a module to *copy*; this gate asks first: **does the capabi
 2. **Near-duplicate found → HALT.** Surface the existing module (path + what it does) and ask: extend it, replace it, or ship a deliberate parallel (rare — one-line PR rationale).
 3. Nothing matches → proceed to tier selection.
 
+## Aggregate-shape decision (mechanical gate, all tiers, runs before ANY generation)
+
+**The sibling-shape halt cannot catch a module that is shaped wrong.** It compares the new module against its siblings, so a module that perfectly mirrors a CRUD sibling passes — even when the domain admits none of those operations. A `DELETE` on an append-only ledger, a `PATCH` on an immutable receipt, an `UPDATE` on a saved payment method: each of those is a permanent modelling error that every downstream gate in this command will bless. This is the one decision `/add-module` must make *before* it mirrors anything, and it is the decision that outlives every other line the command writes.
+
+Answer three questions and record the answers in the PR (nested invocation: the parent supplies the aggregate name and invariants from `/add-feature` Phase 2 Step 2; still resolve the operation set here, at module grain).
+
+**1. What is the aggregate root?** The one entity whose identity the module is responsible for, and inside whose boundary consistency is enforced transactionally. Child entities that have no life outside it (order lines, address components, audit rows) belong to the aggregate and get no module and no endpoints of their own.
+
+**2. What are its invariants?** The statements that must be true of the aggregate after every operation — "exactly one default per customer", "line totals sum to header total", "status only moves forward through {draft → issued → paid}", "a posted entry is never modified". Write them down; they decide both the operation set below and where the transaction boundary goes (`ai-patterns/transaction-boundary.md`).
+
+**3. Which of the five CRUD operations does this domain actually admit?** Default is NOT "all five". Emit the ledger below and give a reason for every omission — an omission with no reason is an unanswered question, not a decision.
+
+| Op | Admit when | Omit when — and what replaces it |
+|---|---|---|
+| `POST` (create) | The aggregate is created by this bounded context. | The aggregate only ever arrives from elsewhere (a provider webhook, an import, an upstream event) — creation is an inbound handler, not a public route. |
+| `GET` list | Callers legitimately enumerate the collection. | Enumeration itself leaks (per-user secrets, tokens); expose only `GET /:id` on a caller-owned id. |
+| `GET /:id` | Almost always. | Rare — write-only sinks (telemetry ingest, audit append). |
+| `PATCH` / `PUT` | The aggregate has genuinely mutable fields **and** an invariant permits partial change. | The aggregate is **immutable after creation** (ledger entry, posted invoice, payment token, event record) → no update route; a correction is a **new** aggregate plus a reversal. Or the mutable part is a *state machine* → replace with explicit transition routes (`POST /:id/cancel`, `POST /:id/publish`), because a transition guarded by an invariant is not a field write. |
+| `DELETE` | The aggregate is genuinely disposable by its owner. | **Append-only / financial / audited** aggregates are never deleted → omit, or offer a status transition (`POST /:id/void`) that preserves the row. Where a soft-delete column exists, `DELETE` means "set the flag" — say so, and confirm every read path filters it. |
+
+**Worked shape — a saved payment method.** Root: `PaymentMethod` (child of a per-tenant-user provider customer). Invariants: never holds a PAN; exactly one default per customer; a detached-at-provider method must not be chargeable. Admitted: `POST` (attach a provider token), `GET` list, `GET /:id`, `DELETE` (detach at the provider **then** locally). Omitted: `PATCH` — a card's number, brand and expiry are the provider's truth, not ours; "changing" a card is attach-new-then-detach-old, and the only field that looks mutable, `is_default`, is a **transition** (`POST /:id/default`) guarded by the one-default invariant, not a field write.
+
+**Halt conditions:**
+- Halt if generation starts before this ledger exists. The aggregate is decided once; it is retrofitted never.
+- Halt if the ledger admits all five operations with no stated reason for admitting `DELETE` and `PATCH` specifically — "the sibling has them" is not a domain reason, it is the failure mode this gate exists for.
+- Halt if an invariant named in question 2 has no enforcement site in the generated code (constraint, transition guard, or transaction boundary) — an invariant with nowhere to live was decoration.
+
 ## New-dependency gate (all tiers)
 
 A package no sibling module already uses never lands silently — confirm it's actually new (check the lockfile), run a dependency review (maintenance / license / bloat / stdlib-alternative; dispatch `security-auditor` or inline the checklist), and record the decision (one PR line; ADR for auth / crypto / payment / data-handling deps). HALT on an unreviewed new dependency.
@@ -134,11 +161,11 @@ EXISTING CODE:
 Dispatch [`templates/packs/backend/skills/module-scaffold/SKILL.md`](../skills/module-scaffold/SKILL.md) with the resolved inputs (module name, purpose, signals, multi-tenant / soft-delete / i18n flags, the chosen sibling path, and — for heavy tier — the architects' design slices from Phase 2). The skill generates:
 
 - `core/` (entity, errors, ports), `application/use-cases/` (CRUD), `infrastructure/persistence/` (orm-entity + mapper + repository.impl), `adapters/http/` (controller + DTOs).
-- DI wiring (`tokens.ts` Symbols + `<name>.module.ts`), reversible migration, the test tree (unit + integration + e2e + wiring smoke spec).
+- DI wiring (`tokens.ts` in the sibling's token style + `<name>.module.ts`), reversible migration, the test tree (unit + integration + e2e + wiring smoke spec).
 - `ai/modules.md` row + `ai/status.md` Recent Changes entry + app-root module import.
-- All under the skill's generated-file invariants (every DTO validated, tenant filter on every query if multi-tenant, soft-delete base class, Symbol DI tokens, reversible `up()`/`down()`, real assertions — no `// TODO`).
+- All under the skill's generated-file invariants (every DTO validated in the sibling's validation library, tenant filter on every query if multi-tenant, soft-delete base class, DI tokens in the sibling's token style, reversible `up()`/`down()`, real assertions — no `// TODO`).
 
-`/add-module` does NOT duplicate that file tree or those invariants here — see the skill for the authoritative contract. The CRUD endpoints (`POST /<plural>` 201, `GET` list+paginate, `GET /:id` 404, `PATCH /:id`, `DELETE /:id` soft-delete) and locale keys (`en.json` / `ar.json` for success + error messages) are part of that contract.
+`/add-module` does NOT duplicate that file tree or those invariants here — see the skill for the authoritative contract. **The route set the skill generates is the one the Aggregate-shape ledger admitted, not a fixed five** — pass the ledger down with the rest of the resolved inputs. Where the ledger admits them, the shapes are `POST /<plural>` 201, `GET` list+paginate, `GET /:id` 404, `PATCH /:id`, `DELETE /:id` soft-delete; a transition the ledger substituted (`POST /:id/void`, `POST /:id/default`) is generated in its place. Locale keys (`en.json` / `ar.json` for success + error messages) are part of that contract.
 
 ### What `/add-module` layers ON TOP of the scaffold (its own value beyond the skill)
 
@@ -184,12 +211,26 @@ Knowledge base updates:
 Run in order:
 - `pnpm lint` scoped to generated files.
 - `pnpm test` scoped to `__tests__/` of this module.
-- `pnpm dev` + `endpoint-test` skill for each endpoint (200 / 400 / 401 verified).
+- `pnpm dev` + `endpoint-test` skill for each generated route.
 - `schema-diff` skill — entity matches DB after migration.
 - Self-audit: do the generated files cross-reference correctly? Any contradictions with `ai/conventions.md`?
 - Heavy-tier rows additionally dispatch signal-aware reviewers: `security-auditor` (auth/secrets), `tenant-isolation-reviewer` (multi-tenant), `prompt-reviewer` (AI), `payment-reviewer` (payment). If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. HALT on any BLOCKER.
 
 If any check fails: HALT, report the failure, do not paper over.
+
+### Production-readiness gate, per generated route (the done-condition)
+
+**The floor must not get weaker as the change gets bigger.** One hand-added endpoint goes through `/add-endpoint`'s seven-row Production-readiness gate; a scaffolded module used to ship four or five endpoints on `200 / 400 / 401`. That inversion is backwards, and a generated route is not safer for having been generated — it is less reviewed.
+
+Run the ledger in [`templates/packs/backend/commands/add-endpoint.md`](./add-endpoint.md) § **Production-readiness gate** **once per generated route**, unchanged: same seven floor rows, same evidence rule (a claim is not evidence), same runtime-evidence clause (rows 1, 5, 6 require the test *executed green in this run*, not merely authored). This command does not restate or soften those rows — one ledger, one owner.
+
+Two module-grain additions the per-endpoint gate cannot see:
+- **Row 3 (transaction boundary) is evaluated across the module's use-cases, not per route.** A create that writes the aggregate and its children in two statements is one unit or it is a bug; cite the tx site (`ai-patterns/transaction-boundary.md`).
+- **Every invariant from the Aggregate-shape ledger has a named enforcement site** (DB constraint, transition guard, or transaction boundary) with a test that fails when it is removed. An invariant with no failing test was decoration.
+
+**Verdict, module-grain:**
+- **PRODUCTION-READY** — every route's ledger resolves MET-with-evidence or n-a-with-reason, and both module-grain rows above are MET.
+- **INCOMPLETE** — one or more rows UNMET or SKIPPED on any route. The Output names the route, the row, and the exact next action (`/add-endpoint --gate <METHOD> <path>` or the exact command a reviewer must run). This is an honest terminal state; a scaffolded module that has not passed it is **not** COMPLETE, however green lint and tests are.
 
 ## Phase 7 — Improve (feed the learning loop)
 
@@ -208,7 +249,7 @@ Phase 2 (Organize): 4 architects dispatched in parallel; design confirmed.
 Phase 3 (Retrieved): 7 universals + sibling module + 5 patterns.
 Phase 4 (Generated): <N> files across core/application/infrastructure/adapters + tests + locales.
 Phase 5 (Updated): ai/modules.md (+1), ai/status.md (Recent Changes), app.module.ts wired.
-Phase 6 (Validated): lint, tests, endpoint-test (5 endpoints), schema-diff clean.
+Phase 6 (Validated): lint, tests, endpoint-test (<N> routes), schema-diff clean, production-readiness ledger per route.
 Phase 7 (Improved): /learn-from-task queued.
 
 Files created: <N>
@@ -223,12 +264,16 @@ Files created: <N>
 Agents dispatched: api-architect, schema-architect, telemetry-architect, test-engineer
 Skills run: endpoint-test, schema-diff
 
-Endpoints (all require auth):
-  POST   /<plural>
-  GET    /<plural>
-  GET    /<plural>/:id
-  PATCH  /<plural>/:id
-  DELETE /<plural>/:id
+Aggregate: <Root>  —  invariants: <list>
+Routes admitted by the aggregate-shape ledger (all require auth):
+  <METHOD> /<path>                    <one-line reason>
+Omitted, with reason:
+  <METHOD> /<path>                    <why the domain does not admit it, + what replaces it>
+
+Production-readiness ledger (per route — every floor row MUST resolve):
+  <METHOD> /<path>   1 ✓  2 ✓  3 ✓  4 n-a  5 ✓  6 ✓  7 ✓   → PRODUCTION-READY
+  <METHOD> /<path>   6 UNMET (no 403 denial test)           → INCOMPLETE
+Module-grain rows: tx boundary <✓|UNMET>; invariant enforcement sites <✓|UNMET>
 
 Test coverage:
   Unit: <N> scenarios (happy + errors + boundaries)
@@ -243,7 +288,7 @@ Docs updated:
   ai/status.md (Recent Changes entry)
   ai/modules.md (+1 row)
 
-Status: COMPLETE
+Status: PRODUCTION-READY | INCOMPLETE — <route>: <unmet rows + next action>
 
 Next:
   - /review-changes
@@ -254,7 +299,7 @@ Next:
 ## Hard rules
 
 - Mirror an existing module EXACTLY. No invented layout.
-- DI tokens are Symbols, not strings.
+- **DI token style matches the named sibling; cite it at `<path:line>`.** Not "Symbols, not strings" — that is a house preference, and on a project whose siblings use string tokens it makes this command generate output its own sibling-shape halt then flags `drifted`. The sibling is the truth here exactly as it is for layout, naming and error envelope.
 - Every DTO validated.
 - Tenant filter on every query (if multi-tenant).
 - Migration reversible.

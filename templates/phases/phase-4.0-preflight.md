@@ -63,6 +63,18 @@ This is the gate that everything downstream assumes has run. It validates that e
 - For KEEP-OURS-DEEP / IDENTICAL-NO-OP → no action.
 - For *-BY-LEDGER rows → no action (reconciled by `.claude/_refresh-decisions.md`).
 
+**M36 — a shorter file is not a worse file.** `REPLACE-OR-ENHANCE` is a *size* verdict: target ≤ 50% of the pack. Size cannot see that the target's 54 lines are the only written record of this repo's tenant-resolution chain. On 2026-08-22 an ENHANCE run against an 8,151-file repo replaced three such files from the pack — `ai/patterns/multi-tenancy.md` (project identifiers 9 → 0, the real 6-step `DomainMiddleware` chain swapped for generic guidance that contradicts the shipped system), `ai/patterns/error-handling.md` (18 → 0), `.claude/skills/endpoint-test/SKILL.md` (2 → 0).
+
+`study-existing.sh` now tests project knowledge **before** the ratio ladder and withholds `REPLACE-OR-ENHANCE` from any file that carries it — the `<!-- project-specific:start -->` anchor, a real project file path absent from the pack, or ≥3 code identifiers absent from the pack. Those rows arrive as:
+
+```
+- `multi-tenancy.md` — target 54 / pack 124 lines → **MERGE** (project-knowledge protected: carries the
+  project-specific anchor, 1 project path(s) absent from pack, 12 project identifier(s) absent from pack —
+  merge pack depth INTO this file; replacing it destroys knowledge no pack can regenerate)
+```
+
+**A protected MERGE row is still actionable** — Phase 4 must bring the pack's depth in — but it may only be closed by merging into the file, by a ledger `--keep-ours` / `--resolve`, or by a hand-written deepening that keeps every project identifier. Closing it by copying the pack over the file is the exact failure this verb exists to prevent, and Phase 5 C2n will catch it: the anchor test alone would not have saved `endpoint-test/SKILL.md`, which carried no anchor at all and was pure project knowledge (`apps/master/src/` on port 4000, `apps/tenant/src/` on 4001, `bun run start:dev-tenant`).
+
 **Curation (M35):** when a row should NOT be applied (pack version is wrong for this project, or yours is better), record the decision instead of skipping it:
 
 ```bash

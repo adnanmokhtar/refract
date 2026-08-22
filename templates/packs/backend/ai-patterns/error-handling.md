@@ -242,6 +242,13 @@ export interface FieldError {
 
 The shape gives frontends what they need to attach errors to fields without parsing English. NestJS' built-in `ValidationPipe` produces a similar shape; map it to your `ValidationError` in a single adapter.
 
+**Two members of that row are routinely lost in transit, and both fail silently on the consumer.**
+
+- **`field` is a path, not a key.** `'items[0].quantity'` addresses a nested / array element. A client that types it as a key of its input object (`keyof T`) compiles and then drops every nested and array-indexed error at runtime — the server rejected the sub-object, the user sees nothing. The path form is a deliberate part of the contract; say so when you publish it.
+- **`meta` is not decoration — it is the interpolation payload.** `{ min: 1, actual: 0 }` is what renders "At least 1 required" in the user's language. `message` is dev-facing by the comment above it, and `api-contract.md`'s hard rule keeps English-prose error text off the wire. A consumer handed a row without `meta` has exactly one renderable string and it is the wrong one, so a client that shows raw `message` to users is usually a **publishing** defect here, not a copy defect there.
+
+Publish both facts with the row: `api-contract.md` § Publishing the contract — the first delivery names the file and the lane. `@api-contract-sentry` *(frontend pack, when co-installed)* reads that lane and reports what the client actually does with a row, at `<path:line>`. **Absent** → the consumer's handling is *unverified*, not correct — grep the client for `as keyof` / `fieldErrors` yourself before calling the error contract delivered.
+
 ## Logging discipline
 
 ```ts

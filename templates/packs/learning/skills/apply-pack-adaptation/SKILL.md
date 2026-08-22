@@ -191,6 +191,10 @@ For each file:
 
 The block is bracketed by HTML markers. **Every Phase 4.6 anchor MUST emit these markers** — they are the contract REFINE depends on. Without them, REFINE has no idempotent way to rewrite only the auto-generated portion.
 
+> **Both marker examples in this file are FENCED on purpose — leave them fenced** (this one and the ANCHOR-DEEP one below). A `<!-- project-specific:start -->` line only counts as a live anchor when it sits at column 0 **outside** a ``` fence; inline mentions in prose and tables never count. That rule is what lets this file — and `compute-anchor-density`, the other file that teaches the convention — show the markers without claiming to carry one. `scripts/apply-anchors.sh § has_live_anchor` and `scripts/audit-anchoring.sh § has_live_anchor / extract_anchor_block` implement exactly that test and must keep agreeing.
+>
+> **Why this note exists**: when the injector matched a bare `^<!-- project-specific:start -->$` while the auditor skipped fenced regions, these two skills deadlocked on a real 8,151-file repo — `apply-anchors.sh` skipped them as "already anchored" (Injected 0 / Already 234) and `audit-anchoring.sh --strict` failed them as `anchor-too-thin(0-lines)`, C2d at 99%, with a printed remediation ("re-run apply-anchors.sh") that was a no-op on precisely those files. Unfencing either example, or hand-writing a marker at column 0 anywhere in this file, restores that deadlock. This file's own live anchor is the injected block near the top.
+
 ```markdown
 <!-- project-specific:start -->
 ## Project-specific (<project-name>)

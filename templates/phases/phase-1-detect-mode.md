@@ -3,11 +3,17 @@ phase: 1
 name: detect-mode
 applies-to-modes: [all]
 inputs: [target-repo, user-flags]
-outputs: [mode (CREATE | ENHANCE | REFRESH | REFINE), repo-shape (single | monorepo | workspace)]
+outputs: [mode (CREATE | ENHANCE-retrofit | ENHANCE-extend | REFRESH | REFINE | UPGRADE), repo-shape (single | monorepo | workspace)]
 exit-criteria: mode + shape decided and recorded
 ---
 
 ### Phase 1 — Detect mode
+
+> **This section is the SINGLE authority on WHICH mode fires.** The "Decide mode" table below is the only place a repo's signals are turned into a mode name, and its labels — `CREATE`, `ENHANCE-retrofit`, `ENHANCE-extend`, `REFRESH`, `REFINE`, `UPGRADE` — are the canonical spellings. The shell agrees with this table, not with any prose restatement: `scripts/run-preflight.sh:63-64` and `scripts/audit-setup.sh:57-58` normalize exactly these six strings — `ENHANCE-*` folds to `enhance`, `REFRESH-*`/`REFINE-*` to themselves, and `UPGRADE` to `refresh`, because UPGRADE's ceremony *is* the REFRESH ceremony (see the table row). Both scripts keep the announced label in `MODE_LABEL`. This claim was false when it was first written: `UPGRADE` lowercased to `upgrade`, matched no guard in either script, and the mode advertised as the most ceremonious silently received no Phase-0 backup, no C2a and no C2n.
+>
+> `commands/setup-project.md` § "Mode → ceremony" is authoritative for the *opposite* half — what a mode, once detected, then executes. Its "Detected as" column is a non-authoritative echo of this table. **If the two disagree, this file wins and that table is the bug** — the two must be edited together, never reconciled at runtime. (They did disagree: that table used to say ENHANCE means "no `.claude/` yet", so a repo with a complete prior setup and no flags — row 8 below, the most common real invocation — matched no ceremony row at all.)
+>
+> **Phase 1 runs FIRST**, ahead of the deterministic preflight in `commands/setup-project.md` § STEP ZERO. That preflight is invoked with `--mode=$MODE`, and `$MODE` is this phase's output; `run-preflight.sh:31` silently defaults to `refresh` when it is absent, which would take a REFRESH-shaped backup on a CREATE target. Phase 1 is read-only and writes nothing, which is what makes it safe to precede the preflight.
 
 **Lightweight mode**: Commands invoked with `--lightweight` skip Phase 2.7-2.12 (deep extraction) + Phase 4.6/4.7 (re-anchoring) and jump from Phase 4.2-apply directly to Phase 5-verify. Trade-off: no anchor-density refinement, ~80% faster. Use for trivial pack additions, status checks, lightweight commands. Default is full ceremony unless `--lightweight` is passed OR the command's frontmatter declares `mode: lightweight`.
 
@@ -19,7 +25,7 @@ Inspect cwd in parallel:
 - **Workspace manifests** (member-declaring): `pnpm-workspace.yaml`, `package.json` → `workspaces`, `lerna.json` → `packages`, `nx.json`, `go.work`, `Cargo.toml` → `[workspace] members`, `turbo.json`, and `PROJECTS.md`
 - **Sub-manifest inventory** — for every immediate subdirectory, and every subdirectory of `apps/`, `packages/`, `services/`, `libs/`, `modules/`, `src/`: does it carry its OWN manifest from the list above? Skip `node_modules`, `dist`, `build`, `out`, `target`, `vendor`, `.git`, `.venv`, `__pycache__`, `.next`, `coverage`. Record each hit as `<dir> → <manifest>`, plus whether `<dir>/.git` exists.
 
-Decide mode:
+**Decide mode:**
 
 | Signal | Mode |
 |---|---|
@@ -32,6 +38,8 @@ Decide mode:
 | Source exists but `.claude/` or `ai/` missing | **ENHANCE-retrofit** |
 | `.claude/` + `ai/` + `CLAUDE.md` all present | **ENHANCE-extend** |
 | Ambiguous | Ask ONE consolidated question |
+
+Every row above has a matching ceremony row in `commands/setup-project.md` § "Mode → ceremony". `ENHANCE-retrofit` and `ENHANCE-extend` are two distinct modes with two distinct ceremonies; they are normalized to the single string `enhance` only at the shell boundary (`run-preflight.sh:64`, `audit-setup.sh:58`), never in the prose. **Announce the full label**, so Phase 5's mode-drift self-audit (halt condition 5) has something specific to check the executed ceremony against.
 
 Decide shape — **mandatory, not optional; it is the second declared output of this phase.**
 

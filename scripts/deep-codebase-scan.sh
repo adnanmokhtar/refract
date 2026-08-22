@@ -14,23 +14,33 @@
 #      fail Phase 5 audit.
 #
 # Usage:
-#   deep-codebase-scan.sh <target-repo>
+#   deep-codebase-scan.sh <target-repo> [--force] [--stdout | --report=<path>]
 #
 # Output: <target>/.claude/_codebase-scan.md
+#   --stdout        READ-ONLY mode (alias: --no-write). Report goes to stdout and NOTHING
+#                   is created OR modified under <target-repo> — not the report, not
+#                   `.claude/`, and not the header re-stamp on the preserve path.
+#   --report=<path> Write the report to <path> instead. Must use `=`.
 
 set -euo pipefail
 export LC_ALL=C
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-repo> [--force]" >&2
+  echo "Usage: $0 <target-repo> [--force] [--stdout|--report=<path>]" >&2
+  echo "       --stdout = read-only: report on stdout, nothing written under <target-repo>." >&2
   exit 2
 fi
 
 TARGET="$1"; shift || true
 FORCE=0
+SINK_STDOUT=0
+REPORT_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --force) FORCE=1; shift ;;
+    --stdout|--no-write) SINK_STDOUT=1; shift ;;
+    --report=*) REPORT_OVERRIDE="${1#*=}"; shift ;;
+    --report) echo "ERR: use --report=<path> (with '='), not --report <path>" >&2; exit 2 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -38,6 +48,74 @@ done
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
 REPORT_PATH="$TARGET/.claude/_codebase-scan.md"
+
+# ---------- Machine-independent header ----------
+# The `Target:` line used to carry the absolute path of whoever generated the
+# report. This file is PRESERVED across runs (see the idempotency guard below),
+# and the preserve path never rewrote the header — so a real project shipped
+# `Target: /Users/mac/Workspace/…` through six sessions on a machine where
+# `/Users/mac` does not exist, and the agent reading it had no way to tell the
+# report apart from one describing a different checkout.
+#
+# Fix, both halves:
+#   1. the emitted header is repo-RELATIVE — it names the repo directory and
+#      says how to resolve it, so it cannot go stale when the repo moves host,
+#      user or clone path;
+#   2. `restamp_header` rewrites that line on the PRESERVED path too, so an
+#      existing report carrying an absolute path is corrected on the next run
+#      without touching the LLM-filled body.
+REPO_NAME="$(basename "$(cd "$TARGET" && pwd -P)")"
+TARGET_LINE="Target: \`${REPO_NAME}/\` — repo root, i.e. the directory containing the \`.claude/\` that holds this file. Deliberately relative: this report is preserved across runs and machines."
+
+restamp_header() {
+  local file="$1" stamp tmp
+  [[ -f "$file" ]] || return 0
+  grep -q '^Target: ' "$file" 2>/dev/null || return 0
+  # Already canonical -> no write at all, so a preserved report stays byte-stable
+  # run to run. The stamp below records when the header was CORRECTED, not when
+  # it was last read.
+  grep -qxF "$TARGET_LINE" "$file" 2>/dev/null && return 0
+  # Read-only mode: this is the script's SECOND write path into the target (it edits an
+  # already-preserved report in place). Report what it would do; change nothing.
+  if [[ ${SINK_STDOUT:-0} -eq 1 || -n "${REPORT_OVERRIDE:-}" ]]; then
+    printf ' | header WOULD be re-stamped (read-only: not written)'
+    return 0
+  fi
+  stamp="Header re-stamped: $(date -u +%Y-%m-%dT%H:%M:%SZ) by \`scripts/deep-codebase-scan.sh\` — body below is preserved verbatim."
+  tmp="$(mktemp)" || return 0
+  awk -v tgt="$TARGET_LINE" -v stamp="$stamp" '
+    seen == 0 && /^Target: / { print tgt; print stamp; seen = 1; next }
+    seen == 1 { if ($0 ~ /^(Header re-stamped|Last verified): /) { seen = 2; next } seen = 2 }
+    { print }
+  ' "$file" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
+  # Never replace a good file with an empty one if awk was interrupted.
+  if [[ -s "$tmp" ]] && ! cmp -s "$tmp" "$file"; then
+    cat "$tmp" > "$file"
+    # Emitted as a SUFFIX, not a new line: run-preflight.sh pipes this script
+    # through `tail -2`, so a third line would push the "preserved" line off the
+    # agent's only view of what happened.
+    printf ' | header re-stamped: Target line is now repo-relative'
+  fi
+  rm -f "$tmp"
+  return 0
+}
+
+# The header is ours to rewrite; the BODY is the agent's knowledge and is never
+# touched. But a preserved body can cite an absolute home directory that no
+# longer exists either (observed: `_refresh-extract.md` § 9 citing
+# `/Users/mac/Workspace/...` for its V1 and V2 roots). Report it so the staleness
+# is visible instead of silently authoritative — detect only, never rewrite.
+warn_stale_abs_paths() {
+  local file="$1" root missing=""
+  [[ -f "$file" ]] || return 0
+  while IFS= read -r root; do
+    [[ -z "$root" ]] && continue
+    [[ -d "$root" ]] && continue
+    missing="$missing $root"
+  done < <( { grep -oE '/(Users|home)/[A-Za-z0-9._-]+' "$file" 2>/dev/null || true; } | sort -u )
+  [[ -n "$missing" ]] && printf ' | WARN preserved body cites home dir(s) absent on this machine:%s — re-verify the sections quoting them' "$missing"
+  return 0
+}
 
 # Idempotency: if report exists with any LLM-filled section, skip overwrite
 # unless --force is passed. Sections 8-15 are LLM-fill; if <8 are still <TBD>,
@@ -47,14 +125,38 @@ if [[ -f "$REPORT_PATH" && "$FORCE" -eq 0 ]]; then
   # grep -c exits 1 when 0 matches; capture cleanly (see refresh-extract-checklist.sh comment).
   tbd_count=$(grep -c '^<TBD>$' "$REPORT_PATH" 2>/dev/null) || tbd_count=0
   if [[ "$tbd_count" -lt 8 ]]; then
+    # Preserve the BODY, never the machine-specific header — see restamp_header above.
+    hdr_note="$(restamp_header "$REPORT_PATH")"
+    stale_note="$(warn_stale_abs_paths "$REPORT_PATH")"
+    # Under --stdout the caller asked for the report ON stdout; on this branch the
+    # report is the PRESERVED file, so emit that and keep the notes on stderr.
+    if [[ $SINK_STDOUT -eq 1 ]]; then
+      echo "Codebase scan preserved (already filled): $REPORT_PATH" >&2
+      echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)${hdr_note}${stale_note}" >&2
+      cat "$REPORT_PATH"
+      exit 0
+    fi
     echo "Codebase scan preserved (already filled): $REPORT_PATH"
-    echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)"
+    echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)${hdr_note}${stale_note}"
     exit 0
   fi
 fi
 
+# ── Report sink ────────────────────────────────────────────────────────────────
+# The default sink is a file INSIDE the target, so merely SCANNING a repo wrote to it —
+# and the mkdir created `.claude/` in a target that had none.
 REPORT="$TARGET/.claude/_codebase-scan.md"
-mkdir -p "$(dirname "$REPORT")"
+REPORT_TMP=""
+if [[ $SINK_STDOUT -eq 1 ]]; then
+  REPORT_TMP=$(mktemp "${TMPDIR:-/tmp}/codebase-scan.XXXXXX")
+  trap '[ -n "${REPORT_TMP:-}" ] && rm -f "$REPORT_TMP"; :' EXIT
+  REPORT="$REPORT_TMP"
+  REPORT_LABEL="(stdout — nothing written under $TARGET)"
+else
+  [[ -n "$REPORT_OVERRIDE" ]] && REPORT="$REPORT_OVERRIDE"
+  mkdir -p "$(dirname "$REPORT")"
+  REPORT_LABEL="$REPORT"
+fi
 
 # ---------- Helpers ----------
 count_files() {
@@ -90,7 +192,7 @@ ls_dirs() {
 # ---------- Build report ----------
 {
   printf '# Codebase deep scan — %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf 'Target: `%s`\n\n' "$TARGET"
+  printf '%s\n\n' "$TARGET_LINE"
   printf 'Generated by: scripts/deep-codebase-scan.sh\n\n'
   printf '> **MANDATORY for REFRESH / REFINE / ENHANCE.** Phase 0.0 runs this script. Phase 4.6 anchors generated content to its findings. Phase 5 audit FAILS the run if any **semantic question below is left unanswered (`<TBD>`)** — those questions require LLM judgment that the script cannot do mechanically, but Phase 4 cannot proceed without the answers.\n\n'
   printf -- '---\n\n'
@@ -282,6 +384,15 @@ PROSE
   printf 'These gates exist because the historic bug was: refresh / refine / enhance ran shallow — touched ≤5 surface files, never compared rules to code, never proposed structural changes. M16 makes that pattern impossible to ship as "complete."\n'
 } > "$REPORT"
 
-echo "Codebase scan written: $REPORT"
-echo "Mechanical sections (1-7) auto-filled. LLM must fill sections 8-15."
+# --stdout: the report was buffered off-target; emit it now and leave $TARGET untouched.
+# The two summary lines move to stderr so the report file stays clean — run-preflight.sh
+# reads them with `| tail -2` from stdout on the DEFAULT path, which is unchanged.
+if [[ -n "$REPORT_TMP" ]]; then
+  cat "$REPORT_TMP"
+  rm -f "$REPORT_TMP"
+  REPORT_TMP=""
+fi
+say() { if [[ $SINK_STDOUT -eq 1 ]]; then echo "$@" >&2; else echo "$@"; fi; }
+say "Codebase scan written: $REPORT_LABEL"
+say "Mechanical sections (1-7) auto-filled. LLM must fill sections 8-15."
 exit 0

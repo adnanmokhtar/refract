@@ -1,3 +1,5 @@
-# audit-anchoring.sh writes its report into <target>/.claude/ on every run.
-# That's a per-run test artifact, not part of the fixture — never commit it.
+# scripts/test-validators.sh now invokes audit-anchoring.sh with --stdout, so a normal
+# gate run writes nothing here. This rule stays for the hand-run case: without --stdout
+# the script still sinks its report into <target>/.claude/, and a fixture dir IS the
+# target. That's a per-run artifact, not part of the fixture — never commit it.
 **/.claude/_anchoring-audit.md

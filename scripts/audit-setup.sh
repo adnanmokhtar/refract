@@ -6,7 +6,15 @@
 # Returns 0 if all checks pass; non-zero with a numbered report otherwise.
 #
 # Usage:
-#   audit-setup.sh <target-repo> [--mode=refresh|refine|enhance|create]
+#   audit-setup.sh <target-repo> [--mode=refresh|refine|enhance|create] [--read-only]
+#
+# Flags:
+#   --read-only  (alias --no-write) Audit WITHOUT writing anything into <target-repo>.
+#                Without it, a bare no-flag run of this audit writes THREE files into the
+#                repo it is auditing — C2k regenerates `_study-existing-report.md`, C2d
+#                `_anchoring-audit.md`, C2e `_adapter-coverage-audit.md` — because each
+#                sub-audit's only sink was inside the target. The verdicts are identical
+#                either way; --read-only just moves the three sinks to a scratch dir.
 #
 # Exits:
 #   0 — all checks pass; safe to report success
@@ -17,7 +25,8 @@ set -euo pipefail
 export LC_ALL=C
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-repo> [--mode=...]" >&2
+  echo "Usage: $0 <target-repo> [--mode=...] [--read-only]" >&2
+  echo "       --read-only = audit without writing anything under <target-repo>." >&2
   exit 2
 fi
 
@@ -25,23 +34,61 @@ TARGET="$1"; shift
 MODE="refresh"
 LIGHTWEIGHT=0
 NO_ADAPTERS=0
+READONLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode=*)      MODE="${1#--mode=}"; shift ;;
     --lightweight) LIGHTWEIGHT=1; shift ;;
     --no-adapters) NO_ADAPTERS=1; shift ;;
+    --read-only|--no-write) READONLY=1; shift ;;
     *)             shift ;;
   esac
 done
-# Normalize the mode string (#4): Phase 1 emits CREATE / ENHANCE-retrofit / ENHANCE-extend /
-# REFRESH / REFINE, but every check below string-matches lowercase create|enhance|refresh|refine.
-# Without this, `ENHANCE-retrofit` never matches "enhance" (adapter-sync + baseline gates silently
-# no-op) and `CREATE` runs checks the file says CREATE is exempt from.
-MODE=$(printf '%s' "$MODE" | tr 'A-Z' 'a-z' | sed 's/enhance-.*/enhance/; s/refresh-.*/refresh/; s/refine-.*/refine/')
+# Normalize the mode string (#4): Phase 1 emits CREATE / ENHANCE-retrofit /
+# ENHANCE-extend / REFRESH / REFINE / UPGRADE — the six canonical spellings of
+# templates/phases/phase-1-detect-mode.md § "Decide mode" — but every check below
+# string-matches lowercase create|enhance|refresh|refine. Without this,
+# `ENHANCE-retrofit` never matches "enhance" (adapter-sync + baseline gates
+# silently no-op) and `CREATE` runs checks the file says CREATE is exempt from.
+#
+# UPGRADE folds to `refresh` for the same reason run-preflight.sh does: its
+# ceremony IS "the REFRESH ceremony verbatim" (commands/setup-project.md § "Mode →
+# ceremony"). Before this, `upgrade` matched no guard here and the most ceremonious
+# mode was audited by C2a and C2n not at all. MODE_LABEL keeps the announced label.
+MODE_LABEL=$(printf '%s' "$MODE" | tr 'A-Z' 'a-z')
+MODE=$(printf '%s' "$MODE_LABEL" | sed 's/enhance-.*/enhance/; s/refresh-.*/refresh/; s/refine-.*/refine/; s/^upgrade.*$/refresh/')
 
 CL="$TARGET/.claude"
 fail=0
 warn=0
+
+# ── Sub-audit report sinks ─────────────────────────────────────────────────────
+# This script is named `audit-*` and reads as a health check, but three of its checks
+# REGENERATE their input by shelling out to a sub-audit whose only sink was inside the
+# target. So auditing a repo modified it: observed 2026-08-22, a bare `audit-setup.sh
+# <target>` wrote _study-existing-report.md (C2k), _anchoring-audit.md (C2d) and
+# _adapter-coverage-audit.md (C2e) into a project that had been declared read-only.
+# Under --read-only the same three sub-audits run with --report=<scratch>, so the
+# numbers below are still freshly computed — only the sink moves off the target.
+# The three apply-* scripts this file also calls (apply-adapter-sync, apply-baseline-sync)
+# are dry-run by default and are invoked WITHOUT --apply, so they need no equivalent.
+STUDY_REPORT="$CL/_study-existing-report.md"
+ANCHOR_REPORT="$CL/_anchoring-audit.md"
+ADAPTER_REPORT="$CL/_adapter-coverage-audit.md"
+RO_STUDY_ARGS=(); RO_ANCHOR_ARGS=(); RO_ADAPTER_ARGS=()
+if [[ $READONLY -eq 1 ]]; then
+  RO_DIR=$(mktemp -d "${TMPDIR:-/tmp}/audit-setup-ro.XXXXXX")
+  # Deliberately NOT trap-deleted: C2d's remediation prints the anchoring report path,
+  # and a path that no longer exists by the time the reader copies it is worse than no
+  # path. The dir lives under $TMPDIR and is the OS's to reap.
+  echo "read-only: nothing will be written under $TARGET; sub-audit reports -> $RO_DIR" >&2
+  STUDY_REPORT="$RO_DIR/_study-existing-report.md"
+  ANCHOR_REPORT="$RO_DIR/_anchoring-audit.md"
+  ADAPTER_REPORT="$RO_DIR/_adapter-coverage-audit.md"
+  RO_STUDY_ARGS=(--report="$STUDY_REPORT")
+  RO_ANCHOR_ARGS=(--report="$ANCHOR_REPORT")
+  RO_ADAPTER_ARGS=(--report="$ADAPTER_REPORT")
+fi
 
 err() { echo "  ERR  $*"; fail=$((fail + 1)); }
 warn_msg() { echo "  WARN $*"; warn=$((warn + 1)); }
@@ -64,7 +111,11 @@ newest_preflight_backup() {
   printf '%s' "$picked"
 }
 
-echo "=== Phase 5 audit — target=$TARGET mode=$MODE ==="
+if [[ "$MODE_LABEL" == upgrade* ]]; then
+  echo "=== Phase 5 audit — target=$TARGET mode=$MODE_LABEL (REFRESH ceremony) ==="
+else
+  echo "=== Phase 5 audit — target=$TARGET mode=$MODE ==="
+fi
 echo ""
 
 # C2a (M35) — Phase 0 backup present for REFRESH / REFINE.
@@ -99,24 +150,73 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
       fi
     fi
   else
-    err "no backup created in the last 24h — run-preflight.sh (M35 Phase 0 backup) did not run; re-run: ~/.claude/scripts/run-preflight.sh \"$TARGET\" --mode=$MODE"
+    err "no backup created in the last 24h — run-preflight.sh (M35 Phase 0 backup) did not run; re-run: ~/.claude/scripts/run-preflight.sh \"$TARGET\" --mode=$MODE_LABEL"
   fi
   echo ""
 fi
 
-# C2n (knowledge-preservation) — REFRESH/REFINE must NOT silently drop extract-
-# captured knowledge. ADRs are append-only; documented patterns survive a refresh.
-# Compare the pre-refresh BACKUP (run-preflight.sh Phase 0) against the post-apply
-# state: if ai/decisions/ or ai/patterns/ shrank, the refresh destroyed knowledge.
-# CREATE is exempt (greenfield — no prior knowledge to preserve).
-if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
-  echo "C2n: knowledge preservation (ADRs + patterns survive refresh)"
+# --- C2n knowledge-token vocabulary (M36) -------------------------------------
+# Keep IN SYNC with scripts/study-existing.sh (KNOW_SRC_EXT / KNOW_PATH_RE /
+# KNOW_IDENT_RE). Deliberately duplicated rather than sourced: audit-setup.sh is
+# invoked standalone from ~/.claude/scripts and must not acquire a new dependency.
+# The gate uses the SAME definition of "project knowledge" the classifier uses to
+# protect a file — so a file the classifier would refuse to replace, and whose
+# identifiers then vanish anyway, is caught here by construction.
+KNOW_SRC_EXT='ts|tsx|js|jsx|mjs|cjs|vue|svelte|py|go|rb|php|java|kt|kts|swift|scala|rs|cs|cpp|hpp|ex|exs|dart|sql|prisma|graphql|proto|tf|yaml|yml|json|toml|env|sh|md|css|scss|html'
+KNOW_PATH_RE="[A-Za-z0-9_@.*-]+(/[A-Za-z0-9_@.*-]+)+\.($KNOW_SRC_EXT)"
+KNOW_IDENT_RE='[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*|[A-Z][A-Z0-9]*_[A-Z0-9_]+|[a-z][a-z0-9]*_[a-z0-9_]+|[A-Z][A-Za-z0-9]*(-[A-Z][A-Za-z0-9]*)+|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]+'
+
+# know_tokens <file> <regex> → distinct matches, one per line, from the file with
+# its `<!-- project-specific -->` block REMOVED. The anchor block is regenerated
+# by apply-anchors.sh from the profile, so it is not hand-authored knowledge and
+# must not mask its loss (the destroyed files were re-anchored after replacement,
+# which would otherwise have restored an identifier count that means nothing).
+know_tokens() {
+  awk '
+    /^<!-- project-specific:start -->[[:space:]]*$/ { skip=1; next }
+    skip { if (/^<!-- project-specific:end -->[[:space:]]*$/) skip=0; next }
+    { print }
+  ' "$1" 2>/dev/null | grep -ohE "$2" 2>/dev/null | sort -u || true
+}
+
+# C2n (knowledge-preservation) — a run must NOT silently drop extract-captured
+# knowledge. ADRs are append-only; documented patterns survive a refresh.
+#
+# M36 — ENHANCE IS NOW IN SCOPE, and the check is per-file, not per-directory.
+# Two inversions were found by running the framework against a real 8,151-file
+# project on 2026-08-22:
+#   (1) the mode guard was `refresh|refine` only. ENHANCE is the mode that
+#       PROMISES to be additive (phase-0-backup-extract.md justifies skipping the
+#       Phase-0 backup on exactly that promise), so a loss there is the most
+#       surprising and was the least defended. That run was ENHANCE; it
+#       overwrote three hand-authored files and this gate never looked.
+#   (2) the check counted FILES per directory. All three destroyed files still
+#       existed afterwards — only their contents were gone (project identifiers
+#       9 -> 0, 18 -> 0, 2 -> 0). A file census cannot see that, in ANY mode.
+# So: compare each backed-up file's project-knowledge tokens against the live
+# file. Backups are ordered OLDEST-FIRST and the first copy of a path wins —
+# apply-study-decisions.sh backs up BEFORE it replaces, apply-anchors.sh backs up
+# after, so the oldest copy is the true pre-run state (a union or newest-wins
+# pick would score pack text as lost knowledge on a correctly restored file).
+if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; then
+  echo "C2n: knowledge preservation (ADRs + patterns + per-file project knowledge)"
   bk=$(newest_preflight_backup)
   if [[ -z "$bk" ]]; then
-    warn_msg "no recent backup to compare against — cannot verify knowledge preservation (C2a should have already failed)"
+    if [[ "$MODE" == "enhance" ]]; then
+      warn_msg "no backup dir in .claude/backups from the last 24h — file-census comparison skipped. ENHANCE DOES take the Phase-0 backup now (run-preflight.sh STEP -1), so this means the preflight was skipped, or the target had no prior setup to back up (a bare ENHANCE-retrofit). Re-run: ~/.claude/scripts/run-preflight.sh \"$TARGET\" --mode=$MODE_LABEL"
+    else
+      warn_msg "no recent backup to compare against — cannot verify knowledge preservation (C2a should have already failed)"
+    fi
   else
     count_md() { { find "$1" -name '*.md' -not -name '_*' -not -name 'README*' 2>/dev/null || true; } | grep -c . || true; }
     for sub in decisions patterns; do
+      # A thin backup (study-decisions-*/anchors-*) holds only the files that run
+      # touched, so `pre` is 0 and `post < pre` can never fire. Reporting that as
+      # "ok ai/patterns/ preserved (0 -> 72)" is a false all-clear — say so instead.
+      if [[ ! -d "$bk/ai/$sub" ]]; then
+        warn_msg "ai/$sub/ census skipped — ${bk#$TARGET/} is a partial backup with no ai/$sub/ snapshot (per-file check below still applies)"
+        continue
+      fi
       pre=$(count_md "$bk/ai/$sub")
       post=$(count_md "$TARGET/ai/$sub")
       pre="${pre:-0}"; post="${post:-0}"
@@ -135,6 +235,55 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
       done < <(find "$bk/ai/decisions" -name '*.md' -not -name '_*' -not -name 'README*' 2>/dev/null)
       [[ $missing_adr -eq 0 ]] && ok "every backed-up ADR still present by ID"
     fi
+  fi
+
+  # --- per-file project-knowledge comparison (M36) -----------------------------
+  # Runs off ALL recent backup dirs, not just the one C2a grades, because in
+  # ENHANCE the only snapshot of a replaced file is the thin backup the replacing
+  # script took itself.
+  seen_rel=$(mktemp "${TMPDIR:-/tmp}/c2n-seen.XXXXXX")
+  kn_checked=0; kn_lost=0
+  while IFS= read -r bkdir; do
+    bkdir="${bkdir%/}"   # `ls -1d .../*/` yields a trailing slash; without this the
+                         # `${bf#"$bkdir"/}` strip never matches and every path is skipped.
+    [[ -d "$bkdir" ]] || continue
+    [[ -n "$(find "$bkdir" -maxdepth 0 -mmin -1440 2>/dev/null)" ]] || continue
+    while IFS= read -r bf; do
+      rel="${bf#"$bkdir"/}"
+      # Only the surfaces the framework claims to preserve. Adapter projections
+      # (.cursor/, .opencode/, …) are derived sinks — regenerating them is not loss.
+      case "$rel" in
+        ai/*|.claude/commands/*|.claude/agents/*|.claude/rules/*|.claude/skills/*|CLAUDE.md|AGENTS.md|CONVENTIONS.md) ;;
+        *) continue ;;
+      esac
+      # Oldest backup wins: first sighting of a path is the pre-run state.
+      grep -qxF "$rel" "$seen_rel" 2>/dev/null && continue
+      printf '%s\n' "$rel" >> "$seen_rel"
+      live="$TARGET/$rel"
+      [[ -f "$live" ]] || continue   # whole-file deletion is caught by the census above
+      kn_checked=$((kn_checked + 1))
+      lost_paths=$(comm -23 <(know_tokens "$bf" "$KNOW_PATH_RE") <(know_tokens "$live" "$KNOW_PATH_RE") | grep -c . || true)
+      lost_idents=$(comm -23 <(know_tokens "$bf" "$KNOW_IDENT_RE") <(know_tokens "$live" "$KNOW_IDENT_RE") | grep -c . || true)
+      lost_paths="${lost_paths:-0}"; lost_idents="${lost_idents:-0}"
+      # Same predicate study-existing.sh uses to protect a file from replacement:
+      # ≥1 real project path, or ≥3 code identifiers.
+      if [[ "$lost_paths" -ge 1 || "$lost_idents" -ge 3 ]]; then
+        kn_lost=$((kn_lost + 1))
+        err "KNOWLEDGE_LOSS: $rel lost $lost_paths project path(s) + $lost_idents identifier(s) present in ${bkdir#$TARGET/}. Generic pack text cannot regenerate them — restore from ${bkdir#$TARGET/}/$rel and merge the pack depth in instead of replacing."
+      fi
+      # An anchor that existed and no longer does means the project block was
+      # overwritten wholesale, not merged.
+      if grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$bf" 2>/dev/null \
+         && ! grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$live" 2>/dev/null; then
+        err "KNOWLEDGE_LOSS: $rel carried the project-specific anchor in ${bkdir#$TARGET/} and no longer does — the block was replaced, not merged."
+      fi
+    done < <(find "$bkdir" -type f -name '*.md' 2>/dev/null | sort)
+  done < <(ls -1dtr "$CL/backups"/*/ 2>/dev/null || true)
+  rm -f "$seen_rel"
+  if [[ "$kn_checked" -eq 0 ]]; then
+    ok "per-file project knowledge: no backed-up .md files to compare (nothing was overwritten this run)"
+  elif [[ "$kn_lost" -eq 0 ]]; then
+    ok "per-file project knowledge: $kn_checked backed-up file(s) compared, none lost project paths/identifiers"
   fi
   echo ""
 fi
@@ -306,10 +455,10 @@ if [[ "$MODE" != "create" && -x "$SCRIPTS_DIR/study-existing.sh" ]]; then
     c2k_packs=$("$SCRIPTS_DIR/detect-tracks.sh" "$TARGET" --quiet 2>/dev/null | tr '\n' ' ' || true)
   fi
   # shellcheck disable=SC2086 — pack names are single safe words; word-splitting intended
-  "$SCRIPTS_DIR/study-existing.sh" "$TARGET" $c2k_packs >/dev/null 2>&1 || true
-  if [[ -f "$CL/_study-existing-report.md" ]]; then
-    act=$(grep -E '^Files with action needed: \*\*[0-9]+\*\*' "$CL/_study-existing-report.md" | grep -oE '[0-9]+' | head -1 || true)
-    reopened=$(grep -E '^Ledger entries re-opened' "$CL/_study-existing-report.md" | grep -oE '[0-9]+' | head -1 || true)
+  "$SCRIPTS_DIR/study-existing.sh" "$TARGET" $c2k_packs ${RO_STUDY_ARGS[@]+"${RO_STUDY_ARGS[@]}"} >/dev/null 2>&1 || true
+  if [[ -f "$STUDY_REPORT" ]]; then
+    act=$(grep -E '^Files with action needed: \*\*[0-9]+\*\*' "$STUDY_REPORT" | grep -oE '[0-9]+' | head -1 || true)
+    reopened=$(grep -E '^Ledger entries re-opened' "$STUDY_REPORT" | grep -oE '[0-9]+' | head -1 || true)
     if [[ -z "$act" ]]; then
       warn_msg "could not parse actionable count from regenerated study report"
     elif [[ "$act" == "0" ]]; then
@@ -642,13 +791,13 @@ echo ""
 # (SCRIPTS_DIR set earlier at C2g block)
 if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
   echo "C2d: artifact anchoring"
-  "$SCRIPTS_DIR/audit-anchoring.sh" "$TARGET" --quiet >/dev/null 2>&1 || true
-  if [[ -f "$CL/_anchoring-audit.md" ]]; then
-    pct=$(grep -E '^Coverage: \*\*' "$CL/_anchoring-audit.md" 2>/dev/null \
+  "$SCRIPTS_DIR/audit-anchoring.sh" "$TARGET" --quiet ${RO_ANCHOR_ARGS[@]+"${RO_ANCHOR_ARGS[@]}"} >/dev/null 2>&1 || true
+  if [[ -f "$ANCHOR_REPORT" ]]; then
+    pct=$(grep -E '^Coverage: \*\*' "$ANCHOR_REPORT" 2>/dev/null \
           | grep -oE '[0-9]+' | head -1 || true)
-    unanchored=$(grep -E '^Unanchored:' "$CL/_anchoring-audit.md" 2>/dev/null \
+    unanchored=$(grep -E '^Unanchored:' "$ANCHOR_REPORT" 2>/dev/null \
                  | grep -oE '[0-9]+$' | head -1 || true)
-    leaks=$(grep -E '^Cross-project leaks:' "$CL/_anchoring-audit.md" 2>/dev/null \
+    leaks=$(grep -E '^Cross-project leaks:' "$ANCHOR_REPORT" 2>/dev/null \
             | grep -oE '[0-9]+$' | head -1 || true)
     leaks="${leaks:-0}"
     # Cross-project leak is always a hard failure in non-CREATE modes — an artifact
@@ -657,14 +806,14 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
       if [[ "$MODE" == "create" ]]; then
         warn_msg "anchoring: $leaks cross-project leak(s) — anchor cites facts absent from target (CREATE mode; verify before chaining adapters)"
       else
-        err "anchoring: $leaks cross-project leak(s) — generated artifact cites identifiers/paths NOT in the target codebase. See $CL/_anchoring-audit.md § Cross-project leaks; re-run apply-anchors.sh \"$TARGET\" --apply"
+        err "anchoring: $leaks cross-project leak(s) — generated artifact cites identifiers/paths NOT in the target codebase. See $ANCHOR_REPORT § Cross-project leaks; re-run apply-anchors.sh \"$TARGET\" --apply"
       fi
     fi
     # When audit-anchoring.sh detects 0 pack-derived files, no `Coverage:` line is
     # emitted (audit-anchoring.sh:180-183 only writes it when total_eligible > 0).
     # Treat that case as a pass: every eligible artifact is anchored when there
     # are zero eligible artifacts.
-    if [[ -z "$pct" ]] && grep -qE '^Pack-derived artifacts:[[:space:]]+\*\*0\*\*' "$CL/_anchoring-audit.md" 2>/dev/null; then
+    if [[ -z "$pct" ]] && grep -qE '^Pack-derived artifacts:[[:space:]]+\*\*0\*\*' "$ANCHOR_REPORT" 2>/dev/null; then
       ok "anchoring coverage n/a — 0 pack-derived artifacts (all are project-specific orphans)"
     fi
     if [[ -n "$pct" ]]; then
@@ -738,18 +887,18 @@ if [[ -x "$SCRIPTS_DIR/audit-adapter-coverage.sh" ]]; then
   # previously reported "all adapters in sync" while audit-adapter-coverage.sh was
   # exiting 1 on every run (measured: a missing ~/.claude/scripts/_adapter-emit.sh
   # symlink took the whole M34 chain down and C2e still printed a pass).
-  if "$SCRIPTS_DIR/audit-adapter-coverage.sh" "$TARGET" >/dev/null 2>&1; then
+  if "$SCRIPTS_DIR/audit-adapter-coverage.sh" "$TARGET" ${RO_ADAPTER_ARGS[@]+"${RO_ADAPTER_ARGS[@]}"} >/dev/null 2>&1; then
     _adapter_audit_ran=1
   else
     _adapter_audit_ran=0
     warn "C2e: audit-adapter-coverage.sh exited non-zero — coverage numbers below are STALE or absent, not verified"
   fi
-  if [[ "$_adapter_audit_ran" -eq 1 && -f "$CL/_adapter-coverage-audit.md" ]]; then
+  if [[ "$_adapter_audit_ran" -eq 1 && -f "$ADAPTER_REPORT" ]]; then
     # Extract pass/warn/fail counts from the table
     # Use awk — always exits 0 and prints a number, no grep -c "1 on no match" trap.
-    err_n=$(awk '/^\| ❌/  {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || true)
-    warn_n=$(awk '/^\| ⚠/ {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || true)
-    ok_n=$(awk  '/^\| ✅/ {n++} END {print n+0}' "$CL/_adapter-coverage-audit.md" 2>/dev/null || true)
+    err_n=$(awk '/^\| ❌/  {n++} END {print n+0}' "$ADAPTER_REPORT" 2>/dev/null || true)
+    warn_n=$(awk '/^\| ⚠/ {n++} END {print n+0}' "$ADAPTER_REPORT" 2>/dev/null || true)
+    ok_n=$(awk  '/^\| ✅/ {n++} END {print n+0}' "$ADAPTER_REPORT" 2>/dev/null || true)
     err_n="${err_n:-0}"; warn_n="${warn_n:-0}"; ok_n="${ok_n:-0}"
     if [[ "$ok_n" == "0" && "$warn_n" == "0" && "$err_n" == "0" ]]; then
       warn_msg "no adapter native files detected — run /setup-project-adapters to translate .claude/ to Cursor/OpenCode/etc native shapes"

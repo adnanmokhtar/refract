@@ -56,12 +56,20 @@ related-commands:
 
 **Mode → ceremony (closure-verb table; what each mode actually executes):**
 
-| Mode      | Triggered when                                              | Ceremony                                                          | Closure verb                       |
-|-----------|-------------------------------------------------------------|-------------------------------------------------------------------|------------------------------------|
-| CREATE    | Empty / near-empty repo, or `--create`                      | **FULL**: all phases 0→6, all packs, full anchoring               | "scaffolded + anchored + audited"  |
-| ENHANCE   | Existing repo, no `.claude/` yet, or `--enhance`            | **LIGHTER**: Phase 0/2 read-only extract, Phase 4 anchored writes | "extracted + layered + audited"    |
-| REFRESH   | `.claude/` present + `--refresh`                            | **BACKUP-THEN-STUDY-THEN-TARGETED**: deterministic Phase 0 backup (in preflight), full study report, every flagged row APPLIED or LEDGER-RECORDED, reconciliation audit | "backed-up + studied + reconciled + audited" |
-| REFINE    | `.claude/` present + `--refine` (or post-REFRESH deepening) | **DEEP-ONLY-ON-FLAGGED**: 4.6/4.7/4.8-DEEP rewrite shallow blocks; untouched files = no-op | "deepened-where-shallow + audited" |
+> **Authority split — read this before the table.**
+> **`templates/phases/phase-1-detect-mode.md` § "Decide mode" is the SINGLE authority on WHICH mode fires.** Its row labels are the canonical mode names — `CREATE`, `ENHANCE-retrofit`, `ENHANCE-extend`, `REFRESH`, `REFINE`, `UPGRADE` — and the shell agrees with it, not with this file: `scripts/run-preflight.sh:63-64` and `scripts/audit-setup.sh:57-58` both normalize exactly those six strings, `UPGRADE` included (it folds to `refresh`, which is what the UPGRADE row below already promised).
+> **This table is authoritative only for the CEREMONY and CLOSURE-VERB columns** — what a mode, once detected, then executes. The "Detected as" column is a non-authoritative echo of Phase 1 kept for orientation. If the two ever disagree, **Phase 1 wins and this file is the bug** — fix it here, do not resolve it at runtime.
+>
+> This is not hypothetical. Before this note existed, the row below read "ENHANCE — existing repo, **no `.claude/` yet**", while Phase 1 said `ENHANCE-extend` fires when `.claude/` + `ai/` + `CLAUDE.md` are **all present**. A repo with a complete prior setup and no flags — the single most common real invocation — matched **no row of this table at all**, and the mode a user got depended on which of the two files the agent happened to read first.
+
+| Mode | Detected as — echo of `phase-1-detect-mode.md` § Decide mode (NOT authoritative) | Ceremony | Closure verb |
+|---|---|---|---|
+| CREATE | No source, no `.claude/`, no `CLAUDE.md`, no `ai/` — or `--create` | **FULL**: all phases 0→6, all packs, full anchoring | "scaffolded + anchored + audited" |
+| ENHANCE-retrofit | Source exists but `.claude/` **or** `ai/` missing — or `--enhance` | **LIGHTER**: Phase 0.0 preflight (§ STEP ZERO), Phase 2 read-only extract, Phase 4 anchored writes. Phase 0.1/0.2 (the tarball backup + prior-knowledge extract) do not apply. The **deterministic Phase-0 backup still runs** inside the preflight (`run-preflight.sh:101`) — this mode fires when `.claude/` **or** `ai/` is missing, which usually means the other one is *present*, and whatever is present is backed up. Only a target with no `.claude/`, no `ai/`, no `CLAUDE.md` and no adapter files is genuinely "nothing to back up", and the script says so instead of assuming it. | "extracted + layered + audited" |
+| ENHANCE-extend | `.claude/` **and** `ai/` **and** `CLAUDE.md` all present, no flag — the established-project default, and the most common real invocation | **LIGHTER + PRIOR-KNOWLEDGE-AWARE**: identical to retrofit, plus (i) `_study-existing-report.md` rows are reconciled row by row instead of overwritten, and (ii) every Phase-4 write is additive against the existing setup — a richer project-authored equivalent wins and the pack file becomes a redirect (`templates/rule-7-phase-4-6-file-adaptation.md`). This row's trigger *is* "a prior setup exists", so the Phase-0 backup in the preflight always has something to copy and always takes it. | "backed-up + extracted + layered + reconciled + audited" |
+| REFRESH | `.claude/` or `ai/` present **+ `--refresh`** | **BACKUP-THEN-STUDY-THEN-TARGETED**: deterministic Phase 0 backup (in preflight), full study report, every flagged row APPLIED or LEDGER-RECORDED, reconciliation audit | "backed-up + studied + reconciled + audited" |
+| REFINE | `.claude/` artifacts present **+ `--refine`** (or post-REFRESH deepening) | **DEEP-ONLY-ON-FLAGGED**: 4.6/4.7/4.8-DEEP rewrite shallow blocks; untouched files = no-op | "deepened-where-shallow + audited" |
+| UPGRADE | `--upgrade` **+** existing `.claude/` | **MIGRATE-THEN-REFRESH**: `~/.claude/scripts/migrate-setup.sh "$TARGET_REPO"` first (idempotent, backs up), then the REFRESH ceremony verbatim. Never a silent fall-through to ENHANCE. The shell enforces the REFRESH half: `--mode=UPGRADE` folds to `refresh` in both `run-preflight.sh:63-64` and `audit-setup.sh:57-58`, so the Phase-0 backup, C2a and C2n all fire. The MIGRATE half is still the agent's step — the preflight prints the exact `migrate-setup.sh` line and does not run it. | "migrated + backed-up + studied + reconciled + audited" |
 
 The agent does NOT run CREATE ceremony on REFINE flag, does NOT run REFINE deep-pass on a fresh CREATE, does NOT promote ENHANCE into a full re-scaffold. **Mode-mismatch = bug.**
 
@@ -81,12 +89,31 @@ Two enforcement classes — be honest about which is which:
 
 These halts override every other instruction below. The audit scripts + this section are the load-bearing contract.
 
-## 🛑 STEP ZERO — deterministic preflight (M17 — runs FIRST, no exceptions)
+## 🛑 STEP ZERO — deterministic preflight (M17 — runs in EVERY mode, no exceptions)
 
-**Before reading any other section, before persona, before phase imports — invoke this:**
+> **This section is the SINGLE authority on whether the preflight runs, and when.**
+> `run-preflight.sh` is **Phase 0.0**, and Phase 0.0 is deliberately NOT part of the mode-gated body of Phase 0. `templates/phases/phase-0-backup-extract.md` §§ 0.1–0.2 (the tarball backup and the prior-knowledge extract) are skipped in CREATE / ENHANCE-retrofit / ENHANCE-extend — **§ 0.0 is not.** It runs in all six modes. If that file ever reads otherwise, **this section wins.**
+>
+> Why this is load-bearing rather than pedantic: the four reports § 0.0 writes **are Phase 4's entire work plan**. Skip it in ENHANCE and Phase 4 opens an empty plan, finds nothing flagged, and the run reports `no work to do` on a repo with real gaps — while `audit-setup.sh` C2b passes, because the reports it grades were never written to have findings. An observed ENHANCE-extend run against an 8,151-file repo produced its four reports *only* because the agent chose this section over the phase file; obeying the phase file would have emptied Phase 4.
+
+**Ordering — the one exception to "runs first":** this invocation needs `$MODE`, which is **Phase 1's output**. So the real order is:
+
+```
+Phase 1 (detect mode + shape — read-only, writes nothing)
+  → STEP ZERO / Phase 0.0 (run-preflight.sh, with the detected $MODE)
+  → Phase 0.1–0.2 if and only if the mode is REFRESH / REFINE / UPGRADE
+  → Phase 2 → 3 → 4 → 5 → 6
+```
+
+Phase 1 is the **only** section allowed to precede this one; everything else — persona, phase imports, pack selection — comes after. Two hard consequences:
+
+- **Never let `$MODE` default.** `scripts/run-preflight.sh:31` falls back to `refresh` when the flag is absent, which takes a REFRESH-shaped backup on a CREATE target. Pass the mode Phase 1 announced, spelled the way Phase 1 spells it — `run-preflight.sh:63-64` normalizes `ENHANCE-retrofit` / `ENHANCE-extend` down to `enhance`, and `UPGRADE` down to `refresh`, itself.
+- **Pass `$SELECTED_PACKS` EMPTY here.** It is Phase 3's output and does not exist yet. Left empty, `run-preflight.sh:162-192` runs `detect-tracks.sh` (M28) and scopes the preflight to the detected tracks — which is the intended path. Passing a guessed list *suppresses* detection (`run_detection=0`) and silently narrows every downstream report.
+
+**With that ordering settled — invoke this before any other work:**
 
 ```bash
-~/.claude/scripts/run-preflight.sh "$TARGET_REPO" --mode=$MODE $SELECTED_PACKS
+~/.claude/scripts/run-preflight.sh "$TARGET_REPO" --mode=$MODE   # $SELECTED_PACKS is empty at Phase 0.0 — see above
 ```
 
 This produces 4 reports under `$TARGET_REPO/.claude/`:
@@ -272,16 +299,25 @@ These are REGENERATED, not hand-edited. Source of truth is the full files; compa
 
 This command is a thin orchestrator. The full detail lives in the files declared via `imports:` in this file's frontmatter — execution flow modules (phases 0–6), governance overlays (critical-execution-rules, hard-rules, idempotency), the decision engine, the track plugin loader, capabilities, the canonical command template (META — for generated commands), and the appendices. Each module is self-contained with frontmatter declaring its inputs / outputs / exit criteria. Read each on demand; do not paraphrase across modules.
 
-**Execution flow** — phase files, gated by mode:
+**"The detail lives in the modules" has exactly two carve-outs.** They exist because a module and this file each stated something the other contradicted, and an agent picked whichever it read first:
+
+1. **Which mode fires** → `templates/phases/phase-1-detect-mode.md` § "Decide mode" is authoritative, *including over the Mode → ceremony table above*, whose "Detected as" column is a non-authoritative echo.
+2. **Whether the preflight runs** → **§ STEP ZERO of this file** is authoritative, including over `phase-0-backup-extract.md`. Phase 0.0 runs in every mode; only §§ 0.1–0.2 are mode-gated.
+
+Everywhere else the module wins and this file must not paraphrase it.
+
+**Execution flow** — phase files, gated by mode. Note the order: Phase 1 precedes Phase 0.0, because Phase 0.0 needs the mode Phase 1 detects (§ STEP ZERO):
 
 ```
-Phase 0 — Backup + extract        (REFRESH / REFINE only)
-Phase 1 — Detect mode             (always)
-Phase 2 — Profile codebase        (ENHANCE / REFRESH / REFINE)
-Phase 3 — Plan + delta            (always)
-Phase 4 — Apply                   (always)
-Phase 5 — Verify + report         (always; HALT + RETRY)
-Phase 6 — Continuous learning     (forever, after setup)
+Phase 1   — Detect mode + shape    (always; read-only, writes nothing)
+Phase 0.0 — Deterministic preflight (ALWAYS — every mode; see § STEP ZERO)
+Phase 0.1 — Backup                 (REFRESH / REFINE / UPGRADE only)
+Phase 0.2 — Extract prior knowledge (REFRESH / REFINE / UPGRADE only)
+Phase 2   — Profile codebase       (ENHANCE-* / REFRESH / REFINE)
+Phase 3   — Plan + delta           (always)
+Phase 4   — Apply                  (always)
+Phase 5   — Verify + report        (always; HALT + RETRY)
+Phase 6   — Continuous learning    (forever, after setup)
 ```
 
 Critical execution rules at `@templates/critical-execution-rules.md` override anything below; read first. Quick start at `@templates/quick-start.md`. Decision engine at `@templates/decision-engine.md`. Tool-adapter sibling: `commands/setup-project-adapters.md`.

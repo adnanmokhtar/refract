@@ -37,7 +37,7 @@ That's it. Three escalation triggers. Everything else — style, error handling,
 |---|---|---|---|
 | **Trivial** | New CRUD page that mirrors an existing one | Code only — page + service + types + locale keys (en + ar). Tests + i18n in both locales required. **No plan, no ADR.** | YES |
 | **Standard** | New shape, requires 1 small composable OR 1 new shared wrapper | Trivial + 1-paragraph plan + sibling-shape note inline + **bundle-size delta check** (any new shared wrapper / lazy-route / heavy import) | NO |
-| **Heavy** | New framework-level pattern, multi-route flow, new shared component family, accessibility-critical surface | Standard + ADR + reviewer dispatch (a11y-auditor at minimum) + visual snapshot tests + the 6-cascading-reviewer pattern below | NO |
+| **Heavy** | New framework-level pattern, multi-route flow, new shared component family, accessibility-critical surface, **or the Phase 1 data-sensitivity gate fired** (auth / payment / identity / health / third-party-token surface) | Standard + ADR + reviewer dispatch (a11y-auditor at minimum) + visual snapshot tests + the 6-cascading-reviewer pattern below | NO |
 
 **Lightweight default.** Trivial-tier is the default. The full reviewer cascade and the Phase 5 ADR draft only fire at heavy-tier. Asking for an ADR on a sibling-mirror CRUD page is the same anti-pattern as the migration pack's "ADR-as-closure" trap.
 
@@ -117,6 +117,20 @@ The intent gate above routes the *request*. This gate checks the *capability*: *
 1. Search by **behavior, not name** — existing routes, page components, composables, or services that already cover the user-facing capability (a "saved filters" feature may already live inside an existing list page's `useCrud` state).
 2. **Near-duplicate found → HALT.** Surface the existing surface (route + what it does) and ask: extend it, replace it, or ship a deliberate parallel (rare — record the rationale inline).
 3. Nothing matches → continue.
+
+### Data-sensitivity gate (mandatory, both branches, ranked above the tier table)
+
+The spec-driven branch above ingests **Authorization & data-sensitivity** as one of its spec sections. That lens is not a property of having a spec — it is a property of the data, so it runs here too, on every run, before the tier is chosen.
+
+**Does this feature touch a credential, a payment instrument, a government or tax identifier, a health / biometric record, or a third-party access token?**
+
+- **No** → continue; nothing below changes.
+- **Yes** → three consequences, none of them optional:
+  1. **Tier promotes to heavy**, regardless of how sibling-shaped the surface looks. This is the promotion that makes the security lane reachable at all — see the tier table's trigger row.
+  2. **The value is held by reference, never by value.** The capture surface is the provider's hosted / tokenised primitive (payment element, identity widget, signed upload); the repo stores a token. A repo-owned input bound to the repo's validation schema is a **HALT**, not a design choice, and the fact that a sibling already does it makes it a defect to report rather than a shape to mirror.
+  3. **Every derived surface inherits the restriction** — the field is not a table column, not a filter, not a fixture value, not a log line, not an analytics property. `/add-crud-page` § Phase 1 carries the full surface-by-surface branch; this command follows it rather than restating it.
+
+Record the outcome in the run summary either way: `data-sensitivity: none` or `data-sensitivity: <class> — captured via <provider primitive>; tier promoted to heavy`.
 
 ### Standard inputs
 
@@ -230,7 +244,7 @@ After generation, dispatch (gated by tier):
 
 - **Trivial-tier (default):** `@ui-reviewer` only — convention adherence, prop types, no business logic in templates. The sibling-shape halt below is the primary gate.
 - **Standard-tier:** add `@i18n-auditor` (if i18n in scope) and `@accessibility-auditor`.
-- **Heavy-tier:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@security-auditor` (if auth/payment in scope). Run in parallel. `@ui-reviewer` carries the framework-specific lens (Vue/React/Svelte/etc.) — there is no separate per-framework reviewer agent.
+- **Heavy-tier:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@security-auditor` (if auth/payment in scope — which the Phase 1 data-sensitivity gate guarantees is reachable: a sensitive surface promotes to heavy on data grounds, so it can no longer be trivial-tier by virtue of mirroring a sibling). Run in parallel. `@ui-reviewer` carries the framework-specific lens (Vue/React/Svelte/etc.) — there is no separate per-framework reviewer agent.
 
 If a named **agent, command, or skill** is not installed in this project, perform that review inline against the corresponding pack/domain checklist and label the lane accordingly (`<axis>: graded inline (<pack> absent)`) — never silently skip the axis, never claim a reviewer that did not run, and never halt into a redirect target the project does not have.
 

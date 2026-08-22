@@ -25,6 +25,7 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Lazy-load routes (`React.lazy` + `Suspense`, `defineAsyncComponent`, Nuxt's automatic route splitting, SvelteKit's dynamic imports).
 - Virtualize lists > 100 items (`react-window`, `vue-virtual-scroller`, `svelte-virtual-list`, `@tanstack/virtual`).
 - INP (interaction responsiveness): high-frequency or expensive handlers (typing, filtering a large list, drag) keep per-interaction main-thread work bounded — break long tasks at a yield point, defer non-urgent updates through the framework's transition / deferred-value primitive. Any INP figure quoted is field-measured or reported `UNKNOWN`, never a lab proxy relabelled.
+- Sensitive values — a credential, a payment instrument, a government / tax identifier, a health or biometric record, a third-party access token — are held **by reference, never by value**: captured through the provider's hosted / tokenised primitive, stored as a token, and never rendered as a table column, a filter, a fixture value, a log line, or an analytics property. An input bound to the repo's own validation schema for such a field is forbidden. See `/add-crud-page` § Data-sensitivity gate.
 
 ## Must not
 

@@ -27,6 +27,33 @@ Create a complete module. Called directly OR from inside `/add-feature`.
 
 That's it. Three escalation triggers. Everything else is silent sibling-mirror with the closure verbs below.
 
+## Aggregate-shape decision (mechanical gate, all tiers, runs before ANY generation)
+
+**The sibling-shape halt cannot catch a module that is shaped wrong.** It compares the new module against its siblings, so a module that perfectly mirrors a CRUD sibling passes — even when the domain admits none of those operations. A `DELETE` on an append-only ledger, a `PATCH` on an immutable receipt, an `UPDATE` on a saved payment method: each is a permanent modelling error that every downstream gate in this command will bless.
+
+Answer three questions and record the answers in the PR.
+
+**1. What is the aggregate root?** The one entity whose identity the module owns, and inside whose boundary consistency is enforced transactionally. Child entities with no life outside it (order lines, address components, audit rows) get no module and no endpoints of their own.
+
+**2. What are its invariants?** What must be true after every operation — "exactly one default per customer", "line totals sum to header total", "status only moves forward", "a posted entry is never modified". They decide both the operation set and where the transaction boundary goes.
+
+**3. Which of the five CRUD operations does this domain actually admit?** Default is NOT "all five". Give a reason for every omission.
+
+| Op | Admit when | Omit when — and what replaces it |
+|---|---|---|
+| `POST` (create) | The aggregate is created by this bounded context. | It only ever arrives from elsewhere (provider webhook, import, upstream event) — creation is an inbound handler, not a public route. |
+| `GET` list | Callers legitimately enumerate the collection. | Enumeration itself leaks; expose only `GET /:id` on a caller-owned id. |
+| `GET /:id` | Almost always. | Rare — write-only sinks (telemetry ingest, audit append). |
+| `PATCH` / `PUT` | Genuinely mutable fields **and** an invariant permits partial change. | Immutable after creation (ledger entry, posted invoice, payment token) → no update route; a correction is a new aggregate plus a reversal. Or the mutable part is a *state machine* → explicit transition routes (`POST /:id/cancel`), because a guarded transition is not a field write. |
+| `DELETE` | Genuinely disposable by its owner. | Append-only / financial / audited → omit, or a status transition (`POST /:id/void`) that preserves the row. Where soft-delete exists, `DELETE` means "set the flag" — say so, and confirm every read path filters it. |
+
+**Worked shape — a saved payment method.** Root: `PaymentMethod`. Invariants: never holds a PAN; exactly one default per customer; a detached-at-provider method must not be chargeable. Admitted: `POST`, `GET` list, `GET /:id`, `DELETE` (detach at the provider then locally). Omitted: `PATCH` — card number, brand and expiry are the provider's truth; "changing" a card is attach-new-then-detach-old, and `is_default` is a **transition** (`POST /:id/default`) guarded by the one-default invariant, not a field write.
+
+**Halt conditions:**
+- Halt if generation starts before this ledger exists. The aggregate is decided once; it is retrofitted never.
+- Halt if the ledger admits all five operations with no stated reason for `DELETE` and `PATCH` specifically — "the sibling has them" is not a domain reason, it is the failure mode this gate exists for.
+- Halt if an invariant named in question 2 has no enforcement site in the generated code (constraint, transition guard, or transaction boundary).
+
 ## Sibling-shape halt (mechanical gate, all tiers)
 
 **Before declaring success, the auditor compares the new module's files against the chosen sibling module's files, axis by axis.** This is the same `regressed` mechanism from `parity-auditor.md` — borrowed for greenfield modules.
@@ -163,16 +190,20 @@ adapters/http/
 
 Controller: thin. Parses → calls use-case → maps response via mapper.
 
-Endpoints (standard CRUD — adjust per project conventions):
+Endpoints — **exactly the set the aggregate-shape ledger admitted, never a default five.** Where the ledger admits them, the shapes are:
 - `POST /<plural>` → create, returns 201
 - `GET /<plural>` → list, with pagination
 - `GET /<plural>/:id` → get one, 404 if not found
 - `PATCH /<plural>/:id` → update, 200
 - `DELETE /<plural>/:id` → soft-delete, 204
 
+A transition the ledger substituted for `PATCH` / `DELETE` (`POST /:id/void`, `POST /:id/default`, `POST /:id/cancel`) is generated in its place.
+
 All require auth by default. Multi-tenant filter applied automatically via base repo + `TenantContext`.
 
 ### DI wiring
+
+Token style is read from the sibling (`Symbol.for(...)`, string, or framework-native) — the shape below shows a Symbol project:
 
 ```
 tokens.ts:
@@ -270,11 +301,23 @@ Knowledge base updates:
 Run in order:
 - `pnpm lint` scoped to generated files.
 - `pnpm test` scoped to `__tests__/` of this module.
-- `pnpm dev` + `endpoint-test` skill for each endpoint (200 / 400 / 401 verified).
+- `pnpm dev` + `endpoint-test` skill for each generated route.
 - `schema-diff` skill — entity matches DB after migration.
 - Self-audit: do the generated files cross-reference correctly? Any contradictions with `ai/conventions.md`?
 
 If any check fails: HALT, report the failure, do not paper over.
+
+### Production-readiness gate, per generated route (the done-condition)
+
+**The floor must not get weaker as the change gets bigger.** One hand-added endpoint goes through `/add-endpoint`'s seven-row Production-readiness gate; a scaffolded module used to ship four or five endpoints on `200 / 400 / 401`. A generated route is not safer for having been generated — it is less reviewed.
+
+Run `/add-endpoint`'s **Production-readiness gate** ledger **once per generated route**, unchanged: same seven floor rows (edge validation · error envelope · transaction boundary · idempotency · no N+1 / page cap · authz-not-authn · log+metric+trace), same evidence rule (a claim is not evidence), same runtime-evidence clause — the invalid-body, `403`-denial and page-cap tests must have **executed green in this run**, not merely been authored. This command does not restate or soften those rows.
+
+Two module-grain additions the per-endpoint gate cannot see:
+- **Transaction boundary is evaluated across the module's use-cases, not per route.** A create that writes the aggregate and its children in two statements is one unit or it is a bug; cite the tx site.
+- **Every invariant from the Aggregate-shape ledger has a named enforcement site** (DB constraint, transition guard, or transaction boundary) with a test that fails when it is removed. An invariant with no failing test was decoration.
+
+**Verdict, module-grain:** PRODUCTION-READY only when every route's ledger resolves MET-with-evidence or n-a-with-reason and both module-grain rows are MET. Otherwise **INCOMPLETE**, naming the route, the row, and the exact next action. A scaffolded module that has not passed this is not COMPLETE, however green lint and tests are.
 
 ## Phase 7 — Improve (feed the learning loop)
 
@@ -293,7 +336,7 @@ Phase 2 (Organize): 4 architects dispatched in parallel; design confirmed.
 Phase 3 (Retrieved): 7 universals + sibling module + 5 patterns.
 Phase 4 (Generated): <N> files across core/application/infrastructure/adapters + tests + locales.
 Phase 5 (Updated): ai/modules.md (+1), ai/status.md (Recent Changes), app.module.ts wired.
-Phase 6 (Validated): lint, tests, endpoint-test (5 endpoints), schema-diff clean.
+Phase 6 (Validated): lint, tests, endpoint-test (<N> routes), schema-diff clean, production-readiness ledger per route.
 Phase 7 (Improved): /learn-from-task queued.
 
 Files created: <N>
@@ -308,12 +351,16 @@ Files created: <N>
 Agents dispatched: api-architect, schema-architect, telemetry-architect, test-engineer
 Skills run: endpoint-test, schema-diff
 
-Endpoints (all require auth):
-  POST   /<plural>
-  GET    /<plural>
-  GET    /<plural>/:id
-  PATCH  /<plural>/:id
-  DELETE /<plural>/:id
+Aggregate: <Root>  —  invariants: <list>
+Routes admitted by the aggregate-shape ledger (all require auth):
+  <METHOD> /<path>                    <one-line reason>
+Omitted, with reason:
+  <METHOD> /<path>                    <why the domain does not admit it, + what replaces it>
+
+Production-readiness ledger (per route — every floor row MUST resolve):
+  <METHOD> /<path>   1 ✓  2 ✓  3 ✓  4 n-a  5 ✓  6 ✓  7 ✓   → PRODUCTION-READY
+  <METHOD> /<path>   6 UNMET (no 403 denial test)           → INCOMPLETE
+Module-grain rows: tx boundary <✓|UNMET>; invariant enforcement sites <✓|UNMET>
 
 Test coverage:
   Unit: <N> scenarios (happy + errors + boundaries)
@@ -328,7 +375,7 @@ Docs updated:
   ai/status.md (Recent Changes entry)
   ai/modules.md (+1 row)
 
-Status: COMPLETE
+Status: PRODUCTION-READY | INCOMPLETE — <route>: <unmet rows + next action>
 
 Next:
   - /review-changes
@@ -339,7 +386,7 @@ Next:
 ## Hard rules
 
 - Mirror an existing module EXACTLY. No invented layout.
-- DI tokens are Symbols, not strings.
+- **DI token style matches the named sibling; cite it at `<path:line>`.** Not "Symbols, not strings" — that is a house preference, and on a project whose siblings use string tokens it makes this command generate output its own sibling-shape halt then flags `drifted`.
 - Every DTO validated.
 - Tenant filter on every query (if multi-tenant).
 - Migration reversible.

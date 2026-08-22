@@ -53,6 +53,10 @@ Every Phase-4-generated artifact ships with markers:
 <!-- project-specific:end -->
 ```
 
+> **The example above is FENCED on purpose — leave it fenced.** A `<!-- project-specific:start -->` line only counts as a live anchor when it sits at column 0 **outside** a ``` fence. That rule is what lets this file — and `apply-pack-adaptation`, the other file that teaches the convention — document the markers without claiming to carry one. Both `scripts/apply-anchors.sh § has_live_anchor` and `scripts/audit-anchoring.sh § has_live_anchor / extract_anchor_block` implement exactly that test, and they must keep agreeing.
+>
+> **Why this note exists**: when the injector matched a bare `^<!-- project-specific:start -->$` while the auditor skipped fenced regions, these two skills deadlocked on a real 8,151-file repo — `apply-anchors.sh` skipped them as "already anchored" (Injected 0 / Already 234) and `audit-anchoring.sh --strict` failed them as `anchor-too-thin(0-lines)`, C2d at 99%, with a printed remediation ("re-run apply-anchors.sh") that was a no-op on precisely those files. Unfencing this example, or hand-writing a marker at column 0 anywhere below, restores that deadlock. Scoring this file: its own live anchor is the injected block near the top, **not** the example above.
+
 If markers are absent → the artifact has zero project-specific anchor. Score = 0/100. Record reason: `markers-missing` (this is a round-one bug; flag for re-run of standard Phase 4.6, not REFINE).
 
 If markers present → extract the block content (between the markers). All scoring below applies to this block.

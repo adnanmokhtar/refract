@@ -75,3 +75,10 @@ Flag a list endpoint whose pagination meta shape differs from its siblings (some
 - `api-contract.md` — the single response envelope the pagination meta lives in.
 - `response-streaming.md` — for unbounded exports, stream (keyset-sourced) instead of paginating.
 - `conditional-requests.md` — a page response can still carry an ETag for revalidation.
+
+### Crossing to the consumer
+
+Rule 6 fixes the `meta` keys and Detector 2 names three live query-param spellings (`limit` / `per_page` / `pageSize`). Both are contract, and neither is in the OpenAPI schema in a form a consumer can infer: a client that guesses reads `meta.total` off a cursor response that carries only `nextCursor` / `hasMore`, gets `undefined`, renders page 1, and never pages again — with no error anywhere.
+
+- **Publish the choice**, don't just make it. `api-contract.md` § Publishing the contract — the first delivery names the file (`api-snapshots/README.md`) and the lane. One line — mode, meta keys, param spelling — is the whole obligation.
+- `@api-contract-sentry` *(frontend pack, when co-installed)* — reads that lane and reports what the client actually assumes, at `<path:line>`. On a first delivery it reports the read; on a change it reports the breakage. **Absent** → the consumer's assumption is *unchecked*, not correct: grep the client for `per_page|pageSize|meta\.total|nextCursor` yourself and reconcile against rule 6 before calling a list endpoint done.

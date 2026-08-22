@@ -25,10 +25,36 @@ Project emits OpenAPI: NestJS (`@nestjs/swagger`), FastAPI (auto), Spring (`spri
 api-snapshots/
 ├── openapi.v1.json              # committed current baseline
 ├── openapi.v1.snapshot.json     # working baseline (CI re-generates)
+├── README.md                    # the lanes the spec cannot carry (see step 0)
 └── changes.md                   # optional change log
 ```
 
+`api-snapshots/openapi.v1.json` is not just this skill's input file — it is the **published** contract, and the only path a consumer can be handed by name. Cite it as a path in every handoff. A consumer told to "read the OpenAPI spec", with no path, reads a controller instead.
+
 ## Flow
+
+### 0. First delivery — no baseline exists yet
+
+`oasdiff` needs two documents. On the first delivery of an API — a greenfield service, or the first resource added after this skill is installed — there is exactly one, so the diff is trivially clean and **this gate says nothing about the most consequential delivery the API will ever have**. That case is not "skip the skill"; it is a different job: *establish* the baseline instead of diffing it.
+
+```bash
+mkdir -p api-snapshots
+curl -sf http://localhost:3000/api-json > api-snapshots/openapi.v1.json   # framework-specific — see step 1
+```
+
+Then write `api-snapshots/README.md`. The spec carries paths, methods, and schemas; it does not carry the decisions a consumer has to make on day one, and every one of them is already recorded somewhere in this pack:
+
+| Lane | Value to record | Already decided in |
+|---|---|---|
+| **Envelope branch** | `project-envelope` or `problem-details` | `ai/patterns/api-contract.md` § Response envelope |
+| **Error `code` vocabulary** | the enumerated `code` values these routes emit | `ai/patterns/error-handling.md` § Status mapping |
+| **Field-error row** | `{ field, code, message, meta? }` — and that `field` is a **path** (`items[0].quantity`), never a key | `ai/patterns/error-handling.md` § Field-level validation errors |
+| **Pagination** | `cursor` or `offset`; the exact `meta` keys; the exact query-param spelling | `ai/patterns/pagination.md` § Rules |
+| **Undiffed routes** | streaming / SSE / NDJSON routes + their record shape in prose | § What the snapshot does NOT cover, below |
+
+Recording a lane is copying a decision already made, not making a new one. If a lane has no decision behind it, that is the finding — halt and route it to the pattern that owns it, rather than inventing a value here and letting the snapshot canonise a guess.
+
+The baseline established this way is committed in the same PR as the API it describes, and the run reports `baseline: established (first delivery — no diff performed)`. Never report a clean diff for a run that had nothing to diff.
 
 ### 1. Generate current spec
 Framework-specific:
@@ -136,6 +162,7 @@ What to do about it, in order of honesty:
 
 - **The snapshot directory records the emitted spec version** (`openapi:` field) alongside the baselines; a change to it is reviewed on its own, never bundled with an API change.
 - **Streaming routes are listed as known-undiffed**, with their record/event contract stated in prose, so a green gate is not read as coverage they never had.
+- **A first delivery establishes the baseline; it never reports a clean diff.** No prior document means no diff was performed — say `baseline: established (first delivery — no diff performed)`, and write `api-snapshots/README.md` in the same PR. A green line for a run with one document is a false guarantee, not a pass.
 - Snapshot files committed to repo.
 - Diff runs on every PR.
 - Breaking changes require ADR.
@@ -149,6 +176,7 @@ What to do about it, in order of honesty:
 - Consumed by `@api-reviewer` — a breaking snapshot diff with no governing ADR escalates that agent's verdict to **BLOCK** (not REQUEST).
 - `ai/patterns/api-contract.md` — the evolution table (safe vs breaking) this skill classifies each diff against.
 - `ai/patterns/api-versioning.md` — the version-bump + Sunset policy an approved break must follow.
+- `@api-contract-sentry` *(frontend pack, when co-installed)* — the consumer half of the same directory. This skill **writes** `api-snapshots/`; that agent only ever **reads** it, and on a first delivery it reports the contract read (the same lanes as step 0) instead of a blast radius. Absent that pack the baseline is still worth publishing — it is simply unread inside this repo, and no consumer-impact claim may be made from here. Never assert what a client does; this skill sees the declared contract, never a consumer.
 - `.claude/rules/backend-principles.md` — the MUST behind "breaking changes require an ADR".
 
 ## Halt conditions
@@ -157,3 +185,4 @@ What to do about it, in order of honesty:
 - Halt if the current spec was not generated from a live built artifact — diffing a stale JSON file lies.
 - Halt if a breaking change ships without an ADR in `ai/decisions/` referencing it. No exceptions for "tiny renames".
 - Halt if the baseline is updated in a PR that does NOT also contain the approved breaking change — silent baseline bumps mask regressions.
+- Halt if a first delivery establishes `openapi.v1.json` with no `api-snapshots/README.md` beside it, or with a lane in it that no pattern in this pack decided. A published baseline whose envelope branch, error-`code` vocabulary, or pagination spelling was guessed here is worse than an unpublished one: consumers will treat it as authoritative.

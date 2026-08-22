@@ -48,9 +48,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Normalize the mode string (#4): Phase 1 emits CREATE / ENHANCE-retrofit / ENHANCE-extend /
-# REFRESH / REFINE; downstream string-matches lowercase create|enhance|refresh|refine.
-MODE=$(printf '%s' "$MODE" | tr 'A-Z' 'a-z' | sed 's/enhance-.*/enhance/; s/refresh-.*/refresh/; s/refine-.*/refine/')
+# Normalize the mode string (#4): Phase 1 emits CREATE / ENHANCE-retrofit /
+# ENHANCE-extend / REFRESH / REFINE / UPGRADE (templates/phases/phase-1-detect-mode.md
+# § "Decide mode" is the single authority on those six spellings); downstream
+# string-matches lowercase create|enhance|refresh|refine.
+#
+# UPGRADE folds to `refresh` — that is not a shortcut, it is the ceremony this
+# mode is DEFINED as: `commands/setup-project.md` § "Mode → ceremony" says
+# MIGRATE-THEN-REFRESH, "then the REFRESH ceremony verbatim". Until this line
+# existed, `UPGRADE` lowercased to `upgrade`, matched no guard in this script or
+# in audit-setup.sh, and the mode advertised as the MOST ceremonious got the
+# LEAST: no Phase-0 backup (the guard below), no C2a, no C2n. MODE_LABEL keeps
+# the announced label so Phase 5's mode-drift self-audit still sees `upgrade`.
+MODE_LABEL=$(printf '%s' "$MODE" | tr 'A-Z' 'a-z')
+MODE=$(printf '%s' "$MODE_LABEL" | sed 's/enhance-.*/enhance/; s/refresh-.*/refresh/; s/refine-.*/refine/; s/^upgrade.*$/refresh/')
 
 # When --force is set, propagate to the LLM-section-preserving sub-scripts
 # (refresh-extract-checklist + deep-codebase-scan) so they regenerate fresh
@@ -60,17 +71,49 @@ FORCE_FLAG=""
 
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
-echo "=== run-preflight: mode=$MODE target=$TARGET ==="
+if [[ "$MODE_LABEL" == upgrade* ]]; then
+  echo "=== run-preflight: mode=$MODE_LABEL (REFRESH ceremony) target=$TARGET ==="
+  echo "[upgrade] this preflight runs the REFRESH half only. The MIGRATE half is a"
+  echo "[upgrade] separate step the agent must run FIRST: ~/.claude/scripts/migrate-setup.sh \"$TARGET\""
+else
+  echo "=== run-preflight: mode=$MODE target=$TARGET ==="
+fi
 echo ""
 
-# STEP -1 (M35): deterministic Phase 0 backup — REFRESH / REFINE only.
-# The backup is taken by THIS script, not by agent discipline: two observed runs
-# (2026-06-10) skipped it when left to judgment. Skips only if a backup younger
-# than 60 minutes already exists (re-running preflight within one session).
-if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
+# STEP -1 (M35): deterministic Phase 0 backup — REFRESH / REFINE / UPGRADE /
+# ENHANCE. The backup is taken by THIS script, not by agent discipline: two
+# observed runs (2026-06-10) skipped it when left to judgment. Skips only if a
+# backup younger than 60 minutes already exists (re-running preflight within one
+# session).
+#
+# ENHANCE IS IN SCOPE (M36). It was excluded on the claim that "ENHANCE never
+# overwrites existing user content" — false, and the run that disproved it was an
+# ENHANCE: it replaced three hand-authored files. `ENHANCE-extend` fires
+# (phase-1-detect-mode.md) exactly when `.claude/` + `ai/` + `CLAUDE.md` are ALL
+# present, so "there is no prior setup to back up" is true of retrofit-with-nothing
+# and of nothing else. The per-run `study-decisions-<ts>/` snapshot is NOT a
+# substitute: apply-study-decisions.sh creates it only when it actually replaces a
+# file, so a run that damages the tree any other way has nothing to restore from
+# and C2n's per-file comparison has nothing to compare. What keeps this honest for
+# a genuinely empty retrofit is HAVE_PRIOR below: the backup is taken when there is
+# something to back up, in every one of those four modes, and skipped — announced —
+# when there is not.
+if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; then
   BK_ROOT="$TARGET/.claude/backups"
+  # Is there any prior setup at all? Same path set the copy loops below use.
+  HAVE_PRIOR=0
+  for _p in .claude/commands .claude/agents .claude/skills .claude/rules .claude/hooks \
+            .claude/settings.json .claude/settings.local.json .claude/codebase-profile.md \
+            .claude/GUIDE.md .claude/_refresh-decisions.md ai CLAUDE.md AGENTS.md \
+            .cursor .opencode .clinerules .windsurf .continue .kimi .qwen .agents \
+            .github/agents .github/prompts opencode.json .cursorrules .aider.conf.yml \
+            .aiderignore GEMINI.md AGENTS.override.md .github/copilot-instructions.md; do
+    [[ -e "$TARGET/$_p" ]] && { HAVE_PRIOR=1; break; }
+  done
   recent_bk=$( { find "$BK_ROOT" -mindepth 1 -maxdepth 1 -type d -mmin -60 2>/dev/null || true; } | head -1)
-  if [[ -n "$recent_bk" ]]; then
+  if [[ "$HAVE_PRIOR" -eq 0 ]]; then
+    echo "[backup] no prior setup on disk (no .claude/, ai/, CLAUDE.md or adapter files) — nothing to back up"
+  elif [[ -n "$recent_bk" ]]; then
     echo "[backup] recent backup exists (<60 min): ${recent_bk#$TARGET/} — not duplicating"
   else
     BK="$BK_ROOT/$(date +%Y%m%d-%H%M)"
@@ -111,7 +154,7 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
 
     # Manifest lists every backed-up path (C2a / manifest verification reads this).
     {
-      printf 'mode: %s\n' "$MODE"
+      printf 'mode: %s\n' "$MODE_LABEL"
       printf 'created: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
       printf 'by: run-preflight.sh (M35 deterministic Phase 0 backup)\n'
       printf 'restore: run ./restore.sh from inside this backup dir\n'

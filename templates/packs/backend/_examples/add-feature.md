@@ -145,7 +145,9 @@ Everything below applies ONLY when the row is heavy-tier per the table above. Tr
 1. If prompt is vague → run `/expand-task "<brief>"` first. Get full spec. Pause for user confirmation.
 2. If prompt is clear → continue.
 
-   **Requirements (business-analyst).** Dispatch `business-analyst` with the refined prompt + current phase from `ai/status.md`. Output: goal, actors, user stories, acceptance criteria, edge cases, non-functional requirements, dependencies, explicit out-of-scope, open questions. **Pause. Get user confirmation on requirements.** Don't design on shaky requirements.
+   **Requirements (business-analyst).** Dispatch `business-analyst` with the refined prompt + current phase from `ai/status.md`. Output: goal, actors, user stories, acceptance criteria, edge cases, non-functional requirements, dependencies, explicit out-of-scope, open questions. **Hold the output — do NOT pause here.** Requirements and design are blessed together at the single Phase-2 gate (see § The one confirmation gate); pausing twice spends the user's second review re-confirming what the first one already blessed.
+
+   **The one exception that still stops at Phase 1:** `business-analyst` returned an open question whose answer would *change the design* (which actor owns the write, whether the flow is synchronous, whether an existing entity is extended or a new one created). That is not a requirements detail — designing past it produces a design that has to be thrown away. Surface those questions and stop. Open questions that only affect copy, defaults, or ordering ride along to the Phase-2 gate.
 
    > **Path B only.** When Path A fired (Phase 1 consumed a spec), this `/expand-task` + `business-analyst` block is skipped entirely — the spec already carries every output it would produce.
 
@@ -153,37 +155,16 @@ Everything below applies ONLY when the row is heavy-tier per the table above. Tr
 
 3. Identify signals from ask/spec AND `CLAUDE.md`:
    - Multi-tenant? AI? Webhook? Payment? Real-time? Event-sourced? File-upload? Search? Notifications? Background job? Cross-service? Compliance?
+   - **These signals are Phase 2's input, not Phase 3's.** They resolve to binding constraints *before* the architects are dispatched — see § Phase 2 Step 1. A signal read after the design is confirmed is a rework ticket, not a constraint.
 4. Define scope boundaries: what's IN, what's explicitly OUT.
 
-## Phase 2 — Organize (design the work)
+## Phase 2 — Organize (resolve the constraints, THEN design)
 
-Dispatch architects in parallel:
+**Constraints are read BEFORE the design, not after it.** These signal-driven reads used to sit in Phase 3, downstream of a confirmed design — so the architects proposed a schema and an API surface before anything told them what the domain forbids. A `schema-architect` that learns "no PAN column" *after* it proposed one was handed a rework ticket, not a constraint. Phase 2 runs Step 1 → Step 2 → Step 3 in that order; Step 1 is not optional and Step 3 may not start before it finishes.
 
-- `api-architect` — module shape, API surface, DTOs, service boundaries, DI wiring.
-- `schema-architect` (if DB changes) — tables, columns, indexes, FKs, migration approach.
-- `telemetry-architect` — logs + metrics + traces + alerts + SLOs for this feature.
-- `system-architect` (if cross-service / distributed) — boundaries, consistency model, failure modes.
-- `ui-architect` (if frontend) — page/component shape, state, services, i18n keys.
-- `design-system-architect` (if new UI patterns) — tokens + primitives needed.
+### Step 1 — Resolve every signal to its reads
 
-If a named architect is not installed in this project, produce that design axis inline against its pack's checklist — never silently skip the axis.
-
-Cross-reference outputs for contradictions. Resolve before proceeding.
-
-**Pause. Get user confirmation on design.** Designs are cheap to change; code isn't.
-
-## Phase 3 — Retrieve (read the right context)
-
-ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
-
-Plus:
-- `.claude/rules/` — every file (auto-loaded, but re-scan for this task).
-- `ai/architecture.md` — existing layers, data flow, trust boundaries.
-- `ai/modules.md` — existing modules (mirror their shape).
-- `ai/patterns/api-contract.md` — response shape + DTO evolution.
-- `ai/patterns/error-handling.md` — typed errors + HTTP mapping.
-
-SIGNAL-BASED (parallel):
+Read the row for each signal Phase 1 resolved. Don't read everything — read what matters for THIS feature.
 
 | Signal | Read these patterns |
 |---|---|
@@ -204,7 +185,82 @@ SIGNAL-BASED (parallel):
 | Security surface | `zero-trust.md`, `auth-flow.md` |
 | Testing strategy | `test-strategy.md`, `test-doubles.md` |
 
-Don't read everything. Read what matters for THIS feature.
+### Step 2 — Convert the design-shaping signals into binding constraints
+
+Five signals do not merely add a pattern to the reading list — they decide the schema and the API surface, and getting them late means rebuilding both. For these, **state the constraint as a decision the design must already encode.** This command makes these calls; it does not hand them to the user and it does not defer them to the Phase-6 reviewer.
+
+**Payment.** First decide *which payment shape*, because the two shapes have opposite constraints and the wrong axis is the common failure:
+
+- **Card-on-file / save-a-payment-method (no money moves).** Idempotency is not the axis here — PCI scope is.
+  - **Never persist a PAN, CVV, or track data.** Any of the three moves the whole server from PCI SAQ-A to SAQ-D; `templates/domains/payment/agents/payment-reviewer.md:14` makes PAN-on-our-servers a BLOCKER with no exceptions, and its worked example prices the mistake as "full PCI audit, $50k+/year, quarterly scans, dedicated network segment" (`:117`). The card is tokenized by the provider's hosted field in the client; the server never sees it.
+  - **Persist exactly the token envelope:** `{provider_customer_id, provider_pm_id, brand, last4, exp_month, exp_year}`. Anything beyond that set needs a written reason; a `card_number` / `cvv` / `expiry_raw` column is a HALT, not a review comment.
+  - **If the card will ever be charged off-session, store the mandate / consent reference the provider returns at setup time.** Retrofitting it means re-collecting consent from every already-saved card, because the original setup that would have captured it is gone.
+  - **Scope the provider customer object per tenant-user, not per user.** One platform-level customer holding cards across tenants is a cross-tenant leak with a payment provider on the other end of it.
+  - **The detach event is inbound, not optional.** Cards expire, issuers revoke, customers remove them upstream; the provider emits a detach/removal event and the design carries a handler for it, or the local vault silently diverges from the provider's truth and a "saved card" 500s at charge time.
+  - **Decide the default-card rule now.** "Exactly one default per customer" is an invariant, and two concurrent set-default calls satisfy it only under a partial unique index (`UNIQUE (customer_id) WHERE is_default`) or a single-statement swap — never under read-then-write.
+- **Charge / capture / refund (money moves).** Idempotency key required, generated by us and persisted *before* the provider call so a retry after a timeout resolves to the same charge instead of a second one. Money is minor-units + currency, never a float.
+
+**Multi-tenant.** The tenant is resolved once at the edge and read downstream; it is never accepted from body, params, query, or a bare request header (`ai/patterns/multi-tenancy.md`). The design states which layer applies the filter — the repository base class by construction, or Postgres RLS — and every new cache key is tenant-prefixed by construction, not by convention.
+
+**Webhook (inbound).** The design decides the ack boundary before the handler exists: verify signature on the **raw** body, dedup on the provider's event id, enqueue, then ack. Any design that does real work before the ack has chosen a provider-timeout retry storm.
+
+**Cross-service call.** Every new outbound call carries timeout + retry policy + circuit breaker + fallback as part of the design, not as Phase-6 findings. A retry without an idempotency key on the receiving side is a duplicate-write design, so decide which side owns the key here.
+
+**Event-sourced / new DB tables.** The design names the aggregate root and its invariants before it names columns — which operations the domain admits is a design decision, and a table shaped for CRUD when the domain is append-only is wrong in a way no later review catches. (`/add-module` runs the same decision at module grain — see its § Aggregate-shape decision.)
+
+For every other signal, the read IS the constraint — carry the pattern file forward and move on.
+
+### Step 3 — Dispatch the architects (with the constraints attached)
+
+Dispatch in parallel:
+
+- `api-architect` — module shape, API surface, DTOs, service boundaries, DI wiring.
+- `schema-architect` (if DB changes) — tables, columns, indexes, FKs, migration approach.
+- `telemetry-architect` — logs + metrics + traces + alerts + SLOs for this feature.
+- `system-architect` (if cross-service / distributed) — boundaries, consistency model, failure modes.
+- `ui-architect` (if frontend) — page/component shape, state, services, i18n keys.
+- `design-system-architect` (if new UI patterns) — tokens + primitives needed.
+
+**Dispatch contract (architects don't re-derive, and are not left to guess).** This is the same payload discipline Phase 4 already applies to its leaves — an architect given only "design this feature" is exactly the leaf that re-derives. PASS DOWN to every architect:
+
+- the **Phase-1 requirements** (or the Spec-ID + the acceptance criteria in its scope),
+- the **resolved signals** from Phase 1 Step 3,
+- the **pattern files** Step 1 selected for those signals,
+- the **binding constraints** from Step 2, verbatim, marked as constraints rather than suggestions — `schema-architect` is told "no PAN column, provider token only" *before* it proposes a schema,
+- the **sibling** whose shape the design must mirror (path), so the API surface is not invented.
+
+**Mechanical gate on the returned design:** every Step-2 constraint appears in the design either satisfied or explicitly waived with a reason. A design that is silent on a live constraint is not confirmable — send it back. A design that *contradicts* one is a HALT, not a review comment.
+
+If a named architect is not installed in this project, produce that design axis inline against its pack's checklist — never silently skip the axis.
+
+Cross-reference outputs for contradictions. Resolve before proceeding.
+
+### The one confirmation gate
+
+**Pause once, here, presenting requirements + resolved constraints + design together.** Heavy tier used to pause twice — once on requirements and again on design — and the second pause was spent re-confirming what the first had already blessed. One gate, one review, everything the user needs to say yes or no:
+
+```
+Requirements: <goal, actors, acceptance criteria, out-of-scope>   (Phase 1)
+Signals:      <resolved list>                                     (Phase 1 step 3)
+Constraints:  <each Step-2 binding constraint + how the design satisfies it>
+Design:       <api-architect / schema-architect / telemetry-architect slices>
+Open:         <anything still undecided — each with the option set>
+```
+
+Designs are cheap to change; code isn't. Do not proceed to Phase 3 until this block is confirmed.
+
+## Phase 3 — Retrieve (read the right context)
+
+ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
+
+Plus:
+- `.claude/rules/` — every file (auto-loaded, but re-scan for this task).
+- `ai/architecture.md` — existing layers, data flow, trust boundaries.
+- `ai/modules.md` — existing modules (mirror their shape).
+- `ai/patterns/api-contract.md` — response shape + DTO evolution.
+- `ai/patterns/error-handling.md` — typed errors + HTTP mapping.
+
+SIGNAL-BASED: **already done — in Phase 2 Step 1, before the architects were dispatched.** Do not re-read those pattern files here and do not re-resolve the signals; carry Phase 2's constraint set forward unchanged. If a signal was missed and only surfaces now, that is a design-invalidating find: return to Phase 2 Step 2 rather than patching it into the implementation.
 
 EXISTING CODE:
 - 1-2 sibling modules in the same layer — confirm the pattern is project-wide.
@@ -238,7 +294,7 @@ Domain-specific implementation requirements:
 
 **Webhook**: raw body + HMAC verified BEFORE processing. Idempotency key stored. Return 200 within budget.
 
-**Payment**: idempotency key required. Provider call uses the key. Failure handled without double-charging.
+**Payment**: implement the Phase-2 Step-2 constraint set for the shape this feature actually is — card-on-file (provider token envelope only, no PAN column, mandate reference stored, provider customer scoped per tenant-user, detach handler wired, default-card race closed by a partial unique index) or money-moving (idempotency key generated and persisted before the provider call, minor-units money). Re-deciding the shape here means Phase 2 designed the wrong one.
 
 **Cross-service**: timeout + retry policy + circuit breaker + fallback per call.
 
@@ -396,8 +452,8 @@ Next: commit + open PR
 ✅ Feature: <name>
 
 Phase 1 (Understand): goal, actors, acceptance criteria confirmed; signals: <list>.
-Phase 2 (Organize): architects dispatched (api, schema, telemetry, system); design confirmed.
-Phase 3 (Retrieved): 7 universals + <N> signal-specific patterns + <N> sibling modules.
+Phase 2 (Organize): <N> signal-specific patterns read → <N> binding constraints; architects dispatched (api, schema, telemetry, system) with those constraints attached; design confirmed at the single gate.
+Phase 3 (Retrieved): 7 universals + <N> sibling modules (signal reads already done in Phase 2).
 Phase 4 (Generated): <files created>; tests passing.
 Phase 5 (Updated): ai/modules.md (+1), ai/status.md (Recent Changes), ai/patterns/<new>.md.
 Phase 6 (Validated): <reviewers> ran; security pre-flight clean; observability sign-off.
@@ -439,7 +495,7 @@ Next:
 ## Hard rules
 
 - Never skip phases within your tier's ceremony to save time. Tier selection (Closure verbs table) is the only sanctioned way to shrink the flow.
-- Pause at Phase 1 (requirements) and Phase 2 (design) — heavy tier only. Trivial / standard run unpaused.
+- **One** pause at the Phase-2 confirmation gate (requirements + constraints + design presented together) — heavy tier only. Trivial / standard run unpaused. Phase 1 stops separately only for an open question that would change the design.
 - No feature ships without tests for every acceptance criterion. On the spec path this is mechanical: every AC-ID maps to a named test in a named file (Phase 4 traceability rebuild) or it HALTs.
 - No feature ships without telemetry. The minimal observability sign-off is an all-tier floor on any diff that adds an endpoint / external call / write path — not heavy-tier-only.
 - No feature ships with any security BLOCKER open. The diff-scoped security pre-flight is an all-tier floor on the same risk-bearing diffs.

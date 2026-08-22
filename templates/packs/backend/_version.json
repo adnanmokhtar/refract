@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.15.0",
-  "released": "2026-08-21",
+  "version": "1.16.0",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Quality pass: websocket-engineer gains an output contract (and its AUTHOR-mode fallback loses an unsourced capacity figure); /endpoint-test's tier table stops naming cases nobody implements; migration-backend drops a shadow copy of the validator regexes and leads with the port-axis fingerprints.",
+  "summary": "Outcome pass: /add-feature resolves domain constraints before the architects design (payment gains real card-on-file decisions); /log-tail's level filter is probed rather than hardcoded and gains a no-match ladder; /add-module gains an aggregate-shape decision and runs /add-endpoint's production ledger per generated route; /trace-flow gains a provenance rule and a tx: hop; debug-tenant branches on the isolation mechanism and adds the RLS and pooled-connection chains.",
   "changelog": "CHANGELOG.md"
 }

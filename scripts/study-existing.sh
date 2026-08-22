@@ -9,10 +9,16 @@
 # deterministically, and writes a proposal report. Phase 4 must consume the proposals.
 #
 # Usage:
-#   study-existing.sh <target-repo> [pack1 pack2 ...]
+#   study-existing.sh <target-repo> [pack1 pack2 ...] [--stdout | --report=<path>]
 #
 # Output: <target>/.claude/_study-existing-report.md
-# Properties: deterministic; idempotent; read-only on the target's actual artifacts.
+#   --stdout        READ-ONLY mode (alias: --no-write). Report goes to stdout and NOTHING
+#                   is created under <target-repo> — not the report, not `.claude/`.
+#                   The only way to study a repo you are not permitted to modify.
+#   --report=<path> Write the report to <path> instead. Must use `=`; the space form
+#                   `--report <path>` is refused rather than parsed as a pack name.
+# Properties: deterministic; idempotent; read-only on the target's actual artifacts —
+#   and, under --stdout, read-only on the target FULL STOP.
 
 set -euo pipefail
 export LC_ALL=C
@@ -21,15 +27,46 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKS_ROOT="$REPO_ROOT/templates/packs"
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-repo> [pack1 pack2 ...]" >&2
+  echo "Usage: $0 <target-repo> [pack1 pack2 ...] [--stdout|--report=<path>]" >&2
+  echo "       --stdout = read-only: report on stdout, nothing written under <target-repo>." >&2
   exit 2
 fi
 
 TARGET="$1"; shift
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
+# Sink flags are filtered out of "$@" here; everything left is a pack name (read at
+# `PACKS=("$@")` below), so the two argument families cannot collide.
+SINK_STDOUT=0
+REPORT_OVERRIDE=""
+_sx_args=()
+for _a in ${@+"$@"}; do
+  case "$_a" in
+    --stdout|--no-write) SINK_STDOUT=1 ;;
+    --report=*)          REPORT_OVERRIDE="${_a#*=}" ;;
+    --report)            echo "ERR: use --report=<path> (with '='), not --report <path>" >&2; exit 2 ;;
+    *)                   _sx_args+=("$_a") ;;
+  esac
+done
+set -- ${_sx_args[@]+"${_sx_args[@]}"}
+
+# ── Report sink ───────────────────────
+# The header above has always promised "read-only on the target's actual artifacts",
+# and that was true of the artifacts and false of the repo: the report itself landed
+# inside it, and the mkdir created `.claude/` in a target that had none. Observed
+# 2026-08-22: this script regenerated its report inside a declared read-only target
+# purely because someone ran it to verify a fix — the verification WAS the write.
 REPORT="$TARGET/.claude/_study-existing-report.md"
-mkdir -p "$(dirname "$REPORT")"
+REPORT_TMP=""
+if [[ $SINK_STDOUT -eq 1 ]]; then
+  REPORT_TMP=$(mktemp "${TMPDIR:-/tmp}/study-existing-report.XXXXXX")
+  REPORT="$REPORT_TMP"
+  REPORT_LABEL="(stdout — nothing written under $TARGET)"
+else
+  [[ -n "$REPORT_OVERRIDE" ]] && REPORT="$REPORT_OVERRIDE"
+  mkdir -p "$(dirname "$REPORT")"
+  REPORT_LABEL="$REPORT"
+fi
 
 # M35 — durable decisions ledger. Rows recorded here are reconciled instead of
 # re-proposed on every run (the "95 rows again every refresh" failure mode).
@@ -94,6 +131,90 @@ stripped_target() {
     { drop_blank=0; print }
   ' "$tgt" > "$out" 2>/dev/null || { printf '%s' "$tgt"; return; }
   printf '%s' "$out"
+}
+
+# ---------- Project-knowledge signal (M36) ------------------------------------
+# A SHORTER FILE IS NOT A WORSE FILE. The size ratio measures depth against the
+# pack; it cannot see that a target's 54 lines are the ONLY written record of this
+# repo's tenant-resolution chain. Observed 2026-08-22 against a real 8,151-file
+# project: three hand-authored files were classified REPLACE-OR-ENHANCE on the
+# ratio alone and overwritten with generic pack text —
+#   ai/patterns/multi-tenancy.md        54/124 = 43%  project identifiers  9 -> 0
+#   ai/patterns/error-handling.md      172/387 = 44%  project identifiers 18 -> 0
+#   .claude/skills/endpoint-test/SKILL.md 39/152 = 25% project identifiers 2 -> 0
+# The destroyed multi-tenancy.md documented a real 6-step `DomainMiddleware`
+# chain resolving from `X-Product-Id` / `X-API-Key`; the generic replacement
+# asserts a bare tenant header "MUST NOT be a resolution input". Pack prose is
+# regenerable from the pack; those identifiers are not regenerable from anything.
+# So project knowledge DOMINATES the length heuristic.
+#
+# TWO MEASURED signals, either of which marks a file unregenerable:
+#   1. a real project file path the pack does not contain
+#      (`libs/shared/src/services/context.service.ts`,
+#      `apps/**/infrastructure/controllers/**/*.ts`);
+#   2. project code identifiers the pack does not contain (`DomainMiddleware`,
+#      `X-Product-Id`, `CORE_TOKENS.REQUEST_CONTEXT`, `tenant_id`).
+# endpoint-test/SKILL.md carried NO anchor and was still pure project knowledge
+# (ports 4000/4001, `apps/master/src/`, `bun run start:dev-tenant`) — these two
+# signals are what caught it.
+#
+# THE ANCHOR IS NOT A THIRD SIGNAL. `<!-- project-specific:start -->` is written
+# by `scripts/apply-anchors.sh` into EVERY deployed pack artifact (observed on a
+# real target: `Already anchored (skipped): 234`), and the block it writes says
+# of itself "auto-generated, regenerate with `/setup-project --refine`". A marker
+# the framework wrote, holding bytes the framework can rewrite, is not evidence
+# that the target holds anything a pack cannot regenerate. It was briefly used as
+# a sole trigger and that made REPLACE-OR-ENHANCE unreachable for every anchored
+# artifact: a 41-line truncated copy of this 394-line pack file, 0 foreign paths
+# and 0 foreign identifiers, was "protected" and became a manual MERGE the C2k
+# gate then demanded be closed. `has_anchor` is therefore carried into the reason
+# only as CORROBORATION — it is appended to a reason signals 1/2 already earned,
+# and never manufactures one. (Its verdict role is elsewhere and unchanged: it
+# separates KEEP-OURS-ANCHORED from KEEP-OURS-PLUS-INJECT above ratio 130.)
+#
+# "Foreign" means present in the target and absent from the pack source — i.e.
+# precisely the bytes a replace deletes and no pack can put back. Measuring
+# against the pack (rather than an absolute count) is what keeps a genuine
+# shallow stub — a truncated copy of the pack itself — unprotected. That
+# invariant is only true while the anchor stays out of the trigger set.
+KNOW_SRC_EXT='ts|tsx|js|jsx|mjs|cjs|vue|svelte|py|go|rb|php|java|kt|kts|swift|scala|rs|cs|cpp|hpp|ex|exs|dart|sql|prisma|graphql|proto|tf|yaml|yml|json|toml|env|sh|md|css|scss|html'
+KNOW_PATH_RE="[A-Za-z0-9_@.*-]+(/[A-Za-z0-9_@.*-]+)+\.($KNOW_SRC_EXT)"
+# CamelCase | SCREAMING_SNAKE | snake_case | Header-Case | dotted.member —
+# the shapes a code symbol takes and prose does not. Deliberately NOT restricted
+# to backticked spans: the path in `Context` (libs/shared/src/services/context.service.ts)
+# is unbackticked, and the ServiceLocator identifiers live inside a fenced block.
+KNOW_IDENT_RE='[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*|[A-Z][A-Z0-9]*_[A-Z0-9_]+|[a-z][a-z0-9]*_[a-z0-9_]+|[A-Z][A-Za-z0-9]*(-[A-Z][A-Za-z0-9]*)+|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]+'
+
+# know_tokens <file> <regex> → distinct matches, one per line, LC_ALL=C-sorted
+# so `comm` can set-difference them. Same helper name and semantics as
+# audit-setup.sh's C2n, so the classifier and the gate agree by construction.
+know_tokens() { grep -ohE "$2" "$1" 2>/dev/null | sort -u || true; }
+
+# count_foreign <target> <pack> <regex> → count of DISTINCT matches absent from pack.
+# Set difference, not a per-token `grep -qF` over the pack: this runs once per
+# compared file on a 23-pack scan (~250 files), and the substring form cost one
+# grep process per token — thousands per run.
+count_foreign() {
+  local tgt="$1" pack="$2" re="$3" n
+  n=$(comm -23 <(know_tokens "$tgt" "$re") <(know_tokens "$pack" "$re") | grep -c . || true)
+  printf '%s' "${n:-0}"
+}
+
+# project_knowledge_reason <target> <pack> <has_anchor> → human-readable reason,
+# empty when the target carries nothing the pack could not regenerate.
+project_knowledge_reason() {
+  local tgt="$1" pack="$2" has_anchor="${3:-0}" fpaths fidents parts=""
+  fpaths=$(count_foreign "$tgt" "$pack" "$KNOW_PATH_RE")
+  fidents=$(count_foreign "$tgt" "$pack" "$KNOW_IDENT_RE")
+  # One real project path is decisive on its own (endpoint-test/SKILL.md had
+  # exactly 2 and zero foreign identifiers). Identifiers need 3 so that a stray
+  # CamelCase word in an otherwise generic stub does not freeze it.
+  [[ "$fpaths" -ge 1 ]] && parts="$fpaths project path(s) absent from pack"
+  [[ "$fidents" -ge 3 ]] && parts="${parts:+$parts, }$fidents project identifier(s) absent from pack"
+  # Corroboration only — see the M36 note above. `parts` must already be
+  # non-empty, so the anchor can never be the reason a file is protected.
+  [[ -n "$parts" && "$has_anchor" == "1" ]] && parts="$parts, corroborated by the project-specific anchor"
+  printf '%s' "$parts"
 }
 
 PACKS=("$@")
@@ -177,10 +298,65 @@ artifact_identity() {
   esac
 }
 
+# ---------- Shape-aware TARGET resolution (M40) ----------
+# `artifact_identity` above already makes the two skill shapes compare equal for
+# the ORPHAN pass. The per-row pass did not use it: it resolved the target by
+# PATH (`$tgt_dir/$base`), so a pack `skills/<n>/SKILL.md` never looked for the
+# project's legacy `skills/<n>.md` and emitted `**ADD**` for a skill that is
+# installed. That row is UNCLOSABLE: `apply-study-decisions.sh --apply` correctly
+# SHAPE-SKIPs it (copying would create a same-`name:` twin), the next
+# regeneration prints the same `**ADD**`, and audit-setup.sh C2k — which gates
+# Phase 5 on `Files with action needed: 0` and whose remediation is exactly that
+# no-op apply — can never go green. 3 such rows on the observed real target, up
+# to 59 on a project that never migrated. `pack-coverage-scan.sh` resolves by
+# identity and phase-4.2-apply.md states presence is resolved by identity; this
+# is the same resolution, so all three agree.
+#
+# Sets three globals (no command substitution: a `return 1` inside `$(…)` is
+# swallowed by the assignment and this file runs under `set -e`):
+#   SHAPE_TGT   full path of the installed artifact, "" when genuinely absent
+#   SHAPE_FORM  canonical | legacy-flat | ""
+#   SHAPE_TWIN  non-empty ONLY when BOTH shapes exist — a duplicate-`name:` twin
+resolve_target_artifact() {  # <kind> <tgt_dir> <pack-relative-base>
+  local kind="$1" tgt_dir="$2" base="$3" name folder flat
+  SHAPE_TGT=""; SHAPE_FORM=""; SHAPE_TWIN=""
+
+  # Every non-skill kind has exactly one legal shape — resolve by path, as before.
+  if [[ "$kind" != "skills" ]]; then
+    [[ -f "$tgt_dir/$base" ]] && { SHAPE_TGT="$tgt_dir/$base"; SHAPE_FORM="canonical"; }
+    return 0
+  fi
+
+  name="$(artifact_identity "$base")"; name="${name%.md}"
+  folder="$tgt_dir/$name/SKILL.md"
+  flat="$tgt_dir/$name.md"
+
+  if [[ -f "$folder" && -f "$flat" ]]; then
+    SHAPE_TGT="$folder"; SHAPE_FORM="canonical"; SHAPE_TWIN="$flat"
+  elif [[ -f "$folder" ]]; then
+    SHAPE_TGT="$folder"; SHAPE_FORM="canonical"
+  elif [[ -f "$flat" ]]; then
+    SHAPE_TGT="$flat";   SHAPE_FORM="legacy-flat"
+  fi
+  return 0
+}
+
 # Appendix C decision based on size ratio (target/pack) + byte-identity check.
 # Codifies "Same name overlap" rules in shell so the agent can't override.
 decide() {
-  local target_path="$1" pack_path="$2" has_anchor="${3:-0}"
+  # 4 args, all REQUIRED. `has_knowledge` used to default to 0, so a future
+  # caller that forgot it would silently drop the whole M36 protection and go
+  # back to overwriting hand-authored files on the size ratio alone. Fail loud.
+  if [[ $# -lt 4 ]]; then
+    # Loud on BOTH channels. `exit` inside `$(…)` only kills the subshell (the
+    # same bash trap the shape resolver above avoids), so stderr alone could be
+    # lost in a piped preflight; the sentinel verdict makes the report itself
+    # unusable rather than quietly ratio-only.
+    echo "INTERNAL ERROR: decide() needs 4 args (target pack has_anchor has_knowledge), got $#" >&2
+    echo "ERROR-DECIDE-ARITY"
+    exit 2
+  fi
+  local target_path="$1" pack_path="$2" has_anchor="$3" has_knowledge="$4"
   local target_size pack_size
   target_size=$(wc -l < "$target_path" | tr -d ' ')
   pack_size=$(wc -l < "$pack_path" | tr -d ' ')
@@ -196,6 +372,19 @@ decide() {
   fi
 
   local ratio=$(( target_size * 100 / pack_size ))
+
+  # M36 — PROJECT KNOWLEDGE DOMINATES THE RATIO, and this test is hoisted ABOVE
+  # the whole ladder so no future ladder edit can slip past it. REPLACE-OR-ENHANCE
+  # is the only verdict below that discards target bytes (apply-study-decisions.sh
+  # copies the pack over the file; MERGE and every KEEP-OURS-* verdict are listed
+  # for review and never auto-applied). It is never correct for a file whose
+  # content the pack cannot regenerate, at ANY ratio. Downgrade to MERGE: still
+  # actionable — Phase 4 must bring the pack's depth in — but merged INTO the
+  # file rather than pasted OVER it.
+  if [[ "$has_knowledge" == "1" && $ratio -lt 50 ]]; then
+    echo "MERGE"
+    return
+  fi
 
   if [[ $ratio -ge 200 ]]; then
     echo "KEEP-OURS-DEEP"
@@ -234,7 +423,7 @@ decide() {
   # project-only orphan ONCE (previously each orphan re-appeared under every
   # scanned pack: ~80 orphans × ~23 packs = ~1600 noise rows).
   UNION_TMP=$(mktemp -d "${TMPDIR:-/tmp}/study-union.XXXXXX")
-  trap 'rm -rf "$UNION_TMP" ${NORM_TMP:+"$NORM_TMP"}' EXIT
+  trap 'rm -rf "$UNION_TMP" ${NORM_TMP:+"$NORM_TMP"} ${REPORT_TMP:+"$REPORT_TMP"}' EXIT
 
   for pack in "${PACKS[@]}"; do
     pack_dir="$PACKS_ROOT/$pack"
@@ -258,7 +447,9 @@ decide() {
         base="${src#"$kind_dir"/}"
         [[ "$base" == _* ]] && continue
         artifact_identity "$base" >> "$UNION_TMP/$kind"
-        tgt="$tgt_dir/$base"
+        # Presence is resolved by IDENTITY, not by path — see resolve_target_artifact.
+        resolve_target_artifact "$kind" "$tgt_dir" "$base"
+        tgt="$SHAPE_TGT"
 
         # M35: a ledger entry reconciles this row unless the pack source changed
         # since the decision was stamped (content hash, not mtime).
@@ -282,7 +473,7 @@ decide() {
           fi
         fi
 
-        if [[ -f "$tgt" ]]; then
+        if [[ -n "$tgt" && -f "$tgt" ]]; then
           cmp_src="$(normalized_src "$src" "$kind")"
           # Compare against the anchor-stripped target so the Phase 4.6
           # project-specific block never inflates the diff into phantom MERGE.
@@ -293,8 +484,30 @@ decide() {
           # verdict — a deeper file that already carries the marker needs no inject.
           has_anchor=0
           grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$tgt" 2>/dev/null && has_anchor=1
-          decision=$(decide "$cmp_tgt" "$cmp_src" "$has_anchor")
-          kind_rows+=$'\n'"  - \`$base\` — target $tgt_lines / pack $src_lines lines → **$decision**"
+          # M36 — project knowledge outranks the size ratio. Measured on the
+          # anchor-STRIPPED target so the auto-generated block (regenerable by
+          # apply-anchors.sh) never counts as hand-authored knowledge; the anchor's
+          # mere presence is carried separately as has_anchor.
+          know_reason="$(project_knowledge_reason "$cmp_tgt" "$cmp_src" "$has_anchor")"
+          has_knowledge=0
+          [[ -n "$know_reason" ]] && has_knowledge=1
+          decision=$(decide "$cmp_tgt" "$cmp_src" "$has_anchor" "$has_knowledge")
+          # Annotate ONLY the rows the protection actually rescued, so the agent
+          # reading the report knows this MERGE must not be resolved by replacing.
+          # No `**UPPERCASE**` in the note: apply-study-decisions.sh reads the LAST
+          # bold-caps token on the row as the decision.
+          protected_note=""
+          if [[ "$has_knowledge" == "1" && "$src_lines" -gt 0 && "$decision" == "MERGE" \
+                && $(( tgt_lines * 100 / src_lines )) -lt 50 ]]; then
+            protected_note=" (project-knowledge protected: $know_reason — merge pack depth INTO this file; replacing it destroys knowledge no pack can regenerate)"
+          fi
+          shape_note=""
+          if [[ -n "$SHAPE_TWIN" ]]; then
+            shape_note=" (shape conflict: BOTH \`${SHAPE_TGT#"$TARGET"/}\` and \`${SHAPE_TWIN#"$TARGET"/}\` exist — one skill \`name:\`, two registrations; resolve before any write: apply-study-decisions.sh \"\$TARGET\" --migrate-skill-shape --apply)"
+          elif [[ "$SHAPE_FORM" == "legacy-flat" ]]; then
+            shape_note=" (present on the legacy flat shape \`${SHAPE_TGT#"$TARGET"/}\`; staying flat is legitimate — do not copy the pack file beside it)"
+          fi
+          kind_rows+=$'\n'"  - \`$base\` — target $tgt_lines / pack $src_lines lines → **$decision**$protected_note$shape_note"
 
           case "$decision" in
             REPLACE-OR-ENHANCE|KEEP-OURS-PLUS-INJECT|MERGE)
@@ -351,7 +564,8 @@ decide() {
   cat <<'LEGEND'
 * ADD — file in pack but not target. Phase 4.2 must copy.
 * IDENTICAL-NO-OP — target byte-identical to pack. No structural action; Phase 4.6 still anchors project-specific block.
-* REPLACE-OR-ENHANCE — target ≤ 50% of pack size. Stub or shallow; replace with pack OR rewrite to pack depth.
+* REPLACE-OR-ENHANCE — target ≤ 50% of pack size AND carries nothing the pack cannot regenerate. Stub or shallow; replace with pack OR rewrite to pack depth.
+* MERGE (project-knowledge protected) — target ≤ 50% of pack size but carries project knowledge: the `<!-- project-specific:start -->` anchor, a real project file path, or ≥3 code identifiers absent from the pack. A SHORTER FILE IS NOT A WORSE FILE — this row must be resolved by merging pack depth INTO the target, never by replacing it. (M36; the ratio-only rule destroyed three such files on 2026-08-22.)
 * KEEP-OURS-PLUS-INJECT — target deeper but missing project-specific anchor. Phase 4.6 must inject anchor section into target.
 * KEEP-OURS-ANCHORED — target deeper AND already carries the project-specific anchor block. Keeper; no action (the inject KEEP-OURS-PLUS-INJECT would ask for is already done).
 * MERGE — sizes comparable; real per-section merge required.
@@ -384,6 +598,17 @@ LEGEND
   fi
 } > "$REPORT"
 
-echo "Study report written: $REPORT"
-echo "Actionable: $(( total_act + total_missing )) | Keep: $total_keep | Ledger: $total_ledger (re-opened: $total_reopened) | Orphans: $total_orphan"
+# --stdout: the report was buffered off-target; emit it now and leave $TARGET untouched.
+if [[ -n "$REPORT_TMP" ]]; then
+  cat "$REPORT_TMP"
+  rm -f "$REPORT_TMP"
+  REPORT_TMP=""
+fi
+
+# Under --stdout the REPORT owns stdout, so the human-facing summary moves to stderr:
+# `study-existing.sh <target> --stdout > report.md` must yield a clean report file, not
+# one with two summary lines glued to the end. Default mode keeps stdout, unchanged.
+say() { if [[ $SINK_STDOUT -eq 1 ]]; then echo "$@" >&2; else echo "$@"; fi; }
+say "Study report written: $REPORT_LABEL"
+say "Actionable: $(( total_act + total_missing )) | Keep: $total_keep | Ledger: $total_ledger (re-opened: $total_reopened) | Orphans: $total_orphan"
 exit 0

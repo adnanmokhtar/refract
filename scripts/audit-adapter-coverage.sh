@@ -9,7 +9,8 @@
 #
 # Output:
 #   <target>/.claude/_adapter-coverage-audit.md
-# Stdout summary.
+#   — stdout under --stdout, <path> under --report=<path>
+# Stderr summary.
 #
 # Coverage thresholds:
 #   ≥95%   ok
@@ -17,7 +18,14 @@
 #   <80%   err  (significant drift — adapter is stale)
 #
 # Usage:
-#   audit-adapter-coverage.sh <target> [--strict]
+#   audit-adapter-coverage.sh <target> [--strict] [--stdout | --report=<path>]
+#
+# Flags:
+#   --strict        exit 1 if any adapter is under threshold.
+#   --stdout        READ-ONLY mode (alias: --no-write). Report goes to stdout and NOTHING
+#                   is created under <target> — not the report, not `.claude/`. The only
+#                   way to audit a repo you are not permitted to modify.
+#   --report=<path> Write the report to <path> instead. Must use `=`.
 #
 # Exit codes:
 #   0 — clean (or warn-only)
@@ -34,23 +42,49 @@ SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$SCRIPT_ROOT/scripts/_adapter-emit.sh"
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-repo> [--strict]" >&2
+  echo "Usage: $0 <target-repo> [--strict] [--stdout|--report=<path>]" >&2
+  echo "       --stdout = read-only: report on stdout, nothing written under <target-repo>." >&2
   exit 2
 fi
 
 TARGET="$1"; shift
 STRICT=0
+SINK_STDOUT=0
+REPORT_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --strict) STRICT=1; shift ;;
+    --stdout|--no-write) SINK_STDOUT=1; shift ;;
+    --report=*) REPORT_OVERRIDE="${1#*=}"; shift ;;
+    # The catch-all below SWALLOWS unknown args. Left alone, `--report /tmp/x` would be
+    # silently dropped and the report would land in the target anyway — the exact
+    # silent-write this flag exists to prevent. Refuse the space form explicitly.
+    --report) echo "ERR: use --report=<path> (with '='), not --report <path>" >&2; exit 2 ;;
     *) shift ;;
   esac
 done
 
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 2; }
 
+# ── Report sink ────────────────────────────────────────────────────────────
+# The default sink is a file INSIDE the target, which made merely RUNNING this audit a
+# write to the audited repo. Observed 2026-08-22: this script regenerated its report
+# inside a declared read-only target purely because someone ran it to verify a fix — the
+# verification WAS the write, and the regenerated verdict table even flipped an adapter
+# from `ok 4/4` to `err 140/205`. --stdout / --report= remove every write under $TARGET,
+# `.claude/` included — the mkdir below creates it in a repo that has none.
 REPORT="$TARGET/.claude/_adapter-coverage-audit.md"
-mkdir -p "$(dirname "$REPORT")"
+REPORT_TMP=""
+if [[ $SINK_STDOUT -eq 1 ]]; then
+  REPORT_TMP=$(mktemp "${TMPDIR:-/tmp}/adapter-coverage-audit.XXXXXX")
+  trap '[ -n "${REPORT_TMP:-}" ] && rm -f "$REPORT_TMP"; :' EXIT
+  REPORT="$REPORT_TMP"
+  REPORT_LABEL="(stdout — nothing written under $TARGET)"
+else
+  [[ -n "$REPORT_OVERRIDE" ]] && REPORT="$REPORT_OVERRIDE"
+  mkdir -p "$(dirname "$REPORT")"
+  REPORT_LABEL="$REPORT"
+fi
 
 # List artifact NAMES (no extension, no form) per kind. Dual-form: a flat `<name>.md` and
 # an Agent Skills `<name>/SKILL.md` both reduce to `<name>`, which is exactly the token every
@@ -492,9 +526,16 @@ run_one qwen      audit_qwen
   fi
 } > "$REPORT"
 
+# --stdout: the report was buffered off-target; emit it now and leave $TARGET untouched.
+if [[ -n "$REPORT_TMP" ]]; then
+  cat "$REPORT_TMP"
+  rm -f "$REPORT_TMP"
+  REPORT_TMP=""
+fi
+
 # stderr summary
 echo "Adapter coverage audit: $(echo "${SUMMARY_ROWS[*]:-(no adapters)}")" >&2
-echo "Report: $REPORT" >&2
+echo "Report: $REPORT_LABEL" >&2
 
 if [[ $STRICT -eq 1 && $fails -gt 0 ]]; then
   echo "REFUSED — $fails adapter(s) below 80% coverage (--strict)." >&2

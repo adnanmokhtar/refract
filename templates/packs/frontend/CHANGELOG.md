@@ -14,6 +14,109 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.16.0 — 2026-08-22
+
+**Outcome pass, not a correctness pass.** The previous sweeps asked whether these artifacts were *right*.
+This one asked whether a developer who RUNS them gets a good result, and repaired the five where the answer
+was no. Every fix follows one principle: give the artifact back the decision it was handing to the user.
+
+**`commands/add-crud-page.md` — the walk that shipped a PCI-exposing form.** Followed literally on "saved
+payment methods on an existing admin dashboard", the command's only stop-gate was shape: *wizard, kanban,
+drag-drop*. Saved payment methods are none of those, so the gate did not fire, and Phase 4's "form with the
+same library used elsewhere" scaffolded a card-number field bound to the repo's validation schema — then
+reported `Status: COMPLETE`. Three additions:
+
+- **A data-sensitivity gate in Phase 1, ranked above the shape gate.** Credential / payment instrument /
+  government identifier / health record / third-party token, asked field-by-field against the DTO rather than
+  inferred from the entity name. It does not ask, it **refuses**: create goes through the provider's hosted or
+  tokenised primitive, edit is restricted to the non-sensitive subset (a sensitive value is re-tokenised, never
+  patched), the field is never a column / filter / fixture / log line / analytics property, and delete revokes
+  at the provider first. No provider primitive in the project → HALT to `/add-feature`, which owns integrations.
+  The tier table promotes such an entity to heavy.
+- **A sibling census with a conflict tie-break.** The premise said "siblings are the truth" in the plural while
+  the ask-list said "no sibling exists", leaving `n=1` in a hole where line 107's `gap_count_in != gap_count_closed`
+  hard rule could not be computed — and an uncomputable hard rule reads as a pass. Four modes now: `ask` (0,
+  halt declared not-evaluated), `mirror-single` (1, evaluated and labelled), `mirror` (≥2 agreeing),
+  `mirror-newest` (≥2 disagreeing → most recently modified wins **per axis**, `git log -1 --format=%cI`, and the
+  divergence is reported rather than silently resolved).
+- **A cross-row action class in the store contract.** Five verbs (`list/getOne/create/update/remove`) asserted
+  that CRUD is five verbs; `setDefault` — the most-used action on this exact surface — has no slot. Cross-row
+  exclusivity is now a Phase 1 question and a Phase 4 contract: one user action changes two rows, so it lives on
+  the slice and settles both. Delete likewise gained a dependent check: a row funding an active subscription is a
+  refused delete, not a confirmable one.
+
+Also genericised the six halts that named Vue/PrimeVue idioms (`useCrud`, `BaseCrudService`, `<CrudPaginator>`,
+`onActivated`, `:show-delete="false"`) — `audit-stack-leakage.sh` matches framework tokens, not project-idiom
+names, so those were invisible to the gate while `_examples/add-crud-page.md` had already genericised every one.
+The fallback was the better artifact; the source now matches it.
+
+**`commands/add-feature.md` — the security lane was structurally unreachable.** § Standard inputs named
+`@security-auditor` "if auth/payment in scope", but the tier table promoted to heavy only on shape triggers, so a
+sibling-mirroring payment form was trivial-tier and never reached the lane that exists for it. The
+data-sensitivity gate is lifted out of the spec-driven branch and made unconditional in Phase 1; firing it
+promotes the tier on **data** grounds, which is what makes the lane reachable.
+
+**`skills/dev-server-start/SKILL.md` — nothing chose the project root.** The hard rule demanded a verified
+`package.json` at `PROJECT_ROOT`; no procedure step selected one, and "monorepo" / "workspace" / "turbo" appeared
+nowhere in the pack. In a pnpm/turbo workspace the root `dev` is `turbo dev`, which starts N servers; step 2's
+single-port precedence picked 3000 and step 5 declared ready on whichever app bound it first — silently
+poisoning `verify-with-playwright`, `a11y-scan`, `visual-check` and `ssr-audit` at once. New **Step 0**: detect
+the workspace, detect a fan-out `dev` script, enumerate app members (own `dev` script **and** a framework config),
+then take `app_target`, or the sole app member, or **HALT `workspace-target-ambiguous`** listing the candidates.
+Package manager still resolves at the workspace root; the launch goes through the workspace runner. The
+idempotency probe's body check is now mandatory rather than parenthetical — two members can share a framework
+default port, and the sibling answers 200 just as happily.
+
+**`skills/a11y-scan/SKILL.md` — it named its own dominant blind spot and stopped.** Its gotchas said a component
+rendered only after interaction is invisible to a scan that never opens it; nothing in the procedure opened
+anything. In an admin app that is where the a11y bugs live, so `Critical (0)` on a route with a keyboard-trapping
+modal was a true statement about a page nobody uses. New § Interactive surfaces: enumerate triggers from source
+**and** from the settled DOM (union — the grep finds what is not yet rendered, the DOM query finds what no source
+file spells), open each, re-`analyze()` scoped to the surface via `.include('#id')`, and assert the three things
+axe cannot see (focus entered and returned, tab containment, `aria-expanded` flipped). A mandatory report row —
+`interactive surfaces: N found / M opened / K unreachable` — is now a halt condition, because a missing row and a
+page with no menus are indistinguishable.
+
+**`skills/lighthouse-ci/SKILL.md` — two fixes.** (1) Its Output block and its halt both required a "likely cause
+(commit hash / file / chunk)" that no procedure step produced. **Step 7** produces it: the chunk (via
+`bundle-analyze`), then the diff since `$BASELINE_SHA` (now required beside the baseline — a baseline with no
+commit is unattributable by construction), then bisecting the assertion; all three empty reports
+`unattributed` with the range named. (2) **§ Triage routing** makes this skill the pack's performance entry
+point. Eight of fourteen skills are perf scanners and no command ran them — the a11y axis has one skill and a
+command, i18n has zero skills and a command, performance had eight skills and nothing. This is the only skill
+here that *measures*, so it now routes the failed metric to the scanner that fixes it, in order, with a
+stop-condition per row and one ranked merge (savings ÷ files touched, not size). Defers to the performance
+pack's `/perf-audit` when co-installed.
+
+**`skills/verify-with-playwright/SKILL.md` — the hard part was one sentence, and step 4 was wrong by default.**
+"Author the verification flow. Compose a short list of MCP tool calls" is the whole job. Step 2 now derives it:
+read the diff, resolve the changed components to routes, and emit **three** lanes — happy path (a success
+indicator only reachable after the round-trip), one validation failure (error rendered *and* associated, and no
+mutation fired), one unauthorised case (driven at the direct URL, because that is the leak a route guard exists
+to stop). A missing lane prints `n/a` with a reason. And the locale bug is fixed outright:
+`eval_js("location.assign('/?lang=ar')")` assumed a convention that path-prefix (next-intl), store-based
+(vue-i18n) and per-locale-build (Angular) setups do not have, and `location.assign` is a hard reload that logs an
+in-memory session out mid-run. Replaced with a four-mechanism detection table, each with its own in-run switch.
+
+**`rules/frontend-principles.md`** gained the one MUST backing the sensitivity gate (values held by reference,
+never by value) plus its review-checklist row — per `_authoring-standard.md` §3, a skill or command that enforces
+a concern the rule is silent on means the rule is stale.
+
+**`_essentials.md`**: minimal skills are now `visual-check` + `dev-server-start` rather than `visual-check` +
+`component-playground`. A verification lane with no server is not a lane; and `component-playground`'s step-0
+prior-art halt fires on any repo already shipping Storybook / Histoire / Ladle, which is most repos with a shared
+component layer worth probing.
+
+Fallbacks re-cut in the same change (rule: a fallback must not outlive its source's meaning):
+`_examples/{add-crud-page,dev-server-start,a11y-scan,lighthouse-ci,verify-with-playwright,frontend-principles}.md`.
+
+**Not done here, and why.** Three structural moves the outcome review ranked — a standalone `/perf-audit` command
+in this pack, deleting `component-playground`, and merging `font-optimization` + `image-optimization` — each
+change the pack's artifact counts, which `verify-readme-stats.sh`, `verify-pack-matrix.sh` and
+`verify-doc-sync.sh` assert against `README.md`, `assets/pack-matrix.svg` and `docs/COMMANDS.md`. Those three
+files sit outside this pack. They are carried as integrator requests rather than left half-done: a count change
+landed without its docs is a red gate, and a docs edit from inside a pack pass is out of scope.
+
 ## 1.15.1 — 2026-08-22
 
 **One anchor that did not exist.** `commands/add-feature.md`'s Signal-aware invariant pointed the inline

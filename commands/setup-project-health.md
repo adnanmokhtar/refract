@@ -19,7 +19,10 @@ related-commands:
 **The agent's job is exactly this:**
 1. Run each numbered check; record `ok | warn | fail | n/a` with the underlying metric (the number, the file, the age).
 2. Cite the source rule (from `templates/idempotency.md` / `templates/governance/hard-rules.md` / Phase 6 budgets) for every threshold used. Heuristics without source = not allowed.
-3. Never write — not even logs. The contract is read-only.
+3. Never write — not even logs. The contract is read-only. Any Refract script reached for while
+   grading MUST be invoked in its read-only mode, or the grading itself breaks the contract:
+   see [`CONTRIBUTING.md` § 2b](../CONTRIBUTING.md) for the per-script invocation. Reaching for
+   `audit-setup.sh` bare, for example, regenerates three reports inside the repo being graded.
 4. Produce a deterministic table: same repo state → same report (modulo timestamps).
 
 ## Mechanical halt (refuse to ship hand-wave verdicts)

@@ -421,11 +421,42 @@ Ships through the deprecation flow like any other path change: the new path land
 
 **Closure verbs:** `wrap-in-envelope`, `map-to-output-dto`, `bump-version`, `add-validator`, `restore-or-version-code`, `fix-resource-path`.
 
+## Publishing the contract — the first delivery
+
+Everything above classifies a *change*. Every instrument that acts on a change needs a prior baseline to act against — `oasdiff` in the `api-snapshot` skill diffs against one, `@api-contract-sentry` below fans out from one — so on the **first** delivery of a resource all of them are structurally silent: the diff is trivially clean, and the blast radius is zero because nothing has consumed it yet. A first delivery therefore has no gate at all unless it *publishes*. Publishing is one directory:
+
+```
+api-snapshots/
+├── openapi.v1.json     # the spec — the `api-snapshot` skill owns the file, the CI diff, and the spec-version rule
+└── README.md           # the four lanes below: everything the spec cannot carry
+```
+
+Name it as a path, every time, in every handoff. A consumer told to "read the OpenAPI spec" and handed no path reads a controller instead and calls that the contract.
+
+**Four lanes the OpenAPI document does not carry and a consumer cannot infer.** Each is already decided somewhere in this pack; publishing means restating the decision once, in the snapshot README, where a consumer will actually look for it.
+
+| Lane | Value to publish | Decided in | What a wrong guess costs |
+|---|---|---|---|
+| **Envelope branch** | `project-envelope` or `problem-details` | § Response envelope (this file) | The consumer unwraps `data.fieldErrors[]` from a body that puts field errors in an `errors` extension member, or the reverse. Every validation error renders as "something went wrong". |
+| **Error `code` vocabulary** | the enumerated `code` values this resource can emit | `error-handling.md` § Status mapping | The consumer writes copy for codes the server never sends, and none for the codes it does. |
+| **Pagination mode + spelling** | `cursor` or `offset`; the exact `meta` keys; the exact query-param spelling | `pagination.md` § Rules | The consumer requests `?per_page=` where the endpoint reads `limit`, then reads `meta.total` off a cursor response that only carries `nextCursor` / `hasMore`. |
+| **Undiffed routes** | streaming / SSE / NDJSON routes, with their record or event shape in prose | the `api-snapshot` skill's blind-spot section | The consumer reads a green CI gate as coverage those routes never had. |
+
+**`field` is a path, not a key.** `error-handling.md` § Field-level validation errors fixes the row as `{ field, code, message, meta? }` and its own worked value is `'items[0].quantity'`. Two consequences the wire shape does not make obvious, and both have to survive the crossing:
+
+- A consumer that types `field` as a key of its input object (`keyof T`, `Record<FieldName, …>`) silently drops every nested and every array-indexed error. The value is a path expression; it is never a member name; and the mis-type compiles, so nothing fails until a user fills in a sub-object and watches the error vanish.
+- `meta` is the interpolation payload (`{ min: 1, actual: 0 }`) and it is the only member a *translated* message can be built from. `message` is dev-facing by its own comment, and this file's Hard rule keeps English-prose error keys off the wire — so a consumer handed a row without `meta` has exactly one renderable string, and it is the one you told it not to show a user. Publish the row shape with `meta` in it.
+
+**Absent an `api-snapshots/` directory** the contract is still real — it is unpublished, and every consumer's read of it is a guess. Record that in the change description as `contract: unpublished — consumers derive from source`, rather than treating a missing directory as "no contract to publish". And do not promise a generator: nothing in this pack runs `openapi-typescript`, `orval`, or any other codegen, and a hand-written client that says it is hand-written is worth more than a generated one no step produces.
+
 ## Related — finding the blast radius on the consumer side
 
-This file classifies a change; it does not find who breaks. § Context names the consumers in the abstract ("a mobile app users haven't updated", "a partner with a six-month integration cycle") but an engineer standing here with a DTO diff needs the *tool*. The consumer half ships in other packs — named by bare name, because each is present only when its pack is:
+This file classifies a change; it does not find who breaks. § Context names the consumers in the abstract ("a mobile app users haven't updated", "a partner with a six-month integration cycle") but an engineer standing here with a DTO diff needs the *tool*. The consumer half ships in other packs — named by bare name, because each is present only when its pack is.
 
-- **`@api-contract-sentry`** — *frontend pack, only when it is co-installed.* Answers the one question this file cannot: this DTO changed, what in THIS client breaks? Enumerates every affected service, generated type, store and page with `<path:line>`. **Absent** → the blast radius is *unfound*, not zero. Grep the consumer source for the endpoint path AND the type name yourself, and list the hits, before calling any NO-column change safe.
+**Every tool below answers "what changed".** A first delivery changed nothing, so every one of them returns clean and none of them is a gate on it — that case is § Publishing the contract — the first delivery above, and it is the *producer's* obligation, not a tool's. A consumer team handed a merged PR and no published baseline is not unblocked; it is guessing, and the guess stays invisible until it renders wrong.
+
+- **`@api-contract-sentry`** — *frontend pack, only when it is co-installed.* Answers the one question this file cannot: this DTO changed, what in THIS client breaks? Enumerates every affected service, generated type, store and page with `<path:line>`. It is a **second-delivery** instrument by construction — it needs a prior shape to have moved away from — so on a brand-new resource it correctly finds nothing; hand it the published baseline instead and it records the consumer's read of the contract rather than a diff. **Absent** → the blast radius is *unfound*, not zero. Grep the consumer source for the endpoint path AND the type name yourself, and list the hits, before calling any NO-column change safe.
+- **`api-snapshot`** (in-pack skill) — owns `api-snapshots/openapi.v1.json`, the CI diff, and the baseline rules. On a first delivery it has nothing to diff and *establishes* the baseline instead; that is the step that turns § Publishing the contract from prose into a file both sides open.
 - **`/sync-contract`** — *workspace-level command, only when this repo sits under a workspace root.* The same question fanned across N sibling consumers at once. **Absent** → § Evolution rules is still the classification; the fan-out is manual, one consumer at a time.
 - **`api-versioning.md`** (in-pack) — owns what happens *after* a change lands in the NO column. § Evolution rules stays the single classification; that file does not restate it.
 

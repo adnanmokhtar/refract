@@ -28,11 +28,10 @@ End-to-end module generator. Mirrors a sibling module exactly so layout, imports
 
 ## Procedure
 
-1. Gather inputs from the user:
-   - Module name (kebab-case).
-   - One-line purpose.
-   - HTTP routes? Webhook receiver? Queue consumer? Scheduled job?
-   - Multi-tenant? Soft-delete? Translatable?
+1. Gather inputs. **Read what the codebase answers; ask only what it cannot.**
+   - From the caller or the user: module name (kebab-case), one-line purpose, and the route set `/add-module`'s aggregate-shape ledger admitted (never a default five).
+   - From the sibling and extraction, not from the user: multi-tenant posture, soft-delete convention, translatable/i18n convention. All three are visible in the sibling module; asking is the "ask the user about layout" failure `/add-module`'s premise forbids. Ask only when no sibling exists.
+   - From the sibling: whether this project has webhook receivers / queue consumers / scheduled jobs at all — a primitive the project has never used is an escalation, not an input.
 2. Read `ai/patterns/project-structure.md` to confirm the declared layout.
 3. Read a sibling module — note exactly: file names, folder layout, import order, DI token style (Symbol vs string), barrel exports vs direct imports, test file naming.
 4. Consult any framework reference (`.claude/references/<framework>.md`) for idiomatic shape.
@@ -91,10 +90,10 @@ Plus:
 
 ## Generated-file invariants
 
-- Every DTO uses class-validator (or zod / pydantic) — every input field has a decorator.
+- Every DTO is validated **in the sibling's validation library** — every input field carries a validator. The library is read from the sibling at step 3, not chosen from a shortlist: introducing `zod` into a `class-validator` project is the drift `/add-module`'s sibling-shape halt rejects.
 - Every query in the repo includes the tenant filter if the project is multi-tenant.
 - Every entity extends the project's soft-delete base class (whatever name it uses — detected from extraction) if soft-delete is in use.
-- DI tokens defined as Symbols in `tokens.ts`, never inline strings.
+- DI tokens defined in `tokens.<ext>` **in the sibling's token style** (Symbol / string / framework-native, as read at step 3) — never inline at the injection site, and never a style the sibling does not use. This invariant used to read "Symbols, never strings", which issued the opposite order to the premise above on any project whose siblings use string tokens — and `/add-module`'s sibling-shape halt then flagged this skill's own output as `drifted`.
 - Migration is reversible — both `up()` and `down()` populated, no `// TODO`.
 - Test files import from the public surface (the module's barrel or controller), not internal paths.
 

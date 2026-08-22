@@ -12,15 +12,22 @@
 # templates carry the marker, M25.4 will promote this to REFUSE on missing anchors.
 #
 # Usage:
-#   audit-anchoring.sh <target-repo> [--strict] [--quiet]
+#   audit-anchoring.sh <target-repo> [--strict] [--quiet] [--stdout | --report=<path>]
 #
 # Flags:
 #   --strict — exit 1 if any pack-derived artifact lacks an anchor block (or has the
 #              block but with zero `path:line` citations). Default = warn-only.
 #   --quiet  — suppress per-file output; only print summary + write report.
+#   --stdout — READ-ONLY mode (alias: --no-write). Emit the report on stdout and create
+#              NOTHING under <target-repo> — not the report, not `.claude/`. This is the
+#              only way to audit a repo you are not permitted to modify.
+#   --report=<path> — write the report to <path> instead of <target>/.claude/. Same
+#              read-only guarantee for <target-repo> when <path> lives outside it.
+#              Must use `=`; `--report <path>` is refused rather than silently ignored.
 #
 # Output:
 #   <target>/.claude/_anchoring-audit.md  (per-artifact report)
+#     — stdout under --stdout, <path> under --report=<path>
 #   stderr summary line
 #
 # Exit codes:
@@ -35,25 +42,49 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKS_ROOT="$REPO_ROOT/templates/packs"
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-repo> [--strict] [--quiet]" >&2
+  echo "Usage: $0 <target-repo> [--strict] [--quiet] [--stdout|--report=<path>]" >&2
+  echo "       --stdout = read-only: report on stdout, nothing written under <target-repo>." >&2
   exit 2
 fi
 
 TARGET="$1"; shift
 STRICT=0
 QUIET=0
+SINK_STDOUT=0
+REPORT_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --strict) STRICT=1; shift ;;
     --quiet)  QUIET=1; shift ;;
+    --stdout|--no-write) SINK_STDOUT=1; shift ;;
+    --report=*) REPORT_OVERRIDE="${1#*=}"; shift ;;
+    --report) echo "ERR: use --report=<path> (with '='), not --report <path>" >&2; exit 2 ;;
     *)        echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
 
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
+# ── Report sink ───────────────────────────────────────────────────────
+# The default sink is a file INSIDE the target, which made merely RUNNING this audit a
+# write to the audited repo — so "audit a project I must not modify" was not an operation
+# that existed. Observed 2026-08-22: three audit scripts regenerated their reports inside
+# a declared read-only target purely because someone ran them to verify a fix; the
+# verification WAS the write. --stdout / --report= remove every write under $TARGET,
+# `.claude/` included — note the mkdir below creates that directory in a repo that has
+# none, so it cannot run in read-only mode either.
 REPORT="$TARGET/.claude/_anchoring-audit.md"
-mkdir -p "$(dirname "$REPORT")"
+REPORT_TMP=""
+if [[ $SINK_STDOUT -eq 1 ]]; then
+  REPORT_TMP=$(mktemp "${TMPDIR:-/tmp}/anchoring-audit.XXXXXX")
+  trap '[ -n "${REPORT_TMP:-}" ] && rm -f "$REPORT_TMP"; :' EXIT
+  REPORT="$REPORT_TMP"
+  REPORT_LABEL="(stdout — nothing written under $TARGET)"
+else
+  [[ -n "$REPORT_OVERRIDE" ]] && REPORT="$REPORT_OVERRIDE"
+  mkdir -p "$(dirname "$REPORT")"
+  REPORT_LABEL="$REPORT"
+fi
 
 # Path resolution per kind — same convention as study-existing.sh / pack-coverage-scan.sh
 target_dir_for_kind() {
@@ -118,6 +149,41 @@ CITATION_RE='[a-zA-Z0-9._/-]+\.(ts|tsx|js|jsx|mjs|cjs|vue|py|go|rb|php|java|kt|s
 # placeholder that never appears in a genuinely populated block.
 PLACEHOLDER_RE='<src/path|<e\.g\.,|<EntityA>|<DetectedBase>|<NNNN>|<term>|<one-line|<YYYY-MM-DD>|<ClassName>|<path/to|<detected'
 
+# --- What counts as a LIVE anchor -------------------------------------------------
+# A marker (form 1) or a `## Project-specific` heading (form 2) counts ONLY when it sits
+# at column 0 and OUTSIDE any ``` fence. A marker inside a fence is DOCUMENTATION of the
+# convention — a skill showing the reader what an anchor block looks like — and an inline
+# mention in prose or a table is a pointer, not an anchor.
+#
+# apply-anchors.sh § has_live_anchor implements the identical test, and the two MUST keep
+# agreeing. While that script matched a bare `^<!-- project-specific:start -->$` (fences
+# included) and this one's block extractor skipped fences, a file whose only marker was a
+# fenced example was "already anchored → skip" to the injector and an empty block to this
+# auditor: an unresolvable C2d failure whose printed fix ("re-run apply-anchors.sh") was a
+# guaranteed no-op on exactly those files. Measured on a real 8,151-file repo against the
+# two learning-pack skills that TEACH the convention (compute-anchor-density,
+# apply-pack-adaptation): injector "Injected 0 / Already anchored 234", auditor "2
+# unanchored (anchor-too-thin(0-lines))", REFUSED, forever.
+has_live_marker() {
+  awk '
+    /^[[:space:]]*```/ { fence = !fence; next }
+    fence { next }
+    /^<!-- project-specific:start -->[[:space:]]*$/ { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$1" 2>/dev/null
+}
+
+has_live_ps_heading() {
+  awk '
+    /^[[:space:]]*```/ { fence = !fence; next }
+    fence { next }
+    /^##[[:space:]]+Project-specific/ { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$1" 2>/dev/null
+}
+
+has_live_anchor() { has_live_marker "$1" || has_live_ps_heading "$1"; }
+
 # Extract just the canonical anchor block body (between the start/end markers) so
 # quality checks (line count, placeholder, identifier presence) measure the BLOCK,
 # not the whole artifact. Falls back to the `## Project-specific` heading-to-next-H2
@@ -129,7 +195,11 @@ extract_anchor_block() {
   # looks like), not a live anchor. Without this, example marker blocks inside
   # code fences are mis-read as real anchors and their placeholders / example
   # paths surface as skeleton + cross-project-leak false-positives.
-  if grep -qF '<!-- project-specific:start -->' "$f" 2>/dev/null; then
+  # Branch on a LIVE marker, not on `grep -qF` anywhere in the file: a form-2 artifact
+  # (heading, no markers) that merely SHOWS the markers in a fenced example would take the
+  # marker branch, which then fence-skips the example and returns an empty block — the
+  # real heading block never read.
+  if has_live_marker "$f"; then
     awk '
       /^[[:space:]]*```/ { fence = !fence; next }
       fence { next }
@@ -159,9 +229,19 @@ extract_anchor_block() {
 # form 1, which REFINE can later rewrite.
 check_anchor() {
   local f="$1"
-  if grep -qF '<!-- project-specific:start -->' "$f" 2>/dev/null \
-     || grep -qE '^##[[:space:]]+Project-specific' "$f" 2>/dev/null; then
+  if has_live_anchor "$f"; then
     : # has section
+  elif grep -qF '<!-- project-specific:start -->' "$f" 2>/dev/null \
+     || grep -qE '^##[[:space:]]+Project-specific' "$f" 2>/dev/null; then
+    # The marker EXISTS in the file but only as documentation — inline in prose, or at
+    # column 0 inside a ``` fence (a file that teaches the marker convention by showing
+    # it). It is not an anchor this artifact carries. Report it as its own reason rather
+    # than letting it fall through to `anchor-too-thin(0-lines)`: "too thin" points the
+    # reader at the block's CONTENT, when the actual state is that no block was ever
+    # injected — and the fix is the injector, which now (apply-anchors.sh has_live_anchor)
+    # sees past the fence and writes one.
+    echo "anchor-documented-not-applied"
+    return 1
   else
     echo "no-anchor-section"
     return 1
@@ -398,13 +478,26 @@ declare -a leak_list
   else
     [[ $total_unanchored -gt 0 ]] && printf '⚠ %d pack-derived artifact(s) lack an anchor block, carry a placeholder skeleton, are too thin (<3 lines), or cite nothing real.\n' "$total_unanchored"
     [[ $total_leaks -gt 0 ]] && printf '⚠ %d cross-project leak(s) — anchor cites a fact absent from the target codebase.\n' "$total_leaks"
-    printf '\nNext: run `apply-anchors.sh %s` (M25.3) to populate from `_codebase-scan.md` + `codebase-profile.md`.\n' "$TARGET"
+    # The remediation MUST be the command that actually clears the finding it follows.
+    # `apply-anchors.sh <target>` without `--apply` is a dry run — it prints and writes
+    # nothing, so a reader who copies this line sees no change and learns to ignore C2d.
+    printf '\nNext: run `apply-anchors.sh %s --apply` (M25.3) to populate from `_codebase-scan.md` + `codebase-profile.md`.\n' "$TARGET"
+    printf 'Per reason:\n'
+    printf -- '- `no-anchor-section` / `anchor-documented-not-applied` — the injector writes the missing block; re-run the command above. (`anchor-documented-not-applied` means the file MENTIONS the markers, inline or inside a ``` fence, but carries no live block; the injector ignores fenced examples and will inject.)\n'
+    printf -- '- `anchor-too-thin(N-lines)` / `anchor-placeholder-skeleton` / `anchor-without-citation` — a live block exists and re-running the injector will NOT touch it (it skips already-anchored files). Deepen it with `/setup-project --refine` (Phase 4.6-DEEP), or fix `%s/.claude/codebase-profile.md` and delete the stale block so the injector rebuilds it.\n' "$TARGET"
   fi
 } > "$REPORT"
 
+# --stdout: the report was buffered off-target; emit it now and leave $TARGET untouched.
+if [[ -n "$REPORT_TMP" ]]; then
+  cat "$REPORT_TMP"
+  rm -f "$REPORT_TMP"
+  REPORT_TMP=""
+fi
+
 # stderr summary
 if [[ $QUIET -eq 0 ]]; then
-  echo "Anchoring audit: $total_anchored/$total_eligible anchored, $total_unanchored unanchored, $total_leaks leaks ($total_orphans orphans skipped). Report: $REPORT" >&2
+  echo "Anchoring audit: $total_anchored/$total_eligible anchored, $total_unanchored unanchored, $total_leaks leaks ($total_orphans orphans skipped). Report: $REPORT_LABEL" >&2
 fi
 
 if [[ $STRICT -eq 1 && ( $total_unanchored -gt 0 || $total_leaks -gt 0 ) ]]; then

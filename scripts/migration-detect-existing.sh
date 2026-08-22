@@ -18,6 +18,15 @@
 #
 # Usage:
 #   migration-detect-existing.sh <v2-target> <feature-slug> [--quiet]
+#                                [--stdout | --report=<path>]
+#
+#   --no-write      READ-ONLY mode. Compute the verdict and write NOTHING under
+#                   <v2-target> — not the report, not `.claude/`. This script runs BEFORE
+#                   /port-feature writes anything; until now the pre-write safety check
+#                   was itself a write. There is deliberately NO `--stdout` here: stdout
+#                   carries the verdict token (`none`/`partial`/`full`) that callers read
+#                   with $(...), so the report may never be put on it.
+#   --report=<path> Write the report to <path> instead. Must use `=`.
 #
 # Exit codes:
 #   0 — clean (regardless of confidence; check stdout for none/partial/full)
@@ -28,16 +37,25 @@ set -euo pipefail
 export LC_ALL=C
 
 if [[ $# -lt 2 ]]; then
-  echo "Usage: $0 <v2-target> <feature-slug> [--quiet]" >&2
+  echo "Usage: $0 <v2-target> <feature-slug> [--quiet] [--no-write|--report=<path>]" >&2
+  echo "       --no-write = read-only: verdict only, nothing written under <v2-target>." >&2
   exit 1
 fi
 
 TARGET="$1"; shift
 FEATURE="$1"; shift
 QUIET=0
+SINK_NOWRITE=0
+REPORT_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --quiet) QUIET=1; shift ;;
+    --no-write) SINK_NOWRITE=1; shift ;;
+    --stdout) echo "ERR: --stdout is not available here: stdout carries the verdict token that callers read with \$(...). Use --no-write, or --report=<path>." >&2; exit 2 ;;
+    --report=*) REPORT_OVERRIDE="${1#*=}"; shift ;;
+    # The catch-all below SWALLOWS unknown args, so `--report /tmp/x` would be dropped
+    # and the report would land in the target anyway. Refuse the space form explicitly.
+    --report) echo "ERR: use --report=<path> (with '='), not --report <path>" >&2; exit 2 ;;
     *) shift ;;
   esac
 done
@@ -61,8 +79,21 @@ if [[ -f "$ANCHORS_FILE" ]]; then
 fi
 [[ -d "$V2_SCAN_ROOT" ]] || V2_SCAN_ROOT="$TARGET/src"
 
+# ── Report sink ────────────────────────────────────────────────────────────────
+# The default sink is a file INSIDE the V2 target, so the "have we already got this
+# feature?" probe modified the very repo it was probing.
 REPORT="$TARGET/.claude/_migration-detect-$FEATURE.md"
-mkdir -p "$(dirname "$REPORT")"
+REPORT_TMP=""
+if [[ $SINK_NOWRITE -eq 1 ]]; then
+  REPORT_TMP=$(mktemp "${TMPDIR:-/tmp}/migration-detect.XXXXXX")
+  trap '[ -n "${REPORT_TMP:-}" ] && rm -f "$REPORT_TMP"; :' EXIT
+  REPORT="$REPORT_TMP"
+  REPORT_LABEL="(discarded — nothing written under $TARGET)"
+else
+  [[ -n "$REPORT_OVERRIDE" ]] && REPORT="$REPORT_OVERRIDE"
+  mkdir -p "$(dirname "$REPORT")"
+  REPORT_LABEL="$REPORT"
+fi
 
 # Variants: PascalCase, camelCase, kebab-case from the slug
 to_pascal() { echo "$1" | awk -F'[-_]' '{for(i=1;i<=NF;i++) printf "%s", toupper(substr($i,1,1)) substr($i,2); print ""}'; }
@@ -197,6 +228,13 @@ fi
   esac
 } > "$REPORT"
 
-[[ $QUIET -eq 0 ]] && echo "verdict=$verdict score=$score report=$REPORT" >&2
+# --no-write: the report was buffered off-target and is discarded here. The verdict —
+# the only thing a caller consumes — is unaffected, and $TARGET is untouched.
+if [[ -n "$REPORT_TMP" ]]; then
+  rm -f "$REPORT_TMP"
+  REPORT_TMP=""
+fi
+
+[[ $QUIET -eq 0 ]] && echo "verdict=$verdict score=$score report=$REPORT_LABEL" >&2
 echo "$verdict"
 exit 0
