@@ -27,6 +27,8 @@ Cost problems are found late because nothing is watching. This command installs 
 
 **Guardrails bound; they do not merely notify.** A notification-only guardrail is a smoke alarm with no fire door. Where the environment allows it — non-production, preview stacks, experimental accounts — install a hard bound (quota, service control, TTL on created resources), not just an alert.
 
+**Not every guardrail fires on a measurement.** The most reliably surprising cost event is a commitment lapsing, and no detector in classes 1–5 can see it coming: usage is flat, the architecture is unchanged, and the threshold is never breached until after the step. That class fires on a calendar, and it is installed here rather than being left to whoever notices.
+
 **Thresholds are derived, not chosen.** Every threshold cites trailing history computed in this run, or the declared expectation from the cost model. A round number picked because it looked reasonable will either never fire or fire constantly.
 
 **Escalation triggers (halt and ask):**
@@ -52,6 +54,7 @@ Five guardrail classes, installed in this order because each is cheaper than the
 3. **Lifecycle defaults** — retention on stores, TTL on preview and experimental resources, log retention, snapshot expiry. A default that expires is worth more than a policy that reminds.
 4. **Anomaly detection** — per-dimension baselines with seasonality, alerting on deviation from the declared expectation and on unexplained period-over-period movement.
 5. **Budgets** — the backstop, with a forecast alert (projected to breach) as well as an actual alert (has breached). A budget that only fires on actual breach fires after the money is spent.
+6. **Expiry notifications** — every commitment expiry as a dated, owned entry. This class is last because it is the only one that fires on a calendar rather than on a measurement, and it is the one most often missing: nothing in the system changes, usage is flat, and the bill steps up. Dispatch **`commitment-coverage`** for the expiry calendar and the computed bill increase per entry; a notification that says "expires on the 14th" without the resulting monthly delta is not actionable and will be dismissed.
 
 ## Phase 3 — Retrieve
 
@@ -62,7 +65,8 @@ Additionally:
 - `ai/finops/attribution.md` — a budget can only be scoped to what can be attributed.
 - `ai/patterns/cost-anomaly-detection.md`, `ai/patterns/unit-economics.md`, `ai/patterns/spend-allocation.md`.
 - `.claude/rules/finops-principles.md`.
-- Trailing spend history at the grouping the detectors will use, for threshold derivation.
+- Trailing spend history at the grouping the detectors will use, for threshold derivation. Dispatch **`@finops-analyst`** for it rather than retrieving it by hand — the thresholds inherit its normalisation (amortised, discounted, whole periods), and a threshold derived from a differently-normalised history will fire against the wrong baseline.
+- The commitment inventory with expiry dates, from **`commitment-coverage`**, for the class-6 guardrails.
 - The observability pack's alert routing conventions — cost alerts reuse them rather than creating a second paging path.
 
 ## Phase 4 — Generate
@@ -90,6 +94,7 @@ Each guardrail is proved to fire, or it is not installed:
 - **Lifecycle default** — confirm the expiry is set on a newly created resource, by reading it back.
 - **Anomaly detector** — replay a historical period containing a known spike and confirm it would have fired; state the lead time versus when the spike was actually noticed.
 - **Budget** — confirm the forecast alert routes to the named recipient (send a test through the same path).
+- **Expiry notification** — confirm the entry exists for the *next* expiry with its computed bill increase attached, and that it fires far enough ahead to act on (a renewal decision needs the floor re-analysed, which is not a same-day task).
 
 ### Guardrail ledger — REQUIRED OUTPUT ARTIFACT (the run is not done until this table exists)
 
@@ -99,6 +104,7 @@ pr-cost-estimate     | pre-merge    | any delta > $0                  | author  
 preview-stack-ttl    | lifecycle    | 72h (median preview lifetime 8h)| platform  | auto-destroy   | yes     | ARMED
 svc-anomaly-detector | anomaly      | +30% d/d vs 28d seasonal baseline| owner    | triage         | replay  | ARMED
 monthly-budget       | budget       | $x (declared expectation × vol) | finance   | approve/throttle| test    | ARMED
+commitment-expiry-90d| expiry       | 90d before each expiry (inventory)| owner   | renew/lapse    | yes     | ARMED
 ```
 
 Per-row `Status`:
@@ -117,7 +123,7 @@ Attributable share:   <%>                       (source: ai/finops/attribution.m
 Guardrail ledger: <the table above, verbatim>
 
 Coverage: pre-merge <y/n> · creation bounds <n> · lifecycle defaults <n> ·
-          anomaly detectors <n> · budgets <n>
+          anomaly detectors <n> · budgets <n> · expiry notifications <n> of <n> commitments
 Replay: detector would have caught <n> of <n> historical spikes, median lead time <x>
 Suppressions: <n> active, <n> with no expiry (listed)
 
@@ -148,12 +154,14 @@ This gate is **[self-policed]** on the Status line, but each proof is reproducib
 - Preview environments with a TTL that was never proved to run, accumulating for months.
 - Pre-merge estimates that appear on the pull request and are never blocking, never read, and never referenced.
 - A suppression added during a migration and never removed.
+- A commitment expiry nobody scheduled, so the bill steps up with no architectural cause and the next month is spent triaging an anomaly that was on a calendar all along.
 - Guardrails installed in a console, invisible to the repository, deleted by whoever restructures the account next.
 
 ## Related
 
 - `@cost-architect` — declares the expectation and the guardrail at design time.
-- `@finops-analyst` — supplies the trailing history the thresholds are derived from.
+- `@finops-analyst` — dispatched in Phase 3 for the trailing history the thresholds are derived from.
+- `commitment-coverage` — dispatched in Phase 2 class 6 for the expiry calendar and the bill increase per entry.
 - `@cost-reviewer` — the human counterpart to the pre-merge estimate.
 - `spend-anomaly-triage` — what runs when a detector fires.
 - `/cost-model` — must run first; supplies the declared expectation.

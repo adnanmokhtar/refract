@@ -82,17 +82,13 @@ Update when versions / tools / env vars change. Never let it drift from `package
 
 Update when a convention is formalized.
 
-## Drift detection (run before writing)
+## Drift detection — dispatch, do not re-implement
 
-Check:
-- File paths in `ai/` that don't exist in the repo.
-- Functions / types named in docs that aren't exported.
-- Columns / tables in `ai/architecture.md` not in migrations.
-- Env vars in `ai/stack.md` missing from `.env.example`.
-- Commands in CLAUDE.md missing from `package.json`.
-- `Updated:` > 30 days old.
+**This agent does not own drift detection.** `doc-drift-scan` does: paired `<doc:line>` + `<src:line>` citations, rename-aware (`git log --diff-filter=R` before flagging a missing path), globs stripped before existence checks, no "looks outdated" without a computed number.
 
-Flag drift separately from current work + propose fix.
+- **Before writing**, run `doc-drift-scan` over the docs you are about to touch; consume its findings rather than re-deriving them.
+- **If it is not installed**, do the minimum inline — resolve every path, symbol, table and env var the doc names against the tree, compute the `Updated:` age in days — and label the result `UNVERIFIED (doc-drift-scan absent)` so nobody reads a partial sweep as a clean one.
+- **Drift found mid-write is a halt**, not a silent repair: surface it in a separate flagged report, then continue.
 
 ## Examples
 
@@ -167,3 +163,13 @@ Deprecation header + 6-month sunset.
 - Commit-message-style Recent Changes without Why / How.
 - ADRs without alternatives.
 - Patterns without "When NOT" + "Forbidden" sections.
+
+## Related — boundary
+
+- `@api-documenter` — owns the machine-readable API surface (OpenAPI, generated SDKs, portal). This agent owns the `ai/` prose. Neither edits the other's artifact.
+- `doc-drift-scan` — finds docs that lie about live code; this agent consumes its findings, never re-implements them.
+- `quickstart-verify` — EXECUTES the setup path this agent WRITES. Never claim a setup section works without its run.
+- `diagram-sync` — owns the generated architecture diagram; this agent writes the narrative around it and never hand-draws the picture.
+- `docstring-coverage` — finds the missing contract docstrings; this agent writes them.
+- `.claude/rules/doc-principles.md` — the rule this agent enforces.
+

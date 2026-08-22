@@ -121,6 +121,13 @@ Hand-wave grep: ✓ | halts=<N>
 Status: <see gate below>
 ```
 
+**Every UNCOVERED / UNVERIFIED row carries a closure verb from the owning pattern — never an invented one.** The verbs this audit may emit:
+
+- `data-quality-tests` → `prove-assertion-can-fail`, `retire-disabled-assertion`, `assign-assertion-owner`, `add-freshness-monitor`, `add-volume-band`, `add-reconciliation-check`, `derive-threshold-from-history`, `route-quarantine-reader`, `move-coverage-to-marts`
+- `data-contract` → `write-contract`, `declare-units-and-timezone`, `version-contract-change`, `assert-accepted-values`, `schedule-schema-diff`, `date-the-deprecation`, `narrow-select-star`
+
+These are copies of the patterns' own lists; where they disagree the pattern wins. The vocabulary exists so a **second run can diff which rows closed** — a ledger whose remediation is prose cannot be diffed, so a repeat audit cannot distinguish a fixed gap from a re-worded one. In particular, `prove-assertion-can-fail` is the only verb that closes the zero-failure-history row: writing more assertions into an unproven suite does not close it.
+
 ### Closure gate — COMPLETE only when every ledger row is COVERED
 
 - **`Status: COMPLETE`** — every row COVERED, every new assertion executed, at least one fail-path demonstrated, and every threshold carrying its derivation.

@@ -11,7 +11,9 @@ An architecture diagram is a *rendering of the real module/import graph*, re-ver
 
 Cite-or-halt. Every node/edge traces to a `<path>` (a module dir) or `<path:line>` (the import / call that makes the edge). Every DRIFT finding cites the diagram element + the graph fact that contradicts it — "box `PaymentGateway`, no module resolves to it (deleted in `git log --diff-filter=D`)". "The diagram looks stale" is a vibe.
 
-**Boundary — this skill does NOT build the graph.** `code-quality`'s `architectural-diagnosis` emits `ai/optimize/_dep-graph.json` + `_responsibility-map.md`; diagram-sync consumes and renders them. No graph → halt and request that run; never re-walk the source into a parallel, drifting graph.
+**Boundary — this skill does NOT build the graph.** `code-quality`'s `architectural-diagnosis` emits `ai/optimize/_dep-graph.json` + `_responsibility-map.md`; diagram-sync consumes and renders them. Never re-walk the source into a parallel, drifting graph.
+
+**No graph is not the same as no work.** Without `_dep-graph.json` you cannot RENDER, but you can still resolve each box's `<path>` against the filesystem — an existence check, not a graph rebuild — and report `DIAGRAM-DRIFT (stale node)` for every box naming a module that is gone. Do that half, then mark missing-nodes, edge accuracy and level correctness `UNVERIFIED (no _dep-graph.json — run architectural-diagnosis)`. Halting with nothing while a dead box sits in the picture is a worse answer than a partial one that says which half it did.
 
 ## When to run
 
@@ -40,7 +42,7 @@ LEVEL-MISMATCH: titled "System Context" but shows 6 internal modules → split t
 
 ## Halt conditions
 
-- Refuse to render without a current `_dep-graph.json` — request an architectural-diagnosis run.
+- Refuse to RENDER without a current `_dep-graph.json` — request an architectural-diagnosis run. (The stale-node existence check above needs no graph; do it and label the rest UNVERIFIED.)
 - Refuse a DRIFT claim without the paired citation (diagram element + contradicting graph fact).
 - Never hand-draw a box with no module and no external-system label; never edit source to match a picture.
 

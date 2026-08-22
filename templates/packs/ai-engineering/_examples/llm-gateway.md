@@ -38,7 +38,8 @@ pack: ai-engineering
 
 ## Caching
 
-- **Exact-match** on `(model, normalized prompt, params)` — temp-0 calls cache well.
+- **Exact-match** on `(model, normalized prompt, params)` — single-answer calls cache well.
+- **Provider prompt-caching has a floor that fails silently.** Below the model's minimum cacheable prefix nothing caches and *no error is returned*; the minimum is model-dependent and not monotonic across a vendor's generations, so read it per model rather than remembering it. Keep volatile content (timestamps, per-request ids, the question) after the last cache marker — prefix caching is byte-prefix matching, so one varying character invalidates everything after it. Confirm from the response's cache-read counter before claiming a saving. A per-request breakpoint ceiling also applies.
 - **Semantic** on request-embedding similarity — strict threshold; **never across tenants/permission scopes** (cross-tenant hit = data leak).
 - **Provider prompt-caching** for a large stable prefix (system prompt, tool schemas, long doc) — order stable-prefix-first.
 - **Invalidate + TTL** keyed by prompt version + model — a prompt/model change must not serve stale answers.
@@ -60,7 +61,7 @@ Log model id, prompt version, in/out tokens, cost, latency, finish reason, cache
 - Provider SDK in feature code, not the gateway → `route-through-gateway`.
 - Call with no timeout / no token cap → `add-call-budget`.
 - Single-provider prod path, no fallback → `add-fallback`.
-- Repeated identical large context, no caching → `add-prompt-cache`.
+- Repeated identical large context, no caching → `add-prompt-cache` — but only once the prefix is measured above the model's minimum cacheable size; below it, the size is the finding.
 - Semantic cache with no tenant/permission scoping → `scope-semantic-cache`.
 - Call not logging tokens+cost+latency+model (trace-linked) → `add-cost-logging`.
 - Prompt/response logged without redaction → `add-log-redaction`.

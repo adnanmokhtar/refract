@@ -31,10 +31,20 @@ By the time the same code shape appears in 4 places, the 5th implementation will
 
 ## When invoked
 
-- Triggered after `/refresh-knowledge` finds new code (looks at the diff for repetition).
-- Triggered by `post-commit-learn.sh` hook when commit touches >5 files.
-- Manual: when human suspects "we keep writing this same code; let's formalize it."
-- Periodic: weekly scan of recent commits.
+Two of these are real dispatches; two are queues a human drains. The distinction is not pedantry —
+an agent that believes it is auto-invoked stops being invoked at all, because everyone assumes
+someone else's trigger fired.
+
+- **Dispatched** by `/refresh-knowledge` Phase 5 over that run's ADDED/CHANGED set (this agent, not
+  the command, writes `ai/dynamic/learned-patterns.md`).
+- **Dispatched** manually — "we keep writing this same code; let's formalize it."
+- **Queued, NOT triggered**, by the `post-commit-learn.sh` hook on a commit touching >5 files. The
+  hook only appends one line to `ai/dynamic/.review-queue`
+  (`echo "$COMMIT_HASH | pattern-emergence-watcher | large-commit …" >> "$QUEUE_FILE"`); nothing
+  reads that file back and dispatches. `session-start.sh` prints the queue; a human acts on it.
+- **Queued, NOT scheduled**: there is no cron and no weekly scan in the shipped baseline. If you
+  want one, wire `/audit-knowledge` into `/schedule` yourself — the same honest position
+  `/learn-from-task § Dispatch` and `knowledge-curator`'s `trigger:` frontmatter take.
 
 ## Pre-flight (auto-injected)
 

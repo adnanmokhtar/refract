@@ -49,6 +49,12 @@ Split the range into **chunks** sized so that one chunk fits comfortably inside 
 
 For each chunk record: partition range, estimated rows, estimated bytes scanned, estimated cost, estimated runtime.
 
+**Dispatch `warehouse-scan-audit` to produce those four figures — do not derive them here.** That skill reads the platform's query history for this model, reports bytes scanned and cost per normal run, and — this is why it must be the source — returns `UNKNOWN — requires query history access` where the history is unavailable rather than a plausible-looking guess. A chunk table whose cost column was reasoned rather than read is exactly the "unbounded spend authorised by nobody" the Premise refuses, and it looks identical to a real one on the page.
+
+Where the skill returns `UNKNOWN`, the chunk table carries `UNKNOWN` in the cost column and the plan states what access would settle it. That is a valid plan; a plan with invented numbers is not.
+
+Where the platform bills flat-rate capacity rather than per-byte, the money column is `N-A (flat-rate capacity)` and the binding constraint is the slot/queue contention the backfill adds — say so instead of reporting a marginal cost of zero, which reads as "free" and is not.
+
 ## Phase 3 — Retrieve
 
 **ALWAYS** — see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
@@ -57,7 +63,7 @@ Additionally:
 - `ai/patterns/transformation-layers.md`, `ai/patterns/dimensional-model.md`.
 - `.claude/rules/data-engineering-principles.md`.
 - The model's incremental configuration: unique key, predicate, lookback window, full-refresh trigger.
-- The platform's query-history statistics for this model's normal daily run — the per-chunk estimate is derived from measured daily cost multiplied by chunk size, not guessed.
+- `warehouse-scan-audit` output (dispatched in Phase 2) — the platform's query-history statistics for this model's normal daily run. The per-chunk estimate is derived from measured daily cost multiplied by chunk size, never guessed, and stays `UNKNOWN` where the history could not be read.
 - `lineage-trace` output: every downstream model, dashboard, export, and reverse-ETL sync that reads this table.
 
 ## Phase 4 — Generate (the plan)

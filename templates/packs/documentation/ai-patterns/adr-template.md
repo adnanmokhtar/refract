@@ -92,8 +92,8 @@ If no alternatives — this probably isn't a decision worth an ADR. Re-examine.
 
 Date: 2026-04-24
 Status: Accepted
-Authors: @adnan, @sara
-Reviewers: @platform-team, @security
+Authors: <author-handle>, <author-handle>
+Reviewers: <reviewing-team>, <reviewing-team>
 
 ## Context
 

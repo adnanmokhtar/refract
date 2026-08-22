@@ -95,12 +95,31 @@ Red flags: loading with no timeout · "Something went wrong" errors with no deta
 - Rollback plan documented.
 - Feature flag can be flipped without deploy.
 
+## The cycle register (the computed half — no percentage without it)
+
+A completeness percentage with no denominator is a number no reader can check and no later audit can compare against. Enumerate the cycles first; the headline is READ OFF the register.
+
+- **Denominator** = every forward action the feature exposes (`create` / `send` / `enable` / `subscribe` / `connect` / `share` / `start`), taken from the routes + UI entry points you actually walked.
+- **Per row**: `Reachable @ <route or screen + role>` · `MISSING (searched: routes + UI + settings)` · `PARTIAL (<support ticket / admin-only / >3 clicks>)` · `NOT WALKED (<no role / no env / no credentials>)`.
+- **`NOT WALKED` rows stay in the denominator.** Dropping them is how an audit of half a feature reports 100%.
+
+```
+### Cycle register
+| # | Forward action | Counterpart | Evidence |
+|---|---|---|---|
+| 1 | subscribe @ POST /subscriptions | cancel | MISSING — searched routes + settings UI + account page |
+| 2 | invite member @ /team/invite | revoke invite | Reachable @ /team → row menu → Revoke (owner, admin) |
+| 3 | connect webhook | disconnect | NOT WALKED — no integrations credential in this env |
+```
+
+If you print a percentage it is `R / T` from this register and nothing else; a run with any `NOT WALKED` reports a range, not a point.
+
 ## Output
 
 ```
 ## Feature: <name>
 Audit date: <YYYY-MM-DD>
-Completeness: <N%>
+Cycle coverage: <T total · R reachable · M missing · P partial · U not-walked>
 Ship-ready: yes | no | conditional
 
 ### 🔴 Defects (must fix before GA)
@@ -129,7 +148,7 @@ Ship-ready: yes | no | conditional
 2. ...
 
 ### Not audited (out of scope / access)
-- <thing you couldn't verify + why>
+- <thing you couldn't verify + why>   ← every `NOT WALKED` register row appears here
 ```
 
 ## Severity
@@ -142,6 +161,19 @@ Ship-ready: yes | no | conditional
 ## Failure modes
 
 - Rubber-stamping — if you don't find gaps, you didn't look hard enough.
+- A completeness percentage with no register behind it — no denominator, so nobody can check it. Print the register or print no number.
+- Dropping `NOT WALKED` rows from the denominator — reaching 4 of 9 cycles and reporting 100% of what you reached is reporting 100%.
 - Opinion-as-defect — "I would have designed differently" ≠ defect.
 - Auditing against your mental model instead of real user experience — use a real user walkthrough where possible.
 - Missing "ops can't recover" class — features where everything works until something breaks and ops has to poke the DB manually.
+
+## Related — sibling agents in business pack (boundary)
+
+Three orthogonal auditors. The rule requires all three on a lifecycle-bearing, rule-bearing feature; none substitutes for another, and `/audit-business` reports one coverage line per axis.
+
+- **This agent owns the EXPERIENCE** — can the user find the flow, recover from every error, complete the cycle. It never opens the aggregate and never reads a status transition.
+- `@workflow-integrity` — the STATE GRAPH: are an entity's status transitions legal, guarded, terminal, reachable, and do money-moving edges conserve. This agent asks "can the user cancel?"; that one asks "is `active → cancelled` guarded, and does the refund conserve cents?"
+- `@domain-model-auditor` — the AGGREGATE + INVARIANT structure: is `Order` a real consistency boundary, does each invariant name a layer that enforces it, or is it an anemic bag whose rules leaked into a service.
+- `pricing-tax-audit` (skill) — money-MATH complement to this agent's billing-UX checklist. This one confirms the money *features* exist (invoices downloadable, dunning flow, refunds reachable); that one confirms the *arithmetic* is right. Run both on a billing feature.
+- `@business-analyst` — runs BEFORE the build and writes the spec this agent later audits against. A gap the spec never claimed is scope creep, not a defect.
+

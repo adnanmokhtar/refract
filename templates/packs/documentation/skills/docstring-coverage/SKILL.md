@@ -40,7 +40,11 @@ Cite-or-halt. Every finding cites the symbol at `<path:line>` and its category: 
    - `INCOMPLETE` — on a non-trivial signature: a documented symbol missing `@param`/`@returns`/`@raises` (or the convention's equivalent) for a parameter, a return value, or a thrown error that the code actually has.
    - `NO-EXAMPLE` (soft) — a public API whose usage is non-obvious and carries no example snippet.
 4. **Compute coverage** — `documented public symbols / total public symbols`, and separately the *quality-adjusted* rate that subtracts `SIGNATURE-RESTATE` (a restate is not a documented symbol).
-5. **Gate (optional).** If a threshold is configured, fail when raw or quality-adjusted coverage falls below it. Report the delta the PR introduced so a decline is caught even above threshold.
+5. **Gate (optional) — RATCHET, do not invent a number.** There is no universal correct coverage percentage, and a round figure picked here is an unsourced threshold dressed as a standard. Derive it, in this order:
+   1. **The project already declares one** — `interrogate`'s `fail-under`, a `--fail-under` in CI, a Checkstyle scope, `#![deny(missing_docs)]`. Use it verbatim; it is the team's decision, not yours.
+   2. **No declared threshold → ratchet from the current measurement.** Record today's coverage as the floor and fail only on a DECLINE. A ratchet needs no justification because it asserts nothing about what is enough — only that this PR did not make it worse. It is also the only form that works on a legacy codebase at 12%, where any fixed bar fails every build and gets muted within a week.
+   3. **Report the PR delta either way** — new public symbols added vs documented. A decline from 91% to 88% is a finding even though 88% clears most bars; that is the number a fixed threshold cannot see.
+   Whichever applies, print the threshold AND where it came from (`ratchet from 2026-08-01 run` / `pyproject.toml [tool.interrogate] fail-under`). A bare `Gate: ≥ 80%` with no provenance is exactly the unsourced magnitude this skill's own `doc-principles` forbids elsewhere.
 6. **Emit** the report; for `NO-DOC`/`INCOMPLETE`, propose a why-first stub the author fills in — never auto-generate a signature-restating docstring (that manufactures the exact defect this skill exists to catch).
 
 ## Adapt to the codebase
@@ -64,7 +68,7 @@ Literal report: coverage headline, then findings grouped by category with `<path
 
 ```
 docstring-coverage — public surface: 84 symbols  ·  convention: google (ruff D, pydocstyle)
-Raw coverage: 71% (60/84)   Quality-adjusted: 62% (52/84)   Gate: ≥ 80% → FAIL (−9)
+Raw coverage: 71% (60/84)   Quality-adjusted: 62% (52/84)   Gate: ratchet ≥ 71% (last run) → FAIL (−4 this PR)
 PR delta: −4% (added 3 public symbols, 0 documented)
 
 NO-DOC (blockers on public surface):
@@ -104,6 +108,7 @@ Closure verb: **report-with-stub** (emit a why-first skeleton for the author to 
 - Do not impose a docstring convention the project hasn't chosen; read its linter config and report against it. No linter → recommend the standard one, don't invent one.
 - Measure coverage on the **public surface only** — flagging private helpers inflates the gap and buries the real API gaps.
 - Never gate a build below threshold silently — surface the number, the threshold, and the PR delta so the failure is legible.
+- **Never invent the threshold.** Use the project's configured `fail-under` if it has one; otherwise ratchet from the current measurement and fail only on a decline. Print where the number came from. A round bar with no provenance is an unsourced magnitude, and on a legacy codebase it fails every build until someone mutes the gate.
 
 ## Related
 

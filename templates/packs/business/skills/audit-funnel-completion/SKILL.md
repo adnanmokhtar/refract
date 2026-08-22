@@ -14,7 +14,7 @@ Find real issues. Conversion percentages come from the actual analytics tool (Mi
 ## Halt conditions
 
 - Refuse to report drop-off without the per-step funnel data captured.
-- Refuse to recommend a fix without naming the step it lifts and the estimated lift backed by the data.
+- **Refuse to recommend a fix without naming the step it lifts AND the derivation of any number attached to it.** A lift figure is only reportable in one of three forms: (a) **observed** — this change already ran here or on a sibling flow, cite the experiment/date/cohort; (b) **bounded** — the arithmetic ceiling from the captured funnel ("step 5 loses 2,300 users/30d; recovering even a third of them is +770 activations"), showing the numbers it came from; (c) **unquantified** — name the step, the suspected cause, and the measurement that would settle it, and attach NO number. A point forecast with no derivation ("34% → 55%") is a fabricated number wearing a data costume, and it is the one output of this skill a stakeholder will quote in a planning meeting.
 - Halt if the flow shipped < 14 days ago — premature signal.
 - Don't propose 10 fixes; one highest-leverage fix only.
 - Don't conflate funnel drop-off with churn — different metrics, different windows.
@@ -106,7 +106,7 @@ Don't propose 10 changes. Find the single highest-leverage fix:
 
 **Step 5 (email verified)** — only 34% conversion from submit → verify. Investigated:
 
-- Email delivery: 98% success rate (Postmark dashboard). Not a delivery problem.
+- Email delivery: 98% success rate (the project's email-provider delivery dashboard). Not a delivery problem.
 - Email layout: verification link is in the second paragraph, below marketing copy. ← suspect.
 - Verification deadline: 24 hours. After 24h, user must re-signup. ← high friction.
 - Mobile: link opens browser, not app even when installed (no universal link). ← friction.
@@ -116,7 +116,18 @@ Don't propose 10 changes. Find the single highest-leverage fix:
 
 **Move verification link to top of email, simplify subject line, extend window to 7d.**
 
-Estimated lift: 34% → 55% on step 5. Impact: +21pp on overall funnel = ~2,100 more activated users / 30d.
+Opportunity (bounded, derived from the captured funnel above — NOT a forecast):
+  Step 4 → 5 loses 2,300 users / 30d (3,500 submitted, 1,200 verified).
+  Step 5 → 6 converts at 96%, so a user recovered at step 5 is ~0.96 activations.
+  Ceiling if every lost user were recovered: +2,208 activations / 30d.
+  That ceiling is the size of the prize, not a prediction — three causes were
+  identified (link placement, 24h window, spam-flagged subject) and none has a
+  measured effect size on THIS product.
+
+How the real number gets known: ship the three changes behind one flag, hold
+the 30d window and the cohort definition constant, and re-run this skill. The
+delta between the two captured funnels IS the lift. Until then the honest line
+is "unquantified — expected direction positive".
 
 Effort: 1 day (email template + backend deadline change). Risk: low.
 
@@ -163,6 +174,7 @@ Effort: 1 day (email template + backend deadline change). Risk: low.
 - Used 30d data when the flow shipped 7d ago — premature signal.
 - Confused funnel drop-off with churn (different metrics).
 - Proposed 10 fixes; user does none.
+- **Attached a point forecast to a fix ("34% → 55%") with no experiment behind it.** It reads as measured, gets quoted in planning as measured, and nothing in the report tells the reader it was invented. Report the bounded ceiling with its arithmetic, or report no number.
 
 ## Related
 

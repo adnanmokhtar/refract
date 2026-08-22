@@ -80,7 +80,7 @@ CREATE INDEX idx_outbox_pending ON outbox(created_at) WHERE published_at IS NULL
 
 ## Alternatives / complements
 
-- **CDC (Change Data Capture)** — Debezium reads WAL/binlog, publishes to Kafka. No polling. Operationally heavier.
+- **CDC (Change Data Capture)** — a CDC tool (Debezium and equivalents) reads the DB's write-ahead-log / binlog and publishes to the project's message bus. No polling. Operationally heavier.
 - **Event-carried state transfer** — if the event has the full entity, downstreams don't need to re-query.
 
 ## Retention

@@ -63,6 +63,10 @@ Partition on the column queries filter — usually the event date. Partitioning 
 - A nullable fact foreign key with no unknown member.
 - A partition key named for load time while downstream filters use event time.
 
+**Closure verbs:** `declare-grain`, `annotate-additivity`, `split-ratio-columns`, `add-scd2-current-assertion`, `conform-dimension`, `add-unknown-member`, `repartition-on-event-time`.
+
+Each detector closes with exactly one of these; never invent a verb. A finding closed in prose cannot be diffed by the next audit run, so a repeat defect never surfaces as SYSTEMIC.
+
 ## Related
 
 - `ai/patterns/transformation-layers.md`, `ai/patterns/semantic-layer.md`, `ai/patterns/data-quality-tests.md`

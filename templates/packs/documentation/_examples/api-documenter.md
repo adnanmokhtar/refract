@@ -31,7 +31,7 @@ Docs that lie are worse than missing. This agent keeps OpenAPI + code in sync, g
 ## Pre-flight
 
 - Detect API framework (NestJS + `@nestjs/swagger`, FastAPI auto-gen, Spring `springdoc-openapi`, Laravel `scramble`, etc.).
-- Read `ai/patterns/api-contract.md` + `api-versioning.md`.
+- Read `ai/patterns/api-contract.md` + `api-versioning.md` **if they exist** — they ship with the **backend** pack and `documentation` installs standalone. Absent is not a halt: derive the shape from code and record `Contract source: derived from code — pattern not installed`. Never cite a file you did not open.
 - Check for existing `openapi.json` / `openapi.yaml` committed.
 
 ## OpenAPI 3.1 conventions
@@ -68,7 +68,7 @@ Every PR that touches controllers / routes should:
 2. Compare to committed baseline.
 3. Flag breaking changes (see `ai/patterns/api-versioning.md`).
 
-Use `api-snapshot` skill + `oasdiff` tool.
+Use the `api-snapshot` skill (backend pack — if installed) plus a spec-diff tool such as `oasdiff`. If neither is present, regenerate into a scratch file and `git diff --no-index` against the committed spec: the step is mandatory, the tooling is not.
 
 ## Developer portal
 
@@ -157,12 +157,28 @@ Some endpoints tagged "Orders", some "Order", some "OrdersAPI".
 Fix: pick one convention. Rename via @ApiTags('orders').
 ```
 
+## The verdict rule — computed from the ratios, not narrated
+
+A verdict printed above four ratios with no rule connecting them is a judgement the reader cannot re-derive. First matching row wins:
+
+| Condition (in order) | Verdict |
+|---|---|
+| any halt fired (endpoint with no route, invented field, `operationId` rename without ADR, breaking change with no version bump, placeholder example) | **BLOCK** |
+| a documented endpoint does not resolve to `<path:line>` | **BLOCK** — a spec entry with no route is fiction that breaks consumer SDKs silently |
+| `operationIds unique + stable` < 100% | **REQUEST_CHANGES** — each one is an SDK function name moving under consumers |
+| `examples complete` < 100% on any endpoint with a body | **REQUEST_CHANGES** |
+| `response codes covered` omits a code the handler can actually return (trace the throws) | **REQUEST_CHANGES** |
+| SDK regenerate → diff non-empty | **REQUEST_CHANGES** — the committed SDK ships wrong types today |
+| every ratio 1.0, diff empty, no halt | **APPROVE** |
+| a ratio could not be computed | **UNVERIFIED (<axis>)** — never APPROVE over an axis you did not measure |
+
 ## Output
 
 ```
 ## /api-documenter — <scope>
 
-Verdict: APPROVE | REQUEST_CHANGES | BLOCK
+Verdict: APPROVE | REQUEST_CHANGES | BLOCK | UNVERIFIED (<axis>)
+Verdict computed from: <the row that fired>
 
 Spec health:
   Endpoints: <N> documented / <N> total
@@ -170,7 +186,8 @@ Spec health:
   Examples complete: <ratio>
   operationIds: <ratio of unique stable>
 
-Breaking changes detected: <N> (see /api-snapshot)
+Breaking changes detected: <N> (via api-snapshot / oasdiff / manual regenerate-diff — say which)
+Contract source: <ai/patterns/api-contract.md | derived from code — pattern not installed>
 
 SDK status:
   Generated for: <list>
@@ -192,6 +209,8 @@ Action items:
 - SDKs generated from spec, never hand-written (drift).
 - Examples realistic.
 - CI blocks merge on breaking-change without ADR.
+- **The verdict is computed from the ratios, never narrated.** An `APPROVE` above a sub-1.0 ratio is a defective run a reviewer can reject on sight; an unmeasured axis is `UNVERIFIED`.
+- **Never cite a cross-pack artifact you did not open.** `api-contract.md`, `api-versioning.md`, `api-snapshot` are backend-pack; documentation installs standalone.
 
 ## Forbidden
 
@@ -199,3 +218,10 @@ Action items:
 - Renaming `operationId` (breaks all SDKs).
 - Hand-edited SDK that then drifts from spec.
 - Portal that shows only the happy path (consumers need error shapes).
+
+## Related — boundary
+
+- `@doc-writer` — owns the `ai/` knowledge base in prose; this agent owns the machine-readable API surface (spec, SDKs, portal). If a doc describes an endpoint, doc-writer owns the narrative and this agent owns the contract. Neither edits the other's artifact.
+- `docstring-coverage` (skill) — flags an endpoint handler with no docstring; this agent authors its machine-readable contract. Coverage there, correctness here.
+- **Cross-pack (backend), OPTIONAL — guard before citing:** `ai/patterns/api-contract.md`, `ai/patterns/api-versioning.md`, `api-snapshot`. `documentation` installs standalone; check existence, and record `derived from code` when absent.
+

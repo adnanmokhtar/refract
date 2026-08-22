@@ -46,18 +46,6 @@ pack: product
 - Present scope with its "won't" half.
 - Reuse an existing metric definition rather than creating a second one.
 
-## Review checklist
-
-- [ ] The problem statement names no mechanism.
-- [ ] Every claim cited or labelled; every count has a denominator; every quote has a locator.
-- [ ] Every criterion has a named refuting observation.
-- [ ] Numeric criteria carry unit, percentile, measurement point, load condition.
-- [ ] No coverage cell unspecified that is not explicitly out of scope.
-- [ ] Success and counter-metric named and instrumented.
-- [ ] Rollback threshold set before the result was known.
-- [ ] Kill criteria carry a date and a named owner.
-- [ ] Anything created or shared has its reversal in scope, or a stated gap.
-
 ## Enforcement
 
 - `@requirements-reviewer` reviews prose with the severity a code reviewer applies to a diff, and BLOCKs on unfalsifiable primary criteria, missing reversal on destructive actions, and missing counter-metrics.

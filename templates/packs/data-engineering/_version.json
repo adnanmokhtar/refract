@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "data-engineering",
-  "version": "1.0.0",
-  "released": "2026-08-20",
+  "version": "1.1.0",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "First release — warehouse modelling, transformation layering, data contracts, quality floors, and backfill safety as one discipline.",
+  "summary": "Fallback integrity: 12 stub topics repointed at their sources (greenfield 6/18 -> 18/18), warehouse-scan-audit wired into /backfill-plan, closure verbs on all five patterns.",
   "changelog": "CHANGELOG.md"
 }

@@ -85,7 +85,7 @@ If a judge is unavoidable, design it now, not at implementation time:
 - **Justification before score** — the judge writes its reasoning first; agreement with humans rises.
 - **Position-bias mitigation** for any pairwise grading: run both orderings and average, or randomise position per case.
 - **A different — ideally stronger — judge model.** Never let a model judge its own generations; self-preference is systematic, not incidental.
-- **Pin the judge model + judge prompt + temperature**, and version them. A silent judge change shifts every score.
+- **Pin the judge model id + judge prompt + every sampling parameter the provider exposes**, and version them. A silent judge change shifts every score. Where the provider exposes no sampling parameters, the model id + prompt are the whole pin — record that fact rather than implying a tighter one.
 - **Plan the human calibration cadence** — periodically sample judged cases, have a human grade them, and measure agreement. A judge nobody validates is a metric nobody can trust.
 
 ### Threshold + gate design
@@ -131,7 +131,7 @@ EXISTING CODE:
 
 ### The judge (only if Phase 2 justified one)
 
-Write the rubric file, pin the judge model + prompt + temperature in config, implement justification-before-score and the position-bias mitigation, and record the calibration cadence. The judge config is versioned with the dataset.
+Write the rubric file, pin the judge model id + prompt + exposed sampling params in config, implement justification-before-score and the position-bias mitigation, and record the calibration cadence. The judge config is versioned with the dataset.
 
 ### The baseline + the CI gate
 
@@ -161,7 +161,7 @@ HALT conditions for this phase: `eval-run` reports a gated metric below its decl
 - **The CI eval step is grep-confirmed present** in the pipeline config file. Assert the config; do not claim a remote outcome.
 - The dataset contains all three case classes, with the adversarial count stated.
 - No case duplicates a few-shot example from the prompt (grep the prompt's examples against the dataset).
-- The judge model differs from the generating model, and judge model + prompt + temperature are pinned in checked-in config.
+- The judge model differs from the generating model, and judge model id + prompt + every exposed sampling param are pinned in checked-in config.
 - **`@ai-feature-reviewer`** — dimension 1 (eval gate). It re-grades the set's coverage and the cited measured score independently.
 - If a named agent is not installed, run its checklist inline — never silently skip the axis. If any check fails: HALT, report, do not paper over.
 
@@ -227,7 +227,7 @@ Next:
 - **The threshold is declared before the first run, never fitted to it.** A bar chosen after seeing the score measures nothing.
 - **A CI job that prints a score and exits 0 is enforcement theatre and is not done.** The build fails below baseline, or there is no gate.
 - **Never evaluate on the few-shot / training examples baked into the prompt.** That measures memorization and produces a silent false PASS.
-- **Never let a model judge its own generations.** Self-preference is systematic. A different — ideally stronger — judge, pinned with its prompt and temperature.
+- **Never let a model judge its own generations.** Self-preference is systematic. A different — ideally stronger — judge, pinned with its model id, its prompt, and whatever sampling params the provider exposes.
 - **A set with no adversarial cases is not done.** Injection attempts, contradictory context, out-of-scope questions, and the cases whose correct answer is a refusal are where the gate earns its keep.
 - **The first run must clear the declared absolute bar.** Below it is a FAIL — fix the feature or revise the bar deliberately and record why. Ratcheting the baseline down to go green is masking.
 - **Cases come from real inputs.** Invented cases measure an invented distribution; the flywheel from production failure to permanent case is the whole mechanism.

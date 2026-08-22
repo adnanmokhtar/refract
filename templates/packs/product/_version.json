@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "product",
-  "version": "1.0.0",
-  "released": "2026-08-20",
+  "version": "1.1.0",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "First release — evidence-labelled problem framing, falsifiable requirements, honest research synthesis, and launches that can be judged.",
+  "summary": "Greenfield delivery repaired, and the reviewers taught to read the codebase they run inside. 10 of 17 topics declared `fallback: stub-from-sections` — all four commands, all four skills, two patterns — and the four skill topics carried no `sections:` list, so a no-signal project received EMPTY files: launch-readiness's 'run the query now', the counter-metric-independence check, the four falsifiability tests, the evidence classes. Measured greenfield survival was 20%. Every one now declares its own source as its fallback; survival is 100%. @requirements-reviewer and acceptance-criteria-check both HALTED on 'existing behaviour undocumented' while running with the repository open — a reviewer sitting beside the answer returning 'unstated'. Both now establish current behaviour from the code at <file:line> before the first criterion, which bounds delta-phrased criteria, settles the migration/permission/error cells of the coverage grid, supplies the non-functional volumes, and distinguishes a smuggled mechanism from one describing what already exists. The spec's silence stays a finding, raised by a reviewer who already knows the answer. The halt now fires only when the surface cannot be LOCATED. launch-readiness — the pack's strongest artifact and previously reachable only from a Related bullet — is dispatched at /define-success Phase 7 and scheduled as a calendar entry. Rule shrank 1700 -> 1520 tok by deleting an 11-of-11 measured restatement, and its applies-to no longer claims every-code-writing-task: it governs briefs, requirements and success definitions. All four agent fallbacks regained a sibling boundary.",
   "changelog": "CHANGELOG.md"
 }

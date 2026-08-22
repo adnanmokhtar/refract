@@ -82,17 +82,15 @@ Update when versions / tools / env vars change. Never let it drift from `package
 
 Update when a convention is formalized.
 
-## Drift detection (run before writing)
+## Drift detection — dispatch, do not re-implement
 
-Check:
-- File paths in `ai/` that don't exist in the repo.
-- Functions / types named in docs that aren't exported.
-- Columns / tables in `ai/architecture.md` not in migrations.
-- Env vars in `ai/stack.md` missing from `.env.example`.
-- Commands in CLAUDE.md missing from `package.json`.
-- `Updated:` > 30 days old.
+**This agent does not own drift detection.** `doc-drift-scan` does: it emits `BROKEN` / `STALE` findings with paired `<doc:line>` + `<src:line>` citations, is rename-aware (`git log --diff-filter=R` before flagging a missing path), strips globs before existence-checking, and refuses "looks outdated" without a computed number. A six-bullet checklist here with no output format, no citation rule and no verdict is a worse copy of the file next door, and the two would drift apart on the first edit.
 
-Flag drift separately from current work + propose fix.
+- **Before writing**, run `doc-drift-scan` over the docs you are about to touch. Consume its findings; do not re-derive them.
+- **If it is not installed**, do the minimum inline — resolve every path, symbol, table and env var the doc names against the tree, and compute the `Updated:` age in days — and label the result `UNVERIFIED (doc-drift-scan absent)` so nobody reads a partial sweep as a clean one.
+- **Drift found mid-write is a halt**, not a silent repair (see halt conditions): surface it in a separate flagged report so the user learns a rename went undocumented, then continue.
+
+Everything this agent writes is still subject to the same evidence rule: a claim that does not resolve to a file, migration, commit or env entry does not ship.
 
 ## Examples
 
@@ -170,12 +168,18 @@ Deprecation header + 6-month sunset.
 
 ## Related
 
-### Sibling agents in documentation pack
-- `@api-documenter` — sibling agent in documentation pack
+### Sibling agents in documentation pack — boundary
+- `@api-documenter` — owns the machine-readable API surface (OpenAPI spec, generated SDKs, the developer portal). This agent writes the `ai/` knowledge base in prose. If a doc describes an endpoint, api-documenter owns its contract and this agent owns the narrative around it — neither edits the other's artifact.
+
+### Skills this agent defers to (it never re-implements them)
+- `doc-drift-scan` — finds docs that lie about live code. This agent consumes its findings.
+- `quickstart-verify` — proves a setup section actually runs. This agent WRITES onboarding prose; that skill EXECUTES it. Never claim a setup path works without its run.
+- `diagram-sync` — owns the generated architecture diagram. This agent writes the surrounding narrative and never hand-draws the picture.
+- `docstring-coverage` — finds the missing contract docstrings; this agent writes them.
 
 ### Patterns
 - `ai/patterns/adr-template.md`
-- `ai/patterns/slo.md`
+- `ai/patterns/slo-doc-template.md`
 - `ai/patterns/system-design.md`
 
 ### Rules

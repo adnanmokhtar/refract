@@ -9,6 +9,16 @@ LOAD-BEARING track` routes to COPY. The **No-thinning rule** in `phase-4.2-apply
 ("pack files are copied verbatim") means whatever is in the fallback IS the artifact the project
 receives.
 
+> **Every `of 293` / `of 297` figure below is a dated corpus measurement, not a live count.** They
+> were all taken in one pass at `6dcb778`, when the corpus was **293 pairs / 297 `_examples/` files**.
+> The gate checks **282 pairs** today: 2 pairs retired across batches 1-5, and 9 more on 2026-08-23
+> (the whole `learning/_examples/` directory — 8 topics repointed to source-as-fallback — plus
+> `ai-engineering/_examples/ai-engineering-principles.md`, whose topic already declared
+> `fallback: rules/…`). The ratios these figures support (which classes discriminate, which are
+> conventions) were not re-derived against the smaller corpus, so the numbers are left as recorded
+> rather than restated — a renumbered figure would assert a measurement pass that never ran. Re-run
+> the pass before quoting any of them as current.
+
 Check 8b of `scripts/validate-pack-consistency.sh` compares every fallback against the source it
 abridges. Fallbacks are **deliberately abridged** — 29 of 293 are under 40% of their source's
 length and 135 of 297 are under 100 lines — so the gate never diffs prose and never looks at
@@ -54,8 +64,16 @@ is stale — this file is the authority, and it is short on purpose.
 ## Backlog
 
 ```
-documentation/slo                        SECTION-ORDER         # NOT drift: the fallback's heading order is identical to the source's. The rule compares source H2s against fallback H2s+H3s, so the fallback's `### SLI - what you measure` collides with the source's `## SLI` (inside its documentation template) while the source's own identical H3 is not counted. Diffing the SOURCE against ITSELF reproduces this finding verbatim - verified 2026-08-21. Correct as-is.
+(empty)
 ```
+
+The last entry, `documentation/slo SECTION-ORDER`, was **retired 2026-08-23** — not suppressed
+harder, but made not to fire. It was a true false positive: the rule compares source H2s against
+fallback H2s+H3s, so the prose section `### SLI - what you measure` collided with the `## SLI`
+heading inside the file's own fenced documentation-template. Renaming that template heading to
+`## SLI definition` (which is also what it holds) removed the collision, and the finding no longer
+reproduces. The topic was renamed `slo` -> `slo-doc-template` in the same pass, to end a silent
+`ai/patterns/slo.md` destination clobber against `observability`'s pattern of the same name.
 
 ## Promoted OUT of this list
 
@@ -72,8 +90,9 @@ documentation/slo                        SECTION-ORDER         # NOT drift: the 
 - **Length ratio** — ratios span 22% (`database/full-text-search`, 33 vs 153 lines) to 137%
   (`distributed-systems/outbox`, 100 vs 73) and the correlation with drift is inverted:
   `frontend/seo-audit` is textbook-legitimate at 25% (47 vs 190), while the file still carrying a
-  baselined defect sits at parity (`documentation/slo` 101%; `migration/migration-discipline` was the
-  other, at 112%, and was retired 2026-08-23 when that topic switched to source-as-fallback).
+  baselined defect sat at parity (`documentation/slo` 101%, retired 2026-08-23 when the heading
+  collision that produced it was removed; `migration/migration-discipline` was the other, at 112%,
+  retired the same day when that topic switched to source-as-fallback).
   Measured across all 293 pairs: no threshold discriminates. Not implemented at any severity.
   The one length-shaped rule that IS implemented is byte-equality (`UNDECLARED-COPY`), which is a
   fact rather than a threshold.

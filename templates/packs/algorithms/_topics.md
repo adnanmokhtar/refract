@@ -57,7 +57,7 @@ This pack is stack-agnostic — algorithms + complexity are language-independent
   kind: rule
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § Stack (standard containers + their complexities) + § Conventions
-  sections: [must, must_not, should, review_checklist, enforcement, related]
+  sections: [must, must_not, should, enforcement]
   fallback: rules/algorithm-principles.md
   mirror_existing: true
 ```

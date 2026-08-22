@@ -15,7 +15,7 @@ pack: ai-engineering
 
 ## The decision ladder — earn your way down
 
-1. **Prompt** (role, constraints, structured output, temp 0) — cheapest, instant, reversible.
+1. **Prompt** (role, constraints, structured output, plus whatever determinism control the provider exposes) — cheapest, instant, reversible.
 2. **Few-shot** — worked examples when format/edge-cases need demonstration.
 3. **RAG** — when the gap is *knowledge* the model lacks (live, updatable, citable).
 4. **Fine-tune** — only when the gap is *behavior* (format/style/latency/cost) that 1–3 can't close on the eval.
@@ -31,7 +31,7 @@ An ever-growing few-shot block is the **signal** to fine-tune (bake it into weig
 
 Score the fine-tune AND the strongest prompted baseline on the **same held-out set**; ship only if the fine-tune wins (see `evals`). Watch for regression on adjacent tasks (over-specialization). Version the triple: model/adapter id + dataset hash + eval scores — an unversioned fine-tune is unreproducible. Set a re-tune trigger on drift, not a blind schedule.
 
-> Note: some providers (e.g. Claude) have no general fine-tuning surface — reach the same outcome with prompt + few-shot + RAG (and prompt caching for the stable example block).
+> **Ask about the deployment surface, not the vendor.** Whether you can fine-tune is a property of the specific API, region, and hosting path this project uses — not of the model family's name. A hosted-partner platform may offer fine-tuning for a model whose first-party API does not, and the answer changes without announcement. Read the current documentation for the exact surface in the project's config and record the date. Where there genuinely is none, reach the same outcome with prompt + few-shot + RAG (and prompt caching for the stable example block). A design that assumes a fine-tuning surface without naming the specific one — and when that was confirmed — is the finding either way.
 
 ## Detectors (cite-or-halt)
 

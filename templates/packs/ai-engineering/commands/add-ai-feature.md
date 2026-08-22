@@ -70,7 +70,7 @@ Follow the sibling feature's shape. Wire every applicable element:
 ### Prompt + structured output
 - Prompt as an **owned/versioned** module, not inline-duplicated across call sites.
 - **Structured output via the provider's tool/JSON-schema mode** — never regex/`split`/`JSON.parse` on free text where a schema is available.
-- **`temperature: 0`** for extraction / classification / any deterministic surface; non-zero only for genuinely generative output, and justified.
+- **Constrain single-answer surfaces with what the provider still exposes.** Schema/strict mode always. `temperature: 0` for extraction / classification only where sampling params exist — where the provider withdrew them (current Anthropic models return HTTP 400 on a non-default `temperature`/`top_p`/`top_k`), set none and carry the constraint on the schema mode plus a system-prompt instruction. Non-zero temperature only for genuinely generative output, and justified.
 - **Instruction/data separation** — user + retrieved content in a distinct role/delimited block, never concatenated into the instruction body.
 
 ### Gateway seam + cost/latency budget
@@ -94,21 +94,21 @@ Follow the sibling feature's shape. Wire every applicable element:
 | Signal | Extra requirement |
 |---|---|
 | Any generation | `max_tokens` + timeout set; tokens + cost logged. |
-| Extraction / classification | Structured output (tool/JSON-schema); `temperature: 0`; NO regex-parsing. |
+| Extraction / classification | Structured output (tool/JSON-schema, `strict` variant where offered); NO regex-parsing. Sampling params only where the provider exposes them — `temperature: 0` there, none at all where it has withdrawn them. |
 | RAG | Retrieval tenant-filtered at query time; no-context guard; retrieval metric (recall@k) in the eval, not answer-only. |
 | Multi-tenant | Vector query + logs + cost trace all tenant-scoped. Cross-tenant retrieval e2e test. Leak = security handoff. |
 | Agentic (tools / loop) | Loop budget (steps + tokens + timeout); human-in-loop on destructive tools; typed tool inputs. |
 | Destructive tool (write / pay / delete / email) | Confirmation or dry-run gate; the model cannot fire it unmediated. Excessive-agency review → `@llm-security-reviewer`. |
 | Streaming response | Token cap + timeout still apply; cost logged after the stream; mid-stream error handled. |
-| Output rendered as HTML / used in SQL / shell / eval / an auth decision | Validate the output shape here; **hand the SINK to `@llm-security-reviewer`** (`LLM05` improper output handling / `LLM06` excessive agency) — do not treat model output as trusted. |
-| User content in the prompt | Instruction/data separation; prompt-injection surface → `@llm-security-reviewer` (`LLM01`). |
+| Output rendered as HTML / used in SQL / shell / eval / an auth decision | Validate the output shape here; **hand the SINK to `@llm-security-reviewer`** (`LLM10:2026` improper output handling / `LLM03:2026` excessive agency) — do not treat model output as trusted. |
+| User content in the prompt | Instruction/data separation; prompt-injection surface → `@llm-security-reviewer` (`LLM01:2026`). |
 
 ## Phase 5 — Evaluate (MANDATORY — the gate)
 
 This phase does not skip. The feature is not done until it is measurable.
 
 1. **Build the eval set** — a versioned dataset (checked in), seeded from the Phase-2 eval spec (10–20 real-ish cases minimum), with expected properties per case. Cases are **held out** from the few-shot examples baked into the prompt.
-2. **Wire the scorers** — assertion (exact / JSON-schema / contains) + LLM-as-judge (faithfulness / relevance / correctness) + a retrieval metric (recall@k / context-precision) if RAG. Pin the judge model + `temperature: 0` + seed.
+2. **Wire the scorers** — assertion (exact / JSON-schema / contains) + LLM-as-judge (faithfulness / relevance / correctness) + a retrieval metric (recall@k / context-precision) if RAG. Pin the judge model id + judge prompt + every sampling parameter the provider exposes.
 3. **Declare the ABSOLUTE pass threshold per gated metric** — the production bar the feature must clear, not merely a self-referential "baseline" (e.g. `exact-match ≥ 0.90`, `faithfulness ≥ 0.85`, `context-recall@k ≥ 0.80` for RAG). A NEW feature has no prior baseline: its first `eval-run` ESTABLISHES the baseline **and must clear this declared absolute bar** — a first run below the bar is a FAIL, not a low baseline to ratchet from. A CHANGE to an existing feature gates on `baseline − ε` as well as the absolute bar. Then **wire the CI eval-gate** — add/confirm the eval-gate step in the pipeline config and verify that step is *present* in the CI file (assert the config, not the pipeline's runtime outcome — this command cannot prove a remote build fails). The real measured gate is `eval-run` in step 4; CI is the standing enforcement of it.
 4. **Dispatch the `eval-run` skill** — run the set through the new code and **record the measured score per gated metric** (`<metric> = <score>` vs `≥ <threshold>`) from `eval-run`'s output table + its `Reports:` path. The verdict is the measured number vs the declared threshold, not "it ran green". A metric below its absolute threshold (new feature) or below `baseline − ε` (change) HALTS this command to **INCOMPLETE** — name the failing metric + score; do not ship an unmeasured or below-bar feature. If NO eval harness exists in the repo, `eval-run` HALTS — the fix is **`/add-eval-set <feature>`**, which builds the dataset + scorers + declared threshold + committed baseline + CI gate and calls `eval-run` back for the first measured run. Until that run exists the eval axis is **UNVERIFIED**, never a faked pass.
 5. **Security handoff — dispatch `@llm-security-reviewer`** for the trust boundary: prompt injection (direct + indirect), improper output handling (any sink the output reaches), and excessive agency (destructive tools). This is a required handoff, not optional — `@ai-feature-reviewer` reviews engineering quality but does NOT clear security.
@@ -220,7 +220,7 @@ Next:
 - **Every generation has `max_tokens` + a timeout + a traced cost.** Calls go through the gateway seam, not scattered raw SDK clients.
 - **RAG**: tenant-filtered at query time + no-context guard + a retrieval metric in the eval.
 - **Agentic**: loop budgeted (steps + tokens + timeout) + human-in-loop on destructive tools.
-- **`temperature: 0`** for extraction/classification.
+- **Single-answer surfaces are constrained by the mechanism the provider still exposes** — schema/strict mode always; `temperature: 0` only where sampling params exist, none where the provider has withdrawn them (there, setting one is a 400).
 - **Security is a required handoff, not optional** — `@llm-security-reviewer` clears prompt injection / output handling / excessive agency. `@ai-feature-reviewer` does NOT cover security.
 - Mirror a sibling LLM feature EXACTLY — no new pattern introduced silently.
 - Tests + eval shipped with the code, not bolted on.

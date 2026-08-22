@@ -67,7 +67,21 @@ A commitment is a bet. State the bet: *"this saves X if usage stays above Y for 
 
 One of: **buy** (with type, scope, term, payment option, and quantity), **hold** (coverage adequate; state the number), **partial** (cover the durable floor only), or **let lapse** (with the resulting bill increase stated, so it is a decision rather than a surprise).
 
-Prefer flexible instruments over rigid ones where the discount difference is small — the option to change shape is worth real money in a system that is still evolving, and that value should be named rather than assumed away.
+#### Which instrument: read the denomination, not the discount
+
+"Prefer flexible over rigid" is unactionable until you name what makes one flexible. The axis is **what the commitment is denominated in**, and it is the same axis on every provider even though the product names differ:
+
+| Denominated in | Floats across | Strands when | Discount |
+|---|---|---|---|
+| **spend per hour** (a currency rate) | shape, size, family, often region and even service | you stop spending that much at all | lower |
+| **a resource quantity** (vCPU + memory, capacity units, nodes) | size within a family, sometimes region | you change family or region | middle |
+| **a specific shape** (this instance type, this configuration, this region) | almost nothing | any routine re-shaping | highest |
+
+The decision rule follows directly, and it is about the *system*, not about the discount table: **commit at the coarsest denomination whose floor you are confident in.** A spend-denominated commitment survives a migration you have not planned yet; a shape-denominated one is a bet that the shape outlives the term. In a system still changing shape, the difference between the two discounts is the price of an option, and that option is frequently worth more than the spread.
+
+Name the instrument in the **provider's own product name** in the report — "1-year no-upfront compute spend commitment" is what the finance team can act on; "flexible instrument" is not, and it cannot be looked up. Where a project's export conforms to FOCUS (see `STACK.md`), `Commitment Discount ID` and `Commitment Discount Status` are where the inventory and its state actually live, and the status column is what makes step 1's expiry sort reproducible rather than manual.
+
+Two failure modes this axis exposes that a discount comparison never will: a commitment bought one denomination too narrow for a system that re-shapes routinely (strands on the next family change), and one bought too coarse for a workload with a genuinely fixed shape (pays for flexibility it will never exercise).
 
 ### 7. Report
 
@@ -75,7 +89,7 @@ Prefer flexible instruments over rigid ones where the discount difference is sma
 ## commitment-coverage — <account/scope> — <date>
 
 ### Inventory (by expiry)
-| Commitment | Type | Scope | Term | Value/hr | Expiry | Utilisation | Wasted/period |
+| Commitment | Provider's product name | Denominated in | Scope | Term | Value/hr | Expiry | Utilisation | Wasted/period |
 
 ### Coverage
 | Service | Eligible usage | Covered | Coverage % | Ineligible usage (no commitment applies) |
@@ -88,7 +102,7 @@ Durable share:     <value> (excluding <named workload> — <reason>)
 
 ### Recommendation
 Action: buy | hold | partial | let lapse
-  <type, scope, term, payment option, quantity>
+  <provider's product name, denomination, scope, term, payment option, quantity>
 Break-even: usage must persist <n> of <term> months
 The bet:    saves <$> if <condition>; loses <$> if <condition>
 Expiry exposure (next 90d): <$/month increase when <commitment> lapses>
@@ -113,6 +127,7 @@ Expiry exposure (next 90d): <$/month increase when <commitment> lapses>
 - **Committing at the average.** The average is above the floor by construction; the trough hours are unutilised.
 - **Ignoring the seasonal cycle.** A commitment sized on a peak quarter under-utilises for the other three.
 - **Missing scope rules.** Commitments differ sharply in what they can float across (accounts, families, regions, sizes); a commitment bought at the wrong scope can strand.
+- **Comparing two instruments on discount alone** when they are denominated differently. That comparison is not like-for-like — one of them is also selling an option on the system's future shape, and the spread is its price.
 - **Double-counting a discount** that a provider already applies automatically at the organisation level.
 - **Recommending a long term for a workload with a shorter roadmap** — the break-even calculation exists to make that visible.
 - **Reading utilisation as of today** on a commitment purchased last week; it has not had time to be representative.

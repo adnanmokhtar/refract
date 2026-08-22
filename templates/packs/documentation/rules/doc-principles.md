@@ -22,7 +22,7 @@ Prevents the failure mode that's worse than missing docs: stale docs that active
 - `ai/status.md` carries an `Updated:` line in `YYYY-MM-DD` and a `## Recent Changes` section. SessionStart hooks parse these — don't break the format.
 - A new module ships with a one-line entry in `ai/modules.md` (path + purpose) in the same PR.
 - API endpoints are documented in machine-readable form (OpenAPI / GraphQL SDL / JSDoc-typed RPC), never only in prose.
-- Every public class, interface, enum, and exported function has a one-sentence JSDoc / TSDoc / Pydoc explaining purpose. (See `.claude/rules/jsdoc.md` if present.)
+- Every public class, interface, enum, and exported function carries a one-sentence docstring stating its CONTRACT — what it guarantees, assumes, raises — not a restated signature.
 - Step-by-step procedures are numbered checklists, not paragraphs. One observable action per step.
 - Comparisons are tables. Multi-axis bullet lists hide structure.
 
@@ -45,100 +45,39 @@ Prevents the failure mode that's worse than missing docs: stale docs that active
 - Link to source over copy-pasting it. Source rot is detectable; copy-paste rot is silent.
 - Write ADRs at decision time, never retroactively — the lost context is the whole point.
 - Use present tense, active voice. "The service caches results" beats "Results will be cached by the service."
-- The getting-started / README setup path is *verified by executing it in a clean environment* before release — not just written and eyeballed. A setup section that reads correctly still fails the new contributor if a prereq, env var, or step order is missing. Run `quickstart-verify.md` on a clean env; the passing run (with its time-to-first-green) is the proof, not the prose.
-- Generate architecture diagrams from the *real* module/import dependency graph (not a hand-drawn whiteboard export left to rot) and drift-check the committed diagram against that graph — a box naming a module that no longer exists misleads with the authority of a picture. Run `../skills/diagram-sync/SKILL.md`, which renders the graph `code-quality`'s architectural-diagnosis emits; it does not rebuild the graph, and if the picture and the code disagree the picture is wrong.
-- Every public / exported symbol (function, class, module, endpoint, exported type) carries a *contract* docstring — what it guarantees, assumes, and raises — not a restated signature; measure coverage on the public surface only and defer the convention + rules to the project's docstring linter (`ruff`/`pydocstyle` Google/NumPy, `eslint-plugin-jsdoc`, Javadoc `-Xdoclint`, `missing_docs` in Rust). A docstring that merely re-spells the parameter names is a zero-information gap that green-lights the count while teaching nothing. Run `../skills/docstring-coverage/SKILL.md` to find and (optionally) gate on the gaps.
-- Generate the changelog / release notes from *categorized* commit + PR history (conventional-commit types or PR labels), not hand-written from memory or a raw `git log` dump — group breaking-first, surface each breaking change at the top with a before → after migration note, and *derive* the semver bump from the change types (any breaking → major, else any feat → minor, else patch). Run `../skills/changelog-generate/SKILL.md`; an unclassifiable commit is a reportable convention gap, never something to silently drop.
 
-## Skeletons
+### Four docs that must be PROVEN, not written
 
-### Module entry in `ai/modules.md`
+Each is a doc whose truth is checkable by running something. Reading it is not the check.
 
-```
-| Module | Path | Purpose |
+| Doc surface | Proven by | Run (skill, when installed) |
 |---|---|---|
-| <module-name> | <real/path/from/this/project> | <one-line purpose> |
-```
+| Setup / getting-started | executing every step in a CLEAN env — a warm-machine pass certifies broken docs | `quickstart-verify` (reports time-to-first-green) |
+| Architecture diagram | diffing it against the real module/import graph — a box naming a deleted module misleads with the authority of a picture | `diagram-sync` |
+| Public-API docstrings | measuring coverage on the PUBLIC surface against the project's OWN linter convention; a re-spelt signature is a zero-information gap that green-lights the count | `docstring-coverage` |
+| Release notes | deriving them from categorized commit/PR history, breaking-first with before → after, semver bump COMPUTED from the change types | `changelog-generate` (an unclassifiable commit is a reportable gap, not a silent drop) |
 
-One row, one line, same PR as the module. Use this codebase's actual folder layout (e.g., `<app>/<module>`, `apps/<name>/src/<module>`, `src/modules/<module>`, `pkg/<module>` — whatever Phase 2 detected). Don't invent a layout.
+## The two formats this rule owns
 
-### ADR
+The ADR and runbook skeletons are NOT duplicated here: `ai/patterns/adr-template.md` owns the ADR format (with a worked example), `/add-runbook` owns the runbook template. Two homes for one skeleton is how they drift apart. These two are machine-parsed contracts, so they live here:
 
-```markdown
-# 0042: Switch from PostgreSQL to MySQL
+- **`ai/modules.md`** — `| Module | Path | Purpose |`, one row per module, added in the same PR as the module. Use the layout Phase 2 detected in THIS codebase; don't invent one.
+- **`ai/status.md`** — first line `Updated: YYYY-MM-DD`, and a `## Recent Changes` heading with newest first. SessionStart hooks parse exactly those two; other sections are free-form.
 
-Status: Accepted
-Date: 2026-04-24
-Deciders: @platform-team
+## In review — reject on sight
 
-## Context
-<one paragraph: the problem>
-
-## Decision
-<one paragraph: what we're doing>
-
-## Consequences
-- Positive: …
-- Negative: …
-- Follow-up: …
-```
-
-### `ai/status.md`
-
-```markdown
-Updated: 2026-04-24
-
-## Current state
-…
-
-## In-flight work
-…
-
-## Tech debt
-…
-
-## Recent Changes
-- 2026-04-24: …
-```
-
-### Runbook
-
-```markdown
-# Runbook: Restoring from a corrupted Redis instance
-
-When: error rate > 5% on cache reads, Redis CPU saturated.
-On-call: @platform
-
-1. Verify in Grafana that Redis is the bottleneck (link).
-2. …
-3. Post-incident: file a ticket linking back to this run.
-```
-
-## Anti-patterns to flag in review
-
-- Doc says "we use X" but the project's dependency manifest shows Y → fix one of them in the PR.
-- ADR phrased as a tutorial → three sections only: Context / Decision / Consequences.
-- README listing 30 task-runner scripts → link to the project's task-runner manifest, document only non-obvious ones.
-- Inline comment paraphrasing the next line → delete it; rename the variable instead.
-- Wiki / external link without a permalink (defaults to "latest") → link to a specific revision/SHA.
-- Long FAQ where the answers belong in source → fix the source.
-- "How to set up" no one re-tested in 6 months → automate via the project's task runner (e.g., `make setup`, `bun run setup`, `just setup`, `mix setup`) and document the script.
-
-## Review checklist
-
-- [ ] Reality matches the doc as of this PR.
-- [ ] New module → `ai/modules.md` entry.
-- [ ] Architectural change → ADR.
-- [ ] Status touched → `Updated:` line refreshed.
-- [ ] No `TBD` without owner + date.
-- [ ] No duplicate-of-code prose.
+- A doc claim the diff contradicts (renamed path, deleted symbol, dropped env var) → fix in THIS PR, not a follow-up.
+- Doc says "we use X" but the dependency manifest shows Y → one of them is wrong; fix it here.
+- Inline comment paraphrasing the next line → delete it and rename the variable instead.
+- External / wiki link with no permalink (resolves to "latest") → pin a revision or SHA.
+- `TBD` with no owner and no date; a new module with no `ai/modules.md` row; an architectural change with no ADR.
 
 ## Enforcement
 
 - `markdownlint` in pre-commit: heading levels, trailing whitespace, link syntax.
 - `lychee` / `markdown-link-check` in CI for broken links.
 - CI grep for `TBD` / `TODO(no-owner)` patterns in `ai/` fails the build.
-- CI parses `ai/status.md` `Updated:` and warns when older than 90 days on changed branches.
+- CI parses `ai/status.md` `Updated:` and warns when older than 30 days on changed branches (the same threshold `doc-writer`, `/doc-refresh` and `doc-drift-scan` use — one number, one meaning).
 - Code review checklist enforces "feature PR → docs PR" coupling.
 
 ## When rules conflict with a task
@@ -150,5 +89,6 @@ On-call: @platform
 
 ## References
 
-- Michael Nygard, "Documenting Architecture Decisions" (the original ADR essay).
-- Diátaxis framework: tutorials / how-tos / reference / explanation — diataxis.fr.
+- Michael Nygard, "Documenting Architecture Decisions" — cognitect.com/blog/2011/11/15/documenting-architecture-decisions (the original ADR essay).
+- Diátaxis — diataxis.fr (tutorial / how-to / reference / explanation: the four modes, and why mixing two in one page is the defect).
+- Keep a Changelog — keepachangelog.com (the release-notes format `changelog-generate` emits).

@@ -59,6 +59,6 @@ Not derivable (N): each with the instrumentation that would provide it
 
 ## Related
 
-- `@cost-architect`, `@cost-reviewer`
-- `unit-cost-probe`, `commitment-coverage`, `egress-trace`, `spend-anomaly-triage`
-- `/cost-model`, `/audit-cost-attribution`
+- **Boundary:** you measure and attribute; you never propose an architecture change. A finding goes to `@cost-architect` (shape) or `@cost-reviewer` (the diff that caused it) with the numbers attached — proposing the fix yourself is how a measurement stops being trusted as one.
+- `unit-cost-probe` (one unit, in depth), `commitment-coverage` (the rate half of a delta), `egress-trace` (the transfer half), `spend-anomaly-triage` (takes over when a delta needs a cause).
+- `/cost-model`, `/audit-cost-attribution` — the commands that dispatch this agent.

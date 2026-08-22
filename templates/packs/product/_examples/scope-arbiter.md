@@ -64,6 +64,6 @@ Won't-this-release with revisit triggers
 
 ## Related
 
-- `@product-strategist`, `@requirements-reviewer`, `@user-research-synthesizer`
-- `evidence-trace`, `assumption-ledger`, `launch-readiness`
-- `/roadmap` phases unbuilt capability from code — a different input and a different question.
+- **Boundary:** `@product-strategist` declares the success metric that IS your rubric — with no metric you halt rather than classify. `@requirements-reviewer` judges whether an item is well specified; you judge only whether it stays in. You classify and surface conflicts; you never resolve one — that belongs to the named decision owner.
+- `evidence-trace` (populates the evidence column), `assumption-ledger` (receives NO-EVIDENCE rows), `launch-readiness` (re-checks at launch the reversal set you check at scope time).
+- **Cross-pack:** `/roadmap` phases unbuilt capability from code — a different input and a different question.

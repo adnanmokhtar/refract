@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "1.4.1",
-  "released": "2026-08-22",
+  "version": "1.5.0",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "`skills/extract-codebase-overview/SKILL.md` Step 7 claimed that because no cap is declared, Step 15 check 7 asserts `seen == present` there. Check 7's rules reject an undisclosed sample only — a `[SAMPLED: 12/40 files]` marker passes it. The 100% obligation is the Step 2.5 denominator cell's; both are now stated separately.",
+  "summary": "/refresh-knowledge did not re-extract: it re-asserted a stale oracle with a fresh timestamp, and because it never touched _extracted-codebase.md the approved_hash never mismatched, so health reported the stale oracle green. It now invokes extract-codebase-overview (chaining extract-business-context) + extract-base-class-idiom, preserves the approval stamp so the mismatch fires, and diffs oracle-vs-oracle. [CONTESTED] and MEDIUM had zero consumers on the path every project takes - convention-drift-detector flagged the minority side of a measured 6/4 split as FIX CODE; both now have consumers. ## Cross-cutting concerns and ## Anti-patterns observed were outside check 7 while emitting 'confirmed' and bare counts; both gained denominator rows and a three-word verdict grammar. Specificity became a positive test after a blocklist let confident prose score 25/25. The _examples/ directory is deleted (-1,632 lines, source-as-fallback), which removed three shipped fallbacks that had dropped their destination sections and re-introduced stack leakage.",
   "changelog": "CHANGELOG.md"
 }

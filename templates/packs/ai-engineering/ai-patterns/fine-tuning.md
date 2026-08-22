@@ -31,7 +31,7 @@ pack: ai-engineering
 
 Escalate only when the rung below is genuinely exhausted, each proven by the eval set:
 
-1. **Prompt** — role, task, constraints, structured output, temperature 0. Cheapest, instant, reversible.
+1. **Prompt** — role, task, constraints, structured output, and whatever determinism control the provider exposes. Cheapest, instant, reversible.
 2. **Few-shot** — worked examples in the prompt when the format/edge-cases need demonstration. Still reversible; costs tokens per call.
 3. **RAG** — when the gap is *knowledge* the model lacks. Grounds answers in a live, updatable, citable corpus.
 4. **Fine-tune** — only when the gap is *behavior* (format/style/latency/cost) that 1–3 can't close on the eval. The last rung.
@@ -75,10 +75,14 @@ The dataset **is** the fine-tune; a bigger dirty set loses to a smaller clean on
 
 ## Adapt to your stack
 
-- **OpenAI** — fine-tuning API (upload JSONL, create job, call the returned model id); versioned model names; eval before promotion.
-- **Anthropic / Claude** — no general customer fine-tuning surface; reach the same outcomes with **prompt-engineering + few-shot + RAG** (and prompt caching for the stable example block). If you assumed a Claude fine-tune, that's the halt — use the prompt/RAG ladder instead.
-- **Open models + LoRA/PEFT** — axolotl / unsloth / PEFT for adapter training; you own the eval, versioning, and hosting.
-- **Managed** — Together / Fireworks / Bedrock (and similar) host the train + serve loop for open/base models; still your job to bring the curated dataset and the held-out eval gate.
+**Ask the question about the *deployment surface*, not the vendor.** "Can we fine-tune?" is answered by the specific API, region, and hosting path this project uses — not by the model family's name. The same vendor's model can be fine-tunable through a hosted-partner platform and not through its first-party API, and the answer changes without announcement. Resolve it by reading the current documentation for the exact surface in the project's config, and record the answer with the date you read it.
+
+- **First-party model APIs** — some expose a customer fine-tuning API (upload a dataset, create a job, call the returned model id); some deliberately expose none and direct you to prompt-engineering + few-shot + RAG (with prompt caching amortising a stable example block). Either way, versioned model names and an eval before promotion.
+- **Hosted-partner platforms** (a cloud vendor's model marketplace) — may offer fine-tuning for a model whose first-party API does not, sometimes for a subset of the family only. This is the case people miss in both directions: assuming a fine-tune exists because the vendor is big, or assuming none exists because the first-party API has none.
+- **Open models + LoRA/PEFT** — adapter training you run yourself; you own the eval, versioning, and hosting.
+- **Managed train + serve** — a platform hosts the loop for open/base models; still your job to bring the curated dataset and the held-out eval gate.
+
+The halt is unchanged in shape and sharper in wording: a design that *assumes* a fine-tuning surface without naming the specific one it will use, and the date that was confirmed, is the finding — whether or not such a surface happens to exist.
 
 ## Detectors (cite-or-halt)
 

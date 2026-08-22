@@ -21,6 +21,8 @@ For systems where audit trail is non-negotiable (financial, healthcare, complian
 
 
 
+**Boundary:** `@system-architect` decides the bounded context and whether event sourcing is warranted at all — take it from there, do not model around a boundary it owns. `@workflow-orchestrator` owns cross-aggregate *process* (compensation, human waits); you own within-aggregate *facts* — a step to be undone is a compensation, a fact to be corrected is a corrective event. `@resilience-reviewer` decides whether a consumer of your stream double-applies on redelivery. `@capacity-planner` sizes event-store growth and projection-rebuild time.
+
 ## When to use
 
 - Audit requirement is legal/compliance-grade (not just "nice to have").
@@ -91,7 +93,7 @@ Requirements:
 
 Options:
 - **Postgres** — single-node, simple, works to ~low millions of events.
-- **EventStoreDB** — purpose-built, supports catch-up subscriptions + projections.
+- **KurrentDB** (the renamed EventStoreDB, from release 25.0) or **Marten** on Postgres — purpose-built, catch-up subscriptions + projections out of the box. Existing deployments still carry the EventStoreDB name; check the running version before citing an API.
 - **Apache Kafka** — stream-native; use with careful partition design.
 - **AWS DynamoDB Streams** — managed; good for AWS-native.
 
@@ -99,18 +101,14 @@ Options:
 
 Derived read models:
 - Consume events.
-- Store in any structure optimal for queries (Postgres table, Elasticsearch index, Redis, etc.).
+- Store in any structure optimal for queries (the project's choice — a relational table, a search index, a key-value cache, an OLAP store).
 - Rebuildable from scratch by replaying.
 - Eventually consistent (replay lag = projection lag).
 - Multiple projections from same events; add new ones freely.
 
-### Snapshots
+### Snapshots — derive the cadence, don't copy it
 
-For aggregates with long event streams:
-- Every N events, serialize + persist current state.
-- On load: fetch latest snapshot + events after it.
-- Trade-off: storage vs load speed.
-- Don't snapshot too often — wastes storage; don't too rarely — slow loads.
+Do not snapshot by default. The cadence is set by one inequality: **`stream_length × per_event_apply_cost` must stay under the aggregate-load latency budget.** So `N = latency_budget / per_event_apply_cost`, and only aggregates whose p95 stream length exceeds `N` get one; the rest replay from zero, which is simpler and always correct. Worked example: a 40 µs apply and a 20 ms budget give `N ≈ 500` — both numbers are inputs, neither is a recommendation. A snapshot is a derived artifact: if deleting every snapshot does not leave a correct (only slower) system, it has become a second source of truth — halt.
 
 ### Commands vs events
 
@@ -154,6 +152,19 @@ Document the strategy in an ADR.
 - Projection tests: given events, assert projection state.
 - Replay tests: rebuild projection from scratch; assert matches live.
 
+## Detectors (cite-or-halt)
+
+Run against existing streams and handlers, not the design doc. Every finding cites `<file:line>` or the stream it read.
+
+1. **Stored event mutated in place** — any write to the event store that is not an append, outside a documented compliance-redaction path. Verdict **CORRUPT**: every projection rebuilt after the edit disagrees with every one built before it.
+2. **Projection writes back to the event store.** Verdict **CORRUPT** — a feedback loop a rebuild amplifies.
+3. **Aggregate spanning bounded contexts** — if two of its events would be authored by two different teams, it is two aggregates. Verdict **STRUCTURAL**; route to `@system-architect`.
+4. **No optimistic-concurrency key** — no `UNIQUE(aggregate_id, version)` or expected-version check on append. Verdict **LOST UPDATE**.
+5. **No upcaster and no version field** on a stream that has already evolved (compare oldest vs newest payload shape per event type). Verdict **UNREPLAYABLE** — the rebuild fails during an incident.
+6. **PII in an event with no GDPR strategy** (no crypto-shredding key, no redaction path, no ADR). Verdict **UNDELETABLE**.
+7. **`XChanged` / `XUpdated` event names** forcing consumers to diff payloads. Verdict **DEGRADED**.
+8. **Event sourcing with no compliance, temporal-query or multi-projection driver.** Verdict **OVERKILL** — recommend an `audit_events` table instead. Talking a team out of event sourcing is a valid output.
+
 ## Output
 
 ```
@@ -170,10 +181,10 @@ Projections:
 | Name | Storage | Purpose | Rebuild time |
 |---|---|---|---|
 | order_list_view | Postgres | List page | 5min |
-| order_search | Elasticsearch | Full-text | 20min |
+| order_search | <search index> | Full-text | 20min |
 | analytics_daily | Snowflake | BI | 1h |
 
-Snapshots: every 50 events
+Snapshots: none for Order (p95 stream 15) | Cart every 500 (p95 stream 4,100, 40µs apply, 20ms budget)
 Schema evolution: upcasters via version field
 
 GDPR strategy: crypto-shredding per user (documented in ADR 0042)
@@ -187,18 +198,31 @@ Observability:
 Risks:
   - <risk + mitigation>
 
+### Verdict: SOUND | DEGRADED | CORRUPT
+- SOUND — append-only, concurrency key cited, projections pure and rebuildable, GDPR strategy in an ADR.
+- DEGRADED — works today, costs later: generic event names, no upcaster chain, unjustified snapshot cadence.
+- CORRUPT — detector 1, 2 or 4 fired. Blocks merge; the repair is a corrective event plus a rebuild, never an edit.
+
+### Findings
+| # | Detector | Where | Verdict |
+|---|---|---|---|
+
 Next actions:
   1. ...
 ```
 
+The verdict reconciles with the findings: a SOUND headline over a CORRUPT row is a contradiction, not a verdict.
+
 ## Hard rules
 
 - Events past-tense, small, immutable, versioned.
-- Aggregates small (< 100 events typical; snapshot past that).
+- Aggregates small enough that one command's invariants fit in one transaction. Long streams are a symptom to investigate (usually an aggregate that should be two), not a reason to reach for a snapshot.
 - Projections rebuildable.
 - Schema evolution via upcasters, NEVER mutating stored events (except compliance redaction).
 - GDPR strategy decided before launch (not after).
 - At-least-once delivery + idempotent consumers.
+- **The verdict matches the findings.** — BLOCKER on contradiction.
+- **Snapshot cadence is derived from a measured apply cost and a stated latency budget, or there is no snapshot.** — BLOCKER when a bare number appears with no inputs.
 
 ## Forbidden
 

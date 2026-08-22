@@ -7,20 +7,20 @@ pack: ai-engineering
 
 # Pattern: Prompt Engineering — structure, structured output, determinism, versioning
 
-> **Hard rule:** A production prompt is **code**: structured, versioned, and eval-gated — not a string edited in place on a hunch. Where the provider offers structured output (tool/function-calling or a JSON/structured-output mode with a schema), you **use it and validate against the schema** — you NEVER regex-parse free text into a data structure. Instructions live in the **system** message; untrusted data (user input, retrieved documents, tool results) lives in the **user** message, delimited — mixing them is a prompt-injection hole. Extraction and classification run at **temperature 0**. Every prompt change goes through the eval gate before it ships.
+> **Hard rule:** A production prompt is **code**: structured, versioned, and eval-gated — not a string edited in place on a hunch. Where the provider offers structured output (tool/function-calling or a JSON/structured-output mode with a schema), you **use it and validate against the schema** — you NEVER regex-parse free text into a data structure. Instructions live in the **system** message; untrusted data (user input, retrieved documents, tool results) lives in the **user** message, delimited — mixing them is a prompt-injection hole. Extraction and classification are **constrained by whatever the provider still exposes** — the schema mode always, and `temperature: 0` only where sampling parameters exist at all. Every prompt change goes through the eval gate before it ships.
 
 **When to apply**
 - Every LLM call site — this pattern governs how the prompt is assembled, how output is parsed, and how the prompt is versioned.
 - Especially: extraction / classification (need determinism + schema), anything consuming untrusted user or retrieved content (need system/user separation), and any output the code parses (need structured output).
 
 **When NOT to apply**
-- A genuinely free-form creative/chat surface where the output is shown to a human and never parsed by code — structured output + temperature 0 don't apply, but system/user separation and versioning still do.
+- A genuinely free-form creative/chat surface where the output is shown to a human and never parsed by code — structured output and the determinism section don't apply, but system/user separation and versioning still do.
 
 **Halt conditions / mandatory cites**
 - **Regex/string-parsing free-text output where the provider supports structured output** MUST be cited at `<path:line>` — a schema is available; parsing free text is a reliability bug.
 - Instructions concatenated with **untrusted user data or retrieved content in one blob** (no system/user split, no delimiting) MUST be flagged — this is the prompt-injection surface (cross-link `llm-security`).
 - A structured-output call with **no schema validation (and no repair path)** on the response MUST be cited — "the model usually returns valid JSON" is not a guarantee.
-- **`temperature > 0` on an extraction or classification task** MUST be cited — non-determinism on a task with one correct answer is a defect.
+- **Sampling parameters wrong for an extraction or classification task** MUST be cited — `temperature > 0` where the provider exposes it, *or* a temperature set at all where the provider has withdrawn it (there a non-default value is a 400, so the parameter is the defect, not the fix). Establish which case applies before writing the finding.
 - A prompt string **edited in place with no version bump and no eval-diff** MUST be flagged — an unversioned, unevaluated prompt change is an untested code change (cross-link `evals`).
 
 ## 1. Prompt structure
@@ -64,16 +64,20 @@ When code consumes the output, the output must be machine-parseable by construct
 
 ## 5. Determinism
 
-- **Temperature 0 (or the lowest supported) for extraction, classification, routing, structured output, tool-argument generation** — any task with a single correct answer. Non-determinism there means the same input can produce different outputs across retries, which is a correctness + reproducibility bug and makes evals noisy.
-- **Fix the seed where the provider supports it** for further reproducibility; note that determinism is best-effort even so (provider infra can vary).
-- Higher temperature belongs only where variation is the point (brainstorming, creative drafts, sampling diverse candidates).
+A task with a single correct answer — extraction, classification, routing, structured output, tool-argument generation — must be constrained, because otherwise the same input yields different outputs across retries: a correctness bug that also makes evals noisy. **How you constrain it is provider- and model-dependent, and it changes underneath you.** Establish the state before writing a parameter:
+
+- **The schema mode is the constraint that always applies**, on every provider that has one. A response the grammar cannot express is a class of wrong answer you have eliminated, not merely discouraged. Where the provider offers a *strict* variant that guarantees validation, that is the strongest available control — reach for it before reaching for a sampling knob.
+- **Where sampling parameters are exposed:** `temperature: 0` (or the lowest supported), plus a fixed seed where the provider offers one. Determinism is best-effort even then — provider infrastructure varies.
+- **Where the provider has withdrawn them, setting one is an error, not a no-op.** On current Anthropic models (Opus 4.7 and later, Sonnet 5, Fable 5) a non-default `temperature`, `top_p`, or `top_k` returns **HTTP 400**; the documented replacement is system-prompt instruction ([Sonnet 5 release notes](https://platform.claude.com/docs/en/about-claude/models/whats-new-sonnet-5), read 2026-08-23). A prompt tuned on an older model and carried forward will 400 on the first call after the model id changes.
+- **So the durable rule is: read the provider's current parameter reference for the model at the call site, before writing a sampling parameter.** The product names above will expire; the check will not.
+- Higher temperature, where it exists at all, belongs only where variation is the point (brainstorming, creative drafts, sampling diverse candidates).
 - Determinism makes the eval gate meaningful — a scorer over a flapping output can't distinguish a regression from sampling noise (see `evals`).
 
 ## 6. Prompt versioning — prompts are code
 
 - **Version every production prompt** (a prompt id + version, in the repo or a prompt registry) so an output is attributable to a specific prompt version × model × params.
 - **Never edit a prompt string in place with no trail.** A prompt change is a behavior change: bump the version, run the eval set, and review the eval-diff on the PR (see `evals`). "I tweaked the wording" without an eval-diff is an unmeasured quality change.
-- **Pin the model + params with the prompt** — a prompt is only reproducible together with the model version and temperature/seed it was tuned against. A model upgrade re-runs the eval set before adoption.
+- **Pin the model + params with the prompt** — a prompt is only reproducible together with the model version and the sampling config it was tuned against. A model upgrade re-runs the eval set before adoption, **and re-checks that the pinned params still exist on the new model** — a parameter the new model has withdrawn turns the upgrade into a 400 rather than a quality question.
 - Keep prompts out of scattered inline literals where practical — centralize them so they're reviewable, diffable, and testable like any other code artifact.
 
 ## Detectors (cite-or-halt)
@@ -90,16 +94,17 @@ When code consumes the output, the output must be machine-parseable by construct
   - BAD: `JSON.parse(output)` with no schema check and no repair, passed downstream.
   - GOOD: schema-constrained output + validation + a bounded repair/fail-closed path.
   - → `add-output-schema`
-- **`temperature > 0` on extraction/classification** →
-  - BAD: a classifier called at `temperature: 0.7`.
-  - GOOD: `temperature: 0` (+ seed where supported) for single-answer tasks.
+- **Sampling params wrong for extraction/classification** — the finding inverts on the provider state →
+  - Sampling EXPOSED — BAD: a classifier called at `temperature: 0.7`. GOOD: `temperature: 0` (+ seed where supported) *plus* the schema mode.
   - → `set-deterministic-params`
+  - Sampling REMOVED — BAD: `temperature: 0` on a model that rejects it (an HTTP 400 on every request, not a harmless no-op). GOOD: no sampling parameter; the constraint is the schema mode + an explicit system-prompt instruction.
+  - → `remove-sampling-params`
 - **Un-versioned prompt edited in place, no eval** →
   - BAD: an inline prompt literal changed in a PR with no version bump and no scores.
   - GOOD: a versioned prompt + an eval-diff on the PR.
   - → `version-and-eval-prompt`
 
-**Closure verbs:** `use-structured-output`, `split-system-user`, `add-output-schema`, `set-deterministic-params`, `version-and-eval-prompt`.
+**Closure verbs:** `use-structured-output`, `split-system-user`, `add-output-schema`, `set-deterministic-params`, `remove-sampling-params`, `version-and-eval-prompt`.
 
 ## Related
 

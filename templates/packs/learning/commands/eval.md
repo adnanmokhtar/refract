@@ -29,7 +29,7 @@ This closes the loop:
 - **RUN** — execute a case: give the AI the scenario, capture output, score vs the answer key.
 - **SEED** — generate a missing case stub from an unguarded rule / convention / failure (`--seed`). Writes a stub; never scores it.
 - **GUARD** — the `guards:` link from a case to the promoted knowledge it protects (the coverage unit).
-- **REGRESS** — flag a case whose verdict dropped PASS→FAIL vs the previous scorecard run.
+- **REGRESS** — flag a case that got **worse** than the previous scorecard run: verdict PASS→FAIL, **or** `score` dropped while the verdict stayed FAIL.
 - **RETIRE** — mark a case STALE when its `guards:` target no longer exists.
 
 No architectural moves, no code edits to product source, no promotion — promotion is `knowledge-curator`'s job; `/eval` only measures.
@@ -44,7 +44,11 @@ No architectural moves, no code edits to product source, no promotion — promot
 ## Detectors (the specialist lenses — run in every mode except `--case`)
 
 1. **UNGUARDED** — a promoted knowledge unit with no case citing it in `guards:`. Sources swept: every `.claude/rules/*.md`, every managed entry in `ai/conventions.md`, every `ai/patterns/<name>.md`. Coverage = guarded units ÷ total units.
-2. **REGRESS** — a case that was PASS in the previous `_scorecard.md` run and FAIL now. The highest-signal finding — a promoted rule stopped protecting.
+2. **REGRESS** — a case that got worse since the previous `_scorecard.md` run. Two triggers, not one:
+   - **verdict regression** — PASS in the prior run, FAIL now. A promoted rule stopped protecting.
+   - **score regression** — FAIL in both runs, but `score` fell (7/8 → 2/8). Verdict-only detection is blind here: both runs are FAIL, so the flip never happens, and a case collapsing from one missed assertion to six looks *identical to no change at all*. The scorecard already records the fraction that proves it; the detector simply was not reading it. This is the common shape — a case that has never passed is exactly the case nobody watches.
+
+   Both are reported as `−`. A score that **rose** while still FAIL is `+`, not `=`: partial progress on a failing case is the signal that the last fix helped, and flattening it to `=` tells the user their work did nothing.
 3. **STALE** — a case whose `guards:` cites a rule/convention/pattern that no longer exists (RETIRE candidate).
 4. **TOOTHLESS** — a case whose answer key has zero checkable MUST-include assertions. Unscoreable → reported, counted as no coverage.
 5. **UNCOVERED-FAILURE** — an `ai/failures/_index.md` entry or a `feedback-learned.md` correction with `Repeated ≥ 2` that no case guards against recurrence. These are the mistakes most worth an eval.
@@ -81,7 +85,11 @@ For each case:
    - `must_not_violations` = MUST-NOT assertions violated.
    - `score = must_have_hits / total_must_have`.
    - **verdict = PASS** iff `score == 1.0` AND `must_not_violations == 0` (unless the case overrides its own threshold); else **FAIL**.
-4. Compare to the previous run's verdict for this case → set Δ (`NEW` / `+` improved / `−` REGRESS / `=` unchanged).
+4. Compare to the previous run for this case → set Δ. **Compare `score` first, verdict second** — verdict is a threshold over score, so score carries strictly more information and a verdict-only comparison discards it:
+   - no prior run → `NEW`
+   - `score` fell, OR verdict PASS→FAIL → `−` (REGRESS)
+   - `score` rose, OR verdict FAIL→PASS → `+`
+   - `score` and verdict both unchanged → `=`
 
 ## Phase 5 — Record (the real outcome artifact)
 
@@ -93,6 +101,7 @@ Append ONE run block to `ai/evals/_scorecard.md` (never overwrite prior runs —
 |-----------------|---------------------------------|--------------|--------|---------|
 | refund-auth     | .claude/rules/refund-auth.md    | 3/3, 0 viol  | =      | PASS    |
 | order-n-plus-1  | ai/conventions.md#queries       | 2/3, 0 viol  | −      | REGRESS |
+| bulk-import     | .claude/rules/import.md         | 2/8, 0 viol  | −      | REGRESS |   <!-- was 7/8 FAIL: verdict unchanged, score collapsed -->
 
 Unguarded (no case): <n> — <list top 3>
 Stale (RETIRE): <list>  ·  Toothless: <list>

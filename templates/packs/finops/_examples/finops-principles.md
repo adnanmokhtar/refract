@@ -14,11 +14,11 @@ pack: finops
 - Name the billed dimension per component before comparing options.
 - Cite a dated unit price and the usage assumption behind every projection.
 - Label every figure `measured` / `ALLOCATED (basis: …)` / `NOT DERIVABLE — <instrumentation>`. There is no fourth label.
-- Report cost at target and at 10× target; state the idle floor and the egress path.
+- Report cost at target and at 10× target; state the idle floor (with a named owner) and the egress path.
 - Set a retention or lifecycle policy on every persistent store in the same change that creates it.
 - Tag every resource per the allocation policy, enforced at creation in the shared module.
 - Bound every retry and fan-out against a billed dependency.
-- Declare an expected cost per unit and a threshold before installing any detector.
+- Declare an expected cost per unit and a threshold before installing any detector; a change projecting a cost/unit outside it is a blocker regardless of absolute size.
 - Derive every threshold from trailing history or the declared expectation, recorded inline.
 - Amortise commitments and apply discounts in every report.
 
@@ -43,18 +43,6 @@ pack: finops
 - Detect per dimension and on rate of change, not only on the total and the level.
 - Treat commitment expiries as scheduled decisions with owners.
 - Reuse the observability pack's alert routing.
-
-## Review checklist
-
-- [ ] New priced resource: monthly floor stated, owner named.
-- [ ] New persistent store: retention policy in the same change.
-- [ ] Required allocation tags present.
-- [ ] Retries and fan-outs bounded.
-- [ ] No paid call inside a per-row loop.
-- [ ] New cross-zone/region hops stated with volume and price.
-- [ ] Log-level and metric-cardinality changes state their ingestion delta.
-- [ ] Projected cost per unit within the declared threshold.
-- [ ] Every figure labelled.
 
 ## Enforcement
 

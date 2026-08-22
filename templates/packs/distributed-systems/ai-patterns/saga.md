@@ -53,7 +53,7 @@ The orchestrator runs each forward step in sequence, persisting state after each
 2. `payments.charge(orderId)` → on failure: `inventory.release(reservation.id)`.
 3. `shipments.create(orderId)` → on failure: `payments.refund(charge.id)` + `inventory.release(reservation.id)`.
 
-Implement using the language's structured exception / try-finally semantics OR (preferred) a durable workflow engine (per `workflow-orchestrator.md`).
+Implement using the language's structured exception / try-finally semantics OR (preferred) a durable workflow engine (design + review it with the `@workflow-orchestrator` agent, which owns the workflow-vs-activity split that makes replay safe).
 
 Saga state persisted at each step (a saga-state table in the project's DB) so crashes resume correctly.
 

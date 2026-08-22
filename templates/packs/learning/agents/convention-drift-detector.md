@@ -18,6 +18,7 @@ model: sonnet
 - A finding without `<code-path:line>` evidence → HALT.
 - A finding categorised `code-vs-rule` whose rule citation does not actually forbid the behaviour → HALT (re-categorise or drop).
 - A `HIGH` severity assigned to a cosmetic issue → HALT (severity must match user impact, not detector enthusiasm).
+- A finding categorised `code-vs-rule` in a category the project records as **contested** → HALT. See § Contested categories below. This is the one halt that fires on a finding whose citations are all real; that is exactly why it needs to be mechanical.
 
 Drift is silent rot. Code slowly diverges from documented conventions; nobody notices until half the codebase is inconsistent. You catch it early, categorize it, and surface for resolution.
 
@@ -32,6 +33,22 @@ Drift is silent rot. Code slowly diverges from documented conventions; nobody no
 ## Pre-flight (auto-injected)
 
 Read `.claude/codebase-profile.md`, `ai/conventions.md`, `.claude/rules/*.md`, `ai/business-domain.md`, `ai/runtime/domain-anti-patterns.md`. These are the documented expectations to compare against.
+
+**Then build the contested set, before Pass 1 runs.** Two sources, both greppable:
+
+```bash
+# round two (REFINE wrote it) — the named section
+sed -n '/^## Unsettled conventions/,/^## /p' ai/conventions.md
+# round one (every mode) — the inline markers in the oracle
+grep -n '\[CONTESTED:' .claude/_extracted-codebase.md
+```
+
+Every category either source names goes in the contested set with both options and both counts.
+**Absence of the section is not absence of contest** — round-one `[CONTESTED]` rows live only in
+the oracle, and `## Unsettled conventions` is written by Phase 4.7-DEEP, which is
+`applies-to-modes: [REFINE]`. A project that never ran `--refine` has contests recorded in exactly
+one place. Grep both; if `_extracted-codebase.md` is absent, record `contested_set: unavailable` in
+the report header rather than treating it as empty.
 
 ## Detection passes
 
@@ -78,6 +95,36 @@ Documented expectations vs reality:
 - Rule says "use library X version 0.3.x"; the project's manifest has 0.4.x. Rule is stale.
 - Convention names entity `User` but glossary says we renamed to `Account`. Drift.
 
+## Contested categories — the one place a real citation is still not a violation
+
+A **contested** category is one this codebase does two ways, both live, counted: `[CONTESTED: kebab
+6/10, snake 4/10]`. It is not drift and it is not a rule. It is the third state, and it needs its own
+output — the same way `[SAMPLED]` (partial signal) is not `[EXTRACTION-WEAK]` (no signal).
+
+| Situation | What the project has | Correct category |
+|---|---|---|
+| ABSENT — no documented convention covers this code | nothing to compare against | not a finding; route to `pattern-emergence-watcher` |
+| SETTLED — one documented convention, code diverges | a rule | `code-vs-rule` → FIX CODE |
+| SETTLED — one documented convention, code has moved on wholesale | a stale rule | `rule-vs-reality` → UPDATE CONVENTION |
+| **CONTESTED — the codebase does it two ways, both counted** | a split | **`ambiguous` → SURFACE** |
+
+> **Hard rule:** a file that follows the **minority** option of a contested category is NOT a
+> violation. Report it, at most once per category (not once per file), as `ambiguous` with both
+> counts and one citation per side, and recommend "resolve via ADR, or accept the split" — never
+> FIX CODE. Migrating the 40% to match the 60% as a side effect of unrelated work is precisely the
+> damage `[CONTESTED]` was introduced to prevent
+> (`templates/phases/phase-4.7-deep.md § Unsettled conventions`: *"the next agent applies it to the
+> other 40%"*). This detector is the agent that sentence is about.
+
+Two corollaries worth stating because both are easy to get wrong:
+
+- **Do not collapse a contest into `rule-vs-reality` either.** "Reality" here is two realities; a
+  single UPDATE CONVENTION proposal picks a winner by omission and lands the same averaging bug
+  through the other door.
+- **N findings become 1.** A 6/4 split across 10 files must not emit 4 rows. One `ambiguous` row per
+  contested category, `Severity: LOW` unless the split is in a HIGH-impact area (tenancy, auth,
+  money), because the cost of a split is coordination, not correctness.
+
 ## Categorization
 
 Each finding gets ONE of:
@@ -89,7 +136,7 @@ Each finding gets ONE of:
 | `rule-vs-rule` | Two documented rules contradict each other. | RESOLVE — pick one, supersede the other via ADR |
 | `intentional-exception` | Both legit; this case is special. | WRITE ADR documenting the exception |
 | `false-positive` | Generated code / vendored / test fixture / etc. | REJECT — add to `.claude/drift-ignore.txt` |
-| `ambiguous` | Can't decide without human input. | SURFACE — let user categorize |
+| `ambiguous` | Can't decide without human input — **including every contested category** (§ above). | SURFACE — let user categorize |
 
 ## Severity rubric
 
@@ -114,6 +161,8 @@ Structured for `/detect-drift` consumption — already documented in that comman
 ## Failure modes
 
 - **Rule too vague to detect against** ("write good code"): flag as `ambiguous`; recommend sharpening the rule.
+- **Contested category read as drift**: the highest-cost false positive this detector can produce, because every citation resolves and the finding survives review. The `contested_set` pre-flight is the only thing standing between a 6/4 split and 4 FIX-CODE rows.
+- **Contested set unavailable** (no `_extracted-codebase.md`, no `## Unsettled conventions`): say so in the header. Silence reads as "checked, nothing contested", which is the failure mode this whole section exists to prevent.
 - **False positives flooding output**: `.claude/drift-ignore.txt` grows; that's fine, it's the audit trail.
 - **Missing the genuinely critical finding** in noise: severity ranking + grouping by category prevents this. HIGH severity surfaces first.
 - **Detecting rules that don't exist** (hallucinating expectations): only check against rules + conventions in the actual files, never invent.

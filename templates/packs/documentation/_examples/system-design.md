@@ -45,7 +45,12 @@ What we're explicitly NOT doing.
 
 ## High-level architecture
 
-ASCII diagram. Box per service. Arrows for sync/async. Labels for protocols.
+A **generated** diagram, not a hand-drawn one. Run `diagram-sync` (this pack) — it renders the real
+module/import graph as mermaid or C4 and drift-checks the committed picture against it. A hand-drawn
+box diagram is worse than none: it teaches a wrong mental model with the authority of a picture, and
+nothing detects it going stale. If the design predates the code (no graph exists yet), draw the
+INTENDED shape and label it `Status: intended — not yet verified against a dependency graph`, then
+re-render from the graph once the code lands.
 
 ## Data model
 

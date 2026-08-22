@@ -39,7 +39,7 @@ Do NOT report success on assertion. HALT unless every check below passes (mirror
 - **No placeholder / TODO text** (`<TODO>`, `<slug>`, `<NNNN>`, `{{}}`) remains in the authored file.
 - **Pending entry is GONE** — `grep` `decisions-pending.md` for the promoted id/slug: it MUST return zero matches (no orphaned original, no accidental duplicate). If it still resolves, the removal (step 4) didn't land — halt.
 - **Index line appended** — the new `NNNN-<slug>` line is present in `ai/_decision-index.md` (grep confirms it, exactly once).
-- **Digest regenerated** — `ai/dynamic/_session-digest.md` reflects the new last-3-decisions (the ADR appears; a stale digest means step 6 didn't run).
+- **Digest regenerated** — `ai/_session-digest.md` reflects the new last-3-decisions (the ADR appears; a stale digest means step 6 didn't run). The path is `ai/_session-digest.md`, not `ai/dynamic/` — that is where `templates/repo-baseline/ai/` ships it and where `knowledge-curator § 8` regenerates it. A halt gate that greps a path the baseline never creates passes for the wrong reason: the grep finds nothing, and "nothing" is indistinguishable from "not regenerated".
 
 If any check fails, halt and report which — a half-promoted decision (ADR written but pending entry left behind, or index un-updated) is worse than an un-promoted one, because it now exists in two places that will drift.
 

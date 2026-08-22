@@ -29,7 +29,7 @@ This skill produces the project's actual domain map — the kind of document a s
 ## When to use
 
 - `/setup-project --refine` Phase 2.7 — once per detected business-domain.
-- On-demand by a refresh-knowledge command if a developer says "the domain has shifted."
+- Manually, when a developer says "the domain has shifted" and wants round-two entity depth without a full `--refine`. NOT dispatched by `/refresh-knowledge`: that command re-runs round-one extraction (`extract-codebase-overview` + its Step-13 chain) and does not enter Phases 2.7-2.12.
 - Manually when authoring `ai/business-domain.md` for a project that has substantial schema but a generic round-one extraction.
 
 ## Inputs

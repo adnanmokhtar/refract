@@ -701,7 +701,7 @@ These ship with their respective packs when the track is selected/detected.
 | `/promote-decision` | Graduate a resolved entry from `ai/dynamic/decisions-pending.md` to a numbered ADR. |
 | `/audit-knowledge` | Curator health audit — stale `dynamic/` entries, drifted conventions, dead ADRs, derived-file staleness. |
 | `/recall <query>` | Search the `ai/` memory this loop already wrote — dynamic sinks, the don't-retry failure catalog, ADRs, patterns, runbooks, conventions, archives — and return ranked `path:line` POINTERS. Read-only; adds no sink. `--kind` / `--owner` / `--since` / `--limit` / `--format`. |
-| `/refresh-knowledge` | Re-run Phase 2 profiling; diff against current `ai/` and update. |
+| `/refresh-knowledge` | Re-invoke the extraction engine (`extract-codebase-overview` → `_extracted-codebase.md`, chaining `extract-business-context`; plus `extract-base-class-idiom`), diff the new oracle against the old, and update `.claude/codebase-profile.md` + `ai/` on confirmation. Preserves the oracle's approval stamp so the hash mismatch fires. Knowledge layer only — pack re-apply is `/setup-project --refresh`. `--dry-run`. |
 
 **DevOps track**
 

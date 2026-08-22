@@ -1,23 +1,22 @@
 ---
-name: slo
-description: Pattern: SLO (Service Level Objective)
-kind: ai-pattern
+name: slo-doc-template
+kind: example
 pack: documentation
 ---
 
-# Pattern: SLO (Service Level Objective)
+# Pattern: SLO document template
+
+> **Boundary — this pack owns the SLO DOCUMENT; `observability` owns the ALERTING.** Two packs ship
+> an SLO pattern and they are complementary, not duplicates. This one is the *written artifact*: how
+> an SLO is stated, why the target is that number, what is excluded, who owns it, where the breach
+> runbook lives — the thing a stakeholder reads. `observability/ai-patterns/slo.md` owns the
+> *arithmetic and the wiring*: the SLI menu, error-budget math, multi-window multi-burn-rate
+> alerting tiers, SLO-as-code, and the reviewer detectors. If `observability` is installed, defer
+> every alerting-threshold question to it and do not restate its burn-rate table here; if it is not,
+> this file still tells you how to write the document, and the alert rules are then UNSPECIFIED —
+> say so rather than inventing tiers.
 
 > **Hard rule** — Every SLO is `<SLI> <comparator> <target> over <rolling window>`, derived from a real telemetry query, with a named owner team and burn-rate alerts wired. Aspirational SLOs without alerting or owners are forbidden.
-
-**When to apply**
-- Service has real users in production and on-call exists.
-- Telemetry is rich enough that the SLI is a query you can paste today against the project's metrics backend.
-- Team needs a shared definition of "stable enough" to negotiate feature vs reliability work.
-
-**When NOT to apply**
-- Pre-PMF prototype where "monitor errors and fix them" is the actual policy.
-- Service whose SLI you can't compute today (write monitoring first; SLO second).
-- Staging or non-production environments — SLOs are production-only.
 
 **Halt conditions / mandatory cites**
 - Cite the SLI query file as `<path:line>` (e.g. the project's alerting/SLO rule file in whatever format the backend uses) before publishing the SLO; "we'll write the query later" is a halt.
@@ -128,7 +127,20 @@ Standard SRE recommendations (Google SRE Workbook, ch. 5):
 | Page (medium) | 6× | 6h | 6h burns 10% of budget | Wake someone if business hours, ticket otherwise |
 | Ticket | 1× | 3d | Steady drift through entire budget | Investigate next business day |
 
-Alert rule sketch (express in the project's alerting backend syntax). Conceptually: ratio of "good" to "total" measurements over a 1h window, compared to the threshold `1 − 14.4 × (1 − SLO_target)`, with a short `for:` (e.g., 5m) and a `summary` annotation like "API latency p95 SLO burning 14.4× — 1h burns 2% of monthly budget".
+Alert manager rule sketch:
+
+```yaml
+- alert: APILatencyBurnRateFast
+  expr: |
+    (
+      sum(rate(http_request_duration_seconds_count{le="0.5",service="api",status="success"}[1h]))
+      /
+      sum(rate(http_request_duration_seconds_count{service="api"}[1h]))
+    ) < (1 - 14.4 * (1 - 0.999))
+  for: 5m
+  annotations:
+    summary: "API latency p95 SLO burning 14.4x — 1h burns 2% of monthly budget"
+```
 
 ## Common mistakes
 
@@ -151,7 +163,7 @@ Every SLO lives in `ai/runbooks/slo-<name>.md`:
 **Reviewed:** 2026-04-01 (quarterly)
 **Status:** Active
 
-## SLI
+## SLI definition
 Successful HTTP responses (status 2xx-3xx, excluding 4xx client errors) over total HTTP responses, measured at the load balancer.
 
 ## Why this target

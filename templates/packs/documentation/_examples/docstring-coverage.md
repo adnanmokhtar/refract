@@ -31,7 +31,7 @@ Cite-or-halt. Every finding cites the symbol at `<path:line>` and a category: `N
 
 ```
 docstring-coverage — public surface: 84 symbols · convention: google (ruff D, pydocstyle)
-Raw: 71% (60/84)  Quality-adjusted: 62%  Gate: ≥ 80% → FAIL (−9)  PR delta: −4%
+Raw: 71% (60/84)  Quality-adjusted: 62%  Gate: ratchet ≥ 71% (last run) → FAIL (−4 this PR)  PR delta: −4%
 
 NO-DOC:  src/billing/refund.py:22 refund_order() · api/routes/users.py:14 GET /users/{id}
 SIGNATURE-RESTATE:  users/service.py:40 get_user_by_id — """Get user by id.""" states no contract.

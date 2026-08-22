@@ -84,7 +84,9 @@ A metric change is a communication event with a code change attached:
 - Two dashboards whose totals for the same term differ by more than the stated tolerance — compute it on a cadence rather than waiting for someone to notice.
 - A definition change with no note on the historical series.
 
-## Related
+**Closure verbs:** `collapse-duplicate-definition`, `split-ratio-columns`, `repoint-bi-to-metric`, `assign-metric-owner`, `document-metric-exclusion`, `reconcile-dashboard-totals`, `state-historical-series-effect`.
+
+Each detector above closes with exactly one of these. `collapse-duplicate-definition` names which definition survives — a closure that leaves both in place has not closed anything, because two defensible numbers is worse than one wrong one. Never invent a verb.
 
 - `ai/patterns/dimensional-model.md` — measure additivity, which a metric definition must respect.
 - `ai/patterns/transformation-layers.md` — the model layer a metric is defined over.

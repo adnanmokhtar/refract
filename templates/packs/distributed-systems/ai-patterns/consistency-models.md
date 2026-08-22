@@ -25,7 +25,7 @@ You never choose P; partitions happen to you. CAP says: **when a partition occur
 
 > **if Partition → trade Availability vs Consistency; Else → trade Latency vs Consistency.**
 
-The "Else" clause is where systems actually live 99.9% of the time: even with no partition, a strongly-consistent write must reach a quorum (or the leader) before acking — that costs latency. Naming a system as, e.g., **PC/EL** (consistent under partition, low-latency otherwise — classic tunable Dynamo-style) or **PC/EC** (consistent always, pays latency always — etcd/Spanner-ish) is far more precise than "CP vs AP".
+The "Else" clause is where systems actually live 99.9% of the time: even with no partition, a strongly-consistent write must reach a quorum (or the leader) before acking — that costs latency. Naming a system as, e.g., **PA/EL** (available under partition, low-latency otherwise — Dynamo, Cassandra, Riak, Cosmos DB in its default configuration) or **PC/EC** (consistent always, pays latency always — VoltDB/H-Store, MySQL Cluster, PostgreSQL, Bigtable/HBase) is far more precise than "CP vs AP". The two mixed quadrants are the ones worth knowing exist: **PA/EC** (MongoDB — consistent in the normal case, availability-first under partition) and **PC/EL** (PNUTS), which is rare enough that seeing it claimed is usually a sign the classification was guessed. Classification source: Abadi's PACELC taxonomy. **Verify against the deployment, not the vendor page** — most of these are tunable per query, and a per-query consistency flag overrides whatever quadrant the product ships in.
 
 ## The consistency ladder (strongest → weakest)
 

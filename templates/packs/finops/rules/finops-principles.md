@@ -20,11 +20,11 @@ Prevents the two failures that make cost work useless: decisions made without ar
 - **Cite the usage assumption** behind every projection — a measured metric, a stated target, or an explicit guess. No silent guesses.
 - **Label every cost figure** `measured`, `ALLOCATED (basis: <named proxy>)`, or `NOT DERIVABLE — <instrumentation that would provide it>`. These three are the only permitted labels.
 - **Report cost at target scale and at 10× target.** Designs are within noise at today's volume and separate by an order of magnitude later.
-- **State the idle floor** — what a shape costs at zero traffic — and the **egress path** — which calls cross a zone, a region, or the internet.
+- **State the idle floor** — what a shape costs at zero traffic, with a named owner — and the **egress path** — which calls cross a zone, a region, or the internet.
 - **Set a retention or lifecycle policy on every persistent store, in the same change that creates it.** No policy means forever, and the eventual cleanup is a migration rather than a setting.
 - **Give every resource the allocation tags its policy requires**, enforced at creation through the shared module rather than detected afterwards.
 - **Bound every retry and every fan-out** against a billed dependency. Retries multiply billed calls precisely when the dependency is already failing.
-- **Declare an expected cost per unit and a deviation threshold** before installing any detector. A detector with no declared baseline can never fire correctly.
+- **Declare an expected cost per unit and a deviation threshold** before installing any detector. A detector with no declared baseline can never fire correctly, and any change projecting a cost per unit outside that threshold is a blocker at review time regardless of its absolute size.
 - **Derive every threshold** from trailing history computed when it was set, or from the declared expectation. Record the derivation inline.
 - **Give every guardrail a named recipient and a named action.** An alert whose action is "be aware" is noise.
 - **Amortise commitments and apply discounts** in every report. Report the cost the organisation bears.
@@ -55,18 +55,6 @@ Prevents the two failures that make cost work useless: decisions made without ar
 - Treat commitment expiries as scheduled decisions with owners, not as renewals. The default outcome of an expiry is a bill increase.
 - Reuse the observability pack's alert routing and runbook conventions for cost alerts rather than creating a second paging path.
 - Track the `NOT DERIVABLE` list as an instrumentation backlog; each item converts an assumption into a measurement.
-
-## Review checklist
-
-- [ ] Every new priced resource has a stated monthly floor and an owner.
-- [ ] Every new persistent store has a retention or lifecycle policy in the same change.
-- [ ] Every new resource carries the required allocation tags.
-- [ ] Retries and fan-outs against billed dependencies are bounded.
-- [ ] No paid call moved inside a per-row loop.
-- [ ] New cross-zone or cross-region hops are stated with volume and price.
-- [ ] Log-level and metric-cardinality changes state their ingestion delta.
-- [ ] The projected cost per unit after this change is within the declared threshold.
-- [ ] Every figure in the change's cost note is labelled measured / allocated / not derivable.
 
 ## Enforcement
 

@@ -60,48 +60,56 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { refine_mode: true, business_domain_detected: true }
   extracts_from: _extracted-codebase.md § Identifiers / § Modules + ORM model files + migrations
-  fallback: _examples/extract-domain-entities-deeply.md
+  fallback: skills/extract-domain-entities-deeply/SKILL.md
 
 - name: extract-architecture-deeply
   kind: skill
   triggers: { refine_mode: true }
   extracts_from: _extracted-codebase.md § Modules / § Architecture + import graph
-  fallback: _examples/extract-architecture-deeply.md
+  fallback: skills/extract-architecture-deeply/SKILL.md
 
 - name: extract-flows-deeply
   kind: skill
   triggers: { refine_mode: true }
   extracts_from: _extracted-codebase.md § Routes / § Handlers + lifecycle events from extract-domain-entities-deeply
-  fallback: _examples/extract-flows-deeply.md
+  fallback: skills/extract-flows-deeply/SKILL.md
 
 - name: extract-conventions-emerging
   kind: skill
   triggers: { refine_mode: true }
   extracts_from: _extracted-codebase.md (full) — sweep for recurring patterns
-  fallback: _examples/extract-conventions-emerging.md
+  fallback: skills/extract-conventions-emerging/SKILL.md
 
 - name: extract-hotpaths
   kind: skill
   triggers: { refine_mode: true, backend_track: true }
   extracts_from: _extracted-codebase.md § Routes / § Queries + monitoring config if accessible
-  fallback: _examples/extract-hotpaths.md
+  fallback: skills/extract-hotpaths/SKILL.md
 
 - name: extract-failures-from-history
   kind: skill
   triggers: { refine_mode: true, git_log_accessible: true, min_commits: 30 }
   extracts_from: git log + (opt-in) docs/postmortems/ if --include-incidents=<path>
-  fallback: _examples/extract-failures-from-history.md
+  fallback: skills/extract-failures-from-history/SKILL.md
 
 - name: compute-anchor-density
   kind: skill
   triggers: { refine_mode: true }   # also invoked by --health (out-of-band)
   extracts_from: every Phase-4-generated artifact + _extracted-codebase.md + _refine-extract.md
-  fallback: _examples/compute-anchor-density.md
+  fallback: skills/compute-anchor-density/SKILL.md
 
 - name: setup-quality-scoring
   kind: ai-pattern
   triggers: { refine_mode: true }   # ships alongside compute-anchor-density as the rubric documentation
-  fallback: _examples/setup-quality-scoring.md
+  fallback: ai-patterns/setup-quality-scoring.md
+
+- name: apply-pack-adaptation
+  kind: skill
+  triggers: { always: true }
+  # The engine skill Phase 4.6 / 4.6-DEEP / 4.7-DEEP / 4.8-DEEP all delegate per-file writes to.
+  # Ships as-is like its five engine siblings — it is the machinery, not machinery output, so
+  # there is nothing per-project to author into it.
+  fallback: skills/apply-pack-adaptation/SKILL.md
 
 - name: refresh-knowledge
   kind: command
@@ -149,6 +157,34 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   # part, and those live in ai/evals/cases/ (baseline scaffold), authored via /eval --seed.
   fallback: commands/eval.md
 ```
+
+## Fallback policy — this pack ships SOURCE-as-fallback, with no `_examples/` twin
+
+Every topic above names its own source file in `fallback:`, and the pack has **no `_examples/`
+directory**. That is deliberate and it is the one fallback decision worth spelling out, because the
+default across the repo is the opposite.
+
+The learning artifacts are the *engine*, not engine output. `_topics.md` exists so Phase 4.2-AUTHOR
+can re-author a generic pack file in a project's own voice from extracted idioms — but there is no
+project-specific version of "how to compute a coverage denominator". Every one of these files ships
+byte-identical to every project, in every mode. So an `_examples/` twin would be a literal copy of
+its source, carrying a standing obligation to re-cut it on every source edit, and no upside.
+
+That obligation is not theoretical. When this pack did ship the twins, five of eight declared
+themselves literal copies via a `generated-from:` header and stayed in sync; the three without the
+header had silently drifted — two had dropped their `## Where the output lands` section (so the
+shipped extractor never named `ai/business-flows.md` or `ai/patterns/parallel-io.md`, the files it
+writes to), one had dropped its entire `**When NOT to apply**` block, and one had re-introduced
+stack-specific test globs and a named vendor SDK its source had been generalised away from. Greenfield
+runs receive the fallback and nothing else, so all four defects shipped to exactly the projects with
+the least other signal to fall back on. Deleting the twins removed 1,632 lines and the whole drift
+class with them; `phase-4.2-apply.md § 4.2-AUTHOR` step 2 copies whatever `fallback:` names, so
+behaviour is unchanged.
+
+**If you add a topic to this pack, name its source in `fallback:`.** Add an `_examples/` twin only
+if that topic genuinely has a project-specific form and a generic form that differ — and if it does,
+give it a `<!-- generated-from: … -->` header so `validate-pack-consistency.sh --recopy` can keep it
+honest.
 
 ## Note on AUTHOR mode for the learning pack
 

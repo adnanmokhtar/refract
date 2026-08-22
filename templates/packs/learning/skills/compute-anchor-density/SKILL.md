@@ -124,7 +124,14 @@ Count distinct signal categories the block consumes. A block can cite a `domain-
 **`contested-convention` scores like any other signal, deliberately.** A block that says "this codebase is split 6/4 between two error-handling shapes, both live, here are the counts and a citation for each" is MORE useful to an agent than one asserting a winner that is true of 60% of the files — it stops the agent from "fixing" the other 40%. Contested entries carry no `pattern:` key, so a scorer that only looks for pattern names credits them zero and the honest extraction scores below the averaged one. That inversion is what this row removes: recording a contest is rewarded, not penalised.
 
 Rules:
-- Only count if the upstream extraction is STRONG for that signal (see each extraction skill's quality gate). A WEAK extraction can't be consumed productively.
+- Count a signal when its upstream extraction gate is **STRONG or MEDIUM**; never when it is **WEAK**.
+  WEAK means the extractor found nothing usable, so a block citing it is citing a gap. MEDIUM means
+  it found real, cited signal and less of it — `extract-failures-from-history` is the one skill that
+  declares the tier (`**MEDIUM**: 1 recurring theme found`), and one theme whose diffs were read and
+  whose SHAs are cited is exactly as consumable per-citation as three. Excluding it scored the
+  honest thin extraction at **0** on `failure-theme` while a WEAK one also scored 0 — a tier that
+  changes no consumer's behaviour is not a tier, and this row is what makes it one. The other five
+  round-two skills are binary STRONG/WEAK, so for them this rule reads exactly as before.
 - A block is said to "consume" a signal if it uses the signal's NAME and at least 1 of the signal's FIELDS (citation, count, etc.).
 
 Scoring:
@@ -137,21 +144,49 @@ Scoring:
 
 ### Step 5 — Score Specificity (0-25)
 
-Start at 25. Deduct for generic-prose phrases. Each phrase = -5, capped at 0.
+**This axis is a positive test, not a blocklist.** It used to start at 25 and deduct 5 per phrase
+from a nine-string list — which meant any prose avoiding those nine exact strings scored a perfect
+25. "Follow the team's established patterns for this layer" hits none of them and is precisely the
+sentence the axis exists to catch. Worse, it made this the one axis a generator could max out by
+writing *more confident* prose, and confident prose with no referent is the failure the whole rubric
+is built against. It is now scored the other way round: earn it by pointing at something.
 
-Generic phrases (case-insensitive substring):
+**Unit of scoring: the directive.** A directive is a sentence or bullet that tells a reader to do,
+prefer, avoid or check something — imperative mood, or containing `MUST`, `MUST NOT`, `SHOULD`,
+`always`, `never`, `use`, `prefer`, `avoid`, `call`, `extend`, `wrap`, `validate`. Non-directive
+prose (framing, rationale) is not counted either way; a block may explain itself freely.
 
-- `<TODO>`, `<FIXME>`, `<...>` (any angle-bracket placeholder).
-- `<base>`, `<class>`, `<entity>`, `<service>`, `<module>` (placeholder identifiers).
-- `the project's <X>` (with literal `<X>` left in).
-- `your service layer`, `your repository`, `your controller` (generic referent without a name).
-- `use parameterized queries` (without naming the project's actual ORM / data-access lib).
-- `follow framework conventions` (without naming the framework).
-- `apply best practices` (without specifying which).
-- `as appropriate for your stack`, `depending on your setup`.
-- `# project-specific content goes here` or any auto-comment indicating un-filled-in content.
+A directive is **grounded** when it names, in the same directive, at least one of:
 
-Each occurrence is one deduction. (A block with 5 occurrences = score 0.)
+- a project identifier that Step 2 already verified against extraction, or
+- a project path / `file:line` that Step 3 already verified exists, or
+- a number, threshold or version taken from extraction (`≥3 extenders`, `timeout 30s`, `v0.14`).
+
+Otherwise it is **floating**. Score:
+
+```
+grounded_ratio = grounded_directives / total_directives
+```
+
+| `grounded_ratio` | Score | Reading |
+|---|---|---|
+| ≥ 0.80 | 25 | nearly every instruction points at this repo |
+| 0.60 – 0.79 | 18 | mostly grounded, some filler |
+| 0.40 – 0.59 | 13 | half the advice would fit any project |
+| 0.20 – 0.39 | 8 | mostly generic with decoration |
+| < 0.20 | 0 | generic prose wearing project clothes |
+| `total_directives == 0` | 0 | a block that instructs nobody anchors nothing |
+
+**Deductions still apply, on top**: −5 per angle-bracket placeholder left in the block (`<TODO>`,
+`<FIXME>`, `<base>`, `<entity>`, `<service>`, `<module>`, `the project's <X>`) or per auto-comment
+announcing un-filled content. Capped at 0. These are unambiguous un-filled-in output, not a judgement
+about prose quality, which is why they survive as deductions.
+
+**Why the change matters to the run, not just to the number.** Specificity was the axis that let a
+block reach `6 identifiers + 5 paths + 0 signals + 25 = 75 = ANCHORED` — permanently skipped by
+Phase 4.6-DEEP — while consuming **zero** deep-extraction signal and instructing the reader to
+"follow established patterns". Under the positive test that block's directives are floating, so it
+scores SHALLOW and gets re-anchored, which is what a run with unconsumed signal should do.
 
 ### Step 6 — Compute total + classify
 

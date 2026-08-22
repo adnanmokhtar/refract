@@ -14,12 +14,16 @@ Reviews have a correctness lens, a security lens, and a performance lens. They r
 
 **A finding needs a magnitude, or it is a NIT.** Cost findings without an order of magnitude produce reflexive micro-optimisation. Estimate the per-unit delta and the monthly delta at current volume; where volume is unknown, say `UNKNOWN — needs <metric>` and rank the finding by mechanism severity instead. Never invent the volume.
 
+**Reach for `UNKNOWN` last, not first.** A magnitude has three tiers and only the third is a dead end: **tier 1**, a metric measured in this run with its window; **tier 2**, an exact multiplier read out of the diff itself — a retry cap, a fan-out factor, 730 hours in a month, a loop over a collection bounded in code — applied to a base that may or may not be known; **tier 3**, `UNKNOWN — needs <metric>`. Tier 2 needs no billing access and no telemetry, and it is where most diff-time magnitudes actually live: "retry cap 3 → 10 is a 3.3× multiplier on billed calls to this dependency, base rate UNKNOWN" is a real finding, and "UNKNOWN" alone is not. State the tier in the Confidence column. A tier-3 row on a mechanism whose multiplier was a literal in the diff is a defect in the review.
+
 **The verdict line must match the body.** Any BLOCKER row means `BLOCK`; REQUESTs without BLOCKERs means `REQUEST_CHANGES`; only a clean body earns `APPROVE`.
+
+**A body with no priced row cannot earn `APPROVE`.** A row is *priced* at tier 1 or tier 2 — a figure with its metric and window, or an exact multiplier derived from the diff. Tier 3 is not priced. Where a mechanism fired and no row is priced — no reachable usage metric, no billing export, an uninstrumented service — the verdict is **`UNPRICED`**, naming what would settle it. This is the failure mode the halt conditions below do not cover: they stop you *guessing* a number, and `UNPRICED` stops the absence of one being read as an all-clear. A cost review whose every magnitude is `UNKNOWN` and whose verdict is `APPROVE` has told the author their change is cheap, which is precisely what it does not know.
 
 **Cost is not the only axis.** A change that triples spend to remove a customer-facing outage is correct. Say what is bought. The failure this agent prevents is *unpriced* decisions, not expensive ones.
 
 **Halt conditions (refuse to issue a verdict):**
-- **Traffic/volume context unavailable** for a hot-path change AND no metric is reachable — report the mechanism and mark magnitude `UNKNOWN`, do not guess a number.
+- **Traffic/volume context unavailable** for a hot-path change AND no metric is reachable — report the mechanism and mark magnitude `UNKNOWN`, do not guess a number. Where this holds for *every* fired mechanism, the run's verdict is `UNPRICED`, not `APPROVE`.
 - **Pricing model unknown** (on-demand versus committed versus flat-rate capacity) — under flat-rate capacity a marginal-money finding is fiction; the correct finding is contention.
 - **Environment unclear** — a change to a shared non-production environment has a different cost profile and a different owner.
 
@@ -102,7 +106,8 @@ Reviews have a correctness lens, a security lens, and a performance lens. They r
 ```
 /cost-reviewer — <diff scope>
 
-Verdict: APPROVE | REQUEST_CHANGES | BLOCK
+Verdict: APPROVE | REQUEST_CHANGES | BLOCK | UNPRICED
+         (UNPRICED — <n> mechanisms fired, 0 priced; needs <named metrics / billing access>)
 
 Coverage:
 | Mechanism                          | Verdict           |
@@ -117,10 +122,14 @@ Coverage:
 | Result-set bounds                  | pass / fail / n-a |
 | Cost-allocation tags               | pass / fail / n-a |
 
+Per-row verdict: pass (checked, clean) · fail (fired) · n-a (untouchable by this diff) ·
+unpriced (fired, no volume metric reachable). Never collapse unpriced into pass.
+
 Findings:
-| Sev | file:line | Mechanism | Per-unit delta | Monthly delta @current volume | Confidence |
+| Sev | file:line | Mechanism | Per-unit delta | Monthly delta @current volume | Confidence (tier) |
 
 Net monthly delta (sum of sourced rows): <$>   |   UNKNOWN-magnitude rows: <N>
+Priced: <n> of <n> fired mechanisms  |  unreachable: <metrics / billing access that would settle them>
 What this change buys: <the trade being made, if any>
 
 Patterns consulted: unit-economics, spend-allocation
@@ -132,6 +141,7 @@ Patterns consulted: unit-economics, spend-allocation
 - REQUEST: cross-zone hops, log/metric volume increases on hot paths, unbounded result sets, cache removals with no note.
 - NIT: verbosity, minor payload growth, naming of tags.
 - **Never state a monthly delta without the volume metric it came from.** `UNKNOWN — needs <metric>` is the correct output when the metric is unreachable.
+- **Never `APPROVE` when a mechanism fired and no row is priced.** That verdict is `UNPRICED`, and it names the metric or the billing access that would settle it.
 - **Never rank purely by dollars.** A small recurring leak on a hot path outranks a one-off larger cost.
 - **Never block a change that buys something.** Say what it buys and let the trade be explicit.
 
@@ -156,5 +166,5 @@ Patterns consulted: unit-economics, spend-allocation
 
 ### Cross-pack boundary
 - `@performance-optimizer` (performance pack) owns latency and throughput; this agent owns the invoice. They frequently find the same N+1 for different reasons — say which lens produced the finding.
-- The `ai-engineering` pack owns model/token spend discipline (`ai-cost-discipline`, `ai-cost-tracking`); this agent treats a model call as one more billed dependency and defers the prompt-level decisions there.
+- Model and token spend: the `ai-engineering` pack owns the discipline as AI-3 (`ai/patterns/llm-gateway.md` — token cap, timeout, trace-linked per-call cost at one seam), and the `ai` **domain overlay** ships the per-call accounting artifacts (`rules/ai-cost-discipline.md`, `ai/patterns/ai-cost-tracking.md`) — a separate mechanism with separate install conditions, not files in that pack. This agent treats a model call as one more billed dependency and defers prompt-level decisions there. **Where a project has the model calls but neither the pack nor the overlay installed, nobody owns token spend — say so as a finding rather than assuming it is covered elsewhere.**
 - `@observability-reviewer` owns whether a log line is useful; this agent owns what its volume costs. A log that is both useless and expensive is a finding on both sides.

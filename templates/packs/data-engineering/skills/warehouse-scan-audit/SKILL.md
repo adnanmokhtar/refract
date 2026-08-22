@@ -17,9 +17,25 @@ Numbers come from the platform's own query history or job statistics, never from
 - **Pricing model unknown** (per-byte-scanned versus per-slot-second versus flat-rate capacity). The optimisation that helps under one is neutral under another; ask before recommending.
 - **Reserved-capacity environment** where a single query's marginal money cost is zero. Optimise for contention and runtime instead, and say so — a "$ saved" number would be fiction.
 
+## Adapt to the platform
+
+**The pricing model — not the vendor — decides what a finding is worth.** Establish it first; the same SQL change is a saving under one model, neutral under another, and a latency change under a third.
+
+| Billing shape | The unit that costs money | What a finding must quantify | What is NOT a finding |
+|---|---|---|---|
+| Per byte scanned | bytes read by the query | bytes pruned × price per byte × run frequency | runtime, unless it breaches an SLA |
+| Per slot-second / compute-second | occupied compute time | slot-seconds saved × price × frequency | bytes, when the scan is already cached |
+| Flat-rate / reserved capacity | nothing, marginally | contention: queue depth, concurrency displaced, runtime | any `$ saved` figure — it is fiction here |
+| Per cluster-hour (a warehouse that must be awake) | wall-clock the cluster is up | whether the change lets the cluster sleep sooner | a query that runs inside an hour already paid for |
+
+**Report the platform's own vocabulary, not a translation.** Name its query-history/job-statistics surface as *it* names it, and quote the column it calls bytes-scanned or slot-time. Rewriting a platform's `TOTAL_ELAPSED_TIME` as "runtime" in the finding makes the fix un-greppable for the engineer who has to reproduce it — the same failure mode as translating an ANN parameter into a generic name.
+
+Where you cannot identify the billing shape, that is a HALT (below), not a default to per-byte. Per-byte is the most commonly assumed and the most commonly wrong.
+
 ## When to run
 
 - After a warehouse bill increase, alongside the finops pack's `spend-anomaly-triage` (that skill finds *which* dimension moved; this one finds *which SQL* moved it).
+- Dispatched by `/backfill-plan` Phase 2 to produce the per-chunk bytes/cost/runtime estimate — that command must not derive those figures itself.
 - Before changing a model's materialization to table or incremental.
 - When a model's runtime or scan volume doubles.
 - Quarterly on the top-cost models and dashboards.

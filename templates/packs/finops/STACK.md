@@ -28,6 +28,23 @@ Cost constructs are named generically because every provider spells them differe
 
 Because the vocabulary is neutral, every price in this pack's outputs must carry a **SKU/tier name and an as-of date** — that is what makes an otherwise provider-agnostic figure verifiable.
 
+## FOCUS — the one place the neutral vocabulary has a real schema
+
+The table above is neutral by necessity, and neutrality has a cost: every artifact here says "the cost and usage export" without being able to name a column. There is now a published schema that closes that gap, and where a project's export conforms to it, this pack's rules stop being abstractions and become column lookups.
+
+**FOCUS** (FinOps Open Cost and Usage Specification, <https://focus.finops.org>) normalises billing datasets across cloud, SaaS, AI, and data-centre vendors. Checked 2026-08: the specification's current release is **1.4**, and 17 vendors publish FOCUS-conformant exports — AWS, Microsoft Azure, Google Cloud, IBM Cloud, Oracle, Alibaba, Tencent, Huawei, OVHcloud, Cloudflare, Snowflake, Databricks, MongoDB, and Vercel among them. Version and vendor list both move; re-check the site rather than quoting this paragraph.
+
+Where a FOCUS export exists, four of this pack's hard rules resolve to named columns instead of prose:
+
+| This pack's rule | FOCUS column that settles it |
+|---|---|
+| "amortised and discounted, never list price" | `Effective Cost` (amortised, post-discount) vs `Billed Cost` (invoiced) vs `List Cost` vs `Contracted Cost` — the four are separate columns, so "which cost" stops being ambiguous |
+| "amortise commitments across their term" | `Commitment Discount ID` + `Commitment Discount Status` — the commitment's identity and state travel with the row |
+| "the usage type is where the mechanism lives" | `Service Name` + `SKU ID` / `SKU Price ID`, with `Consumed Quantity` and `Pricing Quantity` kept distinct (they differ, and conflating them is a common unit-cost error) |
+| "attribution coverage by dollar" | `Tags` joined against `Resource ID` / `Resource Type`, over whole `Billing Period Start` periods |
+
+Two consequences worth stating plainly. First, **ask whether a FOCUS export is available before writing a bespoke parser** — every artifact here that reads "the cost and usage export" reads it more cheaply and more portably through FOCUS. Second, **report in the project's own column names**, exactly as the neutral table above requires: translating a provider's native column into a FOCUS name in a project that does not publish FOCUS makes the finding un-greppable, which is the same defect as inventing a number. Name the schema you actually read.
+
 ## Where stack-specific names live
 
 - The project's `_extracted-codebase.md` — the provider(s), the account structure, the infrastructure-as-code tool, and the managed services in use.

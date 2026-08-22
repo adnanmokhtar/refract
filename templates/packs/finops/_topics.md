@@ -44,7 +44,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Infrastructure (tagging/labelling in the IaC modules, account structure)
   sections: [overview, coverage_by_dollar, four_categories, enforcement_at_creation, taxonomy, shared_cost, showback, detectors]
   mirror_existing: true
-  fallback: stub-from-sections
+  fallback: ai-patterns/spend-allocation.md
 
 - name: commitment-strategy
   kind: pattern
@@ -52,7 +52,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Infrastructure (long-lived compute/capacity shapes)
   sections: [overview, coverage_vs_utilisation, sustained_floor, break_even, flexibility, term_and_payment, expiry_as_decision, detectors]
   mirror_existing: true
-  fallback: stub-from-sections
+  fallback: ai-patterns/commitment-strategy.md
 
 - name: cost-anomaly-detection
   kind: pattern
@@ -60,13 +60,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Observability (alert routing conventions) + § Infrastructure (groupings with material spend)
   sections: [overview, per_dimension, level_and_rate_of_change, seasonality, threshold_derivation, recipient_and_action, suppression, prove_it_fires, detectors]
   mirror_existing: true
-  fallback: stub-from-sections
+  fallback: ai-patterns/cost-anomaly-detection.md
 
 - name: finops-principles
   kind: rule
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § Infrastructure + § Anti-patterns + dynamic/feedback-learned.md
-  sections: [project_specific_first, sourced_numbers, retention_defaults, allocation_tags, bounded_retries, threshold_derivation, review_checklist]
+  sections: [project_specific_first, sourced_numbers, retention_defaults, allocation_tags, bounded_retries, threshold_derivation, enforcement]
   mirror_existing: true
   fallback: _examples/finops-principles.md
 
@@ -76,7 +76,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Infrastructure (billed components) + ai/business-domain.md (unit + denominator)
   sections: [understand, organize, retrieve, generate, update, validate, improve]
   dispatches: finops-analyst
-  fallback: stub-from-sections
+  fallback: commands/cost-model.md
 
 - name: cost-review
   kind: command
@@ -84,7 +84,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Modules (hot paths) + § Infrastructure (IaC layout)
   sections: [understand, organize, retrieve, validate]
   dispatches: cost-reviewer
-  fallback: stub-from-sections
+  fallback: commands/cost-review.md
 
 - name: audit-cost-attribution
   kind: command
@@ -92,32 +92,32 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Infrastructure (tagging in IaC modules, account structure)
   sections: [understand, organize, retrieve, update, validate]
   dispatches: finops-analyst
-  fallback: stub-from-sections
+  fallback: commands/audit-cost-attribution.md
 
 - name: cost-guardrails
   kind: command
   triggers: { ci_config_detected: true }
   extracts_from: _extracted-codebase.md § Infrastructure + § Observability (existing alert routing to reuse)
   sections: [understand, organize, retrieve, generate, update, validate]
-  fallback: stub-from-sections
+  fallback: commands/cost-guardrails.md
 
 - name: unit-cost-probe
   kind: skill
   triggers: { always: true }
-  fallback: stub-from-sections
+  fallback: skills/unit-cost-probe/SKILL.md
 
 - name: commitment-coverage
   kind: skill
   triggers: { terraform_detected: true }
-  fallback: stub-from-sections
+  fallback: skills/commitment-coverage/SKILL.md
 
 - name: egress-trace
   kind: skill
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
-  fallback: stub-from-sections
+  fallback: skills/egress-trace/SKILL.md
 
 - name: spend-anomaly-triage
   kind: skill
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
-  fallback: stub-from-sections
+  fallback: skills/spend-anomaly-triage/SKILL.md
 ```

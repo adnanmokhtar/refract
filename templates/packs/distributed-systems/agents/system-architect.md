@@ -211,9 +211,9 @@ Rule: pick per aggregate, not per system. A design that forces every aggregate o
 
 ### Sibling agents in distributed-systems pack
 - `@capacity-planner` — the quantitative sibling; owns back-of-envelope math, bottleneck identification, scaling-axis choice, and data-migration-at-scale. You draw the qualitative boundaries; hand it any claim that turns on a number.
-- `@event-sourcing-architect` — sibling agent in distributed-systems pack
-- `@resilience-reviewer` — sibling agent in distributed-systems pack
-- `@workflow-orchestrator` — sibling agent in distributed-systems pack
+- `@event-sourcing-architect` — take it a bounded context once you have decided that context needs an audit-grade or temporal-query history. It returns the aggregate/event/projection model. Do not hand it a CRUD context — it will tell you not to event-source it, which is a decision you can make yourself.
+- `@resilience-reviewer` — receives your failure-mode matrix as its audit input and returns a per-call verdict. Anything it marks CATASTROPHIC is a boundary you should re-open, not a timeout someone should tune.
+- `@workflow-orchestrator` — receives any cross-service flow your design leaves needing atomicity. The handoff test: if the flow needs *compensation*, it is a workflow; if it needs only *retry*, it is a call and belongs to `@resilience-reviewer`.
 
 ### Skills
 - `chaos-test` — fault-injection drill for the failure-mode matrix.

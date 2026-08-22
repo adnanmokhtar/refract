@@ -34,7 +34,7 @@ No harness detected → HALT — run **`/add-eval-set <feature>`** first (design
 ## Procedure
 
 1. Detect + load the **versioned** dataset + configured scorers (record version/commit).
-2. Pin determinism — generation `temperature: 0`; LLM-as-judge model + temp + seed pinned.
+2. Pin what the provider lets you pin — the generation config the harness specifies (`temperature: 0` where sampling params exist at all); for LLM-as-judge, the judge **model id** + judge **prompt** + every exposed sampling param. Where the provider exposes none, the model id + prompt *are* the pin — say so, and widen the delta you will call a regression. A config setting a withdrawn parameter fails with a provider error, not a low score.
 3. Run each case through the CURRENT prompt+model+retrieval (not cached; not the few-shot examples).
 4. Score — assertion + LLM-as-judge + retrieval metric (recall@k) if RAG.
 5. Diff vs baseline; a pass→fail case or a below-threshold metric is a regression.

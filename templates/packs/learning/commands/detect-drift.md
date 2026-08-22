@@ -31,6 +31,7 @@ ALWAYS:
 - `.claude/rules/*.md` — every rule file.
 - `.claude/codebase-profile.md` — every detected fact.
 - `ai/business-domain.md` — entity ownership for tenant/security checks.
+- **The contested set** — `ai/conventions.md § Unsettled conventions` (written only by REFINE) AND `grep '\[CONTESTED:' .claude/_extracted-codebase.md` (written by every mode). Both, not either: a project that never ran `--refine` records its splits only in the oracle. A category in that set is a **live split**, not a rule; findings in it are `ambiguous`, never `code-vs-rule` — see `convention-drift-detector § Contested categories`. If neither source is readable, report `contested set: unavailable` in the header instead of proceeding as if nothing is contested.
 
 ## Phase 4 — Generate (the categorized report)
 
@@ -40,7 +41,12 @@ Per finding:
 - File + line evidence.
 - Convention violated (which rule / which `conventions.md` section).
 - Severity (high / medium / low).
-- Categorization: `code-vs-rule` (code wrong) / `rule-vs-reality` (rule stale) / `rule-vs-rule` (two rules contradict) / `ambiguous` (need human).
+- Categorization: `code-vs-rule` (code wrong) / `rule-vs-reality` (rule stale) / `rule-vs-rule` (two rules contradict) / `ambiguous` (need human — **including every contested category**).
+
+**Contested categories collapse to one row each.** A 6/4 split across 10 files is ONE `ambiguous`
+finding carrying both counts and one citation per side — not four FIX-CODE rows against the files on
+the minority side. Those files are following a convention this codebase demonstrably has; the split
+is the finding.
 
 Group by resolution path:
 - **FIX CODE** — bring violation into line.
@@ -55,6 +61,7 @@ This is where the command's value lands. Persist:
 - `ai/status.md` — prepend Recent Changes ("Drift detected: 3 high-severity items pending fix") if any high-severity.
 - `ai/dynamic/changelog.md` — one-line summary entry.
 - For `rule-vs-reality` findings: do NOT auto-update conventions; surface so user can run `/refresh-knowledge` or edit manually.
+- For contested categories: queue each to `ai/dynamic/decisions-pending.md` as "resolve the split via ADR, or accept it" — NOT to `drift-log.md § OPEN`, which is a fix-list and would re-surface the split as unresolved work every run.
 - For `rule-vs-rule` contradictions: queue to `ai/dynamic/decisions-pending.md` AND add to `ai/status.md § Blockers` with status `BLOCKED` — needs human resolution. The next session sees the blocker before any rule-loading work; the conflict cannot ship hidden in a queue.
 
 ## Phase 6 — Validate
@@ -116,11 +123,20 @@ Every run MUST end its report with a `## What to do next` block: the drift findi
 - Running without baseline (`ai/conventions.md` missing) — refuse; run `/refresh-knowledge` first.
 - High `rule-vs-reality` rate ignored — conventions decay silently; treat as a maintenance signal.
 
-## Difference from `/refresh-knowledge`
+## Difference from `/refresh-knowledge` and `/setup-project --refresh`
 
-- `/refresh-knowledge` re-detects EVERYTHING (full Phase 2 rerun).
-- `/detect-drift` is narrower: only checks code vs documented rules + conventions.
-- Use `/detect-drift` weekly; `/refresh-knowledge` quarterly.
+Three widths, and picking the wrong one is the usual way a stale project stays stale:
+
+| Command | Re-runs extraction? | Rewrites the oracle? | Re-applies packs / anchors / adapters? |
+|---|---|---|---|
+| `/detect-drift` | no — reads the documented layer | no | no |
+| `/refresh-knowledge` | yes — invokes `extract-codebase-overview` | yes (`_extracted-codebase.md`, stamp preserved) | no |
+| `/setup-project --refresh` | yes — all 15 steps | yes | yes |
+
+- `/detect-drift` answers "does the code still match what we wrote down?" It cannot tell you the
+  written-down thing was never true, because it never re-reads the codebase from scratch — that is
+  `/refresh-knowledge`'s job, and it is why a high `rule-vs-reality` rate is a signal to escalate.
+- Use `/detect-drift` weekly; `/refresh-knowledge` quarterly or after a big refactor; and reach for `/setup-project --refresh` when the stack itself moved.
 
 ## Related
 

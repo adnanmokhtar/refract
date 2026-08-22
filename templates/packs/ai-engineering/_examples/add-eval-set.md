@@ -29,7 +29,7 @@ Ask: which feature (by path) · **what defines a good output** (the eval spec �
 
 **Scorer per requirement — cheapest that captures it:** exact/normalised match for closed-form · **assertion/programmatic** for structural properties (the workhorse) · semantic similarity for free text (calibrate the threshold) · a model-graded judge only where nothing cheaper expresses it · human for gold labels and calibration. RAG adds faithfulness / answer relevance / context relevance / recall (the retrieval half is `retrieval-eval`'s); classification adds P/R/F1 + a confusion matrix; agents add task success, tool-call correctness, step/cost.
 
-**Judge design (if unavoidable):** anchored rubric · justification-before-score · position-bias mitigation · a **different, ideally stronger** model — never the generator · pinned model + prompt + temperature · a human calibration cadence.
+**Judge design (if unavoidable):** anchored rubric · justification-before-score · position-bias mitigation · a **different, ideally stronger** model — never the generator · pinned model id + prompt + every exposed sampling param (where the provider exposes none, say so; the pin is looser than it looks) · a human calibration cadence.
 
 **Thresholds:** declare the ABSOLUTE bar per gated metric **before the first run**; pick `ε` for judge noise and say why; tier fast (assertions, per PR) vs full (judge, nightly) so cost never makes the gate skippable.
 
@@ -51,7 +51,7 @@ Record the dataset version, the scorer set, the thresholds, and the baseline sco
 
 ## Phase 7 — Validate (verify + review)
 
-**`eval-run` green** at/above every declared bar — re-run; this is the gate, not a formality. **The CI eval step is grep-confirmed present** in the pipeline config file — assert the config, never claim a remote build's outcome. All three case classes present with the adversarial count stated; no case duplicates a few-shot example from the prompt; the judge model differs from the generating model and judge model + prompt + temperature are pinned in checked-in config. **`@ai-feature-reviewer`** — dimension 1 (eval gate), re-grading coverage and the cited measured score independently. If a named agent is not installed, run its checklist inline — never silently skip the axis. If any check fails: HALT, report, do not paper over.
+**`eval-run` green** at/above every declared bar — re-run; this is the gate, not a formality. **The CI eval step is grep-confirmed present** in the pipeline config file — assert the config, never claim a remote build's outcome. All three case classes present with the adversarial count stated; no case duplicates a few-shot example from the prompt; the judge model differs from the generating model and judge model id + prompt + every exposed sampling param are pinned in checked-in config. **`@ai-feature-reviewer`** — dimension 1 (eval gate), re-grading coverage and the cited measured score independently. If a named agent is not installed, run its checklist inline — never silently skip the axis. If any check fails: HALT, report, do not paper over.
 
 ## Phase 8 — Improve (wire the flywheel — the point of all this)
 

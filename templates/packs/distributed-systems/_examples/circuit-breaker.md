@@ -36,18 +36,20 @@ CLOSED ─────────────────────▶ OPEN
 - **Open** — recent failures exceeded threshold. Calls fail fast without hitting downstream.
 - **Half-open** — after a cooldown, let ONE probe through. Success → close. Failure → back to open.
 
-## Config per dependency
+## Config per dependency — what DETERMINES each number
 
-```ts
-{
-  name: 'claude-api',
-  failureThreshold: 0.5,        // 50% of window failing opens the breaker
-  windowSize: 10,                // last 10 calls
-  openDuration: 30_000,          // 30s in open state before probing
-  timeout: 3_000,                // call timeout
-}
-```
+The four values below are the whole pattern, and every one of them is derived from something measurable about the dependency. A breaker copied from another service's config is a breaker tuned for another service's failure distribution.
 
+| Knob | Determined by | Gets it wrong when |
+|---|---|---|
+| `failureThreshold` | The dependency's **normal** error rate, measured. Set it clearly above the noise floor (a dep that baselines 2% errors cannot use a 1% threshold) and below the rate at which your own SLO breaks | Copied as "50%" onto a dep whose steady state is 0.01% — it absorbs a real outage for minutes before tripping |
+| `windowSize` | Call **volume**, not time. The window must hold enough calls for the rate to mean something — a dep called 3×/min cannot support a 10-call rolling window | Low-volume deps trip on two unlucky calls, or never accumulate enough to trip at all |
+| `openDuration` | The dependency's observed **recovery time** (how long its incidents actually last, from its own incident history) | Set shorter than recovery: the probe re-opens the breaker forever and you have built a slow retry loop |
+| per-call `timeout` | The **caller's** latency budget minus what the rest of the request needs — not the dependency's p99 | Set from the dep's p99: your request now inherits the dep's tail and the breaker never sees a timeout to count |
+
+If the dependency's error rate, call volume and recovery time are not extracted, **halt** — those three numbers are the config, and guessing them produces a breaker that is decorative.
+
+**The fallback is the design, not the breaker.** An open breaker's whole value is what the caller does instead: a cached value, a queued retry, a degraded response, or a typed error the caller handles. A breaker with no fallback converts a slow failure into a fast one and nothing more — decide the open-state behaviour first, then size the knobs.
 ## Shape
 
 ```ts
@@ -83,7 +85,7 @@ class CircuitBreaker {
 
 - Node: `opossum`, `cockatiel`
 - Java/Kotlin: `resilience4j`
-- Go: `sony/gobreaker`, `afex/hystrix-go`
+- Go: `sony/gobreaker`, `failsafe-go` (`afex/hystrix-go` last shipped 2024-02 — do not seed new work from it)
 - .NET: `Polly`
 - Python: `pybreaker`
 

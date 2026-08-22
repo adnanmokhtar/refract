@@ -81,7 +81,7 @@ Every finding has a site, an impact, a fix, and a closure verb. Every axis has a
   ANN index      REQUEST     target UNSTATED · params defaulted (migrations/0087:6)
   agent loop     N-A         no tools or loop on this surface
   gateway/cost   REQUEST     3 of 7 call sites bypass the seam; cost field not logged
-Handed to @llm-security-reviewer: rag/retrieve.ts:31 (LLM08) · support/answer.ts:31 (LLM01)
+Handed to @llm-security-reviewer: rag/retrieve.ts:31 (LLM09:2026) · support/answer.ts:31 (LLM01:2026)
 Unmeasured: LLM spend — no cost field at the seam. Settles with add-cost-logging + one day of traffic.
 Artifact: ai/audits/<date>-ai.md
 ```

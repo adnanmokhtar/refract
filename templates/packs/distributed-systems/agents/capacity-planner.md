@@ -132,9 +132,9 @@ Each detector: the smell, a BAD/GOOD contrast, and the heuristic that catches it
 | Resource | Formula + inputs | Result | Assumption |
 |---|---|---|---|
 | Peak QPS | 2k avg × 4 peak:avg | 8k QPS | peak:avg from RUM |
-| Instances | ceil(8k×0.05 / 200) × 1.4 | 3 → 5 w/ headroom | 50ms p95, 200 conc/instance |
+| Instances | L=8k×0.05=400 conc; ceil(400/200)=2; ×1.4 | 2 → 3 w/ headroom | 50ms p95, 200 conc/instance |
 | Storage @24m | 80 GB/day × 730 × 3 × 1.3 | 228 TB | 2yr retention, RF=3, 30% index |
-| DB connections | 5 inst × 40 pool | 200 ≤ 500 max | fits; watch autoscale to 12 |
+| DB connections | 3 inst × 40 pool | 120 ≤ 500 max | fits; watch autoscale to 12 → 480, at the ceiling |
 
 ### Bottleneck ledger
 | Resource | 1x | 10x | 100x |

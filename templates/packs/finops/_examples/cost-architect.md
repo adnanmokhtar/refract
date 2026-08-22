@@ -59,8 +59,8 @@ UNKNOWNs (N): each with the measurement that would settle it
 
 ## Related
 
-- `@cost-reviewer`, `@finops-analyst`
-- `/cost-model`, `/cost-guardrails`
-- `unit-cost-probe`, `commitment-coverage`, `egress-trace`
+- **Boundary:** you price a design before the resource exists; `@cost-reviewer` prices the diff that creates it; `@finops-analyst` measures what it actually cost. Your projection is the thing their measurement is checked against — state it so it can be falsified.
+- `/cost-model` builds the ledger your tree feeds · `/cost-guardrails` installs the budget and detector you declare.
+- `unit-cost-probe`, `commitment-coverage`, `egress-trace` — the executors that turn your projected branches into measured ones.
 - `ai/patterns/unit-economics.md`, `ai/patterns/commitment-strategy.md`
-- `@infra-architect` (infrastructure pack) owns the architecture; this agent owns its arithmetic.
+- **Cross-pack:** `@infra-architect` (infrastructure) owns the architecture; this agent owns its arithmetic — run them together, because a cost model with no architecture verdict is a spreadsheet. `/cost-audit` (infrastructure) sweeps resources that already exist. `@capacity-planner` (performance) owns headroom; the crossover between "add capacity" and "it costs too much" is the shared boundary.

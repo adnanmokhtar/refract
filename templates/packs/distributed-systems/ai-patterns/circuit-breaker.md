@@ -46,14 +46,20 @@ CLOSED ─────────────────────▶ OPEN
 - **Open** — recent failures exceeded threshold. Calls fail fast without hitting downstream.
 - **Half-open** — after a cooldown, let ONE probe through. Success → close. Failure → back to open.
 
-## Config per dependency (illustrative — adapt to the project's chosen library)
+## Config per dependency — what DETERMINES each number
 
-- `name`: the dependency this breaker guards (e.g., `payments-api`, `model-vendor`).
-- `failureThreshold`: e.g. 50% of window failing opens the breaker.
-- `windowSize`: e.g. last 10 calls.
-- `openDuration`: e.g. 30s in open state before probing.
-- `timeout`: per-call timeout.
+The four values below are the whole pattern, and every one of them is derived from something measurable about the dependency. A breaker copied from another service's config is a breaker tuned for another service's failure distribution.
 
+| Knob | Determined by | Gets it wrong when |
+|---|---|---|
+| `failureThreshold` | The dependency's **normal** error rate, measured. Set it clearly above the noise floor (a dep that baselines 2% errors cannot use a 1% threshold) and below the rate at which your own SLO breaks | Copied as "50%" onto a dep whose steady state is 0.01% — it absorbs a real outage for minutes before tripping |
+| `windowSize` | Call **volume**, not time. The window must hold enough calls for the rate to mean something — a dep called 3×/min cannot support a 10-call rolling window | Low-volume deps trip on two unlucky calls, or never accumulate enough to trip at all |
+| `openDuration` | The dependency's observed **recovery time** (how long its incidents actually last, from its own incident history) | Set shorter than recovery: the probe re-opens the breaker forever and you have built a slow retry loop |
+| per-call `timeout` | The **caller's** latency budget minus what the rest of the request needs — not the dependency's p99 | Set from the dep's p99: your request now inherits the dep's tail and the breaker never sees a timeout to count |
+
+If the dependency's error rate, call volume and recovery time are not extracted, **halt** — those three numbers are the config, and guessing them produces a breaker that is decorative.
+
+**The fallback is the design, not the breaker.** An open breaker's whole value is what the caller does instead: a cached value, a queued retry, a degraded response, or a typed error the caller handles. A breaker with no fallback converts a slow failure into a fast one and nothing more — decide the open-state behaviour first, then size the knobs.
 ## Shape (stack-agnostic)
 
 The breaker wraps the call with three behaviours:
@@ -62,7 +68,7 @@ The breaker wraps the call with three behaviours:
 2. **Closed / half-open state**: invoke the function under the per-call timeout; on success, record success (transitions half-open → closed); on failure, record failure and either return the fallback or rethrow.
 3. **State transitions**: failure rate over the window crossing the threshold transitions closed → open; a single half-open success transitions to closed; a half-open failure transitions back to open.
 
-Use the project's stack-native circuit-breaker library — every mainstream language has at least one (e.g., `opossum` / `cockatiel` for Node, Resilience4j for JVM, Polly for .NET, `gobreaker` / `hystrix-go` for Go, `pybreaker` for Python). Do not hand-roll when an option exists.
+Use the project's stack-native circuit-breaker library — every mainstream language has at least one (e.g., `opossum` / `cockatiel` for Node, Resilience4j for JVM, Polly for .NET, `gobreaker` / `failsafe-go` for Go, `pybreaker` for Python). Do not hand-roll when an option exists.
 
 ## When to use
 

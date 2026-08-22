@@ -18,7 +18,7 @@ Audit command. Read-only six-axis sweep of an existing AI surface. Phases 1-3 + 
 
 **The eval axis governs the verdict.** `/ai-audit` may never print a green verdict on an `UNVERIFIED` eval axis. A surface nobody can measure is not a surface anybody can call healthy — and the next step for that axis is always `/add-eval-set`, named as a paste-ready command, never a vague "build some evals".
 
-**Security is routed, never graded here.** Output→sink, the injection surface, a destructive tool the model can fire, a cross-tenant retrieval leak: these are `@llm-security-reviewer`'s (`LLM01` / `LLM05` / `LLM06` / `LLM08`). This command reports the engineering half and hands the boundary across, by site. Never absorb, never silently drop.
+**Security is routed, never graded here.** Output→sink, the injection surface, a destructive tool the model can fire, a cross-tenant retrieval leak: these are `@llm-security-reviewer`'s (`LLM01:2026` prompt injection / `LLM03:2026` excessive agency / `LLM09:2026` vector & embedding / `LLM10:2026` improper output handling — the 2025 edition numbered the last three LLM06/LLM08/LLM05). This command reports the engineering half and hands the boundary across, by site. Never absorb, never silently drop.
 
 ## Mechanical halt — hand-wave grep
 
@@ -100,14 +100,14 @@ AI-SPECIFIC, by signal:
 Consolidate every dispatched result into one ranked ledger. Rank by blast radius, not by axis order:
 
 - **BLOCKER** — no eval set on a shipped feature; an eval that does not gate the build; an unbudgeted agent loop; a destructive tool with no gate; uncapped output tokens or no timeout on a user-facing generation; no tenant/permission filter at the store on a multi-tenant corpus; no no-context guard on RAG; regex-parsing structured output where a schema exists; an index serving deleted content that was deleted for a permission reason.
-- **REQUEST** — scattered SDK calls with no seam; no fallback on a single-provider production path; an unstated recall/latency target; defaulted ANN parameters; non-zero temperature on a deterministic path; partial cost logging; missing redaction on a log path; an unversioned prompt.
+- **REQUEST** — scattered SDK calls with no seam; no fallback on a single-provider production path; an unstated recall/latency target; defaulted ANN parameters; sampling params wrong for a single-answer path (non-zero where the provider exposes them — or set at all where it has withdrawn them, which is a **BLOCKER**, since every such call 400s); partial cost logging; missing redaction on a log path; an unversioned prompt.
 - **NIT** — naming, duplicated prompt literals, non-load-bearing structure.
 
 Each finding carries: `<path:line>` + excerpt (or the concrete site of the absence) · impact · fix · **closure verb** from the owning pattern's verb list · the axis it belongs to.
 
-The closure verbs this audit may emit, by owner — never invent one:
+The closure verbs this audit may emit, by owner — never invent one. **This list is a copy of the `**Closure verbs:**` line at the foot of each named pattern; when they disagree the pattern wins, and the fix is to re-copy, not to reconcile by hand.** A verb added to a pattern and not here is still emittable; a verb here that no pattern declares is a defect in this file.
 - `evals` → `add-eval-set`, `require-eval-diff`, `fix-judge-rubric`, `swap-judge-model`, `backfill-eval-from-incident`, `wire-regression-gate`
-- `prompt-engineering` → `use-structured-output`, `split-system-user`, `add-output-schema`, `set-deterministic-params`, `version-and-eval-prompt`
+- `prompt-engineering` → `use-structured-output`, `split-system-user`, `add-output-schema`, `set-deterministic-params`, `remove-sampling-params`, `version-and-eval-prompt`
 - `rag-pipeline` → `add-retrieval-eval`, `tune-chunking`, `unify-embedding-model`, `add-reranker`, `add-tenant-filter`, `add-context-budget`, `add-no-context-guard`
 - `vector-store-ops` → `add-ann-index`, `tune-ann-params`, `fix-distance-metric`, `fix-filtered-recall`, `add-index-refresh`
 - `agent-design` → `downgrade-to-workflow`, `add-tool-gate`, `add-loop-budget`, `add-context-compaction`, `make-tool-error-recoverable`, `validate-tool-args`, `add-human-gate`
@@ -172,8 +172,8 @@ REQUESTS (4): route-through-gateway ×3 (chat/handler.ts:12, titles/generate.ts:
 NITs (1): version-and-eval-prompt — near-identical prompt at prompts/titles.ts:8 + titles-batch.ts:14
 
 Handed to @llm-security-reviewer:
-  - src/rag/retrieve.ts:31 — post-fetch tenant filter on a multi-tenant corpus (LLM08)
-  - src/support/answer.ts:31 — instructions + user text + retrieved chunks share one role (LLM01)
+  - src/rag/retrieve.ts:31 — post-fetch tenant filter on a multi-tenant corpus (LLM09:2026)
+  - src/support/answer.ts:31 — instructions + user text + retrieved chunks share one role (LLM01:2026)
 
 Unmeasured / unverified:
   - eval axis: no harness. Settles with /add-eval-set <feature>, then eval-run.

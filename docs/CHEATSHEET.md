@@ -210,7 +210,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/promote-decision` | Graduate an entry from ai/dynamic/decisions-pending.md into a formal, sequentially-numbered ADR… | — | `/promote-decision <id>` |
 | `/promote-pattern` | Graduates an emerging pattern from ai/dynamic/learned-patterns.md to a formal ai/patterns/<name>.md… | — | `/promote-pattern <name>` |
 | `/recall` | Search this project's existing ai/ memory — the dynamic sinks, the don't-retry failure catalog… | `--kind`, `--owner`, `--since`, `--limit`, `--format`, `--catalog` | `/recall "cart cache key tenant"` |
-| `/refresh-knowledge` | Re-runs Phase 2 codebase profiling, diffs against current ai/conventions.md +… | `--dry-run` | `/refresh-knowledge` |
+| `/refresh-knowledge` | Re-runs the canonical extraction engine (extract-codebase-overview -> _extracted-codebase.md… | `--dry-run` | `/refresh-knowledge` |
 
 ## Pack — migration
 

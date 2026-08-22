@@ -27,7 +27,7 @@ Find the seam before judging the sites: the gateway module (a house `llm/` clien
 1. **SDK called outside the seam** → `route-through-gateway`. Enumerate every site. No seam at all = ONE finding with the sites as evidence, not N.
 2. **No timeout or no output-token cap** → `add-call-budget`. The two knobs bounding tail latency and worst-case cost. Check the seam default first; cite the deciding layer. BLOCKER on a user-facing generation.
 3. **Single provider, no fallback** → `add-fallback` on timeout / 5xx / overloaded / 429 — or a documented accepted risk, which is a legitimate close. Cite the decision record or its absence.
-4. **Repeated large identical context, no caching** → `add-prompt-cache`: stable-prefix-first ordering, provider prompt-caching, and/or an exact-match cache keyed on `(model, normalized prompt, params)`.
+4. **Repeated large identical context, no caching** → `add-prompt-cache`: stable-prefix-first ordering, provider prompt-caching, and/or an exact-match cache keyed on `(model, normalized prompt, params)`. **Measure the prefix against the model's minimum cacheable size first** — provider caches have a model-dependent floor (and it does not move monotonically across a vendor's generations), below which nothing caches *and no error is raised*. Below the floor the finding is not `add-prompt-cache` — it is that no cache is possible at this prefix size; consolidate the stable content or close the site `N-A` citing both the measured size and the floor. Prefix size unknown → `UNMEASURED`, never an asserted saving. There is also a per-request cache-breakpoint ceiling; exceeding it errors.
 5. **Semantic cache not tenant/permission-scoped** → `scope-semantic-cache`. A data-leak shape — report the defect, **hand the leak to `@llm-security-reviewer`**.
 6. **No model id + prompt version + tokens + cost + latency, trace-linked** → `add-cost-logging`. Say which fields are present; a partial line is REQUEST, not a pass. The taxonomy is observability's; presence on this path is yours.
 7. **Prompt/response logged with no redaction** → `add-log-redaction`. A persisted secret is a BLOCKER. Policy is observability/security's; the call on this path is yours.
@@ -57,7 +57,8 @@ Cost: UNMEASURED — no cost field at the seam. Settles with add-cost-logging + 
 - A framework wrapper that owns retry/cost/caching **is** the seam.
 - Retry ≠ fallback; retrying a 4xx is a different (distributed-systems) defect.
 - Streaming calls still owe a cap + timeout, and log cost after the stream.
-- `add-prompt-cache` on a prompt whose prefix varies is wrong — the finding is the *ordering*.
+- `add-prompt-cache` on a prompt whose prefix varies is wrong — the finding is the *ordering*. Likewise on a prefix under the model's minimum cacheable size: the marking would be silently inert, so the finding is the size, not the absence.
+- A prefix already marked but reporting zero cache reads across identical repeats is its own finding — either it is under the floor, or something inside it varies per request (a timestamp, an unsorted map, a rotating tool list). Name which, from the bytes.
 
 ## Halt conditions
 

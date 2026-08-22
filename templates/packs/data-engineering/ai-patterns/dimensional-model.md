@@ -104,7 +104,9 @@ Genuine many-to-many relationships (a fact with multiple categories, a transacti
 - A fact foreign key that is nullable with no unknown member in the referenced dimension.
 - A partition key named for a load timestamp while every downstream filter uses an event timestamp.
 
-## Related
+**Closure verbs:** `declare-grain`, `annotate-additivity`, `split-ratio-columns`, `add-scd2-current-assertion`, `conform-dimension`, `add-unknown-member`, `repartition-on-event-time`.
+
+Each detector above closes with exactly one of these. A finding written without one cannot be diffed against the next run: "we fixed the grain thing" is not a closure, `declare-grain fct_order_lines` is. Never invent a verb — if a finding fits none of them, it belongs to a different pattern.
 
 - `ai/patterns/transformation-layers.md` — where these models live and how they are materialised.
 - `ai/patterns/semantic-layer.md` — where the metric on top of these facts is defined once.

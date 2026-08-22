@@ -90,7 +90,9 @@ An assertion that has only ever run against clean data is unverified. Inject a v
 - A quarantine table whose last read is older than its retention.
 - Tests concentrated on staging models, with marts untested — the mart is where the number becomes a claim.
 
-## Related
+**Closure verbs:** `prove-assertion-can-fail`, `retire-disabled-assertion`, `assign-assertion-owner`, `add-freshness-monitor`, `add-volume-band`, `add-reconciliation-check`, `derive-threshold-from-history`, `route-quarantine-reader`, `move-coverage-to-marts`.
+
+Each detector above closes with exactly one of these. `prove-assertion-can-fail` is the one that closes the zero-failure-history detector, and it is the only closure that detector accepts — a suite that has never failed is unproven, not clean, and adding more assertions to it does not change that. Never invent a verb.
 
 - `ai/patterns/data-contract.md` — accepted values and drift bounds come from the contract.
 - `ai/patterns/dimensional-model.md` — the grain the structural floor asserts against.

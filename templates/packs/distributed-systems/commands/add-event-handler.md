@@ -12,7 +12,7 @@ Existing event handlers are the truth. Mirror sibling handler shape exactly: sub
 
 ## Mechanical halt
 
-Sibling-shape parity — refuse to generate a handler that diverges from sibling conventions without an ADR cite in the PR. If the service has zero existing handlers, halt and ask which pattern to seed from (or require `ai/patterns/event-handlers.md` to define one). The handler MUST include all five standard parts (subscription, idempotency check, validation, effect, ack/DLQ); missing any one halts generation.
+Sibling-shape parity — refuse to generate a handler that diverges from sibling conventions without an ADR cite in the PR. If the service has zero existing handlers, halt and ask which pattern to seed from. Note the escape that is NOT available: `ai/patterns/event-handlers.md` is written by this command's own Phase 5, so on the first handler it cannot exist yet — seed from a sibling *service*'s handler, an ADR, or an explicit user decision, and let Phase 5 create the inventory that unblocks every handler after this one. The handler MUST include all five standard parts (subscription, idempotency check, validation, effect, ack/DLQ); missing any one halts generation.
 
 ## Phases applied
 

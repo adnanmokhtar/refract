@@ -68,6 +68,8 @@ Dispatch `system-architect` with the assembled brief (now including the capacity
 
 Then dispatch `resilience-reviewer` (timeouts, retries, circuit breakers, bulkheads, fallbacks).
 
+**Conditional:** if the architect's data-ownership table marks any aggregate as event-sourced, or the scope gate promoted on an event-sourcing risk, dispatch `@event-sourcing-architect` on those aggregates before the ADRs are written — the event envelope, the concurrency key, the snapshot decision and the GDPR strategy are all one-way doors once the first event is stored, and an ADR written without them will be re-opened. If no aggregate is event-sourced, skip it; do not run it to produce a "not applicable" section.
+
 Author 1-3 ADRs capturing non-obvious choices (each one decision).
 
 Phased rollout plan: which service ships first, behind which flag, with what dual-write/dual-read pattern.
@@ -121,6 +123,7 @@ Rollout phases:
 - `@system-architect` — qualitative boundaries, ownership, consistency, failure modes.
 - `@capacity-planner` — quantitative estimation, bottleneck ledger, scaling axis, migration-at-scale.
 - `@resilience-reviewer` — failure-path audit.
+- `@event-sourcing-architect` — conditional; event envelope, concurrency key, snapshot cadence and GDPR strategy for any event-sourced aggregate.
 
 ### Patterns
 - `ai/patterns/backpressure.md`

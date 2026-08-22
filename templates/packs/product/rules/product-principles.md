@@ -4,7 +4,7 @@ description: Product Principles
 kind: rule
 pack: product
 severity: must
-applies-to: product-track, every-code-writing-task-in-product
+applies-to: product-track, every-brief-requirement-or-success-definition-written
 ---
 
 # Product Principles
@@ -55,20 +55,6 @@ Prevents the most expensive failure in software — building the wrong thing cor
 - Present scope with its "won't" half — it is the half that prevents the argument recurring.
 - Reuse an existing metric definition rather than creating a second one; two definitions produce two answers and a dispute.
 - Check the reversal set at scope time, where it is cheapest, rather than at launch, where it is most expensive.
-
-## Review checklist
-
-- [ ] The problem statement names no mechanism.
-- [ ] Every claim is cited or labelled an assumption.
-- [ ] Every count has a denominator; every quote has a locator.
-- [ ] Every acceptance criterion has a named refuting observation.
-- [ ] Numeric criteria carry unit, percentile, measurement point, and load condition.
-- [ ] The coverage grid has no unspecified cell that is not explicitly out of scope.
-- [ ] Success metric and counter-metric both named and both instrumented.
-- [ ] The rollback threshold was set before the result was known.
-- [ ] Kill criteria carry a date and a named owner.
-- [ ] Every deferral has a revisit trigger.
-- [ ] Anything created or shared has its reversal in scope, or a stated gap.
 
 ## Enforcement
 

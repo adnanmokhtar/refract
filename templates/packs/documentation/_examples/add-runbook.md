@@ -42,13 +42,19 @@ Ask (consolidated): **Trigger** (what event causes someone to use this?), **Prer
 
 ## Phase 2 — Organize
 
-```
-1. UNDERSTAND     — gather inputs above
-2. READ-SIBLINGS  — read 1-2 existing runbooks for shape consistency
-3. DRAFT          — author the runbook with the standard sections
-4. VERIFY         — link to ADR / feature, confirm prerequisites are real
-5. WRITE          — land at ai/runbooks/<name>.md
-```
+Map the work onto the house phases — this command does NOT renumber them. (An earlier version
+listed its own `1. UNDERSTAND … 5. WRITE` pipeline, which read as a competing phase scheme and made
+"step 4" ambiguous between this command's step and the framework's Phase 4.)
+
+| House phase | What it does here |
+|---|---|
+| Phase 1 Understand | gather trigger / prerequisites / owner / frequency (above) |
+| **Phase 2 Organize** | read 1-2 existing runbooks in `ai/runbooks/` and lock their shape — section list, ordering, front-matter fields. A new runbook is a sibling, not a new template. Decide the `--type=` and therefore which sections apply. |
+| Phase 3 Retrieve | siblings, related ADRs, `ai/_decision-index.md` |
+| Phase 4 Generate | author the runbook from the template below |
+| Phase 5 Update | land `ai/runbooks/<name>.md`; append the ADR link to the index |
+| Phase 6 Validate | verify-after-each present, rollback present, prerequisites concrete, links resolve, commands resolve, drill status marked |
+| Phase 7 Improve | template/automation/drill-cadence signals |
 
 ## Phase 3 — Retrieve
 

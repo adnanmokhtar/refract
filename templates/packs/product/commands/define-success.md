@@ -17,7 +17,7 @@ Turn "we think this will help" into two numbers, a threshold, a date, and an own
 
 ## Phases applied
 
-1-3 + 4 + 5 + 6.
+1-3 + 4 + 5 + 6 + 7 (the handoff to the pre-launch gate).
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -96,6 +96,20 @@ counter   | 30-day retention        | 61% ± 1.4           | rollback below 58% 
 guardrail | support tickets / 1k    | 4.2 ± 0.8           | must stay < 6      | needs derivation| <name>    | yes
 ```
 
+## Phase 7 — Hand the ledger to the gate that checks it is live
+
+This command's output is a *definition*; nothing here proves it will still be true on launch day. That
+proof is `launch-readiness`, and it is the step most often skipped because nothing schedules it.
+
+- **Dispatch `launch-readiness` before the change is enabled for real users** — by deploy, by flag, or
+  by a rollout percentage increase past the point where rollback stops being cheap. Not now: it verifies
+  the metrics are *arriving*, and at the moment this command runs the events may not exist yet.
+- Record the scheduled run alongside the review date in `ai/product/success/<slug>.md`, so it is a
+  calendar entry rather than an intention. A gate nobody schedules is a gate that runs after launch,
+  where a `NOT READY` verdict is unactionable.
+- Where any instrumentation gap was marked `blocks launch: yes`, that gap and this dispatch are the
+  same piece of work — the gate cannot pass until the gap closes, so closing it is what unblocks both.
+
 ## Output format
 
 ```
@@ -113,6 +127,7 @@ Decision rule: if <success metric> reaches <target> and <counter-metric> stays a
                If neither, <iterate | stop> — decided by <owner> on <review date>.
 
 Instrumentation gaps blocking launch: <n> (each with owner and date)
+launch-readiness scheduled: <date / trigger>   (verifies this ledger is live before enable)
 
 Status: <see gate below>
 ```
@@ -133,6 +148,7 @@ This gate is **[self-policed]** on the Status line; the baseline queries and the
 - **Re-run the baseline query in this session.** Do not trust a prior figure.
 - **Never define a metric that already has a definition.** Reuse it or the two answers will be disputed.
 - **A target inside the metric's natural variance is not a target.** Say so.
+- **The `launch-readiness` run is scheduled here, not assumed.** A definition nobody re-checks on launch day is a definition, not a gate.
 
 ## Failure modes
 
@@ -143,12 +159,13 @@ This gate is **[self-policed]** on the Status line; the baseline queries and the
 - Instrumentation deferred to "right after launch" and never done.
 - A window too short for the effect to clear noise, producing a confident null result.
 - A decision rule with no review date, so the change is neither kept nor rolled back — it is simply forgotten.
+- A complete, well-formed success definition that nobody re-checked before enabling — the events were implemented, never verified end-to-end, and launch day is when that is discovered.
 
 ## Related
 
 - `@product-strategist` — declares the metric pair in the brief; this command instruments it.
 - `@requirements-reviewer` — blocks specs whose success definition is incomplete.
-- `launch-readiness` — the pre-launch gate that checks this ledger is live.
+- `launch-readiness` — dispatched at Phase 7, before the change is enabled; checks this ledger is live rather than merely defined.
 - `/frame-problem` — supplies the brief.
 - `/suggest-metrics` (business pack) — the broader question of which metrics a domain should carry.
 - `/add-telemetry` (observability pack) — implements the instrumentation gaps.

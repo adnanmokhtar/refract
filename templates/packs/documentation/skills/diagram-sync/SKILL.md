@@ -98,7 +98,8 @@ Closure verb: **regenerate-and-embed** when the graph is authoritative and the f
 
 ## Halt conditions
 
-- Refuse to render without a current `ai/optimize/_dep-graph.json`. No graph, no diagram — request an `architectural-diagnosis` run; do not rebuild the import graph here (that is the boundary).
+- Refuse to **render** without a current `ai/optimize/_dep-graph.json`. No graph, no new diagram — request an `architectural-diagnosis` run; do not rebuild the import graph here (that is the boundary).
+- **Without the graph, do the half that needs no graph, then stop.** A committed diagram can still be checked for `DIAGRAM-DRIFT (stale node)` by resolving each box's `<path>` against the filesystem — that is an existence check, not a graph rebuild, and it catches the highest-value finding (a box naming a module deleted three months ago). Report those, then mark the remaining axes `UNVERIFIED (no _dep-graph.json — run code-quality's architectural-diagnosis)` and name what they would settle: missing nodes, edge accuracy, level correctness. Halting with nothing when a dead box is visible on the first pass is a worse answer than a partial one that says which half it did.
 - Refuse any DRIFT claim without the paired citation: the diagram element **and** the contradicting graph fact (`<path>` / `<path:line>` / deletion commit).
 - Do not hand-draw or "improve" a diagram beyond what the graph supports — a box with no module and no external-system label is forbidden.
 - Halt on `LEVEL-MISMATCH` rather than auto-mixing altitudes: surface it and let the author choose the split.

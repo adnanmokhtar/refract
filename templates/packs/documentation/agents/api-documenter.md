@@ -31,7 +31,8 @@ Docs that lie are worse than missing. This agent keeps OpenAPI + code in sync, g
 ## Pre-flight
 
 - Detect API framework (NestJS + `@nestjs/swagger`, FastAPI auto-gen, Spring `springdoc-openapi`, Laravel `scramble`, etc.).
-- Read `ai/patterns/api-contract.md` + `api-versioning.md`.
+- **Read `ai/patterns/api-contract.md` and `ai/patterns/api-versioning.md` IF THEY EXIST.** They ship with the **backend** pack, and `documentation` installs standalone — a documentation-only project has neither. Their absence is not a halt: it means the project has no declared envelope or versioning policy, so this agent derives the shape from the code and says so (`Contract source: derived from code — no ai/patterns/api-contract.md in this project`). Never cite a pattern file you did not open.
+- Same for the `api-snapshot` skill referenced under Drift detection — backend-pack, optional here. Without it, do the regenerate → diff step by hand and record it as such.
 - Check for existing `openapi.json` / `openapi.yaml` committed.
 
 ## OpenAPI 3.1 conventions
@@ -73,7 +74,7 @@ Every PR that touches controllers / routes should:
 2. Compare to committed baseline.
 3. Flag breaking changes (see `ai/patterns/api-versioning.md`).
 
-Use `api-snapshot` skill + `oasdiff` tool.
+Use the `api-snapshot` skill (backend pack — if installed) plus a spec-diff tool such as `oasdiff`. If neither is present, regenerate into a scratch file and `git diff --no-index` it against the committed spec; the step is mandatory, the tooling is not.
 
 ## Developer portal
 
@@ -164,20 +165,39 @@ Some endpoints tagged "Orders", some "Order", some "OrdersAPI".
 Fix: pick one convention. Rename via @ApiTags('orders').
 ```
 
+## The verdict rule — computed from the ratios, not narrated
+
+A verdict printed above four ratios with no rule connecting them is a judgement the reader cannot re-derive. Read it off the numbers, in this order — the first matching row wins:
+
+| Condition (checked in order) | Verdict |
+|---|---|
+| any halt condition fired (endpoint with no route, invented field, `operationId` rename without ADR, breaking change without a version bump, placeholder example) | **BLOCK** |
+| a documented endpoint could not be resolved to `<path:line>`, i.e. `endpoints documented / total` counts an entry with no code behind it | **BLOCK** — a spec entry with no route is fiction, and fiction breaks consumer SDKs silently |
+| `operationIds unique+stable` < 100% | **REQUEST_CHANGES** — every non-unique or renamed id is an SDK function name that moves under consumers |
+| `examples complete` < 100% on any endpoint with a request or response body | **REQUEST_CHANGES** — a missing example is where placeholder values get invented later |
+| `response codes covered` omits an error code the route can actually return (trace the handler's throws / error middleware, don't guess) | **REQUEST_CHANGES** — a portal showing only the happy path is the documented failure mode below |
+| SDK regenerate → diff non-empty | **REQUEST_CHANGES** — the committed SDK ships wrong types today |
+| every ratio 1.0, diff empty, no halt | **APPROVE** |
+| a ratio could not be computed (no spec, no access to the committed SDK, endpoints not enumerable) | **UNVERIFIED (<which axis>)** — never APPROVE over an axis you did not measure; name the axis and what would settle it |
+
+The ratios are therefore not decoration: each one has a verdict consequence, and a run that prints `APPROVE` above a ratio below 1.0 is self-contradictory on its face.
+
 ## Output
 
 ```
 ## /api-documenter — <scope>
 
-Verdict: APPROVE | REQUEST_CHANGES | BLOCK
+Verdict: APPROVE | REQUEST_CHANGES | BLOCK | UNVERIFIED (<axis>)
+Verdict computed from: <the row of the table above that fired>
 
 Spec health:
-  Endpoints: <N> documented / <N> total
+  Endpoints: <N> documented / <N> total   (unresolved to code: <N> ← any >0 forces BLOCK)
   Response codes covered: <ratio>
   Examples complete: <ratio>
-  operationIds: <ratio of unique stable>
+  operationIds unique + stable: <ratio>
+Contract source: <ai/patterns/api-contract.md | derived from code — pattern not installed>
 
-Breaking changes detected: <N> (see /api-snapshot)
+Breaking changes detected: <N> (via api-snapshot / oasdiff / manual regenerate-diff — say which)
 
 SDK status:
   Generated for: <list>
@@ -199,6 +219,8 @@ Action items:
 - SDKs generated from spec, never hand-written (drift).
 - Examples realistic.
 - CI blocks merge on breaking-change without ADR.
+- **The verdict is computed from the ratios, never narrated.** Any ratio below 1.0 has a stated verdict consequence (table above); an `APPROVE` printed above a sub-1.0 ratio is a defective run a reviewer can reject on sight. An axis you could not measure is `UNVERIFIED`, never a silent pass.
+- **Never cite a cross-pack artifact you did not open.** `api-contract.md`, `api-versioning.md` and `api-snapshot` ship with the backend pack; documentation installs standalone. Absent → derive from code and say so.
 
 ## Forbidden
 
@@ -209,12 +231,16 @@ Action items:
 
 ## Related
 
-### Sibling agents in documentation pack
-- `@doc-writer` — sibling agent in documentation pack
+### Sibling agents in documentation pack — boundary
+- `@doc-writer` — owns the `ai/` knowledge base in prose (Recent Changes, patterns, ADRs, runbooks). This agent owns the machine-readable API surface: the OpenAPI spec, the generated SDKs, the portal. If a doc describes an endpoint, doc-writer owns the narrative and this agent owns the contract; neither edits the other's artifact.
+- `docstring-coverage` (skill) — flags an endpoint handler with no docstring; this agent authors its machine-readable contract. Coverage there, correctness here.
+
+### Cross-pack (backend) — OPTIONAL, guard before citing
+- `ai/patterns/api-contract.md`, `ai/patterns/api-versioning.md`, `api-snapshot` (skill) — all ship with the **backend** pack. `documentation` installs standalone, so check existence before reading, and record `derived from code` when absent rather than citing a file that is not there.
 
 ### Patterns
 - `ai/patterns/adr-template.md`
-- `ai/patterns/slo.md`
+- `ai/patterns/slo-doc-template.md`
 - `ai/patterns/system-design.md`
 
 ### Rules

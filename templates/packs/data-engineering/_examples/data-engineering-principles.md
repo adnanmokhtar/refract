@@ -11,7 +11,7 @@ pack: data-engineering
 
 ## Must
 
-- Declare the grain in words; prove it with a duplicate-key probe against the built table. A primary-key declaration is not proof — most analytical platforms do not enforce it.
+- Declare the grain in words; prove it with a duplicate-key probe against the built table **in the current change**, before the model is consumed or aggregated over — a probe that passed months ago describes a table that no longer exists. A primary-key declaration is not proof; most analytical platforms do not enforce it.
 - Classify every measure additive / semi-additive / non-additive next to the column; store ratios as numerator and denominator.
 - Respect layer direction: staging reads sources only, intermediate reads staging, marts read intermediate. Nothing past staging reads a raw source.
 - Reference upstream through the framework's reference function — a hardcoded table name is invisible to the dependency graph.
@@ -24,11 +24,10 @@ pack: data-engineering
 
 ## Must not
 
-- Aggregate over an unprobed grain, or join without a proven cardinality.
+- Join a fact to a dimension without a proven cardinality. Every unproven join is a fan-out waiting to be discovered by finance.
 - Ship `SELECT *` outside a dated staging passthrough.
 - Update a dimension row in place when facts reference it as-of an earlier date.
 - Let two models define the same business metric.
-- Overwrite a live table during a backfill, or run one concurrently with the normal schedule.
 - Set retries on a task whose write is not proven idempotent.
 - Configure a downstream task to run regardless of upstream state.
 - Filter an incremental model on load time, or on the high-water mark with no lookback.
@@ -42,17 +41,6 @@ pack: data-engineering
 - Partition on the column queries filter (usually event date, not load date).
 - Keep an unknown member in every dimension so facts never vanish on an inner join.
 - Route data assertions through the observability pack's existing alert and runbook conventions.
-
-## Review checklist
-
-- [ ] Grain declared and probed in this change.
-- [ ] Additivity recorded; no semi-additive measure summed across time.
-- [ ] Layer direction respected; no hardcoded references introduced.
-- [ ] Incremental: key, predicate, lookback, full-refresh trigger all present.
-- [ ] Assertions in the same commit and executed at least once.
-- [ ] Freshness and volume monitors exist for anything scheduled.
-- [ ] Money- or count-bearing: a reconciliation check exists.
-- [ ] Backfill: shadow target, bounded range, before-snapshot, rollback window.
 
 ## Enforcement
 

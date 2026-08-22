@@ -86,6 +86,17 @@ Allocation exists so an owner can act. A showback report going to a distribution
 
 Track whether anyone acted on the last report. If nobody did for two cycles, the report is not the problem — the ownership model is.
 
+## Showback and chargeback are not the same rigour
+
+They are frequently used interchangeably and they impose different standards, which is why the switch from one to the other goes badly.
+
+- **Showback** informs. A number that is 85% attributed and 15% unallocated is useful: the owner can see their trend and act on it, and the error bar is an acceptable cost of shipping the report at all.
+- **Chargeback** moves money between budgets. The same 15% now has to land somewhere by a written rule, the shared-cost basis becomes a contested figure rather than an analytical convenience, and every `ASSERTED` basis becomes a line someone will dispute in a finance review.
+
+The rule that follows: **do not promote a showback report to chargeback without first re-deriving the untaggable bucket and the shared-cost basis as defensible allocations.** The four categories above are what makes that possible — a chargeback built on a coverage figure computed by resource count rather than by dollar will be wrong in exactly the direction that is hardest to argue with, because the biggest resources are the untagged ones.
+
+Chargeback additionally needs two things showback does not: a **dispute path** (who arbitrates when an owner rejects a charge, and on what evidence) and a **restatement rule** (what happens to last quarter's charge when a tag error is found — corrected, or accepted and documented). Neither is optional; without them the first disputed invoice becomes a standing argument, and the usual outcome is that chargeback is quietly abandoned and the tagging programme loses its sponsor.
+
 ## Detectors
 
 - A coverage figure reported as a resource percentage with no dollar figure.
@@ -95,6 +106,7 @@ Track whether anyone acted on the last report. If nobody did for two cycles, the
 - A shared pool with no written basis, or a basis with no computed metric and no `ASSERTED` label.
 - The untaggable bucket treated as a rounding error when it is a tenth of the bill.
 - A showback report with no recorded action for two consecutive cycles.
+- A chargeback programme running on a shared-cost basis labelled `ASSERTED`, or with no dispute path and no restatement rule.
 
 ## Related
 

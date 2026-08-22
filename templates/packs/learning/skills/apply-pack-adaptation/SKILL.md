@@ -61,8 +61,8 @@ The skill reads (must exist before invocation):
 | `.claude/_phase-4-6-decisions.md` (current run) | Phase 4.6-DEEP just completed in this REFINE run | Source of "affected artifact list" for ADAPTER-SYNC mode (rows with action `ANCHOR-DEEP` or `NEW-FILE`). | **ADAPTER-SYNC mode** |
 | `.claude/_phase-4-7-decisions.md` (current run) | Phase 4.7-DEEP just completed in this REFINE run | Affected `ai/*.md` files for ADAPTER-SYNC mode. | **ADAPTER-SYNC mode** |
 | `.claude/codebase-profile.md` § Adapters | Phase 3.2 selection | List of selected non-claude-code adapters for ADAPTER-SYNC to iterate. | **ADAPTER-SYNC mode** |
-| `templates/tool-adapters/<adapter>/_translate.md` | Tool-adapter pack | Per-adapter translation rules — how a `.claude/<kind>/<name>.md` becomes the adapter's output format (the same logic regular Phase 4.8 uses, scoped to ONE artifact at a time). When this file is absent, the skill falls back to Phase 4.8.0's per-adapter contract table in `commands/setup-project.md` (the canonical source). | optional in ADAPTER-SYNC mode (fallback to Phase 4.8.0 contract) |
-| `templates/tool-adapters/<adapter>/_user-customization.md` | Tool-adapter pack | Per-adapter customization surface — declares which adapter files are wholly auto-generated (re-write freely) vs which have user-customizable sections (use `<!-- generated:start/end -->` markers + hash-check). When this file is absent, the skill defaults to **"wholly auto-generated, no markers, full overwrite is safe"** for every adapter output (consistent with how regular Phase 4.8 currently writes). | optional in ADAPTER-SYNC mode (fallback to wholly-auto-generated default) |
+| `templates/tool-adapters/<adapter>/adapter.md` | Tool-adapter pack | **The canonical per-adapter translation contract** — Target files / File formats / Idempotency / Full artifact translation. Same logic regular Phase 4.8 uses, scoped to ONE artifact at a time. (`_translate.md` is a `[PLANNED]` richer sidecar per `_registry.md`; it ships for zero adapters today, so `adapter.md` is not a fallback, it is the path taken.) | **required** in ADAPTER-SYNC mode |
+| `templates/tool-adapters/<adapter>/_user-customization.md` | Tool-adapter pack | Would declare which adapter files are wholly auto-generated vs which have user-customizable `<!-- generated:start/end -->` sections. **`[PLANNED]`; ships for zero adapters**, so the default below is what actually runs: *wholly auto-generated, no markers, full overwrite is safe* — consistent with how regular Phase 4.8 writes today. Treat the marker/hash-check branch as dormant until the file exists. | never present today (default applies) |
 
 ## `<TBD: …>` substitution contract (Phase 4.6-DEEP)
 
@@ -331,27 +331,34 @@ For each `(adapter, output-file)` tuple receiving RE-TRANSLATED or INDEX-REFRESH
 4. **Write atomically**: hash bytes outside markers (or hash empty if file is wholly auto-generated), perform the rewrite, hash again. Mismatch on a markered file → `ROLLBACK-MARKER-DRIFT`. Wholly-auto-generated file → no hash check (the whole file is the generated payload).
 5. **Record** the decision row in `_phase-4-8-decisions.md` (separate from `_phase-4-6-decisions.md` — different scope, different audit).
 
-**Per-adapter translation cheatsheet** (the cases ADAPTER-SYNC handles most often):
+**Per-adapter destinations are NOT restated here — read them from the adapter.** Each adapter's
+`templates/tool-adapters/<adapter>/adapter.md` is the canonical translation contract (four mandatory
+sections: Target files / File formats / Idempotency / Full artifact translation), it is what regular
+Phase 4.8 consumes, and `test-adapter-fixtures.sh` gates it. This skill feeds that same contract one
+artifact at a time; it does not own a second copy of the paths.
 
-| Source change | Target adapter | RE-TRANSLATED outputs |
-|---|---|---|
-| `.claude/rules/database.md` ANCHOR-DEEP'd | `cursor` | `.cursor/rules/<NN>-database.mdc` body re-rendered from new `.claude/rules/database.md` body. |
-| `.claude/rules/database.md` ANCHOR-DEEP'd | `aider` | `CONVENTIONS.md` § "Database conventions" re-rendered (top 6-10 must/must-not from updated `ai/_convention-cheatsheet.md`). |
-| `.claude/rules/database.md` ANCHOR-DEEP'd | `cline` / `windsurf` / `continue` / `copilot` | Per-adapter rule file (`.clinerules/<NN>-database.md`, `.windsurf/rules/<NN>-database.md`, `.continue/rules/database.md`, `.github/instructions/database.instructions.md`) re-rendered. |
-| `.claude/commands/db-migration.md` NEW-FILE | `opencode` | `.opencode/commands/db-migration.md` written (NATIVE folder); optional `opencode.json` `commands` mirror also regenerated when `--legacy-opencode` is set. |
-| `.claude/commands/db-migration.md` NEW-FILE | `cursor` | `.cursor/commands/db-migration.md` created (NATIVE folder, ≥ Cursor 2.3); plus `.cursor/rules/00-project.mdc` cross-refs section regenerated (INDEX-REFRESHED). |
-| `.claude/commands/db-migration.md` NEW-FILE | `cline` | `.clinerules/workflows/db-migration.md` created (NATIVE workflow folder = slash command). |
-| `.claude/commands/db-migration.md` NEW-FILE | `windsurf` | `.windsurf/workflows/db-migration.md` created (NATIVE Cascade workflow). |
-| `.claude/commands/db-migration.md` NEW-FILE | `continue` | `.continue/prompts/db-migration.md` created with `invokable: true` (NATIVE prompts folder). |
-| `.claude/commands/db-migration.md` NEW-FILE | `copilot` | `.github/prompts/db-migration.prompt.md` created (NATIVE). |
-| `.claude/agents/backend-reviewer.md` NEW-FILE | `opencode` | `.opencode/agents/backend-reviewer.md` (NATIVE folder); AGENTS.md `## Named personas` index updated. |
-| `.claude/agents/backend-reviewer.md` NEW-FILE | `copilot` | `.github/agents/backend-reviewer.agent.md` (NATIVE Apr 2026 GA folder). |
-| `.claude/agents/backend-reviewer.md` NEW-FILE | `cursor` | `.cursor/commands/agent-backend-reviewer.md` (translated as command — Cursor has no agent dispatch). |
-| `.claude/skills/module-scaffold/` NEW-FILE | `cursor` / `opencode` / `copilot` | `.cursor/skills/module-scaffold/SKILL.md` / `.opencode/skills/module-scaffold/SKILL.md` / `.github/skills/module-scaffold/SKILL.md` (NATIVE folder copies — including any supporting scripts). |
-| `.claude/hooks/post-edit-check.sh` NEW-FILE | `cursor` | `.cursor/hooks.json` `afterToolCall` array updated; `.cursor/hooks/post-edit-check.sh` copied verbatim (NATIVE Cursor 2.3+ hooks). |
-| `ai/architecture.md` markered-change | `aider` | `.aider.conf.yml` `read:` list refreshed if architecture is in the list (INDEX-REFRESHED); `CONVENTIONS.md` not touched (architecture isn't embedded there). |
-| `ai/architecture.md` markered-change | `codex` | `AGENTS.md` § "Architecture" re-rendered (RE-TRANSLATED). |
-| `ai/failures/auth-bypass.md` NEW-FILE | every adapter that mentions failures | Most adapters cross-reference `ai/failures/` rather than embed it — `.aider.conf.yml` `read:` list refreshed (INDEX-REFRESHED) for adapters that read it; `AGENTS.md` § "Driver-dependent safety" cross-ref refreshed for `codex`. |
+The eighteen-row cheatsheet that used to sit here had already gone stale exactly as duplicated
+tables do: it named `.cursor/commands/<name>.md` as the native NEW-FILE target after
+`templates/tool-adapters/cursor/adapter.md § Commands` moved the primary surface to
+`.cursor/skills/<name>/SKILL.md`. Nothing failed — the sync just wrote to the deprecating surface.
+
+What IS this skill's own, and stays here because no adapter file states it:
+
+| Case | Decision |
+|---|---|
+| Adapter is `claude-code` | `NO-OP-ADAPTER`, always. REFINE wrote `.claude/` directly; there is nothing to translate to. |
+| Adapter is `gemini` in thin-pointer-to-`AGENTS.md` mode | `NO-OP-ADAPTER` — the pointer file has no artifact-shaped content to re-render. |
+| Affected list contains ≥1 `NEW-FILE` row | `INDEX-REFRESHED` on that adapter's index output (`AGENTS.md` invokable-commands block, `.cursor/rules/00-project.mdc` cross-refs, `opencode.json` `commands`, `.aider.conf.yml` `read:`). A rename or a new artifact changes the index; an in-place body rewrite does not. |
+| Affected list yields zero work for an adapter | `SKIPPED-NO-CHANGES` — record the row; a silent skip is indistinguishable from a crash. |
+| Output couples blocks that cannot be partially rewritten (e.g. `opencode.json` schema) | `NEEDS-FULL-PHASE-4.8`, below. |
+
+> **Two input files this skill names are `[PLANNED]`, not shipped.**
+> `templates/tool-adapters/<adapter>/_translate.md` and `_user-customization.md` do not exist for any
+> of the twelve adapters (`templates/tool-adapters/_registry.md` and `README.md` both record them as
+> planned sidecars). Every reference to them in `## Inputs` and in ACT below is therefore **always**
+> on its declared fallback path: translation rules come from `<adapter>/adapter.md`, and the
+> customization surface defaults to "wholly auto-generated, full overwrite is safe". Written this way
+> the fallback is the behaviour, not an exception — which is the honest description of what runs today.
 
 #### NEEDS-FULL-PHASE-4.8 — defer to full adapter regen
 

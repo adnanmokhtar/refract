@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "business",
-  "version": "1.6.0",
-  "released": "2026-07-11",
+  "version": "1.7.0",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "New /suggest-features — audits the product against its domain feature-checklist and writes analyze-task-ready candidates to ai/business/feature-recommendations.md.",
+  "summary": "Greenfield repair: all 3 gate-bearing fallbacks had dropped their gate and 2 commands stubbed to empty headings; the 2 unreachable agents are now dispatched; rule -31%.",
   "changelog": "CHANGELOG.md"
 }

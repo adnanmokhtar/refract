@@ -15,7 +15,7 @@ Every criterion in scope gets a row. There is no sampling: an unchecked criterio
 
 - **No acceptance criteria exist** — the spec has prose but nothing testable. That is the finding; report it and stop rather than inventing criteria, because invented criteria become the contract.
 - **The actor is unstated** across the criteria set — "the system shall" hides who, and the answer changes what is being tested.
-- **Existing behaviour undocumented** for criteria that modify an existing surface — "changed to X" cannot be tested without knowing what it changed from.
+- **The surface cannot be located** for criteria that modify an existing surface. "Changed to X" cannot be tested without knowing what it changed from — but where the repository is readable, that is something to **go and read**, not to halt on: find the surface, record today's behaviour at `<file:line>`, and test the criteria against it. The criterion's failure to state the prior behaviour stays a finding (it is unbounded as written). The halt is for the case where neither the criteria nor the codebase identifies what X is, because then the criterion has no referent.
 - **Criteria reference an external standard** that is not reachable — record them as `DEFERRED — standard not available`, not as passing.
 
 ## When to run
@@ -26,6 +26,10 @@ Every criterion in scope gets a row. There is no sampling: an unchecked criterio
 - On a backlog being inherited, to size the requirement debt.
 
 ## Procedure
+
+### 0. Establish the prior behaviour (for criteria that modify an existing surface)
+
+Locate the surface and record what it does today, cited at `<file:line>` — the states, the errors already returned, the limits already enforced. This is not scope creep into implementation review; it is what makes the boundedness test in step 2 decidable. "Loads faster than before" has no bound in prose and acquires one the moment "before" is a measurable value, and the same is true of every criterion phrased as a delta. Record `NOT APPLICABLE — new surface` where the surface does not exist yet; the rest of the procedure is unchanged.
 
 ### 1. Enumerate
 

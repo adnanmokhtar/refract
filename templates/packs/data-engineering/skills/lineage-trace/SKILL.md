@@ -39,6 +39,8 @@ Use the transformation framework's own dependency graph, built from its referenc
 
 If any model reaches another by hardcoded table name, that edge is invisible to the graph. Grep for the physical table name across the repo to find them, and list every hardcoded reference found — each is both a lineage gap and a finding for `@analytics-engineer`.
 
+**Name each node the way its own system names it** — the model's path as the framework refers to it, the dashboard by its title *and* its id, the export by its job name. A lineage report that renames things into house vocabulary cannot be acted on: the person who has to repoint a consumer searches for the string their tool shows them.
+
 ### 3. Cross the repo boundary — the part that is usually skipped
 
 The graph stops at the warehouse. The consumers do not. Enumerate, per destination, and mark each `traced` or `NOT TRACED`:

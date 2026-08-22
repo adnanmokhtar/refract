@@ -86,11 +86,23 @@ ADR-specific:
 - `ai/dynamic/decisions-pending.md` — remove entry if this ADR resolves a queued decision.
 
 ## Phase 6 — Validate
-- Numbering: file is uniquely numbered; no collision with sibling branches.
-- Both options listed have real pros/cons (no straw-man alternative).
-- Consequences section has at least one negative bullet.
-- Cross-link: superseded ADR (if any) points back to the new one.
-- `ai/_decision-index.md` contains a row for the new ADR (or knowledge-curator regeneration was triggered) — the index is not allowed to lag the ADR file.
+
+Each check is mechanical and its failure has a named terminal state — this command does not get to narrate "done".
+
+| # | Check (run it) | Failing means |
+|---|---|---|
+| 1 | `ls ai/decisions/` — the new number appears exactly once | numbering collision (parallel branch) |
+| 2 | ≥ 2 alternatives, each with a concrete reject reason tied to the cited Context | straw-man alternative → not a decision record |
+| 3 | `Consequences` contains ≥ 1 negative bullet | all-positive = incomplete analysis; future-you re-litigates |
+| 4 | If superseding: `grep 'Superseded by NNNN' ai/decisions/MMMM-*.md` resolves, AND the new ADR names `Supersedes MMMM` | **dangling supersession** — a one-way link is how the canon forks |
+| 5 | `grep '^| NNNN ' ai/_decision-index.md` returns the new row (or knowledge-curator regeneration was triggered and its output verified) | the Tier-2 index lags the ADR; `/add-runbook` reads this index and will miss the decision |
+| 6 | If `Status: Accepted`: the implementing file or commit is cited | promote-without-impl (the pattern's own halt) |
+
+### Terminal verdict — computed from the checks above
+
+- `Status: COMPLETE` — every check passes. The output line names the number, the sibling ADRs read, and the index row written.
+- `Status: INCOMPLETE — <what is unmet>` — the honest state whenever check 4, 5 or 6 fails: a supersession link that only points one way, an index row that was not written (or a knowledge-curator regeneration that was triggered but not confirmed), or a `Status: Accepted` with no implementing commit. **The ADR file still ships** — an ADR on disk beats a decision in a Slack thread — but the run is labelled and names what would close it. Reporting `INCOMPLETE` here is a success of this command; `COMPLETE` printed over a dangling supersession is the failure it exists to prevent, because the next reader follows a link into nothing.
+- `Status: HALT — no sibling ADRs` — the pre-Phase-4 halt already covers this: shape is confirmed with the user, never invented from training data.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture decision + alternatives + tradeoffs as a teachable moment.
@@ -104,10 +116,18 @@ Phase 1 (Understand): real choice confirmed (alternative was X)
 Phase 3 (Retrieved): N prior ADRs scanned for overlap
 Phase 4 (Generated): ai/decisions/NNNN-<slug>.md (Status: Proposed)
 Phase 5 (Updated): ai/status.md Recent Changes; ai/_decision-index.md row appended (or knowledge-curator regen triggered); ai/decisions/MMMM superseded
-Phase 6 (Validated): unique number, both alternatives substantive, negative consequences listed, decision-index current
+Phase 6 (Validated): 1 number unique · 2 alternatives substantive · 3 negative consequence present ·
+   4 supersession links both ways · 5 index row written · 6 impl cited (Accepted only)
 Phase 7 (Improved): captured to /learn-from-task
 
-Status: COMPLETE
+Status: COMPLETE | INCOMPLETE — <unmet check + what closes it>
+```
+
+Example of the honest form:
+```
+Status: INCOMPLETE — check 4 open: this ADR names `Supersedes 0031`, but
+   ai/decisions/0031-single-region-writes.md still reads `Status: Accepted`.
+   To close: set it to `Status: Superseded by 0042` with a link, then re-run check 4.
 ```
 
 ## Failure modes
@@ -116,6 +136,8 @@ Status: COMPLETE
 - "Status: Proposed" left dangling for weeks → noise. Push user to triage in next review cycle.
 - ADRs are immutable once Accepted. Reversal = NEW ADR, never edit-in-place.
 - Numbering collision on simultaneous PRs → use timestamp suffix on branch, finalize at merge.
+- **One-way supersession** — the new ADR says `Supersedes 0031` and 0031 still reads `Accepted`. Two ADRs now claim to be current policy and nothing in either file reveals the conflict. This is check 4, and it is why `COMPLETE` is not this command's only terminal state.
+- **Index written by assumption** — `knowledge-curator` regeneration was triggered and never confirmed, so `ai/_decision-index.md` silently lags. `/add-runbook` reads that index for related-decision lookup and will not find this ADR.
 
 ## Related
 
@@ -124,7 +146,7 @@ Status: COMPLETE
 
 ### Patterns
 - `ai/patterns/adr-template.md`
-- `ai/patterns/slo.md`
+- `ai/patterns/slo-doc-template.md`
 - `ai/patterns/system-design.md`
 
 ### Rules

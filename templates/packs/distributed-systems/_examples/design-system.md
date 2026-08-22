@@ -23,8 +23,8 @@ All 7. Phase 4 = the design doc + ADRs (no code generation here).
 ## Phase 2 — Organize
 
 - Sub-tasks: context diagram, data ownership table, communication matrix, failure-mode matrix, consistency model, SLO contract, ADRs, rollout plan.
-- Sequence: architect first (the design), then resilience-reviewer (the failure modes), then ADR authoring.
-- Pause after architect's draft — user confirms before resilience pass.
+- Sequence: architect first (the boundaries), then capacity-planner (the numbers), then resilience-reviewer (the failure modes), then `event-sourcing-architect` **if** any aggregate is event-sourced, then ADR authoring.
+- Pause after architect's draft — user confirms before the capacity + resilience passes.
 
 ## Phase 3 — Retrieve
 
@@ -66,6 +66,8 @@ Dispatch `system-architect` with the assembled brief. Architect produces:
 - **SLO contract** — composed SLO across new dependencies.
 
 Then dispatch `resilience-reviewer` (timeouts, retries, circuit breakers, bulkheads, fallbacks).
+
+**Conditional:** if the architect's data-ownership table marks any aggregate as event-sourced, or the scope gate promoted on an event-sourcing risk, dispatch `@event-sourcing-architect` on those aggregates **before** the ADRs are written — the event envelope, the concurrency key, the snapshot decision and the GDPR strategy are all one-way doors once the first event is stored, and an ADR written without them will be re-opened. No event-sourced aggregate → skip it; do not run it to produce a "not applicable" section.
 
 Author 1-3 ADRs capturing non-obvious choices (each one decision).
 

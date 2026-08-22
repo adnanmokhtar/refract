@@ -31,7 +31,7 @@ Rationale per category (one line each):
 
 - Sweeping existing resources for idle and over-provisioning — that is `/cost-audit` in the `infrastructure` pack, which this pack deliberately does not duplicate.
 - Latency and throughput optimisation — that is the `performance` pack. The two frequently find the same defect for different reasons; each names the lens that produced the finding.
-- Prompt, model-choice, and token-level spend discipline — that is the `ai-engineering` pack (`ai-cost-discipline`, `ai-cost-tracking`). This pack treats a model call as one more billed dependency.
+- Prompt, model-choice, and token-level spend discipline — the `ai-engineering` pack owns it as AI-3 / `llm-gateway`, and the per-call token-and-cost accounting artifacts (`ai-cost-discipline`, `ai-cost-tracking`) ship from the `ai` **domain overlay**, not from that pack. This pack treats a model call as one more billed dependency; `@cost-reviewer` reports it as unowned when neither is installed.
 - Procurement and vendor negotiation. The pack computes the break-even; it does not run the deal.
 
 ## How this pack relates to others

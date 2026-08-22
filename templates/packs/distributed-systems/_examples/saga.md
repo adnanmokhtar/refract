@@ -62,7 +62,7 @@ class PlaceOrderSaga {
 }
 ```
 
-Saga state persisted at each step (Postgres / dedicated table) so crashes resume correctly.
+Saga state persisted at each step (a saga-state table in the project's DB) so crashes resume correctly.
 
 ## Compensations
 

@@ -153,7 +153,7 @@ one_off_failures:
 ## Quality gate
 
 - **STRONG**: ≥ 2 recurring themes (each with ≥ 2 occurrences) extracted, ≥ 1 with prevention-checklist of ≥ 3 bullets.
-- **MEDIUM**: 1 recurring theme found.
+- **MEDIUM**: 1 recurring theme found. Consumed, not discarded: Phase 4.7-DEEP writes the one `ai/failures/<theme>.md`, and `compute-anchor-density § Step 4` counts `failure-theme` for a block that cites it (STRONG **or** MEDIUM counts; only WEAK is excluded). One theme with diffs read and SHAs cited is real signal — the tier exists to say "thin, not absent", which is a different fact from both neighbours.
 - **WEAK**: 0 recurring themes (codebase too young, history too clean, or the team lands all hotfixes outside main). Output `## No recurring failure themes` finding. Phase 4.7-DEEP will NOT generate `ai/failures/<theme>.md` files in this case.
 
 ## Privacy / safety

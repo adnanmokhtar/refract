@@ -40,7 +40,7 @@ Read the project's harness config for: the dataset path + version, the model/pro
 ## Procedure
 
 1. **Detect + load** — identify the framework (table above); load the **versioned** dataset (record its version/commit) and the configured scorers. Confirm the dataset is checked in, not generated ad-hoc.
-2. **Pin determinism** — set the generation temperature the harness config specifies (usually `0` for scored tasks). For **LLM-as-judge** scorers, pin the judge model + `temperature: 0` + a fixed seed where the provider supports it — an unpinned judge makes the score itself non-reproducible.
+2. **Pin what the provider lets you pin** — apply the generation config the harness specifies (usually `temperature: 0` for scored tasks, where sampling params exist at all). For **LLM-as-judge** scorers, pin the judge **model id** + the judge **prompt** + every sampling parameter the provider exposes; where it exposes none, the model id and prompt *are* the pin and the report says so. An unpinned judge makes the score itself non-reproducible. If the harness config sets a parameter the model no longer accepts, the run fails with a provider error, not a low score — read the error before recording a regression.
 3. **Run each case** through the CURRENT prompt + model + retrieval (the code as it is now, not a cached completion). Never evaluate on the few-shot / training examples baked into the prompt.
 4. **Score** with the configured scorers — assertion (exact / regex / JSON-schema / contains), model-graded / LLM-as-judge (faithfulness, relevance, correctness), and any retrieval metric (recall@k / context-precision) when RAG is in scope.
 5. **Diff vs baseline** — load the stored baseline (last green run / committed `baseline.json`). Compute per-metric delta. A case that dropped from pass→fail, or a metric below its threshold, is a regression.
@@ -73,7 +73,7 @@ Reports: .promptfoo/output-1745492045.json
 
 ## False positives / gotchas
 
-- **LLM-as-judge is non-deterministic.** An unpinned judge model/temperature makes the *score* wobble run-to-run; a "regression" may be judge noise. Pin the judge model + `temperature: 0` + seed, and prefer multiple samples / a rubric over a single free-form judgment before believing a small delta.
+- **LLM-as-judge is non-deterministic.** An unpinned judge makes the *score* wobble run-to-run; a "regression" may be judge noise. Pin the judge model id + prompt + whatever sampling parameters the provider exposes, and prefer multiple samples / a rubric over a single free-form judgment before believing a small delta. Where the provider exposes no sampling parameters, that wobble is irreducible — widen the delta you are willing to call a regression rather than pretending the pin is tighter than it is.
 - **Small eval sets are noisy.** With < ~30 cases, one flipped case swings the aggregate metric a lot; a 1-case regression on a 15-case set is weak signal — widen the set before trusting the trend.
 - **Don't overfit prompts to the eval set.** Tuning the prompt until the eval is green teaches the prompt the test, not the task. Hold out cases, grow the set from real production failures, and treat a suspiciously perfect score as a smell.
 - **Don't eval on the few-shot examples.** If the dataset rows are the same examples embedded in the prompt, the score measures memorization, not generalization — a silent false-PASS.
@@ -86,7 +86,7 @@ Reports: .promptfoo/output-1745492045.json
 - **A finding without its cited case + score** → not emittable; re-run and capture the per-case scores, or drop the claim.
 - **Below-baseline PASS** → forbidden. Never report PASS when a gated metric is below threshold or a case regressed past tolerance without an explicit, recorded human sign-off (an ADR / PR note that names the metric, the new value, and why the drop is accepted). Silently lowering the threshold or the baseline to go green is masking, not passing.
 - **Evaluating on the training / few-shot examples** → HALT — the result is meaningless; point the harness at held-out cases.
-- **Unpinned LLM-as-judge** (no fixed judge model / temperature) → HALT the judged metrics — pin them before reporting a judged score as a gate.
+- **Unpinned LLM-as-judge** (no fixed judge model id / judge prompt / exposed sampling params) → HALT the judged metrics — pin them before reporting a judged score as a gate.
 
 ## References
 

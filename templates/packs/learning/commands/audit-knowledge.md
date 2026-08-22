@@ -25,12 +25,20 @@ pack: learning
 
 ## What happens (via knowledge-curator) — read-only by default
 
-1. **Stale `dynamic/` entries** — `learned-patterns.md` / `decisions-pending.md` / `feedback-learned.md` rows older than 30d with no progress → recommend promote (`/promote-pattern` / `/promote-decision`) or archive to `ai/dynamic/changelog.md`.
-2. **Unfollowed conventions** — for each rule in `ai/conventions.md`, spot-check the code still follows it (grep the cited idiom/path); flag conventions the code has drifted away from → recommend re-confirm or update.
-3. **Unreferenced patterns** — `ai/patterns/<name>.md` that no code/rule/command references → flag as candidate for archival.
-4. **Dead ADRs** — `ai/decisions/*` superseded by a later decision but not marked `superseded`.
-5. **Derived-file drift** — `_session-digest.md` / `_convention-cheatsheet.md` / `_decision-index.md` older than their sources (`ai/conventions.md`, `ai/decisions/`, `ai/status.md`) → recommend regen (the `audit-setup.sh` C2f freshness check enforces this at gate time).
-6. **Budget** — `ai/` ≤ 50 files, each ≤ 300 lines (M3 ceiling); flag files over budget for the curator to archive/split.
+**Dispatch `knowledge-curator` and run its `## Curation duties` 1-6 plus its `## Budgets you enforce`
+table. Do not restate them here.** This command's job is *scope*, not method: it is the only entry
+point that sweeps the **full** sink set in one pass — `/promote-pattern` and `/promote-decision` each
+graduate one named entry, and `/refresh-knowledge` re-derives the profile, so removing this command
+removes the sweep. The duties themselves have one owner, and a second copy of "≤ 50 files, each ≤ 300
+lines" in this file is a second number to forget to update.
+
+What this command adds on top of the agent:
+
+- **Full-sweep scope** — every sink the curator reads, in one run, rather than one entry by name.
+- **The `--fix` boundary** below: which of the curator's recommendations may be applied without a human.
+- **The `## What to do next` contract** below: the recommendations re-expressed as an ordered to-do.
+- **One report, ranked** — the curator emits findings per duty; this command orders them by what the
+  user should do first.
 
 ## Output (brief)
 
@@ -47,5 +55,5 @@ Every run MUST end its report with a `## What to do next` block: the recommendat
 ## See also
 
 - `/promote-pattern` · `/promote-decision` — the graduation actions this recommends.
-- `/refresh-knowledge` — re-runs Phase 2 profiling when conventions have drifted materially.
+- `/refresh-knowledge` — re-invokes the extraction engine and rewrites the oracle when conventions have drifted materially.
 - `knowledge-curator` agent · `ai/dynamic/` · `ai/_session-digest.md`.

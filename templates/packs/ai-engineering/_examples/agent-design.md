@@ -7,7 +7,7 @@ pack: ai-engineering
 
 # Pattern: Agent Design
 
-> **Hard rule:** Use an **agent** (LLM chooses its own control flow + tools + stop) only when a fixed **workflow** (deterministic steps, LLM at nodes) can't express the task — agents buy flexibility with cost, latency, and nondeterminism. Every agent loop has a hard **budget** (max steps + token cap + timeout + cost ceiling); every **write/delete/spend/send** tool passes a confirmation-or-policy gate before firing. Unbudgeted loop = runaway incident; unguarded destructive tool = Excessive Agency (LLM06). This designs the loop; `@llm-security-reviewer` secures it.
+> **Hard rule:** Use an **agent** (LLM chooses its own control flow + tools + stop) only when a fixed **workflow** (deterministic steps, LLM at nodes) can't express the task — agents buy flexibility with cost, latency, and nondeterminism. Every agent loop has a hard **budget** (max steps + token cap + timeout + cost ceiling); every **write/delete/spend/send** tool passes a confirmation-or-policy gate before firing. Unbudgeted loop = runaway incident; unguarded destructive tool = Excessive Agency (LLM03:2026). This designs the loop; `@llm-security-reviewer` secures it.
 
 **When to apply** — steps unknowable up front (model decides next move from results), large context-dependent tool set, genuine act→observe→re-plan iteration.
 
@@ -15,7 +15,7 @@ pack: ai-engineering
 
 **Halt conditions / mandatory cites**
 - Agent loop where a fixed workflow fits MUST cite the step sequence at `<path:line>` — "feels agentic" isn't a reason.
-- Effectful tool (write/delete/pay/send/exec) with no gate MUST be cited → `@llm-security-reviewer` LLM06.
+- Effectful tool (write/delete/pay/send/exec) with no gate MUST be cited → `@llm-security-reviewer` LLM03:2026.
 - Loop with no max-steps AND no token cap AND no timeout MUST be cited.
 - Unbounded context growth (every observation appended, never compacted) MUST be cited.
 - Tool error thrown out of the loop instead of fed back MUST be cited.
@@ -56,7 +56,7 @@ Don't append every observation forever (blows the window, re-pays for history ea
 ## Detectors (cite-or-halt)
 
 - Agent loop over a knowable fixed sequence → `downgrade-to-workflow`.
-- Effectful tool with no confirmation/policy gate → `add-tool-gate` (+ LLM06).
+- Effectful tool with no confirmation/policy gate → `add-tool-gate` (+ LLM03:2026).
 - Loop with no max-steps/token/timeout/cost budget → `add-loop-budget`.
 - Context appended with no compaction → `add-context-compaction`.
 - Tool that throws instead of returning a readable error → `make-tool-error-recoverable`.
@@ -69,4 +69,4 @@ Don't append every observation forever (blows the window, re-pays for history ea
 
 - **Patterns (in-pack):** `llm-gateway` (tool/model calls route through it; budgets live there), `prompt-engineering` (tool descriptions + structured output), `evals` (trajectory eval — steps, tool-choice, success), `rag-pipeline` (retrieval as a tool).
 - **Rule (in-pack):** `ai-engineering-principles`.
-- **Cross-pack:** Excessive Agency / injection / output sinks → **security** `@llm-security-reviewer` (LLM06/05/01); tool downstream timeout/retry/circuit-breaker → **distributed-systems**/**backend**; step logging + cost + approval audit → **observability** (`tracing`, `audit-logging`).
+- **Cross-pack:** Excessive Agency / injection / output sinks → **security** `@llm-security-reviewer` (LLM03:2026 / LLM01:2026 / LLM10:2026 — 2025 numbering was LLM06/01/05); tool downstream timeout/retry/circuit-breaker → **distributed-systems**/**backend**; step logging + cost + approval audit → **observability** (`tracing`, `audit-logging`).

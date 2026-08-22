@@ -87,16 +87,26 @@ PATTERN-SPECIFIC:
 
 - Update entry in `ai/dynamic/learned-patterns.md` to `PROMOTED → ai/patterns/<name>.md`.
 - Append to `ai/dynamic/changelog.md`: "Pattern promoted: <name>".
+- Regenerate the Tier-1 derived files via `knowledge-curator § 8` — `ai/_session-digest.md` § "Patterns currently emerging" is sourced from `learned-patterns.md` status `WATCHING`, so until it regenerates the digest every session auto-loads still advertises this pattern as un-formalized.
 - If the pattern affects an existing rule, propose updating the rule (separate flow — ask user).
 - If a new ADR is warranted (deliberate trade-off chosen with alternatives), queue to `ai/dynamic/decisions-pending.md`.
 
 ## Phase 6 — Validate (verify correctness)
 
-- File exists at `ai/patterns/<name>.md` and renders.
-- All template sections present (Context, Structure, Example, Trade-offs, Common mistakes, Testing, References).
-- No placeholder text (`<TODO>`, `<name>`, `{{}}`).
-- Source entry status updated to PROMOTED with the destination path.
-- changelog.md entry appended.
+Do NOT report success on assertion. HALT unless every check below passes — the same bar
+`/promote-decision` Phase 6 sets, because the failure is the same: a half-promoted entry now exists
+in two places and they will drift.
+
+- **File exists** at `ai/patterns/<name>.md` and renders.
+- **Required sections present**: Context, Structure, Example, Trade-offs, Common mistakes, Testing, References.
+- **No placeholder / TODO text** (`<TODO>`, `<name>`, `{{}}`) remains in the authored file.
+- **Source entry updated, by grep** — `grep` `ai/dynamic/learned-patterns.md` for `<name>`: it MUST
+  resolve exactly once and that line MUST read `PROMOTED → ai/patterns/<name>.md`. A `WATCHING`
+  entry surviving beside the formal file is the orphaned original; halt.
+- **changelog.md entry appended** — grep confirms the "Pattern promoted: `<name>`" line, exactly once.
+- **Digest regenerated** — `ai/_session-digest.md` § "Patterns currently emerging" no longer lists
+  `<name>` (it is formal now). A digest still advertising it as emerging is `knowledge-curator § 8`
+  not having run; re-run it rather than editing the derived file by hand.
 
 ## Phase 7 — Improve (feed the learning loop)
 

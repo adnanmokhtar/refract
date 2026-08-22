@@ -64,7 +64,7 @@ Grade each dimension `PASS / REQUEST / BLOCK / N-A / UNVERIFIED`. A dimension is
 
 ### 2. Prompt quality
 - **Structured output via the provider's tool/JSON-schema mode**, not regex/`split`/`JSON.parse` on free text where a schema is available — `rg -n "match\(|\.split\(|regex|JSON.parse" near prompt sites`. Regex-parsing a structured response is a BLOCKER.
-- **`temperature: 0`** (or provider equivalent) for extraction / classification / anything expected to be deterministic; non-zero temp reserved for genuinely generative surfaces and justified.
+- **The single-answer constraint uses the mechanism the provider still exposes.** Schema/strict mode always. Where sampling params exist: `temperature: 0` for extraction / classification / anything expected deterministic, with non-zero reserved for genuinely generative surfaces and justified. Where the provider has **withdrawn** them — a non-default `temperature`/`top_p`/`top_k` returns HTTP 400 on current Anthropic models — the equivalent is a system-prompt instruction plus the schema mode, and a temperature set at all is a **BLOCKER**, not a nit: the call fails rather than degrades. Read the model id before grading this row.
 - **Instructions and data are separated** — user/retrieved content goes in a distinct role/delimited block, never string-concatenated into the instruction body (this is also the seam `@llm-security-reviewer` inspects for injection).
 - **Prompts are versioned/owned**, not duplicated inline across call sites (drift → un-evaluable).
 - REQUEST: non-zero temp on an extraction path; prompt duplicated across sites. BLOCKER: regex-parsing where structured output is available.
@@ -96,7 +96,7 @@ Grade each dimension `PASS / REQUEST / BLOCK / N-A / UNVERIFIED`. A dimension is
 - **Input is validated before the prompt** — length / shape / allow-list on user-supplied input before it reaches the model, so a malformed or oversized input can't drive an uncapped or malformed call. Missing input validation on a user-facing generation is a REQUEST.
 - Model output is **validated/parsed before use** — schema-validated, and coerced to the expected type before it flows onward.
 - **PII/secret redaction on the prompt + log path** — the gateway redacts PII/secrets before a provider call or a log write (AI-9). A prompt or a log line that ships raw user PII/secrets is a REQUEST (BLOCKER if it writes secrets to a persisted log). The redaction *policy* is observability/security's; the *presence of the redaction call* on this feature's path is graded here.
-- **Trust-boundary sinks are OUT OF SCOPE here** — if validated-or-not output reaches HTML render / SQL / shell / `eval` / deserialization / an authorization decision, that is improper-output-handling (`LLM05`) / excessive-agency (`LLM06`) and belongs to `@llm-security-reviewer`. Grade the *engineering* validation (is there a schema? is the type checked? is input bounded? is PII redacted?); **hand the sink** (and the injection surface) to security. State the handoff in the finding, don't grade the exploit yourself.
+- **Trust-boundary sinks are OUT OF SCOPE here** — if validated-or-not output reaches HTML render / SQL / shell / `eval` / deserialization / an authorization decision, that is improper-output-handling (`LLM10:2026`) / excessive-agency (`LLM03:2026`) and belongs to `@llm-security-reviewer`. Grade the *engineering* validation (is there a schema? is the type checked? is input bounded? is PII redacted?); **hand the sink** (and the injection surface) to security. State the handoff in the finding, don't grade the exploit yourself.
 
 ### 7. Fine-tune justification (if a training pipeline / adapter / training data is present)
 
@@ -107,7 +107,7 @@ Grade each dimension `PASS / REQUEST / BLOCK / N-A / UNVERIFIED`. A dimension is
 - **A held-out eval proves it beats the strongest prompted baseline** — both scored on the same held-out set, with the diff cited. No baseline comparison means the entire justification is unmeasured. **BLOCKER** → `add-baseline-eval-gate`. (The held-out set itself is built by `/add-eval-set`.)
 - **No train/eval leakage** — eval cases (or near-duplicates) must not appear in the training data; overlap makes the win fictitious. **BLOCKER** → `fix-train-eval-leakage`.
 - **The triple is versioned together** — model/adapter id + version, the exact training dataset (hash/version), and the eval + its scores, so any output traces back to which data produced which model. Also check for regression on adjacent tasks (over-specialisation), and that a re-tune trigger is metric-driven rather than a blind schedule. REQUEST → `version-model-dataset-eval`.
-- Provider reality check: where the project's provider offers **no** general customer fine-tuning surface, a design that assumes one is itself the finding — route back to the prompt/RAG ladder.
+- Provider reality check — **grade the deployment surface, not the vendor.** A design that assumes a fine-tuning surface without naming the *specific* one it will use (which API, which hosting path, confirmed on what date) is the finding, and route it back to the prompt/RAG ladder. Do not close it the other way either: a hosted-partner platform may offer fine-tuning for a model whose first-party API does not, so "that vendor doesn't do fine-tuning" is not a verdict you can reach from the vendor's name.
 
 ## Example findings (stack-agnostic shapes)
 
@@ -131,10 +131,17 @@ Grade each dimension `PASS / REQUEST / BLOCK / N-A / UNVERIFIED`. A dimension is
 - Impact: no shared caching, cost-metering, fallback, or routing; cost is un-attributable and a provider outage has no fallback.
 - Fix: route all calls through one gateway module (mirror `llm-gateway.md`) that owns retry, timeout, caching, cost trace, and fallback.
 
-### REQUEST — non-zero temperature on an extraction path
-- Site: `src/classify/intent.ts:19` — `temperature: 0.7` on a fixed-label classifier.
+### REQUEST — sampling params wrong on an extraction path (provider exposes them)
+- Site: `src/classify/intent.ts:19` — `temperature: 0.7` on a fixed-label classifier; model id read at `src/llm/client.ts:8`, provider exposes sampling params.
 - Impact: non-deterministic labels; the same input yields different classes, and the eval is noisy.
 - Fix: set `temperature: 0` for the classification call; reserve non-zero temp for generative surfaces.
+
+### BLOCKER — sampling param set on a provider that has withdrawn it
+- Site: `src/classify/intent.ts:19` — `temperature: 0` against the model id at `src/llm/client.ts:8`, whose provider rejects a non-default `temperature`/`top_p`/`top_k`.
+- Impact: not a harmless no-op — the request returns HTTP 400. Every call on this path fails, including the eval run that would have caught it.
+- Fix: remove the sampling parameter; carry the single-answer constraint on the schema/strict output mode plus an explicit system-prompt instruction. Re-run the eval set after removal — the pinned baseline was measured under a config the provider no longer accepts.
+
+*(These two findings are the same detector in opposite provider states. Read the model id and the provider's current parameter reference before choosing which one you are writing.)*
 
 ### NIT — prompt duplicated inline across two call sites
 - Site: near-identical system prompt at `titles.ts:8` and `titles-batch.ts:14`.
@@ -186,7 +193,7 @@ Dispatched: eval-run · prompt-audit · retrieval-eval · vector-index-audit · 
 ## Related
 
 ### Boundary with the security pack
-- `@llm-security-reviewer` (security pack) — owns the LLM trust boundary: prompt injection (direct + indirect), improper output handling (`LLM05`), excessive agency (`LLM06`), RAG/embedding weaknesses, unbounded consumption. **This agent reviews engineering quality; that agent reviews security.** They meet at three seams: output→sink (this agent checks there is validation; that agent checks the sink is safe), retrieval filtering (this agent grades retrieval correctness; that agent grades cross-tenant leak), and agent tools (this agent checks budgets/confirmation; that agent checks excessive agency). Hand every trust-boundary finding across; never absorb or drop it.
+- `@llm-security-reviewer` (security pack) — owns the LLM trust boundary: prompt injection (direct + indirect), improper output handling (`LLM10:2026`), excessive agency (`LLM03:2026`), RAG/embedding weaknesses, unbounded consumption. **This agent reviews engineering quality; that agent reviews security.** They meet at three seams: output→sink (this agent checks there is validation; that agent checks the sink is safe), retrieval filtering (this agent grades retrieval correctness; that agent grades cross-tenant leak), and agent tools (this agent checks budgets/confirmation; that agent checks excessive agency). Hand every trust-boundary finding across; never absorb or drop it.
 
 ### Sibling agents in the ai-engineering pack
 - `@rag-architect` — **they design, this agent grades.** It draws the corpus, chunking, embedding, index target, filter placement, assembly, and the labelled retrieval set before code exists; this agent reviews the built pipeline on a diff (dimension 3). When dimension 3 BLOCKs on a design-level defect (no target, wrong filter placement, a second embedding space), route the redesign there rather than sketching one here.

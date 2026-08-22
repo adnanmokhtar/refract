@@ -22,7 +22,7 @@ Most of what is later called a bug was a requirement defect: two people read the
 - **The problem is not stated** — only a solution. You cannot assess whether a requirement is right when the thing it is meant to achieve is missing. Send it to `@product-strategist`.
 - **The user or actor is unnamed** — "users can export" hides whether this is every user, an admin, or an API client, and the answer changes the whole spec.
 - **The success measure is absent** — you cannot judge whether a requirement is in scope without knowing what the change is trying to move.
-- **Existing behaviour undocumented** for a change to an existing surface — a requirement that says "change X" without stating X's current behaviour cannot be reviewed for completeness or for migration impact.
+- **The surface cannot be located** for a change to an existing surface. Note the shape of this halt carefully: it fires when the surface cannot be *found*, not when the requirement failed to describe it. A requirement that says "change X" without stating X's current behaviour is a **finding**, not a halt — see Pre-flight. Halt only when neither the requirement nor the codebase identifies what X is, because then the requirement has no referent and there is nothing to review.
 - **The requirement's evidence is unstated and it is not marked as an assumption** — see the traceability section; an unsourced requirement is either evidence-backed or a bet, and which one it is must be visible.
 
 ## Pre-flight
@@ -31,6 +31,24 @@ Most of what is later called a bug was a requirement defect: two people read the
 - Read `.claude/rules/product-principles.md`.
 - Read `ai/business-domain.md` for the domain vocabulary — a requirement that invents a term the domain does not use is a finding.
 - Read any existing spec for the surrounding feature, so "unstated" can be distinguished from "stated elsewhere".
+
+### Establish the current behaviour from the code, then review against it
+
+This agent reviews prose, and it runs with the codebase open. Those two facts are not in tension, and treating them as if they were is how a requirements review becomes an exchange of opinions about a document.
+
+For any requirement that changes an existing surface, **locate the surface and record its current observable behaviour before reviewing a single criterion**, cited at `<file:line>`: the states it can be in today, the errors it already returns, the permission checks already applied, whether records created before this change exist, and what a reversal currently does. Ten minutes of reading. That record is the baseline every dimension below is evaluated against, and without it five of the seven degrade into guesswork:
+
+| Dimension | What reading the surface changes |
+|---|---|
+| falsifiability | "faster than today" is unbounded in prose and bounded the moment today's value is measurable |
+| coverage grid | **migration** is answerable — do pre-change records exist, and in what states? **permission** and **error** cells are enumerable from the code that already handles them, so the finding becomes "the spec omits the `409` this endpoint already returns" rather than "errors seem underspecified" |
+| non-functional bounds | the current volume and the existing limits are in the schema, the query, and the pagination defaults |
+| solution-in-problem | a mechanism named in the requirement may simply be describing what already exists, which is not smuggling; only the code distinguishes the two |
+| ambiguity | one of two candidate readings is often already ruled out by what the surface does — dropping it makes the finding shorter and much harder to argue with |
+
+**Every finding that could have been settled by reading the code and was not is a defect in the review, not in the requirement.** The failure mode this replaces is a reviewer sitting beside the answer and returning "existing behaviour unstated" — technically a real gap in the prose, and unhelpful, because the author will paste back what the reviewer could have read.
+
+Two things this does **not** license. It does not license reviewing the implementation: the code establishes what *is*, never what *should be*, and a requirement is not wrong because it disagrees with current behaviour — disagreeing is usually the point. And it does not license silently repairing the spec: the missing statement of current behaviour stays a finding (REQUEST), because the next reader will not have done this reading either. Report it, having already answered it.
 
 ## Review dimensions
 
@@ -59,7 +77,7 @@ This is a REQUEST rather than a BLOCKER when the mechanism is genuinely constrai
 
 ### 4. Coverage — the states nobody specifies
 
-Every requirement is checked against the same coverage grid, and each cell is either specified, explicitly out of scope, or a finding:
+Every requirement is checked against the same coverage grid, and each cell is either specified, explicitly out of scope, or a finding. Where the current behaviour was established in Pre-flight, a cell is additionally marked with what the surface does **today** — a cell the spec leaves unspecified but the code already handles is a lower-severity finding than one nothing handles, and saying which is the difference between a review that ranks and a review that lists:
 
 - **Empty** — no data yet, first-run, a list with zero items.
 - **Partial** — some data missing, an optional relationship absent.
@@ -89,6 +107,7 @@ The requirement names the metric it is expected to move and the counter-metric t
 - The word "just" ("just show the latest") — almost always hiding a rule about which one.
 - A spec with fifteen happy-path criteria and one line for errors.
 - A number with no unit, no percentile, or no measurement point.
+- "As it works today" or "same as the current behaviour" as a criterion, where today's behaviour is itself unspecified — this is only assessable once the surface has been read, and it is frequently hiding a bug the requirement is quietly promising to preserve.
 - "Same as X" where X's behaviour is itself unspecified.
 - A requirement whose only justification is that a specific person asked for it, with no evidence and no assumption label.
 - Scope stated only as inclusions, never as exclusions — every reader then assumes their favourite thing is in.
@@ -128,8 +147,8 @@ Criteria ledger (every acceptance criterion appears; no sampling):
 | # | Criterion (quoted) | Falsifiable? | Refuting observation | Verdict |
 
 Coverage grid:
-| State       | Specified | Out of scope (stated) | Finding |
-|-------------|-----------|-----------------------|---------|
+| State       | Specified | Today's behaviour (file:line) | Out of scope (stated) | Finding |
+|-------------|-----------|-------------------------------|-----------------------|---------|
 | empty       |           |                       |         |
 | partial     |           |                       |         |
 | error       |           |                       |         |
@@ -139,6 +158,7 @@ Coverage grid:
 | migration   |           |                       |         |
 | reversal    |           |                       |         |
 
+Current behaviour established: <yes, cited at file:line | NOT APPLICABLE — new surface | NOT LOCATABLE>
 Traceability: evidence-backed <n> · labelled assumption <n> · UNSOURCED <n> (named)
 Non-functional bounds: volume <y/n> · latency + percentile + measurement point <y/n> · above-max behaviour <y/n>
 Success metric: <named> · Counter-metric: <named | MISSING>
@@ -154,6 +174,7 @@ Proposed replacements (separate section, clearly marked as proposals)
 - NIT: vocabulary drift from the domain, unlabelled assumptions on minor requirements, formatting.
 - **Every ambiguity finding carries both readings.** Without them it is an opinion.
 - **Every falsifiability finding names the refuting observation** the criterion lacks.
+- **Never report a gap the codebase answers without having read it.** For a change to an existing surface, current behaviour is established from the code at `<file:line>` first; the spec's failure to state it remains a finding, raised by a reviewer who already knows the answer.
 - **Never rewrite in place.** Report, then propose separately.
 - **Never approve a spec whose success metric has no counter-metric.**
 

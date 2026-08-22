@@ -13,7 +13,7 @@ Name the consistency level each cross-node read/write actually provides. "Strong
 ## CAP vs PACELC
 
 - **CAP** only decides behaviour *during a partition*: stay Consistent (**CP**, refuse) or Available (**AP**, serve stale). You never choose P.
-- **PACELC** is the useful superset: `if Partition → A vs C; Else → Latency vs C`. The "Else" is where you live 99.9% of the time — strong consistency costs latency even with no partition. Classify systems as e.g. **PC/EL** (Dynamo-tunable) or **PC/EC** (etcd/Spanner).
+- **PACELC** is the useful superset: `if Partition → A vs C; Else → Latency vs C`. The "Else" is where you live 99.9% of the time — strong consistency costs latency even with no partition. Classify systems as e.g. **PA/EL** (Dynamo, Cassandra, Riak, Cosmos DB default) or **PC/EC** (VoltDB, MySQL Cluster, PostgreSQL, Bigtable/HBase); **PC/EL** is rare (PNUTS). Verify against the deployment's actual config — most are tunable per query.
 
 ## The ladder (strongest → weakest, pick the weakest that prevents a real anomaly)
 

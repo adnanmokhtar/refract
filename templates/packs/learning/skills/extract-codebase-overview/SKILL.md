@@ -128,6 +128,8 @@ Also record, for the header block: `census_method`, `walk_scope` (which director
 | `## Data model` (Step 6) | entity files matched by the Step-6 globs | rows emitted | cap 60 |
 | `## API surface` (Step 7) | controller / router files found | rows emitted | **none declared → must be 100%** |
 | `## Conventions` (Step 8) | files per category | files sampled per category (10) | sample 10 per category — **plus** `[CONTESTED: <A> n/N, <B> m/N]` per non-unanimous category (Step 8) |
+| `## Cross-cutting concerns` (Step 9) | files matched by that signal's detection greps | files cited as corroboration | none declared — **a signal verdict is a ratio, never a bare word** (Step 9) |
+| `## Anti-patterns observed` (Step 11) | source files in the member's bucket (the same `present` the census computed) | files the grep actually matched | none declared — a count with no population is not a finding (Step 11) |
 | `## Recent activity` (Step 12) | commits in the window | 50 | `head -50` |
 
 A `[CONTESTED]` row is auditable off this table for the same reason a `[SAMPLED]` heading is: both denominators are printed. `n + m ≤ sampled` and `sampled ≤ present` are checkable arithmetic, so a contest cannot be asserted without a population to assert it over.
@@ -214,7 +216,7 @@ For each controller, record: name, path, route prefix, # endpoints, auth scheme 
 
 Also detect: how does the project structure response shapes? (e.g., `createApiResponse(dto, message)` wrapper detected → standard response envelope is in use). What's the error mapper? (HTTP exception filter, problem-details middleware, etc.).
 
-**Persist as `## API surface` section** — no cap is declared for this step, so the Step 2.5 denominator row requires `seen == present` here. Check 7 does not enforce that on its own: its rules only reject an *undisclosed* sample, so a short walk marked `[SAMPLED: <seen>/<present> files]` passes check 7 while still breaching this step's floor. If a run cannot reach every controller / router file found, that is a real coverage loss and the heading must say so rather than the cap being invented after the fact.
+**Persist as `## API surface` section** — no cap is declared for this step, so the Step 2.5 denominator row requires `seen == present` here, and **check 7 now enforces it** (see its `none declared → must be 100%` bullet). Until that bullet existed, a short walk marked `[SAMPLED: <seen>/<present> files]` passed check 7 while breaching this step's floor: the check only rejected an *undisclosed* sample, and a disclosed one looked identical to a complete walk. Disclosure is still required; it is no longer sufficient. If a run cannot reach every controller / router file found, that is a real coverage loss and the heading must say so rather than the cap being invented after the fact.
 
 ### Step 8 — Convention auto-detection
 
@@ -257,7 +259,37 @@ Re-run signal detection from Appendix A but with deeper grep + corroboration:
 
 For each detected signal, note: confidence (number of corroborating signals), entry-point files, anti-patterns observed (e.g., manual tenant filter outside the auto-applied path).
 
-**Persist as `## Cross-cutting concerns` section.**
+**The verdict is a ratio, and only three words are legal.** This section is the most confidently-worded
+in the file and it was, until this row existed, the least constrained: `multi-tenant: **confirmed**`
+could be written off two corroborating files out of four hundred, and no denominator anywhere
+contradicted it. Write instead:
+
+```
+<signal>: <confirmed|partial|not-detected> [<matched>/<present> files; entry: <path:line>, <path:line>]
+```
+
+- **`confirmed`** — the signal's greps match, AND the pattern holds **repo-wide** for the property
+  claimed. For a *pervasive* property (multi-tenancy, i18n, auth) that means `matched / present`
+  covers the population the property is asserted over — a `tenant_id` column on 6 of 412 entity
+  files is `partial`, not `confirmed`, however many corroborating files you cite. For a *presence*
+  property (payment SDK integrated, search engine wired) two corroborating files genuinely are
+  enough, because the claim is "this exists here", not "this holds everywhere".
+- **`partial`** — the signal is real and does not cover its population. Name what it covers:
+  `multi-tenant: partial [6/412 entity files carry tenant_id; scoped to billing/, orders/]`. This
+  is the most useful verdict this step produces and the one a bare `confirmed` destroys.
+- **`not-detected`** — greps ran, nothing matched. Say which greps, per § Mechanical halt.
+
+> **Hard rule:** `confirmed` on a pervasive property without `<matched>/<present>` printed beside it
+> is the same violation as an uncited factual claim, and Step 15 check 7 fails it. "Cites ≥2
+> corroborating files" is a floor on evidence, never a licence to generalise from it — that
+> inference is exactly what § Mechanical halt's generalizing-claim rule and Step 6's own note
+> ("the cross-cutting inferences directly above … are exactly the generalizing claims § Mechanical
+> halt forbids") already forbid one section earlier. This step restates it because it is the step
+> that emits the strongest word in the file.
+
+**Persist as `## Cross-cutting concerns` section**, with `[SAMPLED: <seen>/<present> files]` on the
+heading whenever the corroboration walk did not cover the population — same rule as every other
+section, now that the row exists in the Step 2.5 table.
 
 ### Step 10 — Tests + coverage shape
 
@@ -279,7 +311,14 @@ Count + sample paths:
 - `// @ts-ignore` / `# type: ignore`.
 - Commits with messages like "wip", "fix later", "revert".
 
-**Persist as `## Anti-patterns observed` section.** This is intel for generated rules to know what to NOT introduce — not a fix list.
+Each line is `<pattern>: <matched>/<present> files [<path:line>, <path:line>, …]` — the count is
+meaningless without the population it was counted over. "47 `console.log` calls" reads as an
+emergency in a 60-file project and as background noise in a 4,000-file one, and a generated rule
+that mistakes the second for the first bans a practice the team has already contained.
+
+**Persist as `## Anti-patterns observed` section**, `[SAMPLED]`-marked when the grep did not reach
+every file in the bucket. This is intel for generated rules to know what to NOT introduce — not a
+fix list.
 
 ### Step 12 — Recent activity (last 30 days)
 
@@ -332,13 +371,15 @@ Before returning success:
 - `## Modules` section has ≥1 row OR an explicit "no modules detected — empty/script project" note.
 - `## Base classes` section accounts for every `extends X` with ≥3 hits found in Step 5.
 - `## Data model` section has ≥1 entity OR an explicit "no ORM-like data layer detected" note.
-- Every confidence claim (e.g., "multi-tenant: confirmed") cites ≥2 corroborating files.
+- Every confidence claim in `## Cross-cutting concerns` follows Step 9's three-word grammar and prints `<matched>/<present>`. Two corroborating files is the floor for `confirmed` on a *presence* property and is never sufficient for a *pervasive* one — check 7 below is what enforces the difference.
 - **Provenance sweep**: no factual claim is both uncited AND unmarked — each is `[found:]` (via citation), `[inferred: <basis>]`, or `[unconfirmed]`. Count per class; the counts go to stdout and feed `/setup-project-health` check 9.
 - **Coverage sweep (check 7)**: count `files_cited` = the distinct paths appearing in `[found:]` citations (the walk of every citation is already happening for check 1 — this is a `sort -u | wc -l` over it, not a second pass). Then, for every row of the Step 2.5 per-section table:
   - `seen` and `present` are both integers present in `## Coverage` — a missing or non-numeric denominator fails, it does not default to "assume complete";
   - `seen < present` and the heading carries **no** `[SAMPLED: <seen>/<present> <unit>]` → **FAIL** (undisclosed sample);
   - `seen == present` and the heading **does** carry `[SAMPLED]` → **FAIL** (a false `SAMPLED` makes every downstream consumer degrade for nothing, which is how a coverage signal gets switched off);
-  - every generalizing claim inside a `[SAMPLED]` section is marked `[inferred: <basis>; sampled <seen>/<present> <unit>]`, not `[found:]` (§ Mechanical halt);
+  - the row's `Cap` cell reads **`none declared`** and `seen < present` → **FAIL**, disclosed or not. A section with no declared cap has no licence to sample; `[SAMPLED: 12/40 files]` on `## API surface` is an honest report of a floor being breached, and honesty about a breach is not compliance. Remedy: finish the walk, or declare a cap in the Step 2.5 table so the sample is a decision rather than an accident;
+  - every generalizing claim inside a `[SAMPLED]` section is marked `[inferred: <basis>; sampled <seen>/<present> <unit>]`, not `[found:]` (§ Mechanical halt). **This bullet is the one that was not arithmetic, so give it a closed trigger list rather than a judgement call**: inside a `[SAMPLED]` section, a line carrying `[found:]` may not also carry any of `all `, `every `, `always`, `never`, `throughout`, `repo-wide`, `project-wide`, `consistently`, `the codebase `, `confirmed` — those quantify beyond the sample by construction. A line that needs one of those words is `[inferred:]`. Greppable, so it fails the same way for everyone;
+  - every `<signal>: confirmed` line in `## Cross-cutting concerns` that asserts a **pervasive** property carries `<matched>/<present>` and `matched == present` (Step 9). `confirmed` with a printed ratio below 100% is a `partial` mislabelled, and it is the single highest-authority claim the file makes;
   - every `[CONTESTED: <A> n/N, <B> m/N]` row has `n + m ≤ N`, `N ≤ sampled`, and a `<path:line>` for BOTH options — a contest with one citation is a preference with a footnote.
 
   Check 7 is different in kind from checks 1-6 and that difference is the reason it is worth adding. Its numerator and denominator were produced by shell in Step 2.5, *before* prose existed; the check is arithmetic against numbers the model did not author. Checks 2-5 can be satisfied by writing more confident prose. This one cannot.

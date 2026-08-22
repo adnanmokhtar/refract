@@ -61,7 +61,7 @@ When you must grade open-ended output, an LLM judge scales where humans can't �
 - **Self-preference / self-enhancement bias.** A model rates ITS OWN outputs (and outputs from its family) higher. **Never let the same model judge its own generations.** Use a different — ideally stronger — model as the judge, or a human-calibrated judge.
 - **Verbosity / sycophancy bias.** Judges over-reward longer, more confident, more agreeable answers. Control for length in the rubric; penalize unsupported confidence.
 - **Calibrate the judge against humans.** Periodically sample judged cases and have a human grade them; measure judge-vs-human agreement. A judge you never validate is a metric you can't trust.
-- **Judge on a low temperature** and version the judge prompt + judge model — a judge change silently shifts every score.
+- **Version the judge prompt + judge model id, and pin every sampling parameter the provider exposes** (a low temperature where one exists) — a judge change silently shifts every score. Where the provider exposes none, the model id + prompt are the whole pin; record that, and widen the delta you treat as a regression rather than implying a tighter pin than you have.
 
 ## Task-specific metrics
 

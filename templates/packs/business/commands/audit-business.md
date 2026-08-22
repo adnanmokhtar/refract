@@ -45,10 +45,18 @@ Findings that fail the grep are **dropped**, not softened. Report `Dropped (unci
 - Confirm goal: gap finding (this command) vs net-new scope proposal (route to `/analyze-task`).
 
 ## Phase 2 — Organize
-- Decide reviewers:
-  - Always: `business-auditor` walks user journeys.
-  - Optional: `ux-reviewer` for visual / interaction overlay.
-- Plan grouping: blockers (broken flow) | gaps (missing cycle) | enhancements (opinion).
+
+Decide reviewers. The three business agents are **orthogonal axes, not alternatives** — `business-completeness.md` requires all three on a lifecycle-bearing, rule-bearing feature, and this command is the only place they are dispatched:
+
+| Agent | Axis | Dispatch when | Un-dispatched axis is reported as |
+|---|---|---|---|
+| `business-auditor` | EXPERIENCE — missing cycles, broken flows, dead ends | always | — (always runs) |
+| `@workflow-integrity` | STATE GRAPH — are the transitions legal, guarded, terminal, reachable | the feature's entity carries a `status` / `state` / `phase` column, a state-machine config, or scattered `if status ==` checks | `state-graph: NOT AUDITED (no lifecycle surface)` |
+| `@domain-model-auditor` | INVARIANTS — does each aggregate rule name a real enforcement layer | the feature touches ORM models / migrations / money / inventory / balance | `invariants: NOT AUDITED (no domain layer)` |
+
+Also optional: `ux-reviewer` for the visual / interaction overlay.
+
+**An agent that IS warranted by its trigger but was not run is `NOT AUDITED (not run)`, never silence** — the verdict must say which axes were covered, because "no findings on an axis nobody looked at" is the failure this command exists to prevent. Plan grouping: blockers (broken flow) | gaps (missing cycle) | enhancements (opinion).
 
 ## Phase 3 — Retrieve
 
@@ -62,6 +70,8 @@ Feature-specific:
 
 ## Phase 4 — Generate (findings)
 - Dispatch `business-auditor` with assembled context.
+- Dispatch `@workflow-integrity` when the Phase-2 lifecycle trigger fired. Consume its verdict verbatim — an `ILLEGAL⚠` cell or a `$-conserve: UNVERIFIED` money edge is a finding of THIS command, not a separate report.
+- Dispatch `@domain-model-auditor` when the Phase-2 domain trigger fired. Consume its invariant-enforcement register — any `enforced-where: NOWHERE` on money / inventory / balance is a `[blocker]` here.
 - Auditor walks the user journey and flags:
   - **Missing cycles** — user can start a thing but not finish it (created order, no way to cancel).
   - **Broken flows** — step N depends on data step N-1 doesn't produce.
@@ -94,6 +104,15 @@ Feature-specific:
 - Each blocker / gap is reproducible (steps named, not vibes).
 - Enhancements clearly labeled `[opinion]` and not padding the blocker count.
 - Cross-reference with prior `ai/audits/` — repeated findings flagged as SYSTEMIC.
+- **Axis coverage is stated, not assumed.** Print one line per axis — `experience` / `state-graph` / `invariants` — each `AUDITED (verdict)` or `NOT AUDITED (<no lifecycle surface | no domain layer | not run | no access>)`. An axis that was warranted and not run makes the verdict `INCOMPLETE`.
+
+### Terminal verdict — computed from the axis lines, not narrated
+
+Read the verdict off the three axis lines plus the blocker count. Emit exactly one:
+
+- `Status: COMPLETE` — every warranted axis `AUDITED`, and zero `[blocker]` findings open. Carries the three axis verdicts so a reader can re-check it.
+- `Status: BLOCKED on <B> broken flows` — an axis found a blocker (a broken journey, an `ILLEGAL⚠` money edge, a money invariant enforced NOWHERE). Name each.
+- `Status: INCOMPLETE — <axis> not audited` — a warranted axis was not run, or the feature could not be walked end-to-end (no env, no credentials, no role). This is the honest default, and reporting it IS a success of this command. `COMPLETE` printed over an un-audited axis is the defect the gate exists to prevent — an audit that looked at one of three axes and reported clean is indistinguishable, to the reader, from one that looked at all three.
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture finding categories.
@@ -110,9 +129,15 @@ Phase 3 (Retrieved): code + spec + prior audits scanned
 Phase 4 (Generated): grouped findings (above)
 Phase 5 (Updated): ai/audits/<date>-business-<feature>.md, changelog, status.md
 Phase 6 (Validated): findings reproducible; opinions labeled; SYSTEMIC tags applied
+
+Axis coverage:
+  experience   AUDITED   — @business-auditor: <N> defects, <G> gaps
+  state-graph  AUDITED   — @workflow-integrity: <verdict> · $-conserve <K·P·U>
+  invariants   NOT AUDITED (no domain layer — feature is UI-only, no ORM model touched)
+
 Phase 7 (Improved): N systemic patterns queued
 
-Status: COMPLETE | BLOCKED on <B> broken flows
+Status: COMPLETE | BLOCKED on <B> broken flows | INCOMPLETE — <axis> not audited
 ```
 
 ## What to do next — required closing section
@@ -126,9 +151,15 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - Same finding appears in 3+ audits without escalation → systemic; force ADR or process change.
 - Blocker described as "feels off" without reproduction steps → reject; describe reproducible.
 - Cross-referencing skipped → repeat findings stay invisible; always check prior `ai/audits/`.
+- Reporting `COMPLETE` after auditing only the experience axis → the state-graph and invariant axes were never opened; a clean report over an un-audited axis reads exactly like a clean report over an audited one. Print the axis lines.
 
 ## Related
 
 ### Sibling commands in business pack
 - `/analyze-task` — sibling command in business pack
 - `/expand-task` — sibling command in business pack
+
+### Agents this command dispatches
+- `@business-auditor` — the experience axis (always).
+- `@workflow-integrity` — the state-graph axis (lifecycle-gated). Cited by `business-completeness.md`; this command is its only dispatch site.
+- `@domain-model-auditor` — the invariant axis (domain-layer-gated). Cited by `business-completeness.md`; this command is its only dispatch site.

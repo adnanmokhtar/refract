@@ -18,10 +18,9 @@ Prevents the failure mode that's worse than missing docs: stale docs that active
 - Non-obvious claims cite code: file path + line range, migration ID, or commit SHA. "The service caches users" with a link beats the assertion alone.
 - `ai/status.md` carries an `Updated:` line in `YYYY-MM-DD` and a `## Recent Changes` section. SessionStart hooks parse these — don't break the format.
 - A new module ships with a one-line entry in `ai/modules.md` (path + purpose) in the same PR.
-- API endpoints are documented in machine-readable form (OpenAPI / GraphQL SDL / JSDoc-typed RPC), never only in prose.
-- Every public class, interface, enum, and exported function has a one-sentence JSDoc / TSDoc / Pydoc explaining purpose. (See `.claude/rules/jsdoc.md` if present.)
+- API endpoints are documented in machine-readable form (OpenAPI / GraphQL SDL / typed RPC), never only in prose.
+- Every public class, interface, enum, and exported function carries a one-sentence docstring stating its CONTRACT — what it guarantees, assumes, raises — not a restated signature.
 - Step-by-step procedures are numbered checklists, not paragraphs. One observable action per step.
-- Comparisons are tables. Multi-axis bullet lists hide structure.
 
 ## Must not
 
@@ -38,100 +37,42 @@ Prevents the failure mode that's worse than missing docs: stale docs that active
 
 - One screen of bullets > three paragraphs of prose. If readers must scroll, split into sub-pages.
 - Diagrams (Mermaid / PlantUML in markdown) for sequence flows, lifecycles, data flow with > 3 actors.
-- Table of contents on any file > 100 lines.
 - Link to source over copy-pasting it. Source rot is detectable; copy-paste rot is silent.
 - ADRs at decision time, not retroactively — the lost context is the whole point.
 - Present tense, active voice. "The service caches results" beats "Results will be cached by the service."
 
-## Skeletons
+### Four docs that must be PROVEN, not written
 
-### Module entry in `ai/modules.md`
+Each is a doc whose truth is checkable by running something. Reading it is not the check.
 
-```
-| Module | Path | Purpose |
+| Doc surface | Proven by | Run (skill, when installed) |
 |---|---|---|
-| country | apps/master/src/country | CRUD + translations for country entities |
-```
+| Setup / getting-started | executing every step in a CLEAN env — a warm-machine pass certifies broken docs | `quickstart-verify` (reports time-to-first-green) |
+| Architecture diagram | diffing it against the real module/import graph — a box naming a deleted module misleads with the authority of a picture | `diagram-sync` |
+| Public-API docstrings | measuring coverage on the PUBLIC surface against the project's OWN linter convention; a re-spelt signature is a zero-information gap that green-lights the count | `docstring-coverage` |
+| Release notes | deriving them from categorized commit/PR history, breaking-first with before → after, semver bump COMPUTED from the change types | `changelog-generate` (an unclassifiable commit is a reportable gap, not a silent drop) |
 
-One row, one line, same PR as the module.
+## The two formats this rule owns
 
-### ADR
+The ADR and runbook skeletons are NOT duplicated here: `ai/patterns/adr-template.md` owns the ADR format, `/add-runbook` owns the runbook template. Two homes for one skeleton is how they drift apart. These two are machine-parsed contracts, so they live here:
 
-```markdown
-# 0042: Switch from PostgreSQL to MySQL
+- **`ai/modules.md`** — `| Module | Path | Purpose |`, one row per module, added in the same PR as the module. Use the layout Phase 2 detected in THIS codebase; don't invent one.
+- **`ai/status.md`** — first line `Updated: YYYY-MM-DD`, and a `## Recent Changes` heading with newest first. SessionStart hooks parse exactly those two; other sections are free-form.
 
-Status: Accepted
-Date: 2026-04-24
-Deciders: @platform-team
+## In review — reject on sight
 
-## Context
-<one paragraph: the problem>
-
-## Decision
-<one paragraph: what we're doing>
-
-## Consequences
-- Positive: …
-- Negative: …
-- Follow-up: …
-```
-
-### `ai/status.md`
-
-```markdown
-Updated: 2026-04-24
-
-## Current state
-…
-
-## In-flight work
-…
-
-## Tech debt
-…
-
-## Recent Changes
-- 2026-04-24: …
-```
-
-### Runbook
-
-```markdown
-# Runbook: Restoring from a corrupted Redis instance
-
-When: error rate > 5% on cache reads, Redis CPU saturated.
-On-call: @platform
-
-1. Verify in Grafana that Redis is the bottleneck (link).
-2. …
-3. Post-incident: file a ticket linking back to this run.
-```
-
-## Anti-patterns to flag in review
-
-- Doc says "we use X" but `package.json` / `requirements.txt` shows Y → fix one of them in the PR.
-- ADR phrased as a tutorial → three sections only: Context / Decision / Consequences.
-- README listing 30 npm scripts → link to `package.json`, document only non-obvious ones.
-- Inline comment paraphrasing the next line → delete it; rename the variable instead.
-- Wiki / external link without a permalink (defaults to "latest") → link to a specific revision/SHA.
-- Long FAQ where the answers belong in source → fix the source.
-- "How to set up" no one re-tested in 6 months → automate via `make setup` / `bun run setup` and document the script.
-
-## Review checklist
-
-- [ ] Reality matches the doc as of this PR.
-- [ ] New module → `ai/modules.md` entry.
-- [ ] Architectural change → ADR.
-- [ ] Status touched → `Updated:` line refreshed.
-- [ ] No `TBD` without owner + date.
-- [ ] No duplicate-of-code prose.
+- A doc claim the diff contradicts (renamed path, deleted symbol, dropped env var) → fix in THIS PR, not a follow-up.
+- Doc says "we use X" but the project's dependency manifest shows Y → one of them is wrong; fix it here.
+- Inline comment paraphrasing the next line → delete it and rename the variable instead.
+- External / wiki link with no permalink (resolves to "latest") → pin a revision or SHA.
+- `TBD` with no owner and no date; a new module with no `ai/modules.md` row; an architectural change with no ADR.
 
 ## Enforcement
 
 - `markdownlint` in pre-commit: heading levels, trailing whitespace, link syntax.
 - `lychee` / `markdown-link-check` in CI for broken links.
 - CI grep for `TBD` / `TODO(no-owner)` patterns in `ai/` fails the build.
-- CI parses `ai/status.md` `Updated:` and warns when older than 90 days on changed branches.
+- CI parses `ai/status.md` `Updated:` and warns when older than 30 days on changed branches (the same threshold `doc-writer`, `/doc-refresh` and `doc-drift-scan` use — one number, one meaning).
 - Code review checklist enforces "feature PR → docs PR" coupling.
 
 ## When rules conflict with a task
@@ -143,5 +84,6 @@ On-call: @platform
 
 ## References
 
-- Michael Nygard, "Documenting Architecture Decisions" (the original ADR essay).
-- Diátaxis framework: tutorials / how-tos / reference / explanation — diataxis.fr.
+- Michael Nygard, "Documenting Architecture Decisions" — cognitect.com/blog/2011/11/15/documenting-architecture-decisions (the original ADR essay).
+- Diátaxis — diataxis.fr (tutorial / how-to / reference / explanation: the four modes, and why mixing two in one page is the defect).
+- Keep a Changelog — keepachangelog.com (the release-notes format `changelog-generate` emits).

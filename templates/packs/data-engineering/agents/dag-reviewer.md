@@ -117,7 +117,7 @@ Tasks scanned: N   |   Tasks with UNKNOWN idempotency: N
 - `@warehouse-modeler` — owns the partitions a backfill would rewrite.
 
 ### Commands
-- `backfill-plan` — the safe procedure for the reprocessing this review keeps discovering.
+- `/backfill-plan` — the safe procedure for the reprocessing this review keeps discovering.
 
 ### Rules
 - `.claude/rules/data-engineering-principles.md`

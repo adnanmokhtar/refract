@@ -11,7 +11,7 @@ pack: business
 
 **When to apply**
 - Auditing a feature for completeness before launch (signup → delete, subscribe → cancel).
-- App-store submission gates (Apple requires account-delete since iOS 16).
+- App-store submission gates — App Store Review Guideline 5.1.1(v): "If your app supports account creation, you must also offer account deletion within the app" (developer.apple.com/app-store/review/guidelines/ — an unconditional requirement, not keyed to an iOS version).
 - Compliance review (GDPR right-to-erasure, dark-pattern audits).
 
 **When NOT to apply**
@@ -32,20 +32,22 @@ pack: business
 > - **Half-cycles flagged**: `<list>`
 > - **Resolution path**: `<usually a small UX add — Settings → "Cancel subscription" / Cancel button on invite page>`
 
-## Why this pattern matters
+## What half-cycles actually cost
 
-Half-cycles ship constantly because:
-- Forward action is the user-facing feature; inverse is "edge case."
-- Demos focus on the forward flow.
-- Tickets get filed against forward; inverse drops below the line.
-- Marketing emphasizes forward; inverse is "minor settings."
+They ship constantly for a structural reason: the forward action is the feature, the inverse is "the edge case". Demos walk forward. Tickets are filed against forward. The inverse drops below the line every sprint, and each time the reason is locally reasonable.
 
-Half-cycles HURT because:
-- Users feel trapped (signup, no delete).
-- Regulators consider half-cycles dark patterns.
-- Support load spikes (ticket per missing inverse).
-- App store rejections increase (Apple specifically requires account-delete since iOS 16).
-- Trust erodes silently — users never come back.
+Six that shipped, and what each one cost — the argument to reach for when someone proposes deferring an inverse:
+
+| Half-cycle that shipped | What it actually cost |
+|---|---|
+| Subscribe with no unsubscribe | Ratchet-only signup. Rejected by EU users as a dark pattern; pulled from app stores. |
+| Order placed, no confirmation email | Funnel conversion looked healthy on the dashboard while support volume climbed — the metric could not see the damage. |
+| Admin approval queue with no completion notification | Admins forgot the queue existed; requesters waited hours for a decision already made. |
+| Password-reset email whose link expired immediately | Users locked out of their own accounts; every one became a support escalation. |
+| CSV export stuck "running" forever | Users cancelled and retried, duplicating background jobs — the missing status surface manufactured the load. |
+| Empty-query search → blank screen | Read as "the product is broken"; users bounced rather than reporting it. |
+
+The pattern in all six: the forward action worked, the metric looked fine, and the cost landed somewhere the team was not measuring — support, trust, the store review, the job queue. That is why a half-cycle is a defect at ship time and not a backlog item.
 
 ## Forward / inverse table
 

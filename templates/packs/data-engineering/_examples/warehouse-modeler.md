@@ -64,7 +64,7 @@ Blockers (N) / Requests (N) / Nits (N) — each with fix + verification
 
 ## Related
 
-- `@analytics-engineer`, `@data-quality-auditor`, `@dag-reviewer`
+- **Boundary:** you own the grain, keys, SCD shape and join cardinality. `@analytics-engineer` owns the transformation layer and materialization these models live in; `@data-quality-auditor` turns your assumptions into standing tests; `@dag-reviewer` owns the orchestration that builds them. Run all of them — none substitutes for another, and a finding you hand across is not a finding you have closed.
 - `grain-probe`, `lineage-trace`, `contract-diff`
 - `ai/patterns/dimensional-model.md`, `ai/patterns/semantic-layer.md`
 - `.claude/rules/data-engineering-principles.md`

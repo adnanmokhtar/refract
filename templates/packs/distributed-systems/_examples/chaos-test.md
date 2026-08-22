@@ -30,7 +30,7 @@ Real signals only. Every "PASSED" / "FAILED" cites a measured baseline + during-
 
 - Running service in **STAGING** with realistic data + traffic generator.
 - One of these chaos tools installed:
-  - `toxiproxy` (`brew install shopify/shopify/toxiproxy`) — TCP-layer faults.
+  - `toxiproxy` (`brew install toxiproxy` — homebrew-core; the old `shopify/shopify` tap path is retired) — TCP-layer faults.
   - `pumba` — Docker-container chaos (kill, pause, netem).
   - `chaos-mesh` — Kubernetes-native chaos (network partitions, pod kills).
   - `gremlin` — SaaS chaos with prod-grade safety.

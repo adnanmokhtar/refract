@@ -33,6 +33,15 @@ Five concerns audited:
 4. **Idempotency violations** — duplicate-side-effect signal.
 5. **Schema-version drift** — events with unknown versions.
 
+## Phase 2.5 — Dispatch the specialist for the two concerns that need one
+
+Concerns 2, 3 and 4 are counting exercises this command does itself. Concerns 1 and 5 are judgement calls, and each has an owner:
+
+- **Stuck workflows (concern 1)** — dispatch `@workflow-orchestrator` on any saga whose stuck instances share a step. Counting stuck instances is not the finding; *why* the step wedges is, and its detector set (non-determinism, wrong retry scope, missing activity timeout, poll-instead-of-signal) separates "legitimately waiting on a human" from "stranded by a deploy". Give it the stuck-instance table; take back a per-workflow verdict (DURABLE / FRAGILE / ORPHAN-RISK).
+- **Schema-version drift (concern 5)** — dispatch `@event-sourcing-architect` whenever unknown event versions appear. Drift counts tell you handlers are skipping events; only the upcaster/versioning decision tells you whether to fix the handler, ship an upcaster, or roll the producer back. Give it the drift table; take back the evolution strategy.
+
+Skip either dispatch when its concern returned zero rows — an agent run against an empty table produces a confident report about nothing.
+
 ## Phase 3 — Retrieve
 
 - **Durable workflow engine** (Temporal / Cadence / Step Functions / Durable Functions / Inngest / etc.): query for workflows in running state > N hours via the engine's API.
@@ -43,7 +52,7 @@ Five concerns audited:
 
 Read project's:
 - `ai/patterns/saga-*.md` — declared sagas.
-- `ai/patterns/event-handlers.md` — declared handlers.
+- `ai/patterns/event-handlers.md` — declared handlers *(project signal)*.
 
 ## Phase 4 — Generate
 
@@ -175,4 +184,5 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - `add-event-handler` command — what this audits.
 - `dlq-replay` skill — drain mechanism.
 - `ai/patterns/event-sourcing.md`.
-- `@event-sourcing-architect` agent.
+- `@event-sourcing-architect` agent — dispatched in Phase 2.5 on schema-version drift; owns the upcaster / event-versioning decision.
+- `@workflow-orchestrator` agent — dispatched in Phase 2.5 on stuck workflows; owns the determinism / retry-scope / timeout verdict.

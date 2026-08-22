@@ -1,6 +1,6 @@
 ---
 name: business-completeness
-description: Foundational rule for the business pack — a feature is "shipped" when code compiles; it's "done" when the user can complete the cycle end-to-end with recovery from every error path.
+description: Foundational business rule — "done" is the completed cycle, not the compiling code.
 kind: rule
 pack: business
 applies-to: every-feature, every-PR-touching-user-facing-code
@@ -19,10 +19,10 @@ severity: must
 - **Every error path has a recovery.** "Something went wrong — try again" with a retry button beats a dead-end. "Card declined — try a different card" beats a generic error.
 - **Every business metric is wired.** Funnel events at every step. Drop-off detection requires tracking, not "we'll add it later."
 - **Every cross-actor flow ends.** Admin approves → user receives notification → user takes action → status updates → other actors notified. Don't leave the chain dangling at any link.
-- **Every entity lifecycle is a guarded state graph.** Every state an entity can hold MUST be reachable from the initial state, and at least one terminal state MUST exist (no traps that strand the entity forever). Every state change MUST check its current-state precondition before writing the next state (a conditional `WHERE status = 'expected'` + affected-rows check, or a guard clause) — never a blind overwrite. Illegal edges (`refunded → paid`, `shipped → cancelled`) MUST be impossible, not merely uncommon. This is the **state-graph** half of completeness; `missing-counterparts` covers the **cycle-pair** half (does the inverse verb exist), `@workflow-integrity` covers whether the edges between states are legal and guarded. Run both.
+- **Every entity lifecycle is a guarded state graph** — every state reachable, ≥1 terminal state, every transition checking its current-state precondition before it writes (never a blind overwrite), illegal edges impossible rather than uncommon. *Status / state / phase column present → run `@workflow-integrity`*, which reconstructs the graph and proves each edge.
 - **Every empty state is opinionated.** "No orders yet — start by adding products to your catalog [CTA]" beats a blank screen.
-- **Every domain aggregate owns its invariants, and every invariant names its enforcement layer.** An aggregate root (`Order`, `Wallet`, `Subscription`) is a consistency boundary: the rule it guarantees (`total == Σ line_items`, `balance >= 0`, `end_date > start_date`) MUST be enforced by a cited layer — a DB `CHECK`/`UNIQUE`, a model guard / value-object constructor, or a domain-service assertion — never left to caller discipline. An invariant recited in docs but enforced by no code (`enforced-where: NOWHERE`) on money / inventory / balance is a BLOCKER, not a nit. Anemic models (data bags whose rules leaked into services) and foreign-aggregate members mutated outside their root are boundary defects. `@domain-model-auditor` reconstructs the aggregates + the invariant-enforcement register and grades each.
-- **Money is an integer minor-unit or a decimal type — never a float.** Every price computation MUST state its rounding (round once, at a documented step, with a deliberate mode), its tax jurisdiction (resolved via nexus → rate, never a hardcoded constant, taxed on the discounted amount), and its currency (an amount with no currency code is not money). Multi-currency values MUST NOT be mixed — convert at a defined rate/time or keep them apart; a `SUM` across currencies is a bug. Charges and metering carry an idempotency key. `pricing-tax-audit` audits the money-MATH correctness (representation, rounding, tax base, currency, idempotency, proration) — distinct from the billing-UX checklist.
+- **Every aggregate invariant names the layer that enforces it** — a DB `CHECK`/`UNIQUE`, a model guard / value-object constructor, or a service assertion; never caller discipline. An invariant recited in docs and enforced by no code (`enforced-where: NOWHERE`) on money / inventory / balance is a BLOCKER, not a nit. *ORM models / migrations present → run `@domain-model-auditor`*, which builds the enforcement register and grades each row.
+- **Money is an integer minor-unit or a decimal type — never a float**, and every amount carries its currency. *Billing / checkout / tax surface present → run `pricing-tax-audit`*, which owns the money-MATH (rounding step + mode, jurisdiction, tax base, mixed-currency, idempotent charges, proration).
 
 ## Must not
 
@@ -36,9 +36,8 @@ severity: must
 ## Should
 
 - Track time-to-completion per actor. If admin approval bottlenecks the flow, the metric reveals it.
-- A/B test copy on action buttons when conversion is measured — wording shifts conversion 5–15%.
-- Group related actions ("Subscription") in one settings area; never scatter across 3 menus.
 - Use plain-language error messages: "Card declined by your bank — try another card" beats a vendor-specific error-code dump.
+- A/B test copy on action buttons where conversion is already instrumented — measure the lift on this product; do not import a lift figure from elsewhere.
 
 ## Review checklist
 
@@ -49,39 +48,21 @@ When reviewing a feature for completeness:
 - [ ] Every error has a user-facing recovery path.
 - [ ] Every empty state has an action / explanation.
 - [ ] Every cross-actor flow has a defined endpoint.
-- [ ] Every entity lifecycle state is reachable + has a terminal state; every status transition checks its current-state precondition (no blind overwrite) — `@workflow-integrity`.
-- [ ] Every aggregate invariant names its enforcement layer (DB / model / service), none on money / inventory / balance is enforced NOWHERE; no anemic model on a rule-bearing aggregate — `@domain-model-auditor`.
-- [ ] (If the feature touches money) prices are integer-minor-unit / decimal (no float); rounding + tax jurisdiction + currency are explicit; no mixed-currency sum; charges are idempotent — `pricing-tax-audit`.
+- [ ] Lifecycle graph reachable + terminal + every transition guarded — `@workflow-integrity` run, verdict cited.
+- [ ] Every invariant names its enforcement layer, none NOWHERE on money / inventory / balance — `@domain-model-auditor` run, register cited.
+- [ ] (Money surface) `pricing-tax-audit` run, verdict cited — `UNVERIFIED (N unproven)` is a legitimate verdict; a bare `clean` with no property register is not.
 - [ ] Funnel events fire at each step (analytics).
 - [ ] Audit log captures sensitive operations (role change, data export, account delete).
 - [ ] Permissions denied path is documented per role.
 
-## Failure-history examples
-
-The catalog (in `ai/failures/`) of completeness gaps that shipped:
-
-- **Subscribe flow without unsubscribe** — ratchet-only signup, GDPR-rejected by EU users, removed from app stores.
-- **Order placed but no email confirmation** — high support ticket volume; funnel conversion looked fine on dashboards but customer trust eroded.
-- **Admin approval queue with no notification on completion** — admins forgot, requesters waited hours.
-- **Password reset email sent but link expired immediately** — users locked out; support escalation.
-- **CSV export "running" indefinitely** — users cancelled, retried, duplicated background jobs.
-- **Search results page on empty query → blank screen** — users assumed broken; bounced.
-
 ## Enforcement
 
-- `@business-auditor` agent runs the review checklist against every PR touching a flow declared in `ai/business-flows.md` — gaps block merge.
-- `/business-flow-audit` command (see pack `commands/`) sweeps the whole repo on demand and writes findings to `ai/business-completeness.md`.
-- TODO: validator at `scripts/audit-business-flows.sh` — static scan that every Create-shaped route has a paired Delete + Update + Read route + i18n keys for empty / error / success states.
+- `/audit-business <feature>` — one feature, deep: dispatches `@business-auditor` (experience), `@workflow-integrity` (state graph) and `@domain-model-auditor` (invariants). Its verdict must carry each agent's, or say which was not run.
+- `check-business-coverage` (skill) — the whole product's cycles in one sweep, written to `ai/audits/business-coverage-<date>.md`.
+- Half-cycles that shipped, and what they cost, are catalogued in `ai-patterns/missing-counterparts.md § What half-cycles actually cost` — read it before arguing an exemption.
 
 ## Cross-references
 
-- `ai/business-flows.md` — declared flows that this rule audits against.
-- `@business-auditor` — agent that runs this rule across a feature.
-- `@workflow-integrity` — agent that enforces the guarded-state-graph MUST (reachability, terminal state, current-state precondition per transition); state-graph complement to `@business-auditor`'s cycle-completeness audit.
-- `@domain-model-auditor` — agent that enforces the aggregate-owns-its-invariants MUST (invariant-enforcement register, anemic-model + boundary-leak detection); structural complement to `@workflow-integrity`'s state-graph audit.
-- `pricing-tax-audit` — skill that enforces the money-representation MUST (integer-minor-unit / decimal, rounding + jurisdiction + currency explicit, no mixed-currency, idempotent charges); signal-gated on billing surfaces.
-- `code-quality/rules/quality-principles.md` — code-level quality rule; this is the business-level counterpart.
-
-## Related
-
-(Cross-references in the rule body above.)
+- `ai/business-flows.md` — the declared flows this rule audits against.
+- The three auditors are orthogonal, not redundant: `@business-auditor` = experience, `@workflow-integrity` = state graph, `@domain-model-auditor` = aggregate invariants, `pricing-tax-audit` = money math. Each artifact states its own boundary; none substitutes for another.
+- `code-quality/rules/quality-principles.md` — the code-level counterpart to this business-level rule.

@@ -1,5 +1,5 @@
 ---
-description: Re-runs Phase 2 codebase profiling, diffs against current ai/conventions.md + .claude/codebase-profile.md, updates files on confirmation.
+description: Re-runs the canonical extraction engine (extract-codebase-overview -> _extracted-codebase.md, chaining extract-business-context), diffs the new oracle against the old, and updates .claude/codebase-profile.md + ai/ on confirmation. Knowledge layer only - pack re-apply is /setup-project --refresh.
 ---
 
 # /refresh-knowledge
@@ -52,22 +52,66 @@ MAINTAIN type — 1, 3, 5, 6. Phase 4 here = building the new profile + diff (no
 - Sub-tasks: re-run detection → build new profile → diff → categorize → propose updates → apply on confirmation.
 - `--dry-run`: stop after categorized diff (no writes).
 
-## Phase 3 — Retrieve (re-detect everything)
+## Phase 3 — Re-extract (invoke the engine; do NOT hand-walk)
 
-Re-run Phase 2 detection from `/setup-project`:
-- Run all Appendix A detection commands fresh (package manager, framework, DB, multi-tenancy, business signals).
-- Walk one full module per layer (controller → service → repo → entity → test).
-- Detect business-domain signals fresh.
+> **Hard rule — the oracle is re-derived, not re-asserted.** This phase MUST invoke the
+> `extract-codebase-overview` skill and MUST rewrite `.claude/_extracted-codebase.md`. A run that
+> updates `codebase-profile.md` / `ai/conventions.md` while leaving the oracle at its old bytes
+> produces the exact artefact this command exists to destroy: a knowledge layer stamped with
+> today's date over a codebase read at some earlier commit. It is worse than not running, because
+> the fresh timestamp reads as evidence.
 
-Read for diff:
+1. **Re-derive repo shape** (`repo_shape`, `shape_signal`, `members` — one entry per member with
+   `name` / `root` / `manifest`, `(none)` being legal) from disk, exactly as `/setup-project`
+   Phase 1 does. Do NOT read it out of `.claude/codebase-profile.md § 17`: a member added or
+   removed since the last run is one of the changes this command exists to catch, and a cached
+   member list cannot show it. A shape that differs from § 17 is itself a `CHANGED` diff entry.
+2. **Invoke `extract-codebase-overview`** with those three inputs (all three are `required` in
+   that skill's `## Inputs`; an absent `members` halts there with `[SHAPE-INPUT-MISSING]` rather
+   than defaulting to `single`). Write to `.claude/_extracted-codebase.md`. The skill runs its own
+   Step 2.5 census, its per-section `[SAMPLED: <seen>/<present> <unit>]` markers, its Step 8
+   `[CONTESTED: <A> n/N, <B> m/N]` rows and its Step 15 check 7 — none of which a hand-walk
+   produces. It chains `extract-business-context` at its Step 13, so `.claude/_extracted-business.md`
+   refreshes in the same pass.
+3. **Preserve the approval stamp, never re-stamp.** Copy the existing `approved_by:` /
+   `approved_hash:` lines into the new oracle **verbatim**. The body changes, so the hash no longer
+   matches — that mismatch is the point: `/setup-project-health` check 9 then reports "oracle
+   changed since approval by \<name\>@\<date\>" and a human re-reads before audits build on it.
+   Auto-restamping here silently certifies an oracle nobody has read
+   (`templates/phases/phase-2-profile.md § Oracle approval`).
+4. **Invoke `extract-base-class-idiom`** per load-bearing unit found in the new oracle's
+   `## Base classes` and rewrite `.claude/_extracted-idioms.md` — same stamp-preservation rule.
+   Skip only when the new oracle records no unit with ≥3 dependents.
+
+Read for diff (prior state — read AFTER the new extraction is written, so nothing stale leaks into it):
+- Prior `.claude/_extracted-codebase.md` (git: `git show HEAD:.claude/_extracted-codebase.md`, or the
+  pre-write in-memory copy) — the oracle-vs-oracle diff is the substantive one.
 - Current `.claude/codebase-profile.md`.
 - Current `ai/conventions.md` (auto-populated section above marker only).
 - Current `ai/modules.md`, `ai/stack.md`, `ai/business-domain.md`.
 
+**What this command is NOT.** It refreshes the *knowledge layer* — oracle, profile, `ai/`. It does
+NOT re-select packs, re-apply pack artifacts, re-anchor `## Project-specific` blocks, or re-run
+adapters. That is `/setup-project --refresh` (`phase-2-profile.md § Mode behavior`: "In REFRESH
+mode: orchestrator runs ALL 15 steps" plus Phases 3-5). Reach for `--refresh` when the *stack* moved;
+reach for this when the *code* moved under a stack that did not.
+
 ## Phase 4 — Generate (new profile + categorized diff)
 
-- Build NEW profile in `.claude/codebase-profile.md.new`.
+- Build NEW profile in `.claude/codebase-profile.md.new` **from the oracle Phase 3 just wrote** —
+  the five machine-parsed headings (`Architecture`, `Naming`, `Testing`, `Data access`,
+  `Error handling`) come from `_extracted-codebase.md`, not from a second independent read. Two
+  reads of the same repo that disagree is a bug with no owner.
 - Diff: `diff -u .claude/codebase-profile.md .claude/codebase-profile.md.new`.
+- **Diff the oracle too** — `diff -u <prior _extracted-codebase.md> .claude/_extracted-codebase.md`.
+  Three of its deltas are reportable in their own right and are invisible in the profile diff:
+  - **Coverage delta** — `## Coverage` `<seen>/<present>` this run vs last, per member. Coverage
+    that *fell* while the repo grew means the walk is now thinner, not that the project got simpler;
+    report it as `CHANGED` even when no section text moved.
+  - **Provenance delta** — the `[found:] / [inferred:] / [unconfirmed]` counts. A claim that moved
+    `[found:] → [inferred:]` is a fact that stopped being verifiable, and it is a refresh finding.
+  - **`[CONTESTED]` rows appearing or clearing** — a category that split since the last run is
+    `ADDED` (a convention became unsettled); one that resolved to unanimous is `REMOVED`.
 - Categorize each diff:
   - `ADDED` — new entity / pattern / module / dependency.
   - `CHANGED` — base class moved, suffix convention shifted, layer renamed.
@@ -76,6 +120,12 @@ Read for diff:
   - ADDED → may require `learned-patterns.md`, `glossary` entry, new ADR.
   - CHANGED → update `ai/conventions.md` + relevant rule + `interaction-log.md`.
   - REMOVED → archive references; may invalidate ADR (write superseding ADR).
+- **A newly-`[CONTESTED]` category is never proposed as a convention update.** It goes to
+  `ai/conventions.md § Unsettled conventions` with both options + counts + a citation each
+  (`templates/phases/phase-4.7-deep.md § Unsettled conventions` defines the row shape), and to
+  `ai/dynamic/decisions-pending.md` as "pick one or accept the split". Writing the 60% side into
+  the auto-populated section is the averaging bug: it hands the next agent a rule that is wrong for
+  40% of the files, with a citation that resolves.
 - Show categorized diff in plan form; pause for confirmation (unless `--dry-run`).
 
 ### Mechanical halt — source-vs-digest conflict
@@ -97,17 +147,29 @@ The halt prints, the user reads, the user types `y` — then Phase 5 overwrites 
 ## Phase 5 — Update (the knowledge layer — this command's purpose)
 
 On confirmation:
-- Replace `.claude/codebase-profile.md` with `.codebase-profile.md.new`.
+- Replace `.claude/codebase-profile.md` with `.claude/codebase-profile.md.new` (the file Phase 4 actually wrote), then remove the `.new` scratch file.
 - Update `ai/conventions.md` auto-populated sections ABOVE the idempotency marker; preserve user edits BELOW.
 - Append to `ai/dynamic/changelog.md` summarizing the refresh.
-- Add entries to `ai/dynamic/learned-patterns.md` for newly-emerged patterns.
+- Dispatch `pattern-emergence-watcher` over the ADDED/CHANGED set and let IT write
+  `ai/dynamic/learned-patterns.md`. Do not author pattern entries inline: the agent owns the
+  Rule-of-Three floor, the stack-default exclusion and the `WATCHING` status, and an entry
+  written here bypasses all three — which is how `learned-patterns.md` fills with framework
+  defaults nobody will ever promote.
 - Add entries to `ai/dynamic/decisions-pending.md` for changes requiring human decision.
 - Prepend "Knowledge refresh on YYYY-MM-DD" to `ai/status.md` Recent Changes.
 - Update `ai/modules.md` rows for ADDED/REMOVED modules.
 - Update `ai/stack.md` for dependency changes.
+- Update `ai/conventions.md § Unsettled conventions` from the new oracle's `[CONTESTED]` rows —
+  add rows that appeared, drop rows whose category is now unanimous. A category may appear there
+  OR as a settled rule, never both.
 
 ## Phase 6 — Validate
 
+- **Oracle actually moved** — `.claude/_extracted-codebase.md` mtime is this run AND its
+  `Coverage:` / census `<short-sha>` names the commit recorded in Phase 1. An unchanged oracle after
+  a non-empty diff means Phase 3 was skipped and every other check below is measuring stale input.
+- **Approval stamp preserved, not re-issued** — `approved_by:` is byte-identical to its pre-run
+  value. If it changed, the run auto-certified an oracle no human re-read; restore the old value.
 - Re-read `ai/conventions.md` after write — confirm idempotency marker present, user content below preserved.
 - Spot-check one ADDED entity / one CHANGED suffix against actual files (no phantom updates).
 - Confirm `ai/status.md` `Updated:` line is the new date.
@@ -160,7 +222,8 @@ Apply now? [y/n]
 
 ## See also
 
-- `/setup-project` Phase 2 — original profiling.
+- `/setup-project --refresh` — the *wider* command: re-selects packs, re-applies artifacts, re-anchors, re-syncs adapters. Use it when the stack itself moved.
+- `extract-codebase-overview` · `extract-business-context` · `extract-base-class-idiom` — the skills this command invokes.
 - `/detect-drift` — narrower check (conventions vs code only).
 - `ai/dynamic/learned-patterns.md`, `ai/dynamic/decisions-pending.md`, `ai/dynamic/changelog.md`.
 

@@ -58,7 +58,7 @@ Saturation: <reached at source n | NOT REACHED>
 
 ## Related
 
-- `@product-strategist`, `@requirements-reviewer`, `@scope-arbiter`
-- `evidence-trace`, `assumption-ledger`
-- `/synthesize-research`, `/frame-problem`
-- `@ux-reviewer` (ui-ux) is heuristic review, not research — never cite the two interchangeably.
+- **Boundary:** you produce findings at the strength the material supports and stop there; `@product-strategist` decides what to do about them. Every downstream citation of your work inherits the class you assigned, which is why you never upgrade one — and why "no disconfirming material was found" must be stated rather than omitted.
+- `evidence-trace` (traces requirements back to your findings, and flags the ones descended from a superseded one), `assumption-ledger` (names the tests you run next).
+- `/synthesize-research` dispatches this agent · `/frame-problem` consumes its findings as the brief's evidence table.
+- **Cross-pack:** `@ux-reviewer` (ui-ux) is heuristic review, not research — never cite the two interchangeably.

@@ -59,6 +59,6 @@ Tasks scanned: N  |  UNKNOWN idempotency: N
 
 ## Related
 
-- `@analytics-engineer`, `@data-quality-auditor`, `@warehouse-modeler`
-- `backfill-plan`
+- **Boundary:** you own task-level and graph-level orchestration — idempotency, dependency edges, retries, schedules, pools. `@analytics-engineer` owns the models these tasks build; `@data-quality-auditor` owns the assertions this graph should be gated on; `@warehouse-modeler` owns the partitions a backfill would rewrite. Run all of them — none substitutes for another.
+- `/backfill-plan` — the safe procedure for the reprocessing this review keeps discovering.
 - `.claude/rules/data-engineering-principles.md`

@@ -73,7 +73,7 @@ BLOCKER fix-filtered-recall — pre-filter strands the traversal at ef_search=64
 - `PASS` against a target that was never declared → forbidden (`UNSTATED`).
 - An invented recall or latency number → forbidden; a stage that could not run is `not run`.
 - Scoring through a second retriever, or two knobs moved between runs → discard and re-run.
-- Grading the cross-tenant leak → `@llm-security-reviewer` (LLM08) / `@tenant-isolation-reviewer`.
+- Grading the cross-tenant leak → `@llm-security-reviewer` (LLM09:2026) / `@tenant-isolation-reviewer`.
 
 ## References
 

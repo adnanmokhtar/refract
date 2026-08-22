@@ -82,7 +82,9 @@ And one property: **a full refresh must reproduce the incremental history.** If 
 - A view chain deeper than three hops feeding a dashboard.
 - A hardcoded date literal as the "start of data".
 
-## Related
+**Closure verbs:** `narrow-select-star`, `use-reference-function`, `fix-incremental-predicate`, `add-lookback-window`, `retire-unconsumed-model`, `consolidate-duplicate-case`, `flatten-view-chain`, `parameterise-start-date`.
+
+Each detector above closes with exactly one of these. Never invent a verb — a finding that fits none of them belongs to a different pattern.
 
 - `ai/patterns/dimensional-model.md` — the shape the mart layer produces.
 - `ai/patterns/semantic-layer.md` — where a metric is defined once, above the marts.

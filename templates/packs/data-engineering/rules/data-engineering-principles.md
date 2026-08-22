@@ -15,7 +15,7 @@ Prevents the failure that has no stack trace: the pipeline is green, the tests p
 
 ## Must
 
-- **Declare the grain** of every model in one sentence, in the model's own documentation: "one row per `<entity>` per `<qualifier>`". Prove it with a duplicate-key probe against the built table before the model is consumed. The primary-key declaration is not proof — most analytical platforms do not enforce it.
+- **Declare the grain** of every model in one sentence, in the model's own documentation: "one row per `<entity>` per `<qualifier>`". Prove it with a duplicate-key probe against the built table **in the current change**, before the model is consumed or aggregated over — a probe that passed three months ago is a claim about a table that no longer exists. The primary-key declaration is not proof; most analytical platforms do not enforce it.
 - **Classify every measure** as additive, semi-additive, or non-additive next to the column. Aggregate semi-additive measures with a period-end rule across time; store ratios as numerator and denominator, never pre-divided.
 - **Respect layer direction**: staging reads sources only (rename, cast, coerce sentinels, dedupe — no joins across sources, no business logic); intermediate reads staging and intermediate; marts read intermediate and staging. Nothing reads a raw source past the staging layer.
 - **Reference upstream through the framework's reference function.** A hardcoded fully-qualified table name is invisible to the dependency graph, so build order and lineage are both silently wrong.
@@ -31,12 +31,10 @@ Prevents the failure that has no stack trace: the pipeline is green, the tests p
 
 ## Must not
 
-- Aggregate over a model whose grain has not been probed in the current change.
 - Join a fact to a dimension without a proven cardinality. Every unproven join is a fan-out waiting to be discovered by finance.
 - Ship `SELECT *` outside a staging passthrough that is annotated as temporary with a date. It amplifies scan cost at every layer and lets an upstream column change a mart's shape.
 - Update a dimension row in place when facts already reference it as-of an earlier date. That is a Type 2 requirement, not a preference.
 - Let two models define the same business metric. Two defensible numbers is worse than one wrong one, because neither can be retired.
-- Overwrite a live table during a backfill, or run a backfill concurrently with the model's normal schedule.
 - Set retries on a task whose write is not proven idempotent — each retry writes the duplicate again and the graph turns green.
 - Configure a downstream task to run regardless of upstream state. A transform over a failed load republishes yesterday as today.
 - Filter an incremental model on load time, or on `max(event) already loaded` with no lookback. Late rows are lost permanently and silently.
@@ -53,18 +51,6 @@ Prevents the failure that has no stack trace: the pipeline is green, the tests p
 - Prefer a bounded, chunked backfill that can be retried per chunk over one long job that must be restarted from zero.
 - Keep an unknown/late-arriving member row in every dimension so facts never vanish on an inner join.
 - Route data assertions through the same alerting and runbook conventions the observability pack already establishes, rather than inventing a second paging path.
-
-## Review checklist
-
-- [ ] Grain declared in words and probed unique in this change.
-- [ ] Measure additivity recorded; no semi-additive measure summed across time.
-- [ ] Layer direction respected; no hardcoded table references introduced.
-- [ ] If incremental: key, predicate, lookback, and full-refresh trigger all present.
-- [ ] Assertions present in the same commit and executed at least once.
-- [ ] Freshness and volume monitors exist for anything on a schedule.
-- [ ] If money- or count-bearing: a reconciliation check exists.
-- [ ] If a metric changed: one definition remains, and the historical-series effect is stated.
-- [ ] If a backfill: shadow target, bounded range, before-snapshot, rollback step, and window.
 
 ## Enforcement
 

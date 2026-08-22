@@ -97,83 +97,61 @@ Each axis scores 0–25. Total = 0–100.
 
 ### Axis 4: Specificity
 
-**What it measures**: the inverse of generic-prose ratio — how much of the block is concrete vs how much is filler.
+**What it measures**: the fraction of the block's *directives* — sentences that tell a reader to do, prefer, avoid or check something — that name a verified identifier, a verified path, or a number from extraction. Grounded directives point at this repo; floating ones would fit any repo.
 
-**Why it matters**: a block can have all the right identifiers + paths + signals AND still be drowned in generic prose ("apply best practices when implementing"). Specificity penalizes that prose.
+**Why it matters**: a block can have all the right identifiers + paths + signals in its opening paragraph AND still instruct the reader with pure filler ("follow the team's established patterns for this layer"). Axes 1-3 count referents *anywhere* in the block; this axis asks whether the *advice* carries them. That is the discrimination the other three cannot make.
 
-**Scoring**: starts at 25. Each generic phrase = -5 (capped at 0).
+**Why it is a positive test and not a blocklist.** It used to start at 25 and deduct 5 per phrase from a list of nine strings — so prose that avoided those exact nine scored a perfect 25, and this became the one axis a generator could max out by writing more confident prose. That inverted the whole rubric's purpose. Under the positive test, confident prose with no referent scores 0. Placeholder deductions (`<TODO>`, `<entity>`, un-filled auto-comments) survive on top, because those are un-filled output rather than a judgement about writing.
 
-Generic phrases the scorer flags:
+**Thresholds**: `grounded_directives / total_directives` → 25 / 18 / 13 / 8 / 0 across the bands in [`compute-anchor-density § Step 5`](../skills/compute-anchor-density/SKILL.md). A block with zero directives scores 0 — it instructs nobody.
 
-- `<TODO>`, `<FIXME>`, any angle-bracket placeholder.
-- `<base>`, `<entity>`, `<service>`, `<module>` (placeholder identifiers).
-- `the project's <X>` with literal `<X>`.
-- `your service layer / your repository / your controller` (generic referent without a name).
-- `use parameterized queries` (without naming the actual data-access lib).
-- `follow framework conventions` (without naming the framework).
-- `apply best practices` (without specifying which).
-- `as appropriate for your stack`, `depending on your setup`.
-- Any auto-comment indicating un-filled-in content.
+## Plateau detection — classification, verdicts, and where the arithmetic lives
 
-## Classification
+The band boundaries (MISSING / SHALLOW 1-69 / ANCHORED 70-84 / DEEP 85-100), the three-way plateau
+verdict with its exact conditions, and the per-WEAK-phase remediation map are **defined once**, in
+[`compute-anchor-density`](../skills/compute-anchor-density/SKILL.md) §§ Step 6-7. That skill is what
+computes them; this document is what explains them. They are not restated here on purpose — a
+threshold written in two files is a threshold that will be changed in one.
 
-Total = sum of axes. Classification:
+What this document owns is the part a number cannot carry: *why the verdict is three-way, and why
+two of its reasons look identical and call for opposite actions.*
 
-| Range | Class | What REFINE does |
-|---|---|---|
-| 0 (markers absent) | **MISSING** | Round-one bug — re-run standard Phase 4.6, NOT a REFINE concern. |
-| 1-69 | **SHALLOW** | Phase 4.6-DEEP rewrites the `## Project-specific` block. |
-| 70-84 | **ANCHORED** | Phase 4.6-DEEP skips by default. Aggressive flag (`--refine --aggressive`, future) would re-anchor for 85+ ceiling. |
-| 85-100 | **DEEP** | Phase 4.6-DEEP skips. Further rewriting won't help. |
+**The two plateau classes are exhaustive by construction**, and the `OR` in `PLATEAU-WEAK`'s
+condition is what makes them so: `PLATEAU-WEAK` is `plateau_delta ≤ ΔMax` AND NOT `PLATEAU-DEEP`.
+With `AND` there instead, a converged run at `plateau_consumed = 0.9, avg_score = 75` would match
+neither class and the exit table would have no verdict to read. `compute-anchor-density § Step 7`
+carries the same `OR` form; they must not diverge.
 
-## Plateau detection — three-way verdict
+**The verdict is never a binary.** `PLATEAU-DEEP` and `PLATEAU-WEAK` are indistinguishable from the
+deltas alone — both show a run that stopped improving — and they mean opposite things. DEEP means the
+substrate was consumed and the artifacts are anchored: stop, you are done. WEAK means the run hit a
+ceiling it did not set: stop, and go fix what is below it. A single "plateau reached" string collapses
+those two into the first reading, which is the misleading message this whole distinction exists to
+prevent.
 
-After scoring all artifacts in a `--refine` run, compare to the prior `_setup-quality.md` (if present):
+**And `PLATEAU-WEAK` itself carries three reasons that are not interchangeable.** The per-phase
+remediation map in the skill answers exactly one of them:
 
-```
-plateau_delta    = avg(this_run_scores) - avg(prior_run_scores)
-plateau_consumed = signals_consumed_across_all_artifacts / signals_available_in_refine_extract
-weak_phase_count = count(phases in 2.7..2.12 with [REFINE-WEAK: ...])
-avg_score        = avg(this_run_scores)
-```
+- `reason: signal` — the extraction phases came back thin. The map applies: grow the upstream signal
+  (more models, more traced endpoints, more history) and re-run.
+- `reason: score` — the substrate WAS consumed (`plateau_consumed ≥ 0.85`) and the artifacts still
+  failed to anchor. The **generators** are at fault, not the codebase. Telling this user to write more
+  domain models is a wild-goose chase; the fix is upstream in Phase 4.6/4.7 authoring.
+- `reason: coverage` — round-one only *read* part of the source (`[SAMPLED]` markers survive). The
+  code is already there and simply was not walked. The instruction is **raise coverage** — re-run
+  without `--lightweight`, or raise the per-category sample in `extract-codebase-overview § Step 8` —
+  which is the exact opposite of "grow the codebase".
 
-The verdict is **always one of three classes — never a single binary** "plateau / not-plateau". The distinction matters because PLATEAU-DEEP and PLATEAU-WEAK look identical from the deltas alone but call for opposite user actions:
-
-| Verdict | Conditions | Per-artifact tag | Run-level message | User action |
-|---|---|---|---|---|
-| **PLATEAU-DEEP** | `plateau_delta ≤ 2` AND `plateau_consumed ≥ 0.85` AND `avg_score ≥ 80` AND no `[SAMPLED]` section survives in `_extracted-codebase.md` (unless a human recorded `coverage-accepted:`) | `LEAVE-DEEP-IDEMPOTENT` | "Plateau reached (DEEP) — setup is anchored." | Stop running `--refine` until significant new code lands. |
-| **PLATEAU-WEAK** | `plateau_delta ≤ 2` AND (`plateau_consumed < 0.85` OR `avg_score < 80` OR a `[SAMPLED]` section survives) — carries `reason: signal \| score \| coverage` | `LEAVE-DEEP-IDEMPOTENT` (with `weak_phases:` list in row) | "Plateau reached (WEAK) — setup is NOT yet anchored deeply. <N> phases produced WEAK output: <list>." | Grow upstream signal first, then re-run `--refine`. |
-| **NOT-PLATEAU** | `plateau_delta > 2` OR no prior baseline | (none) | (no plateau message) | Re-running `--refine` would still climb. Run again if score < 70 average. |
-
-### The PLATEAU-WEAK action map
-
-When the verdict is `PLATEAU-WEAK`, the run-level message MUST list each WEAK extraction phase + the recommended user action:
-
-| WEAK phase | Recommended action |
-|---|---|
-| Phase 2.7 (entities) | Add more domain models / migrations / Pydantic-or-Zod schemas. |
-| Phase 2.8 (architecture) | Add more clearly-bounded modules / cross-cutting middleware. |
-| Phase 2.9 (flows) | Trace more endpoints (need ≥5 total). |
-| Phase 2.10 (conventions) | Let conventions emerge across more files (need 5+ recurrences). |
-| Phase 2.11 (hot paths) | Add monitoring config / Datadog dashboard / git churn signal. |
-| Phase 2.12 (failures) | Accumulate more git history (need ≥30 commits) OR opt into `--include-incidents=<path>`. |
-
-**Two of the three WEAK reasons are not in that table, and giving them its advice is wrong.** The table above is the `reason: signal` remediation. `reason: score` means the substrate WAS consumed (`plateau_consumed ≥ 0.85`) and the artifacts still failed to anchor — the generators are at fault, not the codebase, and telling the user to write more models is a wild-goose chase. `reason: coverage` means round-one only READ part of the source (`[SAMPLED]` markers survive): the instruction is **raise coverage** — re-run without `--lightweight`, or raise the per-category sample in `extract-codebase-overview § Step 8` — which is the opposite of "grow the codebase", since the code is already there and simply was not read. `compute-anchor-density § Step 7` emits the `reason` field; this map is what a consumer prints for exactly one of its three values.
-
-### Why this matters
-
-A user seeing "plateau reached" with avg_score 58 and assuming "we got everything" is the misleading-message bug this distinction prevents. The two-class verdict makes the actionable difference visible:
-
-- **DEEP**: "Stop running `--refine` against unchanged code; the setup is anchored. Next round: when you ship more features."
-- **WEAK**: "Stop running `--refine` against unchanged code; you're stuck at a low ceiling because extraction was thin. Next round: grow upstream signal first."
-
-Both verdicts say "stop running `--refine`" — but for opposite reasons that imply opposite next steps.
+Giving a `score` or `coverage` run the `signal` advice sends the user to change the one thing that is
+not the problem, and the run plateaus again at the same number, which is how a user learns to stop
+trusting the verdict. `compute-anchor-density § Step 7` emits the `reason` field; a consumer that prints the per-phase map for all three values is answering two of them wrong.
 
 ## Anti-patterns this rubric exists to prevent
 
 1. **The "I rewrote everything" trap** — without scoring, REFINE could rewrite anchored artifacts repeatedly, churning diffs without improving content. The threshold (skip ≥ 70) prevents this.
 2. **The "REFINE never converges" trap** — without plateau detection, the user has no signal that "we're done." Plateau converts subjective "is this good enough?" into a measurable answer.
 3. **The "high score, no signal" trap** — an artifact could score 100 by stuffing the block with identifiers and paths copied from another project (LEAK). The verification rule (cross-check against extraction; deduct 5 per ghost) prevents this.
+3b. **The "confident prose" trap** — the sharpest version of trap 3, and the one that survived it for a while: a block citing 6 real identifiers and 5 real paths, consuming zero deep signal, whose every instruction is "follow the team's established patterns", scored `25 + 22 + 0 + 25 = 72` — ANCHORED, therefore skipped by Phase 4.6-DEEP forever. Every citation was real; the advice was worthless. Specificity became a **positive** test for exactly this: the citations are still counted by axes 1-2, but the axis that scores the *advice* now asks whether the advice points anywhere.
 4. **The "plateau by WEAK extraction" trap** — if extraction was WEAK, signal density caps at 0 and total scores stay low forever. Without the three-way verdict, reporting "plateau reached" misleads — the user thinks "we got everything" when really "there's nothing left to consume from a thin extraction." The PLATEAU-DEEP / PLATEAU-WEAK / NOT-PLATEAU classifier closes that gap. **A bare "plateau reached" string is forbidden — every verdict carries a class tag.**
 5. **The "silent WEAK axis" trap** — a PLATEAU-WEAK verdict that doesn't enumerate which phases produced WEAK output is half-useful. The user knows they're stuck but not what to grow. The verdict message MUST list every WEAK phase + its recommended action.
 

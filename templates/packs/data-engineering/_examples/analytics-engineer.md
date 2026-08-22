@@ -76,6 +76,6 @@ Blockers (N) / Requests (N) / Nits (N)
 
 ## Related
 
-- `@warehouse-modeler`, `@data-quality-auditor`, `@dag-reviewer`
+- **Boundary:** you own layer direction, materialization and incremental correctness. `@warehouse-modeler` owns the grain/keys/SCD shape this layer produces; `@data-quality-auditor` owns the tests that keep these models trustworthy; `@dag-reviewer` owns the orchestration that runs them. Run all of them — none substitutes for another.
 - `lineage-trace`, `warehouse-scan-audit`, `contract-diff`
 - `ai/patterns/transformation-layers.md`, `ai/patterns/semantic-layer.md`

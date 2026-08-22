@@ -92,7 +92,9 @@ A contract nobody checks is a document. Put it where it runs:
 - A deprecation with no expiry date.
 - A `SELECT *` in any model reading a contracted source — it makes every additive change breaking for that model.
 
-## Related
+**Closure verbs:** `write-contract`, `declare-units-and-timezone`, `version-contract-change`, `assert-accepted-values`, `schedule-schema-diff`, `date-the-deprecation`, `narrow-select-star`.
+
+Each detector above closes with exactly one of these. Note what is deliberately absent: there is no verb for "semantic-breaking change detected". That class does not close by editing a contract — it closes by `version-contract-change` **plus** the consumer notice `lineage-trace` sizes, because the name and type are unchanged and nothing will fail on its own. Never invent a verb.
 
 - `ai/patterns/data-quality-tests.md` — the assertions that enforce a contract continuously.
 - `ai/patterns/transformation-layers.md` — staging is where an additive change is absorbed.

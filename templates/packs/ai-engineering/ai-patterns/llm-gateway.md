@@ -22,7 +22,7 @@ pack: ai-engineering
 - A provider SDK (`openai`, `anthropic`, `google-genai`, `mistralai`, a vLLM/Ollama client, …) imported and called from feature/business code rather than the gateway MUST be cited at `<path:line>` → the seam is bypassed.
 - A model call with no timeout OR no max-output-token cap MUST be cited — unbounded latency + unbounded cost.
 - A production LLM path with a single provider and no fallback on outage/overload MUST be cited as a SPOF (or the accepted-risk decision documented).
-- Repeated large identical context (same system prompt / same document) sent every call with no caching MUST be cited — money left on the table.
+- Repeated large identical context (same system prompt / same document) sent every call with no caching MUST be cited — money left on the table. Cite it **with the prefix's token count against the model's minimum cacheable size**: below that floor nothing caches and no error is raised, so "add caching" would be advice that silently does nothing.
 - A model call with no logging of tokens + cost + latency + model id MUST be cited — the feature is financially unobservable.
 
 ## Responsibilities the seam owns
@@ -45,9 +45,10 @@ pack: ai-engineering
 
 ## Caching
 
-- **Exact-match cache** keyed on `(model, normalized prompt, params)` — deterministic calls (temp 0 extraction/classification) are highly cacheable; big hit-rate for free.
+- **Exact-match cache** keyed on `(model, normalized prompt, params)` — single-answer calls (extraction/classification, constrained by the schema mode) are highly cacheable; big hit-rate for free.
 - **Semantic cache** keyed on embedding similarity of the request — returns a prior answer for a near-duplicate query. Powerful but risky: set a strict similarity threshold and never semantic-cache across tenants or across permission scopes (a cross-tenant cache hit is a data leak).
-- **Provider prompt-caching:** when a large stable prefix (system prompt, tool schemas, a long document) repeats across calls, mark it so the provider caches the prefix — cuts input cost and latency on the repeated portion. Order context stable-prefix-first to maximize hits.
+- **Provider prompt-caching:** when a large stable prefix (system prompt, tool schemas, a long document) repeats across calls, mark it so the provider caches the prefix — cuts input cost and latency on the repeated portion. Order context stable-prefix-first to maximize hits, and keep everything volatile (timestamps, per-request ids, the user's question) *after* the last cache marker: prefix caching is byte-prefix matching, so one varying character anywhere in the prefix invalidates everything after it.
+- **A prompt cache has a floor and a ceiling, and the floor fails silently.** Below the model's minimum cacheable prefix nothing is cached and *no error is returned* — the marking is inert and the saving imaginary. The minimum is model-dependent and does not move monotonically across a vendor's generations, so it must be read per model, not remembered. There is also a cap on cache breakpoints per request (exceeding it is an error, not a silent no-op). Verify from the response's cache-read counter that the cache is real before claiming a saving.
 - **Cache invalidation + TTL:** version the cache key by prompt version + model; a prompt or model change MUST NOT serve stale cached answers.
 
 ## Cost + latency budget

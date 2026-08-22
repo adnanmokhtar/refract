@@ -7,7 +7,7 @@ pack: ai-engineering
 
 # Pattern: Agent Design
 
-> **Hard rule:** Reach for an **agent** (an LLM that chooses its own control flow, tools, and stopping point) only when a fixed **workflow** (deterministic steps with an LLM at named nodes) cannot express the task — agents buy flexibility with cost, latency, and nondeterminism, and you pay all three on every run. Every agent loop MUST have a hard **budget** (max steps + token cap + wall-clock timeout + cost ceiling) and every tool with a **write / delete / spend / send** effect MUST pass a confirmation or policy gate before it fires. An agent loop with no budget is a runaway cost/incident; an unguarded destructive tool is an Excessive-Agency (LLM06) exploit surface. This pattern designs the loop; the **security** pack's `@llm-security-reviewer` secures it.
+> **Hard rule:** Reach for an **agent** (an LLM that chooses its own control flow, tools, and stopping point) only when a fixed **workflow** (deterministic steps with an LLM at named nodes) cannot express the task — agents buy flexibility with cost, latency, and nondeterminism, and you pay all three on every run. Every agent loop MUST have a hard **budget** (max steps + token cap + wall-clock timeout + cost ceiling) and every tool with a **write / delete / spend / send** effect MUST pass a confirmation or policy gate before it fires. An agent loop with no budget is a runaway cost/incident; an unguarded destructive tool is an Excessive-Agency (LLM03:2026) exploit surface. This pattern designs the loop; the **security** pack's `@llm-security-reviewer` secures it.
 
 **When to apply**
 - The task's steps aren't knowable up front — the model must decide what to do next from intermediate results (open-ended research, multi-step debugging, "do X however it takes").
@@ -22,7 +22,7 @@ pack: ai-engineering
 
 **Halt conditions / mandatory cites**
 - An agent loop where a fixed workflow expresses the same task MUST be cited at `<path:line>` with the fixed step sequence it could be — "feels agentic" is not a justification.
-- A tool whose implementation writes / deletes / pays / sends / executes with NO confirmation-or-policy gate MUST be cited at its definition + call site → cross-ref `@llm-security-reviewer` **LLM06 Excessive Agency**.
+- A tool whose implementation writes / deletes / pays / sends / executes with NO confirmation-or-policy gate MUST be cited at its definition + call site → cross-ref `@llm-security-reviewer` **LLM03:2026 Excessive Agency**.
 - An agent loop with no `max_steps` AND no token cap AND no timeout MUST be cited — an unbounded loop is a cost/availability incident, not a style nit.
 - Context that grows unboundedly across steps (every observation appended, never compacted) MUST be cited at the assembly site.
 - A tool error that throws out of the loop instead of being caught and fed back to the model MUST be cited — a recoverable failure is being turned into a crash.
@@ -78,7 +78,7 @@ Bound EVERY axis; a single uncapped axis is the failure mode.
 ## Detectors (cite-or-halt)
 
 - An agent loop (`while` / recursive tool-use loop) whose task decomposes into a fixed, knowable step sequence → cite the sequence → `downgrade-to-workflow`.
-- A tool definition with write/delete/spend/send/execute scope and no confirmation-or-policy gate at the call site → `add-tool-gate` + cross-ref `@llm-security-reviewer` LLM06.
+- A tool definition with write/delete/spend/send/execute scope and no confirmation-or-policy gate at the call site → `add-tool-gate` + cross-ref `@llm-security-reviewer` LLM03:2026.
 - An agent loop with no `max_steps` / no token cap / no timeout / no cost ceiling → `add-loop-budget`.
 - Context assembled by unconditionally appending every step's observation with no compaction/threshold → `add-context-compaction`.
 - A tool that `throw`s (or lets an exception propagate) instead of returning a structured error the model can read → `make-tool-error-recoverable`.
@@ -91,4 +91,4 @@ Bound EVERY axis; a single uncapped axis is the failure mode.
 
 - **Patterns (in-pack):** `llm-gateway` (every tool-call/model-call routes through the gateway — budgets, cost tracking, fallback live there), `prompt-engineering` (tool descriptions + structured output are prompt surface), `evals` (an agent trajectory needs its own eval set — step count, tool-choice accuracy, task success), `rag-pipeline` (retrieval as a tool).
 - **Rule (in-pack):** `ai-engineering-principles` (no unbounded agent loop; model output + tool output are untrusted; structured output via schema).
-- **Cross-pack owners (referenced, not duplicated):** Excessive Agency, prompt injection via tool output, output-sink handling → **security** `@llm-security-reviewer` (LLM06 / LLM05 / LLM01); per-call timeout/retry/circuit-breaker for the *tool's* downstream I/O → **distributed-systems** / **backend** resilience (don't re-implement here); trace-linked step logging + cost per run + approval audit trail → **observability** (`tracing`, `audit-logging`).
+- **Cross-pack owners (referenced, not duplicated):** Excessive Agency, prompt injection via tool output, output-sink handling → **security** `@llm-security-reviewer` (LLM03:2026 / LLM10:2026 / LLM01:2026); per-call timeout/retry/circuit-breaker for the *tool's* downstream I/O → **distributed-systems** / **backend** resilience (don't re-implement here); trace-linked step logging + cost per run + approval audit trail → **observability** (`tracing`, `audit-logging`).

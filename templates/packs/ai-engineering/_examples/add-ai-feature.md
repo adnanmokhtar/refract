@@ -31,7 +31,7 @@ Universals + `evals.md` + `prompt-engineering.md` (+ `rag-pipeline` + `vector-st
 
 ## Phase 4 — Generate
 
-- **Prompt + structured output**: owned prompt module; tool/JSON-schema mode (no regex-parse); `temperature: 0` for extraction; instruction/data separated.
+- **Prompt + structured output**: owned prompt module; tool/JSON-schema mode with the provider's *strict* variant where one exists (no regex-parse); instruction/data separated. For single-answer tasks set `temperature: 0` **only where the provider still exposes sampling params** — where it removed them (current Anthropic models return 400 on a non-default `temperature`/`top_p`/`top_k`) the schema mode plus the system prompt are the controls, and setting temperature is the defect.
 - **Gateway + budget**: route through the one gateway module; `max_tokens` + timeout + traced cost on every call.
 - **RAG**: tenant filter at query time; no-context guard; deliberate chunking + top-k.
 - **Agentic**: loop budget (steps + tokens + timeout); human-in-loop on destructive tools; typed tool inputs.
@@ -60,22 +60,43 @@ Lint + tests; **`eval-run` green** (the gate); cross-tenant retrieval test (if R
 
 `/learn-from-task`; wire the prod-failure→eval-case path (the loop that strengthens the gate); ADR for a new domain signal.
 
+## Ship gate — production-grade or INCOMPLETE (the closing verdict)
+
+"It responds" is the floor, not the ship bar. Declare **PRODUCTION-READY** only when all three axes hold *with evidence*:
+
+| Axis | What earns it |
+|---|---|
+| **Eval gate** | The gated metrics were MEASURED by `eval-run` and each cleared its declared threshold — **cite the number** (`<metric> = <score>` vs `≥ <threshold>`), never "the eval exists". NEW feature → the ABSOLUTE bar. CHANGE → `baseline − ε` *and* the bar. The CI eval step is grep-confirmed present in the pipeline file. No harness ⇒ this axis is **UNVERIFIED**, so the feature is UNVERIFIED, never READY. |
+| **Guardrails** | Input validation, output validation, injection defense, PII redaction — each named at its site, not "the output looked safe". `@llm-security-reviewer` CLEARED. |
+| **Budget** | `max_tokens` + timeout + traced cost set and holding on every call. |
+
+Three verdicts, no fourth:
+
+- **PRODUCTION-READY** — all three axes satisfied with the cited evidence above.
+- **UNVERIFIED** — built and functional, but the eval axis could not be measured (no harness). Name it (`eval UNVERIFIED — no harness; set + scorers built, gate not yet run`). The ship decision is the human's, made eyes-open; this command does NOT upgrade it to READY.
+- **INCOMPLETE** — a named axis is unmet (a below-threshold metric, a missing guardrail, an unset budget, security BLOCKERS). List every unmet item.
+
 ## Output
 
 ```
 ✅ AI feature added: <feature>
-Phase 5 (Evaluated): eval set v1 (<N> cases) gated in CI; eval-run PASS @ baseline; @llm-security-reviewer cleared.
-Eval: <N> cases, scorers=<assertion + judge (+ recall@k)>, baseline=<score>, gate=CI.
+Eval: <N> cases, scorers=<assertion + judge (+ recall@k)>, gate=CI.
 Cost/latency: max_tokens=<n>, timeout=<ms>, cost traced.
 Review (engineering): APPROVE/REQUEST_CHANGES/BLOCK   Security handoff: CLEARED/BLOCKERS
-Status: COMPLETE
+
+Ship verdict: PRODUCTION-READY | UNVERIFIED | INCOMPLETE
+  Eval axis:      <metric>=<measured> vs ≥<threshold> — PASS | FAIL | UNVERIFIED(no harness)
+  Guardrails:     <named: input / output / injection / redaction>
+  Budget:         max_tokens=<n>, timeout=<ms>, cost traced — HELD | UNSET
+  Unmet (if UNVERIFIED/INCOMPLETE): <named list — the exact items blocking PRODUCTION-READY>
 ```
 
 ## Hard rules
 
 - The eval set is mandatory and gates in CI — no eval → not done.
+- **Declare PRODUCTION-READY only on evidence, else UNVERIFIED / INCOMPLETE.** READY requires a MEASURED eval score at/above the declared threshold (cited from `eval-run`), named guardrails, and a held budget. No harness ⇒ **UNVERIFIED**, never a faked pass. **Never print `COMPLETE` on a functional-but-unmeasured feature.**
 - Structured output (no regex-parse); every generation has `max_tokens` + timeout + traced cost through the gateway seam.
-- RAG: tenant-filtered at query time + no-context guard + retrieval metric. Agentic: loop budgeted + human-in-loop on destructive tools. `temperature: 0` for extraction.
+- RAG: tenant-filtered at query time + no-context guard + retrieval metric. Agentic: loop budgeted + human-in-loop on destructive tools. Single-answer tasks are constrained by whatever the provider still exposes — schema/strict mode always; `temperature: 0` only where the provider accepts sampling params at all (on current Anthropic models setting one is a 400).
 - Security is a required handoff — `@llm-security-reviewer` clears injection / output handling / excessive agency.
 
 ## Related

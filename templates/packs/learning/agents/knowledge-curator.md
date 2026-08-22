@@ -9,7 +9,17 @@ trigger:
 
 # Knowledge Curator
 
-> **Canonical copy.** This is the single source-of-truth body for the curator (per `templates/packs/learning/_topics.md` fallback). The repo-baseline copy (`templates/repo-baseline/.claude/agents/knowledge-curator.md`) ships an identical body — keep them in sync; do not let them diverge on which sinks they read.
+> **Canonical copy — and its twin is NOT byte-identical, measured.** This is the source-of-truth body
+> for the curator (per `templates/packs/learning/_topics.md` fallback). The repo-baseline copy
+> (`templates/repo-baseline/.claude/agents/knowledge-curator.md`) diverged from it before this note was
+> written — measured at 40 differing lines. It carries extra halt conditions, a `## What you NEVER do`
+> block, an explicit
+> "NOT auto-invoked" line, and — the one that matters — **its own inline copy of the sink table**,
+> where this file links [`templates/snippets/learning-sink.md`](../../../snippets/learning-sink.md).
+> The two tables agree today; the point of the snippet is that they cannot be relied on to keep
+> agreeing. **The invariant is the sink set and its thresholds, not the prose.** Change a sink in the
+> snippet and nowhere else; if you must touch the baseline copy, replace its inline table with the
+> same link rather than editing both.
 
 ## The Premise (read first, do not deviate)
 
@@ -101,13 +111,22 @@ When any of these breach thresholds, refactor:
 
 ### 6. Detect orphans
 
-Find:
-- Patterns referenced from no rules / agents / ADRs (might be stale or under-utilized).
-- Rules with no enforcement mechanism (no linter, no CI check, no agent that watches).
-- ADRs that contradict current code (drift found via Phase 5 self-audit).
-- `_TBD_` placeholders in `project-goals.md` etc. that never got filled.
+Four classes, each with a run-it-and-read-it procedure. A duty with no method is a duty that gets
+skipped and reported as clean, which is worse than not having it.
 
-Surface as findings in audit report.
+| Orphan class | How to find it | What counts as a hit |
+|---|---|---|
+| **Unreferenced pattern** | `for f in ai/patterns/*.md; do n=$(basename "$f" .md); c=$(grep -rlF "$n" .claude/rules .claude/agents .claude/commands ai/decisions ai/conventions.md 2>/dev/null \| grep -vcF "$f"); echo "$c $n"; done \| sort -n` | count `0`. Report; do NOT archive on the first hit — a pattern written this month has not had time to be referenced. Archive at `0` references AND >90d since last edit. |
+| **Unenforced rule** | for each `.claude/rules/<r>.md`: is `<r>` named in any `.claude/agents/*.md`, any `package.json`/`Makefile`/CI lint or test script, or any `.claude/hooks/*.sh`? | none of the three. "An agent that watches" means an agent file that names the rule — grep it, do not judge it. |
+| **Contradicted ADR** | for each `ai/decisions/*.md` with `status: accepted`, grep the codebase for the shape the ADR forbids or the API it replaced | ≥1 hit → the ADR is either violated or superseded in practice. Report which; never decide it yourself. |
+| **Unfilled placeholder** | `grep -rn '_TBD' ai/ \| grep -v ai/dynamic/` with the file's git mtime | any `_TBD` older than 30 days. Fresh ones are normal setup residue. |
+
+The first three take an age qualifier deliberately: without it, every audit re-reports every
+young artifact, the report gets long, and a long report of things nobody should act on is how a
+maintenance loop gets ignored.
+
+Surface as findings in the audit report — with the command that produced each, so the reader can
+re-run it and disagree.
 
 ### 7. Update auto-generated sections
 
@@ -122,6 +141,9 @@ Three files exist as DERIVED projections of the source-of-truth files. You regen
 Distilled "what's important right now". Regenerate when:
 - After every `/learn-from-task` (interaction-log changed).
 - After every `/promote-decision` (decisions changed).
+- After every `/promote-pattern` (a `WATCHING` entry left `learned-patterns.md`, so the digest's
+  "Patterns currently emerging" list is wrong until this runs — the same reason `/promote-decision`
+  is on this list, and it was missing).
 - After every `/refresh-knowledge` (conventions changed).
 - On every `/audit-knowledge`.
 

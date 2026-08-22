@@ -74,7 +74,14 @@ The documented-accepted-risk form is a legitimate close, not a dodge. Cite the d
 - BAD: a 4k-token instruction block assembled fresh per request, unordered, unmarked.
 - GOOD: stable-prefix-first ordering, provider prompt-caching marked on the prefix, and/or an exact-match cache keyed on `(model, normalized prompt, params)`.
 
-Report the prefix's **measured size** if the project's telemetry has it, otherwise report the site and mark the saving `UNMEASURED — a token count on the gateway log line would settle it`. Never state a hit-rate you did not read.
+**Check the prefix against the provider's minimum cacheable size before emitting this verb.** Provider caches have a floor, it is **model-dependent**, and below it nothing caches *and no error is returned* — the marking is silently inert. On current Anthropic models the minimum ranges from 512 to 4096 tokens depending on the model, and it is **not monotonic across generations**: a 3K prefix caches on some models in the family and silently does not on others. There is also a ceiling on how many cache breakpoints one request may carry (4 on Anthropic; a fifth is a 400). Read the current figures for the model at the call site — do not carry a number forward from this file.
+
+So state the prefix's **measured token count against that model's documented minimum**:
+- Prefix above the minimum → `add-prompt-cache` is the finding.
+- Prefix below it → `add-prompt-cache` is **not** the finding, and emitting it sends someone to add a marking that will do nothing. The finding is that no cache is possible at this prefix size — either the stable content is consolidated until it clears the floor, or the site is closed as `N-A` with the measured size and the floor both cited.
+- Prefix size unknown → mark the saving `UNMEASURED — a token count on the gateway log line would settle it` and do not assert a saving. Never state a hit-rate you did not read.
+
+An already-marked prefix reporting `cache_read` of zero across repeated identical requests is its own finding: either the prefix is under the floor, or something in it varies per request (a timestamp, an unsorted map, a rotating tool list). Name which, from the bytes.
 
 ### 5. Semantic cache not tenant/permission-scoped → `scope-semantic-cache`
 

@@ -31,13 +31,20 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   fallback: _examples/adr-template.md
 
-- name: slo
+- name: slo-doc-template
   kind: pattern
+  # RENAMED from `slo`. Both this pack and `observability` shipped `ai-patterns/slo.md`, and
+  # phase-4.2-apply.md installs ai-patterns with a plain `cp -R ... ai/patterns/` (no -n), so
+  # whichever track applied second silently CLOBBERED the other. `documentation` is always-applied
+  # and `observability` detects on OTel/Datadog/Sentry/Prometheus, so the collision fired on most
+  # production services. The two files are complementary (1 shared heading out of 17 vs 8): this one
+  # owns the SLO DOCUMENT template, observability owns the alerting arithmetic. Distinct filenames
+  # are the fix that needs no change to templates/phases/.
   triggers: { logger_lib_detected: true, OR: { metrics_lib_detected: true } }
   extracts_from: _extracted-codebase.md § Observability + ai/project-goals.md (KPIs)
   sections: [overview, slo_for_this_app, slis_to_track, error_budget, examples]
   mirror_existing: true
-  fallback: _examples/slo.md
+  fallback: _examples/slo-doc-template.md
 
 - name: system-design
   kind: pattern
@@ -74,7 +81,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: diagram-sync
   kind: skill
-  triggers: { always: true }
+  # Was `always: true`, which installed a skill that HARD-DEPENDS on code-quality's
+  # ai/optimize/_dep-graph.json into projects that have neither a diagram nor that pack —
+  # where its only possible action was to halt. Now gated on the surface it actually serves.
+  triggers:
+    grep_evidence: "```mermaid|C4Context|C4Container|C4Component|@startuml|structurizr|\\.puml\\b|\\.dot\\b|flowchart (LR|TD|TB)|graph (LR|TD|TB)"
+    OR_codebase_section: "the repo commits an architecture diagram (mermaid / C4 / PlantUML / Graphviz) in its docs, OR code-quality's architectural-diagnosis is installed and emits ai/optimize/_dep-graph.json"
   fallback: _examples/diagram-sync.md
 
 - name: docstring-coverage

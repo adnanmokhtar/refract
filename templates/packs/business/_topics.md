@@ -65,19 +65,19 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   extracts_from: _extracted-business.md + ai/business-domain.md + ai/users-and-personas.md + the analytics surface
   sections: [understand, retrieve, generate]
-  fallback: stub-from-sections
+  fallback: commands/suggest-metrics.md   # source-as-fallback (phase-4.2-apply.md step 2). A `stub-from-sections` stub here materialised as three empty headings on greenfield, losing all three recommendation gates and the closure verbs that ARE the command.
 
 - name: suggest-features
   kind: command
   triggers: { always: true }
   extracts_from: _extracted-business.md + ai/business-domain.md + business-domains/<domain>/feature-checklist.md + the codebase capability inventory
   sections: [understand, retrieve, generate]
-  fallback: stub-from-sections
+  fallback: commands/suggest-features.md   # source-as-fallback (phase-4.2-apply.md step 2). Same defect as suggest-metrics: the stub dropped the Domain-warranted / Missing / Analyze-task-ready gates, the reverse `defer-capability` gate and the → Spec it pipeline.
 
 - name: business-completeness
   kind: rule
   triggers: { always: true }
-  sections: [must, must_not, should, review_checklist, failure_history_examples]
+  sections: [must, must_not, should, review_checklist, enforcement]
   fallback: rules/business-completeness.md
 
 - name: audit-funnel-completion
@@ -103,6 +103,6 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: missing-counterparts
   kind: ai-pattern
   triggers: { always: true }
-  sections: [why, forward_inverse_table, completion_table, recovery_table, anti_patterns, detection]
+  sections: [cost_of_half_cycles, forward_inverse_table, completion_table, recovery_table, anti_patterns, detection]
   fallback: ai-patterns/missing-counterparts.md
 ```

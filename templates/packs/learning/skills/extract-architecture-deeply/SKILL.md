@@ -205,8 +205,10 @@ cross_cutting:
 
 ## Quality gate
 
-- **STRONG**: import graph extracted, ≥ 3 lifecycles traced end-to-end, ≥ 1 boundary identified, ≥ 4 cross-cutting concerns located.
+- **STRONG**: import graph extracted, ≥ 3 lifecycles traced end-to-end, ≥ 1 boundary identified, ≥ 4 cross-cutting concerns located — **and each of those counts is evidenced the way the worked example above evidences them**: every lifecycle step carries `<file:function:line>`, every boundary names the two modules it separates plus the import that crosses it, every cross-cutting concern is `located` at a `<file:line>` in the chain rather than merely `detected` in the dependency list.
+- A concern recorded as `not detected` counts toward the ≥ 4 **only when the greps that looked for it are named**. "Not detected" with no search behind it is silence, and silence should not clear a gate.
 - **WEAK**: any of the above missed → flag `[REFINE-WEAK: architecture]`. Phase 4.7-DEEP will NOT rewrite `ai/architecture.md` from a WEAK extraction.
+- The gate used to be four bare counts while the worked example above carried all the rigour — so a run could hit `3 lifecycles / 1 boundary / 4 concerns` with a layer diagram inferred from folder names and pass. The citation requirements are the example's standard, moved into the gate where it binds.
 
 ## Anti-patterns
 

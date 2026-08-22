@@ -125,20 +125,20 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: add-event-handler
   kind: command
   triggers: { service_count_above_1: true, OR: { signal_confirmed: event-sourced } }
-  fallback: stub-from-sections   # ships in commands/; no _examples sibling
+  fallback: commands/add-event-handler.md   # source-as-fallback (phase-4.2-apply.md step 2). Was `stub-from-sections` with NO `sections:` list, so step 2 had nothing to build a stub FROM and greenfield received an EMPTY FILE while the finished 183-line command sat beside it on disk.
 
 - name: add-saga
   kind: command
   triggers: { service_count_above_1: true }
-  fallback: stub-from-sections
+  fallback: commands/add-saga.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on greenfield.
 
 - name: audit-distributed-tx
   kind: command
   triggers: { service_count_above_1: true }
-  fallback: stub-from-sections
+  fallback: commands/audit-distributed-tx.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on greenfield.
 
 - name: dlq-replay
   kind: skill
   triggers: { signal_confirmed: background-jobs }
-  fallback: stub-from-sections
+  fallback: skills/dlq-replay/SKILL.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on greenfield.
 ```

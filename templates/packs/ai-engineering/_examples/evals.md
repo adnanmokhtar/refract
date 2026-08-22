@@ -41,7 +41,7 @@ Prefer the cheapest scorer that captures the requirement.
 
 - **Needs an explicit rubric** + justification-before-score (raises human agreement).
 - **Position bias** — average both orderings in pairwise. **Self-preference** — never let a model judge its own outputs; use a different/stronger judge. **Verbosity/sycophancy** — control for length + confidence.
-- **Calibrate against humans** periodically; version the judge model + prompt; judge at low temperature.
+- **Calibrate against humans** periodically. **Pin the judge**: version the judge prompt + judge model id, and pin every sampling parameter the provider still exposes (a low temperature where one exists). Where the provider exposes none, the model id + prompt ARE the whole pin — record that, and widen the delta you treat as a regression rather than implying a tighter pin than you have.
 
 ## Task-specific metrics
 

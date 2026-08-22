@@ -175,7 +175,8 @@ healthy_paths_count: <N>   # paths where uplift = "No uplift identified"
 
 ## Quality gate
 
-- **STRONG**: ≥ `top_n / 2` paths with `n_plus_1_risk` ≥ low, OR ≥ `top_n / 3` with at least one uplift identified.
+- **STRONG**: ≥ `top_n / 2` paths scored `n_plus_1_risk` **medium or high** (each with the loop-over-query site cited `<file:line>`), OR ≥ `top_n / 3` paths with at least one quantified uplift.
+  `≥ low` was not a floor: `low` is the value a path gets for having been scored at all, so the old gate read "half the paths were looked at" and every run that ran passed it. A gate every run passes cannot route anything to WEAK, which is the one thing a gate is for. `low` still belongs in the output — it is the honest score for a path with no N+1 shape — it just cannot be what earns STRONG.
 - **WEAK**: < 5 paths could be ranked at all (codebase too small) — flag `[REFINE-WEAK: hotpaths]`.
 
 ## Anti-patterns

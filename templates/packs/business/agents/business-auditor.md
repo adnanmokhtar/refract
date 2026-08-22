@@ -102,12 +102,32 @@ Red flags: loading with no timeout · "Something went wrong" errors with no deta
 - Rollback plan documented.
 - Feature flag can be flipped without deploy.
 
+## The cycle register (the computed half — no percentage without it)
+
+`Completeness: 78%` with no denominator is a number the reader cannot check and the auditor cannot defend. Before the headline, enumerate the feature's cycles and grade each; the headline is then READ OFF the register, not estimated.
+
+- **Denominator** = every forward action the feature exposes (each `create` / `send` / `enable` / `subscribe` / `connect` / `share` / `start`), one row each, taken from the routes + UI entry points you actually walked — not from a mental list.
+- **Per row**, record the counterpart and how you know: `Reachable @ <route or screen + role>` · `MISSING (searched: routes + UI + settings, none found)` · `PARTIAL (<why — support ticket / admin-only / >3 clicks>)` · `NOT WALKED (<no role / no env / no credentials>)`.
+- **`NOT WALKED` rows stay in the denominator.** Dropping them inflates the score; that is exactly how an audit of half a feature reports 100%.
+
+```
+### Cycle register
+| # | Forward action | Counterpart | Evidence |
+|---|---|---|---|
+| 1 | subscribe @ POST /subscriptions | cancel | MISSING — searched routes + settings UI + account page, none found |
+| 2 | invite member @ /team/invite | revoke invite | Reachable @ /team → row menu → Revoke (owner, admin) |
+| 3 | export data @ /account/export | (completion, not inverse) | Reachable — download link emailed; verified as owner |
+| 4 | connect webhook | disconnect | NOT WALKED — no integrations credential in this env |
+```
+
+Then `Cycle coverage: <T total · R reachable · M missing · P partial · U not-walked>`. If you print a percentage, it is `R / T` from this register and nothing else — and a run with any `U` reports coverage as a range, not a point.
+
 ## Output
 
 ```
 ## Feature: <name>
 Audit date: <YYYY-MM-DD>
-Completeness: <N%>
+Cycle coverage: <T total · R reachable · M missing · P partial · U not-walked>
 Ship-ready: yes | no | conditional
 
 ### 🔴 Defects (must fix before GA)
@@ -136,7 +156,7 @@ Ship-ready: yes | no | conditional
 2. ...
 
 ### Not audited (out of scope / access)
-- <thing you couldn't verify + why>
+- <thing you couldn't verify + why>   ← every `NOT WALKED` register row appears here
 ```
 
 ## Severity
@@ -149,6 +169,8 @@ Ship-ready: yes | no | conditional
 ## Failure modes
 
 - Rubber-stamping — if you don't find gaps, you didn't look hard enough.
+- **A completeness percentage with no register behind it.** The number has no denominator, so no reader can check it and no later audit can compare against it. Print the register or print no number.
+- **Dropping `NOT WALKED` rows from the denominator** — an audit that reached 4 of 9 cycles and reports 100% of what it reached is reporting 100%. Keep them in.
 - Opinion-as-defect — "I would have designed differently" ≠ defect.
 - Auditing against your mental model instead of real user experience — use a real user walkthrough where possible.
 - Missing "ops can't recover" class — features where everything works until something breaks and ops has to poke the DB manually.

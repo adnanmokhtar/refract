@@ -32,7 +32,7 @@ The output should read like a senior engineer who has worked in this codebase fo
 
 - `/setup-project` Phase 2.5 — once per load-bearing unit with ≥3 dependents, for EVERY idiom pattern the project matched, with `unit_kind` set accordingly. A project can match several; run the skill per unit per pattern.
 - `/setup-project` Phase 4.2a (AUTHOR mode) — generating `ai/patterns/<unit>.md`.
-- On-demand by `/refresh-knowledge` when a unit evolves.
+- On-demand by `/refresh-knowledge` Phase 3 step 4, which re-invokes this skill per load-bearing unit in the freshly-written oracle and rewrites `.claude/_extracted-idioms.md`.
 - Manually when adding a new pattern doc for a unit that doesn't have one.
 
 ## Inputs

@@ -123,16 +123,19 @@ Spec-ID: <slug>-<4char-hash>
 - `ai/status.md` — `## Recent Changes` bullet if spec is non-trivial.
 
 ## Phase 6 — Validate
-- Each user story has at least one Given/When/Then acceptance criterion.
-- Out-of-scope section is non-empty (forces explicit boundary).
-- If spec conflicts with an active ADR → surface the conflict, don't redesign around it.
-- Each criterion tagged `MVP` or `v2`.
-- **Single decision-home (HALT on failure):** confirmed answers live ONLY in `Resolved decisions`. If a `--resume` / `--decisions` run produced a duplicate section (`Gate answers`, `Confirmed decisions`, …) OR left answered questions still phrased as open in `Open questions` → reject: fold into `Resolved decisions`, reconcile `Open questions`, and re-emit. No sibling has a separate answers section.
-- **Traceability closure (HALT on failure):** every AC-ID maps to exactly one test-plan item AND ≥1 affected module. Every affected module traces back to ≥1 AC (catches fabricated modules). HALT if any AC has no test or no module, or any module has no AC.
-- **Vague-AC detector:** each `Then` clause must assert an observable / measurable outcome. Reject unquantified qualifiers (works / good / fast / properly / gracefully) carrying no threshold — rewrite with a number or move to Open questions.
-- **Error-path floor:** any story involving input / mutation / external-call requires ≥1 negative-path AC (unless the story is explicitly "read-only, no failure modes").
-- **INSUFFICIENT-BRIEF re-check:** if open questions outnumber drafted stories, OR a core dimension (who / what / why / success-metric) is unanswerable → status `INSUFFICIENT BRIEF`, do not ship the spec as complete.
-- **EPIC-split flag:** if the spec exceeds ~5-7 stories OR spans >1 bounded context OR mixes independently-shippable MVP / v2 → flag `EPIC: consider splitting` into sibling specs (`<slug>-1`, `<slug>-2`) with a dependency note. Don't silently emit one oversized spec.
+
+Each check below is the mechanical execution of one Hard rule (stated once, below — not restated here). Run them in order; the first four HALT, the rest re-emit.
+
+| # | Check (run it) | On failure |
+|---|---|---|
+| 1 | Every AC-ID appears in exactly one test-plan row AND ≥1 affected module; every affected module appears in ≥1 AC row | **HALT** — traceability open (an orphan AC does not constrain the build; a module with no AC was fabricated) |
+| 2 | Grep every `Then` clause for `works` / `good` / `fast` / `properly` / `gracefully` with no adjacent number or observable | **HALT** — vague AC; rewrite with a threshold or move to `Open questions` |
+| 3 | Every story that takes input, mutates state, or calls out has ≥1 negative-path AC | **HALT** — error-path floor unmet (unless the story is declared read-only with no failure modes) |
+| 4 | Count open questions vs drafted stories; check who / what / why / success-metric each answerable | **HALT** — `INSUFFICIENT BRIEF`; do not ship a guessed spec as complete |
+| 5 | Exactly one section holds confirmed answers, named `Resolved decisions`; no answered question still phrased as open | re-fold and re-emit (a second answers section is sibling-shape drift) |
+| 6 | Every criterion carries `MVP` or `v2`; `Out of scope` non-empty | re-emit with a real split / a real boundary |
+| 7 | Story count ≤ ~5-7, one bounded context, no independently-shippable halves mixed | flag `EPIC: consider splitting` into `<slug>-1` / `<slug>-2` with a dependency note |
+| 8 | Cross-check against active ADRs in `ai/decisions/` | surface the conflict in the spec; never quietly redesign around it |
 
 ## Phase 7 — Improve
 - **Handoff (single next command):** `Next: /add-feature specs/<YYYYMMDD>-<slug>.md` — cite the `Spec-ID`. Add `--plan` to plan the feature and exit before any edit (`/add-feature specs/<…>.md --plan`). Mirror `/expand-task`'s one-next-command discipline; do not list a menu of follow-ups.
@@ -163,18 +166,13 @@ Status: AWAITING CONFIRMATION (gate between 4a + 4b) | INSUFFICIENT BRIEF | EPIC
 ```
 
 ## Failure modes
-- Skipping the confirmation gate → wrong code; the whole point of this command is the clarification round.
-- "It should just work" / "make it good" → incomplete brief; push back, don't guess.
-- Writing technical spec on a moving target → useless; gate is non-negotiable.
-- Spec contradicts active ADR → surface, don't quietly redesign around it.
-- All criteria tagged MVP → scope discipline broken; force MVP/v2 split.
-- Skipped checking `specs/` or tracker; produced a duplicate of an existing spec → wasted work + diverging interpretations.
-- Open questions glossed over with assumed answers → spec looks complete but is fictional.
-- Drafting stories on a thin brief to satisfy a non-empty check → ship `INSUFFICIENT BRIEF` instead; guessed requirements are worse than a halt.
-- AC with no test or module, or a module with no AC → broken traceability; the spec doesn't actually constrain the build. HALT and close the table.
-- Unquantified ACs ("works", "fast", "gracefully") → untestable; the vague-AC detector rejects them.
-- Mutation / external-call story with only happy-path ACs → error-path floor unmet; the failure case is where users get burned.
-- One oversized spec spanning many contexts → should have been an epic split; flag `EPIC` and propose sibling specs.
+These are the ways a spec passes every check and is still wrong — the ones the Phase-6 table cannot catch:
+
+- **"It should just work" / "make it good"** → the brief is incomplete; push back rather than inferring. A guessed requirement reads identically to a gathered one.
+- **Open questions glossed over with assumed answers** → the spec looks complete and is fictional. An assumption belongs in `Open questions` with its blast radius, never folded silently into prose.
+- **A duplicate of an existing spec** → `specs/` and the tracker were never searched; two interpretations of one feature now exist and will diverge in build.
+- **Solving the wrong problem beautifully** → every check passes because they all check the spec against itself. The goal restatement + confirmation is the only guard, and it happens before any of them.
+- **Writing 4b on a moving target** → the technical spec is derived from unconfirmed business decisions; the gate exists precisely so this cannot happen.
 
 ## Hard rules
 

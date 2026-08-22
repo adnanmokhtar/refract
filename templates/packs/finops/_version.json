@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "finops",
-  "version": "1.0.0",
-  "released": "2026-08-20",
+  "version": "1.1.0",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "First release — cost as a reviewed engineering dimension: unit economics, attribution, commitments, guardrails, and a diff-time cost lens.",
+  "summary": "Greenfield delivery repaired, and the pack gained the verdict it was missing. 11 of 16 topics declared `fallback: stub-from-sections` — all four commands, all four skills, three of four patterns — and the four skill topics carried no `sections:` list at all, so a no-signal project received an EMPTY file where a finished 100-173 line artifact already sat on disk. Every one now declares its own source as its fallback, the shape phase-4.2-apply.md step 2 provides for and algorithms/mobile/align already use. The MEASURE gap: the pack forbade an invented number and had no verdict for a review that read none — /cost-review could emit APPROVE with every magnitude UNKNOWN. Added the fourth verdict UNPRICED, an `unpriced` per-mechanism row state, a Priced line, and a hard rule against approving a fired mechanism with zero priced rows. Added the three magnitude tiers so UNKNOWN is a last resort: tier 2 (an exact multiplier read out of the diff) needs no billing access and is where most diff-time magnitudes live. Currency: FOCUS 1.4 named in STACK.md as the schema that resolves four of the pack's hard rules to real column names; @finops-analyst now states which of Effective/Billed/List/Contracted Cost it read, and its three-way delta split is arithmetic rather than prose. commitment-coverage's 'prefer flexible instruments' became the denomination axis that makes it decidable. spend-allocation gained the showback-to-chargeback rigour step. Fixed the dangling cross-pack claim: ai-cost-discipline and ai-cost-tracking are `ai` DOMAIN OVERLAY artifacts, not ai-engineering pack files. commitment-coverage is now dispatched (/cost-guardrails class 6, expiry notifications). Rule shrank 1727 -> 1589 tok by deleting a 9-of-9 measured restatement. All three agent fallbacks regained a sibling boundary.",
   "changelog": "CHANGELOG.md"
 }

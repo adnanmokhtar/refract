@@ -53,6 +53,17 @@ Auto-discover sources for flow candidates (combine and dedupe):
 4. **Observability / monitoring config** — if accessible, transactions named `<verb>.<noun>` in the project's APM tool are critical user paths.
 5. **High-coverage endpoints / consumers** — heuristic: top 10 by coverage % or git churn.
 
+**Record which of the five fired, in the output header** — `discovery_sources: [lifecycle-events, tests]`
+plus `discovery_sources_absent: [docs, apm, coverage]`. Source 4 carries an explicit escape clause
+("if accessible") and sources 2 and 5 fail silently on a repo with no docs and no coverage report, so
+without this line a run that found candidates from one source is indistinguishable from one that
+checked all five. Those are different confidence levels in the flow list, and the next run needs to
+know which of the two it is looking at before deciding whether re-running is worth anything.
+
+A candidate list built from a single source is not WEAK — it is narrow, and narrowness has a
+direction: tests-only discovery finds what is tested, APM-only finds what is slow, docs-only finds
+what someone wrote up. Naming the source names the bias.
+
 Pick:
 
 - 3+ business-critical (user-facing) flows.

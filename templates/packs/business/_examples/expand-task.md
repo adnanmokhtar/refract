@@ -164,21 +164,13 @@ Next: /add-feature specs/20260424-orders-performance.md
 - Stakeholder decision needed → don't proceed to spec; surface the open question.
 - Brief contradicts existing roadmap (`ai/status.md` says we're in Phase 1, brief is Phase 3 work) → flag the scope creep before producing the spec.
 
-## Gotchas
-
-- Never fabricate context. If the brief is too vague after one clarification round, say so and stop — guessing produces wrong code.
-- Keep the expansion focused. Don't pad with platitudes ("ensure best practices") — those are noise.
-- Acceptance criteria as Given/When/Then forces concrete tests later. Vague criteria = vague tests = missed bugs.
-- Out-of-scope is as important as in-scope. Anti-scope-creep prevents the implementer from building "nice to haves" not asked for.
-- Suggested next command is always ONE. Multiple suggestions = ambiguity at handoff.
-
 ## Hard rules
 
-- **One clarification round, then commit or stop.** Multiple rounds = the brief was too vague to start. Send it back.
-- **Every acceptance criterion is testable.** Vague AC ("works well") rejected; restate as Given/When/Then.
-- **Out-of-scope explicit, not implicit.** Without explicit anti-scope, implementers build what wasn't asked for.
-- **Cite the brief.** Every claim in the spec ties back to a sentence in the original brief OR a clarification answer. No invented requirements.
+**Shared spec contract — stated once, in `/analyze-task` § Hard rules.** Testable Given/When/Then ACs, a non-empty `Out of scope`, no invented requirements, a real MVP/v2 split, and one next command bind every spec this pack produces. This command inherits them rather than restating them, so the two cannot drift. What follows is only what is DIFFERENT about an expansion:
+
+- **One clarification round, then commit or stop.** A second round means the brief was too vague to start — send it back.
 - **Stakeholder-decision items flagged, not invented.** "Should this support X?" → ask, don't guess.
-- **Roadmap-aware.** Brief that contradicts `ai/status.md` declared phase = halt + surface scope-creep concern.
-- **Suggested next command = ONE.** Multiple = ambiguity at handoff = wrong thing built.
-- **No PII in the spec.** If the brief mentions specific user data, redact in the published spec.
+- **`Affected modules` are grounded, not guessed** — confirmed against `ai/modules.md` or the filesystem. A fabricated path sends the implementer to a file that does not exist.
+- **Roadmap-aware.** A brief contradicting `ai/status.md`'s declared phase halts — surface the scope-creep concern first.
+- **No padding.** "Ensure best practices" and its kin carry no information and dilute the criteria that do.
+- **No PII in the spec.** If the brief mentions specific user data, redact it.

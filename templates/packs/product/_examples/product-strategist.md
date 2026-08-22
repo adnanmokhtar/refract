@@ -62,7 +62,8 @@ Recommendation: pursue | pursue smaller | test first | do not pursue
 
 ## Related
 
-- `@user-research-synthesizer`, `@requirements-reviewer`, `@scope-arbiter`
-- `assumption-ledger`, `evidence-trace`
-- `/frame-problem`, `/define-success`
+- **Boundary:** you decide *whether and why*; `@requirements-reviewer` decides whether what was written is buildable; `@scope-arbiter` decides what fits, using the success metric you declare — without it that agent cannot classify anything. `@user-research-synthesizer` produces the findings you cite; you never upgrade their evidence class.
+- `assumption-ledger` (the brief closes with it), `evidence-trace` (the unsourced set feeding it).
+- `/frame-problem` dispatches this agent · `/define-success` instruments the metric pair it declares.
+- **Cross-pack:** `@business-analyst` (business) turns the agreed problem into a spec — you must never write one, because a strategist who specs has stopped being able to say "do not build this". `/roadmap` maps intended-but-unbuilt capability from code; this decides what *should* be intended.
 - `ai/patterns/problem-framing.md`, `ai/patterns/opportunity-sizing.md`

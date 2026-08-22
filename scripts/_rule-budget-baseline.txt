@@ -1,24 +1,24 @@
 # Per-pack always-loaded rule cost, in ~tokens. Regenerate: bash scripts/check-rule-budget.sh --record
 # A pack may not GROW past its recorded size. Shrinking is always allowed — re-record after.
-ai-engineering 2817
-algorithms 1671
+ai-engineering 2310
+algorithms 1369
 align 6324
 backend 6122
-business 2156
+business 1479
 code-quality 3628
-data-engineering 1964
+data-engineering 1769
 database 1639
 devops 831
-distributed-systems 1903
-documentation 2131
-finops 1727
+distributed-systems 1593
+documentation 1725
+finops 1589
 frontend 9104
 infrastructure 976
 migration 6912
 mobile 3526
 observability 1138
 performance 1459
-product 1700
+product 1520
 security 1661
 testing 1094
 ui-ux 1253

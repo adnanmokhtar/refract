@@ -85,15 +85,19 @@ Spec-specific:
 - `ai/status.md` — `## Recent Changes` bullet if spec is non-trivial.
 
 ## Phase 6 — Validate
-- Each user story has at least one Given/When/Then acceptance criterion.
-- Out-of-scope section is non-empty (forces explicit boundary).
-- If spec conflicts with an active ADR → surface the conflict, don't redesign around it.
-- Each criterion tagged `MVP` or `v2`.
-- **Traceability closure (HALT):** every AC maps to exactly one test-plan item + ≥1 module; every module traces to ≥1 AC.
-- **Vague-AC detector:** reject `Then` clauses with unquantified qualifiers (works/good/fast/properly/gracefully).
-- **Error-path floor:** input/mutation/external-call stories need ≥1 negative-path AC.
-- **INSUFFICIENT BRIEF:** open questions > stories, or a core dimension unanswerable → don't ship as complete.
-- **EPIC-split flag:** >5-7 stories OR >1 bounded context OR mixed MVP/v2 → suggest sibling specs `<slug>-1`/`<slug>-2`.
+
+Every story carries ≥1 Given/When/Then criterion before this gate runs. Then run the checks **in order** — the first four HALT, the rest re-emit:
+
+| # | Check (run it) | On failure |
+|---|---|---|
+| 1 | Every AC-ID appears in exactly one test-plan row AND ≥1 affected module; every affected module appears in ≥1 AC row | **HALT** — traceability open (an orphan AC constrains nothing; a module with no AC was fabricated) |
+| 2 | Grep every `Then` clause for `works` / `good` / `fast` / `properly` / `gracefully` with no adjacent number or observable | **HALT** — vague AC; rewrite with a threshold or move to `Open questions` |
+| 3 | Every story that takes input, mutates state, or calls out has ≥1 negative-path AC | **HALT** — error-path floor unmet (unless the story is declared read-only with no failure modes) |
+| 4 | Count open questions vs drafted stories; check who / what / why / success-metric each answerable | **HALT** — `INSUFFICIENT BRIEF`; do not ship a guessed spec as complete |
+| 5 | Exactly one section holds confirmed answers, named `Resolved decisions`; no answered question still phrased as open | re-fold and re-emit (a second answers section is sibling-shape drift) |
+| 6 | Every criterion carries `MVP` or `v2`; `Out of scope` non-empty | re-emit with a real split / a real boundary |
+| 7 | Story count ≤ ~5-7, one bounded context, no independently-shippable halves mixed | flag `EPIC: consider splitting` into `<slug>-1` / `<slug>-2` with a dependency note |
+| 8 | Cross-check against active ADRs in `ai/decisions/` | surface the conflict in the spec; never quietly redesign around it |
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture clarification patterns (which ambiguities recur).

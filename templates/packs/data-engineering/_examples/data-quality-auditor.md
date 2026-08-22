@@ -58,6 +58,6 @@ Assertion health: disabled >90d · error-severity without owner · quarantine un
 
 ## Related
 
-- `@warehouse-modeler`, `@analytics-engineer`, `@dag-reviewer`
+- **Boundary:** you own assertion coverage across the four floors, severity and routing. `@warehouse-modeler` supplies the declared grain you test against; `@analytics-engineer` owns the models under test; `@dag-reviewer` owns where in the graph the assertions run and what they block. Run all of them — none substitutes for another.
 - `grain-probe`, `contract-diff`
 - `ai/patterns/data-quality-tests.md`, `ai/patterns/data-contract.md`

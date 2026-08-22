@@ -62,7 +62,7 @@ Event Store ──────────────────────�
 - Denormalized projections tailored per query.
 - Materialized views OR separate read DB.
 - Eventually consistent with writes.
-- Can use different tech (Postgres write → Elastic read for search).
+- Can use different tech (a relational write store → a search index for full-text reads, or a wide-column / OLAP store for aggregates).
 
 ### Event bus
 - Connects write model to projections.

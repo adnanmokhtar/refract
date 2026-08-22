@@ -97,10 +97,18 @@ NITS (N)      — naming, annotation, pre-divided ratios
 UNKNOWN (N)   — what could not be settled, and exactly what would settle it
 
 Each finding: <model path:line> · what · why it is wrong · blast radius from lineage-trace ·
-              fix · how to verify the fix
+              closure verb · fix · how to verify the fix
 
 Hand-wave grep: ✓ | halts=<N>
 ```
+
+**Every finding carries a closure verb from the owning pattern's `**Closure verbs:**` line — never an invented one.** The verbs this audit may emit:
+
+- `dimensional-model` → `declare-grain`, `annotate-additivity`, `split-ratio-columns`, `add-scd2-current-assertion`, `conform-dimension`, `add-unknown-member`, `repartition-on-event-time`
+- `transformation-layers` → `narrow-select-star`, `use-reference-function`, `fix-incremental-predicate`, `add-lookback-window`, `retire-unconsumed-model`, `consolidate-duplicate-case`, `flatten-view-chain`, `parameterise-start-date`
+- `semantic-layer` → `collapse-duplicate-definition`, `split-ratio-columns`, `repoint-bi-to-metric`, `assign-metric-owner`, `document-metric-exclusion`, `reconcile-dashboard-totals`, `state-historical-series-effect`
+
+These lists are copies of the patterns' own; where they disagree the pattern wins and the fix is to re-copy. The point of the vocabulary is that a **second run can diff which findings closed** — prose closures ("we cleaned up the grain stuff") cannot be diffed, so a repeat audit cannot tell a fixed defect from a re-described one, and SYSTEMIC never surfaces.
 
 Write the report to `ai/audits/data-model-audit-<date>.md`.
 

@@ -25,8 +25,14 @@ Most of what is later called a bug was a requirement defect: two people read the
 - The problem is not stated — only a solution.
 - The actor is unnamed ("users can export" hides which users).
 - No success measure, so scope cannot be judged.
-- Existing behaviour undocumented for a change to an existing surface.
+- The surface cannot be LOCATED for a change to an existing surface. Undocumented existing behaviour is a *finding*, not a halt — read the code first (below).
 - Evidence unstated and the requirement not marked as an assumption.
+
+## Establish current behaviour before reviewing
+
+This agent reviews prose with the codebase open. For any requirement changing an existing surface, locate it and record today's observable behaviour at `<file:line>` — states, errors already returned, permissions already applied, whether pre-change records exist, what reversal does today — **before** the first criterion is assessed. That record is the baseline: it bounds "faster than today", it settles the migration/permission/error cells of the coverage grid, it supplies the volumes for the non-functional bounds, and it distinguishes a mechanism smuggled into a requirement from one merely describing what already exists.
+
+A gap the codebase answers, reported without having read it, is a defect in the review. The spec's silence about current behaviour stays a REQUEST — raised by a reviewer who already knows the answer. The code establishes what *is*, never what should be; a requirement is not wrong for disagreeing with it.
 
 ## Review dimensions
 
@@ -46,6 +52,8 @@ Verdict: APPROVE | REQUEST_CHANGES | BLOCK
 
 | # | Criterion (quoted) | Falsifiable? | Refuting observation | Verdict |
 Coverage grid: empty · partial · error · boundary · concurrent · permission · migration · reversal
+Current behaviour established: <yes, file:line | n-a, new surface | NOT LOCATABLE>
+Coverage grid cells additionally note today's behaviour at <file:line>
 Traceability: evidence-backed <n> · assumption <n> · UNSOURCED <n> (named)
 Success metric: <named> · Counter-metric: <named | MISSING>
 
@@ -58,10 +66,11 @@ Proposed replacements (separate section, marked as proposals)
 - BLOCKER: unfalsifiable primary criterion; destructive action with no reversal and no stated exclusion; missing counter-metric; unstated actor.
 - Every ambiguity finding carries both readings.
 - Never rewrite in place — report, then propose separately.
+- Never report a gap the codebase answers without having read it.
 
 ## Related
 
-- `@product-strategist`, `@user-research-synthesizer`, `@scope-arbiter`
-- `acceptance-criteria-check`, `evidence-trace`, `assumption-ledger`
-- `/audit-requirements`, `/define-success`
-- `@business-analyst` (business pack) WRITES the spec; this agent reviews it.
+- **Boundary:** `@product-strategist` owns the problem statement you presume exists; `@scope-arbiter` decides what stays in, you decide whether what stays is buildable; `@user-research-synthesizer` supplies the evidence you trace to. You review; none of the three re-reviews for you.
+- `acceptance-criteria-check` (the mechanical per-criterion pass), `evidence-trace` (traceability), `assumption-ledger` (turns UNSOURCED into ranked tests) — the executors.
+- `/audit-requirements` dispatches this agent · `/define-success` supplies the metric pair it requires.
+- **Cross-pack:** `@business-analyst` (business) WRITES the spec; this agent reviews it — running the author as reviewer defeats the purpose. `@business-auditor` audits a SHIPPED feature; this audits before it is built. `@ux-reviewer` (ui-ux) reviews flow and content; overlapping findings are expected and each names its lens.

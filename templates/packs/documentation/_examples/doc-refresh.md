@@ -22,17 +22,20 @@ Run after EVERY significant change. Keeps `ai/` honest with reality. This comman
 
 **A doc file existing, free of placeholders, with tables that render is the FLOOR, not the finish.** Those checks prove the doc is *well-formed*; they say nothing about whether it is *true*. A beautifully-rendered `ai/stack.md` naming an env var deleted three commits ago is a well-formed lie. A refresh is PRODUCTION-GRADE only when the docs were **re-derived from current source and diffed against what's committed**, their runnable examples **actually ran**, and their cross-references **resolve** — each proven by a cited probe, not asserted.
 
-**The three gates that separate FUNCTIONAL from PRODUCTION-GRADE (all wired, all cited):**
+**The four gates that separate FUNCTIONAL from PRODUCTION-GRADE (all wired, all cited):**
 
 1. **Drift gate (regenerate → diff → cite).** Dispatch `doc-drift-scan`. It re-derives every doc claim from the source of truth (filesystem, manifest, `.env.example`, migrations, route table) and diffs it against the committed doc, emitting `BROKEN` / `STALE` findings with paired `<doc:line>` + `<src:line>` citations. **`BROKEN` > 0 ⇒ the doc set is STALE, not production-grade.** A pre-existing `BROKEN` finding elsewhere is reported and still blocks the verdict. If the skill is not installed, run the Phase 6 fallback and record the axis `UNVERIFIED (skill absent)` — never a silent green.
 2. **Runnable-example gate.** Any touched doc carrying an executable path (setup / quickstart / copy-pasteable command sequence) is proven by dispatching `quickstart-verify` in a clean env. No runnable surface → `N/A`; couldn't execute → `SKIPPED (no clean env)`. A labelled skip, never a faked pass.
 3. **Link-resolution gate.** Every `see ADR-NNNN`, runbook path, pattern cross-ref and relative path the refresh wrote resolves to a real file. One dangling reference ⇒ not production-grade.
+4. **Non-prose gate — the surfaces prose checks cannot reach.** Two doc surfaces are not text and are therefore invisible to gates 1–3:
+   - **The diagram.** If the refresh touched architecture, dispatch `diagram-sync` rather than eyeballing "did the picture change architecturally" — it diffs the committed diagram against `code-quality`'s `ai/optimize/_dep-graph.json` and emits `DIAGRAM-DRIFT (stale node / missing node)` + `LEVEL-MISMATCH` with citations. A box naming a module deleted last month is a `BROKEN` finding wearing a picture. Graph artifact absent → `diagram UNVERIFIED (no _dep-graph.json)`; never eyeball it green.
+   - **The public-symbol surface.** If the refresh touched exported symbols, dispatch `docstring-coverage` and record coverage + PR delta. A doc set can be perfectly drift-free about the symbols it *mentions* while newly-exported ones are documented nowhere — drift-scan cannot see an absence.
 
 **Terminal verdict.** After Phase 6 the run emits exactly one:
-- `Status: PRODUCTION-GRADE` — **only** when drift `BROKEN` = 0, every runnable-example gate is `PASS`/`N/A`/`SKIPPED (no clean env)`, and every link resolves. The verdict line carries the cited counts so a reader can re-check it.
+- `Status: PRODUCTION-GRADE` — **only** when drift `BROKEN` = 0, every runnable-example gate is `PASS`/`N/A`/`SKIPPED (no clean env)`, every link resolves, and the non-prose gate is `PASS`/`N/A` (a `DIAGRAM-DRIFT (stale node)` is a `BROKEN` finding in picture form and blocks the verdict exactly as a dead path does). The verdict line carries the cited counts so a reader can re-check it.
 - `Status: INCOMPLETE` — the honest default whenever any gate fails or is `UNVERIFIED`. It **names every unmet item** and what would close it. Reporting `INCOMPLETE` with the list is a *success* of this command; reporting `COMPLETE` with an open `BROKEN` finding is the failure this gate exists to prevent.
 
-**Required output artifact.** The verdict reads off the `ai/dynamic/drift-log.md` entry this run appends, which MUST record `refresh <scope> — drift BROKEN=<n> STALE=<n> · examples <PASS|N/A|SKIPPED|FAIL> · links <resolved>/<total> · verdict <PRODUCTION-GRADE|INCOMPLETE>` plus the cited findings. A verdict contradicting its own counts means the refresh did not close.
+**Required output artifact.** The verdict reads off the `ai/dynamic/drift-log.md` entry this run appends, which MUST record `refresh <scope> — drift BROKEN=<n> STALE=<n> · examples <PASS|N/A|SKIPPED|FAIL> · links <resolved>/<total> · diagram <PASS|n drift|N/A|UNVERIFIED> · docstrings <cov% Δ|N/A|UNVERIFIED> · verdict <PRODUCTION-GRADE|INCOMPLETE>` plus the cited findings. A verdict contradicting its own counts means the refresh did not close.
 
 ## Phases applied
 
@@ -191,14 +194,16 @@ age_days=$(( ($(date +%s) - updated_epoch) / 86400 ))
 
 Flag drift separately from the current change. Drift findings reported, not silently fixed (user may need to know).
 
-### Runnable-example + link gates (the other two production-bar axes)
+### Runnable-example, link + non-prose gates (the other three production-bar axes)
 
 - For every touched doc with an executable setup/quickstart/command block, dispatch `quickstart-verify` in a clean env. Record `PASS` / `FAIL (step N)` / `N/A` / `SKIPPED (no clean env)` — never omit the axis.
 - Resolve every cross-reference the refresh wrote. Record `links <resolved>/<total>`.
+- If architecture was touched, dispatch `diagram-sync` (gate 4). Record `diagram PASS` / `<n> DIAGRAM-DRIFT` / `N/A` / `UNVERIFIED (no _dep-graph.json)`.
+- If exported symbols were touched, dispatch `docstring-coverage` (gate 4). Record `docstrings <raw%> (Δ<PR delta>)` / `N/A` / `UNVERIFIED (skill absent)`.
 
 ### Terminal gate — compute the verdict from the cited counts, then write the artifact
 
-Do not free-narrate "complete". Apply the rule from *The production bar*: `BROKEN` = 0 **and** every example gate ∈ {`PASS`,`N/A`,`SKIPPED (no clean env)`} **and** links fully resolve ⇒ `Status: PRODUCTION-GRADE`; otherwise `Status: INCOMPLETE`, naming each unmet item + what closes it. Append the machine-checkable line to `ai/dynamic/drift-log.md`.
+Do not free-narrate "complete". Apply the rule from *The production bar*: `BROKEN` = 0 **and** every example gate ∈ {`PASS`,`N/A`,`SKIPPED (no clean env)`} **and** links fully resolve **and** the non-prose gate has no drift ⇒ `Status: PRODUCTION-GRADE`; otherwise `Status: INCOMPLETE`, naming each unmet item + what closes it. Append the machine-checkable line to `ai/dynamic/drift-log.md` with **every** field of the contract above — the diagram and docstring axes are part of the line, not optional: `refresh <scope> — drift BROKEN=<n> STALE=<n> · examples <…> · links <r>/<t> · diagram <…> · docstrings <…> · verdict <…>`.
 
 ## Phase 7 — Improve (feed the learning loop)
 
@@ -276,7 +281,7 @@ Phase 5 (Updated):
   - ai/modules.md (+1 row)
   - ai/stack.md (Stripe added)
   - ai/decisions/0007-*.md (new ADR)
-Phase 6 (Validated): no placeholders, markdown renders, Updated: bumped.
+Phase 6 (Validated): drift BROKEN=1 STALE=0; examples N/A; links 6/6; diagram N/A (architecture untouched); docstrings 71% raw (Δ −4%: 3 new exports, 0 documented).
 Phase 7 (Improved): drift log appended (1 finding); /learn-from-task queued.
 
 Files left untouched:
@@ -292,7 +297,7 @@ Recommended follow-ups:
 
 Updated: 2026-05-02 (was 2026-03-21 — 42 days old)
 
-Production bar: drift BROKEN=1 STALE=0 · examples N/A · links 6/6
+Production bar: drift BROKEN=1 STALE=0 · examples N/A · links 6/6 · diagram N/A · docstrings 71% (Δ−4%) · verdict INCOMPLETE
 Status: INCOMPLETE — 1 BROKEN drift finding (ai/architecture.md:47 → renamed path).
         To reach PRODUCTION-GRADE: update that reference from code. Logged to ai/dynamic/drift-log.md.
 ```
