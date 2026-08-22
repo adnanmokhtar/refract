@@ -58,11 +58,13 @@ Enforce with decision authority — SRE team or sign-off.
 
 ### Burn-rate alerts
 
-Not "error rate > 5%". Burn rate.
+Not "error rate > 5%". Burn rate. Three tiers, per SRE Workbook Table 5-8 — method and derivation in `ai/patterns/slo.md`:
 
-- **Fast burn**: 14.4× monthly budget in 1h → page. (1h of this eats 2% of budget.)
-- **Slow burn**: 6× in 6h → page. (6h of this eats 10% of budget.)
-- **Weekly burn**: 1× in 7 days → ticket (not page).
+- **Fast burn**: 14.4× in 1h, confirmed at 5m → **page**. (Sustained: 2% of a 30d budget in an hour.)
+- **Medium burn**: 6× in 6h, confirmed at 30m → **page**. (Sustained: 5% in six hours — an ongoing outage, not a Monday ticket.)
+- **Slow burn**: 1× in 3d, confirmed at 6h → **ticket**. (10% over three days; the only tier that catches a leak burning at exactly target rate, which by construction trips neither page.)
+
+Write 14.4, not 14 — the rounded value is a different threshold and it propagates into generated rules. Confirmation window is 1/12 the long window.
 
 Results: alerts fire when user impact is accumulating, not on every blip.
 
@@ -79,7 +81,17 @@ Per service, dashboard these:
 ### Rotation
 - Weekly or bi-weekly.
 - Primary + secondary (backup for sickness / timezone).
-- Fair distribution — no one carries > 25% of pages.
+- Fair distribution — on an N-person rotation the even share is `1/N` of pages; flag anyone materially above it. (25% on a 4-person rotation, ~17% on a 6-person one — don't carry one project's number to another.)
+
+### Page budget — derive it, don't quote it
+
+Google's figure is **a maximum of 2 incidents per 12-hour on-call shift**, derived from ~**6 hours** of real work per incident (triage, mitigation, root-cause, postmortem, follow-up fix). Two fills a shift.
+
+```
+pages per shift ≤ shift length (hours) / hours of real follow-up per page
+```
+
+Measure the second term from your own postmortems. A page budget quoted with no derivation ("≤ 5/week") cannot be adapted when rotation size or incident cost changes — and this budget halts runs.
 
 ### Page-worthy
 - SLO burn-rate alerts.
@@ -242,3 +254,25 @@ Incident response time: <average>
 - Postmortems that name individuals in root cause.
 - Quarterly review without action-item follow-through.
 - Ignoring SRE when error budget exhausted.
+- Quoting a page budget or a rotation-fairness percentage without its derivation — an unadaptable number gets waived the first time it is inconvenient.
+
+## Related
+
+### Sibling agents in observability pack
+- `@incident-responder` — owns the *live* incident; this agent owns everything after it (postmortem template, action items, the quarterly retro). Boundary: during is `@incident-responder`, after is this agent.
+- `@observability-reviewer` — enforces this agent's SLO / burn-rate policy at the code-change level.
+- `@telemetry-architect` — designs the signals the SLIs are computed from.
+
+### Invoked by
+- `/audit` (observability axis); `/alert-design` Phase 6 names this agent as the blocker on its self-policed closure gate.
+
+### Skills
+- `slo-audit` — periodic SLO verdicts (achieved % vs target, budget burn); the only artifact that writes `ai/runtime/slos.md`.
+- `alert-audit` — dead / noisy / runbook-less alert sweep.
+
+### Patterns
+- `ai/patterns/slo.md` — the burn-rate derivation this agent must not re-derive.
+- `ai/patterns/metrics.md`, `ai/patterns/structured-logging.md`, `ai/patterns/tracing.md`, `ai/patterns/audit-logging.md`, `ai/patterns/profiling.md`
+
+### Rules
+- `.claude/rules/observability-principles.md`

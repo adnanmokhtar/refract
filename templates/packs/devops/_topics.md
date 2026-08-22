@@ -69,8 +69,8 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: rollback-deploy
   kind: command
   triggers: { deploy_target_detected: true }
-  extracts_from: _extracted-codebase.md § Deploy (deploy mechanism + revision history source)
-  sections: [premise, when_to_use, args, what_happens, halts, hard_rules, cross_references]
+  extracts_from: _extracted-codebase.md § Deploy (deploy mechanism + revision-history source + the deploy ledger that records which revisions were healthy)
+  sections: [premise, when_to_use, args, what_happens, platform_mapping, halts, hard_rules, output, cross_references]
   fallback: commands/rollback-deploy.md   # no _examples/ stub — fall back to the live source
 
 - name: dockerfile-lint

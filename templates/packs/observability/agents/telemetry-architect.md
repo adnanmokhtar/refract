@@ -25,7 +25,7 @@ Existing instrumentation is the truth. Mirror sibling shape — log field names 
 - Correlation ID is minted at the edge and propagated through every log line, every span, every queue message, every downstream call. No correlation ID = no debugging.
 - Logs are STRUCTURED (JSON). String concatenation logs are unsearchable noise.
 - PII / secrets / tokens NEVER appear in logs, metrics labels, span attributes, or error messages. Encrypted in transit + scrubbed before persistence.
-- Metric labels are bounded cardinality. `tenant_id` as a label is acceptable on a small-tenant SaaS but a memory bomb at scale; `user_id` as a label is almost always wrong.
+- Metric label cardinality is **computed**, never judged: `series = ∏(distinct label values) × replicas`, stated in the design doc. `user_id` is almost always wrong; `tenant_id` is the call that needs the arithmetic (see § Cardinality discipline).
 - Alerts target SYMPTOMS (user-visible impact), not CAUSES (CPU spike). CPU at 90% is not an alert; "p95 latency exceeded SLO for 10 minutes" is.
 - Every alert has a documented runbook. A page without a runbook is a drill for resignations.
 - A metric with no dashboard AND no alert is dead weight — paid for, never used. Cull regularly.
@@ -90,7 +90,7 @@ search.failed      error { tenant_id, error_code, downstream }
 
 - **Rate** — `http_requests_total` counter, labeled `method`, `route`, `status_class` (2xx/4xx/5xx).
 - **Errors** — derived from above (`status_class="5xx"` rate / total rate).
-- **Duration** — `http_request_duration_seconds` histogram, labeled `method`, `route`. Buckets sized to your SLO (e.g., 0.05, 0.1, 0.25, 0.5, 1, 2, 5).
+- **Duration** — `http_request_duration_seconds` histogram, labeled `method`, `route`. Buckets: the OTel advisory set from `ai/patterns/metrics.md`, **plus an edge exactly at the SLO threshold T** — a latency SLI is a count under T, and a classic histogram can only count at a bucket boundary. Never invent a bucket list per service; never express one in milliseconds.
 
 #### USE per resource
 
@@ -110,21 +110,52 @@ These often catch incidents before technical metrics — a 50% drop in `orders_p
 
 #### Cardinality discipline
 
+The verdict is arithmetic, not taste. Compute it and put the number in the design doc:
+
+```
+series = ∏(distinct values per label) × replicas
+```
+
 | Label | Verdict |
 |---|---|
-| `method`, `route`, `status_class` | Fine — bounded |
-| `tenant_id` | Fine if <10k tenants; becomes a problem at SaaS scale |
-| `user_id` | Almost always wrong — high cardinality, low alerting value |
+| `method`, `route`, `status_class` | Fine — bounded, and the bound doesn't grow with the business |
+| `tenant_id` | **Compute it.** See below — there is no tenant count that is safe independent of the rest of the product |
+| `user_id` | Almost always wrong — grows with signups, and no alert is ever "for one user" |
 | `query` (raw text) | Never — unbounded |
 | `error_code` (from a closed enum) | Fine |
 | `error_message` (free text) | Never — unbounded |
 | `correlation_id` | Never as a label — that's a log/trace attribute |
 
+**`tenant_id` is the hard one, so do the arithmetic in front of the reader.** It is simultaneously
+the most useful dimension a multi-tenant service has and the one most likely to detonate the TSDB:
+
+| Metric | Labels | Series |
+|---|---|---|
+| `orders_requests_total{status}` | 3 × 6 replicas | 18 |
+| `+ route` | 3 × 20 × 6 | 360 |
+| `+ tenant_id`, 200 tenants | 3 × 20 × 200 × 6 | 72,000 |
+| `+ tenant_id`, 10,000 tenants | 3 × 20 × 10,000 × 6 | **3,600,000** |
+
+So "fine under 10k tenants" is not a rule — it is only ever true when the rest of the product is
+small, and it stops being true the moment someone adds a `route` or a replica. The resolution is not
+"drop the tenant dimension"; it is to put it where it belongs:
+
+- **On the metric** — label the top-N tenants and bucket the rest as `other`. Per-tenant alerting
+  survives for the tenants anyone would page about, and series count stops tracking signups.
+- **On logs, traces and exemplars** — full tenant fidelity, always. That is where "which tenant?" is
+  answered during an incident, and it costs nothing in the TSDB.
+
+Halt on any tenant-label proposal whose series count was not computed and stated.
+
 ### 5. Traces
 
-- Every incoming request begins a trace. Span name follows route or operation (`POST /orders`, `OrderService.placeOrder`).
+- Every incoming request begins a trace. Span name is a **low-cardinality grouping key** — `{method} {route-template}` (`GET /orders/{id}`), never the substituted path, because every backend aggregates latency by span name and an ID in the name destroys the p95. Business spans: `<domain>.<verb>`.
+- **SpanKind set on every process-boundary span** (`SERVER` / `CLIENT` / `PRODUCER` / `CONSUMER`; `INTERNAL` otherwise). The service map and the "which upstream is slow" view are derived from it; an all-`INTERNAL` service renders as one node with no edges.
 - Every downstream IO is a child span: DB query, HTTP call, queue publish, cache get, external API.
-- Span attributes: `tenant_id`, `user_id`, `entity_id`, `cache.hit`, `db.statement` (sanitized), `http.url` (path only, no query string with PII).
+- Span attributes come from two places and only one of them is yours to name:
+  - **Semantic conventions** where one exists — `http.request.method`, `http.response.status_code`, `url.full` (client) or `url.path` + `url.scheme` + `server.address` (server), `db.system.name`, `db.query.text` (parameterized, never bound values), `db.operation.name`. `http.url`, `http.method`, `http.status_code`, `db.system` and `db.statement` are **deprecated**; a stale spelling silently produces an empty backend view rather than an error. Migrating an existing service is a config switch — `OTEL_SEMCONV_STABILITY_OPT_IN` with a `/dup` value emits both generations while dashboards are re-pointed. Table and links in `ai/patterns/tracing.md`.
+  - **Project attributes** for what no convention covers — `tenant_id`, `entity_id`, `cache.hit`, `error_code` — each with a bounded value space and the sibling's exact spelling.
+  - Note `url.full` is the *whole* URL, so it is the wrong home for "path only, no query string": strip or redact `url.query`, which is the usual PII leak.
 - Status: ERROR on exception or non-2xx response.
 - Sampling:
   - 100% of errors (head-based or tail-based with retention).
@@ -144,7 +175,7 @@ Telemetry doesn't start at the load balancer — the user's browser/app is the f
 
 #### What to alert on
 
-- **SLO burn rate** — fast-burn (consuming budget for a 1h window in 5m) and slow-burn (consuming a 30d budget over 6h). Page on fast-burn; ticket on slow-burn.
+- **SLO burn rate** — three tiers, not two: 1h/14.4× confirmed at 5m (**page**), 6h/6× confirmed at 30m (**page** — Google's second page tier, not a ticket), 3d/1× confirmed at 6h (**ticket**). The 3d tier is the one usually missing and the only detector for a leak burning at exactly the target rate. Derivation in `ai/patterns/slo.md`.
 - **Symptom alerts** — error rate >X%, p95 latency >Y ms, 0 successful requests in Z minutes.
 - **Saturation alerts** — queue depth growing unboundedly, connection pool at >90%, disk >85%.
 - **Business alerts** — order rate drops >50% from baseline (after seasonality adjustment).

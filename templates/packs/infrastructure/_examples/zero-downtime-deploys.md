@@ -12,6 +12,8 @@ pack: infrastructure
 - Cite the readiness probe config as `<path:line>` (`/ready` endpoint + handler) before claiming zero-downtime; missing probe is a halt.
 - Cite the migration phase script per step (expand → backfill → contract) as `<path:line>` for renames / NOT-NULL adds; single-shot breaking migrations are forbidden.
 - Cite the SIGTERM handler as `<path:line>` proving graceful drain (close server, finish jobs, end DB pool); ungraceful shutdown is a halt.
+- Cite the `preStop` delay (or the platform's equivalent connection-draining setting) before claiming zero-downtime on a rolling update. Endpoint removal and SIGTERM are issued in parallel, so a readiness probe alone does NOT prove requests are not dropped.
+- Cite the migration's lock profile per statement: which lock it takes and whether it scans the table. A schema change with no stated lock profile is a halt, not a pass.
 - Cite the rollback runbook (`ai/runbooks/rollback-<service>.md`) by path; rollback designed after the fact is a halt.
 - Hand-wave grep ban — never claim "all migrations are backward-compatible" without citing the migration directory listing + lint rule.
 
@@ -101,6 +103,8 @@ Send a copy of real traffic to v2 without using its response.
 
 NEVER break the old version's DB expectations. Apply migrations in phases that keep BOTH versions working.
 
+**The lock is the outage, not the migration.** A statement holding `ACCESS EXCLUSIVE` blocks every read and write on the table for as long as it runs, and a statement that scans the table runs for as long as the table is big. Set `lock_timeout` on every migration session so a blocked statement fails fast instead of queueing every query behind it.
+
 ### Adding a column (required NOT NULL)
 
 **Phase 1** (with v1 still running):
@@ -113,7 +117,24 @@ v1 ignores it.
 
 **Phase 3** (after v2 stable, backfill): `UPDATE users SET phone = '...' WHERE phone IS NULL;` (batched).
 
-**Phase 4** (migration): `ALTER TABLE users ALTER COLUMN phone SET NOT NULL;`
+**Phase 4** (make it NOT NULL — the step people get wrong):
+
+A bare `ALTER TABLE users ALTER COLUMN phone SET NOT NULL;` takes `ACCESS EXCLUSIVE` **and scans the whole table** to prove no NULLs exist — on a large table that is the app-freezing outage this pattern exists to prevent. PostgreSQL documents the way out: *"if a valid CHECK constraint exists (and is not dropped in the same command) which proves no NULL can exist, then the table scan is skipped"*, and `VALIDATE CONSTRAINT` *"acquires only a SHARE UPDATE EXCLUSIVE lock"* (https://www.postgresql.org/docs/current/sql-altertable.html):
+
+```sql
+-- 4a: add the proof, unvalidated — fast, no scan
+ALTER TABLE users ADD CONSTRAINT users_phone_not_null CHECK (phone IS NOT NULL) NOT VALID;
+-- 4b: validate — scans, but under SHARE UPDATE EXCLUSIVE, so reads and writes continue
+ALTER TABLE users VALIDATE CONSTRAINT users_phone_not_null;
+-- 4c: the scan is now skipped, so this is a brief catalog-only lock
+ALTER TABLE users ALTER COLUMN phone SET NOT NULL;
+```
+
+Other engines have their own equivalents; the principle transfers — find the form that avoids a full scan under an exclusive lock, and verify it in the engine's own docs before running it on prod.
+
+### Adding an index
+
+`CREATE INDEX` blocks writes for the duration of the build. Use the engine's concurrent form (`CREATE INDEX CONCURRENTLY` in PostgreSQL) — no write block, at the cost of two passes and a possible INVALID index to drop and retry on failure. It also cannot run inside a transaction block, which most migration frameworks wrap statements in by default.
 
 ### Renaming a column
 
@@ -124,6 +145,8 @@ v1 ignores it.
 **Phase 5**: drop old column.
 
 Each phase is its own deploy. Don't skip.
+
+**This sequencing IS the answer to "migration first or code first?"** — expand-contract is deliberately BOTH, ordered across deploys. Any rule forcing one global choice between "migrate then deploy" and "deploy then migrate" cannot express it. Per change: expand steps before the code that needs them, contract steps after the last deploy that could read the old shape.
 
 ## Health checks matter
 
@@ -152,6 +175,18 @@ process.on('SIGTERM', async () => {
 });
 ```
 
+**The gap: endpoint removal and SIGTERM are issued IN PARALLEL, not in sequence.** Removal from the Service endpoints has to propagate to every proxy and load balancer in the path, while the kubelet has already sent SIGTERM. For that window the pod has stopped accepting connections and traffic is still arriving. That is where "we have readiness probes and a SIGTERM handler and still drop requests on every deploy" comes from — the fault is the ordering, not the app.
+
+```yaml
+lifecycle:
+  preStop:
+    exec: { command: ["sleep", "10"] }   # serve through endpoint-removal propagation
+```
+
+- The delay must exceed your propagation time — measure it (watch for 5xx during a rollout) rather than copying a number.
+- `terminationGracePeriodSeconds` must exceed preStop delay + real drain time, or the pod is SIGKILLed mid-drain and the dropped requests have only moved.
+- Recent Kubernetes minors offer a native `preStop.sleep` action instead of shelling out to `sleep` (which distroless images lack). Confirm on the target minor with `kubectl explain pod.spec.containers.lifecycle.preStop`.
+
 ## Rollback
 
 Plan the rollback before the deploy:
@@ -171,6 +206,8 @@ Rollback time objective (RTO): seconds for flag, minutes for deploy-based.
 ## Forbidden
 
 - Deploys without readiness probes.
+- Rolling updates with no `preStop` delay on a Service-backed workload — the parallel endpoint-removal/SIGTERM window drops in-flight requests on every deploy.
+- Schema changes run without `lock_timeout` set — a blocked statement queues every query behind it and turns a migration into an outage.
 - DB migrations that break the previous version.
 - Rollback plan designed AFTER the failure.
 - Manual deploys bypassing CI/CD.

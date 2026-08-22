@@ -120,7 +120,7 @@ Practice rollback in staging regularly. If no one has rolled back in 3 months, d
 
 | # | Dimension | PASS requires (cited evidence) | Detector |
 |---|---|---|---|
-| **S1 Rollback RESOLVED + EXERCISED** | a resolved prior-healthy revision id + a rehearsed flip confirmed GREEN, not "redeploy the previous SHA" in prose | `/rollback-deploy --dry-run` resolves a real revision; drill flip → `monitor-deploy` GREEN → rolled forward | grep the deploy job for a rollback command; grep `helm history`/`kubectl rollout history` producing a real prior revision |
+| **S1 Rollback RESOLVED + EXERCISED** | a resolved prior-healthy revision id, a passing reversibility gate, and a rehearsed flip confirmed GREEN — not "redeploy the previous SHA" in prose | `/rollback-deploy --dry-run` resolves a real revision, names the source that establishes it was HEALTHY (the deploy ledger / a `monitor-deploy` GREEN record / platform deployment status — revision *history* carries no health), and returns PASS on R1-R3; drill flip → `monitor-deploy` GREEN → rolled forward | grep the deploy job for a rollback command; `helm history` / `kubectl rollout history` produce a prior revision **id**, which is the target — then look up its health separately, because the history output does not contain it |
 | **S2 Health + readiness EXERCISED** | probe polled live AND present in the manifest as an enforced gate | `readinessProbe`/`livenessProbe` in the Deployment, `HEALTHCHECK` in the Dockerfile — not just a curl in CI | `grep -RnE 'readinessProbe\|livenessProbe' k8s/ helm/`; `grep -n HEALTHCHECK Dockerfile` |
 | **S3 Resource requests + limits** | every container bounded; unbounded = one leak from a node OOM cascade | both `requests` and `limits` on each container | `grep -RnE 'resources:\|requests:\|limits:' k8s/ helm/` — flag any container with requests but no limits |
 | **S4 No plaintext secrets** | secrets by reference, never inline literals | `secretKeyRef`/`valueFrom`/manager/sealed-secret/SOPS | `grep -RnE '(PASSWORD\|SECRET\|_KEY\|_TOKEN)\s*[:=]\s*["'"'"'][^$]' k8s/ helm/ docker-compose*.yml .github/` — a literal after `=` (not `${...}`/`secretKeyRef`) is a leak |
@@ -290,13 +290,22 @@ Verdict: INCOMPLETE — NOT production-grade. Unmet: S1, S2, S3, S5.
 - Unreviewed manual deploys to prod.
 - Rebuild-per-env (violates promotion).
 - Deploys without monitoring window.
-- Deploy on Friday afternoon (empirically high rollback rate).
+- **Deploying when you could not roll back** — no rehearsed path, no monitoring window, nobody to
+  watch it. That is what a "no Friday deploys" rule is really protecting against, and it is worth
+  saying plainly: the calendar rule treats the symptom while leaving the unsafe path in place for
+  the rest of the week. If a Friday deploy frightens the team, the finding is S1, not the date.
 
 ## Related
 
+### Invoked by
+- `/deploy-stage` Phase 6 — dispatched with the collected S1-S5 citations to **adjudicate** the
+  Safe-Delivery verdict. Not a second opinion: an `INCOMPLETE` here is the run's verdict.
+
 ### Sibling agents in devops pack
-- `@ci-reviewer` — sibling agent in devops pack
-- `@devops-architect` — sibling agent in devops pack
+- `@ci-reviewer` — owns the pipeline CONFIG (triggers, secrets, caching, injection); this owns the
+  deploy STRATEGY and the verdict.
+- `@devops-architect` — designs the path from `git push` to the artifact; this judges whether that
+  artifact can be safely delivered and reverted.
 
 ### Skills
 - `progressive-delivery` — tight boundary: this agent picks canary/blue-green as a deploy **STRATEGY** (which one, overhead, rollback command); progressive-delivery audits the **feature-flag lifecycle** and the **canary's automated-analysis wiring** (the AnalysisTemplate/metric gate that auto-promotes or aborts). This agent selects the strategy; that agent verifies its flag hygiene + metric gate are real.

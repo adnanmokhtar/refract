@@ -54,6 +54,21 @@ EXISTING — read sibling workflow files (other repos in same org) if user refer
 
 Workflow file:
 - Triggers: `pull_request` + push to `main`.
+- **A workflow-level `permissions:` block, always, even when it is just `contents: read`.** Do not
+  reason about "the default" — per GitHub's workflow-syntax docs the `GITHUB_TOKEN`'s permissions are
+  "initially set to the default setting for the enterprise, organization, or repository", so it is a
+  per-repo setting you cannot see from the workflow and it can change without a commit. Declaring
+  the block removes the question, and anything not named in it is set to `none`. Then widen **per
+  job**, never workflow-wide: `packages: write` on the job that pushes to a container registry
+  (without it the push 403s), `id-token: write` on the job that uses OIDC or keyless signing,
+  `contents: write` only where a release is actually created.
+- **Runner label** — decide, don't inherit. `ubuntu-latest` moves when GitHub rolls the default
+  runner image, changing preinstalled tool versions under you; a pinned `ubuntu-<version>` is
+  reproducible until you bump it. Pin when the build must be reproducible; take `ubuntu-latest` when
+  you would rather meet the rollover early. Record which and why in `ai/runbooks/ci.md`.
+- **Action versions are resolved, not remembered** — `gh api repos/<owner>/<repo>/releases/latest
+  --jq .tag_name` per action before emitting it. Never a branch ref (`@master` / `@main`). Emit
+  `github-actions` in `dependabot.yml` alongside the language ecosystem, or the pins rot.
 - Jobs: lint, typecheck, test, build — parallelized; `needs:` only where genuine dependency exists.
 - **`security` job** (#48 — on by default; opt out with `--no-security`): dependency vulnerability scan + secret scan, wiring the existing pack skills — `security/skills/deps-audit/SKILL.md` (CVEs / abandoned deps / license issues) + `security/skills/secret-scan/SKILL.md` (leaked secrets in tree + history). Runs in parallel with lint/test; advisories the project hasn't triaged are configurable (warn vs fail). A lint-typecheck-test-build CI with no deps/secret gate is the common gap this closes — keep it in sync with the cited `cicd-pipeline.md` pattern.
 - **Coverage threshold** on the `test` job — emit coverage and fail under the project's threshold (`ai/conventions.md § Coverage`, default advisory). Coverage tool from `ai/stack.md § Scripts`.
@@ -72,6 +87,13 @@ Workflow file:
 
 ## Phase 6 — Validate
 
+- **Dispatch `@ci-reviewer` on the workflow this command just generated**, before the run is
+  declared done. A generator that is never read by its own reviewer drifts: the reviewer's findings
+  (mutable action pins, missing `permissions:`, expression injection in a `run:`, a scan that runs
+  after publish) are exactly the defects this Phase 4 can emit. Treat a Critical/BLOCKER finding as
+  a halt — fix Phase 4's output and re-emit, do not ship and file it. If `@ci-reviewer` is not
+  installed (minimal mode), say so in the output rather than reporting an unreviewed workflow as
+  reviewed.
 - Open generated file path so user can review.
 - After commit, watch the first run to green; **halt on red**, do not advance to Phase 7 with a failing run. The green-gate command is platform-specific:
   - **GitHub Actions** — `gh run watch` (named; blocks until the run finishes, exits non-zero on failure).
@@ -92,7 +114,11 @@ Workflow file:
 ```
 Created: .github/workflows/ci.yml
 Jobs:    lint · typecheck · test · build (parallel) → docker (tag-only)
-Cache:   actions/cache@v4 keyed on bun.lockb
+Perms:   workflow contents: read; docker job adds packages: write + id-token: write
+Runner:  ubuntu-latest (unpinned — recorded in ai/runbooks/ci.md as a deliberate choice)
+Cache:   actions/cache@v6 (resolved via `gh api .../releases/latest`) keyed on bun.lockb
+
+ci-reviewer: PASS (0 blockers; 1 medium — SHA-pin the docker job's actions)
 
 Branch protection — set required checks to:
   ci / lint
@@ -105,15 +131,25 @@ Branch protection — set required checks to:
 
 - Required-check name mismatch with workflow job names — PRs permanently blocked.
 - `pull_request_target` on workflows checking out PR code from forks — leaks secrets; use `pull_request`.
-- Secrets over-scoped — `GITHUB_TOKEN` defaults to write; explicitly downgrade non-deploy jobs to `contents: read`.
-- Matrix builds added without project supporting them — wasted CI minutes.
+- **No `permissions:` block at all.** The failure mode is not "the default is write" — it is that the
+  default is a repo/org/enterprise *setting* invisible from the workflow, so the same file is
+  least-privilege in one repo and over-scoped in another. Declare it; then the answer is in the file.
+- **Untrusted `${{ github.event.* }}` inside a `run:`** — PR titles, branch names and issue bodies are
+  substituted into the shell before it executes. Bind to an intermediate `env:` var and use `"$VAR"`.
+- Matrix legs on an unsupported runtime major — burns minutes proving compatibility with something
+  that no longer receives security patches. Resolve the supported set from the runtime's release schedule.
 - Cache key omits OS — cross-platform cache poisoning.
 - No `concurrency` block — stale runs pile up on force-pushes.
+- No `timeout-minutes:` — a hung job bills until the platform's default cap.
 
 ## Related
 
 ### Sibling commands in devops pack
 - `/dockerize` — sibling command in devops pack
+
+### Agents
+- `@ci-reviewer` — dispatched in Phase 6 on the generated workflow. This command writes the pipeline;
+  that agent reads it hostilely. A blocker from it halts Phase 7.
 
 ### Skills
 - `gitops-audit` — the CI pipeline this command builds ends at *publish* (build → test → scan → push image). If the cluster is Argo CD / Flux managed, `gitops-audit` audits what happens **after** publish — the git→cluster reconciliation loop (drift, out-of-band `kubectl apply`, plaintext secrets in git, prune safety). Wire the pipeline here; audit the reconciliation there.

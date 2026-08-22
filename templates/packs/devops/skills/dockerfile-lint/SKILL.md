@@ -1,6 +1,6 @@
 ---
 name: dockerfile-lint
-description: Lint a Dockerfile for safety, size, and correctness using hadolint plus project rules (non-root, multi-stage, pinned base, healthcheck). Run before merging any Dockerfile change and after a base-image bump. Covers the Dockerfile only — `release-security` scans the built image for CVEs, SBOM, and signatures.
+description: Lint a Dockerfile for safety, size, and correctness using hadolint plus project rules (non-root FINAL stage, multi-stage, pinned base, healthcheck, BuildKit secret handling). Run before merging any Dockerfile change and after a base-image bump. Covers the Dockerfile only — `release-security` scans the built image for CVEs, SBOM, and signatures.
 ---
 
 # dockerfile-lint
@@ -9,7 +9,9 @@ Catch unsafe + bloated Dockerfiles before they hit a registry.
 
 ## Premise
 
-Find real issues, cite the Dockerfile line and the rule that fires. Hadolint findings are reported with their rule code (DL3008, DL3007, etc.). Project-rule failures (HEALTHCHECK missing, USER root, no `.dockerignore`) cite the actual line absent or the value detected. Image size, layer count, and "secret in history" come from `docker inspect` / `docker history` output captured during a real build — not from reading the source alone.
+Find real issues, cite the Dockerfile line and the rule that fires. Hadolint findings are reported with their rule code (DL3008, DL3007, etc.). Project-rule failures (HEALTHCHECK missing, final-stage USER root, no `.dockerignore`) cite the actual line absent or the value detected. Image size, layer count, and "secret in history" come from `docker inspect` / `docker history` output captured during a real build — not from reading the source alone.
+
+**Every check below reads the FINAL stage.** A multi-stage Dockerfile has one stage that ships and N that do not, and almost every false pass in this skill's history came from a check that answered about the builder. `USER node` in the build stage does not make the runtime non-root.
 
 ## Halt conditions
 
@@ -17,7 +19,7 @@ Find real issues, cite the Dockerfile line and the rule that fires. Hadolint fin
 - Refuse to flag "secret in image" without showing the `docker history` line that contains it.
 - Halt if `docker build` failed — fix the build first, then lint.
 - Don't dismiss a hadolint warning without naming why it's acceptable.
-- `:latest` tag = block. `USER root` as final = block. Secrets baked in = critical (rotate the leaked credential).
+- `:latest` tag = block. Untagged `FROM` = block (it resolves to `:latest`). Final-stage `USER root` (or no `USER` at all in the final stage) = block. Secrets baked in = critical (rotate the leaked credential).
 
 ## When to use
 
@@ -39,26 +41,66 @@ Find real issues, cite the Dockerfile line and the rule that fires. Hadolint fin
    find . -name 'Dockerfile*' -not -path '*/node_modules/*' \
      | xargs -I{} hadolint --no-color {}
    ```
-2. Verify multi-stage + final-stage USER:
+2. Verify multi-stage + the **final stage's** user. Resetting the accumulator at each `FROM` is the
+   whole point — reading the last `USER` anywhere in the file reports the builder's user and passes
+   a Dockerfile that runs as root:
    ```bash
-   awk '/^FROM/ {n++} /^USER/ {u=$2} END {print "stages="n" user="u}' Dockerfile
+   awk '/^[Ff][Rr][Oo][Mm][[:space:]]/ { n++; u="" }
+        /^[Uu][Ss][Ee][Rr][[:space:]]/  { u=$2 }
+        END { print "stages=" n "  final_stage_user=" (u=="" ? "<none> -> ROOT" : u) }' Dockerfile
    ```
-   Expect `stages>=2` and `user!=root` (and not numeric `0`).
-3. Verify HEALTHCHECK declared:
+   Expect `stages>=2` and a final user that is neither empty, `root`, nor `0`.
+3. Verify HEALTHCHECK declared (and see § False positives for when its absence is a blocker vs a nit):
    ```bash
    grep -q '^HEALTHCHECK' Dockerfile || echo "MISSING HEALTHCHECK"
    ```
-4. Verify base image is pinned to a digest or specific tag (no `:latest`, no floating major):
+4. Classify every base image. **One grep cannot do this, and the failure is not theoretical** — the
+   check this step replaced was `grep -E '^FROM' Dockerfile | grep -E ':(latest|[0-9]+)\s|@sha256'`,
+   and its `\s` makes the tag branch match only when whitespace *follows* the tag. Measured against
+   real lines: `FROM node:latest AS build` **passes** (the `AS` supplies the whitespace — and
+   multi-stage is exactly what this skill requires, so the blocker slips through in the normal case),
+   `FROM node:22 AS build` passes (a floating major, the weakest tag), while `FROM node:22-alpine`
+   and `FROM node:22.1-alpine` are both reported "not strictly pinned". It accepts what it should
+   block and rejects what it should accept. Classify instead, skipping `FROM <earlier-stage>` lines,
+   which carry no registry reference:
    ```bash
-   grep -E '^FROM' Dockerfile | grep -E ':(latest|[0-9]+)\s|@sha256' || echo "FROM line not strictly pinned"
+   awk '
+     toupper($1)=="FROM" {
+       for (i=2; i<=NF; i++) if (toupper($i)=="AS") stage[$(i+1)]=1
+       ref=""
+       for (i=2; i<=NF; i++) { if ($i ~ /^--/) continue; ref=$i; break }
+       if (ref in stage) next                       # FROM builder AS runtime
+       if      (ref ~ /\$/)                    v="WARN   ARG-driven base - resolve the value"
+       else if (ref ~ /@sha256:/)              v="OK     digest-pinned (strongest)"
+       else if (ref ~ /:latest$/)              v="BLOCK  :latest"
+       else if (ref !~ /:/)                    v="BLOCK  untagged - resolves to :latest"
+       else if (ref ~ /:[^:]*[0-9]+\.[0-9]+/)  v="OK     version tag - digest is stronger"
+       else                                    v="WARN   floating tag - no minor/patch"
+       printf "  %-42s %s\n", ref, v
+     }' Dockerfile
    ```
+   Then apply the judgement the classifier cannot: **is the pinned version still supported?** A
+   correctly pinned EOL base passes every check above and receives no security patches. Compare the
+   tag against the runtime's published release schedule (Node: `nodejs.org/en/about/previous-releases`;
+   every runtime has one). Maintenance-phase = finding, EOL = blocker.
 5. Verify `.dockerignore` excludes the usual offenders:
    ```bash
    for p in node_modules .env .env.* .git dist build .next .nuxt coverage; do
      grep -q "^$p" .dockerignore || echo "missing: $p"
    done
    ```
-6. Build + measure layers + scan history for secrets:
+6. BuildKit hygiene. BuildKit is the default builder for Docker Desktop and Docker Engine, so these
+   are not exotic features — a Dockerfile that ignores them is paying for cold dependency installs
+   and, in the secret case, leaking:
+   ```bash
+   head -1 Dockerfile | grep -q '^# syntax=' \
+     || echo "NOTE  no '# syntax=docker/dockerfile:1' directive - build uses the bundled frontend"
+   grep -qE 'RUN --mount=type=cache' Dockerfile \
+     || echo "NOTE  no cache mount - every build re-downloads the dependency tree"
+   grep -nE '^ARG .*(SECRET|TOKEN|PASSWORD|_KEY)' Dockerfile \
+     && echo "BLOCK build-arg secret - use RUN --mount=type=secret; ARG values persist in image config"
+   ```
+7. Build + measure layers + scan history for secrets:
    ```bash
    docker build -t scan/img:lint .
    docker history --no-trunc scan/img:lint | grep -iE '(secret|token|password|api[_-]?key)' && echo "POSSIBLE SECRET IN LAYER"
@@ -74,13 +116,19 @@ Dockerfile audit
 Hadolint:
   PASS  DL3008  pin apt versions
   PASS  DL3009  apt-get clean
-  WARN  DL3007  latest tag used in FROM — pin to node:20.10-alpine
+  WARN  DL3007  latest tag used in FROM
+
+Base images:
+  node:22-alpine AS build                    WARN   floating tag - no minor/patch
+  gcr.io/distroless/nodejs22-debian12        WARN   floating tag - no minor/patch
+  (support check: both on a currently-supported major per the runtime's release schedule)
 
 Project rules:
   PASS  Multi-stage: 2 stages (build, runtime)
-  PASS  Non-root user (USER node)
+  FAIL  Final-stage user: <none> -> ROOT   (USER node is set in the BUILD stage only, line 9)
   FAIL  HEALTHCHECK missing
   PASS  .dockerignore present (covers node_modules, .env, .git, dist)
+  NOTE  No '# syntax=' directive; no RUN --mount=type=cache
 
 Image:
   Size:       247 MB
@@ -88,17 +136,28 @@ Image:
   Secrets:    none detected in `docker history`
 
 Blockers:
-  1. HEALTHCHECK missing — kube/ECS liveness probes degrade to TCP-only.
+  1. Final stage runs as root — the `USER node` on line 9 belongs to the build stage, which is
+     discarded. Add `USER node` after the last FROM.
+  2. HEALTHCHECK missing — severity depends on the runtime; see below.
 
 Suggested fix:
   HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1))"
+    CMD node -e "require('http').get('http://localhost:'+process.env.PORT+process.env.HEALTH_PATH,r=>process.exit(r.statusCode===200?0:1))"
 ```
 
 ## False positives / gotchas
 
+- **`HEALTHCHECK`'s severity depends on where the image runs, and the common claim about Kubernetes
+  is wrong.** Docker Engine, Compose (`depends_on: condition: service_healthy`) and Swarm read the
+  image's `HEALTHCHECK`; without it the container is `running` with no notion of healthy, and
+  nothing can gate on it. **Kubernetes does not read it at all** — kubelet's probes come from
+  `livenessProbe`/`readinessProbe` in the pod spec, and a missing HEALTHCHECK has no effect there.
+  So: blocker for compose/Swarm/ECS-without-an-overriding-task-definition; a nit for a k8s-only
+  image, where the equivalent gap is a missing probe in the manifest — that is `@k8s-reviewer`'s and
+  `/deploy-stage` S2's territory, not this skill's. Report which runtime you judged against.
 - `apt-get install -y package` without version pin is hadolint DL3008 — but pinning every system package is high churn; document the trade-off.
-- `USER 1001` is non-root but unreadable — prefer named user with `useradd`.
-- Multi-stage with `FROM scratch` final stage CAN'T have HEALTHCHECK shell commands — use exec form with a static binary.
-- `docker history` shows secrets only if they were `RUN echo $SECRET` style; build-arg secrets aren't exposed there but ARE in the image config — `docker inspect` is the deeper check.
-- `:latest` tag = block. `USER root` as final = block. Secrets baked in = critical (rotate the leaked credential).
+- `USER 1001` is non-root but unreadable — prefer a named user created with `adduser`/`useradd`.
+- Multi-stage with `FROM scratch` final stage CAN'T have HEALTHCHECK shell commands — use exec form with a static binary. Same for distroless: there is no shell, so the healthcheck must be the runtime's own binary.
+- A **floating tag is a WARN, not a pass.** `node:22-alpine` is reproducible today and a different image next week. It is the right default for a team that patches; it is a finding for anything claiming reproducible builds.
+- `docker history` shows secrets only if they were `RUN echo $SECRET` style; **build-arg secrets aren't exposed there but ARE in the image config** — `docker inspect` is the deeper check, and `RUN --mount=type=secret` is the fix (the value never enters a layer).
+- `:latest` tag = block. Untagged `FROM` = block. Final-stage `USER root` = block. Secrets baked in = critical (rotate the leaked credential).

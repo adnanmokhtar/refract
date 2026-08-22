@@ -84,7 +84,7 @@ Histogram > summary in distributed systems: histograms aggregate across instance
 - Service prefix: `orders_requests_total` not `requests_total` — disambiguates when you have many services.
 - Labels lowercase: `status`, `method`, `endpoint`, `tenant`.
 
-If the project's metrics backend uses a different convention (e.g., dot-separated names, OTel semantic conventions like `http.server.duration`), mirror sibling services rather than this pattern.
+If the project's metrics backend uses a different convention (e.g., dot-separated names, or the OTel semantic conventions, where the stable HTTP server latency metric is `http.server.request.duration` — a Histogram in **seconds**, not the pre-stabilization `http.server.duration` in milliseconds), mirror sibling services rather than this pattern.
 
 ## Cardinality discipline
 
@@ -97,37 +97,91 @@ http_requests_total{method="GET", endpoint="/orders", status="200"}  ← 1 serie
 If you label by `tenant_id` with 1k tenants, that becomes 1k series per (method, endpoint, status). If you ALSO label by `user_id` with 1M users, you get 1B series and the TSDB falls over.
 
 ```
-GOOD labels (bounded):  status, method, endpoint, tenant (small N), plan, region, cache_hit
+GOOD labels (bounded):  status, method, endpoint, plan, region, cache_hit
 BAD labels (unbounded): user_id, request_id, order_id, raw_url_with_query, email, IP
 ```
 
-Rule of thumb: each label should have ≤ ~100 distinct values, and the cross product across all labels on a metric should be ≤ ~10k series.
+**Compute the series count; don't eyeball the label.** The number that decides it is a product, and every factor is knowable before you merge:
 
-If you need per-user analysis, that's logs or traces — not metrics.
+```
+series = ∏(distinct values per label) × replicas
+```
+
+Worked, because this is the decision that actually bites on a multi-tenant service. `tenant_id` is
+simultaneously the most useful dimension you have and the one most likely to detonate:
+
+| Metric | Labels | Series |
+|---|---|---|
+| `orders_requests_total{status}` | 3 statuses × 6 replicas | 18 |
+| `+ route` | 3 × 20 routes × 6 | 360 |
+| `+ tenant_id`, 200 tenants | 3 × 20 × 200 × 6 | 72,000 |
+| `+ tenant_id`, 10,000 tenants | 3 × 20 × 10,000 × 6 | **3,600,000** |
+
+So "`tenant_id` is fine under 10k tenants" is not a rule — it is only true when the *rest* of the
+product is small. Prometheus's own guidance is to keep a metric's cardinality below ~10 distinct
+values per label and to treat anything past ~100 as needing a different design, so a tenant label
+is already over budget by that standard at three-digit tenant counts.
+
+Two moves resolve it, and they are not alternatives — use both:
+
+- **On the metric**: label by the top-N tenants and bucket the rest into a single `other` value. You
+  keep per-tenant alerting for the tenants anyone would page about, and the series count stops
+  growing with signups.
+- **On logs, traces and exemplars**: full tenant fidelity, always. `tenant_id` is a *field*, not a
+  label — that is where "which tenant?" is answered, and it costs nothing in the TSDB.
+
+If you need per-user analysis, that's logs or traces — never metrics.
 
 ## Shape of instrumentation (stack-agnostic)
 
 Per service, register:
 
 - A **request counter** labeled by `method`, `endpoint`, `status` — tracks RED rate + errors.
-- A **duration histogram** labeled by `method`, `endpoint` with explicit buckets sized to the service's SLO (e.g., `[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]` seconds for sub-second web APIs).
+- A **duration histogram** labeled by `method`, `endpoint`, with explicit buckets — the OTel advisory set below, plus an edge at the SLO threshold T.
 - A **resource saturation gauge** for the heaviest pool / queue (DB connection pool waiting, job queue depth) — tracks USE saturation.
 - A **business counter** for the most important domain event (orders placed, signups completed) labeled by tenant + channel (only if cardinality stays bounded).
 
 Wire request recording into the framework's middleware / interceptor / decorator chain so every route emits without per-handler boilerplate. Use the route pattern (e.g., `/orders/:id`) as the `endpoint` label — never the raw path with substituted values, which explodes cardinality.
 
-## Histogram buckets — pick deliberately
+## Histogram buckets — one rule, then a default
+
+**The rule that actually matters: put a bucket edge exactly at your SLO threshold T.** A latency SLI
+is a *count* of requests under T (see `slo.md`), and a classic histogram can only count at a bucket
+boundary — everything else is interpolation. If the SLO is "99% under 300 ms" and the nearest edges
+are 0.25 and 0.5, the SLI is a guess, and it will disagree with the burn-rate alert computed from
+the same series. Every other bucket choice is a resolution/cost trade; this one is correctness.
+
+**Default when no SLO pins it yet:** the OpenTelemetry advisory bucket set for
+`http.server.request.duration`, in **seconds** —
 
 ```
-[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]   // good: 9 buckets, web API range
-[1, 2, 3, ...100]                              // bad: 100 buckets per series, cost explodes
+[0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10]
 ```
 
-Default buckets in most clients are not appropriate for every workload. For sub-second APIs, use the example above. For long-running jobs, shift higher: `[1, 5, 10, 30, 60, 300, 1800]`.
+Use it verbatim rather than inventing a list, so that every service in the repo is comparable and
+nobody re-derives it per PR. Shift the whole range for a different workload (long-running jobs:
+`[1, 5, 10, 30, 60, 300, 1800]`), and add an edge at T when the SLO lands. Do not hand-write
+`[1, 2, 3, ... 100]` — 100 buckets per series, and `histogram_quantile` sees only the edges you
+defined, so too few is imprecise and too many is pure storage cost.
 
-The percentile calculation (`histogram_quantile(0.95, ...)`) only sees the buckets you defined — too few buckets gives imprecise percentiles, too many wastes storage.
+**Native / exponential histograms remove the trade-off — where they're actually available.**
+Prometheus **native histograms** and OTel **exponential histograms** auto-scale buckets to the
+observed data with a bounded relative error: high-resolution percentiles across orders of magnitude
+without hand-picking edges, at far lower series cost than a wide classic list. Two gates before you
+rely on them:
 
-**Native / exponential histograms remove this trade-off.** The upfront-bucket choice above is no longer unavoidable: Prometheus **native histograms** (GA 2024) and OTel **exponential histograms** auto-scale their buckets to the observed data with a bounded relative error, so you get high-resolution percentiles across many orders of magnitude without hand-picking edges — and at far lower series cost than a wide classic bucket list. If the project's TSDB/backend supports them, prefer native/exponential histograms for new latency + size metrics and treat explicit buckets as the fallback for backends that don't. (You still pick a *reasonable range*; you no longer pre-commit every boundary.)
+- **Version.** Prometheus native histograms were experimental from v2.40 behind
+  `--enable-feature=native-histograms` and became a **stable** feature in **v3.8.0**. Before 3.8,
+  treat them as experimental.
+- **Scrape config.** Stability is not sufficient — scraping them must still be enabled explicitly
+  via the `scrape_native_histograms` setting. In 3.8 the old feature flag's only remaining effect is
+  to default that setting to true; from 3.9 the flag is a no-op and the setting is required; from
+  v4.0 `scrape_native_histograms` and `send_native_histograms` default to true. **A service that
+  emits native histograms into a server that isn't scraping them emits nothing**, silently.
+
+So: check the server version and the scrape config first. Where both clear, prefer
+native/exponential for new latency + size metrics; otherwise use the explicit bucket list above and
+revisit at the upgrade.
 
 ## Dashboards
 
@@ -166,7 +220,7 @@ If a panel hasn't been looked at in 90 days, delete it. Dead dashboards rot.
 - **Saturation alerts as warnings** — DB pool waiters > 10 for 5min ticket, > 50 page.
 - **Absent alerts** — the project's alerting backend's "no data" / `absent(...)` predicate catches "the service died and stopped reporting".
 
-Fast SLO burn: 14.4× over 1h burns 2% of monthly budget. Express in the project's alerting backend syntax: ratio of error-status rate over total rate, compared to `(1 − SLO) × 14.4`.
+Fast SLO burn: 14.4× over 1h burns 2% of the monthly budget. Express in the project's alerting backend syntax: ratio of error-status rate over total rate, compared to `(1 − SLO) × 14.4`. The full three-tier table (which tiers page and which tickets) is in `slo.md` — don't re-derive it here.
 
 ## Trade-offs
 
@@ -208,8 +262,10 @@ If you have no metrics today:
 
 ## References
 
-- Prometheus naming conventions — the canonical naming reference (still useful even if your backend isn't Prometheus).
-- "Site Reliability Engineering" Google book, ch. 6 — RED + USE methodology origin.
-- Brendan Gregg's USE method — resource saturation methodology.
-- Tom Wilkie's RED method talk — request-driven services.
-- OpenTelemetry metrics SDK docs — vendor-neutral instrumentation across stacks.
+- Prometheus metric + label naming — `https://prometheus.io/docs/practices/naming/`
+- Prometheus instrumentation practices (the cardinality guidance quoted above) — `https://prometheus.io/docs/practices/instrumentation/`
+- Prometheus native histograms (stability, `scrape_native_histograms`) — `https://prometheus.io/docs/specs/native_histograms/`
+- OpenTelemetry HTTP metrics semconv (`http.server.request.duration` + its advisory buckets) — `https://opentelemetry.io/docs/specs/semconv/http/http-metrics/`
+- Brendan Gregg — the **USE** method (utilization / saturation / errors, per resource): `https://www.brendangregg.com/usemethod.html`
+- Tom Wilkie — the **RED** method (rate / errors / duration, per request-driven service): `https://grafana.com/blog/2018/08/02/the-red-method-how-to-instrument-your-services/`
+- *Site Reliability Engineering* ch. 6, "Monitoring Distributed Systems" — the **four golden signals** (latency, traffic, errors, saturation), which is the ancestor of both methods above but is not itself RED or USE: `https://sre.google/sre-book/monitoring-distributed-systems/`

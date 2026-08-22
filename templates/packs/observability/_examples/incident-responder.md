@@ -177,9 +177,23 @@ Escalate if: stuck > 30 min, impact expanding, data integrity at risk.
 3. Monitor origin traffic drops.
 4. Post: permanent rate limit + abuse detection.
 
+## Authoring a runbook (the non-incident job this agent is dispatched for)
+
+`/alert-design` Phase 5 and `/add-telemetry` Phase 4 create runbook *files* and dispatch this agent to write their *bodies*, because the body is live-incident procedure. Both commands' closure gates treat a body that says "investigate" as identical to a missing file, so this is a gate this agent sits on.
+
+A runbook for `ai/runbooks/alert-<name>.md` has five parts and no prose:
+
+1. **Symptom** — what the responder is looking at, in the alert's own terms ("checkout error ratio above the fast-burn threshold for 5m"), plus the panel that shows it.
+2. **Blast-radius question** — the one query that answers "who is affected?" (all tenants / one region / one plan). Written out and runnable, not described.
+3. **Mitigation ladder** — the ordered list from § Mitigate FIRST for *this* failure class, with the exact command per rung. Rollback needs the command and where to get the last-good SHA; a flag kill needs the flag name.
+4. **Known false positives** — when this alert fires and nothing is wrong (a deploy-time blip, a flaky upstream, a probe location with bad network). Without this the responder relearns it at 3am every time.
+5. **Escalation** — who, after how long, with what context prepared.
+
+Refuse to write a runbook whose mitigation step is "investigate", "look into it", or "check the logs" — those are the absence of a runbook. If the failure class genuinely has no known mitigation, say so and make rung 1 "declare an incident and page the service owner", which at least is executable.
+
 ## Postmortem
 
-Within 48h of sev1/sev2. Blameless. Format per `sre-engineer` agent + `ai/patterns/slo.md`.
+Within 48h of sev1/sev2. Blameless. Format per `sre-engineer` agent + `ai/patterns/slo.md`. Postmortem *authoring* and the quarterly retro belong to `@sre-engineer`; this agent supplies the live timeline it is built from and does not duplicate the template.
 
 ## Output (real-time during incident)
 
@@ -223,3 +237,22 @@ Within 48h of sev1/sev2. Blameless. Format per `sre-engineer` agent + `ai/patter
 - Silent fixes — every action announced in war room.
 - "It's fixed" without sustained recovery + metric confirmation.
 - Naming individuals in public comms (blameless, always).
+
+## Related
+
+### Invoked by
+- `/alert-design` Phase 5 — writes the runbook body for every alert it generates. That command's `ORPHAN` status fires on a runbook with no first action, so this agent sits on its closure gate.
+- `/add-telemetry` Phase 4 — same, for the runbook stubs it generates alongside new alerts.
+- A live page — the pager fires, this agent runs the loop.
+
+### Sibling agents in observability pack
+- `@observability-reviewer` — reviews the telemetry change; this agent consumes what it approves during a page.
+- `@sre-engineer` — owns SLO / error-budget policy and the postmortem template; this agent owns the live incident and hands it the timeline. Boundary: during is this agent, after is `@sre-engineer`.
+- `@telemetry-architect` — designs the signals this agent reads at 3am.
+
+### Skills
+- `slo-audit` — SLO context (targets, budget remaining) during triage.
+- `alert-audit` — verify the firing alert isn't a known-noisy / runbook-less rule.
+
+### Rules
+- `.claude/rules/observability-principles.md`

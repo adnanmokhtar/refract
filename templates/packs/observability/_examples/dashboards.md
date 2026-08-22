@@ -30,7 +30,23 @@ A dashboard is the *reading surface* for the metrics in `metrics.md`: metrics wi
 | **Service** | "Is *this* service healthy, and why?" | RED row + USE row + business KPI row + deploy row |
 | **Instance / debug** | "Which replica / dependency / shard?" | Per-instance breakdown, per-dependency latency, saturation drill |
 
-Overview tiles link down to the service board; service panels link down to instance/debug (and out to logs/traces at the same time range). Every arrow is a real link, not a mental note.
+Overview tiles link down to the service board; service panels link down to instance/debug (and out to logs/traces at the same time range). A responder starts at the top and drills — they should never have to *hunt* for the next board.
+
+Concrete shape of the tiered set — the links are the point:
+
+```
+[Fleet overview]  per-service health tiles · SLO compliance · budget remaining · top burners
+      │  tile "checkout ✗" links ↓
+[Service: checkout]
+  Row 1 RED       rate/endpoint · error % · p50/p95/p99      ← burn-rate alert links to the error panel
+  Row 2 BUSINESS  orders/min · payment auth rate
+  Row 3 USE       db pool in-use/waiting · queue depth · cache hit  ← panel "pool waiting" links ↓
+  Row 4 DEPLOY    build/replica · replica count · restarts
+      │  USE panel links ↓ + "view logs/traces at this range" ↘
+[Instance/debug: checkout]  per-replica breakdown · per-upstream latency · saturation drill
+```
+
+Every arrow is a real link in the board definition, not a mental note the responder has to make at 3am.
 
 ## Panel taxonomy — RED for requests, USE for resources
 

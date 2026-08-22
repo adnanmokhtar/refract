@@ -9,11 +9,12 @@ Pre-apply review of IaC changes. The plan is authoritative; this skill reads it 
 
 ## Premise
 
-Find real issues. Every risk cites the resource address (`aws_db_instance.app`), the change symbol from the plan (`-/+`, `~`, `-`), and the trigger attribute that forced the change (`engine_version`, `availability_zone`, etc.). "Data loss" requires the resource type + replace symbol + the attribute change that caused it. IAM widening cites the policy name and the action being added. Verdict (BLOCK / APPROVE) is grounded in the specific findings, not a global feel.
+Find real issues. Every risk cites the resource address (`aws_db_instance.app`), the change symbol from the plan (`-/+`, `~`, `-`), and the trigger attribute **as the plan itself named it** — the `# forces replacement` marker, or the `replace_paths` entry in `tfplan.json`. "Data loss" requires the resource address + the replace action + that quoted trigger. IAM widening cites the policy name and the action being added. Verdict (BLOCK / APPROVE) is grounded in the specific findings, not a global feel.
 
 ## Halt conditions
 
 - Refuse to verdict without `tfplan.json` (or equivalent) parsed — text plans hide sub-module changes.
+- Refuse to name a replacement TRIGGER without quoting the plan's own `replace_paths` entry or its `# forces replacement` marker. Which attributes force replacement is provider- and version-specific; asserting it from memory is guessing about the thing that destroys data.
 - Refuse to pass an RDS replacement without explicit data-migration plan + ADR.
 - Halt if the plan being reviewed isn't pinned to a saved plan file (`-out=tfplan`) — drift between plan and apply is real.
 - Don't dismiss `tfsec` / `checkov` warnings without naming why each is acceptable.
@@ -30,13 +31,13 @@ Find real issues. Every risk cites the resource address (`aws_db_instance.app`),
 ### 1. Run the plan
 
 ```bash
-terraform plan -out=tfplan
+terraform plan -out=tfplan -detailed-exitcode   # 0 = no changes, 1 = error, 2 = changes present
 terraform show -json tfplan > tfplan.json
 ```
 
-Parse `tfplan.json` programmatically OR `terraform show tfplan` for human-readable.
+Parse `tfplan.json` programmatically; `terraform show tfplan` is for the human reader, not for the verdict. `-detailed-exitcode` is what makes "the plan is empty" a machine fact rather than a claim — use it for drift detection in CI.
 
-### 2. Categorize each change
+### 2. Categorize each change — and read the plan's OWN reason
 
 | Symbol | Action | Risk |
 |---|---|---|
@@ -45,12 +46,27 @@ Parse `tfplan.json` programmatically OR `terraform show tfplan` for human-readab
 | `-/+` | replace (destroy + create) | **HIGH** — data loss possible |
 | `-` | destroy | **CRITICAL** — verify intent |
 
+**Never assert from memory which attribute forces a replacement.** Whether an attribute is ForceNew is provider- and version-specific and it changes between provider majors. The plan already tells you:
+
+- Human-readable plan: the `# forces replacement` marker sits on the exact attribute line.
+- `tfplan.json`: `resource_changes[].change.actions` is `["delete","create"]` (or `["create","delete"]` under `create_before_destroy`), and `resource_changes[].change.replace_paths` names the attribute paths responsible.
+
+Quote that marker or that path in the finding. A review that says "this attribute forces replacement" without quoting the plan is guessing, and it is guessing about the one thing that destroys data.
+
+Three change shapes look alarming and are not — read the config before escalating:
+
+- **`moved` blocks** — a resource address changed; Terraform moves state, nothing is destroyed.
+- **`removed` blocks** (Terraform 1.7+) — removes a resource from state and *keeps the real infrastructure*. In the plan this reads as a removal; it is not a destroy. The inverse mistake is the dangerous one: a `removed` block written where a destroy was intended leaves an orphaned, unmanaged, still-billing resource.
+- **`import` blocks** — brings an existing resource under management; the diff shown is the reconciliation, not a creation.
+
+Conversely, `lifecycle.create_before_destroy` makes a genuine replacement *look* safer than it is; the old resource still goes away.
+
 ### 3. Scan for high-risk patterns
 
 | Pattern | Risk |
 |---|---|
-| `aws_db_instance` replaced (delete + create new) | **CRITICAL** — DB data lost |
-| `aws_s3_bucket` replaced or destroyed | **CRITICAL** — bucket data lost |
+| Any stateful resource with `-/+` and a `replace_paths` entry | **CRITICAL** — quote the path; data is lost unless a documented migration path exists |
+| `aws_s3_bucket` destroyed **with `force_destroy = true` set** | **CRITICAL** — that flag is precisely what lets Terraform delete a non-empty bucket. Without it, a destroy of a non-empty bucket fails rather than silently losing objects, so the finding is the flag, not the destroy |
 | `aws_ebs_volume` destroyed | **HIGH** — volume data lost |
 | `aws_kms_key` destroyed | **HIGH** — encrypted data un-decryptable |
 | Security group widening (`0.0.0.0/0`, `::/0`) on inbound | **HIGH** — public exposure |
@@ -65,10 +81,12 @@ Parse `tfplan.json` programmatically OR `terraform show tfplan` for human-readab
 
 ### 4. Verify safety mechanisms
 
-- **`prevent_destroy = true`** on databases, KMS keys, primary buckets — verify lifecycle block respected.
-- **State backend** — remote state with locking (S3 + DynamoDB / Terraform Cloud / GCS). NEVER local state for shared infra.
-- **Plan applied from CI not local laptop** for production tiers (CI = audit trail + reviewed PR).
-- **Approval policy** — production apply gated on manual approval / specific reviewer.
+- **`prevent_destroy = true`** on databases, KMS keys, primary buckets — verify the lifecycle block is respected.
+- **State backend** — remote state with locking, never local state for shared infra. On the S3 backend the current mechanism is **`use_lockfile = true`** (S3-native conditional writes); HashiCorp's own backend docs state that *"DynamoDB-based locking is deprecated and will be removed in a future minor version"* (https://developer.hashicorp.com/terraform/language/backend/s3). A backend block still carrying `dynamodb_table` is a MEDIUM finding with a named fix, not a pass.
+- **Provider lock file committed** — `.terraform.lock.hcl` in version control, and the plan run against it. Without it the plan you reviewed and the plan that applies can resolve different provider versions, which is the same class of defect as an unpinned image tag.
+- **`required_providers` + `required_version` constrained** — an unconstrained provider is an unreviewed upgrade waiting for the next `terraform init`.
+- **Plan applied from CI, not a laptop** for production tiers (CI = audit trail + reviewed PR).
+- **Approval policy** — production apply gated on manual approval / a specific reviewer.
 
 ### 5. Cross-reference
 
@@ -76,6 +94,7 @@ Parse `tfplan.json` programmatically OR `terraform show tfplan` for human-readab
 - Compare plan to ADR / ticket: every change is justified.
 - Verify `terraform validate` clean.
 - Verify `tflint` / `checkov` / `tfsec` static checks clean (or warnings explicitly addressed).
+- Confirm the applied plan IS the reviewed plan: `terraform apply tfplan` against the saved file, never a re-plan at apply time.
 
 ## Output format
 
@@ -91,11 +110,16 @@ Parse `tfplan.json` programmatically OR `terraform show tfplan` for human-readab
 ### Risks (ordered by severity)
 
 **CRITICAL — DB replacement implies data loss:**
-- `aws_db_instance.app` will be REPLACED.
-  Trigger: `engine_version` change from 14 to 16 (major) requires replace.
-  Implication: ALL DATA LOST unless restored from backup.
-  Recommended: do NOT apply this plan. Use blue/green major-version migration instead.
-  Alternative: snapshot before, restore after; expect downtime + data freshness gap.
+- `aws_db_instance.app` will be REPLACED (`actions: ["delete","create"]`).
+  Trigger, quoted from the plan: `replace_paths: [["identifier"]]` — the human plan marks
+  `~ identifier = "app-prod" -> "app-production" # forces replacement`.
+  Implication: the existing instance is destroyed; its data does not move to the new one.
+  Recommended: do NOT apply. Either revert the rename, or use a `moved` block if the intent
+  was only to change the Terraform address rather than the real identifier.
+  If the rename is genuinely wanted: snapshot → restore into the new instance → cut over,
+  and expect downtime plus a data-freshness gap.
+  (Note the discipline: the trigger is quoted from `replace_paths` / the `# forces replacement`
+  marker. Which attributes are ForceNew differs by provider major — never assert it from memory.)
 
 **HIGH — IAM widening:**
 - Policy `prod-deploy-policy` adds action `iam:*` on resource `*`.
@@ -116,7 +140,9 @@ Parse `tfplan.json` programmatically OR `terraform show tfplan` for human-readab
 
 | Check | Status |
 |---|---|
-| Remote state backend | ✓ S3 + DynamoDB lock |
+| Remote state backend + locking | ✓ S3 with `use_lockfile = true` (no deprecated `dynamodb_table`) |
+| `.terraform.lock.hcl` committed + plan run against it | ✓ |
+| `required_providers` / `required_version` constrained | ✗ provider unconstrained — pin before apply |
 | `prevent_destroy` on critical resources | ✗ missing on RDS instance — fix before apply |
 | Apply gated through CI | ✓ via GitHub Actions |
 | Approval policy | ✓ requires platform-team review |
@@ -149,6 +175,7 @@ Once blockers addressed, re-plan + re-review.
 ## Failure modes
 
 - Reviewed plan output but missed a transitive replacement (Terraform shows top-level changes; sub-modules' replacements may be one screen scroll down).
+- Read a `removed` block as a destroy (it removes from state and LEAVES the infrastructure) — or, worse, missed that a `removed` block was written where a destroy was intended, leaving an unmanaged resource still on the bill.
 - Approved a "minor" change that triggered a chain of dependent replacements.
 - Missed `lifecycle.create_before_destroy` semantics — resource looks "destroyed" but actually replaced safely.
 - Dismissed `tfsec` warning as noise; was real (e.g., S3 bucket without versioning before encryption-at-rest).

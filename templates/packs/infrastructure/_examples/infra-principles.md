@@ -8,59 +8,35 @@ pack: infrastructure
 
 > **Hard rule.** Production container images MUST be pinned to an immutable digest or git-SHA tag (`:latest` is forbidden); MUST run as non-root; MUST declare healthchecks + resource `requests` + `limits`. Secrets MUST come from a manager (not git, not env files in images), and every stateful workload MUST have a tested backup + restore runbook.
 
-Prevents the patterns that turn cloud bills + outage minutes into avoidable losses: untagged images, secrets in git, unbounded autoscale, missing probes, unrestored backups.
-
 ## Must
 
-- Match complexity to need. A single VM + systemd / Caddy / nginx is valid infrastructure for many products. K8s adoption is justified by real pain (multi-team, multi-env, > 5 services), not resume gravity.
-- Multi-stage Dockerfile in every service. Final stage = distroless / alpine / scratch + binary + ca-certificates. No build tools in the runtime image.
-- Run as non-root in containers (`USER 1001` / `USER node`). Read-only root filesystem where possible.
-- Container images pinned to immutable tag in production: `image:@sha256:...` or `image:GIT_SHA`. `:latest` is forbidden in any prod manifest.
-- Healthcheck declared at every layer: Dockerfile `HEALTHCHECK`, Kubernetes `livenessProbe` + `readinessProbe` + `startupProbe`, load balancer health.
-- Resource `requests` + `limits` on every container. Without `requests`, scheduler over-packs nodes; without `limits`, one container OOM-kills the host.
-- TLS everywhere, including service-to-service. Auto-renewed certs (Let's Encrypt via cert-manager / ACME, AWS ACM, GCP Managed Certs).
-- Secrets from a manager (AWS Secrets Manager, Vault, External Secrets Operator, Doppler, GCP Secret Manager). Mounted as files preferred over env vars (env is leaked by every `/proc/<pid>/environ` and ps tool).
-- Persistent data on managed DB or object storage. Never on container-local disk — pods die, disks die.
-- Backups automated AND restore tested at least quarterly. An untested backup is a folder of bytes.
+- Match complexity to need. A VM + a process supervisor + a reverse proxy is valid infrastructure for many products. K8s is justified by real pain (multi-team, multi-env, > 5 services), not resume gravity.
+- Multi-stage build: the runtime stage carries the artifact and its runtime deps — no compiler, no package manager, no source tree.
+- Non-root container user; read-only root filesystem where the app allows it.
+- Images pinned to an immutable reference in prod — `@sha256:…` or a git-SHA tag, never a moving tag.
+- Healthcheck at every layer: image healthcheck, orchestrator liveness + readiness (+ startup for slow boots), load-balancer health. No readiness probe means traffic hits a dead pod mid-deploy.
+- Resource `requests` + `limits` on every container. No `requests` — the scheduler over-packs the node; no `limits` — one container starves its neighbours.
+- TLS everywhere, service-to-service included, auto-renewed.
+- Secrets from a manager, mounted as files rather than env vars — env is readable from `/proc/<pid>/environ`, crash dumps, and every child process.
+- Persistent data on a managed store or object storage, never on container-local disk.
+- Every stateful production store: automated backups + point-in-time recovery + a restore drilled on a fixed cadence + a declared RPO/RTO. Backup config with no fresh drill is BLOCK, never ready.
+- Every ingress path intentional and least-exposed: no `0.0.0.0/0` (or `::/0`) on non-public ports, datastores in private subnets, default-deny `NetworkPolicy` per namespace.
+- Resolve versions from the vendor, not from memory. Supported orchestrator minors, provider majors and runtime LTS windows move on a published schedule; a version recalled rather than looked up is how a manifest ships a removed API or an unpatched base.
 
 ## Must not
 
-- Push to `:latest` and rely on it. Forces rollback into "rebuild and pray".
-- Commit secrets to git, even base64-encoded — `gitleaks` / `trufflehog` finds them; so do attackers.
-- Run as root in containers. Container escape + root = host compromise.
-- `kubectl apply` / `terraform apply` from a developer laptop against prod. Use CI with audit trail.
-- Skip readiness probes ("the app takes 30s to come up"). Without readiness, traffic hits a dead pod during deploy.
-- Wildcard cluster roles (`*` verbs / `*` resources) on service accounts. Least privilege per workload.
-- Single point of failure on revenue-critical paths. Multi-AZ at minimum; multi-region if your SLO demands it.
-- Horizontal autoscaler without `min` + `max`. Unbounded scale-up = bill shock; unbounded scale-down = cold-start at peak.
-- Stateful workloads (DB, message broker) without a tested backup + restore runbook.
+- Commit secrets to git, even base64-encoded. Scanners find them; so do attackers.
+- Apply IaC or cluster changes from a developer laptop against prod. Use CI, with an audit trail.
+- Grant wildcard cluster roles (`*` verbs / `*` resources) to a service account.
+- Leave a single point of failure on a revenue-critical path. Multi-AZ at minimum; multi-region only if the SLO demands it.
+- Run a horizontal autoscaler without `min` + `max`. Unbounded up is bill shock; unbounded down is a cold start at peak.
 
 ## Should
 
-- Infrastructure as code: Terraform / OpenTofu / Pulumi / CDK / Crossplane. Reviewed in PRs like app code, with `tflint` + `tfsec` / `checkov` / `terrascan`.
-- Image vulnerability scan in CI (`trivy`, `grype`, `snyk container`). Block on critical CVEs.
-- Network policies default-deny + explicit allows in K8s (`NetworkPolicy` or service mesh authz).
-- PodDisruptionBudget on critical services so cluster maintenance can't take all replicas at once.
-- Drift detection: scheduled `terraform plan` (or Atlantis / Spacelift / Terragrunt) alerts on diff vs main.
-- Cost guardrails: per-environment budget alerts, non-prod auto-shutdown overnight where feasible.
-- Object storage lifecycle: transition to cheap tier after 30/90 days, expire per retention policy.
+- All infrastructure defined as code, reviewed in PRs like app code, linted in CI, with the provider lock file committed so a plan is reproducible.
+- Drift detection: a scheduled `plan` alerts on any diff vs main.
+- Image vulnerability scan in CI blocking on critical CVEs — and the signature it produces verified at admission, not merely generated.
+- PodDisruptionBudget on critical services so cluster maintenance MUST NOT take all replicas at once.
+- Cost guardrails: per-environment budget alerts, non-prod auto-shutdown overnight, object-storage lifecycle to a cheaper tier then expiry.
 
-## Review checklist
-
-- [ ] No `:latest` in any prod manifest.
-- [ ] No secret in plaintext anywhere in the diff.
-- [ ] Image scan green (no critical CVEs unless waived).
-- [ ] Healthchecks + probes declared.
-- [ ] Resource requests + limits set.
-- [ ] Container runs as non-root.
-- [ ] Network policy / SG / firewall rule restricts to least access.
-- [ ] Backup + restore documented for any new stateful service.
-
-## Enforcement
-
-- `hadolint` lints Dockerfiles; `dive` checks layer bloat.
-- `trivy` / `grype` scans images in CI; blocks on critical CVEs.
-- `kube-linter`, `kubeval`, `polaris`, or `datree` validates K8s manifests.
-- `tfsec` / `checkov` / `terrascan` lints IaC for misconfigurations.
-- `gitleaks` / `trufflehog` blocks secrets in commits.
-- OpenTofu / Terraform Cloud / Atlantis enforces "plan reviewed → apply".
+Enforcement tooling is named in the project's stack notes, not here — tools churn; these rules do not.

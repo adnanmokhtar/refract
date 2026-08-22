@@ -24,6 +24,9 @@ A new environment tier is high-leverage but easy to ship wrong: over-provisioned
 6. IAM-scope halt: any `allowed_actions` containing `*:*` outside an explicit `break-glass` role → halt.
 7. Secret-inline halt: any literal credential / API key in `.tf` files → halt; force `secrets-manager` module path.
 8. OIDC halt: any CI integration creating long-lived `aws_iam_access_key` resources → halt.
+9. **State-isolation halt**: no `backend` block, a backend `key` shared with another tier, or a backend with no locking → halt. A tier whose state can be clobbered by a concurrent apply is not provisioned, it is a race.
+10. **Version-constraint halt**: no `required_version` / `required_providers` constraint, or a missing/uncommitted `.terraform.lock.hcl` → halt. Without them the plan reviewed and the plan applied can resolve different provider versions — the IaC analogue of an unpinned image tag, which this pack forbids everywhere else.
+11. **Cost-ceiling halt**: the tier's worst-case monthly spend must be computable BEFORE apply — every autoscaling module's `max_size` × instance price, plus the fixed per-tier charges (NAT, LB, control plane, managed DB). If it cannot be stated, the tier is unbounded cost → halt. `/k8s-generate` already halts on this for one service; a whole cloud tier gets no weaker a gate.
 
 If no sibling tier exists, halt and ask the user to point at a gold-standard tier OR confirm this tier is the new gold standard (then the IaC is reviewed by `infra-architect` + `tf-plan-review` before apply).
 
@@ -78,6 +81,28 @@ A tier provision touches:
 For Terraform (illustrative):
 
 ```hcl
+# tiers/staging/versions.tf — halt #10
+terraform {
+  required_version = "~> 1.15"                 # read the repo's own constraint; do not copy this
+  required_providers {
+    aws = { source = "hashicorp/aws", version = "~> 6.0" }   # confirm on the provider's release page
+  }
+}
+# .terraform.lock.hcl is committed alongside it.
+
+# tiers/staging/backend.tf — halt #9: state isolated PER TIER, and locked
+terraform {
+  backend "s3" {
+    bucket       = "<tf-state-bucket>"
+    key          = "staging/terraform.tfstate"   # never shared with another tier
+    region       = "<region>"
+    encrypt      = true
+    use_lockfile = true    # S3-native locking. HashiCorp's backend docs: "DynamoDB-based locking
+                           # is deprecated and will be removed in a future minor version"
+                           # https://developer.hashicorp.com/terraform/language/backend/s3
+  }
+}
+
 # tiers/staging/main.tf
 
 module "network" {
@@ -192,7 +217,10 @@ These are checkable from the plan + IaC source, so the agent does them and gates
 - Cost-tag static audit: every resource block in the generated `.tf` carries `tags = local.tags` and `local.tags` has the full sibling key set (re-run of the mechanical halt).
 - IAM static scope: no `*:*` outside an explicit break-glass role; OIDC federation present, no long-lived `aws_iam_access_key`.
 - `min_size`/`max_size` set on every compute module; backup config present on every stateful resource.
-- Budget + anomaly alarm resources declared in the plan.
+- **Worst-case monthly spend computed and printed** (halt #11): every `max_size` × its instance price, plus fixed per-tier charges (NAT, load balancers, control plane, managed DB). State the assumptions. A tier nobody can price is a tier nobody can approve.
+- State backend present, `key` unique to this tier, locking enabled, and no deprecated `dynamodb_table` (halt #9).
+- `required_version` / `required_providers` constrained and `.terraform.lock.hcl` committed (halt #10).
+- Budget + anomaly alarm resources declared in the plan, with the budget threshold set relative to the computed worst case rather than to a round number.
 
 ### 6b — OPERATOR CHECKLIST (live — human runs post-apply, NOT auto-passed)
 
@@ -231,10 +259,13 @@ Status: PROVISIONED, NOT VALIDATED (live gates pending operator)
 Static gates (agent-verified, pre-apply):
 - terraform plan: clean
 - tf-plan-review: <APPROVE | BLOCK — blockers listed>
+- state backend: per-tier key, locking on (no deprecated dynamodb_table)
+- version pinning: required_version + required_providers set; .terraform.lock.hcl committed
 - cost-tag static audit: 100% of IaC resources tagged
 - IAM static scope: no `*:*` outside break-glass; OIDC only
 - limits + backups: set on all compute / stateful modules
-- budget + anomaly resources: declared in plan
+- worst-case monthly spend: $<N> (<assumptions>)
+- budget + anomaly resources: declared in plan, threshold set against the computed worst case
 
 Operator checklist (live — NOT auto-passed, run after apply):
 - [ ] terraform apply succeeded
@@ -259,6 +290,8 @@ Files written:
 - **Right-sized for the tier, not copy-pasted from prod.** Dev / staging instances are smaller.
 - **Observability + at-least-one alert wired before traffic.** Operating blind = inviting an outage.
 - **Backups configured for stateful resources before traffic.**
+- **State isolated per tier and locked.** One shared state file is one shared blast radius.
+- **Provider versions constrained and locked.** The plan you reviewed must be the plan that applies.
 
 ## Failure modes
 
@@ -267,6 +300,8 @@ Files written:
 - Forgot one tag → cost-attribution gap.
 - TLS cert expires in N days; no auto-renewal → outage.
 - VPC CIDR overlaps with another tier → peering breaks.
+- New tier's backend `key` copied from the sibling → two tiers writing one state file; the first apply after that silently destroys the other tier's resources.
+- Provider left unconstrained → the next `terraform init` picked up a new major and the reviewed plan was not the applied plan.
 - Backup configured but never restored → silent failure.
 - Observability tooling configured but log volume hits free-tier ceiling silently.
 

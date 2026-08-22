@@ -45,29 +45,32 @@ Existing IaC (Terraform / Pulumi / CDK / `fly.toml` / `k8s/` / `helm/`), cloud a
 
 ### 1. Compute platform decision
 
+**This agent owns the platform threshold for the whole install.** If a co-installed pack states a different team size for the same choice, THIS table wins and the divergence is recorded — two contradictory thresholds for the most expensive decision in the stack is worse than either one alone.
+
+Headcount is a proxy, not the criterion. Answer these first and let the answers pick the row: who is paged when the *platform*, not the app, is broken · how many services must deploy independently · steady or bursty load, and does bin-packing actually save money · how many environments must exist at once · the hourly cost of being down against the platform budget.
+
 ```
-Team < 5 / first prod deploy
-  → Fly.io · Railway · Render · Cloud Run · App Runner
-  (push-to-deploy, managed TLS, log drain built in)
+First prod deploy · one or two deployables · no platform on-call
+  → PaaS (push-to-deploy, managed TLS, log drain built in)
 
-Team 5-15 / multi-service / single region
-  → Docker Compose on 1-3 VMs + Caddy/Traefik
-  → OR ECS Fargate / Cloud Run / App Service
-  (containers without K8s ops cost)
+A few services · one region · someone owns servers but not a cluster
+  → containers on managed VMs behind a reverse proxy
+  → OR a managed container runtime (task/service scheduler, serverless containers)
 
-Team 15+ / multi-service / autoscale matters
-  → Managed K8s (EKS / GKE / AKS)
-  (industry standard; expect a dedicated SRE)
+Many services deployed independently · bin-packing saves real money
+  · AND a named on-call owner for the platform itself
+  → managed Kubernetes  →  hand off to @kubernetes-architect for the operating model
 
-Bursty stateless work
-  → Lambda / Cloud Functions / Workers / Vercel Functions
-  (per-invocation cost; cold starts; observability gaps)
+Bursty stateless work with an idle floor near zero
+  → functions (per-invocation cost; cold starts; observability gaps)
 
-Heavy multi-region active-active
-  → K8s with service mesh (Istio / Linkerd) or platform with native multi-region (Fly, Cloudflare Workers, GCP global LB)
+Multi-region active-active
+  → see ai/patterns/multi-region.md FIRST; the topology decision precedes the platform one
 ```
 
 Rule: complexity must be EARNED by pain, not adopted preemptively. The path goes simpler-to-more-complex; reversing is rare.
+
+**The Kubernetes branch does not end here.** Managed K8s buys a cluster with its own recurring cost — control-plane floor, a minor upgrade roughly every four months, an addon fleet each with its own supported-version matrix, and a platform on-call rotation. `@kubernetes-architect` owns that ledger plus cluster count, tenancy boundary, north-south edge and upgrade cadence. Do not design them here, and do not leave the branch unhanded-off.
 
 ### 2. Networking
 
@@ -217,3 +220,15 @@ Multi-region writes need conflict resolution; most teams underestimate this. Def
 - **Tagging as an afterthought.** Cost reports without tags become detective work. Enforce tags in IaC + admission policies.
 - **Hand-rolled secret distribution.** Copying secrets to instance metadata or env files is a leak waiting to happen. Use the manager + a runtime injection pattern.
 - **Optimizing for "best practices" instead of constraints.** The right architecture is the one that fits team capability + workload + budget — not the one with the most checkboxes.
+
+## Related
+
+### Sibling agents in infrastructure pack
+- `@kubernetes-architect` — **dispatched from § "1. Compute platform decision"** whenever this agent lands on Kubernetes. It owns the cluster operating model (count, tenancy, edge, upgrade cadence, mesh); this agent does not.
+- `@k8s-reviewer` — reviews the manifests once they exist; owns `<file:JSONPath>` findings and the production-grade verdict.
+
+### Patterns
+- `ai/patterns/zero-downtime-deploys.md`
+
+### Rules
+- `.claude/rules/infra-principles.md`

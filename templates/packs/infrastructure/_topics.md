@@ -14,8 +14,8 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: kubernetes-architect
   kind: agent
   triggers: { k8s_detected: true }
-  extracts_from: _extracted-codebase.md (k8s manifests)
-  sections: [persona, namespace_strategy, resource_limits, hpa_strategy, ingress_strategy, output_format]
+  extracts_from: _extracted-codebase.md (k8s manifests + cluster version + ingressclass/gateway CRDs)
+  sections: [persona, scope_boundary, cluster_topology, tenancy_boundary, edge_api_choice, upgrade_cadence, mesh_decision, output_format]
   fallback: _examples/kubernetes-architect.md
 
 - name: k8s-reviewer
@@ -49,6 +49,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: k8s-audit
   kind: skill
   triggers: { k8s_detected: true }
+  sections: [boundary, premise, halt_conditions, tools, checks, output, rules]
   fallback: _examples/k8s-audit.md
 
 - name: network-exposure-audit
@@ -65,26 +66,31 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: multi-region
   kind: pattern
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  sections: [overview, when_to_apply, when_not_to_apply, halt_conditions, justification_arithmetic, architectures, per_tier_recommendations, dr_drill_cadence, anti_patterns]
   fallback: stub-from-sections
 
 - name: cost-audit
   kind: command
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  sections: [premise, mechanical_halts, when_to_use, cost_classes, retrieve_tools, output_format, hard_rules, what_to_do_next, failure_modes]
   fallback: stub-from-sections
 
 - name: provision-tier
   kind: command
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  sections: [premise, mechanical_halts, when_to_use, tier_surface_areas, generate_the_iac, static_gates, operator_checklist, output_format, hard_rules, failure_modes]
   fallback: stub-from-sections
 
 - name: audit-iam
   kind: command
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  sections: [premise, mechanical_halts, when_to_use, concerns_audited, provider_primitives, enforcement_mechanisms, output_format, hard_rules, what_to_do_next, failure_modes]
   fallback: stub-from-sections
 
 - name: tf-plan-review
   kind: skill
   triggers: { terraform_detected: true }
+  sections: [premise, halt_conditions, when_to_use, run_the_plan, categorize_changes, high_risk_patterns, safety_mechanisms, cross_reference, output_format, failure_modes]
   fallback: stub-from-sections
 
 - name: dr-audit

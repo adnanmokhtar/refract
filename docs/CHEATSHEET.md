@@ -150,7 +150,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-ci` | Generate or update a CI workflow for the detected platform and stack. | — | `/add-ci [platform]` |
 | `/deploy-stage` | Deploy current branch to staging environment. | `--branch=<name>`, `--commit=<sha>`, `--no-monitor`, `--watch=<duration>`, `--allow-dirty`, `--skip-ci-check` | `/deploy-stage --branch=feature/refund-button` |
 | `/dockerize` | Generate a production-ready Dockerfile, .dockerignore, and optional compose for local dev. | — | `/dockerize` |
-| `/rollback-deploy` | Roll back the current environment to a previous known-good deploy. | `--to=<version>`, `--env`, `--dry-run` | `/rollback-deploy --env=staging` |
+| `/rollback-deploy` | Roll back the current environment to a previous known-good deploy. | `--to=<version>`, `--env`, `--dry-run`, `--force` | `/rollback-deploy --env=staging` |
 
 ## Pack — distributed-systems
 

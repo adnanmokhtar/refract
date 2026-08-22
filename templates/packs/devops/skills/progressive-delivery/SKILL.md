@@ -42,13 +42,26 @@ A flag that lives forever, a canary with no automated analysis/abort, or a risky
 
 ```bash
 # Dead/stale flags (config-based): every declared key vs its reference count in code.
+# --include takes ONE glob and does NOT brace-expand: '*.{ts,js}' matches a file literally
+# named that, i.e. nothing, so every flag would report 0 refs = DEAD. Repeat the flag instead.
+INC=(--include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx'
+     --include='*.py' --include='*.go' --include='*.rb' --include='*.java' --include='*.kt')
+
 for key in $(yq '.flags | keys | .[]' flags.yaml 2>/dev/null); do
-  n=$(grep -rIl --include='*.{ts,js,py,go,rb,java}' "$key" src/ api/ | wc -l)
+  n=$(grep -rIl "${INC[@]}" -- "$key" src/ api/ 2>/dev/null | wc -l)
   echo "$n refs   $key"        # 0 = dead; also check if hardcoded on (stale)
 done
+```
 
+**Sanity-check the harness before you trust a zero.** A reference-count grep that is misconfigured
+reports every flag dead, and "delete these 23 flags" is exactly the finding you cannot take back.
+Run it against a key you *know* is live first; if that returns 0, the grep is broken, not the flag.
+The extension list must also match the repo — a `.svelte`/`.vue`/`.erb` codebase whose flags are
+read in templates will report dead flags against a `.ts`-only include list.
+
+```bash
 # Canary analysis gate present? (Argo Rollouts) — a Rollout with steps but no analysis is no-gate.
-for f in $(grep -rl 'kind: Rollout' k8s/); do
+grep -rl 'kind: Rollout' k8s/ 2>/dev/null | while read -r f; do
   grep -q 'analysis:' "$f" || echo "NO-GATE: $f (setWeight steps, no AnalysisTemplate)"
 done
 
@@ -93,7 +106,7 @@ Cleanup:
 
 ## Halt conditions
 
-- Refuse to call a flag dead without the reference-count grep across the code tree — no grep, no verdict.
+- Refuse to call a flag dead without the reference-count grep across the code tree — no grep, no verdict. And refuse to trust a grep that returned 0 for *every* key: that is a broken harness, not a repo full of dead flags. Prove the harness on a known-live key before reporting any DEAD.
 - Refuse to call a canary "no automated gate" without showing the Rollout/Canary spec lacks an `analysis`/`metrics` block.
 - Halt if the flag registry is unresolvable (no LD/Unleash access, no config file) — audit what you can grep and say the registry side is unverified; don't guess flag state.
 - Missing kill-switch on a payment/delete/migration flow = block. Canary on a high-blast-radius service with no auto-abort = block.

@@ -23,11 +23,15 @@ A built container image is a **supply-chain artifact**, not just a deploy blob. 
 
 ## Procedure
 
-1. `trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 <image>@<digest>` (or grype) — triage by CVSS + EPSS + KEV.
-2. `syft <image>@<digest> -o cyclonedx-json > sbom.cdx.json` + `cosign attach sbom`.
+1. `trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 <image>@<digest>` (or grype) — triage by CVSS + EPSS + KEV. Note that `--ignore-unfixed` makes a PASS mean "no *fixable* HIGH/CRITICAL"; report which claim you actually made.
+2. `syft <image>@<digest> -o cyclonedx-json > sbom.cdx.json`, then **attest** it:
+   `cosign attest --yes --type cyclonedx --predicate sbom.cdx.json <image>@<digest>`.
+   `cosign attach sbom` is deprecated — cosign's CLI declares `attach` "will be removed in v4.0.0" —
+   and it is weaker anyway: an attached SBOM is an unsigned blob beside the image; an attestation is
+   signed by the same identity that signed the digest, so `cosign verify-attestation` can prove it belongs to this build.
 3. `cosign sign --yes <image>@<digest>` — sign the DIGEST, keyless via CI OIDC (not a stored key).
 4. `cosign attest --type slsaprovenance` (or actions/attest-build-provenance).
-5. Verify at deploy: `cosign verify` + a K8s admission policy (Kyverno/Sigstore — infra pack) so unsigned/CVE-failing images can't admit.
+5. Verify at deploy: `cosign verify` / `cosign verify-attestation` + a K8s admission policy (Kyverno/Sigstore — infra pack) so unsigned/CVE-failing images can't admit.
 
 ## Output
 
@@ -46,7 +50,7 @@ Verdict: BLOCK — fix the CRITICAL + sign before release.
 
 ## Gotchas
 
-Sign the digest not the mutable tag; keyless > stored keys; unfixed base CVEs → slimmer base, not suppress; signing without verify-at-admission is theater; don't re-report app-lockfile CVEs (that's deps-audit).
+Sign the digest not the mutable tag; keyless > stored keys; unfixed base CVEs → slimmer base, not suppress; signing without verify-at-admission is theater; **attaching is not attesting** (an attached SBOM is an unsigned blob anyone with push access can replace); don't re-report app-lockfile CVEs (that's deps-audit).
 
 ## Halt conditions
 

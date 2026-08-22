@@ -25,6 +25,25 @@ Wherever this pack's files show concrete manifests, examples lean **Kubernetes +
 | Argo CD / Flux GitOps | CDK deploy via pipeline | `docker stack deploy` from CI | Nomad pack deploy | provider deploy command | release flow |
 | `tfsec` / `checkov` / `kube-linter` | `cfn_nag` / `cdk-nag` | Compose linter | Nomad validate | provider validators | IaC lint |
 
+## Enforcement tooling
+
+Named here, not in `rules/infra-principles.md`, because this list churns and the rules do not.
+Confirm each is still maintained before adopting it — this pack has already shipped two dead ones
+(`kubeval`, unmaintained and pointing at `kubeconform`; `datree`, archived 2024-06-06 after its
+sponsoring company closed in July 2023).
+
+| Layer | Current default | Notes |
+|---|---|---|
+| Dockerfile lint | `hadolint` | layer bloat: `dive` |
+| K8s manifest schema | `kubeconform` | the maintained successor named by `kubeval`'s own README |
+| K8s manifest policy | `kube-linter`, `polaris`, `kube-score` | static; `kubesec` for a risk score |
+| K8s deprecated APIs | `kubent` (kube-no-trouble) | the only check that needs the live cluster's minor |
+| Cluster CIS benchmark | `kube-bench` | control ids are the citation |
+| IaC misconfiguration | `tfsec` / `checkov` / `terrascan` | plus `tflint` for provider-schema errors |
+| Image CVEs | `trivy` / `grype` | blocking on critical; see devops `release-security` |
+| Secrets in commits | `gitleaks` / `trufflehog` | pre-commit + CI |
+| Plan-then-apply gate | Terraform Cloud / Atlantis / Spacelift | "plan reviewed → apply", never a laptop |
+
 ## Where stack-specific names live
 
 - The project's `_extracted-idioms.md` — actual orchestrator, IaC tool, registry, secret manager, ingress controller, autoscaler.

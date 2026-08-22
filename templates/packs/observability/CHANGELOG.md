@@ -9,6 +9,86 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.4.0 — 2026-08-22
+
+- **The audits now measure or say they didn't.** `slo-audit` and `alert-audit` each gained a
+  `NO-DATA(reason)` verdict, a per-row **evidence column** carrying the query/grep actually run and
+  what it returned, and a closure gate that computes COMPLETE/INCOMPLETE from the ledger. Both
+  previously had a verdict vocabulary in which every option asserted a fact the agent usually could
+  not measure from a code repo — the ledger discipline the two *commands* already carried never
+  reached the skills 40 lines away. `slo-audit` also separates `STALE` (the service stopped
+  emitting — a system defect) from `NO-DATA` (I could not look — a run defect), which were being
+  conflated in both directions.
+- **OpenTelemetry semantic conventions refreshed across the pack.** `http.url` → `url.full` (client)
+  / `url.path`+`url.scheme`+`server.address` (server), `http.method` → `http.request.method`,
+  `http.status_code` → `http.response.status_code`, `db.system` → `db.system.name`, `db.statement`
+  → `db.query.text`, `deployment.environment` → `deployment.environment.name` (Stable; the old name
+  is Deprecated in the registry), and `http.server.duration` → `http.server.request.duration`
+  (Histogram, seconds). The resource rename is not covered by an `OTEL_SEMCONV_STABILITY_OPT_IN`
+  value, so the migration is: carry both keys on the `Resource`, re-point dashboard and alert
+  filters, then drop the deprecated one.
+  These fail *silently* — the backend's built-in view is empty and nothing errors — so
+  `ai/patterns/tracing.md` gained the deprecated→current table, the `OTEL_SEMCONV_STABILITY_OPT_IN`
+  `/dup` migration switch, span-naming + SpanKind rules, a detectors section and References, and
+  the deprecated names left the always-loaded rule entirely.
+- **`slo-audit` can now create the registry three other artifacts route creation to.** Its
+  `## Related` declared it the pack's only writer of `ai/runtime/slos.md` while its `## Inputs`
+  listed that file read-only and `## Outputs` never mentioned it — so `/alert-design` Phase 1,
+  `synthetic-monitoring`'s probe-SLO finding and `add-telemetry` all deferred registry creation to a
+  skill whose contract said it only reads, and the bootstrap could never complete. Step 1 now has an
+  explicit define branch with the two defensible sources for a first target (an existing commitment,
+  or measured 90d behaviour rounded down), `PROPOSED(<what would settle it>)` for when neither
+  resolves, and a halt on writing a target with an empty `origin`. Outputs now lists the registry.
+- **The burn-rate table is now Google's three tiers everywhere.** Five artifacts disagreed on whether
+  6h/6× pages or tickets, two wrote `14` for `14.4`, `sre-engineer` computed 10% where the arithmetic
+  gives 5%, and the tier Google actually tickets (**3d / 1×**) was missing from the pack entirely —
+  leaving no detector at all for a leak burning at exactly the target rate. `slo.md` now carries the
+  three tiers, the derivation, and the 1/12 confirmation-window rule; `alert-design`, `add-telemetry`,
+  `alert-audit`, `sre-engineer`, `telemetry-architect` and `observability-reviewer` cite it.
+- **Tenant cardinality is taught as arithmetic, not a threshold.** "Fine if <10k tenants" replaced
+  everywhere by `series = ∏(distinct label values) × replicas` with a worked multi-tenant table, plus
+  the two-part resolution (top-N + `other` on the metric; full fidelity on logs/traces/exemplars).
+  `add-telemetry` Phase 6 gained an explicit tenant-label rule — it previously mandated `tenant_id`
+  on every log line and omitted it from the forbidden-label list one line later.
+- **`/add-telemetry` gained a greenfield convention ledger** — four rows (log field casing,
+  correlation-ID mechanism, metric prefix, span-attribute namespace) with options and what decides
+  each, plus the shim-and-backfill migration for a project that logs to stdout today. The greenfield
+  escalation trigger previously halted with "user picks the convention" and handed the user a blank.
+- **`add-metrics` / `add-tracing` are now declared narrow entry points into `/add-telemetry`**, and
+  route closure back to its ledger and gate — the narrower command no longer gets the weaker gate.
+  Both shed duplicated premise boilerplate; `add-metrics` lost its millisecond bucket list (which
+  contradicted the pack's own base-SI-units rule) and `add-tracing` lost a dangling A33 citation that
+  read as forbidding production OTel export.
+- **Three dangling artifacts wired to a gate.** `slo-audit` ← `/alert-design` Phase 1 (it is the only
+  artifact that *writes* `ai/runtime/slos.md`, which four others read); `synthetic-monitoring` ←
+  `/alert-design` Phase 2 (blackbox is now a fourth alert class); `@incident-responder` ←
+  `/alert-design` Phase 5 and `/add-telemetry` Phase 4, to author runbook *bodies* — and a runbook
+  whose body says "investigate" is now an ORPHAN in both ledgers.
+- **The fallbacks caught up.** `_examples/add-telemetry.md` shipped a hardcoded `Status: COMPLETE`
+  against a source that forbids hand-writing it; re-cut with the ledger, the closure gate and the
+  greenfield table. `_examples/observability-reviewer.md` regained `model: opus`, the emit-and-assert
+  BLOCK verb and the coverage table; `_examples/telemetry-architect.md` regained § 5b (RUM reached
+  greenfield through zero artifacts); `_examples/synthetic-monitoring.md` regained all six gotchas and
+  the multi-location reasoning; `_examples/dashboards.md` regained the tiered drill-path diagram;
+  `_examples/{profiling,audit-logging}.md` regained their cross-pack boundary sections; every agent
+  fallback gained a `## Related` with siblings + invoked-by.
+- **Stale specifics corrected**: Prometheus native histograms are stable in **v3.8.0** (not "GA 2024")
+  and still require `scrape_native_histograms` until v4.0 — a service emitting them into a server not
+  scraping them emits nothing; OpenTelemetry profiling is **Alpha**, not "a stable signal
+  specification"; `metrics.md` References attributed RED+USE to SRE-book ch. 6 (which defines the four
+  golden signals) two lines above correctly crediting Wilkie and Gregg, and carried five bare titles
+  with no URLs.
+- **Trigger fix**: the rule, `add-telemetry`, `observability-reviewer` and `structured-logging` were
+  gated on `logger_lib_detected` — so the rule whose first Must-not bans direct stdout calls declined
+  to install on the projects that use them. All four are now `always: true`.
+- **`_essentials.md`**: added `telemetry-architect` and `alert-audit`, without which minimal-mode
+  `/add-telemetry` could not reach its own generate step or compute COMPLETE; cross-pack boundary
+  prose moved to `STACK.md`, which also gained the `## Enforcement` section the rule now points at.
+- **rules/observability-principles.md: 1,487 → ~1,126 tokens (−24%)** — duplicated bullets deleted,
+  five multi-line paragraphs demoted to one-line pointers at the skills and patterns that already own
+  them, `## Enforcement` moved to `STACK.md`, deprecated attribute names removed from the
+  always-loaded surface.
+
 ## 1.3.0 — 2026-07-10
 
 - add-telemetry: static thresholds replaced with SLO burn-rate alerts (fast 1h/14x page · slow 6h/6x

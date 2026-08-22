@@ -49,7 +49,7 @@ Declare GREEN only from observed signal, never from "the deploy command exited 0
    Expected status N consecutive times = healthy; non-2xx = breach candidate.
 4. Sample error rate + latency from the metrics backend each interval; compare against threshold + baseline drift. Apply a `for:` debounce (default 60s) so a single bad scrape is a flap, not a breach.
 5. Tail logs for ERROR-level entries and crash/restart signals (`CrashLoopBackOff`, OOMKilled, restart count climbing).
-6. On a breach that persists past its debounce: capture evidence (last 50 log lines, breaching metric values, pod events) and trigger `/rollback-deploy --to=<previous-healthy>`. Then watch the rollback back to GREEN.
+6. On a breach that persists past its debounce: capture evidence (last 50 log lines, breaching metric values, pod events) and trigger `/rollback-deploy`. **Hand it the breach evidence, not a target** — that command's steps 2-4 decide rollback-vs-forward-fix, resolve the target's health from the deploy ledger, and run the reversibility gate (already-applied contract migration / no retained revision / mutable tag). Passing `--to=<previous-healthy>` presumes an answer this skill has not computed: the previous revision's health is not something a health *window* observes. If the gate halts, the correct outcome is a named halt, not a revert. Then watch whatever recovery it performs back to GREEN.
 7. At window end with no persistent breach: report GREEN with the observed numbers.
 
 ## Output
@@ -86,13 +86,26 @@ Signals:
     ERROR  TypeError: cannot read property 'id' of undefined  (×412)
     ...
 
-Breach confirmed → triggering /rollback-deploy --to=def5678
+Breach confirmed → handing off to /rollback-deploy (evidence above; target + gate resolved there)
 
 Rollback watch:
+  ✓ /rollback-deploy resolved rev def5678 (GREEN in ai/runtime/deploys.md), gate R1-R3 PASS
   ✓ Rolled back to def5678; error rate 0.06% within 90s.
 
 Result: RED (rolled back) — abc1234 failed the health window; previous revision restored.
 Next: fix the null-deref, re-run /deploy-stage.
+```
+
+When the handoff halts instead of reverting, that is a result, not a failure to report:
+
+```
+Breach confirmed → handing off to /rollback-deploy
+
+  ✗ HALT (R1) — rev abc1234 applied `DROP COLUMN users.legacy_phone` (contract step).
+                def5678 still SELECTs it; reverting turns a 7.3% error rate into a hard outage.
+
+Result: RED (NOT rolled back) — rollback is unavailable; forward-fix path named in the runbook.
+Next: ship the null-deref fix forward. Do not revert.
 ```
 
 ## False positives / gotchas
@@ -101,7 +114,8 @@ Next: fix the null-deref, re-run /deploy-stage.
 - **A single non-2xx scrape** mid-window is a flap; the `for:` debounce exists precisely so one bad poll doesn't trigger a rollback.
 - **No baseline (first-ever deploy)** means drift comparison is impossible — fall back to absolute thresholds and say baseline was unavailable; don't print "+0%".
 - **Blue/green and canary** shift the signal source — watch the new color / canary subset, not the aggregate, or the breach gets diluted below threshold.
-- **Forward DB migrations** make rollback non-trivial — if the bad deploy migrated schema, `/rollback-deploy` surfaces the reconciliation step; this skill does not auto-run destructive down-migrations.
+- **Forward DB migrations** make rollback non-trivial — if the bad deploy migrated schema, `/rollback-deploy`'s R1 gate decides whether the revert is available at all before executing anything; this skill does not auto-run destructive down-migrations and does not pre-judge the target.
+- **A confirmed breach is not automatically a rollback.** This skill's decision is mechanical only up to "the breach is real, hand it off". Whether reverting *helps* depends on the migration direction and on state the new version wrote — which is why the handoff carries evidence rather than a verdict.
 
 ## Related
 

@@ -127,13 +127,17 @@ Invariants this audit enforces: every critical journey has a real scripted probe
 - Refuse to call a journey "covered" without a probe script that drives the journey end to end — a `/health` or domain ping does not count.
 - Refuse to call a journey "uncovered" without confirming no probe exercises it (grep the synthetic config; cite the absence).
 - Halt on "we have synthetics" without naming which journeys have probes and which don't.
-- Don't prescribe a probe-SLO number here — the target + window go in `ai/runtime/slos.md`; this skill flags the *absence*, the registry holds the value.
+- Don't prescribe a probe-SLO number here — the target + window go in `ai/runtime/slos.md`; this skill flags the *absence*, the registry holds the value. If the registry does not exist yet, the finding is "no probe-SLO" and the fix routes to `/alert-design` Phase 1, which dispatches `slo-audit` to create it. Never invent the number to fill the gap you just reported.
 - Don't propose gating a synthetic page behind a white-box condition — that defeats blackbox monitoring; halt and keep the routes separate.
 
 ## Related
 
+### Invoked by
+- `/alert-design` Phase 2 — dispatched whenever the service in scope owns a critical user journey. Blackbox coverage is one of that command's four alert classes, so an uncovered journey is an alerting gap it must close before COMPLETE, not a separate initiative.
+
 ### Skills
 - `alert-audit` — owns alert quality (dead / noisy / runbook / owner); the synthetic page routes it audits should meet that bar.
+- `slo-audit` — creates the `ai/runtime/slos.md` entries this skill's probe-SLO findings point at.
 - `slo-audit` — the probe-SLO lives in the same registry it audits.
 
 ### Agents

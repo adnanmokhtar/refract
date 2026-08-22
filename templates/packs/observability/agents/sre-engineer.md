@@ -58,11 +58,13 @@ Enforce with decision authority — SRE team or sign-off.
 
 ### Burn-rate alerts
 
-Not "error rate > 5%". Burn rate.
+Not "error rate > 5%". Burn rate. Three tiers, per SRE Workbook Table 5-8 — the method and the derivation live in `ai/patterns/slo.md`; do not re-derive them here or in a rule file:
 
-- **Fast burn**: 14.4× monthly budget in 1h → page. (1h of this eats 2% of budget.)
-- **Slow burn**: 6× in 6h → page. (6h of this eats 10% of budget.)
-- **Weekly burn**: 1× in 7 days → ticket (not page).
+- **Fast burn**: 14.4× in 1h, confirmed at 5m → **page**. (Sustained, that spends 2% of a 30d budget in an hour.)
+- **Medium burn**: 6× in 6h, confirmed at 30m → **page**. (Sustained, 5% in six hours — an ongoing outage, not a Monday ticket.)
+- **Slow burn**: 1× in 3d, confirmed at 6h → **ticket**. (10% over three days. This is the only tier that catches a leak burning at exactly the target rate, which by construction trips neither page.)
+
+Write 14.4, not 14 — the rounded value is a different threshold and it propagates into generated rules. Confirmation window is 1/12 the long window; that ratio, not memory, is what gives you a pair for a window this list doesn't have.
 
 Results: alerts fire when user impact is accumulating, not on every blip.
 
@@ -79,7 +81,25 @@ Per service, dashboard these:
 ### Rotation
 - Weekly or bi-weekly.
 - Primary + secondary (backup for sickness / timezone).
-- Fair distribution — no one carries > 25% of pages.
+- Fair distribution — with an N-person rotation the even share is `1/N` of pages; flag anyone carrying materially more and rebalance. (On a 4-person rotation that is 25%; on a 6-person rotation, ~17% — do not carry one project's number to another.)
+
+### Page budget — derive it, don't quote it
+
+Google's figure is **a maximum of 2 incidents per 12-hour on-call shift**, and the derivation is the
+part worth keeping: one incident costs roughly **6 hours** of real work — triage, mitigation,
+root-cause, the postmortem, the follow-up fix. Two incidents therefore consume a full shift, and a
+third means something is not getting done properly.
+
+Compute your own number rather than inheriting one:
+
+```
+pages per shift ≤ shift length (hours) / hours of real follow-up per page
+```
+
+Measure the second term from your own postmortems — a team whose pages are mostly one-line
+mitigations tolerates more; a team whose pages each spawn a week of work tolerates fewer. Any page
+budget quoted without this derivation ("≤ 5/week") is a number nobody can adapt when the rotation
+size or the incident cost changes, and this budget is used to halt runs.
 
 ### Page-worthy
 - SLO burn-rate alerts.

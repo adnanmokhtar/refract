@@ -64,12 +64,23 @@ Five concerns audited in parallel:
 
 ## Phase 3 — Retrieve
 
-Tools:
-- AWS: `aws iam`, IAM Access Analyzer, `aws-iam-tester`, Steampipe (`steampipe query aws_iam_*`), Cloudsplaining, ScoutSuite.
-- GCP: `gcloud iam`, Policy Analyzer, Forseti, Trivy.
-- Azure: `az role`, Microsoft Defender for Cloud, AzureRM Tooling.
-- Multi-cloud: Cloudsplaining, ScoutSuite, Prowler.
-- Org-wide: Sumologic Cloud SIEM, Wiz, Lacework.
+**Prefer the provider's own least-privilege primitives over a third-party scanner.** They are first-party, always current, and they answer the two questions this audit is actually asking — what is over-granted, and what is unused. Third-party tools in this space churn hard (this list previously named Forseti, archived by Google on 2025-01-11); confirm any tool is still maintained before recommending it.
+
+- **AWS — start here, not with a scanner.** IAM Access Analyzer gives you all of it first-party (https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html):
+  - **unused access analyzers** — "findings highlight unused roles, unused access keys for IAM users, and unused passwords for IAM users. For active IAM roles and users, the findings provide visibility into unused services and actions." That IS the "dead permissions" section below; do not hand-roll it from raw CloudTrail when this exists.
+  - **external access analyzers** — resources shared outside the zone of trust, via logic-based reasoning rather than pattern matching.
+  - **policy validation + custom policy checks** — including "check whether your updated policy grants new access compared to the existing version", which turns least-privilege into a CI gate rather than a quarterly report.
+  - **policy generation from CloudTrail** — generates a scoped policy from observed activity, which is the concrete fix for every over-broad role this audit finds.
+  - Note the Region caveat from the same page: external-access findings are per-Region and need an analyzer in each Region; unused-access findings are not Region-dependent.
+  - Supplement with `aws iam get-account-authorization-details`, last-accessed data, and Prowler / Cloudsplaining / ScoutSuite for reporting shape.
+- **GCP**: `gcloud iam`, Policy Analyzer, the IAM Recommender's role-recommendation surface, and Security Command Center for org-wide posture.
+- **Azure**: `az role`, Microsoft Entra Permissions Management, Microsoft Defender for Cloud.
+- **Multi-cloud**: Prowler, ScoutSuite, Cloudsplaining — check each is still maintained.
+
+**Also audit the ENFORCEMENT mechanisms, not just the grants.** A least-privilege report that never mentions the controls that make least privilege stick is a snapshot, not a posture:
+- **Permissions boundaries** on any role a developer or a pipeline can create or modify — without one, the ability to create roles is the ability to escalate.
+- **Service control policies** (or the equivalent org-level guardrail) — the only control an account admin cannot remove.
+- **Role trust policies** — an over-broad `Principal` or a missing external-id / OIDC `sub` condition is a wider hole than any permission list, because it decides WHO can assume, not what they can then do.
 
 Read project's:
 - `ai/architecture.md` — system topology.
@@ -140,9 +151,20 @@ Recommended: break the chain. ci-bot should not assume `prod-deployer`; deploys 
 
 ### Dead permissions (declared but never used in 90d)
 
-- 47 role/permission pairs declared but never invoked in 90 days.
-- 23 are clearly safe to remove (long-deprecated services).
-- 24 require investigation (might be break-glass / disaster-recovery only).
+Source: IAM Access Analyzer unused-access findings, cross-checked against last-accessed data. Every
+pair is enumerated — halt #1 bans `several`/`some`/`clearly`, and halt #2 drops any row without an
+ARN, so a summary line with no list is not a finding.
+
+| Principal (ARN) | Unused action(s) | Last used | Recommendation |
+|---|---|---|---|
+| `arn:aws:iam::123456789012:role/prod-deployer` | `iam:CreatePolicy`, `iam:DeleteRole`, `iam:AttachUserPolicy` | never (analyzer tracking since 2026-05-19) | remove — the role's deploy path never calls IAM write actions |
+| `arn:aws:iam::123456789012:role/analytics-reader` | `s3:PutObject`, `s3:DeleteObject` | never | remove — read-only consumer |
+| `arn:aws:iam::123456789012:role/legacy-etl` | `dynamodb:*` on `arn:aws:dynamodb:*:*:table/*` | 2025-11-02 | scope to the 2 tables it touched, or retire the role with its pipeline |
+| … 44 further pairs enumerated in Appendix A, each with principal ARN + action + last-used date | | | |
+
+Split the list by evidence, never by adjective:
+- **Removable — no invocation in the window AND no documented periodic use**: 23 pairs (Appendix A, rows 1-23).
+- **Hold — invocation window is shorter than the caller's period**: 24 pairs (Appendix A, rows 24-47), each naming the periodic job (month-end close, annual key rotation, DR drill) that would use it. A 90-day window cannot see a quarterly or annual operation; that is a limit of the evidence, not a property of the permission.
 
 ### Recommendations (ordered by impact)
 
@@ -196,7 +218,10 @@ Report: ai/audits/iam-<date>.md
 - **No long-lived IAM access keys for CI/CD.** Use OIDC federation (GitHub Actions / GitLab / etc.).
 - **MFA enforced on all human identities.** No exceptions.
 - **Cross-account chains documented with trust rationale.** Implicit chains = invisible blast radius.
-- **Access Analyzer / Policy Analyzer enabled.** Continuous detection beats periodic audits.
+- **Access Analyzer / Policy Analyzer enabled**, including the unused-access analyzer. Continuous detection beats periodic audits, and it is what makes the dead-permission section evidence rather than inference.
+- **Permissions boundary on every role-creating principal.** The ability to create a role without a boundary is the ability to escalate.
+- **Org-level guardrail (SCP or equivalent) on the actions no account may ever take.** Anything enforceable only inside the account is not enforced against the account's own admin.
+- **Trust policies scoped.** Every `sts:AssumeRole` trust names a specific principal plus a condition (external id, OIDC `sub`, source account). Who can assume is a wider question than what they can then do.
 
 ## What to do next — required closing section
 
@@ -206,7 +231,9 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 
 - Removed "dead" permission that was actually used by a once-monthly job → broke job.
 - Enforced MFA on a non-human IAM user used by CI → CI broke.
-- Scoped role to actions used in last 90d → missed seasonal / annual operations.
+- Scoped role to actions used in last 90d → missed seasonal / annual operations. The window is the limit of the evidence; say so in the report rather than calling the remainder "safe".
+- Wrote "N pairs are clearly safe to remove" without listing them. Nobody could act on it, and the one row that was not safe was invisible.
+- Recommended a scanner that had been archived for a year. Check maintenance status before naming a tool.
 - "Eliminated" key in IAM but the secret was hardcoded in a Lambda → Lambda broken on next invocation.
 - Broke trust chain without comms → service deploys started failing silently.
 

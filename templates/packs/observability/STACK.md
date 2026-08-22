@@ -22,6 +22,37 @@ Wherever this pack's files show concrete syntax, examples lean **Node.js + Pino 
 | Prometheus scrape `/metrics` | Actuator `/actuator/prometheus` | `prometheus_client` | `promhttp.Handler()` | `prometheus-net` | metrics endpoint |
 | Grafana / Datadog dashboards (Terraform / Jsonnet) | same | same | same | same | dashboard-as-code |
 
+Metric and attribute **names** are not a per-stack substitution — they come from the OpenTelemetry
+semantic conventions, which are versioned and have moved. Read the registry before writing a name
+(`https://opentelemetry.io/docs/specs/semconv/`); do not write one from memory. The pack's current
+spellings and the `OTEL_SEMCONV_STABILITY_OPT_IN` migration switch are in `ai/patterns/tracing.md`.
+
+## Enforcement
+
+Tooling that enforces the always-loaded rule. Names are stack-specific, so they live here rather
+than in `rules/observability-principles.md`:
+
+- **Stdout ban** — the project's stack-native linter forbids direct stdout / unstructured print
+  calls outside dev tooling (an ESLint rule, a Ruff/flake8 rule, `forbidigo` for Go, a Checkstyle
+  rule, an analyzer for .NET). One rule, one allowlist for dev tooling.
+- **Whole-object logs** — a multi-language `semgrep` rule flags logger calls that pass a user /
+  request object directly instead of named fields.
+- **Cardinality budget** — a CI step counts distinct label combinations emitted by a representative
+  test run and fails on regression past the declared budget per metric (`ai/patterns/metrics.md`
+  § Testing).
+- **Dashboards + alert rules as code** — boards and rules live in the repo (Terraform / Crossplane /
+  Grafonnet / vendor dashboards-as-code API) and are reviewed in PRs like any other file.
+- **Telemetry pipeline back-pressure** — the OpenTelemetry Collector (or the equivalent agent) is
+  configured with a bounded memory queue and an explicit drop policy, so "best-effort" is a decision
+  someone made rather than a default nobody read.
+
+## Cross-pack boundaries this pack asserts
+
+- **RUM / field Core Web Vitals** — the *performance* pack owns field measurement + attribution (`web-vitals-field`); this pack owns RUM ingestion, retention, cardinality and dashboarding. Design the pipe here; defer the field optimisation there.
+- **Profiling** — the *performance* pack owns ad-hoc / dev-time profiling (`/profile-perf`); this pack owns always-on production profiling and its trace linkage.
+- **Audit logging** — the *security* pack owns WHAT must be recorded and for how long; this pack owns the pipeline that records it tamper-evidently.
+- **Tracing** — the *distributed-systems* pack owns trace coverage as a resilience SLO; this pack owns the span mechanics that satisfy it.
+
 ## Where stack-specific names live
 
 - The project's `_extracted-idioms.md` — actual logger name, log helper, trace SDK init location, metrics-registry binding.

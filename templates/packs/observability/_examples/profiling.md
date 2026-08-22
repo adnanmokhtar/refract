@@ -15,9 +15,18 @@ pack: observability
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is the bottleneck".
 - If the continuous-profiler agent/backend + its symbolization source aren't extracted, halt.
 
-The fourth telemetry signal, alongside metrics/logs/traces. Metrics/traces tell you *that* it's slow and *which span*; profiling tells you *which lines of code*, sampled from real production, burned the CPU / allocated the heap / held the lock. Spec-mature as of 2024–25 (OpenTelemetry profiling signal + pprof wire format; eBPF whole-system agents).
+The fourth telemetry signal, alongside metrics/logs/traces. Metrics/traces tell you *that* it's slow and *which span*; profiling tells you *which lines of code*, sampled from real production, burned the CPU / allocated the heap / held the lock.
 
-**Boundary:** the performance pack owns AD-HOC / dev-time profiling (`pprof`, `py-spy`, `async-profiler`, `/profile-perf`). This pattern owns the ALWAYS-ON production profiler that's *already running* when the incident happens.
+**Adopt eBPF now; OTel profiles later.** eBPF whole-system agents (Parca, Pyroscope, Grafana Alloy) are production-ready and need no code changes. The **OpenTelemetry profiles signal is Alpha** — the spec is not stable and SDK support is early-to-absent per language. Check `https://opentelemetry.io/status/` for your runtime before planning around it; its pprof-derived wire format is the convergence point, not today's tool.
+
+## Boundary — performance owns AD-HOC, observability owns ALWAYS-ON
+
+Same tools, two modes; keep the seam clean.
+
+- The **performance** pack owns **ad-hoc / dev-time** profiling: a specific slow endpoint, attach `pprof` / `py-spy` / `async-profiler` under representative load, read the dominant frame, fix, detach. That's `/profile-perf`.
+- This pattern owns **always-on production** profiling: a fleet-wide, low-overhead profiler already running when the incident happens, so you can open the flame graph for 14:03 last Tuesday without reproducing anything. Sampling budget, symbolization, retention and trace linkage are the observability concerns.
+
+Rule of thumb: if you attach a profiler *because* something is slow, that's performance's ad-hoc mode. If the profiler was *already collecting* when it got slow, that's this pattern.
 
 ## Profile types
 
@@ -46,8 +55,8 @@ State the sampling frequency AND the overhead budget (≤ a few % CPU) and verif
 ```ts
 // share resource attributes so the backend correlates spans and profiles
 const resource = resourceFromAttributes({
-  'service.name':            'checkout',
-  'deployment.environment':  'prod',
+  'service.name':                'checkout',
+  'deployment.environment.name': 'prod',
 });
 // tracer + profiler both stamp these → from a p99 alert, click the exemplar trace,
 // then open the flame graph captured during that span's time window.

@@ -7,7 +7,7 @@ pack: observability
 
 # Pattern: SLOs + Error Budgets + Burn-Rate Alerting
 
-> **Hard rule:** Every user-facing service has ≥1 SLO with an explicit SLI (symptom-based, not cause-based), a derived error budget (`budget = 1 − SLO`), and a **multi-window multi-burn-rate** alert (a fast-burn page AND a slow-burn ticket, each gated by a short confirmation window). A threshold on a single window is not an SLO alert. Raw CPU / queue-depth thresholds are not SLIs.
+> **Hard rule:** Every user-facing service has ≥1 SLO with an explicit SLI (symptom-based, not cause-based), a derived error budget (`budget = 1 − SLO`), and a **multi-window multi-burn-rate** alert set — two burn *pages* (fast and medium) AND a slow-burn *ticket*, each gated by a short confirmation window. A threshold on a single window is not an SLO alert, and a two-tier set with no slow-burn ticket cannot see a leak burning at target rate. Raw CPU / queue-depth thresholds are not SLIs.
 
 **When to apply**
 - A service has users (internal or external) who feel latency, errors, or staleness — and "how reliable should this be?" needs a number, not a vibe.
@@ -69,22 +69,43 @@ Over a 30-day window (43,200 minutes), the budget of *allowed* unreliability is:
 
 The budget is the currency: when it's healthy, ship features; when it's exhausted, the policy is "reliability work only until it recovers". Each nine roughly costs 10× more engineering — pick the *lowest* SLO users will tolerate, then keep headroom below any contractual SLA (SLA 99.9% → internal SLO 99.95%, so you fix before the customer notices).
 
-## Multi-window multi-burn-rate alerting — the canonical table
+## Multi-window multi-burn-rate alerting — the canonical three tiers
 
 A **burn rate** is how fast you're spending budget relative to "exactly on target". Burn rate 1× spends the whole 30-day budget in exactly 30 days; 14.4× spends it 14.4× faster.
 
 The problem with a **single-window** alert (e.g., "error ratio > threshold over 1h"): a short window pages late and keeps firing for an hour *after* recovery (the window drains slowly); a long window catches slow burns but is hours late to a hard outage. The fix is **two burn rates, each confirmed by a short window** — the alert fires only when the long window AND its short confirmation window both exceed the threshold. The short window makes the burn *current* (kills the alert seconds after recovery); the long window kills flapping on a momentary spike.
 
-Canonical two-tier table (30-day budget, use **1h and 6h** long windows — not 24h, which pages far too late for a hard outage):
+The canonical table is **three** tiers, not two — this is Table 5-8 of the SRE Workbook, reproduced exactly, because the pack's own artifacts have contradicted each other on it:
 
-| Severity | Long window | Short (confirmation) window | Burn rate | Budget consumed if sustained |
+| Severity | Budget consumed if sustained | Long window | Short (confirmation) window | Burn rate |
 |---|---|---|---|---|
-| **Page** (fast burn) | 1h | 5m  | **14.4×** | 2% of monthly budget in 1h |
-| **Ticket** (slow burn) | 6h | 30m | **6×**    | 5% of monthly budget in 6h |
+| **Page** (fast burn) | 2% | 1h | 5m | **14.4×** |
+| **Page** (medium burn) | 5% | 6h | 30m | **6×** |
+| **Ticket** (slow burn) | 10% | 3d | 6h | **1×** |
 
-Derivation of the burn rates: at 1× you'd spend `window / 720h` of the budget. Fast: to spend 2% in 1h → `0.02 / (1/720) = 14.4×`. Slow: to spend 5% in 6h → `0.05 / (6/720) = 6×`. The fast tier pages a human (an outage is eating the month's budget in an afternoon); the slow tier opens a ticket (a persistent low-grade leak worth fixing this week, not at 3am).
+Two things about this table are routinely gotten wrong, and both change behaviour:
 
-Both tiers compare `error-ratio(long) > threshold AND error-ratio(short) > threshold`, where `threshold = (1 − SLO) × burn_rate`. Precompute the ratios as recording rules so the alert expression stays cheap.
+- **6h / 6× is a PAGE, not a ticket.** Losing 5% of the month's budget in six hours is an ongoing
+  outage that a human should be woken for. Demoting it to a ticket means a Saturday-morning
+  regression waits until Monday, by which time a third of the budget is gone.
+- **The tier that *is* a ticket is 3d / 1×**, and it is the one most often dropped entirely. It is
+  the only detector for a persistent low-grade leak — a burn rate of exactly 1× never trips either
+  page tier by construction, because 1× is "precisely on target". Without this row you have no
+  alarm at all for the failure mode "we will miss the SLO at the end of the month and nothing ever
+  fired".
+
+**Deriving the burn rates** (so you can compute a tier this table doesn't have): at 1× you spend
+`window / 720h` of a 30-day budget. Fast: 2% in 1h → `0.02 / (1/720) = 14.4×`. Medium: 5% in 6h →
+`0.05 / (6/720) = 6×`. Slow: 10% in 3d (72h) → `0.10 / (72/720) = 1×`. Write **14.4**, not 14 — the
+rounded value is a different threshold and it propagates into generated rules.
+
+**Deriving the confirmation window:** make the short window **1/12 the long window**. That is where
+5m/1h and 30m/6h come from, and it is what lets you pick a window pair this table doesn't list — a
+2h long window takes a 10m confirmation window, not a memorized guess.
+
+All three tiers compare `error-ratio(long) > threshold AND error-ratio(short) > threshold`, where
+`threshold = (1 − SLO) × burn_rate`. Precompute the ratios as recording rules so the alert
+expression stays cheap.
 
 ## SLO-as-code
 
@@ -99,7 +120,9 @@ Keep the *spec* in version control next to the service; let the tool emit the ru
 ## Detectors (what a reviewer flags)
 
 - **SLO with no error budget or no burn-rate alert** — a target number with nothing enforcing it is a poster, not an SLO.
-- **Single-window burn alert** — one window, no short confirmation window: fires stale after recovery and is blind to fast burns. Rewrite as multi-window.
+- **Single-window burn alert** — one window, no short confirmation window: fires stale after recovery and is blind to fast burns. Rewrite as multi-window, short = 1/12 long.
+- **Only two tiers wired** — fast + medium pages configured and no `3d / 1×` ticket. A budget leak that burns at exactly the target rate trips neither page tier and reaches month-end unannounced.
+- **6h / 6× demoted to a ticket** — a page tier relabelled, so a six-hour outage waits for business hours. Google's ticket tier is `3d / 1×`; this one pages.
 - **Cause-based SLI** — the SLI thresholds CPU / pool / queue depth instead of a user-facing symptom. Move it to a saturation warning; put the SLO on latency/errors/freshness.
 - **Latency SLO stated as a raw percentile** (`p99 < 300ms` *as the SLO*) rather than a good-request count — it doesn't compose into a budget.
 - **SLA with no headroom** — internal SLO equals the contractual SLA, so you find out you breached from the customer.
@@ -111,3 +134,10 @@ Keep the *spec* in version control next to the service; let the tool emit the ru
 - `skills/slo-audit/SKILL.md` — audits the registry against achieved attainment; consumes the budget math defined here.
 - `commands/alert-design.md` — wires the burn-rate alerts this pattern specifies.
 - `agents/sre-engineer.md`, `agents/incident-responder.md` — blameless retros are scored against budget spend defined here.
+
+## References
+
+- Google SRE Workbook, "Alerting on SLOs" — Table 5-8 (the three tiers above) and the 1/12 short-window guideline: `https://sre.google/workbook/alerting-on-slos/`
+- Google SRE Book, "Service Level Objectives": `https://sre.google/sre-book/service-level-objectives/`
+- OpenSLO specification: `https://github.com/OpenSLO/OpenSLO`
+- Sloth (Prometheus SLO generator): `https://sloth.dev/`

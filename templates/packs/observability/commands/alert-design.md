@@ -36,7 +36,7 @@ Before finishing Phase 4, every alert MUST have an inline rationale tied to eith
 
 1. **Hand-wave grep** — scan generated alert annotations + rationale notes for hand-wave phrases: `"reasonable"`, `"sensible default"`, `"industry standard"`, `"common practice"`, `"typical value"`, `"seems right"`, `"should be enough"`. Any match = HALT. Replace with either a sibling-threshold citation (`matches alert <name>`) or a data citation (`based on P95 over last 30d = X ms`).
 2. **Severity tier parity** — every alert uses a severity label that already exists in sibling alerts. New tier = HALT.
-3. **Window parity** — multi-window burn-rate alerts use the same `(fast, slow)` window pair as sibling SLO alerts unless data-justified.
+3. **Window parity** — multi-window burn-rate alerts use the same window pairs as sibling SLO alerts unless data-justified, and every confirmation window is 1/12 of its long window.
 4. **Runbook link present** — every `severity: page` alert MUST have a `runbook:` annotation pointing at an existing or newly-stubbed file. Missing = HALT.
 
 Add the check results to the output block under `Rationale-grep: ✓ | hand-wave halts=<N> | severity-parity ✓ | window-parity ✓`.
@@ -51,20 +51,21 @@ All 7.
 
 Confirm:
 - Service / endpoint / job in scope.
-- SLOs / SLAs (or "we don't have any" — define them first).
-- On-call structure (who pages, what hours, escalation policy).
+- **SLOs / SLAs — and if there are none, this is where they get defined, not where the run stops.** Every alert this command emits burns against an SLO, so an empty `ai/runtime/slos.md` blocks everything downstream. **Dispatch the `slo-audit` skill** — its "when to run" explicitly covers *defining a service's first SLOs*, and it is the only artifact in the pack that populates the registry that `alert-design`, `add-telemetry`, `synthetic-monitoring` and `slo.md` all read. Come back from it with an SLI, a target, a window and an owner per critical path, written to the registry. "We don't have any" is an input to this phase, never an exit from it.
+- On-call structure (who pages, what hours, escalation policy, rotation size) — Phase 6's page budget is computed from it.
 - Existing alerts (audit them — many will be deletable).
 - Backend: the project's alerting + paging stack (e.g., Prometheus Alertmanager / Datadog Monitors / Grafana Alerts / vendor monitor JSON, paging via PagerDuty / Opsgenie / Grafana OnCall / equivalent).
 
 ## Phase 2 — Organize
 
-Three alert classes:
+Four alert classes:
 
-1. **Symptom-based (SLO burn)** — alerts on user-facing symptom: error budget burning fast OR slowly.
+1. **Symptom-based (SLO burn)** — alerts on user-facing symptom: error budget burning fast, medium, or slowly.
 2. **Cause-based (saturation / errors)** — alerts on resource exhaustion, error spike, queue backup.
 3. **Heartbeat / liveness** — service stops emitting metrics → alert.
+4. **Blackbox / synthetic** — a scripted probe drives the real user journey from outside and pages on its own route. This is the class that catches "every white-box signal green, nobody can log in", and it is the one most often missing entirely. If the service owns a critical user journey, **dispatch the `synthetic-monitoring` skill** to find the journeys with no probe, no probe-SLO, or a single location — its findings are alerting gaps and belong in this command's output.
 
-The healthiest alert posture is **SLO-burn-rate alerts** (slow-burn 6h + fast-burn 1h windows) plus a small set of cause-based for things SLO can't catch (security events, data integrity, dependency failures).
+The healthiest alert posture is **SLO-burn-rate alerts** (the three tiers below) plus a blackbox page per critical journey plus a small set of cause-based for things SLO can't catch (security events, data integrity, dependency failures).
 
 ## Phase 3 — Retrieve
 
@@ -75,17 +76,35 @@ The healthiest alert posture is **SLO-burn-rate alerts** (slow-burn 6h + fast-bu
 
 ## Phase 4 — Generate
 
-### SLO burn-rate alerts (Google SRE multi-window pattern)
+### SLO burn-rate alerts (Google SRE multi-window pattern — three tiers)
 
-For an SLO of "99.9% of HTTP requests succeed in 30 days":
-- Error budget: 0.1% of requests.
-- Burning the budget over 1 hour at 14× speed → alarms PAGE (likely outage now).
-- Burning the budget over 6 hours at 6× speed → alarms TICKET (slower; investigate).
+For an SLO of "99.9% of HTTP requests succeed in 30 days" the error budget is 0.1% of requests, and
+the canonical alert set is **three** tiers, not two (SRE Workbook Table 5-8; derivation in
+`ai/patterns/slo.md`):
 
-Express the alert in the project's alerting backend syntax. Conceptually, both windows compute `error_rate = errors / total` over their respective windows and compare to `(1 − SLO) × burn_multiplier`:
+| Tier | Budget spent if sustained | Long window | Confirmation window | Multiplier | Severity |
+|---|---|---|---|---|---|
+| Fast burn | 2% | 1h | 5m | **14.4×** | **page** |
+| Medium burn | 5% | 6h | 30m | **6×** | **page** |
+| Slow burn | 10% | 3d | 6h | **1×** | **ticket** |
 
-- **Fast burn (1h window, 14× multiplier, severity: page)** — fires after a short `for:` (e.g., 5m); annotations include `summary` and `runbook` pointing at `ai/runbooks/<feature>-error-rate.md`.
-- **Slow burn (6h window, 6× multiplier, severity: ticket)** — fires after a longer `for:` (e.g., 30m).
+Express each in the project's alerting backend syntax. All three compute `error_rate = errors /
+total` over the long window AND the confirmation window and compare both to `(1 − SLO) ×
+multiplier`; annotations carry `summary` and `runbook` pointing at `ai/runbooks/<feature>-*.md`.
+
+Two of these get mis-emitted routinely, and both changes are behavioural:
+
+- **The 6h / 6× tier pages.** It is Google's second *page* tier — 5% of the month's budget in six
+  hours is an outage in progress. Emitting it as a ticket means a Saturday regression waits for
+  Monday.
+- **The tier that tickets is 3d / 1×, and it is the one usually missing.** A leak burning at exactly
+  the target rate trips neither page tier *by construction*, so a two-tier alert set has no detector
+  at all for "we will miss the SLO at month-end". Emit it even though it fires rarely — rarely is the
+  point.
+
+Write **14.4**, not 14: the rounded value is a different threshold and it propagates into generated
+rules. Confirmation window = 1/12 of the long window, which is how you derive a pair this table
+doesn't list.
 
 Match label keys (`severity`, `slo`) and annotation keys (`summary`, `runbook`) to sibling alerts.
 
@@ -120,32 +139,50 @@ For every alert:
 
 ## Phase 5 — Update
 
-- `ai/runtime/slos.md` — SLO definitions.
+- `ai/runtime/slos.md` — SLO definitions (written here, read by everything else in the pack).
 - `ai/runtime/alerts.md` — alert catalog with severity / runbook / rationale per alert.
-- `ai/runbooks/<alert-name>.md` — per-alert runbook.
+- `ai/runbooks/<alert-name>.md` — per-alert runbook. **Dispatch `@incident-responder` to write the body.** It owns live-incident procedure — the mitigation ladder for this failure class, the first three diagnostic queries, the escalation path — which is what turns a file into something executable at 3am. A runbook whose body says "investigate" is an ORPHAN in the ledger below, exactly as if the file were missing.
 - Backend config (the project's alerting backend rules — Prometheus rules / Datadog Monitors / Grafana Alerts / vendor monitor JSON) — checked in to repo.
 
 ## Phase 6 — Validate
 
 Agent-verified:
 - **Dispatch the `alert-audit` skill** on the generated alerts for the historical-replay check: it queries the alerting backend + paging history to answer "would this threshold have fired during past incidents?" and flags dead-on-arrival rules (query references an uninstrumented metric), missing runbooks/owners, and cause-vs-symptom misclassification. Findings halt before completion. This is the executor for the "would this have fired" gate — the agent does NOT eyeball it.
-- Verify alert volume budget against the audit's projection: target ≤ 5 pages / week per on-call OR ≤ 1 / 24h.
+- Verify alert volume against a **derived** page budget, not a quoted one. Google's figure is a maximum of **2 incidents per 12-hour on-call shift**, and the derivation is what makes it portable: one incident costs roughly **6 hours** of real work (triage, mitigation, root-cause, postmortem, follow-up fix), so two fills a shift. Compute yours:
+
+  ```
+  pages per shift ≤ shift length (hours) / hours of real follow-up per page
+  ```
+
+  Measure the second term from this team's own postmortems. Record the computed budget and its two
+  inputs in the output block — a run halts on this number, and a number nobody can re-derive when the
+  rotation size or the incident cost changes is a number that gets ignored the first time it is
+  inconvenient. (For a 12h shift at 6h/incident that is 2 per shift; over a weekly rotation of 14
+  shifts, ~5/week — which is where the folk figure comes from, and it stops being right the moment
+  either input changes.)
 
 ### Actionability ledger — REQUIRED OUTPUT ARTIFACT (the run is not done until this table exists)
 
 An alert is production-grade only when it is SLO-linked, would have caught a real incident (not fire on noise), and hands the responder a runbook. Assert each — do NOT declare a count and stop. One row per generated alert:
 
 ```
-Alert (name)              | Sev    | SLO/SLI it burns   | Window   | Dead-on-arrival? (alert-audit) | Runbook file exists? | Status
-checkout-fast-burn        | page   | checkout.success   | 1h/14×   | no (query hits live series)     | ai/runbooks/… → yes  | ACTIONABLE
-checkout-slow-burn        | ticket | checkout.success   | 6h/6×    | no                              | ai/runbooks/… → yes  | ACTIONABLE
-db-pool-saturation        | ticket | (cause, dashboard) | for 5m   | no                              | ai/runbooks/… → yes  | ACTIONABLE
+Alert (name)              | Sev    | SLO/SLI it burns   | Window   | Dead-on-arrival? (alert-audit) | Runbook (file + first action) | Status
+checkout-fast-burn        | page   | checkout.success   | 1h/14.4× | no (query hits live series)     | ai/runbooks/… → yes, "flip flag" | ACTIONABLE
+checkout-med-burn         | page   | checkout.success   | 6h/6×    | no                              | ai/runbooks/… → yes, "flip flag" | ACTIONABLE
+checkout-slow-burn        | ticket | checkout.success   | 3d/1×    | no                              | ai/runbooks/… → yes, "open PM"   | ACTIONABLE
+checkout-journey-probe    | page   | probe.checkout     | blackbox | no                              | ai/runbooks/… → yes, "check CDN" | ACTIONABLE
+db-pool-saturation        | ticket | (cause, dashboard) | for 5m   | no                              | ai/runbooks/… → yes, "scale pool"| ACTIONABLE
 ```
 
 Per-row `Status`:
-- **ACTIONABLE** — SLO/SLI named (or explicitly a cause-based ticket, not a page), `alert-audit` says not-dead, and `test -f` on the runbook path succeeds. Only ACTIONABLE counts.
+- **ACTIONABLE** — SLO/SLI named (or explicitly a cause-based ticket, not a page), `alert-audit` says not-dead, and `test -f` on the runbook path succeeds AND its body names a concrete first action. Only ACTIONABLE counts.
 - **UNLINKED** — the alert fires on a static threshold with no SLO/SLI behind it, or a `page` alert is cause-based. Fix (convert to burn-rate) or demote — not shippable as a page.
-- **ORPHAN** — no runbook file on disk, or `alert-audit` flagged it dead-on-arrival / no owner. Halt.
+- **ORPHAN** — no runbook file on disk, a runbook whose body says "investigate", or `alert-audit` flagged it dead-on-arrival / no owner. Halt.
+- **NO-DATA(reason)** — `alert-audit` could not reach the alerting backend or paging history from this environment, so dead-on-arrival is unverified for this row. Name what was unreachable. UNVERIFIED is not a pass: any NO-DATA row makes the run INCOMPLETE, exactly like an UNLINKED one. Do not launder it into ACTIONABLE because the other three columns were checkable.
+
+Coverage rows (not per-alert, but part of the gate):
+- Every SLO in `slos.md` has all **three** burn tiers, and the 6h/6× tier is labelled `page`.
+- Every critical user journey has a blackbox page route that does not depend on a white-box condition (`synthetic-monitoring`'s findings). A missing journey probe is an alerting gap, not a nice-to-have.
 
 OPERATOR CHECKLIST (live — NOT auto-passed):
 - [ ] Trigger each alert deliberately (toy app, staging) → it fires AND pages the right person.
@@ -163,13 +200,15 @@ OPERATOR CHECKLIST (live — NOT auto-passed):
 ## /alert-design — <service>
 
 Service: <name>
-SLO definitions: <count>
-Page alerts: <count> (target: ≤ 5/week firing)
+SLO definitions: <count> (slo-audit dispatched: yes/no — <what it wrote to slos.md>)
+Page budget: <N>/shift = <shift hours>h ÷ <hours of follow-up per page>h  (source: <postmortem sample>)
+Page alerts: <count> (projected <N>/week vs budget <N>/week)
 Ticket alerts: <count>
 Heartbeat alerts: <count>
+Blackbox/journey alerts: <count> (uncovered journeys per synthetic-monitoring: <list>)
 Runbooks: <count>
 
-Actionability ledger: <rows> alerts — ACTIONABLE <a> | UNLINKED <u> | ORPHAN <o>
+Actionability ledger: <rows> alerts — ACTIONABLE <a> | UNLINKED <u> | ORPHAN <o> | NO-DATA <n>
   <the ledger table above, verbatim, with per-alert evidence>
 
 Alert catalog: ai/runtime/alerts.md
@@ -183,16 +222,16 @@ Status: <see gate below>
 
 Compute Status from the ledger + the `alert-audit` result — do NOT hand-write it:
 
-- **`Status: COMPLETE`** — ONLY when every ledger row is `ACTIONABLE`, `alert-audit` returned zero dead/noisy-above-budget/runbook-less/owner-less/cause-as-page findings, and the projected page volume is within budget (≤ 5/week per on-call). Nothing else.
-- **`Status: INCOMPLETE — unmet: <list>`** — the moment any row is `UNLINKED` or `ORPHAN`, `alert-audit` has an open finding, or the volume projection breaches budget. NAME each unmet alert and why (e.g., `search-latency — UNLINKED: static p95>500ms, no SLO; convert to burn-rate`; `import-job-failed — ORPHAN: no runbook file`). A set of alerts that "would fire" but page into a void is INCOMPLETE.
+- **`Status: COMPLETE`** — ONLY when every ledger row is `ACTIONABLE`, `alert-audit` returned zero dead/noisy-above-budget/runbook-less/owner-less/cause-as-page findings **and no NO-DATA rows**, every SLO carries all three burn tiers with the 6h tier as a page, every critical journey has an independent blackbox page route, and the projected page volume is within the **derived** budget. Nothing else.
+- **`Status: INCOMPLETE — unmet: <list>`** — the moment any row is `UNLINKED`, `ORPHAN` or `NO-DATA`, `alert-audit` has an open finding, a coverage row fails, or the volume projection breaches budget. NAME each unmet item and why (e.g., `search-latency — UNLINKED: static p95>500ms, no SLO; convert to burn-rate`; `import-job-failed — ORPHAN: no runbook file`; `checkout.success — coverage: no 3d/1× ticket tier, a target-rate leak is undetectable`; `db-pool-saturation — NO-DATA: alerting backend unreachable, dead-on-arrival unverified`). A set of alerts that "would fire" but page into a void is INCOMPLETE, and so is a set nobody could verify.
 
 This gate is **[self-policed]** on the Status line, but wired to checkable evidence: the runbook paths (`test -f`), the SLO names (must resolve in `ai/runtime/slos.md`), and the `alert-audit` findings are all inspectable — `@sre-engineer` / `@observability-reviewer` will BLOCK a COMPLETE whose alerts are unlinked or runbook-less.
 
 ## Hard rules
 
-- **Every PAGE has a runbook.** Without it, page = panic.
+- **Every PAGE has a runbook with a first action.** Without it, page = panic.
 - **SLO-based alerts beat threshold-based.** Threshold (e.g., "P95 > 500ms") is symptom-removed; SLO burn rate is user impact.
-- **Page rate ≤ 5/week per on-call.** More = fatigue → real pages ignored.
+- **Page rate within the derived budget** (`shift hours ÷ hours of follow-up per page`). More = fatigue → real pages ignored. Show the arithmetic; a quoted number nobody can re-derive gets waived.
 - **Auto-resolution defined.** Alerts that "fire and stay fired" rot.
 - **No PII / secrets in alert annotations.**
 
@@ -207,9 +246,10 @@ This gate is **[self-policed]** on the Status line, but wired to checkable evide
 
 ## Related
 
-- `add-tracing` + `add-metrics` — feed this command.
+- `add-telemetry` (and its narrow entry points `add-metrics` / `add-tracing`) — emit the series these alerts burn against.
+- `slo-audit` skill — **dispatched in Phase 1** to define or re-verify the SLOs every alert here burns against; it is the only artifact that writes `ai/runtime/slos.md`, which this command, `add-telemetry`, `synthetic-monitoring` and `slo.md` all read.
 - `alert-audit` skill — dispatched in Phase 6 for the historical-replay "would this have fired" check + dead/noisy/orphaned vetting.
-- `slo-audit` — uses alert + SLO data.
-- `@incident-responder` agent — runs the runbook this command links to.
+- `synthetic-monitoring` skill — **dispatched in Phase 2** when the service owns a critical user journey; its uncovered-journey findings are alerting gaps this command must close.
+- `@incident-responder` agent — **dispatched in Phase 5** to author the runbook bodies, and the agent that executes them during a live page.
 - `@sre-engineer` agent — broader SRE concerns; alert-design is one dimension.
 - `.claude/rules/observability-principles.md`.

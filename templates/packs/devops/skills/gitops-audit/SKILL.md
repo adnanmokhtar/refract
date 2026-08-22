@@ -37,7 +37,22 @@ Imperative out-of-band changes and un-reconciled drift are forbidden — every c
 2. **No drift detection / self-heal** — controller present but `selfHeal: false` and no alert on `OutOfSync`, so cluster silently diverges from git with nobody notified.
 3. **Un-reconciled drift** — an `Application`/`Kustomization` sitting `OutOfSync`/`degraded` (cite the controller's status output), meaning git no longer describes reality.
 4. **Plaintext secret in git** — a committed manifest with a raw or base64-only `Secret` `data:` block, not encrypted via sealed-secrets / SOPS / external-secrets (git history now leaks the credential).
-5. **Auto-sync + prune with no safeguard** — `automated.prune: true` with no `prune-propagation`/`FailOnSharedResource` guard, no `ignoreDifferences`, no protected-namespace exclusion → a bad commit or misgenerated manifest can delete live prod resources.
+5. **Auto-sync + prune with no safeguard** — `syncPolicy.automated.prune: true` is the switch that
+   lets a bad render delete live resources. Know which controls are actually guards, because the
+   plausible-sounding ones are not:
+   - **`automated.allowEmpty`** — the real one. It defaults to `false`, and that default *is* the
+     protection: an Application whose manifests render to zero resources is refused rather than
+     pruning everything it owns. Argo's own wording is that automated sync with prune "have a
+     protection from any automation/human errors when there are no target resources". So the
+     finding is not "allowEmpty is missing" — it is **`allowEmpty: true` set explicitly** on a prod
+     Application, which switches the protection off. Grep for its presence, not its absence.
+   - **`PruneLast=true`** (sync option) — prunes as a final implicit wave, after the other resources
+     are deployed and healthy, so a partially-applied sync cannot delete first.
+   - **`PrunePropagationPolicy`** (`foreground` default / `background` / `orphan`) — `orphan` leaves
+     dependents behind; know which one is set before judging blast radius.
+   - **Not guards, despite looking like them:** `ignoreDifferences` governs diff noise, and
+     `FailOnSharedResource` fails a sync when another Application already owns a resource. Neither
+     constrains pruning. Do not accept either as evidence of prune safety.
 6. **No sync-wave ordering** — dependent resources (CRD before CR, DB before app, namespace before workload) with no `argocd.argoproj.io/sync-wave` / Flux `dependsOn`, so first sync races and fails.
 7. **No app-of-apps / flat sprawl** — many hand-registered Applications with no root/ApplicationSet parent, so onboarding a new app is a manual out-of-git step (drift vector).
 
@@ -55,14 +70,25 @@ grep -rInE 'kubectl (apply|edit|scale|set|patch)|helm (install|upgrade)' \
   scripts/ .github/ Makefile 2>/dev/null   # exclude the controller-bootstrap script
 
 # Plaintext secrets committed (not sealed/SOPS/external).
-grep -rlE '^kind: Secret' manifests/ | while read f; do
+grep -rlE '^kind: Secret' manifests/ | while read -r f; do
   grep -q 'sops:\|kind: SealedSecret\|kind: ExternalSecret' "$f" || echo "PLAINTEXT: $f"
 done
 
-# Prune without a guard, and dependent resources with no ordering.
-grep -rl 'prune: true' apps/ | xargs grep -L 'ignoreDifferences\|FailOnSharedResource'
-grep -rL 'sync-wave\|dependsOn' $(grep -rl 'kind: CustomResourceDefinition' k8s/)
+# Prune safety. Note the polarity: allowEmpty's SAFE state is absent-or-false, so this
+# looks for the explicit opt-OUT, and separately for prune with neither sync-option guard.
+grep -rn 'allowEmpty:[[:space:]]*true' apps/ 2>/dev/null    # each hit disables the empty-render guard
+grep -rl 'prune:[[:space:]]*true' apps/ 2>/dev/null \
+  | xargs -r grep -L 'PruneLast=true\|PrunePropagationPolicy='   # -r: don't hang on an empty list
+
+# Dependent resources with no ordering. Guard the substitution the same way.
+crds=$(grep -rl 'kind: CustomResourceDefinition' k8s/ 2>/dev/null)
+[ -n "$crds" ] && grep -rL 'sync-wave\|dependsOn' $crds
 ```
+
+Two shell notes that are not pedantry — both of these have silently produced empty audits:
+`xargs` with no `-r` runs the command once with no arguments when its input is empty, so
+`grep -L <pattern>` reads **stdin** and hangs; and `$(...)` expanding to nothing turns
+`grep -rL pat $files` into a recursive grep of the working directory.
 
 ## Output
 
@@ -81,7 +107,9 @@ Secrets:
   ✗ PLAINTEXT   manifests/db-secret.yaml  base64 Secret committed, not SOPS/sealed — DB password in git history (rotate)
 
 Sync safety:
-  ✗ PRUNE       app/batch           automated.prune=true, no protected-ns guard — a bad render can delete prod jobs
+  ✗ PRUNE       app/batch           automated.prune=true AND allowEmpty=true (apps/batch.yaml:22) —
+                                    a render that produces zero manifests will delete every prod job
+  ⚠ PRUNE       app/web             prune=true, no PruneLast — a partially-applied sync prunes first
   ⚠ ORDER       app/analytics       CRD + CR in one wave, no sync-wave — first sync races
 
 Blockers:
@@ -92,7 +120,7 @@ Blockers:
 Recommendations:
   - Enable selfHeal + OutOfSync alerting on all prod Applications.
   - Add sync-wave annotations for CRD→CR and DB→app ordering.
-  - Guard prune with protected-namespace exclusion before trusting auto-prune in prod.
+  - Remove `allowEmpty: true` from app/batch and add `PruneLast=true` before trusting auto-prune in prod.
 ```
 
 ## False positives / gotchas
@@ -101,6 +129,7 @@ Recommendations:
 - **A `kubectl apply` in a bootstrap/install-controller script is fine** — that's how Argo/Flux itself gets installed. Only flag imperative changes to *application* resources the controller should own.
 - **External-secrets `ExternalSecret` CRs look like they reference a secret but don't contain one** — the value lives in Vault/SSM. That's the correct pattern, not a plaintext-secret finding.
 - **`prune: false` is safe-by-default but leaks orphans** — note orphaned resources, but don't demand `prune: true` without the safeguards in the same breath; recommending prune without a guard is the exact BLOCKER this skill warns about.
+- **`allowEmpty` absent is the SAFE state, not a missing control.** Its default is `false`. A checklist that reports "allowEmpty not configured" as a finding inverts the polarity and generates a wall of false positives across every correctly-configured Application. The finding is the explicit `true`.
 - **Sealed-secrets are cluster-key-specific** — a sealed secret in git is safe, but it can't be decrypted by a different cluster; that's a portability caveat, not a leak.
 - **Flux `dependsOn` and Argo `sync-wave` don't compose across controllers** — if a repo mixes both, ordering guarantees don't cross the boundary; call that out.
 

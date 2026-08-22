@@ -32,11 +32,16 @@ A built container image is a **supply-chain artifact**, not just a deploy blob. 
    # or: grype <image> --fail-on high
    ```
    Scans OS packages (apk/apt/rpm) + language libs baked into the image. `--ignore-unfixed` avoids blocking on CVEs with no upstream fix (track those separately). Triage remaining by CVSS **+ EPSS + CISA KEV**, not CVSS alone.
-2. **SBOM — generate + attach:**
+2. **SBOM — generate + attest.** Attach it as a signed *attestation*, not as a bare attached blob:
    ```bash
    syft <image>@<digest> -o cyclonedx-json > sbom.cdx.json    # or spdx-json
-   cosign attach sbom --sbom sbom.cdx.json <image>@<digest>   # or cosign attest --type cyclonedx
+   cosign attest --yes --type cyclonedx --predicate sbom.cdx.json <image>@<digest>
    ```
+   `cosign attach sbom` still exists but is deprecated — cosign's own CLI declares that `attach`
+   "will be removed in v4.0.0", pointing at `oras` for attaching arbitrary artifacts. It is also the
+   weaker option on its merits: an *attached* SBOM is an unsigned blob sitting next to the image,
+   while an *attestation* is signed by the same identity that signed the digest, so `cosign verify-attestation`
+   can prove the SBOM belongs to this build. If you are still on `attach`, migrating is a one-line change.
 3. **Sign the DIGEST (never the mutable tag):**
    ```bash
    cosign sign --yes <image>@<digest>          # keyless: uses the CI OIDC identity → Fulcio cert, Rekor log
@@ -73,6 +78,8 @@ Verdict: BLOCK — fix the CRITICAL + sign before release.
 - **Sign the digest, not the tag** — a tag is mutable; signing `image:latest` signs whatever it points at today. Always `@sha256:…`.
 - **Keyless > keys** — a stored cosign private key is a leak surface; prefer OIDC keyless. If a key is used, it lives in the secrets manager, never the repo/image.
 - **Scanning ≠ verifying** — signing means nothing without `cosign verify` enforced at admission. A signed-but-unverified pipeline is theater.
+- **Attaching ≠ attesting** — an attached SBOM is an unsigned blob in the registry that anyone who can push can replace. An attestation is signed by the build identity. Verify with `cosign verify-attestation`, not by confirming a file is present.
+- **`--ignore-unfixed` changes what the gate means.** It is the right default (it stops an unpatchable base CVE from blocking every release forever) but it also means a PASS is "no *fixable* HIGH/CRITICAL", not "no HIGH/CRITICAL". Say which you ran; a report that reads as the stronger claim while the flag was set is the quiet version of a false PASS.
 - **`deps-audit` overlap** — don't re-report the app-lockfile CVEs here; this owns the image OS/baked-lib layer.
 
 ## When to run

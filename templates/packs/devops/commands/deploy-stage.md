@@ -69,7 +69,7 @@ If none detected → halt; route to `/setup-project --refine` to populate `_extr
 3. BUILD          — produce the deployable artifact (image / bundle / archive)
 4. DEPLOY         — push to staging
 5. MONITOR        — dispatch `monitor-deploy` skill: health + error-rate + latency for 5 min (or --watch=); skipped under --no-monitor
-6. SAFE-GATE      — Safe-Delivery Gate S1-S5: exercise rollback drill, grep manifest for readinessProbe / resource limits / plaintext secrets / immutable tag (Phase 6). Emits the scorecard
+6. SAFE-GATE      — Safe-Delivery Gate S1-S5: exercise rollback drill, grep manifest for readinessProbe / resource limits / plaintext secrets / immutable tag (Phase 6). Dispatch `@deployment-engineer` to adjudicate the verdict. Emits the scorecard
 7. REPORT         — deploy URL, version, and the GREEN-PRODUCTION-GRADE | INCOMPLETE verdict with any unmet items named
 ```
 
@@ -112,7 +112,9 @@ Monitoring (5 min)...
   ✓ Latency p95: 145ms (baseline: 152ms)
 
 Safe-Delivery Gate (production-grade bar — each line carries evidence, no bare ✓):
-  S1 Rollback exercised  PASS  /rollback-deploy --dry-run resolved def5678 (prior healthy);
+  S1 Rollback exercised  PASS  /rollback-deploy --dry-run resolved rev 41 (def5678); HEALTH source =
+                               ai/runtime/deploys.md:88 (GREEN 2026-08-21); gate R1-R3 PASS (only
+                               additive migration in abc1234; rev 41 retained; digest-pinned);
                                rehearsal flipped abc1234→def5678, monitor-deploy GREEN 90s,
                                rolled forward to abc1234 [wired: rollback-deploy + monitor-deploy]
   S2 Health/readiness    PASS  readinessProbe on helm/web/templates/deploy.yaml:38 EXERCISED —
@@ -137,8 +139,9 @@ Monitoring (5 min)...
   ✓ /health returning 200   ✓ Error rate 0.03%   ✓ p95 141ms
 
 Safe-Delivery Gate:
-  S1 Rollback exercised  INCOMPLETE  no prior healthy revision in `helm history web`
-                                     (first-ever staging deploy) → rollback path UNEXERCISED
+  S1 Rollback exercised  INCOMPLETE  `helm history web` lists one revision (first-ever staging
+                                     deploy) and ai/runtime/deploys.md has no GREEN record →
+                                     no target to resolve, rollback path UNEXERCISED
   S2 Health/readiness    UNMET       /health polled GREEN, but NO readinessProbe in the manifest
                                      (grep: templates/*.yaml) — deploy has no automated readiness gate
   S3 Resource bounds     UNMET       api container has resources.requests but NO limits
@@ -174,7 +177,22 @@ Suggested:
 ## Phase 5 — Update
 
 - `ai/_history.md` — `<iso> deploy-stage <branch>@<commit> → <result>`.
-- `ai/runtime/deploys.md` (if exists) — append deploy entry.
+- **`ai/runtime/deploys.md` — append this deploy's row; create the file (header included) if it does
+  not exist.** This write is not conditional. It is the artifact the *next* run's S1 resolves a
+  prior-healthy revision against (Phase 6), so an `if exists` guard on a project that has never had
+  one guarantees it never gets one. One row per deploy, newest last:
+
+  | when (ISO) | env | revision (the platform's own selector) | artifact ref (immutable) | commit | verdict |
+  |---|---|---|---|---|---|
+  | 2026-08-21T14:02Z | staging | `rev 41` | `ghcr.io/acme/api@sha256:9f2c…` | `abc1234` | GREEN |
+
+  Two things make the row usable rather than decorative. **The revision cell is whatever the platform
+  would accept back** — the `kubectl rollout history` revision number, the `helm history` revision,
+  the platform's deployment id — because step 3 of `/rollback-deploy` has to match it against that
+  same list. **The verdict cell is the `monitor-deploy` result, never the deploy tool's exit code**: a
+  rollout that converged on a broken build exits 0 and is `RED`. Write the row after Phase 4 returns,
+  so the verdict is observed rather than predicted, and write it for `RED` and `INCOMPLETE` runs too —
+  "rev 41 was RED" is precisely what stops the next rollback from targeting it.
 - Deploy mechanism's own logs (k8s events, Helm history, Vercel deployment record) preserved by the tool.
 
 ## Phase 6 — Validate: the Safe-Delivery Gate — production-grade-or-INCOMPLETE (the closing verdict)
@@ -183,9 +201,11 @@ Suggested:
 
 The health-window sub-gate (readiness READY, `/health` 200, no ERROR logs, error-rate + latency within threshold) is owned by the `monitor-deploy` skill and feeds S2. A breach there is `RED` → the skill triggers `/rollback-deploy` (unchanged). The Safe-Delivery Gate runs *on top of* a GREEN health window.
 
+**Who adjudicates.** Collect the S1-S5 evidence here, then **dispatch `@deployment-engineer`** with the collected citations to sign the verdict — that agent owns the same S1-S5 table and the rule that `PRODUCTION-GRADE` requires all five evidenced. It is the adjudicator, not a second opinion: if it returns `INCOMPLETE`, this run reports `INCOMPLETE`. When the agent is not installed (e.g. `--minimal`), this command applies the table itself and says so in the scorecard footer — an unadjudicated GREEN is still a GREEN, but it is self-signed and must be labelled `[self-adjudicated]`.
+
 | # | Dimension (production bar) | PASS requires (evidence, not assertion) | If unmet |
 |---|---|---|---|
-| **S1 Rollback path RESOLVED + EXERCISED** | A rollback "plan" in words is not a rollback path. The target must resolve to a real prior-healthy revision AND the flip must have been rehearsed | `/rollback-deploy --dry-run` resolved a concrete previous known-good revision from platform history (`kubectl rollout history` / `helm history` / deployments list) — cite the id; AND a staging rollback drill flipped to it, `monitor-deploy` confirmed it recovered GREEN, then rolled forward — cite the monitor line | **INCOMPLETE (rollback-unexercised)** — no prior healthy revision (first-ever deploy) or drill not run. Cannot be GREEN; name it |
+| **S1 Rollback path RESOLVED + EXERCISED** | A rollback "plan" in words is not a rollback path. The target must resolve to a real prior-healthy revision, its **reversibility gate must pass**, AND the flip must have been rehearsed | `/rollback-deploy --dry-run` returned (a) a concrete target id resolved from platform history, (b) that target's health established from a named source — the deploy ledger (`ai/runtime/deploys.md`), a `monitor-deploy` GREEN record for that revision, or the platform's deployment status — never from revision history alone, and (c) a PASS on R1-R3 of its reversibility gate; AND a staging rollback drill flipped to it, `monitor-deploy` confirmed it recovered GREEN, then rolled forward — cite the monitor line | **INCOMPLETE (rollback-unexercised)** — no prior healthy revision (first-ever deploy), health source unresolvable (target `UNVERIFIED`), a gate halt, or drill not run. Cannot be GREEN; name which |
 | **S2 Health + readiness probes PRESENT + EXERCISED** | A polled `/health` is not the same as an *automated* readiness gate the platform enforces on every future rollout | `monitor-deploy` polled the endpoint live (cite `200×N/N`, `k/k READY`) AND the probe EXISTS in the manifest/Dockerfile — grep `readinessProbe`/`livenessProbe` (k8s), `HEALTHCHECK` (Dockerfile/compose), or the platform health config. Both, not either | **UNMET** — probe polled green but absent from the manifest = no gate on the next deploy; or no resolvable endpoint at all |
 | **S3 Resource requests + limits present** | An unbounded container is one memory leak from a node-wide OOM / noisy-neighbor cascade | Every container/function declares BOTH requests and limits — grep `resources.requests`+`resources.limits` (k8s), `mem_limit`/`cpus` (compose), memory/timeout (serverless/PaaS). Cite the file:line | **UNMET** — any container missing limits; name which |
 | **S4 No plaintext secrets in the deploy surface** | A secret in env/manifest/compose is leaked the moment the manifest is committed or the image is pulled | Secrets sourced by reference — `secretKeyRef`/`valueFrom` (k8s), a secrets manager / sealed-secret / SOPS / platform secret store — never an inline literal. Grep the env blocks for high-entropy literals / `PASSWORD=`/`_KEY=`/`_TOKEN=` values | **UNMET** — any inline secret literal; cite it (redact the value) |
@@ -193,7 +213,8 @@ The health-window sub-gate (readiness READY, `/health` 200, no ERROR logs, error
 
 ### How this gate is actually enforced (honest mechanism — no theater)
 
-- **S1 is wired to two real closure verbs.** RESOLVED = `/rollback-deploy --dry-run`, whose own halts (`rollback-deploy.md § What happens` step 2) **refuse a target that is not a previously-healthy revision** — so the id this gate cites cannot be a guess. EXERCISED = a staging rollback drill whose recovery is confirmed by the `monitor-deploy` skill, whose halts **refuse GREEN without a live-polled probe** — so "it recovered" cannot be asserted. If no prior healthy revision exists, EXERCISED is *impossible*, and the item is `INCOMPLETE (rollback-unexercised)`, never a faked PASS. [wired-to-closure-verb + wired-to-required-output]
+- **S1 is wired to two real closure verbs.** RESOLVED = `/rollback-deploy --dry-run`, which runs its steps 1-4 and returns a target id, a **named health source** for that target, and a reversibility-gate result. Its own halts (`rollback-deploy.md § Halts`) refuse an `UNVERIFIED` target without `--force`, refuse a target behind an already-applied contract migration (R1), refuse a target that is no longer retained (R2), and refuse a mutable tag (R3) — so the id this gate cites cannot be a guess, and "a rollback exists" cannot mean "a revision number exists". EXERCISED = a staging rollback drill whose recovery is confirmed by the `monitor-deploy` skill, whose halts **refuse GREEN without a live-polled probe** — so "it recovered" cannot be asserted. If no prior healthy revision exists, EXERCISED is *impossible*, and the item is `INCOMPLETE (rollback-unexercised)`, never a faked PASS. [wired-to-closure-verb + wired-to-required-output]
+- **Where the health of a prior revision comes from.** Nothing in `kubectl rollout history` / `helm history` / a deployments list carries health — they list revisions, not verdicts. S1's "prior-healthy" claim resolves against the deploy ledger this command writes in Phase 5 (`ai/runtime/deploys.md` / `ai/_history.md`), a `monitor-deploy` GREEN record keyed to that revision, or the platform's deployment status — in that order. **This is why Phase 5's ledger write is non-optional**: it is the artifact that makes the *next* run's S1 resolvable. A project whose first deploys skipped it will legitimately sit at `INCOMPLETE (rollback-unexercised)` until two ledgered deploys exist.
 - **S2's health half is wired to the `monitor-deploy` required output** (it refuses GREEN without a real poll). The *probe-present* half is a manifest grep — [self-policed]; a polled-green endpoint with no `readinessProbe` in the manifest is a real, common gap the grep catches.
 - **S3, S4, S5 are `[self-policed]` greps** — no shell in this run catches a missing `limits:` block, an inline secret, or a `:latest` tag. They are labelled so and MUST NOT be dressed as mechanical. (Where the project mixed in the security pack, S4 MAY additionally cite `security/skills/secret-scan/SKILL.md` and S5 the `release-security` skill's image scan/SBOM/signing — cite them only if they actually ran.)
 
@@ -231,7 +252,8 @@ Every run MUST emit the **Safe-Delivery Gate** scorecard (see Phase 4 Output): o
 
 ## Related
 
-- `/rollback-deploy` — pair command for reverting.
+- `/rollback-deploy` — pair command for reverting; `--dry-run` supplies S1's resolved target, its health source, and its reversibility-gate result.
+- `@deployment-engineer` — dispatched in Phase 6 to adjudicate the Safe-Delivery verdict.
 - `/add-ci` — adds CI workflow (pre-requisite for the CI-green check).
 - `/dockerize` — adds Dockerfile (pre-requisite for image-based deploy).
 - `monitor-deploy` skill — extended monitoring (longer windows, custom metrics).

@@ -29,11 +29,12 @@ Find real issues, no hand-waves. Every finding cites `<file:field>` or `<resourc
 - Every prod-critical Deployment has a PodDisruptionBudget. Voluntary drains (node upgrade, scale-down) MUST not zero a service.
 - NetworkPolicies are default-deny in production namespaces. Allow rules are explicit and minimal; DNS to `kube-system` is the canonical exception.
 - HPA has both `minReplicas >= 2` and a bounded `maxReplicas`. Unbounded scale = unbounded bill.
+- Every `apiVersion` is one the TARGET cluster still serves. Kubernetes maintains only the three most recent minors (https://kubernetes.io/releases/) and removes group versions on a published schedule (https://kubernetes.io/docs/reference/using-api/deprecation-guide/) — `policy/v1beta1` PodDisruptionBudget has not been served since v1.25, `autoscaling/v2beta2` HorizontalPodAutoscaler since v1.26. Resolve with `kubectl api-resources` / `kubectl explain <kind>` against the real cluster, never from memory; a removed version is a Blocker.
 
 ## Pre-flight
 
 1. Identify the manifest source: raw YAML, Helm chart (`Chart.yaml` + `values.yaml`), Kustomize (`kustomization.yaml`), Argo CD Application, Flux Kustomization. Read the rendered output if templated.
-2. Detect cluster context if discoverable: managed (EKS/GKE/AKS) vs self-hosted; nginx vs traefik vs cloud-LB ingress controller; PSP/PSA mode (`baseline` / `restricted`); presence of OPA Gatekeeper / Kyverno policies.
+2. Detect cluster context if discoverable: the control-plane **minor** (`kubectl version`); managed (EKS/GKE/AKS) vs self-hosted; which controller serves north-south traffic (`kubectl get ingressclass`, plus `kubectl api-resources --api-group=gateway.networking.k8s.io` for Gateway API CRDs); the namespace's Pod Security Admission mode (`pod-security.kubernetes.io/enforce: baseline|restricted` — PodSecurityPolicy has not been served since v1.25); presence of OPA Gatekeeper / Kyverno policies.
 3. Check namespace conventions (prod vs staging vs dev) and per-namespace ResourceQuotas / LimitRanges.
 4. Read existing manifests in the same dir for established style — naming, labels, label selectors must be consistent.
 5. Note CRDs in use (Argo Rollouts, Cert-Manager, External Secrets, Istio, Linkerd) — they change what "good" looks like.
@@ -62,8 +63,12 @@ Find real issues, no hand-waves. Every finding cites `<file:field>` or `<resourc
 | `securityContext.capabilities.drop` | `[ALL]`, then add only what's needed |
 | `securityContext.seccompProfile.type` | `RuntimeDefault` minimum |
 | `terminationGracePeriodSeconds` | matches app's drain time (default 30s often too short) |
+| `imagePullPolicy` | `IfNotPresent` with a digest/immutable tag. `Always` on a mutable tag is how a "rollback" silently re-pulls the bad build |
 | `imagePullSecrets` | present when pulling from a private registry |
-| `nodeSelector` / `affinity` / `tolerations` | match cluster topology; pod anti-affinity for HA on critical workloads |
+| `nodeSelector` / `affinity` / `tolerations` | match cluster topology |
+| `topologySpreadConstraints` | present on any workload claiming HA — `topologyKey: topology.kubernetes.io/zone`, `maxSkew: 1`. Anti-affinity spreads across nodes; only a zone-keyed spread survives an AZ loss |
+| sidecars | a container that must start before and stop after the app belongs in `initContainers` with `restartPolicy: Always`, not in `containers` — confirm the target minor supports it with `kubectl explain pod.spec.initContainers.restartPolicy` first |
+| `lifecycle.preStop` | endpoint removal and SIGTERM are issued in parallel, so a Service-backed workload with no preStop delay drops in-flight requests on every rolling update |
 
 Memory limit reasoning: container at limit gets OOMKilled; CPU at limit gets throttled. Prefer setting both, but tolerate a missing CPU limit when bursty latency matters more than predictable throttling.
 
@@ -75,17 +80,15 @@ Memory limit reasoning: container at limit gets OOMKilled; CPU at limit gets thr
 - `sessionAffinity` only when stateful pods require it (most apps don't).
 - For headless services (`clusterIP: None`) used by StatefulSets, confirm DNS records are needed by the consumer.
 
-### 3. Ingress
+### 3. North-south edge — `Ingress` or Gateway API
 
-- `tls` block present with a Secret referenced (or annotation for cert-manager auto-issue).
-- `spec.rules[].host` is explicit; wildcard hosts only when warranted.
-- `pathType` declared (`Prefix` / `Exact` / `ImplementationSpecific`).
-- Annotations match the controller in use:
-  - nginx: `nginx.ingress.kubernetes.io/rate-limit`, `proxy-body-size`, `ssl-redirect`.
-  - traefik: middleware refs.
-  - AWS ALB: `alb.ingress.kubernetes.io/*` group.
-- `backend.service.port` matches Service port name or number.
-- Multiple Ingress objects pointing at the same host with different paths must use the same controller class.
+Establish which API the cluster serves before reviewing a field: `kubectl get ingressclass` and `kubectl api-resources --api-group=gateway.networking.k8s.io`. Reviewing Ingress annotations on a Gateway-API cluster produces findings nobody can act on.
+
+**Controller support status is a review dimension.** The Kubernetes Steering + Security Response Committees announced that **Ingress NGINX retires in March 2026** with "no more releases for bug fixes, security patches, or any updates of any kind after the project is retired" (https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/). Manifests targeting the retiring upstream are a **High** finding on their own, and the fix is a migration plan, not a field change. Cite the controller Deployment's image, not the `ingressClassName` — vendors ship separately-maintained NGINX-based controllers and the class name does not distinguish them.
+
+**`Ingress` (`networking.k8s.io/v1`)** — `tls` present with a Secret (or the cert-manager annotation); explicit `spec.rules[].host`; `pathType` declared; `spec.ingressClassName` set rather than the legacy class annotation; `backend.service.port` matching the Service; one controller class per host. Annotations are controller-specific and non-portable — an annotation the installed controller does not implement is silently ignored, so "rate limiting is configured" may simply be false. Validate each against that controller's docs at its installed version.
+
+**Gateway API (`gateway.networking.k8s.io/v1` — `GatewayClass` / `Gateway` / `HTTPRoute` / `GRPCRoute`)** — installed as CRDs, not built into Kubernetes (https://kubernetes.io/docs/concepts/services-networking/gateway/), so confirm they exist. The ownership split is the point: platform owns the `Gateway` (listeners, TLS, addresses), each team owns its `HTTPRoute`; a route editing the `Gateway` is a broken boundary. `parentRefs` must resolve to a `Gateway` whose `allowedRoutes` permits that namespace — check `status.parents[].conditions` for `Accepted`, not just that the YAML parses. A listener with `protocol: HTTP` on a public address is the same finding as a plaintext Ingress. Weights, header matches and redirects are first-class route fields now; an annotation carried over from an Ingress migration does nothing.
 
 ### 4. HorizontalPodAutoscaler
 
@@ -141,9 +144,9 @@ Memory limit reasoning: container at limit gets OOMKilled; CPU at limit gets thr
 
 ## Severity rubric
 
-- **Blocker**: missing resource limits, `:latest` image, root user, no probes, secrets committed to git, no NetworkPolicy in a multi-tenant cluster, PDB missing on a single-replica prod workload.
-- **High**: weak readiness probe (always 200), `replicas: 1` in prod, RBAC binding to `cluster-admin`, host-network, hostPath volume.
-- **Medium**: missing `terminationGracePeriodSeconds` on slow-drain apps, HPA metrics on memory only, ConfigMap embedding behavior that should be a feature flag.
+- **Blocker**: an `apiVersion` the target minor no longer serves, missing resource limits, `:latest` image, root user, no probes, secrets committed to git, no NetworkPolicy in a multi-tenant cluster, PDB missing on a single-replica prod workload.
+- **High**: weak readiness probe (always 200), `replicas: 1` in prod, RBAC binding to `cluster-admin`, host-network, hostPath volume, an edge controller whose upstream has announced retirement.
+- **Medium**: missing `terminationGracePeriodSeconds` on slow-drain apps, no `preStop` delay on a Service-backed workload, HPA metrics on memory only, `topologySpreadConstraints` absent on a workload claiming HA, ConfigMap embedding behavior that should be a feature flag.
 - **Low**: stylistic — label naming, comment quality, redundant defaults.
 
 ## Output
@@ -169,6 +172,20 @@ Memory limit reasoning: container at limit gets OOMKilled; CPU at limit gets thr
 - NetworkPolicy missing — namespace inherits the cluster default-allow.
 - HPA + PDB mismatch: HPA `minReplicas: 2`, PDB `minAvailable: 3` — scale-down deadlock risk.
 
+### Production-grade verdict (required — the last line callers gate on)
+
+"No Blocker findings" is not the same as "production-grade." Render the five production controls as a gate; each is MET with the `<file:JSONPath>` proving it, or UNMET (named). This block is the artifact `/k8s-generate` records verbatim and halts on.
+
+| # | Control | Verdict | Proof / gap |
+|---|---|---|---|
+| 1 | Least-privilege in-cluster IAM (dedicated SA, no wildcard RBAC, no `cluster-admin`, automount off unless API-calling, no `privileged`/`hostNetwork`/`hostPath`) | MET / UNMET | `<sa + Role.rules + securityContext field>` |
+| 2 | requests+limits on every container; no privileged | MET / UNMET | `<resources field>` |
+| 3 | Secrets via a manager; no `kind: Secret` `data:` in git | MET / UNMET | `<ExternalSecret ref>` |
+| 4 | NetworkPolicy default-deny + minimal explicit allows (incl. DNS) | MET / UNMET | `<policy ref>` |
+| 5 | Reproducible (digest/semver-pinned, no `:latest`, every apiVersion still served) + cost-aware (HPA bounded, worst-case computable) | MET / UNMET | `<image + apiVersions + maxReplicas>` |
+
+**VERDICT: PRODUCTION-GRADE** only when all five are MET and there are zero Blocker findings. Otherwise **VERDICT: NOT-PRODUCTION-GRADE — unmet: <controls>**. Controls 2–5 are grep-verifiable; control 1's "scope is genuinely minimal" and control 5's "requests are right-sized" are judgment calls this reviewer owns — state them as `[reviewed]`, never claim a shell proved them.
+
 ### Suggested next steps
 1. Block merge until <Blocker findings> resolved.
 2. <High findings> in this PR or a follow-up tracked by ticket.
@@ -182,3 +199,18 @@ Memory limit reasoning: container at limit gets OOMKilled; CPU at limit gets thr
 - **Probing the wrong endpoint.** Liveness must NOT depend on downstreams (DB) — that turns a transient outage into a kill loop. Readiness CAN depend on downstreams.
 - **Demanding policies the cluster doesn't support.** Pod Security Admission `restricted` blocks privileged sidecars some legacy apps need. Confirm cluster mode before insisting.
 - **Treating dev manifests like prod.** Resource limits in dev are often loose on purpose. Scope severity to the env folder.
+
+## Related
+
+### Sibling agents in infrastructure pack
+- `@infra-architect` — owns the platform decision this reviewer's manifests sit inside.
+- `@kubernetes-architect` — owns the cluster operating model (edge API, tenancy, upgrade cadence); a finding that needs a topology change routes there.
+
+### Invoked by
+- `/k8s-generate` — records this agent's PRODUCTION-GRADE verdict as its Phase 6 gate. A Blocker here halts that command's done-declaration.
+
+### Patterns
+- `ai/patterns/zero-downtime-deploys.md`
+
+### Rules
+- `.claude/rules/infra-principles.md`

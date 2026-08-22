@@ -17,7 +17,8 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact
 ## Halt conditions
 
 - A finding has no `<file:line>` citation, or the citation does not resolve.
-- Recommended metric / span attribute / log field diverges from a sibling service's convention without naming the sibling.
+- Recommended metric / span attribute / log field diverges from a sibling service's convention without naming the sibling. **Exception:** where the sibling's name is a *deprecated* semantic convention, the current convention wins — say which one and why the sibling is the stale side.
+- A new metric label proposed or accepted without the series-count arithmetic (`∏ distinct values × replicas`) stated.
 - "Add a metric / alert" recommendation without naming the dashboard or alert that consumes it.
 - PII / secret leak claimed without quoting the exact field name + log statement that emits it.
 
@@ -39,7 +40,8 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact
 
 ### Logs
 - Structured JSON in prod.
-- Flat fields: `reqId`, `tenantId`, `userId`, `entityId`, `operation`, `durationMs`.
+- Flat fields, one casing per project (mirror the sibling; cite it): `request_id`, `tenant_id`, `user_id`, `entity_id`, `operation`, `duration_ms`.
+- **`trace_id` / `span_id` are snake_case regardless of the project's casing choice** — the OTel log-correlation convention fixes them, and a renamed pair (`traceId`) stops most backends auto-linking logs to traces. A camelCase project that spells these two in camelCase is a REQUEST, not a nit: the linkage is silently lost, nothing errors.
 - Log levels correct:
   - `error` → user-impacting, alerts
   - `warn` → recovered / degraded
@@ -52,23 +54,24 @@ Find real issues, no hand-waves. Every finding cites `<file:line>` — the exact
 
 ### Metrics
 - Every new endpoint: request counter + error counter + latency histogram.
-- Labels bounded cardinality — tenant_id OK at small scale, NEVER user_id / request_id.
+- **Label cardinality is computed, not judged.** The PR must state `series = ∏(distinct label values) × replicas`. `user_id` / `request_id` are never labels. `tenant_id` is the one that needs the number: it is correct on logs and traces and usually wrong on metrics, so "tenant_id OK at small scale" is not a review verdict — the arithmetic is. Missing arithmetic on a new tenant label is a REQUEST.
 - Every external call: success/failure counter + latency.
 - Business metrics first-class (orders placed, payments succeeded, tokens consumed).
-- Histogram buckets tuned to SLO (not default 1s-30s for sub-second APIs).
+- Histogram buckets explicit, in base SI seconds, with an edge **at** the SLO threshold T. A bucket list in milliseconds is a REQUEST, not a nit — it violates the unit convention and breaks comparability with every other service.
 
 ### Traces
-- Every incoming request = root span.
-- Every downstream call = child span.
-- Attributes: tenant_id, user_id, endpoint, cache_hit, error_code.
-- High-cardinality (raw body, random UUIDs) NOT as attrs.
+- Every incoming request = root span; every downstream call = child span.
+- Span names low-cardinality (`{method} {route-template}`), SpanKind set on process-boundary spans.
+- Convention attributes use the **current** semantic conventions. Flag the deprecated spellings on sight — `http.url`, `http.method`, `http.status_code`, `db.system`, `db.statement` — because they fail *silently*: the backend's built-in view is simply empty and nothing errors. Current names and the `OTEL_SEMCONV_STABILITY_OPT_IN` dual-emit migration are in `ai/patterns/tracing.md`.
+- Project attributes (`tenant_id`, `entity_id`, `cache.hit`, `error_code`) bounded and sibling-spelled.
+- High-cardinality (raw body, random UUIDs, `url.query` with PII) NOT as attrs.
 - Sampling: 100% errors, 1-10% successes.
 
 ### Alerts
 - SYMPTOMS (user impact) not CAUSES (CPU %) — cause alerts belong on dashboards, not pages.
-- Every alert has runbook link (`ai/runbooks/alert-<name>.md`).
+- Every alert has runbook link (`ai/runbooks/alert-<name>.md`) **and a runbook body naming a first action** — "investigate" is a missing runbook with a filename.
 - Every alert has owning team / on-call rotation.
-- SLO burn-rate alerts configured (fast 1h, slow 6h).
+- SLO burn-rate alerts configured — all **three** tiers: 1h/14.4× page, 6h/6× **page**, 3d/1× ticket. Two findings live here: a 6h/6× rule labelled `ticket` (that tier pages), and a missing 3d/1× tier (nothing then detects a leak burning at exactly the target rate). `14` where `14.4` belongs is a different threshold, not a rounding.
 - Enumerate alert rules lacking a runbook annotation: `rg -n 'runbook' -L -g '*.{yml,yaml,tf,jsonnet}' <alert-rules-dir>` (list files with NO match).
 
 ### Emit-and-assert closure (when reviewing an `/add-telemetry` or `/alert-design` change that declares `Status: COMPLETE`)
@@ -126,10 +129,10 @@ A telemetry/alert change is production-grade only when each signal is EMITTED an
 - Site: a downstream call (model API / payment provider / vendor SDK) is invoked without wrapping in a child span.
 - Fix: wrap the call in a child span using the project's tracing SDK; set attributes for `tenant_id`, the operation name, request size, and any meaningful response counters; record exception + ERROR status on failure; close the span in a finally.
 
-### NIT — histogram buckets
-- Site: a duration histogram registered without explicit buckets, falling back to the library's defaults.
-- Default buckets are usually wrong for sub-second APIs (typical defaults span 0.005s–10s).
-- Fix: pass explicit buckets sized to the SLO (e.g., `[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]`).
+### REQUEST — histogram buckets with no edge at the SLO threshold
+- Site: a duration histogram registered with library-default buckets (or a hand-picked list) while the service's SLO is "99% under 300 ms".
+- Impact: the latency SLI is a *count* of requests under T, and a classic histogram can only count at a bucket boundary. With no edge at 0.3, the SLI is interpolated — and it will disagree with the burn-rate alert computed from the same series, which is the worst kind of disagreement because both look plausible.
+- Fix: adopt the OTel advisory set (`ai/patterns/metrics.md`) **and add an edge at T**. Flag a millisecond bucket list here too: base SI units are the convention, and a millisecond histogram is not comparable with any sibling service's.
 
 ## Output
 

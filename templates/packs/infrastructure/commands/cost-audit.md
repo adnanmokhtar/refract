@@ -23,7 +23,10 @@ No resource ID + no dollar = no finding. The audit halts before write if any row
 2. Grep every recommendation row for a `$` saving figure — drop rows missing one.
 3. Grep every "delete / right-size / migrate" recommendation for the explicit resource list (ARNs, instance-ids) — drop rows that say "12 instances" without naming them.
 4. Grep "Quick wins" / "Medium-effort" totals — they MUST equal the sum of cited row savings; mismatch halts.
-5. If the draft is empty after these passes, report "0 findings — spend baseline tight" rather than padding.
+5. **Arithmetic halt — every `$` figure shows its working.** Each row states `<quantity> × <unit price>` and where the unit price came from: the bill line for that resource, or the provider's current pricing page for that region. A saving with no derivation is a guess wearing a decimal point.
+6. **Ceiling halt — a saving may never exceed what the resource currently costs.** For every row, compare the claimed saving against that resource's current monthly spend on the bill. Claiming more than 100% of a line item is arithmetically impossible and it is the failure that survives every other check, because the number looks specific. Storage-tier and retention rows are where this bites: moving N TB to a cheaper class saves the *difference* between the classes, never the whole line.
+7. **Direction halt — confirm the sign of every retention / tiering / commitment change.** Log and object storage bill per GB-month, so LONGER retention costs MORE; a saving from retention comes from shortening it or exporting to a cheaper store. Reserved capacity saves only against the steady-state baseline it actually covers. State which direction the change goes and why that direction saves money.
+8. If the draft is empty after these passes, report "0 findings — spend baseline tight" rather than padding.
 
 **The agent does NOT:**
 - Estimate savings with adjectives ("big", "meaningful") — only `$N/mo` or `$N/yr`.
@@ -66,11 +69,33 @@ Six cost classes audited in parallel:
 
 ## Phase 3 — Retrieve
 
-Tools:
-- AWS: Cost Explorer, Trusted Advisor, AWS Cost Anomaly Detection, Compute Optimizer, Storage Lens.
-- GCP: Cost Management, Recommender, Active Assist.
-- Azure: Cost Management, Advisor.
-- Multi-cloud: Vantage, CloudHealth, Cloudability, Vendor-agnostic OSS like OpenCost (for K8s).
+**Every row of this audit makes one of three claims, and each has a different authoritative source.
+Mixing them is how an audit produces numbers that do not reconcile with the bill.**
+
+| The claim the row makes | What can settle it | What cannot |
+|---|---|---|
+| *This cost $N* — the dollar figure the premise demands | The **per-resource billing export**, not the cost dashboard. AWS CUR breaks costs down "by product or product resource"; GCP's *detailed* usage export adds "granular, resource-level cost data"; Azure's Cost Management **Cost and usage details** export scopes to the resource group | The console's cost view. It aggregates by *service*, so it says "EBS: $4,100" and can never say *which volume* — and a finding without a resource id is dropped by the premise |
+| *It is over-provisioned* — the utilization claim behind a right-size row | A **utilization recommender** that read real telemetry over a stated window (Compute Optimizer, GCP Recommender / Active Assist, Azure Advisor), cited by its recommendation id, with the window named | The instance type. "m6i.4xlarge looks big" is the hand-wave halt 1 exists to catch |
+| *Nobody asked for this* — the orphan rows | The **live resource inventory diffed against IaC**: everything the provider lists, minus everything Terraform / CloudFormation / Pulumi declares. Orphans live in the remainder, by definition | The bill. A $3/mo unattached EIP is invisible inside a $40k bill and is still a finding — orphans are found by inventory, then priced by the export |
+
+**Where a recommender and the export disagree, the export wins.** A recommender's "estimated savings"
+is a projection priced at list; the export carries what was actually charged after commitments and
+discounts, which is usually less. A row citing a recommender's dollar figure without reconciling it
+to the bill line fails halt 6.
+
+On **multi-cloud**, do not hand-normalize three schemas — all three providers can emit
+[FOCUS](https://focus.finops.org/), a vendor-neutral cost-and-usage schema, and comparing clouds on
+anything else is comparing their marketing terms. Third-party cost platforms are a convenience over
+these same exports, never a substitute for one: if the platform cannot show you the resource id
+behind a number, the number cannot be cited here.
+
+On **Kubernetes**, the provider stops being useful at the node boundary — the bill knows the node,
+not the namespace that filled it. Allocation below the node needs a cost allocator that reads the
+cluster's own requests and usage per container (OpenCost, or a vendor built on it; its spec allocates
+at `max(request, usage)` at container level and aggregates upward). **Without one, per-team or
+per-namespace Kubernetes chargeback is not measurable — report that as the finding rather than
+apportioning by guesswork.** Reporting "cluster: $12k, attribution unavailable" is honest; splitting
+it by headcount is a fabricated number wearing a decimal point.
 
 Read project's:
 - `ai/architecture.md` — service inventory.
@@ -94,27 +119,31 @@ Read project's:
 
 ### Quick wins (≤1h / large impact)
 
-| # | Recommendation | Estimated saving | Effort |
-|---|---|---|---|
-| 1 | Delete 47 unattached EBS volumes (orphaned) | $420/mo | 30m |
-| 2 | Delete 23 orphaned snapshots > 90 days | $180/mo | 30m |
-| 3 | Delete 12 unattached Elastic IPs | $44/mo | 5m |
-| 4 | Delete idle ALBs (0 requests in 30d): 4 found | $90/mo | 30m |
-| 5 | Move 3 stale CloudWatch log groups to longer retention | $35/mo | 15m |
+Every row names its resources (halt #3), shows its arithmetic (halt #5), and stays under that
+resource's current bill line (halt #6). IDs beyond three per row go to an appendix, but they are
+enumerated somewhere — "47 volumes" with no list is not actionable and is dropped.
 
-**Quick win total: ~$770/mo savings; <2 hours work.**
+| # | Recommendation (resources enumerated) | Saving — with working | Effort |
+|---|---|---|---|
+| 1 | Delete 47 unattached EBS volumes — `vol-0a1b2c…`, `vol-0d4e5f…`, `vol-0f7a8b…` + 44 more (Appendix A) | $420/mo — 5,250 GB total × gp3 GB-month rate from the July bill line `EBS:VolumeUsage.gp3` | 30m |
+| 2 | Delete 23 orphaned snapshots > 90d, parent volumes already deleted — ids in Appendix B | $180/mo — 4,100 GB × snapshot GB-month rate, same bill | 30m |
+| 3 | Release 12 unattached Elastic IPs — `eipalloc-01…` + 11 more (Appendix C) | $44/mo — 12 × idle public-IPv4 hourly rate × 730h | 5m |
+| 4 | Delete 4 ALBs with 0 requests in 30d — `app/legacy-web`, `app/beta-api`, `app/demo`, `app/old-admin` | $90/mo — 4 × LCU-hour base charge × 730h | 30m |
+| 5 | **Shorten** retention on 3 stale log groups (`/aws/lambda/legacy-etl`, `/aws/ecs/beta`, `/aws/rds/audit-old`) from never-expire to 30d, exporting anything with a retention obligation to object storage first | $35/mo — 780 GB stored × log GB-month rate. Note the direction: retention is billed per GB-month, so LENGTHENING it costs more | 15m |
+
+**Quick win total: ~$770/mo savings; <2 hours work.** (420 + 180 + 44 + 90 + 35 = 769 — halt #4: the total is the sum of the cited rows, not a rounded impression.)
 
 ### Medium-effort recommendations
 
-| # | Recommendation | Saving | Effort |
+| # | Recommendation (resources enumerated) | Saving — with working | Effort |
 |---|---|---|---|
-| 6 | Right-size EC2: 12 instances flagged "over-provisioned" by Compute Optimizer | $1,200/mo | 4-8h |
-| 7 | Convert dev instances to spot (where tolerant) | $400/mo | 1 day |
-| 8 | Enable S3 Intelligent-Tiering on prod-backups bucket (4 TB) | $180/mo | 1h |
-| 9 | Lifecycle to Glacier after 90d on older log buckets | $250/mo | 2h |
-| 10 | Replace single NAT Gateway w/ NAT instance OR VPC endpoints for high-traffic AWS APIs | $300/mo | 1 day |
+| 6 | Right-size 12 EC2 instances — `i-0abc123`, `i-0def456`, `i-0ghi789` + 9 more (Appendix D), each flagged by Compute Optimizer rec `co-rec-…` with p95 CPU below 15% over 30d | $1,200/mo — sum of the 12 per-instance on-demand deltas (m6i.4xlarge → m6i.large etc.), each from the instance's own bill line | 4-8h |
+| 7 | Convert 9 named dev instances (Appendix E) to spot — all restartable, none stateful | $400/mo — 9 × (on-demand − current spot) at the observed 30d average spot price; state the assumption, spot prices move | 1 day |
+| 8 | Enable S3 Intelligent-Tiering on `s3://acme-prod-backups` — 24 TB, 81% untouched > 30d per Storage Lens | $180/mo — ~19.4 TB moving Standard → Infrequent Access: 19,400 GB × (Standard − IA per-GB delta) minus the per-object monitoring charge. **Sanity check (halt #6): this bucket's current line on the bill is $560/mo, so a $180 saving is 32% of it — plausible. A $180 saving on a 4 TB bucket would NOT be, because 4 TB of Standard costs less than that in total** | 1h |
+| 9 | Lifecycle to Glacier after 90d on 3 named log buckets (Appendix F) | $250/mo — 31 TB aged past 90d × (Standard − Glacier per-GB delta); restore latency accepted, see Failure modes | 2h |
+| 10 | Replace the single NAT Gateway with VPC endpoints for the 3 highest-traffic AWS APIs (S3, ECR, CloudWatch Logs) | $300/mo — 6.4 TB/mo of the 8.1 TB NAT-processed volume, at the NAT per-GB processing rate, moved to endpoints | 1 day |
 
-**Medium-effort total: ~$2,330/mo; ~3 days work.**
+**Medium-effort total: ~$2,330/mo; ~3 days work.** (1,200 + 400 + 180 + 250 + 300 = 2,330.)
 
 ### Structural recommendations
 
@@ -188,6 +217,9 @@ Report: ai/audits/cost-<date>.md
 
 ## Hard rules
 
+- **Show the arithmetic or drop the row.** `<quantity> × <unit price>` plus where the unit price came from. Unit prices are region-specific and change; a figure carried from memory is a fabrication with a decimal point.
+- **A saving can never exceed the line item.** Check every row against the resource's current bill line before writing it.
+- **Confirm the direction.** Longer retention costs more, not less. Say which way the change goes and why that direction saves.
 - **Verify before delete.** `0 requests in 30 days` is good signal but not absolute — ask owner.
 - **Don't right-size production without canary.** Memory pressure surfaces under load, not in metrics.
 - **Don't sell saving plans on speculative growth.** Buy SPs to cover STEADY-STATE; over-commit hurts.
@@ -205,6 +237,8 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - Bought 1-year SP at end of quarter → vendor's price drop a month later left commitment over-priced.
 - "Idle" ALB was actually warming connections for a hot-standby system → traffic spike on next failover broke.
 - Migrated to Glacier; restoration takes hours; legal request needed data in minutes → rush rollback.
+- Reported a storage-tier saving larger than the bucket's entire monthly cost. The figure was specific, so nobody checked it; the whole report lost credibility when finance did.
+- "Increased log retention to save money" — retention is billed per GB-month. The change raised the bill and the report claimed a saving.
 
 ## Related
 

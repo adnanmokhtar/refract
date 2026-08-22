@@ -30,12 +30,20 @@ A flag that lives forever, a canary with no automated analysis/abort, or a risky
 
 ```bash
 # Dead/stale (config-based): declared key vs reference count.
+# If you scope by extension, note that --include takes ONE glob and does NOT brace-expand:
+# --include='*.{ts,js}' matches nothing, so every flag reports 0 refs = DEAD. Repeat the flag.
 for key in $(yq '.flags | keys | .[]' flags.yaml 2>/dev/null); do
-  echo "$(grep -rIl "$key" src/ api/ | wc -l) refs   $key"; done   # 0 = dead
+  echo "$(grep -rIl -- "$key" src/ api/ 2>/dev/null | wc -l) refs   $key"; done   # 0 = dead
 # Canary gate present? (Argo Rollouts)
-for f in $(grep -rl 'kind: Rollout' k8s/); do grep -q 'analysis:' "$f" || echo "NO-GATE: $f"; done
+grep -rl 'kind: Rollout' k8s/ 2>/dev/null | while read -r f; do
+  grep -q 'analysis:' "$f" || echo "NO-GATE: $f"; done
 ```
 For LaunchDarkly/Unleash, pull the registry from the admin API, then run the same reference-count grep.
+
+**Sanity-check the harness before trusting a zero.** A misconfigured grep reports every flag dead,
+and "delete these 23 flags" is the finding you cannot take back. Run it against a key you know is
+live first; if that returns 0, the grep is broken, not the flag. Match the extension scope to the
+repo — flags read from `.vue`/`.erb`/`.svelte` templates vanish under a `.ts`-only include list.
 
 ## Output
 
@@ -58,7 +66,7 @@ Automated canary analysis (Argo Rollouts):
 
 ## Halt conditions
 
-- Refuse to call a flag dead without the reference-count grep across the code tree — no grep, no verdict.
+- Refuse to call a flag dead without the reference-count grep across the code tree — no grep, no verdict. And refuse to trust a grep that returned 0 for *every* key: that is a broken harness, not a repo full of dead flags.
 - Refuse to call a canary "no automated gate" without showing the Rollout/Canary spec lacks an `analysis`/`metrics` block.
 - Halt if the flag registry is unresolvable (no LD/Unleash access, no config file) — audit what you can grep and say the registry side is unverified; don't guess flag state.
 - Missing kill-switch on a payment/delete/migration flow = block. Canary on a high-blast-radius service with no auto-abort = block.

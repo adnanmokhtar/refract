@@ -41,14 +41,28 @@ Existing manifests, pipelines, Dockerfiles, and runbooks are the truth. Mirror s
 
 ## Decision matrix — deploy target
 
+**Ownership:** when the `infrastructure` pack is co-installed, `@infra-architect` owns the
+platform-tier decision and its thresholds — defer to it and design *within* the tier it returns
+rather than re-deriving one here. Two agents holding two headcount numbers for the same question is
+how a project ends up with two answers. This table is the standalone fallback for a devops-only
+install, and it deliberately asks about **capability**, not headcount: "10 engineers" is not the
+thing that makes Kubernetes work, and a 4-person team with a platform engineer will operate it
+better than a 20-person team without one.
+
 | Target | Pick when | Skip when |
 |---|---|---|
-| Vercel / Netlify | Static site, Next.js / Nuxt SSR, edge functions | Background workers, long-lived processes |
-| Fly.io / Railway / Render | Push-to-deploy, small team, no SRE | Heavy compliance, multi-region active-active beyond their region set |
-| Docker Compose on a VM | Self-hosted, single region, <100 RPS | HA required, team larger than 3 |
-| Managed K8s (EKS / GKE / AKS) | 10+ engineers, multi-service, real autoscale | First production deploy |
-| ECS Fargate / Cloud Run | Containers without K8s ops | Fine-grained pod scheduling needs |
-| Bare K8s | Dedicated SRE, cost matters at scale | Anyone else |
+| Vercel / Netlify | Static site, SSR framework, edge functions | Background workers, long-lived processes |
+| Fly.io / Railway / Render | Push-to-deploy; nobody's job includes running infrastructure | Heavy compliance, or you need regions/controls beyond the platform's set |
+| Docker Compose on a VM | Self-hosted, single region, downtime during a deploy is acceptable | HA required, or nobody wants to be paged for a host |
+| ECS Fargate / Cloud Run | Containers without cluster ops — the platform schedules, you don't | You genuinely need pod-level scheduling control (affinity, DaemonSets, operators) |
+| Managed K8s (EKS / GKE / AKS) | Someone owns cluster upgrades as *named work*, several services share infrastructure concerns, and you need scheduling control the PaaS tier cannot give | First production deploy, or nobody can answer "who upgrades the control plane in 9 months" |
+| Bare K8s | Dedicated platform/SRE capacity, and the cloud markup on managed control planes is material at your scale | Anyone else |
+
+**The question that actually decides it** is not team size but: *what does this platform cost you on
+a Tuesday when nothing is broken?* Managed K8s bills a control plane, a quarterly-ish upgrade, and a
+class of failures (scheduling, networking, admission) whose debugging is a skill. If nobody has that
+skill and nobody is being hired for it, every row above K8s is cheaper — including the one that
+looks less impressive.
 
 ## Method
 
@@ -63,13 +77,27 @@ Existing manifests, pipelines, Dockerfiles, and runbooks are the truth. Mirror s
 ## Dockerfile checklist
 
 - Multi-stage (builder + runtime). Builder has dev deps; runtime has only what runs.
-- Pinned base by digest where the registry supports it (`node:22-alpine@sha256:...`); otherwise tag + scan in CI.
-- `WORKDIR` set, deps installed before source copy (cache layer).
-- Non-root user: `RUN adduser -D app && USER app` (or distroless `nonroot`).
-- `HEALTHCHECK` defined (curl/wget against the readiness endpoint).
+- Pinned base by digest where the registry supports it (`<image>:<tag>@sha256:...`); otherwise tag +
+  scan in CI. Choose the tag from the runtime's **currently-supported** majors — a correctly pinned
+  EOL base passes every pin check and receives no patches.
+- **Builder and runtime share a libc unless the artifacts are provably portable.** Alpine is musl,
+  `slim`/`bookworm` are glibc; native addons, compiled wheels, CGO binaries and generated ORM
+  engines built against one will not load on the other. This is the most common "builds fine, dies
+  on start" cause, and it is a *design* choice — the libc constrains every future native dependency.
+- `WORKDIR` set, deps installed before source copy (cache layer) — but any file a generator reads
+  (`schema.prisma`, `.proto`, an OpenAPI spec) must be copied *with* the manifests, or the generate
+  step runs against nothing.
+- Non-root user **in the final stage**: `RUN adduser -D app && USER app` (or distroless `nonroot`).
+  A `USER` in the builder is discarded with the builder.
+- `HEALTHCHECK` defined (curl/wget against the readiness endpoint) — load-bearing for Docker,
+  Compose and Swarm; **inert on Kubernetes**, where kubelet reads the pod spec's probes instead.
+  Declare both when the image ships to both.
 - `EXPOSE` matches the app's listen port.
 - No `CMD` to a shell wrapper that swallows signals — direct exec form, or `tini` / `dumb-init` for PID 1.
-- `.dockerignore` excludes `.git`, `node_modules`, `tests/`, dev configs, README. Goal: image <300 MB for a typical web app.
+- `.dockerignore` excludes `.git`, `node_modules`, `tests/`, dev configs, README. Size is judged
+  against the project's recorded baseline, not an absolute — a static Go binary and a scientific
+  Python image differ by two orders of magnitude and neither is a defect. What is always a defect is
+  builder layers surviving into the runtime stage; `docker history` shows it.
 
 ## CI pipeline (GitHub Actions / GitLab CI / CircleCI)
 
@@ -82,9 +110,16 @@ trigger: release tag     → promote staging image → prod (with approval gate)
 
 - Cache deps by lockfile hash. Restore + save in every job that installs.
 - Concurrency group per branch (`group: ci-${{ github.ref }}`, `cancel-in-progress: true`) — kills stale runs.
-- Matrix only when versions are actually supported in prod (Node 20 + 22). Single-version is fine.
-- OIDC to cloud (`aws-actions/configure-aws-credentials@v4` / GCP WIF) — no long-lived access keys in CI secrets.
-- Image scan: Trivy / Grype / Snyk fails on HIGH+ CVE in runtime stage.
+- `timeout-minutes:` on every job, and an explicit workflow-level `permissions:` block widened per job.
+- Matrix only across versions that are **both** supported in prod and still supported upstream.
+  Resolve the second half from the runtime's published release schedule rather than naming majors
+  from memory — a matrix leg on an EOL runtime spends minutes certifying something unpatched.
+  Single-version is fine, and usually right.
+- OIDC to cloud (the cloud-auth action / GCP WIF) — no long-lived access keys in CI secrets. Resolve
+  the action's current major with `gh api repos/<owner>/<repo>/releases/latest`; do not copy a
+  version out of a document, including this one.
+- Image scan: Trivy / Grype / Snyk fails on HIGH+ CVE, and runs **before** the push, not after —
+  scanning a published image gates the deploy, not the artifact.
 
 ## CD strategy
 
@@ -161,9 +196,18 @@ trigger: release tag     → promote staging image → prod (with approval gate)
 
 ## Related
 
+### Invoked by
+- `/dockerize` Phase 4 — for the base-image and runtime-user decision (including the libc question
+  above, which the command's Phase 4 depends on).
+
 ### Sibling agents in devops pack
-- `@ci-reviewer` — sibling agent in devops pack
-- `@deployment-engineer` — sibling agent in devops pack
+- `@ci-reviewer` — reviews a pipeline that exists; this designs one that doesn't.
+- `@deployment-engineer` — owns deploy strategy + the S1-S5 Safe-Delivery verdict; this owns the
+  path from `git push` to the artifact that verdict judges.
+
+### Cross-pack (when co-installed)
+- `@infra-architect` (infrastructure pack) — **owns the platform-tier decision**. Defer to it and
+  design within the tier it returns; the table above is the devops-only fallback.
 
 ### Patterns
 - `ai/patterns/cicd-pipeline.md`

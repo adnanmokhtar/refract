@@ -28,13 +28,20 @@ Find real exposure. Every finding cites the concrete resource (`aws_security_gro
 
 ## Adapt to the provider
 
-| Surface | What to read |
+The audit demands cited tool output, so each surface below names **the command that produces the citation** and **the field to read in it**. Emit JSON and read the named field rather than eyeballing a console — the field name is the durable part; console layouts change.
+
+| Surface | Command → field to read |
 |---|---|
-| AWS | Security Groups (inbound `cidr_blocks` + port ranges), NACLs, subnet route tables (IGW = public), `map_public_ip_on_launch`, RDS/ElastiCache `publicly_accessible` + subnet group, S3 Block Public Access + bucket policy/ACL, ALB/NLB scheme + listener TLS + WAF association |
-| GCP | `google_compute_firewall` (`source_ranges`, `allow` ports), subnet `private_ip_google_access`, Cloud SQL public IP + authorized networks, GCS uniform bucket-level access + IAM `allUsers`/`allAuthenticatedUsers`, LB + Cloud Armor |
-| Azure | NSG inbound rules (`source_address_prefix = "*"`/`Internet`), subnet vs public IP association, SQL/Redis firewall + `Allow Azure services`, Storage account public network access + container anonymous access, App Gateway + WAF policy |
-| Kubernetes | `NetworkPolicy` default-deny (ingress + egress), `Service type: LoadBalancer` on internal-only workloads, Ingress TLS + annotations, `hostNetwork`, exposed metrics/debug Services |
-| Terraform / IaC | Same resources in declared form — this AUDITS the declared exposure across the whole state, not one PR diff |
+| AWS security groups | `aws ec2 describe-security-groups --output json` → `IpPermissions[].IpRanges[].CidrIp` + `Ipv6Ranges[].CidrIpv6`, paired with `FromPort`/`ToPort`/`IpProtocol`. A finding needs the CIDR **and** the port range; neither alone is one |
+| AWS subnet placement | `aws ec2 describe-route-tables --output json` → a route whose `GatewayId` starts `igw-` makes the associated subnets public, whatever they are named. Then `aws ec2 describe-subnets` → `MapPublicIpOnLaunch` |
+| AWS managed data stores | `aws rds describe-db-instances --output json` → `PubliclyAccessible`, plus the instance's subnet group's subnets checked against the route tables above |
+| AWS object storage | `aws s3api get-public-access-block --bucket <name>` → the four `BlockPublic*` / `RestrictPublic*` booleans; `aws s3api get-bucket-policy --bucket <name>` → any statement with `"Principal": "*"` |
+| AWS load balancers | `aws elbv2 describe-load-balancers --output json` → `Scheme` (`internet-facing` vs `internal`); `describe-listeners` → `Protocol` + `Certificates` for TLS termination |
+| GCP firewall | `gcloud compute firewall-rules list --format=json` → `sourceRanges`, `direction`, `allowed[].ports`, `disabled` |
+| GCP data + storage | `gcloud sql instances describe <i> --format=json` → `settings.ipConfiguration.ipv4Enabled` + `authorizedNetworks`; `gcloud storage buckets describe gs://<b> --format=json` → uniform bucket-level access, and the IAM policy checked for `allUsers` / `allAuthenticatedUsers` |
+| Azure | `az network nsg rule list -g <rg> --nsg-name <n> -o json` → `sourceAddressPrefix` (`*` / `Internet`), `destinationPortRange`, `access`, `direction`; `az storage account show` → `publicNetworkAccess` + `allowBlobPublicAccess` |
+| Kubernetes | `kubectl get networkpolicy -A -o yaml` → a default-deny policy is one whose `podSelector: {}` selects all pods with empty `ingress` (and `egress` for egress control); `kubectl get svc -A -o json` → `spec.type == "LoadBalancer"` on internal-only workloads; pod specs → `hostNetwork` |
+| Terraform / IaC | The same resources in declared form. This AUDITS the whole declared state, not one PR diff — and a difference between declared and running IS a finding (see gotchas) |
 
 ## Checks
 

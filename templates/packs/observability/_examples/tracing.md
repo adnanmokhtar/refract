@@ -45,6 +45,16 @@ const sdk = new NodeSDK({
 sdk.start();
 ```
 
+## Span names + SpanKind
+
+A span name is a low-cardinality grouping key — every backend aggregates latency by it. `GET /orders/8814` splits one endpoint into a million one-sample groups and destroys the p95.
+
+- HTTP server: `{method} {route-template}` — `GET /orders/{id}`, never the substituted path.
+- HTTP client: `{method}` alone; the target belongs in attributes.
+- Business: `<domain>.<verb>` (`orders.place`) per sibling convention.
+
+Set **SpanKind** on anything crossing a process boundary (`SERVER` / `CLIENT` / `PRODUCER` / `CONSUMER`; `INTERNAL` for in-process work). The service map and the "which upstream is slow" view are derived from it — a service whose every span is `INTERNAL` renders as one node with no edges.
+
 ## Manual spans for business logic
 
 Auto-instrumentation catches HTTP + DB. For business logic, add spans manually:
@@ -77,18 +87,31 @@ HTTP: W3C Trace Context headers (`traceparent`, `tracestate`) — auto by SDK.
 
 Queues: include trace context in message metadata. Consumer extracts + continues trace.
 
-## Attributes
+## Attributes — the convention names have moved
 
-Good attributes (searchable, bounded cardinality):
-- `tenant_id`, `user_id`
-- `endpoint`, `operation`
-- `cache_hit` (boolean)
-- `error_code`
+**Convention attributes** are defined by the OpenTelemetry semantic conventions, and backends key their built-in HTTP/DB views off these exact strings — a stale spelling produces an empty dashboard, not an error. Several names in wide circulation are deprecated:
 
-Bad attributes (cardinality explosion):
-- Raw request body
-- Full URL with random query params
-- Timestamps as attributes (they're already on the span)
+| Deprecated (do not write) | Current, Stable | Notes |
+|---|---|---|
+| `http.method` | `http.request.method` | |
+| `http.status_code` | `http.response.status_code` | |
+| `http.url` | `url.full` (client) | On a **server** span use `url.path`, `url.query`, `url.scheme` + `server.address`. `url.full` is the *whole* URL — it is not "path only". |
+| `http.target` | `url.path` + `url.query` | Strip or redact `url.query`; it is the usual PII leak. |
+| `db.system` | `db.system.name` | |
+| `db.statement` | `db.query.text` | Parameterized text only, never bound values. |
+| `deployment.environment` | `deployment.environment.name` | A **resource** attribute — the opt-in below does not cover it. Carry **both** keys on the `Resource`, re-point dashboard + alert filters, then drop the old one. |
+| — | `db.operation.name` | The operation (`SELECT`, `findAndModify`) as its own attribute. |
+
+Check the registry rather than memory when writing one: `https://opentelemetry.io/docs/specs/semconv/registry/attributes/`.
+
+**Migrating an existing service is a config switch.** SDKs read `OTEL_SEMCONV_STABILITY_OPT_IN`: `http` / `database` emit the new names; `http/dup` / `database/dup` emit **both** at once. Run `/dup` while you re-point dashboards and alert rules, then drop to new-only. A one-step cutover is what breaks the graphs.
+
+**Project attributes** — the ones no convention covers. Bounded value space, sibling spelling, project prefix:
+- `tenant_id`, `entity_id`, `operation`
+- `cache.hit` (boolean)
+- `error_code` (closed enum)
+
+Never an attribute: raw request/response bodies, a full URL carrying query params, anything per-request-unique (that is `trace_id`), or a timestamp (the span has two already).
 
 ## Sampling
 
@@ -109,3 +132,20 @@ Bad attributes (cardinality explosion):
 - Raw request bodies as attributes (cardinality + PII).
 - Head-sampling that drops all errors (defeats the purpose).
 - Trace backend without retention policy (data grows without bound).
+
+## Detectors (what a reviewer flags)
+
+- **Deprecated semantic-convention attribute** — `http.url`, `http.method`, `http.status_code`, `db.system`, `db.statement` on a new span, or `deployment.environment` on the resource. Replace per the table above; mid-migration, set `OTEL_SEMCONV_STABILITY_OPT_IN=http/dup,database/dup` for the span attributes and say so in the PR — the resource rename has no opt-in, so carry both keys until the dashboards are re-pointed.
+- **High-cardinality span name** — a substituted path or an ID in the name. Latency aggregates by name; this destroys the p95.
+- **Every span `INTERNAL`** — SpanKind never set on process-boundary calls, so the backend shows one node and no service map.
+- **Broken async boundary** — publisher opens a span, consumer starts a *new* trace because context never reached the message metadata. Two half-traces, no join.
+- **Trace context but no log correlation** — no log line carries `trace_id` / `span_id`, so a slow trace can't be turned into the log lines that explain it.
+- **Head sampler in front of the errors** — fixed-ratio sampling at the edge with no always-sample-on-error rule; the traces you need most are the likeliest dropped.
+
+## References
+
+- HTTP spans semconv — `https://opentelemetry.io/docs/specs/semconv/http/http-spans/`
+- Database spans semconv — `https://opentelemetry.io/docs/specs/semconv/database/database-spans/`
+- Attribute registry (authority on current spellings) — `https://opentelemetry.io/docs/specs/semconv/registry/attributes/`
+- HTTP semconv migration (`OTEL_SEMCONV_STABILITY_OPT_IN`) — `https://opentelemetry.io/docs/specs/semconv/non-normative/http-migration/`
+- W3C Trace Context — `https://www.w3.org/TR/trace-context/`

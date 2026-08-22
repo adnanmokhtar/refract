@@ -72,7 +72,8 @@ Histogram > summary in distributed systems: histograms aggregate across instance
 - Counter suffix: `_total`. So `http_requests_total`, NOT `http_requests`.
 - Unit suffix: `_seconds`, `_bytes`, `_ratio`. NEVER `_milliseconds` (Prometheus convention is base SI units).
 - Service prefix: `orders_requests_total` not `requests_total` — disambiguates when you have many services.
-- Labels lowercase: `status`, `method`, `endpoint`, `tenant`.
+- Labels lowercase: `status`, `method`, `endpoint`, `plan`.
+- Where the project mirrors OTel semantic conventions rather than a local scheme, the stable HTTP server latency metric is `http.server.request.duration` — a Histogram in **seconds**. The pre-stabilization `http.server.duration` (milliseconds) is not the current name.
 
 ## Cardinality discipline
 
@@ -85,13 +86,33 @@ http_requests_total{method="GET", endpoint="/orders", status="200"}  ← 1 serie
 If you label by `tenant_id` with 1k tenants, that becomes 1k series per (method, endpoint, status). If you ALSO label by `user_id` with 1M users, you get 1B series and the TSDB falls over.
 
 ```
-GOOD labels (bounded):  status, method, endpoint, tenant (small N), plan, region, cache_hit
+GOOD labels (bounded):  status, method, endpoint, plan, region, cache_hit
 BAD labels (unbounded): user_id, request_id, order_id, raw_url_with_query, email, IP
 ```
 
-Rule of thumb: each label should have ≤ ~100 distinct values, and the cross product across all labels on a metric should be ≤ ~10k series.
+**Compute the series count; don't eyeball the label.** The number is a product and every factor is knowable before merge:
 
-If you need per-user analysis, that's logs or traces — not metrics.
+```
+series = ∏(distinct values per label) × replicas
+```
+
+Worked, because this is the decision that actually bites on a multi-tenant service — `tenant_id` is simultaneously the most useful dimension you have and the one most likely to detonate:
+
+| Metric | Labels | Series |
+|---|---|---|
+| `orders_requests_total{status}` | 3 statuses × 6 replicas | 18 |
+| `+ endpoint` | 3 × 20 endpoints × 6 | 360 |
+| `+ tenant_id`, 200 tenants | 3 × 20 × 200 × 6 | 72,000 |
+| `+ tenant_id`, 10,000 tenants | 3 × 20 × 10,000 × 6 | **3,600,000** |
+
+"`tenant_id` is fine under 10k tenants" is not a rule — it holds only while the rest of the product is small. Prometheus's own guidance is to keep a metric's cardinality below ~10 distinct values per label and treat anything past ~100 as needing a different design, so a tenant label is already over budget by that standard at three-digit tenant counts.
+
+Two moves resolve it, and they are not alternatives — use both:
+
+- **On the metric**: label the top-N tenants, bucket the rest as `other`. Per-tenant alerting survives for the tenants anyone would page about; series count stops growing with signups.
+- **On logs, traces and exemplars**: full tenant fidelity, always. `tenant_id` is a *field*, not a label — that is where "which tenant?" gets answered, and it costs nothing in the TSDB.
+
+If you need per-user analysis, that's logs or traces — never metrics.
 
 ## Code example (Prometheus client, Node)
 
@@ -109,7 +130,8 @@ const httpDuration = new Histogram({
   name: 'orders_http_request_duration_seconds',
   help: 'HTTP request duration',
   labelNames: ['method', 'endpoint'],
-  buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],  // explicit buckets
+  // OTel advisory set + an edge at 0.3, this service's SLO threshold
+  buckets: [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.3, 0.5, 0.75, 1, 2.5, 5, 7.5, 10],
 });
 
 // USE: pool saturation
@@ -122,6 +144,9 @@ const dbPoolWaiting = new Gauge({
 const ordersPlaced = new Counter({
   name: 'orders_placed_total',
   help: 'Orders successfully placed',
+  // `tenant` here is the top-N bucketed value, not the raw tenant id:
+  //   topNTenant(id) -> the id if it is in the top 20 by volume, else 'other'
+  // Raw tenant fidelity lives on the log line and the span, where it is free.
   labelNames: ['tenant', 'channel'],
 });
 
@@ -142,16 +167,19 @@ app.use((req, res, next) => {
 
 Note `routePattern(req)` returns `/orders/:id`, NOT `/orders/abc-123`. Raw paths explode cardinality.
 
-## Histogram buckets — pick deliberately
+## Histogram buckets — one rule, then a default
+
+**The rule that matters: put a bucket edge exactly at your SLO threshold T.** A latency SLI is a *count* of requests under T (see `slo.md`), and a classic histogram can only count at a bucket boundary — everything else is interpolation. With an SLO of "99% under 300ms" and edges at 0.25 and 0.5, the SLI is a guess, and it will disagree with the burn-rate alert computed from the same series. Every other bucket choice is a resolution/cost trade; this one is correctness.
+
+**Default when no SLO pins it yet** — the OpenTelemetry advisory set for `http.server.request.duration`, in seconds:
 
 ```
-[0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]   // good: 9 buckets, web API range
-[1, 2, 3, ...100]                              // bad: 100 buckets per series, cost explodes
+[0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10]
 ```
 
-Default buckets in most clients are not appropriate for every workload. For sub-second APIs, use the example above. For long-running jobs, shift higher: `[1, 5, 10, 30, 60, 300, 1800]`.
+Use it verbatim rather than inventing a list, so services stay comparable and nobody re-derives it per PR. Shift the range for a different workload (long jobs: `[1, 5, 10, 30, 60, 300, 1800]`); add an edge at T when the SLO lands. Never `[1, 2, 3, ... 100]` — 100 buckets per series. `histogram_quantile(0.95, ...)` sees only the edges you defined: too few is imprecise, too many is pure storage cost.
 
-The percentile calculation (`histogram_quantile(0.95, ...)`) only sees the buckets you defined — too few buckets gives imprecise percentiles, too many wastes storage.
+**Native / exponential histograms remove the trade-off — where they're actually scraped.** Prometheus native histograms were experimental from v2.40 behind `--enable-feature=native-histograms` and became **stable in v3.8.0**. Stability is not sufficient: scraping them must still be enabled via `scrape_native_histograms`. In 3.8 the old flag's only remaining effect is to default that setting to true; from 3.9 the flag is a no-op and the setting is required; from v4.0 `scrape_native_histograms` and `send_native_histograms` default to true. **A service emitting native histograms into a server that isn't scraping them emits nothing**, silently. Check the server version and the scrape config before relying on them.
 
 ## Dashboards
 
@@ -232,8 +260,10 @@ If you have no metrics today:
 
 ## References
 
-- Prometheus naming conventions (prometheus.io/docs/practices/naming) — the canonical reference.
-- "Site Reliability Engineering" Google book, ch. 6 — RED + USE methodology origin.
-- Brendan Gregg's USE method (brendangregg.com/usemethod.html) — resource saturation methodology.
-- Tom Wilkie's RED method talk (RED Method for Microservices) — request-driven services.
-- OpenTelemetry metrics SDK docs — vendor-neutral alternative to Prometheus client libs.
+- Prometheus metric + label naming — `https://prometheus.io/docs/practices/naming/`
+- Prometheus instrumentation practices (the cardinality guidance above) — `https://prometheus.io/docs/practices/instrumentation/`
+- Prometheus native histograms (stability, `scrape_native_histograms`) — `https://prometheus.io/docs/specs/native_histograms/`
+- OpenTelemetry HTTP metrics semconv (`http.server.request.duration` + its advisory buckets) — `https://opentelemetry.io/docs/specs/semconv/http/http-metrics/`
+- Brendan Gregg — the **USE** method (utilization / saturation / errors, per resource): `https://www.brendangregg.com/usemethod.html`
+- Tom Wilkie — the **RED** method (rate / errors / duration, per request-driven service): `https://grafana.com/blog/2018/08/02/the-red-method-how-to-instrument-your-services/`
+- *Site Reliability Engineering* ch. 6, "Monitoring Distributed Systems" — the **four golden signals**, ancestor of both methods above but not itself RED or USE: `https://sre.google/sre-book/monitoring-distributed-systems/`

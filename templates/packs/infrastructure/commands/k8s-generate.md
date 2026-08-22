@@ -26,6 +26,8 @@ Default-secure manifests for one service: probes, resources, non-root, default-d
 8. NetworkPolicy halt: default-deny without explicit DNS egress allow → halt.
 9. Least-privilege (in-cluster IAM) halt — the k8s equivalent of "no wildcard IAM": any workload binding the namespace `default` ServiceAccount; any bound Role/ClusterRole granting a wildcard verb or resource (`verbs: ["*"]`, `resources: ["*"]`, `apiGroups: ["*"]`) or a `cluster-admin` binding; `automountServiceAccountToken` unset/`true` on a workload that never calls the K8s API; or any container with `privileged: true`, `hostNetwork: true`, `hostPID/hostIPC: true`, or a `hostPath` volume → halt. Least-privilege in k8s is a dedicated, minimally-scoped ServiceAccount + a namespaced Role, never `default` + never wildcard verbs.
 10. Cost-bound halt: worst-case spend must be computable before write — an HPA without a bounded `maxReplicas`, or a Deployment where `maxReplicas × per-pod (cpu+memory requests)` cannot be stated, is unbounded cost → halt. Record the computed ceiling inline (`# worst-case: 10 pods × (500m cpu, 512Mi mem)`).
+11. **API-version halt — resolve every `apiVersion` from the cluster, never from memory.** Before writing, run `kubectl api-resources` (and `kubectl explain <kind>.<field>` for any field whose graduation you are unsure of) against the TARGET cluster and use the versions it reports. Kubernetes serves only the three most recent minors (https://kubernetes.io/releases/) and removes group versions on a published schedule (https://kubernetes.io/docs/reference/using-api/deprecation-guide/) — `policy/v1beta1` PodDisruptionBudget has not been served since v1.25, `autoscaling/v2beta2` HorizontalPodAutoscaler since v1.26. If no cluster is reachable, take the sibling manifests' `apiVersion` values as the oracle instead and say so; if there is neither a cluster nor a sibling → halt and ask which minor to target. A free-generated `apiVersion` is the single most damaging thing this command can write: it passes review and fails at apply.
+12. **Edge-API halt.** Do not emit an `Ingress` without confirming the cluster has an ingress controller (`kubectl get ingressclass`), and do not emit Gateway API objects without confirming the CRDs are installed (`kubectl api-resources --api-group=gateway.networking.k8s.io`) — Gateway API is an add-on, not built in (https://kubernetes.io/docs/concepts/services-networking/gateway/). Mirror whichever the siblings use. Controller-specific annotations are copied from the sibling, never invented: an annotation the installed controller does not implement is ignored silently, so a generated "rate limit" that does nothing is worse than none.
 
 If no sibling exists in the repo, halt and ask the user to point at a gold-standard manifest set OR confirm this service is the new gold standard (then the manifest is reviewed by `infra-architect` before write).
 
@@ -72,8 +74,8 @@ Dispatch `infra-architect` to confirm probes + base image hardening.
 Generate under `k8s/<service>/`:
 - **Deployment** — `revisionHistoryLimit: 5`, `RollingUpdate` with `maxSurge: 25%` / `maxUnavailable: 0`, probes, resources, `securityContext` (`runAsNonRoot: true`, `readOnlyRootFilesystem: true`, capabilities dropped, `allowPrivilegeEscalation: false`), `topologySpreadConstraints` for AZ spread.
 - **Service** — `ClusterIP`, named port matching Deployment.
-- **Ingress** — TLS via cert-manager / equivalent; sane annotations (rate-limit, body size).
-- **HorizontalPodAutoscaler** — CPU + memory target; min/max bounded.
+- **Edge object** — whichever API the cluster serves (halt #12): an `Ingress` with `ingressClassName` + TLS, or a Gateway API `HTTPRoute` attaching to the platform's `Gateway`. Annotations/route fields copied from the closest sibling, not invented.
+- **HorizontalPodAutoscaler** — min/max bounded. **CPU (or a custom/external metric that tracks the real bottleneck — queue depth, in-flight requests, RPS). Do NOT emit a memory target as a scaling signal**: memory usually grows and holds, so it scales up and never back down, and `k8s-reviewer` §4 grades memory-only HPA metrics as a Medium finding — this command must not generate what its own Phase-6 gate flags. If the workload is genuinely memory-bound, say so inline (`# memory target: <workload> is memory-bound because <evidence>`) and expect the reviewer to check that claim.
 - **PodDisruptionBudget** — `minAvailable: <replicas - 1>` for `replicas >= 3`. Single-replica (`replicas == 1`): a PDB is degenerate — `minAvailable: 0` protects nothing and `minAvailable: 1` blocks every voluntary drain forever. Either **skip the PDB** (single-replica service tolerates disruption — note it inline) OR, if the service must stay available, **require `replicas >= 2`** and emit the PDB against that. Two replicas → `minAvailable: 1`. Never emit a PDB for a 1-replica Deployment.
 - **NetworkPolicy** — default-deny ingress + egress; explicit allows (DNS, observability, dependencies).
 - **ServiceAccount + RBAC** — a dedicated ServiceAccount (never `default`); `automountServiceAccountToken: false` unless the workload calls the K8s API; if it does, a namespaced `Role` + `RoleBinding` scoped to the exact verbs/resources needed (no wildcard, no `ClusterRoleBinding` to `cluster-admin`). Reference the SA from the Deployment's `spec.template.spec.serviceAccountName`.
@@ -94,7 +96,8 @@ If repo uses Helm, scaffold under `charts/<service>/` with `Chart.yaml`, `values
 
 ### 6a — Static gates (agent-run, before any done-declaration)
 
-- `kubeconform` (or `kubeval`) — `0 errors` required (the reproducibility floor). If no schema/tool available, mark **UNVERIFIED**, never a faked pass.
+- `kubeconform` — `0 errors` required (the reproducibility floor), run with `-kubernetes-version <target minor>` so the schema matches the cluster rather than the newest one on disk. (`kubeval` is unmaintained and its own README points at `kubeconform`: https://github.com/instrumenta/kubeval.) If no schema/tool is available, mark **UNVERIFIED**, never a faked pass.
+- API-version resolution recorded: the `kubectl api-resources` output (or the sibling manifest) each generated `apiVersion` came from. "Resolved from memory" is not a pass — mark **UNVERIFIED (no cluster, no sibling)**.
 - Dispatch `k8s-reviewer` on the RENDERED manifests (`helm template` / `kustomize build` output, not values files). Record its **PRODUCTION-GRADE verdict verbatim** in the output. **Any Blocker finding → the verdict is NOT-PRODUCTION-GRADE → this command halts the done-declaration** and reports INCOMPLETE with the Blocker's `<file:JSONPath>` named. The reviewer verdict IS the enforcement mechanism for the judgment controls (least-privilege minimality, right-sized requests) that no grep can prove.
 - Apply to a dev cluster + `kubectl rollout status` succeeds. No dev cluster reachable → mark that line **UNVERIFIED (no cluster)**, never claim it passed.
 
@@ -108,7 +111,7 @@ The run MUST emit this scorecard; a reader checks it against the manifests. Each
 | 2 | Resource requests AND limits on every container; no privileged containers | cite `resources.requests`/`resources.limits` per container | `[mechanical]` halt #4 + k8s-reviewer invariant |
 | 3 | Secrets via a manager, never inline base64 | cite the `ExternalSecret`/`SealedSecret`; assert no `kind: Secret` with `data:` in git | `[mechanical]` grep for committed `kind: Secret` |
 | 4 | NetworkPolicy scoped: default-deny ingress+egress with explicit minimal allows incl. DNS | cite the default-deny policy + each allow rule | `[mechanical]` halt #8 + k8s-reviewer §5 |
-| 5 | Reproducible + cost-aware: image digest/semver-pinned (no `:latest`); HPA `maxReplicas` bounded; worst-case spend stated (`maxReplicas × per-pod requests`) | cite the pinned `image:` + `hpa.spec.maxReplicas` + the computed ceiling | `[mechanical]` halt #7/#10 + kubeconform PASS |
+| 5 | Reproducible + cost-aware: image digest/semver-pinned (no `:latest`); every `apiVersion` resolved from the cluster or a sibling and still served; HPA `maxReplicas` bounded; worst-case spend stated (`maxReplicas × per-pod requests`) | cite the pinned `image:` + the `kubectl api-resources` line per kind + `hpa.spec.maxReplicas` + the computed ceiling | `[mechanical]` halt #7/#10/#11 + kubeconform PASS at the target minor |
 
 **Verdict rule (halting):** report **PRODUCTION-GRADE** only when all 5 controls are MET **and** kubeconform = PASS **and** the k8s-reviewer verdict is PRODUCTION-GRADE (0 Blockers). If any control is UNMET, any Blocker stands, or kubeconform is UNVERIFIED, report **INCOMPLETE — unmet: <controls>** and do not declare done.
 
@@ -152,6 +155,7 @@ VERDICT: PRODUCTION-GRADE
 
 ## Failure modes
 
+- **An `apiVersion` recalled instead of resolved** — the manifest lints clean, passes review, and fails at `kubectl apply` on the one cluster that matters. Group versions are removed on a schedule; `kubectl api-resources` is the only oracle.
 - Image tag = `:latest` — non-reproducible deploys, broken rollbacks; use digest or semver.
 - Requests-only or limits-only — oversubscription or runaway resource use.
 - Confused liveness vs readiness — silent dead pods OR cascading restarts during slow startup.
@@ -168,6 +172,7 @@ VERDICT: PRODUCTION-GRADE
 ### Agents
 - `@k8s-reviewer` — renders the Phase 6 PRODUCTION-GRADE verdict this command gates on.
 - `@infra-architect` — confirms probe shape + base-image hardening in Phase 4.
+- `@kubernetes-architect` — owns the cluster operating model these manifests sit inside (edge API, tenancy, upgrade cadence). Consult it when halt #11 or #12 exposes a cluster-level question (an unsupported minor, no ingress controller, no Gateway API CRDs) rather than a manifest-level one.
 
 ### Commands
 - `audit-iam` — the cloud-IAM analog of control 1; run it against the ServiceAccount's IRSA/Workload-Identity binding after apply.

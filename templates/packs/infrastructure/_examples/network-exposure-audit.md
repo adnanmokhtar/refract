@@ -25,6 +25,22 @@ Find real exposure. Every finding cites the concrete resource (`aws_security_gro
 - After any new public-facing service, LB, or bucket ships.
 - Before a compliance / pen-test window; post-incident to confirm blast radius.
 
+## Adapt to the provider
+
+The audit demands cited tool output, so each surface names **the command that produces the citation** and **the field to read**. Emit JSON and read the named field rather than eyeballing a console — the field name is the durable part.
+
+| Surface | Command → field to read |
+|---|---|
+| AWS security groups | `aws ec2 describe-security-groups --output json` → `IpPermissions[].IpRanges[].CidrIp` + `Ipv6Ranges[].CidrIpv6`, paired with `FromPort`/`ToPort`/`IpProtocol`. A finding needs the CIDR **and** the port range |
+| AWS subnet placement | `aws ec2 describe-route-tables --output json` → a route whose `GatewayId` starts `igw-` makes the associated subnets public, whatever they are named; then `aws ec2 describe-subnets` → `MapPublicIpOnLaunch` |
+| AWS managed data stores | `aws rds describe-db-instances --output json` → `PubliclyAccessible`, plus the subnet group checked against those route tables |
+| AWS object storage | `aws s3api get-public-access-block --bucket <name>` → the four `BlockPublic*` / `RestrictPublic*` booleans; `aws s3api get-bucket-policy` → any statement with `"Principal": "*"` |
+| AWS load balancers | `aws elbv2 describe-load-balancers --output json` → `Scheme`; `describe-listeners` → `Protocol` + `Certificates` |
+| GCP | `gcloud compute firewall-rules list --format=json` → `sourceRanges`, `direction`, `allowed[].ports`, `disabled`; `gcloud sql instances describe <i> --format=json` → `settings.ipConfiguration.ipv4Enabled` + `authorizedNetworks` |
+| Azure | `az network nsg rule list -g <rg> --nsg-name <n> -o json` → `sourceAddressPrefix` (`*` / `Internet`), `destinationPortRange`, `access`, `direction`; `az storage account show` → `publicNetworkAccess` + `allowBlobPublicAccess` |
+| Kubernetes | `kubectl get networkpolicy -A -o yaml` → default-deny is `podSelector: {}` with empty `ingress` (and `egress` for egress control); `kubectl get svc -A -o json` → `spec.type == "LoadBalancer"` on internal-only workloads |
+| Terraform / IaC | The same resources in declared form — the whole state, not one PR diff |
+
 ## Checks
 
 - **SG / firewall / NSG**: no `0.0.0.0/0` (or `::/0`) inbound on non-public ports (22, 3389, 3306/5432/1433/27017, 6379, admin/metrics); no all-ports rule; every broad-source rule has a documented reason.
@@ -49,6 +65,16 @@ HIGH:
 
 Every path above lacks a documented reason. File tickets for CRITICAL + HIGH.
 ```
+
+## False positives / gotchas
+
+This section is what stops the audit returning a wall of findings nobody can triage. Each of these looks like exposure and is not:
+
+- `0.0.0.0/0` on 80/443 behind a public ALB or ingress is the intended path — not a finding on its own.
+- A public IP on a NAT gateway or a bastion is expected; the finding is a DB, cache, or app tier with one.
+- A NetworkPolicy that exists but selects no pods (wrong label) is NOT default-deny — verify the selector before crediting it.
+- Cloud console shows the running state; IaC shows the declared state. Drift between them is itself a finding, and the more interesting one.
+- "Private subnet" means no route to an internet gateway. **A subnet named `private` with an IGW route is public** — read the route table, not the name.
 
 ## Boundary
 

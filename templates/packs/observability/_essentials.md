@@ -2,9 +2,9 @@
 track: observability
 purpose: Logging, metrics, tracing, and incident response wiring.
 essentials:
-  agents: [observability-reviewer]
+  agents: [observability-reviewer, telemetry-architect]
   commands: [add-telemetry]
-  skills: []
+  skills: [alert-audit]
   rules: [observability-principles]
   ai-patterns: [structured-logging]
 ---
@@ -14,8 +14,10 @@ essentials:
 Files listed above are the minimal subset copied when `/setup-project --minimal` is used. Standard mode copies the entire pack; minimal mode copies only essentials.
 
 Rationale per category (one line each):
-- agents: observability-reviewer is the universal auditor; sre-engineer/incident-responder/telemetry-architect are specialists kept out of minimal.
-- commands: add-telemetry is the only creation command — the day-one entry point.
-- skills: none essential — alert-audit becomes useful only once telemetry exists.
-- rules: observability-principles is the single rules file in the pack.
-- ai-patterns: structured-logging is the foundational pattern; metrics/tracing build on it and are kept out of minimal. slo (SLI/error-budget/multi-window burn-rate — resolves the previously-dangling slo.md), audit-logging (tamper-evident compliance trail — the target backend OBS-1 + security A09 defer here; security owns WHAT, observability owns the pipeline), and profiling (continuous production profiling — the 4th signal, distinct from performance's dev-time profiling) are signal-gated. Boundary: observability owns RUM ingestion/retention (performance owns field-CWV measurement) + the trace HOW (distributed-systems owns trace-coverage-as-SLO).
+- agents: `observability-reviewer` is the universal auditor; `telemetry-architect` is here because `/add-telemetry` Phase 4 dispatches it — a minimal install without it ships a command that cannot reach its own generate step.
+- commands: `add-telemetry` is the only creation command — the day-one entry point, and the owner of the ledger the two narrow entry points route back to.
+- skills: `alert-audit` only, because `/add-telemetry`'s closure gate requires its dispatch to return clean; without it that command can never compute COMPLETE.
+- rules: `observability-principles` is the single rules file in the pack.
+- ai-patterns: `structured-logging` is the foundational pattern; `metrics` / `tracing` build on it, and `slo` / `audit-logging` / `profiling` are signal-gated — all kept out of minimal.
+
+Cross-pack boundaries this pack asserts live in `STACK.md`, not here.

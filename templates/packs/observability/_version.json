@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "observability",
-  "version": "1.3.0",
-  "released": "2026-07-10",
+  "version": "1.4.0",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "telemetry/alert changes gate on emit-and-assert + SLO burn-rate actionability, not 'added a counter'.",
+  "summary": "audits get a NO-DATA verdict and an evidence column; OTel semconv names refreshed; the three-tier burn table reconciled pack-wide.",
   "changelog": "CHANGELOG.md"
 }

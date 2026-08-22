@@ -15,7 +15,7 @@ pack: infrastructure
 - Edge cache + single-region origin has been exhausted and global users still complain.
 
 **When NOT to apply**
-- Pre-PMF or < $10M ARR B2B SaaS — single region with cross-AZ HA covers 99.9%+.
+- The cost of an hour of region-level outage is smaller than the standing 1.5-3x infrastructure multiplier below. That comparison is the decision; company-stage rules of thumb are not.
 - Latency complaints from a few users — try CDN / edge cache first.
 - Team has no working backup-restore drill — fix single-region resilience BEFORE multiplying regions.
 
@@ -47,9 +47,17 @@ pack: infrastructure
 
 ## When NOT multi-region
 
-- **MVP / pre-PMF**: single region. Multi-region adds complexity, cost, latency, and surface area for bugs without proportional benefit.
-- **Most B2B SaaS at <$10M ARR**: single region with cross-AZ HA + good backups handles 99.9%+ availability.
-- **Global users but no latency complaints**: edge cache handles this; multi-region origin doesn't.
+Do the arithmetic instead of reaching for a stage label. Three numbers decide it:
+
+1. **Cost of an hour of region-level outage** — revenue lost + contractual penalty + churn. From finance, not from intuition.
+2. **Expected annual region-outage hours** — your provider's historical regional incidents for the regions you actually use, not their marketing SLA.
+3. **The standing multiplier** — 1.5-2x for active-passive, 2-3x plus design overhead for active-active (see Architectures), paid every month whether or not a region ever fails.
+
+Multi-region is justified when (1) × (2) exceeds (3). Usually it does not, which is why the honest defaults are:
+
+- **Cross-AZ HA in one region, with backups that have actually been restored.** Most of the availability, a fraction of the complexity.
+- **Global users but no latency complaints**: edge cache handles this; a multi-region origin does not.
+- **No working restore drill**: fix single-region resilience first — multiplying regions multiplies an untested recovery path.
 
 Multi-region is a "we're forced to" decision, not a "we should" one. Until you've maxed out single-region resilience, multi-region is over-investment.
 
@@ -114,7 +122,7 @@ Pitfalls:
 ### Database
 
 - AWS RDS: read replicas across regions (max one writer per region; can promote).
-- Aurora Global Database: multi-region read replicas + 1-min RPO failover.
+- Aurora Global Database: cross-region replicas with storage-level replication — AWS documents replication latency as *"typically under a second"*, and a planned **switchover** relocates the primary *"with no data loss"* while an unplanned **failover** loses whatever had not replicated at that instant (https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database.html). Do not quote a fixed RPO: for unplanned failover the RPO IS the lag, so measure and alarm on the lag. Aurora PostgreSQL global databases additionally expose a managed RPO setting — read its current limitations before relying on it.
 - PostgreSQL native: streaming replication; failover via Patroni / pg_auto_failover.
 - Cassandra / DynamoDB / Cosmos DB: native multi-region writeable.
 - For transactional workloads: prefer AP design with single primary; CP design (distributed transactions) is hard.

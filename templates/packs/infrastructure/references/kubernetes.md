@@ -1,9 +1,23 @@
 # Kubernetes reference
 
-> **Tool**: Kubernetes 1.29+ / 1.30 / 1.31 (LTS by major cloud providers varies — EKS / GKE / AKS each track their own)
-> **Official docs**: https://kubernetes.io/docs/
-> **Version-specific gotchas**: 1.29 graduated `KubeProxyConfig` + sidecar containers (init-container with `restartPolicy: Always`); 1.30 graduated structured-authn config; PodSecurityPolicy fully removed (use Pod Security Admission since 1.25); `NetworkPolicy` egress + ingress rules — default-deny is OFF unless you explicitly add a policy; `topologySpreadConstraints` over manual anti-affinity for HA spread.
+> **Tool**: Kubernetes. **This file does NOT pin a version, deliberately.** Upstream maintains only the three most recent minors, each with roughly a year of patch support, and ships about three minors a year (https://kubernetes.io/releases/) — any version written here is wrong within months. Read the cluster: `kubectl version`. Managed providers (EKS / GKE / AKS) track their own, narrower windows.
+> **Official docs**: https://kubernetes.io/docs/ • Removed-API schedule: https://kubernetes.io/docs/reference/using-api/deprecation-guide/
+> **Version-specific gotchas**: PodSecurityPolicy has not been served since v1.25 — Pod Security Admission (`pod-security.kubernetes.io/enforce`) replaced it. `NetworkPolicy` default-deny is OFF unless you explicitly add a policy. `topologySpreadConstraints` (zone-keyed) over manual anti-affinity for HA spread. Native sidecars are `initContainers` with `restartPolicy: Always` — confirm support on the target minor with `kubectl explain pod.spec.initContainers.restartPolicy`.
 > **Substitution markers**: Replace `registry.example.com/api@sha256:<digest>` with the project's actual image reference.
+
+## Resolve API versions from the cluster, never from memory
+
+Group versions are removed on a published schedule and the schedule is the citation, not recall:
+
+```bash
+kubectl version                       # the minor everything below is relative to
+kubectl api-resources                 # every kind the cluster serves, with its version
+kubectl explain <kind>.<field>        # whether a field exists on THIS minor
+```
+
+Removals already in effect (see the deprecation guide for the full list, and check it rather than this line): `policy/v1beta1` PodDisruptionBudget and `batch/v1beta1` CronJob have not been served since v1.25; `autoscaling/v2beta2` HorizontalPodAutoscaler since v1.26. A manifest carrying a removed version lints clean, passes review, and fails at apply.
+
+`kubeconform -kubernetes-version <minor>` validates against the target's schema rather than the newest one on disk. (`kubeval` is unmaintained; its README points at kubeconform: https://github.com/instrumenta/kubeval.)
 
 ## Canonical Deployment
 
@@ -70,8 +84,8 @@ spec:
 ## Companions
 
 - **Service** (ClusterIP) — stable DNS + load balance across pods.
-- **Ingress** (nginx / traefik) — external HTTP + TLS.
-- **HorizontalPodAutoscaler** — CPU-based scaling `{ min: 2, max: 10, target-cpu: 70% }`.
+- **North-south edge** — `Ingress` or Gateway API; see below. Whichever the cluster already serves wins.
+- **HorizontalPodAutoscaler** — CPU-based scaling `{ min: 2, max: 10, target-cpu: 70% }`. Memory is a poor scaling signal (it grows and holds); use a custom/external metric for queue- or IO-bound work.
 - **PodDisruptionBudget** — `minAvailable: 1` prevents voluntary drains from killing everything.
 - **NetworkPolicy** — default-deny + explicit allows for DNS + service ports.
 - **ServiceAccount + RoleBinding** — least-privilege for pod-to-API access.
@@ -94,6 +108,7 @@ spec:
 - `maxSurge: 1, maxUnavailable: 0` — zero-downtime.
 - Readiness probe MUST pass before traffic shifts.
 - Old pods drain per `terminationGracePeriodSeconds`.
+- **Endpoint removal and SIGTERM are issued in parallel**, so a pod can still receive traffic after it has begun shutting down. A `lifecycle.preStop` delay on the container is the standard mitigation — see `ai/patterns/zero-downtime-deploys.md`.
 
 ## Autoscaling
 
@@ -102,12 +117,25 @@ spec:
 - VPA (vertical) for right-sizing; use with caution in prod.
 - Cluster Autoscaler adds nodes when pods can't schedule.
 
-## Networking
+## Networking — the edge decision
 
 - Services: ClusterIP (internal), NodePort (discouraged), LoadBalancer (public cloud).
-- Ingress: one or more controllers (nginx, traefik, istio).
 - NetworkPolicy default-deny, then allow-list.
 - DNS: `<svc>.<ns>.svc.cluster.local`.
+
+**Ingress NGINX is retiring.** The Kubernetes Steering Committee and Security Response Committee announced retirement in **March 2026**: *"There will be no more releases for bug fixes, security patches, or any updates of any kind after the project is retired"*, and *"choosing to remain with Ingress NGINX after its retirement leaves you and your users vulnerable to attack"* (https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/). The named paths off it are Gateway API and third-party Ingress controllers, and the statement is explicit that **none is a drop-in replacement**.
+
+Note the ambiguity that bites: "nginx ingress" can mean the retiring upstream project OR a vendor's separately-maintained NGINX-based controller. `ingressClassName` does not distinguish them — check the controller Deployment's image.
+
+**`Ingress` (`networking.k8s.io/v1`)** — set `spec.ingressClassName`, declare `pathType`, terminate TLS. Behaviour beyond host/path routing is expressed in controller-specific annotations, which are NOT portable and are silently ignored when the installed controller does not implement them.
+
+**Gateway API (`gateway.networking.k8s.io/v1`)** — kinds `GatewayClass` / `Gateway` / `HTTPRoute` / `GRPCRoute`. It is an **add-on installed as CRDs, not built into Kubernetes** (https://kubernetes.io/docs/concepts/services-networking/gateway/), so confirm the CRDs exist:
+
+```bash
+kubectl api-resources --api-group=gateway.networking.k8s.io
+```
+
+The design point is the ownership split: the platform owns the `Gateway` (listeners, TLS, addresses), each team owns its `HTTPRoute` and attaches via `parentRefs`. Cross-namespace attachment requires the `Gateway`'s `allowedRoutes` to permit it — check `status.parents[].conditions` for `Accepted`, because an unattached route fails silently. Weights, header matches and redirects are first-class route fields, not annotations.
 
 ## Observability
 

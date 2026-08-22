@@ -11,12 +11,21 @@ Alert fatigue kills teams. Half of "oncall hell" is garbage alerts drowning out 
 
 Find real issues. Every "dead", "noisy", "missing runbook", "missing owner" finding cites a specific alert name, the rule file path, and the query / pager-history that supports the verdict. Fire counts come from the actual alert history (the project's alerting backend API + paging service incidents) — not estimates. A "broken query" finding cites the metric name that was renamed and the commit that did it. SLO burn-rate gaps cite the SLO from `slos.md` that lacks coverage.
 
+**Two of this audit's checks read files; two read a live backend, and those two are usually
+unreachable from a repo.** Runbook-presence and cause-vs-symptom are decidable by grepping the rule
+files — no excuse there. Dead-alert and noisy-alert verdicts require 90d of fire history from the
+alerting backend and the paging service, and an agent running where the code is generally cannot
+query either. That case has a first-class verdict (`NO-DATA`); guessing a fire count is the
+fabrication this skill exists to prevent.
+
 ## Halt conditions
 
-- Refuse to call an alert "dead" without the 90d fire history backing it.
-- Refuse to flag "no runbook" without grepping the rule file (cite path).
+- **A verdict with an empty evidence cell is fabricated.** Every finding records the query / grep run and what it returned. No evidence → `NO-DATA`, never a blank and never an estimate.
+- Refuse to call an alert "dead" without the 90d fire history backing it — record `NO-DATA(alert history unreachable)` and move on. Do not downgrade it to "probably fine".
+- Refuse to flag "no runbook" without grepping the rule file (cite path). This one is always decidable from the repo, so `NO-DATA` is never the honest answer for it.
 - Halt on hand-waves like "this alert seems noisy" — produce the fire count or drop the claim.
 - Don't propose deletion without confirming nobody's runbook references it.
+- An adjective where a count belongs ("fires a lot") is not a finding. Produce the number or produce `NO-DATA`.
 
 ## When to run
 
@@ -80,53 +89,68 @@ Rule: alert on what users feel. Cause alerts useful as supplementary info on a d
 
 ### SLO burn-rate alerts missing?
 
-Check: do you have burn-rate alerts on the defined SLOs?
-- Fast burn (1h window, 14.4x budget) → page.
-- Slow burn (6h window, 6x budget) → page.
-- Neither configured = you won't detect slow-burn issues.
+Check each SLO in `slos.md` for the **three** canonical tiers (`ai/patterns/slo.md` owns the derivation):
+- Fast burn — 1h window, 14.4× budget, confirmed at 5m → **page**.
+- Medium burn — 6h window, 6× budget, confirmed at 30m → **page**. (Not a ticket. An alert set that labels this `ticket` is a finding.)
+- Slow burn — 3d window, 1× budget, confirmed at 6h → **ticket**.
 
-## Output (illustrative shape)
+The slow-burn tier is the one usually absent, and its absence is the highest-value finding in this
+section: a leak burning at exactly 1× trips neither page tier by construction, so a service with
+only the two page tiers has **no detector at all** for "we will miss the SLO at month-end". Flag a
+two-tier set as a gap, not as coverage.
+
+## Output (illustrative ledger)
+
+One row per finding, and the `Evidence` column carries the query or grep that produced it plus what
+came back. The shape below is illustrative; its numbers are placeholders. Reproducing them without
+having queried anything is the fabrication the `NO-DATA` verdict exists to make unnecessary.
 
 ```
 Alert audit — <alerting backend> + <paging service>
 
-Total alerts: 42
-Active (fired in 90d): 28
-Dead (0 fires in 90d): 14
+Rules read: 42 (from <rule file paths>)
+Fire history: <reachable | UNREACHABLE — reason>
 
-Dead alerts (candidates for removal):
-  - cpu_high_api               query returns data, never > threshold 90% — raise threshold or delete
-  - cache_evictions            metric renamed 3mo ago, query broken — FIX
-  - consumer_lag_staging       staging-only, shouldn't be in prod alerts — move
+| Alert | Finding | Evidence (query/grep run → observed) | Verdict |
+|---|---|---|---|
+| cache_evictions | broken query — metric renamed | rules/cache.yaml:31 refs `cache_evictions_total`; series absent since <commit> | DEAD |
+| cpu_high_api | never crosses threshold | backend rule-history API → 0 fires/90d; query returns data | DEAD |
+| db_pool_near_capacity | flapping | paging API → 47 fires/7d, median 45s | NOISY |
+| payment_webhook_backlog | no runbook annotation | `rg -L runbook rules/payment.yaml` → no match | ORPHAN |
+| legacy_import_job_failed | no owner label | rules/import.yaml:8, no `team`/`owner` label | ORPHAN |
+| cpu_usage_high | cause, routed as page | rules/node.yaml:12 `severity: page` on a CPU threshold | CAUSE-AS-PAGE |
+| certificate_expiring | fire count not retrievable | paging API unreachable from this environment (no credentials) | NO-DATA(paging history) |
 
-Noisy (flapping):
-  - db_pool_near_capacity      fired 47x/7d, median 45s — add a "for: 5m" debounce
-  - certificate_expiring       fired 12x/7d, cert auto-renews — bump threshold to 7d
+SLO coverage (from slos.md + the rule files — decidable without fire history):
+  ✓ api.availability      1h/14.4× page + 6h/6× page + 3d/1× ticket — all three tiers
+  ✗ checkout.success      NO burn-rate alert at all — critical gap
+  ✗ search.latency.p95    1h page + 6h page only — no 3d/1× ticket; a target-rate leak is undetectable
+  ✗ orders.success        6h/6× labelled `ticket` — that tier pages; a 6h outage waits for Monday
 
-Missing runbooks:
-  - payment_webhook_backlog    add runbook: rate limit upstream? process queue manually?
-  - external_api_latency_high  add runbook: escalate to vendor? fall back?
-
-Missing owners:
-  - legacy_import_job_failed   last owner left Q2 2024 — assign or delete
-
-Cause-based alerts (review — should these page?):
-  - cpu_usage_high             historically not correlated with user pain — demote to dashboard only
-  - memory_pressure_node       orchestrator auto-evicts — alert is redundant
-
-SLO coverage:
-  ✓ api.availability      burn-rate 1h + 6h alerts configured
-  ✗ checkout.success      NO burn-rate alert — critical gap
-  ✓ search.latency.p95    burn-rate 1h alert only — add 6h
+Audit status: INCOMPLETE — unmeasured: certificate_expiring (paging history unreachable;
+re-run where the paging API is reachable, or paste a 90d incident export).
 
 Action plan:
-  1. Remove obviously dead alerts.
-  2. Fix broken queries.
+  1. Fix broken queries (a DEAD alert with a broken query is a silent failure, not a spare rule).
+  2. Remove alerts confirmed dead with intent checked.
   3. Add debounce to flapping alerts.
   4. Write missing runbooks.
   5. Reassign orphaned alerts.
-  6. Add burn-rate alerts for SLOs lacking coverage.
+  6. Add the missing burn-rate tiers, slow-burn ticket first.
 ```
+
+Per-row `Verdict` vocabulary — pick exactly one, no synonyms:
+- **DEAD / NOISY / ORPHAN / CAUSE-AS-PAGE** — the check ran and the evidence supports it.
+- **NO-DATA(reason)** — the source needed for this check was unreachable from this environment. Name what was unreachable. A NO-DATA row is UNVERIFIED, not a pass: it never rounds to "healthy", and it downgrades the run to `INCOMPLETE`.
+
+### Closure gate — COMPLETE only when every check had its source
+
+- **`COMPLETE`** — every alert was checked against a reachable source and every finding carries evidence.
+- **`INCOMPLETE — unmeasured: <list>`** — the moment any row is `NO-DATA`. Name each alert, what was unreachable, and the one command that would close it.
+
+**[self-policed]** on the status line, wired to checkable evidence: the rule-file paths and grep
+results are inspectable, and `@observability-reviewer` will BLOCK a COMPLETE whose findings carry
+empty evidence cells.
 
 ## False positives / gotchas
 
@@ -135,6 +159,7 @@ Action plan:
 - Staging / non-prod alerts on a separate route are fine; only flag them if they page the prod rotation.
 - A flapping alert may be a real intermittent fault, not a bad rule — check median duration + downstream impact before prescribing `for: 5m`.
 - Don't propose deleting an alert that another alert's runbook references.
+- **Estimating a fire count because the paging API was unreachable.** "Probably noisy" is not a finding; `NO-DATA(paging history)` is. The two checks that *are* decidable from the repo — runbook presence and cause-vs-symptom — still run, so a NO-DATA run is a partial audit, not a wasted one.
 
 Invariants this audit enforces: every alert has a runbook + owner; alerts fire on symptoms not causes; dead alerts get fixed or deleted, never ignored; new alert PRs get code-level review.
 

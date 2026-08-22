@@ -21,10 +21,12 @@ Detect the admission engine in use (or recommend one) and generate for it:
 |---|---|---|
 | **Kyverno** | most teams — YAML policies, good UX | `verifyImages` rule with `keyless` (cosign OIDC) |
 | **Sigstore policy-controller** | signature-first shops | `ClusterImagePolicy` (native cosign/Fulcio/Rekor) |
-| **OPA Gatekeeper** | Rego-standardized orgs | constraint templates (+ `ratify`/`cosign` for signatures) |
-| **Native ValidatingAdmissionPolicy** | K8s ≥1.30, no extra controller | CEL expressions (pod-security; signatures still need a controller) |
+| **OPA Gatekeeper** | Rego-standardized orgs | constraint templates (+ a verifier such as `ratify` for signatures) |
+| **Native ValidatingAdmissionPolicy** | no extra controller wanted | CEL expressions — pod-security shape only; **image signatures still need a controller**, VAP cannot reach a registry |
 
-Mirror the cluster's existing engine; only introduce one if none exists (recommend Kyverno).
+Mirror the cluster's existing engine; only introduce one if none exists (recommend Kyverno). Native `ValidatingAdmissionPolicy` reached GA in Kubernetes 1.30, so it is available on every currently-supported minor (https://kubernetes.io/releases/) — confirm with `kubectl api-resources --api-group=admissionregistration.k8s.io` rather than assuming.
+
+**Resolve the engine's own API shape before generating.** Policy-engine CRDs deprecate fields on their own schedule, independently of Kubernetes. `kubectl explain <kind>.<field>` against the installed engine prints the DEPRECATED marker when there is one; a generated policy that sets a deprecated field still applies today and stops applying at the next engine upgrade. The current live example is `validationFailureAction` (below).
 
 ## Generates
 
@@ -38,7 +40,6 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata: { name: verify-image-signatures }
 spec:
-  validationFailureAction: Enforce            # fail closed
   rules:
     - name: check-cosign-signature
       match: { any: [{ resources: { kinds: [Pod] } }] }
@@ -51,6 +52,20 @@ spec:
                     subject: "https://github.com/<org>/<repo>/.github/workflows/*"
 ```
 Optionally also require the SBOM / SLSA-provenance attestation (`attestations:`) that `release-security` produced.
+
+**Enforce vs Audit is a PER-RULE field, not a spec-level one.** Kyverno's own API type marks the spec-level field deprecated — *"Deprecated, use validationFailureAction under the validate rule instead"* (https://raw.githubusercontent.com/kyverno/kyverno/main/api/kyverno/v1/spec_types.go) — so `spec.validationFailureAction` (and `spec.validationFailureActionOverrides`) belong to the removal path. Set it on the rule instead:
+
+```yaml
+  rules:
+    - name: require-digest
+      match: { any: [{ resources: { kinds: [Pod] } }] }
+      validate:
+        failureAction: Enforce         # per-rule; the spec-level field is deprecated
+        message: "images must be referenced by digest, not a mutable tag"
+        pattern: { spec: { containers: [{ image: "*@sha256:*" }] }}
+```
+
+Confirm the shape against the engine actually installed before generating — `kubectl explain clusterpolicy.spec.validationFailureAction` prints the deprecation marker on versions that carry it, and `kubectl explain clusterpolicy.spec.rules.validate.failureAction` confirms the replacement exists. Generating for the wrong one produces a policy that either fails schema validation or silently does not enforce.
 
 ### 2. Pod Security Standards (restricted) — enforced, not just defaulted
 
@@ -92,6 +107,7 @@ Verify:  kubectl apply --dry-run=server of an unsigned image → REJECTED with t
 ## Halt conditions
 
 - Halt on a generated policy left in `Audit`/`warn` when the intent is enforcement — say so explicitly and require the operator to opt into Audit.
+- Halt on any policy field written from memory. Confirm each against the installed engine (`kubectl explain <kind>.<field>`); a deprecated field applies today and stops applying at the next engine upgrade, which is the worst possible failure shape for a control that fails closed.
 - Do not generate a signature policy with a placeholder/over-broad `subject` — it must bind to the project's real CI identity or it verifies nothing.
 - Do not claim "images verified" without a policy that actually rejects an unsigned image (dry-run proof in the output).
 

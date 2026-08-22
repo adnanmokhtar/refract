@@ -5,14 +5,24 @@
 > **Version-specific gotchas**: Swarm mode is in maintenance (no major new features since ~2020) — Docker Inc. focuses on Kubernetes; compose-spec still works but Swarm-only fields (`deploy:`) are ignored by `docker compose up`; secrets file-mount path is `/run/secrets/<name>`; `docker stack deploy` uses Compose v3.9 schema (NOT the latest compose-spec).
 > **Substitution markers**: Replace registry / image / port with the project's actuals.
 
-Simpler than K8s, still gives you multi-host container orchestration. Fading in popularity but valid for small-to-mid teams who want more than Compose without K8s overhead.
+**Read the maintenance status before the syntax.** Swarm mode is in maintenance: it still works and is still shipped, but it has had no major feature work in years, its ecosystem is a fraction of Kubernetes', and it has no NetworkPolicy equivalent and no built-in autoscaling. That makes it a **defensible place to STAY, and a poor place to GO.**
 
-## When to choose Swarm over K8s
+This reference exists because projects already running Swarm need their conventions written down, not to recommend adopting it.
 
-- Team < 10 engineers, no dedicated SRE.
-- 2-10 nodes.
-- Docker-native workflow already adopted.
-- Want "Compose, but multi-host".
+## Is Swarm still the right answer here?
+
+| Situation | Answer |
+|---|---|
+| Already on Swarm, it meets the requirements, nobody is fighting it | **Stay.** A migration you do not need is pure risk. Confirm the requirements below still hold. |
+| Already on Swarm and hitting a stated limit (below) | Move — and `@infra-architect` decides the target, which is often a managed container runtime rather than Kubernetes |
+| Greenfield, no orchestrator yet | Do not start here. A managed container runtime gives you the same "Compose, but multi-host" ergonomics with an active roadmap |
+
+The requirements Swarm still satisfies, and the ones it does not:
+
+- **Satisfied**: fixed replica counts, rolling updates with automatic rollback, file-mounted secrets, overlay networking, self-healing, a Docker-native workflow on a handful of nodes.
+- **Not satisfied**: horizontal autoscaling (there is none — you run `docker service scale`), per-service network policy (overlay separation is the only boundary), a policy/admission layer, and any of the ecosystem tooling this pack's other references assume.
+
+If a requirement in the second list has become real, that is the signal to move — not a general sense that Swarm is unfashionable.
 
 ## Compose file (Swarm mode)
 

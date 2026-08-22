@@ -24,17 +24,37 @@ Imperative out-of-band changes and un-reconciled drift are forbidden — every c
 
 ## Scans for
 
-1. **Out-of-band mutation** — `kubectl apply/edit/scale` / `helm install/upgrade` in CI/Makefile/runbook targeting a managed namespace. 2. **No drift detection / self-heal** — `selfHeal: false` + no `OutOfSync` alert. 3. **Un-reconciled drift** — an `Application` sitting `OutOfSync` (cite status). 4. **Plaintext secret in git** — raw/base64 `Secret data:` not sealed/SOPS/external. 5. **Auto-sync + prune with no safeguard** — `prune: true` with no protected-ns/ignoreDifferences guard. 6. **No sync-wave ordering** — CRD-before-CR, DB-before-app with no `sync-wave`/`dependsOn`. 7. **No app-of-apps** — flat sprawl of hand-registered Applications.
+1. **Out-of-band mutation** — `kubectl apply/edit/scale` / `helm install/upgrade` in CI/Makefile/runbook targeting a managed namespace. 2. **No drift detection / self-heal** — `selfHeal: false` + no `OutOfSync` alert. 3. **Un-reconciled drift** — an `Application` sitting `OutOfSync` (cite status). 4. **Plaintext secret in git** — raw/base64 `Secret data:` not sealed/SOPS/external. 5. **Auto-sync + prune with no safeguard** — see below; the guards are not the ones people name. 6. **No sync-wave ordering** — CRD-before-CR, DB-before-app with no `sync-wave`/`dependsOn`. 7. **No app-of-apps** — flat sprawl of hand-registered Applications.
+
+### Prune safety — know which controls are actually guards
+
+- **`automated.allowEmpty`** is the real one, and its polarity is the opposite of a checklist item.
+  It defaults to `false`, and that default *is* the protection: an Application rendering to zero
+  resources is refused rather than pruning everything it owns. So the finding is **`allowEmpty: true`
+  set explicitly** on a prod app, not "allowEmpty is missing". Grep for its presence.
+- **`PruneLast=true`** (sync option) prunes as a final wave, after the rest is deployed and healthy.
+- **`PrunePropagationPolicy`** (`foreground` default / `background` / `orphan`) — `orphan` leaves dependents behind.
+- **Not guards, despite looking like them:** `ignoreDifferences` governs diff noise;
+  `FailOnSharedResource` fails a sync when another Application already owns a resource. Neither
+  constrains pruning — do not accept either as prune-safety evidence.
 
 ## Detect
 
 ```bash
 argocd app list -o wide | awk 'NR==1 || $0 !~ /Synced/'    # anything not Synced
 grep -rInE 'kubectl (apply|edit|scale|patch)|helm (install|upgrade)' scripts/ .github/ Makefile
-grep -rlE '^kind: Secret' manifests/ | while read f; do
+grep -rlE '^kind: Secret' manifests/ | while read -r f; do
   grep -q 'sops:\|SealedSecret\|ExternalSecret' "$f" || echo "PLAINTEXT: $f"; done
+
+grep -rn 'allowEmpty:[[:space:]]*true' apps/ 2>/dev/null    # each hit disables the empty-render guard
+grep -rl 'prune:[[:space:]]*true' apps/ 2>/dev/null \
+  | xargs -r grep -L 'PruneLast=true\|PrunePropagationPolicy='   # -r: empty input must not run grep on stdin
 ```
 Flux equivalent: `flux get kustomizations -A ; flux diff kustomization <name>`.
+
+Shell note, not pedantry: `xargs` without `-r` runs once with no arguments on empty input, so
+`grep -L` reads stdin and hangs; and `$(...)` expanding to nothing turns `grep -rL pat $files`
+into a recursive grep of the working directory. Both produce a silently empty audit.
 
 ## Output
 
@@ -47,11 +67,15 @@ Out-of-band mutations:
   ✗ BYPASS    scripts/hotfix.sh  `kubectl apply -n payments` — source of the drift
 Secrets:
   ✗ PLAINTEXT manifests/db-secret.yaml  base64 Secret, not SOPS/sealed — rotate
+Sync safety:
+  ✗ PRUNE     app/batch      prune=true AND allowEmpty=true (apps/batch.yaml:22) — a zero-manifest
+                             render will delete every prod job
 ```
 
 ## Gotchas
 
 - **Controller-managed drift is legitimate** — HPA replicas, cert-manager-rotated secrets — exclude via `ignoreDifferences`; don't flag HPA replica drift.
+- **`allowEmpty` absent is the SAFE state, not a missing control** — its default is `false`. Reporting "allowEmpty not configured" inverts the polarity and produces a false positive on every correctly-configured Application.
 - **`kubectl apply` in a bootstrap/install-controller script is fine** — only flag imperative changes to *application* resources.
 - **`ExternalSecret` CRs reference but don't contain a secret** — that's the correct pattern, not a leak.
 - **Don't enable `selfHeal`/`prune` on an app currently OutOfSync** — reconcile first, or it enforces the wrong state.

@@ -25,7 +25,9 @@ pack: observability
 - Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden when claiming "this is the bottleneck".
 - If the continuous-profiler agent/backend + its symbolization source aren't extracted, halt.
 
-Profiling is the fourth telemetry signal, alongside metrics, logs, and traces. The first three answer "*is* it slow, and *which service/span*?"; profiling answers "*which lines of code*, sampled from real production, are spending the CPU / allocating the heap / holding the lock?" As of 2024–25 it's a first-class, spec-mature signal — **OpenTelemetry profiling** reached a stable signal specification and pprof-based wire format, and eBPF whole-system profilers made it near-zero-instrumentation.
+Profiling is the fourth telemetry signal, alongside metrics, logs, and traces. The first three answer "*is* it slow, and *which service/span*?"; profiling answers "*which lines of code*, sampled from real production, are spending the CPU / allocating the heap / holding the lock?"
+
+**What is and is not ready, because the answer decides how you adopt it.** eBPF whole-system profilers (Parca, Pyroscope, Grafana Alloy, Polar Signals) are production-ready today and need no code changes — that is the half of this pattern you can rely on now. The **OpenTelemetry profiles signal is *not* stable**: the specification is **Alpha**, and SDK support is early-to-absent across languages. Its pprof-derived wire format is real and worth designing toward, but do not plan a migration on the assumption that an OTel profiling SDK exists for your runtime — check `https://opentelemetry.io/status/` for your language before committing. Adopt eBPF now; treat OTel profiles as the convergence point, not the current tool.
 
 ## Boundary — performance owns AD-HOC, observability owns ALWAYS-ON
 
@@ -56,13 +58,13 @@ The universal visualization: each box is a stack frame, width is proportional to
 Always-on is only acceptable because it's **sampled**, not traced. Two collection strategies:
 
 - **eBPF whole-system profilers** (Parca Agent, Pyroscope eBPF, Grafana Alloy, Polar Signals) — the kernel samples stacks of *every* process at a fixed frequency (e.g., 19–100 Hz) with no code changes and no per-language SDK. Overhead is typically ~1% CPU. Best default for a fleet: zero instrumentation, all languages at once.
-- **In-process sampling SDKs** (OTel profiling SDK, language runtime profilers, Pyroscope SDKs) — the runtime samples its own stacks; richer language-level symbols, needs a library per service. Use where eBPF can't symbolize (interpreted/JIT frames) or you want managed-runtime detail.
+- **In-process sampling SDKs** (language runtime profilers, Pyroscope SDKs; the OTel profiling SDK where and when one ships for your runtime — the signal is Alpha) — the runtime samples its own stacks; richer language-level symbols, needs a library per service. Use where eBPF can't symbolize (interpreted/JIT frames) or you want managed-runtime detail.
 
 Either way, **state the sampling frequency and the overhead budget** (commonly "≤ a few percent CPU") and verify it — an always-on profiler misconfigured to a high sample rate or full-fidelity capture *is itself* a production incident.
 
 ## Exemplar → profile linkage
 
-The payoff of profiling being a real signal: **join it to traces**. A slow span carries an exemplar (or the profiler is time-aligned by `service` + timestamp) so that from a p99-latency alert you click the exemplar trace, then click into the **profile captured during that span's window** and land on the flame graph of exactly what the CPU was doing while that request was slow. This closes the loop metrics→traces→profiles: *that* it's slow → *where* (which span) → *which lines*. Wire the profiler and tracer to share `service.name` + `deployment.environment` resource attributes so the backend can correlate them.
+The payoff of profiling being a real signal: **join it to traces**. A slow span carries an exemplar (or the profiler is time-aligned by `service` + timestamp) so that from a p99-latency alert you click the exemplar trace, then click into the **profile captured during that span's window** and land on the flame graph of exactly what the CPU was doing while that request was slow. This closes the loop metrics→traces→profiles: *that* it's slow → *where* (which span) → *which lines*. Wire the profiler and tracer to share `service.name` + `deployment.environment.name` resource attributes so the backend can correlate them.
 
 ## Detectors (what a reviewer flags)
 
@@ -74,6 +76,6 @@ The payoff of profiling being a real signal: **join it to traces**. A slow span 
 ## Related
 
 - `performance` pack (`commands/profile-perf.md`, `agents/performance-optimizer.md`) — owns AD-HOC / dev-time profiling (`pprof` / `py-spy` / `async-profiler`); this pattern is the ALWAYS-ON production counterpart. Cross-link, don't duplicate.
-- `tracing.md` — the exemplar → profile linkage rides on trace context; share `service.name` + `deployment.environment`.
+- `tracing.md` — the exemplar → profile linkage rides on trace context; share `service.name` + `deployment.environment.name`.
 - `metrics.md` — RED/USE tells you *that* it's slow and flags the symptom; profiling tells you which code burned it.
 - `agents/incident-responder.md` — a live flame graph is a primary diagnostic during a CPU/latency sev.

@@ -18,7 +18,11 @@ pack: observability
 
 Audit logs answer "who did this privileged thing, and can we prove the record is intact?" — the opposite question from debug logs ("why is the system behaving this way?"). They go to a separate, append-only sink; carry actor/subject/action/before-after/IP/timestamp; are NOT redacted (they *are* the evidence); and are retained by regime.
 
-**Boundary:** the security pack owns WHICH events must be audited + the write-shape (`security-principles.md`). This pattern owns the PIPELINE — immutable sink, hash-chain, retention, and why audit records aren't redacted like debug logs.
+## Boundary — security owns WHAT, observability owns the PIPELINE
+
+The *security* pack decides **which events are auditable**, the write-shape (`security-principles.md`), and **how long each regime requires them kept** — the compliance obligation is its subject. This pack owns the **pipeline that satisfies it**: the append-only / WORM sink, the hash chain, the schema, the retention lock, and the fact that this stream is *not* the debug-log stream.
+
+The practical consequence, and the reason the split matters: an audit record must **not** be redacted the way a debug log is. The before/after values *are* the evidence — a `[REDACTED]` where a changed field should be has destroyed the record while appearing to comply. Redaction policy is a security decision applied to the debug stream; this stream is governed by access control and retention instead.
 
 ## Event schema (actor + subject are non-negotiable)
 
