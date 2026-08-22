@@ -118,7 +118,7 @@ If any check fails → halt + report.
 
 - If a row has `replan_count > 3`, surface "row chronically un-fixable; consider `/align-park` with rationale OR re-classify".
 - If the same class is re-phased > 2× in a row, surface "phasing strategy may be wrong for this class".
-- If parked rows accumulated > 10, surface "consider `/setup-project --refine` if blockers are idiom-gaps; OR `/align-deprecate` for never-fix decisions".
+- If parked rows accumulated > 10, surface "consider `/setup-project --refine` if the blockers are idiom-gaps; for never-fix decisions move the row to the terminal `archived-deprecated` state — that transition has no command by design (`ai-patterns/align-ledger.md § State machine`): it requires an `adr: ADR-NNN` and a hand-written entry in `ai/align/_history.md`, because a won't-fix on a scanned finding is a human decision with a written reason".
 
 ## Output to user
 

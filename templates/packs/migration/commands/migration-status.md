@@ -1,5 +1,5 @@
 ---
-description: Read ai/migration/ledger.md and report per-feature state, blockers, stalled rows, and aggregate perf uplift. Read-only — never modifies the ledger. Run on demand or via weekly cron.
+description: Read ai/migration/ledger.md and report per-feature state, blockers, stalled rows, and aggregate perf uplift. Read-only — never modifies the ledger. Run on demand.
 kind: command
 pack: migration
 ---
@@ -24,7 +24,7 @@ Standard pipeline phases 1–4 (Understand → Organize → Retrieve → Generat
 - Before a planning meeting — what's done, what's blocked, what's stalled.
 - After a cutover stage advance — confirm the ledger reflects the advance.
 - On `/port-feature` halt — get an overview of impacted rows.
-- As part of weekly cron (`.claude/git-hooks/post-merge-learn.sh` may invoke this and append to `ai/migration/status-weekly-<iso>.md`).
+- On demand, whenever you need the current picture. **There is no scheduler**: the shipped baseline has no cron and no auto-invoking post-task hook, and the git hooks (`.claude/hooks/post-merge-learn.sh`, invoked by the `.claude/git-hooks/post-merge` shim) only append review hints to `ai/dynamic/.review-queue` — they invoke nothing. To get a recurring report, a human runs this command, or wires it into their own scheduler and redirects the output.
 
 ## Pre-flight checks (halt if fail)
 
@@ -63,7 +63,7 @@ For each blocked row, retrieve:
 
 ## Phase 4 — Generate (write report)
 
-Output to stdout AND optionally to `ai/migration/status-<iso>.md` (for cron):
+Output to stdout AND optionally to `ai/migration/status-<iso>.md`:
 
 ```markdown
 # Migration status — <iso>

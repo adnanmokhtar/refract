@@ -33,7 +33,7 @@ full list is under "WHAT THIS CHECK DOES NOT CATCH" in the check-8b header comme
 Every line below is a violation someone has read and decided is correct as-is. Baselined lines are
 suppressed (counted in one summary WARN, listed by `--fallback-report`); anything **not** listed
 is a hard FAIL. That is the ratchet: the backlog is visible and finite, and new drift is red.
-**The backlog is 2 lines.** If a comment anywhere in the repo advertises a bigger one, that comment
+**The backlog is 1 line.** If a comment anywhere in the repo advertises a bigger one, that comment
 is stale — this file is the authority, and it is short on purpose.
 
 ## Working with this file
@@ -55,13 +55,6 @@ is stale — this file is the authority, and it is short on purpose.
 
 ```
 documentation/slo                        SECTION-ORDER         # NOT drift: the fallback's heading order is identical to the source's. The rule compares source H2s against fallback H2s+H3s, so the fallback's `### SLI - what you measure` collides with the source's `## SLI` (inside its documentation template) while the source's own identical H3 is not counted. Diffing the SOURCE against ITSELF reproduces this finding verbatim - verified 2026-08-21. Correct as-is.
-migration/migration-discipline           UNSOURCED-MAGNITUDE   # KEEP: `>30d` IS sourced, in the rule's own bundled companion
-#                                                              # (references/migration-discipline-procedures.md:274, verbatim) and in
-#                                                              # commands/migration-status.md:47, which declares the SLA defaults. The rule
-#                                                              # delegates its enforcement matrix to that reference (rules/migration-discipline.md:192),
-#                                                              # so check 8b's single-source resolution cannot see it. The fallback line now cites
-#                                                              # both homes. Deleting the number would lose a real default; the gate rule is what
-#                                                              # is narrow here, not the file. Revisit if 8b ever resolves companion references.
 ```
 
 ## Promoted OUT of this list
@@ -78,9 +71,10 @@ migration/migration-discipline           UNSOURCED-MAGNITUDE   # KEEP: `>30d` IS
 
 - **Length ratio** — ratios span 22% (`database/full-text-search`, 33 vs 153 lines) to 137%
   (`distributed-systems/outbox`, 100 vs 73) and the correlation with drift is inverted:
-  `frontend/seo-audit` is textbook-legitimate at 25% (47 vs 190), while both files still carrying
-  a baselined defect sit at or above parity (`documentation/slo` 101%, `migration/migration-discipline`
-  112%). Measured across all 293 pairs: no threshold discriminates. Not implemented at any severity.
+  `frontend/seo-audit` is textbook-legitimate at 25% (47 vs 190), while the file still carrying a
+  baselined defect sits at parity (`documentation/slo` 101%; `migration/migration-discipline` was the
+  other, at 112%, and was retired 2026-08-23 when that topic switched to source-as-fallback).
+  Measured across all 293 pairs: no threshold discriminates. Not implemented at any severity.
   The one length-shaped rule that IS implemented is byte-equality (`UNDECLARED-COPY`), which is a
   fact rather than a threshold.
 - **`kind:` value equality** (133 of 293 differ) and missing `severity:` on rule fallbacks

@@ -160,26 +160,9 @@ Diff:
 
 ## Anti-patterns (named)
 
-- **The Refactor in Disguise** — a finding whose fix introduces a new abstraction (not in `_extracted-idioms.md`), renames a public API, or changes observable behaviour where preservation was the contract. Looks like alignment in the ledger; ships as a redesign in PR review. Caught by: closure-verb vocabulary check + `check_no_new_symbols` (with idioms exemption) + `check_test_coverage_nondecreasing` (agent-side — not script-enforced).
-- **The Trusted Summary** (inherited from migration) — agent says "looks duplicated" / "looks dead" / "looks reinvented" / "no security issues" without `<path:line>` evidence; executor echoes into ledger. Caught by: `check_evidence_resolves` + audit halt #1.
-- **The Hand-waved Finding** (inherited) — `~8 dead exports`, `several silent catches`, `multiple reinvented wrappers`, `a few missing auth gates`. Caught by: `check_no_handwaves` + audit halt #2.
-- **The Net-Positive Cleanup** (structural) — fix imports a shared helper but doesn't delete the local copy; OR introduces a wrapper "to make the swap easier"; OR adds a comment explaining the new shape. Net lines go up on a structural row. Caught by: `check_net_lines_structural` + audit halt #5.
-- **The Bundled Phase** — phase PR mixes 5 finding classes; reviewer can't localise regressions. Caught by: review-checklist row "PR title = single-class-or-domain"; reviewer responsibility.
-- **The Stale Ledger** — a phase merges without updating ledger rows to `fixed`. Code grep claims "no more silent catches" but ledger rows are still `in-progress`. Caught by: `/align-gate` halt #1; `/align-status` reports stalled rows.
-- **The Oracle Drift** — alignment PR also modifies `_extracted-idioms.md` / `ai/conventions.md` to "explain" the fix. Caught by: review-checklist + `check_oracle_unmodified` (PR diff against `_extracted-idioms.md` must be empty).
-- **The Eternal Phase** — phase opens, 30+ findings detected, phase never closes because new findings keep getting added. Caught by: phase-cap rule (≤ 12 findings); excess routes to phase N+1.
-- **The Re-Detection Skip** — porter applies the fix and marks `status: fixed` without re-running the detector to confirm the fingerprint is gone. The fingerprint sometimes lingers (the fix targeted the wrong line). Caught by: VERIFY step's mandatory re-detect; `check_evidence_resolves` re-run at gate.
-- **The Silent Coverage Drop** — fix removes a branch; tests pass; but the branch was the only path exercising a downstream code path. Coverage drops 0.3%; nobody notices in a 1500-test suite. Caught by: `check_test_coverage_nondecreasing` (agent-side — not script-enforced) (any drop is a halt).
-- **The Reinvented Idiom in Functional Verb** — porter writes a new validator schema, cache helper, escape function, gate wrapper inside an `add-validator` / `cache-with-explicit-ttl` / `escape` / `add-gate` fix. The functional verbs are supposed to USE the project's existing idiom — inventing a new one is the same anti-pattern as Reinvented Wrapper, just on functional adds. Caught by: `check_added_lines_cite_idioms` + `check_no_new_symbols` (with idioms exemption).
-- **The Bare Security Fix** — porter adds a gate / validator / escape but doesn't add a test asserting it works. Six months later, a refactor accidentally removes the gate and no test catches it. Caught by: `check_security_assertion_present`.
-- **The Hopeful Perf Fix** — porter parallelises / batches / caches without measuring before or after. The fix may be a perf regression (e.g., `Promise.all` overwhelms a downstream service); nobody knows because there's no baseline. Caught by: `check_perf_baseline_present`.
-- **The Lockfile-Only Bump** — `bump-dep` for a vulnerable dependency without running the test suite. The bump may have a breaking change; tests catch it but nobody ran them. Caught by: VERIFY step's mandatory test run.
-- **The Tier Demotion** — porter sets a security row to trivial because "it's just one missing gate, easy fix". Caught by: audit halt #11 + `check_security_tier_minimum`.
-- **The Behaviour Change Conflation** — security gate that changes behaviour (denies unauth) is bundled with an unrelated alignment fix in the same commit. The security change becomes invisible in the diff. Caught by: review-checklist + one-finding-per-commit rule.
-- **The Cross-Class Phase** — phase PR contains a mix of structural + security + perf rows. Net-lines rule is ambiguous; reviewer attention is scattered. Caught by: phasing strategy in `/align-plan` (single-class or single-domain phases preferred).
-- **The Frontend Regression Skip** — porter ignores a11y / visual / bundle-size regression "because it's mechanical". Caught by: `check_frontend_regressions` (agent-side — not script-enforced) at gate.
-- **The Idiom Inventory Gap** — porter halts repeatedly because the idiom they need (a validator, a cache helper, a gate wrapper) doesn't exist in `_extracted-idioms.md`. The right move is to update idioms first via `/setup-project --refine`, then resume alignment — not to invent the idiom inline. Symptom: `halts/` directory full of "missing idiom: X" entries.
+**Moved.** The named catalogue — every anti-pattern with its fingerprint and the check that catches it — now lives at `ai/patterns/align-guardrails.md § Named anti-patterns`, together with the eight realism guards.
 
+It moved because the names are load-bearing at runtime: `@align-ledger-auditor` groups halts by them, `@align-gate-auditor` cites them in refusals, `/align-final` counts them. A vocabulary that audits must cite belongs in a file that installs with the pack, which `references/` does not — Phase 4.2 copies `references/<framework>.md` for detected frameworks only, so a reference file with a non-framework name reaches no project. Patterns install unconditionally. One copy, in the reachable place.
 
 ## References
 
@@ -306,31 +289,15 @@ The universal rule below stays stack-agnostic. All concrete component / hook / l
 
 
 
-## Anti-bloat rules (full gate definitions)
 
-## Anti-bloat rules
+## Anti-bloat merge gates — moved
 
-The migration discipline rule's Phase 7 lesson — "~95% docs / ~5% code on simple ports" — applies double here. Alignment is *by definition* small atomic edits. A doc-heavy alignment run is a category error.
-
-- **Code edits are the deliverable.** A doc that doesn't enable a code change is waste. Rationales / notes exist when they unblock a code decision; they are not deliverables themselves.
-- **The closure-verb vocabulary is finite.** Two semantic groups:
-  - **Structural verbs** (used by structural classes; net-lines ≤ 0): `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared`.
-  - **Functional verbs** (used by functional classes; small + budget): `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename`.
-  A finding whose fix needs a verb outside this combined vocabulary IS NOT an alignment finding. Route to `/refactor` or `/setup-project --refine` instead. **No verb introduces a NEW abstraction not named in `_extracted-idioms.md`.** A `split-extract` that creates a brand-new abstraction (rather than splitting into responsibilities the project's idiom inventory already names) is forbidden.
-- **Net-lines rule (split by class group):**
-  - **Structural classes** — net-lines must be ≤ 0 per phase. Lines-removed ≥ lines-added across all structural findings, summed. A net-positive structural phase is a halt; the closure verb was applied wrong (likely a `replace-with-shared` that imported but didn't delete the local copy).
-  - **Functional classes** — small + budget allowed (typically + 5 to + 30 lines per finding for security gates / validators / cache primitives / index migrations). The added lines MUST cite an idiom — every block of added lines references a `<path:line>` in `_extracted-idioms.md` (or the project's framework primitive) for what it's adding (the gate wrapper, the validator helper, the cache primitive, the safe deserializer). Validator: `check_added_lines_cite_idioms` walks the diff hunks and refuses any added block that doesn't cite an idiom.
-  - **Cumulative phase rule** — for phases that mix structural + functional findings, the structural rows must net ≤ 0 AND the functional rows must each cite idioms. The phase's overall diff may net positive when functional findings dominate (a phase that adds 8 auth gates is + 16 lines net; that's allowed).
-- **Per-finding enumeration is required at every tier.** Hand-waves (`etc.`, `...`, `and similar`, `N+ duplicates`, `several call sites`, `a few places`, `multiple endpoints`) HALT the gate. The validator's `check_no_handwaves` greps for these tokens. If 8 dead exports exist, the ledger lists 8 rows (or 1 row with 8 explicit `<path:line>` citations in `evidence`). Never `~8 dead exports`. Same applies to security findings: never `several missing auth gates` — each endpoint gets its own row.
-- **Single-agent dispatch is the default.** Parallel sub-agents are heavy-tier-only AND require a deduplicated context blob (each sub-agent reading the project's full source independently is forbidden — same wasted-token pattern migration's Phase 7 fixed).
-- **Findings cite source.** Every finding row has `evidence: <path:line>` for at least one fingerprint. If you can't cite source, the finding doesn't exist (Trusted-Summary failure mode).
-- **Trivial-tier rows do not produce rationales.** The closure verb + the `<path:line>` evidence is the rationale. A trivial row whose `notes` field is filled with prose is over-production; the validator flags `notes_excess_chars > 200` on trivial rows. Note: security findings are NEVER trivial-tier — they always have rationale (≥ standard tier).
-
-
+The merge-gate definitions, the closed 21-verb closure vocabulary and the net-lines rule now live in
+**`ai/patterns/align-guardrails.md` § Anti-bloat merge gates** — they are gates, and a gate has to
+reach the project. `references/` files install only for a **detected framework name**
+(`templates/phases/phase-4.2-apply.md:210-213`); `ai-patterns/` installs unconditionally.
 
 ## Should — full guidance
-
-## Should
 
 - **Order findings within a phase by dependency.** A row that introduces a shared helper (or repairs one) goes BEFORE rows that swap local copies for it. A row that removes a wrapper goes AFTER rows that remove its callers.
 - **Pick the lowest-blast-radius class first.** Dead code (touch-and-go) is the safest first phase; silent-catches → error-handler routing next; reinvented-wrapper swaps with shared equivalents come next; UI/UX domain phases (frontend) next; over-abstraction inlines later (those touch more files); SOLID splits last.

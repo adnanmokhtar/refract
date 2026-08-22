@@ -147,6 +147,46 @@ Ledger row updates on each transition with: timestamp, evidence (dashboard link,
 
 **Halt + rollback** at any stage: flip the cutover mechanism back to V1; ledger goes to a `Halted` state with a root-cause file in `ai/migration/halts/<feature>-<date>.md`.
 
+## Axis lookup — structure vs behaviour
+
+The rule `migration-discipline.md` states the principle (**structure → V2 wins; observable behaviour → V1 wins**) and the 3-question decision checklist. This table is the tiebreaker for the cases the checklist leaves ambiguous — look the surface up here, take the axis, apply the rule.
+
+| Axis | Belongs to | V1 wins (behaviour) | V2 wins (structure) |
+|---|---|---|---|
+| Inputs accepted (form fields, query params, headers, body shape) | behaviour | ✓ port every V1 input | — |
+| Outputs returned (response shape, field names, nullability, status codes) | behaviour | ✓ match V1 exactly | — |
+| Error contracts (error shape, error codes, when each fires) | behaviour | ✓ match V1 | — |
+| Side effects (DB writes, queue publishes, external HTTP, log fields) | behaviour | ✓ preserve | — |
+| Events fired / emitted | behaviour | ✓ preserve names + payloads | — |
+| Permission gates (which user roles see / can do what) | behaviour | ✓ match V1 gate set | — |
+| Navigation paths (clickable routes, tab labels reachable) | behaviour | ✓ user-clickable surface = V1 | — |
+| UI affordances (buttons present, default-true wrapper props) | behaviour | ✓ same affordances visible | — |
+| Copy / labels / i18n keys (visible text users read) | behaviour | ✓ V1 copy unless ADR | — |
+| Performance characteristics (latency p95, error rate ceiling) | behaviour | ✓ V1 baseline or better | — |
+| File layout / directory structure | structure | — | ✓ V2's convention |
+| Layering (controller / service / repo split) | structure | — | ✓ V2's layers |
+| Shared wrappers / utils / hooks chosen | structure | — | ✓ V2's gold-standard inventory |
+| Routing / state-management / DI primitive | structure | — | ✓ V2's primitive |
+| Naming conventions (file names, symbol names, casing) | structure | — | ✓ V2's conventions |
+| Type / DTO authoring style (where types live, how they're shaped) | structure | — | ✓ V2's pattern (field NAMES still come from V1's response — that's behaviour) |
+| Lifecycle hooks / mount semantics | structure | — | ✓ V2's framework idioms |
+| Error-handling primitive (which error handler is called) | structure | — | ✓ V2's project handler (the FACT that errors surface = behaviour; HOW = structure) |
+
+**Worked examples:**
+
+- V1 has a `?include_archived=true` query param V2 omits → BEHAVIOUR (input axis) → **add it to V2**.
+- V1 returns `null` for a missing user; V2 throws → BEHAVIOUR (output axis) → **V2 returns null**.
+- V1 puts logic in a fat controller; V2 has service+repo layers → STRUCTURE → **port the logic into V2's service+repo; do not copy the fat controller**.
+- V1 ships a custom date-picker; V2 has a shared `<DateField>` wrapper → STRUCTURE → **use V2's `<DateField>`** (the date semantics it accepts and returns must still match V1 — that part is behaviour).
+- V1 has a delete button gated by `permissions.delete`; V2 renders it ungated → BEHAVIOUR (permission gate) → **add the gate to V2**.
+- V1 has tab "Colors" reachable at `/settings/branding/colors`; V2 buries it inside `/settings/branding` as a scroll section → BEHAVIOUR (navigation path) → **expose it as a tab in V2** (it may use V2's tab primitive — that is structure — but the user-clickable leaf must exist).
+
+**Failure modes this axis split names** (fingerprints and catching checks: `ai/patterns/migration-guardrails.md § Named anti-patterns`):
+
+- **The Transposition Trap** — porter copies V1's *structure* to "preserve behaviour". Wrong: structure is V2's.
+- **The Silent Break** — porter changes V2's *behaviour* to "match V2's structure". Wrong: behaviour is V1's.
+- **The "I made it cleaner"** (variant of Transposition) — porter normalises V1's "weird" inputs/outputs to V2's "cleaner" shape. That is a contract break; it needs an ADR with `user_decision_quote:`.
+
 ## Decision: strangler-fig vs big-bang
 
 The strategic decision sits with `legacy-modernizer`, but per-feature, the rule of thumb is:

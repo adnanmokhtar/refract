@@ -9,6 +9,209 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.11.0 — 2026-08-23
+
+**The 1.10.0 shrink delegated ten enforceable rules to a file no project has ever received.**
+`rules/migration-discipline.md` fell 37,854 → 26,349 chars by routing depth outward, and ten of the
+surviving pointers routed *enforceable* depth — halts 12–13's full spec, the dead-V1 6-axis check,
+the tier artifact specs, the anti-bloat gate definitions, the `v1_status` halt-skipping modes, the
+enforcement matrix, the 20-name anti-pattern catalogue — into
+`.claude/references/migration-discipline-{procedures,catalogue}.md`.
+
+That path does not exist. `templates/phases/phase-4.2-apply.md:210-213` is the only install route for
+`references/`, and it reads `for fw in <detected-frameworks>; do cp -R
+~/.claude/templates/packs/<track>/references/${fw}.md .claude/references/ 2>/dev/null || true; done`
+— the filename must equal a **detected framework name**, and `2>/dev/null || true` swallows the miss.
+No framework is called `migration-discipline-procedures`. No adapter ships them either:
+`phase-4.8-deep.md:35` enumerates the translation surface as `.claude/{rules,commands,agents}/<x>.md`
+plus `.claude/skills/<x>/SKILL.md`, and `grep -rl '\.claude/references' templates/tool-adapters/`
+returns zero files. 1.10.0's own align entry diagnosed exactly this and applied the fix to align
+only; migration restated the bug as fact ("Every adapter bundle ships all three; do not break the
+bundle"). Net effect: the rule reported a 30% token win while the installed project got *less*
+enforcement than before.
+
+**Fix: the depth moved to a destination that installs.** New `ai-patterns/migration-guardrails.md`
+(38.7K) carries § Tier artifact specs · § What counts as dead V1 code (the 6-axis check) · § Halts
+12-13 — full elaborations · § v1_status modes · § Anti-bloat merge gates · § Supporting mechanisms
+(reviewer approval, mid-port tier promotion, idiom-drift propagation) · § Review checklist (per port
+PR) · § Named anti-patterns (all 20, each with fingerprint and catching check) · § Enforcement —
+where each halt is actually caught. `ai-patterns/*.md` copies unconditionally into `ai/patterns/`
+(`phase-4.2-apply.md:207`) — the destination `scripts/check-rule-budget.sh:105` names in its own
+failure message ("trim it or move depth to ai-patterns/"). Every pointer in the rule, in
+`/find-and-fix`, `/migration-phase`, `parity-test-generate` and `_failure-surface.md` was repointed;
+`rules/migration-discipline.md` now contains **zero** `.claude/references/` citations.
+
+**Two duplicates were deleted rather than moved.** The references' § Contract — 9 required sections
+restated the `extract-v1-contract` skill's own § 9 template verbatim, and § Tool-agnostic procedure
+restated the three skills; skills install unconditionally, so both were removed and the rule now
+cites the skills. With the enforceable depth gone, the 3.4K remainder of
+`references/migration-discipline-procedures.md` (§ Tier rationale, § Should — full guidance) did not
+justify a second never-installed file: **it was merged into `migration-discipline-catalogue.md` and
+deleted.** The pack's `references/` fell 55,781 → 12,253 chars, and both `_essentials.md` and the
+`_topics.md` reference-pair entry now state plainly that it is pack-side and installs nowhere.
+
+**Four `_examples/` fallbacks deleted; those four topics now use source-as-fallback.**
+- `_examples/migration-discipline.md` was edited on four lines during 1.10.0 while its source was
+  rewritten by −11,505 chars. Heading-for-heading it still shipped six sections the source had
+  retracted (`## What counts as dead V1 code (the 6-axis check)`, `## Examples per concern` and its
+  four sub-sections, `## Review checklist`, `## Enforcement`) and was missing three the source had
+  gained. At 25,898 vs 26,349 chars — 98% — no size heuristic could see it, and check 8b's own header
+  names this blind spot. On greenfield that stale document *was* the project's always-loaded rule.
+- `_examples/feature-port.md` was never re-cut at all, while 1.10.0 moved the 18-row axis-lookup
+  table *into* `ai-patterns/feature-port.md`. The rule's structure-vs-behaviour tiebreaker therefore
+  pointed a greenfield project at a section of a file it had been given that did not contain it.
+- `_examples/{parity-testing,migration-ledger}.md` had the same structural defect latent: for a
+  `kind: pattern` topic whose source is `ai-patterns/<name>.md`, the deterministic pack copy already
+  puts the source at `ai/patterns/<name>.md`, so the `_examples/` twin can only ever overwrite a
+  fresh source with a staler abridgement.
+
+All four topics now name their live source in `fallback:` — the shape align already uses and
+`phase-4.2-apply.md:26` explicitly implements. The class of bug is closed, not patched: a
+source-as-fallback cannot drift from its source. `templates/packs/_fallback-baseline.md` lost its
+`migration/migration-discipline UNSOURCED-MAGNITUDE` line (backlog 2 → 1), and the fallback-pair
+corpus fell 295 → 291 with 0 new defects.
+
+**The rule-only-tool classification was wrong for three of five tools.** Both rules said "rule-only
+tools (Aider, Codex, Gemini; partial: Cline, Windsurf)", and that misclassification is what motivated
+routing depth to `references/` for their benefit. `templates/tool-adapters/_registry.md:76` records
+"Gemini has no executable primitive" as a **doc-verified FALSE** claim; Gemini has TOML custom
+commands (`.gemini/commands/`), Codex has Agent Skills (`.agents/skills/`), Cline discovers Skills
+from `.cline/skills/` and `.claude/skills/` (`_registry.md:53`), and Windsurf executes
+`.windsurf/workflows/<name>.md` (`_registry.md:54`). Only Aider is genuinely rule-only
+(`_registry.md:23`: closed slash set, no user-extensible primitive at any layer). Both rules now say
+so and cite the registry.
+
+**Accounting.** Rule: 37,854 → 27,648 chars (~9,463 → ~6,912 tokens, **−27%**) — 2,551 tokens banked
+off the always-loaded budget, and now every token of delegated depth actually arrives. Pack total:
+865,402 → 848,851 chars, **−16,551**. Files deleted: **5**
+(`references/migration-discipline-procedures.md` + the four `_examples/` fallbacks). Commands: 20
+before, 20 after — see § 1.10.0 for the per-pair overlap measurement that keeps them separate.
+
+## 1.10.0 — 2026-08-23
+
+**The always-loaded rule was a manual.** `rules/migration-discipline.md` was 37,854 chars
+(~9,463 tokens) — more than the entire repo's 6,000-token baseline budget for *all* foundational
+rules combined, charged on every turn of every project that installs this pack. It is now
+**26,349 chars (~6,587 tokens), −30%**, and nothing enforceable left the file: the 13 halts, the
+tier floor, the 9 contract sections, the must / must-not and the 20 named anti-patterns all stayed
+in place, with the validator check name still attached to each halt.
+
+What left was restatement, not rule. Seven top-level sections went: `What counts as dead V1 code
+(the 6-axis check)` (halt 11 already names all six axes, so the section restated the halt),
+`Examples per concern` and its four sub-sections (worked code samples, which belong in the
+catalogue and were already there), `Review checklist`, `Enforcement` and `References`. `Per-stack
+extensions` and `Tool-agnostic procedure` merged into one section, since both answer "what does a
+tool without skill dispatch do". A new `## Load on demand` closes the file by naming, in one place,
+every companion the rule delegates to.
+
+**Where the depth went — deliberately not to `references/`.** The reflex move is to lift depth into
+`references/`. For a Claude Code project that move loses the content: `templates/phases/phase-4.2-apply.md:211-214`
+and `:347-350` are the only install paths for references and both read
+`for fw in <detected-frameworks>; do cp .../references/${fw}.md .claude/references/ 2>/dev/null || true`,
+so a file only installs when its **filename matches a detected framework name**. Nothing is called
+`migration-discipline-procedures`, and `|| true` swallows the miss. So the depth that a project
+must be able to reach went into `ai-patterns/feature-port.md` (14,483 → 17,042 chars), which
+`phase-4.2-apply.md:208` copies unconditionally and `:342` copies again in MINIMAL mode. What stayed
+in the two reference files was believed to be material only rule-only tools need, on the strength of
+`templates/tool-adapters/_migration-pack-coverage.md:240` ("Every adapter translation MUST ship all
+three files together"). **That belief was wrong, and 1.11.0 below corrects it** — no adapter's
+translation table implements that sentence.
+
+**`/migration-rollback` claimed a power it does not have.** Its "When to use" listed *"Production
+traffic on V2 is failing for features in phase N"*, and the command restores a file snapshot. A
+snapshot does not drain a canary, flip a cutover flag, reverse a backfill, or notify a consumer in
+another repo — so following that line on a live incident reverts the code while traffic keeps
+arriving at a V2 that no longer exists in the tree. That row is now a **When NOT to use** entry
+pointing at the deployment runbook that halt #8 already forces every standard/heavy port to author,
+and a new **irreversibility triage** runs before every other check. It REFUSES rather than warns, on
+six signals, each naming the artifact that clears it: a row at `V2-canary` / `V2-only` /
+`V1-deleted`; a backfill checkpoint past its start (a cross-store port is unwound by reconciliation,
+never by file restore — restoring the code leaves the data moved and the two stores diverge
+silently and permanently); an open `cross-repo-tasks.md` row; a missing or unreadable runbook
+(unknown is not off); and a later-phase row citing a phase-N feature in `depends_on`. The command
+also now states plainly that there is **no per-feature revert** — `/migration-phase <N>
+--feature=<id>` re-ports forward from the contract, which is a different operation with a different
+risk profile, and must never be described to a user as "undo".
+
+**The pack advertised a scheduler that does not exist.** `/migration-status` said it ran "via weekly
+cron" and that `.claude/git-hooks/post-merge-learn.sh` "may invoke this". Neither is true: the shim
+at `templates/repo-baseline/.claude/git-hooks/post-merge` execs
+`.claude/hooks/post-merge-learn.sh`, which appends review hints to `ai/dynamic/.review-queue` and
+invokes no command at all. The baseline ships no cron. Corrected in `/migration-status`,
+`agents/parity-auditor.md` and `ai-patterns/migration-ledger.md` (plus the matching fallbacks) —
+a recurring report is a cadence the user wires up, and each place now says so.
+
+**`api-other` is a trap in the anchors schema.** `validate_project_kind_strict()` at
+`scripts/validate-migration-artifacts.sh:3170` accepts `api-other`, so it looks like the right
+declaration for an API-only migration. But `extract_inventory_primitives()` branches on family at
+`:1224-1230` — `frontend-*|mixed`, `backend-*`, `data-*`, `mobile-*` — and `api-other` matches none
+of them, falling to the `*)` default which sets `family="frontend"`. An API migration declared
+`api-other` is inventoried against two-way form bindings, component tags and click handlers, and the
+tier promoter that fires when a V2 primitive count drops under 70% of V1's fires on that noise.
+`_v2-anchors-schema.md` now says to declare `backend-other` instead, records that `project_kind` is
+a **family prefix and not a closed list** (any `<family>-<flavour>` is legal; the suffix is
+documentation for humans, so a new stack needs no schema change), and adds the `data-*` and
+`mobile-*` values that the validator has always accepted but the schema never listed.
+
+**Nine fallbacks had drifted below their sources.** `_examples/` is copied verbatim when extraction
+finds no signal, which for a greenfield project is the only path — so a thin fallback is a thin
+install. Restored: `parity-auditor.md` +211 lines (the entire two-layer navigation scan and the
+Section 0 evidence block were missing), `port-feature.md` +74 (tier gating, Phase-4 ledger schema),
+`extract-v1-contract.md` +42 (tier-aware scope, citation discipline), `data-cutover-orchestrate.md`
++32 (the 7 cite-or-halt detectors), `migration-ledger.md` +20 (5 extended states),
+`migration-status.md` +19, `parity-test-generate.md` +15, `perf-uplift-survey.md` +14,
+`migration-architect.md` +13.
+
+`_examples/migration-discipline.md` was the exception: its source lost seven top-level sections
+this release while the twin moved +33 chars, so a greenfield project would have installed the
+pre-release rule shape. Check 8b cannot see that — `templates/phases/phase-4.2-apply.md:32` says it
+"does not read either file". Rather than delete the twin, 1.10.0 documented the divergence in the
+file itself and pinned the rule that follows from it: a citation must resolve in **both** shapes, so
+cite halts, never delegated sections. **1.11.0 below retires the twin entirely instead**, which is
+the better fix.
+
+**Six section anchors broke when the rule was restructured, and no gate saw it.**
+`scripts/lint-handoffs.sh` only opens a citation that carries a resolvable *path*; a citation written as a bare
+basename plus a section name is ~89% of the corpus and is never opened. Repaired:
+`commands/migration-plan.md:201`, `commands/migration-scan.md:96` and `agents/parity-auditor.md:308`
+cited the deleted `§ What counts as dead V1 code` and now cite `§ Per-feature audit — 13 hard halts`
+halt 11 — chosen because halt 11 is always-loaded and exists in the fallback shape too, so the
+citation resolves everywhere. `_failure-surface.md:246` now names the catalogue section that holds
+the example. `commands/migration-phase.md:154` and `:352` addressed "rule-only tools" and cited a
+`§ Tool-agnostic procedure` that had been renamed.
+
+**Also:** `_topics.md`'s `sections:` list for the rule still declared `examples_per_concern` and
+`review_checklist`, two sections the rule no longer has, which would have had extraction re-author
+them on every refresh; it is now an annotated 10-entry list matching the rule's real shape.
+`references/migration-discipline-procedures.md` had duplicate `## Should` and `## Anti-bloat rules`
+headings left over from the 2026-06-07 split, making those anchors ambiguous — removed.
+`commands/find-and-fix.md:190` cited `§ Trivial-tier artifact spec`; the heading is
+`§ Trivial-tier artifact spec (audit + code only)`. `commands/migration-gate.md` gained the
+`## Phases applied` block it was missing.
+
+**Not done, deliberately.** No commands merged, deleted or renamed; the pack still ships 20. Two
+merge questions were asked and both were measured rather than asserted.
+
+*Intra-pack*, on substantive lines (non-blank, ≥25 chars, deduped) — the eight pairs a reader would
+nominate on their names alone: `migrate` vs `migration-scan` **0.0%** · `migration-recheck` vs
+`find-and-fix` **0.0%** · `compare-v1` vs `migration-scan` **0.7%** · `migration-final` vs
+`migration-status` **1.0%** · `find-and-fix` vs `port-feature` **1.2%** · `migration-fast` vs
+`migration-phase` **4.6%** · `migration-replan` vs `migration-plan` **8.3%** · `migration-unpark` vs
+`migration-park` **14.8%**. The highest is the park/unpark inverse pair, and that number *is* the
+contract between them — unpark reads the fields park writes — not duplication to remove. Nothing
+here supports a merge.
+
+*Cross-pack.* The question — whether the 13 identically-suffixed `{migration,align}-*` pairs are one state
+machine implemented twice — was measured rather than assumed, and the full table is in
+`templates/packs/align/CHANGELOG.md` § 1.10.0. Summary: after neutralising pack vocabulary so that
+structure is compared rather than nouns, median overlap is **14.6%** and the maximum is **35.4%**
+(`recheck`). The residue that does overlap is not pack duplication — the 48 identical lines in
+`recheck` are overwhelmingly the repo-wide 7-phase command harness that **90 of the 133 pack
+commands** carry, which merging would not remove. The two packs share a vocabulary because they are
+the same *shape* of process; they do not share an implementation, because migration reconciles two
+codebases against a parity oracle and align reconciles one codebase against its own documented
+idioms. **Verdict: KEEP-SEPARATE, on evidence.**
+
 ## 1.9.1 — 2026-08-22
 
 **Three anchors, including a self-citation.** `scripts/lint-handoffs.sh` opened the targets:

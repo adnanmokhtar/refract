@@ -2,7 +2,7 @@
 # A pack may not GROW past its recorded size. Shrinking is always allowed — re-record after.
 ai-engineering 2817
 algorithms 1671
-align 8184
+align 6324
 backend 6122
 business 2156
 code-quality 3628
@@ -14,7 +14,7 @@ documentation 2131
 finops 1727
 frontend 9104
 infrastructure 976
-migration 9463
+migration 6912
 mobile 3526
 observability 1138
 performance 1459

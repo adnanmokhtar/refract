@@ -565,7 +565,7 @@ These are the bypass-the-ceremony commands. **No plan, no phase, no ledger requi
 
 - Take a **natural-language description** (`the sidebar`, `the orders module`, `customer tabs`) OR an explicit path. The agent reads `codebase-profile.md` + idioms + architecture and semantically resolves the description (same intent-interpretation model as `/add-feature` — not keyword matching).
 - **Ignore the migration/alignment workflow entirely.** No phase number, no plan dependency, no required prior scan.
-- **Scan source FRESH.** For migration: V1 + V2 parity audit. For align: dispatch the 12 universal detectors (+ stack-conditional UI/UX) directly against current source.
+- **Scan source FRESH.** For migration: V1 + V2 parity audit. For align: dispatch the 11 universal detectors (+ stack-conditional UI/UX) directly against current source.
 - Run the same per-feature / per-finding loop as `/find-and-fix` / `/align-phase`: DETECT → DECIDE → FIX → VERIFY → RECORD. One commit per fix.
 - **Fix in place** when drift is found; pass `--re-detect-only` for read-only inspection.
 - **Best-effort ledger update**: if a ledger exists, matching rows are updated; if not, the command leaves the ledger alone. Pass `--register-ledger` to register new findings into the ledger as part of the run.

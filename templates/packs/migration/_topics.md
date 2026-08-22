@@ -29,7 +29,7 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
     - examples_from_codebase
     - pitfalls
   mirror_existing: true
-  fallback: _examples/feature-port.md
+  fallback: ai-patterns/feature-port.md   # source-as-fallback. ai-patterns/ copies unconditionally (phase-4.2-apply.md:207), so an abridged _examples/ twin could only ever overwrite the fresh source with a staler one
   cite_evidence: strict
 
 - name: parity-testing
@@ -50,7 +50,7 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
     - what_NOT_to_pin              # internals that legitimately change (private helpers, log lines, internal IDs)
     - pitfalls
   mirror_existing: true
-  fallback: _examples/parity-testing.md
+  fallback: ai-patterns/parity-testing.md   # source-as-fallback, same reason as feature-port
   cite_evidence: strict
 
 - name: migration-ledger
@@ -67,7 +67,27 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
     - reporting_views              # by-state / by-owner / by-perf-uplift / blocked / next-up
     - drift_detection              # ledger says V2-only but V1 path still exists in code → halt
   mirror_existing: true
-  fallback: _examples/migration-ledger.md
+  fallback: ai-patterns/migration-ledger.md   # source-as-fallback, same reason as feature-port
+  cite_evidence: strict
+
+- name: migration-guardrails
+  kind: pattern
+  triggers:
+    always: true                   # the rule's enforceable depth lives here; installing the rule without it leaves 10 halt definitions undefined
+  extracts_from: _extracted-codebase.md § Migration (V1/V2 roots, cutover mechanism) + ai/migration/_v2-anchors.md (v1_status, parity-test root) + _extracted-idioms.md (error handler, shared wrappers the anti-patterns name)
+  sections:
+    - project_specific_first       # V1/V2 roots, parity-test root, cutover mechanism, v1_status
+    - tier_artifact_specs          # heavy / standard / trivial floors the gate validates against
+    - dead_v1_six_axis_check       # halt 11's definition + edge cases + the --include-dead override
+    - halts_12_13_full             # UI state enumeration + the two-layer navigation inventory
+    - v1_status_modes              # which halts each mode skips
+    - anti_bloat_merge_gates       # the merge gates, not suggestions
+    - supporting_mechanisms        # reviewer approval, mid-port tier promotion, idiom-drift propagation
+    - review_checklist             # per port PR
+    - named_anti_patterns          # the 20 names audits cite, each with a fingerprint
+    - enforcement                  # anti-pattern → validate-migration-artifacts.sh check function
+  mirror_existing: true
+  fallback: ai-patterns/migration-guardrails.md   # source-as-fallback
   cite_evidence: strict
 
 # ============ AGENTS (.claude/agents/<name>.md) ============
@@ -94,18 +114,28 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
 
 - name: migration-discipline-references
   kind: reference-pair
-  files: [references/migration-discipline-procedures.md, references/migration-discipline-catalogue.md]
-  triggers: { always: true }            # copied to .claude/references/ alongside the rule — loaded ON DEMAND by commands/skills, never auto-loaded
-  note: the rule core + these two files are ONE discipline (split 2026-06-07, 40k always-on limit); never install the rule without them
+  files: [references/migration-discipline-catalogue.md]
+  triggers: { always: false }           # NOT INSTALLED. phase-4.2-apply.md:210-213 copies references/<name>.md only when <name> equals a DETECTED FRAMEWORK NAME, and no framework is called migration-discipline-catalogue; the `2>/dev/null || true` swallows the miss. No tool adapter ships it either (phase-4.8-deep.md:35).
+  note: pack-side worked examples, tier rationale and long-form Should guidance only. Everything enforceable — tier floor, halt definitions, merge gates, thresholds, review checklist, named anti-patterns, anti-pattern→check matrix — lives in ai-patterns/migration-guardrails.md, which DOES install (phase-4.2-apply.md:207). migration-discipline-procedures.md was merged into the catalogue and deleted 2026-08-23.
 
 - name: migration-discipline
   kind: rule
   triggers:
     always: true
   extracts_from: _extracted-codebase.md § "Migration" + _extracted-idioms.md § Concurrency (so the rule cites the project's actual primitives) + ai/decisions/ (any prior migration ADRs)
-  sections: [project_specific_first, must, must_not, should, examples_per_concern, review_checklist, named_anti_patterns]
+  sections:
+    - project_specific_first       # V1/V2 roots, parity-test location, cutover mechanism, caching + DB primitives
+    - core_philosophy              # the port is re-derived from a contract, never transposed
+    - tiered_floor                 # trivial / standard / heavy artifact floor + tier classification
+    - anti_bloat_rules             # merge gates before a new artifact is authored
+    - contract_9_sections          # the 9 sections a feature contract must carry
+    - per_feature_audit_halts      # 13 halts — the enforceable core, with validator check names
+    - per_stack_and_tool_agnostic  # frontend/backend axis extensions + the rule-only-tool procedure pointer
+    - must / must_not / should     # the rule body
+    - named_anti_patterns          # names only; fingerprints + fixes live in the catalogue reference
+    - load_on_demand               # skills, agents, commands, patterns, the reference pair
   mirror_existing: true
-  fallback: _examples/migration-discipline.md
+  fallback: rules/migration-discipline.md   # source-as-fallback. The abridged _examples/ twin drifted six sections behind the rule and shipped as the project's always-loaded rule on greenfield
   cite_evidence: strict
 
 # ============ SKILLS (.claude/skills/<name>.md) ============

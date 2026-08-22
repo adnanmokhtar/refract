@@ -79,7 +79,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/align-fast` | One-shot per-phase alignment runner. | `--max-parallel=<N>`, `--scope=<path>`, `--exclude-tier=<list>`, `--re-audit`, `--dry-run`, `--allow-main`, `--gate-strict` | `/align-fast <N+1>` |
 | `/align-final` | Final sweep — confirms every finding in the ledger is fixed and gate-verified across ALL phases. | `--re-audit`, `--re-scan`, `--strict` | `/align-final` |
 | `/align-gate` | Phase exit gate. | — | `/align-gate <N>` |
-| `/align-park` | Park a hairy alignment finding so it doesn't block the phase gate. | `--blocker=<idiom-missing \| cross-repo \| reviewer \| scope \| cadence \| other>`, `--unpark-after=<date \| event>`, `--no-confirm` | `/align-park <id> [reason]` |
+| `/align-park` | Park a hairy alignment finding so it doesn't block the phase gate. | `--blocker=<idiom-missing \| cross-repo \| reviewer \| scope \| cadence \| other>`, `--unpark-after=<date \| event>`, `--no-confirm`, `--override-critical` | `/align-park <id> [reason]` |
 | `/align-phase` | Executes one alignment phase. | `--dry-run`, `--start-from=<row-id>`, `--stop-on-halt`, `--heavy`, `--max-parallel=<N>` | `/align-phase <N>` |
 | `/align-plan` | Forces a phased alignment plan from the scan output. | `--phases=<N>`, `--max-findings-per-phase=<N>`, `--strategy=<class\|domain\|mixed>`, `--exclude-class=<list>`, `--exclude-tier=<list>` | `/align-plan` |
 | `/align-promote-tier` | Promote (or demote) an align ledger row's tier mid-fix. | `--reason` | `/align-promote-tier <finding-id> <new-tier> [--reason="<text>"]` |

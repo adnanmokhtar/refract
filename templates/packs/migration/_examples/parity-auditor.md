@@ -41,7 +41,7 @@ This agent is the verification arm of `migration-architect` (which plans) + `par
 - A ledger row is proposed for advance from `V2-shadow → V2-canary` (review of shadow results).
 - A ledger row is proposed for advance from `V2-canary → V2-only` (review of canary results).
 - A ledger row is proposed for `V2-only → V1-deleted` (review of zero-traffic + dead-code).
-- Periodic re-audit (weekly cron) of all `V2-shadow` + `V2-canary` rows to flag drift.
+- Periodic re-audit of all `V2-shadow` + `V2-canary` rows to flag drift — dispatched by a human or the caller's own scheduler; the baseline ships none.
 
 ## Pre-flight (read before auditing)
 
@@ -57,6 +57,202 @@ This agent is the verification arm of `migration-architect` (which plans) + `par
 - `migration-discipline.md` — the rule.
 
 ## Audit protocol
+
+### How to read (anti-Trusted-Summary)
+
+The audit is read-only on V1 + V2 source code. **Do not echo prior audit docs, search-agent summaries, or "Fully Migrated" labels.** The Trusted Summary is the single most common audit failure mode (F039 + Phase-6 lessons).
+
+For every claim in the audit doc:
+- Cite by `<path:line>` on BOTH V1 and V2 sides.
+- Include a 1-line excerpt of the cited line (validator's A8 citation-spoofing check verifies excerpts match the actual line content).
+- Enumerate every item in every axis. NO `...`, NO `etc.`, NO `N+ filters/buttons/fields/params/columns`, NO `and so on`, NO `deferred to port-phase parity author`, NO `by audit-by-inspection`. The validator HALTs on these tokens (`check_audit § hand-wave grep`).
+- Cross-check the audit's verdict against its body. An audit declaring `Result: PASS` while body lists open P0/P1 gaps fails `check_audit_body_consistency` (A10).
+
+For frontend features (`project_kind: frontend-*` per project anchor), enumerate these axes EXPLICITLY:
+- **Navigation inventory (MANDATORY for any module-scoped or multi-tab audit; runs FIRST as Section 0; TWO-LAYER scan)** — list every user-clickable navigation target reachable from the V1 module entry: top-level tabs, in-page sub-tabs, sidebar items, accordion groups gating distinct content, modal-shell tabs, inner-routes (`<router-view>` siblings), tab-bar entries, and any other tab-shaped affordance. The scan MUST run in two layers; Layer-A-only is incomplete and HALTS:
+    - **Layer A — Route tree**: read every router file in V1 + V2; build the route hierarchy. Catches top-level tabs + route children + redirects.
+    - **Layer B — Per-leaf template grep (MANDATORY, not optional)**: for EACH leaf component identified in Layer A, open its source file and grep for in-template tab patterns. If ANY match, those are ADDITIONAL nav leaves to enumerate under that parent. Patterns to scan: the project's tab primitive (concrete tag/component vocabulary varies by stack — see the project's frontend pack rule § Tab patterns), the project's role-based ARIA tab markers (`role="tab"`, `role="tablist"`), sidebar config arrays / sidebar link lists / menu data files, in-page tab arrays (the project's iteration construct over a `tabs|items|sections` collection, `[{label, path|value}]` literals at template scope), nested-routing siblings inside a component, accordion title arrays.
+    - Same two-layer scan applied to V2. Then 1:1 mapping table. Any V1 navigation leaf with no V2 equivalent navigation surface is **DRIFT, not STRUCTURE_OK**, even if the underlying form fields/components/data exist somewhere in V2's source. Burying a V1 sub-tab as a section in another V2 tab is drift; splitting one V1 tab into multiple V2 routes is drift unless an accepted ADR documents the restructure (with `user_decision_quote`). Per-axis enumeration of remaining axes only proceeds on tabs that exist on BOTH sides; if the inventory section surfaces drift, the audit halts at Section 0 and the remediation list begins there.
+    - **Section 0 completion checklist** (every box ticks before audit advances): V1 routes extracted from every router file ✓ · V2 routes extracted ✓ · for EACH V1 route leaf, component source opened + grep'd for tab patterns; matches enumerated ✓ · same for V2 ✓ · V1 leaf set ↔ V2 leaf set diffed ✓ · every V1 leaf has a V2 equivalent OR is flagged DRIFT (with closure verb) ✓ · every V2-extra leaf flagged for V1-parity decision ✓.
+    - **Section 0 MUST emit machine-verifiable evidence in the audit body** — without this evidence the validator's `check_section_0_evidence` halts the audit. Required block shape (paste verbatim into the audit, one per side):
+      ```
+      ### Section 0 — Layer A — V1 routes
+      Router file: <v1-path:line>
+      Routes extracted: (one per line, full path + leaf component path)
+        /<route1> → <v1-leaf-component-path>
+        /<route2> → <v1-leaf-component-path>
+        ...
+
+      ### Section 0 — Layer B — V1 per-leaf grep evidence
+      For EACH leaf component above, paste the grep command + matches found.
+      Leaf: <v1-leaf-component-path>
+        Command: rg -n '<the project's tab primitive(s) per its frontend pack>|tabs[\\.\\[]\\s*(map|forEach)|<iteration-directive>.*tab in|role="tab"|role="tablist"|<nested-routing-sibling-tag>' <v1-leaf-component-path>
+        Matches (paste full output OR "no matches"):
+          <line>: <excerpt>
+          <line>: <excerpt>
+        Sub-tabs / nav leaves enumerated: (per match, list each as a separate leaf)
+          - <sub-tab-label-1> @ <line>
+          - <sub-tab-label-2> @ <line>
+
+      ### Section 0 — Layer A — V2 routes
+      (same shape as V1)
+
+      ### Section 0 — Layer B — V2 per-leaf grep evidence
+      (same shape as V1)
+
+      ### Section 0 — Leaf-set diff (V1 vs V2)
+      | V1 leaf | V2 leaf | Verdict | Closure verb |
+      |---|---|---|---|
+      | <v1-leaf> | <v2-leaf or "MISSING"> | MATCH / V1-only / V2-only | (verb if drift) |
+      ...
+      ```
+      The validator parses these sections by header. Missing block → HALT. Empty grep output without "no matches" annotation → HALT. Leaf-set diff with no rows where both Layer-B passes returned matches → HALT (Layer-A-only scan recurrence).
+    - **Halt #13a (operational sub-halt)**: if the leaf component file uses dynamic tab generation (a derived/computed tab array, factory function, async tab loader, or any data-driven tab construction), the grep evidence MUST include the source of the tab data (the component's setup / data / computed / store / config file) AND list every tab the source can resolve to in the production data. A grep that returns "matches the pattern but the array is built dynamically; will enumerate at runtime" is a Layer-A-Only scan in disguise — HALTS. The auditor reads the data source and enumerates statically.
+    - **Why two layers**: routes-only extraction misses in-component tab UIs (e.g., a marketing page that uses one route but renders many platform tabs via a radio-button + conditional-render pattern inside its template). The "Layer-A-Only Scan" failure mode produces high-confidence false-PARITY verdicts on tabs whose internal navigation was never compared. Per-stack packs add their own framework-specific patterns to the Layer-B grep list.
+- **Form fields** — every input on V1's page, with type + validators + defaults. Then V2's. Mapping table.
+- **UI affordances** — every button, link, dropdown trigger, modal trigger, file-upload, toggle, copy-button. Per item: V1 path:line + V2 path:line + permission gate (or "ungated") + verdict.
+- **Templated query params** — every key the V1 list call sends. Cite the V1 service constructor line; enumerate explicitly.
+- **Per-button permission gates** — V1 vs V2 per button. If V1 ungated and V2 gated (or vice versa), flag as contract-break candidate. The validator's `check_permission_gate_divergence` catches "verdict says match but cells differ" (C2).
+- **Table columns** (for list pages) — every column V1 renders ↔ V2.
+- **Lifecycle / cache** — when V2's framework supports route caching, the V2 fetch hook must align with the cache mechanism (the project's anchors file declares the pair). Mount-only fetches on cached routes are stale-on-tab-return.
+- **Bulk actions** — every batch operation V1 supports.
+
+**Tier-aware enumeration** (per ledger row's `tier:` field, set by audit per `migration-discipline.md` § "Required artifacts per feature — tiered floor").
+
+**Default until audit:** ledger `tier` defaults to `trivial` in `validate-migration-artifacts.sh` when unset — classification still requires full per-gap enumeration when gaps exist.
+
+- **Heavy tier**: full enumeration of every axis as above. No `...` / `etc.` hand-waves anywhere. This is the F039 anti-Trusted-Summary protection.
+- **Standard tier**: enumerate axes that show ≥1 gap (any severity, any kind: ADD / DELETE / CHANGE) with full per-row tables. Axes with 0 gaps may be summarised in 1 line ("8 form fields, all match — see V1 `<path>` vs V2 `<path>`"). The summary still cites both paths; no `etc.` allowed.
+- **Trivial tier**: same rule as standard — any axis with ≥1 gap (ADD / DELETE / CHANGE, frontend OR API) requires the full per-row enumeration table for that axis with `<v1-path:line>` ↔ `<v2-path:line>` citations. Axes with zero gaps may be 1-line summarised. Summary-only text hiding ≥1 gap is forbidden — the validator's `check_audit` hand-wave grep HALTs on `etc.` / `...` / `N+ items` / `and so on` / `deferred to port-phase parity author` / `by audit-by-inspection`. Trivial differs from standard ONLY in the artifact set produced (no contract / plan / parity tests / runbook), NOT in detection rigor.
+
+### Density rule for axes (Trusted-Summary protection)
+
+For UI-leaf rows (any row whose `v2_path` is a leaf-component / view-template file in the project's stack), every axis verdict requires evidence proportional to the V1 surface size. Specifically:
+
+- **Forms-bearing UI-leaf** (V1 file contains ≥5 form-input elements — concrete tags / components vary by stack and live in `frontend/rules/migration-frontend.md § Stack-aware primitive set`; check that pack for the project's stack):
+  - Axes "Form fields", "UI affordances", "Event handlers", "Per-button permission gates" MUST emit a per-row enumeration table with `<v1-path:line>` and `<v2-path:line>` citations — REGARDLESS of verdict (PARITY or DRIFT).
+  - One axis-header line + one-line summary ("clean — preserved per V1") is INSUFFICIENT. The validator's `check_per_axis_enumeration` will halt the gate.
+  - PARITY claims pay MORE enumeration cost than DRIFT, because PARITY needs to convince the validator that the auditor actually compared the surfaces field-by-field.
+
+- **LOC-ratio safeguard**: when V2_file_LOC / V1_file_LOC < 0.5 AND V1 ≥ 200 LOC, the row is auto-promoted to standard tier and the per-axis enumeration is required regardless of the auditor's initial classification.
+
+#### Worked example — Form fields axis on a PARITY-claimed UI-leaf
+
+V1: `<v1-root>/path/to/<feature>-form.<ext>` (~1500 lines)
+V2: `<v2-root>/path/to/<Feature>FormPanel.<ext>` (~250 lines — V2 is ~17% of V1, signals likely missing fields)
+
+The `<ext>` substitutes the project's stack-native leaf-component / view-template extension (declared in the project's `_extracted-codebase.md § Stack` and the project's frontend pack rule). The discipline is identical across stacks; only the file extension and tag vocabulary differ.
+
+INCORRECT (the kind of audit that slips past review when discipline is shallow):
+
+```
+### 1. Form fields
+clean — form preserved per ADR-NNN; no field drift detected.
+```
+
+CORRECT (the auditor must produce a table like this; field names below are illustrative — substitute the project's actual field identifiers):
+
+| # | V1 field | V1 path:line | V2 field | V2 path:line | Verdict |
+|---|---|---|---|---|---|
+| 1 | `form_type` | <v1-leaf>:124 | `form_type` | <v2-leaf>:54 | PARITY |
+| 2 | `purchase_method` | <v1-leaf>:148 | `purchase_method` | <v2-leaf>:71 | PARITY |
+| 3 | `show_header` | <v1-leaf>:172 | `show_header` | <v2-leaf>:88 | PARITY |
+| 4 | `auto_select` | <v1-leaf>:196 | `auto_select` | <v2-leaf>:112 | PARITY |
+| 5 | `shipping_type` | <v1-leaf>:220 | (missing) | — | DRIFT — V2 missing |
+| 6 | `shipping_cost` | <v1-leaf>:248 | (missing) | — | DRIFT — V2 missing |
+| 7 | `min_phone` | <v1-leaf>:285 | `min_phone` | <v2-leaf>:138 | PARITY |
+| 8 | `max_phone` | <v1-leaf>:303 | `max_phone` | <v2-leaf>:152 | PARITY |
+| 9 | `button_label` | <v1-leaf>:341 | (missing) | — | DRIFT |
+| 10 | `name_active` | <v1-leaf>:387 | (missing) | — | DRIFT |
+| ... (20 more rows) | ... | ... | ... | ... | ... |
+
+If even one field in V1 isn't enumerated in this table, the auditor failed the discipline. The "Optimistic Form Field Match" anti-pattern is what this rule exists to prevent.
+
+### Stack-aware primitive accounting (mandatory enumeration target)
+
+The validator runs `extract_inventory_primitives` over every audit's V1 + V2 leaf paths and emits a per-primitive count comparison. Every primitive class where V1 count > 0 AND V2 count differs by > 30% is a **drift count the audit MUST account for** in the relevant axis section.
+
+Mapping table (primitive → axis):
+
+| Primitive class | Stack family | Axis section in audit |
+|---|---|---|
+| `v_model` (form fields bound) | frontend | "Form fields" |
+| `dropdown` | frontend | "UI affordances" or "Form fields" |
+| `button` | frontend | "UI affordances" |
+| `click_handler` | frontend | "Event handlers" |
+| `permission_gate` | frontend | "Per-button permission gates" |
+| `tabs` | frontend | "Section 0 — Navigation Inventory" (already mandated) |
+| `route_def` | frontend | "Section 0 — Navigation Inventory" |
+| `input_html` | frontend | "Form fields" |
+| `conditional_render` | frontend | "Event handlers" or "Reactive lifecycle" |
+| `route_handler` | backend | "Endpoints / route handlers" |
+| `dto_class` | backend | "Request/Response DTO shape" |
+| `auth_guard` | backend | "Auth + permissions" |
+| `validator` | backend | "Inputs / validation" |
+| `service_method` | backend | "Service-layer methods" |
+| `exception_throw` | backend | "Error contract" |
+| `db_query` | backend | "Side effects (DB writes/reads)" |
+| `event_emit` | backend | "Side effects (events / queue)" |
+| `table_def` / `column_def` | data | "Schema" |
+| `foreign_key` / `index_def` / `constraint` | data | "Schema integrity" |
+| `screen` / `text_input` / `nav_route` | mobile | "Form fields" / "Navigation Inventory" |
+| `native_call` / `platform_branch` | mobile | "Native bridge calls" / "Platform-specific branches" |
+
+For every primitive's drift, the audit MUST enumerate the missing items with `<v1-path:line>` citations in the corresponding axis section. The validator's `check_inventory_primitives_match` halts when citation count < drift count.
+
+PARITY verdict on a row whose primitives show V2 < 70% of V1 is **forbidden** — re-classify as DRIFT or document the legitimate count drop (e.g., V1 had unreachable dead code; cite the dead branches).
+
+**Enumerate ALL gap kinds, not just divergence.** For every axis, the auditor must surface three categories:
+- **ADDED in V1, missing in V2** (V1 has the affordance / endpoint / field; V2 omits it) — most common.
+- **EXTRA in V2, absent in V1** (V2 has scaffolding V1 never had — extra button, route, default-true wrapper prop) — the F040 default-true class.
+- **CHANGED behavior** (same name, different output / status code / validator / permission gate / locale key).
+
+A gap report that lists only "missing" misses two of three failure modes.
+
+The `auditor_agent_id` provenance check (frontmatter) is **mandatory across all tiers** — trivial audits still must prove they came from a `parity-auditor` dispatch (or rule-only-mode sentinel), never an inline executor echo.
+
+See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+
+For backend features (`project_kind: backend-*`), enumerate:
+- **Endpoints** — every V1 route + V2 route mapping. HTTP method, path, status codes, request shape, response shape.
+- **Side effects** — DB writes, external HTTP, queue publishes, cache writes, log lines downstream consumers depend on.
+- **Auth/permission decorators** — V1 middleware + V2 per-route auth gating (decorator / annotation / middleware / guard / policy — concrete syntax varies by stack; see `backend/rules/migration-backend.md` for the project's stack).
+- **Layering** — domain framework-free? application uses ports? infrastructure adapter wired?
+
+### V2-structure conformance check (all layers, all tiers)
+
+In addition to the parity gap list, the auditor MUST verify every file the FIX step added to V2 follows V2's structure (not V1's). For each new file under `<v2-root>/`:
+
+1. **Module path conforms** to V2's layout (`<v2-root>/<layer>/<module>/<kind>/...` per existing V2 modules). Files placed at V1's path or outside V2's whitelisted top-level dirs → `regressed`.
+2. **File naming conforms** to V2's convention (PascalCase for components, camelCase for utilities, kebab-case for routes — match what existing V2 modules do).
+3. **Primitives are V2's, not V1's**: DI container, ORM, error envelope, repository pattern, validation library, logging facade, HTTP client, cache primitive. A new file that imports a V1 utility, uses a V1-only pattern, or sidesteps a V2 primitive (e.g., raw `axios` where V2 has a typed client; raw `try/catch` where V2 has a Result type) → `regressed`.
+4. **Shared wrappers / base classes are used**: frontend (the project's `_extracted-idioms.md` names every reusable; the per-stack pack rule (`frontend/rules/migration-frontend.md` for frontend, `backend/rules/migration-backend.md` for backend if defined) enumerates the wrapper-vs-raw fingerprint catalogue the validator enforces.
+5. **Layer boundaries respected**: domain code framework-free; application uses ports; infrastructure is the adapter. A new "service" that opens a DB connection directly → `regressed`.
+6. **No V1 transposition**: a new V2 file whose structure 1:1 mirrors a V1 file (same imports, same composition, same layout) is the Transposition Trap → `regressed`. Cite the V1 file the new V2 file mirrors.
+
+Any `regressed` finding HALTs the audit (verify-mode RE-DETECT) regardless of tier. The user must refactor the new file to V2's shape before the row advances. This is the F040-class-of-bugs preventive: a "fix" that lands V1-shaped code into V2 has not actually closed the gap, it has imported V1 into V2.
+
+### Closure-verb mapping (mandatory — do NOT default to user-decision on cosmetic gaps)
+
+When emitting a gap, the auditor MUST choose `closure_verb` per this table. Emitting `user-decision` for cosmetic / V2-only-extras / locale-key drift / wrapper-shape gaps is a **bug** — that's the noise pattern that turns a 10-gap audit into a 10-question interrogation. The find-and-fix command's DECIDE step rejects gaps that violate this mapping and re-defaults them.
+
+| Gap kind | Severity signal | Required closure_verb |
+|---|---|---|
+| Cross-repo blocker (V2 fix needs API / sibling repo / contract change) | P0 | `user-decision` |
+| Security / privacy / legal regression in V2 (V2 broke an auth gate, leaked PII, etc.) | P0 | `user-decision` |
+| Data-loss / write-path mutation divergence | P0 | `user-decision` |
+| V1 has a known bug V2 already fixed (cite V1 issue or commit) | P1 | `user-decision` (rare; needs ADR if user wants V2 to keep the fix) |
+| V2 missing a V1 affordance (button, field, column, route, locale key) | P1 / P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
+| V2 has an extra V1 didn't (V2-only button, route, column, video-help) | P2 | `code-edit` (V1-parity = remove the extra) — auto-fix, NO prompt |
+| Cosmetic divergence (empty-cell text, swatch vs picker, padding, spacing) | P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
+| Locale key drift (V1 `Inventory.Variants.foo` → V2 `Table.foo`) | P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
+| Permission-gate divergence (V1 gated, V2 ungated or vice versa) | P0 / P1 | `code-edit` (V1-parity); only emit `user-decision` if V2 is the auth-correct side and V1 was wrong |
+| Audit cannot determine V1 (file missing, source ambiguous, no caller) | — | `user-decision` (condition 3 of the three above) |
+| New V2 file violates V2 structure (Transposition Trap, raw V1 components) | — | `regressed` (halts RE-DETECT) |
+
+**Verb vocabulary (canonical — do not invent synonyms):** `code-edit` (default, V1-parity), `keep-v2-per-adr` (accepted ADR documents the deviation), `user-decision` (one of the THREE conditions above — cross-repo, V1-security-regression, OR V1-undeterminable), `regressed` (RE-DETECT found the fix broke an axis). There is NO separate `escalate` verb — "escalate" is the *action* a `user-decision` triggers (halt, surface, wait), not a distinct closure verb. `find-and-fix.md`'s DETECT vocabulary `escalate-heavy` is the routing action for a P0 that needs `/port-feature --heavy`, not a closure verb either.
+
+**Key rule:** the auditor's job is to FIND the gap, not to ask permission to close it. Default to V1-parity. Only emit `user-decision` when the user genuinely needs to pick between two correct answers OR V1 is undeterminable (the three conditions above). Cosmetic and shape-level gaps NEVER need a question — V1 is the oracle, V2 is the port, edit V2.
 
 ### Stage A — Implementation audit (Shadow gate)
 
@@ -218,3 +414,16 @@ The audit is committed to `ai/migration/audits/<feature>-<stage>-<iso>.md` for t
 - `parity-testing.md` + `feature-port.md` + `migration-ledger.md` — patterns.
 - `migration-architect.md` — the agent that produced the plan.
 - `port-feature.md` — the command that orchestrates the work this agent gates.
+## Related
+
+### Sibling agents in migration pack
+- `@migration-architect` — sibling agent in migration pack
+
+### Patterns
+- `ai/patterns/feature-port.md`
+- `ai/patterns/migration-ledger.md`
+- `ai/patterns/parity-testing.md`
+
+### Rules
+- `.claude/rules/migration-discipline.md`
+

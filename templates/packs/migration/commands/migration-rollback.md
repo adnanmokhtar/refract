@@ -14,15 +14,17 @@ The safety net. Use when a shipped phase produces a regression in production OR 
 
 ## When to use
 
-- A regression surfaced after `/migration-gate <N>` passed.
-- Production traffic on V2 is failing for features in phase N.
-- A planning error means phase N's approach was wrong; need to redo from scratch.
+- A regression surfaced after `/migration-gate <N>` passed, **and phase N's features are still pre-traffic** (`V1-only` / `In-progress` / `V2-shadow`).
+- A planning error means phase N's approach was wrong; you need to redo from scratch.
 - A phase shipped with `intentional-break` ADRs you've since revoked.
+
+This command reverts **artifacts** — ledger rows, managed-block file content, audit and perf-decision files. It does not and cannot move production traffic, reverse a backfill, or flip a cutover flag. If V2 is serving users, the deployment rollback in `ai/runbooks/migration-rollback-<feature>.md` runs FIRST and this command runs after, to reconcile the repo with the state you rolled the system back to.
 
 ## When NOT to use
 
-- A single feature regressed → use `/migration-phase <N> --feature=<id>` to re-port that one.
-- The ledger is correct but production state is wrong → use deployment rollback, not migration rollback.
+- **Production traffic on V2 is failing.** That is a deployment event, not an artifact event. Execute `ai/runbooks/migration-rollback-<feature>.md` (the runbook halt #8 forced every heavy port to author, naming the cutover mechanism + per-stage steps + on-call). Come back here only once traffic is off V2.
+- A single feature needs a different implementation → `/migration-phase <N> --feature=<id>` **re-ports** it. Note this is a fresh port, NOT a revert: there is no per-feature revert path, by design (see Hard rules).
+- The ledger is correct but production state is wrong → deployment rollback.
 - Phase < 1 or phase > current-max → halt; nothing to roll back.
 
 ## Pre-requisites
@@ -34,6 +36,23 @@ The safety net. Use when a shipped phase produces a regression in production OR 
 If pre-run snapshot is missing → halt; tell user that this phase was either:
 - Shipped before rollback support existed (M11 or earlier), OR
 - The backup was deleted by user (`.claude/backups/` is sacred — see N20).
+
+## Pre-flight — irreversibility triage (runs BEFORE every other check)
+
+Restoring a snapshot is safe only when nothing outside this repo has already acted on phase N's output. A backfill that moved rows, a consumer that reads the new shape, a flag that is already flipped — none of these are in the snapshot, and none of them un-happen when the files revert. **The triage REFUSES; it does not warn.** Each refusal names the artifact that clears it.
+
+For every phase-N ledger row, read the row, then read `ai/runbooks/migration-rollback-<feature>.md`, then apply this table:
+
+| Signal | Where it is read | What it means | Verdict |
+|---|---|---|---|
+| `status` is `V2-canary`, `V2-only` or `V1-deleted` | ledger row | live traffic is served by V2 (`canary_stage` names the percentage) | **REFUSE.** Run the runbook's per-stage rollback to return the row to `V2-shadow` first, then re-run this command. |
+| `status` is `V2-shadow` with a non-null `shadow_mismatch_rate` | ledger row | V2 is executing on real traffic but not serving it — reverting the code stops the shadow, which is safe, but the mismatch history is evidence | **PROCEED** — copy `shadow_mismatch_rate` into the `_history.md` entry before reverting, or it is lost with the row. |
+| A backfill checkpoint exists with a cursor past its start | `data-cutover-orchestrate` readiness evidence for the row; the mapping at `ai/migration/mapping/<feature>.md` | rows have already been written into V2's store. Reverting `<F.target>` restores the *code* and leaves the *data* moved — the two stores diverge silently, permanently, and no gate looks again | **REFUSE.** A cross-store port is unwound by reconciliation, not by file restore. Re-run reconciliation and record the divergence before any revert. |
+| An `open` or `in-flight` row naming a phase-N feature | `ai/migration/cross-repo-tasks.md` | a consumer in another repo is already coded against the new shape. Reverting V2 here breaks that consumer, in a repo this command cannot see | **REFUSE.** Drain or revert the cross-repo task first (`/cross-repo-task`), then return. |
+| The runbook is missing, or names a cutover mechanism whose current state you cannot read | `ai/runbooks/migration-rollback-<feature>.md` | you cannot establish whether the flag is flipped. Unknown is not the same as off | **REFUSE.** Establish the mechanism's current state, or halt to the user. Never assume off. |
+| Any row in a phase **> N** cites a phase-N feature in `depends_on` / `notes` | ledger rows for phases N+1…max | later phases were built on top of what you are about to remove | **REFUSE** unless the user passes `--cascade-ack` naming each dependent row. `/migration-plan` grouped phases by dependency, so this is answerable from the ledger — do not skip it. |
+
+If every phase-N row clears the table, print `IRREVERSIBILITY: CLEAR — <Y> rows, all pre-traffic` and continue. If any row refuses, print the refusing rows with their verdict text and **write nothing** — the refusal is the output.
 
 ## Phase 1 — Understand (the ask)
 
@@ -61,6 +80,8 @@ Rollback scope (per phase N feature):
 - Pre-run snapshot tree.
 - Current state of every file the snapshot covers.
 - ADRs cited as `intentional-break: ADR-NNNN` for any phase-N feature — verify each ADR's status (Accepted / Superseded / Rejected) before reverting.
+- `ai/runbooks/migration-rollback-<feature>.md` for every phase-N row — the cutover mechanism and its current state. This is the input the triage table above consumes; halt #8 guarantees the file exists for every standard/heavy row.
+- `ai/migration/cross-repo-tasks.md` (if present) — open consumer coupling.
 
 ## Phase 4 — Generate (produce the output)
 
@@ -136,7 +157,7 @@ Next steps:
 
 ## Mechanical halt — refuse to mutate without confirmed scope
 
-Before any write: (1) `--reason` non-empty (≥1 sentence), (2) snapshot dir exists at `.claude/backups/migration-phase-<N>-<ts>/`, (3) explicit user confirmation of the feature list (`--dry-run` first is recommended), (4) no planned write touches content outside `setup-project:managed` markers — if a feature's target file has no managed block, halt and surface for manual handling, (5) ADRs cited as `intentional-break` for phase-N rows have been classified (Accepted / Superseded / Rejected) — auto-revert without ADR review is forbidden. Atomic per-feature: row + file + audit either all revert or none.
+Before any write: (0) the irreversibility triage above returned CLEAR for every phase-N row — a single REFUSE stops the command, and `--dry-run` is the only thing that runs past it, (1) `--reason` non-empty (≥1 sentence), (2) snapshot dir exists at `.claude/backups/migration-phase-<N>-<ts>/`, (3) explicit user confirmation of the feature list (`--dry-run` first is recommended), (4) no planned write touches content outside `setup-project:managed` markers — if a feature's target file has no managed block, halt and surface for manual handling, (5) ADRs cited as `intentional-break` for phase-N rows have been classified (Accepted / Superseded / Rejected) — auto-revert without ADR review is forbidden. Atomic per-feature: row + file + audit either all revert or none.
 
 ## Hard rules
 
@@ -144,7 +165,8 @@ Before any write: (1) `--reason` non-empty (≥1 sentence), (2) snapshot dir exi
 - **Backup directory NEVER auto-deleted.** Even after rollback, the backup stays. Future rollback attempts may need it. Per Hard Rule N20.
 - **User-authored content preserved.** Rollback only reverts managed blocks. Anything outside `setup-project:managed` markers is left intact.
 - **History is append-only.** Rollback adds a new entry; the original PASS entry from `/migration-gate <N>` stays — for the audit trail.
-- **No partial rollback within a phase.** Either every phase-N feature reverts, or none. To undo one feature, use `/migration-phase <N> --feature=<id>` instead.
+- **No partial rollback within a phase.** Either every phase-N feature reverts, or none — a half-reverted phase leaves the ledger describing a state no snapshot holds. There is deliberately **no per-feature revert**: `/migration-phase <N> --feature=<id>` re-ports the feature forward from the contract, which is a different operation with a different risk profile. Do not describe it to a user as "undo".
+- **Artifacts only, never traffic.** This command cannot flip a flag, drain a canary, reverse a backfill or notify a consumer. When any of those is in play the runbook leads and this command follows.
 - **Verify before reverting.** If the snapshot's ADR citations don't match current ADR status, flag for user; don't auto-revert.
 
 ## Related

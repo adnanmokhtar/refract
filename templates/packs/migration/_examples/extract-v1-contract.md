@@ -22,6 +22,15 @@ Find V1's real behaviour, no hand-waves. Every claim in the contract is a citati
 
 This skill is the procedural arm of `migration-discipline.md` + `feature-port.md` Phase 1.
 
+## Tier-aware contract scope
+
+The contract's required scope scales with the ledger row's `tier:` field (set by audit). **Canonical default:** `trivial` until the parity audit sets `tier:` on the ledger (`migration-discipline.md`); `validate-migration-artifacts.sh` defaults missing ledger `tier` to `trivial`. Do not assume `heavy` when `tier` is absent — read the ledger row after audit.
+
+- **Heavy tier**: full 9-section contract (Inputs / Outputs / Side effects / Business rules / Invariants / Performance characteristics / Caller assumptions / Edge cases V1 handles / Known V1 bugs). All sections populated; every claim cited `<path:line>` with one-line excerpt.
+- **Standard tier**: 3 sections only — § 1 Inputs, § 2 Outputs (per code path), § 9 Known V1 bugs. Skip § 3–§ 8 as separate sections; fold any load-bearing item flagged by audit into the relevant section. Citation discipline still applies.
+- **Trivial tier**: no contract required. The audit's classification + 1-paragraph "what changed" + 1-paragraph "why no contract" is the artifact.
+
+Refuse to expand a contract beyond its tier without an explicit user request to upgrade the tier (which the user records on the ledger row + justifies in the audit).
 ## When to use
 
 - A new ledger row enters state `In-progress` (called by `/port-feature` automatically).
@@ -240,6 +249,38 @@ The contract file at `ai/migration/contracts/<feature>.md` is the artifact. Lint
 - The ledger row references this contract.
 - The V1 commit pinned in the ledger row resolves.
 
+## Output expectations — citation discipline
+
+Every claim in the contract is a citation, not a paraphrase. Two requirements:
+
+1. **`<path:line>` resolves** — file exists at the pinned V1 commit, line exists, and the cited line is within ±3 of the claim's subject. The validator's `check_audit_provenance` + path-resolver checks each reference.
+2. **One-line excerpt of the cited line** — quote the actual source line beside the citation so a reviewer (and the validator's `check_audit_body_consistency` / citation-spoof detector) can verify the line's content matches the claim. Without an excerpt, an audit can echo "looks identical at `<path:line>`" while the line at that location says something else — the **Trusted Summary** anti-pattern. Excerpts make spoofing visible.
+
+Example:
+
+```markdown
+- Rule-003: discount minimum $50.
+  Source: `Reports/views.py:217` — `if order.total < 50: return None`
+```
+
+NOT:
+
+```markdown
+- Rule-003: discount minimum $50. Source: Reports/views.py:217  ← unverifiable
+```
+
+## Project anchors (read before extracting)
+
+Before you start, read `ai/migration/_v2-anchors.md` (schema at `templates/packs/migration/_v2-anchors-schema.md`). It declares the project's:
+
+- `project_kind` (frontend / backend / API / mixed) — drives which axes the contract covers (e.g., frontend adds form fields, UI affordances, query-param surface, per-button permission gates, reactive lifecycle).
+- `v1_root` and `v2_root` — your `<v1-path:line>` citations resolve relative to `v1_root`.
+- Gold-standard files — exemplar V2 implementations the port should match in shape. Concrete file names are project-specific and live in `_extracted-idioms.md § Gold standards` (e.g., the project's canonical CRUD-page leaf component; the project's base-service / repository-base / controller-base class).
+- Shared component map — components / hooks / utilities V2 reuses. The contract's "consumer assumptions" must reflect these. Names are project-specific (read from `_extracted-idioms.md § Shared inventory`).
+- Layering rules — the project's actual layer chain as extracted (e.g., components → composables / hooks → services → core for frontend; controller → service → repository for backend; handler → use-case → domain for hexagonal). The contract's side-effect ownership maps to whichever layer chain the project uses.
+
+Without anchors, contracts drift from V2 reality. The validator's `check_v2_structure` + `check_composable_reuse` + `check_service_shape` halts at audit time on contracts that ignore anchors.
+
 ## Failure modes
 
 - **"This feature is too small to need a contract."** — small features are where regressions hide because nobody bothered. The contract is cheap; write it.
@@ -257,3 +298,4 @@ The contract file at `ai/migration/contracts/<feature>.md` is the artifact. Lint
 - `perf-uplift-survey.md` — consumes the **Performance characteristics** + **Side effects** sections.
 - `migration-architect.md` (agent) — uses this contract to plan V2.
 - `parity-auditor.md` (agent) — verifies the contract is complete before cutover.
+

@@ -33,7 +33,7 @@ Row schema (the input the orchestrator passes per dispatch):
 
 ```yaml
 id: A047                                    # stable id from scan
-class: security                             # one of 11 universal named classes + stack-specific
+class: security                             # one of the 11 universal named classes, or `stack-specific`
 subclass: missing-auth-gate                 # optional sub-classification
 severity: high                              # security only: low | medium | high | critical
 scope: [src/routes/admin/export.ts]         # files the fix may touch (others = halt)
@@ -116,7 +116,7 @@ Plus side effects:
 
 ### Step 3: FIX — apply the closure-verb edit
 
-Apply the verb-specific procedure (see `.claude/references/align-discipline-procedures.md § Closure-verb procedures`). Summary by verb:
+Apply the verb-specific procedure. The closed 21-verb vocabulary and the net-lines rule are in `ai/patterns/align-guardrails.md § Anti-bloat merge gates`; the per-verb summary below is the contract and is complete.
 
 #### Structural verbs (net-lines ≤ 0 per row)
 
@@ -239,6 +239,21 @@ Constraints:
 - **Re-detect after fix.** Re-running the detector is mandatory; the gap-count parity rule (`gaps_in == gaps_closed`) enforces this.
 - **Tests must pass; coverage must not drop.**
 - **Security and perf rows ship with assertions / baselines, in the same commit.**
+
+## Failure modes
+
+This is the loop every fix runs through, so its failures are the pack's failures. Each one below has a wrong-but-tempting response and the correct one.
+
+- **The fingerprint aged out at DETECT** — another PR fixed it first. Tempting: mark `fixed` and move on. Correct: `archived-pre-existing`, with **no commit** on the row. A row marked `fixed` with no commit is `The Stale Ledger`, and `@align-ledger-auditor` reconciliation 3 will surface it as a lie later, at a point where nobody remembers why.
+- **The verb doesn't fit once you see the code** — the row says `dedupe` but the two blocks differ meaningfully. Tempting: pick a nearby verb and proceed. Correct: halt with wrong-category (audit halt #3) and let the row be re-classed. A verb chosen to make the row closable is how a `security` row acquires a structural verb and then fails net-lines for adding the lines it had to add.
+- **The idiom the fix needs does not exist** — no gate wrapper, no validator, no cache primitive in the oracle. Tempting: write a small one inline, "just for this row". Correct: halt → `/setup-project --refine`. This is audit halts #9 and #10, and it is `The Reinvented Idiom in Functional Verb`. Inventing here is invisible in a diff review because the new helper looks like exactly the kind of code the fix should contain.
+- **Net-lines came out positive on a structural row** — usually the local copy was not deleted after importing the shared one, or an explanatory comment was added. Correct: delete the leftover, don't argue the count. `The Net-Positive Cleanup` is nearly always a missed deletion rather than a genuine need for lines.
+- **A test fails at VERIFY and passes on re-run** — one retry, then quarantine that test for this row only and say so in `notes`. A flaky test does not make the suite green, and quarantining for the whole phase converts one flaky test into an unmonitored phase.
+- **Scoped tests pass but nothing covers the changed line** — passing tests over uncovered code is not evidence. Report coverage of the touched lines, not of the suite; for security and perf rows the assertion is the deliverable, so its absence is a halt, not a note.
+- **`gaps_closed < gaps_in`** — the fix closed 7 of 8 evidence sites. Tempting: mark `fixed` and open a follow-up row. Correct: `status: halted`. Splitting a partially-closed row loses the link between the evidence and the fix, and the 8th site is exactly the one that gets forgotten.
+- **The diff touched a file outside `scope`** — even one line, even a lockfile. Halt (audit halt #8). Widening `scope` after the fact to make the check pass is the ledger equivalent of editing the oracle.
+- **The row is heavy and no reviewer is available** — pause at RECORD as `pending-review`. Do not self-approve, and do not demote the tier to avoid the wait; `/align-promote-tier` refuses that demotion for security rows and it is the wrong move for all of them.
+- **The fix is correct but blocked indefinitely** — park it via `/align-park`, which will capture `prior_status` + `prior_phase` so the row can come back. A critical security row cannot be parked without an explicit recorded override, and that refusal is the intended outcome, not an obstacle.
 
 ## Notes
 

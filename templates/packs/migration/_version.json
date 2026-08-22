@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.9.1",
-  "released": "2026-08-22",
+  "version": "1.11.0",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Three dangling section anchors repaired: `agents/parity-auditor.md` and `references/migration-discipline-procedures.md` pointed `§ Forms-bearing fingerprints` and `§ Leaf-component extensions` at `migration-frontend.md`, neither of which is a section there, and the Halt-13 elaboration pointed a `§ Navigation Inventory two-layer scan` anchor at ITS OWN file, which does not contain it. All three now name the sections that hold the content.",
+  "summary": "Batch 5 follow-up. 1.10.0's rule shrink delegated ten enforceable rules -- halts 12-13's full spec, the dead-V1 6-axis check, the tier artifact specs, the anti-bloat gate definitions, the v1_status halt-skipping modes, the enforcement matrix, the 20-name anti-pattern catalogue -- to `.claude/references/migration-discipline-{procedures,catalogue}.md`, which `phase-4.2-apply.md:210-213` only copies when the filename equals a DETECTED FRAMEWORK NAME, so no installed project has ever received either. All of it moved into new `ai-patterns/migration-guardrails.md`, which copies unconditionally (`phase-4.2-apply.md:207`) -- the destination `check-rule-budget.sh:105` names in its own failure message. Two sections were deleted instead of moved because they restated the `extract-v1-contract` skill and the three procedure skills verbatim; the 3.4K remainder of `references/migration-discipline-procedures.md` was merged into the catalogue and the file deleted (references/ 55,781 -> 12,253 chars). Four `_examples/` fallbacks deleted and their topics switched to source-as-fallback: `migration-discipline` still shipped six sections the rule had retracted and became a greenfield project's always-loaded rule at 98% of the source's size, `feature-port` was never re-cut after the 18-row axis table moved into `ai-patterns/feature-port.md`, and the two pattern twins could only ever overwrite a fresh source with a staler abridgement. Rule-only-tool classification corrected in both rules: `_registry.md:76` records \"Gemini has no executable primitive\" as doc-verified FALSE, and Codex, Cline and Windsurf all execute too -- only Aider is rule-only (`_registry.md:23`). Rule 37,854 -> 27,648 chars (~9,463 -> ~6,912 tok, -27%); pack -16,551 chars; 5 files deleted.",
   "changelog": "CHANGELOG.md"
 }

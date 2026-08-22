@@ -151,7 +151,7 @@ Mechanism by tool family:
 
 - **Tools with agent + command dispatch but no skill dispatch (Cursor, Copilot)**: same as above — invoke the equivalent agent / sub-task tool. The `auditor_agent_id` field holds the equivalent run ID.
 
-- **Rule-only tools (Aider, Codex, Gemini, Cline, Windsurf)**: the executor follows `migration-discipline.md` § Tool-agnostic procedure inline, BUT the audit doc's frontmatter MUST declare `auditor_agent_id: rule-only-mode/<tool>/<UTC ISO>`. Validator allows this sentinel; the trade-off is logged so the user can see which tool produced which audit. Lightning-rod feature (any feature in a phase that lists `revenue_critical: true` or `tenant_isolation: true` in the ledger) requires a human-in-the-loop second pass before the row flips to `done`.
+- **Rule-only tools (of the shipped adapters, only Aider — `tool-adapters/_registry.md:23`)**: the executor follows the `extract-v1-contract` / `parity-test-generate` / `perf-uplift-survey` `SKILL.md` files inline (they install with the pack and every adapter translates them), BUT the audit doc's frontmatter MUST declare `auditor_agent_id: rule-only-mode/<tool>/<UTC ISO>`. Validator allows this sentinel; the trade-off is logged so the user can see which tool produced which audit. Lightning-rod feature (any feature in a phase that lists `revenue_critical: true` or `tenant_isolation: true` in the ledger) requires a human-in-the-loop second pass before the row flips to `done`.
 
 **Refusal rule**: an audit doc without a populated `auditor_agent_id` field FAILS the validator (`check_audit_provenance` — see § 4d). The phase cannot exit until every audit has provenance.
 
@@ -349,7 +349,7 @@ Next: /migration-gate <N>      (verifies phase exit criteria; refuses if F > 0)
 
 - **Audit before port.** Never port a feature without first comparing V1 ↔ V2 to know what's actually missing. Audit reads V1 source line-by-line; never trusts an exploration agent's "looks identical" summary (per `migration-discipline.md` § Anti-patterns: "The Trusted Summary").
 - **Parity is non-negotiable.** A "ported" feature without a passing parity test ≥30 corpus inputs + tolerance.yaml + green-against-pinned-V1-commit isn't ported.
-- **Compose with `/port-feature`.** This command DISPATCHES `/port-feature <id>` per row. It does NOT re-implement the per-feature audit/port loop. (For tools without `/port-feature`, follow the inlined procedures in `migration-discipline.md` § Tool-agnostic procedure.)
+- **Compose with `/port-feature`.** This command DISPATCHES `/port-feature <id>` per row. It does NOT re-implement the per-feature audit/port loop. (For tools without `/port-feature`, follow the three skills' `SKILL.md` procedures inline — `extract-v1-contract`, `parity-test-generate`, `perf-uplift-survey`.)
 - **Use `parity-auditor` agent (or its 13 hard halts inlined).** A generic search/exploration agent is NOT acceptable for the AUDIT step. The 13 hard halts in `migration-discipline.md` § "Per-feature audit — 13 hard halts" is the checklist; an audit that passes the gate without resolving every halt is incomplete.
 - **Frontend audit axes are mandatory for frontend features.** Form fields, UI affordances, templated query params, event handlers, per-button permission gates, accessibility, DOM-equivalent assertions, reactive lifecycle. Per `migration-discipline.md` § Frontend audit axes.
 - **Follow V2 structure, not V1 lift-and-shift.** Cite V2 patterns/helpers/base classes when porting.

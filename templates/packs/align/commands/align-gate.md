@@ -59,7 +59,7 @@ Run the project's lint / typecheck / test commands at HEAD. Any error is a refus
 
 ### Check 7 — Coverage non-decreasing (within tolerance)
 
-Run scoped coverage at `<phase-base>` and at HEAD; coverage % at HEAD must be ≥ coverage % at base **minus the tolerance threshold** (default 0.5%; configurable per project in `ai/conventions.md § Coverage`). A drop within tolerance is sample fluctuation, not a real regression — passes. A drop beyond tolerance is a refusal. See `align-discipline.md § Realism guards § Coverage tolerance`.
+Run scoped coverage at `<phase-base>` and at HEAD; coverage % at HEAD must be ≥ coverage % at base **minus the tolerance threshold** (default 0.5%; configurable per project in `ai/conventions.md § Coverage`). A drop within tolerance is sample fluctuation, not a real regression — passes. A drop beyond tolerance is a refusal. See `ai/patterns/align-guardrails.md § Supporting mechanisms § Coverage tolerance`.
 
 (Security rows may shift coverage due to intentional behaviour change; the absolute % must still satisfy the tolerance rule. If a security row caused the drop, the test suite update should have offset it — investigate which test was deleted/skipped and re-add or update it.)
 

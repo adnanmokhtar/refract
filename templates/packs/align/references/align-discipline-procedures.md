@@ -4,143 +4,18 @@
 > Rule-only tools (Aider / Codex / Gemini): this file ships alongside the core rule in your adapter bundle — read both; together they are the complete discipline.
 > Content relocated verbatim from the core rule on 2026-06-07 (40k-char always-on limit); wording unchanged.
 
-## Realism guards (added so the discipline survives real codebases)
+## Realism guards — moved
 
-A discipline rule that fails on real-world conditions (sample-coverage flake, parallel race conditions, projects without observability dashboards) is an obstacle, not a guard. These rules trade absolute purity for operational realism — the discipline still holds, but it accommodates how production codebases actually behave.
+The eight guards, and the six supporting mechanisms that carry their own thresholds (coverage
+tolerance, parallel race serialization, baseline capture fallback, the reviewer-approval flow,
+mid-sweep tier promotion, idiom-drift propagation), now live in **`ai/patterns/align-guardrails.md`**.
 
-### Coverage tolerance
+They moved because a threshold that decides a halt has to reach the project, and this file does not:
+`templates/phases/phase-4.2-apply.md:210-213` copies `references/<name>.md` only when `<name>` equals
+a **detected framework name**, so `align-discipline-procedures.md` is never installed. `ai-patterns/`
+copies unconditionally (`phase-4.2-apply.md:207`). Nothing enforceable is defined only here.
 
-The "coverage non-decreasing" rule allows a tolerance of **±0.5%** (configurable per project; default 0.5). Sample-based coverage tools (jest-coverage, pytest-cov, go test -cover, etc.) fluctuate ±0.1–0.3% on identical code due to:
-- Async test ordering (which branches "happened to be" exercised in the run).
-- Coverage instrumentation rounding.
-- Test parallelism affecting which fixtures load.
-
-A drop within tolerance is NOT a halt. A drop beyond tolerance IS a halt — the closure removed a load-bearing branch. The validator's `check_test_coverage_nondecreasing` (agent-side — not script-enforced) reads the project's coverage tolerance from `ai/conventions.md § Coverage` (default 0.5%) and applies it.
-
-### Parallel race serialization (per-file lock)
-
-`/align-fast` dispatches rows in parallel waves (default `--max-parallel=5`). Two rows whose `scope` files overlap MUST NOT run concurrently — they would race on edits to the same file.
-
-Serialization mechanism (per-file lock):
-1. Before dispatching a row, the orchestrator computes the row's `scope_files = set(scope)`.
-2. The orchestrator maintains a **lock set** of `in_progress_files = union(scope_files for active rows)`.
-3. A row is dispatched only when `scope_files ∩ in_progress_files == ∅`.
-4. When a row completes (fix + verify + record OR halt), its `scope_files` are removed from the lock set.
-5. Heavy-tier rows always serialize across the entire phase (lock = all files).
-
-Trivial implementation: process rows in dependency order; for each row, wait until all its scope files are unlocked; acquire locks; run; release.
-
-The validator's `check_parallel_consistency` (agent-side — not script-enforced) (post-hoc) verifies no two phase commits touched the same file at overlapping timestamps. A race condition (two commits modifying the same file in the same wave) = halt.
-
-### Baseline capture fallback (no-observability projects)
-
-Performance findings require a baseline (queries / latency / HTTP / wall-clock). Many projects don't have Grafana / Datadog / APM. Fallback hierarchy:
-
-1. **APM dashboard** (preferred) — read latency p95 / query count from the project's observability link captured in `_extracted-codebase.md § Observability`.
-2. **Test-suite baseline** — capture in a benchmark test that runs at HEAD pre-fix; assertion threshold = baseline + tolerance. Post-fix re-runs the test with new threshold = baseline_post_fix + tolerance.
-3. **Manual measurement** — run the relevant code path against representative input; record wall-clock + query count via the project's logger or a one-off script. Document in `notes` with timestamp + input description.
-
-Path 3 is acceptable for non-critical perf rows but discouraged for hot-path rows (subjective; not reproducible by reviewers). Path 1 or 2 preferred.
-
-A perf row whose `notes` says "baseline: ~30ms (hand-timed)" is suspect; the validator's `check_perf_baseline_present` allows it but flags as `low-confidence`. Reviewers should escalate to path 1 or 2 before merging hot-path rows.
-
-### Validator script (v1.5+)
-
-`scripts/validate-align-artifacts.sh` ships 7 high-impact checks:
-
-1. **Evidence resolves** — every row's `<path:line>` resolves to a real file at the cited line.
-2. **No hand-waves** — refuses `etc.` / `...` / `several` / `multiple endpoints` / `N+ items`.
-3. **Closure verb in vocabulary** — verb in the 21-verb closed list.
-4. **No new symbols** — `git diff --diff-filter=A` shows no new public exports unless named in `_extracted-idioms.md`.
-5. **Net-lines non-positive on structural** — git stat for the row's commit; structural rows must net ≤ 0.
-6. **Scope boundary** — `git show --name-only` for the row's commit; touched files must be inside the row's `scope`.
-7. **Security tier minimum** — security rows ≥ standard; critical-severity → heavy.
-
-Remaining 7 checks (test-coverage, frontend-regression, idiom-citation, security-assertion, perf-baseline, oracle-unmodified, ledger-completeness) are **agent-side enforcement** — run inline by `/align-gate` / `/align-fast` / `/align-phase`. The procedures are inlined in this rule.
-
-Usage:
-```
-scripts/validate-align-artifacts.sh --phase=<N>           # validate every row in phase N
-scripts/validate-align-artifacts.sh --finding=<id>        # validate one finding
-scripts/validate-align-artifacts.sh --all                 # validate every row in ledger
-scripts/validate-align-artifacts.sh --strict              # treat warnings as errors
-scripts/validate-align-artifacts.sh --check=<name>        # run only one check
-```
-
-Exit non-zero on any failure. Wire into pre-commit / CI / tool hook (Claude Code `.claude/settings.json` PostToolUse, Cursor `.cursor/hooks.json` `onSave`, GitHub Actions, etc.).
-
-### Reviewer-approval mechanism (heavy-tier rows)
-
-Heavy-tier rows pause for reviewer approval before they can flip to `verified`. This is a real protocol, not a soft suggestion:
-
-**Ledger field**: every heavy-tier row has a `reviewer_approval:` field. Initially empty. Approval lands as `<reviewer-name>@<iso-timestamp>` (e.g., `reviewer_approval: alice@2026-05-02T18:30Z`).
-
-**Halt behaviour**: when `/align-fast` / `/align-phase` reaches a heavy-tier row's RECORD step, it:
-1. Applies the fix and runs VERIFY as normal.
-2. Writes the row to ledger with `status: pending-review` (NOT `fixed`).
-3. Writes `ai/align/halts/<id>-pending-review.md` with: who's the assigned reviewer, what to verify, and how to approve.
-4. Continues to the next row (heavy rows do NOT block the rest of the phase).
-
-**Approval flow**:
-- Reviewer reads `ai/align/halts/<id>-pending-review.md` + the impact analysis at `ai/align/impact/<id>.md`.
-- Reviewer manually adds `reviewer_approval: <name>@<iso>` to the ledger row + commits the ledger update.
-- On next `/align-gate <N>` run, rows with non-empty `reviewer_approval` flip from `pending-review` → `verified`.
-
-**Reviewer assignment**:
-- Default: project's `CODEOWNERS` for the row's `scope` files OR the `default_reviewer:` field in `_anchors.md`.
-- Override: pass `--reviewer=<name>` to `/align-fast` / `/align-phase` to assign explicitly.
-- Fallback: if no reviewer is assignable, halt the row with "manual review required" (don't auto-approve).
-
-**Timeout behaviour**:
-- Default 7 days. After timeout, the row stays `pending-review` indefinitely; `/align-status --blockers` surfaces it.
-- The user can override via `--review-timeout=<duration>` (e.g., `24h`, `30d`, `forever`).
-- No auto-fail. No silent advance. The discipline is "wait until human signs off, however long that takes."
-
-**Validator**: `validate-align-artifacts.sh` knows about `pending-review` status and treats it as terminal-non-fix (passes the row's checks; doesn't expect `verified`).
-
-### Mid-port tier promotion
-
-Sometimes mid-port the agent realizes a row's tier is wrong (e.g., scan classified it as standard but the fix actually touches > 10 files; or trivial dead-code turns out to remove a public API symbol). Procedure:
-
-1. **Halt the row** — fix loop pauses at DECIDE; agent surfaces the promotion request.
-2. **User decides** via `/align-promote-tier <id> <new-tier> [--reason="<text>"]`:
-   - `<new-tier>` ∈ `{trivial, standard, heavy}`.
-   - Promotions (trivial → standard → heavy) require no further justification.
-   - Demotions (heavy → standard → trivial) require `--reason=` AND, for security rows, are forbidden (security never below standard).
-3. **Backfill artifacts** for the new tier:
-   - Promote to standard → agent backfills the ≤ 200-char rationale in `notes`.
-   - Promote to heavy → agent generates the impact analysis at `ai/align/impact/<id>.md`; reviewer-approval flow kicks in.
-4. **Resume**: agent re-enters DECIDE → FIX → VERIFY → RECORD with the new tier's discipline.
-
-The `/align-promote-tier` command writes a one-line entry to `ai/align/_history.md`: `<iso> promote-tier <id> <old-tier>→<new-tier> | reason: <text>`.
-
-Demotion of security rows below standard fails with: `security findings cannot fall below standard tier`.
-
-### Idiom-drift propagation
-
-When `_extracted-idioms.md` is modified between scan and execution, ledger rows that referenced the changed idioms may need re-evaluation. The scan + replan commands surface this:
-
-**`/align-scan` detection**: at the end of every scan, the command compares `_extracted-idioms.md`'s git hash against the hash recorded in the prior scan's metadata (stored in `ai/align/_session-digest.md`). If the hash changed:
-1. Scan runs as normal.
-2. Output report includes a "Idiom drift detected" section listing:
-   - Which idioms were added/removed/modified since last scan.
-   - Which ledger rows cite those idioms (read `idiom_cited` field across the prior ledger).
-   - Recommended action: re-run `/align-recheck` for affected rows OR `/align-replan --include-drifted`.
-
-**`/align-replan --include-drifted`**: re-phases rows whose `idiom_cited` references a modified idiom. Rows whose status was `verified` flip to `detected` IF the cited idiom changed materially (renamed / signature change / removed); they stay `verified` if the change was cosmetic (rename of a comment, etc. — agent decides per-row).
-
-**Validator**: `check_idiom_citation` (agent-side) compares the row's `idiom_cited` `<path:line>` against the current `_extracted-idioms.md`. A citation that no longer resolves halts the row at the next gate.
-
-### Standard- and heavy-tier artifacts (when the floor lifts)
-
-| Tier | Floor |
-|---|---|
-| trivial | Ledger row (id, finding-class, evidence `<path:line>`, closure verb, status) + code edit. |
-| standard | Trivial floor + 1-paragraph rationale (≤ 200 chars) explaining why this finding closure is safe (e.g., "all 3 call sites pass identical args; inlining is mechanical"). |
-| heavy | Standard floor + impact analysis (`ai/align/impact/<finding-id>.md`): every consumer of the touched symbol with `<path:line>`, the behaviour observable before/after the fix (assertion: identical OR documented break), reviewer name + approval timestamp before merge. |
-
-
-## Tool-agnostic procedure (for tools without skill dispatch)
+## Tool-agnostic procedure
 
 The skills `detect-drift` and `find-and-align` describe canonical procedures. AI tools that support skills dispatch them directly. AI tools that don't (Aider / Codex / Gemini / Cline / Windsurf reading rules only) MUST follow the inlined procedure below to produce the same artifacts:
 
@@ -300,25 +175,12 @@ If any check fails → REFUSE the gate. Surface the specific failure. Validator 
 - [ ] PR title = `align/phase-<N>: <one-finding-class-or-domain>` (single-class or single-domain phases preferred).
 
 
-## Enforcement
+## Enforcement — moved
 
-- **`/align-gate <N>`** halts on: any of the 14 phase-exit checks failing, any row's per-tier artifacts incomplete, any net-positive line count on structural rows, any functional row whose added lines don't cite an idiom, any `halted` row, any security row without an assertion, any perf row without a baseline / assertion.
-- **`/align-status`** reports per-finding state and flags rows older than the SLA (default: a row in `in-progress` for >7d is flagged stalled; a security row halted for >24h is flagged escalated).
-- **Validator script** `scripts/validate-align-artifacts.sh` operationalises the enforcement of the named anti-patterns (11 of 14 checks are script-enforced; the 3 tagged `(agent-side — not script-enforced)` below require runtime tooling and run agent-side):
-  - "Hand-waved enumeration" → `check_no_handwaves` greps for hand-wave tokens.
-  - "Reinvented Wrapper in fix" → `check_no_new_symbols` runs `git diff --diff-filter=A` against the alignment PR and fails on new public exports NOT named in `_extracted-idioms.md`.
-  - "Net-positive line count on structural row" → `check_net_lines_structural` measures diff for structural-class rows and fails if `+>−`.
-  - "Functional add without idiom citation" → `check_added_lines_cite_idioms` parses each added hunk and validates that the row's `idiom_cited` resolves AND covers the added lines (the cited idiom file appears in the diff's import lines OR the added block calls the named symbol).
-  - "Behaviour change" → `check_test_coverage_nondecreasing` (agent-side — not script-enforced) runs the test suite + coverage, fails if either regresses (with security-row exception: coverage may shift; absolute % must not drop).
-  - "Trusted Summary" → `check_evidence_resolves` validates every row's `evidence` is a real `<path:line>` containing the claimed fingerprint.
-  - "Scope creep" → `check_scope_boundary` runs `git diff --name-only` and fails if touched files are outside any row's `scope`.
-  - "Security row without assertion" → `check_security_assertion_present` for each security row, looks for a co-committed test file change that asserts the gate / validator / escape; fails if absent.
-  - "Perf row without baseline" → `check_perf_baseline_present` for each perf row, looks for a `notes` field containing baseline numbers (latency / queries / HTTP) OR a co-committed observability annotation; fails if absent.
-  - "Oracle modification" → `check_oracle_unmodified` runs `git diff` against `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md`; fails if non-empty.
-  - "Frontend regression" → `check_frontend_regressions` (agent-side — not script-enforced) (when `PROJECT_KIND in {frontend-*}`) runs scoped a11y / visual / bundle-size; fails on regression.
-
-
-## Relationship to migration discipline
+Gate behaviour, the SLA clocks (`in-progress` > 7d stalled; halted security row > 24h escalated) and
+the anti-pattern → check-function matrix now live in **`ai/patterns/align-guardrails.md`
+§ Enforcement — gate behaviour, SLA clocks, anti-pattern → check**, for the same delivery reason as
+§ Realism guards above.
 
 ## Relationship to migration discipline
 

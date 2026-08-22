@@ -1,7 +1,14 @@
 ---
-description: Read ai/migration/ledger.md and report per-feature state, blockers, stalled rows, and aggregate perf uplift. Read-only — never modifies the ledger. Run on demand or via weekly cron.
+description: Read ai/migration/ledger.md and report per-feature state, blockers, stalled rows, and aggregate perf uplift. Read-only — never modifies the ledger. Run on demand.
 ---
-
+<!-- generated-from: templates/packs/migration/commands/migration-status.md
+     Faithful seed copy of /migration-status (literal-copy fallback for /setup-project
+     Phase 4.2-AUTHOR when extraction has no signal). The abridged form of this file used to
+     drop `## Mechanical halt — refuse to estimate or hand-wave` — the one block that stops the
+     command inventing a completion percentage — while still satisfying check 8b's halt matcher
+     via the unrelated `## Pre-flight checks (halt if fail)` heading. It now carries the source
+     verbatim and 8b holds the two in lockstep (COPY-DRIFT). REGENERATE whenever the command
+     changes — do not hand-edit; edit the command and re-copy. -->
 # /migration-status
 
 ## The Premise (read this first)
@@ -22,7 +29,7 @@ Standard pipeline phases 1–4 (Understand → Organize → Retrieve → Generat
 - Before a planning meeting — what's done, what's blocked, what's stalled.
 - After a cutover stage advance — confirm the ledger reflects the advance.
 - On `/port-feature` halt — get an overview of impacted rows.
-- As part of weekly cron (`.claude/git-hooks/post-merge-learn.sh` may invoke this and append to `ai/migration/status-weekly-<iso>.md`).
+- On demand, whenever you need the current picture. **There is no scheduler**: the shipped baseline has no cron and no auto-invoking post-task hook, and the git hooks (`.claude/hooks/post-merge-learn.sh`, invoked by the `.claude/git-hooks/post-merge` shim) only append review hints to `ai/dynamic/.review-queue` — they invoke nothing. To get a recurring report, a human runs this command, or wires it into their own scheduler and redirects the output.
 
 ## Pre-flight checks (halt if fail)
 
@@ -61,7 +68,7 @@ For each blocked row, retrieve:
 
 ## Phase 4 — Generate (write report)
 
-Output to stdout AND optionally to `ai/migration/status-<iso>.md` (for cron):
+Output to stdout AND optionally to `ai/migration/status-<iso>.md`:
 
 ```markdown
 # Migration status — <iso>
@@ -163,6 +170,9 @@ If invoked with `--json`, emit the same data as JSON for dashboards / metrics:
 }
 ```
 
+## Mechanical halt — refuse to estimate or hand-wave
+
+Every numeric in the report (per-state counts, days-in-state, mismatch_rate, perf deltas) MUST come from parsed ledger frontmatter or a referenced parity-run / perf-decisions file. Forbidden: `~10 features stalled`, `roughly half ported`, `most features in shadow`. If a referenced file (`parity-runs/<f>.md`, `perf-decisions/<f>.md`) is missing on disk, the row is flagged as drift, not silently filled with a guess. The report is reproducible: a second run on the same ledger commit produces identical numbers.
 ## Failure modes
 
 - **Ledger malformed** (YAML frontmatter unparseable in some row) — halt with the offending row + line number.
@@ -177,3 +187,4 @@ If invoked with `--json`, emit the same data as JSON for dashboards / metrics:
 - `migration-discipline.md` — the rule.
 - `parity-auditor.md` — produces the audit reports this command summarises.
 - `code-quality/legacy-modernizer.md` — strategic dashboard; this command is the operational dashboard underneath it.
+

@@ -244,6 +244,20 @@ Update the ledger row's `parity_tests` to point at the directory.
 - **Tests pass but shadow shows mismatches**: the test corpus didn't cover what production sends. Add the production-divergent sample to the corpus, refresh.
 - **Snapshots drift silently**: someone runs `--update-snapshots` to "fix CI" — the parity oracle is now wrong. CI rejects snapshot updates without a reviewer + ledger note (lint / hook).
 
+### Validator-enforced failure modes (named D-series)
+
+These fail `scripts/validate-migration-artifacts.sh` and halt the audit:
+
+- **D1 — Corpus distribution missing**: corpus must include happy / error / edge / rule entries. Each input file's name (or a `category` field inside it) declares its bucket so `check_corpus_distribution` can verify all four buckets are populated. Suggested file-naming convention:
+  - `001-happy-*.json` — happy paths
+  - `010-error-*.json` — documented error paths
+  - `020-edge-*.json` — edge cases V1 handles
+  - `030-rule-*.json` — business rules (per the contract's named Rule-NNN)
+  Or use a JSON `{ "category": "happy" | "error" | "edge" | "rule", "input": ... }` envelope. A corpus of 50 happy-path inputs and zero error/edge/rule inputs FAILS the gate even if total count ≥ 30.
+- **D2 — Tolerance coverage incomplete**: every Output field in the contract (across every code path) must have a `tolerance.yaml` entry — `exact` / `structural` / `numeric_tolerance` / `order_insensitive` / `ignore`. `check_tolerance_coverage` cross-references the contract's Outputs sections against the tolerance file. Missing fields halt the gate.
+- **D4 — V1 commit not pinned per parity run**: each parity run captures `{ run_id, v1_commit, v2_commit, timestamp }`. `check_parity_run_v1_commit` asserts `v1_commit` matches the ledger row's `v1_commit_pinned`. A parity run against a different V1 SHA is meaningless — the oracle moved.
+- **D5 — Mocked-V1-dependency anti-pattern**: see above. Detected indirectly via corpus homogeneity + via reviewer signoff on the test harness setup.
+- **D7 — Snapshot drift via blanket update**: see above.
 ## Related
 
 - `parity-testing.md` — recipe details + tolerance taxonomy.
@@ -252,3 +266,4 @@ Update the ledger row's `parity_tests` to point at the directory.
 - `parity-auditor.md` (agent) — verifies the suite covers the contract before cutover.
 - `testing/agents/tdd-orchestrator.md` (if pack loaded) — runs the suite as part of broader TDD orchestration.
 - `database/skills/migration-rehearsal/SKILL.md` — runs the V2 query plan against prod-sized data; output feeds parity tests' performance assertions.
+

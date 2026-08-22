@@ -187,7 +187,7 @@ If any red:
 - Typecheck/lint red → fix before continuing. Do not advance with broken V2.
 - Parity-test red → either V2 fix is wrong (re-fix) or V1 oracle drifted (re-pin V1 + re-run; never loosen tolerance to make a test pass).
 
-No new parity tests are required for trivial-tier ports — the audit + ledger note carry the risk register per `.claude/references/migration-discipline-procedures.md § Trivial-tier artifact spec`. If the audit flags a missing test as a P1 gap, that promotes the row to standard-tier (≥10 fixtures) per the discipline rule.
+No new parity tests are required for trivial-tier ports — the audit + ledger note carry the risk register per `ai/patterns/migration-guardrails.md § Tier artifact specs → Trivial-tier artifact spec (audit + code only)`. If the audit flags a missing test as a P1 gap, that promotes the row to standard-tier (≥10 fixtures) per the discipline rule.
 
 **Self-validate the artifacts before RECORD.** Run `~/.claude/scripts/validate-migration-artifacts.sh --feature=<feature>`. This is the SAME tier-scoped check the phase gate runs — running it here catches an unequal `gaps_in`/`gaps_closed`, a missing mapping doc / API sample, a thin standard-tier corpus, an un-measured perf candidate, or a `done`+`parity_test: passing` row with no recorded parity-run artifact (`check_parity_run_report`) while the context is hot. Non-zero exit → do NOT record the row as `done`; fix the flagged artifact and re-run. A row that can't pass its own per-feature validation is not done.
 

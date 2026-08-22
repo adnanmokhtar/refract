@@ -4,12 +4,15 @@ description: Per-feature V1→V2 port orchestrator. Drives one ledger row throug
 
 > **STACK ASSUMPTION**: this example uses Vue 3 + PrimeVue + TypeScript syntax for illustration. The rule / pattern / anti-pattern itself is universal; substitute your project's primitives from `_extracted-idioms.md`. The validator's `check_v2_structure` is stack-conditional via `PROJECT_KIND` and applies the per-stack pack's fingerprint set automatically.
 
-
 # /port-feature
 
 The migration pack's flagship command. Takes a feature name (matching a row in `ai/migration/ledger.md`) and orchestrates the full per-feature port — reading V1 deeply, planning V2, writing V2 against parity tests, applying parity-preserving perf wins, and gating cutover. The command is **idempotent**: re-invoking on the same feature resumes where the ledger says it is.
 
 This command implements `feature-port.md`'s six-phase lifecycle. It dispatches `migration-architect` and `parity-auditor`. It uses skills `extract-v1-contract`, `parity-test-generate`, and `perf-uplift-survey`. It enforces `migration-discipline.md` at every gate.
+
+## Default mode (`--simple`, implicit)
+
+Without `--heavy`, this command **delegates to `/find-and-fix <feature>`**. Same arguments, same halts. The 7-phase machinery below does NOT run. Read `find-and-fix.md` for the loop semantics.
 
 ## Phases applied
 
@@ -34,6 +37,20 @@ All 7 of the standard pipeline (Understand → Organize → Retrieve → Generat
 - **Every perf decision recorded** as applied / deferred / rejected with rationale + measurement.
 - **Ledger updated in the same PR** as the port.
 - **Cutover gated** by `parity-auditor` PASS at every state advance.
+
+## Flags
+
+- `--simple` (default) — delegate to `/find-and-fix <feature>`. Use this for routine ports.
+- `--heavy` — opt into the full 7-phase ceremony below. Required when audit flags P0 / cross-repo / contract-break / security-sensitive / write-path mutation. Without `--heavy`, none of Phases 1-7 run; the command shells out to `/find-and-fix`.
+- `--no-prompt` — `--heavy` only. Auto-confirm contract review summary in Phase 1 step 5. Does NOT skip decision halts.
+- `--resume` — resume at the appropriate phase based on ledger row state (default behaviour; flag is explicit-form).
+- `--advance` — used post-merge to advance Shadow→Canary→V2-only (Phase 6 stage advance).
+- `--depend-on-v1` — proceed even if a dependency is still V1-only. Requires written rationale logged to the ledger row's notes.
+- `--overwrite-v2` — force re-port when `migration-detect-existing.sh` returns `full`. Logged to `ai/migration/_history.md`.
+- `--merge-existing` — proceed when detection returns `partial` (V2 has scaffolding); merge with what's there instead of overwriting.
+- `--override-paths` — bypass `migration-validate-paths.sh` when the architect can defend the deviation in writing (logged).
+- `--unattended` — run without per-decision prompts; skip halts ONLY for decisions covered by an accepted ADR (`Status: accepted` in `ai/decisions/`). See "Unattended mode" below.
+- `--plan` — produce the per-feature port plan and STOP before Phase 4 (Generate); write no V2 code, no ledger transition. Runs Phases 1-3 (Understand → Organize → Retrieve) read-only, expands the V2 plan to a full handoff doc under `.claude/plans/`, prints the path + Plan ID, exits. Full contract: `templates/snippets/plan-flag.md`. Hand the plan to `/execute-plan <file>` (or `/port-feature <feature> --from-plan <file>`) to implement.
 
 ## When to use / NOT to use
 
@@ -102,6 +119,38 @@ After parallel completes, sequentially:
 |---|---|
 | 4e. **Wire DI / routing** | V2 module registered |
 | 4f. **Write V2 unit tests** | V2 internal tests (separate from parity tests) |
+
+### Trivial tier
+Run **4a only**. Skip 4b/4c/4d entirely. The audit + ledger note carry the risk register. Standard CI tests (the project's existing test suite) must pass. Phase 3's mapping doc + API samples (steps 6-7 above) are STILL required — these are not parity-test ceremony, they are the inventory work that prevents Reinvented Wrapper + Guessed Type. A lightweight trivial mapping doc may be a 3-row table + 1 sample file; emptiness still halts the gate.
+
+### Standard tier
+Run **4a + 4b**. Skip 4c (no separate perf-decisions doc; classify perf candidates inline in the plan) + 4d (no separate runbook; rollback path is one paragraph in the plan). Parity-test corpus floor: 10 fixtures (not 30).
+
+### Heavy tier
+Run **4a + 4b + 4c + 4d** as below. This is the historical full discipline.
+
+### Phase-4 ledger schema (the row this port writes)
+
+Phase 4 records the closure counts the gate enforces. The ledger row carries — at minimum — these fields (filled here in Phase 4, finalised with state + parity_runs in Phase 5):
+
+```yaml
+- id: <feature>
+  status: in-progress        # → V2-shadow / done finalised in Phase 5
+  tier: heavy                # or standard
+  v1_commit_pinned: <sha>
+  contract: ai/migration/contracts/<feature>.md
+  plan: ai/migration/plans/<feature>.md
+  audit: ai/migration/audits/<feature>.md
+  audit_provenance: <parity-auditor agent run ID>
+  gaps_in: <N>               # gap count surfaced by the Phase-6 audit / DETECT
+  gaps_closed: <N>           # gaps confirmed-closed by re-audit; MUST equal gaps_in before status=done
+  perf_decisions: ai/migration/perf-decisions/<feature>.md
+  parity_runs:               # finalised in Phase 5 — recorded run-report backing the passing claim
+    - result: pass
+      v1_commit: <sha>       # MUST match v1_commit_pinned (validator check_parity_run_report)
+```
+
+`gaps_in` / `gaps_closed` are NOT optional: the gate's `check_gap_count_parity` HALTs any row missing them or where `gaps_in != gaps_closed`. A heavy port that fixes N drifts must record `gaps_in: N` + `gaps_closed: N`.
 
 ## Phase 5 — Update (ledger + contract revisions)
 
@@ -211,3 +260,26 @@ For multi-stack features (e.g., "the orders flow" — frontend page + backend AP
 - `code-quality/legacy-modernizer.md` — strategic plan this command operates inside.
 - `database/migration-rehearsal.md` — used for query plan rehearsal in Phase 5.
 - `backend/concurrency-discipline.md` + `backend/parallelize-independent-ops.md` — used in Phase 5 perf uplift.
+## Related
+
+### Sibling commands in migration pack
+- `/migration-deprecate` — sibling command in migration pack
+- `/migration-final` — sibling command in migration pack
+- `/migration-gate` — sibling command in migration pack
+- `/migration-park` — sibling command in migration pack
+- `/migration-phase` — sibling command in migration pack
+- `/migration-plan` — sibling command in migration pack
+- `/migration-replan` — sibling command in migration pack
+- `/migration-rollback` — sibling command in migration pack
+- `/migration-scan` — sibling command in migration pack
+- `/migration-status` — sibling command in migration pack
+- `/migration-unpark` — sibling command in migration pack
+
+### Patterns
+- `ai/patterns/feature-port.md`
+- `ai/patterns/migration-ledger.md`
+- `ai/patterns/parity-testing.md`
+
+### Rules
+- `.claude/rules/migration-discipline.md`
+

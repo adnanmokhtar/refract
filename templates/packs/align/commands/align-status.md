@@ -1,10 +1,14 @@
 ---
-description: Read ai/align/ledger.md and report per-finding state, blockers, stalled rows, and aggregate progress per phase. Read-only — never modifies the ledger. Run on demand or via weekly cron. Stack-agnostic.
+description: Read ai/align/ledger.md and report per-finding state, blockers, stalled rows, and aggregate progress per phase. Read-only — never modifies the ledger. Run on demand. Stack-agnostic.
 kind: command
 pack: align
 ---
 
 # /align-status
+
+## Phases applied
+
+**1, 3, 6** — Diagnostic / read-only per `templates/canonical-command-template.md` § Phase selection. Phase 2 (Organize) N/A — there is no work to decompose, only state to read. Phase 4 (Generate) N/A — the output is a report, not an artifact the project keeps. Phase 5 (Update) N/A — **zero writes**: no ledger, source or halt-file modification. Phase 7 (Improve) N/A — this command reads the loop, it does not feed it.
 
 ## The Premise (read this first)
 
@@ -17,7 +21,7 @@ pack: align
 - Daily / weekly check during an active alignment effort.
 - Before invoking `/align-phase <N+1>` to confirm phase N is closed.
 - After `/align-rollback` to confirm the ledger reflects the rollback.
-- As a scheduled cron task (`/schedule align-status weekly`) to surface drift and stalled rows automatically.
+- On demand, whenever you need the current picture. **There is no scheduler in the shipped baseline**: no cron, no auto-invoking post-task hook, and the git hooks (`.claude/hooks/post-merge-learn.sh`, invoked by the `.claude/git-hooks/post-merge` shim) only append review hints to `ai/dynamic/.review-queue` — they invoke nothing. To get a recurring report, a human runs this command or wires it into their own scheduler.
 
 ## When NOT to use
 
@@ -42,8 +46,10 @@ Inputs:
 Optional flags:
 - `--phase=<N>` — report only for phase N (default: all phases).
 - `--class=<list>` — filter by finding class (e.g., `--class=security` for security-only report).
-- `--stalled` — show only rows older than the SLA (default: any `in-progress` row > 7d, any `halted` row > 24h, any `halted` security row > 12h).
-- `--blockers` — show only halted rows + parked rows.
+- `--stalled` — show only rows older than the SLA. Defaults: any `in-progress` row > 7d · any `halted` row > 24h · any `halted` security row > 12h · **any `parked` row past its `parked_unpark_after`** · **any `parked` row > 90d** · **any `parked` security row whose age from `parked_sla_from` exceeds 24h** · **any `parked` row missing `prior_status` / `prior_phase`** (unrevivable — no command can restore it).
+- `--blockers` — show only halted rows + parked rows, each with its age and its blocker category.
+
+**Parked rows are aged, not just counted.** A parked row is the only kind that leaves every other escalation in the pack: the gate stops blocking on it, its halt file moves out of `halts/`, and any SLA keyed on `halted` stops firing. If this command reports parked rows as a bare number, a critical security finding parked six months ago looks exactly like a dead import parked yesterday. Age a parked security row from `parked_sla_from`, never from `parked_at` — otherwise parking silently resets the clock. See `ai/patterns/align-guardrails.md § Named anti-patterns → The Silent Park`.
 - `--summary` — single-line per phase (compact view).
 - `--json` — emit machine-readable output for downstream tooling.
 

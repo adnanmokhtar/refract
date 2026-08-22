@@ -84,7 +84,7 @@ Frontend ports add specific recipes — generic golden-master alone is insuffici
 
 #### Auto-import test-config requirement (frontend)
 
-Any test that mounts a leaf-component / view-template file from a project that uses any auto-import plugin (build-tool plugin, framework auto-import, IDE-driven import-on-resolve) requires the SAME plugin in the test config. Otherwise auto-imported helpers (i18n hook, router hook, reactive primitives, etc.) resolve in production but not in tests. **First mount fails with `<helper-name> is not defined`-type errors.** This is the named "Auto-import Trip" anti-pattern in `.claude/references/migration-discipline-catalogue.md` § Anti-patterns; pre-empt it by writing the test config alongside the test files.
+Any test that mounts a leaf-component / view-template file from a project that uses any auto-import plugin (build-tool plugin, framework auto-import, IDE-driven import-on-resolve) requires the SAME plugin in the test config. Otherwise auto-imported helpers (i18n hook, router hook, reactive primitives, etc.) resolve in production but not in tests. **First mount fails with `<helper-name> is not defined`-type errors.** This is the named "Auto-import Trip" anti-pattern in `ai/patterns/migration-guardrails.md` § Named anti-patterns; pre-empt it by writing the test config alongside the test files.
 
 #### Route-cache-aware mount (when the project's stack supports route caching)
 
@@ -99,7 +99,7 @@ mount(Page, {
 })
 ```
 
-Otherwise reactivate-fired API calls don't run and the mock-call assertion fails. This is the named "Wrong Lifecycle Hook on Nested Child" anti-pattern in `.claude/references/migration-discipline-catalogue.md` § Anti-patterns.
+Otherwise reactivate-fired API calls don't run and the mock-call assertion fails. This is the named "Wrong Lifecycle Hook on Nested Child" anti-pattern in `ai/patterns/migration-guardrails.md` § Named anti-patterns.
 
 Aim for ≥2 recipes per non-trivial feature so a gap in one is caught by another.
 

@@ -179,7 +179,7 @@ Halt note written to: ai/align/halts/<id>.md
 
 ### Rules
 - `.claude/rules/align-discipline.md` — § Must not (no new abstractions), audit halts #6, #9, #10.
-- `.claude/references/align-discipline-catalogue.md` — § Anti-patterns; the names your verdicts cite.
+- `ai/patterns/align-guardrails.md` — § Named anti-patterns; the names your verdicts cite, each with its fingerprint and catching check.
 
 ### Patterns
 - `ai/patterns/align-ledger.md` — `idiom_cited` and `shared_equivalent` field semantics.

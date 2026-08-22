@@ -39,7 +39,7 @@ This agent is the verification arm of `migration-architect` (which plans) + `par
 - A ledger row is proposed for advance from `V2-shadow → V2-canary` (review of shadow results).
 - A ledger row is proposed for advance from `V2-canary → V2-only` (review of canary results).
 - A ledger row is proposed for `V2-only → V1-deleted` (review of zero-traffic + dead-code).
-- Periodic re-audit (weekly cron) of all `V2-shadow` + `V2-canary` rows to flag drift.
+- Periodic re-audit of all `V2-shadow` + `V2-canary` rows to flag drift — dispatched by a human or the caller's own scheduler; the baseline ships none.
 
 ## Pre-flight (read before auditing)
 
@@ -305,7 +305,7 @@ Hard-halt conditions (any one fails the audit, subject to tier gating above):
     - Evidence (CI run, deploy-pipeline log, screenshot) that the rollback path was executed in staging within the last 7 days.
 
 11. **Dead V1 code in port queue**
-    - The V1 source of this feature has zero callers across all 6 reachability axes (app source · tests · cron/scheduler · route registration · infra config · production telemetry — see `migration-discipline.md` § "What counts as dead V1 code").
+    - The V1 source of this feature has zero callers across all 6 reachability axes (app source · tests · cron/scheduler · route registration · infra config · production telemetry — see `migration-discipline.md § Per-feature audit — 13 hard halts` halt 11).
     - If dead: do NOT port. Mark the ledger row `status: deprecated` with `deprecation_reason: dead-v1-no-callers`. Override only via `--include-dead` + `caller_evidence: <path:line>` proving a missed caller.
 
 12. **UI surface audit row missing `v1_states` / `v2_states` enumeration**

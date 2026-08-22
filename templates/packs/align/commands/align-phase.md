@@ -10,11 +10,16 @@ pack: align
 
 **Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — SOLID / clean-code closure vocabulary (single source of truth).
 
-**The gold-standard inventory is the truth.** `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md` define the intended shape of the codebase. Every finding is a deviation; every fix moves toward the intended shape. The closure verbs are mechanical (`remove` / `inline` / `dedupe` / `rename-comment-out` / `replace-with-shared`) — alignment is an entropy reducer, not a designer.
+**The gold-standard inventory is the truth.** `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md` define the intended shape of the codebase. Every finding is a deviation; every fix moves toward the intended shape. **Alignment enforces what the oracle already names; it never designs.** That is the whole boundary, and it holds across both halves of the closed 21-verb vocabulary:
+
+- **Structural verbs (5)** — `remove` / `inline` / `dedupe` / `rename-comment-out` / `replace-with-shared`. Entropy-reducing; `net-lines ≤ 0` is a hard rule on these rows.
+- **Functional verbs (16)** — `add-gate`, `parameterize`, `escape`, `add-validator`, `parallelize`, `add-index` and the rest. These **legitimately add lines**, and the discipline that replaces the net-lines rule is idiom citation: every added block cites a `<path:line>` in `_extracted-idioms.md`. A security or perf row is not exempt from discipline, it is held to a different one.
+
+Holding a `security` row to `net-lines ≤ 0` is the most common way this phase goes wrong: the fix gets reverted for adding lines it was always supposed to add. Read the row's class before you read its diff.
 
 **The agent's job is exactly this:**
 1. For each finding in phase N, re-verify the fingerprint is still present (it can age out — another PR may have already fixed it).
-2. Apply the closure verb mechanically. No new abstractions. Net-lines ≤ 0.
+2. Apply the closure verb mechanically. No new abstractions. For **structural** rows: net-lines ≤ 0. For **functional** rows: small + budget, and every added block cites an idiom.
 3. Verify: lint + typecheck + scoped tests + re-detect — all four must pass before the row flips to `fixed`.
 4. Record one commit per finding; update the ledger row.
 
@@ -71,7 +76,7 @@ Confirm:
 
 ### 3. FIX — apply the closure-verb edit
 
-The verb-specific procedures live in `.claude/references/align-discipline-procedures.md § Closure-verb procedures`. The 21 verbs split into structural (5) + functional (16). Summary:
+The 21 verbs split into structural (5) + functional (16); the closed vocabulary and the net-lines rule are in `ai/patterns/align-guardrails.md § Anti-bloat merge gates`. The per-verb procedure is summarised below — that summary is the contract, and it is complete. (Long-form worked procedures exist pack-side in `references/align-discipline-procedures.md § Closure-verb procedures`, which Phase 4.2 does not install.)
 
 **Structural verbs (net-lines ≤ 0 per row):**
 
@@ -118,7 +123,7 @@ The verb-specific procedures live in `.claude/references/align-discipline-proced
 1. **Lint + typecheck on touched files** — using project commands from `_extracted-idioms.md` / `ai/stack.md`. Any error = halt + revert.
 2. **Scoped tests** — `<test-runner> <touched-files>` (or the project's test-by-file pattern). Any failure = halt + revert.
 3. **Re-detect at evidence lines** — re-run the detector that surfaced this row, scoped to the row's `scope`. Detector MUST return 0 hits at the cited evidence lines. Any remaining hit = the fix didn't actually close the fingerprint; halt + revert.
-4. **Coverage** — run scoped coverage; coverage % MUST NOT drop **beyond the tolerance threshold** (default: 0.5%; configurable per project in `ai/conventions.md § Coverage`). A drop within tolerance is sample fluctuation, not a real regression. A drop beyond tolerance is a halt — the closure removed a load-bearing branch. See `align-discipline.md § Realism guards § Coverage tolerance`.
+4. **Coverage** — run scoped coverage; coverage % MUST NOT drop **beyond the tolerance threshold** (default: 0.5%; configurable per project in `ai/conventions.md § Coverage`). A drop within tolerance is sample fluctuation, not a real regression. A drop beyond tolerance is a halt — the closure removed a load-bearing branch. See `ai/patterns/align-guardrails.md § Supporting mechanisms § Coverage tolerance`.
 
 **Class-specific (additional checks based on row's class):**
 
@@ -226,7 +231,7 @@ If any pre-flight fails → halt + report.
 - `--start-from=<row-id>` — resume from a specific row (e.g., after manual halt resolution).
 - `--stop-on-halt` — halt the entire phase on the first row halt. Default: continue with remaining rows; surface all halts at the end.
 - `--heavy` — require single-finding-per-commit + reviewer approval prompt for every row in the phase (default: auto-applied to heavy-tier rows only; this flag forces it for all rows).
-- `--max-parallel=<N>` — cap parallel row processing (default: 1 = sequential; for routine mechanical phases, the user may set 3–5 for parallelisable rows). Per-file lock: rows with overlapping `scope` files always serialise to prevent races. See `align-discipline.md § Realism guards § Parallel race serialization`.
+- `--max-parallel=<N>` — cap parallel row processing (default: 1 = sequential; for routine mechanical phases, the user may set 3–5 for parallelisable rows). Per-file lock: rows with overlapping `scope` files always serialise to prevent races. See `ai/patterns/align-guardrails.md § Supporting mechanisms § Parallel race serialization`.
 
 ## Mechanical halt — refuse to violate the closure-verb vocabulary
 

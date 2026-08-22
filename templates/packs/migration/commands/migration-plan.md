@@ -198,7 +198,7 @@ Every plan row MUST trace to a ledger row by `id`. Forbidden: adding a feature t
 - **V2 structure is the target, not V1's.** Plan rows cite V2 paths even when the V2 file doesn't exist yet — that's the planned home.
 - **Foundation first.** Auth + tenant + shared infra always go first. Refuse a plan that puts them later.
 - **No partial porting in one phase.** A feature is either fully ported (verify-green) or not in this phase. Half-ports rot.
-- **Dead V1 features are NOT in any phase.** Rows with `status: deprecated` and `deprecation_reason: dead-v1-no-callers` are excluded from the port queue (per `migration-discipline.md § What counts as dead V1 code`). They get deleted from V1 directly during the V1-retirement phase, never ported. The plan lists them in a "Dead — excluded from port queue" section for visibility, NOT as phase rows.
+- **Dead V1 features are NOT in any phase.** Rows with `status: deprecated` and `deprecation_reason: dead-v1-no-callers` are excluded from the port queue (per `migration-discipline.md § Per-feature audit — 13 hard halts` halt 11). They get deleted from V1 directly during the V1-retirement phase, never ported. The plan lists them in a "Dead — excluded from port queue" section for visibility, NOT as phase rows.
 
 ## Related
 

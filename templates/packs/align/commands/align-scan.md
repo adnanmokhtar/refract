@@ -1,5 +1,5 @@
 ---
-description: Deep codebase quality scan. Reads source against the gold-standard inventory (_extracted-idioms.md), runs the 12 universal detectors (structural + functional: SOLID, clean code, performance, security, unhandled-io) plus stack-specific detectors, builds ai/align/findings.md + ai/align/ledger.md. Run before /align-plan. Stack-agnostic — frontend / backend / data / mobile. Frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Security findings are always ≥ standard tier; critical security always heavy.
+description: Deep codebase quality scan. Reads source against the gold-standard inventory (_extracted-idioms.md), runs the 11 universal detectors (6 structural + 5 functional: SOLID, clean code, performance, security, unhandled-io) plus stack-specific detectors, builds ai/align/findings.md + ai/align/ledger.md. Run before /align-plan. Stack-agnostic — frontend / backend / data / mobile. Frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Security findings are always ≥ standard tier; critical security always heavy.
 kind: command
 pack: align
 ---
@@ -16,9 +16,9 @@ The deep-comparison entry point. Run this FIRST before `/align-plan` or `/align-
 
 **Trust nothing.** This command does NOT take any prior "fixed" status as truth — every finding from a previous run is freshly re-verified against current source. The ledger that comes out reflects current reality, not history.
 
-**Stack-conditional dispatch.** The detector set is PROJECT_KIND-conditional. Every project gets the 12 universal detectors:
+**Stack-conditional dispatch.** The detector set is PROJECT_KIND-conditional. Every project gets the 11 universal detectors:
 - **6 structural**: dead-code, duplicates, reinvented-wrapper, silent-catch, over-abstraction, drift.
-- **6 functional**: SOLID violations, clean-code violations, performance, security, unhandled-io (happy-path-only I/O — no error path / no timeout / no failure surfacing at an I/O call site), dependencies (sub-class of security).
+- **5 functional**: SOLID violations, clean-code violations, performance, security (dependency vulnerabilities are step 7 *inside* the security detector, not a twelfth detector), unhandled-io (happy-path-only I/O — no error path / no timeout / no failure surfacing at an I/O call site).
 
 Frontend stacks (`frontend-*`) additionally run UI/UX detectors (a11y, design tokens, i18n, motion, lifecycle, permission gates, default-true wrapper props) — UI/UX is mandatory for frontend, not optional. Backend stacks add tenant-gate / N+1 / transaction-boundary detectors. Mobile stacks add native-bridge detectors.
 
@@ -145,7 +145,7 @@ The detector dispatch is parallel where independent. Orchestration:
                                   |
         +-------------------------+-------------------------+
         |                         |                         |
-   universal-12             stack-conditional         ledger build
+   universal-11             stack-conditional         ledger build
    (parallel waves)         (parallel waves)         (sequential after)
         |                         |
    STRUCTURAL (6):                 frontend-*:
@@ -160,8 +160,8 @@ The detector dispatch is parallel where independent. Orchestration:
    7. SOLID-violation
    8. clean-code
    9. performance
-   10. security
-   11. (deps-audit, sub-class of security)
+   10. security          (deps-audit is step 7 INSIDE this detector)
+   11. unhandled-io
 ```
 
 Wave 1 (parallel): structural detectors (6) — they read source independently.
@@ -169,7 +169,39 @@ Wave 2 (parallel): functional detectors (5) — same.
 Wave 3 (parallel): stack-conditional detectors per PROJECT_KIND.
 Wave 4 (sequential): merge outputs into findings draft + ledger draft (avoids row-id collisions).
 
+**The numbering above is the contract with `detect-drift`.** That skill defines Detectors 1–11 in exactly this order; detector 11 is `unhandled-io`, and there is no deps-audit detector — vulnerable dependencies are step 7 within Detector 10 (security). A wave that dispatches ten detectors and calls itself complete has silently dropped the class the rule names as the canonical AI-generated-code defect.
+
 Concurrency cap: `--max-subagents` (default 5). Within each wave, detectors run in parallel up to the cap.
+
+### Detectors that cannot run must be reported, not skipped
+
+Two universal detectors depend on project files that may be absent, and their absence is not a halt — it is a **reduction in what was examined**, and reduction is only safe when it is visible:
+
+| Missing input | Effect | Required output line |
+|---|---|---|
+| `_extracted-idioms.md` empty/absent | **HALT the whole scan** — there is no oracle, so nothing is measurable | route to `/setup-project --refine` |
+| `ai/conventions.md` / `ai/architecture.md` absent | Detector 6 (`drift`) cannot run — drift is defined as deviation from a *documented* convention | `SKIP — drift class NOT RUN (no ai/conventions.md); 10 of 11 universal detectors ran` |
+| A per-class tool absent (`jscpd`, complexity tool, dep scanner) | that detector cannot run | `SKIP — <class> NOT RUN (<tool> not installed: <install command>)` |
+
+**A skipped detector reported as zero findings is a false clean bill of health.** The scan summary states `<N> of 11 universal detectors ran`, and any number below 11 is accompanied by its reason. This is the same discipline `@align-gate-auditor` holds itself to: a check that vanished from the report is a refusal, not a pass.
+
+### The bimodal-convention output (when `drift` has nothing to compare against)
+
+The most common reason a project reaches for `/align-scan` is "half our modules do X and half do Y". That is **not** a `drift` finding — drift requires the oracle to name a winner, and here it names neither. Rather than emit nothing, the drift detector emits a **non-finding report** (no ledger rows, because there is no closure verb for it):
+
+```
+BIMODAL CONVENTIONS (0 ledger rows — align cannot pick a winner)
+
+  error handling   shape A: 34 call sites (src/services/*)   e.g. src/services/order.<ext>:88
+                   shape B: 29 call sites (src/api/*)        e.g. src/api/orders.<ext>:41
+                   oracle names: neither
+
+  Route: /setup-project --refine   adopt one shape into _extracted-idioms.md, then re-scan
+                                   — the 63 sites become `drift` rows with a real oracle
+         /polish                   if neither shape is right and new finish is needed
+```
+
+Emitting these as `drift` rows would make align choose a convention by majority vote, which is introducing one, not enforcing one — the boundary `@align-idiom-auditor` exists to hold.
 
 ## Phase 3 — Retrieve (read the right context)
 
@@ -320,79 +352,12 @@ Flat YAML-ish ledger, one row per finding. Schema from `ai/patterns/align-ledger
   status: detected
   ...
 
-# Security — critical (always heavy)
-- id: A047
-  class: security
-  subclass: sql-injection
-  severity: critical
-  scope: [<source-root>/reports/orders.<ext>]
-  evidence:
-    - <source-root>/reports/orders.<ext>:88      # `WHERE status = '<interpolated-user-input>'` — string interpolation
-  closure_verb: parameterize
-  idiom_cited: <source-root>/db/query.<ext>:14 (parameterized query primitive per _extracted-idioms.md § DB)
-  tier: heavy
-  tier_reason: "critical security — SQL injection on production endpoint; auto-promoted"
-  status: detected
-  phase: <unassigned>
-  detected_at: 2026-05-01T19:46:00Z
-  notes: ""
-
-# Security — standard
-- id: A048
-  class: security
-  subclass: missing-auth-gate
-  severity: high
-  scope: [<source-root>/routes/admin/export.<ext>]
-  evidence:
-    - <source-root>/routes/admin/export.<ext>:12 # GET /admin/export — no auth middleware
-  closure_verb: add-gate
-  idiom_cited: <source-root>/auth/gates.<ext>:7 (requireAdmin gate per _extracted-idioms.md § Auth)
-  tier: standard
-  tier_reason: "security finding — never trivial; auto-promoted to standard"
-  status: detected
-  ...
-
-# Performance — N+1
-- id: A082
-  class: performance
-  subclass: n-plus-one
-  scope: [<services-root>/listOrders.<ext>]
-  evidence:
-    - <services-root>/listOrders.<ext>:42        # parallel iteration over orders, each calls getCustomer(id)
-  closure_verb: batch
-  idiom_cited: <source-root>/repos/customers.<ext>:88 (getByIds batch primitive)
-  tier: standard
-  tier_reason: "hot-path perf finding; standard floor"
-  status: detected
-  notes: "Baseline: 51 queries / 200ms p95 for 50-order list (observability dashboard ID xyz)"
-  ...
-
-# SOLID — SRP
-- id: A105
-  class: solid-violation
-  subclass: SRP
-  scope: [<services-root>/checkoutService.<ext>]
-  evidence:
-    - <services-root>/checkoutService.<ext>:1    # 540-line class; tax + shipping + payment + notification
-  closure_verb: split-extract
-  idiom_cited: _extracted-idioms.md § Service responsibilities (TaxCalculator, ShippingCalculator, PaymentProcessor, NotificationService — all already exist)
-  tier: heavy
-  tier_reason: "shared service module touched; > 10 consumers downstream"
-  status: detected
-  ...
-
-# Clean code — long function
-- id: A130
-  class: clean-code
-  subclass: long-function
-  scope: [<source-root>/checkout/processOrder.<ext>]
-  evidence:
-    - <source-root>/checkout/processOrder.<ext>:42  # 143 lines; project max is 50 (per ai/conventions.md § complexity)
-  closure_verb: extract-to-shared
-  idiom_cited: _extracted-idioms.md § Service responsibilities (existing services)
-  tier: trivial
-  status: detected
-  ...
+# The remaining classes take the SAME row shape. Do NOT re-derive it here:
+# `ai/patterns/align-ledger.md § Record format` is the schema owner — it carries a worked
+# row per class (security critical/standard, performance, SOLID, clean-code, unhandled-io),
+# the per-status required-field table, and the exact fields `discover_findings()` in
+# scripts/validate-align-artifacts.sh matches. Emit rows against that spec, not against
+# the two examples above.
 ```
 
 ### Output 3: `ai/align/findings.md` (drill-down per finding)
@@ -468,7 +433,7 @@ A rejection rate above ~20% is a signal about the detector or the oracle, not ab
 - No hand-wave tokens (`etc.`, `...`, `several`, `multiple`) in any field.
 - Every row has a `closure_verb` in the universal vocabulary.
 - Every row has a `tier` ∈ `{trivial, standard, heavy}` matching the promoter rules in `align-discipline.md`.
-- All 12 universal detectors ran (none silently skipped). For frontend stacks: + a11y / i18n / design-token / data-flow / motion. For backend stacks: + tenant-gate / N+1 / transaction-boundary.
+- All 11 universal detectors ran, or each that did not carries a `SKIP — <class> NOT RUN (<reason>)` line; the summary states `<N> of 11 ran`. For frontend stacks: + a11y / i18n / design-token / data-flow / motion. For backend stacks: + tenant-gate / N+1 / transaction-boundary.
 - Every security finding has `severity ∈ {low, medium, high, critical}`.
 - Every security finding has `tier ≥ standard` (no security-trivial rows).
 - Every functional finding (SOLID / clean-code / perf / security) has `idiom_cited` resolving to an entry in `_extracted-idioms.md`.

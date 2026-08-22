@@ -21,6 +21,14 @@ The failure mode is flipping reads to V2 before the backfill is complete and ver
 - A feature whose V2 uses a different store/schema than V1, and you are about to fill the V2 store.
 - Before flipping reads to V2 — this skill produces the readiness verdict the gate consults.
 
+## When to run
+
+- A feature whose V2 uses a different store or schema than V1 (SQL→document, monolith DB→service-owned DB, one table→a normalized set, on-prem→managed), and you are about to fill the V2 store.
+- Before flipping reads to V2 — this skill produces the readiness verdict that gate consults.
+- After the ledger row reaches `In-progress`/`V2-shadow` and the V2 write path exists.
+
+Do NOT run for single-store schema evolution (same store, new columns/indexes) — that is `database/migrations`. Do NOT run to decide output equivalence — that is `parity-test-generate`.
+
 ## The cutover sequence
 
 1. **Pick the source of truth** for the window — exactly one store is authoritative for reads.
@@ -30,6 +38,24 @@ The failure mode is flipping reads to V2 before the backfill is complete and ver
 5. **Reconciliation** — per-range counts + checksum/sample-diff; emit `mismatched_keys / total_keys`. This result is the gate's evidence.
 6. **Read-cutover gate** — flip reads ONLY when backfill is 100% AND divergence ≤ threshold; the flip is a reversible one-step flag.
 7. **V1 decommission after a clean soak** — stop dual-write, retire V1 with evidence.
+
+## Detectors (cite-or-halt)
+
+Each finding cites `<path:line>` (the backfill script, the reconciliation query, the flag wiring) plus the checkpoint/result artifact. No cite → the claim doesn't hold.
+
+1. **Backfill not resumable/checkpointed.** BAD: one `SELECT * FROM v1 → insert into v2` pass, no cursor, no restart story — dies at scale, restarts from zero. GOOD: key-range batches, durable checkpoint, idempotent upsert, safe to kill/restart. Grep: backfill scripts with no `LIMIT`/`WHERE id >`/cursor read; a single `forEach`/`for row in` over a full-table fetch.
+
+2. **Backfill not verified before cutover.** BAD: backfill "finished", reads flipped, no reconciliation ran. GOOD: reconciliation green artifact exists and is cited before the flag flips. Grep: a read-flag flip commit with no reconciliation output referenced in the same PR/ledger row.
+
+3. **Dual-write with no drift reconciliation.** BAD: writes fan out to V1 + V2, nothing ever compares them. GOOD: a scheduled reconciliation + a divergence metric alarmed. Grep: a second store write next to the primary with no comparator/metric emitting `mismatch`.
+
+4. **Read-cutover not gated on backfill completeness.** BAD: reads switch on a deploy/date/manual toggle unrelated to checkpoint state. GOOD: the flag's open condition reads `checkpoint == complete && divergence <= threshold`. Grep: the read-selection flag has no dependency on the checkpoint/reconciliation state.
+
+5. **No consistency audit between stores.** BAD: no counts, no checksum — "we trust the backfill". GOOD: per-range counts + checksum/sample-diff with a numeric divergence result. Grep: no query that touches both stores and produces a count/hash comparison.
+
+6. **Field mapping applied inconsistently.** BAD: the backfill transform and the live dual-write transform are two separate code paths → they diverge on the fields where they differ. GOOD: one shared mapping function called by both. Grep: two distinct V1→V2 field assignments (backfill file vs write-path file) not sharing a mapper.
+
+7. **Schema changed mid-window, no re-backfill.** BAD: mapping/V1 schema edited after backfill start; already-ported keys never re-mapped. GOOD: affected key range re-backfilled from a reset checkpoint. Grep: a mapping/schema change timestamp later than the checkpoint's first-run timestamp with no subsequent re-backfill entry.
 
 ## Output
 
@@ -41,6 +67,11 @@ A cutover runbook + readiness verdict at `ai/runbooks/migration-cutover-<feature
 - **Gate opens on "backfill exited 0"** rather than checkpoint-complete + reconciliation-green — the primary failure mode; reject it.
 - **Schema changed mid-window, no re-backfill** — already-ported keys were mapped by the old transform; re-backfill the affected range from a reset checkpoint.
 
+## False positives / gotchas
+
+- **Append-only / immutable V1 dataset.** If V1 rows are write-once and never mutated (event log, ledger of past facts), there are no in-flight writes to lose — a one-shot backfill suffices and dual-write is over-engineering. Dismiss detector 3 here *with the reason cited* (the dataset's immutability, `<path:line>` showing no update path). Still reconcile counts/checksum before cutover — a one-shot backfill can still drop rows.
+- **Acceptable eventual-consistency window.** A short lag between a V1 write and its V2 mirror may be fine (async CDC, minutes-behind replica). That is acceptable ONLY if declared explicitly in the plan with a bounded window and the reconciliation threshold set to tolerate it — an *undeclared* lag is detector 3, not a false positive. Make the window a number.
+- **Reconciliation sampling vs full-scan at scale.** A full row-by-row checksum of a billion-row store may be infeasible per run. A statistically-sized sample plus exact per-range counts is an accepted tradeoff — but state the sample rate and confidence, and full-scan the ranges the backfill most recently touched. Don't let "sampling" quietly mean "we checked 100 rows and shipped".
 ## Halt conditions
 
 - **Refuse any cutover-ready claim without the reconciliation result AND the backfill checkpoint.** Both are artifacts, not adjectives. Missing either → verdict is BLOCK, full stop.
@@ -54,3 +85,4 @@ A cutover runbook + readiness verdict at `ai/runbooks/migration-cutover-<feature
 - `migration-discipline.md` — the rule mandating checkpointed backfill + gated read-cutover.
 - `database/migrations` (cross-pack) — owns single-store schema evolution; this skill owns the cross-store seam.
 - `parity-auditor.md` (agent) — consults this skill's readiness verdict before cutover.
+

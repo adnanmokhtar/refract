@@ -51,7 +51,16 @@ Run in order. The first failure sets the verdict to `REFUSE`; continue running t
 | 13 | Perf baseline + assertion | per `class: performance` row: pre-fix baseline in `notes` AND a perf assertion or observability annotation in the commit | either absent |
 | 14 | Security tier minimum | per `class: security` row: `tier ∈ {standard, heavy}`; `sql-injection` / `secret-in-code` / `unsafe-deserialize` / `severity: critical` → `heavy` | any tier below its floor |
 
-**Script coverage, stated honestly.** `scripts/validate-align-artifacts.sh` defines `check_evidence_resolves`, `check_no_handwaves`, `check_closure_verb_in_vocab`, `check_no_new_symbols`, `check_net_lines_structural`, `check_scope_boundary`, `check_security_tier_minimum`, `check_perf_baseline_present`, `check_security_assertion_present`, `check_added_lines_cite_idioms`, `check_oracle_unmodified`. Checks 1, 7 and 8 have **no script implementation** — `check_test_coverage_nondecreasing` and `check_frontend_regressions` are named in the discipline as agent-side and are not defined in any script. You run those three yourself, and you label them `(agent-side)` in the report so nobody reads them as machine-verified.
+**Script coverage, stated honestly.** `scripts/validate-align-artifacts.sh` defines fifteen check functions. Eleven map one-to-one onto the matrix above: `check_evidence_resolves`, `check_no_handwaves`, `check_closure_verb_in_vocab`, `check_no_new_symbols`, `check_net_lines_structural`, `check_scope_boundary`, `check_security_tier_minimum`, `check_perf_baseline_present`, `check_security_assertion_present`, `check_added_lines_cite_idioms`, `check_oracle_unmodified`.
+
+Checks 1, 7 and 8 have **no script implementation** — `check_test_coverage_nondecreasing` and `check_frontend_regressions` are named in the discipline as agent-side and are not defined in any script. You run those three yourself and label them `(agent-side)` so nobody reads them as machine-verified.
+
+**Four script checks are not in the 14-check matrix, and you run them anyway.** `check_scan_report_evidence`, `check_progress_ledger_reconciliation`, `check_scope_code_smells` and `check_actionable_next_steps` are defined and called by the validator but appear in no row above. Report them under a `SUPPLEMENTARY (script-only)` heading with their pass/fail. Two caveats you state rather than assume:
+
+- `check_progress_ledger_reconciliation` treats only `{detected, in-progress, halted}` as non-terminal. Rows in `planned` or `pending-review` inside a module marked complete are **not** caught by it — you check those yourself under check 1, because a row awaiting a reviewer is open work no matter what the script's state list says.
+- `check_progress_ledger_reconciliation` reads a `progress.md` artifact that no command in this pack writes. If that file is absent, report the check as `SKIP — progress.md not produced by this pack`, never as a pass. A check that passed because its input did not exist is the same failure as a check that vanished.
+
+Fifteen script checks + three agent-side − eleven shared = a report with **18 lines**, not 14. Print all of them. The matrix is the verdict; the supplementary block is what the machine also happened to look at, and a reader who is told "14/14" while four other checks ran silently has been given a smaller truth than the one available.
 
 **Delegation.** Checks 4, 9 and 11 are `@align-idiom-auditor`'s per-row verdicts aggregated to the phase. Dispatch it per functional row rather than re-deriving its judgment; a phase-level re-read of the oracle is both slower and less consistent than the per-row verdicts already on record.
 
@@ -133,7 +142,7 @@ Re-run /align-gate <N> after resolving. Nothing was written.
 
 ### Rules
 - `.claude/rules/align-discipline.md` — § Enforcement; the matrix above is its operational form.
-- `.claude/references/align-discipline-procedures.md` — § Realism guards (coverage tolerance, reviewer-approval protocol, parallel race serialization).
+- `ai/patterns/align-guardrails.md` — § The eight realism guards and § Supporting mechanisms (coverage tolerance ±0.5%, reviewer-approval protocol, parallel race serialization); § Enforcement — gate behaviour, SLA clocks, anti-pattern → check.
 
 ### Patterns
 - `ai/patterns/align-ledger.md` — the row fields every check reads.

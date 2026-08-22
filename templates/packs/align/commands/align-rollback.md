@@ -68,10 +68,19 @@ The rollback procedure (in order):
 2. **Check for later-phase dependencies** — for each phase M > N, scan its rows' `idiom_cited` fields and `evidence` for references to phase N's outputs. If dependencies exist, warn (or cascade if `--cascade`).
 3. **Confirm with user** — display the rollback plan; demand explicit confirmation (or `--no-confirm`).
 4. **Revert commits** — for each commit in phase N's range, run `git revert --no-commit <sha>`. Combine into one revert commit OR multiple per-row reverts (configurable).
-5. **Update ledger** — for each row in phase N, restore `status: detected` (with `rollback_at: <iso>`, `rollback_reason: <user-provided>`).
-6. **Archive halt files** — move `ai/align/halts/<phase-N-row-ids>.md` to `ai/align/halts/archive/<YYYY-MM-DD>/`.
+5. **Update ledger — per row, by its current status, not uniformly.** Rollback undoes work; it does not undo decisions somebody made deliberately.
+
+   | Row's status in phase N | After rollback | Why |
+   |---|---|---|
+   | `in-progress`, `fixed`, `verified`, `pending-review` | `planned` (the phase is still in the plan, so the row is still assigned) + `rollback_at`, `rollback_reason` | its work was reverted; it is queued again |
+   | `halted` | stays `halted` | the blocker was never the commit; reverting does not clear it |
+   | **`parked`** | **stays `parked`, untouched — `prior_*` fields preserved verbatim** | a park is a human deferral with a reason and a revival contract. Resetting it to `planned` destroys `prior_status` / `prior_phase` and silently converts a deferral into re-queued work nobody asked for |
+   | `archived-pre-existing`, `archived-deprecated` | untouched | terminal; the fingerprint was never there, or the won't-fix is on record with an ADR |
+
+   Never write `status: detected` here. `detected` means "the scan found this and it has not been triaged"; after a plan exists, the un-started state is `planned`. Dropping rows back to `detected` makes `@align-ledger-auditor` reconciliation 5 read the plan as drifted.
+6. **Archive halt files** — move `ai/align/halts/<phase-N-row-ids>.md` to `ai/align/halts/archive/<YYYY-MM-DD>/`. **Do not touch `ai/align/halts/parked/`** — those belong to parked rows this rollback left alone.
 7. **Remove gate-history entry** — delete the line for phase N from `ai/align/gate-history.md`. Append a `ROLLBACK` line to `ai/align/rollback-history.md`.
-8. **Restore plan** — phase N stays in plan; rows return to `phase: <N>` + `status: detected` (ready for re-run).
+8. **Restore plan** — phase N stays in the plan; reverted rows return to `phase: <N>` + `status: planned`, ready for re-run. Parked rows keep the `phase: <N>` they already had.
 
 ## Phase 3 — Retrieve (read the right context)
 
@@ -98,7 +107,7 @@ Cascade analysis:
 
 Rollback effects:
   Source files reverted: <list>
-  Ledger rows restored to detected: <N>
+  Ledger rows restored to planned: <N>   (parked / halted / archived rows untouched)
   Halt files archived: <count>
   Gate-history entry removed.
   Test suite at HEAD will be re-run.
@@ -112,7 +121,7 @@ Post-execution summary:
 Phase <N> rolled back.
 
 Reverts: <N> commits (squashed to 1 revert commit "rollback: phase <N>" -OR- N per-row reverts)
-Ledger: <N> rows restored to status=detected
+Ledger: <N> rows restored to status=planned; <P> parked and <H> halted rows left untouched
 Halts archived: ai/align/halts/archive/<YYYY-MM-DD>/
 Rollback recorded: ai/align/rollback-history.md
 
@@ -130,7 +139,7 @@ Next:
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
-- `ai/align/ledger.md` — phase N rows restored to `status: detected`; `rollback_at`, `rollback_reason` fields added.
+- `ai/align/ledger.md` — phase N's reverted rows restored to `status: planned` with `rollback_at` + `rollback_reason`; parked rows (and their `prior_status` / `prior_phase`), halted rows and terminal `archived-*` rows untouched.
 - `ai/align/halts/archive/<YYYY-MM-DD>/` — phase N halt files moved here.
 - `ai/align/gate-history.md` — phase N entry removed.
 - `ai/align/rollback-history.md` — new line: `<iso> phase <N> rolled back | <commit-range> | reason: <user-provided>`.
@@ -140,7 +149,7 @@ Next:
 
 After rollback:
 - Phase N's source files match the pre-phase state (`git diff <pre-phase-base>..HEAD -- <phase-N-touched-files>` should be empty).
-- Ledger rows restored correctly.
+- Ledger rows restored correctly, per the per-status table: reverted rows at `planned`, parked rows still `parked` with `prior_status` + `prior_phase` intact, halted rows still `halted`, terminal rows unchanged. A rollback that reset a parked row is a data-loss bug, not a cosmetic one — the revival contract cannot be reconstructed.
 - Lint + typecheck + tests pass at HEAD (the rollback shouldn't introduce red).
 
 If any verification fails → halt; surface the specific failure; recommend manual git intervention.
@@ -160,7 +169,7 @@ The pre-execution display + post-execution summary (above).
 - **Cascade warning.** If later phases depend on phase N, the user is warned explicitly.
 - **Git revert, not git reset.** The rollback is forward-moving (revert commits added on top), not history-rewriting (reset). This preserves audit trail.
 - **Halt files preserved.** Archived, not deleted.
-- **Re-runnable.** After rollback, `/align-phase <N>` can be run again on the restored rows.
+- **Re-runnable.** After rollback, `/align-phase <N>` can be run again on the restored rows — it picks up the `planned` rows and skips the parked ones, which is the same set it would have run before.
 
 ## Failure modes
 

@@ -1,8 +1,8 @@
 # Migration discipline — examples & anti-pattern catalogue
 
-> Companion to `.claude/rules/migration-discipline.md` (the always-loaded core). Loaded on demand during audits and reviews — NOT auto-loaded into every session.
-> Rule-only tools: ships alongside the core rule in your adapter bundle.
-> Content relocated verbatim from the core rule on 2026-06-07; wording unchanged.
+> **Pack-side only — this file is NOT installed into projects.** `templates/phases/phase-4.2-apply.md:210-213` copies `references/<name>.md` only when `<name>` equals a **detected framework name**, so no project has ever received `migration-discipline-catalogue.md`, and no tool adapter ships it (`phase-4.8-deep.md:35`). It is here for pack authors and for any adapter bundle that chooses to carry it.
+> **Nothing enforceable lives here.** Every tier floor, halt definition, merge gate, threshold, review checklist and anti-pattern → check mapping is in **`ai-patterns/migration-guardrails.md`**, which installs unconditionally (`phase-4.2-apply.md:207`). What remains here is worked examples, rationale and long-form guidance that no halt depends on.
+> `migration-discipline-procedures.md` was merged into this file on 2026-08-23 — after the enforceable depth moved out, the 3.4KB remainder (§ Tier rationale, § Should — full guidance) did not justify a second never-installed file.
 
 ## Examples per concern (parity / scope / perf-uplift / cutover)
 
@@ -72,34 +72,14 @@ T+38d: Delete V1 (after 14d of zero traffic).
 ```
 
 
-## Anti-patterns (named)
+## Named anti-patterns — moved
 
-- **The Zombie Port** (added 2026-05-02) — porting a V1 feature that has zero callers. The feature is dead code; porting it migrates rot from V1 into V2, inflates V2's surface area, and creates a maintenance burden for code no consumer exercises. The fingerprint: a feature whose 6-axis reachability check (app source / tests / cron / route registration / infra / production telemetry) returns zero callers, yet the migration plan still queues it. The fix: dead V1 code is excluded from the port queue at scan time (halt #11), marked `status: deprecated` with `deprecation_reason: dead-v1-no-callers`, and deleted from V1 directly during V1 retirement — never touches V2. Override only via `--include-dead` + `caller_evidence: <path:line>` proving a missed caller. Real-world cost: every zombie port ships ~50–500 lines of V2 code that exercises no test, has no consumer, and accretes onto V2's maintenance budget. A 200-feature migration with 15% dead code = 30 zombies = ~10K lines of pure waste in V2.
-- **The Transposition Trap** — line-by-line copy of V1 into V2. Carries V1's bugs + V1's hidden invariants. The port must be re-derived from the contract AND must follow V2's NEW structure (shared wrappers, conventions, file layout). Concrete fingerprints are stack-specific and live in the per-stack packs:
-    - Frontend fingerprints → `frontend/rules/migration-frontend.md § Frontend Transposition Trap fingerprints`
-    - Backend fingerprints → `backend/rules/migration-backend.md` (if defined)
-    - The validator's `check_v2_structure` is stack-conditional via `PROJECT_KIND` and applies the per-stack fingerprint set automatically.
-
-  **Phase 3 of `/port-feature` (Retrieve) MUST list the gold-standard V2 files the executor reads BEFORE writing.** The plan's "V2 patterns I will follow" section names them explicitly. Skipping Phase 3 is the trigger — the executor opens V1, reads it, opens V2's destination directory, and writes by analogy to V1 instead of by analogy to V2's gold standard.
-- **The Bundled Cutover** — porting + redesigning + adding features + perf-tuning in one PR. Reviewer cannot localise regressions; rollback is all-or-nothing.
-- **The Stale Oracle** — V1 evolves during port; parity tests pass against a moving target. Pin V1's commit; freeze it for the duration of the port.
-- **The Silent Break** — V2 changes an output shape, returns a different error type, drops a side effect. Ships unnoticed; long-tail customer issues surface for months.
-- **The Test-by-Test Port** — porting V1's unit tests verbatim. Misses production behaviours that V1 has but V1's tests don't cover. Use record-replay against real traffic samples (anonymised).
-- **The Eternal Shadow** — V2 lives in shadow indefinitely "until we're sure". The longer V2 stays in shadow, the more divergent it becomes from V1 (which keeps shipping). Set a cutover deadline; if missed, re-baseline parity.
-- **The Buried Perf "Improvement"** — an N+1 fix that quietly changes ordering / nullability / ID stability. The "improvement" is a contract break; ships under the port PR; surfaces as a bug 6 weeks later.
-- **The V1 Deletion Sprint** — deleting V1 modules en masse "to clean up." A single `import` left in a stale cron job means a silent prod failure when the cron next fires. Delete only when last reference is gone + telemetry confirms zero traffic.
-- **The Trusted Summary** — delegating V1↔V2 comparison to a search/exploration agent that returns "looks identical" in confident summary language; the executor echoes that into the audit without verifying claim against source. The audit is a checklist, not a vibe-check; every "identical" claim has a `<path:line>` citation that resolves OR the audit halts. (Canonical real-world incident: a missing add-button + divergent query-param surface both passed audit because the summary said identical. Lesson: trust agents to *find* sources, not to *verify* equivalence; verification reads source line by line.)
-- **The Hand-waved Query Param** — audit declares "GET /endpoint?foo=&bar=&..." with `&...` as the trailing surface, hiding 4 unenumerated params. The contract's Inputs section enumerates EVERY param V1 sends. No `&...`, no "etc.", no "and so on" — list them all or halt the contract.
-- **The Optimistic Form Field Match** — audit declares V1↔V2 form fields "identical" without enumerating them. Frontend-specific anti-pattern: a missing field, a wrong type, a missing validator passes audit. Contract's Inputs section lists every field on V1's page, V2 must render the union.
-- **The Permission-gate Drop** — V1 hides an action via `v-if="hasPermission(...)"` / `{user.can(...) && ...}`; V2's port renders the action without the gate. Per-button audit enumerates every gate; missing gate is a security regression.
-- **The Guessed Type** (added 2026-05-01; softened 2026-05-02 for production-stable V1) — the V2 DTO / interface / type is authored by reading V1 caller code (which destructures the response untyped) instead of from V1's authoritative source. When V1 silently returns one field name and V2 types another, the field mismatch produces empty consumer UIs / blank widgets / undefined-everywhere with no error thrown. Fix: derive V2 types from V1's serializer / view template / controller code (the actual contract source) OR from captured API samples. The validator's `check_api_response_sample` halts when `v1_status` is unset or `actively-developed`; warns (does not halt) when `v1_status: production-stable` AND V2 types cite the V1 source location they were derived from in the contract.
-- **The Reinvented Wrapper** (added 2026-05-01) — porter authors custom markup / CSS / util / hook for a surface that already has a shared wrapper in the project's gold-standard inventory. Common shapes: a custom field group when a shared field-wrapper exists; a hand-rolled language toggle when a shared translation-input exists; a nested wrapper-inside-wrapper that the host already handles internally (causing double labels / double padding). Root cause: porter never inventoried the shared layer before writing. Fix: the `mapping/<feature>.md` artifact (required at every tier) names the project's shared equivalent for every V1 surface BEFORE code is written. The validator's `check_v2_mapping_doc` halts on missing/empty mapping; the stack-conditional fingerprints in `check_v2_structure` flag the most common reinventions.
-- **The Silent Catch** (added 2026-05-01) — port code wraps API calls in `catch { /* fail silent */ }` or empty `catch {}`. Empty UI / blank widgets / missing data become indistinguishable from "operation succeeded with empty result". Bugs hide for weeks because users report "looks empty" not "is erroring". Fix: every catch in port code calls the project's error handler (named in `_extracted-idioms.md`) OR includes a comment + debug log explaining recovery. The validator's `check_v2_structure` flags both swallow patterns.
-- **The Wrong Lifecycle Hook on Nested Child** (added 2026-05-01) — port copies a page-level / route-level lifecycle pattern onto a nested child component with different mount semantics. The chosen hook never fires (e.g., a hook that only fires when the framework's route-cache reactivates, chosen for a component that the route-cache never reaches); the child never fetches; the page renders "no data" forever. Fix: nested children that fetch data use the project's standard mount-AND-reactivate hook pair (named in `_extracted-idioms.md`), not just one. The validator's `check_v2_structure` flags the framework-specific shape via `PROJECT_KIND`; per-stack pack rules (e.g., `frontend/rules/migration-frontend.md`) name the concrete hook pairs.
-- **The Misplaced i18n / Locale Key** (added 2026-05-01) — code references a translation / locale key path that doesn't resolve in the project's actual locale tree (key was added at the wrong namespace level, or reference predates a key move, or namespace casing differs). The literal key string renders to users instead of the translated text. Fix: i18n key paths must resolve against the actual locale file structure. A future validator addition will grep referenced keys against the resolved locale tree.
-- **The Consumer Compensation** (added 2026-05-01) — provider returns wrong field name / missing field / different shape; the consumer "fixes" it locally by mapping fields in the component / job / handler instead of filing a provider ticket. The drift accumulates silently across consumers. Fix: when audit detects provider-shape divergence, mark the row `status: halted` with explicit dependency on the provider fix ticket; do NOT ship a consumer-side workaround.
-- **The Auto-import Trip** (added 2026-08-21) — a parity test mounts a leaf component / view template from a project whose *production* build resolves helpers through an auto-import plugin (build-tool plugin, framework auto-import, IDE import-on-resolve), while the *test* config does not load that plugin. Auto-imported helpers (i18n hook, router hook, reactive primitives) resolve in production and not in tests, so the first mount fails with `<helper-name> is not defined`-type errors and the parity suite is red for a reason that has nothing to do with parity. It slips audit because audits read source and never run the tests. Fix: the test config mirrors the production plugin chain — `parity-test-generate` writes the test config alongside the test files rather than after the first red run. Detector: grep the production build config and the test config for the same auto-import plugin and flag a mismatch.
-
+The 20-name catalogue, each with its fingerprint, its real-world cost and the
+`validate-migration-artifacts.sh` check that catches it, now lives in
+**`ai-patterns/migration-guardrails.md` § Named anti-patterns** — the names are load-bearing
+vocabulary that audits cite, so they have to reach the project. `references/` files install only
+for a **detected framework name** (`templates/phases/phase-4.2-apply.md:210-213`);
+`ai-patterns/` installs unconditionally.
 
 ## Structure-vs-behaviour worked examples
 
@@ -151,3 +131,20 @@ T+38d: Delete V1 (after 14d of zero traffic).
 ### For rule-only tools (Aider, Codex, Gemini, partial: Cline, Windsurf)
 
 This rule **is** the surface. The 9 contract sections, the 13 hard halts (including the dead-V1-code, UI-state-enumeration and navigation-inventory halts), the 6-axis dead-code check, the frontend axes, the anti-pattern catalogue, and the three procedures (extract / parity-test / perf-uplift) are all inlined above. No skill / agent / command dispatch is required — follow the rule as a checklist.
+
+## Tier rationale
+
+> **Why this is tiered (added 2026-04-30 from a Phase 7 incident lesson)**: prior single-floor discipline produced ~95% docs / ~5% code on small features (all 8 artifacts mandatory regardless of feature size). 1-line fixes generated 5-section contracts + 30-fixture parity tests + 12-candidate perf surveys + 7-stage runbooks. The tiered model preserves the F039 anti-Trusted-Summary protections on heavy features while letting trivial features ship in proportion.
+
+
+## Should — full guidance
+
+- **Slice vertically (full feature) over horizontally (just data layer).** Vertical slices ship value + can be cut over independently. Horizontal slices (port all controllers, then all services, then all repos) leave V2 unusable until the last layer ports.
+- **Pick the lowest-risk feature for the first port.** Health checks, read-only endpoints, internal admin tools — they exercise the toolchain without exposing customers to a parity bug. The first port shakes out the parity-test infrastructure, the ledger workflow, the cutover path.
+- **Run V1 + V2 in shadow before canary.** Shadow = V2 receives the same input but its output is compared (not served). Catches behavioural drift the parity test suite missed. Run for ≥1 week per high-traffic feature.
+- **Anchor perf-uplift candidates to a measurement.** Don't add Redis caching in V2 because "caching is fast." Capture V1's call rate + payload size + cache-hit projection + estimated DB load reduction. The decision file must show the math.
+- **Index proactively when V2's query shape differs from V1.** Different `WHERE` clause = different optimal index. Use `EXPLAIN ANALYZE` on V2's query plans against prod-sized data before cutover — see `database/skills/migration-rehearsal/SKILL.md`.
+- **Project columns minimally.** V1's `SELECT *` becomes V2's `SELECT id, name, status` if those are all the consumer needs. Less network bandwidth, less ORM hydration, less GC pressure. The contract should list the *consumed* columns, not the *queried* ones.
+- **Replace sequential await loops with bounded parallelism.** During port, sequential `for await` patterns in V1 are the highest-leverage perf upgrade — see `backend/rules/concurrency-discipline.md` + `backend/skills/parallelize-independent-ops/SKILL.md`. Always preserves parity (assuming independence).
+- **Cap the contract in writing.** A 500-line contract is fine. A 50-page contract means the feature is too big — split it before porting.
+- **Run parity tests against a frozen V1 commit.** Pinning the parity oracle prevents "V1 evolved while we ported V2" — the ledger row records the V1 commit hash used.

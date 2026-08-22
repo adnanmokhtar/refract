@@ -215,7 +215,7 @@ A PR transitioning a feature to a state without that state's required fields is 
 - **`/migration-status`**: reads ledger; reports per-state counts, oldest in each state, blocked-on-dependency list, perf-uplift summary.
 - **CI hook**: on PR merge to main, if any file under `ai/migration/contracts/` or `ai/migration/plans/` or `<v2-root>/<feature>/` was touched, verify ledger row touched in same PR. Fail PR otherwise.
 - **`parity-auditor` agent**: at PR review time, reads the ledger row referenced by the PR, verifies the parity-run referenced is recent + green, verifies V1 commit pinned matches actual V1 path's last touched commit.
-- **Weekly cron**: emit a `migration-status` report to a designated channel; flag stalled rows (in `In-progress` for >30d, in `V2-shadow` for >14d).
+- **Recurring report** (a cadence *you* wire up — the baseline ships no scheduler): emit a `migration-status` report to a designated channel; flag stalled rows (in `In-progress` for >30d, in `V2-shadow` for >14d).
 
 ## Reporting views (`/migration-status`)
 

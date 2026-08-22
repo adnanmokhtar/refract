@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.9.1",
-  "released": "2026-08-22",
+  "version": "1.11.0",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Repaired three dangling section anchors in `references/align-discipline-catalogue.md`: the inherited frontend rows pointed `§ lifecycle-hooks`, `§ default-true-wrapper-props` and `§ permission-gate` at `migration-frontend.md`, none of which is a section in that file. Two now cite the sections that do carry the discipline (Reactive lifecycle, Per-button permission gates); the default-true row was never in `migration-frontend.md` at all and now names the frontend command that owns it.",
+  "summary": "Batch 5 follow-up. The rule's headline claim -- \"nothing enforceable is defined only in references/\" -- was falsified by its own next section, which routed four threshold-carrying mechanisms (baseline-capture fallback, reviewer approval, mid-sweep tier promotion, idiom-drift propagation) into a file the same release documents as never installed; the anti-bloat merge gates, the closed 21-verb vocabulary, gate behaviour and the SLA clocks went there too, and three of the four audit agents cited it. All of it moved into `ai-patterns/align-guardrails.md`, which installs unconditionally, and the rule now carries zero `.claude/references/` citations. A stale `Validator script (v1.5+)` section claiming 7+7=14 checks -- against the rule's 11-of-14 and the validator's actual 15 `check_` functions -- was deleted rather than relocated (references/ 66,354 -> 50,735 chars). Rule-only-tool classification corrected: only Aider is rule-only (`_registry.md:23`); Codex, Gemini, Cline and Windsurf each have an executable command primitive, and `_registry.md:76` records \"Gemini has no executable primitive\" as doc-verified FALSE. The intra-pack overlap figures in 1.10.0 named no metric and only two of three reproduced; both metrics are now stated per pair. `docs/COMMANDS.md:796` and `docs/REFERENCE.md:568` still said 12 universal detectors after the pack standardised on 11 (6+5), and `docs/COMMANDS.md:814` described `/align-park` without the critical-security refusal -- all three corrected. Rule 32,736 -> 25,299 chars (~8,184 -> ~6,324 tok, -23%).",
   "changelog": "CHANGELOG.md"
 }

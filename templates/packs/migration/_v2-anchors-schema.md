@@ -14,7 +14,9 @@ Every project running the migration pack declares an `ai/migration/_v2-anchors.m
 
 ```yaml
 ---
-project_kind: frontend-vue3 | frontend-react | frontend-svelte | frontend-nuxt | backend-nest | backend-laravel | backend-python | api-other | mixed
+project_kind: frontend-vue3 | frontend-react | frontend-svelte | frontend-nuxt | backend-nest | backend-laravel
+              | backend-python | data-warehouse | data-pipeline | mobile-flutter | mobile-react-native
+              | mobile-native | api-other | mixed
 v1_root: <path>                     # absolute or repo-relative; e.g. ../<frontend-v1>/
 v2_root: <path>                     # repo-relative; e.g. src/
 parity_test_root: <path>            # repo-relative; e.g. tests/parity/
@@ -78,6 +80,22 @@ runbooks_dir: ai/runbooks
 > *Illustrative example. Each stack has its own route-cache / data-revalidation mechanism — declare the equivalent in your project's anchors. See the per-stack pack rule for the concrete hook / lifecycle pair.*
 
 ```yaml
+
+> **`project_kind` is a family prefix, not a closed list.** `validate_project_kind_strict()` in
+> `scripts/validate-migration-artifacts.sh` accepts `frontend-*`, `backend-*`, `data-*`, `mobile-*`,
+> `mixed` and `api-other`, and `extract_inventory_primitives()` branches on four families —
+> **frontend** (`frontend-*` and `mixed`), **backend**, **data** and **mobile** — each counting a
+> different primitive set. Any `<family>-<flavour>` value is legal; the values listed above are the
+> ones in use. The suffix after the hyphen is documentation for humans, so a new stack does NOT
+> need a schema change — only a correct family prefix.
+>
+> **Pick the prefix that matches the primitives you want counted, not the one that reads best.**
+> `api-other` is accepted by the validator but matches no family branch: it falls through to the
+> `*)` default, which counts **frontend** primitives (two-way form bindings, component tags,
+> click handlers). An API-only migration declared `api-other` is therefore inventoried against primitives
+> it does not have, and the tier promoter that fires when a primitive's V2 count is under 70% of
+> V1's fires on that noise. Declare `backend-other` instead — it takes the `backend-*` branch.
+
 route_cache_layout: <path to the project's route-cache / cache-shell layout file>
 route_cache_exclude_pattern: <regex matching the cache-exclude declaration>
 ```

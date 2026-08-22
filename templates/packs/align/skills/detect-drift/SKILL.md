@@ -1,6 +1,6 @@
 ---
 name: detect-drift
-description: Stack-conditional drift detector for codebase alignment. Runs the 12 universal detectors (structural + functional — SOLID, clean code, performance, security, unhandled-io) plus per-stack detectors against the gold-standard inventory. Emits a finding row per fingerprint hit with evidence cited to <path:line>. Used by /align-scan and /align-fast.
+description: Stack-conditional drift detector for codebase alignment. Runs the 11 universal detectors (6 structural + 5 functional — SOLID, clean code, performance, security, unhandled-io) plus per-stack detectors against the gold-standard inventory. Emits a finding row per fingerprint hit with evidence cited to <path:line>. Used by /align-scan and /align-fast.
 kind: skill
 pack: align
 ---
@@ -30,7 +30,7 @@ This skill is the **detector** half of alignment. The fix half is `find-and-alig
 | `ai/conventions.md` | Project | NO (drift class skipped if missing) |
 | `ai/architecture.md` | Project | NO (drift class skipped if missing) |
 | Per-class detector tool name | `_extracted-codebase.md § Gold standards` | YES (per class) |
-| Class filter (optional) | Caller flag | NO (default: all 12 universal + stack-conditional) |
+| Class filter (optional) | Caller flag | NO (default: all 11 universal + stack-conditional) |
 | Scope filter (optional) | Caller flag | NO (default: full repo) |
 | Max-findings-per-class cap (optional) | Caller flag | NO (default: unlimited) |
 
@@ -317,6 +317,52 @@ For each finding:
 - **Detector tool missing** (e.g., `jscpd` not installed) → halt; surface install command.
 - **A row's evidence doesn't resolve** at validation time → drop the row; log as detector error.
 - **Hand-wave token in any field** → halt; the detector is mis-configured.
+
+## Reductions — what to report when a detector cannot run
+
+A halt stops everything. A **reduction** runs fewer detectors and must say so, because a detector that did not run and a detector that found nothing produce the identical output — zero rows — and only one of them is good news.
+
+| Condition | Effect | Line this skill MUST emit |
+|---|---|---|
+| `ai/conventions.md` and `ai/architecture.md` both absent | Detector 6 (`drift`) cannot run — drift is deviation from a **documented** convention, and there is no document | `SKIP — drift NOT RUN (no ai/conventions.md / ai/architecture.md)` |
+| A per-class tool absent where the caller passed `--continue-on-missing-tool` | that one detector does not run | `SKIP — <class> NOT RUN (<tool> absent: <install command>)` |
+| `--class-filter` or `--scope` narrowed the run | fewer detectors, or less source | `SCOPED — <N> of 11 universal detectors, scope <path>` |
+| A file exceeds the large-file sampling threshold | partial read | `PARTIAL-READ — <path>: <N> lines, read <ranges>` |
+
+**The final line of every run is `RAN <N> of 11 universal detectors`**, and any `<N>` below 11 is immediately followed by its reasons. A caller that receives zero `drift` rows is entitled to know whether that means "no drift" or "drift was never looked for". See `ai/patterns/align-guardrails.md § The eight realism guards` for the guard names to cite.
+
+### Detector 6 special case — the bimodal convention
+
+The most common reason a team runs this skill is "half our modules do X and half do Y". That is **not** drift: drift needs the oracle to name a winner, and here it names neither. Detector 6 emits a **non-finding report** — no ledger rows, because there is no closure verb for a convention that does not exist yet:
+
+```
+BIMODAL CONVENTIONS (0 rows — no oracle entry to align to)
+  <concern>   shape A: <N> sites (<representative path:line>)
+              shape B: <M> sites (<representative path:line>)
+              oracle names: neither
+  Route: /setup-project --refine  (adopt one, then re-scan — the N+M sites become drift rows)
+         /polish                  (if neither shape is right)
+```
+
+Emitting these as `drift` rows would make align pick a convention by majority vote. Choosing a convention is introducing one, which is `/polish`'s job and not this skill's — the boundary `@align-idiom-auditor` exists to hold.
+
+## Hard rules
+
+- **A finding is a fingerprint you found, not a pattern you expect.** Every emitted row carries `<path:line>` evidence that resolves at the pinned commit and contains the fingerprint the row claims. A row derived from "this codebase probably has…" is fabrication, and it is worse than a miss because it consumes a fix loop.
+- **One fingerprint, one row.** Never `~8 dead exports` or `several silent catches`. If a cap forces you to stop, emit the rows you found and write the remainder to `ai/align/_deferred.md` with a count — a cap is a reduction, not a summary.
+- **Class before verb.** Choose the class from the fingerprint, then take the verb from the class. Choosing a verb first is how a `security` row acquires a structural verb and inherits a `net-lines ≤ 0` rule its fix cannot satisfy.
+- **Never invent an idiom to cite.** `shared_equivalent` and `idiom_cited` name entries that exist in `_extracted-idioms.md`. If the fix would need a primitive the oracle does not have, that is a missing-idiom halt for that row — not a row that cites a plausible-sounding path.
+- **Read-only, always.** This skill writes exactly one file (`_deferred.md`) and never touches source, ledger or oracle. A detector that edits what it measures has no findings, only consequences.
+- **Report the denominator.** Every run ends with `RAN <N> of 11`. Silence about what was skipped is the Trusted Summary with a mechanical cause.
+
+## Failure modes
+
+- **Detector returns zero rows for a class that clearly has instances** — usually the fingerprint was derived from a generic pattern (`fetch(`) rather than the project's named primitive from `_extracted-idioms.md`. Re-derive from the oracle; a generic grep on a project with a named client finds nothing and reports clean.
+- **Detector returns hundreds of rows for one class** — clean-code and duplicated-logic dominate first sweeps. This is the scope cap firing, not a bug; emit up to the cap, defer the rest, and say so. Reporting 400 rows is as useless as reporting none.
+- **Evidence resolves at scan time but not at fix time** — another PR landed. This is expected on an active repo, which is why `/align-phase` re-detects before fixing. Do not treat a stale row as a detector error; it is an aged-out finding.
+- **The same site is flagged by two detectors** (a silent catch inside a duplicated block; an unvalidated input that is also an unhandled I/O call). Emit both rows with distinct classes and let `/align-plan` phase them; merging them into one row hides one of the two fixes, and closing one does not close the other.
+- **`_extracted-idioms.md` exists but is a stub** — present and near-empty passes the emptiness check while providing no oracle. Every `replace-with-shared` and `dedupe` row then halts on missing-idiom. Three or more such halts in one run is `The Idiom Inventory Gap`; say so once, at the top, rather than as N identical row-level halts.
+- **PROJECT_KIND misidentified** — a frontend project detected as backend silently drops five stack-conditional detectors. The `RAN <N> of 11` line will look correct because the universal set did run; the stack line is the one to check.
 
 ## Notes
 

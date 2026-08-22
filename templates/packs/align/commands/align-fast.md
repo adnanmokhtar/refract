@@ -140,7 +140,7 @@ Heavy-tier rows always run serially (one at a time, with reviewer-approval pause
 
 ## Optional flags
 
-- `--max-parallel=<N>` — cap parallel row dispatch (default: 5 trivial; standard cap at 3; heavy always serial). Per-file lock prevents two rows from racing on the same file (see `align-discipline.md § Realism guards § Parallel race serialization`).
+- `--max-parallel=<N>` — cap parallel row dispatch (default: 5 trivial; standard cap at 3; heavy always serial). Per-file lock prevents two rows from racing on the same file (see `ai/patterns/align-guardrails.md § Supporting mechanisms § Parallel race serialization`).
 - `--scope=<path>` — limit row dispatch to rows whose `scope` files are inside the given path. Useful for incremental phase runs on large monorepos. Rows outside the scope stay `status: detected` for the next run.
 - `--exclude-tier=<list>` — skip tiers (e.g., `--exclude-tier=heavy` for "trivial + standard only" — heavy rows are deferred to a follow-up `/align-phase <N> --start-from=<id>` run).
 - `--re-audit` — discard cached `status: verified` verdicts and re-dispatch the detector for **every** row in phase N (including verified ones). Default: skip verified rows. Use this to verify done work is still correct — catches drift, false-verified rows, detector improvements that surface previously-missed gaps. Re-detected rows whose fingerprint reappears flip to `halted` and fast re-fixes them in the same run. Re-detected rows whose fingerprint stays absent stay `verified` (no code change). Mirrors `/migration-fast --re-audit`.

@@ -243,7 +243,7 @@ The contract was written; the implementation matches the contract; but the contr
 ### C5. Empty-state observable drop
 - **What**: V1 returns `{}` for empty result; V2 returns `null`. Or V1 returns `[]`, V2 returns `{ items: [] }`. Caller crashes.
 - **Stack**: Backend.
-- **Where it bit us**: Projected. Classic example in `migration-discipline.md § Examples per concern "Behavioural drift"`.
+- **Where it bit us**: Projected. Classic example in the pack-side `references/migration-discipline-catalogue.md § Examples per concern (parity / scope / perf-uplift / cutover) § Parity preservation`; the enforceable form is `ai/patterns/migration-guardrails.md § Named anti-patterns → The Silent Break`.
 - **Current coverage**: ⚠️ Tolerance taxonomy + corpus must include empty-state inputs (per `parity-test-generate.md § 2`). Soft enforcement.
 - **Severity**: P0.
 
@@ -349,7 +349,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 ### D9. Auto-import test config mismatch
 - **What**: `unplugin-auto-import` works in prod, not in test config; first mount fails with "useI18n is not defined".
 - **Stack**: Frontend.
-- **Where it bit us**: Projected. `parity-test-generate.md § Auto-import test-config requirement` — cites "The Auto-import Trip" in `migration-discipline-catalogue.md § Anti-patterns` (named + defined there as of 2026-08-21).
+- **Where it bit us**: Projected. `parity-test-generate.md § Auto-import test-config requirement` — cites "The Auto-import Trip" in `ai/patterns/migration-guardrails.md § Named anti-patterns` (named 2026-08-21; moved to the installed pattern 2026-08-23).
 - **Current coverage**: ❌ UNCOVERED.
 - **Severity**: P2.
 

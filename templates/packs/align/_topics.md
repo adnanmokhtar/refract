@@ -21,13 +21,29 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   sections:
     - project_specific_first       # path to ledger (default ai/align/ledger.md), update cadence, ownership
     - overview
-    - state_machine                # detected → planned → in-progress → fixed → verified → archived (+ side states halted, parked, archived-pre-existing)
+    - state_machine                # 10 states: detected → planned → in-progress → fixed → verified,
+                                   # + side states halted, parked, pending-review, archived-pre-existing, archived-deprecated
     - per_finding_record_shape     # YAML schema (id, class, subclass, severity, scope, evidence, closure_verb, idiom_cited, tier, status, ...)
     - automation_hooks             # how /align-scan + /align-phase + /align-gate + /align-status read/write
     - reporting_views              # by-class, by-tier, by-phase, blocked, security-only, perf-only
     - drift_detection              # ledger says fixed but git history says no commit → halt
   mirror_existing: true
   fallback: ai-patterns/align-ledger.md
+  cite_evidence: strict
+
+- name: align-guardrails
+  kind: pattern
+  triggers:
+    always: true
+  extracts_from: _extracted-codebase.md (test runner, skip/ignore files, file-size profile) + ai/conventions.md (threshold overrides)
+  sections:
+    - project_specific_first       # threshold overrides, skip list, test runner + flake retry
+    - overview
+    - realism_guards               # the 8 execution-time guards: trigger, default threshold, required output line
+    - named_anti_patterns          # the catalogue audits cite by name: fingerprint + catching check
+    - automation_hooks             # which command applies which guard
+  mirror_existing: true
+  fallback: ai-patterns/align-guardrails.md
   cite_evidence: strict
 
 # ============ AGENTS (.claude/agents/<name>.md) ============
@@ -77,8 +93,8 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
 - name: align-discipline-references
   kind: reference-pair
   files: [references/align-discipline-procedures.md, references/align-discipline-catalogue.md]
-  triggers: { always: true }            # copied to .claude/references/ alongside the rule — loaded ON DEMAND by commands/skills, never auto-loaded
-  note: the rule core + these two files are ONE discipline (split 2026-06-07, 40k always-on limit); never install the rule without them
+  triggers: { always: false }           # NOT INSTALLED. phase-4.2-apply.md:210-213 copies references/<name>.md only when <name> equals a DETECTED FRAMEWORK NAME, and no framework is called align-discipline-procedures; the `2>/dev/null || true` swallows the miss. No tool adapter ships them either (phase-4.8-deep.md:35).
+  note: pack-side worked procedures, worked examples and long-form guidance only. Everything enforceable — the eight guards, the six supporting mechanisms and their thresholds, the anti-bloat merge gates, the 21-verb vocabulary, the enforcement matrix and the named anti-patterns — lives in ai-patterns/align-guardrails.md, which DOES install (phase-4.2-apply.md:207).
 
 - name: align-discipline
   kind: rule
@@ -87,20 +103,19 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
   extracts_from: _extracted-codebase.md § "Gold standards" + _extracted-idioms.md (full) + _extracted-codebase.md § "Tests" (test runner + commands)
   sections:
     - project_specific_first       # codebase root, gold-standard inventory path, test runner, lint+typecheck commands, PROJECT_KIND
-    - scope                        # what align covers: structural + functional + stack-specific
-    - relationship_to_migration    # align is migration turned inward
+    - scope                        # what align covers + what it routes elsewhere
+    - relationship_to_migration    # align is migration turned inward (no second codebase → no parity test)
     - tiered_floor                 # trivial / standard / heavy with promoter rules
-    - anti_bloat_rules             # closure-verb vocabulary; net-lines rule split by class group; idiom citation
-    - finding_categories           # 6 universal classes (structural) + 5 (functional) + per-stack
-    - per_stack_extensions         # frontend UI/UX detectors (mandatory for frontend-*); backend; data; mobile
-    - per_finding_audit_halts      # 11 halts
-    - tool_agnostic_procedure      # scan + find-and-align + gate (inlined for rule-only tools)
+    - anti_bloat_rules             # merge gates; pointer to catalogue for full definitions
+    - realism_guards               # the 8 guards BY NAME; definitions live in ai-patterns/align-guardrails.md
+    - finding_categories           # 11 universal classes (6 structural + 5 functional) + stack-specific;
+                                   # detector signal / verb / tier live in detect-drift, NOT restated here
+    - per_finding_audit_halts      # 11 halts — the enforceable core, with validator names
+    - per_stack_and_tool_agnostic  # stack routing + the rule-only-tool procedure pointer
     - must / must_not / should     # the rule body
-    - examples                     # parity / scope / security / perf / clean-code (with idiom citations)
-    - review_checklist
-    - enforcement                  # validator script + commands + status reporting
-    - anti_patterns                # named anti-patterns with detection
-    - references                   # cross-pack pointers
+    - enforcement                  # 11 script-enforced of 14; the 3 agent-side named as such
+    - anti_patterns                # names only; catalogue lives in ai-patterns/align-guardrails.md
+    - load_on_demand               # agents, installed patterns, reference pair
   mirror_existing: true
   fallback: rules/align-discipline.md
   cite_evidence: strict

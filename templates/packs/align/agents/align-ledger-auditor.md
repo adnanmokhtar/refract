@@ -42,13 +42,15 @@ Report: `<id>: missing <field> (required at status=<status>, tier=<tier>)`.
 
 ### 2 — State-machine legality
 
-The legal path is `detected → planned → in-progress → fixed → verified → archived`, with side states `halted`, `parked`, `pending-review`, `archived-pre-existing`. Illegal jumps:
+The legal path is `detected → planned → in-progress → fixed → verified`, with side states `halted`, `parked`, `pending-review`, `archived-pre-existing` and `archived-deprecated` — ten states, defined once in `ai/patterns/align-ledger.md § State machine`. Illegal jumps:
 
 - `detected → fixed` with no `in-progress` and no commit — a status written by hand.
 - `halted → verified` without an intervening `fixed`.
 - `pending-review → verified` with `reviewer_approval` empty — the reviewer-approval protocol bypassed.
 - `parked → fixed` without an `/align-unpark` entry in `ai/align/_history.md`.
 - `archived-pre-existing` carrying a commit — the row claimed the fingerprint was already gone, yet something was committed for it.
+- `archived-deprecated` with no `adr:` field — a won't-fix with no written reason is an abandonment, not a decision.
+- Any row reaching `parked` without `prior_status` **and** `prior_phase` — the transition is one-way; `/align-unpark` will refuse it and no other command can move it.
 
 ### 3 — Ledger ↔ git reconciliation (both directions)
 
@@ -87,11 +89,17 @@ Thresholds are the pack's defaults; a project may override them in `ai/conventio
 |---|---|---|
 | row `in-progress` > 7 days | stalled | `/align-park <id>` or `/align-rollback <N>` |
 | `class: security` row `halted` > 24 hours | escalated | resolve now; security halts do not wait |
+| **`class: security` row `parked`, aged from `parked_sla_from` > 24 hours** | **escalated** | **the same clock — parking changed the status, not the exposure** |
+| **any row `parked` past its `parked_unpark_after` date/event** | **overdue park** | `/align-unpark <id>`, or record a new date; a silently expired date is a won't-fix nobody signed |
+| **any row `parked` > 90 days** | **abandoned park** | decide: `/align-unpark`, or `archived-deprecated` with an ADR |
+| **any row `parked` with `prior_status` or `prior_phase` empty** | **unrevivable** | `/align-unpark --list-unrevivable`; no command can restore this row |
 | row `pending-review` > the review timeout (default 7d) | awaiting sign-off | surface the reviewer; never auto-approve |
 | days since last gate PASS > 30 | sweep stalling | `/align-replan` or re-scope |
 | same halt reason on ≥ 3 rows | systemic | `/setup-project --refine` — usually a missing idiom |
 
-The last row is the highest-value output of this audit. A `halts/` directory full of `missing idiom: <X>` is `The Idiom Inventory Gap`, and the fix is to update the oracle once rather than to keep halting rows one at a time.
+**Four of these rows exist because `parked` is the only status change that removes a row from every other escalation in the pack.** After a park, `/align-gate` stops blocking on the row, its halt file moves to `halts/parked/` (so the systemic-reason count below stops seeing it), and any SLA keyed on `halted` stops firing. Without a `parked` SLA of its own, a critical finding can be parked once and never surface again except as an undifferentiated `PARTIAL` in the final report — which is `The Silent Park` in `ai/patterns/align-guardrails.md`. **Age a parked security row from `parked_sla_from`, never from `parked_at`**: otherwise parking resets the clock, which is exactly the capability park must not have.
+
+The systemic row is the highest-value output of this audit. A `halts/` directory full of `missing idiom: <X>` is `The Idiom Inventory Gap`, and the fix is to update the oracle once rather than to keep halting rows one at a time. **Count `halts/parked/` alongside `halts/` when computing it** — a reason that was parked three times is more systemic than one that halted three times, not less.
 
 ## Output format
 
@@ -161,7 +169,7 @@ No writes performed.
 
 ### Rules
 - `.claude/rules/align-discipline.md` — § Must (update the ledger on every state transition), § Must not (skip the ledger).
-- `.claude/references/align-discipline-procedures.md` — § Reviewer-approval mechanism (the `pending-review` protocol reconciliation 4 checks).
+- `ai/patterns/align-guardrails.md` — § Supporting mechanisms → Reviewer-approval mechanism (the `pending-review` protocol reconciliation 4 checks) and § Named anti-patterns → The Silent Park.
 
 ### Patterns
 - `ai/patterns/align-ledger.md` — the state machine and row schema this audit validates.

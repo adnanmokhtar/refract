@@ -146,9 +146,38 @@ NO ledger modification. NO source modification.
 
 ## Phase 6 — Validate (verify correctness)
 
-- The verdict is `PASS` only when all 9 checks (or 10 with `--re-scan`) are PASS.
-- The verdict is `PARTIAL` if any row is parked (pending re-evaluation) AND all other checks PASS.
+- The verdict is `PASS` only when all 9 checks (or 10 with `--re-scan`) are PASS **and no row is parked**.
 - The verdict is `REGRESSION` if any check fails — surface the specific failure; recommend `/align-rollback <N>` if a phase introduced the regression.
+- Otherwise the verdict is `PARTIAL`, **and `PARTIAL` is never reported bare.** It always carries the parked breakdown below.
+
+### `PARTIAL` must be qualified by class — a parked critical is not a parked dead import
+
+A single undifferentiated `PARTIAL` is how a critical security finding leaves a sweep looking the same as a stale import. The verdict line names the worst parked row, and the breakdown enumerates every parked row grouped by class, worst first:
+
+```
+PARTIAL — 6 parked rows, worst: security/sql-injection (critical), parked 34 days
+
+  PARKED — SECURITY (2)                                    <-- these block a PASS forever
+    A047  sql-injection  critical  34d  blocker: idiom-missing
+          SLA: escalated (aged from parked_sla_from, threshold 24h)
+          override: "<who signed it, and until when>"
+    A112  missing-validator  medium  8d  blocker: reviewer
+
+  PARKED — CORRECTNESS (1)
+    A203  unhandled-io  write-path  12d  blocker: idiom-missing
+
+  PARKED — STRUCTURAL (3)
+    A051  dead-code   trivial  6d    A078  duplicated-logic  trivial  6d
+    A091  clean-code  trivial  40d   <-- past unpark_after; decide or deprecate
+
+  1 row is UNREVIVABLE (no prior_status): A091 → /align-unpark --list-unrevivable
+```
+
+Rules for this block:
+- **Group by class, order security → functional → structural**, and within each group by age descending.
+- **Every parked security row prints its SLA state**, aged from `parked_sla_from`. A parked security row past threshold makes the verdict `PARTIAL (escalated)`, which reads differently in a report title and is meant to.
+- **A parked row missing `prior_status` / `prior_phase` is reported as `UNREVIVABLE`**, not merely parked — no command can restore it, so it is closer to an undocumented won't-fix than to a deferral.
+- **Never collapse the count.** "6 parked findings" with no classes is the Trusted Summary applied to your own report.
 
 ## Phase 7 — Improve (feed the learning loop)
 

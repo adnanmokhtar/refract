@@ -6,6 +6,10 @@ pack: migration
 
 # /migration-gate <N>
 
+## Phases applied
+
+**1, 2, 3, 6** — Audit / review per `templates/canonical-command-template.md` § Phase selection. Phase 4 (Generate) N/A — the gate produces a verdict, not code. Phase 5 (Update) N/A except the single append-only `_history.md` line the verdict writes; nothing else is persisted. Phase 7 (Improve) N/A — a REFUSE routes the user to the command that fixes the gap; the gate itself learns nothing.
+
 ## The Premise (read this first)
 
 **Refuse on red. Phase exit is mechanical, not negotiated.** The gate runs the validator script, reads the ledger, reads the audits — and either passes or refuses. There is no "passed with caveats," no soft-pass, no "audit looks fine but the contract is missing 3 sections is okay." If any check in the tier-scoped matrix fails, the verdict is REFUSED and the next phase MUST NOT start. The gate writes nothing on REFUSED — only the one-line `_history.md` PASS entry on green.

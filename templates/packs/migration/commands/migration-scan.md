@@ -93,7 +93,7 @@ The scan-report § "V1 structure (detected)" section MUST end with this count as
 
 3. **V1↔V2 mapping** — for each V1 leaf-level entry (every tab, sub-tab, modal-tab, sidebar item, in-page navigation surface), identify the corresponding V2 entry (or absence). A V1 leaf with no V2 leaf is a `nav-drift` finding (see migration-discipline.md halt #13). NOT a feature mapping — a navigation mapping.
 
-4. **V1 dead-code reachability + unmapped component filter** — for each V1 feature in the inventory, run the 6-axis reachability check (per `migration-discipline.md § What counts as dead V1 code`) AND the unmapped-component filter from scan step 1:
+4. **V1 dead-code reachability + unmapped component filter** — for each V1 feature in the inventory, run the 6-axis reachability check (per `migration-discipline.md § Per-feature audit — 13 hard halts` halt 11) AND the unmapped-component filter from scan step 1:
    - Axis 1: app source callers (`git grep -F` for the feature's exported symbols / route paths / endpoint names across V1's app source, excluding the feature's own files + tests).
    - Axis 2: test references (same grep across V1's test directories; the feature's own unit test does NOT count as a caller).
    - Axis 3: cron / scheduler config references.

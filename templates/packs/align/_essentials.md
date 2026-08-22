@@ -6,8 +6,8 @@ essentials:
   commands: [align-scan, align-plan, align-phase, align-gate, align-fast, align-status, align-final, align-rollback, align-park, align-unpark, align-replan, align-recheck, align-promote-tier]
   skills: [detect-drift, find-and-align]
   rules: [align-discipline]
-  rule_references: [align-discipline-procedures, align-discipline-catalogue]   # references/ — ship WITH the rule; on-demand load (NOT auto-loaded); split 2026-06-07 for the 40k always-on limit
-  ai-patterns: [align-ledger]
+  rule_references: [align-discipline-procedures, align-discipline-catalogue]   # references/ — PACK-SIDE ONLY; phase-4.2-apply.md:210-213 copies references/<name>.md only for a DETECTED FRAMEWORK NAME, so these never reach a project. Worked procedures + examples only; nothing enforceable.
+  ai-patterns: [align-ledger, align-guardrails]
 ---
 
 # Align — essentials manifest
@@ -18,7 +18,7 @@ This pack is loaded **on demand** via `--include=align` (no auto-load — alignm
 
 ## What align covers
 
-Align is the codebase's quality gate. The 12 universal detector classes (split into structural + functional groups) plus per-stack extensions:
+Align is the codebase's quality gate. The 11 universal detector classes — 6 structural + 5 functional — plus per-stack extensions (a 12th class value, `stack-specific`, carries those):
 
 - **Structural** (net-lines ≤ 0; entropy-reducing) — dead code, duplicated logic, reinvented wrappers, silent catches, over-abstraction, drift from gold standard.
 - **Functional** (small + budget; added lines must cite idioms) — SOLID violations (SRP/OCP/LSP/ISP/DIP), clean-code (long functions / deep nesting / magic numbers / bad naming), performance (N+1 / sequential await / sync HTTP in hot path / missing cache / missing index / `SELECT *` / in-app filter), security (missing auth gate / SQL injection / XSS / secrets / unsafe deserialize / missing validator / vuln deps / tenant isolation / CSRF / rate-limit), unhandled-io (happy-path-only I/O — call sites with no error path / no timeout / no failure surfacing; the absent-error-path sibling of silent-catch).
@@ -31,9 +31,9 @@ Align is the codebase's quality gate. The 12 universal detector classes (split i
 
 - **agents**: The audit surface — four auditors, one per stage of a finding's life. `align-evidence-auditor` (pre-fix: does the scan's evidence resolve and is the row even align's?), `align-idiom-auditor` (per-fix: did this diff enforce an existing idiom or invent a new one?), `align-gate-auditor` (post-phase: the 14-check PASS/REFUSE verdict), `align-ledger-auditor` (cross-phase: ledger ↔ git ↔ halts ↔ plan reconciliation). Under `--minimal` all four ship, because dropping any one of them moves its checks back inline into the command that dispatches it — which is the state the pack was in before 1.9.0, and is exactly the enforcement-theatre failure the discipline names. Deliberately NOT here: any *detector* agent. Detection is `detect-drift` plus the cross-pack agents listed under Composition; align authoring its own dead-code or security detector would duplicate `code-quality` and `security` and drift from them.
 - **commands**: Run in order: `/align-scan` (deep codebase scan; fresh ledger), `/align-plan` (phased plan honoring gold standards). Then per phase EITHER the manual flow `/align-phase <N>` → `/align-gate <N>` (interactive, supervised) OR the fast flow `/align-fast <N>` (one-shot: per-finding loop in parallel + auto-gate, same discipline, no human-watch pauses). After the last phase's gate PASSes, `/align-final` (cross-phase verification + recommendations). **Sidecar commands**: `/align-status` (read-only progress), `/align-rollback <N>` (undo phase), `/align-park <id>` (defer hairy findings). Use `/align-fast <N>` for routine mechanical phases; manual flow when heavy-tier rows benefit from per-row supervision.
-- **skills**: `detect-drift` runs the 12 universal detectors (parallel waves: structural / functional / stack-conditional); `find-and-align` is the per-finding fix loop (DETECT → DECIDE → FIX → VERIFY → RECORD; one commit per finding; net-lines ≤ 0 for structural / cite-idiom for functional).
+- **skills**: `detect-drift` runs the 11 universal detectors (parallel waves: structural / functional / stack-conditional); `find-and-align` is the per-finding fix loop (DETECT → DECIDE → FIX → VERIFY → RECORD; one commit per finding; net-lines ≤ 0 for structural / cite-idiom for functional).
 - **rules**: `align-discipline` codifies the contract — closure-verb vocabulary (21 verbs across structural + functional groups); tier rules (trivial default for structural; security always ≥ standard; critical security always heavy); per-finding audit halts (11); phase-exit gate checks (14); anti-patterns (Trusted Summary, Hand-waved, Net-Positive Cleanup, Reinvented Idiom, Bare Security Fix, Hopeful Perf Fix, etc.).
-- **ai-patterns**: `align-ledger` is the state-tracking convention (what's `detected` / `in-progress` / `fixed` / `verified` / `archived` / `parked` / `halted`).
+- **ai-patterns**: `align-ledger` is the state-tracking convention — the ten-state machine, the row shape the validator actually parses, and the fields each state requires. `align-guardrails` is the other half the audits depend on: the eight execution-time realism guards (with thresholds and the output line each must emit) and the named anti-pattern catalogue that agents cite by name. Both are patterns rather than rule sections because both are consulted **when something fires**, not on every turn — and because a pattern installs with the pack, which is what makes a guard citable inside a real project.
 
 ## Phased flow vs fast flow — which command when
 
@@ -103,7 +103,7 @@ Align:      /align-scan      → /align-plan      → /align-fast 1     → /ali
 ## Cadence
 
 - **One-time first sweep** — typically large; expect 5–12 phases on a mature codebase that hasn't been swept before.
-- **Routine cadence** — monthly or quarterly, depending on team size + change velocity. `/schedule align-scan +4w` is a reasonable default for active projects.
+- **Routine cadence** — monthly or quarterly, depending on team size + change velocity. A human re-runs `/align-scan` on that cadence; the baseline ships no scheduler to do it for you.
 - **Triggered cadence** — after major framework upgrades / dependency bumps / refactor sprints; alignment helps verify the upgrade didn't introduce drift.
 
 ## Failure modes (top-level)

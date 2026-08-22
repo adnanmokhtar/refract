@@ -24,6 +24,221 @@ violations, clean-code violations, performance issues, security weaknesses, and 
 (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design
 tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.
 
+## 1.11.0 — 2026-08-23
+
+**The headline safety claim was falsified two paragraphs later in its own file.** 1.10.0's rule said
+"Nothing enforceable — no halt, no threshold, no vocabulary — is defined only in `references/`", and
+then § Realism guards sent four supporting mechanisms with their own thresholds — baseline-capture
+fallback, the reviewer-approval flow, mid-sweep tier promotion, idiom-drift propagation — to
+`.claude/references/align-discipline-procedures.md`, a file the same entry documents as never
+installed. § Anti-bloat rules sent the merge-gate definitions and the closed 21-verb vocabulary to
+the catalogue; § Enforcement sent gate behaviour and the SLA clocks there; three of the four audit
+agents cited it in their Related sections.
+
+**All of it moved to `ai-patterns/align-guardrails.md`**, which installs unconditionally. That file
+now carries the eight guards, **six** supporting mechanisms (the two it already had plus the four
+above, each with its threshold and its required output line), § Anti-bloat merge gates, and
+§ Enforcement — gate behaviour, SLA clocks, anti-pattern → check. `rules/align-discipline.md` now
+contains **zero** `.claude/references/` citations, and `@align-{gate,ledger,idiom}-auditor`,
+`/align-phase` and `find-and-align` were repointed with it. `references/align-discipline-*.md` fell
+66,354 → 50,735 chars; both `_essentials.md` and the `_topics.md` reference-pair entry now state that
+they are pack-side and install nowhere.
+
+**A stale section was deleted rather than moved.** `references/… § Validator script (v1.5+)` claimed
+"7 high-impact checks" plus "remaining 7" = 14, contradicting the rule's 11-of-14 split and the 15
+`check_` functions `scripts/validate-align-artifacts.sh` actually defines. It was removed, not
+relocated.
+
+**The rule-only-tool classification was wrong for three of five tools** — same correction as the
+migration pack, same registry citations (`_registry.md:23,53,54,76`). Only Aider is rule-only.
+
+**The intra-pack overlap figures in § 1.10.0 were not reproducible.** "6%, 11%, 5%" named no metric,
+and only two of three reproduced under either candidate metric. Both metrics are now stated and both
+figures given per pair. The verdict is unchanged; the evidence behind it is now retrievable.
+
+**Two user-facing docs still described the pre-1.10.0 taxonomy.** `docs/COMMANDS.md:796` said
+`/align-scan` "runs 12 universal detectors (6 structural + 5 functional + stack-conditional)" — its
+own arithmetic disagrees, and 1.10.0 standardised the pack on 11 universal with `stack-specific` as a
+twelfth *class value*. `docs/REFERENCE.md:568` repeated it. Both corrected, along with
+`docs/COMMANDS.md:814`, which described `/align-park` without the critical-security refusal or the
+`prior_status` / `prior_phase` / `parked_sla_from` fields 1.10.0 added. `scripts/verify-doc-sync.sh`
+sees none of this — see the integrator note in the batch report.
+
+**Accounting.** Rule: 32,736 → 25,299 chars (~8,184 → ~6,324 tokens, **−23%**), and the delegated
+depth now arrives. Pack total 425,415 → 479,744 chars, **+54,329** — that growth is
+`ai-patterns/align-guardrails.md` (26.8K, the guards and gates that previously existed only as names
+in a rule or as prose in an undelivered file) plus this changelog; `references/` gave back 15.6K of
+it. Commands: 13 before, 13 after.
+
+## 1.10.0 — 2026-08-22
+
+**The rule was a manual in the always-loaded slot, and the depth it delegated went to files no
+project receives.** Two findings, one cause.
+
+The rule's largest section — 8,114 chars of two four-column tables under § Finding categories — had
+exactly one column that was rule: the class names. The *Detector signal* column restates
+`skills/detect-drift/SKILL.md` Detectors 1–11 in weaker prose; the *Default closure verb* column
+restates what each detector already suggests; the *Tier promoter?* column restates the tier table
+120 lines above it. The class list itself appeared three times in one file (§ Scope's 7-item
+enumeration, the two tables, and again as "Forbidden classes" restating § Scope's routing list
+verbatim 40 lines later). Deleting the duplication and keeping a compact class table plus the three
+boundaries that are genuinely decided here — `silent-catch` vs `unhandled-io`, `drift` requires a
+*written* convention, severity not class sets the security heavy floor — took the rule from
+**32,736 to 24,175 chars (~8,184 → ~6,043 tokens, −26%)**. Nothing enforceable left the file: the
+tier table, the 21 verbs, the 11 halts and the must/must-not all stayed.
+
+**Where the depth went, and why not to `references/`.** The house move is to lift depth into
+`references/`. That move is broken for this pack. `templates/phases/phase-4.2-apply.md:213` and
+`:349` are the only install paths for references and both read
+`for fw in <detected-frameworks>; do cp .../references/${fw}.md ...`. No framework is named
+`align-discipline-procedures`, so neither companion file has ever reached an installed project, and
+`2>/dev/null || true` swallows the miss. Lifting more depth there would shrink the token number
+while making the installed project strictly less capable.
+
+So the depth went into a **new pattern, `ai-patterns/align-guardrails.md`**, which installs
+unconditionally in both COPY and MINIMAL mode. It carries two things:
+
+- **The eight realism guards, defined for the first time.** The rule named "scope caps, batch
+  ceilings, skip-list honoring, mechanical-red short-circuits, oracle-absence fallbacks, dirty-tree
+  behaviour, flaky-test quarantine, large-file sampling" and pointed at
+  `references/…-procedures.md § Realism guards` for "full definitions + thresholds". That section
+  defines eight *different* things (Coverage tolerance, Parallel race serialization, Baseline
+  capture fallback, Validator script, Reviewer-approval, Mid-port tier promotion, Idiom-drift
+  propagation, Standard/heavy artifacts). All eight named guards appeared in exactly one file in the
+  repo — the rule asserting they were defined elsewhere. The matching count 8-vs-8 is presumably how
+  it survived review. Each now has a trigger, a default threshold, and the output line it must emit;
+  the procedures file keeps its eight as *supporting mechanisms*, which is what they are.
+- **The two supporting mechanisms that commands cite by name came across too.** The first pass left
+  `Coverage tolerance` and `Parallel race serialization` in `references/…-procedures.md` and then
+  re-pointed nothing, so `/align-gate:62`, `/align-phase:126`, `/align-phase:234` and `/align-fast:143`
+  each cited `align-discipline.md § Realism guards § <name>` — a sub-heading the rewritten rule does
+  not have, resolving into a file the project does not receive. That is the same defect this entry
+  opens by describing, left in place by the fix for it. Both now live under
+  `align-guardrails.md § Supporting mechanisms` with their thresholds (0.5% coverage tolerance; the
+  per-file lock, heavy rows serialising phase-wide), both are marked **agent-side, not
+  script-enforced** so nobody mistakes them for gated, and all four commands point there. They are
+  kept apart from the eight guards on a real distinction: a guard bounds what a sweep *examines*, a
+  supporting mechanism decides whether an examined result *counts*.
+- **The named anti-pattern catalogue.** `@align-ledger-auditor`, `@align-gate-auditor`,
+  `@align-idiom-auditor` and several commands cite `The Stale Ledger`, `The Reinvented Idiom`,
+  `The Eternal Phase`, `The Idiom Inventory Gap` and six more by name. The definitions lived only in
+  the catalogue, i.e. nowhere reachable. One copy now, in the file that installs; the catalogue
+  points at it.
+
+**The park/unpark pair was broken by construction, and it laundered security findings.**
+`/align-park` step 4 enumerated everything it writes — `status`, `parked_at`, `parked_reason`,
+`parked_blocker`, `parked_unpark_after`. `/align-unpark` requires "a parked-context record with
+non-empty `prior_status` + `prior_phase`" and halts without them. Those two field names appeared in
+exactly one file in the pack: the consumer. Park *read* the prior status at step 2 to validate the
+transition, then discarded it. Every park produced a row unpark refuses to restore, whose only
+remaining exit is `parked → fixed` — a transition the ledger auditor's own reconciliation 2 lists as
+illegal.
+
+Worse, parking was a laundering path. Park flips `halted → parked` and moves the halt file to
+`halts/parked/`; the ledger auditor's SLA table had four rows and none keyed on `parked`, while the
+security escalation keyed on "`class: security` row **halted** > 24 hours". So parking a critical
+row stopped the 24-hour clock, removed the file from the systemic-reason detector, unblocked the
+gate, and surfaced only as an undifferentiated `PARTIAL` in `/align-final` — identical to a parked
+dead import. The pack's own worked example demonstrated exactly this: A047, `security/sql-injection`,
+`severity: critical`, parked because the parameterized-query primitive did not exist.
+
+Fixed end to end: park captures and persists `prior_status` + `prior_phase` (it already read both),
+verifies them in its own Phase 6, and refuses a `severity: critical` security row without an
+explicit `--override-critical="<reason>"` that is written into `parked_reason` and logged as
+`CRITICAL-PARK` — `--no-confirm` does not satisfy it. Security parks carry `parked_sla_from` so the
+clock ages from when the problem was found, not from when it was parked. The ledger auditor gained
+four `parked` SLA rows (security escalation, overdue `unpark_after`, >90d abandoned, and
+unrevivable-missing-`prior_*`), and counts `halts/parked/` in its systemic total. `/align-final`
+breaks `PARTIAL` down by class, worst-first, and flags unrevivable rows. The worked example now
+shows the refusal and its three legitimate routes.
+
+**`ai-patterns/align-ledger.md` was the pack's declared schema authority and contradicted reality on
+eight axes.** `/align-scan` says "Schema from `ai/patterns/align-ledger.md`" and then emits something
+else: `- id: A001` list items vs the pattern's `## ALIGN-0042` headings, `scope:` vs `source:`,
+`evidence` as a `<path:line>` list vs a prose string, `detected_at` vs `ported_at` (a migration-ism —
+align ports nothing), and no `subclass` / `severity` / `tier_reason` / `idiom_cited` /
+`shared_equivalent` at all. Two were fatal rather than cosmetic. The canonical row's
+`closure_verb: surface-error` is in neither `STRUCTURAL_VERBS` nor `FUNCTIONAL_VERBS` in
+`scripts/validate-align-artifacts.sh:195-197` — the reference row fails the pack's own vocabulary
+check, audit halt #4 and evidence-auditor check 4. And `discover_findings()` at
+`validate-align-artifacts.sh:159` matches `/^- id: A[0-9]+[a-z]?$/`, which the pattern's heading form
+never matches — so a ledger written to the documented schema yields **zero discovered rows and a
+clean exit**. Because this file is its own `fallback:`, it is copied verbatim into
+`ai/patterns/align-ledger.md` and becomes the project's schema of record. Rewritten against the
+validator, the command and the four agents, with the ten-state machine and per-state required fields.
+
+**Smaller repairs.**
+- `/align-scan`'s Phase 2 dispatch diagram listed `11. (deps-audit, sub-class of security)` and
+  dropped `unhandled-io` — the class the rule calls the canonical AI-generated-code defect — while
+  the same file's frontmatter and § Stack-conditional dispatch both promised it. `detect-drift`
+  defines 11 detectors with #11 = `unhandled-io` and no deps-audit detector (vuln-dep is step 7
+  inside Detector 10). Diagram restored; the numbering is now stated as the contract with the skill.
+- The 11-vs-12 detector count was unreconciled across six files, with `_essentials.md` claiming 12
+  and then enumerating 11. Standardised on **11 universal (6 structural + 5 functional)**, with
+  `stack-specific` named as the 12th *class value*, matching the skill, the rule and the catalogue.
+- `/align-deprecate` was referenced from three places and does not exist. Removed; `archived-deprecated`
+  is now defined as a terminal state reached by hand with an `adr:`, which is what a won't-fix is.
+- The state set had six incompatible definitions (7 / 9 / 10 names, plus `archived-deprecated`
+  written by three commands and legal in none). Ten states, defined once in the ledger pattern.
+- `/align-phase`'s Premise — under "read this first, internalize, do not deviate" — taught the five
+  structural verbs as the whole vocabulary and called alignment "an entropy reducer, not a designer",
+  contradicting the pack's functional half. This is the exact framing `1.7.x` hunted out of
+  `_orchestration-sync.md`; it survived here, in the command that applies fixes. Both halves now.
+- `/align-promote-tier` mutates `tier`, the field every security floor keys on, and had no halt block
+  and no failure modes. Both added, including deriving the security floor from the row's own class
+  and severity rather than accepting it as an argument.
+- `detect-drift` had no Hard rules and no Failure modes, and a missing `ai/conventions.md` silently
+  skipped the `drift` class — it was not in the skill's Halts list, so a scan on a project without
+  that file reported zero drift and said nothing. Added a Reductions table (`SKIP — drift NOT RUN`),
+  a mandatory `RAN <N> of 11` denominator, and a **bimodal-convention** non-finding output for the
+  most common reason teams reach for align ("half our modules do X and half do Y") — which is not
+  `drift`, because drift needs the oracle to name a winner and here it names neither.
+- `find-and-align`, the loop every fix runs through, had 36 halt references and no Failure modes.
+- `@align-gate-auditor` accounted for 11 script checks + 3 agent-side = 14; the validator defines
+  **15**. The four unaccounted (`check_scan_report_evidence`, `check_progress_ledger_reconciliation`,
+  `check_scope_code_smells`, `check_actionable_next_steps`) are now reported under a
+  `SUPPLEMENTARY (script-only)` heading, with the note that `check_progress_ledger_reconciliation`
+  polices a `progress.md` no command in this pack writes and must be reported `SKIP`, not pass.
+- `/align-unpark` was the pack's thinnest artifact at 50 lines with no Hard rules, Failure modes or
+  Related, and shipped `templates/packs/migration/commands/migration-unpark.md` — a repo-internal
+  path — to installed projects. Rebuilt; the pointer is now `/migration-unpark`, qualified.
+- Split residue from 2026-06-07 removed: duplicate `## Anti-bloat rules`, `## Should` and
+  `## Relationship to migration discipline` headings that made the rule's section anchors ambiguous.
+
+**Not done, deliberately — and here is the measurement.** No commands merged. Two questions were
+asked; the earlier draft of this entry answered only the first and then appealed to a cross-pack
+"9% median" that had never been written down anywhere. That appeal is withdrawn and replaced by the
+real numbers below.
+
+*Intra-pack*, same corpus rule as the cross-pack table below (non-blank lines of ≥ 25 chars,
+deduped to a set), reported two ways because the pairs differ in size — Jaccard `|A∩B| / |A∪B|`
+first, then the min-denominator variant `|A∩B| / min(|A|,|B|)` which flatters the smaller file:
+`align-fast` vs `align-phase` **4.9% / 9.5%**, `align-replan` vs `align-plan` **4.9% / 11.3%**,
+`align-unpark` vs `align-park` **1.3% / 5.6%**. (Corrected 2026-08-23: this line previously read
+"6%, 11%, 5%" with no metric named, and only two of the three reproduced under either metric.)
+
+*Cross-pack* — the 13 identically-suffixed `{migration,align}-{fast,final,gate,park,phase,plan,
+promote-tier,recheck,replan,rollback,scan,status,unpark}` pairs, the batch's headline question. Each
+pair was compared on substantive lines twice: verbatim, and again after neutralising pack vocabulary
+(`migration|align`→PACK, `feature|finding`→ITEM, `port|fix`→ACT, `row`→ROW) so that structure was
+compared rather than nouns. Neutralised overlap, low to high: `phase` 2.6% · `status` 5.6% ·
+`fast` 8.5% · `unpark` 8.9% · `gate` 11.4% · `park` 14.4% · `final` 14.6% · `rollback` 15.1% ·
+`scan` 18.0% · `promote-tier` 18.3% · `replan` 24.3% · `plan` 28.4% · `recheck` 35.4%.
+**Median 14.6%; maximum 35.4%.**
+
+**Verdict: KEEP-SEPARATE, on evidence.** One state machine implemented twice would sit far higher
+than 35%. And the residue that does overlap is not pack duplication: the 48 identical lines in the
+highest pair (`recheck`) are overwhelmingly the repo-wide 7-phase command harness — `## Phase 3 —
+Retrieve`, `## Phase 5 — Update`, `## Phase 7 — Improve` — which **90 of the 133 pack commands in
+this repo carry**. Merging any pair would remove none of it. The two packs share a *vocabulary*
+(scan → plan → phase → gate → final, with park/unpark/rollback/promote-tier as the same four escape
+hatches) because they are the same *shape* of process; they do not share an implementation, because
+migration reconciles two codebases against a parity oracle and align reconciles one codebase against
+its own documented idioms. There is no parity test in align and no second codebase to have one.
+
+`/align-unpark`'s problem was that it was underbuilt and broken against its producer, not that it
+duplicated anything; it was built up and repaired instead.
+
 ## 1.9.1 — 2026-08-22
 
 **Three citations that resolved as text but not as contract.** The Frontend-stack rows of
