@@ -214,7 +214,7 @@ For each controller, record: name, path, route prefix, # endpoints, auth scheme 
 
 Also detect: how does the project structure response shapes? (e.g., `createApiResponse(dto, message)` wrapper detected → standard response envelope is in use). What's the error mapper? (HTTP exception filter, problem-details middleware, etc.).
 
-**Persist as `## API surface` section** — no cap is declared for this step, so Step 15 check 7 asserts `seen == present` here. If a run cannot reach every controller / router file found, that is a real coverage loss and the heading must say so rather than the cap being invented after the fact.
+**Persist as `## API surface` section** — no cap is declared for this step, so the Step 2.5 denominator row requires `seen == present` here. Check 7 does not enforce that on its own: its rules only reject an *undisclosed* sample, so a short walk marked `[SAMPLED: <seen>/<present> files]` passes check 7 while still breaching this step's floor. If a run cannot reach every controller / router file found, that is a real coverage loss and the heading must say so rather than the cap being invented after the fact.
 
 ### Step 8 — Convention auto-detection
 

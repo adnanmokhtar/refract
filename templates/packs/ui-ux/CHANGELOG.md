@@ -14,6 +14,14 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.24.1 — 2026-08-22
+
+**The closure-verb citation pointed at no section.** `_topics.md`'s `ui-crawl-fix` topic declared
+an `extracts_from:` ending in a `§ closure verbs` anchor on
+`align/rules/align-discipline.md`. That file has no `closure verbs` section — the closed vocabulary (the structural set plus the functional set, 21 verbs)
+is enumerated inside **§ Per-finding audit — 11 hard halts**, at halt #4. The topic now cites that.
+Caught by `scripts/lint-handoffs.sh`; the topic's `fallback:` and `sections:` are unchanged.
+
 ## 1.24.0 — 2026-07-13
 
 - BUILT-IN composite-surface table-stakes floor — origin: a coverage audit of the whole ui-ux pack

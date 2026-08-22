@@ -58,7 +58,7 @@ Two different things were checked, and they are not the same strength of evidenc
 - **It does not install the framework tree where the commands look for it.** Fourteen of the
   fifteen commands cite `templates/…`, `~/.claude/templates/…` or `~/.claude/scripts/…` by path;
   `/refine-prompt` is the only one that cites none. `/setup-project` names a `templates/` path 42
-  times, `/refactor` 17, `/setup-project-adapters` 16.
+  times, `/refactor` 25, `/setup-project-adapters` 16.
   A plugin install creates none of those paths. The copy in the plugin cache does contain the full
   tree, but the commands do not address it that way today.
 

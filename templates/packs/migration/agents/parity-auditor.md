@@ -127,7 +127,7 @@ For frontend features (`project_kind: frontend-*` per project anchor), enumerate
 
 For UI-leaf rows (any row whose `v2_path` is a leaf-component / view-template file in the project's stack), every axis verdict requires evidence proportional to the V1 surface size. Specifically:
 
-- **Forms-bearing UI-leaf** (V1 file contains ≥5 form-input elements — concrete tags / components vary by stack and live in `frontend/rules/migration-frontend.md § Forms-bearing fingerprints`; check that pack for the project's stack):
+- **Forms-bearing UI-leaf** (V1 file contains ≥5 form-input elements — concrete tags / components vary by stack and live in `frontend/rules/migration-frontend.md § Stack-aware primitive set`; check that pack for the project's stack):
   - Axes "Form fields", "UI affordances", "Event handlers", "Per-button permission gates" MUST emit a per-row enumeration table with `<v1-path:line>` and `<v2-path:line>` citations — REGARDLESS of verdict (PARITY or DRIFT).
   - One axis-header line + one-line summary ("clean — preserved per V1") is INSUFFICIENT. The validator's `check_per_axis_enumeration` will halt the gate.
   - PARITY claims pay MORE enumeration cost than DRIFT, because PARITY needs to convince the validator that the auditor actually compared the surfaces field-by-field.

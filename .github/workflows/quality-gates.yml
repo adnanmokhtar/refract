@@ -114,3 +114,20 @@ jobs:
       # the temp dir or collides with this checkout. No network, no jq, no real CLI launched.
       - name: Delegate relay (self-target refusal + commit visibility)
         run: bash scripts/test-delegate-relay.sh
+
+      # Handoff edge integrity: the defect class none of the other gates can see — a reference
+      # that resolves as TEXT but not as CONTRACT. They count, or check that a path exists, or
+      # compare two catalogs of names; none opens a cited file to ask whether the claim made
+      # ABOUT it is true. Four rules, each measured over the whole tree before it was kept: a
+      # dispatched key-block may only use keys the receiving skill's `## Inputs` declares; a
+      # `<path>.md § <section>` citation whose path resolves here must name a section that
+      # exists; an `_artifact.md` name that prose uses, no script writes, and that sits one edit
+      # from a name the scripts do write is a spelling that drifted off its writer; and prose
+      # glossing `§ N` of a script-scaffolded artifact must agree with the title that script
+      # emits. Prevents a wrong section number, a filename with no writer, and an undeclared
+      # skill input from shipping green. Known violations are ratcheted through
+      # scripts/_handoff-baseline.md (a line with no `# reason` suppresses nothing); anything
+      # new is a hard FAIL. Run WITHOUT --strict, like every gate above: the baseline's summary
+      # WARN is informational here.
+      - name: Handoff edges (a citation must be true of the file it names)
+        run: bash scripts/lint-handoffs.sh

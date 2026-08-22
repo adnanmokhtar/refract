@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **17 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **18 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 17 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 18 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -88,7 +88,8 @@ for g in \
   scripts/lint-decision-logs.sh \
   scripts/test-adapter-fixtures.sh \
   scripts/verify-global-scope.sh \
-  scripts/test-delegate-relay.sh ; do
+  scripts/test-delegate-relay.sh \
+  scripts/lint-handoffs.sh ; do
   bash "$g" >/dev/null 2>&1 && echo "PASS  $g" || echo "FAIL  $g"
 done
 ```
@@ -115,6 +116,7 @@ file and line; none of them require you to guess.
 | `test-adapter-fixtures.sh` | An adapter doc that cannot actually produce what the Phase 4.8.0 contract promises for it, or asymmetric drift between the adapter doc and its contract row. | Document the missing output path on both sides. |
 | `verify-global-scope.sh` | A pack command leaking into the global surface, or `sync-to-global.sh` sourcing from `~/.claude/commands` again. Checks [3] and [4] read live tool dirs and auto-skip in CI. | Keep pack commands in their pack. See §4. |
 | `test-delegate-relay.sh` | The relay dispatching into its own repo, or a committing implementer coming back as an empty diff that reads like a harmless no-op. 9 sandboxed cases / 55 assertions under `mktemp -d` with a throwaway `$HOME`. | Fix the relay, not the fixture — and never test it against a repo you care about. |
+| `lint-handoffs.sh` | A reference that resolves as *text* but not as *contract* — a `§` anchor naming a section its target does not have, a key handed to a skill its `## Inputs` never declared, an artifact name no script writes, an ordinal gloss the scaffolder spells differently. The other gates verify the catalog; this one opens the cited file. | Fix the citation. If it is correct as-is, add a line **with a reason** to `scripts/_handoff-baseline.md` — a reasonless line suppresses nothing by design. |
 
 **Not in CI, worth running anyway:**
 
@@ -127,11 +129,15 @@ bash scripts/verify-readme-stats.sh     # README's "What's inside" + the cheatsh
 bash scripts/validate-pack-consistency.sh --fallback-report   # the `_examples/` repair worklist (§5b)
 ```
 
-`verify-readme-stats.sh` is the one gate that is **red on `main` today**, which is why it is not
-wired in: `README.md` still claims the counts it had before `data-engineering`, `finops` and
-`product` landed. Wiring it is a one-line addition to `quality-gates.yml` once the README block
-is corrected — run it with `--print` to get the corrected block. It is regression-pinned by
-`tests/validators/verify-readme-stats.sh/` in the meantime, so it cannot rot while it waits.
+`verify-readme-stats.sh` is the one gate deliberately left out of `quality-gates.yml`, and the reason
+is §8's rule rather than a known-red allowance: a validator is wired into the workflow **only if
+green**, and this one goes red the moment the corpus changes without a matching README refresh.
+It was green at `5ffd22b`; it is red right now, for exactly that reason — `README.md`'s "What's
+inside" block reads `**72 scripts**` while `scripts/` holds 73, the 73rd being `scripts/lint-handoffs.sh`.
+`bash scripts/verify-readme-stats.sh --print` emits the corrected block; restoring that one cell
+returns it to `FAIL=0 WARN=0`, after which wiring it in is a two-line addition above. It is
+regression-pinned by `tests/validators/verify-readme-stats.sh/` in the meantime, so it cannot rot
+while it waits.
 
 ---
 
@@ -339,7 +345,7 @@ the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the 
 
 `scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
 repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
-escapes the temp root. Extend it rather than testing by hand: it is one of §2's 16 blocking gates,
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 18 blocking gates,
 so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---
@@ -510,7 +516,7 @@ completely fine; a silently skipped one is not.
 ```markdown
 - [ ] I edited this repo, not `~/.claude/`. `./scripts/verify-sync.sh` is clean.
 - [ ] I read the neighbouring files in the directory I touched and matched their shape.
-- [ ] All 17 gates pass locally.
+- [ ] All 18 gates pass locally.
 - [ ] New/changed command → documented in `docs/COMMANDS.md` (or `docs/REFERENCE.md`).
 - [ ] Command corpus changed → re-ran `python3 scripts/gen-cheatsheet.py`.
 - [ ] Pack content changed → `_version.json` bumped + a matching `## <version>` section added to that pack's `CHANGELOG.md`.

@@ -51,7 +51,7 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - **New npm dependency is gated** — a package no sibling already imports halts for a dependency review (maintenance / license / bundle-size / supply-chain) before it lands. No silent `npm install`, any tier. See Phase 4 § New-dependency gate.
 - **All relevant patterns consulted** — not just principles, specific pattern docs (`ai/patterns/forms.md`, `rendering-strategy.md`, `i18n.md`, etc.).
 - **All applicable agents dispatched** — `ui-architect` designs; `ui-reviewer` reviews (carrying the framework-specific lens — Vue/React/Svelte/etc.); `accessibility-auditor` audits; `i18n-auditor` if i18n in scope.
-- **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → `@design-system-guardian` *(ui-ux pack)* audits, or — when that pack is absent — the theme lane is graded inline against `rules/frontend-principles.md` § tokens and reported as `theme: graded inline (ui-ux pack absent)`.
+- **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → `@design-system-guardian` *(ui-ux pack)* audits, or — when that pack is absent — the theme lane is graded inline against `rules/frontend-principles.md` § Must not (the design-token bullet) and reported as `theme: graded inline (ui-ux pack absent)`.
 - **Zero unverified UI ships.** Real Playwright/Cypress test or, at minimum, manual checklist with screenshots.
 - **Accessibility from the start, not retrofitted.** WCAG 2.2 AA is the floor.
 - **i18n from the start, not retrofitted.** No hardcoded user-facing strings.

@@ -18,6 +18,20 @@ Headings carry the `released` date recorded for that version. A few early versio
 described in the `summary` narrative and never had a dated `changelog` block — those headings have
 no date, which is the honest state of the record rather than an omission.
 
+## 1.4.1 — 2026-08-22
+
+**A property asserted of a check that opening the check disproves.** `skills/extract-codebase-overview/SKILL.md`
+Step 7 read: "no cap is declared for this step, so Step 15 check 7 asserts `seen == present` here."
+Check 7 asserts nothing of the kind. Its rules are: `seen`/`present` must be integers in
+`## Coverage`; `seen < present` with **no** `[SAMPLED]` marker → FAIL; `seen == present` **with** a
+`[SAMPLED]` marker → FAIL; generalizing claims in sampled sections must be `[inferred:]`;
+`[CONTESTED]` arithmetic. Nothing is keyed to the uncapped row — a run that walks 12 of 40 controllers
+and writes `[SAMPLED: 12/40 files]` on `## API surface` passes check 7 cleanly.
+
+The 100% obligation is real, but it belongs to the Step 2.5 per-section denominator table
+(*"none declared → must be 100%"*), not to check 7. Step 7 now says which one enforces what, and so
+does the caller (`templates/phases/phase-2-profile.md`), where the same sentence had been repeated.
+
 ## 1.4.0 — 2026-08-20
 
 - NEW `commands/recall.md`: retrieval over the memory this pack already writes. `/recall <query>`

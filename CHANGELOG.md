@@ -6,6 +6,73 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### An edge gate, and the figures its own changeset invalidated (2026-08-22)
+
+**Why** — eight review passes named one recurring defect class: **a reference that resolves as TEXT
+but not as CONTRACT**. Every path in every instance resolved; what was wrong was the claim made
+about what is inside the target. None of the eighteen existing gates could see it — they count,
+they check that a path *exists* (`validate-pack-consistency` check 3 stats a `fallback:` and never
+opens it), or they compare two catalogs of *names*. The catalog was verified; the edges were not.
+
+- **`scripts/lint-handoffs.sh` (new, gate #18 in `quality-gates.yml`).** Four rules, each measured
+  over the whole tree before it was kept: a fenced key-block dispatched to a named skill may only
+  use keys that skill's `## Inputs` declares; `<path>.md § <section>` must name a section the target
+  has; an `_artifact.md` name that prose uses and no script writes, one small edit from a name the
+  scripts *do* write, is a drifted spelling; and an ordinal gloss about a scaffolded artifact must
+  match the title the scaffolder emits. Known violations ratchet through
+  `scripts/_handoff-baseline.md` (15 lines, 7 marked `REPAIR:`), where a line with **no reason
+  suppresses nothing** and a line that stops reproducing WARNs to be deleted. FAIL-then-PASS is
+  demonstrated both directions: restoring `extract-codebase-overview/SKILL.md`'s pre-fix `## Inputs`
+  turns it red with 6 findings; reverting either repaired citation below turns it red again; the
+  shipped tree is green.
+
+- **Section anchors resolve by unique path suffix, not just by full path.** A citation like
+  `frontend/rules/migration-frontend.md § …` is not a repo path, but exactly one repo file ends
+  with it, so the target is not in doubt. That took the checked population from 88 citations to 127
+  and surfaced 8 findings — every one hand-opened, every one real, all repaired here: three dangling
+  anchors in `align/references/align-discipline-catalogue.md` (`§ lifecycle-hooks`,
+  `§ default-true-wrapper-props`, `§ permission-gate` — the second was not inherited from
+  `migration-frontend.md` at all, so the row now names the frontend command that actually owns it),
+  a wrong anchor in `frontend/commands/add-feature.md`, two in the migration pack pointing at
+  sections `migration-frontend.md` does not have, a **self-citation** in
+  `migration-discipline-procedures.md` naming a section that file lacks — repointed at
+  `migration-frontend.md § Frontend audit axes`, which carries the two-layer spec and the Section 0
+  checklist verbatim — and `ui-ux/_topics.md` extracting from a `§ closure verbs` anchor on
+  `align-discipline.md` that is not a section there. Bare basenames stay out, and now with the count that decides
+  it: of 843 such citations, 532 name no repo file at all and 168 name a basename several files
+  carry.
+
+- **Three figures in the gate's own charter were corrected against the corpus they describe.** The
+  header claimed 1061 of 1141 `§` citations name `.claude/` or `ai/` runtime artifacts; re-measured
+  with the script's own walk, the tree it ships in holds 1158 citations of which **175** are runtime,
+  96 cite a full repo path, 44 a unique partial path and 843 a bare basename. Rule 4's "retro-run
+  over 2e77692" was a **reconstruction**, not a run: a plain run there finds 0 glossed ordinal
+  claims, because the prose still spelled the artifact `_refresh-knowledge-extract.md` and the
+  rule's scope test is a substring match. Both are now stated as measured, with the reconstruction
+  recipe written down.
+
+- **`templates/phases/phase-2-profile.md` and `extract-codebase-overview/SKILL.md` no longer
+  attribute a rule to check 7 that check 7 does not have.** Both said an uncapped step makes Step 15
+  check 7 assert `seen == present`. Check 7's rules reject an *undisclosed* sample only — a run that
+  walks 12 of 40 controllers and writes `[SAMPLED: 12/40 files]` on `## API surface` passes it. The
+  100% obligation belongs to the Step 2.5 denominator table cell (*"none declared → must be 100%"*),
+  and both files now say which one enforces what.
+
+- **Counts this changeset invalidated, re-derived rather than restamped.** `assets/architecture.svg`
+  said 72 scripts under a fresh re-derivation date, in the same change that added the 73rd;
+  `assets/terminal-sync.svg` reported `verified: 115 ok` from a capture whose method (`git ls-files`
+  into a temp dir) excluded this change's own untracked files. The sync capture was re-run end to
+  end in a throwaway `$HOME` against a copy of the tree this commit ships — `117 ok, 0 drift`, rc
+  0/0/0 — and every elision row's arithmetic recomputed against the real 225- and 224-line outputs.
+  `CONTRIBUTING.md` still said 17 blocking steps in three places (and 16 in a fourth) after the 18th
+  landed, and told reviewers that a red `verify-readme-stats.sh` was the expected state on `main` —
+  it was green at `5ffd22b`; that paragraph now states the real rule (wired in only once green) and
+  the real failing cell. `docs/RETRIEVAL.md` said "seventeen gates" in the same diff that appended
+  the eighteenth, and summed seven row-kinds to 659 when they total 665.
+  `docs/setup-project-cheatsheet.md` still advertised `--plan` on `/setup-project` as **Universal**,
+  a flag `commands/setup-project.md` mentions zero times and `templates/snippets/plan-flag.md`
+  records as deliberately deleted.
+
 ### Five repairs to claims that outran their code (2026-08-22)
 
 **Why** — each of these was a sentence that described a behaviour the executing file did not have.

@@ -8,6 +8,9 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - You see `<TBD>` markers in generated files and don't know if they're a bug or by design.
 - The migration pack asked you a question you didn't expect, OR didn't ask one you did.
 - An agent emitted `etc.` / `...` / `several` / `appears` and you want to know why the validator caught it.
+- A heading in `_extracted-codebase.md` says `[SAMPLED: 10/412 files]`, or `--refine` keeps returning `PLATEAU-WEAK` on a score you thought was fine.
+- `/delegate` refused with an exit code, or its `result.json` says `committed: false` and you cannot tell whether anything happened.
+- A pack edit turned `validate-pack-consistency.sh` check 8b red.
 - You moved to a new device and need the full restoration path.
 - You want to understand the discipline patterns every command + agent + skill follows.
 
@@ -15,10 +18,12 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 
 - [The four discipline patterns](#the-four-discipline-patterns)
 - [`<TBD>` lifecycle](#tbd-lifecycle)
+- [`[SAMPLED]` — extraction read part of your repo](#sampled--extraction-read-part-of-your-repo-and-said-so)
 - [Phase 5 audit failure modes](#phase-5-audit-failure-modes)
 - [Migration end-to-end](#migration-end-to-end)
 - [Align (codebase quality sweep) end-to-end](#align-codebase-quality-sweep-end-to-end)
 - [Universal commands (`/do`, `/task`, intent gates, gap-fill commands)](#universal-commands)
+- [`/delegate` — refusals, exit codes, and the empty diff that isn't](#delegate--refusals-exit-codes-and-the-empty-diff-that-isnt)
 - [`/ui-sweep` — project-wide UI/UX specialist](#ui-sweep--project-wide-uiux-specialist)
 - [`/ui-crawl` + `/ui-crawl-fix` — paired QA crawler + auto-fixer](#ui-crawl--ui-crawl-fix--paired-qa-crawler--auto-fixer-v12)
 - [`/redesign` — from-scratch page rework with approval gate](#redesign--from-scratch-page-rework-with-approval-gate-v13)
@@ -142,6 +147,83 @@ A grep for `{{...}}` will match Vue template interpolation in code examples. Tho
 
 ---
 
+## `[SAMPLED]` — extraction read part of your repo, and said so
+
+`[SAMPLED: <seen>/<present> <unit>]` on a heading inside `.claude/_extracted-codebase.md` means the section under it was built from a **sample**, and the ratio says how big a sample. Nothing is broken. But it changes what the rest of the run is allowed to claim, and it can stop `--refine` from ever declaring itself finished — which is the part that surprises people.
+
+It is not a big-repo marker. Six steps of `extract-codebase-overview` cap or sample **at any repo size** (Steps 3, 4, 5, 6, 8, 12), and the damage is proportional to `present − seen`, not to `present`: a 900-file repo whose `## Conventions` rests on 10 files per category is nowhere near a monorepo and is exactly where the caps bite hardest (`templates/packs/learning/skills/extract-codebase-overview/SKILL.md § Failure modes`).
+
+### The three things you will actually see
+
+**1. A `## Coverage` section on every run — including at 100%.** Extraction prints, and persists:
+
+```
+Coverage:   <S>/<P> source files cited (<PP>%)  [census: <git-ls-files|find>@<short-sha>; <X> excluded: <named reasons>]
+  <pkg-a>   <s>/<p> (<pp>%)
+  <pkg-b>   <s>/<p> (<pp>%)  [SAMPLED: walk depth 4]
+Sampled sections: <none | Conventions 10/412 files, Architecture 8/1204 files>
+```
+
+`Coverage: 412/412 (100%)` is a result, not silence. Coverage is reported unconditionally so that the *absence* of a `[SAMPLED]` marker carries information — a signal whose absence means either "we read everything" or "we sampled but you were under a threshold" is not a signal (`extract-codebase-overview/SKILL.md § Output format`, `§ Failure modes`). The denominator is computed in shell before any prose is written, via `git ls-files` (which inherits `.gitignore`, so vendored and built trees never enter the count); a repo without git falls back to `find` and records `census_method: find`, and a `find` denominator is only ever comparable to another `find` denominator.
+
+**2. `[inferred: …; sampled 10/412 files]` where you expected `[found:]`.** A citation proves the file it points at; it never proves the population that file was drawn from. So a *generalizing* claim — "all entities carry a tenant column", "all repositories extend `BaseRepository`" — drawn from a sampled section may not be written as `[found:]` **even though the path resolves**. It is downgraded and carries the ratio (`extract-codebase-overview/SKILL.md § Mechanical halt`; `apply-pack-adaptation/SKILL.md`, the "If extraction has only PARTIAL signal" block under `#### NEW-FILE`). If a generated rule's `## Project-specific` block reads less confident than you expected, this is usually why, and it is deliberate: a true citation laundering an untrue generalization is the failure this marker exists to stop.
+
+**3. `PLATEAU-WEAK (reason: coverage)` on a healthy-looking score.** See below.
+
+### `[SAMPLED]` is not `[EXTRACTION-WEAK]` — they must not be read as degrees of the same thing
+
+| | `[EXTRACTION-WEAK]` | `[SAMPLED]` |
+|---|---|---|
+| Means | **no** signal for this topic | **partial** signal — there is real content |
+| Generator mode | routes the track to COPY (the pack `_examples/` fallback ships verbatim) | unchanged — the same generator authors, with qualified claims |
+| Anchor length | thinned | **full length, not thinned** |
+| Remedy | grow the signal, or accept the copied fallback | raise coverage, or accept the sample on the record |
+
+Blurring them would collapse two working behaviours into one, at which point one of the two markers is redundant. They stay distinct: **no signal → different generator; partial signal → same generator, qualified claims.**
+
+### `PLATEAU-WEAK (reason: coverage)` — plateaued at 81/100 and still exit 2
+
+`/setup-project --refine` will not emit `PLATEAU-DEEP` while any `[SAMPLED]` marker survives in `_extracted-codebase.md`. The verdict becomes `PLATEAU-WEAK` with `reason: coverage`, and **the verdict outranks the score** — avg 81 still exits `2` (`templates/phases/phase-5.5-quality.md § Coverage precondition on PLATEAU-DEEP`, plus the **Exit codes** list that closes that file).
+
+The reasoning: `signals_consumed = 92%` measures the fraction of the extracted *signals* that were consumed, not the fraction of the codebase they were extracted *from*. If `## Conventions` rested on 10 of 412 files, 92% of an 8% sample is not exhaustion — it is exhaustion of the part that was read.
+
+`PLATEAU-WEAK` always carries a reason, and **the three reasons want three different actions**. Giving one the other's advice is wrong advice:
+
+| `reason:` | What actually happened | What to do |
+|---|---|---|
+| `signal` | less than the threshold was consumable | **Grow the codebase** — more models, more endpoints, more history — then re-run. |
+| `score` | the substrate *was* consumed (`plateau_consumed ≥ 0.85`) and artifacts still did not anchor | The **generators** are at fault, not your repo. Writing more models is a wild-goose chase. |
+| `coverage` | round-one only READ part of the source; `[SAMPLED]` markers survive | **Raise coverage** — the code is already there and simply was not read. Never "go write more code". |
+
+`reason: coverage` has an **empty** `weak_phases` list by construction, so a report that infers the reason from that list reads "nothing weak" and prints the DEEP message under a WEAK verdict. If you see a bare `PLATEAU-WEAK` with no reason, that is a defect in the consumer, not a verdict you should act on.
+
+### What to do about `[SAMPLED]`
+
+Three legitimate exits, in the order worth trying:
+
+1. **Re-run extraction without `--lightweight`.** `--lightweight` caps Phase 2.5 at 3 base classes and skips Phases 2.7–2.12 entirely; it now records its own cap as `[SAMPLED: 3/<bases with ≥3 extenders> bases]` and names `--lightweight` in `walk_scope`, so a shallow extraction can no longer read as a complete one (`templates/phases/phase-2-profile.md § Lightweight gate`).
+2. **Raise the per-category sample** in `extract-codebase-overview § Step 8` (10 files per category is the default that drives `ai/conventions.md` and the `## Project-specific` block at the top of every adapted rule).
+3. **Accept the sample, on the record.** A maintainer who has read `## Coverage` and judged the sample sufficient writes into `.claude/_setup-quality.md`:
+
+   ```
+   coverage-accepted: <name>@<iso> — <seen>/<present> <unit> reviewed
+   ```
+
+   `PLATEAU-DEEP` becomes available again and the report prints the acceptance beside the verdict. This is a **human statement on the record, not a flag the tool can set for itself**, and it is scoped to the figures it names — new figures need a new acceptance.
+
+There is no fourth exit that raises a score. Coverage may only ever **demote**, never promote: once a percentage gates a verdict, the cheapest way to move it is to cite files gratuitously, and the citation-path check catches *ghost* citations, not *padding*.
+
+### `[SAMPLED]` failures you may see from the extraction sweep itself
+
+Check 7 of `extract-codebase-overview/SKILL.md § Procedure`, Step 15, audits the markers rather than the prose, and fails two ways:
+
+- **`seen < present` with no marker** → undisclosed sample. Recompute the ratio and write the marker.
+- **`seen == present` but the heading carries `[SAMPLED]`** → a *false* marker. Remove it. A false `SAMPLED` makes every downstream consumer degrade for nothing, which is how a coverage signal gets switched off.
+
+Neither is the `[EXTRACTION-WEAK]` path. Checks 1–6 fail because a section has no trustworthy content, so degrading it is right; check 7 fails because a section has content whose *coverage is undeclared* — the remedy is to declare it, and re-run the sweep once. Only if the census itself is unobtainable (no `git ls-files`, no usable `find`) does `## Coverage` become `[EXTRACTION-WEAK: coverage census unavailable]`, and even then the other twelve sections keep their content.
+
+---
+
 ## Phase 5 audit failure modes
 
 `scripts/audit-setup.sh "$TARGET" --mode=<MODE>` is the gate that refuses to ship a half-complete run. Output starts with `=== Phase 5 audit ===` and ends with one of:
@@ -154,6 +236,15 @@ A grep for `{{...}}` will match Vue template interpolation in code examples. Tho
 #### `_refresh-extract.md § "<section>" is still <TBD>`
 
 A required prose section in the refresh-extract scaffold wasn't filled. **Fix:** dispatch the corresponding extraction skill, or re-run `/setup-project --refresh` (without `--include`).
+
+**One artifact, one name.** There is exactly one REFRESH knowledge file and it is `.claude/_refresh-extract.md`. `scripts/refresh-extract-checklist.sh` scaffolds it in Phase 0.0 — § 1 auto-inventory filled by the script, §§ 2-9 left `<TBD>` for Phase 0.2 to fill in place, §§ 10-12 recorded but not shell-gated. `scripts/audit-setup.sh` is the only reader: `:152` for presence, `:183` for the gated headings, **matched by heading name**.
+
+If you find a `_refresh-knowledge-extract.md` in a repo, it is the residue of the older prose that named a second file with a 13-section schema of its own. No script ever wrote that name and no gate ever read it, so an agent following it produced a file nothing consumes while the file the gate *does* read stayed at its scaffolded `<TBD>`s — which is exactly the state C2b1 refuses. **Fix:** delete the orphan and re-run `/setup-project --refresh`; the checklist script is idempotent and will not wipe a partially-filled `_refresh-extract.md` unless you pass `--force`.
+
+Two more things worth knowing before you tidy up after a REFRESH:
+
+- **Do not delete `_refresh-extract.md` as a "temp working file."** It is the Phase 5 audit's own input. Deleting it makes C2b fail on a run that had actually completed.
+- **Phase 0.2 makes exactly one write into § 1**, the script-owned section: a one-line `Extraction tally:` appended at the end. Everything else in § 1 is the script's, and everything in §§ 2-9 is replaced in place — do not renumber, do not add a section the script did not emit.
 
 | TBD section | Fill via |
 |---|---|
@@ -206,7 +297,7 @@ Top-level user surface above the detailed phased commands. Each takes optional `
 | `/optimize` | architectural diagnosis FIRST (layer violations, god modules, missing abstractions) + tactical sweep (clean code, refactoring, SOLID, performance, render/rebuild waste for frontend-*/mobile-* per `mobile/rules/render-discipline.md` (mobile pack v1.2+), dead code, dedup, over-abstraction). Foundation-first ordering — architectural fixes cascade and dissolve tactical findings. Backed by `architectural-diagnosis` + `refactoring-sweep` skills (code-quality pack v1.1+). New-dependency halt: a perf fix that would add a package the project doesn't already use stops for a dependency review before install (prefer an existing primitive). | any |
 | `/refactor` | Targeted behaviour-preserving refactor only — closed `refactoring-sweep` vocabulary (extract-method, rename, flatten-conditional, …). No architectural moves, no perf, no dead-code sweeps. Defaults to git-changed paths when scope omitted (NOT whole-repo). Ledger `ai/refactor/ledger.md`; validator `scripts/validate-refactor-artifacts.sh`. NOT part of the progress-orchestrated flag set below. | any |
 | `/align` | convention drift, structure enforcement, design-token / a11y / i18n / layering, silent catches + unhandled I/O (happy-path-only call sites — align pack v1.6+ `unhandled-io` class). Backed by `detect-drift` + `find-and-align` skills (align pack). | any |
-| `/polish` | **Stack-conditional**: frontend-* → 19-verb closed vocabulary in `ui-design-sweep` (ui-ux pack v1.1+) — tokens / wrappers / hierarchy / type-scale / rhythm / density / states / contrast / focus / iconography / motion / tap-target / cta / affordance / surface — fed by `a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit`. backend-* → `api-consistency-audit` (backend pack v1.1+, 15 detectors). data-* → `schema-consistency-audit` (database pack v1.1+). mobile-* → `platform-conventions-audit` (mobile pack v1.1+) + frontend fallback. **Validator** `validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 19-verb set. | any (PROJECT_KIND must be set) |
+| `/polish` | **Stack-conditional**: frontend-* → 19-verb closed vocabulary in `ui-design-sweep` (ui-ux pack v1.1+) — tokens / wrappers / hierarchy / type-scale / rhythm / density / states / contrast / focus / iconography / motion / tap-target / cta / affordance / surface — fed by `a11y-quick-check`, `design-iterate`, `design-token-audit`, `motion-audit`. backend-* → `api-consistency-audit` (backend pack v1.1+) — 22 fingerprints: 16 closure-verb detectors drawing on a closed 15-verb vocabulary, plus 6 routed observations that emit no `closure_verb:` because they are additive capability or owned by another pack. data-* → `schema-consistency-audit` (database pack v1.1+). mobile-* → `platform-conventions-audit` (mobile pack v1.1+) + frontend fallback. **Validator** `validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects any `closure_verb:` outside the 19-verb set. | any (PROJECT_KIND must be set) |
 | `/unify-surfaces` | **Surface-type unification across the entire frontend codebase.** Sibling to `/polish`, but typed by SURFACE CATEGORY (tables / forms / headers / tabs / filters / buttons / validation) instead of by axis. For each requested category: inventories every consumer across the codebase, decides the canonical wrapper (from `_extracted-idioms.md § Wrappers` or by promoting the most-used pattern), extracts or extends the shared wrapper, migrates every consumer in **one cascade-rewrite commit per category**, verifies (typecheck + lint + scoped tests + visual-regression on non-target surfaces). Validation extracts a **3-part pipeline** — frontend validator composable + `<ErrorList>` / `<FieldError>` + API-validation-error mapper — wired as a global response interceptor. Reuse-Before-Create enforced (extracting a duplicate where a shared wrapper exists fails the verify gate). Idioms updated in the same commit. Composable with `/polish` (run `/unify-surfaces` first to consolidate wrappers, then `/polish` to polish each canonical wrapper to spec). | `frontend-*`, `mobile-web`, `mobile-rn` (halts on backend / data / library / CLI / mobile-native) |
 | `/audit` | **Full-stack engineering audit — universal across stacks.** Fans out across 8 specialist axes in one pass: architecture, SOLID + clean code, security (`security-auditor` + `auth-reviewer` + `tenant-isolation-reviewer` + `secret-scan` + `deps-audit` + `threat-model`), database performance (`database-optimizer` + `query-optimizer` + `schema-reviewer`), runtime performance (`performance-optimizer` + `caching-architect` + `n-plus-one-scan`), **scalability + resilience (the differentiating axis — 13 scale-lens detectors stack-routed via `PROJECT_KIND`: hot-path, fan-out depth, sync I/O in critical path, single-instance bottleneck, lock contention, queue back-pressure, write amplification, tenant blast radius, capacity headroom, SLO delta, idempotency, statelessness, cold-start)** plus `system-architect` + `resilience-reviewer` agents and the **unhandled-I/O pass** (happy-path-only call sites with no error path / timeout / failure surfacing — ranks P1 correctness; same contract as align's `unhandled-io` class), infrastructure + capacity (`infra-architect` + `k8s-reviewer`), observability gaps (`observability-reviewer` + `telemetry-architect`). **Stack-agnostic by construction** — detectors are shape-based, not name-based. Same axis applies to backend (`every endpoint × RPS × cost`), frontend (`every route mount × visit-rate × LCP cost`), mobile (`every screen × open-rate × jank cost`), CLI / library / SDK (`every entry-point × invoke-rate × wallclock`), serverless (`every handler × invoke-rate × billed-ms`), data pipeline (`every step × per-batch row count × stage time`) — concrete fingerprint per `PROJECT_KIND`, full matrix in `commands/audit.md`. Polyglot monorepo support: per-subtree `PROJECT_KIND` drives routing; cross-stack fixes bundle into one plan row. **Cross-axis ranks** by `impact-at-target-scale × blast-radius × fix-cost`, NOT by axis. Tier order: P0 scale-blockers → P1 security/correctness → P2 high-leverage scale fixes → P3 architectural foundations → P4 tactical cleanup. Stack-appropriate target flags: `--target-rps=<N>` (backend/serverless/pipeline), `--target-p95=<ms>` (backend), `--target-vitals=<spec>` (frontend), `--target-cold-start=<ms>` (serverless/mobile), `--target-startup=<ms>` (CLI/library), `--target-bundle=<bytes>` (frontend/mobile). **Three output modes** (mutually exclusive): default (scan + rank + execute), `--plan-only` (writes `ai/audit/plan.md` — ranked P0–P4 fix-plan with closure verbs + `<file:line>` citations — executor handoff), `--assess` (writes `ai/audit/assessment.md` — 8-section senior-engineer narrative: what's good / improve / unify / extract / simplify / redesign / remove / optimize — reader handoff; stack-conditional rendering inlines Vue / React / NestJS / Rails / Django / etc. vocabulary from `_extracted-idioms.md`; closes with paste-ready `## Actionable next steps` routing to `/optimize` / `/polish` / `/unify-surfaces` / `/align` / `/security-audit`). Plus `--focus=<axes>`, `--skip-p4`. | any (any language, any framework, any shape — including monoliths, microservices, monorepos, polyglot) |
 
@@ -662,6 +753,47 @@ User can override ("no, run /add-feature anyway") — the run summary flags the 
 | `/align-promote-tier <id> <tier>` | align | Same as above for align findings. |
 | `/cross-repo-task` | migration | Register / list / drain / reopen cross-repo blockers when ports halt due to upstream changes; captures the expected contract + generates a paste-ready upstream request. |
 
+## `/delegate` — refusals, exit codes, and the empty diff that isn't
+
+`/delegate` is the one command that *uses* another AI CLI rather than configuring one. Its mechanical half is [`scripts/delegate-relay.sh`](../scripts/delegate-relay.sh), which refuses in six distinct ways. Every refusal below is the relay declining before anything is dispatched — nothing was launched, nothing was edited.
+
+### Relay exit codes
+
+| Exit | Meaning | What to do |
+|---|---|---|
+| `0` | relay ran; implementer exited 0; `result.json` written | Review the diff. The run is not finished until you do. |
+| `1` | relay ran; implementer failed / timed out / moved HEAD; `result.json` written | Read `result.json` — this exit is still an evidenced run, not a crash. |
+| `2` | usage error; **no result written** | Includes `--model` missing for an implementer with no safe default, and `--session` on a CLI whose resume flag shape is unverified. |
+| `3` | target CLI not installed or not runnable | `delegate-relay.sh --list` shows what is actually on `PATH`. |
+| `4` | git preflight failed — not a work tree, or dirty without `--allow-dirty` | Commit, stash, or pass `--allow-dirty` (the relay then fingerprints the pre-existing dirt so touched-files stays a true delta). |
+| `5` | `--read-only` refused — this CLI cannot be shown to enforce it | Drop `--read-only`, or pick an implementer with a native read-only mode. |
+| `6` | **self-target refused** — see below | Exercise the relay against a throwaway repo, or pass `--allow-self` if you meant it. |
+| `9` | internal guard tripped — a non-read-only `git` subcommand was attempted | This is the relay refusing to write history. Report it; do not work around it. |
+
+### Exit 6 — "refusing to delegate against the relay's own repository"
+
+Pointing `/delegate` at the Refract clone itself is refused by default. The reason is concrete rather than hygienic: the relay writes its artifact directory **inside the target tree**, so an implementer that commits there commits the relay's own evidence, and one `git add -A` sweeps brief, logs and shim into that commit. Worse, a commit empties `git status` and moves HEAD, so `touchedFiles` and `delegate.diff` both go blank at exactly the moment the invariant broke — an empty diff that reads like nothing happened.
+
+The check compares the relay's own `git rev-parse --show-toplevel` against the resolved `--repo`; only that one comparison is conditional. The three fixes it motivated are **not** conditional and apply in your repo too: the diff is taken against the **pre-run HEAD** (`git.diffBase`), the artifact directory ignores itself via a `.gitignore` holding a single `*`, and any commits the implementer made are surfaced in `git.commitsAhead` / `git.commits`.
+
+**Fix:** run it against a throwaway repo (`commands/delegate.md § Exercising the relay itself` ships the sandbox recipe; `CONTRIBUTING.md § 4. Recipes → Exercise the delegate relay` carries the same one). `--allow-self` is the one explicit door, and a run that uses it stamps `selfTarget: true` into `result.json` so the artifact carries the fact.
+
+### "It says `committed: false` — so nothing happened?"
+
+No. `committed` is hard-coded `false` and `landedBy` hard-coded `null`; they are the contract stating *the relay did not commit*, never *nothing was committed*. **`git.headMoved` answers the second question**, and `git.commitsAhead` / `git.commits` say what landed. Resolving `"committed": false` against `"headMoved": true` the wrong way is how a committing implementer used to disappear from its own report.
+
+### "`--read-only` was accepted, so the run was safe"
+
+Read-only here is a **tri-state tripwire, not a guarantee**. The relay re-probes `<cli> --help` before it claims a CLI has a read-only mode, and refuses with exit `5` when it cannot show one. Read `result.json`'s `readOnly` object — `requested` / `enforcement` / `helpProbe` / `violation` — rather than the flag you typed. Every implementer edits as your user, with your credentials, in your tree; if a run must not be able to touch the host, use a container or a throwaway worktree.
+
+### "The relay rejected `--to=`"
+
+Two flag surfaces, two vocabularies. `--to=` is the **command** surface; the relay's is `--implementer=`, and it rejects `--to=` outright (`unknown arg`, exit 2). `--plan` is likewise command-only — it is handled in Phase 3.5 and the relay never sees it. Everything else passes through unchanged. Any translation that shells out to the relay must do that rename or the run dies at argument parsing.
+
+`scripts/test-delegate-relay.sh` pins the self-target refusal and the commit-visibility fields in 9 sandboxed cases / 55 assertions, every repo built under `mktemp -d` with a throwaway `$HOME`. It is one of the gates `.github/workflows/quality-gates.yml` runs on every push.
+
+---
+
 ## `/ui-sweep` — project-wide UI/UX specialist
 
 The deep UI/UX command. Goes beyond `/align-scan`'s mechanical drift detection — adds quantified coverage metrics, visual hierarchy analysis, cross-surface consistency, visual baselines + drift tracking, and a flow-based phasing strategy.
@@ -1034,8 +1166,37 @@ All under `scripts/` in this repo, symlinked into `~/.claude/scripts/`:
 | `audit-file-health.sh` | Heuristic risk scan: line count, hand-waves, MUSTs, phase-ladder count, inbound refs. Used to triage which files deserve attention. |
 | `audit-stack-leakage.sh` | **Template pack hygiene** — scans `commands/` + universal/pack `templates/**` for single-stack-only wording; **FAIL** when diversity / `<TBD:...>` contract is violated; **WARN** on isolated tokens in pack-level files. Run from the repo root; wired into `audit-setup.sh` as C2f. |
 | `audit-command-dry.sh` | **Command DRY** — scans `commands/*.md` + `templates/packs/*/commands/*.md`. **FAIL** if `\bSOLID\b` / SOLID expansions / `solid-violation` / `clean code` appear without a `core-discipline.md` link; **FAIL** if all 7 canonical Phase 3 path markers appear without `phase-3-always-reads.md`; **WARN** if a `## Mechanical halt — hand-wave grep` section lacks `hand-wave-grep.md`. Wired into `audit-setup.sh` as **C2g** (after C2f). |
-| `sync-to-global.sh` | Symlinks this repo's `commands/`, `templates/packs/migration/`, etc. into `~/.claude/`. |
+| `validate-audit-artifacts.sh` | **`/audit` gate** — mirrors the `/optimize` validator's shape against `ai/audit/`: no hand-wave language in `plan.md`, every P0 cites a concrete scale failure mode, and (under `--strict`) every P0/P1/P2 finding cites `<file:line>`. |
+| `validate-unify-surfaces-artifacts.sh` | **`/unify-surfaces` gate** — the per-category artifact set required by `commands/unify-surfaces.md`, read off `ai/unify-surfaces/progress.md`. One category with `--category=`, all of them with `--all`. |
+| `validate-pack-consistency.sh` | **Pack-manifest gate** — per pack: the three sync files exist, `_version.json` parses, every `_topics` `fallback:` resolves, every `_essentials` entry resolves, artifacts have topic entries, the current version is in the changelog, and **check 8b** holds every `_examples/` fallback to the source it abridges (below). |
+| `delegate-relay.sh` | Not a validator — the `/delegate` mechanical half. Listed here because its refusals are the failure modes people meet: preflight, launch, watchdog, diff capture, structured JSON. `--list` prints the implementers actually on `PATH`. |
+| `sync-to-global.sh` | Symlinks this repo's `commands/`, `templates/packs/migration/`, etc. into `~/.claude/`. Dry-run is the default; `--apply` writes, `--unlink` removes everything Refract owns. |
 | `verify-sync.sh` | Detects drift between this repo and `~/.claude/` symlinks. |
+
+### Fallback integrity — `validate-pack-consistency.sh` check 8b
+
+Only pack authors hit this one, and it is the newest hard FAIL in the tree.
+
+`templates/packs/<pack>/_examples/<name>.md` is **not documentation**. It is the AUTHOR-mode fallback: `templates/phases/phase-4.2-apply.md § 4.2-AUTHOR`, step 2, copies it **verbatim** into a project's `.claude/` whenever extraction has no signal for that topic — the default for greenfield, for `--lightweight`, and for every `[EXTRACTION-WEAK]` track routed to COPY. Whatever the fallback says **is** the artifact the project receives. The motivating incident: a fabricated capacity figure was removed from a pack agent and the identical number survived in that agent's `_examples/` twin, which is the file projects actually get.
+
+Check 8b compares every fallback against its source on the axes a text comparison can decide — 295 pairs today. It flags three shapes:
+
+1. something the fallback **asserts that its source does not** (a framed magnitude, a dispatch target, a `model:` value, a body contradicting a self-declared literal copy);
+2. something the source carries that the corpus keeps **≥85% of the time**, or a **safety signal** at any retention (a load-bearing section, the section order, a `> **Hard rule:` line, a halt block, a `## Premise`, an agent `TRIGGER` clause);
+3. a fallback whose body **is** its source with nothing declaring it (`UNDECLARED-COPY`).
+
+Rule names you will see in the failure line: `COPY-DRIFT` · `UNDECLARED-COPY` · `UNSOURCED-MAGNITUDE` · `DANGLING-DISPATCH` · `FRONTMATTER-LOSS` · `NOT-AN-ARTIFACT` · `SECTION-LOSS` · `SECTION-ORDER` · `SIGNAL-LOSS`.
+
+**It is a ratchet, not a bare FAIL.** Fallbacks are deliberately abridged, so a "must match source" rule would flag hundreds, get muted, and be worse than no gate. Known-and-accepted violations are enumerated in [`templates/packs/_fallback-baseline.md`](../templates/packs/_fallback-baseline.md) and suppressed into one counted WARN; **anything not listed is a hard FAIL**. The backlog is 2 lines and that file is the authority on its own size — if a comment anywhere advertises a bigger one, the comment is stale.
+
+| What you see | What it means | What to do |
+|---|---|---|
+| `FAIL <pack>: _examples/<name>.md [<RULE>] <detail>` | New drift. Not baselined. | Re-cut the fallback. If it is genuinely correct as-is, add `<pack>/<name>  <RULE>  # <reason>` to the baseline. |
+| `WARN … [<RULE>] no longer reproduces - drop its line` | You repaired the file and left its baseline row behind. | Delete the row. A stale entry cannot linger into a mute button. |
+| `WARN baseline line ... carries no # reason - it suppresses nothing until it does` | The row suppresses nothing — the finding stays red. | Write the reason. It is mechanically enforced precisely because a line added to silence a finding nobody read is the failure this gate exists to prevent. |
+| `WARN N known fallback defect(s) … suppressed` | The backlog, counted. `--fallback-report` lists it. | Nothing, unless N is growing. |
+
+**What a green run does not prove.** (`CONTRIBUTING.md` § 5b carries the same list for authors.) Every rule compares text against text; none understands either file. A source that deletes a Hard-rules bullet, or flips a `MUST` to a `MUST NOT`, leaves no trace in the fallback and produces **zero findings** — the fallback goes on asserting the retracted rule and the gate stays green. A magnitude with no framing word and no claim-shaped unit is not caught either. Re-cutting a fallback after editing its source is still the author's obligation; treat green as a floor, not a certificate.
 
 ### Parallel orchestrators (close the gap for non-Claude tools)
 
@@ -1104,6 +1265,18 @@ Migration `--chain` refuses on dirty working tree (pre-flight check 3). **Fix:**
 
 Migration `--chain` refuses if any phase ADR is `proposed`. **Fix:** review each ADR in `ai/decisions/_phase-N-decisions.md`, edit if needed, change `proposed` → `accepted`.
 
+### `--refine` keeps saying PLATEAU-WEAK even though the score is good
+
+Read the `reason:`. `coverage` means round-one only read part of the source and the score was computed over the part that was read — see [`[SAMPLED]`](#sampled--extraction-read-part-of-your-repo-and-said-so). `score` means the generators failed to anchor a substrate that *was* consumed. Only `signal` means "grow the codebase", and it is the only one the generic WEAK message fits.
+
+### A ported command "loaded the manual and did nothing"
+
+Symptom: you type `/skill:optimize` in Kimi (or run a ported command in Qwen), the tool reads the file, and asks "what now?" — it treated an action command as documentation.
+
+Every generated command carries an **EXECUTE NOW preamble** for exactly this reason (`scripts/_adapter-emit.sh`, invariant 1 — PREAMBLE); a ported command without it loads as inert reference. The global lane once regenerated commands for `kimi` and `qwen` with no preamble while `claude` / `gemini` / `opencode` / `codex` had one. Both emitters now share `scripts/_adapter-emit.sh`, sourced by `sync-to-global.sh`, `apply-adapter-sync.sh` and `audit-adapter-coverage.sh`, so the two lanes cannot drift apart that way again.
+
+**Fix:** re-run `./scripts/sync-to-global.sh --apply` from the clone — the copy-based tools (Gemini, OpenCode, Kimi, Qwen, Codex) need a re-apply after any upstream change, unlike Claude Code, which is symlinked and takes effect immediately. If a ported file still opens without the `<!-- EXECUTE NOW preamble … -->` block at the top, that file is pre-repair; delete it and re-apply.
+
 ### Adapter sync stale
 
 After editing this repo's pack files, `<frontend-v2>/.claude/` doesn't auto-sync (unlike `~/.claude/` which is symlinked). **Fix:** re-run `/setup-project-adapters` from inside the target project, OR manually `cp` the pack files (the migration-pack pattern we did this session).
@@ -1147,7 +1320,10 @@ Target-project `.claude/` files are **copies, not symlinks** — they need re-sy
 ## See also
 
 - `README.md` — install + commands index + workflow examples
-- `docs/COMMANDS.md` — every command, every flag, full reference
+- `docs/INSTALL.md` — the three install routes and what each one does *not* give you
+- `docs/COMMANDS.md` — prose reference for the top-level commands: modes, flag semantics, routing boundaries, workflows
+- `docs/CHEATSHEET.md` — the **generated** one-row-per-command index of *every* command and flag (core + packs + domains + baseline). This is the exhaustive flag surface; `COMMANDS.md` is the explained one
+- `docs/RETRIEVAL.md` — `pack-search.py` / `/recall`: what is indexed, what is deliberately not, and the honest limits
 - `docs/setup-project-cheatsheet.md` — quick flag lookup
 - `templates/critical-execution-rules.md` — the rules every `/setup-project` run obeys
 - `templates/decision-engine.md` — how the orchestrator decides what to do per-mode

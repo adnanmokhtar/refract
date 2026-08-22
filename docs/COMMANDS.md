@@ -77,9 +77,10 @@ The orchestrator. Detects mode, runs phases, applies tracks, generates project-s
 | `CREATE`  | Empty folder + prompt                          | Full scaffold from prompt. Architecture, schema, phase plan, all tooling.     |
 | `ENHANCE` | Existing codebase, no prior setup OR partial   | **Adds what's missing.** Doesn't overwrite custom work. Round one.            |
 | `REFRESH` | Existing setup is stale or pre-dates this cmd  | Backup (deterministic, in preflight) → extract knowledge → re-detect → study → apply or ledger-reject every flagged row → reconciliation audit. Preserves ADRs + corrections. Rejections persist in `.claude/_refresh-decisions.md` — never re-proposed; kept-ours/resolved rows re-open only when the pack source actually changes. |
-| `REFINE`  | Round-two deepening pass                       | Reads code deeply (Phases 2.7–2.12). Rewrites only `## Project-specific` blocks. Idempotent — exits with "plateau reached" when no further refinement available. |
+| `REFINE`  | Round-two deepening pass                       | Reads code deeply (Phases 2.7–2.12). Rewrites only `## Project-specific` blocks. Idempotent — exits with "plateau reached" when no further refinement available. Never a bare `## Plateau reached`: the verdict is always tagged `PLATEAU-DEEP` / `PLATEAU-WEAK`, and every WEAK carries `reason: signal \| score \| coverage`. |
+| `UPGRADE` | `--upgrade` **and** an existing `.claude/`      | Runs `~/.claude/scripts/migrate-setup.sh` first to migrate the setup artifacts from their recorded version to the current schema (idempotent, backs up first), **then continues as REFRESH**. It is not a silent fall-through to ENHANCE. `--upgrade` with no existing `.claude/` is a user error — use plain `/setup-project` (CREATE). |
 
-Phase 1 detects which mode applies by scanning the target repo. You can force a mode with `--create` / `--enhance` / `--refresh` / `--refine`.
+Phase 1 detects which mode applies by scanning the target repo. You can force a mode with `--create` / `--enhance` / `--refresh` / `--refine` / `--upgrade` (`templates/phases/phase-1-detect-mode.md`). Mode drift halts.
 
 ### Flags (full list)
 
@@ -90,6 +91,8 @@ Phase 1 detects which mode applies by scanning the target repo. You can force a 
 | `--dry-run`      | Preview the plan; write nothing.                                            | off     |
 | `--plan`         | **Plan-only mode.** Runs phases 1-3, expands plan via Phase 3.5, writes `.claude/plans/<command>-<slug>-<ts>.md`, exits BEFORE generation. The plan file is the handoff artifact for any tool (Cursor / OpenCode / Aider / a human). Execute it in-place with `/execute-plan <file>` (executors default to Sonnet — pairs with an Opus planning pass); `/verify-plan <file>` audits drift afterwards. Full loop: `--plan` → `/execute-plan` → `/verify-plan`. **Universal — also works on every generated command** (`/add-feature --plan`, `/fix-bug --plan`, etc.). | off |
 | `--no-telemetry` | Disable local telemetry (`.claude/_telemetry.jsonl`).                       | off     |
+| `--lightweight`  | Skip Phases 2.7–2.12 (deep extraction) and 4.6/4.7 (re-anchoring); jump from 4.2-apply straight to 5-verify. ~80% faster, no anchor-density refinement. Phase 2.5 also caps at 3 base classes — and **records that cap** as `[SAMPLED: 3/<bases with ≥3 extenders> bases]` rather than applying it silently, so a lightweight run cannot read as a complete one. Pass it through to the audit too (`audit-setup.sh … --lightweight`), which exempts the C2i `ai/`-populate gate. | off (full ceremony) |
+| `--no-adapters`  | The **only** sanctioned key for skipping the M34 adapter chain (besides `claude_config.adapters: false` in settings.json, or zero adapters enabled). Pass it through to the audit (`audit-setup.sh … --no-adapters`) so C2m records the skip instead of failing the run. | off |
 
 #### Mode forcing
 
@@ -99,6 +102,7 @@ Phase 1 detects which mode applies by scanning the target repo. You can force a 
 | `--enhance`  | Force ENHANCE mode.                                    | auto-detect |
 | `--refresh`  | Force REFRESH mode (requires existing setup).          | auto-detect |
 | `--refine`   | Force REFINE mode (requires existing setup).           | auto-detect |
+| `--upgrade`  | Migrate the recorded setup schema forward (`migrate-setup.sh`), then run as REFRESH. Requires existing setup. | auto-detect |
 
 #### Track + signal selection
 
@@ -133,6 +137,8 @@ Phase 1 detects which mode applies by scanning the target repo. You can force a 
 | `--plateau-delta=<N>`             | Plateau-classifier threshold (max artifacts whose anchor-density changed by ≥5 between runs). Lower = stricter.                      | 2       |
 | `--plateau-consumed=<F>`          | Plateau threshold for consumed deep-extraction signal (`STRONG_phases / TOTAL_phases`). 0.0–1.0.                                     | 0.85    |
 | `--plateau-score=<N>`             | Plateau threshold for `avg_score`. Below this, classifier emits PLATEAU-WEAK ("anchored, but shallow").                              | 80      |
+
+**No threshold makes `PLATEAU-DEEP` reachable while extraction is still sampled.** While `.claude/_extracted-codebase.md` carries any `[SAMPLED: <seen>/<present> <unit>]` marker, the verdict is `PLATEAU-WEAK` with `reason: coverage` and the run exits `2` — **even on a high average**, because the verdict outranks the score and the 81 was scored over the part of the source that was read. The three WEAK reasons want three different actions: `signal` → grow the codebase; `score` → the generators failed on a substrate that *was* consumed; `coverage` → the code is already there and simply was not read, so raise the sample (re-run without `--lightweight`, or raise the per-category sample in `extract-codebase-overview § Step 8`) or record `coverage-accepted:` in `.claude/_setup-quality.md`. Full walkthrough in [`docs/REFERENCE.md § [SAMPLED]`](REFERENCE.md#sampled--extraction-read-part-of-your-repo-and-said-so).
 
 #### Read-only utilities
 
@@ -195,6 +201,8 @@ Use when:
 
 Per-adapter completeness contract (every adapter MUST translate all 4 artifact types or document a gap-disclosure): see Phase 4.8.0 in this command's source file.
 
+**Flag**: `--legacy-opencode` — additionally mirror commands into the `commands` block of `opencode.json`. Off by default; the native `.opencode/commands/<name>.md` folder is the current shape.
+
 ---
 
 ## `/setup-project-health`
@@ -232,6 +240,10 @@ Take a refined idea (or a raw prompt) and generate a **working project from scra
 ```
 
 Reads a `new-project`-class spec from `ai/ideas/<YYYYMMDD>-<slug>.md` when present — that spec drives every Phase 2 decision. Pair with `/refine-prompt` first for a deeper input than a sentence.
+
+**Flags**: `--name=<repo-name>` (override the slug derived from the idea) · `--into=<path>` (destination, default `<repo-name>` in `$PWD`) · `--stack=<key>` (skip the stack picker; presets are listed in the command's "Stack presets" section) · `--no-claude-orchestration` (skip the chained `/setup-project --create`) · `--no-prompt` (auto-confirm all three gates — scripted use only; it forces option #1 at the stack picker) · `--dry-run`.
+
+**It refuses a non-empty destination.** There is no overwrite flag. An existing project is `/setup-project --refresh` or `--enhance`, not this.
 
 ---
 
@@ -351,7 +363,8 @@ that *the relay* did not commit, never that nothing did; `git.headMoved` answers
 are taken against the PRE-RUN HEAD, not HEAD — an implementer that commits moves HEAD onto its own work, and
 `git diff HEAD` would then return an empty diff that reads exactly like a harmless no-op. Exit codes: `0` ok ·
 `1` implementer failed/timed out/moved HEAD · `2` usage · `3` CLI missing · `4` git preflight · `5` read-only
-refused · `6` self-target refused (the relay's own repo; `--allow-self` overrides). `--list` is safe anywhere;
+refused · `6` self-target refused (the relay's own repo; `--allow-self` overrides) · `9` internal guard tripped
+(a non-read-only `git` subcommand was attempted). `--list` is safe anywhere;
 so is `--dry-run`, which composes the brief into a temp directory rather than the target repo unless you name
 an `--out=` yourself.
 
@@ -363,7 +376,9 @@ every `--gate=` command re-run *by you*; the whole diff read against the brief, 
 id), `--files=<globs>`, `--allow-dirty`, `--timeout=<dur>`, `--dry-run`, and the universal `--plan`
 (writes the brief to `.claude/plans/` and exits before any CLI is launched — the brief *is* the plan
 artifact). The relay's own vocabulary differs at two points: `--to=` is `--implementer=` there, and
-`--plan` never reaches it.
+`--plan` never reaches it. The relay additionally takes flags this surface does not re-expose —
+`--accept-unenforced`, `--allow-self`, `--repo=`, `--out=`, `--brief=`, `--no-commit-shim`, `--quiet`, `--list`;
+`delegate-relay.sh --help` is the authority on those.
 
 **Not** `scripts/parallel-fan-out.sh`: that fans N workers of the *same* tool out over `ai/<pack>/ledger.md`
 rows. `/delegate` is one task, one process, one diff, one reviewer. **Not** `/setup-project-adapters`,
@@ -934,9 +949,15 @@ Examples:
 /<cmd> --max-parallel=<N>             # cap concurrent dispatch (default: 5–6)
 /<cmd> --exclude=<scope>              # exclude areas
 /<cmd> --surface-blockers             # show halted findings explicitly
+/<cmd> --allow-dirty                  # proceed with uncommitted changes (default is halt-on-dirty)
+/<cmd> --strict                       # forwarded to the pack validator: warnings become failures
+/<cmd> --quiet                        # forwarded to the pack validator: minimal output, for hooks / CI
+/<cmd> --focus=<list>                 # narrow the axes scanned (/align, /optimize, /polish, /audit)
 ```
 
 `--restart` does NOT revert any commits already made — use `git` for that.
+
+Two surface-specific additions to that set: `/polish` takes `--no-iterate` (skip the visual-variant generator) and `--stack=<override>`; `/unify-surfaces` takes `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--exclude-consumer=<glob>` and `--validation-library=<name>`. `/refactor` opts out of the orchestration entirely but keeps `--strict`, `--quiet`, `--allow-dirty`, `--phase-base=<git-ref>` (git range for the net-lines check) and `--ledger=<path>`. [`CHEATSHEET.md`](CHEATSHEET.md) is the generated, exhaustive per-command flag list; this section documents the shared set.
 
 ## `/polish`
 
@@ -1310,7 +1331,7 @@ In Claude Code:
 
 What happens:
 - Phase 2 Step 16 looks for V1 layout. If V1 is a sibling directory or different repo, the command may prompt: "Where is V1?" — answer with the absolute path.
-- Phase 4.2 ships the migration pack: rule, patterns, agents, skills, and 19 commands — the phased flow (`/migration-scan`, `/migration-plan`, `/migration-phase`, `/migration-gate`, `/migration-final`) + `/port-feature` + `/find-and-fix` + `/migration-fast` + lifecycle commands (`/migration-status`, `/migration-replan`, `/migration-rollback`, `/migration-recheck`, `/migration-park`, `/migration-unpark`, `/migration-deprecate`, `/migration-promote-tier`, `/draft-phase-adrs`, `/compare-v1`, `/cross-repo-task`).
+- Phase 4.2 ships the migration pack: rule, patterns, agents, skills, and 20 commands — `/migrate` itself + the phased flow (`/migration-scan`, `/migration-plan`, `/migration-phase`, `/migration-gate`, `/migration-final`) + `/port-feature` + `/find-and-fix` + `/migration-fast` + lifecycle commands (`/migration-status`, `/migration-replan`, `/migration-rollback`, `/migration-recheck`, `/migration-park`, `/migration-unpark`, `/migration-deprecate`, `/migration-promote-tier`, `/draft-phase-adrs`, `/compare-v1`, `/cross-repo-task`).
 - Phase 4.6 anchors every migration artifact to your V1 root + V2 root + cutover mechanism.
 - The merge matrix decides per command — ADD if no project equivalent, SKIP-with-redirect if you already have a specialized version.
 

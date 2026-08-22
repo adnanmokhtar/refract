@@ -132,7 +132,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: ui-crawl-fix
   kind: command
   triggers: { primary_frontend_framework_detected: true, e2e_browser_runner_supported: true }
-  extracts_from: _extracted-idioms.md § Wrappers (FormField / CrudActions / TableActions / BaseModal / sanitize helper / translation builder) + align/rules/align-discipline.md § closure verbs
+  extracts_from: _extracted-idioms.md § Wrappers (FormField / CrudActions / TableActions / BaseModal / sanitize helper / translation builder) + align/rules/align-discipline.md § Per-finding audit
   sections: [premise, when_to_use, auto_fixable_classes, not_auto_fixed, phases, flags, hard_rules, output, cross_references, stack_scope]
   fallback: commands/ui-crawl-fix.md
   cite_evidence: strict

@@ -13,7 +13,7 @@ Detects mode automatically:
 - **REFRESH** *(opt-in via `--refresh`)* — backup → extract → wipe → regenerate from latest templates.
 - **REFINE** *(opt-in via `--refine`)* — round two: deepen existing artifacts via deep code analysis (no overwrite of user-authored content).
 
-## All flags
+## Flags — the ones you type most
 
 | Flag | Purpose | Default |
 |---|---|---|
@@ -34,7 +34,13 @@ Detects mode automatically:
 | `--include=<signal>` | Force-apply technical signal(s) — comma-separated | off |
 | `--tools=<list\|auto>` | Tool adapters to generate | `claude-code` (CREATE) / `auto` (ENHANCE / REFRESH) |
 | `--add-tool=<name>` | Add ONE tool adapter without refreshing others | — |
-| `--plan` | **Universal** (works on EVERY command, not just `/setup-project`). Runs Phases 1-3 only, writes plan to `.claude/plans/<command>-<slug>-<timestamp>.md`, exits before implementation. Hand off the plan file to OpenCode / Cursor / Aider for execution; come back to Claude with `/verify-plan <file>` to audit drift. | off |
+| `--upgrade` | Migrate the recorded setup schema forward (`migrate-setup.sh`, idempotent, backs up first), then continue as REFRESH. Requires an existing `.claude/`; without one it is a user error, not a fall-through to ENHANCE. | auto |
+| `--lightweight` | Skip Phases 2.7–2.12 and 4.6/4.7 — ~80% faster, no anchor-density refinement. Phase 2.5 caps at 3 base classes and **discloses** the cap as `[SAMPLED: 3/<bases> bases]`. A lightweight run cannot reach `PLATEAU-DEEP` until the sample is raised or accepted. | off |
+| `--no-adapters` | The only sanctioned key for skipping the M34 adapter chain. Forward it to the audit (`audit-setup.sh … --no-adapters`) so C2m records the skip rather than failing the run. | off |
+
+`/setup-project` does **not** take `--plan` — the flag is implemented by six other global commands only (`templates/snippets/plan-flag.md` § Where it is real today), and `/setup-project`'s write-nothing preview is `--diff`.
+
+The remaining flags — `--no-backup`, `--backup-dir=<path>`, `--diff`, `--health`, `--validate-schemas`, `--wizard`, `--lang=<ar\|en\|auto>`, `--no-telemetry` — are documented in full in [`docs/COMMANDS.md § /setup-project`](COMMANDS.md#setup-project) and `templates/quick-start.md`, which is the canonical flag table.
 
 ## Tool adapter keys
 
@@ -298,9 +304,9 @@ To skip a track entirely: run `--dry-run`, see the plan, request changes interac
 
 ## See also
 
-- `commands/setup-project.md` — full command spec (~4900 lines, 7-phase pipeline + 6 round-two deep-extraction phases)
+- `commands/setup-project.md` — the command entry point (375 lines). The spec itself lives in `templates/phases/` — 17 phase files, 3,927 lines, one 7-phase pipeline plus 6 round-two deep-extraction phases (2.7–2.12). The ~4,900-line single-file version is the pre-decomposition monolith and is archived, not shipped.
 - `templates/packs/` — pack catalog (23 tracks including `ai-engineering`, `data-engineering`, `finops`, `product`, `align`, and `migration`, 133 commands, 88 agents) + per-track `_essentials.md` manifests. No generator emits those three figures; re-measure with `find templates/packs -mindepth 1 -maxdepth 1 -type d ! -name '_*' | wc -l`, `ls templates/packs/*/commands/*.md | grep -v '/_' | wc -l`, and `ls templates/packs/*/agents/*.md | wc -l`. All three are gate-enforced: the track count by `scripts/lint-tool-parity.sh`, the command and agent counts by `scripts/verify-readme-stats.sh`
-- `templates/packs/learning/skills/` — extraction skills (round-one: `extract-codebase-overview`, `extract-base-class-idiom`; round-two: `extract-domain-entities-deeply`, `extract-architecture-deeply`, `extract-flows-deeply`, `extract-conventions-emerging`, `extract-hotpaths`, `extract-failures-from-history`, `compute-anchor-density`)
+- `templates/packs/learning/skills/` — 12 skills. Round-one extraction: `extract-codebase-overview` (owns the `## Coverage` census and the `[SAMPLED]` markers), `extract-base-class-idiom`, `extract-business-context`, `extract-project-context`. Round-two: `extract-domain-entities-deeply`, `extract-architecture-deeply`, `extract-flows-deeply`, `extract-conventions-emerging`, `extract-hotpaths`, `extract-failures-from-history`. Scoring + application: `compute-anchor-density` (emits the plateau verdict and its `reason`), `apply-pack-adaptation` (writes the anchors, and inherits any `[SAMPLED]` qualification into them)
 - `templates/packs/learning/ai-patterns/setup-quality-scoring.md` — the four-axis anchor-density rubric used by `--refine` Phase 5.5
 - `templates/business-domains/` — 15 business domains
 - `templates/tool-adapters/` — 12 tool adapters

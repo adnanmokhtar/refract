@@ -8,15 +8,15 @@ It answers that question over **two corpora**. The default (`--catalog=pack`) is
 consuming project's `ai/` tree, the memory the Phase-6 learning loop already writes; that corpus
 has its own section below, and its user-facing surface is `/recall`.
 
-The repo carries 178,204 lines of markdown under `templates/`, of which 114,622 lines are pack
+The repo carries 200,802 lines of markdown under `templates/`, of which 136,258 lines are pack
 corpus. Almost none of that is a catalog; it is *argument* — personas, discipline catalogues,
 ordered procedures, ❌/✅ pairs with consequence-reasoning. A query cannot replace reading it.
 What a query *can* do is stop you from loading 100 KB of prose to find the four lines that
 govern the change you are about to make.
 
-Measured on this tree: a typical lookup returns ~2.2 KB against ~48 KB of source files it cites
-— **22x** across the seven probe queries in the table below, with an honest low end of 3.3x when
-every hit lives in one file. Claim the 22x on targeted lookups. Do **not** claim the 114k lines
+Measured on this tree: a typical lookup returns ~2.2 KB against ~52 KB of source files it cites
+— **24x** across the seven probe queries in the table below, with an honest low end of 3.3x when
+every hit lives in one file. Claim the 24x on targeted lookups. Do **not** claim the 136k lines
 became free; no session ever loaded them all.
 
 ---
@@ -24,12 +24,12 @@ became free; no session ever loaded them all.
 ## What is indexed — and what is deliberately not
 
 The knowledge itself is not stored as rows. What is stored is the **row-shaped metadata about
-the prose**: ~5,150 rows extracted from ~717 source files, each carrying `path` (with `:line`
+the prose**: ~5,500 rows extracted from ~800 source files, each carrying `path` (with `:line`
 wherever the source is line-addressable) so the next step is a `Read`, not a guess.
 
 ### Indexed (8 extractors)
 
-Row counts below are a snapshot taken on 2026-08-20 (5,152 rows / 717 source files); they move
+Row counts below are a snapshot taken on 2026-08-22 (5,490 rows / 798 source files); they move
 whenever a pack file is added. `python3 scripts/gen-pack-catalog.py --stats` prints the live
 numbers, and `pack-search.py --kinds` prints them per kind with the owner list. Every kind in this
 table carries its own floor in `scripts/test-pack-search.sh`, so a single extractor going dark is a
@@ -37,18 +37,18 @@ FAIL rather than a rounding error in the total — see **Maintenance** for why t
 
 | Kind | Rows | Source | Why it is genuinely row-shaped |
 |---|---:|---|---|
-| `rule-directive` | 2,135 | `templates/{packs,domains}/*/rules/*.md`, bullets under a Must / Must-not / Should / Never / Checklist / Enforcement heading | One atomic assertion per bullet; complete standing alone |
+| `rule-directive` | 2,288 | `templates/{packs,domains}/*/rules/*.md`, bullets under a Must / Must-not / Should / Never / Checklist / Enforcement heading | One atomic assertion per bullet; complete standing alone |
 | `domain-checklist` | 1,730 | `templates/business-domains/*/*.md`, `- [ ]` items with their section anchor | Designed as an enumerable capability list |
-| `command` / `agent` / `skill` / `ai-pattern` / `rule` / `reference` | 583 | artifact frontmatter in `templates/packs/*/`, `templates/domains/*/`, `commands/*.md` — skills are `skills/<name>/SKILL.md` | Declarative `name` / `description` / `kind` / `applies-to` |
-| `topic-*` | 389 | `templates/packs/*/_topics.md` YAML blocks | Already declarative YAML; zero loss |
-| `stack-subst` | 77 | `templates/packs/*/STACK.md` substitution tables | Abstract concept → per-stack idiom; the `--stack` flag's native data |
-| `closure-verb` | 72 | `### <n>. <kebab-case>` headings in `templates/packs/*/{skills/<name>/SKILL.md,commands/*.md,rules/*.md}` | Self-contained fingerprint → procedure → verify unit, from a closed set |
-| `catalog-row` | 105 | the four `_registry.md` files | Already hand-maintained catalogs consumed by multiple phases |
+| `command` / `agent` / `skill` / `ai-pattern` / `rule` / `reference` / `pattern` | 665 | artifact frontmatter in `templates/packs/*/`, `templates/domains/*/`, `commands/*.md` — skills are `skills/<name>/SKILL.md` | Declarative `name` / `description` / `kind` / `applies-to` |
+| `topic-*` | 470 | `templates/packs/*/_topics.md` YAML blocks | Already declarative YAML; zero loss |
+| `stack-subst` | 92 | `templates/packs/*/STACK.md` substitution tables | Abstract concept → per-stack idiom; the `--stack` flag's native data |
+| `closure-verb` | 71 | `### <n>. <kebab-case>` headings in `templates/packs/*/{skills/<name>/SKILL.md,commands/*.md,rules/*.md}` | Self-contained fingerprint → procedure → verify unit, from a closed set |
+| `catalog-row` | 119 | the four `_registry.md` files | Already hand-maintained catalogs consumed by multiple phases |
 | `trigger` | 55 | `templates/packs/_trigger-vocabulary.md` | Name + one-line semantics |
 
 ### Not indexed — on purpose
 
-- **`templates/packs/*/_examples/` — 267 files, 32,724 lines.** AUTHOR-mode fallbacks: whole
+- **`templates/packs/*/_examples/` — 299 files, 38,490 lines.** AUTHOR-mode fallbacks: whole
   finished artifacts. A row of one is useless; the point is the complete shape. The topic
   spec's `fallback:` **pointer** is indexed, so the example is reached by path.
 - **Agent personas.** `## The Premise (read first, do not deviate)` is a stance delivered by
@@ -73,12 +73,12 @@ row. If it needs its neighbours or its order, it is prose and the catalog holds 
 ## How it works
 
 ```
-source markdown ──► gen-pack-catalog.py ──► ~5,150 rows ──► BM25 index ──► filters ──► ranked pointers
-  (~717 files)         8 extractors            9 columns      in memory      pack/domain/kind/scope/stack
+source markdown ──► gen-pack-catalog.py ──► ~5,490 rows ──► BM25 index ──► filters ──► ranked pointers
+  (~798 files)         8 extractors            9 columns      in memory      pack/domain/kind/scope/stack
 ```
 
 **No committed index.** Extraction runs in ~300 ms cold, so a committed catalog would buy nothing
-and add a tenth drift surface to police alongside the nine CI gates. The source markdown stays the
+and add another drift surface to police alongside the eighteen gates CI already runs. The source markdown stays the
 single source of truth.
 
 **Cache, not artifact.** The built index is written to `tmp/pack-search/index.json` (`tmp/` is
@@ -91,8 +91,8 @@ Measured on this tree (min/mean/max over 5 runs):
 
 | | Latency |
 |---|---|
-| Cold (`--rebuild --no-cache`) — extract ~5,150 rows from ~717 files, build BM25, query | 289 / 301 / 319 ms |
-| Warm (cache hit) | 71 / 72 / 74 ms |
+| Cold (`--rebuild --no-cache`) — extract ~5,490 rows from ~798 files, build BM25, query | 300 / 304 / 311 ms |
+| Warm (cache hit) | 70 / 70 / 71 ms |
 
 Both are inside the "callable inline by a command" budget.
 
@@ -147,7 +147,7 @@ domains like `ecommerce`, `fintech`, `lms`) — nobody remembers which registry 
 the `scope` column labels which one answered.
 
 `--stack` is a **bias, not a filter**: it adds the stack name to the query and multiplies the
-score of rows whose `stack` column names it by 1.5. A hard filter would cut the corpus to 104
+score of rows whose `stack` column names it by 1.5. A hard filter would cut the corpus to 107
 rows and destroy recall.
 
 ### The catalog generator
@@ -165,9 +165,9 @@ emitted `path:line` resolves to a real file and a real line, (3) confirms ids ar
 (4) FAILs on a `_topics.md` `kind:` outside the known vocabulary, and (5) regenerates and diffs
 any on-disk catalog. That last check WARNs at the default `tmp/` path — a leftover scratch dump
 going stale is not a defect — and FAILs when `--out=<path>` is passed explicitly, which is the
-form to use if a catalog is ever written somewhere that is expected to stay fresh. Today it reports **9 WARNs** — real vocabulary drift the build
-surfaced: seven topic specs across three packs use `kind: ai-pattern` where sixteen packs use `kind: pattern`, and
-two use `kind: reference-pair`. Those are WARNs rather than FAILs because the drift predates this
+form to use if a catalog is ever written somewhere that is expected to stay fresh. Today it reports **13 WARNs** — real vocabulary drift the build
+surfaced: eleven topic specs across three packs (`business`, `learning`, `mobile`) use `kind: ai-pattern` where
+nineteen packs use `kind: pattern`, and two use `kind: reference-pair`. Those are WARNs rather than FAILs because the drift predates this
 tool; tightening them to FAIL is a one-line change once the vocabulary is unified.
 
 ---
@@ -235,7 +235,7 @@ to the host.
 
 Cold no-cache end-to-end on C was 70 ms including Python startup. These are one machine, one day;
 re-measure before quoting them elsewhere. A project corpus is one to two orders of magnitude
-smaller than the 5,150-row pack corpus, which is why the numbers are what they are.
+smaller than the 5,490-row pack corpus, which is why the numbers are what they are.
 
 ```bash
 python3 scripts/gen-memory-catalog.py --repo-root=<project> --stats
@@ -259,14 +259,14 @@ Follow the existing script-invocation idiom (`~/.claude/scripts/<name>` after
 validators — nothing halts a run automatically.
 
 ```bash
-# Phase 4.0 preflight — instead of reading a whole _topics.md (backend's is 444 lines;
-# all 23 packs total 3,618) to find which topics a feature touches.
+# Phase 4.0 preflight — instead of reading a whole _topics.md (backend's is 499 lines;
+# all 23 packs total 3,841) to find which topics a feature touches.
 python3 ~/.claude/scripts/pack-search.py "$FEATURE_DESCRIPTION" \
   --pack="$SELECTED_PACKS" --kind=topic-agent,topic-command,topic-skill --top=12
 ```
 
 ```bash
-# Locate the governing rule directive without loading 25 rule files.
+# Locate the governing rule directive without loading 63 rule files (28 pack + 35 domain).
 python3 ~/.claude/scripts/pack-search.py "$AXIS" --kind=rule-directive --top=6 --format=paths
 ```
 
@@ -312,7 +312,7 @@ orthogonal problems:
 |---|---|---|---|
 | Granularity | file | file | **row** |
 | Keyed by | active phase | the edited file's glob | **query relevance** |
-| Governs | the orchestrator's own imports (HOT / WARM / COLD) | project rules at edit time | **the 114,622-line pack corpus** |
+| Governs | the orchestrator's own imports (HOT / WARM / COLD) | project rules at edit time | **the 136,258-line pack corpus** |
 | Enforcement | honor system | mechanical (PreToolUse hook) | mechanical (a query returns N rows or it does not) |
 | Answers | "what does this phase need?" | "what governs this file?" | **"where is the thing I need?"** |
 
@@ -326,7 +326,7 @@ Three specific complements:
    requires knowing the file exists. A query surfaces `templates/appendices.md:<line>` without
    loading the file, which turns COLD from an aspiration into a real state.
 3. **Search covers what tiers never classified.** The pack corpus is not HOT, WARM, or COLD — it
-   is copied to disk in Phase 4.2 and read ad hoc afterward. That 114,622-line body is where the
+   is copied to disk in Phase 4.2 and read ad hoc afterward. That 136,258-line body is where the
    whole win sits.
 
 **The contract in one line: tiers decide what is RESIDENT; search decides what is REACHABLE.**
@@ -366,7 +366,7 @@ A row is never a substitute for its file — it is the *address* of its file. Ev
    elsewhere: `scripts/test-pack-search.sh` prints its own cold/warm timings (it runs the whole
    fixture, so its cold number includes more than one query), and
    `gen-pack-catalog.py --stats` prints the live row counts. The probe-query byte table is not
-   reproduced by any script — it was measured by hand on 2026-08-20 with `--limit=8`, taking
+   reproduced by any script — it was measured by hand, most recently on 2026-08-22, with `--limit=8`, taking
    "output" as the byte length of the text result and "source bytes" as the total on-disk size of
    the distinct files it cited.
 8. **`--catalog=memory` retrieves; it does not capture.** A hook cannot understand a session.
@@ -383,18 +383,18 @@ A row is never a substitute for its file — it is the *address* of its file. Ev
    where relevant hits landed between 4 and 12 and an unrelated prompt returned no rows at all.
    BM25 scores are corpus-dependent; tune it per project.
 
-### Measured context saving (7 probe queries, `--limit=8`)
+### Measured context saving (7 probe queries, `--limit=8`, re-measured 2026-08-22)
 
 | Query | Output | Files cited | Source bytes | Ratio |
 |---|---:|---:|---:|---:|
-| `multi-tenant isolation cross-tenant leak` | 2,378 B | 7 | 51,247 B | 21.6x |
-| `focus ring keyboard accessibility contrast` | 2,166 B | 5 | 81,178 B | 37.5x |
-| `n+1 query eager loading` | 2,401 B | 8 | 104,889 B | 43.7x |
+| `multi-tenant isolation cross-tenant leak` | 2,381 B | 7 | 51,247 B | 21.5x |
+| `focus ring keyboard accessibility contrast` | 2,166 B | 5 | 99,636 B | 46.0x |
+| `n+1 query eager loading` | 2,414 B | 8 | 113,217 B | 46.9x |
 | `webhook signature verification replay` | 2,075 B | 2 | 21,451 B | 10.3x |
 | `idempotency key retry payment` | 2,236 B | 2 | 12,922 B | 5.8x |
 | `guest checkout cart merging --domain=ecommerce` | 1,896 B | 1 | 6,244 B | 3.3x |
-| `repository pattern dependency injection --stack=nestjs` | 2,255 B | 7 | 61,507 B | 27.3x |
-| **total** | **15,407 B** | | **339,438 B** | **22.0x** |
+| `repository pattern dependency injection --stack=nestjs` | 2,255 B | 7 | 62,630 B | 27.8x |
+| **total** | **15,423 B** | | **367,347 B** | **23.8x** |
 
 Bytes, not tokens — bytes are what was actually measured. The ratio is the saving *only if you
 would otherwise have read those files whole*; when the answer is one line in one file, the

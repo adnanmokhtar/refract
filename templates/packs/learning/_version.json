@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "1.4.0",
-  "released": "2026-08-20",
+  "version": "1.4.1",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "NEW /recall — retrieval over the memory the loop already writes. Adds no sink, no store, no second index: one more row producer for the existing stdlib BM25 engine, plus an opt-in UserPromptSubmit hook that surfaces the don't-retry catalog before the approach is retried.",
+  "summary": "`skills/extract-codebase-overview/SKILL.md` Step 7 claimed that because no cap is declared, Step 15 check 7 asserts `seen == present` there. Check 7's rules reject an undisclosed sample only — a `[SAMPLED: 12/40 files]` marker passes it. The 100% obligation is the Step 2.5 denominator cell's; both are now stated separately.",
   "changelog": "CHANGELOG.md"
 }

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.15.0",
-  "released": "2026-08-21",
+  "version": "1.15.1",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Quality pass on artifacts that were neither wrong nor missing but thin: the cross-pack guard now reaches agent OUTPUT sections and six skills' degraded lanes, five commands' Related blocks state where the boundary falls instead of restating their own filename, two unsourced ratios (~30% a11y coverage, ~80% page scaffolding) are gone, _topics.md stops naming two agents that do not exist and finally names rules/i18n.md, and the /refactor fallback anecdote is deleted in favour of the overlay itself.",
+  "summary": "`commands/add-feature.md`'s Signal-aware invariant pointed a `§ tokens` anchor at `rules/frontend-principles.md` for the inline theme-lane grading; that file has no `tokens` section — its five sections are Must / Must not / Should / Review checklist / Enforcement, and the design-token rule is a bullet under Must not. Citation repointed.",
   "changelog": "CHANGELOG.md"
 }

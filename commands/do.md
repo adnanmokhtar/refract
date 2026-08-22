@@ -113,7 +113,7 @@ For ambiguous descriptions, the agent asks one clarifying question.
    - **Medium confidence** (intent clear but target ambiguous, OR stack unclear) → ask one clarifying question.
    - **Low confidence** (description doesn't match any command's scope) → halt with the description echoed and a list of available commands.
    - **Multi-ask** (the sentence carries two independent asks — the halves route to different commands) → **always confirm**, even when each half is individually high confidence. See § Multi-command asks.
-   - **Two rows both match one ask** → this is not ambiguity, it is precedence: resolve by the noun per the precedence note under the routing table, and dispatch. Only ask when the ask carries no disambiguating noun at all.
+   - **Two rows both match one ask** → this is not ambiguity, it is precedence: resolve by **what has to change to close the ask** per the precedence note under the routing table, and dispatch. That note, and the *Surface-type consolidation vs generic drift* row of [`templates/tool-adapters/_orchestration-sync.md § Command boundary table`](../templates/tool-adapters/_orchestration-sync.md) it is synchronised with, both decide by the REMEDY and both say a named surface type is evidence, never the verdict — so counting nouns or trigger phrases here would answer with the one signal the authority it cites rules out. Only ask when the **remedy** is undetermined: when the sentence does not yet say whether one shared implementation gets extracted / extended / migrated onto, an API or schema surface gets a contract it does not have yet, or something the project already documents gets applied in place.
 
 ## Phase 2 — Organize (decompose the work)
 

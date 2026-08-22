@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.9.0",
-  "released": "2026-08-20",
+  "version": "1.9.1",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Gave align its four missing agents — align-evidence-auditor (pre-fix), align-idiom-auditor (per-fix boundary guard), align-gate-auditor (14-check phase verdict), align-ledger-auditor (state reconciliation) — and repointed the performance-optimizer dispatch from code-quality/agents/ (where it does not exist) to performance/agents/.",
+  "summary": "Repaired three dangling section anchors in `references/align-discipline-catalogue.md`: the inherited frontend rows pointed `§ lifecycle-hooks`, `§ default-true-wrapper-props` and `§ permission-gate` at `migration-frontend.md`, none of which is a section in that file. Two now cite the sections that do carry the discipline (Reactive lifecycle, Per-button permission gates); the default-true row was never in `migration-frontend.md` at all and now names the frontend command that owns it.",
   "changelog": "CHANGELOG.md"
 }

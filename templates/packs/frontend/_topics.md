@@ -223,7 +223,7 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
                                    # `_examples/refactor.md` was a six-line usage anecdote carrying
                                    # none of them, so a no-signal install received an anecdote in
                                    # place of the gates — including the code-quality absent-branch
-                                   # at commands/refactor.md § Dispatch.
+                                   # at commands/refactor.md § What happens internally (silent).
 
 - name: visual-check
   kind: skill

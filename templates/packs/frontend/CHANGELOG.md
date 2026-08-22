@@ -14,6 +14,15 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.15.1 — 2026-08-22
+
+**One anchor that did not exist.** `commands/add-feature.md`'s Signal-aware invariant pointed the inline
+theme-lane grading at a `§ tokens` anchor in `rules/frontend-principles.md`, for the case where the
+ui-ux pack is absent. That file has no `tokens` section: its headings are Must, Must not,
+Should, Review checklist, Enforcement, and the design-token rule is the "Magic spacing/colors" bullet
+under **Must not**. The citation now names that section. Found by `scripts/lint-handoffs.sh` once its
+section-anchor rule learned to resolve a partial path that is a unique suffix of one repo file.
+
 ## 1.15.0 — 2026-08-21
 
 Scope, stated against `git status --porcelain` rather than asserted: `agents/` 4/7, `rules/` 3/3,
@@ -193,7 +202,7 @@ flags an orphan. It is found by reading.
   that anecdote the fallback for them. A no-signal install received two bullets — composable
   placement and snapshot churn — in place of the overlay's four gates, including the code-quality
   absent-branch this
-  release added at `commands/refactor.md` § Dispatch (`verb source: canonical command (code-quality
+  release added at `commands/refactor.md` § What happens internally (silent) (`verb source: canonical command (code-quality
   pack absent)`). The fallback is now `commands/refactor.md` itself: the self-fallback strategy this
   same `_topics.md` already uses for `add-feature`, `i18n-rules` and `migration-frontend`. A file that must
   be hand-kept in step with a 24-line overlay is drift surface, not a fallback, and deleting it makes

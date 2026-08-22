@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1160" height="752" viewBox="0 0 1160 752" role="img" aria-label="Refract command map: the fifteen global commands grouped by intent, and the --plan handoff">
 <title>Refract command map: the fifteen global commands grouped by intent, and the --plan handoff</title>
-<desc>One router (/do), three create commands, one plan command, six improve commands, two integrate commands and two maintenance commands. --plan is NOT universal: six of the fifteen accept it, /audit accepts --plan-only, and 25 of the 118 pack commands accept it. Where it exists it writes a self-contained plan file for /execute-plan and /verify-plan.</desc>
+<desc>One router (/do), three create commands, one plan command, six improve commands, two integrate commands and two maintenance commands. --plan is NOT universal: six of the fifteen implement it, one of those six (/audit) spelling it --plan-only, and 25 of the 133 pack commands advertise it. Where it exists it writes a self-contained plan file for /execute-plan and /verify-plan.</desc>
 <rect x="0" y="0" width="1160" height="752" rx="10" fill="#f7f9fb" stroke="#d5dce5" stroke-width="1"/>
 <text x="40" y="46" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="21" fill="#161b22" font-weight="700">Fifteen global commands</text>
 <text x="40" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="12.5" fill="#6b7684" font-weight="400">Grouped by intent. Each takes an optional scope — omit it for the whole project, or name a path or an area.</text>
@@ -9,7 +9,7 @@
 <text x="112" y="130" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="16" fill="#8fa3bd" font-weight="500">&lt;description&gt;</text>
 <text x="64" y="152" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11.5" fill="#c3cede" font-weight="400">Universal router — describe the work in plain English and it picks the command.</text>
 <text x="1096" y="130" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#8fa3bd" font-weight="700" text-anchor="end" letter-spacing="1.1">THE USUAL ENTRY POINT</text>
-<text x="1096" y="152" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#8fa3bd" font-weight="400" text-anchor="end">routes to 10 of the 14 below; /roadmap, /delegate and the two setup-* are invoked directly</text>
+<text x="1096" y="152" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#8fa3bd" font-weight="400" text-anchor="end">routes to all 14 below, plus whichever pack commands this repo installed</text>
 <path d="M 300 170 V 196" fill="none" stroke="#98a2b0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M 296 196 L 304 196 L 300 204 Z" fill="#98a2b0"/>
 <path d="M 580 170 V 196" fill="none" stroke="#98a2b0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -34,17 +34,17 @@
 <rect x="413" y="212" width="3.5" height="256" rx="1.75" fill="#0f6b52"/>
 <text x="431" y="233" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#0f6b52" font-weight="700" letter-spacing="1.2">IMPROVE</text>
 <text x="431" y="257" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" fill="#161b22" font-weight="600">/audit</text>
-<text x="431" y="272" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">architecture, security, DB + runtime perf, scale</text>
+<text x="431" y="272" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">eight axes — architecture, security, DB, perf, scale, …</text>
 <text x="431" y="293" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" fill="#161b22" font-weight="600">/optimize</text>
 <text x="431" y="308" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">architectural diagnosis first, tactical sweep second</text>
 <text x="431" y="329" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" fill="#161b22" font-weight="600">/align</text>
-<text x="431" y="344" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">convention drift — wrappers, silent catches, tokens</text>
+<text x="431" y="344" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">convention drift — enforce what the project documents</text>
 <text x="431" y="365" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" fill="#161b22" font-weight="600">/refactor</text>
 <text x="431" y="380" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">behaviour-preserving; closed refactoring vocabulary</text>
 <text x="431" y="401" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" fill="#161b22" font-weight="600">/polish</text>
 <text x="431" y="416" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">stack-conditional: frontend, backend, data, mobile</text>
 <text x="431" y="437" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" fill="#161b22" font-weight="600">/unify-surfaces</text>
-<text x="431" y="452" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">tables, forms, headers, tabs behave alike (frontend)</text>
+<text x="431" y="452" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10.5" fill="#6b7684" font-weight="400">tables, forms, headers … one shared impl (frontend)</text>
 <rect x="786" y="212" width="334" height="112" rx="8" fill="#ffffff" stroke="#e3e9f0" stroke-width="1"/>
 <rect x="786" y="212" width="3.5" height="112" rx="1.75" fill="#5b3d99"/>
 <text x="804" y="233" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#5b3d99" font-weight="700" letter-spacing="1.2">INTEGRATE</text>
@@ -79,9 +79,9 @@
 <path d="M 596 573 L 596 581 L 604 577 Z" fill="#98a2b0"/>
 <line x1="842" y1="577" x2="860" y2="577" stroke="#98a2b0" stroke-width="1.4"/>
 <path d="M 858 573 L 858 581 L 866 577 Z" fill="#98a2b0"/>
-<text x="64" y="627" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">--plan is not universal. Six global commands take it — /align · /optimize · /polish · /refactor · /delegate · /setup-project — plus /audit's --plan-only.</text>
-<text x="64" y="644" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">25 of the 118 pack commands take it too. Where it exists, the point is economic: plan on a strong model, execute on a cheap one.</text>
+<text x="64" y="627" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">--plan is not universal. Six global commands implement it — /align · /optimize · /polish · /refactor · /delegate · /audit, whose own spelling is --plan-only.</text>
+<text x="64" y="644" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">25 of the 133 pack commands advertise it too. Where it exists, the point is economic: plan on a strong model, execute on a cheap one.</text>
 <line x1="40" y1="688" x2="1120" y2="688" stroke="#d5dce5" stroke-width="1"/>
 <text x="40" y="710" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#6b7684" font-weight="400">/execute-plan and /verify-plan are project-level commands, installed into .claude/commands/ by /setup-project from templates/repo-baseline/.</text>
-<text x="40" y="730" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#6b7684" font-weight="400">Another 118 commands ship inside the 20 packs and install per-project when their pack is selected — 133 commands in total.</text>
+<text x="40" y="730" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#6b7684" font-weight="400">Another 133 commands ship inside the 23 packs and install per-project when their pack is selected — 148 commands in total.</text>
 </svg>

@@ -9,8 +9,8 @@ the artifacts a project rewrites in its own voice, against its own entities, scr
 list, so a shorter, project-shaped starting point is the right thing to receive. Every other entry
 points at its own source file, and that is a decision, not drift.
 
-The two auditor abridgements are cut against the rule stated in the next paragraph rather than
-around it, and the claim is countable file against file: each keeps **every** halt condition
+The two auditor abridgements are cut against the copied-verbatim rule stated further down this
+paragraph rather than around it, and the claim is countable file against file: each keeps **every** halt condition
 (11 for `offline-sync-auditor`, 14 for `device-performance-auditor`), **every** invariant (9 each),
 both named failure poles, **every row** of the delegated-floor table (9 and 10 rows), and every
 platform figure with the URL that publishes it — including `device-performance-auditor`'s § Sources
@@ -20,9 +20,10 @@ and the § Related pointer list — the part a project replaces with its own scr
 classes on first contact. Exactly one § Failure modes bullet per file is dropped outright, and only
 because its substance is stated elsewhere in the same abridgement: `reachability-as-truth` survives
 as a § Failure catalogue row, and "a metric with no budget is a finding, not a blank" survives as an
-output-section heading. Nothing dropped is a number, a citation, a halt, or a boundary. The reason is `phase-4.2-apply.md` step 2:
-the fallback is copied VERBATIM and becomes the artifact the project runs on, and for mobile the
-greenfield case is the COMMON case. These files carry dated store gates, cited platform limits and
+output-section heading. Nothing dropped is a number, a citation, a halt, or a boundary. The reason is `phase-4.2-apply.md`
+§ 4.2-AUTHOR step 2: it resolves each topic's `fallback:` field and copies THAT file VERBATIM, so
+whatever this column names becomes the artifact the project runs on — and for mobile the greenfield
+case is the COMMON case. These files carry dated store gates, cited platform limits and
 cite-or-halt detectors; an abridgement of one is a shorter document that has quietly dropped a
 safety signal, which is exactly what `validate-pack-consistency.sh` check 8b exists to catch. A
 greenfield mobile project is better served by the whole artifact than by a summary of it. If you
@@ -116,8 +117,12 @@ change.
                                    # that are the entire reason this overlay exists. Frontend hit
                                    # the identical shape and deleted its anecdote outright
                                    # (frontend/CHANGELOG.md); mobile's is kept as documentation and
-                                   # disowned as a fallback here instead. If it ever drifts again,
-                                   # delete it rather than re-point this line.
+                                   # disowned as a fallback here instead. That disownment is
+                                   # load-bearing only because phase-4.2-apply.md § 4.2-AUTHOR
+                                   # step 2 resolves the fallback from THIS field; a glob over
+                                   # `_examples/<topic>.md` would install the anecdote whatever
+                                   # this line said. If it ever drifts again, delete it rather
+                                   # than re-point this line.
 
 - name: bundle-analyze
   kind: skill

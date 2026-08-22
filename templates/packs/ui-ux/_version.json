@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.24.0",
-  "released": "2026-07-13",
+  "version": "1.24.1",
+  "released": "2026-08-22",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "BUILT-IN composite-surface table-stakes floor for ui-design-sweep verb 19 (normalize-surface): generic data-table / dashboard / form prototypes when the project has authored no Surfaces section.",
+  "summary": "`_topics.md`'s `ui-crawl-fix` topic extracted from a `§ closure verbs` anchor on `align/rules/align-discipline.md`, which is not a section in that file; the closed 21-verb vocabulary is enumerated in its `## Per-finding audit — 11 hard halts`. Citation repointed.",
   "changelog": "CHANGELOG.md"
 }

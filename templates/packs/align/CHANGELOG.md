@@ -24,6 +24,25 @@ violations, clean-code violations, performance issues, security weaknesses, and 
 (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design
 tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.
 
+## 1.9.1 — 2026-08-22
+
+**Three citations that resolved as text but not as contract.** The Frontend-stack rows of
+`references/align-discipline-catalogue.md` each carried an "(inherited)" note plus an anchor into
+`frontend/rules/migration-frontend.md`. `scripts/lint-handoffs.sh` opened that file: its headings are
+Stack-aware primitive set / Frontend audit axes / Frontend anti-pattern catalogue / Frontend
+Transposition Trap fingerprints / Phase 3 / Locale parity / Cross-references. None of
+`§ lifecycle-hooks`, `§ default-true-wrapper-props` or `§ permission-gate` exists there.
+
+- **lifecycle / data-fetch hook on wrong element** → `migration-frontend.md § Reactive lifecycle`,
+  the audit axis that actually states the mount-only-vs-reactivate rule.
+- **permission-gate drop** → `migration-frontend.md § Per-button permission gates`, which carries
+  the per-button gate table and its density requirement.
+- **default-true wrapper prop** → this one was not inherited from `migration-frontend.md` in any
+  sense: the string does not appear in that file. The discipline lives in the frontend pack's
+  sibling-shape halt, so the row now cites
+  `frontend/commands/add-crud-page.md § Sibling-shape mechanical halt` and says where the
+  inheritance actually comes from.
+
 ## 1.9.0 — 2026-08-20
 
 - **align now ships agents.** Until this release align was the only pack in the repo with commands

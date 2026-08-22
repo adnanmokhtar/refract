@@ -201,7 +201,7 @@ The validator scripts (`validate-migration-artifacts.sh`, `validate-align-artifa
 - `templates/tool-adapters/_template-author-scripts.md` — C2f/C2g scripts + canonical snippet pointers (Refract maintainers)
 - `templates/tool-adapters/_registry.md` — capability matrix per tool
 - `templates/tool-adapters/_<pack>-pack-coverage.md` — per-pack adapter expectations (`_migration-pack-coverage.md`, `_align-pack-coverage.md`, `_optimize-pack-coverage.md`, `_refactor-pack-coverage.md`, `_ui-ux-pack-coverage.md`, …)
-- `templates/packs/migration/rules/migration-discipline.md` § canonical paths
-- `templates/packs/align/rules/align-discipline.md` § canonical paths
-- `templates/packs/code-quality/rules/quality-principles.md` § anti-patterns
+- `templates/packs/migration/rules/migration-discipline.md` — V1↔V2 paths, parity-test root and cutover mechanism live in its `project-specific` anchor block, injected by `apply-anchors.sh` from `ai/migration/_v2-anchors.md` (not a static section)
+- `templates/packs/align/rules/align-discipline.md` — architecture / conventions / findings-ledger paths live in its `project-specific` anchor block, injected by `apply-anchors.sh` from the extraction sources (not a static section)
+- `templates/packs/code-quality/rules/quality-principles.md` § Must not
 - All per-pack `<pack>-principles.md` files

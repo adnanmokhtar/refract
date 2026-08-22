@@ -9,6 +9,23 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.9.1 — 2026-08-22
+
+**Three anchors, including a self-citation.** `scripts/lint-handoffs.sh` opened the targets:
+
+- `agents/parity-auditor.md` (density rule for axes) pointed a `§ Forms-bearing fingerprints`
+  anchor at `frontend/rules/migration-frontend.md` for the concrete per-stack form-input tags. No such section; the tags are the `input_html` / `v_model` rows of
+  **§ Stack-aware primitive set**, which the citation now names.
+- `references/migration-discipline-procedures.md` Halt 12 cited the same file's
+  `§ Leaf-component extensions` for the leaf-component / view-template extension list. No such
+  section; the `.vue` / `.tsx` / `.svelte` / `.jsx` list is in **§ Frontend audit axes**, inside the
+  Section 0 completion checklist.
+- Halt 13 pointed a `§ Navigation Inventory two-layer scan` anchor at **its own file** for the full
+  two-layer spec and the Section 0 checklist. That is not a
+  heading anywhere in it. Both live verbatim in
+  `frontend/rules/migration-frontend.md § Frontend audit axes`, which the pointer now names, so the
+  reader is sent to the file that has the spec instead of back to the paragraph they are reading.
+
 ## 1.9.0 — 2026-07-09
 
 - skills +1: data-cutover-orchestrate — cross-store V1->V2 data port: resumable checkpointed

@@ -80,7 +80,7 @@ Boundaries: which folders MUST NOT import from which? (Cross-link to `ai/modules
 - **Base class hierarchy**: `<DetectedBase>` at `<path>` — extends to <DomainError, InfraError, ValidationError, …>
 - **HTTP mapping** (if applicable): <`status_code` per error type — from extraction>
 - **Never throw**: <generic `Error` / `Exception` — must use project hierarchy>
-- **Catch policy**: every `catch` must (a) route through `<project-error-handler>` OR (b) include a comment explaining recovery + log at debug level. **No silent catches.** (See `templates/packs/migration/rules/migration-discipline.md § The Silent Catch`.)
+- **Catch policy**: every `catch` must (a) route through `<project-error-handler>` OR (b) include a comment explaining recovery + log at debug level. **No silent catches.** (**Silent Catch** is named vocabulary in `templates/packs/migration/rules/migration-discipline.md`; the definition lives in `.claude/references/migration-discipline-catalogue.md § Anti-patterns`.)
 
 ## Logging
 
