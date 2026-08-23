@@ -691,6 +691,27 @@ decide() {
 * REVIEW — file in target but NOT in pack. Could be project-specific (keep) or deprecated upstream (consider deleting). Human judgment required.
 * REJECTED-BY-LEDGER / KEEP-OURS-BY-LEDGER / RESOLVED-BY-LEDGER / KEEP-BY-LEDGER — reconciled by `.claude/_refresh-decisions.md`. Not actionable. KEEP-OURS / RESOLVED entries re-open automatically when the pack source changes (pack@sha8 mismatch).
 
+MERGE rows are DECIDED AUTOMATICALLY (M43). `apply-study-decisions.sh --apply` hands every
+MERGE / KEEP-OURS-PLUS-INJECT row to `scripts/merge-decide.py`, which classifies it per file
+against a provenance corpus built from claude-config's own git history — every distinct line
+that ever appeared in any `*.md` at any commit — and picks one of:
+
+* NO-OP    — identical to the pack once the project-specific anchor is set aside.
+* OVERRIDE — every line the replace would delete is verbatim historical pack text, so nothing
+             is lost that the framework cannot put back. Anchor blocks and bare
+             `## Project-specific` sections are carried forward verbatim.
+* ENHANCE  — the target is a strict SUBSEQUENCE of the pack: adopting the pack body deletes
+             zero target lines.
+* ADJUST   — the target has project content, and all of it lives in sections the pack does not
+             have. Those sections are kept byte-for-byte and marked; the shared sections take
+             the pack version.
+* DEFER    — project content sits inside a section the pack also changed. A real merge; a
+             human decides. Measured on two live repos: 30 rows of 235.
+
+Every write is backed up, re-read, and ROLLED BACK if one unknown-origin line, project token or
+project-specific region went missing. Per-file records land in `.claude/_merge-decisions.md`.
+`--conservative` restores the old behaviour of listing MERGE rows and writing nothing.
+
 Recording decisions (M35 — the ONLY sanctioned way to skip an actionable row):
 
     apply-study-decisions.sh <target> --reject='pack/kind/file.md:rationale'     # permanent: wrong for this project

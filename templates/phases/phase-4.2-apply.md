@@ -105,6 +105,47 @@ User reviews the inventory before approval. This makes the failure mode visible 
 2. **No write may put both shapes of one name on disk.** `check_skill_shape_twin()` in `scripts/apply-study-decisions.sh` refuses the write and the run exits 4; `check_skill_name_uniqueness()` in the same script re-checks the whole `.claude/skills/` tree by frontmatter `name:` afterwards, which also catches a duplicate whose two files are not filename twins. Every raw `cp` in this phase carries the same guard inline — see 4.2.b below.
 3. **Migration is explicit and one-way, never a side effect.** A project on the legacy shape moves with:
 
+
+## M43 — MERGE rows are decided, not listed
+
+`apply-study-decisions.sh --apply` no longer prints MERGE rows and walks away. It hands them to
+`scripts/merge-decide.py`, which decides each one against a **provenance corpus**: every distinct
+line that has ever appeared in any `*.md` at any commit of this repo. The question it answers per
+line is not "is this different" and not "does this contain identifiers" — both of those were
+tried and both produced false negatives in the direction that deletes the owner's work. It is
+**did the packs write this line?** A line the corpus can account for is regenerable; a line it
+cannot is presumed to be the owner's and is preserved byte-for-byte.
+
+> **Why this is written down.** One live run produced **235 MERGE rows across two repos** and
+> closed none of them — `--include=replace,add` applied 22 ADD rows in 1.77s and printed
+> "Listed for human review: 171". The Phase-5 audit then refused the run for not doing work no
+> script could do. Measured over those same 235 rows: **204 close automatically with a per-line
+> proof, 30 need a human.** DEFER is 12.8% of the population, not the default.
+
+Four things are load-bearing and must not be quietly undone:
+
+1. **Burden of proof sits on the engine.** An unknown-origin line is the owner's until the corpus
+   proves otherwise. An earlier classifier that assumed the opposite reached 174 OVERRIDEs and
+   destroyed two real files on the way.
+2. **Detection runs on RAW lines.** `pack_substantive_sha8` in `study-existing.sh` strips
+   ``[*_`]`` before hashing — correct for a hash, catastrophic for detection: it turns
+   `E2E_EMAIL` into `E2EEMAIL` and eats `.env.tenant`, which silently un-protected two files that
+   carry exactly those tokens. `lint-setup-contracts.sh` Rule 9 fails the build if that
+   normalization reappears outside the hash.
+3. **The HTML anchor is not sufficient protection.** capsolah-api carries a `## Project-specific`
+   heading in 274 artifacts and `<!-- project-specific:start -->` in only 254. Those 20
+   hand-extended blocks are protected as regions in their own right.
+4. **Every write is verified against the bytes it produced**, not against the intent it had —
+   backed up first, re-read after, and rolled back on any loss. The run exits 3 if that happens,
+   so a rollback can never be reported as success. `scripts/test-merge-decide.sh` watches both
+   nets catch a bad write.
+
+```bash
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO"                        # decision table only
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply                # decide + write
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply --conservative # list MERGE rows, write nothing
+```
+
 ```bash
 ~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --migrate-skill-shape          # dry run — lists every move
 ~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --migrate-skill-shape --apply  # moves; backs up to .claude/backups/skill-shape-<ts>/

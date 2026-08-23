@@ -144,6 +144,54 @@ done < <(grep -rnE 'codebase-profile\.md[[:space:]]*§[[:space:]]*[0-9]+' templa
          | grep -v 'lint-setup-contracts.sh' \
          | grep -viE 'by KEY|never by section number|HISTORY|not by section' || true)
 
+# ---- Rule 7 — every writer of pack content applies the SAME deploy rewrites -------------------
+# Pack sources link to ../../../snippets/ and ../../../governance/, which resolve under
+# templates/packs/*/commands/ and nowhere else. apply-study-decisions.sh has rewritten them on
+# deploy since the beginning; merge-decide.py now writes pack content too. A writer that skips
+# the rewrite leaves a dangling link AND guarantees the file it just wrote re-flags as MERGE on
+# the next run forever — phantom drift that looks exactly like real drift. So both writers must
+# carry both rewrites, and this rule fails the build if either loses one.
+for rw in 'templates/snippets/' 'templates/governance/'; do
+  for w in scripts/apply-study-decisions.sh scripts/merge-decide.py; do
+    [ -f "$w" ] || continue
+    grep -qF "$rw" "$w" 2>/dev/null && continue
+    add "R7-deploy-rewrite-parity" "$w" "writes pack content but has no '$rw' rewrite (see apply-study-decisions.sh § rewrite_deployed_command_links)"
+  done
+done
+
+# ---- Rule 8 — exactly ONE implementation of the additive merge --------------------------------
+# It lived in apply-study-decisions.sh as merge_additive(), appending the `## ` sections the
+# pack had and the target lacked. merge-decide.py subsumed it as one of four verbs, and the
+# bash copy was DELETED rather than left beside it — two implementations of "merge without
+# losing anything" is two chances to lose something, and only one of them has the post-write
+# invariant check. --include=merge-additive now routes to the engine's --additive-only.
+if grep -qE '^[[:space:]]*merge_additive(_dryrun_count)?\(\)' scripts/apply-study-decisions.sh 2>/dev/null; then
+  add "R8-duplicate-additive-merge" "scripts/apply-study-decisions.sh" "a second additive-merge implementation reappeared; route --include=merge-additive to scripts/merge-decide.py --additive-only instead"
+fi
+
+# ---- Rule 9 — the merge engine must never reuse the emphasis-stripping normalization ---------
+# pack_substantive_sha8() in study-existing.sh strips [*_`] before hashing, which is correct
+# for a stability hash and catastrophic anywhere else: it turns E2E_EMAIL into E2EEMAIL and
+# eats .env.tenant. MEASURED — copying that normalization into the merge detector silently
+# un-protected two real files (tenant-portal art-direct.md, capsolah env-diff/SKILL.md), both
+# of which carry exactly those tokens, and classified both as safe to overwrite. The engine may
+# use it for the ledger's pack@sha8 stamp and for nothing else.
+if [ -f scripts/merge-decide.py ]; then
+  # Track the enclosing `def`, and look only at code that actually performs the strip
+  # (`re.sub`), so the rule's own explanatory prose does not trip it. Two functions are
+  # allowed to do it: pack_substantive_sha8 (the ledger stamp, which must match
+  # study-existing.sh byte for byte) and sec_key (heading-text comparison, where emphasis
+  # genuinely is noise and no identifier can be destroyed because a heading is not a token).
+  hits=$(awk '
+    /^[[:space:]]*def [A-Za-z_]+/ { fn=$2; sub(/\(.*/,"",fn) }
+    /re\.sub\(r"\[\*_`\]"/ {
+      if (fn != "pack_substantive_sha8" && fn != "sec_key") print NR": in "fn"(): "$0
+    }' scripts/merge-decide.py 2>/dev/null || true)
+  if [ -n "$hits" ]; then
+    add "R9-emphasis-strip-outside-hash" "scripts/merge-decide.py" "strips [*_\`] outside pack_substantive_sha8/sec_key ($(printf '%s' "$hits" | head -1)) — that normalization eats E2E_EMAIL and .env.tenant"
+  fi
+fi
+
 # ---- report / ratchet -------------------------------------------------------------------------
 findings="$(printf '%s' "$findings" | grep -c . >/dev/null 2>&1; printf '%s' "$findings")"
 sorted_findings="$(printf '%s' "$findings" | grep . | sort || true)"

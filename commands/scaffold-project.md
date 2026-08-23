@@ -316,7 +316,7 @@ for the canonical, load-bearing definition; this region must not drift from it.
 
 # 2) M23 — apply study decisions deterministically (REPLACE-OR-ENHANCE + ADD by file copy).
 #    Skipping this is a documented halt (setup-project § Mechanical halt #3).
-~/.claude/scripts/apply-study-decisions.sh "$DEST" --apply --include=replace,add
+~/.claude/scripts/apply-study-decisions.sh "$DEST" --apply --include=replace,add   # a fresh scaffold has no MERGE rows to decide
 
 # 3) M25 — apply Phase-4.6 round-one anchors deterministically (project-specific blocks).
 ~/.claude/scripts/apply-anchors.sh "$DEST" --apply

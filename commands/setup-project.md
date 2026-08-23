@@ -137,10 +137,39 @@ This produces 4 reports under `$TARGET_REPO/.claude/`:
 **Hard contract (M23) — apply study decisions deterministically:**
 
 ```bash
-~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply --include=replace,add
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply
 ```
 
-Phase 4 MUST run this. It reads `_study-existing-report.md` and applies REPLACE-OR-ENHANCE + ADD rows by file copy (with backup). LLM judgment cannot skip these — the script is deterministic shell.
+Phase 4 MUST run this. It reads `_study-existing-report.md` and closes every row it can, by itself:
+
+| row | what happens |
+|---|---|
+| `ADD` | copy the pack file (shape- and variant-aware) |
+| `REPLACE-OR-ENHANCE`, `ADOPT-PACK-TRIM` | replace from pack source, after a backup |
+| `MERGE`, `KEEP-OURS-PLUS-INJECT` | handed to `scripts/merge-decide.py`, which decides **NO-OP / OVERRIDE / ENHANCE / ADJUST / DEFER** per file |
+| `KEEP-OURS-*`, `IDENTICAL-NO-OP` | nothing to do |
+
+LLM judgment cannot skip these — the scripts are deterministic.
+
+**M43 — the merge engine (`scripts/merge-decide.py`).** MERGE rows used to be printed and left
+for a person. One live run produced **235 of them across two repos** and closed none, so the
+files stayed stale and the Phase-5 audit refused the run for not doing work it gave nobody a way
+to do. The engine decides each one from a **provenance corpus** — every distinct line that has
+ever appeared in any `*.md` at any commit of this repo. A target line found there was written by
+the framework, so deleting it loses nothing the framework cannot put back; a line NOT found there
+is **presumed to be the owner's** and is preserved byte-for-byte. Measured over those 235 rows:
+**204 close automatically, 30 are deferred to a human.**
+
+Every write is backed up first, re-read afterwards, and **rolled back** if a single
+unknown-origin line, project-fingerprint token or `project-specific` region went missing — so a
+file that would fail its own check is never left on disk. Records land in
+`.claude/_merge-decisions.md` (decision, why, what was preserved, backup path).
+
+```bash
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO"                  # decision table, writes nothing
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply --conservative   # old behaviour: list MERGE rows, write nothing
+~/.claude/scripts/merge-decide.py          "$TARGET_REPO" --json=/tmp/rows.json    # per-row record for review
+```
 
 **Hard contract (M25) — apply Phase-4.6 round-one anchors deterministically:**
 

@@ -52,7 +52,7 @@ This is the gate that everything downstream assumes has run. It validates that e
 # Apply REPLACE-OR-ENHANCE + ADD rows from the study-existing report deterministically.
 # The agent CANNOT skip these by claiming "narrow scope" — the script reads the
 # report and copies pack source over thin stubs (with backup).
-~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply --include=replace,add
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply   # ADD + REPLACE rows, and MERGE rows via scripts/merge-decide.py
 ```
 
 **What this does:**
@@ -95,7 +95,7 @@ The historic bug (M11 → M22 series): agent ran preflight, generated reports, t
 
 ```bash
 ~/.claude/scripts/apply-baseline-sync.sh "$TARGET_REPO" --apply        # Phase 4.1 — repo-baseline → target
-~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply      # Phase 4.2 — pack files → .claude/
+~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply      # Phase 4.2 — pack files → .claude/ (MERGE rows auto-decided; --conservative to list them instead)
 ~/.claude/scripts/apply-anchors.sh "$TARGET_REPO" --apply              # Phase 4.6 — anchor blocks
 ~/.claude/scripts/apply-adapter-sync.sh "$TARGET_REPO" --apply         # Phase 4.8 — .claude/ → every enabled adapter
 ```

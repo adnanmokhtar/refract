@@ -6,6 +6,85 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### The setup now decides its own merges (M43) (2026-08-23)
+
+**The requirement, in the owner's words:** *"that what setup do add new files and for existing
+update it it compare and adjust it the setup must decide what to do enhance change or override
+and the setup for the knowledge and other it keep mind the current but adjust it if replace is
+safe do it and not loose any thing important."*
+
+**Why** — a MERGE row was a dead end. `study-existing.sh` produced them and nothing could close
+one except a person. Measured across two live repos: **235 MERGE rows**, 166 in capsolah-api
+(its own Summary: "Files with action needed: 166") and 69 in tenant-portal, against which
+`apply-study-decisions.sh --include=replace,add` applied 22 ADD rows in 1.77s and printed
+"Listed for human review: 171". The Phase-5 audit then refused the run for not doing work no
+script could do, so in practice those files stayed stale forever.
+
+**The insight that made it tractable** — "is this file different" is the wrong question, and so
+is "does it contain project identifiers"; every classifier built on either produced false
+negatives in the direction that deletes the owner's work. The right question is **did the packs
+write this line?** A corpus of every distinct line that has ever appeared in any `*.md` at any
+commit of this repo (5,367 blobs → 139,716 canonical lines) answers it per line. Of the 7,038
+target-side lines those 235 rows put at risk, 60.3% are verbatim historical pack text.
+
+**Added** — `scripts/merge-decide.py`, invoked automatically by `apply-study-decisions.sh`:
+
+| verb | licence | measured |
+|---|---|---|
+| `NO-OP` | identical once the anchor is set aside | 1 |
+| `OVERRIDE` | every deleted line is verbatim historical pack text | 163 |
+| `ENHANCE` | the target is a strict *subsequence* of the pack — zero lines deleted | 12 |
+| `ADJUST` | project content exists, all of it in sections the pack lacks; those are kept byte-for-byte and marked | 28 |
+| `DEFER` | project content inside a section the pack also changed — a real merge | 30 |
+
+**204 of 235 rows close automatically. DEFER is 12.8%, not the default.**
+
+**The invariant is mechanical, not editorial.** Before every write the target is backed up;
+after every write the file is re-read and checked, and **rolled back** if one unknown-origin
+line, one resolving project token, or one `project-specific` region went missing. The run exits
+3 if that happens, so a rollback can never be reported as success. `scripts/test-merge-decide.sh`
+watches both nets catch a bad write by feeding the classifier a corpus that lies.
+
+**Five real files the engine must never destroy, and does not**: capsolah's
+`tenant-isolation-reviewer.md` (75 lines of an *unanchored* `## Project-specific (Capsolah V1)`
+block, preserved byte-for-byte under ADJUST) and `env-diff/SKILL.md`, `ai/patterns/multi-tenancy.md`,
+tenant-portal's `art-direct.md` and `code-reviewer.md` (all DEFER, files untouched). Audited
+across both repos: **1,248 markdown files compared, 205 changed, 0 lost project knowledge.**
+
+**Three things that are load-bearing and were each learned by watching something break:**
+
+- **The HTML anchor is not sufficient protection.** capsolah-api carries a `## Project-specific`
+  heading in 274 artifacts and `<!-- project-specific:start -->` in only 254. Those 20
+  hand-extended blocks are now protected as regions in their own right.
+- **Detection must run on RAW lines.** `pack_substantive_sha8` strips ``[*_`]`` — correct for a
+  hash, catastrophic for detection: it turns `E2E_EMAIL` into `E2EEMAIL` and eats `.env.tenant`.
+  `lint-setup-contracts.sh` Rule 9 now fails the build if that normalization appears outside the
+  hash.
+- **A safety net that shares the classifier's corpus is not a net.** The first rollback fixture
+  did not fire, because every leg of the check was derived from the same corpus the decision
+  was. The token and region legs exist because of that failed fixture.
+
+**Changed** — `apply-study-decisions.sh` defaults to `--include=replace,add,auto-merge`;
+`--conservative` restores the old listing behaviour. Its bash `merge_additive()` was **deleted**
+rather than left beside the engine's — two implementations of "merge without losing anything"
+are two chances to lose something — and `--include=merge-additive` routes to
+`--additive-only`. Rule 8 keeps it deleted.
+
+**Fixed — the C2k/C2n contradiction, properly this time.** The earlier fix made C2n's *path*
+half resolution-aware. Its *identifier* half was still a bare set difference, so on a clean
+engine run against a real target C2n produced **43 KNOWLEDGE_LOSS errors on a run that lost
+nothing**. Adding the two-condition token test (`resolves on disk` AND `absent from the packs`)
+cut that to 13, and all 13 named old pack *example* text (`race_id`, `orders.place_order`,
+`RelationOptions`) or framework files under their deployed spelling
+(`../templates/snippets/instrumentation-parity.md`). C2n now asks the engine the **line-level**
+question instead — `merge-decide.py --verify-pairs` — which is the same test the engine gates
+its own writes on. It is deliberately *not* a token test over that corpus: the packs shipped
+`DomainMiddleware` and `X-Product-Id` as examples, so a token test over history would shrug at
+`ai/patterns/multi-tenancy.md` being overwritten, which is exactly the destruction C2n exists to
+catch. The token test remains as the fallback when python3 or the engine is unreachable —
+noisier, never quieter.
+
+
 ### Running found what nine passes of reading did not (2026-08-23)
 
 **Why** — the first end-to-end run of `/setup-project` against two real projects (a NestJS

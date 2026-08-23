@@ -1,16 +1,28 @@
 #!/usr/bin/env bash
 # apply-study-decisions.sh — deterministic enforcer of study-existing decisions.
 #
-# Reads <target>/.claude/_study-existing-report.md.
-# Applies REPLACE-OR-ENHANCE + ADD rows automatically (replace target file from
-# pack source). MERGE + KEEP-OURS-PLUS-INJECT rows are LISTED for human review
-# (they need partial / managed-section logic that's safer with human eyes).
+# Reads <target>/.claude/_study-existing-report.md and CLOSES every row it can, by itself.
+#
+#   ADD                              -> copy the pack file (shape- and variant-aware)
+#   REPLACE-OR-ENHANCE / ADOPT-TRIM  -> replace from pack source, after a backup
+#   MERGE / KEEP-OURS-PLUS-INJECT    -> handed to scripts/merge-decide.py, which decides
+#                                       NO-OP / OVERRIDE / ENHANCE / ADJUST / DEFER per file
+#   KEEP-OURS-* / IDENTICAL-NO-OP    -> nothing to do
+#
+# WHY THE MERGE ROWS ARE NO LONGER "LISTED FOR HUMAN REVIEW". They were, and the measurement
+# is why they are not: one live run produced 235 MERGE rows across two repos and printed
+# "Listed for human review: 171". Nothing in the framework could close one except a person, so
+# the files stayed stale and the audit refused the run for not doing work it gave nobody a way
+# to do. Measured over those same 235 rows, 204 are closable with a per-line proof that nothing
+# is lost and 30 genuinely need a human. See scripts/merge-decide.py for the proof and
+# scripts/test-merge-decide.sh for the fixtures that watch its safety nets catch a bad write.
 #
 # Solves: agent's Phase 4 was ignoring study-existing actionable rows under
 # --include=<pack> narrow-scope interpretation. This script can't be skipped.
 #
 # Usage:
-#   apply-study-decisions.sh <target-repo> [--apply] [--include=replace,add,merge]
+#   apply-study-decisions.sh <target-repo> [--apply] [--include=replace,add,auto-merge]
+#   apply-study-decisions.sh <target-repo> [--apply] --conservative   # pre-engine behaviour
 #   apply-study-decisions.sh <target-repo> --migrate-skill-shape [--apply]
 #   apply-study-decisions.sh <target-repo> --reject='pack/kind/file.md:rationale'     (repeatable)
 #                                          --keep-ours='pack/kind/file.md:rationale'
@@ -19,7 +31,16 @@
 #
 # Default mode: dry-run (lists actions; writes nothing).
 # --apply executes.
-# --include limits which decision classes to apply (default: replace,add).
+# --include limits which decision classes to apply (default: replace,add,auto-merge).
+#   add            copy files the target does not have
+#   replace        REPLACE-OR-ENHANCE / ADOPT-PACK-TRIM rows
+#   auto-merge     MERGE rows, decided per file by scripts/merge-decide.py  [DEFAULT]
+#   merge-additive MERGE rows, append-only: pack `## ` sections the target lacks, nothing
+#                  deleted. Kept for callers contracted to append-only semantics; it closes
+#                  strictly fewer rows than auto-merge because a pack change below H2 or
+#                  inside a shared section is not section-shaped.
+#   merge          list MERGE rows for a human and write nothing (the pre-2026-08 behaviour)
+# --conservative is the shorthand for --include=replace,add: no automatic merges at all.
 #
 # M35 ledger flags append durable decisions to <target>/.claude/_refresh-decisions.md:
 #   --reject     permanent skip (artifact class is wrong for this project; never re-proposed)
@@ -67,7 +88,11 @@ fi
 
 TARGET="$1"; shift
 APPLY=0
-INCLUDE="replace,add"
+# DEFAULT CHANGED 2026-08-23. The owner's requirement is that setup decides for itself —
+# "the setup must decide what to do enhance change or override ... if replace is safe do it".
+# `--conservative` (or an explicit --include=) restores the old listing behaviour.
+INCLUDE="replace,add,auto-merge"
+INCLUDE_EXPLICIT=0
 MIGRATE_SHAPE=0
 declare -a LEDGER_OPS=()   # "VERB|key|rationale"
 
@@ -82,7 +107,9 @@ while [[ $# -gt 0 ]]; do
     # fails the whole run, even when it blocked no row. Off by default because that shape
     # deadlocked a live repo for four months.
     --strict-shape) STRICT_SHAPE=1; shift ;;
-    --include=*)   INCLUDE="${1#--include=}"; shift ;;
+    --include=*)   INCLUDE="${1#--include=}"; INCLUDE_EXPLICIT=1; shift ;;
+    # The documented way back to "list every MERGE row and write nothing".
+    --conservative) INCLUDE="replace,add"; INCLUDE_EXPLICIT=1; shift ;;
     --reject=*)    LEDGER_OPS+=("REJECTED|${1#--reject=}"); shift ;;
     --keep-ours=*) LEDGER_OPS+=("KEEP-OURS|${1#--keep-ours=}"); shift ;;
     --resolve=*)   LEDGER_OPS+=("RESOLVED|${1#--resolve=}"); shift ;;
@@ -186,6 +213,21 @@ check_skill_shape_twin() {
     SHAPE_VERDICT="legacy-flat"; SHAPE_PATH="$flat"
   fi
   return 0
+}
+
+# row_would_write — does THIS loop write a file for this decision, given --include?
+#
+# The distinction is what separates a blocking twin from a noisy one. MERGE and
+# KEEP-OURS-PLUS-INJECT are handed to scripts/merge-decide.py, which resolves the installed
+# shape itself and rewrites THAT file — it never creates a third copy, so a twin cannot block
+# it. KEEP-OURS-*, IDENTICAL-NO-OP and the ledger verdicts write nothing at all. Only ADD and
+# the two REPLACE verdicts put bytes on disk from here.
+row_would_write() {
+  case "$1" in
+    ADD)                                  [[ "$INCLUDE" == *add* ]] ;;
+    ADOPT-PACK-TRIM|REPLACE-OR-ENHANCE)   [[ "$INCLUDE" == *replace* ]] ;;
+    *)                                    return 1 ;;
+  esac
 }
 
 # check_skill_name_uniqueness — the post-write guard. The twin check above is keyed on
@@ -458,55 +500,57 @@ rewrite_skill_refs_to_installed_shape() {
 #
 # Same rule as the CREATE path: first pack to claim a name owns the bare `<name>.md`; every
 # later variant lands beside it as `<name>.<pack>.md` and the collision is recorded.
-# ---------- Deterministic ADDITIVE merge (--include=merge-additive) -------------------------
+# ---------- MERGE rows: handed to the decision engine ---------------------------------------
 #
 # HISTORY — the run's real cost was MERGE rows, and NO script performed any of them. One live
-# run measured **171 MERGE rows totalling 14,302 changed lines**, all of which the audit then
-# REFUSED the run for not doing, while `--include=replace,add` applied 22 ADD rows in 1.77s and
-# printed "Listed for human review: 171". The size distribution says the work is not uniform:
-# 38 rows were <=20 changed lines, 45 were 21-60, 60 were 61-150 and 28 were >150.
+# run measured 235 MERGE rows across two repos, all of which the audit then REFUSED the run for
+# not doing, while `--include=replace,add` applied 22 ADD rows in 1.77s and printed "Listed for
+# human review: 171". The owner is one person running a real SaaS; those hand-merges were never
+# going to happen, so in practice the files stayed stale forever.
 #
-# The tractable, provably-safe subset is the ADDITIVE one: `## ` sections the pack has that the
-# target does not. Appending those DELETES NOTHING — the target's own prose, its anchor block
-# and any hand-written depth are untouched, so the merge cannot lose project knowledge and C2n
-# cannot fire on it. Rows where the pack's new material is not section-shaped, or where the two
-# files diverge INSIDE a shared section, still go to a human: they need judgement, and pretending
-# otherwise is how a "merge" becomes an overwrite.
+# THE ADDITIVE SUBSET USED TO LIVE HERE, in bash, as `merge_additive()`. It appended the `## `
+# sections the pack had and the target lacked — provably lossless, and genuinely useful, but it
+# closed 12 of 235 rows and it appended at end-of-file, which left the row dirty enough that the
+# NEXT run re-classified and rewrote it. Both properties are now the engine's, which subsumes
+# the additive merge as one of four verbs and keeps `--include=merge-additive` working by
+# routing it to `--additive-only`. There is deliberately ONE implementation of that merge; the
+# bash copy was deleted rather than left to drift, and lint-setup-contracts.sh Rule 8 fails the
+# build if a second one reappears here.
 #
-# Off by default. Opt in with --include=merge-additive.
-merge_additive_dryrun_count() {   # $1=pack_src $2=target -> 0 if any section would be added
-  local src="$1" tgt="$2" n=0 h
-  while IFS= read -r h; do
-    [[ -z "$h" ]] && continue
-    grep -qF "$h" "$tgt" 2>/dev/null || n=$((n + 1))
-  done < <({ grep -E '^## ' "$src" 2>/dev/null || true; } | sed 's/^## //' | sort -u)
-  MERGE_ADDED="$n"
-  [[ "$n" -gt 0 ]]
+# The engine is invoked ONCE per run, not once per row: it builds a provenance corpus from
+# claude-config's git history (~145k canonical lines, cached by HEAD sha) and that cost must be
+# paid once. It backs up before every write, re-reads what it wrote, and rolls back any file
+# that lost a line whose origin the corpus could not prove.
+MERGE_ENGINE="$REPO_ROOT/scripts/merge-decide.py"
+
+# 0 = the engine should handle MERGE rows this run.
+merge_engine_enabled() {
+  case ",$INCLUDE," in
+    *,auto-merge,*|*,merge-additive,*) ;;
+    *) return 1 ;;
+  esac
+  [[ -f "$MERGE_ENGINE" ]] || {
+    echo "  WARN merge decision engine not found at ${MERGE_ENGINE#$REPO_ROOT/} — MERGE rows will be listed, not decided." >&2
+    return 1
+  }
+  command -v python3 >/dev/null 2>&1 || {
+    echo "  WARN python3 not available — MERGE rows will be listed, not decided. This is the" >&2
+    echo "       --conservative behaviour; nothing is lost by it, the rows simply stay open." >&2
+    return 1
+  }
+  return 0
 }
 
-merge_additive() {                # $1=pack_src $2=target  -> 0 merged, 1 nothing to add
-  local src="$1" tgt="$2" added=0 h tmp
-  tmp=$(mktemp "${TMPDIR:-/tmp}/merge-add.XXXXXX")
-  cat "$tgt" > "$tmp"
-  while IFS= read -r h; do
-    [[ -z "$h" ]] && continue
-    # Present in the target already (compare on the heading TEXT, not the whole line)?
-    grep -qF "$h" "$tgt" 2>/dev/null && continue
-    {
-      printf '\n<!-- setup-project:merged-from-pack section=%s -->\n' "$(printf '%s' "$h" | tr ' ' '-')"
-      awk -v want="$h" '
-        index($0, want) && /^## / { on=1; print; next }
-        on && /^## / { exit }
-        on { print }
-      ' "$src"
-      printf '<!-- setup-project:merged-from-pack end -->\n'
-    } >> "$tmp"
-    added=$((added + 1))
-  done < <({ grep -E '^## ' "$src" 2>/dev/null || true; } | sed 's/^## //' | sort -u)
-  if [[ "$added" -eq 0 ]]; then rm -f "$tmp"; return 1; fi
-  cat "$tmp" > "$tgt"; rm -f "$tmp"
-  MERGE_ADDED="$added"
-  return 0
+run_merge_engine() {
+  local -a args=("$TARGET")
+  [[ "$APPLY" -eq 1 ]] && args+=(--apply)
+  case ",$INCLUDE," in
+    *,merge-additive,*) args+=(--additive-only) ;;
+  esac
+  echo ""
+  echo "=== MERGE rows → scripts/merge-decide.py ==="
+  python3 "$MERGE_ENGINE" "${args[@]}"
+  return $?
 }
 
 VARIANTS_LOG="$TARGET/.claude/_command-variants.md"
@@ -584,6 +628,7 @@ current_pack=""
 current_kind=""
 applied=0
 listed=0
+delegated=0
 skipped=0
 ledgered=0
 errors=0
@@ -631,6 +676,65 @@ echo ""
 ts=$(date +%Y%m%d-%H%M%S)
 bak_dir="$TARGET/.claude/backups/study-decisions-$ts"
 
+# ---------- M40 PREFLIGHT: a blocking twin halts BEFORE the first byte is written --------
+#
+# HISTORY, measured 2026-08-23 on tenant-portal. The twin check lived INSIDE the write loop,
+# so a run wrote 35 ADD rows and 54 engine merges — 89 files — and THEN exited 4 on three
+# skills that were already in both shapes before the run started. Two things were wrong with
+# that and they compound:
+#
+#   * ORDER. `exit 4` after a successful mutation is the worst possible signal. A phase runner
+#     that reads non-zero as "nothing happened" is wrong about 89 files, and a `set -e` caller
+#     aborts its pipeline with the repo already rewritten. Exit 4 now means NOTHING WAS
+#     WRITTEN, which is a contract a caller can act on.
+#   * BLAME. All three rows were MERGE rows. MERGE goes to the engine, which resolves the
+#     installed shape itself and rewrote neither twin (it deferred all three on their own
+#     merits). The loop refused rows it was never going to write, and failed the run over it.
+#     A twin that blocks no write is a WARN with a named remedy — the duplicate `name:` is
+#     real and worth fixing, but it is not this run's failure.
+declare -a twin_blocking=() twin_idle=()
+for action in "${actions[@]:-}"; do
+  [[ -z "$action" ]] && continue
+  IFS='|' read -r pf_decision pf_pack pf_kind pf_base pf_rest <<<"$action"
+  [[ "$pf_kind" == "skills" ]] || continue
+  check_skill_shape_twin "$pf_kind" "$(target_dir_for_kind "$pf_kind")" "$pf_base"
+  [[ "$SHAPE_VERDICT" == "twin" ]] || continue
+  if row_would_write "$pf_decision"; then
+    twin_blocking+=("$pf_pack/$pf_kind/$pf_base|${SHAPE_PATH#$TARGET/}|${SHAPE_OTHER#$TARGET/}")
+  else
+    twin_idle+=("$pf_pack/$pf_kind/$pf_base ($pf_decision)|${SHAPE_PATH#$TARGET/}|${SHAPE_OTHER#$TARGET/}")
+  fi
+done
+if [[ ${#twin_blocking[@]} -gt 0 ]]; then
+  echo "HALT: a skill-shape conflict blocks ${#twin_blocking[@]} row(s) this run would write."
+  for t in "${twin_blocking[@]}"; do
+    IFS='|' read -r t_key t_a t_b <<<"$t"
+    echo "  ERR $t_key — already installed in BOTH shapes: $t_a and $t_b. One skill \`name:\`,"
+    echo "      two registrations; writing a third copy would make it worse."
+  done
+  echo ""
+  echo "      NOTHING HAS BEEN WRITTEN. Resolve, then re-run. The scripted resolution is"
+  echo "      content-aware — it keeps whichever twin carries more PROJECT KNOWLEDGE and"
+  echo "      archives the other under .claude/backups/ (do NOT pick by byte size):"
+  echo "        apply-study-decisions.sh \"$TARGET\" --resolve-shape-conflicts --apply"
+  exit 4
+fi
+if [[ ${#twin_idle[@]} -gt 0 ]]; then
+  echo "WARN: ${#twin_idle[@]} skill(s) are installed in BOTH shapes (duplicate \`name:\`). No row"
+  echo "      this run writes touches them, so the run continues; fix them before one does:"
+  for t in "${twin_idle[@]}"; do
+    IFS='|' read -r t_key t_a t_b <<<"$t"
+    echo "        $t_key — $t_a  +  $t_b"
+  done
+  echo "        apply-study-decisions.sh \"$TARGET\" --resolve-shape-conflicts --apply"
+  if [[ "$STRICT_SHAPE" -eq 1 ]]; then
+    echo ""
+    echo "HALT: --strict-shape was passed — treating an idle twin as fatal. Nothing written."
+    exit 4
+  fi
+  echo ""
+fi
+
 # Apply per action
 if [[ ${#actions[@]} -eq 0 ]]; then
   echo "  (no actionable rows parsed from report — either nothing to do, or report is malformed)"
@@ -646,7 +750,11 @@ for action in "${actions[@]:-}"; do
   # carries it does `tgt` fall back to the pack's own (canonical) shape.
   check_skill_shape_twin "$kind" "$tgt_dir" "$base"
   tgt="${SHAPE_PATH:-$tgt_dir/$base}"
-  if [[ "$SHAPE_VERDICT" == "twin" ]]; then
+  # Belt and braces: the preflight above already halted on a twin that blocks a write, so
+  # reaching here with one means the row set changed under us. A twin that blocks nothing was
+  # reported by the preflight and falls through — MERGE rows still reach the engine, which
+  # rewrites the installed shape and never adds a third file.
+  if [[ "$SHAPE_VERDICT" == "twin" ]] && row_would_write "$decision"; then
     echo "  ERR $pack/$kind/$base — already installed in BOTH shapes: ${SHAPE_PATH#$TARGET/} and ${SHAPE_OTHER#$TARGET/}. Duplicate \`name:\`; refusing to write a third copy. Delete the wrong one, then re-run."
     SHAPE_CONFLICTS=$((SHAPE_CONFLICTS + 1))
     errors=$((errors + 1))
@@ -702,9 +810,13 @@ for action in "${actions[@]:-}"; do
           # ai/patterns/dashboards.md, which is none of commands or agents.
           rewrite_skill_refs_to_installed_shape "$tgt"
         fi
-        echo "  ADD     $pack/$kind/$base → $(basename "$tgt_dir")/$(basename "$tgt")"
+        echo "  ADD     $pack/$kind/$base → ${tgt#$TARGET/}"
       else
-        echo "  would-ADD $pack/$kind/$base → $(basename "$tgt_dir")/$(basename "$tgt")"
+        # The DESTINATION, relative to the target repo — not `basename dir/basename file`,
+        # which collapsed all 29 folder-form skill ADDs to the single string
+        # `skills/SKILL.md` and read exactly like the 56-duplicate bug this file exists to
+        # prevent. The writes were always correct; the display was not.
+        echo "  would-ADD $pack/$kind/$base → ${tgt#$TARGET/}"
       fi
       applied=$((applied + 1))
       ;;
@@ -715,6 +827,48 @@ for action in "${actions[@]:-}"; do
       [[ "$INCLUDE" == *replace* ]] || { listed=$((listed + 1)); continue; }
       [[ -f "$pack_src" ]] || { echo "  SKIP $pack/$kind/$base — pack source missing"; skipped=$((skipped + 1)); continue; }
       [[ -f "$tgt" ]] || { echo "  SKIP $pack/$kind/$base — target missing (was ADD before report; now ADD instead of REPLACE)"; skipped=$((skipped + 1)); continue; }
+
+      # ---- THE REPLACE PATH HAD NO INVARIANT AT ALL --------------------------------------
+      # `cp pack_src tgt` and the file is gone. The merge engine has three legs and a
+      # read-back; this had none, and the study report's `target N lines` measurement is
+      # taken BEFORE anything else in the run touches the file.
+      #
+      # MEASURED, and it is a real loss, not a hypothetical. tenant-portal:
+      # `--resolve-shape-conflicts` correctly resolved the design-iterate twin, keeping the
+      # 98-line FLAT file (project anchor + `## Project-specific` block, score 7) over the
+      # 35-line generic folder file (score 0), and migrated it into the folder shape. The
+      # report row, written when the target WAS the 35-line generic file, then said
+      # `target 35 / pack 83 → REPLACE-OR-ENHANCE`, and this path copied the 83-line pack file
+      # over the 98-line one. Result on disk: anchor block gone, `## Project-specific` block
+      # gone, `src/services/index.ts`, `src/api_urls.ts` and two more resolving project paths
+      # gone. The content-aware twin resolver had just finished proving that file was the one
+      # worth keeping.
+      #
+      # A target carrying a project region the pack source does not have is NOT a blind-replace
+      # candidate. It is a merge, and there is a verified merge engine two hundred lines below.
+      if grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$tgt" 2>/dev/null \
+         && ! grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$pack_src" 2>/dev/null; then
+        tgt_has_region=1
+      elif grep -qiE '^##[[:space:]]+project-specific' "$tgt" 2>/dev/null \
+         && ! grep -qiE '^##[[:space:]]+project-specific' "$pack_src" 2>/dev/null; then
+        tgt_has_region=1
+      else
+        tgt_has_region=0
+      fi
+      if [[ "$tgt_has_region" -eq 1 ]]; then
+        if merge_engine_enabled; then
+          echo "  ENGINE  $pack/$kind/$base — the installed file carries a project-specific block the pack source does not."
+          echo "          A blind REPLACE would delete it, so this row goes to scripts/merge-decide.py,"
+          echo "          which composes it under the invariant and rolls back anything that loses a line."
+          delegated=$((delegated + 1))
+        else
+          echo "  REFUSED $pack/$kind/$base — the installed file carries a project-specific block the pack"
+          echo "          source does not, and the merge engine is disabled (--include has no auto-merge)."
+          echo "          Replacing it would delete that block. Re-run with --include=replace,add,auto-merge."
+          listed=$((listed + 1))
+        fi
+        continue
+      fi
 
       # Backup the existing file before replace (safety net). ts/bak_dir are
       # hoisted above the loop so all of this run's backups share one dir.
@@ -742,32 +896,16 @@ for action in "${actions[@]:-}"; do
       applied=$((applied + 1))
       ;;
     MERGE|KEEP-OURS-PLUS-INJECT)
-      [[ "$INCLUDE" == *merge* ]] || { listed=$((listed + 1)); continue; }
-      # Additive subset only, and only when explicitly asked for. See § merge_additive.
-      if [[ "$INCLUDE" == *merge-additive* && "$decision" == "MERGE" && -f "$pack_src" && -f "$tgt" ]]; then
-        if [[ "$APPLY" -eq 1 ]]; then
-          rel="${tgt#$TARGET/}"
-          mkdir -p "$bak_dir/$(dirname "$rel")"
-          cp "$tgt" "$bak_dir/$rel"
-          if merge_additive "$pack_src" "$tgt"; then
-            if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
-              rewrite_deployed_command_links "$tgt"
-            else
-              rewrite_skill_refs_to_installed_shape "$tgt"
-            fi
-            echo "  MERGE+  $rel  ($MERGE_ADDED pack section(s) appended, nothing removed; backup: $bak_dir/$rel)"
-            applied=$((applied + 1)); continue
-          fi
-          rm -f "$bak_dir/$rel"
-        else
-          if merge_additive_dryrun_count "$pack_src" "$tgt"; then
-            echo "  would-MERGE+ $pack/$kind/$base  ($MERGE_ADDED pack section(s) the target lacks — additive, nothing removed)"
-            applied=$((applied + 1)); continue
-          fi
-        fi
+      # Decided per file by the engine, once, after this loop — see § MERGE rows. Counted
+      # here so the summary distinguishes "handed to the engine" from "nobody looked at it".
+      if merge_engine_enabled; then
+        delegated=$((delegated + 1))
+      elif [[ "$INCLUDE" == *merge* ]]; then
+        echo "  REVIEW  $pack/$kind/$base  ($decision; manual merge required — not auto-applied)"
+        listed=$((listed + 1))
+      else
+        listed=$((listed + 1))
       fi
-      echo "  REVIEW  $pack/$kind/$base  ($decision; manual merge required — not auto-applied)"
-      listed=$((listed + 1))
       ;;
     KEEP-OURS-DEEP|KEEP-OURS-ANCHORED|KEEP-OURS-ADD-SIDE-DOC|IDENTICAL-NO-OP)
       # No action needed
@@ -783,9 +921,18 @@ for action in "${actions[@]:-}"; do
   esac
 done
 
+# The engine runs ONCE, after every ADD/REPLACE row has landed, so a file it merges is the
+# file this run actually installed. Its own exit code 3 (a write was refused or rolled back)
+# is propagated: a run that could not keep its invariant must not report success.
+ENGINE_RC=0
+if [[ "$delegated" -gt 0 ]] && merge_engine_enabled; then
+  run_merge_engine || ENGINE_RC=$?
+fi
+
 echo ""
 echo "=== summary ==="
 echo "Applied (or would-apply): $applied"
+echo "MERGE rows → engine:      $delegated"
 echo "Listed for human review:  $listed"
 echo "Ledger-reconciled:        $ledgered"
 echo "Skipped (source missing / already installed in another shape): $skipped"
@@ -797,8 +944,16 @@ if [[ "$APPLY" -eq 1 && "$applied" -gt 0 ]]; then
   # Only announce a backup that EXISTS. HISTORY: this printed off the `applied` counter, but
   # a pure-ADD run creates no backup (there was no prior file to save), so the message named a
   # directory that had never been created and a user trying to roll back found nothing there.
+  # BOTH writers are named. HISTORY: this reported off `$bak_dir` alone and printed "No backup
+  # taken — every applied row was an ADD of a file that did not exist" on a run where the merge
+  # engine had taken 54 backups and named its own directory four lines earlier. A rollback
+  # message that denies the existence of the backups is worse than none.
+  eng_bak=$(ls -1dt "$TARGET/.claude/backups/merge-decide-"* 2>/dev/null | head -1 || true)
   if [[ -d "$bak_dir" ]]; then
     echo "Files modified. Backup at: ${bak_dir#$TARGET/}/"
+  elif [[ -n "$eng_bak" && -d "$eng_bak" ]]; then
+    echo "Files modified. This script's own rows were all ADDs of files that did not exist, so it"
+    echo "took no backup; the merge engine backed up every file IT rewrote at ${eng_bak#$TARGET/}/"
   else
     echo "Files modified. No backup taken — every applied row was an ADD of a file that did not exist."
   fi
@@ -815,6 +970,31 @@ fi
 # dry-run included, so the condition is reported before anyone writes.
 shape_rc=0
 check_skill_name_uniqueness || shape_rc=1
+
+# ANY non-zero engine exit halts, not just 3. HISTORY: this tested `-eq 3` alone, so an
+# engine that CRASHED (uncaught PermissionError on a read-only target — measured 2026-08-23)
+# left the wrapper printing its summary and exiting 0. A green run over a partially rewritten
+# tree is the single worst outcome this script can produce: it is indistinguishable from a
+# good one, so nobody looks. The engine's own contract is 0 = clean, everything else = red.
+if [[ "$ENGINE_RC" -eq 3 ]]; then
+  echo ""
+  echo "HALT (exit 3): the merge engine refused, rolled back or could not complete at least one"
+  echo "      write. UNLIKE EXIT 4, THIS DOES NOT MEAN NOTHING HAPPENED — the engine's own"
+  echo "      \"Files written\" line above is the count that DID land, and every one of those was"
+  echo "      verified after its write and backed up first. What exit 3 means is that at least"
+  echo "      one row could not be closed safely:"
+  echo "        * refused / rolled back — the composed result would have lost project knowledge."
+  echo "          Those rows are DEFER in .claude/_merge-decisions.md; their files are unchanged."
+  echo "        * aborted — the run stopped early. The record names the rows that DID complete."
+  echo "      Read .claude/_merge-decisions.md, then re-run once the named rows are dealt with."
+  exit 3
+elif [[ "$ENGINE_RC" -ne 0 ]]; then
+  echo ""
+  echo "HALT: the merge engine exited $ENGINE_RC (not 0 and not 3). Treat this run as INCOMPLETE:"
+  echo "      the engine may have written some files before failing. Check"
+  echo "      .claude/_merge-decisions.md and .claude/backups/merge-decide-*/ before re-running."
+  exit "$ENGINE_RC"
+fi
 
 # HISTORY — this used to be `if SHAPE_CONFLICTS>0 OR shape_rc!=0 then exit 4`, and the second
 # half of that condition is a WHOLE-DIRECTORY scan. Any pre-existing duplicate `name:` under

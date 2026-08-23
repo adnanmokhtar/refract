@@ -212,13 +212,165 @@ know_token_resolves() {
   return 1
 }
 
+# --- M42: the SECOND condition. "Resolves on disk" is necessary and NOT sufficient. ---------
+#
+# HISTORY. The resolve test above fixed the first half of C2n's mutual unsatisfiability with
+# C2k: a merge that deletes a reference to a path that does not exist is a repair, not a loss.
+# The half it did not fix is the mirror image, and it was measured on a 20-row hand-labelled
+# panel while building scripts/merge-decide.py: a rule of exactly this shape fired on
+# `ai/patterns/api-contract.md`, `ai/patterns/error-handling.md` and `ai/conventions.md` —
+# paths that resolve ONLY BECAUSE THE FRAMEWORK INSTALLED THEM. 2 false positives out of 20,
+# both of them "you destroyed project knowledge" on a file whose entire loss was generic pack
+# prose plus a cross-reference list. The fix, validated to 20/20 on that panel, is to require
+# BOTH conditions:
+#
+#     it resolves on disk   AND   the packs do not ship it
+#
+# The same asymmetry applies to identifiers, where C2n had no condition at all — a pure set
+# difference. Any merge that rewords prose drops CamelCase and snake_case words, and three of
+# them is the firing threshold. So an identifier must also be one the PROJECT actually uses:
+# present somewhere in the target's own source, and absent from the packs.
+#
+# BOTH indexes are built LAZILY and at most once per run, and both fail SAFE: if the pack
+# corpus cannot be read the filter removes nothing (C2n stays as noisy as it was), and if the
+# project source index cannot be built the identifier test reverts to the unconditional form.
+# A gate that goes quiet when its inputs are missing is worse than one that cries wolf.
+# M43 — C2n prefers the LINE-level provenance test the merge engine gates its own writes on,
+# and falls back to the token test below when python3 or the engine is unreachable.
+C2N_ENGINE=""
+C2N_PAIRS=""
+C2N_LINE_MODE=0
+C2N_PACK_IDX=""      # sorted file: every path/ident token the PACKS ship
+C2N_REPO_IDX=""      # sorted file: every ident token the PROJECT'S OWN SOURCE uses
+C2N_IDX_READY=0
+C2N_IDX_NOTE=""
+
+# c2n_token_pair rel backup live label — the TOKEN test for one (backup, live) pair.
+#
+# Extracted so it has TWO callers, and the second one is the reason it exists: when the
+# line-level engine call FAILS, C2n falls back to this instead of going quiet. Noisier than
+# the line test, never quieter. Only removed paths that STILL RESOLVE on disk count as loss
+# (see know_token_resolves), and an identifier counts only when the PROJECT uses it and the
+# PACKS do not ship it (M42's two conditions).
+c2n_token_pair() {
+  local rel="$1" bf="$2" live="$3" label="$4"
+  local lost_paths lost_idents
+  lost_paths=$(count_resolvable_lost_paths "$bf" "$live")
+  # A repo index that could not be built reverts to the unconditional form rather than going
+  # quiet — the direction a safety gate is allowed to err in.
+  if [[ -s "$C2N_REPO_IDX" ]]; then
+    lost_idents=$(comm -12 \
+        <(comm -23 <(comm -23 <(know_tokens "$bf" "$KNOW_IDENT_RE") <(know_tokens "$live" "$KNOW_IDENT_RE")) \
+                   <(c2n_pack_stream)) \
+        "$C2N_REPO_IDX" | grep -c . || true)
+  else
+    lost_idents=$(comm -23 <(know_tokens "$bf" "$KNOW_IDENT_RE") <(know_tokens "$live" "$KNOW_IDENT_RE") | grep -c . || true)
+  fi
+  lost_paths="${lost_paths:-0}"; lost_idents="${lost_idents:-0}"
+  # Same predicate study-existing.sh uses to protect a file from replacement:
+  # ≥1 real project path, or ≥3 code identifiers.
+  if [[ "$lost_paths" -ge 1 || "$lost_idents" -ge 3 ]]; then
+    kn_lost=$((kn_lost + 1))
+    err "KNOWLEDGE_LOSS: $rel lost $lost_paths project path(s) + $lost_idents identifier(s) present in $label. Each one RESOLVES in this project and is absent from the packs (M42 two-condition test), so generic pack text cannot regenerate it — restore from $label/$rel and merge the pack depth in instead of replacing."
+  fi
+}
+
+# c2n_twin_archived rel backup — is this file's old content preserved verbatim elsewhere?
+#
+# `--resolve-shape-conflicts` resolves a both-shapes-on-disk skill by keeping whichever twin
+# carries more PROJECT KNOWLEDGE and archiving the other byte-for-byte under
+# `.claude/backups/skill-shape-*/resolved-twins/<name>.{flat,folder}.md`. To C2n the winning
+# path then looks like a file that lost 13 lines, because the pre-run backup holds the loser's
+# text — measured on tenant-portal, that is exactly 2 of the ERRs a clean run produced.
+#
+# This is NOT a suppression rule. It fires only when the archived copy is byte-identical to the
+# pre-run backup, i.e. only when the bytes provably still exist at a named path. Anything less
+# than byte-identical falls through to the loss test.
+c2n_twin_archived() {
+  local rel="$1" bf="$2" name a
+  case "$rel" in
+    .claude/skills/*/SKILL.md) name="${rel#.claude/skills/}"; name="${name%/SKILL.md}" ;;
+    .claude/skills/*.md)       name="${rel#.claude/skills/}"; name="${name%.md}" ;;
+    *) return 1 ;;
+  esac
+  for a in "$CL"/backups/skill-shape-*/resolved-twins/"$name".flat.md \
+           "$CL"/backups/skill-shape-*/resolved-twins/"$name".folder.md; do
+    [[ -f "$a" ]] || continue
+    cmp -s "$a" "$bf" && { C2N_ARCHIVE_AT="${a#$TARGET/}"; return 0; }
+  done
+  return 1
+}
+
+# MUST be called directly, never inside `$( )`. A function that caches into a global and is
+# invoked through a command substitution caches into a SUBSHELL, so the cache is discarded on
+# every call and the index is rebuilt per token. That is not hypothetical — the first version
+# of this did exactly that and turned a 3-second audit into one that had not finished in two
+# minutes. apply-study-decisions.sh carries the same warning on resolve_variant_path.
+c2n_build_indexes() {
+  [ "$C2N_IDX_READY" -eq 1 ] && return 0
+  C2N_IDX_READY=1
+  # Prefer the engine's LINE-level test. It answers "did this run delete a line the framework
+  # cannot regenerate?", which is the question C2n has always been approximating with tokens —
+  # and, unlike a token test over the same corpus, it cannot be blinded by the fact that the
+  # packs shipped `DomainMiddleware` and `X-Product-Id` as their own example tokens.
+  local eng
+  for eng in "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/merge-decide.py" \
+             "${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/scripts/merge-decide.py"; do
+    [ -f "$eng" ] || continue
+    command -v python3 >/dev/null 2>&1 || break
+    C2N_ENGINE="$eng"; C2N_LINE_MODE=1
+    C2N_PAIRS=$(mktemp "${TMPDIR:-/tmp}/c2n-pairs.XXXXXX")
+    break
+  done
+  local root d
+  for d in "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../templates/packs" \
+           "${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/packs"; do
+    [[ -d "$d" ]] && { root="$d"; break; }
+  done
+  C2N_PACK_IDX=$(mktemp "${TMPDIR:-/tmp}/c2n-pack.XXXXXX")
+  if [[ -n "${root:-}" ]]; then
+    find -L "$root" -type f -name '*.md' -print0 2>/dev/null \
+      | xargs -0 grep -ohE "$KNOW_PATH_RE|$KNOW_IDENT_RE" 2>/dev/null \
+      | sed 's|^\./||' | sort -u > "$C2N_PACK_IDX" 2>/dev/null || true
+  else
+    C2N_IDX_NOTE="pack corpus unreadable — the 'absent from the packs' condition is disabled, so this check is NOISIER, not blinder"
+  fi
+
+  # .claude/ and ai/ are excluded on purpose: a token that exists only inside the framework's
+  # own artifacts is not evidence about the project's code, and including them would make
+  # every pack identifier "used by the project".
+  # SOURCE FILES ONLY, by extension. Without the filter this walked into `tenant_mysql_data/`
+  # and `.tsbuildinfo` on a real target: 70,325 "identifiers", most of them byte noise out of a
+  # database page file, and 32 seconds to collect them. An index that broad is not just slow —
+  # it makes the gate BLINDER, because any identifier that happens to occur inside a binary
+  # blob then counts as "the project uses this". Narrowing can only make the check noisier,
+  # which is the direction a safety gate is allowed to err in.
+  C2N_REPO_IDX=$(mktemp "${TMPDIR:-/tmp}/c2n-repo.XXXXXX")
+  find "$TARGET" \
+       \( -name node_modules -o -name .git -o -name dist -o -name build -o -name vendor \
+          -o -name .next -o -name .nuxt -o -name coverage -o -name __pycache__ \
+          -o -name .venv -o -name venv -o -name .turbo -o -name .cache \
+          -o -name .claude -o -path "$TARGET/ai" \) -prune -o \
+       -type f -size -2M -print 2>/dev/null \
+    | grep -E "\.($KNOW_SRC_EXT)$" \
+    | tr '\n' '\0' \
+    | xargs -0 grep -ohE "$KNOW_IDENT_RE" 2>/dev/null | sort -u > "$C2N_REPO_IDX" 2>/dev/null || true
+  return 0
+}
+
+# Emit a sorted token file for `comm`, or an empty stream when the index is unavailable.
+c2n_pack_stream() { [[ -s "${C2N_PACK_IDX:-}" ]] && cat "$C2N_PACK_IDX" || true; }
+
 # Count the removed path tokens that STILL RESOLVE in the target — i.e. real losses only.
 count_resolvable_lost_paths() {
   local bf="$1" live="$2" n=0 tok
+  # M42 — BOTH conditions. The pack filter is a set difference (one `comm`), not a grep per
+  # token; the resolve test has to stay per-token because it touches the filesystem.
   while IFS= read -r tok; do
     [[ -z "$tok" ]] && continue
     know_token_resolves "$tok" && n=$((n + 1))
-  done < <(comm -23 <(know_tokens "$bf" "$KNOW_PATH_RE") <(know_tokens "$live" "$KNOW_PATH_RE") || true)
+  done < <(comm -23 <(comm -23 <(know_tokens "$bf" "$KNOW_PATH_RE") <(know_tokens "$live" "$KNOW_PATH_RE")) \
+                    <(c2n_pack_stream) || true)
   printf '%s\n' "$n"
 }
 
@@ -284,8 +436,18 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
   # Runs off ALL recent backup dirs, not just the one C2a grades, because in
   # ENHANCE the only snapshot of a replaced file is the thin backup the replacing
   # script took itself.
+  c2n_build_indexes
+  [[ -n "$C2N_IDX_NOTE" ]] && warn_msg "C2n: $C2N_IDX_NOTE"
+  # Report the two index sizes. A silently-empty index is the difference between a gate that
+  # checks two conditions and one that checks none, and there is no way to tell from the ERRs.
+  if [[ "$C2N_LINE_MODE" -eq 1 ]]; then
+    ok "loss test: LINE-level provenance (scripts/merge-decide.py --verify-pairs)"
+  else
+    ok "loss test: token fallback — $(grep -c . "${C2N_PACK_IDX:-/dev/null}" 2>/dev/null || echo 0) pack token(s), $(grep -c . "${C2N_REPO_IDX:-/dev/null}" 2>/dev/null || echo 0) project-source identifier(s)"
+  fi
+  [[ -s "$C2N_REPO_IDX" ]] || warn_msg "C2n: could not index this project's own identifiers — the identifier half of the loss test falls back to an unfiltered set difference (noisier, never quieter)"
   seen_rel=$(mktemp "${TMPDIR:-/tmp}/c2n-seen.XXXXXX")
-  kn_checked=0; kn_lost=0
+  kn_checked=0; kn_lost=0; kn_archived=0
   while IFS= read -r bkdir; do
     bkdir="${bkdir%/}"   # `ls -1d .../*/` yields a trailing slash; without this the
                          # `${bf#"$bkdir"/}` strip never matches and every path is skipped.
@@ -297,6 +459,13 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
       # (.cursor/, .opencode/, …) are derived sinks — regenerating them is not loss.
       case "$rel" in
         ai/*|.claude/commands/*|.claude/agents/*|.claude/rules/*|.claude/skills/*|CLAUDE.md|AGENTS.md|CONVENTIONS.md) ;;
+        # THE DENSEST PROJECT KNOWLEDGE IN THE INSTALL WAS NOT IN THIS LIST. `_extracted-*.md`,
+        # `codebase-profile.md`, `_codebase-scan.md` and `GUIDE.md` are the extraction output —
+        # entity names, real paths, real conventions, none of it regenerable from a pack. No
+        # writer this repo ships touches them today, so this is not a hole in the merge engine;
+        # it was a hole in the NET, and a net with a hole in it only tells you about the fish
+        # that swam into the other side.
+        .claude/GUIDE.md|.claude/codebase-profile.md|.claude/_extracted-*.md|.claude/_codebase-scan.md|.claude/plans/*.md) ;;
         *) continue ;;
       esac
       # Oldest backup wins: first sighting of a path is the pre-run state.
@@ -304,16 +473,17 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
       printf '%s\n' "$rel" >> "$seen_rel"
       live="$TARGET/$rel"
       [[ -f "$live" ]] || continue   # whole-file deletion is caught by the census above
+      if c2n_twin_archived "$rel" "$bf"; then
+        kn_archived=$((kn_archived + 1))
+        continue
+      fi
       kn_checked=$((kn_checked + 1))
-      # Only removed paths that STILL RESOLVE on disk count as loss. See know_token_resolves.
-      lost_paths=$(count_resolvable_lost_paths "$bf" "$live")
-      lost_idents=$(comm -23 <(know_tokens "$bf" "$KNOW_IDENT_RE") <(know_tokens "$live" "$KNOW_IDENT_RE") | grep -c . || true)
-      lost_paths="${lost_paths:-0}"; lost_idents="${lost_idents:-0}"
-      # Same predicate study-existing.sh uses to protect a file from replacement:
-      # ≥1 real project path, or ≥3 code identifiers.
-      if [[ "$lost_paths" -ge 1 || "$lost_idents" -ge 3 ]]; then
-        kn_lost=$((kn_lost + 1))
-        err "KNOWLEDGE_LOSS: $rel lost $lost_paths project path(s) + $lost_idents identifier(s) present in ${bkdir#$TARGET/}. Generic pack text cannot regenerate them — restore from ${bkdir#$TARGET/}/$rel and merge the pack depth in instead of replacing."
+      if [[ "$C2N_LINE_MODE" -eq 1 ]]; then
+        # Collected now, adjudicated in ONE engine call after the loop — the provenance corpus
+        # costs ~20s to build and must be built once, not once per file.
+        printf '%s\t%s\t%s\n' "$rel" "$bf" "$live" >> "$C2N_PAIRS"
+      else
+        c2n_token_pair "$rel" "$bf" "$live" "${bkdir#$TARGET/}"
       fi
       # An anchor that existed and no longer does means the project block was
       # overwritten wholesale, not merged.
@@ -323,7 +493,67 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
       fi
     done < <(find "$bkdir" -type f -name '*.md' 2>/dev/null | sort)
   done < <(ls -1dtr "$CL/backups"/*/ 2>/dev/null || true)
-  rm -f "$seen_rel"
+
+  # --- the NON-markdown half: hooks and settings ------------------------------------------
+  # `.claude/hooks/*.sh` and `.claude/settings*.json` are executable project configuration.
+  # A hook path silently dropped from settings.json unregisters behaviour the owner wired up,
+  # and the file it names is still sitting on disk — which is exactly what
+  # count_resolvable_lost_paths is built to notice. The LINE test is deliberately NOT used
+  # here: the pack corpus is markdown, so every line of a JSON file is "unknown origin" to it
+  # and the result would be noise, not a signal.
+  seen_np=$(mktemp "${TMPDIR:-/tmp}/c2n-np.XXXXXX")
+  while IFS= read -r bkdir; do
+    bkdir="${bkdir%/}"
+    [[ -d "$bkdir" ]] || continue
+    [[ -n "$(find "$bkdir" -maxdepth 0 -mmin -1440 2>/dev/null)" ]] || continue
+    while IFS= read -r bf; do
+      rel="${bf#"$bkdir"/}"
+      case "$rel" in .claude/hooks/*|.claude/settings.json|.claude/settings.local.json) ;; *) continue ;; esac
+      grep -qxF "$rel" "$seen_np" 2>/dev/null && continue
+      printf '%s\n' "$rel" >> "$seen_np"
+      live="$TARGET/$rel"
+      [[ -f "$live" ]] || continue
+      kn_checked=$((kn_checked + 1))
+      c2n_token_pair "$rel" "$bf" "$live" "${bkdir#$TARGET/}"
+    done < <(find "$bkdir" \( -path '*/.claude/hooks/*' -o -name 'settings.json' -o -name 'settings.local.json' \) -type f 2>/dev/null | sort)
+  done < <(ls -1dtr "$CL/backups"/*/ 2>/dev/null || true)
+  rm -f "$seen_np"
+  # M43 — one engine call for every pair the loop collected.
+  if [[ "$C2N_LINE_MODE" -eq 1 && -s "${C2N_PAIRS:-}" ]]; then
+    c2n_out=$(mktemp "${TMPDIR:-/tmp}/c2n-out.XXXXXX")
+    if python3 "$C2N_ENGINE" --verify-pairs="$C2N_PAIRS" --target="$TARGET" > "$c2n_out" 2>/dev/null; then
+      while IFS=$'\t' read -r rel nl nt nr first; do
+        [[ -z "$rel" ]] && continue
+        kn_lost=$((kn_lost + 1))
+        err "KNOWLEDGE_LOSS: $rel lost $nl line(s), $nt project token(s) and $nr project-specific region(s) that the pack corpus cannot account for — e.g. $first. Restore it from the backup and merge the pack depth in instead of replacing."
+      done < "$c2n_out"
+    else
+      # C2n USED TO FAIL OPEN HERE, and this is the single most dangerous line the audit ever
+      # had. `command -v python3` succeeding set C2N_LINE_MODE=1 permanently, so when the
+      # engine call itself then failed — a stubbed python3, a syntax error in the engine, a
+      # corrupt provenance cache — the token fallback never ran and this emitted warn_msg.
+      # `warn` does not touch the exit code, so audit-setup.sh printed
+      # "PASS — Phase 5 audit clean. Safe to report success." over a run whose loss test had
+      # not executed at all. REPRODUCED 2026-08-23: python3 stubbed to /usr/bin/false on a
+      # fixture the same audit ERRs on with a working python3 — WARN only, no ERR.
+      #
+      # Two changes, and both are needed. The failure is an err, because a mandatory check
+      # that did not run must never read as a check that passed. AND the token test runs over
+      # every pair anyway, because "we could not check" is a much weaker answer than the one
+      # this script can still produce without the engine.
+      err "C2n: the LINE-level provenance check FAILED TO RUN (scripts/merge-decide.py --verify-pairs exited non-zero). This is the mandatory loss test — a run whose loss test did not execute is NOT a clean run. Falling back to the token test below; fix python3/the engine and re-run before trusting this audit."
+      while IFS=$'\t' read -r p_rel p_bf p_live; do
+        [[ -z "$p_rel" ]] && continue
+        c2n_token_pair "$p_rel" "$p_bf" "$p_live" "the pre-run backup"
+      done < "$C2N_PAIRS"
+    fi
+    rm -f "$c2n_out"
+  fi
+  rm -f "$seen_rel" ${C2N_PACK_IDX:+"$C2N_PACK_IDX"} ${C2N_REPO_IDX:+"$C2N_REPO_IDX"} ${C2N_PAIRS:+"$C2N_PAIRS"}
+  # Printed, never silent: an exemption nobody can see is indistinguishable from a blind spot.
+  if [[ "$kn_archived" -gt 0 ]]; then
+    ok "resolved skill-shape twins: $kn_archived file(s) whose pre-run content is preserved byte-for-byte under .claude/backups/skill-shape-*/resolved-twins/ (verified with cmp, not assumed)"
+  fi
   if [[ "$kn_checked" -eq 0 ]]; then
     ok "per-file project knowledge: no backed-up .md files to compare (nothing was overwritten this run)"
   elif [[ "$kn_lost" -eq 0 ]]; then
@@ -927,6 +1157,15 @@ if [[ -d "$TARGET/.claude/commands" ]]; then
     # Executable references the command instructs the reader to run: a repo-relative path to a
     # .sh / .py / .js inside .claude/ or ai/ or scripts/, whether backticked or on a bare line
     # in a fenced block.
+    #
+    # THE END GUARD IS LOAD-BEARING. Without `([^A-Za-z0-9]|$)` the alternation `js` matches
+    # INSIDE `.json`, so `ai/optimize/_dep-graph.json` was extracted as `ai/optimize/_dep-graph.js`,
+    # failed the existence test, and raised a KNOWLEDGE-shaped ERR about a file that had never
+    # existed and that nothing ever asked the reader to run. Measured: this was the ONLY new ERR
+    # a whole 149-file merge run introduced on capsolah-api (audit fail 38 -> 39), and the pack
+    # sentence it fired on explicitly handles the file's absence ("If the graph artifact is
+    # absent, record diagram UNVERIFIED"). `grep -o` prints the guard character too, so the sed
+    # below strips it from both ends.
     while IFS= read -r ref; do
       [[ -z "$ref" ]] && continue
       ref="${ref#./}"
@@ -944,8 +1183,8 @@ if [[ -d "$TARGET/.claude/commands" ]]; then
                  anc { if (/^<!-- project-specific:end -->[[:space:]]*$/) anc=0; next }
                  { print }
                ' "$cf" 2>/dev/null \
-               | { grep -ohE '(^|[[:space:]`(])((\.claude|ai)/[A-Za-z0-9_./-]+\.(sh|py|js|mjs))' 2>/dev/null || true; } \
-             ; } | sed -E 's/^[[:space:]`(]+//' | sort -u)
+               | { grep -ohE '(^|[[:space:]`(])((\.claude|ai)/[A-Za-z0-9_./-]+\.(sh|py|js|mjs))([^A-Za-z0-9]|$)' 2>/dev/null || true; } \
+             ; } | sed -E 's/^[[:space:]`(]+//; s/[^A-Za-z0-9]+$//' | sort -u)
   done < <({ find "$TARGET/.claude/commands" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null || true; } | sort)
 fi
 if [[ "$cmd_broken" -eq 0 ]]; then
