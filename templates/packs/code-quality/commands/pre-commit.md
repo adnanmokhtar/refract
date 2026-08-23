@@ -1,5 +1,5 @@
 ---
-description: Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on red), then agent review, secret-scan and coverage-gap on every staged file, then a comprehension brief. Refuses the commit on any blocker. Anti-triggers: the whole-branch PR review is `/review-changes` (which also owns the shared reviewer routing table); the no-diff weekly repo pulse is `/check-health`; ranking and fixing at target scale is `/audit`.
+description: "Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on red), then agent review, secret-scan and coverage-gap on every staged file, then a comprehension brief. Refuses the commit on any blocker. Anti-triggers: the whole-branch PR review is `/review-changes` (which also owns the shared reviewer routing table); the no-diff weekly repo pulse is `/check-health`; ranking and fixing at target scale is `/audit`."
 ---
 
 # /pre-commit

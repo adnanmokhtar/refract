@@ -1,6 +1,6 @@
 ---
 name: forms
-description: Pattern: Forms
+description: "Pattern: Forms"
 kind: ai-pattern
 pack: frontend
 ---

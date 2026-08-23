@@ -1,6 +1,6 @@
 ---
 name: event-sourcing
-description: Pattern: Event Sourcing
+description: "Pattern: Event Sourcing"
 kind: ai-pattern
 pack: distributed-systems
 ---

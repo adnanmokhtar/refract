@@ -1,5 +1,5 @@
 ---
-description: Profile a slow endpoint / page / flow. Identify the dominant bottleneck (CPU / IO / network / lock contention / GC). Output: targeted fix proposals ranked by impact.
+description: "Profile a slow endpoint / page / flow. Identify the dominant bottleneck (CPU / IO / network / lock contention / GC). Output: targeted fix proposals ranked by impact."
 ---
 
 # /profile-perf

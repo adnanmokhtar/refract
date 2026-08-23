@@ -74,11 +74,24 @@
 #
 # Exit codes: 0 ok / 1 target not found / 2 usage / 3 study report missing
 #             4 skill-shape conflict (duplicate skill name on disk — nothing written)
+#             6 auto-merge requested but the merge decision engine cannot run — nothing
+#               written. Not a degradation: the caller asked for merges and would otherwise
+#               have got an exit-0 run that merged nothing. `--conservative` is the opt-out.
 
 set -euo pipefail
 export LC_ALL=C
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through the global-install symlink so REPO_ROOT is the CHECKOUT, never ~/.claude.
+# ~/.claude/scripts/<name> is a symlink INTO this repo, so an unresolved BASH_SOURCE makes
+# dirname() report ~/.claude/scripts and every sibling asset reached for below resolves only
+# if it, too, happens to have been linked. That is exactly how the merge engine went missing:
+# scripts/merge-decide.py existed at HEAD, sync-to-global.sh had not been re-run since it
+# landed, and $REPO_ROOT/scripts/merge-decide.py pointed at a link that was never created — so
+# 238 MERGE rows across two live repos degraded to "listed, not decided" and the run still
+# exited 0. See CONTRIBUTING § "Scripts run from two places". Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 PACKS_ROOT="$REPO_ROOT/templates/packs"
 
 if [[ $# -lt 1 ]]; then
@@ -394,6 +407,24 @@ if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
         echo "  RESOLVE  $name — kept ${winner#$TARGET/}$([[ "$winner" == "$flat" ]] && echo " (migrated to canonical folder shape)"), archived ${loser#$TARGET/}"
         echo "           reason: $why"
         echo "           archived copy: ${mig_bak#$TARGET/}/resolved-twins/"
+        # SAY WHAT WENT WITH IT. This resolver optimises for project knowledge and is right to,
+        # but the twin it archives is often the PACK version — and the pack version is where the
+        # hardening lives. MEASURED: component-playground kept a 1,617-byte project twin over a
+        # 6,694-byte pack twin (correctly — the kept file cites three real project paths the
+        # other does not), and the archived copy took `## Halt conditions` with it, including
+        # "halt if no dev-only gating is applied". Nothing was destroyed; nothing said it had
+        # gone either. A resolution reported as clean, that quietly drops a halt condition, is
+        # a resolution the reader cannot review.
+        _lost_sections=$(comm -23 \
+          <(grep -oE '^##+[[:space:]]+.*' "$mig_bak/resolved-twins/$name.$([[ "$loser" == "$flat" ]] && echo flat || echo folder).md" 2>/dev/null | sed 's/[[:space:]]*$//' | sort -u) \
+          <(grep -oE '^##+[[:space:]]+.*' "$([[ "$winner" == "$flat" ]] && echo "$folder" || echo "$winner")" 2>/dev/null | sed 's/[[:space:]]*$//' | sort -u) \
+          2>/dev/null | head -6 || true)
+        if [[ -n "$_lost_sections" ]]; then
+          echo "           NOTE the archived twin carried section(s) the kept file does not:"
+          printf '                 %s\n' $(printf '%s\n' "$_lost_sections" | sed 's/^#*[[:space:]]*//' | tr ' ' '~')  | tr '~' ' '
+          echo "                 Review the archived copy before relying on the kept one; if any of"
+          echo "                 those are halt conditions or safety scaffolding, port them across."
+        fi
       else
         echo "  would-RESOLVE $name — keep ${winner#$TARGET/}, archive ${loser#$TARGET/}"
         echo "           reason: $why"
@@ -523,22 +554,51 @@ rewrite_skill_refs_to_installed_shape() {
 # that lost a line whose origin the corpus could not prove.
 MERGE_ENGINE="$REPO_ROOT/scripts/merge-decide.py"
 
-# 0 = the engine should handle MERGE rows this run.
-merge_engine_enabled() {
+# THE THREE REASONS THE ENGINE MIGHT NOT RUN ARE NOT THE SAME REASON.
+#
+# This used to be one predicate returning 1 for all three, which made "the user asked for
+# --conservative" indistinguishable from "the mandatory engine is not on disk". Measured
+# consequence on two live repos: 238 MERGE rows — the entire payload of a seven-batch
+# programme — printed `WARN … will be listed, not decided`, once per row, and the script
+# exited 0. Phase 4 reported success having performed none of its headline work; only the
+# Phase-5 audit caught it, 190 seconds later, and the remedy it printed was the flag that was
+# already in effect. A hard contract (M23/M43) must not degrade silently into a no-op.
+#
+# So the state is computed ONCE, before any row is processed, and it is a THREE-valued answer:
+#   on      — run the engine
+#   off     — the operator turned it off (--conservative / explicit --include without
+#             auto-merge). Listing rows is the requested behaviour. Exit 0.
+#   broken  — auto-merge IS requested and the engine cannot run. This is an environment
+#             fault, not a decision. HALT (exit 6) before writing anything.
+MERGE_ENGINE_STATE=""
+MERGE_ENGINE_WHY=""
+
+resolve_merge_engine_state() {
   case ",$INCLUDE," in
     *,auto-merge,*|*,merge-additive,*) ;;
-    *) return 1 ;;
+    *) MERGE_ENGINE_STATE="off"
+       MERGE_ENGINE_WHY="--include has no auto-merge (conservative by request)"
+       return 0 ;;
   esac
-  [[ -f "$MERGE_ENGINE" ]] || {
-    echo "  WARN merge decision engine not found at ${MERGE_ENGINE#$REPO_ROOT/} — MERGE rows will be listed, not decided." >&2
-    return 1
-  }
-  command -v python3 >/dev/null 2>&1 || {
-    echo "  WARN python3 not available — MERGE rows will be listed, not decided. This is the" >&2
-    echo "       --conservative behaviour; nothing is lost by it, the rows simply stay open." >&2
-    return 1
-  }
+  if [[ ! -f "$MERGE_ENGINE" ]]; then
+    MERGE_ENGINE_STATE="broken"
+    MERGE_ENGINE_WHY="the engine is not on disk at $MERGE_ENGINE"
+    return 0
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    MERGE_ENGINE_STATE="broken"
+    MERGE_ENGINE_WHY="python3 is not on PATH, and the engine is a python3 program"
+    return 0
+  fi
+  MERGE_ENGINE_STATE="on"
+  MERGE_ENGINE_WHY="scripts/merge-decide.py"
   return 0
+}
+
+# 0 = the engine should handle MERGE rows this run. Callable per row; says nothing, because
+# the one thing worth saying was already said once in the header.
+merge_engine_enabled() {
+  [[ "$MERGE_ENGINE_STATE" == "on" ]]
 }
 
 run_merge_engine() {
@@ -669,6 +729,34 @@ echo "Target:  $TARGET"
 echo "Mode:    $([[ $APPLY -eq 1 ]] && echo APPLY || echo dry-run)"
 echo "Include: $INCLUDE"
 echo "Rows:    ${#actions[@]}"
+
+# Say what the merge engine is going to do BEFORE the rows scroll past, once, and halt here
+# rather than 168 rows later if it cannot do it. `Engine:` is the line to grep for in a log.
+resolve_merge_engine_state
+echo "Engine:  $MERGE_ENGINE_STATE — $MERGE_ENGINE_WHY"
+if [[ "$MERGE_ENGINE_STATE" == "broken" ]]; then
+  _merge_rows=0
+  for a in "${actions[@]:-}"; do [[ "${a%%|*}" == "MERGE" ]] && _merge_rows=$(( _merge_rows + 1 )); done
+  echo "" >&2
+  echo "HALT: auto-merge was requested and the merge decision engine cannot run." >&2
+  echo "      Reason: $MERGE_ENGINE_WHY" >&2
+  echo "      $_merge_rows MERGE row(s) in this report would be listed instead of decided, and" >&2
+  echo "      this script would exit 0 having done none of the work Phase 4 exists to do." >&2
+  echo "" >&2
+  if [[ ! -f "$MERGE_ENGINE" ]]; then
+    echo "      The engine ships with this framework at scripts/merge-decide.py. If that file" >&2
+    echo "      exists in your checkout, this script was invoked with a \$REPO_ROOT that is not" >&2
+    echo "      the checkout — re-run it by its real path, or re-link the global install:" >&2
+    echo "        bash $REPO_ROOT/scripts/sync-to-global.sh --apply" >&2
+  else
+    echo "      Install python3, or accept conservative behaviour explicitly:" >&2
+  fi
+  echo "" >&2
+  echo "      To proceed WITHOUT the engine — every MERGE row listed for a human, nothing" >&2
+  echo "      merged — say so, and this halt turns into the listing you asked for:" >&2
+  echo "        $0 \"$TARGET\" --conservative$([[ $APPLY -eq 1 ]] && echo ' --apply')" >&2
+  exit 6
+fi
 echo ""
 
 # One backup timestamp/dir per run so a single invocation's rollback set lives
@@ -862,9 +950,17 @@ for action in "${actions[@]:-}"; do
           echo "          which composes it under the invariant and rolls back anything that loses a line."
           delegated=$((delegated + 1))
         else
+          # Say WHY, from the state we computed, not from the one cause out of three that
+          # this branch used to assume. The old text always blamed the --include list and
+          # always prescribed `--include=replace,add,auto-merge` — which on the run that
+          # exposed it was already the default, already printed in the header two lines
+          # above, and already in effect. The user was sent in a circle.
           echo "  REFUSED $pack/$kind/$base — the installed file carries a project-specific block the pack"
-          echo "          source does not, and the merge engine is disabled (--include has no auto-merge)."
-          echo "          Replacing it would delete that block. Re-run with --include=replace,add,auto-merge."
+          echo "          source does not, and the merge engine is not running: $MERGE_ENGINE_WHY."
+          echo "          Replacing it would delete that block, so this row stays open."
+          if [[ "$MERGE_ENGINE_STATE" == "off" ]]; then
+            echo "          To let the engine decide it: re-run without --conservative."
+          fi
           listed=$((listed + 1))
         fi
         continue

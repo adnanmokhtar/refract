@@ -1,6 +1,6 @@
 ---
 name: system-design
-description: Pattern: System Design Document
+description: "Pattern: System Design Document"
 kind: ai-pattern
 pack: documentation
 ---

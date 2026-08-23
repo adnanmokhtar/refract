@@ -10,7 +10,7 @@ sub-phases:
   - 2.5: deep idiom extraction
   - 2.6: profile-informed coverage gap check (ENHANCE + REFRESH)
   - 2.7-2.12: deep extraction (REFINE only — domain entities, architecture, e2e flows, conventions, perf, failures)
-note: Phase 2.6 prose appears textually before Phase 2 body in this file because 2.6 is conceptually a GATE on Phase 2's output (coverage-gap check). Read order: 2.0 → 2.5 → 2.6 (gate) → 2.7-2.12 (REFINE-only deep extraction). The textual ordering is intentional; do not "fix" it without also rewiring downstream consumers.
+note: "Phase 2.6 prose appears textually before Phase 2 body in this file because 2.6 is conceptually a GATE on Phase 2's output (coverage-gap check). Read order: 2.0 → 2.5 → 2.6 (gate) → 2.7-2.12 (REFINE-only deep extraction). The textual ordering is intentional; do not \"fix\" it without also rewiring downstream consumers."
 ---
 
 **Stage-gate concession (extraction artifacts ≠ deliverables)**: The four deep-extraction files this phase can produce (`_extracted-codebase.md`, `_extracted-idioms.md`, `_extracted-business.md`, `_refine-extract.md`) are **CONTEXT for later phases, not user-facing deliverables**. They exist to make Phase 4 generation cheaper and more project-specific. With `--lightweight`, only `codebase-profile.md` is required; the other three are skipped, and Phase 4 reads source directly when it needs deeper detail.

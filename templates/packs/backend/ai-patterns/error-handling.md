@@ -1,6 +1,6 @@
 ---
 name: error-handling
-description: Pattern: Error Handling
+description: "Pattern: Error Handling"
 kind: ai-pattern
 pack: backend
 ---

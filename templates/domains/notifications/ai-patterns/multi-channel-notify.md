@@ -1,6 +1,6 @@
 ---
 name: multi-channel-notify
-description: Pattern: Multi-channel notification dispatch
+description: "Pattern: Multi-channel notification dispatch"
 kind: ai-pattern
 ---
 

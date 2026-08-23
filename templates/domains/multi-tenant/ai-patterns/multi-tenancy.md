@@ -1,6 +1,6 @@
 ---
 name: multi-tenancy
-description: Pattern: Multi-Tenancy (Request-Scoped Context)
+description: "Pattern: Multi-Tenancy (Request-Scoped Context)"
 kind: ai-pattern
 ---
 

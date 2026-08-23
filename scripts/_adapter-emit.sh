@@ -30,7 +30,17 @@
 # bash 3.2 (macOS) compatible — no associative arrays, mapfile, or ${var,,}.
 
 # Repo root, resolved from this file, not from the caller's cwd.
-ADAPTER_EMIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through the global-install symlink so ADAPTER_EMIT_ROOT is the CHECKOUT, never ~/.claude.
+# ~/.claude/scripts/<name> is a symlink INTO this repo, so an unresolved BASH_SOURCE makes
+# dirname() report ~/.claude/scripts and every sibling asset reached for below resolves only
+# if it, too, happens to have been linked. That is exactly how the merge engine went missing:
+# scripts/merge-decide.py existed at HEAD, sync-to-global.sh had not been re-run since it
+# landed, and $ADAPTER_EMIT_ROOT/scripts/merge-decide.py pointed at a link that was never created — so
+# 238 MERGE rows across two live repos degraded to "listed, not decided" and the run still
+# exited 0. See CONTRIBUTING § "Scripts run from two places". Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+ADAPTER_EMIT_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 
 # ── Generation markers ──────────────────────────────────────────────────────
 # Written into every generated artifact so --unlink can recognise ours.

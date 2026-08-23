@@ -1,6 +1,6 @@
 ---
 name: outbox
-description: Pattern: Transactional Outbox
+description: "Pattern: Transactional Outbox"
 kind: ai-pattern
 pack: distributed-systems
 ---

@@ -1,6 +1,6 @@
 ---
 name: theming
-description: Pattern: Theming
+description: "Pattern: Theming"
 kind: ai-pattern
 pack: ui-ux
 ---

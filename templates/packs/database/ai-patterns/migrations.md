@@ -1,6 +1,6 @@
 ---
 name: migrations
-description: Pattern: Safe Migrations
+description: "Pattern: Safe Migrations"
 kind: ai-pattern
 pack: database
 ---

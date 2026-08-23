@@ -24,6 +24,36 @@
 set -euo pipefail
 export LC_ALL=C
 
+# Symlink-resolved: ~/.claude/scripts/<name> links into this repo, so an unresolved
+# BASH_SOURCE puts this dir at ~/.claude/scripts and every sibling asset below resolves only
+# if it too was linked (see CONTRIBUTING § "Scripts run from two places").
+# Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+SCRIPTS_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
+# EVERY remediation this audit prints is rooted at $SCRIPTS_DIR, never at a literal
+# `~/.claude/scripts/`. MEASURED: C2u failed a live run for an inert rules layer and told the
+# user to run `~/.claude/scripts/wire-rule-imports.sh … --apply`. That file was one of seven
+# committed at HEAD and never linked into the global install, so the audit correctly identified
+# a mandatory failure and then handed the reader "No such file or directory". An audit that
+# prescribes a command the reader cannot run has not reported a defect, it has added one.
+# Gate: lint-setup-contracts.sh Rule 13.
+#
+# And the same reasoning applies to the framework's DATA, not just its scripts. Anything under
+# templates/ must be looked for in the CHECKOUT first and only then at the global-install path.
+# `${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/...` alone is the exact shape that made the
+# merge engine unreachable: correct when the install happens to be current, silently degrading
+# when it is not — and C2i, C2n and C2s all degrade QUIETLY when their corpus is missing, which
+# is the worst way for a mandatory check to fail. Checkout first, global second, and say which.
+framework_path() {   # $1 = path under the framework root, e.g. templates/repo-baseline/ai
+  local rel="$1" c
+  for c in "$SCRIPTS_DIR/../$rel" "${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/$rel"; do
+    [ -e "$c" ] && { printf '%s' "$c"; return 0; }
+  done
+  printf '%s' "${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/$rel"
+  return 1
+}
+
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <target-repo> [--mode=...] [--read-only]" >&2
   echo "       --read-only = audit without writing anything under <target-repo>." >&2
@@ -150,7 +180,7 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
       fi
     fi
   else
-    err "no backup created in the last 24h — run-preflight.sh (M35 Phase 0 backup) did not run; re-run: ~/.claude/scripts/run-preflight.sh \"$TARGET\" --mode=$MODE_LABEL"
+    err "no backup created in the last 24h — run-preflight.sh (M35 Phase 0 backup) did not run; re-run: $SCRIPTS_DIR/run-preflight.sh \"$TARGET\" --mode=$MODE_LABEL"
   fi
   echo ""
 fi
@@ -314,8 +344,8 @@ c2n_build_indexes() {
   # and, unlike a token test over the same corpus, it cannot be blinded by the fact that the
   # packs shipped `DomainMiddleware` and `X-Product-Id` as their own example tokens.
   local eng
-  for eng in "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/merge-decide.py" \
-             "${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/scripts/merge-decide.py"; do
+  for eng in "$SCRIPTS_DIR/merge-decide.py" \
+             "${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/scripts/merge-decide.py"; do  # checkout first
     [ -f "$eng" ] || continue
     command -v python3 >/dev/null 2>&1 || break
     C2N_ENGINE="$eng"; C2N_LINE_MODE=1
@@ -323,8 +353,8 @@ c2n_build_indexes() {
     break
   done
   local root d
-  for d in "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../templates/packs" \
-           "${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/packs"; do
+  for d in "$SCRIPTS_DIR/../templates/packs" \
+           "${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/packs"; do  # checkout first
     [[ -d "$d" ]] && { root="$d"; break; }
   done
   C2N_PACK_IDX=$(mktemp "${TMPDIR:-/tmp}/c2n-pack.XXXXXX")
@@ -398,7 +428,7 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
   bk=$(newest_preflight_backup)
   if [[ -z "$bk" ]]; then
     if [[ "$MODE" == "enhance" ]]; then
-      warn_msg "no backup dir in .claude/backups from the last 24h — file-census comparison skipped. ENHANCE DOES take the Phase-0 backup now (run-preflight.sh STEP -1), so this means the preflight was skipped, or the target had no prior setup to back up (a bare ENHANCE-retrofit). Re-run: ~/.claude/scripts/run-preflight.sh \"$TARGET\" --mode=$MODE_LABEL"
+      warn_msg "no backup dir in .claude/backups from the last 24h — file-census comparison skipped. ENHANCE DOES take the Phase-0 backup now (run-preflight.sh STEP -1), so this means the preflight was skipped, or the target had no prior setup to back up (a bare ENHANCE-retrofit). Re-run: $SCRIPTS_DIR/run-preflight.sh \"$TARGET\" --mode=$MODE_LABEL"
     else
       warn_msg "no recent backup to compare against — cannot verify knowledge preservation (C2a should have already failed)"
     fi
@@ -740,7 +770,6 @@ if [[ -f "$CL/_pack-coverage-report.md" ]]; then
   echo ""
 fi
 
-SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # C2k (M35) — study-decision reconciliation. Regenerates the study report against
 # the CURRENT (post-apply) target state, then requires ZERO unreconciled actionable
@@ -927,7 +956,7 @@ if [[ -x "$SCRIPTS_DIR/apply-adapter-sync.sh" ]]; then
     missing_author=${missing_author:-0}
     if [[ "$add_count" -gt 0 || "$refresh_count" -gt 0 ]]; then
       if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; then
-        err "$add_count adapter file(s) missing + $refresh_count drifted — run: ~/.claude/scripts/apply-adapter-sync.sh \"$TARGET\" --apply"
+        err "$add_count adapter file(s) missing + $refresh_count drifted — run: $SCRIPTS_DIR/apply-adapter-sync.sh \"$TARGET\" --apply"
       else
         warn_msg "$add_count adapter file(s) missing (CREATE mode — first scaffold)"
       fi
@@ -951,7 +980,7 @@ if [[ -x "$SCRIPTS_DIR/apply-baseline-sync.sh" ]]; then
   add_count=${add_count:-0}
   if [[ "$add_count" -gt 0 ]]; then
     if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; then
-      err "$add_count baseline file(s) missing in target — run: ~/.claude/scripts/apply-baseline-sync.sh \"$TARGET\" --apply"
+      err "$add_count baseline file(s) missing in target — run: $SCRIPTS_DIR/apply-baseline-sync.sh \"$TARGET\" --apply"
     else
       warn_msg "$add_count baseline file(s) missing in target (CREATE mode — first scaffold)"
     fi
@@ -977,7 +1006,7 @@ if [[ "$MODE" != "create" ]]; then
   # Most recent mtime across pack sources we depend on (the Refract repo).
   # Resolve the templates dir via the symlink at ~/.claude/templates (or use
   # CLAUDE_CONFIG_ROOT if exported).
-  PACKS_ROOT="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/packs"
+  PACKS_ROOT="$(framework_path templates/packs)"
   pack_newest=0
   if [[ -d "$PACKS_ROOT" ]]; then
     # find the newest .md file across pack sources (resolves symlinks via -L)
@@ -1039,7 +1068,7 @@ echo "C2i: foundational ai/ files populated (not baseline stubs)"
 # additions / status checks), so an unpopulated stub is EXPECTED, not a failure. Downgrade C2i
 # to a warn under --lightweight rather than REFUSE the run. Full runs keep the hard gate.
 C2I_REPORT() { if [[ $LIGHTWEIGHT -eq 1 ]]; then warn_msg "$*"; else err "$*"; fi; }
-BASELINE_AI="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/repo-baseline/ai"
+BASELINE_AI="$(framework_path templates/repo-baseline/ai)"
 # The seven files whose population is MANDATORY. Unchanged severity: a stub here is an ERR.
 FOUNDATIONAL=( architecture stack modules status conventions business-domain _convention-cheatsheet )
 
@@ -1230,7 +1259,7 @@ if [[ -d "$TARGET/.claude/rules" ]]; then
 
   if [[ "$rule_always" -gt 0 && "$imports_present" -eq 0 ]]; then
     rbytes=$(cat "$TARGET"/.claude/rules/*.md 2>/dev/null | wc -c | tr -d ' ')
-    err "NO rule is loaded: CLAUDE.md carries 0 \`@.claude/rules/\` imports while $rule_always always-tier rule(s) (~$(( ${rbytes:-0} / 4 )) tok) sit on disk. .claude/rules/README.md: 'Claude Code does not auto-load .claude/rules/ on its own — the CLAUDE.md import is what makes these always-on.' Fix: ~/.claude/scripts/wire-rule-imports.sh \"$TARGET\" --apply"
+    err "NO rule is loaded: CLAUDE.md carries 0 \`@.claude/rules/\` imports while $rule_always always-tier rule(s) (~$(( ${rbytes:-0} / 4 )) tok) sit on disk. .claude/rules/README.md: 'Claude Code does not auto-load .claude/rules/ on its own — the CLAUDE.md import is what makes these always-on.' Fix: $SCRIPTS_DIR/wire-rule-imports.sh \"$TARGET\" --apply"
   elif [[ -n "$rule_unimported" ]]; then
     n=$(printf '%s' "$rule_unimported" | wc -w | tr -d ' ')
     err "$n always-tier rule(s) are installed but NOT imported by CLAUDE.md, so they never load:$rule_unimported. Either import them (wire-rule-imports.sh \"$TARGET\" --apply) or path-scope them (scope-rules.sh) — a rule that is neither is dead weight the reader believes is active."
@@ -1269,6 +1298,7 @@ echo ""
 EXTRACT="$CL/_extracted-codebase.md"
 if [[ -f "$EXTRACT" ]]; then
   echo "C2v: extraction substrate honesty (check 7, re-run externally)"
+  C2V_ERRS_AT_START=$fail
 
   # (1) A self-declared failure must never pass. If the author wrote that a check failed,
   #     believe them — this is the exact string that shipped green on a live repo.
@@ -1351,6 +1381,17 @@ if [[ -f "$EXTRACT" ]]; then
   else
     ok "provenance markers present ([found:] $fnd, [inferred:] $inf, [unconfirmed] $unc)"
   fi
+  # ONE remediation line for the whole check. C2v's findings each say precisely WHAT is wrong
+  # and, until now, none of them said what to DO — and unlike every other check in this file,
+  # the answer is not a script: `_extracted-codebase.md` has no deterministic producer. A live
+  # run collected 13 C2v ERRs, including a self-declared check-7 FAIL the substrate shipped
+  # anyway, and the reader was left to infer that the fix is to re-run an LLM skill.
+  if [[ ${C2V_ERRS_AT_START:-0} -ne $fail ]]; then
+    echo "     Fix: re-run the extraction that wrote this file — skill \`extract-codebase-overview\`"
+    echo "          (templates/packs/learning/skills/extract-codebase-overview/SKILL.md), whose"
+    echo "          Step 2.5 census and check 7 are the rules re-run above. There is no script to"
+    echo "          run: this substrate is LLM-written, which is exactly why it is audited here."
+  fi
   echo ""
 fi
 
@@ -1414,7 +1455,7 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
       elif [[ "$MODE" == "create" ]]; then
         warn_msg "anchoring coverage ${pct}% — ${unanchored} unanchored (CREATE mode; Phase 4.6 may not have run yet — re-run apply-anchors.sh)"
       else
-        err "anchoring coverage ${pct}% — ${unanchored} pack-derived artifact(s) lack project anchors. Phase 4.6 must run: ~/.claude/scripts/apply-anchors.sh \"$TARGET\" --apply"
+        err "anchoring coverage ${pct}% — ${unanchored} pack-derived artifact(s) lack project anchors. Phase 4.6 must run: $SCRIPTS_DIR/apply-anchors.sh \"$TARGET\" --apply"
       fi
     fi
   fi

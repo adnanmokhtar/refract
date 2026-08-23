@@ -1,6 +1,6 @@
 ---
 name: tracing
-description: Pattern: Distributed Tracing (OpenTelemetry)
+description: "Pattern: Distributed Tracing (OpenTelemetry)"
 kind: ai-pattern
 pack: observability
 ---

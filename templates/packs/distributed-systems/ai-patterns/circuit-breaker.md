@@ -1,6 +1,6 @@
 ---
 name: circuit-breaker
-description: Pattern: Circuit Breaker
+description: "Pattern: Circuit Breaker"
 kind: ai-pattern
 pack: distributed-systems
 ---

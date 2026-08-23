@@ -1,6 +1,6 @@
 ---
 name: idempotency
-description: Pattern: Idempotency
+description: "Pattern: Idempotency"
 kind: ai-pattern
 pack: distributed-systems
 ---

@@ -1,6 +1,6 @@
 ---
 name: views
-description: Pattern: Django views
+description: "Pattern: Django views"
 kind: ai-pattern
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: adr-template
-description: Pattern: ADR Template
+description: "Pattern: ADR Template"
 kind: ai-pattern
 pack: documentation
 ---

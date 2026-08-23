@@ -1,5 +1,5 @@
 ---
-description: Add an event handler. Idempotent / retryable / observable / DLQ-aware. Output: handler + tests + DLQ + monitoring.
+description: "Add an event handler. Idempotent / retryable / observable / DLQ-aware. Output: handler + tests + DLQ + monitoring."
 ---
 
 # /add-event-handler

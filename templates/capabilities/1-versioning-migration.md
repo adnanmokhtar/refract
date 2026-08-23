@@ -1,6 +1,6 @@
 ---
 artifact: capability-1-versioning-migration
-purpose: Setup versioning + migration (B2). Every artifact carries setup-project: vN; migrations live in templates/migrations/.
+purpose: "Setup versioning + migration (B2). Every artifact carries setup-project: vN; migrations live in templates/migrations/."
 imported-by: templates/capabilities.md (index), commands/setup-project.md (orchestrator)
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: rtl
-description: Pattern: RTL (Right-to-Left) Support
+description: "Pattern: RTL (Right-to-Left) Support"
 kind: ai-pattern
 pack: ui-ux
 ---

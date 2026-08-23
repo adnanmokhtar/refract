@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **19 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **22 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 19 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 22 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -90,7 +90,10 @@ for g in \
   scripts/verify-global-scope.sh \
   scripts/test-delegate-relay.sh \
   scripts/lint-handoffs.sh \
-  scripts/lint-setup-contracts.sh ; do
+  scripts/lint-setup-contracts.sh \
+  scripts/test-merge-decide.sh \
+  scripts/test-anchor-citations.sh \
+  scripts/test-preflight-backup.sh ; do
   bash "$g" >/dev/null 2>&1 && echo "PASS  $g" || echo "FAIL  $g"
 done
 ```
@@ -119,6 +122,9 @@ file and line; none of them require you to guess.
 | `test-delegate-relay.sh` | The relay dispatching into its own repo, or a committing implementer coming back as an empty diff that reads like a harmless no-op. 9 sandboxed cases / 55 assertions under `mktemp -d` with a throwaway `$HOME`. | Fix the relay, not the fixture — and never test it against a repo you care about. |
 | `lint-handoffs.sh` | A reference that resolves as *text* but not as *contract* — a `§` anchor naming a section its target does not have, a key handed to a skill its `## Inputs` never declared, an artifact name no script writes, an ordinal gloss the scaffolder spells differently. The other gates verify the catalog; this one opens the cited file. | Fix the citation. If it is correct as-is, add a line **with a reason** to `scripts/_handoff-baseline.md` — a reasonless line suppresses nothing by design. |
 | `lint-setup-contracts.sh` | A producer and its consumer that disagree, where neither is wrong alone and nothing compared them. Six rules, each written after a MEASURED end-to-end failure: `find` without `-L` over a symlinked packs dir; a gate extractor blind to a field its own generator emits; GNU-only `grep -P`; a declared trigger with no producer; a browser-only pack artifact with no `project_kind:`; a machine contract addressed by section NUMBER. | Fix it. If the violation is deliberate, re-baseline: `scripts/lint-setup-contracts.sh --record`. |
+| `test-merge-decide.sh` | The engine deciding wrong AND its safety net not catching it. Self-test plus two fixtures that make the net catch something: a lying corpus that reaches OVERRIDE on a file it must never overwrite (asserts refusal before any write), and the same with the pre-write check stubbed to approve (asserts the post-write read-back rolled the file back from its backup). | Fix the engine, not the fixture. If a decision genuinely changed, say why in the case comment. |
+| `test-anchor-citations.sh` | The `Cite-able sources:` line naming directories that hold no source. Four layouts: a single-root SPA whose tooling dot-dirs sort before `src/`, a legacy space-separated citation that must NOT read as stale, a monorepo (no-regression), and a genuinely dead citation that must still be repaired. | Fix the picker. The ranking is by source-file count; a directory holding no source is not a source directory, whatever its name sorts as. |
+| `test-preflight-backup.sh` | The Phase-0 backup silently skipping. Age must come from the timestamp in the directory NAME, not its mtime (a `git reset` refreshes mtimes), and the candidate must actually hold a backup — a one-file directory is not one. | Fix `run-preflight.sh`. Taking a redundant backup costs seconds; skipping a needed one costs the project. |
 
 **Not in CI, worth running anyway:**
 
@@ -140,6 +146,48 @@ inside" block reads `**72 scripts**` while `scripts/` holds 73, the 73rd being `
 returns it to `FAIL=0 WARN=0`, after which wiring it in is a two-line addition above. It is
 regression-pinned by `tests/validators/verify-readme-stats.sh/` in the meantime, so it cannot rot
 while it waits.
+
+### 2a. Scripts run from two places
+
+Every script in `scripts/` is invoked two ways: directly out of the checkout, and through
+`~/.claude/scripts/<name>`, which `sync-to-global.sh` creates as a **symlink into this repo**.
+That second path is how `/setup-project` actually runs them.
+
+So a script must find **its own checkout**, not the directory it was invoked from:
+
+```bash
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
+```
+
+**Why this is not pedantic.** `REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"` —
+the obvious form — resolves to `~/.claude` when the script is reached through the symlink.
+Every sibling asset it then reaches for resolves *only if that asset happens to have been linked
+too*. On 2026-08-23 `scripts/merge-decide.py` existed at HEAD, `sync-to-global.sh` had not been
+re-run since it landed, and `$REPO_ROOT/scripts/merge-decide.py` therefore pointed at a link
+that was never created. 238 MERGE rows across two live product repos — the entire payload of a
+seven-batch programme — degraded to "listed, not decided", and the script still exited 0. Seven
+repo files were missing from the global install and nothing detected the drift.
+
+Three consequences, all enforced:
+
+- **`pwd -P` is not a substitute.** It resolves the *directory*, never the symlinked *file*.
+  `apply-baseline-sync.sh` computed a second root that way, printed
+  `WARN wire-rule-imports.sh not found beside this script` on every run while the script sat in
+  the checkout, and left every rule in both target repos unimported — 55 rules, ~82,475 tokens,
+  loaded by nothing. `lint-setup-contracts.sh` **Rule 10** checks *every* root a file derives,
+  not just the first.
+- **Framework DATA is checkout-first too.** `${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/…`
+  alone has the same failure mode, and the checks that read those corpora (C2i, C2n, C2s)
+  degrade *quietly* when the corpus is missing. `audit-setup.sh` resolves them through
+  `framework_path()`: checkout first, global second.
+- **A printed remediation must be runnable.** Rule 13 fails any script that roots a fix at a
+  literal `~/.claude/scripts/`, or that names a script this repo does not ship. The audit once
+  identified a mandatory failure correctly and then handed the reader
+  `~/.claude/scripts/wire-rule-imports.sh` — "No such file or directory".
+
+A stale global install can now only mean a stale **entry point**, never a missing library.
 
 ### 2b. Running an analysis script against a repo you must not modify
 
@@ -563,7 +611,7 @@ completely fine; a silently skipped one is not.
 ```markdown
 - [ ] I edited this repo, not `~/.claude/`. `./scripts/verify-sync.sh` is clean.
 - [ ] I read the neighbouring files in the directory I touched and matched their shape.
-- [ ] All 19 gates pass locally.
+- [ ] All 22 gates pass locally.
 - [ ] New/changed command → documented in `docs/COMMANDS.md` (or `docs/REFERENCE.md`).
 - [ ] Command corpus changed → re-ran `python3 scripts/gen-cheatsheet.py`.
 - [ ] Pack content changed → `_version.json` bumped + a matching `## <version>` section added to that pack's `CHANGELOG.md`.

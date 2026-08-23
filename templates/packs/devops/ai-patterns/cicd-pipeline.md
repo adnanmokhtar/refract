@@ -1,6 +1,6 @@
 ---
 name: cicd-pipeline
-description: Pattern: CI/CD Pipeline
+description: "Pattern: CI/CD Pipeline"
 kind: ai-pattern
 pack: devops
 ---

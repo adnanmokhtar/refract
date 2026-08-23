@@ -1,5 +1,5 @@
 ---
-description: Periodic whole-repo health pulse (no diff) — mechanical checks that must go green, then a standing agent panel, then a per-area RAG grid and an ordered plan. Weekly cadence or milestone gate. Anti-triggers: a PR diff is `/review-changes`; staged files are `/pre-commit`; ranking defects at a target scale and fixing them P0–P4 is `/audit`; grading `.claude/` scaffolding rather than product code is `/setup-project-health`.
+description: "Periodic whole-repo health pulse (no diff) — mechanical checks that must go green, then a standing agent panel, then a per-area RAG grid and an ordered plan. Weekly cadence or milestone gate. Anti-triggers: a PR diff is `/review-changes`; staged files are `/pre-commit`; ranking defects at a target scale and fixing them P0–P4 is `/audit`; grading `.claude/` scaffolding rather than product code is `/setup-project-health`."
 ---
 
 # /check-health

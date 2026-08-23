@@ -1,6 +1,6 @@
 ---
 name: dark-mode
-description: Pattern: Dark Mode
+description: "Pattern: Dark Mode"
 kind: ai-pattern
 pack: ui-ux
 ---

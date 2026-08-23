@@ -1,6 +1,6 @@
 ---
 name: reconciliation
-description: Pattern: Reconciliation (anti-entropy repair of derived stores)
+description: "Pattern: Reconciliation (anti-entropy repair of derived stores)"
 kind: ai-pattern
 pack: distributed-systems
 ---

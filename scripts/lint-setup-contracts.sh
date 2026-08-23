@@ -45,7 +45,11 @@
 set -uo pipefail
 export LC_ALL=C
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+# § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 RECORD=0; QUIET=0
 for a in "$@"; do
   case "$a" in
@@ -106,11 +110,32 @@ if [ -f "$VOCAB" ]; then
     # A producer is anything OUTSIDE the vocabulary and outside a pack's _topics/_essentials
     # (those are consumers). Appendix A and the extraction skill are the two legal emitters.
     up="$(printf '%s' "$trig" | tr 'a-z' 'A-Z')"
-    if grep -rqE "(^|[^A-Za-z_])($trig|$up)([^A-Za-z_]|$)" templates/appendices.md \
-         templates/packs/learning/skills/ scripts/ 2>/dev/null; then
+    # A PRODUCER IS AN ASSIGNMENT, NOT A MENTION.
+    #
+    # This used to accept any occurrence of the trigger name anywhere in the three producer
+    # paths — so a sentence in a comment satisfied it, and the rule certified that a signal
+    # had an extractor when all it had was a name-check. Measured: `rtl_locale_detected` and
+    # `i18n_lib_detected` passed this rule while nothing computed them, and both stayed dead
+    # on an Arabic-first codebase that needed them. The value must actually be PRODUCED:
+    #   shell   RTL_LOCALE_DETECTED=...   |   printf '...rtl_locale_detected=%s...'
+    #   report  rtl_locale_detected: yes  |  `rtl_locale_detected=yes`
+    # A bare word in prose no longer counts.
+    # THE BASELINE FILE IS NOT A PRODUCER. `scripts/_setup-contracts-baseline.txt` lives under
+    # scripts/, and every recorded R4 violation quotes the trigger name — so the act of
+    # RECORDING a dead trigger made this rule's own search find it and stop reporting it. A
+    # suppression that also disables the detector is not a suppression, it is a blind spot:
+    # 29 triggers sat recorded-and-undetectable. Exclude the baseline from the search.
+    if grep -rqE "($trig|$up)[[:space:]]*=" templates/appendices.md \
+         templates/packs/learning/skills/ scripts/ 2>/dev/null \
+         --exclude='_setup-contracts-baseline.txt' --exclude='lint-setup-contracts.sh'; then
       continue
     fi
-    add "R4-dead-trigger" "$VOCAB" "trigger '$trig' is declared and consumed but no extractor produces it"
+    if grep -rqE "($trig|$up)[[:space:]]*:[[:space:]]*[A-Za-z0-9\$]" templates/appendices.md \
+         templates/packs/learning/skills/ scripts/ 2>/dev/null \
+         --exclude='_setup-contracts-baseline.txt' --exclude='lint-setup-contracts.sh'; then
+      continue
+    fi
+    add "R4-dead-trigger" "$VOCAB" "trigger '$trig' is declared and consumed but nothing ASSIGNS it — a prose mention of the name is not an extractor (grep for '$trig=' or '$trig:' in templates/appendices.md, templates/packs/learning/skills/ or scripts/)"
   done < <(grep -oE '^- `[a-z0-9_]+_detected`' "$VOCAB" 2>/dev/null | sed 's/^- `//; s/`$//' | sort -u || true)
 fi
 
@@ -191,6 +216,342 @@ if [ -f scripts/merge-decide.py ]; then
     add "R9-emphasis-strip-outside-hash" "scripts/merge-decide.py" "strips [*_\`] outside pack_substantive_sha8/sec_key ($(printf '%s' "$hits" | head -1)) — that normalization eats E2E_EMAIL and .env.tenant"
   fi
 fi
+
+# ---- Rule 10 — a script's repo root must survive the global-install symlink ------------------
+# ~/.claude/scripts/<name> is a SYMLINK into this checkout. A script that computes its root as
+# `cd "$(dirname "${BASH_SOURCE[0]}")/.."` therefore resolves to ~/.claude when invoked the way
+# /setup-project actually invokes it — and every sibling asset it reaches for resolves only if
+# that asset, too, happens to have been linked.
+#
+# MEASURED, on the delivery run this rule was written for: scripts/merge-decide.py existed at
+# HEAD, sync-to-global.sh had not been re-run since it landed, so $REPO_ROOT/scripts/merge-decide.py
+# pointed at a link that was never created. 238 MERGE rows across two live product repos — the
+# entire payload of a seven-batch programme — degraded to "listed, not decided", and the script
+# exited 0. Seven repo files were missing from the global install; nothing detected the drift.
+#
+# The fix is not "remember to re-sync". It is that a script must find its OWN checkout. Resolve
+# the symlink chain first, then take the dirname. Then a stale global install can only mean a
+# stale ENTRY POINT, never a stale library.
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  grep -qE '\$\{BASH_SOURCE\[0\]\}' "$f" 2>/dev/null || continue
+  # It must assign SOME root from BASH_SOURCE to be in scope at all.
+  grep -qE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*="\$\(cd -?P? ?"\$\(dirname' "$f" 2>/dev/null \
+    || grep -qE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*="\$\(cd "\$\(dirname' "$f" 2>/dev/null \
+    || continue
+  # The unresolved form, verbatim. Its presence IS the violation.
+  if grep -qE '="\$\(cd "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)/\.\." && pwd\)"' "$f" 2>/dev/null; then
+    add "R10-unresolved-script-root" "$f" "derives its repo root from BASH_SOURCE without resolving the global-install symlink; through ~/.claude/scripts/ this root is ~/.claude, not the checkout"
+    continue
+  fi
+  # And having resolved it, it must actually walk the chain.
+  if ! grep -qE 'while \[ -L "\$_ss" \]' "$f" 2>/dev/null && ! grep -qE 'readlink' "$f" 2>/dev/null; then
+    add "R10-unresolved-script-root" "$f" "assigns a root from BASH_SOURCE but never resolves a symlink chain (no readlink loop)"
+    continue
+  fi
+  # SECONDARY derivations count too. apply-baseline-sync.sh resolved its REPO_ROOT correctly and
+  # then computed a SECOND root, `SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"`,
+  # to find its sibling scripts. `pwd -P` resolves the DIRECTORY, never the symlinked FILE, so
+  # SELF_DIR was ~/.claude/scripts — and the script printed "WARN wire-rule-imports.sh not found
+  # beside this script" on every run while wire-rule-imports.sh sat in the checkout. Every rule
+  # in both target repos stayed unimported, and therefore never loaded, because of that one
+  # line. One resolved root per file is not enough; ALL of them must be resolved.
+  #
+  # `printf`-quoted occurrences are exempt: run-preflight.sh emits a restore.sh whose OWN
+  # BASH_SOURCE is about the generated file, which is not a symlink into anything.
+  #
+  # This file is skipped for the SECONDARY scan only: the rule's own grep pattern is a literal
+  # match for what it looks for. Its primary root is checked above like every other script's,
+  # and Rules 3 and 6 skip themselves for the same reason.
+  case "$f" in *lint-setup-contracts.sh) continue ;; esac
+  while IFS= read -r sec; do
+    [ -z "$sec" ] && continue
+    ln="${sec%%:*}"
+    add "R10-unresolved-script-root" "$f:$ln" "a SECOND root is derived from BASH_SOURCE without resolving the symlink (pwd -P resolves the directory, not the symlinked file)"
+  done < <(grep -nE '="\$\(cd "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)"' "$f" 2>/dev/null | grep -v 'printf' || true)
+done < <(find scripts -maxdepth 1 -type f -name '*.sh' 2>/dev/null | sort || true)
+
+# ---- Rule 11 — every installable artifact must have parseable YAML frontmatter ---------------
+# MEASURED: 11 artifacts in one live repo and 3 in another carried frontmatter that no YAML
+# parser accepts, and the defect was in the PACK SOURCE, not the install — two of them were
+# newly installed by the delivery run. The cause is always the same shape: an unquoted plain
+# scalar whose value contains a colon-space, e.g.
+#     description: Add an event handler. ... Output: handler + tests + DLQ.
+# YAML reads the second `: ` as a nested mapping key and errors with "mapping values are not
+# allowed in this context". Every adapter that projects these files into another tool's surface
+# has to parse that frontmatter; apply-adapter-sync.sh counted 11 MALFORMED FRONTMATTER and
+# shipped them anyway. Quote the value and the file parses.
+#
+# SCOPE covers `_examples/` too. An `_examples/` file is not documentation:
+# validate-pack-consistency.sh check 8b holds it to the artifact it abridges and apply-pack.sh
+# installs it as the fallback when the full artifact is trimmed. It reaches a real project, so
+# it is held to the same parser.
+#
+# ONE parser process for the whole corpus — a fork per file put this gate over two minutes.
+# No parser -> skipped, loudly, because a gate that silently passes when its tool is absent is
+# the always-pass bug this repo keeps fixing.
+_R11_LIST=$(mktemp "${TMPDIR:-/tmp}/r11-list.XXXXXX")
+find -L commands templates -type f -name '*.md' 2>/dev/null \
+  | grep -vE '/CHANGELOG\.md$|/README\.md$|/STACK\.md$' | sort > "$_R11_LIST" || true
+_R11_OUT=$(mktemp "${TMPDIR:-/tmp}/r11-out.XXXXXX")
+if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
+  python3 - "$_R11_LIST" > "$_R11_OUT" <<'PYEOF' || true
+import sys, yaml
+for path in open(sys.argv[1]).read().split("\n"):
+    if not path: continue
+    try: lines = open(path, errors="replace").read().split("\n")
+    except Exception: continue
+    if not lines or lines[0].rstrip() != "---": continue
+    end = next((i for i in range(1, len(lines)) if lines[i].rstrip() == "---"), None)
+    if end is None: continue
+    try: yaml.safe_load("\n".join(lines[1:end]))
+    except Exception as e:
+        print("%s\t%s" % (path, str(e).replace("\n", " ")[:160]))
+PYEOF
+elif [ -x /usr/bin/ruby ] && /usr/bin/ruby -ryaml -e 'exit 0' >/dev/null 2>&1; then
+  # Encoding is NOT incidental here. This gate exports LC_ALL=C, and under LC_ALL=C ruby reads
+  # every file as US-ASCII — at which point YAML.safe_load stops raising on the very
+  # `mapping values are not allowed` error this rule exists to catch. The first version of this
+  # rule found 69 real violations when run by hand and ZERO when run as the gate: an always-pass
+  # that only its own locale created. Read UTF-8 explicitly.
+  /usr/bin/ruby -ryaml -e '
+    Encoding.default_external = Encoding::UTF_8
+    Encoding.default_internal = Encoding::UTF_8
+    File.read(ARGV[0], encoding: "UTF-8").split("\n").each do |path|
+      next if path.empty?
+      begin; lines = File.read(path, encoding: "UTF-8").split("\n", -1); rescue; next; end
+      next if lines.empty? || lines[0].rstrip != "---"
+      fin = nil
+      (1...lines.length).each { |i| if lines[i].rstrip == "---" then fin = i; break end }
+      next if fin.nil?
+      begin
+        YAML.safe_load(lines[1...fin].join("\n"))
+      rescue => e
+        puts "#{path}\t#{e.message.gsub("\n", " ")[0,160]}"
+      end
+    end' "$_R11_LIST" > "$_R11_OUT" 2>/dev/null || true
+else
+  say "  SKIP   R11  no YAML parser available (python3+pyyaml or ruby) — frontmatter unchecked"
+  : > "$_R11_OUT"
+fi
+while IFS="$(printf '\t')" read -r f err; do
+  [ -z "${f:-}" ] && continue
+  add "R11-unparseable-frontmatter" "$f" "frontmatter is not valid YAML: $err"
+done < "$_R11_OUT"
+rm -f "$_R11_LIST" "$_R11_OUT"
+
+_R12_TMP=$(mktemp "${TMPDIR:-/tmp}/r12.XXXXXX")
+# ---- Rule 12 — the codebase-scan producer and its auditor must require the same sections ----
+# MEASURED — a producer/auditor deadlock that refused every run on a live repo for four months.
+# deep-codebase-scan.sh decides "is this file filled?" by counting `<TBD>` markers.
+# audit-setup.sh C2c decides it by looking for the section HEADINGS. A file whose sections are
+# ABSENT rather than unfilled has zero `<TBD>` markers, so the producer scored it 100% filled
+# and preserved it, while C2c failed it nine times for the eight headings that were not there.
+# Neither side was wrong; nothing compared them. The producer now repairs a structurally
+# incomplete file instead of preserving it — and this rule keeps the two lists in step, because
+# the next section C2c adds is the next deadlock if the producer never learns to emit it.
+# Anchor to C2c's OWN loop. audit-setup.sh has more than one `for section in` and grabbing the
+# first one made this rule report four sections C2c never asked for — a false positive is a
+# retired gate within two weeks, so the anchor is not optional.
+_C2C_SECS=$(awk '/C2c: codebase-scan semantic sections filled/{ c=1 }
+                 c && /^  for section in /{ s=$0; sub(/^  for section in /,"",s); sub(/; do$/,"",s); print s; exit }' \
+            scripts/audit-setup.sh 2>/dev/null || true)
+if [ -n "$_C2C_SECS" ] && [ -f scripts/deep-codebase-scan.sh ]; then
+  printf '%s\n' "$_C2C_SECS" | tr '"' '\n' | grep -vE '^ *$' | while IFS= read -r sec; do
+    [ -z "$sec" ] && continue
+    # The producer must be able to EMIT a heading carrying this phrase — both in the
+    # first-write template and in the structural-repair path.
+    if ! grep -qF "$sec" scripts/deep-codebase-scan.sh 2>/dev/null; then
+      printf 'R12-scan-section-drift|scripts/deep-codebase-scan.sh|audit-setup.sh C2c requires _codebase-scan.md section "%s" but no producer emits that heading — that pair deadlocks: C2c fails the run, the producer preserves the file that fails it\n' "$sec"
+    fi
+  done > "$_R12_TMP" 2>/dev/null || true
+  while IFS='|' read -r r f d; do
+    [ -z "${r:-}" ] && continue
+    add "$r" "$f" "$d"
+  done < "$_R12_TMP"
+fi
+rm -f "$_R12_TMP"
+
+# ---- Rule 13 — a printed remediation must name a script that exists -------------------------
+# MEASURED: audit-setup.sh C2u failed a live run for an inert rules layer and prescribed
+#   Fix: ~/.claude/scripts/wire-rule-imports.sh "<target>" --apply
+# wire-rule-imports.sh was one of seven files committed at HEAD that had never been linked into
+# the global install, so a reader who followed the audit verbatim got "No such file or
+# directory". Two separate faults compound there: the literal `~/.claude/scripts/` root (which
+# is only correct if the sync happens to be current) and no check that the named script exists
+# at all. An audit that prescribes a command the reader cannot run has not reported a defect,
+# it has added one.
+#
+# The rule is in two halves:
+#   a) no runtime string may root a remediation at a literal `~/.claude/scripts/` — use the
+#      script's own resolved dir, which by Rule 10 IS the checkout;
+#   b) every `scripts/<name>` a runtime string prescribes must exist in this repo.
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  while IFS= read -r hit; do
+    [ -z "$hit" ] && continue
+    ln="${hit%%:*}"
+    add "R13-dead-remediation" "$f:$ln" "prints a remediation rooted at literal ~/.claude/scripts/ — that path exists only if the global install happens to be current; root it at the script's own resolved dir instead"
+  done < <(grep -nF '~/.claude/scripts/' "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*#' || true)
+  # (b) names a sibling script that is not in this repo
+  while IFS= read -r nm; do
+    [ -z "$nm" ] && continue
+    [ -e "scripts/$nm" ] && continue
+    add "R13-dead-remediation" "$f" "prescribes scripts/$nm, which does not exist in this repo"
+  done < <(grep -ohE '(\$SCRIPTS_DIR|\$REPO_ROOT/scripts|\$SELF_DIR|scripts)/[a-z0-9_-]+\.(sh|py)' "$f" 2>/dev/null \
+           | sed 's|.*/||' | sort -u || true)
+done < <(find scripts -maxdepth 1 -type f -name '*.sh' 2>/dev/null | grep -v 'lint-setup-contracts.sh' | grep -v 'sync-to-global.sh' | sort || true)
+
+# ---- Rule 14 — a phase's mandatory script must be named in the command that runs the phase ---
+# MEASURED: apply-baseline-sync.sh (Phase 4.1) appeared in templates/phases/phase-4.0-preflight.md
+# and NOWHERE in commands/setup-project.md. An agent following § STEP ZERO's hard contracts —
+# M17 preflight, M23 study-decisions, M25 anchors, M34 adapters, audit — therefore never ran it,
+# every run, and landed on two guaranteed audit failures: C2g (the recall-inject.sh hook that
+# ships there was missing, while the recall.md command that calls it had just been installed) and
+# C2u (the rules layer was inert because wire-rule-imports.sh is invoked from there and nowhere
+# else). 55 rules and ~82,475 tokens sat on disk in two live repos, imported by nothing.
+#
+# The rule is deliberately narrow: only scripts a phase file marks MANDATORY. A phase may
+# mention a script as an option without the top-level command having to teach it.
+_PHASE_SCRIPTS=$(grep -rhoE '(scripts/|~/\.claude/scripts/)(apply|run|wire|detect|study|deep|migrate|audit)-[a-z0-9-]+\.sh' \
+                   templates/phases/ 2>/dev/null | sed 's|.*/||' | sort -u || true)
+# The window crosses NEWLINES — a phase file writes `**Hard contract (M37) …**`, a blank line,
+# a fenced block, and only then the script name. Two earlier drafts of this window were
+# ALWAYS-PASS and both were caught only by introducing a real violation and watching nothing
+# happen: a line-oriented `grep -E` cannot span the gap at all, and flattening the whole corpus
+# to one 500 KB line made BSD grep's bounded `{0,400}` interval quietly stop matching. So the
+# window is counted in LINES, by awk, which has neither problem.
+#
+# Both halves are narrow on purpose, because a gate with false positives is a gate somebody
+# turns off. The MARKER must be a contract header, not any line containing the word "must" —
+# `| conventions (MUST/MUST-NOT) |` in a table row about codex conventions was enough to make
+# the loose version flag audit-adapter-coverage.sh. And the HIT must be an INVOCATION path
+# (`scripts/<name>`), not a prose mention of a filename.
+_PHASE_MANDATORY=$(find templates/phases -type f -name '*.md' 2>/dev/null -print0 \
+  | xargs -0 awk '
+      FNR==1 { last = -999 }
+      /\*\*Hard contract|MUST run|MUST be run|is MANDATORY|^\*\*Why mandatory/ { last = FNR }
+      (FNR - last) <= 8 {
+        line = $0
+        while (match(line, /scripts\/[a-z0-9_-]+\.(sh|py)/)) {
+          hit = substr(line, RSTART, RLENGTH)
+          sub(/^scripts\//, "", hit)
+          print hit
+          line = substr(line, RSTART + RLENGTH)
+        }
+      }' 2>/dev/null | sort -u || true)
+for _psc in $_PHASE_SCRIPTS; do
+  printf '%s\n' "$_PHASE_MANDATORY" | grep -qxF "$_psc" || continue
+  grep -qF "$_psc" commands/setup-project.md 2>/dev/null && continue
+  add "R14-phase-script-unnamed" "commands/setup-project.md" "templates/phases/ marks $_psc mandatory but commands/setup-project.md never names it — an agent that reads only the command's hard contracts will skip that phase, every run"
+done
+
+# ---- Rule 15 — a shipped ```bash block must parse as bash --------------------------------------
+# MEASURED: templates/appendices.md carried
+#     HAS_SEARCH=[[ "$HAS_ELASTIC" == "yes" || -n "$(…)" ]] && echo yes
+# which is not an assignment. bash assigns the literal `[[` for one command and then EXECUTES
+# `"$HAS_ELASTIC"` and `-n "…"`. Every run of Appendix A printed two `command not found` errors
+# and the `search` domain signal could never be `yes`. Rule 3 screens for `grep -P` and nothing
+# screened for "is this even bash", so it shipped.
+#
+# `bash -n` parses without executing. It is a SYNTAX check, not a semantics one — it would not
+# have caught the HAS_SEARCH bug's *meaning*, but it does catch the shape, and the shape is what
+# was wrong. Blocks whose first line marks them as illustrative (a `# example` / `# pseudo`
+# opener) are skipped, as are blocks carrying `<placeholder>` angle-bracket syntax that is not
+# meant to run.
+_R15_LIST=$(mktemp "${TMPDIR:-/tmp}/r15.XXXXXX")
+find commands templates -type f -name '*.md' 2>/dev/null | sort > "$_R15_LIST" || true
+_R15_TMP=$(mktemp -d "${TMPDIR:-/tmp}/r15d.XXXXXX")
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  n=0
+  while IFS= read -r blk; do
+    [ -z "$blk" ] && continue
+    n=$((n + 1))
+    start="${blk%%:*}"
+    awk -v s="$start" 'NR > s { if ($0 ~ /^[[:space:]]*```/) exit; print }' "$f" > "$_R15_TMP/blk.sh" 2>/dev/null || continue
+    # THE PRECISE CHECK RUNS ON EVERY BLOCK, before any skip. It is an exact shape with no
+    # false-positive surface, and the illustrative-block skips below exist for `bash -n`, whose
+    # false-positive surface is large. Ordering matters: the block that shipped this defect
+    # contains an ellipsis in a comment, so a skip evaluated first would have hidden it — and
+    # did, in the first draft of this rule.
+    while IFS= read -r hit; do
+      [ -z "$hit" ] && continue
+      add "R15-assignment-of-test-bracket" "$f:$start" "\`${hit#*:}\` — the right-hand side of an assignment is a test bracket, which bash reads as a one-command env prefix and then runs the rest as a command; write \`VAR=\$( [ … ] && echo yes )\`"
+    done < <(grep -nE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=\[\[?[[:space:]]' "$_R15_TMP/blk.sh" 2>/dev/null || true)
+    # Illustrative blocks: a leading marker comment, or angle-bracket placeholders that are
+    # syntax for the READER, not for bash. These skip only the `bash -n` leg.
+    head -3 "$_R15_TMP/blk.sh" 2>/dev/null | grep -qiE '^#.*(example|pseudo|illustrat|sketch|shape of|not runnable)' && continue
+    grep -qE '<[A-Za-z][A-Za-z0-9_ -]*>' "$_R15_TMP/blk.sh" 2>/dev/null && continue
+    grep -qE '(\.\.\.|…)' "$_R15_TMP/blk.sh" 2>/dev/null && continue
+    err=$(bash -n "$_R15_TMP/blk.sh" 2>&1) || {
+      add "R15-unparseable-bash-block" "$f:$start" "the \`\`\`bash block starting here is not valid bash: $(printf '%s' "$err" | head -1 | sed 's|^[^:]*: ||')"
+    }
+
+  done < <(grep -nE '^[[:space:]]*```(bash|sh|shell)[[:space:]]*$' "$f" 2>/dev/null || true)
+done < "$_R15_LIST"
+rm -rf "$_R15_LIST" "$_R15_TMP"
+
+# ---- Rule 16 — a script may not EMIT an unpaired project-specific anchor marker -------------
+# MEASURED: study-existing.sh's decision legend printed a whole `<!-- project-specific:start -->`
+# inside a sentence explaining what the marker means. Every generated study report therefore
+# carried one start tag with no end tag, and whole-tree anchor balance went from 228/228 to
+# 256/255 in one live repo and 96/96 to 120/119 in the other, for the first time. The content is
+# harmless — it is documentation of the convention — but it silently defeats any start/end pair
+# count, including the integrity check an auditor reaches for first, and "the tooling's own
+# report is the thing corrupting the tooling's own census" is a bad half-hour for whoever finds
+# it. Write the marker broken (`<!-- project-specific:` … `-->`) in prose.
+#
+# Scope: what scripts WRITE. A script that MATCHES the marker (grep/awk patterns, and the
+# apply-anchors writer that legitimately emits both halves) is the point.
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  # Balance the emitted halves: count echo/printf/heredoc lines carrying each half.
+  _st=$(grep -cE '(echo|printf|puts|^[[:space:]]*\*|^[[:space:]]*\|).*<!-- project-specific:start -->' "$f" 2>/dev/null || true)
+  _en=$(grep -cE '(echo|printf|puts|^[[:space:]]*\*|^[[:space:]]*\|).*<!-- project-specific:end -->' "$f" 2>/dev/null || true)
+  _st="${_st:-0}"; _en="${_en:-0}"
+  [ "$_st" -le "$_en" ] && continue
+  add "R16-unpaired-anchor-emitted" "$f" "emits $_st project-specific:start marker(s) against $_en end marker(s) — an unpaired marker in generated output breaks every anchor pair count that reads the file. In prose, write it broken: \`<!-- project-specific:\` … \`-->\`"
+done < <(find scripts -maxdepth 1 -type f -name '*.sh' 2>/dev/null | grep -v 'lint-setup-contracts.sh' | sort || true)
+
+# ---- Rule 17 — a pack artifact may not instruct the reader to run a file nothing installs ----
+# MEASURED: apply-study-decisions.sh installed learning/commands/recall.md into a live repo. Its
+# body tells the reader to run `.claude/hooks/recall-inject.sh`. That hook ships through
+# apply-baseline-sync.sh — a script commands/setup-project.md did not name (see Rule 14) — so
+# the run installed the command, did not install the hook, and then failed ITSELF for it: C2g
+# "1 baseline file(s) missing" and C2w "recall.md instructs the reader to run a script that does
+# not exist". A pack artifact that prescribes a helper is making a promise on the framework's
+# behalf; the framework has to be able to keep it.
+#
+# The rule checks INSTALLABILITY, not phase ordering: every `.claude/hooks/<x>` or
+# `.claude/scripts/<x>` a pack artifact names must exist in templates/repo-baseline/ (the
+# baseline sync copies it) or in scripts/ (the adapter/step chain deploys it). Where neither
+# holds, either ship the file or stop telling the reader to run it.
+while IFS= read -r ref; do
+  [ -z "$ref" ] && continue
+  base="${ref##*/}"
+  case "$ref" in
+    .claude/hooks/*)   [ -f "templates/repo-baseline/.claude/hooks/$base" ] && continue ;;
+    .claude/scripts/*) [ -f "templates/repo-baseline/.claude/scripts/$base" ] && continue
+                       [ -f "scripts/$base" ] && continue ;;
+  esac
+  # SELF-INSTALLING REFERENCES ARE NOT DEAD ONES. Two pack artifacts carry the file they name:
+  # frontend/_examples/golden-flow-hook.sh opens "Drop a copy of this file at
+  # <project>/.claude/hooks/golden-flow.sh", and ui-ux/commands/grab-site.md bundles its python
+  # verbatim under "write verbatim to .claude/scripts/grab-site.py". The reader who follows
+  # those instructions HAS the file. Only a reference nobody ships and nobody materialises is a
+  # dead one — the recall.md shape, where the command assumes a hook another phase installs.
+  culprits=""
+  while IFS= read -r c; do
+    [ -z "$c" ] && continue
+    # A CHANGELOG or README is a RECORD of what changed, not an instruction to the reader.
+    case "$c" in */CHANGELOG.md|*/README.md) continue ;; esac
+    grep -qiE '(drop a copy of this file|write (it )?verbatim to|materiali[sz]e (it|this|the script)|save this (file|script) (to|as))' "$c" 2>/dev/null && continue
+    culprits="$culprits$c "
+  done < <(grep -rlF "$ref" templates/packs 2>/dev/null | head -5 || true)
+  [ -z "$culprits" ] && continue
+  add "R17-uninstallable-helper" "templates/packs" "pack artifact(s) ${culprits}instruct the reader to run $ref, which neither templates/repo-baseline/ nor scripts/ ships and which no artifact materialises — the reader gets 'No such file or directory'"
+done < <(grep -rhoE '\.claude/(hooks|scripts)/[a-z0-9_-]+\.(sh|py)' templates/packs 2>/dev/null | sort -u || true)
 
 # ---- report / ratchet -------------------------------------------------------------------------
 findings="$(printf '%s' "$findings" | grep -c . >/dev/null 2>&1; printf '%s' "$findings")"

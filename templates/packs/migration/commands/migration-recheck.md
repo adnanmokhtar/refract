@@ -1,5 +1,5 @@
 ---
-description: Independent V1↔V2 spot-check + fix. Accepts a natural-language description ("the sidebar", "the orders module", "customer tabs"), explicit paths, OR `--phase=<N>` to loop a whole phase. Scans V1 + V2 source FRESH for the described area, audits parity, fixes drift in V2 to match V1 — without rolling back the phase or downgrading `done` rows. NO plan dependency required (except for `--phase=<N>`), NO required ledger row. Bypasses the full migration ceremony — just: find the area, audit, fix. Works whether or not the area is in the migration plan / ledger.
+description: "Independent V1↔V2 spot-check + fix. Accepts a natural-language description (\"the sidebar\", \"the orders module\", \"customer tabs\"), explicit paths, OR `--phase=<N>` to loop a whole phase. Scans V1 + V2 source FRESH for the described area, audits parity, fixes drift in V2 to match V1 — without rolling back the phase or downgrading `done` rows. NO plan dependency required (except for `--phase=<N>`), NO required ledger row. Bypasses the full migration ceremony — just: find the area, audit, fix. Works whether or not the area is in the migration plan / ledger."
 kind: command
 pack: migration
 ---

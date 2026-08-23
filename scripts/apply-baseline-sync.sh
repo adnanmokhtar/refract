@@ -35,7 +35,17 @@
 set -euo pipefail
 export LC_ALL=C
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through the global-install symlink so REPO_ROOT is the CHECKOUT, never ~/.claude.
+# ~/.claude/scripts/<name> is a symlink INTO this repo, so an unresolved BASH_SOURCE makes
+# dirname() report ~/.claude/scripts and every sibling asset reached for below resolves only
+# if it, too, happens to have been linked. That is exactly how the merge engine went missing:
+# scripts/merge-decide.py existed at HEAD, sync-to-global.sh had not been re-run since it
+# landed, and $REPO_ROOT/scripts/merge-decide.py pointed at a link that was never created — so
+# 238 MERGE rows across two live repos degraded to "listed, not decided" and the run still
+# exited 0. See CONTRIBUTING § "Scripts run from two places". Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 BASELINE_ROOT="$REPO_ROOT/templates/repo-baseline"
 
 if [[ $# -lt 1 ]]; then
@@ -43,7 +53,14 @@ if [[ $# -lt 1 ]]; then
   exit 2
 fi
 
-SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# Symlink-resolved (Rule 10): `pwd -P` resolves the DIRECTORY, not the symlinked FILE, so
+# `dirname "${BASH_SOURCE[0]}"` still reports ~/.claude/scripts when invoked through the global
+# install — which is how apply-baseline-sync.sh came to print "WARN wire-rule-imports.sh not
+# found beside this script" while the script sat in the checkout all along, leaving every rule
+# in the target unimported and therefore never loaded.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+SELF_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
 TARGET="$1"; shift
 APPLY=0
 STRICT=0

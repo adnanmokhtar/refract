@@ -1,6 +1,6 @@
 ---
 name: queue-producer-consumer
-description: Pattern: Queue producer + consumer (BullMQ reference)
+description: "Pattern: Queue producer + consumer (BullMQ reference)"
 kind: ai-pattern
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: design-systems
-description: Pattern: Design System
+description: "Pattern: Design System"
 kind: ai-pattern
 pack: ui-ux
 ---

@@ -1,6 +1,6 @@
 ---
 name: websocket-fanout
-description: Pattern: WebSocket gateway + Redis pub/sub fanout
+description: "Pattern: WebSocket gateway + Redis pub/sub fanout"
 kind: ai-pattern
 ---
 

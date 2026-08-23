@@ -1,6 +1,6 @@
 ---
 name: deployment
-description: Pattern: Deployment
+description: "Pattern: Deployment"
 kind: ai-pattern
 pack: devops
 ---

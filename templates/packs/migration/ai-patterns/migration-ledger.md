@@ -1,6 +1,6 @@
 ---
 name: migration-ledger
-description: Pattern: Migration ledger (state machine + record format)
+description: "Pattern: Migration ledger (state machine + record format)"
 kind: ai-pattern
 pack: migration
 ---

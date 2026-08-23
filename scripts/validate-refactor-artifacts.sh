@@ -11,7 +11,10 @@
 set -euo pipefail
 export LC_ALL=C
 
-THIS_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+# Symlink-resolved (Rule 10) — see CONTRIBUTING § "Scripts run from two places".
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+THIS_SCRIPT="$(cd -P "$(dirname "$_ss")" && pwd)/$(basename "$_ss")"; unset _ss _sd
 
 LEDGER_PATH="${LEDGER_PATH:-ai/refactor/ledger.md}"
 FINDINGS_DIR="${FINDINGS_DIR:-ai/refactor/findings}"
@@ -305,7 +308,11 @@ usage() {
 
 run_self_test() {
   local td repo_root
-  repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  # Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+  # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+  _ss="${BASH_SOURCE[0]}"
+  while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+  repo_root="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
   mkdir -p "$repo_root/tmp"
   td=$(mktemp -d "$repo_root/tmp/refactor-selftest.XXXXXX")
   mkdir -p "$td/ai/refactor/findings"

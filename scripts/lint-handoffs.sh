@@ -197,7 +197,11 @@
 set -uo pipefail
 export LC_ALL=C
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+# § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 STRICT=0; QUIET=0; HO_REPORT=""
 while [[ $# -gt 0 ]]; do
   case "$1" in

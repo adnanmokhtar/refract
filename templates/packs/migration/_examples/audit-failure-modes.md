@@ -1,6 +1,6 @@
 ---
 name: audit-failure-modes
-description: Named anti-patterns observed in real V1↔V2 migration audits. Each entry: symptom, why-it-happens, prevention, real-world incident.
+description: "Named anti-patterns observed in real V1↔V2 migration audits. Each entry: symptom, why-it-happens, prevention, real-world incident."
 kind: example
 pack: migration
 ---

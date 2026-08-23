@@ -1,6 +1,6 @@
 ---
 name: api-versioning
-description: Pattern: API Versioning
+description: "Pattern: API Versioning"
 kind: ai-pattern
 pack: backend
 ---

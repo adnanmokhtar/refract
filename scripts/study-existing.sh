@@ -23,7 +23,17 @@
 set -euo pipefail
 export LC_ALL=C
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through the global-install symlink so REPO_ROOT is the CHECKOUT, never ~/.claude.
+# ~/.claude/scripts/<name> is a symlink INTO this repo, so an unresolved BASH_SOURCE makes
+# dirname() report ~/.claude/scripts and every sibling asset reached for below resolves only
+# if it, too, happens to have been linked. That is exactly how the merge engine went missing:
+# scripts/merge-decide.py existed at HEAD, sync-to-global.sh had not been re-run since it
+# landed, and $REPO_ROOT/scripts/merge-decide.py pointed at a link that was never created — so
+# 238 MERGE rows across two live repos degraded to "listed, not decided" and the run still
+# exited 0. See CONTRIBUTING § "Scripts run from two places". Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 PACKS_ROOT="$REPO_ROOT/templates/packs"
 
 if [[ $# -lt 1 ]]; then
@@ -76,7 +86,14 @@ fi
 #   - `pack/kind/file.md` → KEEP-OURS (YYYY-MM-DD, pack@sha8) — why ours wins   (re-opens when pack source changes)
 #   - `pack/kind/file.md` → RESOLVED (YYYY-MM-DD, pack@sha8) — how merged       (re-opens when pack source changes)
 #   - `kind/file.md` → KEEP (YYYY-MM-DD) — rationale                     (project-only orphan keeper)
-SELF_DIR_PK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# Symlink-resolved (Rule 10): `pwd -P` resolves the DIRECTORY, not the symlinked FILE, so
+# `dirname "${BASH_SOURCE[0]}"` still reports ~/.claude/scripts when invoked through the global
+# install — which is how apply-baseline-sync.sh came to print "WARN wire-rule-imports.sh not
+# found beside this script" while the script sat in the checkout all along, leaving every rule
+# in the target unimported and therefore never loaded.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+SELF_DIR_PK="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
 LEDGER="$TARGET/.claude/_refresh-decisions.md"
 # ---------- PROJECT_KIND applicability filter --------------------------------------------
 # See templates/packs/_project-kind.md. A pack artifact may declare `project_kind:` in its
@@ -239,6 +256,13 @@ stripped_target() {
 # endpoint-test/SKILL.md carried NO anchor and was still pure project knowledge
 # (ports 4000/4001, `apps/master/src/`, `bun run start:dev-tenant`) — these two
 # signals are what caught it.
+#
+# NB: the decision legend below deliberately writes the anchor marker BROKEN — `<!-- project-specific:`
+# … `-->` — rather than whole. A whole `<!-- project-specific:start -->` in the report's prose is
+# an unpaired start tag in a file the tooling scans, and it broke start/end balance in both live
+# repos the first time this legend shipped (capsolah _study-existing-report.md:736,
+# tenant-portal:554 — start 256 vs end 255). Harmless in substance, but it silently defeats every
+# naive pair count, including the integrity check an auditor reaches for first.
 #
 # THE ANCHOR IS NOT A THIRD SIGNAL. `<!-- project-specific:start -->` is written
 # by `scripts/apply-anchors.sh` into EVERY deployed pack artifact (observed on a
@@ -681,7 +705,7 @@ decide() {
 * ADD — file in pack but not target. Phase 4.2 must copy.
 * IDENTICAL-NO-OP — target byte-identical to pack. No structural action; Phase 4.6 still anchors project-specific block.
 * REPLACE-OR-ENHANCE — target ≤ 50% of pack size AND carries nothing the pack cannot regenerate. Stub or shallow; replace with pack OR rewrite to pack depth.
-* MERGE (project-knowledge protected) — target ≤ 50% of pack size but carries project knowledge: the `<!-- project-specific:start -->` anchor, a real project file path, or ≥3 code identifiers absent from the pack. A SHORTER FILE IS NOT A WORSE FILE — this row must be resolved by merging pack depth INTO the target, never by replacing it. (M36; the ratio-only rule destroyed three such files on 2026-08-22.)
+* MERGE (project-knowledge protected) — target ≤ 50% of pack size but carries project knowledge: the `<!-- project-specific:` … `-->` anchor pair, a real project file path, or ≥3 code identifiers absent from the pack. A SHORTER FILE IS NOT A WORSE FILE — this row must be resolved by merging pack depth INTO the target, never by replacing it. (M36; the ratio-only rule destroyed three such files on 2026-08-22.)
 * KEEP-OURS-PLUS-INJECT — target deeper but missing project-specific anchor. Phase 4.6 must inject anchor section into target.
 * KEEP-OURS-ANCHORED — target deeper AND already carries the project-specific anchor block. Keeper; no action (the inject KEEP-OURS-PLUS-INJECT would ask for is already done).
 * MERGE — sizes comparable; real per-section merge required.

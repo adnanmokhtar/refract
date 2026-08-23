@@ -1,5 +1,5 @@
 ---
-description: One command V1→V2 port. Deep multi-agent execution. Takes optional scope (whole project OR specific module/page/area). NO phases visible, NO ADRs surfaced, NO ledger talk, NO mid-run questions. Internally runs scan + plan + audit + port + verify in parallel waves with V1 as the production reference (V1 wins on behaviour, V2 wins on structure). Output is brief: features ported, commits, diff stats, test status. The simple-surface alternative to the /migration-scan → /migration-plan → /migration-fast cycle.
+description: "One command V1→V2 port. Deep multi-agent execution. Takes optional scope (whole project OR specific module/page/area). NO phases visible, NO ADRs surfaced, NO ledger talk, NO mid-run questions. Internally runs scan + plan + audit + port + verify in parallel waves with V1 as the production reference (V1 wins on behaviour, V2 wins on structure). Output is brief: features ported, commits, diff stats, test status. The simple-surface alternative to the /migration-scan → /migration-plan → /migration-fast cycle."
 kind: command
 pack: orchestration
 ---

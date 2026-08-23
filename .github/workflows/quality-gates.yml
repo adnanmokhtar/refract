@@ -147,3 +147,32 @@ jobs:
       # anything new is a hard FAIL. Fix: scripts/lint-setup-contracts.sh --record.
       - name: Setup contracts (producer/consumer agreement)
         run: bash scripts/lint-setup-contracts.sh
+
+      # The merge decision engine is the only component that REWRITES an existing project file
+      # on its own judgment. Its self-test plus the two fixtures that make its safety net catch
+      # something: § 5a feeds it a corpus that lies and asserts it refused before touching disk;
+      # § 5b lets the bad bytes land and asserts the post-write read-back restored the file from
+      # its backup. Runs here because "the engine works" is the precondition for every other
+      # promise Phase 4 makes — and because a delivery run in which it never executed at all
+      # cost two live repos 146 stale files.
+      - name: Merge engine (self-test + refuse/rollback fixtures)
+        run: bash scripts/test-merge-decide.sh
+
+      # The `Cite-able sources:` line is the only project-specific fact most artifacts carry,
+      # and apply-anchors.sh writes it over whatever was there. On a live Vue 3 SPA the picker
+      # cited `.husky/`, `.husky/_/`, `.playwright-mcp/` and `new-architecture-standalone/` —
+      # 1 git-tracked file and 0 source files between them — into 118 of 118 artifacts, and
+      # logged the overwrite as "Stale citations repaired: 94". The same code path on a NestJS
+      # monorepo produced a correct answer, which is why copy-based testing never saw it: the
+      # defect is LAYOUT-dependent. Both layouts are fixtures here.
+      - name: Anchor citations (source-density picker, both layouts)
+        run: bash scripts/test-anchor-citations.sh
+
+      # M35 promises "the agent never decides whether to back up". run-preflight.sh decides, and
+      # it decided wrong: freshness came from the directory's MTIME, which a `git reset` had just
+      # refreshed, so a backup named 20260823-0515 looked younger than 60 minutes at 14:09. The
+      # run skipped its backup and rewrote 107 files, deferring to a directory holding one file.
+      # Age now comes from the name the script itself encoded, and a candidate must actually
+      # hold a backup.
+      - name: Preflight backup (name-based freshness, coverage floor)
+        run: bash scripts/test-preflight-backup.sh

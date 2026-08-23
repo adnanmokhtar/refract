@@ -6,6 +6,96 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### The delivery run: the engine that never ran, and the citation that got worse (2026-08-23)
+
+The merge engine landed on 2026-08-23 and was then run against the two live product repos for
+the first time. It **did not execute once**. 238 MERGE rows across both repos were listed for a
+human, `apply-study-decisions.sh` exited 0, and not one byte of pack improvement reached an
+existing file. This entry is the repair.
+
+**Root cause — a script could not find its own checkout.** `~/.claude/scripts/<name>` is a
+symlink INTO this repo. Every script derived its root as
+`cd "$(dirname "${BASH_SOURCE[0]}")/.."`, which through that symlink is `~/.claude`, so
+`$REPO_ROOT/scripts/merge-decide.py` pointed at a link `sync-to-global.sh` had never been re-run
+to create. Seven repo files were missing from the global install and nothing detected the drift.
+
+**Fixed**
+
+- **Every script resolves its own symlink chain** before deriving a root — 41 scripts, including
+  every secondary root (`pwd -P` resolves the *directory*, never the symlinked *file*, which is
+  how `apply-baseline-sync.sh` came to print `WARN wire-rule-imports.sh not found beside this
+  script` while it sat in the checkout, leaving **55 rules / ~82,475 tokens** in two repos
+  imported by nothing). Framework *data* is checkout-first too, via `framework_path()`.
+  Gate: `lint-setup-contracts.sh` **Rule 10**. Docs: CONTRIBUTING § 2a.
+- **`apply-study-decisions.sh` no longer exits 0 with the engine missing.** The three reasons it
+  might not run are no longer one predicate: `off` (the operator asked for `--conservative`) is
+  a decision and exits 0; `broken` (engine absent / no python3) is an environment fault and
+  **HALTs with exit 6** before writing anything. The state is resolved once per run and printed
+  as `Engine:` in the header, which also ends the 169-identical-WARNs-per-run noise. The
+  `REFUSED` message names the real cause instead of prescribing the flag already in effect.
+- **THE ONE REAL KNOWLEDGE LOSS — the citation picker.** `apply-anchors.sh` took the first four
+  top-level directories *alphabetically*. On a Vue 3 SPA that is `.husky/`, `.husky/_/`,
+  `.playwright-mcp/`, `new-architecture-standalone/` — 1 git-tracked file and 0 source files
+  between them — written into **118 of 118 artifacts**, over `src/assets src/components
+  src/composables`, and logged as "Stale citations repaired: 94". The same code path on the
+  NestJS monorepo produced a good answer, which is why copy-based testing never saw it: the
+  defect is **layout-dependent**. Candidates are now ranked by the source files they actually
+  contain; top-level dot-dirs and git-ignored dirs are excluded; and the staleness test splits
+  on whitespace as well as commas, so the older space-separated citation is no longer read as
+  one unresolvable token. An anchor carrying no citation line at all is now repaired instead of
+  skipped forever. Gate: `scripts/test-anchor-citations.sh` — 6 sections, both layouts.
+- **The `_codebase-scan.md` deadlock.** The preflight scored "filled" by counting `<TBD>`
+  markers; a file whose sections are ABSENT has zero of them, so it preserved a 2,043-byte
+  4-section scan forever while C2c failed the run nine times for the eight missing headings.
+  Missing sections are now **appended as fillable templates** with the existing body preserved
+  byte-for-byte. Gate: **Rule 12** holds the producer's list to C2c's.
+- **The Phase-0 backup that silently didn't happen.** Freshness came from the directory's
+  *mtime*, which a `git reset` had just refreshed, so a backup named `20260823-0515` looked
+  younger than 60 minutes at 14:09 — and held one file. Age now comes from the name the script
+  encoded, a candidate must actually cover the setup, and backup names carry seconds.
+  Gate: `scripts/test-preflight-backup.sh`.
+- **69 pack artifacts had frontmatter no YAML parser accepts** — always an unquoted scalar
+  containing a colon-space (`description: … Output: …`). All 69 fixed at source, plus 38 more in
+  `commands/` and `templates/` outside the packs. Gate: **Rule 11**. Its first draft was an
+  always-pass: under this gate's own `LC_ALL=C`, ruby reads files as US-ASCII and stops raising
+  the very error the rule looks for.
+- **`apply-adapter-sync.sh` blamed the wrong thing.** Its summary hard-coded "opening `---`
+  never closed" for all 11 malformed files, every one of which had a properly closed fence.
+  It now reports what it counted.
+- **`detect-tracks.sh` seeded `backend` from disk on a Vue 3 SPA** — self-reinforcing, since the
+  artifacts it read were installed by the previous run of the same seed. A disk seed is now
+  refused, with a reason, when this script computed an explicit signal for that track and the
+  signal came back zero.
+- **Phase 4.1 was named in no top-level contract** (`M44` added), which is why a run installed
+  `recall.md` and not the hook it tells the reader to run, then failed itself for it.
+  Gates: **Rule 14** (a phase's mandatory script must be named in the command that runs it) and
+  **Rule 17** (a pack artifact may not prescribe a helper nothing installs).
+- **Smaller, each measured:** Appendix A shipped `HAS_SEARCH=[[ … ]] && echo yes`, which is not
+  an assignment — two `command not found` errors per run and a signal that could never fire
+  (**Rule 15**); the study report emitted an unpaired `project-specific:start` marker that broke
+  anchor balance in both repos (**Rule 16**); every audit remediation is now rooted at a path
+  that resolves (**Rule 13**); C2v prints a fix; the skill-twin resolver now names the sections
+  the archived twin carried and the kept one does not (it silently dropped three halt conditions
+  from `component-playground`).
+
+**Rule 4 was certifying its own suppressions.** `scripts/_setup-contracts-baseline.txt` lives
+under `scripts/`, which was inside Rule 4's producer search path — so recording a dead trigger
+made the rule find its name and stop reporting it. The rule now requires a producer to *assign*
+the trigger (a prose mention no longer counts) and excludes its own baseline. 29 dead triggers
+are recorded, one of them newly visible; `rtl_locale_detected` and `i18n_lib_detected` have real
+extractors and correctly drop out.
+
+**Proof, end to end, through the same drifted global install that delivered nothing at HEAD:** a
+stale pack command (488 lines, 3 owner-authored lines, 31 pack-only lines missing) →
+`ADJUST`, 1 file written, **31 of 31 pack lines delivered, 3 of 3 owner lines preserved, 0
+lost**, backup taken, `_merge-decisions.md` written with a per-line proof.
+
+**Gates: 19 → 22.** Added `test-merge-decide.sh` (already existed, never wired),
+`test-anchor-citations.sh`, `test-preflight-backup.sh`. Setup-contract rules: 9 → 17. Every new
+rule was proved by introducing a real violation, watching it fail, removing it, watching it
+pass — which is how three of them were caught being always-pass.
+
+
 ### The setup now decides its own merges (M43) (2026-08-23)
 
 **The requirement, in the owner's words:** *"that what setup do add new files and for existing

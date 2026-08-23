@@ -45,6 +45,12 @@
 #         3 wired the foundational set, but pack rules overflow the budget (advisory)
 
 set -uo pipefail
+
+# Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+# § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+SELF_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
 export LC_ALL=C
 
 TARGET=""; APPLY=0; BUDGET="${RULE_BUDGET_TOKENS:-12000}"
@@ -134,7 +140,7 @@ if [[ ${#OVERFLOW[@]} -gt 0 ]]; then
   echo ""
   echo "These rules are on disk and will NOT load. That is a deliberate refusal, not an"
   echo "oversight: importing them costs ~$ov_tok tok on EVERY turn. Make them free instead —"
-  echo "  ~/.claude/scripts/scope-rules.sh \".claude/rules/<name>.md\" \"<glob>,<glob>\""
+  echo "  $SELF_DIR/scope-rules.sh \".claude/rules/<name>.md\" \"<glob>,<glob>\""
   echo "adds \`paths:\` frontmatter, after which inject-path-rules.sh loads them ONLY when"
   echo "Claude touches matching source. Re-run this script afterwards. Raise --budget only"
   echo "with the per-turn cost above in front of you."

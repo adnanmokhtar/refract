@@ -23,7 +23,13 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Symlink-resolved: ~/.claude/scripts/<name> links into this repo, so an unresolved
+# BASH_SOURCE puts this dir at ~/.claude/scripts and every sibling asset below resolves only
+# if it too was linked (see CONTRIBUTING § "Scripts run from two places").
+# Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+SCRIPT_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
 
 TOOL=""
 PARALLEL=""

@@ -121,9 +121,137 @@ warn_stale_abs_paths() {
 # unless --force is passed. Sections 8-15 are LLM-fill; if <8 are still <TBD>,
 # preserve the existing file. (Same fix as refresh-extract-checklist.sh — the
 # bug was that re-running this on every preflight wiped LLM-filled sections.)
+# THE SECTIONS THIS SCRIPT PROMISES, and the exact list audit-setup.sh C2c requires. The two
+# MUST stay in step: this script is C2c's only producer, and when they disagreed the result was
+# an unbreakable deadlock. Gate: lint-setup-contracts.sh Rule 12.
+#
+# MEASURED — the deadlock, on a live 1,261-file SPA. `<TBD>` counting alone decides "is this
+# file filled?", so a file whose sections are ABSENT rather than unfilled has zero `<TBD>`
+# markers and scores 100% filled. This script preserved a 2,043-byte, 89-line report holding
+# only §§ 1-4 (the mechanical ones it writes itself) on every run since 2026-04. C2c
+# independently checked for the HEADINGS, found eight missing, and failed the run nine times.
+# Every run was refused; every run preserved the file that caused the refusal; the only exit
+# was `--force`, which the audit's own remediation text never mentioned. Producer and auditor
+# each behaved correctly and the pair could not converge.
+#
+# The fix is not to weaken either side. A file missing a section is REPAIRED — the sections it
+# already has are preserved byte-for-byte, and only the missing ones are appended as fillable
+# `<TBD>` templates. The failure then becomes "§ 12 is <TBD>", which an LLM can answer, instead
+# of "§ 12 heading is ABSENT", which only --force could clear and which took the filled
+# sections with it.
+LLM_SECTIONS='8. Module map — what.s actually in the code
+9. Architecture pattern detected
+10. Conventions visible in code
+11. Patterns repeated 3+ times
+12. Decisions implicit in code
+13. Drift between rules and code
+14. Stale references in setup
+15. Recommended structural improvements'
+
+# Print the canonical body of one LLM-fill section, heading included, to stdout.
+emit_llm_section() {
+  case "$1" in
+    8)  cat <<'S8'
+
+## 8. Module map — what's actually in the code (LLM must fill)
+
+> List top-level features / bounded contexts visible in the codebase. Cite directory paths. For each: 1-line responsibility. Cross-reference with `ai/modules.md` — flag anything in code but missing from the map (and vice versa).
+
+<TBD>
+S8
+    ;;
+    9)  cat <<'S9'
+
+## 9. Architecture pattern detected (LLM must fill)
+
+> What architectural style is the code actually following (clean / hexagonal / layered / MVC / mod-mono / event-driven)? Cite the directory boundaries that prove it (e.g., `core/` imports nothing from framework lib X). Compare to `ai/architecture.md` declaration — flag drift.
+
+<TBD>
+S9
+    ;;
+    10) cat <<'S10'
+
+## 10. Conventions visible in code (LLM must fill)
+
+> Top 10 conventions visible in the code (file naming, folder structure, import style, error handling, validation, testing, logging, etc.). Cite real file paths as evidence. Compare to `ai/conventions.md` — flag rules in convention file that the code does NOT follow, AND code patterns that aren't documented.
+
+<TBD>
+S10
+    ;;
+    11) cat <<'S11'
+
+## 11. Patterns repeated 3+ times (LLM must fill)
+
+> Patterns appearing 3+ times that should be in `ai/patterns/<name>.md` but aren't. Cite file paths.
+
+<TBD>
+S11
+    ;;
+    12) cat <<'S12'
+
+## 12. Decisions implicit in code (LLM must fill)
+
+> Architectural choices visible in the code but NOT documented as ADRs. Each: 1-2 line rationale + which file shows the decision.
+
+<TBD>
+S12
+    ;;
+    13) cat <<'S13'
+
+## 13. Drift between rules and code (LLM must fill)
+
+> For each rule in `.claude/rules/*.md`, sample-check against the code. Flag rules the code violates AND rules that are too vague to enforce.
+
+<TBD>
+S13
+    ;;
+    14) cat <<'S14'
+
+## 14. Stale references in setup (LLM must fill)
+
+> References to files / classes / paths in `ai/*` and `.claude/*.md` that no longer exist in the code.
+
+<TBD>
+S14
+    ;;
+    15) cat <<'S15'
+
+## 15. Recommended structural improvements (LLM must fill)
+
+> Concrete proposals at the system level — NOT minor isolated changes. Format per item:
+>
+> - **What**: <one-line description>
+> - **Why**: <evidence from sections 8-14>
+> - **Where**: <files / modules affected>
+> - **Effort**: <small/medium/large>
+
+<TBD>
+S15
+    ;;
+  esac
+}
+
+# Which of §§ 8-15 have no heading in $1. Prints the numbers, space-separated.
+missing_llm_sections() {
+  local f="$1" n out=""
+  for n in 8 9 10 11 12 13 14 15; do
+    grep -qE "^## $n\." "$f" 2>/dev/null || out="$out $n"
+  done
+  printf '%s' "${out# }"
+}
+
 if [[ -f "$REPORT_PATH" && "$FORCE" -eq 0 ]]; then
   # grep -c exits 1 when 0 matches; capture cleanly (see refresh-extract-checklist.sh comment).
   tbd_count=$(grep -c '^<TBD>$' "$REPORT_PATH" 2>/dev/null) || tbd_count=0
+  # STRUCTURAL REPAIR BEFORE THE FILL TEST. A missing section is not a filled one, and a
+  # `<TBD>` count cannot see it — see the block comment above.
+  repaired_note=""
+  miss="$(missing_llm_sections "$REPORT_PATH")"
+  if [[ -n "$miss" ]]; then
+    for n in $miss; do emit_llm_section "$n" >> "$REPORT_PATH"; done
+    tbd_count=$(grep -c '^<TBD>$' "$REPORT_PATH" 2>/dev/null) || tbd_count=0
+    repaired_note=" | REPAIRED: §§ $(printf '%s' "$miss" | tr ' ' ',') were ABSENT (not unfilled) and have been appended as fillable <TBD> templates; the sections already present were preserved byte-for-byte"
+  fi
   if [[ "$tbd_count" -lt 8 ]]; then
     # Preserve the BODY, never the machine-specific header — see restamp_header above.
     hdr_note="$(restamp_header "$REPORT_PATH")"
@@ -132,12 +260,12 @@ if [[ -f "$REPORT_PATH" && "$FORCE" -eq 0 ]]; then
     # report is the PRESERVED file, so emit that and keep the notes on stderr.
     if [[ $SINK_STDOUT -eq 1 ]]; then
       echo "Codebase scan preserved (already filled): $REPORT_PATH" >&2
-      echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)${hdr_note}${stale_note}" >&2
+      echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)${hdr_note}${stale_note}${repaired_note}" >&2
       cat "$REPORT_PATH"
       exit 0
     fi
     echo "Codebase scan preserved (already filled): $REPORT_PATH"
-    echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)${hdr_note}${stale_note}"
+    echo "  ($tbd_count of 8 LLM-fill sections still <TBD>; pass --force to regenerate fresh template)${hdr_note}${stale_note}${repaired_note}"
     exit 0
   fi
 fi

@@ -1,6 +1,6 @@
 ---
 name: saga
-description: Pattern: Saga
+description: "Pattern: Saga"
 kind: ai-pattern
 pack: distributed-systems
 ---

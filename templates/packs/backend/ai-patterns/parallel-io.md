@@ -1,6 +1,6 @@
 ---
 name: parallel-io
-description: Pattern: Parallel I/O
+description: "Pattern: Parallel I/O"
 kind: ai-pattern
 pack: backend
 ---

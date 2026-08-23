@@ -1,6 +1,6 @@
 ---
 name: rendering-strategy
-description: Pattern: Rendering Strategy
+description: "Pattern: Rendering Strategy"
 kind: ai-pattern
 pack: frontend
 ---

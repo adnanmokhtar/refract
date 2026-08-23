@@ -27,7 +27,17 @@
 set -euo pipefail
 export LC_ALL=C
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through the global-install symlink so REPO_ROOT is the CHECKOUT, never ~/.claude.
+# ~/.claude/scripts/<name> is a symlink INTO this repo, so an unresolved BASH_SOURCE makes
+# dirname() report ~/.claude/scripts and every sibling asset reached for below resolves only
+# if it, too, happens to have been linked. That is exactly how the merge engine went missing:
+# scripts/merge-decide.py existed at HEAD, sync-to-global.sh had not been re-run since it
+# landed, and $REPO_ROOT/scripts/merge-decide.py pointed at a link that was never created — so
+# 238 MERGE rows across two live repos degraded to "listed, not decided" and the run still
+# exited 0. See CONTRIBUTING § "Scripts run from two places". Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 PACKS_ROOT="$REPO_ROOT/templates/packs"
 
 if [[ $# -lt 1 ]]; then
@@ -196,7 +206,7 @@ ERR_LINE=$(profile_section_first_line "Error handling")
 
 # Top-level source dirs (cite-able paths) from _codebase-scan.md § "Top-level directories".
 #
-# HISTORY — why this is not `/^src\//`. This awk filtered the scan's top-level list down to
+# HISTORY 1 — why this is not `/^src\//`. This awk filtered the scan's top-level list down to
 # lines starting with `src/`, so ANY repo that does not root its code at `src/` got the
 # `<none …>` placeholder shipped into every anchor it injected — even though the very file
 # being read listed the real roots. Measured on a live NestJS monorepo: § 2 held `apps`,
@@ -204,7 +214,24 @@ ERR_LINE=$(profile_section_first_line "Error handling")
 # 225 older ones carried a fabricated `src/.` that does not exist in that repo. Take EVERY
 # top-level entry the scan lists, then keep only the ones that resolve on disk — a citation
 # the reader cannot open is worse than no citation.
-SRC_DIRS=""
+#
+# HISTORY 2 — why the four we keep are RANKED, not the first four alphabetically. Resolving
+# on disk is necessary and nowhere near sufficient. `.husky/` resolves. `.playwright-mcp/`
+# resolves. Both sort before `src/`, so on a live Vue 3 SPA whose 587 source files all live
+# under `src/`, this loop took `.husky/`, `.husky/_/`, `.playwright-mcp/` and
+# `new-architecture-standalone/` — 1 git-tracked file and 0 source files between them — hit
+# the cap of 4, and broke out before it ever reached `src`. It then overwrote the citation
+# line of 118 of 118 artifacts with that list and the run logged it as "Stale citations
+# repaired: 94". The same code path on the NestJS monorepo picked `apps/`, `apps/master/`,
+# `apps/tenant/` and produced a GOOD answer, which is exactly why the bug survived: it is
+# layout-dependent, and alphabetical order happened to agree with source density there.
+# So: collect every survivor (no early break), count the source files each one actually
+# contains, and cite the four densest. A directory holding no source is not a source dir,
+# whatever its name sorts as. Fixture: scripts/test-anchor-citations.sh § 1.
+_CAND_FILE=$(mktemp "${TMPDIR:-/tmp}/anchor-cand.XXXXXX")
+_RANK_FILE=$(mktemp "${TMPDIR:-/tmp}/anchor-rank.XXXXXX")
+_GIT_TARGET=0
+git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1 && _GIT_TARGET=1
 while IFS= read -r _d; do
   _d="${_d%/}"
   [[ -z "$_d" ]] && continue
@@ -217,22 +244,84 @@ while IFS= read -r _d; do
     .claude|.claude/*|ai|ai/*|.cursor|.cursor/*|.opencode|.opencode/*|.aider*|.git|.github|.vscode|.idea) continue ;;
     node_modules|dist|build|out|coverage|.next|.nuxt|.output|.svelte-kit|.turbo|vendor|tmp|logs) continue ;;
   esac
+  # A TOP-LEVEL dot-directory is tooling, not source: `.husky/`, `.playwright-mcp/`,
+  # `.storybook/`, `.circleci/`. Nested dot-dirs are already pruned above. This is belt to
+  # the ranking's braces — the ranking alone would demote them, and this drops them outright
+  # so a repo with no recognised source extension can never fall back onto one.
+  case "$_d" in .*) continue ;; esac
+  # A git-ignored directory is build output or local scratch by the project's OWN declaration.
+  # (`.playwright-mcp/` is gitignored in the repo this rule was measured on.)
+  if [[ $_GIT_TARGET -eq 1 ]] && git -C "$TARGET" check-ignore -q -- "$_d" 2>/dev/null; then continue; fi
   # Only a real directory in THIS target may be cited. This is the on-disk resolvability
   # test the leak gate could not perform, applied at the point of emission.
   [[ -d "$TARGET/$_d" ]] || continue
-  [[ -n "$SRC_DIRS" ]] && SRC_DIRS="$SRC_DIRS, "
-  SRC_DIRS="$SRC_DIRS\`$_d/\`"
-  _srcn=$(( ${_srcn:-0} + 1 ))
-  [[ "${_srcn}" -ge 4 ]] && break      # cap the citation list AFTER the exclusions, never before
+  printf '%s\n' "$_d" >> "$_CAND_FILE"
 done < <(awk '/^## 2\.[[:space:]]*Top-level/{flag=1; next} /^## [0-9]+\./{flag=0} flag && NF && !/^#/ && !/^\x60\x60\x60/' "$SCAN" 2>/dev/null \
          | sed 's/^[[:space:]]*//; s/[[:space:]].*$//' | sort -u)
-# NB: NO `head` on that stream. The truncation must happen AFTER the exclusions above, not
-# before. The scan lists dirs alphabetically, so `.claude`, `.claude/agents`, `.claude/commands`,
-# `.claude/hooks`, `.claude/rules`, `.claude/skills` occupy the first SIX rows of a typical
-# target — a pre-filter `head -6` handed this loop nothing but setup-internal dirs, every one of
-# which the exclusion then dropped, leaving the `<none>` placeholder on a repo whose real roots
-# (`apps/`, `libs/`) were three lines further down. Caught by an end-to-end smoke test, not by
-# reading the diff.
+# NB: NO `head` on that stream, and no `break` in that loop. The truncation must happen AFTER
+# the exclusions AND after the ranking, never before. The scan lists dirs alphabetically, so
+# `.claude`, `.claude/agents`, `.claude/commands`, `.claude/hooks`, `.claude/rules`,
+# `.claude/skills` occupy the first SIX rows of a typical target — a pre-filter `head -6`
+# handed this loop nothing but setup-internal dirs, every one of which the exclusion then
+# dropped, leaving the `<none>` placeholder on a repo whose real roots (`apps/`, `libs/`) were
+# three lines further down. Caught by an end-to-end smoke test, not by reading the diff.
+
+# ONE walk of the tree, then attribute every file to each candidate that prefixes it. Two
+# tallies per candidate: files carrying a source extension, and files of any kind. Source
+# density decides; total files is the tiebreak and the fallback for a stack whose extensions
+# this list does not know (better a real directory than the `<none>` placeholder).
+if [[ -s "$_CAND_FILE" ]]; then
+  find "$TARGET" \
+       -type d \( -name node_modules -o -name .git -o -name dist -o -name build \
+                  -o -name .next -o -name .nuxt -o -name .output -o -name .svelte-kit \
+                  -o -name .turbo -o -name vendor -o -name __pycache__ -o -name .venv \
+                  -o -name coverage \) -prune -o -type f -print 2>/dev/null \
+  | awk -v tgt="$TARGET/" -v candfile="$_CAND_FILE" '
+      BEGIN {
+        split("ts tsx js jsx mjs cjs vue svelte py rb go rs java kt kts scala clj ex exs \
+               php cs swift m mm c cc cpp h hpp hxx sql prisma graphql gql proto \
+               css scss sass less styl html htm erb haml blade twig tpl sh bash zsh", _e, /[ \t\n]+/)
+        for (i in _e) if (_e[i] != "") SRC[_e[i]] = 1
+        n = 0
+        while ((getline c < candfile) > 0) if (c != "") { cand[++n] = c; src[c] = 0; tot[c] = 0 }
+      }
+      {
+        p = $0
+        if (index(p, tgt) != 1) next
+        p = substr(p, length(tgt) + 1)
+        ext = ""
+        if (match(p, /\.[A-Za-z0-9]+$/)) ext = tolower(substr(p, RSTART + 1))
+        for (i = 1; i <= n; i++) {
+          c = cand[i]
+          if (index(p, c "/") == 1) { tot[c]++; if (ext in SRC) src[c]++ }
+        }
+      }
+      END { for (i = 1; i <= n; i++) { c = cand[i]; printf "%d\t%d\t%s\n", src[c], tot[c], c } }
+    ' > "$_RANK_FILE" 2>/dev/null || true
+fi
+SRC_DIRS=""
+_srcn=0
+while IFS=$'\t' read -r _sc _tc _d; do
+  [[ -z "${_d:-}" ]] && continue
+  # A candidate with nothing in it at all is never cited. A candidate with files but no
+  # recognised source extension is cited only in the fallback pass below.
+  [[ "${_sc:-0}" -gt 0 ]] || continue
+  [[ -n "$SRC_DIRS" ]] && SRC_DIRS="$SRC_DIRS, "
+  SRC_DIRS="$SRC_DIRS\`$_d/\`"
+  _srcn=$(( _srcn + 1 ))
+  [[ "$_srcn" -ge 4 ]] && break
+done < <(sort -t$'\t' -k1,1nr -k2,2nr -k3,3 "$_RANK_FILE" 2>/dev/null || true)
+if [[ -z "$SRC_DIRS" ]]; then
+  while IFS=$'\t' read -r _sc _tc _d; do
+    [[ -z "${_d:-}" ]] && continue
+    [[ "${_tc:-0}" -gt 0 ]] || continue
+    [[ -n "$SRC_DIRS" ]] && SRC_DIRS="$SRC_DIRS, "
+    SRC_DIRS="$SRC_DIRS\`$_d/\`"
+    _srcn=$(( _srcn + 1 ))
+    [[ "$_srcn" -ge 4 ]] && break
+  done < <(sort -t$'\t' -k2,2nr -k3,3 "$_RANK_FILE" 2>/dev/null || true)
+fi
+rm -f "$_CAND_FILE" "$_RANK_FILE"
 # Nothing resolved is a real answer — but it must NOT be dressed up as a citation. Emit the
 # honest no-citation form; audit-anchoring.sh § TOPLEVEL_RE treats a `<…>` value as a
 # placeholder and fails the block under --strict rather than passing it as a clean anchor.
@@ -456,7 +545,16 @@ BLOCK
 anchor_toplevel_is_stale() {
   local f="$1" line val d
   line=$(grep -m1 -E '^>[[:space:]]*Cite-able sources:' "$f" 2>/dev/null || true)
-  [[ -z "$line" ]] && return 1
+  # NO citation line at all, inside a file that HAS an anchor, is the worst of the three states
+  # and used to be the one that returned "fine". MEASURED: after a skill-shape migration,
+  # .claude/skills/composite-surface-check/SKILL.md was the single artifact in its repo carrying
+  # an anchor block and no `Cite-able sources:` line — 119 artifacts had an anchor end tag, 118
+  # had a citation — and no later run ever looked at it again, because "already anchored" plus
+  # "citation absent → not stale" is a permanent skip. An anchor with no citation is stale.
+  if [[ -z "$line" ]]; then
+    grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$f" 2>/dev/null && return 0
+    return 1
+  fi
   val="${line#*top-level:}"
   [[ "$val" == "$line" ]] && return 1          # no top-level clause at all
   val="${val%.}"
@@ -465,11 +563,20 @@ anchor_toplevel_is_stale() {
     *"<"*) [[ "$SRC_DIRS" == "<"* ]] && return 1; return 0 ;;
   esac
   # Otherwise: every cited entry must resolve as a directory under the target.
+  #
+  # Split on WHITESPACE as well as commas. This script emits the comma form, but the form it
+  # emitted before that was space-separated (`top-level: src/assets src/components
+  # src/composables.`), and splitting on commas alone turned those three real directories into
+  # one 43-character token that resolves as nothing — so every artifact carrying the older
+  # form was declared stale and overwritten. On the run that exposed this, that verdict was
+  # wrong for all 118 artifacts in the target and the replacement value was worse than what it
+  # replaced. A citation whose parts all resolve is NOT stale, whichever separator wrote it.
+  # Fixture: scripts/test-anchor-citations.sh § 2.
   while IFS= read -r d; do
     d="${d%/}"
     [[ -z "$d" ]] && continue
     [[ -d "$TARGET/$d" ]] || return 0
-  done < <(printf '%s\n' "$val" | tr ',' '\n' | tr -d '`' \
+  done < <(printf '%s\n' "$val" | tr ',[:space:]' '\n\n' | tr -d '`' \
            | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$')
   return 1
 }
@@ -479,14 +586,27 @@ anchor_toplevel_is_stale() {
 repair_citeable_line() {
   local f="$1" tmp
   tmp=$(mktemp "${TMPDIR:-/tmp}/anchor-repair.XXXXXX")
-  MANIFESTS="$MANIFESTS" SRC_DIRS="$SRC_DIRS" awk '
-    /^>[[:space:]]*Cite-able sources:/ && !done {
-      printf "> Cite-able sources: %s, top-level: %s.\n", ENVIRON["MANIFESTS"], ENVIRON["SRC_DIRS"]
-      done = 1
-      next
-    }
-    { print }
-  ' "$f" > "$tmp" && cat "$tmp" > "$f"
+  # Two modes, because the line may be WRONG or may be MISSING. Rewriting handles the first;
+  # the second needs an insert, immediately after the anchor's start marker, or the artifact
+  # keeps its anchor and never gains a citation (see anchor_toplevel_is_stale's [[ -z ]] arm).
+  if grep -qE '^>[[:space:]]*Cite-able sources:' "$f" 2>/dev/null; then
+    MANIFESTS="$MANIFESTS" SRC_DIRS="$SRC_DIRS" awk '
+      /^>[[:space:]]*Cite-able sources:/ && !done {
+        printf "> Cite-able sources: %s, top-level: %s.\n", ENVIRON["MANIFESTS"], ENVIRON["SRC_DIRS"]
+        done = 1
+        next
+      }
+      { print }
+    ' "$f" > "$tmp" && cat "$tmp" > "$f"
+  else
+    MANIFESTS="$MANIFESTS" SRC_DIRS="$SRC_DIRS" awk '
+      { print }
+      /^<!-- project-specific:start -->[[:space:]]*$/ && !done {
+        printf "> Cite-able sources: %s, top-level: %s.\n", ENVIRON["MANIFESTS"], ENVIRON["SRC_DIRS"]
+        done = 1
+      }
+    ' "$f" > "$tmp" && cat "$tmp" > "$f"
+  fi
   rm -f "$tmp"
 }
 

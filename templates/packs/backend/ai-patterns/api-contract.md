@@ -1,6 +1,6 @@
 ---
 name: api-contract
-description: Pattern: API Contract Evolution
+description: "Pattern: API Contract Evolution"
 kind: ai-pattern
 pack: backend
 ---

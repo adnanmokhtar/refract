@@ -1,6 +1,6 @@
 ---
 name: motion
-description: Pattern: Motion + Animation
+description: "Pattern: Motion + Animation"
 kind: ai-pattern
 pack: ui-ux
 ---

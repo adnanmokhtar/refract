@@ -47,7 +47,17 @@
 set -euo pipefail
 export LC_ALL=C
 
-SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through the global-install symlink so SCRIPT_ROOT is the CHECKOUT, never ~/.claude.
+# ~/.claude/scripts/<name> is a symlink INTO this repo, so an unresolved BASH_SOURCE makes
+# dirname() report ~/.claude/scripts and every sibling asset reached for below resolves only
+# if it, too, happens to have been linked. That is exactly how the merge engine went missing:
+# scripts/merge-decide.py existed at HEAD, sync-to-global.sh had not been re-run since it
+# landed, and $SCRIPT_ROOT/scripts/merge-decide.py pointed at a link that was never created — so
+# 238 MERGE rows across two live repos degraded to "listed, not decided" and the run still
+# exited 0. See CONTRIBUTING § "Scripts run from two places". Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+SCRIPT_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 # Shared emitters — the SAME file scripts/sync-to-global.sh sources. Supplies
 # emit_exec_body / yaml_scalar / cmd_description / opencode_classify_command_agent /
 # frontmatter_parse_error / emit_<tool>_*. Two lanes, one definition per artifact
@@ -922,9 +932,15 @@ while IFS= read -r f; do
   fm_err="$(frontmatter_parse_error "$f")"
   if [[ -n "$fm_err" ]]; then
     total_bad_fm=$((total_bad_fm + 1))
+    # Two DIFFERENT defects reach this branch and they need different fixes. Count them apart
+    # so the summary can say which — see the summary line below for what happened when it
+    # could not.
+    case "$fm_err" in
+      *'never closed'*) bad_fm_unclosed=$(( ${bad_fm_unclosed:-0} + 1 )) ;;
+      *)                bad_fm_parse=$(( ${bad_fm_parse:-0} + 1 )) ;;
+    esac
     if [[ $total_bad_fm -le $FM_SHOW_MAX ]]; then
-      echo "  WARN  frontmatter does not parse: ${f#$TARGET/}"
-      echo "        $fm_err"
+      echo "  WARN  frontmatter does not parse: ${f#$TARGET/} — $fm_err"
     fi
   fi
 done < <( { ls "$TARGET"/.claude/commands/*.md 2>/dev/null; find "$TARGET"/.claude/skills -name '*.md' 2>/dev/null; find "$TARGET"/.claude/agents -name '*.md' 2>/dev/null; find "$TARGET"/.claude/rules -name '*.md' 2>/dev/null; } )
@@ -966,7 +982,24 @@ echo "REFRESH (overwrite):  $total_refreshed"
 echo "NO-OP:                $total_nooped"
 echo "MISSING-AUTHOR:       $total_missing_author  (need /setup-project-adapters for format conversions)"
 if [[ $total_dual_form -gt 0 ]]; then echo "DUAL-FORM SKILLS:     $total_dual_form  (same-named flat + folder skill collide on one adapter target — reconcile to one form)"; fi
-if [[ ${total_bad_fm:-0} -gt 0 ]]; then echo "MALFORMED FRONTMATTER: $total_bad_fm  (opening --- never closed — add the closing --- to the source)"; fi
+# THE SUMMARY MUST NOT NAME A CAUSE IT DID NOT MEASURE.
+# MEASURED: this line read "(opening --- never closed — add the closing --- to the source)" for
+# every failure, and on a live run all 11 files it counted had a perfectly closed fence — two
+# `^---$` lines, at 1 and 3. The real defect was a YAML mapping-value error at line 1 column 91
+# (an unquoted description containing a colon-space). Eleven readers were sent to fix something
+# that was not wrong. frontmatter_parse_error() distinguishes the two cases; the summary now
+# reports what it actually counted instead of hard-coding one of the two branches.
+if [[ ${total_bad_fm:-0} -gt 0 ]]; then
+  _fm_unclosed=${bad_fm_unclosed:-0}
+  _fm_parse=${bad_fm_parse:-0}
+  _fm_detail=""
+  [[ $_fm_unclosed -gt 0 ]] && _fm_detail="$_fm_unclosed with an unterminated opening \`---\` (add the closing \`---\`)"
+  if [[ $_fm_parse -gt 0 ]]; then
+    [[ -n "$_fm_detail" ]] && _fm_detail="$_fm_detail; "
+    _fm_detail="$_fm_detail$_fm_parse whose YAML does not parse — the usual cause is an unquoted value containing a colon-space (\`description: … Output: …\`); quote the value. The exact parser message is on each WARN above."
+  fi
+  echo "MALFORMED FRONTMATTER: $total_bad_fm  ($_fm_detail)"
+fi
 
 if [[ $APPLY -eq 1 && ($total_added -gt 0 || $total_refreshed -gt 0) ]]; then
   echo ""

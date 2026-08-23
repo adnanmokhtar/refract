@@ -1,6 +1,6 @@
 ---
 name: test-strategy
-description: Pattern: Test Strategy
+description: "Pattern: Test Strategy"
 kind: ai-pattern
 pack: testing
 ---

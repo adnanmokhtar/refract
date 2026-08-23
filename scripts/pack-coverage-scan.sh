@@ -61,7 +61,11 @@
 set -euo pipefail
 export LC_ALL=C
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+# § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 PACKS_ROOT="$REPO_ROOT/templates/packs"
 
 if [[ $# -lt 1 ]]; then
@@ -227,7 +231,14 @@ resolve_target_artifact() {
 #
 # Keyed exactly as study-existing.sh and C2b2 key it: `<pack>/<kind>/<base>` — the
 # PACK-relative path, never the deployed target path.
-SELF_DIR_PK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# Symlink-resolved (Rule 10): `pwd -P` resolves the DIRECTORY, not the symlinked FILE, so
+# `dirname "${BASH_SOURCE[0]}"` still reports ~/.claude/scripts when invoked through the global
+# install — which is how apply-baseline-sync.sh came to print "WARN wire-rule-imports.sh not
+# found beside this script" while the script sat in the checkout all along, leaving every rule
+# in the target unimported and therefore never loaded.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+SELF_DIR_PK="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
 LEDGER="$TARGET/.claude/_refresh-decisions.md"
 # ---------- PROJECT_KIND applicability filter --------------------------------------------
 # See templates/packs/_project-kind.md. A pack artifact may declare `project_kind:` in its
@@ -458,8 +469,8 @@ ledger_lookup() {
     printf 'The framework ships **one** canonical shape: `.claude/skills/<name>/SKILL.md` (Agent Skills folder form). These skills are **PRESENT, not missing** — they are the same artifact under the pre-Apr-2026 flat name `.claude/skills/<name>.md`. Do NOT copy the pack file next to them; that creates a same-`name:` twin.\n\n'
     printf 'Migration (moves each flat file into its folder — backed up, never duplicated):\n\n'
     printf '```bash\n'
-    printf '~/.claude/scripts/apply-study-decisions.sh "%s" --migrate-skill-shape          # dry run\n' "$TARGET"
-    printf '~/.claude/scripts/apply-study-decisions.sh "%s" --migrate-skill-shape --apply  # execute\n' "$TARGET"
+    printf '%s/apply-study-decisions.sh "%s" --migrate-skill-shape          # dry run\n' "$SELF_DIR_PK" "$TARGET"
+    printf '%s/apply-study-decisions.sh "%s" --migrate-skill-shape --apply  # execute\n' "$SELF_DIR_PK" "$TARGET"
     printf '```\n\n'
     printf 'Staying on the flat shape is a legitimate choice — this section is informational, not a Missing row, and it does not fail coverage. It re-appears every scan until migrated.\n\n'
     for row in "${legacy_rows[@]}"; do

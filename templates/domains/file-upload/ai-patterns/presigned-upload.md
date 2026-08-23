@@ -1,6 +1,6 @@
 ---
 name: presigned-upload
-description: Pattern: Presigned upload (direct-to-S3)
+description: "Pattern: Presigned upload (direct-to-S3)"
 kind: ai-pattern
 ---
 

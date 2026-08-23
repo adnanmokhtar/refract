@@ -1,6 +1,6 @@
 ---
 name: cqrs
-description: Pattern: CQRS (Command Query Responsibility Segregation)
+description: "Pattern: CQRS (Command Query Responsibility Segregation)"
 kind: ai-pattern
 pack: distributed-systems
 ---

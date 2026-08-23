@@ -1,6 +1,6 @@
 ---
 name: concurrency-discipline
-description: Backend Rule: Concurrency discipline (parallelize independent I/O)
+description: "Backend Rule: Concurrency discipline (parallelize independent I/O)"
 kind: rule
 pack: backend
 severity: must

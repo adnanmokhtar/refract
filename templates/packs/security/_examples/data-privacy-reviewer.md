@@ -1,6 +1,6 @@
 ---
 name: data-privacy-reviewer
-description: Deep review of PII/PHI handling in code — inventories the personal data, traces its data-flow (collection → store → log → analytics → third-party SDK egress), and maps findings to the configured regulations (GDPR / PDPL / CCPA): DSAR + right-to-erasure implementability, consent gates, cross-border transfer, and data minimization. The privacy-and-compliance lens on the data-flow.
+description: "Deep review of PII/PHI handling in code — inventories the personal data, traces its data-flow (collection → store → log → analytics → third-party SDK egress), and maps findings to the configured regulations (GDPR / PDPL / CCPA): DSAR + right-to-erasure implementability, consent gates, cross-border transfer, and data minimization. The privacy-and-compliance lens on the data-flow."
 model: opus
 ---
 

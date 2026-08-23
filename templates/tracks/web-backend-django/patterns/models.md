@@ -1,6 +1,6 @@
 ---
 name: models
-description: Pattern: Django models
+description: "Pattern: Django models"
 kind: ai-pattern
 ---
 

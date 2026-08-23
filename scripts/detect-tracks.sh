@@ -459,7 +459,13 @@ fi
 #     cannot drag a whole pack into scope.
 # Degrades to a no-op when the templates tree is not resolvable (script invoked
 # from a copy without its sibling `templates/`).
-SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# Symlink-resolved: ~/.claude/scripts/<name> links into this repo, so an unresolved
+# BASH_SOURCE puts this dir at ~/.claude/scripts and every sibling asset below resolves only
+# if it too was linked (see CONTRIBUTING § "Scripts run from two places").
+# Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+SELF_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
 PACKS_DIR="$SELF_DIR/../templates/packs"
 # HISTORY — `find` below used to run WITHOUT -L, and that made this whole block dead through
 # the only supported invocation path. `~/.claude/scripts` is a real directory of per-file
@@ -526,6 +532,32 @@ if [[ -d "$PACKS_DIR" ]] && [[ -d "$TARGET/.claude" || -d "$TARGET/ai/patterns" 
         [[ "$t" == "$pk" ]] && { already=1; break; }
       done
       if [[ $already -eq 0 ]]; then
+        # A DISK SEED MAY NOT CONTRADICT THE CODE.
+        #
+        # This seed exists so a track a project genuinely uses is not dropped when its
+        # dependency signal is subtle. It is not a licence to install a pack the codebase has
+        # no referent for. MEASURED, on a live Vue 3 SPA with no server and no database: the
+        # `backend` track was seeded purely because backend-pack artifacts were already on
+        # disk — themselves installed by an earlier run of this same seed — and the run then
+        # installed 12 more backend artifacts, including ai/patterns/transaction-boundary.md
+        # ("One INSERT/UPDATE is already atomic", isolation levels, row locking) into a
+        # frontend with no database. The seed is self-reinforcing: once one artifact lands,
+        # the track is selected forever, and every run widens the mistake.
+        #
+        # So: where this script computed an explicit signal for a track and that signal came
+        # back ZERO — no dependency, no framework marker, no directory — the disk seed is
+        # REFUSED and says so. The seed still fires for every track this script never formed
+        # an opinion about, which is the case it was written for.
+        _seed_contradicted=""
+        case "$pk" in
+          backend)  [[ "${BACKEND:-0}"  -eq 0 ]] && _seed_contradicted="no backend framework, no manage.py, no server dependency" ;;
+          frontend) [[ "${FRONTEND:-0}" -eq 0 ]] && _seed_contradicted="no frontend framework and no src/{components,pages,views}" ;;
+          security) [[ "${SEC:-0}"      -eq 0 ]] && _seed_contradicted="no auth/crypto/secrets dependency or marker" ;;
+        esac
+        if [[ -n "$_seed_contradicted" ]]; then
+          trace "REFUSED disk seed → $pk: artifacts are installed but $_seed_contradicted. A pack the code has no referent for is not a track; the artifacts already on disk stay, nothing new is installed."
+          continue
+        fi
         trace "pack artifacts already installed in target → $pk (seeded from disk, not from a dependency signal)"
         add "$pk"
       fi

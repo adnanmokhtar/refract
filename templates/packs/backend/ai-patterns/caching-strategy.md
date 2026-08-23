@@ -1,6 +1,6 @@
 ---
 name: caching-strategy
-description: Pattern: Caching Strategy
+description: "Pattern: Caching Strategy"
 kind: ai-pattern
 pack: backend
 ---

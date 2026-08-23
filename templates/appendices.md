@@ -158,7 +158,13 @@ HAS_MULTI_TENANT=$(grep -rnE '(tenant_id|tenantId|AsyncLocalStorage.*tenant)' sr
 HAS_WS=$(grep -q 'socket.io\|"ws"\|@fastify/websocket\|ws-module' package.json 2>/dev/null && echo yes)
 HAS_EVENT_SOURCED=$(grep -rnE '(AggregateRoot|EventStore|DomainEvent.*apply|event-sourced)' src/ app/ 2>/dev/null | head -1 | grep -q . && echo yes)
 HAS_FILE_UPLOAD=$(grep -q 'multer\|@fastify/multipart\|busboy\|multipart/form-data' package.json 2>/dev/null && echo yes)
-HAS_SEARCH=[[ "$HAS_ELASTIC" == "yes" || -n "$(grep -l 'meilisearch\|typesense\|pinecone\|qdrant\|weaviate' package.json 2>/dev/null)" ]] && echo yes
+# NOT `HAS_SEARCH=[[ … ]] && echo yes`. That form is not an assignment at all: bash assigns the
+# literal `[[` to HAS_SEARCH for the duration of ONE command and then tries to EXECUTE
+# `"$HAS_ELASTIC"` and `-n "…"`, so every run of this appendix printed two `command not found`
+# errors and the `search` signal could never be `yes`. It shipped that way because gate-19
+# Rule 3 screens only for `grep -P`. Fixture: scripts/test-anchor-citations.sh is not the gate
+# here — lint-setup-contracts.sh Rule 15 runs `bash -n` over this block.
+HAS_SEARCH=$( { [ "$HAS_ELASTIC" = "yes" ] || grep -q 'meilisearch\|typesense\|pinecone\|qdrant\|weaviate' package.json 2>/dev/null; } && echo yes )
 HAS_FEATURE_FLAGS=$(grep -q 'launchdarkly\|"growthbook"\|"unleash"\|"flipt"\|ldclient' package.json 2>/dev/null && echo yes)
 HAS_NOTIFICATIONS=$(grep -q 'sendgrid\|nodemailer\|firebase\|twilio\|vonage\|mailgun' package.json pyproject.toml 2>/dev/null && echo yes)
 HAS_JOBS=$(grep -q 'bullmq\|"bull"\|celery\|sidekiq\|"rq"\|@nestjs/bull' package.json pyproject.toml Gemfile 2>/dev/null && echo yes)

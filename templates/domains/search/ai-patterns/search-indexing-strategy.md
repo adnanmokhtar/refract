@@ -1,6 +1,6 @@
 ---
 name: search-indexing-strategy
-description: Pattern: Search indexing strategy (write-time async via queue)
+description: "Pattern: Search indexing strategy (write-time async via queue)"
 kind: ai-pattern
 ---
 

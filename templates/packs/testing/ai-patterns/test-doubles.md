@@ -1,6 +1,6 @@
 ---
 name: test-doubles
-description: Pattern: Test Doubles (Mocks, Stubs, Fakes, Spies)
+description: "Pattern: Test Doubles (Mocks, Stubs, Fakes, Spies)"
 kind: ai-pattern
 pack: testing
 ---

@@ -1,6 +1,6 @@
 ---
 name: metrics
-description: Pattern: Metrics (RED + USE + Business)
+description: "Pattern: Metrics (RED + USE + Business)"
 kind: ai-pattern
 pack: observability
 ---

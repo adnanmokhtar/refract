@@ -1,5 +1,5 @@
 ---
-description: Expose flaky tests by re-running the suite N times (N chosen for the flake rate you need to detect, not a fixed 5), root-cause each one, fix the non-determinism, and close with a stated confidence bound rather than the word "stable". Never masks with retries or .skip. Anti-triggers: authoring new tests is `/add-test`; a genuinely failing test is `/fix-bug`; running the suite once is `/run-tests`.
+description: "Expose flaky tests by re-running the suite N times (N chosen for the flake rate you need to detect, not a fixed 5), root-cause each one, fix the non-determinism, and close with a stated confidence bound rather than the word \"stable\". Never masks with retries or .skip. Anti-triggers: authoring new tests is `/add-test`; a genuinely failing test is `/fix-bug`; running the suite once is `/run-tests`."
 ---
 
 # /flaky-test-hunt [pattern]

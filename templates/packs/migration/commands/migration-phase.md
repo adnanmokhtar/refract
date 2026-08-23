@@ -1,5 +1,5 @@
 ---
-description: Executes one migration phase. For each feature in the phase: AUDIT (compare V1 vs V2) → identify GAPS → PORT (fill gaps using V2 structure) → VERIFY (parity test). Updates ledger as it progresses. Stops at phase boundary. Stack-agnostic.
+description: "Executes one migration phase. For each feature in the phase: AUDIT (compare V1 vs V2) → identify GAPS → PORT (fill gaps using V2 structure) → VERIFY (parity test). Updates ledger as it progresses. Stops at phase boundary. Stack-agnostic."
 kind: command
 pack: migration
 ---

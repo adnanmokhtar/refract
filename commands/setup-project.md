@@ -1,6 +1,6 @@
 ---
 description: Install or refresh the Claude orchestration layer for a repo. Packs, rules, commands, agents, and project-aware tooling; mode is detected from the repo (CREATE, ENHANCE, --refresh, --refine, --upgrade) and mode drift halts. Trigger on 'set up Claude orchestration here', 'analyze this codebase and generate tooling', 'refresh my setup'. Do NOT trigger to create a CODEBASE from an idea (/scaffold-project chains this itself), to re-sync adapters only (/setup-project-adapters), to report health without writing (/setup-project-health), or to re-run --refine after a PLATEAU-DEEP verdict.
-compatibility: Requires bash and the framework scripts synced to ~/.claude/scripts — run-preflight.sh, audit-setup.sh, apply-study-decisions.sh, apply-anchors.sh. Without them the deterministic preflight and the Phase-5 audit cannot run, and success must not be declared. Writes across .claude/ and ai/. Adapter chaining needs the adapter set resolved in .claude/codebase-profile.md. Not verified outside a POSIX shell.
+compatibility: Requires bash, python3 and the framework scripts — run-preflight.sh, apply-baseline-sync.sh, apply-study-decisions.sh, merge-decide.py, wire-rule-imports.sh, apply-anchors.sh, apply-adapter-sync.sh, audit-setup.sh. Each resolves its own checkout through the ~/.claude/scripts symlink, so a stale global install can only mean a stale ENTRY POINT, never a missing library; python3 is required because apply-study-decisions.sh HALTS (exit 6) rather than merging nothing when merge-decide.py cannot run. Without the preflight and the Phase-5 audit, success must not be declared. Writes across .claude/ and ai/. Adapter chaining needs the adapter set resolved in .claude/codebase-profile.md. Not verified outside a POSIX shell.
 version: 3.0.0
 # Tier 1 = HOT (load every session). Tier 2 = WARM (load by phase/task type).
 # Tier 3 = COLD (load on demand only). The orchestrator always loads tier 1;
@@ -170,6 +170,28 @@ file that would fail its own check is never left on disk. Records land in
 ~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --apply --conservative   # old behaviour: list MERGE rows, write nothing
 ~/.claude/scripts/merge-decide.py          "$TARGET_REPO" --json=/tmp/rows.json    # per-row record for review
 ```
+
+**Hard contract (M44) — baseline sync, and the rules that nothing else makes load:**
+
+```bash
+~/.claude/scripts/apply-baseline-sync.sh "$TARGET_REPO" --apply
+```
+
+Phase 4.1. Run it AFTER `apply-study-decisions.sh` and BEFORE `apply-anchors.sh`. It does two
+jobs no other step does, and until 2026-08-23 it was named in `templates/phases/phase-4.0-preflight.md`
+and NOWHERE in this file — so an agent following § STEP ZERO's hard contracts skipped it, every
+time, and landed on two guaranteed audit failures:
+
+- **It installs the baseline files that shipped artifacts depend on.** `apply-study-decisions.sh`
+  ADDs `learning/commands/recall.md`, whose first instruction is to run `.claude/hooks/recall-inject.sh`.
+  That hook ships here. A live run installed the command, did not install the hook, and then
+  failed itself for it — C2g "1 baseline file(s) missing" plus C2w "recall.md instructs the
+  reader to run a script that does not exist".
+- **It calls `wire-rule-imports.sh`, which is what makes `.claude/rules/` load at all.** Claude
+  Code does not auto-load `.claude/rules/`; the `@.claude/rules/…` imports in CLAUDE.md are what
+  make those rules always-on. Measured on two live repos: **55 rules, ~82,475 tokens on disk,
+  zero imported, therefore zero loaded.** Every rule the packs deliver was inert. C2u is the
+  mandatory check that catches it.
 
 **Hard contract (M25) — apply Phase-4.6 round-one anchors deterministically:**
 

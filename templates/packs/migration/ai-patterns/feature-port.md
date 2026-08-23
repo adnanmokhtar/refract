@@ -1,6 +1,6 @@
 ---
 name: feature-port
-description: Pattern: Feature port (V1→V2)
+description: "Pattern: Feature port (V1→V2)"
 kind: ai-pattern
 pack: migration
 ---

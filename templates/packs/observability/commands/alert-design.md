@@ -1,5 +1,5 @@
 ---
-description: Design alerts for a service. Uses RED + USE + SLO-based alerts. Avoids the two anti-patterns: alert fatigue + missed pages. Outputs alert definitions + runbook entries.
+description: "Design alerts for a service. Uses RED + USE + SLO-based alerts. Avoids the two anti-patterns: alert fatigue + missed pages. Outputs alert definitions + runbook entries."
 ---
 
 # /alert-design

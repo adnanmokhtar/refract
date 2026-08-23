@@ -1,6 +1,6 @@
 ---
 name: zero-downtime-deploys
-description: Pattern: Zero-Downtime Deploys
+description: "Pattern: Zero-Downtime Deploys"
 kind: ai-pattern
 pack: infrastructure
 ---

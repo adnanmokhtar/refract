@@ -1,6 +1,6 @@
 ---
 name: migration-discipline
-description: Migration Rule: V1→V2 port discipline
+description: "Migration Rule: V1→V2 port discipline"
 kind: rule
 pack: migration
 severity: must

@@ -19,7 +19,17 @@
 set -euo pipefail
 export LC_ALL=C
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through the global-install symlink so REPO_ROOT is the CHECKOUT, never ~/.claude.
+# ~/.claude/scripts/<name> is a symlink INTO this repo, so an unresolved BASH_SOURCE makes
+# dirname() report ~/.claude/scripts and every sibling asset reached for below resolves only
+# if it, too, happens to have been linked. That is exactly how the merge engine went missing:
+# scripts/merge-decide.py existed at HEAD, sync-to-global.sh had not been re-run since it
+# landed, and $REPO_ROOT/scripts/merge-decide.py pointed at a link that was never created — so
+# 238 MERGE rows across two live repos degraded to "listed, not decided" and the run still
+# exited 0. See CONTRIBUTING § "Scripts run from two places". Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 SCRIPTS="$REPO_ROOT/scripts"
 
 if [[ $# -lt 1 ]]; then
@@ -74,11 +84,46 @@ FORCE_FLAG=""
 if [[ "$MODE_LABEL" == upgrade* ]]; then
   echo "=== run-preflight: mode=$MODE_LABEL (REFRESH ceremony) target=$TARGET ==="
   echo "[upgrade] this preflight runs the REFRESH half only. The MIGRATE half is a"
-  echo "[upgrade] separate step the agent must run FIRST: ~/.claude/scripts/migrate-setup.sh \"$TARGET\""
+  echo "[upgrade] separate step the agent must run FIRST: $REPO_ROOT/scripts/migrate-setup.sh \"$TARGET\""
 else
   echo "=== run-preflight: mode=$MODE target=$TARGET ==="
 fi
 echo ""
+
+# ---- STEP -2: is the global install current? --------------------------------------------
+#
+# NOTHING USED TO ASK. On 2026-08-23 seven files committed at HEAD were absent from
+# ~/.claude/scripts, sync-to-global.sh had not been run since they landed, and the one that
+# mattered — merge-decide.py — was the entire payload of a seven-batch programme. Two live
+# repos got 238 MERGE rows "listed, not decided" and an exit 0.
+#
+# Every script now resolves its own checkout (CONTRIBUTING § 2a), so drift can no longer break
+# LIBRARY resolution — but the ENTRY POINT the agent types is still whatever the global install
+# holds, and a stale entry point is a stale run. So: report it, once, at the top, with the exact
+# remedy. This is a REPORT, not a halt: running the scripts straight out of a checkout is a
+# supported invocation and there is no global install to be stale in that case.
+_gl="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/scripts"
+if [[ -d "$_gl" ]]; then
+  _missing=0; _stale=0; _first=""
+  while IFS= read -r _rs; do
+    _b="${_rs##*/}"
+    if [[ ! -e "$_gl/$_b" ]]; then
+      _missing=$(( _missing + 1 )); [[ -z "$_first" ]] && _first="$_b"
+    elif [[ -L "$_gl/$_b" ]]; then
+      _tgt="$(readlink "$_gl/$_b")"
+      [[ "$_tgt" == "$_rs" ]] || { _stale=$(( _stale + 1 )); [[ -z "$_first" ]] && _first="$_b"; }
+    elif ! cmp -s "$_gl/$_b" "$_rs" 2>/dev/null; then
+      _stale=$(( _stale + 1 )); [[ -z "$_first" ]] && _first="$_b"
+    fi
+  done < <(find "$REPO_ROOT/scripts" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) 2>/dev/null | sort)
+  if [[ $(( _missing + _stale )) -gt 0 ]]; then
+    echo "[install] GLOBAL INSTALL IS BEHIND THIS CHECKOUT: $_missing file(s) missing, $_stale stale (first: $_first)."
+    echo "[install] The scripts below resolve their own checkout, so this run is correct either way —"
+    echo "[install] but the ENTRY POINT you typed may not be. Re-link when convenient:"
+    echo "[install]   bash $REPO_ROOT/scripts/sync-to-global.sh --apply"
+    echo ""
+  fi
+fi
 
 # STEP -1 (M35): deterministic Phase 0 backup — REFRESH / REFINE / UPGRADE /
 # ENHANCE. The backup is taken by THIS script, not by agent discipline: two
@@ -110,13 +155,64 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
             .aiderignore GEMINI.md AGENTS.override.md .github/copilot-instructions.md; do
     [[ -e "$TARGET/$_p" ]] && { HAVE_PRIOR=1; break; }
   done
-  recent_bk=$( { find "$BK_ROOT" -mindepth 1 -maxdepth 1 -type d -mmin -60 2>/dev/null || true; } | head -1)
+  # FRESHNESS IS READ FROM THE DIRECTORY NAME, NOT ITS MTIME, AND THE CANDIDATE MUST ACTUALLY
+  # HOLD A BACKUP.
+  #
+  # MEASURED, on the delivery run this comment was written for. `find -mmin -60` asks the
+  # FILESYSTEM how old the directory is. A `git reset` (or a checkout, or a restore, or rsync,
+  # or Time Machine) refreshes the mtimes of the tracked files inside `.claude/backups/…`, and
+  # the directory follows. At 14:09 a backup directory named `20260823-0515` — 8 h 54 m old by
+  # the only timestamp that is actually about the backup, the one this script itself encoded in
+  # the name — looked younger than 60 minutes. The run deferred to it, and then rewrote 107
+  # files. Worse, the thing it deferred to held exactly ONE file (683 bytes of
+  # settings.local.json) against a setup of 169 .claude + 117 ai files, so the run proceeded
+  # with no usable backup at all, while M35 promises "the agent never decides whether to back
+  # up" and C2a is supposed to refuse success without one.
+  #
+  # Two independent conditions now have to hold before this script skips its own backup:
+  #   1. the NAME parses as a timestamp inside the window (mtime is not evidence about a
+  #      backup's age — it is evidence about the last thing that touched the filesystem), and
+  #   2. the directory holds enough files to be a backup of this setup rather than a token —
+  #      at least 10, and at least a fifth of the .claude/+ai/ files it claims to cover.
+  # Anything else is treated as "no recent backup" and a real one is taken. Taking a redundant
+  # backup costs seconds; skipping a needed one costs the project.
+  _now_epoch=$(date +%s)
+  _live_files=$( { find "$TARGET/.claude" "$TARGET/ai" -type f -not -path "*/backups/*" 2>/dev/null || true; } | grep -c . || true)
+  _live_files="${_live_files:-0}"
+  recent_bk=""
+  while IFS= read -r _cand; do
+    [[ -z "$_cand" ]] && continue
+    _nm="${_cand##*/}"
+    # `YYYYMMDD-HHMM` or `YYYYMMDD-HHMMSS`, optionally prefixed (`anchors-`, `skill-shape-`…).
+    _stamp=$(printf '%s' "$_nm" | sed -nE 's/.*([0-9]{8})-([0-9]{4})([0-9]{2})?$/\1 \2\3/p')
+    [[ -z "$_stamp" ]] && continue
+    _d="${_stamp%% *}"; _t="${_stamp##* }"
+    _hh="${_t:0:2}"; _mm="${_t:2:2}"; _sec="${_t:4:2}"; _sec="${_sec:-00}"
+    _bk_epoch=$(date -j -f '%Y%m%d %H%M%S' "$_d ${_hh}${_mm}${_sec}" +%s 2>/dev/null \
+                || date -d "${_d:0:4}-${_d:4:2}-${_d:6:2} ${_hh}:${_mm}:${_sec}" +%s 2>/dev/null || true)
+    [[ -z "$_bk_epoch" ]] && continue
+    _age=$(( _now_epoch - _bk_epoch ))
+    [[ "$_age" -lt 0 || "$_age" -ge 3600 ]] && continue
+    _bk_files=$( { find "$_cand" -type f 2>/dev/null || true; } | grep -c . || true)
+    _bk_files="${_bk_files:-0}"
+    _floor=$(( _live_files / 5 ))
+    [[ "$_floor" -lt 10 ]] && _floor=10
+    if [[ "$_bk_files" -lt "$_floor" ]]; then
+      echo "[backup] ${_cand#$TARGET/} is $(( _age / 60 )) min old but holds only $_bk_files file(s) against $_live_files live setup file(s) — that is a partial snapshot, not a backup. Taking a full one."
+      continue
+    fi
+    recent_bk="$_cand"
+    break
+  done < <( { find "$BK_ROOT" -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true; } | sort -r)
   if [[ "$HAVE_PRIOR" -eq 0 ]]; then
     echo "[backup] no prior setup on disk (no .claude/, ai/, CLAUDE.md or adapter files) — nothing to back up"
   elif [[ -n "$recent_bk" ]]; then
     echo "[backup] recent backup exists (<60 min): ${recent_bk#$TARGET/} — not duplicating"
   else
-    BK="$BK_ROOT/$(date +%Y%m%d-%H%M)"
+    # Seconds, not minutes. Two preflights in the same minute used to land in the SAME
+    # directory and merge, producing one backup whose manifest describes only the second run.
+    # The freshness parser above accepts both -HHMM and -HHMMSS, so old directories still read.
+    BK="$BK_ROOT/$(date +%Y%m%d-%H%M%S)"
     mkdir -p "$BK/.claude"
     # Track exactly what we copied so restore.sh + the manifest are accurate (#5).
     BK_DIRS=()   # repo-relative dirs copied

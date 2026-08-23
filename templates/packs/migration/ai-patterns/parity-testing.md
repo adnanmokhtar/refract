@@ -1,6 +1,6 @@
 ---
 name: parity-testing
-description: Pattern: Parity testing (V1 ↔ V2)
+description: "Pattern: Parity testing (V1 ↔ V2)"
 kind: ai-pattern
 pack: migration
 ---

@@ -1,6 +1,6 @@
 ---
 name: gdpr-export-delete
-description: Pattern: GDPR export + delete (Article 15 + Article 17)
+description: "Pattern: GDPR export + delete (Article 15 + Article 17)"
 kind: ai-pattern
 ---
 

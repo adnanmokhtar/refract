@@ -1,6 +1,6 @@
 ---
 name: _template
-description: Pattern: <Pattern Name>
+description: "Pattern: <Pattern Name>"
 kind: ai-pattern
 ---
 

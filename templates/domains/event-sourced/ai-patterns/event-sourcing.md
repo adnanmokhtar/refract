@@ -1,6 +1,6 @@
 ---
 name: event-sourcing
-description: Pattern: Event sourcing (aggregate → event store → projections)
+description: "Pattern: Event sourcing (aggregate → event store → projections)"
 kind: ai-pattern
 ---
 

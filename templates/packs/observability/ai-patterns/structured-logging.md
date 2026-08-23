@@ -1,6 +1,6 @@
 ---
 name: structured-logging
-description: Pattern: Structured Logging
+description: "Pattern: Structured Logging"
 kind: ai-pattern
 pack: observability
 ---

@@ -1,6 +1,6 @@
 ---
 name: auth-flow
-description: Pattern: Auth Flow
+description: "Pattern: Auth Flow"
 kind: ai-pattern
 pack: security
 ---

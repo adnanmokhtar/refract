@@ -15,7 +15,11 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+# § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+_ss="${BASH_SOURCE[0]}"
+while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 MIGRATIONS_ROOT="$REPO_ROOT/templates/migrations"
 
 if [[ $# -lt 2 ]]; then
