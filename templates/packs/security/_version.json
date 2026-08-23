@@ -1,8 +1,8 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "1.8.0",
-  "released": "2026-08-22",
+  "version": "1.8.1",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "CSRF gets the control that actually holds, sourced to OWASP; HSTS names why preload is the part that matters.",

@@ -485,7 +485,11 @@ Follow-ups:
 Docs updated:
   - <list>
 
-Status: COMPLETE
+Status: COMPLETE | INCOMPLETE
+        COMPLETE only when every acceptance criterion maps to a named test that RAN green and
+        the telemetry rows above are filled in. Otherwise INCOMPLETE, naming each unmet AC,
+        missing test or missing signal + the exact next action. An honest INCOMPLETE is a
+        terminal state; a COMPLETE stamped over an unmet criterion is not.
 
 Next:
   - /review-changes  (for a final independent pass)

@@ -1,8 +1,8 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "1.6.0",
-  "released": "2026-08-22",
+  "version": "1.6.1",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Every number a testing artifact prints is transcribed from a runner; NOT-RUN and RED-UNOBSERVABLE are named states, not silent passes.",

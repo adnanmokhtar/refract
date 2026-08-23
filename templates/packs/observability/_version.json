@@ -1,8 +1,8 @@
 {
   "kind": "pack",
   "name": "observability",
-  "version": "1.4.0",
-  "released": "2026-08-22",
+  "version": "1.4.1",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "audits get a NO-DATA verdict and an evidence column; OTel semconv names refreshed; the three-tier burn table reconciled pack-wide.",

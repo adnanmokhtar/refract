@@ -358,7 +358,10 @@ Docs updated:
 
 Incident write-up: <ai/audits/... | not warranted>
 
-Status: COMPLETE
+Status: COMPLETE | INCOMPLETE
+        COMPLETE only when the regression test was OBSERVED failing before the fix and passing
+        after, and the similar-bug sweep is recorded. Otherwise INCOMPLETE, naming what is
+        still unproven + the exact next action.
 
 Next:
   - /review-changes  (final independent pass)

@@ -9,6 +9,21 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.6.1 — 2026-08-23
+
+**`/tdd`'s greenfield fallback was three empty headings over a 98-line dispatcher.**
+The topic declared `fallback: stub-from-sections` with `sections: [understand, dispatch, surface]`,
+so a no-signal project received three headings and no content — and the entry ledgered in
+`templates/packs/_topics-strategy-baseline.md` justified it as "the source reads as a generic
+tutorial when copied cold", which does not describe the file. `commands/tdd.md` is a thin entry
+point that says outright "the discipline lives in the agent"; there is nothing project-specific in
+it to get wrong, and its Phase 2 carries the `RED-UNOBSERVABLE` substitute-proof rule for criteria
+that cannot be made to fail on demand (the security and concurrency ones, disproportionately) —
+which the skeleton discarded entirely. `fallback:` now names `commands/tdd.md` and the ledger line
+is gone. Per `templates/packs/_fallback-baseline.md` § "Source-as-fallback is a trade", this moves
+the topic out of check 8b's `_examples/` scope: delivered in full, no longer compared against
+anything.
+
 ## 1.6.0 — 2026-08-22
 
 - **Audit corrections (same release).** The pytest row of `/flaky-test-hunt`'s invocation table

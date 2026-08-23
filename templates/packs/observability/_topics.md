@@ -127,20 +127,20 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: add-metrics
   kind: command
   triggers: { metrics_lib_detected: true }
-  fallback: stub-from-sections
+  fallback: commands/add-metrics.md   # source-as-fallback (phase-4.2-apply.md § 4.2-AUTHOR step 2). Was `stub-from-sections` with NO `sections:` list, so step 2 had nothing to build a stub FROM and a no-signal project received an EMPTY FILE while the finished 181-line command sat beside it on disk.
 
 - name: add-tracing
   kind: command
   triggers: { tracer_lib_detected: true }
-  fallback: stub-from-sections
+  fallback: commands/add-tracing.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on a no-signal project.
 
 - name: alert-design
   kind: command
   triggers: { metrics_lib_detected: true }
-  fallback: stub-from-sections
+  fallback: commands/alert-design.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on a no-signal project.
 
 - name: slo-audit
   kind: skill
   triggers: { metrics_lib_detected: true }
-  fallback: stub-from-sections
+  fallback: skills/slo-audit/SKILL.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on a no-signal project.
 ```

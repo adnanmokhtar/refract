@@ -14,6 +14,35 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.16.1 — 2026-08-23
+
+**Two agent fallbacks shipped with no sibling boundary at all.**
+`_examples/api-contract-sentry.md` ended at `## Forbidden` and `_examples/i18n-auditor.md` at
+`## Hard rules`, while both sources carry `### Sibling agents in frontend pack` **and**
+`### Cross-pack boundary`. A project receiving either agent could not tell what it does *not* own —
+which for `api-contract-sentry` means the backend pack owns the contract itself and this agent is a
+pure consumer, and for `i18n-auditor` means the error-`code` vocabulary is unreadable from the
+frontend alone (report it `partial`, never as full coverage). Both fallbacks now carry a `## Related`
+with a compressed `**Boundary:**` / `**Cross-pack boundary:**` pair plus the pattern and skill
+pointers.
+
+`validate-pack-consistency.sh` check 8b gained `BOUNDARY-LOSS` (agents only) to hold this: the block
+retains at 96% across all 77 agent sources, so it clears the gate's published ≥85% band — it was
+missing only because the band derivation reads source **H2s** and 70+ of those sources write it as
+an H3. Matched as a block, so a fallback that compresses `### Sibling agents in frontend pack` into
+a one-line `- **Boundary:**` bullet still satisfies it.
+(Widened on the same day to also accept an *unbolded* `- Boundary: …` line: the bold run had been
+mandatory, so the identical sentence written without asterisks FAILed with a message that named no
+formatting requirement. Agent findings stayed at 0.)
+
+**`add-component` and `add-crud-page` closed their Output block on a bare `Status: COMPLETE`.**
+Both are listed in `_essentials.md`, so both are minimal-mode artifacts every greenfield project
+receives, and both have real gates upstream of that line — the per-row `lcp` / `inp` / `image` /
+observability sign-off in `add-component`'s Phase 6, the sibling-shape halt and delete-dependency
+check in `add-crud-page`'s. Neither gate reached the printed close, which stamped done
+unconditionally. Both now close on `Status: COMPLETE | INCOMPLETE` naming what has to be MET, in the
+source and in the `_examples/` twin.
+
 ## 1.16.0 — 2026-08-22
 
 **Outcome pass, not a correctness pass.** The previous sweeps asked whether these artifacts were *right*.

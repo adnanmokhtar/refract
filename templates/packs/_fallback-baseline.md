@@ -43,8 +43,12 @@ full list is under "WHAT THIS CHECK DOES NOT CATCH" in the check-8b header comme
 Every line below is a violation someone has read and decided is correct as-is. Baselined lines are
 suppressed (counted in one summary WARN, listed by `--fallback-report`); anything **not** listed
 is a hard FAIL. That is the ratchet: the backlog is visible and finite, and new drift is red.
-**The backlog is 1 line.** If a comment anywhere in the repo advertises a bigger one, that comment
-is stale — this file is the authority, and it is short on purpose.
+**The backlog is 0 lines.** If a comment anywhere in the repo advertises a bigger one, that
+comment is stale — this file is the authority, and it is short on purpose. That sentence is no
+longer on trust: check 8b parses it and **FAILs when it disagrees with the entries below**, the
+same self-check `scripts/lint-handoffs.sh:661-670` runs on its own ledger. It was added because
+this exact sentence, and the check's own header comment, both went stale the day the backlog
+reached zero — a comment advertising a worklist that is not there sends readers looking for it.
 
 ## Working with this file
 
@@ -57,9 +61,13 @@ is stale — this file is the authority, and it is short on purpose.
   exists to prevent.
 - Format: `<pack>/<example-name>  <RULE>  # note`. Rules:
   `COPY-DRIFT` · `UNDECLARED-COPY` · `UNSOURCED-MAGNITUDE` · `DANGLING-DISPATCH` ·
-  `FRONTMATTER-LOSS` · `NOT-AN-ARTIFACT` · `SECTION-LOSS` · `SECTION-ORDER` · `SIGNAL-LOSS`
+  `FRONTMATTER-LOSS` · `NOT-AN-ARTIFACT` · `SECTION-LOSS` · `SECTION-ORDER` · `SIGNAL-LOSS` ·
+  `BOUNDARY-LOSS` · `CLOSING-SIGNAL-LOSS` · `VERDICT-DEGRADED`
   (see the check-8b header comment in `scripts/validate-pack-consistency.sh` for what each one
   means and what it measured).
+- **Strategy, not content, is a different ledger.** Whether a topic's `fallback:` can deliver
+  anything at all is check **3b** and `_topics-strategy-baseline.md`; this file only ever judges a
+  fallback that IS a file against the source it abridges.
 
 ## Backlog
 
@@ -76,6 +84,42 @@ reproduces. The topic was renamed `slo` -> `slo-doc-template` in the same pass, 
 `ai/patterns/slo.md` destination clobber against `observability`'s pattern of the same name.
 
 ## Promoted OUT of this list
+
+- **Sibling-boundary loss** (`BOUNDARY-LOSS`, agents only) and **closing-verdict loss**
+  (`CLOSING-SIGNAL-LOSS`, `VERDICT-DEGRADED`) were armed in the same pass, at **0 baseline lines
+  between them**. Boundary cost 3 repairs (`frontend/api-contract-sentry`, `frontend/i18n-auditor`,
+  `security/data-privacy-reviewer`), the closing verdict cost 1 (`backend/add-endpoint`, which
+  stamped `Status: COMPLETE` where its source gates on a 7-row production floor). The closing-gate
+  class earned its place from a measured incident: `ai-engineering/_examples/add-ai-feature.md`
+  never gained the `## Ship gate` its source added at 7dde562, kept a `Status: COMPLETE` the source
+  forbids at `commands/add-ai-feature.md:155` and `:215`, and survived 13 commits / 44 days / all of
+  pack v1.3.0 — including the commit that armed this very check, which exited 0 over it and never
+  named the file. It sat on the pack's only `_essentials.md` command.
+
+  **Both were widened and re-measured on 2026-08-23, and what the widening cost is on the record.**
+  `BOUNDARY-LOSS` used to require a heading or a **bold** run, so `- **Boundary:** …` matched while
+  the identical `- Boundary: …` did not — a FAIL on the very compression the rule blesses, naming no
+  formatting requirement. It now also accepts the keyword when it opens the line: agent findings
+  stayed at 0 and no repair was needed. The closing family used to test typography, not semantics:
+  ``### Verdict: `DURABLE` / `FRAGILE` / `ORPHAN-RISK` `` failed where the identical unbackticked
+  line passed, and a bare `## Ship gate` with no criteria *satisfied* the rule — the cheapest-looking
+  repair to the founding incident. Emphasis is now stripped before counting outcomes, and a gate
+  heading needs ≥100 characters of criteria under it (the smallest real gate block in the corpus is
+  139). Widening the vocabulary took qualifying sources from 66 to **80 of 282** and found one live
+  instance the narrow form missed — `code-quality/_examples/simplify.md`, repaired here, not
+  baselined. `VERDICT-DEGRADED` lost its source-side guard: four `_essentials`-listed greenfield
+  artifacts (`backend/add-feature`, `backend/fix-bug`, `frontend/add-component`,
+  `frontend/add-crud-page`) closed on a bare `Status: COMPLETE` and were silent *only* because their
+  sources printed the same line. All four were repaired on both sides.
+
+- **Boundary loss outside the agents class is COUNTED, not baselined.** The hard FAIL is scoped to
+  agents because 77 of 77 agent sources carry the block. Outside it the convention is real but not
+  universal (commands 36 of 44, ai-patterns 33 of 81, skills 30 of 64, rules 1 of 16), so a hard
+  FAIL would legislate a convention — but "scoped" was being read as "invisible": arming the rule
+  fixed 3 agent fallbacks and left **51 across 12 packs** unreported. `--fallback-report` lists
+  every one, and [`_greenfield-budget.md`](_greenfield-budget.md) budgets them per pack so the
+  class can only shrink. A 51-line reasoned ledger was rejected: reasons nobody reads are the
+  enforcement theatre this file exists to avoid.
 
 - **Safety-signal loss** (`> **Hard rule:` / a halt block / `## Premise` / an agent `TRIGGER`
   clause present in the source, absent from the fallback) shipped as a counted WARN because it
@@ -103,3 +147,18 @@ reproduces. The topic was renamed `slo` -> `slo-doc-template` in the same pass, 
 - **Orphaned examples** (`migration/_examples/{audit-failure-modes,audit-template}.md`) — already
   WARNed by check 8a, and both have live inbound citations, so they are misfiled references rather
   than dead files. Left where they are rather than muted.
+- **Blanket protection.** The closing gate / verdict rules evaluate the **80 of 282 pairs (28%)**
+  whose SOURCE carries a done-condition. The other 202 sources do not close on one, so there is
+  nothing for their fallbacks to drop. Read the closing family as protecting the pairs that have
+  something to protect, never as a certificate over the whole directory.
+
+## Source-as-fallback is a trade, not a pure win
+
+A topic whose `fallback:` names the pack's own `commands/…` / `skills/…/SKILL.md` instead of an
+`_examples/` file delivers the finished artifact in full — and leaves check 8b entirely, because 8b
+walks `_examples/` only (`templates/phases/phase-4.2-apply.md:32`). The file is no longer compared
+against anything, because it *is* the thing. That is strictly better than the empty file or the
+heading skeleton it replaces, and it is the pattern this repo already uses — the pair count fell
+293 → 282 for exactly this reason (9 `learning` topics, then `observability`'s four and now
+`testing/tdd`) — but it should be read as moving a file out of the gate's reach, not as a repair
+the gate verified.

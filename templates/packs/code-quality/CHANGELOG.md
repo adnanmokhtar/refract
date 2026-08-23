@@ -9,6 +9,25 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.8.1 — 2026-08-23
+
+**`_examples/simplify.md` shipped the procedure and dropped the gate that decides it worked.**
+`commands/simplify.md:82` is `## Phase 6 — Validate (the production-grade gate, per applied
+candidate)` — two arms (the flagging detector's fingerprint cleared at the site *and* net-lines ≤ 0;
+the touched path covered by a test green before **and** after), with any candidate failing an arm
+reverted into the run's `INCOMPLETE` / `UNVERIFIED` list. `:114` then mandates a **Verification
+footer** as the checkable artifact of that gate, and claims `Simplified` only for candidates that
+cleared both arms. The fallback's Phase 6 was three generic bullets titled plainly `## Phase 6 —
+Validate`, with no Arm 1 / Arm 2, no revert-to-INCOMPLETE close, and no Verification footer at all —
+its Output ended at `Apply [1,2,3] / [1,3] / none?`. On a no-signal project that fallback IS the
+artifact, so every such project got a `/simplify` that could report green-and-fewer-lines as
+success. Phase 6 now carries both arms and the revert rule, and the Output carries the Verification
+footer with an explicit `Verdict: SIMPLIFIED | INCOMPLETE`.
+
+Found by widening check 8b's `CLOSING-SIGNAL-LOSS` vocabulary: `GATEH` listed `production-grade
+verdict` but not `production-grade gate`, so this pair was never evaluated. It was the only live
+instance the widening surfaced across all 282 pairs.
+
 ## 1.8.0 — 2026-08-22
 
 - **Audit corrections (same release).** Four boundary sections asserted repo-wide uniqueness without

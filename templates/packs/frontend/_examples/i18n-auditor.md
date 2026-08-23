@@ -218,3 +218,28 @@ Patterns consulted: <only the files actually opened — i18n always; rtl only wh
 - NIT: unused keys (verify dynamic), minor wording.
 - Never auto-fix via machine translation — placeholder only, flag for human review.
 - Cross-sibling drift = REQUEST with `/sync-contract` recommendation.
+
+## Related
+
+- **Boundary:** `@ui-reviewer` flags a hardcoded string it happens to read in a diff; this agent
+  proves coverage across **every locale file**, which cannot be done from a diff — reconcile its
+  findings, do not duplicate them. `@ui-architect` invents the key hierarchy; keys designed there
+  that never reach a locale file become this agent's BLOCKERs. `@accessibility-auditor` shares the
+  direction surface, split cleanly: this agent owns whether `<html lang>` / `dir` are *declared*
+  correctly and synced to the active locale, that agent owns whether the resulting focus order and
+  announcement are usable. `@technical-seo` owns `hreflang` reciprocity and `x-default`.
+  `@data-flow-auditor` owns a cache key that omits the active locale — that looks like a
+  translation bug and is not one. `@api-contract-sentry` owns the `code` vocabulary behind
+  `errors.<code>` keys: **without its list, report the error-key lane as
+  `partial — audited against handled codes only, server vocabulary unread`**, never as full coverage.
+- **Cross-pack boundary:** RTL splits by mechanism vs vocabulary. This pack owns every enforcement
+  mechanism (the logical-property greps, `rules/i18n.md` § RTL, the `visual-check` RTL matrix); the
+  ui-ux pack ships `ai/patterns/rtl.md`, the prose vocabulary — absent it this agent loses
+  vocabulary, not capability. Visual RTL (mirrored iconography, direction-aware motion, how a
+  layout *should look* flipped) is ui-ux's; this agent owns whether the code can flip at all. The
+  backend pack owns the error `code` values themselves; a code renamed there orphans a locale key
+  here with no compile error anywhere.
+- Patterns: `ai/patterns/i18n.md` (the plumbing enforced here), `ai/patterns/forms.md` (where
+  localized labels, errors and plurals actually live).
+- Skills: `i18n-audit` produces the key list, this agent judges it; `visual-check` proves RTL
+  rendering — a locale that passes key parity and still breaks visually is caught only there.

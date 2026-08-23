@@ -152,7 +152,9 @@ Phase 5 (Updated): ai/modules.md, changelog, status.md, locale files
 Phase 6 (Validated): lint + tests green; permission on routes + buttons; SSR pagination
 Phase 7 (Improved): pattern refreshed at ai/patterns/crud-page.md
 
-Status: COMPLETE
+Status: COMPLETE | INCOMPLETE
+        COMPLETE only when Phase 6 is green AND the sibling-shape halt shows every gap closed.
+        Otherwise INCOMPLETE, naming each open gap + the exact next action.
 ```
 
 ## Failure modes

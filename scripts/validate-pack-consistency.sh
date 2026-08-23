@@ -15,17 +15,34 @@
 #      matching key in a legacy in-JSON `changelog` object                        (WARN)
 #   7. every _essentials `rule_references:` name ships as references/<name>.md     (WARN)
 #   8a. every `_examples/<name>.md` still has a source artifact in the pack        (WARN)
+#   3b. FALLBACK STRATEGY — check 3 asks whether a `fallback:` VALUE resolves;
+#      this asks whether the STRATEGY it names can deliver anything. A
+#      `stub-from-sections` with no NON-EMPTY `sections:` list emits an EMPTY
+#      file (STUB-NO-SECTIONS, hard FAIL); one standing in front of a finished
+#      artifact of the same kind+name delivers a heading skeleton instead of it
+#      (STUB-OVER-SOURCE, ratcheted through
+#      templates/packs/_topics-strategy-baseline.md); and the per-pack COUNT of
+#      zero-delivery topics may not grow past
+#      templates/packs/_greenfield-budget.md. `--coverage-report` prints the
+#      per-pack coverage table, whose PERCENTAGES are reported and never gated
+#                                                                          (FAIL if new)
 #   8b. FALLBACK INTEGRITY — every `_examples/<name>.md` still AGREES with the
 #      source it abridges, on the axes a text comparison can actually decide:
 #      no framed magnitude / dispatch target / frontmatter value the source
 #      disowns, no section the corpus keeps ≥85% of the time, no dropped safety
-#      signal, and no undeclared literal copy. It does NOT understand either
-#      file — a source-side retraction or polarity flip is invisible to it; see
-#      "WHAT THIS CHECK DOES NOT CATCH" at the check itself. Ratcheted through
-#      templates/packs/_fallback-baseline.md                                (FAIL if new)
+#      signal, no dropped sibling-boundary (agents) or closing gate/verdict
+#      block, and no undeclared literal copy. It does NOT understand either
+#      file — a source-side retraction or polarity flip is invisible to it, and
+#      the closing family covers the 80 of 282 pairs whose SOURCE carries a
+#      done-condition, not all 282; see "WHAT THIS CHECK DOES NOT CATCH" at the
+#      check itself. Ratcheted through templates/packs/_fallback-baseline.md,
+#      plus a per-pack COUNT budget for boundary loss outside the agents class
+#      in templates/packs/_greenfield-budget.md                             (FAIL if new)
 #
 # Usage:  validate-pack-consistency.sh [--repo-root=<dir>] [--strict] [--quiet]
-#                                      [--fallback-report]
+#                                      [--fallback-report] [--coverage-report]
+#         validate-pack-consistency.sh --record-strategy  # regenerate the 3b ledger
+#         validate-pack-consistency.sh --record-budget    # regenerate the per-pack budgets
 #         validate-pack-consistency.sh --recopy         # list COPY-DRIFT repairs
 #         validate-pack-consistency.sh --recopy-apply   # perform them
 # Exit:   1 on any FAIL (or any WARN under --strict); 0 otherwise.
@@ -40,18 +57,33 @@
 # `--fallback-report` prints the full 8b picture — every baselined defect plus the
 # safety-signal backlog that is counted but not gated. It is the repair worklist; it
 # changes nothing about the exit code.
+#
+# `--coverage-report` prints the 3b picture — every ledgered strategy defect plus the
+# per-pack greenfield coverage table (topics, zero-delivery topics, how many of those
+# have a finished artifact on disk, and the two percentages). The percentages are
+# REPORTED AND NEVER GATED; see the check-3b header for why no threshold in the
+# measured distribution discriminates. It changes nothing about the exit code.
+#
+# `--record-strategy` regenerates the 3b ledger from what reproduces now, carrying
+# existing reasons over verbatim and writing new entries WITHOUT one — so a recorded
+# entry suppresses nothing until a human writes its reason. It runs the scan, writes,
+# and exits.
 
 set -uo pipefail
 export LC_ALL=C
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STRICT=0; QUIET=0; FB_REPORT=""; RECOPY=0; RECOPY_APPLY=0
+STRICT=0; QUIET=0; FB_REPORT=""; RECOPY=0; RECOPY_APPLY=0; ST_REPORT=""; ST_RECORD=""
+BUDGET_RECORD=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo-root=*) REPO_ROOT="${1#*=}"; shift ;;
     --strict) STRICT=1; shift ;;
     --quiet) QUIET=1; shift ;;
     --fallback-report) FB_REPORT="--report"; shift ;;
+    --coverage-report) ST_REPORT="--report"; shift ;;
+    --record-strategy) ST_RECORD="--record"; shift ;;
+    --record-budget) BUDGET_RECORD="--record-budget"; shift ;;
     --recopy) RECOPY=1; shift ;;
     --recopy-apply) RECOPY=1; RECOPY_APPLY=1; shift ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -197,19 +229,34 @@ for d in templates/packs/*/; do
     grep -q '"version"' "$d/_version.json" || err "$p: _version.json missing 'version'"
   fi
 
-  # 3. every PATH-like _topics fallback resolves. Sentinel strategies (e.g. `stub-from-sections`
-  #    — generate a stub from the section headings) are not files; only check fallbacks that look
-  #    like a path (contain `/` or end in `.md`).
+  # 3. every PATH-like _topics fallback resolves, and every NON-path value is the one sentinel
+  #    that exists. `stub-from-sections` (templates/phases/phase-4.2-apply.md:26 — the only
+  #    definition anywhere in the tree) is the whole legal set; this skip used to accept any value
+  #    with no `/` and no `.md`, so `stub-from-section`, `TODO` or any other misspelling read as a
+  #    sentinel and passed silently. A topic whose `fallback:` names nothing 4.2 can dispatch on has
+  #    NO fallback at all, which is invisible until a no-signal project receives an empty artifact.
+  #    Proved by mutation before this arm existed: both typos above exited 0 with
+  #    "all _topics fallbacks resolve"; a dangling PATH correctly FAILed, and still does.
   dangling=0
   while IFS= read -r fb; do
     [[ -z "$fb" ]] && continue
-    echo "$fb" | grep -qE '/|\.md$' || continue   # skip sentinels
+    if ! echo "$fb" | grep -qE '/|\.md$'; then
+      [[ "$fb" == "stub-from-sections" ]] \
+        || { err "$p: _topics fallback strategy '$fb' is not a path and is not the one sentinel \`stub-from-sections\` (defined at templates/phases/phase-4.2-apply.md:26) — nothing dispatches on it, so this topic has no fallback"; dangling=$((dangling + 1)); }
+      continue
+    fi
     # Dual-accept, symmetric with checks 4 and 6: a `skills/<name>.md` fallback also
     # resolves against the Agent Skills dir-form `skills/<name>/SKILL.md`, so a pack may
     # sit on either form without the fallback pointer having to be rewritten in lockstep.
     { [[ -f "$d$fb" ]] || { [[ "$fb" == skills/* ]] && [[ -f "$d${fb%.md}/SKILL.md" ]]; }; } \
       || { err "$p: _topics fallback does not resolve: $fb"; dangling=$((dangling + 1)); }
-  done < <(grep -oE 'fallback:[[:space:]]*[A-Za-z0-9._/-]+' "$d/_topics.md" 2>/dev/null | sed 's/fallback:[[:space:]]*//')
+    # Anchored at line-start: a `fallback:` key is always its own YAML line, while the prose in
+    # these files says things like "the source IS the fallback: both files are ...". The old
+    # unanchored grep swept those citations up too; they were harmless only because they contain
+    # no `/` and no `.md` and so hit the sentinel skip. Now that a non-path value is a FAIL, the
+    # anchor is what keeps a sentence from reading as a declaration. Verified not to change the
+    # PATH-like value set on any of the 23 packs — the dangling-path FAIL below is untouched.
+  done < <(grep -oE '^[[:space:]]*fallback:[[:space:]]*[A-Za-z0-9._/-]+' "$d/_topics.md" 2>/dev/null | sed 's/^[[:space:]]*fallback:[[:space:]]*//')
   [[ $dangling -eq 0 ]] && ok "$p: all _topics fallbacks resolve"
 
   # 4. every _essentials array entry resolves
@@ -356,6 +403,431 @@ else:
 done
 
 # ---------------------------------------------------------------------------------------------
+# 3b. FALLBACK STRATEGY INTEGRITY (FAIL on anything not ledgered) — repo-wide, runs once after the
+#     per-pack loop because it needs each topic's `kind:`, `sections:` and the pack's artifact tree
+#     together. Check 3 above asks whether a `fallback:` VALUE resolves. This asks whether the
+#     STRATEGY it names can deliver anything.
+#
+#     WHY THIS IS A GATE. `templates/phases/phase-4.2-apply.md:26` is the only place in the tree
+#     that defines the sentinel: "the literal `stub-from-sections`, which emits a sectioned stub
+#     from that topic's `sections:` list". There is no skeleton template and no second definition.
+#     With NO `sections:` key that list is empty, so the emitter has nothing to emit and a
+#     no-signal project receives an EMPTY FILE. Nothing downstream rescues it:
+#     `phase-4.0-preflight.md:495-510` measures the PACK SOURCE (`~/.claude/templates/packs/...`),
+#     never the emitted file; `:561` counts FILES, and a 0-byte file counts as present;
+#     `phase-5-verify.md:185-220` covers only the foundational `ai/` set and says so at :187;
+#     `grep -n "wc -l" templates/phases/phase-5-verify.md` returns nothing. So the emitted artifact's
+#     size is measured nowhere, and this is the last place the defect is visible.
+#
+#     THE DEFECT HAS RECURRED FIVE TIMES, hand-repaired each time and never gated:
+#     security (CHANGELOG:87), infrastructure (CHANGELOG:106), distributed-systems, then all 8
+#     skill topics across data-engineering and finops in one batch, then observability's four
+#     (`add-metrics`, `add-tracing`, `alert-design`, `slo-audit` — 855 finished lines on disk that
+#     the topics were refusing to deliver), repaired in the same commit that armed this check.
+#     Note also that declaring the sentinel is strictly WORSE than omitting `fallback:` entirely
+#     when a source exists: per phase-4.2-apply.md:26 a topic with NO `fallback:` falls through to
+#     `_examples/<topic>.md`, then to the closest template in the pack, and only THEN to a stub.
+#     The sentinel opts the topic OUT of the chain that would have found the finished file.
+#
+#     TWO RULES, and the split is the judgement/no-judgement line:
+#       STUB-NO-SECTIONS (FAIL, never ledgerable) — the sentinel with no `sections:` key. It cannot
+#         emit anything, by the only definition that exists. There is no legitimate instance, so
+#         there is nothing for a reader to decide and nothing to suppress. 0 today.
+#       STUB-OVER-SOURCE (FAIL if new, ledgered) — the sentinel where a finished artifact of the
+#         same kind+name already ships in the pack. A heading skeleton lands where 1,196 + 133
+#         lines sit unused. This one IS a judgement call — a pack may genuinely prefer a neutral
+#         skeleton to a generic file — so it takes the reasoned-ledger ratchet, not a blanket FAIL.
+#         6 today (infrastructure 5, testing 1), each with a reason in the ledger. backend's 9
+#         sentinel topics never fire here: no shipped source exists for any of them
+#         (`backend/_topics.md:26` documents that on purpose), which is exactly the discrimination
+#         a per-pack exception list would have destroyed.
+#
+#     COVERAGE IS REPORTED, NOT GATED (`--coverage-report`). Measured survival of pack content to a
+#     no-signal project was quoted three ways during review — `product` 20% (a LINE ratio),
+#     `finops` ~31% (a TOPIC ratio), `algorithms` 91% (line again) — two denominators behind three
+#     figures, so "the reported figure" was never one metric. Neither is gateable. The line ratio
+#     inverts against harm: `ai-engineering` is second-worst at 50% with ZERO zero-delivery topics
+#     (the whole gap is intentional abridgement), while `observability` sat mid-table at 72% with
+#     four topics delivering an EMPTY file. Gating the percentage red-flags the healthy pack and
+#     waves through the broken one. `templates/packs/_fallback-baseline.md` § "Not in the ratchet,
+#     deliberately" already made this exact call for length ratio ("no threshold discriminates").
+#     WHAT IS GATED IS THE COUNT, and it is gated in templates/packs/_greenfield-budget.md — a
+#     per-pack number that may not GROW, regenerated with `--record-budget`, exactly the mechanism
+#     scripts/check-rule-budget.sh runs against scripts/_rule-budget-baseline.txt. This sentence
+#     used to claim the count was gated when nothing gated it: a topic declaring `sections:` with
+#     no artifact of that name fires NEITHER rule above, so appending two of them to a pack moved
+#     its coverage row from `zero 0 / 100%` to `zero 2 / 90%` while the gate printed `0 new` and
+#     exited 0 — Hole 3's stated failure mode verbatim, under a comment saying it was closed.
+#     The count is padding-proof where the percentage is not: nothing you ADD lowers it. Its
+#     ceiling is per-pack granularity (repair one topic, regress another in the same pack, net
+#     zero), stated in the budget file. The percentages remain available for review.
+if command -v python3 >/dev/null 2>&1; then
+  st_out=$(mktemp); st_err=$(mktemp)
+  if python3 - "$REPO_ROOT" $ST_REPORT $ST_RECORD $BUDGET_RECORD >"$st_out" 2>"$st_err" <<'PYST'
+import os, re, sys
+
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+ROOT = sys.argv[1]
+ARGS = sys.argv[2:]
+REPORT = "--report" in ARGS
+RECORD = "--record" in ARGS
+REC_BUDGET = "--record-budget" in ARGS
+PACKS = os.path.join(ROOT, "templates/packs")
+LEDGER_REL = "templates/packs/_topics-strategy-baseline.md"
+LEDGER = os.path.join(ROOT, LEDGER_REL)
+BUDGET_REL = "templates/packs/_greenfield-budget.md"
+BUDGET = os.path.join(ROOT, BUDGET_REL)
+BUDGET_SECTION = "Zero-delivery topics"
+SENTINEL = "stub-from-sections"
+RULES = {"STUB-OVER-SOURCE"}
+# STUB-NO-SECTIONS is deliberately NOT ledgerable: it names a strategy that cannot emit anything,
+# so "someone read it and decided it is correct" is not a state that exists. A line claiming to
+# suppress it WARNs instead of suppressing.
+UNLEDGERABLE = {"STUB-NO-SECTIONS"}
+KIND_DIR = {"pattern": "ai-patterns", "ai-pattern": "ai-patterns", "ai-patterns": "ai-patterns",
+            "command": "commands", "agent": "agents", "rule": "rules", "convention": "rules",
+            "skill": "skills", "reference": "references"}
+ARTS = ("agents", "commands", "rules", "ai-patterns", "skills")
+# The ledger states its own size in prose. That is a claim a file makes about ITSELF, decidable by
+# counting the file, and 8b's header comment drifted for exactly this reason — it still advertised
+# a 2-line backlog after the file reached zero. lint-handoffs.sh:661-670 solved it the same way.
+ADVERT = re.compile(r'ledger is\s+\**(\d+)\**\s+entr')
+
+
+def read(p):
+    try:
+        return open(p, encoding="utf-8", errors="replace").read()
+    except OSError:
+        return ""
+
+
+def nlines(p):
+    t = read(p)
+    return len(t.splitlines()) if t else 0
+
+
+def topics(packdir):
+    """Every topic in a pack's _topics.md: name, kind, fallback VALUE, HOW MANY sections it
+    declares, and the line it starts on. The `fallback:` value is captured with the same
+    character class check 3 greps with, so a trailing `# comment` never becomes part of it.
+
+    `sections` is a COUNT, not a flag, and that is the whole point: the emitter builds the stub
+    FROM the list, so `sections: []` and a bare `sections:` with nothing under it emit exactly
+    what a missing key emits — an EMPTY FILE. A presence test would have called both of those
+    compliant while the finding text says an empty list emits nothing, which is the check
+    contradicting itself. Both YAML spellings the corpus uses are counted: the inline flow list
+    (`sections: [a, b]`, 344 topics) and the block list (`sections:` + `    - a`, 9 topics —
+    align/_topics.md:21, backend/_topics.md:248, migration/_topics.md:21 among them)."""
+    rows, cur, insec = [], None, None
+    for i, line in enumerate(read(os.path.join(packdir, "_topics.md")).splitlines(), 1):
+        m = re.match(r'^\s*-\s+name:\s*([A-Za-z0-9._-]+)', line)
+        if m:
+            cur = {"name": m.group(1), "kind": None, "fb": None, "sections": 0, "line": i}
+            rows.append(cur)
+            insec = None
+            continue
+        if cur is None:
+            continue
+        if insec is not None:
+            # block-list continuation: `    - item` until the next key or a blank-line break
+            if re.match(r'^\s*-\s+[A-Za-z0-9_]', line):
+                insec["sections"] += 1
+                continue
+            if line.strip() and not line.lstrip().startswith("#"):
+                insec = None
+        m = re.match(r'^\s*kind:\s*([A-Za-z0-9._-]+)', line)
+        if m:
+            cur["kind"] = m.group(1)
+            continue
+        m = re.match(r'^\s*fallback:\s*([A-Za-z0-9._/-]+)', line)
+        if m:
+            cur["fb"] = m.group(1)
+            continue
+        m = re.match(r'^\s*sections:\s*(.*)$', line)
+        if m:
+            rest = m.group(1).split("#", 1)[0].strip()
+            if rest.startswith("["):
+                cur["sections"] = len([x for x in rest.strip("[]").split(",") if x.strip()])
+                insec = None
+            else:
+                insec = cur          # bare `sections:` — count the block list that follows
+    return rows
+
+
+def source_for(packdir, kind, name):
+    """The finished artifact this topic's own `kind:` says it is — the file a sentinel is
+    standing in front of. Returns a pack-relative path or None."""
+    sub = KIND_DIR.get(kind or "")
+    if sub == "skills":
+        for c in ("skills/%s/SKILL.md" % name, "skills/%s.md" % name):
+            if os.path.isfile(os.path.join(packdir, c)):
+                return c
+    elif sub:
+        c = "%s/%s.md" % (sub, name)
+        if os.path.isfile(os.path.join(packdir, c)):
+            return c
+    return None
+
+
+def resolves(packdir, fb):
+    if os.path.isfile(os.path.join(packdir, fb)):
+        return fb
+    if fb.startswith("skills/") and fb.endswith(".md") \
+       and os.path.isfile(os.path.join(packdir, fb[:-3], "SKILL.md")):
+        return fb[:-3] + "/SKILL.md"
+    return None
+
+
+def load_ledger():
+    """Same contract as templates/packs/_fallback-baseline.md and scripts/_handoff-baseline.md:
+    a line MUST carry a trailing `# reason` or it suppresses nothing."""
+    keep, unreasoned, bogus = set(), [], []
+    text = read(LEDGER)
+    for line in text.splitlines():
+        m = re.match(r'^([a-z0-9][a-z0-9-]*/[A-Za-z0-9._-]+)[ \t]+([A-Z][A-Z-]+)[ \t]*(#.*)?$',
+                     line.strip())
+        if not m:
+            continue
+        key, rule, reason = m.group(1), m.group(2), (m.group(3) or "").strip("# \t")
+        if rule in UNLEDGERABLE:
+            bogus.append((key, rule))
+        elif rule not in RULES:
+            bogus.append((key, rule))
+        elif reason:
+            keep.add((key, rule))
+        else:
+            unreasoned.append((key, rule))
+    m = ADVERT.search(text)
+    return keep, unreasoned, bogus, (int(m.group(1)) if m else None)
+
+
+# ---- the greenfield budget: a per-pack COUNT that may not GROW. Same mechanism as
+# scripts/check-rule-budget.sh + scripts/_rule-budget-baseline.txt, and here for the same reason:
+# the harm this measures is real but the RIGHT LEVEL of it is a judgement no repo-wide threshold
+# can carry, while "more than yesterday" is exact. An ABSENT file or section is not an off switch —
+# every pack then reads as budget 0, so deleting the budget turns every existing zero-delivery
+# topic RED rather than turning the check off.
+def budget_rows(section):
+    m = re.search(r'(?ms)^##\s+' + re.escape(section) + r'\b.*?\n```\n(.*?)\n```', read(BUDGET))
+    rows = {}
+    if m:
+        for line in m.group(1).splitlines():
+            mm = re.match(r'^([a-z0-9][a-z0-9-]*)[ \t]+(\d+)$', line.strip())
+            if mm:
+                rows[mm.group(1)] = int(mm.group(2))
+    return rows
+
+
+def budget_record(section, counts):
+    """Rewrite one section's fenced block in place, leaving every other section untouched — the
+    3b and 8b blocks are separate programs recording into the same file in one run."""
+    body = "\n".join("%-24s %d" % (p, n) for p, n in sorted(counts.items()) if n) or "(none)"
+    text = read(BUDGET)
+    new, n = re.subn(r'(?ms)(^##\s+' + re.escape(section) + r'\b.*?\n```\n).*?(\n```)',
+                     lambda mm: mm.group(1) + body + mm.group(2), text, count=1)
+    if n:
+        open(BUDGET, "w", encoding="utf-8").write(new)
+    return n
+
+
+findings, packrows, n_topics, n_stub = [], [], 0, 0
+
+for p in sorted(os.listdir(PACKS)):
+    pd = os.path.join(PACKS, p)
+    if not os.path.isdir(pd) or not os.path.isfile(os.path.join(pd, "_topics.md")):
+        continue
+    declared = zero = zero_with_src = delivered = 0
+    for t in topics(pd):
+        n_topics += 1
+        fb, key = t["fb"], p + "/" + t["name"]
+        if fb is None:
+            continue          # `kind: reference-pair` — deliberately never installed
+                              # (align/_topics.md:96 cites phase-4.2-apply.md:210-213)
+        declared += 1
+        if fb != SENTINEL:
+            r = resolves(pd, fb)
+            if r:
+                delivered += nlines(os.path.join(pd, r))
+            continue
+        n_stub += 1
+        zero += 1
+        src = source_for(pd, t["kind"], t["name"])
+        if src:
+            zero_with_src += 1
+        if not t["sections"]:
+            findings.append((key, "STUB-NO-SECTIONS",
+                             "_topics.md:%d declares `fallback: %s` with no NON-EMPTY `sections:` "
+                             "list (missing key, `sections: []`, or a bare `sections:` with no "
+                             "items under it are all the same thing here). phase-4.2-apply.md:26 "
+                             "builds the stub FROM that list, so an empty list emits an EMPTY "
+                             "FILE%s. Point `fallback:` at the source, or declare the sections."
+                             % (t["line"], SENTINEL,
+                                " while %s (%d lines) sits beside it on disk"
+                                % (src, nlines(os.path.join(pd, src))) if src else "")))
+        elif src:
+            findings.append((key, "STUB-OVER-SOURCE",
+                             "_topics.md:%d declares `fallback: %s` while %s (%d lines) ships in "
+                             "this pack. A no-signal project gets the heading skeleton and none of "
+                             "that content."
+                             % (t["line"], SENTINEL, src, nlines(os.path.join(pd, src)))))
+    pack_lines = 0
+    for sub in ARTS:
+        for dirpath, _d, files in os.walk(os.path.join(pd, sub)):
+            for f in files:
+                if f.endswith(".md") and f != "README.md":
+                    pack_lines += nlines(os.path.join(dirpath, f))
+    packrows.append((p, declared, zero, zero_with_src, pack_lines, delivered))
+
+# ---- GREENFIELD BUDGET (Hole 3). A zero-delivery topic is one whose `fallback:` is the sentinel:
+# whatever else it declares, a no-signal project receives headings and no content for it. Two of
+# the three shapes that produces are gated exactly above (STUB-NO-SECTIONS, STUB-OVER-SOURCE); the
+# THIRD — a sentinel with a `sections:` list and NO artifact of that name anywhere — fires neither,
+# which is how a pack could add unlimited zero-delivery topics and stay green. PROVEN before this
+# block existed: appending two topics with `sections: [overview, pitfalls]` + the sentinel to
+# observability/_topics.md moved its coverage row from `topics 19 / zero 0 / 100%` to
+# `topics 21 / zero 2 / 90%`, and the gate still printed `0 new` and exited 0.
+# THE COUNT IS GATED AND THE PERCENTAGE IS NOT, deliberately. The percentage inverts against harm
+# (ai-engineering reads 100% topic / 49% line with ZERO zero-delivery topics; observability read
+# 72% while four of its topics delivered an empty file) and it is movable by padding a pack with
+# delivering topics. The count is not: nothing you ADD lowers it, and the only way down is to make
+# a topic deliver.
+# CEILING, STATED: the budget is per PACK, so repairing one topic and regressing another inside the
+# SAME pack nets to zero and stays green. That is the same ceiling check-rule-budget.sh accepts.
+zero_now = {p: z for p, declared, z, zsrc, pl, dl in packrows}
+if REC_BUDGET:
+    if budget_record(BUDGET_SECTION, zero_now):
+        print("I\tgreenfield budget: recorded %d pack(s) carrying zero-delivery topics -> %s"
+              % (len([1 for v in zero_now.values() if v]), BUDGET_REL))
+    else:
+        print("F\t%s has no `## %s` section with a fenced block to record into — create it or "
+              "restore it from git; an absent budget reads as 0 for every pack."
+              % (BUDGET_REL, BUDGET_SECTION))
+else:
+    zb = budget_rows(BUDGET_SECTION)
+    for p in sorted(zero_now):
+        cur, rec = zero_now[p], zb.get(p, 0)
+        if cur > rec:
+            print("F\t%s: %d zero-delivery topic(s), %d more than the recorded budget of %d. A "
+                  "topic whose `fallback:` is `%s` hands a no-signal project headings and no "
+                  "content. Make the new topic(s) deliver (point `fallback:` at the artifact that "
+                  "ships), or record the new level deliberately with `--record-budget` (%s)."
+                  % (p, cur, cur - rec, rec, SENTINEL, BUDGET_REL))
+        elif cur < rec:
+            print("W\t%s: %d zero-delivery topic(s), below its recorded budget of %d — re-record "
+                  "with `--record-budget` so the ratchet keeps the ground it gained (%s)"
+                  % (p, cur, rec, BUDGET_REL))
+
+# ---- RECORD: regenerate the ledger's entry block from what reproduces NOW. Reasons already
+# written are carried over verbatim; a NEWLY recorded entry is emitted with no reason, which
+# suppresses nothing and stays red until a human writes one. That is deliberate — a --record that
+# could silence an unread finding is the mute button this whole ratchet exists to prevent.
+if RECORD:
+    prev = {}
+    for line in read(LEDGER).splitlines():
+        m = re.match(r'^([a-z0-9][a-z0-9-]*/[A-Za-z0-9._-]+)[ \t]+([A-Z][A-Z-]+)[ \t]*(#.*)?$',
+                     line.strip())
+        if m:
+            prev[(m.group(1), m.group(2))] = (m.group(3) or "").rstrip()
+    entries = sorted({(k, r) for k, r, _ in findings if r in RULES})
+    body = "\n".join("%-34s %-16s %s" % (k, r, prev.get((k, r), "#"))
+                     for k, r in entries) or "(empty)"
+    text = read(LEDGER)
+    new = re.sub(r'(?s)(## Ledger\n\n```\n).*?(\n```)', lambda mm: mm.group(1) + body + mm.group(2),
+                 text, count=1)
+    new = ADVERT.sub(lambda _m: "ledger is %d entr" % len(entries), new, count=1)
+    open(LEDGER, "w", encoding="utf-8").write(new)
+    print("I\tstrategy ledger: recorded %d entr%s -> %s (a new line carries no reason and "
+          "therefore suppresses nothing until one is written)"
+          % (len(entries), "y" if len(entries) == 1 else "ies", LEDGER_REL))
+
+base, unreasoned, bogus, advertised = load_ledger()
+for key, rule in sorted(unreasoned):
+    print("W\tledger line `%s  %s` carries no `# reason` — it suppresses nothing until it does (%s)"
+          % (key, rule, LEDGER_REL))
+for key, rule in sorted(bogus):
+    print("W\tledger line `%s  %s` names a rule this ledger does not ratchet%s — it suppresses "
+          "nothing (%s)" % (key, rule,
+                            " (STUB-NO-SECTIONS is a hard FAIL by design)"
+                            if rule in UNLEDGERABLE else "", LEDGER_REL))
+# THE SENTENCE ITSELF IS NOW MANDATORY. Checking the number only when a number is present made the
+# check cheaper to DELETE than to correct: replacing `**The ledger is 5 entries.**` with any other
+# text returned EXIT=0 and no finding. That is the failure mode this self-check exists for — the
+# sentence went stale once already — so an existing ledger with no advertised count is a FAIL.
+# A ledger file that does not exist at all is still not checked: 3b's fixture packs ship without
+# one, and a MISSING ledger already fails safe by un-suppressing every entry it used to hold.
+if read(LEDGER).strip() and advertised is None:
+    print("F\t%s exists but advertises no entry count. The `**The ledger is N entries.**` sentence "
+          "is the file's contract with every comment that cites it, and it is checked on every run "
+          "— restore it rather than deleting it, or the next reader is sent to a worklist nobody "
+          "can size." % LEDGER_REL)
+if advertised is not None:
+    n_entries = len(base) + len(unreasoned)
+    if advertised != n_entries:
+        print("F\t%s advertises a %d-entry ledger but %d parse. Either the sentence is stale or "
+              "the file was read short — a truncated ledger un-suppresses its missing entries, "
+              "which reads as defects going red with nothing naming the cause."
+              % (LEDGER_REL, advertised, n_entries))
+
+seen, new_f, known = set(), [], []
+for key, rule, detail in findings:
+    seen.add((key, rule))
+    (known if (key, rule) in base else new_f).append((key, rule, detail))
+
+for key, rule, detail in new_f:
+    p, n = key.split("/", 1)
+    print("F\t%s: _topics %s [%s] %s" % (p, n, rule, detail))
+for key, rule in sorted(base - seen):
+    print("W\t`%s  %s` no longer reproduces — drop its line from %s" % (key, rule, LEDGER_REL))
+if known:
+    print("W\t%d known fallback-strategy defect(s) suppressed by %s (repair backlog; "
+          "--coverage-report lists them)" % (len(known), LEDGER_REL))
+if REPORT:
+    for key, rule, detail in sorted(known):
+        print("R\tledgered   %-34s [%s] %s" % (key, rule, detail))
+    print("R\t")
+    print("R\tGREENFIELD COVERAGE. 'zero' = topics whose fallback delivers no content; 'src' = of "
+          "those, how many have a finished artifact on disk. THE TWO PERCENTAGES ARE REPORTED AND "
+          "NEVER GATED — no threshold in the measured distribution separates defect from deliberate "
+          "abridgement, and the line ratio inverts against harm. THE 'zero' COLUMN IS GATED, per "
+          "pack, against %s: it may not grow. Regenerate with --record-budget." % BUDGET_REL)
+    print("R\t%-22s %6s %6s %5s %8s %8s" % ("pack", "topics", "zero", "src", "topic-%", "line-%"))
+    for p, declared, zero, zsrc, pl, dl in sorted(packrows, key=lambda r: (-r[2], r[0])):
+        print("R\t%-22s %6d %6d %5d %7d%% %7d%%"
+              % (p, declared, zero, zsrc,
+                 round(100.0 * (declared - zero) / declared) if declared else 100,
+                 round(100.0 * dl / pl) if pl else 100))
+print("I\tfallback strategy: %d topics across %d packs, %d declare `%s`, %d new, %d ledgered"
+      % (n_topics, len(packrows), n_stub, SENTINEL, len(new_f), len(known)))
+if new_f:
+    print("H\t^ point `fallback:` at the artifact that already ships, or — for STUB-OVER-SOURCE "
+          "only, and only if a neutral skeleton is genuinely the better delivery — add "
+          "`<pack>/<topic>  STUB-OVER-SOURCE  # reason` to " + LEDGER_REL)
+PYST
+  then
+    while IFS=$'\t' read -r st_tag st_msg; do
+      case "$st_tag" in
+        F) err "$st_msg" ;;
+        W) warn_msg "$st_msg" ;;
+        R) [[ $QUIET -eq 0 ]] && echo "        $st_msg" || true ;;
+        I) ok "$st_msg" ;;
+        H) echo "  $st_msg" >&2 ;;
+      esac
+    done < "$st_out"
+  else
+    err "fallback strategy (check 3b) did not run: $(head -3 "$st_err" | tr '\n' ' ')"
+  fi
+  rm -f "$st_out" "$st_err"
+else
+  warn_msg "fallback strategy (check 3b) skipped — python3 not found"
+fi
+if [[ -n "$ST_RECORD" ]]; then
+  echo ""
+  echo "pack-consistency: strategy ledger recorded — re-run without --record-strategy to gate"
+  [[ $fail -gt 0 ]] && exit 1
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------------------------
 # 8b. FALLBACK INTEGRITY (FAIL on anything not baselined) — repo-wide, runs once after the
 #     per-pack loop because source resolution needs `_topics.md` and dangling-dispatch resolution
 #     needs every pack at once.
@@ -419,6 +891,19 @@ done
 #     retention (normalised, H2 in the source vs H2-or-H3 in the fallback) over headings appearing
 #     in >=8 sources.
 #
+#     WHAT THE BAND STRUCTURALLY CANNOT SEE, stated because this paragraph otherwise reads as if
+#     the derivation looked at every heading, and it did not. (1) IT READS SOURCE H2s ONLY. A
+#     shape the corpus writes as an H3 in the SOURCE can never enter the band at any retention —
+#     which is exactly what happened to the sibling-boundary block: 70+ of the 77 agent sources
+#     write it `### Sibling agents in <pack> pack`, so it was never in the sample despite retaining
+#     at 96%. (2) `norm_h` does not collapse a trailing " in <pack> pack", so even as an H2 that
+#     shape would have fragmented into 21 distinct normalised headings of n<=7, all under the n>=8
+#     floor. Both are properties of the derivation, not verdicts on the shape. A shape in that
+#     blind spot is gated as a BLOCK instead (BOUNDARY-LOSS below), the same treatment
+#     `Halt conditions` gets at 40% heading retention. The blind spot was searched for other H3-only
+#     shapes clearing >=85% at n>=8 and none was found, so this is a correction to the record rather
+#     than a second open gap — but re-derive from source H2s AND H3s if the band is ever re-cut.
+#
 #     MEASURED ON THE PRE-REPAIR CORPUS — `git archive a909ac2`, 292 pairs — and that basis is
 #     deliberate, not incidental. a909ac2 is the last state in which each fallback's abridgement
 #     was an INDEPENDENT decision by its pack author. Re-deriving the band from a repaired corpus
@@ -458,15 +943,17 @@ done
 #     to the 8a walk only for the 8 examples no topic declares.
 #
 #     RATCHET. Known violations are listed in templates/packs/_fallback-baseline.md and suppressed
-#     to a single counted WARN; a violation NOT listed there is a hard FAIL. The backlog now
-#     stands at 2 findings across 2 files (documentation/slo SECTION-ORDER — a rule artifact, and
-#     migration/migration-discipline UNSOURCED-MAGNITUDE — sourced in a companion reference this
-#     check's single-source resolution cannot see); each carries its reason in the file, and a
-#     baseline line with NO reason suppresses nothing (see `load_baseline`). Repairing a file means
-#     deleting its line — a line that no longer reproduces WARNs — so the baseline cannot rot into
-#     a mute button. Keep this count in step with that file: a comment advertising a backlog larger
-#     than the file holds sends readers to a worklist that is not there, which is how the last
-#     version of this comment went stale.
+#     to a single counted WARN; a violation NOT listed there is a hard FAIL. The backlog is now
+#     ZERO — the last two entries (documentation/slo SECTION-ORDER and
+#     migration/migration-discipline UNSOURCED-MAGNITUDE) were retired 2026-08-23, not muted but
+#     made not to fire. A baseline line with NO reason suppresses nothing (see `load_baseline`),
+#     and repairing a file means deleting its line — a line that no longer reproduces WARNs — so
+#     the baseline cannot rot into a mute button.
+#     THIS COUNT IS NO LONGER ON TRUST. Both this paragraph and the baseline file's own "the
+#     backlog is N lines" sentence went stale the day it reached zero, which is how a comment sends
+#     a reader to a worklist that is not there. `ADVERT` + `load_baseline` now parse that sentence
+#     and FAIL when it disagrees with the entries that actually parse — the same self-check
+#     scripts/lint-handoffs.sh:661-670 runs on its own ledger, added for the same reason.
 #
 #     THE SAFETY-SIGNAL CLASS IS NOW GATED, and the history matters. When 8b first landed, 227 of
 #     292 fallbacks (78%) dropped a `> **Hard rule:` line, a halt block, a `## Premise`, or an
@@ -478,14 +965,18 @@ done
 #     A pack that genuinely must drop a signal baselines it with a reason, same as any other rule.
 if command -v python3 >/dev/null 2>&1; then
   fb_out=$(mktemp); fb_err=$(mktemp)
-  if python3 - "$REPO_ROOT" $FB_REPORT >"$fb_out" 2>"$fb_err" <<'PYFI'
+  if python3 - "$REPO_ROOT" $FB_REPORT $BUDGET_RECORD >"$fb_out" 2>"$fb_err" <<'PYFI'
 import os, re, sys
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 ROOT = sys.argv[1]
 REPORT = "--report" in sys.argv[2:]
+REC_BUDGET = "--record-budget" in sys.argv[2:]
 BASELINE = os.path.join(ROOT, "templates/packs/_fallback-baseline.md")
 PACKS = os.path.join(ROOT, "templates/packs")
+BUDGET_REL = "templates/packs/_greenfield-budget.md"
+BUDGET = os.path.join(ROOT, BUDGET_REL)
+BUDGET_SECTION = "Boundary-loss outside agents"
 
 KIND_DIR = {"pattern": "ai-patterns", "ai-pattern": "ai-patterns", "ai-patterns": "ai-patterns",
             "command": "commands", "agent": "agents", "rule": "rules", "convention": "rules",
@@ -522,6 +1013,157 @@ DISPLINE = re.compile(r'(?i)^\s*[-*0-9.]*\s*(load|read|see|apply|consult|dispatc
 # Sources write 14.4x and >= as typography; fallbacks often write ASCII. Normalise before
 # comparing or the two spellings read as a retracted claim (2 false positives without this).
 NORM = str.maketrans({"×": "x", "–": "-", "—": "-", "≥": ">", "≤": "<"})
+
+# BOUNDARY (agents only) — the sibling / cross-pack ownership block. Matched as a BLOCK, not as a
+# heading spelling, for exactly the reason `halted` below is: the corpus writes it as
+# `### Sibling agents in <pack> pack`, as `### Cross-pack boundary`, as `## Related — boundary`,
+# and — legitimately, this IS the abridgement premise working — compressed into a one-line
+# `- **Boundary:**` / `**Cross-pack:**` / `**Not this agent's job:**` bullet inside `## Related`.
+# The `[^\n]{0,60}?` prefix window is what lets `## Related — boundary` and `- **Boundary:**` both
+# hit while the prose line `Validate once, at the boundary` does not.
+# THE CEILING, MEASURED, and it is the same one `halted` accepts. Matching a BLOCK means a
+# domain-boundary false friend in the FALLBACK (`### Service boundaries`, `**Domain trust
+# boundary**`) satisfies the rule, so a loss can be masked. The tighter alternative — requiring the
+# keyword at the START of the bold run rather than within 60 chars — was written and measured
+# against all 77 agent pairs: it scores 4 findings and 1 of them is FALSE
+# (security/llm-security-reviewer, whose fallback carries the whole boundary as mid-line prose:
+# `Boundary: LLM10 output-handling judgment ... owned here`, `**Not this agent's job:** the app's
+# own endpoints ...`). The loose form scores 3 findings and 0 false. A gate that invents a finding
+# on a file that did the right thing is worse than one that misses a masked loss, so the ceiling is
+# taken deliberately, not by omission.
+# THE OTHER CEILING, now closed. The prefix used to be heading-or-BOLD-run ONLY, so
+# `- **Boundary:** this agent owns X; @sibling owns Y.` HIT while the identical sentence written
+# `- Boundary: ...` or as bare prose MISSED — an author who compressed the block into an unbolded
+# bullet (the compression the comment above blesses) got a FAIL that named no formatting
+# requirement. The third branch below accepts the keyword when it OPENS the line (after an
+# optional bullet), which is what those two forms have in common and what the prose false friend
+# `Validate once, at the boundary` does not. Measured across all 282 pairs: source hits go
+# agents 77->77, commands 36->36, ai-patterns 28->33, skills 21->30, and the AGENTS findings the
+# rule gates stay at 0 — the widening costs no repair and removes the false-positive path.
+_BKW = (r'(?:sibling\s+(?:agents?|commands?|skills?|patterns?)'
+        r'|boundar(?:y|ies)\b'
+        r'|what\s+(?:you|this(?:\s+agent)?)\s+(?:do|does)\s+not\s+own'
+        r'|not\s+this\s+agent'
+        r'|cross-pack)')
+BOUNDARY = re.compile(r'(?im)^(?:'
+                      r'(?:#{2,4}\s+|\s*[-*]?\s*\*\*\s*)[^\n]{0,60}?' + _BKW +
+                      r'|\s*[-*]?\s*' + _BKW +
+                      r')')
+# CLOSING VERDICT — the block that decides whether the run may call itself done. Two spellings,
+# and the OR is load-bearing: the corpus expresses it EITHER as a gate heading OR as a
+# multi-valued verdict token, and abridgement freely drops one while keeping the other. Requiring
+# the heading alone false-positives on business/pricing-tax-audit (keeps the token, drops the
+# `### Verdict rule` heading); requiring the token alone false-positives on ai-engineering/ai-audit
+# and testing/add-test (token lives ON an H2 line) and frontend/technical-seo (token inside the
+# Output fence). The `[^.\n]{0,60}?` window kills the one prose false positive in the corpus,
+# devops `gitops-audit/SKILL.md:12`, which contains `status: Unknown` mid-sentence.
+# GATEH IS A CLOSING-GATE VOCABULARY, NOT EVERY HEADING WITH "gate" IN IT, and the difference is
+# the rule's whole meaning. Measured over all 282 sources there are 85 distinct H2-H4 headings
+# containing `gate`/`verdict`; the list below deliberately admits ~48 of them and excludes the
+# rest, because those others gate something that is NOT the run's done-condition: a PRE-STEP
+# (`Intent gate`, `Prior-art gate`, `New-dependency gate`, `Data-sensitivity gate (runs FIRST)`,
+# `Comprehension gate`), a MID-RUN halt (`Cluster halt (mechanical gate)`, `Hand-wave halt`, all
+# of which SIGNAL-LOSS already gates as halt blocks), or a gate in the REVIEWED SYSTEM rather than
+# in the run (`3b. Biometric gates`, `6. Destructive tool with no server-side gate`, `Collection
+# points — is there a consent gate`). Firing "the abridgement dropped the done-condition" because
+# a fallback dropped an intent pre-step would be false about the file, so the vocabulary is scoped
+# and the exclusion is stated rather than left as an unexplained 22%.
+# `verdicts?` is admitted bare — a verdict IS a done-condition word — with one lookahead for the
+# corpus's single negated use (`Where the token lives (the trade, not a verdict)`,
+# frontend/auth-session-client).
+GATEH = re.compile(r'(?im)^(#{2,4})\s+(?![^\n]*not a verdict)(.{0,60}?\b(?:'
+                   r'verdicts?|ship gate|closure gate|closing gate|done-gate|done gate|'
+                   r'terminal gate|production-readiness gate|production-grade gate|'
+                   r'spec-conformance gate|mitigation-verification gate|migration-safety gate|'
+                   r'approve gate|regression gate|eval gate|ci gate|review gate|advance gate|'
+                   r'shadow gate|static gates|sla gate)\b)[^\n]*$')
+# `verdict rule:` / `verdict criterion:` are the corpus's other spelling of the token line
+# (infrastructure/dr-audit:118, business/pricing-tax-audit). Without the qualifier group the
+# fallback that KEPT the rule and dropped only the heading reads as a total loss.
+VTOK = re.compile(r'(?im)^(?:[#>\-*\s]|\*\*)*[^.\n]{0,60}?\b'
+                  r'(?:ship|review|terminal|final|halt|production-grade)?\s*'
+                  r'(?:verdict|status)(?:\s+(?:rule|criterion|line))?\s*:\s*(.+)$')
+# ALT decides "multi-valued". It is applied to the token value with markdown emphasis STRIPPED,
+# because the rule is about how many outcomes the line names, never about how they are typeset.
+# PROVEN FALSE POSITIVE before this: rewriting
+# `### Verdict: DURABLE | FRAGILE | ORPHAN-RISK` as ``### Verdict: `DURABLE` / `FRAGILE` / ...``
+# — same three values, same heading — turned the pair red with a message that was factually wrong
+# about the file and named no fix. Probes that now pass: `Verdict: **APPROVE** / **REQUEST_CHANGES**`,
+# ``Verdict: `GO` / `NO-GO``` , `Verdict: _ship_ | _hold_`.
+ALT = re.compile(r'[A-Za-z][A-Za-z_./-]*\s*[|/]\s*[A-Za-z][A-Za-z_./-]*')
+EMPH = str.maketrans({'`': '', '*': '', '_': ''})
+# A gate heading with NOTHING under it is a label, not a gate. PROVEN before this floor existed:
+# restoring the historical add-ai-feature blob, inserting a bare `## Ship gate` with no criteria
+# and deleting the stamp returned EXIT=0 — i.e. the cheapest-looking repair to the founding
+# incident satisfied the gate without restoring the done-condition. The floor is 100 characters of
+# block body, measured with headroom: the SMALLEST real gate block in the corpus is 139 chars
+# (code-quality/check-health `Phase 4 — Generate (consolidate verdict)`), the next 157, 174, 175;
+# a bare heading is 0 and a `TBD` is 3. Fenced `#` lines do not end a block — an Output fence
+# routinely contains `## /command — <name>` and would otherwise truncate the body to nothing.
+# POSITION IS DELIBERATELY NOT CHECKED, and that is the one half of "content and position" this
+# rule declines. A closing gate is not reliably the last section: code-quality/simplify's gate is
+# `## Phase 6` with `## Phase 7` and `## Output` after it, database/add-migration's Migration-Safety
+# Gate precedes its Output fence, and frontend/technical-seo's verdict token lives INSIDE the Output
+# fence. Requiring the last H2 would fail all three and force authors to reorder correct files to
+# satisfy a regex — busywork, not protection. What the rule needs is that the done-condition still
+# EXISTS in the delivered artifact; where it sits is the author's.
+GATE_BODY_FLOOR = 100
+_HEAD = re.compile(r'^(#{1,6})\s')
+
+
+def gate_blocks(t):
+    lines = t.splitlines()
+    fenced, inf = [], False
+    for l in lines:
+        fenced.append(inf)
+        if l.lstrip().startswith("```"):
+            inf = not inf
+    out = []
+    for i, l in enumerate(lines):
+        m = GATEH.match(l)
+        if not m:
+            continue
+        lvl, body = len(m.group(1)), 0
+        for j in range(i + 1, len(lines)):
+            hm = _HEAD.match(lines[j])
+            if hm and not fenced[j] and len(hm.group(1)) <= lvl:
+                break
+            body += len(lines[j].strip())
+        if body >= GATE_BODY_FLOOR:
+            out.append(m.group(2).strip())
+    return out
+# A terminal state with ONE value is not a verdict, it is a rubber stamp. This is the exact shape
+# the ai-engineering ship-gate regression reverted to.
+# The value list and the trailing window are both measured, not guessed: with the old
+# end-anchored form, `Status: COMPLETE ✅`, `Status: COMPLETE — all checks pass` and
+# `Status: SHIPPED` all escaped, so the exact fingerprint survived a decoration. The negative
+# lookahead is what keeps the rule honest in the other direction — a line that names an
+# alternative (`Status: COMPLETE | INCOMPLETE …`, `COMPLETE / INCOMPLETE`) is a real two-valued
+# close and must never read as a rubber stamp.
+DEGEN = re.compile(r'(?im)^\s*(?:[-*>]\s*)?(?:\*\*)?status(?:\*\*)?\s*:\s*[`*_]*\s*'
+                   r'(?:complete[d]?|done|ok|pass(?:ed)?|shipped|success(?:ful)?|green|finished)'
+                   r'[`*_]*(?![^\n]*[|/])[^\n]{0,40}$')
+
+
+def closing(t):
+    return bool(gate_blocks(t)) or any(ALT.search(m.group(1).translate(EMPH))
+                                       for m in VTOK.finditer(t))
+
+
+# BOUNDARY matches the block, so its FIRST hit in a long source is often a domain-boundary line
+# (`- **(TXN) Transaction boundary`, `### Service boundaries`) rather than the sibling section the
+# finding is actually about. Quote the most informative hit instead, or the message sends the
+# reader to the wrong place.
+_SIBLISH = re.compile(r'(?i)sibling|cross-pack|not\s+this\s+agent|do(?:es)?\s+not\s+own|related')
+
+
+def exemplar(t):
+    hits = [m.group(0).strip() for m in BOUNDARY.finditer(t)]
+    for h in hits:
+        if _SIBLISH.search(h):
+            return h[:60]
+    return (hits[0][:60] if hits else "")
+
 
 
 def read(p):
@@ -620,6 +1262,17 @@ def artifact_exists(stem):
     return hit
 
 
+# The baseline states its own size in prose ("The backlog is 0 lines"). That is a claim a file
+# makes about ITSELF and is decidable by counting the file, so it is checked rather than trusted.
+# It is here because BOTH that sentence and this check's own header comment went stale the day the
+# backlog reached zero - one advertising 1 line, the other 2 findings across 2 files - which sends
+# a reader to a worklist that does not exist. It also gives a truncated ledger a name: a baseline
+# read short un-suppresses its missing entries, which otherwise surfaces only as that many
+# ratcheted defects going red at once with nothing pointing at the cause. Same self-check as
+# scripts/lint-handoffs.sh:661-670. Absent sentence = no check, so fixture baselines are unaffected.
+ADVERT = re.compile(r'backlog is\s+\**(\d+)\**\s+line')
+
+
 def load_baseline():
     """A baseline line MUST carry a trailing `# reason`. A line added to silence a finding
     nobody read is the exact failure this gate exists to prevent, so a reasonless line does not
@@ -633,10 +1286,34 @@ def load_baseline():
                 b.add((m.group(1), m.group(2)))
             else:
                 unreasoned.append((m.group(1), m.group(2)))
-    return b, unreasoned
+    mm = ADVERT.search(read(BASELINE))
+    return b, unreasoned, (int(mm.group(1)) if mm else None)
 
 
-findings, signal_loss, pairs = [], [], 0
+# Same budget mechanism as check 3b's; see templates/packs/_greenfield-budget.md for why this is a
+# COUNT ratchet and not a reasoned ledger, and for the per-pack ceiling it accepts.
+def budget_rows(section):
+    m = re.search(r'(?ms)^##\s+' + re.escape(section) + r'\b.*?\n```\n(.*?)\n```', read(BUDGET))
+    rows = {}
+    if m:
+        for line in m.group(1).splitlines():
+            mm = re.match(r'^([a-z0-9][a-z0-9-]*)[ \t]+(\d+)$', line.strip())
+            if mm:
+                rows[mm.group(1)] = int(mm.group(2))
+    return rows
+
+
+def budget_record(section, counts):
+    body = "\n".join("%-24s %d" % (p, n) for p, n in sorted(counts.items()) if n) or "(none)"
+    text = read(BUDGET)
+    new, n = re.subn(r'(?ms)(^##\s+' + re.escape(section) + r'\b.*?\n```\n).*?(\n```)',
+                     lambda mm: mm.group(1) + body + mm.group(2), text, count=1)
+    if n:
+        open(BUDGET, "w", encoding="utf-8").write(new)
+    return n
+
+
+findings, signal_loss, pairs, boundary_out, nonagent = [], [], 0, [], 0
 
 for p in sorted(os.listdir(PACKS)):
     pd = os.path.join(PACKS, p)
@@ -836,11 +1513,170 @@ for p in sorted(os.listdir(PACKS)):
             signal_loss.append((key, sig))
             findings.append((key, "SIGNAL-LOSS", "source carries a safety signal the fallback "
                              "drops: %s" % ", ".join(sig)))
+        # ---- BOUNDARY-LOSS (agents only). The sibling / cross-pack ownership block, matched as
+        #      a BLOCK exactly as `halted` above is, and for the same published reason: the gate
+        #      already decided at `Halt conditions` 40% that a shape whose HEADING retention is low
+        #      is still gatable when the BLOCK survives. This shape retains 74 of 77 agent sources
+        #      (96%) and 25 of 25 across the last two repair batches (100%) — comfortably over the
+        #      >=85% band criterion — yet it is absent from LOADBEARING for two purely structural
+        #      reasons, neither of them a judgement that it does not deserve gating: the band
+        #      derivation reads SOURCE H2s only (see the note at LOADBEARING) and 70+ of the 77
+        #      agent sources write it as an H3; and `norm_h` does not collapse a trailing
+        #      " in <pack> pack", so even as an H2 it would have fragmented into 21 headings of
+        #      n<=7, all under the n>=8 floor. Arming it cost 3 repairs
+        #      (frontend/api-contract-sentry, frontend/i18n-auditor, security/data-privacy-reviewer)
+        #      and ZERO baseline lines.
+        #      THE HARD FAIL IS SCOPED TO AGENTS; THE REST IS BUDGETED, NOT IGNORED. 77 of 77 agent
+        #      sources carry the block, so in that class the gate demands a universal convention and
+        #      discriminates perfectly. Outside it the convention is real but not universal
+        #      (commands 36 of 44 sources, ai-patterns 33 of 81, skills 30 of 64, rules 1 of 16), so
+        #      a hard FAIL there would legislate a convention rather than protect one — and it would
+        #      demand a 51-line reasoned ratchet whose reasons nobody would read, which is the
+        #      enforcement theatre this repo names as a failure mode.
+        #      What "scoped" used to mean in practice, though, was INVISIBLE: arming the rule fixed
+        #      3 agent fallbacks and left the rest unreported. Re-measured through this check's own
+        #      pair resolution (282 pairs, not a directory walk) the non-agent class is 51 findings
+        #      across 12 packs — commands 23, ai-patterns 14, skills 13, rules 1 — and every one of
+        #      them is a file some project receives without knowing what it does NOT own. They are
+        #      counted below, listed by `--fallback-report`, and budgeted per pack in
+        #      templates/packs/_greenfield-budget.md, so the class can shrink and cannot grow.
+        #      (An earlier revision of this comment said "48 findings across 11 packs". That figure
+        #      came from a kind-directory walk rather than from the resolution the check uses.)
+        if cls != "agents":
+            nonagent += 1
+            if BOUNDARY.search(srctxt) and not BOUNDARY.search(ex):
+                boundary_out.append((key, cls, exemplar(srctxt)))
+        if cls == "agents" and BOUNDARY.search(srctxt) and not BOUNDARY.search(ex):
+            findings.append((key, "BOUNDARY-LOSS", "source carries a sibling / cross-pack boundary "
+                             "block (%s) and the fallback carries none — a project receiving this "
+                             "agent cannot tell what it does NOT own. Satisfied by a heading "
+                             "(`### Sibling agents in <pack> pack`, `### Cross-pack boundary`), a "
+                             "bold run (`- **Boundary:**`, `**Not this agent\'s job:**`) or a plain "
+                             "line that OPENS with the keyword (`- Boundary: this agent owns X; "
+                             "@sibling owns Y.`) — compression is fine, dropping it is not"
+                             % exemplar(srctxt)))
+        # ---- CLOSING-SIGNAL-LOSS. The gate/verdict block that decides whether the run may call
+        #      itself done. THE INCIDENT: templates/packs/ai-engineering/_examples/add-ai-feature.md
+        #      carried no `## Ship gate` and printed a bare `Status: COMPLETE` while its source
+        #      forbade exactly that in two places (commands/add-ai-feature.md:155 and :215). The
+        #      divergence opened at 7dde562 (2026-07-10) when the SOURCE gained the gate and the
+        #      fallback blob did not move, and it survived 13 commits / 44 days / all of pack
+        #      v1.3.0 — including 6dcb778, the commit that armed 8b, which exited 0 over it
+        #      ("293 pairs checked, 0 new") and never named the file. Replayed on a reconstructed
+        #      HEAD tree with that one blob restored, all 19 gates still exit 0 and none mentions
+        #      it; this rule fires. Blast radius: `_essentials.md:6` lists `add-ai-feature` as the
+        #      pack's ONLY essential command, so that was what every greenfield AI project got.
+        #      COVERAGE, STATED RATHER THAN IMPLIED. This rule evaluates the 80 of 282 pairs (28%)
+        #      whose SOURCE carries a done-condition; the other 202 sources do not close on one, so
+        #      there is nothing for a fallback to drop. That is a real ceiling and neither this
+        #      comment nor docs/REFERENCE.md may read as blanket protection. It was 66 of 282 before
+        #      the vocabulary was widened, and the widening is what caught the one live instance the
+        #      narrow form missed: code-quality/_examples/simplify.md, whose source gates on
+        #      `## Phase 6 — Validate (the production-grade gate, per applied candidate)` and
+        #      mandates a Verification footer, while the fallback shipped three generic bullets, no
+        #      Arm 1 / Arm 2 and no revert-to-INCOMPLETE close. Repaired, not baselined.
+        #      0 of 80 qualifying sources today — armed at zero, like SIGNAL-LOSS was.
+        if closing(srctxt) and not closing(ex):
+            gh = GATEH.search(srctxt)
+            findings.append((key, "CLOSING-SIGNAL-LOSS", "source closes on a gate/verdict block "
+                             "(%s) and the fallback closes on nothing — the abridgement kept the "
+                             "procedure and dropped the done-condition. Satisfied by EITHER a "
+                             "gate/verdict heading with at least %d characters of criteria under "
+                             "it, OR a `Verdict:` / `Status:` line naming two or more outcomes "
+                             "separated by `|` or `/` (backticks and bold around the values are "
+                             "stripped before counting, so typography is never the issue)"
+                             % ((gh.group(2).strip()[:60] if gh else "a multi-valued verdict token"),
+                                GATE_BODY_FLOOR)))
+        # ---- VERDICT-DEGRADED. The fallback prints a single-valued terminal stamp its source does
+        #      not, where the source closes on a real verdict. This is the ai-engineering
+        #      regression's exact fingerprint and it is what a fallback drifts INTO, not just what
+        #      it drops.
+        #      THE `not DEGEN.search(srctxt)` GUARD IS GONE, and removing it is the point. It used
+        #      to blank the rule in the four highest-blast-radius files in the repo —
+        #      backend/_examples/add-feature.md:488, backend/_examples/fix-bug.md,
+        #      frontend/_examples/add-component.md, frontend/_examples/add-crud-page.md, every one
+        #      of them closing on a bare `Status: COMPLETE` — for the sole reason that their
+        #      SOURCES printed the identical line. `backend/_essentials.md:6` lists `add-feature`
+        #      and `frontend/_essentials.md:6` lists `add-component`, so those are minimal-mode
+        #      artifacts every greenfield project receives: the same `_essentials` blast-radius
+        #      argument this header uses to rank the ai-engineering incident. "The source does it
+        #      too" is a reason to fix BOTH, not a reason for the gate to stay silent about the
+        #      file that actually lands in the project. All five instances (the fifth,
+        #      backend/trace-flow, surfaced only once DEGEN stopped being spelling-brittle) were
+        #      repaired in the same commit that removed the guard, so the rule is armed at zero.
+        #      What is still REQUIRED is `closing(srctxt)`: the source must demonstrably have a
+        #      real done-condition, or the finding would be legislating verdicts onto commands
+        #      whose authors never wrote one. Cost to arm: 1 repair when the rule landed
+        #      (backend/_examples/add-endpoint.md) + 5 pairs when the guard came off.
+        d = DEGEN.search(ex)
+        if d and closing(srctxt):
+            findings.append((key, "VERDICT-DEGRADED", "fallback closes on `%s` — a single-valued "
+                             "rubber stamp — where its source closes on a real verdict. This is "
+                             "the artifact a no-signal project receives, so it is the one that "
+                             "must name the failing terminal state%s. Fix: give the close two "
+                             "outcomes (`Status: COMPLETE | INCOMPLETE — <what is unmet>`), as "
+                             "backend/_examples/add-endpoint.md does"
+                             % (d.group(0).strip(),
+                                " (the source prints the same line at the same place — fix BOTH; "
+                                "the source printing it is not a licence for the fallback to)"
+                                if DEGEN.search(srctxt) else "")))
 
-base, unreasoned = load_baseline()
+# ---- BOUNDARY-LOSS OUTSIDE AGENTS. Re-measured at the working tree with the check's own
+# resolution (282 pairs, not a directory walk): 51 findings across 12 packs — commands 23,
+# ai-patterns 20, skills 7, rules 1. The agents-only FAIL scope is right and is argued at the rule
+# itself, but "scoped, therefore invisible" is how 46 live instances went unreported when the rule
+# was armed. They are counted here and budgeted in templates/packs/_greenfield-budget.md, so the
+# class can only shrink.
+bo_now = {}
+for key, cls, _ex in boundary_out:
+    p = key.split("/", 1)[0]
+    bo_now[p] = bo_now.get(p, 0) + 1
+if REC_BUDGET:
+    if budget_record(BUDGET_SECTION, bo_now):
+        print("I\tboundary budget: recorded %d pack(s), %d fallback(s) outside the agents class -> %s"
+              % (len(bo_now), len(boundary_out), BUDGET_REL))
+    else:
+        print("F\t%s has no `## %s` section with a fenced block to record into — create it or "
+              "restore it from git; an absent budget reads as 0 for every pack."
+              % (BUDGET_REL, BUDGET_SECTION))
+else:
+    bb = budget_rows(BUDGET_SECTION)
+    for p in sorted(set(bo_now) | set(bb)):
+        cur, rec = bo_now.get(p, 0), bb.get(p, 0)
+        if cur > rec:
+            print("F\t%s: %d fallback(s) outside the agents class drop the sibling / cross-pack "
+                  "boundary block their source carries — %d more than the recorded budget of %d. "
+                  "A project receiving one of those files cannot tell what it does NOT own. Carry "
+                  "the block over (a compressed `- Boundary: …` line is enough), or record the new "
+                  "level deliberately with `--record-budget` (%s)."
+                  % (p, cur, cur - rec, rec, BUDGET_REL))
+        elif cur < rec:
+            print("W\t%s: %d boundary-loss fallback(s) outside agents, below its recorded budget "
+                  "of %d — re-record with `--record-budget` so the ratchet keeps the ground it "
+                  "gained (%s)" % (p, cur, rec, BUDGET_REL))
+if REPORT:
+    for key, cls, ex_ in sorted(boundary_out):
+        print("R\tboundary   %-42s [%s] source block: %s" % (key, cls, ex_))
+    print("R\tboundary outside agents: %d of %d non-agent pairs drop the block their source "
+          "carries (budgeted in %s, not baselined)"
+          % (len(boundary_out), nonagent, BUDGET_REL))
+
+base, unreasoned, advertised = load_baseline()
 for key, rule in sorted(unreasoned):
     print("W\tbaseline line `%s  %s` carries no `# reason` - it suppresses nothing until it does "
           "(templates/packs/_fallback-baseline.md)" % (key, rule))
+if read(BASELINE).strip() and advertised is None:
+    print("F\ttemplates/packs/_fallback-baseline.md exists but advertises no backlog size. The "
+          "`**The backlog is N lines.**` sentence is checked on every run precisely because "
+          "deleting it is cheaper than correcting it — restore it rather than removing it. "
+          "(A baseline file that does not exist at all is unaffected: it suppresses nothing, "
+          "which is already fail-safe.)")
+if advertised is not None and advertised != len(base) + len(unreasoned):
+    print("F\ttemplates/packs/_fallback-baseline.md advertises a %d-line backlog but %d entr%s "
+          "parse. Either the sentence is stale, or the file was read short - a truncated ledger "
+          "un-suppresses its missing entries, which reads as defects going red with nothing "
+          "naming the cause." % (advertised, len(base) + len(unreasoned),
+                                 "y" if len(base) + len(unreasoned) == 1 else "ies"))
 seen, new, known = set(), [], []
 for key, rule, detail in findings:
     seen.add((key, rule))

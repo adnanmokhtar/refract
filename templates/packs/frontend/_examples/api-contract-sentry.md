@@ -274,3 +274,26 @@ Estimated total: 2-3 hours.
 - Skipping test fixture updates.
 - Reporting "no impact" on a resource that has no prior spec. That is not a clean diff, it is the wrong mode — run First delivery.
 - Printing a baseline path (`api-snapshots/openapi.v1.json`) in a report without having opened it, or filling an unanswered lane from convention instead of writing `UNKNOWN — ask the API owner`.
+
+## Related
+
+- **Boundary:** this is the pack's only **change-driven** agent — every sibling starts from code
+  that exists, this one starts from a contract that moved. `@data-flow-auditor` runs the inverse
+  direction (observed defect inward); `@ui-reviewer` gates the diff that *fixes* what this agent
+  enumerates — an impact report has no verdict to gate; `@ui-architect` designs the replacement
+  client shape, this agent only lists what breaks; `@i18n-auditor` judges the *shape* of a DTO
+  whose translated fields moved, this agent enumerates its consumers; `@technical-seo` owns a
+  missing `generateMetadata` / JSON-LD field's indexability cost.
+- **Cross-pack boundary:** the **backend pack owns the contract itself** — envelope shape,
+  versioning scheme, deprecation windows, error codes. This agent is a pure consumer: it never
+  proposes an API change and never asserts a backend policy it has not read. Absent that pack, the
+  OpenAPI spec is the only authority and every claim traces to it. It **reads**
+  `api-snapshots/openapi.v1.json` and never writes, regenerates or corrects a baseline; absent that
+  directory, derive each lane from the controllers and label the report
+  `contract check: inline (no published baseline)`. Workspace-level fan-out (one API → N frontends)
+  is `/sync-contract`, a different scope — do not attempt it from here.
+- Patterns: `ai/patterns/data-fetching.md`, `ai/patterns/forms.md`; `api-contract.md` ·
+  `api-versioning.md` · `error-handling.md` · `pagination.md` *(backend pack, when co-installed —
+  otherwise derived from the spec and labelled as derived)*.
+- Skills: `api-snapshot` *(backend pack, when co-installed)* — establishes and diffs the baseline
+  this agent reads. Absent that pack there is no published baseline; say so rather than implying one.

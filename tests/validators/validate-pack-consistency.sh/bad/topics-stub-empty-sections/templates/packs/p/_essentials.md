@@ -1,0 +1,4 @@
+---
+essentials:
+  commands: [do-foo]
+---

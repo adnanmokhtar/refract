@@ -65,11 +65,13 @@ Produce candidates with before/after snippets + one-line rationale. Ask user whi
 - Apply selected edits via Edit tool.
 - No knowledge-base updates unless a new "duplicated logic" finding reveals a missing entry in `ai/patterns/` — then queue to `ai/dynamic/learned-patterns.md`.
 
-## Phase 6 — Validate
+## Phase 6 — Validate (the production-grade gate, per applied candidate)
 
-- Lint + typecheck on touched files; revert if anything fails.
-- Re-run scoped tests — coverage must not move.
-- For removed branches: confirm no test exercised them (if it did, the branch wasn't dead).
+- Lint + typecheck on touched files; revert if anything fails. **(floor — necessary, not sufficient.)**
+- **Arm 2 (behaviour):** re-run scoped tests — coverage must not move, AND the specific touched path was covered by a test green **before and after** (test-shield-pinned if it was uncovered). A suite that stays green on an uncovered touched path is UNVERIFIED, not proof.
+- **Arm 1 (simpler):** re-run the flagging detector — its fingerprint must be **cleared at the site** (zero hits), and net-lines for the run must be ≤ 0. If the smell still fingerprints and lines did not drop, the candidate was churn — revert it.
+- For removed branches: confirm no test exercised them (if it did, the branch wasn't dead — halt the candidate).
+- Any candidate that fails an arm is **reverted** and moved to the run's `INCOMPLETE`/`UNVERIFIED` list with the unmet arm named — the run reports what it could NOT prove rather than silently shipping it.
 
 ## Phase 7 — Improve
 
@@ -94,6 +96,20 @@ Produce candidates with before/after snippets + one-line rationale. Ask user whi
 
 Apply [1,2,3] / [1,3] / none?
 ```
+
+After applying, the run MUST print a Verification footer — the checkable artifact of the production-grade gate. `Simplified` is claimed only for candidates that cleared both arms; the rest are named:
+
+```
+Verification (applied: [1,2])
+  net-lines: −18  (removed 22 / added 4)  ✓ ≤ 0
+  [1] dedupe  → fingerprint `duplicated-logic` @ orders.service.ts:42 cleared (0 hits) ✓
+              → covered by orders.service.spec.ts::lists tenant orders — green before+after ✓   → Simplified
+INCOMPLETE / UNVERIFIED (not applied)
+  [3] premature-options → touched path paginate() has no covering test and is used across 6 call sites;
+        could not pin behaviour before the edit → UNVERIFIED, left in place.
+```
+
+**Verdict: SIMPLIFIED | INCOMPLETE.** A run with nothing to put under `Simplified` did not simplify — it says so, rather than reporting green-and-fewer-lines as success.
 
 ## Failure modes
 

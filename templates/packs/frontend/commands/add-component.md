@@ -141,7 +141,10 @@ Phase 5 (Updated): changelog, +N i18n keys × M locales
 Phase 6 (Validated): lint OK, tests N/N green, file size <line-count>
 Phase 7 (Improved): captured to /learn-from-task
 
-Status: COMPLETE
+Status: COMPLETE | INCOMPLETE
+        COMPLETE only when Phase 6 is green AND every gated row above reads MET or an explicit
+        n/a with its reason (lcp / inp / image / i18n / observability). Otherwise INCOMPLETE,
+        naming each unmet gate + the exact next action.
 ```
 
 ## Failure modes

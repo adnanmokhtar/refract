@@ -9,6 +9,35 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.4.1 — 2026-08-23
+
+**Four topics were declaring a strategy that emits an empty file.**
+`_topics.md` declared `fallback: stub-from-sections` with **no `sections:` key** on `add-metrics`,
+`add-tracing`, `alert-design` and `slo-audit`. `phase-4.2-apply.md:26` builds that stub *from* the
+`sections:` list, so an empty list emits nothing — while `commands/add-metrics.md` (181 lines),
+`commands/add-tracing.md` (184), `commands/alert-design.md` (255) and `skills/slo-audit/SKILL.md`
+(235) sat beside them on disk. 855 finished lines the pack was refusing to deliver. All four now
+point at their source, the repair `security`, `data-engineering`, `distributed-systems` and `finops`
+each made by hand before this.
+
+Declaring the sentinel is strictly *worse* than omitting `fallback:` when a source exists: per
+`phase-4.2-apply.md:26` a topic with no `fallback:` falls through to `_examples/<topic>.md`, then to
+the closest template in the pack, and only then to a stub — the sentinel opts the topic out of the
+chain that would have found the finished file.
+
+This defect had now recurred five times, hand-repaired every time and gated none of them.
+`validate-pack-consistency.sh` gained **check 3b** `STUB-NO-SECTIONS` (hard FAIL, not ledgerable) so
+it cannot recur a sixth. The pack's greenfield topic coverage goes 79% → 100% and its line delivery
+72% → 96%.
+
+**Recorded as a trade, not a pure win.** Pointing `fallback:` at the pack's own source moves these
+four topics *out of check 8b*, which walks `_examples/` only (`phase-4.2-apply.md:32`) — the
+artifacts are now delivered in full but are no longer compared against anything, because they *are*
+the thing. Strictly better than the empty file they replaced, and the pattern the repo already uses
+(the 8b pair count fell 293 → 282 for exactly this reason), but it is a file leaving the gate's
+reach rather than a repair the gate verified. See `templates/packs/_fallback-baseline.md`
+§ "Source-as-fallback is a trade, not a pure win".
+
 ## 1.4.0 — 2026-08-22
 
 - **The audits now measure or say they didn't.** `slo-audit` and `alert-audit` each gained a

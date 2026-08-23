@@ -1,0 +1,4 @@
+---
+essentials:
+  agents: [foo-reviewer]
+---

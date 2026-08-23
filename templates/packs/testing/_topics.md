@@ -69,7 +69,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Tests (runner + assertion style)
   sections: [understand, dispatch, surface]
   dispatches: tdd-orchestrator
-  fallback: stub-from-sections
+  fallback: commands/tdd.md   # source IS the fallback: commands/tdd.md is a 98-line thin
+                              # dispatcher ("the discipline lives in the agent") with nothing
+                              # project-specific to lose, and its Phase 2 carries the
+                              # RED-UNOBSERVABLE substitute-proof rule (:38) that a
+                              # 3-heading [understand, dispatch, surface] skeleton discarded.
 
 - name: run-tests
   kind: command

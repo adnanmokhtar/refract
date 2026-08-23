@@ -9,6 +9,38 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.16.1 — 2026-08-23
+
+**`_examples/add-endpoint.md` stamped `COMPLETE` where its source gates on a production floor.**
+The command gained a `### Production-readiness gate (the done-condition — replaces "tests are
+green")` at `commands/add-endpoint.md:323` — a 7-row floor ledger closing on
+`Verdict: PRODUCTION-READY` / `Verdict: INCOMPLETE`. The fallback never gained it and closed its
+Output block on a bare `Status: COMPLETE`, a line its source does not contain anywhere. On a
+no-signal project the fallback IS the artifact, so every such project received a command that
+declares an unmeasured endpoint done. The fallback now carries an abridged gate (the 7 floor rows,
+the runtime-evidence rule for rows 1/5/6, and the two terminal verdicts) and closes on
+`Verdict: PRODUCTION-READY … — or INCOMPLETE`.
+
+This is now mechanical: `validate-pack-consistency.sh` check 8b gained `VERDICT-DEGRADED` (a
+fallback printing a single-valued terminal stamp its source never prints, where the source closes
+on a real verdict) and `CLOSING-SIGNAL-LOSS` (source closes on a gate/verdict block, fallback
+closes on nothing). Both are armed at zero baseline lines.
+
+**`add-feature` and `fix-bug` closed on the same rubber stamp, on both sides.**
+`commands/add-feature.md` and its `_examples/` twin both ended their Output block on a bare
+`Status: COMPLETE`; so did `fix-bug`. `VERDICT-DEGRADED` was silent on all four files purely because
+the *source* printed the line too — a guard that blanked the rule in exactly the two
+`_essentials.md`-listed commands every greenfield backend project receives. "The source does it too"
+is a reason to fix both, so both are fixed: each now closes on `Status: COMPLETE | INCOMPLETE` with
+the condition spelled out (`add-feature`: every acceptance criterion maps to a named test that RAN
+green and the telemetry rows are filled in; `fix-bug`: the regression test was OBSERVED failing
+before and passing after, and the similar-bug sweep is recorded). The guard was removed from the
+rule in the same change, so the fingerprint can no longer be blanked by a source that shares it.
+
+`commands/trace-flow.md` was deliberately **not** changed: it is read-only ("no files modified"),
+its close is a filled-in sample rather than a template, and its source carries no verdict — so the
+pair does not qualify for the rule and the single-valued stamp is honest there.
+
 ## 1.16.0 — 2026-08-22
 
 Outcome pass, not a correctness pass. The prior release asked whether the artifacts were *right*; this one

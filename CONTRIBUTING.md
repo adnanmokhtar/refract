@@ -243,7 +243,8 @@ premise is that unpinned promises drift.
 3. At least one of `agents/` `commands/` `skills/` `rules/` `ai-patterns/`. **Not `runbooks/`** —
    `templates/packs/README.md` documents it, but 0 of 23 packs use one; do not start. Any
    `_examples/<name>.md` you add is a shipped AUTHOR-mode fallback, not a sample, and is held to
-   its source by check 8b — read §5b before writing one.
+   its source by check 8b, and its `fallback:` STRATEGY is gated by check 3b — read §5b before
+   writing one.
 4. Add any NEW trigger name your `_topics.md` uses to `templates/packs/_trigger-vocabulary.md`.
    Reusing existing names needs no edit there.
 5. Add a row to `templates/packs/_registry.md` — that table, not a hard-coded list, is what Phase 2
@@ -466,11 +467,26 @@ is a hard FAIL. So:
 - The reason is **mandatory and mechanically enforced**: a baseline line with no trailing
   `# reason` suppresses nothing — the finding stays red and the gate WARNs that the line is inert.
 - `bash scripts/validate-pack-consistency.sh --fallback-report` prints the full picture. The
-  backlog it lists is **2 findings across 2 files**; if a comment anywhere claims a larger one, the
-  comment is stale and `templates/packs/_fallback-baseline.md` is the authority. Safety-signal loss
+  backlog it lists is **zero**; if a comment anywhere claims a larger one, the comment is stale and
+  `templates/packs/_fallback-baseline.md` is the authority — a claim the gate now *checks*, because
+  that sentence and the check's own header comment both went stale the day the backlog emptied.
+  8b parses the "The backlog is N lines" sentence and FAILs when it disagrees with the entries. Safety-signal loss
   used to be the large ungated class here (227 of 292, 78%) on the grounds that it could not be
   told apart from abridgement; the repair pass closed all 227, which proved the opposite, so it is
   now gated as `SIGNAL-LOSS` at 0 of 293.
+  Deleting the sentence is no longer cheaper than correcting it either: an existing baseline that
+  advertises no count is itself a FAIL.
+- **Two ratchets, and they are not interchangeable.** `_fallback-baseline.md` and
+  `_topics-strategy-baseline.md` hold defects a human **read and blessed**, so a `# reason` is
+  mandatory there. `templates/packs/_greenfield-budget.md` holds per-pack **counts** that nothing
+  has blessed — zero-delivery topics, and boundary loss outside the `agents` class — and simply may
+  not grow; regenerate with `bash scripts/validate-pack-consistency.sh --record-budget`. Use the
+  count budget when the honest entry would be 51 boilerplate reasons nobody reads, and the reasoned
+  ledger when there is an actual judgement to record.
+- **Read the coverage, not just the rule name.** The closing gate / verdict rules evaluate the 80 of
+  282 pairs whose *source* carries a done-condition; the `BOUNDARY-LOSS` hard FAIL covers the
+  `agents` class only. Both ceilings are stated at the rules themselves. A green 8b run is a floor,
+  never a certificate.
 
 ---
 

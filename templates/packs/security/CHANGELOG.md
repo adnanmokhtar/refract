@@ -9,6 +9,20 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.8.1 — 2026-08-23
+
+**`_examples/data-privacy-reviewer.md` carried the boundary as unlabelled prose.**
+Its `## Related` did describe each sibling's ownership, but with no boundary marker and none of the
+three cross-pack splits its source states explicitly: `threat-model` is DESIGN-time (LINDDUN cards
+before the component exists) while this agent is REVIEW-time on existing code;
+`database/data-retention-pii` owns the storage mechanics (classification, TTL/purge,
+erasure-vs-FK-cascade, at-rest encryption) while this agent owns the code data-FLOW and the
+regulatory article mapping; `observability/audit-logging` owns the log schema and is *also* a
+secondary PII store this agent must sweep. Both bullets are now labelled `**Boundary:**` /
+`**Cross-pack boundary:**` and carry those splits.
+
+Held mechanically from now on by `validate-pack-consistency.sh` check 8b `BOUNDARY-LOSS`.
+
 ## 1.8.0 — 2026-08-22
 
 - **CSRF: the pattern names the control that actually holds, and why the popular one does not.**

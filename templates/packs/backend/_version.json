@@ -1,8 +1,8 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.16.0",
-  "released": "2026-08-22",
+  "version": "1.16.1",
+  "released": "2026-08-23",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Outcome pass: /add-feature resolves domain constraints before the architects design (payment gains real card-on-file decisions); /log-tail's level filter is probed rather than hardcoded and gains a no-match ladder; /add-module gains an aggregate-shape decision and runs /add-endpoint's production ledger per generated route; /trace-flow gains a provenance rule and a tx: hop; debug-tenant branches on the isolation mechanism and adds the RLS and pooled-connection chains.",

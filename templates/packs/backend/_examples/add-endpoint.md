@@ -256,6 +256,33 @@ Dispatch:
 
 If any check fails: HALT, report the failure, do not paper over.
 
+### Production-readiness gate (the done-condition — replaces "tests are green")
+
+**"Returns 200" is the floor, not the bar.** A green happy-path test, a clean lint and a dispatched
+reviewer prove the endpoint is *functional*, not *production-grade*. The run is not done until each
+floor row below is **MET with cited evidence**, **n-a with a stated reason**, or **UNMET / SKIPPED**
+— and any UNMET or SKIPPED row makes the terminal state **INCOMPLETE with that row named**, never a
+silent `COMPLETE`. Read the evidence off the `api-reviewer` Production-readiness verdict table; do
+not re-judge it. No reviewer installed → run its floor detectors inline, same evidence rule.
+
+| # | Production floor | MET requires (a claim is not evidence) |
+|---|---|---|
+| 1 | Input validated at the edge | every input DTO field has a validator AND the invalid-body e2e test passes, asserting the project's declared validation-failure status |
+| 2 | Standard error envelope | error paths return the project envelope / Problem Details at a cited `<path:line>`; no stack trace or PII leaked |
+| 3 | Correct transaction boundary | a multi-write use-case is wrapped in ONE transaction (cite the tx site), no external call inside it — or `n-a` with a reason |
+| 4 | Idempotency where the convention requires | `Idempotency-Key` accepted + stored + a replay e2e test proves the second call returns the first result — or `n-a` with a reason |
+| 5 | No N+1 / unbounded query | `n-plus-one-scan` clean on every new query path AND a list endpoint enforces a default + hard-max page size (over-cap clamp asserted) |
+| 6 | Authz enforced, not just authn | a `403` denial e2e test for an authenticated-but-unauthorized principal passes — a `401` alone does NOT satisfy this — or `n-a` with a reason |
+| 7 | Emits log + metric + trace | RED-triad metric, correlation-id log line and use-case span each matched to an actually-emitted signal in the diff, not to the telemetry plan |
+
+Rows 1, 5 and 6 are runtime evidence: the test must have **run green in this run**, not merely been
+authored. Harness absent → mark the row `SKIPPED — unverified: <exact command a reviewer must run>`
+and the verdict is INCOMPLETE, not PRODUCTION-READY.
+
+**Verdict:** `PRODUCTION-READY` only when every row is MET or n-a. Otherwise `INCOMPLETE`, listing
+each unmet row, why, and the exact next action. INCOMPLETE is an honest terminal state — do not
+stamp COMPLETE to look finished.
+
 ## Phase 7 — Improve (feed the learning loop)
 
 - Run `/learn-from-task` to capture: endpoint shape, sibling mirrored, telemetry added, follow-ups.
@@ -302,7 +329,8 @@ Docs updated: ai/status.md
 
 Breaking change?: NO (additive) / YES → ADR NNNN + openapi snapshot updated.
 
-Status: COMPLETE
+Verdict: PRODUCTION-READY   (all 7 floor rows MET or n-a, evidence cited)
+         — or INCOMPLETE, listing each UNMET / SKIPPED row + the exact next action.
 
 Next:
   - /review-changes
