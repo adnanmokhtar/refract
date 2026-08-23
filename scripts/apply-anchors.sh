@@ -194,13 +194,49 @@ TESTING_LINE=$(profile_section_first_line "Testing")
 DATA_LINE=$(profile_section_first_line "Data access")
 ERR_LINE=$(profile_section_first_line "Error handling")
 
-# Top-level src dirs (cite-able paths) from _codebase-scan.md § "Top-level directories"
-SRC_DIRS=$(awk '/^## 2\. Top-level/{flag=1; next} /^## [0-9]+\./{flag=0} flag && /^src\// && !/\/\//' "$SCAN" 2>/dev/null \
-           | head -3 | tr '\n' ' ' | sed 's/[[:space:]]*$//')
-# No src/ line in the scan is a real answer — this repo may not have one. Emitting a
-# hard-coded "src/" ships a path that does not exist into every anchored artifact
-# (measured: 288 artifacts in one run against a repo with no top-level src/).
-[[ -z "$SRC_DIRS" ]] && SRC_DIRS="<none — scan found no top-level source dir>"
+# Top-level source dirs (cite-able paths) from _codebase-scan.md § "Top-level directories".
+#
+# HISTORY — why this is not `/^src\//`. This awk filtered the scan's top-level list down to
+# lines starting with `src/`, so ANY repo that does not root its code at `src/` got the
+# `<none …>` placeholder shipped into every anchor it injected — even though the very file
+# being read listed the real roots. Measured on a live NestJS monorepo: § 2 held `apps`,
+# `apps/tenant`, `libs`, and the generator still emitted `<none>` into 27 artifacts while
+# 225 older ones carried a fabricated `src/.` that does not exist in that repo. Take EVERY
+# top-level entry the scan lists, then keep only the ones that resolve on disk — a citation
+# the reader cannot open is worse than no citation.
+SRC_DIRS=""
+while IFS= read -r _d; do
+  _d="${_d%/}"
+  [[ -z "$_d" ]] && continue
+  case "$_d" in \#*|\>*|\|*|-*|\**) continue ;; esac
+  # Setup-internal and build dirs are NOT project source. Citing `.claude/` as a "cite-able
+  # source" points the reader at our own writing and makes every artifact look project-anchored
+  # while naming nothing from the codebase — the smoke test that added this line watched
+  # `.claude/`, `.claude/agents/` and `.claude/commands/` become the entire citation list.
+  case "$_d" in
+    .claude|.claude/*|ai|ai/*|.cursor|.cursor/*|.opencode|.opencode/*|.aider*|.git|.github|.vscode|.idea) continue ;;
+    node_modules|dist|build|out|coverage|.next|.nuxt|.output|.svelte-kit|.turbo|vendor|tmp|logs) continue ;;
+  esac
+  # Only a real directory in THIS target may be cited. This is the on-disk resolvability
+  # test the leak gate could not perform, applied at the point of emission.
+  [[ -d "$TARGET/$_d" ]] || continue
+  [[ -n "$SRC_DIRS" ]] && SRC_DIRS="$SRC_DIRS, "
+  SRC_DIRS="$SRC_DIRS\`$_d/\`"
+  _srcn=$(( ${_srcn:-0} + 1 ))
+  [[ "${_srcn}" -ge 4 ]] && break      # cap the citation list AFTER the exclusions, never before
+done < <(awk '/^## 2\.[[:space:]]*Top-level/{flag=1; next} /^## [0-9]+\./{flag=0} flag && NF && !/^#/ && !/^\x60\x60\x60/' "$SCAN" 2>/dev/null \
+         | sed 's/^[[:space:]]*//; s/[[:space:]].*$//' | sort -u)
+# NB: NO `head` on that stream. The truncation must happen AFTER the exclusions above, not
+# before. The scan lists dirs alphabetically, so `.claude`, `.claude/agents`, `.claude/commands`,
+# `.claude/hooks`, `.claude/rules`, `.claude/skills` occupy the first SIX rows of a typical
+# target — a pre-filter `head -6` handed this loop nothing but setup-internal dirs, every one of
+# which the exclusion then dropped, leaving the `<none>` placeholder on a repo whose real roots
+# (`apps/`, `libs/`) were three lines further down. Caught by an end-to-end smoke test, not by
+# reading the diff.
+# Nothing resolved is a real answer — but it must NOT be dressed up as a citation. Emit the
+# honest no-citation form; audit-anchoring.sh § TOPLEVEL_RE treats a `<…>` value as a
+# placeholder and fails the block under --strict rather than passing it as a clean anchor.
+[[ -z "$SRC_DIRS" ]] && SRC_DIRS="<none — no top-level source dir resolved on disk>"
 
 # Manifests we know exist (cite-able)
 MANIFESTS=""
@@ -271,6 +307,103 @@ if [[ -f "$IDIOMS" ]]; then
     | awk 'NF { printf "%s`%s`", (NR>1 ? ", " : ""), $0 } END { print "" }')
 fi
 
+
+# --- PER-ARTIFACT relevance (the half of an anchor that is not a global constant) ----------
+#
+# HISTORY — every anchor this script wrote was the SAME five profile facts, so "project-aware"
+# meant "carries a copy of one global block". Measured on a live repo: 255 anchored artifacts
+# shared just SIX distinct anchor bodies — 137 byte-identical, 88 byte-identical, 27
+# byte-identical — and a caching-architect agent, a saga command, a DLQ-replay skill and a
+# backpressure pattern all carried identical text. Resolving every path token in five newly
+# installed artifacts found exactly ONE project source file referenced by any of them, and it
+# came from the shared block. The audit reported "Coverage: 100% — All pack-derived artifacts
+# are anchored with real project facts": the facts were real, they just were not ABOUT the
+# artifact.
+#
+# This adds one line that can only be computed per artifact: does this artifact's own subject
+# appear in this codebase, and where? It is also the honest answer to the other half of the
+# complaint — a saga command whose own body says "saga runtime unconfirmed … halt" installed
+# anyway now says so on its first line, with the grep that proves it.
+
+# Distinctive terms for an artifact: from its frontmatter `name`, plus the longest words of its
+# `description`, minus a stoplist of words that appear in every artifact.
+# The artifact's NAME is its subject; the description is prose and full of ordinary English.
+# HISTORY: this read name AND description together and scored by hit count, so the winning
+# "distinctive term" for an agent came out as `already` and `against` — words that appear
+# everywhere and mean nothing. Name tokens first (`caching-architect` -> caching, architect),
+# and only fall back to long description words when no name token resolves.
+artifact_terms() {
+  local f="$1" want="${2:-name}"
+  awk -v w="$want" 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} $0 ~ "^"w":"{print}' "$f" 2>/dev/null \
+    | sed -E 's/^(name|description):[[:space:]]*//' \
+    | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9-' '\n' \
+    | awk -v w="$want" '(w=="name" && length($0) >= 4) || (w=="description" && length($0) >= 8)' \
+    | grep -vwE 'about|above|after|again|against|agent|alone|along|already|also|always|among|another|apply|around|audit|based|because|before|being|below|between|both|build|cannot|check|claude|clean|codebase|command|could|create|does|done|during|each|either|else|enough|even|every|exist|files|first|found|framework|from|generate|given|guide|have|helper|here|however|inside|instead|into|itself|junior|just|kind|less|like|list|made|makes|many|more|most|much|must|name|need|never|next|nothing|once|only|other|output|over|pattern|point|project|rather|repository|report|review|rules|running|same|scope|senior|shape|shipped|should|since|skill|some|source|steps|still|style|such|surface|take|target|than|that|their|them|then|there|these|they|thing|this|those|three|through|toolchain|track|under|until|update|upon|used|uses|using|value|very|what|when|where|which|while|whole|will|with|within|without|would|write|writes|written|your' \
+    | sort -u | head -6
+}
+
+# Search the target's SOURCE (not .claude/, not ai/ — those are our own writing) for a term.
+# Sets TERM_EVIDENCE ("path:line" or "") and TERM_HITS (file count).
+#
+# NB: globals, not an echoed value. A `$( )` call runs in a subshell, so a TERM_HITS assigned
+# inside one is discarded the moment it returns — the caller then compares 0 > 0 forever and
+# EVERY artifact reports "Relevance UNCONFIRMED" even when its subject is right there in the
+# codebase. That is exactly what the first draft of this function did.
+TERM_HITS=0
+TERM_EVIDENCE=""
+term_evidence() {
+  local term="$1" hit
+  TERM_HITS=0
+  TERM_EVIDENCE=""
+  [[ ${#SEARCH_DIRS[@]} -eq 0 ]] && return 0
+  hit=$(grep -rInI --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
+        --exclude-dir=dist --exclude-dir=build --exclude-dir=.claude --exclude-dir=ai \
+        -m1 -- "$term" "${SEARCH_DIRS[@]}" 2>/dev/null | head -1 || true)
+  [[ -z "$hit" ]] && return 0
+  TERM_HITS=$(grep -rlI --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
+        --exclude-dir=dist --exclude-dir=build --exclude-dir=.claude --exclude-dir=ai \
+        -- "$term" "${SEARCH_DIRS[@]}" 2>/dev/null | grep -c . || true)
+  TERM_HITS="${TERM_HITS:-0}"
+  # `grep -rIn` prints path:line:text — keep path:line (target-relative), drop the text.
+  local pth="${hit%%:*}"
+  TERM_EVIDENCE="${pth#$TARGET/}:$(printf '%s' "$hit" | cut -d: -f2)"
+  return 0
+}
+
+# Where to look for artifact subject matter: the real top-level source dirs this run resolved.
+SEARCH_DIRS=()
+while IFS= read -r d; do
+  d="$(printf '%s' "$d" | tr -d '`' | sed 's|/*$||')"
+  [[ -n "$d" && -d "$TARGET/$d" ]] && SEARCH_DIRS+=("$TARGET/$d")
+done < <(printf '%s\n' "$SRC_DIRS" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^<')
+[[ ${#SEARCH_DIRS[@]} -eq 0 ]] && SEARCH_DIRS=("$TARGET")
+
+# The per-artifact line. Always emitted, always true, and never the same for two artifacts
+# whose subjects differ.
+artifact_relevance_line() {
+  local f="$1" term best_term="" best_ev="" best_hits=0 tried=""
+  for _src in name description; do
+    while IFS= read -r term; do
+      [[ -z "$term" ]] && continue
+      tried="$tried${tried:+, }\`$term\`"
+      term_evidence "$term"
+      if [[ -n "$TERM_EVIDENCE" && "$TERM_HITS" -gt "$best_hits" ]]; then
+        best_hits="$TERM_HITS"; best_term="$term"; best_ev="$TERM_EVIDENCE"
+      fi
+    done < <(artifact_terms "$f" "$_src")
+    [[ -n "$best_term" ]] && break     # a name-token hit beats any description word
+  done
+
+  if [[ -n "$best_term" ]]; then
+    printf '> - **Where this applies here** (`%s`): `%s`, %d file(s) in %s' \
+      "$best_term" "$best_ev" "$best_hits" "$(printf '%s' "${SEARCH_DIRS[*]#$TARGET/}" | tr ' ' ',')"
+  elif [[ -n "$tried" ]]; then
+    printf '> - **Relevance UNCONFIRMED**: none of %s occurs in this codebase. Treat this artifact as generic guidance and verify its preconditions before acting on it.' "$tried"
+  else
+    printf '> - **Relevance UNCONFIRMED**: this artifact declares no distinctive subject terms to search for.'
+  fi
+}
+
 # Compose anchor block — uniform across artifacts except optional TBD token count.
 # Round-one floor; REFINE specializes per-artifact based on `compute-anchor-density`
 # scoring. When _extracted-idioms.md is present, append an extra "Detected base classes"
@@ -279,6 +412,7 @@ fi
 # $1 = optional count of <TBD:...> placeholders in the target file body (Phase 4.6 contract).
 build_block() {
   local tbd_count="${1:-0}"
+  local relevance="${2:-}"
   local idiom_line=""
   if [[ -n "$BASE_CLASSES" ]]; then
     idiom_line="> - **Detected load-bearing idioms** (\`_extracted-idioms.md\`): ${BASE_CLASSES}"$'\n'">"
@@ -299,11 +433,61 @@ build_block() {
 > - **Data access** (\`.claude/codebase-profile.md:${data_ln:-1}\`): ${DATA_LINE:-<not declared in codebase-profile.md>}
 > - **Error handling** (\`.claude/codebase-profile.md:${err_ln:-1}\`): ${ERR_LINE:-<not declared in codebase-profile.md>}
 ${idiom_line}${tbd_line}
+${relevance}
 > Cite-able sources: ${MANIFESTS}, top-level: ${SRC_DIRS}.
 
 <!-- project-specific:end -->
 
 BLOCK
+}
+
+
+# --- Stale-anchor repair (migration for content this script already shipped) --------
+#
+# An anchor block's `Cite-able sources: …, top-level: <value>` tail is the only path this
+# script emits UNBACKTICKED, and for a long time its value was hard-coded to `src/`. Every
+# artifact anchored by that build carries a directory that may not exist in the target, and
+# because those artifacts are "already anchored" no later run ever looked at them again.
+# These two helpers make the skip conditional: detect a top-level citation that no longer
+# resolves, and rewrite that ONE line to the value the current run computed.
+
+# 0 = the file's anchor block cites a top-level dir that does not resolve in $TARGET
+#     (or cites a <placeholder> instead of a path). 1 = its citation is fine / absent.
+anchor_toplevel_is_stale() {
+  local f="$1" line val d
+  line=$(grep -m1 -E '^>[[:space:]]*Cite-able sources:' "$f" 2>/dev/null || true)
+  [[ -z "$line" ]] && return 1
+  val="${line#*top-level:}"
+  [[ "$val" == "$line" ]] && return 1          # no top-level clause at all
+  val="${val%.}"
+  # A <placeholder> value is stale whenever the current run DID resolve real dirs.
+  case "$val" in
+    *"<"*) [[ "$SRC_DIRS" == "<"* ]] && return 1; return 0 ;;
+  esac
+  # Otherwise: every cited entry must resolve as a directory under the target.
+  while IFS= read -r d; do
+    d="${d%/}"
+    [[ -z "$d" ]] && continue
+    [[ -d "$TARGET/$d" ]] || return 0
+  done < <(printf '%s\n' "$val" | tr ',' '\n' | tr -d '`' \
+           | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$')
+  return 1
+}
+
+# Rewrite the Cite-able-sources line in place from the values this run computed.
+# Only that line changes; the rest of the block (including hand-added depth) is untouched.
+repair_citeable_line() {
+  local f="$1" tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/anchor-repair.XXXXXX")
+  MANIFESTS="$MANIFESTS" SRC_DIRS="$SRC_DIRS" awk '
+    /^>[[:space:]]*Cite-able sources:/ && !done {
+      printf "> Cite-able sources: %s, top-level: %s.\n", ENVIRON["MANIFESTS"], ENVIRON["SRC_DIRS"]
+      done = 1
+      next
+    }
+    { print }
+  ' "$f" > "$tmp" && cat "$tmp" > "$f"
+  rm -f "$tmp"
 }
 
 # ---------- Inject into eligible artifacts ----------
@@ -382,6 +566,7 @@ backup_dir="$TARGET/.claude/backups/anchors-$ts"
 
 injected=0
 already=0
+repaired=0
 orphans=0
 processed=0
 
@@ -422,8 +607,34 @@ for kind in commands agents skills rules ai-patterns; do
     #   2. at column 0 but inside a ``` fence — a worked example in a file that TEACHES
     #      the marker convention (excluded by has_live_anchor's fence tracking)
     # See has_live_anchor above for the deadlock this second case used to cause.
+    #
+    # An already-anchored file is NOT unconditionally skipped any more. HISTORY: the
+    # `top-level:` half of the Cite-able-sources line used to be hard-coded to `src/`, so
+    # every artifact anchored by an older build of this script carries a directory that may
+    # not exist in the target. Measured on a live NestJS monorepo: 225 of 254 anchored
+    # artifacts cited `src/.` and there is no `src/` there. Because those files were already
+    # anchored, every subsequent run skipped them and the fabrication was permanent — the
+    # generator was fixed with NO migration for the content it had already shipped. So:
+    # when the block's own top-level citation no longer resolves on disk, repair that ONE
+    # line in place. Everything else in the block — including any hand-written depth a
+    # human added under the anchor — is left byte-for-byte alone.
     if has_live_anchor "$f"; then
-      already=$((already + 1))
+      if anchor_toplevel_is_stale "$f"; then
+        if [[ "$APPLY" -eq 1 ]]; then
+          mkdir -p "$backup_dir"
+          rel="${f#$TARGET/}"
+          bak="$backup_dir/$rel"
+          mkdir -p "$(dirname "$bak")"
+          cp "$f" "$bak"
+          repair_citeable_line "$f"
+          echo "  REPAIR  $rel  (stale top-level citation refreshed)"
+        else
+          echo "  would-REPAIR $kind/$base  (stale top-level citation)"
+        fi
+        repaired=$((repaired + 1))
+      else
+        already=$((already + 1))
+      fi
       continue
     fi
 
@@ -438,7 +649,7 @@ for kind in commands agents skills rules ai-patterns; do
       cp "$f" "$bak"
 
       tbd_count=$({ grep -oE '<TBD:[^>]+>' "$f" 2>/dev/null || true; } | wc -l | tr -d ' ')
-      ANCHOR_BLOCK=$(build_block "${tbd_count:-0}")
+      ANCHOR_BLOCK=$(build_block "${tbd_count:-0}" "$(artifact_relevance_line "$f")")
       inject_block "$f" "$insert_line" "$ANCHOR_BLOCK"
       scrub_upstream_placeholder_blockquote "$f"
       echo "  INJECT  $rel  (after line $insert_line)"
@@ -454,6 +665,7 @@ echo "=== summary ==="
 echo "Processed:                     $processed"
 echo "Injected (or would-inject):    $injected"
 echo "Already anchored (skipped):    $already"
+echo "Stale citations repaired:      $repaired"
 echo "Orphans (project-only):        $orphans"
 echo "Profile facts resolved:        $facts_resolved/5"
 if [[ -n "$facts_missing" ]]; then

@@ -450,13 +450,13 @@ ai/references/tool-parity.md
   - For EACH registered sub-project (see enumeration below), **recursively apply Phases 2 → 4** with cwd = sub-project path. Each sub-project gets its own stack detection, profile, track selection, domain tooling, tool adapters, and `ai/` knowledge base.
 - **Monorepo mode** (`repo_shape: monorepo` — several deployables inside ONE git repo, no member-declaring workspace manifest):
   - **Do NOT recurse.** One git repo means one `.claude/`, one `ai/`, one `CLAUDE.md`, one commit. Scaffolding a `.claude/` per member here fragments a single team's config and produces N conflicting sources of truth for one repo.
-  - **Do NOT collapse to single either.** The members are real and their conventions differ. Everything member-shaped is split *inside* the shared artifacts: `.claude/codebase-profile.md § 17` carries one entry per member (Phase 2 fills fields 1–10 + 15 once per member), `ai/conventions.md` carries one row per member in its per-package matrix, `ai/stack.md` carries one Primary per member, and Phase 4.2 path-scopes each track's rules to that track's `track_roots` glob so one member's rules do not load while editing another's.
+  - **Do NOT collapse to single either.** The members are real and their conventions differ. Everything member-shaped is split *inside* the shared artifacts: the repo-shape block of `.claude/codebase-profile.md` (located BY KEY `members:`, not by section number) carries one entry per member (Phase 2 fills fields 1–10 + 15 once per member), `ai/conventions.md` carries one row per member in its per-package matrix, `ai/stack.md` carries one Primary per member, and Phase 4.2 path-scopes each track's rules to that track's `track_roots` glob so one member's rules do not load while editing another's.
   - Track selection is the **union** across members (a repo with a server member and a client member installs both track sets), but each track's rules are scoped to its own member root — that is what keeps the union from becoming pollution.
   - The member list comes from the SAME enumeration table below. It is not workspace-only.
 
 **Sub-project / member enumeration** — the member list for BOTH multi-member shapes:
 - `repo_shape: workspace` → members are sub-projects; each is recursed through Phases 2 → 4 (steps 1–6 below).
-- `repo_shape: monorepo` → members are packages inside one repo; only steps 1–3 below run (detect + select), and their output lands in the shared `codebase-profile.md § 17` instead of a per-member `.claude/`.
+- `repo_shape: monorepo` → members are packages inside one repo; only steps 1–3 below run (detect + select), and their output lands in the shared repo-shape block of `codebase-profile.md` (found BY KEY `members:`) instead of a per-member `.claude/`.
 
 Phase 1 has already decided the shape and produced a candidate member list from its sub-manifest inventory; this table is how that list is expanded and confirmed. Detect members from manifest(s) in this order:
 | Source | Extract |
@@ -478,7 +478,7 @@ For each member P in the enumeration:
 2. Detect P's stack (same as Phase 2 detection, but scoped to P's directory).
 3. Select tracks + domain tooling for P's stack — a server-framework member and a client-framework member get DIFFERENT track sets, and that difference is the whole point of enumerating.
 
-Steps 4–6 are **`repo_shape: workspace` only** (a `monorepo` stops after step 3 and records the result in the shared `codebase-profile.md § 17`):
+Steps 4–6 are **`repo_shape: workspace` only** (a `monorepo` stops after step 3 and records the result in the shared repo-shape block of `codebase-profile.md`, located BY KEY `members:`):
 
 4. Scaffold P's own `.claude/` + `ai/` (repo-baseline copy).
 5. Apply tracks + domains + tool adapters in P's directory.

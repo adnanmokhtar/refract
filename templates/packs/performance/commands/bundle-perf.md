@@ -1,5 +1,6 @@
 ---
 description: Web bundle + page-load performance audit. Bundle size, JS execution, rendering, hydration. Reports + targeted fixes per category. (Mobile bundle work lives in mobile/optimize-bundle.)
+project_kind: browser   # requires a rendered UI layer; see templates/packs/_project-kind.md
 ---
 
 # /bundle-perf

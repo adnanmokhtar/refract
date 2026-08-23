@@ -76,13 +76,68 @@ fi
 #   - `pack/kind/file.md` → KEEP-OURS (YYYY-MM-DD, pack@sha8) — why ours wins   (re-opens when pack source changes)
 #   - `pack/kind/file.md` → RESOLVED (YYYY-MM-DD, pack@sha8) — how merged       (re-opens when pack source changes)
 #   - `kind/file.md` → KEEP (YYYY-MM-DD) — rationale                     (project-only orphan keeper)
+SELF_DIR_PK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 LEDGER="$TARGET/.claude/_refresh-decisions.md"
+# ---------- PROJECT_KIND applicability filter --------------------------------------------
+# See templates/packs/_project-kind.md. A pack artifact may declare `project_kind:` in its
+# frontmatter; a row whose declared kind is not one this target HAS is declined, not missing.
+# Measured motivation: 49,450 bytes (17.6% of one run's installs) of Core Web Vitals / bundle /
+# INP content landed on a NestJS service with zero `.vue` and zero `.tsx` files, because track
+# selection is per-folder and had no artifact-level filter.
+TARGET_KINDS="$(bash "$SELF_DIR_PK/detect-project-kind.sh" "$TARGET" 2>/dev/null || echo any)"
+
+# Declared kind of a pack artifact ("" when the key is absent → applies to any kind).
+artifact_project_kind() {
+  awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} /^project_kind:[[:space:]]*/ {
+         sub(/^project_kind:[[:space:]]*/,""); sub(/[[:space:]]*#.*$/,""); gsub(/["'"'"']/,"");
+         print; exit }' "$1" 2>/dev/null
+}
+
+# 0 = applies here, 1 = declined for project kind. Sets KIND_DECLINE_REASON on a decline.
+artifact_applies_to_target() {
+  local f="$1" want
+  KIND_DECLINE_REASON=""
+  want="$(artifact_project_kind "$f")"
+  [[ -z "$want" || "$want" == "any" ]] && return 0
+  # An undetectable repo matches everything — trading one silent wrong for another is not a fix.
+  [[ "$TARGET_KINDS" == "any" ]] && return 0
+  case " $TARGET_KINDS " in
+    *" $want "*) return 0 ;;
+  esac
+  KIND_DECLINE_REASON="declares project_kind: $want; this target is [$TARGET_KINDS]"
+  return 1
+}
+
 
 # ledger_lookup <key> → prints "VERB|date|sha8|rationale" (sha8 empty unless stamped). Empty if no entry.
+#
+# SHAPE-INDEPENDENT KEY. HISTORY — the ledger stores one line per `pack/kind/file.md`, and
+# the packs migrated their skills from the flat `skills/<name>.md` shape to the canonical
+# Agent Skills `skills/<name>/SKILL.md` folder shape. The key changed with the shape, so
+# every recorded decision about a skill was ORPHANED: the lookup missed, and the row came
+# back as if no human had ever ruled on it. Measured on a live repo: 29 of 35 "Missing" rows
+# were folder-shape skills whose flat-shape ledger line said REJECTED — including an entire
+# ui-ux skill set the owner declined by name to avoid colliding with their own tooling. The
+# ledger's own contract is "REJECTED / KEEP are permanent until a human deletes the line";
+# a rename of the file shape is not a human deleting the line.
+#
+# So the key is normalised to the artifact IDENTITY before lookup, and BOTH spellings are
+# tried. A decision recorded under either shape reconciles a row proposed under either shape.
 ledger_lookup() {
-  local key="$1" line verb ldate sha why
+  local key="$1" line verb ldate sha why alt
   [[ -f "$LEDGER" ]] || return 0
+  # The other legal spelling of the same artifact.
+  case "$key" in
+    */skills/*/SKILL.md) alt="${key%/SKILL.md}.md" ;;
+    */skills/*.md)       alt="${key%.md}/SKILL.md" ;;
+    skills/*/SKILL.md)   alt="${key%/SKILL.md}.md" ;;
+    skills/*.md)         alt="${key%.md}/SKILL.md" ;;
+    *)                   alt="" ;;
+  esac
   line=$(grep -F "\`$key\`" "$LEDGER" 2>/dev/null | grep -E '→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(' | tail -1 || true)
+  if [[ -z "$line" && -n "$alt" ]]; then
+    line=$(grep -F "\`$alt\`" "$LEDGER" 2>/dev/null | grep -E '→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(' | tail -1 || true)
+  fi
   [[ -z "$line" ]] && return 0
   verb=$(echo "$line" | sed -E 's/^.*→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(.*/\1/')
   ldate=$(echo "$line" | sed -E 's/^.*\(([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/')
@@ -92,6 +147,33 @@ ledger_lookup() {
 }
 
 pack_sha8() { shasum "$1" 2>/dev/null | cut -c1-8; }
+
+# SUBSTANTIVE hash — what a ledger decision is actually ABOUT.
+#
+# HISTORY. Ledger staleness was keyed on the raw file sha, so ANY edit to a pack file re-opened
+# every recorded decision about it. Measured on one consumer repo: **131 previously-settled
+# ledger entries auto-re-opened in a single run**, and the mechanism guarantees it repeats — a
+# framework release that only reflows prose, fixes a typo, or re-stamps a version line re-opens
+# ~131 decisions in EVERY consumer repo, each of which a human then has to re-adjudicate by
+# hand. A decision-ledger that resets itself on cosmetic churn is not durable, and the cost is
+# paid per repo per release.
+#
+# So staleness is measured on the content a decision could plausibly turn on: prose and code,
+# with frontmatter, the generated anchor block, blank lines, trailing whitespace and pure
+# markdown-emphasis churn removed. A pack edit that changes none of that leaves the decision
+# standing. `pack_sha8` is kept for the report, so a reader still sees the raw file changed.
+pack_substantive_sha8() {
+  awk '
+    NR==1 && /^---[[:space:]]*$/ { fm=1; next }
+    fm { if (/^---[[:space:]]*$/) fm=0; next }
+    /^<!-- project-specific:start -->[[:space:]]*$/ { anc=1; next }
+    anc { if (/^<!-- project-specific:end -->[[:space:]]*$/) anc=0; next }
+    { print }
+  ' "$1" 2>/dev/null \
+    | sed -E 's/[[:space:]]+$//; s/[*_`]//g' \
+    | grep -v '^[[:space:]]*$' \
+    | shasum 2>/dev/null | cut -c1-8
+}
 
 # apply-study-decisions.sh rewrites snippet/governance links on deploy
 # (../../../snippets/ → ../templates/snippets/). Compare against the DEPLOYED
@@ -386,6 +468,31 @@ decide() {
     return
   fi
 
+  # DELIBERATE PACK TRIM — the case the ratio ladder below cannot see.
+  #
+  # HISTORY. The ladder reads "target is bigger than pack" as "target is richer" and keeps the
+  # target, permanently. That makes a deliberate SHRINK of a pack rule structurally incapable
+  # of reaching any existing project: the smaller the pack gets, the higher the ratio climbs,
+  # and the more certainly the fat old copy is preserved. Measured after a rule-shrink
+  # programme: all 15 pack rules overlapping one live repo were LARGER on disk than the current
+  # pack source — 141,393 B on disk vs 93,406 B in the packs, ~12,000 tokens of shrink stranded
+  # — and this engine's own report explained why, twelve times over:
+  #     "backend-principles.md — target 102 / pack 70 lines -> KEEP-OURS-ANCHORED"
+  # A KEEP-OURS is permanent, so those twelve would never be re-proposed. The mirror failure
+  # showed up in the other repo: a rule that had been ENLARGED in the pack sat on disk in its
+  # thinner old form and never received the richer version either.
+  #
+  # The distinguishing fact is not size, it is PROVENANCE. `has_knowledge` is already computed
+  # by the caller with the same predicate C2n uses: does the target carry ≥1 resolving project
+  # path or ≥3 code identifiers OUTSIDE its anchor block? If it does not, the target is pack
+  # prose plus a generated anchor — there is nothing project-specific to protect, and a smaller
+  # pack file is a deliberate editorial decision the project has no reason to resist. If it
+  # does, the ladder below still protects it, unchanged.
+  if [[ "$has_knowledge" != "1" && $ratio -ge 130 ]]; then
+    echo "ADOPT-PACK-TRIM"
+    return
+  fi
+
   if [[ $ratio -ge 200 ]]; then
     echo "KEEP-OURS-DEEP"
   elif [[ $ratio -ge 130 ]]; then
@@ -456,7 +563,8 @@ decide() {
         ledger_entry="$(ledger_lookup "$pack/$kind/$base")"
         if [[ -n "$ledger_entry" ]]; then
           IFS='|' read -r lverb ldate lsha lwhy <<<"$ledger_entry"
-          cur_sha="$(pack_sha8 "$src")"
+          cur_sha="$(pack_substantive_sha8 "$src")"
+          cur_raw_sha="$(pack_sha8 "$src")"
           if [[ "$lverb" == "REJECTED" ]]; then
             kind_rows+=$'\n'"  - \`$base\` — → **REJECTED-BY-LEDGER** — $lwhy ($ldate)"
             total_ledger=$(( total_ledger + 1 ))
@@ -468,7 +576,7 @@ decide() {
               continue
             fi
             # Pack source changed since the decision → re-open for re-audit.
-            kind_rows+=$'\n'"  - \`$base\` — ledger $lverb ($ldate) is STALE: pack changed pack@${lsha:-?}→pack@$cur_sha — re-opened below"
+            kind_rows+=$'\n'"  - \`$base\` — ledger $lverb ($ldate) is STALE: pack content changed pack@${lsha:-?}→pack@$cur_sha (raw file now $cur_raw_sha) — re-opened below"
             total_reopened=$(( total_reopened + 1 ))
           fi
         fi
@@ -519,6 +627,14 @@ decide() {
               ;;
           esac
         else
+          # PROJECT_KIND — see templates/packs/_project-kind.md. An artifact declaring a kind
+          # this target does not have is not an ADD row; proposing it is how 49,450 bytes of
+          # browser-only content reached a headless API.
+          if ! artifact_applies_to_target "$src"; then
+            kind_rows+=$'\n'"  - \`$base\` — → **DECLINED-PROJECT-KIND** — $KIND_DECLINE_REASON"
+            total_ledger=$(( total_ledger + 1 ))
+            continue
+          fi
           kind_rows+=$'\n'"  - \`$base\` — target MISSING / pack $(wc -l < "$src" | tr -d ' ') lines → **ADD**"
           pack_actionable=$(( pack_actionable + 1 ))
           total_missing=$(( total_missing + 1 ))
@@ -571,6 +687,7 @@ decide() {
 * MERGE — sizes comparable; real per-section merge required.
 * KEEP-OURS-ADD-SIDE-DOC — target slightly shallower; keep target, add pack as side-doc with different name.
 * KEEP-OURS-DEEP — target ≥ 2× pack size; pack adds nothing. No action.
+* ADOPT-PACK-TRIM — target is larger than the pack but carries NO project knowledge outside its anchor block, so the size gap is a deliberate pack shrink rather than project depth. Actionable: adopt the smaller pack file (the anchor block is re-injected by Phase 4.6). This verdict exists because the ratio ladder alone reads every shrink as a downgrade and preserves the fat copy forever — measured, 12 rules in one repo.
 * REVIEW — file in target but NOT in pack. Could be project-specific (keep) or deprecated upstream (consider deleting). Human judgment required.
 * REJECTED-BY-LEDGER / KEEP-OURS-BY-LEDGER / RESOLVED-BY-LEDGER / KEEP-BY-LEDGER — reconciled by `.claude/_refresh-decisions.md`. Not actionable. KEEP-OURS / RESOLVED entries re-open automatically when the pack source changes (pack@sha8 mismatch).
 

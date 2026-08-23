@@ -6,6 +6,112 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Running found what nine passes of reading did not (2026-08-23)
+
+**Why** — the first end-to-end run of `/setup-project` against two real projects (a NestJS
+multi-tenant backend and a Vue 3 frontend) refused at Phase 5 in one and deadlocked at Phase 4 in
+the other. Every defect below is a producer and its consumer disagreeing, where neither side is
+wrong in isolation and nothing compared them. That is a class reading cannot reach.
+
+**The two that made the run unwinnable.**
+
+- **`C2k` and `C2n` were mutually unsatisfiable.** C2k refused the run until every MERGE row was
+  applied; applying a MERGE row whose pack content *corrects a broken path reference* then made
+  C2n fail with KNOWLEDGE_LOSS, because its detector was a pure `comm -23` over path-shaped
+  tokens with no test that the token resolves. Doing the mandated work is what broke the audit —
+  measured at a 40% collision rate over the first five merges attempted. C2n now counts only
+  removed paths that **still resolve on disk** (`count_resolvable_lost_paths`). The false
+  positive is gone and the true positive survives: a merge that rewrote a live
+  `skills/alert-audit.md` into an absent `skills/alert-audit/SKILL.md` is still an ERR.
+- **Phase 4 had no scripted exit.** `apply-study-decisions.sh` exited 4 on three skills installed
+  in both shapes, the printed remedy (`--migrate-skill-shape`) exited 4 on the same three, and the
+  Phase 5 audit then demanded the apply that could not run. The conflicting files had been
+  committed since 2026-04-19, so **every run against that repo for four months installed nothing.**
+  Two fixes: the run-wide abort is now proportional to blame (a pre-existing duplicate that blocked
+  no row WARNs and the applied rows are kept; `--strict-shape` restores the old behaviour), and
+  `--resolve-shape-conflicts` is a real scripted exit that picks the winner by **project
+  knowledge**, not byte size. That inversion was measured too: the "small stubs" were the
+  hand-curated project files and the large twins were generic pack text, 41% of one being
+  boilerplate anchor block.
+
+**The gates that could not see their own output.**
+
+- **The cross-project-leak gate was blind to the one path its generator writes unbackticked.**
+  `top-level: src/.` shipped into **225 of 254 anchored artifacts** of a repo with no `src/`
+  directory, and `audit-anchoring.sh` reported "0 leaks", exit 0. The extractors are now
+  independent and independently guarded (an unguarded failing `grep` under `set -e` was
+  suppressing the `path:line` extractor entirely), and the `top-level:` tail is parsed and
+  resolved like any other citation.
+- **`apply-anchors.sh` hard-coded `^src/`** when reading top-level dirs out of the scan file it
+  was already reading, and skipped already-anchored files — so the generator was fixed with no
+  migration for what it had shipped. It now reads every entry, keeps only those that resolve on
+  disk, excludes setup-internal dirs, and **repairs** a stale citation in place.
+- **Anchoring emitted a global constant.** 255 anchored artifacts shared **six** distinct bodies
+  (137 + 88 + 27 byte-identical). Anchors now carry a per-artifact `Where this applies here` line
+  citing a real `path:line`, or an honest `Relevance UNCONFIRMED`; `audit-anchoring.sh` measures
+  and reports uniqueness and fails under `--strict` when one block covers ≥60% of artifacts.
+- **`C2c` passed vacuously on sections that do not exist** (heading absent → awk prints nothing →
+  `grep -q '<TBD>'` false → "filled"): all eight mandatory semantic sections reported green on a
+  truncated file. Heading presence is checked first now.
+- **The `§ 15` recommendation floor was permanently waived** because "the parse produced nothing"
+  and "the repo is tiny" were the same answer, `0`. A 226,080-line repo had a mandatory gate
+  relaxed. Unparseable is now its own state and never relaxes anything.
+- **Extraction honesty was entirely self-policed** — `audit-setup.sh` contained zero references to
+  `_extracted-codebase.md`. New **C2v** re-runs check 7 externally: self-declared `check-7 FAIL`,
+  a `[SAMPLED]` marker on the uncapped `## API surface`, `confirmed` without a ratio or below
+  100%, forbidden quantifiers inside a sampled section, and a missing `## Coverage`.
+- **New C2u** — a rule on disk that nothing imports never loads. **New C2w** — an installed command
+  that tells the reader to run a file which does not exist.
+
+**The rules were never loading at all.** `.claude/rules/README.md` says the `CLAUDE.md` @-import is
+what makes them always-on, and `grep -rn '@\.claude/rules' scripts/ templates/phases/ commands/`
+returned **empty** — the imports lived only in the greenfield baseline, which ENHANCE correctly
+never applies. 221,560 bytes of always-tier rules in one repo and 99,763 in another, loading zero
+times per turn. New `scripts/wire-rule-imports.sh` maintains one managed block in the project's own
+CLAUDE.md, imports the foundational four unconditionally, and **refuses** to import pack rules past
+a token budget rather than silently shipping either 0 or ~73,595 tok/turn. `apply-baseline-sync.sh`
+chains it; `check-rule-budget.sh --target=<repo>` now measures a real project instead of only
+`templates/`, and reports how many tokens of guidance nobody receives.
+
+**Selection defects.**
+
+- `detect-tracks.sh`'s installed-pack seed was **dead through the only documented invocation path**:
+  `find` without `-L` over a symlinked `~/.claude/templates/packs` returned 0 of 887 files while
+  `[[ -d ]]` passed. Also fixed in `lint-tool-parity.sh` and `verify-global-scope.sh`.
+- `security` is now in the universal track list, as two spec files already claimed. It was selected
+  only on a dependency signal, so a live multi-tenant seller portal ran at **0 of 18** security
+  artifacts with every gate green.
+- **`project_kind:`** (new, `templates/packs/_project-kind.md` + `scripts/detect-project-kind.sh`):
+  browser-only artifacts are declined, not missing, on a headless API. 17.6% of one run's installed
+  bytes were Core Web Vitals / bundle / INP content on a repo with zero `.vue` and zero `.tsx`.
+- **Cross-pack command collisions** were handled only on the CREATE path. `refactor.md` ships in
+  four packs; the ENHANCE path silently dropped every variant but one and never wrote
+  `.claude/_command-variants.md`. M41 now runs where consumers actually are.
+- **Ledger keys are shape-independent.** The flat→folder skill migration orphaned 29 keys and
+  resurrected permanent human REJECTED decisions.
+- **Ledger staleness is keyed on substantive content**, not the raw file sha. Cosmetic pack churn
+  was re-opening **131 settled decisions per consumer repo per release**.
+- **A deliberate pack shrink can now reach a project** (`ADOPT-PACK-TRIM`): the ratio ladder read
+  every shrink as a downgrade and preserved the fat copy forever — 12 rules in one repo, ~12,000
+  tokens of shrink stranded. Targets carrying real project knowledge are still protected.
+- **Pack skill cross-references are rewritten to the shape installed in the target** on deploy.
+
+**Contract defects.** Phase 1's shape table could not detect a NestJS monorepo (24 projects → shape
+`single`, silently); a build-tool-manifest row now covers NestJS, Angular, Maven, Gradle, .NET and
+Flutter. Phase 2.6.b compared one repo-wide count against every track's floor and so could not
+detect a missing track. Appendix A returned `vue=yes` and nothing else — no Vite, Pinia, router,
+i18n, UI kit or major version — and `rtl_locale_detected` / `i18n_lib_detected` had **no producer
+anywhere**, which the vocabulary's own hard rule calls dead code. `grep -oP` (GNU-only, the single
+line deciding which technical domains install) is gone. Machine contracts are read by KEY, never by
+section number — a live profile carried the shape block under § 19 while the consumer read § 17.
+Step 9's mandated `confirmed` and check 7's forbidden-quantifier list were mutually unsatisfiable;
+the carve-out is a printed `<matched>/<present>` ratio. Two scripts announced backup directories
+they never created.
+
+**New gate #19 — `scripts/lint-setup-contracts.sh`.** Six mechanical rules over the class above,
+ratcheted through `scripts/_setup-contracts-baseline.txt` with `--record`. Each rule was proven by
+introducing a real violation, watching the gate fail, removing it and watching it pass.
+
 ### The three packs that claim to measure, and the two that shipped a pointer to nowhere (2026-08-22)
 
 **Why** — testing, performance and code-quality all assert a measurement: correctness, speed,

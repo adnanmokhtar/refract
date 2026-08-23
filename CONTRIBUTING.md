@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **18 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **19 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 18 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 19 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -89,7 +89,8 @@ for g in \
   scripts/test-adapter-fixtures.sh \
   scripts/verify-global-scope.sh \
   scripts/test-delegate-relay.sh \
-  scripts/lint-handoffs.sh ; do
+  scripts/lint-handoffs.sh \
+  scripts/lint-setup-contracts.sh ; do
   bash "$g" >/dev/null 2>&1 && echo "PASS  $g" || echo "FAIL  $g"
 done
 ```
@@ -117,6 +118,7 @@ file and line; none of them require you to guess.
 | `verify-global-scope.sh` | A pack command leaking into the global surface, or `sync-to-global.sh` sourcing from `~/.claude/commands` again. Checks [3] and [4] read live tool dirs and auto-skip in CI. Check [6] fails an analysis script that sinks its report under `$TARGET` with no `--stdout` / `--no-write` arm. | Keep pack commands in their pack. See §4. Add the read-only mode; see §2b. |
 | `test-delegate-relay.sh` | The relay dispatching into its own repo, or a committing implementer coming back as an empty diff that reads like a harmless no-op. 9 sandboxed cases / 55 assertions under `mktemp -d` with a throwaway `$HOME`. | Fix the relay, not the fixture — and never test it against a repo you care about. |
 | `lint-handoffs.sh` | A reference that resolves as *text* but not as *contract* — a `§` anchor naming a section its target does not have, a key handed to a skill its `## Inputs` never declared, an artifact name no script writes, an ordinal gloss the scaffolder spells differently. The other gates verify the catalog; this one opens the cited file. | Fix the citation. If it is correct as-is, add a line **with a reason** to `scripts/_handoff-baseline.md` — a reasonless line suppresses nothing by design. |
+| `lint-setup-contracts.sh` | A producer and its consumer that disagree, where neither is wrong alone and nothing compared them. Six rules, each written after a MEASURED end-to-end failure: `find` without `-L` over a symlinked packs dir; a gate extractor blind to a field its own generator emits; GNU-only `grep -P`; a declared trigger with no producer; a browser-only pack artifact with no `project_kind:`; a machine contract addressed by section NUMBER. | Fix it. If the violation is deliberate, re-baseline: `scripts/lint-setup-contracts.sh --record`. |
 
 **Not in CI, worth running anyway:**
 
@@ -375,7 +377,7 @@ the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the 
 
 `scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
 repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
-escapes the temp root. Extend it rather than testing by hand: it is one of §2's 18 blocking gates,
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 19 blocking gates,
 so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---
@@ -561,7 +563,7 @@ completely fine; a silently skipped one is not.
 ```markdown
 - [ ] I edited this repo, not `~/.claude/`. `./scripts/verify-sync.sh` is clean.
 - [ ] I read the neighbouring files in the directory I touched and matched their shape.
-- [ ] All 18 gates pass locally.
+- [ ] All 19 gates pass locally.
 - [ ] New/changed command → documented in `docs/COMMANDS.md` (or `docs/REFERENCE.md`).
 - [ ] Command corpus changed → re-ran `python3 scripts/gen-cheatsheet.py`.
 - [ ] Pack content changed → `_version.json` bumped + a matching `## <version>` section added to that pack's `CHANGELOG.md`.

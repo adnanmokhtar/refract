@@ -43,6 +43,7 @@ if [[ $# -lt 1 ]]; then
   exit 2
 fi
 
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 TARGET="$1"; shift
 APPLY=0
 STRICT=0
@@ -213,7 +214,30 @@ echo "NO-OP:            $nooped"
 
 if [[ $APPLY -eq 1 && ($added -gt 0 || $synced -gt 0) ]]; then
   echo ""
-  echo "Backups: $backup_dir/"
+  # Only announce a backup directory that EXISTS. HISTORY: this line printed unconditionally
+  # from the counters, and the counters include rows whose write path never created the dir —
+  # so a user who trusted the message and went to roll back found nothing at the advertised
+  # path. Two scripts shipped that bug; both now check.
+  if [[ -d "$backup_dir" ]]; then
+    echo "Backups: $backup_dir/"
+  else
+    echo "Backups: (none taken — every change was an ADD of a file that did not exist)"
+  fi
+fi
+
+# --- Make the rules this script just installed actually LOAD -------------------------------
+# `.claude/rules/` is inert without `@.claude/rules/…` imports in the project CLAUDE.md — see
+# .claude/rules/README.md and scripts/wire-rule-imports.sh for the full history. Baseline sync
+# is where a CLAUDE.md is decided, so it is where the imports belong. This never rewrites the
+# user's CLAUDE.md: wire-rule-imports.sh only maintains one clearly-marked managed block.
+if [[ -d "$TARGET/.claude/rules" ]]; then
+  echo ""
+  echo "=== rule imports (a rule nothing imports never loads) ==="
+  if [[ -x "$SELF_DIR/wire-rule-imports.sh" || -f "$SELF_DIR/wire-rule-imports.sh" ]]; then
+    bash "$SELF_DIR/wire-rule-imports.sh" "$TARGET" $([[ $APPLY -eq 1 ]] && echo --apply) || true
+  else
+    echo "  WARN wire-rule-imports.sh not found beside this script — run it manually or .claude/rules/ will not load."
+  fi
 fi
 
 if [[ $APPLY -eq 0 ]]; then

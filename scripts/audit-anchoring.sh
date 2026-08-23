@@ -350,6 +350,50 @@ token_in_target() {
   return 1
 }
 
+# Every citation token an anchor block asserts, one per line, for the resolvability test.
+#
+# HISTORY — this used to be two backtick-only extractors inlined in scan_leaks_in_file, and
+# the ONE path apply-anchors.sh emits without backticks is the "top-level:" tail of the
+# Cite-able-sources line. A live run shipped "top-level: src/." into 225 artifacts of a repo
+# that has no src/ directory, and this audit reported "0 leaks", exit 0 -- the leak gate could
+# not see the string its own generator wrote. The third extractor below closes that hole by
+# splitting that tail and feeding each entry through the same token_in_target test as any
+# other citation. TOPLEVEL placeholder values are emitted separately, tagged, by
+# anchor_placeholder_citations, because "cites nothing" is a different defect from "cites
+# something that does not exist".
+anchor_citation_tokens() {
+  local block="$1"
+  # Every extractor ends `|| true`. This is load-bearing under `set -euo pipefail`: a grep
+  # that matches nothing exits 1, and an unguarded failing pipeline here aborts the whole
+  # FUNCTION, so every extractor after the failing one silently never runs. That is how the
+  # backticked-path extractor below — which cannot match a `path:line` token, because `:` is
+  # outside its character class — was suppressing the CITATION_RE extractor on every block
+  # whose only backticked path carried a line number. Independent extractors, independently
+  # guarded, is the only shape in which "add a third extractor" is a safe edit.
+  printf '%s\n' "$block" | { grep -oE '`[a-zA-Z0-9_./-]+/[a-zA-Z0-9_.-]+`' 2>/dev/null || true; } | tr -d '`'
+  printf '%s\n' "$block" | { grep -oE "$CITATION_RE" 2>/dev/null || true; }
+  printf '%s\n' "$block" \
+    | { grep -oE 'top-level:[^.]*' 2>/dev/null || true; } \
+    | sed 's/^top-level:[[:space:]]*//' \
+    | tr ',' '\n' \
+    | tr -d '`' \
+    | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s|/*$||' \
+    | { grep -vE '^$|^<' || true; }
+}
+
+# A "top-level:" value that is a <placeholder> rather than a path. The block asserts a
+# Cite-able-sources line while citing nothing -- the anti-skeleton class the placeholder
+# regex could not see either, because it lists pack-template tokens and this one is written
+# by apply-anchors.sh itself. Echoed as a tagged pseudo-token so it lands in the same leak
+# ledger the reader already reads, without being mistaken for a real path.
+anchor_placeholder_citations() {
+  local block="$1"
+  printf '%s\n' "$block" \
+    | { grep -oE 'top-level:[[:space:]]*<[^>]*>' 2>/dev/null || true; } \
+    | sed 's/^top-level:[[:space:]]*//' \
+    | sed 's/^/UNCITED top-level source dir: /'
+}
+
 # Scan one artifact's anchor block; echo any high-confidence leaked tokens.
 scan_leaks_in_file() {
   local f="$1" block tok
@@ -374,13 +418,14 @@ scan_leaks_in_file() {
     if ! token_in_target "$tok"; then
       printf '%s\n' "$tok"
     fi
-  done < <(
-    printf '%s\n' "$block" \
-      | grep -oE '`[a-zA-Z0-9_./-]+/[a-zA-Z0-9_.-]+`' 2>/dev/null | tr -d '`'
-    printf '%s\n' "$block" \
-      | grep -oE "$CITATION_RE" 2>/dev/null
-  )
+  done < <(anchor_citation_tokens "$block")
+  # Placeholder "top-level:" values bypass token_in_target (they are not paths) but are
+  # still an anchor asserting a source it cannot name. Report them in the same ledger.
+  anchor_placeholder_citations "$block"
 }
+
+UNIQ_TMP=$(mktemp "${TMPDIR:-/tmp}/anchor-uniq.XXXXXX")
+trap 'rm -f "$UNIQ_TMP"' EXIT
 
 total_eligible=0
 total_anchored=0
@@ -434,6 +479,16 @@ declare -a leak_list
         kind_rows+=$'\n'"  - \`$base\` — **$reason**"
       fi
 
+      # UNIQUENESS census (M43). Hash the anchor block's FACT lines so the report can say how
+      # many DISTINCT anchors this target actually has. HISTORY: coverage was the only number
+      # reported, and coverage cannot distinguish per-artifact anchoring from one global block
+      # stamped everywhere — a live repo scored "Coverage: 100% — All pack-derived artifacts
+      # are anchored with real project facts" while its 255 anchored files carried only SIX
+      # distinct bodies (137 + 88 + 27 byte-identical, then three singletons). The facts were
+      # real; they just were not about the artifact. A number nobody computes cannot fail.
+      abody=$(extract_anchor_block "$f" | grep -E '^>' 2>/dev/null | shasum 2>/dev/null | cut -c1-12 || true)
+      [[ -n "$abody" ]] && printf '%s\n' "$abody" >> "$UNIQ_TMP"
+
       # LEAK scan (M25.6): high-confidence identifiers/paths not present in target
       while IFS= read -r leaked; do
         [[ -z "$leaked" ]] && continue
@@ -473,6 +528,20 @@ declare -a leak_list
     pct=$(( total_anchored * 100 / total_eligible ))
     printf 'Coverage: **%d%%**\n\n' "$pct"
   fi
+  # --- Uniqueness: is this per-artifact anchoring, or one block stamped everywhere? ---
+  uniq_bodies=$({ sort -u "$UNIQ_TMP" 2>/dev/null || true; } | grep -c . || true)
+  uniq_bodies="${uniq_bodies:-0}"
+  if [[ $total_anchored -gt 0 ]]; then
+    uniq_pct=$(( uniq_bodies * 100 / total_anchored ))
+    top_share=$({ sort "$UNIQ_TMP" 2>/dev/null || true; } | uniq -c | sort -rn | head -1 | awk '{print $1+0}')
+    top_share="${top_share:-0}"
+    top_pct=$(( top_share * 100 / total_anchored ))
+    printf 'Distinct anchor bodies:        %d of %d anchored (%d%%)\n' "$uniq_bodies" "$total_anchored" "$uniq_pct"
+    printf 'Largest identical group:       %d artifact(s) share one byte-identical block (%d%%)\n\n' "$top_share" "$top_pct"
+    if [[ $total_anchored -ge 10 && $top_pct -ge 60 ]]; then
+      printf '⚠ **Anchor uniqueness below floor.** %d%% of anchored artifacts carry the SAME block. An anchor that is identical across a caching agent, a saga command and a DLQ skill is a global constant wearing a citation costume — it satisfies every presence check while telling the reader nothing about THIS artifact. `apply-anchors.sh` emits a per-artifact `Where this applies here` / `Relevance UNCONFIRMED` line; if these blocks lack it they predate that change — delete the stale blocks and re-run `apply-anchors.sh %s --apply`.\n\n' "$top_pct" "$TARGET"
+    fi
+  fi
   if [[ $total_unanchored -eq 0 && $total_leaks -eq 0 ]]; then
     printf '✓ All pack-derived artifacts are anchored with real project facts.\n'
   else
@@ -500,8 +569,15 @@ if [[ $QUIET -eq 0 ]]; then
   echo "Anchoring audit: $total_anchored/$total_eligible anchored, $total_unanchored unanchored, $total_leaks leaks ($total_orphans orphans skipped). Report: $REPORT_LABEL" >&2
 fi
 
-if [[ $STRICT -eq 1 && ( $total_unanchored -gt 0 || $total_leaks -gt 0 ) ]]; then
-  echo "REFUSED — $total_unanchored unanchored/skeleton + $total_leaks cross-project leak(s) (--strict)." >&2
+UNIQ_FAIL=0
+if [[ $total_anchored -ge 10 ]]; then
+  _u=$({ sort "$UNIQ_TMP" 2>/dev/null || true; } | uniq -c | sort -rn | head -1 | awk '{print $1+0}')
+  _u="${_u:-0}"
+  [[ $(( _u * 100 / total_anchored )) -ge 60 ]] && UNIQ_FAIL=1
+fi
+
+if [[ $STRICT -eq 1 && ( $total_unanchored -gt 0 || $total_leaks -gt 0 || $UNIQ_FAIL -eq 1 ) ]]; then
+  echo "REFUSED — $total_unanchored unanchored/skeleton + $total_leaks cross-project leak(s)$([[ $UNIQ_FAIL -eq 1 ]] && echo " + anchor uniqueness below floor") (--strict)." >&2
   exit 1
 fi
 exit 0

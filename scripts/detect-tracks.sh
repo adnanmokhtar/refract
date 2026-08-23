@@ -63,7 +63,19 @@ add()   { TRACKS+=("$1"); }
 declare -a TRACKS
 
 # ---------- Universal tracks (always applicable) ----------
-trace "universal: code-quality, business, learning, documentation, testing"
+# `security` is ALWAYS-ON. templates/phases/phase-2-profile.md § 2.6.a and
+# templates/phases/phase-4.0-preflight.md § minimum-artifacts Rule 1 both say so in as many
+# words ("These are the four tracks every project gets, full stop"), but this list omitted it
+# and the track was only ever added on an auth/crypto DEPENDENCY signal. When that signal did
+# not fire the track was never selected, pack-coverage-scan.sh never scanned it, and it could
+# not emit a single gap row — so every security gate reported green while 0 of 18 security
+# artifacts were installed. Measured on a live multi-tenant seller portal handling bearer
+# tokens, refresh rotation and payment configuration: 0/6 agents, 0/4 commands, 0/1 rules,
+# 0/3 ai-patterns, 0/4 skills. A track that cannot produce a gap row is not a default, it is
+# an absence. scripts/lint-track.sh § universal-track parity now pins this list against the
+# phase files so the two cannot drift apart again.
+trace "universal: security, code-quality, business, learning, documentation, testing"
+add security
 add code-quality
 add business
 add learning
@@ -449,11 +461,22 @@ fi
 # from a copy without its sibling `templates/`).
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PACKS_DIR="$SELF_DIR/../templates/packs"
+# HISTORY — `find` below used to run WITHOUT -L, and that made this whole block dead through
+# the only supported invocation path. `~/.claude/scripts` is a real directory of per-file
+# symlinks, so `pwd -P` resolves SELF_DIR there rather than into the repo; PACKS_DIR then
+# points at `~/.claude/templates/packs`, which IS a symlink. `[[ -d ]]` passes (test follows
+# symlinks) so the block ran, and `find` returned ZERO files (find does not follow the
+# argument symlink without -L) so the signature map was silently EMPTY. Measured: the
+# documented invocation yielded 9 tracks and the real-path invocation yielded 10 — `backend`
+# was dropped from a repo carrying 5 substantial backend-pack artifacts, which is precisely
+# the rot this seed was written to prevent. Canonicalise the directory AND pass -L, so
+# neither a symlinked scripts dir nor a symlinked packs dir can blind the seed again.
+PACKS_DIR="$(cd "$PACKS_DIR" 2>/dev/null && pwd -P || printf '%s' "$PACKS_DIR")"
 
 if [[ -d "$PACKS_DIR" ]] && [[ -d "$TARGET/.claude" || -d "$TARGET/ai/patterns" ]]; then
   # path<TAB>pack for every pack-owned artifact, in TARGET-relative form.
   pack_sig_map=$(
-    { find "$PACKS_DIR" -type f -name '*.md' -not -path '*/_examples/*' 2>/dev/null || true; } \
+    { find -L "$PACKS_DIR" -type f -name '*.md' -not -path '*/_examples/*' 2>/dev/null || true; } \
     | awk '
         {
           n = split($0, a, "/")

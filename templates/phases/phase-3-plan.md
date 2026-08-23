@@ -145,7 +145,7 @@ FILES WRITTEN: <N> added, <M> merged
 ESTIMATED TOKENS: <rough>
 ```
 
-**`SHAPE:` is a printed value, not a menu.** Every token on those two lines is read verbatim out of `.claude/codebase-profile.md § 17` (`repo_shape`, `members`, `is_multi_track`, `shape_signal`), which Phase 1 decided and Phase 2 completed. Printing the three-way choice `single | monorepo | workspace` un-narrowed means the shape was never decided — go back to Phase 1's shape table rather than planning past it, because a wrong shape here silently averages every member's conventions into one.
+**`SHAPE:` is a printed value, not a menu.** Every token on those two lines is read verbatim out of the repo-shape block of `.claude/codebase-profile.md` (§ 17 in the Phase 2 template — locate it BY KEY, `repo_shape:` / `members:` / `is_multi_track:` / `track_roots:`, never by section number: a live profile carried it under § 19 while § 17 was `Project intent`), which Phase 1 decided and Phase 2 completed. Printing the three-way choice `single | monorepo | workspace` un-narrowed means the shape was never decided — go back to Phase 1's shape table rather than planning past it, because a wrong shape here silently averages every member's conventions into one.
 
 For `repo_shape: workspace`, the plan is per member: print the block above **once per member** (each has its own STACK / TRACKS / REFERENCES / ADAPTERS), preceded by a workspace-root block listing only the orchestration artifacts. For `repo_shape: monorepo`, print ONE block — one repo, one `.claude/` — but TRACKS shows which member contributed each conditional track, e.g. `+ conditional: <track> (<member-a>), <track> (<member-b>)`.
 

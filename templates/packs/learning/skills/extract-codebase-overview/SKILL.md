@@ -289,7 +289,10 @@ contradicted it. Write instead:
 
 **Persist as `## Cross-cutting concerns` section**, with `[SAMPLED: <seen>/<present> files]` on the
 heading whenever the corroboration walk did not cover the population — same rule as every other
-section, now that the row exists in the Step 2.5 table.
+section, now that the row exists in the Step 2.5 table. Marking the heading `[SAMPLED]` does NOT
+put this section's verdict lines in breach of check 7's forbidden-quantifier bullet: that bullet
+carves out a Step 9 verdict that prints its own `<matched>/<present>` ratio, precisely so this
+section can obey both rules at once. Write the marker; do not omit it to dodge the word list.
 
 ### Step 10 — Tests + coverage shape
 
@@ -378,7 +381,24 @@ Before returning success:
   - `seen < present` and the heading carries **no** `[SAMPLED: <seen>/<present> <unit>]` → **FAIL** (undisclosed sample);
   - `seen == present` and the heading **does** carry `[SAMPLED]` → **FAIL** (a false `SAMPLED` makes every downstream consumer degrade for nothing, which is how a coverage signal gets switched off);
   - the row's `Cap` cell reads **`none declared`** and `seen < present` → **FAIL**, disclosed or not. A section with no declared cap has no licence to sample; `[SAMPLED: 12/40 files]` on `## API surface` is an honest report of a floor being breached, and honesty about a breach is not compliance. Remedy: finish the walk, or declare a cap in the Step 2.5 table so the sample is a decision rather than an accident;
-  - every generalizing claim inside a `[SAMPLED]` section is marked `[inferred: <basis>; sampled <seen>/<present> <unit>]`, not `[found:]` (§ Mechanical halt). **This bullet is the one that was not arithmetic, so give it a closed trigger list rather than a judgement call**: inside a `[SAMPLED]` section, a line carrying `[found:]` may not also carry any of `all `, `every `, `always`, `never`, `throughout`, `repo-wide`, `project-wide`, `consistently`, `the codebase `, `confirmed` — those quantify beyond the sample by construction. A line that needs one of those words is `[inferred:]`. Greppable, so it fails the same way for everyone;
+  - every generalizing claim inside a `[SAMPLED]` section is marked `[inferred: <basis>; sampled <seen>/<present> <unit>]`, not `[found:]` (§ Mechanical halt). **This bullet is the one that was not arithmetic, so give it a closed trigger list rather than a judgement call**: inside a `[SAMPLED]` section, a line carrying `[found:]` may not also carry any of `all `, `every `, `always`, `never`, `throughout`, `repo-wide`, `project-wide`, `consistently`, `the codebase `, `confirmed` — those quantify beyond the sample by construction. A line that needs one of those words is `[inferred:]`. Greppable, so it fails the same way for everyone.
+
+    **ONE carve-out, and it is not a loophole: a Step 9 verdict line that prints its own
+    `<matched>/<present>` ratio.** Without it these three instructions are mutually
+    unsatisfiable and the skill fails by construction: Step 9's grammar REQUIRES the word
+    `confirmed` as one of its three verdicts, the Step 2.5 table REQUIRES `[SAMPLED]` on
+    `## Cross-cutting concerns` whenever the corroboration walk did not cover the population,
+    and this bullet FORBIDS `confirmed` in a `[found:]` line inside a `[SAMPLED]` section.
+    Obey all three and check 7 is red no matter what you write. Measured on a live run: 11
+    hits, every one of them a Step-9-mandated `**confirmed (presence)**` verdict, and they
+    passed only because the author left the heading unmarked — i.e. the only way through was
+    to break a DIFFERENT rule, silently. The carve-out is principled rather than convenient:
+    the forbidden words are banned because they generalize BEYOND the sample, and a verdict
+    that prints `<matched>/<present>` beside itself has declared its own scope — the ratio IS
+    the scope. So: `confirmed` is permitted in a `[found:]` line inside a `[SAMPLED]` section
+    **if and only if** the same line prints `<matched>/<present>`, and the next bullet then
+    independently enforces `matched == present` for it. No ratio, no exemption. The other nine
+    words have no carve-out, because none of them carries a denominator;
   - every `<signal>: confirmed` line in `## Cross-cutting concerns` that asserts a **pervasive** property carries `<matched>/<present>` and `matched == present` (Step 9). `confirmed` with a printed ratio below 100% is a `partial` mislabelled, and it is the single highest-authority claim the file makes;
   - every `[CONTESTED: <A> n/N, <B> m/N]` row has `n + m ≤ N`, `N ≤ sampled`, and a `<path:line>` for BOTH options — a contest with one citation is a preference with a footnote.
 

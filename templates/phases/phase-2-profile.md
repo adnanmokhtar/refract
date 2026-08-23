@@ -70,14 +70,42 @@ The check is otherwise identical:
 
 > **Note**: the `<preview-selected-tracks>` and `<from minimums table>` placeholders below resolve at runtime — `preview-selected-tracks` = the list produced by 2.6.a (LOAD-BEARING ∪ ALWAYS-ON track names), and `from minimums table` = the per-track floor lookup defined in Phase 4.0. TODO: define a stable preview/report shape in `templates/schemas/coverage-gap.schema.json` so 2.6.b inputs and 2.6.c outputs are validated end-to-end (file does not yet exist — do not fabricate).
 
+**Count PER TRACK, never repo-wide.** HISTORY: this loop used to read
+`actual_agents=$(ls .claude/agents/*.md | wc -l)` — one repo-wide number — and compare that
+same invariant number against every track's floor. It is therefore structurally incapable of
+detecting a missing track: a repo with 25 agents clears the `security` floor of 2 while owning
+ZERO security agents. Measured on a live seller portal: repo-wide counts were agents 25,
+commands 44, skills 42, rules 18, patterns 22, every floor in the minimums table is ≤5/≤10/≤4/
+≤2/≤6, so all tracks passed — including `security` at **0 of 18 installed**. The number that
+answers "does this track have enough" is the count of THAT TRACK'S OWN artifacts present in the
+target, which is the intersection of the track's pack manifest with what is on disk.
+
 ```bash
+# The per-track denominator: basenames the pack ships for this track and kind.
+pack_basenames() {   # $1=track $2=kind
+  find -L ~/.claude/templates/packs/"$1"/"$2" -maxdepth 1 -name '*.md' -not -name '_*' \
+       -exec basename {} \; 2>/dev/null
+  find -L ~/.claude/templates/packs/"$1"/"$2" -mindepth 2 -maxdepth 2 -name 'SKILL.md' \
+       -exec sh -c 'for p; do basename "$(dirname "$p")"; done' _ {} + 2>/dev/null
+}
+# How many of them are actually installed, in EITHER skill shape.
+installed_for_track() {   # $1=track $2=kind $3=target dir
+  local n=0 b
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    if [ -f "$3/$b" ] || [ -f "$3/$b.md" ] || [ -f "$3/${b%.md}/SKILL.md" ]; then n=$((n+1)); fi
+  done < <(pack_basenames "$1" "$2")
+  echo "$n"
+}
+
 for track in <preview-selected-tracks>; do
   expected_agents=<from minimums table>
-  actual_agents=$(ls .claude/agents/*.md 2>/dev/null | wc -l)
+  actual_agents=$(installed_for_track "$track" agents .claude/agents)
   if [ "$actual_agents" -lt "$expected_agents" ]; then
     GAP="$GAP\n  Track $track: agents $actual_agents/$expected_agents (need $((expected_agents - actual_agents)) more)"
   fi
-  # ... repeat for commands, skills, rules, ai-patterns
+  # ... repeat for commands, skills, rules, ai-patterns — each with the per-track count above,
+  # never with a repo-wide `ls | wc -l`.
 done
 
 # Plus required baseline check
@@ -242,9 +270,27 @@ Profile content (written to `.claude/codebase-profile.md`):
 
     ```
     technical_signals: [multi-tenant, media-processing, streaming-delivery, background-jobs, real-time, webhook, file-upload, caching, auth]
+    technical_signal_confidence:      # one row per key above — REQUIRED, see below
+      multi-tenant: partial 117/242
+      media-processing: confirmed 40/40
+      auth: confirmed 242/242
     ```
 
-    A human-readable prose line (with evidence `<path:line>`) MAY follow, but the `technical_signals:` array is the contract Phase 4.4 reads. Normalize every observation to its registry key — common aliases:
+    **`technical_signal_confidence:` is not optional and not decoration.** HISTORY: §11 used to
+    be a bare key array, and that is where extraction honesty DIED at the machine boundary. A
+    live run correctly demoted `multi-tenant` from `confirmed` to `partial` at 117/242 entity
+    files, wrote that demotion into the profile's PROSE, and it changed nothing: the array
+    Phase 4.4 reads carries no ratio, so a signal matching 48% of the population drove
+    byte-identical downstream behaviour to one matching 100%. The demotion was cosmetic. Every
+    key in the array above MUST have a row here, in the grammar
+    `<key>: <confirmed|partial|absent> <seen>/<population>`, using the SAME verdict word and
+    the SAME ratio the extraction substrate recorded. Phase 4.4 branches on it: a `partial`
+    signal still installs its domain, but the domain's artifacts are marked so the reader knows
+    the signal is not repo-wide, and an `absent` key must not appear in the array at all.
+
+    A human-readable prose line (with evidence `<path:line>`) MAY follow, but the
+    `technical_signals:` array plus its `technical_signal_confidence:` rows are the contract
+    Phase 4.4 reads. Normalize every observation to its registry key — common aliases:
 
     | If you observe… | Canonical key |
     |---|---|
@@ -264,6 +310,17 @@ Profile content (written to `.claude/codebase-profile.md`):
 14. **Phase + status** — declared phase + code-vs-doc consistency.
 15. **Concurrency primitives** — what the project actually uses for parallel I/O and CPU offloading. Detected by grepping for: `Promise.all` / `Promise.allSettled` / `Bluebird.map` / `p-limit` / `pMap` / `asyncio.gather` / `asyncio.Semaphore` / `errgroup.WithContext` / `CompletableFuture.allOf` / `StructuredTaskScope` / `Parallel.ForEachAsync` / `Task.async_stream` / `pmap`. Record: (a) which primitive(s) appear (with sample file:line citations), (b) whether the project ships a bounded-concurrency helper (`runWithLimit` / `parallel` / `concurrentMap` / equivalent — fingerprint: a function taking `items, fn, { concurrency }`), (c) observed concurrency caps (search `concurrency:`, `Semaphore(N)`, `g.SetLimit(N)`, `MaxDegreeOfParallelism`, `pLimit(N)`), (d) DB pool size from config (`pool.max`, `DATABASE_POOL_SIZE`, etc.), (e) cancellation primitive (`AbortController` / `context.Context` / `CancellationToken`), (f) whether sequential-await-in-loop appears in any hot path (count occurrences from `rg 'for \(const \w+ of \w+\)\s*\{[^}]*await' --multiline`). Phase 4.6 anchors `.claude/rules/concurrency-discipline.md` + `ai/patterns/parallel-io.md` to whichever primitive is dominant; if multiple primitives coexist, report as `[CONCURRENCY-DRIFT: <primitive-A> at <count> sites, <primitive-B> at <count> sites]` so the user can decide which is canonical. Skipped for synchronous-only stacks (Ruby without Async, sync-only Python, single-threaded scripts).
 16. **Migration layout** — does the codebase show V1+V2 cohabitation? Detected by: (a) parallel directory pairs at the same depth where one shows version suffix or "legacy"/"new" semantics (`v1/`+`v2/`, `legacy/`+`new/`, `<name>/`+`<name>_v2/`, `<name>/`+`<name>-next/`), (b) version-suffixed sibling files (`*_v1.<ext>` paired with `*_v2.<ext>`, `*Old.<ext>` + `*New.<ext>`), (c) workspace packages with `-v2` / `-next` / `-new` suffix, (d) URL/route version prefixes hosting different code paths (`/v1/...` and `/v2/...` mapped to disjoint controller trees), (e) README sections explicitly mentioning "V1 → V2" / "legacy migration" / "rewrite", (f) presence of `ai/migration/ledger.md` or `ai/migration/contracts/`. Record: V1 root path, V2 root path, naming convention used (suffix vs subfolder vs separate workspace), migration ledger path if present, feature inventory (per-route or per-module list of V1 functions/classes/endpoints — this becomes the bootstrap input for the ledger), README evidence quotes if any, cutover mechanism if visible (feature flag library, env var, router rule). If any signal fires → set trigger `migration_layout_detected: true`; the `migration` pack auto-loads in Phase 4. If `ai/migration/ledger.md` exists → set `migration_ledger_present: true` so `port-feature` + `migration-status` know to read rather than bootstrap. If detection is ambiguous (a single `_v2`-suffixed file with no pair, or a single mention of "v2" in README) → flag as `[MIGRATION-WEAK]` and ask the user once: "Detected possible migration layout — confirm? (yes / no / explicit V1 + V2 paths)". Skipped when the codebase shows no version-suffixed paths AND no migration ledger AND no README mention.
+
+    **In ENHANCE-retrofit / ENHANCE-extend, setting `migration_layout_detected: true` obliges
+    THIS phase to fill `.claude/_refresh-extract.md § 9` (migration mapping) as well.** Phase 0.2
+    is the step that normally writes § 9, and `commands/setup-project.md § STEP ZERO` skips 0.1–0.2
+    in every ENHANCE mode. HISTORY: recording the honest §16 finding therefore ARMED an audit gate
+    (`audit-setup.sh` C2b1 § 9) whose only filling phase that mode never runs — the ERR was
+    unresolvable from inside the mode, so a run was punished for being truthful about the repo.
+    Fill § 9 here with what §16 already gathered: V1 root, V2 root, naming convention, ledger path
+    if present, and the per-route/per-module feature inventory. If genuinely nothing is mappable
+    yet, write `no mappable V1→V2 pairs yet — <reason>` rather than leaving `<TBD>`; the gate is
+    about an unanswered question, not about a non-empty answer.
 
 17. **Repo shape + members + per-track roots** — carried forward from Phase 1 and completed here. Phase 1 decided `repo_shape` and listed the member directories; Phase 2 is where each member gets a detected stack, a source root, and its own load-bearing track set. **This field is the contract three later phases read**: Phase 3 prints it as `SHAPE:`, Phase 4.0 gates sub-project recursion on `repo_shape: workspace`, and Phase 4.2 reads `is_multi_track` + `track_roots` to path-scope each track's rules. Absent or unset, all three fall back to the single-package path. Emit it machine-readable, on its own lines:
 

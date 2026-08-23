@@ -131,3 +131,19 @@ jobs:
       # WARN is informational here.
       - name: Handoff edges (a citation must be true of the file it names)
         run: bash scripts/lint-handoffs.sh
+
+      # Setup-contract ratchet (this run's defect class): a producer and its consumer that
+      # disagree, where neither side is wrong on its own and nothing compared them. Six
+      # mechanical rules, each written after a MEASURED failure in a live end-to-end run —
+      # a `find` without -L over a symlinked packs dir (which killed detect-tracks.sh's
+      # installed-pack seed through the only documented invocation path), a leak gate blind
+      # to the one field its own generator emits unbackticked (225 artifacts citing a src/
+      # that does not exist, reported as "0 leaks"), a GNU-only `grep -P` on the single line
+      # that decides which technical domains install, a declared trigger with no producer
+      # (dead code by the vocabulary's own hard rule), a browser-only artifact with no
+      # project_kind (17.6% of one run's installed bytes landed on a headless API), and a
+      # machine contract addressed by section NUMBER (the producer wrote § 19, the consumer
+      # read § 17). Known violations ratchet through scripts/_setup-contracts-baseline.txt;
+      # anything new is a hard FAIL. Fix: scripts/lint-setup-contracts.sh --record.
+      - name: Setup contracts (producer/consumer agreement)
+        run: bash scripts/lint-setup-contracts.sh

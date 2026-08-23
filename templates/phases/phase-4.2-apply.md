@@ -186,15 +186,35 @@ cp -R ~/.claude/templates/packs/<track>/rules/*.md .claude/rules/ 2>/dev/null ||
 # pollution (one track's rules loading during another track's work). SINGLE-track projects
 # skip this: they never install a sibling track's rules, so there is nothing to pollute.
 #
-# BOTH substitutions below are read verbatim from `.claude/codebase-profile.md § 17`, which
-# Phase 1 (shape) and Phase 2 (members + roots) produce. They are NOT free-text placeholders:
+# BOTH substitutions below are read from `.claude/codebase-profile.md` BY KEY, never by
+# section number. HISTORY: this contract used to say "read verbatim from § 17" and instruct a
+# halt when § 17 was missing. On a live repo § 17 was `Project intent` and the shape block sat
+# under § 19 — the producer's own numbering had drifted from the number written here — so the
+# consumer read the wrong section, found no `is_multi_track`, and the halt never fired because
+# the section it was told to check DID exist. A section NUMBER is not a contract; a KEY is.
+# Grep for the key across the whole file:
 #   <is-multi-track>  = the `is_multi_track:` value  (true when ≥2 distinct load-bearing
 #                       STACK tracks exist across members; ALWAYS-ON tracks never count).
 #   <track-src-root>  = `track_roots[<track>]` — the comma-separated glob list for THIS track.
 #                       Already a glob list, so pass it through unchanged; scope-rules.sh
 #                       accepts comma-separated globs.
-# If § 17 is missing or `is_multi_track` is unset, do NOT default to false — that silently
-# ships every track's rules unscoped into every file's context. Halt and complete § 17.
+#
+#   IS_MULTI_TRACK=$(grep -m1 -E '^[[:space:]]*is_multi_track:' \
+#                      "$TARGET_REPO/.claude/codebase-profile.md" \
+#                    | sed -E 's/.*is_multi_track:[[:space:]]*//; s/[[:space:]]*(#.*)?$//')
+#
+# If the KEY `is_multi_track:` is absent anywhere in the file, or its value is neither `true`
+# nor `false`, do NOT default to false — that silently ships every track's rules unscoped into
+# every file's context. Halt and complete the repo-shape block.
+#
+# CONSISTENCY HALT — `repo_shape` and `is_multi_track` are independent but not unconstrained.
+# A profile asserting `repo_shape: single` together with `is_multi_track: true` is legal (one
+# manifest, a server dir and a client dir), but a profile asserting `is_multi_track: true`
+# with an EMPTY or absent `track_roots:` is not: the true branch below would then scope every
+# rule to nothing. Measured on a live repo: `repo_shape: single` + `is_multi_track: true` was
+# recorded and exactly ONE rule in the whole target carried `paths:` frontmatter, so the true
+# branch demonstrably never ran. Halt when `is_multi_track: true` and `track_roots:` lists no
+# track.
 # Core baseline rules in .claude/rules/ (read-before-write, code-quality, think-simplify-surgical,
 # read-codebase-deeply) are UNIVERSAL — never scope them.
 if [ "<is-multi-track>" = "true" ]; then
@@ -411,11 +431,34 @@ When the LLM was previously responsible for writing each pack file by hand, it c
 ```bash
 # Apply the UNION of (a) canonical keys Phase 2 §11 detected and (b) keys forced via --include=.
 # (a) detected — NOT prose, exact registry keys from §11.
-DETECTED=$(grep -oP 'technical_signals:\s*\[\K[^\]]*' "$TARGET_REPO/.claude/codebase-profile.md" | tr ',' '\n' | sed 's/ //g')
+# PORTABILITY — this line MUST NOT use `grep -P`. It was `grep -oP '…\K…'` for one release:
+# PCRE is a GNU extension, /usr/bin/grep on macOS rejects `-P` outright ("invalid option -- P"),
+# and this is the single line that decides which technical domains get installed. On a stock
+# macOS shell DETECTED would have been empty and Phase 4.4 would have silently installed ZERO
+# domains — the exact failure this step's own text says it was rewritten in shell to prevent.
+# It only ever worked because the session shell happened to shim `grep` to ugrep. POSIX ERE +
+# sed below is portable to BSD and GNU alike. `scripts/lint-setup-contracts.sh § rule 3` fails
+# the build if `grep -P` reappears anywhere in scripts/, templates/ or commands/.
+#
+# Read BY KEY, not by section number — see the § repo-shape note above for why.
+DETECTED=$(grep -m1 -E 'technical_signals:[[:space:]]*\[' "$TARGET_REPO/.claude/codebase-profile.md" \
+           | sed -E 's/.*technical_signals:[[:space:]]*\[//; s/\].*//' \
+           | tr ',' '\n' | sed 's/ //g')
 # (b) forced — every --include=<key> passed to this run that resolves to a real domain folder.
 #     --include ADDS scope, never subtracts (per setup-project.md); a forced key may not be in §11
 #     (the user knows a concern the scan couldn't infer). Honor it here so the deterministic copy covers it.
 FORCED=$(printf '%s\n' "$INCLUDE_FLAGS" | tr ', ' '\n' | sed 's/ //g')   # INCLUDE_FLAGS = the run's --include= values
+# (c) confidence — §11's `technical_signal_confidence:` rows, read BY KEY. A signal the
+#     extraction demoted to `partial` still installs its domain, but the ratio is carried
+#     into the domain coverage report so the demotion is not purely cosmetic. HISTORY: §11
+#     was a bare key array and this branch did not exist; a signal matching 117 of 242 entity
+#     files drove byte-identical behaviour to one matching 242 of 242, and the honest
+#     demotion the extractor performed was discarded one file later.
+conf_for() {   # $1 = signal key -> "confirmed 242/242" | "partial 117/242" | ""
+  sed -n '/technical_signal_confidence:/,/^[^[:space:]]/p' \
+      "$TARGET_REPO/.claude/codebase-profile.md" 2>/dev/null \
+    | sed -nE "s/^[[:space:]]*$1:[[:space:]]*//p" | head -1
+}
 SIGNALS=$(printf '%s\n%s\n' "$DETECTED" "$FORCED" | grep -v '^$' | sort -u)   # union, de-duplicated
 
 : > "$TARGET_REPO/.claude/_domain-coverage-report.md"
@@ -423,6 +466,10 @@ for sig in $SIGNALS; do
   src=~/.claude/templates/domains/"$sig"
   if [ ! -d "$src" ]; then
     echo "- ❌ $sig — NO SUCH DOMAIN under templates/domains/ (alias not normalized in §11 → HALT)" >> "$TARGET_REPO/.claude/_domain-coverage-report.md"
+  elif [ -z "$(conf_for "$sig")" ]; then
+    # A key in the array with no confidence row is §11 half-written. Refuse rather than
+    # install a domain whose evidence strength nobody recorded.
+    echo "- ❌ $sig — no \`technical_signal_confidence:\` row in §11 (bare key array → HALT; see phase-2-profile.md §11)" >> "$TARGET_REPO/.claude/_domain-coverage-report.md"
     continue
   fi
   for kind in agents commands rules ai-patterns; do

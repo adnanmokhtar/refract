@@ -75,6 +75,13 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply)       APPLY=1; shift ;;
     --migrate-skill-shape) MIGRATE_SHAPE=1; shift ;;
+    # The scripted exit from a both-shapes-on-disk twin. Content-aware: keeps whichever
+    # twin carries more project knowledge, archives the other. See § twin_score.
+    --resolve-shape-conflicts) MIGRATE_SHAPE=1; RESOLVE_TWINS=1; shift ;;
+    # Restores the pre-fix behaviour: ANY duplicate `name:` anywhere under .claude/skills/
+    # fails the whole run, even when it blocked no row. Off by default because that shape
+    # deadlocked a live repo for four months.
+    --strict-shape) STRICT_SHAPE=1; shift ;;
     --include=*)   INCLUDE="${1#--include=}"; shift ;;
     --reject=*)    LEDGER_OPS+=("REJECTED|${1#--reject=}"); shift ;;
     --keep-ours=*) LEDGER_OPS+=("KEEP-OURS|${1#--keep-ours=}"); shift ;;
@@ -139,6 +146,8 @@ fi
 # ---------- M40 skill-shape: identity resolution + the two guards ----------
 SKILLS_DIR="$TARGET/.claude/skills"
 SHAPE_CONFLICTS=0
+RESOLVE_TWINS=${RESOLVE_TWINS:-0}
+STRICT_SHAPE=${STRICT_SHAPE:-0}
 
 # Artifact identity: the NAME, stripped of whichever shape carries it.
 #   <name>/SKILL.md → <name>        <name>.md → <name>
@@ -208,6 +217,78 @@ check_skill_name_uniqueness() {
   return 1
 }
 
+# ---------- Content-aware twin resolution -------------------------------------------
+#
+# HISTORY — the both-shapes-on-disk state used to have NO scripted exit. --migrate-skill-shape
+# printed "Pick the winner by hand, delete the other, then re-run" and exited 4; the main
+# apply path exited 4 on the same names; and the Phase 5 audit then ERRed demanding the apply
+# that could not run. Measured on a live repo: 3 twins committed 2026-04-19 blocked EVERY
+# /setup-project run for four months, and not one pack file was installed or refreshed in
+# that time. A gate with no reachable green state is not a gate, it is a wall.
+#
+# The remediation text was ALSO inverted. It said "keep the canonical folder form, delete the
+# flat twin", and the run report that followed it picked the winner by BYTE SIZE. Reading the
+# actual twins showed the opposite for 2 of 3: the small folder files were hand-curated
+# project knowledge citing real source paths, and the large flat files were generic pack text
+# whose bulk was boilerplate anchor block (41% in one case). Byte size is an actively
+# misleading proxy here.
+#
+# So the winner is decided by PROJECT KNOWLEDGE, measured the same way study-existing.sh and
+# audit-setup.sh § C2n measure it: path tokens that resolve in this target, plus code
+# identifiers, both counted OUTSIDE the anchor block (an anchor is generated, so counting it
+# would score the generator's boilerplate as project knowledge — exactly the inversion above).
+# Ties fall to the file that differs from the pack source, then to the newer mtime.
+#
+# The loser is never deleted. It is archived under .claude/backups/ and its path is printed,
+# so a wrong call is recoverable and reviewable.
+
+TWIN_SRC_EXT='ts|tsx|js|jsx|mjs|cjs|vue|py|go|rb|php|java|kt|swift|scala|rs|cs|sql|graphql|proto|yaml|yml|json|toml|md|sh'
+TWIN_PATH_RE="[A-Za-z0-9_@.*-]+(/[A-Za-z0-9_@.*-]+)+\.($TWIN_SRC_EXT)"
+TWIN_IDENT_RE='[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*|[A-Z][A-Z0-9]*_[A-Z0-9_]+|[a-z][a-z0-9]*_[a-z0-9_]+'
+
+# Body tokens of a file, anchor block excluded.
+twin_tokens() {
+  awk '
+    /^<!-- project-specific:start -->[[:space:]]*$/ { skip=1; next }
+    skip { if (/^<!-- project-specific:end -->[[:space:]]*$/) skip=0; next }
+    { print }
+  ' "$1" 2>/dev/null | { grep -ohE "$2" 2>/dev/null || true; } | sort -u
+}
+
+# Project-knowledge score: resolvable path citations weigh 3, identifiers weigh 1.
+# A path that does NOT resolve in this target scores 0 — generic pack prose naming
+# `src/foo/bar.ts` on a repo with no src/ must not out-score a real citation.
+twin_score() {
+  local f="$1" score=0 tok
+  while IFS= read -r tok; do
+    [[ -z "$tok" ]] && continue
+    if [[ -e "$TARGET/$tok" || -e "$TARGET/.claude/$tok" ]]; then
+      score=$(( score + 3 ))
+    else
+      local bn="${tok##*/}"
+      if find "$TARGET" -name "$bn" -not -path '*/node_modules/*' -not -path '*/.git/*' \
+           -not -path '*/.claude/backups/*' 2>/dev/null | grep -q .; then
+        score=$(( score + 3 ))
+      fi
+    fi
+  done < <(twin_tokens "$f" "$TWIN_PATH_RE")
+  local idents
+  idents=$(twin_tokens "$f" "$TWIN_IDENT_RE" | grep -c . || true)
+  printf '%s\n' "$(( score + ${idents:-0} ))"
+}
+
+# Is this file byte-identical to any pack source shipping the same skill name?
+# A twin that still matches the pack verbatim carries no project edits and loses ties.
+twin_matches_pack() {
+  local f="$1" name="$2" p
+  while IFS= read -r p; do
+    [[ -f "$p" ]] || continue
+    cmp -s "$f" "$p" && return 0
+  done < <( { find -L "$PACKS_ROOT" -maxdepth 3 -path "*/skills/$name.md" 2>/dev/null
+              find -L "$PACKS_ROOT" -maxdepth 4 -path "*/skills/$name/SKILL.md" 2>/dev/null; } )
+  return 1
+}
+
 # ---------- --migrate-skill-shape: the ONE sanctioned way off the legacy shape ----------
 # Moves .claude/skills/<name>.md → .claude/skills/<name>/SKILL.md. A MOVE, never a copy:
 # a copy is exactly the duplicate this whole section exists to prevent. Refuses any name
@@ -225,14 +306,57 @@ if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
   fi
   mig_ts=$(date +%Y%m%d-%H%M%S)
   mig_bak="$TARGET/.claude/backups/skill-shape-$mig_ts"
-  migrated=0; mig_conflicts=0
+  migrated=0; mig_conflicts=0; mig_resolved=0
   while IFS= read -r flat; do
     [[ -f "$flat" ]] || continue
     name="$(basename "$flat" .md)"
     folder="$SKILLS_DIR/$name/SKILL.md"
     if [[ -f "$folder" ]]; then
-      echo "  CONFLICT $name — both .claude/skills/$name.md and .claude/skills/$name/SKILL.md exist. Pick the winner by hand, delete the other, then re-run."
-      mig_conflicts=$(( mig_conflicts + 1 ))
+      if [[ "$RESOLVE_TWINS" -ne 1 ]]; then
+        echo "  CONFLICT $name — both .claude/skills/$name.md and .claude/skills/$name/SKILL.md exist."
+        echo "           Scripted resolution: apply-study-decisions.sh \"$TARGET\" --resolve-shape-conflicts --apply"
+        echo "           (keeps whichever twin carries more PROJECT KNOWLEDGE — resolvable path"
+        echo "            citations + code identifiers, anchor block excluded — and archives the"
+        echo "            other under .claude/backups/. Do NOT pick by byte size: measured on a"
+        echo "            live repo the LARGER twin was generic pack text, 41% of it boilerplate"
+        echo "            anchor block, and the smaller one held the hand-written project detail.)"
+        mig_conflicts=$(( mig_conflicts + 1 ))
+        continue
+      fi
+      # --- content-aware resolution -------------------------------------------------
+      sc_flat=$(twin_score "$flat")
+      sc_fold=$(twin_score "$folder")
+      winner=""; loser=""; why=""
+      if [[ "$sc_fold" -gt "$sc_flat" ]]; then
+        winner="$folder"; loser="$flat"; why="folder twin scores $sc_fold vs flat $sc_flat on project knowledge"
+      elif [[ "$sc_flat" -gt "$sc_fold" ]]; then
+        winner="$flat"; loser="$folder"; why="flat twin scores $sc_flat vs folder $sc_fold on project knowledge"
+      elif twin_matches_pack "$folder" "$name" && ! twin_matches_pack "$flat" "$name"; then
+        winner="$flat"; loser="$folder"; why="tied at $sc_flat; folder twin is byte-identical to the pack source (no project edits)"
+      elif twin_matches_pack "$flat" "$name" && ! twin_matches_pack "$folder" "$name"; then
+        winner="$folder"; loser="$flat"; why="tied at $sc_fold; flat twin is byte-identical to the pack source (no project edits)"
+      elif [[ "$flat" -nt "$folder" ]]; then
+        winner="$flat"; loser="$folder"; why="tied at $sc_flat and neither matches the pack; flat twin is newer"
+      else
+        winner="$folder"; loser="$flat"; why="tied at $sc_fold and neither matches the pack; folder twin is newer or same age"
+      fi
+      if [[ "$APPLY" -eq 1 ]]; then
+        mkdir -p "$mig_bak/resolved-twins"
+        cp "$loser" "$mig_bak/resolved-twins/$name.$([[ "$loser" == "$flat" ]] && echo flat || echo folder).md"
+        rm -f "$loser"
+        [[ "$loser" == "$folder" ]] && rmdir "$SKILLS_DIR/$name" 2>/dev/null || true
+        if [[ "$winner" == "$flat" ]]; then
+          mkdir -p "$SKILLS_DIR/$name"
+          mv "$flat" "$folder"
+        fi
+        echo "  RESOLVE  $name — kept ${winner#$TARGET/}$([[ "$winner" == "$flat" ]] && echo " (migrated to canonical folder shape)"), archived ${loser#$TARGET/}"
+        echo "           reason: $why"
+        echo "           archived copy: ${mig_bak#$TARGET/}/resolved-twins/"
+      else
+        echo "  would-RESOLVE $name — keep ${winner#$TARGET/}, archive ${loser#$TARGET/}"
+        echo "           reason: $why"
+      fi
+      mig_resolved=$(( mig_resolved + 1 ))
       continue
     fi
     if [[ "$APPLY" -eq 1 ]]; then
@@ -251,6 +375,7 @@ if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
   echo "=== summary ==="
   echo "Migrated (or would-migrate): $migrated"
   echo "Conflicts (both shapes on disk, untouched): $mig_conflicts"
+  echo "Twins resolved content-aware:               $mig_resolved"
   if [[ "$APPLY" -eq 1 && "$migrated" -gt 0 ]]; then
     echo "Backup of every moved file: ${mig_bak#$TARGET/}/"
     echo ""
@@ -277,6 +402,162 @@ rewrite_deployed_command_links() {
   else
     echo "  WARN perl missing — cannot rewrite snippet/governance links in ${f#$TARGET/}" >&2
   fi
+  rewrite_skill_refs_to_installed_shape "$f"
+}
+
+# Rewrite every `skills/<name>/SKILL.md` cross-reference to the shape ACTUALLY INSTALLED here.
+#
+# HISTORY — this is the defect that made the C2k/C2n gate conflict worse than a gate conflict.
+# Pack cross-references hardcode the canonical folder shape (`skills/<name>/SKILL.md`) while the
+# framework knowingly tolerates legacy flat-shape skills in the same repo — one live target held
+# 59 flat vs 11 folder. Applying the mandated MERGE of the observability pack's dashboards.md
+# therefore rewrote a reference to `skills/alert-audit.md` (EXISTS, 8,477 B) into
+# `skills/alert-audit/SKILL.md` (ABSENT). The gate that flagged it was RIGHT; the run report
+# recorded it as a false positive; and the true reading is worse than either — DOING THE
+# MANDATED WORK DEGRADED THE TARGET. Blast radius measured in that one repo: 59 dangling
+# folder-shape refs where only a flat twin exists, across 10 files, with 166 MERGE rows still
+# outstanding to add more.
+#
+# So the pack keeps writing the canonical form (it is right about the canon), and the DEPLOY
+# step reconciles it with what this particular target has on disk. Only rewrites a reference
+# whose canonical target is absent AND whose flat twin is present — never invents a link.
+rewrite_skill_refs_to_installed_shape() {
+  local f="$1" name changed=0
+  [[ -f "$f" ]] || return 0
+  while IFS= read -r name; do
+    [[ -z "$name" ]] && continue
+    [[ -f "$TARGET/.claude/skills/$name/SKILL.md" ]] && continue    # canonical resolves — leave it
+    [[ -f "$TARGET/.claude/skills/$name.md" ]] || continue          # no flat twin either — not ours to fix
+    if command -v perl >/dev/null 2>&1; then
+      perl -i -pe "s{skills/\Q$name\E/SKILL\.md}{skills/$name.md}g" "$f"
+    else
+      sed -i.bak "s|skills/$name/SKILL\.md|skills/$name.md|g" "$f" && rm -f "$f.bak"
+    fi
+    changed=$((changed + 1))
+  done < <({ grep -oE 'skills/[A-Za-z0-9_-]+/SKILL\.md' "$f" 2>/dev/null || true; } \
+           | sed -E 's|^skills/||; s|/SKILL\.md$||' | sort -u)
+  [[ "$changed" -gt 0 ]] && echo "  shape-fix ${f#$TARGET/} — $changed skill cross-reference(s) rewritten to the flat shape installed here"
+  return 0
+}
+
+# ---------- M41 on the ENHANCE path: cross-pack command-name collisions ---------------------
+#
+# HISTORY — M41's collision-aware copy loop existed ONLY in the CREATE-path bash of
+# templates/phases/phase-4.2-apply.md. This script is what actually runs in ENHANCE mode, and
+# it had no variant logic at all: `grep -n 'variant|_command-variants|M41'` returned EMPTY here
+# and in pack-coverage-scan.sh. So on the path most consumer repos take, the loss the CREATE
+# path is careful to prevent happened silently every run.
+#
+# The collision is real and deliberate: `refactor.md` ships in backend, code-quality, frontend
+# and mobile; `add-feature.md` in backend, frontend and mobile. They are DIFFERENT commands.
+# Measured on a live repo: two refactor variants were selected, the study report emitted two
+# contradictory rows for ONE target file (a 39-line pack and a 66-line pack), the last one
+# applied won, and the installed file carried only "## Pack overlay — code-quality" while the
+# backend overlay was gone. `.claude/_command-variants.md` — the audit trail the design
+# promises — existed in NEITHER live project, and no `.<track>.md` file existed anywhere.
+#
+# Same rule as the CREATE path: first pack to claim a name owns the bare `<name>.md`; every
+# later variant lands beside it as `<name>.<pack>.md` and the collision is recorded.
+# ---------- Deterministic ADDITIVE merge (--include=merge-additive) -------------------------
+#
+# HISTORY — the run's real cost was MERGE rows, and NO script performed any of them. One live
+# run measured **171 MERGE rows totalling 14,302 changed lines**, all of which the audit then
+# REFUSED the run for not doing, while `--include=replace,add` applied 22 ADD rows in 1.77s and
+# printed "Listed for human review: 171". The size distribution says the work is not uniform:
+# 38 rows were <=20 changed lines, 45 were 21-60, 60 were 61-150 and 28 were >150.
+#
+# The tractable, provably-safe subset is the ADDITIVE one: `## ` sections the pack has that the
+# target does not. Appending those DELETES NOTHING — the target's own prose, its anchor block
+# and any hand-written depth are untouched, so the merge cannot lose project knowledge and C2n
+# cannot fire on it. Rows where the pack's new material is not section-shaped, or where the two
+# files diverge INSIDE a shared section, still go to a human: they need judgement, and pretending
+# otherwise is how a "merge" becomes an overwrite.
+#
+# Off by default. Opt in with --include=merge-additive.
+merge_additive_dryrun_count() {   # $1=pack_src $2=target -> 0 if any section would be added
+  local src="$1" tgt="$2" n=0 h
+  while IFS= read -r h; do
+    [[ -z "$h" ]] && continue
+    grep -qF "$h" "$tgt" 2>/dev/null || n=$((n + 1))
+  done < <({ grep -E '^## ' "$src" 2>/dev/null || true; } | sed 's/^## //' | sort -u)
+  MERGE_ADDED="$n"
+  [[ "$n" -gt 0 ]]
+}
+
+merge_additive() {                # $1=pack_src $2=target  -> 0 merged, 1 nothing to add
+  local src="$1" tgt="$2" added=0 h tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/merge-add.XXXXXX")
+  cat "$tgt" > "$tmp"
+  while IFS= read -r h; do
+    [[ -z "$h" ]] && continue
+    # Present in the target already (compare on the heading TEXT, not the whole line)?
+    grep -qF "$h" "$tgt" 2>/dev/null && continue
+    {
+      printf '\n<!-- setup-project:merged-from-pack section=%s -->\n' "$(printf '%s' "$h" | tr ' ' '-')"
+      awk -v want="$h" '
+        index($0, want) && /^## / { on=1; print; next }
+        on && /^## / { exit }
+        on { print }
+      ' "$src"
+      printf '<!-- setup-project:merged-from-pack end -->\n'
+    } >> "$tmp"
+    added=$((added + 1))
+  done < <({ grep -E '^## ' "$src" 2>/dev/null || true; } | sed 's/^## //' | sort -u)
+  if [[ "$added" -eq 0 ]]; then rm -f "$tmp"; return 1; fi
+  cat "$tmp" > "$tgt"; rm -f "$tmp"
+  MERGE_ADDED="$added"
+  return 0
+}
+
+VARIANTS_LOG="$TARGET/.claude/_command-variants.md"
+declare -a CMD_OWNER=()          # "name.md|pack" rows, in claim order
+VARIANT_PATH=""
+VARIANT_NOTE=""
+variants_written=0
+
+# Resolve where a commands row should actually be written.
+# Sets VARIANT_PATH (where to write) and VARIANT_NOTE (non-empty only when it diverged).
+#
+# NB: this MUST set globals rather than echo through `$( )`. The owner table is a bash array,
+# and a command substitution runs in a SUBSHELL — the `CMD_OWNER+=(…)` claim would be discarded
+# the instant the function returned, so every row would look unclaimed and the collision would
+# never be seen. That is precisely how the first draft of this fix silently did nothing.
+resolve_variant_path() {         # $1=kind $2=tgt_dir $3=base $4=pack $5=pack_src
+  local kind="$1" tgt_dir="$2" base="$3" pack="$4" src="$5" owner row
+  VARIANT_NOTE=""
+  VARIANT_PATH="$tgt_dir/$base"
+  [[ "$kind" == "commands" ]] || return 0
+  owner=""
+  for row in ${CMD_OWNER[@]+"${CMD_OWNER[@]}"}; do
+    [[ "${row%%|*}" == "$base" ]] && { owner="${row##*|}"; break; }
+  done
+  if [[ -z "$owner" ]]; then
+    CMD_OWNER+=("$base|$pack")
+    return 0
+  fi
+  [[ "$owner" == "$pack" ]] && return 0
+  # Identical bytes are not a collision — two packs shipping the same file.
+  if [[ -f "$tgt_dir/$base" ]] && cmp -s "$src" "$tgt_dir/$base"; then return 0; fi
+  VARIANT_NOTE="'$base' was claimed by pack '$owner' earlier this run; '$pack' variant installed beside it, NOT over it"
+  VARIANT_PATH="$tgt_dir/${base%.md}.$pack.md"
+  return 0
+}
+
+record_variant() {               # $1=base $2=pack $3=variant path
+  [[ -z "${VARIANT_NOTE:-}" ]] && return 0
+  variants_written=$((variants_written + 1))
+  [[ "$APPLY" -eq 1 ]] || return 0
+  if [[ ! -f "$VARIANTS_LOG" ]]; then
+    {
+      printf '# Command variants — cross-pack name collisions\n\n'
+      printf 'Several command names are shipped by more than one pack as deliberately different\n'
+      printf 'commands. The first pack to claim a name owns the bare `<name>.md`; later variants\n'
+      printf 'are installed as `<name>.<pack>.md` so nothing is silently overwritten.\n\n'
+      printf 'Written by scripts/apply-study-decisions.sh (M41).\n\n'
+    } > "$VARIANTS_LOG"
+  fi
+  printf -- '- `%s` — `%s` variant installed as `%s`; the bare name belongs to the pack applied first.\n' \
+    "$1" "$2" "$(basename "$3")" >> "$VARIANTS_LOG"
 }
 
 REPORT="$TARGET/.claude/_study-existing-report.md"
@@ -383,22 +664,54 @@ for action in "${actions[@]:-}"; do
         skipped=$((skipped + 1)); continue
       fi
       if [[ "$SHAPE_VERDICT" == "canonical" ]]; then
-        echo "  SHAPE-SKIP $pack/$kind/$base — already present at ${SHAPE_PATH#$TARGET/}; ADD row is stale (re-run study-existing.sh)."
-        skipped=$((skipped + 1)); continue
+        # M41 — for COMMANDS this "already present" may be a cross-pack collision rather than a
+        # stale row: a different pack claimed the bare name earlier in THIS run, and this pack's
+        # command is a genuinely different file. That is the case the CREATE path installs as a
+        # variant and this path used to discard as stale, silently. Fall through to the variant
+        # resolver; a same-pack or byte-identical hit still short-circuits below.
+        if [[ "$kind" == "commands" ]]; then
+          resolve_variant_path "$kind" "$tgt_dir" "$base" "$pack" "$pack_src"; tgt="$VARIANT_PATH"
+          if [[ -z "${VARIANT_NOTE:-}" ]]; then
+            echo "  SHAPE-SKIP $pack/$kind/$base — already present at ${SHAPE_PATH#$TARGET/}; ADD row is stale (re-run study-existing.sh)."
+            skipped=$((skipped + 1)); continue
+          fi
+        else
+          echo "  SHAPE-SKIP $pack/$kind/$base — already present at ${SHAPE_PATH#$TARGET/}; ADD row is stale (re-run study-existing.sh)."
+          skipped=$((skipped + 1)); continue
+        fi
+      fi
+      # M41 — a second pack's command of the same name becomes a variant, never an overwrite.
+      # (For commands the canonical branch above may already have resolved it; resolving twice
+      # is harmless because the owner table short-circuits on the same pack.)
+      if [[ "$kind" != "commands" || -z "${VARIANT_NOTE:-}" ]]; then
+        resolve_variant_path "$kind" "$tgt_dir" "$base" "$pack" "$pack_src"; tgt="$VARIANT_PATH"
+      fi
+      if [[ -n "${VARIANT_NOTE:-}" ]]; then
+        echo "  cmd-variant: $VARIANT_NOTE"
+        record_variant "$base" "$pack" "$tgt"
       fi
       if [[ "$APPLY" -eq 1 ]]; then
         # dirname, not $tgt_dir: an Agent Skills row carries a `<name>/SKILL.md` base, so
         # the per-skill subdir must exist too or the cp fails with ENOENT.
         mkdir -p "$(dirname "$tgt")"
         cp "$pack_src" "$tgt"
-        [[ "$kind" == "commands" || "$kind" == "agents" ]] && rewrite_deployed_command_links "$tgt"
-        echo "  ADD     $pack/$kind/$base → $(basename "$tgt_dir")/$base"
+        if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
+          rewrite_deployed_command_links "$tgt"
+        else
+          # ai-patterns / rules / skills carry skill cross-refs too — the live breakage was in
+          # ai/patterns/dashboards.md, which is none of commands or agents.
+          rewrite_skill_refs_to_installed_shape "$tgt"
+        fi
+        echo "  ADD     $pack/$kind/$base → $(basename "$tgt_dir")/$(basename "$tgt")"
       else
-        echo "  would-ADD $pack/$kind/$base → $(basename "$tgt_dir")/$base"
+        echo "  would-ADD $pack/$kind/$base → $(basename "$tgt_dir")/$(basename "$tgt")"
       fi
       applied=$((applied + 1))
       ;;
-    REPLACE-OR-ENHANCE)
+    ADOPT-PACK-TRIM|REPLACE-OR-ENHANCE)
+      # ADOPT-PACK-TRIM shares REPLACE's write path deliberately: both replace the target from
+      # the pack source, both back up first, and both are gated behind --include=replace. The
+      # verdicts differ in WHY (see study-existing.sh § decide), not in what the writer does.
       [[ "$INCLUDE" == *replace* ]] || { listed=$((listed + 1)); continue; }
       [[ -f "$pack_src" ]] || { echo "  SKIP $pack/$kind/$base — pack source missing"; skipped=$((skipped + 1)); continue; }
       [[ -f "$tgt" ]] || { echo "  SKIP $pack/$kind/$base — target missing (was ADD before report; now ADD instead of REPLACE)"; skipped=$((skipped + 1)); continue; }
@@ -417,7 +730,11 @@ for action in "${actions[@]:-}"; do
 
         mkdir -p "$(dirname "$tgt")"
         cp "$pack_src" "$tgt"
-        [[ "$kind" == "commands" || "$kind" == "agents" ]] && rewrite_deployed_command_links "$tgt"
+        if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
+          rewrite_deployed_command_links "$tgt"
+        else
+          rewrite_skill_refs_to_installed_shape "$tgt"
+        fi
         echo "  REPLACE $rel  ($rest; backup: $bak_dir/$rel)"
       else
         echo "  would-REPLACE ${tgt#$TARGET/}  ($rest)"
@@ -426,6 +743,29 @@ for action in "${actions[@]:-}"; do
       ;;
     MERGE|KEEP-OURS-PLUS-INJECT)
       [[ "$INCLUDE" == *merge* ]] || { listed=$((listed + 1)); continue; }
+      # Additive subset only, and only when explicitly asked for. See § merge_additive.
+      if [[ "$INCLUDE" == *merge-additive* && "$decision" == "MERGE" && -f "$pack_src" && -f "$tgt" ]]; then
+        if [[ "$APPLY" -eq 1 ]]; then
+          rel="${tgt#$TARGET/}"
+          mkdir -p "$bak_dir/$(dirname "$rel")"
+          cp "$tgt" "$bak_dir/$rel"
+          if merge_additive "$pack_src" "$tgt"; then
+            if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
+              rewrite_deployed_command_links "$tgt"
+            else
+              rewrite_skill_refs_to_installed_shape "$tgt"
+            fi
+            echo "  MERGE+  $rel  ($MERGE_ADDED pack section(s) appended, nothing removed; backup: $bak_dir/$rel)"
+            applied=$((applied + 1)); continue
+          fi
+          rm -f "$bak_dir/$rel"
+        else
+          if merge_additive_dryrun_count "$pack_src" "$tgt"; then
+            echo "  would-MERGE+ $pack/$kind/$base  ($MERGE_ADDED pack section(s) the target lacks — additive, nothing removed)"
+            applied=$((applied + 1)); continue
+          fi
+        fi
+      fi
       echo "  REVIEW  $pack/$kind/$base  ($decision; manual merge required — not auto-applied)"
       listed=$((listed + 1))
       ;;
@@ -450,10 +790,18 @@ echo "Listed for human review:  $listed"
 echo "Ledger-reconciled:        $ledgered"
 echo "Skipped (source missing / already installed in another shape): $skipped"
 echo "Skill-shape conflicts (refused): $SHAPE_CONFLICTS"
+echo "Command variants installed (M41):  $variants_written"
 echo ""
 
 if [[ "$APPLY" -eq 1 && "$applied" -gt 0 ]]; then
-  echo "Files modified. Backup at: ${bak_dir#$TARGET/}/"
+  # Only announce a backup that EXISTS. HISTORY: this printed off the `applied` counter, but
+  # a pure-ADD run creates no backup (there was no prior file to save), so the message named a
+  # directory that had never been created and a user trying to roll back found nothing there.
+  if [[ -d "$bak_dir" ]]; then
+    echo "Files modified. Backup at: ${bak_dir#$TARGET/}/"
+  else
+    echo "Files modified. No backup taken — every applied row was an ADD of a file that did not exist."
+  fi
   echo ""
   echo "Next steps:"
   echo "  1. Run /setup-project anchoring (Phase 4.6) to inject project-specific blocks into the replaced files."
@@ -467,11 +815,39 @@ fi
 # dry-run included, so the condition is reported before anyone writes.
 shape_rc=0
 check_skill_name_uniqueness || shape_rc=1
-if [[ "$SHAPE_CONFLICTS" -gt 0 || "$shape_rc" -ne 0 ]]; then
+
+# HISTORY — this used to be `if SHAPE_CONFLICTS>0 OR shape_rc!=0 then exit 4`, and the second
+# half of that condition is a WHOLE-DIRECTORY scan. Any pre-existing duplicate `name:` under
+# .claude/skills/ therefore failed the entire run, including every row that had nothing to do
+# with it. Measured on a live repo: 3 twins committed 2026-04-19 made this exit 4 on every
+# invocation, the printed remedy (--migrate-skill-shape) exited 4 on the same 3 names, and the
+# Phase 5 audit then ERRed demanding the apply that could not run — a closed loop that
+# installed ZERO pack files for four months. Blast radius is now proportional to blame:
+#
+#   * SHAPE_CONFLICTS > 0 — a twin BLOCKED A ROW THIS RUN WANTED TO WRITE. Still exit 4;
+#     the work genuinely could not be done and reporting success would be a lie.
+#   * shape_rc != 0 alone — a pre-existing duplicate that blocked nothing. Loud WARN naming
+#     the scripted remedy, and the rows that DID apply are kept. --strict-shape restores the
+#     old hard fail for callers that want it.
+if [[ "$SHAPE_CONFLICTS" -gt 0 ]]; then
   echo ""
-  echo "HALT: skill-shape conflict — the same skill is registered twice. Fix the duplicate"
-  echo "      (keep ONE file per skill name), then re-run. Migration off the legacy flat"
-  echo "      shape is: apply-study-decisions.sh \"$TARGET\" --migrate-skill-shape --apply"
+  echo "HALT: a skill-shape conflict blocked $SHAPE_CONFLICTS row(s) this run wanted to write."
+  echo "      Resolve them, then re-run. The scripted resolution is content-aware:"
+  echo "        apply-study-decisions.sh \"$TARGET\" --resolve-shape-conflicts --apply"
+  echo "      It keeps whichever twin carries more project knowledge and archives the other"
+  echo "      under .claude/backups/ — do NOT pick by byte size (see § twin_score)."
   exit 4
+fi
+if [[ "$shape_rc" -ne 0 ]]; then
+  echo ""
+  echo "WARN: .claude/skills/ carries a duplicate \`name:\` (listed above) that blocked NO row"
+  echo "      this run. The rows above were applied. Resolve the duplicate before it does block"
+  echo "      one — the scripted, content-aware resolution is:"
+  echo "        apply-study-decisions.sh \"$TARGET\" --resolve-shape-conflicts --apply"
+  if [[ "$STRICT_SHAPE" -eq 1 ]]; then
+    echo ""
+    echo "HALT: --strict-shape was passed — treating the pre-existing duplicate as fatal."
+    exit 4
+  fi
 fi
 exit 0

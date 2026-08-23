@@ -179,6 +179,49 @@ know_tokens() {
   ' "$1" 2>/dev/null | grep -ohE "$2" 2>/dev/null | sort -u || true
 }
 
+# Does a project-knowledge path token resolve to a real file in the target?
+#
+# HISTORY — C2n's loss detector below was a pure `comm -23` set difference over path-shaped
+# tokens with NO resolvability test, and that made it mutually unsatisfiable with C2k. C2k
+# REFUSES the run until every MERGE row is applied; a MERGE row whose pack content CORRECTS a
+# broken path reference then deletes a token, and C2n scored that deletion as destroyed
+# project knowledge. Measured on a live repo: 2 of the first 5 mandated merges collided, a
+# 40% rate, and the run could not be made to pass by doing the work it was refused for.
+#
+# The distinguishing fact is on disk. Deleting a reference to a path that DOES NOT EXIST is a
+# repair; deleting a reference to a path that DOES exist is a loss. This function is that
+# test, and it is why C2n keeps catching the real case (a merge that rewrote a live
+# `skills/alert-audit.md` into an absent `skills/alert-audit/SKILL.md` is still an ERR) while
+# no longer refusing the repair case.
+#
+# Resolution is tried at the target root and under `.claude/`, because pack cross-references
+# are written relative to `.claude/` (`skills/<name>/SKILL.md`, `commands/<name>.md`).
+know_token_resolves() {
+  local tok="$1"
+  [[ -e "$TARGET/$tok" ]] && return 0
+  [[ -e "$TARGET/.claude/$tok" ]] && return 0
+  # Skill-shape tolerance: the same skill may be installed flat or folder-form, and a
+  # reference to either form resolves if the OTHER form is what is on disk. Without this the
+  # gate would treat a legitimate shape difference as a dangling reference.
+  case "$tok" in
+    */SKILL.md)  local d="${tok%/SKILL.md}"
+                 [[ -e "$TARGET/$d.md" || -e "$TARGET/.claude/$d.md" ]] && return 0 ;;
+    *.md)        local b="${tok%.md}"
+                 [[ -e "$TARGET/$b/SKILL.md" || -e "$TARGET/.claude/$b/SKILL.md" ]] && return 0 ;;
+  esac
+  return 1
+}
+
+# Count the removed path tokens that STILL RESOLVE in the target — i.e. real losses only.
+count_resolvable_lost_paths() {
+  local bf="$1" live="$2" n=0 tok
+  while IFS= read -r tok; do
+    [[ -z "$tok" ]] && continue
+    know_token_resolves "$tok" && n=$((n + 1))
+  done < <(comm -23 <(know_tokens "$bf" "$KNOW_PATH_RE") <(know_tokens "$live" "$KNOW_PATH_RE") || true)
+  printf '%s\n' "$n"
+}
+
 # C2n (knowledge-preservation) — a run must NOT silently drop extract-captured
 # knowledge. ADRs are append-only; documented patterns survive a refresh.
 #
@@ -262,7 +305,8 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
       live="$TARGET/$rel"
       [[ -f "$live" ]] || continue   # whole-file deletion is caught by the census above
       kn_checked=$((kn_checked + 1))
-      lost_paths=$(comm -23 <(know_tokens "$bf" "$KNOW_PATH_RE") <(know_tokens "$live" "$KNOW_PATH_RE") | grep -c . || true)
+      # Only removed paths that STILL RESOLVE on disk count as loss. See know_token_resolves.
+      lost_paths=$(count_resolvable_lost_paths "$bf" "$live")
       lost_idents=$(comm -23 <(know_tokens "$bf" "$KNOW_IDENT_RE") <(know_tokens "$live" "$KNOW_IDENT_RE") | grep -c . || true)
       lost_paths="${lost_paths:-0}"; lost_idents="${lost_idents:-0}"
       # Same predicate study-existing.sh uses to protect a file from replacement:
@@ -349,7 +393,15 @@ if [[ -f "$CL/_refresh-extract.md" ]]; then
   # Section 9 only required when migration in scope
   if grep -q "include=migration\|migration_layout_detected" "$TARGET"/.claude/codebase-profile.md 2>/dev/null; then
     if awk '/^## 9\./ { in_sec=1; next } in_sec && /^## / { exit } in_sec && /^>/ { next } in_sec && /^[[:space:]]*$/ { next } in_sec { print; exit }' "$CL/_refresh-extract.md" | grep -q '<TBD>'; then
-      err "_refresh-extract.md § 9 (migration mapping) is <TBD> but migration is in scope"
+      # Name the phase that can actually fill it, per MODE. Phase 0.2 is skipped in every
+      # ENHANCE mode (commands/setup-project.md § STEP ZERO), so pointing an ENHANCE run at
+      # Phase 0.2 was pointing it at a step it does not run — the ERR was unresolvable from
+      # inside the mode and punished the run for honestly recording migration_layout_detected.
+      if [[ "$MODE" == "enhance" ]]; then
+        err "_refresh-extract.md § 9 (migration mapping) is <TBD> but migration is in scope. In ENHANCE modes Phase 0.2 does not run — PHASE 2 § 16 owns § 9 (see templates/phases/phase-2-profile.md § 16). Fill it from the §16 findings; 'no mappable V1→V2 pairs yet — <reason>' is a valid answer, '<TBD>' is not."
+      else
+        err "_refresh-extract.md § 9 (migration mapping) is <TBD> but migration is in scope — Phase 0.2 must fill it."
+      fi
     fi
   fi
   echo ""
@@ -366,8 +418,19 @@ if [[ -f "$CL/_codebase-scan.md" ]]; then
       in_sec && /^[[:space:]]*$/ { next }
       in_sec { print; exit }
     ' "$CL/_codebase-scan.md" 2>/dev/null || true)
-    if echo "$section_first_line" | grep -q '<TBD>'; then
+    # HEADING-PRESENCE FIRST. HISTORY: this check was `grep -q '<TBD>'` on the awk output and
+    # nothing else. When the heading is ABSENT the awk prints nothing, `grep -q` on an empty
+    # string is false, and the check reported "filled" — so a section that does not exist at
+    # all passed identically to one that is fully written. Measured on a live repo: the
+    # preflight preserved a stale 4-of-15-section scan file and ALL EIGHT mandatory semantic
+    # sections were reported green while none of them existed. A vacuous pass is worse than a
+    # failure, because it consumes the gate slot that would have caught the real problem.
+    if ! grep -qE "^## .*$section" "$CL/_codebase-scan.md" 2>/dev/null; then
+      err "_codebase-scan.md § \"$section\" heading is ABSENT — the file is truncated or was preserved stale. Re-run deep-codebase-scan.sh (a missing section is not a filled one)."
+    elif echo "$section_first_line" | grep -q '<TBD>'; then
       err "_codebase-scan.md § \"$section\" is <TBD>"
+    elif [[ -z "$section_first_line" ]]; then
+      err "_codebase-scan.md § \"$section\" heading exists but has no body"
     else
       ok "_codebase-scan.md § \"$section\" filled"
     fi
@@ -382,20 +445,30 @@ if [[ -f "$CL/_codebase-scan.md" ]]; then
   ' "$CL/_codebase-scan.md" 2>/dev/null || true)
   recs="${recs:-0}"
 
-  # Compute LOC from section 5 to gate "non-trivial" check
+  # Compute LOC from section 5 to gate "non-trivial" check.
+  #
+  # HISTORY — "the parse produced nothing" and "the repo is genuinely tiny" used to be the
+  # SAME answer, 0, and the <1000 branch below reads 0 as "small codebase, threshold relaxed".
+  # A live 631-file, 226,080-line repo therefore had this mandatory gate WAIVED, because the
+  # preserved scan file had no `## 5.` section for the parse to read. There is now a third
+  # state: unparseable. It never relaxes anything — it fails and says which file to rebuild.
+  loc_parsed=0
   loc_total=0
   if grep -q '^## 5\.' "$CL/_codebase-scan.md" 2>/dev/null; then
     loc_total=$({ awk '/^## 5\./ { in_sec=1; next } in_sec && /^## / { exit } in_sec' "$CL/_codebase-scan.md" 2>/dev/null || true; } \
       | { grep -oE '[0-9]+ lines' 2>/dev/null || true; } | { grep -oE '^[0-9]+' 2>/dev/null || true; } | awk '{s+=$1} END {print s+0}')
     loc_total="${loc_total:-0}"
+    [[ "$loc_total" -gt 0 ]] && loc_parsed=1
   fi
 
-  if [[ "$loc_total" -ge 1000 && "$recs" -lt 3 ]]; then
+  if [[ "$loc_parsed" -eq 0 ]]; then
+    err "_codebase-scan.md § 5 (lines of code) is absent or unparseable — LOC could not be measured, so the § 15 recommendation floor cannot be gated. This is NOT 'small codebase'. scripts/deep-codebase-scan.sh emits § 5; re-run it rather than preserving the stale file. (§ 15 currently has $recs recommendation(s).)"
+  elif [[ "$loc_total" -ge 1000 && "$recs" -lt 3 ]]; then
     err "_codebase-scan.md § 15 has $recs structural recommendations; minimum 3 required (LOC=$loc_total)"
   elif [[ "$loc_total" -lt 1000 ]]; then
-    ok "_codebase-scan.md § 15 has $recs recommendations (small codebase, threshold relaxed)"
+    ok "_codebase-scan.md § 15 has $recs recommendations (small codebase measured at $loc_total LOC, threshold relaxed)"
   else
-    ok "_codebase-scan.md § 15 has $recs structural recommendations"
+    ok "_codebase-scan.md § 15 has $recs structural recommendations (LOC=$loc_total)"
   fi
   echo ""
 fi
@@ -737,7 +810,53 @@ echo "C2i: foundational ai/ files populated (not baseline stubs)"
 # to a warn under --lightweight rather than REFUSE the run. Full runs keep the hard gate.
 C2I_REPORT() { if [[ $LIGHTWEIGHT -eq 1 ]]; then warn_msg "$*"; else err "$*"; fi; }
 BASELINE_AI="${CLAUDE_CONFIG_ROOT:-$HOME/.claude}/templates/repo-baseline/ai"
+# The seven files whose population is MANDATORY. Unchanged severity: a stub here is an ERR.
 FOUNDATIONAL=( architecture stack modules status conventions business-domain _convention-cheatsheet )
+
+# EVERY OTHER baseline-derived ai/ file is now checked too, and the list is DERIVED from
+# templates/repo-baseline/ai/ rather than hand-maintained here.
+#
+# HISTORY — FOUNDATIONAL was a hand-written list of 7 names, and the files that were actually
+# shipping as unfilled template were not on it. Measured across two unrelated live projects:
+# ai/runtime/context.md was 52% placeholder lines and BYTE-IDENTICAL between a NestJS backend
+# and a Vue frontend; ai/competitive-context.md 50%; ai/business-model.md 42% and 100% template
+# ("Last updated: <YYYY-MM-DD>", "<Subscription | Usage-based | Transaction fee | ...>");
+# ai/runtime/domain-anti-patterns.md 40%; ai/runtime/environment-quirks.md 38%;
+# ai/business-flows.md 27%. The gate reported "ok all foundational ai/ files populated" over all
+# of it — and STUB_TOKENS below would have matched every one of them, so the regex was never the
+# problem. The LIST was. A hand-maintained list of what to check drifts the moment the baseline
+# grows a file; deriving it cannot.
+#
+# Severity is split by how unambiguous the finding is:
+#   byte-identical to the baseline  -> ERR. Nobody touched it; there is nothing to argue about.
+#   edited but still ≥25% placeholder prose lines -> WARN with the measured density, because a
+#   partially-filled file is a judgement call and a second wall is not what this run needs.
+SECONDARY_AI=()
+if [[ -d "$BASELINE_AI" ]]; then
+  while IFS= read -r _bf; do
+    _rel="${_bf#"$BASELINE_AI"/}"
+    _name="${_rel%.md}"
+    case "$_rel" in README.md|*/README.md) continue ;; esac
+    # skip the seven already covered above
+    case " ${FOUNDATIONAL[*]} " in *" $_name "*) continue ;; esac
+    SECONDARY_AI+=("$_name")
+  done < <(find "$BASELINE_AI" -type f -name '*.md' 2>/dev/null | sort)
+fi
+
+# Fraction of prose lines carrying a placeholder token, as a whole-number percentage.
+# Prose = non-blank, non-heading, non-fence, non-frontmatter lines.
+placeholder_density() {
+  awk '
+    /^---[[:space:]]*$/ { fm = !fm; next }
+    fm { next }
+    /^[[:space:]]*```/ { fence = !fence; next }
+    fence { next }
+    /^[[:space:]]*$/ { next }
+    /^[[:space:]]*#/ { next }
+    { total++ ; if ($0 ~ /<[A-Za-z0-9_ .,|\/-]*>/) ph++ }
+    END { if (total == 0) print 0; else printf "%d\n", (ph * 100) / total }
+  ' "$1" 2>/dev/null
+}
 # Tokens UNIQUE to unpopulated baseline stubs. NB: bare `<name>` is excluded — it is a
 # legitimate code/path placeholder in populated docs (`get_logger(<name>)`, `app/modules/<name>/`)
 # and would false-positive. The diff-identical check + these stub-only tokens still catch real stubs.
@@ -759,8 +878,242 @@ for fname in "${FOUNDATIONAL[@]}"; do
     stub_count=$((stub_count + 1))
   fi
 done
-[[ $stub_count -eq 0 ]] && ok "all foundational ai/ files populated"
+# --- every OTHER baseline-derived ai/ file (derived list; see § SECONDARY_AI above) --------
+sec_stub=0; sec_thin=0
+for fname in ${SECONDARY_AI[@]+"${SECONDARY_AI[@]}"}; do
+  tgt="$TARGET/ai/$fname.md"
+  [[ -f "$tgt" ]] || continue          # absent is a coverage question, not a stub question
+  base="$BASELINE_AI/$fname.md"
+  if [[ -f "$base" ]] && diff -q "$base" "$tgt" >/dev/null 2>&1; then
+    C2I_REPORT "UNPOPULATED_STUB: ai/$fname.md is byte-identical to the repo-baseline template — it was shipped, never written"
+    sec_stub=$((sec_stub + 1)); continue
+  fi
+  dens=$(placeholder_density "$tgt"); dens="${dens:-0}"
+  if [[ "$dens" -ge 25 ]]; then
+    warn_msg "ai/$fname.md is ${dens}% placeholder prose lines — still largely an unfilled template"
+    sec_thin=$((sec_thin + 1))
+  fi
+done
+if [[ $stub_count -eq 0 && $sec_stub -eq 0 && $sec_thin -eq 0 ]]; then
+  ok "all foundational ai/ files populated (7 mandatory + ${#SECONDARY_AI[@]} baseline-derived checked)"
+elif [[ $stub_count -eq 0 && $sec_stub -eq 0 ]]; then
+  ok "7 mandatory ai/ files populated; $sec_thin baseline-derived file(s) still thin (WARN above)"
+fi
 echo ""
+
+# C2w — AN INSTALLED COMMAND'S OWN INSTRUCTIONS MUST RESOLVE
+#
+# HISTORY — nothing checked this, and the casualty was the single most repo-relevant command in
+# one live install. `/tenant-leak-audit` targets that project's actual failure theme (three of
+# its last 97 commits are cross-tenant leak fixes) and is broken against the repo it sits in:
+# its "How to run" section says to execute `.claude/skills/tenant-leak-scan.sh`, which does not
+# exist; three of its seven checks and two of its carve-outs key on `infrastructure/persistence/`
+# and `*.orm-entity.ts`, of which the codebase contains ZERO (it uses
+# `infrastructure/database/entities/` and `*.entity.ts`, across 111 infrastructure dirs). It is
+# also UNANCHORED, so it sits in audit-anchoring.sh's "orphans skipped" bucket and the leak gate
+# never looked at it either.
+#
+# The command is a project-local ORPHAN — no pack owns it, so no pack-side fix can reach it and
+# no currency sweep can either. What IS fixable here is the blindness: an installed command that
+# tells the user to run a file, and the file is not there, is mechanically detectable. This
+# check reads what commands tell the user to EXECUTE and asks whether it exists.
+echo "C2w: installed commands' own instructions resolve"
+cmd_broken=0; cmd_checked=0
+if [[ -d "$TARGET/.claude/commands" ]]; then
+  while IFS= read -r cf; do
+    [[ -f "$cf" ]] || continue
+    crel="${cf#$TARGET/}"
+    cmd_checked=$((cmd_checked + 1))
+    # Executable references the command instructs the reader to run: a repo-relative path to a
+    # .sh / .py / .js inside .claude/ or ai/ or scripts/, whether backticked or on a bare line
+    # in a fenced block.
+    while IFS= read -r ref; do
+      [[ -z "$ref" ]] && continue
+      ref="${ref#./}"
+      [[ -e "$TARGET/$ref" ]] && continue
+      # A path under templates/ or ~/.claude/ is a FRAMEWORK reference, not a target file.
+      case "$ref" in templates/*|~/*|/*) continue ;; esac
+      err "$crel instructs the reader to run \`$ref\`, which does not exist in this target. A command whose first instruction is a dead path is worse than no command — the reader trusts it. Either ship the helper, or rewrite the step to something this repo can run."
+      cmd_broken=$((cmd_broken + 1))
+    done < <({ awk '
+                 # Skip the generated anchor block: its provenance line names
+                 # `scripts/apply-anchors.sh`, a FRAMEWORK script that lives at ~/.claude/scripts
+                 # and is not expected under the target. Reading it here produced one false ERR
+                 # per anchored command — caught by an end-to-end smoke test.
+                 /^<!-- project-specific:start -->[[:space:]]*$/ { anc=1; next }
+                 anc { if (/^<!-- project-specific:end -->[[:space:]]*$/) anc=0; next }
+                 { print }
+               ' "$cf" 2>/dev/null \
+               | { grep -ohE '(^|[[:space:]`(])((\.claude|ai)/[A-Za-z0-9_./-]+\.(sh|py|js|mjs))' 2>/dev/null || true; } \
+             ; } | sed -E 's/^[[:space:]`(]+//' | sort -u)
+  done < <({ find "$TARGET/.claude/commands" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null || true; } | sort)
+fi
+if [[ "$cmd_broken" -eq 0 ]]; then
+  ok "$cmd_checked installed command(s) — every executable they name resolves"
+fi
+echo ""
+
+# C2u — INSTALLED RULES ACTUALLY LOAD (M42)
+#
+# HISTORY — nothing checked this, and the answer on two live repos was "none of them".
+# `.claude/rules/README.md` states the mechanism in as many words: "Claude Code does not
+# auto-load `.claude/rules/` on its own — the `CLAUDE.md` import is what makes these
+# always-on." Neither project's CLAUDE.md carried a single `@.claude/rules/` line, and NO
+# script, phase or command in the framework ever wrote one — the imports lived only in
+# templates/repo-baseline/CLAUDE.md, a greenfield file that ENHANCE mode never applies
+# (apply-baseline-sync.sh correctly classifies an existing CLAUDE.md as KEEP-OURS). Measured:
+# 221,560 bytes of always-tier rules in one repo and 99,763 in the other, loading ZERO times
+# per turn. Every gate was green over all of it, because every gate asked whether the FILE
+# EXISTED and none asked whether anything READ it.
+#
+# The documented fallback is checked too: a path-scoped rule is loaded by inject-path-rules.sh,
+# which is a hook — and that hook was registered in no settings.json at any scope in either
+# repo, so the path-scoped tier was equally dead.
+echo "C2u: installed rules are actually loaded (imports wired)"
+if [[ -d "$TARGET/.claude/rules" ]]; then
+  rule_always=0; rule_scoped=0; rule_unimported=""
+  imports_present=0
+  [[ -f "$TARGET/CLAUDE.md" ]] && imports_present=$({ grep -c '^@\.claude/rules/' "$TARGET/CLAUDE.md" 2>/dev/null || true; })
+  imports_present="${imports_present:-0}"
+  for rf in "$TARGET"/.claude/rules/*.md; do
+    [[ -e "$rf" ]] || continue
+    rb="$(basename "$rf")"
+    [[ "$rb" == "README.md" ]] && continue
+    # path-scoped == `paths:` key in the LEADING frontmatter (same test as check-rule-budget.sh)
+    if head -1 "$rf" | grep -qE '^---[[:space:]]*$' \
+       && awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^paths:/{f=1} END{exit !f}' "$rf"; then
+      rule_scoped=$((rule_scoped + 1)); continue
+    fi
+    rule_always=$((rule_always + 1))
+    grep -qF "@.claude/rules/$rb" "$TARGET/CLAUDE.md" 2>/dev/null \
+      || rule_unimported="$rule_unimported $rb"
+  done
+
+  if [[ "$rule_always" -gt 0 && "$imports_present" -eq 0 ]]; then
+    rbytes=$(cat "$TARGET"/.claude/rules/*.md 2>/dev/null | wc -c | tr -d ' ')
+    err "NO rule is loaded: CLAUDE.md carries 0 \`@.claude/rules/\` imports while $rule_always always-tier rule(s) (~$(( ${rbytes:-0} / 4 )) tok) sit on disk. .claude/rules/README.md: 'Claude Code does not auto-load .claude/rules/ on its own — the CLAUDE.md import is what makes these always-on.' Fix: ~/.claude/scripts/wire-rule-imports.sh \"$TARGET\" --apply"
+  elif [[ -n "$rule_unimported" ]]; then
+    n=$(printf '%s' "$rule_unimported" | wc -w | tr -d ' ')
+    err "$n always-tier rule(s) are installed but NOT imported by CLAUDE.md, so they never load:$rule_unimported. Either import them (wire-rule-imports.sh \"$TARGET\" --apply) or path-scope them (scope-rules.sh) — a rule that is neither is dead weight the reader believes is active."
+  elif [[ "$rule_always" -gt 0 ]]; then
+    ok "$rule_always always-tier rule(s) imported by CLAUDE.md; $rule_scoped path-scoped"
+  else
+    ok "no always-tier rules installed ($rule_scoped path-scoped)"
+  fi
+
+  # The path-scoped tier needs its hook registered or it is equally dead.
+  if [[ "$rule_scoped" -gt 0 ]]; then
+    if grep -rqF 'inject-path-rules' "$TARGET/.claude/settings.json" "$TARGET/.claude/settings.local.json" 2>/dev/null; then
+      ok "inject-path-rules.sh registered — the $rule_scoped path-scoped rule(s) can load"
+    else
+      warn_msg "$rule_scoped path-scoped rule(s) installed but inject-path-rules.sh is registered in no settings.json — the path-scoped tier is inert too. Register it as a PreToolUse hook, or those rules never load either."
+    fi
+  fi
+fi
+echo ""
+
+# C2v — EXTRACTION SUBSTRATE HONESTY (mechanical, not self-policed)
+#
+# HISTORY — this check did not exist. `grep -c '_extracted-codebase' scripts/audit-setup.sh`
+# returned 0 and neither audit script contained the strings [SAMPLED], [inferred:], [found:]
+# or files_cited. C2b verified only that the file EXISTS. The extraction skill's own Step 15
+# check 7 is described as "arithmetic against numbers the model did not author" — but nothing
+# outside the model ever ran that arithmetic, so every honesty rule in a 40 KB skill was on the
+# honour system. The proof that the honour system fails was sitting in a live repo: its
+# substrate shipped the literal line
+#     ## API surface [SAMPLED: 2/242 files] — check-7 FAIL (see ## Coverage)
+# a SELF-DECLARED gate failure, and it passed every audit; and its cross-cutting table wrote
+# `multi-tenant | **confirmed**` with no ratio when the measured truth was 117/242 = partial.
+#
+# These are the check-7 rules that are pure arithmetic or pure grep. They are re-run here,
+# outside the model, against the file the model wrote.
+EXTRACT="$CL/_extracted-codebase.md"
+if [[ -f "$EXTRACT" ]]; then
+  echo "C2v: extraction substrate honesty (check 7, re-run externally)"
+
+  # (1) A self-declared failure must never pass. If the author wrote that a check failed,
+  #     believe them — this is the exact string that shipped green on a live repo.
+  if grep -qiE 'check-?7[[:space:]]+FAIL|EXTRACTION-WEAK' "$EXTRACT" 2>/dev/null; then
+    err "_extracted-codebase.md declares its own check-7 / EXTRACTION-WEAK failure in the text. A self-declared gate failure is a failure: $(grep -m1 -iE 'check-?7[[:space:]]+FAIL|EXTRACTION-WEAK' "$EXTRACT" | sed 's/^[[:space:]]*//' | cut -c1-140)"
+  fi
+
+  # (2) `## API surface` declares NO cap in the Step 2.5 table, so check 7's `none declared`
+  #     bullet requires seen == present. A [SAMPLED] marker on that heading is an honest
+  #     report of a floor being breached — and honesty about a breach is not compliance.
+  api_head=$(grep -m1 -E '^##[[:space:]]+API surface' "$EXTRACT" 2>/dev/null || true)
+  if [[ -n "$api_head" ]] && printf '%s' "$api_head" | grep -q '\[SAMPLED'; then
+    err "_extracted-codebase.md § API surface carries a [SAMPLED] marker, but Step 7 declares NO cap — check 7's 'none declared → must be 100%' bullet FAILs a sampled walk here, disclosed or not. Heading: $(printf '%s' "$api_head" | cut -c1-140)"
+  fi
+
+  # (3) Step 9 grammar: a `confirmed` verdict on a pervasive property must print
+  #     <matched>/<present>, and matched must equal present. `confirmed` with a ratio below
+  #     100% is a `partial` mislabelled — the single highest-authority claim in the file.
+  while IFS= read -r cline; do
+    [[ -z "$cline" ]] && continue
+    if ! printf '%s' "$cline" | grep -qE '[0-9]+[[:space:]]*/[[:space:]]*[0-9]+'; then
+      err "_extracted-codebase.md: 'confirmed' verdict with NO <matched>/<present> ratio — Step 9's hard rule calls this the same violation as an uncited factual claim: $(printf '%s' "$cline" | sed 's/^[[:space:]]*//' | cut -c1-140)"
+      continue
+    fi
+    m=$(printf '%s' "$cline" | grep -oE '[0-9]+[[:space:]]*/[[:space:]]*[0-9]+' | head -1 | tr -d ' ')
+    num="${m%%/*}"; den="${m##*/}"
+    if [[ -n "$num" && -n "$den" && "$den" -gt 0 && "$num" -ne "$den" ]]; then
+      err "_extracted-codebase.md: 'confirmed' printed with ratio $num/$den — below 100% is 'partial' mislabelled (Step 9 + check 7 bullet 6): $(printf '%s' "$cline" | sed 's/^[[:space:]]*//' | cut -c1-140)"
+    fi
+  done < <(sed -n '/^##[[:space:]]*Cross-cutting concerns/,/^##[[:space:]]/p' "$EXTRACT" 2>/dev/null \
+           | { grep -iE 'confirmed' || true; } | { grep -vE '^[[:space:]]*(>|\||-{3,})[[:space:]]*$' || true; })
+
+  # (4) check 7's forbidden-quantifier list, re-run. Inside a [SAMPLED] section a `[found:]`
+  #     line may not carry an absolute quantifier. `confirmed` is exempt ONLY when the same
+  #     line prints a ratio — see the skill's Step 15 carve-out, which exists because Step 9
+  #     mandates that word and the three rules were otherwise unsatisfiable together.
+  quant_hits=$(awk '
+    /^##[[:space:]]/ { sampled = ($0 ~ /\[SAMPLED/) ; next }
+    !sampled { next }
+    /\[found:/ {
+      line = $0
+      low = tolower(line)
+      if (low ~ /all |every |always|never|throughout|repo-wide|project-wide|consistently|the codebase /) { print; next }
+      if (low ~ /confirmed/ && line !~ /[0-9]+[[:space:]]*\/[[:space:]]*[0-9]+/) { print }
+    }
+  ' "$EXTRACT" 2>/dev/null | head -5 || true)
+  if [[ -n "$quant_hits" ]]; then
+    n=$(printf '%s\n' "$quant_hits" | grep -c .)
+    err "_extracted-codebase.md: $n [found:] line(s) inside a [SAMPLED] section carry an absolute quantifier — check 7 forbids generalizing beyond the sample with a citation attached. First: $(printf '%s\n' "$quant_hits" | head -1 | sed 's/^[[:space:]]*//' | cut -c1-140)"
+  fi
+
+  # (5) A [SAMPLED] marker must carry an auditable ratio, and seen must not exceed present.
+  bad_ratio=$(grep -oE '\[SAMPLED:[^]]*\]' "$EXTRACT" 2>/dev/null \
+    | awk '{ if ($0 !~ /[0-9]+[[:space:]]*\/[[:space:]]*[0-9]+/) print "no-ratio " $0 }' | head -3 || true)
+  if [[ -n "$bad_ratio" ]]; then
+    err "_extracted-codebase.md: [SAMPLED] marker without a <seen>/<present> ratio — 'sampled' without a denominator is an adjective, not a disclosure: $(printf '%s\n' "$bad_ratio" | head -1 | cut -c1-140)"
+  fi
+  while IFS= read -r r; do
+    [[ -z "$r" ]] && continue
+    sn="${r%%/*}"; sp="${r##*/}"
+    [[ -z "$sn" || -z "$sp" || "$sp" -eq 0 ]] && continue
+    if [[ "$sn" -gt "$sp" ]]; then
+      err "_extracted-codebase.md: [SAMPLED: $sn/$sp] claims more files seen than present — the census and the marker disagree"
+    fi
+  done < <(grep -oE '\[SAMPLED:[^]]*\]' "$EXTRACT" 2>/dev/null \
+           | grep -oE '[0-9]+[[:space:]]*/[[:space:]]*[0-9]+' | tr -d ' ' || true)
+
+  # (6) `## Coverage` is unconditional per the skill — including at 100%, which it calls the
+  #     strongest claim the file can make about its own output.
+  grep -qE '^##[[:space:]]+Coverage' "$EXTRACT" 2>/dev/null \
+    || err "_extracted-codebase.md has no '## Coverage' section — the skill requires it on EVERY run, including at 100%. Without it no consumer can tell a complete walk from a silent sample."
+
+  # (7) Provenance: a substrate with citations but ZERO provenance markers has not applied the
+  #     discipline at all.
+  fnd=$({ grep -c '\[found:' "$EXTRACT" 2>/dev/null || true; }); fnd="${fnd:-0}"
+  inf=$({ grep -c '\[inferred:' "$EXTRACT" 2>/dev/null || true; }); inf="${inf:-0}"
+  unc=$({ grep -c '\[unconfirmed\]' "$EXTRACT" 2>/dev/null || true; }); unc="${unc:-0}"
+  if [[ $((fnd + inf + unc)) -eq 0 ]]; then
+    err "_extracted-codebase.md carries no [found:] / [inferred:] / [unconfirmed] provenance markers at all — § Provenance discipline was not applied, so no claim in it can be graded"
+  else
+    ok "provenance markers present ([found:] $fnd, [inferred:] $inf, [unconfirmed] $unc)"
+  fi
+  echo ""
+fi
 
 # C2j — App-code stub scan (#46). The "no placeholders" promise was enforced only on the 7
 # foundational ai/ docs (C2i), not on generated app code — so a scaffolded route handler left as

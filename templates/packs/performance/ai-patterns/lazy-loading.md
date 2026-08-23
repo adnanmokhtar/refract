@@ -3,6 +3,7 @@ name: lazy-loading
 description: Pattern — defer loading of code, data, images, components until actually needed. Per-tier guide on what to lazy-load + what NOT to lazy-load + how to measure impact.
 kind: ai-pattern
 pack: performance
+project_kind: browser   # requires a rendered UI layer; see templates/packs/_project-kind.md
 ---
 
 # Pattern: Lazy loading

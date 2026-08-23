@@ -21,6 +21,19 @@ BASE="$REPO_ROOT/templates/repo-baseline"
 RULES_DIR="$BASE/.claude/rules"
 BUDGET="${RULE_BUDGET_TOKENS:-6000}"
 
+# --target=<repo> — measure a REAL project's always-load surface instead of the framework's.
+#
+# HISTORY — every number this programme optimised was a measurement of `templates/`, never of a
+# project. This script had NO target parameter at all; it budgeted templates/repo-baseline
+# exclusively. The headline "~29,287 tokens" attributed to a live repo reconstructs exactly from
+# this script's own advisory note (4,943 baseline + 24,344 pack) — a PROJECTION of what a project
+# WOULD load if the imports existed, published as if it were a measurement. Nothing anywhere
+# measured a target, which is why nothing ever noticed that the true figure was ~18,205 tokens
+# and contained NO RULES AT ALL, because no rule was imported (see scripts/wire-rule-imports.sh).
+# --target answers the question that was actually being asked.
+TARGET_REPO=""
+for a in "$@"; do case "$a" in --target=*) TARGET_REPO="${a#--target=}" ;; esac; done
+
 [ -d "$RULES_DIR" ] || { echo "no rules dir at $RULES_DIR"; exit 0; }
 
 is_path_scoped() {
@@ -30,6 +43,74 @@ is_path_scoped() {
 }
 
 tok() { echo $(( $(wc -c < "$1") / 4 )); }
+
+# ---------- --target mode: what a REAL project loads every turn ----------------------------
+if [ -n "$TARGET_REPO" ]; then
+  [ -d "$TARGET_REPO" ] || { echo "no such target: $TARGET_REPO" >&2; exit 2; }
+  TARGET_REPO="$(cd "$TARGET_REPO" && pwd -P)"
+  echo "=== always-load surface — MEASURED, target: $TARGET_REPO ==="
+  echo ""
+  t_total=0
+
+  if [ -f "$TARGET_REPO/CLAUDE.md" ]; then
+    t=$(tok "$TARGET_REPO/CLAUDE.md"); t_total=$((t_total + t))
+    printf "  %-46s ~%6d tok\n" "CLAUDE.md" "$t"
+  else
+    printf "  %-46s %s\n" "CLAUDE.md" "ABSENT"
+  fi
+
+  # Rules count ONLY when CLAUDE.md imports them. This is the whole point: a rule on disk that
+  # nothing imports costs zero tokens AND delivers zero guidance, and the old script could not
+  # tell that state from a working one.
+  r_imported=0; r_ondisk=0; r_bytes_unloaded=0
+  for f in "$TARGET_REPO"/.claude/rules/*.md; do
+    [ -e "$f" ] || continue
+    b=$(basename "$f"); [ "$b" = "README.md" ] && continue
+    is_path_scoped "$f" && continue
+    r_ondisk=$((r_ondisk + 1))
+    if grep -qF "@.claude/rules/$b" "$TARGET_REPO/CLAUDE.md" 2>/dev/null; then
+      t=$(tok "$f"); t_total=$((t_total + t)); r_imported=$((r_imported + 1))
+      printf "  %-46s ~%6d tok\n" ".claude/rules/$b" "$t"
+    else
+      r_bytes_unloaded=$((r_bytes_unloaded + $(tok "$f")))
+    fi
+  done
+
+  # Frontmatter descriptions of commands / agents / skills are surfaced to the model as a
+  # listing on every turn, so they are part of the always-load surface even though no rule
+  # mentions them.
+  desc_tok() {
+    local dir="$1" n=0
+    [ -d "$dir" ] || { echo 0; return; }
+    n=$( { find "$dir" -maxdepth 1 -name '*.md' -not -name '_*' 2>/dev/null
+           find "$dir" -mindepth 2 -maxdepth 2 -name 'SKILL.md' 2>/dev/null; } \
+         | while IFS= read -r f; do
+             awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} /^(name|description):/{print}' "$f"
+           done | wc -c )
+    echo $(( ${n:-0} / 4 ))
+  }
+  for pair in "commands:.claude/commands" "agents:.claude/agents" "skills:.claude/skills"; do
+    label="${pair%%:*}"; sub="${pair##*:}"
+    t=$(desc_tok "$TARGET_REPO/$sub"); t_total=$((t_total + t))
+    printf "  %-46s ~%6d tok\n" "$sub/ (name+description listing)" "$t"
+  done
+
+  echo "  ----------------------------------------------------------"
+  printf "  %-46s ~%6d tok / turn\n" "MEASURED ALWAYS-LOAD TOTAL" "$t_total"
+  echo ""
+  printf "  always-tier rules on disk: %d   imported (loading): %d   INERT: %d (~%d tok of guidance nobody receives)\n" \
+    "$r_ondisk" "$r_imported" "$((r_ondisk - r_imported))" "$r_bytes_unloaded"
+  if [ "$r_ondisk" -gt 0 ] && [ "$r_imported" -eq 0 ]; then
+    echo ""
+    echo "::error::every always-tier rule in this target is INERT — CLAUDE.md imports none of them."
+    echo "  Fix: bash scripts/wire-rule-imports.sh \"$TARGET_REPO\" --apply"
+    exit 1
+  fi
+  echo ""
+  echo "OK — measured. (This is a measurement of the TARGET. The framework-side budget is the run with no --target.)"
+  exit 0
+fi
+
 
 total=0
 echo "Always-loaded (budgeted):"

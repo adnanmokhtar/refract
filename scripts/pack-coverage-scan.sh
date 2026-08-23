@@ -227,20 +227,90 @@ resolve_target_artifact() {
 #
 # Keyed exactly as study-existing.sh and C2b2 key it: `<pack>/<kind>/<base>` — the
 # PACK-relative path, never the deployed target path.
+SELF_DIR_PK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 LEDGER="$TARGET/.claude/_refresh-decisions.md"
+# ---------- PROJECT_KIND applicability filter --------------------------------------------
+# See templates/packs/_project-kind.md. A pack artifact may declare `project_kind:` in its
+# frontmatter; a row whose declared kind is not one this target HAS is declined, not missing.
+# Measured motivation: 49,450 bytes (17.6% of one run's installs) of Core Web Vitals / bundle /
+# INP content landed on a NestJS service with zero `.vue` and zero `.tsx` files, because track
+# selection is per-folder and had no artifact-level filter.
+TARGET_KINDS="$(bash "$SELF_DIR_PK/detect-project-kind.sh" "$TARGET" 2>/dev/null || echo any)"
+
+# Declared kind of a pack artifact ("" when the key is absent → applies to any kind).
+artifact_project_kind() {
+  awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} /^project_kind:[[:space:]]*/ {
+         sub(/^project_kind:[[:space:]]*/,""); sub(/[[:space:]]*#.*$/,""); gsub(/["'"'"']/,"");
+         print; exit }' "$1" 2>/dev/null
+}
+
+# 0 = applies here, 1 = declined for project kind. Sets KIND_DECLINE_REASON on a decline.
+artifact_applies_to_target() {
+  local f="$1" want
+  KIND_DECLINE_REASON=""
+  want="$(artifact_project_kind "$f")"
+  [[ -z "$want" || "$want" == "any" ]] && return 0
+  # An undetectable repo matches everything — trading one silent wrong for another is not a fix.
+  [[ "$TARGET_KINDS" == "any" ]] && return 0
+  case " $TARGET_KINDS " in
+    *" $want "*) return 0 ;;
+  esac
+  KIND_DECLINE_REASON="declares project_kind: $want; this target is [$TARGET_KINDS]"
+  return 1
+}
+
 pack_sha8() { shasum "$1" 2>/dev/null | cut -c1-8; }
 
-# ledger_lookup <key> → "VERB|date|sha8|rationale" (sha8 empty unless stamped);
-# empty when there is no entry. Same parse as study-existing.sh:45.
+# Substantive-content hash — see scripts/study-existing.sh § pack_substantive_sha8 for the
+# measured reason (131 settled ledger decisions re-opened in one run by cosmetic pack churn).
+# The two MUST stay identical or the two scans will disagree about which decisions are stale.
+pack_substantive_sha8() {
+  awk '
+    NR==1 && /^---[[:space:]]*$/ { fm=1; next }
+    fm { if (/^---[[:space:]]*$/) fm=0; next }
+    /^<!-- project-specific:start -->[[:space:]]*$/ { anc=1; next }
+    anc { if (/^<!-- project-specific:end -->[[:space:]]*$/) anc=0; next }
+    { print }
+  ' "$1" 2>/dev/null \
+    | sed -E 's/[[:space:]]+$//; s/[*_`]//g' \
+    | grep -v '^[[:space:]]*$' \
+    | shasum 2>/dev/null | cut -c1-8
+}
+
+# ledger_lookup <key> → prints "VERB|date|sha8|rationale" (sha8 empty unless stamped). Empty if no entry.
+#
+# SHAPE-INDEPENDENT KEY. HISTORY — the ledger stores one line per `pack/kind/file.md`, and
+# the packs migrated their skills from the flat `skills/<name>.md` shape to the canonical
+# Agent Skills `skills/<name>/SKILL.md` folder shape. The key changed with the shape, so
+# every recorded decision about a skill was ORPHANED: the lookup missed, and the row came
+# back as if no human had ever ruled on it. Measured on a live repo: 29 of 35 "Missing" rows
+# were folder-shape skills whose flat-shape ledger line said REJECTED — including an entire
+# ui-ux skill set the owner declined by name to avoid colliding with their own tooling. The
+# ledger's own contract is "REJECTED / KEEP are permanent until a human deletes the line";
+# a rename of the file shape is not a human deleting the line.
+#
+# So the key is normalised to the artifact IDENTITY before lookup, and BOTH spellings are
+# tried. A decision recorded under either shape reconciles a row proposed under either shape.
 ledger_lookup() {
-  local key="$1" line verb ldate sha why
+  local key="$1" line verb ldate sha why alt
   [[ -f "$LEDGER" ]] || return 0
+  # The other legal spelling of the same artifact.
+  case "$key" in
+    */skills/*/SKILL.md) alt="${key%/SKILL.md}.md" ;;
+    */skills/*.md)       alt="${key%.md}/SKILL.md" ;;
+    skills/*/SKILL.md)   alt="${key%/SKILL.md}.md" ;;
+    skills/*.md)         alt="${key%.md}/SKILL.md" ;;
+    *)                   alt="" ;;
+  esac
   line=$(grep -F "\`$key\`" "$LEDGER" 2>/dev/null | grep -E '→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(' | tail -1 || true)
+  if [[ -z "$line" && -n "$alt" ]]; then
+    line=$(grep -F "\`$alt\`" "$LEDGER" 2>/dev/null | grep -E '→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(' | tail -1 || true)
+  fi
   [[ -z "$line" ]] && return 0
   verb=$(echo "$line" | sed -E 's/^.*→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(.*/\1/')
   ldate=$(echo "$line" | sed -E 's/^.*\(([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/')
   sha=$(echo "$line" | sed -nE 's/^.*pack@([0-9a-f]{8}).*/\1/p')
-  why="${line#*— }"
+  why="${line#*— }"   # text after the first " — " separator (byte-safe vs sed multibyte classes)
   printf '%s|%s|%s|%s' "$verb" "$ldate" "$sha" "$why"
 }
 
@@ -292,6 +362,15 @@ ledger_lookup() {
             total_legacy=$(( total_legacy + 1 ))
           fi
         else
+          # PROJECT_KIND — an artifact that declares a kind this target does not have is
+          # declined, not missing. Checked BEFORE the ledger so a browser-only artifact on a
+          # headless API never becomes a coverage gap the agent is told it MUST address.
+          if ! artifact_applies_to_target "$f"; then
+            declined_rows+=("$pack|$kind|$base|PROJECT-KIND|$(date -u +%Y-%m-%d)|$KIND_DECLINE_REASON")
+            total_declined=$(( total_declined + 1 ))
+            pack_declined=$(( pack_declined + 1 ))
+            continue
+          fi
           # Absent on disk — but "absent" and "missing" are not the same thing.
           # A ledger REJECTED is permanent; a KEEP/KEEP-OURS/RESOLVED re-opens
           # when the pack source changed since the decision was stamped (same
@@ -300,7 +379,7 @@ ledger_lookup() {
           if [[ -n "$led" ]]; then
             IFS='|' read -r l_verb l_date l_sha l_why <<<"$led"
             l_stale=0
-            if [[ "$l_verb" != "REJECTED" && -n "$l_sha" && "$l_sha" != "$(pack_sha8 "$f")" ]]; then
+            if [[ "$l_verb" != "REJECTED" && -n "$l_sha" && "$l_sha" != "$(pack_substantive_sha8 "$f")" ]]; then
               l_stale=1
             fi
             if [[ "$l_stale" -eq 0 ]]; then

@@ -1,0 +1,35 @@
+# lint-setup-contracts.sh baseline — known violations, one per line: rule|file|detail
+# Regenerate: bash scripts/lint-setup-contracts.sh --record
+# A line here suppresses that ONE violation. Anything new is a hard FAIL.
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'api_client_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'api_surface_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'auth_scheme_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'business_domain_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'ci_config_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'ci_or_dockerfile_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'controller_pattern_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'dark_mode_capability_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'dockerfile_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'dockerfile_or_k8s_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'dockerfile_or_k8s_or_terraform_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'dto_pattern_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'k8s_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'logger_lib_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'metrics_lib_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'migration_dir_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'migration_tool_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'mobile_framework_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'multi_theme_signal_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'orm_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'package_manager_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'primary_framework_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'primary_frontend_framework_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'ssr_capable_framework_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'terraform_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'test_framework_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'tracer_lib_detected' is declared and consumed but no extractor produces it
+R4-dead-trigger|templates/packs/_trigger-vocabulary.md|trigger 'vcs_detected' is declared and consumed but no extractor produces it
+R5-no-project-kind|templates/packs/observability/agents/telemetry-architect.md|reads as browser-only but declares no project_kind: (see templates/packs/_project-kind.md)
+R5-no-project-kind|templates/packs/observability/skills/synthetic-monitoring/SKILL.md|reads as browser-only but declares no project_kind: (see templates/packs/_project-kind.md)
+R5-no-project-kind|templates/packs/performance/commands/perf-audit.md|reads as browser-only but declares no project_kind: (see templates/packs/_project-kind.md)
+R5-no-project-kind|templates/packs/performance/rules/performance-principles.md|reads as browser-only but declares no project_kind: (see templates/packs/_project-kind.md)

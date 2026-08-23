@@ -168,7 +168,7 @@ while IFS= read -r d; do
     _*|README.md) continue ;;
   esac
   TRACK_COUNT=$((TRACK_COUNT+1))
-done < <(find "$PACKS_DIR" -mindepth 1 -maxdepth 1 -type d | sort)
+done < <(find -L "$PACKS_DIR" -mindepth 1 -maxdepth 1 -type d | sort)   # -L: PACKS_DIR may be a symlink (see detect-tracks.sh:450)
 
 # Files that should mention the track count consistently.
 README="$ROOT/README.md"

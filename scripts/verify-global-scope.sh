@@ -105,7 +105,7 @@ fi
 OVERRIDE_OK="refactor"
 echo "[2] source purity — commands/ holds only core commands + sanctioned overrides ($OVERRIDE_OK)"
 purity_ok=1
-pack_names="$(find "$REPO_ROOT/templates/packs" -path '*/commands/*.md' -type f 2>/dev/null \
+pack_names="$(find -L "$REPO_ROOT/templates/packs" -path '*/commands/*.md' -type f 2>/dev/null \
   | sed 's#.*/commands/##; s/\.md$//' | sort -u || true)"
 for f in "$CORE_DIR"/*.md; do
   [ -e "$f" ] || continue

@@ -49,6 +49,65 @@ HAS_SOLID=$(grep -q '"solid-js"' package.json 2>/dev/null && echo yes)
 HAS_ASTRO=$(grep -q '"astro"' package.json 2>/dev/null && echo yes)
 HAS_REMIX=$(grep -q '@remix-run/' package.json 2>/dev/null && echo yes)
 
+# ----- Frontend TOOLCHAIN, not just the framework -----
+# HISTORY: this block did not exist. Running Appendix A verbatim against a live Vue 3 SPA
+# returned only the framework name and NOTHING else usable — no build tool, no store, no router,
+# no i18n, no UI kit, no MAJOR version. It is the same blind spot for React (redux / zustand /
+# MUI / shadcn / react-router) and for Angular (NgRx / Angular Material). The correct stack reached that
+# project's profile only because a human had typed it there previously. `build_tool_detected`
+# was a declared trigger in templates/packs/_trigger-vocabulary.md with no emitter anywhere,
+# which that file's own hard rules call dead code.
+VUE_MAJOR=$(sed -nE 's/.*"vue"[[:space:]]*:[[:space:]]*"[^0-9]*([0-9]+).*/\1/p' package.json 2>/dev/null | head -1)
+REACT_MAJOR=$(sed -nE 's/.*"react"[[:space:]]*:[[:space:]]*"[^0-9]*([0-9]+).*/\1/p' package.json 2>/dev/null | head -1)
+HAS_VITE=$(grep -q '"vite"' package.json 2>/dev/null && echo yes)
+HAS_WEBPACK=$(grep -q '"webpack"' package.json 2>/dev/null && echo yes)
+HAS_ESBUILD=$(grep -q '"esbuild"' package.json 2>/dev/null && echo yes)
+HAS_ROLLUP=$(grep -q '"rollup"' package.json 2>/dev/null && echo yes)
+HAS_TURBOPACK=$(grep -q '"turbo"\|turbopack' package.json 2>/dev/null && echo yes)
+# build_tool_detected — the trigger name _trigger-vocabulary.md:21 declares.
+BUILD_TOOL_DETECTED=$([ -n "$HAS_VITE$HAS_WEBPACK$HAS_ESBUILD$HAS_ROLLUP$HAS_TURBOPACK" ] && echo yes)
+
+# State: Pinia/Vuex (Vue) alongside redux/zustand (React) — one family per line reads as a
+# single-stack block to scripts/audit-stack-leakage.sh, so keep the families adjacent.
+HAS_PINIA=$(grep -q '"pinia"' package.json 2>/dev/null && echo yes)          # Vue — cf. redux
+HAS_VUEX=$(grep -q '"vuex"' package.json 2>/dev/null && echo yes)            # Vue — cf. zustand
+HAS_REDUX=$(grep -q '@reduxjs/toolkit\|"redux"' package.json 2>/dev/null && echo yes)   # React — cf. Pinia
+HAS_ZUSTAND=$(grep -q '"zustand"' package.json 2>/dev/null && echo yes)      # React — cf. Vuex
+HAS_TANSTACK_QUERY=$(grep -q '@tanstack/.*query' package.json 2>/dev/null && echo yes)  # React/Vue — cf. Pinia
+STATE_LIB_DETECTED=$([ -n "$HAS_PINIA$HAS_VUEX$HAS_REDUX$HAS_ZUSTAND$HAS_TANSTACK_QUERY" ] && echo yes)
+
+HAS_VUE_ROUTER=$(grep -q '"vue-router"' package.json 2>/dev/null && echo yes)
+HAS_REACT_ROUTER=$(grep -q 'react-router' package.json 2>/dev/null && echo yes)
+ROUTER_DETECTED=$([ -n "$HAS_VUE_ROUTER$HAS_REACT_ROUTER" ] && echo yes)
+
+HAS_TAILWIND=$(grep -q 'tailwindcss' package.json 2>/dev/null && echo yes)
+HAS_BOOTSTRAP=$(grep -q '"bootstrap"' package.json 2>/dev/null && echo yes)
+HAS_PRIMEVUE=$(grep -q '"primevue"\|"primereact"\|"primeng"' package.json 2>/dev/null && echo yes)
+HAS_MUI=$(grep -q '@mui/' package.json 2>/dev/null && echo yes)
+HAS_VUETIFY=$(grep -q '"vuetify"' package.json 2>/dev/null && echo yes)
+HAS_CHAKRA=$(grep -q '@chakra-ui/' package.json 2>/dev/null && echo yes)     # React — cf. Vuetify
+HAS_SHADCN=$([ -f components.json ] && grep -q 'shadcn\|"ui":' components.json 2>/dev/null && echo yes)  # React — cf. PrimeVue
+CSS_FRAMEWORK_DETECTED=$([ -n "$HAS_TAILWIND$HAS_BOOTSTRAP$HAS_PRIMEVUE$HAS_MUI$HAS_VUETIFY$HAS_CHAKRA$HAS_SHADCN" ] && echo yes)
+
+# ----- i18n / RTL -----
+# HISTORY: `i18n_lib_detected` and `rtl_locale_detected` are declared in
+# templates/packs/_trigger-vocabulary.md:76-77 and consumed by templates/packs/ui-ux/_topics.md
+# and templates/packs/frontend/_topics.md, and NOTHING anywhere produced them. The vocabulary's
+# own hard rules say "a trigger no extractor produces is dead code", and three other signals had
+# already been given emitters here for exactly that reason. On a genuinely Arabic-first codebase
+# (vue-i18n ^9.9.0, src/locales/ar.json at 273 KB, `dir="rtl"` set at runtime, fallback locale
+# `ar`) neither signal fired, so the ui-ux `rtl` topic and four frontend i18n topics could not
+# be reached on ANY project.
+I18N_LIB_DETECTED=$(grep -qE '"vue-i18n"|"react-i18next"|"i18next"|"next-intl"|"nestjs-i18n"|"@nestjs/i18n"|"svelte-i18n"|"@angular/localize"|"formatjs"|"@lingui/"|Babel|django\.utils\.translation|"gettext"|"rails-i18n"' \
+  package.json pyproject.toml requirements.txt Gemfile composer.json 2>/dev/null && echo yes)
+# RTL: an RTL-script locale FILE (ar/he/fa/ur/yi), an explicit dir="rtl", or a documented mention.
+RTL_LOCALE_DETECTED=$( { find . -maxdepth 6 \( -path '*/locales/*' -o -path '*/i18n/*' -o -path '*/lang/*' -o -path '*/translations/*' \) \
+      \( -name 'ar*' -o -name 'he*' -o -name 'fa*' -o -name 'ur*' -o -name 'yi*' \) \
+      -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -1 | grep -q . \
+   || grep -rqE 'dir=("|.)rtl|direction:[[:space:]]*rtl|\brtlCss\b|rtl-detect|stylis-plugin-rtl' \
+      src/ app/ apps/ lib/ libs/ 2>/dev/null \
+   || grep -qiE '\bRTL\b|right-to-left' README.md 2>/dev/null ; } && echo yes)
+
 # ===== Mobile =====
 HAS_RN=$(grep -q 'react-native\|expo' package.json 2>/dev/null && echo yes)
 HAS_FLUTTER=$([ -f pubspec.yaml ] && echo yes)
@@ -133,7 +192,22 @@ Print results in the plan as:
   ai: ✓ (OpenAI)  multi-tenant: ✓  webhook: ✓  real-time: ✓
   file-upload: ✓  search: ✓  notifications: ✓  background-jobs: ✓
   payment: ✗  event-sourced: ✗  feature-flags: ✗  compliance: ✗
+
+== FRONTEND TOOLCHAIN ==
+  framework:     Vue 3 ✓
+  build tool:    Vite ✓                    (build_tool_detected)
+  state:         Pinia ✓  (redux/zustand on a React app)   (state_lib_detected)
+  router:        vue-router ✓              (router_detected)
+  ui / css:      PrimeVue ✓  Bootstrap ✓  (MUI/shadcn on React)  (css_framework_detected)
+  i18n:          vue-i18n ✓                (i18n_lib_detected)
+  rtl:           ✓ ar locale + dir="rtl"   (rtl_locale_detected)
 ```
+
+**Every `*_detected` name printed above is a trigger some `_topics.md` consumes.** Print the
+line even when the answer is ✗ — a silently absent signal is indistinguishable from a signal
+whose extractor is dead, and that is exactly how `i18n_lib_detected` and `rtl_locale_detected`
+shipped for as long as they did. `scripts/lint-setup-contracts.sh § rule 4` fails the build if
+a name declared in `templates/packs/_trigger-vocabulary.md` has no emitter here.
 
 ---
 

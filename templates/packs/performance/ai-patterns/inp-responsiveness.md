@@ -3,6 +3,7 @@ name: inp-responsiveness
 description: Pattern — keep per-interaction main-thread work under the INP budget. Diagnose the dominant INP sub-part (input delay / processing / presentation), then break long tasks, defer non-urgent updates, and attribute the blocking script via LoAF.
 kind: ai-pattern
 pack: performance
+project_kind: browser   # requires a rendered UI layer; see templates/packs/_project-kind.md
 ---
 
 # Pattern: INP responsiveness
