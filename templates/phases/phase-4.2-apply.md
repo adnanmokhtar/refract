@@ -289,6 +289,25 @@ fi
 # Audit C2u now ERRs on any rule that is neither imported nor scoped, so a regression here
 # fails the run rather than going quiet again.
 
+# 🔴 RETARGET THE PROBES. A pack artifact ships commands written against a generic layout —
+# `rg "SELECT .* FROM" src/modules/` — and `src/` there is an EXAMPLE, not a fact about this
+# repo. On a target that does not root its code at src/ the command returns ZERO HITS, and a
+# zero-hit probe over a directory that does not exist is indistinguishable from a clean
+# result: the reviewer reports "no findings" having checked nothing.
+#
+# 📏 MEASURED on capsolah-api (top level apps/ · libs/ · prisma/):
+#     grep -rl '@Controller' src/         ->   0 files
+#     grep -rl '@Controller' apps/ libs/  -> 242 files
+# 133 probes named a directory that does not exist. audit-setup.sh C2y had been reporting
+# them run after run, and nothing acted on the report — the script existed and was wired to
+# nothing, which is the same empty dispatch C2y itself was written to catch.
+#
+# It refuses to guess: a target that HAS a top-level src/ is left alone entirely, only a BARE
+# `src/` search root is rewritten (illustrative paths like `src/modules/x/y.service.ts` are
+# left for a human who knows the equivalent), and it retargets to every dense root —
+# "apps/ libs/", not just the biggest — because a monorepo's code does not live in one place.
+~/.claude/scripts/retarget-probes.sh . --apply 2>&1 | tail -10
+
 # Copy ai-patterns INTO ai/patterns (renamed destination)
 mkdir -p ai/patterns
 cp -R ~/.claude/templates/packs/<track>/ai-patterns/*.md ai/patterns/ 2>/dev/null || true
