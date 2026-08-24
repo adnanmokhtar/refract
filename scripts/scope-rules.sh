@@ -50,8 +50,23 @@ yaml_block() {
 inject() {
   local f="$1"
   [ -f "$f" ] || return 0
-  # Must start with a frontmatter block.
-  head -n1 "$f" | grep -q '^---$' || { echo "skip (no frontmatter): $f" >&2; return 0; }
+  # 🔴 NO FRONTMATTER IS NOT A REASON TO REFUSE. CREATE IT.
+  #
+  # This returned 0 — success — after doing nothing, so every caller believed the rule was
+  # scoped. scope-domain-rules.sh reported `SCOPE ai-cost-discipline.md` while the file was
+  # untouched, and the next wire-rule-imports.sh run imported it as always-loaded again.
+  #
+  # 📏 MEASURED on capsolah-api: 16 of 36 installed rules start with a heading rather than
+  # `---`, so they were unscopeable — 30,992 tok of rules that could never leave the
+  # always-loaded tier no matter what any tool did. All 63 rule TEMPLATES in this repo carry
+  # frontmatter, so the loss happens on install, not at source; refusing here just made a
+  # pipeline bug permanent and silent.
+  #
+  # A rule without frontmatter is still a rule. Give it the block it needs and scope it.
+  if ! head -n1 "$f" | grep -q '^---$'; then
+    printf -- '---\n---\n' > "$f.fm" && cat "$f" >> "$f.fm" && mv "$f.fm" "$f"
+    echo "note: added missing frontmatter block: $f" >&2
+  fi
   # Already scoped?
   awk '/^---$/{c++; next} c==1 && /^paths:/{found=1} c==2{exit} END{exit !found}' "$f" \
     && { echo "skip (already scoped): $f" >&2; return 0; }

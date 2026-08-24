@@ -129,6 +129,79 @@ for dom in sorted(vrows):
             subprocess.run(["bash", os.path.join(self_dir, "scope-rules.sh"),
                             os.path.join('.claude', 'rules', rf), globs],
                            cwd=target, capture_output=True)
+            # 🔴 VERIFY THE WRITE. This used to report SCOPE on the strength of having CALLED
+            # scope-rules.sh. That script exits 0 after refusing a file (it returned 0 for
+            # "no frontmatter"), so a refusal was indistinguishable from a success — and on
+            # capsolah-api this printed `SCOPE ai-cost-discipline.md` over a file it had not
+            # touched. wire-rule-imports.sh then correctly re-imported it as always-loaded,
+            # and the reported saving never happened.
+            after = open(path, encoding='utf-8', errors='replace').read(4000)
+            fm = after.split('\n---', 1)[0] if after.startswith('---') else ''
+            if not re.search(r'(?m)^(paths|globs):', fm):
+                scoped -= 1; left += 1
+                print("  FAILED   %-42s scope-rules.sh did not write paths: — left always-loaded" % rf)
+
+# ── PASS 2 — rules with NO ROUTE AT ALL ──────────────────────────────────────
+#
+# 🔴 A RULE THAT IS NEITHER IMPORTED NOR SCOPED REACHES CLAUDE ON NO TURN.
+#
+# There are exactly two ways a rule is delivered: its name in CLAUDE.md (charged every
+# message, capped by the always-loaded budget) or a `paths:`/`globs:` declaration (injected
+# when a matching file is touched, charged once per session). A rule that has neither is
+# installed, correct, and unreachable.
+#
+# 📏 MEASURED on capsolah-api: 14 of 36 installed rules were in that state — 34,773 tok
+# including backend-principles (3,368), concurrency-discipline (3,240) and
+# security-principles (2,763) — on a backend project. wire-rule-imports.sh had recorded them
+# honestly in `.claude/rules/_unloaded.md` and printed the remedy, and the remedy was
+# `scope-rules.sh`, which could not write a form the hook could read until it was fixed. So
+# the refusal was recorded, the fix was named, and the fix did not work.
+#
+# Phase 4.2 was supposed to prevent this and could not: it scopes rules only when the profile
+# says `is_multi_track: true`, and that repo's profile contains no such key — nor
+# `repo_shape`, nor `track_roots`. The phase's own text says an absent key must HALT rather
+# than default to false. It did not halt; it skipped the step in silence.
+#
+# So this pass asks the only question that matters — CAN THIS RULE ARRIVE? — and gives a
+# route to any rule that has none, scoped to the source roots the extraction recorded. Broad
+# is correct here: the alternative on offer is not "narrower", it is "never".
+imported = set()
+cl = os.path.join(target, 'CLAUDE.md')
+if os.path.isfile(cl):
+    imported = set(re.findall(r'^@\.claude/rules/([A-Za-z0-9._-]+\.md)',
+                              open(cl, encoding='utf-8', errors='replace').read(), re.M))
+
+roots = sorted({p for n, p in mods if p.count('/') <= 2})
+roots = [r for r in roots if not any(q != r and r.startswith(q + '/') for q in roots)]
+if imported and roots:
+    print("")
+    print("  pass 2 — rules with no route (not imported, not scoped)")
+    stranded = 0
+    for f in sorted(os.listdir(os.path.join(target, '.claude', 'rules'))):
+        if not f.endswith('.md') or f == 'README.md' or f.startswith('_'):
+            continue
+        if f in imported:
+            continue
+        fp = os.path.join(target, '.claude', 'rules', f)
+        txt = open(fp, encoding='utf-8', errors='replace').read()
+        fm = txt.split('\n---', 1)[0] if txt.startswith('---') else ''
+        if re.search(r'(?m)^(paths|globs):', fm):
+            continue                                    # already has a route
+        stranded += 1
+        globs = ",".join(r.rstrip('/') + "/**" for r in roots)
+        print("  ROUTE    %-42s -> %s" % (f, ", ".join(roots)[:52]))
+        if apply_:
+            subprocess.run(["bash", os.path.join(self_dir, "scope-rules.sh"),
+                            os.path.join('.claude', 'rules', f), globs],
+                           cwd=target, capture_output=True)
+            after = open(fp, encoding='utf-8', errors='replace').read(4000)
+            fm2 = after.split('\n---', 1)[0] if after.startswith('---') else ''
+            if not re.search(r'(?m)^(paths|globs):', fm2):
+                print("  FAILED   %-42s could not write paths: — still unreachable" % f)
+    if stranded == 0:
+        print("  none — every installed rule is either imported or scoped")
+    else:
+        print("  %d rule(s) given a route" % stranded)
 
 print("")
 print("  %d rule(s) scoped, %d left always-loaded" % (scoped, left))
