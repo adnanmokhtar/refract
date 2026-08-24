@@ -258,6 +258,22 @@ cp -R ~/.claude/templates/packs/<track>/rules/*.md .claude/rules/ 2>/dev/null ||
 # track.
 # Core baseline rules in .claude/rules/ (read-before-write, code-quality, think-simplify-surgical,
 # read-codebase-deeply) are UNIVERSAL — never scope them.
+
+# 🔴 THE HALT ABOVE IS NOW A CHECK, NOT A SENTENCE ADDRESSED TO YOU.
+#
+# Everything from "If the KEY `is_multi_track:` is absent … Halt" onward was an instruction, and
+# an instruction is not a check. MEASURED on capsolah-api: the profile contains ZERO occurrences
+# of `repo_shape`, `is_multi_track` AND `track_roots`. The condition below was never true, the
+# halt never fired, the scoping step was skipped in silence, and 14 of 36 installed rules ended
+# up delivered on no turn — the outcome this file predicted in writing, one line above the branch
+# meant to prevent it.
+#
+# --warn-only: the run continues, because scope-domain-rules.sh below no longer depends on these
+# fields and will route every rule regardless. What must NOT continue is the silence — the
+# profile is incomplete, three phases read it, and now the run says so where it can still be
+# fixed instead of surfacing three phases later as an absence nobody attributes to Phase 2.
+~/.claude/scripts/verify-profile-contract.sh . --warn-only
+
 if [ "<is-multi-track>" = "true" ]; then
   for r in ~/.claude/templates/packs/<track>/rules/*.md; do
     ~/.claude/scripts/scope-rules.sh ".claude/rules/$(basename "$r")" "<track-src-root>" 2>/dev/null || true

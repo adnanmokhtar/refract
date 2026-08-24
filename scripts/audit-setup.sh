@@ -1417,6 +1417,36 @@ echo ""
 # The documented fallback is checked too: a path-scoped rule is loaded by inject-path-rules.sh,
 # which is a hook — and that hook was registered in no settings.json at any scope in either
 # repo, so the path-scoped tier was equally dead.
+# C2v — THE PROFILE CONTRACT THREE PHASES READ.
+#
+# phase-2-profile.md § 17 calls `repo_shape` / `members` / `is_multi_track` / `track_roots` "the
+# contract three later phases read". Phase 2 is LLM-executed, and Phase 4.2's response to a
+# missing field was an instruction addressed to an agent — "do NOT default to false … Halt" —
+# which is not a check, and was not followed.
+#
+# 📏 MEASURED on capsolah-api: ZERO occurrences of repo_shape, is_multi_track and track_roots.
+# Phase 4.2's scoping branch was therefore never true, the step was skipped in silence, and 14
+# of 36 installed rules ended up delivered on no turn. The audit's job is to notice that the
+# input a phase depends on was never written — a WARN because the run can still be correct
+# (scope-domain-rules.sh no longer needs these fields), and never silence, because a phase
+# reading an absent contract is how this was missed for as long as it was.
+if [[ -x "$SCRIPTS_DIR/verify-profile-contract.sh" ]]; then
+  echo "C2v: profile contract (fields Phase 3/4.0/4.2 read)"
+  if pc_out=$("$SCRIPTS_DIR/verify-profile-contract.sh" "$TARGET" --quiet 2>&1); then
+    ok "codebase-profile.md carries every field the later phases read"
+  else
+    # `|| true` is load-bearing under `set -euo pipefail` — the SAME trap this file already
+    # documents at c2n_run_backups, made again here one screen away from the note describing
+    # it. grep exits 1 when it matches nothing, pipefail promotes that to the substitution,
+    # and a bare assignment propagates it, so the audit died at C2v and every check after it
+    # — C2u, C2y, C2j, C2t — never ran. Caught by the AUDIT ABORTED banner added earlier
+    # today, which is the only reason it took one run instead of an afternoon.
+    pc_missing=$({ printf '%s' "$pc_out" | grep -oE 'MISSING[[:space:]]+[a-z_]+' | awk '{print $2}' | tr '\n' ' '; } || true)
+    warn_msg "codebase-profile.md is missing the field(s) later phases read: ${pc_missing:-see below}. Phase 4.2 reads is_multi_track to decide rule scoping; absent, that branch never runs. Fix: complete § 17 of phase-2-profile.md in .claude/codebase-profile.md"
+  fi
+  echo ""
+fi
+
 echo "C2u: installed rules are actually loaded (imports wired)"
 if [[ -d "$TARGET/.claude/rules" ]]; then
   rule_always=0; rule_scoped=0; rule_unimported=""
