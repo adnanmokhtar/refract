@@ -1863,7 +1863,17 @@ if [[ -x "$SCRIPTS_DIR/audit-adapter-coverage.sh" ]]; then
     _adapter_audit_ran=1
   else
     _adapter_audit_ran=0
-    warn "C2e: audit-adapter-coverage.sh exited non-zero — coverage numbers below are STALE or absent, not verified"
+    # 🔴 `warn_msg`, NOT `warn`. `warn` is the COUNTER (`warn=0`, line 135); the reporter is
+    # `warn_msg` (line 166). Calling `warn "..."` runs a command that does not exist — exit
+    # 127 — and under `set -e` that ENDS THE AUDIT.
+    #
+    # 📏 It only fires when audit-adapter-coverage.sh exits non-zero, which is why it survived
+    # every local run and killed CI: no adapters are configured there, the script exits 1, and
+    # this line — the handler for that exact case — took the whole audit down at C2e, before
+    # C2p, C2q, C2r and C2t. The comment four lines above says "Do NOT swallow the exit code"
+    # because a dead chain once reported a pass. The handler written to prevent that was itself
+    # broken, so the dead chain took the audit with it instead.
+    warn_msg "C2e: audit-adapter-coverage.sh exited non-zero — coverage numbers below are STALE or absent, not verified"
   fi
   if [[ "$_adapter_audit_ran" -eq 1 && -f "$ADAPTER_REPORT" ]]; then
     # Extract pass/warn/fail counts from the table

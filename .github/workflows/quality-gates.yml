@@ -35,6 +35,14 @@ jobs:
       - name: Workflow YAML parses
         run: bash scripts/lint-workflow-yaml.sh
 
+      # A status line that silently is not one. audit-setup.sh called `warn "..."` where `warn`
+      # is the COUNTER variable and `warn_msg` is the reporter — exit 127, and under `set -e`
+      # the audit ENDED at C2e, before C2p/C2q/C2r/C2t. It fired only when the adapter chain
+      # exited non-zero: never on a configured machine, always on a bare runner. Unreachable
+      # where anyone would notice, fatal where nobody was looking.
+      - name: Shell reporters resolve (no call to a non-function)
+        run: bash scripts/lint-shell-callables.sh
+
       - name: Validator test harness (good/bad fixtures)
         run: bash scripts/test-validators.sh
 
